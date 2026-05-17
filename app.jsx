@@ -87,7 +87,8 @@ function App() {
       });
   }, []);
 
-  React.useEffect(() => { syncFromGAS(); }, []);
+  // Sync after login — fires when user changes (null → logged-in object)
+  React.useEffect(() => { if (user) syncFromGAS(); }, [user?.email]);
 
   // ── Brand accent ─────────────────────────────────────────────
   React.useEffect(() => {
