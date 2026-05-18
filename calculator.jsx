@@ -583,7 +583,10 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                   <div className="num" style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>
                     {lipidPerKg > 0 ? fmt(calc.solVol.lipidSMOF,1) : "—"} mL/day
                   </div>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>{lipidPerKg > 0 ? `${fmt(calc.lipidG,1)} g/day` : ""}</div>
+                  <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>
+                    {lipidPerKg > 0 ? `${fmt(calc.lipidG,1)} g/day` : ""}
+                    {lipidPerKg > 0 && wtKg > 0 && <span style={{ marginLeft:6, color:"var(--brand-2)", fontWeight:600 }}>= {fmt(lipidPerKg*5,1)} mL/kg/d</span>}
+                  </div>
                 </div>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>+ Vitalipid N</div>
