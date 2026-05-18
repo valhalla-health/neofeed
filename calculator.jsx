@@ -639,11 +639,12 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
           <TwoCol>
             <div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 4 }}>Sodium sources</div>
-              <SaltRow label="NaCl (3%)" note="0.51 mEq/mL" perKg={naCl} onChange={setNaCl} wtKg={wtKg} />
-              <PresetChips values={[2, 3, 4, 5]} current={naCl} onSelect={setNaCl} suffix=" mEq/kg" />
-              {calc.solVol.naCl > 0 && <div style={{ fontSize:11, color:"var(--brand-2)", paddingLeft:4, marginTop:-2, marginBottom:4 }}>→ {calc.solVol.naCl} mL/day</div>}
-              <SaltRow label="Na Acetate" note="for metabolic acidosis · 2 mEq/mL" perKg={naAcet} onChange={setNaAcet} wtKg={wtKg} />
-              {calc.solVol.naAcet > 0 && <div style={{ fontSize:11, color:"var(--brand-2)", paddingLeft:4, marginTop:-2, marginBottom:4 }}>→ {calc.solVol.naAcet} mL/day</div>}
+              <ElecRow label="NaCl (3%)" note="0.51 mEq/mL"
+                values={[2, 3, 4, 5]} current={naCl} onSelect={setNaCl} wtKg={wtKg}
+                solVol={calc.solVol.naCl} />
+              <ElecRow label="Na Acetate" note="metabolic acidosis · 2 mEq/mL"
+                values={[1, 2, 3, 4]} current={naAcet} onSelect={setNaAcet} wtKg={wtKg}
+                solVol={calc.solVol.naAcet} />
 
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "14px 0 4px" }}>Phosphate source</div>
               <SaltRow label="Disodium glycerophosphate (Glycophos®)"
@@ -992,6 +993,48 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
       />
     </>);
 
+}
+
+// ── ElecRow — compact chip-selector for electrolytes (no free-text input) ────
+// values: array of choices · current: active value · onSelect: setter
+// clicking active chip → deselects (sets to 0)
+function ElecRow({ label, note, values, current, onSelect, wtKg, unit = "mEq/kg", solVol }) {
+  const active = current > 0;
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"140px 1fr auto", gap:10, alignItems:"center",
+      padding:"8px 0", borderBottom:"1px dashed var(--line-2)" }}>
+      <div>
+        <div style={{ fontSize:12, color:"var(--ink)", fontWeight:500 }}>{label}</div>
+        {note && <div style={{ fontSize:10, color:"var(--ink-3)" }}>{note}</div>}
+      </div>
+      <div style={{ display:"flex", gap:5, flexWrap:"wrap", alignItems:"center" }}>
+        <button
+          className={`preset-chip${current === 0 ? " active" : ""}`}
+          style={{ fontSize:11, padding:"3px 9px", opacity: current === 0 ? 1 : 0.5 }}
+          onClick={() => onSelect(0)}>—</button>
+        {values.map(v => (
+          <button key={v}
+            className={`preset-chip${current === v ? " active" : ""}`}
+            style={{ fontSize:11, padding:"3px 9px" }}
+            onClick={() => onSelect(current === v ? 0 : v)}>
+            {v}
+          </button>
+        ))}
+        <span style={{ fontSize:10, color:"var(--ink-3)", marginLeft:2 }}>{unit}</span>
+      </div>
+      <div style={{ textAlign:"right", minWidth:90 }}>
+        {active
+          ? <div>
+              <div className="num" style={{ fontSize:12, fontWeight:600, color:"var(--ink)" }}>
+                = {(current * wtKg).toFixed(1)} <span style={{ fontSize:10, color:"var(--ink-3)" }}>{unit.replace("/kg","")}/d</span>
+              </div>
+              {solVol > 0 && <div style={{ fontSize:10.5, color:"var(--brand-2)", fontWeight:600 }}>→ {solVol} mL/day</div>}
+            </div>
+          : <span style={{ fontSize:11, color:"var(--ink-4)" }}>—</span>
+        }
+      </div>
+    </div>
+  );
 }
 
 // ── Preset chips — quick-fill common values ──────────────────────
