@@ -98,8 +98,10 @@ function PatientRegistry({ patients, activeId, onSelect, onAdd, onEdit }) {
 }
 
 const BED_OPTIONS = [
-  ...Array.from({ length: 12 }, (_, i) => `NICU-${i + 1}`),
-  ...Array.from({ length: 8 }, (_, i) => `SCN-${i + 1}`)
+  "NICU 1-1", "NICU 1-2",
+  "NICU 2-1", "NICU 2-2",
+  "NICU 3-1", "NICU 3-2", "NICU 3-3", "NICU 3-4",
+  "SCN-1", "SCN-2", "SCN-3", "SCN-4", "SCN-5",
 ];
 
 function NewPatientModal({ onClose, onSubmit }) {
