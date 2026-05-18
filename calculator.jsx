@@ -831,8 +831,6 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <Chk label="Peditrace (Zn 250 µg/mL)" value={inclPeditrace} onChange={setInclPeditrace}
                   hint={inclPeditrace ? `${fmt(calc.peditrace_vol, 1)} mL/day  ·  1–2 mL/kg/day (max 15 mL) · add to aqueous PN` : "Not included"} />
-                <Chk label="Addamel N (Zn 650 µg/mL)" value={inclAddamel} onChange={setInclAddamel}
-                  hint={inclAddamel ? "5 mL/day (30–50 kg) · 10 mL/day (>50 kg) — สำหรับเด็กโต/ผู้ใหญ่" : "For children >10 kg only — not for neonates/infants"} />
               </div>
 
               <div className="sub-h" style={{ marginTop: 14 }}>7. Heparin</div>
@@ -1234,7 +1232,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
           </tr>
           {/* Trace */}
           <tr>
-            <td style={td}><strong>6. Trace Element</strong><br/>{chk(inclPeditrace)} Peditrace (Zn 250 µg/mL)<br/>{chk(inclAddamel)} Addamel N (Zn 650 µg/mL)</td>
+            <td style={td}><strong>6. Trace Element</strong><br/>{chk(inclPeditrace)} Peditrace (Zn 250 µg/mL)</td>
             <td style={{...tdr}} colSpan={2}><strong>{inclPeditrace ? f(calc.peditrace_vol,1) : "—"}</strong> mL/day</td>
             <td style={td}>Peditrace 1 mL/kg/day (max 15 mL)</td>
           </tr>
