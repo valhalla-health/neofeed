@@ -793,8 +793,6 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[100, 200]} status={calc.enVolPerKg >= 100 ? "ok" : calc.enVolPerKg > 0 ? "warn" : "ok"} decimals={0} max={210} />
-              <Tile label="Lipid total" value={calc.lipidKgTotal} unit=" g/kg/d" target={tLip} status={sLip} decimals={1} max={7} />
-              <Tile label="NPE : N" value={calc.npeN} unit=" kcal/g pro" target={tNPE} status={sNPE} decimals={0} max={50} />
               {calc.enVolPerKg > 100 &&
               <Tile label="Protein : Energy" value={calc.peRatio} unit=" g/100kcal" target={tPE} status={sPE} decimals={1} max={5} />
               }
