@@ -367,10 +367,19 @@ function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
 }
 
 // ── Osmolarity estimate (mOsm/L) ─────────────────────────────
-// Peripheral IV limit: <900 mOsm/L (risk of thrombophlebitis)
-// Formula: 50×D% + 100×AA% + 2×Na + 2×K + 1.4×Ca + Mg
-function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMgPerL = 0 }) {
-  return 50 * dexPct + 100 * aaPct + 2 * naMeqPerL + 2 * kMeqPerL + 1.4 * caMgPerL + mgMgPerL;
+// Ramathibodi PN osmolarity formula:
+//   Osm (mOsm/L) = 50×D% + 100×AA% + 2×Na(mEq/L) + 2×K(mEq/L) + 1.4×Ca(mEq/L) + 1×Mg(mEq/L)
+// Ca unit: caMgPerL = elemental Ca mg/L → convert to mEq/L ÷20 (MW=40, valence=2)
+// Peripheral limit: <900 mOsm/L · Central: no hard limit but >1800 mOsm/L = endothelial risk
+function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {
+  return (
+    50  * dexPct     +   // dextrose %
+    100 * aaPct      +   // amino acid %
+    2   * naMeqPerL  +   // Na  mEq/L
+    2   * kMeqPerL   +   // K   mEq/L
+    1.4 * (caMgPerL / 20) +  // Ca mEq/L (elemental mg/L ÷ 20)
+    1   * mgMeqPerL         // Mg mEq/L
+  );
 }
 
 // ── GIR helper ────────────────────────────────────────────────

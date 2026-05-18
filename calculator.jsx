@@ -313,10 +313,11 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
 
     const osm = D.estimateOsmolarity({
       dexPct,
-      aaPct: aaG > 0 && totalTPN_mL > 0 ? aaG / totalTPN_mL * 100 : 0,
-      naMeqPerL: totalTPN_mL > 0 ? naKg * wtKg / (totalTPN_mL / 1000) : 0,
-      kMeqPerL: totalTPN_mL > 0 ? kKg * wtKg / (totalTPN_mL / 1000) : 0,
-      caMgPerL: totalTPN_mL > 0 ? caPerKg * wtKg / (totalTPN_mL / 1000) : 0
+      aaPct:      aaG > 0 && totalTPN_mL > 0 ? aaG / totalTPN_mL * 100 : 0,
+      naMeqPerL:  totalTPN_mL > 0 ? naKg    * wtKg / (totalTPN_mL / 1000) : 0,
+      kMeqPerL:   totalTPN_mL > 0 ? kKg     * wtKg / (totalTPN_mL / 1000) : 0,
+      caMgPerL:   totalTPN_mL > 0 ? caPerKg * wtKg / (totalTPN_mL / 1000) : 0, // elemental Ca mg/L
+      mgMeqPerL:  totalTPN_mL > 0 ? mgPerKg * wtKg / (totalTPN_mL / 1000) : 0, // Mg mEq/L
     });
 
     return {
@@ -387,8 +388,10 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
   const sCaP = D.rangeStatus(calc.caP, tCaP);
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
-  const sOsm = calc.osm > 900 && route === "peripheral" ? "crit" :
-  calc.osm > 850 && route === "peripheral" ? "warn" : "ok";
+  // Peripheral: crit >900, warn >850 · Central: warn >1600 (endothelial risk), no hard limit
+  const sOsm = route === "peripheral"
+    ? (calc.osm > 900 ? "crit" : calc.osm > 850 ? "warn" : "ok")
+    : (calc.osm > 1800 ? "warn" : "ok");
 
   const alerts = [];
   if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${calc.gir.toFixed(1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });else
@@ -618,7 +621,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
             <Tile label="Protein" value={calc.proteinKg} unit=" g/kg/d" target={tPro} status={sPro} decimals={1} max={5.5} />
             <Tile label="Lipid (total)" value={calc.lipidKgTotal} unit=" g/kg/d" target={tLip} status={sLip} decimals={1} max={7} />
             <Tile label="NPC : Protein" value={calc.npeN} unit=" kcal/g AA" target={tNPE} status={sNPE} decimals={0} max={60} />
-            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral"?[0,900]:[0,1800]} status={sOsm} decimals={0} max={route==="peripheral"?1100:2000} />
+            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral"?[0,900]:[0,1600]} status={sOsm} decimals={0} max={route==="peripheral"?1100:2200} />
           </div>
 
         </div></div>
