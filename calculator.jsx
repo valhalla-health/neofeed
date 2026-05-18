@@ -639,18 +639,19 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
           <TwoCol>
             <div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 4 }}>Sodium sources</div>
-              <ElecRow label="NaCl (3%)" note="0.51 mEq/mL"
-                values={[2, 3, 4, 5]} current={naCl} onSelect={setNaCl} wtKg={wtKg}
-                solVol={calc.solVol.naCl} />
-              <ElecRow label="Na Acetate" note="metabolic acidosis · 2 mEq/mL"
-                values={[1, 2, 3, 4]} current={naAcet} onSelect={setNaAcet} wtKg={wtKg}
-                solVol={calc.solVol.naAcet} />
+              <SaltRow label="NaCl (3%)" note="0.51 mEq/mL" perKg={naCl} onChange={setNaCl} wtKg={wtKg} />
+              <PresetChips values={[1, 2, 3, 4]} current={naCl} onSelect={setNaCl} suffix=" mEq/kg" />
+              {calc.solVol.naCl > 0 && <div style={{ fontSize:11, color:"var(--brand-2)", paddingLeft:4, marginTop:-2, marginBottom:4 }}>→ {calc.solVol.naCl} mL/day</div>}
+              <SaltRow label="Na Acetate" note="for metabolic acidosis · 2 mEq/mL" perKg={naAcet} onChange={setNaAcet} wtKg={wtKg} />
+              <PresetChips values={[1, 2, 3, 4]} current={naAcet} onSelect={setNaAcet} suffix=" mEq/kg" />
+              {calc.solVol.naAcet > 0 && <div style={{ fontSize:11, color:"var(--brand-2)", paddingLeft:4, marginTop:-2, marginBottom:4 }}>→ {calc.solVol.naAcet} mL/day</div>}
 
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "14px 0 4px" }}>Phosphate source</div>
               <SaltRow label="Disodium glycerophosphate (Glycophos®)"
                 note="Na = 2 mEq/mL · P = 31 mg/mL — input mL/kg/d (organic phosphate, preferred)"
                 perKg={glycophosP} onChange={setGlycophosP} wtKg={wtKg} unit="mL/kg/d" />
-              <PresetChips values={[0.5, 1, 1.5, 2]} current={glycophosP} onSelect={setGlycophosP} suffix=" mL/kg" />
+              {/* Na mEq chips → sets Glycophos mL (1 mL = 2 mEq Na → Glycophos mL = Na_mEq/2) */}
+              <PresetChips values={[1, 2, 3, 4]} current={glycophosP * 2} onSelect={(v) => setGlycophosP(v / 2)} suffix=" mEq Na/kg" />
               {glycophosP > 0 && (
                 <div style={{ fontSize: 11.5, color: "var(--brand-2)", padding: "4px 0 2px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                   <span>↳ Glycophos adds Na:</span>
@@ -671,7 +672,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               <SaltRow label="MgSO₄ (50%)" note="4.06 mEq/mL" perKg={mgPerKg} onChange={setMgPerKg} wtKg={wtKg} />
               {calc.solVol.mg > 0 && <div style={{ fontSize:11, color:"var(--brand-2)", paddingLeft:4, marginTop:-2, marginBottom:4 }}>→ {calc.solVol.mg} mL/day</div>}
               <SaltRow label="Ca Gluconate 10%" note="Elemental Ca 9 mg/mL · Ca:P ~1.7:1 (mass)" perKg={caPerKg} onChange={setCaPerKg} wtKg={wtKg} unit="mg/kg/d" />
-              <PresetChips values={[50, 60, 70, 80, 100, 120]} current={caPerKg} onSelect={setCaPerKg} suffix=" mg/kg" />
+              <PresetChips values={[32, 60, 80, 100]} current={caPerKg} onSelect={setCaPerKg} suffix=" mg/kg" />
               {calc.solVol.ca > 0 && <div style={{ fontSize:11, color:"var(--brand-2)", paddingLeft:4, marginTop:-2, marginBottom:4 }}>→ {calc.solVol.ca} mL/day</div>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
