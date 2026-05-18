@@ -980,6 +980,16 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
           </div>
         </div>
       </div>
+      {/* ── Ramathibodi PN order form — print only ── */}
+      <PrintOrderForm
+        patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} route={route}
+        dexPct={dexPct} totalTPN_mL={totalTPN_mL}
+        aaPerKg={aaPerKg} lipidPerKg={lipidPerKg}
+        naCl={naCl} naAcet={naAcet} glycophosP={glycophosP}
+        kCl={kCl} k2hpo4={k2hpo4} mgPerKg={mgPerKg} caPerKg={caPerKg}
+        inclSoluvit={inclSoluvit} inclPeditrace={inclPeditrace}
+        inclAddamel={inclAddamel} heparinUmL={heparinUmL} calc={calc}
+      />
     </>);
 
 }
@@ -1028,6 +1038,175 @@ function KcalLegend({ color, label, pct, target }) {
       <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{target}</div>
     </div>);
 
+}
+
+// ── Ramathibodi PN Order Form (print only) ──────────────────────
+function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
+  aaPerKg, lipidPerKg, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg,
+  inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc }) {
+
+  const f  = (n, d=1) => (isFinite(n) && n > 0) ? Number(n.toFixed(d)).toString() : "—";
+  const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
+  const today = new Date().toLocaleDateString("th-TH", { year:"numeric", month:"2-digit", day:"2-digit" });
+  const chk = (v) => v ? "☑" : "☐";
+  const td  = { border:"1px solid #999", padding:"3px 6px", verticalAlign:"top", fontSize:10 };
+  const tdr = { ...td, textAlign:"right" };
+  const tdh = { ...td, background:"#f0f0f0", fontWeight:600, textAlign:"center" };
+
+  return (
+    <div id="print-form" style={{ fontFamily:"'IBM Plex Sans','Sarabun',serif", fontSize:10.5, color:"#000", padding:"4mm 6mm", display:"none" }}>
+
+      {/* Header */}
+      <div style={{ textAlign:"center", borderBottom:"2px solid #000", paddingBottom:4, marginBottom:6 }}>
+        <div style={{ fontWeight:700, fontSize:13 }}>PEDIATRIC PARENTERAL NUTRITION ORDER FORM</div>
+        <div style={{ fontSize:11 }}>กลุ่มงานเภสัชกรรม ร.พ.จุฬาลงกรณ์</div>
+      </div>
+
+      {/* Patient info row */}
+      <table style={{ width:"100%", borderCollapse:"collapse", marginBottom:4, fontSize:10.5 }}>
+        <tbody>
+          <tr>
+            <td style={{ width:"45%" }}>ชื่อ: <strong>{patient?.name || patient?.initials || "—"}</strong></td>
+            <td style={{ width:"30%" }}>AN: <strong>{patient?.sessionId || "—"}</strong></td>
+            <td>วันที่ให้ TPN: <strong>{today}</strong></td>
+          </tr>
+          <tr>
+            <td>DOL: <strong>{dol}</strong> &nbsp; ตึก: <strong>{patient?.currentBed || "—"}</strong></td>
+            <td colSpan={2}>โรค: <strong>{patient?.diagnosis || "—"}</strong></td>
+          </tr>
+          <tr>
+            <td>Route: {route === "central" ? <><strong>☑ Central</strong>  ☐ Peripheral</> : <>☐ Central  <strong>☑ Peripheral</strong> (&lt;900 mOsm/L)</>}</td>
+            <td colSpan={2}>Weight for calculation: <strong>{wtKg ? wtKg.toFixed(3) : "—"}</strong> Kg</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* PN Fluid section */}
+      <div style={{ fontWeight:700, borderBottom:"1px solid #000", marginBottom:4 }}>PARENTERAL NUTRITION FLUID:</div>
+      <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
+        <tr>
+          <td>Total Volume:</td>
+          <td><strong>{totalTPN_mL ? totalTPN_mL.toFixed(1) : "—"}</strong> mL (Delivered Vol.) / _______ mL (Prepared Vol.) / Day</td>
+        </tr>
+        <tr>
+          <td style={{ whiteSpace:"nowrap" }}>Dextrose Final Conc.</td>
+          <td><strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG,1)}</strong> g = <strong>{wtKg ? f(calc.dexG/wtKg,2) : "—"}</strong> g/kg/d = <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)</td>
+        </tr>
+        <tr>
+          <td>Amino acid</td>
+          <td><strong>☑ 10% Aminoven infant</strong> = <strong>{f(aaPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.aaAminoven,1)}</strong> mL</td>
+        </tr>
+        <tr>
+          <td>Lipid</td>
+          <td><strong>☑ 20% SMOF</strong> = <strong>{f(lipidPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL &nbsp;&nbsp;
+            Fat soluble vitamin &nbsp; Vitalipid N infant = <strong>{f(calc.vitalipidVol,1)}</strong> mL</td>
+        </tr>
+      </tbody></table>
+
+      {/* Electrolytes table */}
+      <table style={{ width:"100%", borderCollapse:"collapse", marginTop:4, fontSize:10 }}>
+        <thead>
+          <tr>
+            <th style={tdh} rowSpan={2}>Electrolyte</th>
+            <th style={tdh} colSpan={2}>Prescribed</th>
+            <th style={tdh} rowSpan={2}>Normal Requirement</th>
+          </tr>
+          <tr>
+            <th style={tdh}>per kg</th>
+            <th style={tdh}>total per day<br/><span style={{fontWeight:400,fontSize:9}}>(For Pharmacist)</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {/* Na */}
+          <tr>
+            <td style={td}>
+              <strong>1. Na⁺</strong><br/>
+              {chk(naCl > 0)} NaCl<br/>
+              {chk(naAcet > 0)} Na Acetate<br/>
+              {chk(glycophosP > 0)} Disodium glycerophosphate (Na=2 mEq/mL, P=31 mg/mL)<br/>
+              <span style={{paddingLeft:12}}>Na ___ mEq &nbsp; P ___ mg</span><br/>
+              Total Na
+            </td>
+            <td style={tdr}>
+              {naCl > 0    && <><strong>{naCl}</strong> mEq<br/></>}
+              {naAcet > 0  && <><strong>{naAcet}</strong> mEq<br/></>}
+              {glycophosP > 0 && <><strong>{glycophosP}</strong> mL<br/></>}
+              <br/>
+              <strong>{f(calc.naKg,2)}</strong> mEq
+            </td>
+            <td style={tdr}>
+              {naCl > 0    && <><strong>{f(naCl*(wtKg||0),1)}</strong> mEq<br/></>}
+              {naAcet > 0  && <><strong>{f(naAcet*(wtKg||0),1)}</strong> mEq<br/></>}
+              {glycophosP > 0 && <><strong>{f(calc.solVol?.glycophos,1)}</strong> mL<br/></>}
+            </td>
+            <td style={td}>Na 2-5 mEq/kg/day<br/>(increase requirement in preterm)</td>
+          </tr>
+          {/* K */}
+          <tr>
+            <td style={td}>
+              <strong>2. K⁺</strong><br/>
+              {chk(k2hpo4 > 0)} K₂HPO₄ (K 1mEq/mL, P 15.5 mg/mL)<br/>
+              <span style={{paddingLeft:12}}>K ___ mEq &nbsp; P ___ mg</span><br/>
+              {chk(kCl > 0)} KCl
+            </td>
+            <td style={tdr}>
+              {k2hpo4 > 0 && <>K: <strong>{k2hpo4}</strong> mEq<br/>P: <strong>{f(k2hpo4*15.5,1)}</strong> mg<br/></>}
+              {kCl > 0    && <><strong>{kCl}</strong> mEq<br/></>}
+            </td>
+            <td style={tdr}>
+              {k2hpo4 > 0 && <><strong>{f(k2hpo4*(wtKg||0),1)}</strong> mEq<br/></>}
+              {kCl > 0    && <><strong>{f(kCl*(wtKg||0),1)}</strong> mEq<br/></>}
+            </td>
+            <td style={td}>K⁺ 1-3 mEq/kg/day<br/>P preterm 30-70 mg/kg/day</td>
+          </tr>
+          {/* Mg */}
+          <tr>
+            <td style={td}><strong>3. Mg⁺⁺</strong><br/>{chk(mgPerKg > 0)} MgSO₄</td>
+            <td style={tdr}><strong>{mgPerKg > 0 ? mgPerKg : "—"}</strong> mEq</td>
+            <td style={tdr}><strong>{mgPerKg > 0 ? f(mgPerKg*(wtKg||0),2) : "—"}</strong> mEq</td>
+            <td style={td}>Mg 0-12 mo. 0.4 mEq/kg/day<br/>&gt;1 yr. 0.2 mEq/kg/day</td>
+          </tr>
+          {/* Ca */}
+          <tr>
+            <td style={td}><strong>4. Ca⁺⁺</strong><br/>{chk(caPerKg > 0)} Ca Gluconate (Elemental Ca 9 mg/mL)</td>
+            <td style={tdr}><strong>{caPerKg > 0 ? caPerKg : "—"}</strong> mg</td>
+            <td style={tdr}><strong>{caPerKg > 0 ? f0(caPerKg*(wtKg||0)) : "—"}</strong> mg</td>
+            <td style={td}>Ca preterm 50-120 mg/kg/day (Ca:P ~1.7:1)</td>
+          </tr>
+          {/* Vitamins */}
+          <tr>
+            <td style={td}><strong>5. Multivitamin</strong><br/>{chk(inclSoluvit)} Soluvit N</td>
+            <td style={{...tdr}} colSpan={2}><strong>{inclSoluvit ? f(calc.soluvitVol,1) : "—"}</strong> mL/day</td>
+            <td style={td}>Soluvit N 1 mL/kg/day (max 10 mL/day)</td>
+          </tr>
+          {/* Trace */}
+          <tr>
+            <td style={td}><strong>6. Trace Element</strong><br/>{chk(inclPeditrace)} Peditrace (Zn 250 µg/mL)<br/>{chk(inclAddamel)} Addamel N (Zn 650 µg/mL)</td>
+            <td style={{...tdr}} colSpan={2}><strong>{inclPeditrace ? f(calc.peditrace_vol,1) : "—"}</strong> mL/day</td>
+            <td style={td}>Peditrace 1 mL/kg/day (max 15 mL)</td>
+          </tr>
+          {/* Heparin */}
+          <tr>
+            <td style={td}><strong>7. Heparin</strong></td>
+            <td style={{...tdr}} colSpan={2}><strong>{heparinUmL}</strong> unit/mL</td>
+            <td style={td}>0.5-1 unit/mL</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Summary bar */}
+      <div style={{ marginTop:6, padding:"4px 8px", border:"1px solid #ccc", fontSize:10, background:"#fafafa" }}>
+        GIR {f(calc.gir,1)} mg/kg/min · Protein {f(calc.proteinKg,2)} g/kg/d · Energy {f0(calc.kcalKg)} kcal/kg/d ·
+        Na {f(calc.naKg,2)} mEq/kg · Ca:P {f(calc.caP,2)}:1 · Osm {calc.osm ? calc.osm.toFixed(0) : "—"} mOsm/L
+      </div>
+
+      {/* Signature */}
+      <div style={{ display:"flex", justifyContent:"space-between", marginTop:14 }}>
+        <div>แพทย์ ................................................................</div>
+        <div>รหัส ................................</div>
+      </div>
+    </div>
+  );
 }
 
 window.Calculator = Calculator;

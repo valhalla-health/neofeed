@@ -629,56 +629,20 @@
 
   /* ============ PRINT STYLES ============ */
   @media print {
-    /* Hide nav / chrome */
-    .topbar, .rail, .tweaks-panel, #toast-host,
-    .patient-strip .switch, .picker-backdrop,
-    .switch-patient { display: none !important; }
+    /* Hide all UI — show only Ramathibodi print form */
+    .topbar, .rail, .tweaks-panel, #toast-host, .picker-backdrop,
+    .switch-patient, .patient-strip, .page-head, .disclaimer-bar,
+    .card, .step-summary, .preset-chips { display: none !important; }
 
-    /* Un-collapse layout */
-    html, body { height: auto; }
+    html, body { height: auto; background: #fff; }
     .app { display: block; min-height: auto; }
     .work { overflow: visible; }
-    .work-inner { padding: 6mm 8mm 6mm; max-width: 100%; }
+    .work-inner { padding: 0; max-width: 100%; }
 
-    /* Clean card styling */
-    .card { box-shadow: none !important; border: 1px solid #bbb !important;
-            transform: none !important; break-inside: avoid; }
-    .card:focus-within { box-shadow: none !important; }
-    .card-h.clickable:hover { background: none; }
+    /* Show the print form */
+    #print-form { display: block !important; }
 
-    /* Hide interactive-only elements */
-    .btn, .preset-chips, .seg { display: none !important; }
-
-    /* Force all accordion steps open */
-    .card-b { display: block !important; }
-    .accordion-body { max-height: none !important; visibility: visible !important; overflow: visible !important; }
-
-    /* Metric tiles — shrink slightly for print */
-    .metric { break-inside: avoid; }
-    .metric .val { font-size: 20px; }
-
-    /* Patient strip */
-    .patient-strip { break-inside: avoid; }
-
-    /* Print header block */
-    .page-head { break-inside: avoid; }
-    .page-head .btn { display: none !important; }
-
-    /* Two-col → single col for narrow paper */
-    [style*="grid-template-columns: 1fr 280px"] { display: block !important; }
-
-    /* Alert rows compact */
-    .alert-row { padding: 6px 10px; }
-
-    /* Footer/source line */
-    .work-inner::after {
-      content: "NeoFeed V2 · ESPGHAN 2018/2022 · Fenton 2025 · Printed " attr(data-date);
-      display: block; margin-top: 8mm;
-      font-size: 9pt; color: #888; border-top: 1px solid #ccc; padding-top: 3mm;
-    }
-
-    /* Page setup */
-    @page { size: A4 portrait; margin: 10mm 12mm; }
+    @page { size: A4 portrait; margin: 8mm 10mm; }
   }
 </style>
 </head>
