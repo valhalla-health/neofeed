@@ -205,28 +205,28 @@ const TPN_TARGETS = {
     return [2, 5];                          // Stable: 2–5 mEq/kg/day (form: 2–5 mEq/kg/d)
   },
   k: (dol) => {
-    if (!dol || dol <= 3) return [0, 3];   // Early: form = 1–3 mEq/kg/day (hold D1–2 ELBW)
-    return [1, 3];                          // Stable: 1–3 mEq/kg/day (form target)
+    if (!dol || dol <= 3) return [0, 3];   // Transition/Intermediate: 0–3 mEq/kg (hold D1-2 ELBW)
+    return [2, 3];                          // Stable D8+: 2–3 mEq/kg (Jochum 2018)
   },
 
-  // Calcium mg/kg/day — order form reference: preterm 50–120 mg/kg/day · Ca:P ~1.7:1
-  // ESPGHAN 2018: DOL1 0.8–2.0 mmol/kg = 32–80 mg/kg; growing 1.6–3.5 mmol/kg = 64–140 mg/kg
+  // Calcium mg/kg/day — KCMH order form: preterm 50–120 mg/kg/day
+  // ESPGHAN/Mihatsch 2018: DOL1 0.8–2.0 mmol/kg = 32–80 mg/kg; growing 1.6–3.5 mmol = 64–140 mg/kg
+  // Using KCMH order form targets (matched to Ramathibodi PN Order Form)
   ca: (dol) => {
-    if (!dol || dol <= 1) return [50, 80];   // DOL 1: maintain serum Ca — lower bound from form 50
-    return [50, 120];                          // Growing preterm: form target 50–120 mg/kg/day
+    if (!dol || dol <= 1) return [32, 80];  // DOL 1: ESPGHAN 32 mg (0.8 mmol) – 80 mg (2.0 mmol)
+    return [50, 120];                         // Growing preterm: KCMH form 50–120 mg/kg/day
   },
 
   // Phosphorus mg/kg/day — order form: preterm 30–70 mg/kg/day
-  // ESPGHAN 2018: 1.0–2.0 mmol/kg = 31–62 mg/kg DOL1; 1.5–2.3 mmol/kg growing
+  // ESPGHAN 2018: DOL1 1.0–2.0 mmol/kg = 31–62 mg/kg; growing 1.5–2.3 mmol = 46–71 mg/kg
   p: (dol) => {
-    if (!dol || dol <= 1) return [30, 62];  // DOL 1: form lower bound 30 mg/kg
-    return [30, 70];                         // Preterm: form range 30–70 mg/kg/day
+    if (!dol || dol <= 1) return [31, 62];  // DOL 1: ESPGHAN 1.0–2.0 mmol/kg × 31
+    return [30, 70];                         // Preterm: KCMH order form range 30–70 mg/kg/day
   },
 
-  // Ca:P mass ratio — order form: Ca:P ~1.7:1
-  // ESPGHAN 2018 molar 0.8–1.3:1 → mass 1.0–1.68:1 ≈ 1.7:1
-  // Order form targets 1.7:1 as the aim → use [1.3, 1.7]
-  caP: () => [1.3, 1.7],   // mass ratio; aim 1.7:1 as per order form
+  // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 → mass 1.0–1.7 (×40/31=1.29)
+  // Full acceptable range [1.0, 1.7]; order form targets upper end ~1.7:1
+  caP: () => [1.0, 1.7],   // mass ratio; full ESPGHAN range; KCMH aim 1.7:1
 };
 
 // ── ENTERAL_TARGETS — used when EN ≥ 100 mL/kg/d ────────────
@@ -346,7 +346,7 @@ const TARGETS = {
 
   // Ca:P mass ratio — order form: Ca:P ~1.7:1 target
   // ESPGHAN 2018 molar 0.8–1.3:1 → mass 1.0–1.68 ≈ 1.7:1
-  caP: () => [1.3, 1.7],   // mass ratio; aim 1.7:1 (form target)
+  caP: () => [1.0, 1.7],   // mass ratio; ESPGHAN molar 0.8–1.3 → mass 1.0–1.7; KCMH aim 1.7:1
 
   // Non-protein energy per gram amino acid — ESPGHAN 2018
   // "Minimum 30–40 kcal per 1 g amino acids for optimal utilisation"
@@ -448,7 +448,7 @@ const ESPGHAN_TARGETS = {
       p:  { dol1:[1.0,2.0], growing:[1.5,2.0], unit:"mmol/kg/day" },  // × 30.97 = mg/kg
       mg: { dol1:[0.1,0.2], growing:[0.2,0.3], unit:"mmol/kg/day" },
       caP_molar:  [0.8, 1.3],   // molar Ca:P ratio — aim 1.3:1 (ESPGHAN 2018)
-      caP_mass:   [1.3, 1.7],   // mass ratio — order form target ~1.7:1; acceptable 1.3–1.7
+      caP_mass:   [1.0, 1.7],   // mass ratio — ESPGHAN 0.8–1.3 molar × 1.29 = 1.0–1.7; KCMH aim 1.7:1
     },
     micronutrients: {
       zn: { preterm:[400,500], term:[250,250], unit:"µg/kg/day" },
