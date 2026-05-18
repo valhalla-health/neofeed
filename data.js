@@ -12,15 +12,21 @@
 // 1 oz = 30 mL; 20 kcal/oz ≈ 67 kcal/100 mL
 const EN_DB = {
   // ── Breast Milk ────────────────────────────────────────────
+  // Source: BOX 1.3.1 Term mature milk (>30 days) per L → /10 per 100 mL
+  // Na corrected: 9.0 mmol/L = 0.90 mmol/100mL (was 0.65 — underestimate)
+  // Fat corrected: 34 g/L = 3.4 g/100mL (was 3.8 — overestimate; note: fat highly variable ±4g/L)
+  // Composition varies widely — use measured values (indirect calorimetry/mid-IR) when available
   BM_20: {
     label: "Breast Milk (20 kcal/oz, mature)",
-    kcal: 67, pro: 1.2, fat: 3.8, cho: 6.9,
-    na: 0.65, k: 1.38, ca: 25, p: 14,
+    kcal: 67, pro: 1.2, fat: 3.4, cho: 6.7,
+    na: 0.90, k: 1.39, ca: 26, p: 15,
     osm: 290, lf: false,
-    note: "Mature MOM — composition varies; use measured values when available",
+    note: "Term mature MOM (BOX 1.3.1). Composition varies greatly — use measured values when available",
   },
 
   // ── Fortified Breast Milk / Preterm Formula ────────────────
+  // Generic reference values for EBM/donor milk fortified to target density
+  // Verify with actual product label at KCMH (HiQ/Enfalac preterm)
   BM_PF_20: {
     label: "FHM / Preterm Formula (20 kcal/oz)",
     kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4,
@@ -38,16 +44,21 @@ const EN_DB = {
     kcal: 80, pro: 2.6, fat: 4.1, cho: 8.6,
     na: 1.5, k: 2.1, ca: 100, p: 55,
     osm: 310, lf: false,
-    note: "Human milk fortifier added at ≥40 mL/kg/day for <32 wk or <1.5 kg",
+    note: "HMF indicated at ≥40 mL/kg/day for <32 wk or <1.5 kg",
   },
 
-  // ── BM + HMF (Fortipre® or equivalent) ────────────────────
+  // ── BM + HMF ─────────────────────────────────────────────
+  // Source: BOX 1.3.3 Enfamil HMF 4g/100mL + mature BM (BOX 1.3.1)
+  //   Ca: 25+90=115 mg · P: 14+45=59 mg · Na: 0.90+0.5=1.40 mmol
+  //   K: 1.39+0.5=1.89 mmol · Osm: 290+63=353 mOsm
+  // ⚠️ Fortipre® (Nutricia) used at KCMH — verify label for exact values
+  //   Fortipre ca/p/na may differ from Enfamil reference above
   BM_HMF_24: {
-    label: "BM + HMF ≈ 24 kcal/oz (Fortipre®)",
-    kcal: 80, pro: 2.5, fat: 4.2, cho: 8.5,
-    na: 1.50, k: 2.10, ca: 120, p: 65,
-    osm: 415, lf: false,
-    note: "Start HMF at ≥40 mL/kg/day · indicate for <32 wk or <1.5 kg (WHO 2023)",
+    label: "BM + HMF ≈ 24 kcal/oz (Fortipre®/Enfamil HMF)",
+    kcal: 81, pro: 2.3, fat: 4.1, cho: 7.8,
+    na: 1.40, k: 1.89, ca: 115, p: 59,
+    osm: 353, lf: false,
+    note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · ⚠️ Verify with Fortipre® label at KCMH pharmacy",
   },
 
   // ── HiQ LF (Dumex/Danone) — Lactose-Free ──────────────────
