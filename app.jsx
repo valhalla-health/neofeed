@@ -78,13 +78,24 @@ function App() {
     fetch(`${GAS_URL}?action=getActivePatients&token=${encodeURIComponent(tok)}`)
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data.patients) && data.patients.length > 0) {
-          setPatients(data.patients);
-          // Keep active patient if still in list, else switch to first
-          setActiveId(prev =>
-            data.patients.find(p => p.sessionId === prev)
-              ? prev : data.patients[0].sessionId
-          );
+        // Auth expired → clear session + force re-login
+        if (data.error === "Unauthorized") {
+          sessionStorage.removeItem("neofeed_session");
+          setUser(null);
+          setSyncState("local");
+          return;
+        }
+        if (data.error) { setSyncState("error"); return; }
+
+        if (Array.isArray(data.patients)) {
+          // Replace mock data with real GAS data (even if empty registry)
+          setPatients(data.patients.length > 0 ? data.patients : []);
+          if (data.patients.length > 0) {
+            setActiveId(prev =>
+              data.patients.find(p => p.sessionId === prev)
+                ? prev : data.patients[0].sessionId
+            );
+          }
         }
         if (data.log) setLog(data.log);
         setSyncState("ok");
@@ -254,6 +265,14 @@ function App() {
       {/* Workspace */}
       <main className="work">
         <div className="work-inner">
+          {/* Banner: GAS connected but no real patients yet */}
+          {GAS_ON && syncState === "ok" && patients.length === 0 && (
+            <div style={{ padding:"12px 16px", background:"var(--brand-bg)", border:"1px solid var(--brand-line)",
+              borderRadius:8, marginBottom:14, fontSize:13, color:"var(--brand-2)", display:"flex", alignItems:"center", gap:10 }}>
+              <Icon name="info" size={14} color="var(--brand)" />
+              ยังไม่มีผู้ป่วยในระบบ — ไปที่ <strong>Patients</strong> เพื่อลงทะเบียนผู้ป่วยใหม่
+            </div>
+          )}
           {view !== "registry" && active &&
           <PatientStrip patient={active} onSwitch={() => setPickerOpen(true)} liveWeight={calcWeights[activeId] || null} currentDol={dol} />
           }
@@ -332,7 +351,20 @@ function App() {
 // ── Gestational/post-menstrual age formatter ─────────────────
 // Input: decimal weeks (e.g. 28.43). Output: "28+3"
 // Uses integer days internally → no floating point overflow (28+7 → 29+0)
+// Format ISO date → DD/MM/YY (Thai short, e.g. 15/05/69)
+function fmtDate(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = String(d.getFullYear() + 543).slice(-2); // Gregorian → พ.ศ.
+    return `${dd}/${mm}/${yy}`;
+  } catch { return iso; }
+}
+
 function fmtGA(weeksDecimal) {
+  if (!isFinite(weeksDecimal) || weeksDecimal <= 0) return "—";
   const totalDays = Math.round(weeksDecimal * 7);
   return Math.floor(totalDays / 7) + "+" + (totalDays % 7);
 }
@@ -372,7 +404,7 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol }) {
               {" · DOL "}
               <span className="num" style={{ color:"var(--brand-2)", fontWeight:700 }}>{displayDol}</span>
             </div>
-            <div className="bed">Admit {patient.admissionDate}</div>
+            <div className="bed">Admit {fmtDate(patient.admissionDate)}</div>
           </div>
         </div>
       </div>

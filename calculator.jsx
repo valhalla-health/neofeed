@@ -161,7 +161,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
   // Step 4 — Enteral
   const [enType, setEnType] = useState("BM_20");
   const [enVol, setEnVol] = useState(0);
-  const [enFreq, setEnFreq] = useState(8);
+  const [enFreq, setEnFreq] = useState(0);
   const [isMEN, setIsMEN] = useState(false);
 
   // Step 5 — Vitamins, Trace Elements, Heparin
@@ -607,7 +607,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
           </div>
 
           {/* ══ Metric tiles — horizontal row ═══════════════════════════ */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8 }}>
+          <div className="metric-tiles-4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8 }}>
             <Tile label="Energy (total)" value={calc.kcalKg} unit=" kcal/kg/d" target={tKcal} status={sKcal} decimals={0} max={160} />
             <Tile label="Protein" value={calc.proteinKg} unit=" g/kg/d" target={tPro} status={sPro} decimals={1} max={5.5} />
             <Tile label="Lipid (total)" value={calc.lipidKgTotal} unit=" g/kg/d" target={tLip} status={sLip} decimals={1} max={7} />

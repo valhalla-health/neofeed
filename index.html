@@ -262,6 +262,10 @@
     .calc-grid { grid-template-columns: 1fr 1fr; }
     .calc-grid .col-dash { grid-column: 1 / -1; }
   }
+  /* Step 2 metric tiles: 4-col → 2-col on narrow screens */
+  @media (max-width: 960px) {
+    .metric-tiles-4 { grid-template-columns: 1fr 1fr !important; }
+  }
 
   /* ============ INPUTS ============ */
   .field { display: flex; flex-direction: column; gap: 5px; }
