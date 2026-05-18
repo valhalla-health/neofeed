@@ -651,9 +651,10 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
 
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "14px 0 4px" }}>Phosphate source</div>
               <SaltRow label="Disodium glycerophosphate (Glycophos®)"
-                note="Na = 2 mEq/mL · P = 31 mg/mL — input mL/kg/d (organic phosphate, preferred)"
-                perKg={glycophosP} onChange={setGlycophosP} wtKg={wtKg} unit="mL/kg/d" />
-              {/* Na mEq chips → sets Glycophos mL (1 mL = 2 mEq Na → Glycophos mL = Na_mEq/2) */}
+                note="input Na mEq/kg → Glycophos mL = Na÷2 (1 mL = 2 mEq Na, P = 31 mg/mL)"
+                perKg={glycophosP * 2}
+                onChange={(v) => setGlycophosP(v / 2)}
+                wtKg={wtKg} unit="mEq Na/kg" />
               <PresetChips values={[1, 2, 3, 4]} current={glycophosP * 2} onSelect={(v) => setGlycophosP(v / 2)} suffix=" mEq Na/kg" />
               {glycophosP > 0 && (
                 <div style={{ fontSize: 11.5, color: "var(--brand-2)", padding: "4px 0 2px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
