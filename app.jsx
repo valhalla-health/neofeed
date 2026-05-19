@@ -580,13 +580,12 @@ function AlertCenter({ patient, log }) {
 }
 
 // ============================================================
-// Login screen — Google Sign-In (GSI)
-// Requires: window.NEOFEED_CLIENT_ID set in NeoFeed.html
-// GAS must handle action="login" + token=GoogleJWT → { status:"ok", name, role, email }
+// Login screen — Google Sign-In (GSI) · redesigned 2026-05-19
+// Split layout: brand panel (left/top) + form panel (right/bottom)
 // ============================================================
 function LoginScreen({ onLogin }) {
-  const [loading, setLoading]       = React.useState(false);
-  const [error, setError]           = React.useState(null);
+  const [loading, setLoading]         = React.useState(false);
+  const [error, setError]             = React.useState(null);
   const [googleReady, setGoogleReady] = React.useState(false);
   const btnRef = React.useRef(null);
 
@@ -596,10 +595,9 @@ function LoginScreen({ onLogin }) {
       google.accounts.id.initialize({
         client_id: window.NEOFEED_CLIENT_ID,
         callback: async (resp) => {
-          setLoading(true);
-          setError(null);
+          setLoading(true); setError(null);
           try {
-            const res = await fetch(window.NEOFEED_GAS_URL, {
+            const res  = await fetch(window.NEOFEED_GAS_URL, {
               method: "POST",
               headers: { "Content-Type": "text/plain;charset=utf-8" },
               body: JSON.stringify({ action: "login", token: resp.credential }),
@@ -615,11 +613,10 @@ function LoginScreen({ onLogin }) {
       });
       google.accounts.id.renderButton(btnRef.current, {
         type: "standard", shape: "pill", theme: "outline",
-        text: "signin_with", locale: "th", size: "large", width: 280,
+        text: "signin_with", locale: "th", size: "large", width: 300,
       });
       setGoogleReady(true);
     };
-
     if (window.google?.accounts?.id) init();
     else {
       const s = document.querySelector('script[src*="gsi/client"]');
@@ -631,47 +628,82 @@ function LoginScreen({ onLogin }) {
 
   const isBusy = loading || (googleReady && !btnRef.current?.children?.length);
 
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(135deg, oklch(96% 0.012 215), oklch(92% 0.018 215))", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 400, background: "var(--surface)", borderRadius: 14, padding: 36, boxShadow: "0 20px 60px oklch(20% 0.04 215 / .18)", border: "1px solid var(--line)" }}>
+  const Logo = () => (
+    <div className="login-logo">
+      <svg viewBox="0 0 28 28" width="32" height="32" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 21 V 7 L 21 21 V 7" /><circle cx="21" cy="7" r="2.2" fill="#fff" stroke="none" />
+      </svg>
+    </div>
+  );
 
-        {/* Logo + title */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, var(--brand), oklch(36% 0.09 215))", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px oklch(46% 0.085 215 / .3)" }}>
-            <svg viewBox="0 0 28 28" width="26" height="26" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 21 V 7 L 21 21 V 7" /><circle cx="21" cy="7" r="2.2" fill="#fff" stroke="none" />
-            </svg>
+  return (
+    <div className="login-wrap">
+
+      {/* ── Brand panel ── */}
+      <div className="login-brand">
+        <Logo />
+        <div>
+          <div className="login-app-name">NeoFeed</div>
+          <div className="login-tagline">
+            Neonatal nutrition,<br />calculated precisely
           </div>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em" }}>NeoFeed</div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Neonatal nutrition support · KCMH</div>
+          <div className="login-badges">
+            {[
+              "ESPGHAN 2018 / 2022",
+              "Fenton 2025 · WHO 2023",
+              "KCMH · NICU · PDPA compliant",
+            ].map(b => (
+              <span key={b} className="login-badge">
+                <span className="dot" />{b}
+              </span>
+            ))}
           </div>
         </div>
+      </div>
 
-        {/* Sign-in area */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20 }}>
-            Sign in with your KCMH Google account
+      {/* ── Form panel ── */}
+      <div className="login-form-wrap">
+        <div className="login-card">
+
+          <div className="login-card-eyebrow">KCMH Neonatology</div>
+          <h2>Welcome back</h2>
+          <div className="login-sub">
+            Sign in with your KCMH Google Workspace account to access the nutrition calculator
           </div>
 
-          {/* Google button container — GSI renders here */}
-          <div style={{ display: "flex", justifyContent: "center", minHeight: 44, marginBottom: 16, position: "relative" }}>
-            <div ref={btnRef} style={{ opacity: isBusy ? 0 : 1, transition: "opacity .2s" }} />
+          {/* Google button */}
+          <div style={{ position: "relative", minHeight: 50, marginBottom: 18 }}>
+            <div ref={btnRef}
+              style={{ opacity: isBusy ? 0 : 1, transition: "opacity .2s",
+                display: "flex", justifyContent: "center" }} />
 
-            {/* Skeleton while SDK loads */}
+            {/* Skeleton */}
             {!googleReady && !loading && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <div style={{ width: 280, height: 44, borderRadius: 999, background: "var(--bg-2)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--ink-3)", fontSize: 13 }}>
-                  <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M47.5 24.6c0-1.6-.1-3.1-.4-4.6H24v8.7h13.2c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.3-10.6 7.3-17.3z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.8 2.3-8 2.3-6.1 0-11.3-4.1-13.1-9.7H2.7v6.2C6.7 42.7 14.8 48 24 48z"/><path fill="#FBBC05" d="M10.9 28.8c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4v-6.2H2.7C1 17.1 0 20.5 0 24s1 6.9 2.7 9.9l8.2-5.1z"/><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.5l6.8-6.8C35.9 2.4 30.5 0 24 0 14.8 0 6.7 5.3 2.7 13.1l8.2 5.1C12.7 13.6 17.9 9.5 24 9.5z"/></svg>
-                  กำลังโหลด Google Sign-In...
+              <div style={{ position: "absolute", inset: 0, display: "flex",
+                alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 300, height: 46, borderRadius: 999,
+                  background: "var(--bg-2)", border: "1px solid var(--line)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 10, color: "var(--ink-3)", fontSize: 13 }}>
+                  <svg width="18" height="18" viewBox="0 0 48 48">
+                    <path fill="#4285F4" d="M47.5 24.6c0-1.6-.1-3.1-.4-4.6H24v8.7h13.2c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.3-10.6 7.3-17.3z"/>
+                    <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.8 2.3-8 2.3-6.1 0-11.3-4.1-13.1-9.7H2.7v6.2C6.7 42.7 14.8 48 24 48z"/>
+                    <path fill="#FBBC05" d="M10.9 28.8c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4v-6.2H2.7C1 17.1 0 20.5 0 24s1 6.9 2.7 9.9l8.2-5.1z"/>
+                    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.5l6.8-6.8C35.9 2.4 30.5 0 24 0 14.8 0 6.7 5.3 2.7 13.1l8.2 5.1C12.7 13.6 17.9 9.5 24 9.5z"/>
+                  </svg>
+                  กำลังโหลด...
                 </div>
               </div>
             )}
 
-            {/* Loading spinner after click */}
+            {/* Loading */}
             {loading && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--ink-2)", fontSize: 13 }}>
-                <div style={{ width: 18, height: 18, border: "2px solid var(--line)", borderTopColor: "var(--brand)", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex",
+                alignItems: "center", justifyContent: "center", gap: 10,
+                color: "var(--ink-2)", fontSize: 13 }}>
+                <div style={{ width: 18, height: 18, border: "2px solid var(--line)",
+                  borderTopColor: "var(--brand)", borderRadius: "50%",
+                  animation: "spin 0.9s linear infinite" }} />
                 กำลังตรวจสอบสิทธิ์...
               </div>
             )}
@@ -679,18 +711,45 @@ function LoginScreen({ onLogin }) {
 
           {/* Error */}
           {error && (
-            <div style={{ padding: "10px 14px", background: "var(--crit-bg)", border: "1px solid var(--crit-line)", borderRadius: 8, color: "var(--crit)", fontSize: 13, marginBottom: 12 }}>
-              {error}
+            <div style={{ padding: "10px 14px", background: "var(--crit-bg)",
+              border: "1px solid var(--crit-line)", borderRadius: 8,
+              color: "var(--crit)", fontSize: 13, marginBottom: 14 }}>
+              ⚠️ {error}
             </div>
           )}
 
-          <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>
+          {/* Divider */}
+          <div style={{ borderTop: "1px solid var(--line-2)", margin: "22px 0 18px" }} />
+
+          {/* Info rows */}
+          <div className="login-info-row">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <rect x="2" y="7" width="12" height="8" rx="1.5" /><path d="M5 7V5a3 3 0 0 1 6 0v2" />
+            </svg>
             เฉพาะบัญชีที่ลงทะเบียนใน Staff sheet เท่านั้น
+          </div>
+          <div className="login-info-row">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="8" cy="8" r="6" /><path d="M8 5v4l2 1.2" />
+            </svg>
+            Session หมดอายุเมื่อปิด tab — ข้อมูลผู้ป่วยไม่ถูกเก็บในเครื่อง
+          </div>
+          <div className="login-info-row">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M8 2l1.5 4.5H14l-3.7 2.7 1.4 4.3L8 11 4.3 13.5l1.4-4.3L2 6.5h4.5z" />
+            </svg>
+            Clinical decision support tool — คำสั่งต้องผ่านการตรวจสอบโดยแพทย์เจ้าของไข้
+          </div>
+
+          {/* Footer */}
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--line-2)",
+            display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-4)" }}>V2 · ESPGHAN 2018/2022</div>
+            <div style={{ fontSize: 11, color: "var(--ink-4)" }}>Valhalla Team © 2026</div>
           </div>
         </div>
       </div>
 
-      {/* CSS for spinner */}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
