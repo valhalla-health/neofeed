@@ -28,19 +28,19 @@ const EN_DB = {
   // Generic reference values for EBM/donor milk fortified to target density
   // Verify with actual product label at KCMH (HiQ/Enfalac preterm)
   BM_PF_20: {
-    label: "FHM / Preterm Formula (20 kcal/oz)",
+    label: "Preterm Formula (20 kcal/oz)",
     kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4,
     na: 1.0, k: 1.7, ca: 50, p: 28,
     osm: 290, lf: false,
   },
   FBM_PF_22: {
-    label: "FHM / Preterm Formula (22 kcal/oz)",
+    label: "Preterm Formula (22 kcal/oz)",
     kcal: 73, pro: 2.0, fat: 3.8, cho: 8.0,
     na: 1.3, k: 1.9, ca: 75, p: 40,
     osm: 300, lf: false,
   },
   FBM_PF_24: {
-    label: "FHM / Preterm Formula (24 kcal/oz)",
+    label: "Preterm Formula (24 kcal/oz)",
     kcal: 80, pro: 2.6, fat: 4.1, cho: 8.6,
     na: 1.5, k: 2.1, ca: 100, p: 55,
     osm: 310, lf: false,
@@ -51,14 +51,13 @@ const EN_DB = {
   // Source: BOX 1.3.3 Enfamil HMF 4g/100mL + mature BM (BOX 1.3.1)
   //   Ca: 25+90=115 mg · P: 14+45=59 mg · Na: 0.90+0.5=1.40 mmol
   //   K: 1.39+0.5=1.89 mmol · Osm: 290+63=353 mOsm
-  // ⚠️ Fortipre® (Nutricia) used at KCMH — verify label for exact values
-  //   Fortipre ca/p/na may differ from Enfamil reference above
+  // Chula uses Enfamil HMF (Mead Johnson) — values from BOX 1.3.3
   BM_HMF_24: {
-    label: "BM + HMF ≈ 24 kcal/oz (Fortipre®/Enfamil HMF)",
+    label: "BM + HMF (Enfamil HMF ≈ 24 kcal/oz)",
     kcal: 81, pro: 2.3, fat: 4.1, cho: 7.8,
     na: 1.40, k: 1.89, ca: 115, p: 59,
     osm: 353, lf: false,
-    note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · ⚠️ Verify with Fortipre® label at KCMH pharmacy",
+    note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · Enfamil HMF reference (BOX 1.3.3)",
   },
 
   // ── HiQ LF (Dumex/Danone) — Lactose-Free ──────────────────
@@ -111,7 +110,7 @@ const EN_DB = {
   // ── Infatrini (Nutricia) — 100 kcal/100 mL ────────────────
   // Pre-concentrated, has lactose — complete nutrition at 150 mL/kg (if no LF req)
   INFATRINI_30: {
-    label: "Infatrini (30 kcal/oz / 100 kcal/100mL)",
+    label: "Infatrini (30 kcal/oz)",
     kcal: 100, pro: 2.6, fat: 5.4, cho: 10.3,
     na: 2.00, k: 2.75, ca: 100, p: 56,
     osm: 345, lf: false,

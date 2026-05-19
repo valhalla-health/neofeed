@@ -1318,8 +1318,17 @@ function FormulasPanel() {
                   return (
                     <tr key={k} style={{ borderBottom: "1px solid var(--line-2)",
                       background: i % 2 === 0 ? "var(--surface)" : "var(--bg-2)" }}>
-                      <td style={{ padding: "7px 10px", fontWeight: 500, color: "var(--ink)", maxWidth: 200 }}>
-                        {f.label}
+                      <td style={{ padding: "7px 10px", color: "var(--ink)", maxWidth: 180, minWidth: 130 }}>
+                        {(() => {
+                          const m = f.label.match(/^(.*?)\s*\((.+)\)$/);
+                          if (!m) return <span style={{ fontWeight: 500 }}>{f.label}</span>;
+                          return (
+                            <>
+                              <div style={{ fontWeight: 600, fontSize: 13 }}>{m[1]}</div>
+                              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 1 }}>({m[2]})</div>
+                            </>
+                          );
+                        })()}
                       </td>
                       {[f.kcal, f.pro, f.fat, f.na?.toFixed(2), f.k?.toFixed(2), f.ca, f.p].map((v, j) => (
                         <td key={j} className="num" style={{ padding: "7px 10px", textAlign: "center",
