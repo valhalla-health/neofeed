@@ -623,7 +623,7 @@ function LoginScreen({ onLogin }) {
   return (
     <div className="login-wrap">
 
-      {/* Logo mark */}
+      {/* 1 — Logo */}
       <div className="login-logo-mark">
         <svg viewBox="0 0 36 36" width="52" height="52" fill="none"
           stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
@@ -632,27 +632,20 @@ function LoginScreen({ onLogin }) {
         </svg>
       </div>
 
-      {/* App name */}
+      {/* 2 — App name */}
       <div className="login-app-name">NeoFeed</div>
 
-      {/* Category label */}
-      <div className="login-category">Neonatal Nutrition</div>
-
-      {/* Thai tagline */}
+      {/* 3 — Tagline */}
       <div className="login-tagline">
-        คำนวณโภชนาการทารกแรกเกิด · KCMH NICU
+        Neonatal nutrition,<br />calculated precisely
       </div>
 
-      {/* Teal rule */}
-      <div className="login-rule" />
-
-      {/* Google Sign-In button */}
+      {/* 4 — Google button */}
       <div className="login-btn-area">
         <div ref={btnRef}
           style={{ opacity: isBusy ? 0 : 1, transition: "opacity .2s",
             display: "flex", justifyContent: "center" }} />
 
-        {/* Skeleton */}
         {!googleReady && !loading && (
           <div style={{ position: "absolute", inset: 0, display: "flex",
             alignItems: "center", justifyContent: "center" }}>
@@ -667,12 +660,11 @@ function LoginScreen({ onLogin }) {
                 <path fill="#FBBC05" d="M10.9 28.8c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4v-6.2H2.7C1 17.1 0 20.5 0 24s1 6.9 2.7 9.9l8.2-5.1z"/>
                 <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.5l6.8-6.8C35.9 2.4 30.5 0 24 0 14.8 0 6.7 5.3 2.7 13.1l8.2 5.1C12.7 13.6 17.9 9.5 24 9.5z"/>
               </svg>
-              กำลังโหลด Google Sign-In...
+              กำลังโหลด...
             </div>
           </div>
         )}
 
-        {/* Loading */}
         {loading && (
           <div style={{ position: "absolute", inset: 0, display: "flex",
             alignItems: "center", justifyContent: "center", gap: 10,
@@ -688,13 +680,8 @@ function LoginScreen({ onLogin }) {
       {/* Error */}
       {error && <div className="login-error">⚠️ {error}</div>}
 
-      {/* Reference line */}
-      <div className="login-refs">
-        ESPGHAN 2018 / 2022 · Fenton 2025 · WHO 2023
-      </div>
-
-      {/* Footer */}
-      <div className="login-footer">Valhalla Team &nbsp;·&nbsp; V2.0</div>
+      {/* 5 — Footer */}
+      <div className="login-footer">VALHALLA TEAM &nbsp;·&nbsp; V2.0</div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

@@ -636,19 +636,20 @@
   /* ============ BOTTOM NAV (mobile) ============ */
   .bottom-nav { display: none; }
 
-  /* ============ LOGIN SCREEN — centered premium ============ */
+  /* ============ LOGIN SCREEN ============ */
   .login-wrap {
     position: fixed; inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    /* Soft radial bloom — premium, airy */
-    background: radial-gradient(ellipse 80% 60% at 50% 30%,
+    text-align: center;
+    background: radial-gradient(ellipse 90% 70% at 50% 35%,
       oklch(94% 0.022 215) 0%,
-      oklch(97.5% 0.008 215) 60%,
+      oklch(97.5% 0.008 215) 55%,
       oklch(98.5% 0.004 215) 100%);
     padding: 40px 24px;
+    gap: 0;
   }
 
   .login-logo-mark {
@@ -657,47 +658,28 @@
     background: linear-gradient(145deg, oklch(50% 0.09 215), oklch(30% 0.09 215));
     display: flex; align-items: center; justify-content: center;
     box-shadow:
-      0 16px 48px oklch(46% 0.085 215 / .22),
+      0 20px 52px oklch(46% 0.085 215 / .24),
       0 4px 12px oklch(46% 0.085 215 / .12),
       inset 0 -3px 0 oklch(22% 0.07 215 / .5);
     margin-bottom: 32px;
+    flex-shrink: 0;
   }
 
   .login-app-name {
-    font-size: 56px;
+    font-size: 60px;
     font-weight: 700;
     letter-spacing: -0.045em;
     color: var(--ink);
     line-height: 1;
-    margin-bottom: 10px;
-    text-align: center;
-  }
-
-  .login-category {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.20em;
-    text-transform: uppercase;
-    color: var(--ink-3);
-    margin-bottom: 10px;
-    text-align: center;
+    margin-bottom: 16px;
   }
 
   .login-tagline {
-    font-size: 15.5px;
-    color: var(--ink-2);
-    text-align: center;
-    line-height: 1.55;
-    margin-bottom: 44px;
-  }
-
-  /* Thin teal rule */
-  .login-rule {
-    width: 40px; height: 2.5px;
-    background: var(--brand);
-    border-radius: 999px;
-    opacity: 0.35;
-    margin-bottom: 40px;
+    font-size: 17px;
+    color: var(--ink-3);
+    line-height: 1.6;
+    font-weight: 400;
+    margin-bottom: 48px;
   }
 
   .login-btn-area {
@@ -708,7 +690,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
+    margin-bottom: 0;
   }
 
   .login-error {
@@ -719,35 +701,23 @@
     border-radius: 10px;
     color: var(--crit);
     font-size: 13px;
-    margin-bottom: 16px;
-    text-align: center;
-  }
-
-  .login-refs {
-    font-size: 11px;
-    color: var(--ink-4);
-    letter-spacing: 0.04em;
-    text-align: center;
-    margin-bottom: 0;
+    margin-top: 14px;
   }
 
   .login-footer {
     position: absolute;
     bottom: 28px;
     font-size: 10.5px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     color: var(--ink-4);
     text-transform: uppercase;
-    text-align: center;
   }
 
-  /* Mobile: tighten spacing */
   @media (max-width: 767px) {
     .login-logo-mark { width: 76px; height: 76px; border-radius: 22px; margin-bottom: 24px; }
-    .login-app-name  { font-size: 44px; margin-bottom: 8px; }
-    .login-tagline   { font-size: 14px; margin-bottom: 36px; }
-    .login-rule      { margin-bottom: 32px; }
-    .login-footer    { bottom: 20px; }
+    .login-app-name  { font-size: 48px; margin-bottom: 12px; }
+    .login-tagline   { font-size: 15px; margin-bottom: 40px; }
+    .login-footer    { bottom: env(safe-area-inset-bottom, 20px); }
   }
 
   /* ============ TABLET: 768–1199px — icon-only rail ============ */
@@ -944,7 +914,7 @@
   <!-- Google Sign-In SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <!-- cache:25690519-0035 -->
+  <!-- cache:26190519-1435 -->
   <!-- App config — edit these two lines, do NOT hardcode in app.jsx -->
   <script>
     window.NEOFEED_CLIENT_ID = "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com";
