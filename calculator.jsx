@@ -110,7 +110,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
     onChange(isNaN(v) ? 0 : v);
   };
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 90px", gap: 10, alignItems: "center", padding: "6px 0", borderBottom: "1px dashed var(--line-2)" }}>
+    <div className="salt-row-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 90px", gap: 10, alignItems: "center", padding: "6px 0", borderBottom: "1px dashed var(--line-2)" }}>
       <div>
         <div style={{ fontSize: 12, color: "var(--ink)", fontWeight: 500 }}>{label}</div>
         {note && <div style={{ fontSize: 10, color: "var(--ink-3)" }}>{note}</div>}
@@ -431,7 +431,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
           </div>
         </div>
         <div className={`accordion-body${openSteps.has(1) ? ' open' : ''}`}><div className="card-b">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr) 1.4fr", gap: 12, alignItems: "stretch" }}>
+          <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr) 1.4fr", gap: 12, alignItems: "stretch" }}>
             <div>
               <NumField label="Target fluid" unit="mL/kg/d" value={fluidTargetPerKg} onChange={setFluidTargetPerKg} step={5}
                 hint={`= ${fmt(fluidTargetPerKg * wtKg, 0)} mL/d · attending discretion`} />
@@ -464,11 +464,11 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
 
       {/* ===== Step 2 — TPN main bag ===== */}
       <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-h clickable" onClick={() => toggleStep(2)}>
+        <div className="card-h clickable step2-card-h" onClick={() => toggleStep(2)}>
           <Icon name="drop" size={14} color="var(--brand)" />
           Step 2 · TPN macronutrients
           {/* Route + Osm always visible */}
-          <span style={{ display:"flex", alignItems:"center", gap:8, marginLeft:10 }} onClick={e => e.stopPropagation()}>
+          <span className="step2-ctrl" style={{ display:"flex", alignItems:"center", gap:8, marginLeft:10 }} onClick={e => e.stopPropagation()}>
             <div className="seg" style={{ padding:1 }}>
               <button className={route === "peripheral" ? "on" : ""} onClick={() => setRoute("peripheral")}>Peripheral</button>
               <button className={route === "central"    ? "on" : ""} onClick={() => setRoute("central")}>Central</button>
@@ -548,7 +548,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               </div>
 
               {/* AA row */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"center",
+              <div className="s2-aa-row" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"center",
                 padding:"8px 10px", background:"var(--bg-2)", borderRadius:6 }}>
                 <div>
                   <NumField label="Amino acid (Aminoven 10%)" unit="g/kg/d" value={aaPerKg} onChange={setAaPerKg} step={0.1} />
@@ -579,7 +579,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               )}
             </div>
             <div style={{ padding:"12px 14px" }}>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"center" }}>
+              <div className="s2-lip-row" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"center" }}>
                 <div>
                   <NumField label="SMOF Lipid 20%" unit="g/kg/d" value={lipidPerKg} onChange={setLipidPerKg} step={0.1} />
                   <PresetChips values={[0.5, 1, 2, 3, 4]} current={lipidPerKg} onSelect={setLipidPerKg} />
@@ -859,7 +859,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
       </div>
 
       {/* ===== Energy distribution + Alerts + Save ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 280px", gap: 14 }}>
+      <div className="calc-bottom" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 280px", gap: 14 }}>
         <div className="card">
           <div className="card-h">
             <Icon name="info" size={14} color="var(--brand)" />
@@ -868,7 +868,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
           </div>
           <div className="card-b">
             <KcalBar cho={calc.kcalChoPct} pro={calc.kcalProtPct} fat={calc.kcalFatPct} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", marginTop: 14, gap: 10 }}>
+            <div className="kcal-legend" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", marginTop: 14, gap: 10 }}>
               <KcalLegend color="oklch(75% 0.13 80)" label="CHO" pct={calc.kcalChoPct} target="45–55%" />
               <KcalLegend color="oklch(55% 0.13 155)" label="Protein" pct={calc.kcalProtPct} target="10–15%" />
               <KcalLegend color="oklch(60% 0.11 25)" label="Fat" pct={calc.kcalFatPct} target="35–45%" />
@@ -1065,7 +1065,7 @@ function PresetChips({ values, current, onSelect, suffix = "" }) {
 // ── Module-level layout helpers ─────────────────────────────────
 function TwoCol({ children }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 14 }}>
+    <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 14 }}>
       {children}
     </div>
   );

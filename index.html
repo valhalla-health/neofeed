@@ -808,6 +808,24 @@
     /* Tables: let card scroll */
     .card { overflow-x: auto; }
 
+    /* ── Calculator: fix all inner grids ── */
+    /* TwoCol (Steps 3/4/5): inputs+tiles → stack vertically */
+    .two-col { grid-template-columns: 1fr !important; }
+    /* Step 1: 5-col inputs → 2-col */
+    .s1-grid { grid-template-columns: 1fr 1fr !important; }
+    /* Step 2 sub-rows: 3-col → 2-col */
+    .s2-aa-row  { grid-template-columns: 1fr 1fr !important; }
+    .s2-lip-row { grid-template-columns: 1fr 1fr !important; }
+    /* Bottom (energy+alerts+save): 3-col → 1-col */
+    .calc-bottom { grid-template-columns: 1fr !important; }
+    /* SaltRow: 1.6fr 1fr 90px → 1fr 80px (hide = total col, shown in readout below) */
+    .salt-row-grid { grid-template-columns: 1fr 80px !important; gap: 6px !important; }
+    .salt-row-grid > div:nth-child(3) { display: none !important; }
+    /* Step 2 card-h: wrap route+Osm to new line */
+    .step2-card-h { flex-wrap: wrap; padding: 10px 12px; gap: 6px; }
+    .step2-ctrl { width: 100%; margin-left: 0 !important; order: 10; }
+    .step2-ctrl .seg button { font-size: 11px; padding: 6px 10px; }
+
     /* Picker → bottom sheet */
     .picker {
       width: 100vw !important;
@@ -914,7 +932,7 @@
   <!-- Google Sign-In SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <!-- cache:26190519-1435 -->
+  <!-- cache:26190519-1620 -->
   <!-- App config — edit these two lines, do NOT hardcode in app.jsx -->
   <script>
     window.NEOFEED_CLIENT_ID = "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com";
