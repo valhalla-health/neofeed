@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="theme-color" content="#ffffff" />
 <title>NeoFeed V2 — KCMH NICU</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -628,6 +631,173 @@
     visibility: visible;
     transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
                 visibility 0s linear 0s;
+  }
+
+  /* ============ BOTTOM NAV (mobile) ============ */
+  .bottom-nav { display: none; }
+
+  /* ============ TABLET: 768–1199px — icon-only rail ============ */
+  @media (min-width: 768px) and (max-width: 1199px) {
+    :root { --rail-w: 60px; }
+    .rail { padding: 10px 8px; overflow: hidden; }
+    .rail-section { display: none; }
+    .rail-foot { display: none; }
+    .brandmark { width: calc(60px - 18px); }
+    .brandmark .name { display: none; }
+    .rail-item { justify-content: center; padding: 10px 0; gap: 0; }
+    .rail-item > span:not([class]) { display: none; }
+    .rail-item .count { display: none; }
+    .switch-patient .sp-label { display: none; }
+    .switch-patient .sp-kbd  { display: none; }
+    .switch-patient { padding: 0 8px; min-width: 36px; }
+    .calc-grid { grid-template-columns: 1fr 1fr !important; }
+    .work-inner { padding: 14px 14px 40px; }
+  }
+
+  /* ============ MOBILE: ≤767px ============ */
+  @media (max-width: 767px) {
+    :root { --rail-w: 0px; --header-h: 52px; }
+
+    /* Shell: 1-column, no rail */
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: var(--header-h) 1fr;
+    }
+    .rail { display: none; }
+
+    /* Topbar: compact */
+    .topbar { padding: 0 12px; gap: 8px; }
+    .brandmark { width: auto; }
+    .brandmark .name { font-size: 15px; }
+    .topbar .pill { display: none; }
+    .topbar .icon-btn { display: none; }
+    .switch-patient .sp-label { display: none; }
+    .switch-patient .sp-kbd  { display: none; }
+    .switch-patient { padding: 0 8px; min-width: 36px; }
+    /* User chip: avatar only */
+    .user .name { display: none; }
+    .user .role { display: none; }
+    .user { padding: 3px; border-radius: 999px; }
+
+    /* Work area: pad bottom for tab bar + iOS home indicator */
+    .work-inner {
+      padding: 10px 12px calc(68px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Patient strip: 2×3 grid */
+    .patient-strip {
+      grid-template-columns: 1fr 1fr;
+    }
+    .patient-strip > div {
+      border-right: none;
+      border-bottom: 1px solid var(--line-2);
+    }
+    .patient-strip > div:nth-child(odd) {
+      border-right: 1px solid var(--line-2);
+    }
+    .patient-strip > div:nth-child(5),
+    .patient-strip > div:nth-child(6) {
+      border-bottom: none;
+    }
+    .patient-strip .val { font-size: 14px; }
+    .patient-strip .lbl { height: 22px; font-size: 9px; }
+
+    /* Layout: single column everywhere */
+    .calc-grid { grid-template-columns: 1fr !important; }
+    .row-3 { grid-template-columns: 1fr 1fr; }
+
+    /* Page head: stack */
+    .page-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .page-head h1 { font-size: 17px; }
+    .page-head > div:last-child { display: flex; gap: 6px; width: 100%; }
+    .page-head > div:last-child .btn { flex: 1; justify-content: center; font-size: 13px; }
+
+    /* Metric tiles: 2 col */
+    .metric-tiles-4 { grid-template-columns: 1fr 1fr !important; }
+    .metric .val { font-size: 24px; }
+
+    /* Tables: let card scroll */
+    .card { overflow-x: auto; }
+
+    /* Picker → bottom sheet */
+    .picker {
+      width: 100vw !important;
+      max-height: 82vh;
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+    }
+    .picker-backdrop { align-items: flex-end; }
+
+    /* Card body: less padding */
+    .card-b { padding: 10px; }
+    .card-h { padding: 11px 12px; }
+
+    /* Disclaimer */
+    .disclaimer-bar { font-size: 11px; padding: 6px 10px; }
+
+    /* Seg control: full width */
+    .seg { width: 100%; }
+    .seg button { flex: 1; padding: 8px 6px; font-size: 12px; }
+
+    /* PresetChips: slightly larger tap targets */
+    .preset-chip { padding: 6px 14px; font-size: 13px; }
+
+    /* Bottom nav visible */
+    .bottom-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: calc(58px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      background: var(--surface);
+      border-top: 1.5px solid var(--line);
+      z-index: 40;
+      box-shadow: 0 -2px 12px oklch(20% 0.01 230 / .06);
+    }
+
+    .bnav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 6px 4px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--ink-4);
+      font-size: 10px;
+      font-weight: 500;
+      font-family: inherit;
+      transition: color .1s;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      min-height: 58px;
+    }
+    .bnav-item.active { color: var(--brand); }
+    .bnav-item.active svg { stroke: var(--brand) !important; }
+
+    .bnav-badge {
+      position: absolute;
+      top: 6px;
+      right: calc(50% - 20px);
+      background: var(--crit);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      min-width: 15px;
+      height: 15px;
+      border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 3px;
+      border: 1.5px solid var(--surface);
+      pointer-events: none;
+    }
   }
 
   /* ============ PRINT STYLES ============ */

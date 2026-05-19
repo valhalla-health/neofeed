@@ -356,6 +356,14 @@ function App() {
         </TweakSection>
       </TweaksPanel>
 
+      <BottomNav
+        view={view}
+        setView={setView}
+        alertCount={alertCount}
+        logCount={(log[activeId] || []).length}
+        role={role}
+      />
+
       <div id="toast-host" />
     </div>);
 
@@ -747,6 +755,35 @@ function AdminDashboard({ patients, log }) {
         </div>
       </div>
     </>
+  );
+}
+
+// ============================================================
+// BottomNav — mobile-only tab bar (≤767px)
+// ============================================================
+function BottomNav({ view, setView, alertCount, logCount, role }) {
+  const tabs = [
+    { id: "registry",   icon: "users",  label: "Patients" },
+    ...(role === "doctor" ? [{ id: "calculator", icon: "calc", label: "Calc" }] : []),
+    { id: "fenton",     icon: "chart",  label: "Growth"   },
+    { id: "log",        icon: "log",    label: "Log",    badge: logCount   },
+    { id: "alerts",     icon: "bell",   label: "Alerts", badge: alertCount },
+  ];
+  return (
+    <nav className="bottom-nav" aria-label="Main navigation">
+      {tabs.map(t => (
+        <button
+          key={t.id}
+          className={`bnav-item${view === t.id ? " active" : ""}`}
+          onClick={() => setView(t.id)}
+          aria-label={t.label}
+        >
+          {t.badge > 0 && <span className="bnav-badge">{t.badge}</span>}
+          <Icon name={t.icon} size={23} color={view === t.id ? "var(--brand)" : "var(--ink-4)"} />
+          <span>{t.label}</span>
+        </button>
+      ))}
+    </nav>
   );
 }
 
