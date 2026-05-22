@@ -391,7 +391,9 @@ const TARGETS = {
 
 // ── Traffic-light status helper ───────────────────────────────
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
-  if (value === 0 || !isFinite(value)) return "empty";
+  if (value === 0) return "empty";
+  // Positive Infinity = nutrient present with no opposing nutrient (e.g. Ca with zero P)
+  if (!isFinite(value)) return value > 0 ? "crit" : "empty";
   if (hardHi != null && value > hardHi) return "crit";
   if (hardLo != null && value < hardLo) return "crit";
   if (value < lo || value > hi) return "warn";

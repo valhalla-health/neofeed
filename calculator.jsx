@@ -5,8 +5,11 @@ const { useState, useMemo } = React;
 const D = window.NEOFEED_DATA;
 
 // Format: max 1 decimal, strip trailing .0 (e.g. 1.0 -> "1", 1.25 -> "1.3")
+// Positive Infinity = nutrient-without-counterpart (e.g. Ca with no P) → show "!!"
 const fmt = (n, d = 1) => {
-  if (!isFinite(n) || n === null) return "—";
+  if (n === null) return "—";
+  if (n === Infinity) return "!!";
+  if (!isFinite(n)) return "—";
   const p = Math.pow(10, d);
   const r = Math.round(n * p) / p;
   return Number.isInteger(r) ? String(r) : String(r);
@@ -69,7 +72,7 @@ function Meter({ value, target, status, max, optimal }) {
 }
 
 function Tile({ label, value, unit, decimals = 1, target, status, max, optimal }) {
-  const display = isFinite(value) ? fmt(value, decimals) : "—";
+  const display = fmt(value, decimals); // fmt handles Infinity → "!!", null → "—"
   return (
     <div className={`metric s-${status}`}>
       <div className="stripe" />
@@ -238,9 +241,8 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
     const naKg = naCl + naAcet + na_glycophos;
     const kKg = kCl + k2hpo4;
     const pKg = pTotal_mg / wtKg;
-    const caP = pTotal_mg > 0 ? caPerKg * wtKg / pTotal_mg : 0;
 
-    // EN
+    // EN — computed before caP so EN minerals can be included in the ratio
     const en = D.EN_DB[enType];
     const enVolTotal = enVol * enFreq;
     const enVolPerKg = enVolTotal / wtKg;
@@ -285,6 +287,14 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
     const kFromEN = en.k * enVolTotal / 100 / wtKg;
     const caFromEN = en.ca * enVolTotal / 100 / wtKg;
     const pFromEN = en.p * enVolTotal / 100 / wtKg;
+
+    // Ca:P mass ratio — uses combined TPN + EN mineral delivery for accuracy
+    // When Ca is ordered but total P = 0, Infinity triggers "crit" in rangeStatus
+    const totalCaMg_combined = (caPerKg + caFromEN) * wtKg;
+    const totalPMg_combined  = pTotal_mg + pFromEN * wtKg;
+    const caP = totalPMg_combined > 0
+      ? totalCaMg_combined / totalPMg_combined
+      : (totalCaMg_combined > 0 ? Infinity : 0);
 
     // D50W volume — how much 50% dextrose to add to reach target concentration
     // D50W (0.5 g/mL): mL needed = total glucose g ÷ 0.5
@@ -337,7 +347,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
   totalTPN_mL, dexPct, aaPerKg, lipidPerKg,
   naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
   enType, enVol, enFreq, isMEN, route,
-  inclSoluvit, inclPeditrace, inclAddamel]);
+  inclSoluvit, inclPeditrace]);
 
   // ── Step completion status (for dots + collapsed summaries) ──────
   const stepStatus = {
@@ -947,7 +957,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                 `  Total K:      ${calc.kKg.toFixed(1)} mEq/kg/d`,
                 caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${(caPerKg*calc.wtKg).toFixed(0)} mg/d → ${calc.solVol.ca} mL` : "",
                 mgPerKg>0 ? `  MgSO4 50%:   ${mgPerKg} mEq/kg → ${(mgPerKg*calc.wtKg).toFixed(1)} mEq/d → ${calc.solVol.mg} mL` : "",
-                calc.caP > 0 ? `  Ca:P ratio:   ${calc.caP.toFixed(2)}:1 (mass)` : "",
+                calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? calc.caP.toFixed(2) : "!! (Ca ordered, P = 0)"}:1 (mass)` : "",
                 `──────────────────────────────`,
                 inclSoluvit   ? `Soluvit N:      ${calc.soluvitVol} mL/day → aqueous bag` : "",
                 inclPeditrace ? `Peditrace:      ${calc.peditrace_vol} mL/day → aqueous bag` : "",

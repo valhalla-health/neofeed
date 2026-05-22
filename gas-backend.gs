@@ -18,6 +18,7 @@
 // ============================================================
 
 var SPREADSHEET_ID = "1cZSA2qAUWAvFmpzrcjxS8kw6r-MpCMOSVAJev1uNDtI";
+var CLIENT_ID      = "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com";
 
 // ── Staff sheet accessor — auto-creates with deployer as first admin ──────────
 function getSheetStaff() {
@@ -31,23 +32,20 @@ function getSheetStaff() {
   return sh;
 }
 
-// ── JWT payload decoder ───────────────────────────────────────────────────────
-// Decodes JWT payload WITHOUT external API call — avoids UrlFetchApp quota/block issues.
-// Security: signature not verified server-side; trust is placed in Google Sign-In
-// issuing the token + Staff sheet whitelist preventing unauthorized access.
+// ── JWT verifier — calls Google tokeninfo to verify signature ─────────────────
+// Replaces local base64 decode (which did NOT verify the signature).
+// tokeninfo endpoint validates: signature, expiry, issuer, and audience.
 function decodeJwtEmail(token) {
   try {
-    var parts = token.split(".");
-    if (parts.length !== 3) return null;
-    // base64url → base64
-    var b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    while (b64.length % 4) b64 += "=";
-    var payload = JSON.parse(
-      Utilities.newBlob(Utilities.base64Decode(b64)).getDataAsString()
+    var res = UrlFetchApp.fetch(
+      "https://oauth2.googleapis.com/tokeninfo?id_token=" + token,
+      { muteHttpExceptions: true }
     );
-    // Basic sanity checks
-    if (!payload.email || !payload.email_verified) return null;
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null; // expired
+    if (res.getResponseCode() !== 200) return null;
+    var payload = JSON.parse(res.getContentText());
+    // Verify token was issued for this app (prevents token reuse from other apps)
+    if (payload.aud !== CLIENT_ID) return null;
+    if (!payload.email || payload.email_verified !== "true") return null;
     return payload.email;
   } catch (e) { return null; }
 }
@@ -143,15 +141,23 @@ function doPost(e) {
     var user = verifyToken(body.token);
     if (!user) return jsonOut({ error: "Unauthorized" });
 
+    // Sync — any authenticated user can read patient list
+    if (action === "getActivePatients") return jsonOut(getActivePatients());
+
+    // Write actions — doctor or admin only
+    var canWrite = user.role === "doctor" || user.role === "admin";
     if (action === "logDailyNutrition") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
       logDailyNutrition(body.sessionId, body.entry, user.email);
       return jsonOut({ ok: true });
     }
     if (action === "registerPatient") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
       registerPatient(body.patient);
       return jsonOut({ ok: true });
     }
     if (action === "updateWeights") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
       updateWeights(body.sessionId, body.weights);
       return jsonOut({ ok: true });
     }

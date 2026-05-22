@@ -26,10 +26,10 @@ function App() {
   const role     = user?.role || null;
   const authName = user?.name || "";
 
-  // Patient registry — starts with mock data; swapped for live GAS on mount if GAS_URL set
-  const [patients, setPatients] = React.useState(D_A.MOCK_PATIENTS);
-  const [log, setLog] = React.useState(D_A.MOCK_DAILY_LOG);
-  const [activeId, setActiveId] = React.useState(D_A.MOCK_PATIENTS[0].sessionId);
+  // Patient registry — empty until GAS sync completes (prevents mock patient identity confusion)
+  const [patients, setPatients] = React.useState(GAS_ON ? [] : D_A.MOCK_PATIENTS);
+  const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
+  const [activeId, setActiveId] = React.useState(GAS_ON ? null : D_A.MOCK_PATIENTS[0].sessionId);
   const [view, setView] = React.useState("calculator");
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
@@ -71,11 +71,16 @@ function App() {
   }, [active, log]);
 
   // ── GAS fetch (initial + manual sync) ────────────────────────
+  // Token is sent in POST body — never in URL (prevents token leakage in server logs)
   const syncFromGAS = React.useCallback(() => {
     if (!GAS_ON) return;
     setSyncState("loading");
     const tok = (() => { try { return JSON.parse(sessionStorage.getItem("neofeed_session"))?.token || ""; } catch { return ""; } })();
-    fetch(`${GAS_URL}?action=getActivePatients&token=${encodeURIComponent(tok)}`)
+    fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "getActivePatients", token: tok }),
+    })
       .then(r => r.json())
       .then(data => {
         // Auth expired → clear session + force re-login
@@ -188,6 +193,23 @@ function App() {
       sessionStorage.setItem("neofeed_session", JSON.stringify(u));
       setUser(u);
     }} />;
+  }
+
+  // Block the main UI until the first GAS sync completes — prevents mock patients
+  // from being visible or interactable before real patient data arrives.
+  if (GAS_ON && syncState === "loading") {
+    return (
+      <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column",
+        alignItems:"center", justifyContent:"center", gap:16,
+        background:"var(--bg)", color:"var(--ink-2)", fontFamily:"'IBM Plex Sans',sans-serif" }}>
+        <div style={{ width:36, height:36, border:"3px solid var(--line)",
+          borderTopColor:"var(--brand)", borderRadius:"50%",
+          animation:"spin 0.8s linear infinite" }} />
+        <div style={{ fontSize:14, fontWeight:500 }}>Loading patient data…</div>
+        <div style={{ fontSize:12, color:"var(--ink-3)" }}>Syncing from GAS</div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
   }
 
   return (
@@ -695,6 +717,17 @@ function AdminDashboard({ patients, log }) {
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
   const active = patients.filter(p => p.status === "Active").length;
   const allEntries = patients.flatMap(p => (log[p.sessionId] || []).map(e => ({ ...e, sid: p.sessionId, bed: p.currentBed })));
+  // Compute alert count across all patients (same logic as per-patient alertCount memo)
+  const alertsTotal = patients.reduce((sum, p) => {
+    const entries = log[p.sessionId] || [];
+    const last = entries[entries.length - 1];
+    if (!last) return sum;
+    let n = 0;
+    if (last.gir  > D_A.TARGETS.gir()[1])                        n++;
+    if (last.pro  < D_A.TARGETS.protein(last.dol)[0] && last.dol > 2) n++;
+    if (last.kcal < D_A.TARGETS.kcal(last.dol)[0]    && last.dol > 4) n++;
+    return sum + n;
+  }, 0);
   return (
     <>
       <div className="page-head">
@@ -709,7 +742,7 @@ function AdminDashboard({ patients, log }) {
           ["Active sessions", active, "var(--brand)"],
           ["Total patients", patients.length, "var(--ink)"],
           ["Logged entries", totalLogs, "var(--ok)"],
-          ["Alerts (7d)", 12, "oklch(45% 0.13 65)"]
+          ["Active alerts", alertsTotal, "oklch(45% 0.13 65)"]
         ].map(([l, v, c]) =>
           <div key={l} className="card" style={{ padding: 14 }}>
             <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>{l}</div>
