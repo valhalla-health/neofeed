@@ -4,8 +4,10 @@
 const D_A = window.NEOFEED_DATA;
 
 // ── Config (set in NeoFeed.html window.NEOFEED_* — do NOT hardcode here) ──────
-const GAS_URL = window.NEOFEED_GAS_URL || "";
-const GAS_ON  = GAS_URL.length > 10;
+const GAS_URL  = window.NEOFEED_GAS_URL || "";
+// ?dev=1 → skip auth + GAS, load mock patients for local UI testing
+const DEV_MODE = new URLSearchParams(location.search).has("dev");
+const GAS_ON   = !DEV_MODE && GAS_URL.length > 10;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "comfortable",
@@ -18,6 +20,7 @@ function App() {
 
   // user = { name, role, email, token } — stored in sessionStorage (clears on tab close)
   const [user, setUser] = React.useState(() => {
+    if (DEV_MODE) return { name: "Dev Doctor", role: "doctor", email: "dev@local", token: "dev" };
     try {
       const s = sessionStorage.getItem("neofeed_session");
       return s ? JSON.parse(s) : null;
