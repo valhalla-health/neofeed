@@ -72,12 +72,20 @@
   button { font: inherit; color: inherit; }
   input, select, textarea { font: inherit; color: inherit; }
 
+  /* ── Touch: remove 300ms delay + suppress native tap highlight everywhere ── */
+  button, a, .btn, .clickable, .preset-chip, .seg button,
+  .card-h, .bnav-item, .rail-item, .switch-patient, .icon-btn {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   /* ============ APP SHELL ============ */
   .app {
     display: grid;
     grid-template-columns: var(--rail-w) 1fr;
     grid-template-rows: var(--header-h) 1fr;
     min-height: 100vh;
+    min-height: 100dvh; /* iOS Safari: excludes collapsing browser chrome */
   }
   .topbar {
     grid-column: 1 / -1;
@@ -189,7 +197,7 @@
   .rail-foot .conn .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 999px; }
 
   /* ============ WORKSPACE ============ */
-  .work { overflow: auto; }
+  .work { overflow: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
   .work-inner { padding: 18px 22px 60px; max-width: 1480px; }
 
   .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
@@ -900,6 +908,20 @@
       border: 1.5px solid var(--surface);
       pointer-events: none;
     }
+
+    /* ── iOS: prevent auto-zoom on input focus (requires font-size ≥ 16px) ── */
+    .inp, .sel { font-size: 16px !important; }
+
+    /* ── Touch targets: minimum 44px on all interactive elements ── */
+    .btn       { min-height: 44px; }
+    .btn.sm    { min-height: 44px; font-size: 13px; padding: 6px 12px; }
+    .seg button { min-height: 44px; }
+
+    /* ── Active/pressed feedback for tappable surfaces ── */
+    .card-h.clickable:active { background: var(--bg-2); }
+    .preset-chip:active      { opacity: .7; transform: scale(0.97); }
+    .rail-item:active        { background: var(--bg-2); }
+    .btn:active              { opacity: .85; }
   }
 
   /* ============ PRINT STYLES ============ */
