@@ -5,9 +5,7 @@ const D_A = window.NEOFEED_DATA;
 
 // ── Config (set in NeoFeed.html window.NEOFEED_* — do NOT hardcode here) ──────
 const GAS_URL  = window.NEOFEED_GAS_URL || "";
-// ?dev=1 → skip auth + GAS, load mock patients for local UI testing
-const DEV_MODE = new URLSearchParams(location.search).has("dev");
-const GAS_ON   = !DEV_MODE && GAS_URL.length > 10;
+const GAS_ON   = GAS_URL.length > 10;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "comfortable",
@@ -20,8 +18,8 @@ function App() {
 
   // user = { name, role, email, token } — stored in sessionStorage (clears on tab close)
   const [user, setUser] = React.useState(() => {
-    if (DEV_MODE) return { name: "Dev Doctor", role: "doctor", email: "dev@local", token: "dev" };
-    try {
+   const [user, setUser] = React.useState(() => {
+  try {
       const s = sessionStorage.getItem("neofeed_session");
       return s ? JSON.parse(s) : null;
     } catch { return null; }
@@ -47,7 +45,7 @@ function App() {
   const dol = (() => {
     if (!active?.admissionDate) return lastWt?.dol ?? 1;
     const admitDol   = active.weights?.[0]?.dol ?? 1;
-    const admit      = new Date(active.admissionDate);
+    const admit      = new Date(active.admissionDate + "T00:00:00"); // force local-time parse (avoids UTC-midnight → UTC+7 undercount before 07:00)
     const today      = new Date();
     const daysSince  = Math.floor((today - admit) / 86400000);
     return Math.max(admitDol, admitDol + daysSince);
@@ -58,7 +56,9 @@ function App() {
     let n = 0;
     const entries = log[active.sessionId] || [];
     const last = entries[entries.length - 1];
-    if (last) {
+    // Only flag nutrition alerts if last log is from today — stale entries must not drive the badge
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (last && last.ts === todayStr) {
       if (last.gir  > D_A.TARGETS.gir()[1])                        n++;
       if (last.pro  < D_A.TARGETS.protein(last.dol)[0] && last.dol > 2) n++;
       if (last.kcal < D_A.TARGETS.kcal(last.dol)[0]    && last.dol > 4) n++;
@@ -127,48 +127,78 @@ function App() {
     }
   }, [tweaks.accent]);
 
+  // ── Shared GAS write helper ───────────────────────────────────
+  // Awaits the GAS response and handles three failure modes:
+  //   1. Unauthorized  → clears session + forces re-login (token expired after ~1 hr)
+  //   2. GAS error     → shows error toast with server message
+  //   3. Network error → shows error toast
+  // Returns true on success so callers can fire the confirmatory toast themselves.
+  const gasPost = React.useCallback(async (payload) => {
+    if (!GAS_ON) return true;
+    try {
+      const res  = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ ...payload, token: user?.token }),
+      });
+      const data = await res.json();
+      if (data.error === "Unauthorized") {
+        sessionStorage.removeItem("neofeed_session");
+        setUser(null);
+        showToast("Session expired — please sign in again", "error");
+        return false;
+      }
+      if (data.error) {
+        showToast(`บันทึกไม่สำเร็จ: ${data.error}`, "error");
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn("GAS POST failed:", e);
+      showToast("บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่อ", "error");
+      return false;
+    }
+  }, [user?.token]);
+
   // ── Handlers ─────────────────────────────────────────────────
   const handleLogToGAS = (entry) => {
     const id = active.sessionId;
     const ts = new Date().toISOString().slice(0, 10);
-    // Update local state immediately
+    // Update local state immediately (optimistic — keeps UI snappy)
     setLog(prev => ({ ...prev, [id]: [...(prev[id] || []), { ...entry, ts }] }));
-    // POST to GAS (fire-and-forget; mode no-cors avoids preflight issues)
+    // Toast fires AFTER GAS confirms — not before — to avoid false assurance
     if (GAS_ON) {
-      fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "logDailyNutrition", token: user?.token, sessionId: id, entry: { ...entry, ts } }),
-      }).catch(e => console.warn("GAS log POST failed:", e));
+      gasPost({ action: "logDailyNutrition", sessionId: id, entry: { ...entry, ts } })
+        .then(ok => {
+          if (ok) showToast(`Logged DOL ${entry.dol} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
+        });
+    } else {
+      showToast(`Logged DOL ${entry.dol} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
     }
-    showToast(`Logged DOL ${entry.dol} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
   };
 
   const handleAddPatient = (p) => {
     setPatients(prev => [p, ...prev]);
     setActiveId(p.sessionId);
-    // POST to GAS
     if (GAS_ON) {
-      fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "registerPatient", token: user?.token, patient: p }),
-      }).catch(e => console.warn("GAS register POST failed:", e));
+      gasPost({ action: "registerPatient", patient: p })
+        .then(ok => {
+          showToast(`Session ${p.sessionId} registered${ok ? " → GAS" : " (local only — check connection)"}`);
+        });
+    } else {
+      showToast(`Session ${p.sessionId} registered (local)`);
     }
-    showToast(`Session ${p.sessionId} registered${GAS_ON ? " → GAS" : " (local)"}`);
   };
 
   // ── Edit patient (update bed, dx, status, admitDOL) ──────────
   const handleEditPatient = (p) => {
     setPatients(prev => prev.map(x => x.sessionId === p.sessionId ? p : x));
     if (GAS_ON) {
-      fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "registerPatient", token: user?.token, patient: p }),
-      }).catch(e => console.warn("GAS edit POST failed:", e));
+      gasPost({ action: "registerPatient", patient: p })
+        .then(ok => { if (ok) showToast(`${p.name || p.sessionId} อัปเดตแล้ว`); });
+    } else {
+      showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
     }
-    showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
   };
 
   // ── Weight update (from Fenton chart logger) ──────────────────
@@ -177,11 +207,8 @@ function App() {
       p.sessionId === sessionId ? { ...p, weights } : p
     ));
     if (GAS_ON) {
-      fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "updateWeights", token: user?.token, sessionId, weights }),
-      }).catch(() => {});
+      gasPost({ action: "updateWeights", sessionId, weights });
+      // weight saves are silent on success; errors surface via gasPost's error toast
     }
   };
 
@@ -1327,12 +1354,15 @@ function FormulasPanel() {
 // ============================================================
 // Toast
 // ============================================================
-function showToast(msg) {
+function showToast(msg, type = "ok") {
   const host = document.getElementById("toast-host");
   if (!host) return;
   const t = document.createElement("div");
-  t.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:oklch(20% 0.01 230);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 6px 24px oklch(20% 0 0 / .25);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;";
-  t.textContent = "✓ " + msg;
+  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(20% 0.01 230)";
+  const prefix = type === "error" ? "⚠ " : "✓ ";
+  const dur    = type === "error" ? 4200 : 2400;
+  t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 6px 24px oklch(20% 0 0 / .25);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {
     t.style.opacity = "1";
@@ -1341,8 +1371,8 @@ function showToast(msg) {
   setTimeout(() => {
     t.style.opacity = "0";
     t.style.transform = "translateX(-50%) translateY(4px)";
-  }, 2400);
-  setTimeout(() => { if (host.contains(t)) host.removeChild(t); }, 2650);
+  }, dur);
+  setTimeout(() => { if (host.contains(t)) host.removeChild(t); }, dur + 250);
 }
 
 // CMD+K to open picker
