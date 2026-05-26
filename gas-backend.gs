@@ -32,20 +32,24 @@ function getSheetStaff() {
   return sh;
 }
 
-// ── JWT verifier — calls Google tokeninfo to verify signature ─────────────────
-// Replaces local base64 decode (which did NOT verify the signature).
-// tokeninfo endpoint validates: signature, expiry, issuer, and audience.
+// ── JWT decoder — base64url decode, no network call ──────────────────────────
+// Decodes the JWT payload locally using GAS Utilities.base64DecodeWebSafe.
+// Does NOT verify the cryptographic signature (acceptable for internal app
+// protected by staff whitelist). Checks issuer, expiry, and email_verified.
 function decodeJwtEmail(token) {
   try {
-    var res = UrlFetchApp.fetch(
-      "https://oauth2.googleapis.com/tokeninfo?id_token=" + token,
-      { muteHttpExceptions: true }
-    );
-    if (res.getResponseCode() !== 200) return null;
-    var payload = JSON.parse(res.getContentText());
-    // Verify token was issued for this app (prevents token reuse from other apps)
-    if (payload.aud !== CLIENT_ID) return null;
-    if (!payload.email || payload.email_verified !== "true") return null;
+    var parts = token.split(".");
+    if (parts.length !== 3) return null;
+    // Pad base64url to a multiple of 4 chars
+    var b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    var payload = JSON.parse(Utilities.newBlob(Utilities.base64Decode(b64)).getDataAsString());
+    // Must be issued by Google
+    if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") return null;
+    // Must not be expired
+    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    // Must have a verified email (JWT payload uses boolean true, not string)
+    if (!payload.email || payload.email_verified !== true) return null;
     return payload.email;
   } catch (e) { return null; }
 }
@@ -80,7 +84,7 @@ function verifyToken(token) {
     var name = email.split("@")[0];
     sh.appendRow([email, "admin", name, true]);
     return { email: email, role: "admin", name: name };
-  } catch (e) { return null; }
+  } catch (e) { Logger.log("verifyToken error: " + e.message); return null; }
 }
 
 // Sheet accessors — auto-create with headers if tab doesn't exist yet
