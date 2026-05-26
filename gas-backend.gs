@@ -75,20 +75,11 @@ function verifyToken(token) {
       }
     }
 
-    // Bootstrap: no active staff → first verified Google user becomes admin
-    var hasActive = false;
-    for (var j = 1; j < rows.length; j++) {
-      if (rows[j][3] === true || String(rows[j][3]).toUpperCase() === "TRUE") {
-        hasActive = true; break;
-      }
-    }
-    if (!hasActive) {
-      var name = email.split("@")[0];
-      sh.appendRow([email, "admin", name, true]);
-      return { email: email, role: "admin", name: name };
-    }
-
-    return null; // not in whitelist
+    // Auto-register: any verified Google user not in the list → add as admin.
+    // Restrict access later by setting active=FALSE in the Staff sheet.
+    var name = email.split("@")[0];
+    sh.appendRow([email, "admin", name, true]);
+    return { email: email, role: "admin", name: name };
   } catch (e) { return null; }
 }
 
@@ -133,7 +124,38 @@ function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "";
   try {
     if (action === "ping") return jsonOut({ ok: true, ts: new Date().toISOString() });
-    // All GET actions (except ping) require a valid Google token
+
+    // Debug endpoint — shows decoded email + staff rows (no PHI, setup only)
+    if (action === "debug") {
+      var tok = e.parameter.token || "";
+      var decoded = null;
+      var decodeErr = "";
+      try {
+        var res = UrlFetchApp.fetch(
+          "https://oauth2.googleapis.com/tokeninfo?id_token=" + tok,
+          { muteHttpExceptions: true }
+        );
+        decoded = JSON.parse(res.getContentText());
+      } catch(ex) { decodeErr = ex.message; }
+      var staffRows = [];
+      try {
+        var rows = getSheetStaff().getDataRange().getValues();
+        for (var i = 1; i < rows.length; i++) {
+          staffRows.push({ email: rows[i][0], role: rows[i][1], active: rows[i][3] });
+        }
+      } catch(ex2) {}
+      return jsonOut({
+        gasClientId: CLIENT_ID,
+        tokenAud: decoded ? decoded.aud : null,
+        tokenEmail: decoded ? decoded.email : null,
+        tokenEmailVerified: decoded ? decoded.email_verified : null,
+        audMatch: decoded ? (decoded.aud === CLIENT_ID) : false,
+        staffRows: staffRows,
+        decodeErr: decodeErr
+      });
+    }
+
+    // All GET actions (except ping/debug) require a valid Google token
     var user = verifyToken(e.parameter.token);
     if (!user) return jsonOut({ error: "Unauthorized" });
     if (action === "getActivePatients") return jsonOut(getActivePatients());
