@@ -13,6 +13,8 @@
 
 <style>
   :root {
+    --toast-bottom: 24px;
+
     /* surfaces — cool warm-gray with subtle clinical tone */
     --bg:        oklch(98.5% 0.004 230);
     --bg-2:      oklch(96.5% 0.005 230);
@@ -922,7 +924,47 @@
     .preset-chip:active      { opacity: .7; transform: scale(0.97); }
     .rail-item:active        { background: var(--bg-2); }
     .btn:active              { opacity: .85; }
+
+    /* ── Overscroll: prevent Android/iOS rubber-band on body ── */
+    body { overscroll-behavior: none; }
+
+    /* ── Toast: move above bottom nav ── */
+    :root { --toast-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+
+    /* ── Bottom nav active pip ── */
+    .bnav-item.active::after {
+      content: '';
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 24px; height: 3px;
+      background: var(--brand);
+      border-radius: 0 0 3px 3px;
+    }
+
+    /* ── Responsive grids ── */
+    .admin-stat-tiles  { grid-template-columns: 1fr 1fr !important; }
+    .alert-summary-tiles { grid-template-columns: 1fr 1fr 1fr !important; }
+    .guidelines-grid   { grid-template-columns: 1fr !important; }
+
+    /* Feeding advancement: 5-col → vertical cards */
+    .feeding-steps-grid { grid-template-columns: 1fr !important; }
+    .feeding-steps-grid > div { border-right: none !important; border-bottom: 1px solid var(--line-2) !important; }
+    .feeding-steps-grid > div:last-child { border-bottom: none !important; }
   }
+
+  /* ============ RESPONSIVE GRID HELPERS (targeted by className) ============ */
+  /* Admin stat tiles: 4-col → 2-col on mobile */
+  .admin-stat-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  /* Guidelines 2-col grids */
+  .guidelines-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  /* Alert summary 3-col tiles */
+  .alert-summary-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+  /* Feeding advancement 5-col vertical stack */
+  .feeding-steps-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 14px;
+  }
+  .feeding-steps-grid > div { border-right: 1px solid var(--line-2); }
+  .feeding-steps-grid > div:last-child { border-right: none; }
 
   /* ============ PRINT STYLES ============ */
   @media print {
@@ -954,7 +996,7 @@
   <!-- Google Sign-In SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <!-- cache:26200526-scroll -->
+  <!-- cache:26200526-mobile-ux -->
   <!-- App config — edit these two lines, do NOT hardcode in app.jsx -->
   <script>
     window.NEOFEED_CLIENT_ID = "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com";
@@ -962,14 +1004,14 @@
   </script>
 
   <!-- App data and modules — ?v= busts browser cache on each deploy -->
-  <script src="data.js?v=auth-fix2"></script>
-  <script type="text/babel" src="tweaks-panel.jsx?v=auth-fix2"></script>
-  <script type="text/babel" src="icons.jsx?v=auth-fix2"></script>
-  <script type="text/babel" src="calculator.jsx?v=auth-fix2"></script>
-  <script type="text/babel" src="fenton.jsx?v=auth-fix2"></script>
-  <script type="text/babel" src="registry.jsx?v=auth-fix2"></script>
-  <script type="text/babel" src="log.jsx?v=auth-fix2"></script>
-  <script type="text/babel" src="app.jsx?v=auth-fix2"></script>
+  <script src="data.js?v=mobile-ux1"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=mobile-ux1"></script>
+  <script type="text/babel" src="icons.jsx?v=mobile-ux1"></script>
+  <script type="text/babel" src="calculator.jsx?v=mobile-ux1"></script>
+  <script type="text/babel" src="fenton.jsx?v=mobile-ux1"></script>
+  <script type="text/babel" src="registry.jsx?v=mobile-ux1"></script>
+  <script type="text/babel" src="log.jsx?v=mobile-ux1"></script>
+  <script type="text/babel" src="app.jsx?v=mobile-ux1"></script>
 </body>
 </html>
 

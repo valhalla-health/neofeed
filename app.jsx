@@ -599,7 +599,7 @@ function AlertCenter({ patient, log }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 14 }}>
+      <div className="alert-summary-tiles">
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>Active critical</div>
           <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--crit)" }}>{alerts.filter((a) => a.level === "crit").length}</div>
@@ -784,7 +784,7 @@ function AdminDashboard({ patients, log }) {
         </div>
         <div className="pill"><span className="dot" style={{ background: "var(--brand)" }} /> Synced just now</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 14 }}>
+      <div className="admin-stat-tiles">
         {[
           ["Active sessions", active, "var(--brand)"],
           ["Total patients", patients.length, "var(--ink)"],
@@ -958,7 +958,7 @@ function GuidelinesPanel() {
 
       {/* ═══════════ PN TAB ═══════════ */}
       {tab === "pn" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="guidelines-grid">
 
           {/* Amino Acids */}
           <div className="card">
@@ -1120,7 +1120,7 @@ function GuidelinesPanel() {
 
       {/* ═══════════ EN TAB ═══════════ */}
       {tab === "en" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="guidelines-grid">
 
           {/* Macronutrients */}
           <div className="card">
@@ -1170,8 +1170,7 @@ function GuidelinesPanel() {
               Feeding Advancement Protocol
             </div>
             <div className="card-b">
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 0,
-                border: "1px solid var(--line)", borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
+              <div className="feeding-steps-grid">
                 {[
                   ["1. Start ASAP", "12–24 mL/kg/day", "MEF (trophic)", "Day 1 — even ELBW", "GOR B"],
                   ["2. Advance", "+18–30 mL/kg/day", "per day", "WHO 2023: up to 30 safe", "Mod certainty"],
@@ -1180,8 +1179,7 @@ function GuidelinesPanel() {
                   ["5. Oral feed", "PMA ≥32 wks", "Non-nutritive", "Support breastfeeding", ""],
                 ].map(([step, vol, label, note, ref], i) => (
                   <div key={i} style={{ padding: "12px 10px", textAlign: "center",
-                    background: i % 2 === 0 ? "var(--surface)" : "var(--bg-2)",
-                    borderRight: i < 4 ? "1px solid var(--line-2)" : "none" }}>
+                    background: i % 2 === 0 ? "var(--surface)" : "var(--bg-2)" }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "var(--brand-2)", marginBottom: 4 }}>{step}</div>
                     <div className="num" style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{vol}</div>
                     <div style={{ fontSize: 11, color: "var(--ink-2)", marginTop: 2 }}>{label}</div>
@@ -1210,7 +1208,7 @@ function GuidelinesPanel() {
 
       {/* ═══════════ WHO 2023 TAB ═══════════ */}
       {tab === "who" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="guidelines-grid">
 
           <div className="card" style={{ gridColumn: "1 / -1" }}>
             <div className="card-h">
@@ -1378,7 +1376,8 @@ function showToast(msg, type = "ok") {
   const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(20% 0.01 230)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur    = type === "error" ? 4200 : 2400;
-  t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 6px 24px oklch(20% 0 0 / .25);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  const toastBottom = getComputedStyle(document.documentElement).getPropertyValue('--toast-bottom').trim() || '24px';
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 6px 24px oklch(20% 0 0 / .25);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {
