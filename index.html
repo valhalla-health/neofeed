@@ -926,8 +926,14 @@
     .btn:active              { opacity: .85; }
 
     /* ── Patient registry: show cards, hide table ── */
-    .patient-card-list { display: flex; flex-direction: column; gap: 10px; }
-    .patient-table     { display: none; }
+    .patient-card-list { display: flex !important; flex-direction: column; gap: 10px; }
+    .patient-table     { display: none !important; }
+    /* Stats: 2×2 on mobile */
+    .reg-stats { flex-wrap: wrap; }
+    .reg-stat  { flex: 0 0 calc(50% - 5px); }
+    /* Filter bar: stack on mobile */
+    .reg-filter { flex-wrap: wrap; }
+    .reg-filter .reg-search { max-width: 100%; }
 
     /* ── Overscroll: prevent Android/iOS rubber-band on body ── */
     body { overscroll-behavior: none; }
@@ -955,17 +961,54 @@
     .feeding-steps-grid > div:last-child { border-bottom: none !important; }
   }
 
-  /* ============ PATIENT REGISTRY — card/table visibility ============ */
-  /* Desktop: show table, hide cards */
-  .patient-card-list { display: none; }
+  /* ============ PATIENT REGISTRY ============ */
+  /* Desktop default: hide mobile cards, show table */
+  .patient-card-list { display: none !important; }
   .patient-table     { display: block; }
 
-  /* Mobile card styles */
+  /* Stats strip */
+  .reg-stats {
+    display: flex; gap: 10px; margin-bottom: 14px;
+  }
+  .reg-stat {
+    flex: 1; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 2px;
+    box-shadow: var(--shadow-card);
+  }
+  .reg-stat-val {
+    font-family: "IBM Plex Mono", monospace; font-size: 28px; font-weight: 500;
+    letter-spacing: -0.03em; line-height: 1.1; color: var(--ink);
+  }
+  .reg-stat-lbl {
+    font-size: 11px; color: var(--ink-3); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .reg-stat.s-ok   .reg-stat-val { color: var(--ok); }
+  .reg-stat.s-warn .reg-stat-val { color: var(--warn); }
+  .reg-stat.s-crit .reg-stat-val { color: var(--crit); }
+  .reg-stat.s-brand .reg-stat-val { color: var(--brand); }
+
+  /* Filter bar */
+  .reg-filter {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 14px;
+  }
+  .reg-filter .reg-search { position: relative; flex: 1; max-width: 360px; }
+  .reg-filter .reg-search .inp { padding-left: 34px; height: 38px; }
+  .reg-filter .reg-search .s-ico { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+
+  /* Desktop table enhancements */
+  .patient-table table.tbl td { vertical-align: middle; }
+  .patient-table table.tbl tr.p-active td { background: var(--brand-bg); }
+  .patient-table table.tbl tr:hover td { background: var(--bg-2); }
+  .patient-table table.tbl tr.p-active:hover td { background: oklch(94% 0.025 215); }
+
+  /* Mobile cards */
   .patient-mc {
     background: var(--surface);
     border: 1.5px solid var(--line);
     border-radius: var(--r);
-    padding: 12px 14px;
+    padding: 14px 14px 10px;
     display: flex; flex-direction: column; gap: 8px;
     box-shadow: var(--shadow-card);
     cursor: pointer;
@@ -980,12 +1023,13 @@
   .pmc-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .pmc-head { gap: 10px; }
   .pmc-name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+  .pmc-dol  { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 600; color: var(--brand-2); }
   .pmc-meta { font-size: 12px; color: var(--ink-3); }
-  .pmc-diagnosis { font-size: 12.5px; color: var(--ink-2); padding: 4px 0 0; }
+  .pmc-diagnosis { font-size: 12.5px; color: var(--ink-2); }
   .pmc-stats { font-size: 12.5px; color: var(--ink-2); gap: 16px; justify-content: flex-start; }
-  .pmc-lbl { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-right: 3px; }
-  .pmc-actions { display: flex; gap: 8px; padding-top: 4px; }
-  .pmc-actions .btn { flex: 1; justify-content: center; }
+  .pmc-lbl  { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-right: 3px; }
+  .pmc-actions { display: flex; gap: 8px; padding-top: 2px; border-top: 1px solid var(--line-2); margin-top: 2px; }
+  .pmc-actions .btn { flex: 1; justify-content: center; min-height: 38px; }
 
   /* ============ RESPONSIVE GRID HELPERS (targeted by className) ============ */
   /* Admin stat tiles: 4-col → 2-col on mobile */
@@ -1040,14 +1084,14 @@
   </script>
 
   <!-- App data and modules — ?v= busts browser cache on each deploy -->
-  <script src="data.js?v=mobile-ux2"></script>
-  <script type="text/babel" src="tweaks-panel.jsx?v=mobile-ux2"></script>
-  <script type="text/babel" src="icons.jsx?v=mobile-ux2"></script>
-  <script type="text/babel" src="calculator.jsx?v=mobile-ux2"></script>
-  <script type="text/babel" src="fenton.jsx?v=mobile-ux2"></script>
-  <script type="text/babel" src="registry.jsx?v=mobile-ux2"></script>
-  <script type="text/babel" src="log.jsx?v=mobile-ux2"></script>
-  <script type="text/babel" src="app.jsx?v=mobile-ux2"></script>
+  <script src="data.js?v=mobile-ux3"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=mobile-ux3"></script>
+  <script type="text/babel" src="icons.jsx?v=mobile-ux3"></script>
+  <script type="text/babel" src="calculator.jsx?v=mobile-ux3"></script>
+  <script type="text/babel" src="fenton.jsx?v=mobile-ux3"></script>
+  <script type="text/babel" src="registry.jsx?v=mobile-ux3"></script>
+  <script type="text/babel" src="log.jsx?v=mobile-ux3"></script>
+  <script type="text/babel" src="app.jsx?v=mobile-ux3"></script>
 </body>
 </html>
 
