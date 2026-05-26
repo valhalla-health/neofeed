@@ -176,6 +176,13 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
   const [inclAddamel,   setInclAddamel]   = useState(false);
   const [heparinUmL,    setHeparinUmL]    = useState(1);   // default 1 U/mL per KCMH practice
 
+  // Step 6 — Enteral Supplements
+  const [suppVitD,   setSuppVitD]   = useState(0);    // IU/kg/day
+  const [suppCa,     setSuppCa]     = useState(0);    // mg/kg/day elem Ca
+  const [suppPO4,    setSuppPO4]    = useState(0);    // mmol/kg/day
+  const [suppMTV,    setSuppMTV]    = useState(false); // MTV drops 1 mL/day
+  const [suppFerdek, setSuppFerdek] = useState(0);    // mg/kg/day elem Fe
+
   // ── Accordion — which step cards are expanded ──────────────────
   // Only Step 1 open by default; others collapsed until user opens them
   const [openSteps, setOpenSteps] = useState(new Set([1]));
@@ -224,6 +231,11 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
     setInclPeditrace(restored?.inclPeditrace ?? false);
     setInclAddamel(restored?.inclAddamel ?? false);
     setHeparinUmL(restored?.heparinUmL ?? 1);
+    setSuppVitD(restored?.suppVitD ?? 0);
+    setSuppCa(restored?.suppCa ?? 0);
+    setSuppPO4(restored?.suppPO4 ?? 0);
+    setSuppMTV(restored?.suppMTV ?? false);
+    setSuppFerdek(restored?.suppFerdek ?? 0);
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
@@ -240,6 +252,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
     enType, enVol, enFreq, isMEN,
     inclSoluvit, inclPeditrace, inclAddamel, heparinUmL,
+    suppVitD, suppCa, suppPO4, suppMTV, suppFerdek,
     dol, savedAt: new Date().toISOString(),
   });
   const toggleStep = (n) => setOpenSteps(prev => {
@@ -250,7 +263,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
 
   // ── Print handler — opens all steps, prints, then restores ─────
   React.useEffect(() => {
-    const ALL = new Set([1, 2, 3, 4, 5]);
+    const ALL = new Set([1, 2, 3, 4, 5, 6]);
     const handler = () => {
       setOpenSteps(ALL);
       // Wait one frame for React to render all card-b sections
@@ -494,7 +507,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
 
       {/* ── Accordion controls ─────────────────────────────────── */}
       <div style={{ display:"flex", justifyContent:"flex-end", gap:6, marginBottom:8 }}>
-        <button className="btn sm" onClick={() => setOpenSteps(new Set([1,2,3,4,5]))}>Open all</button>
+        <button className="btn sm" onClick={() => setOpenSteps(new Set([1,2,3,4,5,6]))}>Open all</button>
         <button className="btn sm" onClick={() => setOpenSteps(new Set())}>Close all</button>
       </div>
 
@@ -821,11 +834,6 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                   </optgroup>
                 </select>
               </div>
-              {D.EN_DB[enType] && D.EN_DB[enType].note &&
-                <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
-                  💡 {D.EN_DB[enType].note}
-                </div>
-              }
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
                 <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
                 <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
@@ -835,31 +843,42 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                   hint="Volume not counted in fluid total" />
                 </div>
               </div>
-              {/* HMF prompt — no upper cap, indicator until formula is fortified */}
-              {calc.enVolPerKg >= 40 && (patient.ga < 32 || patient.bw < 1500) && !D.EN_DB[enType]?.fortified && (
-                <div style={{ padding: "8px 10px", background: "oklch(96% 0.04 75)", border: "1px solid oklch(86% 0.10 70)",
-                  borderRadius: 6, fontSize: 11.5, color: "oklch(40% 0.13 65)", marginBottom: 8 }}>
-                  ⚡ <strong>HMF indicated</strong> — volume ≥40 mL/kg + GA&lt;32 wk หรือ BW&lt;1.5 kg<br/>
-                  <span style={{ fontSize: 10.5 }}>Start HMF · Switch to BM+HMF or FBM 24 formula (WHO 2023)</span>
-                </div>
+
+              {/* Available volume for EN after deducting all IV */}
+              {wtKg > 0 && (
+                (() => {
+                  const avail = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
+                  const availKg = wtKg > 0 ? avail / wtKg : 0;
+                  return (
+                    <div style={{ padding: "8px 12px", background: avail < 0 ? "var(--crit-bg)" : "var(--brand-bg)",
+                      border: `1px solid ${avail < 0 ? "var(--crit-line)" : "var(--brand-line)"}`,
+                      borderRadius: 6, marginTop: 8 }}>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>
+                        Volume available for EN (after IV)
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                        <span className="num" style={{ fontSize: 20, fontWeight: 600, color: avail < 0 ? "var(--crit)" : "var(--brand-2)" }}>
+                          {avail < 0 ? "0" : fmt(avail, 0)} mL/day
+                        </span>
+                        <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                          = {avail < 0 ? "0" : fmt(availKg, 0)} mL/kg/d
+                        </span>
+                        {avail < 0 && (
+                          <span style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600 }}>
+                            IV เกิน target {fmt(Math.abs(avail), 0)} mL
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
               )}
 
-              {/* Advancement — always show while < 200 mL/kg (attending may go up to 200) */}
-              {calc.enVolPerKg > 0 && calc.enVolPerKg < 200 && (
-                <div style={{ padding: "6px 10px", background: "var(--brand-bg)", borderRadius: 6, fontSize: 11, color: "var(--brand-2)", marginBottom: 8 }}>
-                  📈 Next: <strong>{Math.min(calc.enVolPerKg + 30, 200).toFixed(0)} mL/kg/d</strong>
-                  {calc.enVolPerKg < 12
-                    ? " — start MEF 12–24 mL/kg"
-                    : ` (+30 mL/kg/day · max ~200 mL/kg/d attending discretion)`}
-                </div>
-              )}
-
-              {/* Full feeds status — independent of further advancement */}
+              {/* Full feeds status */}
               {calc.enVolPerKg >= 100 && (
                 <div style={{ padding: "8px 10px", background: "var(--ok-bg)", border: "1px solid var(--ok-line)",
-                  borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginBottom: 8, fontWeight: 600 }}>
-                  ✅ <strong>Full EN ≥100 mL/kg/d</strong> — wean PN · ESPGHAN 2022 EN targets active
-                  {calc.enVolPerKg >= 200 && <span> · Maximum volume reached</span>}
+                  borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600 }}>
+                  ✅ Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
                 </div>
               )}
 
@@ -936,6 +955,82 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               </div>
             </div>
           </TwoCol>
+        </div></div>
+      </div>
+
+      {/* ===== Step 6 — Enteral Supplements ===== */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-h clickable" onClick={() => toggleStep(6)}>
+          <Icon name="info" size={14} color="var(--brand)" />
+          Step 6 · Enteral Supplements
+          {!openSteps.has(6) && (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) && (
+            <div className="step-summary">
+              {suppVitD   > 0  && <span className="step-summary-chip">Vit D {suppVitD} IU/kg</span>}
+              {suppCa     > 0  && <span className="step-summary-chip">Ca {suppCa} mg/kg</span>}
+              {suppPO4    > 0  && <span className="step-summary-chip">PO₄ {suppPO4} mmol/kg</span>}
+              {suppMTV         && <span className="step-summary-chip">MTV ✓</span>}
+              {suppFerdek > 0  && <span className="step-summary-chip">Fe {suppFerdek} mg/kg</span>}
+            </div>
+          )}
+          <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
+            <div className={`step-dot ${(suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? "done" : "empty"}`} />
+            <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(6) ? "▲" : "▼"}</span>
+          </div>
+        </div>
+        <div className={`accordion-body${openSteps.has(6) ? ' open' : ''}`}><div className="card-b">
+          <div className="guidelines-grid">
+            {/* Left column */}
+            <div>
+              <div className="sub-h">Vitamin D</div>
+              <NumField label="Vitamin D drops" unit="IU/kg/day" value={suppVitD} onChange={setSuppVitD} step={100}
+                hint={suppVitD > 0 && wtKg > 0
+                  ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: 400–700 IU/kg/day`
+                  : "ESPGHAN 2022: 400–700 IU/kg/day"} />
+              <PresetChips values={[400, 500, 600, 700]} current={suppVitD} onSelect={setSuppVitD} suffix=" IU/kg" />
+
+              <div className="sub-h" style={{ marginTop: 14 }}>Calcium (oral)</div>
+              <NumField label="Ca carbonate / Ca syrup" unit="mg/kg/day elem Ca" value={suppCa} onChange={setSuppCa} step={10}
+                hint={suppCa > 0 && wtKg > 0
+                  ? `= ${Math.round(suppCa * wtKg)} mg/day elem Ca`
+                  : "ESPGHAN 2022 total target: 120–200 mg/kg/day"} />
+              <PresetChips values={[50, 80, 100, 120]} current={suppCa} onSelect={setSuppCa} />
+
+              <div className="sub-h" style={{ marginTop: 14 }}>Phosphate (oral)</div>
+              <NumField label="Oral phosphate solution" unit="mmol/kg/day" value={suppPO4} onChange={setSuppPO4} step={0.5}
+                hint={suppPO4 > 0 && wtKg > 0
+                  ? `= ${(suppPO4 * wtKg).toFixed(1)} mmol/day · ${(suppPO4 * wtKg * 31).toFixed(0)} mg P`
+                  : "ESPGHAN 2022 total target: 2.2–3.7 mmol/kg/day"} />
+              <PresetChips values={[1, 1.5, 2, 2.5]} current={suppPO4} onSelect={setSuppPO4} />
+            </div>
+
+            {/* Right column */}
+            <div>
+              <div className="sub-h">Multivitamin drops</div>
+              <Chk label="MTV drops (Poly-Vi-Sol / ADEKs)" value={suppMTV} onChange={setSuppMTV}
+                hint="1 mL/day · water + fat soluble vitamins · ให้พร้อมอาหาร" />
+
+              <div className="sub-h" style={{ marginTop: 14 }}>Iron — Ferdek®</div>
+              <NumField label="Ferdek® / iron (oral)" unit="mg/kg/day elem Fe" value={suppFerdek} onChange={setSuppFerdek} step={0.5}
+                hint={suppFerdek > 0 && wtKg > 0
+                  ? `= ${(suppFerdek * wtKg).toFixed(1)} mg elem Fe/day · เริ่มอายุ 2–4 สัปดาห์`
+                  : "ESPGHAN 2022: 2–3 mg/kg/day (max 6) · เริ่มอายุ 2–4 สัปดาห์"} />
+              <PresetChips values={[2, 3, 4]} current={suppFerdek} onSelect={setSuppFerdek} />
+
+              {/* Summary box */}
+              {(suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) && (
+                <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--brand-bg)",
+                  border: "1px solid var(--brand-line)", borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600,
+                    textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Supplement summary / day</div>
+                  {suppVitD   > 0 && wtKg > 0 && <MiniReadout label="Vitamin D" value={Math.round(suppVitD * wtKg)} unit="IU/day" />}
+                  {suppCa     > 0 && wtKg > 0 && <MiniReadout label="Ca oral" value={Math.round(suppCa * wtKg)} unit="mg elem Ca/day" />}
+                  {suppPO4    > 0 && wtKg > 0 && <MiniReadout label="Phosphate oral" value={fmt(suppPO4 * wtKg, 1)} unit="mmol/day" />}
+                  {suppMTV         && <MiniReadout label="MTV drops" value="1" unit="mL/day" />}
+                  {suppFerdek > 0 && wtKg > 0 && <MiniReadout label="Ferdek (Fe)" value={fmt(suppFerdek * wtKg, 1)} unit="mg elem Fe/day" />}
+                </div>
+              )}
+            </div>
+          </div>
         </div></div>
       </div>
 
