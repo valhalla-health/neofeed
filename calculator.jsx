@@ -837,42 +837,13 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
                 <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
                 <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
-                hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
-                <div style={{ alignSelf: "end" }}>
+                  hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
+                <div className="field">
+                  <label style={{ visibility: "hidden" }}>MEN</label>
                   <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
-                  hint="Volume not counted in fluid total" />
+                    hint="Volume not counted in fluid total" />
                 </div>
               </div>
-
-              {/* Available volume for EN after deducting all IV */}
-              {wtKg > 0 && (
-                (() => {
-                  const avail = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
-                  const availKg = wtKg > 0 ? avail / wtKg : 0;
-                  return (
-                    <div style={{ padding: "8px 12px", background: avail < 0 ? "var(--crit-bg)" : "var(--brand-bg)",
-                      border: `1px solid ${avail < 0 ? "var(--crit-line)" : "var(--brand-line)"}`,
-                      borderRadius: 6, marginTop: 8 }}>
-                      <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>
-                        Volume available for EN (after IV)
-                      </div>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                        <span className="num" style={{ fontSize: 20, fontWeight: 600, color: avail < 0 ? "var(--crit)" : "var(--brand-2)" }}>
-                          {avail < 0 ? "0" : fmt(avail, 0)} mL/day
-                        </span>
-                        <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
-                          = {avail < 0 ? "0" : fmt(availKg, 0)} mL/kg/d
-                        </span>
-                        {avail < 0 && (
-                          <span style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600 }}>
-                            IV เกิน target {fmt(Math.abs(avail), 0)} mL
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()
-              )}
 
               {/* Full feeds status */}
               {calc.enVolPerKg >= 100 && (
@@ -896,6 +867,35 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[100, 200]} status={calc.enVolPerKg >= 100 ? "ok" : calc.enVolPerKg > 0 ? "warn" : "ok"} decimals={0} max={210} />
+              {(() => {
+                const avail   = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
+                const availKg = wtKg > 0 ? avail / wtKg : 0;
+                const over    = avail < 0;
+                return (
+                  <div style={{ padding: "10px 12px",
+                    background: over ? "var(--crit-bg)" : "var(--brand-bg)",
+                    border: `1px solid ${over ? "var(--crit-line)" : "var(--brand-line)"}`,
+                    borderRadius: 8, position: "relative", overflow: "hidden" }}>
+                    <div style={{ position:"absolute", left:0, top:0, bottom:0, width:3,
+                      background: over ? "var(--crit)" : "var(--brand)" }} />
+                    <div style={{ fontSize: 10, color: "var(--ink-3)", fontWeight: 600,
+                      textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
+                      Remaining fluid for EN
+                    </div>
+                    <div className="num" style={{ fontSize: 26, fontWeight: 500, lineHeight: 1.1,
+                      color: over ? "var(--crit)" : "var(--brand-2)" }}>
+                      {over ? "0" : fmt(avail, 0)}
+                      <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4, fontWeight: 400 }}>mL/day</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                      {over
+                        ? <span style={{ color:"var(--crit)", fontWeight:600 }}>IV เกิน target {fmt(Math.abs(avail), 0)} mL</span>
+                        : <span>= {fmt(availKg, 0)} mL/kg/d</span>
+                      }
+                    </div>
+                  </div>
+                );
+              })()}
               {calc.enVolPerKg > 100 &&
               <Tile label="Protein : Energy" value={calc.peRatio} unit=" g/100kcal" target={tPE} status={sPE} decimals={1} max={5} />
               }
