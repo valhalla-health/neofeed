@@ -177,8 +177,71 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
   const [heparinUmL,    setHeparinUmL]    = useState(1);   // default 1 U/mL per KCMH practice
 
   // ── Accordion — which step cards are expanded ──────────────────
-  // Steps 1 & 2 open by default; rest collapsed (reduces cognitive load)
-  const [openSteps, setOpenSteps] = useState(new Set([1, 2]));
+  // Only Step 1 open by default; others collapsed until user opens them
+  const [openSteps, setOpenSteps] = useState(new Set([1]));
+
+  // ── Restored-from-previous indicator (shown briefly on prefill) ─
+  const [prefilledFrom, setPrefilledFrom] = useState(null); // {date, source}
+
+  // ── Prefill on patient change ──────────────────────────────────
+  // 1. Restore full calc state from localStorage if previously submitted
+  // 2. Otherwise: smart defaults — wt from latest weight, fluid from ESPGHAN midpoint
+  React.useEffect(() => {
+    if (!patient?.sessionId) return;
+    let restored = null;
+    try {
+      const raw = localStorage.getItem(`neofeed_calc_${patient.sessionId}`);
+      if (raw) restored = JSON.parse(raw);
+    } catch {}
+
+    const lastWt = patient.weights?.slice(-1)[0];
+    const wtDefault = restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
+    const fluidRange = D.TARGETS.fluid(dol, wtDefault || patient.bw || 1000);
+    const fluidDefault = Math.round((fluidRange[0] + fluidRange[1]) / 2);
+
+    setWtG(wtDefault);
+    setFluidTargetPerKg(restored?.fluidTargetPerKg ?? fluidDefault);
+    setOtherIV_mL(restored?.otherIV_mL ?? 0);
+    setDrug_mL(restored?.drug_mL ?? 0);
+    setRoute(restored?.route ?? "central");
+    setTotalTPN_mL(restored?.totalTPN_mL ?? 0);
+    setDexPct(restored?.dexPct ?? 0);
+    setAaPerKg(restored?.aaPerKg ?? 0);
+    setLipidPerKg(restored?.lipidPerKg ?? 0);
+    setNaCl(restored?.naCl ?? 0);
+    setNaAcet(restored?.naAcet ?? 0);
+    setGlycophosP(restored?.glycophosP ?? 0);
+    setKCl(restored?.kCl ?? 0);
+    setK2HPO4(restored?.k2hpo4 ?? 0);
+    setMgPerKg(restored?.mgPerKg ?? 0);
+    setCaPerKg(restored?.caPerKg ?? 0);
+    setExtraP_mg_kg(restored?.extraP_mg_kg ?? 0);
+    setEnType(restored?.enType ?? "BM_20");
+    setEnVol(restored?.enVol ?? 0);
+    setEnFreq(restored?.enFreq ?? 0);
+    setIsMEN(restored?.isMEN ?? false);
+    setInclSoluvit(restored?.inclSoluvit ?? false);
+    setInclPeditrace(restored?.inclPeditrace ?? false);
+    setInclAddamel(restored?.inclAddamel ?? false);
+    setHeparinUmL(restored?.heparinUmL ?? 1);
+
+    if (restored?.savedAt) {
+      setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
+    } else {
+      setPrefilledFrom(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient?.sessionId]);
+
+  // Helper to bundle current input state for persistence
+  const captureState = () => ({
+    wtG, fluidTargetPerKg, otherIV_mL, drug_mL,
+    route, totalTPN_mL, dexPct, aaPerKg, lipidPerKg,
+    naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
+    enType, enVol, enFreq, isMEN,
+    inclSoluvit, inclPeditrace, inclAddamel, heparinUmL,
+    dol, savedAt: new Date().toISOString(),
+  });
   const toggleStep = (n) => setOpenSteps(prev => {
     const next = new Set(prev);
     next.has(n) ? next.delete(n) : next.add(n);
@@ -193,7 +256,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
       // Wait one frame for React to render all card-b sections
       requestAnimationFrame(() => requestAnimationFrame(() => {
         window.print();
-        window.onafterprint = () => setOpenSteps(new Set([1, 2]));
+        window.onafterprint = () => setOpenSteps(new Set([1]));
       }));
     };
     document.addEventListener('__neofeed_print', handler);
@@ -417,6 +480,18 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
 
   return (
     <>
+      {/* Prefill notice — appears on patient switch if restored from previous submission */}
+      {prefilledFrom && (
+        <div style={{ padding:"8px 12px", background:"var(--brand-bg)", border:"1px solid var(--brand-line)",
+             borderRadius:8, marginBottom:10, fontSize:12, color:"var(--brand-2)",
+             display:"flex", alignItems:"center", gap:8 }}>
+          <Icon name="info" size={13} color="var(--brand-2)" />
+          <span>Prefilled from previous submission (DOL <strong>{prefilledFrom.dol}</strong>) — review and adjust before submitting today.</span>
+          <button className="btn sm" style={{ marginLeft:"auto", padding:"3px 10px" }}
+            onClick={() => setPrefilledFrom(null)}>Dismiss</button>
+        </div>
+      )}
+
       {/* ── Accordion controls ─────────────────────────────────── */}
       <div style={{ display:"flex", justifyContent:"flex-end", gap:6, marginBottom:8 }}>
         <button className="btn sm" onClick={() => setOpenSteps(new Set([1,2,3,4,5]))}>Open all</button>
@@ -713,9 +788,9 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
         <div className="card-h clickable" onClick={() => toggleStep(4)}>
           <Icon name="milk" size={14} color="var(--brand)" />
           Step 4 · Enteral feeding
-          {!openSteps.has(4) && (
+          {!openSteps.has(4) && calc.enVolPerKg > 0 && (
             <div className="step-summary">
-              <span className="step-summary-chip">{calc.enVolPerKg > 0 ? calc.enVolPerKg.toFixed(0)+" mL/kg/d" : "ยังไม่ได้ตั้ง"}</span>
+              <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
               {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
               {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>LF ✅</span>}
               {calc.enVolPerKg >= 100 && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>Full EN ✅</span>}
@@ -736,16 +811,12 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                     {["BM_20","BM_HMF_24"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
-                  <optgroup label="🥛 HiQ LF (Dumex) — Lactose-free">
-                    {["HIQLF_20","HIQLF_24","HIQLF_27"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  <optgroup label="🍼 Enfalac LF (MJN) — Lactose-free">
-                    {["ENFALAC_20","ENFALAC_24","ENFALAC_27"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  <optgroup label="⚡ High-energy / Preterm formula">
+                  <optgroup label="⚡ Preterm / High-energy formula">
                     {["BM_PF_20","FBM_PF_22","FBM_PF_24","FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
+                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
+                  </optgroup>
+                  <optgroup label="🥛 Lactose-free">
+                    {["LF_20","LF_24","LF_27"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
                 </select>
@@ -769,7 +840,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                 <div style={{ padding: "8px 10px", background: "oklch(96% 0.04 75)", border: "1px solid oklch(86% 0.10 70)",
                   borderRadius: 6, fontSize: 11.5, color: "oklch(40% 0.13 65)", marginBottom: 8 }}>
                   ⚡ <strong>HMF indicated</strong> — volume ≥40 mL/kg + GA&lt;32 wk หรือ BW&lt;1.5 kg<br/>
-                  <span style={{ fontSize: 10.5 }}>Start Fortipre® HMF · Switch to BM+HMF or FBM 24 formula (WHO 2023)</span>
+                  <span style={{ fontSize: 10.5 }}>Start HMF · Switch to BM+HMF or FBM 24 formula (WHO 2023)</span>
                 </div>
               )}
 
@@ -923,6 +994,8 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               <span className="num">{patient?.name || patient?.initials || "—"}</span> · DOL <span className="num">{dol}</span> · {wtG}g · {route === "central" ? "Central" : "Peripheral"}
             </div>
 
+            {/* Save bar — sticky on mobile */}
+            <div className="calc-save-bar">
             {/* Copy order text to clipboard */}
             <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
               // Completeness check — warn if any clinical step is empty
@@ -978,9 +1051,12 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
             </button>
 
             <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
+              // Persist full input state for next-day prefill
+              try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
               onLog && onLog({
                 dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
                 pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
+                ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
                 route: route === "central" ? "TPN central" : "TPN peripheral",
                 status: "draft"
               });
@@ -988,15 +1064,19 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               <Icon name="save" size={14} /> Save as draft → GAS
             </button>
             <button className="btn primary" style={{ width: "100%" }} onClick={() => {
+              // Persist full input state for next-day prefill
+              try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
               onLog && onLog({
                 dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
                 pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
+                ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
                 route: route === "central" ? "TPN central" : "TPN peripheral",
                 status: "submitted"
               });
             }}>
               <Icon name="check" size={14} color="#fff" /> Submit → GAS Log
             </button>
+            </div>{/* /calc-save-bar */}
           </div>
         </div>
       </div>

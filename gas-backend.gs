@@ -13,7 +13,7 @@
 //
 // Patient_Registry (A–O): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
 //   twinSuffix|status|currentBed|diagnosis|weights(JSON)|lengths(JSON)|hcs(JSON)
-// Daily_Log (A–L): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|route|status
+// Daily_Log (A–P): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|enVolPerKg|route|status|submittedBy
 // Staff (A–D): email | role | name | active
 // ============================================================
 
@@ -94,7 +94,7 @@ function getSheetLog() {
     sh = ss.insertSheet("Daily_Log");
     sh.appendRow([
       "ts","sessionId","dol","weight","fluid","gir",
-      "pro","kcal","na","k","route","status","submittedBy"
+      "pro","kcal","na","k","ca","p","enVolPerKg","route","status","submittedBy"
     ]);
   }
   return sh;
@@ -191,8 +191,11 @@ function getActivePatients() {
       kcal:   Number(row[7]  || 0),
       na:     Number(row[8]  || 0),
       k:      Number(row[9]  || 0),
-      route:  String(row[10] || ""),
-      status: String(row[11] || "submitted"),
+      ca:        Number(row[10] || 0),
+      p:         Number(row[11] || 0),
+      enVolPerKg:Number(row[12] || 0),
+      route:     String(row[13] || ""),
+      status:    String(row[14] || "submitted"),
     });
   }
 
@@ -227,19 +230,22 @@ function getActivePatients() {
 // ── logDailyNutrition ────────────────────────────────────────
 function logDailyNutrition(sessionId, entry, submittedBy) {
   getSheetLog().appendRow([
-    entry.ts   || new Date().toISOString().slice(0, 10),
+    entry.ts        || new Date().toISOString().slice(0, 10),
     sessionId,
-    entry.dol    || "",
-    entry.weight || "",
-    entry.fluid  || "",
-    entry.gir    || "",
-    entry.pro    || "",
-    entry.kcal   || "",
-    entry.na     || "",
-    entry.k      || "",
-    entry.route  || "",
-    entry.status || "submitted",
-    submittedBy  || "",  // col M — audit trail
+    entry.dol         || "",
+    entry.weight      || "",
+    entry.fluid       || "",
+    entry.gir         || "",
+    entry.pro         || "",
+    entry.kcal        || "",
+    entry.na          || "",
+    entry.k           || "",
+    entry.ca          || "",
+    entry.p           || "",
+    entry.enVolPerKg  || "",
+    entry.route       || "",
+    entry.status      || "submitted",
+    submittedBy       || "",  // col M — audit trail
   ]);
 }
 

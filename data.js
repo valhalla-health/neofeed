@@ -53,14 +53,38 @@ const EN_DB = {
   //   K: 1.39+0.5=1.89 mmol · Osm: 290+63=353 mOsm
   // Chula uses Enfamil HMF (Mead Johnson) — values from BOX 1.3.3
   BM_HMF_24: {
-    label: "BM + HMF (Enfamil HMF ≈ 24 kcal/oz)",
+    label: "FBM with HMF (24 kcal/oz)",
     kcal: 81, pro: 2.3, fat: 4.1, cho: 7.8,
     na: 1.40, k: 1.89, ca: 115, p: 59,
     osm: 353, lf: false,
     note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · Enfamil HMF reference (BOX 1.3.3)",
   },
 
-  // ── HiQ LF (Dumex/Danone) — Lactose-Free ──────────────────
+
+  // ── Lactose-free (generic — no brand) ─────────────────────
+  // Averaged from HiQ LF (Dumex) + Enfalac LF (MJN) — verify with actual brand label
+  // at KCMH. Pharmacy may stock either; nutrition values close enough for ordering.
+  LF_20: {
+    label: "LF (20 kcal/oz)",
+    kcal: 67, pro: 1.60, fat: 3.60, cho: 7.35,
+    na: 0.73, k: 1.07, ca: 55, p: 33,
+    osm: 220, lf: true,
+    note: "Generic lactose-free — verify with actual brand label (HiQ / Enfalac LF)",
+  },
+  LF_24: {
+    label: "LF (24 kcal/oz)",
+    kcal: 80, pro: 1.90, fat: 4.30, cho: 8.80,
+    na: 0.90, k: 1.30, ca: 66, p: 40,
+    osm: 237, lf: true,
+  },
+  LF_27: {
+    label: "LF (27 kcal/oz)",
+    kcal: 90, pro: 2.13, fat: 4.80, cho: 9.90,
+    na: 1.00, k: 1.47, ca: 73, p: 45,
+    osm: 257, lf: true,
+  },
+
+  // ── HiQ LF (Dumex) — Lactose-Free ──────────────────────────
   // Low osmolality — safe to concentrate. Protein from whey.
   // Ca:P mass ratio 1.91 — good bone mineralisation ratio
   HIQLF_20: {
@@ -651,6 +675,21 @@ const FENTON_HC = {
 // Session ID format: Initials + BW + TwinSuffix (PDPA compliant)
 // ============================================================
 const MOCK_PATIENTS = [
+  // Test fixture: 28+1, BW 900g, admitted DOL 1 nine days ago → today DOL 10
+  // NPO DOL 1-2 → trophic DOL 3 → step-feed advance → full EN by DOL 10
+  {
+    sessionId: "TT-BW900-A", initials: "ทท", name: "ทท", bw: 900, ga: 28.1, sex: "boys",
+    dob: "2026-05-15", admissionDate: "2026-05-15", twinSuffix: "",
+    status: "Active", currentBed: "NICU 2-1", diagnosis: "VLBW · RDS · step-feed",
+    weights: [
+      { dol: 1,  w: 900 }, { dol: 2,  w: 870 }, { dol: 3,  w: 850 },
+      { dol: 4,  w: 830 }, { dol: 5,  w: 815 }, { dol: 6,  w: 810 },
+      { dol: 7,  w: 820 }, { dol: 8,  w: 840 }, { dol: 9,  w: 870 },
+      { dol: 10, w: 900 },
+    ],
+    lengths: [{ dol: 1, v: 35.0 }, { dol: 7, v: 35.2 }],
+    hcs:     [{ dol: 1, v: 25.5 }, { dol: 7, v: 25.8 }],
+  },
   {
     sessionId: "PP-BW850-A", initials: "PP", name: "ปพ", bw: 850, ga: 26.4, sex: "boys",
     dob: "2026-05-04", admissionDate: "2026-05-04", twinSuffix: "A",
@@ -700,6 +739,19 @@ const MOCK_PATIENTS = [
 ];
 
 const MOCK_DAILY_LOG = {
+  "TT-BW900-A": [
+    // Fields pro/kcal/na/k/ca/p are PN+EN combined (per-kg). enVolPerKg drives target choice (≥100 → EN targets, else PN).
+    { dol: 1,  ts: "2026-05-15", weight: 900, fluid: 80,  gir: 5.6, pro: 1.5, kcal: 33,  na: 0,   k: 0,   ca: 40,  p: 22, enVolPerKg: 0,   route: "TPN central",      status: "submitted" },
+    { dol: 2,  ts: "2026-05-16", weight: 870, fluid: 100, gir: 7.0, pro: 2.5, kcal: 55,  na: 1.5, k: 0,   ca: 60,  p: 34, enVolPerKg: 0,   route: "TPN central",      status: "submitted" },
+    { dol: 3,  ts: "2026-05-17", weight: 850, fluid: 120, gir: 8.0, pro: 3.0, kcal: 75,  na: 2.0, k: 1.0, ca: 75,  p: 42, enVolPerKg: 10,  route: "TPN + trophic",    status: "submitted" },
+    { dol: 4,  ts: "2026-05-18", weight: 830, fluid: 135, gir: 9.0, pro: 3.5, kcal: 90,  na: 2.5, k: 1.5, ca: 85,  p: 48, enVolPerKg: 25,  route: "TPN + EBM 25 mL/kg", status: "submitted" },
+    { dol: 5,  ts: "2026-05-19", weight: 815, fluid: 150, gir: 10,  pro: 3.5, kcal: 100, na: 3.0, k: 2.0, ca: 95,  p: 52, enVolPerKg: 40,  route: "TPN + EBM 40 mL/kg", status: "submitted" },
+    { dol: 6,  ts: "2026-05-20", weight: 810, fluid: 160, gir: 10,  pro: 3.5, kcal: 105, na: 3.0, k: 2.5, ca: 105, p: 56, enVolPerKg: 55,  route: "TPN + EBM 55 mL/kg", status: "submitted" },
+    { dol: 7,  ts: "2026-05-21", weight: 820, fluid: 165, gir: 9,   pro: 3.5, kcal: 115, na: 3.0, k: 2.5, ca: 115, p: 60, enVolPerKg: 75,  route: "TPN + EBM 75 mL/kg", status: "submitted" },
+    { dol: 8,  ts: "2026-05-22", weight: 840, fluid: 160, gir: 7,   pro: 3.5, kcal: 120, na: 3.0, k: 2.5, ca: 125, p: 65, enVolPerKg: 95,  route: "TPN + EBM 95 mL/kg", status: "submitted" },
+    { dol: 9,  ts: "2026-05-23", weight: 870, fluid: 155, gir: 5,   pro: 3.0, kcal: 125, na: 3.0, k: 2.5, ca: 135, p: 72, enVolPerKg: 115, route: "TPN + EBM 115 mL/kg",status: "submitted" },
+    { dol: 10, ts: "2026-05-24", weight: 900, fluid: 150, gir: 0,   pro: 4.0, kcal: 130, na: 3.5, k: 3.0, ca: 145, p: 78, enVolPerKg: 135, route: "Full EN 135 mL/kg",  status: "submitted" },
+  ],
   "PP-BW850-A": [
     { dol: 1, ts: "2026-05-04", weight: 850, fluid: 80,  gir: 4.5, pro: 1.5, kcal: 35, na: 0,   k: 0,   route: "TPN central" },
     { dol: 2, ts: "2026-05-05", weight: 815, fluid: 100, gir: 6.0, pro: 2.5, kcal: 55, na: 0,   k: 0,   route: "TPN central" },
@@ -711,6 +763,67 @@ const MOCK_DAILY_LOG = {
     { dol: 8, ts: "2026-05-11", weight: 858, fluid: 160, gir: 9.8, pro: 3.6, kcal:122, na: 3.5, k: 2.5, route: "Mostly EN" },
   ],
 };
+
+
+
+// ============================================================
+// GA / PMA — stored as WW.D shorthand (e.g. 26.4 = 26 wk 4 d).
+// Days digit is literal (0-6), NOT decimal-week fraction.
+// Display: "26+4". Internal math goes through gaTotalDays().
+// ============================================================
+function gaTotalDays(ga) {
+  if (!isFinite(ga) || ga <= 0) return 0;
+  const weeks = Math.floor(ga);
+  // First decimal digit = days; carry if user typed 0.7-0.9
+  const raw = Math.round((ga - weeks) * 10);
+  return weeks * 7 + raw;
+}
+function daysToGA(totalDays) {
+  if (!isFinite(totalDays) || totalDays < 0) return 0;
+  const w = Math.floor(totalDays / 7);
+  const d = totalDays % 7;
+  return w + d / 10;
+}
+function fmtGA(ga) {
+  const td = gaTotalDays(ga);
+  if (td <= 0) return "—";
+  return Math.floor(td / 7) + "+" + (td % 7);
+}
+// PMA in WW.D shorthand: GA + (DOL-1) days
+function pmaShort(ga, dol) {
+  return daysToGA(gaTotalDays(ga) + Math.max(0, (dol || 1) - 1));
+}
+// True decimal weeks (for Fenton x-axis plotting) — NOT same as ga
+function gaToDecimalWeeks(ga) {
+  return gaTotalDays(ga) / 7;
+}
+// Parse user input: accepts "28+4" / "28.4" / "28" → ga value (clamps days 0-6)
+function parseGAInput(s) {
+  if (typeof s === "number") return s;
+  s = String(s || "").trim();
+  let w, d;
+  if (s.includes("+")) { const [a, b] = s.split("+"); w = parseInt(a, 10); d = parseInt(b, 10) || 0; }
+  else { const n = parseFloat(s); w = Math.floor(n); d = Math.round((n - w) * 10); }
+  if (!isFinite(w) || w <= 0) return 0;
+  d = Math.min(6, Math.max(0, d || 0));
+  return w + d / 10;
+}
+// ============================================================
+// Live DOL — single source of truth for "day of life as of today".
+// Falls back to last stored weight's DOL if no admissionDate.
+// Used by app.jsx PatientStrip, Calculator, Registry table, Fenton.
+// ============================================================
+function liveDol(patient) {
+  if (!patient) return 1;
+  const admitDol = patient.weights?.[0]?.dol ?? 1;
+  const lastDol  = patient.weights?.slice(-1)[0]?.dol ?? admitDol;
+  if (!patient.admissionDate) return lastDol;
+  const admit = new Date(patient.admissionDate + "T00:00:00");
+  if (isNaN(admit)) return lastDol;
+  const today = new Date();
+  const daysSince = Math.floor((today - admit) / 86400000);
+  return Math.max(admitDol, admitDol + daysSince);
+}
 
 // ============================================================
 // Export
@@ -730,4 +843,8 @@ window.NEOFEED_DATA = {
   MOCK_PATIENTS, MOCK_DAILY_LOG,
   // Utility functions
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
+  // Live DOL helper
+  liveDol,
+  // GA / PMA helpers (WW.D shorthand)
+  gaTotalDays, daysToGA, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput,
 };

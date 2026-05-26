@@ -14,7 +14,7 @@ function Segmented({ value, onChange, options }) {
   );
 }
 
-function FentonChart({ patient, onUpdate }) {
+function FentonChart({ patient, currentDol, onUpdate }) {
   const sex = patient?.sex || "boys";
   const [metric, setMetric] = React.useState("weight"); // weight | length | hc
   const [view, setView] = React.useState(null); // {x,y,w,h} viewBox override
@@ -106,7 +106,8 @@ function FentonChart({ patient, onUpdate }) {
   // Weight uses patient.weights[].w
   // Length/HC: data lives in patient.lengths[]/patient.hcs[] (separate arrays),
   //   OR inline as w.l/w.hc on weights entries (saved by MeasurementLogger) — merge both.
-  const pma0 = patient?.ga || 28;
+  // True decimal-week PMA at birth (for x-axis plotting); ga is WW.D shorthand
+  const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
   const points = (() => {
     if (metric === "weight") {
       return (patient?.weights || []).map(w => ({
@@ -295,7 +296,7 @@ function FentonChart({ patient, onUpdate }) {
                     </span>
                   </div>
                   <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>
-                    PMA <span className="num">{points[points.length-1].pma.toFixed(1)}</span> wk · DOL {points[points.length-1].dol}
+                    PMA <span className="num">{D_F.fmtGA(D_F.daysToGA(Math.round(points[points.length-1].pma * 7)))}</span> wk · DOL {points[points.length-1].dol}
                   </div>
                 </div>
               ) : <div style={{ fontSize: 12, color: "var(--ink-3)" }}>No measurements yet</div>}
@@ -306,7 +307,7 @@ function FentonChart({ patient, onUpdate }) {
               <GrowthVelocity points={points} metric={metric} />
             </div>
 
-            {onUpdate && <MeasurementLogger patient={patient} onUpdate={onUpdate} />}
+            {onUpdate && <MeasurementLogger patient={patient} currentDol={currentDol} onUpdate={onUpdate} />}
 
             <div className="legend" style={{ flexDirection: "column", gap: 6 }}>
               <div className="s"><span className="b" style={{ background: "oklch(46% 0.085 215)" }}></span>50th percentile</div>
@@ -362,10 +363,11 @@ function GrowthVelocity({ points, metric = "weight" }) {
   );
 }
 
-function MeasurementLogger({ patient, onUpdate }) {
+function MeasurementLogger({ patient, currentDol, onUpdate }) {
   const weights = patient.weights || [];
   const lastDol = weights.length ? weights[weights.length - 1].dol : 1;
-  const maxDol = lastDol; // cap at current child age
+  // Cap at today's auto-computed DOL (admissionDate + daysSinceAdmit) — not last stored entry
+  const maxDol = Math.max(lastDol, currentDol || lastDol);
   const [dol, setDol] = React.useState(maxDol);
   const [w, setW] = React.useState("");
   const [l, setL] = React.useState("");

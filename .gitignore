@@ -1,3 +1,5 @@
 uploads/
+.thumbnail/
+dogfood/
 *.DS_Store
 Thumbs.db

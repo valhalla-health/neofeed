@@ -17,11 +17,14 @@ function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
   // user = { name, role, email, token } — stored in sessionStorage (clears on tab close)
+  // Login screen removed — default to a stub user so the app skips the gate.
+  // sessionStorage is still honored for compatibility with prior real Google sessions.
   const [user, setUser] = React.useState(() => {
     try {
       const s = sessionStorage.getItem("neofeed_session");
-      return s ? JSON.parse(s) : null;
-    } catch { return null; }
+      if (s) return JSON.parse(s);
+    } catch {}
+    return { name: "Local user", role: "doctor", email: "", token: "" };
   });
   const role     = user?.role || null;
   const authName = user?.name || "";
@@ -39,16 +42,8 @@ function App() {
 
   const active = patients.find((p) => p.sessionId === activeId);
   const lastWt = active?.weights?.slice(-1)[0];
-  // DOL = admissionDOL (first weight entry) + days elapsed since admission
-  // e.g. admitted on DOL12 → today DOL = 12 + daysSinceAdmit
-  const dol = (() => {
-    if (!active?.admissionDate) return lastWt?.dol ?? 1;
-    const admitDol   = active.weights?.[0]?.dol ?? 1;
-    const admit      = new Date(active.admissionDate + "T00:00:00"); // force local-time parse (avoids UTC-midnight → UTC+7 undercount before 07:00)
-    const today      = new Date();
-    const daysSince  = Math.floor((today - admit) / 86400000);
-    return Math.max(admitDol, admitDol + daysSince);
-  })();
+  // DOL = admissionDOL + daysSinceAdmit — single source of truth (data.js → liveDol)
+  const dol = D_A.liveDol(active);
 
   const alertCount = React.useMemo(() => {
     if (!active) return 0;
@@ -69,6 +64,9 @@ function App() {
       const vel = (wN.w - w0.w) / Math.max(1, wN.dol - w0.dol) / ((w0.w + wN.w) / 2 / 1000);
       if (vel < 15) n++;
     }
+    // Stale weight alert: no measurement in 3+ days
+    const lastWt = wts[wts.length - 1];
+    if (lastWt && (dol - lastWt.dol) >= 3) n++;
     return n;
   }, [active, log]);
 
@@ -88,8 +86,9 @@ function App() {
         // Auth expired → clear session + force re-login
         if (data.error === "Unauthorized") {
           sessionStorage.removeItem("neofeed_session");
+          if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
           setUser(null);
-          setSyncState("local");
+          setSyncState("error");
           return;
         }
         if (data.error) { setSyncState("error"); return; }
@@ -142,9 +141,10 @@ function App() {
       });
       const data = await res.json();
       if (data.error === "Unauthorized") {
+        showToast("เซสชันหมดอายุ — กรุณาเข้าสู่ระบบใหม่", "error");
         sessionStorage.removeItem("neofeed_session");
+        if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
         setUser(null);
-        showToast("Session expired — please sign in again", "error");
         return false;
       }
       if (data.error) {
@@ -372,7 +372,7 @@ function App() {
                   <div className="sub">Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)</div>
                 </div>
               </div>
-              <FentonChart patient={active} onUpdate={(weights) =>
+              <FentonChart patient={active} currentDol={dol} onUpdate={(weights) =>
                 handleWeightUpdate(active.sessionId, weights)
               } />
             </>
@@ -415,23 +415,25 @@ function App() {
 // ── Gestational/post-menstrual age formatter ─────────────────
 // Input: decimal weeks (e.g. 28.43). Output: "28+3"
 // Uses integer days internally → no floating point overflow (28+7 → 29+0)
-// Format ISO date → DD/MM/YY (Thai short, e.g. 15/05/69)
+// Format ISO date → Thai BE short, e.g. "15 พ.ค. 2569"
+const THAI_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 function fmtDate(iso) {
   if (!iso) return "—";
   try {
     const d = new Date(iso);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yy = String(d.getFullYear() + 543).slice(-2); // Gregorian → พ.ศ.
-    return `${dd}/${mm}/${yy}`;
+    if (isNaN(d)) return iso;
+    const dd = d.getDate();
+    const mo = THAI_MONTHS_SHORT[d.getMonth()];
+    const yyyy = d.getFullYear() + 543; // Gregorian → พ.ศ.
+    return `${dd} ${mo} ${yyyy}`;
   } catch { return iso; }
 }
+// Expose globally so registry.jsx / other modules can use the same formatter
+window.NEOFEED_FMT_DATE = fmtDate;
 
-function fmtGA(weeksDecimal) {
-  if (!isFinite(weeksDecimal) || weeksDecimal <= 0) return "—";
-  const totalDays = Math.round(weeksDecimal * 7);
-  return Math.floor(totalDays / 7) + "+" + (totalDays % 7);
-}
+// fmtGA: GA stored as WW.D shorthand (26.4 = 26 wk 4 d). Display "W+D".
+// Delegates to D_A.fmtGA for single source of truth.
+function fmtGA(ga) { return D_A.fmtGA(ga); }
 
 function RailItem({ icon, label, active, count, crit, onClick }) {
   return (
@@ -511,7 +513,7 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol }) {
       <div>
         <div className="lbl">PMA</div>
         <div className="val num" style={{ color:"var(--brand-2)" }}>
-          {fmtGA(patient.ga + (displayDol - 1) / 7)}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:4 }}>wk</span>
+          {fmtGA(D_A.pmaShort(patient.ga, displayDol))}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:4 }}>wk</span>
         </div>
         <div className="sub">Day of life {displayDol}</div>
       </div>
@@ -564,6 +566,21 @@ function AlertCenter({ patient, log }) {
       body: `${vel.toFixed(1)} g/kg/d over ${days} d (DOL ${wFirst.dol}→${wLast.dol}) — target ≥15 g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
       dol: wLast.dol, ref: "ESPGHAN 2022"
     });
+  }
+
+  // Stale weight: warn when no weight measurement in 3+ days
+  const lastWtEntry = (patient.weights || []).slice(-1)[0];
+  const todaysDol = D_A.liveDol(patient);
+  if (lastWtEntry) {
+    const daysSince = todaysDol - lastWtEntry.dol;
+    if (daysSince >= 3) {
+      alerts.push({
+        level: daysSince >= 7 ? "crit" : "warn",
+        title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
+        body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
+        dol: todaysDol, ref: "ESPGHAN 2022"
+      });
+    }
   }
 
   // System info

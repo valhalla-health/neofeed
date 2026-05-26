@@ -37,7 +37,54 @@ function PatientRegistry({ patients, activeId, onSelect, onAdd, onEdit }) {
         </div>
       </div>
 
-      <div className="card">
+      {/* ─── Mobile: card list (CSS-hidden ≥768px) ─── */}
+      <div className="patient-card-list">
+        {filtered.map(p => {
+          const last = p.weights[p.weights.length - 1];
+          const dol = D_R.liveDol(p);
+          const delta = last ? last.w - p.bw : 0;
+          const deltaPct = (delta / p.bw) * 100;
+          const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)";
+          const active = p.sessionId === activeId;
+          return (
+            <div key={p.sessionId}
+                 className={"patient-mc" + (active ? " active" : "")}
+                 onClick={() => onSelect(p.sessionId)}>
+              <div className="pmc-row pmc-head">
+                <span className="pmc-name">{p.name || p.initials || "—"}</span>
+                <span className={"chip " + (p.bw < 1000 ? "warn" : "ok")}><span className="d" />{p.status}</span>
+              </div>
+              <div className="pmc-row">
+                <span className="chip"><span className="d" />{p.currentBed}</span>
+                <span className="pmc-meta"><span className="num">{D_R.fmtGA(p.ga)}</span> wk · <span className="num">{p.bw}</span> g · DOL <strong className="num">{dol}</strong></span>
+              </div>
+              {p.diagnosis && (
+                <div className="pmc-diagnosis">{p.diagnosis}</div>
+              )}
+              <div className="pmc-row pmc-stats">
+                <span><span className="pmc-lbl">Wt</span> <span className="num">{last?.w?.toLocaleString() || "—"}</span> g</span>
+                <span style={{ color: deltaColor }}><span className="pmc-lbl">Δ</span> <span className="num">{delta >= 0 ? "+" : ""}{delta}</span> g ({deltaPct.toFixed(1)}%)</span>
+              </div>
+              <div className="pmc-actions">
+                <button className="btn sm" onClick={(e) => { e.stopPropagation(); setEditPatient(p); }}>
+                  ✏️ Edit
+                </button>
+                <button className="btn sm primary" onClick={(e) => { e.stopPropagation(); onSelect(p.sessionId); }}>
+                  Open <Icon name="arrow" size={11} color="#fff" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div style={{ padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+            ไม่พบผู้ป่วย
+          </div>
+        )}
+      </div>
+
+      {/* ─── Desktop: full-detail table (CSS-hidden ≤767px) ─── */}
+      <div className="card patient-table">
         <table className="tbl">
           <thead>
             <tr>
@@ -56,7 +103,7 @@ function PatientRegistry({ patients, activeId, onSelect, onAdd, onEdit }) {
           <tbody>
             {filtered.map(p => {
               const last = p.weights[p.weights.length - 1];
-              const dol = last?.dol ?? 1;
+              const dol = D_R.liveDol(p); // auto-computed from admissionDate
               const delta = last ? last.w - p.bw : 0;
               const deltaPct = (delta / p.bw) * 100;
               return (
@@ -65,14 +112,14 @@ function PatientRegistry({ patients, activeId, onSelect, onAdd, onEdit }) {
                     onClick={() => onSelect(p.sessionId)}>
                   <td><span style={{ fontWeight: 600, fontSize: 14 }}>{p.name || p.initials || "—"}</span></td>
                   <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
-                  <td><span className="num">{p.ga.toFixed(1)}</span> wk · <span className="num">{p.bw}</span> g</td>
+                  <td><span className="num">{D_R.fmtGA(p.ga)}</span> wk · <span className="num">{p.bw}</span> g</td>
                   <td className="num">{dol}</td>
                   <td className="num">{last?.w?.toLocaleString() || "—"} g</td>
                   <td className="num" style={{ color: deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)" }}>
                     {delta >= 0 ? "+" : ""}{delta} g ({deltaPct.toFixed(1)}%)
                   </td>
                   <td style={{ color: "var(--ink-2)" }}>{p.diagnosis}</td>
-                  <td style={{ color: "var(--ink-3)", fontSize: 11.5 }} className="mono">{p.admissionDate}</td>
+                  <td style={{ color: "var(--ink-3)", fontSize: 11.5 }}>{window.NEOFEED_FMT_DATE?.(p.admissionDate) || p.admissionDate}</td>
                   <td><span className={`chip ${p.bw < 1000 ? "warn" : "ok"}`}><span className="d" />{p.status}</span></td>
                   <td style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
                     <button className="btn sm" onClick={(e) => { e.stopPropagation(); setEditPatient(p); }}
@@ -141,7 +188,28 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div style={{ height: 10 }} />
           <div className="row-3">
             <div className="field"><label>Birth weight <span className="unit">(g)</span></label><input type="number" className="inp num" value={bw} onChange={e => setBw(parseInt(e.target.value) || 0)} /></div>
-            <div className="field"><label>GA <span className="unit">(wk.d)</span></label><input type="number" className="inp num" step={0.1} value={ga} onChange={e => setGa(parseFloat(e.target.value) || 0)} /></div>
+            <div className="field">
+              <label>GA <span className="unit">(weeks + days)</span></label>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr auto 80px", gap:6, alignItems:"center" }}>
+                <input type="number" className="inp num" min={20} max={44} step={1}
+                  value={Math.floor(ga) || ""}
+                  onChange={e => {
+                    const w = parseInt(e.target.value, 10) || 0;
+                    const d = Math.round((ga - Math.floor(ga)) * 10);
+                    setGa(w + (d || 0) / 10);
+                  }}
+                  placeholder="28" />
+                <span style={{ color:"var(--ink-3)", fontWeight:600 }}>+</span>
+                <select className="sel"
+                  value={Math.round((ga - Math.floor(ga)) * 10) || 0}
+                  onChange={e => {
+                    const d = parseInt(e.target.value, 10) || 0;
+                    setGa(Math.floor(ga) + d / 10);
+                  }}>
+                  {[0,1,2,3,4,5,6].map(d => <option key={d} value={d}>{d} d</option>)}
+                </select>
+              </div>
+            </div>
             <div className="field"><label>Sex</label>
               <select className="sel" value={sex} onChange={e => setSex(e.target.value)}>
                 <option value="boys">Male</option><option value="girls">Female</option>
@@ -221,7 +289,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
               <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name || p.initials || "—"}</span>
               <span style={{ color: "var(--ink-2)", fontSize: 12.5 }}>{p.diagnosis}</span>
               <span className="chip"><span className="d" />{p.currentBed}</span>
-              <span style={{ fontSize: 11.5, color: "var(--ink-3)" }} className="mono">GA {p.ga}</span>
+              <span style={{ fontSize: 11.5, color: "var(--ink-3)" }} className="mono">GA {D_R.fmtGA(p.ga)}</span>
               <span style={{ fontSize: 11.5, color: "var(--ink-3)" }} className="mono">BW {p.bw}g</span>
             </div>
           ))}
@@ -262,10 +330,10 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
 
           {/* Fixed info — read-only */}
           <div style={{ padding:"10px 12px", background:"var(--bg-2)", borderRadius:8, fontSize:12, color:"var(--ink-2)", display:"flex", gap:16 }}>
-            <span>GA: <strong>{patient.ga} wk</strong></span>
+            <span>GA: <strong>{D_R.fmtGA(patient.ga)} wk</strong></span>
             <span>BW: <strong>{patient.bw} g</strong></span>
             <span>Sex: <strong>{patient.sex === "boys" ? "Male" : "Female"}</strong></span>
-            <span>Admit: <strong>{patient.admissionDate}</strong></span>
+            <span>Admit: <strong>{window.NEOFEED_FMT_DATE?.(patient.admissionDate) || patient.admissionDate}</strong></span>
           </div>
 
           <div className="row-2">
