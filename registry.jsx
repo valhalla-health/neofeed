@@ -16,6 +16,9 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
     (p.currentBed || "").toLowerCase().includes(q) ||
     (p.diagnosis || "").toLowerCase().includes(q)
   );
+  const sorted = [...filtered].sort((a, b) =>
+    (a.currentBed || "zzz").localeCompare(b.currentBed || "zzz", undefined, { numeric: true, sensitivity: "base" })
+  );
 
   // Summary stats
   const totalActive  = patients.filter(p => p.status === "Active").length;
@@ -73,7 +76,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
 
       {/* ─── Mobile: card list ─── */}
       <div className="patient-card-list">
-        {filtered.map(p => {
+        {sorted.map(p => {
           const last    = p.weights[p.weights.length - 1];
           const dol     = D_R.liveDol(p);
           const delta   = last ? last.w - p.bw : 0;
@@ -140,7 +143,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
           );
         })}
 
-        {filtered.length === 0 && (
+        {sorted.length === 0 && (
           <div style={{ padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
             {filter ? "ไม่พบผู้ป่วยที่ตรงกัน" : "ยังไม่มีผู้ป่วยในระบบ"}
           </div>
@@ -149,24 +152,37 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
 
       {/* ─── Desktop: table ─── */}
       <div className="card patient-table">
-        <table className="tbl">
+        <table className="tbl" style={{ tableLayout: "fixed", width: "100%" }}>
+          <colgroup>
+            <col style={{ width: 88 }} />   {/* Bed */}
+            <col style={{ width: 72 }} />   {/* Name */}
+            <col style={{ width: 58 }} />   {/* GA */}
+            <col style={{ width: 72 }} />   {/* BW */}
+            <col />                          {/* Diagnosis — flex */}
+            <col style={{ width: 46 }} />   {/* DOL */}
+            <col style={{ width: 82 }} />   {/* Current wt */}
+            <col style={{ width: 110 }} />  {/* Δ */}
+            <col style={{ width: 110 }} />  {/* Last entry */}
+            <col style={{ width: 76 }} />   {/* Status */}
+            <col style={{ width: 104 }} />  {/* Actions */}
+          </colgroup>
           <thead>
             <tr>
-              <th>Name</th>
               <th>Bed</th>
+              <th>Name</th>
               <th>GA</th>
               <th>BW (g)</th>
+              <th>Diagnosis</th>
               <th>DOL</th>
               <th>Current wt</th>
               <th>Δ from birth</th>
-              <th>Diagnosis</th>
               <th>Last entry</th>
               <th>Status</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(p => {
+            {sorted.map(p => {
               const last     = p.weights[p.weights.length - 1];
               const dol      = D_R.liveDol(p);
               const delta    = last ? last.w - p.bw : 0;
@@ -181,20 +197,20 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                     className={isActive ? "p-active" : ""}
                     style={{ cursor: "pointer" }}
                     onClick={() => onSelect(p.sessionId)}>
+                  <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
                   <td>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</div>
-                    {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>Twin {p.twinSuffix}</div>}
+                    {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>· {p.twinSuffix}</div>}
                   </td>
-                  <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
                   <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>{D_R.fmtGA(p.ga)}</td>
                   <td className="num">{p.bw.toLocaleString()}</td>
+                  <td style={{ color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
                   <td className="num" style={{ fontWeight: 700, color: "var(--brand-2)", fontSize: 15 }}>{dol}</td>
                   <td className="num">{last?.w?.toLocaleString() || "—"} g</td>
                   <td className="num" style={{ color: deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)", fontWeight: 600 }}>
                     {delta >= 0 ? "+" : ""}{delta} g
                     <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({deltaPct.toFixed(1)}%)</span>
                   </td>
-                  <td style={{ color: "var(--ink-2)", maxWidth: 160 }}>{p.diagnosis}</td>
                   <td style={{ fontSize: 11.5 }}>
                     {lastEntry
                       ? <span style={{ color: hasToday ? "var(--ok)" : "var(--ink-3)" }}>
@@ -356,11 +372,15 @@ function NewPatientModal({ onClose, onSubmit }) {
 function PatientPicker({ patients, activeId, onSelect, onClose }) {
   const [q, setQ] = React.useState("");
   const ql = q.toLowerCase().trim();
-  const filtered = patients.filter(p =>
-    !ql ||
-    (p.name || "").toLowerCase().includes(ql) ||
-    (p.currentBed || "").toLowerCase().includes(ql)
-  );
+  const filtered = patients
+    .filter(p =>
+      !ql ||
+      (p.name || "").toLowerCase().includes(ql) ||
+      (p.currentBed || "").toLowerCase().includes(ql)
+    )
+    .sort((a, b) =>
+      (a.currentBed || "zzz").localeCompare(b.currentBed || "zzz", undefined, { numeric: true, sensitivity: "base" })
+    );
 
   React.useEffect(() => {
     const h = e => { if (e.key === "Escape") onClose(); };
