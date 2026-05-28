@@ -164,13 +164,13 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
   const [caPerKg, setCaPerKg] = useState(0);
   const [extraP_mg_kg, setExtraP_mg_kg] = useState(0);
 
-  // Step 4 — Enteral
+  // Step 5 — Enteral
   const [enType, setEnType] = useState("BM_20");
   const [enVol, setEnVol] = useState(0);
   const [enFreq, setEnFreq] = useState(0);
   const [isMEN, setIsMEN] = useState(false);
 
-  // Step 5 — Vitamins, Trace Elements, Heparin
+  // Step 4 — Vitamins, Trace Elements, Heparin
   const [inclSoluvit,   setInclSoluvit]   = useState(true);
   const [inclPeditrace, setInclPeditrace] = useState(true);
   const [inclAddamel,   setInclAddamel]   = useState(false);
@@ -437,8 +437,8 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
     2: totalTPN_mL > 0 && dexPct > 0 && aaPerKg > 0 ? "done"
        : (totalTPN_mL > 0 || dexPct > 0 || aaPerKg > 0) ? "partial" : "empty",
     3: (naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg) > 0 ? "done" : "empty",
-    4: calc.enVolPerKg >= 100 ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty",
-    5: "done", // vitamins/TE always defaulted
+    4: "done", // vitamins/TE always defaulted
+    5: calc.enVolPerKg >= 100 ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty",
   };
 
   // StepHead is inlined in each card below (not a component — avoids unmount/remount issue)
@@ -802,17 +802,16 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
         </div></div>
       </div>
 
-      {/* ===== Step 4 — Enteral ===== */}
+      {/* ===== Step 4 — Vitamins, Trace Elements, Heparin ===== */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h clickable" onClick={() => toggleStep(4)}>
-          <Icon name="milk" size={14} color="var(--brand)" />
-          Step 4 · Enteral feeding
-          {!openSteps.has(4) && calc.enVolPerKg > 0 && (
+          <Icon name="info" size={14} color="var(--brand)" />
+          Step 4 · Vitamins · Trace Elements · Heparin
+          {!openSteps.has(4) && (
             <div className="step-summary">
-              <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
-              {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
-              {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>LF ✅</span>}
-              {calc.enVolPerKg >= 100 && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>Full EN ✅</span>}
+              {inclSoluvit   && <span className="step-summary-chip">Soluvit {fmt(calc.soluvitVol,1)} mL</span>}
+              {inclPeditrace && <span className="step-summary-chip">Peditrace {fmt(calc.peditrace_vol,1)} mL</span>}
+              <span className="step-summary-chip">Heparin {heparinUmL} U/mL</span>
             </div>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
@@ -821,6 +820,61 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
           </div>
         </div>
         <div className={`accordion-body${openSteps.has(4) ? ' open' : ''}`}><div className="card-b">
+          <TwoCol>
+            <div>
+              <div className="sub-h">5. Multivitamin</div>
+              <Chk label="Soluvit N® (water-soluble vitamins)" value={inclSoluvit} onChange={setInclSoluvit}
+                hint={inclSoluvit ? `${fmt(calc.soluvitVol, 1)} mL/day  ·  1 mL/kg/day (max 10 mL/day) · add to aqueous PN` : "Not included"} />
+
+              <div className="sub-h" style={{ marginTop: 14 }}>6. Trace Elements</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <Chk label="Peditrace (Zn 250 µg/mL)" value={inclPeditrace} onChange={setInclPeditrace}
+                  hint={inclPeditrace ? `${fmt(calc.peditrace_vol, 1)} mL/day  ·  1–2 mL/kg/day (max 15 mL) · add to aqueous PN` : "Not included"} />
+              </div>
+
+              <div className="sub-h" style={{ marginTop: 14 }}>7. Heparin</div>
+              <NumField label="Heparin" unit="U/mL" value={heparinUmL} onChange={setHeparinUmL} step={0.5}
+                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * totalTPN_mL, 0)} U/day`} />
+            </div>
+
+            <div style={{ background: "var(--bg-2)", borderRadius: 8, padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="sub-h" style={{ marginTop: 0 }}>Additives Summary</div>
+              <MiniReadout label="Vitalipid N Infant (fat-sol.)" value={fmt(calc.vitalipidVol, 1)} unit="mL/day"
+                color="var(--brand-2)" />
+              <MiniReadout label="Soluvit N (water-sol.)" value={inclSoluvit ? fmt(calc.soluvitVol, 1) : "—"} unit={inclSoluvit ? "mL/day" : ""}
+                color={inclSoluvit ? "var(--brand-2)" : "var(--ink-3)"} />
+              <MiniReadout label="Peditrace" value={inclPeditrace ? fmt(calc.peditrace_vol, 1) : "—"} unit={inclPeditrace ? "mL/day" : ""}
+                color={inclPeditrace ? "var(--brand-2)" : "var(--ink-3)"} />
+              <MiniReadout label="Heparin" value={heparinUmL} unit="U/mL" />
+              <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "var(--surface)", fontSize: 11, color: "var(--ink-3)", borderTop: "1px solid var(--line-2)" }}>
+                💡 Vitalipid → <strong>lipid bag</strong><br/>
+                Soluvit + Peditrace → <strong>aqueous PN bag</strong><br/>
+                Heparin 0.5–1 U/mL → <strong>aqueous PN bag</strong>
+              </div>
+            </div>
+          </TwoCol>
+        </div></div>
+      </div>
+
+      {/* ===== Step 5 — Enteral ===== */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-h clickable" onClick={() => toggleStep(5)}>
+          <Icon name="milk" size={14} color="var(--brand)" />
+          Step 5 · Enteral feeding
+          {!openSteps.has(5) && calc.enVolPerKg > 0 && (
+            <div className="step-summary">
+              <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
+              {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
+              {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>LF ✅</span>}
+              {calc.enVolPerKg >= 100 && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>Full EN ✅</span>}
+            </div>
+          )}
+          <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
+            <div className={`step-dot ${stepStatus[5]}`} />
+            <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(5) ? "▲" : "▼"}</span>
+          </div>
+        </div>
+        <div className={`accordion-body${openSteps.has(5) ? ' open' : ''}`}><div className="card-b">
           <TwoCol>
             <div>
               <div className="field">
@@ -905,60 +959,6 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               {calc.enVolPerKg > 100 &&
               <Tile label="Protein : Energy" value={calc.peRatio} unit=" g/100kcal" target={tPE} status={sPE} decimals={1} max={5} />
               }
-            </div>
-          </TwoCol>
-        </div></div>
-      </div>
-
-      {/* ===== Step 5 — Vitamins, Trace Elements, Heparin ===== */}
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-h clickable" onClick={() => toggleStep(5)}>
-          <Icon name="info" size={14} color="var(--brand)" />
-          Step 5 · Vitamins · Trace Elements · Heparin
-          {!openSteps.has(5) && (
-            <div className="step-summary">
-              {inclSoluvit   && <span className="step-summary-chip">Soluvit {fmt(calc.soluvitVol,1)} mL</span>}
-              {inclPeditrace && <span className="step-summary-chip">Peditrace {fmt(calc.peditrace_vol,1)} mL</span>}
-              <span className="step-summary-chip">Heparin {heparinUmL} U/mL</span>
-            </div>
-          )}
-          <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
-            <div className={`step-dot ${stepStatus[5]}`} />
-            <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(5) ? "▲" : "▼"}</span>
-          </div>
-        </div>
-        <div className={`accordion-body${openSteps.has(5) ? ' open' : ''}`}><div className="card-b">
-          <TwoCol>
-            <div>
-              <div className="sub-h">5. Multivitamin</div>
-              <Chk label="Soluvit N® (water-soluble vitamins)" value={inclSoluvit} onChange={setInclSoluvit}
-                hint={inclSoluvit ? `${fmt(calc.soluvitVol, 1)} mL/day  ·  1 mL/kg/day (max 10 mL/day) · add to aqueous PN` : "Not included"} />
-
-              <div className="sub-h" style={{ marginTop: 14 }}>6. Trace Elements</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Chk label="Peditrace (Zn 250 µg/mL)" value={inclPeditrace} onChange={setInclPeditrace}
-                  hint={inclPeditrace ? `${fmt(calc.peditrace_vol, 1)} mL/day  ·  1–2 mL/kg/day (max 15 mL) · add to aqueous PN` : "Not included"} />
-              </div>
-
-              <div className="sub-h" style={{ marginTop: 14 }}>7. Heparin</div>
-              <NumField label="Heparin" unit="U/mL" value={heparinUmL} onChange={setHeparinUmL} step={0.5}
-                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * totalTPN_mL, 0)} U/day`} />
-            </div>
-
-            <div style={{ background: "var(--bg-2)", borderRadius: 8, padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
-              <div className="sub-h" style={{ marginTop: 0 }}>Additives Summary</div>
-              <MiniReadout label="Vitalipid N Infant (fat-sol.)" value={fmt(calc.vitalipidVol, 1)} unit="mL/day"
-                color="var(--brand-2)" />
-              <MiniReadout label="Soluvit N (water-sol.)" value={inclSoluvit ? fmt(calc.soluvitVol, 1) : "—"} unit={inclSoluvit ? "mL/day" : ""}
-                color={inclSoluvit ? "var(--brand-2)" : "var(--ink-3)"} />
-              <MiniReadout label="Peditrace" value={inclPeditrace ? fmt(calc.peditrace_vol, 1) : "—"} unit={inclPeditrace ? "mL/day" : ""}
-                color={inclPeditrace ? "var(--brand-2)" : "var(--ink-3)"} />
-              <MiniReadout label="Heparin" value={heparinUmL} unit="U/mL" />
-              <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "var(--surface)", fontSize: 11, color: "var(--ink-3)", borderTop: "1px solid var(--line-2)" }}>
-                💡 Vitalipid → <strong>lipid bag</strong><br/>
-                Soluvit + Peditrace → <strong>aqueous PN bag</strong><br/>
-                Heparin 0.5–1 U/mL → <strong>aqueous PN bag</strong>
-              </div>
             </div>
           </TwoCol>
         </div></div>
