@@ -251,7 +251,8 @@ const BED_OPTIONS = [
 function NewPatientModal({ onClose, onSubmit }) {
   const [name, setName] = React.useState("");
   const [bw, setBw]     = React.useState(0);
-  const [ga, setGa]     = React.useState(0);
+  const [gaW, setGaW]   = React.useState("");
+  const [gaD, setGaD]   = React.useState("");
   const [hc, setHc]     = React.useState(0);
   const [len, setLen]   = React.useState(0);
   const [twin, setTwin] = React.useState("");
@@ -259,6 +260,7 @@ function NewPatientModal({ onClose, onSubmit }) {
   const [bed, setBed]   = React.useState("NICU 1-1");
   const [dx, setDx]     = React.useState("");
 
+  const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 7 : 0;
   const sessionId = `${(name || "XX").slice(0, 2).toUpperCase()}-BW${bw}${twin ? "-" + twin : ""}`;
 
   return (
@@ -275,9 +277,9 @@ function NewPatientModal({ onClose, onSubmit }) {
               <input className="inp" maxLength={2} value={name} onChange={e => setName(e.target.value)} placeholder="เช่น  ปพ" />
             </div>
             <div className="field">
-              <label>Twin suffix (optional)</label>
+              <label>Multiples <span className="unit">(optional)</span></label>
               <select className="sel" value={twin} onChange={e => setTwin(e.target.value)}>
-                <option value="">—</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
+                <option value="">—</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
               </select>
             </div>
           </div>
@@ -285,26 +287,18 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div className="row-3">
             <div className="field">
               <label>Birth weight <span className="unit">(g)</span></label>
-              <input type="number" className="inp num" value={bw || ""} onChange={e => setBw(parseInt(e.target.value) || 0)} placeholder="0" />
+              <input type="number" className="inp" value={bw || ""} onChange={e => setBw(parseInt(e.target.value) || 0)} placeholder="0" />
             </div>
             <div className="field">
               <label>GA <span className="unit">(weeks + days)</span></label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto 80px", gap: 6, alignItems: "center" }}>
-                <input type="number" className="inp num" min={20} max={44}
-                  value={Math.floor(ga) || ""}
-                  onChange={e => {
-                    const w = parseInt(e.target.value, 10) || 0;
-                    const d = Math.round((ga - Math.floor(ga)) * 10);
-                    setGa(w + (d || 0) / 10);
-                  }}
-                  placeholder="28" />
-                <span style={{ color: "var(--ink-3)", fontWeight: 600 }}>+</span>
-                <select className="sel"
-                  value={Math.round((ga - Math.floor(ga)) * 10) || 0}
-                  onChange={e => {
-                    const d = parseInt(e.target.value, 10) || 0;
-                    setGa(Math.floor(ga) + d / 10);
-                  }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <select className="sel" value={gaW} onChange={e => setGaW(e.target.value)} style={{ flex: 1 }}>
+                  <option value="">wk</option>
+                  {Array.from({ length: 22 }, (_, i) => 22 + i).map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+                <span style={{ color: "var(--ink-3)", fontWeight: 500 }}>+</span>
+                <select className="sel" value={gaD} onChange={e => setGaD(e.target.value)} style={{ width: 68 }}>
+                  <option value="">d</option>
                   {[0,1,2,3,4,5,6].map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
@@ -320,11 +314,11 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div className="row-2">
             <div className="field">
               <label>Length at birth <span className="unit">(cm)</span></label>
-              <input type="number" className="inp num" step={0.1} value={len || ""} onChange={e => setLen(parseFloat(e.target.value) || 0)} placeholder="0" />
+              <input type="number" className="inp" step={0.1} value={len || ""} onChange={e => setLen(parseFloat(e.target.value) || 0)} placeholder="0" />
             </div>
             <div className="field">
               <label>HC at birth <span className="unit">(cm)</span></label>
-              <input type="number" className="inp num" step={0.1} value={hc || ""} onChange={e => setHc(parseFloat(e.target.value) || 0)} placeholder="0" />
+              <input type="number" className="inp" step={0.1} value={hc || ""} onChange={e => setHc(parseFloat(e.target.value) || 0)} placeholder="0" />
             </div>
           </div>
           <div style={{ height: 10 }} />
