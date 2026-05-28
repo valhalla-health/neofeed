@@ -1216,6 +1216,13 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                 `──────────────────────────────`,
                 calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${calc.enVolTotal} mL/day (${calc.enVolPerKg.toFixed(0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid]" : ""}` : "EN: None",
                 `──────────────────────────────`,
+                (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
+                suppMTV    ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",
+                suppVitD > 0 && wtKg > 0 ? `  Vit D: ${suppVitD} IU/kg/d = ${Math.round(suppVitD * wtKg)} IU/day` : "",
+                suppCa > 0 && wtKg > 0 ? `  Ca oral (${D.SUPP_DB[suppCaType]?.label}): ${suppCa} mg/kg/d = ${Math.round(suppCa * wtKg)} mg/day → ${fmt(suppCa * wtKg / (D.SUPP_DB[suppCaType]?.ca_mg_per_unit || 1), 2)} tab/day` : "",
+                suppPO4 > 0 && wtKg > 0 ? `  PO₄ oral (${D.SUPP_DB[suppPO4Type]?.label}): ${suppPO4} mmol/kg/d = ${fmt(suppPO4 * wtKg, 1)} mmol/day → ${fmt(suppPO4 * wtKg / (D.SUPP_DB[suppPO4Type]?.po4_mmol_per_ml || 1), 1)} mL/day` : "",
+                suppFerdek > 0 && wtKg > 0 ? `  Fe oral (${D.SUPP_DB[suppFeType]?.label}): ${suppFerdek} mg/kg/d = ${fmt(suppFerdek * wtKg, 1)} mg/day → ${fmt(suppFerdek * wtKg / (D.SUPP_DB[suppFeType]?.fe_mg_per_ml || 1), 2)} mL/day` : "",
+                `──────────────────────────────`,
                 `SUMMARY: Protein ${calc.proteinKg.toFixed(1)} g/kg | Energy ${calc.kcalKg.toFixed(0)} kcal/kg | GIR ${calc.gir.toFixed(1)} mg/kg/min`,
                 `Na ${calc.naTotalDelivered.toFixed(1)} mEq/kg | Ca ${calc.caKg.toFixed(0)} mg/kg | P ${calc.pKg.toFixed(0)} mg/kg`,
                 `══ NeoFeed V2 · ESPGHAN 2018/2022 ══`,
@@ -1267,6 +1274,9 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
         kCl={kCl} k2hpo4={k2hpo4} mgPerKg={mgPerKg} caPerKg={caPerKg}
         inclSoluvit={inclSoluvit} inclPeditrace={inclPeditrace}
         inclAddamel={inclAddamel} heparinUmL={heparinUmL} calc={calc}
+        suppVitD={suppVitD} suppCa={suppCa} suppCaType={suppCaType}
+        suppPO4={suppPO4} suppPO4Type={suppPO4Type}
+        suppMTV={suppMTV} suppFerdek={suppFerdek} suppFeType={suppFeType}
       />
     </>);
 
@@ -1363,7 +1373,8 @@ function KcalLegend({ color, label, pct, target }) {
 // ── Ramathibodi PN Order Form (print only) ──────────────────────
 function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
   aaPerKg, lipidPerKg, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg,
-  inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc }) {
+  inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc,
+  suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType }) {
 
   const f  = (n, d=1) => (isFinite(n) && n > 0) ? Number(n.toFixed(d)).toString() : "—";
   const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
@@ -1511,6 +1522,39 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
             <td style={{...tdr}} colSpan={2}><strong>{heparinUmL}</strong> unit/mL</td>
             <td style={td}>0.5-1 unit/mL</td>
           </tr>
+          {/* Enteral Supplements */}
+          {(suppMTV || suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppFerdek > 0) && (<>
+          <tr><td style={{...td, fontWeight:700, background:"#f0f0f0", fontSize:10.5}} colSpan={4}>ENTERAL SUPPLEMENTS (oral / เข้าทางอาหาร)</td></tr>
+          {suppMTV && <tr>
+            <td style={td}>{chk(true)} Munti-vim Drop</td>
+            <td style={{...tdr}} colSpan={2}><strong>1</strong> mL/day</td>
+            <td style={td}>D3 400 IU · Vit A 2000 IU · B-complex · Vit C 40 mg</td>
+          </tr>}
+          {suppVitD > 0 && <tr>
+            <td style={td}>{chk(true)} Vitamin D drops</td>
+            <td style={tdr}><strong>{suppVitD}</strong> IU/kg/d</td>
+            <td style={tdr}><strong>{Math.round(suppVitD * (wtKg||0))}</strong> IU/day</td>
+            <td style={td}>ESPGHAN 2022: 400–700 IU/kg/day</td>
+          </tr>}
+          {suppCa > 0 && <tr>
+            <td style={td}>{chk(true)} Ca oral<br/><em>{D.SUPP_DB[suppCaType]?.label}</em></td>
+            <td style={tdr}><strong>{suppCa}</strong> mg/kg/d</td>
+            <td style={tdr}><strong>{f0(suppCa*(wtKg||0))}</strong> mg → {f(suppCa*(wtKg||0)/(D.SUPP_DB[suppCaType]?.ca_mg_per_unit||1),2)} tab/day</td>
+            <td style={td}>ESPGHAN: 120–200 mg/kg/day</td>
+          </tr>}
+          {suppPO4 > 0 && <tr>
+            <td style={td}>{chk(true)} PO₄ oral<br/><em>{D.SUPP_DB[suppPO4Type]?.label}</em></td>
+            <td style={tdr}><strong>{suppPO4}</strong> mmol/kg/d</td>
+            <td style={tdr}><strong>{f(suppPO4*(wtKg||0),1)}</strong> mmol → {f(suppPO4*(wtKg||0)/(D.SUPP_DB[suppPO4Type]?.po4_mmol_per_ml||1),1)} mL/day</td>
+            <td style={td}>ESPGHAN: 2.2–3.7 mmol/kg/day</td>
+          </tr>}
+          {suppFerdek > 0 && <tr>
+            <td style={td}>{chk(true)} Fe oral<br/><em>{D.SUPP_DB[suppFeType]?.label}</em></td>
+            <td style={tdr}><strong>{suppFerdek}</strong> mg/kg/d</td>
+            <td style={tdr}><strong>{f(suppFerdek*(wtKg||0),1)}</strong> mg → {f(suppFerdek*(wtKg||0)/(D.SUPP_DB[suppFeType]?.fe_mg_per_ml||1),2)} mL/day</td>
+            <td style={td}>ESPGHAN 2022: 2–3 mg/kg/day</td>
+          </tr>}
+          </>)}
         </tbody>
       </table>
 
