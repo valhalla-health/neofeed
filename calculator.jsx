@@ -1238,12 +1238,22 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
             <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
               // Persist full input state for next-day prefill
               try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
+              const _suppPayload = {
+                suppMTV:       suppMTV ? 1 : 0,
+                suppVitD_IU:   suppVitD > 0 && wtKg > 0 ? Math.round(suppVitD * wtKg) : 0,
+                suppCa_mg:     suppCa   > 0 && wtKg > 0 ? Math.round(suppCa   * wtKg) : 0,
+                suppCaType:    suppCa   > 0 ? suppCaType   : "",
+                suppPO4_mmol:  suppPO4  > 0 && wtKg > 0 ? parseFloat((suppPO4  * wtKg).toFixed(1)) : 0,
+                suppPO4Type:   suppPO4  > 0 ? suppPO4Type  : "",
+                suppFe_mg:     suppFerdek > 0 && wtKg > 0 ? parseFloat((suppFerdek * wtKg).toFixed(1)) : 0,
+                suppFeType:    suppFerdek > 0 ? suppFeType  : "",
+              };
               onLog && onLog({
                 dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
                 pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
                 ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
                 route: route === "central" ? "TPN central" : "TPN peripheral",
-                status: "draft"
+                status: "draft", ..._suppPayload
               });
             }}>
               <Icon name="save" size={14} /> Save as draft → GAS
@@ -1256,7 +1266,7 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                 pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
                 ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
                 route: route === "central" ? "TPN central" : "TPN peripheral",
-                status: "submitted"
+                status: "submitted", ..._suppPayload
               });
             }}>
               <Icon name="check" size={14} color="#fff" /> Submit → GAS Log

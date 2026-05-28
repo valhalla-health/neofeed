@@ -108,7 +108,8 @@ function getSheetLog() {
     sh = ss.insertSheet("Daily_Log");
     sh.appendRow([
       "ts","sessionId","dol","weight","fluid","gir",
-      "pro","kcal","na","k","ca","p","enVolPerKg","route","status","submittedBy"
+      "pro","kcal","na","k","ca","p","enVolPerKg","route","status","submittedBy",
+      "suppMTV","suppVitD_IU","suppCa_mg","suppCaType","suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType"
     ]);
   }
   return sh;
@@ -290,7 +291,15 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     entry.enVolPerKg  || "",
     entry.route       || "",
     entry.status      || "submitted",
-    submittedBy       || "",  // col M — audit trail
+    submittedBy       || "",  // audit trail
+    entry.suppMTV        || 0,
+    entry.suppVitD_IU    || 0,
+    entry.suppCa_mg      || 0,
+    entry.suppCaType     || "",
+    entry.suppPO4_mmol   || 0,
+    entry.suppPO4Type    || "",
+    entry.suppFe_mg      || 0,
+    entry.suppFeType     || "",
   ]);
 }
 
