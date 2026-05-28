@@ -1,81 +1,94 @@
 // ============================================================
 // NeoFeed V2 — Google Apps Script backend
+// Email + password auth (SHA-256 + session token via CacheService)
 // ============================================================
 // Setup:
 //   1. Create a Google Sheet → fill SPREADSHEET_ID below
-//   2. Tabs auto-created on first use: Patient_Registry, Daily_Log, Staff
-//   3. Staff tab (A–D): email | role (doctor/admin) | name | active (TRUE/FALSE)
-//      → Add yourself manually first; auto-registration is DISABLED (PDPA)
-//   4. GCP: create OAuth 2.0 Client ID → paste in NeoFeed.html window.NEOFEED_CLIENT_ID
-//   5. Deploy → New deployment → Web app
-//      Execute as: Me · Who has access: Anyone
-//   6. Copy URL → paste in NeoFeed.html window.NEOFEED_GAS_URL
+//   2. Tabs auto-created: Patient_Registry, Daily_Log, Staff
+//   3. Staff tab (A–F): email | role | name | active | password_hash | salt
+//   4. To add first user, run setInitialPassword("email","password") from
+//      Apps Script editor (⌘+Enter) — or use the bootstrap action below
+//   5. Deploy → Web app · Execute as: Me · Access: Anyone
+//   6. Copy URL → NeoFeed.html window.NEOFEED_GAS_URL
 //
 // Patient_Registry (A–P): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
-//   twinSuffix|status|currentBed|diagnosis|weights(JSON)|lengths(JSON)|hcs(JSON)|bedHistory(JSON)
-// Daily_Log (A–X): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|enVolPerKg|route|status|submittedBy|
-//   suppMTV|suppVitD_IU|suppCa_mg|suppCaType|suppPO4_mmol|suppPO4Type|suppFe_mg|suppFeType
-// Staff (A–D): email | role | name | active
+//   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory
+// Daily_Log (A–X): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
+//   enVolPerKg|route|status|submittedBy|suppMTV|suppVitD_IU|suppCa_mg|suppCaType|
+//   suppPO4_mmol|suppPO4Type|suppFe_mg|suppFeType
+// Staff (A–F): email | role | name | active | password_hash | salt
 //
-// PDPA (พ.ร.บ.คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562) lawful basis:
-//   Health data processed under Section 26(6) — medical necessity + professional confidentiality
-//   Staff emails stored for audit under Section 24(2) — contractual necessity
-//   Data erasure: use action=pseudonymizePatient to comply with Section 33
+// PDPA lawful basis: Section 26(6) medical necessity + professional confidentiality
 // ============================================================
 
 var SPREADSHEET_ID = "1cZSA2qAUWAvFmpzrcjxS8kw6r-MpCMOSVAJev1uNDtI";
-var CLIENT_ID      = "750019806043-imunne8ndetdesii70a3t1vnr0ta2br4.apps.googleusercontent.com";
 
-// ── Staff sheet accessor ──────────────────────────────────────
+// ── Password hashing ──────────────────────────────────────────
+function hashPwd(password, salt) {
+  var raw = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    password + salt,
+    Utilities.Charset.UTF_8
+  );
+  return raw.map(function(b) {
+    return ("0" + (b & 0xff).toString(16)).slice(-2);
+  }).join("");
+}
+
+// ── Session token ─────────────────────────────────────────────
+// Generates a UUID-style token, stores {email,role,name} in ScriptCache for 12 h.
+function createSession(email, role, name) {
+  var token = Utilities.getUuid();
+  var cache = CacheService.getScriptCache();
+  cache.put("sess_" + token, JSON.stringify({ email: email, role: role, name: name }), 43200);
+  return token;
+}
+
+function verifyToken(token) {
+  if (!token || token.length < 10) return null;
+  try {
+    var cache = CacheService.getScriptCache();
+    var val = cache.get("sess_" + token);
+    if (!val) return null;
+    return JSON.parse(val); // { email, role, name }
+  } catch (e) { return null; }
+}
+
+// ── Staff sheet ───────────────────────────────────────────────
 function getSheetStaff() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sh = ss.getSheetByName("Staff");
   if (!sh) {
     sh = ss.insertSheet("Staff");
-    sh.appendRow(["email", "role", "name", "active"]);
-    // No auto-seed here — admin must add first user manually (PDPA: controlled access)
+    sh.appendRow(["email", "role", "name", "active", "password_hash", "salt"]);
   }
   return sh;
 }
 
-// ── JWT decoder — local base64url decode, no network call ────
-// Does NOT verify cryptographic signature; relies on staff whitelist for authz.
-// Checks issuer, expiry, and email_verified only.
-function decodeJwtEmail(token) {
-  try {
-    var parts = token.split(".");
-    if (parts.length !== 3) return null;
-    var b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    while (b64.length % 4) b64 += "=";
-    var payload = JSON.parse(Utilities.newBlob(Utilities.base64Decode(b64)).getDataAsString());
-    if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") return null;
-    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
-    if (!payload.email || payload.email_verified !== true) return null;
-    return payload.email;
-  } catch (e) { return null; }
+// ── Staff lookup ──────────────────────────────────────────────
+function getStaffRow(email) {
+  var rows = getSheetStaff().getDataRange().getValues();
+  var el = email.trim().toLowerCase();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim().toLowerCase() === el) return { row: i + 1, data: rows[i] };
+  }
+  return null;
 }
 
-// ── Staff whitelist check ─────────────────────────────────────
-// Returns { email, name, role } only if email is in Staff sheet + active=TRUE.
-// Unknown users are REJECTED — no auto-registration (PDPA compliance).
-function verifyToken(token) {
-  if (!token) return null;
-  try {
-    var email = decodeJwtEmail(token);
-    if (!email) return null;
-    var sh = getSheetStaff();
-    var rows = sh.getDataRange().getValues();
-    for (var i = 1; i < rows.length; i++) {
-      if (String(rows[i][0]).trim().toLowerCase() === email.trim().toLowerCase()) {
-        var active = rows[i][3];
-        if (active !== true && String(active).toUpperCase() !== "TRUE") return null;
-        return { email: email, role: String(rows[i][1] || "doctor"), name: String(rows[i][2] || email) };
-      }
-    }
-    // Unknown user — reject. Add email to Staff sheet manually to grant access.
-    Logger.log("Access denied for unknown user: " + email);
-    return null;
-  } catch (e) { Logger.log("verifyToken error: " + e.message); return null; }
+// ── setInitialPassword — run from Apps Script editor ─────────
+// Usage: setInitialPassword("user@redcross.or.th", "MyP@ssw0rd")
+function setInitialPassword(email, password) {
+  var sh = getSheetStaff();
+  var found = getStaffRow(email);
+  var salt = Utilities.getUuid();
+  var hash = hashPwd(password, salt);
+  if (found) {
+    sh.getRange(found.row, 5, 1, 2).setValues([[hash, salt]]);
+    Logger.log("Password updated for: " + email);
+  } else {
+    sh.appendRow([email, "doctor", email.split("@")[0], true, hash, salt]);
+    Logger.log("Staff added with password: " + email);
+  }
 }
 
 // ── Sheet accessors ───────────────────────────────────────────
@@ -100,13 +113,14 @@ function getSheetLog() {
     sh.appendRow([
       "ts","sessionId","dol","weight","fluid","gir",
       "pro","kcal","na","k","ca","p","enVolPerKg","route","status","submittedBy",
-      "suppMTV","suppVitD_IU","suppCa_mg","suppCaType","suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType"
+      "suppMTV","suppVitD_IU","suppCa_mg","suppCaType",
+      "suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType"
     ]);
   }
   return sh;
 }
 
-// ── JSON output helper ────────────────────────────────────────
+// ── JSON output ───────────────────────────────────────────────
 function jsonOut(data) {
   var out = ContentService.createTextOutput(JSON.stringify(data));
   out.setMimeType(ContentService.MimeType.JSON);
@@ -118,29 +132,20 @@ function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "";
   try {
     if (action === "ping") return jsonOut({ ok: true, ts: new Date().toISOString() });
-
-    // All GET actions require a valid token (including debug — no unauthenticated PHI exposure)
     var user = verifyToken(e.parameter.token);
     if (!user) return jsonOut({ error: "Unauthorized" });
-
     if (action === "debug") {
-      // Returns only non-PHI setup info for authenticated admins
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
       var staffRows = [];
-      try {
-        var rows = getSheetStaff().getDataRange().getValues();
-        for (var i = 1; i < rows.length; i++) {
-          staffRows.push({ email: rows[i][0], role: rows[i][1], active: rows[i][3] });
-        }
-      } catch(ex) {}
-      return jsonOut({ gasClientId: CLIENT_ID, user: user.email, staffRows: staffRows });
+      var rows = getSheetStaff().getDataRange().getValues();
+      for (var i = 1; i < rows.length; i++) {
+        staffRows.push({ email: rows[i][0], role: rows[i][1], active: rows[i][3] });
+      }
+      return jsonOut({ user: user.email, staffRows: staffRows });
     }
-
     if (action === "getActivePatients") return jsonOut(getActivePatients());
     return jsonOut({ error: "Unknown action: " + action });
-  } catch (err) {
-    return jsonOut({ error: err.message });
-  }
+  } catch (err) { return jsonOut({ error: err.message }); }
 }
 
 // ── POST handler ──────────────────────────────────────────────
@@ -149,12 +154,36 @@ function doPost(e) {
     var body = JSON.parse(e.postData.contents);
     var action = body.action || "";
 
+    // ── login ─────────────────────────────────────────────────
     if (action === "login") {
-      var u = verifyToken(body.token);
-      if (!u) return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ หรือบัญชีถูกระงับ" });
-      return jsonOut({ status: "ok", name: u.name, role: u.role, email: u.email });
+      var email = (body.email || "").trim().toLowerCase();
+      var password = body.password || "";
+      if (!email || !password) return jsonOut({ status: "unauthorized", error: "กรุณากรอก email และรหัสผ่าน" });
+
+      var found = getStaffRow(email);
+      if (!found) return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" });
+
+      var d = found.data;
+      var active = d[3];
+      if (active !== true && String(active).toUpperCase() !== "TRUE") {
+        return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
+      }
+
+      var storedHash = String(d[4] || "");
+      var salt       = String(d[5] || "");
+      if (!storedHash) return jsonOut({ status: "unauthorized", error: "ยังไม่ได้ตั้งรหัสผ่าน — แจ้ง admin" });
+
+      if (hashPwd(password, salt) !== storedHash) {
+        return jsonOut({ status: "unauthorized", error: "รหัสผ่านไม่ถูกต้อง" });
+      }
+
+      var role = String(d[1] || "doctor");
+      var name = String(d[2] || email);
+      var token = createSession(email, role, name);
+      return jsonOut({ status: "ok", name: name, role: role, email: email, token: token });
     }
 
+    // ── all other actions require valid session token ──────────
     var user = verifyToken(body.token);
     if (!user) return jsonOut({ error: "Unauthorized" });
 
@@ -167,15 +196,9 @@ function doPost(e) {
       logDailyNutrition(body.sessionId, body.entry, user.email);
       return jsonOut({ ok: true });
     }
-    if (action === "registerPatient") {
+    if (action === "registerPatient" || action === "updatePatient") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       registerPatient(body.patient);
-      return jsonOut({ ok: true });
-    }
-    if (action === "updatePatient") {
-      // For bed transfers, status changes, and other partial updates
-      if (!canWrite) return jsonOut({ error: "Forbidden" });
-      registerPatient(body.patient);  // registerPatient upserts on sessionId match
       return jsonOut({ ok: true });
     }
     if (action === "updateWeights") {
@@ -183,7 +206,21 @@ function doPost(e) {
       updateWeights(body.sessionId, body.weights);
       return jsonOut({ ok: true });
     }
-    // PDPA Section 33: right to erasure — pseudonymize (remove name/initials, keep clinical data)
+    if (action === "changePassword") {
+      var oldPwd = body.oldPassword || "";
+      var newPwd = body.newPassword || "";
+      if (!newPwd || newPwd.length < 6) return jsonOut({ error: "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร" });
+      var sf = getStaffRow(user.email);
+      if (!sf) return jsonOut({ error: "ไม่พบบัญชี" });
+      var sd = sf.data;
+      if (hashPwd(oldPwd, String(sd[5] || "")) !== String(sd[4] || "")) {
+        return jsonOut({ error: "รหัสผ่านเดิมไม่ถูกต้อง" });
+      }
+      var newSalt = Utilities.getUuid();
+      var newHash = hashPwd(newPwd, newSalt);
+      getSheetStaff().getRange(sf.row, 5, 1, 2).setValues([[newHash, newSalt]]);
+      return jsonOut({ ok: true });
+    }
     if (action === "pseudonymizePatient") {
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
       pseudonymizePatient(body.sessionId, user.email);
@@ -191,9 +228,7 @@ function doPost(e) {
     }
 
     return jsonOut({ error: "Unknown action: " + action });
-  } catch (err) {
-    return jsonOut({ error: err.message });
-  }
+  } catch (err) { return jsonOut({ error: err.message }); }
 }
 
 // ── getActivePatients ─────────────────────────────────────────
@@ -248,47 +283,33 @@ function getActivePatients() {
       weights:       _parseJson(p[12], [{ dol: 1, w: Number(p[3] || 0) }]),
       lengths:       _parseJson(p[13], []),
       hcs:           _parseJson(p[14], []),
-      bedHistory:    _parseJson(p[15], []),  // col P — bed transfer audit trail
+      bedHistory:    _parseJson(p[15], []),
     });
   }
-
   return { patients: patients, log: logMap, ts: new Date().toISOString() };
 }
 
 // ── logDailyNutrition ─────────────────────────────────────────
 function logDailyNutrition(sessionId, entry, submittedBy) {
   getSheetLog().appendRow([
-    entry.ts          || new Date().toISOString().slice(0, 10),
+    entry.ts         || new Date().toISOString().slice(0, 10),
     sessionId,
-    entry.dol         || "",
-    entry.weight      || "",
-    entry.fluid       || "",
-    entry.gir         || "",
-    entry.pro         || "",
-    entry.kcal        || "",
-    entry.na          || "",
-    entry.k           || "",
-    entry.ca          || "",
-    entry.p           || "",
-    entry.enVolPerKg  || "",
-    entry.route       || "",
-    entry.status      || "submitted",
-    submittedBy       || "",
-    entry.suppMTV        || 0,
-    entry.suppVitD_IU    || 0,
-    entry.suppCa_mg      || 0,
-    entry.suppCaType     || "",
-    entry.suppPO4_mmol   || 0,
-    entry.suppPO4Type    || "",
-    entry.suppFe_mg      || 0,
-    entry.suppFeType     || "",
+    entry.dol        || "", entry.weight   || "", entry.fluid    || "",
+    entry.gir        || "", entry.pro      || "", entry.kcal     || "",
+    entry.na         || "", entry.k        || "", entry.ca       || "",
+    entry.p          || "", entry.enVolPerKg || "", entry.route  || "",
+    entry.status     || "submitted", submittedBy || "",
+    entry.suppMTV    || 0, entry.suppVitD_IU || 0,
+    entry.suppCa_mg  || 0, entry.suppCaType  || "",
+    entry.suppPO4_mmol || 0, entry.suppPO4Type || "",
+    entry.suppFe_mg  || 0, entry.suppFeType  || "",
   ]);
 }
 
 // ── registerPatient (upsert) ──────────────────────────────────
 function registerPatient(p) {
   var sheet = getSheetPat();
-  var data = sheet.getDataRange().getValues();
+  var data  = sheet.getDataRange().getValues();
   var row16 = [
     p.sessionId, p.name || "", p.initials || "",
     p.bw || 0, p.ga || 0, p.sex || "boys",
@@ -297,7 +318,7 @@ function registerPatient(p) {
     JSON.stringify(p.weights    || []),
     JSON.stringify(p.lengths    || []),
     JSON.stringify(p.hcs        || []),
-    JSON.stringify(p.bedHistory || []),  // col P
+    JSON.stringify(p.bedHistory || []),
   ];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(p.sessionId)) {
@@ -311,7 +332,7 @@ function registerPatient(p) {
 // ── updateWeights ─────────────────────────────────────────────
 function updateWeights(sessionId, weights) {
   var sheet = getSheetPat();
-  var data = sheet.getDataRange().getValues();
+  var data  = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(sessionId)) {
       sheet.getRange(i + 1, 13).setValue(JSON.stringify(weights));
@@ -320,18 +341,15 @@ function updateWeights(sessionId, weights) {
   }
 }
 
-// ── pseudonymizePatient (PDPA Section 33 — right to erasure) ─
-// Clears identifying fields (name, initials) while retaining clinical data
-// for mandatory medical record retention under Thai medical law.
-// Records the erasure event in column B as "[PDPA-erased YYYY-MM-DD by admin]".
+// ── pseudonymizePatient (PDPA Section 33) ─────────────────────
 function pseudonymizePatient(sessionId, adminEmail) {
   var sheet = getSheetPat();
-  var data = sheet.getDataRange().getValues();
+  var data  = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(sessionId)) {
-      var eraseNote = "[PDPA-erased " + new Date().toISOString().slice(0, 10) + "]";
-      sheet.getRange(i + 1, 2).setValue(eraseNote);  // name col
-      sheet.getRange(i + 1, 3).setValue("");          // initials col
+      var note = "[PDPA-erased " + new Date().toISOString().slice(0, 10) + "]";
+      sheet.getRange(i + 1, 2).setValue(note);
+      sheet.getRange(i + 1, 3).setValue("");
       Logger.log("PDPA erasure: " + sessionId + " by " + adminEmail);
       return;
     }
@@ -340,20 +358,15 @@ function pseudonymizePatient(sessionId, adminEmail) {
 
 // ── Utility ───────────────────────────────────────────────────
 function _parseJson(str, fallback) {
-  try {
-    if (!str) return fallback;
-    return JSON.parse(String(str));
-  } catch (_) { return fallback; }
+  try { if (!str) return fallback; return JSON.parse(String(str)); }
+  catch (_) { return fallback; }
 }
-
 function _fmtDate(val) {
   if (!val) return "";
-  if (val instanceof Date) {
+  if (val instanceof Date)
     return Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
-  }
   var s = String(val);
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  try {
-    return Utilities.formatDate(new Date(s), Session.getScriptTimeZone(), "yyyy-MM-dd");
-  } catch (_) { return s; }
+  try { return Utilities.formatDate(new Date(s), Session.getScriptTimeZone(), "yyyy-MM-dd"); }
+  catch (_) { return s; }
 }

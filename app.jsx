@@ -641,58 +641,36 @@ function AlertCenter({ patient, log }) {
 }
 
 // ============================================================
-// Login screen — Google Sign-In (GSI) · redesigned 2026-05-19
-// Split layout: brand panel (left/top) + form panel (right/bottom)
+// Login screen — email + password (any domain)
 // ============================================================
 function LoginScreen({ onLogin }) {
-  const [loading, setLoading]         = React.useState(false);
-  const [error, setError]             = React.useState(null);
-  const [googleReady, setGoogleReady] = React.useState(false);
-  const btnRef = React.useRef(null);
+  const [email, setEmail]     = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError]     = React.useState(null);
+  const [showPwd, setShowPwd] = React.useState(false);
 
-  React.useEffect(() => {
-    const init = () => {
-      if (!window.google?.accounts?.id || !btnRef.current) return;
-      google.accounts.id.initialize({
-        client_id: window.NEOFEED_CLIENT_ID,
-        callback: async (resp) => {
-          setLoading(true); setError(null);
-          try {
-            const res  = await fetch(window.NEOFEED_GAS_URL, {
-              method: "POST",
-              headers: { "Content-Type": "text/plain;charset=utf-8" },
-              body: JSON.stringify({ action: "login", token: resp.credential }),
-            });
-            const data = await res.json();
-            if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ หรือบัญชีถูกระงับ");
-            onLogin({ name: data.name, role: data.role, email: data.email, token: resp.credential });
-          } catch (err) {
-            setError(err.message || "เกิดข้อผิดพลาด กรุณาลองอีกครั้ง");
-            setLoading(false);
-          }
-        },
+  const submit = async (e) => {
+    e && e.preventDefault();
+    if (!email.trim() || !password) { setError("กรุณากรอก email และรหัสผ่าน"); return; }
+    setLoading(true); setError(null);
+    try {
+      const res  = await fetch(window.NEOFEED_GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "login", email: email.trim().toLowerCase(), password }),
       });
-      google.accounts.id.renderButton(btnRef.current, {
-        type: "standard", shape: "pill", theme: "outline",
-        text: "signin_with", locale: "th", size: "large", width: 300,
-      });
-      setGoogleReady(true);
-    };
-    if (window.google?.accounts?.id) init();
-    else {
-      const s = document.querySelector('script[src*="gsi/client"]');
-      if (s) s.addEventListener("load", init, { once: true });
-      else window.addEventListener("load", init, { once: true });
+      const data = await res.json();
+      if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
+      onLogin({ name: data.name, role: data.role, email: data.email, token: data.token });
+    } catch (err) {
+      setError(err.message || "เกิดข้อผิดพลาด กรุณาลองอีกครั้ง");
+      setLoading(false);
     }
-    return () => window.removeEventListener("load", init);
-  }, []);
-
-  const isBusy = loading || (googleReady && !btnRef.current?.children?.length);
+  };
 
   return (
     <div className="login-wrap">
-
-      {/* 1 — Logo */}
       <div className="login-logo-mark">
         <svg viewBox="0 0 36 36" width="52" height="52" fill="none"
           stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
@@ -701,57 +679,56 @@ function LoginScreen({ onLogin }) {
         </svg>
       </div>
 
-      {/* 2 — App name */}
       <div className="login-app-name">NeoFeed</div>
+      <div className="login-tagline">Neonatal nutrition,<br />calculated precisely</div>
 
-      {/* 3 — Tagline */}
-      <div className="login-tagline">
-        Neonatal nutrition,<br />calculated precisely
-      </div>
+      <form className="login-btn-area" onSubmit={submit}
+        style={{ display: "flex", flexDirection: "column", gap: 10, padding: 0 }}>
 
-      {/* 4 — Google button */}
-      <div className="login-btn-area">
-        <div ref={btnRef}
-          style={{ opacity: isBusy ? 0 : 1, transition: "opacity .2s",
-            display: "flex", justifyContent: "center" }} />
+        <input
+          className="inp"
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          autoComplete="username"
+          disabled={loading}
+          style={{ width: "100%", fontSize: 14 }}
+        />
 
-        {!googleReady && !loading && (
-          <div style={{ position: "absolute", inset: 0, display: "flex",
-            alignItems: "center", justifyContent: "center" }}>
-            <div style={{ width: 300, height: 48, borderRadius: 999,
-              background: "#fff", border: "1px solid var(--line)",
-              boxShadow: "0 2px 8px oklch(20% 0.01 230 / .08)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              gap: 10, color: "var(--ink-3)", fontSize: 13 }}>
-              <svg width="18" height="18" viewBox="0 0 48 48">
-                <path fill="#4285F4" d="M47.5 24.6c0-1.6-.1-3.1-.4-4.6H24v8.7h13.2c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.3-10.6 7.3-17.3z"/>
-                <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.8 2.3-8 2.3-6.1 0-11.3-4.1-13.1-9.7H2.7v6.2C6.7 42.7 14.8 48 24 48z"/>
-                <path fill="#FBBC05" d="M10.9 28.8c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4v-6.2H2.7C1 17.1 0 20.5 0 24s1 6.9 2.7 9.9l8.2-5.1z"/>
-                <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.5l6.8-6.8C35.9 2.4 30.5 0 24 0 14.8 0 6.7 5.3 2.7 13.1l8.2 5.1C12.7 13.6 17.9 9.5 24 9.5z"/>
-              </svg>
-              กำลังโหลด...
-            </div>
-          </div>
-        )}
+        <div style={{ position: "relative", width: "100%" }}>
+          <input
+            className="inp"
+            type={showPwd ? "text" : "password"}
+            placeholder="รหัสผ่าน"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoComplete="current-password"
+            disabled={loading}
+            style={{ width: "100%", fontSize: 14, paddingRight: 40 }}
+          />
+          <button type="button"
+            onClick={() => setShowPwd(s => !s)}
+            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)",
+              fontSize: 13, padding: 4 }}>
+            {showPwd ? "ซ่อน" : "แสดง"}
+          </button>
+        </div>
 
-        {loading && (
-          <div style={{ position: "absolute", inset: 0, display: "flex",
-            alignItems: "center", justifyContent: "center", gap: 10,
-            color: "var(--ink-2)", fontSize: 13 }}>
-            <div style={{ width: 18, height: 18, border: "2px solid var(--line)",
-              borderTopColor: "var(--brand)", borderRadius: "50%",
-              animation: "spin 0.9s linear infinite" }} />
-            กำลังตรวจสอบสิทธิ์...
-          </div>
-        )}
-      </div>
+        <button className="btn primary" type="submit" disabled={loading}
+          style={{ width: "100%", height: 44, fontSize: 14, marginTop: 2 }}>
+          {loading
+            ? <><span style={{ display: "inline-block", width: 14, height: 14,
+                border: "2px solid rgba(255,255,255,.4)", borderTopColor: "#fff",
+                borderRadius: "50%", animation: "spin .9s linear infinite",
+                marginRight: 8, verticalAlign: "middle" }} />กำลังตรวจสอบ...</>
+            : "เข้าสู่ระบบ"}
+        </button>
+      </form>
 
-      {/* Error */}
       {error && <div className="login-error">⚠️ {error}</div>}
-
-      {/* 5 — Footer */}
       <div className="login-footer">VALHALLA TEAM &nbsp;·&nbsp; V2.0</div>
-
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
