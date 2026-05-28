@@ -959,6 +959,31 @@
     .feeding-steps-grid { grid-template-columns: 1fr !important; }
     .feeding-steps-grid > div { border-right: none !important; border-bottom: 1px solid var(--line-2) !important; }
     .feeding-steps-grid > div:last-child { border-bottom: none !important; }
+
+    /* ── Android UX: step header chips wrap to own row ── */
+    /* Without this, long titles ("Step 4 · Vitamins · Trace Elements · Heparin")
+       push chips off-screen on 360px Android widths */
+    .card-h.clickable { flex-wrap: wrap; row-gap: 4px; }
+    .step-summary {
+      flex: 0 0 100%;    /* own row */
+      margin-left: 0;
+      overflow: visible; /* don't clip chips */
+      padding: 0 0 4px;
+    }
+    .step-summary-chip { font-size: 12px; padding: 3px 8px; }
+
+    /* ── Android UX: EN fields — 2-col + MEN full width ── */
+    .en-fields-row { grid-template-columns: 1fr 1fr !important; }
+    .en-men-col    { grid-column: 1 / -1; }
+
+    /* ── Android UX: readability — bump small inline font sizes ── */
+    .chk-label  { font-size: 14px !important; }
+    .chk-hint   { font-size: 12px !important; }
+    .field-hint { font-size: 12px !important; }
+    .salt-note  { font-size: 12px !important; }
+
+    /* Patient strip: 9px label → 10px minimum */
+    .patient-strip .lbl { font-size: 10px !important; height: auto !important; min-height: 20px; }
   }
 
   /* ============ PATIENT REGISTRY ============ */
@@ -1084,14 +1109,14 @@
   </script>
 
   <!-- App data and modules — ?v= busts browser cache on each deploy -->
-  <script src="data.js?v=mobile-ux9"></script>
-  <script type="text/babel" src="tweaks-panel.jsx?v=mobile-ux9"></script>
-  <script type="text/babel" src="icons.jsx?v=mobile-ux9"></script>
-  <script type="text/babel" src="calculator.jsx?v=mobile-ux9"></script>
-  <script type="text/babel" src="fenton.jsx?v=mobile-ux9"></script>
-  <script type="text/babel" src="registry.jsx?v=mobile-ux9"></script>
-  <script type="text/babel" src="log.jsx?v=mobile-ux9"></script>
-  <script type="text/babel" src="app.jsx?v=mobile-ux9"></script>
+  <script src="data.js?v=mobile-ux10"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=mobile-ux10"></script>
+  <script type="text/babel" src="icons.jsx?v=mobile-ux10"></script>
+  <script type="text/babel" src="calculator.jsx?v=mobile-ux10"></script>
+  <script type="text/babel" src="fenton.jsx?v=mobile-ux10"></script>
+  <script type="text/babel" src="registry.jsx?v=mobile-ux10"></script>
+  <script type="text/babel" src="log.jsx?v=mobile-ux10"></script>
+  <script type="text/babel" src="app.jsx?v=mobile-ux10"></script>
 </body>
 </html>
 

@@ -38,17 +38,17 @@ function NumField({ label, unit, value, onChange, step = 1, min, hint }) {
         value={raw} placeholder="0" onChange={handle}
         onFocus={(e) => { focusedRef.current = true; e.target.select(); }}
         onBlur={() => { focusedRef.current = false; }} />
-      {hint && <div style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>}
+      {hint && <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>}
     </div>);
 }
 
 function Chk({ label, value, onChange, hint }) {
   return (
-    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 6, background: value ? "var(--brand-bg)" : "var(--bg-2)", border: `1px solid ${value ? "var(--brand-line)" : "var(--line-2)"}`, cursor: "pointer", fontSize: 12 }}>
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 2 }} />
+    <label className="chk-label" style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 6, background: value ? "var(--brand-bg)" : "var(--bg-2)", border: `1px solid ${value ? "var(--brand-line)" : "var(--line-2)"}`, cursor: "pointer", fontSize: 13 }}>
+      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }} />
       <span>
         <span style={{ fontWeight: 500, color: value ? "var(--brand-2)" : "var(--ink)" }}>{label}</span>
-        {hint && <span style={{ display: "block", color: "var(--ink-3)", marginTop: 2, fontSize: 10.5 }}>{hint}</span>}
+        {hint && <span className="chk-hint" style={{ display: "block", color: "var(--ink-3)", marginTop: 2, fontSize: 11 }}>{hint}</span>}
       </span>
     </label>);
 
@@ -116,7 +116,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
     <div className="salt-row-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 90px", gap: 10, alignItems: "center", padding: "6px 0", borderBottom: "1px dashed var(--line-2)" }}>
       <div>
         <div style={{ fontSize: 12, color: "var(--ink)", fontWeight: 500 }}>{label}</div>
-        {note && <div style={{ fontSize: 10, color: "var(--ink-3)" }}>{note}</div>}
+        {note && <div className="salt-note" style={{ fontSize: 11, color: "var(--ink-3)" }}>{note}</div>}
       </div>
       <input type="text" inputMode="decimal" className="inp num" style={{ height: 44 }}
         value={raw} placeholder="0" onChange={handle}
@@ -894,11 +894,11 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
                   </optgroup>
                 </select>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+              <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
                 <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
                 <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
                   hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
-                <div className="field">
+                <div className="field en-men-col">
                   <label style={{ visibility: "hidden" }}>MEN</label>
                   <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
                     hint="Volume not counted in fluid total" />
