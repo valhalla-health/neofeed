@@ -68,6 +68,7 @@ function verifyToken(token) {
     var cache = CacheService.getScriptCache();
     var val = cache.get("sess_" + token);
     if (!val) return null;
+    cache.put("sess_" + token, val, 43200); // sliding window — reset TTL on every use
     return JSON.parse(val); // { email, role, name }
   } catch (e) { return null; }
 }
@@ -174,6 +175,13 @@ function doPost(e) {
     var body = JSON.parse(e.postData.contents);
     var action = body.action || "";
 
+    // ── logout ────────────────────────────────────────────────
+    if (action === "logout") {
+      var logoutToken = body.token || "";
+      if (logoutToken) CacheService.getScriptCache().remove("sess_" + logoutToken);
+      return jsonOut({ ok: true });
+    }
+
     // ── login ─────────────────────────────────────────────────
     if (action === "login") {
 
@@ -199,8 +207,14 @@ function doPost(e) {
       var password = body.password || "";
       if (!email || !password) return jsonOut({ status: "unauthorized", error: "กรุณากรอก email และรหัสผ่าน" });
 
+      // Brute-force protection: lock after 5 failed attempts
+      var failKey = "fail_" + email.replace(/[^a-z0-9]/g, "_");
+      var props = PropertiesService.getScriptProperties();
+      var fails = parseInt(props.getProperty(failKey) || "0");
+      if (fails >= 5) return jsonOut({ status: "unauthorized", error: "ลองใหม่ในอีกสักครู่ — login ผิดพลาดหลายครั้ง" });
+
       var found = getStaffRow(email);
-      if (!found) return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" });
+      if (!found) { props.setProperty(failKey, String(fails + 1)); return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" }); }
 
       var d = found.data;
       if (d[3] !== true && String(d[3]).toUpperCase() !== "TRUE")
@@ -209,9 +223,12 @@ function doPost(e) {
       var storedHash = String(d[4] || "");
       var salt       = String(d[5] || "");
       if (!storedHash) return jsonOut({ status: "unauthorized", error: "ยังไม่ได้ตั้งรหัสผ่าน — แจ้ง admin" });
-      if (hashPwd(password, salt) !== storedHash)
+      if (hashPwd(password, salt) !== storedHash) {
+        props.setProperty(failKey, String(fails + 1));
         return jsonOut({ status: "unauthorized", error: "รหัสผ่านไม่ถูกต้อง" });
+      }
 
+      props.deleteProperty(failKey); // reset on success
       role = String(d[1] || "doctor");
       name = String(d[2] || email);
       var token = createSession(email, role, name);
@@ -224,7 +241,7 @@ function doPost(e) {
 
     if (action === "getActivePatients") return jsonOut(getActivePatients());
 
-    var canWrite = user.role === "doctor" || user.role === "admin";
+    var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
 
     if (action === "logDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
@@ -248,6 +265,7 @@ function doPost(e) {
       var sf = getStaffRow(user.email);
       if (!sf) return jsonOut({ error: "ไม่พบบัญชี" });
       var sd = sf.data;
+      if (!sd[4]) return jsonOut({ error: "บัญชี Google ไม่ใช้รหัสผ่านในระบบนี้" });
       if (hashPwd(oldPwd, String(sd[5] || "")) !== String(sd[4] || "")) {
         return jsonOut({ error: "รหัสผ่านเดิมไม่ถูกต้อง" });
       }

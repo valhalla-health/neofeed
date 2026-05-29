@@ -220,7 +220,16 @@ function App() {
     }
   };
 
+  const [showUserMenu, setShowUserMenu] = React.useState(false);
+  const [showChangePwd, setShowChangePwd] = React.useState(false);
+
   const handleLogout = () => {
+    const tok = user?.token || "";
+    if (GAS_ON && tok) fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "logout", token: tok }),
+    }).catch(() => {});
     sessionStorage.removeItem("neofeed_session");
     if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
     setUser(null);
@@ -301,12 +310,27 @@ function App() {
 
 
 
-        <div className="user" onClick={handleLogout} style={{ cursor: "pointer" }} title="คลิกเพื่อออกจากระบบ">
-          <div className="av">{firstChar(authName || user?.email || "?")}</div>
-          <div>
-            <div className="name">{authName || user?.email || "—"}</div>
-            <div className="role">{role === "admin" ? "Administrator · KCMH" : "Neonatology · KCMH"}</div>
+        <div style={{ position: "relative" }}>
+          <div className="user" onClick={() => setShowUserMenu(m => !m)} style={{ cursor: "pointer" }} title="เมนูผู้ใช้">
+            <div className="av">{firstChar(authName || user?.email || "?")}</div>
+            <div>
+              <div className="name">{authName || user?.email || "—"}</div>
+              <div className="role">{role === "admin" ? "Administrator · KCMH" : "Neonatology · KCMH"}</div>
+            </div>
           </div>
+          {showUserMenu && (
+            <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 4px 16px #0002", minWidth: 170, zIndex: 999, overflow: "hidden" }}>
+              <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13 }}
+                onClick={() => { setShowChangePwd(true); setShowUserMenu(false); }}>
+                🔑 เปลี่ยนรหัสผ่าน
+              </button>
+              <div style={{ height: 1, background: "var(--line)" }} />
+              <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13, color: "var(--red, #c0392b)" }}
+                onClick={() => { setShowUserMenu(false); handleLogout(); }}>
+                ออกจากระบบ
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -395,6 +419,16 @@ function App() {
 
       {pickerOpen &&
       <PatientPicker patients={patients} activeId={activeId} onSelect={setActiveId} onClose={() => setPickerOpen(false)} />
+      }
+
+      {showChangePwd &&
+      <ChangePasswordModal
+        onClose={() => setShowChangePwd(false)}
+        onSave={async (oldPwd, newPwd) => {
+          const ok = await gasPost({ action: "changePassword", oldPassword: oldPwd, newPassword: newPwd });
+          if (ok) { showToast("เปลี่ยนรหัสผ่านสำเร็จ"); setShowChangePwd(false); }
+        }}
+      />
       }
 
       <TweaksPanel title="Tweaks">
@@ -664,6 +698,55 @@ const CONTACT_MAILTO = "mailto:Valhalla.team.th@gmail.com"
     + "สนใจเกี่ยวกับ: NeoFeed — ระบบคำนวณโภชนาการทารกแรกเกิด (NICU)\n\n"
     + "ขอบคุณครับ/ค่ะ"
   );
+
+// ============================================================
+// ChangePasswordModal
+// ============================================================
+function ChangePasswordModal({ onClose, onSave }) {
+  const [oldPwd, setOldPwd] = React.useState("");
+  const [newPwd, setNewPwd] = React.useState("");
+  const [confirm, setConfirm] = React.useState("");
+  const [err, setErr] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  const handleSubmit = async () => {
+    if (!oldPwd || !newPwd) return setErr("กรุณากรอกข้อมูลให้ครบ");
+    if (newPwd.length < 6) return setErr("รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร");
+    if (newPwd !== confirm) return setErr("รหัสผ่านใหม่ไม่ตรงกัน");
+    setErr(""); setLoading(true);
+    await onSave(oldPwd, newPwd);
+    setLoading(false);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 340 }}>
+        <div className="modal-head"><h2>เปลี่ยนรหัสผ่าน</h2></div>
+        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="field">
+            <label>รหัสผ่านเดิม</label>
+            <input type="password" className="inp" value={oldPwd} onChange={e => setOldPwd(e.target.value)} placeholder="••••••••" />
+          </div>
+          <div className="field">
+            <label>รหัสผ่านใหม่ <span className="unit">(อย่างน้อย 6 ตัว)</span></label>
+            <input type="password" className="inp" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="••••••••" />
+          </div>
+          <div className="field">
+            <label>ยืนยันรหัสผ่านใหม่</label>
+            <input type="password" className="inp" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+          </div>
+          {err && <div style={{ color: "var(--red, #c0392b)", fontSize: 13 }}>{err}</div>}
+        </div>
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose}>ยกเลิก</button>
+          <button className="btn primary" onClick={handleSubmit} disabled={loading}>
+            {loading ? "กำลังบันทึก…" : "บันทึก"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LoginScreen({ onLogin }) {
   const [mode, setMode]         = React.useState("google"); // "google" | "email"
