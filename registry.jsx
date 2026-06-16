@@ -323,16 +323,19 @@ const BED_OPTIONS = [
 ];
 
 function NewPatientModal({ onClose, onSubmit }) {
-  const [name, setName] = React.useState("");
-  const [bw, setBw]     = React.useState(0);
-  const [gaW, setGaW]   = React.useState("");
-  const [gaD, setGaD]   = React.useState("");
-  const [hc, setHc]     = React.useState(0);
-  const [len, setLen]   = React.useState(0);
-  const [twin, setTwin] = React.useState("");
-  const [sex, setSex]   = React.useState("boys");
-  const [bed, setBed]   = React.useState("NICU 1-1");
-  const [dx, setDx]     = React.useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const [name, setName]           = React.useState("");
+  const [bw, setBw]               = React.useState(0);
+  const [gaW, setGaW]             = React.useState("");
+  const [gaD, setGaD]             = React.useState("");
+  const [hc, setHc]               = React.useState(0);
+  const [len, setLen]             = React.useState(0);
+  const [twin, setTwin]           = React.useState("");
+  const [sex, setSex]             = React.useState("boys");
+  const [bed, setBed]             = React.useState("NICU 1-1");
+  const [dx, setDx]               = React.useState("");
+  const [admitDate, setAdmitDate] = React.useState(today);
+  const [dol1, setDol1]           = React.useState(1);
 
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 7 : 0;
   const sessionId = `${(name || "XX").slice(0, 2).toUpperCase()}-BW${bw}${twin ? "-" + twin : ""}`;
@@ -398,6 +401,17 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div style={{ height: 10 }} />
           <div className="row-2">
             <div className="field">
+              <label>วันที่รับไว้ <span className="unit">(Admit date)</span></label>
+              <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>DOL แรกรับ <span className="unit">(Day of Life at admit)</span></label>
+              <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(parseInt(e.target.value) || 1)} />
+            </div>
+          </div>
+          <div style={{ height: 10 }} />
+          <div className="row-2">
+            <div className="field">
               <label>Bed</label>
               <select className="sel" value={bed} onChange={e => setBed(e.target.value)}>
                 {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -413,9 +427,9 @@ function NewPatientModal({ onClose, onSubmit }) {
             <button className="btn primary" onClick={() => onSubmit({
               sessionId, name, initials: name, bw, ga, twinSuffix: twin, sex,
               currentBed: bed, diagnosis: dx, status: "Active",
-              admissionDate: new Date().toISOString().slice(0, 10),
-              dob: new Date().toISOString().slice(0, 10),
-              weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }],
+              admissionDate: admitDate,
+              dob: admitDate,
+              weights: [{ dol: Number(dol1) || 1, w: bw, l: len || null, hc: hc || null }],
             })}>
               <Icon name="save" size={14} color="#fff" /> Register
             </button>
@@ -487,11 +501,12 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
 }
 
 function EditPatientModal({ patient, onClose, onSubmit }) {
-  const [name, setName]     = React.useState(patient.name || patient.initials || "");
-  const [bed, setBed]       = React.useState(patient.currentBed || "NICU 1-1");
-  const [dx, setDx]         = React.useState(patient.diagnosis || "");
-  const [status, setStatus] = React.useState(patient.status || "Active");
-  const [dol1, setDol1]     = React.useState(patient.weights?.[0]?.dol ?? 1);
+  const [name, setName]           = React.useState(patient.name || patient.initials || "");
+  const [bed, setBed]             = React.useState(patient.currentBed || "NICU 1-1");
+  const [dx, setDx]               = React.useState(patient.diagnosis || "");
+  const [status, setStatus]       = React.useState(patient.status || "Active");
+  const [dol1, setDol1]           = React.useState(patient.weights?.[0]?.dol ?? 1);
+  const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || new Date().toISOString().slice(0, 10));
 
   const save = () => onSubmit({
     ...patient,
@@ -499,6 +514,8 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
     currentBed: bed,
     diagnosis: dx,
     status,
+    admissionDate: admitDate,
+    dob: admitDate,
     weights: patient.weights.map((w, i) => i === 0 ? { ...w, dol: Number(dol1) || 1 } : w),
   });
 
@@ -514,7 +531,6 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
             <span>GA: <strong>{D_R.fmtGA(patient.ga)} wk</strong></span>
             <span>BW: <strong>{patient.bw} g</strong></span>
             <span>Sex: <strong>{patient.sex === "boys" ? "Male" : "Female"}</strong></span>
-            <span>Admit: <strong>{window.NEOFEED_FMT_DATE?.(patient.admissionDate) || patient.admissionDate}</strong></span>
           </div>
           <div className="row-2">
             <div className="field">
@@ -522,16 +538,14 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
               <input className="inp" maxLength={2} value={name} onChange={e => setName(e.target.value)} />
             </div>
             <div className="field">
-              <label>DOL แรกรับ</label>
+              <label>DOL แรกรับ <span className="unit">(Day of Life at admit)</span></label>
               <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(e.target.value)} />
             </div>
           </div>
           <div className="row-2">
             <div className="field">
-              <label>Bed</label>
-              <select className="sel" value={bed} onChange={e => setBed(e.target.value)}>
-                {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <label>วันที่รับไว้ <span className="unit">(Admit date)</span></label>
+              <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
             </div>
             <div className="field">
               <label>Status</label>
@@ -543,9 +557,17 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
               </select>
             </div>
           </div>
-          <div className="field">
-            <label>Diagnosis</label>
-            <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
+          <div className="row-2">
+            <div className="field">
+              <label>Bed</label>
+              <select className="sel" value={bed} onChange={e => setBed(e.target.value)}>
+                {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Diagnosis</label>
+              <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
+            </div>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
             <button className="btn" onClick={onClose}>Cancel</button>
