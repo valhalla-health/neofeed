@@ -191,7 +191,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
             <col style={{ width: 78 }} />   {/* Current wt */}
             <col style={{ width: 108 }} />  {/* Δ */}
             <col style={{ width: 120 }} />  {/* Last entry */}
-            <col style={{ width: 72 }} />   {/* Status */}
+            <col style={{ width: 88 }} />   {/* Status */}
             <col style={{ width: 112 }} />  {/* Actions */}
           </colgroup>
           <thead>
