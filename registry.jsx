@@ -190,8 +190,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
             <col style={{ width: 48 }} />   {/* DOL */}
             <col style={{ width: 78 }} />   {/* Current wt */}
             <col style={{ width: 108 }} />  {/* Δ */}
-            <col style={{ width: 120 }} />  {/* Last entry */}
-            <col style={{ width: 96 }} />   {/* Status */}
+            <col style={{ width: 90 }} />   {/* Status */}
             <col style={{ width: 112 }} />  {/* Actions */}
           </colgroup>
           <thead>
@@ -204,7 +203,6 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
               <th>DOL</th>
               <th>Wt now</th>
               <th>Δ birth</th>
-              <th>Last entry</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -242,18 +240,12 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                     {delta >= 0 ? "+" : ""}{delta} g
                     <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({deltaPct.toFixed(1)}%)</span>
                   </td>
-                  <td style={{ fontSize: 11.5 }}>
-                    {lastEntry
-                      ? <span style={{ color: hasToday ? "var(--ok)" : "var(--ink-3)" }}>
-                          {hasToday ? "✓ " : ""}DOL {lastEntry.dol}
-                          <span style={{ color: "var(--ink-4)", marginLeft: 4 }}>
-                            {window.NEOFEED_FMT_DATE?.(lastEntry.ts) || lastEntry.ts}
-                          </span>
-                        </span>
-                      : <span style={{ color: "var(--ink-4)" }}>—</span>
-                    }
+                  <td>
+                    <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"var(--ok)", fontWeight:600 }}>
+                      <span style={{ width:7, height:7, borderRadius:"50%", background:"var(--ok)", flexShrink:0 }} />
+                      Active
+                    </span>
                   </td>
-                  <td style={{ overflow: "hidden", padding: "8px 4px" }}><span className="chip ok"><span className="d" />Active</span></td>
                   <td>
                     <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                       <button className="btn sm" title="ย้ายเตียง"
@@ -275,7 +267,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
             {/* Archived section */}
             {archivedSorted.length > 0 && (
               <tr>
-                <td colSpan={11} style={{ padding: "6px 12px", background: "var(--bg-2)", borderTop: "2px solid var(--line)" }}>
+                <td colSpan={10} style={{ padding: "6px 12px", background: "var(--bg-2)", borderTop: "2px solid var(--line)" }}>
                   <button className="btn sm" style={{ color: "var(--ink-3)", fontSize: 11 }}
                     onClick={e => { e.stopPropagation(); setShowArchived(s => !s); }}>
                     {showArchived ? "▲" : "▼"} Discharged / Transferred / Expired ({archivedSorted.length})
@@ -291,7 +283,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                 <td className="num">{D_R.fmtGA(p.ga)}</td>
                 <td className="num">{p.bw.toLocaleString()}</td>
                 <td style={{ color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
-                <td colSpan={5} />
+                <td colSpan={4} />
                 <td><span className="chip"><span className="d" />{p.status}</span></td>
                 <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                   <button className="btn sm" onClick={e => { e.stopPropagation(); setEditPatient(p); }}>Edit</button>
