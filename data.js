@@ -820,6 +820,13 @@ function parseGAInput(s) {
   d = Math.min(6, Math.max(0, d || 0));
   return w + d / 10;
 }
+// Corrected age in days = PMA − 40 weeks. Negative = still preterm.
+// Display: "CA 2+3 wk" (2 weeks 3 days past term), or null when preterm.
+function correctedAge(ga, dol) {
+  const caDays = gaTotalDays(pmaShort(ga, dol)) - 280; // 40 * 7
+  return caDays; // caller checks: caDays >= 0 → post-term, else preterm
+}
+
 // ============================================================
 // Live DOL — single source of truth for "day of life as of today".
 // Falls back to last stored weight's DOL if no admissionDate.
@@ -967,4 +974,6 @@ window.NEOFEED_DATA = {
   liveDol,
   // GA / PMA helpers (WW.D shorthand)
   gaTotalDays, daysToGA, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput,
+  // Corrected age in days (negative = still preterm)
+  correctedAge,
 };

@@ -552,14 +552,25 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol }) {
         </div>
       </div>
 
-      {/* ── PMA ── */}
-      <div>
-        <div className="lbl">PMA</div>
-        <div className="val num" style={{ color:"var(--brand-2)" }}>
-          {fmtGA(D_A.pmaShort(patient.ga, displayDol))}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:4 }}>wk</span>
-        </div>
-        <div className="sub">Day of life {displayDol}</div>
-      </div>
+      {/* ── PMA + Corrected Age ── */}
+      {(() => {
+        const caDays = D_A.correctedAge(patient.ga, displayDol);
+        const caLabel = caDays >= 0
+          ? `CA ${Math.floor(caDays / 7)}+${caDays % 7} wk`
+          : null;
+        return (
+          <div>
+            <div className="lbl">PMA</div>
+            <div className="val num" style={{ color:"var(--brand-2)" }}>
+              {fmtGA(D_A.pmaShort(patient.ga, displayDol))}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:4 }}>wk</span>
+            </div>
+            <div className="sub">DOL {displayDol}</div>
+            {caLabel && (
+              <div style={{ fontSize:11, color:"var(--ok)", fontWeight:600, marginTop:2 }}>{caLabel}</div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Diagnosis ── */}
       <div>

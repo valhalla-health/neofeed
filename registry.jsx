@@ -230,7 +230,10 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</div>
                     {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>· {p.twinSuffix}</div>}
                   </td>
-                  <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>{D_R.fmtGA(p.ga)}</td>
+                  <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>
+                    {D_R.fmtGA(p.ga)}
+                    {(() => { const ca = D_R.correctedAge(p.ga, dol); return ca >= 0 ? <div style={{ fontSize: 10, color: "var(--ok)", fontWeight: 500 }}>CA {Math.floor(ca/7)}+{ca%7}w</div> : null; })()}
+                  </td>
                   <td className="num">{p.bw.toLocaleString()}</td>
                   <td style={{ color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
                   <td className="num" style={{ fontWeight: 700, color: "var(--brand-2)", fontSize: 15 }}>{dol}</td>
@@ -324,21 +327,30 @@ const BED_OPTIONS = [
 
 function NewPatientModal({ onClose, onSubmit }) {
   const today = new Date().toISOString().slice(0, 10);
-  const [name, setName]           = React.useState("");
-  const [bw, setBw]               = React.useState(0);
-  const [gaW, setGaW]             = React.useState("");
-  const [gaD, setGaD]             = React.useState("");
-  const [hc, setHc]               = React.useState(0);
-  const [len, setLen]             = React.useState(0);
-  const [twin, setTwin]           = React.useState("");
-  const [sex, setSex]             = React.useState("boys");
-  const [bed, setBed]             = React.useState("NICU 1-1");
-  const [dx, setDx]               = React.useState("");
+  const [name, setName]         = React.useState("");
+  const [bw, setBw]             = React.useState(0);
+  const [gaW, setGaW]           = React.useState("");
+  const [gaD, setGaD]           = React.useState("");
+  const [hc, setHc]             = React.useState(0);
+  const [len, setLen]           = React.useState(0);
+  const [twin, setTwin]         = React.useState("");
+  const [sex, setSex]           = React.useState("boys");
+  const [bed, setBed]           = React.useState("NICU 1-1");
+  const [dx, setDx]             = React.useState("");
   const [admitDate, setAdmitDate] = React.useState(today);
-  const [dol1, setDol1]           = React.useState(1);
+  const [admitDol, setAdmitDol]   = React.useState(1);
 
-  const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 7 : 0;
+  // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks
+  const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
   const sessionId = `${(name || "XX").slice(0, 2).toUpperCase()}-BW${bw}${twin ? "-" + twin : ""}`;
+
+  // DOB = admitDate − (admitDol − 1) days
+  const dob = React.useMemo(() => {
+    if (!admitDate) return today;
+    const d = new Date(admitDate + "T00:00:00");
+    d.setDate(d.getDate() - (Math.max(1, parseInt(admitDol) || 1) - 1));
+    return d.toISOString().slice(0, 10);
+  }, [admitDate, admitDol]);
 
   return (
     <div className="picker-backdrop" onClick={onClose}>
@@ -390,6 +402,25 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div style={{ height: 10 }} />
           <div className="row-2">
             <div className="field">
+              <label>Admit date</label>
+              <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>DOL at admit</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="number" className="inp num" min={1} style={{ flex: 1 }} value={admitDol}
+                  onChange={e => setAdmitDol(Math.max(1, parseInt(e.target.value) || 1))} />
+                {admitDol > 1 && (
+                  <span style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
+                    DOB: {dob}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div style={{ height: 10 }} />
+          <div className="row-2">
+            <div className="field">
               <label>Length at birth <span className="unit">(cm)</span></label>
               <input type="number" className="inp" step={0.1} value={len || ""} onChange={e => setLen(parseFloat(e.target.value) || 0)} placeholder="0" />
             </div>
@@ -428,8 +459,8 @@ function NewPatientModal({ onClose, onSubmit }) {
               sessionId, name, initials: name, bw, ga, twinSuffix: twin, sex,
               currentBed: bed, diagnosis: dx, status: "Active",
               admissionDate: admitDate,
-              dob: admitDate,
-              weights: [{ dol: Number(dol1) || 1, w: bw, l: len || null, hc: hc || null }],
+              dob,
+              weights: [{ dol: parseInt(admitDol) || 1, w: bw, l: len || null, hc: hc || null }],
             })}>
               <Icon name="save" size={14} color="#fff" /> Register
             </button>
@@ -501,11 +532,11 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
 }
 
 function EditPatientModal({ patient, onClose, onSubmit }) {
-  const [name, setName]           = React.useState(patient.name || patient.initials || "");
-  const [bed, setBed]             = React.useState(patient.currentBed || "NICU 1-1");
-  const [dx, setDx]               = React.useState(patient.diagnosis || "");
-  const [status, setStatus]       = React.useState(patient.status || "Active");
-  const [dol1, setDol1]           = React.useState(patient.weights?.[0]?.dol ?? 1);
+  const [name, setName]         = React.useState(patient.name || patient.initials || "");
+  const [bed, setBed]           = React.useState(patient.currentBed || "NICU 1-1");
+  const [dx, setDx]             = React.useState(patient.diagnosis || "");
+  const [status, setStatus]     = React.useState(patient.status || "Active");
+  const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
   const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || new Date().toISOString().slice(0, 10));
 
   const save = () => onSubmit({
@@ -515,7 +546,6 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
     diagnosis: dx,
     status,
     admissionDate: admitDate,
-    dob: admitDate,
     weights: patient.weights.map((w, i) => i === 0 ? { ...w, dol: Number(dol1) || 1 } : w),
   });
 
@@ -541,6 +571,10 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
               <label>DOL แรกรับ <span className="unit">(Day of Life at admit)</span></label>
               <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(e.target.value)} />
             </div>
+          </div>
+          <div className="field">
+            <label>Admit date</label>
+            <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
           </div>
           <div className="row-2">
             <div className="field">
