@@ -564,13 +564,9 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
               <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(e.target.value)} />
             </div>
           </div>
-          <div className="field">
-            <label>Admit date</label>
-            <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
-          </div>
           <div className="row-2">
             <div className="field">
-              <label>วันที่รับไว้ <span className="unit">(Admit date)</span></label>
+              <label>Admit date</label>
               <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
             </div>
             <div className="field">
@@ -658,5 +654,6 @@ function TransferBedModal({ patient, onClose, onSubmit }) {
   );
 }
 
-window.PatientRegistry = PatientRegistry;
-window.PatientPicker   = PatientPicker;
+window.PatientRegistry    = PatientRegistry;
+window.PatientPicker      = PatientPicker;
+window.EditPatientModal   = EditPatientModal;

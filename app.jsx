@@ -222,6 +222,7 @@ function App() {
 
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [showChangePwd, setShowChangePwd] = React.useState(false);
+  const [editingPatient, setEditingPatient] = React.useState(null);
 
   const handleLogout = () => {
     const tok = user?.token || "";
@@ -371,8 +372,10 @@ function App() {
             </div>
           )}
           {view !== "registry" && active &&
-          <PatientStrip patient={active} onSwitch={() => setPickerOpen(true)} liveWeight={calcWeights[activeId] || null} currentDol={dol} />
+          <PatientStrip patient={active} onSwitch={() => setPickerOpen(true)} liveWeight={calcWeights[activeId] || null} currentDol={dol} onEdit={() => setEditingPatient(active)} />
           }
+          {editingPatient && <EditPatientModal patient={editingPatient} onClose={() => setEditingPatient(null)}
+            onSubmit={p => { handleEditPatient(p); setEditingPatient(null); }} />}
 
           {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setActiveId(id);setView("calculator");}} onAdd={handleAddPatient} onEdit={handleEditPatient} />}
           {view === "admin" && <AdminDashboard patients={patients} log={log} />}
@@ -488,7 +491,7 @@ function RailItem({ icon, label, active, count, crit, onClick }) {
 
 }
 
-function PatientStrip({ patient, onSwitch, liveWeight, currentDol }) {
+function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
   const last = patient.weights[patient.weights.length - 1];
   const currentW = liveWeight ?? last.w;
   // Use calculated DOL if passed, else fall back to stored value
@@ -514,6 +517,12 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol }) {
               <span className="num" style={{ color:"var(--brand-2)", fontWeight:700 }}>{displayDol}</span>
             </div>
             <div className="bed">Admit {fmtDate(patient.admissionDate)}</div>
+            {onEdit && (
+              <button className="btn sm" style={{ marginTop:6, fontSize:11 }}
+                onClick={onEdit}>
+                <Icon name="edit" size={11} /> Edit session
+              </button>
+            )}
           </div>
         </div>
       </div>
