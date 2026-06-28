@@ -191,7 +191,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
             <col style={{ width: 78 }} />   {/* Current wt */}
             <col style={{ width: 108 }} />  {/* Δ */}
             <col style={{ width: 120 }} />  {/* Last entry */}
-            <col style={{ width: 88 }} />   {/* Status */}
+            <col style={{ width: 96 }} />   {/* Status */}
             <col style={{ width: 112 }} />  {/* Actions */}
           </colgroup>
           <thead>
@@ -253,7 +253,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                       : <span style={{ color: "var(--ink-4)" }}>—</span>
                     }
                   </td>
-                  <td><span className="chip ok"><span className="d" />Active</span></td>
+                  <td style={{ overflow: "hidden", padding: "8px 4px" }}><span className="chip ok"><span className="d" />Active</span></td>
                   <td>
                     <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                       <button className="btn sm" title="ย้ายเตียง"
