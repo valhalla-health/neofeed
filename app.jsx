@@ -573,24 +573,18 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
             <div className="val num" style={{ color:"var(--brand-2)" }}>
               {fmtGA(D_A.pmaShort(patient.ga, displayDol))}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:4 }}>wk</span>
             </div>
-            <div className="sub">DOL {displayDol}</div>
-            {caLabel && (
-              <div style={{ fontSize:11, color:"var(--ok)", fontWeight:600, marginTop:2 }}>{caLabel}</div>
-            )}
+            {caLabel && <div className="sub" style={{ color:"var(--ok)", fontWeight:600 }}>{caLabel}</div>}
           </div>
         );
       })()}
 
-      {/* ── Diagnosis ── */}
+      {/* ── Diagnosis + Status — merged column ── */}
       <div>
         <div className="lbl">Diagnosis</div>
-        <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700 }}>{patient.diagnosis}</div>
-      </div>
-
-      {/* ── Status ── */}
-      <div>
-        <div className="lbl">Status</div>
-        <div className="val" style={{ fontSize:13 }}><span className="chip ok"><span className="d" />{patient.status}</span></div>
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700 }}>{patient.diagnosis}</div>
+          <span className="chip ok" style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
+        </div>
       </div>
 
     </div>);

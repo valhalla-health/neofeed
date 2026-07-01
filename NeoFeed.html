@@ -239,7 +239,7 @@
   /* ============ PATIENT HEADER STRIP ============ */
   .patient-strip {
     display: grid;
-    grid-template-columns: minmax(200px, 1.5fr) minmax(0,1fr) minmax(0,2.4fr) minmax(0,1fr) minmax(0,0.85fr) minmax(0,0.65fr);
+    grid-template-columns: minmax(200px, 1.5fr) minmax(0,1fr) minmax(0,2.4fr) minmax(0,1fr) minmax(0,1.4fr);
     gap: 0;
     background: var(--surface);
     border: 1px solid var(--line);
@@ -897,8 +897,8 @@
     .patient-strip > div:nth-child(odd) {
       border-right: 1px solid var(--line-2);
     }
-    .patient-strip > div:nth-child(5),
-    .patient-strip > div:nth-child(6) {
+    .patient-strip > div:nth-child(4),
+    .patient-strip > div:nth-child(5) {
       border-bottom: none;
     }
     .patient-strip .val { font-size: 14px; }
@@ -1166,14 +1166,14 @@
   </script>
 
   <!-- App data and modules — ?v= busts browser cache on each deploy -->
-  <script src="data.js?v=pca-col1"></script>
-  <script type="text/babel" src="tweaks-panel.jsx?v=pca-col1"></script>
-  <script type="text/babel" src="icons.jsx?v=pca-col1"></script>
-  <script type="text/babel" src="calculator.jsx?v=pca-col1"></script>
-  <script type="text/babel" src="fenton.jsx?v=pca-col1"></script>
-  <script type="text/babel" src="registry.jsx?v=pca-col1"></script>
-  <script type="text/babel" src="log.jsx?v=pca-col1"></script>
-  <script type="text/babel" src="app.jsx?v=pca-col1"></script>
+  <script src="data.js?v=strip-declutter1"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=strip-declutter1"></script>
+  <script type="text/babel" src="icons.jsx?v=strip-declutter1"></script>
+  <script type="text/babel" src="calculator.jsx?v=strip-declutter1"></script>
+  <script type="text/babel" src="fenton.jsx?v=strip-declutter1"></script>
+  <script type="text/babel" src="registry.jsx?v=strip-declutter1"></script>
+  <script type="text/babel" src="log.jsx?v=strip-declutter1"></script>
+  <script type="text/babel" src="app.jsx?v=strip-declutter1"></script>
 </body>
 </html>
 
