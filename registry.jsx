@@ -185,6 +185,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
             <col style={{ width: 90 }} />   {/* Bed */}
             <col style={{ width: 68 }} />   {/* Name */}
             <col style={{ width: 62 }} />   {/* GA */}
+            <col style={{ width: 62 }} />   {/* PCA */}
             <col style={{ width: 68 }} />   {/* BW */}
             <col />                          {/* Diagnosis — flex */}
             <col style={{ width: 48 }} />   {/* DOL */}
@@ -198,6 +199,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
               <th>Bed</th>
               <th>Name</th>
               <th>GA</th>
+              <th>PCA</th>
               <th>BW (g)</th>
               <th>Diagnosis</th>
               <th>DOL</th>
@@ -230,7 +232,9 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                   </td>
                   <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>
                     {D_R.fmtGA(p.ga)}
-                    {(() => { const ca = D_R.correctedAge(p.ga, dol); return ca >= 0 ? <div style={{ fontSize: 10, color: "var(--ok)", fontWeight: 500 }}>CA {Math.floor(ca/7)}+{ca%7}w</div> : null; })()}
+                  </td>
+                  <td className="num" style={{ fontWeight: 600, color: "var(--ok)" }}>
+                    {D_R.fmtGA(D_R.pmaShort(p.ga, dol))}
                   </td>
                   <td className="num">{p.bw.toLocaleString()}</td>
                   <td style={{ color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
@@ -267,7 +271,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
             {/* Archived section */}
             {archivedSorted.length > 0 && (
               <tr>
-                <td colSpan={10} style={{ padding: "6px 12px", background: "var(--bg-2)", borderTop: "2px solid var(--line)" }}>
+                <td colSpan={11} style={{ padding: "6px 12px", background: "var(--bg-2)", borderTop: "2px solid var(--line)" }}>
                   <button className="btn sm" style={{ color: "var(--ink-3)", fontSize: 11 }}
                     onClick={e => { e.stopPropagation(); setShowArchived(s => !s); }}>
                     {showArchived ? "▲" : "▼"} Discharged / Transferred / Expired ({archivedSorted.length})
@@ -281,6 +285,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                 <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
                 <td style={{ fontWeight: 600, fontSize: 13 }}>{p.name || p.initials || "—"}</td>
                 <td className="num">{D_R.fmtGA(p.ga)}</td>
+                <td className="num">{D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))}</td>
                 <td className="num">{p.bw.toLocaleString()}</td>
                 <td style={{ color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
                 <td colSpan={4} />
