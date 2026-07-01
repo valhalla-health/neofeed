@@ -191,7 +191,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
             <col style={{ width: 78 }} />   {/* Current wt */}
             <col style={{ width: 108 }} />  {/* Δ */}
             <col style={{ width: 90 }} />   {/* Status */}
-            <col style={{ width: 112 }} />  {/* Actions */}
+            <col style={{ width: 150 }} />  {/* Actions */}
           </colgroup>
           <thead>
             <tr>
@@ -247,14 +247,14 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                     </span>
                   </td>
                   <td>
-                    <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                    <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
                       <button className="btn sm" title="ย้ายเตียง"
                         onClick={e => { e.stopPropagation(); setTransferPatient(p); }}
                         style={{ padding: "0 8px", fontSize: 13 }}>⇄</button>
-                      <button className="btn sm"
+                      <button className="btn sm" style={{ padding: "0 8px" }}
                         onClick={e => { e.stopPropagation(); setEditPatient(p); }}>Edit</button>
-                      <button className="btn sm"
-                        style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand-2)" }}
+                      <button className="btn sm" style={{ padding: "0 8px",
+                        background: "var(--brand)", color: "#fff", borderColor: "var(--brand-2)" }}
                         onClick={e => { e.stopPropagation(); onSelect(p.sessionId); }}>
                         Open <Icon name="arrow" size={11} color="#fff" />
                       </button>

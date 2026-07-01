@@ -850,7 +850,8 @@ function LoginScreen({ onLogin }) {
       {mode === "google" && (
         <>
           <div className="login-btn-area">
-            <div ref={btnRef} style={{ display: "flex", justifyContent: "center", minHeight: 44 }} />
+            <div ref={btnRef} style={{ display: "flex", justifyContent: "center", minHeight: 44,
+              visibility: loading ? "hidden" : "visible" }} />
             {loading && (
               <div style={{ position: "absolute", inset: 0, display: "flex",
                 alignItems: "center", justifyContent: "center", gap: 8,
