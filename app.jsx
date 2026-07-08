@@ -425,8 +425,11 @@ function App() {
 
           {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} />}
           {view === "admin" && <AdminDashboard patients={patients} log={log} />}
-          {view === "calculator" && active &&
-          <>
+          {view === "calculator" && active && (() => {
+            const displayDol = editEntry ? editEntry.dol : dol;
+            const baselineEntry = !editEntry ? (log[activeId] || []).slice(-1)[0] || null : null;
+            return (
+            <>
               <div className="page-head">
                 <div>
                   {editEntry && (
@@ -434,8 +437,11 @@ function App() {
                       ← กลับไป Dashboard
                     </button>
                   )}
-                  <h1>{editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order"}</h1>
-                  <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds · Day of Life {editEntry ? editEntry.dol : dol}</div>
+                  <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order"}
+                    <span className="chip brand" style={{ fontSize: 13, fontWeight: 700 }}>DOL {displayDol}</span>
+                  </h1>
+                  <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds</div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="btn" onClick={() => {
@@ -447,12 +453,14 @@ function App() {
                   <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
                 </div>
               </div>
-              <Calculator patient={active} dol={editEntry ? editEntry.dol : dol}
-                editEntry={editEntry} onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
+              <Calculator patient={active} dol={displayDol}
+                editEntry={editEntry} baselineEntry={baselineEntry}
+                onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
                 onSaved={() => goTo("log")}
                 onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
             </>
-          }
+            );
+          })()}
           {view === "fenton" && active &&
           <>
               <div className="page-head">

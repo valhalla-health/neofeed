@@ -432,7 +432,6 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry }) {
       <div className="page-head">
         <div>
           <h1>Daily nutritional log</h1>
-          <div className="sub">ใหม่สุดอยู่บนสุด — กด "แก้ไข" เพื่อเปิดรายการเดิมในหน้าคำนวณ</div>
         </div>
         {onAddToday && (
           <div>
@@ -480,42 +479,37 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry }) {
                 <th>Ca / P</th>
                 <th>Route</th>
                 <th>สถานะ</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {(() => {
                 const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
-                return entries.slice().reverse().map((e, i) => (
-                  <tr key={e.entryId || i}>
-                    <td className="num" style={{ fontWeight: 600 }}>{e.dol}</td>
-                    <td className="num" style={{ color: "var(--ink-3)" }}>{e.dol - admitDol}</td>
-                    <td style={{ color: "var(--ink-3)", fontSize: 11.5 }}>{window.NEOFEED_FMT_DATE?.(e.ts) || e.ts}</td>
-                    <td className="num">{e.weight || "—"} g</td>
-                    <td className="num">{n(e.fluid, 0)} mL/kg</td>
-                    <td className="num">{n(e.gir, 1)}</td>
-                    <td className="num">{n(e.pro, 1)} g/kg</td>
-                    <td className="num">{n(e.kcal, 0)} kcal/kg</td>
-                    <td className="num">{n(e.na, 1)} / {n(e.k, 1)}</td>
-                    <td className="num">{n(e.ca, 0)} / {n(e.p, 0)}</td>
-                    <td style={{ color: "var(--ink-2)" }}>{e.route}</td>
-                    <td>
-                      <span className={`chip${e.status === "draft" ? "" : " ok"}`}>
-                        <span className="d" />{e.status === "draft" ? "แบบร่าง" : "บันทึกแล้ว"}
-                      </span>
-                    </td>
-                    <td>
-                      {onEditEntry && e.entryId ? (
-                        <button className="btn sm" title={e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy}` : undefined}
-                          onClick={() => onEditEntry(e)}>
-                          แก้ไข <Icon name="arrow" size={11} />
-                        </button>
-                      ) : (
-                        <span style={{ color: "var(--ink-4)", fontSize: 11.5 }} title="บันทึกเก่า — แก้ไขไม่ได้">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ));
+                return entries.slice().reverse().map((e, i) => {
+                  const editable = !!(onEditEntry && e.entryId);
+                  return (
+                    <tr key={e.entryId || i}
+                      onClick={editable ? () => onEditEntry(e) : undefined}
+                      title={editable ? (e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy} — กดเพื่อแก้ไข` : "กดเพื่อแก้ไข") : "บันทึกเก่า — แก้ไขไม่ได้"}
+                      style={{ cursor: editable ? "pointer" : "default" }}>
+                      <td className="num" style={{ fontWeight: 600 }}>{e.dol}</td>
+                      <td className="num" style={{ color: "var(--ink-3)" }}>{e.dol - admitDol}</td>
+                      <td style={{ color: "var(--ink-3)", fontSize: 11.5 }}>{window.NEOFEED_FMT_DATE?.(e.ts) || e.ts}</td>
+                      <td className="num">{e.weight || "—"} g</td>
+                      <td className="num">{n(e.fluid, 0)} mL/kg</td>
+                      <td className="num">{n(e.gir, 1)}</td>
+                      <td className="num">{n(e.pro, 1)} g/kg</td>
+                      <td className="num">{n(e.kcal, 0)} kcal/kg</td>
+                      <td className="num">{n(e.na, 1)} / {n(e.k, 1)}</td>
+                      <td className="num">{n(e.ca, 0)} / {n(e.p, 0)}</td>
+                      <td style={{ color: "var(--ink-2)" }}>{e.route}</td>
+                      <td>
+                        <span className={`chip${e.status === "draft" ? "" : " ok"}`}>
+                          <span className="d" />{e.status === "draft" ? "แบบร่าง" : "บันทึกแล้ว"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                });
               })()}
             </tbody>
           </table>

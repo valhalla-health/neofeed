@@ -134,7 +134,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, editEntry, onLog, onUpdate, onSaved, onWeightChange }) {
+function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, onSaved, onWeightChange }) {
   const [wtG, setWtG] = useState(0);
 
   // Skip while editing a past entry — that weight is historical, not the
@@ -204,50 +204,66 @@ function Calculator({ patient, dol, editEntry, onLog, onUpdate, onSaved, onWeigh
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(null); // {lastModified, lastModifiedBy} of the row on the server
 
+  // Hydrates the full raw-input form from a saved entry's calcInput — shared
+  // by "editing an entry" and "starting today from the latest entry" below,
+  // since both need the exact same field-by-field restoration.
+  const applyCalcInput = (src, fallbackWeight) => {
+    setWtG(src.wtG ?? fallbackWeight ?? 0);
+    setFluidTargetPerKg(src.fluidTargetPerKg ?? 0);
+    setOtherIV_mL(src.otherIV_mL ?? 0);
+    setDrug_mL(src.drug_mL ?? 0);
+    setRoute(src.route ?? "central");
+    setTotalTPN_mL(src.totalTPN_mL ?? 0);
+    setDexPct(src.dexPct ?? 0);
+    setAaPerKg(src.aaPerKg ?? 0);
+    setLipidPerKg(src.lipidPerKg ?? 0);
+    setNaCl(src.naCl ?? 0);
+    setNaAcet(src.naAcet ?? 0);
+    setGlycophosP(src.glycophosP ?? 0);
+    setKCl(src.kCl ?? 0);
+    setK2HPO4(src.k2hpo4 ?? 0);
+    setMgPerKg(src.mgPerKg ?? 0);
+    setCaPerKg(src.caPerKg ?? 0);
+    setExtraP_mg_kg(src.extraP_mg_kg ?? 0);
+    setEnType(src.enType ?? "BM_20");
+    setEnVol(src.enVol ?? 0);
+    setEnFreq(src.enFreq ?? 0);
+    setIsMEN(src.isMEN ?? false);
+    setInclSoluvit(src.inclSoluvit ?? true);
+    setInclPeditrace(src.inclPeditrace ?? true);
+    setInclAddamel(src.inclAddamel ?? false);
+    setHeparinUmL(src.heparinUmL ?? 1);
+    setSuppVitD(src.suppVitD ?? 0);
+    setSuppCa(src.suppCa ?? 0);
+    setSuppCaType(src.suppCaType ?? "CA_CACO3_350");
+    setSuppPO4(src.suppPO4 ?? 0);
+    setSuppPO4Type(src.suppPO4Type ?? "PO4_PHOSPHATE");
+    setSuppMTV(src.suppMTV ?? false);
+    setSuppFerdek(src.suppFerdek ?? 0);
+    setSuppFeType(src.suppFeType ?? "FE_FERDEK");
+  };
+
   // ── Prefill on patient change ──────────────────────────────────
   // 1. Editing an existing entry → restore its exact original inputs (calcInput),
   //    so edits work correctly regardless of which device created the entry
-  // 2. Otherwise restore full calc state from localStorage if previously submitted
-  // 3. Otherwise: smart defaults — wt from latest weight, fluid from ESPGHAN midpoint
+  // 2. Starting today's entry → baseline off the most recent entry's inputs,
+  //    since a new day is usually a small tweak on the last one, not a from-
+  //    scratch order (dol/entryId are NOT taken from it — this still creates
+  //    a brand-new row for today, it only borrows the starting numbers)
+  // 3. Otherwise restore full calc state from localStorage if previously submitted
+  // 4. Otherwise: smart defaults — wt from latest weight, fluid from ESPGHAN midpoint
   React.useEffect(() => {
     if (!patient?.sessionId) return;
 
     if (editEntry) {
-      const src = editEntry.calcInput || {};
-      setWtG(src.wtG ?? editEntry.weight ?? 0);
-      setFluidTargetPerKg(src.fluidTargetPerKg ?? 0);
-      setOtherIV_mL(src.otherIV_mL ?? 0);
-      setDrug_mL(src.drug_mL ?? 0);
-      setRoute(src.route ?? "central");
-      setTotalTPN_mL(src.totalTPN_mL ?? 0);
-      setDexPct(src.dexPct ?? 0);
-      setAaPerKg(src.aaPerKg ?? 0);
-      setLipidPerKg(src.lipidPerKg ?? 0);
-      setNaCl(src.naCl ?? 0);
-      setNaAcet(src.naAcet ?? 0);
-      setGlycophosP(src.glycophosP ?? 0);
-      setKCl(src.kCl ?? 0);
-      setK2HPO4(src.k2hpo4 ?? 0);
-      setMgPerKg(src.mgPerKg ?? 0);
-      setCaPerKg(src.caPerKg ?? 0);
-      setExtraP_mg_kg(src.extraP_mg_kg ?? 0);
-      setEnType(src.enType ?? "BM_20");
-      setEnVol(src.enVol ?? 0);
-      setEnFreq(src.enFreq ?? 0);
-      setIsMEN(src.isMEN ?? false);
-      setInclSoluvit(src.inclSoluvit ?? true);
-      setInclPeditrace(src.inclPeditrace ?? true);
-      setInclAddamel(src.inclAddamel ?? false);
-      setHeparinUmL(src.heparinUmL ?? 1);
-      setSuppVitD(src.suppVitD ?? 0);
-      setSuppCa(src.suppCa ?? 0);
-      setSuppCaType(src.suppCaType ?? "CA_CACO3_350");
-      setSuppPO4(src.suppPO4 ?? 0);
-      setSuppPO4Type(src.suppPO4Type ?? "PO4_PHOSPHATE");
-      setSuppMTV(src.suppMTV ?? false);
-      setSuppFerdek(src.suppFerdek ?? 0);
-      setSuppFeType(src.suppFeType ?? "FE_FERDEK");
+      applyCalcInput(editEntry.calcInput || {}, editEntry.weight);
       setPrefilledFrom(null);
+      return;
+    }
+
+    if (baselineEntry) {
+      applyCalcInput(baselineEntry.calcInput || {}, baselineEntry.weight);
+      setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
     }
 
@@ -625,7 +641,9 @@ function Calculator({ patient, dol, editEntry, onLog, onUpdate, onSaved, onWeigh
              borderRadius:8, marginBottom:10, fontSize:12, color:"var(--brand-2)",
              display:"flex", alignItems:"center", gap:8 }}>
           <Icon name="info" size={13} color="var(--brand-2)" />
-          <span>Prefilled from previous submission (DOL <strong>{prefilledFrom.dol}</strong>) — review and adjust before submitting today.</span>
+          <span>{prefilledFrom.baseline
+            ? <>ดึงข้อมูลจากบันทึกล่าสุด (DOL <strong>{prefilledFrom.dol}</strong>) มาเป็นค่าตั้งต้น — ตรวจสอบและปรับก่อนบันทึก</>
+            : <>Prefilled from previous submission (DOL <strong>{prefilledFrom.dol}</strong>) — review and adjust before submitting today.</>}</span>
           <button className="btn sm" style={{ marginLeft:"auto", padding:"3px 10px" }}
             onClick={() => setPrefilledFrom(null)}>Dismiss</button>
         </div>
