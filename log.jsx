@@ -424,7 +424,7 @@ function TrendGraph({ entries, patient }) {
   );
 }
 
-function DailyLog({ patient, log }) {
+function DailyLog({ patient, log, dol, onAddToday, onEditEntry }) {
   const entries = log[patient?.sessionId] || [];
 
   return (
@@ -432,8 +432,15 @@ function DailyLog({ patient, log }) {
       <div className="page-head">
         <div>
           <h1>Daily nutritional log</h1>
-          <div className="sub">Track delivery vs ESPGHAN targets — pick a metric, toggle x-axis between DOL and day-of-admission.</div>
+          <div className="sub">ใหม่สุดอยู่บนสุด — กด "แก้ไข" เพื่อเปิดรายการเดิมในหน้าคำนวณ</div>
         </div>
+        {onAddToday && (
+          <div>
+            <button className="btn primary" onClick={onAddToday}>
+              <Icon name="plus" size={14} color="#fff" /> บันทึกวันนี้{dol != null ? ` (DOL ${dol})` : ""}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
@@ -472,13 +479,15 @@ function DailyLog({ patient, log }) {
                 <th>Na / K</th>
                 <th>Ca / P</th>
                 <th>Route</th>
+                <th>สถานะ</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {(() => {
                 const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
                 return entries.slice().reverse().map((e, i) => (
-                  <tr key={i}>
+                  <tr key={e.entryId || i}>
                     <td className="num" style={{ fontWeight: 600 }}>{e.dol}</td>
                     <td className="num" style={{ color: "var(--ink-3)" }}>{e.dol - admitDol}</td>
                     <td style={{ color: "var(--ink-3)", fontSize: 11.5 }}>{window.NEOFEED_FMT_DATE?.(e.ts) || e.ts}</td>
@@ -490,6 +499,21 @@ function DailyLog({ patient, log }) {
                     <td className="num">{n(e.na, 1)} / {n(e.k, 1)}</td>
                     <td className="num">{n(e.ca, 0)} / {n(e.p, 0)}</td>
                     <td style={{ color: "var(--ink-2)" }}>{e.route}</td>
+                    <td>
+                      <span className={`chip${e.status === "draft" ? "" : " ok"}`}>
+                        <span className="d" />{e.status === "draft" ? "แบบร่าง" : "บันทึกแล้ว"}
+                      </span>
+                    </td>
+                    <td>
+                      {onEditEntry && e.entryId ? (
+                        <button className="btn sm" title={e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy}` : undefined}
+                          onClick={() => onEditEntry(e)}>
+                          แก้ไข <Icon name="arrow" size={11} />
+                        </button>
+                      ) : (
+                        <span style={{ color: "var(--ink-4)", fontSize: 11.5 }} title="บันทึกเก่า — แก้ไขไม่ได้">—</span>
+                      )}
+                    </td>
                   </tr>
                 ));
               })()}

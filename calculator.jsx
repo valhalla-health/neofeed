@@ -134,10 +134,12 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, onLog, onWeightChange }) {
+function Calculator({ patient, dol, editEntry, onLog, onUpdate, onSaved, onWeightChange }) {
   const [wtG, setWtG] = useState(0);
 
-  React.useEffect(() => { if (onWeightChange && wtG > 0) onWeightChange(wtG); }, [wtG]);
+  // Skip while editing a past entry — that weight is historical, not the
+  // patient's current weight, and must not overwrite the PatientStrip display.
+  React.useEffect(() => { if (!editEntry && onWeightChange && wtG > 0) onWeightChange(wtG); }, [wtG, editEntry]);
   const wtKg = wtG / 1000;
 
   // Step 1 — Fluid plan
@@ -193,11 +195,62 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
   // ── Restored-from-previous indicator (shown briefly on prefill) ─
   const [prefilledFrom, setPrefilledFrom] = useState(null); // {date, source}
 
+  // ── Editing an existing entry: entryId/lastModified identify the row being
+  // updated. Set once (from editEntry) or once the first save of a brand-new
+  // entry returns an id — from then on, further saves in this same visit
+  // update that row instead of appending a duplicate.
+  const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
+  const [savedLastModified, setSavedLastModified] = useState(editEntry?.lastModified || null);
+  const [saving, setSaving] = useState(false);
+  const [conflict, setConflict] = useState(null); // {lastModified, lastModifiedBy} of the row on the server
+
   // ── Prefill on patient change ──────────────────────────────────
-  // 1. Restore full calc state from localStorage if previously submitted
-  // 2. Otherwise: smart defaults — wt from latest weight, fluid from ESPGHAN midpoint
+  // 1. Editing an existing entry → restore its exact original inputs (calcInput),
+  //    so edits work correctly regardless of which device created the entry
+  // 2. Otherwise restore full calc state from localStorage if previously submitted
+  // 3. Otherwise: smart defaults — wt from latest weight, fluid from ESPGHAN midpoint
   React.useEffect(() => {
     if (!patient?.sessionId) return;
+
+    if (editEntry) {
+      const src = editEntry.calcInput || {};
+      setWtG(src.wtG ?? editEntry.weight ?? 0);
+      setFluidTargetPerKg(src.fluidTargetPerKg ?? 0);
+      setOtherIV_mL(src.otherIV_mL ?? 0);
+      setDrug_mL(src.drug_mL ?? 0);
+      setRoute(src.route ?? "central");
+      setTotalTPN_mL(src.totalTPN_mL ?? 0);
+      setDexPct(src.dexPct ?? 0);
+      setAaPerKg(src.aaPerKg ?? 0);
+      setLipidPerKg(src.lipidPerKg ?? 0);
+      setNaCl(src.naCl ?? 0);
+      setNaAcet(src.naAcet ?? 0);
+      setGlycophosP(src.glycophosP ?? 0);
+      setKCl(src.kCl ?? 0);
+      setK2HPO4(src.k2hpo4 ?? 0);
+      setMgPerKg(src.mgPerKg ?? 0);
+      setCaPerKg(src.caPerKg ?? 0);
+      setExtraP_mg_kg(src.extraP_mg_kg ?? 0);
+      setEnType(src.enType ?? "BM_20");
+      setEnVol(src.enVol ?? 0);
+      setEnFreq(src.enFreq ?? 0);
+      setIsMEN(src.isMEN ?? false);
+      setInclSoluvit(src.inclSoluvit ?? true);
+      setInclPeditrace(src.inclPeditrace ?? true);
+      setInclAddamel(src.inclAddamel ?? false);
+      setHeparinUmL(src.heparinUmL ?? 1);
+      setSuppVitD(src.suppVitD ?? 0);
+      setSuppCa(src.suppCa ?? 0);
+      setSuppCaType(src.suppCaType ?? "CA_CACO3_350");
+      setSuppPO4(src.suppPO4 ?? 0);
+      setSuppPO4Type(src.suppPO4Type ?? "PO4_PHOSPHATE");
+      setSuppMTV(src.suppMTV ?? false);
+      setSuppFerdek(src.suppFerdek ?? 0);
+      setSuppFeType(src.suppFeType ?? "FE_FERDEK");
+      setPrefilledFrom(null);
+      return;
+    }
+
     let restored = null;
     try {
       const raw = localStorage.getItem(`neofeed_calc_${patient.sessionId}`);
@@ -496,11 +549,78 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
   // TwoCol is defined at module level (below) — do NOT define inside Calculator
   // (inline component definitions cause React to unmount/remount on every render → focus lost)
 
+  // ── Save (draft or submit) — creates a new row the first time, then updates
+  // that same row for every further save in this visit. calcInput carries the
+  // exact raw inputs so this entry stays editable on any device later.
+  const handleSave = async () => {
+    if (saving) return;
+    try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
+    const _suppPayload = {
+      suppMTV:       suppMTV ? 1 : 0,
+      suppVitD_IU:   suppVitD > 0 && wtKg > 0 ? Math.round(suppVitD * wtKg) : 0,
+      suppCa_mg:     suppCa   > 0 && wtKg > 0 ? Math.round(suppCa   * wtKg) : 0,
+      suppCaType:    suppCa   > 0 ? suppCaType   : "",
+      suppPO4_mmol:  suppPO4  > 0 && wtKg > 0 ? parseFloat((suppPO4  * wtKg).toFixed(1)) : 0,
+      suppPO4Type:   suppPO4  > 0 ? suppPO4Type  : "",
+      suppFe_mg:     suppFerdek > 0 && wtKg > 0 ? parseFloat((suppFerdek * wtKg).toFixed(1)) : 0,
+      suppFeType:    suppFerdek > 0 ? suppFeType  : "",
+    };
+    const entry = {
+      dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
+      pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
+      ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
+      route: route === "central" ? "TPN central" : "TPN peripheral",
+      status: "submitted", ..._suppPayload, calcInput: captureState(),
+      // Editing must keep the entry's original calendar date — only a brand-new
+      // entry should be stamped with today's date (handled by the caller).
+      ...(editEntry ? { ts: editEntry.ts } : {}),
+    };
+
+    setSaving(true);
+    const res = savedEntryId
+      ? await onUpdate(savedEntryId, savedLastModified, entry)
+      : await onLog(entry);
+    setSaving(false);
+
+    if (res.conflict) { setConflict(res.current); return; }
+    if (!res.ok) return; // gasPost already surfaced an error toast
+
+    if (!savedEntryId) setSavedEntryId(res.entryId);
+    setSavedLastModified(res.lastModified);
+    onSaved && onSaved();
+  };
 
   return (
     <>
+      {/* Conflict notice — someone else saved this entry after this page opened.
+          The form is left untouched: only navigation/reload discards it, never this banner. */}
+      {conflict && (
+        <div style={{ padding:"10px 12px", background:"var(--crit-bg)", border:"1px solid var(--crit-line)",
+             borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--crit)",
+             display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <Icon name="info" size={13} color="var(--crit)" />
+          <span>
+            รายการนี้ถูกแก้ไขจาก{conflict.lastModifiedBy ? ` ${conflict.lastModifiedBy}` : "เครื่องอื่น"} หลังจากหน้านี้เปิดขึ้นมา —
+            ข้อมูลที่คุณกรอกยังอยู่ครบ กด "โหลดข้อมูลล่าสุด" เพื่อดูของใหม่ก่อนบันทึกทับ
+          </span>
+          <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
+            <button className="btn sm" onClick={() => setConflict(null)}>แก้ไขต่อ</button>
+            <button className="btn sm primary" onClick={() => window.location.reload()}>โหลดข้อมูลล่าสุด</button>
+          </div>
+        </div>
+      )}
+
+      {editEntry && !conflict && (
+        <div style={{ padding:"8px 12px", background:"var(--brand-bg)", border:"1px solid var(--brand-line)",
+             borderRadius:8, marginBottom:10, fontSize:12, color:"var(--brand-2)",
+             display:"flex", alignItems:"center", gap:8 }}>
+          <Icon name="info" size={13} color="var(--brand-2)" />
+          <span>กำลังแก้ไขบันทึก DOL <strong>{editEntry.dol}</strong> ({window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts}) — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่</span>
+        </div>
+      )}
+
       {/* Prefill notice — appears on patient switch if restored from previous submission */}
-      {prefilledFrom && (
+      {!editEntry && prefilledFrom && (
         <div style={{ padding:"8px 12px", background:"var(--brand-bg)", border:"1px solid var(--brand-line)",
              borderRadius:8, marginBottom:10, fontSize:12, color:"var(--brand-2)",
              display:"flex", alignItems:"center", gap:8 }}>
@@ -1235,41 +1355,9 @@ function Calculator({ patient, dol, onLog, onWeightChange }) {
               📋 Copy Order to Clipboard
             </button>
 
-            <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
-              // Persist full input state for next-day prefill
-              try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
-              const _suppPayload = {
-                suppMTV:       suppMTV ? 1 : 0,
-                suppVitD_IU:   suppVitD > 0 && wtKg > 0 ? Math.round(suppVitD * wtKg) : 0,
-                suppCa_mg:     suppCa   > 0 && wtKg > 0 ? Math.round(suppCa   * wtKg) : 0,
-                suppCaType:    suppCa   > 0 ? suppCaType   : "",
-                suppPO4_mmol:  suppPO4  > 0 && wtKg > 0 ? parseFloat((suppPO4  * wtKg).toFixed(1)) : 0,
-                suppPO4Type:   suppPO4  > 0 ? suppPO4Type  : "",
-                suppFe_mg:     suppFerdek > 0 && wtKg > 0 ? parseFloat((suppFerdek * wtKg).toFixed(1)) : 0,
-                suppFeType:    suppFerdek > 0 ? suppFeType  : "",
-              };
-              onLog && onLog({
-                dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
-                pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
-                ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
-                route: route === "central" ? "TPN central" : "TPN peripheral",
-                status: "draft", ..._suppPayload
-              });
-            }}>
-              <Icon name="save" size={14} /> Save as draft → GAS
-            </button>
-            <button className="btn primary" style={{ width: "100%" }} onClick={() => {
-              // Persist full input state for next-day prefill
-              try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
-              onLog && onLog({
-                dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
-                pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
-                ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
-                route: route === "central" ? "TPN central" : "TPN peripheral",
-                status: "submitted", ..._suppPayload
-              });
-            }}>
-              <Icon name="check" size={14} color="#fff" /> Submit → GAS Log
+            <button className="btn primary" style={{ width: "100%" }} disabled={saving}
+              onClick={handleSave}>
+              <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
             </div>{/* /calc-save-bar */}
           </div>

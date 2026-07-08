@@ -49,6 +49,12 @@ function App() {
   const [calcWeights, setCalcWeights] = React.useState({});
   React.useEffect(() => { setCalcWeights({}); }, [activeId]); // reset typed weight on patient switch
 
+  // Which existing log entry the Calculator is editing (null = creating a new entry).
+  // Cleared on any ordinary navigation so it never bleeds into an unrelated Calculator visit.
+  const [editEntry, setEditEntry] = React.useState(null);
+  React.useEffect(() => { setEditEntry(null); }, [activeId]);
+  const goTo = (v) => { setEditEntry(null); setView(v); };
+
   const active = patients.find((p) => p.sessionId === activeId);
   const lastWt = active?.weights?.slice(-1)[0];
   // DOL = admissionDOL + daysSinceAdmit — single source of truth (data.js → liveDol)
@@ -139,9 +145,11 @@ function App() {
   //   1. Unauthorized  → clears session + forces re-login (token expired after ~1 hr)
   //   2. GAS error     → shows error toast with server message
   //   3. Network error → shows error toast
-  // Returns true on success so callers can fire the confirmatory toast themselves.
+  // Resolves to { ok, ...restOfServerResponse } on a normal reply, or
+  // { ok:false, conflict:true, current } for an optimistic-lock conflict,
+  // so callers that care (edit flow) can branch without the generic error toast firing.
   const gasPost = React.useCallback(async (payload) => {
-    if (!GAS_ON) return true;
+    if (!GAS_ON) return { ok: true };
     try {
       const res  = await fetch(GAS_URL, {
         method: "POST",
@@ -154,35 +162,69 @@ function App() {
         sessionStorage.removeItem("neofeed_session");
         if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
         setUser(null);
-        return false;
+        return { ok: false, unauthorized: true };
       }
+      if (data.conflict) return { ok: false, conflict: true, current: data.current };
       if (data.error) {
         showToast(`บันทึกไม่สำเร็จ: ${data.error}`, "error");
-        return false;
+        return { ok: false, error: data.error };
       }
-      return true;
+      return { ok: true, ...data };
     } catch (e) {
       console.warn("GAS POST failed:", e);
       showToast("บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่อ", "error");
-      return false;
+      return { ok: false, networkError: true };
     }
   }, [user?.token]);
 
   // ── Handlers ─────────────────────────────────────────────────
+  // Creates a brand-new Daily_Log row. Returns a promise resolving to
+  // { ok, entryId, lastModified } so the Calculator can remember the id and
+  // switch to handleUpdateToGAS for any further save within the same visit
+  // (prevents the old "draft" + "submit" duplicate-row behavior).
   const handleLogToGAS = (entry) => {
     const id = active.sessionId;
     const ts = new Date().toISOString().slice(0, 10);
-    // Update local state immediately (optimistic — keeps UI snappy)
-    setLog(prev => ({ ...prev, [id]: [...(prev[id] || []), { ...entry, ts }] }));
-    // Toast fires AFTER GAS confirms — not before — to avoid false assurance
-    if (GAS_ON) {
-      gasPost({ action: "logDailyNutrition", sessionId: id, entry: { ...entry, ts } })
-        .then(ok => {
-          if (ok) showToast(`Logged DOL ${entry.dol} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
-        });
-    } else {
-      showToast(`Logged DOL ${entry.dol} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
-    }
+    const tempId = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    const who = user?.email || "";
+    // Optimistic insert under a temp id — reconciled with the real entryId below,
+    // or rolled back if the write never actually lands.
+    setLog(prev => ({ ...prev, [id]: [...(prev[id] || []), { ...entry, ts, entryId: tempId, lastModified: ts, submittedBy: who, lastModifiedBy: who }] }));
+
+    const reconcile = (res) => {
+      if (res.ok) {
+        setLog(prev => ({ ...prev, [id]: (prev[id] || []).map(e =>
+          e.entryId === tempId ? { ...e, entryId: res.entryId, lastModified: res.lastModified } : e) }));
+        showToast(`Logged DOL ${entry.dol} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
+      } else {
+        setLog(prev => ({ ...prev, [id]: (prev[id] || []).filter(e => e.entryId !== tempId) }));
+      }
+      return res;
+    };
+
+    if (!GAS_ON) return Promise.resolve(reconcile({ ok: true, entryId: "local_" + tempId, lastModified: ts }));
+    return gasPost({ action: "logDailyNutrition", sessionId: id, entry: { ...entry, ts } }).then(reconcile);
+  };
+
+  // Updates an existing Daily_Log row in place (optimistic-locked by entryId+lastModified).
+  // On conflict, does NOT touch local state or the caller's form — the Calculator keeps
+  // whatever the user typed and decides how to surface the conflict.
+  const handleUpdateToGAS = (entryId, expectedLastModified, entry) => {
+    const id = active.sessionId;
+    const ts = entry.ts || new Date().toISOString().slice(0, 10);
+    const who = user?.email || "";
+
+    const apply = (res) => {
+      if (res.ok) {
+        setLog(prev => ({ ...prev, [id]: (prev[id] || []).map(e =>
+          e.entryId === entryId ? { ...e, ...entry, ts, lastModified: res.lastModified, lastModifiedBy: who } : e) }));
+        showToast(`อัปเดต DOL ${entry.dol} แล้ว`);
+      }
+      return res;
+    };
+
+    if (!GAS_ON) return Promise.resolve(apply({ ok: true, lastModified: new Date().toISOString() }));
+    return gasPost({ action: "updateDailyNutrition", sessionId: id, entryId, expectedLastModified, entry: { ...entry, ts } }).then(apply);
   };
 
   const handleAddPatient = (p) => {
@@ -190,8 +232,8 @@ function App() {
     setActiveId(p.sessionId);
     if (GAS_ON) {
       gasPost({ action: "registerPatient", patient: p })
-        .then(ok => {
-          showToast(`Session ${p.sessionId} registered${ok ? " → GAS" : " (local only — check connection)"}`);
+        .then(res => {
+          showToast(`Session ${p.sessionId} registered${res.ok ? " → GAS" : " (local only — check connection)"}`);
         });
     } else {
       showToast(`Session ${p.sessionId} registered (local)`);
@@ -203,11 +245,15 @@ function App() {
     setPatients(prev => prev.map(x => x.sessionId === p.sessionId ? p : x));
     if (GAS_ON) {
       gasPost({ action: "registerPatient", patient: p })
-        .then(ok => { if (ok) showToast(`${p.name || p.sessionId} อัปเดตแล้ว`); });
+        .then(res => { if (res.ok) showToast(`${p.name || p.sessionId} อัปเดตแล้ว`); });
     } else {
       showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
     }
   };
+
+  // ── Start "add today" / "edit an entry" from the Log dashboard ───────
+  const startAddToday  = () => { setEditEntry(null); setView("calculator"); };
+  const startEditEntry = (entry) => { setEditEntry(entry); setView("calculator"); };
 
   // ── Weight update (from Fenton chart logger) ──────────────────
   const handleWeightUpdate = (sessionId, weights) => {
@@ -338,21 +384,21 @@ function App() {
       {/* Rail */}
       <nav className="rail">
         <div className="rail-section">Workspace</div>
-        <RailItem icon="users" label="Patients" active={view === "registry"} count={patients.length} onClick={() => setView("registry")} />
-        {(role === "doctor" || role === "nurse") && <RailItem icon="calc" label="Calculator" active={view === "calculator"} onClick={() => setView("calculator")} />}
-        <RailItem icon="chart" label="Growth chart" active={view === "fenton"} onClick={() => setView("fenton")} />
-        <RailItem icon="log" label="Daily log" active={view === "log"} count={(log[activeId] || []).length} onClick={() => setView("log")} />
-        <RailItem icon="bell" label="Alerts" active={view === "alerts"} count={alertCount || null} crit={alertCount > 0} onClick={() => setView("alerts")} />
-        {role === "admin" && <RailItem icon="chart" label="Admin dashboard" active={view === "admin"} onClick={() => setView("admin")} />}
+        <RailItem icon="users" label="Patients" active={view === "registry"} count={patients.length} onClick={() => goTo("registry")} />
+        <RailItem icon="log" label="Dashboard" active={view === "log"} count={(log[activeId] || []).length} onClick={() => goTo("log")} />
+        {(role === "doctor" || role === "nurse") && <RailItem icon="calc" label="Calculator" active={view === "calculator"} onClick={() => goTo("calculator")} />}
+        <RailItem icon="chart" label="Growth chart" active={view === "fenton"} onClick={() => goTo("fenton")} />
+        <RailItem icon="bell" label="Alerts" active={view === "alerts"} count={alertCount || null} crit={alertCount > 0} onClick={() => goTo("alerts")} />
+        {role === "admin" && <RailItem icon="chart" label="Admin dashboard" active={view === "admin"} onClick={() => goTo("admin")} />}
 
         <div className="rail-section">Reference</div>
-        <RailItem icon="info" label="Guidelines (ESPGHAN)" active={view === "guidelines"} onClick={() => setView("guidelines")} />
+        <RailItem icon="info" label="Guidelines (ESPGHAN)" active={view === "guidelines"} onClick={() => goTo("guidelines")} />
         <div className="rail-item" style={{ opacity:0.45, cursor:"default", pointerEvents:"none" }}>
           <Icon name="info" size={15} />
           <span>Drug compatibility</span>
           <span className="count" style={{ marginLeft:"auto", fontSize:10 }}>soon</span>
         </div>
-        <RailItem icon="info" label="Formulas + products" active={view === "formulas"} onClick={() => setView("formulas")} />
+        <RailItem icon="info" label="Formulas + products" active={view === "formulas"} onClick={() => goTo("formulas")} />
 
         <div className="rail-foot">
           <div className="conn"><span className="dot" /> Sync · just now</div>
@@ -377,14 +423,19 @@ function App() {
           {editingPatient && <EditPatientModal patient={editingPatient} onClose={() => setEditingPatient(null)}
             onSubmit={p => { handleEditPatient(p); setEditingPatient(null); }} />}
 
-          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setActiveId(id);setView("calculator");}} onAdd={handleAddPatient} onEdit={handleEditPatient} />}
+          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} />}
           {view === "admin" && <AdminDashboard patients={patients} log={log} />}
           {view === "calculator" && active &&
           <>
               <div className="page-head">
                 <div>
-                  <h1>TPN + Enteral nutrition order</h1>
-                  <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds · Day of Life {dol}</div>
+                  {editEntry && (
+                    <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={() => goTo("log")}>
+                      ← กลับไป Dashboard
+                    </button>
+                  )}
+                  <h1>{editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order"}</h1>
+                  <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds · Day of Life {editEntry ? editEntry.dol : dol}</div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="btn" onClick={() => {
@@ -393,10 +444,12 @@ function App() {
                   }}>
                     <Icon name="pdf" size={14} /> Print order
                   </button>
-                  <button className="btn" onClick={() => setView("guidelines")}><Icon name="info" size={14} /> Reference values</button>
+                  <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
                 </div>
               </div>
-              <Calculator patient={active} dol={dol} onLog={handleLogToGAS}
+              <Calculator patient={active} dol={editEntry ? editEntry.dol : dol}
+                editEntry={editEntry} onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
+                onSaved={() => goTo("log")}
                 onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
             </>
           }
@@ -413,7 +466,8 @@ function App() {
               } />
             </>
           }
-          {view === "log" && active && <DailyLog patient={active} log={log} />}
+          {view === "log" && active && <DailyLog patient={active} log={log} dol={dol}
+            onAddToday={startAddToday} onEditEntry={startEditEntry} />}
           {view === "alerts" && active && <AlertCenter patient={active} log={log} />}
           {view === "guidelines" && <GuidelinesPanel />}
           {view === "formulas" && <FormulasPanel />}
@@ -447,7 +501,7 @@ function App() {
 
       <BottomNav
         view={view}
-        setView={setView}
+        setView={goTo}
         alertCount={alertCount}
         logCount={(log[activeId] || []).length}
         role={role}
@@ -844,8 +898,7 @@ function LoginScreen({ onLogin }) {
       {mode === "google" && (
         <>
           <div className="login-btn-area">
-            <div ref={btnRef} style={{ display: "flex", justifyContent: "center", minHeight: 44,
-              visibility: loading ? "hidden" : "visible" }} />
+            <div ref={btnRef} style={{ display: loading ? "none" : "flex", justifyContent: "center", minHeight: 44 }} />
             {loading && (
               <div style={{ position: "absolute", inset: 0, display: "flex",
                 alignItems: "center", justifyContent: "center", gap: 8,
@@ -1001,9 +1054,9 @@ function AdminDashboard({ patients, log }) {
 function BottomNav({ view, setView, alertCount, logCount, role }) {
   const tabs = [
     { id: "registry",   icon: "users",  label: "Patients" },
+    { id: "log",        icon: "log",    label: "Dashboard", badge: logCount   },
     ...((role === "doctor" || role === "nurse") ? [{ id: "calculator", icon: "calc", label: "Calc" }] : []),
     { id: "fenton",     icon: "chart",  label: "Growth"   },
-    { id: "log",        icon: "log",    label: "Log",    badge: logCount   },
     { id: "alerts",     icon: "bell",   label: "Alerts", badge: alertCount },
   ];
   return (

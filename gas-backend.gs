@@ -16,8 +16,13 @@
 //
 // Patient_Registry (A–P): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
 //   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory
-// Daily_Log (A–X): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
-//   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType
+// Daily_Log (A–AB): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
+//   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType|
+//   calcInputJson|entryId|lastModified|lastModifiedBy
+//   (calcInputJson = raw Calculator inputs, JSON — lets an entry be reopened
+//   and edited exactly as entered, from any device, not just the one that
+//   created it. entryId is the stable key updateDailyNutrition() matches on;
+//   lastModified/lastModifiedBy back the optimistic-concurrency check there.)
 // Staff (A–F): email | role | name | active | password_hash | salt
 //
 // PDPA lawful basis: Section 26(6) medical necessity + professional confidentiality
@@ -135,7 +140,8 @@ function getSheetLog() {
       "ts","sessionId","dol","weight","fluid","gir",
       "pro","kcal","na","k","ca","p","enVolPerKg","route","status","submittedBy",
       "suppMTV","suppVitD_IU","suppCa_mg","suppCaType",
-      "suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType"
+      "suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType",
+      "calcInputJson","entryId","lastModified","lastModifiedBy"
     ]);
   }
   return sh;
@@ -245,8 +251,15 @@ function doPost(e) {
 
     if (action === "logDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
-      logDailyNutrition(body.sessionId, body.entry, user.email);
-      return jsonOut({ ok: true });
+      var logResult = logDailyNutrition(body.sessionId, body.entry, user.email);
+      return jsonOut({ ok: true, entryId: logResult.entryId, lastModified: logResult.lastModified });
+    }
+    if (action === "updateDailyNutrition") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
+      var updResult = updateDailyNutrition(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email);
+      if (updResult.error) return jsonOut({ error: updResult.error });
+      if (updResult.conflict) return jsonOut({ conflict: true, current: updResult.current });
+      return jsonOut({ ok: true, lastModified: updResult.lastModified });
     }
     if (action === "registerPatient" || action === "updatePatient") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
@@ -312,6 +325,11 @@ function getActivePatients() {
       enVolPerKg: Number(row[12] || 0),
       route:      String(row[13] || ""),
       status:     String(row[14] || "submitted"),
+      submittedBy:    String(row[15] || ""),
+      calcInput:      _parseJson(row[24], null),
+      entryId:        String(row[25] || ""),
+      lastModified:   String(row[26] || ""),
+      lastModifiedBy: String(row[27] || ""),
     });
   }
 
@@ -342,9 +360,11 @@ function getActivePatients() {
   return { patients: patients, log: logMap, ts: new Date().toISOString() };
 }
 
-// ── logDailyNutrition ─────────────────────────────────────────
-function logDailyNutrition(sessionId, entry, submittedBy) {
-  getSheetLog().appendRow([
+// ── Daily_Log row builder — columns shared by create + update ─
+// Returns the first 24 columns (A–X); caller appends calcInputJson/entryId/
+// lastModified/lastModifiedBy (Y–AB) since those differ between create/update.
+function _buildLogRow(sessionId, entry, submittedBy) {
+  return [
     entry.ts         || new Date().toISOString().slice(0, 10),
     sessionId,
     entry.dol        || "", entry.weight   || "", entry.fluid    || "",
@@ -356,7 +376,53 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     entry.suppCa_mg  || 0, entry.suppCaType  || "",
     entry.suppPO4_mmol || 0, entry.suppPO4Type || "",
     entry.suppFe_mg  || 0, entry.suppFeType  || "",
-  ]);
+  ];
+}
+
+// ── logDailyNutrition (create) ─────────────────────────────────
+function logDailyNutrition(sessionId, entry, submittedBy) {
+  var entryId = Utilities.getUuid();
+  var lastModified = new Date().toISOString();
+  var row = _buildLogRow(sessionId, entry, submittedBy)
+    .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""]);
+  getSheetLog().appendRow(row);
+  return { entryId: entryId, lastModified: lastModified };
+}
+
+// ── updateDailyNutrition (optimistic-locked update by entryId) ─
+// Rejects the write (rather than overwriting) if the row's lastModified has
+// moved on since the client last fetched it — a concurrent edit from another
+// device. submittedBy (col 16, the original creator) is preserved as-is;
+// only lastModified/lastModifiedBy (col 27/28) track the editor.
+function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, editedBy) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheetLog();
+    var data  = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][25]) !== String(entryId)) continue;
+      if (String(data[i][1]) !== String(sessionId)) return { error: "Entry does not belong to this patient" };
+
+      var currentLastModified = String(data[i][26] || "");
+      if (currentLastModified !== String(expectedLastModified || "")) {
+        return { conflict: true, current: {
+          lastModified: currentLastModified,
+          lastModifiedBy: String(data[i][27] || ""),
+        } };
+      }
+
+      var originalSubmittedBy = String(data[i][15] || editedBy || "");
+      var newLastModified = new Date().toISOString();
+      var row = _buildLogRow(sessionId, entry, originalSubmittedBy)
+        .concat([JSON.stringify(entry.calcInput || {}), entryId, newLastModified, editedBy || ""]);
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return { ok: true, lastModified: newLastModified };
+    }
+    return { error: "ไม่พบข้อมูลที่ต้องการแก้ไข — อาจถูกลบไปแล้ว" };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ── registerPatient (upsert) ──────────────────────────────────
