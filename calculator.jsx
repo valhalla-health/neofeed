@@ -137,9 +137,20 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, onSaved, onWeightChange }) {
   const [wtG, setWtG] = useState(0);
 
-  // Skip while editing a past entry — that weight is historical, not the
-  // patient's current weight, and must not overwrite the PatientStrip display.
-  React.useEffect(() => { if (!editEntry && onWeightChange && wtG > 0) onWeightChange(wtG); }, [wtG, editEntry]);
+  // Set alongside setWtG whenever the prefill effect below applies a historical
+  // weight (edit or baseline) — tells the propagation effect to skip that one
+  // change so a stale/past weight never flashes into the PatientStrip header
+  // before the user has looked at or touched the field.
+  const skipWeightPropagateRef = React.useRef(false);
+
+  // Skip while editing a past entry, or for the one wtG update caused by
+  // baseline-prefill — that weight is historical, not the patient's current
+  // weight, and must not overwrite the PatientStrip display.
+  React.useEffect(() => {
+    if (editEntry || !onWeightChange || wtG <= 0) return;
+    if (skipWeightPropagateRef.current) { skipWeightPropagateRef.current = false; return; }
+    onWeightChange(wtG);
+  }, [wtG, editEntry]);
   const wtKg = wtG / 1000;
 
   // Step 1 — Fluid plan
@@ -255,6 +266,15 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
   React.useEffect(() => {
     if (!patient?.sessionId) return;
 
+    // Re-sync the saved-row identity to the current editEntry every time patient
+    // or editEntry changes — a patient switch while this component stays mounted
+    // (e.g. via the header "Switch patient" picker, without leaving the Calculator
+    // view) must not leave a stale entryId/lastModified pointing at the previous
+    // patient's row, which would misdirect the next save.
+    setSavedEntryId(editEntry?.entryId || null);
+    setSavedLastModified(editEntry?.lastModified || null);
+    setConflict(null);
+
     if (editEntry) {
       applyCalcInput(editEntry.calcInput || {}, editEntry.weight);
       setPrefilledFrom(null);
@@ -262,6 +282,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
     }
 
     if (baselineEntry) {
+      skipWeightPropagateRef.current = true;
       applyCalcInput(baselineEntry.calcInput || {}, baselineEntry.weight);
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
@@ -318,7 +339,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
       setPrefilledFrom(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patient?.sessionId]);
+  }, [patient?.sessionId, editEntry]);
 
   // Helper to bundle current input state for persistence
   const captureState = () => ({

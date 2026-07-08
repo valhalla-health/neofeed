@@ -395,6 +395,7 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
 // device. submittedBy (col 16, the original creator) is preserved as-is;
 // only lastModified/lastModifiedBy (col 27/28) track the editor.
 function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, editedBy) {
+  if (!entryId) return { error: "entryId is required" };
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {

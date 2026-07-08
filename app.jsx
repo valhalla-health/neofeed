@@ -490,8 +490,8 @@ function App() {
       <ChangePasswordModal
         onClose={() => setShowChangePwd(false)}
         onSave={async (oldPwd, newPwd) => {
-          const ok = await gasPost({ action: "changePassword", oldPassword: oldPwd, newPassword: newPwd });
-          if (ok) { showToast("เปลี่ยนรหัสผ่านสำเร็จ"); setShowChangePwd(false); }
+          const res = await gasPost({ action: "changePassword", oldPassword: oldPwd, newPassword: newPwd });
+          if (res.ok) { showToast("เปลี่ยนรหัสผ่านสำเร็จ"); setShowChangePwd(false); }
         }}
       />
       }
