@@ -24,6 +24,9 @@
 //   created it. entryId is the stable key updateDailyNutrition() matches on;
 //   lastModified/lastModifiedBy back the optimistic-concurrency check there.)
 // Staff (A–F): email | role | name | active | password_hash | salt
+// Audit_Log (A–D): ts | action | sessionId | actorEmail
+//   (accountability trail for PDPA-relevant actions — registry reads,
+//   erasures — since Apps Script's own execution log expires after 7 days)
 //
 // PDPA lawful basis: Section 26(6) medical necessity + professional confidentiality
 // ============================================================
@@ -170,7 +173,7 @@ function doGet(e) {
       }
       return jsonOut({ user: user.email, staffRows: staffRows });
     }
-    if (action === "getActivePatients") return jsonOut(getActivePatients());
+    if (action === "getActivePatients") { logAudit("readRegistry", "", user.email); return jsonOut(getActivePatients()); }
     return jsonOut({ error: "Unknown action: " + action });
   } catch (err) { return jsonOut({ error: err.message }); }
 }
@@ -245,7 +248,7 @@ function doPost(e) {
     var user = verifyToken(body.token);
     if (!user) return jsonOut({ error: "Unauthorized" });
 
-    if (action === "getActivePatients") return jsonOut(getActivePatients());
+    if (action === "getActivePatients") { logAudit("readRegistry", "", user.email); return jsonOut(getActivePatients()); }
 
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
 
@@ -461,19 +464,53 @@ function updateWeights(sessionId, weights) {
   }
 }
 
-// ── pseudonymizePatient (PDPA Section 33) ─────────────────────
+// ── pseudonymizePatient (PDPA Section 33 — right to erasure) ───
+// Clears the direct identifiers held on Patient_Registry: name (B), initials
+// (C), and dob (G) — a birthdate is, on a small NICU census, identifying on
+// its own. Clinical fields (bw/ga/diagnosis/weights/etc.) are retained: the
+// hospital's own record-retention duty (Medical Facility Act) and the
+// Sec 26(6)/24 medical-necessity basis this system relies on both justify
+// keeping de-identified clinical history rather than deleting it outright.
+//
+// Known residual risk: sessionId itself is generated as initials+BW+twin
+// suffix (see data.js), so it is not a true pseudonym — on a small census it
+// can still be reverse-mapped to the patient by staff who were present at
+// admission. Erasure here removes the *stored* identifiers but cannot scrub
+// that pattern from an already-issued sessionId without breaking every
+// Daily_Log row keyed on it. Flagged in HANDOFF.md; do not treat this
+// function as satisfying a full erasure request on its own.
 function pseudonymizePatient(sessionId, adminEmail) {
   var sheet = getSheetPat();
   var data  = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(sessionId)) {
       var note = "[PDPA-erased " + new Date().toISOString().slice(0, 10) + "]";
-      sheet.getRange(i + 1, 2).setValue(note);
-      sheet.getRange(i + 1, 3).setValue("");
+      sheet.getRange(i + 1, 2).setValue(note); // name
+      sheet.getRange(i + 1, 3).setValue("");   // initials
+      sheet.getRange(i + 1, 7).setValue("");   // dob
       Logger.log("PDPA erasure: " + sessionId + " by " + adminEmail);
+      logAudit("pseudonymize", sessionId, adminEmail);
       return;
     }
   }
+}
+
+// ── Audit_Log (PDPA Section 39 accountability) ─────────────────
+// Persistent record of PDPA-relevant actions — Logger.log entries expire
+// after 7 days and aren't sufficient to demonstrate compliance on request.
+function getSheetAudit() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh = ss.getSheetByName("Audit_Log");
+  if (!sh) {
+    sh = ss.insertSheet("Audit_Log");
+    sh.appendRow(["ts", "action", "sessionId", "actorEmail"]);
+  }
+  return sh;
+}
+function logAudit(action, sessionId, actorEmail) {
+  try {
+    getSheetAudit().appendRow([new Date().toISOString(), action, sessionId || "", actorEmail || ""]);
+  } catch (e) { Logger.log("logAudit failed: " + e.message); }
 }
 
 // ── Utility ───────────────────────────────────────────────────

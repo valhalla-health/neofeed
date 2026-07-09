@@ -101,3 +101,48 @@ When ready to redeploy:
 - **GAS Unauthorized** no longer redirects to login (shows error toast instead). Restore login behavior in `app.jsx` line ~145 if needed.
 - **`enVolPerKg`** is logged on new submissions but legacy log entries (pre-session-8) lack this field — they default to PN targets.
 - **Mobile Fenton chart** retains pan/zoom but the SVG width-760 layout works because of `width: 100%; height: auto`.
+
+---
+
+## Thai PDPA compliance posture
+
+This app processes infant health data — "sensitive personal data" under PDPA
+Sec 26. What's in place and what's still open:
+
+**Lawful basis:** Sec 26(6) medical necessity + professional confidentiality
+(documented at the top of `gas-backend.gs`). No separate consent flow —
+consistent with the exemption, but only covers *treatment* processing, not
+secondary uses (e.g. research/QI exports) if those are ever added.
+
+**Data subject rights implemented:**
+- *Erasure/pseudonymization* — `pseudonymizePatient()` in `gas-backend.gs`,
+  admin-only, triggered via `action: "pseudonymizePatient"`. Clears name,
+  initials, dob from Patient_Registry; retains de-identified clinical history
+  (bw/ga/diagnosis/weights) for the hospital's own medical-record retention
+  duty. **Residual risk:** `sessionId` is generated as
+  `initials+BW+twinSuffix` (see `data.js`), so it's a pseudonym, not
+  anonymous — staff present at admission can still reverse-map it on a small
+  census. Erasure does not (and structurally cannot, without breaking every
+  Daily_Log join) scrub that pattern from an already-issued sessionId.
+- *Access/rectification* — no self-service path yet; handled manually via
+  admin editing the registry. Worth a real endpoint if request volume grows.
+
+**Accountability (Sec 39):** `Audit_Log` sheet (auto-created by
+`getSheetAudit()`) records registry reads and erasures with actor email +
+timestamp — persists past Apps Script's 7-day execution-log window.
+
+**Data minimization:** `handleLogout()` in `app.jsx` clears
+`neofeed_calc_*`/`neofeed_acked_*` localStorage keys on logout, since those
+hold per-patient clinical inputs (weight, fluids, labs) and NICU workstations
+are typically shared devices.
+
+**Open items / not addressed here:**
+- *Cross-border transfer (Sec 28):* data lives in Google Sheets/Apps Script —
+  verify Google Workspace's DPA/SCC coverage is adequate for the org's data
+  location requirements; not evaluated as part of this change.
+- *Password hashing:* `hashPwd()` is single-round SHA-256 + per-user salt —
+  fine against casual DB browsing but not iterated/memory-hard. Apps Script
+  has no native bcrypt/Argon2; would need a manual PBKDF2 loop over
+  `Utilities.computeHmacSha256Signature` if strengthened.
+- *Retention policy:* no automatic purge after discharge — records persist
+  indefinitely in the sheet today.
