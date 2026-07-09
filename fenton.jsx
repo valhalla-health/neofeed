@@ -165,7 +165,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
         </span>
       </div>
       <div className="card-b">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 18 }}>
+        <div className="fenton-grid" style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 18 }}>
           <div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 }}>
               <button className="btn sm" onClick={() => {
