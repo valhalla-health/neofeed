@@ -433,7 +433,7 @@ function NewPatientModal({ onClose, onSubmit }) {
               <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
             </div>
             <div className="field">
-              <label>DOL แรกรับ <span className="unit">(Day of Life at admit)</span></label>
+              <label>DOL แรกรับ</label>
               <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(parseInt(e.target.value) || 1)} />
             </div>
           </div>
@@ -565,7 +565,7 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
               <input className="inp" maxLength={2} value={name} onChange={e => setName(e.target.value)} />
             </div>
             <div className="field">
-              <label>DOL แรกรับ <span className="unit">(Day of Life at admit)</span></label>
+              <label>DOL แรกรับ</label>
               <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(e.target.value)} />
             </div>
           </div>
