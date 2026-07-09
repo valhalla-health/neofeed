@@ -858,12 +858,17 @@
       margin-bottom: 10px;
     }
     .page-head h1 { font-size: 17px; }
-    .page-head > div:last-child { display: flex; gap: 6px; width: 100%; }
-    .page-head > div:last-child .btn { flex: 1; justify-content: center; font-size: 13px; }
+    /* `+ div` (not :last-child) so this only matches a second/actions div —
+       a lone title div is both first and last child and must stay block. */
+    .page-head > div + div { display: flex; gap: 6px; width: 100%; }
+    .page-head > div + div .btn { flex: 1; justify-content: center; font-size: 13px; }
 
     /* Metric tiles: 2 col */
     .metric-tiles-4 { grid-template-columns: 1fr 1fr !important; }
     .metric .val { font-size: 24px; }
+
+    /* Fenton growth chart: chart above stats instead of squeezed beside a fixed 200px column */
+    .fenton-grid { grid-template-columns: 1fr !important; }
 
     /* Tables: let card scroll */
     .card { overflow-x: auto; }
