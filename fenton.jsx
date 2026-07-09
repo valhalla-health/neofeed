@@ -372,6 +372,20 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
   const [w, setW] = React.useState("");
   const [l, setL] = React.useState("");
   const [hc, setHc] = React.useState("");
+  // Set when a history row is clicked — lets us show an "editing" banner and
+  // a way back to a blank entry, mirroring the Daily Log's edit-entry pattern.
+  const [editingDol, setEditingDol] = React.useState(null);
+
+  const loadRow = (x) => {
+    setDol(x.dol);
+    setW(x.w != null ? String(x.w) : "");
+    setL(x.l != null ? String(x.l) : "");
+    setHc(x.hc != null ? String(x.hc) : "");
+    setEditingDol(x.dol);
+  };
+  const cancelEdit = () => {
+    setDol(maxDol); setW(""); setL(""); setHc(""); setEditingDol(null);
+  };
 
   const save = () => {
     let n = parseInt(dol, 10);
@@ -386,20 +400,28 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
       ? weights.map(x => x.dol === n ? { ...x, ...(wt != null ? { w: wt } : {}), ...(len != null ? { l: len } : {}), ...(head != null ? { hc: head } : {}) } : x)
       : [...weights, { dol: n, w: wt ?? (weights[weights.length - 1]?.w || 0), l: len ?? null, hc: head ?? null }].sort((a, b) => a.dol - b.dol);
     onUpdate(merged);
-    setW(""); setL(""); setHc("");
+    setW(""); setL(""); setHc(""); setEditingDol(null);
   };
 
   return (
     <div style={{ background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 10, padding: 12 }}>
+      {editingDol != null && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--brand-2)",
+          background: "var(--brand-bg)", border: "1px solid var(--brand-line)", borderRadius: 8,
+          padding: "6px 10px", marginBottom: 8 }}>
+          <span>Editing DOL <strong>{editingDol}</strong></span>
+          <button className="btn sm" style={{ marginLeft: "auto", padding: "2px 8px" }} onClick={cancelEdit}>Cancel</button>
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <div className="field" style={{ gridColumn: "1 / -1" }}>
           <label style={{ fontSize: 10.5 }}>DOL <span className="unit">(max {maxDol})</span></label>
-          <input type="number" min={1} max={maxDol} className="inp num" value={dol}
+          <input type="number" min={1} max={maxDol} className="inp num" value={dol} disabled={editingDol != null}
             onChange={e => {
               const v = parseInt(e.target.value, 10);
               if (isNaN(v)) setDol("");
               else setDol(Math.min(maxDol, Math.max(1, v)));
-            }} style={{ height: 30 }} />
+            }} style={{ height: 30, opacity: editingDol != null ? 0.6 : 1 }} />
         </div>
         <div className="field">
           <label style={{ fontSize: 10.5 }}>Wt <span className="unit">(g)</span></label>
@@ -415,14 +437,18 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
         </div>
       </div>
       <button className="btn primary sm" style={{ width: "100%", marginTop: 8, justifyContent: "center" }} onClick={save}>
-        <Icon name="save" size={12} color="#fff" /> Save measurement
+        <Icon name="save" size={12} color="#fff" /> {editingDol != null ? "Update measurement" : "Save measurement"}
       </button>
       {weights.length > 0 && (
         <div style={{ marginTop: 10, borderTop: "1px solid var(--line-2)", paddingTop: 8 }}>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>History</div>
+          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>History <span style={{ textTransform: "none", letterSpacing: 0 }}>· tap a row to correct it</span></div>
           <div style={{ maxHeight: 140, overflowY: "auto" }}>
             {weights.slice().reverse().map((x, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "36px 1fr 1fr 1fr", gap: 4, fontSize: 11, fontFamily: "IBM Plex Mono, monospace", padding: "3px 0", borderBottom: "1px dashed var(--line-2)" }}>
+              <div key={i} onClick={() => loadRow(x)} title={`Tap to edit DOL ${x.dol}`}
+                style={{ display: "grid", gridTemplateColumns: "36px 1fr 1fr 1fr", gap: 4, fontSize: 11,
+                  fontFamily: "IBM Plex Mono, monospace", padding: "3px 4px", margin: "0 -4px",
+                  borderBottom: "1px dashed var(--line-2)", cursor: "pointer", borderRadius: 4,
+                  background: editingDol === x.dol ? "var(--brand-bg)" : "transparent" }}>
                 <span style={{ color: "var(--ink-3)" }}>{x.dol}</span>
                 <span>{x.w ? x.w + "g" : "—"}</span>
                 <span>{x.l ? x.l + "cm" : "—"}</span>

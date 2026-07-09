@@ -15,6 +15,15 @@ function firstChar(str) {
 const GAS_URL  = window.NEOFEED_GAS_URL || "";
 const GAS_ON   = GAS_URL.length > 10;
 
+// ── Alert acknowledgment — per-device (localStorage), shared key scheme
+// between the AlertCenter page and the App-level badge count so both agree
+// on what's still "active" after a doctor acknowledges something on rounds.
+const ackKey = (id, dol) => `${id}:${dol}`;
+const readAckedMap = (sessionId) => {
+  try { return JSON.parse(localStorage.getItem(`neofeed_acked_${sessionId}`)) || {}; }
+  catch { return {}; }
+};
+
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "comfortable",
   "accent": "#2a7a8c",
@@ -60,30 +69,35 @@ function App() {
   // DOL = admissionDOL + daysSinceAdmit — single source of truth (data.js → liveDol)
   const dol = D_A.liveDol(active);
 
+  // Bumped whenever AlertCenter acknowledges something for the active patient,
+  // so this memo (which reads localStorage directly) knows to recompute.
+  const [ackVersion, setAckVersion] = React.useState(0);
+
   const alertCount = React.useMemo(() => {
     if (!active) return 0;
+    const acked = readAckedMap(active.sessionId);
     let n = 0;
     const entries = log[active.sessionId] || [];
     const last = entries[entries.length - 1];
     // Only flag nutrition alerts if last log is from today — stale entries must not drive the badge
     const todayStr = new Date().toISOString().slice(0, 10);
     if (last && last.ts === todayStr) {
-      if (last.gir  > D_A.TARGETS.gir()[1])                        n++;
-      if (last.pro  < D_A.TARGETS.protein(last.dol)[0] && last.dol > 2) n++;
-      if (last.kcal < D_A.TARGETS.kcal(last.dol)[0]    && last.dol > 4) n++;
+      if (last.gir  > D_A.TARGETS.gir()[1]                             && !acked[ackKey("gir-high", last.dol)])    n++;
+      if (last.pro  < D_A.TARGETS.protein(last.dol)[0] && last.dol > 2 && !acked[ackKey("protein-low", last.dol)]) n++;
+      if (last.kcal < D_A.TARGETS.kcal(last.dol)[0]    && last.dol > 4 && !acked[ackKey("kcal-low", last.dol)])    n++;
     }
     const wts = active.weights || [];
     if (wts.length >= 2) {
       const recent = wts.slice(-Math.min(wts.length, 7));
       const w0 = recent[0], wN = recent[recent.length - 1];
       const vel = (wN.w - w0.w) / Math.max(1, wN.dol - w0.dol) / ((w0.w + wN.w) / 2 / 1000);
-      if (vel < 15) n++;
+      if (vel < 15 && !acked[ackKey("growth-velocity", wN.dol)]) n++;
     }
     // Stale weight alert: no measurement in 3+ days
     const lastWt = wts[wts.length - 1];
-    if (lastWt && (dol - lastWt.dol) >= 3) n++;
+    if (lastWt && (dol - lastWt.dol) >= 3 && !acked[ackKey("weight-stale", dol)]) n++;
     return n;
-  }, [active, log]);
+  }, [active, log, dol, ackVersion]);
 
   // ── GAS fetch (initial + manual sync) ────────────────────────
   // Token is sent in POST body — never in URL (prevents token leakage in server logs)
@@ -476,7 +490,7 @@ function App() {
           }
           {view === "log" && active && <DailyLog patient={active} log={log} dol={dol}
             onAddToday={startAddToday} onEditEntry={startEditEntry} />}
-          {view === "alerts" && active && <AlertCenter patient={active} log={log} />}
+          {view === "alerts" && active && <AlertCenter patient={active} log={log} onAckChange={() => setAckVersion(v => v + 1)} />}
           {view === "guidelines" && <GuidelinesPanel />}
           {view === "formulas" && <FormulasPanel />}
         </div>
@@ -655,19 +669,22 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
 // ============================================================
 // Alert center (cross-cutting view)
 // ============================================================
-function AlertCenter({ patient, log }) {
+function AlertCenter({ patient, log, onAckChange }) {
   const entries = log[patient.sessionId] || [];
   const last = entries[entries.length - 1];
 
-  // Synthesize alerts from latest log entry vs targets
+  // Synthesize alerts from latest log entry vs targets.
+  // Each alert carries a stable `id` (independent of dol/wording) — combined
+  // with dol below to form the acknowledge key, so an ack only silences that
+  // specific day's instance and a fresh recurrence (new dol) surfaces again.
   const alerts = [];
   if (last) {
     const tGir  = D_A.TARGETS.gir();
     const tPro  = D_A.TARGETS.protein(last.dol);
     const tKcal = D_A.TARGETS.kcal(last.dol);
-    if (last.gir > tGir[1]) alerts.push({ level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: last.dol, ref: "ESPGHAN 2018" });
-    if (last.pro < tPro[0] && last.dol > 2) alerts.push({ level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${last.dol} — target ${tPro[0]}–${tPro[1]} g/kg/d (ESPGHAN 2018).`, dol: last.dol, ref: "ESPGHAN 2018" });
-    if (last.kcal < tKcal[0] && last.dol > 4) alerts.push({ level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${last.dol}.`, dol: last.dol, ref: "ESPGHAN" });
+    if (last.gir > tGir[1]) alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: last.dol, ref: "ESPGHAN 2018" });
+    if (last.pro < tPro[0] && last.dol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${last.dol} — target ${tPro[0]}–${tPro[1]} g/kg/d (ESPGHAN 2018).`, dol: last.dol, ref: "ESPGHAN 2018" });
+    if (last.kcal < tKcal[0] && last.dol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${last.dol}.`, dol: last.dol, ref: "ESPGHAN" });
   }
 
   // Growth velocity — from patient.weights (Fenton chart data, most reliable)
@@ -680,6 +697,7 @@ function AlertCenter({ patient, log }) {
     const avgKg = (wFirst.w + wLast.w) / 2 / 1000;
     const vel = dW / days / avgKg;
     if (vel < 15) alerts.push({
+      id: "growth-velocity",
       level: vel < 10 ? "crit" : "warn",
       title: vel < 10 ? "Growth velocity critically low" : "Growth velocity below target",
       body: `${vel.toFixed(1)} g/kg/d over ${days} d (DOL ${wFirst.dol}→${wLast.dol}) — target ≥15 g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
@@ -694,6 +712,7 @@ function AlertCenter({ patient, log }) {
     const daysSince = todaysDol - lastWtEntry.dol;
     if (daysSince >= 3) {
       alerts.push({
+        id: "weight-stale",
         level: daysSince >= 7 ? "crit" : "warn",
         title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
         body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
@@ -703,7 +722,27 @@ function AlertCenter({ patient, log }) {
   }
 
   // System info
-  alerts.push({ level: "info", title: "Weekly electrolyte audit due", body: "Last serum electrolytes >72 h ago. Consider re-check given current Na/K delivery.", dol: last?.dol, ref: "KCMH protocol" });
+  alerts.push({ id: "electrolyte-audit", level: "info", title: "Weekly electrolyte audit due", body: "Last serum electrolytes >72 h ago. Consider re-check given current Na/K delivery.", dol: last?.dol, ref: "KCMH protocol" });
+
+  // ── Acknowledge state — per-device, keyed by patient session (localStorage).
+  // Not yet synced server-side (would need a new Patient sheet column); a
+  // second reviewer on another device won't see this device's acknowledgments.
+  const ackKeyFor = (a) => ackKey(a.id, a.dol);
+  const storageKey = `neofeed_acked_${patient.sessionId}`;
+  const [acked, setAcked] = React.useState(() => readAckedMap(patient.sessionId));
+  React.useEffect(() => { setAcked(readAckedMap(patient.sessionId)); }, [storageKey]);
+  const persistAcked = (next) => {
+    setAcked(next);
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+    onAckChange && onAckChange();
+  };
+  const acknowledge = (a) => persistAcked({ ...acked, [ackKeyFor(a)]: new Date().toISOString() });
+  const acknowledgeAll = () => {
+    const next = { ...acked };
+    alerts.forEach(a => { if (!next[ackKeyFor(a)]) next[ackKeyFor(a)] = new Date().toISOString(); });
+    persistAcked(next);
+  };
+  const activeAlerts = alerts.filter(a => !acked[ackKeyFor(a)]);
 
   return (
     <>
@@ -713,33 +752,37 @@ function AlertCenter({ patient, log }) {
           <div className="sub">Cross-cutting safety signals based on latest logged values · <span>{patient.name || patient.initials || "—"}</span></div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn"><Icon name="check" size={14} /> Acknowledge all</button>
+          <button className="btn" disabled={activeAlerts.length === 0} onClick={acknowledgeAll}>
+            <Icon name="check" size={14} /> Acknowledge all
+          </button>
         </div>
       </div>
 
       <div className="alert-summary-tiles">
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>Active critical</div>
-          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--crit)" }}>{alerts.filter((a) => a.level === "crit").length}</div>
+          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--crit)" }}>{activeAlerts.filter((a) => a.level === "crit").length}</div>
         </div>
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>Cautions</div>
-          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "oklch(45% 0.13 65)" }}>{alerts.filter((a) => a.level === "warn").length}</div>
+          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "oklch(45% 0.13 65)" }}>{activeAlerts.filter((a) => a.level === "warn").length}</div>
         </div>
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>Info / reminders</div>
-          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--brand)" }}>{alerts.filter((a) => a.level === "info").length}</div>
+          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--brand)" }}>{activeAlerts.filter((a) => a.level === "info").length}</div>
         </div>
       </div>
 
       <div className="card">
         <div className="card-h">
           <Icon name="bell" size={14} color="var(--brand)" /> Patient alerts
-          <span className="h-meta">{alerts.length} total</span>
+          <span className="h-meta">{activeAlerts.length} active · {alerts.length} total</span>
         </div>
         <div className="card-b" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {alerts.map((a, i) =>
-          <div key={i} className={`alert-row ${a.level}`}>
+          {alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0)).map((a, i) => {
+            const ackedAt = acked[ackKeyFor(a)];
+            return (
+            <div key={ackKeyFor(a)} className={`alert-row ${a.level}`} style={ackedAt ? { opacity: 0.5 } : undefined}>
               <div className="ico">{a.level === "crit" ? "!" : a.level === "warn" ? "!" : "i"}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -749,9 +792,13 @@ function AlertCenter({ patient, log }) {
                 <div className="body">{a.body}</div>
                 <div className="meta">Ref: {a.ref}</div>
               </div>
-              <button className="btn sm">Acknowledge</button>
+              {ackedAt
+                ? <span style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
+                    <Icon name="check" size={12} color="var(--ok)" /> Acknowledged
+                  </span>
+                : <button className="btn sm" onClick={() => acknowledge(a)}>Acknowledge</button>}
             </div>
-          )}
+          );})}
         </div>
       </div>
     </>);
