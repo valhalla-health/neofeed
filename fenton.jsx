@@ -20,6 +20,25 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   const [view, setView] = React.useState(null); // {x,y,w,h} viewBox override
   const dragRef = React.useRef(null);
 
+  // The SVG is drawn in a fixed 760-wide coordinate space, then scaled to fit
+  // its container via `width: 100%`. On a phone the container is often under
+  // half that wide, so a "font-size 11" label shrinks to ~5 on-screen px —
+  // unreadable. Track the actual rendered width so text (and anything sized
+  // to sit next to it) can be inflated in coordinate-space to counteract the
+  // shrink and land back at its intended on-screen size.
+  const svgWrapRef = React.useRef(null);
+  const [renderedWidth, setRenderedWidth] = React.useState(760);
+  React.useEffect(() => {
+    const el = svgWrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect?.width;
+      if (w) setRenderedWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const dataset =
     metric === "weight" ? D_F.FENTON_WEIGHT[sex]
   : metric === "length" ? D_F.FENTON_LENGTH[sex]
@@ -38,7 +57,12 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
   // chart geometry
   const W = 760, H = 460;
-  const pad = { l: 64, r: 28, t: 24, b: 44 };
+  // scale <1 once the rendered SVG is narrower than its 760 design width;
+  // px() inflates a coordinate-space size so it still renders at its intended
+  // on-screen size (capped at 1 so desktop, which never shrinks, is untouched).
+  const chartScale = Math.min(1, Math.max(renderedWidth / W, 0.35));
+  const px = (v) => v / chartScale;
+  const pad = { l: px(64), r: px(28), t: px(24), b: px(44) };
 
   const xScale = x => pad.l + ((x - xMin) / (xMax - xMin)) * (W - pad.l - pad.r);
   const yScale = y => H - pad.b - ((y - yMin) / (yMax - yMin)) * (H - pad.t - pad.b);
@@ -151,6 +175,19 @@ function FentonChart({ patient, currentDol, onUpdate }) {
     return null;
   })();
 
+  // Right-edge percentile labels can sit closer together than the (now larger,
+  // see px() above) label text is tall where curves converge — e.g. 10th/3rd
+  // at late PMA. PERCENTILES is already ordered bottom (3rd) to top (97th), so
+  // walk it once nudging each label up just enough to clear the one below it.
+  const percentileLabelYs = (() => {
+    const minGap = px(11);
+    const ys = PERCENTILES.map(p => yScale(dataset[dataset.length - 1][p.idx]) + px(4));
+    for (let i = 1; i < ys.length; i++) {
+      if (ys[i - 1] - ys[i] < minGap) ys[i] = ys[i - 1] - minGap;
+    }
+    return ys;
+  })();
+
   return (
     <div className="card">
       <div className="card-h">
@@ -183,6 +220,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
               <button className="btn sm" onClick={() => setView(null)} title="Fit view">⤢ Fit</button>
             </div>
             <svg
+              ref={svgWrapRef}
               viewBox={view ? `${view.x} ${view.y} ${view.w} ${view.h}` : `0 0 ${W} ${H}`}
               style={{ width: "100%", height: "auto", maxWidth: 760, cursor: dragRef.current ? "grabbing" : "grab", userSelect: "none", touchAction: "none", border: "1px solid var(--line)", borderRadius: 6 }}
               onWheel={(e) => {
@@ -194,9 +232,9 @@ function FentonChart({ patient, currentDol, onUpdate }) {
                 const factor = e.deltaY < 0 ? 0.85 : 1.18;
                 const nw = Math.min(W * 1.5, Math.max(60, v.w * factor));
                 const nh = Math.min(H * 1.5, Math.max(40, v.h * factor));
-                const px = v.x + v.w * fx;
-                const py = v.y + v.h * fy;
-                setView({ x: px - nw * fx, y: py - nh * fy, w: nw, h: nh });
+                const pointX = v.x + v.w * fx;
+                const pointY = v.y + v.h * fy;
+                setView({ x: pointX - nw * fx, y: pointY - nh * fy, w: nw, h: nh });
               }}
               onPointerDown={(e) => {
                 e.currentTarget.setPointerCapture(e.pointerId);
@@ -235,21 +273,21 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
               {/* x labels */}
               {xTicks.map(t => (
-                <text key={`xl${t}`} x={xScale(t)} y={H - pad.b + 16} fontSize="11" textAnchor="middle" fill="var(--ink-3)" fontFamily="IBM Plex Mono, monospace">{t}</text>
+                <text key={`xl${t}`} x={xScale(t)} y={H - pad.b + px(16)} fontSize={px(11)} textAnchor="middle" fill="var(--ink-3)" fontFamily="IBM Plex Mono, monospace">{t}</text>
               ))}
-              <text x={(W - pad.r + pad.l) / 2} y={H - 8} fontSize="11" textAnchor="middle" fill="var(--ink-3)">Post-menstrual age (weeks)</text>
+              <text x={(W - pad.r + pad.l) / 2} y={H - px(8)} fontSize={px(11)} textAnchor="middle" fill="var(--ink-3)">Post-menstrual age (weeks)</text>
 
               {/* y labels */}
               {yTicks.map(t => (
-                <text key={`yl${t}`} x={pad.l - 8} y={yScale(t) + 3} fontSize="11" textAnchor="end" fill="var(--ink-3)" fontFamily="IBM Plex Mono, monospace">
+                <text key={`yl${t}`} x={pad.l - px(8)} y={yScale(t) + px(3)} fontSize={px(11)} textAnchor="end" fill="var(--ink-3)" fontFamily="IBM Plex Mono, monospace">
                   {metric === "weight" ? t.toLocaleString() : t}
                 </text>
               ))}
-              <text x={14} y={(H - pad.b + pad.t) / 2} fontSize="11" textAnchor="middle" fill="var(--ink-3)" transform={`rotate(-90 14 ${(H - pad.b + pad.t) / 2})`}>{yLabel}</text>
+              <text x={px(14)} y={(H - pad.b + pad.t) / 2} fontSize={px(11)} textAnchor="middle" fill="var(--ink-3)" transform={`rotate(-90 ${px(14)} ${(H - pad.b + pad.t) / 2})`}>{yLabel}</text>
 
               {/* percentile labels at right edge */}
-              {PERCENTILES.map(p => (
-                <text key={`pl${p.label}`} x={W - pad.r + 4} y={yScale(dataset[dataset.length - 1][p.idx]) + 4} fontSize="10" fill={p.color} fontFamily="IBM Plex Mono, monospace">{p.label}</text>
+              {PERCENTILES.map((p, i) => (
+                <text key={`pl${p.label}`} x={W - pad.r + px(4)} y={percentileLabelYs[i]} fontSize={px(10)} fill={p.color} fontFamily="IBM Plex Mono, monospace">{p.label}</text>
               ))}
 
               {/* patient path */}
@@ -263,11 +301,11 @@ function FentonChart({ patient, currentDol, onUpdate }) {
               )}
               {points.map((p, i) => (
                 <g key={i}>
-                  <circle cx={xScale(p.pma)} cy={yScale(p.value)} r="4" fill="oklch(50% 0.18 25)" stroke="#fff" strokeWidth="1.5" />
+                  <circle cx={xScale(p.pma)} cy={yScale(p.value)} r={px(4)} fill="oklch(50% 0.18 25)" stroke="#fff" strokeWidth={px(1.5)} />
                   {i === points.length - 1 && (
                     <g>
-                      <rect x={xScale(p.pma) + 8} y={yScale(p.value) - 22} width={64} height={20} fill="oklch(20% 0.01 230 / .92)" rx="4" />
-                      <text x={xScale(p.pma) + 14} y={yScale(p.value) - 9} fontSize="10" fill="#fff" fontFamily="IBM Plex Mono, monospace">DOL {p.dol} · {metric === "weight" ? p.value : p.value}{metric === "weight" ? "g" : "cm"}</text>
+                      <rect x={xScale(p.pma) + px(8)} y={yScale(p.value) - px(22)} width={px(78)} height={px(20)} fill="oklch(20% 0.01 230 / .92)" rx={px(4)} />
+                      <text x={xScale(p.pma) + px(14)} y={yScale(p.value) - px(9)} fontSize={px(10)} fill="#fff" fontFamily="IBM Plex Mono, monospace">DOL {p.dol} · {metric === "weight" ? p.value : p.value}{metric === "weight" ? "g" : "cm"}</text>
                     </g>
                   )}
                 </g>

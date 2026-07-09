@@ -906,9 +906,13 @@
     /* Disclaimer */
     .disclaimer-bar { font-size: 11px; padding: 6px 10px; }
 
-    /* Seg control: full width */
+    /* Seg control: full width. min-width:0 lets flex:1 buttons actually shrink
+       below their text's intrinsic width instead of forcing the row to overflow
+       (default flex min-width is `auto`, i.e. content size) — without it, long
+       labels like "PN (ESPGHAN 2018)" push the last tab off-screen. Wrapping
+       instead of truncating keeps the full citation readable on narrow phones. */
     .seg { width: 100%; }
-    .seg button { flex: 1; padding: 8px 6px; font-size: 12px; }
+    .seg button { flex: 1; min-width: 0; padding: 8px 6px; font-size: 12px; white-space: normal; line-height: 1.25; text-align: center; }
 
     /* PresetChips: slightly larger tap targets */
     .preset-chip { padding: 6px 14px; font-size: 13px; }
