@@ -858,8 +858,11 @@
       margin-bottom: 10px;
     }
     .page-head h1 { font-size: 17px; }
-    .page-head > div:last-child { display: flex; gap: 6px; width: 100%; }
-    .page-head > div:last-child .btn { flex: 1; justify-content: center; font-size: 13px; }
+    /* :not(:only-child) — pages whose page-head has just a title+sub wrapper
+       (Patient registry, Fenton) must NOT get flex-row treatment meant for
+       the title/action-buttons split (Alert center, Admin, etc.) */
+    .page-head > div:last-child:not(:only-child) { display: flex; gap: 6px; width: 100%; }
+    .page-head > div:last-child:not(:only-child) .btn { flex: 1; justify-content: center; font-size: 13px; }
 
     /* Metric tiles: 2 col */
     .metric-tiles-4 { grid-template-columns: 1fr 1fr !important; }
@@ -896,7 +899,8 @@
 
     /* Card body: less padding */
     .card-b { padding: 10px; }
-    .card-h { padding: 11px 12px; }
+    .card-h { padding: 11px 12px; flex-wrap: wrap; row-gap: 6px; }
+    .card-h .h-meta { margin-left: auto; }
 
     /* Disclaimer */
     .disclaimer-bar { font-size: 11px; padding: 6px 10px; }
@@ -969,6 +973,12 @@
     .btn.sm    { min-height: 44px; font-size: 13px; padding: 6px 12px; }
     .seg button { min-height: 44px; }
 
+    /* ── Alert rows: Acknowledge button was squeezed into a narrow right
+       column, crushing the alert body text into heavy wrapping — drop it
+       to a full-width row below instead ── */
+    .alert-row { flex-wrap: wrap; }
+    .alert-row > .btn { flex: 1 1 100%; justify-content: center; margin-top: 6px; }
+
     /* ── Active/pressed feedback for tappable surfaces ── */
     .card-h.clickable:active { background: var(--bg-2); }
     .preset-chip:active      { opacity: .7; transform: scale(0.97); }
@@ -1004,6 +1014,19 @@
     .admin-stat-tiles  { grid-template-columns: 1fr 1fr !important; }
     .alert-summary-tiles { grid-template-columns: 1fr 1fr 1fr !important; }
     .guidelines-grid   { grid-template-columns: 1fr !important; }
+
+    /* ── TrendGraph Latest/Target/Δ row: 3-col flex row overflows off-screen
+       on narrow phones (Δ vs prev gets clipped) — stack as 2-col grid ── */
+    .trend-latest {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px !important;
+    }
+    .trend-latest > div:first-child { grid-column: 1 / -1; }
+
+    /* ── Fenton growth chart: fixed "1fr 200px" grid crams the SVG chart
+       into a tiny illegible sliver next to the stats column — stack ── */
+    .fenton-grid { grid-template-columns: 1fr !important; }
 
     /* Feeding advancement: 5-col → vertical cards */
     .feeding-steps-grid { grid-template-columns: 1fr !important; }
