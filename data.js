@@ -684,7 +684,12 @@ const FENTON_HC = {
 
 // ============================================================
 // Mock patient registry (replace with GAS fetch in production)
-// Session ID format: Initials + BW + TwinSuffix (PDPA compliant)
+// Session ID format: Initials + BW + TwinSuffix — a *pseudonym*, not
+// anonymous data: on a small NICU census, initials + birthweight can still
+// be reverse-mapped to a patient by staff. Treat sessionId as identifying
+// for PDPA purposes (access control, erasure requests) even though it
+// avoids storing the full name as the primary key. See the residual-risk
+// note on pseudonymizePatient() in gas-backend.gs.
 // ============================================================
 const MOCK_PATIENTS = [
   // Test fixture: 28+1, BW 900g, admitted DOL 1 nine days ago → today DOL 10

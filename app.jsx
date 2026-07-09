@@ -292,6 +292,14 @@ function App() {
       body: JSON.stringify({ action: "logout", token: tok }),
     }).catch(() => {});
     sessionStorage.removeItem("neofeed_session");
+    // PDPA data minimization: this device may be a shared NICU workstation —
+    // don't leave cached patient clinical data (calculator prefill, alert
+    // acknowledgements) sitting in localStorage past the session that made it.
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith("neofeed_calc_") || k.startsWith("neofeed_acked_"))
+        .forEach(k => localStorage.removeItem(k));
+    } catch {}
     if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
     setUser(null);
   };
