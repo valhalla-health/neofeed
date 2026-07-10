@@ -1,0 +1,218 @@
+# NeoFeed — App Walkthrough
+
+NeoFeed is a bedside nutrition-management tool for NICU (neonatal intensive
+care) staff at KCMH. It replaces manual TPN/EN (total parenteral / enteral
+nutrition) calculation sheets with a guided calculator, tracks each infant's
+daily nutrition log, and plots growth against Fenton 2013 preterm growth
+curves. There is no build step — it's plain React 18 + Babel loaded from a
+CDN, deployed as static files, backed by a Google Apps Script + Google
+Sheets "backend."
+
+Read this before touching the code. For the latest session-by-session
+change log and known caveats, see `HANDOFF.md`.
+
+## 1. Run it
+
+Open `NeoFeed.html` directly in a browser (or serve the folder statically —
+no bundler, no `npm install`). `index.html` is an older/parallel copy; treat
+`NeoFeed.html` as canonical unless told otherwise.
+
+`NeoFeed.html` is the shell: it sets `window.NEOFEED_CLIENT_ID` and
+`window.NEOFEED_GAS_URL` inline, then loads the CSS (embedded, oklch-based
+design system) and pulls in each `.jsx` module in dependency order via
+in-browser Babel:
+
+```
+data.js → tweaks-panel.jsx → icons.jsx → calculator.jsx → fenton.jsx
+  → registry.jsx → log.jsx → app.jsx (mounts <App/>)
+```
+
+`window.NEOFEED_GAS_URL` points at the deployed Apps Script web app. If it's
+commented out, the app falls back to mock data/local state instead of
+hitting the live Google Sheet — check this first when data doesn't persist
+across a refresh.
+
+## 2. Architecture at a glance
+
+| File | Role |
+|---|---|
+| `NeoFeed.html` | App shell + all CSS. Script loader, GAS URL config. |
+| `app.jsx` | Root `<App/>`: auth, nav rail/bottom-nav, view router, `PatientStrip`, `AlertCenter`, `AdminDashboard`, Thai date/GA formatting helpers, guidelines/formulas reference panels. |
+| `data.js` | Pure clinical data + helpers — ESPGHAN/WHO nutrition targets, feed/formula database, `liveDol`, `fmtGA`/`parseGAInput`/`gaToDecimalWeeks`, mock patients/log for offline dev. |
+| `calculator.jsx` | The TPN + EN calculator — a 6-step wizard producing one Daily_Log entry. |
+| `log.jsx` | Daily nutrition log view + `TrendGraph` (per-metric trend chart with PN/EN target bands). |
+| `fenton.jsx` | Fenton 2013 growth chart (weight/length/HC vs. PMA) + `MeasurementLogger`. |
+| `registry.jsx` | Patient registry — desktop table / mobile card list, add/edit patient. |
+| `icons.jsx` | Small inline SVG icon set used everywhere via `<Icon name=.../>`. |
+| `tweaks-panel.jsx` | Dev-only UI customization panel (design tokens), not part of the clinical workflow. |
+| `gas-backend.gs` | Google Apps Script backend: auth, CRUD over the Google Sheet, audit log, PDPA erasure endpoint. |
+
+Everything is plain React function components + hooks, no Redux/Zustand —
+state lives in `App` and is threaded down via props. There's no client
+router; navigation is a `view` string in `App` state, rendered through a
+big conditional block plus `RailItem`/`BottomNav`.
+
+## 3. Data model
+
+### Client-side identifiers
+- **`sessionId`** — the patient's key everywhere in the client (`Patient_Registry`
+  and `Daily_Log` both key off it). Generated as `initials + BW + twinSuffix`
+  (see `data.js`) — it's a pseudonym, not an anonymous ID (see § 6).
+- **`entryId`** — stable key for a single Daily_Log row, used by
+  `updateDailyNutrition()` to match an existing entry for edit-in-place
+  rather than always inserting.
+
+### GA/PMA convention (important — read before touching any GA field)
+`ga` is stored as a `WW.D` shorthand number, **not** decimal weeks:
+- `26.4` means 26 weeks + 4 days (integer part = weeks, first decimal
+  digit = days, clamped 0–6). `28.1` is "28+1", never "28.1 weeks".
+- Always go through the helpers in `data.js`, never hand-roll GA math:
+  - `D.fmtGA(ga)` → display string `"28+1"`
+  - `D.gaTotalDays(ga)` → day arithmetic
+  - `D.pmaShort(ga, dol)` → post-menstrual age display
+  - `D.gaToDecimalWeeks(ga)` → true decimal weeks, only for Fenton's x-axis
+  - `D.parseGAInput(str)` → accepts `"28+4"` or `"28.4"`, clamps days 0–6
+- The `patient.ga < 32` HMF-eligibility check relies on this encoding
+  staying under integer 32 for all valid values — don't "simplify" it to
+  true decimal weeks without re-deriving that threshold.
+
+### Dates
+Dates are formatted through `fmtDate()` in `app.jsx` (exposed as
+`window.NEOFEED_FMT_DATE`) into Thai Buddhist Era: `"2026-05-15"` →
+`"15 พ.ค. 2569"`. DOL (day of life) is always computed live via
+`liveDol(patient)` in `data.js` — never stored/cached, so it stays correct
+across days without a refresh trigger.
+
+### Daily_Log entry shape
+Each submission from the Calculator produces one row combining PN + EN
+totals per kg:
+```
+{ dol, weight, fluid, gir, pro, kcal, na, k, ca, p, enVolPerKg, route, status,
+  submittedBy, calcInputJson, entryId, lastModified, lastModifiedBy }
+```
+`enVolPerKg` is the PN/EN target-picker switch: `log.jsx`'s `TrendGraph`
+uses `ENTERAL_TARGETS` once `enVolPerKg >= 100`, otherwise `TPN_TARGETS(dol)`.
+Legacy entries (pre "session 8") lack `enVolPerKg` and silently default to
+PN targets. `calcInputJson` is the raw Calculator wizard state as JSON —
+that's what lets an entry be reopened and edited exactly as entered, from
+any device.
+
+### Backend sheets (`gas-backend.gs`)
+- **`Patient_Registry`** (A–P): `sessionId | name | initials | bw | ga | sex |
+  dob | admissionDate | twinSuffix | status | currentBed | diagnosis |
+  weights | lengths | hcs | bedHistory`
+- **`Daily_Log`** (A–AB): `ts | sessionId | dol | weight | fluid | gir | pro |
+  kcal | na | k | ca | p | enVolPerKg | route | status | submittedBy |
+  supp* fields | calcInputJson | entryId | lastModified | lastModifiedBy`
+- **`Staff`** (A–F): `email | role | name | active | password_hash | salt`
+- **`Audit_Log`** (A–D): `ts | action | sessionId | actorEmail` — accountability
+  trail since Apps Script's own execution log expires after 7 days.
+
+If you change the Daily_Log column layout, either clear the sheet (the
+script re-writes headers on next run) or add new columns in the exact
+position the script expects — a mismatch silently misaligns every existing
+row.
+
+## 4. Auth
+
+Hybrid, handled entirely in `gas-backend.gs`:
+- **Gmail / Google Workspace accounts** → Google Sign-In JWT, no password
+  (`decodeJwtEmail`).
+- **Any other email** → SHA-256 + per-user salt password, set via
+  `setInitialPassword("email","pwd")` run once from the Apps Script editor.
+
+Both paths issue a `CacheService` session token with a 12h sliding TTL
+(`app.jsx` handles the sliding-window refresh and the logout endpoint).
+Roles are `admin` / `doctor` / `nurse`; role gates what's in the nav rail
+(`app.jsx` ~L409–423): Calculator is doctor/nurse only, Admin dashboard is
+admin only.
+
+`LoginScreen` currently may be skipped (stubbed local user) depending on a
+flag near `app.jsx` "if (false)" — check `HANDOFF.md`'s latest session notes
+before assuming which mode is live; this toggles between sandbox demo mode
+and real auth.
+
+## 5. Main views (nav rail / bottom nav)
+
+1. **Patients** (`registry.jsx`) — patient list. Desktop: table. Mobile:
+   tappable cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ,
+   Edit/Open). Add/edit patient here (admit date, DOL at admit, GA, bed,
+   diagnosis).
+2. **Dashboard** (`log.jsx`) — the active patient's daily nutrition log +
+   `TrendGraph`: pick a metric (Energy/Protein/GIR/Fluid/Na/K/Ca/P/Weight),
+   see it plotted with a target band, smooth Catmull-Rom curve, hover
+   crosshair/tooltip, X-axis toggle between admit-day and DOL. Past entries
+   are editable in place (weight/length/HC corrections included).
+3. **Calculator** (`calculator.jsx`, doctor/nurse only) — 6-step TPN+EN
+   wizard: Fluid plan → TPN macronutrients → Electrolytes → Vitamins/Trace
+   Elements/Heparin → Enteral feeding → Enteral supplements. Only Step 1 is
+   expanded by default. Full input state is persisted to
+   `localStorage["neofeed_calc_<sessionId>"]` on submit/draft and restored
+   on patient switch with a "Prefilled from previous submission (DOL X)"
+   banner. Submitting writes one row to `Daily_Log`.
+4. **Growth chart** (`fenton.jsx`) — Fenton 2013 percentile curves for
+   weight/length/HC vs. PMA, plus `MeasurementLogger` to add new
+   measurements. Uses `D.gaToDecimalWeeks` for the true decimal x-axis.
+5. **Alerts** (`AlertCenter` in `app.jsx`) — flags things like stale weight
+   (warn ≥3 days, critical ≥7 days since last entry). Acknowledge is
+   per-alert and persisted.
+6. **Admin dashboard** (`AdminDashboard`, admin only) — cross-patient view.
+7. **Guidelines (ESPGHAN)** / **Formulas + products** (`GuidelinesPanel`,
+   `FormulasPanel` in `app.jsx`) — static clinical reference content, no
+   patient data.
+
+## 6. Compliance posture (Thai PDPA) — know this before adding data flows
+
+The app processes infant health data, which is "sensitive personal data"
+under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
+
+- **Lawful basis:** Sec 26(6) medical necessity + professional
+  confidentiality, documented at the top of `gas-backend.gs`. This covers
+  *treatment* processing only — a new secondary use (research/QI export)
+  would need its own basis.
+- **Erasure:** `pseudonymizePatient()` in `gas-backend.gs`, admin-only,
+  clears name/initials/dob but retains de-identified clinical history for
+  medical-record retention duty. Residual risk: `sessionId` is derived from
+  initials+BW+twinSuffix, so it's a pseudonym staff can reverse-map on a
+  small census — erasure can't scrub that pattern without breaking every
+  Daily_Log join.
+- **Audit trail:** `Audit_Log` sheet records registry reads + erasures with
+  actor email + timestamp.
+- **Data minimization:** `handleLogout()` clears `neofeed_calc_*` /
+  `neofeed_acked_*` localStorage keys on logout (shared NICU workstations).
+- **Open items:** cross-border transfer review (data lives in Google
+  Workspace), password hashing is single-round SHA-256 (no PBKDF2/bcrypt —
+  Apps Script has no native support), no automatic retention/purge policy.
+
+If a task touches auth, patient identifiers, exports, or any new place
+patient data leaves the Sheet, re-read this section and `HANDOFF.md`'s PDPA
+notes — don't just add the feature.
+
+## 7. Conventions worth preserving
+
+- **No build tooling.** Don't introduce a bundler/npm dependency without
+  discussing it — the whole point is a zero-install static deploy.
+  `?v=<tag>` query strings on script tags are the cache-busting mechanism;
+  bump them when you change a `.jsx`/`.js` file's content meaningfully.
+- **GA math always goes through `data.js` helpers** (§3) — never
+  reimplement `fmtGA`/`parseGAInput`/etc. inline.
+- **DOL is always computed live** via `liveDol()`, never stored — if you
+  see a stored `dol` field being trusted as current, that's a bug.
+- **Dates render through `fmtDate()`** for Thai BE formatting — don't
+  introduce a second date-formatting path.
+- **Mobile-first.** Every recent session has shipped mobile fixes
+  (overflow, tap targets, sticky bars, safe-area insets). Test narrow
+  viewports before calling a UI change done — see `HANDOFF.md`'s session
+  logs for the specific patterns already fixed (don't regress them).
+- **`tweaks-panel.jsx`** is a dev/design tool, not user-facing clinical
+  functionality — don't wire clinical logic through it.
+
+## 8. Where to look next
+
+- `HANDOFF.md` — session-by-session change log, current known caveats, and
+  the "restore production checklist" (GAS URL, mock patient fixture,
+  login screen) if you're picking this app back up after it's been in
+  sandbox/demo mode.
+- `git log --oneline` — most fixes are small, targeted, mobile-UX or
+  data-correctness patches; skim recent commits for the current focus
+  before starting new work.
