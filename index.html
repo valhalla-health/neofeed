@@ -86,11 +86,14 @@
     display: grid;
     grid-template-columns: var(--rail-w) 1fr;
     grid-template-rows: var(--header-h) 1fr;
-    height: 100dvh;
-    overflow: hidden;
+    height: 100vh;
+    height: 100dvh; /* iOS Safari: excludes collapsing browser chrome */
+    overflow: hidden; /* shell never scrolls — only .work does */
   }
   .topbar {
     grid-column: 1 / -1;
+    grid-row: 1;
+    z-index: 30;
     display: flex; align-items: center; gap: 16px;
     padding: 0 18px;
     background: var(--surface);
@@ -157,6 +160,9 @@
   .rail {
     background: var(--surface);
     border-right: 1px solid var(--line);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
     padding: 14px 12px;
     display: flex; flex-direction: column; gap: 2px;
   }
@@ -325,6 +331,14 @@
 
   .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  /* trend graph: compact x-axis seg (smaller than default .seg) */
+  .trend-xaxis-seg { padding: 2px !important; border-width: 1px !important; }
+  .trend-xaxis-seg button { padding: 6px 14px !important; font-size: 12px !important; min-height: 28px !important; border-radius: 6px !important; }
+  .trend-xaxis-seg button:not(.on) { color: var(--ink-3); }
+
+  /* trend graph: chip hover state (desktop) */
+  .trend-chip:hover { transform: translateY(-1px); }
 
   /* segmented control */
   .seg {
@@ -528,7 +542,7 @@
   .chip {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 11px; padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: 999px; white-space: nowrap;
     border: 1px solid var(--line);
     background: var(--surface-2);
     color: var(--ink-2);
@@ -780,6 +794,14 @@
     .login-footer    { bottom: env(safe-area-inset-bottom, 20px); }
   }
 
+  /* trend graph: vertical dividers between Latest / Target / Δ stats (desktop) */
+  .trend-latest > div { position: relative; padding-right: 28px; }
+  .trend-latest > div:not(:last-child)::after {
+    content: ""; position: absolute; right: 0; top: 4px; bottom: 4px;
+    width: 1px; background: var(--line-2);
+  }
+  .trend-latest > div:last-child { padding-right: 0; }
+
   /* ============ TABLET: 768–1199px — icon-only rail ============ */
   @media (min-width: 768px) and (max-width: 1199px) {
     :root { --rail-w: 60px; }
@@ -846,6 +868,16 @@
     .patient-strip .val { font-size: 14px; }
     .patient-strip .lbl { height: 22px; font-size: 10px; }
 
+    /* ── Patient strip: identity row spans both columns on mobile ── */
+    .patient-strip > div:nth-child(1) {
+      grid-column: 1 / -1;
+      border-right: none;
+    }
+    .patient-strip > div:nth-child(3),
+    .patient-strip > div:nth-child(5) {
+      border-right: none !important;
+    }
+
     /* Layout: single column everywhere */
     .calc-grid { grid-template-columns: 1fr !important; }
     .row-3 { grid-template-columns: 1fr 1fr; }
@@ -890,6 +922,10 @@
     .step2-card-h { flex-wrap: wrap; padding: 10px 12px; gap: 6px; }
     .step2-ctrl { width: 100%; margin-left: 0 !important; order: 10; }
     .step2-ctrl .seg button { font-size: 11px; padding: 6px 10px; }
+    /* Growth chart card-h: wrap Weight/Length/HC picker to its own row instead
+       of overlapping the "Fenton 2025 growth chart · Male" title */
+    .fenton-card-h { flex-wrap: wrap; padding: 10px 12px; gap: 6px; }
+    .fenton-ctrl { width: 100%; margin-left: 0 !important; }
 
     /* Picker → bottom sheet */
     .picker {
@@ -983,6 +1019,66 @@
     .preset-chip:active      { opacity: .7; transform: scale(0.97); }
     .rail-item:active        { background: var(--bg-2); }
     .btn:active              { opacity: .85; }
+
+    /* ── Trend graph: stack controls, scrollable chips with snap ── */
+    .trend-controls > div:first-child { width: 100%; }
+    .trend-controls > div:last-child { width: 100%; justify-content: flex-start; margin-left: 0 !important; }
+    .trend-chips {
+      flex-wrap: nowrap !important;
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 6px;
+      margin: 0 -4px;
+      padding-left: 4px; padding-right: 4px;
+    }
+    .trend-chips::-webkit-scrollbar { height: 4px; }
+    .trend-chips::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
+    .trend-chips > button {
+      flex-shrink: 0 !important;
+      min-height: 38px;
+      padding: 8px 14px !important;
+      font-size: 13px !important;
+      scroll-snap-align: start;
+    }
+
+    /* ── Trend graph: Latest/Target/Δ stack as 2-col grid on mobile ── */
+    .trend-latest > div { padding-right: 0; }
+    .trend-latest > div::after { display: none !important; }
+    .trend-latest {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px !important;
+      align-items: flex-start !important;
+    }
+    .trend-latest > div:first-child { grid-column: 1 / -1; }
+
+    /* ── Alert row: stack acknowledge button below content ── */
+    .alert-row { flex-wrap: wrap; }
+    .alert-row > .btn { width: 100%; margin-top: 6px; justify-content: center; }
+
+    /* ── Calculator save bar: sticky above bottom-nav on mobile ── */
+    .calc-save-bar {
+      position: sticky;
+      bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+      background: linear-gradient(to top, var(--surface) 80%, oklch(99% 0.002 230 / 0));
+      padding: 10px 0 8px;
+      margin: 0 -10px -10px;
+      padding-left: 10px; padding-right: 10px;
+      z-index: 10;
+      box-shadow: 0 -1px 0 var(--line-2);
+    }
+    .calc-save-bar .btn { min-height: 44px; }
+
+    /* ── Bottom nav badge: tucked above icon, off-center to right ── */
+    .bnav-badge {
+      top: 4px !important;
+      right: auto !important;
+      left: calc(50% + 6px);
+    }
+
+    /* ── Modal safe-area padding ── */
+    .picker { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
     /* ── Patient registry: show cards, hide table ── */
     .patient-card-list { display: flex !important; flex-direction: column; gap: 10px; }
@@ -1160,7 +1256,7 @@
     .card, .step-summary, .preset-chips { display: none !important; }
 
     html, body { height: auto; background: #fff; }
-    .app { display: block; min-height: auto; }
+    .app { display: block; height: auto; min-height: auto; overflow: visible; }
     .work { overflow: visible; }
     .work-inner { padding: 0; max-width: 100%; }
 
@@ -1193,7 +1289,7 @@
   <script type="text/babel" src="tweaks-panel.jsx?v=dashboard-edit2"></script>
   <script type="text/babel" src="icons.jsx?v=dashboard-edit2"></script>
   <script type="text/babel" src="calculator.jsx?v=dashboard-edit2"></script>
-  <script type="text/babel" src="fenton.jsx?v=dashboard-edit2"></script>
+  <script type="text/babel" src="fenton.jsx?v=fenton-mobile-fix1"></script>
   <script type="text/babel" src="registry.jsx?v=dashboard-edit2"></script>
   <script type="text/babel" src="log.jsx?v=dashboard-edit2"></script>
   <script type="text/babel" src="app.jsx?v=dashboard-edit2"></script>

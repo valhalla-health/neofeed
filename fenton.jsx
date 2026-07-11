@@ -62,7 +62,10 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   // on-screen size (capped at 1 so desktop, which never shrinks, is untouched).
   const chartScale = Math.min(1, Math.max(renderedWidth / W, 0.35));
   const px = (v) => v / chartScale;
-  const pad = { l: px(64), r: px(28), t: px(24), b: px(44) };
+  // r has extra room (vs. the plot's own tick marks) to fit the percentile
+  // labels ("97th" etc.) sitting just past the right edge — see
+  // percentileLabelYs below. Too tight here clips those labels on phones.
+  const pad = { l: px(64), r: px(42), t: px(24), b: px(44) };
 
   const xScale = x => pad.l + ((x - xMin) / (xMax - xMin)) * (W - pad.l - pad.r);
   const yScale = y => H - pad.b - ((y - yMin) / (yMax - yMin)) * (H - pad.t - pad.b);
@@ -180,20 +183,29 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   // at late PMA. PERCENTILES is already ordered bottom (3rd) to top (97th), so
   // walk it once nudging each label up just enough to clear the one below it.
   const percentileLabelYs = (() => {
-    const minGap = px(11);
+    const minGap = px(12);
     const ys = PERCENTILES.map(p => yScale(dataset[dataset.length - 1][p.idx]) + px(4));
     for (let i = 1; i < ys.length; i++) {
       if (ys[i - 1] - ys[i] < minGap) ys[i] = ys[i - 1] - minGap;
+    }
+    // If the whole stack got nudged above the plot's top edge (curves all
+    // converge near term), shift it back down as a group so "97th" never
+    // climbs into the axis title above the chart.
+    const minY = pad.t + px(10);
+    const topY = ys[ys.length - 1];
+    if (topY < minY) {
+      const shift = minY - topY;
+      for (let i = 0; i < ys.length; i++) ys[i] += shift;
     }
     return ys;
   })();
 
   return (
     <div className="card">
-      <div className="card-h">
+      <div className="card-h fenton-card-h">
         <Icon name="chart" size={14} color="var(--brand)" />
         Fenton 2025 growth chart · <span className="mono">{sex === "boys" ? "Male" : "Female"}</span>
-        <span className="h-meta" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span className="h-meta fenton-ctrl" style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Segmented value={metric} onChange={setMetric} options={[
             { value: "weight", label: "Weight" },
             { value: "length", label: "Length" },
@@ -287,7 +299,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
               {/* percentile labels at right edge */}
               {PERCENTILES.map((p, i) => (
-                <text key={`pl${p.label}`} x={W - pad.r + px(4)} y={percentileLabelYs[i]} fontSize={px(10)} fill={p.color} fontFamily="IBM Plex Mono, monospace">{p.label}</text>
+                <text key={`pl${p.label}`} x={W - pad.r + px(6)} y={percentileLabelYs[i]} fontSize={px(9.5)} fill={p.color} fontFamily="IBM Plex Mono, monospace">{p.label}</text>
               ))}
 
               {/* patient path */}
