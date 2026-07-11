@@ -81,7 +81,9 @@ Dates are formatted through `fmtDate()` in `app.jsx` (exposed as
 `window.NEOFEED_FMT_DATE`) into Thai Buddhist Era: `"2026-05-15"` →
 `"15 พ.ค. 2569"`. DOL (day of life) is always computed live via
 `liveDol(patient)` in `data.js` — never stored/cached, so it stays correct
-across days without a refresh trigger.
+across days without a refresh trigger. `D.dolAtDate(patient, dateStr)` is the
+same math at an arbitrary date, used when a new log entry is back-dated (see
+§5's Dashboard entry) — don't hand-roll this either.
 
 ### Daily_Log entry shape
 Each submission from the Calculator produces one row combining PN + EN
@@ -142,7 +144,12 @@ and real auth.
    `TrendGraph`: pick a metric (Energy/Protein/GIR/Fluid/Na/K/Ca/P/Weight),
    see it plotted with a target band, smooth Catmull-Rom curve, hover
    crosshair/tooltip, X-axis toggle between admit-day and DOL. Past entries
-   are editable in place (weight/length/HC corrections included).
+   are editable in place (weight/length/HC corrections included). The
+   "บันทึกวันนี้" button opens `LogDateModal` first — today, or a past
+   calendar date to back-fill a missed day — before handing off to the
+   Calculator with the right DOL/`ts`. Admin role only: a trash icon per row
+   (rows with an `entryId`) permanently deletes a `Daily_Log` entry via the
+   `deleteDailyNutrition` GAS action, audit-logged.
 3. **Calculator** (`calculator.jsx`, doctor/nurse only) — 6-step TPN+EN
    wizard: Fluid plan → TPN macronutrients → Electrolytes → Vitamins/Trace
    Elements/Heparin → Enteral feeding → Enteral supplements. Only Step 1 is

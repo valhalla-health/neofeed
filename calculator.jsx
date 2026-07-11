@@ -134,7 +134,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, onSaved, onWeightChange }) {
+function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onSaved, onWeightChange }) {
   const [wtG, setWtG] = useState(0);
 
   // Set alongside setWtG whenever the prefill effect below applies a historical
@@ -611,9 +611,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
       ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
       route: route === "central" ? "TPN central" : "TPN peripheral",
       status: "submitted", ..._suppPayload, calcInput: captureState(),
-      // Editing must keep the entry's original calendar date — only a brand-new
-      // entry should be stamped with today's date (handled by the caller).
-      ...(editEntry ? { ts: editEntry.ts } : {}),
+      // Editing must keep the entry's original calendar date; a brand-new entry
+      // is stamped with today's date unless the user picked a back-date (logDate).
+      ...(editEntry ? { ts: editEntry.ts } : logDate ? { ts: logDate } : {}),
     };
 
     setSaving(true);
@@ -656,6 +656,15 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
              display:"flex", alignItems:"center", gap:8 }}>
           <Icon name="info" size={13} color="var(--brand-2)" />
           <span>กำลังแก้ไขบันทึก DOL <strong>{editEntry.dol}</strong> ({window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts}) — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่</span>
+        </div>
+      )}
+
+      {!editEntry && logDate && !conflict && (
+        <div style={{ padding:"8px 12px", background:"var(--brand-bg)", border:"1px solid var(--brand-line)",
+             borderRadius:8, marginBottom:10, fontSize:12, color:"var(--brand-2)",
+             display:"flex", alignItems:"center", gap:8 }}>
+          <Icon name="info" size={13} color="var(--brand-2)" />
+          <span>กำลังบันทึกย้อนหลังสำหรับวันที่ <strong>{window.NEOFEED_FMT_DATE?.(logDate) || logDate}</strong> (DOL <strong>{dol}</strong>)</span>
         </div>
       )}
 

@@ -424,8 +424,16 @@ function TrendGraph({ entries, patient }) {
   );
 }
 
-function DailyLog({ patient, log, dol, onAddToday, onEditEntry }) {
+function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry }) {
   const entries = log[patient?.sessionId] || [];
+  const [showDateModal, setShowDateModal] = React.useState(false);
+
+  const handleDelete = (e, entry) => {
+    e.stopPropagation();
+    const label = `DOL ${entry.dol} (${window.NEOFEED_FMT_DATE?.(entry.ts) || entry.ts})`;
+    if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+    onDeleteEntry(entry);
+  };
 
   return (
     <>
@@ -435,12 +443,18 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry }) {
         </div>
         {onAddToday && (
           <div>
-            <button className="btn primary" onClick={onAddToday}>
+            <button className="btn primary" onClick={() => setShowDateModal(true)}>
               <Icon name="plus" size={14} color="#fff" /> บันทึกวันนี้{dol != null ? ` (DOL ${dol})` : ""}
             </button>
           </div>
         )}
       </div>
+
+      {showDateModal && (
+        <LogDateModal patient={patient} dol={dol}
+          onClose={() => setShowDateModal(false)}
+          onConfirm={(dateStr) => { setShowDateModal(false); onAddToday(dateStr); }} />
+      )}
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h">
@@ -479,6 +493,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry }) {
                 <th>Ca / P</th>
                 <th>Route</th>
                 <th>สถานะ</th>
+                {onDeleteEntry && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -507,6 +522,15 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry }) {
                           <span className="d" />{e.status === "draft" ? "แบบร่าง" : "บันทึกแล้ว"}
                         </span>
                       </td>
+                      {onDeleteEntry && (
+                        <td onClick={e2 => e2.stopPropagation()}>
+                          {e.entryId && (
+                            <button className="icon-btn" title="ลบบันทึกนี้" onClick={ev => handleDelete(ev, e)}>
+                              <Icon name="trash" size={14} color="var(--crit)" />
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 });
@@ -516,6 +540,49 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry }) {
         )}
       </div>
     </>
+  );
+}
+
+// Choice shown when starting a new log entry — today, or back-dated to a
+// past calendar date (so a missed day can still be logged).
+function LogDateModal({ patient, dol, onClose, onConfirm }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [mode, setMode] = React.useState("today"); // "today" | "pick"
+  const [date, setDate] = React.useState(today);
+  const pickedDol = D_L.dolAtDate(patient, date);
+
+  return (
+    <div className="picker-backdrop" onClick={onClose}>
+      <div className="picker" style={{ width: 380 }} onClick={e => e.stopPropagation()}>
+        <div className="picker-h" style={{ justifyContent: "space-between" }}>
+          <div style={{ fontWeight: 600, fontSize: 15 }}>บันทึกข้อมูลโภชนาการ</div>
+          <button className="icon-btn" onClick={onClose}><Icon name="x" size={14} /></button>
+        </div>
+        <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
+            <input type="radio" name="logdate-mode" checked={mode === "today"} onChange={() => setMode("today")} />
+            วันนี้ · DOL {dol}
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
+            <input type="radio" name="logdate-mode" checked={mode === "pick"} onChange={() => setMode("pick")} />
+            เลือกวันที่ย้อนหลัง
+          </label>
+          {mode === "pick" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 24 }}>
+              <input type="date" className="inp" min={patient?.admissionDate || undefined} max={today} value={date}
+                onChange={e => setDate(e.target.value)} />
+              <span className="chip brand" style={{ fontSize: 12 }}>DOL {pickedDol}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 6 }}>
+            <button className="btn" onClick={onClose}>ยกเลิก</button>
+            <button className="btn primary" onClick={() => onConfirm(mode === "pick" ? date : today)}>
+              <Icon name="plus" size={14} color="#fff" /> ดำเนินการต่อ
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

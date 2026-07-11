@@ -295,6 +295,13 @@ function doPost(e) {
       pseudonymizePatient(body.sessionId, user.email);
       return jsonOut({ ok: true });
     }
+    if (action === "deleteDailyNutrition") {
+      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      var delResult = deleteDailyNutrition(body.sessionId, body.entryId);
+      if (delResult.error) return jsonOut({ error: delResult.error });
+      logAudit("deleteDailyLog", body.sessionId, user.email);
+      return jsonOut({ ok: true });
+    }
 
     return jsonOut({ error: "Unknown action: " + action });
   } catch (err) { return jsonOut({ error: err.message }); }
@@ -424,6 +431,29 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       return { ok: true, lastModified: newLastModified };
     }
     return { error: "ไม่พบข้อมูลที่ต้องการแก้ไข — อาจถูกลบไปแล้ว" };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ── deleteDailyNutrition (admin-only, permanent) ────────────────
+// Used to remove erroneous/test rows (e.g. a mock entry saved by mistake).
+// Not exposed to doctor/nurse roles — clinical history should normally be
+// corrected via updateDailyNutrition, not removed.
+function deleteDailyNutrition(sessionId, entryId) {
+  if (!entryId) return { error: "entryId is required" };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheetLog();
+    var data  = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][25]) !== String(entryId)) continue;
+      if (String(data[i][1]) !== String(sessionId)) return { error: "Entry does not belong to this patient" };
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+    return { error: "ไม่พบข้อมูลที่ต้องการลบ — อาจถูกลบไปแล้ว" };
   } finally {
     lock.releaseLock();
   }
