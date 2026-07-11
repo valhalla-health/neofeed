@@ -327,7 +327,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
           {/* side panel */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
+            <div className="fenton-trajectory" style={{ textAlign: "right" }}>
               <div className="sub-h">Current trajectory</div>
               <div style={{ fontSize: 28, fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, letterSpacing: "-0.02em" }}>
                 {currentPercentile || "—"}
