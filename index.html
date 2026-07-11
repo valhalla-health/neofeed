@@ -950,8 +950,17 @@
     .seg { width: 100%; }
     .seg button { flex: 1; min-width: 0; padding: 8px 6px; font-size: 12px; white-space: normal; line-height: 1.25; text-align: center; }
 
-    /* PresetChips: slightly larger tap targets */
-    .preset-chip { padding: 6px 14px; font-size: 13px; }
+    /* PresetChips: keep every value on one row instead of wrapping into a
+       ragged 2-3 row cluster inside narrow half/third-width columns — chips
+       flex to share whatever width is available, same pattern as .seg
+       above. Small fixed font (not ellipsis/wrap) so a clinical dose value
+       never gets truncated or split across lines where a digit could be
+       misread. */
+    .preset-chips { flex-wrap: nowrap; gap: 3px; }
+    .preset-chip {
+      flex: 1 1 0; min-width: 0; padding: 5px 1px; font-size: 10px;
+      letter-spacing: -0.3px; white-space: nowrap; text-align: center;
+    }
 
     /* Bottom nav visible */
     .bottom-nav {
