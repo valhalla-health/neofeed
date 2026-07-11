@@ -190,10 +190,10 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
   return (
     <div className="card">
-      <div className="card-h">
+      <div className="card-h fenton-card-h">
         <Icon name="chart" size={14} color="var(--brand)" />
         Fenton 2025 growth chart · <span className="mono">{sex === "boys" ? "Male" : "Female"}</span>
-        <span className="h-meta" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span className="h-meta fenton-metric-tabs" style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Segmented value={metric} onChange={setMetric} options={[
             { value: "weight", label: "Weight" },
             { value: "length", label: "Length" },
@@ -315,7 +315,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
           {/* side panel */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
+            <div className="fenton-trajectory" style={{ textAlign: "right" }}>
               <div className="sub-h">Current trajectory</div>
               <div style={{ fontSize: 28, fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, letterSpacing: "-0.02em" }}>
                 {currentPercentile || "—"}
