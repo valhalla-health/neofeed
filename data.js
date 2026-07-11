@@ -838,14 +838,20 @@ function correctedAge(ga, dol) {
 // Used by app.jsx PatientStrip, Calculator, Registry table, Fenton.
 // ============================================================
 function liveDol(patient) {
+  return dolAtDate(patient, new Date().toISOString().slice(0, 10));
+}
+
+// DOL as of an arbitrary calendar date (YYYY-MM-DD) — same math as liveDol,
+// used to back-date a log entry to the DOL that applied on that date.
+function dolAtDate(patient, dateStr) {
   if (!patient) return 1;
   const admitDol = patient.weights?.[0]?.dol ?? 1;
   const lastDol  = patient.weights?.slice(-1)[0]?.dol ?? admitDol;
-  if (!patient.admissionDate) return lastDol;
+  if (!patient.admissionDate || !dateStr) return lastDol;
   const admit = new Date(patient.admissionDate + "T00:00:00");
-  if (isNaN(admit)) return lastDol;
-  const today = new Date();
-  const daysSince = Math.floor((today - admit) / 86400000);
+  const at    = new Date(dateStr + "T00:00:00");
+  if (isNaN(admit) || isNaN(at)) return lastDol;
+  const daysSince = Math.floor((at - admit) / 86400000);
   return Math.max(admitDol, admitDol + daysSince);
 }
 
@@ -976,7 +982,7 @@ window.NEOFEED_DATA = {
   // Utility functions
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
   // Live DOL helper
-  liveDol,
+  liveDol, dolAtDate,
   // GA / PMA helpers (WW.D shorthand)
   gaTotalDays, daysToGA, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput,
   // Corrected age in days (negative = still preterm)

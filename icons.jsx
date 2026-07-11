@@ -20,6 +20,7 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
     milk:      "M8 2h8v3l-1 2v4l2 4v7a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-7l2-4V7L8 5V2z",
     weight:    "M6 8h12l2 12H4L6 8zm3 0a3 3 0 1 1 6 0",
     pdf:       "M8 2h7l5 5v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 9v8h2v-3h1a2 2 0 0 0 0-4H8zm5 0v8h2c1.5 0 3-1 3-4s-1.5-4-3-4h-2z",
+    trash:     "M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v6M14 11v6",
   };
   const d = paths[name];
   if (!d) return null;

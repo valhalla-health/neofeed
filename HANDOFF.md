@@ -3,6 +3,46 @@
 
 ---
 
+## Session 2026-07-11 (2) — back-dated log entries + admin delete-entry
+
+**Correction to the note below:** `NEOFEED_GAS_URL` in `NeoFeed.html`/`index.html`
+is **live**, not commented out (and it's a different Apps Script deployment URL
+than the one recorded in the TLDR — `AKfycbz8Nt...`, not `AKfycby44D...`). The
+"sandbox uses mock data" TLDR line is stale; both shells currently talk to the
+real Google Sheet. Screenshots reported by users (e.g. odd-looking DOL 75/69
+rows with a weight that jumps backward) are real `Daily_Log` rows, not the
+`MOCK_DAILY_LOG` fixture in `data.js` — check the live sheet, not the fixture,
+when a user reports a bad entry.
+
+**1. Back-dated log entries:** "บันทึกวันนี้" on the Dashboard now opens a small
+picker (`LogDateModal` in `log.jsx`) — today, or a past calendar date (capped at
+today). Picking a date computes that date's DOL via the new `D.dolAtDate(patient,
+dateStr)` helper in `data.js` (same math as `liveDol`, just at an arbitrary
+date) and carries it into the Calculator (`logDate` prop), which stamps the
+saved entry's `ts` with the chosen date instead of always defaulting to today
+(`app.jsx`'s `handleLogToGAS` now respects `entry.ts` if the caller set one,
+same pattern `handleUpdateToGAS` already used).
+
+**2. Admin delete-entry:** there was previously no way to remove a bad
+`Daily_Log` row — only add/edit. Added a trash-icon column to the "All
+entries" table, visible only when `role === "admin"` (gated in `app.jsx` via
+`onDeleteEntry={role === "admin" ? handleDeleteEntry : undefined}`, same
+pattern as the existing edit gate) and only for rows that have an `entryId`
+(legacy pre-session-8 rows without one still aren't deletable/editable from
+the UI). Confirms via `window.confirm` before calling the new
+`deleteDailyNutrition` GAS action (admin-only server-side too, permanent row
+delete, audit-logged to `Audit_Log`). **You must redeploy `gas-backend.gs`
+to the Apps Script editor for this to work against the live sheet** — the
+`deleteDailyNutrition` action doesn't exist in the currently-deployed script.
+
+Verified end-to-end (date picker → correct DOL → correct `ts` on the saved
+row → delete button appears/hides by role → row removal) with a local
+Playwright rig against vendored React/ReactDOM/Babel (unpkg unreachable from
+this environment, same as noted below) and `NEOFEED_GAS_URL` blanked out to
+exercise the local mock-data path.
+
+---
+
 ## Session 2026-07-11 — mobile UX pass + index.html/NeoFeed.html CSS reconciliation
 
 **Growth chart percentile labels** (`fenton.jsx`): the right-edge 3rd/10th/50th/

@@ -61,8 +61,11 @@ function App() {
   // Which existing log entry the Calculator is editing (null = creating a new entry).
   // Cleared on any ordinary navigation so it never bleeds into an unrelated Calculator visit.
   const [editEntry, setEditEntry] = React.useState(null);
-  React.useEffect(() => { setEditEntry(null); }, [activeId]);
-  const goTo = (v) => { setEditEntry(null); setView(v); };
+  // Back-date for a brand-new entry (YYYY-MM-DD, null = today) — set when the
+  // user picks "เลือกวันที่ย้อนหลัง" on the Dashboard's log button.
+  const [logDate, setLogDate] = React.useState(null);
+  React.useEffect(() => { setEditEntry(null); setLogDate(null); }, [activeId]);
+  const goTo = (v) => { setEditEntry(null); setLogDate(null); setView(v); };
 
   const active = patients.find((p) => p.sessionId === activeId);
   const lastWt = active?.weights?.slice(-1)[0];
@@ -198,7 +201,7 @@ function App() {
   // (prevents the old "draft" + "submit" duplicate-row behavior).
   const handleLogToGAS = (entry) => {
     const id = active.sessionId;
-    const ts = new Date().toISOString().slice(0, 10);
+    const ts = entry.ts || new Date().toISOString().slice(0, 10);
     const tempId = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     const who = user?.email || "";
     // Optimistic insert under a temp id — reconciled with the real entryId below,
@@ -241,6 +244,21 @@ function App() {
     return gasPost({ action: "updateDailyNutrition", sessionId: id, entryId, expectedLastModified, entry: { ...entry, ts } }).then(apply);
   };
 
+  // Permanently removes a Daily_Log row — admin-only (gated where this is passed
+  // down to DailyLog), audited server-side. Optimistic delete with rollback on failure.
+  const handleDeleteEntry = (entry) => {
+    const id = active.sessionId;
+    const prevEntries = log[id] || [];
+    setLog(prev => ({ ...prev, [id]: (prev[id] || []).filter(e => e.entryId !== entry.entryId) }));
+
+    if (!GAS_ON) { showToast(`ลบบันทึก DOL ${entry.dol} แล้ว`); return Promise.resolve({ ok: true }); }
+    return gasPost({ action: "deleteDailyNutrition", sessionId: id, entryId: entry.entryId }).then(res => {
+      if (res.ok) showToast(`ลบบันทึก DOL ${entry.dol} แล้ว`);
+      else setLog(prev => ({ ...prev, [id]: prevEntries }));
+      return res;
+    });
+  };
+
   const handleAddPatient = (p) => {
     setPatients(prev => [p, ...prev]);
     setActiveId(p.sessionId);
@@ -265,9 +283,10 @@ function App() {
     }
   };
 
-  // ── Start "add today" / "edit an entry" from the Log dashboard ───────
-  const startAddToday  = () => { setEditEntry(null); setView("calculator"); };
-  const startEditEntry = (entry) => { setEditEntry(entry); setView("calculator"); };
+  // ── Start "add today" / "add for a past date" / "edit an entry" from the
+  // Log dashboard. dateStr is only set when the user picked a back-date.
+  const startAddToday  = (dateStr) => { setEditEntry(null); setLogDate(dateStr || null); setView("calculator"); };
+  const startEditEntry = (entry) => { setEditEntry(entry); setLogDate(null); setView("calculator"); };
 
   // ── Weight update (from Fenton chart logger) ──────────────────
   const handleWeightUpdate = (sessionId, weights) => {
@@ -448,7 +467,7 @@ function App() {
           {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} />}
           {view === "admin" && <AdminDashboard patients={patients} log={log} />}
           {view === "calculator" && active && (() => {
-            const displayDol = editEntry ? editEntry.dol : dol;
+            const displayDol = editEntry ? editEntry.dol : (logDate ? D_A.dolAtDate(active, logDate) : dol);
             const baselineEntry = !editEntry ? (log[activeId] || []).slice(-1)[0] || null : null;
             return (
             <>
@@ -476,7 +495,7 @@ function App() {
                 </div>
               </div>
               <Calculator patient={active} dol={displayDol}
-                editEntry={editEntry} baselineEntry={baselineEntry}
+                editEntry={editEntry} baselineEntry={baselineEntry} logDate={logDate}
                 onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
                 onSaved={() => goTo("log")}
                 onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
@@ -497,7 +516,8 @@ function App() {
             </>
           }
           {view === "log" && active && <DailyLog patient={active} log={log} dol={dol}
-            onAddToday={startAddToday} onEditEntry={startEditEntry} />}
+            onAddToday={startAddToday} onEditEntry={startEditEntry}
+            onDeleteEntry={role === "admin" ? handleDeleteEntry : undefined} />}
           {view === "alerts" && active && <AlertCenter patient={active} log={log} onAckChange={() => setAckVersion(v => v + 1)} />}
           {view === "guidelines" && <GuidelinesPanel />}
           {view === "formulas" && <FormulasPanel />}
