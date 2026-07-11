@@ -164,6 +164,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
   const [dexPct, setDexPct] = useState(0);
   const [aaPerKg, setAaPerKg] = useState(0);
   const [lipidPerKg, setLipidPerKg] = useState(0);
+  const [lipidDripHours, setLipidDripHours] = useState(24); // lipid bag infused over 16/20/24h
 
   // Step 3 — Electrolytes (all zero baseline)
   const [naCl, setNaCl] = useState(0);
@@ -228,6 +229,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
     setDexPct(src.dexPct ?? 0);
     setAaPerKg(src.aaPerKg ?? 0);
     setLipidPerKg(src.lipidPerKg ?? 0);
+    setLipidDripHours(src.lipidDripHours ?? 24);
     setNaCl(src.naCl ?? 0);
     setNaAcet(src.naAcet ?? 0);
     setGlycophosP(src.glycophosP ?? 0);
@@ -308,6 +310,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
     setDexPct(restored?.dexPct ?? 0);
     setAaPerKg(restored?.aaPerKg ?? 0);
     setLipidPerKg(restored?.lipidPerKg ?? 0);
+    setLipidDripHours(restored?.lipidDripHours ?? 24);
     setNaCl(restored?.naCl ?? 0);
     setNaAcet(restored?.naAcet ?? 0);
     setGlycophosP(restored?.glycophosP ?? 0);
@@ -344,7 +347,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
   // Helper to bundle current input state for persistence
   const captureState = () => ({
     wtG, fluidTargetPerKg, otherIV_mL, drug_mL,
-    route, totalTPN_mL, dexPct, aaPerKg, lipidPerKg,
+    route, totalTPN_mL, dexPct, aaPerKg, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
     enType, enVol, enFreq, isMEN,
     inclSoluvit, inclPeditrace, inclAddamel, heparinUmL,
@@ -749,7 +752,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
               <span className="step-summary-chip">{fmt(totalTPN_mL/24,2)} mL/hr</span>
               {calc.gir > 0 && <span className="step-summary-chip">GIR {fmt(calc.gir,1)}</span>}
               {aaPerKg > 0 && <span className="step-summary-chip">AA {aaPerKg}</span>}
-              {lipidPerKg > 0 && <span className="step-summary-chip">Lip {lipidPerKg}</span>}
+              {lipidPerKg > 0 && <span className="step-summary-chip">Lip {(calc.lipidBagVol/lipidDripHours).toFixed(2)} mL/hr</span>}
             </div>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
@@ -833,15 +836,37 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
           {/* ══ PUMP 2: Lipid (separate pump) ════════════════════════════ */}
           <div style={{ border:"1.5px solid var(--warn-line)", borderRadius:8, overflow:"hidden" }}>
             <div style={{ background:"var(--warn-bg)", padding:"6px 12px", fontSize:11, fontWeight:700,
-              color:"oklch(45% 0.13 65)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <span>🫙 Lipid Pump — separate pump</span>
-              {calc.lipidBagVol > 0 && (
-                <span className="num" style={{ fontSize:13, color:"oklch(35% 0.13 65)" }}>
-                  Rate: <strong>{(calc.lipidBagVol/24).toFixed(2)}</strong> mL/hr
-                </span>
-              )}
+              color:"oklch(45% 0.13 65)", display:"flex", alignItems:"center", gap:6 }}>
+              🫙 Lipid Pump — separate pump
             </div>
-            <div style={{ padding:"12px 14px" }}>
+            <div style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:10 }}>
+
+              {/* Rate — the pump-facing number, always front and center */}
+              <div style={{ background:"linear-gradient(180deg,oklch(96.5% 0.04 75),#fff 70%)",
+                border:"1.5px solid var(--warn-line)", borderRadius:8, padding:"10px 14px",
+                position:"relative", overflow:"hidden",
+                display:"flex", flexWrap:"wrap", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                <div style={{ position:"absolute", left:0, top:0, bottom:0, width:3, background:"oklch(55% 0.15 65)" }} />
+                <div>
+                  <div style={{ fontSize:10, color:"var(--ink-3)", fontWeight:600, letterSpacing:"0.04em" }}>PUMP RATE</div>
+                  <div className="num" style={{ fontSize:30, fontWeight:700, lineHeight:1.15, color:"oklch(38% 0.14 65)" }}>
+                    {calc.lipidBagVol > 0 ? (calc.lipidBagVol/lipidDripHours).toFixed(2) : "—"}
+                    <span style={{ fontSize:13, color:"var(--ink-3)", marginLeft:5, fontWeight:400 }}>mL/hr</span>
+                  </div>
+                  <div style={{ fontSize:11, color:"var(--ink-3)", marginTop:1 }}>
+                    {fmt(calc.lipidBagVol,1)} mL/day over {lipidDripHours} h
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize:10, color:"var(--ink-3)", fontWeight:600, letterSpacing:"0.04em", marginBottom:4 }}>INFUSE OVER</div>
+                  <div className="seg" style={{ padding:1 }}>
+                    {[16, 20, 24].map(h => (
+                      <button key={h} className={lipidDripHours === h ? "on" : ""} onClick={() => setLipidDripHours(h)}>{h}h</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="s2-lip-row" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"center" }}>
                 <div>
                   <NumField label="SMOF Lipid 20%" unit="g/kg/d" value={lipidPerKg} onChange={setLipidPerKg} step={0.1} />
@@ -865,13 +890,13 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
                   <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>4 mL/kg (max 10)</div>
                 </div>
               </div>
+
               {calc.lipidBagVol > 0 && (
-                <div style={{ marginTop:8, padding:"7px 10px", background:"oklch(96.5% 0.04 75)",
-                  border:"1px solid var(--warn-line)", borderRadius:6,
+                <div style={{ padding:"7px 10px", background:"var(--bg-2)", borderRadius:6,
                   display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:12 }}>
                   <span style={{ color:"var(--ink-2)" }}>Lipid bag total (SMOF + Vitalipid)</span>
-                  <span className="num" style={{ fontWeight:700, color:"oklch(40% 0.13 65)" }}>
-                    {fmt(calc.lipidBagVol,1)} mL/day · {(calc.lipidBagVol/24).toFixed(2)} mL/hr
+                  <span className="num" style={{ fontWeight:700, color:"var(--ink)" }}>
+                    {fmt(calc.lipidBagVol,1)} mL/day
                   </span>
                 </div>
               )}
@@ -1349,7 +1374,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
                 `──────────────────────────────`,
                 `FLUID: Target ${fluidTargetPerKg} mL/kg/d = ${(fluidTargetPerKg*calc.wtKg).toFixed(0)} mL/day`,
                 `  TPN aqueous: ${totalTPN_mL.toFixed(1)} mL/day → Rate ${(totalTPN_mL/24).toFixed(2)} mL/hr`,
-                `  Lipid bag:   ${calc.lipidBagVol.toFixed(1)} mL/day → Rate ${(calc.lipidBagVol/24).toFixed(2)} mL/hr`,
+                `  Lipid bag:   ${calc.lipidBagVol.toFixed(1)} mL/day over ${lipidDripHours}h → Rate ${(calc.lipidBagVol/lipidDripHours).toFixed(2)} mL/hr`,
                 `  Prescribed:  ${calc.prescribedFluid.toFixed(0)} mL/day | Remaining: ${calc.remaining.toFixed(1)} mL`,
                 `──────────────────────────────`,
                 `DEXTROSE: ${dexPct}% → D50W ${calc.d50wVol} mL/day | Glucose ${calc.dexG.toFixed(1)} g/day`,
@@ -1406,7 +1431,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, onLog, onUpdate, o
       <PrintOrderForm
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} route={route}
         dexPct={dexPct} totalTPN_mL={totalTPN_mL}
-        aaPerKg={aaPerKg} lipidPerKg={lipidPerKg}
+        aaPerKg={aaPerKg} lipidPerKg={lipidPerKg} lipidDripHours={lipidDripHours}
         naCl={naCl} naAcet={naAcet} glycophosP={glycophosP}
         kCl={kCl} k2hpo4={k2hpo4} mgPerKg={mgPerKg} caPerKg={caPerKg}
         inclSoluvit={inclSoluvit} inclPeditrace={inclPeditrace}
@@ -1509,7 +1534,7 @@ function KcalLegend({ color, label, pct, target }) {
 
 // ── Ramathibodi PN Order Form (print only) ──────────────────────
 function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
-  aaPerKg, lipidPerKg, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg,
+  aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg,
   inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType }) {
 
@@ -1568,6 +1593,11 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
           <td>Lipid</td>
           <td><strong>☑ 20% SMOF</strong> = <strong>{f(lipidPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL &nbsp;&nbsp;
             Fat soluble vitamin &nbsp; Vitalipid N infant = <strong>{f(calc.vitalipidVol,1)}</strong> mL</td>
+        </tr>
+        <tr>
+          <td>Lipid pump rate</td>
+          <td>Bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL infused over <strong>{lipidDripHours || 24}</strong> h
+            = Rate <strong>{calc.lipidBagVol > 0 ? f(calc.lipidBagVol/(lipidDripHours||24),2) : "—"}</strong> mL/hr</td>
         </tr>
       </tbody></table>
 

@@ -1,5 +1,46 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-05-25 (session 8) | **Status:** 🟢 PRODUCTION
+**Last updated:** 2026-07-11 | **Status:** 🟢 PRODUCTION
+
+---
+
+## Session 2026-07-11 — mobile UX pass + index.html/NeoFeed.html CSS reconciliation
+
+**Growth chart percentile labels** (`fenton.jsx`): the right-edge 3rd/10th/50th/
+90th/97th labels were getting clipped against the SVG's right edge and, when
+curves converge near term, nudged up past the plot's top edge — worst on
+narrow phones. Fixed: `pad.r` widened (28→42 px in SVG coordinate space),
+label font trimmed slightly, and `percentileLabelYs` now clamps the whole
+stack back down if it climbs above the plot area. Also gave the chart's
+`card-h` (title + Weight/Length/HC segmented control) a wrap fix — it was
+overlapping on phones exactly like the Calculator's Step 2 header did
+before that got `.step2-card-h`/`.step2-ctrl`; Fenton now has the same
+pattern (`.fenton-card-h`/`.fenton-ctrl`).
+
+**Important, non-obvious finding:** `index.html` and `NeoFeed.html` are two
+separate static shells that both load the same `.jsx`/`.js` modules but each
+embed their **own copy of all the CSS** in a `<style>` block — and those two
+copies had drifted apart over many sessions, each accumulating fixes the
+other never got (e.g. `index.html` was missing `.trend-latest`/`.calc-save-bar`/
+`.bnav-badge` mobile styling entirely; `NeoFeed.html` was missing the
+`.fenton-grid` mobile stack, `.admin-stat-tiles`/`.guidelines-grid`/
+`.alert-summary-tiles`/`.feeding-steps-grid` base styles, Android EN-grid/
+step-header-wrap fixes, and `--toast-bottom` — meaning toasts sat behind the
+bottom nav on `NeoFeed.html` specifically). **GitHub Pages serves whichever
+file is at the repo root as `index.html`** — i.e. `index.html`, not
+`NeoFeed.html`, is what a bare-domain visit actually renders, despite the
+walkthrough calling `NeoFeed.html` canonical. Both files' `<style>` blocks
+were reconciled to the union of fixes in this session (verified brace-balanced
+and functionally equivalent via diff). **Going forward: any CSS change must be
+applied to both files' `<style>` blocks, or this will silently drift again.**
+Worth a follow-up to collapse this to one physical file (e.g. make
+`index.html` a redirect, or extract the CSS to a shared `.css` file) rather
+than keeping two hand-synced copies.
+
+Verified on emulated iPhone (390×844) and Android (393×851) viewports with a
+local Playwright rig (vendored React/ReactDOM/Babel-standalone + mock data,
+since `unpkg.com` and the live GAS backend aren't reachable from this
+environment) — Registry, Dashboard/TrendGraph, Growth chart, and Calculator
+all render correctly post-fix on both files.
 
 ---
 
