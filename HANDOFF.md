@@ -1,5 +1,35 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-11 | **Status:** 🟢 PRODUCTION
+**Last updated:** 2026-07-12 | **Status:** 🟢 PRODUCTION
+
+---
+
+## Session 2026-07-12 — repo audit + drift cleanup (branch `chore/gas-sync-and-css-fix`, not yet merged)
+
+GitHub review turned up four issues, all fixed on this branch:
+
+1. **CSS drifted again** — despite the 2026-07-11 reconciliation below, `index.html`
+   had since fallen behind `NeoFeed.html` again (missing `.reg-stats`/`.reg-filter`/
+   `.patient-table` registry styles and trend-graph divider/hover rules). Confirmed
+   `NeoFeed.html` still had everything `index.html` uniquely needed (`--toast-bottom`,
+   `.admin-stat-tiles`, `.guidelines-grid`, `.alert-summary-tiles`, `.feeding-steps-grid`)
+   before replacing `index.html`'s whole `<style>` block with `NeoFeed.html`'s. The
+   "collapse to one physical file" follow-up noted below is now overdue — this will
+   keep recurring otherwise.
+2. **Deployed GAS is behind git** — `deleteDailyNutrition` + `Audit_Log`/`logAudit`
+   (from the two 2026-07-11 sessions below) are in `gas-backend.gs` on `main` but were
+   **not yet pushed to the live Apps Script project** as of this session. Still needs
+   `clasp push` + `clasp deploy` — not done here, needs explicit sign-off since it's a
+   live production backend (see `~/nicu-tools/neofeed/`).
+3. **Untracked local fix, only in production** — a `backfillLegacyEntryIds()` helper
+   existed only as a live Apps Script edit (pushed via clasp 2026-07-09) with no git
+   record. Committed to `gas-backend.gs` so git matches what's actually deployed.
+4. **Local working copies were duplicated/stale** — there was a second, untracked
+   clone nested inside this one (`neofeed/neofeed/`), both behind `origin/main` by
+   different amounts. Consolidated to this single directory, now in sync.
+   Also merged and deleted a stray unmerged branch, `claude/mobile-readability-
+   improvement-79e2kb` — its fixes turned out to already be superseded by later work.
+
+**Still open:** merge this branch, then redeploy `gas-backend.gs` to Apps Script (item 2).
 
 ---
 

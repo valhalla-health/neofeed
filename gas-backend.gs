@@ -459,6 +459,32 @@ function deleteDailyNutrition(sessionId, entryId) {
   }
 }
 
+// ── backfillLegacyEntryIds — run once from Apps Script editor ─
+// Pre-migration Daily_Log rows predate the entryId/lastModified/
+// lastModifiedBy columns (Z/AA/AB) and are left blank there, which makes
+// the frontend treat them as read-only (see log.jsx: editable requires a
+// truthy entryId). This assigns each such row a stable entryId (and a
+// lastModified stamp if it doesn't already have one) so it becomes
+// editable like any normal entry. Already-migrated rows are untouched;
+// safe to re-run — it only ever fills in blanks, never overwrites.
+function backfillLegacyEntryIds() {
+  var sheet = getSheetLog();
+  var data  = sheet.getDataRange().getValues();
+  var fixed = 0;
+  for (var i = 1; i < data.length; i++) {
+    var sessionId = String(data[i][1] || "");
+    if (!sessionId) continue; // blank trailing row
+    var entryId = String(data[i][25] || "");
+    if (entryId) continue; // already migrated
+    var newEntryId    = Utilities.getUuid();
+    var lastModified  = String(data[i][26] || "") || new Date().toISOString();
+    sheet.getRange(i + 1, 26, 1, 2).setValues([[newEntryId, lastModified]]);
+    fixed++;
+  }
+  Logger.log("Backfilled entryId for " + fixed + " legacy row(s).");
+  return fixed;
+}
+
 // ── registerPatient (upsert) ──────────────────────────────────
 function registerPatient(p) {
   var sheet = getSheetPat();
