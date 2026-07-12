@@ -937,7 +937,8 @@
 
     /* Card body: less padding */
     .card-b { padding: 10px; }
-    .card-h { padding: 11px 12px; }
+    .card-h { padding: 11px 12px; flex-wrap: wrap; row-gap: 6px; }
+    .card-h .h-meta { margin-left: auto; }
 
     /* Disclaimer */
     .disclaimer-bar { font-size: 11px; padding: 6px 10px; }
@@ -1022,6 +1023,12 @@
     .btn       { min-height: 44px; }
     .btn.sm    { min-height: 44px; font-size: 13px; padding: 6px 12px; }
     .seg button { min-height: 44px; }
+
+    /* ── Alert rows: Acknowledge button was squeezed into a narrow right
+       column, crushing the alert body text into heavy wrapping — drop it
+       to a full-width row below instead ── */
+    .alert-row { flex-wrap: wrap; }
+    .alert-row > .btn { flex: 1 1 100%; justify-content: center; margin-top: 6px; }
 
     /* ── Active/pressed feedback for tappable surfaces ── */
     .card-h.clickable:active { background: var(--bg-2); }
@@ -1118,6 +1125,19 @@
     .admin-stat-tiles  { grid-template-columns: 1fr 1fr !important; }
     .alert-summary-tiles { grid-template-columns: 1fr 1fr 1fr !important; }
     .guidelines-grid   { grid-template-columns: 1fr !important; }
+
+    /* ── TrendGraph Latest/Target/Δ row: 3-col flex row overflows off-screen
+       on narrow phones (Δ vs prev gets clipped) — stack as 2-col grid ── */
+    .trend-latest {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px !important;
+    }
+    .trend-latest > div:first-child { grid-column: 1 / -1; }
+
+    /* ── Fenton growth chart: fixed "1fr 200px" grid crams the SVG chart
+       into a tiny illegible sliver next to the stats column — stack ── */
+    .fenton-grid { grid-template-columns: 1fr !important; }
 
     /* Feeding advancement: 5-col → vertical cards */
     .feeding-steps-grid { grid-template-columns: 1fr !important; }
