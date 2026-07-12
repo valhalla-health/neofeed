@@ -535,7 +535,18 @@ function App() {
         onClose={() => setShowChangePwd(false)}
         onSave={async (oldPwd, newPwd) => {
           const res = await gasPost({ action: "changePassword", oldPassword: oldPwd, newPassword: newPwd });
-          if (res.ok) { showToast("เปลี่ยนรหัสผ่านสำเร็จ"); setShowChangePwd(false); }
+          if (res.ok) {
+            // Backend rotates the session token on password change (invalidates
+            // any other token issued for this user) — persist the new one so
+            // this device doesn't get logged out by its own password change.
+            if (res.token) {
+              const updated = { ...user, token: res.token };
+              sessionStorage.setItem("neofeed_session", JSON.stringify(updated));
+              setUser(updated);
+            }
+            showToast("เปลี่ยนรหัสผ่านสำเร็จ");
+            setShowChangePwd(false);
+          }
         }}
       />
       }
