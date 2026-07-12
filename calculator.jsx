@@ -1195,21 +1195,39 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             {/* ── Left column ── */}
             <div>
 
-              {/* Vitamin D */}
-              <div className="sub-h">Vitamin D drops</div>
-              <NumField label="Vitamin D" unit="IU/kg/day" value={suppVitD} onChange={setSuppVitD} step={100}
-                hint={suppVitD > 0 && wtKg > 0
-                  ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: 400–700 IU/kg`
-                  : "ESPGHAN 2022: 400–700 IU/kg/day"} />
-              <PresetChips values={[400, 500, 600, 700]} current={suppVitD} onSelect={setSuppVitD} suffix=" IU/kg" />
-              {suppMTV && suppVitD > 0 && (
-                <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3 }}>
-                  ⚠ Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {Math.round((suppVitD + 400) * wtKg)} IU/day
-                </div>
-              )}
+              {/* Munti-vim Drop */}
+              <div className="sub-h">Multivitamin — Munti-vim Drop</div>
+              <Chk label="Munti-vim Drop 1 mL/day" value={suppMTV} onChange={setSuppMTV}
+                hint="Vit D3 400 IU · Vit A 2000 IU · B1/B2/B3/B6/B12 · Vit C 40 mg · 1 mL/day · ให้พร้อมอาหาร" />
+
+              {/* Iron */}
+              <div className="sub-h" style={{ marginTop: 14 }}>Iron (oral)</div>
+              <div className="field" style={{ marginBottom: 6 }}>
+                <label>ผลิตภัณฑ์</label>
+                <select className="sel" style={{ height: 38 }} value={suppFeType} onChange={e => setSuppFeType(e.target.value)}>
+                  {Object.entries(D.SUPP_DB).filter(([,v]) => v.category === "fe").map(([k,v]) =>
+                    <option key={k} value={k}>{v.label} · {v.fe_mg_per_ml} mg elem Fe/mL</option>
+                  )}
+                </select>
+              </div>
+              <NumField label="Iron" unit="mg/kg/day elem Fe" value={suppFerdek} onChange={setSuppFerdek} step={0.5}
+                hint={(() => {
+                  const prod = D.SUPP_DB[suppFeType];
+                  const totalMg = suppFerdek * wtKg;
+                  const vol = prod && totalMg > 0 ? totalMg / prod.fe_mg_per_ml : 0;
+                  return suppFerdek > 0 && wtKg > 0
+                    ? `= ${fmt(totalMg, 1)} mg elem Fe/day · ${fmt(vol, 2)} mL/day (${prod?.label})`
+                    : `ESPGHAN 2022: 2–3 mg/kg/day · เริ่มอายุ 2–4 สัปดาห์`;
+                })()} />
+              <PresetChips values={[2, 3, 4]} current={suppFerdek} onSelect={setSuppFerdek} />
+
+            </div>
+
+            {/* ── Right column ── */}
+            <div>
 
               {/* Calcium */}
-              <div className="sub-h" style={{ marginTop: 14 }}>Calcium (oral)</div>
+              <div className="sub-h">Calcium (oral)</div>
               <div className="field" style={{ marginBottom: 6 }}>
                 <label>ผลิตภัณฑ์</label>
                 <select className="sel" style={{ height: 38 }} value={suppCaType} onChange={e => setSuppCaType(e.target.value)}>
@@ -1250,36 +1268,18 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                 })()} />
               <PresetChips values={[1, 1.5, 2, 2.5]} current={suppPO4} onSelect={setSuppPO4} />
 
-            </div>
-
-            {/* ── Right column ── */}
-            <div>
-
-              {/* Munti-vim Drop */}
-              <div className="sub-h">Multivitamin — Munti-vim Drop</div>
-              <Chk label="Munti-vim Drop 1 mL/day" value={suppMTV} onChange={setSuppMTV}
-                hint="Vit D3 400 IU · Vit A 2000 IU · B1/B2/B3/B6/B12 · Vit C 40 mg · 1 mL/day · ให้พร้อมอาหาร" />
-
-              {/* Iron */}
-              <div className="sub-h" style={{ marginTop: 14 }}>Iron (oral)</div>
-              <div className="field" style={{ marginBottom: 6 }}>
-                <label>ผลิตภัณฑ์</label>
-                <select className="sel" style={{ height: 38 }} value={suppFeType} onChange={e => setSuppFeType(e.target.value)}>
-                  {Object.entries(D.SUPP_DB).filter(([,v]) => v.category === "fe").map(([k,v]) =>
-                    <option key={k} value={k}>{v.label} · {v.fe_mg_per_ml} mg elem Fe/mL</option>
-                  )}
-                </select>
-              </div>
-              <NumField label="Iron" unit="mg/kg/day elem Fe" value={suppFerdek} onChange={setSuppFerdek} step={0.5}
-                hint={(() => {
-                  const prod = D.SUPP_DB[suppFeType];
-                  const totalMg = suppFerdek * wtKg;
-                  const vol = prod && totalMg > 0 ? totalMg / prod.fe_mg_per_ml : 0;
-                  return suppFerdek > 0 && wtKg > 0
-                    ? `= ${fmt(totalMg, 1)} mg elem Fe/day · ${fmt(vol, 2)} mL/day (${prod?.label})`
-                    : `ESPGHAN 2022: 2–3 mg/kg/day · เริ่มอายุ 2–4 สัปดาห์`;
-                })()} />
-              <PresetChips values={[2, 3, 4]} current={suppFerdek} onSelect={setSuppFerdek} />
+              {/* Vitamin D */}
+              <div className="sub-h" style={{ marginTop: 14 }}>Vitamin D drops</div>
+              <NumField label="Vitamin D" unit="IU/kg/day" value={suppVitD} onChange={setSuppVitD} step={100}
+                hint={suppVitD > 0 && wtKg > 0
+                  ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: 400–700 IU/kg`
+                  : "ESPGHAN 2022: 400–700 IU/kg/day"} />
+              <PresetChips values={[400, 500, 600, 700]} current={suppVitD} onSelect={setSuppVitD} suffix=" IU/kg" />
+              {suppMTV && suppVitD > 0 && (
+                <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3 }}>
+                  ⚠ Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {Math.round((suppVitD + 400) * wtKg)} IU/day
+                </div>
+              )}
 
               {/* Summary */}
               {(suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) && (

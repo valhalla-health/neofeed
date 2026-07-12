@@ -335,7 +335,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
               <div style={{ fontSize: 11, color: "var(--ink-3)" }}>percentile band</div>
             </div>
 
-            <div>
+            <div style={{ textAlign: "right" }}>
               <div className="sub-h">Latest measurement</div>
               {points.length > 0 ? (
                 <div style={{ fontSize: 13 }}>
@@ -352,7 +352,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
               ) : <div style={{ fontSize: 12, color: "var(--ink-3)" }}>No measurements yet</div>}
             </div>
 
-            <div>
+            <div style={{ textAlign: "right" }}>
               <div className="sub-h">Growth velocity</div>
               <GrowthVelocity points={points} metric={metric} />
             </div>
