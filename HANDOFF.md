@@ -3,6 +3,40 @@
 
 ---
 
+## Session 2026-07-12 (4) — move SPREADSHEET_ID/CLIENT_ID out of source (branch `claude/backend-security-cloning-czphxy`)
+
+Follow-up to the PR #19 auth-bypass fix (below): `SPREADSHEET_ID` and
+`CLIENT_ID` were hardcoded literals at the top of `gas-backend.gs`, readable
+to anyone with repo access. Moved both to Script Properties — `SPREADSHEET_ID_()`/
+`CLIENT_ID_()` (via a shared `_cfg()` getter) read them from
+`PropertiesService.getScriptProperties()` instead. One-time setup: run
+`setConfig("<spreadsheetId>", "<clientId>")` from the Apps Script editor (or
+set both properties directly under Project Settings → Script Properties) —
+**this must be done before/at the next `clasp push`+deploy**, or every
+request will fail with "Missing Script Property" until it is.
+
+**Worth knowing:** `CLIENT_ID` is unavoidably public regardless of this
+change — it's also inline in `NeoFeed.html`/`index.html`'s
+`window.NEOFEED_CLIENT_ID`, since Google Identity Services needs it in the
+browser, and OAuth web client IDs aren't secrets by design. Moving it into
+Script Properties is config hygiene (one source of truth), not secrecy.
+`SPREADSHEET_ID` is the one that actually benefits — it's an internal
+pointer to the document holding patient data with no reason to sit in git
+history.
+
+**Also reviewed (not changed):** PR #19's `_sheetSafe()` formula-injection
+guard covers the string fields it targeted (sessionId/route/status/supp*Type/
+name/diagnosis/etc.) but not the numeric-typed fields passed straight through
+from client JSON (`entry.dol/weight/fluid/gir/pro/kcal/na/k/ca/p/enVolPerKg`,
+`suppMTV/suppVitD_IU/suppCa_mg/suppPO4_mmol/suppFe_mg`, `entry.ts`) or
+`registerPatient`'s `p.dob`/`p.admissionDate` — none of these coerce to
+`Number`/validate format, so a forged POST (or a buggy client) could still
+land a leading `=`/`+`/`-`/`@` string in one of those cells. Lower severity
+than the auth bypass (requires a valid session token already), flagged for a
+follow-up rather than fixed here.
+
+---
+
 ## Session 2026-07-12 (2) — diagnostic review + correctness/UX fixes (branch `claude/code-review-ux-improvements-k6zyj0`)
 
 Full read-through of every `.jsx`/`.js`/`.gs` file plus a local Playwright rig
