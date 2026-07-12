@@ -313,9 +313,53 @@ are typically shared devices.
 - *Cross-border transfer (Sec 28):* data lives in Google Sheets/Apps Script —
   verify Google Workspace's DPA/SCC coverage is adequate for the org's data
   location requirements; not evaluated as part of this change.
-- *Password hashing:* `hashPwd()` is single-round SHA-256 + per-user salt —
-  fine against casual DB browsing but not iterated/memory-hard. Apps Script
-  has no native bcrypt/Argon2; would need a manual PBKDF2 loop over
-  `Utilities.computeHmacSha256Signature` if strengthened.
 - *Retention policy:* no automatic purge after discharge — records persist
   indefinitely in the sheet today.
+
+---
+
+## Session 2026-07-12 (3) — auth/backend security hardening (branch `claude/static-frontend-token-api-q41vrr`)
+
+Deep review of `gas-backend.gs`'s token-checked API prompted by a direct
+"do we have a cybersecurity backend?" question. Found and fixed:
+
+1. **Critical — Google Sign-In auth bypass.** `decodeJwtEmail` only
+   base64-decoded the JWT payload; it never verified the signature (3rd JWT
+   segment) or checked `aud`. Anyone could POST a hand-crafted, unsigned
+   `googleToken` claiming `email_verified:true` for **any staff email in the
+   Staff sheet, including an admin's**, and log in with no password and no
+   real Google auth. Replaced with `verifyGoogleIdToken()`, which validates
+   the token against Google's `tokeninfo` endpoint (signature + expiry) and
+   additionally checks `aud === CLIENT_ID` so a token minted for a different
+   OAuth client can't be replayed here.
+2. **Password hashing was single-round SHA-256.** Added `hashPwdV2` (an
+   iterated HMAC-SHA256 loop, `v2$`-prefixed, 3000 rounds — Apps Script has
+   no native PBKDF2/bcrypt). Legacy hashes still verify via `hashPwdLegacy`
+   and are transparently rehashed to v2 on the user's next successful login;
+   `setInitialPassword()` now writes v2 hashes directly. Also switched the
+   hash-equality check from `!==` to a constant-time `safeEqual()` — plain
+   string inequality leaks timing info proportional to matching prefix
+   length.
+3. **Google Sheets formula injection.** Client-submitted string fields
+   (patient name/diagnosis/route/sessionId/etc.) were written to the sheet
+   unsanitized; a value starting with `=`/`+`/`-`/`@` executes as a formula
+   when a human opens the sheet in the Sheets UI — could exfiltrate data via
+   `=IMPORTXML(...)` or phish via `=HYPERLINK(...)`. Added `_sheetSafe()`
+   (apostrophe-prefixes such values so Sheets treats them as literal text)
+   and applied it everywhere client strings reach `_buildLogRow`/
+   `registerPatient`.
+4. **No session revocation on password change.** A leaked/shared-workstation
+   token stayed valid for its full 12h TTL even after the account owner
+   changed their password. Added a per-user "epoch" counter
+   (`getUserEpoch`/`bumpUserEpoch`, `PropertiesService`) embedded in every
+   token; `changePassword` bumps it, which invalidates every other
+   outstanding token for that user on next use, while reissuing a fresh
+   token for the device that just changed the password (returned as
+   `res.token`, persisted by `app.jsx`'s `ChangePasswordModal` `onSave`).
+
+**Not done — needs explicit sign-off, same as the item 2 GAS-deploy note
+above:** this is source-only. The live Apps Script deployment (`AKfycbz8Nt...`)
+still runs the old code until someone runs `clasp push && clasp deploy`
+(or pastes `gas-backend.gs` into the Apps Script editor and redeploys) — see
+`~/nicu-tools/neofeed/`. The auth-bypass fix in particular has zero effect
+against the live backend until that happens.

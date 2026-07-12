@@ -34,23 +34,38 @@
 var SPREADSHEET_ID = "1cZSA2qAUWAvFmpzrcjxS8kw6r-MpCMOSVAJev1uNDtI";
 var CLIENT_ID      = "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com";
 
-// ── Google JWT decoder (for Gmail/Workspace Sign-In path) ────
-function decodeJwtEmail(token) {
+// ── Google ID token verifier (for Gmail/Workspace Sign-In path) ─
+// SECURITY: the old implementation only base64-decoded the JWT payload and
+// never checked the signature (3rd segment) or audience — anyone could POST
+// a hand-crafted, unsigned "token" with any staff email + email_verified:true
+// and log in as that user, admin included. Apps Script has no native
+// RSA/JWKS verification, so we delegate signature + expiry validation to
+// Google's tokeninfo endpoint (Google's documented server-side fallback for
+// environments without a JWT library: https://developers.google.com/identity/sign-in/web/backend-auth)
+// and additionally check `aud` ourselves so a token minted for a *different*
+// Google OAuth client can't be replayed against this app.
+function verifyGoogleIdToken(idToken) {
+  if (!idToken || typeof idToken !== "string") return null;
   try {
-    var parts = token.split(".");
-    if (parts.length !== 3) return null;
-    var b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    while (b64.length % 4) b64 += "=";
-    var payload = JSON.parse(Utilities.newBlob(Utilities.base64Decode(b64)).getDataAsString());
+    var resp = UrlFetchApp.fetch(
+      "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken),
+      { muteHttpExceptions: true }
+    );
+    if (resp.getResponseCode() !== 200) return null; // invalid signature, expired, or malformed
+    var payload = JSON.parse(resp.getContentText());
+    if (payload.aud !== CLIENT_ID) return null; // token wasn't issued for this app
     if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") return null;
-    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
-    if (!payload.email || payload.email_verified !== true) return null;
+    if (payload.email_verified !== "true" && payload.email_verified !== true) return null;
+    if (!payload.email) return null;
     return payload.email;
   } catch (e) { return null; }
 }
 
 // ── Password hashing ──────────────────────────────────────────
-function hashPwd(password, salt) {
+// v1 (legacy): single-round SHA-256(password+salt) — fast to brute-force
+// offline if the Staff sheet ever leaks. Kept only so existing hashes still
+// verify; every successful v1 login transparently rehashes to v2 below.
+function hashPwdLegacy(password, salt) {
   var raw = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
     password + salt,
@@ -60,13 +75,68 @@ function hashPwd(password, salt) {
     return ("0" + (b & 0xff).toString(16)).slice(-2);
   }).join("");
 }
+// v2: HMAC-SHA256 stretched over many iterations (PBKDF2-style) — Apps
+// Script has no native bcrypt/Argon2/PBKDF2, so this loop is the closest
+// equivalent using Utilities.computeHmacSha256Signature. Iteration count is
+// a deliberate latency/security tradeoff: high enough to matter offline,
+// low enough to keep a login request well under Apps Script's timeout.
+var HASH_V2_ITERATIONS = 3000;
+function hashPwdV2(password, salt) {
+  var data = String(password) + ":" + String(salt);
+  for (var i = 0; i < HASH_V2_ITERATIONS; i++) {
+    var raw = Utilities.computeHmacSha256Signature(data, salt);
+    data = raw.map(function(b) { return ("0" + (b & 0xff).toString(16)).slice(-2); }).join("");
+  }
+  return "v2$" + data;
+}
+// Verifies against either format; tells the caller whether the stored hash
+// is still on the legacy (weak) format so it can be upgraded in place.
+function verifyPwd(password, salt, storedHash) {
+  storedHash = String(storedHash || "");
+  if (storedHash.indexOf("v2$") === 0) {
+    return { ok: safeEqual(hashPwdV2(password, salt), storedHash), legacy: false };
+  }
+  return { ok: safeEqual(hashPwdLegacy(password, salt), storedHash), legacy: true };
+}
+// Constant-time string comparison — plain !== leaks timing info proportional
+// to the number of matching leading characters, which (over enough attempts)
+// can help an attacker guess a hash/password byte-by-byte.
+function safeEqual(a, b) {
+  a = String(a); b = String(b);
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= (a.charCodeAt(i) ^ b.charCodeAt(i));
+  return diff === 0;
+}
+
+// ── Session epoch ────────────────────────────────────────────
+// A per-user counter (in ScriptProperties, so it survives past the cache's
+// 12h TTL) embedded into every token issued for that user. Bumping it
+// (on password change) makes every previously-issued token for that user
+// fail verifyToken() immediately, even though the token itself is still
+// sitting unexpired in the cache — this is how we revoke sessions we can't
+// otherwise enumerate (CacheService has no "list keys for user" op).
+function _epochKey(email) {
+  return "epoch_" + String(email).trim().toLowerCase().replace(/[^a-z0-9]/g, "_");
+}
+function getUserEpoch(email) {
+  return PropertiesService.getScriptProperties().getProperty(_epochKey(email)) || "0";
+}
+function bumpUserEpoch(email) {
+  var props = PropertiesService.getScriptProperties();
+  var key = _epochKey(email);
+  var next = String((parseInt(props.getProperty(key) || "0", 10) || 0) + 1);
+  props.setProperty(key, next);
+  return next;
+}
 
 // ── Session token ─────────────────────────────────────────────
-// Generates a UUID-style token, stores {email,role,name} in ScriptCache for 12 h.
+// Generates a UUID-style token, stores {email,role,name,epoch} in
+// ScriptCache for 12 h.
 function createSession(email, role, name) {
   var token = Utilities.getUuid();
   var cache = CacheService.getScriptCache();
-  cache.put("sess_" + token, JSON.stringify({ email: email, role: role, name: name }), 43200);
+  cache.put("sess_" + token, JSON.stringify({ email: email, role: role, name: name, epoch: getUserEpoch(email) }), 43200);
   return token;
 }
 
@@ -76,8 +146,13 @@ function verifyToken(token) {
     var cache = CacheService.getScriptCache();
     var val = cache.get("sess_" + token);
     if (!val) return null;
+    var parsed = JSON.parse(val); // { email, role, name, epoch }
+    if (String(parsed.epoch || "0") !== getUserEpoch(parsed.email)) {
+      cache.remove("sess_" + token); // stale — password changed since this token was issued
+      return null;
+    }
     cache.put("sess_" + token, val, 43200); // sliding window — reset TTL on every use
-    return JSON.parse(val); // { email, role, name }
+    return parsed;
   } catch (e) { return null; }
 }
 
@@ -110,7 +185,7 @@ function setInitialPassword(email, password) {
   var sh = getSheetStaff();
   var found = getStaffRow(email);
   var salt = Utilities.getUuid();
-  var hash = hashPwd(password, salt);
+  var hash = hashPwdV2(password, salt);
   if (found) {
     sh.getRange(found.row, 5, 1, 2).setValues([[hash, salt]]);
     Logger.log("Password updated for: " + email);
@@ -198,7 +273,7 @@ function doPost(e) {
 
       // Path A: Google Sign-In JWT (gmail / Google Workspace)
       if (body.googleToken) {
-        email = decodeJwtEmail(body.googleToken);
+        email = verifyGoogleIdToken(body.googleToken);
         if (!email) return jsonOut({ status: "unauthorized", error: "Google token ไม่ถูกต้อง" });
         var gFound = getStaffRow(email);
         if (!gFound) return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" });
@@ -243,9 +318,15 @@ function doPost(e) {
       var storedHash = String(d[4] || "");
       var salt       = String(d[5] || "");
       if (!storedHash) return jsonOut({ status: "unauthorized", error: "ยังไม่ได้ตั้งรหัสผ่าน — แจ้ง admin" });
-      if (hashPwd(password, salt) !== storedHash) {
+      var pwCheck = verifyPwd(password, salt, storedHash);
+      if (!pwCheck.ok) {
         props.setProperty(failKey, (fails + 1) + ":" + Date.now());
         return jsonOut({ status: "unauthorized", error: "รหัสผ่านไม่ถูกต้อง" });
+      }
+      if (pwCheck.legacy) {
+        // Transparent upgrade: user just proved they know the password, so
+        // this is a safe moment to replace the weak v1 hash with v2.
+        getSheetStaff().getRange(found.row, 5).setValue(hashPwdV2(password, salt));
       }
 
       props.deleteProperty(failKey); // reset on success
@@ -293,13 +374,19 @@ function doPost(e) {
       if (!sf) return jsonOut({ error: "ไม่พบบัญชี" });
       var sd = sf.data;
       if (!sd[4]) return jsonOut({ error: "บัญชี Google ไม่ใช้รหัสผ่านในระบบนี้" });
-      if (hashPwd(oldPwd, String(sd[5] || "")) !== String(sd[4] || "")) {
+      if (!verifyPwd(oldPwd, String(sd[5] || ""), String(sd[4] || "")).ok) {
         return jsonOut({ error: "รหัสผ่านเดิมไม่ถูกต้อง" });
       }
       var newSalt = Utilities.getUuid();
-      var newHash = hashPwd(newPwd, newSalt);
+      var newHash = hashPwdV2(newPwd, newSalt);
       getSheetStaff().getRange(sf.row, 5, 1, 2).setValues([[newHash, newSalt]]);
-      return jsonOut({ ok: true });
+      // Bump the session epoch so every OTHER token issued for this user
+      // (e.g. one that leaked, or is sitting on a shared NICU workstation)
+      // is invalidated immediately — verifyToken() checks epoch on every
+      // call. Re-issue a fresh token so *this* device stays logged in.
+      bumpUserEpoch(user.email);
+      var rotatedToken = createSession(user.email, user.role, user.name);
+      return jsonOut({ ok: true, token: rotatedToken });
     }
     if (action === "pseudonymizePatient") {
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
@@ -387,16 +474,16 @@ function getActivePatients() {
 function _buildLogRow(sessionId, entry, submittedBy) {
   return [
     entry.ts         || new Date().toISOString().slice(0, 10),
-    sessionId,
+    _sheetSafe(sessionId),
     entry.dol        || "", entry.weight   || "", entry.fluid    || "",
     entry.gir        || "", entry.pro      || "", entry.kcal     || "",
     entry.na         || "", entry.k        || "", entry.ca       || "",
-    entry.p          || "", entry.enVolPerKg || "", entry.route  || "",
-    entry.status     || "submitted", submittedBy || "",
+    entry.p          || "", entry.enVolPerKg || "", _sheetSafe(entry.route  || ""),
+    _sheetSafe(entry.status || "submitted"), submittedBy || "",
     entry.suppMTV    || 0, entry.suppVitD_IU || 0,
-    entry.suppCa_mg  || 0, entry.suppCaType  || "",
-    entry.suppPO4_mmol || 0, entry.suppPO4Type || "",
-    entry.suppFe_mg  || 0, entry.suppFeType  || "",
+    entry.suppCa_mg  || 0, _sheetSafe(entry.suppCaType  || ""),
+    entry.suppPO4_mmol || 0, _sheetSafe(entry.suppPO4Type || ""),
+    entry.suppFe_mg  || 0, _sheetSafe(entry.suppFeType  || ""),
   ];
 }
 
@@ -501,10 +588,10 @@ function registerPatient(p) {
   var sheet = getSheetPat();
   var data  = sheet.getDataRange().getValues();
   var row16 = [
-    p.sessionId, p.name || "", p.initials || "",
-    p.bw || 0, p.ga || 0, p.sex || "boys",
-    p.dob || "", p.admissionDate || "", p.twinSuffix || "",
-    p.status || "Active", p.currentBed || "", p.diagnosis || "",
+    _sheetSafe(p.sessionId), _sheetSafe(p.name || ""), _sheetSafe(p.initials || ""),
+    p.bw || 0, p.ga || 0, _sheetSafe(p.sex || "boys"),
+    p.dob || "", p.admissionDate || "", _sheetSafe(p.twinSuffix || ""),
+    _sheetSafe(p.status || "Active"), _sheetSafe(p.currentBed || ""), _sheetSafe(p.diagnosis || ""),
     JSON.stringify(p.weights    || []),
     JSON.stringify(p.lengths    || []),
     JSON.stringify(p.hcs        || []),
@@ -581,6 +668,19 @@ function logAudit(action, sessionId, actorEmail) {
 }
 
 // ── Utility ───────────────────────────────────────────────────
+// Defuses Google Sheets/Excel formula injection: a cell value written via
+// setValue()/setValues() that *starts* with =, +, -, or @ is interpreted as
+// a formula when a human opens the sheet in the Sheets UI, not stored as
+// literal text. Since name/diagnosis/route/etc. below come straight from
+// client-submitted JSON (not just the app's own form — anyone with a valid
+// session token can POST arbitrary field values), an entry like
+// `=IMPORTXML(...)` or `=HYPERLINK(...)` could exfiltrate data or phish
+// whoever next opens the spreadsheet. Prefixing with an apostrophe forces
+// Sheets to treat it as plain text.
+function _sheetSafe(val) {
+  var s = String(val == null ? "" : val);
+  return /^[=+\-@\t\r]/.test(s) ? ("'" + s) : s;
+}
 function _parseJson(str, fallback) {
   try { if (!str) return fallback; return JSON.parse(String(str)); }
   catch (_) { return fallback; }

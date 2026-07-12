@@ -118,16 +118,31 @@ row.
 ## 4. Auth
 
 Hybrid, handled entirely in `gas-backend.gs`:
-- **Gmail / Google Workspace accounts** → Google Sign-In JWT, no password
-  (`decodeJwtEmail`).
-- **Any other email** → SHA-256 + per-user salt password, set via
+- **Gmail / Google Workspace accounts** → Google Sign-In ID token, verified
+  server-side against Google's `tokeninfo` endpoint plus an `aud === CLIENT_ID`
+  check (`verifyGoogleIdToken`) — signature and audience are actually
+  validated, not just the payload decoded, since Apps Script has no native
+  JWT/JWKS verification.
+- **Any other email** → password, hashed with an iterated HMAC-SHA256 loop
+  + per-user salt (`hashPwdV2`, `v2$`-prefixed stored hash), set via
   `setInitialPassword("email","pwd")` run once from the Apps Script editor.
+  Legacy single-round-SHA-256 hashes (`hashPwdLegacy`) still verify and are
+  transparently upgraded to v2 on next successful login.
 
 Both paths issue a `CacheService` session token with a 12h sliding TTL
-(`app.jsx` handles the sliding-window refresh and the logout endpoint).
-Roles are `admin` / `doctor` / `nurse`; role gates what's in the nav rail
-(`app.jsx` ~L409–423): Calculator is doctor/nurse only, Admin dashboard is
-admin only.
+(`app.jsx` handles the sliding-window refresh and the logout endpoint). Each
+token also embeds a per-user "epoch" (`getUserEpoch`/`bumpUserEpoch` in
+`PropertiesService`); changing a password bumps the epoch, which invalidates
+every other token issued for that user on their next request — the changing
+device gets a freshly-rotated token in the `changePassword` response so it
+stays logged in. Roles are `admin` / `doctor` / `nurse`; role gates what's in
+the nav rail (`app.jsx` ~L409–423): Calculator is doctor/nurse only, Admin
+dashboard is admin only.
+
+String fields that get written into the Google Sheet from client-submitted
+JSON (patient name/diagnosis/route/etc.) are passed through `_sheetSafe()`
+first — it prefixes values starting with `=+-@` with an apostrophe so Sheets
+can't interpret them as formulas (formula/CSV injection).
 
 `LoginScreen` currently may be skipped (stubbed local user) depending on a
 flag near `app.jsx` "if (false)" — check `HANDOFF.md`'s latest session notes
