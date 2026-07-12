@@ -253,7 +253,7 @@
   .patient-strip > div { padding: 10px 14px; border-right: 1px solid var(--line-2); display: flex; flex-direction: column; }
   .patient-strip > div:last-child { border-right: 0; }
   /* fixed-height label row → all .val lines align at the same vertical position */
-  .patient-strip .lbl { font-size: 11px; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; height: 28px; display: flex; align-items: flex-end; padding-bottom: 2px; }
+  .patient-strip .lbl { font-size: 10px; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; height: 28px; display: flex; align-items: flex-end; padding-bottom: 2px; }
   .patient-strip .val { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin-top: 1px; line-height: 1.2; }
   .patient-strip .val.num { font-family: "IBM Plex Mono", monospace; font-weight: 500; }
   .patient-strip .sub { font-size: 11px; color: var(--ink-3); margin-top: 3px; font-weight: 500; }
@@ -673,8 +673,8 @@
       oklch(97.5% 0.008 215) 55%,
       oklch(98.5% 0.004 215) 100%);
     padding: 40px 24px 96px;
-    overflow-y: auto;
     gap: 0;
+    overflow-y: auto;
   }
 
   .login-logo-mark {
@@ -794,6 +794,7 @@
     .login-footer    { bottom: env(safe-area-inset-bottom, 20px); }
   }
 
+
   /* trend graph: vertical dividers between Latest / Target / Δ stats (desktop) */
   .trend-latest > div { position: relative; padding-right: 28px; }
   .trend-latest > div:not(:last-child)::after {
@@ -801,6 +802,43 @@
     width: 1px; background: var(--line-2);
   }
   .trend-latest > div:last-child { padding-right: 0; }
+
+  /* ============ PATIENT REGISTRY ============ */
+  .patient-card-list { display: none; }
+  .patient-table     { display: block; }
+
+  .reg-stats { display: flex; gap: 8px; margin-bottom: 16px; }
+  .reg-stat {
+    flex: 1; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 10px 14px 10px 16px;
+    display: flex; flex-direction: row; align-items: center; gap: 12px;
+    box-shadow: var(--shadow-card); border-left: 3px solid var(--line);
+  }
+  .reg-stat-val {
+    font-family: "IBM Plex Mono", monospace; font-size: 24px; font-weight: 600;
+    letter-spacing: -0.03em; line-height: 1; color: var(--ink); flex-shrink: 0;
+  }
+  .reg-stat-lbl { font-size: 11px; color: var(--ink-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.3; }
+  .reg-stat.s-ok    { border-left-color: var(--ok); }
+  .reg-stat.s-warn  { border-left-color: var(--warn); }
+  .reg-stat.s-crit  { border-left-color: var(--crit); }
+  .reg-stat.s-brand { border-left-color: var(--brand); }
+  .reg-stat.s-ok   .reg-stat-val { color: var(--ok); }
+  .reg-stat.s-warn .reg-stat-val { color: var(--warn); }
+  .reg-stat.s-crit .reg-stat-val { color: var(--crit); }
+  .reg-stat.s-brand .reg-stat-val { color: var(--brand); }
+
+  .reg-filter { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .reg-filter .reg-search { position: relative; flex: 1; max-width: 400px; }
+  .reg-filter .reg-search .inp { padding-left: 36px; height: 38px; }
+  .reg-filter .reg-search .s-ico { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+
+  .patient-table table.tbl td { vertical-align: middle; padding-top: 9px; padding-bottom: 9px; }
+  .patient-table table.tbl tr.p-active td { background: var(--brand-bg); }
+  .patient-table table.tbl tr:hover td { background: var(--bg-2); }
+  .patient-table table.tbl tr.p-active:hover td { background: oklch(94% 0.025 215); }
+
+  /* ============ MOBILE / DESKTOP TABLE SWAP ============ */
 
   /* ============ TABLET: 768–1199px — icon-only rail ============ */
   @media (min-width: 768px) and (max-width: 1199px) {
@@ -866,17 +904,7 @@
       border-bottom: none;
     }
     .patient-strip .val { font-size: 14px; }
-    .patient-strip .lbl { height: 22px; font-size: 10px; }
-
-    /* ── Patient strip: identity row spans both columns on mobile ── */
-    .patient-strip > div:nth-child(1) {
-      grid-column: 1 / -1;
-      border-right: none;
-    }
-    .patient-strip > div:nth-child(3),
-    .patient-strip > div:nth-child(5) {
-      border-right: none !important;
-    }
+    .patient-strip .lbl { height: 22px; font-size: 9px; }
 
     /* Layout: single column everywhere */
     .calc-grid { grid-template-columns: 1fr !important; }
@@ -937,8 +965,7 @@
 
     /* Card body: less padding */
     .card-b { padding: 10px; }
-    .card-h { padding: 11px 12px; flex-wrap: wrap; row-gap: 6px; }
-    .card-h .h-meta { margin-left: auto; }
+    .card-h { padding: 11px 12px; }
 
     /* Disclaimer */
     .disclaimer-bar { font-size: 11px; padding: 6px 10px; }
@@ -988,7 +1015,7 @@
       border: none;
       background: none;
       color: var(--ink-4);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 500;
       font-family: inherit;
       transition: color .1s;
@@ -1024,17 +1051,37 @@
     .btn.sm    { min-height: 44px; font-size: 13px; padding: 6px 12px; }
     .seg button { min-height: 44px; }
 
-    /* ── Alert rows: Acknowledge button was squeezed into a narrow right
-       column, crushing the alert body text into heavy wrapping — drop it
-       to a full-width row below instead ── */
-    .alert-row { flex-wrap: wrap; }
-    .alert-row > .btn { flex: 1 1 100%; justify-content: center; margin-top: 6px; }
-
     /* ── Active/pressed feedback for tappable surfaces ── */
     .card-h.clickable:active { background: var(--bg-2); }
     .preset-chip:active      { opacity: .7; transform: scale(0.97); }
     .rail-item:active        { background: var(--bg-2); }
     .btn:active              { opacity: .85; }
+
+    /* ── Registry: hide table, show card list ── */
+    .patient-table { display: none !important; }
+    .patient-card-list { display: flex; flex-direction: column; gap: 10px; }
+    .patient-mc {
+      background: var(--surface);
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 8px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .1s, border-color .15s, background .15s;
+    }
+    .patient-mc:active { transform: scale(0.99); background: var(--bg-2); }
+    .patient-mc.active { border-color: var(--brand); background: var(--brand-bg); }
+    .patient-mc .pmc-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .patient-mc .pmc-head { justify-content: space-between; }
+    .patient-mc .pmc-name { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+    .patient-mc .pmc-dol  { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 600; color: var(--brand-2); }
+    .patient-mc .pmc-meta { font-size: 12.5px; color: var(--ink-2); font-family: "IBM Plex Mono", monospace; }
+    .patient-mc .pmc-diagnosis { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; }
+    .patient-mc .pmc-stats { font-size: 12px; color: var(--ink-2); gap: 14px; font-family: "IBM Plex Mono", monospace; }
+    .patient-mc .pmc-lbl { color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
+    .patient-mc .pmc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
+    .patient-mc .pmc-actions .btn { width: 100%; justify-content: center; min-height: 40px; }
 
     /* ── Trend graph: stack controls, scrollable chips with snap ── */
     .trend-controls > div:first-child { width: 100%; }
@@ -1069,6 +1116,16 @@
     }
     .trend-latest > div:first-child { grid-column: 1 / -1; }
 
+    /* ── Patient strip: identity row spans both columns on mobile ── */
+    .patient-strip > div:nth-child(1) {
+      grid-column: 1 / -1;
+      border-right: none;
+    }
+    .patient-strip > div:nth-child(3),
+    .patient-strip > div:nth-child(5) {
+      border-right: none !important;
+    }
+
     /* ── Alert row: stack acknowledge button below content ── */
     .alert-row { flex-wrap: wrap; }
     .alert-row > .btn { width: 100%; margin-top: 6px; justify-content: center; }
@@ -1096,13 +1153,9 @@
     /* ── Modal safe-area padding ── */
     .picker { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-    /* ── Patient registry: show cards, hide table ── */
-    .patient-card-list { display: flex !important; flex-direction: column; gap: 10px; }
-    .patient-table     { display: none !important; }
-    /* Stats: 2×2 on mobile */
+    /* ── Registry stats/filter: stack on mobile ── */
     .reg-stats { flex-wrap: wrap; }
     .reg-stat  { flex: 0 0 calc(50% - 5px); }
-    /* Filter bar: stack on mobile */
     .reg-filter { flex-wrap: wrap; }
     .reg-filter .reg-search { max-width: 100%; }
 
@@ -1125,19 +1178,6 @@
     .admin-stat-tiles  { grid-template-columns: 1fr 1fr !important; }
     .alert-summary-tiles { grid-template-columns: 1fr 1fr 1fr !important; }
     .guidelines-grid   { grid-template-columns: 1fr !important; }
-
-    /* ── TrendGraph Latest/Target/Δ row: 3-col flex row overflows off-screen
-       on narrow phones (Δ vs prev gets clipped) — stack as 2-col grid ── */
-    .trend-latest {
-      display: grid !important;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px !important;
-    }
-    .trend-latest > div:first-child { grid-column: 1 / -1; }
-
-    /* ── Fenton growth chart: fixed "1fr 200px" grid crams the SVG chart
-       into a tiny illegible sliver next to the stats column — stack ── */
-    .fenton-grid { grid-template-columns: 1fr !important; }
 
     /* Feeding advancement: 5-col → vertical cards */
     .feeding-steps-grid { grid-template-columns: 1fr !important; }
@@ -1166,7 +1206,7 @@
     .field-hint { font-size: 12px !important; }
     .salt-note  { font-size: 12px !important; }
 
-    /* Patient strip: 9px label → 10px minimum */
+    /* Patient strip: 9px label → 11px minimum, let it grow instead of clipping */
     .patient-strip .lbl { font-size: 11px !important; height: auto !important; min-height: 20px; }
 
     /* ── Patient picker rows: 5-col → 2-row layout ── */
@@ -1185,82 +1225,6 @@
     .picker-row > span:nth-child(4) { grid-column: 3; grid-row: 1; font-size: 12px; }
     .picker-row > span:nth-child(5) { display: none !important; }
   }
-
-  /* ============ PATIENT REGISTRY ============ */
-  /* Desktop default: hide mobile cards, show table */
-  .patient-card-list { display: none; }   /* no !important — mobile override wins */
-  .patient-table     { display: block; }
-
-  /* Stats strip */
-  .reg-stats {
-    display: flex; gap: 8px; margin-bottom: 16px;
-  }
-  .reg-stat {
-    flex: 1; background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--r); padding: 10px 14px 10px 16px;
-    display: flex; flex-direction: row; align-items: center; gap: 12px;
-    box-shadow: var(--shadow-card);
-    border-left: 3px solid var(--line);
-    transition: border-color .15s;
-  }
-  .reg-stat-val {
-    font-family: "IBM Plex Mono", monospace; font-size: 24px; font-weight: 600;
-    letter-spacing: -0.03em; line-height: 1; color: var(--ink); flex-shrink: 0;
-  }
-  .reg-stat-lbl {
-    font-size: 11px; color: var(--ink-3); font-weight: 500;
-    text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.3;
-  }
-  .reg-stat.s-ok    { border-left-color: var(--ok); }
-  .reg-stat.s-warn  { border-left-color: var(--warn); }
-  .reg-stat.s-crit  { border-left-color: var(--crit); }
-  .reg-stat.s-brand { border-left-color: var(--brand); }
-  .reg-stat.s-ok   .reg-stat-val { color: var(--ok); }
-  .reg-stat.s-warn .reg-stat-val { color: var(--warn); }
-  .reg-stat.s-crit .reg-stat-val { color: var(--crit); }
-  .reg-stat.s-brand .reg-stat-val { color: var(--brand); }
-
-  /* Filter bar */
-  .reg-filter {
-    display: flex; gap: 8px; align-items: center; margin-bottom: 14px;
-  }
-  .reg-filter .reg-search { position: relative; flex: 1; max-width: 400px; }
-  .reg-filter .reg-search .inp { padding-left: 36px; height: 38px; }
-  .reg-filter .reg-search .s-ico { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
-
-  /* Desktop table enhancements */
-  .patient-table table.tbl td { vertical-align: middle; padding-top: 9px; padding-bottom: 9px; }
-  .patient-table table.tbl tr.p-active td { background: var(--brand-bg); }
-  .patient-table table.tbl tr:hover td { background: var(--bg-2); }
-  .patient-table table.tbl tr.p-active:hover td { background: oklch(94% 0.025 215); }
-
-  /* Mobile cards */
-  .patient-mc {
-    background: var(--surface);
-    border: 1.5px solid var(--line);
-    border-radius: var(--r);
-    padding: 14px 14px 10px;
-    display: flex; flex-direction: column; gap: 8px;
-    box-shadow: var(--shadow-card);
-    cursor: pointer;
-    transition: border-color .12s, box-shadow .12s;
-  }
-  .patient-mc.active {
-    border-color: var(--brand);
-    background: var(--brand-bg);
-    box-shadow: 0 0 0 3px oklch(46% 0.085 215 / .10);
-  }
-  .patient-mc:active { opacity: .92; }
-  .pmc-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .pmc-head { gap: 10px; }
-  .pmc-name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
-  .pmc-dol  { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 600; color: var(--brand-2); }
-  .pmc-meta { font-size: 12px; color: var(--ink-3); }
-  .pmc-diagnosis { font-size: 12.5px; color: var(--ink-2); }
-  .pmc-stats { font-size: 12.5px; color: var(--ink-2); gap: 16px; justify-content: flex-start; }
-  .pmc-lbl  { font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-right: 3px; }
-  .pmc-actions { display: flex; gap: 8px; padding-top: 2px; border-top: 1px solid var(--line-2); margin-top: 2px; }
-  .pmc-actions .btn { flex: 1; justify-content: center; min-height: 38px; }
 
   /* ============ RESPONSIVE GRID HELPERS (targeted by className) ============ */
   /* Admin stat tiles: 4-col → 2-col on mobile */
