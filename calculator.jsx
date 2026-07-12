@@ -780,13 +780,23 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             </div>
             <div style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:10 }}>
 
-              {/* Volume ↔ Rate — always both visible */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 28px 1fr", gap:8, alignItems:"end" }}>
+              {/* Volume ↔ Rate — always both visible. alignItems:"start" (not
+                  "end") keeps the two inputs on the same row regardless of
+                  hint length — Volume's hint is blank at 0 while Rate's
+                  never is, so bottom-aligning let the shorter field's input
+                  drift down out of line with the other. The arrow gets an
+                  invisible label spacer so its own "row" lines up with the
+                  real inputs too. */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 28px 1fr", gap:8, alignItems:"start" }}>
                 <NumField label="Volume" unit="mL/day"
                   value={totalTPN_mL}
                   onChange={setTotalTPN_mL} step={1}
                   hint={totalTPN_mL > 0 ? `= ${(totalTPN_mL/wtKg).toFixed(0)} mL/kg/d` : ""} />
-                <div style={{ textAlign:"center", fontSize:18, color:"var(--mid)", paddingBottom:8, lineHeight:1 }}>↔</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"center" }}>
+                  <div style={{ fontSize:12, visibility:"hidden" }}>&nbsp;</div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:44,
+                    fontSize:18, color:"var(--mid)", lineHeight:1 }}>↔</div>
+                </div>
                 <NumField label="Rate" unit="mL/hr"
                   value={parseFloat((totalTPN_mL/24).toFixed(2))}
                   onChange={(r) => setTotalTPN_mL(r * 24)} step={0.05}
