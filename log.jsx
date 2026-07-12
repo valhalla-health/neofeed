@@ -444,7 +444,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
         {onAddToday && (
           <div>
             <button className="btn primary" onClick={() => setShowDateModal(true)}>
-              <Icon name="plus" size={14} color="#fff" /> บันทึกวันนี้{dol != null ? ` (DOL ${dol})` : ""}
+              <Icon name="plus" size={14} color="#fff" /> New log
             </button>
           </div>
         )}
@@ -558,19 +558,27 @@ function LogDateModal({ patient, dol, onClose, onConfirm }) {
           <div style={{ fontWeight: 600, fontSize: 15 }}>บันทึกข้อมูลโภชนาการ</div>
           <button className="icon-btn" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
-        <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
-            <input type="radio" name="logdate-mode" checked={mode === "today"} onChange={() => setMode("today")} />
-            วันนี้ · DOL {dol}
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, cursor: "pointer" }}>
-            <input type="radio" name="logdate-mode" checked={mode === "pick"} onChange={() => setMode("pick")} />
-            เลือกวันที่ย้อนหลัง
-          </label>
+        <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { key: "today", label: `วันนี้ · DOL ${dol}` },
+            { key: "pick", label: "เลือกวันที่ย้อนหลัง" },
+          ].map(opt => (
+            <label key={opt.key} style={{
+              display: "flex", alignItems: "center", gap: 10, width: "100%",
+              padding: "14px 14px", fontSize: 14.5, cursor: "pointer",
+              border: "1.5px solid " + (mode === opt.key ? "var(--brand)" : "var(--line)"),
+              background: mode === opt.key ? "var(--brand-bg)" : "transparent",
+              borderRadius: 10, transition: "border-color .15s ease, background .15s ease",
+            }}>
+              <input type="radio" name="logdate-mode" checked={mode === opt.key} onChange={() => setMode(opt.key)}
+                style={{ width: 18, height: 18, flexShrink: 0 }} />
+              {opt.label}
+            </label>
+          ))}
           {mode === "pick" && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <input type="date" className="inp" min={patient?.admissionDate || undefined} max={today} value={date}
-                onChange={e => setDate(e.target.value)} />
+                onChange={e => setDate(e.target.value)} style={{ flex: "1 1 160px", minHeight: 44 }} />
               <span className="chip brand" style={{ fontSize: 12 }}>DOL {pickedDol}</span>
             </div>
           )}

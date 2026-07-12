@@ -1130,16 +1130,15 @@
     .alert-row { flex-wrap: wrap; }
     .alert-row > .btn { width: 100%; margin-top: 6px; justify-content: center; }
 
-    /* ── Calculator save bar: sticky above bottom-nav on mobile ── */
+    /* ── Calculator save bar: static block, separated by a divider ──
+       (previously position:sticky + negative margins — on short pages
+       this made the sticky "bottom" offset resolve above its own
+       static position, so it rendered on top of the patient-info line
+       right above it. Plain flow avoids that class of bug entirely.) */
     .calc-save-bar {
-      position: sticky;
-      bottom: calc(58px + env(safe-area-inset-bottom, 0px));
-      background: linear-gradient(to top, var(--surface) 80%, oklch(99% 0.002 230 / 0));
-      padding: 10px 0 8px;
-      margin: 0 -10px -10px;
-      padding-left: 10px; padding-right: 10px;
-      z-index: 10;
-      box-shadow: 0 -1px 0 var(--line-2);
+      padding-top: 10px;
+      margin-top: 4px;
+      border-top: 1px solid var(--line-2);
     }
     .calc-save-bar .btn { min-height: 44px; }
 
