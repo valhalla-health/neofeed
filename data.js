@@ -841,6 +841,18 @@ function liveDol(patient) {
   return dolAtDate(patient, new Date().toISOString().slice(0, 10));
 }
 
+// Most recent weights[] entry that actually carries a weight (`w`) — a
+// length/HC-only measurement (see MeasurementLogger) is stored with `w: null`
+// so it doesn't fabricate a weight reading, but that means
+// `weights[weights.length-1]` is no longer guaranteed to be a weighed entry.
+// Anything displaying/alerting on "current weight" or "days since last
+// weight" must look this up rather than blindly taking the array's last item.
+function lastWeighed(patient) {
+  const ws = patient?.weights || [];
+  for (let i = ws.length - 1; i >= 0; i--) if (ws[i].w != null) return ws[i];
+  return null;
+}
+
 // DOL as of an arbitrary calendar date (YYYY-MM-DD) — same math as liveDol,
 // used to back-date a log entry to the DOL that applied on that date.
 function dolAtDate(patient, dateStr) {
@@ -983,6 +995,8 @@ window.NEOFEED_DATA = {
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
   // Live DOL helper
   liveDol, dolAtDate,
+  // Last weights[] entry with an actual weight (skips length/HC-only rows)
+  lastWeighed,
   // GA / PMA helpers (WW.D shorthand)
   gaTotalDays, daysToGA, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput,
   // Corrected age in days (negative = still preterm)

@@ -3,6 +3,18 @@
 // ============================================================
 const D_R = window.NEOFEED_DATA;
 
+// Spread onto a clickable row/card div so keyboard users can open a patient
+// without tabbing through every nested action button first (Enter/Space
+// activates it like a native control; nested buttons still stopPropagation
+// their own clicks so they don't double-fire this).
+const rowA11y = (onActivate) => ({
+  role: "button",
+  tabIndex: 0,
+  onKeyDown: (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onActivate(); }
+  },
+});
+
 function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit }) {
   const [filter, setFilter]         = React.useState("");
   const [showAdd, setShowAdd]       = React.useState(false);
@@ -81,7 +93,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
       {/* ─── Mobile: card list ─── */}
       <div className="patient-card-list">
         {activeSorted.map(p => {
-          const last    = p.weights[p.weights.length - 1];
+          const last    = D_R.lastWeighed(p) || p.weights[p.weights.length - 1];
           const dol     = D_R.liveDol(p);
           const delta   = last ? last.w - p.bw : 0;
           const deltaPct = (delta / p.bw) * 100;
@@ -94,7 +106,8 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
           return (
             <div key={p.sessionId}
                  className={"patient-mc" + (isActive ? " active" : "")}
-                 onClick={() => onSelect(p.sessionId)}>
+                 onClick={() => onSelect(p.sessionId)}
+                 {...rowA11y(() => onSelect(p.sessionId))}>
 
               {/* Row 1: name + DOL + status */}
               <div className="pmc-row pmc-head">
@@ -224,7 +237,9 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                 <tr key={p.sessionId}
                     className={isSelected ? "p-active" : ""}
                     style={{ cursor: "pointer" }}
-                    onClick={() => onSelect(p.sessionId)}>
+                    onClick={() => onSelect(p.sessionId)}
+                    tabIndex={0}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.sessionId); } }}>
                   <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
                   <td>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</div>
@@ -341,6 +356,11 @@ function NewPatientModal({ onClose, onSubmit }) {
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
   const sessionId = `${(name || "XX").slice(0, 2).toUpperCase()}-BW${bw}${twin ? "-" + twin : ""}`;
 
+  // Birth weight and GA feed every downstream nutrition calculation (targets,
+  // Fenton percentile, HMF threshold) — a 0/blank value here would silently
+  // corrupt every subsequent dose for this patient, so block submission on it.
+  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "";
+
   // DOB = admitDate − (admitDol − 1) days
   const dob = React.useMemo(() => {
     if (!admitDate) return today;
@@ -429,17 +449,6 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div style={{ height: 10 }} />
           <div className="row-2">
             <div className="field">
-              <label>วันที่รับไว้ <span className="unit">(Admit date)</span></label>
-              <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>DOL แรกรับ</label>
-              <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(parseInt(e.target.value) || 1)} />
-            </div>
-          </div>
-          <div style={{ height: 10 }} />
-          <div className="row-2">
-            <div className="field">
               <label>Bed</label>
               <select className="sel" value={bed} onChange={e => setBed(e.target.value)}>
                 {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -450,9 +459,14 @@ function NewPatientModal({ onClose, onSubmit }) {
               <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 }}>
+            {!canSubmit && (
+              <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" }}>
+                กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน
+              </span>
+            )}
             <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" onClick={() => onSubmit({
+            <button className="btn primary" disabled={!canSubmit} onClick={() => onSubmit({
               sessionId, name, initials: name, bw, ga, twinSuffix: twin, sex,
               currentBed: bed, diagnosis: dx, status: "Active",
               admissionDate: admitDate,

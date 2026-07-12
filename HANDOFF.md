@@ -3,6 +3,68 @@
 
 ---
 
+## Session 2026-07-12 (2) — diagnostic review + correctness/UX fixes (branch `claude/code-review-ux-improvements-k6zyj0`)
+
+Full read-through of every `.jsx`/`.js`/`.gs` file plus a local Playwright rig
+(npm-installed React/ReactDOM/Babel served locally, `NEOFEED_GAS_URL` blanked
+to exercise the mock-data path — `unpkg.com` is policy-blocked from this
+environment, same constraint noted in the 2026-07-11 session). Verified every
+fix by driving the actual UI (screenshots + console/pageerror capture) before
+and after, not just by reading the diff.
+
+**1. Critical — "Register new session" crashed the whole app.** `registry.jsx`
+`NewPatientModal` had a leftover duplicate Thai-labeled Admit-date/DOL block
+referencing `dol1`/`setDol1`, state that only exists in the unrelated
+`EditPatientModal`. Clicking **+ New session** threw `ReferenceError: dol1 is
+not defined` and white-screened the app — **new patients could not be
+registered at all** before this fix. Removed the dead duplicate block (the
+real admit-date/DOL fields already exist earlier in the same form).
+
+**2. Permanent login lockout.** `gas-backend.gs`'s brute-force counter (5
+failed email/password attempts) never expired and was only cleared on a
+*successful* login — which a locked-out user could never reach, since the
+lockout check ran before the password check. A mistyped password 5x meant
+permanent, admin-unrecoverable lockout (fixable only by hand-editing Apps
+Script properties). Now time-boxed to a 15-minute cooldown that self-clears.
+
+**3. Weight-measurement data integrity.** `fenton.jsx`'s `MeasurementLogger`
+fabricated a weight (duplicated the previous value, or `0` if none existed
+yet) whenever a length/HC-only entry was saved for a new DOL, polluting the
+Fenton weight chart and the growth-velocity/stale-weight alert math with a
+"measurement" that never happened. Now stores `w: null` for those rows. Since
+several places assumed `weights[weights.length-1]` was always a weighed
+entry, added `D.lastWeighed(patient)` in `data.js` and switched
+`PatientStrip`, the registry's WT-NOW column, the Calculator's weight
+prefill, and the alert-center/badge-count growth-velocity + stale-weight
+logic (`app.jsx`) to use it instead of the raw array tail.
+
+**4. Route mislabeling.** `calculator.jsx` always logged `route` as "TPN
+central"/"TPN peripheral" from the IV-access toggle alone, even on a fully
+enteral day (`totalTPN_mL === 0`). Now logs "Enteral only" / "NPO" when no
+TPN was actually delivered that day.
+
+**5. UX/QOL:**
+- Patient rows/cards in `registry.jsx` (table row + mobile card) are now
+  keyboard-activatable (Enter/Space), not just mouse/touch-clickable.
+- `NewPatientModal`'s Register button is now disabled with an inline hint
+  until name, birth weight (>0), and GA are filled in — previously a blank
+  or zero birth weight could be submitted and would silently corrupt every
+  downstream nutrition calc and Fenton percentile for that patient, plus
+  render as `NaN%`/`Infinity%` wherever the weight delta is shown.
+- Added a `:disabled` style for `.btn`/`.btn.primary` — there was no disabled
+  button styling anywhere in the app (in **both** `NeoFeed.html` and
+  `index.html`, kept in sync per the 2026-07-11 CSS-reconciliation note
+  below), so disabled buttons looked identical to active ones.
+
+**Reviewed but not changed** (lower confidence / needs clinical sign-off, not
+touched this session): `calculator.jsx`'s Glycophos dosing-input direction
+(Na is the editable field, P is derived, which a code comment nearby flags as
+backwards from clinical convention — needs a clinician to confirm before
+changing); `handleSave` has no all-zero-entry guard (lower risk now that
+weight is always prefilled from `lastWeighed`/`patient.bw`, never really 0).
+
+---
+
 ## Session 2026-07-12 — repo audit + drift cleanup (branch `chore/gas-sync-and-css-fix`, not yet merged)
 
 GitHub review turned up four issues, all fixed on this branch:
