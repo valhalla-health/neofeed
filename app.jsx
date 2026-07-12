@@ -89,7 +89,9 @@ function App() {
       if (last.pro  < D_A.TARGETS.protein(last.dol)[0] && last.dol > 2 && !acked[ackKey("protein-low", last.dol)]) n++;
       if (last.kcal < D_A.TARGETS.kcal(last.dol)[0]    && last.dol > 4 && !acked[ackKey("kcal-low", last.dol)])    n++;
     }
-    const wts = active.weights || [];
+    // Length/HC-only rows carry no `w` — exclude them so velocity/staleness
+    // only ever reason about entries that actually recorded a weight.
+    const wts = (active.weights || []).filter(w => w.w != null);
     if (wts.length >= 2) {
       const recent = wts.slice(-Math.min(wts.length, 7));
       const w0 = recent[0], wN = recent[recent.length - 1];
@@ -596,7 +598,7 @@ function RailItem({ icon, label, active, count, crit, onClick }) {
 }
 
 function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
-  const last = patient.weights[patient.weights.length - 1];
+  const last = D_A.lastWeighed(patient) || patient.weights[patient.weights.length - 1];
   const currentW = liveWeight ?? last.w;
   // Use calculated DOL if passed, else fall back to stored value
   const displayDol = currentDol ?? last.dol;
@@ -715,8 +717,9 @@ function AlertCenter({ patient, log, onAckChange }) {
     if (last.kcal < tKcal[0] && last.dol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${last.dol}.`, dol: last.dol, ref: "ESPGHAN" });
   }
 
-  // Growth velocity — from patient.weights (Fenton chart data, most reliable)
-  const wts = patient.weights || [];
+  // Growth velocity — from patient.weights (Fenton chart data, most reliable).
+  // Length/HC-only rows carry no `w` — exclude them from this reasoning.
+  const wts = (patient.weights || []).filter(w => w.w != null);
   if (wts.length >= 2) {
     const recent = wts.slice(-Math.min(wts.length, 7));
     const wFirst = recent[0], wLast = recent[recent.length - 1];
@@ -734,7 +737,7 @@ function AlertCenter({ patient, log, onAckChange }) {
   }
 
   // Stale weight: warn when no weight measurement in 3+ days
-  const lastWtEntry = (patient.weights || []).slice(-1)[0];
+  const lastWtEntry = D_A.lastWeighed(patient);
   const todaysDol = D_A.liveDol(patient);
   if (lastWtEntry) {
     const daysSince = todaysDol - lastWtEntry.dol;

@@ -448,7 +448,10 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
     const existing = weights.find(x => x.dol === n);
     const merged = existing
       ? weights.map(x => x.dol === n ? { ...x, ...(wt != null ? { w: wt } : {}), ...(len != null ? { l: len } : {}), ...(head != null ? { hc: head } : {}) } : x)
-      : [...weights, { dol: n, w: wt ?? (weights[weights.length - 1]?.w || 0), l: len ?? null, hc: head ?? null }].sort((a, b) => a.dol - b.dol);
+      // A length/HC-only entry must not fabricate a weight for that day — leaving
+      // `w: null` keeps it out of the weight chart/growth-velocity calc instead of
+      // silently duplicating the last known weight as if it were re-measured today.
+      : [...weights, { dol: n, w: wt, l: len ?? null, hc: head ?? null }].sort((a, b) => a.dol - b.dol);
     onUpdate(merged);
     setW(""); setL(""); setHc(""); setEditingDol(null);
   };

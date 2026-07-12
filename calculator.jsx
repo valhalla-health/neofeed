@@ -296,7 +296,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       if (raw) restored = JSON.parse(raw);
     } catch {}
 
-    const lastWt = patient.weights?.slice(-1)[0];
+    const lastWt = D.lastWeighed(patient);
     const wtDefault = restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
     const fluidRange = D.TARGETS.fluid(dol, wtDefault || patient.bw || 1000);
     const fluidDefault = Math.round((fluidRange[0] + fluidRange[1]) / 2);
@@ -609,7 +609,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
       pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
       ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
-      route: route === "central" ? "TPN central" : "TPN peripheral",
+      // Route reflects what was actually delivered, not just the IV-access toggle —
+      // a fully-weaned-to-EN day (totalTPN_mL === 0) must not be logged as "TPN ...".
+      route: calc.totalTPN_mL > 0
+        ? (route === "central" ? "TPN central" : "TPN peripheral")
+        : (calc.enVolPerKg > 0 ? "Enteral only" : "NPO"),
       status: "submitted", ..._suppPayload, calcInput: captureState(),
       // Editing must keep the entry's original calendar date; a brand-new entry
       // is stamped with today's date unless the user picked a back-date (logDate).

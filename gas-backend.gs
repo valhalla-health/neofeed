@@ -216,14 +216,25 @@ function doPost(e) {
       var password = body.password || "";
       if (!email || !password) return jsonOut({ status: "unauthorized", error: "กรุณากรอก email และรหัสผ่าน" });
 
-      // Brute-force protection: lock after 5 failed attempts
+      // Brute-force protection: lock for LOCKOUT_MS after 5 failed attempts.
+      // The counter expires on its own after the cooldown — earlier versions
+      // never cleared it except on a *successful* login, which a locked-out
+      // user could never reach, so a mistyped password 5x meant a permanent,
+      // admin-unrecoverable lockout. Time-boxing it keeps the brute-force
+      // protection without bricking the account.
+      var LOCKOUT_MS = 15 * 60 * 1000;
       var failKey = "fail_" + email.replace(/[^a-z0-9]/g, "_");
       var props = PropertiesService.getScriptProperties();
-      var fails = parseInt(props.getProperty(failKey) || "0");
-      if (fails >= 5) return jsonOut({ status: "unauthorized", error: "ลองใหม่ในอีกสักครู่ — login ผิดพลาดหลายครั้ง" });
+      var failRaw = (props.getProperty(failKey) || "0:0").split(":");
+      var fails = parseInt(failRaw[0]) || 0;
+      var failAt = parseInt(failRaw[1]) || 0;
+      if (fails >= 5 && (Date.now() - failAt) < LOCKOUT_MS) {
+        return jsonOut({ status: "unauthorized", error: "ลองใหม่ในอีก 15 นาที — login ผิดพลาดหลายครั้ง" });
+      }
+      if (fails >= 5) fails = 0; // cooldown elapsed — give the counter a fresh start
 
       var found = getStaffRow(email);
-      if (!found) { props.setProperty(failKey, String(fails + 1)); return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" }); }
+      if (!found) { props.setProperty(failKey, (fails + 1) + ":" + Date.now()); return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" }); }
 
       var d = found.data;
       if (d[3] !== true && String(d[3]).toUpperCase() !== "TRUE")
@@ -233,7 +244,7 @@ function doPost(e) {
       var salt       = String(d[5] || "");
       if (!storedHash) return jsonOut({ status: "unauthorized", error: "ยังไม่ได้ตั้งรหัสผ่าน — แจ้ง admin" });
       if (hashPwd(password, salt) !== storedHash) {
-        props.setProperty(failKey, String(fails + 1));
+        props.setProperty(failKey, (fails + 1) + ":" + Date.now());
         return jsonOut({ status: "unauthorized", error: "รหัสผ่านไม่ถูกต้อง" });
       }
 
