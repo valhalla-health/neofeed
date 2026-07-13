@@ -1,5 +1,114 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-13 | **Status:** 🟡 LOGIN BROKEN IN PRODUCTION (config, not code — see below)
+**Last updated:** 2026-07-13 | **Status:** 🟡 LOGIN BROKEN IN PRODUCTION (config **and** code — see session below)
+
+---
+
+## Session 2026-07-13 (2) — cybersecurity review + fixes (branch `claude/neofeed-cybersecurity-review-8vflvy`)
+
+Full fresh audit prompted by "check cybersecurity of neofeed, scrutinize and
+verify" — re-verified every fix claimed in the sessions below against actual
+current code (not just trusted the write-ups), plus new coverage of the
+client-side `.jsx` files. Found and fixed:
+
+1. **Critical — session TTL exceeds CacheService's hard cap, breaking every
+   login independent of the config issue below.** `createSession()` and
+   `verifyToken()`'s sliding-window refresh both called
+   `CacheService.getScriptCache().put(key, value, 43200)` (12h) — but
+   `CacheService.put()` has a documented hard max of **21600 seconds (6h)**;
+   anything above that throws `"Argument too large: expirationInSeconds"` at
+   call time. This has been in `gas-backend.gs` since its first commit, so
+   it's not new, and it's independent of the `CLIENT_ID`/`SPREADSHEET_ID`
+   Script Properties gap the session below diagnoses. **Practical effect:
+   even once `setConfig(...)` is run to fix that gap, login would still
+   throw inside `createSession()` right after credentials are verified —
+   for both the Google and the password path.** Fixed: clamped to a
+   `SESSION_TTL_SECONDS = 21600` constant used in both places. Comments/docs
+   updated from "12h" to "6h" TTL throughout (`gas-backend.gs`,
+   `app-walkthrough.md`). **This still needs `clasp push`+deploy like the
+   sessions below — unverified against the live Apps Script project from
+   this environment.** Worth testing directly with
+   `CacheService.getScriptCache().put('t','v',43200)` in the Apps Script
+   editor before deploy, to confirm the throw behavior rather than relying
+   on documentation alone.
+2. **High — production Spreadsheet ID is permanently recoverable from git
+   history.** The 2026-07-12 (4) session below moved `SPREADSHEET_ID` out of
+   HEAD into Script Properties, but `git log -p` still recovers the literal
+   ID from the commits before that move — removing it from HEAD didn't scrub
+   history. Not code-fixable from here. **Action item for someone with
+   access to the Google Sheet: verify its sharing settings are not "anyone
+   with the link," since the app's entire security model (RBAC, audit log,
+   PDPA erasure) lives in the Apps Script layer, not the Sheet's own ACL —
+   direct Sheet access bypasses all of it regardless of whether the ID is
+   secret.**
+3. **Medium — `changePassword` had no brute-force lockout** on the
+   `oldPassword` check, unlike `login`'s 5-attempt/15-min lockout. Anyone
+   holding a valid session token (leaked, or a shared unlocked NICU
+   workstation) could brute-force the account's real password via unlimited
+   `changePassword` attempts. Extracted the login lockout into shared
+   `_lockoutStatus`/`_recordFailure`/`_clearLockout` helpers and applied the
+   same 5-attempt/15-min lockout to `changePassword`.
+4. **Medium — `doGet` exposed authenticated actions
+   (`getActivePatients`, an admin `debug` staff-list dump) with the session
+   token passed as a URL query parameter.** The client has only ever called
+   these via POST with the token in the JSON body (verified — no GET calls
+   anywhere in `app.jsx`), so this was live-but-unused surface on the
+   deployed web app. A token in a URL risks exposure via browser history or
+   infra logs in a way a POST body doesn't. Trimmed `doGet` to just the
+   unauthenticated `ping` health check; both actions already exist (and stay
+   available) via `doPost`.
+5. **Low — negative-value clinical inputs accepted with no validation.**
+   `calculator.jsx`'s `NumField` declared a `min` prop but never enforced it,
+   and its input regex explicitly allowed a leading `-` — every TPN/EN
+   dose/volume/rate field could take a negative number straight into the
+   nutrition calc with no downstream sanity check. Also birth
+   weight/length/HC in `registry.jsx`'s `NewPatientModal`, `EditPatientModal`'s
+   DOL-at-admit, and `fenton.jsx`'s `MeasurementLogger` weight/length/HC
+   fields. All physical clinical quantities here are non-negative by
+   definition, so: `NumField` no longer allows typing `-` at all (removed
+   from the allowed charset, not just clamped after parse) and defaults
+   `min` to 0; the registry/fenton fields now clamp to `Math.max(0, ...)` on
+   change (fenton's `MeasurementLogger.save()` also drops — rather than
+   saves — any individual negative field). Not an injection vector (server
+   already coerces numerics via `_numSafe()`), but a real data-integrity/
+   patient-safety gap since nothing previously stopped a fat-fingered
+   negative weight or dose from being calculated and persisted.
+6. **Doc correction — `app-walkthrough.md` described a possible `if (false)`
+   LoginScreen-bypass toggle.** Verified in current `app.jsx`: login is gated
+   on `GAS_ON` (true whenever `NEOFEED_GAS_URL` is configured), not a
+   separate bypass flag — this was already fixed in code, the walkthrough
+   text was just stale. Corrected so a future session doesn't misdiagnose or
+   reintroduce a bypass.
+
+**Confirmed already fixed** (re-verified against current code, not just the
+write-ups below): Google ID token signature/audience verification,
+constant-time hash comparison, session-epoch revocation on password change,
+time-boxed login lockout, `_sheetSafe()` formula-injection guarding
+including the numeric-field gap flagged in the 2026-07-12 (4) session below
+(fixed in this branch's `d4bf4fe`, before this review session started), SRI
+hashes on all CDN `<script>` tags, no XSS sinks anywhere client-side (no
+`dangerouslySetInnerHTML`/`innerHTML`, all patient data goes through React's
+auto-escaping JSX interpolation), no hardcoded secrets in current source,
+`Audit_Log` writes aren't exploitable (traced every `logAudit()` call site —
+attacker-supplied strings can't reach it unvalidated, only already-verified
+real sessionIds do).
+
+**Not done / open:** password hashing is still a 3000-round HMAC-SHA256
+stretch, well below current PBKDF2 guidance (~600k+ iterations) — flagged as
+an accepted Apps Script constraint by the 2026-07-12 (3) session below and
+still true. Bumping the round count isn't a safe drop-in change: existing
+`v2$`-prefixed hashes were computed at the current iteration count with no
+version marker for it, so raising `HASH_V2_ITERATIONS` would silently break
+every already-migrated staff password (unlike the v1→v2 upgrade path, there's
+no "v3" format to gate a proper re-hash-on-next-login migration). Needs a
+deliberate versioned migration, not a quick edit — left alone this session.
+
+Same as every prior hardening session: **this is source-only until someone
+with Apps Script editor access runs `clasp push && clasp deploy`** (or pastes
+`gas-backend.gs` into the editor) against the live project
+(`~/nicu-tools/neofeed/`, deployment `AKfycbz8Nt...`) — none of items 1, 3,
+or 4 above have any effect on the currently-broken production login until
+that happens, on top of the still-outstanding `setConfig(...)` step from the
+session directly below.
 
 ---
 

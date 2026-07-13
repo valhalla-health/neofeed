@@ -138,8 +138,9 @@ Hybrid, handled entirely in `gas-backend.gs`:
   Legacy single-round-SHA-256 hashes (`hashPwdLegacy`) still verify and are
   transparently upgraded to v2 on next successful login.
 
-Both paths issue a `CacheService` session token with a 12h sliding TTL
-(`app.jsx` handles the sliding-window refresh and the logout endpoint). Each
+Both paths issue a `CacheService` session token with a 6h sliding TTL — the
+hard max `CacheService.put()` allows (`app.jsx` handles the sliding-window
+refresh and the logout endpoint). Each
 token also embeds a per-user "epoch" (`getUserEpoch`/`bumpUserEpoch` in
 `PropertiesService`); changing a password bumps the epoch, which invalidates
 every other token issued for that user on their next request — the changing
@@ -153,10 +154,13 @@ JSON (patient name/diagnosis/route/etc.) are passed through `_sheetSafe()`
 first — it prefixes values starting with `=+-@` with an apostrophe so Sheets
 can't interpret them as formulas (formula/CSV injection).
 
-`LoginScreen` currently may be skipped (stubbed local user) depending on a
-flag near `app.jsx` "if (false)" — check `HANDOFF.md`'s latest session notes
-before assuming which mode is live; this toggles between sandbox demo mode
-and real auth.
+`LoginScreen` is gated on `GAS_ON` (`app.jsx` — true whenever
+`window.NEOFEED_GAS_URL` is set), not a standalone bypass flag: real login is
+required whenever a live backend is configured, and only local dev without a
+`GAS_URL` falls back to the stubbed "Local user". (Older sessions described a
+separate `if (false)` toggle here — verified during the 2026-07-13
+cybersecurity review that this is no longer how the gate works; don't
+reintroduce a bypass that's independent of `GAS_ON`.)
 
 ## 5. Main views (nav rail / bottom nav)
 

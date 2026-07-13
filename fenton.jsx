@@ -441,9 +441,15 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
     let n = parseInt(dol, 10);
     if (!n || n < 1) return;
     if (n > maxDol) n = maxDol;
-    const wt = parseFloat(w) || null;
-    const len = parseFloat(l) || null;
-    const head = parseFloat(hc) || null;
+    // Negative measurements are physically impossible and would silently
+    // corrupt the Fenton percentile / growth-velocity math for this patient —
+    // drop the offending field rather than saving a bad value.
+    let wt = parseFloat(w) || null;
+    let len = parseFloat(l) || null;
+    let head = parseFloat(hc) || null;
+    if (wt != null && wt < 0) wt = null;
+    if (len != null && len < 0) len = null;
+    if (head != null && head < 0) head = null;
     if (!wt && !len && !head) return;
     const existing = weights.find(x => x.dol === n);
     const merged = existing
@@ -478,15 +484,15 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
         </div>
         <div className="field">
           <label style={{ fontSize: 10.5 }}>Wt <span className="unit">(g)</span></label>
-          <input type="number" className="inp num" value={w} onChange={e => setW(e.target.value)} style={{ height: 30 }} placeholder="—" />
+          <input type="number" min="0" className="inp num" value={w} onChange={e => setW(e.target.value)} style={{ height: 30 }} placeholder="—" />
         </div>
         <div className="field">
           <label style={{ fontSize: 10.5 }}>Length <span className="unit">(cm)</span></label>
-          <input type="number" step="0.1" className="inp num" value={l} onChange={e => setL(e.target.value)} style={{ height: 30 }} placeholder="—" />
+          <input type="number" step="0.1" min="0" className="inp num" value={l} onChange={e => setL(e.target.value)} style={{ height: 30 }} placeholder="—" />
         </div>
         <div className="field" style={{ gridColumn: "1 / -1" }}>
           <label style={{ fontSize: 10.5 }}>HC <span className="unit">(cm)</span></label>
-          <input type="number" step="0.1" className="inp num" value={hc} onChange={e => setHc(e.target.value)} style={{ height: 30 }} placeholder="—" />
+          <input type="number" step="0.1" min="0" className="inp num" value={hc} onChange={e => setHc(e.target.value)} style={{ height: 30 }} placeholder="—" />
         </div>
       </div>
       <button className="btn primary sm" style={{ width: "100%", marginTop: 8, justifyContent: "center" }} onClick={save}>

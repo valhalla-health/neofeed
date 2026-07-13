@@ -15,7 +15,7 @@ const fmt = (n, d = 1) => {
   return Number.isInteger(r) ? String(r) : String(r);
 };
 
-function NumField({ label, unit, value, onChange, step = 1, min, hint }) {
+function NumField({ label, unit, value, onChange, step = 1, min = 0, hint }) {
   const [raw, setRaw] = React.useState(value ? String(value) : "");
   const focusedRef = React.useRef(false);
   React.useEffect(() => {
@@ -23,12 +23,18 @@ function NumField({ label, unit, value, onChange, step = 1, min, hint }) {
     setRaw(value ? String(value) : "");
   }, [value]);
   const handle = (e) => {
-    let s = e.target.value.replace(/[^0-9.\-]/g, "");
+    // Every field here is a physical clinical quantity (weight/volume/rate/
+    // dose/%) — none are legitimately negative, so "-" isn't in the allowed
+    // charset at all (rather than allowing it then clamping after parse,
+    // which would still let a bad value slip through onChange transiently).
+    let s = e.target.value.replace(/[^0-9.]/g, "");
     const firstDot = s.indexOf(".");
     if (firstDot !== -1) s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, "");
     setRaw(s);
-    const v = parseFloat(s);
-    onChange(isNaN(v) ? 0 : v);
+    let v = parseFloat(s);
+    if (isNaN(v)) v = 0;
+    if (min !== undefined && v < min) v = min;
+    onChange(v);
   };
   return (
     <div className="field">

@@ -3,7 +3,8 @@
 // Hybrid auth:
 //   • Gmail / Google Workspace → Google Sign-In JWT (no password)
 //   • Any other email           → SHA-256 password + session token
-// Both paths issue a CacheService session token (12 h TTL).
+// Both paths issue a CacheService session token (6 h TTL — the max
+// CacheService.put() allows; see SESSION_TTL_SECONDS below).
 // ============================================================
 // Setup:
 //   1. Create a Google Sheet, create/find the OAuth Client ID for Google
@@ -150,9 +151,34 @@ function safeEqual(a, b) {
   return diff === 0;
 }
 
+// ── Brute-force lockout (shared by login + changePassword) ──────
+// Locks a key for LOCKOUT_MS after 5 failures; the counter self-clears once
+// the cooldown elapses so a handful of typos can't permanently brick an
+// account (earlier versions of the login-only check had exactly that bug —
+// see git history). Used for both the login password check and
+// changePassword's oldPassword check, since a valid session token (leaked,
+// or a shared unlocked NICU workstation) would otherwise let someone brute
+// force the account's real password via changePassword with no rate limit.
+var LOCKOUT_MS = 15 * 60 * 1000;
+function _lockoutStatus(key) {
+  var props = PropertiesService.getScriptProperties();
+  var raw = (props.getProperty(key) || "0:0").split(":");
+  var fails = parseInt(raw[0]) || 0;
+  var failAt = parseInt(raw[1]) || 0;
+  var locked = fails >= 5 && (Date.now() - failAt) < LOCKOUT_MS;
+  if (fails >= 5 && !locked) fails = 0; // cooldown elapsed — fresh start
+  return { fails: fails, locked: locked };
+}
+function _recordFailure(key, fails) {
+  PropertiesService.getScriptProperties().setProperty(key, (fails + 1) + ":" + Date.now());
+}
+function _clearLockout(key) {
+  PropertiesService.getScriptProperties().deleteProperty(key);
+}
+
 // ── Session epoch ────────────────────────────────────────────
 // A per-user counter (in ScriptProperties, so it survives past the cache's
-// 12h TTL) embedded into every token issued for that user. Bumping it
+// 6h TTL) embedded into every token issued for that user. Bumping it
 // (on password change) makes every previously-issued token for that user
 // fail verifyToken() immediately, even though the token itself is still
 // sitting unexpired in the cache — this is how we revoke sessions we can't
@@ -173,11 +199,20 @@ function bumpUserEpoch(email) {
 
 // ── Session token ─────────────────────────────────────────────
 // Generates a UUID-style token, stores {email,role,name,epoch} in
-// ScriptCache for 12 h.
+// ScriptCache. CacheService.put() has a hard server-enforced cap of 21600s
+// (6h) on expirationInSeconds — a value above that throws "Argument too
+// large: expirationInSeconds" at call time. This used to be set to 43200
+// (12h), which is over the cap: createSession() would throw on every login
+// (both auth paths), and verifyToken()'s sliding-window refresh would throw
+// on every authenticated request. 21600 is the real max achievable via
+// CacheService alone; a longer TTL would need session state to live
+// somewhere other than CacheService (e.g. PropertiesService, which has no
+// TTL semantics and would need its own expiry bookkeeping).
+var SESSION_TTL_SECONDS = 21600; // 6h — CacheService's documented max
 function createSession(email, role, name) {
   var token = Utilities.getUuid();
   var cache = CacheService.getScriptCache();
-  cache.put("sess_" + token, JSON.stringify({ email: email, role: role, name: name, epoch: getUserEpoch(email) }), 43200);
+  cache.put("sess_" + token, JSON.stringify({ email: email, role: role, name: name, epoch: getUserEpoch(email) }), SESSION_TTL_SECONDS);
   return token;
 }
 
@@ -192,7 +227,7 @@ function verifyToken(token) {
       cache.remove("sess_" + token); // stale — password changed since this token was issued
       return null;
     }
-    cache.put("sess_" + token, val, 43200); // sliding window — reset TTL on every use
+    cache.put("sess_" + token, val, SESSION_TTL_SECONDS); // sliding window — reset TTL on every use
     return parsed;
   } catch (e) { return null; }
 }
@@ -274,23 +309,20 @@ function jsonOut(data) {
 }
 
 // ── GET handler ───────────────────────────────────────────────
+// Only the unauthenticated health-check lives on GET. Every authenticated
+// action (including what used to be here — getActivePatients, an admin
+// "debug" staff-list dump) is POST-only in doPost, which takes the session
+// token from the JSON body instead of a URL query string. The client has
+// only ever called these over POST (see app.jsx), so this used to be dead
+// surface from the app's own UI — but the deployed web app still accepted
+// GET requests with ?token=... regardless, and a bearer token in a URL query
+// string risks ending up in browser history or infra access logs in a way a
+// POST body doesn't. Removed rather than left "just in case."
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "";
   try {
     if (action === "ping") return jsonOut({ ok: true, ts: new Date().toISOString() });
-    var user = verifyToken(e.parameter.token);
-    if (!user) return jsonOut({ error: "Unauthorized" });
-    if (action === "debug") {
-      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
-      var staffRows = [];
-      var rows = getSheetStaff().getDataRange().getValues();
-      for (var i = 1; i < rows.length; i++) {
-        staffRows.push({ email: rows[i][0], role: rows[i][1], active: rows[i][3] });
-      }
-      return jsonOut({ user: user.email, staffRows: staffRows });
-    }
-    if (action === "getActivePatients") { logAudit("readRegistry", "", user.email); return jsonOut(getActivePatients()); }
-    return jsonOut({ error: "Unknown action: " + action });
+    return jsonOut({ error: "Use POST for authenticated actions." });
   } catch (err) { return jsonOut({ error: err.message }); }
 }
 
@@ -341,25 +373,15 @@ function doPost(e) {
       var password = body.password || "";
       if (!email || !password) return jsonOut({ status: "unauthorized", error: "กรุณากรอก email และรหัสผ่าน" });
 
-      // Brute-force protection: lock for LOCKOUT_MS after 5 failed attempts.
-      // The counter expires on its own after the cooldown — earlier versions
-      // never cleared it except on a *successful* login, which a locked-out
-      // user could never reach, so a mistyped password 5x meant a permanent,
-      // admin-unrecoverable lockout. Time-boxing it keeps the brute-force
-      // protection without bricking the account.
-      var LOCKOUT_MS = 15 * 60 * 1000;
       var failKey = "fail_" + email.replace(/[^a-z0-9]/g, "_");
-      var props = PropertiesService.getScriptProperties();
-      var failRaw = (props.getProperty(failKey) || "0:0").split(":");
-      var fails = parseInt(failRaw[0]) || 0;
-      var failAt = parseInt(failRaw[1]) || 0;
-      if (fails >= 5 && (Date.now() - failAt) < LOCKOUT_MS) {
+      var lockState = _lockoutStatus(failKey);
+      if (lockState.locked) {
         return jsonOut({ status: "unauthorized", error: "ลองใหม่ในอีก 15 นาที — login ผิดพลาดหลายครั้ง" });
       }
-      if (fails >= 5) fails = 0; // cooldown elapsed — give the counter a fresh start
+      var fails = lockState.fails;
 
       var found = getStaffRow(email);
-      if (!found) { props.setProperty(failKey, (fails + 1) + ":" + Date.now()); return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" }); }
+      if (!found) { _recordFailure(failKey, fails); return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" }); }
 
       var d = found.data;
       if (d[3] !== true && String(d[3]).toUpperCase() !== "TRUE")
@@ -370,7 +392,7 @@ function doPost(e) {
       if (!storedHash) return jsonOut({ status: "unauthorized", error: "ยังไม่ได้ตั้งรหัสผ่าน — แจ้ง admin" });
       var pwCheck = verifyPwd(password, salt, storedHash);
       if (!pwCheck.ok) {
-        props.setProperty(failKey, (fails + 1) + ":" + Date.now());
+        _recordFailure(failKey, fails);
         return jsonOut({ status: "unauthorized", error: "รหัสผ่านไม่ถูกต้อง" });
       }
       if (pwCheck.legacy) {
@@ -379,7 +401,7 @@ function doPost(e) {
         getSheetStaff().getRange(found.row, 5).setValue(hashPwdV2(password, salt));
       }
 
-      props.deleteProperty(failKey); // reset on success
+      _clearLockout(failKey); // reset on success
       role = String(d[1] || "doctor");
       name = String(d[2] || email);
       var token = createSession(email, role, name);
@@ -420,13 +442,23 @@ function doPost(e) {
       var oldPwd = body.oldPassword || "";
       var newPwd = body.newPassword || "";
       if (!newPwd || newPwd.length < 6) return jsonOut({ error: "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร" });
+      // Same brute-force lockout as login — a valid session token (leaked, or
+      // sitting unlocked on a shared NICU workstation) shouldn't let someone
+      // guess the account's real password via unlimited oldPassword attempts.
+      var pwdChgKey = "pwdchg_fail_" + String(user.email || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "_");
+      var pwdChgLock = _lockoutStatus(pwdChgKey);
+      if (pwdChgLock.locked) {
+        return jsonOut({ error: "ลองใหม่ในอีก 15 นาที — กรอกรหัสผ่านเดิมผิดหลายครั้ง" });
+      }
       var sf = getStaffRow(user.email);
       if (!sf) return jsonOut({ error: "ไม่พบบัญชี" });
       var sd = sf.data;
       if (!sd[4]) return jsonOut({ error: "บัญชี Google ไม่ใช้รหัสผ่านในระบบนี้" });
       if (!verifyPwd(oldPwd, String(sd[5] || ""), String(sd[4] || "")).ok) {
+        _recordFailure(pwdChgKey, pwdChgLock.fails);
         return jsonOut({ error: "รหัสผ่านเดิมไม่ถูกต้อง" });
       }
+      _clearLockout(pwdChgKey);
       var newSalt = Utilities.getUuid();
       var newHash = hashPwdV2(newPwd, newSalt);
       getSheetStaff().getRange(sf.row, 5, 1, 2).setValues([[newHash, newSalt]]);
