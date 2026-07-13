@@ -393,7 +393,7 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div className="row-3">
             <div className="field">
               <label>Birth weight <span className="unit">(g)</span></label>
-              <input type="number" className="inp" value={bw || ""} onChange={e => setBw(parseInt(e.target.value) || 0)} placeholder="0" />
+              <input type="number" min="0" className="inp" value={bw || ""} onChange={e => setBw(Math.max(0, parseInt(e.target.value) || 0))} placeholder="0" />
             </div>
             <div className="field">
               <label>GA <span className="unit">(weeks + days)</span></label>
@@ -439,11 +439,11 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div className="row-2">
             <div className="field">
               <label>Length at birth <span className="unit">(cm)</span></label>
-              <input type="number" className="inp" step={0.1} value={len || ""} onChange={e => setLen(parseFloat(e.target.value) || 0)} placeholder="0" />
+              <input type="number" min="0" className="inp" step={0.1} value={len || ""} onChange={e => setLen(Math.max(0, parseFloat(e.target.value) || 0))} placeholder="0" />
             </div>
             <div className="field">
               <label>HC at birth <span className="unit">(cm)</span></label>
-              <input type="number" className="inp" step={0.1} value={hc || ""} onChange={e => setHc(parseFloat(e.target.value) || 0)} placeholder="0" />
+              <input type="number" min="0" className="inp" step={0.1} value={hc || ""} onChange={e => setHc(Math.max(0, parseFloat(e.target.value) || 0))} placeholder="0" />
             </div>
           </div>
           <div style={{ height: 10 }} />
@@ -580,7 +580,7 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
             </div>
             <div className="field">
               <label>DOL แรกรับ</label>
-              <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(e.target.value)} />
+              <input type="number" className="inp num" min={1} value={dol1} onChange={e => setDol1(Math.max(1, parseInt(e.target.value, 10) || 1))} />
             </div>
           </div>
           <div className="row-2">
