@@ -14,13 +14,17 @@ change log and known caveats, see `HANDOFF.md`.
 ## 1. Run it
 
 Open `NeoFeed.html` directly in a browser (or serve the folder statically —
-no bundler, no `npm install`). `index.html` is an older/parallel copy; treat
-`NeoFeed.html` as canonical unless told otherwise.
+no bundler, no `npm install`). `index.html` is a byte-identical copy kept
+only because **GitHub Pages serves whichever file sits at the repo root as
+`index.html`** — a bare-domain visit renders `index.html`, not
+`NeoFeed.html`, despite `NeoFeed.html` being the one meant for direct
+local use. Treat `NeoFeed.html` as canonical for editing; `index.html`
+must stay identical to it (see below).
 
-`NeoFeed.html` is the shell: it sets `window.NEOFEED_CLIENT_ID` and
-`window.NEOFEED_GAS_URL` inline, then loads the CSS (embedded, oklch-based
-design system) and pulls in each `.jsx` module in dependency order via
-in-browser Babel:
+`NeoFeed.html`/`index.html` are the shell: each sets `window.NEOFEED_CLIENT_ID`
+and `window.NEOFEED_GAS_URL` inline, links `styles.css` (oklch-based design
+system — a single shared file, not embedded per-shell), and pulls in each
+`.jsx` module in dependency order via in-browser Babel:
 
 ```
 data.js → tweaks-panel.jsx → icons.jsx → calculator.jsx → fenton.jsx
@@ -36,7 +40,8 @@ across a refresh.
 
 | File | Role |
 |---|---|
-| `NeoFeed.html` | App shell + all CSS. Script loader, GAS URL config. |
+| `NeoFeed.html` / `index.html` | App shell — identical, script loader + GAS URL config. `index.html` exists only because GitHub Pages requires that name at the root; keep both in sync (or edit `NeoFeed.html` and copy it over `index.html`). |
+| `styles.css` | All CSS (oklch-based design system), linked by both shells — single source, not duplicated. |
 | `app.jsx` | Root `<App/>`: auth, nav rail/bottom-nav, view router, `PatientStrip`, `AlertCenter`, `AdminDashboard`, Thai date/GA formatting helpers, guidelines/formulas reference panels. |
 | `data.js` | Pure clinical data + helpers — ESPGHAN/WHO nutrition targets, feed/formula database, `liveDol`, `fmtGA`/`parseGAInput`/`gaToDecimalWeeks`, mock patients/log for offline dev. |
 | `calculator.jsx` | The TPN + EN calculator — a 6-step wizard producing one Daily_Log entry. |

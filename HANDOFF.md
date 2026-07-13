@@ -3,6 +3,55 @@
 
 ---
 
+## Session 2026-07-13 (3) — collapse duplicated CSS into `styles.css` (branch `claude/thesis-handoff-cont-d5q9ni`)
+
+Addressed the recurring drift flagged in three separate prior sessions
+(2026-07-11, 2026-07-12, 2026-07-12 (2)): `index.html` and `NeoFeed.html`
+each embedded their own full copy of the app's CSS in a `<style>` block,
+and those copies kept falling out of sync as fixes landed in one but not
+the other — each reconciliation was a manual diff-and-merge that was
+guaranteed to recur.
+
+**Fix:** confirmed the two files were currently byte-identical (1301 lines
+each), extracted the shared `<style>...</style>` body verbatim into a new
+`styles.css` (1256 lines, brace-balanced, byte-for-byte the same rules),
+and replaced the embedded block in both HTML shells with
+`<link rel="stylesheet" href="styles.css?v=css-collapse1" />`. Both shells
+are now 44 lines each and remain byte-identical to each other. Neither
+shell was made a redirect to the other — both are still meant to be opened
+directly (`index.html` because GitHub Pages requires that name at the
+repo root, `NeoFeed.html` for local/manual use) — only the CSS ownership
+was deduplicated.
+
+**Verified**, not just diffed: built a local test harness (vendored
+React 18.3.1/ReactDOM/Babel-standalone via `npm install` into a scratch
+dir, since `unpkg.com` is policy-blocked from this environment same as
+every prior session) and loaded both `index.html` and `NeoFeed.html`
+through a local Playwright Chromium with `NEOFEED_GAS_URL` blanked
+(mock-data path). Confirmed via `getComputedStyle`: `--brand` and other
+CSS custom properties resolve correctly from the linked file, `body`
+background matches the `--bg` token, the registry table/cards render with
+full styling (screenshotted, visually compared against pre-change
+behavior), and the only console messages were expected artifacts of the
+test harness itself (a stubbed `about:blank` Google Sign-In script, a
+`fonts.googleapis.com` preconnect failing with no network, a harmless
+`favicon.ico` 404) — no CSS-related errors, no unstyled-content flash.
+
+Updated `app-walkthrough.md`'s file inventory and "Run it" section to
+describe the new `styles.css`-linked structure instead of "CSS embedded in
+`NeoFeed.html`".
+
+**Not done:** did not touch the "collapse to one physical file" idea
+mentioned alongside this in earlier sessions (e.g. making `index.html` a
+redirect) — kept both shells independently loadable since `NeoFeed.html`
+is documented as the file to open directly for local/manual use. CSS
+drift specifically is what recurred and is now structurally prevented
+(one file, two links); if `index.html`/`NeoFeed.html` script-tag lists
+ever drift instead, that's a separate, much smaller diff to reconcile
+than a multi-hundred-line CSS block was.
+
+---
+
 ## Session 2026-07-13 (2) — cybersecurity review + fixes (branch `claude/neofeed-cybersecurity-review-8vflvy`)
 
 Full fresh audit prompted by "check cybersecurity of neofeed, scrutinize and
@@ -417,7 +466,9 @@ Where `enVolPerKg` drives target picker. `pro/kcal/na/k/ca/p` are per-kg combine
 ## File inventory
 
 ```
-NeoFeed.html      App shell + all CSS (oklch design system)
+NeoFeed.html      App shell (canonical, edit this)
+index.html        App shell — byte-identical to NeoFeed.html, exists only for GitHub Pages' root-index requirement
+styles.css        All CSS (oklch design system) — shared by both shells via <link>, not duplicated
 data.js           Clinical data — ESPGHAN/WHO targets + formulas + helpers (liveDol, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput)
 calculator.jsx    TPN + EN calculator (Steps 1–5) + prefill from localStorage
 app.jsx           Nav rail, patient registry routing, fmtDate (Thai BE), AlertCenter, BottomNav
