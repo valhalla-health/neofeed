@@ -117,6 +117,15 @@ row.
 
 ## 4. Auth
 
+`SPREADSHEET_ID`/`CLIENT_ID` are no longer literals in `gas-backend.gs` —
+they're read from Script Properties via `SPREADSHEET_ID_()`/`CLIENT_ID_()`
+(`_cfg()`), set once by running `setConfig("<spreadsheetId>", "<clientId>")`
+from the Apps Script editor. Keeps the Sheet's internal ID out of source/git
+history. `CLIENT_ID` itself is still unavoidably public in
+`NeoFeed.html`/`index.html`'s `window.NEOFEED_CLIENT_ID` (Google Identity
+Services needs it client-side) — moving it server-side too is about a single
+source of truth, not secrecy.
+
 Hybrid, handled entirely in `gas-backend.gs`:
 - **Gmail / Google Workspace accounts** → Google Sign-In ID token, verified
   server-side against Google's `tokeninfo` endpoint plus an `aud === CLIENT_ID`

@@ -6,7 +6,10 @@
 // Both paths issue a CacheService session token (12 h TTL).
 // ============================================================
 // Setup:
-//   1. Create a Google Sheet → fill SPREADSHEET_ID below
+//   1. Create a Google Sheet, create/find the OAuth Client ID for Google
+//      Sign-In, then run setConfig("<spreadsheetId>", "<clientId>") once
+//      from the Apps Script editor — this writes both into Script
+//      Properties instead of hardcoding them in source (see "Config" below).
 //   2. Tabs auto-created: Patient_Registry, Daily_Log, Staff
 //   3. Staff tab (A–F): email | role | name | active | password_hash | salt
 //      Gmail users: leave cols E–F blank (password not used)
@@ -31,8 +34,38 @@
 // PDPA lawful basis: Section 26(6) medical necessity + professional confidentiality
 // ============================================================
 
-var SPREADSHEET_ID = "1cZSA2qAUWAvFmpzrcjxS8kw6r-MpCMOSVAJev1uNDtI";
-var CLIENT_ID      = "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com";
+// ── Config (Script Properties, not source) ────────────────────
+// SPREADSHEET_ID/CLIENT_ID used to be hardcoded literals here, which meant
+// anyone with read access to this file — e.g. this git repo — could read
+// them straight out of source history. Moved to Script Properties (Apps
+// Script editor → Project Settings → Script Properties), which are never
+// synced by `clasp push`/git.
+//
+// Note on CLIENT_ID specifically: it's unavoidably public regardless — it's
+// also inline in NeoFeed.html/index.html's window.NEOFEED_CLIENT_ID, since
+// Google Identity Services needs it client-side, and OAuth web client IDs
+// aren't secrets by design (Google's own docs say so). Moving it here is
+// config hygiene / single source of truth, not secrecy.
+// SPREADSHEET_ID is the one that actually benefits: it's an internal
+// pointer to the document holding patient data, with no legitimate reason
+// to sit in source/git history.
+//
+// One-time setup: run setConfig("<spreadsheetId>", "<clientId>") from the
+// Apps Script editor (Run ▸ setConfig), or set both properties directly via
+// Project Settings → Script Properties. Do not commit real values here.
+function setConfig(spreadsheetId, clientId) {
+  var props = PropertiesService.getScriptProperties();
+  if (spreadsheetId) props.setProperty("SPREADSHEET_ID", spreadsheetId);
+  if (clientId) props.setProperty("CLIENT_ID", clientId);
+  Logger.log("Config saved to Script Properties.");
+}
+function _cfg(key) {
+  var val = PropertiesService.getScriptProperties().getProperty(key);
+  if (!val) throw new Error("Missing Script Property '" + key + "' — run setConfig(...) from the Apps Script editor first.");
+  return val;
+}
+function SPREADSHEET_ID_() { return _cfg("SPREADSHEET_ID"); }
+function CLIENT_ID_() { return _cfg("CLIENT_ID"); }
 
 // ── Google ID token verifier (for Gmail/Workspace Sign-In path) ─
 // SECURITY: the old implementation only base64-decoded the JWT payload and
@@ -53,7 +86,7 @@ function verifyGoogleIdToken(idToken) {
     );
     if (resp.getResponseCode() !== 200) return null; // invalid signature, expired, or malformed
     var payload = JSON.parse(resp.getContentText());
-    if (payload.aud !== CLIENT_ID) return null; // token wasn't issued for this app
+    if (payload.aud !== CLIENT_ID_()) return null; // token wasn't issued for this app
     if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") return null;
     if (payload.email_verified !== "true" && payload.email_verified !== true) return null;
     if (!payload.email) return null;
@@ -158,7 +191,7 @@ function verifyToken(token) {
 
 // ── Staff sheet ───────────────────────────────────────────────
 function getSheetStaff() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
   var sh = ss.getSheetByName("Staff");
   if (!sh) {
     sh = ss.insertSheet("Staff");
@@ -197,7 +230,7 @@ function setInitialPassword(email, password) {
 
 // ── Sheet accessors ───────────────────────────────────────────
 function getSheetPat() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
   var sh = ss.getSheetByName("Patient_Registry");
   if (!sh) {
     sh = ss.insertSheet("Patient_Registry");
@@ -210,7 +243,7 @@ function getSheetPat() {
   return sh;
 }
 function getSheetLog() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
   var sh = ss.getSheetByName("Daily_Log");
   if (!sh) {
     sh = ss.insertSheet("Daily_Log");
@@ -653,7 +686,7 @@ function pseudonymizePatient(sessionId, adminEmail) {
 // Persistent record of PDPA-relevant actions — Logger.log entries expire
 // after 7 days and aren't sufficient to demonstrate compliance on request.
 function getSheetAudit() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
   var sh = ss.getSheetByName("Audit_Log");
   if (!sh) {
     sh = ss.insertSheet("Audit_Log");
