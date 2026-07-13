@@ -506,17 +506,17 @@ function getActivePatients() {
 // lastModified/lastModifiedBy (Y–AB) since those differ between create/update.
 function _buildLogRow(sessionId, entry, submittedBy) {
   return [
-    entry.ts         || new Date().toISOString().slice(0, 10),
+    _sheetSafe(entry.ts || new Date().toISOString().slice(0, 10)),
     _sheetSafe(sessionId),
-    entry.dol        || "", entry.weight   || "", entry.fluid    || "",
-    entry.gir        || "", entry.pro      || "", entry.kcal     || "",
-    entry.na         || "", entry.k        || "", entry.ca       || "",
-    entry.p          || "", entry.enVolPerKg || "", _sheetSafe(entry.route  || ""),
-    _sheetSafe(entry.status || "submitted"), submittedBy || "",
-    entry.suppMTV    || 0, entry.suppVitD_IU || 0,
-    entry.suppCa_mg  || 0, _sheetSafe(entry.suppCaType  || ""),
-    entry.suppPO4_mmol || 0, _sheetSafe(entry.suppPO4Type || ""),
-    entry.suppFe_mg  || 0, _sheetSafe(entry.suppFeType  || ""),
+    _numSafe(entry.dol), _numSafe(entry.weight), _numSafe(entry.fluid),
+    _numSafe(entry.gir), _numSafe(entry.pro),    _numSafe(entry.kcal),
+    _numSafe(entry.na),  _numSafe(entry.k),      _numSafe(entry.ca),
+    _numSafe(entry.p),   _numSafe(entry.enVolPerKg), _sheetSafe(entry.route  || ""),
+    _sheetSafe(entry.status || "submitted"), _sheetSafe(submittedBy || ""),
+    _numSafe(entry.suppMTV, 0), _numSafe(entry.suppVitD_IU, 0),
+    _numSafe(entry.suppCa_mg, 0),  _sheetSafe(entry.suppCaType  || ""),
+    _numSafe(entry.suppPO4_mmol, 0), _sheetSafe(entry.suppPO4Type || ""),
+    _numSafe(entry.suppFe_mg, 0),  _sheetSafe(entry.suppFeType  || ""),
   ];
 }
 
@@ -557,7 +557,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       var originalSubmittedBy = String(data[i][15] || editedBy || "");
       var newLastModified = new Date().toISOString();
       var row = _buildLogRow(sessionId, entry, originalSubmittedBy)
-        .concat([JSON.stringify(entry.calcInput || {}), entryId, newLastModified, editedBy || ""]);
+        .concat([JSON.stringify(entry.calcInput || {}), entryId, newLastModified, _sheetSafe(editedBy || "")]);
       sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
       return { ok: true, lastModified: newLastModified };
     }
@@ -622,8 +622,8 @@ function registerPatient(p) {
   var data  = sheet.getDataRange().getValues();
   var row16 = [
     _sheetSafe(p.sessionId), _sheetSafe(p.name || ""), _sheetSafe(p.initials || ""),
-    p.bw || 0, p.ga || 0, _sheetSafe(p.sex || "boys"),
-    p.dob || "", p.admissionDate || "", _sheetSafe(p.twinSuffix || ""),
+    _numSafe(p.bw, 0), _numSafe(p.ga, 0), _sheetSafe(p.sex || "boys"),
+    _sheetSafe(p.dob || ""), _sheetSafe(p.admissionDate || ""), _sheetSafe(p.twinSuffix || ""),
     _sheetSafe(p.status || "Active"), _sheetSafe(p.currentBed || ""), _sheetSafe(p.diagnosis || ""),
     JSON.stringify(p.weights    || []),
     JSON.stringify(p.lengths    || []),
@@ -713,6 +713,17 @@ function logAudit(action, sessionId, actorEmail) {
 function _sheetSafe(val) {
   var s = String(val == null ? "" : val);
   return /^[=+\-@\t\r]/.test(s) ? ("'" + s) : s;
+}
+// Numeric columns were writing entry.p/gir/bw/etc. straight from client JSON
+// with just `|| 0`/`|| ""` — a non-numeric string (e.g. "=IMPORTXML(...)")
+// is truthy, so it skipped that fallback and landed in the sheet unescaped.
+// Coercing through Number() means anything that isn't a real number becomes
+// the fallback instead of being written verbatim.
+function _numSafe(val, dflt) {
+  if (dflt === undefined) dflt = "";
+  if (val === "" || val == null) return dflt;
+  var n = Number(val);
+  return isFinite(n) ? n : dflt;
 }
 function _parseJson(str, fallback) {
   try { if (!str) return fallback; return JSON.parse(String(str)); }
