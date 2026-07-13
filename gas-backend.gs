@@ -79,6 +79,13 @@ function CLIENT_ID_() { return _cfg("CLIENT_ID"); }
 // Google OAuth client can't be replayed against this app.
 function verifyGoogleIdToken(idToken) {
   if (!idToken || typeof idToken !== "string") return null;
+  // CLIENT_ID_() throws if the CLIENT_ID Script Property was never set
+  // (see setConfig() above) — a deployment/config problem, not a bad token.
+  // Read it outside the try/catch below so that distinction isn't lost: a
+  // missing config value used to get swallowed into the same "invalid
+  // token" result as an actually-bad token, which sent users chasing their
+  // Google account instead of the real fix (run setConfig(...)).
+  var clientId = CLIENT_ID_();
   try {
     var resp = UrlFetchApp.fetch(
       "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken),
@@ -86,7 +93,7 @@ function verifyGoogleIdToken(idToken) {
     );
     if (resp.getResponseCode() !== 200) return null; // invalid signature, expired, or malformed
     var payload = JSON.parse(resp.getContentText());
-    if (payload.aud !== CLIENT_ID_()) return null; // token wasn't issued for this app
+    if (payload.aud !== clientId) return null; // token wasn't issued for this app
     if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") return null;
     if (payload.email_verified !== "true" && payload.email_verified !== true) return null;
     if (!payload.email) return null;
@@ -306,7 +313,14 @@ function doPost(e) {
 
       // Path A: Google Sign-In JWT (gmail / Google Workspace)
       if (body.googleToken) {
-        email = verifyGoogleIdToken(body.googleToken);
+        try {
+          email = verifyGoogleIdToken(body.googleToken);
+        } catch (cfgErr) {
+          // Config problem (e.g. CLIENT_ID Script Property never set via
+          // setConfig(...)) — distinct from an actually-invalid token, so
+          // whoever's debugging isn't sent chasing the wrong thing.
+          return jsonOut({ status: "error", error: "ระบบยังไม่ได้ตั้งค่า (server config): " + cfgErr.message });
+        }
         if (!email) return jsonOut({ status: "unauthorized", error: "Google token ไม่ถูกต้อง" });
         var gFound = getStaffRow(email);
         if (!gFound) return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" });

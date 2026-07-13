@@ -1,5 +1,51 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-12 | **Status:** 🟢 PRODUCTION
+**Last updated:** 2026-07-13 | **Status:** 🟡 LOGIN BROKEN IN PRODUCTION (config, not code — see below)
+
+---
+
+## Session 2026-07-13 — diagnosed "Google token ไม่ถูกต้อง" on every login (branch `claude/login-access-issue-o8wc70`)
+
+User report (screenshot): Google Sign-In on the live site (`valhalla-health.github.io`)
+fails immediately with a red "⚠ Google token ไม่ถูกต้อง" banner for every account,
+right after the 2026-07-12 auth-hardening deploys.
+
+**Root cause:** this is the exact risk flagged (but not yet resolved) in the
+2026-07-12 (4) session below. PR #20 moved `CLIENT_ID`/`SPREADSHEET_ID` out of
+`gas-backend.gs` source and into Apps Script Script Properties, requiring a
+one-time `setConfig("<spreadsheetId>", "<clientId>")` run in the Apps Script
+editor **before/at** the next deploy. That one-time step was never confirmed
+done. Once `gas-backend.gs` (PR #19 + #20's `verifyGoogleIdToken`/`CLIENT_ID_()`)
+went live without it, `CLIENT_ID_()` throws `Missing Script Property 'CLIENT_ID'`
+on every login attempt — but the old code caught that exception inside
+`verifyGoogleIdToken`'s try/catch and returned `null`, indistinguishable from an
+actually-invalid token, so every user sees the generic "Google token ไม่ถูกต้อง"
+message. **This is a server-config gap, not a bug in the user's Google account
+or browser** — no client-side action fixes it.
+
+**Code fix (this session):** `CLIENT_ID_()` is now read *outside* `verifyGoogleIdToken`'s
+try/catch, and `doPost`'s login handler catches that specific exception and returns
+`{status:"error", error:"ระบบยังไม่ได้ตั้งค่า (server config): Missing Script Property..."}`
+instead of the misleading "Google token ไม่ถูกต้อง". This doesn't fix login by
+itself — it makes the real cause visible in the response instead of silently
+mimicking a bad-token error.
+
+**Manual step still required (cannot be done from this session — needs Apps
+Script editor access):**
+1. Open the live Apps Script project (`~/nicu-tools/neofeed/`, deployment
+   `AKfycbz8Nt...`).
+2. Run `setConfig("<the Google Sheet's ID>", "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com")`
+   from the Apps Script editor (the client ID must match `window.NEOFEED_CLIENT_ID`
+   in `NeoFeed.html`/`index.html` — copied verbatim above from those files).
+   Alternatively set `SPREADSHEET_ID` and `CLIENT_ID` directly under
+   Project Settings → Script Properties.
+3. Redeploy `gas-backend.gs` (this session's fix included) via `clasp push && clasp deploy`
+   or paste-into-editor, per the existing "Restore production checklist" below.
+4. Confirm with a real login — should no longer show any "ระบบยังไม่ได้ตั้งค่า"/
+   "Google token ไม่ถูกต้อง" error.
+
+**Still open:** deploy step above not performed this session (no Apps Script
+credentials in this environment) — production login remains broken until an
+admin with access runs it.
 
 ---
 
