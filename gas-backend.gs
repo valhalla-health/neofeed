@@ -78,7 +78,7 @@ function CLIENT_ID_() { return _cfg("CLIENT_ID"); }
 // and additionally check `aud` ourselves so a token minted for a *different*
 // Google OAuth client can't be replayed against this app.
 function verifyGoogleIdToken(idToken) {
-  if (!idToken || typeof idToken !== "string") return null;
+  if (!idToken || typeof idToken !== "string") return { email: null, reason: "no token sent" };
   // CLIENT_ID_() throws if the CLIENT_ID Script Property was never set
   // (see setConfig() above) — a deployment/config problem, not a bad token.
   // Read it outside the try/catch below so that distinction isn't lost: a
@@ -91,14 +91,15 @@ function verifyGoogleIdToken(idToken) {
       "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken),
       { muteHttpExceptions: true }
     );
-    if (resp.getResponseCode() !== 200) return null; // invalid signature, expired, or malformed
+    var code = resp.getResponseCode();
+    if (code !== 200) return { email: null, reason: "tokeninfo returned HTTP " + code + ": " + resp.getContentText() };
     var payload = JSON.parse(resp.getContentText());
-    if (payload.aud !== clientId) return null; // token wasn't issued for this app
-    if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") return null;
-    if (payload.email_verified !== "true" && payload.email_verified !== true) return null;
-    if (!payload.email) return null;
-    return payload.email;
-  } catch (e) { return null; }
+    if (payload.aud !== clientId) return { email: null, reason: "aud mismatch: token aud=" + payload.aud + " expected=" + clientId };
+    if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") return { email: null, reason: "bad iss: " + payload.iss };
+    if (payload.email_verified !== "true" && payload.email_verified !== true) return { email: null, reason: "email not verified" };
+    if (!payload.email) return { email: null, reason: "no email in payload" };
+    return { email: payload.email, reason: null };
+  } catch (e) { return { email: null, reason: "exception: " + e.message }; }
 }
 
 // ── Password hashing ──────────────────────────────────────────
@@ -313,15 +314,17 @@ function doPost(e) {
 
       // Path A: Google Sign-In JWT (gmail / Google Workspace)
       if (body.googleToken) {
+        var gVerify;
         try {
-          email = verifyGoogleIdToken(body.googleToken);
+          gVerify = verifyGoogleIdToken(body.googleToken);
         } catch (cfgErr) {
           // Config problem (e.g. CLIENT_ID Script Property never set via
           // setConfig(...)) — distinct from an actually-invalid token, so
           // whoever's debugging isn't sent chasing the wrong thing.
           return jsonOut({ status: "error", error: "ระบบยังไม่ได้ตั้งค่า (server config): " + cfgErr.message });
         }
-        if (!email) return jsonOut({ status: "unauthorized", error: "Google token ไม่ถูกต้อง" });
+        email = gVerify.email;
+        if (!email) return jsonOut({ status: "unauthorized", error: "Google token ไม่ถูกต้อง (" + gVerify.reason + ")" });
         var gFound = getStaffRow(email);
         if (!gFound) return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" });
         var gd = gFound.data;
