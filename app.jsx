@@ -849,19 +849,6 @@ function AlertCenter({ patient, log, onAckChange }) {
 //   Default : Google Sign-In (Gmail / Google Workspace)
 //   Toggle  : email + password for non-Google domains
 // ============================================================
-const CONTACT_MAILTO = "mailto:Valhalla.team.th@gmail.com"
-  + "?subject=" + encodeURIComponent("สนใจใช้งาน NeoFeed")
-  + "&body=" + encodeURIComponent(
-      "สวัสดีครับ/ค่ะ ทีม Valhalla Health\n\n"
-    + "โรงพยาบาล / หน่วยงาน: \n"
-    + "ชื่อผู้ติดต่อ: \n"
-    + "เบอร์โทรศัพท์: \n"
-    + "อีเมล: \n\n"
-    + "สนใจเกี่ยวกับ: NeoFeed — ระบบคำนวณโภชนาการทารกแรกเกิด (NICU)\n\n"
-    + "ขอบคุณครับ/ค่ะ"
-  );
-
-// ============================================================
 // ChangePasswordModal
 // ============================================================
 function ChangePasswordModal({ onClose, onSave }) {
@@ -976,88 +963,77 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div className="login-wrap">
-      {/* Logo */}
-      <div className="login-logo-mark">
-        <img src="icons/icon-192.png" alt="" />
-      </div>
-
-      <div className="login-app-name">NeoFeed</div>
-      <div className="login-tagline">Neonatal nutrition,<br />calculated precisely</div>
-
-      {/* ── Google view ── */}
-      {mode === "google" && (
-        <>
-          <div className="login-btn-area">
-            <div ref={btnRef} style={{ display: loading ? "none" : "flex", justifyContent: "center", minHeight: 44 }} />
-            {loading && (
-              <div style={{ position: "absolute", inset: 0, display: "flex",
-                alignItems: "center", justifyContent: "center", gap: 8,
-                color: "var(--ink-2)", fontSize: 13 }}>
-                <span style={{ width: 16, height: 16, border: "2px solid var(--line)",
-                  borderTopColor: "var(--brand)", borderRadius: "50%",
-                  animation: "spin .9s linear infinite", display: "inline-block" }} />
-                กำลังตรวจสอบ...
-              </div>
-            )}
-          </div>
-          <button className="login-alt-link" onClick={switchToEmail}>
-            เข้าด้วย email อื่น →
-          </button>
-        </>
-      )}
-
-      {/* ── Email + password view ── */}
-      {mode === "email" && (
-        <div className="login-form-wrap">
-          <button className="login-back-link" onClick={switchBack}>
-            ← Sign in ด้วย Google
-          </button>
-
-          <form onSubmit={submitEmail} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
-            <input className="inp" type="email" placeholder="Email (@redcross.or.th …)"
-              value={email} onChange={e => setEmail(e.target.value)}
-              autoComplete="username" autoFocus disabled={loading}
-              style={{ width: "100%", fontSize: 14 }} />
-
-            <div style={{ position: "relative", width: "100%" }}>
-              <input className="inp" type={showPwd ? "text" : "password"} placeholder="รหัสผ่าน"
-                value={password} onChange={e => setPassword(e.target.value)}
-                autoComplete="current-password" disabled={loading}
-                style={{ width: "100%", fontSize: 14, paddingRight: 54 }} />
-              <button type="button" onClick={() => setShowPwd(s => !s)}
-                style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "var(--ink-3)", fontSize: 12, padding: 4 }}>
-                {showPwd ? "ซ่อน" : "แสดง"}
-              </button>
-            </div>
-
-            <button className="btn primary" type="submit" disabled={loading}
-              style={{ width: "100%", height: 44, fontSize: 14 }}>
-              {loading
-                ? <><span style={{ display: "inline-block", width: 14, height: 14,
-                    border: "2px solid rgba(255,255,255,.4)", borderTopColor: "#fff",
-                    borderRadius: "50%", animation: "spin .9s linear infinite",
-                    marginRight: 8, verticalAlign: "middle" }} />กำลังตรวจสอบ...</>
-                : "เข้าสู่ระบบ"}
-            </button>
-          </form>
+      <div className="login-card">
+        {/* Logo */}
+        <div className="login-logo-mark">
+          <img src="icons/icon-192.png" alt="" />
         </div>
-      )}
 
-      {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}>⚠️ {error}</div>}
+        <div className="login-app-name">NeoFeed</div>
+        <div className="login-tagline">Neonatal nutrition,<br />calculated precisely</div>
 
-      {/* Contact + version footer */}
-      <div className="login-contact">
-        <a className="login-contact-link" href={CONTACT_MAILTO}>
-          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="4" width="16" height="13" rx="2"/>
-            <path d="M2 7l8 5 8-5"/>
-          </svg>
-          สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla
-        </a>
-        <div className="login-footer">VALHALLA TEAM &nbsp;·&nbsp; V2.0</div>
+        {/* ── Google view ── */}
+        {mode === "google" && (
+          <>
+            <div className="login-btn-area">
+              <div ref={btnRef} style={{ display: loading ? "none" : "flex", justifyContent: "center", minHeight: 44 }} />
+              {loading && (
+                <div style={{ position: "absolute", inset: 0, display: "flex",
+                  alignItems: "center", justifyContent: "center", gap: 8,
+                  color: "var(--ink-2)", fontSize: 13 }}>
+                  <span style={{ width: 16, height: 16, border: "2px solid var(--line)",
+                    borderTopColor: "var(--brand)", borderRadius: "50%",
+                    animation: "spin .9s linear infinite", display: "inline-block" }} />
+                  กำลังตรวจสอบ...
+                </div>
+              )}
+            </div>
+            <button className="login-alt-link" onClick={switchToEmail}>
+              เข้าด้วย email อื่น →
+            </button>
+          </>
+        )}
+
+        {/* ── Email + password view ── */}
+        {mode === "email" && (
+          <div className="login-form-wrap">
+            <button className="login-back-link" onClick={switchBack}>
+              ← Sign in ด้วย Google
+            </button>
+
+            <form onSubmit={submitEmail} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+              <input className="inp login-inp" type="email" placeholder="Email (@redcross.or.th …)"
+                value={email} onChange={e => setEmail(e.target.value)}
+                autoComplete="username" autoFocus disabled={loading}
+                style={{ width: "100%", fontSize: 14 }} />
+
+              <div style={{ position: "relative", width: "100%" }}>
+                <input className="inp login-inp" type={showPwd ? "text" : "password"} placeholder="รหัสผ่าน"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  autoComplete="current-password" disabled={loading}
+                  style={{ width: "100%", fontSize: 14, paddingRight: 54 }} />
+                <button type="button" onClick={() => setShowPwd(s => !s)}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--ink-3)", fontSize: 12, padding: 4 }}>
+                  {showPwd ? "ซ่อน" : "แสดง"}
+                </button>
+              </div>
+
+              <button className="btn primary login-submit-btn" type="submit" disabled={loading}
+                style={{ width: "100%", height: 44, fontSize: 14 }}>
+                {loading
+                  ? <><span style={{ display: "inline-block", width: 14, height: 14,
+                      border: "2px solid rgba(255,255,255,.4)", borderTopColor: "#fff",
+                      borderRadius: "50%", animation: "spin .9s linear infinite",
+                      marginRight: 8, verticalAlign: "middle" }} />กำลังตรวจสอบ...</>
+                  : "เข้าสู่ระบบ"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}>⚠️ {error}</div>}
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
