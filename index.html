@@ -9,9 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0b3c44" />
 <title>NeoFeed</title>
-<link rel="manifest" href="manifest.json" />
-<link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+<link rel="manifest" href="manifest.json" /><link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png" />
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -126,12 +124,14 @@
     display: grid; place-items: center;
     font-weight: 700; font-size: 13px;
     box-shadow: inset 0 -2px 0 oklch(30% 0.08 215 / .35);
+    overflow: hidden;
   }
   .brandmark .name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
   .brandmark .logo {
     background: linear-gradient(135deg, var(--brand) 0%, oklch(36% 0.09 215) 100%);
     box-shadow: inset 0 -2px 0 oklch(28% 0.08 215 / .4), 0 2px 8px oklch(46% 0.085 215 / .25);
   }
+  .brandmark .logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   .topbar .spacer { flex: 1; }
 
@@ -706,7 +706,9 @@
       inset 0 -3px 0 oklch(22% 0.07 215 / .5);
     margin-bottom: 32px;
     flex-shrink: 0;
+    overflow: hidden;
   }
+  .login-logo-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   .login-app-name {
     font-size: 60px;
@@ -1303,7 +1305,7 @@
   <script type="text/babel" src="fenton.jsx?v=security-review1"></script>
   <script type="text/babel" src="registry.jsx?v=security-review1"></script>
   <script type="text/babel" src="log.jsx?v=notes-date-sel1"></script>
-  <script type="text/babel" src="app.jsx?v=review-fix1"></script>
+  <script type="text/babel" src="app.jsx?v=new-icon1"></script>
 </body>
 </html>
 

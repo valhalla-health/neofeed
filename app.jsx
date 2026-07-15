@@ -355,10 +355,7 @@ function App() {
       <div className="topbar">
         <div className="brandmark">
           <div className="logo">
-            <svg viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 21 V 7 L 21 21 V 7" />
-              <circle cx="21" cy="7" r="2.2" fill="#fff" stroke="none" />
-            </svg>
+            <img src="icons/icon-192.png" alt="" />
           </div>
           <div>
             <div className="name">NeoFeed</div>
@@ -981,11 +978,7 @@ function LoginScreen({ onLogin }) {
     <div className="login-wrap">
       {/* Logo */}
       <div className="login-logo-mark">
-        <svg viewBox="0 0 36 36" width="52" height="52" fill="none"
-          stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 27 V 9 L 27 27 V 9" />
-          <circle cx="27" cy="9" r="3" fill="#fff" stroke="none" />
-        </svg>
+        <img src="icons/icon-192.png" alt="" />
       </div>
 
       <div className="login-app-name">NeoFeed</div>
