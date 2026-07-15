@@ -37,6 +37,8 @@ across a refresh.
 | File | Role |
 |---|---|
 | `NeoFeed.html` | App shell + all CSS. Script loader, GAS URL config. |
+| `manifest.json` | Web App Manifest (PWA installability) — name, icons, `display: standalone`. |
+| `icons/` | Home-screen icons (`icon.svg` source + generated PNGs at 16/32/180/192/512, plus maskable 192/512 variants for Android's adaptive-icon safe zone). |
 | `app.jsx` | Root `<App/>`: auth, nav rail/bottom-nav, view router, `PatientStrip`, `AlertCenter`, `AdminDashboard`, Thai date/GA formatting helpers, guidelines/formulas reference panels. |
 | `data.js` | Pure clinical data + helpers — ESPGHAN/WHO nutrition targets, feed/formula database, `liveDol`, `fmtGA`/`parseGAInput`/`gaToDecimalWeeks`, mock patients/log for offline dev. |
 | `calculator.jsx` | The TPN + EN calculator — a 6-step wizard producing one Daily_Log entry. |
@@ -241,6 +243,14 @@ notes — don't just add the feature.
   logs for the specific patterns already fixed (don't regress them).
 - **`tweaks-panel.jsx`** is a dev/design tool, not user-facing clinical
   functionality — don't wire clinical logic through it.
+- **PWA installability** depends on `manifest.json` + `<link rel="manifest">`
+  + `<link rel="apple-touch-icon">` being present in **both** `NeoFeed.html`
+  and `index.html` heads (same drift risk as the CSS note above — keep them
+  identical). No service worker is registered on purpose: the app always
+  talks to a live GAS backend and a cache-first SW risks serving stale
+  patient data or a stale `.jsx?v=` bundle across the project's cache-busting
+  convention. If offline support is ever wanted, scope a SW to network-only
+  passthrough for anything hitting `NEOFEED_GAS_URL`.
 
 ## 8. Where to look next
 
