@@ -159,12 +159,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   }, [wtG, editEntry]);
   const wtKg = wtG / 1000;
 
-  // Step 1 — Fluid plan
+  // Card key 1 — Fluid plan (displayed as Step 1)
   const [fluidTargetPerKg, setFluidTargetPerKg] = useState(0);
   const [otherIV_mL, setOtherIV_mL] = useState(0);
   const [drug_mL, setDrug_mL] = useState(0);
 
-  // Step 2 — TPN main bag
+  // Card key 2 — TPN main bag (displayed as Step 3)
   const [route, setRoute] = useState("central");
   const [totalTPN_mL, setTotalTPN_mL] = useState(0); // mL/day — source of truth
   const [dexPct, setDexPct] = useState(0);
@@ -172,7 +172,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const [lipidPerKg, setLipidPerKg] = useState(0);
   const [lipidDripHours, setLipidDripHours] = useState(24); // lipid bag infused over 16/20/24h
 
-  // Step 3 — Electrolytes (all zero baseline)
+  // Card key 3 — Electrolytes (displayed as Step 4; all zero baseline)
   const [naCl, setNaCl] = useState(0);
   const [naAcet, setNaAcet] = useState(0);
   // Glycophos® dosed by P (mmol P/kg/day = mL/kg/day since 1 mL = 1 mmol P)
@@ -184,19 +184,19 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const [caPerKg, setCaPerKg] = useState(0);
   const [extraP_mg_kg, setExtraP_mg_kg] = useState(0);
 
-  // Step 5 — Enteral
+  // Card key 5 — Enteral (displayed as Step 2)
   const [enType, setEnType] = useState("BM_20");
   const [enVol, setEnVol] = useState(0);
   const [enFreq, setEnFreq] = useState(0);
   const [isMEN, setIsMEN] = useState(false);
 
-  // Step 4 — Vitamins, Trace Elements, Heparin
+  // Card key 4 — Vitamins, Trace Elements, Heparin (displayed as Step 5)
   const [inclSoluvit,   setInclSoluvit]   = useState(true);
   const [inclPeditrace, setInclPeditrace] = useState(true);
   const [inclAddamel,   setInclAddamel]   = useState(false);
   const [heparinUmL,    setHeparinUmL]    = useState(1);   // default 1 U/mL per KCMH practice
 
-  // Step 6 — Enteral Supplements
+  // Card key 6 — Enteral Supplements (displayed as Step 6)
   const [suppVitD,   setSuppVitD]   = useState(0);               // IU/kg/day
   const [suppCa,     setSuppCa]     = useState(0);               // mg/kg/day elem Ca
   const [suppCaType, setSuppCaType] = useState("CA_CACO3_350");  // product key
@@ -531,6 +531,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   inclSoluvit, inclPeditrace]);
 
   // ── Step completion status (for dots + collapsed summaries) ──────
+  // Keys are content ids, not the visible card order — 1 fluid, 2 TPN
+  // (Step 3), 3 electrolytes (Step 4), 4 vitamins (Step 5), 5 enteral (Step 2)
   const stepStatus = {
     1: fluidTargetPerKg > 0 && Math.abs(calc.remaining) < 20 ? "done" : "partial",
     2: totalTPN_mL > 0 && dexPct > 0 && aaPerKg > 0 ? "done"
@@ -747,11 +749,119 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         </div></div>
       </div>
 
-      {/* ===== Step 2 — TPN main bag ===== */}
+      {/* ===== Step 2 — Enteral feeding ===== */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-h clickable" onClick={() => toggleStep(5)}>
+          <Icon name="milk" size={14} color="var(--brand)" />
+          Step 2 · Enteral feeding
+          {!openSteps.has(5) && calc.enVolPerKg > 0 && (
+            <div className="step-summary">
+              <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
+              {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
+              {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>LF ✅</span>}
+              {calc.enVolPerKg >= 100 && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>Full EN ✅</span>}
+            </div>
+          )}
+          <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
+            <div className={`step-dot ${stepStatus[5]}`} />
+            <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(5) ? "▲" : "▼"}</span>
+          </div>
+        </div>
+        <div className={`accordion-body${openSteps.has(5) ? ' open' : ''}`}><div className="card-b">
+          <TwoCol>
+            <div>
+              <div className="field">
+                <label>Feed type</label>
+                <select className="sel" value={enType} onChange={(e) => setEnType(e.target.value)}>
+                  <optgroup label="🤱 Breast Milk">
+                    {["BM_20","BM_HMF_24"].filter(k => D.EN_DB[k]).map(k =>
+                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
+                  </optgroup>
+                  <optgroup label="⚡ Preterm / High-energy formula">
+                    {["BM_PF_20","FBM_PF_22","PRENAN_22","FBM_PF_24","FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
+                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
+                  </optgroup>
+                  <optgroup label="🥛 Lactose-free">
+                    {["LF_20","LF_24","LF_27"].filter(k => D.EN_DB[k]).map(k =>
+                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
+                  </optgroup>
+                </select>
+              </div>
+              <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+                <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
+                <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
+                  hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
+                <div className="field en-men-col">
+                  <label style={{ visibility: "hidden" }}>MEN</label>
+                  <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
+                    hint="Volume not counted in fluid total" />
+                </div>
+              </div>
+
+              {/* Full feeds status */}
+              {calc.enVolPerKg >= 100 && (
+                <div style={{ padding: "8px 10px", background: "var(--ok-bg)", border: "1px solid var(--ok-line)",
+                  borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600 }}>
+                  ✅ Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
+                </div>
+              )}
+
+              <div style={{ marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 6 }}>Delivered per kg from EN</div>
+                <div style={{ display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" }}>
+                  <span style={{ whiteSpace: "nowrap" }}>kcal <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enKcal / wtKg, 0)}</span></span>
+                  <span style={{ whiteSpace: "nowrap" }}>pro <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.pro / wtKg, 1)}</span></span>
+                  <span style={{ whiteSpace: "nowrap" }}>Na <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.na / wtKg, 1)}</span></span>
+                  <span style={{ whiteSpace: "nowrap" }}>K <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.k / wtKg, 1)}</span></span>
+                  <span style={{ whiteSpace: "nowrap" }}>Ca <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.ca / wtKg, 0)}</span></span>
+                  <span style={{ whiteSpace: "nowrap" }}>P <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.p / wtKg, 0)}</span></span>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[100, 200]} status={calc.enVolPerKg >= 100 ? "ok" : calc.enVolPerKg > 0 ? "warn" : "ok"} decimals={0} max={210} />
+              {(() => {
+                const avail   = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
+                const availKg = wtKg > 0 ? avail / wtKg : 0;
+                const over    = avail < 0;
+                return (
+                  <div style={{ padding: "10px 12px",
+                    background: over ? "var(--crit-bg)" : "var(--brand-bg)",
+                    border: `1px solid ${over ? "var(--crit-line)" : "var(--brand-line)"}`,
+                    borderRadius: 8, position: "relative", overflow: "hidden" }}>
+                    <div style={{ position:"absolute", left:0, top:0, bottom:0, width:3,
+                      background: over ? "var(--crit)" : "var(--brand)" }} />
+                    <div style={{ fontSize: 10, color: "var(--ink-3)", fontWeight: 600,
+                      textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
+                      Remaining fluid for EN
+                    </div>
+                    <div className="num" style={{ fontSize: 26, fontWeight: 500, lineHeight: 1.1,
+                      color: over ? "var(--crit)" : "var(--brand-2)" }}>
+                      {over ? "0" : fmt(avail, 0)}
+                      <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4, fontWeight: 400 }}>mL/day</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                      {over
+                        ? <span style={{ color:"var(--crit)", fontWeight:600 }}>IV เกิน target {fmt(Math.abs(avail), 0)} mL</span>
+                        : <span>= {fmt(availKg, 0)} mL/kg/d</span>
+                      }
+                    </div>
+                  </div>
+                );
+              })()}
+              {calc.enVolPerKg > 100 &&
+              <Tile label="Protein : Energy" value={calc.peRatio} unit=" g/100kcal" target={tPE} status={sPE} decimals={1} max={5} />
+              }
+            </div>
+          </TwoCol>
+        </div></div>
+      </div>
+
+      {/* ===== Step 3 — TPN main bag ===== */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h clickable step2-card-h" onClick={() => toggleStep(2)}>
           <Icon name="drop" size={14} color="var(--brand)" />
-          Step 2 · TPN macronutrients
+          Step 3 · TPN macronutrients
           {/* Route + Osm always visible */}
           <span className="step2-ctrl" style={{ display:"flex", alignItems:"center", gap:8, marginLeft:10 }} onClick={e => e.stopPropagation()}>
             <div className="seg" style={{ padding:1 }}>
@@ -944,11 +1054,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         </div></div>
       </div>
 
-      {/* ===== Step 3 — Electrolytes ===== */}
+      {/* ===== Step 4 — Electrolytes ===== */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h clickable" onClick={() => toggleStep(3)}>
           <Icon name="drop" size={14} color="var(--brand)" />
-          Step 3 · Electrolytes
+          Step 4 · Electrolytes
           {!openSteps.has(3) && (naCl + kCl + caPerKg + glycophosP) > 0 && (
             <div className="step-summary">
               {naCl > 0    && <span className="step-summary-chip">Na {fmt(calc.naKg,1)} mEq/kg</span>}
@@ -1015,11 +1125,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         </div></div>
       </div>
 
-      {/* ===== Step 4 — Vitamins, Trace Elements, Heparin ===== */}
+      {/* ===== Step 5 — Vitamins, Trace Elements, Heparin ===== */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h clickable" onClick={() => toggleStep(4)}>
           <Icon name="info" size={14} color="var(--brand)" />
-          Step 4 · Vitamins · Trace Elements · Heparin
+          Step 5 · Vitamins · Trace Elements · Heparin
           {!openSteps.has(4) && (
             <div className="step-summary">
               {inclSoluvit   && <span className="step-summary-chip">Soluvit {fmt(calc.soluvitVol,1)} mL</span>}
@@ -1064,114 +1174,6 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                 Soluvit + Peditrace → <strong>aqueous PN bag</strong><br/>
                 Heparin 0.5–1 U/mL → <strong>aqueous PN bag</strong>
               </div>
-            </div>
-          </TwoCol>
-        </div></div>
-      </div>
-
-      {/* ===== Step 5 — Enteral ===== */}
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-h clickable" onClick={() => toggleStep(5)}>
-          <Icon name="milk" size={14} color="var(--brand)" />
-          Step 5 · Enteral feeding
-          {!openSteps.has(5) && calc.enVolPerKg > 0 && (
-            <div className="step-summary">
-              <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
-              {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
-              {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>LF ✅</span>}
-              {calc.enVolPerKg >= 100 && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>Full EN ✅</span>}
-            </div>
-          )}
-          <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
-            <div className={`step-dot ${stepStatus[5]}`} />
-            <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(5) ? "▲" : "▼"}</span>
-          </div>
-        </div>
-        <div className={`accordion-body${openSteps.has(5) ? ' open' : ''}`}><div className="card-b">
-          <TwoCol>
-            <div>
-              <div className="field">
-                <label>Feed type</label>
-                <select className="sel" value={enType} onChange={(e) => setEnType(e.target.value)}>
-                  <optgroup label="🤱 Breast Milk">
-                    {["BM_20","BM_HMF_24"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  <optgroup label="⚡ Preterm / High-energy formula">
-                    {["BM_PF_20","FBM_PF_22","PRENAN_22","FBM_PF_24","FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  <optgroup label="🥛 Lactose-free">
-                    {["LF_20","LF_24","LF_27"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                </select>
-              </div>
-              <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
-                <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
-                <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
-                  hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
-                <div className="field en-men-col">
-                  <label style={{ visibility: "hidden" }}>MEN</label>
-                  <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
-                    hint="Volume not counted in fluid total" />
-                </div>
-              </div>
-
-              {/* Full feeds status */}
-              {calc.enVolPerKg >= 100 && (
-                <div style={{ padding: "8px 10px", background: "var(--ok-bg)", border: "1px solid var(--ok-line)",
-                  borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600 }}>
-                  ✅ Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
-                </div>
-              )}
-
-              <div style={{ marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 }}>
-                <div style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 6 }}>Delivered per kg from EN</div>
-                <div style={{ display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" }}>
-                  <span style={{ whiteSpace: "nowrap" }}>kcal <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enKcal / wtKg, 0)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>pro <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.pro / wtKg, 1)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>Na <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.na / wtKg, 1)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>K <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.k / wtKg, 1)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>Ca <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.ca / wtKg, 0)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>P <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.p / wtKg, 0)}</span></span>
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[100, 200]} status={calc.enVolPerKg >= 100 ? "ok" : calc.enVolPerKg > 0 ? "warn" : "ok"} decimals={0} max={210} />
-              {(() => {
-                const avail   = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
-                const availKg = wtKg > 0 ? avail / wtKg : 0;
-                const over    = avail < 0;
-                return (
-                  <div style={{ padding: "10px 12px",
-                    background: over ? "var(--crit-bg)" : "var(--brand-bg)",
-                    border: `1px solid ${over ? "var(--crit-line)" : "var(--brand-line)"}`,
-                    borderRadius: 8, position: "relative", overflow: "hidden" }}>
-                    <div style={{ position:"absolute", left:0, top:0, bottom:0, width:3,
-                      background: over ? "var(--crit)" : "var(--brand)" }} />
-                    <div style={{ fontSize: 10, color: "var(--ink-3)", fontWeight: 600,
-                      textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
-                      Remaining fluid for EN
-                    </div>
-                    <div className="num" style={{ fontSize: 26, fontWeight: 500, lineHeight: 1.1,
-                      color: over ? "var(--crit)" : "var(--brand-2)" }}>
-                      {over ? "0" : fmt(avail, 0)}
-                      <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4, fontWeight: 400 }}>mL/day</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
-                      {over
-                        ? <span style={{ color:"var(--crit)", fontWeight:600 }}>IV เกิน target {fmt(Math.abs(avail), 0)} mL</span>
-                        : <span>= {fmt(availKg, 0)} mL/kg/d</span>
-                      }
-                    </div>
-                  </div>
-                );
-              })()}
-              {calc.enVolPerKg > 100 &&
-              <Tile label="Protein : Energy" value={calc.peRatio} unit=" g/100kcal" target={tPE} status={sPE} decimals={1} max={5} />
-              }
             </div>
           </TwoCol>
         </div></div>
@@ -1390,9 +1392,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             {/* Copy order text to clipboard */}
             <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
               // Completeness check — warn if any clinical step is empty
+              // stepStatus keys are content ids, not card display order — map to the
+              // visible "Step N" label (fluid=1, TPN=3, electrolytes=4)
+              const stepDisplayNumber = { 1: 1, 2: 3, 3: 4 };
               const incomplete = Object.entries(stepStatus)
                 .filter(([n, s]) => s === "empty" && ["1","2","3"].includes(n))
-                .map(([n]) => `Step ${n}`);
+                .map(([n]) => `Step ${stepDisplayNumber[n]}`);
               if (incomplete.length > 0 &&
                   !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nCopy order ต่อไปหรือไม่?`)) return;
               const lines = [
