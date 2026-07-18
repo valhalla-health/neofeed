@@ -595,6 +595,29 @@
     flex: 1; border: 0; outline: 0; font-size: 14px; background: transparent;
   }
 
+  /* ============ MODAL (generic form dialog — e.g. change password) ============ */
+  /* Same overlay pattern as .picker-backdrop/.picker above, sized for a form
+     instead of a search list, with head/body/foot sections. */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: oklch(20% 0.01 230 / .35);
+    z-index: 60; display: grid; place-items: center;
+    backdrop-filter: blur(2px);
+  }
+  .modal-box {
+    width: min(420px, 92vw);
+    background: var(--surface); border-radius: var(--r-lg);
+    box-shadow: var(--shadow-pop); border: 1px solid var(--line);
+  }
+  .modal-head {
+    padding: 16px 18px 12px; border-bottom: 1px solid var(--line-2);
+  }
+  .modal-head h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+  .modal-body { padding: 16px 18px; }
+  .modal-foot {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 18px 16px; border-top: 1px solid var(--line-2);
+  }
+
   /* ============ DISCLAIMER ============ */
   .disclaimer-bar {
     display: flex; align-items: center; gap: 8px;
@@ -981,6 +1004,14 @@
       border-radius: var(--r-lg) var(--r-lg) 0 0;
     }
     .picker-backdrop { align-items: flex-end; }
+
+    /* Modal (e.g. change password) → bottom sheet, same as picker */
+    .modal-box {
+      width: 100vw !important;
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+    }
+    .modal-backdrop { align-items: flex-end; }
+    .modal-foot { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
 
     /* Card body: less padding */
     .card-b { padding: 10px; }
