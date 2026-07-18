@@ -479,7 +479,7 @@ function doPost(e) {
         role = String(gd[1] || "doctor");
         name = String(gd[2] || email);
         var tok = createSession(email, role, name);
-        return jsonOut({ status: "ok", name: name, role: role, email: email, token: tok });
+        return jsonOut({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google" });
       }
 
       // Path B: email + password (non-Google accounts)
@@ -519,7 +519,7 @@ function doPost(e) {
       role = String(d[1] || "doctor");
       name = String(d[2] || email);
       var token = createSession(email, role, name);
-      return jsonOut({ status: "ok", name: name, role: role, email: email, token: token });
+      return jsonOut({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password" });
     }
 
     // ── all other actions require valid session token ──────────

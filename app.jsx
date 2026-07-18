@@ -410,11 +410,13 @@ function App() {
           </div>
           {showUserMenu && (
             <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 4px 16px #0002", minWidth: 170, zIndex: 999, overflow: "hidden" }}>
-              <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13 }}
-                onClick={() => { setShowChangePwd(true); setShowUserMenu(false); }}>
-                🔑 เปลี่ยนรหัสผ่าน
-              </button>
-              <div style={{ height: 1, background: "var(--line)" }} />
+              {user?.authMethod !== "google" && <>
+                <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13 }}
+                  onClick={() => { setShowChangePwd(true); setShowUserMenu(false); }}>
+                  🔑 เปลี่ยนรหัสผ่าน
+                </button>
+                <div style={{ height: 1, background: "var(--line)" }} />
+              </>}
               <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13, color: "var(--red, #c0392b)" }}
                 onClick={() => { setShowUserMenu(false); handleLogout(); }}>
                 ออกจากระบบ
@@ -939,7 +941,7 @@ function LoginScreen({ onLogin }) {
             });
             const data = await res.json();
             if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
-            onLogin({ name: data.name, role: data.role, email: data.email, token: data.token });
+            onLogin({ name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod });
           } catch (err) { setError(err.message); setLoading(false); }
         },
       });
@@ -970,7 +972,7 @@ function LoginScreen({ onLogin }) {
       });
       const data = await res.json();
       if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
-      onLogin({ name: data.name, role: data.role, email: data.email, token: data.token });
+      onLogin({ name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod });
     } catch (err) { setError(err.message); setLoading(false); }
   };
 
