@@ -1,5 +1,87 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-18 | **Status:** 🟡 source changed, needs `clasp push`+deploy (see session below) — prior "LOGIN BROKEN IN PRODUCTION" status from 2026-07-13 is superseded, see 2026-07-18 sessions
+**Last updated:** 2026-07-18 | **Status:** 🟡 production is live on deploy `@43` with a real gap — every new non-Gmail staff row still gets the same hardcoded password (`"nicunicu"`) with no forced change (see "Session 2026-07-18 (2)" below for why, and the fix). Source fix (random per-account password + forced change flow) is ready on this branch but **not yet deployed** — needs `clasp push`+`clasp deploy` same as every other source-only session below. The previous 🟢/🟡 banners here were about the now-resolved Script Properties config issue from 2026-07-13; that one really is fixed, this is a separate, newer issue.
+
+---
+
+## Session 2026-07-18 (4) — backend sync: local clasp copy + live deploy were behind `main`
+
+`~/nicu-tools/neofeed/` (the clasp-linked working copy of `gas-backend.gs`, deployed
+as the live web app) had drifted behind this repo's `main` in two ways:
+1. **Live deployment (`@42`) was three commits behind `main`** — `d778cfb`
+   (auto-provision default password) was live, but `435e09f`
+   (`backfillDefaultPasswords`) and `8dcfbf6` (Workspace-domain exclusion +
+   `clearStaffPassword`) were sitting uncommitted in the clasp working copy, never
+   pushed or deployed.
+2. **Working copy was also missing `2802e90`** — the `authMethod: "google"/"password"`
+   tag on the login response (added so the frontend can tell which auth path a
+   session came from) — this one hadn't even been copied over yet.
+
+Diffed `gas-backend.gs` (GitHub `main`) against `รหัส.js` (the clasp copy) directly to
+confirm the exact remaining delta (just the two `authMethod` lines) rather than
+re-deriving it from commit history. Applied the fix, committed in the clasp repo,
+`clasp push`ed, then `clasp deploy --deploymentId AKfycbz8Nt...` to update the
+*existing* production deployment (not a new one) — now live at `@43`. Confirmed
+`รหัส.js` byte-matches `gas-backend.gs` post-fix.
+
+**Take-away for future sessions:** the clasp working copy is not git-tracked against
+GitHub and won't auto-update — after merging backend changes to `main`, someone has to
+manually diff/copy/push/deploy from `~/nicu-tools/neofeed/`, same as this session did.
+Worth checking whenever HANDOFF says a backend fix landed on `main` but doesn't also
+say it was deployed.
+
+---
+
+## Session 2026-07-18 (3) — debug pass: Alert-count drift + colgroup DOM warning (branch `claude/neofeed-debug-9arm-wvrssf`)
+
+Applied a reproduce-first debugging pass (no specific bug report — drove the
+app end-to-end via a local Playwright rig against vendored React/Babel and
+mock data, `unpkg.com` blocked from this environment same as prior sessions,
+`registry.npmjs.org` reachable so React/ReactDOM/Babel were vendored via
+`npm install --no-save` instead). Found and fixed two reproducible bugs by
+watching the live app, not just reading the diff:
+
+1. **Nav-rail "Alerts" badge under-counted the Alerts page by 1, always.**
+   `app.jsx` had **three independent, hand-copied implementations** of "how
+   many alerts does this patient have" — the `AlertCenter` page's own
+   builder, the `alertCount` `useMemo` driving the nav-rail/bottom-nav badge,
+   and `AdminDashboard`'s "Active alerts" tile — and they'd drifted out of
+   sync (the badge memo predates the page's `electrolyte-audit` info alert,
+   added later only to the page; the admin tile was missing growth-velocity,
+   weight-stale, *and* electrolyte-audit entirely, undercounting by up to 3).
+   Concretely reproducible: on the seeded mock patient, the sidebar showed
+   "Alerts 2" while opening the page showed "3 active · 3 total" — confirmed
+   by acknowledging just the electrolyte-audit alert and watching the page
+   count drop 3→2 while the badge stayed at 2 throughout (proof the badge
+   never counted it). Fixed by extracting one shared `computeAlerts(patient,
+   entries)` (full alert list) + `activeAlertCount(patient, entries)`
+   (unacked count) near the top of `app.jsx`, and switching all three call
+   sites to use them. Verified: badge, page header, and (by code, same
+   helper) the admin tile now agree by construction — the old inline copies
+   are gone, so they can't drift again silently.
+2. **React DOM-nesting warning on the Patients table** (`registry.jsx`):
+   `<colgroup>` had `<col ... /> {/* comment */}` on each line — the same-line
+   trailing whitespace before each `{/* ... */}` compiled to whitespace text
+   nodes as children of `<colgroup>`, which the DOM spec doesn't allow there.
+   Cosmetic (browsers silently drop it) but a real, reproducible console
+   warning on every Patients-page load. Moved each comment to its own line
+   above the `<col>` it describes — no more inline trailing whitespace, no
+   more text-node children of `<colgroup>`. Verified clean in the console
+   after the fix.
+
+Cache-busting `?v=` bumped for `app.jsx` and `registry.jsx` in **both**
+`NeoFeed.html` and `index.html` per the existing convention (see
+`app-walkthrough.md` §7) — no CSS changed this session, so no `<style>`
+reconciliation needed.
+
+**Not investigated further, flagged only:** `fenton.jsx` labels the growth
+chart "Fenton 2025" / cites "Fenton TR, Elmrayed S, Alshaikh BN, PMID
+40534585", while `app-walkthrough.md` (now corrected) and prior HANDOFF
+entries describe it as "Fenton 2013." This has been the label since the
+chart's original commit (`ccaefc6`, 2026-05-28) — not new drift — but nobody
+in this project's history appears to have verified the citation/percentile
+data against a real 2025 Fenton revision vs. just carrying a mislabeled 2013
+dataset forward. Needs a clinician/citation check, not a code fix; flagging
+so a future session doesn't assume it's already verified.
 
 ---
 
@@ -10,18 +92,21 @@ fix claimed in earlier sessions against current code (all held up: TTL,
 lockout, `_numSafe`/`_sheetSafe`, Google token verification, `doGet`
 trimming, the `dol1` crash fix, negative-value validation, `lastWeighed()`
 usage, GA/PMA math). Found one new, real, currently-deployed issue introduced
-by the session directly below, same day:
+by the session below, same day:
 
 **Critical — shared hardcoded default password for auto-provisioned staff.**
 `gas-backend.gs`'s new `onEdit`/`backfillDefaultPasswords` (added by the
-session below, same morning) set every new non-Gmail Staff row to one
+session below, same morning, and confirmed live in production at deploy
+`@42`/`@43` by Session (4) above) set every new non-Gmail Staff row to one
 constant, `DEFAULT_NEW_USER_PASSWORD = "nicunicu"`, with nothing forcing a
 change afterward — `login()` returned `status: "ok"` for it exactly like any
 real password. Since this repo has no build step, that string is public and
 permanently recoverable from git history (same class of leak already flagged
 for `SPREADSHEET_ID`), except this one is a live login credential for any
 role including admin, not just an internal pointer. 10 real staff accounts
-were already provisioned with it before this was caught.
+were already provisioned with it before this was caught — and, per Session
+(4) above, this trigger really was deployed live, so this wasn't just a
+theoretical source-only gap.
 
 Fixed, at the user's request ("random per-user password + forced change
 flow"):
@@ -57,10 +142,13 @@ by patching that call site directly and re-running the same test.
 **Still needs (same as every source-only change to this file):** someone
 with Apps Script editor access must `clasp push && clasp deploy` (or paste
 `gas-backend.gs` into the editor) against the live project before this takes
-effect — none of the 10 already-provisioned accounts benefit until then, and
-until redeployed they're still sitting on the shared `"nicunicu"` password
-with no forced change. `app.jsx`'s cache-bust tag bumped
-(`app.jsx?v=forced-pwd-change1`) in both `NeoFeed.html`/`index.html`.
+effect — this one is more urgent than most: production is confirmed live
+with the vulnerable version (Session (4) above deployed it to `@42`/`@43`),
+not just carrying an unshipped source fix. None of the 10 already-
+provisioned accounts benefit until redeployed — they're still sitting on
+the shared `"nicunicu"` password with no forced change in the meantime.
+Cache-bust tag for `app.jsx` merged with Session (3)'s bump into
+`app.jsx?v=alert-fix-pwdchange1` in both `NeoFeed.html`/`index.html`.
 
 ---
 
@@ -78,8 +166,8 @@ accounts (e.g. `chula.ac.th`) from picking one up. Also redeployed
 2026-07-13(2) session below into production for the first time (it had only
 been merged to `main`, never actually pushed to Apps Script, until this
 commit's message says so). **The shared-default-password part of this was a
-real vulnerability, fixed by the session directly above — if you're reading
-this session in isolation, read that one too.**
+real vulnerability, fixed by Session 2026-07-18 (2) above — if you're
+reading this session in isolation, read that one too.**
 
 ---
 
@@ -446,8 +534,8 @@ all render correctly post-fix on both files.
 ---
 
 ## TLDR — read this only
-- **Canonical:** `NeoFeed.html` (React 18 CDN + Babel) — open this
-- **GAS URL:** `https://script.google.com/macros/s/AKfycby44DAIfEueeGj_XSKCyWEWmgr46WjP-vKFEGnDhZSr2_q0KdyO8O5CBxY2qqdoNkoN/exec` — currently **commented out** in `NeoFeed.html` line ~960 (sandbox uses mock data). Restore for production.
+- **Two hand-synced shells, not one canonical file:** `NeoFeed.html` is the file you edit locally; `index.html` is what GitHub Pages actually serves at the public URL (repo-root convention). Any CSS/config/script-loader change must go into **both** — see "CSS drift & reconciliation" below for the recurring-drift history. Open `NeoFeed.html` for local dev.
+- **GAS URL:** `https://script.google.com/macros/s/AKfycby44DAIfEueeGj_XSKCyWEWmgr46WjP-vKFEGnDhZSr2_q0KdyO8O5CBxY2qqdoNkoN/exec` — currently **commented out** in `NeoFeed.html` line ~960 (sandbox uses mock data; `index.html` must be checked/updated to match). Restore for production.
 - **Sheet schema CHANGED in session 8:** Daily_Log now has 16 columns (A–P). If you redeploy `gas-backend.gs`, you must add `ca | p | enVolPerKg` columns before the existing `route | status | submittedBy` cols, OR clear the sheet so the script re-creates headers.
 - **No open bugs.** Mobile-first polish done.
 - **Next (optional):** discharge workflow · drug compatibility · Buddhist calendar in Edit modals
@@ -497,7 +585,8 @@ Where `enVolPerKg` drives target picker. `pro/kcal/na/k/ca/p` are per-kg combine
 ## File inventory
 
 ```
-NeoFeed.html      App shell + all CSS (oklch design system)
+NeoFeed.html      App shell + all CSS (oklch design system) — edit this locally
+index.html        Hand-synced copy of NeoFeed.html — what GitHub Pages actually serves
 data.js           Clinical data — ESPGHAN/WHO targets + formulas + helpers (liveDol, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput)
 calculator.jsx    TPN + EN calculator (Steps 1–5) + prefill from localStorage
 app.jsx           Nav rail, patient registry routing, fmtDate (Thai BE), AlertCenter, BottomNav

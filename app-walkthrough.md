@@ -3,7 +3,7 @@
 NeoFeed is a bedside nutrition-management tool for NICU (neonatal intensive
 care) staff at KCMH. It replaces manual TPN/EN (total parenteral / enteral
 nutrition) calculation sheets with a guided calculator, tracks each infant's
-daily nutrition log, and plots growth against Fenton 2013 preterm growth
+daily nutrition log, and plots growth against Fenton 2025 preterm growth
 curves. There is no build step — it's plain React 18 + Babel loaded from a
 CDN, deployed as static files, backed by a Google Apps Script + Google
 Sheets "backend."
@@ -14,8 +14,13 @@ change log and known caveats, see `HANDOFF.md`.
 ## 1. Run it
 
 Open `NeoFeed.html` directly in a browser (or serve the folder statically —
-no bundler, no `npm install`). `index.html` is an older/parallel copy; treat
-`NeoFeed.html` as canonical unless told otherwise.
+no bundler, no `npm install`). **`NeoFeed.html` is the source file you edit**,
+but GitHub Pages serves whatever sits at the repo root as `index.html` — so
+`index.html`, not `NeoFeed.html`, is what production actually renders.
+The two are hand-synced copies (same CSS, same script loader, same inline
+config), not a canonical/parallel pair. **Any HTML/CSS/config change must be
+applied to both files** or they silently drift — see HANDOFF.md's CSS drift
+notes for the recurring history of this.
 
 `NeoFeed.html` is the shell: it sets `window.NEOFEED_CLIENT_ID` and
 `window.NEOFEED_GAS_URL` inline, then loads the CSS (embedded, oklch-based
@@ -36,14 +41,14 @@ across a refresh.
 
 | File | Role |
 |---|---|
-| `NeoFeed.html` | App shell + all CSS. Script loader, GAS URL config. |
+| `NeoFeed.html` / `index.html` | App shell + all CSS (hand-synced pair). Script loader, GAS URL config. `index.html` is what GitHub Pages actually serves. |
 | `manifest.json` | Web App Manifest (PWA installability) — name, icons, `display: standalone`. |
 | `icons/` | Home-screen icons (`icon.svg` source + generated PNGs at 16/32/180/192/512, plus maskable 192/512 variants for Android's adaptive-icon safe zone). |
 | `app.jsx` | Root `<App/>`: auth, nav rail/bottom-nav, view router, `PatientStrip`, `AlertCenter`, `AdminDashboard`, Thai date/GA formatting helpers, guidelines/formulas reference panels. |
 | `data.js` | Pure clinical data + helpers — ESPGHAN/WHO nutrition targets, feed/formula database, `liveDol`, `fmtGA`/`parseGAInput`/`gaToDecimalWeeks`, mock patients/log for offline dev. |
 | `calculator.jsx` | The TPN + EN calculator — a 6-step wizard producing one Daily_Log entry. |
 | `log.jsx` | Daily nutrition log view + `TrendGraph` (per-metric trend chart with PN/EN target bands). |
-| `fenton.jsx` | Fenton 2013 growth chart (weight/length/HC vs. PMA) + `MeasurementLogger`. |
+| `fenton.jsx` | Fenton 2025 growth chart (weight/length/HC vs. PMA) + `MeasurementLogger`. |
 | `registry.jsx` | Patient registry — desktop table / mobile card list, add/edit patient. |
 | `icons.jsx` | Small inline SVG icon set used everywhere via `<Icon name=.../>`. |
 | `tweaks-panel.jsx` | Dev-only UI customization panel (design tokens), not part of the clinical workflow. |
@@ -209,7 +214,7 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    `localStorage["neofeed_calc_<sessionId>"]` on submit/draft and restored
    on patient switch with a "Prefilled from previous submission (DOL X)"
    banner. Submitting writes one row to `Daily_Log`.
-4. **Growth chart** (`fenton.jsx`) — Fenton 2013 percentile curves for
+4. **Growth chart** (`fenton.jsx`) — Fenton 2025 percentile curves for
    weight/length/HC vs. PMA, plus `MeasurementLogger` to add new
    measurements. Uses `D.gaToDecimalWeeks` for the true decimal x-axis.
 5. **Alerts** (`AlertCenter` in `app.jsx`) — flags things like stale weight

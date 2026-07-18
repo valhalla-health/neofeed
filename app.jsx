@@ -24,6 +24,69 @@ const readAckedMap = (sessionId) => {
   catch { return {}; }
 };
 
+// Single source of truth for "what alerts does this patient currently have" —
+// used by the AlertCenter page, the nav-rail/bottom-nav badge count, and the
+// admin dashboard's "Active alerts" tile. Previously each of those three had
+// its own hand-rolled copy of this logic and they drifted (e.g. the badge
+// never counted the electrolyte-audit reminder that the page always shows),
+// so the badge silently under-counted what the Alerts page displayed.
+function computeAlerts(patient, entries) {
+  const alerts = [];
+  const last = entries[entries.length - 1];
+  if (last) {
+    const tGir  = D_A.TARGETS.gir();
+    const tPro  = D_A.TARGETS.protein(last.dol);
+    const tKcal = D_A.TARGETS.kcal(last.dol);
+    if (last.gir > tGir[1]) alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: last.dol, ref: "ESPGHAN 2018" });
+    if (last.pro < tPro[0] && last.dol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${last.dol} — target ${tPro[0]}–${tPro[1]} g/kg/d (ESPGHAN 2018).`, dol: last.dol, ref: "ESPGHAN 2018" });
+    if (last.kcal < tKcal[0] && last.dol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${last.dol}.`, dol: last.dol, ref: "ESPGHAN" });
+  }
+
+  // Growth velocity — from patient.weights (Fenton chart data, most reliable).
+  // Length/HC-only rows carry no `w` — exclude them from this reasoning.
+  const wts = (patient.weights || []).filter(w => w.w != null);
+  if (wts.length >= 2) {
+    const recent = wts.slice(-Math.min(wts.length, 7));
+    const wFirst = recent[0], wLast = recent[recent.length - 1];
+    const dW = wLast.w - wFirst.w;
+    const days = Math.max(1, wLast.dol - wFirst.dol);
+    const avgKg = (wFirst.w + wLast.w) / 2 / 1000;
+    const vel = dW / days / avgKg;
+    if (vel < 15) alerts.push({
+      id: "growth-velocity",
+      level: vel < 10 ? "crit" : "warn",
+      title: vel < 10 ? "Growth velocity critically low" : "Growth velocity below target",
+      body: `${vel.toFixed(1)} g/kg/d over ${days} d (DOL ${wFirst.dol}→${wLast.dol}) — target ≥15 g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
+      dol: wLast.dol, ref: "ESPGHAN 2022"
+    });
+  }
+
+  // Stale weight: warn when no weight measurement in 3+ days
+  const lastWtEntry = D_A.lastWeighed(patient);
+  const todaysDol = D_A.liveDol(patient);
+  if (lastWtEntry) {
+    const daysSince = todaysDol - lastWtEntry.dol;
+    if (daysSince >= 3) {
+      alerts.push({
+        id: "weight-stale",
+        level: daysSince >= 7 ? "crit" : "warn",
+        title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
+        body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
+        dol: todaysDol, ref: "ESPGHAN 2022"
+      });
+    }
+  }
+
+  // System info
+  alerts.push({ id: "electrolyte-audit", level: "info", title: "Weekly electrolyte audit due", body: "Last serum electrolytes >72 h ago. Consider re-check given current Na/K delivery.", dol: last?.dol, ref: "KCMH protocol" });
+
+  return alerts;
+}
+function activeAlertCount(patient, entries) {
+  const acked = readAckedMap(patient.sessionId);
+  return computeAlerts(patient, entries).filter(a => !acked[ackKey(a.id, a.dol)]).length;
+}
+
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "comfortable",
   "accent": "#2a7a8c",
@@ -78,30 +141,7 @@ function App() {
 
   const alertCount = React.useMemo(() => {
     if (!active) return 0;
-    const acked = readAckedMap(active.sessionId);
-    let n = 0;
-    const entries = log[active.sessionId] || [];
-    const last = entries[entries.length - 1];
-    // Only flag nutrition alerts if last log is from today — stale entries must not drive the badge
-    const todayStr = new Date().toISOString().slice(0, 10);
-    if (last && last.ts === todayStr) {
-      if (last.gir  > D_A.TARGETS.gir()[1]                             && !acked[ackKey("gir-high", last.dol)])    n++;
-      if (last.pro  < D_A.TARGETS.protein(last.dol)[0] && last.dol > 2 && !acked[ackKey("protein-low", last.dol)]) n++;
-      if (last.kcal < D_A.TARGETS.kcal(last.dol)[0]    && last.dol > 4 && !acked[ackKey("kcal-low", last.dol)])    n++;
-    }
-    // Length/HC-only rows carry no `w` — exclude them so velocity/staleness
-    // only ever reason about entries that actually recorded a weight.
-    const wts = (active.weights || []).filter(w => w.w != null);
-    if (wts.length >= 2) {
-      const recent = wts.slice(-Math.min(wts.length, 7));
-      const w0 = recent[0], wN = recent[recent.length - 1];
-      const vel = (wN.w - w0.w) / Math.max(1, wN.dol - w0.dol) / ((w0.w + wN.w) / 2 / 1000);
-      if (vel < 15 && !acked[ackKey("growth-velocity", wN.dol)]) n++;
-    }
-    // Stale weight alert: no measurement in 3+ days
-    const lastWt = wts[wts.length - 1];
-    if (lastWt && (dol - lastWt.dol) >= 3 && !acked[ackKey("weight-stale", dol)]) n++;
-    return n;
+    return activeAlertCount(active, log[active.sessionId] || []);
   }, [active, log, dol, ackVersion]);
 
   // ── GAS fetch (initial + manual sync) ────────────────────────
@@ -739,59 +779,13 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
 // ============================================================
 function AlertCenter({ patient, log, onAckChange }) {
   const entries = log[patient.sessionId] || [];
-  const last = entries[entries.length - 1];
 
-  // Synthesize alerts from latest log entry vs targets.
   // Each alert carries a stable `id` (independent of dol/wording) — combined
   // with dol below to form the acknowledge key, so an ack only silences that
   // specific day's instance and a fresh recurrence (new dol) surfaces again.
-  const alerts = [];
-  if (last) {
-    const tGir  = D_A.TARGETS.gir();
-    const tPro  = D_A.TARGETS.protein(last.dol);
-    const tKcal = D_A.TARGETS.kcal(last.dol);
-    if (last.gir > tGir[1]) alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: last.dol, ref: "ESPGHAN 2018" });
-    if (last.pro < tPro[0] && last.dol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${last.dol} — target ${tPro[0]}–${tPro[1]} g/kg/d (ESPGHAN 2018).`, dol: last.dol, ref: "ESPGHAN 2018" });
-    if (last.kcal < tKcal[0] && last.dol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${last.dol}.`, dol: last.dol, ref: "ESPGHAN" });
-  }
-
-  // Growth velocity — from patient.weights (Fenton chart data, most reliable).
-  // Length/HC-only rows carry no `w` — exclude them from this reasoning.
-  const wts = (patient.weights || []).filter(w => w.w != null);
-  if (wts.length >= 2) {
-    const recent = wts.slice(-Math.min(wts.length, 7));
-    const wFirst = recent[0], wLast = recent[recent.length - 1];
-    const dW = wLast.w - wFirst.w;
-    const days = Math.max(1, wLast.dol - wFirst.dol);
-    const avgKg = (wFirst.w + wLast.w) / 2 / 1000;
-    const vel = dW / days / avgKg;
-    if (vel < 15) alerts.push({
-      id: "growth-velocity",
-      level: vel < 10 ? "crit" : "warn",
-      title: vel < 10 ? "Growth velocity critically low" : "Growth velocity below target",
-      body: `${vel.toFixed(1)} g/kg/d over ${days} d (DOL ${wFirst.dol}→${wLast.dol}) — target ≥15 g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
-      dol: wLast.dol, ref: "ESPGHAN 2022"
-    });
-  }
-
-  // Stale weight: warn when no weight measurement in 3+ days
-  const lastWtEntry = D_A.lastWeighed(patient);
-  const todaysDol = D_A.liveDol(patient);
-  if (lastWtEntry) {
-    const daysSince = todaysDol - lastWtEntry.dol;
-    if (daysSince >= 3) {
-      alerts.push({
-        id: "weight-stale",
-        level: daysSince >= 7 ? "crit" : "warn",
-        title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
-        body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
-        dol: todaysDol, ref: "ESPGHAN 2022"
-      });
-    }
-  }
-
-  // System info
-  alerts.push({ id: "electrolyte-audit", level: "info", title: "Weekly electrolyte audit due", body: "Last serum electrolytes >72 h ago. Consider re-check given current Na/K delivery.", dol: last?.dol, ref: "KCMH protocol" });
+  // computeAlerts() is the single shared source of truth (see its definition
+  // near the top of this file) — also used by the nav badge and admin tile.
+  const alerts = computeAlerts(patient, entries);
 
   // ── Acknowledge state — per-device, keyed by patient session (localStorage).
   // Not yet synced server-side (would need a new Patient sheet column); a
@@ -1114,16 +1108,10 @@ function AdminDashboard({ patients, log }) {
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
   const active = patients.filter(p => p.status === "Active").length;
   const allEntries = patients.flatMap(p => (log[p.sessionId] || []).map(e => ({ ...e, sid: p.sessionId, bed: p.currentBed })));
-  // Compute alert count across all patients (same logic as per-patient alertCount memo)
+  // Compute alert count across all patients via the shared computeAlerts() —
+  // same source of truth as the per-patient nav badge and the Alerts page.
   const alertsTotal = patients.reduce((sum, p) => {
-    const entries = log[p.sessionId] || [];
-    const last = entries[entries.length - 1];
-    if (!last) return sum;
-    let n = 0;
-    if (last.gir  > D_A.TARGETS.gir()[1])                        n++;
-    if (last.pro  < D_A.TARGETS.protein(last.dol)[0] && last.dol > 2) n++;
-    if (last.kcal < D_A.TARGETS.kcal(last.dol)[0]    && last.dol > 4) n++;
-    return sum + n;
+    return sum + activeAlertCount(p, log[p.sessionId] || []);
   }, 0);
   return (
     <>
