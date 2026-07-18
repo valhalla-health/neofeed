@@ -14,8 +14,13 @@ change log and known caveats, see `HANDOFF.md`.
 ## 1. Run it
 
 Open `NeoFeed.html` directly in a browser (or serve the folder statically —
-no bundler, no `npm install`). `index.html` is an older/parallel copy; treat
-`NeoFeed.html` as canonical unless told otherwise.
+no bundler, no `npm install`). **`NeoFeed.html` is the source file you edit**,
+but GitHub Pages serves whatever sits at the repo root as `index.html` — so
+`index.html`, not `NeoFeed.html`, is what production actually renders.
+The two are hand-synced copies (same CSS, same script loader, same inline
+config), not a canonical/parallel pair. **Any HTML/CSS/config change must be
+applied to both files** or they silently drift — see HANDOFF.md's CSS drift
+notes for the recurring history of this.
 
 `NeoFeed.html` is the shell: it sets `window.NEOFEED_CLIENT_ID` and
 `window.NEOFEED_GAS_URL` inline, then loads the CSS (embedded, oklch-based
@@ -36,7 +41,7 @@ across a refresh.
 
 | File | Role |
 |---|---|
-| `NeoFeed.html` | App shell + all CSS. Script loader, GAS URL config. |
+| `NeoFeed.html` / `index.html` | App shell + all CSS (hand-synced pair). Script loader, GAS URL config. `index.html` is what GitHub Pages actually serves. |
 | `manifest.json` | Web App Manifest (PWA installability) — name, icons, `display: standalone`. |
 | `icons/` | Home-screen icons (`icon.svg` source + generated PNGs at 16/32/180/192/512, plus maskable 192/512 variants for Android's adaptive-icon safe zone). |
 | `app.jsx` | Root `<App/>`: auth, nav rail/bottom-nav, view router, `PatientStrip`, `AlertCenter`, `AdminDashboard`, Thai date/GA formatting helpers, guidelines/formulas reference panels. |

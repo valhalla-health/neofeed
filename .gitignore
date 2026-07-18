@@ -3,3 +3,4 @@ uploads/
 dogfood/
 *.DS_Store
 Thumbs.db
+*.gs.js

@@ -1,5 +1,33 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-18 | **Status:** 🟡 LOGIN BROKEN IN PRODUCTION (config **and** code — see session below)
+**Last updated:** 2026-07-18 | **Status:** 🟢 PRODUCTION · stable — no open bugs (login confirmed working since deploy `@41`; the previous 🟡 banner here was stale, left over from the since-resolved Script Properties config issue in the 2026-07-13 sessions below)
+
+---
+
+## Session 2026-07-18 (2) — backend sync: local clasp copy + live deploy were behind `main`
+
+`~/nicu-tools/neofeed/` (the clasp-linked working copy of `gas-backend.gs`, deployed
+as the live web app) had drifted behind this repo's `main` in two ways:
+1. **Live deployment (`@42`) was three commits behind `main`** — `d778cfb`
+   (auto-provision default password) was live, but `435e09f`
+   (`backfillDefaultPasswords`) and `8dcfbf6` (Workspace-domain exclusion +
+   `clearStaffPassword`) were sitting uncommitted in the clasp working copy, never
+   pushed or deployed.
+2. **Working copy was also missing `2802e90`** — the `authMethod: "google"/"password"`
+   tag on the login response (added so the frontend can tell which auth path a
+   session came from) — this one hadn't even been copied over yet.
+
+Diffed `gas-backend.gs` (GitHub `main`) against `รหัส.js` (the clasp copy) directly to
+confirm the exact remaining delta (just the two `authMethod` lines) rather than
+re-deriving it from commit history. Applied the fix, committed in the clasp repo,
+`clasp push`ed, then `clasp deploy --deploymentId AKfycbz8Nt...` to update the
+*existing* production deployment (not a new one) — now live at `@43`. Confirmed
+`รหัส.js` byte-matches `gas-backend.gs` post-fix.
+
+**Take-away for future sessions:** the clasp working copy is not git-tracked against
+GitHub and won't auto-update — after merging backend changes to `main`, someone has to
+manually diff/copy/push/deploy from `~/nicu-tools/neofeed/`, same as this session did.
+Worth checking whenever HANDOFF says a backend fix landed on `main` but doesn't also
+say it was deployed.
 
 ---
 
@@ -420,8 +448,8 @@ all render correctly post-fix on both files.
 ---
 
 ## TLDR — read this only
-- **Canonical:** `NeoFeed.html` (React 18 CDN + Babel) — open this
-- **GAS URL:** `https://script.google.com/macros/s/AKfycby44DAIfEueeGj_XSKCyWEWmgr46WjP-vKFEGnDhZSr2_q0KdyO8O5CBxY2qqdoNkoN/exec` — currently **commented out** in `NeoFeed.html` line ~960 (sandbox uses mock data). Restore for production.
+- **Two hand-synced shells, not one canonical file:** `NeoFeed.html` is the file you edit locally; `index.html` is what GitHub Pages actually serves at the public URL (repo-root convention). Any CSS/config/script-loader change must go into **both** — see "CSS drift & reconciliation" below for the recurring-drift history. Open `NeoFeed.html` for local dev.
+- **GAS URL:** `https://script.google.com/macros/s/AKfycby44DAIfEueeGj_XSKCyWEWmgr46WjP-vKFEGnDhZSr2_q0KdyO8O5CBxY2qqdoNkoN/exec` — currently **commented out** in `NeoFeed.html` line ~960 (sandbox uses mock data; `index.html` must be checked/updated to match). Restore for production.
 - **Sheet schema CHANGED in session 8:** Daily_Log now has 16 columns (A–P). If you redeploy `gas-backend.gs`, you must add `ca | p | enVolPerKg` columns before the existing `route | status | submittedBy` cols, OR clear the sheet so the script re-creates headers.
 - **No open bugs.** Mobile-first polish done.
 - **Next (optional):** discharge workflow · drug compatibility · Buddhist calendar in Edit modals
@@ -471,7 +499,8 @@ Where `enVolPerKg` drives target picker. `pro/kcal/na/k/ca/p` are per-kg combine
 ## File inventory
 
 ```
-NeoFeed.html      App shell + all CSS (oklch design system)
+NeoFeed.html      App shell + all CSS (oklch design system) — edit this locally
+index.html        Hand-synced copy of NeoFeed.html — what GitHub Pages actually serves
 data.js           Clinical data — ESPGHAN/WHO targets + formulas + helpers (liveDol, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput)
 calculator.jsx    TPN + EN calculator (Steps 1–5) + prefill from localStorage
 app.jsx           Nav rail, patient registry routing, fmtDate (Thai BE), AlertCenter, BottomNav
