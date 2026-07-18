@@ -328,6 +328,35 @@ function onEdit(e) {
   }
 }
 
+// ── backfillDefaultPasswords — run once from Apps Script editor ─
+// onEdit above only catches *future* edits — it never fired for the batch
+// of non-Gmail rows pasted in before this trigger existed, so those 10
+// accounts (2026-07-18) are still stuck with no password_hash. One-time
+// catch-up: same logic as onEdit, applied to every existing row instead of
+// just the just-edited range. Already-provisioned/Gmail rows are untouched;
+// safe to re-run.
+function backfillDefaultPasswords() {
+  var sheet = getSheetStaff();
+  var data = sheet.getDataRange().getValues();
+  var fixed = [];
+  for (var i = 1; i < data.length; i++) {
+    var email        = String(data[i][0] || "").trim();
+    var active       = data[i][3];
+    var existingHash = String(data[i][4] || "");
+    if (!email) continue;
+    if (email.toLowerCase().indexOf("@gmail.com") !== -1) continue;
+    if (existingHash) continue;
+    if (active !== true && String(active).toUpperCase() !== "TRUE") continue;
+
+    var salt = Utilities.getUuid();
+    var hash = hashPwdV2(DEFAULT_NEW_USER_PASSWORD, salt);
+    sheet.getRange(i + 1, 5, 1, 2).setValues([[hash, salt]]);
+    fixed.push(email);
+  }
+  Logger.log("Backfilled default password for " + fixed.length + " account(s): " + fixed.join(", "));
+  return fixed;
+}
+
 // ── Sheet accessors ───────────────────────────────────────────
 function getSheetPat() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
