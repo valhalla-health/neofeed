@@ -332,6 +332,31 @@ function App() {
     }} />;
   }
 
+  // Accounts auto-provisioned with a random temp password (gas-backend.gs's
+  // onEdit/backfillDefaultPasswords) come back from login with
+  // mustChangePassword: true. Block everything else — including the GAS
+  // sync below — until they set a real password; there's no dismiss path
+  // other than logging out, since the token is already valid and would
+  // otherwise grant full access on the temp password indefinitely.
+  if (user.mustChangePassword) {
+    return (
+      <ChangePasswordModal
+        forced
+        onLogout={handleLogout}
+        onSave={async (oldPwd, newPwd) => {
+          const res = await gasPost({ action: "changePassword", oldPassword: oldPwd, newPassword: newPwd });
+          if (res.ok) {
+            const updated = { ...user, token: res.token || user.token, mustChangePassword: false };
+            sessionStorage.setItem("neofeed_session", JSON.stringify(updated));
+            setUser(updated);
+            showToast("ตั้งรหัสผ่านใหม่สำเร็จ");
+          }
+          return res;
+        }}
+      />
+    );
+  }
+
   // Block the main UI until the first GAS sync completes — prevents mock patients
   // from being visible or interactable before real patient data arrives.
   if (GAS_ON && syncState === "loading") {
@@ -869,7 +894,7 @@ const CONTACT_MAILTO = "mailto:Valhalla.team.th@gmail.com"
 // ============================================================
 // ChangePasswordModal
 // ============================================================
-function ChangePasswordModal({ onClose, onSave }) {
+function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
   const [oldPwd, setOldPwd] = React.useState("");
   const [newPwd, setNewPwd] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
@@ -881,17 +906,23 @@ function ChangePasswordModal({ onClose, onSave }) {
     if (newPwd.length < 6) return setErr("รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร");
     if (newPwd !== confirm) return setErr("รหัสผ่านใหม่ไม่ตรงกัน");
     setErr(""); setLoading(true);
-    await onSave(oldPwd, newPwd);
+    const res = await onSave(oldPwd, newPwd);
     setLoading(false);
+    if (res && res.ok === false) setErr(res.error || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={forced ? undefined : onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 340 }}>
         <div className="modal-head"><h2>เปลี่ยนรหัสผ่าน</h2></div>
         <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {forced && (
+            <div style={{ fontSize: 13, color: "var(--ink-2)", background: "var(--surface-2, #f4f6f7)", borderRadius: 8, padding: "8px 10px" }}>
+              บัญชีนี้ใช้รหัสผ่านชั่วคราว — กรุณากรอกรหัสผ่านชั่วคราวที่ได้รับ แล้วตั้งรหัสผ่านใหม่ก่อนใช้งานระบบ
+            </div>
+          )}
           <div className="field">
-            <label>รหัสผ่านเดิม</label>
+            <label>{forced ? "รหัสผ่านชั่วคราว" : "รหัสผ่านเดิม"}</label>
             <input type="password" className="inp" value={oldPwd} onChange={e => setOldPwd(e.target.value)} placeholder="••••••••" autoFocus />
           </div>
           <div className="field">
@@ -905,7 +936,9 @@ function ChangePasswordModal({ onClose, onSave }) {
           {err && <div style={{ color: "var(--red, #c0392b)", fontSize: 13 }}>{err}</div>}
         </div>
         <div className="modal-foot">
-          <button className="btn" onClick={onClose}>ยกเลิก</button>
+          {forced
+            ? <button className="btn" onClick={onLogout}>ออกจากระบบ</button>
+            : <button className="btn" onClick={onClose}>ยกเลิก</button>}
           <button className="btn primary" onClick={handleSubmit} disabled={loading}>
             {loading ? "กำลังบันทึก…" : "บันทึก"}
           </button>
@@ -941,7 +974,7 @@ function LoginScreen({ onLogin }) {
             });
             const data = await res.json();
             if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
-            onLogin({ name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod });
+            onLogin({ name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword });
           } catch (err) { setError(err.message); setLoading(false); }
         },
       });
@@ -972,7 +1005,7 @@ function LoginScreen({ onLogin }) {
       });
       const data = await res.json();
       if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
-      onLogin({ name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod });
+      onLogin({ name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword });
     } catch (err) { setError(err.message); setLoading(false); }
   };
 

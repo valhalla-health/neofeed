@@ -108,7 +108,10 @@ any device.
 - **`Daily_Log`** (A–AB): `ts | sessionId | dol | weight | fluid | gir | pro |
   kcal | na | k | ca | p | enVolPerKg | route | status | submittedBy |
   supp* fields | calcInputJson | entryId | lastModified | lastModifiedBy`
-- **`Staff`** (A–F): `email | role | name | active | password_hash | salt`
+- **`Staff`** (A–H): `email | role | name | active | password_hash | salt |
+  must_change_password | temp_password` — the last two only ever hold a
+  value for an account mid-provisioning (see §4); blank for every normal
+  established account.
 - **`Audit_Log`** (A–D): `ts | action | sessionId | actorEmail` — accountability
   trail since Apps Script's own execution log expires after 7 days.
 
@@ -139,6 +142,25 @@ Hybrid, handled entirely in `gas-backend.gs`:
   `setInitialPassword("email","pwd")` run once from the Apps Script editor.
   Legacy single-round-SHA-256 hashes (`hashPwdLegacy`) still verify and are
   transparently upgraded to v2 on next successful login.
+- **New non-Gmail staff rows** don't need `setInitialPassword` run by hand:
+  an `onEdit` simple trigger (`autoProvisionStaffPassword`) fires the moment
+  a row is saved with an email but no `password_hash`, generates a random
+  ~40-bit temp password (`_genTempPassword()`), and writes it to Staff col H
+  (`temp_password`) for whoever added the row to relay to the new staff
+  member, plus sets col G (`must_change_password`) so `login()` reports
+  `mustChangePassword: true`. `app.jsx` gates on that right after the login
+  screen with a non-dismissible `ChangePasswordModal` (no Cancel, backdrop
+  click is inert, only escape hatch is logout) — the rest of the app,
+  including the GAS patient sync, is blocked until a real password is set.
+  A successful change clears cols G/H. Google/Workspace domains
+  (`GOOGLE_WORKSPACE_DOMAINS`, currently just `chula.ac.th`) are excluded —
+  `clearStaffPassword(email)` undoes it if one picks up a temp password
+  anyway. **Don't reintroduce a single shared constant here** — an earlier
+  same-day version of this trigger used one hardcoded password for every
+  new account, which is a standing vulnerability in a no-build-step repo
+  (every non-secret file is effectively public — see `SECURITY_CHECKLIST.md`),
+  not just a weak default; see `HANDOFF.md`'s 2026-07-18 session for why it
+  was replaced with the per-account random + forced-change flow above.
 
 Both paths issue a `CacheService` session token with a 6h sliding TTL — the
 hard max `CacheService.put()` allows (`app.jsx` handles the sliding-window
