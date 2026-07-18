@@ -14,7 +14,12 @@
 //   2. Tabs auto-created: Patient_Registry, Daily_Log, Staff
 //   3. Staff tab (A–F): email | role | name | active | password_hash | salt
 //      Gmail users: leave cols E–F blank (password not used)
-//      Non-Gmail:   run setInitialPassword("email","pwd") from Apps Script editor
+//      Non-Gmail:   leave cols E–F blank when adding the row — the onEdit
+//        trigger below (autoProvisionStaffPassword) fills in a default
+//        password (DEFAULT_NEW_USER_PASSWORD) automatically as soon as the
+//        row is saved. Staff change it themselves afterward via the app's
+//        "เปลี่ยนรหัสผ่าน" menu. To set a specific password instead, run
+//        setInitialPassword("email","pwd") from the Apps Script editor.
 //   4. Deploy → Web app · Execute as: Me · Access: Anyone
 //   5. Copy URL → NeoFeed.html window.NEOFEED_GAS_URL
 //
@@ -268,6 +273,58 @@ function setInitialPassword(email, password) {
   } else {
     sh.appendRow([email, "doctor", email.split("@")[0], true, hash, salt]);
     Logger.log("Staff added with password: " + email);
+  }
+}
+
+// ── autoProvisionStaffPassword — simple onEdit trigger ─────────
+// 2026-07-18: pasting a batch of new non-Gmail staff rows straight into the
+// Staff tab (the normal workflow) left them with blank password_hash/salt —
+// setInitialPassword() was documented as a required manual follow-up step
+// per email, easy to forget, and 10 accounts silently couldn't log in until
+// it was run by hand. This trigger does that step automatically: the moment
+// a non-Gmail row is saved with an email but no password_hash yet, it
+// backfills a default password so the account is usable immediately. Gmail
+// rows (no password by design) and rows that already have a hash are left
+// alone — this only ever fills a blank, never overwrites a real password a
+// user has since set for themselves via "เปลี่ยนรหัสผ่าน".
+//
+// `onEdit` is a *simple* trigger (the reserved name is enough — no manual
+// trigger installation needed), which runs under restricted authorization.
+// That's sufficient here since it only touches the spreadsheet it's bound to
+// via SpreadsheetApp/Utilities; it does not need Script Properties, email,
+// or UrlFetchApp. It fires only for edits made directly in the Sheets UI
+// (typing or pasting), not for edits made via the Sheets API or another
+// script — which covers the normal way staff rows get added.
+var DEFAULT_NEW_USER_PASSWORD = "nicunicu";
+
+function onEdit(e) {
+  try {
+    if (!e || !e.range) return;
+    var sheet = e.range.getSheet();
+    if (sheet.getName() !== "Staff") return;
+
+    var firstRow = e.range.getRow();
+    var startRow = Math.max(firstRow, 2); // skip the header row
+    var lastRow  = firstRow + e.range.getNumRows() - 1;
+    if (startRow > lastRow) return;
+
+    for (var r = startRow; r <= lastRow; r++) {
+      var row = sheet.getRange(r, 1, 1, 6).getValues()[0]; // A–F
+      var email        = String(row[0] || "").trim();
+      var active       = row[3];
+      var existingHash = String(row[4] || "");
+      if (!email) continue;
+      if (email.toLowerCase().indexOf("@gmail.com") !== -1) continue; // Google Sign-In — no password
+      if (existingHash) continue; // already has a password — never overwrite
+      if (active !== true && String(active).toUpperCase() !== "TRUE") continue; // row not active yet
+
+      var salt = Utilities.getUuid();
+      var hash = hashPwdV2(DEFAULT_NEW_USER_PASSWORD, salt);
+      sheet.getRange(r, 5, 1, 2).setValues([[hash, salt]]);
+      Logger.log("Auto-provisioned default password for: " + email);
+    }
+  } catch (err) {
+    Logger.log("onEdit auto-provision failed: " + err.message);
   }
 }
 
