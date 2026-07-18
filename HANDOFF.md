@@ -1,5 +1,59 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-13 | **Status:** 🟡 LOGIN BROKEN IN PRODUCTION (config **and** code — see session below)
+**Last updated:** 2026-07-18 | **Status:** 🟡 LOGIN BROKEN IN PRODUCTION (config **and** code — see session below)
+
+---
+
+## Session 2026-07-18 — debug pass: Alert-count drift + colgroup DOM warning (branch `claude/neofeed-debug-9arm-wvrssf`)
+
+Applied a reproduce-first debugging pass (no specific bug report — drove the
+app end-to-end via a local Playwright rig against vendored React/Babel and
+mock data, `unpkg.com` blocked from this environment same as prior sessions,
+`registry.npmjs.org` reachable so React/ReactDOM/Babel were vendored via
+`npm install --no-save` instead). Found and fixed two reproducible bugs by
+watching the live app, not just reading the diff:
+
+1. **Nav-rail "Alerts" badge under-counted the Alerts page by 1, always.**
+   `app.jsx` had **three independent, hand-copied implementations** of "how
+   many alerts does this patient have" — the `AlertCenter` page's own
+   builder, the `alertCount` `useMemo` driving the nav-rail/bottom-nav badge,
+   and `AdminDashboard`'s "Active alerts" tile — and they'd drifted out of
+   sync (the badge memo predates the page's `electrolyte-audit` info alert,
+   added later only to the page; the admin tile was missing growth-velocity,
+   weight-stale, *and* electrolyte-audit entirely, undercounting by up to 3).
+   Concretely reproducible: on the seeded mock patient, the sidebar showed
+   "Alerts 2" while opening the page showed "3 active · 3 total" — confirmed
+   by acknowledging just the electrolyte-audit alert and watching the page
+   count drop 3→2 while the badge stayed at 2 throughout (proof the badge
+   never counted it). Fixed by extracting one shared `computeAlerts(patient,
+   entries)` (full alert list) + `activeAlertCount(patient, entries)`
+   (unacked count) near the top of `app.jsx`, and switching all three call
+   sites to use them. Verified: badge, page header, and (by code, same
+   helper) the admin tile now agree by construction — the old inline copies
+   are gone, so they can't drift again silently.
+2. **React DOM-nesting warning on the Patients table** (`registry.jsx`):
+   `<colgroup>` had `<col ... /> {/* comment */}` on each line — the same-line
+   trailing whitespace before each `{/* ... */}` compiled to whitespace text
+   nodes as children of `<colgroup>`, which the DOM spec doesn't allow there.
+   Cosmetic (browsers silently drop it) but a real, reproducible console
+   warning on every Patients-page load. Moved each comment to its own line
+   above the `<col>` it describes — no more inline trailing whitespace, no
+   more text-node children of `<colgroup>`. Verified clean in the console
+   after the fix.
+
+Cache-busting `?v=` bumped for `app.jsx` and `registry.jsx` in **both**
+`NeoFeed.html` and `index.html` per the existing convention (see
+`app-walkthrough.md` §7) — no CSS changed this session, so no `<style>`
+reconciliation needed.
+
+**Not investigated further, flagged only:** `fenton.jsx` labels the growth
+chart "Fenton 2025" / cites "Fenton TR, Elmrayed S, Alshaikh BN, PMID
+40534585", while `app-walkthrough.md` (now corrected) and prior HANDOFF
+entries describe it as "Fenton 2013." This has been the label since the
+chart's original commit (`ccaefc6`, 2026-05-28) — not new drift — but nobody
+in this project's history appears to have verified the citation/percentile
+data against a real 2025 Fenton revision vs. just carrying a mislabeled 2013
+dataset forward. Needs a clinician/citation check, not a code fix; flagging
+so a future session doesn't assume it's already verified.
 
 ---
 
