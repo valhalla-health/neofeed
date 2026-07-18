@@ -3,7 +3,7 @@
 NeoFeed is a bedside nutrition-management tool for NICU (neonatal intensive
 care) staff at KCMH. It replaces manual TPN/EN (total parenteral / enteral
 nutrition) calculation sheets with a guided calculator, tracks each infant's
-daily nutrition log, and plots growth against Fenton 2013 preterm growth
+daily nutrition log, and plots growth against Fenton 2025 preterm growth
 curves. There is no build step — it's plain React 18 + Babel loaded from a
 CDN, deployed as static files, backed by a Google Apps Script + Google
 Sheets "backend."
@@ -43,7 +43,7 @@ across a refresh.
 | `data.js` | Pure clinical data + helpers — ESPGHAN/WHO nutrition targets, feed/formula database, `liveDol`, `fmtGA`/`parseGAInput`/`gaToDecimalWeeks`, mock patients/log for offline dev. |
 | `calculator.jsx` | The TPN + EN calculator — a 6-step wizard producing one Daily_Log entry. |
 | `log.jsx` | Daily nutrition log view + `TrendGraph` (per-metric trend chart with PN/EN target bands). |
-| `fenton.jsx` | Fenton 2013 growth chart (weight/length/HC vs. PMA) + `MeasurementLogger`. |
+| `fenton.jsx` | Fenton 2025 growth chart (weight/length/HC vs. PMA) + `MeasurementLogger`. |
 | `registry.jsx` | Patient registry — desktop table / mobile card list, add/edit patient. |
 | `icons.jsx` | Small inline SVG icon set used everywhere via `<Icon name=.../>`. |
 | `tweaks-panel.jsx` | Dev-only UI customization panel (design tokens), not part of the clinical workflow. |
@@ -187,7 +187,7 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    `localStorage["neofeed_calc_<sessionId>"]` on submit/draft and restored
    on patient switch with a "Prefilled from previous submission (DOL X)"
    banner. Submitting writes one row to `Daily_Log`.
-4. **Growth chart** (`fenton.jsx`) — Fenton 2013 percentile curves for
+4. **Growth chart** (`fenton.jsx`) — Fenton 2025 percentile curves for
    weight/length/HC vs. PMA, plus `MeasurementLogger` to add new
    measurements. Uses `D.gaToDecimalWeeks` for the true decimal x-axis.
 5. **Alerts** (`AlertCenter` in `app.jsx`) — flags things like stale weight

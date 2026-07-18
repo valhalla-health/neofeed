@@ -195,17 +195,28 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
       <div className="card patient-table">
         <table className="tbl" style={{ tableLayout: "fixed", width: "100%" }}>
           <colgroup>
-            <col style={{ width: 90 }} />   {/* Bed */}
-            <col style={{ width: 68 }} />   {/* Name */}
-            <col style={{ width: 62 }} />   {/* GA */}
-            <col style={{ width: 62 }} />   {/* PCA */}
-            <col style={{ width: 68 }} />   {/* BW */}
-            <col />                          {/* Diagnosis — flex */}
-            <col style={{ width: 48 }} />   {/* DOL */}
-            <col style={{ width: 78 }} />   {/* Current wt */}
-            <col style={{ width: 108 }} />  {/* Δ */}
-            <col style={{ width: 90 }} />   {/* Status */}
-            <col style={{ width: 150 }} />  {/* Actions */}
+            {/* Bed */}
+            <col style={{ width: 90 }} />
+            {/* Name */}
+            <col style={{ width: 68 }} />
+            {/* GA */}
+            <col style={{ width: 62 }} />
+            {/* PCA */}
+            <col style={{ width: 62 }} />
+            {/* BW */}
+            <col style={{ width: 68 }} />
+            {/* Diagnosis — flex */}
+            <col />
+            {/* DOL */}
+            <col style={{ width: 48 }} />
+            {/* Current wt */}
+            <col style={{ width: 78 }} />
+            {/* Δ */}
+            <col style={{ width: 108 }} />
+            {/* Status */}
+            <col style={{ width: 90 }} />
+            {/* Actions */}
+            <col style={{ width: 150 }} />
           </colgroup>
           <thead>
             <tr>
