@@ -892,7 +892,7 @@ function ChangePasswordModal({ onClose, onSave }) {
         <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="field">
             <label>รหัสผ่านเดิม</label>
-            <input type="password" className="inp" value={oldPwd} onChange={e => setOldPwd(e.target.value)} placeholder="••••••••" />
+            <input type="password" className="inp" value={oldPwd} onChange={e => setOldPwd(e.target.value)} placeholder="••••••••" autoFocus />
           </div>
           <div className="field">
             <label>รหัสผ่านใหม่ <span className="unit">(อย่างน้อย 6 ตัว)</span></label>
