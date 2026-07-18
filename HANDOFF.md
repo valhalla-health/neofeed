@@ -1,9 +1,9 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-18 | **Status:** 🟢 PRODUCTION · stable — no open bugs (login confirmed working since deploy `@41`; the previous 🟡 banner here was stale, left over from the since-resolved Script Properties config issue in the 2026-07-13 sessions below)
+**Last updated:** 2026-07-18 | **Status:** 🟡 production is live on deploy `@43` with a real gap — every new non-Gmail staff row still gets the same hardcoded password (`"nicunicu"`) with no forced change (see "Session 2026-07-18 (2)" below for why, and the fix). Source fix (random per-account password + forced change flow) is ready on this branch but **not yet deployed** — needs `clasp push`+`clasp deploy` same as every other source-only session below. The previous 🟢/🟡 banners here were about the now-resolved Script Properties config issue from 2026-07-13; that one really is fixed, this is a separate, newer issue.
 
 ---
 
-## Session 2026-07-18 (2) — backend sync: local clasp copy + live deploy were behind `main`
+## Session 2026-07-18 (4) — backend sync: local clasp copy + live deploy were behind `main`
 
 `~/nicu-tools/neofeed/` (the clasp-linked working copy of `gas-backend.gs`, deployed
 as the live web app) had drifted behind this repo's `main` in two ways:
@@ -31,7 +31,7 @@ say it was deployed.
 
 ---
 
-## Session 2026-07-18 — debug pass: Alert-count drift + colgroup DOM warning (branch `claude/neofeed-debug-9arm-wvrssf`)
+## Session 2026-07-18 (3) — debug pass: Alert-count drift + colgroup DOM warning (branch `claude/neofeed-debug-9arm-wvrssf`)
 
 Applied a reproduce-first debugging pass (no specific bug report — drove the
 app end-to-end via a local Playwright rig against vendored React/Babel and
@@ -82,6 +82,92 @@ in this project's history appears to have verified the citation/percentile
 data against a real 2025 Fenton revision vs. just carrying a mislabeled 2013
 dataset forward. Needs a clinician/citation check, not a code fix; flagging
 so a future session doesn't assume it's already verified.
+
+---
+
+## Session 2026-07-18 (2) — walkthrough/scrutinize/verify pass, fixed shared default password (branch `claude/app-walkthrough-verify-hxzivt`)
+
+Prompted by "walkthrough, scrutinize and verify this app" — re-verified every
+fix claimed in earlier sessions against current code (all held up: TTL,
+lockout, `_numSafe`/`_sheetSafe`, Google token verification, `doGet`
+trimming, the `dol1` crash fix, negative-value validation, `lastWeighed()`
+usage, GA/PMA math). Found one new, real, currently-deployed issue introduced
+by the session below, same day:
+
+**Critical — shared hardcoded default password for auto-provisioned staff.**
+`gas-backend.gs`'s new `onEdit`/`backfillDefaultPasswords` (added by the
+session below, same morning, and confirmed live in production at deploy
+`@42`/`@43` by Session (4) above) set every new non-Gmail Staff row to one
+constant, `DEFAULT_NEW_USER_PASSWORD = "nicunicu"`, with nothing forcing a
+change afterward — `login()` returned `status: "ok"` for it exactly like any
+real password. Since this repo has no build step, that string is public and
+permanently recoverable from git history (same class of leak already flagged
+for `SPREADSHEET_ID`), except this one is a live login credential for any
+role including admin, not just an internal pointer. 10 real staff accounts
+were already provisioned with it before this was caught — and, per Session
+(4) above, this trigger really was deployed live, so this wasn't just a
+theoretical source-only gap.
+
+Fixed, at the user's request ("random per-user password + forced change
+flow"):
+- `_genTempPassword()` generates a random ~40-bit temp password per account
+  (`Utilities.getUuid()`-derived) instead of reusing one constant.
+- Staff sheet gains cols G/H: `must_change_password` (bool) and
+  `temp_password` (plaintext, write-once handoff value for whoever added the
+  row to relay to the new staff member). Both auto-clear the moment the
+  account's password is actually changed.
+- `login()`'s password path now returns `mustChangePassword` from col G;
+  `app.jsx` gates on it right after the login screen — full-screen forced
+  `ChangePasswordModal` (no Cancel, backdrop click does nothing, only
+  escape hatch is "ออกจากระบบ"/logout) blocks everything else, including the
+  GAS patient sync, until a real password is set.
+- `setInitialPassword`/`clearStaffPassword` updated to also touch cols G/H
+  so they can't leave stale forced-change state behind.
+
+Verified end-to-end with a local Playwright rig (vendored React/ReactDOM/
+Babel via `npm install` — `registry.npmjs.org` is reachable from this
+environment even though `unpkg.com` is proxy-blocked like prior sessions
+noted — served over `http://127.0.0.1` since `file://` origin can't load the
+Babel-transpiled `.jsx` via XHR) against a mocked GAS backend: forced modal
+appears after a mustChangePassword:true login, backdrop click and Cancel are
+both absent/inert, a wrong temp password shows an error and keeps the gate
+up, and a correct temp password + valid new password clears it and drops
+into the normal app. This test run caught a real bug before it shipped: the
+first pass of this fix used an `Edit` `replace_all` that silently only
+updated the Google login path's `onLogin(...)` call, not the email/password
+path's — i.e. the exact path real (non-Gmail) staff use, which would have
+made the whole fix a no-op for the accounts it was meant to protect. Fixed
+by patching that call site directly and re-running the same test.
+
+**Still needs (same as every source-only change to this file):** someone
+with Apps Script editor access must `clasp push && clasp deploy` (or paste
+`gas-backend.gs` into the editor) against the live project before this takes
+effect — this one is more urgent than most: production is confirmed live
+with the vulnerable version (Session (4) above deployed it to `@42`/`@43`),
+not just carrying an unshipped source fix. None of the 10 already-
+provisioned accounts benefit until redeployed — they're still sitting on
+the shared `"nicunicu"` password with no forced change in the meantime.
+Cache-bust tag for `app.jsx` merged with Session (3)'s bump into
+`app.jsx?v=alert-fix-pwdchange1` in both `NeoFeed.html`/`index.html`.
+
+---
+
+## Session 2026-07-18 — auto-provision default password for new Staff rows (undocumented here until now, see above)
+
+Not written up in this file when it happened — reconstructed from git log
+for continuity. Commits `d778cfb`/`435e09f`/`8dcfbf6`: pasting a batch of 10
+new non-Gmail staff rows into the Staff tab left them with no
+`password_hash`, so added an `onEdit` trigger + one-time
+`backfillDefaultPasswords()` to auto-fill a password (originally one shared
+hardcoded default) as soon as such a row is saved, plus
+`GOOGLE_WORKSPACE_DOMAINS`/`clearStaffPassword()` to stop Workspace-domain
+accounts (e.g. `chula.ac.th`) from picking one up. Also redeployed
+`gas-backend.gs` live, bringing the TTL/lockout hardening from the
+2026-07-13(2) session below into production for the first time (it had only
+been merged to `main`, never actually pushed to Apps Script, until this
+commit's message says so). **The shared-default-password part of this was a
+real vulnerability, fixed by Session 2026-07-18 (2) above — if you're
+reading this session in isolation, read that one too.**
 
 ---
 

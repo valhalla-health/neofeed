@@ -12,14 +12,22 @@
 //      from the Apps Script editor — this writes both into Script
 //      Properties instead of hardcoding them in source (see "Config" below).
 //   2. Tabs auto-created: Patient_Registry, Daily_Log, Staff
-//   3. Staff tab (A–F): email | role | name | active | password_hash | salt
-//      Gmail users: leave cols E–F blank (password not used)
-//      Non-Gmail:   leave cols E–F blank when adding the row — the onEdit
-//        trigger below (autoProvisionStaffPassword) fills in a default
-//        password (DEFAULT_NEW_USER_PASSWORD) automatically as soon as the
-//        row is saved. Staff change it themselves afterward via the app's
-//        "เปลี่ยนรหัสผ่าน" menu. To set a specific password instead, run
-//        setInitialPassword("email","pwd") from the Apps Script editor.
+//   3. Staff tab (A–H): email | role | name | active | password_hash | salt |
+//      must_change_password | temp_password
+//      Gmail/Workspace users: leave cols E–H blank (password not used)
+//      Non-Gmail:   leave cols E–H blank when adding the row — the onEdit
+//        trigger below (autoProvisionStaffPassword) generates a random
+//        per-account temp password the moment the row is saved, sets
+//        must_change_password=TRUE, and stamps the plaintext into col H
+//        (temp_password) so whoever added the row can read it back and hand
+//        it to the new staff member — see the comment above onEdit() for why
+//        this replaced a single shared hardcoded default. login() reports
+//        must_change_password back to the client, which forces the change-
+//        password screen (can't be dismissed/skipped) before anything else
+//        loads; a successful change clears both must_change_password and
+//        temp_password. To set a specific password instead (no forced
+//        change), run setInitialPassword("email","pwd") from the Apps
+//        Script editor.
 //   4. Deploy → Web app · Execute as: Me · Access: Anyone
 //   5. Copy URL → NeoFeed.html window.NEOFEED_GAS_URL
 //
@@ -32,7 +40,11 @@
 //   and edited exactly as entered, from any device, not just the one that
 //   created it. entryId is the stable key updateDailyNutrition() matches on;
 //   lastModified/lastModifiedBy back the optimistic-concurrency check there.)
-// Staff (A–F): email | role | name | active | password_hash | salt
+// Staff (A–H): email | role | name | active | password_hash | salt |
+//   must_change_password | temp_password
+//   (must_change_password/temp_password only ever hold a value for accounts
+//   mid-provisioning — see autoProvisionStaffPassword below; both are blank
+//   for a normal established account.)
 // Audit_Log (A–D): ts | action | sessionId | actorEmail
 //   (accountability trail for PDPA-relevant actions — registry reads,
 //   erasures — since Apps Script's own execution log expires after 7 days)
@@ -243,7 +255,7 @@ function getSheetStaff() {
   var sh = ss.getSheetByName("Staff");
   if (!sh) {
     sh = ss.insertSheet("Staff");
-    sh.appendRow(["email", "role", "name", "active", "password_hash", "salt"]);
+    sh.appendRow(["email", "role", "name", "active", "password_hash", "salt", "must_change_password", "temp_password"]);
   }
   return sh;
 }
@@ -267,26 +279,31 @@ function setInitialPassword(email, password) {
   var found = getStaffRow(email);
   var salt = Utilities.getUuid();
   var hash = hashPwdV2(password, salt);
+  // Cols G/H (must_change_password/temp_password) cleared here too: an admin
+  // explicitly choosing a password out-of-band supersedes any pending forced-
+  // change state from auto-provisioning (e.g. re-running this after the temp
+  // password already leaked/was mistyped to the wrong person).
   if (found) {
-    sh.getRange(found.row, 5, 1, 2).setValues([[hash, salt]]);
+    sh.getRange(found.row, 5, 1, 4).setValues([[hash, salt, false, ""]]);
     Logger.log("Password updated for: " + email);
   } else {
-    sh.appendRow([email, "doctor", email.split("@")[0], true, hash, salt]);
+    sh.appendRow([email, "doctor", email.split("@")[0], true, hash, salt, false, ""]);
     Logger.log("Staff added with password: " + email);
   }
 }
 
 // ── clearStaffPassword — run from Apps Script editor ──────────
 // Usage: clearStaffPassword("user@chula.ac.th")
-// Clears password_hash/salt (cols E-F) back to blank — for an account that
-// signs in via Google/Workspace and shouldn't have a password fallback, but
-// picked one up anyway (e.g. via backfillDefaultPasswords, which can't tell
-// "Workspace-enabled custom domain" apart from "non-Gmail, needs a password"
-// — both just look like "not @gmail.com").
+// Clears password_hash/salt/must_change_password/temp_password (cols E-H)
+// back to blank — for an account that signs in via Google/Workspace and
+// shouldn't have a password fallback, but picked one up anyway (e.g. via
+// backfillDefaultPasswords, which can't tell "Workspace-enabled custom
+// domain" apart from "non-Gmail, needs a password" — both just look like
+// "not @gmail.com").
 function clearStaffPassword(email) {
   var found = getStaffRow(email);
   if (!found) { Logger.log("No Staff row found for: " + email); return; }
-  getSheetStaff().getRange(found.row, 5, 1, 2).clearContent();
+  getSheetStaff().getRange(found.row, 5, 1, 4).clearContent();
   Logger.log("Cleared password for: " + email);
 }
 
@@ -297,10 +314,30 @@ function clearStaffPassword(email) {
 // per email, easy to forget, and 10 accounts silently couldn't log in until
 // it was run by hand. This trigger does that step automatically: the moment
 // a non-Gmail row is saved with an email but no password_hash yet, it
-// backfills a default password so the account is usable immediately. Gmail
-// rows (no password by design) and rows that already have a hash are left
-// alone — this only ever fills a blank, never overwrites a real password a
-// user has since set for themselves via "เปลี่ยนรหัสผ่าน".
+// provisions the account so it's usable immediately. Gmail/Workspace rows
+// (no password by design) and rows that already have a hash are left alone —
+// this only ever fills a blank, never overwrites a real password a user has
+// since set for themselves via "เปลี่ยนรหัสผ่าน".
+//
+// 2026-07-18, same day, second pass: the first version of this trigger used
+// one hardcoded shared password (DEFAULT_NEW_USER_PASSWORD = "nicunicu") for
+// every auto-provisioned account. That's a standing vulnerability, not just
+// a weak default — the app has no build step (app-walkthrough.md §7), so
+// every non-secret file including this one is effectively public, and unlike
+// SPREADSHEET_ID (which only needed to stop being a literal going forward)
+// a *login credential* baked into source stays a working skeleton key for
+// every future account until someone remembers to change it, with no
+// mechanism forcing that to happen. Fixed by generating a random password
+// per account (_genTempPassword) instead of reusing a constant, and by
+// having login() report must_change_password so the client can force a
+// change before granting any access — see login()'s Path B and app.jsx's
+// post-login gate. The plaintext is stamped into col H (temp_password) only
+// long enough for whoever added the row to relay it to the new staff member;
+// it's cleared automatically the moment that person successfully changes it
+// (see changePassword below), and it's no more exposed in the interim than
+// password_hash/salt already are — Staff-tab access is the trust boundary
+// here (HANDOFF.md's PDPA notes: Sheet ACLs, not obscurity, are what has to
+// hold), same as it always was for those columns.
 //
 // `onEdit` is a *simple* trigger (the reserved name is enough — no manual
 // trigger installation needed), which runs under restricted authorization.
@@ -309,7 +346,15 @@ function clearStaffPassword(email) {
 // or UrlFetchApp. It fires only for edits made directly in the Sheets UI
 // (typing or pasting), not for edits made via the Sheets API or another
 // script — which covers the normal way staff rows get added.
-var DEFAULT_NEW_USER_PASSWORD = "nicunicu";
+function _genTempPassword() {
+  // Utilities.getUuid() is a random (v4) UUID — 122 bits of entropy. 10 hex
+  // chars off it (~40 bits) is already far past what a 5-attempt/15-min
+  // lockout (_lockoutStatus) needs to make guessing infeasible, and short
+  // enough for an admin to read aloud/retype when handing it off. This is a
+  // use-once value the recipient is forced to replace on first login, not a
+  // long-lived credential, so it doesn't need password-grade length.
+  return Utilities.getUuid().replace(/-/g, "").slice(0, 10);
+}
 
 // Domains that authenticate via Google Sign-In despite not being gmail.com —
 // e.g. Google Workspace on a custom domain. These never get a password_hash,
@@ -337,7 +382,7 @@ function onEdit(e) {
     if (startRow > lastRow) return;
 
     for (var r = startRow; r <= lastRow; r++) {
-      var row = sheet.getRange(r, 1, 1, 6).getValues()[0]; // A–F
+      var row = sheet.getRange(r, 1, 1, 6).getValues()[0]; // A–F (G/H not needed to decide)
       var email        = String(row[0] || "").trim();
       var active       = row[3];
       var existingHash = String(row[4] || "");
@@ -346,10 +391,11 @@ function onEdit(e) {
       if (existingHash) continue; // already has a password — never overwrite
       if (active !== true && String(active).toUpperCase() !== "TRUE") continue; // row not active yet
 
+      var pwd  = _genTempPassword();
       var salt = Utilities.getUuid();
-      var hash = hashPwdV2(DEFAULT_NEW_USER_PASSWORD, salt);
-      sheet.getRange(r, 5, 1, 2).setValues([[hash, salt]]);
-      Logger.log("Auto-provisioned default password for: " + email);
+      var hash = hashPwdV2(pwd, salt);
+      sheet.getRange(r, 5, 1, 4).setValues([[hash, salt, true, pwd]]);
+      Logger.log("Auto-provisioned temp password for: " + email + " (forced change on first login)");
     }
   } catch (err) {
     Logger.log("onEdit auto-provision failed: " + err.message);
@@ -362,7 +408,9 @@ function onEdit(e) {
 // accounts (2026-07-18) are still stuck with no password_hash. One-time
 // catch-up: same logic as onEdit, applied to every existing row instead of
 // just the just-edited range. Already-provisioned/Gmail rows are untouched;
-// safe to re-run.
+// safe to re-run. Kept its original name for continuity with the Staff-tab
+// comment/HANDOFF references from earlier the same day, even though it now
+// generates a random per-account password rather than one shared default.
 function backfillDefaultPasswords() {
   var sheet = getSheetStaff();
   var data = sheet.getDataRange().getValues();
@@ -376,12 +424,13 @@ function backfillDefaultPasswords() {
     if (existingHash) continue;
     if (active !== true && String(active).toUpperCase() !== "TRUE") continue;
 
+    var pwd  = _genTempPassword();
     var salt = Utilities.getUuid();
-    var hash = hashPwdV2(DEFAULT_NEW_USER_PASSWORD, salt);
-    sheet.getRange(i + 1, 5, 1, 2).setValues([[hash, salt]]);
-    fixed.push(email);
+    var hash = hashPwdV2(pwd, salt);
+    sheet.getRange(i + 1, 5, 1, 4).setValues([[hash, salt, true, pwd]]);
+    fixed.push(email + " (temp: " + pwd + ")");
   }
-  Logger.log("Backfilled default password for " + fixed.length + " account(s): " + fixed.join(", "));
+  Logger.log("Backfilled temp password for " + fixed.length + " account(s): " + fixed.join(", "));
   return fixed;
 }
 
@@ -479,7 +528,10 @@ function doPost(e) {
         role = String(gd[1] || "doctor");
         name = String(gd[2] || email);
         var tok = createSession(email, role, name);
-        return jsonOut({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google" });
+        // Google/Workspace accounts never go through the password-provisioning
+        // path (_usesGoogleSignIn excludes them in onEdit/backfillDefaultPasswords),
+        // so there's nothing to force here — always false.
+        return jsonOut({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google", mustChangePassword: false });
       }
 
       // Path B: email + password (non-Google accounts)
@@ -519,7 +571,11 @@ function doPost(e) {
       role = String(d[1] || "doctor");
       name = String(d[2] || email);
       var token = createSession(email, role, name);
-      return jsonOut({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password" });
+      // must_change_password (col G): set TRUE by auto-provisioning when this
+      // account got a random temp password instead of one the user chose —
+      // the client forces the change-password screen until this clears.
+      var mustChange = (d[6] === true || String(d[6] || "").toUpperCase() === "TRUE");
+      return jsonOut({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password", mustChangePassword: mustChange });
     }
 
     // ── all other actions require valid session token ──────────
@@ -575,14 +631,18 @@ function doPost(e) {
       _clearLockout(pwdChgKey);
       var newSalt = Utilities.getUuid();
       var newHash = hashPwdV2(newPwd, newSalt);
-      getSheetStaff().getRange(sf.row, 5, 1, 2).setValues([[newHash, newSalt]]);
+      // Clears must_change_password/temp_password (cols G/H) in the same
+      // write — a successful change always resolves any pending forced-
+      // change state, whether this call came from the normal "เปลี่ยนรหัสผ่าน"
+      // menu or from the forced first-login screen.
+      getSheetStaff().getRange(sf.row, 5, 1, 4).setValues([[newHash, newSalt, false, ""]]);
       // Bump the session epoch so every OTHER token issued for this user
       // (e.g. one that leaked, or is sitting on a shared NICU workstation)
       // is invalidated immediately — verifyToken() checks epoch on every
       // call. Re-issue a fresh token so *this* device stays logged in.
       bumpUserEpoch(user.email);
       var rotatedToken = createSession(user.email, user.role, user.name);
-      return jsonOut({ ok: true, token: rotatedToken });
+      return jsonOut({ ok: true, token: rotatedToken, mustChangePassword: false });
     }
     if (action === "pseudonymizePatient") {
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
