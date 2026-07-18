@@ -276,6 +276,20 @@ function setInitialPassword(email, password) {
   }
 }
 
+// ── clearStaffPassword — run from Apps Script editor ──────────
+// Usage: clearStaffPassword("user@chula.ac.th")
+// Clears password_hash/salt (cols E-F) back to blank — for an account that
+// signs in via Google/Workspace and shouldn't have a password fallback, but
+// picked one up anyway (e.g. via backfillDefaultPasswords, which can't tell
+// "Workspace-enabled custom domain" apart from "non-Gmail, needs a password"
+// — both just look like "not @gmail.com").
+function clearStaffPassword(email) {
+  var found = getStaffRow(email);
+  if (!found) { Logger.log("No Staff row found for: " + email); return; }
+  getSheetStaff().getRange(found.row, 5, 1, 2).clearContent();
+  Logger.log("Cleared password for: " + email);
+}
+
 // ── autoProvisionStaffPassword — simple onEdit trigger ─────────
 // 2026-07-18: pasting a batch of new non-Gmail staff rows straight into the
 // Staff tab (the normal workflow) left them with blank password_hash/salt —
@@ -297,6 +311,20 @@ function setInitialPassword(email, password) {
 // script — which covers the normal way staff rows get added.
 var DEFAULT_NEW_USER_PASSWORD = "nicunicu";
 
+// Domains that authenticate via Google Sign-In despite not being gmail.com —
+// e.g. Google Workspace on a custom domain. These never get a password_hash,
+// same as gmail.com. 2026-07-18: peeraporn.po@chula.ac.th picked up a
+// default password from backfillDefaultPasswords because "not @gmail.com"
+// isn't the same test as "doesn't use Google Sign-In" — chula.ac.th is
+// Workspace-enabled. Add a domain here (lowercase, no @) if the same
+// happens for another one; use clearStaffPassword(email) to undo it for an
+// account that already got one.
+var GOOGLE_WORKSPACE_DOMAINS = ["chula.ac.th"];
+function _usesGoogleSignIn(email) {
+  var domain = String(email).toLowerCase().split("@")[1] || "";
+  return domain === "gmail.com" || GOOGLE_WORKSPACE_DOMAINS.indexOf(domain) !== -1;
+}
+
 function onEdit(e) {
   try {
     if (!e || !e.range) return;
@@ -314,7 +342,7 @@ function onEdit(e) {
       var active       = row[3];
       var existingHash = String(row[4] || "");
       if (!email) continue;
-      if (email.toLowerCase().indexOf("@gmail.com") !== -1) continue; // Google Sign-In — no password
+      if (_usesGoogleSignIn(email)) continue; // Google Sign-In — no password
       if (existingHash) continue; // already has a password — never overwrite
       if (active !== true && String(active).toUpperCase() !== "TRUE") continue; // row not active yet
 
@@ -344,7 +372,7 @@ function backfillDefaultPasswords() {
     var active       = data[i][3];
     var existingHash = String(data[i][4] || "");
     if (!email) continue;
-    if (email.toLowerCase().indexOf("@gmail.com") !== -1) continue;
+    if (_usesGoogleSignIn(email)) continue;
     if (existingHash) continue;
     if (active !== true && String(active).toUpperCase() !== "TRUE") continue;
 
