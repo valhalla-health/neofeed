@@ -583,7 +583,7 @@
     backdrop-filter: blur(2px);
   }
   .picker {
-    width: min(720px, 92vw); max-height: 80vh; overflow: auto;
+    width: min(720px, 92vw); max-height: 80vh; max-height: 80dvh; overflow: auto;
     background: var(--surface); border-radius: var(--r-lg);
     box-shadow: var(--shadow-pop); border: 1px solid var(--line);
   }
@@ -1001,6 +1001,7 @@
     .picker {
       width: 100vw !important;
       max-height: 82vh;
+      max-height: 82dvh;
       border-radius: var(--r-lg) var(--r-lg) 0 0;
     }
     .picker-backdrop { align-items: flex-end; }
@@ -1333,7 +1334,7 @@
   <script type="text/babel" src="calculator.jsx?v=security-review1"></script>
   <script type="text/babel" src="fenton.jsx?v=security-review1"></script>
   <script type="text/babel" src="registry.jsx?v=alert-fix1"></script>
-  <script type="text/babel" src="log.jsx?v=notes-date-sel1"></script>
+  <script type="text/babel" src="log.jsx?v=dol-sort1"></script>
   <script type="text/babel" src="app.jsx?v=alert-fix-pwdchange1"></script>
 </body>
 </html>
