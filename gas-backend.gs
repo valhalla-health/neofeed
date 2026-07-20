@@ -31,8 +31,8 @@
 //   4. Deploy → Web app · Execute as: Me · Access: Anyone
 //   5. Copy URL → NeoFeed.html window.NEOFEED_GAS_URL
 //
-// Patient_Registry (A–P): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
-//   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory
+// Patient_Registry (A–Q): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
+//   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory|statusDate
 // Daily_Log (A–AB): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
 //   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType|
 //   calcInputJson|entryId|lastModified|lastModifiedBy
@@ -443,7 +443,8 @@ function getSheetPat() {
     sh.appendRow([
       "sessionId","name","initials","bw","ga","sex",
       "dob","admissionDate","twinSuffix","status",
-      "currentBed","diagnosis","weights","lengths","hcs","bedHistory"
+      "currentBed","diagnosis","weights","lengths","hcs","bedHistory",
+      "statusDate"
     ]);
   }
   return sh;
@@ -719,6 +720,7 @@ function getActivePatients() {
       lengths:       _parseJson(p[13], []),
       hcs:           _parseJson(p[14], []),
       bedHistory:    _parseJson(p[15], []),
+      statusDate:    _fmtDate(p[16]),
     });
   }
   return { patients: patients, log: logMap, ts: new Date().toISOString() };
@@ -843,7 +845,7 @@ function backfillLegacyEntryIds() {
 function registerPatient(p) {
   var sheet = getSheetPat();
   var data  = sheet.getDataRange().getValues();
-  var row16 = [
+  var row17 = [
     _sheetSafe(p.sessionId), _sheetSafe(p.name || ""), _sheetSafe(p.initials || ""),
     _numSafe(p.bw, 0), _numSafe(p.ga, 0), _sheetSafe(p.sex || "boys"),
     _sheetSafe(p.dob || ""), _sheetSafe(p.admissionDate || ""), _sheetSafe(p.twinSuffix || ""),
@@ -852,14 +854,15 @@ function registerPatient(p) {
     JSON.stringify(p.lengths    || []),
     JSON.stringify(p.hcs        || []),
     JSON.stringify(p.bedHistory || []),
+    _sheetSafe(p.statusDate || ""),
   ];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(p.sessionId)) {
-      sheet.getRange(i + 1, 1, 1, 16).setValues([row16]);
+      sheet.getRange(i + 1, 1, 1, 17).setValues([row17]);
       return;
     }
   }
-  sheet.appendRow(row16);
+  sheet.appendRow(row17);
 }
 
 // ── updateWeights ─────────────────────────────────────────────

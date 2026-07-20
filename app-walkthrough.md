@@ -107,9 +107,15 @@ that's what lets an entry be reopened and edited exactly as entered, from
 any device.
 
 ### Backend sheets (`gas-backend.gs`)
-- **`Patient_Registry`** (A–P): `sessionId | name | initials | bw | ga | sex |
+- **`Patient_Registry`** (A–Q): `sessionId | name | initials | bw | ga | sex |
   dob | admissionDate | twinSuffix | status | currentBed | diagnosis |
-  weights | lengths | hcs | bedHistory`
+  weights | lengths | hcs | bedHistory | statusDate`. `statusDate` is stamped
+  by `EditPatientModal` (`registry.jsx`) the moment `status` changes away
+  from `Active` (cleared if it's changed back); `registry.jsx` uses it to
+  auto-hide a Discharged/Transferred/Expired patient from the registry list
+  7 days after that date. Patients with no `statusDate` (archived before
+  this field existed) stay visible indefinitely — there's no way to know
+  their age.
 - **`Daily_Log`** (A–AB): `ts | sessionId | dol | weight | fluid | gir | pro |
   kcal | na | k | ca | p | enVolPerKg | route | status | submittedBy |
   supp* fields | calcInputJson | entryId | lastModified | lastModifiedBy`
