@@ -34,7 +34,20 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
     (a.currentBed || "zzz").localeCompare(b.currentBed || "zzz", undefined, { numeric: true, sensitivity: "base" });
   const sorted   = [...filtered].sort(bedSort);
   const activeSorted   = sorted.filter(p => p.status === "Active" || !p.status);
-  const archivedSorted = sorted.filter(p => p.status && p.status !== "Active");
+  // Discharged/Transferred/Expired patients drop off the registry 7 days
+  // after their statusDate — the name shouldn't linger on the dashboard
+  // once the case is old news. Patients archived before statusDate existed
+  // (no value stored) stay visible since we can't tell their age.
+  const ARCHIVE_VISIBLE_DAYS = 7;
+  const daysSinceStatus = (p) => {
+    if (!p.statusDate) return -1;
+    const changed = new Date(p.statusDate + "T00:00:00");
+    if (isNaN(changed)) return -1;
+    return Math.floor((new Date(today + "T00:00:00") - changed) / 86400000);
+  };
+  const archivedSorted = sorted.filter(p =>
+    p.status && p.status !== "Active" && daysSinceStatus(p) <= ARCHIVE_VISIBLE_DAYS
+  );
 
   // Summary stats
   const totalActive  = patients.filter(p => p.status === "Active").length;
@@ -554,22 +567,34 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
 }
 
 function EditPatientModal({ patient, onClose, onSubmit }) {
+  const today = new Date().toISOString().slice(0, 10);
   const [name, setName]         = React.useState(patient.name || patient.initials || "");
   const [bed, setBed]           = React.useState(patient.currentBed || "NICU 1-1");
   const [dx, setDx]             = React.useState(patient.diagnosis || "");
   const [status, setStatus]     = React.useState(patient.status || "Active");
   const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
-  const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || new Date().toISOString().slice(0, 10));
+  const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || today);
 
-  const save = () => onSubmit({
-    ...patient,
-    name, initials: name,
-    currentBed: bed,
-    diagnosis: dx,
-    status,
-    admissionDate: admitDate,
-    weights: patient.weights.map((w, i) => i === 0 ? { ...w, dol: Number(dol1) || 1 } : w),
-  });
+  // statusDate marks when the patient left Active (Discharged/Transferred/
+  // Expired) — the registry list uses it to auto-hide the name after 7 days.
+  // Re-stamped only when the status actually changes so re-saving the same
+  // archived status doesn't keep resetting the 7-day clock.
+  const save = () => {
+    const prevStatus = patient.status || "Active";
+    const statusDate = status === "Active"
+      ? null
+      : (status !== prevStatus || !patient.statusDate) ? today : patient.statusDate;
+    onSubmit({
+      ...patient,
+      name, initials: name,
+      currentBed: bed,
+      diagnosis: dx,
+      status,
+      statusDate,
+      admissionDate: admitDate,
+      weights: patient.weights.map((w, i) => i === 0 ? { ...w, dol: Number(dol1) || 1 } : w),
+    });
+  };
 
   return (
     <div className="picker-backdrop" onClick={onClose}>
