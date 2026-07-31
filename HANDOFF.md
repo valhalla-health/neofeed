@@ -52,8 +52,36 @@ blanked in a scratch copy so the login gate falls through): panel hidden
 when empty; TPN-only, TPN+EN, and oral-only cases all render with the
 arithmetic matching a hand check; Ca-with-no-P shows `!!` and raises the
 crit alert; targets flip to the ESPGHAN-2022 enteral ranges once EN
-≥ 100 mL/kg/d; layout confirmed at 400px and 1280px; print form and
-clipboard text both checked. Not verified on a real iOS/Android device.
+≥ 100 mL/kg/d; print form and clipboard text both checked.
+
+**Mobile/tablet sweep** — 11 Playwright device profiles (iPhone SE 320px,
+iPhone 13, iPhone 14 Pro Max + landscape, Pixel 5/7, Galaxy S8, Galaxy S9+
+320px @4.5x, iPad Mini, iPad Pro 11), each driven through the real flow
+(open patient → Calculator → fill Step 4 + Step 2 + Step 6) with touch
+emulation on. Every profile: **0px** page/card/panel horizontal overflow,
+no clipped table cells, no page errors. Narrowest case is 320px → 274px
+panel, where the "Oral supplement" label wraps to two lines and stays
+legible. Screenshots in the session scratchpad.
+
+⚠️ **Two caveats on that sweep, both worth carrying forward:**
+
+1. **No WebKit — this is Chromium emulating iOS device metrics, not iOS
+   Safari.** `npx playwright install webkit` is blocked by the sandbox's
+   network policy (the Playwright CDN is not reachable; only the npm
+   registry is). So it validates layout/overflow/tap geometry but *cannot*
+   reproduce iOS-Safari-specific behaviour — which is exactly the class the
+   2026-07-31 (1) bottom-sheet bug fell into (`position:fixed` / `dvh`
+   compositing). This panel is static in-flow content with no fixed/sticky
+   positioning, no `vh`/`dvh` units, no `:has()`, no container queries — so
+   it's not in that risk class — but "passes the sweep" ≠ "tested on iOS".
+2. **Pre-existing tap targets under 44px in Step 6** (flagged by the sweep,
+   *not* introduced here — the new panel contains zero interactive
+   elements): `.preset-chip` renders 24px tall on mobile (`NeoFeed.html`
+   ~L1045 shrinks it to `padding: 5px 1px; font-size: 10px` under 767px),
+   and the Munti-vim checkbox is 18px. Both are below the 44px iOS / 48dp
+   Android guidance and affect every preset-chip row in the calculator, not
+   just Step 6. Left alone deliberately — out of scope for this change, and
+   raising chip height touches the whole wizard's layout.
 
 ---
 
