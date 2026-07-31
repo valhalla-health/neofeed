@@ -216,7 +216,18 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 3. **Calculator** (`calculator.jsx`, doctor/nurse only) — 6-step TPN+EN
    wizard: Fluid plan → TPN macronutrients → Electrolytes → Vitamins/Trace
    Elements/Heparin → Enteral feeding → Enteral supplements. Only Step 1 is
-   expanded by default. Full input state is persisted to
+   expanded by default.
+   **Ca / PO₄ accounting is split across two steps — know which is which:**
+   Step 4's `Calcium`/`Phosphorus`/`Ca:P ratio` tiles (and everything in
+   `calc`, including what's written to `Daily_Log`) count **TPN + EN only**.
+   Step 6 carries a separate `mineral` memo and summary panel that breaks Ca
+   and PO₄ down by source (TPN / EN / oral supplement) and shows the
+   **total** intake plus its Ca:P against target. `mineral.ivCaP` is defined
+   to equal `calc.caP` so the two can't drift. Don't "unify" these by adding
+   oral supplement into `calc.caKg`/`calc.pKg` — that would retroactively
+   change the meaning of the `ca`/`p` columns in every existing Daily_Log
+   row and in `log.jsx`'s TrendGraph target bands.
+   Full input state is persisted to
    `localStorage["neofeed_calc_<sessionId>"]` on submit/draft and restored
    on patient switch with a "Prefilled from previous submission (DOL X)"
    banner. Submitting writes one row to `Daily_Log`.
@@ -274,6 +285,17 @@ notes — don't just add the feature.
   (overflow, tap targets, sticky bars, safe-area insets). Test narrow
   viewports before calling a UI change done — see `HANDOFF.md`'s session
   logs for the specific patterns already fixed (don't regress them).
+- **44px minimum tap target on touch, in both dimensions.** Two blocks
+  enforce it: the `≤767px` "Touch targets" rules for phones, and a
+  `(hover: none) and (pointer: coarse) and (min-width: 768px)` block for
+  tablets — the latter keyed on the input device so mouse-driven desktop at
+  the same width keeps its compact sizing. When adding an interactive
+  element, or setting an explicit `min-height`/`height` on one, check it
+  against those blocks: every violation found in the 2026-07-31 (3) audit
+  was an explicit override that silently outranked them, not a missing
+  rule. `.preset-chips` in particular wraps by design now (`flex: 1 1 44px`)
+  — don't restore `nowrap`/`flex: 1 1 0` to "keep doses on one row"; that's
+  what squeezed dose chips to 26px wide.
 - **`tweaks-panel.jsx`** is a dev/design tool, not user-facing clinical
   functionality — don't wire clinical logic through it.
 - **PWA installability** depends on `manifest.json` + `<link rel="manifest">`
