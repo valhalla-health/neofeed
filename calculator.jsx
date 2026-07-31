@@ -200,7 +200,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const [suppVitD,   setSuppVitD]   = useState(0);               // IU/kg/day
   const [suppCa,     setSuppCa]     = useState(0);               // mg/kg/day elem Ca
   const [suppCaType, setSuppCaType] = useState("CA_CACO3_350");  // product key
-  const [suppPO4,    setSuppPO4]    = useState(0);               // mmol/kg/day
+  const [suppPO4,    setSuppPO4]    = useState(0);               // mg/kg/day elem P
   const [suppPO4Type,setSuppPO4Type]= useState("PO4_PHOSPHATE"); // product key
   const [suppMTV,    setSuppMTV]    = useState(false);           // Munti-vim 1 mL/day
   const [suppFerdek, setSuppFerdek] = useState(0);               // mg/kg/day elem Fe
@@ -608,7 +608,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       suppVitD_IU:   suppVitD > 0 && wtKg > 0 ? Math.round(suppVitD * wtKg) : 0,
       suppCa_mg:     suppCa   > 0 && wtKg > 0 ? Math.round(suppCa   * wtKg) : 0,
       suppCaType:    suppCa   > 0 ? suppCaType   : "",
-      suppPO4_mmol:  suppPO4  > 0 && wtKg > 0 ? parseFloat((suppPO4  * wtKg).toFixed(1)) : 0,
+      suppPO4_mmol:  suppPO4  > 0 && wtKg > 0 ? parseFloat((suppPO4  * wtKg / 31).toFixed(2)) : 0,
       suppPO4Type:   suppPO4  > 0 ? suppPO4Type  : "",
       suppFe_mg:     suppFerdek > 0 && wtKg > 0 ? parseFloat((suppFerdek * wtKg).toFixed(1)) : 0,
       suppFeType:    suppFerdek > 0 ? suppFeType  : "",
@@ -1188,7 +1188,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             <div className="step-summary">
               {suppVitD   > 0  && <span className="step-summary-chip">Vit D {suppVitD} IU/kg</span>}
               {suppCa     > 0  && <span className="step-summary-chip">Ca {suppCa} mg/kg</span>}
-              {suppPO4    > 0  && <span className="step-summary-chip">PO₄ {suppPO4} mmol/kg</span>}
+              {suppPO4    > 0  && <span className="step-summary-chip">PO₄ {suppPO4} mg/kg</span>}
               {suppMTV         && <span className="step-summary-chip">MTV ✓</span>}
               {suppFerdek > 0  && <span className="step-summary-chip">Fe {suppFerdek} mg/kg</span>}
             </div>
@@ -1261,20 +1261,20 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                 <label>ผลิตภัณฑ์</label>
                 <select className="sel" style={{ height: 38 }} value={suppPO4Type} onChange={e => setSuppPO4Type(e.target.value)}>
                   {Object.entries(D.SUPP_DB).filter(([,v]) => v.category === "po4").map(([k,v]) =>
-                    <option key={k} value={k}>{v.label} · {v.unitVol} mL = {(v.po4_mmol_per_ml * v.unitVol).toFixed(2)} mmol P</option>
+                    <option key={k} value={k}>{v.label} · {v.unitVol} mL = {(v.po4_mg_per_ml * v.unitVol).toFixed(0)} mg P</option>
                   )}
                 </select>
               </div>
-              <NumField label="Phosphate" unit="mmol/kg/day" value={suppPO4} onChange={setSuppPO4} step={0.5}
+              <NumField label="ปริมาณ elem P" unit="mg/kg/day" value={suppPO4} onChange={setSuppPO4} step={5}
                 hint={(() => {
                   const prod = D.SUPP_DB[suppPO4Type];
-                  const totalMmol = suppPO4 * wtKg;
-                  const vol = prod && totalMmol > 0 ? totalMmol / prod.po4_mmol_per_ml : 0;
+                  const totalMg = suppPO4 * wtKg;
+                  const vol = prod && totalMg > 0 ? totalMg / prod.po4_mg_per_ml : 0;
                   return suppPO4 > 0 && wtKg > 0
-                    ? `= ${fmt(totalMmol, 1)} mmol/day · ${fmt(vol, 1)} mL/day (${prod?.label})`
-                    : `ESPGHAN 2022 target: 2.2–3.7 mmol/kg/day · ${D.SUPP_DB[suppPO4Type]?.note || ""}`;
+                    ? `= ${fmt(totalMg, 1)} mg/day (${fmt(totalMg / 31, 2)} mmol) · ${fmt(vol, 1)} mL/day (${prod?.label})`
+                    : `ESPGHAN 2022 target: 2.2–3.7 mmol/kg/day (~68–115 mg/kg/day) · ${D.SUPP_DB[suppPO4Type]?.note || ""}`;
                 })()} />
-              <PresetChips values={[1, 1.5, 2, 2.5]} current={suppPO4} onSelect={setSuppPO4} />
+              <PresetChips values={[30, 40, 60]} current={suppPO4} onSelect={setSuppPO4} />
 
               {/* Vitamin D */}
               <div className="sub-h" style={{ marginTop: 14 }}>Vitamin D drops</div>
@@ -1312,9 +1312,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                   })()}
                   {suppPO4 > 0 && wtKg > 0 && (() => {
                     const prod = D.SUPP_DB[suppPO4Type];
-                    const vol = prod ? (suppPO4 * wtKg) / prod.po4_mmol_per_ml : 0;
+                    const vol = prod ? (suppPO4 * wtKg) / prod.po4_mg_per_ml : 0;
                     return <MiniReadout label={`PO₄ · ${prod?.label}`}
-                      value={`${fmt(suppPO4 * wtKg, 1)} mmol`}
+                      value={`${fmt(suppPO4 * wtKg, 1)} mg`}
                       unit={`→ ${fmt(vol, 1)} mL/day`} color="var(--brand-2)" />;
                   })()}
                   {suppFerdek > 0 && wtKg > 0 && (() => {
@@ -1438,7 +1438,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                 suppMTV    ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",
                 suppVitD > 0 && wtKg > 0 ? `  Vit D: ${suppVitD} IU/kg/d = ${Math.round(suppVitD * wtKg)} IU/day` : "",
                 suppCa > 0 && wtKg > 0 ? `  Ca oral (${D.SUPP_DB[suppCaType]?.label}): ${suppCa} mg/kg/d = ${Math.round(suppCa * wtKg)} mg/day → ${fmt(suppCa * wtKg / (D.SUPP_DB[suppCaType]?.ca_mg_per_unit || 1), 2)} tab/day` : "",
-                suppPO4 > 0 && wtKg > 0 ? `  PO₄ oral (${D.SUPP_DB[suppPO4Type]?.label}): ${suppPO4} mmol/kg/d = ${fmt(suppPO4 * wtKg, 1)} mmol/day → ${fmt(suppPO4 * wtKg / (D.SUPP_DB[suppPO4Type]?.po4_mmol_per_ml || 1), 1)} mL/day` : "",
+                suppPO4 > 0 && wtKg > 0 ? `  PO₄ oral (${D.SUPP_DB[suppPO4Type]?.label}): ${suppPO4} mg/kg/d = ${fmt(suppPO4 * wtKg, 1)} mg/day → ${fmt(suppPO4 * wtKg / (D.SUPP_DB[suppPO4Type]?.po4_mg_per_ml || 1), 1)} mL/day` : "",
                 suppFerdek > 0 && wtKg > 0 ? `  Fe oral (${D.SUPP_DB[suppFeType]?.label}): ${suppFerdek} mg/kg/d = ${fmt(suppFerdek * wtKg, 1)} mg/day → ${fmt(suppFerdek * wtKg / (D.SUPP_DB[suppFeType]?.fe_mg_per_ml || 1), 2)} mL/day` : "",
                 `──────────────────────────────`,
                 `SUMMARY: Protein ${calc.proteinKg.toFixed(1)} g/kg | Energy ${calc.kcalKg.toFixed(0)} kcal/kg | GIR ${calc.gir.toFixed(1)} mg/kg/min`,
@@ -1745,9 +1745,9 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
           </tr>}
           {suppPO4 > 0 && <tr>
             <td style={td}>{chk(true)} PO₄ oral<br/><em>{D.SUPP_DB[suppPO4Type]?.label}</em></td>
-            <td style={tdr}><strong>{suppPO4}</strong> mmol/kg/d</td>
-            <td style={tdr}><strong>{f(suppPO4*(wtKg||0),1)}</strong> mmol → {f(suppPO4*(wtKg||0)/(D.SUPP_DB[suppPO4Type]?.po4_mmol_per_ml||1),1)} mL/day</td>
-            <td style={td}>ESPGHAN: 2.2–3.7 mmol/kg/day</td>
+            <td style={tdr}><strong>{suppPO4}</strong> mg/kg/d</td>
+            <td style={tdr}><strong>{f0(suppPO4*(wtKg||0))}</strong> mg → {f(suppPO4*(wtKg||0)/(D.SUPP_DB[suppPO4Type]?.po4_mg_per_ml||1),1)} mL/day</td>
+            <td style={td}>ESPGHAN: 2.2–3.7 mmol/kg/day (~68–115 mg/kg/day)</td>
           </tr>}
           {suppFerdek > 0 && <tr>
             <td style={td}>{chk(true)} Fe oral<br/><em>{D.SUPP_DB[suppFeType]?.label}</em></td>

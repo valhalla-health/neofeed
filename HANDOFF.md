@@ -1,5 +1,54 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-18 | **Status:** 🟡 production is live on deploy `@43` with a real gap — every new non-Gmail staff row still gets the same hardcoded password (`"nicunicu"`) with no forced change (see "Session 2026-07-18 (2)" below for why, and the fix). Source fix (random per-account password + forced change flow) is ready on this branch but **not yet deployed** — needs `clasp push`+`clasp deploy` same as every other source-only session below. The previous 🟢/🟡 banners here were about the now-resolved Script Properties config issue from 2026-07-13; that one really is fixed, this is a separate, newer issue.
+**Last updated:** 2026-07-31 | **Status:** 🟡 production is live on deploy `@43` with a real gap — every new non-Gmail staff row still gets the same hardcoded password (`"nicunicu"`) with no forced change (see "Session 2026-07-18 (2)" below for why, and the fix). Source fix (random per-account password + forced change flow) is ready on this branch but **not yet deployed** — needs `clasp push`+`clasp deploy` same as every other source-only session below. The previous 🟢/🟡 banners here were about the now-resolved Script Properties config issue from 2026-07-13; that one really is fixed, this is a separate, newer issue.
+
+---
+
+## Session 2026-07-31 — iPhone "New log" sheet: unreachable Confirm button + oral phosphate dosing switched to mg/kg/day
+
+**1. Confirm button unreachable on iPhone.** User screenshot: opening "New log"
+(`LogDateModal` in `log.jsx`, and by the same markup pattern every other
+`.picker`/`.modal-box` bottom sheet — several in `registry.jsx` too) on an
+iPhone left the sheet's "ดำเนินการต่อ" button sitting flush against the very
+bottom of the screen, in the same strip the app's fixed bottom-nav
+(`Patients/Dashboard/Calc/Growth/Alerts`) occupies — unreachable/overlapping
+rather than clearly above it. `.picker-backdrop`/`.modal-backdrop` (z-index
+50/60) are supposed to out-stack `.bottom-nav` (z-index 40) and cover it
+entirely when a sheet is open, but evidently didn't reliably in the field
+(iOS Safari / in-app webviews are known to be inconsistent about `vh`/`dvh`
+recalculation and `position:fixed` compositing when their own chrome
+resizes). Rather than chase that, made the sheet's position not depend on
+the stacking order being right at all: added
+`padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px))` (matching
+`.bottom-nav`'s own height formula) to `.picker-backdrop`/`.modal-backdrop`
+in the mobile media query, so the bottom-aligned sheet's own bottom edge
+always sits above where the nav bar is, geometrically, regardless of
+z-index behavior on any given device. Applied to **both**
+`NeoFeed.html`/`index.html` per the CSS-drift convention; not verified
+against a live iPhone from this environment, so re-check on the next
+mobile-Safari pass instead of assuming it's fully fixed.
+
+**2. Oral phosphate supplement dosing switched from mmol/kg/day to
+mg/kg/day.** Calculator Step 6 → Phosphate (oral) previously took input
+directly in mmol/kg/day with presets `1/1.5/2/2.5`. At the user's request,
+the input (`NumField` + `PresetChips`) is now mg/kg/day elemental P with
+presets `30/40/60`, matching the Calcium field right above it. Internals:
+the `suppPO4` state itself now means mg/kg/day; every downstream mmol
+computation (volume-per-day via `SUPP_DB[...].po4_mg_per_ml` — used
+directly now, no molar step needed for volume; the `suppPO4_mmol` field
+still written to `Daily_Log`/GAS on submit, converted `mg/31` using the
+same elemental-P molar mass — 31 mg/mmol — already used elsewhere in this
+file for Glycophos/K₂HPO₄ dosing) was updated to match: Step 6 summary
+chip, the Supplement-order mini-readout, the plain-text clipboard summary,
+and the review-table row. **`suppPO4_mmol` written to `Daily_Log` is
+unchanged in meaning** (still mmol/day) — only the on-screen input/label
+changed, so existing rows and the backend schema are unaffected. One real
+caveat: any `localStorage["neofeed_calc_<sessionId>"]` draft saved before
+this change stored `suppPO4` as mmol/kg/day (values like `1`/`1.5`/`2`); on
+restore it'll now display as mg/kg/day with the same number (e.g. a saved
+`1.5` shows as "1.5 mg/kg" instead of being reinterpreted) — a purely
+client-side, per-browser prefill cache, not the Daily_Log source of truth,
+so left as-is rather than adding migration logic for it.
+Cache-bust bumped: `calculator.jsx?v=po4-mg-dosing1` in both HTML shells.
 
 ---
 
