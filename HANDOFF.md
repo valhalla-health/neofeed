@@ -3,6 +3,60 @@
 
 ---
 
+## Session 2026-07-31 (2) — Ca · PO₄ · Ca:P summary in Step 6 (oral supplement, and combined with TPN)
+
+**Problem.** Calculator Step 4's `Calcium` / `Phosphorus` / `Ca:P ratio`
+tiles only ever counted TPN + EN. Once a baby is also on oral Ca and/or
+oral PO₄ from Step 6, the ratio the doctor is actually looking at in Step 4
+is not the ratio the baby receives — and nothing on screen showed the
+difference. In the user's own screenshots, Step 4 read a comfortable
+`1.72:1` while an oral order of Ca 150 mg + PO₄ 56.4 mg/day was already
+entered in Step 6.
+
+**What was added** (all in `calculator.jsx`, no data-model change):
+
+1. **`mineral` memo** (next to `calc`, deliberately *not* inside it): splits
+   Ca and PO₄ per kg/day by source — `tpn*` (Ca-gluconate + Glycophos /
+   K₂HPO₄ / extra P), `en*` (from the feed's own Ca/P), `oral*` (Step 6
+   `suppCa`/`suppPO4`, already entered as elemental mg/kg/day so they add
+   directly) — plus `iv*` (tpn+en) and `tot*` (everything), each with its
+   mass ratio. `ratio()` returns `Infinity` when Ca is ordered with zero P,
+   which `D.rangeStatus` already reports as `crit` and `fmt` renders `!!`.
+   By construction `mineral.ivCaP === calc.caP`, so Step 4 and the new panel
+   can't disagree about the TPN+EN number.
+   **Kept out of `calc` on purpose:** `calc` feeds the saved `Daily_Log`
+   entry and the Step 4 tiles, and both stay TPN+EN-only. Folding oral
+   supplement into `calc.caKg`/`calc.pKg` would silently change what
+   `ca`/`p` mean in every historical row and in `log.jsx`'s `TrendGraph`
+   target bands.
+2. **Step 6 summary panel** — a source-breakdown table (TPN (IV) / EN (นม),
+   shown only when the feed contributes / Oral supplement / รวมทั้งหมด)
+   over `Ca | PO₄ | Ca:P`, then three `Tile`s for the **total** intake with
+   the normal target meters. Targets are the existing route-aware
+   `T.ca(dol, useEnteralTargets)` / `T.p(...)` / `TARGETS.caP()` — no new
+   clinical constants. Panel is hidden entirely when neither oral nor
+   IV/EN minerals are present.
+3. **Two alerts**, firing only when an oral supplement exists (otherwise
+   they'd duplicate the existing TPN-only Ca:P alert): `crit` for
+   Ca-with-no-P, `warn` for a combined ratio outside `1.0–1.7:1`.
+4. **Same breakdown in the printed order form and the clipboard text.**
+   Both of those already carried a `Ca:P` figure computed from `calc.caP`;
+   since two different Ca:P numbers now appear on the same sheet, the old
+   one is labelled `(TPN+EN)` in each so they can't be confused.
+
+New CSS class `.capo4-tiles` (3-col → 1-col under 767px) added to **both**
+HTML shells. Cache-bust bumped to `calculator.jsx?v=capo4-summary1`.
+
+**Verified** headlessly (Chromium + the mock-patient fixture, `GAS_URL`
+blanked in a scratch copy so the login gate falls through): panel hidden
+when empty; TPN-only, TPN+EN, and oral-only cases all render with the
+arithmetic matching a hand check; Ca-with-no-P shows `!!` and raises the
+crit alert; targets flip to the ESPGHAN-2022 enteral ranges once EN
+≥ 100 mL/kg/d; layout confirmed at 400px and 1280px; print form and
+clipboard text both checked. Not verified on a real iOS/Android device.
+
+---
+
 ## Session 2026-07-31 — iPhone "New log" sheet: unreachable Confirm button + oral phosphate dosing switched to mg/kg/day
 
 **1. Confirm button unreachable on iPhone.** User screenshot: opening "New log"

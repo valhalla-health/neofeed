@@ -1234,6 +1234,7 @@
     .admin-stat-tiles  { grid-template-columns: 1fr 1fr !important; }
     .alert-summary-tiles { grid-template-columns: 1fr 1fr 1fr !important; }
     .guidelines-grid   { grid-template-columns: 1fr !important; }
+    .capo4-tiles       { grid-template-columns: 1fr !important; }
 
     /* Feeding advancement: 5-col → vertical cards */
     .feeding-steps-grid { grid-template-columns: 1fr !important; }
@@ -1289,6 +1290,8 @@
   .guidelines-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   /* Alert summary 3-col tiles */
   .alert-summary-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+  /* Step 6 Ca · PO₄ · Ca:P total tiles: 3-col → 1-col on mobile (see mobile block) */
+  .capo4-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   /* Feeding advancement 5-col vertical stack */
   .feeding-steps-grid {
     display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
@@ -1337,7 +1340,7 @@
   <script src="data.js?v=review-fix1"></script>
   <script type="text/babel" src="tweaks-panel.jsx?v=dashboard-edit2"></script>
   <script type="text/babel" src="icons.jsx?v=notes-date-sel1"></script>
-  <script type="text/babel" src="calculator.jsx?v=po4-mg-dosing1"></script>
+  <script type="text/babel" src="calculator.jsx?v=capo4-summary1"></script>
   <script type="text/babel" src="fenton.jsx?v=security-review1"></script>
   <script type="text/babel" src="registry.jsx?v=archive-7d"></script>
   <script type="text/babel" src="log.jsx?v=dol-sort1"></script>

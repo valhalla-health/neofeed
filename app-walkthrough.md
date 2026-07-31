@@ -216,7 +216,18 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 3. **Calculator** (`calculator.jsx`, doctor/nurse only) — 6-step TPN+EN
    wizard: Fluid plan → TPN macronutrients → Electrolytes → Vitamins/Trace
    Elements/Heparin → Enteral feeding → Enteral supplements. Only Step 1 is
-   expanded by default. Full input state is persisted to
+   expanded by default.
+   **Ca / PO₄ accounting is split across two steps — know which is which:**
+   Step 4's `Calcium`/`Phosphorus`/`Ca:P ratio` tiles (and everything in
+   `calc`, including what's written to `Daily_Log`) count **TPN + EN only**.
+   Step 6 carries a separate `mineral` memo and summary panel that breaks Ca
+   and PO₄ down by source (TPN / EN / oral supplement) and shows the
+   **total** intake plus its Ca:P against target. `mineral.ivCaP` is defined
+   to equal `calc.caP` so the two can't drift. Don't "unify" these by adding
+   oral supplement into `calc.caKg`/`calc.pKg` — that would retroactively
+   change the meaning of the `ca`/`p` columns in every existing Daily_Log
+   row and in `log.jsx`'s TrendGraph target bands.
+   Full input state is persisted to
    `localStorage["neofeed_calc_<sessionId>"]` on submit/draft and restored
    on patient switch with a "Prefilled from previous submission (DOL X)"
    banner. Submitting writes one row to `Daily_Log`.
