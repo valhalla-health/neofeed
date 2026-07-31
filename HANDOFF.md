@@ -3,6 +3,59 @@
 
 ---
 
+## Session 2026-07-31 (3) — touch targets: every interactive element to 44px
+
+Follow-up to the device sweep in (2), which flagged sub-44px tap targets.
+Audited **effective** tap targets (nearest `<label>`/`<button>`/`.clickable`
+ancestor — measuring the bare `<input>` under-reports a checkbox whose real
+hit area is the label wrapping it) across all five views on an iPhone 13
+profile. Every failure traced to an explicit override that outranked the
+already-present `.btn/.btn.sm/.seg button { min-height: 44px }` block, so
+the fixes are at those rules rather than layered on top:
+
+| element | was | cause |
+|---|---|---|
+| `.preset-chip` | 26–31 × 24 | mobile block shrank it, no min-height |
+| `.patient-mc .pmc-actions .btn` | 164 × 40 | explicit `min-height: 40px` beat `.btn.sm`'s 44 |
+| `.trend-chips > button` | × 38 | explicit `min-height: 38px` |
+| `.trend-xaxis-seg button` | 144 × 28 | `min-height: 28px !important` beat `.seg button`'s 44 |
+| `.switch-patient` | 40 × 36 | `height: 36px`, no mobile rule |
+| `.card-h.clickable` | × 43 | 1px short |
+| Growth `＋`/`−`, lipid-hours `16h/20h/24h` | 36–39 wide | height fine, no min-width anywhere |
+
+**The one behavioural change worth understanding: `.preset-chips` now wraps.**
+It was `flex-wrap: nowrap` + `flex: 1 1 0`, deliberately, so a dose row
+always stayed on one line — but that meant the four 5-chip rows sitting in
+half-width grid cells (`.s1-grid` fluid, dextrose %, `.s2-aa-row`,
+`.s2-lip-row`) squeezed to 26–31px wide. These are the controls that set
+clinical doses; two 28px chips 3px apart is a mis-tap that changes a
+prescription. Now `flex-wrap: wrap` + `flex: 1 1 44px` + `min-width: 44px`:
+44px is the floor, leftover space is still shared out so each line's chips
+stretch flush (not ragged at content width), and a row only breaks to a
+second line when staying on one would violate the floor. Wide rows are
+unchanged — one line, as before. At 390px the AA row becomes 3+2; at 320px
+the fluid row becomes 2+2+1. `white-space: nowrap` is untouched, so a dose
+value still never truncates or splits.
+
+**Tablets.** All of the above lives in the `≤767px` query, which an iPad
+(768px+) never matches — so a touch tablet kept the desktop's ~25px chips.
+Added a second block keyed on `(hover: none) and (pointer: coarse) and
+(min-width: 768px)` carrying the same minimums, plus a 1px trim to `.rail`'s
+side padding so the collapsed 60px tablet rail can fit a full 44px item
+(was 43px). Keyed on the input device, not the width, so a mouse-driven
+desktop at the same width is untouched — verified: at 1440px with a fine
+pointer the chips are still 40×24 and the rail item 37px, exactly as before.
+
+**Verified**: effective-tap-target audit reports **0 elements under 44px**
+across Registry / Dashboard / Calculator (all six steps expanded) / Growth /
+Alerts, on iPhone 13 and on both iPad profiles under `pointer: coarse`.
+Overflow regression sweep across iPhone SE / 13 / 14 Pro Max / Pixel 5 /
+Galaxy S8 / Galaxy S9+ / iPad Mini / iPad Pro 11: **0px** page, card, and
+`.preset-chips` horizontal overflow everywhere; no page errors. Same WebKit
+caveat as session (2) — Chromium emulation, not iOS Safari.
+
+---
+
 ## Session 2026-07-31 (2) — Ca · PO₄ · Ca:P summary in Step 6 (oral supplement, and combined with TPN)
 
 **Problem.** Calculator Step 4's `Calcium` / `Phosphorus` / `Ca:P ratio`

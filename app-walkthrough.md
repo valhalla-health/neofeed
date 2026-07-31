@@ -285,6 +285,17 @@ notes — don't just add the feature.
   (overflow, tap targets, sticky bars, safe-area insets). Test narrow
   viewports before calling a UI change done — see `HANDOFF.md`'s session
   logs for the specific patterns already fixed (don't regress them).
+- **44px minimum tap target on touch, in both dimensions.** Two blocks
+  enforce it: the `≤767px` "Touch targets" rules for phones, and a
+  `(hover: none) and (pointer: coarse) and (min-width: 768px)` block for
+  tablets — the latter keyed on the input device so mouse-driven desktop at
+  the same width keeps its compact sizing. When adding an interactive
+  element, or setting an explicit `min-height`/`height` on one, check it
+  against those blocks: every violation found in the 2026-07-31 (3) audit
+  was an explicit override that silently outranked them, not a missing
+  rule. `.preset-chips` in particular wraps by design now (`flex: 1 1 44px`)
+  — don't restore `nowrap`/`flex: 1 1 0` to "keep doses on one row"; that's
+  what squeezed dose chips to 26px wide.
 - **`tweaks-panel.jsx`** is a dev/design tool, not user-facing clinical
   functionality — don't wire clinical logic through it.
 - **PWA installability** depends on `manifest.json` + `<link rel="manifest">`
