@@ -1,5 +1,60 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-07-18 | **Status:** 🟢 PRODUCTION · stable — no open bugs (login confirmed working since deploy `@41`; the previous 🟡 banner here was stale, left over from the since-resolved Script Properties config issue in the 2026-07-13 sessions below)
+**Last updated:** 2026-08-06 | **Status:** 🟢 PRODUCTION · stable — no open bugs (login confirmed working since deploy `@41`; the previous 🟡 banner here was stale, left over from the since-resolved Script Properties config issue in the 2026-07-13 sessions below). ⚠️ **Branch `fix/kcmh-tpn-alignment` is open and NOT merged** — it corrects four wrong TPN stock concentrations; see the session below.
+
+---
+
+## Session 2026-08-06 — TPN calculator aligned to the official KCMH worksheet (branch `fix/kcmh-tpn-alignment`)
+
+Praew supplied the official KCMH pharmacy TPN calculator
+(`../TPN 05082569.xlsx` — กลุ่มงานเภสัชกรรม, ward 9B2/NICU). Reverse-engineered its
+formulas from the template sheets (`NEW Temphate`, `Starter TPN`, `s tpn2/3`) and
+diffed against `calculator.jsx`. **The workbook also contains ~45 named real-patient
+sheets — do not read, copy or publish those; every number below came from the
+anonymous template sheets only.**
+
+### Four stock concentrations were wrong → the printed order form asked for the wrong mL
+
+| Item | KCMH actual | NeoFeed had | Error |
+|---|---|---|---|
+| NaCl | **20%** = 3.42 mEq/mL | 3% = 0.51 | volume **6.7× too high** |
+| KCl | **2 mEq/mL** | 1 mEq/mL (7.46%) | **2× too high** |
+| Na acetate | **3 mEq/mL** | 2 mEq/mL | 1.5× too high |
+| Peditrace | **1 mL/kg** | 1.5 mL/kg | 1.5× — and the print form already said 1 mL/kg, so code and output disagreed |
+
+Also: MgSO₄ — the sheet's recipe line compounds from **10%** (0.812 mEq/mL), not the
+50% NeoFeed assumed. Added a 10%/50% vial selector (defaults to 10%), since the
+choice changes the mL and therefore the WFI q.s.
+
+### Other changes
+- **Lipid energy 10 → 9 kcal/g** (Praew's call) so kcal/kg/d reconciles with the
+  pharmacy printout. The sheet's E53 is `3.4×dex + 4×AA + 9×fat`.
+- **New: bag make-up** — Σ component mL and WFI q.s. (the sheet's J52/I53), shown in
+  Step 3, the print form and the copied order text. Pharmacy cannot compound without
+  it. A negative WFI raises a crit alert ("components exceed the bag").
+- **New hard ceilings from the sheet:** max dextrose 18 g/kg/d (F9) and max K⁺
+  40 mEq/L in the bag (G25) — both crit alerts + inline readouts.
+- Order form now prints mEq **and** mL for every electrolyte, plus the heparin volume.
+- `data.js` gained `KCMH_STOCK` — the single authority for every mL conversion.
+  `SALT_SOURCES` (exported but unused) claimed to be "KCMH formulary" while listing
+  the *wrong* strengths; corrected and annotated so it can't be wired in by mistake.
+
+### Verified, not assumed
+Reproduced the workbook's own cached results from NeoFeed's new constants:
+osmolarity **856 / 896 mOsm/L**, calories **46 / 48 kcal**, component total
+**59.9 / 63.4 mL**, WFI **40.1 / 36.6 mL** (sheets `s tpn2` / `s tpn3`) — all match.
+Osmolarity formula (`estimateOsmolarity`) was already correct and is unchanged; its
+comment attributed it to Ramathibodi, now corrected to the KCMH sheet's cell E52.
+Also confirmed correct and left alone: GIR, D50W, Aminoven 10%, Glycophos
+(2 mEq Na + 31 mg P/mL), K₂HPO₄ (1 mEq K + 15.5 mg P/mL), Ca gluconate, Soluvit,
+the 900 mOsm/L peripheral limit.
+
+### Still missing vs the official sheet (deliberately deferred to a second pass)
+- **The overfill "Factor" (H9 = prepared ÷ delivered × weight)** — the sheet doses
+  per *delivered* volume but compounds a larger *prepared* volume, scaling every
+  per-kg dose. NeoFeed still treats the two as one number. This is the biggest
+  remaining structural gap; the print form's "Prepared Vol." blank is still manual.
+- Alternative amino-acid products (Amiparen 10%, Aminoplasmal 15%, Aminoleban 8%,
+  Nephrosteril 7%), ZnSO₄, total-Zn tally with the 5 mg/day ceiling, Cl⁻ tally.
 
 ---
 

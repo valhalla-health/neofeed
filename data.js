@@ -183,24 +183,31 @@ const LIPID_PRODUCTS = {
 };
 
 // ── Salt / electrolyte sources ────────────────────────────────
-// KCMH formulary — concentrations per mL
+// Reference list of strengths that EXIST — NOT the ones the TPN calculator uses.
+// KCMH_STOCK (below) is the single authority for what the calculator and the
+// printed order form compound from; entries here marked "KCMH TPN" match it.
+// Do not wire this table into the calculator without reconciling it first —
+// its NaCl 3% / KCl 1 mEq/mL rows are other strengths, not KCMH's TPN stock.
 const SALT_SOURCES = {
   // Sodium
   NaCl_3:      { label: "NaCl 3%",                   ion: "Na", mEqPerML: 0.51,  group: "sodium" },
   NaCl_5:      { label: "NaCl 5%",                   ion: "Na", mEqPerML: 0.86,  group: "sodium" },
   NaCl_15:     { label: "NaCl 15%",                  ion: "Na", mEqPerML: 2.56,  group: "sodium" },
-  Na_Acetate:  { label: "Na Acetate",                ion: "Na", mEqPerML: 2.0,   group: "sodium", note: "Use to correct metabolic acidosis; contributes Na" },
+  NaCl_20:     { label: "NaCl 20%",                  ion: "Na", mEqPerML: 3.42,  group: "sodium", note: "KCMH TPN stock" },
+  Na_Acetate:  { label: "Na Acetate",                ion: "Na", mEqPerML: 3.0,   group: "sodium", note: "KCMH TPN stock · use to correct metabolic acidosis; contributes Na" },
   // Disodium glycerophosphate = Glycophos® — as on order form:
   // Input: mL/kg/day → Na = 2 mEq/mL · P = 31 mg/mL
   Na_diphos:   { label: "Disodium glycerophosphate (Glycophos®)", ion: "NaP",
                  mEqNaPerML: 2.0, pMgPerML: 31,
                  group: "sodium", note: "Na = 2 mEq/mL · P = 31 mg/mL — dose in mL/kg/d (preferred P source: organic phosphate)" },
   // Potassium
-  KCl:         { label: "KCl",                        ion: "K",  mEqPerML: 1.0,   group: "potassium", note: "1 mEq/mL" },
+  KCl:         { label: "KCl (2 mEq/mL)",             ion: "K",  mEqPerML: 2.0,   group: "potassium", note: "KCMH TPN stock" },
+  KCl_746:     { label: "KCl 7.46%",                  ion: "K",  mEqPerML: 1.0,   group: "potassium", note: "1 mEq/mL — not the TPN stock" },
   K2HPO4:      { label: "K₂HPO₄",                    ion: "KP", mEqKPerML: 1.0,  pMgPerMEqK: 15.5, group: "potassium", note: "K⁺ 1 mEq/mL · P 15.5 mg/mEq K" },
   // Calcium — order form: elemental Ca 9 mg/mL
-  Ca_Gluconate:{ label: "Ca Gluconate 10%",            ion: "Ca", mgPerML: 9,      group: "calcium",  note: "Elemental Ca 9 mg/mL" },
-  // Magnesium — MgSO₄ 50%: 4.06 mEq/mL (anhydrous) — form uses mEq
+  Ca_Gluconate:{ label: "Ca Gluconate 10%",            ion: "Ca", mgPerML: 9.01755, group: "calcium",  note: "KCMH TPN stock · elemental Ca 9.0 mg/mL (0.45 mEq/mL)" },
+  // Magnesium — the KCMH sheet compounds from 10% but prints both strengths
+  MgSO4_10:    { label: "MgSO₄ 10%",                 ion: "Mg", mEqPerML: 0.812, group: "magnesium", note: "KCMH TPN stock · preterm: 0.4 mEq/kg/day" },
   MgSO4_50:    { label: "MgSO₄ 50%",                 ion: "Mg", mEqPerML: 4.06,  group: "magnesium", note: "4.06 mEq/mL · preterm: 0.4 mEq/kg/day" },
 };
 
@@ -425,6 +432,43 @@ const TARGETS = {
   peRatio: () => [2.8, 3.6],
 };
 
+// ── KCMH pharmacy stock concentrations ────────────────────────
+// Single source of truth for every "how many mL of stock solution" conversion.
+// Source-verified 2026-08-06 against the official KCMH TPN worksheet
+// ("TPN 05082569.xlsx", ward 9B2/NICU templates — sheets "NEW Temphate",
+// "Starter TPN", "s tpn2/3"). Each `perMl` below is the divisor the official
+// sheet uses, so NeoFeed's mL/day match what กลุ่มงานเภสัชกรรม compounds.
+//
+// DO NOT change these to textbook/other-hospital strengths — they describe
+// what is physically on the shelf at KCMH. Changing one silently changes
+// every printed order form.
+const KCMH_STOCK = {
+  d50w:        { label: "D50W",                  gPerMl: 0.5 },
+  aminoven10:  { label: "10% Aminoven infant",   gPerMl: 0.10 },
+  smof20:      { label: "20% SMOF",              gPerMl: 0.20 },
+  // Na sources — sheet rows 20/21/23
+  naCl:        { label: "20% NaCl",              naMeqPerMl: 3.42 },  // H20 = mEq ÷ 3.42
+  naAcetate:   { label: "Na Acetate",            naMeqPerMl: 3.0  },  // H21 = mEq ÷ 3
+  glycophos:   { label: "Glycophos®",            naMeqPerMl: 2, pMgPerMl: 31 },
+  // K sources — sheet rows 27/29
+  k2hpo4:      { label: "K₂HPO₄",                kMeqPerMl: 1, pMgPerKMeq: 15.5 },
+  kCl:         { label: "KCl",                   kMeqPerMl: 2.0   },  // I29 = mEq ÷ 2
+  // Mg — sheet row 32 offers both; the recipe line (J32) defaults to 10%
+  mgso4_10:    { label: "10% MgSO₄",             mgMeqPerMl: 0.812 }, // I32 = mEq×2/8.12×5
+  mgso4_50:    { label: "50% MgSO₄",             mgMeqPerMl: 4.06  }, // I33 = mEq×2/8.12
+  // Ca — sheet row 36: 0.45 mEq/mL × 20.039 = 9.01755 mg elemental Ca/mL
+  caGluconate: { label: "10% Ca gluconate",      caMgPerMl: 9.01755, caMeqPerMl: 0.45 },
+  // Additives — sheet rows 43/45/51
+  soluvit:     { label: "Soluvit N®",            mlPerKg: 1.0, maxMl: 10 },
+  peditrace:   { label: "Peditrace",             mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },
+  heparin:     { label: "Heparin",               unitsPerMl: 100 },
+};
+
+// Max dextrose the KCMH sheet allows (F9 = 18 × weight) — g/kg/day
+const MAX_DEXTROSE_G_KG = 18;
+// Max K concentration in the finished bag (G25 = prepared mL × 40 ÷ 1000) — mEq/L
+const MAX_K_MEQ_PER_L = 40;
+
 // ── Traffic-light status helper ───────────────────────────────
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
   if (value === 0) return "empty";
@@ -437,7 +481,8 @@ function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
 }
 
 // ── Osmolarity estimate (mOsm/L) ─────────────────────────────
-// Ramathibodi PN osmolarity formula:
+// Matches the official KCMH worksheet cell E52 exactly (verified 2026-08-06
+// by reproducing its own cached results: 856 and 896 mOsm/L on sheets s tpn2/s tpn3):
 //   Osm (mOsm/L) = 50×D% + 100×AA% + 2×Na(mEq/L) + 2×K(mEq/L) + 1.4×Ca(mEq/L) + 1×Mg(mEq/L)
 // Ca unit: caMgPerL = elemental Ca mg/L → convert to mEq/L ÷20 (MW=40, valence=2)
 // Peripheral limit: <900 mOsm/L · Central: no hard limit but >1800 mOsm/L = endothelial risk
@@ -993,6 +1038,8 @@ window.NEOFEED_DATA = {
   MOCK_PATIENTS, MOCK_DAILY_LOG,
   // Utility functions
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
+  // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L,
   // Live DOL helper
   liveDol, dolAtDate,
   // Last weights[] entry with an actual weight (skips length/HC-only rows)
