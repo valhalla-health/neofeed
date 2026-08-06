@@ -168,7 +168,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
   // Card key 2 — TPN main bag (displayed as Step 3)
   const [route, setRoute] = useState("central");
-  const [totalTPN_mL, setTotalTPN_mL] = useState(0); // mL/day — source of truth
+  const [totalTPN_mL, setTotalTPN_mL] = useState(0); // mL/day DELIVERED to the infant (sheet C7)
+  // Extra volume compounded that never reaches the infant — it stays in the giving
+  // set (ปริมาตรคาสาย, sheet G8). Pharmacy prepares totalTPN_mL + this (sheet G7).
+  // 0 = no overfill, which is how NeoFeed behaved before the Factor existed.
+  const [deadVol_mL, setDeadVol_mL] = useState(0);
   const [dexPct, setDexPct] = useState(0);
   const [aaPerKg, setAaPerKg] = useState(0);
   const [lipidPerKg, setLipidPerKg] = useState(0);
@@ -238,6 +242,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setDrug_mL(src.drug_mL ?? 0);
     setRoute(src.route ?? "central");
     setTotalTPN_mL(src.totalTPN_mL ?? 0);
+    setDeadVol_mL(src.deadVol_mL ?? 0);
     setDexPct(src.dexPct ?? 0);
     setAaPerKg(src.aaPerKg ?? 0);
     setLipidPerKg(src.lipidPerKg ?? 0);
@@ -320,6 +325,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setDrug_mL(restored?.drug_mL ?? 0);
     setRoute(restored?.route ?? "central");
     setTotalTPN_mL(restored?.totalTPN_mL ?? 0);
+    setDeadVol_mL(restored?.deadVol_mL ?? 0);
     setDexPct(restored?.dexPct ?? 0);
     setAaPerKg(restored?.aaPerKg ?? 0);
     setLipidPerKg(restored?.lipidPerKg ?? 0);
@@ -361,7 +367,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // Helper to bundle current input state for persistence
   const captureState = () => ({
     wtG, fluidTargetPerKg, otherIV_mL, drug_mL,
-    route, totalTPN_mL, dexPct, aaPerKg, lipidPerKg, lipidDripHours,
+    route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
     enType, enVol, enFreq, isMEN,
     inclSoluvit, inclPeditrace, inclAddamel, heparinUmL,
@@ -407,15 +413,42 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         pTotal_mg:0, p_glycophos:0, p_k2hpo4:0, na_glycophos:0, isMEN,
         d50wVol:0, soluvitVol:0, peditrace_vol:0, solVol:sv0,
         componentVol:0, wfiVol:0, dexGPerKg:0, kMeqPerL:0, mgStrength,
+        preparedVol: totalTPN_mL + deadVol_mL, deadVol_mL, overfill:1, factor:0,
+        deliveredFrac:1, dexG_bag:0, aaG_bag:0,
+        bag:{ na_mEq:0, k_mEq:0, ca_mg:0, mg_mEq:0, p_mg:0, heparin_units:0 },
       };
     }
-    const aaG = aaPerKg * wtKg;
-    const lipidG = lipidPerKg * wtKg;
+    // ── Prepared vs delivered volume — the worksheet's C7 / G7 / G8 / H9 ─────
+    // totalTPN_mL (C7) is what the pump actually delivers over 24 h.
+    // deadVol_mL (G8) stays in the giving set, so pharmacy compounds
+    // preparedVol (G7) = delivered + dead.
+    //
+    // Only totalTPN_mL/preparedVol of the bag ever reaches the infant, so to
+    // land the ordered per-kg dose you must put `overfill`× more in the bag.
+    // The sheet folds that into one number: Factor H9 = (G7/C7) × weight, a
+    // "scaled kg" it then multiplies every per-kg dose by. Two consequences:
+    //   • Delivered dose per kg comes back out exactly as ordered
+    //     (perKg × factor × delivered/prepared ÷ wtKg = perKg), so all the
+    //     per-kg targets, tiles and GIR below stay on `wtKg` and need no change.
+    //   • Concentration in the bag is likewise unchanged — amount and volume
+    //     both scale by `overfill` — so osmolarity needs no change either.
+    // Only the absolute bag quantities (grams, mEq/day, mL of each stock) grow.
+    const preparedVol = totalTPN_mL + deadVol_mL;
+    const overfill = totalTPN_mL > 0 ? preparedVol / totalTPN_mL : 1;   // G7/C7
+    const factor = wtKg * overfill;                                     // H9
+    const deliveredFrac = overfill > 0 ? 1 / overfill : 1;              // C7/G7
+
+    const aaG = aaPerKg * wtKg;          // DELIVERED g/day — drives protein + kcal
+    const aaG_bag = aaPerKg * factor;    // IN THE BAG (sheet F11) — drives Aminoven mL
+    const lipidG = lipidPerKg * wtKg;    // separate syringe: no overfill applied
     const lipidVol = lipidG / 0.20;
     const vitalipidVol = Math.min(4 * wtKg, 10);
     const lipidBagVol = lipidVol + vitalipidVol;
 
-    const dexG = totalTPN_mL * dexPct / 100;
+    // dexPct is the final concentration of the PREPARED bag (sheet D10), so the
+    // infant receives that concentration in the delivered volume.
+    const dexG = totalTPN_mL * dexPct / 100;   // DELIVERED g/day — drives GIR + kcal
+    const dexG_bag = preparedVol * dexPct / 100; // IN THE BAG (F10) — drives D50W mL
     const gir = dexG * 1000 / (1440 * wtKg);
 
     // Phosphate sources
@@ -491,48 +524,70 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       : (totalCaMg_combined > 0 ? Infinity : 0);
 
     // D50W volume — how much 50% dextrose to add to reach target concentration
-    // D50W (0.5 g/mL): mL needed = total glucose g ÷ 0.5
-    const d50wVol = dexG > 0 ? parseFloat((dexG / 0.5).toFixed(1)) : 0;
+    // D50W (0.5 g/mL): mL needed = glucose g IN THE BAG ÷ 0.5
+    const d50wVol = dexG_bag > 0 ? parseFloat((dexG_bag / S.d50w.gPerMl).toFixed(1)) : 0;
 
     // Vitamins + TE volumes (added to aqueous PN bag)
     // Both 1 mL/kg/day per the KCMH sheet (B43, B45), capped at 10 / 15 mL.
+    // NOTE: these deliberately use ACTUAL weight, not the Factor — the sheet's
+    // compounding rows G43/G45/G46 are `× C6` while every electrolyte row is
+    // `× H9`. So with overfill the infant receives only `deliveredFrac` of the
+    // 1 mL/kg (surfaced as an alert below rather than silently "corrected").
     const soluvitVol    = inclSoluvit   ? parseFloat(Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ).toFixed(1)) : 0;
     const peditrace_vol = inclPeditrace ? parseFloat(Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl).toFixed(1)) : 0;
 
     // ── Solution volumes mL/day (for pharmacist + order form writing) ────────
     // Every divisor comes from D.KCMH_STOCK — see the "DO NOT change" note there.
+    // Every per-kg dose is multiplied by `factor` (H9), NOT wtKg, so the bag is
+    // overfilled and the delivered dose lands on the ordered per-kg value.
     const r1 = (n) => parseFloat(n.toFixed(1));
     const r2 = (n) => parseFloat(n.toFixed(2));
     const mgStock = mgStrength === "50" ? S.mgso4_50 : S.mgso4_10;
     const solVol = {
-      naCl:      naCl   > 0 ? r1(naCl   * wtKg / S.naCl.naMeqPerMl     ) : 0, // 20% NaCl
-      naAcet:    naAcet > 0 ? r1(naAcet * wtKg / S.naAcetate.naMeqPerMl) : 0, // Na Acetate
-      glycophos: r1(glycophosP * wtKg),                                       // 1 mL = 1 mmol P
-      kCl:       kCl    > 0 ? r1(kCl    * wtKg / S.kCl.kMeqPerMl       ) : 0, // KCl
-      k2hpo4:    k2hpo4 > 0 ? r2(k2hpo4 * wtKg / S.k2hpo4.kMeqPerMl    ) : 0, // K₂HPO₄
-      ca:        caPerKg> 0 ? r1(caPerKg* wtKg / S.caGluconate.caMgPerMl) : 0,// 10% Ca gluconate
-      mg:        mgPerKg> 0 ? r2(mgPerKg* wtKg / mgStock.mgMeqPerMl    ) : 0, // MgSO₄ (chosen strength)
+      naCl:      naCl   > 0 ? r1(naCl   * factor / S.naCl.naMeqPerMl     ) : 0, // 20% NaCl
+      naAcet:    naAcet > 0 ? r1(naAcet * factor / S.naAcetate.naMeqPerMl) : 0, // Na Acetate
+      glycophos: r1(glycophosP * factor),                                       // 1 mL = 1 mmol P
+      kCl:       kCl    > 0 ? r1(kCl    * factor / S.kCl.kMeqPerMl       ) : 0, // KCl
+      k2hpo4:    k2hpo4 > 0 ? r2(k2hpo4 * factor / S.k2hpo4.kMeqPerMl    ) : 0, // K₂HPO₄
+      ca:        caPerKg> 0 ? r1(caPerKg* factor / S.caGluconate.caMgPerMl) : 0,// 10% Ca gluconate
+      mg:        mgPerKg> 0 ? r2(mgPerKg* factor / mgStock.mgMeqPerMl    ) : 0, // MgSO₄ (chosen strength)
       // Both Mg strengths, so the pharmacy label can show the alternative
-      mg10:      mgPerKg> 0 ? r2(mgPerKg* wtKg / S.mgso4_10.mgMeqPerMl ) : 0,
-      mg50:      mgPerKg> 0 ? r2(mgPerKg* wtKg / S.mgso4_50.mgMeqPerMl ) : 0,
-      heparin:   heparinUmL > 0 ? r2(heparinUmL * totalTPN_mL / S.heparin.unitsPerMl) : 0,
-      aaAminoven:r1(aaG / S.aminoven10.gPerMl),
-      lipidSMOF: r1(lipidG / S.smof20.gPerMl),
+      mg10:      mgPerKg> 0 ? r2(mgPerKg* factor / S.mgso4_10.mgMeqPerMl ) : 0,
+      mg50:      mgPerKg> 0 ? r2(mgPerKg* factor / S.mgso4_50.mgMeqPerMl ) : 0,
+      // Heparin is dosed per mL of bag (sheet G51 = F51 × G7), so prepared volume
+      heparin:   heparinUmL > 0 ? r2(heparinUmL * preparedVol / S.heparin.unitsPerMl) : 0,
+      aaAminoven:r1(aaG_bag / S.aminoven10.gPerMl),
+      lipidSMOF: r1(lipidG / S.smof20.gPerMl),   // separate syringe — no overfill
+    };
+
+    // ── Bag quantities (what pharmacy weighs out) vs delivered ──────────────
+    // Absolute amounts in the compounded bag — these are the numbers the sheet's
+    // "Prescribed / mEq per Day" column shows, and they carry the overfill.
+    const bag = {
+      na_mEq: (naCl + naAcet + glycophosP * S.glycophos.naMeqPerMl) * factor,
+      k_mEq:  (kCl + k2hpo4) * factor,
+      ca_mg:  caPerKg * factor,
+      mg_mEq: mgPerKg * factor,
+      p_mg:   (glycophosP * S.glycophos.pMgPerMl + k2hpo4 * S.k2hpo4.pMgPerKMeq + extraP_mg_kg) * factor,
+      heparin_units: heparinUmL * preparedVol,
     };
 
     // ── Bag make-up: components vs water for injection ───────────────────────
-    // Mirrors the sheet's J52 (Σ component mL) and I53 (WFI q.s. = bag − Σ).
+    // Mirrors the sheet's J52 (Σ component mL) and I53 (WFI q.s. = G7 − Σ).
     // Lipid + Vitalipid are a separate syringe, so they are NOT in this sum.
     const componentVol = parseFloat((
       d50wVol + solVol.aaAminoven + solVol.naCl + solVol.naAcet + solVol.glycophos +
       solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca +
       soluvitVol + peditrace_vol + solVol.heparin
     ).toFixed(1));
-    const wfiVol = parseFloat((totalTPN_mL - componentVol).toFixed(1));
+    const wfiVol = parseFloat((preparedVol - componentVol).toFixed(1));
 
     // ── Sheet safety ceilings ────────────────────────────────────────────────
-    const dexGPerKg = dexG / wtKg;                                    // vs 18 g/kg/d (F9)
-    const kMeqPerL  = totalTPN_mL > 0 ? kKg * wtKg / (totalTPN_mL / 1000) : 0; // vs 40 (G25)
+    // The sheet tests bag amounts against factor-scaled limits (F10 vs F9 = 18×H9,
+    // G30 vs G25 = G7×40/1000). Dividing both sides by the overfill gives the
+    // delivered-basis forms below — identical results, easier to read.
+    const dexGPerKg = dexG / wtKg;                                             // vs 18 g/kg/d
+    const kMeqPerL  = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1000) : 0;  // vs 40 mEq/L
 
     const osm = D.estimateOsmolarity({
       dexPct,
@@ -556,9 +611,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       pTotal_mg, p_glycophos, p_k2hpo4, na_glycophos, isMEN,
       d50wVol, soluvitVol, peditrace_vol, solVol,
       componentVol, wfiVol, dexGPerKg, kMeqPerL, mgStrength,
+      // Prepared-vs-delivered (the Factor)
+      preparedVol, deadVol_mL, overfill, factor, deliveredFrac, dexG_bag, aaG_bag, bag,
     };
   }, [wtG, wtKg, fluidTargetPerKg, otherIV_mL, drug_mL,
-  totalTPN_mL, dexPct, aaPerKg, lipidPerKg,
+  totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg,
   naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
   enType, enVol, enFreq, isMEN, route,
   inclSoluvit, inclPeditrace, heparinUmL]);
@@ -629,7 +686,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${calc.dexGPerKg.toFixed(1)} g/kg/d — sheet limit is ${D.MAX_DEXTROSE_G_KG} g/kg/d. Lower dextrose % or bag volume.`, ref: "KCMH TPN worksheet" });
   if (calc.kMeqPerL > D.MAX_K_MEQ_PER_L) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${calc.kMeqPerL.toFixed(0)} mEq/L — max ${D.MAX_K_MEQ_PER_L} mEq/L in the bag. Increase volume or reduce K.`, ref: "KCMH TPN worksheet" });
-  if (calc.totalTPN_mL > 0 && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${calc.componentVol.toFixed(1)} mL but the bag is only ${calc.totalTPN_mL.toFixed(1)} mL — over by ${Math.abs(calc.wfiVol).toFixed(1)} mL.`, ref: "WFI q.s." });
+  if (calc.totalTPN_mL > 0 && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${calc.componentVol.toFixed(1)} mL but the prepared bag is only ${calc.preparedVol.toFixed(1)} mL — over by ${Math.abs(calc.wfiVol).toFixed(1)} mL.`, ref: "WFI q.s." });
+  // Vitamins/TE are compounded on actual weight (sheet G43/G45/G46 use C6, not
+  // H9), so an overfilled bag under-delivers them. Surfaced, not auto-corrected.
+  if (calc.overfill > 1.001 && (inclSoluvit || inclPeditrace)) alerts.push({ level: "info", title: "Vitamins / trace elements not overfill-scaled", body: `Bag is overfilled ×${calc.overfill.toFixed(2)}, but Soluvit/Peditrace are dosed on actual weight per the KCMH sheet — the infant receives ${(calc.deliveredFrac * 100).toFixed(0)}% of the 1 mL/kg (${fmt(calc.soluvitVol * calc.deliveredFrac, 2)} / ${fmt(calc.peditrace_vol * calc.deliveredFrac, 2)} mL). Electrolytes and AA are scaled.`, ref: "KCMH TPN worksheet" });
 
   // TwoCol is defined at module level (below) — do NOT define inside Calculator
   // (inline component definitions cause React to unmount/remount on every render → focus lost)
@@ -915,6 +975,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
           {!openSteps.has(2) && totalTPN_mL > 0 && (
             <div className="step-summary">
               <span className="step-summary-chip">{fmt(totalTPN_mL,0)} mL/d</span>
+              {calc.overfill > 1.001 && <span className="step-summary-chip">prep {fmt(calc.preparedVol,0)} mL · ×{fmt(calc.overfill,2)}</span>}
               <span className="step-summary-chip">{fmt(totalTPN_mL/24,2)} mL/hr</span>
               {calc.gir > 0 && <span className="step-summary-chip">GIR {fmt(calc.gir,1)}</span>}
               {aaPerKg > 0 && <span className="step-summary-chip">AA {aaPerKg}</span>}
@@ -960,11 +1021,49 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                   hint={totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day` : "ใส่ rate pump"} />
               </div>
 
+              {/* ── Overfill: dead space → prepared volume → Factor ──────────
+                  The worksheet's C7 / G8 / G7 / H9. Dead space is the state
+                  (it is a property of the giving set, not of today's volume),
+                  so prepared volume follows automatically and can never fall
+                  below delivered.                                            */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"start" }}>
+                <div>
+                  <NumField label="ปริมาตรคาสาย (dead space)" unit="mL/day"
+                    value={deadVol_mL} onChange={setDeadVol_mL} step={1}
+                    hint={deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"} />
+                  <PresetChips values={[0, 10, 20, 30]} current={deadVol_mL} onSelect={setDeadVol_mL} />
+                </div>
+                <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
+                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Prepared (เตรียมจริง)</div>
+                  <div className="num" style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>
+                    {fmt(calc.preparedVol,1)} mL/day
+                  </div>
+                  <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>
+                    delivered {fmt(totalTPN_mL,1)} mL
+                  </div>
+                </div>
+                <div style={{ padding:"8px 10px", borderRadius:6, fontSize:12,
+                  background: calc.overfill > 1.001 ? "var(--brand-bg)" : "var(--bg-2)" }}>
+                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Factor</div>
+                  <div className="num" style={{ fontWeight:700, fontSize:15,
+                    color: calc.overfill > 1.001 ? "var(--brand-2)" : "var(--ink)" }}>
+                    {fmt(calc.factor,3)}
+                  </div>
+                  <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>
+                    {calc.overfill > 1.001
+                      ? `= ${fmt(wtKg,3)} kg × ${fmt(calc.overfill,3)} overfill`
+                      : "no overfill — doses use actual weight"}
+                  </div>
+                </div>
+              </div>
+
               {/* Dextrose + GIR row */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, alignItems:"start" }}>
                 <div>
                   <NumField label="Dextrose final" unit="%" value={dexPct} onChange={setDexPct} step={0.5}
-                    hint={dexPct > 0 ? `${calc.dexG.toFixed(1)} g/day · ${calc.dexGPerKg.toFixed(1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})` : ""} />
+                    hint={dexPct > 0
+                      ? `${calc.dexG.toFixed(1)} g/d delivered · ${calc.dexGPerKg.toFixed(1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})${calc.overfill > 1.001 ? ` · ${calc.dexG_bag.toFixed(1)} g in bag` : ""}`
+                      : ""} />
                   <PresetChips values={[5, 7.5, 10, 12.5, 15]} current={dexPct} onSelect={setDexPct} suffix="%" />
                   {calc.d50wVol > 0 && (
                     <div style={{ marginTop:4, padding:"4px 8px", background:"var(--brand-bg)", borderRadius:4, fontSize:11 }}>
@@ -997,8 +1096,14 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                   <PresetChips values={[1.5, 2, 2.5, 3, 3.5]} current={aaPerKg} onSelect={setAaPerKg} />
                 </div>
                 <div style={{ fontSize:12, color:"var(--ink-2)" }}>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Total</div>
-                  <div className="num" style={{ fontWeight:600, fontSize:15 }}>{fmt(calc.aaG,1)} g/day</div>
+                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>
+                    {calc.overfill > 1.001 ? "In bag / delivered" : "Total"}
+                  </div>
+                  <div className="num" style={{ fontWeight:600, fontSize:15 }}>
+                    {calc.overfill > 1.001
+                      ? <>{fmt(calc.aaG_bag,1)}<span style={{ color:"var(--ink-3)", fontWeight:400 }}> / {fmt(calc.aaG,1)}</span> g/day</>
+                      : <>{fmt(calc.aaG,1)} g/day</>}
+                  </div>
                 </div>
                 <div style={{ fontSize:12, color:"var(--brand-2)", fontWeight:600 }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Volume</div>
@@ -1026,8 +1131,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                     </div>
                   </div>
                   <div>
-                    <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Bag total</div>
-                    <div className="num" style={{ fontWeight:600, fontSize:15 }}>{fmt(totalTPN_mL,1)} mL</div>
+                    <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Bag total (prepared)</div>
+                    <div className="num" style={{ fontWeight:600, fontSize:15 }}>{fmt(calc.preparedVol,1)} mL</div>
                   </div>
                   {calc.wfiVol < 0 && (
                     <div style={{ gridColumn:"1 / -1", fontSize:11, color:"var(--crit)", fontWeight:600 }}>
@@ -1501,33 +1606,36 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                 `Osm: ${calc.osm.toFixed(0)} mOsm/L`,
                 `──────────────────────────────`,
                 `FLUID: Target ${fluidTargetPerKg} mL/kg/d = ${(fluidTargetPerKg*calc.wtKg).toFixed(0)} mL/day`,
-                `  TPN aqueous: ${totalTPN_mL.toFixed(1)} mL/day → Rate ${(totalTPN_mL/24).toFixed(2)} mL/hr`,
+                `  TPN aqueous: ${totalTPN_mL.toFixed(1)} mL/day delivered → Rate ${(totalTPN_mL/24).toFixed(2)} mL/hr`,
+                calc.overfill > 1.001
+                  ? `  PREPARE:     ${calc.preparedVol.toFixed(1)} mL/day (+${deadVol_mL.toFixed(1)} mL ปริมาตรคาสาย) · Factor ${calc.factor.toFixed(3)} = ${calc.wtKg.toFixed(3)} kg × ${calc.overfill.toFixed(3)}`
+                  : `  PREPARE:     ${calc.preparedVol.toFixed(1)} mL/day (no overfill)`,
                 `  Lipid bag:   ${calc.lipidBagVol.toFixed(1)} mL/day over ${lipidDripHours}h → Rate ${(calc.lipidBagVol/lipidDripHours).toFixed(2)} mL/hr`,
                 `  Prescribed:  ${calc.prescribedFluid.toFixed(0)} mL/day | Remaining: ${calc.remaining.toFixed(1)} mL`,
                 `──────────────────────────────`,
-                `DEXTROSE: ${dexPct}% → D50W ${calc.d50wVol} mL/day | Glucose ${calc.dexG.toFixed(1)} g/day = ${calc.dexGPerKg.toFixed(1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})`,
+                `DEXTROSE: ${dexPct}% → D50W ${calc.d50wVol} mL/day | ${calc.dexG_bag.toFixed(1)} g in bag, ${calc.dexG.toFixed(1)} g delivered = ${calc.dexGPerKg.toFixed(1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})`,
                 `  GIR: ${calc.gir.toFixed(1)} mg/kg/min`,
-                `AA (Aminoven 10%): ${aaPerKg} g/kg/d = ${calc.aaG.toFixed(1)} g/d → ${calc.solVol.aaAminoven} mL/day`,
+                `AA (Aminoven 10%): ${aaPerKg} g/kg/d → ${calc.aaG_bag.toFixed(1)} g in bag = ${calc.solVol.aaAminoven} mL/day (${calc.aaG.toFixed(1)} g delivered)`,
                 `Lipid (SMOF 20%): ${lipidPerKg} g/kg/d = ${calc.lipidG.toFixed(1)} g/d → ${calc.solVol.lipidSMOF} mL/day`,
                 `Vitalipid N Infant: ${calc.vitalipidVol.toFixed(1)} mL/day → lipid bag`,
                 `──────────────────────────────`,
-                `ELECTROLYTES (mEq/kg/d → mL/day):`,
-                naCl>0 ? `  ${S.naCl.label}:    ${naCl} mEq/kg → ${(naCl*calc.wtKg).toFixed(1)} mEq/d → ${calc.solVol.naCl} mL` : "",
-                naAcet>0 ? `  Na Acetate:   ${naAcet} mEq/kg → ${(naAcet*calc.wtKg).toFixed(1)} mEq/d → ${calc.solVol.naAcet} mL` : "",
-                glycophosP>0 ? `  Glycophos®:   ${glycophosP} mL/kg → ${calc.solVol.glycophos} mL/day (Na ${(glycophosP*2*calc.wtKg).toFixed(1)} mEq | P ${(glycophosP*31*calc.wtKg).toFixed(0)} mg)` : "",
-                `  Total Na:     ${calc.naKg.toFixed(1)} mEq/kg/d`,
-                kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${(kCl*calc.wtKg).toFixed(1)} mEq/d → ${calc.solVol.kCl} mL` : "",
-                k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${(k2hpo4*calc.wtKg).toFixed(1)} mEq/d → ${calc.solVol.k2hpo4} mL (P ${(k2hpo4*15.5*calc.wtKg).toFixed(0)} mg)` : "",
-                `  Total K:      ${calc.kKg.toFixed(1)} mEq/kg/d (${calc.kMeqPerL.toFixed(0)} mEq/L in bag, max ${D.MAX_K_MEQ_PER_L})`,
-                caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${(caPerKg*calc.wtKg).toFixed(0)} mg/d → ${calc.solVol.ca} mL` : "",
-                mgPerKg>0 ? `  MgSO4 ${mgStrength}%:    ${mgPerKg} mEq/kg → ${(mgPerKg*calc.wtKg).toFixed(1)} mEq/d → ${calc.solVol.mg} mL` : "",
+                `ELECTROLYTES (ordered per kg → amount IN BAG → mL of stock):`,
+                naCl>0 ? `  ${S.naCl.label}:    ${naCl} mEq/kg → ${(naCl*calc.factor).toFixed(1)} mEq → ${calc.solVol.naCl} mL` : "",
+                naAcet>0 ? `  Na Acetate:   ${naAcet} mEq/kg → ${(naAcet*calc.factor).toFixed(1)} mEq → ${calc.solVol.naAcet} mL` : "",
+                glycophosP>0 ? `  Glycophos®:   ${glycophosP} mL/kg → ${calc.solVol.glycophos} mL (Na ${(glycophosP*2*calc.factor).toFixed(1)} mEq | P ${(glycophosP*31*calc.factor).toFixed(0)} mg)` : "",
+                `  Total Na:     ${calc.bag.na_mEq.toFixed(1)} mEq in bag = ${calc.naKg.toFixed(1)} mEq/kg/d delivered`,
+                kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${(kCl*calc.factor).toFixed(1)} mEq → ${calc.solVol.kCl} mL` : "",
+                k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${(k2hpo4*calc.factor).toFixed(1)} mEq → ${calc.solVol.k2hpo4} mL (P ${(k2hpo4*15.5*calc.factor).toFixed(0)} mg)` : "",
+                `  Total K:      ${calc.bag.k_mEq.toFixed(1)} mEq in bag = ${calc.kKg.toFixed(1)} mEq/kg/d delivered (${calc.kMeqPerL.toFixed(0)} mEq/L, max ${D.MAX_K_MEQ_PER_L})`,
+                caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${(caPerKg*calc.factor).toFixed(0)} mg → ${calc.solVol.ca} mL` : "",
+                mgPerKg>0 ? `  MgSO4 ${mgStrength}%:    ${mgPerKg} mEq/kg → ${(mgPerKg*calc.factor).toFixed(2)} mEq → ${calc.solVol.mg} mL` : "",
                 calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? calc.caP.toFixed(2) : "!! (Ca ordered, P = 0)"}:1 (mass)` : "",
                 `──────────────────────────────`,
-                inclSoluvit   ? `Soluvit N:      ${calc.soluvitVol} mL/day → aqueous bag` : "",
-                inclPeditrace ? `Peditrace:      ${calc.peditrace_vol} mL/day → aqueous bag` : "",
+                inclSoluvit   ? `Soluvit N:      ${calc.soluvitVol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (not × Factor — delivers ${(calc.soluvitVol*calc.deliveredFrac).toFixed(2)} mL)` : ""}` : "",
+                inclPeditrace ? `Peditrace:      ${calc.peditrace_vol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (not × Factor — delivers ${(calc.peditrace_vol*calc.deliveredFrac).toFixed(2)} mL)` : ""}` : "",
                 `Heparin:        ${heparinUmL} U/mL = ${calc.solVol.heparin} mL of ${S.heparin.unitsPerMl} U/mL`,
                 `──────────────────────────────`,
-                `BAG MAKE-UP:  components ${calc.componentVol.toFixed(1)} mL + WFI q.s. ${calc.wfiVol.toFixed(1)} mL = ${totalTPN_mL.toFixed(1)} mL`,
+                `BAG MAKE-UP:  components ${calc.componentVol.toFixed(1)} mL + WFI q.s. ${calc.wfiVol.toFixed(1)} mL = ${calc.preparedVol.toFixed(1)} mL prepared`,
                 calc.wfiVol < 0 ? `  !! COMPONENTS EXCEED BAG VOLUME by ${Math.abs(calc.wfiVol).toFixed(1)} mL — cannot compound` : "",
                 `──────────────────────────────`,
                 calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${calc.enVolTotal} mL/day (${calc.enVolPerKg.toFixed(0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid]" : ""}` : "EN: None",
@@ -1713,16 +1821,25 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
       <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
         <tr>
           <td>Total Volume:</td>
-          <td><strong>{totalTPN_mL ? totalTPN_mL.toFixed(1) : "—"}</strong> mL (Delivered Vol.) / _______ mL (Prepared Vol.) / Day</td>
+          <td><strong>{totalTPN_mL ? totalTPN_mL.toFixed(1) : "—"}</strong> mL (Delivered Vol.) / <strong>{f(calc.preparedVol,1)}</strong> mL (Prepared Vol.) / Day
+            {calc.overfill > 1.001 && <> &nbsp;·&nbsp; ปริมาตรคาสาย <strong>{f(calc.deadVol_mL,1)}</strong> mL</>}</td>
+        </tr>
+        <tr>
+          <td>Factor:</td>
+          <td><strong>{f(calc.factor,3)}</strong>
+            {calc.overfill > 1.001
+              ? <> = {f(wtKg,3)} kg × {f(calc.overfill,3)} (prepared ÷ delivered) — every per-kg dose below is scaled by this</>
+              : <> = weight (no overfill)</>}</td>
         </tr>
         <tr>
           <td style={{ whiteSpace:"nowrap" }}>Dextrose Final Conc.</td>
-          <td><strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG,1)}</strong> g = <strong>{wtKg ? f(calc.dexG/wtKg,2) : "—"}</strong> g/kg/d = <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)
+          <td><strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g in bag = <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)
+            &nbsp;·&nbsp; delivered <strong>{f(calc.dexG,1)}</strong> g = <strong>{wtKg ? f(calc.dexGPerKg,2) : "—"}</strong> g/kg/d
             &nbsp;<span style={{ fontSize:9, color:"#555" }}>(max {D.MAX_DEXTROSE_G_KG} g/kg/d)</span></td>
         </tr>
         <tr>
           <td>Amino acid</td>
-          <td><strong>☑ 10% Aminoven infant</strong> = <strong>{f(aaPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.aaAminoven,1)}</strong> mL</td>
+          <td><strong>☑ 10% Aminoven infant</strong> = <strong>{f(aaPerKg,2)}</strong> g/kg/d = <strong>{f(calc.aaG_bag,1)}</strong> g in bag = <strong>{f(calc.solVol?.aaAminoven,1)}</strong> mL</td>
         </tr>
         <tr>
           <td>Lipid</td>
@@ -1745,8 +1862,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
             <th style={tdh} rowSpan={2}>Normal Requirement</th>
           </tr>
           <tr>
-            <th style={tdh}>per kg</th>
-            <th style={tdh}>total per day<br/><span style={{fontWeight:400,fontSize:9}}>(For Pharmacist)</span></th>
+            <th style={tdh}>per kg<br/><span style={{fontWeight:400,fontSize:9}}>(as ordered)</span></th>
+            <th style={tdh}>total per day IN BAG<br/><span style={{fontWeight:400,fontSize:9}}>(For Pharmacist — × Factor)</span></th>
           </tr>
         </thead>
         <tbody>
@@ -1768,8 +1885,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
               <strong>{f(calc.naKg,2)}</strong> mEq
             </td>
             <td style={tdr}>
-              {naCl > 0    && <><strong>{f(naCl*(wtKg||0),1)}</strong> mEq = <strong>{f(calc.solVol?.naCl,1)}</strong> mL<br/></>}
-              {naAcet > 0  && <><strong>{f(naAcet*(wtKg||0),1)}</strong> mEq = <strong>{f(calc.solVol?.naAcet,1)}</strong> mL<br/></>}
+              {naCl > 0    && <><strong>{f(naCl*(calc.factor||0),1)}</strong> mEq = <strong>{f(calc.solVol?.naCl,1)}</strong> mL<br/></>}
+              {naAcet > 0  && <><strong>{f(naAcet*(calc.factor||0),1)}</strong> mEq = <strong>{f(calc.solVol?.naAcet,1)}</strong> mL<br/></>}
               {glycophosP > 0 && <><strong>{f(calc.solVol?.glycophos,1)}</strong> mL<br/></>}
             </td>
             <td style={td}>Na 2-5 mEq/kg/day<br/>(increase requirement in preterm)</td>
@@ -1787,8 +1904,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
               {kCl > 0    && <><strong>{kCl}</strong> mEq<br/></>}
             </td>
             <td style={tdr}>
-              {k2hpo4 > 0 && <><strong>{f(k2hpo4*(wtKg||0),1)}</strong> mEq = <strong>{f(calc.solVol?.k2hpo4,2)}</strong> mL<br/></>}
-              {kCl > 0    && <><strong>{f(kCl*(wtKg||0),1)}</strong> mEq = <strong>{f(calc.solVol?.kCl,1)}</strong> mL<br/></>}
+              {k2hpo4 > 0 && <><strong>{f(k2hpo4*(calc.factor||0),1)}</strong> mEq = <strong>{f(calc.solVol?.k2hpo4,2)}</strong> mL<br/></>}
+              {kCl > 0    && <><strong>{f(kCl*(calc.factor||0),1)}</strong> mEq = <strong>{f(calc.solVol?.kCl,1)}</strong> mL<br/></>}
               {calc.kMeqPerL > 0 && <span style={{ fontSize:9, color: calc.kMeqPerL > D.MAX_K_MEQ_PER_L ? "#c00" : "#555" }}>
                 {f(calc.kMeqPerL,0)} mEq/L in bag</span>}
             </td>
@@ -1798,7 +1915,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
           <tr>
             <td style={td}><strong>3. Mg⁺⁺</strong><br/>{chk(mgPerKg > 0)} MgSO₄ {mgStrength}% ({(mgStrength === "50" ? S.mgso4_50 : S.mgso4_10).mgMeqPerMl} mEq/mL)</td>
             <td style={tdr}><strong>{mgPerKg > 0 ? mgPerKg : "—"}</strong> mEq</td>
-            <td style={tdr}><strong>{mgPerKg > 0 ? f(mgPerKg*(wtKg||0),2) : "—"}</strong> mEq
+            <td style={tdr}><strong>{mgPerKg > 0 ? f(mgPerKg*(calc.factor||0),2) : "—"}</strong> mEq
               {mgPerKg > 0 && <> = <strong>{f(calc.solVol?.mg,2)}</strong> mL</>}</td>
             <td style={td}>Mg 0-12 mo. 0.4 mEq/kg/day<br/>&gt;1 yr. 0.2 mEq/kg/day</td>
           </tr>
@@ -1806,7 +1923,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
           <tr>
             <td style={td}><strong>4. Ca⁺⁺</strong><br/>{chk(caPerKg > 0)} Ca Gluconate (Elemental Ca {S.caGluconate.caMgPerMl.toFixed(1)} mg/mL)</td>
             <td style={tdr}><strong>{caPerKg > 0 ? caPerKg : "—"}</strong> mg</td>
-            <td style={tdr}><strong>{caPerKg > 0 ? f0(caPerKg*(wtKg||0)) : "—"}</strong> mg
+            <td style={tdr}><strong>{caPerKg > 0 ? f0(caPerKg*(calc.factor||0)) : "—"}</strong> mg
               {caPerKg > 0 && <> = <strong>{f(calc.solVol?.ca,1)}</strong> mL</>}</td>
             <td style={td}>Ca preterm 50-120 mg/kg/day (Ca:P ~1.7:1)</td>
           </tr>
@@ -1814,13 +1931,15 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
           <tr>
             <td style={td}><strong>5. Multivitamin</strong><br/>{chk(inclSoluvit)} Soluvit N</td>
             <td style={{...tdr}} colSpan={2}><strong>{inclSoluvit ? f(calc.soluvitVol,1) : "—"}</strong> mL/day</td>
-            <td style={td}>Soluvit N 1 mL/kg/day (max 10 mL/day)</td>
+            <td style={td}>Soluvit N {S.soluvit.mlPerKg} mL/kg/day (max {S.soluvit.maxMl} mL/day)
+              {calc.overfill > 1.001 && <div style={{ fontSize:9, color:"#a60" }}>not × Factor (sheet G43) → delivers {f(calc.soluvitVol * calc.deliveredFrac, 2)} mL</div>}</td>
           </tr>
           {/* Trace */}
           <tr>
             <td style={td}><strong>6. Trace Element</strong><br/>{chk(inclPeditrace)} Peditrace (Zn {S.peditrace.znMgPerMl * 1000} µg/mL)</td>
             <td style={{...tdr}} colSpan={2}><strong>{inclPeditrace ? f(calc.peditrace_vol,1) : "—"}</strong> mL/day</td>
-            <td style={td}>Peditrace {S.peditrace.mlPerKg} mL/kg/day (max {S.peditrace.maxMl} mL)</td>
+            <td style={td}>Peditrace {S.peditrace.mlPerKg} mL/kg/day (max {S.peditrace.maxMl} mL)
+              {calc.overfill > 1.001 && <div style={{ fontSize:9, color:"#a60" }}>not × Factor (sheet G45) → delivers {f(calc.peditrace_vol * calc.deliveredFrac, 2)} mL</div>}</td>
           </tr>
           {/* Heparin */}
           <tr>
@@ -1833,7 +1952,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
             <td style={td}><strong>Bag make-up</strong><br/>Water for injection q.s.</td>
             <td style={{...tdr}} colSpan={2}>
               Components <strong>{f(calc.componentVol,1)}</strong> mL + WFI <strong style={{ color: calc.wfiVol < 0 ? "#c00" : "#000" }}>{fSigned(calc.wfiVol,1)}</strong> mL
-              &nbsp;=&nbsp; <strong>{f(totalTPN_mL,1)}</strong> mL
+              &nbsp;=&nbsp; <strong>{f(calc.preparedVol,1)}</strong> mL prepared
               {calc.wfiVol < 0 && <div style={{ color:"#c00", fontWeight:700 }}>เกินปริมาตรถุง {f(Math.abs(calc.wfiVol),1)} mL</div>}
             </td>
             <td style={td}>Lipid + Vitalipid are a separate syringe — not in this sum</td>
@@ -1873,6 +1992,33 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
           </>)}
         </tbody>
       </table>
+
+      {/* ── องค์ประกอบที่ผู้ป่วยได้รับ — what actually reaches the infant ──────
+          The worksheet's rows 83–98: every bag amount × delivered ÷ prepared.
+          Because the bag was overfilled by the same ratio, these come back to
+          the ordered per-kg doses — printing them is the ward's cross-check
+          that the Factor was applied correctly.                              */}
+      <div style={{ fontWeight:700, borderBottom:"1px solid #000", marginTop:8, marginBottom:4 }}>
+        องค์ประกอบที่ผู้ป่วยได้รับ / DELIVERED IN {f(totalTPN_mL,1)} mL
+        {calc.overfill > 1.001 && <span style={{ fontWeight:400, fontSize:9.5 }}> &nbsp;(= bag × {f(calc.deliveredFrac,3)})</span>}
+      </div>
+      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:10 }}><tbody>
+        <tr>
+          <td style={td}>Dextrose <strong>{f(calc.dexG,1)}</strong> g</td>
+          <td style={td}>Amino acid <strong>{f(calc.aaG,1)}</strong> g = <strong>{f(aaPerKg,2)}</strong> g/kg</td>
+          <td style={td}>Energy <strong>{f0(calc.tpnKcal)}</strong> kcal = <strong>{f0(calc.kcalKg)}</strong> kcal/kg</td>
+        </tr>
+        <tr>
+          <td style={td}>Na⁺ <strong>{f(calc.naKg*(wtKg||0),2)}</strong> mEq = <strong>{f(calc.naKg,2)}</strong> mEq/kg</td>
+          <td style={td}>K⁺ <strong>{f(calc.kKg*(wtKg||0),2)}</strong> mEq = <strong>{f(calc.kKg,2)}</strong> mEq/kg</td>
+          <td style={td}>Mg²⁺ <strong>{f(mgPerKg*(wtKg||0),2)}</strong> mEq = <strong>{f(mgPerKg,2)}</strong> mEq/kg</td>
+        </tr>
+        <tr>
+          <td style={td}>Ca²⁺ <strong>{f0(caPerKg*(wtKg||0))}</strong> mg = <strong>{f0(caPerKg)}</strong> mg/kg</td>
+          <td style={td}>Phosphate <strong>{f0(calc.pTotal_mg)}</strong> mg</td>
+          <td style={td}>Osmolarity <strong>{calc.osm ? calc.osm.toFixed(0) : "—"}</strong> mOsm/L</td>
+        </tr>
+      </tbody></table>
 
       {/* Summary bar */}
       <div style={{ marginTop:6, padding:"4px 8px", border:"1px solid #ccc", fontSize:10, background:"#fafafa" }}>

@@ -48,13 +48,61 @@ Also confirmed correct and left alone: GIR, D50W, Aminoven 10%, Glycophos
 (2 mEq Na + 31 mg P/mL), K₂HPO₄ (1 mEq K + 15.5 mg P/mL), Ca gluconate, Soluvit,
 the 900 mOsm/L peripheral limit.
 
-### Still missing vs the official sheet (deliberately deferred to a second pass)
-- **The overfill "Factor" (H9 = prepared ÷ delivered × weight)** — the sheet doses
-  per *delivered* volume but compounds a larger *prepared* volume, scaling every
-  per-kg dose. NeoFeed still treats the two as one number. This is the biggest
-  remaining structural gap; the print form's "Prepared Vol." blank is still manual.
+### Second pass (same branch) — the overfill Factor is now implemented
+
+New input **ปริมาตรคาสาย / dead space** (mL/day, default 0) in Step 3. Dead space
+is the state, not prepared volume, because it is a property of the giving set —
+so `prepared = delivered + dead` can never fall below delivered when the daily
+volume changes. From it: `overfill = prepared ÷ delivered` and
+**`Factor = weight × overfill`** (the sheet's H9).
+
+What is scaled by the Factor (matching the sheet cell-for-cell): amino acid, all
+Na/K/Mg/Ca/P electrolytes, and therefore every stock-solution mL. Dextrose grams
+and heparin units come off the *prepared* volume (sheet F10, G51). WFI q.s. is now
+`prepared − components`.
+
+**Two non-obvious invariants** — both asserted in the test harness:
+- Per-kg *delivered* dose returns exactly the ordered value
+  (`perKg × factor × delivered/prepared ÷ wtKg = perKg`). So every per-kg target,
+  tile and GIR still keys off actual weight and needed **no change**.
+- **Osmolarity and GIR are invariant under overfill** — amount and volume scale
+  together, so bag concentration is unchanged. `estimateOsmolarity` needed no
+  change either. Verify this before "fixing" anything that looks unscaled.
+
+**Deliberate fidelity to a sheet inconsistency:** Soluvit/Peditrace/Addamel are
+compounded on *actual weight* (sheet `G43`/`G45`/`G46` use `C6`) even though their
+own reference cells `B43`/`B45`/`B46` use `H9`. So an overfilled bag under-delivers
+them — at ×1.2 the infant gets 83% of the 1 mL/kg. Implemented as the sheet does
+and surfaced as an info alert plus a note on the printed form, rather than silently
+"corrected". **If Praew decides the vitamins should be scaled too, that is a
+one-line change (`wtKg` → `factor` in the soluvitVol/peditrace_vol lines) — but it
+is a deviation from the official sheet and should be agreed with pharmacy first.**
+
+Print form now fills in the "Prepared Vol." blank, prints the Factor and its
+derivation, labels the pharmacist column "IN BAG (× Factor)", and adds the sheet's
+delivered-dose section (`องค์ประกอบที่ผู้ป่วยได้รับ`, rows 83–98) as the ward's
+cross-check that the Factor was applied.
+
+### Test harnesses — `test/` (new)
+`node test/verify-kcmh-constants.cjs` and `node test/verify-kcmh-factor.cjs`
+(the latter reads `DEAD`, run it at `20` **and** `0`). The factor one mounts the
+real `<Calculator>` in jsdom, drives the actual inputs, reads the rendered order
+form, and compares against an independent transcription of the sheet's formula
+chain. See `test/README.md` — dev deps are npm-installed but not committed; the
+app itself still has no build step.
+
+### Still missing vs the official sheet
 - Alternative amino-acid products (Amiparen 10%, Aminoplasmal 15%, Aminoleban 8%,
   Nephrosteril 7%), ZnSO₄, total-Zn tally with the 5 mg/day ceiling, Cl⁻ tally.
+- The sheet's "↓P / ↓Ca" manual-reduction columns (I26/I35) and its `add.KCl`
+  back-calculation, which also looked internally inconsistent (mixes mL into an
+  mEq sum at F94) — not replicated.
+
+### Source workbook is gone
+`TPN 05082569.xlsx` was in the folder *above* the repo and is no longer on disk;
+it was never committed (it held ~45 named real-patient sheets). Everything derived
+from it is recorded here and in `test/`. **To change any KCMH constant later you
+will need the workbook again** — nothing else on disk documents those divisors.
 
 ---
 
