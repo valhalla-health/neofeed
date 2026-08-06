@@ -6,15 +6,18 @@ const D = window.NEOFEED_DATA;
 // KCMH pharmacy stock strengths — every mL/day conversion resolves through this
 const S = D.KCMH_STOCK;
 
-// Format: max 1 decimal, strip trailing .0 (e.g. 1.0 -> "1", 1.25 -> "1.3")
+// Format: max `d` decimals, strip trailing zeros by default (e.g. 1.0 -> "1", 1.25 -> "1.3").
+// Pass keepZeros=true for values compared side-by-side at fixed precision (e.g. a Ca:P
+// ratio column) — otherwise a round total (1.70) reads as less precise than its
+// neighbors (1.72, 1.67) even though all three are rounded to the same 2 decimals.
 // Positive Infinity = nutrient-without-counterpart (e.g. Ca with no P) → show "!!"
-const fmt = (n, d = 1) => {
+const fmt = (n, d = 1, keepZeros = false) => {
   if (n === null) return "—";
   if (n === Infinity) return "!!";
   if (!isFinite(n)) return "—";
   const p = Math.pow(10, d);
   const r = Math.round(n * p) / p;
-  return Number.isInteger(r) ? String(r) : String(r);
+  return keepZeros ? r.toFixed(d) : String(r);
 };
 
 function NumField({ label, unit, value, onChange, step = 1, min = 0, hint }) {
@@ -79,8 +82,8 @@ function Meter({ value, target, status, max, optimal }) {
     </div>);
 }
 
-function Tile({ label, value, unit, decimals = 1, target, status, max, optimal }) {
-  const display = fmt(value, decimals); // fmt handles Infinity → "!!", null → "—"
+function Tile({ label, value, unit, decimals = 1, target, status, max, optimal, exact }) {
+  const display = fmt(value, decimals, exact); // fmt handles Infinity → "!!", null → "—"
   return (
     <div className={`metric s-${status}`}>
       <div className="stripe" />
@@ -713,7 +716,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   if (calc.pTotal_mg > 0 && sCaP === "warn") alerts.push({ level: "warn", title: "Ca:P ratio off target", body: `Mass ratio ${calc.caP.toFixed(2)} — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
   // Oral supplement changes the picture the Step 4 tile shows — flag the combined total separately
   if (mineral.hasOral && sTotCaP === "crit") alerts.push({ level: "crit", title: "Ca:P ratio (รวม oral supp) — ไม่มี P", body: `Ca ${fmt(mineral.totCa, 0)} mg/kg/d แต่ P รวม = 0 — เสี่ยง metabolic bone disease.`, ref: "ESPGHAN 2018" });else
-  if (mineral.hasOral && sTotCaP === "warn") alerts.push({ level: "warn", title: "Ca:P ratio (รวม oral supp) off target", body: `รวม TPN + EN + oral = ${fmt(mineral.totCaP, 2)}:1 (mass) — aim ${tCaP[0]}–${tCaP[1]}:1.`, ref: "ESPGHAN 2018" });
+  if (mineral.hasOral && sTotCaP === "warn") alerts.push({ level: "warn", title: "Ca:P ratio (รวม oral supp) off target", body: `รวม TPN + EN + oral = ${fmt(mineral.totCaP, 2, true)}:1 (mass) — aim ${tCaP[0]}–${tCaP[1]}:1.`, ref: "ESPGHAN 2018" });
   if (calc.totalTPN_mL > 0 && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — switch to central.`, ref: "Safety" });
   if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
@@ -1349,7 +1352,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               )}
               <Tile label="Calcium" value={calc.caKg} unit=" mg/kg/d" target={tCa} status={sCa} decimals={0} max={140} />
               <Tile label="Phosphorus" value={calc.pKg} unit=" mg/kg/d" target={tP} status={sP} decimals={0} max={90} />
-              <Tile label="Ca:P ratio" value={calc.caP} unit=":1 (mass)" target={tCaP} status={sCaP} decimals={2} max={2.5} />
+              <Tile label="Ca:P ratio" value={calc.caP} unit=":1 (mass)" target={tCaP} status={sCaP} decimals={2} max={2.5} exact />
             </div>
           </TwoCol>
         </div></div>
@@ -1606,7 +1609,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               <div className="capo4-tiles">
                 <Tile label="Calcium (total)"   value={mineral.totCa}  unit=" mg/kg/d"   target={tCa}  status={sTotCa}  decimals={0} max={220} />
                 <Tile label="Phosphate (total)" value={mineral.totP}   unit=" mg/kg/d"   target={tP}   status={sTotP}   decimals={0} max={130} />
-                <Tile label="Ca:P ratio (total)" value={mineral.totCaP} unit=":1 (mass)" target={tCaP} status={sTotCaP} decimals={2} max={2.5} />
+                <Tile label="Ca:P ratio (total)" value={mineral.totCaP} unit=":1 (mass)" target={tCaP} status={sTotCaP} decimals={2} max={2.5} exact />
               </div>
               {mineral.oralCa > 0 && mineral.oralP === 0 && (
                 <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 8 }}>
@@ -1735,10 +1738,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                 suppFerdek > 0 && wtKg > 0 ? `  Fe oral (${D.SUPP_DB[suppFeType]?.label}): ${suppFerdek} mg/kg/d = ${fmt(suppFerdek * wtKg, 1)} mg/day → ${fmt(suppFerdek * wtKg / (D.SUPP_DB[suppFeType]?.fe_mg_per_ml || 1), 2)} mL/day` : "",
                 (mineral.hasOral || mineral.hasIV) ? `──────────────────────────────` : "",
                 (mineral.hasOral || mineral.hasIV) ? `Ca · PO₄ · Ca:P (mg/kg/d elemental):` : "",
-                mineral.tpnCa > 0 || mineral.tpnP > 0 ? `  TPN (IV):         Ca ${fmt(mineral.tpnCa,0)} | P ${fmt(mineral.tpnP,0)} | ${mineral.tpnCaP > 0 ? fmt(mineral.tpnCaP,2)+":1" : "—"}` : "",
+                mineral.tpnCa > 0 || mineral.tpnP > 0 ? `  TPN (IV):         Ca ${fmt(mineral.tpnCa,0)} | P ${fmt(mineral.tpnP,0)} | ${mineral.tpnCaP > 0 ? fmt(mineral.tpnCaP,2,true)+":1" : "—"}` : "",
                 mineral.enCa > 0 || mineral.enP > 0 ? `  EN (นม):          Ca ${fmt(mineral.enCa,0)} | P ${fmt(mineral.enP,0)}` : "",
-                mineral.hasOral ? `  Oral supplement:  Ca ${fmt(mineral.oralCa,0)} | P ${fmt(mineral.oralP,0)} | ${mineral.oralCaP > 0 ? fmt(mineral.oralCaP,2)+":1" : "—"}` : "",
-                (mineral.hasOral || mineral.hasIV) ? `  TOTAL:            Ca ${fmt(mineral.totCa,0)} | P ${fmt(mineral.totP,0)} | ${mineral.totCaP > 0 ? fmt(mineral.totCaP,2)+":1" : "—"} (target ${tCaP[0]}–${tCaP[1]}:1)` : "",
+                mineral.hasOral ? `  Oral supplement:  Ca ${fmt(mineral.oralCa,0)} | P ${fmt(mineral.oralP,0)} | ${mineral.oralCaP > 0 ? fmt(mineral.oralCaP,2,true)+":1" : "—"}` : "",
+                (mineral.hasOral || mineral.hasIV) ? `  TOTAL:            Ca ${fmt(mineral.totCa,0)} | P ${fmt(mineral.totP,0)} | ${mineral.totCaP > 0 ? fmt(mineral.totCaP,2,true)+":1" : "—"} (target ${tCaP[0]}–${tCaP[1]}:1)` : "",
                 `──────────────────────────────`,
                 `SUMMARY: Protein ${calc.proteinKg.toFixed(1)} g/kg | Energy ${calc.kcalKg.toFixed(0)} kcal/kg | GIR ${calc.gir.toFixed(1)} mg/kg/min`,
                 `Na ${calc.naTotalDelivered.toFixed(1)} mEq/kg | Ca ${calc.caKg.toFixed(0)} mg/kg | P ${calc.pKg.toFixed(0)} mg/kg  (TPN+EN — see Ca·PO₄ block above for total)`,
@@ -1852,7 +1855,7 @@ function CaPRow({ label, ca, p, ratio, highlight, total }) {
       <span className="num" style={{ fontSize: 12.5, textAlign: "right", color: dim ? "var(--ink-4)" : "var(--ink)" }}>{fmt(ca, 0)}</span>
       <span className="num" style={{ fontSize: 12.5, textAlign: "right", color: dim ? "var(--ink-4)" : "var(--ink)" }}>{fmt(p, 0)}</span>
       <span className="num" style={{ fontSize: 12.5, textAlign: "right", color: dim ? "var(--ink-4)" : "var(--ink)" }}>
-        {ratio === null ? "—" : ratio > 0 ? `${fmt(ratio, 2)}` : "—"}
+        {ratio === null ? "—" : ratio > 0 ? `${fmt(ratio, 2, true)}` : "—"}
       </span>
     </div>);
 }
@@ -2114,7 +2117,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
             <td style={td}>TPN (IV)</td>
             <td style={tdr}>Ca <strong>{f0(mineral.tpnCa)}</strong></td>
             <td style={tdr}>PO₄ <strong>{f0(mineral.tpnP)}</strong></td>
-            <td style={td}>Ca:P {isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? `${f(mineral.tpnCaP,2)}:1` : mineral.tpnCaP > 0 ? "!! (Ca, no P)" : "—"}</td>
+            <td style={td}>Ca:P {isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? `${mineral.tpnCaP.toFixed(2)}:1` : mineral.tpnCaP > 0 ? "!! (Ca, no P)" : "—"}</td>
           </tr>
           {(mineral.enCa > 0 || mineral.enP > 0) && <tr>
             <td style={td}>EN (นม)</td>
@@ -2126,13 +2129,13 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
             <td style={td}>Oral supplement</td>
             <td style={tdr}>Ca <strong>{f0(mineral.oralCa)}</strong></td>
             <td style={tdr}>PO₄ <strong>{f0(mineral.oralP)}</strong></td>
-            <td style={td}>Ca:P {isFinite(mineral.oralCaP) && mineral.oralCaP > 0 ? `${f(mineral.oralCaP,2)}:1` : mineral.oralCaP > 0 ? "!! (Ca, no P)" : "—"}</td>
+            <td style={td}>Ca:P {isFinite(mineral.oralCaP) && mineral.oralCaP > 0 ? `${mineral.oralCaP.toFixed(2)}:1` : mineral.oralCaP > 0 ? "!! (Ca, no P)" : "—"}</td>
           </tr>}
           <tr>
             <td style={{...td, fontWeight:700}}>รวมทั้งหมด</td>
             <td style={tdr}>Ca <strong>{f0(mineral.totCa)}</strong></td>
             <td style={tdr}>PO₄ <strong>{f0(mineral.totP)}</strong></td>
-            <td style={{...td, fontWeight:700}}>Ca:P {isFinite(mineral.totCaP) && mineral.totCaP > 0 ? `${f(mineral.totCaP,2)}:1` : mineral.totCaP > 0 ? "!! (Ca, no P)" : "—"} (target {D.TARGETS.caP()[0]}–{D.TARGETS.caP()[1]}:1)</td>
+            <td style={{...td, fontWeight:700}}>Ca:P {isFinite(mineral.totCaP) && mineral.totCaP > 0 ? `${mineral.totCaP.toFixed(2)}:1` : mineral.totCaP > 0 ? "!! (Ca, no P)" : "—"} (target {D.TARGETS.caP()[0]}–{D.TARGETS.caP()[1]}:1)</td>
           </tr>
           </>)}
         </tbody>
