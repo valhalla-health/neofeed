@@ -1,7 +1,40 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-06 | **Status:** 🟡 production is live on deploy `@43` with a real gap — every new non-Gmail staff row still gets the same hardcoded password (`"nicunicu"`) with no forced change (see "Session 2026-07-18 (2)" below for why, and the fix). Source fix (random per-account password + forced change flow) is **merged to `main` (`6388f24`) but not yet deployed** — needs `clasp push`+`clasp deploy` same as every other source-only session below. The previous 🟢/🟡 banners here were about the now-resolved Script Properties config issue from 2026-07-13; that one really is fixed, this is a separate, newer issue.
+**Last updated:** 2026-08-06 | **Status:** 🟢 PRODUCTION · frontend and backend both current. The shared-default-password gap that this banner warned about since 2026-07-31 is **closed** — deployed 2026-08-06, live on `@44`.
 
-**TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is **merged to `main` and live** — frontend only, no `clasp` deploy involved. Its four corrected stock concentrations change the mL printed on every order form.
+**TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-06 (2) — deployed the auth fix to production (`@43` → `@44`)
+
+`clasp push` + `clasp create-deployment -i AKfycbz8Nt...` from `~/nicu-tools/neofeed/`,
+carrying GitHub `main` `5b017e9`. Redeployed the **existing** deployment, so
+`NEOFEED_GAS_URL` is unchanged and the deployment count stayed at 26. Verified after:
+`GET ?action=ping` → `200 {"ok":true}`. `รหัส.js` now byte-matches `gas-backend.gs`.
+
+**This carried two changes, not one** — you cannot deploy a partial file, and both
+were already sitting on `main` undeployed:
+1. the auth fix (random per-account temp password + forced change), and
+2. `Patient_Registry.statusDate` (col Q), backing the 7-day auto-hide of
+   Discharged/Transferred/Expired patients.
+
+**Neither migrates the live sheets, and both are backward-safe by design** — checked
+before deploying rather than after:
+- `login()` reads `must_change_password` positionally as `d[6]`. On the existing A–F
+  Staff sheet that is `undefined` → `mustChange` false → **no existing staff member
+  is forced to change anything, and no existing password is invalidated.**
+- The registry treats a missing `statusDate` as "unknown age" and keeps the patient
+  visible (`if (!p.statusDate) return -1`), so nothing vanished from the dashboard.
+
+New columns are written on demand (`setValues` over E:H), so the first
+auto-provisioned account will populate G/H **without header labels**. Adding
+`must_change_password` / `temp_password` to the Staff tab header row by hand would be
+tidier but is not required for correctness.
+
+**Not yet exercised in production:** no new non-Gmail staff row has been added since
+the deploy, so the forced-change flow is live but unproven end-to-end. The first time
+someone adds a staff row, check col H for the generated temp password and confirm the
+app forces the change screen.
 
 ---
 
