@@ -1,5 +1,7 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-06 | **Status:** 🟢 PRODUCTION · stable — no open bugs (login confirmed working since deploy `@41`; the previous 🟡 banner here was stale, left over from the since-resolved Script Properties config issue in the 2026-07-13 sessions below). ⚠️ **Branch `fix/kcmh-tpn-alignment` is open and NOT merged** — it corrects four wrong TPN stock concentrations; see the session below.
+**Last updated:** 2026-08-06 | **Status:** 🟡 production is live on deploy `@43` with a real gap — every new non-Gmail staff row still gets the same hardcoded password (`"nicunicu"`) with no forced change (see "Session 2026-07-18 (2)" below for why, and the fix). Source fix (random per-account password + forced change flow) is **merged to `main` (`6388f24`) but not yet deployed** — needs `clasp push`+`clasp deploy` same as every other source-only session below. The previous 🟢/🟡 banners here were about the now-resolved Script Properties config issue from 2026-07-13; that one really is fixed, this is a separate, newer issue.
+
+**TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is **merged to `main` and live** — frontend only, no `clasp` deploy involved. Its four corrected stock concentrations change the mL printed on every order form.
 
 ---
 
@@ -103,10 +105,193 @@ app itself still has no build step.
 it was never committed (it held ~45 named real-patient sheets). Everything derived
 from it is recorded here and in `test/`. **To change any KCMH constant later you
 will need the workbook again** — nothing else on disk documents those divisors.
+---
+
+## Session 2026-07-31 (3) — touch targets: every interactive element to 44px
+
+Follow-up to the device sweep in (2), which flagged sub-44px tap targets.
+Audited **effective** tap targets (nearest `<label>`/`<button>`/`.clickable`
+ancestor — measuring the bare `<input>` under-reports a checkbox whose real
+hit area is the label wrapping it) across all five views on an iPhone 13
+profile. Every failure traced to an explicit override that outranked the
+already-present `.btn/.btn.sm/.seg button { min-height: 44px }` block, so
+the fixes are at those rules rather than layered on top:
+
+| element | was | cause |
+|---|---|---|
+| `.preset-chip` | 26–31 × 24 | mobile block shrank it, no min-height |
+| `.patient-mc .pmc-actions .btn` | 164 × 40 | explicit `min-height: 40px` beat `.btn.sm`'s 44 |
+| `.trend-chips > button` | × 38 | explicit `min-height: 38px` |
+| `.trend-xaxis-seg button` | 144 × 28 | `min-height: 28px !important` beat `.seg button`'s 44 |
+| `.switch-patient` | 40 × 36 | `height: 36px`, no mobile rule |
+| `.card-h.clickable` | × 43 | 1px short |
+| Growth `＋`/`−`, lipid-hours `16h/20h/24h` | 36–39 wide | height fine, no min-width anywhere |
+
+**The one behavioural change worth understanding: `.preset-chips` now wraps.**
+It was `flex-wrap: nowrap` + `flex: 1 1 0`, deliberately, so a dose row
+always stayed on one line — but that meant the four 5-chip rows sitting in
+half-width grid cells (`.s1-grid` fluid, dextrose %, `.s2-aa-row`,
+`.s2-lip-row`) squeezed to 26–31px wide. These are the controls that set
+clinical doses; two 28px chips 3px apart is a mis-tap that changes a
+prescription. Now `flex-wrap: wrap` + `flex: 1 1 44px` + `min-width: 44px`:
+44px is the floor, leftover space is still shared out so each line's chips
+stretch flush (not ragged at content width), and a row only breaks to a
+second line when staying on one would violate the floor. Wide rows are
+unchanged — one line, as before. At 390px the AA row becomes 3+2; at 320px
+the fluid row becomes 2+2+1. `white-space: nowrap` is untouched, so a dose
+value still never truncates or splits.
+
+**Tablets.** All of the above lives in the `≤767px` query, which an iPad
+(768px+) never matches — so a touch tablet kept the desktop's ~25px chips.
+Added a second block keyed on `(hover: none) and (pointer: coarse) and
+(min-width: 768px)` carrying the same minimums, plus a 1px trim to `.rail`'s
+side padding so the collapsed 60px tablet rail can fit a full 44px item
+(was 43px). Keyed on the input device, not the width, so a mouse-driven
+desktop at the same width is untouched — verified: at 1440px with a fine
+pointer the chips are still 40×24 and the rail item 37px, exactly as before.
+
+**Verified**: effective-tap-target audit reports **0 elements under 44px**
+across Registry / Dashboard / Calculator (all six steps expanded) / Growth /
+Alerts, on iPhone 13 and on both iPad profiles under `pointer: coarse`.
+Overflow regression sweep across iPhone SE / 13 / 14 Pro Max / Pixel 5 /
+Galaxy S8 / Galaxy S9+ / iPad Mini / iPad Pro 11: **0px** page, card, and
+`.preset-chips` horizontal overflow everywhere; no page errors. Same WebKit
+caveat as session (2) — Chromium emulation, not iOS Safari.
 
 ---
 
-## Session 2026-07-18 (2) — backend sync: local clasp copy + live deploy were behind `main`
+## Session 2026-07-31 (2) — Ca · PO₄ · Ca:P summary in Step 6 (oral supplement, and combined with TPN)
+
+**Problem.** Calculator Step 4's `Calcium` / `Phosphorus` / `Ca:P ratio`
+tiles only ever counted TPN + EN. Once a baby is also on oral Ca and/or
+oral PO₄ from Step 6, the ratio the doctor is actually looking at in Step 4
+is not the ratio the baby receives — and nothing on screen showed the
+difference. In the user's own screenshots, Step 4 read a comfortable
+`1.72:1` while an oral order of Ca 150 mg + PO₄ 56.4 mg/day was already
+entered in Step 6.
+
+**What was added** (all in `calculator.jsx`, no data-model change):
+
+1. **`mineral` memo** (next to `calc`, deliberately *not* inside it): splits
+   Ca and PO₄ per kg/day by source — `tpn*` (Ca-gluconate + Glycophos /
+   K₂HPO₄ / extra P), `en*` (from the feed's own Ca/P), `oral*` (Step 6
+   `suppCa`/`suppPO4`, already entered as elemental mg/kg/day so they add
+   directly) — plus `iv*` (tpn+en) and `tot*` (everything), each with its
+   mass ratio. `ratio()` returns `Infinity` when Ca is ordered with zero P,
+   which `D.rangeStatus` already reports as `crit` and `fmt` renders `!!`.
+   By construction `mineral.ivCaP === calc.caP`, so Step 4 and the new panel
+   can't disagree about the TPN+EN number.
+   **Kept out of `calc` on purpose:** `calc` feeds the saved `Daily_Log`
+   entry and the Step 4 tiles, and both stay TPN+EN-only. Folding oral
+   supplement into `calc.caKg`/`calc.pKg` would silently change what
+   `ca`/`p` mean in every historical row and in `log.jsx`'s `TrendGraph`
+   target bands.
+2. **Step 6 summary panel** — a source-breakdown table (TPN (IV) / EN (นม),
+   shown only when the feed contributes / Oral supplement / รวมทั้งหมด)
+   over `Ca | PO₄ | Ca:P`, then three `Tile`s for the **total** intake with
+   the normal target meters. Targets are the existing route-aware
+   `T.ca(dol, useEnteralTargets)` / `T.p(...)` / `TARGETS.caP()` — no new
+   clinical constants. Panel is hidden entirely when neither oral nor
+   IV/EN minerals are present.
+3. **Two alerts**, firing only when an oral supplement exists (otherwise
+   they'd duplicate the existing TPN-only Ca:P alert): `crit` for
+   Ca-with-no-P, `warn` for a combined ratio outside `1.0–1.7:1`.
+4. **Same breakdown in the printed order form and the clipboard text.**
+   Both of those already carried a `Ca:P` figure computed from `calc.caP`;
+   since two different Ca:P numbers now appear on the same sheet, the old
+   one is labelled `(TPN+EN)` in each so they can't be confused.
+
+New CSS class `.capo4-tiles` (3-col → 1-col under 767px) added to **both**
+HTML shells. Cache-bust bumped to `calculator.jsx?v=capo4-summary1`.
+
+**Verified** headlessly (Chromium + the mock-patient fixture, `GAS_URL`
+blanked in a scratch copy so the login gate falls through): panel hidden
+when empty; TPN-only, TPN+EN, and oral-only cases all render with the
+arithmetic matching a hand check; Ca-with-no-P shows `!!` and raises the
+crit alert; targets flip to the ESPGHAN-2022 enteral ranges once EN
+≥ 100 mL/kg/d; print form and clipboard text both checked.
+
+**Mobile/tablet sweep** — 11 Playwright device profiles (iPhone SE 320px,
+iPhone 13, iPhone 14 Pro Max + landscape, Pixel 5/7, Galaxy S8, Galaxy S9+
+320px @4.5x, iPad Mini, iPad Pro 11), each driven through the real flow
+(open patient → Calculator → fill Step 4 + Step 2 + Step 6) with touch
+emulation on. Every profile: **0px** page/card/panel horizontal overflow,
+no clipped table cells, no page errors. Narrowest case is 320px → 274px
+panel, where the "Oral supplement" label wraps to two lines and stays
+legible. Screenshots in the session scratchpad.
+
+⚠️ **Two caveats on that sweep, both worth carrying forward:**
+
+1. **No WebKit — this is Chromium emulating iOS device metrics, not iOS
+   Safari.** `npx playwright install webkit` is blocked by the sandbox's
+   network policy (the Playwright CDN is not reachable; only the npm
+   registry is). So it validates layout/overflow/tap geometry but *cannot*
+   reproduce iOS-Safari-specific behaviour — which is exactly the class the
+   2026-07-31 (1) bottom-sheet bug fell into (`position:fixed` / `dvh`
+   compositing). This panel is static in-flow content with no fixed/sticky
+   positioning, no `vh`/`dvh` units, no `:has()`, no container queries — so
+   it's not in that risk class — but "passes the sweep" ≠ "tested on iOS".
+2. **Pre-existing tap targets under 44px in Step 6** (flagged by the sweep,
+   *not* introduced here — the new panel contains zero interactive
+   elements): `.preset-chip` renders 24px tall on mobile (`NeoFeed.html`
+   ~L1045 shrinks it to `padding: 5px 1px; font-size: 10px` under 767px),
+   and the Munti-vim checkbox is 18px. Both are below the 44px iOS / 48dp
+   Android guidance and affect every preset-chip row in the calculator, not
+   just Step 6. Left alone deliberately — out of scope for this change, and
+   raising chip height touches the whole wizard's layout.
+
+---
+
+## Session 2026-07-31 — iPhone "New log" sheet: unreachable Confirm button + oral phosphate dosing switched to mg/kg/day
+
+**1. Confirm button unreachable on iPhone.** User screenshot: opening "New log"
+(`LogDateModal` in `log.jsx`, and by the same markup pattern every other
+`.picker`/`.modal-box` bottom sheet — several in `registry.jsx` too) on an
+iPhone left the sheet's "ดำเนินการต่อ" button sitting flush against the very
+bottom of the screen, in the same strip the app's fixed bottom-nav
+(`Patients/Dashboard/Calc/Growth/Alerts`) occupies — unreachable/overlapping
+rather than clearly above it. `.picker-backdrop`/`.modal-backdrop` (z-index
+50/60) are supposed to out-stack `.bottom-nav` (z-index 40) and cover it
+entirely when a sheet is open, but evidently didn't reliably in the field
+(iOS Safari / in-app webviews are known to be inconsistent about `vh`/`dvh`
+recalculation and `position:fixed` compositing when their own chrome
+resizes). Rather than chase that, made the sheet's position not depend on
+the stacking order being right at all: added
+`padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px))` (matching
+`.bottom-nav`'s own height formula) to `.picker-backdrop`/`.modal-backdrop`
+in the mobile media query, so the bottom-aligned sheet's own bottom edge
+always sits above where the nav bar is, geometrically, regardless of
+z-index behavior on any given device. Applied to **both**
+`NeoFeed.html`/`index.html` per the CSS-drift convention; not verified
+against a live iPhone from this environment, so re-check on the next
+mobile-Safari pass instead of assuming it's fully fixed.
+
+**2. Oral phosphate supplement dosing switched from mmol/kg/day to
+mg/kg/day.** Calculator Step 6 → Phosphate (oral) previously took input
+directly in mmol/kg/day with presets `1/1.5/2/2.5`. At the user's request,
+the input (`NumField` + `PresetChips`) is now mg/kg/day elemental P with
+presets `30/40/60`, matching the Calcium field right above it. Internals:
+the `suppPO4` state itself now means mg/kg/day; every downstream mmol
+computation (volume-per-day via `SUPP_DB[...].po4_mg_per_ml` — used
+directly now, no molar step needed for volume; the `suppPO4_mmol` field
+still written to `Daily_Log`/GAS on submit, converted `mg/31` using the
+same elemental-P molar mass — 31 mg/mmol — already used elsewhere in this
+file for Glycophos/K₂HPO₄ dosing) was updated to match: Step 6 summary
+chip, the Supplement-order mini-readout, the plain-text clipboard summary,
+and the review-table row. **`suppPO4_mmol` written to `Daily_Log` is
+unchanged in meaning** (still mmol/day) — only the on-screen input/label
+changed, so existing rows and the backend schema are unaffected. One real
+caveat: any `localStorage["neofeed_calc_<sessionId>"]` draft saved before
+this change stored `suppPO4` as mmol/kg/day (values like `1`/`1.5`/`2`); on
+restore it'll now display as mg/kg/day with the same number (e.g. a saved
+`1.5` shows as "1.5 mg/kg" instead of being reinterpreted) — a purely
+client-side, per-browser prefill cache, not the Daily_Log source of truth,
+so left as-is rather than adding migration logic for it.
+Cache-bust bumped: `calculator.jsx?v=po4-mg-dosing1` in both HTML shells.
+
+---
+
+## Session 2026-07-18 (4) — backend sync: local clasp copy + live deploy were behind `main`
 
 `~/nicu-tools/neofeed/` (the clasp-linked working copy of `gas-backend.gs`, deployed
 as the live web app) had drifted behind this repo's `main` in two ways:
@@ -134,7 +319,7 @@ say it was deployed.
 
 ---
 
-## Session 2026-07-18 — debug pass: Alert-count drift + colgroup DOM warning (branch `claude/neofeed-debug-9arm-wvrssf`)
+## Session 2026-07-18 (3) — debug pass: Alert-count drift + colgroup DOM warning (branch `claude/neofeed-debug-9arm-wvrssf`)
 
 Applied a reproduce-first debugging pass (no specific bug report — drove the
 app end-to-end via a local Playwright rig against vendored React/Babel and
@@ -185,6 +370,92 @@ in this project's history appears to have verified the citation/percentile
 data against a real 2025 Fenton revision vs. just carrying a mislabeled 2013
 dataset forward. Needs a clinician/citation check, not a code fix; flagging
 so a future session doesn't assume it's already verified.
+
+---
+
+## Session 2026-07-18 (2) — walkthrough/scrutinize/verify pass, fixed shared default password (branch `claude/app-walkthrough-verify-hxzivt`)
+
+Prompted by "walkthrough, scrutinize and verify this app" — re-verified every
+fix claimed in earlier sessions against current code (all held up: TTL,
+lockout, `_numSafe`/`_sheetSafe`, Google token verification, `doGet`
+trimming, the `dol1` crash fix, negative-value validation, `lastWeighed()`
+usage, GA/PMA math). Found one new, real, currently-deployed issue introduced
+by the session below, same day:
+
+**Critical — shared hardcoded default password for auto-provisioned staff.**
+`gas-backend.gs`'s new `onEdit`/`backfillDefaultPasswords` (added by the
+session below, same morning, and confirmed live in production at deploy
+`@42`/`@43` by Session (4) above) set every new non-Gmail Staff row to one
+constant, `DEFAULT_NEW_USER_PASSWORD = "nicunicu"`, with nothing forcing a
+change afterward — `login()` returned `status: "ok"` for it exactly like any
+real password. Since this repo has no build step, that string is public and
+permanently recoverable from git history (same class of leak already flagged
+for `SPREADSHEET_ID`), except this one is a live login credential for any
+role including admin, not just an internal pointer. 10 real staff accounts
+were already provisioned with it before this was caught — and, per Session
+(4) above, this trigger really was deployed live, so this wasn't just a
+theoretical source-only gap.
+
+Fixed, at the user's request ("random per-user password + forced change
+flow"):
+- `_genTempPassword()` generates a random ~40-bit temp password per account
+  (`Utilities.getUuid()`-derived) instead of reusing one constant.
+- Staff sheet gains cols G/H: `must_change_password` (bool) and
+  `temp_password` (plaintext, write-once handoff value for whoever added the
+  row to relay to the new staff member). Both auto-clear the moment the
+  account's password is actually changed.
+- `login()`'s password path now returns `mustChangePassword` from col G;
+  `app.jsx` gates on it right after the login screen — full-screen forced
+  `ChangePasswordModal` (no Cancel, backdrop click does nothing, only
+  escape hatch is "ออกจากระบบ"/logout) blocks everything else, including the
+  GAS patient sync, until a real password is set.
+- `setInitialPassword`/`clearStaffPassword` updated to also touch cols G/H
+  so they can't leave stale forced-change state behind.
+
+Verified end-to-end with a local Playwright rig (vendored React/ReactDOM/
+Babel via `npm install` — `registry.npmjs.org` is reachable from this
+environment even though `unpkg.com` is proxy-blocked like prior sessions
+noted — served over `http://127.0.0.1` since `file://` origin can't load the
+Babel-transpiled `.jsx` via XHR) against a mocked GAS backend: forced modal
+appears after a mustChangePassword:true login, backdrop click and Cancel are
+both absent/inert, a wrong temp password shows an error and keeps the gate
+up, and a correct temp password + valid new password clears it and drops
+into the normal app. This test run caught a real bug before it shipped: the
+first pass of this fix used an `Edit` `replace_all` that silently only
+updated the Google login path's `onLogin(...)` call, not the email/password
+path's — i.e. the exact path real (non-Gmail) staff use, which would have
+made the whole fix a no-op for the accounts it was meant to protect. Fixed
+by patching that call site directly and re-running the same test.
+
+**Still needs (same as every source-only change to this file):** someone
+with Apps Script editor access must `clasp push && clasp deploy` (or paste
+`gas-backend.gs` into the editor) against the live project before this takes
+effect — this one is more urgent than most: production is confirmed live
+with the vulnerable version (Session (4) above deployed it to `@42`/`@43`),
+not just carrying an unshipped source fix. None of the 10 already-
+provisioned accounts benefit until redeployed — they're still sitting on
+the shared `"nicunicu"` password with no forced change in the meantime.
+Cache-bust tag for `app.jsx` merged with Session (3)'s bump into
+`app.jsx?v=alert-fix-pwdchange1` in both `NeoFeed.html`/`index.html`.
+
+---
+
+## Session 2026-07-18 — auto-provision default password for new Staff rows (undocumented here until now, see above)
+
+Not written up in this file when it happened — reconstructed from git log
+for continuity. Commits `d778cfb`/`435e09f`/`8dcfbf6`: pasting a batch of 10
+new non-Gmail staff rows into the Staff tab left them with no
+`password_hash`, so added an `onEdit` trigger + one-time
+`backfillDefaultPasswords()` to auto-fill a password (originally one shared
+hardcoded default) as soon as such a row is saved, plus
+`GOOGLE_WORKSPACE_DOMAINS`/`clearStaffPassword()` to stop Workspace-domain
+accounts (e.g. `chula.ac.th`) from picking one up. Also redeployed
+`gas-backend.gs` live, bringing the TTL/lockout hardening from the
+2026-07-13(2) session below into production for the first time (it had only
+been merged to `main`, never actually pushed to Apps Script, until this
+commit's message says so). **The shared-default-password part of this was a
+real vulnerability, fixed by Session 2026-07-18 (2) above — if you're
+reading this session in isolation, read that one too.**
 
 ---
 

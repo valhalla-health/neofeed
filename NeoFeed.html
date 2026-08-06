@@ -583,7 +583,7 @@
     backdrop-filter: blur(2px);
   }
   .picker {
-    width: min(720px, 92vw); max-height: 80vh; overflow: auto;
+    width: min(720px, 92vw); max-height: 80vh; max-height: 80dvh; overflow: auto;
     background: var(--surface); border-radius: var(--r-lg);
     box-shadow: var(--shadow-pop); border: 1px solid var(--line);
   }
@@ -899,6 +899,33 @@
     .work-inner { padding: 14px 14px 40px; }
   }
 
+  /* ============ TOUCH DEVICES OF ANY WIDTH ============ */
+  /* The ≤767px block below carries the phone-sized 44px minimums. A tablet
+     (iPad at 768px+ is a NICU-plausible device) never matches it, so it kept
+     the desktop's ~25px chips and 36px switcher on a touch screen. Keying off
+     the input device rather than the width covers that without touching
+     mouse-driven desktop at the same width. */
+  @media (hover: none) and (pointer: coarse) and (min-width: 768px) {
+    .btn        { min-height: 44px; min-width: 44px; }
+    .btn.sm     { min-height: 44px; }
+    .seg button { min-height: 44px; min-width: 44px; }
+    .trend-xaxis-seg button { min-height: 44px !important; }
+    .trend-chips > button   { min-height: 44px; }
+    .switch-patient   { min-height: 44px; min-width: 44px; }
+    .card-h.clickable { min-height: 44px; }
+    /* Collapsed tablet rail is 60px wide with 8px side padding, leaving the
+       item 43px — trim the padding by 1px so a full 44px fits inside it. */
+    .rail { padding-left: 7px; padding-right: 7px; }
+    .rail-item        { min-height: 44px; min-width: 44px; }
+    .bnav-item        { min-height: 44px; }
+    .preset-chips { flex-wrap: wrap; }
+    .preset-chip {
+      min-height: 44px; min-width: 44px; flex: 1 1 44px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .patient-mc .pmc-actions .btn { min-height: 44px; }
+  }
+
   /* ============ MOBILE: ≤767px ============ */
   @media (max-width: 767px) {
     :root { --rail-w: 0px; --header-h: 52px; }
@@ -1001,16 +1028,23 @@
     .picker {
       width: 100vw !important;
       max-height: 82vh;
+      max-height: 82dvh;
       border-radius: var(--r-lg) var(--r-lg) 0 0;
     }
-    .picker-backdrop { align-items: flex-end; }
+    /* Reserve the bottom-nav's own height so the sheet's action buttons
+       never land underneath it (was unreachable on iPhone — the sheet sat
+       flush with the true viewport bottom, same spot the fixed bottom-nav
+       occupies, at a slightly lower z-index than expected in some iOS
+       webviews). Anchoring the sheet above the nav instead of relying on
+       z-index stacking sidesteps that. */
+    .picker-backdrop { align-items: flex-end; padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
 
     /* Modal (e.g. change password) → bottom sheet, same as picker */
     .modal-box {
       width: 100vw !important;
       border-radius: var(--r-lg) var(--r-lg) 0 0;
     }
-    .modal-backdrop { align-items: flex-end; }
+    .modal-backdrop { align-items: flex-end; padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
     .modal-foot { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
 
     /* Card body: less padding */
@@ -1026,18 +1060,26 @@
        labels like "PN (ESPGHAN 2018)" push the last tab off-screen. Wrapping
        instead of truncating keeps the full citation readable on narrow phones. */
     .seg { width: 100%; }
-    .seg button { flex: 1; min-width: 0; padding: 8px 6px; font-size: 12px; white-space: normal; line-height: 1.25; text-align: center; }
+    .seg button { flex: 1; min-width: 44px; padding: 8px 6px; font-size: 12px; white-space: normal; line-height: 1.25; text-align: center; }
 
-    /* PresetChips: keep every value on one row instead of wrapping into a
-       ragged 2-3 row cluster inside narrow half/third-width columns — chips
-       flex to share whatever width is available, same pattern as .seg
-       above. Small fixed font (not ellipsis/wrap) so a clinical dose value
-       never gets truncated or split across lines where a digit could be
-       misread. */
-    .preset-chips { flex-wrap: nowrap; gap: 3px; }
+    /* PresetChips: chips share one row wherever the row is wide enough, and
+       wrap onto a second line only when honouring the 44px minimum would
+       otherwise force them narrower. `flex: 1 1 44px` does both: 44px is the
+       floor, and whatever is left over is shared out, so each line's chips
+       still stretch flush rather than sitting ragged at content width.
+       (Previously `flex: 1 1 0` + nowrap, which kept one row unconditionally
+       and squeezed the 5-chip rows in half-width grid cells down to 26-31px
+       wide — well under a fingertip, on controls that set clinical doses.)
+       Small fixed font (not ellipsis/wrap) so a dose value never gets
+       truncated or split across lines where a digit could be misread. */
+    .preset-chips { flex-wrap: wrap; gap: 3px; }
     .preset-chip {
-      flex: 1 1 0; min-width: 0; padding: 5px 1px; font-size: 10px;
+      flex: 1 1 44px; min-width: 44px; padding: 5px 1px; font-size: 10px;
       letter-spacing: -0.3px; white-space: nowrap; text-align: center;
+      /* 44px tall hit area (iOS HIG / Android 48dp) — a 24px-tall chip was
+         the smallest tap target in the app. */
+      min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
     }
 
     /* Bottom nav visible */
@@ -1097,9 +1139,18 @@
     .inp, .sel { font-size: 16px !important; }
 
     /* ── Touch targets: minimum 44px on all interactive elements ── */
-    .btn       { min-height: 44px; }
+    /* min-width too, not just min-height — icon-only buttons (Growth's +/-,
+       the bed-move actions) were 36-39px wide with a compliant height. */
+    .btn       { min-height: 44px; min-width: 44px; }
     .btn.sm    { min-height: 44px; font-size: 13px; padding: 6px 12px; }
     .seg button { min-height: 44px; }
+    /* The base .trend-xaxis-seg rule pins 28px with !important, so matching
+       specificity + !important is the only way to lift it here. */
+    .trend-xaxis-seg button { min-height: 44px !important; }
+    /* Top-bar patient switcher: base rule sets height:36px; min-height clamps it. */
+    .switch-patient { min-height: 44px; min-width: 44px; }
+    /* Accordion step headers are the primary navigation of the calculator. */
+    .card-h.clickable { min-height: 44px; }
 
     /* ── Active/pressed feedback for tappable surfaces ── */
     .card-h.clickable:active { background: var(--bg-2); }
@@ -1131,7 +1182,7 @@
     .patient-mc .pmc-stats { font-size: 12px; color: var(--ink-2); gap: 14px; font-family: "IBM Plex Mono", monospace; }
     .patient-mc .pmc-lbl { color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
     .patient-mc .pmc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
-    .patient-mc .pmc-actions .btn { width: 100%; justify-content: center; min-height: 40px; }
+    .patient-mc .pmc-actions .btn { width: 100%; justify-content: center; min-height: 44px; }
 
     /* ── Trend graph: stack controls, scrollable chips with snap ── */
     .trend-controls > div:first-child { width: 100%; }
@@ -1149,7 +1200,7 @@
     .trend-chips::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
     .trend-chips > button {
       flex-shrink: 0 !important;
-      min-height: 38px;
+      min-height: 44px;
       padding: 8px 14px !important;
       font-size: 13px !important;
       scroll-snap-align: start;
@@ -1227,6 +1278,7 @@
     .admin-stat-tiles  { grid-template-columns: 1fr 1fr !important; }
     .alert-summary-tiles { grid-template-columns: 1fr 1fr 1fr !important; }
     .guidelines-grid   { grid-template-columns: 1fr !important; }
+    .capo4-tiles       { grid-template-columns: 1fr !important; }
 
     /* Feeding advancement: 5-col → vertical cards */
     .feeding-steps-grid { grid-template-columns: 1fr !important; }
@@ -1282,6 +1334,8 @@
   .guidelines-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   /* Alert summary 3-col tiles */
   .alert-summary-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+  /* Step 6 Ca · PO₄ · Ca:P total tiles: 3-col → 1-col on mobile (see mobile block) */
+  .capo4-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   /* Feeding advancement 5-col vertical stack */
   .feeding-steps-grid {
     display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
@@ -1330,11 +1384,11 @@
   <script src="data.js?v=kcmh-tpn2"></script>
   <script type="text/babel" src="tweaks-panel.jsx?v=dashboard-edit2"></script>
   <script type="text/babel" src="icons.jsx?v=notes-date-sel1"></script>
-  <script type="text/babel" src="calculator.jsx?v=kcmh-tpn2"></script>
+  <script type="text/babel" src="calculator.jsx?v=kcmh-tpn3"></script>
   <script type="text/babel" src="fenton.jsx?v=security-review1"></script>
-  <script type="text/babel" src="registry.jsx?v=alert-fix1"></script>
-  <script type="text/babel" src="log.jsx?v=notes-date-sel1"></script>
-  <script type="text/babel" src="app.jsx?v=alert-fix1"></script>
+  <script type="text/babel" src="registry.jsx?v=archive-7d"></script>
+  <script type="text/babel" src="log.jsx?v=dol-sort1"></script>
+  <script type="text/babel" src="app.jsx?v=alert-fix-pwdchange1"></script>
 </body>
 </html>
 

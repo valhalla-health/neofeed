@@ -499,7 +499,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
             <tbody>
               {(() => {
                 const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
-                return entries.slice().reverse().map((e, i) => {
+                return entries.slice().sort((a, b) => b.dol - a.dol).map((e, i) => {
                   const editable = !!(onEditEntry && e.entryId);
                   return (
                     <tr key={e.entryId || i}
