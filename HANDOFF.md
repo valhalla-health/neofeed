@@ -73,10 +73,20 @@ before deploying rather than after:
 - The registry treats a missing `statusDate` as "unknown age" and keeps the patient
   visible (`if (!p.statusDate) return -1`), so nothing vanished from the dashboard.
 
-New columns are written on demand (`setValues` over E:H), so the first
-auto-provisioned account will populate G/H **without header labels**. Adding
-`must_change_password` / `temp_password` to the Staff tab header row by hand would be
-tidier but is not required for correctness.
+New columns are written on demand (`setValues` over E:H), so G/H initially had no
+header labels. **Praew added `must_change_password` / `temp_password` to the Staff
+tab header row on 2026-08-07 — done, don't chase it.** (Not verified from here: this
+session had no route to read the live sheet — see the `ensureStaffHeaderColumns` note
+below.)
+
+`ensureStaffHeaderColumns()` / `applyStaffHeaderColumns()` in `gas-backend.gs` do the
+same job idempotently and are kept for the case where the Staff tab is ever rebuilt.
+They were pushed to the script project but **never run** — `clasp run-function` needs
+the project deployed as an API executable linked to a standard GCP project, which it
+is not, and setting that up on the production script just to write two cells was not
+proportionate. If you ever do need to run them, it's from the Apps Script editor
+(`ensureStaffHeaderColumns` is dry-run; the `apply` wrapper exists because the Run
+button can't pass arguments).
 
 **Not yet exercised in production:** no new non-Gmail staff row has been added since
 the deploy, so the forced-change flow is live but unproven end-to-end. The first time
