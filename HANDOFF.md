@@ -5,6 +5,53 @@
 
 ---
 
+## Session 2026-08-06 (3) — Step 6 Ca:P summary: total ratio silently lost a decimal (branch `claude/android-ios-walkthrough-elbagm`)
+
+**User report (screenshot):** in the "สรุป Ca · PO₄ · Ca:P ratio" table added in the
+2026-07-31 (2) session, the two source rows read `1.72` and `1.67` (2 decimals) but
+the `รวมทั้งหมด` (total) row read `1.7` — one fewer digit than its neighbors in the
+same column, right below a Phosphate tile visibly over its target range. Reproduced
+exactly: TPN Ca 80/PO₄ 47 → 1.72, Oral Ca 50/PO₄ 30 → 1.67, total Ca 130/PO₄ 77 →
+displayed **1.7**, not 1.70.
+
+**Root cause:** `fmt(n, d)` in `calculator.jsx` rounds to `d` decimals but returns
+`String(r)` on the rounded *number* — and `String(1.70)` is `"1.7"` in JS, since a
+trailing zero isn't part of the numeric value. `fmt(x, 2)` on 1.72/1.67 (no trailing
+zero to lose) looked fine; the total happened to round to a clean `x.x0` and silently
+dropped a digit of precision versus the rows next to it. Same bug, same pattern
+(`Number(n.toFixed(d)).toString()`), was also present in `PrintOrderForm`'s local
+`f()` helper for the identical three Ca:P cells on the printed order form.
+
+**Fix:** `fmt()` gained a third `keepZeros` param — `false` keeps the existing
+strip-trailing-zero behavior everywhere it's relied on (mg/kg values, mL/day, etc.),
+`true` uses `.toFixed(d)` for values that are compared side-by-side at fixed
+precision. Applied `keepZeros=true` (or an equivalent direct `.toFixed(2)`, in the
+three `isFinite && >0`-guarded print-form cells that don't need `fmt`'s Infinity/null
+handling) everywhere a Ca:P mass ratio renders: `CaPRow` (the summary table),
+both `Tile`s showing a 2-decimal Ca:P ratio (Step 4's TPN+EN-only tile too, for the
+same reason — it's the same class of value even though this report was about Step 6),
+the two Ca:P alert bodies, the clipboard/plain-text summary, and `PrintOrderForm`.
+Nothing else changed — `fmt(n, 1)`'s default (mg/kg tiles, mL/day readouts, etc.)
+keeps stripping trailing zeros exactly as before.
+
+**Verified live**, not just by inspection: vendored React/ReactDOM/Babel locally
+(`npm install --no-save` — `unpkg.com` CDN is proxy-blocked from this environment,
+same constraint as every prior session) into a scratch copy with `NEOFEED_GAS_URL`
+blanked to exercise the mock-patient/"Local user" path, served over
+`http://127.0.0.1`, driven with Playwright under both an **iPhone 13** and a
+**Pixel 7** device profile: opened the mock patient → Calculator → Step 4 (Ca
+gluconate 80 mg/kg/d, K₂HPO₄ 3 mEq/kg/d) → Step 6 (oral Ca 50, oral PO₄ 30 mg/kg/d) —
+reproducing the exact 80/47/50/30 numbers from the report. Both profiles now render
+`1.72` / `1.67` / **`1.70`** in the summary table and `1.70:1` in the "Ca:P ratio
+(total)" tile, no console/page errors, no layout overflow. Same caveat as every prior
+mobile sweep in this file: Chromium emulating device metrics, not real iOS Safari or
+Android Chrome.
+
+Cache-bust bumped: `calculator.jsx?v=cap-ratio-fmt1` in both `NeoFeed.html` and
+`index.html`.
+
+---
+
 ## Session 2026-08-06 (2) — deployed the auth fix to production (`@43` → `@44`)
 
 `clasp push` + `clasp create-deployment -i AKfycbz8Nt...` from `~/nicu-tools/neofeed/`,
