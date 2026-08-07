@@ -841,6 +841,51 @@ function backfillLegacyEntryIds() {
   return fixed;
 }
 
+// ── ensureStaffHeaderColumns — run once from the editor or clasp ─
+// The Staff tab created before the forced-password-change work only has
+// headers A–F. getSheetStaff() writes the full A–H header row, but ONLY when
+// it has to create the sheet from scratch, so the live tab never gained
+// labels for G (must_change_password) / H (temp_password). Auto-provisioning
+// writes values into those columns regardless (setValues over E:H), so this
+// is cosmetic — but an unlabelled column holding a plaintext temp password is
+// exactly the kind of thing someone later mistakes for junk and deletes.
+//
+// Dry-run by default: call with no arguments to see what it WOULD do.
+// Pass true to actually write. Only ever fills a blank header cell — if
+// G1/H1 already contain anything at all it reports and changes nothing,
+// so it is safe to re-run.
+function ensureStaffHeaderColumns(apply) {
+  var WANT = { 7: "must_change_password", 8: "temp_password" };
+  var sh   = getSheetStaff();
+  var out  = { applied: apply === true, sheetLastColumn: sh.getLastColumn(), changes: [], skipped: [] };
+
+  Object.keys(WANT).forEach(function (colStr) {
+    var col     = Number(colStr);
+    var cell    = sh.getRange(1, col);
+    var current = String(cell.getValue() || "").trim();
+    if (current === WANT[col]) {
+      out.skipped.push("col " + col + ": already '" + current + "'");
+    } else if (current !== "") {
+      // Someone put something else here — do not clobber it.
+      out.skipped.push("col " + col + ": OCCUPIED by '" + current + "' — left alone");
+    } else {
+      out.changes.push("col " + col + ": '' -> '" + WANT[col] + "'");
+      if (apply === true) cell.setValue(WANT[col]);
+    }
+  });
+
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(8, sh.getLastColumn())).getValues()[0];
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
+}
+
+// Apply variant — the Apps Script editor's Run button can't pass arguments,
+// so this exists purely so both the dry run and the real thing are pickable
+// from the function dropdown. Same guarantees: only fills blank header cells.
+function applyStaffHeaderColumns() {
+  return ensureStaffHeaderColumns(true);
+}
+
 // ── registerPatient (upsert) ──────────────────────────────────
 function registerPatient(p) {
   var sheet = getSheetPat();
