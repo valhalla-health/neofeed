@@ -258,7 +258,13 @@ const TPN_TARGETS = {
     return [2, 5];                          // Stable: 2–5 mEq/kg/day (form: 2–5 mEq/kg/d)
   },
   k: (dol) => {
-    if (!dol || dol <= 3) return [0, 3];   // Transition/Intermediate: 0–3 mEq/kg (hold D1-2 ELBW)
+    // Transition (D1–2/3) + Intermediate (through D7): 0–3 mEq/kg — K is held or
+    // kept low until the diuretic phase completes and urine output is
+    // established. The stable-phase 2 mEq/kg floor must NOT apply before D8.
+    // This guard read `dol <= 3` while its own comment, TARGETS.k below and
+    // Jochum 2018 all say D8+, so a normal DOL 4–7 prescription of 0–2 mEq/kg/d
+    // rendered as "off target" in both the Step 4 tile and the TrendGraph band.
+    if (!dol || dol <= 7) return [0, 3];
     return [2, 3];                          // Stable D8+: 2–3 mEq/kg (Jochum 2018)
   },
 
@@ -836,8 +842,11 @@ const MOCK_DAILY_LOG = {
 function gaTotalDays(ga) {
   if (!isFinite(ga) || ga <= 0) return 0;
   const weeks = Math.floor(ga);
-  // First decimal digit = days; carry if user typed 0.7-0.9
-  const raw = Math.round((ga - weeks) * 10);
+  // First decimal digit = days, clamped 0-6 — the same rule parseGAInput applies.
+  // These used to disagree: parseGAInput("27.9") clamps to 27+6 (189 d) while
+  // this carried to 28+2 (198 d), so a hand-edited sheet value decoded
+  // differently depending on which helper the caller reached for.
+  const raw = Math.min(6, Math.max(0, Math.round((ga - weeks) * 10)));
   return weeks * 7 + raw;
 }
 function daysToGA(totalDays) {
@@ -878,12 +887,44 @@ function correctedAge(ga, dol) {
 }
 
 // ============================================================
+// Calendar dates — always local (Bangkok), never UTC.
+//
+// `new Date().toISOString().slice(0,10)` is the *UTC* date. Bangkok is UTC+7,
+// so for any local time before 07:00 it returns YESTERDAY. Two distinct
+// defects came out of that, fixed 2026-08-08:
+//   • liveDol() ran a day behind for the whole 00:00–07:00 night shift — the
+//     shift on which the next day's TPN is written — putting DOL and every
+//     DOL-derived target (fluid, protein, kcal, Ca, P, Mg, PMA) one day back.
+//   • NewPatientModal derived DOB by taking local midnight through
+//     toISOString(), which rolled back across the offset and produced a DOB
+//     one day early for EVERY patient, at any hour.
+//
+// Use todayLocal() for "what day is it here", and addDaysToDateStr() for
+// arithmetic on a YYYY-MM-DD string. Neither goes near toISOString().
+// The timezone is pinned rather than left to the browser so a mis-set NICU
+// workstation can't reintroduce the drift.
+// ============================================================
+const _BKK_DATE_FMT = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Bangkok" }); // sv-SE formats as YYYY-MM-DD
+function todayLocal() {
+  return _BKK_DATE_FMT.format(new Date());
+}
+// Date-string arithmetic with no timezone exposure at all: parse as UTC, shift
+// in UTC, render in UTC. Anchoring both ends to UTC makes the round-trip exact,
+// which is what the local-midnight + toISOString() pattern got wrong.
+function addDaysToDateStr(dateStr, deltaDays) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (isNaN(d)) return dateStr;
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
+
+// ============================================================
 // Live DOL — single source of truth for "day of life as of today".
 // Falls back to last stored weight's DOL if no admissionDate.
 // Used by app.jsx PatientStrip, Calculator, Registry table, Fenton.
 // ============================================================
 function liveDol(patient) {
-  return dolAtDate(patient, new Date().toISOString().slice(0, 10));
+  return dolAtDate(patient, todayLocal());
 }
 
 // Most recent weights[] entry that actually carries a weight (`w`) — a
@@ -905,8 +946,11 @@ function dolAtDate(patient, dateStr) {
   const admitDol = patient.weights?.[0]?.dol ?? 1;
   const lastDol  = patient.weights?.slice(-1)[0]?.dol ?? admitDol;
   if (!patient.admissionDate || !dateStr) return lastDol;
-  const admit = new Date(patient.admissionDate + "T00:00:00");
-  const at    = new Date(dateStr + "T00:00:00");
+  // Both anchored to UTC ("Z"), not local midnight — the difference is then an
+  // exact multiple of 86 400 000 by construction, independent of the browser's
+  // timezone or any DST rule. Same reasoning as addDaysToDateStr() above.
+  const admit = new Date(patient.admissionDate + "T00:00:00Z");
+  const at    = new Date(dateStr + "T00:00:00Z");
   if (isNaN(admit) || isNaN(at)) return lastDol;
   const daysSince = Math.floor((at - admit) / 86400000);
   return Math.max(admitDol, admitDol + daysSince);
@@ -1027,7 +1071,12 @@ window.NEOFEED_DATA = {
   // KCMH supplement formulary
   SUPP_DB,
   // Product reference
-  AA_PRODUCTS, LIPID_PRODUCTS, SALT_SOURCES, ADDITIVE_PRODUCTS,
+  AA_PRODUCTS, LIPID_PRODUCTS, ADDITIVE_PRODUCTS,
+  // Display-only strength reference. NOT compounding divisors — KCMH_STOCK is
+  // the sole authority for those, and this table deliberately lists strengths
+  // KCMH does not stock (NaCl 3%, KCl 1 mEq/mL). Renamed so it can't be reached
+  // for by mistake alongside KCMH_STOCK; see the warning at its declaration.
+  SALT_SOURCES_REFERENCE_ONLY: SALT_SOURCES,
   // Target systems (backward-compatible function API)
   TARGETS, TPN_TARGETS, ENTERAL_TARGETS,
   // Comprehensive ESPGHAN reference object (for display panels)
@@ -1042,6 +1091,9 @@ window.NEOFEED_DATA = {
   KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L,
   // Live DOL helper
   liveDol, dolAtDate,
+  // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
+  // which yields the UTC date and is a day behind before 07:00 local
+  todayLocal, addDaysToDateStr,
   // Last weights[] entry with an actual weight (skips length/HC-only rows)
   lastWeighed,
   // GA / PMA helpers (WW.D shorthand)

@@ -22,7 +22,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
   const [transferPatient, setTransferPatient] = React.useState(null);
   const [showArchived, setShowArchived]     = React.useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = D_R.todayLocal();   // local date, not UTC — drives the 7-day discharged auto-hide
   const q = filter.toLowerCase().trim();
   const filtered = patients.filter(p =>
     !q ||
@@ -362,7 +362,7 @@ const BED_OPTIONS = [
 ];
 
 function NewPatientModal({ onClose, onSubmit }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState("");
   const [bw, setBw]             = React.useState(0);
   const [gaW, setGaW]           = React.useState("");
@@ -386,11 +386,15 @@ function NewPatientModal({ onClose, onSubmit }) {
   const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "";
 
   // DOB = admitDate − (admitDol − 1) days
+  // Via addDaysToDateStr, which is UTC-anchored end to end. The previous
+  // version built a LOCAL-midnight Date and rendered it with toISOString(),
+  // which crosses back over the +07:00 offset — so it returned a DOB one day
+  // early for EVERY patient at EVERY hour, not just on night shift. With
+  // admitDol = 1 (no shift at all) a baby admitted on its birth date still got
+  // the day before. Fixed 2026-08-08.
   const dob = React.useMemo(() => {
     if (!admitDate) return today;
-    const d = new Date(admitDate + "T00:00:00");
-    d.setDate(d.getDate() - (Math.max(1, parseInt(admitDol) || 1) - 1));
-    return d.toISOString().slice(0, 10);
+    return D_R.addDaysToDateStr(admitDate, -(Math.max(1, parseInt(admitDol) || 1) - 1));
   }, [admitDate, admitDol]);
 
   return (
@@ -567,7 +571,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
 }
 
 function EditPatientModal({ patient, onClose, onSubmit }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState(patient.name || patient.initials || "");
   const [bed, setBed]           = React.useState(patient.currentBed || "NICU 1-1");
   const [dx, setDx]             = React.useState(patient.diagnosis || "");
@@ -664,7 +668,7 @@ function TransferBedModal({ patient, onClose, onSubmit }) {
     if (!bed || bed === patient.currentBed) { onClose(); return; }
     const bedHistory = [
       ...(patient.bedHistory || []),
-      { bed: patient.currentBed, date: new Date().toISOString().slice(0, 10) },
+      { bed: patient.currentBed, date: D_R.todayLocal() },   // local date, not UTC
     ];
     onSubmit({ ...patient, currentBed: bed, bedHistory });
   };

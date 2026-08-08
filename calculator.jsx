@@ -445,7 +445,14 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     const aaG_bag = aaPerKg * factor;    // IN THE BAG (sheet F11) — drives Aminoven mL
     const lipidG = lipidPerKg * wtKg;    // separate syringe: no overfill applied
     const lipidVol = lipidG / 0.20;
-    const vitalipidVol = Math.min(4 * wtKg, 10);
+    // Vitalipid rides IN the lipid emulsion — it is not a standalone infusion,
+    // so with no lipid ordered there is no Vitalipid. Computing it from weight
+    // alone put 4 mL/kg/d (cap 10) of phantom volume into prescribedFluid, into
+    // the "fluid available" readout at Step 1, and onto the printed pharmacy
+    // order form, for patients with no lipid bag at all. It also silently
+    // defeated the `calc.lipidBagVol > 0` guard below, which is meant to read
+    // as "lipid is ordered" but could never be false once a weight was entered.
+    const vitalipidVol = lipidPerKg > 0 ? Math.min(4 * wtKg, 10) : 0;
     const lipidBagVol = lipidVol + vitalipidVol;
 
     // dexPct is the final concentration of the PREPARED bag (sheet D10), so the
@@ -467,7 +474,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
     const naKg = naCl + naAcet + na_glycophos;
     const kKg = kCl + k2hpo4;
-    const pKg = pTotal_mg / wtKg;
+    // Parenteral P only. EN is added at the return (`pKg: pKg_tpn + pFromEN`),
+    // so do NOT read this as the total — it was named plain `pKg` and shadowed
+    // the returned total 139 lines later, in the highest-consequence function
+    // in the app.
+    const pKg_tpn = pTotal_mg / wtKg;
 
     // EN — computed before caP so EN minerals can be included in the ratio
     const en = D.EN_DB[enType];
@@ -606,7 +617,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       enVolTotal, enVolPerKg, enKcal, enCounted, en, useEnteralTargets,
       prescribedFluid, totalFluidPerKg, remaining,
       gir, dexG, aaG, lipidG,
-      naKg, kKg, caKg: caPerKg + caFromEN, pKg: pKg + pFromEN, caP,
+      naKg, kKg, caKg: caPerKg + caFromEN, pKg: pKg_tpn + pFromEN, caP,
       caFromEN, pFromEN,
       naTotalDelivered: naKg + naFromEN, kTotalDelivered: kKg + kFromEN,
       proteinKg, lipidKgTotal, kcalKg, totalKcal, tpnKcal,
@@ -621,7 +632,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   }, [wtG, wtKg, fluidTargetPerKg, otherIV_mL, drug_mL,
   totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg,
   naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
-  enType, enVol, enFreq, isMEN, route,
+  enType, enVol, enFreq, isMEN,
+  // `route` is deliberately NOT a dependency — the memo never reads it. It is
+  // used afterwards for sOsm and the saved entry's route string. Listing it
+  // recomputed the whole memo on every central/peripheral toggle.
   inclSoluvit, inclPeditrace, heparinUmL]);
 
   // ── Ca · PO₄ · Ca:P summary (Step 6) ────────────────────────────
@@ -676,9 +690,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const tK     = T.k(dol);                               // mmol/kg/day, DOL-specific
   const tCa    = T.ca(dol, calc.useEnteralTargets);      // mg/kg/day, route-aware
   const tP     = T.p(dol, calc.useEnteralTargets);       // mg/kg/day, route-aware
-  // Ca:P mass ratio — order form: ~1.7:1 target · ESPGHAN 2018 molar 0.8–1.3 → mass 1.3–1.7
-  // (was [1.5, 1.9] → corrected to [1.3, 1.7] per order form + ESPGHAN 2018)
-  const tCaP = D.TARGETS.caP();            // [1.3, 1.7] mass ratio
+  // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 × (40/31) → mass 1.0–1.7.
+  // KCMH order form aims at the upper end (~1.7:1).
+  const tCaP = D.TARGETS.caP();            // [1.0, 1.7] mass ratio
 
   // Non-protein energy per g amino acid — ESPGHAN 2018: 30–40 kcal/g AA
   // (was [24, 32] — corrected: minimum 30 kcal/g for adequate AA utilisation)

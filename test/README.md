@@ -1,14 +1,22 @@
-# TPN verification harnesses
+# Verification harnesses
 
-Two Node scripts that check the TPN calculator against the **official KCMH
-pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU). They exist because the
-numbers here become compounding instructions — a wrong divisor is a wrong dose.
+Three Node scripts. Two check the TPN calculator against the **official KCMH
+pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
+become compounding instructions — a wrong divisor is a wrong dose. The third
+pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
+code review, which the worksheet harnesses cannot see.
 
 ## Running
 
-These are the only things in this repo that need `npm`; nothing else does, and
-the app itself still has no build step. Dependencies are dev-only and are **not**
-committed — install them into a scratch folder and point Node at it:
+`verify-targets-and-dates.cjs` needs **no dependencies at all** — run it directly:
+
+```bash
+node test/verify-targets-and-dates.cjs
+```
+
+The two KCMH harnesses are the only things in this repo that need `npm`; nothing
+else does, and the app itself still has no build step. Dependencies are dev-only
+and are **not** committed — install them into a scratch folder and point Node at it:
 
 ```bash
 npm install --no-save react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom
@@ -28,6 +36,20 @@ DEAD=20 node test/verify-kcmh-factor.cjs && DEAD=0 node test/verify-kcmh-factor.
 ```
 
 ## What each one proves
+
+**`verify-targets-and-dates.cjs`** — regression cover for the 2026-08-08 code
+review fixes (`../CODE_REVIEW_2026-08-08.md`). 46 assertions, pure `data.js`, no
+React and no jsdom. It freezes the clock at 19:00 UTC — 02:00 ICT, the night
+shift — to reproduce directly the condition under which every `toISOString()`
+date in the app used to return *yesterday*. It also asserts that
+`TPN_TARGETS.k` and `TARGETS.k` agree at every DOL (their four-day divergence is
+what exposed the potassium bug), that a parenteral prescription is never scored
+against enteral protein/energy targets, and that GA `WW.D` decoding is
+single-valued across both helpers.
+
+These are the checks the two KCMH harnesses structurally cannot make: those
+verify compounding arithmetic against the worksheet, and every defect this file
+covers lives outside that surface.
 
 **`verify-kcmh-constants.cjs`** — loads `data.js` and checks every
 `KCMH_STOCK` strength against the divisor the worksheet uses, then reproduces

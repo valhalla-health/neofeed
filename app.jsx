@@ -34,12 +34,25 @@ function computeAlerts(patient, entries) {
   const alerts = [];
   const last = entries[entries.length - 1];
   if (last) {
+    // Route-aware targets — the same switch log.jsx's pickTarget() uses.
+    // ≥100 mL/kg/d enteral means full feeds, so the ESPGHAN 2022 enteral
+    // targets apply; below that this is still a PN prescription and the 2018
+    // parenteral targets do. D_A.TARGETS.protein/kcal are NOT safe here: they
+    // return the enteral values unconditionally once dol > 7, which told a
+    // PN-fed infant to exceed the 3.5 g/kg/d parenteral amino acid ceiling
+    // while citing ESPGHAN 2018 — the guideline that sets that ceiling.
+    // Legacy rows predate enVolPerKg and fall to the parenteral branch, which
+    // is both pickTarget's default and the safer of the two.
+    const isEN  = (last.enVolPerKg || 0) >= 100;
+    const T     = isEN ? D_A.ENTERAL_TARGETS : D_A.TPN_TARGETS;
+    const src   = isEN ? "ESPGHAN 2022" : "ESPGHAN 2018";
+    const route = isEN ? "enteral" : "parenteral";
     const tGir  = D_A.TARGETS.gir();
-    const tPro  = D_A.TARGETS.protein(last.dol);
-    const tKcal = D_A.TARGETS.kcal(last.dol);
+    const tPro  = isEN ? T.protein() : T.protein(last.dol);
+    const tKcal = isEN ? T.kcal()    : T.kcal(last.dol);
     if (last.gir > tGir[1]) alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: last.dol, ref: "ESPGHAN 2018" });
-    if (last.pro < tPro[0] && last.dol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${last.dol} — target ${tPro[0]}–${tPro[1]} g/kg/d (ESPGHAN 2018).`, dol: last.dol, ref: "ESPGHAN 2018" });
-    if (last.kcal < tKcal[0] && last.dol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${last.dol}.`, dol: last.dol, ref: "ESPGHAN" });
+    if (last.pro < tPro[0] && last.dol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${last.dol} — target ${tPro[0]}–${tPro[1]} g/kg/d (${src}, ${route}).`, dol: last.dol, ref: src });
+    if (last.kcal < tKcal[0] && last.dol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${last.dol} (${src}, ${route}).`, dol: last.dol, ref: src });
   }
 
   // Growth velocity — from patient.weights (Fenton chart data, most reliable).
@@ -77,8 +90,13 @@ function computeAlerts(patient, entries) {
     }
   }
 
-  // System info
-  alerts.push({ id: "electrolyte-audit", level: "info", title: "Weekly electrolyte audit due", body: "Last serum electrolytes >72 h ago. Consider re-check given current Na/K delivery.", dol: last?.dol, ref: "KCMH protocol" });
+  // Standing protocol reminder — NOT a computed finding. NeoFeed stores no
+  // serum electrolyte results anywhere, so it cannot know when the last draw
+  // was; the previous wording ("Last serum electrolytes >72 h ago") asserted
+  // that anyway, on every patient, in the same visual language as the alerts
+  // that ARE computed. Keep it phrased as the reminder it is until an actual
+  // electrolyte-draw date is captured and this can be derived.
+  alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: last?.dol, ref: "KCMH protocol" });
 
   return alerts;
 }
@@ -243,7 +261,9 @@ function App() {
   // (prevents the old "draft" + "submit" duplicate-row behavior).
   const handleLogToGAS = (entry) => {
     const id = active.sessionId;
-    const ts = entry.ts || new Date().toISOString().slice(0, 10);
+    // todayLocal(), not toISOString() — the latter is the UTC date, so an entry
+    // saved on night shift (before 07:00 ICT) was stamped with yesterday.
+    const ts = entry.ts || D_A.todayLocal();
     const tempId = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     const who = user?.email || "";
     // Optimistic insert under a temp id — reconciled with the real entryId below,
@@ -270,7 +290,7 @@ function App() {
   // whatever the user typed and decides how to surface the conflict.
   const handleUpdateToGAS = (entryId, expectedLastModified, entry) => {
     const id = active.sessionId;
-    const ts = entry.ts || new Date().toISOString().slice(0, 10);
+    const ts = entry.ts || D_A.todayLocal();   // local date, not UTC — see handleLogToGAS
     const who = user?.email || "";
 
     const apply = (res) => {

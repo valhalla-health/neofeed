@@ -546,7 +546,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
 // Choice shown when starting a new log entry — today, or back-dated to a
 // past calendar date (so a missed day can still be logged).
 function LogDateModal({ patient, dol, onClose, onConfirm }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = D_L.todayLocal();   // local date, not UTC — before 07:00 ICT the UTC date is yesterday
   const [mode, setMode] = React.useState("today"); // "today" | "pick"
   const [date, setDate] = React.useState(today);
   const pickedDol = D_L.dolAtDate(patient, date);

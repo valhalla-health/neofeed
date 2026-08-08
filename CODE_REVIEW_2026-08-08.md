@@ -119,7 +119,7 @@ Then export it and replace the other seven sites:
      const tempId = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -195,7 +195,7 @@ Then export it and replace the other seven sites:
 > fall to the parenteral branch — the same conservative default `pickTarget`
 > already takes, and the safer of the two.
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -248,7 +248,7 @@ Then export it and replace the other seven sites:
    },
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -301,7 +301,7 @@ Then export it and replace the other seven sites:
      const lipidBagVol = lipidVol + vitalipidVol;
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -346,7 +346,7 @@ Then export it and replace the other seven sites:
 +  alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: last?.dol, ref: "KCMH protocol" });
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -389,7 +389,7 @@ Then export it and replace the other seven sites:
        caFromEN, pFromEN,
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -416,7 +416,7 @@ Then export it and replace the other seven sites:
 +  const tCaP = D.TARGETS.caP();            // [1.0, 1.7] mass ratio
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -452,7 +452,7 @@ Then export it and replace the other seven sites:
  }
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -481,7 +481,7 @@ Then export it and replace the other seven sites:
    inclSoluvit, inclPeditrace, heparinUmL]);
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -511,7 +511,7 @@ Then export it and replace the other seven sites:
 +  SALT_SOURCES_REFERENCE_ONLY: SALT_SOURCES,
 ```
 
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -539,7 +539,7 @@ Then export it and replace the other seven sites:
   here: the pharmacy's (so the app and the compounding sheet never disagree) and
   the physiological one. The app chose the first, correctly. The risk is only
   that a reader assumes the second.
-* **Status:** Unreviewed
+* **Status:** **Fixed 2026-08-08** — see the Repair log at the end of this file.
 
 ---
 
@@ -622,3 +622,57 @@ they verify compounding arithmetic against the KCMH worksheet, and every one of
 those four is a target-selection or date defect living outside that surface.
 That gap is the strongest argument for the unit-test tier the TDD flagged as
 missing.
+
+---
+
+## 5. Repair log — 2026-08-08
+
+Auto-repair pass (step 4 of the loop). All eleven code findings applied;
+**#12 remains open** because it needs the Chula handbook, not a code decision.
+
+| # | Applied | Files |
+|---|---|---|
+| 1 | `todayLocal()` + `addDaysToDateStr()` added to `data.js`; all 8 UTC call sites rerouted; `dolAtDate` anchored to UTC at both ends | `data.js`, `app.jsx`, `log.jsx`, `registry.jsx` |
+| 2 | `computeAlerts` now selects PN vs EN targets from the entry's own `enVolPerKg`, and cites the guideline that produced the number | `app.jsx` |
+| 3 | `TPN_TARGETS.k` guard `dol <= 3` → `dol <= 7` | `data.js` |
+| 4 | Vitalipid volume gated on `lipidPerKg > 0` | `calculator.jsx` |
+| 5 | Electrolyte alert reworded to a protocol reminder — no longer asserts a draw date the app cannot know | `app.jsx` |
+| 6 | Local `pKg` → `pKg_tpn`; returned total unchanged | `calculator.jsx` |
+| 7 | Ca:P comment corrected to the `[1.0, 1.7]` the code returns | `calculator.jsx` |
+| 8 | `gaTotalDays` clamps the day digit 0–6, matching `parseGAInput` | `data.js` |
+| 9 | `route` removed from the `calc` dependency array | `calculator.jsx` |
+| 10 | `SALT_SOURCES` exported as `SALT_SOURCES_REFERENCE_ONLY` (nothing consumed the old name) | `data.js` |
+| 11 | No code change — documented as a deliberate fidelity choice | — |
+
+### One further defect found while applying #1
+
+`NewPatientModal`'s date-of-birth calculation (`registry.jsx:389–394`) built a
+**local-midnight** `Date` and rendered it with `toISOString()`. That crosses back
+over the +07:00 offset, so it returned a DOB **one day early for every patient at
+every hour** — not only on night shift. With `admitDol = 1`, where nothing is
+subtracted at all, an infant admitted on its birth date still got the day before.
+
+This was not in the original review: `registry.jsx` was outside the reviewed
+scope and I had only grepped it for the `toISOString` pattern, not read it. It is
+fixed here via `addDaysToDateStr`, and pinned by five regression assertions
+including the month, year and leap-day boundaries.
+
+### Verification
+
+New harness `test/verify-targets-and-dates.cjs` — 46 assertions, no npm
+dependencies, covering exactly the behaviours fixed above. It freezes the clock
+at 19:00 UTC (02:00 ICT) to reproduce the night-shift condition directly, and
+asserts that `TPN_TARGETS.k` and `TARGETS.k` agree at every DOL, since their
+divergence is what exposed #3.
+
+```bash
+node test/verify-targets-and-dates.cjs && node test/verify-kcmh-constants.cjs && DEAD=20 node test/verify-kcmh-factor.cjs && DEAD=0 node test/verify-kcmh-factor.cjs
+```
+
+All four runs pass. The two KCMH harnesses are unchanged and still reconcile
+against the pharmacy worksheet, confirming #4 did not disturb the compounding
+arithmetic.
+
+Cache-busting `?v=` tags bumped in **both** `NeoFeed.html` and `index.html`
+(`data.js`, `calculator.jsx`, `registry.jsx`, `log.jsx`, `app.jsx`); the two
+shells were verified byte-identical afterwards.
