@@ -256,14 +256,23 @@ under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
   medical-record retention duty. Residual risk: `sessionId` is derived from
   initials+BW+twinSuffix, so it's a pseudonym staff can reverse-map on a
   small census — erasure can't scrub that pattern without breaking every
-  Daily_Log join.
+  Daily_Log join. **There is no client entry point** — nothing in any `.jsx`
+  or `.html` file calls the `pseudonymizePatient` action, so an erasure
+  request today has to be run by hand from the Apps Script editor. "Admin-only"
+  currently means developer-only.
 - **Audit trail:** `Audit_Log` sheet records registry reads + erasures with
   actor email + timestamp.
 - **Data minimization:** `handleLogout()` clears `neofeed_calc_*` /
   `neofeed_acked_*` localStorage keys on logout (shared NICU workstations).
 - **Open items:** cross-border transfer review (data lives in Google
-  Workspace), password hashing is single-round SHA-256 (no PBKDF2/bcrypt —
-  Apps Script has no native support), no automatic retention/purge policy.
+  Workspace), no automatic retention/purge policy, no self-service UI for
+  data-subject access/rectification/erasure requests (see the erasure note
+  above — the endpoint exists but only a developer can reach it).
+  *(Removed 2026-08-08: this list used to claim password hashing was
+  single-round SHA-256. It isn't — `hashPwdV2` is 3000 iterations of
+  HMAC-SHA256 with a per-user salt, as §4 above already described correctly.
+  Single-round SHA-256 survives only as `hashPwdLegacy` for verifying old
+  hashes, and is upgraded in place on the next successful login.)*
 
 If a task touches auth, patient identifiers, exports, or any new place
 patient data leaves the Sheet, re-read this section and `HANDOFF.md`'s PDPA
