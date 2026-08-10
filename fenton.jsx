@@ -39,10 +39,19 @@ function FentonChart({ patient, currentDol, onUpdate }) {
     return () => ro.disconnect();
   }, []);
 
-  const dataset =
+  // The Fenton 2025 reference ends at 42 weeks. `data.js` carries rows past
+  // that attributed to "WHO Growth Standard 2026", but they are unverified and
+  // every value in them is a multiple of 10 — not what an LMS-derived table
+  // produces. Rather than plot infants against curves we cannot source, the
+  // chart stops at 42. Raising this back to 50 means sourcing those rows
+  // first. See HANDOFF.md 2026-08-10 (3)/(4).
+  const GA_MAX = 42;
+
+  const dataset = (
     metric === "weight" ? D_F.FENTON_WEIGHT[sex]
   : metric === "length" ? D_F.FENTON_LENGTH[sex]
-  : D_F.FENTON_HC[sex];
+  : D_F.FENTON_HC[sex]
+  ).filter(r => r[0] <= GA_MAX);
 
   const yLabel =
     metric === "weight" ? "Weight (g)"
@@ -50,7 +59,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   : "Head Circumference (cm)";
 
   // domain
-  const xMin = 22, xMax = 50;
+  const xMin = 22, xMax = GA_MAX;
   const yVals = dataset.flatMap(r => r.slice(1));
   const yMin = 0;
   const yMax = Math.max(...yVals) * 1.05;
@@ -121,8 +130,9 @@ function FentonChart({ patient, currentDol, onUpdate }) {
     return `${top} ${bottom} Z`;
   };
 
-  // X tick weeks
-  const xTicks = [22, 26, 30, 34, 38, 42, 46, 50];
+  // X tick weeks — last tick must be GA_MAX so the axis reads as deliberately
+  // ending there rather than truncated mid-interval.
+  const xTicks = [22, 26, 30, 34, 38, 42].filter(t => t <= GA_MAX);
 
   // Y ticks - auto by data
   const yTicks = [];
@@ -135,7 +145,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   //   OR inline as w.l/w.hc on weights entries (saved by MeasurementLogger) — merge both.
   // True decimal-week PMA at birth (for x-axis plotting); ga is WW.D shorthand
   const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
-  const points = (() => {
+  const allPoints = (() => {
     if (metric === "weight") {
       return (patient?.weights || []).map(w => ({
         pma: pma0 + (w.dol - 1) / 7, value: w.w, dol: w.dol,
@@ -151,7 +161,15 @@ function FentonChart({ patient, currentDol, onUpdate }) {
     return [...byDol.entries()]
       .map(([dol, value]) => ({ pma: pma0 + (dol - 1) / 7, value, dol }))
       .sort((a, b) => a.dol - b.dol);
-  })().filter(p => p.pma >= xMin && p.pma <= xMax && p.value != null);
+  })().filter(p => p.value != null);
+
+  // Now that the axis stops at GA_MAX, an infant past 42 weeks PMA has
+  // measurements that cannot be plotted. Dropping them silently would leave a
+  // chart that looks complete while hiding the most recent point — and the
+  // long-stay infants this affects are exactly the ones being watched most
+  // closely. Count them so the UI can say so out loud.
+  const points = allPoints.filter(p => p.pma >= xMin && p.pma <= xMax);
+  const hiddenPastMax = allPoints.filter(p => p.pma > xMax).length;
 
   // current percentile estimate
   const currentPercentile = (() => {
@@ -214,6 +232,17 @@ function FentonChart({ patient, currentDol, onUpdate }) {
         </span>
       </div>
       <div className="card-b">
+        {hiddenPastMax > 0 && (
+          <div style={{ padding: "10px 12px", background: "var(--warn-bg)",
+            border: "1px solid var(--warn-line)", borderRadius: 8, marginBottom: 10,
+            fontSize: 12.5, color: "var(--warn)", display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="info" size={13} color="var(--warn)" />
+            <span>
+              มีค่าที่วัดหลัง PMA {GA_MAX} สัปดาห์ <strong>{hiddenPastMax}</strong> ค่า ไม่ได้แสดงบนกราฟ —
+              Fenton 2025 มีข้อมูลอ้างอิงถึง {GA_MAX} สัปดาห์เท่านั้น
+            </span>
+          </div>
+        )}
         <div className="fenton-grid" style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 18 }}>
           <div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 }}>

@@ -5,6 +5,37 @@
 
 ---
 
+## Session 2026-08-10 (4) — Fenton chart axis clamped at 42 weeks
+
+Praew's decision on the open question from session (3): rather than source
+replacement values for GA 44–50, **stop the chart at 42** — the last week the
+Fenton 2025 reference actually covers.
+
+- `fenton.jsx` now has a single `GA_MAX = 42` constant driving the domain
+  (`xMax`), the tick list, and a `.filter(r => r[0] <= GA_MAX)` on the dataset.
+  Raising it back is a one-line change *if* the post-term rows are ever
+  sourced — the constant is the whole switch.
+- The GA 44–50 rows are **still in `data.js`**, flagged in-code, just no longer
+  plotted. Deleting them would have thrown away the only record of what was
+  there; leaving them unflagged was the original problem.
+- Applies to all three metrics. `FENTON_LENGTH`/`FENTON_HC` lose their 46/50
+  rows from the plot too, which is consistent — those were never verified
+  either (see session (3)).
+
+**An infant past 42 weeks PMA now sees a warning, not a silent gap.** The old
+code filtered points to `pma <= xMax` and said nothing; with the axis at 50
+that rarely bit, but at 42 it would routinely hide the most recent measurement
+on exactly the long-stay infants under closest watch. `points` is now derived
+from `allPoints`, and `hiddenPastMax` drives a Thai banner above the chart
+naming how many measurements are not shown and why. A chart that looks
+complete while hiding the newest point is worse than one that admits the gap.
+
+Verified: `fenton.jsx`, `calculator.jsx` and `app.jsx` all parse clean through
+esbuild; `data.js` through `node --check`; both HTML shells bumped to
+`fenton.jsx?v=ga-clamp42` and confirmed identical.
+
+---
+
 ## Session 2026-08-10 (3) — Fenton 2025 verified against source; weight table refreshed to weekly resolution
 
 The "is `fenton.jsx` really Fenton 2025, or carried-forward 2013 data?" caveat
