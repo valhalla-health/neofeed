@@ -819,6 +819,14 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       var row = _buildLogRow(sessionId, entry, originalSubmittedBy)
         .concat([JSON.stringify(entry.calcInput || {}), entryId, newLastModified, _sheetSafe(editedBy || "")])
         .concat(_ioLogFields(entry));
+      // A Daily_Log tab created before the Intake/Output columns is only 28
+      // columns wide, and getRange() past the grid edge throws — which would
+      // surface at the bedside as a failed save on an EXISTING entry. Widen
+      // on demand so this can't depend on whether the one-off
+      // ensureLogHeaderColumns migration has been run yet. No-op once done.
+      if (sheet.getMaxColumns() < row.length) {
+        sheet.insertColumnsAfter(sheet.getMaxColumns(), row.length - sheet.getMaxColumns());
+      }
       sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
       return { ok: true, lastModified: newLastModified };
     }
