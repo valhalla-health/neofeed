@@ -5,6 +5,54 @@
 
 ---
 
+## Session 2026-08-10 (3) — Fenton 2025 verified against source; weight table refreshed to weekly resolution
+
+The "is `fenton.jsx` really Fenton 2025, or carried-forward 2013 data?" caveat
+had been open in this file since 2026-07. Praew supplied the reference tables
+(LMS + percentiles, GA 22–42, from her BPD sandbox) and it is now settled.
+
+**The label is correct — the suspicion was wrong.** Reconstructed all five
+centile curves from the reference and compared every cell of `FENTON_WEIGHT`:
+p3/p10/p90 reproduce the published integers **exactly** (0 g on all of them,
+both sexes), p50 matches the LMS median `M`, and p97 — which the reference
+table doesn't carry, so it was recomputed from L/M/S via
+`X = M(1 + LSZ)^(1/L)` — landed within ±2 g. That residue was rounding.
+`FENTON_WEIGHT` is genuinely the third-generation 2025 data. **Close that
+open item.**
+
+**Refreshed to the source's own resolution.** The table stored even weeks
+only and `fenton.jsx` linearly interpolated the odd ones at render time, even
+though the reference publishes all 21 weekly rows — so the interpolation was
+avoidable error, worst case **56 g at girls GA 41**, which is exactly where a
+borderline SGA call sits at term. GA 22–42 now carries every week.
+Re-verified after the edit: **210 cells, 0 g discrepancy.**
+
+**Still open — percentiles past 42 weeks.** The eight rows at GA 44/46/48/50
+are outside the Fenton reference entirely. The header in `data.js` attributes
+them to "WHO Growth Standard 2026", so they are not unsourced — but **every
+value in them is a multiple of 10**, which is not what an LMS-derived table
+produces (contrast the precise values below 42), and that attribution has not
+been verified. This matters more than it looks: `fenton.jsx` sets `xMax = 50`
+with ticks at 46 and 50, so the region of the chart backed by the weakest data
+is precisely where long-stay BPD infants are plotted. Left in place and
+flagged in-code rather than changed, because the fix is a clinical decision —
+source real values, or clamp the axis at 42 and stop drawing curves the data
+doesn't support.
+
+**Also unverified: `FENTON_LENGTH` and `FENTON_HC`.** Only weight reference
+data was available. Both of those are stored at **4-week** steps (22, 26, 30,
+…) — coarser still than weight was — and carry the same "Fenton 2025"
+attribution, which nobody has checked. Worth the same exercise if the length/
+HC reference tables can be exported.
+
+Method note for whoever repeats this: the first two comparison runs produced
+nonsense (a "4605 g discrepancy") because the extractor over-ran the
+`FENTON_WEIGHT` block into `FENTON_LENGTH`/`FENTON_HC` and compared cm against
+g, then over-ran `boys:` into `girls:`. If a growth-table diff reports large
+systematic errors, suspect the parser before the data.
+
+---
+
 ## Session 2026-08-10 (2) — review of the Intake/Output work, two fixes, and the backend deploy (`@44` → `@45`)
 
 Praew asked for a check of the I/O + data-log feature merged earlier the same
