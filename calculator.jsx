@@ -672,16 +672,24 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
   // ── Intake / Output card ─────────────────────────────────────────
   // Divisor: previous day's weight, or birth weight while the infant hasn't
-  // yet regained it (D.ioDivisorG — see data.js). Drain content is subtracted
-  // from Output BEFORE the per-kg/day figure is derived; the raw Output field
-  // itself is left as entered.
+  // yet regained it (D.ioDivisorG — see data.js).
+  //
+  // The Output field is the bedside TOTAL, drain included. Drain is netted out
+  // for the per-kg/day figure only, so that reads as urine output (the number
+  // you actually judge against 1–3 mL/kg/h) — the raw Output field itself is
+  // left as entered.
+  //
+  // Balance deliberately uses GROSS output, not ioNetOutput: drain is a real
+  // fluid loss, and subtracting it from the balance would report the infant as
+  // more positive than they are by exactly the drain volume — the wrong
+  // direction to be wrong in on a baby with a chest tube.
   const ioDivisorGVal = D.ioDivisorG(patient, dol);
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
   const ioNetOutput = ioOutput - drainContent;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
   const ioOutputPerKg = ioDivisorKg ? ioNetOutput / ioDivisorKg : null;
   const ioDrainPerKg = ioDivisorKg ? drainContent / ioDivisorKg : null;
-  const ioBalance = ioInput - ioNetOutput;
+  const ioBalance = ioInput - ioOutput;
 
   // ── Ca · PO₄ · Ca:P summary (Step 6) ────────────────────────────
   // Oral supplement doses are entered as elemental mg/kg/day, i.e. already in
@@ -947,9 +955,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
       {/* ===== Intake / Output (volume card) ─────────────────────
           Per-kg/day divides by yesterday's weight, or birth weight while the
-          infant hasn't yet regained it (D.ioDivisorG). Drain content is
-          netted out of Output before its per-kg/day figure is shown — the
-          raw Output mL/day field itself stays as entered. */}
+          infant hasn't yet regained it (D.ioDivisorG). Output is the bedside
+          total (drain included); drain is netted out of its per-kg/day figure
+          so that reads as urine output, while the raw mL/day field stays as
+          entered and Balance uses gross output. */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h">
           <Icon name="drop" size={14} color="var(--brand)" />

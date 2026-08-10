@@ -957,6 +957,71 @@ function applyStaffHeaderColumns() {
   return ensureStaffHeaderColumns(true);
 }
 
+// ── ensureLogHeaderColumns — run once from the editor or clasp ──
+// Same gap as ensureStaffHeaderColumns above, one tab over: getSheetLog()
+// writes the full A–AE header row, but ONLY when it has to create Daily_Log
+// from scratch. The live tab predates the Intake/Output work, so it never
+// gained labels for AC (ioInput) / AD (ioOutput) / AE (drainContent).
+//
+// Unlike the Staff case this is NOT merely cosmetic. updateDailyNutrition()
+// writes with getRange(row, 1, 1, 31); if the sheet's GRID is still only 28
+// columns wide, that range is out of bounds and editing an existing entry
+// throws. (Creating is fine — appendRow widens the sheet itself.) So this
+// helper grows the grid first, then labels the headers.
+//
+// Dry-run by default: call with no arguments to see what it WOULD do. Pass
+// true to actually write. Only ever fills a BLANK header cell — if AC1/AD1/
+// AE1 already contain anything it reports and changes nothing, so it is safe
+// to re-run.
+function ensureLogHeaderColumns(apply) {
+  var WANT = { 29: "ioInput", 30: "ioOutput", 31: "drainContent" };
+  var sh   = getSheetLog();
+  var out  = {
+    applied: apply === true,
+    sheetMaxColumns: sh.getMaxColumns(),
+    sheetLastColumn: sh.getLastColumn(),
+    changes: [], skipped: []
+  };
+
+  // 1. Widen the grid if needed — must happen before any getRange(.., 31).
+  var need = 31 - sh.getMaxColumns();
+  if (need > 0) {
+    out.changes.push("grid: " + sh.getMaxColumns() + " -> 31 columns (+" + need + ")");
+    if (apply === true) sh.insertColumnsAfter(sh.getMaxColumns(), need);
+  } else {
+    out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
+  }
+
+  // 2. Label the headers (only if we actually have the columns to label).
+  if (apply === true || need <= 0) {
+    Object.keys(WANT).forEach(function (colStr) {
+      var col     = Number(colStr);
+      var cell    = sh.getRange(1, col);
+      var current = String(cell.getValue() || "").trim();
+      if (current === WANT[col]) {
+        out.skipped.push("col " + col + ": already '" + current + "'");
+      } else if (current !== "") {
+        // Someone put something else here — do not clobber it.
+        out.skipped.push("col " + col + ": OCCUPIED by '" + current + "' — left alone");
+      } else {
+        out.changes.push("col " + col + ": '' -> '" + WANT[col] + "'");
+        if (apply === true) cell.setValue(WANT[col]);
+      }
+    });
+  } else {
+    out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
+  }
+
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(31, sh.getLastColumn())).getValues()[0];
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
+}
+
+// Apply variant — see applyStaffHeaderColumns for why this exists.
+function applyLogHeaderColumns() {
+  return ensureLogHeaderColumns(true);
+}
+
 // ── registerPatient (upsert) ──────────────────────────────────
 function registerPatient(p) {
   var sheet = getSheetPat();
