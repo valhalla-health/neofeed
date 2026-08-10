@@ -1,7 +1,75 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-10 | **Status:** 🟡 BACKEND NEEDS REDEPLOY · today's session (below) added new `gas-backend.gs` actions (`acquireLogLock`/`releaseLogLock`) and three new `Daily_Log` columns (`ioInput`/`ioOutput`/`drainContent`, AC–AE) — merged to `main` but **not yet pushed to the live Apps Script project**. Frontend (`calculator.jsx`/`app.jsx`) is live-safe to deploy on its own (see that session's note), but the Intake/Output card's saved values and the edit-lock banner won't do anything server-side until `gas-backend.gs` is redeployed too.
+**Last updated:** 2026-08-10 | **Status:** 🟢 DEPLOYED · the Intake/Output + edit-lock backend went live as **`@45`** on the existing deployment `AKfycbz8Nt…` (see session 2026-08-10 (2) below). Verified by pulling the script project back down and diffing it against `main` — identical — and by confirming GitHub Pages serves `calculator.jsx?v=io-balance1`. One cosmetic item may still be open: the `Daily_Log` **AC1/AD1/AE1 header labels** (`ioInput`/`ioOutput`/`drainContent`). `applyLogHeaderColumns()` was run on 2026-08-10 from the editor as `peeraporn.po@chula.ac.th`; confirm visually in the sheet if in doubt. Data lands in AC–AE either way — the columns are written by index, not by header name.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-10 (2) — review of the Intake/Output work, two fixes, and the backend deploy (`@44` → `@45`)
+
+Praew asked for a check of the I/O + data-log feature merged earlier the same
+day (PR #39, session below), on the grounds that it "needs the GAS backend
+also". It did — and the review turned up two problems before it went live.
+
+**The feature was inert, not broken.** The frontend had already shipped to
+GitHub Pages, but the live Apps Script deployment was still `@44`. An old
+backend silently ignores the extra properties on the `entry` object and
+returns `"Unknown action"` for the lock, which `useDailyLogLock` deliberately
+swallows — so staff could fill in the Intake/Output card and watch it save
+with no error while all three values were discarded. Worth remembering as a
+failure mode: **this feature pair fails silently, not loudly.**
+
+**1. Fluid balance credited drain instead of debiting it (clinical).**
+`calculator.jsx` had `ioBalance = ioInput - ioNetOutput`, where
+`ioNetOutput = ioOutput - drainContent`. Netting drain out is correct for the
+*per-kg display* — that is what makes it read as urine output against the
+1–3 mL/kg/h target — but feeding the same figure into Balance removes drain
+losses from the balance entirely. An infant with a chest tube draining
+50 mL/d read **+50 mL/d more positive than reality**. Confirmed with Praew
+that the bedside "Output" total already includes drain, so Balance now uses
+gross output (`ioInput - ioOutput`) and `ioNetOutput` is retained solely as
+the per-kg divisor input. The formula was wrong under *either* reading of the
+Output field, which is what flagged it.
+
+**2. `Daily_Log` AC–AE headers could never appear on the live sheet.**
+`getSheetLog()` writes the full A–AE header row only when it *creates* the
+tab, and Daily_Log has existed since 2026-05 — the identical gap that
+`ensureStaffHeaderColumns` was written for. Added `ensureLogHeaderColumns` /
+`applyLogHeaderColumns` on the same pattern (dry-run by default, never
+clobbers an occupied header cell, safe to re-run), with one addition: it
+grows the sheet **grid** to 31 columns before labelling.
+
+**3. Then made the grid widen self-healing anyway.** `updateDailyNutrition`
+writes `sheet.getRange(i + 1, 1, 1, row.length)` where `row.length` is now 31
+(24 + 4 + 3). On a Daily_Log still 28 columns wide that range is out of
+bounds and **throws** — reaching the bedside as a failed save when *editing*
+an existing entry. Since `ensureLogHeaderColumns` is a manual one-off, the
+edit path would have been load-bearing on a migration nobody had necessarily
+run, so `updateDailyNutrition` now widens the grid itself when it is too
+narrow. No-op once wide enough. This is why the header migration is now only
+cosmetic — but see the caveat about unlabelled columns in
+`ensureStaffHeaderColumns`'s comment, which applies here too.
+
+**Deploy.** `clasp push`, then
+`clasp deploy --deploymentId AKfycbz8Nt…` → **`@45`**. Verified three ways:
+`clasp pull` into a scratch dir diffed byte-identical against `main`'s
+`gas-backend.gs`; `list-deployments` shows `AKfycbz8Nt…` at `@45`; and the
+live Pages HTML serves `calculator.jsx?v=io-balance1`.
+
+**Two things worth carrying forward:**
+- The migration could not be run from this session — the Apps Script editor
+  raised an **"Authorization required"** OAuth consent, which is the user's
+  to grant. Praew ran `applyLogHeaderColumns` herself, signed in as
+  `peeraporn.po@chula.ac.th`.
+- The manifest sets `"executeAs": "USER_DEPLOYING"`, so the live web app runs
+  as whoever **cut the deployment**, not whoever is signed into the editor.
+  Deploying through `clasp` keeps that identity stable. **Using the editor's
+  blue Deploy button while signed in as a different Google account would
+  switch the executing identity and probably break sheet access** — a trap
+  worth avoiding given more than one account now has editor access.
+
+Commits: `986ecb1` (balance + `ensureLogHeaderColumns`), `2b7d2a4` (on-demand
+grid widen). Both on `main`; clasp mirror `~/nicu-tools/neofeed` synced.
 
 ---
 
