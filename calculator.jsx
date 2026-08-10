@@ -145,7 +145,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onSaved, onWeightChange }) {
+function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onSaved, onWeightChange, onDelete }) {
   const [wtG, setWtG] = useState(0);
 
   // Set alongside setWtG whenever the prefill effect below applies a historical
@@ -674,22 +674,21 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // Divisor: previous day's weight, or birth weight while the infant hasn't
   // yet regained it (D.ioDivisorG — see data.js).
   //
-  // The Output field is the bedside TOTAL, drain included. Drain is netted out
-  // for the per-kg/day figure only, so that reads as urine output (the number
-  // you actually judge against 1–3 mL/kg/h) — the raw Output field itself is
-  // left as entered.
+  // The Output field is urine output only (drain is entered separately) — the
+  // number a nurse actually reads off the bedside chart and judges against the
+  // 1–3 mL/kg/h target, so it's entered/displayed directly as a rate. `ioOutput`
+  // itself (state + what's written to Daily_Log) stays raw mL/day, same as
+  // Input/Drain and the existing backend column, so the field just converts on
+  // the way in/out — see the NumField below.
   //
-  // Balance deliberately uses GROSS output, not ioNetOutput: drain is a real
-  // fluid loss, and subtracting it from the balance would report the infant as
-  // more positive than they are by exactly the drain volume — the wrong
-  // direction to be wrong in on a baby with a chest tube.
+  // Balance = Input − Output(urine) − Drain: both are real fluid losses now
+  // that Output no longer folds drain in, so both are subtracted explicitly.
   const ioDivisorGVal = D.ioDivisorG(patient, dol);
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
-  const ioNetOutput = ioOutput - drainContent;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
-  const ioOutputPerKg = ioDivisorKg ? ioNetOutput / ioDivisorKg : null;
+  const ioOutputPerKgH = ioDivisorKg ? Math.round((ioOutput / ioDivisorKg / 24) * 100) / 100 : null;
   const ioDrainPerKg = ioDivisorKg ? drainContent / ioDivisorKg : null;
-  const ioBalance = ioInput - ioOutput;
+  const ioBalance = ioInput - ioOutput - drainContent;
 
   // ── Ca · PO₄ · Ca:P summary (Step 6) ────────────────────────────
   // Oral supplement doses are entered as elemental mg/kg/day, i.e. already in
@@ -817,9 +816,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
       pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
       ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
-      // Intake/Output card — raw mL/day as entered; per-kg/day (drain content
-      // netted out of output first) is re-derived on display from these plus
-      // D.ioDivisorG, never stored, so it stays correct if weights are edited later.
+      // Intake/Output card — raw mL/day, same as ever (ioOutput is urine output
+      // converted from the mL/kg/h the field shows). Per-kg/rate figures are
+      // re-derived on display from these plus D.ioDivisorG, never stored, so
+      // they stay correct if weights are edited later.
       ioInput, ioOutput, drainContent,
       // Route reflects what was actually delivered, not just the IV-access toggle —
       // a fully-weaned-to-EN day (totalTPN_mL === 0) must not be logged as "TPN ...".
@@ -844,6 +844,19 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     if (!savedEntryId) setSavedEntryId(res.entryId);
     setSavedLastModified(res.lastModified);
     onSaved && onSaved();
+  };
+
+  // ── Delete this entry — only once it actually exists on the server
+  // (savedEntryId), only when the caller granted permission (onDelete, gated
+  // to admin same as the Dashboard's trash icon). Native confirm() so the
+  // action can't fire on a stray click — matches the confirmation already
+  // used for the Dashboard's per-row delete.
+  const handleDelete = () => {
+    if (!savedEntryId || !onDelete) return;
+    const ts = editEntry?.ts || logDate;
+    const label = `DOL ${dol}${ts ? ` (${window.NEOFEED_FMT_DATE?.(ts) || ts})` : ""}`;
+    if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+    onDelete({ entryId: savedEntryId, dol, ts });
   };
 
   return (
@@ -954,11 +967,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       </div>
 
       {/* ===== Intake / Output (volume card) ─────────────────────
-          Per-kg/day divides by yesterday's weight, or birth weight while the
-          infant hasn't yet regained it (D.ioDivisorG). Output is the bedside
-          total (drain included); drain is netted out of its per-kg/day figure
-          so that reads as urine output, while the raw mL/day field stays as
-          entered and Balance uses gross output. */}
+          Per-kg divides by yesterday's weight, or birth weight while the
+          infant hasn't yet regained it (D.ioDivisorG). Urine output is entered
+          as a rate (mL/kg/h) but stored as raw mL/day, same as Input/Drain —
+          see ioOutputPerKgH above. Balance = Input − Output − Drain. */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h">
           <Icon name="drop" size={14} color="var(--brand)" />
@@ -969,12 +981,13 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             <NumField label="Input" unit="mL/d" value={ioInput} step={1}
               onChange={(v) => { setIoInputTouched(true); setIoInput(v); }}
               hint={`(${fmt(ioInputPerKg, 1)} mL/kg/d)`} />
-            <NumField label="Output" unit="mL/d" value={ioOutput} onChange={setIoOutput} step={1}
-              hint={`(${fmt(ioOutputPerKg, 1)} mL/kg/d${drainContent > 0 ? " · net of drain" : ""})`} />
+            <NumField label="Urine output" unit="mL/kg/h" value={ioOutputPerKgH} step={0.1}
+              onChange={(v) => setIoOutput(ioDivisorKg ? Math.round(v * ioDivisorKg * 24) : 0)}
+              hint={`(${fmt(ioOutput, 0)} mL/d)`} />
             <NumField label="Drain content" unit="mL/d" value={drainContent} onChange={setDrainContent} step={1}
               hint={`(${fmt(ioDrainPerKg, 1)} mL/kg/d)`} />
           </div>
-          {(ioInput > 0 || ioOutput > 0) && (
+          {(ioInput > 0 || ioOutput > 0 || drainContent > 0) && (
             <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" }}>
               Balance <span className="num" style={{ fontWeight: 600, color: "var(--ink-2)" }}>{ioBalance >= 0 ? "+" : ""}{fmt(ioBalance, 0)}</span> mL/d
               {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisorGVal === patient?.bw ? " (birth weight)" : " (previous day)"}</>}
@@ -1860,6 +1873,13 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               onClick={handleSave}>
               <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
+
+            {savedEntryId && onDelete && (
+              <button className="btn" style={{ width: "100%", marginTop: 8, color: "var(--crit)", borderColor: "var(--crit-line)" }}
+                onClick={handleDelete}>
+                <Icon name="trash" size={14} color="var(--crit)" /> ลบบันทึกนี้
+              </button>
+            )}
             </div>{/* /calc-save-bar */}
           </div>
         </div>

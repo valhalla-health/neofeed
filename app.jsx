@@ -571,8 +571,9 @@ function App() {
           {view === "admin" && <AdminDashboard patients={patients} log={log} />}
           {view === "calculator" && active && (
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}
-              log={log} activeId={activeId} token={user?.token}
+              log={log} activeId={activeId} token={user?.token} role={role}
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
+              handleDeleteEntry={handleDeleteEntry}
               goTo={goTo} setCalcWeights={setCalcWeights} />
           )}
           {view === "fenton" && active &&
@@ -694,8 +695,8 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // JSX) so useDailyLogLock's hook calls follow React's rules: it only mounts
 // while view === "calculator", so its own hook-call sequence is consistent
 // across its own renders, independent of App's much larger render.
-function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
-  handleLogToGAS, handleUpdateToGAS, goTo, setCalcWeights }) {
+function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role,
+  handleLogToGAS, handleUpdateToGAS, handleDeleteEntry, goTo, setCalcWeights }) {
   const displayDol = editEntry ? editEntry.dol : (logDate ? D_A.dolAtDate(active, logDate) : dol);
   const baselineEntry = !editEntry ? (log[activeId] || []).slice(-1)[0] || null : null;
   const lockDate = editEntry ? editEntry.ts : (logDate || D_A.todayLocal());
@@ -743,6 +744,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         editEntry={editEntry} baselineEntry={baselineEntry} logDate={logDate}
         onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
         onSaved={() => goTo("log")}
+        onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined}
         onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
     </>
   );
