@@ -33,13 +33,15 @@
 //
 // Patient_Registry (A–Q): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
 //   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory|statusDate
-// Daily_Log (A–AB): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
+// Daily_Log (A–AE): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
 //   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType|
-//   calcInputJson|entryId|lastModified|lastModifiedBy
+//   calcInputJson|entryId|lastModified|lastModifiedBy|ioInput|ioOutput|drainContent
 //   (calcInputJson = raw Calculator inputs, JSON — lets an entry be reopened
 //   and edited exactly as entered, from any device, not just the one that
 //   created it. entryId is the stable key updateDailyNutrition() matches on;
-//   lastModified/lastModifiedBy back the optimistic-concurrency check there.)
+//   lastModified/lastModifiedBy back the optimistic-concurrency check there.
+//   ioInput/ioOutput/drainContent (AC–AE) are the Calculator's Intake/Output
+//   card, mL/day as entered — per-kg/day is re-derived client-side, never stored.)
 // Staff (A–H): email | role | name | active | password_hash | salt |
 //   must_change_password | temp_password
 //   (must_change_password/temp_password only ever hold a value for accounts
@@ -226,6 +228,15 @@ function bumpUserEpoch(email) {
 // somewhere other than CacheService (e.g. PropertiesService, which has no
 // TTL semantics and would need its own expiry bookkeeping).
 var SESSION_TTL_SECONDS = 21600; // 6h — CacheService's documented max
+
+// ── Daily-log edit lock ──────────────────────────────────────────
+// A short, best-effort courtesy lock so two staff don't both work the same
+// patient+date entry at once — see acquireLogLock/releaseLogLock below.
+// Deliberately short and auto-expiring (CacheService's own TTL, not a manual
+// timestamp check): a crashed tab or closed browser must never strand a
+// patient's entry locked. The client re-acquires (heartbeats) roughly every
+// half of this TTL while the Calculator stays open on that entry.
+var LOG_LOCK_TTL_SECONDS = 90;
 function createSession(email, role, name) {
   var token = Utilities.getUuid();
   var cache = CacheService.getScriptCache();
@@ -459,7 +470,8 @@ function getSheetLog() {
       "pro","kcal","na","k","ca","p","enVolPerKg","route","status","submittedBy",
       "suppMTV","suppVitD_IU","suppCa_mg","suppCaType",
       "suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType",
-      "calcInputJson","entryId","lastModified","lastModifiedBy"
+      "calcInputJson","entryId","lastModified","lastModifiedBy",
+      "ioInput","ioOutput","drainContent"
     ]);
   }
   return sh;
@@ -657,6 +669,18 @@ function doPost(e) {
       logAudit("deleteDailyLog", body.sessionId, user.email);
       return jsonOut({ ok: true });
     }
+    // ── Daily-log edit lock (acquire on open + heartbeat, release on close) ──
+    // Courtesy-only: it does not block a write. updateDailyNutrition's own
+    // expectedLastModified check is what actually prevents a silent overwrite.
+    if (action === "acquireLogLock") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
+      return jsonOut(acquireLogLock(body.sessionId, body.date, user));
+    }
+    if (action === "releaseLogLock") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
+      releaseLogLock(body.sessionId, body.date, user);
+      return jsonOut({ ok: true });
+    }
 
     return jsonOut({ error: "Unknown action: " + action });
   } catch (err) { return jsonOut({ error: err.message }); }
@@ -695,6 +719,9 @@ function getActivePatients() {
       entryId:        String(row[25] || ""),
       lastModified:   String(row[26] || ""),
       lastModifiedBy: String(row[27] || ""),
+      ioInput:        Number(row[28] || 0),
+      ioOutput:       Number(row[29] || 0),
+      drainContent:   Number(row[30] || 0),
     });
   }
 
@@ -728,7 +755,8 @@ function getActivePatients() {
 
 // ── Daily_Log row builder — columns shared by create + update ─
 // Returns the first 24 columns (A–X); caller appends calcInputJson/entryId/
-// lastModified/lastModifiedBy (Y–AB) since those differ between create/update.
+// lastModified/lastModifiedBy (Y–AB) since those differ between create/update,
+// then ioInput/ioOutput/drainContent (AC–AE — see _ioLogFields below).
 function _buildLogRow(sessionId, entry, submittedBy) {
   return [
     _sheetSafe(entry.ts || new Date().toISOString().slice(0, 10)),
@@ -745,12 +773,19 @@ function _buildLogRow(sessionId, entry, submittedBy) {
   ];
 }
 
+// Intake/Output card fields (AC–AE) — mL/day as entered. Kept as a small
+// shared helper since both create and update append the same three columns.
+function _ioLogFields(entry) {
+  return [_numSafe(entry.ioInput, 0), _numSafe(entry.ioOutput, 0), _numSafe(entry.drainContent, 0)];
+}
+
 // ── logDailyNutrition (create) ─────────────────────────────────
 function logDailyNutrition(sessionId, entry, submittedBy) {
   var entryId = Utilities.getUuid();
   var lastModified = new Date().toISOString();
   var row = _buildLogRow(sessionId, entry, submittedBy)
-    .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""]);
+    .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""])
+    .concat(_ioLogFields(entry));
   getSheetLog().appendRow(row);
   return { entryId: entryId, lastModified: lastModified };
 }
@@ -782,7 +817,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       var originalSubmittedBy = String(data[i][15] || editedBy || "");
       var newLastModified = new Date().toISOString();
       var row = _buildLogRow(sessionId, entry, originalSubmittedBy)
-        .concat([JSON.stringify(entry.calcInput || {}), entryId, newLastModified, _sheetSafe(editedBy || "")]);
+        .concat([JSON.stringify(entry.calcInput || {}), entryId, newLastModified, _sheetSafe(editedBy || "")])
+        .concat(_ioLogFields(entry));
       sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
       return { ok: true, lastModified: newLastModified };
     }
@@ -813,6 +849,41 @@ function deleteDailyNutrition(sessionId, entryId) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ── Daily-log edit lock (acquireLogLock / releaseLogLock) ───────
+// Keyed by sessionId+date (the same granularity as "one entry per calendar
+// day"), not entryId — a brand-new entry has no entryId yet, and the whole
+// point is to catch two people opening the SAME date before either has saved.
+// Held in CacheService, whose own TTL is the only expiry mechanism (no
+// manual "held.ts too old?" check) — that's what makes a crashed/closed tab
+// self-heal instead of leaving the entry permanently locked.
+function _logLockKey(sessionId, date) {
+  return "loglock_" + String(sessionId || "") + "_" + String(date || "");
+}
+function acquireLogLock(sessionId, date, user) {
+  if (!sessionId || !date) return { ok: true, locked: false };
+  var cache = CacheService.getScriptCache();
+  var key = _logLockKey(sessionId, date);
+  var raw = cache.get(key);
+  if (raw) {
+    var held = JSON.parse(raw);
+    if (held.email !== user.email) {
+      return { ok: true, locked: true, holder: { name: held.name, email: held.email, ts: held.ts } };
+    }
+  }
+  // Not held, or held by this same user (heartbeat) — (re)acquire.
+  cache.put(key, JSON.stringify({ email: user.email, name: user.name, ts: new Date().toISOString() }), LOG_LOCK_TTL_SECONDS);
+  return { ok: true, locked: false };
+}
+function releaseLogLock(sessionId, date, user) {
+  if (!sessionId || !date) return;
+  var cache = CacheService.getScriptCache();
+  var key = _logLockKey(sessionId, date);
+  var raw = cache.get(key);
+  if (!raw) return;
+  var held = JSON.parse(raw);
+  if (held.email === user.email) cache.remove(key); // only the holder can release it
 }
 
 // ── backfillLegacyEntryIds — run once from Apps Script editor ─

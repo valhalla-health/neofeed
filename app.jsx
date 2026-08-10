@@ -347,7 +347,21 @@ function App() {
 
   // ── Start "add today" / "add for a past date" / "edit an entry" from the
   // Log dashboard. dateStr is only set when the user picked a back-date.
-  const startAddToday  = (dateStr) => { setEditEntry(null); setLogDate(dateStr || null); setView("calculator"); };
+  // Duplicate-date guard: a patient can only have one Daily_Log entry per
+  // calendar date. If one already exists for the requested date, don't open
+  // a second blank Calculator that would create a duplicate row — link
+  // straight into editing the entry that's already there instead.
+  const startAddToday = (dateStr) => {
+    const targetDate = dateStr || D_A.todayLocal();
+    const existing = (log[activeId] || []).find(e =>
+      e.ts === targetDate && e.entryId && !String(e.entryId).startsWith("tmp_"));
+    if (existing) {
+      showToast(`มีบันทึกของวันที่ ${fmtDate(targetDate)} อยู่แล้ว — เปิดให้แก้ไขรายการเดิม`);
+      startEditEntry(existing);
+      return;
+    }
+    setEditEntry(null); setLogDate(dateStr || null); setView("calculator");
+  };
   const startEditEntry = (entry) => { setEditEntry(entry); setLogDate(null); setView("calculator"); };
 
   // ── Weight update (from Fenton chart logger) ──────────────────
@@ -555,42 +569,12 @@ function App() {
 
           {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} />}
           {view === "admin" && <AdminDashboard patients={patients} log={log} />}
-          {view === "calculator" && active && (() => {
-            const displayDol = editEntry ? editEntry.dol : (logDate ? D_A.dolAtDate(active, logDate) : dol);
-            const baselineEntry = !editEntry ? (log[activeId] || []).slice(-1)[0] || null : null;
-            return (
-            <>
-              <div className="page-head">
-                <div>
-                  {editEntry && (
-                    <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={() => goTo("log")}>
-                      ← กลับไป Dashboard
-                    </button>
-                  )}
-                  <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    {editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order"}
-                    <span className="chip brand" style={{ fontSize: 13, fontWeight: 700 }}>DOL {displayDol}</span>
-                  </h1>
-                  <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds</div>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn" onClick={() => {
-                    document.querySelector('.work-inner')?.setAttribute('data-date', new Date().toLocaleDateString('th-TH'));
-                    document.dispatchEvent(new CustomEvent('__neofeed_print'));
-                  }}>
-                    <Icon name="pdf" size={14} /> Print order
-                  </button>
-                  <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
-                </div>
-              </div>
-              <Calculator patient={active} dol={displayDol}
-                editEntry={editEntry} baselineEntry={baselineEntry} logDate={logDate}
-                onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
-                onSaved={() => goTo("log")}
-                onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
-            </>
-            );
-          })()}
+          {view === "calculator" && active && (
+            <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}
+              log={log} activeId={activeId} token={user?.token}
+              handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
+              goTo={goTo} setCalcWeights={setCalcWeights} />
+          )}
           {view === "fenton" && active &&
           <>
               <div className="page-head">
@@ -660,6 +644,108 @@ function App() {
       <div id="toast-host" />
     </div>);
 
+}
+
+// ── Daily-log edit lock ──────────────────────────────────────
+// Courtesy-only presence check: acquires a short server-side lock
+// (gas-backend.gs's acquireLogLock, CacheService-backed, ~90s TTL) when the
+// Calculator opens for a given patient+date, heartbeats it while mounted so
+// a genuine in-progress edit doesn't lapse, and releases it on unmount. If
+// someone else already holds it, this does NOT block the form — it only
+// surfaces who — the real safety net against a lost edit is the existing
+// expectedLastModified conflict check in handleUpdateToGAS.
+//
+// Deliberately bypasses the shared gasPost() helper: gasPost shows an error
+// toast ("บันทึกไม่สำเร็จ: ...") and force-logs-out on any server error,
+// which is right for an actual save but wrong for a background heartbeat —
+// it would fire on every Calculator open (e.g. against a gas-backend.gs that
+// hasn't been redeployed with this action yet) for a feature that isn't
+// saving anything. Any failure here (GAS off, network hiccup, unknown
+// action) is silently treated as "no lock info" — fails open, no toast,
+// never blocks clinical work over a courtesy feature.
+const LOG_LOCK_HEARTBEAT_MS = 45000;
+function useDailyLogLock(sessionId, dateStr, token) {
+  const [holder, setHolder] = React.useState(null);
+  React.useEffect(() => {
+    if (!GAS_ON || !sessionId || !dateStr || !token) { setHolder(null); return; }
+    let cancelled = false;
+    const call = (action) => fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, sessionId, date: dateStr, token }),
+    }).then(r => r.json()).catch(() => null);
+    const touch = () => call("acquireLogLock").then(data => {
+      if (cancelled || !data) return;
+      setHolder(data.locked ? (data.holder || null) : null);
+    });
+    touch();
+    const iv = setInterval(touch, LOG_LOCK_HEARTBEAT_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+      call("releaseLogLock");
+    };
+  }, [sessionId, dateStr, token]);
+  return holder;
+}
+
+// ── Calculator view — wraps <Calculator> with the duplicate-edit lock notice
+// and the page header. A separate component (not an inline IIFE in App's
+// JSX) so useDailyLogLock's hook calls follow React's rules: it only mounts
+// while view === "calculator", so its own hook-call sequence is consistent
+// across its own renders, independent of App's much larger render.
+function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
+  handleLogToGAS, handleUpdateToGAS, goTo, setCalcWeights }) {
+  const displayDol = editEntry ? editEntry.dol : (logDate ? D_A.dolAtDate(active, logDate) : dol);
+  const baselineEntry = !editEntry ? (log[activeId] || []).slice(-1)[0] || null : null;
+  const lockDate = editEntry ? editEntry.ts : (logDate || D_A.todayLocal());
+  const holder = useDailyLogLock(active.sessionId, lockDate, token);
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          {editEntry && (
+            <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={() => goTo("log")}>
+              ← กลับไป Dashboard
+            </button>
+          )}
+          <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order"}
+            <span className="chip brand" style={{ fontSize: 13, fontWeight: 700 }}>DOL {displayDol}</span>
+          </h1>
+          <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn" onClick={() => {
+            document.querySelector('.work-inner')?.setAttribute('data-date', new Date().toLocaleDateString('th-TH'));
+            document.dispatchEvent(new CustomEvent('__neofeed_print'));
+          }}>
+            <Icon name="pdf" size={14} /> Print order
+          </button>
+          <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
+        </div>
+      </div>
+
+      {holder && (
+        <div style={{ padding: "10px 12px", background: "var(--warn-bg)",
+          border: "1px solid var(--warn-line)", borderRadius: 8, marginBottom: 10,
+          fontSize: 12.5, color: "var(--warn)", display: "flex", alignItems: "center", gap: 8 }}>
+          <Icon name="info" size={13} color="var(--warn)" />
+          <span>
+            <strong>{holder.name || holder.email || "ผู้ใช้งานอื่น"}</strong> กำลังเปิดบันทึกวันที่ {fmtDate(lockDate)} ของผู้ป่วยนี้อยู่ —
+            หากบันทึกพร้อมกัน ระบบจะแจ้งเตือนความขัดแย้งตอนบันทึกทับ
+          </span>
+        </div>
+      )}
+
+      <Calculator patient={active} dol={displayDol}
+        editEntry={editEntry} baselineEntry={baselineEntry} logDate={logDate}
+        onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
+        onSaved={() => goTo("log")}
+        onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
+    </>
+  );
 }
 
 // ── Gestational/post-menstrual age formatter ─────────────────

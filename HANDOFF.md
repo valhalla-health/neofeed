@@ -1,7 +1,101 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-06 | **Status:** 🟢 PRODUCTION · frontend and backend both current. The shared-default-password gap that this banner warned about since 2026-07-31 is **closed** — deployed 2026-08-06, live on `@44`.
+**Last updated:** 2026-08-10 | **Status:** 🟡 BACKEND NEEDS REDEPLOY · today's session (below) added new `gas-backend.gs` actions (`acquireLogLock`/`releaseLogLock`) and three new `Daily_Log` columns (`ioInput`/`ioOutput`/`drainContent`, AC–AE) — merged to `main` but **not yet pushed to the live Apps Script project**. Frontend (`calculator.jsx`/`app.jsx`) is live-safe to deploy on its own (see that session's note), but the Intake/Output card's saved values and the edit-lock banner won't do anything server-side until `gas-backend.gs` is redeployed too.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-10 — duplicate-date guard + edit-in-progress notice, Calculator Intake/Output card (branch `claude/duplicate-date-volume-calc-t2az3p`)
+
+Two requests from ปภาวี (Neonatology, KCMH), both scoped via `AskUserQuestion` before implementing (Calculator Step 1 for the card, editable-not-read-only Input, lightweight auto-expiring lock):
+
+**1. Duplicate-date guard + "someone else has this open" notice.**
+- `app.jsx`'s `startAddToday` now checks `log[activeId]` for an existing entry
+  whose `ts` matches the requested date before opening a blank Calculator. If
+  one exists, it redirects into editing that entry instead (`startEditEntry`)
+  with an explanatory toast — a patient can no longer get two `Daily_Log` rows
+  for the same calendar date via the Dashboard's "New log" button.
+- New `CalculatorView` component (`app.jsx`) wraps `<Calculator>` and the page
+  header; it was split out of what used to be an inline IIFE in `App`'s JSX
+  specifically so its new `useDailyLogLock` hook has a clean, independently-
+  mounted component to run in (calling a hook inside a conditionally-executed
+  IIFE inside `App` would have violated the rules of hooks the moment `view`
+  changed).
+- `useDailyLogLock` acquires a short server-side lock when the Calculator
+  opens for a patient+date (`gas-backend.gs`'s new `acquireLogLock` action,
+  `CacheService`-backed, `LOG_LOCK_TTL_SECONDS = 90`), heartbeats it every 45s
+  while mounted, and releases it on unmount. **Deliberately courtesy-only, not
+  a hard block** (per the user's chosen option): if someone else holds the
+  lock, the form still opens — a warning banner just names who. The lock
+  can never need manual clearing because CacheService's own TTL is the only
+  expiry mechanism (no stored timestamp to compare against) — a crashed tab
+  or closed browser self-heals in ≤90s. The actual protection against a lost
+  edit is unchanged: `updateDailyNutrition`'s existing `expectedLastModified`
+  optimistic-concurrency check, which already surfaces a conflict banner in
+  `calculator.jsx` at save time.
+
+**2. Calculator Step 1 — new "Intake / Output" card.**
+Sits directly below the Fluid plan card (not inside its accordion — always
+visible, no toggle). Three fields, each mL/day with a "(X mL/kg/d)" hint
+underneath, per the request:
+- **Input** — defaults to `calc.prescribedFluid` (the same "Prescribed"
+  figure Step 1 already computes: TPN bag + lipid + other IV + drug volume +
+  counted EN) and keeps tracking it live as those change, until the user
+  edits the field directly (`ioInputTouched`) — same "live default, sticky
+  once touched" pattern the rest of the wizard already uses for its smart
+  prefills (e.g. weight/fluid-target restore). This was the specific
+  trade-off requested: pull from the computed total, but stay editable.
+- **Output** — plain manual entry, no computed default (a bedside-measured
+  number).
+- **Drain content** — same shape as Output. When >0, it's subtracted from
+  Output *before* Output's own per-kg/day hint is derived — the raw Output
+  mL/day field is left exactly as entered; only the per-kg/day figure nets
+  it out (`"120 mL/kg/d · net of drain"` in the hint once drain > 0).
+
+Per-kg/day divisor for all three fields: `D.ioDivisorG(patient, dol)`
+(new helper, `data.js`) — the previous day's weight
+(`D.weightAtOrBeforeDol`), or **birth weight** if that weight is still below
+birth weight (i.e. the infant hasn't regained it yet), per KCMH bedside
+convention. A small balance line (`Input − net Output`) under the three
+fields also names which divisor applied ("birth weight" vs "previous day").
+
+**Data model / backend.** `entry.ioInput`/`ioOutput`/`drainContent` (raw
+mL/day) are now written to `Daily_Log` — three new columns appended at the
+**end** (AC–AE), not inserted mid-row, per the existing column-layout
+convention (`_ioLogFields()` in `gas-backend.gs`, referenced from both
+`logDailyNutrition` and `updateDailyNutrition`). Per-kg/day is intentionally
+**not** stored — it's re-derived from the raw mL and the patient's current
+weight history on every render, so it stays correct even if a historical
+weight gets corrected later.
+
+**Verified**, not just read: `test/verify-targets-and-dates.cjs` and
+`test/verify-kcmh-factor.cjs` (both pre-existing) still pass unchanged
+against a real jsdom-mounted `<Calculator>` — confirms this session's changes
+didn't regress the TPN/EN math. Wrote an additional scratch jsdom harness
+(not committed — this repo's `test/` convention is worksheet-fidelity checks,
+and this isn't one) driving the real `<Calculator>` through the DOM: Input
+auto-fills from prescribed fluid, re-syncs on further changes, freezes once
+manually edited; Output's per-kg hint nets out drain content while the raw
+mL value stays untouched; birth-weight-floor divisor applied correctly for a
+patient still below birth weight. All 8 checks passed. `app.jsx`/`log.jsx`/
+`calculator.jsx`/`registry.jsx`/`fenton.jsx` and `gas-backend.gs` all
+transpile/parse cleanly (Babel + `node --check`). **Not verified**: no route
+to a live GAS deployment or a real browser from this environment, so the
+lock's actual cross-session behavior (two real browser tabs) and the new
+Daily_Log columns landing correctly in a live Sheet are unverified beyond
+the jsdom/unit level — same standing caveat as every prior source-only
+backend session in this file.
+
+Cache-bust bumped: `data.js?v=io-divisor1`, `calculator.jsx?v=io-card1`,
+`app.jsx?v=dup-date-lock1` in both `NeoFeed.html` and `index.html`.
+
+**Still needs**, same as every backend-touching session: someone with Apps
+Script editor access must `clasp push && clasp deploy` (or paste
+`gas-backend.gs` into the editor) against the live project before
+`acquireLogLock`/`releaseLogLock` or the new `Daily_Log` columns do anything
+in production — until then the frontend's lock-check fails open (see
+`useDailyLogLock`'s "fails open" comment) and the Intake/Output fields simply
+won't persist server-side, without breaking anything else.
 
 ---
 
