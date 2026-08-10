@@ -939,6 +939,30 @@ function lastWeighed(patient) {
   return null;
 }
 
+// Most recent weights[] entry with an actual weight recorded on or before a
+// given DOL — e.g. weightAtOrBeforeDol(patient, dol-1) is "yesterday's weight"
+// for a fluid-balance divisor. Returns null if the patient has no weighed
+// entry that early (e.g. dol-1 predates admission).
+function weightAtOrBeforeDol(patient, dol) {
+  const ws = patient?.weights || [];
+  for (let i = ws.length - 1; i >= 0; i--) {
+    if (ws[i].w != null && ws[i].dol <= dol) return ws[i].w;
+  }
+  return null;
+}
+
+// Divisor (grams) for intake/output mL/kg/day math: the previous day's
+// weight, unless the infant hasn't yet regained birth weight — in which
+// case birth weight is used instead, per KCMH bedside convention (avoids
+// inflating mL/kg/day off a still-low post-natal-weight-loss nadir).
+function ioDivisorG(patient, dol) {
+  const bw = patient?.bw || 0;
+  const prevW = weightAtOrBeforeDol(patient, (dol || 1) - 1);
+  const base = prevW != null ? prevW : bw;
+  if (!base) return bw || null;
+  return base < bw ? bw : base;
+}
+
 // DOL as of an arbitrary calendar date (YYYY-MM-DD) — same math as liveDol,
 // used to back-date a log entry to the DOL that applied on that date.
 function dolAtDate(patient, dateStr) {
@@ -1096,6 +1120,9 @@ window.NEOFEED_DATA = {
   todayLocal, addDaysToDateStr,
   // Last weights[] entry with an actual weight (skips length/HC-only rows)
   lastWeighed,
+  // Weight-at-or-before-a-DOL lookup + the birth-weight-floor divisor it
+  // feeds for intake/output mL/kg/day math (see calculator.jsx Step 1)
+  weightAtOrBeforeDol, ioDivisorG,
   // GA / PMA helpers (WW.D shorthand)
   gaTotalDays, daysToGA, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput,
   // Corrected age in days (negative = still preterm)

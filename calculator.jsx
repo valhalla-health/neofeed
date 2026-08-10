@@ -169,6 +169,17 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const [otherIV_mL, setOtherIV_mL] = useState(0);
   const [drug_mL, setDrug_mL] = useState(0);
 
+  // Intake/Output card (also Step 1's "volume" section). ioInput defaults to
+  // the computed prescribed-fluid total and re-syncs to it as the fluid plan
+  // changes, UNTIL the user edits it directly (ioInputTouched) or an entry is
+  // restored/edited (a saved figure is the record — it must not get silently
+  // recomputed out from under the user). Output/drain have no computed
+  // default; they're bedside-measured numbers.
+  const [ioInput, setIoInput] = useState(0);
+  const [ioInputTouched, setIoInputTouched] = useState(false);
+  const [ioOutput, setIoOutput] = useState(0);
+  const [drainContent, setDrainContent] = useState(0);
+
   // Card key 2 — TPN main bag (displayed as Step 3)
   const [route, setRoute] = useState("central");
   const [totalTPN_mL, setTotalTPN_mL] = useState(0); // mL/day DELIVERED to the infant (sheet C7)
@@ -238,11 +249,19 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // Hydrates the full raw-input form from a saved entry's calcInput — shared
   // by "editing an entry" and "starting today from the latest entry" below,
   // since both need the exact same field-by-field restoration.
-  const applyCalcInput = (src, fallbackWeight) => {
+  // ioInputTouched: true for an existing entry's exact historical figure
+  // (must not get silently recomputed); false when borrowing yesterday's
+  // numbers as a starting point for a brand-new day, so ioInput still tracks
+  // today's recomputed prescribed-fluid total until the user overrides it.
+  const applyCalcInput = (src, fallbackWeight, ioTouched = true) => {
     setWtG(src.wtG ?? fallbackWeight ?? 0);
     setFluidTargetPerKg(src.fluidTargetPerKg ?? 0);
     setOtherIV_mL(src.otherIV_mL ?? 0);
     setDrug_mL(src.drug_mL ?? 0);
+    setIoInput(src.ioInput ?? 0);
+    setIoInputTouched(ioTouched);
+    setIoOutput(src.ioOutput ?? 0);
+    setDrainContent(src.drainContent ?? 0);
     setRoute(src.route ?? "central");
     setTotalTPN_mL(src.totalTPN_mL ?? 0);
     setDeadVol_mL(src.deadVol_mL ?? 0);
@@ -299,14 +318,14 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setConflict(null);
 
     if (editEntry) {
-      applyCalcInput(editEntry.calcInput || {}, editEntry.weight);
+      applyCalcInput(editEntry.calcInput || {}, editEntry.weight, true);
       setPrefilledFrom(null);
       return;
     }
 
     if (baselineEntry) {
       skipWeightPropagateRef.current = true;
-      applyCalcInput(baselineEntry.calcInput || {}, baselineEntry.weight);
+      applyCalcInput(baselineEntry.calcInput || {}, baselineEntry.weight, false);
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
     }
@@ -326,6 +345,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setFluidTargetPerKg(restored?.fluidTargetPerKg ?? fluidDefault);
     setOtherIV_mL(restored?.otherIV_mL ?? 0);
     setDrug_mL(restored?.drug_mL ?? 0);
+    setIoInput(restored?.ioInput ?? 0);
+    setIoInputTouched(false); // fresh entry — track the computed total until edited
+    setIoOutput(restored?.ioOutput ?? 0);
+    setDrainContent(restored?.drainContent ?? 0);
     setRoute(restored?.route ?? "central");
     setTotalTPN_mL(restored?.totalTPN_mL ?? 0);
     setDeadVol_mL(restored?.deadVol_mL ?? 0);
@@ -370,6 +393,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // Helper to bundle current input state for persistence
   const captureState = () => ({
     wtG, fluidTargetPerKg, otherIV_mL, drug_mL,
+    ioInput, ioOutput, drainContent,
     route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
     enType, enVol, enFreq, isMEN,
@@ -638,6 +662,27 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // recomputed the whole memo on every central/peripheral toggle.
   inclSoluvit, inclPeditrace, heparinUmL]);
 
+  // Keep ioInput tracking the computed prescribed-fluid total until the user
+  // edits it directly — same "live default, sticky once touched" pattern the
+  // rest of this form uses for smart prefills.
+  React.useEffect(() => {
+    if (ioInputTouched) return;
+    setIoInput(Math.round(calc.prescribedFluid) || 0);
+  }, [calc.prescribedFluid, ioInputTouched]);
+
+  // ── Intake / Output card ─────────────────────────────────────────
+  // Divisor: previous day's weight, or birth weight while the infant hasn't
+  // yet regained it (D.ioDivisorG — see data.js). Drain content is subtracted
+  // from Output BEFORE the per-kg/day figure is derived; the raw Output field
+  // itself is left as entered.
+  const ioDivisorGVal = D.ioDivisorG(patient, dol);
+  const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
+  const ioNetOutput = ioOutput - drainContent;
+  const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
+  const ioOutputPerKg = ioDivisorKg ? ioNetOutput / ioDivisorKg : null;
+  const ioDrainPerKg = ioDivisorKg ? drainContent / ioDivisorKg : null;
+  const ioBalance = ioInput - ioNetOutput;
+
   // ── Ca · PO₄ · Ca:P summary (Step 6) ────────────────────────────
   // Oral supplement doses are entered as elemental mg/kg/day, i.e. already in
   // the same unit as calc.caKg / calc.pKg — so the sources add directly.
@@ -764,6 +809,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
       pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
       ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
+      // Intake/Output card — raw mL/day as entered; per-kg/day (drain content
+      // netted out of output first) is re-derived on display from these plus
+      // D.ioDivisorG, never stored, so it stays correct if weights are edited later.
+      ioInput, ioOutput, drainContent,
       // Route reflects what was actually delivered, not just the IV-access toggle —
       // a fully-weaned-to-EN day (totalTPN_mL === 0) must not be logged as "TPN ...".
       route: calc.totalTPN_mL > 0
@@ -894,6 +943,35 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             </div>
           </div>
         </div></div>
+      </div>
+
+      {/* ===== Intake / Output (volume card) ─────────────────────
+          Per-kg/day divides by yesterday's weight, or birth weight while the
+          infant hasn't yet regained it (D.ioDivisorG). Drain content is
+          netted out of Output before its per-kg/day figure is shown — the
+          raw Output mL/day field itself stays as entered. */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-h">
+          <Icon name="drop" size={14} color="var(--brand)" />
+          Intake / Output
+        </div>
+        <div className="card-b">
+          <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, alignItems: "stretch" }}>
+            <NumField label="Input" unit="mL/d" value={ioInput} step={1}
+              onChange={(v) => { setIoInputTouched(true); setIoInput(v); }}
+              hint={`(${fmt(ioInputPerKg, 1)} mL/kg/d)`} />
+            <NumField label="Output" unit="mL/d" value={ioOutput} onChange={setIoOutput} step={1}
+              hint={`(${fmt(ioOutputPerKg, 1)} mL/kg/d${drainContent > 0 ? " · net of drain" : ""})`} />
+            <NumField label="Drain content" unit="mL/d" value={drainContent} onChange={setDrainContent} step={1}
+              hint={`(${fmt(ioDrainPerKg, 1)} mL/kg/d)`} />
+          </div>
+          {(ioInput > 0 || ioOutput > 0) && (
+            <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" }}>
+              Balance <span className="num" style={{ fontWeight: 600, color: "var(--ink-2)" }}>{ioBalance >= 0 ? "+" : ""}{fmt(ioBalance, 0)}</span> mL/d
+              {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisorGVal === patient?.bw ? " (birth weight)" : " (previous day)"}</>}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ===== Step 2 — Enteral feeding ===== */}

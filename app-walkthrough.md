@@ -97,7 +97,8 @@ Each submission from the Calculator produces one row combining PN + EN
 totals per kg:
 ```
 { dol, weight, fluid, gir, pro, kcal, na, k, ca, p, enVolPerKg, route, status,
-  submittedBy, calcInputJson, entryId, lastModified, lastModifiedBy }
+  submittedBy, calcInputJson, entryId, lastModified, lastModifiedBy,
+  ioInput, ioOutput, drainContent }
 ```
 `enVolPerKg` is the PN/EN target-picker switch: `log.jsx`'s `TrendGraph`
 uses `ENTERAL_TARGETS` once `enVolPerKg >= 100`, otherwise `TPN_TARGETS(dol)`.
@@ -105,6 +106,19 @@ Legacy entries (pre "session 8") lack `enVolPerKg` and silently default to
 PN targets. `calcInputJson` is the raw Calculator wizard state as JSON —
 that's what lets an entry be reopened and edited exactly as entered, from
 any device.
+
+`ioInput`/`ioOutput`/`drainContent` (added 2026-08-10) are the Calculator
+Step 1 "Intake / Output" card — raw mL/day as entered, not per-kg. Per-kg/day
+is derived on display, never stored, by `D.ioDivisorG(patient, dol)`
+(`data.js`): the previous day's weight (`D.weightAtOrBeforeDol`), or birth
+weight while the infant hasn't yet regained it. `drainContent` is subtracted
+from `ioOutput` before that per-kg/day figure is shown — the raw `ioOutput`
+mL/day value itself is left as entered. `ioInput` defaults to
+`calc.prescribedFluid` (the same "Prescribed" figure Step 1 already shows)
+and keeps tracking it live until the user edits the field directly, at which
+point it stops re-syncing (same "live default, sticky once touched" pattern
+as the rest of the wizard's smart prefills) — see `ioInputTouched` in
+`calculator.jsx`.
 
 ### Backend sheets (`gas-backend.gs`)
 - **`Patient_Registry`** (A–Q): `sessionId | name | initials | bw | ga | sex |
@@ -116,9 +130,12 @@ any device.
   7 days after that date. Patients with no `statusDate` (archived before
   this field existed) stay visible indefinitely — there's no way to know
   their age.
-- **`Daily_Log`** (A–AB): `ts | sessionId | dol | weight | fluid | gir | pro |
+- **`Daily_Log`** (A–AE): `ts | sessionId | dol | weight | fluid | gir | pro |
   kcal | na | k | ca | p | enVolPerKg | route | status | submittedBy |
-  supp* fields | calcInputJson | entryId | lastModified | lastModifiedBy`
+  supp* fields | calcInputJson | entryId | lastModified | lastModifiedBy |
+  ioInput | ioOutput | drainContent`. The last three (AC–AE, added
+  2026-08-10) were appended at the end rather than inserted mid-row, per the
+  column-layout rule below.
 - **`Staff`** (A–H): `email | role | name | active | password_hash | salt |
   must_change_password | temp_password` — the last two only ever hold a
   value for an account mid-provisioning (see §4); blank for every normal
@@ -213,10 +230,28 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    Calculator with the right DOL/`ts`. Admin role only: a trash icon per row
    (rows with an `entryId`) permanently deletes a `Daily_Log` entry via the
    `deleteDailyNutrition` GAS action, audit-logged.
+   **Duplicate-date guard** (added 2026-08-10, `app.jsx`'s `startAddToday`):
+   a patient can only have one `Daily_Log` row per calendar date — if one
+   already exists for the date picked in `LogDateModal`, the app does not
+   open a second blank Calculator; it redirects straight into editing the
+   existing entry (same path as clicking that row in "All entries"), with a
+   toast explaining why. **Daily-log edit lock**: while the Calculator is
+   open for a given patient+date, `CalculatorView` (`app.jsx`) holds a
+   short-lived server-side lock (`acquireLogLock`/`releaseLogLock` in
+   `gas-backend.gs`, `CacheService`-backed, ~90s TTL, heartbeat every 45s).
+   It is **courtesy-only** — it does not block the form, it just shows a
+   banner naming whoever else has that entry open. The lock always expires
+   on its own (crashed tab, closed browser) rather than ever needing manual
+   clearing; the real protection against a lost edit is still
+   `updateDailyNutrition`'s existing `expectedLastModified` conflict check
+   (the banner `calculator.jsx` already shows on a save-time conflict).
 3. **Calculator** (`calculator.jsx`, doctor/nurse only) — 6-step TPN+EN
    wizard: Fluid plan → TPN macronutrients → Electrolytes → Vitamins/Trace
    Elements/Heparin → Enteral feeding → Enteral supplements. Only Step 1 is
-   expanded by default.
+   expanded by default. A non-collapsible **Intake / Output** card sits right
+   below Step 1 (added 2026-08-10) — see the `ioInput`/`ioOutput`/
+   `drainContent` note in §3's Daily_Log entry shape above for the field
+   semantics and the per-kg/day divisor rule.
    **Ca / PO₄ accounting is split across two steps — know which is which:**
    Step 4's `Calcium`/`Phosphorus`/`Ca:P ratio` tiles (and everything in
    `calc`, including what's written to `Daily_Log`) count **TPN + EN only**.
