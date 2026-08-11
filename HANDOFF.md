@@ -1,7 +1,30 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-10 | **Status:** 🟢 DEPLOYED · the Intake/Output + edit-lock backend went live as **`@45`** on the existing deployment `AKfycbz8Nt…` (see session 2026-08-10 (2) below). Verified by pulling the script project back down and diffing it against `main` — identical — and by confirming GitHub Pages serves `calculator.jsx?v=io-balance1`. **Confirmed working in production on 2026-08-10**: a real Calculator save was checked in the sheet and AC–AE populate. `applyLogHeaderColumns()` was also run that day from the editor as `peeraporn.po@chula.ac.th`. (Header labels are cosmetic regardless — those columns are read and written by index, not by name.)
+**Last updated:** 2026-08-11 | **Status:** 🟢 DEPLOYED · the Intake/Output + edit-lock backend went live as **`@45`** on the existing deployment `AKfycbz8Nt…` (see session 2026-08-10 (2) below). Verified by pulling the script project back down and diffing it against `main` — identical — and by confirming GitHub Pages serves `calculator.jsx?v=io-balance1`. **Confirmed working in production on 2026-08-10**: a real Calculator save was checked in the sheet and AC–AE populate. `applyLogHeaderColumns()` was also run that day from the editor as `peeraporn.po@chula.ac.th`. (Header labels are cosmetic regardless — those columns are read and written by index, not by name.)
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-11 — removed auto-select-a-patient-on-open (branch `claude/frame-color-blue-white-1uj864`)
+
+Reported as "ทำไมมัน auto เลือกคนนี้ตลอด" (why does it always auto-select this
+patient) — every fresh app load, and every GAS resync where the previously
+active patient wasn't in the fresh data, silently landed the user on
+`data.patients[0]`: whatever row happened to be first in the `Patient_Registry`
+sheet (row order, unrelated to the bed-sorted order the registry displays).
+On a shared NICU workstation that's a real mix-up risk, not just a UI quirk.
+
+- `app.jsx`: `activeId` now always initializes to `null` (previously
+  `MOCK_PATIENTS[0].sessionId` in local/mock mode) — the app opens on the
+  registry list with nobody selected.
+- `syncFromGAS`'s patient-list handler no longer falls back to
+  `data.patients[0].sessionId` when the current `activeId` isn't in the
+  fresh data; it now falls back to `null` (back to the registry list)
+  instead of silently jumping to an arbitrary patient.
+- Bed-number sort (`registry.jsx`'s `bedSort`, used by both the registry
+  list and `PatientPicker`) was already correct — numeric-aware
+  `localeCompare` naturally orders `1, 2, 3, …, iso 1-2, iso 2-1` — so no
+  change was needed there; confirmed with a quick Node repro.
 
 ---
 
