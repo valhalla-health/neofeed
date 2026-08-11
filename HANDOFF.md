@@ -1,11 +1,23 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-10 | **Status:** 🟢 DEPLOYED · the Intake/Output + edit-lock backend went live as **`@45`** on the existing deployment `AKfycbz8Nt…` (see session 2026-08-10 (2) below). Verified by pulling the script project back down and diffing it against `main` — identical — and by confirming GitHub Pages serves `calculator.jsx?v=io-balance1`. One cosmetic item may still be open: the `Daily_Log` **AC1/AD1/AE1 header labels** (`ioInput`/`ioOutput`/`drainContent`). `applyLogHeaderColumns()` was run on 2026-08-10 from the editor as `peeraporn.po@chula.ac.th`; confirm visually in the sheet if in doubt. Data lands in AC–AE either way — the columns are written by index, not by header name.
+**Last updated:** 2026-08-10 | **Status:** 🟢 DEPLOYED · the Intake/Output + edit-lock backend went live as **`@45`** on the existing deployment `AKfycbz8Nt…` (see session 2026-08-10 (2) below). Verified by pulling the script project back down and diffing it against `main` — identical — and by confirming GitHub Pages serves `calculator.jsx?v=io-balance1`. **Confirmed working in production on 2026-08-10**: a real Calculator save was checked in the sheet and AC–AE populate. `applyLogHeaderColumns()` was also run that day from the editor as `peeraporn.po@chula.ac.th`. (Header labels are cosmetic regardless — those columns are read and written by index, not by name.)
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
 
 ---
 
-## Session 2026-08-10 (3) — Calculator delete button + urine-output rate entry (frontend only)
+## Session 2026-08-10 (5) — Calculator delete button + urine-output rate entry (frontend only)
+
+**Supersedes the urine-output edit from the parallel session below** (the one
+that renamed the edit-session nickname label and touched `calculator.jsx`
+without a HANDOFF entry, merged to `main` as `2aead3b`/PR #41): that session
+only relabeled the field to "Urine output" and changed its **hint text** to
+mL/kg/hr, while leaving the actual input still raw mL/day and Balance still
+`Input − Output` (gross, drain not subtracted). This session's version, below,
+makes the field itself an mL/kg/h **entry** (not just a relabeled hint) and
+fixes Balance to subtract drain explicitly — resolved in `calculator.jsx`'s
+favor of this session's implementation when merging the two, since it's the
+one that actually satisfies "change the unit to mL/kg/h" rather than just the
+display hint next to an unchanged mL/day field.
 
 Four requests, all landing in `calculator.jsx` (plus small prop-threading in `app.jsx`):
 
@@ -79,6 +91,85 @@ unchanged), so there's nothing new to deploy server-side, unlike 2026-08-10 (2).
 
 Cache-bust bumped: `calculator.jsx?v=io-urine-rate1`, `app.jsx?v=calc-delete1`
 in both `NeoFeed.html` and `index.html`.
+
+---
+
+## Session 2026-08-10 (4) — Fenton chart axis clamped at 42 weeks
+
+Praew's decision on the open question from session (3): rather than source
+replacement values for GA 44–50, **stop the chart at 42** — the last week the
+Fenton 2025 reference actually covers.
+
+- `fenton.jsx` now has a single `GA_MAX = 42` constant driving the domain
+  (`xMax`), the tick list, and a `.filter(r => r[0] <= GA_MAX)` on the dataset.
+  Raising it back is a one-line change *if* the post-term rows are ever
+  sourced — the constant is the whole switch.
+- The GA 44–50 rows are **still in `data.js`**, flagged in-code, just no longer
+  plotted. Deleting them would have thrown away the only record of what was
+  there; leaving them unflagged was the original problem.
+- Applies to all three metrics. `FENTON_LENGTH`/`FENTON_HC` lose their 46/50
+  rows from the plot too, which is consistent — those were never verified
+  either (see session (3)).
+
+**An infant past 42 weeks PMA now sees a warning, not a silent gap.** The old
+code filtered points to `pma <= xMax` and said nothing; with the axis at 50
+that rarely bit, but at 42 it would routinely hide the most recent measurement
+on exactly the long-stay infants under closest watch. `points` is now derived
+from `allPoints`, and `hiddenPastMax` drives a Thai banner above the chart
+naming how many measurements are not shown and why. A chart that looks
+complete while hiding the newest point is worse than one that admits the gap.
+
+Verified: `fenton.jsx`, `calculator.jsx` and `app.jsx` all parse clean through
+esbuild; `data.js` through `node --check`; both HTML shells bumped to
+`fenton.jsx?v=ga-clamp42` and confirmed identical.
+
+---
+
+## Session 2026-08-10 (3) — Fenton 2025 verified against source; weight table refreshed to weekly resolution
+
+The "is `fenton.jsx` really Fenton 2025, or carried-forward 2013 data?" caveat
+had been open in this file since 2026-07. Praew supplied the reference tables
+(LMS + percentiles, GA 22–42, from her BPD sandbox) and it is now settled.
+
+**The label is correct — the suspicion was wrong.** Reconstructed all five
+centile curves from the reference and compared every cell of `FENTON_WEIGHT`:
+p3/p10/p90 reproduce the published integers **exactly** (0 g on all of them,
+both sexes), p50 matches the LMS median `M`, and p97 — which the reference
+table doesn't carry, so it was recomputed from L/M/S via
+`X = M(1 + LSZ)^(1/L)` — landed within ±2 g. That residue was rounding.
+`FENTON_WEIGHT` is genuinely the third-generation 2025 data. **Close that
+open item.**
+
+**Refreshed to the source's own resolution.** The table stored even weeks
+only and `fenton.jsx` linearly interpolated the odd ones at render time, even
+though the reference publishes all 21 weekly rows — so the interpolation was
+avoidable error, worst case **56 g at girls GA 41**, which is exactly where a
+borderline SGA call sits at term. GA 22–42 now carries every week.
+Re-verified after the edit: **210 cells, 0 g discrepancy.**
+
+**Still open — percentiles past 42 weeks.** The eight rows at GA 44/46/48/50
+are outside the Fenton reference entirely. The header in `data.js` attributes
+them to "WHO Growth Standard 2026", so they are not unsourced — but **every
+value in them is a multiple of 10**, which is not what an LMS-derived table
+produces (contrast the precise values below 42), and that attribution has not
+been verified. This matters more than it looks: `fenton.jsx` sets `xMax = 50`
+with ticks at 46 and 50, so the region of the chart backed by the weakest data
+is precisely where long-stay BPD infants are plotted. Left in place and
+flagged in-code rather than changed, because the fix is a clinical decision —
+source real values, or clamp the axis at 42 and stop drawing curves the data
+doesn't support.
+
+**Also unverified: `FENTON_LENGTH` and `FENTON_HC`.** Only weight reference
+data was available. Both of those are stored at **4-week** steps (22, 26, 30,
+…) — coarser still than weight was — and carry the same "Fenton 2025"
+attribution, which nobody has checked. Worth the same exercise if the length/
+HC reference tables can be exported.
+
+Method note for whoever repeats this: the first two comparison runs produced
+nonsense (a "4605 g discrepancy") because the extractor over-ran the
+`FENTON_WEIGHT` block into `FENTON_LENGTH`/`FENTON_HC` and compared cm against
+g, then over-ran `boys:` into `girls:`. If a growth-table diff reports large
+systematic errors, suspect the parser before the data.
 
 ---
 
