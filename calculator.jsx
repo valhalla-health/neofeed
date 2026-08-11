@@ -688,6 +688,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const ioNetOutput = ioOutput - drainContent;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
   const ioOutputPerKg = ioDivisorKg ? ioNetOutput / ioDivisorKg : null;
+  const ioOutputPerKgHr = ioOutputPerKg != null ? ioOutputPerKg / 24 : null;
   const ioDrainPerKg = ioDivisorKg ? drainContent / ioDivisorKg : null;
   const ioBalance = ioInput - ioOutput;
 
@@ -969,8 +970,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             <NumField label="Input" unit="mL/d" value={ioInput} step={1}
               onChange={(v) => { setIoInputTouched(true); setIoInput(v); }}
               hint={`(${fmt(ioInputPerKg, 1)} mL/kg/d)`} />
-            <NumField label="Output" unit="mL/d" value={ioOutput} onChange={setIoOutput} step={1}
-              hint={`(${fmt(ioOutputPerKg, 1)} mL/kg/d${drainContent > 0 ? " · net of drain" : ""})`} />
+            <NumField label="Urine output" unit="mL/d" value={ioOutput} onChange={setIoOutput} step={1}
+              hint={`(${fmt(ioOutputPerKgHr, 1)} mL/kg/hr${drainContent > 0 ? " · net of drain" : ""})`} />
             <NumField label="Drain content" unit="mL/d" value={drainContent} onChange={setDrainContent} step={1}
               hint={`(${fmt(ioDrainPerKg, 1)} mL/kg/d)`} />
           </div>
