@@ -131,7 +131,7 @@ function App() {
   // Patient registry — empty until GAS sync completes (prevents mock patient identity confusion)
   const [patients, setPatients] = React.useState(GAS_ON ? [] : D_A.MOCK_PATIENTS);
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
-  const [activeId, setActiveId] = React.useState(GAS_ON ? null : D_A.MOCK_PATIENTS[0].sessionId);
+  const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
@@ -188,12 +188,9 @@ function App() {
         if (Array.isArray(data.patients)) {
           // Replace mock data with real GAS data (even if empty registry)
           setPatients(data.patients.length > 0 ? data.patients : []);
-          if (data.patients.length > 0) {
-            setActiveId(prev =>
-              data.patients.find(p => p.sessionId === prev)
-                ? prev : data.patients[0].sessionId
-            );
-          }
+          // Never auto-pick a patient — keep the current selection only if it
+          // still exists in the fresh data, otherwise fall back to none (registry list).
+          setActiveId(prev => data.patients.some(p => p.sessionId === prev) ? prev : null);
         }
         if (data.log) setLog(data.log);
         setSyncState("ok");
