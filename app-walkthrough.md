@@ -108,17 +108,28 @@ that's what lets an entry be reopened and edited exactly as entered, from
 any device.
 
 `ioInput`/`ioOutput`/`drainContent` (added 2026-08-10) are the Calculator
-Step 1 "Intake / Output" card — raw mL/day as entered, not per-kg. Per-kg/day
-is derived on display, never stored, by `D.ioDivisorG(patient, dol)`
-(`data.js`): the previous day's weight (`D.weightAtOrBeforeDol`), or birth
-weight while the infant hasn't yet regained it. `drainContent` is subtracted
-from `ioOutput` before that per-kg/day figure is shown — the raw `ioOutput`
-mL/day value itself is left as entered. `ioInput` defaults to
-`calc.prescribedFluid` (the same "Prescribed" figure Step 1 already shows)
-and keeps tracking it live until the user edits the field directly, at which
-point it stops re-syncing (same "live default, sticky once touched" pattern
-as the rest of the wizard's smart prefills) — see `ioInputTouched` in
-`calculator.jsx`.
+Step 1 "Intake / Output" card — all three stored/written as raw mL/day, not
+per-kg. Per-kg/rate figures are derived on display, never stored, via
+`D.ioDivisorG(patient, dol)` (`data.js`): the previous day's weight
+(`D.weightAtOrBeforeDol`), or birth weight while the infant hasn't yet
+regained it. `ioInput` defaults to `calc.prescribedFluid` (the same
+"Prescribed" figure Step 1 already shows) and keeps tracking it live until the
+user edits the field directly, at which point it stops re-syncing (same "live
+default, sticky once touched" pattern as the rest of the wizard's smart
+prefills) — see `ioInputTouched` in `calculator.jsx`.
+
+**`ioOutput` is urine output** (updated 2026-08-10 (3) — it previously meant
+the bedside total including drain; drain is now always a separate term, never
+folded into Output). The Calculator's "Urine output" field is entered and
+displayed as a **rate, mL/kg/h** — the number actually judged against the
+1–3 mL/kg/h target — but the underlying state and the `Daily_Log` column both
+stay raw mL/day (`ioOutputPerKgH` in `calculator.jsx` is a pure display/edit
+conversion of `ioOutput`, converted back on every keystroke). Balance is
+`ioInput - ioOutput - drainContent`, both output and drain subtracted
+explicitly now that Output no longer contains drain. **Do not read pre-2026-
+08-10-(3) `ioOutput` values as urine-only** — they were recorded under the old
+"gross total, drain included" convention; the column's meaning changed
+in place, not just its display.
 
 ### Backend sheets (`gas-backend.gs`)
 - **`Patient_Registry`** (A–Q): `sessionId | name | initials | bw | ga | sex |
@@ -266,6 +277,14 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    `localStorage["neofeed_calc_<sessionId>"]` on submit/draft and restored
    on patient switch with a "Prefilled from previous submission (DOL X)"
    banner. Submitting writes one row to `Daily_Log`.
+   **Delete** (added 2026-08-10 (3)): a "ลบบันทึกนี้" button appears in the
+   Save + Copy Order card once the open entry actually exists on the server
+   (`savedEntryId` — covers both "editing an old entry" and "just saved a new
+   one this visit"), gated to `role === "admin"` the same way as the
+   Dashboard's per-row trash icon (`CalculatorView`'s `onDelete` prop in
+   `app.jsx`, wired to the same `handleDeleteEntry`). `window.confirm()`
+   gates the actual delete, matching the Dashboard's existing confirmation —
+   there is no bypass path.
 4. **Growth chart** (`fenton.jsx`) — Fenton 2025 percentile curves for
    weight/length/HC vs. PMA, plus `MeasurementLogger` to add new
    measurements. Uses `D.gaToDecimalWeeks` for the true decimal x-axis.
