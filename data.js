@@ -429,9 +429,9 @@ const TARGETS = {
   // ESPGHAN 2018 molar 0.8–1.3:1 → mass 1.0–1.68 ≈ 1.7:1
   caP: () => [1.0, 1.7],   // mass ratio; ESPGHAN molar 0.8–1.3 → mass 1.0–1.7; KCMH aim 1.7:1
 
-  // Non-protein energy per gram amino acid — ESPGHAN 2018
-  // "Minimum 30–40 kcal per 1 g amino acids for optimal utilisation"
-  npePerGAA: () => [30, 40],
+  // Non-protein energy per gram amino acid (classic NPC:N 150–200:1 ÷ 6.25 g AA/g N)
+  // Normal 24–32 · soft-alert 20–<24 · hard alert <20 or >32
+  npePerGAA: () => [24, 32],
 
   // Protein:Energy ratio — ESPGHAN 2022 EN
   // 2.8–3.6 g protein per 100 kcal → ensures lean mass accretion
@@ -582,7 +582,7 @@ const ESPGHAN_TARGETS = {
       kcalPerGAA: 4.0,
       kcalPerGLipid: 9.0,
       kcalPerMlILE20: 2.0,
-      npePerGAA: [30, 40],   // kcal non-protein per g amino acid — ESPGHAN 2018
+      npePerGAA: [24, 32],   // kcal non-protein per g amino acid — classic NPC:N 150–200:1
     },
     additives: {
       vitalipid: "BW <2.5 kg: 4 mL/kg/day · BW ≥2.5 kg: 10 mL/day (add to lipid bag)",
