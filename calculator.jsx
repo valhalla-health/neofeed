@@ -746,9 +746,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // KCMH order form aims at the upper end (~1.7:1).
   const tCaP = D.TARGETS.caP();            // [1.0, 1.7] mass ratio
 
-  // Non-protein energy per g amino acid — ESPGHAN 2018: 30–40 kcal/g AA
-  // (was [24, 32] — corrected: minimum 30 kcal/g for adequate AA utilisation)
-  const tNPE = D.TARGETS.npePerGAA();     // [30, 40]
+  // Non-protein energy per g amino acid — classic NPC:N 150–200:1 ÷ 6.25 g AA/g N = 24–32 kcal/g AA
+  // (was briefly [30, 40] — that "correction" was unverified; reverted per clinical review 2026-08-11)
+  // Soft-alert 20–<24 (AA start being burned as fuel) · hard alert <20 or >32 (excess fat deposition)
+  const tNPE = D.TARGETS.npePerGAA();     // [24, 32]
 
   // Protein:Energy ratio — ESPGHAN 2022: 2.8–3.6 g protein/100 kcal
   // (was [2.5, 3.5] — updated to 2022 lean mass accretion target)
@@ -768,7 +769,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
   const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
-  const sNPE = D.rangeStatus(calc.npeN, tNPE);
+  const sNPE = D.rangeStatus(calc.npeN, tNPE, { hardLo: 20, hardHi: 32 });
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // Peripheral: crit >900, warn >850 · Central: warn >1600 (endothelial risk), no hard limit
   const sOsm = route === "peripheral"
@@ -778,7 +779,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const alerts = [];
   if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${calc.gir.toFixed(1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });else
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${calc.gir.toFixed(1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
-  if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
+  if (calc.totalKcal > 0 && sNPE === "crit") alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — <20 risks AA oxidised as fuel, >32 risks excess fat deposition.`, ref: "NPC:N 150–200:1" });else
+  if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150–200:1" });
   if (calc.pTotal_mg > 0 && sCaP === "warn") alerts.push({ level: "warn", title: "Ca:P ratio off target", body: `Mass ratio ${calc.caP.toFixed(2)} — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
   // Oral supplement changes the picture the Step 4 tile shows — flag the combined total separately
   if (mineral.hasOral && sTotCaP === "crit") alerts.push({ level: "crit", title: "Ca:P ratio (รวม oral supp) — ไม่มี P", body: `Ca ${fmt(mineral.totCa, 0)} mg/kg/d แต่ P รวม = 0 — เสี่ยง metabolic bone disease.`, ref: "ESPGHAN 2018" });else
