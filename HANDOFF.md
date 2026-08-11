@@ -28,6 +28,95 @@ On a shared NICU workstation that's a real mix-up risk, not just a UI quirk.
 
 ---
 
+## Session 2026-08-10 (5) — Calculator delete button + urine-output rate entry (frontend only)
+
+**Supersedes the urine-output edit from the parallel session below** (the one
+that renamed the edit-session nickname label and touched `calculator.jsx`
+without a HANDOFF entry, merged to `main` as `2aead3b`/PR #41): that session
+only relabeled the field to "Urine output" and changed its **hint text** to
+mL/kg/hr, while leaving the actual input still raw mL/day and Balance still
+`Input − Output` (gross, drain not subtracted). This session's version, below,
+makes the field itself an mL/kg/h **entry** (not just a relabeled hint) and
+fixes Balance to subtract drain explicitly — resolved in `calculator.jsx`'s
+favor of this session's implementation when merging the two, since it's the
+one that actually satisfies "change the unit to mL/kg/h" rather than just the
+display hint next to an unchanged mL/day field.
+
+Four requests, all landing in `calculator.jsx` (plus small prop-threading in `app.jsx`):
+
+**1. Delete button in the Calculator itself.** The Dashboard already had a
+per-row delete (trash icon + `window.confirm`, admin-only) — this adds the
+same capability directly inside the Save + Copy Order card, so an admin
+editing an entry doesn't have to leave the Calculator to remove it. Shown
+once the open entry actually exists on the server (`savedEntryId` — true both
+when editing an existing row and right after a brand-new entry's first save
+in the same visit), gated to `role === "admin"` exactly like the Dashboard's
+icon, and gated behind `window.confirm()` before it fires — no bypass path.
+Wired as `Calculator`'s new `onDelete` prop, threaded through `CalculatorView`
+(`app.jsx`) from the same `handleDeleteEntry` the Dashboard already uses, and
+navigates back to the log view on success.
+
+**2. "Prefilled from last save" — already existed, verified not re-broken.**
+The Calculator already restores the full form (including the Intake/Output
+card) from the most recent `Daily_Log` entry (`baselineEntry`) or, absent
+that, from `localStorage["neofeed_calc_<sessionId>"]` — both predate this
+session (2026-08-10 (1) below). No code change needed here; called out
+because the request re-raised it and it's worth confirming this still covers
+the renamed/reunited urine-output field (it does — `ioOutput` itself didn't
+change shape, see #3).
+
+**3 & 4. Output field renamed to urine output, entered as mL/kg/h, and
+Balance now subtracts drain explicitly.** Two related asks, one root cause:
+the 2026-08-10 (2) session had defined `ioOutput` as the bedside **total**
+output (drain included), netting drain out only for the per-kg *display*.
+That's no longer true — the "Output" field is now **urine output only**, and
+drain is always its own term. Concretely:
+- Field relabeled "Urine output", entered/displayed directly as a **rate**
+  (mL/kg/h, the number actually judged against the 1–3 mL/kg/h target)
+  instead of a raw mL/day total — `ioOutputPerKgH` in `calculator.jsx` is a
+  pure display/conversion layer; the underlying state (`ioOutput`) and the
+  `Daily_Log` column it's written to are unchanged in shape (still raw
+  mL/day), so no backend/schema change was needed. The hint under the field
+  now shows the equivalent raw mL/day instead of a per-kg/day figure.
+- **Balance = Input − Output(urine) − Drain**, both output and drain
+  subtracted explicitly now that Output no longer folds drain in. (This is
+  arithmetically back to what 2026-08-10 (2) deliberately moved *away* from,
+  under the old "Output already includes drain" premise — that premise no
+  longer holds once Output is redefined to mean urine only, so the same
+  gross-vs-net argument now points the other way.)
+- `ioNetOutput` (the old drain-netting helper) is gone — no longer needed
+  since Output never contains drain to net out of in the first place.
+
+**Caveat worth carrying forward, not fixed here:** the `Daily_Log` `ioOutput`
+column's *meaning* changed in place — rows saved before this session recorded
+the old "total incl. drain" figure; rows saved after mean "urine only." There
+is no version marker distinguishing them (same class of gap `app-walkthrough.md`
+now flags at the field's definition). Given the field existed for exactly one
+day (added 2026-08-10 (1), same day as this redefinition) the live-data
+exposure is minimal, but don't assume historical `ioOutput` values are
+urine-only if this repo is ever revisited with real accumulated data.
+
+**Verified**, not just read: wrote a scratch jsdom harness (same pattern as
+`test/verify-kcmh-factor.cjs` — real `<Calculator>` mounted via Babel +
+jsdom, not committed per this repo's `test/` convention of worksheet-fidelity
+checks only) covering: no delete button before first save; urine output
+2 mL/kg/h at a 1000 g divisor converts to 48 mL/d; Balance reads +42 for
+Input 100 / Output 48 (from 2 mL/kg/h) / Drain 10; delete button appears once
+`savedEntryId` is set; a declined `confirm()` does not call `onDelete`; an
+accepted one calls it with the right `entryId`. All 6 checks passed. Pre-
+existing harnesses (`verify-targets-and-dates.cjs`, `verify-kcmh-constants.cjs`,
+`verify-kcmh-factor.cjs` at both `DEAD=0` and `DEAD=20`) still pass unchanged,
+confirming this session didn't regress the TPN/EN or Factor math. **Not
+verified**: no route to a live GAS deployment or a real browser from this
+environment — same standing caveat as every prior source-only session. This
+session touched no backend fields (the `Daily_Log` `ioOutput` column shape is
+unchanged), so there's nothing new to deploy server-side, unlike 2026-08-10 (2).
+
+Cache-bust bumped: `calculator.jsx?v=io-urine-rate1`, `app.jsx?v=calc-delete1`
+in both `NeoFeed.html` and `index.html`.
+
+---
+
 ## Session 2026-08-10 (4) — Fenton chart axis clamped at 42 weeks
 
 Praew's decision on the open question from session (3): rather than source
