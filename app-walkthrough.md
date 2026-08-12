@@ -121,10 +121,12 @@ prefills) — see `ioInputTouched` in `calculator.jsx`.
 **`ioOutput` is urine output** (updated 2026-08-10 (3) — it previously meant
 the bedside total including drain; drain is now always a separate term, never
 folded into Output). The Calculator's "Urine output" field is entered and
-displayed as a **rate, mL/kg/h** — the number actually judged against the
-1–3 mL/kg/h target — but the underlying state and the `Daily_Log` column both
-stay raw mL/day (`ioOutputPerKgH` in `calculator.jsx` is a pure display/edit
-conversion of `ioOutput`, converted back on every keystroke). Balance is
+stored as **raw mL/day**, same as Input/Drain; `ioOutputPerKgH` in
+`calculator.jsx` is a pure display-only derivation shown as the hint under
+the field — the rate (mL/kg/h, the number actually judged against the
+1–3 mL/kg/h target) is never itself the entered value (reverted to this
+direction 2026-08-12, after a brief period 2026-08-10 (5)–2026-08-11 where
+the field was entered as the rate and mL/day was the hint). Balance is
 `ioInput - ioOutput - drainContent`, both output and drain subtracted
 explicitly now that Output no longer contains drain. **Do not read pre-2026-
 08-10-(3) `ioOutput` values as urine-only** — they were recorded under the old

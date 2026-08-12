@@ -5,6 +5,40 @@
 
 ---
 
+## Session 2026-08-12 — Urine output field reverted to mL/day entry (frontend only)
+
+Reverts the *entry direction* of the "Urine output" field the 2026-08-10 (5)
+session set up. That session made the field an mL/kg/h **entry**, converting
+to raw mL/day only for the hint underneath. Explicit request this session:
+enter the field in **mL/day**, and derive/display mL/kg/h as the hint below —
+i.e. back to the direction PR #41 (2aead3b) originally had, but keeping this
+repo's naming (`ioOutputPerKgH`) and the drain-explicit Balance formula from
+2026-08-10 (5), neither of which this change touches.
+
+`calculator.jsx`, one field:
+- `NumField label="Urine output"` now `unit="mL/d"`, `value={ioOutput}`,
+  `onChange={setIoOutput}` directly (no rate→volume conversion on input),
+  `hint` now shows `${fmt(ioOutputPerKgH, 2)} mL/kg/h` (derived, 2dp) instead
+  of the raw mL/day figure.
+- `ioOutput` state, the `Daily_Log` column it's written to, and
+  `ioOutputPerKgH`'s derivation formula are all unchanged — this is a
+  display/entry-direction swap only, no schema or backend impact.
+- Comments near the Intake/Output block (state derivation, JSX, and the
+  `handleSave` entry payload) updated to describe mL/day as the entered
+  value and mL/kg/h as the derived one.
+
+Cache-bust bumped: `calculator.jsx?v=io-urine-mld1` in both `NeoFeed.html`
+and `index.html`.
+
+**Not verified in a live browser** — same standing caveat as prior
+source-only sessions in this environment (no route to a live GAS deployment
+or a real browser here). Worth a quick manual check that typing an mL/day
+value and watching the mL/kg/h hint update looks right, and that saving
+still round-trips (`ioOutput` is unchanged in shape, so this should be a
+non-event on the backend side).
+
+---
+
 ## Session 2026-08-11 — removed auto-select-a-patient-on-open (branch `claude/frame-color-blue-white-1uj864`)
 
 Reported as "ทำไมมัน auto เลือกคนนี้ตลอด" (why does it always auto-select this
