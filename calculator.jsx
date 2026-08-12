@@ -674,12 +674,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // Divisor: previous day's weight, or birth weight while the infant hasn't
   // yet regained it (D.ioDivisorG — see data.js).
   //
-  // The Output field is urine output only (drain is entered separately) — the
-  // number a nurse actually reads off the bedside chart and judges against the
-  // 1–3 mL/kg/h target, so it's entered/displayed directly as a rate. `ioOutput`
-  // itself (state + what's written to Daily_Log) stays raw mL/day, same as
-  // Input/Drain and the existing backend column, so the field just converts on
-  // the way in/out — see the NumField below.
+  // The Output field is urine output only (drain is entered separately),
+  // entered/stored as raw mL/day like Input/Drain and the existing backend
+  // column. ioOutputPerKgH is derived for display only — the mL/kg/h rate a
+  // nurse judges against the 1–3 mL/kg/h target — shown as a hint under the
+  // field, never stored.
   //
   // Balance = Input − Output(urine) − Drain: both are real fluid losses now
   // that Output no longer folds drain in, so both are subtracted explicitly.
@@ -818,10 +817,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
       pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
       ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
-      // Intake/Output card — raw mL/day, same as ever (ioOutput is urine output
-      // converted from the mL/kg/h the field shows). Per-kg/rate figures are
-      // re-derived on display from these plus D.ioDivisorG, never stored, so
-      // they stay correct if weights are edited later.
+      // Intake/Output card — raw mL/day, entered directly. Per-kg/rate figures
+      // (e.g. urine mL/kg/h) are re-derived on display from these plus
+      // D.ioDivisorG, never stored, so they stay correct if weights are
+      // edited later.
       ioInput, ioOutput, drainContent,
       // Route reflects what was actually delivered, not just the IV-access toggle —
       // a fully-weaned-to-EN day (totalTPN_mL === 0) must not be logged as "TPN ...".
@@ -971,8 +970,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       {/* ===== Intake / Output (volume card) ─────────────────────
           Per-kg divides by yesterday's weight, or birth weight while the
           infant hasn't yet regained it (D.ioDivisorG). Urine output is entered
-          as a rate (mL/kg/h) but stored as raw mL/day, same as Input/Drain —
-          see ioOutputPerKgH above. Balance = Input − Output − Drain. */}
+          and stored as raw mL/day, same as Input/Drain — the mL/kg/h rate
+          (ioOutputPerKgH above) is shown as a derived hint only. Balance =
+          Input − Output − Drain. */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h">
           <Icon name="drop" size={14} color="var(--brand)" />
@@ -983,9 +983,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             <NumField label="Input" unit="mL/d" value={ioInput} step={1}
               onChange={(v) => { setIoInputTouched(true); setIoInput(v); }}
               hint={`(${fmt(ioInputPerKg, 1)} mL/kg/d)`} />
-            <NumField label="Urine output" unit="mL/kg/h" value={ioOutputPerKgH} step={0.1}
-              onChange={(v) => setIoOutput(ioDivisorKg ? Math.round(v * ioDivisorKg * 24) : 0)}
-              hint={`(${fmt(ioOutput, 0)} mL/d)`} />
+            <NumField label="Urine output" unit="mL/d" value={ioOutput} step={1}
+              onChange={setIoOutput}
+              hint={`(${fmt(ioOutputPerKgH, 2)} mL/kg/h)`} />
             <NumField label="Drain content" unit="mL/d" value={drainContent} onChange={setDrainContent} step={1}
               hint={`(${fmt(ioDrainPerKg, 1)} mL/kg/d)`} />
           </div>
