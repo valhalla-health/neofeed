@@ -15,6 +15,19 @@ const rowA11y = (onActivate) => ({
   },
 });
 
+// Ward display order: NICU beds first, then iso, then SCN, then anything
+// else/unbedded last — a plain string sort would alphabetize to iso < NICU
+// < SCN instead. Numeric ordering within a ward (NICU 2 before NICU 10,
+// iso 1-2 before iso 2-1) still comes from the numeric localeCompare below.
+const WARD_RANK = { nicu: 0, iso: 1, scn: 2 };
+const bedSort = (a, b) => {
+  const bedA = a.currentBed || "zzz";
+  const bedB = b.currentBed || "zzz";
+  const rank = (bed) => WARD_RANK[(bed.match(/^[a-z]+/i) || [""])[0].toLowerCase()] ?? 3;
+  return rank(bedA) - rank(bedB) ||
+    bedA.localeCompare(bedB, undefined, { numeric: true, sensitivity: "base" });
+};
+
 function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit }) {
   const [filter, setFilter]         = React.useState("");
   const [showAdd, setShowAdd]       = React.useState(false);
@@ -30,8 +43,6 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
     (p.currentBed || "").toLowerCase().includes(q) ||
     (p.diagnosis || "").toLowerCase().includes(q)
   );
-  const bedSort = (a, b) =>
-    (a.currentBed || "zzz").localeCompare(b.currentBed || "zzz", undefined, { numeric: true, sensitivity: "base" });
   const sorted   = [...filtered].sort(bedSort);
   const activeSorted   = sorted.filter(p => p.status === "Active" || !p.status);
   // Discharged/Transferred/Expired patients drop off the registry 7 days
@@ -520,9 +531,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
       (p.name || "").toLowerCase().includes(ql) ||
       (p.currentBed || "").toLowerCase().includes(ql)
     )
-    .sort((a, b) =>
-      (a.currentBed || "zzz").localeCompare(b.currentBed || "zzz", undefined, { numeric: true, sensitivity: "base" })
-    );
+    .sort(bedSort);
 
   React.useEffect(() => {
     const h = e => { if (e.key === "Escape") onClose(); };
