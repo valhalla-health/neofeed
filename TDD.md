@@ -23,7 +23,7 @@ later section is organised by these layers.
 
 | Layer | Owns | Frontend | Backend (`gas-backend.gs`) |
 |---|---|---|---|
-| **1 · Data Access** (Model) | Raw storage, retrieval, sanitisation | `data.js` reference tables · `localStorage` (`neofeed_calc_*`, `neofeed_acked_*`) · `sessionStorage.neofeed_session` | `getSheetPat/Log/Staff/Audit` · `getActivePatients` · `_buildLogRow` · `logDailyNutrition` · `updateDailyNutrition` · `deleteDailyNutrition` · `deletePatient` · `registerPatient` · `updateWeights` · `pseudonymizePatient` · `logAudit` · `_sheetSafe` · `_numSafe` · `_parseJson` · `_fmtDate` |
+| **1 · Data Access** (Model) | Raw storage, retrieval, sanitisation | `data.js` reference tables · `localStorage` (`neofeed_calc_*`, `neofeed_acked_*`) · `sessionStorage.neofeed_session` | `getSheetPat/Log/Staff/Audit` · `getActivePatients` · `_buildLogRow` · `logDailyNutrition` · `updateDailyNutrition` · `deleteDailyNutrition` · `registerPatient` · `updateWeights` · `pseudonymizePatient` · `logAudit` · `_sheetSafe` · `_numSafe` · `_parseJson` · `_fmtDate` |
 | **2 · Business Logic** (Service) | Clinical rules, auth rules, no UI | `data.js` → `TPN_TARGETS`, `ENTERAL_TARGETS`, `TARGETS`, `KCMH_STOCK`, `liveDol`, `dolAtDate`, GA helpers · `calculator.jsx` → `calc`, `mineral`, `alerts` · `log.jsx` → `pickTarget` · `app.jsx` → `computeAlerts`, `activeAlertCount` · `fenton.jsx` → percentile + `GrowthVelocity` math | `verifyGoogleIdToken` · `hashPwdV2` / `hashPwdLegacy` / `verifyPwd` / `safeEqual` · `_lockoutStatus` / `_recordFailure` / `_clearLockout` · `getUserEpoch` / `bumpUserEpoch` · `createSession` / `verifyToken` · `_genTempPassword` · `_usesGoogleSignIn` · the `canWrite` / `role === "admin"` gates |
 | **3 · Presentation** (View) | Layout, input capture, rendering only | `NeoFeed.html` / `index.html` shells + CSS · `icons.jsx` · `tweaks-panel.jsx` · all components in `registry.jsx`, `log.jsx`, `fenton.jsx` · `calculator.jsx`'s `NumField`/`Chk`/`Meter`/`Tile`/`SaltRow`/`ElecRow`/`PresetChips`/`CaPRow`/`TwoCol`/`KcalBar`/`PrintOrderForm` · `app.jsx`'s `RailItem`/`PatientStrip`/`AlertCenter`/`LoginScreen`/`ChangePasswordModal`/`AdminDashboard`/`BottomNav`/`GuidelinesPanel`/`FormulasPanel`/`showToast` | — |
 | **4 · Orchestration** (Controller) | Workflow, routing, coordination | `app.jsx` → `App()` (state, `view` router, `syncFromGAS`, `gasPost`, all `handle*` functions) | `doPost(e)` action router · `doGet(e)` |
@@ -295,8 +295,7 @@ listed by name in §1 but not tabulated — they take props and draw them.
 
 **RBAC** — enforced in `doPost`: `canWrite` = doctor \| admin \| nurse for
 `logDailyNutrition`, `updateDailyNutrition`, `registerPatient`, `updateWeights`.
-`role === "admin"` alone for `deleteDailyNutrition`, `deletePatient`, and
-`pseudonymizePatient`.
+`role === "admin"` alone for `deleteDailyNutrition` and `pseudonymizePatient`.
 The nav rail applies the matching client-side gate (Calculator: doctor/nurse;
 Admin dashboard: admin) — presentation only, the server gate is authoritative.
 
@@ -312,7 +311,7 @@ Admin dashboard: admin) — presentation only, the server gate is authoritative.
 | `handleUpdateToGAS` | entryId, expectedLastModified, entry | Sends the edit with its concurrency stamp; applies the server's new stamp on success | Promise |
 | `handleDeleteEntry` | entry | Admin-only delete, then removes the row from local state | Promise |
 | `handleAddPatient` / `handleEditPatient` | patient | Registry upsert, then local state update | — |
-| `handleDeletePatient` | patient | Admin-only delete, cascades to the patient's Daily_Log rows server-side; clears `activeId`/routes to Patients if the deleted patient was active | Promise |
+| `handleDeletePatient` | patient | Admin-only, **local state only** — no `gasPost` call, Patient_Registry/Daily_Log untouched. Clears `activeId`/routes to Patients if the removed patient was active | — |
 | `handleWeightUpdate` | sessionId, weights | Persists the weight series from the growth chart | — |
 | `handleLogout` | — | Revokes the token server-side, then clears `neofeed_calc_*` / `neofeed_acked_*` / session storage — data minimisation on shared NICU workstations | — |
 | view router | `view` state | A conditional block rendering Patients / Dashboard / Calculator / Growth / Alerts / Admin / Guidelines / Formulas. No client-side router library | Rendered view |
@@ -335,9 +334,10 @@ Admin dashboard: admin) — presentation only, the server gate is authoritative.
 | 6 | Any thrown error returns `{error: message}` |
 
 Actions: `login`, `logout`, `getActivePatients`, `logDailyNutrition`,
-`updateDailyNutrition`, `deleteDailyNutrition`, `deletePatient`,
-`registerPatient` / `updatePatient`, `updateWeights`, `changePassword`,
-`pseudonymizePatient`.
+`updateDailyNutrition`, `deleteDailyNutrition`, `registerPatient` /
+`updatePatient`, `updateWeights`, `changePassword`, `pseudonymizePatient`.
+(No `deletePatient` action — see §3.3's `handleDeletePatient` row: removing
+a session from the app is deliberately local-only, nothing to dispatch here.)
 `doGet` serves only `ping`.
 
 ### 3.4 Presentation Layer

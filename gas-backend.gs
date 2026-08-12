@@ -669,13 +669,6 @@ function doPost(e) {
       logAudit("deleteDailyLog", body.sessionId, user.email);
       return jsonOut({ ok: true });
     }
-    if (action === "deletePatient") {
-      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
-      var delPatResult = deletePatient(body.sessionId);
-      if (delPatResult.error) return jsonOut({ error: delPatResult.error });
-      logAudit("deletePatient", body.sessionId, user.email);
-      return jsonOut({ ok: true });
-    }
     // ── Daily-log edit lock (acquire on open + heartbeat, release on close) ──
     // Courtesy-only: it does not block a write. updateDailyNutrition's own
     // expectedLastModified check is what actually prevents a silent overwrite.
@@ -861,43 +854,6 @@ function deleteDailyNutrition(sessionId, entryId) {
       return { ok: true };
     }
     return { error: "ไม่พบข้อมูลที่ต้องการลบ — อาจถูกลบไปแล้ว" };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// ── deletePatient (admin-only, permanent) ───────────────────────
-// Used to remove an erroneous/duplicate patient session (e.g. a test entry,
-// or one registered with the wrong bw/ga that would corrupt every dose
-// calculated from it) — not for discharging a real patient (the frontend's
-// Status → Discharged/Transferred/Expired soft-archives and auto-hides from
-// the registry after 7 days instead of destroying the record). Cascades to
-// every Daily_Log row under this sessionId too — leaving them behind would
-// just strand clinical data under an id nothing in the UI can reach again.
-function deletePatient(sessionId) {
-  if (!sessionId) return { error: "sessionId is required" };
-  var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    var patSheet = getSheetPat();
-    var patData  = patSheet.getDataRange().getValues();
-    var found = false;
-    for (var i = 1; i < patData.length; i++) {
-      if (String(patData[i][0]) !== String(sessionId)) continue;
-      patSheet.deleteRow(i + 1);
-      found = true;
-      break;
-    }
-    if (!found) return { error: "ไม่พบผู้ป่วยที่ต้องการลบ — อาจถูกลบไปแล้ว" };
-
-    // Bottom-up so deleting one row never shifts the index of the next
-    // match still to be checked.
-    var logSheet = getSheetLog();
-    var logData  = logSheet.getDataRange().getValues();
-    for (var j = logData.length - 1; j >= 1; j--) {
-      if (String(logData[j][1]) === String(sessionId)) logSheet.deleteRow(j + 1);
-    }
-    return { ok: true };
   } finally {
     lock.releaseLock();
   }

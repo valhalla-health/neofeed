@@ -318,28 +318,24 @@ function App() {
     });
   };
 
-  // Permanently removes a Patient_Registry row and every Daily_Log entry
-  // under its sessionId — admin-only (gated where this is passed down to
-  // EditPatientModal), audited server-side (see deletePatient() in
-  // gas-backend.gs). Optimistic delete with rollback on failure. If the
-  // deleted patient was active, clear the selection and back out of any
+  // Deliberately local-only — removes the patient from this browser's
+  // patients/log state so it drops out of every list immediately, but never
+  // touches the backend. Patient_Registry/Daily_Log are untouched, so a
+  // stray click self-heals on the next reload/sync instead of destroying a
+  // real record. Permanently removing a session on purpose is not something
+  // this app can do — an admin has to edit the Google Sheet directly (see
+  // the comment on EditPatientModal's handleDelete for why that's the
+  // point, not a gap). Admin-only (gated where this is passed down to
+  // EditPatientModal) just to limit who can even do the local hide. If the
+  // hidden patient was active, clear the selection and back out of any
   // patient-specific view so nothing keeps rendering against a sessionId
-  // that no longer exists.
+  // that's no longer in `patients`.
   const handleDeletePatient = (patient) => {
     const id = patient.sessionId;
-    const prevPatients = patients;
-    const prevLog = log;
     setPatients(prev => prev.filter(p => p.sessionId !== id));
     setLog(prev => { const next = { ...prev }; delete next[id]; return next; });
     if (activeId === id) { setActiveId(null); goTo("registry"); }
-
-    const label = patient.name || id;
-    if (!GAS_ON) { showToast(`ลบ session ${label} แล้ว`); return Promise.resolve({ ok: true }); }
-    return gasPost({ action: "deletePatient", sessionId: id }).then(res => {
-      if (res.ok) showToast(`ลบ session ${label} แล้ว`);
-      else { setPatients(prevPatients); setLog(prevLog); }
-      return res;
-    });
+    showToast(`ซ่อน session ${patient.name || id} จากรายการแล้ว — ไม่มีผลกับข้อมูลจริง`);
   };
 
   const handleAddPatient = (p) => {

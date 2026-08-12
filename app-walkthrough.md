@@ -234,14 +234,19 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, Edit/Open).
    Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
    `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated)
-   permanently removes the Patient_Registry row *and* every Daily_Log row
-   under that sessionId, via `deletePatient` — for correcting a mistaken/
-   duplicate entry, not for discharging a real patient (that's Status →
-   Discharged/Transferred/Expired, which soft-archives and auto-hides
-   after 7 days instead of destroying the record). Distinct from the
-   still-unwired `pseudonymizePatient` erasure action below (§6) — that
-   one blanks identifiers but keeps the clinical row; this one removes it
-   entirely.
+   is deliberately **local-only** — `handleDeletePatient` in `app.jsx`
+   drops the patient from `patients`/`log` state and nothing else, no
+   `gasPost` call. Patient_Registry/Daily_Log are untouched, so a stray
+   click self-heals on the next reload/sync. Permanently deleting a
+   session is intentionally not something the app can do — an admin has
+   to edit the Google Sheet directly, which is the point: it keeps both a
+   misclick and an unauthorized-but-logged-in user from wiping a real
+   record through the UI. (Not for discharging a real patient either way
+   — that's Status → Discharged/Transferred/Expired, which soft-archives
+   and auto-hides after 7 days without touching the record.) Distinct
+   from the still-unwired `pseudonymizePatient` erasure action below
+   (§6), which *does* write to Patient_Registry (blanks identifiers,
+   keeps the clinical row) but likewise has no client entry point yet.
 2. **Dashboard** (`log.jsx`) — the active patient's daily nutrition log +
    `TrendGraph`: pick a metric (Energy/Protein/GIR/Fluid/Na/K/Ca/P/Weight),
    see it plotted with a target band, smooth Catmull-Rom curve, hover
