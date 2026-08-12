@@ -92,7 +92,7 @@ returns against what the corresponding frontend view actually reads/renders:
       either used or intentionally omitted from the response — don't let
       "just in case" fields accumulate in the payload.
 - [ ] Any new admin-only action (`pseudonymizePatient`,
-      `deleteDailyNutrition`, and anything added later) has
+      `deleteDailyNutrition`, `deletePatient`, and anything added later) has
       `if (user.role !== "admin") return jsonOut({error: "Forbidden"})`
       as the **first** line after the action dispatch, not just a
       client-side `role === "admin"` UI gate. Test by hand: call the

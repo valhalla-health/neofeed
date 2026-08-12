@@ -318,6 +318,30 @@ function App() {
     });
   };
 
+  // Permanently removes a Patient_Registry row and every Daily_Log entry
+  // under its sessionId — admin-only (gated where this is passed down to
+  // EditPatientModal), audited server-side (see deletePatient() in
+  // gas-backend.gs). Optimistic delete with rollback on failure. If the
+  // deleted patient was active, clear the selection and back out of any
+  // patient-specific view so nothing keeps rendering against a sessionId
+  // that no longer exists.
+  const handleDeletePatient = (patient) => {
+    const id = patient.sessionId;
+    const prevPatients = patients;
+    const prevLog = log;
+    setPatients(prev => prev.filter(p => p.sessionId !== id));
+    setLog(prev => { const next = { ...prev }; delete next[id]; return next; });
+    if (activeId === id) { setActiveId(null); goTo("registry"); }
+
+    const label = patient.name || id;
+    if (!GAS_ON) { showToast(`ลบ session ${label} แล้ว`); return Promise.resolve({ ok: true }); }
+    return gasPost({ action: "deletePatient", sessionId: id }).then(res => {
+      if (res.ok) showToast(`ลบ session ${label} แล้ว`);
+      else { setPatients(prevPatients); setLog(prevLog); }
+      return res;
+    });
+  };
+
   const handleAddPatient = (p) => {
     setPatients(prev => [p, ...prev]);
     setActiveId(p.sessionId);
@@ -562,9 +586,10 @@ function App() {
           <PatientStrip patient={active} onSwitch={() => setPickerOpen(true)} liveWeight={calcWeights[activeId] || null} currentDol={dol} onEdit={() => setEditingPatient(active)} />
           }
           {editingPatient && <EditPatientModal patient={editingPatient} onClose={() => setEditingPatient(null)}
-            onSubmit={p => { handleEditPatient(p); setEditingPatient(null); }} />}
+            onSubmit={p => { handleEditPatient(p); setEditingPatient(null); }}
+            onDelete={role === "admin" ? handleDeletePatient : undefined} />}
 
-          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} />}
+          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
           {view === "admin" && <AdminDashboard patients={patients} log={log} />}
           {view === "calculator" && active && (
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}

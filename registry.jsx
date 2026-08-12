@@ -28,7 +28,7 @@ const bedSort = (a, b) => {
     bedA.localeCompare(bedB, undefined, { numeric: true, sensitivity: "base" });
 };
 
-function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit }) {
+function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit, onDelete }) {
   const [filter, setFilter]         = React.useState("");
   const [showAdd, setShowAdd]       = React.useState(false);
   const [editPatient, setEditPatient]       = React.useState(null);
@@ -357,7 +357,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
 
       {showAdd          && <NewPatientModal onClose={() => setShowAdd(false)} onSubmit={p => { onAdd(p); setShowAdd(false); }} />}
       {editPatient      && <EditPatientModal patient={editPatient} onClose={() => setEditPatient(null)}
-        onSubmit={p => { onEdit?.(p); setEditPatient(null); }} />}
+        onSubmit={p => { onEdit?.(p); setEditPatient(null); }} onDelete={onDelete} />}
       {transferPatient  && <TransferBedModal patient={transferPatient} onClose={() => setTransferPatient(null)}
         onSubmit={p => { onEdit?.(p); setTransferPatient(null); }} />}
     </>
@@ -579,7 +579,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
   );
 }
 
-function EditPatientModal({ patient, onClose, onSubmit }) {
+function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState(patient.name || patient.initials || "");
   const [bed, setBed]           = React.useState(patient.currentBed || "NICU 1-1");
@@ -587,6 +587,23 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
   const [status, setStatus]     = React.useState(patient.status || "Active");
   const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
   const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || today);
+
+  // Permanent — removes the Patient_Registry row and every Daily_Log entry
+  // under this sessionId server-side (see deletePatient() in gas-backend.gs).
+  // For a real patient leaving the unit, use Status → Discharged/Transferred/
+  // Expired instead: that soft-archives and auto-hides after 7 days without
+  // destroying the record. This is for correcting a mistaken/duplicate entry.
+  // onDelete is only ever passed in for admins (gated at the call site in
+  // app.jsx), same as the Dashboard's per-entry trash icon.
+  const handleDelete = () => {
+    if (!onDelete) return;
+    const label = patient.name || patient.sessionId;
+    if (!window.confirm(
+      `ลบ session ${label} ใช่หรือไม่? บันทึกประจำวันทั้งหมดของผู้ป่วยรายนี้จะถูกลบไปด้วย และไม่สามารถย้อนกลับได้`
+    )) return;
+    onDelete(patient);
+    onClose();
+  };
 
   // statusDate marks when the patient left Active (Discharged/Transferred/
   // Expired) — the registry list uses it to auto-hide the name after 7 days.
@@ -659,7 +676,13 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
               <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+            {onDelete && (
+              <button className="btn" style={{ marginRight: "auto", color: "var(--crit)", borderColor: "var(--crit-line)" }}
+                onClick={handleDelete}>
+                <Icon name="trash" size={14} color="var(--crit)" /> Delete session
+              </button>
+            )}
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" onClick={save}><Icon name="save" size={14} color="#fff" /> Save changes</button>
           </div>

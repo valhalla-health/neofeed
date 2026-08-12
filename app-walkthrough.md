@@ -229,10 +229,19 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 
 ## 5. Main views (nav rail / bottom nav)
 
-1. **Patients** (`registry.jsx`) — patient list. Desktop: table. Mobile:
-   tappable cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ,
-   Edit/Open). Add/edit patient here (admit date, DOL at admit, GA, bed,
-   diagnosis).
+1. **Patients** (`registry.jsx`) — patient list, sorted NICU → iso → SCN
+   (then numerically within each ward). Desktop: table. Mobile: tappable
+   cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, Edit/Open).
+   Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
+   `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated)
+   permanently removes the Patient_Registry row *and* every Daily_Log row
+   under that sessionId, via `deletePatient` — for correcting a mistaken/
+   duplicate entry, not for discharging a real patient (that's Status →
+   Discharged/Transferred/Expired, which soft-archives and auto-hides
+   after 7 days instead of destroying the record). Distinct from the
+   still-unwired `pseudonymizePatient` erasure action below (§6) — that
+   one blanks identifiers but keeps the clinical row; this one removes it
+   entirely.
 2. **Dashboard** (`log.jsx`) — the active patient's daily nutrition log +
    `TrendGraph`: pick a metric (Energy/Protein/GIR/Fluid/Na/K/Ca/P/Weight),
    see it plotted with a target band, smooth Catmull-Rom curve, hover
