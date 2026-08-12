@@ -131,7 +131,7 @@ function App() {
   // Patient registry — empty until GAS sync completes (prevents mock patient identity confusion)
   const [patients, setPatients] = React.useState(GAS_ON ? [] : D_A.MOCK_PATIENTS);
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
-  const [activeId, setActiveId] = React.useState(GAS_ON ? null : D_A.MOCK_PATIENTS[0].sessionId);
+  const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
@@ -188,12 +188,9 @@ function App() {
         if (Array.isArray(data.patients)) {
           // Replace mock data with real GAS data (even if empty registry)
           setPatients(data.patients.length > 0 ? data.patients : []);
-          if (data.patients.length > 0) {
-            setActiveId(prev =>
-              data.patients.find(p => p.sessionId === prev)
-                ? prev : data.patients[0].sessionId
-            );
-          }
+          // Never auto-pick a patient — keep the current selection only if it
+          // still exists in the fresh data, otherwise fall back to none (registry list).
+          setActiveId(prev => data.patients.some(p => p.sessionId === prev) ? prev : null);
         }
         if (data.log) setLog(data.log);
         setSyncState("ok");
@@ -571,8 +568,9 @@ function App() {
           {view === "admin" && <AdminDashboard patients={patients} log={log} />}
           {view === "calculator" && active && (
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}
-              log={log} activeId={activeId} token={user?.token}
+              log={log} activeId={activeId} token={user?.token} role={role}
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
+              handleDeleteEntry={handleDeleteEntry}
               goTo={goTo} setCalcWeights={setCalcWeights} />
           )}
           {view === "fenton" && active &&
@@ -694,8 +692,8 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // JSX) so useDailyLogLock's hook calls follow React's rules: it only mounts
 // while view === "calculator", so its own hook-call sequence is consistent
 // across its own renders, independent of App's much larger render.
-function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
-  handleLogToGAS, handleUpdateToGAS, goTo, setCalcWeights }) {
+function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role,
+  handleLogToGAS, handleUpdateToGAS, handleDeleteEntry, goTo, setCalcWeights }) {
   const displayDol = editEntry ? editEntry.dol : (logDate ? D_A.dolAtDate(active, logDate) : dol);
   const baselineEntry = !editEntry ? (log[activeId] || []).slice(-1)[0] || null : null;
   const lockDate = editEntry ? editEntry.ts : (logDate || D_A.todayLocal());
@@ -743,6 +741,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         editEntry={editEntry} baselineEntry={baselineEntry} logDate={logDate}
         onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
         onSaved={() => goTo("log")}
+        onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined}
         onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
     </>
   );

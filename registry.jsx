@@ -624,7 +624,7 @@ function EditPatientModal({ patient, onClose, onSubmit }) {
           </div>
           <div className="row-2">
             <div className="field">
-              <label>ชื่อย่อ</label>
+              <label>ชื่อในวงการ</label>
               <input className="inp" maxLength={2} value={name} onChange={e => setName(e.target.value)} />
             </div>
             <div className="field">
