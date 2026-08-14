@@ -1,7 +1,64 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-11 | **Status:** 🟢 DEPLOYED · the Intake/Output + edit-lock backend went live as **`@45`** on the existing deployment `AKfycbz8Nt…` (see session 2026-08-10 (2) below). Verified by pulling the script project back down and diffing it against `main` — identical — and by confirming GitHub Pages serves `calculator.jsx?v=io-balance1`. **Confirmed working in production on 2026-08-10**: a real Calculator save was checked in the sheet and AC–AE populate. `applyLogHeaderColumns()` was also run that day from the editor as `peeraporn.po@chula.ac.th`. (Header labels are cosmetic regardless — those columns are read and written by index, not by name.)
+**Last updated:** 2026-08-14 | **Status:** 🟡 NEEDS BACKEND DEPLOY · this session added a new `deletePatient` GAS action (see below) — until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-14 — Patient delete made permanent (frontend + backend)
+
+**Request** (Thai): the "Delete session" button used to be local-only —
+clicking it just hid the patient in the current browser, and the next sync
+from GAS pulled the same `Patient_Registry` row straight back in. Asked to
+make deletion actually stick, keeping the same confirm-before-delete UX.
+
+This was a deliberate design choice at the time (see the removed comments
+in `app.jsx`/`registry.jsx`/`app-walkthrough.md` §5): local-only meant a
+misclick self-healed on reload. The tradeoff flipped once staff reported
+that a *deliberate* delete self-healed too, for the same reason — sync
+doesn't know the difference between "never happened" and "happened but
+wasn't written to the sheet."
+
+**Changes:**
+- `gas-backend.gs`: new `deletePatient(sessionId)`, same shape as the
+  existing `deleteDailyNutrition` (admin-only, `LockService`-guarded).
+  Deletes the matching `Patient_Registry` row **and every `Daily_Log` row**
+  for that `sessionId` — not just the registry row, because `sessionId` is
+  derived from initials+BW+twinSuffix (see `data.js`), so leaving old log
+  rows behind under a sessionId that could later be regenerated for a
+  different admission would silently attach one patient's history to
+  another. New `doPost` branch: `action === "deletePatient"`, admin-gated,
+  audit-logged as `"deletePatient"`.
+- `app.jsx`: `handleDeletePatient` now optimistically removes the patient
+  from local state (as before) and then calls
+  `gasPost({action:"deletePatient", sessionId})`, rolling the local state
+  back (patients/log/activeId) if the server call fails — same pattern as
+  the existing `handleDeleteEntry`. Falls back to local-only removal when
+  `GAS_ON` is false (no backend configured), consistent with how every
+  other `gasPost`-backed handler in this file degrades.
+- `registry.jsx`: `EditPatientModal`'s `window.confirm()` wording changed
+  from "hide from this list, no effect on real data" to a plain statement
+  that the patient and all its Daily_Log entries will be permanently
+  deleted and this cannot be undone. Still exactly one confirm click,
+  admin-only — no new UI, no bypass path.
+- Docs: `app-walkthrough.md` §5 and `TDD.md` §3.3/`doPost` updated to
+  describe the new permanent behavior instead of the old local-only one.
+
+Cache-bust bumped: `registry.jsx?v=delete-permanent1`,
+`app.jsx?v=delete-permanent1` in both `NeoFeed.html` and `index.html`.
+
+**Verified:** both edited `.jsx` files parse clean through `esbuild`;
+`gas-backend.gs` parses clean through `node --check` (copied to `.js` first,
+since `node` doesn't recognize `.gs`). **Not verified**: no route to a live
+GAS deployment or a real browser from this environment, so the actual
+server-side delete (row removal from a live Sheet, the audit log entry, the
+rollback-on-failure path) is unverified beyond reading the code — same
+standing caveat as every prior backend-touching session in this file. The
+backend change **must be deployed** (`clasp push && clasp deploy` against
+the existing deployment ID) before the button works in production; until
+then it will fail closed (error toast, patient reappears in local state)
+rather than silently doing nothing, since `deletePatient` won't exist on the
+live script and `doPost` falls through to `{error: "Unknown action: ..."}`.
 
 ---
 

@@ -311,7 +311,7 @@ Admin dashboard: admin) — presentation only, the server gate is authoritative.
 | `handleUpdateToGAS` | entryId, expectedLastModified, entry | Sends the edit with its concurrency stamp; applies the server's new stamp on success | Promise |
 | `handleDeleteEntry` | entry | Admin-only delete, then removes the row from local state | Promise |
 | `handleAddPatient` / `handleEditPatient` | patient | Registry upsert, then local state update | — |
-| `handleDeletePatient` | patient | Admin-only, **local state only** — no `gasPost` call, Patient_Registry/Daily_Log untouched. Clears `activeId`/routes to Patients if the removed patient was active | — |
+| `handleDeletePatient` | patient | Admin-only, **permanent** — optimistic local removal, then `gasPost({action:"deletePatient"})` deletes the Patient_Registry row and every Daily_Log row for that sessionId server-side; rolls back local state on failure. Clears `activeId`/routes to Patients if the removed patient was active | Promise |
 | `handleWeightUpdate` | sessionId, weights | Persists the weight series from the growth chart | — |
 | `handleLogout` | — | Revokes the token server-side, then clears `neofeed_calc_*` / `neofeed_acked_*` / session storage — data minimisation on shared NICU workstations | — |
 | view router | `view` state | A conditional block rendering Patients / Dashboard / Calculator / Growth / Alerts / Admin / Guidelines / Formulas. No client-side router library | Rendered view |
@@ -335,9 +335,9 @@ Admin dashboard: admin) — presentation only, the server gate is authoritative.
 
 Actions: `login`, `logout`, `getActivePatients`, `logDailyNutrition`,
 `updateDailyNutrition`, `deleteDailyNutrition`, `registerPatient` /
-`updatePatient`, `updateWeights`, `changePassword`, `pseudonymizePatient`.
-(No `deletePatient` action — see §3.3's `handleDeletePatient` row: removing
-a session from the app is deliberately local-only, nothing to dispatch here.)
+`updatePatient`, `updateWeights`, `changePassword`, `pseudonymizePatient`,
+`deletePatient` (admin-only; deletes the Patient_Registry row and every
+Daily_Log row for that sessionId — see §3.3's `handleDeletePatient` row).
 `doGet` serves only `ping`.
 
 ### 3.4 Presentation Layer
