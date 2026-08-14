@@ -134,9 +134,17 @@ explicitly now that Output no longer contains drain. **Do not read pre-2026-
 in place, not just its display.
 
 ### Backend sheets (`gas-backend.gs`)
-- **`Patient_Registry`** (A–Q): `sessionId | name | initials | bw | ga | sex |
+- **`Patient_Registry`** (A–R): `sessionId | name | initials | bw | ga | sex |
   dob | admissionDate | twinSuffix | status | currentBed | diagnosis |
-  weights | lengths | hcs | bedHistory | statusDate`. `statusDate` is stamped
+  weights | lengths | hcs | bedHistory | statusDate | multiplesCount`.
+  `twinSuffix` (A–D) only records this session's position in a multiple
+  birth, not how many siblings there are — "A" reads the same whether it's
+  one of twins or one of triplets. `multiplesCount` (2/3/4, added
+  2026-08-14, set via `AddPatientModal`'s "How many" field once a
+  `twinSuffix` letter is picked) disambiguates it; `registry.jsx`'s
+  `multiplesLabel()` renders "Twin A"/"Triplet A"/etc. from the pair, and
+  falls back to a letter-only guess (A/B→Twin, C→Triplet, D→Quadruplet) for
+  patients registered before this field existed. `statusDate` is stamped
   by `EditPatientModal` (`registry.jsx`) the moment `status` changes away
   from `Active` (cleared if it's changed back); `registry.jsx` uses it to
   auto-hide a Discharged/Transferred/Expired patient from the registry list
