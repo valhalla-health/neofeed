@@ -318,24 +318,37 @@ function App() {
     });
   };
 
-  // Deliberately local-only — removes the patient from this browser's
-  // patients/log state so it drops out of every list immediately, but never
-  // touches the backend. Patient_Registry/Daily_Log are untouched, so a
-  // stray click self-heals on the next reload/sync instead of destroying a
-  // real record. Permanently removing a session on purpose is not something
-  // this app can do — an admin has to edit the Google Sheet directly (see
-  // the comment on EditPatientModal's handleDelete for why that's the
-  // point, not a gap). Admin-only (gated where this is passed down to
-  // EditPatientModal) just to limit who can even do the local hide. If the
-  // hidden patient was active, clear the selection and back out of any
-  // patient-specific view so nothing keeps rendering against a sessionId
-  // that's no longer in `patients`.
+  // Permanently deletes the session — removes it from Patient_Registry and
+  // every Daily_Log row for it server-side (`deletePatient` GAS action), not
+  // just this browser's state. Used to be local-state-only, which looked
+  // like it worked until the next sync pulled the same row straight back in
+  // from the sheet (see HANDOFF.md); the confirm dialog in EditPatientModal
+  // is unchanged, so it's still one deliberate click, but that click now
+  // sticks. Optimistic removal with rollback on failure, same pattern as
+  // handleDeleteEntry. Admin-only (gated where this is passed down to
+  // EditPatientModal). If the deleted patient was active, clear the
+  // selection and back out of any patient-specific view so nothing keeps
+  // rendering against a sessionId that's no longer in `patients`.
   const handleDeletePatient = (patient) => {
     const id = patient.sessionId;
+    const prevPatients = patients;
+    const prevLog = log;
+    const wasActive = activeId === id;
     setPatients(prev => prev.filter(p => p.sessionId !== id));
     setLog(prev => { const next = { ...prev }; delete next[id]; return next; });
-    if (activeId === id) { setActiveId(null); goTo("registry"); }
-    showToast(`ซ่อน session ${patient.name || id} จากรายการแล้ว — ไม่มีผลกับข้อมูลจริง`);
+    if (wasActive) { setActiveId(null); goTo("registry"); }
+
+    if (!GAS_ON) { showToast(`ลบ session ${patient.name || id} แล้ว`); return Promise.resolve({ ok: true }); }
+    return gasPost({ action: "deletePatient", sessionId: id }).then(res => {
+      if (res.ok) {
+        showToast(`ลบ session ${patient.name || id} ถาวรแล้ว`);
+      } else {
+        setPatients(prevPatients);
+        setLog(prevLog);
+        if (wasActive) setActiveId(id);
+      }
+      return res;
+    });
   };
 
   const handleAddPatient = (p) => {
