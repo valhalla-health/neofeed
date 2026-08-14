@@ -278,7 +278,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                   <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
                   <td>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</div>
-                    {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>· {p.twinSuffix}</div>}
+                    {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>Twin {p.twinSuffix}</div>}
                   </td>
                   <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>
                     {D_R.fmtGA(p.ga)}
