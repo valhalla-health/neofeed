@@ -1,7 +1,57 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-11 | **Status:** 🟢 DEPLOYED · the Intake/Output + edit-lock backend went live as **`@45`** on the existing deployment `AKfycbz8Nt…` (see session 2026-08-10 (2) below). Verified by pulling the script project back down and diffing it against `main` — identical — and by confirming GitHub Pages serves `calculator.jsx?v=io-balance1`. **Confirmed working in production on 2026-08-10**: a real Calculator save was checked in the sheet and AC–AE populate. `applyLogHeaderColumns()` was also run that day from the editor as `peeraporn.po@chula.ac.th`. (Header labels are cosmetic regardless — those columns are read and written by index, not by name.)
+**Last updated:** 2026-08-14 | **Status:** 🟡 FRONTEND+BACKEND CHANGED, NOT YET DEPLOYED · see session 2026-08-14 below (`multiplesCount` field) — needs `applyPatHeaderColumns()` run from the Apps Script editor before the live sheet accepts 18-column writes. Prior deploy: 🟢 the Intake/Output + edit-lock backend went live as **`@45`** on the existing deployment `AKfycbz8Nt…` (see session 2026-08-10 (2) below). Verified by pulling the script project back down and diffing it against `main` — identical — and by confirming GitHub Pages serves `calculator.jsx?v=io-balance1`. **Confirmed working in production on 2026-08-10**: a real Calculator save was checked in the sheet and AC–AE populate. `applyLogHeaderColumns()` was also run that day from the editor as `peeraporn.po@chula.ac.th`. (Header labels are cosmetic regardless — those columns are read and written by index, not by name.)
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-14 — Twin/triplet label + `multiplesCount` field (frontend + backend)
+
+Started from a screenshot question: the registry table shows a bare `· A`
+under a twin's name with no label, confusing to read. First pass just
+reworded it to "Twin A" — but the "Multiples" dropdown (`AddPatientModal`)
+goes A–D for twins/triplets/quadruplets, and the *letter alone* doesn't say
+which: "A" reads identically whether the set is twins or triplets. Asked the
+user how to disambiguate; they chose adding an explicit "how many" field at
+registration over a same-letter guess or a birth-cluster heuristic.
+
+- **`registry.jsx`**:
+  - New `multiplesLabel(p)` helper — combines `p.twinSuffix` (position: A–D)
+    with the new `p.multiplesCount` (size: 2/3/4) to render "Twin A" /
+    "Triplet C" / etc. Falls back to a letter-only guess (A/B→Twin,
+    C→Triplet, D→Quadruplet) when `multiplesCount` is absent, for patients
+    registered before this field existed — imperfect (a triplet's "A" would
+    still show as "Twin A"), but better than showing nothing.
+  - `AddPatientModal`: added a "How many" `<select>` (2/3/4) next to the
+    existing "Multiples" letter dropdown, enabled only once a letter is
+    picked, clears itself if the letter is cleared. Included in the
+    `onSubmit` payload as `multiplesCount`.
+  - Desktop table row (the one from the screenshot) now renders
+    `multiplesLabel(p)` instead of the bare `· {p.twinSuffix}`.
+  - `EditPatientModal` was **not** touched — the user's request was
+    specifically "add the field at registration"; there's still no way to
+    correct/add multiples info on an existing patient after the fact
+    (same gap as `twinSuffix` already had before this session).
+- **`gas-backend.gs`**: `Patient_Registry` grows from A–Q to A–R
+  (`multiplesCount`, numeric 2/3/4, appended at the end per the existing
+  column-layout convention). `getSheetPat()`'s header array, the registry
+  read loop, and `registerPatient()`'s upsert row were all updated together.
+  Added `ensurePatHeaderColumns()`/`applyPatHeaderColumns()` (same pattern as
+  the existing `ensureLogHeaderColumns`/`ensureStaffHeaderColumns`
+  migrations) — **must be run once from the Apps Script editor** (or via
+  clasp) before this ships, since `registerPatient()` now writes with
+  `getRange(row, 1, 1, 18)` and the live sheet's grid is currently only 17
+  columns wide; without the migration, upserting an *existing* patient
+  (not a brand-new one — `appendRow` self-widens) will throw out-of-bounds.
+- Cache-bust bumped: `registry.jsx?v=twin-label1` in both `NeoFeed.html`
+  and `index.html`.
+
+**Not verified in a live browser or against a live GAS deployment** — same
+standing caveat as other source-only sessions in this environment. Before
+calling this done: (1) run `applyPatHeaderColumns()` from the Apps Script
+editor, (2) register a twin and a triplet through the UI and confirm the
+table shows "Twin A"/"Triplet A" correctly, (3) confirm editing an
+already-registered (pre-migration) patient doesn't throw.
 
 ---
 

@@ -28,6 +28,21 @@ const bedSort = (a, b) => {
     bedA.localeCompare(bedB, undefined, { numeric: true, sensitivity: "base" });
 };
 
+// AddPatientModal's "Multiples" letter (A–D) only records this session's
+// position in the set, not how many siblings there are — "A" means the same
+// thing whether it's one of twins or one of triplets. `multiplesCount`
+// (added alongside it) is what actually disambiguates the label. Patients
+// registered before that field existed have no `multiplesCount`, so fall
+// back to the old (imperfect — A/B could really be a triplet) letter guess
+// rather than showing nothing.
+const MULTIPLES_COUNT_TERM = { 2: "Twin", 3: "Triplet", 4: "Quadruplet" };
+const MULTIPLES_LETTER_FALLBACK = { A: "Twin", B: "Twin", C: "Triplet", D: "Quadruplet" };
+function multiplesLabel(p) {
+  if (!p.twinSuffix) return null;
+  const term = MULTIPLES_COUNT_TERM[p.multiplesCount] || MULTIPLES_LETTER_FALLBACK[p.twinSuffix] || "Multiple";
+  return `${term} ${p.twinSuffix}`;
+}
+
 function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit, onDelete }) {
   const [filter, setFilter]         = React.useState("");
   const [showAdd, setShowAdd]       = React.useState(false);
@@ -278,7 +293,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                   <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
                   <td>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</div>
-                    {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>Twin {p.twinSuffix}</div>}
+                    {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{multiplesLabel(p)}</div>}
                   </td>
                   <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>
                     {D_R.fmtGA(p.ga)}
@@ -381,6 +396,7 @@ function NewPatientModal({ onClose, onSubmit }) {
   const [hc, setHc]             = React.useState(0);
   const [len, setLen]           = React.useState(0);
   const [twin, setTwin]         = React.useState("");
+  const [multiplesCount, setMultiplesCount] = React.useState("");
   const [sex, setSex]           = React.useState("boys");
   const [bed, setBed]           = React.useState("NICU 1-1");
   const [dx, setDx]             = React.useState("");
@@ -416,15 +432,27 @@ function NewPatientModal({ onClose, onSubmit }) {
           <button className="icon-btn" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div style={{ padding: 18 }}>
-          <div className="row-2">
+          <div className="row-3">
             <div className="field">
               <label>ชื่อย่อ <span className="unit">(อักษรแรกของชื่อ + นามสกุล)</span></label>
               <input className="inp" maxLength={2} value={name} onChange={e => setName(e.target.value)} placeholder="เช่น  ปพ" />
             </div>
             <div className="field">
               <label>Multiples <span className="unit">(optional)</span></label>
-              <select className="sel" value={twin} onChange={e => setTwin(e.target.value)}>
+              <select className="sel" value={twin} onChange={e => {
+                setTwin(e.target.value);
+                if (!e.target.value) setMultiplesCount("");
+              }}>
                 <option value="">—</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>How many <span className="unit">(twin/triplet/quad)</span></label>
+              <select className="sel" value={multiplesCount} disabled={!twin} onChange={e => setMultiplesCount(e.target.value)}>
+                <option value="">—</option>
+                <option value="2">2 · Twin</option>
+                <option value="3">3 · Triplet</option>
+                <option value="4">4 · Quadruplet</option>
               </select>
             </div>
           </div>
@@ -506,7 +534,8 @@ function NewPatientModal({ onClose, onSubmit }) {
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" disabled={!canSubmit} onClick={() => onSubmit({
-              sessionId, name, initials: name, bw, ga, twinSuffix: twin, sex,
+              sessionId, name, initials: name, bw, ga, twinSuffix: twin,
+              multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
               currentBed: bed, diagnosis: dx, status: "Active",
               admissionDate: admitDate,
               dob,

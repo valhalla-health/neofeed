@@ -31,8 +31,10 @@
 //   4. Deploy → Web app · Execute as: Me · Access: Anyone
 //   5. Copy URL → NeoFeed.html window.NEOFEED_GAS_URL
 //
-// Patient_Registry (A–Q): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
-//   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory|statusDate
+// Patient_Registry (A–R): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
+//   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory|statusDate|
+//   multiplesCount (R, added 2026-08-14 — 2/3/4, disambiguates twinSuffix's
+//   A–D: "A" alone doesn't say whether the set is twins or triplets)
 // Daily_Log (A–AE): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
 //   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType|
 //   calcInputJson|entryId|lastModified|lastModifiedBy|ioInput|ioOutput|drainContent
@@ -455,7 +457,7 @@ function getSheetPat() {
       "sessionId","name","initials","bw","ga","sex",
       "dob","admissionDate","twinSuffix","status",
       "currentBed","diagnosis","weights","lengths","hcs","bedHistory",
-      "statusDate"
+      "statusDate","multiplesCount"
     ]);
   }
   return sh;
@@ -748,6 +750,7 @@ function getActivePatients() {
       hcs:           _parseJson(p[14], []),
       bedHistory:    _parseJson(p[15], []),
       statusDate:    _fmtDate(p[16]),
+      multiplesCount: Number(p[17] || 0),
     });
   }
   return { patients: patients, log: logMap, ts: new Date().toISOString() };
@@ -1030,11 +1033,69 @@ function applyLogHeaderColumns() {
   return ensureLogHeaderColumns(true);
 }
 
+// ── ensurePatHeaderColumns — run once from the editor or clasp ──
+// Same gap as ensureLogHeaderColumns above, one tab over: getSheetPat() only
+// writes the full header row when it creates Patient_Registry from scratch,
+// so a live tab predating multiplesCount (added 2026-08-14, R) never gained
+// that label. And it's NOT merely cosmetic here either — registerPatient()
+// now writes with getRange(row, 1, 1, 18); if the sheet's grid is still only
+// 17 columns wide, that range is out of bounds and upserting an existing
+// patient throws. So this widens the grid first, then labels the header.
+//
+// Dry-run by default: call with no arguments to see what it WOULD do. Pass
+// true to actually write. Only ever fills a BLANK header cell — if R1
+// already contains anything it reports and changes nothing, so it is safe
+// to re-run.
+function ensurePatHeaderColumns(apply) {
+  var WANT = { 18: "multiplesCount" };
+  var sh   = getSheetPat();
+  var out  = {
+    applied: apply === true,
+    sheetLastColumn: sh.getLastColumn(),
+    changes: [], skipped: []
+  };
+
+  var need = 18 - sh.getMaxColumns();
+  if (need > 0) {
+    out.changes.push("grid: " + sh.getMaxColumns() + " -> 18 columns (+" + need + ")");
+    if (apply === true) sh.insertColumnsAfter(sh.getMaxColumns(), need);
+  } else {
+    out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
+  }
+
+  if (apply === true || need <= 0) {
+    Object.keys(WANT).forEach(function (colStr) {
+      var col     = Number(colStr);
+      var cell    = sh.getRange(1, col);
+      var current = String(cell.getValue() || "").trim();
+      if (current === WANT[col]) {
+        out.skipped.push("col " + col + ": already '" + current + "'");
+      } else if (current !== "") {
+        out.skipped.push("col " + col + ": OCCUPIED by '" + current + "' — left alone");
+      } else {
+        out.changes.push("col " + col + ": '' -> '" + WANT[col] + "'");
+        if (apply === true) cell.setValue(WANT[col]);
+      }
+    });
+  } else {
+    out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
+  }
+
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(18, sh.getLastColumn())).getValues()[0];
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
+}
+
+// Apply variant — see applyStaffHeaderColumns for why this exists.
+function applyPatHeaderColumns() {
+  return ensurePatHeaderColumns(true);
+}
+
 // ── registerPatient (upsert) ──────────────────────────────────
 function registerPatient(p) {
   var sheet = getSheetPat();
   var data  = sheet.getDataRange().getValues();
-  var row17 = [
+  var row18 = [
     _sheetSafe(p.sessionId), _sheetSafe(p.name || ""), _sheetSafe(p.initials || ""),
     _numSafe(p.bw, 0), _numSafe(p.ga, 0), _sheetSafe(p.sex || "boys"),
     _sheetSafe(p.dob || ""), _sheetSafe(p.admissionDate || ""), _sheetSafe(p.twinSuffix || ""),
@@ -1044,14 +1105,15 @@ function registerPatient(p) {
     JSON.stringify(p.hcs        || []),
     JSON.stringify(p.bedHistory || []),
     _sheetSafe(p.statusDate || ""),
+    _numSafe(p.multiplesCount, 0),
   ];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(p.sessionId)) {
-      sheet.getRange(i + 1, 1, 1, 17).setValues([row17]);
+      sheet.getRange(i + 1, 1, 1, 18).setValues([row18]);
       return;
     }
   }
-  sheet.appendRow(row17);
+  sheet.appendRow(row18);
 }
 
 // ── updateWeights ─────────────────────────────────────────────
