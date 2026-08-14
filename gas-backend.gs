@@ -664,6 +664,13 @@ function doPost(e) {
       pseudonymizePatient(body.sessionId, user.email);
       return jsonOut({ ok: true });
     }
+    if (action === "deletePatient") {
+      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      var delPatResult = deletePatient(body.sessionId);
+      if (delPatResult.error) return jsonOut({ error: delPatResult.error });
+      logAudit("deletePatient", body.sessionId, user.email);
+      return jsonOut({ ok: true });
+    }
     if (action === "deleteDailyNutrition") {
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
       var delResult = deleteDailyNutrition(body.sessionId, body.entryId);
@@ -857,6 +864,45 @@ function deleteDailyNutrition(sessionId, entryId) {
       return { ok: true };
     }
     return { error: "ไม่พบข้อมูลที่ต้องการลบ — อาจถูกลบไปแล้ว" };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ── deletePatient (admin-only, permanent) ───────────────────────
+// Removes the Patient_Registry row AND every Daily_Log row for that
+// sessionId. Previously the "Delete session" button in the UI was
+// deliberately local-only (see HANDOFF.md) — it only hid the patient in the
+// current browser, so the next sync from GAS pulled the same row straight
+// back in. This is the real, server-side counterpart: once called, the
+// session no longer exists in the sheet, so a resync can't resurrect it.
+// Daily_Log rows are deleted too, not just the registry row — sessionId is
+// derived from initials+BW+twinSuffix (see data.js), so leaving old log rows
+// behind under a sessionId that could later be regenerated for a different
+// admission would silently attach one patient's clinical history to another.
+// Audited by the caller (doPost) after this returns ok.
+function deletePatient(sessionId) {
+  if (!sessionId) return { error: "sessionId is required" };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var patSheet = getSheetPat();
+    var patData  = patSheet.getDataRange().getValues();
+    var found = false;
+    for (var i = patData.length - 1; i >= 1; i--) {
+      if (String(patData[i][0]) === String(sessionId)) {
+        patSheet.deleteRow(i + 1);
+        found = true;
+      }
+    }
+    if (!found) return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
+
+    var logSheet = getSheetLog();
+    var logData  = logSheet.getDataRange().getValues();
+    for (var j = logData.length - 1; j >= 1; j--) {
+      if (String(logData[j][1]) === String(sessionId)) logSheet.deleteRow(j + 1);
+    }
+    return { ok: true };
   } finally {
     lock.releaseLock();
   }

@@ -617,23 +617,20 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
   const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || today);
 
-  // Deliberately front-end only — removes the patient from this browser's
-  // current view (patients/log state), nothing else. Does NOT call the
-  // backend and leaves Patient_Registry/Daily_Log untouched, so it self-
-  // heals on the next reload/sync if clicked by mistake. Permanently
-  // removing a session is intentionally NOT a button in the app — an admin
-  // has to go edit Patient_Registry/Daily_Log directly in the Google Sheet.
-  // That gap is deliberate: it stops both a stray misclick and anyone who
-  // isn't supposed to have Sheet access from wiping a real record through
-  // the UI. onDelete is only ever passed in for admins (gated at the call
-  // site in app.jsx), same as the Dashboard's per-entry trash icon — this
-  // still only softens who can declutter their own view, not a security
-  // boundary around the (nonexistent) underlying action.
+  // Permanently deletes the session — removes it from Patient_Registry and
+  // every Daily_Log row for it on the server (`handleDeletePatient` in
+  // app.jsx → the `deletePatient` GAS action), not just this browser's view.
+  // Used to be local-only (see HANDOFF.md for why that stopped being enough:
+  // the next reload/sync just pulled the same row back in), so the confirm
+  // below is now the only thing standing between a click and an
+  // unrecoverable deletion — worded accordingly. onDelete is only ever
+  // passed in for admins (gated at the call site in app.jsx), same as the
+  // Dashboard's per-entry trash icon.
   const handleDelete = () => {
     if (!onDelete) return;
     const label = patient.name || patient.sessionId;
     if (!window.confirm(
-      `ซ่อน session ${label} จากรายการนี้ใช่หรือไม่? การกดนี้ไม่มีผลกับข้อมูลจริงในระบบ — จะกลับมาแสดงอีกครั้งเมื่อโหลดหน้าใหม่/sync ครั้งถัดไป หากต้องการลบถาวรจริงๆ ต้องเข้าไปแก้ไขข้อมูลใน Google Sheet โดยตรง`
+      `ลบ session ${label} ถาวรใช่หรือไม่? ข้อมูลผู้ป่วยและบันทึกประจำวันทั้งหมดของ session นี้จะถูกลบออกจากระบบ — การลบนี้ไม่สามารถย้อนกลับได้`
     )) return;
     onDelete(patient);
     onClose();

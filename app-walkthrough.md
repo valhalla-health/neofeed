@@ -241,20 +241,24 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    (then numerically within each ward). Desktop: table. Mobile: tappable
    cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, Edit/Open).
    Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
-   `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated)
-   is deliberately **local-only** — `handleDeletePatient` in `app.jsx`
-   drops the patient from `patients`/`log` state and nothing else, no
-   `gasPost` call. Patient_Registry/Daily_Log are untouched, so a stray
-   click self-heals on the next reload/sync. Permanently deleting a
-   session is intentionally not something the app can do — an admin has
-   to edit the Google Sheet directly, which is the point: it keeps both a
-   misclick and an unauthorized-but-logged-in user from wiping a real
-   record through the UI. (Not for discharging a real patient either way
-   — that's Status → Discharged/Transferred/Expired, which soft-archives
-   and auto-hides after 7 days without touching the record.) Distinct
-   from the still-unwired `pseudonymizePatient` erasure action below
-   (§6), which *does* write to Patient_Registry (blanks identifiers,
-   keeps the clinical row) but likewise has no client entry point yet.
+   `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated,
+   wording spells out that it's permanent and irreversible) calls
+   `handleDeletePatient` in `app.jsx`, which optimistically drops the
+   patient from `patients`/`log` state and then `gasPost`s the
+   `deletePatient` action — `deletePatient()` in `gas-backend.gs` deletes
+   the row from `Patient_Registry` **and** every `Daily_Log` row for that
+   `sessionId`, with a rollback of the local state if the server call
+   fails. (Changed 2026-08-14: it used to be local-state-only precisely so
+   a misclick would self-heal on the next reload/sync — but that meant a
+   *deliberate* delete self-healed too, since sync always pulled the
+   still-present sheet row straight back in. The confirm dialog is the
+   safeguard now, same as the Dashboard's per-entry trash icon below.)
+   (Not for discharging a real patient either way — that's Status →
+   Discharged/Transferred/Expired, which soft-archives and auto-hides
+   after 7 days without touching the record.) Distinct from the
+   still-unwired `pseudonymizePatient` erasure action below (§6), which
+   blanks identifiers but keeps the clinical row, for cases where
+   retaining de-identified history matters more than removing it outright.
 2. **Dashboard** (`log.jsx`) — the active patient's daily nutrition log +
    `TrendGraph`: pick a metric (Energy/Protein/GIR/Fluid/Na/K/Ca/P/Weight),
    see it plotted with a target band, smooth Catmull-Rom curve, hover
