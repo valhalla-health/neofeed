@@ -1,7 +1,39 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-14 | **Status:** 🟡 NEEDS BACKEND DEPLOY, two changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw. Both need the same `clasp push && clasp deploy` + one editor run before either works in production. Everything below **Session 2026-08-12** was still live as of that session's own status line.
+**Last updated:** 2026-08-15 | **Status:** 🟡 NEEDS BACKEND DEPLOY, two changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw. Both need the same `clasp push && clasp deploy` + one editor run before either works in production. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-15 — I/O card divisor stuck on birth weight (frontend only)
+
+Bug report with a screenshot: a patient's actual weight had already grown
+past birth weight (1177 g), yet the Intake/Output card's mL/kg/d divisor
+still showed "1177 g (birth weight)". Root cause: `D.ioDivisorG(patient,
+dol)` only ever looked at *yesterday's* recorded weight
+(`weightAtOrBeforeDol(patient, dol-1)`) — it never considered the weight
+being entered for *today* in the calculator itself (`wtG`). If no prior-day
+weight was on record yet (or that prior-day weight was still below birth
+weight), the divisor fell back to birth weight and stayed there even though
+today's typed-in weight was clearly higher.
+
+- **`data.js`**: `ioDivisorG(patient, dol, todayWeightG)` gained a third,
+  optional param. When the previous-day lookup would otherwise fall back to
+  birth weight, but `todayWeightG` (today's live weight entry) already
+  exceeds birth weight, the divisor now uses `todayWeightG` instead. Return
+  type changed from a bare number to `{ g, source }` (`source` is
+  `"today"` / `"prevDay"` / `"birth"`) so the UI can label which weight is
+  driving the number without re-deriving it from a value comparison (the
+  old `ioDivisorGVal === patient?.bw` check would have mislabeled a
+  today-sourced divisor as "previous day").
+- **`calculator.jsx`**: the sole call site now passes `wtG` (the Step 1
+  weight field already in scope) as `todayWeightG`, and the "Balance ...
+  divisor NNN g (...)" hint under the Intake/Output card renders
+  "(today)" / "(previous day)" / "(birth weight)" from `ioDivisor.source`.
+- Once the infant has an actual previous-day weight on record that itself
+  clears birth weight, that previous-day weight still wins (unchanged
+  behavior) — today's weight is only a fallback for the "no/low prior-day
+  data" case, not a general override.
 
 ---
 

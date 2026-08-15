@@ -990,12 +990,20 @@ function weightAtOrBeforeDol(patient, dol) {
 // weight, unless the infant hasn't yet regained birth weight — in which
 // case birth weight is used instead, per KCMH bedside convention (avoids
 // inflating mL/kg/day off a still-low post-natal-weight-loss nadir).
-function ioDivisorG(patient, dol) {
+//
+// `todayWeightG` (optional) is the weight entered in the current calculator
+// session for this log day. When the previous-day lookup falls back to birth
+// weight — no prior weight on record, or a still-below-birth-weight nadir —
+// but today's actual weight already exceeds birth weight, today's weight is
+// used instead so the divisor doesn't stay pinned to birth weight once the
+// infant has clearly grown past it.
+function ioDivisorG(patient, dol, todayWeightG) {
   const bw = patient?.bw || 0;
   const prevW = weightAtOrBeforeDol(patient, (dol || 1) - 1);
   const base = prevW != null ? prevW : bw;
-  if (!base) return bw || null;
-  return base < bw ? bw : base;
+  const divisor = base ? (base < bw ? bw : base) : (bw || null);
+  if (divisor === bw && todayWeightG > bw) return { g: todayWeightG, source: "today" };
+  return { g: divisor, source: divisor === bw ? "birth" : "prevDay" };
 }
 
 // DOL as of an arbitrary calendar date (YYYY-MM-DD) — same math as liveDol,

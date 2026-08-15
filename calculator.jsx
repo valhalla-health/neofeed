@@ -672,7 +672,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
   // ── Intake / Output card ─────────────────────────────────────────
   // Divisor: previous day's weight, or birth weight while the infant hasn't
-  // yet regained it (D.ioDivisorG — see data.js).
+  // yet regained it — falling forward to today's entered weight (wtG) once
+  // that alone exceeds birth weight (D.ioDivisorG — see data.js).
   //
   // The Output field is urine output only (drain is entered separately),
   // entered/stored as raw mL/day like Input/Drain and the existing backend
@@ -682,7 +683,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   //
   // Balance = Input − Output(urine) − Drain: both are real fluid losses now
   // that Output no longer folds drain in, so both are subtracted explicitly.
-  const ioDivisorGVal = D.ioDivisorG(patient, dol);
+  const ioDivisor = D.ioDivisorG(patient, dol, wtG);
+  const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
   const ioOutputPerKgH = ioDivisorKg ? Math.round((ioOutput / ioDivisorKg / 24) * 100) / 100 : null;
@@ -969,7 +971,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
       {/* ===== Intake / Output (volume card) ─────────────────────
           Per-kg divides by yesterday's weight, or birth weight while the
-          infant hasn't yet regained it (D.ioDivisorG). Urine output is entered
+          infant hasn't yet regained it — falling forward to today's entered
+          weight once that alone clears birth weight (D.ioDivisorG). Urine output is entered
           and stored as raw mL/day, same as Input/Drain — the mL/kg/h rate
           (ioOutputPerKgH above) is shown as a derived hint only. Balance =
           Input − Output − Drain. */}
@@ -992,7 +995,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
           {(ioInput > 0 || ioOutput > 0 || drainContent > 0) && (
             <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" }}>
               Balance <span className="num" style={{ fontWeight: 600, color: "var(--ink-2)" }}>{ioBalance >= 0 ? "+" : ""}{fmt(ioBalance, 0)}</span> mL/d
-              {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisorGVal === patient?.bw ? " (birth weight)" : " (previous day)"}</>}
+              {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)"}</>}
             </div>
           )}
         </div>
