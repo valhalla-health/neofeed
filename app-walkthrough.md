@@ -110,9 +110,15 @@ any device.
 `ioInput`/`ioOutput`/`drainContent` (added 2026-08-10) are the Calculator
 Step 1 "Intake / Output" card — all three stored/written as raw mL/day, not
 per-kg. Per-kg/rate figures are derived on display, never stored, via
-`D.ioDivisorG(patient, dol)` (`data.js`): the previous day's weight
-(`D.weightAtOrBeforeDol`), or birth weight while the infant hasn't yet
-regained it. `ioInput` defaults to `calc.prescribedFluid` (the same
+`D.ioDivisorG(patient, dol, todayWeightG)` (`data.js`), which returns
+`{ g, source }`: the previous day's weight (`D.weightAtOrBeforeDol`), or
+birth weight while the infant hasn't yet regained it — falling forward to
+`todayWeightG` (the calculator's live `wtG` field) once that alone exceeds
+birth weight, so the divisor doesn't stay pinned to birth weight just
+because no prior-day weight is on record yet (fixed 2026-08-15; `source` is
+`"today"`/`"prevDay"`/`"birth"`, used for the "(today)"/"(previous day)"/
+"(birth weight)" hint text in `calculator.jsx`). `ioInput` defaults to
+`calc.prescribedFluid` (the same
 "Prescribed" figure Step 1 already shows) and keeps tracking it live until the
 user edits the field directly, at which point it stops re-syncing (same "live
 default, sticky once touched" pattern as the rest of the wizard's smart
