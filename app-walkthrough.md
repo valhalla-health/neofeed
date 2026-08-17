@@ -92,6 +92,32 @@ across days without a refresh trigger. `D.dolAtDate(patient, dateStr)` is the
 same math at an arbitrary date, used when a new log entry is back-dated (see
 §5's Dashboard entry) — don't hand-roll this either.
 
+**Never compare a raw `entry.ts` against a date string.** Google Sheets
+parses the `"YYYY-MM-DD"` the backend appends to `Daily_Log` into a real date
+*value*, so a row can come back as a `Date` — `String()`d into
+`"Sun Aug 17 2026 00:00:00 GMT+0700 (Indochina Time)"`, which equals no date
+string. That single mismatch pinned the registry at "0 logged today ·
+everyone needs entry" and silently disabled the one-entry-per-date guard
+(fixed 2026-08-17). Go through `D.normalizeDateStr(v)` (→ `YYYY-MM-DD`),
+`D.hasLogOnDate(entries, date)` ("does this patient have an entry that day",
+scanning **every** entry — a back-filled past date is appended after today's,
+so reading only `entries[entries.length-1]` gets it wrong), and
+`D.normalizeLogEntries` / `D.normalizeLogMap`, which `app.jsx` applies to
+every log payload on ingest and after an optimistic insert so state is always
+normalized *and date-sorted* (several views read the last array element as
+"the latest entry"). Server-side, `getActivePatients()` reads `ts` through
+`_fmtDate()`, same as every other date column.
+
+`D.useTodayLocal()` is the hook form of `todayLocal()`: it returns today's
+date and re-renders the caller when the day rolls over. It's the one
+React-aware helper in `data.js`, and it exists because NICU workstations and
+the installed PWA stay open for days — anything "today"-derived (DOL, the
+registry's Logged today / Needs entry strip, the 7-day discharged auto-hide)
+freezes at the day the tab was opened without it. `App` also refetches from
+GAS on tab focus (throttled to once a minute) and on day rollover; before
+that it fetched once at login and never again, so entries logged from another
+device never showed up.
+
 ### Daily_Log entry shape
 Each submission from the Calculator produces one row combining PN + EN
 totals per kg:
@@ -246,6 +272,14 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 1. **Patients** (`registry.jsx`) — patient list, sorted NICU → iso → SCN
    (then numerically within each ward). Desktop: table. Mobile: tappable
    cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, Edit/Open).
+   Each active patient carries a `✓ LOGGED` / `NEEDS ENTRY` badge
+   (`.log-badge`) for "does this patient have a Daily_Log entry dated
+   today", on both layouts. The stats strip above the list (Active / Total
+   sessions / Logged today / Needs entry) is counted over the *same* set —
+   `isActivePatient(p)` (`!p.status || p.status === "Active"`, matching the
+   list's own filter) — so `logged + needs entry === active` always holds;
+   don't reintroduce a tile counted over `patients` as a whole. Both the
+   badges and the strip read `D.hasLogOnDate` and `D.useTodayLocal` (§3).
    Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
    `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated,
    wording spells out that it's permanent and irreversible) calls

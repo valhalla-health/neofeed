@@ -1,7 +1,84 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-15 | **Status:** 🟡 NEEDS BACKEND DEPLOY, two changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw. Both need the same `clasp push && clasp deploy` + one editor run before either works in production. Everything below **Session 2026-08-12** was still live as of that session's own status line.
+**Last updated:** 2026-08-17 | **Status:** 🟡 NEEDS BACKEND DEPLOY, three changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw; (3) `getActivePatients()` now returns `Daily_Log.ts` through `_fmtDate()` — **this one is not blocking**: the client normalizes `ts` itself as of 2026-08-17, so "Logged today" is correct in the live app with or without the deploy, and the `.gs` fix just stops the malformed value at source. (1) and (2) still need the same `clasp push && clasp deploy` + one editor run before they work in production. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-17 — "Logged today" stuck at 0 / registry didn't roll over (frontend + backend)
+
+Bug report with a screenshot: the registry strip read **`0 LOGGED TODAY ·
+24 NEEDS ENTRY`** on a ward that had been logging all morning, and the ask
+was for each patient to say `LOGGED` once saved and `NEEDS ENTRY` until
+then, with the Active set re-checked daily ("เหมือนไม่ค่อยเปลี่ยนตาม").
+Three separate defects were stacked behind that one number:
+
+1. **`Daily_Log.ts` came back from the sheet as a date *value*, not a
+   string.** `_buildLogRow` appends `"YYYY-MM-DD"`, and Sheets parses that
+   into a real date on write — so `getActivePatients()`'s
+   `ts: String(row[0] || "")` returned `"Sun Aug 17 2026 00:00:00 GMT+0700
+   (Indochina Time)"`. Every `e.ts === todayLocal()` comparison in the app
+   was therefore false, always: the Logged-today count, the Needs-entry
+   count, the per-patient badge, **and the one-entry-per-date duplicate
+   guard** in `app.jsx`'s `startAddToday`. Every other date column in that
+   function already went through `_fmtDate()`; this one was missed.
+2. **"Logged today?" only looked at the last entry in the array.** Rows come
+   back in the sheet's insertion order, so back-filling a missed day *after*
+   logging today put the older entry last and hid today's — the patient
+   flipped back to "needs entry" for doing extra work.
+3. **The three tiles were counted over different patient sets.** Active
+   required `status === "Active"` while the list below it also treats a
+   blank status as active; Logged-today was counted over *all* patients
+   (discharged included) while Needs-entry was counted over active ones. The
+   numbers could not be reconciled against each other or against the list.
+
+**`data.js`** — new `normalizeDateStr()` (coerces a Date / Date-string / ISO
+timestamp to `YYYY-MM-DD`, slicing already-canonical strings rather than
+re-parsing so no timezone shift can creep in), `normalizeLogEntries()` /
+`normalizeLogMap()` (normalize `ts` **and** sort oldest→newest, so
+`entries[entries.length-1]` is genuinely the latest — several views assume
+that), and `hasLogOnDate(entries, date)` (scans every entry, not just the
+last). Also `useTodayLocal()` — the hook form of `todayLocal()`, re-rendering
+its caller when the local day rolls over. It is the one React-aware helper in
+`data.js`; it lives there because that file owns `todayLocal()` and every
+consumer already holds `D`.
+
+**`gas-backend.gs`** — `getActivePatients()` now reads `ts` through
+`_fmtDate(row[0])` like every other date column. **Backend deploy needed for
+this half** (see the status line), but the client-side normalization above
+fixes the live app on its own — that is deliberate, since a `.gs` change
+can't ship without Apps Script editor access.
+
+**`app.jsx`** — GAS sync normalizes the log map on ingest; the optimistic
+insert in `handleLogToGAS` re-sorts instead of blind-appending; the
+duplicate-date guard normalizes before comparing. The registry also stopped
+being a snapshot of whenever the tab was opened: it now refetches when the
+tab returns to the foreground (throttled to once a minute) and again when the
+local day rolls over. Previously the app fetched **once at login and never
+again**, so on a workstation left open all shift, entries logged from another
+device never appeared.
+
+**`registry.jsx`** — one `isActivePatient()` predicate shared by the list and
+all three tiles, so `logged + needs entry === active` by construction; the
+counts use `hasLogOnDate`; the day is read from `useTodayLocal()` so the
+strip, the badges and the 7-day discharged auto-hide re-evaluate themselves
+at midnight. The quiet grey `✓ logged` / `no log` hint on the mobile card is
+now an explicit `✓ LOGGED` / `NEEDS ENTRY` pill (`.log-badge` in both HTML
+files), and the desktop table shows the same pill — it had been computing
+`hasToday` and never rendering it.
+
+**`test/verify-registry-logged-today.cjs`** (new) — mounts the real
+`<PatientRegistry>` in jsdom and reads the numbers off the rendered strip and
+badges, with a Sheets-`Date` `ts`, a back-filled entry appended last, a
+blank-status patient and a discharged-but-logged patient in the fixture. The
+`logged + needs === active` assertion is what keeps the strip honest.
+`verify-targets-and-dates.cjs` gained 17 assertions for the new date helpers
+(no npm deps needed for those).
+
+**Behaviour note:** Logged-today no longer counts discharged patients, so on
+a day where a since-discharged patient was logged, the number can read one
+lower than it would have before. That is the reconciliation, not a
+regression.
 
 ---
 

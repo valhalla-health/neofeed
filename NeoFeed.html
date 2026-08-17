@@ -864,6 +864,23 @@
   .reg-stat.s-warn  { border-left-color: var(--warn); }
   .reg-stat.s-crit  { border-left-color: var(--crit); }
   .reg-stat.s-brand { border-left-color: var(--brand); }
+
+  /* Per-patient "has today's Daily_Log entry?" badge — registry cards + table.
+     Same vocabulary as the Logged today / Needs entry tiles above the list, so
+     the strip and the rows can never appear to disagree. */
+  .log-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 2px 7px; border-radius: 999px; flex-shrink: 0;
+    /* Explicit UI font: the mobile card puts this badge inside .pmc-stats,
+       which is monospace — the badge should read like the stats-strip labels
+       it mirrors, not like the numbers beside it. */
+    font-family: "IBM Plex Sans", "IBM Plex Sans Thai", "Sarabun", system-ui, sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em; white-space: nowrap;
+    color: var(--crit); background: oklch(96% 0.03 25); border: 1px solid oklch(88% 0.06 25);
+  }
+  .log-badge.is-logged {
+    color: var(--ok); background: oklch(96% 0.04 155); border-color: oklch(86% 0.07 155);
+  }
   .reg-stat.s-ok   .reg-stat-val { color: var(--ok); }
   .reg-stat.s-warn .reg-stat-val { color: var(--warn); }
   .reg-stat.s-crit .reg-stat-val { color: var(--crit); }
@@ -1381,14 +1398,14 @@
   </script>
 
   <!-- App data and modules — ?v= busts browser cache on each deploy -->
-  <script src="data.js?v=fenton-weekly1"></script>
+  <script src="data.js?v=logged-today1"></script>
   <script type="text/babel" src="tweaks-panel.jsx?v=dashboard-edit2"></script>
   <script type="text/babel" src="icons.jsx?v=notes-date-sel1"></script>
   <script type="text/babel" src="calculator.jsx?v=io-urine-mld1"></script>
   <script type="text/babel" src="fenton.jsx?v=ga-clamp42"></script>
-  <script type="text/babel" src="registry.jsx?v=delete-multiples-count1"></script>
+  <script type="text/babel" src="registry.jsx?v=logged-today1"></script>
   <script type="text/babel" src="log.jsx?v=local-dates1"></script>
-  <script type="text/babel" src="app.jsx?v=delete-permanent1"></script>
+  <script type="text/babel" src="app.jsx?v=logged-today1"></script>
 </body>
 </html>
 

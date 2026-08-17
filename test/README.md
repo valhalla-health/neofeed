@@ -1,10 +1,12 @@
 # Verification harnesses
 
-Three Node scripts. Two check the TPN calculator against the **official KCMH
+Four Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
-code review, which the worksheet harnesses cannot see.
+code review, which the worksheet harnesses cannot see. The fourth pins what the
+registry reports back to the ward — who has been logged today and who still
+needs an entry.
 
 ## Running
 
@@ -14,8 +16,9 @@ code review, which the worksheet harnesses cannot see.
 node test/verify-targets-and-dates.cjs
 ```
 
-The two KCMH harnesses are the only things in this repo that need `npm`; nothing
-else does, and the app itself still has no build step. Dependencies are dev-only
+The two KCMH harnesses and `verify-registry-logged-today.cjs` are the only
+things in this repo that need `npm` (they mount real components in jsdom);
+nothing else does, and the app itself still has no build step. Dependencies are dev-only
 and are **not** committed — install them into a scratch folder and point Node at it:
 
 ```bash
@@ -26,6 +29,7 @@ Then, from the repo root:
 
 ```bash
 node test/verify-kcmh-constants.cjs && node test/verify-kcmh-factor.cjs
+node test/verify-registry-logged-today.cjs
 ```
 
 `verify-kcmh-factor.cjs` reads `DEAD` from the environment (mL of dead space,
@@ -50,6 +54,19 @@ single-valued across both helpers.
 These are the checks the two KCMH harnesses structurally cannot make: those
 verify compounding arithmetic against the worksheet, and every defect this file
 covers lives outside that surface.
+
+**`verify-registry-logged-today.cjs`** — mounts the real `<PatientRegistry>` in
+jsdom and reads the counts straight off the rendered stats strip and the
+per-patient `LOGGED` / `NEEDS ENTRY` badges. It exists because the registry
+once reported "0 logged today · everyone needs entry" on a ward that had been
+logging all morning: the counts were computed correctly from the wrong values.
+It pins all three causes — a Daily_Log `ts` that comes back from Sheets as a
+date *value* (so `e.ts === todayLocal()` is false for a Date, always), a
+"logged today?" check that only looked at the last array element (a back-filled
+past date is appended after today's entry and hid it), and an Active tile
+counted over a different patient set than the Needs-entry tile beside it. The
+assertion that logged + needs entry === active is the one that keeps the strip
+internally honest.
 
 **`verify-kcmh-constants.cjs`** — loads `data.js` and checks every
 `KCMH_STOCK` strength against the divisor the worksheet uses, then reproduces

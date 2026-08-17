@@ -137,5 +137,50 @@ eq('SALT_SOURCES no longer exported under that name', D.SALT_SOURCES, undefined)
 eq('reference table still available, clearly named', typeof D.SALT_SOURCES_REFERENCE_ONLY, 'object');
 eq('KCMH_STOCK remains the compounding authority', D.KCMH_STOCK.naCl.naMeqPerMl, 3.42);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily_Log `ts` normalization — "Logged today" must survive the sheet's own
+// date formatting. Google Sheets parses the "YYYY-MM-DD" the backend appends
+// into a real date value, so a row can come back as a Date (or its
+// toString()), which `e.ts === todayLocal()` never matched — that is what
+// pinned the registry at "0 logged today / everyone needs entry".
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n── Daily_Log ts normalization + logged-today ──');
+eq('plain date string passes through',        D.normalizeDateStr('2026-08-17'), '2026-08-17');
+eq('ISO timestamp is sliced, not re-zoned',   D.normalizeDateStr('2026-08-17T00:00:00.000Z'), '2026-08-17');
+eq('Sheets Date object → local date string',  D.normalizeDateStr(new Date('2026-08-17T00:00:00+07:00')), '2026-08-17');
+eq('stringified Sheets Date → date string',   D.normalizeDateStr(String(new Date('2026-08-17T00:00:00+07:00'))), '2026-08-17');
+// A Date at 23:00 ICT must stay on its ICT day, not roll forward/back via UTC.
+eq('late-evening Date keeps the local day',   D.normalizeDateStr(new Date('2026-08-17T23:00:00+07:00')), '2026-08-17');
+eq('empty stays empty',                       D.normalizeDateStr(''), '');
+eq('unparseable string is left alone',        D.normalizeDateStr('not a date'), 'not a date');
+
+const today = '2026-08-17';
+eq('raw Sheets Date would have missed today',
+   [{ ts: new Date('2026-08-17T00:00:00+07:00') }].some(e => e.ts === today), false);
+eq('hasLogOnDate sees it anyway',
+   D.hasLogOnDate([{ ts: new Date('2026-08-17T00:00:00+07:00') }], today), true);
+eq('no entry for the day → not logged',
+   D.hasLogOnDate([{ ts: '2026-08-16' }], today), false);
+eq('empty log → not logged', D.hasLogOnDate([], today), false);
+eq('missing log → not logged', D.hasLogOnDate(undefined, today), false);
+// The other half of the same bug: "logged today?" used to read only the last
+// array element, so back-filling a missed day after logging today hid today's
+// entry behind the back-dated one.
+eq('back-dated entry saved last does not hide today',
+   D.hasLogOnDate([{ ts: '2026-08-17' }, { ts: '2026-08-12' }], today), true);
+// normalizeLogEntries restores date order so `entries[entries.length-1]` is
+// genuinely the latest entry, which several views rely on.
+const ordered = D.normalizeLogEntries([
+  { ts: '2026-08-17', dol: 9 },
+  { ts: new Date('2026-08-12T00:00:00+07:00'), dol: 4 },
+  { ts: '2026-08-15', dol: 7 },
+]);
+eq('entries sorted oldest → newest', ordered.map(e => e.ts),
+   ['2026-08-12', '2026-08-15', '2026-08-17']);
+eq('last entry is the newest', ordered[ordered.length - 1].dol, 9);
+eq('normalizeLogMap normalizes every patient',
+   D.normalizeLogMap({ a: [{ ts: new Date('2026-08-17T00:00:00+07:00') }], b: [{ ts: '2026-08-16' }] }),
+   { a: [{ ts: '2026-08-17' }], b: [{ ts: '2026-08-16' }] });
+
 console.log(fails === 0 ? '\nTARGETS + DATES: ALL PASS\n' : `\nTARGETS + DATES: ${fails} FAILED\n`);
 process.exit(fails === 0 ? 0 : 1);
