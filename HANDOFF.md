@@ -121,9 +121,36 @@ left unfixed one tab over when `multiplesCount` was added.
   the sheet rides on `updatePatient` → `registerPatient`, i.e. exactly this
   upsert path.
 
+### 5. Bed pickers consolidated into one component
+
+Follow-up to #1 on the same day: "recheck that NICU bed numbers everywhere
+only allow the defined format". Three modals each rendered their own
+`<select>` over `BED_OPTIONS`, which is how a bogus default went unnoticed in
+one of them. They now all render a single `BedSelect` (`registry.jsx`), so
+the invariant holds by construction. It also fixes two things a bare select
+gets wrong:
+
+- **A value outside `BED_OPTIONS` renders blank.** That is the mechanism
+  behind the original report — the control showed nothing while still
+  submitting `"NICU 1-1"`. Any off-list value (a legacy record, a bed typed
+  straight into the sheet, e.g. `9B2`) is now carried as one extra option
+  labelled "(ไม่อยู่ในรายการเตียง)": visible and re-selectable, never newly
+  pickable.
+- **A bedless patient was coerced onto a default.** `EditPatientModal` fell
+  back to a hardcoded bed, so editing an unbedded patient's *diagnosis*
+  silently admitted them to it. (The old fallback was the bogus `"NICU 1-1"`;
+  fixing #1 to `"NICU 1"` would have made that silent admission land on a
+  *plausible* bed, which is worse, not better.) `BedSelect` renders an
+  explicit "— ยังไม่ระบุเตียง —" choice and the modal seeds from the
+  patient's own value with no fallback.
+
+`allowUnassigned` is on for register/edit (a bed can be cleared) and off for
+transfer (a transfer to nowhere is not a thing); the transfer button stays
+disabled until a real bed is picked, as before.
+
 ### Tests
 
-New `test/verify-bed-dol-io.cjs` (35 assertions). Sections 1–2 are pure
+New `test/verify-bed-dol-io.cjs` (54 assertions). Sections 1–2 are pure
 `data.js`; section 3 mounts the real `<Calculator>` in jsdom (same harness as
 `verify-kcmh-factor.cjs`) because the I/O defect only exists once mounted.
 Reverting the ref fix alone reproduces the report exactly — Input comes back
@@ -141,6 +168,29 @@ the way SpreadsheetApp does. Reverting the widen alone reproduces the throw.
 Worth extending whenever a backend function's sheet-range arithmetic changes
 — there is otherwise no way to run `gas-backend.gs` outside a live Apps
 Script project. No npm dependencies.
+
+And `test/runthrough-app.cjs` (29 assertions) — the first harness that runs
+the **whole app** the way a nurse does. It serves the repo statically as-is
+(`index.html` exactly as Pages would serve it), launches Chromium, logs in,
+and clicks registry → dashboard → calculator. `unpkg.com` is answered from
+`node_modules` and the GAS URL by an in-process fake backend that mirrors
+`gas-backend.gs`'s response shapes **and records every write**, so assertions
+can check what actually went over the wire, not just what is on screen. Its
+fixture is the reported patient (bed stored as `"NICU 1-1"`, log rows whose
+stored `dol` disagrees with their date, an entry with real I/O figures), so
+all three defects would be visible on screen if they returned. Two useful
+properties: the UMD bundles must be the exact pinned versions because
+`index.html` carries SRI hashes, so a passing run also proves those hashes
+still match; and it fails on any uncaught page error or any failed request
+beyond the two expected to be offline (Google Identity Services, Google
+Fonts). Screenshots land in `test/.screenshots/` (gitignored).
+
+Runthrough results on the reported record: registry card reads **NICU 1**;
+log rows read DOL 15/12/11/9/1 against 15/12/11/09/01 ส.ค. (was 15/12/3/1/1);
+reopening the 15 ส.ค. entry restores Input 214 / urine 143 / drain 12 with
+Balance +59 mL/d; editing drain to 30 sends `{ioInput:214, ioOutput:143,
+drainContent:30, dol:15, ts:"2026-08-15"}` to the backend and round-trips on
+reopen; the 12 ส.ค. entry does not inherit any of it.
 
 Cache-bust tags bumped to `?v=bed-dol-io1` on `data.js`,
 `calculator.jsx`, `registry.jsx`, `log.jsx`, `app.jsx` in **both**

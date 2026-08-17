@@ -24,6 +24,7 @@ function eq(name, got, want) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name.padEnd(46)} got ${JSON.stringify(got)}  want ${JSON.stringify(want)}`);
   ok ? pass++ : fail++;
 }
+function ok(name, cond) { eq(name, !!cond, true); }
 
 // ── boot the app modules in a jsdom window ────────────────────────────────
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>',
@@ -45,7 +46,7 @@ const { act } = require('react');
 global.React = React; window.React = React;
 
 vm.runInThisContext(fs.readFileSync(DIR + 'data.js', 'utf8'));
-for (const f of ['icons.jsx', 'calculator.jsx']) {
+for (const f of ['icons.jsx', 'calculator.jsx', 'registry.jsx']) {
   vm.runInThisContext(babel.transformSync(fs.readFileSync(DIR + f, 'utf8'), {
     presets: [[require('@babel/preset-react'), { runtime: 'classic' }]],
     filename: f, configFile: false, babelrc: false,
@@ -74,10 +75,77 @@ const BED_OPTIONS = [
   ...Array.from({ length: 10 }, (_, i) => `SCN ${i + 1}`),
 ];
 eq('normalized value exists in BED_OPTIONS', BED_OPTIONS.includes(D.normalizeBed('NICU 1-1')), true);
-eq('registry.jsx no longer defaults to NICU 1-1',
-  /useState\(\s*"NICU 1-1"/.test(fs.readFileSync(DIR + 'registry.jsx', 'utf8')), false);
 eq('mock fixtures use canonical beds',
   D.MOCK_PATIENTS.every(p => BED_OPTIONS.includes(p.currentBed)), true);
+
+// Structural: every place a bed can be SET must go through the one picker,
+// so "a bed is one of BED_OPTIONS" holds by construction rather than by
+// three modals happening to agree. A raw <select> over BED_OPTIONS is what
+// let the bogus default through unnoticed, so none may remain outside
+// BedSelect's own body, and no modal may seed its bed state with a literal.
+const registrySrc = fs.readFileSync(DIR + 'registry.jsx', 'utf8');
+const bedSelectBody = registrySrc.slice(
+  registrySrc.indexOf('function BedSelect'),
+  registrySrc.indexOf('function NewPatientModal'));
+const rawSelects = (registrySrc.match(/BED_OPTIONS\.map/g) || []).length;
+const rawSelectsInPicker = (bedSelectBody.match(/BED_OPTIONS\.map/g) || []).length;
+eq('BedSelect exists',                       /function BedSelect\(/.test(registrySrc), true);
+eq('BED_OPTIONS is rendered in one place',   rawSelects, 1);
+eq('…and that place is BedSelect',           rawSelectsInPicker, 1);
+eq('all three modals use the picker',
+  (registrySrc.match(/<BedSelect\b/g) || []).length, 3);
+eq('no modal seeds bed state with a literal',
+  /const \[bed, setBed\][^\n]*useState\(\s*"(?!NICU 1")/.test(registrySrc), false);
+eq('no bed state defaults to NICU 1-1',
+  /useState\(\s*"NICU 1-1"/.test(registrySrc), false);
+// EditPatientModal must NOT coerce a bedless patient onto a default bed —
+// that turns "edit the diagnosis" into a silent admission to that bed.
+eq('edit modal keeps an unrecorded bed empty',
+  /useState\(D_R\.normalizeBed\(patient\.currentBed\)\s*\)/.test(registrySrc), true);
+
+// ── 1b. The picker itself, rendered ───────────────────────────────────────
+// The grep checks above prove every modal routes through BedSelect; these
+// prove BedSelect does the right thing with each kind of stored value.
+console.log('\n── #1b BedSelect rendered ──');
+const bedHost = document.createElement('div');
+document.body.appendChild(bedHost);
+const bedRoot = ReactDOM.createRoot(bedHost);
+function renderBed(props) {
+  act(() => { bedRoot.render(React.createElement(globalThis.BedSelect, { onChange() {}, ...props })); });
+  const sel = bedHost.querySelector('select');
+  return {
+    value: sel.value,
+    options: [...sel.options].map(o => o.value),
+    labels: [...sel.options].map(o => o.textContent),
+  };
+}
+// Every canonical bed is offered, and nothing outside BED_OPTIONS is.
+const canonical = renderBed({ value: 'NICU 3' });
+eq('canonical value selects itself',       canonical.value, 'NICU 3');
+eq('offers exactly the 30 defined beds',   canonical.options.length, BED_OPTIONS.length);
+eq('options are exactly BED_OPTIONS',
+  canonical.options.join('|'), BED_OPTIONS.join('|'));
+// A legacy record normalizes onto a real option rather than rendering blank.
+const legacy = renderBed({ value: 'NICU 1-1' });
+eq('legacy NICU 1-1 lands on NICU 1',      legacy.value, 'NICU 1');
+eq('…without adding an option',            legacy.options.length, BED_OPTIONS.length);
+// A free-text bed stays visible and flagged — never silently blank, and
+// never something a user can newly pick from the list.
+const freeText = renderBed({ value: '9B2' });
+eq('free-text bed stays selected',         freeText.value, '9B2');
+eq('…carried as one extra option',         freeText.options.length, BED_OPTIONS.length + 1);
+ok('…and is labelled as off-list',         freeText.labels.some(l => l.includes('ไม่อยู่ในรายการเตียง')));
+// A patient with no bed recorded stays unassigned — no silent admission.
+const none = renderBed({ value: '' });
+eq('blank bed stays blank',                none.value, '');
+ok('…offering an explicit unassigned choice', none.labels.some(l => l.includes('ยังไม่ระบุเตียง')));
+eq('unassigned choice submits empty',      none.options[0], '');
+// allowUnassigned exposes that choice even when a bed IS set (so a bed can
+// be cleared), and is off by default for the transfer flow.
+ok('allowUnassigned offers it alongside a set bed',
+  renderBed({ value: 'NICU 3', allowUnassigned: true }).options.includes(''));
+ok('transfer picker does not offer unassigned',
+  !renderBed({ value: 'NICU 3' }).options.includes(''));
 
 // ══ 2. DOL derived from the row's date, not the stored column ════════════
 // The reported patient: admitted 2026-08-01 at DOL 1. Rows dated 08-09 and

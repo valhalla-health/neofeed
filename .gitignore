@@ -4,3 +4,6 @@ dogfood/
 *.DS_Store
 Thumbs.db
 *.gs.js
+
+# Screenshots from test/runthrough-app.cjs
+test/.screenshots/

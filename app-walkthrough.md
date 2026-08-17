@@ -121,8 +121,19 @@ again on save so the sheet is corrected for real. `"NICU 1-1"` in particular
 was `NewPatientModal`/`EditPatientModal`'s old default bed — a literal that
 matched no `<option>`, so the dropdown rendered blank while that string was
 submitted anyway, and every patient registered without touching the field was
-filed under a bed that doesn't exist. **Don't reintroduce a default that isn't
-in `BED_OPTIONS`.**
+filed under a bed that doesn't exist.
+
+**All three places a bed can be set — register, edit, transfer — render the
+same `BedSelect` component** (`registry.jsx`), so "a bed is one of
+`BED_OPTIONS`" holds by construction instead of by three modals happening to
+agree. Don't hand-roll a fourth `<select>` over `BED_OPTIONS`; the harness
+asserts there is exactly one. `BedSelect` also handles the two cases a bare
+select gets wrong: a value outside `BED_OPTIONS` (legacy record, or a bed
+typed straight into the sheet) is carried as one extra, clearly-labelled
+option so it stays visible and re-selectable rather than rendering blank —
+but is never something a user can newly pick; and a patient with **no** bed
+recorded stays unassigned rather than being coerced onto a default, since a
+default there turns "edit the diagnosis" into a silent admission to that bed.
 
 ### Daily_Log entry shape
 Each submission from the Calculator produces one row combining PN + EN

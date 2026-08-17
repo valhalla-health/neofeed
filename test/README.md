@@ -1,13 +1,13 @@
 # Verification harnesses
 
-Five Node scripts. Two check the TPN calculator against the **official KCMH
+Six Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
 code review, which the worksheet harnesses cannot see. The fourth pins the
 three bedside-reported defects fixed on 2026-08-17 (bed label, log-entry DOL,
 Intake/Output persistence). The fifth is the only thing here that exercises
-`gas-backend.gs` at all.
+`gas-backend.gs` at all, and the sixth drives the whole app in a real browser.
 
 ## Running
 
@@ -34,6 +34,16 @@ Then, from the repo root:
 node test/verify-kcmh-constants.cjs && node test/verify-kcmh-factor.cjs
 node test/verify-bed-dol-io.cjs
 ```
+
+The browser runthrough additionally needs Playwright and a Chromium:
+
+```bash
+npm install --no-save playwright && npx playwright install chromium
+node test/runthrough-app.cjs           # screenshots → test/.screenshots/
+```
+
+It also needs the **exact** pinned CDN versions in `node_modules`
+(`react@18.3.1 react-dom@18.3.1 @babel/standalone@7.29.0`) — see below.
 
 `verify-kcmh-factor.cjs` reads `DEAD` from the environment (mL of dead space,
 default 20). Run it both ways — overfilled and not:
@@ -119,6 +129,37 @@ applies on the widened path.
 This one is worth extending whenever a backend function's sheet-range
 arithmetic changes — it is cheap (no npm) and there is no other way to run
 `gas-backend.gs` outside a live Apps Script project.
+
+**`runthrough-app.cjs`** — the only harness that runs the whole app the way a
+nurse does: it serves the repo statically **as-is** (no file edits, `index.html`
+exactly as GitHub Pages would serve it), launches Chromium, logs in, and clicks
+through the registry → dashboard → calculator. Two things a sandbox cannot
+reach are intercepted: `unpkg.com` is answered from `node_modules`, and the
+GAS URL is answered by an in-process fake backend that mirrors
+`gas-backend.gs`'s response shapes **and records every write it receives**, so
+the assertions can check what actually went over the wire rather than only what
+the screen shows. Everything in between — `data.js`, `calculator.jsx`,
+`log.jsx`, `registry.jsx`, `app.jsx` — is the shipped code.
+
+The UMD bundles must be the exact versions the script tags pin, because
+`index.html` carries SRI `integrity` hashes and Chromium rejects anything else.
+That is a feature: a passing run is also proof those hashes still match the
+versions named beside them.
+
+Its fixture is the patient from the 2026-08-17 bug report — bed stored as
+`"NICU 1-1"`, log rows whose stored `dol` disagrees with their own date, and an
+entry carrying real Intake/Output figures — so the three defects would all be
+visible on screen if they came back. It checks the rendered bed label and that
+the picker offers nothing outside `BED_OPTIONS`, the DOL/day-admit columns and
+their ordering, that reopening an entry restores Input/urine/drain and the
+balance line, that editing drain and saving sends the right numbers to the
+backend, that reopening round-trips them, and that a different entry does not
+inherit them. It fails on any uncaught page error, and on any failed request
+other than the two that are expected to be offline (Google Identity Services
+and Google Fonts).
+
+Screenshots land in `test/.screenshots/` (gitignored) — useful when a layout
+question is easier to look at than to assert.
 
 ## Note on the source workbook
 
