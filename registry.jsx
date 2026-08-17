@@ -28,6 +28,13 @@ const bedSort = (a, b) => {
     bedA.localeCompare(bedB, undefined, { numeric: true, sensitivity: "base" });
 };
 
+// One definition of "still on the unit" for the whole registry — the list, the
+// Active tile, and the Logged today / Needs entry split all have to agree, and
+// they didn't: the list counted a blank status as Active (the backend defaults
+// it, but locally-added patients can be blank) while the Active tile required
+// the literal string, so the tile could read lower than the list it sits above.
+const isActivePatient = (p) => !p.status || p.status === "Active";
+
 // AddPatientModal's "Multiples" letter (A–D) only records this session's
 // position in the set, not how many siblings there are — "A" means the same
 // thing whether it's one of twins or one of triplets. `multiplesCount`
@@ -50,7 +57,11 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
   const [transferPatient, setTransferPatient] = React.useState(null);
   const [showArchived, setShowArchived]     = React.useState(false);
 
-  const today = D_R.todayLocal();   // local date, not UTC — drives the 7-day discharged auto-hide
+  // Live local date: re-renders this view when the day rolls over, so the
+  // stats strip, the per-patient LOGGED / NEEDS ENTRY badges and the 7-day
+  // discharged auto-hide all re-evaluate on their own at midnight instead of
+  // holding yesterday's answer until someone reloads the tab.
+  const today = D_R.useTodayLocal();
   const q = filter.toLowerCase().trim();
   const filtered = patients.filter(p =>
     !q ||
@@ -59,7 +70,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
     (p.diagnosis || "").toLowerCase().includes(q)
   );
   const sorted   = [...filtered].sort(bedSort);
-  const activeSorted   = sorted.filter(p => p.status === "Active" || !p.status);
+  const activeSorted   = sorted.filter(isActivePatient);
   // Discharged/Transferred/Expired patients drop off the registry 7 days
   // after their statusDate — the name shouldn't linger on the dashboard
   // once the case is old news. Patients archived before statusDate existed
@@ -75,14 +86,19 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
     p.status && p.status !== "Active" && daysSinceStatus(p) <= ARCHIVE_VISIBLE_DAYS
   );
 
-  // Summary stats
-  const totalActive  = patients.filter(p => p.status === "Active").length;
-  const loggedToday  = patients.filter(p => (log[p.sessionId] || []).some(e => e.ts === today)).length;
-  const needsLog     = patients.filter(p => {
-    if (p.status !== "Active") return false;
-    const entries = log[p.sessionId] || [];
-    return entries.length === 0 || entries[entries.length - 1].ts !== today;
-  }).length;
+  // Summary stats — all three counts are over the *same* set (active patients)
+  // so the strip always reconciles: logged + needs entry === active.
+  // `hasLogOnDate` scans every entry rather than only the last one (a
+  // back-filled past date is appended after today's, which used to make an
+  // already-logged patient read as "needs entry") and normalizes `ts` first
+  // (the sheet can return it as a Date object, never equal to a date string).
+  const activePatients = patients.filter(isActivePatient);
+  const loggedSet    = new Set(
+    activePatients.filter(p => D_R.hasLogOnDate(log[p.sessionId], today)).map(p => p.sessionId)
+  );
+  const totalActive  = activePatients.length;
+  const loggedToday  = loggedSet.size;
+  const needsLog     = totalActive - loggedToday;
 
   return (
     <>
@@ -140,7 +156,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
           const isActive  = p.sessionId === activeId;
           const entries   = log[p.sessionId] || [];
           const lastEntry = entries[entries.length - 1];
-          const hasToday  = lastEntry?.ts === today;
+          const hasToday  = loggedSet.has(p.sessionId);
 
           return (
             <div key={p.sessionId}
@@ -179,8 +195,12 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                   <span className="pmc-lbl">Δ</span>
                   <span className="num">{delta >= 0 ? "+" : ""}{delta}</span> g ({deltaPct.toFixed(1)}%)
                 </span>
-                <span style={{ color: hasToday ? "var(--ok)" : "var(--ink-4)", fontSize: 11 }}>
-                  {hasToday ? "✓ logged" : lastEntry ? `DOL ${lastEntry.dol}` : "no log"}
+                {/* Today's entry, stated outright rather than as a quiet grey
+                    hint — this is the one thing the round asks of the list. */}
+                <span className={"log-badge" + (hasToday ? " is-logged" : "")}
+                      title={hasToday ? "บันทึกวันนี้แล้ว"
+                        : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"}>
+                  {hasToday ? "✓ LOGGED" : "NEEDS ENTRY"}
                 </span>
               </div>
 
@@ -252,8 +272,12 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
             <col style={{ width: 78 }} />
             {/* Δ */}
             <col style={{ width: 108 }} />
-            {/* Status */}
-            <col style={{ width: 90 }} />
+            {/* Status — wide enough for the "NEEDS ENTRY" badge below the
+                Active line; the table is `tableLayout: fixed`, so a narrower
+                column clips the badge under the action buttons instead of
+                wrapping it. Diagnosis is the flex column that gives up the
+                space. */}
+            <col style={{ width: 118 }} />
             {/* Actions */}
             <col style={{ width: 150 }} />
           </colgroup>
@@ -280,7 +304,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
               const deltaPct = (delta / p.bw) * 100;
               const entries  = log[p.sessionId] || [];
               const lastEntry = entries[entries.length - 1];
-              const hasToday  = lastEntry?.ts === today;
+              const hasToday  = loggedSet.has(p.sessionId);
               const isSelected = p.sessionId === activeId;
 
               return (
@@ -314,6 +338,15 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                       <span style={{ width:7, height:7, borderRadius:"50%", background:"var(--ok)", flexShrink:0 }} />
                       Active
                     </span>
+                    {/* Same today's-entry state as the mobile card — the table
+                        computed it already but never showed it. */}
+                    <div style={{ marginTop: 3 }}>
+                      <span className={"log-badge" + (hasToday ? " is-logged" : "")}
+                            title={hasToday ? "บันทึกวันนี้แล้ว"
+                              : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"}>
+                        {hasToday ? "✓ LOGGED" : "NEEDS ENTRY"}
+                      </span>
+                    </div>
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>

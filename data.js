@@ -943,6 +943,69 @@ const _BKK_DATE_FMT = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Bangkok
 function todayLocal() {
   return _BKK_DATE_FMT.format(new Date());
 }
+// Coerce anything date-shaped into the canonical "YYYY-MM-DD" string every
+// date comparison in the app assumes. Needed because Google Sheets stores the
+// Daily_Log `ts` cell as a real date value, so the backend can hand back
+// "Sun Aug 17 2026 00:00:00 GMT+0700 (Indochina Time)" instead of
+// "2026-08-17" — which silently fails every `e.ts === todayLocal()` check
+// (that's what pinned "Logged today" at 0 and left every patient in "Needs
+// entry"). Already-canonical strings are sliced, never re-parsed, so no
+// timezone shift can creep in.
+function normalizeDateStr(val) {
+  if (val == null || val === "") return "";
+  if (val instanceof Date) return isNaN(val) ? "" : _BKK_DATE_FMT.format(val);
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  return isNaN(d) ? s : _BKK_DATE_FMT.format(d);
+}
+
+// Daily_Log entries as they arrive from the backend: `ts` normalized (above)
+// and sorted oldest → newest. Several views read `entries[entries.length - 1]`
+// as "the latest entry", which is only true if the array is in date order —
+// the sheet returns rows in insertion order, so a back-filled past date lands
+// after the entries it precedes.
+function normalizeLogEntries(entries) {
+  return (entries || [])
+    .map(e => ({ ...e, ts: normalizeDateStr(e.ts) }))
+    .sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+}
+function normalizeLogMap(logMap) {
+  const out = {};
+  for (const sid of Object.keys(logMap || {})) out[sid] = normalizeLogEntries(logMap[sid]);
+  return out;
+}
+
+// True if this patient's log already has an entry stamped with `date`
+// (default: today). Checks every entry, not just the last one — a back-dated
+// entry saved after today's would otherwise hide today's from the check.
+function hasLogOnDate(entries, date) {
+  const target = normalizeDateStr(date || todayLocal());
+  return (entries || []).some(e => normalizeDateStr(e.ts) === target);
+}
+
+// React hook form of todayLocal(): the current local date, re-rendering the
+// caller when the day rolls over. NICU workstations and the installed PWA stay
+// open for days, so without this "today"-derived UI (DOL, Logged today / Needs
+// entry, the discharged auto-hide) freezes at whatever day the tab was opened.
+// Polls once a minute and re-checks on tab focus — cheap, and unlike a
+// setTimeout aimed at midnight it also survives a device sleeping through it.
+function useTodayLocal() {
+  const [today, setToday] = React.useState(todayLocal);
+  React.useEffect(() => {
+    const check = () => setToday(prev => { const now = todayLocal(); return prev === now ? prev : now; });
+    const timer = setInterval(check, 60000);
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
+  return today;
+}
+
 // Date-string arithmetic with no timezone exposure at all: parse as UTC, shift
 // in UTC, render in UTC. Anchoring both ends to UTC makes the round-trip exact,
 // which is what the local-midnight + toISOString() pattern got wrong.
@@ -1036,9 +1099,16 @@ function dolAtDate(patient, dateStr) {
 // it — same "DOL is always computed live, never trusted from storage" rule
 // the rest of the app follows. `dol` survives only as the fallback for a row
 // with no date, or a patient with no admission date to measure from.
+// `ts` goes through normalizeDateStr first: Sheets hands the Daily_Log date
+// cell back as a real date value, and dolAtDate parses "YYYY-MM-DD" only, so
+// a raw "Sun Aug 17 2026 00:00:00 GMT+0700" would fall through to the stored
+// column — the exact staleness this function exists to avoid. syncFromGAS
+// already normalizes the whole log map, so this is belt-and-braces for any
+// caller holding an entry that didn't come through there.
 function entryDol(patient, entry) {
   if (!entry) return 1;
-  if (entry.ts && patient?.admissionDate) return dolAtDate(patient, entry.ts);
+  const ts = normalizeDateStr(entry.ts);
+  if (ts && patient?.admissionDate) return dolAtDate(patient, ts);
   return entry.dol || 1;
 }
 
@@ -1212,6 +1282,11 @@ window.NEOFEED_DATA = {
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,
+  // "What day is it" as a live value — re-renders the caller at midnight
+  useTodayLocal,
+  // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
+  // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate,
   // Last weights[] entry with an actual weight (skips length/HC-only rows)
   lastWeighed,
   // Weight-at-or-before-a-DOL lookup + the birth-weight-floor divisor it

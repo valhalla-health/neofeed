@@ -86,7 +86,13 @@ const mkEntry = (o) => ({
 const log = { 'FO-1': [
   mkEntry({ entryId: 'e1', ts: '2026-08-01', dol: 1,  weight: 1930, fluid: 78,  gir: 0,   pro: 0,   kcal: 20, route: 'NPO' }),
   mkEntry({ entryId: 'e2', ts: '2026-08-09', dol: 1,  weight: 2025, fluid: 117, gir: 3.3, pro: 2.7, kcal: 80, route: 'TPN central', tpn: 200, ioInput: 237, ioOutput: 150, drain: 0 }),
-  mkEntry({ entryId: 'e3', ts: '2026-08-11', dol: 3,  weight: 2025, fluid: 120, gir: 1.6, pro: 2.0, kcal: 75, route: 'TPN central', tpn: 200, ioInput: 243, ioOutput: 160, drain: 8 }),
+  // This row deliberately carries `ts` in the malformed shape the LIVE sheet
+  // can return — Sheets parses the "YYYY-MM-DD" the backend appends into a
+  // real date value, so getActivePatients() can hand back a stringified Date
+  // instead. It is also the row whose stored `dol` (3) disagrees with its
+  // date, so it exercises both fixes at once: the client must normalize `ts`
+  // AND re-derive DOL from it, or this row reads as DOL 3 again.
+  mkEntry({ entryId: 'e3', ts: 'Tue Aug 11 2026 00:00:00 GMT+0700 (Indochina Time)', dol: 3, weight: 2025, fluid: 120, gir: 1.6, pro: 2.0, kcal: 75, route: 'TPN central', tpn: 200, ioInput: 243, ioOutput: 160, drain: 8 }),
   mkEntry({ entryId: 'e4', ts: '2026-08-12', dol: 12, weight: 2025, fluid: 116, gir: 0.8, pro: 1.2, kcal: 70, route: 'TPN central', tpn: 190 }),
   mkEntry({ entryId: 'e5', ts: '2026-08-15', dol: 15, weight: 1930, fluid: 118, gir: 0,   pro: 2.8, kcal: 90, route: 'Enteral only', ioInput: 214, ioOutput: 143, drain: 12 }),
 ] };

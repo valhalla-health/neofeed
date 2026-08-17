@@ -1,13 +1,15 @@
 # Verification harnesses
 
-Six Node scripts. Two check the TPN calculator against the **official KCMH
+Seven Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
-code review, which the worksheet harnesses cannot see. The fourth pins the
-three bedside-reported defects fixed on 2026-08-17 (bed label, log-entry DOL,
-Intake/Output persistence). The fifth is the only thing here that exercises
-`gas-backend.gs` at all, and the sixth drives the whole app in a real browser.
+code review, which the worksheet harnesses cannot see. The fourth pins what the
+registry reports back to the ward — who has been logged today and who still
+needs an entry. The fifth pins the three bedside-reported defects fixed on
+2026-08-17 (bed label, log-entry DOL, Intake/Output persistence). The sixth is
+the only thing here that exercises `gas-backend.gs` at all, and the seventh
+drives the whole app in a real browser.
 
 ## Running
 
@@ -19,9 +21,10 @@ node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 ```
 
-`verify-bed-dol-io.cjs` and the two KCMH harnesses are the only things in this
-repo that need `npm`; nothing
-else does, and the app itself still has no build step. Dependencies are dev-only
+The two KCMH harnesses, `verify-registry-logged-today.cjs` and
+`verify-bed-dol-io.cjs` are the only things in this repo that need `npm` (they
+mount real components in jsdom); nothing else does, and the app itself still
+has no build step. Dependencies are dev-only
 and are **not** committed — install them into a scratch folder and point Node at it:
 
 ```bash
@@ -32,6 +35,7 @@ Then, from the repo root:
 
 ```bash
 node test/verify-kcmh-constants.cjs && node test/verify-kcmh-factor.cjs
+node test/verify-registry-logged-today.cjs
 node test/verify-bed-dol-io.cjs
 ```
 
@@ -67,6 +71,19 @@ single-valued across both helpers.
 These are the checks the two KCMH harnesses structurally cannot make: those
 verify compounding arithmetic against the worksheet, and every defect this file
 covers lives outside that surface.
+
+**`verify-registry-logged-today.cjs`** — mounts the real `<PatientRegistry>` in
+jsdom and reads the counts straight off the rendered stats strip and the
+per-patient `LOGGED` / `NEEDS ENTRY` badges. It exists because the registry
+once reported "0 logged today · everyone needs entry" on a ward that had been
+logging all morning: the counts were computed correctly from the wrong values.
+It pins all three causes — a Daily_Log `ts` that comes back from Sheets as a
+date *value* (so `e.ts === todayLocal()` is false for a Date, always), a
+"logged today?" check that only looked at the last array element (a back-filled
+past date is appended after today's entry and hid it), and an Active tile
+counted over a different patient set than the Needs-entry tile beside it. The
+assertion that logged + needs entry === active is the one that keeps the strip
+internally honest.
 
 **`verify-kcmh-constants.cjs`** — loads `data.js` and checks every
 `KCMH_STOCK` strength against the divisor the worksheet uses, then reproduces
@@ -146,10 +163,14 @@ The UMD bundles must be the exact versions the script tags pin, because
 That is a feature: a passing run is also proof those hashes still match the
 versions named beside them.
 
-Its fixture is the patient from the 2026-08-17 bug report — bed stored as
-`"NICU 1-1"`, log rows whose stored `dol` disagrees with their own date, and an
-entry carrying real Intake/Output figures — so the three defects would all be
-visible on screen if they came back. It checks the rendered bed label and that
+Its fixture is the patient from the 2026-08-17 bug reports — bed stored as
+`"NICU 1-1"`, log rows whose stored `dol` disagrees with their own date, an
+entry carrying real Intake/Output figures, and one row whose `ts` arrives in
+the stringified-`Date` shape the live sheet can return — so every defect fixed
+that day would be visible on screen if it came back. The malformed-`ts` row is
+also the one with a stale `dol`, so it only renders correctly if `ts`
+normalization and the DOL re-derivation both work, which is the one real
+interaction between that day's two sessions. It checks the rendered bed label and that
 the picker offers nothing outside `BED_OPTIONS`, the DOL/day-admit columns and
 their ordering, that reopening an entry restores Input/urine/drain and the
 balance line, that editing drain and saving sends the right numbers to the

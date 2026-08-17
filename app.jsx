@@ -199,7 +199,11 @@ function App() {
           // still exists in the fresh data, otherwise fall back to none (registry list).
           setActiveId(prev => data.patients.some(p => p.sessionId === prev) ? prev : null);
         }
-        if (data.log) setLog(data.log);
+        // Normalize before anything reads it: Sheets hands `ts` back as a date
+        // value (stringified to "Sun Aug 17 2026 …"), which never matches a
+        // YYYY-MM-DD comparison, and rows arrive in insertion order rather
+        // than date order. See D.normalizeLogMap.
+        if (data.log) setLog(D_A.normalizeLogMap(data.log));
         setSyncState("ok");
         setLastSync(new Date());
       })
@@ -211,6 +215,38 @@ function App() {
 
   // Sync after login — fires when user changes (null → logged-in object)
   React.useEffect(() => { if (user) syncFromGAS(); }, [user?.email]);
+
+  // Keep the registry honest without a manual refresh. The app used to fetch
+  // once at login and then never again, so on a workstation left open all
+  // shift the "Active / Logged today / Needs entry" strip showed whatever was
+  // true when the tab was opened — entries logged from another device (or a
+  // patient discharged elsewhere) simply never appeared. Refetch when the tab
+  // comes back to the foreground, and when the local day rolls over.
+  const today = D_A.useTodayLocal();
+  const lastSyncRef = React.useRef(0);
+  React.useEffect(() => { if (lastSync) lastSyncRef.current = lastSync.getTime(); }, [lastSync]);
+  React.useEffect(() => {
+    if (!GAS_ON || !user) return;
+    const RESYNC_AFTER_MS = 60000;   // don't re-hit GAS on every tab flick
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastSyncRef.current < RESYNC_AFTER_MS) return;
+      syncFromGAS();
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [user?.email, syncFromGAS]);
+  // Day rollover: everything DOL- and today-derived needs re-deriving, and a
+  // fresh pull makes sure the new day starts from the sheet's current truth.
+  const firstDayRef = React.useRef(true);
+  React.useEffect(() => {
+    if (firstDayRef.current) { firstDayRef.current = false; return; }
+    if (GAS_ON && user) syncFromGAS();
+  }, [today]);
 
   // ── Brand accent ─────────────────────────────────────────────
   React.useEffect(() => {
@@ -272,7 +308,11 @@ function App() {
     const who = user?.email || "";
     // Optimistic insert under a temp id — reconciled with the real entryId below,
     // or rolled back if the write never actually lands.
-    setLog(prev => ({ ...prev, [id]: [...(prev[id] || []), { ...entry, ts, entryId: tempId, lastModified: ts, submittedBy: who, lastModifiedBy: who }] }));
+    // Re-sorted on insert, not just appended: a back-filled past date would
+    // otherwise sit at the end of the array, where every "latest entry" read
+    // (`entries[entries.length - 1]`) would mistake it for the newest one.
+    setLog(prev => ({ ...prev, [id]: D_A.normalizeLogEntries(
+      [...(prev[id] || []), { ...entry, ts, entryId: tempId, lastModified: ts, submittedBy: who, lastModifiedBy: who }]) }));
 
     const reconcile = (res) => {
       if (res.ok) {
@@ -391,7 +431,7 @@ function App() {
   const startAddToday = (dateStr) => {
     const targetDate = dateStr || D_A.todayLocal();
     const existing = (log[activeId] || []).find(e =>
-      e.ts === targetDate && e.entryId && !String(e.entryId).startsWith("tmp_"));
+      D_A.normalizeDateStr(e.ts) === targetDate && e.entryId && !String(e.entryId).startsWith("tmp_"));
     if (existing) {
       showToast(`มีบันทึกของวันที่ ${fmtDate(targetDate)} อยู่แล้ว — เปิดให้แก้ไขรายการเดิม`);
       startEditEntry(existing);
