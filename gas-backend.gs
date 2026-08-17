@@ -118,6 +118,7 @@ function verifyGoogleIdToken(idToken) {
     var payload = JSON.parse(resp.getContentText());
     if (payload.aud !== clientId) return { email: null, reason: "aud mismatch: token aud=" + payload.aud + " expected=" + clientId };
     if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") return { email: null, reason: "bad iss: " + payload.iss };
+    if (!payload.exp || Number(payload.exp) < Math.floor(Date.now() / 1000)) return { email: null, reason: "token expired" };
     if (payload.email_verified !== "true" && payload.email_verified !== true) return { email: null, reason: "email not verified" };
     if (!payload.email) return { email: null, reason: "no email in payload" };
     return { email: payload.email, reason: null };
@@ -239,10 +240,46 @@ var SESSION_TTL_SECONDS = 21600; // 6h — CacheService's documented max
 // patient's entry locked. The client re-acquires (heartbeats) roughly every
 // half of this TTL while the Calculator stays open on that entry.
 var LOG_LOCK_TTL_SECONDS = 90;
-function createSession(email, role, name) {
+
+// How long verifyToken() may trust a cached Staff row. Bounds the window in
+// which a disabled or demoted account can keep using a session it already
+// holds. Straight sheet-read-per-request would make revocation instant, but
+// verifyToken runs on EVERY authenticated call, so that is a full Staff-tab
+// read on every save/sync/log entry — latency the ward feels and GAS quota
+// spent. 60s trades a minute of stale access for one read per user per
+// minute.
+//
+// No invalidation hooks: role and `active` are edited by hand in the sheet,
+// not through any API action, so there is no in-app moment to hook. Password
+// changes are unaffected — those bump the user epoch, which verifyToken
+// checks from PropertiesService and is never cached here, so a password
+// change still kills every other session instantly.
+var STAFF_RECHECK_TTL_SECONDS = 60;
+function _getStaffRowCached(email) {
+  var cache = CacheService.getScriptCache();
+  var key   = "staffrc_" + String(email).toLowerCase();
+  var hit   = cache.get(key);
+  // A miss returns null; a cached "not found" round-trips as the string
+  // "null" and parses back to null, so a deleted staff row also revokes
+  // within the TTL instead of being re-read every request.
+  if (hit !== null) {
+    try { return JSON.parse(hit); } catch (e) { /* fall through and re-read */ }
+  }
+  var found = getStaffRow(email);
+  cache.put(key, JSON.stringify(found), STAFF_RECHECK_TTL_SECONDS);
+  return found;
+}
+
+function createSession(email, role, name, mustChangePassword) {
   var token = Utilities.getUuid();
   var cache = CacheService.getScriptCache();
-  cache.put("sess_" + token, JSON.stringify({ email: email, role: role, name: name, epoch: getUserEpoch(email) }), SESSION_TTL_SECONDS);
+  cache.put("sess_" + token, JSON.stringify({
+    email: email,
+    role: role,
+    name: name,
+    epoch: getUserEpoch(email),
+    mustChangePassword: Boolean(mustChangePassword),
+  }), SESSION_TTL_SECONDS);
   return token;
 }
 
@@ -252,12 +289,25 @@ function verifyToken(token) {
     var cache = CacheService.getScriptCache();
     var val = cache.get("sess_" + token);
     if (!val) return null;
-    var parsed = JSON.parse(val); // { email, role, name, epoch }
+    var parsed = JSON.parse(val); // { email, role, name, epoch, mustChangePassword }
     if (String(parsed.epoch || "0") !== getUserEpoch(parsed.email)) {
       cache.remove("sess_" + token); // stale — password changed since this token was issued
       return null;
     }
-    cache.put("sess_" + token, val, SESSION_TTL_SECONDS); // sliding window — reset TTL on every use
+    // Staff status and role are mutable. Re-check them so a disabled/demoted
+    // account cannot retain its old PHI access for the session's full six
+    // hours — via a short-TTL cache, so this costs one Staff-tab read per user
+    // per minute rather than one per request (see STAFF_RECHECK_TTL_SECONDS).
+    var found = _getStaffRowCached(parsed.email);
+    if (!found || (found.data[3] !== true && String(found.data[3]).toUpperCase() !== "TRUE")) {
+      cache.remove("sess_" + token);
+      return null;
+    }
+    parsed.role = String(found.data[1] || "doctor");
+    parsed.name = String(found.data[2] || parsed.email);
+    parsed.mustChangePassword = !_usesGoogleSignIn(parsed.email) &&
+      (found.data[6] === true || String(found.data[6] || "").toUpperCase() === "TRUE");
+    cache.put("sess_" + token, JSON.stringify(parsed), SESSION_TTL_SECONDS); // sliding window — reset TTL on every use
     return parsed;
   } catch (e) { return null; }
 }
@@ -542,7 +592,7 @@ function doPost(e) {
           return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
         role = String(gd[1] || "doctor");
         name = String(gd[2] || email);
-        var tok = createSession(email, role, name);
+        var tok = createSession(email, role, name, false);
         // Google/Workspace accounts never go through the password-provisioning
         // path (_usesGoogleSignIn excludes them in onEdit/backfillDefaultPasswords),
         // so there's nothing to force here — always false.
@@ -585,11 +635,11 @@ function doPost(e) {
       _clearLockout(failKey); // reset on success
       role = String(d[1] || "doctor");
       name = String(d[2] || email);
-      var token = createSession(email, role, name);
       // must_change_password (col G): set TRUE by auto-provisioning when this
       // account got a random temp password instead of one the user chose —
       // the client forces the change-password screen until this clears.
       var mustChange = (d[6] === true || String(d[6] || "").toUpperCase() === "TRUE");
+      var token = createSession(email, role, name, mustChange);
       return jsonOut({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password", mustChangePassword: mustChange });
     }
 
@@ -656,7 +706,7 @@ function doPost(e) {
       // is invalidated immediately — verifyToken() checks epoch on every
       // call. Re-issue a fresh token so *this* device stays logged in.
       bumpUserEpoch(user.email);
-      var rotatedToken = createSession(user.email, user.role, user.name);
+      var rotatedToken = createSession(user.email, user.role, user.name, false);
       return jsonOut({ ok: true, token: rotatedToken, mustChangePassword: false });
     }
     if (action === "pseudonymizePatient") {
@@ -1148,39 +1198,51 @@ function applyPatHeaderColumns() {
 
 // ── registerPatient (upsert) ──────────────────────────────────
 function registerPatient(p) {
-  var sheet = getSheetPat();
-  var data  = sheet.getDataRange().getValues();
-  var row18 = [
-    _sheetSafe(p.sessionId), _sheetSafe(p.name || ""), _sheetSafe(p.initials || ""),
-    _numSafe(p.bw, 0), _numSafe(p.ga, 0), _sheetSafe(p.sex || "boys"),
-    _sheetSafe(p.dob || ""), _sheetSafe(p.admissionDate || ""), _sheetSafe(p.twinSuffix || ""),
-    _sheetSafe(p.status || "Active"), _sheetSafe(p.currentBed || ""), _sheetSafe(p.diagnosis || ""),
-    JSON.stringify(p.weights    || []),
-    JSON.stringify(p.lengths    || []),
-    JSON.stringify(p.hcs        || []),
-    JSON.stringify(p.bedHistory || []),
-    _sheetSafe(p.statusDate || ""),
-    _numSafe(p.multiplesCount, 0),
-  ];
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(p.sessionId)) {
-      // A Patient_Registry tab narrower than 18 columns would make this
-      // getRange() out of bounds and throw — surfacing at the bedside as a
-      // failed save when EDITING an existing patient. Widen on demand so the
-      // upsert can't depend on whether the one-off ensurePatHeaderColumns
-      // migration has been run yet, exactly as updateDailyNutrition does for
-      // Daily_Log's AC–AE. No-op once wide enough (a sheet created by
-      // insertSheet() starts at Sheets' 26-column default, so in practice
-      // this only fires on a tab whose columns were trimmed by hand).
-      // Creating is fine either way — appendRow widens the sheet itself.
-      if (sheet.getMaxColumns() < row18.length) {
-        sheet.insertColumnsAfter(sheet.getMaxColumns(), row18.length - sheet.getMaxColumns());
+  if (!p || !String(p.sessionId || "").trim()) throw new Error("sessionId is required");
+  // Serialised: the read (getDataRange) and the write (setValues/appendRow) are
+  // a read-modify-write over the whole tab, so two nurses registering at once
+  // could both scan a pre-append snapshot and each append the same sessionId,
+  // leaving a duplicate row that the upsert's first-match loop then edits
+  // inconsistently.
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheetPat();
+    var data  = sheet.getDataRange().getValues();
+    var row18 = [
+      _sheetSafe(p.sessionId), _sheetSafe(p.name || ""), _sheetSafe(p.initials || ""),
+      _numSafe(p.bw, 0), _numSafe(p.ga, 0), _sheetSafe(p.sex || "boys"),
+      _sheetSafe(p.dob || ""), _sheetSafe(p.admissionDate || ""), _sheetSafe(p.twinSuffix || ""),
+      _sheetSafe(p.status || "Active"), _sheetSafe(p.currentBed || ""), _sheetSafe(p.diagnosis || ""),
+      JSON.stringify(p.weights    || []),
+      JSON.stringify(p.lengths    || []),
+      JSON.stringify(p.hcs        || []),
+      JSON.stringify(p.bedHistory || []),
+      _sheetSafe(p.statusDate || ""),
+      _numSafe(p.multiplesCount, 0),
+    ];
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(p.sessionId)) {
+        // A Patient_Registry tab narrower than 18 columns would make this
+        // getRange() out of bounds and throw — surfacing at the bedside as a
+        // failed save when EDITING an existing patient. Widen on demand so the
+        // upsert can't depend on whether the one-off ensurePatHeaderColumns
+        // migration has been run yet, exactly as updateDailyNutrition does for
+        // Daily_Log's AC–AE. No-op once wide enough (a sheet created by
+        // insertSheet() starts at Sheets' 26-column default, so in practice
+        // this only fires on a tab whose columns were trimmed by hand).
+        // Creating is fine either way — appendRow widens the sheet itself.
+        if (sheet.getMaxColumns() < row18.length) {
+          sheet.insertColumnsAfter(sheet.getMaxColumns(), row18.length - sheet.getMaxColumns());
+        }
+        sheet.getRange(i + 1, 1, 1, row18.length).setValues([row18]);
+        return;
       }
-      sheet.getRange(i + 1, 1, 1, row18.length).setValues([row18]);
-      return;
     }
+    sheet.appendRow(row18);
+  } finally {
+    lock.releaseLock();
   }
-  sheet.appendRow(row18);
 }
 
 // ── updateWeights ─────────────────────────────────────────────

@@ -1,24 +1,27 @@
 # Verification harnesses
 
-Seven Node scripts. Two check the TPN calculator against the **official KCMH
+Eight Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
 code review, which the worksheet harnesses cannot see. The fourth pins what the
 registry reports back to the ward — who has been logged today and who still
 needs an entry. The fifth pins the three bedside-reported defects fixed on
-2026-08-17 (bed label, log-entry DOL, Intake/Output persistence). The sixth is
-the only thing here that exercises `gas-backend.gs` at all, and the seventh
+2026-08-17 (bed label, log-entry DOL, Intake/Output persistence). The sixth and
+seventh are the only things here that exercise `gas-backend.gs` at all — the
+registry upsert, and session revocation on the auth path — and the eighth
 drives the whole app in a real browser.
 
 ## Running
 
-`verify-targets-and-dates.cjs` and `verify-gas-registry-upsert.cjs` need **no
-dependencies at all** — run them directly:
+`verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs` and
+`verify-gas-session-revocation.cjs` need **no dependencies at all** — run them
+directly:
 
 ```bash
 node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
+node test/verify-gas-session-revocation.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs` and
@@ -127,8 +130,8 @@ the fallback to the `ioInput`/`ioOutput`/`drainContent` columns for a row whose
 `calcInput` predates the card, and — in the other direction — that a brand-new
 entry's Input still tracks the prescribed total live until the user types in it.
 
-**`verify-gas-registry-upsert.cjs`** — the only harness that runs backend
-code. `gas-backend.gs` is Apps Script, but every top-level statement in it is
+**`verify-gas-registry-upsert.cjs`** — one of the two harnesses that run
+backend code. `gas-backend.gs` is Apps Script, but every top-level statement in it is
 a `var` constant or a function declaration, so the whole file evaluates in a
 `vm` context against stubbed `SpreadsheetApp`/`Utilities`/`CacheService`
 globals and the real `registerPatient()` can be called directly. The sheet
@@ -146,6 +149,34 @@ applies on the widened path.
 This one is worth extending whenever a backend function's sheet-range
 arithmetic changes — it is cheap (no npm) and there is no other way to run
 `gas-backend.gs` outside a live Apps Script project.
+
+**`verify-gas-session-revocation.cjs`** — the same `vm` technique pointed at
+the auth path. Sessions live in `CacheService` for `SESSION_TTL_SECONDS`
+(21600 — 6h, Apps Script's cap) and used to be trusted wholesale for that
+window: only the user *epoch* was re-checked, which a password change bumps,
+so nothing re-read `role` or `active`. Disabling or demoting someone in the
+Staff tab left their existing session working, with its old role, for up to
+six hours. `verifyToken` now re-reads the Staff row behind a 60s cache
+(`_getStaffRowCached`). The harness pins both halves — that revocation
+happens (disable, demote, rename, deleted row) and that the caching caches
+(one sheet read per user per minute, not one per request, negative results
+included) — plus the `exp` check in `verifyGoogleIdToken` and
+`createSession`'s `mustChangePassword` flag.
+
+Unlike the sheet double above, the `CacheService` and `PropertiesService`
+doubles here are **real stores**, not no-ops, because the caching behaviour is
+itself under test; the cache double also records the TTL each key was written
+with, so the 60s bound is asserted rather than assumed.
+
+Worth knowing: these changes were recovered from an uncommitted working copy
+with no known author (branch
+`security/session-revocation-and-registry-lock`), so the harness was written
+against the *intended* behaviour rather than to ratify the code. It was
+checked by running it against the unpatched `origin/main` backend, where 18
+of the 31 assertions fail — a disabled account still returning a live admin
+session, a demoted admin still reporting `admin`. If you change this area,
+re-run it against both versions; a security test that cannot fail is worth
+nothing.
 
 **`runthrough-app.cjs`** — the only harness that runs the whole app the way a
 nurse does: it serves the repo statically **as-is** (no file edits, `index.html`
