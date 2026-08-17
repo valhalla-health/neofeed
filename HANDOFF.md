@@ -1,7 +1,77 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-17 | **Status:** 🟡 NEEDS BACKEND DEPLOY, three changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` writes 18 columns — **no longer blocking as of session 2026-08-17 (2) below**, which made that upsert widen the sheet grid on demand, so `applyPatHeaderColumns()` is now worth running for the header *label* only, not as a precondition for saving; (3) `getActivePatients()` now returns `Daily_Log.ts` through `_fmtDate()` — **also not blocking**: the client normalizes `ts` itself as of session 2026-08-17 (1), so "Logged today" is correct in the live app with or without the deploy, and the `.gs` fix just stops the malformed value at source. Only (1) still *needs* the `clasp push && clasp deploy` before it works in production; (2) and (3) ride along in the same deploy. Everything else in the two 2026-08-17 sessions below is frontend and ships as soon as the static files are pushed. Everything below **Session 2026-08-12** was still live as of that session's own status line.
+**Last updated:** 2026-08-17 | **Status:** 🟡 NEEDS BACKEND DEPLOY, **four** changes stacked. Production is still `@45`, unchanged since 2026-08-10 — rollback target if a deploy goes wrong is `clasp deploy --deploymentId AKfycbz8Nt… --versionNumber 45`.
+
+**(0) Auth hardening recovered from the clasp mirror (session 2026-08-17 (3), below).** Three security fixes existed *only* as an uncommitted working-copy change in `~/nicu-tools/neofeed/รหัส.js` — never committed there, never on GitHub, never deployed. Nothing else held a copy, so the ordinary way to ship a backend change (copy `gas-backend.gs` over `รหัส.js`, `clasp push`) would have erased them. Now merged to `main`: an `exp` check in `verifyGoogleIdToken`, a Staff-row re-check in `verifyToken` behind a 60s cache (`_getStaffRowCached`), and a `LockService` lock in `registerPatient`. **The `verifyToken` one is the consequential one** — without it, disabling or demoting an account in the Staff tab left its existing session working, with its old role, for up to `SESSION_TTL_SECONDS` (21600 = 6h). Covered by `test/verify-gas-session-revocation.cjs` (31 assertions; 18 of them fail against the pre-merge backend, which is how the harness was validated). **Provenance unknown** — Praew confirmed she does not remember writing these, so they are to be treated as untested against live Apps Script: the stubs do not model CacheService eviction or real LockService contention. Exercise a real login right after deploying.
+
+(1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` writes 18 columns — **no longer blocking as of session 2026-08-17 (2) below**, which made that upsert widen the sheet grid on demand, so `applyPatHeaderColumns()` is now worth running for the header *label* only, not as a precondition for saving; (3) `getActivePatients()` now returns `Daily_Log.ts` through `_fmtDate()` — **also not blocking**: the client normalizes `ts` itself as of session 2026-08-17 (1), so "Logged today" is correct in the live app with or without the deploy, and the `.gs` fix just stops the malformed value at source. Only (1) still *needs* the `clasp push && clasp deploy` before it works in production; (2) and (3) ride along in the same deploy. Everything else in the two 2026-08-17 sessions below is frontend and ships as soon as the static files are pushed. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-17 (3) — auth hardening recovered from the clasp mirror, and covered
+
+Started as a routine "check for backend updates". The local clone was 15
+commits behind; fast-forwarding it was uneventful. The problem surfaced one
+step later, at the deploy.
+
+**The clasp mirror had diverged, invisibly.** `~/nicu-tools/neofeed/รหัส.js`
+carried an *uncommitted* working-copy change — never committed to the mirror's
+own git, never pushed to GitHub, never deployed. Verified by pulling the live
+script into a scratch dir: production was byte-identical to GitHub `eacdcad`,
+so neither fork was live. The two change sets were parallel forks of the same
+baseline, and they **conflicted in `registerPatient()`** — the mirror added a
+lock and kept 17 columns, `main` went to 18 with grid-widening for
+`multiplesCount`.
+
+This is the trap worth remembering: the documented way to ship a backend
+change is to copy `gas-backend.gs` over `รหัส.js` and `clasp push`. Doing that
+would have silently destroyed all three security fixes, and nothing anywhere
+held another copy.
+
+**What was recovered** (`6145cda`), reconciled to keep both sides of the
+`registerPatient` conflict:
+
+- `verifyGoogleIdToken` rejects an expired `exp`. Belt-and-braces — tokeninfo
+  already refuses expired tokens with a non-200 — but cheap.
+- `verifyToken` re-reads the Staff row rather than trusting the cached session
+  for its full 6h. **The one that mattered:** disabling or demoting an account
+  previously left its live session working with its old role until the TTL
+  lapsed. Every admin-gated branch in `doPost` keys off `user.role`.
+- `registerPatient` takes a script lock and rejects a blank `sessionId`; its
+  read+write is a read-modify-write over the whole tab.
+
+**Added during reconciliation, not from the mirror:** `_getStaffRowCached`, a
+60s TTL around the staff re-check. `getStaffRow` reads the entire Staff tab
+and `verifyToken` runs on every authenticated request, so re-reading per call
+would put a spreadsheet round-trip in front of every save, sync and log entry.
+60s bounds stale access to a minute at one read per user per minute. No
+invalidation hooks: `role` and `active` are edited by hand in the sheet, not
+through any API action. Password changes are unaffected — those bump the user
+epoch, read from `PropertiesService` and never cached here, so they still
+revoke every other session instantly.
+
+**Covered** (`9b27ad0`) by `test/verify-gas-session-revocation.cjs` — 31
+assertions, no npm. Validated by running it against the unpatched `origin/main`
+backend, where **18 fail**: a disabled account returning a live admin session,
+a demoted admin still reporting `admin`, a deleted staff row still
+authenticating. The 13 that pass there are the preserved-behaviour ones. A
+security test that cannot fail proves nothing, which is why that check was run
+rather than assumed.
+
+**Caveats, explicitly.** Praew confirmed she does not remember writing these
+and asked that they be treated as untested — so provenance is unknown and
+completeness is not guaranteed (`session.mustChangePassword` is written but
+read by nothing, which suggests the work stopped partway; it was kept anyway).
+Nothing here has been executed against live Apps Script: the stubs are not
+Google's implementation, and neither CacheService eviction nor real
+LockService contention is modelled. **Exercise a real login immediately after
+deploying**, with the `@45` rollback ready.
+
+The mirror's working copy was left untouched — it still holds the same changes,
+now redundantly. Cleaning it up is safe whenever, but only *after* this is
+deployed and confirmed, since until then it is still the only copy that has
+ever been near a live sheet.
 
 ---
 
