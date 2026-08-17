@@ -709,7 +709,13 @@ function getActivePatients() {
     if (!sid) continue;
     if (!logMap[sid]) logMap[sid] = [];
     logMap[sid].push({
-      ts:         String(row[0]  || ""),
+      // _fmtDate, not String(): Sheets parses the "YYYY-MM-DD" we append into a
+      // real date value, so String() yields "Sun Aug 17 2026 00:00:00 GMT+0700
+      // (Indochina Time)" — which matches no date string the client compares it
+      // against, breaking "logged today", the needs-entry count and the
+      // one-entry-per-date guard. Every other date column already goes through
+      // this helper; this one was missed.
+      ts:         _fmtDate(row[0]),
       dol:        Number(row[2]  || 0),
       weight:     Number(row[3]  || 0),
       fluid:      Number(row[4]  || 0),
