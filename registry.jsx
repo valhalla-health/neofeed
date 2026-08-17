@@ -420,6 +420,39 @@ const BED_OPTIONS = [
   ...Array.from({ length: 10 }, (_, i) => `SCN ${i + 1}`),
 ];
 
+// The ONLY bed picker in the app — every place a bed can be set (register,
+// edit, transfer) renders this, so "a bed is one of BED_OPTIONS" holds
+// everywhere by construction rather than by three modals happening to agree.
+//
+// Two rules a bare <select> over BED_OPTIONS got wrong, both of which are how
+// the "NICU 1-1" report happened in the first place:
+//
+//  1. **A value with no matching <option> renders BLANK.** The old default
+//     was the literal "NICU 1-1", which is not a real bed, so the control
+//     showed nothing while still submitting that string. Any value outside
+//     BED_OPTIONS — a legacy record, a bed typed straight into the sheet —
+//     has the same problem. So an unrecognized current value is carried as an
+//     extra, clearly-labelled option: it stays visible and re-selectable, but
+//     it is never something a user can newly *pick*.
+//  2. **Blank must stay blank.** A patient with no bed recorded used to fall
+//     back to a hardcoded default, so merely editing their diagnosis silently
+//     admitted them to that bed. `allowUnassigned` renders an explicit
+//     "ยังไม่ระบุเตียง" choice instead; the caller decides whether an empty
+//     value is submittable.
+function BedSelect({ value, onChange, allowUnassigned = false, style }) {
+  const current = D_R.normalizeBed(value);
+  const isKnown = current === "" || BED_OPTIONS.includes(current);
+  return (
+    <select className="sel" style={style} value={current}
+      onChange={e => onChange(e.target.value)}>
+      {(allowUnassigned || current === "") &&
+        <option value="">— ยังไม่ระบุเตียง —</option>}
+      {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+      {!isKnown && <option value={current}>{current} (ไม่อยู่ในรายการเตียง)</option>}
+    </select>
+  );
+}
+
 function NewPatientModal({ onClose, onSubmit }) {
   const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState("");
@@ -431,7 +464,11 @@ function NewPatientModal({ onClose, onSubmit }) {
   const [twin, setTwin]         = React.useState("");
   const [multiplesCount, setMultiplesCount] = React.useState("");
   const [sex, setSex]           = React.useState("boys");
-  const [bed, setBed]           = React.useState("NICU 1-1");
+  // Default must be a real BED_OPTIONS value. It used to be the literal
+  // "NICU 1-1", which no <option> matched — so the dropdown rendered blank
+  // while the state still submitted that string, filing every patient
+  // registered without touching the field under a bed that does not exist.
+  const [bed, setBed]           = React.useState("NICU 1");
   const [dx, setDx]             = React.useState("");
   const [admitDate, setAdmitDate] = React.useState(today);
   const [admitDol, setAdmitDol]   = React.useState(1);
@@ -550,9 +587,7 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div className="row-2">
             <div className="field">
               <label>Bed</label>
-              <select className="sel" value={bed} onChange={e => setBed(e.target.value)}>
-                {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <BedSelect value={bed} onChange={setBed} allowUnassigned />
             </div>
             <div className="field">
               <label>Diagnosis</label>
@@ -569,7 +604,7 @@ function NewPatientModal({ onClose, onSubmit }) {
             <button className="btn primary" disabled={!canSubmit} onClick={() => onSubmit({
               sessionId, name, initials: name, bw, ga, twinSuffix: twin,
               multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
-              currentBed: bed, diagnosis: dx, status: "Active",
+              currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
               admissionDate: admitDate,
               dob,
               weights: [{ dol: parseInt(admitDol) || 1, w: bw, l: len || null, hc: hc || null }],
@@ -644,7 +679,13 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
 function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState(patient.name || patient.initials || "");
-  const [bed, setBed]           = React.useState(patient.currentBed || "NICU 1-1");
+  // Seeded from the patient's own bed, normalized (so a legacy "NICU 1-1"
+  // preselects the real "NICU 1" rather than leaving the dropdown blank and
+  // silently re-saving the bogus value) — and with **no fallback bed**: a
+  // patient with none recorded stays unassigned here, so editing their
+  // diagnosis can't quietly admit them to whatever bed the default happened
+  // to name. BedSelect renders the explicit "ยังไม่ระบุเตียง" choice for that.
+  const [bed, setBed]           = React.useState(D_R.normalizeBed(patient.currentBed));
   const [dx, setDx]             = React.useState(patient.diagnosis || "");
   const [status, setStatus]     = React.useState(patient.status || "Active");
   const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
@@ -681,7 +722,7 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
     onSubmit({
       ...patient,
       name, initials: name,
-      currentBed: bed,
+      currentBed: D_R.normalizeBed(bed),
       diagnosis: dx,
       status,
       statusDate,
@@ -731,9 +772,7 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
           <div className="row-2">
             <div className="field">
               <label>Bed</label>
-              <select className="sel" value={bed} onChange={e => setBed(e.target.value)}>
-                {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <BedSelect value={bed} onChange={setBed} allowUnassigned />
             </div>
             <div className="field">
               <label>Diagnosis</label>
@@ -758,15 +797,20 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
 
 // ── Transfer bed modal ───────────────────────────────────────
 function TransferBedModal({ patient, onClose, onSubmit }) {
-  const [bed, setBed] = React.useState(patient.currentBed || "");
+  // Both sides normalized so a legacy "NICU 1-1" record preselects "NICU 1"
+  // and re-picking that same bed still counts as "no change" (rather than
+  // writing a spurious bedHistory hop from "NICU 1-1" to "NICU 1").
+  const currentBed = D_R.normalizeBed(patient.currentBed);
+  const [bed, setBed] = React.useState(currentBed);
 
   const save = () => {
-    if (!bed || bed === patient.currentBed) { onClose(); return; }
+    const next = D_R.normalizeBed(bed);
+    if (!next || next === currentBed) { onClose(); return; }
     const bedHistory = [
       ...(patient.bedHistory || []),
-      { bed: patient.currentBed, date: D_R.todayLocal() },   // local date, not UTC
+      { bed: currentBed, date: D_R.todayLocal() },   // local date, not UTC
     ];
-    onSubmit({ ...patient, currentBed: bed, bedHistory });
+    onSubmit({ ...patient, currentBed: next, bedHistory });
   };
 
   return (
@@ -779,11 +823,9 @@ function TransferBedModal({ patient, onClose, onSubmit }) {
         <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" }}>
-            <span className="chip"><span className="d" />{patient.currentBed || "—"}</span>
+            <span className="chip"><span className="d" />{currentBed || "—"}</span>
             <span style={{ color: "var(--ink-3)" }}>→</span>
-            <select className="sel" style={{ flex: 1 }} value={bed} onChange={e => setBed(e.target.value)}>
-              {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
+            <BedSelect value={bed} onChange={setBed} style={{ flex: 1 }} />
           </div>
 
           {/* Bed history */}
@@ -791,7 +833,7 @@ function TransferBedModal({ patient, onClose, onSubmit }) {
             <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Previous beds</div>
               {patient.bedHistory.map((h, i) => (
-                <div key={i}>{h.bed} <span style={{ color: "var(--ink-4)" }}>until {h.date}</span></div>
+                <div key={i}>{D_R.normalizeBed(h.bed)} <span style={{ color: "var(--ink-4)" }}>until {h.date}</span></div>
               ))}
             </div>
           )}
@@ -799,7 +841,7 @@ function TransferBedModal({ patient, onClose, onSubmit }) {
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" onClick={save}
-              disabled={!bed || bed === patient.currentBed}>
+              disabled={!bed || D_R.normalizeBed(bed) === currentBed}>
               <Icon name="save" size={14} color="#fff" /> Confirm transfer
             </button>
           </div>

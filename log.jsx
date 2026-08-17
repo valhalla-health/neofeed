@@ -21,7 +21,9 @@ const n = (v, d = 1) => {
 function pickTarget(metricKey, entry, patient) {
   if (!entry) return null;
   const isEN = (entry.enVolPerKg || 0) >= 100;
-  const dol = entry.dol || 1;
+  // Re-derived from the row's date, not the stored snapshot — a stale `dol`
+  // would pick the wrong day's TPN target band (see D_L.entryDol).
+  const dol = D_L.entryDol(patient, entry);
   const wt  = entry.weight || patient?.bw || 1000;
   if (isEN) {
     if (metricKey === "kcal")  return D_L.ENTERAL_TARGETS.kcal();
@@ -68,18 +70,25 @@ function TrendGraph({ entries, patient }) {
   // admit DOL = first weight entry's DOL (matches app.jsx convention)
   const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
 
-  // map entries → {x, y, raw}
+  // map entries → {x, y, raw}. Each point's DOL is re-derived from the row's
+  // calendar date (D_L.entryDol) rather than read off the stored `dol`
+  // column, so a row written before the admission date was set — or before a
+  // later correction to it — plots on the day it was actually recorded
+  // instead of collapsing onto DOL 1.
   const points = React.useMemo(() => entries
     .filter(e => e[metricKey] != null && isFinite(parseFloat(e[metricKey])))
-    .map(e => ({
-      x: xMode === "dayAdmit" ? (e.dol - admitDol) : e.dol,
-      y: parseFloat(e[metricKey]),
-      dol: e.dol,
-      dayAdmit: e.dol - admitDol,
-      ts: e.ts,
-      raw: e,
-    }))
-    .sort((a, b) => a.x - b.x), [entries, metricKey, xMode, admitDol]);
+    .map(e => {
+      const eDol = D_L.entryDol(patient, e);
+      return {
+        x: xMode === "dayAdmit" ? (eDol - admitDol) : eDol,
+        y: parseFloat(e[metricKey]),
+        dol: eDol,
+        dayAdmit: eDol - admitDol,
+        ts: e.ts,
+        raw: e,
+      };
+    })
+    .sort((a, b) => a.x - b.x), [entries, metricKey, xMode, admitDol, patient]);
 
   if (entries.length === 0) {
     return (
@@ -430,7 +439,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
 
   const handleDelete = (e, entry) => {
     e.stopPropagation();
-    const label = `DOL ${entry.dol} (${window.NEOFEED_FMT_DATE?.(entry.ts) || entry.ts})`;
+    const label = `DOL ${D_L.entryDol(patient, entry)} (${window.NEOFEED_FMT_DATE?.(entry.ts) || entry.ts})`;
     if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
     onDeleteEntry(entry);
   };
@@ -499,15 +508,22 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
             <tbody>
               {(() => {
                 const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
-                return entries.slice().sort((a, b) => b.dol - a.dol).map((e, i) => {
+                // Newest first by calendar date. Sorting on the stored `dol`
+                // put rows out of order whenever that column was stale (the
+                // same reason the DOL cell below is re-derived); `ts` is the
+                // fact the row is actually filed under.
+                return entries.slice()
+                  .sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || "")))
+                  .map((e, i) => {
                   const editable = !!(onEditEntry && e.entryId);
+                  const eDol = D_L.entryDol(patient, e);
                   return (
                     <tr key={e.entryId || i}
                       onClick={editable ? () => onEditEntry(e) : undefined}
                       title={editable ? (e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy} — กดเพื่อแก้ไข` : "กดเพื่อแก้ไข") : "บันทึกเก่า — แก้ไขไม่ได้"}
                       style={{ cursor: editable ? "pointer" : "default" }}>
-                      <td className="num" style={{ fontWeight: 600 }}>{e.dol}</td>
-                      <td className="num" style={{ color: "var(--ink-3)" }}>{e.dol - admitDol}</td>
+                      <td className="num" style={{ fontWeight: 600 }}>{eDol}</td>
+                      <td className="num" style={{ color: "var(--ink-3)" }}>{eDol - admitDol}</td>
                       <td style={{ color: "var(--ink-3)", fontSize: 11.5 }}>{window.NEOFEED_FMT_DATE?.(e.ts) || e.ts}</td>
                       <td className="num">{e.weight || "—"} g</td>
                       <td className="num">{n(e.fluid, 0)} mL/kg</td>

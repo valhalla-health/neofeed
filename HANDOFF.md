@@ -1,11 +1,215 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-17 | **Status:** 🟡 NEEDS BACKEND DEPLOY, three changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw; (3) `getActivePatients()` now returns `Daily_Log.ts` through `_fmtDate()` — **this one is not blocking**: the client normalizes `ts` itself as of 2026-08-17, so "Logged today" is correct in the live app with or without the deploy, and the `.gs` fix just stops the malformed value at source. (1) and (2) still need the same `clasp push && clasp deploy` + one editor run before they work in production. Everything below **Session 2026-08-12** was still live as of that session's own status line.
+**Last updated:** 2026-08-17 | **Status:** 🟡 NEEDS BACKEND DEPLOY, three changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` writes 18 columns — **no longer blocking as of session 2026-08-17 (2) below**, which made that upsert widen the sheet grid on demand, so `applyPatHeaderColumns()` is now worth running for the header *label* only, not as a precondition for saving; (3) `getActivePatients()` now returns `Daily_Log.ts` through `_fmtDate()` — **also not blocking**: the client normalizes `ts` itself as of session 2026-08-17 (1), so "Logged today" is correct in the live app with or without the deploy, and the `.gs` fix just stops the malformed value at source. Only (1) still *needs* the `clasp push && clasp deploy` before it works in production; (2) and (3) ride along in the same deploy. Everything else in the two 2026-08-17 sessions below is frontend and ships as soon as the static files are pushed. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
 
 ---
 
-## Session 2026-08-17 — "Logged today" stuck at 0 / registry didn't roll over (frontend + backend)
+## Session 2026-08-17 (2) — three ward-reported defects: bed label, log DOL, Intake/Output (frontend + one backend fix)
+
+Three bugs reported from the bedside with screenshots. All three are
+frontend-only — no GAS change, no sheet migration, nothing to deploy beyond
+the static files.
+
+### 1. A patient in NICU bed 1 displayed as "NICU 1-1"
+
+`NewPatientModal` and `EditPatientModal` both defaulted their bed field to
+the literal string `"NICU 1-1"`, which is **not** in `BED_OPTIONS` — NICU and
+SCN beds there are flat numbers (`NICU 1`…`NICU 12`, `SCN 1`…`SCN 10`) and
+only the isolation rooms are genuinely two-part (`iso 1-1`…`iso 3-4`).
+Because no `<option>` matched, the `<select>` rendered blank while the state
+still submitted that string, so every patient registered without touching the
+dropdown was filed under a bed that does not exist. Several records in the
+live sheet already carry it, plus older `NICU-3`/`SCN-2` hyphen spellings.
+
+- **`data.js`**: new `normalizeBed(bed)` — collapses whitespace/casing, maps
+  `NICU 1-1` / `NICU-1` → `NICU 1` and `SCN 2-1` → `SCN 2`, keeps `iso`'s
+  room-bed pair, and returns anything unrecognized (free-text beds like
+  `9B2`) untouched.
+- **`app.jsx`**: `syncFromGAS` normalizes `currentBed` as records enter
+  client state — one place, so the registry cards/table, `PatientStrip`, the
+  calculator's print header and the admin dashboard all show one spelling
+  without each normalizing. Existing rows therefore *display* correctly
+  immediately.
+- **`registry.jsx`**: both modals default to `"NICU 1"` and normalize on
+  save, so the sheet is corrected for real the next time a patient is
+  edited; `EditPatientModal`/`TransferBedModal` also normalize the incoming
+  value so a legacy record preselects the right option instead of a blank
+  dropdown (and re-picking the same bed still counts as "no change", rather
+  than writing a spurious `NICU 1-1` → `NICU 1` hop into `bedHistory`).
+- **`data.js` mock fixtures**: `NICU 2-1`/`NICU-3`/`NICU-7`/`NICU-1`/`SCN-2`
+  → canonical labels.
+
+### 2. A patient's log entries showed a DOL that disagreed with their date
+
+Reported patient: admitted 1 ส.ค., DOL 17 in the header (correct), but the
+"All entries" table showed the row dated 11 ส.ค. as **DOL 3** and the row
+dated 9 ส.ค. as **DOL 1**. Root cause: `Daily_Log.dol` is a *snapshot* taken
+when the row is written, and the app trusted it forever after. A row saved
+before the patient had an `admissionDate` got `dolAtDate`'s fallback (the
+last stored weight's DOL, i.e. 1) frozen in; correcting the admission date
+later re-dates every DOL in the app **except** the rows already on the sheet.
+This is the documented "DOL is always computed live, never stored" rule, with
+saved log rows as the one place it wasn't being applied.
+
+- **`data.js`**: new `entryDol(patient, entry)` — re-derives from the row's
+  `ts` via `dolAtDate`, falling back to the stored column only when there is
+  no date or no admission date to measure from.
+- **`log.jsx`**: the table's DOL and "Day admit" cells, `TrendGraph`'s
+  points (so a mis-stamped row plots on the day it was recorded instead of
+  collapsing onto DOL 1), `pickTarget`'s DOL-indexed target bands, and the
+  delete-confirmation label all go through it. The table now sorts by `ts`
+  rather than by the stored `dol`, which put rows out of order for the same
+  reason.
+- **`app.jsx`**: `CalculatorView`'s `displayDol` uses it when editing an
+  existing entry — that value is also what the next save stamps, so a
+  re-saved row corrects its own stored column.
+- The stored column is still written (it's what an export or report reading
+  the sheet directly sees); it is now self-healing rather than authoritative.
+
+### 3. The Intake / Output card's "Input" was not saved
+
+Reopening a saved entry showed an empty Input field over a real saved figure,
+and re-saving then wrote that `0` over the record. Root cause was an
+effect-ordering race, not the save path (which was correct end to end):
+on mount both the prefill effect and the "keep ioInput tracking
+prescribedFluid until touched" effect run in the same commit, prefill first —
+but the auto-sync effect's closure still saw the **pre-prefill**
+`ioInputTouched === false`, so it re-ran and overwrote the just-restored
+`ioInput` with `calc.prescribedFluid`, which was itself still 0 because
+`calc` hadn't recomputed off the restored inputs yet. Output and drain have
+no such auto-sync, which is why only Input was affected.
+
+- **`calculator.jsx`**: `ioInputTouched` is mirrored into
+  `ioInputTouchedRef` (written synchronously by `markIoInputTouched`), and
+  the auto-sync effect reads the **ref**, so it sees the prefill's decision
+  in the same commit. Don't collapse this back into plain state.
+- **`calculator.jsx`**: restoring an entry now prefers the row's own
+  `ioInput`/`ioOutput`/`drainContent` columns over the copy inside
+  `calcInput` (`withEntryIO`) — the dedicated columns are the record, and
+  they exist even on a row whose `calcInput` predates the card or fails to
+  parse, where restoring from `calcInput` alone showed an empty card over
+  real saved figures.
+- Unchanged in the other direction: a brand-new entry's Input still tracks
+  the live prescribed total until the user types in the field.
+
+### 4. `registerPatient()` no longer depends on a manual migration
+
+Not reported from the ward — found while answering "what is still pending
+from the 2026-08-15 deploy". `registerPatient` upserts: it appends a new
+patient (`appendRow` widens the sheet itself) but writes an existing one with
+`getRange(row, 1, 1, 18)`, which throws on a `Patient_Registry` tab narrower
+than 18 columns. That reaches the bedside as a failed save when **editing** a
+patient while registering a new one keeps working — the exact trap
+`updateDailyNutrition` was given an on-demand grid widen for in `2b7d2a4`,
+left unfixed one tab over when `multiplesCount` was added.
+
+- **`gas-backend.gs`**: `registerPatient`'s in-place write widens the grid
+  first when it is too narrow, then writes `row18.length` columns rather than
+  a hardcoded 18. No-op once wide enough — and a tab created by
+  `insertSheet()` starts at Sheets' 26-column default, so in practice this
+  only fires on a sheet whose columns were trimmed by hand.
+- `ensurePatHeaderColumns` / `ensureLogHeaderColumns` comments corrected:
+  both claimed their migration was "NOT merely cosmetic" because the
+  corresponding write would throw. Neither is true any more — both write
+  paths self-widen — and the Daily_Log one had been stale since `2b7d2a4`.
+  The migrations are still worth running for the header *labels* (see
+  `ensureStaffHeaderColumns`'s caveat), just not load-bearing.
+- **This is the only backend change on this branch.** It does not need its
+  own deploy — it merges into the `clasp push && clasp deploy` already
+  pending from 2026-08-14. Relevant to fix #1 above: the bed-label rewrite to
+  the sheet rides on `updatePatient` → `registerPatient`, i.e. exactly this
+  upsert path.
+
+### 5. Bed pickers consolidated into one component
+
+Follow-up to #1 on the same day: "recheck that NICU bed numbers everywhere
+only allow the defined format". Three modals each rendered their own
+`<select>` over `BED_OPTIONS`, which is how a bogus default went unnoticed in
+one of them. They now all render a single `BedSelect` (`registry.jsx`), so
+the invariant holds by construction. It also fixes two things a bare select
+gets wrong:
+
+- **A value outside `BED_OPTIONS` renders blank.** That is the mechanism
+  behind the original report — the control showed nothing while still
+  submitting `"NICU 1-1"`. Any off-list value (a legacy record, a bed typed
+  straight into the sheet, e.g. `9B2`) is now carried as one extra option
+  labelled "(ไม่อยู่ในรายการเตียง)": visible and re-selectable, never newly
+  pickable.
+- **A bedless patient was coerced onto a default.** `EditPatientModal` fell
+  back to a hardcoded bed, so editing an unbedded patient's *diagnosis*
+  silently admitted them to it. (The old fallback was the bogus `"NICU 1-1"`;
+  fixing #1 to `"NICU 1"` would have made that silent admission land on a
+  *plausible* bed, which is worse, not better.) `BedSelect` renders an
+  explicit "— ยังไม่ระบุเตียง —" choice and the modal seeds from the
+  patient's own value with no fallback.
+
+`allowUnassigned` is on for register/edit (a bed can be cleared) and off for
+transfer (a transfer to nowhere is not a thing); the transfer button stays
+disabled until a real bed is picked, as before.
+
+### Tests
+
+New `test/verify-bed-dol-io.cjs` (54 assertions). Sections 1–2 are pure
+`data.js`; section 3 mounts the real `<Calculator>` in jsdom (same harness as
+`verify-kcmh-factor.cjs`) because the I/O defect only exists once mounted.
+Reverting the ref fix alone reproduces the report exactly — Input comes back
+`""` and the re-save writes `0`. Also re-ran `verify-kcmh-constants`,
+`verify-kcmh-factor` (DEAD=20 and DEAD=0) and `verify-targets-and-dates`: all
+pass.
+
+Also new: `test/verify-gas-registry-upsert.cjs` (17 assertions) — the first
+harness in this repo that runs backend code. `gas-backend.gs`'s top level is
+nothing but `var` constants and function declarations, so the whole file
+evaluates in a `vm` context against stubbed `SpreadsheetApp`/`Utilities`/
+`CacheService` globals and the real `registerPatient()` can be called
+directly, with a sheet double that throws on an out-of-bounds `getRange()`
+the way SpreadsheetApp does. Reverting the widen alone reproduces the throw.
+Worth extending whenever a backend function's sheet-range arithmetic changes
+— there is otherwise no way to run `gas-backend.gs` outside a live Apps
+Script project. No npm dependencies.
+
+And `test/runthrough-app.cjs` (29 assertions) — the first harness that runs
+the **whole app** the way a nurse does. It serves the repo statically as-is
+(`index.html` exactly as Pages would serve it), launches Chromium, logs in,
+and clicks registry → dashboard → calculator. `unpkg.com` is answered from
+`node_modules` and the GAS URL by an in-process fake backend that mirrors
+`gas-backend.gs`'s response shapes **and records every write**, so assertions
+can check what actually went over the wire, not just what is on screen. Its
+fixture is the reported patient (bed stored as `"NICU 1-1"`, log rows whose
+stored `dol` disagrees with their date, an entry with real I/O figures), so
+all three defects would be visible on screen if they returned. Two useful
+properties: the UMD bundles must be the exact pinned versions because
+`index.html` carries SRI hashes, so a passing run also proves those hashes
+still match; and it fails on any uncaught page error or any failed request
+beyond the two expected to be offline (Google Identity Services, Google
+Fonts). Screenshots land in `test/.screenshots/` (gitignored).
+
+Runthrough results on the reported record: registry card reads **NICU 1**;
+log rows read DOL 15/12/11/9/1 against 15/12/11/09/01 ส.ค. (was 15/12/3/1/1);
+reopening the 15 ส.ค. entry restores Input 214 / urine 143 / drain 12 with
+Balance +59 mL/d; editing drain to 30 sends `{ioInput:214, ioOutput:143,
+drainContent:30, dol:15, ts:"2026-08-15"}` to the backend and round-trips on
+reopen; the 12 ส.ค. entry does not inherit any of it.
+
+Cache-bust tags bumped to `?v=bed-dol-io1` on `data.js`,
+`calculator.jsx`, `registry.jsx`, `log.jsx`, `app.jsx` in **both**
+`NeoFeed.html` and `index.html`.
+
+**Merged with session (1) above.** Both sessions ran in parallel against the
+same `main` and touched `data.js`, `registry.jsx`, `app.jsx`, `gas-backend.gs`
+and both HTML shells; the conflicts were resolved on this branch. One real
+interaction, not just textual: `entryDol()` derives a log row's DOL from its
+`ts`, and session (1) established that a raw `ts` off the sheet can be a date
+*value* rather than `"YYYY-MM-DD"` — so `entryDol` runs it through
+`normalizeDateStr()` first. `syncFromGAS` already normalizes the whole log
+map, so that is belt-and-braces for any caller holding an entry that didn't
+come through it. Cache-bust tags for both sessions were collapsed onto one
+new value, `?v=bed-dol-io2`, since both changed the same five modules.
+
+---
+
+## Session 2026-08-17 (1) — "Logged today" stuck at 0 / registry didn't roll over (frontend + backend)
 
 Bug report with a screenshot: the registry strip read **`0 LOGGED TODAY ·
 24 NEEDS ENTRY`** on a ward that had been logging all morning, and the ask

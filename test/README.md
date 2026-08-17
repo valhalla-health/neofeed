@@ -1,24 +1,30 @@
 # Verification harnesses
 
-Four Node scripts. Two check the TPN calculator against the **official KCMH
+Seven Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
 code review, which the worksheet harnesses cannot see. The fourth pins what the
 registry reports back to the ward — who has been logged today and who still
-needs an entry.
+needs an entry. The fifth pins the three bedside-reported defects fixed on
+2026-08-17 (bed label, log-entry DOL, Intake/Output persistence). The sixth is
+the only thing here that exercises `gas-backend.gs` at all, and the seventh
+drives the whole app in a real browser.
 
 ## Running
 
-`verify-targets-and-dates.cjs` needs **no dependencies at all** — run it directly:
+`verify-targets-and-dates.cjs` and `verify-gas-registry-upsert.cjs` need **no
+dependencies at all** — run them directly:
 
 ```bash
 node test/verify-targets-and-dates.cjs
+node test/verify-gas-registry-upsert.cjs
 ```
 
-The two KCMH harnesses and `verify-registry-logged-today.cjs` are the only
-things in this repo that need `npm` (they mount real components in jsdom);
-nothing else does, and the app itself still has no build step. Dependencies are dev-only
+The two KCMH harnesses, `verify-registry-logged-today.cjs` and
+`verify-bed-dol-io.cjs` are the only things in this repo that need `npm` (they
+mount real components in jsdom); nothing else does, and the app itself still
+has no build step. Dependencies are dev-only
 and are **not** committed — install them into a scratch folder and point Node at it:
 
 ```bash
@@ -30,7 +36,18 @@ Then, from the repo root:
 ```bash
 node test/verify-kcmh-constants.cjs && node test/verify-kcmh-factor.cjs
 node test/verify-registry-logged-today.cjs
+node test/verify-bed-dol-io.cjs
 ```
+
+The browser runthrough additionally needs Playwright and a Chromium:
+
+```bash
+npm install --no-save playwright && npx playwright install chromium
+node test/runthrough-app.cjs           # screenshots → test/.screenshots/
+```
+
+It also needs the **exact** pinned CDN versions in `node_modules`
+(`react@18.3.1 react-dom@18.3.1 @babel/standalone@7.29.0`) — see below.
 
 `verify-kcmh-factor.cjs` reads `DEAD` from the environment (mL of dead space,
 default 20). Run it both ways — overfilled and not:
@@ -89,6 +106,81 @@ It also asserts the identities the Factor exists to guarantee:
   compounding cells `G43`/`G45` use actual weight `C6`, while every electrolyte
   row uses the Factor `H9`. The app surfaces this as an info alert rather than
   silently "correcting" the sheet.
+
+**`verify-bed-dol-io.cjs`** — regression cover for the three defects reported
+from the ward on 2026-08-17. Sections 1 and 2 are pure `data.js`:
+`normalizeBed()` collapses every legacy spelling of a NICU/SCN bed onto the
+label the ward uses (and onto a value that actually exists in `BED_OPTIONS`,
+which is what the old `"NICU 1-1"` default did not), while leaving iso rooms'
+genuine room-bed pairs and unrecognized free-text beds alone; `entryDol()`
+re-derives a saved log row's DOL from its calendar date, reproducing the
+reported patient's rows (a row dated nine days into the admission that
+displayed as "DOL 1").
+
+Section 3 mounts the real `<Calculator>` in jsdom like the Factor harness does,
+because the Intake/Output defect was an effect-ordering race that only exists
+once mounted: reopening a saved entry restored `ioInput` and then immediately
+had it overwritten with the not-yet-recomputed prescribed-fluid total, so the
+field came back empty and the next save wrote that `0` over the real figure. It
+asserts the round trip (restore → untouched re-save writes the same numbers),
+the fallback to the `ioInput`/`ioOutput`/`drainContent` columns for a row whose
+`calcInput` predates the card, and — in the other direction — that a brand-new
+entry's Input still tracks the prescribed total live until the user types in it.
+
+**`verify-gas-registry-upsert.cjs`** — the only harness that runs backend
+code. `gas-backend.gs` is Apps Script, but every top-level statement in it is
+a `var` constant or a function declaration, so the whole file evaluates in a
+`vm` context against stubbed `SpreadsheetApp`/`Utilities`/`CacheService`
+globals and the real `registerPatient()` can be called directly. The sheet
+double throws on an out-of-bounds `getRange()` exactly as SpreadsheetApp
+does, which is the defect being pinned: `registerPatient` upserts, and its
+in-place write (`getRange(row, 1, 1, 18)`) used to throw on a
+`Patient_Registry` tab narrower than 18 columns — a failed save when
+*editing* a patient, while registering a new one kept working, because
+`appendRow` widens the sheet itself. It now widens on demand, the same fix
+`updateDailyNutrition` got for Daily_Log in `2b7d2a4`. The harness also
+checks the no-op case on a wide grid, that `multiplesCount`/`currentBed`
+land in columns R/K, and that `_sheetSafe`'s formula-injection guard still
+applies on the widened path.
+
+This one is worth extending whenever a backend function's sheet-range
+arithmetic changes — it is cheap (no npm) and there is no other way to run
+`gas-backend.gs` outside a live Apps Script project.
+
+**`runthrough-app.cjs`** — the only harness that runs the whole app the way a
+nurse does: it serves the repo statically **as-is** (no file edits, `index.html`
+exactly as GitHub Pages would serve it), launches Chromium, logs in, and clicks
+through the registry → dashboard → calculator. Two things a sandbox cannot
+reach are intercepted: `unpkg.com` is answered from `node_modules`, and the
+GAS URL is answered by an in-process fake backend that mirrors
+`gas-backend.gs`'s response shapes **and records every write it receives**, so
+the assertions can check what actually went over the wire rather than only what
+the screen shows. Everything in between — `data.js`, `calculator.jsx`,
+`log.jsx`, `registry.jsx`, `app.jsx` — is the shipped code.
+
+The UMD bundles must be the exact versions the script tags pin, because
+`index.html` carries SRI `integrity` hashes and Chromium rejects anything else.
+That is a feature: a passing run is also proof those hashes still match the
+versions named beside them.
+
+Its fixture is the patient from the 2026-08-17 bug reports — bed stored as
+`"NICU 1-1"`, log rows whose stored `dol` disagrees with their own date, an
+entry carrying real Intake/Output figures, and one row whose `ts` arrives in
+the stringified-`Date` shape the live sheet can return — so every defect fixed
+that day would be visible on screen if it came back. The malformed-`ts` row is
+also the one with a stale `dol`, so it only renders correctly if `ts`
+normalization and the DOL re-derivation both work, which is the one real
+interaction between that day's two sessions. It checks the rendered bed label and that
+the picker offers nothing outside `BED_OPTIONS`, the DOL/day-admit columns and
+their ordering, that reopening an entry restores Input/urine/drain and the
+balance line, that editing drain and saving sends the right numbers to the
+backend, that reopening round-trips them, and that a different entry does not
+inherit them. It fails on any uncaught page error, and on any failed request
+other than the two that are expected to be offline (Google Identity Services
+and Google Fonts).
+
+Screenshots land in `test/.screenshots/` (gitignored) — useful when a layout
+question is easier to look at than to assert.
 
 ## Note on the source workbook
 

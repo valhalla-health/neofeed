@@ -177,6 +177,16 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // default; they're bedside-measured numbers.
   const [ioInput, setIoInput] = useState(0);
   const [ioInputTouched, setIoInputTouched] = useState(false);
+  // Ref mirror of ioInputTouched, read by the prescribed-fluid auto-sync
+  // effect below. Both effects run in the same commit on mount, prefill
+  // first — but the auto-sync effect's closure still saw the PRE-prefill
+  // `false`, so it re-ran and overwrote the just-restored ioInput with the
+  // (still zero, calc hadn't recomputed yet) prescribed total. The saved
+  // Input silently came back as 0 on every edit, and saving again wrote that
+  // 0 over the real figure. A ref updates synchronously, so the auto-sync
+  // effect sees the prefill's decision in the same commit.
+  const ioInputTouchedRef = React.useRef(false);
+  const markIoInputTouched = (v) => { ioInputTouchedRef.current = v; setIoInputTouched(v); };
   const [ioOutput, setIoOutput] = useState(0);
   const [drainContent, setDrainContent] = useState(0);
 
@@ -259,7 +269,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setOtherIV_mL(src.otherIV_mL ?? 0);
     setDrug_mL(src.drug_mL ?? 0);
     setIoInput(src.ioInput ?? 0);
-    setIoInputTouched(ioTouched);
+    markIoInputTouched(ioTouched);
     setIoOutput(src.ioOutput ?? 0);
     setDrainContent(src.drainContent ?? 0);
     setRoute(src.route ?? "central");
@@ -296,6 +306,21 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setSuppFeType(src.suppFeType ?? "FE_FERDEK");
   };
 
+  // Raw wizard state for a saved entry, with Intake/Output taken from the
+  // entry's own ioInput/ioOutput/drainContent (Daily_Log AC–AE) in preference
+  // to the copy inside calcInputJson. The dedicated columns are the record —
+  // they are what the backend reads back and what any report would use — and
+  // they exist even on a row whose calcInput predates the Intake/Output card
+  // or failed to parse, where restoring from calcInput alone silently showed
+  // an empty I/O card over real saved figures.
+  const withEntryIO = (entry) => {
+    const src = { ...(entry?.calcInput || {}) };
+    if (entry?.ioInput      != null) src.ioInput      = entry.ioInput;
+    if (entry?.ioOutput     != null) src.ioOutput     = entry.ioOutput;
+    if (entry?.drainContent != null) src.drainContent = entry.drainContent;
+    return src;
+  };
+
   // ── Prefill on patient change ──────────────────────────────────
   // 1. Editing an existing entry → restore its exact original inputs (calcInput),
   //    so edits work correctly regardless of which device created the entry
@@ -318,14 +343,14 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setConflict(null);
 
     if (editEntry) {
-      applyCalcInput(editEntry.calcInput || {}, editEntry.weight, true);
+      applyCalcInput(withEntryIO(editEntry), editEntry.weight, true);
       setPrefilledFrom(null);
       return;
     }
 
     if (baselineEntry) {
       skipWeightPropagateRef.current = true;
-      applyCalcInput(baselineEntry.calcInput || {}, baselineEntry.weight, false);
+      applyCalcInput(withEntryIO(baselineEntry), baselineEntry.weight, false);
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
     }
@@ -346,7 +371,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setOtherIV_mL(restored?.otherIV_mL ?? 0);
     setDrug_mL(restored?.drug_mL ?? 0);
     setIoInput(restored?.ioInput ?? 0);
-    setIoInputTouched(false); // fresh entry — track the computed total until edited
+    markIoInputTouched(false); // fresh entry — track the computed total until edited
     setIoOutput(restored?.ioOutput ?? 0);
     setDrainContent(restored?.drainContent ?? 0);
     setRoute(restored?.route ?? "central");
@@ -666,7 +691,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // edits it directly — same "live default, sticky once touched" pattern the
   // rest of this form uses for smart prefills.
   React.useEffect(() => {
-    if (ioInputTouched) return;
+    if (ioInputTouchedRef.current) return;   // ref, not state — see markIoInputTouched
     setIoInput(Math.round(calc.prescribedFluid) || 0);
   }, [calc.prescribedFluid, ioInputTouched]);
 
@@ -984,7 +1009,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         <div className="card-b">
           <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, alignItems: "stretch" }}>
             <NumField label="Input" unit="mL/d" value={ioInput} step={1}
-              onChange={(v) => { setIoInputTouched(true); setIoInput(v); }}
+              onChange={(v) => { markIoInputTouched(true); setIoInput(v); }}
               hint={`(${fmt(ioInputPerKg, 1)} mL/kg/d)`} />
             <NumField label="Urine output" unit="mL/d" value={ioOutput} step={1}
               onChange={setIoOutput}

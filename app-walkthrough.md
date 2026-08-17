@@ -118,6 +118,50 @@ GAS on tab focus (throttled to once a minute) and on day rollover; before
 that it fetched once at login and never again, so entries logged from another
 device never showed up.
 
+**A saved Daily_Log row's `dol` column is a snapshot, not a fact** — it
+records what DOL was when that row was written, so it goes stale exactly
+like a cached `liveDol()` would. Two ways it ends up wrong: the row was
+saved before the patient had an `admissionDate` (so `dolAtDate` returned its
+last-stored-weight fallback, usually 1), or the admission date was corrected
+afterwards, which re-dates the whole app *except* rows already on the sheet.
+Anything **displaying** an entry's DOL — or feeding it into a DOL-indexed
+target — must go through `D.entryDol(patient, entry)` (added 2026-08-17),
+which re-derives it from the row's `ts` (through `normalizeDateStr`, per the
+rule above) and falls back to the stored column only when there's no date or
+no admission date to measure from. The stored
+column is still written on save (it's what a report or an export off the
+sheet reads), and is corrected in place whenever the entry is re-saved.
+`log.jsx`'s table and `TrendGraph`, and `app.jsx`'s `CalculatorView`
+(`displayDol`, which is also what the next save stamps), all use it. The
+"All entries" table sorts by `ts`, not `dol`, for the same reason.
+
+### Bed labels
+`currentBed` is free text in the sheet, but the canonical set is exactly what
+`BED_OPTIONS` in `registry.jsx` offers: `NICU 1`–`NICU 12` and `SCN 1`–`SCN 10`
+are flat bed numbers, and only the isolation rooms are genuinely two-part
+(`iso 1-1` … `iso 3-4`). `D.normalizeBed(bed)` (added 2026-08-17) maps the
+legacy spellings — `"NICU 1-1"`, `"NICU-3"`, stray casing/whitespace — onto
+that set and leaves anything unrecognized untouched. It runs at the single
+point patient records enter client state (`syncFromGAS` in `app.jsx`), so
+every display site gets one spelling for free; the registry modals normalize
+again on save so the sheet is corrected for real. `"NICU 1-1"` in particular
+was `NewPatientModal`/`EditPatientModal`'s old default bed — a literal that
+matched no `<option>`, so the dropdown rendered blank while that string was
+submitted anyway, and every patient registered without touching the field was
+filed under a bed that doesn't exist.
+
+**All three places a bed can be set — register, edit, transfer — render the
+same `BedSelect` component** (`registry.jsx`), so "a bed is one of
+`BED_OPTIONS`" holds by construction instead of by three modals happening to
+agree. Don't hand-roll a fourth `<select>` over `BED_OPTIONS`; the harness
+asserts there is exactly one. `BedSelect` also handles the two cases a bare
+select gets wrong: a value outside `BED_OPTIONS` (legacy record, or a bed
+typed straight into the sheet) is carried as one extra, clearly-labelled
+option so it stays visible and re-selectable rather than rendering blank —
+but is never something a user can newly pick; and a patient with **no** bed
+recorded stays unassigned rather than being coerced onto a default, since a
+default there turns "edit the diagnosis" into a silent admission to that bed.
+
 ### Daily_Log entry shape
 Each submission from the Calculator produces one row combining PN + EN
 totals per kg:
@@ -148,7 +192,17 @@ because no prior-day weight is on record yet (fixed 2026-08-15; `source` is
 "Prescribed" figure Step 1 already shows) and keeps tracking it live until the
 user edits the field directly, at which point it stops re-syncing (same "live
 default, sticky once touched" pattern as the rest of the wizard's smart
-prefills) — see `ioInputTouched` in `calculator.jsx`.
+prefills) — see `ioInputTouched` in `calculator.jsx`. **That "touched" flag is
+mirrored into `ioInputTouchedRef` and the auto-sync effect reads the ref, not
+the state** (fixed 2026-08-17): both effects run in the same commit on mount,
+prefill first, but the auto-sync effect's closure still saw the pre-prefill
+`false` and overwrote the just-restored `ioInput` with a prescribed total that
+`calc` hadn't recomputed yet — so a saved Input silently came back as 0 on
+every edit, and saving again wrote that 0 over the record. Don't collapse the
+ref back into plain state. Restoring an entry also prefers the row's own
+`ioInput`/`ioOutput`/`drainContent` columns over the copy inside `calcInput`
+(`withEntryIO` in `calculator.jsx`) — the dedicated columns are the record, and
+they exist even on rows whose `calcInput` predates the card.
 
 **`ioOutput` is urine output** (updated 2026-08-10 (3) — it previously meant
 the bedside total including drain; drain is now always a separate term, never
@@ -200,6 +254,20 @@ If you change the Daily_Log column layout, either clear the sheet (the
 script re-writes headers on next run) or add new columns in the exact
 position the script expects — a mismatch silently misaligns every existing
 row.
+
+**Adding a column at the end is safe without a migration.** `getSheetPat()`
+/ `getSheetLog()` write the full header row only when they *create* the tab,
+so a live sheet never gains labels for later columns — that's what the
+`ensurePatHeaderColumns` / `ensureLogHeaderColumns` / `ensureStaffHeaderColumns`
+one-off helpers are for (dry-run by default, never clobber an occupied header
+cell, safe to re-run). But the **grid width** is no longer load-bearing on
+anyone remembering to run them: both in-place writes — `updateDailyNutrition`
+(fixed `2b7d2a4`) and `registerPatient` (fixed 2026-08-17) — widen the sheet
+themselves when it's too narrow, since `getRange()` past the grid edge throws
+and would surface at the bedside as a failed save when *editing* an existing
+row, while creating one kept working (`appendRow` self-widens). Keep that
+property when touching either write; the migrations remain worth running for
+the header labels alone.
 
 ## 4. Auth
 

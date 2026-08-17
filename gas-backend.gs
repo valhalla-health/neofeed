@@ -1026,11 +1026,13 @@ function applyStaffHeaderColumns() {
 // from scratch. The live tab predates the Intake/Output work, so it never
 // gained labels for AC (ioInput) / AD (ioOutput) / AE (drainContent).
 //
-// Unlike the Staff case this is NOT merely cosmetic. updateDailyNutrition()
-// writes with getRange(row, 1, 1, 31); if the sheet's GRID is still only 28
-// columns wide, that range is out of bounds and editing an existing entry
-// throws. (Creating is fine — appendRow widens the sheet itself.) So this
-// helper grows the grid first, then labels the headers.
+// It grows the GRID to 31 columns before labelling, because
+// updateDailyNutrition() writes with getRange(row, 1, 1, 31) and that range
+// is out of bounds on a sheet still 28 columns wide. (Creating is fine —
+// appendRow widens the sheet itself.) That part is belt-and-braces now:
+// updateDailyNutrition widens on demand itself (2b7d2a4), so this helper is
+// effectively cosmetic — see the caveat about unlabelled columns in
+// ensureStaffHeaderColumns's comment.
 //
 // Dry-run by default: call with no arguments to see what it WOULD do. Pass
 // true to actually write. Only ever fills a BLANK header cell — if AC1/AD1/
@@ -1089,10 +1091,11 @@ function applyLogHeaderColumns() {
 // Same gap as ensureLogHeaderColumns above, one tab over: getSheetPat() only
 // writes the full header row when it creates Patient_Registry from scratch,
 // so a live tab predating multiplesCount (added 2026-08-14, R) never gained
-// that label. And it's NOT merely cosmetic here either — registerPatient()
-// now writes with getRange(row, 1, 1, 18); if the sheet's grid is still only
-// 17 columns wide, that range is out of bounds and upserting an existing
-// patient throws. So this widens the grid first, then labels the header.
+// that label. It still widens the grid to 18 columns before labelling, but
+// that part is now belt-and-braces: registerPatient() widens on demand
+// itself (2026-08-17), so a too-narrow grid no longer makes editing an
+// existing patient throw and this helper is effectively cosmetic — see the
+// caveat about unlabelled columns in ensureStaffHeaderColumns's comment.
 //
 // Dry-run by default: call with no arguments to see what it WOULD do. Pass
 // true to actually write. Only ever fills a BLANK header cell — if R1
@@ -1161,7 +1164,19 @@ function registerPatient(p) {
   ];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(p.sessionId)) {
-      sheet.getRange(i + 1, 1, 1, 18).setValues([row18]);
+      // A Patient_Registry tab narrower than 18 columns would make this
+      // getRange() out of bounds and throw — surfacing at the bedside as a
+      // failed save when EDITING an existing patient. Widen on demand so the
+      // upsert can't depend on whether the one-off ensurePatHeaderColumns
+      // migration has been run yet, exactly as updateDailyNutrition does for
+      // Daily_Log's AC–AE. No-op once wide enough (a sheet created by
+      // insertSheet() starts at Sheets' 26-column default, so in practice
+      // this only fires on a tab whose columns were trimmed by hand).
+      // Creating is fine either way — appendRow widens the sheet itself.
+      if (sheet.getMaxColumns() < row18.length) {
+        sheet.insertColumnsAfter(sheet.getMaxColumns(), row18.length - sheet.getMaxColumns());
+      }
+      sheet.getRange(i + 1, 1, 1, row18.length).setValues([row18]);
       return;
     }
   }
