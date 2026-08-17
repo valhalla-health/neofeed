@@ -1,5 +1,5 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-17 | **Status:** 🟡 NEEDS BACKEND DEPLOY, two changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw. Both need the same `clasp push && clasp deploy` + one editor run before either works in production. **Session 2026-08-17 (below) is frontend-only** — it adds nothing to that pending deploy and ships as soon as the static files are pushed. Everything below **Session 2026-08-12** was still live as of that session's own status line.
+**Last updated:** 2026-08-17 | **Status:** 🟡 NEEDS BACKEND DEPLOY, two changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw. Both need the same `clasp push && clasp deploy` + one editor run before either works in production. **Session 2026-08-17 (below) is almost entirely frontend** — its three bug fixes ship as soon as the static files are pushed. It adds *one* backend change, an on-demand grid widen in `registerPatient()`, which rides along in the same pending `clasp push && clasp deploy`; it creates no new deploy step, and once deployed it makes `applyPatHeaderColumns()` cosmetic rather than load-bearing. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
 
@@ -93,6 +93,34 @@ no such auto-sync, which is why only Input was affected.
 - Unchanged in the other direction: a brand-new entry's Input still tracks
   the live prescribed total until the user types in the field.
 
+### 4. `registerPatient()` no longer depends on a manual migration
+
+Not reported from the ward — found while answering "what is still pending
+from the 2026-08-15 deploy". `registerPatient` upserts: it appends a new
+patient (`appendRow` widens the sheet itself) but writes an existing one with
+`getRange(row, 1, 1, 18)`, which throws on a `Patient_Registry` tab narrower
+than 18 columns. That reaches the bedside as a failed save when **editing** a
+patient while registering a new one keeps working — the exact trap
+`updateDailyNutrition` was given an on-demand grid widen for in `2b7d2a4`,
+left unfixed one tab over when `multiplesCount` was added.
+
+- **`gas-backend.gs`**: `registerPatient`'s in-place write widens the grid
+  first when it is too narrow, then writes `row18.length` columns rather than
+  a hardcoded 18. No-op once wide enough — and a tab created by
+  `insertSheet()` starts at Sheets' 26-column default, so in practice this
+  only fires on a sheet whose columns were trimmed by hand.
+- `ensurePatHeaderColumns` / `ensureLogHeaderColumns` comments corrected:
+  both claimed their migration was "NOT merely cosmetic" because the
+  corresponding write would throw. Neither is true any more — both write
+  paths self-widen — and the Daily_Log one had been stale since `2b7d2a4`.
+  The migrations are still worth running for the header *labels* (see
+  `ensureStaffHeaderColumns`'s caveat), just not load-bearing.
+- **This is the only backend change on this branch.** It does not need its
+  own deploy — it merges into the `clasp push && clasp deploy` already
+  pending from 2026-08-14. Relevant to fix #1 above: the bed-label rewrite to
+  the sheet rides on `updatePatient` → `registerPatient`, i.e. exactly this
+  upsert path.
+
 ### Tests
 
 New `test/verify-bed-dol-io.cjs` (35 assertions). Sections 1–2 are pure
@@ -101,7 +129,20 @@ New `test/verify-bed-dol-io.cjs` (35 assertions). Sections 1–2 are pure
 Reverting the ref fix alone reproduces the report exactly — Input comes back
 `""` and the re-save writes `0`. Also re-ran `verify-kcmh-constants`,
 `verify-kcmh-factor` (DEAD=20 and DEAD=0) and `verify-targets-and-dates`: all
-pass. Cache-bust tags bumped to `?v=bed-dol-io1` on `data.js`,
+pass.
+
+Also new: `test/verify-gas-registry-upsert.cjs` (17 assertions) — the first
+harness in this repo that runs backend code. `gas-backend.gs`'s top level is
+nothing but `var` constants and function declarations, so the whole file
+evaluates in a `vm` context against stubbed `SpreadsheetApp`/`Utilities`/
+`CacheService` globals and the real `registerPatient()` can be called
+directly, with a sheet double that throws on an out-of-bounds `getRange()`
+the way SpreadsheetApp does. Reverting the widen alone reproduces the throw.
+Worth extending whenever a backend function's sheet-range arithmetic changes
+— there is otherwise no way to run `gas-backend.gs` outside a live Apps
+Script project. No npm dependencies.
+
+Cache-bust tags bumped to `?v=bed-dol-io1` on `data.js`,
 `calculator.jsx`, `registry.jsx`, `log.jsx`, `app.jsx` in **both**
 `NeoFeed.html` and `index.html`.
 

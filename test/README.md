@@ -1,19 +1,22 @@
 # Verification harnesses
 
-Four Node scripts. Two check the TPN calculator against the **official KCMH
+Five Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
 code review, which the worksheet harnesses cannot see. The fourth pins the
 three bedside-reported defects fixed on 2026-08-17 (bed label, log-entry DOL,
-Intake/Output persistence).
+Intake/Output persistence). The fifth is the only thing here that exercises
+`gas-backend.gs` at all.
 
 ## Running
 
-`verify-targets-and-dates.cjs` needs **no dependencies at all** — run it directly:
+`verify-targets-and-dates.cjs` and `verify-gas-registry-upsert.cjs` need **no
+dependencies at all** — run them directly:
 
 ```bash
 node test/verify-targets-and-dates.cjs
+node test/verify-gas-registry-upsert.cjs
 ```
 
 `verify-bed-dol-io.cjs` and the two KCMH harnesses are the only things in this
@@ -96,6 +99,26 @@ asserts the round trip (restore → untouched re-save writes the same numbers),
 the fallback to the `ioInput`/`ioOutput`/`drainContent` columns for a row whose
 `calcInput` predates the card, and — in the other direction — that a brand-new
 entry's Input still tracks the prescribed total live until the user types in it.
+
+**`verify-gas-registry-upsert.cjs`** — the only harness that runs backend
+code. `gas-backend.gs` is Apps Script, but every top-level statement in it is
+a `var` constant or a function declaration, so the whole file evaluates in a
+`vm` context against stubbed `SpreadsheetApp`/`Utilities`/`CacheService`
+globals and the real `registerPatient()` can be called directly. The sheet
+double throws on an out-of-bounds `getRange()` exactly as SpreadsheetApp
+does, which is the defect being pinned: `registerPatient` upserts, and its
+in-place write (`getRange(row, 1, 1, 18)`) used to throw on a
+`Patient_Registry` tab narrower than 18 columns — a failed save when
+*editing* a patient, while registering a new one kept working, because
+`appendRow` widens the sheet itself. It now widens on demand, the same fix
+`updateDailyNutrition` got for Daily_Log in `2b7d2a4`. The harness also
+checks the no-op case on a wide grid, that `multiplesCount`/`currentBed`
+land in columns R/K, and that `_sheetSafe`'s formula-injection guard still
+applies on the widened path.
+
+This one is worth extending whenever a backend function's sheet-range
+arithmetic changes — it is cheap (no npm) and there is no other way to run
+`gas-backend.gs` outside a live Apps Script project.
 
 ## Note on the source workbook
 

@@ -217,6 +217,20 @@ script re-writes headers on next run) or add new columns in the exact
 position the script expects — a mismatch silently misaligns every existing
 row.
 
+**Adding a column at the end is safe without a migration.** `getSheetPat()`
+/ `getSheetLog()` write the full header row only when they *create* the tab,
+so a live sheet never gains labels for later columns — that's what the
+`ensurePatHeaderColumns` / `ensureLogHeaderColumns` / `ensureStaffHeaderColumns`
+one-off helpers are for (dry-run by default, never clobber an occupied header
+cell, safe to re-run). But the **grid width** is no longer load-bearing on
+anyone remembering to run them: both in-place writes — `updateDailyNutrition`
+(fixed `2b7d2a4`) and `registerPatient` (fixed 2026-08-17) — widen the sheet
+themselves when it's too narrow, since `getRange()` past the grid edge throws
+and would surface at the bedside as a failed save when *editing* an existing
+row, while creating one kept working (`appendRow` self-widens). Keep that
+property when touching either write; the migrations remain worth running for
+the header labels alone.
+
 ## 4. Auth
 
 `SPREADSHEET_ID`/`CLIENT_ID` are no longer literals in `gas-backend.gs` —
