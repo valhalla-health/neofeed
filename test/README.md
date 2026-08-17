@@ -1,10 +1,12 @@
 # Verification harnesses
 
-Three Node scripts. Two check the TPN calculator against the **official KCMH
+Four Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
-code review, which the worksheet harnesses cannot see.
+code review, which the worksheet harnesses cannot see. The fourth pins the
+three bedside-reported defects fixed on 2026-08-17 (bed label, log-entry DOL,
+Intake/Output persistence).
 
 ## Running
 
@@ -14,7 +16,8 @@ code review, which the worksheet harnesses cannot see.
 node test/verify-targets-and-dates.cjs
 ```
 
-The two KCMH harnesses are the only things in this repo that need `npm`; nothing
+`verify-bed-dol-io.cjs` and the two KCMH harnesses are the only things in this
+repo that need `npm`; nothing
 else does, and the app itself still has no build step. Dependencies are dev-only
 and are **not** committed — install them into a scratch folder and point Node at it:
 
@@ -26,6 +29,7 @@ Then, from the repo root:
 
 ```bash
 node test/verify-kcmh-constants.cjs && node test/verify-kcmh-factor.cjs
+node test/verify-bed-dol-io.cjs
 ```
 
 `verify-kcmh-factor.cjs` reads `DEAD` from the environment (mL of dead space,
@@ -72,6 +76,26 @@ It also asserts the identities the Factor exists to guarantee:
   compounding cells `G43`/`G45` use actual weight `C6`, while every electrolyte
   row uses the Factor `H9`. The app surfaces this as an info alert rather than
   silently "correcting" the sheet.
+
+**`verify-bed-dol-io.cjs`** — regression cover for the three defects reported
+from the ward on 2026-08-17. Sections 1 and 2 are pure `data.js`:
+`normalizeBed()` collapses every legacy spelling of a NICU/SCN bed onto the
+label the ward uses (and onto a value that actually exists in `BED_OPTIONS`,
+which is what the old `"NICU 1-1"` default did not), while leaving iso rooms'
+genuine room-bed pairs and unrecognized free-text beds alone; `entryDol()`
+re-derives a saved log row's DOL from its calendar date, reproducing the
+reported patient's rows (a row dated nine days into the admission that
+displayed as "DOL 1").
+
+Section 3 mounts the real `<Calculator>` in jsdom like the Factor harness does,
+because the Intake/Output defect was an effect-ordering race that only exists
+once mounted: reopening a saved entry restored `ioInput` and then immediately
+had it overwritten with the not-yet-recomputed prescribed-fluid total, so the
+field came back empty and the next save wrote that `0` over the real figure. It
+asserts the round trip (restore → untouched re-save writes the same numbers),
+the fallback to the `ioInput`/`ioOutput`/`drainContent` columns for a row whose
+`calcInput` predates the card, and — in the other direction — that a brand-new
+entry's Input still tracks the prescribed total live until the user types in it.
 
 ## Note on the source workbook
 

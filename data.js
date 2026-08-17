@@ -783,7 +783,7 @@ const MOCK_PATIENTS = [
   {
     sessionId: "TT-BW900-A", initials: "ทท", name: "ทท", bw: 900, ga: 28.1, sex: "boys",
     dob: "2026-05-15", admissionDate: "2026-05-15", twinSuffix: "",
-    status: "Active", currentBed: "NICU 2-1", diagnosis: "VLBW · RDS · step-feed",
+    status: "Active", currentBed: "NICU 2", diagnosis: "VLBW · RDS · step-feed",
     weights: [
       { dol: 1,  w: 900 }, { dol: 2,  w: 870 }, { dol: 3,  w: 850 },
       { dol: 4,  w: 830 }, { dol: 5,  w: 815 }, { dol: 6,  w: 810 },
@@ -796,7 +796,7 @@ const MOCK_PATIENTS = [
   {
     sessionId: "PP-BW850-A", initials: "PP", name: "ปพ", bw: 850, ga: 26.4, sex: "boys",
     dob: "2026-05-04", admissionDate: "2026-05-04", twinSuffix: "A",
-    status: "Active", currentBed: "NICU-3", diagnosis: "ELBW · RDS · PDA",
+    status: "Active", currentBed: "NICU 3", diagnosis: "ELBW · RDS · PDA",
     weights: [
       { dol: 1, w: 850 }, { dol: 2, w: 815 }, { dol: 3, w: 790 },
       { dol: 4, w: 778 }, { dol: 5, w: 785 }, { dol: 6, w: 805 },
@@ -808,7 +808,7 @@ const MOCK_PATIENTS = [
   {
     sessionId: "SS-BW1180-A", initials: "SS", name: "สส", bw: 1180, ga: 29.0, sex: "girls",
     dob: "2026-04-22", admissionDate: "2026-04-22", twinSuffix: "",
-    status: "Active", currentBed: "NICU-7", diagnosis: "VLBW · feeding intolerance",
+    status: "Active", currentBed: "NICU 7", diagnosis: "VLBW · feeding intolerance",
     weights: [
       { dol: 1, w: 1180 }, { dol: 3, w: 1110 }, { dol: 5, w: 1095 },
       { dol: 7, w: 1130 }, { dol: 10, w: 1240 }, { dol: 14, w: 1380 },
@@ -820,7 +820,7 @@ const MOCK_PATIENTS = [
   {
     sessionId: "NK-BW720-B", initials: "NK", name: "นก", bw: 720, ga: 25.2, sex: "boys",
     dob: "2026-05-09", admissionDate: "2026-05-09", twinSuffix: "B",
-    status: "Active", currentBed: "NICU-1", diagnosis: "ELBW Twin B · IVH gr.II",
+    status: "Active", currentBed: "NICU 1", diagnosis: "ELBW Twin B · IVH gr.II",
     weights: [
       { dol: 1, w: 720 }, { dol: 2, w: 690 }, { dol: 3, w: 670 },
     ],
@@ -830,7 +830,7 @@ const MOCK_PATIENTS = [
   {
     sessionId: "AT-BW1450-A", initials: "AT", name: "อท", bw: 1450, ga: 31.0, sex: "girls",
     dob: "2026-04-10", admissionDate: "2026-04-10", twinSuffix: "",
-    status: "Active", currentBed: "SCN-2", diagnosis: "Growing premie",
+    status: "Active", currentBed: "SCN 2", diagnosis: "Growing premie",
     weights: [
       { dol: 1, w: 1450 }, { dol: 5, w: 1390 }, { dol: 10, w: 1490 },
       { dol: 15, w: 1650 }, { dol: 20, w: 1820 }, { dol: 25, w: 2010 },
@@ -1023,6 +1023,54 @@ function dolAtDate(patient, dateStr) {
   return Math.max(admitDol, admitDol + daysSince);
 }
 
+// DOL to SHOW for an already-saved Daily_Log row.
+//
+// The `dol` column is only ever a snapshot of what DOL was at the moment the
+// row was written, so it goes stale exactly like a cached liveDol() would:
+//   • a row saved before the patient had an admissionDate got dolAtDate()'s
+//     fallback (the last stored weight's DOL, typically 1) frozen into it;
+//   • correcting a patient's admission date afterwards re-dates every DOL in
+//     the app EXCEPT those already-written rows, so the log table ends up
+//     showing e.g. "DOL 1" against a date nine days into the admission.
+// The row's calendar date (`ts`) is the durable fact, so re-derive DOL from
+// it — same "DOL is always computed live, never trusted from storage" rule
+// the rest of the app follows. `dol` survives only as the fallback for a row
+// with no date, or a patient with no admission date to measure from.
+function entryDol(patient, entry) {
+  if (!entry) return 1;
+  if (entry.ts && patient?.admissionDate) return dolAtDate(patient, entry.ts);
+  return entry.dol || 1;
+}
+
+// ============================================================
+// Bed labels — canonical form is exactly what registry.jsx's BED_OPTIONS
+// offers: "NICU <n>" (1–12) and "SCN <n>" (1–10) are flat bed numbers, while
+// the isolation rooms genuinely are two-part ("iso <room>-<bed>").
+//
+// Stored records carry non-canonical spellings that all name the same bed
+// and must not be shown verbatim:
+//   • a bogus "-1" sub-index ("NICU 1-1") — the registry modals used to
+//     default the bed field to that literal string, which was never in
+//     BED_OPTIONS, so it neither matched an <option> nor could be spotted in
+//     the dropdown, and every patient admitted without touching the field
+//     was filed under it;
+//   • a hyphen where the ward name ends ("NICU-3", "SCN-2");
+//   • stray casing or doubled whitespace.
+// Normalizing on read shows the bed the ward actually calls it, and the
+// value is rewritten for real the next time that patient row is saved.
+// ============================================================
+function normalizeBed(bed) {
+  const s = String(bed ?? "").trim().replace(/\s+/g, " ");
+  if (!s) return "";
+  const m = s.match(/^(nicu|scn|iso)\s*-?\s*(\d+)(?:\s*-\s*(\d+))?$/i);
+  if (!m) return s;                       // unrecognized free-text bed — leave alone
+  const ward = m[1].toLowerCase();
+  if (ward === "iso") return m[3] ? `iso ${m[2]}-${m[3]}` : `iso ${m[2]}`;
+  // NICU/SCN beds are a single number; a trailing "-<n>" is the old default's
+  // artifact rather than a real sub-bed, so it is dropped.
+  return `${ward.toUpperCase()} ${m[2]}`;
+}
+
 // ============================================================
 // KCMH Enteral Supplement Formulary
 // Source: Chula Pediatric Nutrition Handbook 3rd edition
@@ -1156,8 +1204,11 @@ window.NEOFEED_DATA = {
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L,
-  // Live DOL helper
-  liveDol, dolAtDate,
+  // Live DOL helper. entryDol re-derives a saved log row's DOL from its date
+  // instead of trusting the stored (snapshot, goes stale) `dol` column.
+  liveDol, dolAtDate, entryDol,
+  // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed)
+  normalizeBed,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,

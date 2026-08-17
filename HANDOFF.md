@@ -1,7 +1,109 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-15 | **Status:** 🟡 NEEDS BACKEND DEPLOY, two changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw. Both need the same `clasp push && clasp deploy` + one editor run before either works in production. Everything below **Session 2026-08-12** was still live as of that session's own status line.
+**Last updated:** 2026-08-17 | **Status:** 🟡 NEEDS BACKEND DEPLOY, two changes stacked — (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` now writes 18 columns, so `applyPatHeaderColumns()` must also be run once from the Apps Script editor before the live sheet's grid is wide enough — without it, editing an *existing* patient (new registrations are fine, `appendRow` self-widens) will throw. Both need the same `clasp push && clasp deploy` + one editor run before either works in production. **Session 2026-08-17 (below) is frontend-only** — it adds nothing to that pending deploy and ships as soon as the static files are pushed. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-17 — three ward-reported defects: bed label, log DOL, Intake/Output (frontend only)
+
+Three bugs reported from the bedside with screenshots. All three are
+frontend-only — no GAS change, no sheet migration, nothing to deploy beyond
+the static files.
+
+### 1. A patient in NICU bed 1 displayed as "NICU 1-1"
+
+`NewPatientModal` and `EditPatientModal` both defaulted their bed field to
+the literal string `"NICU 1-1"`, which is **not** in `BED_OPTIONS` — NICU and
+SCN beds there are flat numbers (`NICU 1`…`NICU 12`, `SCN 1`…`SCN 10`) and
+only the isolation rooms are genuinely two-part (`iso 1-1`…`iso 3-4`).
+Because no `<option>` matched, the `<select>` rendered blank while the state
+still submitted that string, so every patient registered without touching the
+dropdown was filed under a bed that does not exist. Several records in the
+live sheet already carry it, plus older `NICU-3`/`SCN-2` hyphen spellings.
+
+- **`data.js`**: new `normalizeBed(bed)` — collapses whitespace/casing, maps
+  `NICU 1-1` / `NICU-1` → `NICU 1` and `SCN 2-1` → `SCN 2`, keeps `iso`'s
+  room-bed pair, and returns anything unrecognized (free-text beds like
+  `9B2`) untouched.
+- **`app.jsx`**: `syncFromGAS` normalizes `currentBed` as records enter
+  client state — one place, so the registry cards/table, `PatientStrip`, the
+  calculator's print header and the admin dashboard all show one spelling
+  without each normalizing. Existing rows therefore *display* correctly
+  immediately.
+- **`registry.jsx`**: both modals default to `"NICU 1"` and normalize on
+  save, so the sheet is corrected for real the next time a patient is
+  edited; `EditPatientModal`/`TransferBedModal` also normalize the incoming
+  value so a legacy record preselects the right option instead of a blank
+  dropdown (and re-picking the same bed still counts as "no change", rather
+  than writing a spurious `NICU 1-1` → `NICU 1` hop into `bedHistory`).
+- **`data.js` mock fixtures**: `NICU 2-1`/`NICU-3`/`NICU-7`/`NICU-1`/`SCN-2`
+  → canonical labels.
+
+### 2. A patient's log entries showed a DOL that disagreed with their date
+
+Reported patient: admitted 1 ส.ค., DOL 17 in the header (correct), but the
+"All entries" table showed the row dated 11 ส.ค. as **DOL 3** and the row
+dated 9 ส.ค. as **DOL 1**. Root cause: `Daily_Log.dol` is a *snapshot* taken
+when the row is written, and the app trusted it forever after. A row saved
+before the patient had an `admissionDate` got `dolAtDate`'s fallback (the
+last stored weight's DOL, i.e. 1) frozen in; correcting the admission date
+later re-dates every DOL in the app **except** the rows already on the sheet.
+This is the documented "DOL is always computed live, never stored" rule, with
+saved log rows as the one place it wasn't being applied.
+
+- **`data.js`**: new `entryDol(patient, entry)` — re-derives from the row's
+  `ts` via `dolAtDate`, falling back to the stored column only when there is
+  no date or no admission date to measure from.
+- **`log.jsx`**: the table's DOL and "Day admit" cells, `TrendGraph`'s
+  points (so a mis-stamped row plots on the day it was recorded instead of
+  collapsing onto DOL 1), `pickTarget`'s DOL-indexed target bands, and the
+  delete-confirmation label all go through it. The table now sorts by `ts`
+  rather than by the stored `dol`, which put rows out of order for the same
+  reason.
+- **`app.jsx`**: `CalculatorView`'s `displayDol` uses it when editing an
+  existing entry — that value is also what the next save stamps, so a
+  re-saved row corrects its own stored column.
+- The stored column is still written (it's what an export or report reading
+  the sheet directly sees); it is now self-healing rather than authoritative.
+
+### 3. The Intake / Output card's "Input" was not saved
+
+Reopening a saved entry showed an empty Input field over a real saved figure,
+and re-saving then wrote that `0` over the record. Root cause was an
+effect-ordering race, not the save path (which was correct end to end):
+on mount both the prefill effect and the "keep ioInput tracking
+prescribedFluid until touched" effect run in the same commit, prefill first —
+but the auto-sync effect's closure still saw the **pre-prefill**
+`ioInputTouched === false`, so it re-ran and overwrote the just-restored
+`ioInput` with `calc.prescribedFluid`, which was itself still 0 because
+`calc` hadn't recomputed off the restored inputs yet. Output and drain have
+no such auto-sync, which is why only Input was affected.
+
+- **`calculator.jsx`**: `ioInputTouched` is mirrored into
+  `ioInputTouchedRef` (written synchronously by `markIoInputTouched`), and
+  the auto-sync effect reads the **ref**, so it sees the prefill's decision
+  in the same commit. Don't collapse this back into plain state.
+- **`calculator.jsx`**: restoring an entry now prefers the row's own
+  `ioInput`/`ioOutput`/`drainContent` columns over the copy inside
+  `calcInput` (`withEntryIO`) — the dedicated columns are the record, and
+  they exist even on a row whose `calcInput` predates the card or fails to
+  parse, where restoring from `calcInput` alone showed an empty card over
+  real saved figures.
+- Unchanged in the other direction: a brand-new entry's Input still tracks
+  the live prescribed total until the user types in the field.
+
+### Tests
+
+New `test/verify-bed-dol-io.cjs` (35 assertions). Sections 1–2 are pure
+`data.js`; section 3 mounts the real `<Calculator>` in jsdom (same harness as
+`verify-kcmh-factor.cjs`) because the I/O defect only exists once mounted.
+Reverting the ref fix alone reproduces the report exactly — Input comes back
+`""` and the re-save writes `0`. Also re-ran `verify-kcmh-constants`,
+`verify-kcmh-factor` (DEAD=20 and DEAD=0) and `verify-targets-and-dates`: all
+pass. Cache-bust tags bumped to `?v=bed-dol-io1` on `data.js`,
+`calculator.jsx`, `registry.jsx`, `log.jsx`, `app.jsx` in **both**
+`NeoFeed.html` and `index.html`.
 
 ---
 

@@ -186,8 +186,15 @@ function App() {
         if (data.error) { setSyncState("error"); return; }
 
         if (Array.isArray(data.patients)) {
-          // Replace mock data with real GAS data (even if empty registry)
-          setPatients(data.patients.length > 0 ? data.patients : []);
+          // Replace mock data with real GAS data (even if empty registry).
+          // Bed labels are canonicalized here, at the single point every
+          // patient record enters client state, so the registry cards, the
+          // patient strip, the calculator's print header and the admin
+          // dashboard all show one spelling without each having to normalize
+          // (see D.normalizeBed — legacy rows carry "NICU 1-1"/"NICU-1").
+          const incoming = data.patients.map(p =>
+            ({ ...p, currentBed: D_A.normalizeBed(p.currentBed) }));
+          setPatients(incoming.length > 0 ? incoming : []);
           // Never auto-pick a patient — keep the current selection only if it
           // still exists in the fresh data, otherwise fall back to none (registry list).
           setActiveId(prev => data.patients.some(p => p.sessionId === prev) ? prev : null);
@@ -728,7 +735,12 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role,
   handleLogToGAS, handleUpdateToGAS, handleDeleteEntry, goTo, setCalcWeights }) {
-  const displayDol = editEntry ? editEntry.dol : (logDate ? D_A.dolAtDate(active, logDate) : dol);
+  // Editing an existing row re-derives its DOL from the row's date rather
+  // than trusting the stored `dol` column (D_A.entryDol) — otherwise a row
+  // saved before this patient had an admission date keeps re-saving that
+  // wrong DOL every time it is edited, and the wizard's DOL-indexed targets
+  // are computed for the wrong day.
+  const displayDol = editEntry ? D_A.entryDol(active, editEntry) : (logDate ? D_A.dolAtDate(active, logDate) : dol);
   const baselineEntry = !editEntry ? (log[activeId] || []).slice(-1)[0] || null : null;
   const lockDate = editEntry ? editEntry.ts : (logDate || D_A.todayLocal());
   const holder = useDailyLogLock(active.sessionId, lockDate, token);
