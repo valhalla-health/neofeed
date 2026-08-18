@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Eight Node scripts. Two check the TPN calculator against the **official KCMH
+Nine Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -9,8 +9,10 @@ registry reports back to the ward — who has been logged today and who still
 needs an entry. The fifth pins the three bedside-reported defects fixed on
 2026-08-17 (bed label, log-entry DOL, Intake/Output persistence). The sixth and
 seventh are the only things here that exercise `gas-backend.gs` at all — the
-registry upsert, and session revocation on the auth path — and the eighth
-drives the whole app in a real browser.
+registry upsert, and session revocation on the auth path. The eighth pins the
+2026-08-18 code review: that a background re-sync doesn't tear the workspace
+down mid-entry, and that the registry/admin lists report the ward's own numbers
+back to it. The ninth drives the whole app in a real browser.
 
 ## Running
 
@@ -40,7 +42,15 @@ Then, from the repo root:
 node test/verify-kcmh-constants.cjs && node test/verify-kcmh-factor.cjs
 node test/verify-registry-logged-today.cjs
 node test/verify-bed-dol-io.cjs
+node test/verify-resync-and-lists.cjs
 ```
+
+`verify-resync-and-lists.cjs` is the only one that mounts the **whole**
+`<App/>` (against a stubbed `fetch`, with `window.NEOFEED_GAS_URL` set so the
+GAS code paths are live) rather than a single component, because the defect it
+pins — the app blanking to its first-load spinner on every focus re-sync — only
+exists at that level. It drives the real Calculator through a real focus event,
+so it also serves as the closest thing here to an integration test.
 
 The browser runthrough additionally needs Playwright and a Chromium:
 

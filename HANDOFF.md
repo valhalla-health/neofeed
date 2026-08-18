@@ -1,5 +1,5 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-17 | **Status:** 🟢 **DEPLOYED — production is `@46`** (2026-08-17), carrying GitHub `main` `df5df2b`. The four stacked backend changes below all shipped in it: the recovered auth hardening, `deletePatient`, `multiplesCount`, and the `Daily_Log.ts` `_fmtDate` fix. Verified after deploying: `clasp pull` into a scratch dir is byte-identical to `gas-backend.gs`, `list-deployments` shows `AKfycbz8Nt…` at `@46` with the deployment count still 26 (the existing deployment was updated, so `NEOFEED_GAS_URL` is unchanged), and both backend harnesses pass against the pulled live source.
+**Last updated:** 2026-08-18 | **Status:** 🟢 **DEPLOYED — production is `@46`** (2026-08-17), carrying GitHub `main` `df5df2b`. The 2026-08-18 code-review fixes below are **frontend-only** — they go live with the static files, `gas-backend.gs` is untouched, no redeploy needed. The four stacked backend changes below all shipped in it: the recovered auth hardening, `deletePatient`, `multiplesCount`, and the `Daily_Log.ts` `_fmtDate` fix. Verified after deploying: `clasp pull` into a scratch dir is byte-identical to `gas-backend.gs`, `list-deployments` shows `AKfycbz8Nt…` at `@46` with the deployment count still 26 (the existing deployment was updated, so `NEOFEED_GAS_URL` is unchanged), and both backend harnesses pass against the pulled live source.
 
 ⚠️ **Not yet exercised by a real login or a real Delete.** The harnesses run against stubs, which do not model CacheService eviction or real LockService contention, and the auth changes are of unknown provenance (see below). **Rollback if anything misbehaves:** `clasp update-deployment -V 45 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV`. Deployed via `clasp` as `peeraporn.po@chula.ac.th`, the same identity that cut `@45`, so `executeAs: USER_DEPLOYING` is unchanged.
 
@@ -10,6 +10,54 @@
 (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` writes 18 columns — **no longer blocking as of session 2026-08-17 (2) below**, which made that upsert widen the sheet grid on demand, so `applyPatHeaderColumns()` is now worth running for the header *label* only, not as a precondition for saving; (3) `getActivePatients()` now returns `Daily_Log.ts` through `_fmtDate()` — **also not blocking**: the client normalizes `ts` itself as of session 2026-08-17 (1), so "Logged today" is correct in the live app with or without the deploy, and the `.gs` fix just stops the malformed value at source. Only (1) still *needs* the `clasp push && clasp deploy` before it works in production; (2) and (3) ride along in the same deploy. Everything else in the two 2026-08-17 sessions below is frontend and ships as soon as the static files are pushed. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-18 — full code review; six defects fixed, nine reported
+
+Read every source file against `app-walkthrough.md`'s conventions. Full writeup
+in **`CODE_REVIEW_2026-08-18.md`**; this is the operational summary.
+
+**Frontend only — ships with the static files, no `clasp` deploy needed.**
+`gas-backend.gs` is untouched. All eight pre-existing harnesses still pass, and
+a new one (`test/verify-resync-and-lists.cjs`, 15 assertions) pins the fixes;
+11 of its assertions fail against the pre-fix source, which is how it was
+validated. `?v=` bumped to `review-0818` on `app.jsx` and `registry.jsx` in
+both HTML shells (which remain byte-identical).
+
+**The one that matters at the bedside:** `App` gated its whole tree on
+`syncState === "loading"`, and `syncFromGAS` now runs on tab focus (60s
+throttle) and day rollover as well as at login — so every background refresh
+replaced the workspace with the first-load spinner and unmounted everything
+under it. Tab away, come back a minute later, and a half-finished Calculator
+had reset every typed field to its prefill (`localStorage` only holds the last
+*submitted* state, so the weight field silently reverts to the patient record's
+number rather than blanking). Now gated on `!lastSync` too. Verified by
+mounting the real `<App/>` in jsdom, typing into the real Calculator and firing
+a real focus event.
+
+Also fixed: the desktop registry table read `weights[last]` instead of
+`D.lastWeighed`, so a patient whose newest measurement was length/HC-only
+(`w: null`) showed "— g" and **−100% of birth weight in critical red**, beside
+a mobile card correctly showing +22%; `PatientStrip` could throw (and white-
+screen the app — there is no error boundary) on a patient with no weighed
+measurement; `computeAlerts` fed the stale stored `dol` into DOL-indexed
+targets, so a row frozen at DOL 1 kept the day-1 protein/energy floors and an
+under-fed infant never alerted; the admin dashboard's "Recent log entries" was
+sliced from a patient-ordered `flatMap` and so wasn't recent; its "Active
+sessions" tile used `status === "Active"` where the registry uses
+`isActivePatient` (blank counts); archived registry rows spanned 12 columns
+against an 11-column header.
+
+**Not changed, needs a decision or a deploy** (details in the review doc):
+`mustChangePassword` is enforced only in the client — the server hands a
+temp-password account a fully-privileged token; no server-side
+one-entry-per-date guard; `registerPatient` silently overwrites on a colliding
+`initials+BW` pseudonym; `updateWeights` fails silently and takes no lock;
+`Audit_Log` now gains a row per re-sync per user per minute; `_buildLogRow`'s
+date fallback still uses `toISOString()`; `TARGETS.fluid` is documented as
+taking birth weight but every call site passes current weight; `SaltRow`
+accepts negative electrolyte doses where `NumField` deliberately doesn't.
 
 ---
 

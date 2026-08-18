@@ -47,12 +47,20 @@ function computeAlerts(patient, entries) {
     const T     = isEN ? D_A.ENTERAL_TARGETS : D_A.TPN_TARGETS;
     const src   = isEN ? "ESPGHAN 2022" : "ESPGHAN 2018";
     const route = isEN ? "enteral" : "parenteral";
+    // DOL re-derived from the row's own date, never read off the stored `dol`
+    // column (D_A.entryDol — the same rule log.jsx's pickTarget and table
+    // already follow). The stored column is a snapshot from when the row was
+    // written: a row saved before the patient had an admission date froze
+    // DOL 1 into itself, which here picked the DOL-1 parenteral bands
+    // (protein 1.5–2.5, kcal 45–55) for an infant a week into its admission —
+    // so a genuinely under-fed baby read as on target and never alerted.
+    const lastDol = D_A.entryDol(patient, last);
     const tGir  = D_A.TARGETS.gir();
-    const tPro  = isEN ? T.protein() : T.protein(last.dol);
-    const tKcal = isEN ? T.kcal()    : T.kcal(last.dol);
-    if (last.gir > tGir[1]) alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: last.dol, ref: "ESPGHAN 2018" });
-    if (last.pro < tPro[0] && last.dol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${last.dol} — target ${tPro[0]}–${tPro[1]} g/kg/d (${src}, ${route}).`, dol: last.dol, ref: src });
-    if (last.kcal < tKcal[0] && last.dol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${last.dol} (${src}, ${route}).`, dol: last.dol, ref: src });
+    const tPro  = isEN ? T.protein() : T.protein(lastDol);
+    const tKcal = isEN ? T.kcal()    : T.kcal(lastDol);
+    if (last.gir > tGir[1]) alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: lastDol, ref: "ESPGHAN 2018" });
+    if (last.pro < tPro[0] && lastDol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${lastDol} — target ${tPro[0]}–${tPro[1]} g/kg/d (${src}, ${route}).`, dol: lastDol, ref: src });
+    if (last.kcal < tKcal[0] && lastDol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${lastDol} (${src}, ${route}).`, dol: lastDol, ref: src });
   }
 
   // Growth velocity — from patient.weights (Fenton chart data, most reliable).
@@ -96,7 +104,7 @@ function computeAlerts(patient, entries) {
   // that anyway, on every patient, in the same visual language as the alerts
   // that ARE computed. Keep it phrased as the reminder it is until an actual
   // electrolyte-draw date is captured and this can be derived.
-  alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: last?.dol, ref: "KCMH protocol" });
+  alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: last ? D_A.entryDol(patient, last) : undefined, ref: "KCMH protocol" });
 
   return alerts;
 }
@@ -508,9 +516,18 @@ function App() {
     );
   }
 
-  // Block the main UI until the first GAS sync completes — prevents mock patients
+  // Block the main UI until the FIRST GAS sync completes — prevents mock patients
   // from being visible or interactable before real patient data arrives.
-  if (GAS_ON && syncState === "loading") {
+  //
+  // `!lastSync`, not `syncState === "loading"` on its own: syncFromGAS also runs
+  // on tab focus (throttled to once a minute) and on day rollover, and gating
+  // the whole tree on "loading" tore the app down and rebuilt it on every one of
+  // those. Everything below unmounted — so a half-finished Calculator lost every
+  // typed field back to its prefill, an open modal/picker closed, and the
+  // accordion collapsed, merely because someone glanced at another app and came
+  // back. Only the very first load has nothing to protect; after that the
+  // refresh is a background one, surfaced by the topbar's own "Syncing…" pill.
+  if (GAS_ON && syncState === "loading" && !lastSync) {
     return (
       <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column",
         alignItems:"center", justifyContent:"center", gap:16,
@@ -867,10 +884,15 @@ function RailItem({ icon, label, active, count, crit, onClick }) {
 }
 
 function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
-  const last = D_A.lastWeighed(patient) || patient.weights[patient.weights.length - 1];
-  const currentW = liveWeight ?? last.w;
+  // `?? patient.bw` rather than trusting `last.w`: a patient whose only
+  // measurements are length/HC (w: null) has no weighed entry at all, and this
+  // strip is rendered above every non-registry view — reading `.w` off nothing
+  // threw and took the whole app down with it, since there is no error boundary.
+  const ws = patient.weights || [];
+  const last = D_A.lastWeighed(patient) || ws[ws.length - 1] || null;
+  const currentW = liveWeight ?? last?.w ?? patient.bw;
   // Use calculated DOL if passed, else fall back to stored value
-  const displayDol = currentDol ?? last.dol;
+  const displayDol = currentDol ?? last?.dol ?? 1;
   const delta = currentW - patient.bw;
   const deltaPct = delta / patient.bw * 100;
   const [wtLabel, wtColor] = patient.bw < 1000
@@ -1297,8 +1319,22 @@ function LoginScreen({ onLogin }) {
 // ============================================================
 function AdminDashboard({ patients, log }) {
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
-  const active = patients.filter(p => p.status === "Active").length;
-  const allEntries = patients.flatMap(p => (log[p.sessionId] || []).map(e => ({ ...e, sid: p.sessionId, bed: p.currentBed })));
+  // Same "still on the unit" test the registry uses (registry.jsx's
+  // isActivePatient): a blank status counts as Active, because the backend
+  // defaults it but a patient added locally — or a row typed straight into
+  // the sheet — can have none. Requiring the literal string made this tile
+  // read lower than the registry's own Active count for the same census.
+  const active = patients.filter(p => !p.status || p.status === "Active").length;
+  // Newest first by calendar date, not by whichever patient happens to come
+  // last in the registry. flatMap groups by patient, so `.slice(-20)` on the
+  // raw concatenation returned "the last patients' entries" — a table titled
+  // Recent log entries that could omit today's entries entirely while showing
+  // week-old ones. `dol` likewise comes from the row's date (D_A.entryDol),
+  // not the stored snapshot column.
+  const allEntries = patients
+    .flatMap(p => (log[p.sessionId] || []).map(e =>
+      ({ ...e, sid: p.sessionId, bed: p.currentBed, showDol: D_A.entryDol(p, e) })))
+    .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
   // Compute alert count across all patients via the shared computeAlerts() —
   // same source of truth as the per-patient nav badge and the Alerts page.
   const alertsTotal = patients.reduce((sum, p) => {
@@ -1344,7 +1380,7 @@ function AdminDashboard({ patients, log }) {
                 <tr key={i} style={{ borderTop: "1px solid var(--line-2)" }}>
                   <td className="num" style={{ padding: "8px 12px" }}>{e.sid}</td>
                   <td className="num" style={{ padding: "8px 12px" }}>{e.bed}</td>
-                  <td className="num" style={{ padding: "8px 12px" }}>{e.dol}</td>
+                  <td className="num" style={{ padding: "8px 12px" }}>{e.showDol}</td>
                   <td className="num" style={{ padding: "8px 12px" }}>{e.weight}</td>
                   <td className="num" style={{ padding: "8px 12px" }}>{e.kcal}</td>
                   <td className="num" style={{ padding: "8px 12px" }}>{e.pro}</td>
