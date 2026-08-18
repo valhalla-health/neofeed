@@ -118,6 +118,18 @@ GAS on tab focus (throttled to once a minute) and on day rollover; before
 that it fetched once at login and never again, so entries logged from another
 device never showed up.
 
+**Those background refetches must stay background.** `App`'s first-load gate
+is `syncState === "loading" && !lastSync` — the `!lastSync` half is
+load-bearing (added 2026-08-18). Only the very first sync has nothing to
+protect; every later one is a refresh underneath a workspace someone is using.
+Gating the whole tree on `"loading"` alone unmounted everything below it on
+each focus/rollover refetch, so a half-finished Calculator lost every typed
+field back to its prefill (`localStorage` only holds the last *submitted*
+state) and any open modal closed — from nothing more than tabbing away and
+back. A refresh is already reported by the topbar's "Syncing…" pill; don't
+give it the full-screen spinner too. `test/verify-resync-and-lists.cjs` mounts
+the real `<App/>` and fires a real focus event to hold this.
+
 **A saved Daily_Log row's `dol` column is a snapshot, not a fact** — it
 records what DOL was when that row was written, so it goes stale exactly
 like a cached `liveDol()` would. Two ways it ends up wrong: the row was
@@ -131,9 +143,32 @@ rule above) and falls back to the stored column only when there's no date or
 no admission date to measure from. The stored
 column is still written on save (it's what a report or an export off the
 sheet reads), and is corrected in place whenever the entry is re-saved.
-`log.jsx`'s table and `TrendGraph`, and `app.jsx`'s `CalculatorView`
-(`displayDol`, which is also what the next save stamps), all use it. The
-"All entries" table sorts by `ts`, not `dol`, for the same reason.
+`log.jsx`'s table and `TrendGraph`, `app.jsx`'s `CalculatorView`
+(`displayDol`, which is also what the next save stamps), `computeAlerts` and
+the admin dashboard's entry table (both 2026-08-18) all use it. The
+"All entries" table sorts by `ts`, not `dol`, for the same reason — as does
+the admin dashboard's "Recent log entries", which used to slice the
+`flatMap`-ed concatenation and so showed *the last patients*, not the last
+entries.
+
+`computeAlerts` was the last holdout: it fed the stored `dol` into
+`TPN_TARGETS.protein(dol)`/`.kcal(dol)`, so a row frozen at DOL 1 kept the
+day-1 bands (protein floor 1.5 instead of 2.5 g/kg/d) and an under-fed infant
+never triggered an alert. Note the alert's `dol` is also half its
+acknowledge key (`ackKey(id, dol)`), so changing what it reports re-surfaces
+existing acks once — that is expected, not a regression.
+
+### Current weight vs. the last measurement
+A `weights[]` entry with `w: null` is a **length/HC-only** measurement —
+`MeasurementLogger` writes exactly that shape so a tape-measure visit doesn't
+fabricate a weight for the day. So `weights[weights.length - 1]` is not
+"the current weight": use `D.lastWeighed(patient)`, which walks back to the
+last entry that actually carries one, and render "—" when it returns null
+rather than computing a delta off nothing. Both registry layouts, the
+`PatientStrip` and `computeAlerts`'s growth-velocity block do this; the
+desktop registry table did not until 2026-08-18, where it showed "— g" for
+the weight and a Δ of `null − bw` — every such patient reading as −100% of
+birth weight, in critical red, next to a mobile card showing +22%.
 
 ### Bed labels
 `currentBed` is free text in the sheet, but the canonical set is exactly what

@@ -148,7 +148,10 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
       {/* ─── Mobile: card list ─── */}
       <div className="patient-card-list">
         {activeSorted.map(p => {
-          const last    = D_R.lastWeighed(p) || p.weights[p.weights.length - 1];
+          // No fallback to the raw last array element: that element can be a
+          // length/HC-only row (`w: null`), which turns Δ into `null - bw`
+          // — a bogus −100% — instead of the honest "—" a null `last` gives.
+          const last    = D_R.lastWeighed(p) || null;
           const dol     = D_R.liveDol(p);
           const delta   = last ? last.w - p.bw : 0;
           const deltaPct = (delta / p.bw) * 100;
@@ -191,9 +194,11 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                   <span className="pmc-lbl">Wt</span>
                   <span className="num">{last?.w?.toLocaleString() || "—"}</span> g
                 </span>
-                <span style={{ color: deltaColor }}>
+                <span style={{ color: last ? deltaColor : "var(--ink-3)" }}>
                   <span className="pmc-lbl">Δ</span>
-                  <span className="num">{delta >= 0 ? "+" : ""}{delta}</span> g ({deltaPct.toFixed(1)}%)
+                  {last
+                    ? <><span className="num">{delta >= 0 ? "+" : ""}{delta}</span> g ({deltaPct.toFixed(1)}%)</>
+                    : <span className="num">—</span>}
                 </span>
                 {/* Today's entry, stated outright rather than as a quiet grey
                     hint — this is the one thing the round asks of the list. */}
@@ -298,7 +303,13 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
           </thead>
           <tbody>
             {activeSorted.map(p => {
-              const last     = p.weights[p.weights.length - 1];
+              // D_R.lastWeighed, not the raw last array element — same as the
+              // mobile card above. A length/HC-only measurement is stored with
+              // `w: null` (see MeasurementLogger), so the newest entry is not
+              // necessarily a weighed one: taking it blind showed "— g" for the
+              // weight and a Δ of `null - bw`, i.e. every such patient reading
+              // as −100% of birth weight, in critical red, on the ward list.
+              const last     = D_R.lastWeighed(p) || null;
               const dol      = D_R.liveDol(p);
               const delta    = last ? last.w - p.bw : 0;
               const deltaPct = (delta / p.bw) * 100;
@@ -328,10 +339,12 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                   <td className="num">{p.bw.toLocaleString()}</td>
                   <td style={{ color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
                   <td className="num" style={{ fontWeight: 700, color: "var(--brand-2)", fontSize: 15 }}>{dol}</td>
-                  <td className="num">{last?.w?.toLocaleString() || "—"} g</td>
-                  <td className="num" style={{ color: deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)", fontWeight: 600 }}>
-                    {delta >= 0 ? "+" : ""}{delta} g
-                    <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({deltaPct.toFixed(1)}%)</span>
+                  <td className="num">{last ? `${last.w.toLocaleString()} g` : "—"}</td>
+                  <td className="num" style={{ color: !last ? "var(--ink-3)" : deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)", fontWeight: 600 }}>
+                    {last ? <>
+                      {delta >= 0 ? "+" : ""}{delta} g
+                      <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({deltaPct.toFixed(1)}%)</span>
+                    </> : "—"}
                   </td>
                   <td>
                     <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"var(--ok)", fontWeight:600 }}>
@@ -386,7 +399,11 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                 <td className="num">{D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))}</td>
                 <td className="num">{p.bw.toLocaleString()}</td>
                 <td style={{ color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
-                <td colSpan={4} />
+                {/* DOL · Wt now · Δ birth — three columns, matching the 11 in
+                    <thead>. colSpan 4 pushed Status and the actions cell one
+                    column past the header, so every archived row's status chip
+                    sat under the wrong heading. */}
+                <td colSpan={3} />
                 <td><span className="chip"><span className="d" />{p.status}</span></td>
                 <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                   <button className="btn sm" onClick={e => { e.stopPropagation(); setEditPatient(p); }}>Edit</button>
