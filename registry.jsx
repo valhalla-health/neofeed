@@ -589,7 +589,10 @@ function NewPatientModal({ onClose, onSubmit }) {
               <label>DOL at admit</label>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input type="number" className="inp" min={1} style={{ flex: 1 }} value={admitDol}
-                  onChange={e => setAdmitDol(Math.max(1, parseInt(e.target.value) || 1))} />
+                  onChange={e => {
+                    const v = e.target.value;
+                    setAdmitDol(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
+                  }} />
                 {admitDol > 1 && (
                   <span style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
                     DOB: {dob}
@@ -866,7 +869,11 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
             </div>
             <div className="field">
               <label>DOL แรกรับ</label>
-              <input type="number" className="inp" min={1} value={dol1} onChange={e => setDol1(Math.max(1, parseInt(e.target.value, 10) || 1))} />
+              <input type="number" className="inp" min={1} value={dol1}
+                onChange={e => {
+                  const v = e.target.value;
+                  setDol1(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
+                }} />
             </div>
           </div>
           <div className="row-2">
