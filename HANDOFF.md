@@ -1,5 +1,5 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-18 | **Status:** 🟢 **DEPLOYED — production is `@46`** (2026-08-17), carrying GitHub `main` `df5df2b`. The 2026-08-18 code-review fixes below are **frontend-only** — they go live with the static files, `gas-backend.gs` is untouched, no redeploy needed. The four stacked backend changes below all shipped in it: the recovered auth hardening, `deletePatient`, `multiplesCount`, and the `Daily_Log.ts` `_fmtDate` fix. Verified after deploying: `clasp pull` into a scratch dir is byte-identical to `gas-backend.gs`, `list-deployments` shows `AKfycbz8Nt…` at `@46` with the deployment count still 26 (the existing deployment was updated, so `NEOFEED_GAS_URL` is unchanged), and both backend harnesses pass against the pulled live source.
+**Last updated:** 2026-08-19 | **Status:** 🟢 **DEPLOYED — production is `@46`** (2026-08-17), carrying GitHub `main` `df5df2b`. The 2026-08-18 code-review fixes below are **frontend-only** — they go live with the static files, `gas-backend.gs` is untouched, no redeploy needed. The four stacked backend changes below all shipped in it: the recovered auth hardening, `deletePatient`, `multiplesCount`, and the `Daily_Log.ts` `_fmtDate` fix. Verified after deploying: `clasp pull` into a scratch dir is byte-identical to `gas-backend.gs`, `list-deployments` shows `AKfycbz8Nt…` at `@46` with the deployment count still 26 (the existing deployment was updated, so `NEOFEED_GAS_URL` is unchanged), and both backend harnesses pass against the pulled live source.
 
 ⚠️ **Not yet exercised by a real login or a real Delete.** The harnesses run against stubs, which do not model CacheService eviction or real LockService contention, and the auth changes are of unknown provenance (see below). **Rollback if anything misbehaves:** `clasp update-deployment -V 45 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV`. Deployed via `clasp` as `peeraporn.po@chula.ac.th`, the same identity that cut `@45`, so `executeAs: USER_DEPLOYING` is unchanged.
 
@@ -10,6 +10,57 @@
 (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` writes 18 columns — **no longer blocking as of session 2026-08-17 (2) below**, which made that upsert widen the sheet grid on demand, so `applyPatHeaderColumns()` is now worth running for the header *label* only, not as a precondition for saving; (3) `getActivePatients()` now returns `Daily_Log.ts` through `_fmtDate()` — **also not blocking**: the client normalizes `ts` itself as of session 2026-08-17 (1), so "Logged today" is correct in the live app with or without the deploy, and the `.gs` fix just stops the malformed value at source. Only (1) still *needs* the `clasp push && clasp deploy` before it works in production; (2) and (3) ride along in the same deploy. Everything else in the two 2026-08-17 sessions below is frontend and ships as soon as the static files are pushed. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-19 — GA / BW / sex editable on an existing session
+
+**Frontend only — ships with the static files, no `clasp` deploy needed.**
+`gas-backend.gs` is untouched: `registerPatient`'s upsert already writes the
+`bw` and `ga` columns on every save, so the corrected values land on the sheet
+through the same path an edited bed or diagnosis takes. `?v=` bumped to
+`ga-bw-edit1` on `registry.jsx` in both HTML shells (still byte-identical).
+
+**Reported from the ward:** a session registered with a wrong birth weight
+(KH-BW1090) could not be corrected — `EditPatientModal` showed GA, BW and sex
+as a read-only chip strip, so the only fix was deleting the session and
+re-registering it, which takes the patient's entire Daily_Log with it
+(`deletePatient` drops every row for the sessionId). Those three are now
+editable fields at the top of the modal, laid out like the register form's
+first row.
+
+Two things deliberately do **not** change with a corrected BW:
+
+- **The sessionId.** It is the key both tabs are matched on, so it keeps the
+  BW it was issued with — `KH-BW1090` stays `KH-BW1090` even after the weight
+  is fixed to 1900 g. The modal says so inline when the BW is edited, so the
+  mismatch between the id and the record is expected rather than alarming.
+  `patient.bw` is what every calculation reads; the id is a label.
+- **A first weight measurement that has been edited on its own.**
+  `weights[0]` is the row `NewPatientModal` seeds from the birth weight, so it
+  is corrected alongside — otherwise the Fenton chart and the registry's
+  Δ-birth keep plotting the typo — but only while it still equals the old
+  `bw`. A patient admitted past DOL 1, or whose first row has since been
+  edited, keeps it.
+
+Neither field can be *cleared*: save is disabled on a 0/blank BW or an unset
+GA week, the same gate registration applies, because a 0 there rescales every
+subsequent dose. GA stays `WW.D` shorthand throughout, seeded through
+`gaTotalDays` so a hand-edited `27.9` on the sheet comes back as 27+6.
+
+**A GA outside 22–43 wk cannot be saved at all.** Both modals now render one
+shared `GA_WEEK_OPTIONS` list, so register and edit offer exactly the same
+range and can't drift apart. A record already carrying something outside it
+(imported, or typed straight into the sheet) is *not* carried along as a
+pickable option — the rule `BedSelect` follows for an off-list bed does not
+apply here, because an unrecognized bed is still a real place while a GA of
+20 wk is a data error every downstream calculation keeps reading. The selects
+seed blank, an amber notice names the old value and says to pick a new one,
+and save stays disabled until one is picked.
+
+New harness `test/verify-patient-ga-bw-edit.cjs` (32 assertions) mounts the
+real `<EditPatientModal>` and drives the fields; all nine pre-existing
+harnesses still pass.
 
 ---
 

@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Nine Node scripts. Two check the TPN calculator against the **official KCMH
+Ten Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -12,7 +12,10 @@ seventh are the only things here that exercise `gas-backend.gs` at all — the
 registry upsert, and session revocation on the auth path. The eighth pins the
 2026-08-18 code review: that a background re-sync doesn't tear the workspace
 down mid-entry, and that the registry/admin lists report the ward's own numbers
-back to it. The ninth drives the whole app in a real browser.
+back to it. The ninth pins the patient-record fields that were read-only until
+2026-08-19 — GA, birth weight and sex — staying correctable without the
+sessionId moving under the log. The tenth drives the whole app in a real
+browser.
 
 ## Running
 
@@ -26,8 +29,9 @@ node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
 ```
 
-The two KCMH harnesses, `verify-registry-logged-today.cjs` and
-`verify-bed-dol-io.cjs` are the only things in this repo that need `npm` (they
+The two KCMH harnesses, `verify-registry-logged-today.cjs`,
+`verify-bed-dol-io.cjs` and `verify-patient-ga-bw-edit.cjs` are the only things
+in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
 has no build step. Dependencies are dev-only
 and are **not** committed — install them into a scratch folder and point Node at it:
@@ -43,6 +47,7 @@ node test/verify-kcmh-constants.cjs && node test/verify-kcmh-factor.cjs
 node test/verify-registry-logged-today.cjs
 node test/verify-bed-dol-io.cjs
 node test/verify-resync-and-lists.cjs
+node test/verify-patient-ga-bw-edit.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -139,6 +144,25 @@ asserts the round trip (restore → untouched re-save writes the same numbers),
 the fallback to the `ioInput`/`ioOutput`/`drainContent` columns for a row whose
 `calcInput` predates the card, and — in the other direction — that a brand-new
 entry's Input still tracks the prescribed total live until the user types in it.
+
+**`verify-patient-ga-bw-edit.cjs`** — mounts the real `<EditPatientModal>` in
+jsdom and drives its fields, because what it pins is the payload the modal
+submits. GA, birth weight and sex were a read-only chip strip there until
+2026-08-19, so a registration typo (the reported one was a BW keyed as 1090)
+could only be corrected by deleting the session and re-registering it — which
+takes the whole Daily_Log with it, since `deletePatient` drops every row for
+the sessionId. The two invariants that make editing them safe are what the
+assertions are for: the **sessionId is not re-derived** from the corrected BW
+(it is the key both tabs are matched on — regenerating it strands the log), and
+GA stays **`WW.D` shorthand** rather than decimal weeks, seeded through
+`gaTotalDays` so a hand-edited `27.9` in the sheet comes back as 27+6. It also
+covers the birth measurement following a corrected BW only while
+`weights[0].w` still matches the old one, that neither field can be *cleared*
+(the same gate registration applies — a 0 there corrupts every subsequent
+dose), and that a GA outside 22–43 wk is neither preselected nor offered but
+must be re-picked before the record can be saved — with a structural check
+that both modals render the one shared `GA_WEEK_OPTIONS` list, so the range
+can't drift between register and edit.
 
 **`verify-gas-registry-upsert.cjs`** — one of the two harnesses that run
 backend code. `gas-backend.gs` is Apps Script, but every top-level statement in it is
