@@ -1,5 +1,5 @@
 # NeoFeed V2 — Session Handoff
-**Last updated:** 2026-08-19 (2) | **Status:** 🟢 **DEPLOYED — production is `@46`** (2026-08-17), carrying GitHub `main` `df5df2b`. The 2026-08-18 code-review fixes below are **frontend-only** — they go live with the static files, `gas-backend.gs` is untouched, no redeploy needed. The four stacked backend changes below all shipped in it: the recovered auth hardening, `deletePatient`, `multiplesCount`, and the `Daily_Log.ts` `_fmtDate` fix. Verified after deploying: `clasp pull` into a scratch dir is byte-identical to `gas-backend.gs`, `list-deployments` shows `AKfycbz8Nt…` at `@46` with the deployment count still 26 (the existing deployment was updated, so `NEOFEED_GAS_URL` is unchanged), and both backend harnesses pass against the pulled live source.
+**Last updated:** 2026-08-19 (3) | **Status:** 🟢 **DEPLOYED — production is `@46`** (2026-08-17), carrying GitHub `main` `df5df2b`. The 2026-08-18 code-review fixes below are **frontend-only** — they go live with the static files, `gas-backend.gs` is untouched, no redeploy needed. The four stacked backend changes below all shipped in it: the recovered auth hardening, `deletePatient`, `multiplesCount`, and the `Daily_Log.ts` `_fmtDate` fix. Verified after deploying: `clasp pull` into a scratch dir is byte-identical to `gas-backend.gs`, `list-deployments` shows `AKfycbz8Nt…` at `@46` with the deployment count still 26 (the existing deployment was updated, so `NEOFEED_GAS_URL` is unchanged), and both backend harnesses pass against the pulled live source.
 
 ⚠️ **Not yet exercised by a real login or a real Delete.** The harnesses run against stubs, which do not model CacheService eviction or real LockService contention, and the auth changes are of unknown provenance (see below). **Rollback if anything misbehaves:** `clasp update-deployment -V 45 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV`. Deployed via `clasp` as `peeraporn.po@chula.ac.th`, the same identity that cut `@45`, so `executeAs: USER_DEPLOYING` is unchanged.
 
@@ -10,6 +10,27 @@
 (1) a new `deletePatient` GAS action: until someone with Apps Script editor access `clasp push`es and redeploys, the "Delete session" button will fail server-side (frontend now expects `deletePatient` to exist) and its rollback path will kick in, restoring the patient in local state with an error toast; (2) the new `multiplesCount` field: `registerPatient()` writes 18 columns — **no longer blocking as of session 2026-08-17 (2) below**, which made that upsert widen the sheet grid on demand, so `applyPatHeaderColumns()` is now worth running for the header *label* only, not as a precondition for saving; (3) `getActivePatients()` now returns `Daily_Log.ts` through `_fmtDate()` — **also not blocking**: the client normalizes `ts` itself as of session 2026-08-17 (1), so "Logged today" is correct in the live app with or without the deploy, and the `.gs` fix just stops the malformed value at source. Only (1) still *needs* the `clasp push && clasp deploy` before it works in production; (2) and (3) ride along in the same deploy. Everything else in the two 2026-08-17 sessions below is frontend and ships as soon as the static files are pushed. Everything below **Session 2026-08-12** was still live as of that session's own status line.
 
 **TPN calculator:** the KCMH-worksheet alignment + overfill Factor (session 2026-08-06 below) is merged to `main` and live — frontend only. Its four corrected stock concentrations change the mL printed on every order form. Open item: Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were *inferred* from the worksheet's divisors, not from an explicit strength label — worth confirming against the shelf.
+
+---
+
+## Session 2026-08-19 (3) — new harness: `verify-delete-session.cjs`
+
+**No code change** — a ward question ("can a whole session be deleted?") was
+answered by reading `EditPatientModal`'s "Delete session" button through
+`handleDeletePatient` (`app.jsx`) to `deletePatient()` (`gas-backend.gs`) end
+to end, and the answer (yes, admin-only, permanent, cascades to every
+`Daily_Log` row) is now pinned by `test/verify-delete-session.cjs` instead of
+living only in this conversation. 28 assertions across three parts:
+`deletePatient()` itself in a `vm` sandbox (registry + log cascade, other
+patients untouched, lock taken/released, missing/unknown `sessionId`
+rejected), a structural check that `doPost`'s branch gates on
+`role === "admin"` before deleting and audits after, and the real
+`<EditPatientModal>` mounted in jsdom (button absent for non-admins, a
+declined `confirm()` calls neither `onDelete` nor `onClose`, an accepted one
+calls both, and the confirm text names the patient and says the deletion is
+permanent). Not covered: `handleDeletePatient`'s optimistic-rollback-on-
+failure — see the harness's own note in `test/README.md` for what that would
+take.
 
 ---
 

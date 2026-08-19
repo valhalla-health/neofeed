@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Ten Node scripts. Two check the TPN calculator against the **official KCMH
+Eleven Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -14,8 +14,10 @@ registry upsert, and session revocation on the auth path. The eighth pins the
 down mid-entry, and that the registry/admin lists report the ward's own numbers
 back to it. The ninth pins the patient-record fields that were read-only until
 2026-08-19 — GA, birth weight and sex — staying correctable without the
-sessionId moving under the log. The tenth drives the whole app in a real
-browser.
+sessionId moving under the log. The tenth pins the admin-only, permanent
+"Delete session" flow — client button gating, the confirm dialog, and the
+server's own cascade + role re-check. The eleventh drives the whole app in a
+real browser.
 
 ## Running
 
@@ -30,7 +32,8 @@ node test/verify-gas-session-revocation.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
-`verify-bed-dol-io.cjs` and `verify-patient-ga-bw-edit.cjs` are the only things
+`verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs` and
+`verify-delete-session.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
 has no build step. Dependencies are dev-only
@@ -48,6 +51,7 @@ node test/verify-registry-logged-today.cjs
 node test/verify-bed-dol-io.cjs
 node test/verify-resync-and-lists.cjs
 node test/verify-patient-ga-bw-edit.cjs
+node test/verify-delete-session.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -163,6 +167,41 @@ dose), and that a GA outside 22–43 wk is neither preselected nor offered but
 must be re-picked before the record can be saved — with a structural check
 that both modals render the one shared `GA_WEEK_OPTIONS` list, so the range
 can't drift between register and edit.
+
+**`verify-delete-session.cjs`** — pins the admin-only, permanent "Delete
+session" flow end to end, written after a ward question ("can a whole session
+be deleted?") was answered by reading the code rather than by a bug report.
+Three parts:
+
+- `deletePatient()` itself, called directly through the same `vm`-sandbox
+  technique as `verify-gas-registry-upsert.cjs`: it removes the matching
+  `Patient_Registry` row **and** every `Daily_Log` row for that `sessionId`,
+  leaves a different patient's registry row and log rows untouched, takes and
+  releases the script lock, and rejects a missing/unknown `sessionId` without
+  touching either sheet.
+- `doPost`'s `"deletePatient"` branch — a structural check (regex over the
+  branch's own source slice, same technique as the GA/BW harness's shared-list
+  check) that the `user.role !== "admin"` gate runs *before* the delete, and
+  that `logAudit("deletePatient", …)` runs *after* it succeeds. Not exercised
+  end-to-end: no harness here stubs `ContentService`'s chainable
+  `setMimeType()` output, so this is the cheapest thing that would actually
+  fail if the gate or the audit call were ever removed.
+- `<EditPatientModal>`'s "Delete session" button, mounted for real in jsdom
+  (same technique as `verify-patient-ga-bw-edit.cjs`): the button does not
+  render at all when `onDelete` is `undefined` — the shape
+  `role === "admin" ? handleDeletePatient : undefined` in `app.jsx` produces
+  for anyone who isn't an admin — declining `window.confirm()` calls neither
+  `onDelete` nor `onClose`, accepting it calls `onDelete` with the patient
+  being edited and then closes, and the confirm text itself names the patient
+  and says the deletion is permanent and irreversible (`ถาวร` /
+  `ไม่สามารถย้อนกลับได้`) rather than a generic "are you sure?".
+
+Not covered here: `app.jsx`'s `handleDeletePatient` — the optimistic
+client-side removal that rolls back on any server failure (error,
+unauthorized, or a network exception; `gasPost` never throws past its own
+try/catch, so the rollback branch always runs). That would need the full
+`<App/>` mount `verify-resync-and-lists.cjs` uses; worth adding there if this
+flow ever regresses in a way the three checks above don't catch.
 
 **`verify-gas-registry-upsert.cjs`** — one of the two harnesses that run
 backend code. `gas-backend.gs` is Apps Script, but every top-level statement in it is
