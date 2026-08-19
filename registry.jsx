@@ -429,6 +429,15 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
   );
 }
 
+// The gestational ages a session may carry: 22–43 wk. Both modals offer
+// exactly this list and nothing else, so a GA outside it cannot be registered
+// *or* saved onto an existing session — an out-of-range record (imported, or
+// typed straight into the sheet) has to be given a real GA before it can be
+// saved again, rather than being carried along as a pickable option. GA drives
+// the Fenton percentile and the `ga < 32` HMF threshold; neither means
+// anything at 20 wk or 50 wk.
+const GA_WEEK_OPTIONS = Array.from({ length: 22 }, (_, i) => 22 + i);
+
 const BED_OPTIONS = [
   ...Array.from({ length: 12 }, (_, i) => `NICU ${i + 1}`),
   "iso 1-1", "iso 1-2",
@@ -554,7 +563,7 @@ function NewPatientModal({ onClose, onSubmit }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <select className="sel" value={gaW} onChange={e => setGaW(e.target.value)} style={{ flex: 1 }}>
                   <option value="">wk</option>
-                  {Array.from({ length: 22 }, (_, i) => 22 + i).map(w => <option key={w} value={w}>{w}</option>)}
+                  {GA_WEEK_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
                 </select>
                 <span style={{ color: "var(--ink-3)", fontWeight: 500 }}>+</span>
                 <select className="sel" value={gaD} onChange={e => setGaD(e.target.value)} style={{ width: 68 }}>
@@ -718,9 +727,17 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   // Decode through gaTotalDays, not Math.floor/×10 by hand, so a hand-edited
   // sheet value like 27.9 seeds the selects as 27+6 — exactly what every
   // other reader of this field already decodes it to.
+  //
+  // A stored GA outside GA_WEEK_OPTIONS is NOT carried as an extra option the
+  // way BedSelect carries an off-list bed: an unrecognized bed label is still
+  // a real place, while a GA of 20 or 50 wk is a data error that every
+  // downstream calculation would keep reading. It seeds blank instead, which
+  // leaves the save button disabled until a real GA is picked.
   const gaTd                    = D_R.gaTotalDays(patient.ga);
-  const [gaW, setGaW]           = React.useState(gaTd > 0 ? String(Math.floor(gaTd / 7)) : "");
-  const [gaD, setGaD]           = React.useState(gaTd > 0 ? String(gaTd % 7) : "");
+  const gaStoredW               = Math.floor(gaTd / 7);
+  const gaInRange               = GA_WEEK_OPTIONS.includes(gaStoredW);
+  const [gaW, setGaW]           = React.useState(gaInRange ? String(gaStoredW) : "");
+  const [gaD, setGaD]           = React.useState(gaInRange ? String(gaTd % 7) : "");
   const [sex, setSex]           = React.useState(patient.sex === "girls" ? "girls" : "boys");
   // Seeded from the patient's own bed, normalized (so a legacy "NICU 1-1"
   // preselects the real "NICU 1" rather than leaving the dropdown blank and
@@ -737,16 +754,6 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks — same
   // encoding NewPatientModal writes; see the GA/PMA section of the walkthrough.
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
-  // 22–43 wk covers every registrable GA, but a record already carrying
-  // something outside it (imported, or typed straight into the sheet) must
-  // still preselect rather than render a blank select that re-saves as 0 —
-  // so carry that week as one extra option, the way BedSelect carries an
-  // unknown bed.
-  const gaWeekOptions = React.useMemo(() => {
-    const base = Array.from({ length: 22 }, (_, i) => 22 + i);
-    const w = Math.floor(gaTd / 7);
-    return (w > 0 && !base.includes(w)) ? [w, ...base].sort((a, b) => a - b) : base;
-  }, [gaTd]);
   // Same gate as registration: a 0/blank BW or GA would corrupt every
   // subsequent dose for this patient, so it can be corrected but not cleared.
   const canSave = bw > 0 && gaW !== "";
@@ -824,7 +831,7 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <select className="sel" value={gaW} onChange={e => setGaW(e.target.value)} style={{ flex: 1 }}>
                   <option value="">wk</option>
-                  {gaWeekOptions.map(w => <option key={w} value={w}>{w}</option>)}
+                  {GA_WEEK_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
                 </select>
                 <span style={{ color: "var(--ink-3)", fontWeight: 500 }}>+</span>
                 <select className="sel" value={gaD} onChange={e => setGaD(e.target.value)} style={{ width: 64 }}>
@@ -840,6 +847,12 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
               </select>
             </div>
           </div>
+          {gaTd > 0 && !gaInRange && (
+            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "oklch(45% 0.13 65)", lineHeight: 1.5 }}>
+              GA เดิมของ session นี้ (<strong>{D_R.fmtGA(patient.ga)} wk</strong>) อยู่นอกช่วง 22–43 wk ที่ระบบรองรับ —
+              เลือก GA ใหม่ก่อนจึงจะบันทึกได้
+            </div>
+          )}
           {Number(bw) !== Number(patient.bw) && bw > 0 && (
             <div style={{ padding: "8px 12px", background: "var(--bg-2)", borderRadius: 8, fontSize: 11.5, color: "var(--ink-2)", lineHeight: 1.5 }}>
               แก้ BW จาก <strong>{patient.bw} g</strong> เป็น <strong>{bw} g</strong> — เป้าหมายสารอาหารและกราฟ Fenton
@@ -881,15 +894,17 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
               <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
             </div>
           </div>
+          {!canSave && (
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", textAlign: "right" }}>
+              ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
             {onDelete && (
               <button className="btn" style={{ marginRight: "auto", color: "var(--crit)", borderColor: "var(--crit-line)" }}
                 onClick={handleDelete}>
                 <Icon name="trash" size={14} color="var(--crit)" /> Delete session
               </button>
-            )}
-            {!canSave && (
-              <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>ต้องมีน้ำหนักแรกเกิด · GA</span>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" disabled={!canSave} onClick={save}><Icon name="save" size={14} color="#fff" /> Save changes</button>

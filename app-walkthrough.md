@@ -86,6 +86,14 @@ updated too, but only while it still equals the old `bw` — once it's been
 edited on its own it's a real measurement, not ours to overwrite — and the
 edit is gated on `bw > 0` and a GA week being set, the same gate registration
 applies, because a 0 there silently corrupts every subsequent dose.
+The offered GA range is `GA_WEEK_OPTIONS` (22–43 wk) in `registry.jsx`,
+rendered by both modals so register and edit can't drift apart. A record
+carrying a GA outside it — imported, or typed straight into the sheet — is
+**not** carried along as a pickable option the way `BedSelect` carries an
+off-list bed: an unrecognized bed label is still a real place, while a GA of
+20 or 50 wk is a data error the Fenton percentile and the `ga < 32` HMF
+threshold would both keep reading. The selects seed blank, the modal says why,
+and save stays disabled until a real GA is picked.
 `test/verify-patient-ga-bw-edit.cjs` pins all of this.
 
 ### GA/PMA convention (important — read before touching any GA field)

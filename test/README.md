@@ -159,8 +159,10 @@ GA stays **`WW.D` shorthand** rather than decimal weeks, seeded through
 covers the birth measurement following a corrected BW only while
 `weights[0].w` still matches the old one, that neither field can be *cleared*
 (the same gate registration applies — a 0 there corrupts every subsequent
-dose), and that a GA outside the offered 22–43 wk range still preselects
-instead of rendering blank.
+dose), and that a GA outside 22–43 wk is neither preselected nor offered but
+must be re-picked before the record can be saved — with a structural check
+that both modals render the one shared `GA_WEEK_OPTIONS` list, so the range
+can't drift between register and edit.
 
 **`verify-gas-registry-upsert.cjs`** — one of the two harnesses that run
 backend code. `gas-backend.gs` is Apps Script, but every top-level statement in it is

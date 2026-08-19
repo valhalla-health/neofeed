@@ -183,19 +183,45 @@ eq('…re-enabled once BW is back',             saveBtn().disabled, false);
 setSelect('GA', '');
 eq('save blocked on a cleared GA',            saveBtn().disabled, true);
 
-// ══ 5. An off-list GA still preselects ══════════════════════════════════
-// Same rule BedSelect follows for an unknown bed: carry it as an extra
-// option rather than rendering blank and re-saving it as 0.
-console.log('\n── #5 an out-of-range GA is carried ──');
+// ══ 5. An out-of-range GA must be re-picked ═════════════════════════════
+// 22-43 wk is the whole offered range in BOTH modals, so a record carrying
+// something outside it (imported, or typed into the sheet) cannot be saved as
+// it stands. It is NOT carried along as a pickable option the way BedSelect
+// carries an off-list bed — an unrecognized bed is still a real place, while
+// a GA of 20 wk is a data error the Fenton percentile and the ga < 32 HMF
+// threshold would both keep reading.
+console.log('\n── #5 an out-of-range GA must be re-picked ──');
 open({ ...PATIENT, ga: 20.3 });
-eq('off-list week preselects',                field('GA').querySelectorAll('select')[0].value, '20');
-eq('…carried as one extra option',            field('GA').querySelectorAll('select')[0].options.length, 24);
+eq('off-list week is not preselected',        field('GA').querySelectorAll('select')[0].value, '');
+eq('…and is not offered either',              field('GA').querySelectorAll('select')[0].options.length, 23);
+eq('save blocked until a real GA is picked',  saveBtn().disabled, true);
+ok('…and says so',                            host.textContent.includes('อยู่นอกช่วง 22–43 wk'));
+setSelect('GA', 29);
+setSelect('GA', 2, 1);
+eq('…re-enabled once one is picked',          saveBtn().disabled, false);
+save();
+eq('the picked GA is what gets saved',        submitted.ga, 29.2);
+// An in-range GA is left alone — no notice, no re-pick.
+open();
+ok('an in-range GA draws no notice',          !host.textContent.includes('อยู่นอกช่วง'));
 // A hand-edited sheet value decodes the way gaTotalDays decodes it (27.9 →
 // 27+6), not by a hand-rolled ×10 that would seed a day of 9.
 open({ ...PATIENT, ga: 27.9 });
 eq('27.9 seeds as 27+6',
   field('GA').querySelectorAll('select')[0].value + '+' + field('GA').querySelectorAll('select')[1].value,
   '27+6');
+
+// ══ 6. Both modals offer the same range ════════════════════════════════
+// Structural: one list, rendered in two places, so "a GA is 22-43 wk" holds
+// by construction rather than by two modals happening to agree.
+console.log('\n── #6 register and edit offer the same GA range ──');
+const registrySrc = fs.readFileSync(DIR + 'registry.jsx', 'utf8');
+eq('GA_WEEK_OPTIONS is defined once',
+  (registrySrc.match(/const GA_WEEK_OPTIONS =/g) || []).length, 1);
+eq('…and is the only GA week list rendered',
+  (registrySrc.match(/GA_WEEK_OPTIONS\.map/g) || []).length, 2);
+eq('the 22-43 range is written once, in it',
+  (registrySrc.match(/Array\.from\(\{ length: 22 \}/g) || []).length, 1);
 
 console.log(`\n${fail === 0 ? 'GA + BW EDIT: ALL PASS' : `GA + BW EDIT: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

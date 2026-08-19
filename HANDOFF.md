@@ -46,12 +46,19 @@ Two things deliberately do **not** change with a corrected BW:
 Neither field can be *cleared*: save is disabled on a 0/blank BW or an unset
 GA week, the same gate registration applies, because a 0 there rescales every
 subsequent dose. GA stays `WW.D` shorthand throughout, seeded through
-`gaTotalDays` so a hand-edited `27.9` on the sheet comes back as 27+6, and a
-GA outside the offered 22–43 wk range is carried as an extra option rather
-than rendering blank (the rule `BedSelect` already follows for an off-list
-bed).
+`gaTotalDays` so a hand-edited `27.9` on the sheet comes back as 27+6.
 
-New harness `test/verify-patient-ga-bw-edit.cjs` (24 assertions) mounts the
+**A GA outside 22–43 wk cannot be saved at all.** Both modals now render one
+shared `GA_WEEK_OPTIONS` list, so register and edit offer exactly the same
+range and can't drift apart. A record already carrying something outside it
+(imported, or typed straight into the sheet) is *not* carried along as a
+pickable option — the rule `BedSelect` follows for an off-list bed does not
+apply here, because an unrecognized bed is still a real place while a GA of
+20 wk is a data error every downstream calculation keeps reading. The selects
+seed blank, an amber notice names the old value and says to pick a new one,
+and save stays disabled until one is picked.
+
+New harness `test/verify-patient-ga-bw-edit.cjs` (32 assertions) mounts the
 real `<EditPatientModal>` and drives the fields; all nine pre-existing
 harnesses still pass.
 
