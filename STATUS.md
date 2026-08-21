@@ -1,41 +1,47 @@
 # NeoFeed — Status
 
-**Updated 2026-08-21** · 🟠 **BACKEND REDEPLOY PENDING** — production is still `@46`
-(2026-08-17), carrying GitHub `main` `df5df2b`. `gas-backend.gs` on `main` is **ahead of what is
-deployed**.
+**Updated 2026-08-21** · 🟢 **DEPLOYED — backend production is `@47`**, carrying GitHub `main`
+`34af805`. Frontend and backend are in step; **nothing is pending.**
 
 | | |
 |---|---|
-| Frontend | GitHub Pages serves `index.html` from repo root. The 2026-08-21 `app.jsx` change **ships automatically with the static files** — cache-bust `?v=pwd-gate-0821` |
-| Backend | GAS deployment `AKfycbz8Nt…` at `@46`. **`gas-backend.gs` has changed since and is NOT deployed** — see below |
-| Deploy identity | `peeraporn.po@chula.ac.th` (`executeAs: USER_DEPLOYING` — a different account switches the live app's identity) |
+| Frontend | GitHub Pages serves `index.html` from repo root. Live and verified — `app.jsx?v=pwd-gate-0821` |
+| Backend | GAS deployment `AKfycbz8Nt…` at **`@47`** — *"mustChangePassword server gate + usageMetrics M1 (GitHub main 34af805)"* |
+| Deploy identity | `peeraporn.po@chula.ac.th` — confirmed via `clasp show-authorized-user` before the push (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) |
 | Migrations | none outstanding on any tab |
-| Cache-bust | `app.jsx?v=pwd-gate-0821`; `registry.jsx?v=dol-input-fix1`; others unchanged. Both shells verified byte-identical |
+| Cache-bust | `app.jsx?v=pwd-gate-0821`; `registry.jsx?v=dol-input-fix1`; others unchanged. Both shells byte-identical |
 
-## 🟠 What is on `main` but not live
-
-Two backend changes are waiting on a `clasp push` + `clasp update-deployment`:
-
-1. **The `mustChangePassword` server gate** (`doPost`) — until this is deployed, the hole is still
-   open in production: a temp-password account that skips the client prompt is still fully
-   authorised. **The frontend half is already live**, and is harmless on its own — the server never
-   sends `PasswordChangeRequired` until `@47` exists.
-2. **`usageMetrics()` / `getUsageMetrics()`** — inert. Not on the `doPost` path, so it changes no
-   behaviour at all; it exists to be run from the Apps Script editor.
-
-⚠️ **Deploying is Praew's call and needs confirming — staff are on it.** Procedure and the
-diff-the-clasp-mirror-first rule are in `REFERENCE.md`. The mirror at `~/nicu-tools/neofeed/รหัส.js`
-**must be diffed and reconciled, never overwritten** — on 2026-08-17 it was found holding three
-security fixes that existed in no other copy.
+**What `@47` changed:** the `mustChangePassword` server gate — a temp-password account can now do
+nothing but change its password — plus `usageMetrics()` / `getUsageMetrics()`, which are inert
+(not on the `doPost` path).
 
 **Rollback (backend):**
 ```
-clasp update-deployment -V 45 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
+clasp update-deployment -V 46 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
 ```
 
-⚠️ **`@46` has still not been exercised by a real login or a real Delete.** Its harnesses run
-against stubs, which do not model CacheService eviction or LockService contention. Doing that
-before cutting `@47` is in `BACKLOG.md` § Now.
+## How `@47` was verified
+
+Not assumed — each step checked, per `REFERENCE.md`:
+
+1. **Mirror diffed first, not overwritten.** `~/nicu-tools/neofeed/รหัส.js` was 1,346 lines to the
+   repo's 1,470, and **every one of the 124 differing lines was a repo addition** — the mirror held
+   nothing unique this time. (It did on 2026-08-17, which is why the rule exists.) A backup was
+   taken before the copy regardless.
+2. **`clasp show-authorized-user`** → `peeraporn.po@chula.ac.th`, the correct deploy identity.
+3. `clasp push` → 2 files. `clasp create-version` → **47**.
+4. **`clasp update-deployment -V 47 <existing id>`** — the deployment count stayed at **26**, which
+   is the proof a *new* deployment was not created and `NEOFEED_GAS_URL` is unchanged.
+5. **`clasp pull` into a scratch dir, diffed against `gas-backend.gs` → byte-identical.** The
+   deployed source is exactly the source the 14 harnesses pass against.
+6. **Live smoke test:** an unauthenticated `getActivePatients` against the production URL returns
+   `{"error":"Unauthorized"}` — the script loads, `doPost` runs, `verifyToken` refuses, and no
+   patient data is returned.
+
+⚠️ **Still not exercised by a real login or a real Delete.** This carried over from `@46` and now
+applies to `@47`, which adds an auth gate on top. The harnesses run against stubs that model
+neither `CacheService` eviction nor `LockService` contention. **One real login by Praew discharges
+it** — see `BACKLOG.md` § Now.
 
 ---
 
@@ -43,4 +49,4 @@ before cutting `@47` is in `BACKLOG.md` § Now.
 done for a deploy — same commit, not "later". It went stale twice when it lived inside `HANDOFF.md`,
 and `NeoFeed/CLAUDE.md` was found on 2026-08-21 still claiming `@45`, four days out of date, which
 is why that file no longer restates a version at all. Anything that is not current deployment state
-belongs in `BACKLOG.md`, `PRD.md`, `REFERENCE.md` or `CHANGELOG.md`.
+belongs in `BACKLOG.md`, `PRD.md`, `AI_SDLC.md`, `REFERENCE.md` or `CHANGELOG.md`.

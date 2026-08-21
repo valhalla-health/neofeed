@@ -151,10 +151,13 @@ logging in on the ward.
 
 ## 5 · AI agents stop before production 🔴 — and there is a real gap here
 
-**Backend: correct.** Redeploying the Apps Script backend always needs Praew's explicit
-confirmation, even though pushing source to GitHub `main` does not. The rule is in `CLAUDE.md` and
-`REFERENCE.md` and was honoured on 2026-08-21: the `mustChangePassword` fix is on `main` and
-**deliberately not deployed**. `STATUS.md` says so in orange.
+**Backend: correct, and demonstrated in both directions on 2026-08-21.** Redeploying the Apps
+Script backend always needs Praew's explicit confirmation, even though pushing source to GitHub
+`main` does not. The `mustChangePassword` fix sat on `main` **undeployed** until she said deploy —
+and then `@47` was cut, with the mirror diffed rather than overwritten, the deploy identity checked
+before the push, the deployment count confirmed unchanged, and the deployed source pulled back and
+diffed byte-for-byte. **That is the layer working**: the agent did the work, a human chose the
+moment, and every step was verified rather than assumed. `STATUS.md` records how.
 
 Agents also already do the parts Uber's layer describes — draft changes, run the calculation
 harnesses, and compare UI screenshots (`test/runthrough-app.cjs`, Playwright, screenshots to

@@ -36,27 +36,21 @@ clinical judgement. Everything else is engineering sequencing.
       shelf.** Both were *inferred* from the KCMH worksheet's divisors, not read off an explicit
       strength label. **These corrected concentrations change the mL printed on every order form** —
       the highest-stakes open item in the repo. Blocked on a physical check in the ward, not on code.
-- [ ] 🔒 **security · `mustChangePassword` — ✅ FIXED 2026-08-21, ⏳ NOT YET DEPLOYED.** `doPost` now
-      refuses every action except `changePassword` while Staff col G is set; `verifyToken` was
-      already recomputing the flag from the sheet every request, so nothing but the gate itself was
-      missing. Client handled on both request paths — `syncFromGAS` **does not go through
-      `gasPost`**, which is why the fix needed two branches, not one. Pinned by
-      `test/verify-must-change-password.cjs` (43 assertions) and
-      `test/verify-forced-password-client.cjs` (9). **The frontend half is live; the server half is
-      not — the hole is still open in production until `@47` is cut.** See `STATUS.md`. Closes when
-      the deploy lands.
-- [ ] 🔒 **security · Exercise `@46` with a real login and a real Delete.** Its auth changes are
-      covered only by stub harnesses that model neither `CacheService` eviction nor `LockService`
-      contention, and their provenance is unknown (`CHANGELOG.md`, session 2026-08-17 (3)). Cheap,
-      and a precondition for trusting the next auth deploy.
+- [ ] 🔒 **security · Exercise `@47` with a real login and a real Delete.** ⬆️ **More
+      pressing since the 2026-08-21 deploy, not less** — `@47` adds an auth gate on top of `@46`'s
+      unexercised auth changes. Both are covered only by stub harnesses, which model neither
+      `CacheService` eviction nor `LockService` contention, and `@46`'s provenance is unknown
+      (`CHANGELOG.md`, session 2026-08-17 (3)). **One real login by Praew discharges the whole
+      item.** A temp-password account would additionally prove the new gate end to end.
 - [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live
       sheet yet. To close this: run `getUsageMetrics()` **once from the Apps Script editor** — it is
-      not on the `doPost` path, so **no redeploy is needed**; it executes as the signed-in user and
-      may raise an OAuth consent, which is Praew's to approve. **Deliberately not wired to
-      `doPost`** — that would put a new endpoint into the next deploy, and the next deploy is the
-      auth fix, which should carry nothing else. Wire it when a UI actually wants the number.
+      not on the `doPost` path, so **no redeploy is needed** — and it is now **already deployed** in
+      `@47`, so it is sitting in the live project waiting to be called. It executes as the
+      signed-in user and may raise an OAuth consent, which is Praew's to approve. **Still
+      deliberately not wired to `doPost`**: it was kept off the auth deploy so that release carried
+      nothing but the security fix. Wire it when a UI actually wants the number.
       Definition and the two hard constraints: `PRD.md` § 6.
 
 ## ⏭ Next

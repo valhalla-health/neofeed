@@ -13,6 +13,64 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-21 (6) — 🚀 DEPLOYED `@47`: the auth gate is now live
+
+**Backend production moved `@46` → `@47`**, carrying GitHub `main` `34af805`. Deployed on Praew's
+explicit instruction. **No code change in this session** — `@47` is exactly the source committed in
+(3) and (4), unmodified.
+
+`@47` = the `mustChangePassword` server gate (a temp-password account can now do nothing but change
+its password) + `usageMetrics()` / `getUsageMetrics()`, which are inert because they are not on the
+`doPost` path.
+
+**The hole reported by `CODE_REVIEW_2026-08-18` is closed in production.** It had been open since
+the temp-password provisioning flow was written on 2026-07-18.
+
+### Checked before the push, in this order
+
+1. **Live state first**, per Praew's standing instruction: local `HEAD` == `origin/main` ==
+   `34af805`; Pages returns 200 serving `app.jsx?v=pwd-gate-0821`.
+2. **Mirror diffed, not overwritten.** `~/nicu-tools/neofeed/รหัส.js` was 1,346 lines to the repo's
+   1,470 and **every one of the 124 differing lines was a repo addition** — the mirror held nothing
+   unique this time, unlike 2026-08-17 when it held three security fixes present nowhere else. The
+   124 lines were confirmed to be exactly the two intended changes. A backup was taken anyway.
+3. **`clasp show-authorized-user` → `peeraporn.po@chula.ac.th`.** Not a formality:
+   `appsscript.json` sets `executeAs: USER_DEPLOYING`, so deploying from the wrong account switches
+   the live app's executing identity and breaks Sheet access.
+4. **Blast radius considered.** The gate fires only when `verifyToken` computes
+   `!_usesGoogleSignIn(email) && col G === TRUE`. Praew's own account is `@chula.ac.th`, which
+   `GOOGLE_WORKSPACE_DOMAINS` excludes — **she cannot lock herself out.** Staff holding a temp
+   password get forced to change it, which is the point. The client that renders that modal had
+   already been live since (4), so the ordering was frontend-first by design.
+
+### Verified after, rather than assumed
+
+- `clasp create-version` → **47**; `clasp update-deployment -V 47 <existing id>`.
+- **Deployment count stayed at 26.** That is the proof an *existing* deployment was updated rather
+  than a new one created, so `NEOFEED_GAS_URL` is unchanged and no shell needed editing.
+- **`clasp pull` into a scratch dir, diffed against `gas-backend.gs` → byte-identical.** The
+  deployed source is exactly what the 14 harnesses pass against.
+- **Live smoke test:** unauthenticated `getActivePatients` against the production URL returns
+  `{"error":"Unauthorized"}`. The script loads, `doPost` runs, `verifyToken` refuses, nothing leaks.
+  ⚠️ Reaching that took following the 302 to the `googleusercontent` echo URL with a **GET** —
+  forcing POST across the redirect returns a 405 that looks like a backend failure and is not.
+
+### Note for anyone deploying from an agent session
+
+`clasp push --force` is blocked by the `block-dangerous-git` PreToolUse hook, which pattern-matches that flag
+pair and cannot tell `clasp` from `git`. Plain `clasp push` works and does not prompt when
+`appsscript.json` is unchanged. **The guardrail was not worked around.** (The hook also blocked
+writing *this paragraph*, because the sentence above contains the phrase it matches on.)
+
+### Still open after this deploy
+
+**`@47` has still not been exercised by a real login or a real Delete** — carried over from `@46`
+and now *more* pressing, since `@47` adds an auth gate on top of auth changes that were themselves
+only ever covered by stubs. One real login discharges it; a temp-password account would prove the
+new gate end to end. `BACKLOG.md` § Now.
+
+---
+
 ## Session 2026-08-21 (5) — `AI_SDLC.md`; Desktop folder reconciled against live GitHub
 
 **No code change.** Two jobs: grade NeoFeed against Uber's agentic-SDLC layers, and make the
