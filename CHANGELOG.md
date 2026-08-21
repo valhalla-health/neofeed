@@ -13,6 +13,80 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-21 (2) — `PRD.md` written; the backlog becomes an ordered decision
+
+**No code change.** Item 2 of the project-management upgrade, following the doc split earlier
+the same day.
+
+**`PRD.md` added** — the product definition this repo has run 36 sessions without. Closes the
+`BACKLOG.md` line that read *"No PRD exists. `CHANGELOG.md` is a change log, not a product
+definition."* It states the problem, the three roles and who else is affected, four jobs-to-be-done,
+the shipped v1 baseline, **five explicit non-goals**, the constraints, and four open product
+questions that are decisions nobody has made rather than bugs.
+
+Two things in it are worth not re-deriving:
+
+- **§ 6 defines what "working" means, for the first time.** M1 = weekly active users, *distinct
+  `actorEmail` in `Audit_Log` per ISO week*; M2 = daily log coverage — the ratio the registry stats
+  strip already computes on screen every render and then discards; M3 = back-fill rate. **No targets
+  were set on purpose** — a target invented from a desk is worse than none, and M1's first month is
+  what a target should be argued from.
+- **Sections are marked 🟡 where they are reconstructed intent rather than verified fact.** The
+  problem statement and the user model were written from the code, **not from a single conversation
+  with a NICU user.** They are labelled so they cannot later be cited as findings.
+
+**`BACKLOG.md` re-ordered from kind to time — Now / Next / Later.** The previous version said of
+itself: *"The ordering below is a proposal, not a decision … re-order it to taste; that act is the
+product-management job."* This is that act. Every item survived, each keeping its kind as a tag
+(🩺 safety · 🔒 security · ⚖️ PDPA · 📈 product). The ranking rationale is written down so it can be
+argued with, and the two calls that are **Praew's to overrule** — the shelf check of the stock
+concentrations, and whether `TARGETS.fluid` should take birth or current weight — are named as hers.
+
+**Three "items" were removed from the task list without being done, because they were never tasks.**
+*Don't widen the Fenton axis past 42 wk*, *the `sessionId`-is-a-pseudonym residual risk*, and *mobile
+Fenton keeps pan/zoom* are decisions to **keep**. They now sit under **⛔ Standing guardrails — NOT
+tasks, and must never be ticked**. Mixed into a to-do list, a future reader could have "completed"
+one of them.
+
+Also added to `BACKLOG.md`: a four-point **definition of done** (on `main` · a harness that fails
+against the unpatched source · `STATUS.md` updated in the *same* commit · a `CHANGELOG.md` entry and
+the line deleted from the backlog), and a three-question **weekly review** ritual that opens with
+`git fetch`.
+
+---
+
+## Session 2026-08-21 (1) — `HANDOFF.md` split into STATUS / BACKLOG / REFERENCE / CHANGELOG
+
+**No code change** — verified by `git diff --name-only`. Recorded here after the fact on
+2026-08-21, because the split itself never got a changelog entry; by the definition of done written
+in session (2) above, that was a gap.
+
+`HANDOFF.md` went **2,138 → 47 lines** and is now an index. New siblings: `STATUS.md`, `BACKLOG.md`,
+`REFERENCE.md`, and this file carrying all 36 prior sessions verbatim. The principle applied:
+**one file, one job, one update trigger** — and updating `STATUS.md` became part of the definition
+of done for a deploy, same commit, not later.
+
+Two sections were **deleted rather than moved**, both stale enough to mislead: `## TLDR — read this
+only` (every load-bearing claim in it was wrong, including *"No open bugs."*) and
+`## Restore production checklist` (it would have switched the live app's executing identity).
+`## File inventory` was dropped as a third duplicate of the architecture table. The reasoning is
+kept in `HANDOFF.md` itself.
+
+**Surfaced in the process:** the 2026-08-18 code review had **reported eight defects it did not
+fix**, buried mid-file, with nothing holding them. All are now in `BACKLOG.md`.
+
+**`.gitleaksignore` added.** The 2026-08-19 test harness stubs a session object whose placeholder
+token field trips gitleaks' `generic-api-key` rule on entropy. It is a fixture, it arrived from
+`origin/main`, and it was blocking **every** commit to the repo. Suppressed by fingerprint; the test
+file was left untouched. ⚠️ **Do not quote that literal value anywhere — gitleaks scans the
+suppression file too.**
+
+⚠️ **Process lesson:** three PRs (#51/#52/#53) landed on `main` while the split was being prepared,
+so the first attempt was built on a stale file and the push was rejected. Resolved by merge and
+rebuild, no force push. **Always `git fetch` before starting doc work here.**
+
+---
+
 ## Session 2026-08-19 (3) — new harness: `verify-delete-session.cjs`
 
 **No code change** — a ward question ("can a whole session be deleted?") was

@@ -7,9 +7,14 @@ them again. Each job now has its own file and its own update trigger:
 | Read this | For | Changes |
 |---|---|---|
 | **`STATUS.md`** | what is deployed **right now**, and how to roll it back | every deploy |
-| **`BACKLOG.md`** | everything known-but-not-done | weekly |
+| **`BACKLOG.md`** | everything known-but-not-done, ordered Now / Next / Later | weekly |
+| **`PRD.md`** | what the product is *for* — users, jobs, non-goals, success metrics | rarely |
 | **`REFERENCE.md`** | GA/PMA convention, hand-synced shells, deploy procedure, PDPA posture | rarely |
 | **`CHANGELOG.md`** | session-by-session history, newest first | append-only |
+
+**`PRD.md` was added on 2026-08-21**, closing the backlog item that read *"No PRD exists.
+`CHANGELOG.md` is a change log, not a product definition."* Its § 6 is the first place NeoFeed has
+ever defined what "working" would mean.
 
 Architecture and file inventory live in **`app-walkthrough.md` § 2** — one copy, not three.
 Code-review write-ups keep their own dated files (`CODE_REVIEW_YYYY-MM-DD.md`); their
