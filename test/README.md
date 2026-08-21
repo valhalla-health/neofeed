@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Twelve Node scripts. Two check the TPN calculator against the **official KCMH
+Fourteen Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -22,12 +22,15 @@ ever had** — weekly active users off `Audit_Log` — and treats its two PDPA
 constraints as correctness rather than good manners: distinct `actorEmail` per
 week (never row counts, which since the focus re-sync measure how long a tab
 was open), and **no staff email in the output at all**, asserted by serialising
-the whole result and failing on an `@`.
+the whole result and failing on an `@`. The thirteenth and fourteenth are the
+two halves of the 2026-08-21 `mustChangePassword` fix — the server gate, and
+what the client does when it meets that gate mid-session.
 
 ## Running
 
-`verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs` and
-`verify-gas-session-revocation.cjs` need **no dependencies at all** — run them
+`verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
+`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs` and
+`verify-must-change-password.cjs` need **no dependencies at all** — run them
 directly:
 
 ```bash
@@ -35,11 +38,12 @@ node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
 node test/verify-usage-metrics.cjs
+node test/verify-must-change-password.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
-`verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs` and
-`verify-delete-session.cjs` are the only things
+`verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
+`verify-delete-session.cjs` and `verify-forced-password-client.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
 has no build step. Dependencies are dev-only
@@ -58,6 +62,7 @@ node test/verify-bed-dol-io.cjs
 node test/verify-resync-and-lists.cjs
 node test/verify-patient-ga-bw-edit.cjs
 node test/verify-delete-session.cjs
+node test/verify-forced-password-client.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -291,6 +296,66 @@ and Google Fonts).
 
 Screenshots land in `test/.screenshots/` (gitignored) — useful when a layout
 question is easier to look at than to assert.
+
+**`verify-usage-metrics.cjs`** — pins **M1, the first product metric this repo
+has ever had**: weekly active users, read off `Audit_Log`. No new
+instrumentation was needed — the PDPA accountability trail has recorded
+`readRegistry` with an actor email on every `getActivePatients` all along — so
+`usageMetrics()` is a pure function over rows and this harness never touches a
+sheet. 30 assertions.
+
+Two of them are compliance, not correctness-in-the-usual-sense, and are written
+that way on purpose. Test 1 feeds **500 rows from one nurse in one week** and
+asserts the answer is **1**: since `syncFromGAS` began firing on tab focus a row
+count measures how long a tab was left open, not usage. Test 9 serialises the
+entire result and fails on an `@`, on the string `kcmh`, and on any per-actor
+key — `Audit_Log` holds staff email under an accountability basis, and a
+per-staff figure would be personnel monitoring under a different one.
+
+It also pins two traps a naive implementation walks into. Sheets coerces the
+`ts` column, so `getValues()` returns **Date objects for some rows and strings
+for others in the same column** (test 5). And weeks are cut in **ward-local time
+(UTC+7)**, because bucketing in UTC files a Monday 06:00 round — Sunday 23:00
+UTC — under the previous week (test 7). That test is the one that fails if
+someone later "simplifies" the offset away.
+
+**`verify-must-change-password.cjs`** — the server half of the 2026-08-21 fix,
+43 assertions, driving the real `doPost` in a `vm` sandbox.
+
+The gap it closes: `mustChangePassword` was enforced **only in the client**.
+`login()` reported it and `verifyToken()` even recomputed it from Staff col G on
+every single request — and then nothing on the server ever acted on it. The only
+thing between an auto-provisioned ~40-bit temp password, sitting in clear text
+in Staff col H for a human to relay, and the whole registry was `app.jsx`
+choosing to render `<ChangePasswordModal forced>`. Anything that skipped that
+render — curl, a stale bundle, a second tab restored from `sessionStorage` — was
+fully authorised. Before the fix this harness failed 23 assertions, one of them
+being that the refusal carried no patient payload: it did.
+
+It pins that every action is refused, that **an admin gets no exemption**, and
+— just as importantly — that `changePassword` keeps working, because a gate with
+no exit is a permanent lockout. Part 4 pins that the **sheet** governs and not
+the token: flagging col G closes a session already in flight, clearing it
+restores that same session without a re-login. Part 6 pins that Google/Workspace
+accounts are never gated, since they have no password to change and so no way
+out.
+
+**`verify-forced-password-client.cjs`** — the client half. Mounts the real
+`<App/>` in jsdom and flips the stubbed server to refusing **mid-session**,
+which is the only way a browser ever meets that refusal: in the normal flow
+`App` renders the forced modal before a single request goes out.
+
+Writing it surfaced the thing that made the fix two branches instead of one:
+**`syncFromGAS` does not go through `gasPost`.** It issues its own `fetch`, and
+it is the call that fires on login, on tab focus and on day rollover — so the
+most frequent authenticated request in the app took a completely separate error
+path, where the refusal did nothing but turn the sync pill red.
+
+Note the trigger it uses: the header's "Sync now from GAS" button, not a
+synthetic `focus` event. The focus listener is throttled to one call a minute
+(`RESYNC_AFTER_MS`), so on a freshly-loaded app a focus event is swallowed and
+nothing is sent — the first version of this harness failed for exactly that
+reason and looked like a product bug.
 
 ## Note on the source workbook
 

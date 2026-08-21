@@ -172,6 +172,26 @@ function App() {
 
   // ── GAS fetch (initial + manual sync) ────────────────────────
   // Token is sent in POST body — never in URL (prevents token leakage in server logs)
+  // Shared by syncFromGAS and gasPost — the two independent request paths in
+  // this file. Since 2026-08-21 the server refuses every action except
+  // changePassword while Staff col G is set (gas-backend.gs's doPost gate).
+  // In the normal flow the client never meets that refusal: App renders
+  // <ChangePasswordModal forced> before any request goes out. It shows up when
+  // col G is flagged **mid-session** — this browser still holds
+  // mustChangePassword:false from its login response. Flipping the flag
+  // re-renders into the same forced modal the login path would have produced,
+  // and persisting it means a reload does not bounce straight back out.
+  // Deliberately NOT a logout: the session is still valid, it just cannot do
+  // anything until the password is replaced.
+  const flagPasswordChangeRequired = React.useCallback(() => {
+    setUser(u => {
+      if (!u || u.mustChangePassword) return u;
+      const flagged = { ...u, mustChangePassword: true };
+      sessionStorage.setItem("neofeed_session", JSON.stringify(flagged));
+      return flagged;
+    });
+  }, []);
+
   const syncFromGAS = React.useCallback(() => {
     if (!GAS_ON) return;
     setSyncState("loading");
@@ -188,6 +208,17 @@ function App() {
           sessionStorage.removeItem("neofeed_session");
           if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
           setUser(null);
+          setSyncState("error");
+          return;
+        }
+        // This path, not gasPost, is where a mid-session col G flag actually
+        // lands: syncFromGAS is the call that fires on login, on tab focus and
+        // on day rollover, and it does its own fetch. Without this branch the
+        // refusal fell into the generic `data.error` case below and did nothing
+        // but turn the sync pill red — the server secure, the app apparently
+        // just broken.
+        if (data.error === "PasswordChangeRequired") {
+          flagPasswordChangeRequired();
           setSyncState("error");
           return;
         }
@@ -219,7 +250,7 @@ function App() {
         console.warn("GAS sync failed:", err);
         setSyncState("error");
       });
-  }, []);
+  }, [flagPasswordChangeRequired]);
 
   // Sync after login — fires when user changes (null → logged-in object)
   React.useEffect(() => { if (user) syncFromGAS(); }, [user?.email]);
@@ -289,6 +320,14 @@ function App() {
         setUser(null);
         return { ok: false, unauthorized: true };
       }
+      // Without this the refusal would fall through to the generic handler
+      // below and toast "บันทึกไม่สำเร็จ: PasswordChangeRequired" — an
+      // untranslated error code — at a user with no route to the
+      // change-password screen. See flagPasswordChangeRequired above.
+      if (data.error === "PasswordChangeRequired") {
+        flagPasswordChangeRequired();
+        return { ok: false, mustChangePassword: true };
+      }
       if (data.conflict) return { ok: false, conflict: true, current: data.current };
       if (data.error) {
         showToast(`บันทึกไม่สำเร็จ: ${data.error}`, "error");
@@ -300,7 +339,7 @@ function App() {
       showToast("บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่อ", "error");
       return { ok: false, networkError: true };
     }
-  }, [user?.token]);
+  }, [user?.token, flagPasswordChangeRequired]);
 
   // ── Handlers ─────────────────────────────────────────────────
   // Creates a brand-new Daily_Log row. Returns a promise resolving to

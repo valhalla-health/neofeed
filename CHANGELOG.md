@@ -13,6 +13,81 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-21 (4) — `mustChangePassword` enforced on the server
+
+🟠 **Backend NOT deployed — production is still `@46` and the hole is still open there.** The
+frontend half ships with the static files (`app.jsx?v=pwd-gate-0821`, both shells verified
+identical). See `STATUS.md`. Item 4 and last of the project-management upgrade.
+
+**The gap** (reported unfixed by `CODE_REVIEW_2026-08-18.md`, carried into `BACKLOG.md` on
+2026-08-21): `mustChangePassword` was enforced **only in the client**. `login()` reported it and
+`verifyToken()` even recomputed it fresh from Staff col G on *every single request* — and then
+nothing on the server ever looked at it. The only thing between an auto-provisioned ~40-bit temp
+password — sitting in clear text in Staff col H for a human to relay — and the entire patient
+registry was `app.jsx` choosing to render `<ChangePasswordModal forced>` instead of the app. curl, a
+stale bundle, or a second tab restored from `sessionStorage` skipped that render and was fully
+authorised. `app.jsx`'s own comment had named the danger: *"the token is already valid and would
+otherwise grant full access on the temp password indefinitely."* The client author knew; the server
+never enforced it.
+
+**The fix is four lines in `doPost`**, because `verifyToken` was already doing the hard part:
+
+```
+if (user.mustChangePassword && action !== "changePassword") {
+  return jsonOut({ error: "PasswordChangeRequired", mustChangePassword: true });
+}
+```
+
+`changePassword` stays reachable deliberately — a gate with no exit is a permanent lockout.
+`logout` is answered above `verifyToken`, so it is unaffected. Google/Workspace accounts never
+arrive here flagged, because `verifyToken` clears the flag for them via `_usesGoogleSignIn`; they
+have no password to change and so no way out of the gate.
+
+Because the condition reads `user`, which `verifyToken` re-derives from the sheet rather than
+trusting the token's cached copy, **flagging col G closes a session already in flight, and clearing
+it restores that same session without a re-login.**
+
+### 🔴 What writing the client half surfaced: `syncFromGAS` does not go through `gasPost`
+
+The fix needed **two** client branches, not one. `syncFromGAS` issues its own `fetch` — and it is
+the call that fires on login, on tab focus and on day rollover, i.e. the most frequent authenticated
+request the app makes. It handles `Unauthorized` itself and then drops every other error into
+`setSyncState("error")`. A one-branch fix in `gasPost` would have left the common case showing a red
+sync pill and nothing else.
+
+Both paths now call a shared `flagPasswordChangeRequired()`, which flips the client's stale
+`mustChangePassword: false` to true and persists it to `sessionStorage`, so `App` re-renders into
+the same forced modal the login path would have produced. **Deliberately not a logout** — the
+session is still valid, it simply cannot do anything until the password is replaced. Without it, a
+mid-session flag would have toasted `บันทึกไม่สำเร็จ: PasswordChangeRequired` — an untranslated
+error code — on a loop, at a user with no route to the change-password screen. Server secure, app
+apparently broken.
+
+### Harnesses
+
+- **`test/verify-must-change-password.cjs`** — 43 assertions on the real `doPost` in a `vm`
+  sandbox. Written first; **failed 23 assertions against the unpatched source**, one of them being
+  that the refusal carried no patient payload — it did. Pins that an admin gets no exemption, that
+  `changePassword` and `logout` survive, that the sheet governs rather than the token, that
+  Workspace accounts are never gated, and that an invalid token is still plain `Unauthorized`.
+- **`test/verify-forced-password-client.cjs`** — 9 assertions, mounts the real `<App/>` in jsdom
+  and flips the stubbed server to refusing mid-session. ⚠️ It drives the header's "Sync now from
+  GAS" button rather than a synthetic `focus` event: the focus listener is throttled to one call a
+  minute (`RESYNC_AFTER_MS`), so on a freshly-loaded app a focus event is swallowed and nothing is
+  sent. The first version of this harness failed for that reason and looked like a product bug.
+
+**Whole suite re-run: 13 of 13 harnesses pass**, including all six jsdom ones.
+
+### ⏳ Before this is actually fixed
+
+The deploy. `clasp push` + `clasp update-deployment` against the existing deployment ID, as
+`peeraporn.po@chula.ac.th`, **after diffing `~/nicu-tools/neofeed/รหัส.js` and reconciling rather
+than overwriting** — on 2026-08-17 that mirror held three security fixes present in no other copy.
+`BACKLOG.md` § Now also asks for `@46` to be exercised with a real login and a real Delete first,
+since its auth changes are covered only by stub harnesses.
+
+---
+
 ## Session 2026-08-21 (3) — M1: the first product metric this repo has ever had
 
 **Backend source only — nothing deployed, nothing run against the live Sheet.** Item 3 of the

@@ -36,10 +36,15 @@ clinical judgement. Everything else is engineering sequencing.
       shelf.** Both were *inferred* from the KCMH worksheet's divisors, not read off an explicit
       strength label. **These corrected concentrations change the mL printed on every order form** —
       the highest-stakes open item in the repo. Blocked on a physical check in the ward, not on code.
-- [ ] 🔒 **security · `mustChangePassword` is enforced only in the client — the server hands a
-      temp-password account a fully-privileged token.** A client that skips the prompt is fully
-      authorised. `app.jsx`'s non-dismissible `ChangePasswordModal` is the *only* thing standing
-      between a temp password and full access, and it is client-side. Live system, real staff.
+- [ ] 🔒 **security · `mustChangePassword` — ✅ FIXED 2026-08-21, ⏳ NOT YET DEPLOYED.** `doPost` now
+      refuses every action except `changePassword` while Staff col G is set; `verifyToken` was
+      already recomputing the flag from the sheet every request, so nothing but the gate itself was
+      missing. Client handled on both request paths — `syncFromGAS` **does not go through
+      `gasPost`**, which is why the fix needed two branches, not one. Pinned by
+      `test/verify-must-change-password.cjs` (43 assertions) and
+      `test/verify-forced-password-client.cjs` (9). **The frontend half is live; the server half is
+      not — the hole is still open in production until `@47` is cut.** See `STATUS.md`. Closes when
+      the deploy lands.
 - [ ] 🔒 **security · Exercise `@46` with a real login and a real Delete.** Its auth changes are
       covered only by stub harnesses that model neither `CacheService` eviction nor `LockService`
       contention, and their provenance is unknown (`CHANGELOG.md`, session 2026-08-17 (3)). Cheap,

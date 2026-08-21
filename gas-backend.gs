@@ -647,6 +647,34 @@ function doPost(e) {
     var user = verifyToken(body.token);
     if (!user) return jsonOut({ error: "Unauthorized" });
 
+    // ── a temp password buys nothing but the chance to replace it ──
+    // Until 2026-08-21 this was enforced ONLY in the client: login() reported
+    // mustChangePassword, verifyToken() recomputed it fresh from Staff col G on
+    // every request, and then nothing on the server ever looked at it. The only
+    // thing between an auto-provisioned ~40-bit temp password — sitting in clear
+    // text in Staff col H for a human to relay — and the whole registry was
+    // app.jsx choosing to render <ChangePasswordModal forced>. curl, a stale
+    // bundle, or a second tab restored from sessionStorage skipped that render
+    // and was fully authorised. app.jsx's own comment had named the danger:
+    // "the token is already valid and would otherwise grant full access on the
+    // temp password indefinitely."
+    //
+    // `changePassword` MUST stay reachable — it is the only way out, and a gate
+    // with no exit is a permanent lockout. `logout` is answered above, before
+    // verifyToken, so it is unaffected; do not move this check any earlier
+    // without re-reading that. Google/Workspace accounts never reach here with
+    // the flag set: verifyToken clears it for them via _usesGoogleSignIn, since
+    // they have no password to change and so no way out of the gate.
+    //
+    // The condition reads from `user`, which verifyToken re-derives from the
+    // sheet on every call rather than trusting the token's cached copy — so
+    // flagging col G closes a session already in flight, and clearing it
+    // restores that same session without a re-login. Pinned by
+    // `test/verify-must-change-password.cjs`.
+    if (user.mustChangePassword && action !== "changePassword") {
+      return jsonOut({ error: "PasswordChangeRequired", mustChangePassword: true });
+    }
+
     if (action === "getActivePatients") { logAudit("readRegistry", "", user.email); return jsonOut(getActivePatients()); }
 
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
