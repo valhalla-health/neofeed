@@ -9,6 +9,7 @@ them again. Each job now has its own file and its own update trigger:
 | **`STATUS.md`** | what is deployed **right now**, and how to roll it back | every deploy |
 | **`BACKLOG.md`** | everything known-but-not-done, ordered Now / Next / Later | weekly |
 | **`PRD.md`** | what the product is *for* — users, jobs, non-goals, success metrics | rarely |
+| **`AI_SDLC.md`** | what an AI agent may and may not do to a live clinical tool, and who decides | rarely |
 | **`REFERENCE.md`** | GA/PMA convention, hand-synced shells, deploy procedure, PDPA posture | rarely |
 | **`CHANGELOG.md`** | session-by-session history, newest first | append-only |
 

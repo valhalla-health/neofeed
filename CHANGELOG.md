@@ -13,6 +13,70 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-21 (5) — `AI_SDLC.md`; Desktop folder reconciled against live GitHub
+
+**No code change.** Two jobs: grade NeoFeed against Uber's agentic-SDLC layers, and make the
+Desktop folder tell the truth about which copy is real.
+
+### `AI_SDLC.md` — what an agent may do to a live clinical tool
+
+Praew mapped Uber's seven agentic-SDLC layers onto NeoFeed; this grades NeoFeed against each one,
+using real file names rather than intentions. Most of the layers already existed here, built
+incrementally without a name — **naming them is what made the gaps visible.** Grades are
+deliberately unkind: a flattering self-audit of a clinical tool is worse than none.
+
+🟢 **Model gateway** → the rule that no infant's data has ever reached a model, and none will.
+🟢 **Managed skills** → the 14-harness suite; the two KCMH-worksheet harnesses are the strongest
+thing in the repo, because they encode the *pharmacy's* arithmetic, not the developer's.
+🟡 **Context graph** → yesterday's doc split. One day old and unproven; `graphify-out/` is stale
+and untracked and is not currently part of it.
+🟡 **Isolated dev environments** → real (no test has ever touched the live Sheet) but unenforced:
+one Sheet, one deployment, `NEOFEED_GAS_URL` a literal in both shells.
+🔴 **Managed maintenance** → nothing is scheduled, and what decays here is clinical: guideline
+drift, the unverified `FENTON_LENGTH`/`FENTON_HC`, the inferred stock concentrations.
+🔴 **Human oversight** → one person is clinician, maintainer, reviewer and deploy identity. **No
+change to a printed dose has ever had a second clinical reviewer.**
+
+### 🔴 The gap the exercise actually found
+
+**A push to `main` is an unreviewed production deploy of the frontend.** Pages serves
+`index.html` from the repo root, so nothing sits between an agent's commit and the ward — while
+the backend requires explicit confirmation. The asymmetry runs backwards from the risk: the gated
+half cannot render a wrong number without the ungated half, and **the frontend is where the
+printed dose is drawn.** Demonstrated in this very session — the (2) push put
+`app.jsx?v=pwd-gate-0821` live within minutes, confirmed by fetching the public page. That change
+was tested and wanted; nothing would have stopped one that was not. Now in `BACKLOG.md` § Next.
+
+### Desktop folder reconciled
+
+Verified live first: `https://valhalla-health.github.io/neofeed/` returns 200 and serves
+`app.jsx?v=pwd-gate-0821`, matching `main`.
+
+Outside the repo, in `Web App Projects/NeoFeed/`:
+
+- **`HANDOFF.md` → `_ARCHIVE_HANDOFF_2026-05-17_sessions-1-7.md`.** A May snapshot that still sat
+  at the top of the folder looking current, naming **`NeoFeed_V2/` as canonical** (archived since
+  2026-07-08), carrying a **superseded GAS URL** and a **plaintext Sheet ID**, and saying *"No
+  open bugs."* **Kept rather than deleted** — this `CHANGELOG.md` begins at session 8
+  (2026-05-25), so it is the only surviving record of sessions 1–7. It now opens with a table of
+  the six things in it that are false.
+- **`README.md` added** — the folder held seven copies of NeoFeed and nothing at that level said
+  which was alive.
+- **`PAUSE.md` deleted** — a stray from the removed pause/resume skills, describing `TrendGraph`
+  as "not yet wired". It has been in `log.jsx` and wired into the Dashboard for months. Full text
+  quoted in the new `README.md` so nothing is lost.
+- **`NeoFeed_V2/_ARCHIVED.md` added** — the folder the stale handoff pointed at had nothing inside
+  it saying otherwise.
+
+⚠️ **Reported, not changed:** all four archived copies (`NeoFeed_V2/`,
+`_ARCHIVED_NeoFeed_V2_2026-07-08/`, `NeoFeed 25052026/`, and `NeoFeed_V2/NeoFeed_GAS.js`) still
+hardcode `SPREADSHEET_ID` and `CLIENT_ID` — the values moved into Script Properties on 2026-07-12.
+They are **not** in the git repo, and the Sheet ID is not a credential on its own, but the folder
+is OneDrive-synced. Editing an archive to redact it destroys what makes it an archive; deleting
+the archived folders is Praew's call.
+
+---
+
 ## Session 2026-08-21 (4) — `mustChangePassword` enforced on the server
 
 🟠 **Backend NOT deployed — production is still `@46` and the hole is still open there.** The
