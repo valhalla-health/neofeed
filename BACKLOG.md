@@ -4,9 +4,10 @@ Everything known-but-not-done, in one place. **Review weekly.** When an item shi
 delete it here and record it in `CHANGELOG.md`.
 
 Gathered 2026-08-21 from the old `HANDOFF.md` banner, its "Known caveats" and PDPA
-"Open items" sections, and `CLAUDE.md`'s "Known open items". **The ordering below is a
-proposal, not a decision** — it ranks clinical safety first, then compliance, then
-product. Re-order it to taste; that act *is* the product-management job.
+"Open items" sections, `CLAUDE.md`'s "Known open items", and the *unfixed* findings of
+`CODE_REVIEW_2026-08-18.md`. **The ordering below is a proposal, not a decision** — it
+ranks clinical safety and security first, then compliance, then product. Re-order it to
+taste; that act *is* the product-management job.
 
 ---
 
@@ -15,17 +16,32 @@ product. Re-order it to taste; that act *is* the product-management job.
 - [ ] **Confirm Na acetate (3 mEq/mL) and KCl (2 mEq/mL) stock concentrations against the
       shelf.** Both were *inferred* from the KCMH worksheet's divisors, not read off an
       explicit strength label. **These four corrected concentrations change the mL printed
-      on every order form** — this is the highest-stakes open item in the repo.
-- [ ] **Exercise `@46` with a real login and a real Delete.** Its auth changes are covered
-      only by stub harnesses, and their provenance is unknown (see `CHANGELOG.md`,
-      session 2026-08-17 (3)).
-- [ ] **`FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at 4-week
-      steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10; the other two
-      were not.
+      on every order form** — the highest-stakes open item in the repo.
+- [ ] **`registerPatient` silently overwrites on a colliding `initials+BW` pseudonym.**
+      Two different infants sharing initials and birth weight collapse into one record.
+- [ ] **`TARGETS.fluid` is documented as taking birth weight, but every call site passes
+      current weight.** One of the two is wrong; decide which.
+- [ ] **`SaltRow` accepts negative electrolyte doses** where `NumField` deliberately
+      does not.
+- [ ] **`FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
+      4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10; the
+      other two were not.
 - [ ] Do **not** widen the Fenton axis past 42 wk to "fix" the hidden-measurement banner.
       The GA 44–50 rows in `data.js` are unverified. Source real post-term data first.
 
-## 2 · PDPA / compliance
+## 2 · Security
+
+- [ ] **`mustChangePassword` is enforced only in the client — the server hands a
+      temp-password account a fully-privileged token.** A client that skips the prompt is
+      fully authorised.
+- [ ] **No server-side one-entry-per-date guard.** The duplicate-date lock is frontend
+      only.
+- [ ] **`updateWeights` fails silently and takes no lock.**
+- [ ] **Exercise `@46` with a real login and a real Delete.** Its auth changes are covered
+      only by stub harnesses, and their provenance is unknown (see `CHANGELOG.md`,
+      session 2026-08-17 (3)).
+
+## 3 · PDPA / compliance
 
 - [ ] **No retention or auto-purge policy after discharge** — records persist indefinitely
       in the Sheet today.
@@ -34,23 +50,29 @@ product. Re-order it to taste; that act *is* the product-management job.
 - [ ] **Cross-border transfer (Sec 28) never evaluated** — data lives in Google
       Sheets/Apps Script. Verify Google Workspace's DPA/SCC coverage is adequate for the
       org's data-location requirements.
+- [ ] **`Audit_Log` now gains a row per re-sync per user per minute** (since `syncFromGAS`
+      began running on tab focus). It grows without bound and its signal-to-noise for
+      accountability review has dropped.
 - [ ] Residual risk, structural: `sessionId` = `initials+BW+twinSuffix` is a **pseudonym,
       not anonymous**. Erasure cannot scrub that pattern from an already-issued sessionId
       without breaking every `Daily_Log` join. Documented, not fixed.
 
-## 3 · Product — no metrics exist today
+## 4 · Product — no metrics exist today
 
 - [ ] **Nobody knows how many staff use NeoFeed.** The data is already being collected:
       `Audit_Log (A–D): ts | action | sessionId | actorEmail`, and `logAudit("readRegistry")`
       fires on every `getActivePatients`. What is missing is a *read* of it, not
-      instrumentation. Start with weekly active users.
+      instrumentation. Start with **weekly active users** — distinct `actorEmail` per week,
+      which survives the re-sync noise above; raw row counts no longer measure usage.
       ⚠️ `Audit_Log` exists for **PDPA Sec 39 accountability**, not analytics, and it holds
       staff email. Aggregate counts only — a per-staff ranking turns product analytics into
       personnel monitoring, which needs a different legal basis and a different conversation
       with the ward.
 - [ ] No PRD exists. `CHANGELOG.md` is a change log, not a product definition.
+- [ ] **There is no error boundary** — `PatientStrip` throwing white-screens the whole app.
+      One was hit and fixed on 2026-08-18; the class of bug remains open.
 
-## 4 · Carried over, unverified
+## 5 · Carried over, unverified
 
 Copied from the old `HANDOFF.md` "Known caveats", written around session 8 (2026-05-25).
 **The line numbers are certainly stale and the claims were not re-checked during the
@@ -62,3 +84,4 @@ Copied from the old `HANDOFF.md` "Known caveats", written around session 8 (2026
       (old note: `app.jsx` line ~145).
 - [ ] Mobile Fenton chart keeps pan/zoom; the SVG width-760 layout survives via
       `width: 100%; height: auto`.
+- [ ] `_buildLogRow`'s date fallback still uses `toISOString()`.

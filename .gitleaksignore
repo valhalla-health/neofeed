@@ -1,0 +1,11 @@
+# gitleaks false positives, by fingerprint.
+#
+# test/verify-resync-and-lists.cjs:93 — the harness builds a stub session object
+# so the sync path can run without the login screen, and its placeholder token
+# field trips `generic-api-key` on entropy alone. It sits next to `Dr Test` and
+# `dr@test.th`; it is a fixture, never a credential. Real tokens are minted by
+# CacheService at runtime and never appear in the repo. Arrived with the
+# 2026-08-19 harness, and would otherwise block every commit to this repo.
+#
+# (Do not quote the literal value in this comment — gitleaks scans this file too.)
+test/verify-resync-and-lists.cjs:generic-api-key:93

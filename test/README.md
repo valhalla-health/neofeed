@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Eight Node scripts. Two check the TPN calculator against the **official KCMH
+Eleven Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -9,8 +9,15 @@ registry reports back to the ward — who has been logged today and who still
 needs an entry. The fifth pins the three bedside-reported defects fixed on
 2026-08-17 (bed label, log-entry DOL, Intake/Output persistence). The sixth and
 seventh are the only things here that exercise `gas-backend.gs` at all — the
-registry upsert, and session revocation on the auth path — and the eighth
-drives the whole app in a real browser.
+registry upsert, and session revocation on the auth path. The eighth pins the
+2026-08-18 code review: that a background re-sync doesn't tear the workspace
+down mid-entry, and that the registry/admin lists report the ward's own numbers
+back to it. The ninth pins the patient-record fields that were read-only until
+2026-08-19 — GA, birth weight and sex — staying correctable without the
+sessionId moving under the log. The tenth pins the admin-only, permanent
+"Delete session" flow — client button gating, the confirm dialog, and the
+server's own cascade + role re-check. The eleventh drives the whole app in a
+real browser.
 
 ## Running
 
@@ -24,8 +31,10 @@ node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
 ```
 
-The two KCMH harnesses, `verify-registry-logged-today.cjs` and
-`verify-bed-dol-io.cjs` are the only things in this repo that need `npm` (they
+The two KCMH harnesses, `verify-registry-logged-today.cjs`,
+`verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs` and
+`verify-delete-session.cjs` are the only things
+in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
 has no build step. Dependencies are dev-only
 and are **not** committed — install them into a scratch folder and point Node at it:
@@ -40,7 +49,17 @@ Then, from the repo root:
 node test/verify-kcmh-constants.cjs && node test/verify-kcmh-factor.cjs
 node test/verify-registry-logged-today.cjs
 node test/verify-bed-dol-io.cjs
+node test/verify-resync-and-lists.cjs
+node test/verify-patient-ga-bw-edit.cjs
+node test/verify-delete-session.cjs
 ```
+
+`verify-resync-and-lists.cjs` is the only one that mounts the **whole**
+`<App/>` (against a stubbed `fetch`, with `window.NEOFEED_GAS_URL` set so the
+GAS code paths are live) rather than a single component, because the defect it
+pins — the app blanking to its first-load spinner on every focus re-sync — only
+exists at that level. It drives the real Calculator through a real focus event,
+so it also serves as the closest thing here to an integration test.
 
 The browser runthrough additionally needs Playwright and a Chromium:
 
@@ -129,6 +148,60 @@ asserts the round trip (restore → untouched re-save writes the same numbers),
 the fallback to the `ioInput`/`ioOutput`/`drainContent` columns for a row whose
 `calcInput` predates the card, and — in the other direction — that a brand-new
 entry's Input still tracks the prescribed total live until the user types in it.
+
+**`verify-patient-ga-bw-edit.cjs`** — mounts the real `<EditPatientModal>` in
+jsdom and drives its fields, because what it pins is the payload the modal
+submits. GA, birth weight and sex were a read-only chip strip there until
+2026-08-19, so a registration typo (the reported one was a BW keyed as 1090)
+could only be corrected by deleting the session and re-registering it — which
+takes the whole Daily_Log with it, since `deletePatient` drops every row for
+the sessionId. The two invariants that make editing them safe are what the
+assertions are for: the **sessionId is not re-derived** from the corrected BW
+(it is the key both tabs are matched on — regenerating it strands the log), and
+GA stays **`WW.D` shorthand** rather than decimal weeks, seeded through
+`gaTotalDays` so a hand-edited `27.9` in the sheet comes back as 27+6. It also
+covers the birth measurement following a corrected BW only while
+`weights[0].w` still matches the old one, that neither field can be *cleared*
+(the same gate registration applies — a 0 there corrupts every subsequent
+dose), and that a GA outside 22–43 wk is neither preselected nor offered but
+must be re-picked before the record can be saved — with a structural check
+that both modals render the one shared `GA_WEEK_OPTIONS` list, so the range
+can't drift between register and edit.
+
+**`verify-delete-session.cjs`** — pins the admin-only, permanent "Delete
+session" flow end to end, written after a ward question ("can a whole session
+be deleted?") was answered by reading the code rather than by a bug report.
+Three parts:
+
+- `deletePatient()` itself, called directly through the same `vm`-sandbox
+  technique as `verify-gas-registry-upsert.cjs`: it removes the matching
+  `Patient_Registry` row **and** every `Daily_Log` row for that `sessionId`,
+  leaves a different patient's registry row and log rows untouched, takes and
+  releases the script lock, and rejects a missing/unknown `sessionId` without
+  touching either sheet.
+- `doPost`'s `"deletePatient"` branch — a structural check (regex over the
+  branch's own source slice, same technique as the GA/BW harness's shared-list
+  check) that the `user.role !== "admin"` gate runs *before* the delete, and
+  that `logAudit("deletePatient", …)` runs *after* it succeeds. Not exercised
+  end-to-end: no harness here stubs `ContentService`'s chainable
+  `setMimeType()` output, so this is the cheapest thing that would actually
+  fail if the gate or the audit call were ever removed.
+- `<EditPatientModal>`'s "Delete session" button, mounted for real in jsdom
+  (same technique as `verify-patient-ga-bw-edit.cjs`): the button does not
+  render at all when `onDelete` is `undefined` — the shape
+  `role === "admin" ? handleDeletePatient : undefined` in `app.jsx` produces
+  for anyone who isn't an admin — declining `window.confirm()` calls neither
+  `onDelete` nor `onClose`, accepting it calls `onDelete` with the patient
+  being edited and then closes, and the confirm text itself names the patient
+  and says the deletion is permanent and irreversible (`ถาวร` /
+  `ไม่สามารถย้อนกลับได้`) rather than a generic "are you sure?".
+
+Not covered here: `app.jsx`'s `handleDeletePatient` — the optimistic
+client-side removal that rolls back on any server failure (error,
+unauthorized, or a network exception; `gasPost` never throws past its own
+try/catch, so the rollback branch always runs). That would need the full
+`<App/>` mount `verify-resync-and-lists.cjs` uses; worth adding there if this
+flow ever regresses in a way the three checks above don't catch.
 
 **`verify-gas-registry-upsert.cjs`** — one of the two harnesses that run
 backend code. `gas-backend.gs` is Apps Script, but every top-level statement in it is

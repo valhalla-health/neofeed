@@ -7,3 +7,7 @@ Thumbs.db
 
 # Screenshots from test/runthrough-app.cjs
 test/.screenshots/
+
+# Dev-only test deps — installed on demand, never committed (see test/README.md)
+node_modules/
+package-lock.json

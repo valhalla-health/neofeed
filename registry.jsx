@@ -148,7 +148,10 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
       {/* ─── Mobile: card list ─── */}
       <div className="patient-card-list">
         {activeSorted.map(p => {
-          const last    = D_R.lastWeighed(p) || p.weights[p.weights.length - 1];
+          // No fallback to the raw last array element: that element can be a
+          // length/HC-only row (`w: null`), which turns Δ into `null - bw`
+          // — a bogus −100% — instead of the honest "—" a null `last` gives.
+          const last    = D_R.lastWeighed(p) || null;
           const dol     = D_R.liveDol(p);
           const delta   = last ? last.w - p.bw : 0;
           const deltaPct = (delta / p.bw) * 100;
@@ -191,9 +194,11 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                   <span className="pmc-lbl">Wt</span>
                   <span className="num">{last?.w?.toLocaleString() || "—"}</span> g
                 </span>
-                <span style={{ color: deltaColor }}>
+                <span style={{ color: last ? deltaColor : "var(--ink-3)" }}>
                   <span className="pmc-lbl">Δ</span>
-                  <span className="num">{delta >= 0 ? "+" : ""}{delta}</span> g ({deltaPct.toFixed(1)}%)
+                  {last
+                    ? <><span className="num">{delta >= 0 ? "+" : ""}{delta}</span> g ({deltaPct.toFixed(1)}%)</>
+                    : <span className="num">—</span>}
                 </span>
                 {/* Today's entry, stated outright rather than as a quiet grey
                     hint — this is the one thing the round asks of the list. */}
@@ -298,7 +303,13 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
           </thead>
           <tbody>
             {activeSorted.map(p => {
-              const last     = p.weights[p.weights.length - 1];
+              // D_R.lastWeighed, not the raw last array element — same as the
+              // mobile card above. A length/HC-only measurement is stored with
+              // `w: null` (see MeasurementLogger), so the newest entry is not
+              // necessarily a weighed one: taking it blind showed "— g" for the
+              // weight and a Δ of `null - bw`, i.e. every such patient reading
+              // as −100% of birth weight, in critical red, on the ward list.
+              const last     = D_R.lastWeighed(p) || null;
               const dol      = D_R.liveDol(p);
               const delta    = last ? last.w - p.bw : 0;
               const deltaPct = (delta / p.bw) * 100;
@@ -328,10 +339,12 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                   <td className="num">{p.bw.toLocaleString()}</td>
                   <td style={{ color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
                   <td className="num" style={{ fontWeight: 700, color: "var(--brand-2)", fontSize: 15 }}>{dol}</td>
-                  <td className="num">{last?.w?.toLocaleString() || "—"} g</td>
-                  <td className="num" style={{ color: deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)", fontWeight: 600 }}>
-                    {delta >= 0 ? "+" : ""}{delta} g
-                    <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({deltaPct.toFixed(1)}%)</span>
+                  <td className="num">{last ? `${last.w.toLocaleString()} g` : "—"}</td>
+                  <td className="num" style={{ color: !last ? "var(--ink-3)" : deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)", fontWeight: 600 }}>
+                    {last ? <>
+                      {delta >= 0 ? "+" : ""}{delta} g
+                      <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({deltaPct.toFixed(1)}%)</span>
+                    </> : "—"}
                   </td>
                   <td>
                     <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"var(--ok)", fontWeight:600 }}>
@@ -386,7 +399,11 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                 <td className="num">{D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))}</td>
                 <td className="num">{p.bw.toLocaleString()}</td>
                 <td style={{ color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
-                <td colSpan={4} />
+                {/* DOL · Wt now · Δ birth — three columns, matching the 11 in
+                    <thead>. colSpan 4 pushed Status and the actions cell one
+                    column past the header, so every archived row's status chip
+                    sat under the wrong heading. */}
+                <td colSpan={3} />
                 <td><span className="chip"><span className="d" />{p.status}</span></td>
                 <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                   <button className="btn sm" onClick={e => { e.stopPropagation(); setEditPatient(p); }}>Edit</button>
@@ -411,6 +428,15 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
     </>
   );
 }
+
+// The gestational ages a session may carry: 22–43 wk. Both modals offer
+// exactly this list and nothing else, so a GA outside it cannot be registered
+// *or* saved onto an existing session — an out-of-range record (imported, or
+// typed straight into the sheet) has to be given a real GA before it can be
+// saved again, rather than being carried along as a pickable option. GA drives
+// the Fenton percentile and the `ga < 32` HMF threshold; neither means
+// anything at 20 wk or 50 wk.
+const GA_WEEK_OPTIONS = Array.from({ length: 22 }, (_, i) => 22 + i);
 
 const BED_OPTIONS = [
   ...Array.from({ length: 12 }, (_, i) => `NICU ${i + 1}`),
@@ -537,7 +563,7 @@ function NewPatientModal({ onClose, onSubmit }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <select className="sel" value={gaW} onChange={e => setGaW(e.target.value)} style={{ flex: 1 }}>
                   <option value="">wk</option>
-                  {Array.from({ length: 22 }, (_, i) => 22 + i).map(w => <option key={w} value={w}>{w}</option>)}
+                  {GA_WEEK_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
                 </select>
                 <span style={{ color: "var(--ink-3)", fontWeight: 500 }}>+</span>
                 <select className="sel" value={gaD} onChange={e => setGaD(e.target.value)} style={{ width: 68 }}>
@@ -563,7 +589,10 @@ function NewPatientModal({ onClose, onSubmit }) {
               <label>DOL at admit</label>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input type="number" className="inp" min={1} style={{ flex: 1 }} value={admitDol}
-                  onChange={e => setAdmitDol(Math.max(1, parseInt(e.target.value) || 1))} />
+                  onChange={e => {
+                    const v = e.target.value;
+                    setAdmitDol(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
+                  }} />
                 {admitDol > 1 && (
                   <span style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
                     DOB: {dob}
@@ -679,6 +708,40 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
 function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState(patient.name || patient.initials || "");
+  // Birth weight, GA and sex are corrections of what was typed at
+  // registration, not new clinical events — and every one of them silently
+  // rescales the whole chart downstream if it is wrong: the ESPGHAN kcal /
+  // protein bands and fluid targets are per-kg of the *current* weight but
+  // anchored on birth weight for the Δ-birth and growth-velocity readouts,
+  // `ga` drives the Fenton percentile and the `ga < 32` HMF threshold, and
+  // `sex` picks which Fenton curve set is plotted. Until 2026-08-19 they were
+  // read-only chips here, so a transposed "1090 → 1900" could only be fixed by
+  // deleting the session and re-registering it — which takes the entire
+  // Daily_Log with it (deletePatient drops every row for the sessionId).
+  //
+  // sessionId is deliberately NOT re-derived when bw changes. It is the key
+  // Patient_Registry and Daily_Log are matched on (registerPatient's upsert,
+  // updateDailyNutrition, deletePatient all scan for it), so regenerating it
+  // would leave the patient's whole log stranded under an id nothing points
+  // at any more. The BW baked into the id is a label from the day it was
+  // issued; `patient.bw` is the clinical value, and that is what every
+  // calculation reads. Same reason editing ชื่อในวงการ has never renamed it.
+  const [bw, setBw]             = React.useState(patient.bw || 0);
+  // Decode through gaTotalDays, not Math.floor/×10 by hand, so a hand-edited
+  // sheet value like 27.9 seeds the selects as 27+6 — exactly what every
+  // other reader of this field already decodes it to.
+  //
+  // A stored GA outside GA_WEEK_OPTIONS is NOT carried as an extra option the
+  // way BedSelect carries an off-list bed: an unrecognized bed label is still
+  // a real place, while a GA of 20 or 50 wk is a data error that every
+  // downstream calculation would keep reading. It seeds blank instead, which
+  // leaves the save button disabled until a real GA is picked.
+  const gaTd                    = D_R.gaTotalDays(patient.ga);
+  const gaStoredW               = Math.floor(gaTd / 7);
+  const gaInRange               = GA_WEEK_OPTIONS.includes(gaStoredW);
+  const [gaW, setGaW]           = React.useState(gaInRange ? String(gaStoredW) : "");
+  const [gaD, setGaD]           = React.useState(gaInRange ? String(gaTd % 7) : "");
+  const [sex, setSex]           = React.useState(patient.sex === "girls" ? "girls" : "boys");
   // Seeded from the patient's own bed, normalized (so a legacy "NICU 1-1"
   // preselects the real "NICU 1" rather than leaving the dropdown blank and
   // silently re-saving the bogus value) — and with **no fallback bed**: a
@@ -690,6 +753,13 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   const [status, setStatus]     = React.useState(patient.status || "Active");
   const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
   const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || today);
+
+  // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks — same
+  // encoding NewPatientModal writes; see the GA/PMA section of the walkthrough.
+  const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
+  // Same gate as registration: a 0/blank BW or GA would corrupt every
+  // subsequent dose for this patient, so it can be corrected but not cleared.
+  const canSave = bw > 0 && gaW !== "";
 
   // Permanently deletes the session — removes it from Patient_Registry and
   // every Daily_Log row for it on the server (`handleDeletePatient` in
@@ -719,31 +789,79 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
     const statusDate = status === "Active"
       ? null
       : (status !== prevStatus || !patient.statusDate) ? today : patient.statusDate;
+    // weights[0] is the measurement NewPatientModal seeds from the birth
+    // weight, so a corrected BW has to carry into it or the Fenton chart and
+    // the registry's "Δ birth" keep plotting the typo. Only when it still
+    // matches the old bw, though: once someone has edited that first row on
+    // its own (or the patient was admitted at DOL > 1, where it is an
+    // admission weight rather than a birth weight that happens to differ),
+    // it is a real measurement and not ours to overwrite.
+    const bwChanged = Number(bw) !== Number(patient.bw);
+    const weights = (patient.weights || []).map((w, i) => i !== 0 ? w : {
+      ...w,
+      dol: Number(dol1) || 1,
+      ...(bwChanged && Number(w.w) === Number(patient.bw) ? { w: Number(bw) } : {}),
+    });
     onSubmit({
       ...patient,
       name, initials: name,
+      bw: Number(bw), ga, sex,
       currentBed: D_R.normalizeBed(bed),
       diagnosis: dx,
       status,
       statusDate,
       admissionDate: admitDate,
-      weights: patient.weights.map((w, i) => i === 0 ? { ...w, dol: Number(dol1) || 1 } : w),
+      weights,
     });
   };
 
   return (
     <div className="picker-backdrop" onClick={onClose}>
-      <div className="picker" style={{ width: 480 }} onClick={e => e.stopPropagation()}>
+      <div className="picker" style={{ width: 560 }} onClick={e => e.stopPropagation()}>
         <div className="picker-h" style={{ justifyContent: "space-between" }}>
           <div style={{ fontWeight: 600, fontSize: 15 }}>Edit session · {patient.sessionId}</div>
           <button className="icon-btn" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ padding: "10px 12px", background: "var(--bg-2)", borderRadius: 8, fontSize: 12, color: "var(--ink-2)", display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <span>GA: <strong>{D_R.fmtGA(patient.ga)} wk</strong></span>
-            <span>BW: <strong>{patient.bw} g</strong></span>
-            <span>Sex: <strong>{patient.sex === "boys" ? "Male" : "Female"}</strong></span>
+          <div className="row-3">
+            <div className="field">
+              <label>Birth weight <span className="unit">(g)</span></label>
+              <input type="number" min="0" className="inp" value={bw || ""}
+                onChange={e => setBw(Math.max(0, parseInt(e.target.value, 10) || 0))} placeholder="0" />
+            </div>
+            <div className="field">
+              <label>GA <span className="unit">(weeks + days)</span></label>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <select className="sel" value={gaW} onChange={e => setGaW(e.target.value)} style={{ flex: 1 }}>
+                  <option value="">wk</option>
+                  {GA_WEEK_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+                <span style={{ color: "var(--ink-3)", fontWeight: 500 }}>+</span>
+                <select className="sel" value={gaD} onChange={e => setGaD(e.target.value)} style={{ width: 64 }}>
+                  <option value="">d</option>
+                  {[0,1,2,3,4,5,6].map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="field">
+              <label>Sex</label>
+              <select className="sel" value={sex} onChange={e => setSex(e.target.value)}>
+                <option value="boys">Male</option><option value="girls">Female</option>
+              </select>
+            </div>
           </div>
+          {gaTd > 0 && !gaInRange && (
+            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "oklch(45% 0.13 65)", lineHeight: 1.5 }}>
+              GA เดิมของ session นี้ (<strong>{D_R.fmtGA(patient.ga)} wk</strong>) อยู่นอกช่วง 22–43 wk ที่ระบบรองรับ —
+              เลือก GA ใหม่ก่อนจึงจะบันทึกได้
+            </div>
+          )}
+          {Number(bw) !== Number(patient.bw) && bw > 0 && (
+            <div style={{ padding: "8px 12px", background: "var(--bg-2)", borderRadius: 8, fontSize: 11.5, color: "var(--ink-2)", lineHeight: 1.5 }}>
+              แก้ BW จาก <strong>{patient.bw} g</strong> เป็น <strong>{bw} g</strong> — เป้าหมายสารอาหารและกราฟ Fenton
+              จะคำนวณใหม่ทั้งหมด ส่วนรหัส session <strong>{patient.sessionId}</strong> ยังคงเดิม (เป็นคีย์ของบันทึกประจำวันทุกรายการ)
+            </div>
+          )}
           <div className="row-2">
             <div className="field">
               <label>ชื่อในวงการ</label>
@@ -751,7 +869,11 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
             </div>
             <div className="field">
               <label>DOL แรกรับ</label>
-              <input type="number" className="inp" min={1} value={dol1} onChange={e => setDol1(Math.max(1, parseInt(e.target.value, 10) || 1))} />
+              <input type="number" className="inp" min={1} value={dol1}
+                onChange={e => {
+                  const v = e.target.value;
+                  setDol1(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
+                }} />
             </div>
           </div>
           <div className="row-2">
@@ -779,6 +901,11 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
               <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
             </div>
           </div>
+          {!canSave && (
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", textAlign: "right" }}>
+              ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
             {onDelete && (
               <button className="btn" style={{ marginRight: "auto", color: "var(--crit)", borderColor: "var(--crit-line)" }}
@@ -787,7 +914,7 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
               </button>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" onClick={save}><Icon name="save" size={14} color="#fff" /> Save changes</button>
+            <button className="btn primary" disabled={!canSave} onClick={save}><Icon name="save" size={14} color="#fff" /> Save changes</button>
           </div>
         </div>
       </div>

@@ -13,6 +13,159 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-19 (3) — new harness: `verify-delete-session.cjs`
+
+**No code change** — a ward question ("can a whole session be deleted?") was
+answered by reading `EditPatientModal`'s "Delete session" button through
+`handleDeletePatient` (`app.jsx`) to `deletePatient()` (`gas-backend.gs`) end
+to end, and the answer (yes, admin-only, permanent, cascades to every
+`Daily_Log` row) is now pinned by `test/verify-delete-session.cjs` instead of
+living only in this conversation. 28 assertions across three parts:
+`deletePatient()` itself in a `vm` sandbox (registry + log cascade, other
+patients untouched, lock taken/released, missing/unknown `sessionId`
+rejected), a structural check that `doPost`'s branch gates on
+`role === "admin"` before deleting and audits after, and the real
+`<EditPatientModal>` mounted in jsdom (button absent for non-admins, a
+declined `confirm()` calls neither `onDelete` nor `onClose`, an accepted one
+calls both, and the confirm text names the patient and says the deletion is
+permanent). Not covered: `handleDeletePatient`'s optimistic-rollback-on-
+failure — see the harness's own note in `test/README.md` for what that would
+take.
+
+---
+
+## Session 2026-08-19 (2) — "DOL แรกรับ" input stuck at its own value
+
+**Frontend only.** Cache-bust bumped: `registry.jsx?v=dol-input-fix1` (both
+HTML shells, still byte-identical).
+
+**Reported from the ward** (screenshot): `EditPatientModal`'s "DOL แรกรับ"
+field could not be edited, while every other field on the same modal could.
+Same defect existed in `NewPatientModal`'s "DOL at admit" field, unreported
+but identical code.
+
+Root cause is a classic controlled-input footgun, not a rendering/CSS issue:
+both fields' `onChange` immediately clamped `parseInt(e.target.value) || 1`
+back into state on every keystroke, including when the field was cleared
+(`parseInt("") || 1` → `1`). For any patient whose DOL at admit is already
+`1` — the common case, since most babies are admitted on their birth date —
+clearing the field recomputes the *same* value `1` the state already held.
+React's `Object.is` bailout then sees no state change and skips re-rendering
+the DOM, so the input's on-screen value never resyncs to the browser's own
+(now-empty) native state: every backspace-then-retype attempt silently
+fights itself. A field whose fallback happens to differ from its current
+value (birth weight's fallback is `0`, essentially never the real BW) never
+hits this, which is why the ward only ever saw it on this one field.
+
+Fix: let `""` be a valid intermediate state (`v === "" ? "" : Math.max(1,
+parseInt(v, 10) || 1)`) instead of always resolving straight to a number.
+Downstream reads already tolerated a blank — `Number(dol1) || 1` at save time
+in `EditPatientModal`, `parseInt(admitDol) || 1` in `NewPatientModal` — so no
+other change was needed. Existing harnesses
+(`verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`) still pass; no
+harness pinned this specific stuck-input case before now.
+
+---
+
+## Session 2026-08-19 — GA / BW / sex editable on an existing session
+
+**Frontend only — ships with the static files, no `clasp` deploy needed.**
+`gas-backend.gs` is untouched: `registerPatient`'s upsert already writes the
+`bw` and `ga` columns on every save, so the corrected values land on the sheet
+through the same path an edited bed or diagnosis takes. `?v=` bumped to
+`ga-bw-edit1` on `registry.jsx` in both HTML shells (still byte-identical).
+
+**Reported from the ward:** a session registered with a wrong birth weight
+(KH-BW1090) could not be corrected — `EditPatientModal` showed GA, BW and sex
+as a read-only chip strip, so the only fix was deleting the session and
+re-registering it, which takes the patient's entire Daily_Log with it
+(`deletePatient` drops every row for the sessionId). Those three are now
+editable fields at the top of the modal, laid out like the register form's
+first row.
+
+Two things deliberately do **not** change with a corrected BW:
+
+- **The sessionId.** It is the key both tabs are matched on, so it keeps the
+  BW it was issued with — `KH-BW1090` stays `KH-BW1090` even after the weight
+  is fixed to 1900 g. The modal says so inline when the BW is edited, so the
+  mismatch between the id and the record is expected rather than alarming.
+  `patient.bw` is what every calculation reads; the id is a label.
+- **A first weight measurement that has been edited on its own.**
+  `weights[0]` is the row `NewPatientModal` seeds from the birth weight, so it
+  is corrected alongside — otherwise the Fenton chart and the registry's
+  Δ-birth keep plotting the typo — but only while it still equals the old
+  `bw`. A patient admitted past DOL 1, or whose first row has since been
+  edited, keeps it.
+
+Neither field can be *cleared*: save is disabled on a 0/blank BW or an unset
+GA week, the same gate registration applies, because a 0 there rescales every
+subsequent dose. GA stays `WW.D` shorthand throughout, seeded through
+`gaTotalDays` so a hand-edited `27.9` on the sheet comes back as 27+6.
+
+**A GA outside 22–43 wk cannot be saved at all.** Both modals now render one
+shared `GA_WEEK_OPTIONS` list, so register and edit offer exactly the same
+range and can't drift apart. A record already carrying something outside it
+(imported, or typed straight into the sheet) is *not* carried along as a
+pickable option — the rule `BedSelect` follows for an off-list bed does not
+apply here, because an unrecognized bed is still a real place while a GA of
+20 wk is a data error every downstream calculation keeps reading. The selects
+seed blank, an amber notice names the old value and says to pick a new one,
+and save stays disabled until one is picked.
+
+New harness `test/verify-patient-ga-bw-edit.cjs` (32 assertions) mounts the
+real `<EditPatientModal>` and drives the fields; all nine pre-existing
+harnesses still pass.
+
+---
+
+## Session 2026-08-18 — full code review; six defects fixed, nine reported
+
+Read every source file against `app-walkthrough.md`'s conventions. Full writeup
+in **`CODE_REVIEW_2026-08-18.md`**; this is the operational summary.
+
+**Frontend only — ships with the static files, no `clasp` deploy needed.**
+`gas-backend.gs` is untouched. All eight pre-existing harnesses still pass, and
+a new one (`test/verify-resync-and-lists.cjs`, 15 assertions) pins the fixes;
+11 of its assertions fail against the pre-fix source, which is how it was
+validated. `?v=` bumped to `review-0818` on `app.jsx` and `registry.jsx` in
+both HTML shells (which remain byte-identical).
+
+**The one that matters at the bedside:** `App` gated its whole tree on
+`syncState === "loading"`, and `syncFromGAS` now runs on tab focus (60s
+throttle) and day rollover as well as at login — so every background refresh
+replaced the workspace with the first-load spinner and unmounted everything
+under it. Tab away, come back a minute later, and a half-finished Calculator
+had reset every typed field to its prefill (`localStorage` only holds the last
+*submitted* state, so the weight field silently reverts to the patient record's
+number rather than blanking). Now gated on `!lastSync` too. Verified by
+mounting the real `<App/>` in jsdom, typing into the real Calculator and firing
+a real focus event.
+
+Also fixed: the desktop registry table read `weights[last]` instead of
+`D.lastWeighed`, so a patient whose newest measurement was length/HC-only
+(`w: null`) showed "— g" and **−100% of birth weight in critical red**, beside
+a mobile card correctly showing +22%; `PatientStrip` could throw (and white-
+screen the app — there is no error boundary) on a patient with no weighed
+measurement; `computeAlerts` fed the stale stored `dol` into DOL-indexed
+targets, so a row frozen at DOL 1 kept the day-1 protein/energy floors and an
+under-fed infant never alerted; the admin dashboard's "Recent log entries" was
+sliced from a patient-ordered `flatMap` and so wasn't recent; its "Active
+sessions" tile used `status === "Active"` where the registry uses
+`isActivePatient` (blank counts); archived registry rows spanned 12 columns
+against an 11-column header.
+
+**Not changed, needs a decision or a deploy** (details in the review doc):
+`mustChangePassword` is enforced only in the client — the server hands a
+temp-password account a fully-privileged token; no server-side
+one-entry-per-date guard; `registerPatient` silently overwrites on a colliding
+`initials+BW` pseudonym; `updateWeights` fails silently and takes no lock;
+`Audit_Log` now gains a row per re-sync per user per minute; `_buildLogRow`'s
+date fallback still uses `toISOString()`; `TARGETS.fluid` is documented as
+taking birth weight but every call site passes current weight; `SaltRow`
+accepts negative electrolyte doses where `NumField` deliberately doesn't.
+
+---
+
 ## Session 2026-08-17 (3) — auth hardening recovered from the clasp mirror, and covered
 
 Started as a routine "check for backend updates". The local clone was 15

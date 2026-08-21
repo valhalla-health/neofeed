@@ -69,6 +69,33 @@ big conditional block plus `RailItem`/`BottomNav`.
   `updateDailyNutrition()` to match an existing entry for edit-in-place
   rather than always inserting.
 
+**A sessionId is never re-derived once issued.** `initials + BW + twinSuffix`
+is how it's *generated* at registration, not a formula the app keeps in sync:
+`Patient_Registry` and every `Daily_Log` row are matched on the literal string
+(`registerPatient`'s upsert, `updateDailyNutrition`, `deletePatient` all scan
+for it), so recomputing it after a correction would strand the patient's whole
+log under an id nothing points at. Editing `ชื่อในวงการ` has never renamed it,
+and as of 2026-08-19 **`bw`, `ga` and `sex` are editable in
+`EditPatientModal`** on the same terms — they were a read-only chip strip until
+then, so a registration typo could only be fixed by deleting the session and
+re-registering it, which takes the Daily_Log with it. The BW baked into the id
+is a label from the day it was issued; `patient.bw` is the clinical value, and
+that's what every calculation reads. Two things ride along with a corrected
+`bw`: `weights[0]` (the measurement `NewPatientModal` seeds from it) is
+updated too, but only while it still equals the old `bw` — once it's been
+edited on its own it's a real measurement, not ours to overwrite — and the
+edit is gated on `bw > 0` and a GA week being set, the same gate registration
+applies, because a 0 there silently corrupts every subsequent dose.
+The offered GA range is `GA_WEEK_OPTIONS` (22–43 wk) in `registry.jsx`,
+rendered by both modals so register and edit can't drift apart. A record
+carrying a GA outside it — imported, or typed straight into the sheet — is
+**not** carried along as a pickable option the way `BedSelect` carries an
+off-list bed: an unrecognized bed label is still a real place, while a GA of
+20 or 50 wk is a data error the Fenton percentile and the `ga < 32` HMF
+threshold would both keep reading. The selects seed blank, the modal says why,
+and save stays disabled until a real GA is picked.
+`test/verify-patient-ga-bw-edit.cjs` pins all of this.
+
 ### GA/PMA convention (important — read before touching any GA field)
 `ga` is stored as a `WW.D` shorthand number, **not** decimal weeks:
 - `26.4` means 26 weeks + 4 days (integer part = weeks, first decimal
@@ -118,6 +145,18 @@ GAS on tab focus (throttled to once a minute) and on day rollover; before
 that it fetched once at login and never again, so entries logged from another
 device never showed up.
 
+**Those background refetches must stay background.** `App`'s first-load gate
+is `syncState === "loading" && !lastSync` — the `!lastSync` half is
+load-bearing (added 2026-08-18). Only the very first sync has nothing to
+protect; every later one is a refresh underneath a workspace someone is using.
+Gating the whole tree on `"loading"` alone unmounted everything below it on
+each focus/rollover refetch, so a half-finished Calculator lost every typed
+field back to its prefill (`localStorage` only holds the last *submitted*
+state) and any open modal closed — from nothing more than tabbing away and
+back. A refresh is already reported by the topbar's "Syncing…" pill; don't
+give it the full-screen spinner too. `test/verify-resync-and-lists.cjs` mounts
+the real `<App/>` and fires a real focus event to hold this.
+
 **A saved Daily_Log row's `dol` column is a snapshot, not a fact** — it
 records what DOL was when that row was written, so it goes stale exactly
 like a cached `liveDol()` would. Two ways it ends up wrong: the row was
@@ -131,9 +170,32 @@ rule above) and falls back to the stored column only when there's no date or
 no admission date to measure from. The stored
 column is still written on save (it's what a report or an export off the
 sheet reads), and is corrected in place whenever the entry is re-saved.
-`log.jsx`'s table and `TrendGraph`, and `app.jsx`'s `CalculatorView`
-(`displayDol`, which is also what the next save stamps), all use it. The
-"All entries" table sorts by `ts`, not `dol`, for the same reason.
+`log.jsx`'s table and `TrendGraph`, `app.jsx`'s `CalculatorView`
+(`displayDol`, which is also what the next save stamps), `computeAlerts` and
+the admin dashboard's entry table (both 2026-08-18) all use it. The
+"All entries" table sorts by `ts`, not `dol`, for the same reason — as does
+the admin dashboard's "Recent log entries", which used to slice the
+`flatMap`-ed concatenation and so showed *the last patients*, not the last
+entries.
+
+`computeAlerts` was the last holdout: it fed the stored `dol` into
+`TPN_TARGETS.protein(dol)`/`.kcal(dol)`, so a row frozen at DOL 1 kept the
+day-1 bands (protein floor 1.5 instead of 2.5 g/kg/d) and an under-fed infant
+never triggered an alert. Note the alert's `dol` is also half its
+acknowledge key (`ackKey(id, dol)`), so changing what it reports re-surfaces
+existing acks once — that is expected, not a regression.
+
+### Current weight vs. the last measurement
+A `weights[]` entry with `w: null` is a **length/HC-only** measurement —
+`MeasurementLogger` writes exactly that shape so a tape-measure visit doesn't
+fabricate a weight for the day. So `weights[weights.length - 1]` is not
+"the current weight": use `D.lastWeighed(patient)`, which walks back to the
+last entry that actually carries one, and render "—" when it returns null
+rather than computing a delta off nothing. Both registry layouts, the
+`PatientStrip` and `computeAlerts`'s growth-velocity block do this; the
+desktop registry table did not until 2026-08-18, where it showed "— g" for
+the weight and a Δ of `null − bw` — every such patient reading as −100% of
+birth weight, in critical red, next to a mobile card showing +22%.
 
 ### Bed labels
 `currentBed` is free text in the sheet, but the canonical set is exactly what
