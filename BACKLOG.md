@@ -44,9 +44,15 @@ clinical judgement. Everything else is engineering sequencing.
       covered only by stub harnesses that model neither `CacheService` eviction nor `LockService`
       contention, and their provenance is unknown (`CHANGELOG.md`, session 2026-08-17 (3)). Cheap,
       and a precondition for trusting the next auth deploy.
-- [ ] 📈 **product · Build M1, weekly active users.** Distinct `actorEmail` in `Audit_Log` per ISO
-      week. The data is already collected — this is a *read*, not instrumentation. **Aggregate only;
-      never per-staff.** Definition and the two hard constraints live in `PRD.md` § 6.
+- [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
+      `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
+      (30 assertions, green). **The number still does not exist**, because nothing has read the live
+      sheet yet. To close this: run `getUsageMetrics()` **once from the Apps Script editor** — it is
+      not on the `doPost` path, so **no redeploy is needed**; it executes as the signed-in user and
+      may raise an OAuth consent, which is Praew's to approve. **Deliberately not wired to
+      `doPost`** — that would put a new endpoint into the next deploy, and the next deploy is the
+      auth fix, which should carry nothing else. Wire it when a UI actually wants the number.
+      Definition and the two hard constraints: `PRD.md` § 6.
 
 ## ⏭ Next
 

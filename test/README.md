@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Eleven Node scripts. Two check the TPN calculator against the **official KCMH
+Twelve Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -17,7 +17,12 @@ back to it. The ninth pins the patient-record fields that were read-only until
 sessionId moving under the log. The tenth pins the admin-only, permanent
 "Delete session" flow — client button gating, the confirm dialog, and the
 server's own cascade + role re-check. The eleventh drives the whole app in a
-real browser.
+real browser. The twelfth pins **M1, the first product metric this repo has
+ever had** — weekly active users off `Audit_Log` — and treats its two PDPA
+constraints as correctness rather than good manners: distinct `actorEmail` per
+week (never row counts, which since the focus re-sync measure how long a tab
+was open), and **no staff email in the output at all**, asserted by serialising
+the whole result and failing on an `@`.
 
 ## Running
 
@@ -29,6 +34,7 @@ directly:
 node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
+node test/verify-usage-metrics.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,

@@ -13,6 +13,51 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-21 (3) — M1: the first product metric this repo has ever had
+
+**Backend source only — nothing deployed, nothing run against the live Sheet.** Item 3 of the
+project-management upgrade.
+
+`usageMetrics(rows)` (pure) + `getUsageMetrics()` (thin reader) added to `gas-backend.gs`, next to
+`logAudit`. Pinned by **`test/verify-usage-metrics.cjs`, 30 assertions**, written before the
+implementation and confirmed failing against the unpatched source first.
+
+**M1 = distinct `actorEmail` in `Audit_Log` per ISO week.** No new instrumentation was needed — the
+PDPA accountability trail has been recording `readRegistry` with an actor email on every
+`getActivePatients` all along. This is a read of data that was already there.
+
+**The two PDPA constraints are enforced by the harness, not by good manners:**
+
+- **Distinct email per week, never row counts.** Since `syncFromGAS` began firing on tab focus,
+  `Audit_Log` gains a row per user per minute — a row count now measures how long a tab was left
+  open. Test 1 puts 500 rows from one nurse into one week and asserts the answer is **1**.
+- **No staff email leaves the function.** Test 9 serialises the entire result and fails on an `@`,
+  on the string `kcmh`, and on the presence of any per-actor key. A per-staff figure would turn
+  product analytics into personnel monitoring — different lawful basis, different conversation with
+  the ward.
+
+**Two traps found while writing it, both now pinned:**
+
+1. **`ts` comes back as a `Date` object for some rows and a string for others**, in the same column
+   of the same sheet, because Sheets coerces a date-looking column on `getValues()`. Test 5 asserts
+   both bucket identically.
+2. **Weeks are cut in ward-local time (UTC+7), not UTC.** Bucketing in UTC files a Monday 06:00 ward
+   round — Sunday 23:00 UTC — under the *previous* week, quietly moving part of every week into the
+   one before it. Test 7 is the assertion that fails if someone later "simplifies" this back to UTC.
+   Asia/Bangkok has had no DST since 1976, so a fixed offset is correct here, not a shortcut.
+
+Also handled: ISO week-*year* at the boundary (29 Dec 2025 is `2026-W01`), email case/whitespace
+normalisation, unparseable rows counted as `rowsSkipped` rather than dropped silently, and
+`totalDistinctUsers` across the whole range rather than the sum of the weekly counts.
+
+**Not done, on purpose:** no `doPost` action was wired. `getUsageMetrics()` runs straight from the
+Apps Script editor for a one-off number with **no redeploy at all**, and the next redeploy is the
+`mustChangePassword` fix — which should carry nothing but itself.
+
+**The metric still does not exist as a number.** Nothing has touched the live Sheet.
+
+---
+
 ## Session 2026-08-21 (2) — `PRD.md` written; the backlog becomes an ordered decision
 
 **No code change.** Item 2 of the project-management upgrade, following the doc split earlier

@@ -1306,6 +1306,102 @@ function logAudit(action, sessionId, actorEmail) {
   } catch (e) { Logger.log("logAudit failed: " + e.message); }
 }
 
+// ── Product metric M1: weekly active users ─────────────────────
+// NeoFeed had no metrics at all until 2026-08-21. The data was already here —
+// Audit_Log has recorded `readRegistry` with an actor email on every
+// getActivePatients since the PDPA work — so this is a READ, not new
+// instrumentation. Definition and rationale: `PRD.md` § 6.
+// Pinned by `test/verify-usage-metrics.cjs`.
+//
+// 🔴 Two rules, both enforced by that harness rather than left to good manners:
+//
+//  1. DISTINCT actorEmail PER WEEK, NEVER ROW COUNTS. Since `syncFromGAS`
+//     started firing on tab focus, Audit_Log gains a row per user per minute.
+//     A row count measures how long a tab was left open. One nurse with the
+//     app open all week is ONE weekly active user.
+//  2. NO EMAIL LEAVES THIS FUNCTION. Audit_Log exists for PDPA Section 39
+//     accountability and holds staff email; the lawful basis for holding it is
+//     accountability, not analytics. Counts only — never a per-actor
+//     breakdown, not even hashed. A number that could be used to ask "why is
+//     this nurse's count low" is personnel monitoring under a different legal
+//     basis, and needs a conversation with the ward before it exists.
+
+// Asia/Bangkok, which has had no DST since 1976 — a fixed offset is correct
+// here, not a simplification.
+var WARD_UTC_OFFSET_MIN = 7 * 60;
+
+// ISO-8601 week key ("2026-W34") for an instant, cut in WARD-LOCAL time.
+// Bucketing in UTC would file a Monday 06:00 ward round (= Sunday 23:00 UTC)
+// under the previous week and quietly move part of every week into the one
+// before it. Accepts a Date, an epoch number, or a string, because Sheets
+// coerces a date-looking column and getValues() returns Date objects for some
+// rows and strings for others *in the same column*. Returns null if unparseable.
+function _isoWeekKeyLocal_(value) {
+  var d;
+  if (value instanceof Date) d = value;
+  else if (typeof value === "number") d = new Date(value);
+  else {
+    var s = String(value == null ? "" : value).trim();
+    if (!s) return null;
+    d = new Date(s);
+  }
+  if (!d || isNaN(d.getTime())) return null;
+  var t = new Date(d.getTime() + WARD_UTC_OFFSET_MIN * 60000);
+  var dt = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
+  var dayNum = dt.getUTCDay() || 7;              // Mon = 1 … Sun = 7
+  dt.setUTCDate(dt.getUTCDate() + 4 - dayNum);   // the Thursday of this week
+  var yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  var week = Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
+  // The year comes off the Thursday, not the original date — that is what makes
+  // 29 Dec 2025 fall in 2026-W01 rather than a 2025 week.
+  return dt.getUTCFullYear() + "-W" + (week < 10 ? "0" + week : String(week));
+}
+
+// Pure: takes Audit_Log rows exactly as getDataRange().getValues() returns them
+// (row 0 is the header) and returns aggregate counts. No sheet access, no I/O,
+// no email in the result.
+function usageMetrics(rows) {
+  var out = { weeks: [], totalDistinctUsers: 0, rowsScanned: 0, rowsSkipped: 0 };
+  if (!rows || !rows.length) return out;
+
+  var byWeek = {};      // weekKey -> { emails: {}, events: n }
+  var allEmails = {};   // local only — never returned
+
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i] || [];
+    out.rowsScanned++;
+    var email = String(r[3] == null ? "" : r[3]).trim().toLowerCase();
+    var wk = _isoWeekKeyLocal_(r[0]);
+    // A row with no actor cannot be attributed, and a row with no usable
+    // timestamp cannot be placed in a week. Counted as skipped rather than
+    // dropped silently, so a sheet going wrong is visible in the output.
+    if (!email || !wk) { out.rowsSkipped++; continue; }
+    if (!byWeek[wk]) byWeek[wk] = { emails: {}, events: 0 };
+    byWeek[wk].emails[email] = true;
+    byWeek[wk].events++;
+    allEmails[email] = true;
+  }
+
+  var keys = Object.keys(byWeek).sort();   // "2026-W01" sorts correctly as text
+  for (var k = 0; k < keys.length; k++) {
+    out.weeks.push({
+      week: keys[k],
+      activeUsers: Object.keys(byWeek[keys[k]].emails).length,
+      events: byWeek[keys[k]].events
+    });
+  }
+  // Across the whole range, not the sum of the weekly counts — one person
+  // active in four weeks is one human, not four.
+  out.totalDistinctUsers = Object.keys(allEmails).length;
+  return out;
+}
+
+// Thin reader. Safe to run straight from the Apps Script editor for a
+// one-off number — it needs no redeploy, because it is not on the doPost path.
+function getUsageMetrics() {
+  return usageMetrics(getSheetAudit().getDataRange().getValues());
+}
+
 // ── Utility ───────────────────────────────────────────────────
 // Defuses Google Sheets/Excel formula injection: a cell value written via
 // setValue()/setValues() that *starts* with =, +, -, or @ is interpreted as
