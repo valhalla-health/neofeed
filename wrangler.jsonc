@@ -1,0 +1,14 @@
+{
+  // Static-asset-only Worker: no `main` entrypoint, so Cloudflare serves the
+  // files directly and no Worker code runs. NeoFeed has no build step — React,
+  // ReactDOM and Babel come from unpkg and the .jsx files are served as-is —
+  // so `directory` is the repo root, filtered by .assetsignore.
+  //
+  // The backend is unaffected: it stays on Google Apps Script at
+  // NEOFEED_GAS_URL. See REFERENCE.md for that deploy path.
+  "name": "neofeed",
+  "compatibility_date": "2026-08-23",
+  "assets": {
+    "directory": "."
+  }
+}

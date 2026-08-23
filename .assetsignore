@@ -1,0 +1,40 @@
+# What Cloudflare must NOT publish.
+#
+# Wrangler uploads from the working tree, not from git, so .gitignore does
+# not apply here — gas-backend.gs.js is ignored by git but sits on disk and
+# would otherwise be served publicly. Everything the running app needs is
+# index.html, manifest.json, data.js, the six .jsx modules and icons/.
+# Anything not on that list belongs below.
+
+.git/
+.claude/
+.gitignore
+.gitleaksignore
+.graphifyignore
+
+# Ledgers, reviews and specs — internal, and SECURITY_CHECKLIST.md especially
+*.md
+
+# Backend source. Served by Google Apps Script, never by Cloudflare.
+gas-backend.gs
+gas-backend.gs.js
+
+# Tooling output and dev-only trees
+# .wrangler/ is scaffolding wrangler creates inside this directory during a
+# deploy; without this line its no-op-worker stub is uploaded and served.
+.wrangler/
+docs/
+graphify-out/
+test/
+node_modules/
+
+# NOTE: wrangler.jsonc cannot be listed here. Wrangler force-includes its own
+# config file when it sits inside the assets directory, so it IS served at
+# /wrangler.jsonc. Verified 2026-08-23: adding it here changes nothing, and
+# moving it out of the repo is the only thing that hides it. It holds no
+# secrets (name, compatibility_date, assets directory), so it is left public
+# rather than moved somewhere Workers Builds would not find it.
+
+# The local editing copy of index.html, byte-identical to it. Publishing a
+# second copy of the whole app at a second URL only creates a stale twin.
+NeoFeed.html

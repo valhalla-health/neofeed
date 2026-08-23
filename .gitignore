@@ -11,3 +11,6 @@ test/.screenshots/
 # Dev-only test deps — installed on demand, never committed (see test/README.md)
 node_modules/
 package-lock.json
+
+# Wrangler local state — caches the Cloudflare account ID, never commit
+.wrangler/
