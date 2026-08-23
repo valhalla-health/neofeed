@@ -43,7 +43,13 @@ clinical judgement. Everything else is engineering sequencing.
       (`CHANGELOG.md`, session 2026-08-17 (3)). **One real login by Praew discharges the whole
       item.** A temp-password account would additionally prove the new gate end to end.
 - [ ] 🔒 **security · GitHub Pages publicly serves `gas-backend.gs` and every internal review,
-      right now.** Verified 2026-08-23: `valhalla-health.github.io/neofeed/gas-backend.gs`,
+      right now — ⚙️ REDIRECT STUB SHIPPED 2026-08-23 (`30dbff7`), STAFF NOT YET TOLD.** The
+      redirect stub (option (b), see below) is live: `valhalla-health.github.io/neofeed/` now
+      bounces the app entry point to `moved.html`. **This does not close the item** — it stops
+      staff from using the calculator there, it does not stop the files below from being fetched
+      directly. Remaining: Praew announces in the staff LINE group → 2-week window → repo goes
+      private (Praew, GitHub Settings) → re-run the exposure check below → tick this.
+      Verified 2026-08-23: `valhalla-health.github.io/neofeed/gas-backend.gs`,
       `SECURITY_CHECKLIST.md`, `CODE_REVIEW_2026-08-18.md`, `HANDOFF.md`, `PRD.md` and `STATUS.md`
       all return `200`. (`.git/` does not — checked directly, that part of `STATUS.md`'s "serves all
       of them" is broader than confirmed.) The two `CODE_REVIEW_*.md` files are the sharpest problem:

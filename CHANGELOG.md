@@ -13,6 +13,74 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-23 (1) — CSP headers, GitHub Pages retirement stub, gitleaks config guard — all three shipped (`30dbff7`)
+
+Frontend-only, no backend touched. Three pieces, bundled into one commit and pushed on Praew's
+explicit instruction (`push it`), each verified against the live URLs afterward, not just
+`wrangler dev`.
+
+### `_headers` — Cloudflare-only security headers
+
+CSP (`unpkg.com`, `accounts.google.com`, `fonts.googleapis.com`/`gstatic.com`, `script.google.com`,
+`*.googleusercontent.com`, one `data:` SVG — every external origin the app's own files actually
+reference) plus `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
+`Cross-Origin-Opener-Policy: same-origin-allow-popups` (plain `same-origin` breaks the Google
+Sign-In popup — checked, not guessed), `Permissions-Policy`, HSTS. GitHub Pages has no equivalent;
+the legacy host stays unprotected by this regardless of what ships. Confirmed live: all seven
+headers present on a fresh cache-busted request against `neofeed.valhalla-health.workers.dev`.
+⚠️ Still not exercised in a real browser with the console open — Claude in Chrome was unreachable
+all session. `STATUS.md` § Response headers.
+
+### GitHub Pages retirement stub — the real staff cutover, not a future one
+
+Answers the `BACKLOG.md` item that `gas-backend.gs` and both `CODE_REVIEW_*.md` files are publicly
+fetchable from `valhalla-health.github.io/neofeed/` (verified `200` on all of them, confirmed
+2026-08-23 before the fix). Hostname guard, first script in `<head>` of both `index.html` and
+`NeoFeed.html`: `valhalla-health.github.io` visitors bounce to a new self-contained `moved.html`
+before any resource loads; Cloudflare visitors never match, no-op for them.
+
+**This push, not the eventual private-repo flip, is the actual cutover** — anyone still on the
+GitHub Pages shortcut lost the calculator the moment this landed. Verified post-push against the
+real URL: the guard is served, `moved.html` returns `200` with the correct button target, the
+Cloudflare host is untouched. ⚠️ `curl` cannot execute JavaScript — the redirect *firing* in a real
+browser is still unobserved, only inferred from the code and its placement. **Does not close the
+BACKLOG item**: `gas-backend.gs` etc. are still directly fetchable by path on Pages, unaffected by
+a guard that only lives on `/`. Remaining: Praew announces in the staff LINE group (not done as of
+this entry) → 2-week window → repo goes private → re-verify the exposure is actually gone.
+`STATUS.md` § GitHub Pages retirement.
+
+### `.gitleaks.toml` — closing a gap the existing guardrail didn't cover
+
+While investigating whether "everything about the backend is safe," found `SPREADSHEET_ID` and
+`CLIENT_ID` hardcoded in `gas-backend.gs` in the **initial commit** (2026-05-17) — moved to
+Script Properties later, but the repo has been public since that first commit, so the values are
+permanently exposed in history regardless of anything done now. Checked live: the Sheet's sharing
+is owner-only (`peeraporn.po@chula.ac.th`), no link-sharing — that ACL, not secrecy of the ID, is
+what's actually preventing this from mattering today. Recorded as a standing guardrail in
+`BACKLOG.md`: that sharing setting must never change to link-based.
+
+The global `scan-secrets-before-commit.sh` hook (installed an earlier session, active on every
+`git commit` in every repo) would **not** have caught this — confirmed gitleaks' default ruleset
+doesn't flag either pattern, no entropy or keyword match. Added `.gitleaks.toml`, extending the
+default ruleset with a rule for `SPREADSHEET_ID`/`SHEET_ID`/`CLIENT_ID` hardcoded as an assignment,
+while leaving the current `_cfg()`-based pattern untouched. Verified end-to-end through the actual
+hook script, not just gitleaks directly: staged the exact leaked line as a simulated regression,
+ran it through `scan-secrets-before-commit.sh`, confirmed `BLOCKED` / exit 2, then reverted
+cleanly (`git status` showed zero diff on `gas-backend.gs` afterward).
+
+Found and fixed one unrelated gap while testing: `test/verify-forced-password-client.cjs` carries
+the same known-benign fixture token (`tok-123456789`) as the already-`.gitleaksignore`d
+`test/verify-resync-and-lists.cjs`, just never added — would have blocked the next real commit
+touching that file for no real reason. Added both new fingerprints.
+
+### Left for Praew, not done in this session
+
+Post in the staff LINE group that the new link is live. The repo stays public, and the
+`gas-backend.gs`/`CODE_REVIEW_*.md` exposure stays open, until that happens and the 2-week window
+runs out.
+
+---
+
 ## Session 2026-08-21 (6) — 🚀 DEPLOYED `@47`: the auth gate is now live
 
 **Backend production moved `@46` → `@47`**, carrying GitHub `main` `34af805`. Deployed on Praew's
