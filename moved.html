@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>NeoFeed ย้ายที่อยู่แล้ว</title>
+<!--
+  Redirect target for index.html's hostname guard (see index.html § head).
+  Deliberately has no external dependency — no Google Fonts, no unpkg React —
+  so it never fails to render even if those are unreachable. System font
+  stack only. Not linked from anywhere in the live app; reached only by the
+  guard, or directly if someone still has it bookmarked.
+-->
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    font-family: -apple-system, "Segoe UI", "Noto Sans Thai", "TH Sarabun New", Tahoma, sans-serif;
+    background: #f4f6f5;
+    color: #14231f;
+  }
+  .card {
+    max-width: 420px;
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #dde3e1;
+    border-radius: 16px;
+    padding: 32px 28px;
+    text-align: center;
+  }
+  h1 {
+    font-size: 1.25rem;
+    margin: 0 0 12px;
+    color: #0b3c44;
+  }
+  p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0 0 24px;
+    color: #4a5a56;
+  }
+  a.btn {
+    display: inline-block;
+    width: 100%;
+    padding: 14px 20px;
+    background: #0b3c44;
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  a.btn:active { opacity: 0.85; }
+  .note {
+    margin-top: 16px;
+    font-size: 0.8rem;
+    color: #8a9793;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>NeoFeed ย้ายที่อยู่แล้ว</h1>
+    <p>
+      ลิงก์นี้เลิกใช้งานแล้ว กรุณาเปิดลิงก์ใหม่และเพิ่มไปยังหน้าจอหลัก
+      (Add to Home Screen) แทนไอคอนเดิม
+    </p>
+    <a class="btn" href="https://neofeed.valhalla-health.workers.dev/">เปิด NeoFeed ที่อยู่ใหม่</a>
+    <p class="note">มีปัญหาการติดตั้ง ทักแจ้งได้ในกลุ่ม LINE</p>
+  </div>
+</body>
+</html>

@@ -9,3 +9,11 @@
 #
 # (Do not quote the literal value in this comment — gitleaks scans this file too.)
 test/verify-resync-and-lists.cjs:generic-api-key:93
+
+# Same fixture token, same reason, different harness. Found 2026-08-23 while
+# testing the new .gitleaks.toml custom rule (BACKLOG.md's Spreadsheet-ID
+# guardrail) — this harness reuses the literal from the entry above and was
+# never added here, so it would have blocked the next real commit touching
+# this file for a reason that isn't a leak.
+test/verify-forced-password-client.cjs:generic-api-key:90
+test/verify-forced-password-client.cjs:generic-api-key:138

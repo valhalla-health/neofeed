@@ -51,6 +51,9 @@ remembered to run wrangler by hand, which is the same failure mode as the clasp 
   frontend is where the printed dose is drawn.
 - **Cloudflare publishes only the 18 files the app loads**, per `.assetsignore`. GitHub Pages has
   no equivalent and still serves the whole repo root, `gas-backend.gs` included. See `STATUS.md`.
+- **`_headers` sets CSP and other security headers, Cloudflare only.** GitHub Pages has no
+  equivalent, so the legacy host is unprotected by it regardless of what ships. See `STATUS.md`
+  § Response headers for what it covers and what still needs a live-page check before it ships.
 - **Google Sign-In is origin-bound.** Every hostname the app is served from must be an Authorized
   JavaScript origin on OAuth client `750019806043-imunne8n…`. Google allows no wildcards, so
   Cloudflare **preview** URLs can never complete a login — use them for layout only.

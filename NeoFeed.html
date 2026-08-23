@@ -2,6 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<script>
+  // NeoFeed's GitHub Pages host is being retired in favor of Cloudflare —
+  // see BACKLOG.md and STATUS.md § Response headers. This must stay the
+  // very first script in <head>, before any <link> that fetches something
+  // (manifest, icons, fonts), so a GitHub Pages visitor never loads the app
+  // shell at all — just bounces straight to moved.html. Cloudflare visitors
+  // never match this hostname, so this is a no-op for them.
+  if (window.location.hostname === "valhalla-health.github.io") {
+    window.location.replace("moved.html");
+  }
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />

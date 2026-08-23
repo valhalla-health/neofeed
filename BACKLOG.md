@@ -42,6 +42,20 @@ clinical judgement. Everything else is engineering sequencing.
       `CacheService` eviction nor `LockService` contention, and `@46`'s provenance is unknown
       (`CHANGELOG.md`, session 2026-08-17 (3)). **One real login by Praew discharges the whole
       item.** A temp-password account would additionally prove the new gate end to end.
+- [ ] 🔒 **security · GitHub Pages publicly serves `gas-backend.gs` and every internal review,
+      right now.** Verified 2026-08-23: `valhalla-health.github.io/neofeed/gas-backend.gs`,
+      `SECURITY_CHECKLIST.md`, `CODE_REVIEW_2026-08-18.md`, `HANDOFF.md`, `PRD.md` and `STATUS.md`
+      all return `200`. (`.git/` does not — checked directly, that part of `STATUS.md`'s "serves all
+      of them" is broader than confirmed.) The two `CODE_REVIEW_*.md` files are the sharpest problem:
+      they are a public, dated list of this app's *unpatched* vulnerabilities, next to the backend
+      source that shows exactly where they live. Cloudflare already blocks this via `.assetsignore`
+      (2026-08-23) — GitHub Pages has no equivalent mechanism, so this stays open on that host until
+      one of: (a) a `.nojekyll`-style file-level exclusion is found for Pages, (b) Pages is retired in
+      favour of Cloudflare alone, or (c) the repo goes private — which **on this free org plan
+      disables Pages immediately** and breaks every staff install pointing there, so it requires the
+      redirect-stub sequence in `REFERENCE.md` first, not a same-day flip. Distinct from the
+      *"push to `main` is an unreviewed deploy"* item below: that one is about an ungated code path,
+      this one is about content already sitting at a public URL independent of any future push.
 - [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live
@@ -125,6 +139,17 @@ are decisions to *keep*, not work to do.
   every `Daily_Log` join. Documented and accepted, not fixed.
 - **Mobile Fenton chart keeps pan/zoom**; the SVG width-760 layout survives via
   `width: 100%; height: auto`. Recorded so nobody "fixes" it into a responsive rewrite.
+- 🔴 **This Sheet's sharing must never become "anyone with the link."** Verified 2026-08-23:
+  `SPREADSHEET_ID` (`1cZSA2qAUWAvFmpzrcjxS8kw6r-MpCMOSVAJev1uNDtI`) was hardcoded in `gas-backend.gs`
+  in the **initial commit** (2026-05-17), before being moved to Script Properties. `valhalla-health`
+  has been a **public** repo since that commit, so the ID itself must be treated as permanently
+  known to anyone who ever cloned or scraped the repo — rewriting git history would not undo that,
+  it would only stop *future* clones from getting it. Checked `get_file_permissions` on 2026-08-23:
+  the sheet is currently shared with **only** `peeraporn.po@chula.ac.th` (owner), no link-sharing,
+  no domain-wide access — that ACL is the *only* thing standing between the leaked ID and real
+  access. If sharing is ever loosened, even briefly, this stops being theoretical. `CLIENT_ID`
+  (also hardcoded in the same early commits) is not a comparable risk — Google OAuth client IDs for
+  web apps are meant to be public and this one already sits in `index.html` today.
 
 ---
 

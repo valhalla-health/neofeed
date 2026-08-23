@@ -2,7 +2,9 @@
 
 **Updated 2026-08-23** · 🟢 **DEPLOYED — backend production is `@47`**, carrying GitHub `main`
 `34af805`. The frontend now serves from **two hosts, both auto-deployed from the same commit**;
-backend and frontend are in step. **Nothing is pending.**
+backend and frontend are in step. **Two things are pending, both written and verified but not yet
+on `main`:** `_headers` (§ Response headers below) and the GitHub Pages retirement mechanism
+(§ GitHub Pages retirement below). Neither is live on either host until pushed.
 
 | | |
 |---|---|
@@ -40,12 +42,36 @@ cache-busted on 2026-08-23: `gas-backend.gs`, `gas-backend.gs.js`, `SECURITY_CHE
 `CODE_REVIEW_*.md`, `HANDOFF.md`, `PRD.md`, `STATUS.md`, `NeoFeed.html`, `test/`, `docs/`,
 `graphify-out/` and `.git/` all return **404** there.
 
-⚠️ **GitHub Pages still serves all of them.** It has no equivalent of `.assetsignore`, so the
+⚠️ **GitHub Pages still serves most of them.** It has no equivalent of `.assetsignore`, so the
 backend source and every internal review remain publicly fetchable at
-`valhalla-health.github.io/neofeed/`. Closing that means retiring Pages or making the repo
-private — and on a free org plan, making it private **disables Pages entirely**, which would
-break every staff install pointing there. That is a decision, not current state, so it does not
-belong in this file — **it needs a `BACKLOG.md` item and does not have one yet.**
+`valhalla-health.github.io/neofeed/` — confirmed 2026-08-23 for `gas-backend.gs`,
+`SECURITY_CHECKLIST.md`, `CODE_REVIEW_2026-08-18.md`, `HANDOFF.md`, `PRD.md` and this file itself
+(all `200`). `.git/` does not serve there — checked directly, unlike the rest of this list.
+Closing the exposure means retiring Pages or making the repo private — and on a free org plan,
+making it private **disables Pages entirely**, which would break every staff install pointing
+there. Tracked in `BACKLOG.md` § Now.
+
+## Response headers (Cloudflare only)
+
+⚠️ **Written 2026-08-23, sitting in the working tree, not yet on `main` — not live yet on either
+host.** `_headers` adds a CSP plus `X-Frame-Options`, `Referrer-Policy`,
+`X-Content-Type-Options`, `Cross-Origin-Opener-Policy`, `Permissions-Policy` and HSTS. It applies
+**to Cloudflare only** — GitHub Pages has no `_headers` support, so the legacy host stays
+unprotected regardless. Wrangler consumes the file as config rather than serving it back;
+confirmed via `wrangler dev` against a copy of the published file set that `/_headers` itself
+404s, so it needs no `.assetsignore` entry.
+
+Verified against `wrangler dev` (not the live Worker) that all seven headers land on `/` and on a
+sample sub-resource (`/app.jsx`). The CSP was built from a static audit of every external origin
+the app's own files reference — `unpkg.com`, `accounts.google.com`, `fonts.googleapis.com`,
+`fonts.gstatic.com`, `script.google.com`, `*.googleusercontent.com`, one `data:` SVG in
+`tweaks-panel.jsx` — not from a live in-browser console check, because Claude in Chrome was
+unreachable this session. `script-src` still carries `'unsafe-inline' 'unsafe-eval'`, unavoidable
+without a build step since `@babel/standalone` compiles the `.jsx` modules client-side.
+**Before this goes live: load the real app through it once (Cloudflare preview URL is fine for
+this, since it's a layout/console check, not a login check) and watch the console for CSP
+violations** — the static audit is thorough but has not been exercised against the actual page
+load.
 
 `wrangler.jsonc` is the one exception on Cloudflare: wrangler force-includes its own config when
 it sits inside the assets directory, so it is served and cannot be hidden from `.assetsignore`.
@@ -77,6 +103,38 @@ end to end, outside a stub, for the first time.
 **A real Delete is still unexercised**, and the harnesses still model neither `CacheService`
 eviction nor `LockService` contention. So the `BACKLOG.md` § Now item **narrows, it does not
 close** — confirm the login personally before ticking it.
+
+## GitHub Pages retirement
+
+⚠️ **Written 2026-08-23, sitting in the working tree, not yet on `main` — not live yet.** Answers
+the `BACKLOG.md` § Now item about `gas-backend.gs` and the `CODE_REVIEW_*.md` files being publicly
+served from `valhalla-health.github.io/neofeed/`.
+
+**Mechanism:** a hostname guard, first script in `<head>` of both `index.html` and `NeoFeed.html`
+(kept byte-identical, per `NeoFeed/CLAUDE.md`) — `if (location.hostname ===
+"valhalla-health.github.io") location.replace("moved.html")`. New file `moved.html`: a
+self-contained Thai "moved" page (no external font/CDN dependency, so it can't fail to render) with
+a button to `neofeed.valhalla-health.workers.dev`. Cloudflare visitors never match the hostname
+check — no-op for them, confirmed via `wrangler dev` against a copy of the published file set
+(`/` still serves the real app, `id="root"` present, `app.jsx` still 200).
+
+**Once pushed, this *is* the real cutover** — anyone still opening the GitHub Pages link stops
+being able to use the calculator there immediately, not just when the repo eventually goes
+private. Plan: push → announce in the staff LINE group same day → 2-week window where the old link
+shows the moved page instead of a dead link → repo goes private (Praew's action, GitHub Settings)
+→ re-run the `gas-backend.gs`/`CODE_REVIEW_*.md` exposure check to confirm it actually closed →
+tick the `BACKLOG.md` item.
+
+**Rollback:** revert the one commit. No backend involvement at any point in this mechanism.
+
+**Verification gap, matching the one on `_headers`:** confirmed via Node that the hostname string
+match doesn't false-positive on lookalikes (`workers.dev`, `localhost`, `*.github.io.evil.com`)
+and via `wrangler dev` that the Cloudflare path is untouched. Have **not** exercised the redirect
+actually firing in a real browser against the real `valhalla-health.github.io` hostname — Claude in
+Chrome was unreachable this session (same gap as `_headers`). Low risk given the mechanism is a
+single string comparison and the whole change reverts in one commit, but load
+`valhalla-health.github.io/neofeed/` in an actual browser once after pushing, before telling staff
+it's live.
 
 ---
 
