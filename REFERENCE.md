@@ -17,8 +17,9 @@ reaches AC–AE), and the calculator as Steps 1–5 (it is a six-step wizard). O
 
 ## The two hand-synced shells
 
-`NeoFeed.html` is the file you edit locally. `index.html` is what GitHub Pages actually
-serves at the public URL. They are hand-synced copies, **not** a canonical/generated pair —
+`NeoFeed.html` is the file you edit locally. `index.html` is what **both hosts** actually
+serve — Cloudflare Workers and GitHub Pages. They are hand-synced copies, **not** a
+canonical/generated pair —
 any HTML/CSS/config/script-loader change must be applied to **both** or they silently
 drift. See `CHANGELOG.md`'s CSS-drift entries for the recurring history.
 
@@ -37,6 +38,29 @@ drift. See `CHANGELOG.md`'s CSS-drift entries for the recurring history.
 The HMF threshold `patient.ga < 32` still works because all valid values stay under integer 32.
 
 ## Deploying, and rolling back
+
+### Frontend
+
+`git push origin main` deploys the frontend to **both hosts from the same commit** — Cloudflare
+Workers Builds runs `npx wrangler deploy`, and GitHub Pages rebuilds from the repo root. Wired up
+on 2026-08-23 precisely so the two cannot drift; before that Cloudflare only updated when someone
+remembered to run wrangler by hand, which is the same failure mode as the clasp mirror.
+
+- **A push to `main` is an unreviewed production deploy on two hosts.** This is the asymmetry
+  `AI_SDLC.md` names: the backend demands explicit confirmation, the frontend does not, and the
+  frontend is where the printed dose is drawn.
+- **Cloudflare publishes only the 18 files the app loads**, per `.assetsignore`. GitHub Pages has
+  no equivalent and still serves the whole repo root, `gas-backend.gs` included. See `STATUS.md`.
+- **Google Sign-In is origin-bound.** Every hostname the app is served from must be an Authorized
+  JavaScript origin on OAuth client `750019806043-imunne8n…`. Google allows no wildcards, so
+  Cloudflare **preview** URLs can never complete a login — use them for layout only.
+- **Fast local loop:** `npx wrangler dev`. No deploy, instant reload, and quicker than pushing.
+- **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. GitHub Pages has no
+  rollback — revert the commit.
+- The Cloudflare account is `praew.tvl@gmail.com`, **not** the `peeraporn.po@chula.ac.th` identity
+  that owns the backend. Deliberate for now, unresolved long-term.
+
+### Backend (GAS)
 
 ⚠️ **The old `HANDOFF.md` "Restore production checklist" was deleted in the 2026-08-21
 split rather than carried over.** It was written around session 8 (2026-05-25), described
@@ -58,7 +82,8 @@ identity. None of it was true any more. The current procedure:
    `peeraporn.po@chula.ac.th`.
 4. **Verify rather than assume:** `clasp pull` into a scratch dir and diff against
    `gas-backend.gs`; check `clasp list-deployments` shows the same deployment ID at the
-   new version; `curl` the Pages HTML to confirm the `?v=` cache-bust shipped.
+   new version; `curl` the served HTML on **both** frontend hosts to confirm the `?v=`
+   cache-bust shipped.
 5. **Update `STATUS.md` in the same commit.** This is part of the definition of done, not
    a follow-up task.
 

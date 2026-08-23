@@ -1,15 +1,22 @@
 # NeoFeed — Status
 
-**Updated 2026-08-21** · 🟢 **DEPLOYED — backend production is `@47`**, carrying GitHub `main`
-`34af805`. Frontend and backend are in step; **nothing is pending.**
+**Updated 2026-08-23** · 🟢 **DEPLOYED — backend production is `@47`**, carrying GitHub `main`
+`34af805`. The frontend now serves from **two hosts, both auto-deployed from the same commit**;
+backend and frontend are in step. **Nothing is pending.**
 
 | | |
 |---|---|
-| Frontend | GitHub Pages serves `index.html` from repo root. Live and verified — `app.jsx?v=pwd-gate-0821` |
+| Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
+| Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
+| Frontend deploy | `git push origin main` deploys **both**. Workers Builds runs `npx wrangler deploy`; GitHub Pages rebuilds from the repo root. Connected 2026-08-23 |
 | Backend | GAS deployment `AKfycbz8Nt…` at **`@47`** — *"mustChangePassword server gate + usageMetrics M1 (GitHub main 34af805)"* |
-| Deploy identity | `peeraporn.po@chula.ac.th` — confirmed via `clasp show-authorized-user` before the push (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) |
+| Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity). Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | none outstanding on any tab |
 | Cache-bust | `app.jsx?v=pwd-gate-0821`; `registry.jsx?v=dol-input-fix1`; others unchanged. Both shells byte-identical |
+
+**App code is unchanged since `34af805`.** `8e6c056` added frontend hosting config only —
+`wrangler.jsonc` and `.assetsignore` — and touched no file the app loads. The HTML served by
+Cloudflare was verified byte-identical to `index.html`.
 
 **What `@47` changed:** the `mustChangePassword` server gate — a temp-password account can now do
 nothing but change its password — plus `usageMetrics()` / `getUsageMetrics()`, which are inert
@@ -19,6 +26,30 @@ nothing but change its password — plus `usageMetrics()` / `getUsageMetrics()`,
 ```
 clasp update-deployment -V 46 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
 ```
+
+**Rollback (frontend, Cloudflare):**
+```
+npx wrangler rollback
+```
+GitHub Pages has no rollback — revert the commit and push.
+
+## What Cloudflare does not serve
+
+`.assetsignore` restricts Cloudflare to the 18 files the app actually loads. Verified
+cache-busted on 2026-08-23: `gas-backend.gs`, `gas-backend.gs.js`, `SECURITY_CHECKLIST.md`,
+`CODE_REVIEW_*.md`, `HANDOFF.md`, `PRD.md`, `STATUS.md`, `NeoFeed.html`, `test/`, `docs/`,
+`graphify-out/` and `.git/` all return **404** there.
+
+⚠️ **GitHub Pages still serves all of them.** It has no equivalent of `.assetsignore`, so the
+backend source and every internal review remain publicly fetchable at
+`valhalla-health.github.io/neofeed/`. Closing that means retiring Pages or making the repo
+private — and on a free org plan, making it private **disables Pages entirely**, which would
+break every staff install pointing there. That is a decision, not current state, so it does not
+belong in this file — **it needs a `BACKLOG.md` item and does not have one yet.**
+
+`wrangler.jsonc` is the one exception on Cloudflare: wrangler force-includes its own config when
+it sits inside the assets directory, so it is served and cannot be hidden from `.assetsignore`.
+It holds no secrets. Reasoning recorded in `.assetsignore` itself.
 
 ## How `@47` was verified
 
@@ -38,10 +69,14 @@ Not assumed — each step checked, per `REFERENCE.md`:
    `{"error":"Unauthorized"}` — the script loads, `doPost` runs, `verifyToken` refuses, and no
    patient data is returned.
 
-⚠️ **Still not exercised by a real login or a real Delete.** This carried over from `@46` and now
-applies to `@47`, which adds an auth gate on top. The harnesses run against stubs that model
-neither `CacheService` eviction nor `LockService` contention. **One real login by Praew discharges
-it** — see `BACKLOG.md` § Now.
+⚠️ **Real login: reported working by Praew on 2026-08-23**, on the Cloudflare host, after
+`https://neofeed.valhalla-health.workers.dev` was added as an Authorized JavaScript origin on
+OAuth client `750019806043-imunne8n…`. That exercises GIS → `verifyToken` → Sheet against `@47`
+end to end, outside a stub, for the first time.
+
+**A real Delete is still unexercised**, and the harnesses still model neither `CacheService`
+eviction nor `LockService` contention. So the `BACKLOG.md` § Now item **narrows, it does not
+close** — confirm the login personally before ticking it.
 
 ---
 
