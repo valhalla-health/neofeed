@@ -280,17 +280,24 @@ function createSession(email, role, name, mustChangePassword) {
     epoch: getUserEpoch(email),
     mustChangePassword: Boolean(mustChangePassword),
   }), SESSION_TTL_SECONDS);
+  // TEMP-DEBUG 2026-08-24: paired with the verifyToken instrumentation above.
+  Logger.log("createSession[" + token.slice(-6) + "] " + email + ": epoch=" + getUserEpoch(email));
   return token;
 }
 
+// TEMP-DEBUG 2026-08-24: instrumented to chase "logs in, then kicks back out"
+// (Praew, live). Logs which branch rejects a token, nothing else. Revert once
+// diagnosed — see CHANGELOG.md.
 function verifyToken(token) {
-  if (!token || token.length < 10) return null;
+  if (!token || token.length < 10) { Logger.log("verifyToken: rejected (missing/short token)"); return null; }
+  var tail = token.slice(-6);
   try {
     var cache = CacheService.getScriptCache();
     var val = cache.get("sess_" + token);
-    if (!val) return null;
+    if (!val) { Logger.log("verifyToken[" + tail + "]: cache miss on sess_ key"); return null; }
     var parsed = JSON.parse(val); // { email, role, name, epoch, mustChangePassword }
     if (String(parsed.epoch || "0") !== getUserEpoch(parsed.email)) {
+      Logger.log("verifyToken[" + tail + "] " + parsed.email + ": epoch mismatch (token=" + parsed.epoch + " current=" + getUserEpoch(parsed.email) + ")");
       cache.remove("sess_" + token); // stale — password changed since this token was issued
       return null;
     }
@@ -300,6 +307,7 @@ function verifyToken(token) {
     // per minute rather than one per request (see STAFF_RECHECK_TTL_SECONDS).
     var found = _getStaffRowCached(parsed.email);
     if (!found || (found.data[3] !== true && String(found.data[3]).toUpperCase() !== "TRUE")) {
+      Logger.log("verifyToken[" + tail + "] " + parsed.email + ": staff row " + (found ? "found but inactive (active=" + found.data[3] + ")" : "NOT FOUND"));
       cache.remove("sess_" + token);
       return null;
     }
@@ -308,8 +316,9 @@ function verifyToken(token) {
     parsed.mustChangePassword = !_usesGoogleSignIn(parsed.email) &&
       (found.data[6] === true || String(found.data[6] || "").toUpperCase() === "TRUE");
     cache.put("sess_" + token, JSON.stringify(parsed), SESSION_TTL_SECONDS); // sliding window — reset TTL on every use
+    Logger.log("verifyToken[" + tail + "] " + parsed.email + ": ok (mustChangePassword=" + parsed.mustChangePassword + ")");
     return parsed;
-  } catch (e) { return null; }
+  } catch (e) { Logger.log("verifyToken[" + tail + "]: exception " + e.message); return null; }
 }
 
 // ── Staff sheet ───────────────────────────────────────────────
