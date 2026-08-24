@@ -283,6 +283,18 @@ function _debugLog(msg) {
   } catch (e) { /* never let debug logging break the request */ }
 }
 
+// TEMP-DEBUG 2026-08-24: read-only, returns only Debug_Log (never Staff) —
+// callable via `clasp run getDebugLogText` since the Executions log UI
+// wasn't practically readable this session.
+function getDebugLogText() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
+  var sh = ss.getSheetByName("Debug_Log");
+  if (!sh) return "(no Debug_Log tab yet)";
+  var rows = sh.getDataRange().getValues();
+  var last = rows.slice(Math.max(1, rows.length - 60));
+  return last.map(function(r) { return r[0] + " | " + r[1]; }).join("\n");
+}
+
 function createSession(email, role, name, mustChangePassword) {
   var token = Utilities.getUuid();
   var cache = CacheService.getScriptCache();
