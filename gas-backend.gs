@@ -881,11 +881,60 @@ function getActivePatients() {
   return { patients: patients, log: logMap, ts: new Date().toISOString() };
 }
 
+// ── Server-side plausibility validation ─────────────────────────
+// The client forms cap ranges with <input min/max> (registry.jsx doesn't
+// even set an upper bound), but doPost is reachable directly — curl, a
+// stale bundle, or DevTools skips the browser entirely. Nothing before this
+// stopped BW=50000 or GA=200 landing in Patient_Registry/Daily_Log.
+// These are sanity bounds (physically-plausible NICU values), not clinical
+// targets — targets stay in data.js/TPN_TARGETS and drive UI guidance, not
+// write rejection. Throws; every call site here already runs inside
+// doPost's try/catch, which turns the message into jsonOut({error}).
+// Non-numeric/empty values are left to _numSafe's existing fallback — this
+// only catches numbers that parse but are out of a plausible range.
+function _checkRange(val, min, max, label) {
+  var n = Number(val);
+  if (val !== "" && val != null && isFinite(n) && (n < min || n > max)) {
+    throw new Error(label + " out of range (" + min + "–" + max + "): " + val);
+  }
+}
+
+function _validatePatient(p) {
+  _checkRange(p.bw, 300, 6000, "Birth weight (g)");
+  _checkRange(p.ga, 22, 44, "GA (weeks)");
+  _checkRange(p.multiplesCount, 0, 10, "multiplesCount");
+}
+
+function _validateLogEntry(entry) {
+  _checkRange(entry.dol,          1,   400,  "DOL");
+  _checkRange(entry.weight,       300, 8000, "Weight (g)");
+  _checkRange(entry.fluid,        0,   300,  "Fluid (mL/kg/d)");
+  _checkRange(entry.gir,          0,   20,   "GIR (mg/kg/min)");
+  _checkRange(entry.pro,          0,   8,    "Protein (g/kg/d)");
+  _checkRange(entry.kcal,         0,   200,  "Energy (kcal/kg/d)");
+  _checkRange(entry.na,           0,   15,   "Na (mEq/kg/d)");
+  _checkRange(entry.k,            0,   10,   "K (mEq/kg/d)");
+  _checkRange(entry.ca,           0,   300,  "Ca (mg/kg/d)");
+  _checkRange(entry.p,            0,   200,  "P (mg/kg/d)");
+  _checkRange(entry.enVolPerKg,   0,   250,  "EN volume (mL/kg/d)");
+  _checkRange(entry.ioInput,      0,   3000, "I/O input (mL/d)");
+  _checkRange(entry.ioOutput,     0,   3000, "I/O output (mL/d)");
+  _checkRange(entry.drainContent, 0,   3000, "Drain content (mL/d)");
+}
+
+function _validateWeightsArray(weights) {
+  if (!Array.isArray(weights)) return;
+  for (var i = 0; i < weights.length; i++) {
+    _checkRange(weights[i] && weights[i].w, 300, 8000, "weights[" + i + "].w (g)");
+  }
+}
+
 // ── Daily_Log row builder — columns shared by create + update ─
 // Returns the first 24 columns (A–X); caller appends calcInputJson/entryId/
 // lastModified/lastModifiedBy (Y–AB) since those differ between create/update,
 // then ioInput/ioOutput/drainContent (AC–AE — see _ioLogFields below).
 function _buildLogRow(sessionId, entry, submittedBy) {
+  _validateLogEntry(entry);
   return [
     _sheetSafe(entry.ts || new Date().toISOString().slice(0, 10)),
     _sheetSafe(sessionId),
@@ -1261,6 +1310,7 @@ function applyPatHeaderColumns() {
 // ── registerPatient (upsert) ──────────────────────────────────
 function registerPatient(p) {
   if (!p || !String(p.sessionId || "").trim()) throw new Error("sessionId is required");
+  _validatePatient(p);
   // Serialised: the read (getDataRange) and the write (setValues/appendRow) are
   // a read-modify-write over the whole tab, so two nurses registering at once
   // could both scan a pre-append snapshot and each append the same sessionId,
@@ -1309,6 +1359,7 @@ function registerPatient(p) {
 
 // ── updateWeights ─────────────────────────────────────────────
 function updateWeights(sessionId, weights) {
+  _validateWeightsArray(weights);
   var sheet = getSheetPat();
   var data  = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {

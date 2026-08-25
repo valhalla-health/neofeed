@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Fourteen Node scripts. Two check the TPN calculator against the **official KCMH
+Fifteen Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -24,14 +24,18 @@ week (never row counts, which since the focus re-sync measure how long a tab
 was open), and **no staff email in the output at all**, asserted by serialising
 the whole result and failing on an `@`. The thirteenth and fourteenth are the
 two halves of the 2026-08-21 `mustChangePassword` fix — the server gate, and
-what the client does when it meets that gate mid-session.
+what the client does when it meets that gate mid-session. The fifteenth pins
+the 2026-08-25 server-side plausibility guard on `doPost`'s three write
+paths — `registry.jsx`'s inputs had no upper bound at all, so nothing before
+this stopped an out-of-range value reaching Patient_Registry/Daily_Log via a
+direct POST.
 
 ## Running
 
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
-`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs` and
-`verify-must-change-password.cjs` need **no dependencies at all** — run them
-directly:
+`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
+`verify-must-change-password.cjs` and `verify-input-validation.cjs` need **no
+dependencies at all** — run them directly:
 
 ```bash
 node test/verify-targets-and-dates.cjs
@@ -39,6 +43,7 @@ node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
 node test/verify-usage-metrics.cjs
 node test/verify-must-change-password.cjs
+node test/verify-input-validation.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
@@ -356,6 +361,29 @@ synthetic `focus` event. The focus listener is throttled to one call a minute
 (`RESYNC_AFTER_MS`), so on a freshly-loaded app a focus event is swallowed and
 nothing is sent — the first version of this harness failed for exactly that
 reason and looked like a product bug.
+
+**`verify-input-validation.cjs`** — pins the 2026-08-25 server-side
+plausibility guard. `registry.jsx`'s number inputs set `min="0"` and no upper
+bound at all, and `calculator.jsx`'s daily-entry fields were never
+range-checked outside the UI meters/tiles — but `doPost` is reachable
+directly (curl, a stale bundle, DevTools), so nothing stopped an out-of-range
+BW, GA, or daily-entry value (the "BP = 400 mmHg" case) reaching
+Patient_Registry or Daily_Log. `_checkRange` is a plausibility bound, not a
+clinical target — those stay in `data.js`/`TPN_TARGETS` and drive UI
+guidance, not write rejection, so a value can be outside the ESPGHAN target
+and still save; only physically-implausible values (BW=50000 g, GA=99 wk,
+fluid=99999 mL/kg/d) are rejected.
+
+Same `vm`-sandbox technique as `verify-gas-registry-upsert.cjs`: `_checkRange`
+directly (range, boundary, empty/null/garbage skipped, error message shape),
+then the three write choke points it guards — `registerPatient` (implausible
+BW/GA rejected before reaching the sheet; a registration with BW/GA not yet
+known does not get blocked), `_buildLogRow`/`logDailyNutrition` (shared by
+create and update, so both inherit the guard from one call site), and
+`updateWeights` (an implausible growth-chart point rejected before the write).
+Each rejection is checked against the sheet double's own write/append log, not
+just the thrown error, so a validation that fired too late to stop the write
+would still fail the harness.
 
 ## Note on the source workbook
 
