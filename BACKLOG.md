@@ -40,9 +40,6 @@ clinical judgement. Everything else is engineering sequencing.
       `Daily_Log` AF–AG actually fill with `2026-08-26.1`, and a first real Delete. Stubs model
       neither `CacheService` eviction nor `LockService` contention, so **only a person can close
       this.** Supersedes the old `@47` version of this item.
-- [ ] 🧹 **chore · Delete the `Debug_Log` sheet tab.** Left behind by the reverted
-      instrumentation. Timestamps and branch labels only — no patient data — so tidiness, not
-      exposure. A sheet operation, not a code one.
 - [ ] 🧹 **chore · Run `applyLogHeaderColumns()` once from the Apps Script editor.** Adds the
       cosmetic `constantsVersion`/`appVersion` labels to `Daily_Log` row 1. Purely presentational —
       the columns are read and written by index and already work without it. It executes as the

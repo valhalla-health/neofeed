@@ -138,8 +138,14 @@ following it automatically consumes the key, and the retry returns Google Drive'
 the `Location` header and fetch it **once**.
 
 **Still unexercised:** a real login and a real save against `@50` — which is what would show
-`Daily_Log` AF–AG actually filling with `2026-08-26.1`. The `Debug_Log` sheet tab also still exists;
-deleting it is a sheet operation, not a code one.
+`Daily_Log` AF–AG actually filling with `2026-08-26.1`.
+
+**The `Debug_Log` tab was deleted by Praew the same day**, closing the chore. It cannot reappear:
+`_debugLog()` was the only code that created it, and `@50` no longer contains it. One correction
+worth recording — this entry and `STATUS.md` both first described the tab as holding "timestamps and
+branch labels only". That understated it: the messages interpolated `email` and a 6-character token
+tail, so it also held **staff email addresses**. Still no patient data, but personal data under
+PDPA — which made deleting it more clearly right, not less. No copy was retained, deliberately.
 
 ---
 

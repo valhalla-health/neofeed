@@ -15,8 +15,11 @@ things that had been sitting undeployed:
    `Patient_Registry`/`Daily_Log` via a direct POST.
 3. **The provenance columns** — `constantsVersion`/`appVersion` into `Daily_Log` AF–AG.
 
-⚠️ **The `Debug_Log` sheet tab still exists** and still holds the diagnostic rows. Deleting it is a
-sheet operation, not a code one. It holds timestamps and branch labels only — no patient data.
+✅ **The `Debug_Log` sheet tab was deleted by Praew on 2026-08-26**, and it cannot come back:
+`_debugLog()` was the only thing that recreated it (`if (!sh) ss.insertSheet("Debug_Log")`), and the
+deployed `@50` source contains zero occurrences of it. Its rows held timestamps, staff email
+addresses and 6-character session-token tails — no patient data, but personal data, so no copy was
+retained.
 
 | | |
 |---|---|
