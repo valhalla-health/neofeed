@@ -855,6 +855,13 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         ? (route === "central" ? "TPN central" : "TPN peripheral")
         : (calc.enVolPerKg > 0 ? "Enteral only" : "NPO"),
       status: "submitted", ..._suppPayload, calcInput: captureState(),
+      // Provenance — which constants and which frontend computed these
+      // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
+      // constant that later turns out wrong can be traced to the exact rows
+      // it affected. Sent on every save, including edits: an edit recomputes
+      // the figures with today's constants, so the stamp must move with them.
+      constantsVersion: D.CONSTANTS_VERSION,
+      appVersion: D.APP_VERSION,
       // Editing must keep the entry's original calendar date; a brand-new entry
       // is stamped with today's date unless the user picked a back-date (logDate).
       ...(editEntry ? { ts: editEntry.ts } : logDate ? { ts: logDate } : {}),
@@ -1917,7 +1924,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       {/* ── Ramathibodi PN order form — print only ── */}
       <PrintOrderForm
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} route={route}
-        dexPct={dexPct} totalTPN_mL={totalTPN_mL}
+        dexPct={dexPct} totalTPN_mL={totalTPN_mL} entryId={savedEntryId}
         aaPerKg={aaPerKg} lipidPerKg={lipidPerKg} lipidDripHours={lipidDripHours}
         naCl={naCl} naAcet={naAcet} glycophosP={glycophosP}
         kCl={kCl} k2hpo4={k2hpo4} mgPerKg={mgPerKg} mgStrength={mgStrength} caPerKg={caPerKg}
@@ -2042,7 +2049,7 @@ function KcalLegend({ color, label, pct, target }) {
 }
 
 // ── Ramathibodi PN Order Form (print only) ──────────────────────
-function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
+function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL, entryId,
   aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg,
   inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
@@ -2329,6 +2336,18 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL,
       <div style={{ display:"flex", justifyContent:"space-between", marginTop:14 }}>
         <div>แพทย์ ................................................................</div>
         <div>รหัส ................................</div>
+      </div>
+
+      {/* Provenance footer — which values produced the figures above, and
+          which Daily_Log row they came from. Deliberately small and last:
+          it is for the person reconciling an order after the fact, not for
+          the person signing it. Printed even before the entry is saved, in
+          which case entryId is "(unsaved)" — a printed order with no row
+          behind it is exactly the case worth being able to spot. */}
+      <div style={{ marginTop:8, paddingTop:4, borderTop:"1px solid #ccc",
+        fontSize:8, color:"#555", display:"flex", justifyContent:"space-between" }}>
+        <span>NeoFeed · constants {D.CONSTANTS_VERSION} · app {D.APP_VERSION}</span>
+        <span>entry {entryId || "(unsaved)"} · printed {today}</span>
       </div>
     </div>
   );

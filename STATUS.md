@@ -1,35 +1,61 @@
 # NeoFeed — Status
 
-**Updated 2026-08-23** · 🟢 **DEPLOYED — backend production is `@47`**, carrying GitHub `main`
-`34af805`. The frontend now serves from **two hosts, both auto-deployed from the same commit**;
-backend and frontend are in step. **`30dbff7` is live on both hosts** — `_headers` (§ Response
-headers) and the GitHub Pages retirement mechanism (§ GitHub Pages retirement) shipped and were
-verified against the real URLs, not just `wrangler dev`, the same session they were pushed.
-**Nothing is pending on either host.** What's still open is a human step, not a deploy: staff
-haven't been told yet, and the repo isn't private yet — see § GitHub Pages retirement.
+**Updated 2026-08-26** · 🔴 **Backend production is `@49`, and `@49` is a TEMP-DEBUG deployment.**
+
+> ### This file was wrong for two days, in the way it exists to prevent
+> Until 2026-08-26 this file said production was `@47` carrying `34af805`, and that *"nothing is
+> pending on either host."* Both were false. `clasp list-deployments` reports:
+>
+> ```
+> AKfycbz8NtHuyTdo4EP-… @49 - TEMP-DEBUG: sheet-backed login-kickback diagnostics
+> ```
+>
+> Two deployments (`@48`, `@49`) were cut on 2026-08-24 without the same-commit update to this file
+> that is supposed to be part of the definition of done. **The instrumentation is live in
+> production**: `verifyToken`/`createSession` tracing, the `Debug_Log` sheet writer, and
+> `getDebugLogText()`. Reverting it is a decision, not a chore — the login-kickback bug it was
+> chasing may still be open. Tracked in `BACKLOG.md` § Now.
+
+**Five commits sit on `main` beyond the `30dbff7` this file used to describe:** three TEMP-DEBUG
+(`489a977`, `a52846d`, `680fe69`), the server-side plausibility guard (`0004d5c`), and a docs
+commit. `main` and `origin/main` are in step.
 
 | | |
 |---|---|
 | Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
 | Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
 | Frontend deploy | `git push origin main` deploys **both**. Workers Builds runs `npx wrangler deploy`; GitHub Pages rebuilds from the repo root. Connected 2026-08-23 |
-| Backend | GAS deployment `AKfycbz8Nt…` at **`@47`** — *"mustChangePassword server gate + usageMetrics M1 (GitHub main 34af805)"* |
+| Backend | GAS deployment `AKfycbz8Nt…` at **`@49`** — *"TEMP-DEBUG: sheet-backed login-kickback diagnostics"*, cut 2026-08-24. ⚠️ **Debug instrumentation is live** |
+| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` reconciled to the repo on 2026-08-26 (`a65233f`) and **byte-identical to `gas-backend.gs`**. It is therefore *ahead* of what is deployed — a `clasp push` would ship the provenance columns and the plausibility guard together |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity). Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
-| Migrations | none outstanding on any tab |
+| Migrations | ⏳ **`Daily_Log` AF–AG pending.** `constantsVersion`/`appVersion` are written by the *committed* backend, which is not deployed. Both write paths widen the grid on demand, so no manual migration is required before a deploy; `applyLogHeaderColumns()` only adds the cosmetic header labels |
 | Cache-bust | `app.jsx?v=pwd-gate-0821`; `registry.jsx?v=dol-input-fix1`; others unchanged. Both shells byte-identical |
 
-**App code is unchanged since `34af805`.** `8e6c056` added frontend hosting config only —
-`wrangler.jsonc` and `.assetsignore` — and touched no file the app loads. The HTML served by
-Cloudflare was verified byte-identical to `index.html`.
+### 🟠 Two backend changes are committed on `main` and have never been deployed
 
-**What `@47` changed:** the `mustChangePassword` server gate — a temp-password account can now do
-nothing but change its password — plus `usageMetrics()` / `getUsageMetrics()`, which are inert
-(not on the `doPost` path).
+Verified 2026-08-26 against the pre-reconciliation clasp mirror, which *is* the deployed source:
+
+| Committed | Live? | What it does |
+|---|---|---|
+| **Server-side plausibility guard** — `0004d5c`, 2026-08-25 | ❌ **No** | `_checkRange`/`_validatePatient`/`_validateLogEntry`/`_validateWeightsArray` on `doPost`'s three write paths. `_checkRange` appears **zero times** in the deployed source — `registry.jsx` sets no upper bound and `doPost` is reachable by `curl`, so nothing live stops BW=50000 or GA=200 reaching the sheet today |
+| **Provenance columns** — 2026-08-26 | ❌ No | `constantsVersion`/`appVersion` → Daily_Log AF–AG |
+
+The **frontend half of the provenance change is safe to ship alone**: `@49` ignores the two extra
+fields it will start receiving, so the printed order-form footer works immediately and the two sheet
+columns stay blank until a backend deploy.
+
+**What `@49` changed** (relative to `@47`, which is what this file used to describe): the
+TEMP-DEBUG instrumentation only. `@47`'s own content — the `mustChangePassword` server gate, plus
+`usageMetrics()`/`getUsageMetrics()`, which are inert and not on the `doPost` path — is still in
+there underneath.
 
 **Rollback (backend):**
 ```
-clasp update-deployment -V 46 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
+clasp update-deployment -V 47 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
 ```
+`-V 47` drops only the TEMP-DEBUG instrumentation; it loses nothing else, because nothing else has
+ever been deployed on top of `@47`. The better move is forward, not back: cut a clean version from
+the reconciled mirror, which carries the plausibility guard and the provenance columns together.
 
 **Rollback (frontend, Cloudflare):**
 ```

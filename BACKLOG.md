@@ -32,10 +32,27 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🔴 **deploy/process · Production is `@49`, a TEMP-DEBUG deployment, and two real changes are
+      committed but not live.** Found 2026-08-26 by running `clasp list-deployments` instead of
+      trusting `STATUS.md`, which said `@47`. Three things, all one decision:
+      **(a)** the live backend carries the 2026-08-24 login-kickback instrumentation —
+      `verifyToken`/`createSession` tracing, the `Debug_Log` sheet writer and `getDebugLogText()`.
+      Decide whether the bug it was chasing is closed; if so, revert it.
+      **(b)** the **server-side plausibility guard (`0004d5c`) has never been deployed** —
+      `_checkRange` appears zero times in the deployed source, verified against the pre-reconciliation
+      mirror. `registry.jsx` sets no upper bound and `doPost` is reachable by `curl`, so nothing live
+      stops an out-of-range write today. This is the sharpest half of the item.
+      **(c)** the provenance columns (below) are committed and waiting behind the same deploy.
+      One clean version cut from the reconciled mirror closes all three. **Confirm before the
+      redeploy step** — staff are on it.
 - [ ] 🩺 **safety · Confirm Na acetate (3 mEq/mL) and KCl (2 mEq/mL) stock concentrations against the
       shelf.** Both were *inferred* from the KCMH worksheet's divisors, not read off an explicit
       strength label. **These corrected concentrations change the mL printed on every order form** —
       the highest-stakes open item in the repo. Blocked on a physical check in the ward, not on code.
+      ⬆️ **Now answerable after the fact:** as of 2026-08-26 every saved row and every printed order
+      carries `CONSTANTS_VERSION`, so when the shelf check lands, *"which orders used the old
+      divisor?"* has an answer — for rows written after the backend deploy. Rows written before it
+      have a blank AF and cannot be attributed. That gap shrinks every day the deploy waits.
 - [ ] 🔒 **security · Exercise `@47` with a real login and a real Delete.** ⬆️ **More
       pressing since the 2026-08-21 deploy, not less** — `@47` adds an auth gate on top of `@46`'s
       unexercised auth changes. Both are covered only by stub harnesses, which model neither
@@ -92,6 +109,13 @@ clinical judgement. Everything else is engineering sequencing.
       `AI_SDLC.md` § 5.
 - [ ] 🧱 **product · There is no error boundary** — `PatientStrip` throwing white-screens the whole
       app. One instance was hit and fixed on 2026-08-18; the class of bug is still open.
+- [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it
+      a PWA and staff have home-screen installs, but there is **no service worker**, so a home-screen
+      icon opens to nothing with no network. Partially addressed 2026-08-26: the staleness banner now
+      *tells* the user they are offline and that saves will not reach the sheet — that is the
+      safety-relevant half, and it is shipped. The rest is a cached shell (read-only, clearly
+      labelled) and, only after the server-side one-entry-per-date guard exists, a queued save.
+      See `NEOFEED_DIGIHEALTH_UPGRADE_MAP.html` §05 for the three levels.
 - [ ] 🔒 **security · No server-side one-entry-per-date guard.** The duplicate-date lock is frontend
       only, so the invariant "one `Daily_Log` row per patient per date" is unenforced at the source
       of truth.

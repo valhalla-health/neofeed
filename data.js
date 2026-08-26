@@ -7,6 +7,75 @@
 //   Thai PN Guideline พ.ศ. 2564 (สมาคมโภชนาการเด็กแห่งประเทศไทย)
 // ============================================================
 
+// ── Provenance stamp ────────────────────────────────────────
+// CONSTANTS_VERSION identifies the exact set of clinical constants that
+// produced a printed number. It is written into Daily_Log columns AF/AG and
+// printed in the order form's footer, so "which values compounded this bag?"
+// stays answerable after the fact. Until 2026-08-26 nothing recorded it: the
+// sheet knew WHO submitted an order and WHEN, never WHICH VALUES it used.
+//
+// 🔴 BUMP THIS whenever a change below can move a printed dose — KCMH_STOCK,
+// MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, TPN_TARGETS, ENTERAL_TARGETS, EN_DB,
+// FENTON_*. Not for comments, labels or UI. The register of what each version
+// contains is docs/CLINICAL_CONSTANTS.md.
+//
+// The immediate reason this exists: the Na acetate (3 mEq/mL) and KCl
+// (2 mEq/mL) stock strengths were INFERRED from the KCMH worksheet's divisors,
+// not read off a strength label (BACKLOG.md § Now). If the shelf check comes
+// back different, the question is "which printed orders used the old divisor?"
+// — and this column is the only thing that can answer it.
+//
+// Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
+// by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
+// because the sheet would read that as a formula.
+const CONSTANTS_VERSION = "2026-08-26.1";
+
+// APP_VERSION identifies the frontend that ran the arithmetic. There is no
+// build step (app-walkthrough.md §7), so this is maintained by hand alongside
+// the ?v= cache-bust tokens in the two HTML shells.
+const APP_VERSION = "2026-08-26-provenance";
+
+// ── Sync freshness — the staleness banner's decision ────────
+// "Is the number on screen still trustworthy?" is a clinical-safety rule, so
+// it lives here in the Business Logic layer rather than as a ternary inside
+// app.jsx (TDD.md §5.2 lists the layer violations we are not adding to).
+// app.jsx only renders what this returns.
+//
+// The thresholds are this app's latency requirement written down: a registry
+// under 5 minutes old is fine on a ward round, 5–15 minutes is worth
+// flagging, and past 15 minutes the figures should not be acted on without a
+// refresh. Stated as numbers on purpose — "real time" that cannot be given as
+// a number is a preference, not a requirement.
+const SYNC_WARN_MS  =  5 * 60 * 1000;
+const SYNC_STALE_MS = 15 * 60 * 1000;
+
+// Age of the last SUCCESSFUL sync, clamped at 0. A device clock that jumps
+// backwards (or a DST shift) would otherwise give a negative age and read as
+// impossibly fresh — the one direction this must never fail in.
+function _syncAgeMs(s) {
+  if (s.lastSyncMs == null) return null;
+  var now = s.nowMs == null ? Date.now() : s.nowMs;
+  return Math.max(0, now - s.lastSyncMs);
+}
+
+// → { level: "local" | "offline" | "stale" | "warn" | "ok", ageMs }
+function syncFreshness(s) {
+  s = s || {};
+  // GAS not configured → local/mock development. Never a clinical banner.
+  if (!s.gasOn) return { level: "local", ageMs: null };
+  // No network explains any sync error, so it outranks one. Showing "sync
+  // error" to someone whose wifi has dropped sends them at the wrong problem.
+  if (s.online === false) return { level: "offline", ageMs: _syncAgeMs(s) };
+
+  var age = _syncAgeMs(s);
+  // A failure one second ago is not freshness, and a session that has never
+  // synced has nothing to trust. Both are stale.
+  if (age === null || s.syncState === "error") return { level: "stale", ageMs: age };
+  if (age >= SYNC_STALE_MS) return { level: "stale", ageMs: age };
+  if (age >= SYNC_WARN_MS)  return { level: "warn",  ageMs: age };
+  return { level: "ok", ageMs: age };
+}
+
 // ── Enteral feed composition per 100 mL ─────────────────────
 // Units: kcal, pro/fat/cho in g, na/k in mmol, ca/p in mg
 // 1 oz = 30 mL; 20 kcal/oz ≈ 67 kcal/100 mL
@@ -1274,6 +1343,12 @@ window.NEOFEED_DATA = {
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L,
+  // Provenance — which constants and which frontend produced a printed number.
+  // Written to Daily_Log AF/AG and printed on the order form. Bump
+  // CONSTANTS_VERSION whenever a value above can move a dose.
+  CONSTANTS_VERSION, APP_VERSION,
+  // Staleness decision for the sync banner + the thresholds behind it
+  syncFreshness, SYNC_WARN_MS, SYNC_STALE_MS,
   // Live DOL helper. entryDol re-derives a saved log row's DOL from its date
   // instead of trusting the stored (snapshot, goes stale) `dol` column.
   liveDol, dolAtDate, entryDol,

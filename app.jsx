@@ -144,6 +144,15 @@ function App() {
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
   const [lastSync, setLastSync] = React.useState(null);
+  // Network reachability, as the browser reports it. Deliberately separate
+  // from syncState: "the fetch failed" and "this device has no network" are
+  // different problems and send the user to different fixes.
+  const [online, setOnline] = React.useState(
+    typeof navigator === "undefined" || navigator.onLine !== false);
+  // Ticks so the staleness banner ages in place. Without it the banner only
+  // re-evaluated when something else re-rendered App, so a tab sitting idle
+  // (the exact case that produces stale data) would never show the warning.
+  const [staleTick, setStaleTick] = React.useState(0);
   const [calcWeights, setCalcWeights] = React.useState({});
   React.useEffect(() => { setCalcWeights({}); }, [activeId]); // reset typed weight on patient switch
 
@@ -279,6 +288,41 @@ function App() {
       window.removeEventListener("focus", refresh);
     };
   }, [user?.email, syncFromGAS]);
+  // ── Staleness signal ─────────────────────────────────────────
+  // Two inputs, both needed. `online`/`offline` fire immediately when the
+  // network drops, which is the fast path; the 30 s tick covers everything
+  // else — a server that stopped answering, a session that expired, a laptop
+  // that woke from sleep with the wifi still "connected" but going nowhere.
+  //
+  // 30 s is chosen against SYNC_WARN_MS (5 min): fine enough that the banner
+  // appears within a small fraction of the threshold it is announcing, coarse
+  // enough to be invisible. The interval is unconditional — a device can go
+  // offline before login, and the login screen is exactly where "you have no
+  // network" is the useful message.
+  React.useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    const t = setInterval(() => setStaleTick(n => n + 1), 30000);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+      clearInterval(t);
+    };
+  }, []);
+
+  // The decision itself lives in data.js so it can be pinned by a test —
+  // see test/verify-sync-freshness.cjs. This only reads it.
+  // staleTick is referenced so the memo actually re-runs on the interval.
+  const freshness = React.useMemo(
+    () => D_A.syncFreshness({
+      gasOn: GAS_ON, online, syncState,
+      lastSyncMs: lastSync ? lastSync.getTime() : null,
+      nowMs: Date.now(),
+    }),
+    [online, syncState, lastSync, staleTick]);
+
   // Day rollover: everything DOL- and today-derived needs re-deriving, and a
   // fresh pull makes sure the new day starts from the sheet's current truth.
   const firstDayRef = React.useRef(true);
@@ -657,6 +701,67 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* ── Staleness banner ──────────────────────────────────────
+          Shown ONLY when something is wrong. A banner that is always there
+          is wallpaper, and wallpaper is what the topbar sync pill already
+          became — small, peripheral, and easy to read past while typing a
+          fluid balance.
+
+          What it is for: silence about staleness is the failure mode. A round
+          reading an intake/output figure that is twenty minutes old, with
+          nothing on screen saying so, is "stale data appearing as current" —
+          and unlike a wrong dose there is no arithmetic error to catch it.
+
+          Inline styles, not a shell class, deliberately: NeoFeed.html and
+          index.html are hand-synced and drift silently (REFERENCE.md), so a
+          change that needs no CSS in either shell is a change that cannot
+          desync them. The CSS variables used here already exist in both. */}
+      {/* "warn" (5–15 min) is deliberately NOT a banner. The app only
+          re-syncs on tab focus, so ordinary uninterrupted use crosses five
+          minutes constantly — a banner there would be on screen most of the
+          day and would train everyone to read past it, including on the days
+          it means something. It stays a tier in syncFreshness() because it is
+          a truthful description of the data's age and the topbar pill can use
+          it; the banner is reserved for the two states that are actually
+          actionable. If this turns out to be tuned wrong in the ward, the
+          thresholds are SYNC_WARN_MS / SYNC_STALE_MS in data.js. */}
+      {(freshness.level === "offline" || freshness.level === "stale") && (() => {
+        // offline = writes are definitely not reaching the sheet.
+        // stale    = data is old; writes are probably fine. Different colour,
+        //            because they need different reactions.
+        const crit = freshness.level === "offline";
+        const mins = freshness.ageMs == null ? null : Math.floor(freshness.ageMs / 60000);
+        const age  = mins == null ? "ยังไม่เคยซิงก์" : mins < 1 ? "ไม่ถึง 1 นาที" : `${mins} นาที`;
+        return (
+          <div role="status" aria-live="polite" style={{
+            display:"flex", alignItems:"center", gap:8, flexWrap:"wrap",
+            padding:"7px 14px", fontSize:12.5, lineHeight:1.45,
+            background: crit ? "var(--crit-bg)" : "var(--warn-bg)",
+            color:      crit ? "var(--crit)"    : "var(--warn)",
+            borderBottom: `1px solid ${crit ? "var(--crit-line)" : "var(--warn-line)"}`,
+          }}>
+            <span style={{ width:7, height:7, borderRadius:"50%", flex:"0 0 auto",
+              background: crit ? "var(--crit)" : "var(--warn)" }} />
+            <strong style={{ fontWeight:600 }}>
+              {crit ? "ออฟไลน์ — ไม่ได้เชื่อมต่อเครือข่าย" : "ข้อมูลไม่เป็นปัจจุบัน"}
+            </strong>
+            <span style={{ opacity:0.95 }}>
+              {crit
+                ? `ตัวเลขที่แสดงคือข้อมูลล่าสุดเมื่อ ${age} ที่แล้ว และการบันทึกจะยังไม่ถูกส่งขึ้นเซิร์ฟเวอร์ — ตรวจสอบกับแฟ้มผู้ป่วยก่อนใช้สั่งการรักษา`
+                : `ซิงก์ล่าสุดเมื่อ ${age} ที่แล้ว — กด Sync ก่อนใช้ตัวเลขนี้`}
+            </span>
+            {GAS_ON && online && (
+              <button className="icon-btn" onClick={syncFromGAS}
+                style={{ marginLeft:"auto", color:"inherit", fontSize:12,
+                  padding:"2px 10px", width:"auto", borderRadius:4,
+                  border:`1px solid ${crit ? "var(--crit-line)" : "var(--warn-line)"}` }}>
+                Sync now
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Rail */}
       <nav className="rail">

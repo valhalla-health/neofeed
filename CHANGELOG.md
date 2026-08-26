@@ -13,6 +13,92 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-26 (1) — provenance stamp + staleness banner; and production found at `@49`, not `@47`
+
+Two features, both TDD'd red-first, plus one discovery that matters more than either.
+
+### 🔴 The discovery: `STATUS.md` was two deploy versions stale, and production is running debug code
+
+`STATUS.md` said backend production was **`@47`** carrying `34af805`, and that *"nothing is pending
+on either host."* Checked directly with `clasp list-deployments`:
+
+```
+AKfycbz8NtHuyTdo4EP-… @49 - TEMP-DEBUG: sheet-backed login-kickback diagnostics
+```
+
+**Live production is `@49`**, and it is a TEMP-DEBUG deployment — the `verifyToken`/`createSession`
+instrumentation and the `Debug_Log` sheet writer added on 2026-08-24 to chase the
+"logs in, then kicks back out" bug. `getDebugLogText()` is deployed with it. Five commits have
+landed on `main` since the `30dbff7` that `STATUS.md` describes, three of them TEMP-DEBUG and one
+the server-side plausibility guard (`0004d5c`).
+
+This is the exact rot the 2026-08-21 doc split was meant to end, and it happened anyway — the
+deploys were cut without the same-commit `STATUS.md` update that is supposed to be part of the
+definition of done. **The TEMP-DEBUG code is still in the working tree and still live.** Reverting
+it is not done here: it is a separate decision, and the login-kickback bug it was instrumenting may
+not be closed yet. Tracked in `BACKLOG.md` § Now.
+
+### Provenance stamp — `CONSTANTS_VERSION` / `APP_VERSION` (Daily_Log AF–AG)
+
+Nothing recorded **which values** produced a printed compounding order. `_buildLogRow` stored who
+submitted it and when; `PrintOrderForm` printed the patient and the date. Neither recorded the
+constants. The day the Na acetate / KCl shelf check comes back different from the inferred 3 and
+2 mEq/mL, the question is *"which printed orders used the old divisor?"* — and there was no way to
+answer it.
+
+- `data.js` — `CONSTANTS_VERSION` (`2026-08-26.1`) and `APP_VERSION`, both exported. The comment
+  block states the bump rule: any change that can move a printed dose.
+- `gas-backend.gs` — `_provenanceFields()` appends **AF/AG at index 31/32**, last in the row.
+  Daily_Log is read and written *by index*, so nothing may ever be inserted ahead of them.
+- `_ensureLogWidth()` — extracted the on-demand grid widen out of `updateDailyNutrition` and gave
+  the **create** path the same protection, which it never had. `appendRow` rejects a row wider than
+  the sheet, and that surfaces at the bedside as a failed save.
+- `ensureLogHeaderColumns` — labels 32/33, widens to 33.
+- `calculator.jsx` — sends both on every save including edits (an edit recomputes with today's
+  constants, so the stamp must move with them), and prints a footer line carrying constants, app
+  version and the entry UUID.
+
+**Degrades safely:** a save from a cached bundle with no version writes `""`, and the current
+`@49` backend simply ignores the two extra fields. The frontend can therefore ship before the
+backend, which is what is happening here.
+
+### Staleness banner
+
+The app had no offline signal at all — no service worker, no `navigator.onLine` handling anywhere.
+`manifest.json` makes it installable, so staff have home-screen icons that open to nothing when the
+network drops, and a visible-but-idle tab could show a fluid balance an hour old with only a small
+topbar pill to say so.
+
+- `data.js` — `syncFreshness()` returns `local` / `offline` / `stale` / `warn` / `ok` plus `ageMs`.
+  Thresholds `SYNC_WARN_MS` 5 min, `SYNC_STALE_MS` 15 min — this app's latency requirement written
+  down as a number instead of implied. Put in the Business Logic layer, not inline in `app.jsx`, so
+  it can be pinned by a test.
+- `app.jsx` — `online` state from the `online`/`offline` events plus a 30 s tick (a tab that sits
+  idle is exactly the case that goes stale, and nothing else re-renders it), and a banner rendered
+  only for `offline` and `stale`.
+- **`warn` is deliberately not a banner.** The app only re-syncs on tab focus, so ordinary use
+  crosses five minutes constantly; a banner there would be on screen most of the day and would train
+  everyone to read past it. It stays a tier because it is a truthful description of age and the pill
+  can use it.
+- Inline styles, no shell CSS — so `NeoFeed.html` and `index.html` needed no edit and stayed
+  byte-identical, which is the drift this repo keeps re-learning.
+
+### Verification
+
+- `test/verify-sync-freshness.cjs` (23 assertions) and `test/verify-provenance-stamp.cjs` (37) —
+  both **run red first**, 2 and 23 failures respectively, then green.
+- Full suite: **16/16 harnesses green**, including `verify-kcmh-factor` (the printed-dose guard) and
+  `verify-resync-and-lists`, which mounts the whole `<App/>` and so actually rendered the new banner.
+- All seven `.jsx` files transpiled with the **pinned `@babel/standalone@7.29.0`** the browser
+  itself loads, fetched to a scratch dir rather than added to the repo.
+- Mirror diffed before copying, per `REFERENCE.md`. Every line unique to `~/nicu-tools/neofeed/รหัส.js`
+  was the old text of a line this change edited — it held nothing unique, unlike 2026-08-17. Backup
+  taken and **moved out of the clasp project directory**, which has no `.claspignore`.
+
+**Not deployed.** Backend stays at `@49` pending Praew's call on the TEMP-DEBUG revert.
+
+---
+
 ## Session 2026-08-23 (1) — CSP headers, GitHub Pages retirement stub, gitleaks config guard — all three shipped (`30dbff7`)
 
 Frontend-only, no backend touched. Three pieces, bundled into one commit and pushed on Praew's

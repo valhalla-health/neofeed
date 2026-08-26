@@ -956,14 +956,42 @@ function _ioLogFields(entry) {
   return [_numSafe(entry.ioInput, 0), _numSafe(entry.ioOutput, 0), _numSafe(entry.drainContent, 0)];
 }
 
+// Provenance columns AF–AG — which clinical constants and which frontend
+// produced this row's numbers. Appended LAST, and nothing may ever be
+// inserted ahead of them: Daily_Log is read and written by index (the header
+// labels are cosmetic), so a mid-row insert silently reassigns every column
+// after it.
+//
+// Both default to "" rather than throwing. The frontend deploys before the
+// backend does, and a save arriving from a cached bundle with no version must
+// still land — a failed save at the bedside is worse than a blank cell.
+// See data.js CONSTANTS_VERSION for what the value means and when to bump it.
+function _provenanceFields(entry) {
+  return [_sheetSafe(entry.constantsVersion || ""), _sheetSafe(entry.appVersion || "")];
+}
+
+// Widen the grid on demand before any write that could exceed it.
+// getRange() past the grid edge throws, and appendRow() rejects a row wider
+// than the sheet — both surface at the bedside as a failed save. This is the
+// same trap AC–AE hit in 2b7d2a4; making it a shared helper means the create
+// path can no longer be forgotten while the update path is protected. No-op
+// once the tab is wide enough, so it costs one getMaxColumns() per save.
+function _ensureLogWidth(sheet, width) {
+  var have = sheet.getMaxColumns();
+  if (have < width) sheet.insertColumnsAfter(have, width - have);
+}
+
 // ── logDailyNutrition (create) ─────────────────────────────────
 function logDailyNutrition(sessionId, entry, submittedBy) {
   var entryId = Utilities.getUuid();
   var lastModified = new Date().toISOString();
   var row = _buildLogRow(sessionId, entry, submittedBy)
     .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""])
-    .concat(_ioLogFields(entry));
-  getSheetLog().appendRow(row);
+    .concat(_ioLogFields(entry))
+    .concat(_provenanceFields(entry));
+  var sheet = getSheetLog();
+  _ensureLogWidth(sheet, row.length);
+  sheet.appendRow(row);
   return { entryId: entryId, lastModified: lastModified };
 }
 
@@ -995,15 +1023,15 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       var newLastModified = new Date().toISOString();
       var row = _buildLogRow(sessionId, entry, originalSubmittedBy)
         .concat([JSON.stringify(entry.calcInput || {}), entryId, newLastModified, _sheetSafe(editedBy || "")])
-        .concat(_ioLogFields(entry));
+        .concat(_ioLogFields(entry))
+        .concat(_provenanceFields(entry));
       // A Daily_Log tab created before the Intake/Output columns is only 28
-      // columns wide, and getRange() past the grid edge throws — which would
-      // surface at the bedside as a failed save on an EXISTING entry. Widen
-      // on demand so this can't depend on whether the one-off
-      // ensureLogHeaderColumns migration has been run yet. No-op once done.
-      if (sheet.getMaxColumns() < row.length) {
-        sheet.insertColumnsAfter(sheet.getMaxColumns(), row.length - sheet.getMaxColumns());
-      }
+      // columns wide (and one predating AF–AG only 31), and getRange() past
+      // the grid edge throws — which would surface at the bedside as a failed
+      // save on an EXISTING entry. Widen on demand so this can't depend on
+      // whether the one-off ensureLogHeaderColumns migration has been run yet.
+      // No-op once done. Shared with the create path — see _ensureLogWidth.
+      _ensureLogWidth(sheet, row.length);
       sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
       return { ok: true, lastModified: newLastModified };
     }
@@ -1200,7 +1228,11 @@ function applyStaffHeaderColumns() {
 // AE1 already contain anything it reports and changes nothing, so it is safe
 // to re-run.
 function ensureLogHeaderColumns(apply) {
-  var WANT = { 29: "ioInput", 30: "ioOutput", 31: "drainContent" };
+  var WANT = {
+    29: "ioInput", 30: "ioOutput", 31: "drainContent",
+    // AF–AG, added 2026-08-26 — see _provenanceFields
+    32: "constantsVersion", 33: "appVersion",
+  };
   var sh   = getSheetLog();
   var out  = {
     applied: apply === true,
@@ -1209,10 +1241,10 @@ function ensureLogHeaderColumns(apply) {
     changes: [], skipped: []
   };
 
-  // 1. Widen the grid if needed — must happen before any getRange(.., 31).
-  var need = 31 - sh.getMaxColumns();
+  // 1. Widen the grid if needed — must happen before any getRange(.., 33).
+  var need = 33 - sh.getMaxColumns();
   if (need > 0) {
-    out.changes.push("grid: " + sh.getMaxColumns() + " -> 31 columns (+" + need + ")");
+    out.changes.push("grid: " + sh.getMaxColumns() + " -> 33 columns (+" + need + ")");
     if (apply === true) sh.insertColumnsAfter(sh.getMaxColumns(), need);
   } else {
     out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
@@ -1238,7 +1270,7 @@ function ensureLogHeaderColumns(apply) {
     out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
   }
 
-  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(31, sh.getLastColumn())).getValues()[0];
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(33, sh.getLastColumn())).getValues()[0];
   Logger.log(JSON.stringify(out, null, 2));
   return out;
 }

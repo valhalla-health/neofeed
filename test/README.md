@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Fifteen Node scripts. Two check the TPN calculator against the **official KCMH
+Seventeen Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -28,13 +28,20 @@ what the client does when it meets that gate mid-session. The fifteenth pins
 the 2026-08-25 server-side plausibility guard on `doPost`'s three write
 paths — `registry.jsx`'s inputs had no upper bound at all, so nothing before
 this stopped an out-of-range value reaching Patient_Registry/Daily_Log via a
-direct POST.
+direct POST. The sixteenth pins the **provenance stamp** — `CONSTANTS_VERSION`/`APP_VERSION` into
+Daily_Log AF–AG and onto the printed order form — including that the columns land at index
+31/32 without shunting anything before them, that a save with no version still writes 33 columns
+rather than throwing, and that a Daily_Log tab predating AF–AG is widened on **both** the
+create and update paths. The seventeenth pins `syncFreshness()`, the decision behind the offline/
+staleness banner: offline outranks a sync error, a failure one second ago is not freshness, and a
+clock that jumps backwards must not read as fresh.
 
 ## Running
 
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
-`verify-must-change-password.cjs` and `verify-input-validation.cjs` need **no
+`verify-must-change-password.cjs`, `verify-input-validation.cjs`,
+`verify-provenance-stamp.cjs` and `verify-sync-freshness.cjs` need **no
 dependencies at all** — run them directly:
 
 ```bash
@@ -44,6 +51,8 @@ node test/verify-gas-session-revocation.cjs
 node test/verify-usage-metrics.cjs
 node test/verify-must-change-password.cjs
 node test/verify-input-validation.cjs
+node test/verify-provenance-stamp.cjs
+node test/verify-sync-freshness.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
