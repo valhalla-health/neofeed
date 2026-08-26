@@ -1,6 +1,18 @@
 # NeoFeed — Status
 
-**Updated 2026-08-26** · 🔴 **Backend production is `@49`, and `@49` is a TEMP-DEBUG deployment.**
+**Updated 2026-08-26** · 🟢 **Frontend `3d2978b` is live on BOTH hosts, verified.** · 🔴 **Backend production is `@49`, and `@49` is a TEMP-DEBUG deployment.**
+
+**Frontend deploy 2026-08-26** — the provenance stamp and the offline/staleness banner shipped to
+Cloudflare and GitHub Pages from `3d2978b`. Verified against the real URLs, not `wrangler dev`:
+both shells serve `?v=provenance-0826` on all three changed files; the served `data.js` carries
+`CONSTANTS_VERSION = "2026-08-26.1"`, `APP_VERSION` and `syncFreshness`; the served `app.jsx`
+carries the `navigator.onLine` handling and the Thai offline banner; the served `calculator.jsx`
+sends `constantsVersion` and prints the provenance footer.
+
+⚠️ **The printed footer works now; the two sheet columns do not.** `@49` ignores the
+`constantsVersion`/`appVersion` fields it is now receiving, so `Daily_Log` AF–AG stay blank until
+the backend is deployed. Every row saved between now and that deploy is unattributable — which is
+the cost of leaving the backend at `@49`.
 
 > ### This file was wrong for two days, in the way it exists to prevent
 > Until 2026-08-26 this file said production was `@47` carrying `34af805`, and that *"nothing is

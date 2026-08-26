@@ -95,7 +95,22 @@ topbar pill to say so.
   was the old text of a line this change edited — it held nothing unique, unlike 2026-08-17. Backup
   taken and **moved out of the clasp project directory**, which has no `.claspignore`.
 
-**Not deployed.** Backend stays at `@49` pending Praew's call on the TEMP-DEBUG revert.
+### Shipped to both frontend hosts (`3d2978b`)
+
+Pushed on Praew's instruction (*"push it"*). **A cache-bust bug was caught in the pre-push check
+and fixed first:** `1a12eef` changed `data.js`, `calculator.jsx` and `app.jsx` but left their `?v=`
+tokens untouched, so returning staff — everyone with a home-screen install, i.e. exactly the people
+the change is for — would have kept cached copies and seen neither feature. The tail case is worse:
+a browser that revalidated `app.jsx` but not `data.js` would find `D_A.syncFreshness` undefined and
+white-screen on load. All three moved together to `?v=provenance-0826`.
+
+Verified against the real URLs afterward, both hosts: shells serve the new tokens, the served
+`data.js` carries `CONSTANTS_VERSION = "2026-08-26.1"` and `syncFreshness`, the served `app.jsx`
+carries the `navigator.onLine` handling, and the served `calculator.jsx` sends the stamp.
+
+**Backend NOT deployed.** Stays at `@49` pending Praew's call on the TEMP-DEBUG revert — so the
+printed footer is live but `Daily_Log` AF–AG stay blank, and rows saved in the meantime are
+unattributable.
 
 ---
 
