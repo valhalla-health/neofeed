@@ -461,6 +461,27 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    below Step 1 (added 2026-08-10) — see the `ioInput`/`ioOutput`/
    `drainContent` note in §3's Daily_Log entry shape above for the field
    semantics and the per-kg/day divisor rule.
+   **Step 1 carries two weight fields, not one** (added 2026-08-26):
+   "Current weight" (`curWtG` state) is the actual measured weight — typed
+   in by the user, saved as-is into the Daily_Log `weight` column, and what
+   `onWeightChange` propagates to the PatientStrip/growth chart. "TPN calc.
+   weight" is a read-only derived value (`wtG` — kept as the historical name
+   since it already permeates every dosing formula in this file) that every
+   per-kg target/dose in `calc`, `mineral`, the salt rows and the printed
+   order form actually run on: it floors at `patient.bw` while `curWtG`
+   hasn't yet regained birth weight (KCMH bedside convention — dosing per-kg
+   off a still-falling post-natal-weight-loss nadir over/under-doses
+   everything), then tracks `curWtG` automatically once it clears `bw`. Not
+   independently editable — there is no `setWtG` any more, only `setCurWtG`.
+   `D.ioDivisorG`'s own "today's weight" parameter takes `curWtG` (the real
+   entered figure), not the floored `wtG` — see the birth-weight-floor note
+   on `ioDivisorG` itself in `data.js`, which already implements the same
+   convention for the Intake/Output divisor and predates this change.
+   `applyCalcInput`/localStorage restore read the new `curWtG` key first and
+   fall back to the pre-migration `wtG` key, so an entry saved before this
+   split still restores its weight into the right field. `test/verify-tpn-
+   calc-weight.cjs` pins the floor/track/re-floor behavior, the printed
+   order form's birth-weight note, and the legacy-key fallback.
    **Ca / PO₄ accounting is split across two steps — know which is which:**
    Step 4's `Calcium`/`Phosphorus`/`Ca:P ratio` tiles (and everything in
    `calc`, including what's written to `Daily_Log`) count **TPN + EN only**.

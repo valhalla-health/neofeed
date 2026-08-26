@@ -53,6 +53,20 @@ function NumField({ label, unit, value, onChange, step = 1, min = 0, hint }) {
     </div>);
 }
 
+// Read-only counterpart to NumField, for a value that's derived rather than
+// typed (e.g. TPN calculated weight) — same field/label/box sizing so it
+// lines up in a shared grid, but no input behavior.
+function ComputedField({ label, unit, value, hint }) {
+  return (
+    <div className="field">
+      <label>{label}{unit && <span className="unit">({unit})</span>}</label>
+      <div className="inp num" style={{ display: "flex", alignItems: "center", background: "var(--bg-2)", color: "var(--ink-2)", cursor: "default" }}>
+        {value || 0}
+      </div>
+      {hint && <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>}
+    </div>);
+}
+
 function Chk({ label, value, onChange, hint }) {
   return (
     <label className="chk-label" style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 6, background: value ? "var(--brand-bg)" : "var(--bg-2)", border: `1px solid ${value ? "var(--brand-line)" : "var(--line-2)"}`, cursor: "pointer", fontSize: 13 }}>
@@ -146,22 +160,35 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // Calculator
 // ============================================================
 function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onSaved, onWeightChange, onDelete }) {
-  const [wtG, setWtG] = useState(0);
+  // Current weight — the actual weight entered/measured for this log day.
+  // This is what gets saved as the Daily_Log `weight` column and propagated
+  // to the patient's displayed current weight (PatientStrip, growth chart).
+  const [curWtG, setCurWtG] = useState(0);
 
-  // Set alongside setWtG whenever the prefill effect below applies a historical
-  // weight (edit or baseline) — tells the propagation effect to skip that one
-  // change so a stale/past weight never flashes into the PatientStrip header
-  // before the user has looked at or touched the field.
+  // Set alongside setCurWtG whenever the prefill effect below applies a
+  // historical weight (edit or baseline) — tells the propagation effect to
+  // skip that one change so a stale/past weight never flashes into the
+  // PatientStrip header before the user has looked at or touched the field.
   const skipWeightPropagateRef = React.useRef(false);
 
-  // Skip while editing a past entry, or for the one wtG update caused by
+  // Skip while editing a past entry, or for the one curWtG update caused by
   // baseline-prefill — that weight is historical, not the patient's current
   // weight, and must not overwrite the PatientStrip display.
   React.useEffect(() => {
-    if (editEntry || !onWeightChange || wtG <= 0) return;
+    if (editEntry || !onWeightChange || curWtG <= 0) return;
     if (skipWeightPropagateRef.current) { skipWeightPropagateRef.current = false; return; }
-    onWeightChange(wtG);
-  }, [wtG, editEntry]);
+    onWeightChange(curWtG);
+  }, [curWtG, editEntry]);
+
+  // TPN calculated weight — the weight every dose/target below is actually
+  // computed from. Floors at birth weight while the infant hasn't yet
+  // regained it (KCMH bedside convention: dosing per-kg off a still-falling
+  // post-natal-weight-loss nadir would over/under-dose everything), then
+  // tracks current weight automatically once it clears birth weight. Purely
+  // derived from curWtG + patient.bw — not independently editable.
+  const bwG = patient?.bw || 0;
+  const wtG = (bwG > 0 && curWtG > 0 && curWtG < bwG) ? bwG : curWtG;
+  const usingBirthWeight = wtG === bwG && curWtG > 0 && curWtG < bwG;
   const wtKg = wtG / 1000;
 
   // Card key 1 — Fluid plan (displayed as Step 1)
@@ -264,7 +291,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // numbers as a starting point for a brand-new day, so ioInput still tracks
   // today's recomputed prescribed-fluid total until the user overrides it.
   const applyCalcInput = (src, fallbackWeight, ioTouched = true) => {
-    setWtG(src.wtG ?? fallbackWeight ?? 0);
+    // curWtG is the new key; src.wtG is the pre-migration key an older saved
+    // entry/localStorage draft used for the exact same "weight typed into
+    // the field" meaning (there was no separate TPN calc weight yet).
+    setCurWtG(src.curWtG ?? src.wtG ?? fallbackWeight ?? 0);
     setFluidTargetPerKg(src.fluidTargetPerKg ?? 0);
     setOtherIV_mL(src.otherIV_mL ?? 0);
     setDrug_mL(src.drug_mL ?? 0);
@@ -362,11 +392,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     } catch {}
 
     const lastWt = D.lastWeighed(patient);
-    const wtDefault = restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
+    const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
     const fluidRange = D.TARGETS.fluid(dol, wtDefault || patient.bw || 1000);
     const fluidDefault = Math.round((fluidRange[0] + fluidRange[1]) / 2);
 
-    setWtG(wtDefault);
+    setCurWtG(wtDefault);
     setFluidTargetPerKg(restored?.fluidTargetPerKg ?? fluidDefault);
     setOtherIV_mL(restored?.otherIV_mL ?? 0);
     setDrug_mL(restored?.drug_mL ?? 0);
@@ -417,7 +447,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
   // Helper to bundle current input state for persistence
   const captureState = () => ({
-    wtG, fluidTargetPerKg, otherIV_mL, drug_mL,
+    curWtG, fluidTargetPerKg, otherIV_mL, drug_mL,
     ioInput, ioOutput, drainContent,
     route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
@@ -697,8 +727,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
   // ── Intake / Output card ─────────────────────────────────────────
   // Divisor: previous day's weight, or birth weight while the infant hasn't
-  // yet regained it — falling forward to today's entered weight (wtG) once
-  // that alone exceeds birth weight (D.ioDivisorG — see data.js).
+  // yet regained it — falling forward to today's entered weight (curWtG)
+  // once that alone exceeds birth weight (D.ioDivisorG — see data.js).
   //
   // The Output field is urine output only (drain is entered separately),
   // entered/stored as raw mL/day like Input/Drain and the existing backend
@@ -708,7 +738,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   //
   // Balance = Input − Output(urine) − Drain: both are real fluid losses now
   // that Output no longer folds drain in, so both are subtracted explicitly.
-  const ioDivisor = D.ioDivisorG(patient, dol, wtG);
+  const ioDivisor = D.ioDivisorG(patient, dol, curWtG);
   const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
@@ -841,7 +871,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       suppFeType:    suppFerdek > 0 ? suppFeType  : "",
     };
     const entry = {
-      dol, weight: wtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
+      dol, weight: curWtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
       pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
       ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
       // Intake/Output card — raw mL/day, entered directly. Per-kg/rate figures
@@ -970,7 +1000,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
           </div>
         </div>
         <div className={`accordion-body${openSteps.has(1) ? ' open' : ''}`}><div className="card-b">
-          <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr) 1.4fr", gap: 12, alignItems: "stretch" }}>
+          <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr) 1.4fr", gap: 12, alignItems: "stretch" }}>
             <div>
               <NumField label="Target fluid" unit="mL/kg/d" value={fluidTargetPerKg} onChange={setFluidTargetPerKg} step={5}
                 hint={`= ${fmt(fluidTargetPerKg * wtKg, 0)} mL/d · attending discretion`} />
@@ -980,7 +1010,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               hint={`= ${fmt(otherIV_mL / wtKg, 1)} mL/kg/d`} />
             <NumField label="Drug volume" unit="mL/d" value={drug_mL} onChange={setDrug_mL} step={1}
               hint={`= ${fmt(drug_mL / wtKg, 1)} mL/kg/d`} />
-            <NumField label="Current weight" unit="g" value={wtG} onChange={setWtG} step={5} />
+            <NumField label="Current weight" unit="g" value={curWtG} onChange={setCurWtG} step={5} />
+            <ComputedField label="TPN calc. weight" unit="g" value={wtG}
+              hint={usingBirthWeight ? "= birth weight (not yet regained)" : curWtG > 0 ? "= current weight" : "—"} />
             <div style={{ padding: "10px 14px", borderRadius: 8,
               background: Math.abs(calc.remaining) < 1 ? "var(--ok-bg)" : calc.remaining < -10 ? "oklch(96% 0.04 25)" : "var(--brand-bg)",
               border: `1px solid ${Math.abs(calc.remaining) < 1 ? "var(--ok-line)" : calc.remaining < -10 ? "oklch(60% 0.13 25)" : "var(--brand-line)"}`,
@@ -1824,7 +1856,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
           <div className="card-h"><Icon name="save" size={14} color="var(--brand)" /> Save + Copy Order</div>
           <div className="card-b">
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 }}>
-              <span className="num">{patient?.name || patient?.initials || "—"}</span> · DOL <span className="num">{dol}</span> · {wtG}g · {route === "central" ? "Central" : "Peripheral"}
+              <span className="num">{patient?.name || patient?.initials || "—"}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
             </div>
 
             {/* Save bar — sticky on mobile */}
@@ -1842,7 +1874,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                   !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nCopy order ต่อไปหรือไม่?`)) return;
               const lines = [
                 `══ NeoFeed V2 — TPN Order ══`,
-                `Patient: ${patient?.name||"—"} | DOL: ${dol} | Wt: ${wtG}g | Session: ${patient?.sessionId||"—"}`,
+                `Patient: ${patient?.name||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""} | Session: ${patient?.sessionId||"—"}`,
                 `Route: ${route === "central" ? "Central" : "Peripheral (<900 mOsm/L)"}`,
                 `Osm: ${calc.osm.toFixed(0)} mOsm/L`,
                 `──────────────────────────────`,
@@ -1923,7 +1955,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       </div>
       {/* ── Ramathibodi PN order form — print only ── */}
       <PrintOrderForm
-        patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} route={route}
+        patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight} route={route}
         dexPct={dexPct} totalTPN_mL={totalTPN_mL} entryId={savedEntryId}
         aaPerKg={aaPerKg} lipidPerKg={lipidPerKg} lipidDripHours={lipidDripHours}
         naCl={naCl} naAcet={naAcet} glycophosP={glycophosP}
@@ -2049,7 +2081,7 @@ function KcalLegend({ color, label, pct, target }) {
 }
 
 // ── Ramathibodi PN Order Form (print only) ──────────────────────
-function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL, entryId,
+function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, route, dexPct, totalTPN_mL, entryId,
   aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg,
   inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
@@ -2088,7 +2120,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, route, dexPct, totalTPN_mL, e
           </tr>
           <tr>
             <td>Route: {route === "central" ? <><strong>☑ Central</strong>  ☐ Peripheral</> : <>☐ Central  <strong>☑ Peripheral</strong> (&lt;900 mOsm/L)</>}</td>
-            <td colSpan={2}>Weight for calculation: <strong>{wtKg ? wtKg.toFixed(3) : "—"}</strong> Kg</td>
+            <td colSpan={2}>Weight for calculation: <strong>{wtKg ? wtKg.toFixed(3) : "—"}</strong> Kg
+              {usingBirthWeight && <span style={{ fontSize:9, color:"#555" }}> (birth weight — current {curWtG}g not yet regained)</span>}</td>
           </tr>
         </tbody>
       </table>

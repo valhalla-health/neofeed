@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Seventeen Node scripts. Two check the TPN calculator against the **official KCMH
+Eighteen Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -34,7 +34,10 @@ Daily_Log AF–AG and onto the printed order form — including that the columns
 rather than throwing, and that a Daily_Log tab predating AF–AG is widened on **both** the
 create and update paths. The seventeenth pins `syncFreshness()`, the decision behind the offline/
 staleness banner: offline outranks a sync error, a failure one second ago is not freshness, and a
-clock that jumps backwards must not read as fresh.
+clock that jumps backwards must not read as fresh. The eighteenth pins the 2026-08-26
+Current-weight / TPN-calc-weight split in Step 1: the calc weight floors at birth weight until
+regained, tracks current weight automatically once it clears it, re-floors if weight drops back
+down, and the Daily_Log `weight` column stays the actual entered weight throughout.
 
 ## Running
 
@@ -77,6 +80,7 @@ node test/verify-resync-and-lists.cjs
 node test/verify-patient-ga-bw-edit.cjs
 node test/verify-delete-session.cjs
 node test/verify-forced-password-client.cjs
+node test/verify-tpn-calc-weight.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -393,6 +397,27 @@ create and update, so both inherit the guard from one call site), and
 Each rejection is checked against the sheet double's own write/append log, not
 just the thrown error, so a validation that fired too late to stop the write
 would still fail the harness.
+
+**`verify-tpn-calc-weight.cjs`** — regression cover for the 2026-08-26 split of
+Step 1's single weight field into "Current weight" (the actual measured
+figure, entered directly) and "TPN calc. weight" (derived, read-only — what
+every per-kg dose and target actually runs on). Same jsdom harness as the
+Factor/bed-dol-io scripts: mounts the real `<Calculator>` and drives it.
+
+It pins the floor/track/re-floor state machine — below birth weight the calc
+weight pins to `patient.bw` (and the printed order form both switches its
+"Weight for calculation" figure and adds a birth-weight note), at or above it
+tracks the current weight automatically, and dropping back below birth weight
+re-floors rather than sticking at the last value seen above it (a stale-
+closure bug this harness would catch). It also pins that `onWeightChange` and
+the saved Daily_Log `weight` column both carry the real entered weight, never
+the floored one — that's what feeds the growth chart and PatientStrip, so
+using the calc weight there would fabricate a weight the infant was never
+actually measured at. A patient with no birth weight on record never floors
+(nothing to floor against). Last, restoring a pre-migration saved entry —
+`calcInput.wtG` with no `curWtG` key, the only shape that existed before this
+split — must land in Current weight and then re-derive TPN calc. weight from
+it and the patient's `bw`, not silently show 0.
 
 ## Note on the source workbook
 

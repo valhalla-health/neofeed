@@ -13,6 +13,47 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-08-26 (2) — split Step 1's weight field: current weight vs. TPN calc. weight
+
+Ward request: Step 1 had one "Current weight" field feeding every dose calculation directly, with
+no floor during the normal post-natal weight-loss dip — so a fluid/GIR/protein target computed on
+day 3-4 could be dosed off a weight lower than birth weight, which KCMH bedside practice treats as
+the wrong divisor until the infant regains it.
+
+- `calculator.jsx` — Step 1 now shows two weight fields. **Current weight** (`curWtG` state,
+  editable) is the actual measured figure: saved as-is into the Daily_Log `weight` column and what
+  `onWeightChange` propagates to PatientStrip/the growth chart. **TPN calc. weight** is a new
+  read-only `ComputedField`, derived (`wtG` — kept as the name already threaded through every
+  dosing formula in this file): floors at `patient.bw` while `curWtG` hasn't regained it, tracks
+  `curWtG` automatically once it clears `bw`, and re-floors if weight drops back down. No manual
+  override — there is no `setWtG` any more.
+- Every per-kg target/dose (`calc`, `mineral`, the salt rows, the printed order form) already read
+  `wtG`/`wtKg`, so redefining what that pair means was enough to route the whole calculator onto
+  the new derived weight without touching the arithmetic itself. `D.ioDivisorG`'s own "today's
+  weight" fallback takes `curWtG` (it already implements the identical birth-weight-floor
+  convention independently, for the Intake/Output divisor).
+- `PrintOrderForm` and the Save + Copy Order summary/clipboard text show the real current weight
+  for patient identification, with a "(calc. at birth weight Xg)" note when the two diverge, so a
+  pharmacist reading the order sees which weight the doses were actually computed from.
+- Backward compatible: `applyCalcInput`/localStorage restore read the new `curWtG` key first and
+  fall back to the pre-migration `wtG` key, so every entry saved before this change still restores
+  into the right field.
+
+### Verification
+
+`test/verify-tpn-calc-weight.cjs` (new, 15 assertions) — floor/track/re-floor behavior, the
+printed form's birth-weight note appearing and clearing, the Daily_Log `weight` column staying the
+actual entered weight (never the floor), no flooring when `patient.bw` is unset, and the legacy
+`calcInput.wtG` restore path. Full suite re-run: `verify-kcmh-constants`, `verify-kcmh-factor`
+(both `DEAD=20` and `DEAD=0`), `verify-bed-dol-io`, `verify-resync-and-lists`,
+`verify-registry-logged-today`, `verify-patient-ga-bw-edit`, `verify-delete-session`,
+`verify-forced-password-client`, `verify-targets-and-dates`, `verify-gas-registry-upsert`,
+`verify-input-validation` and `verify-provenance-stamp` all still green — none of them assert on a
+TPN-dosing total that this change would have moved, only on the fields it deliberately left alone
+(I/O restore, DOL, bed labels, GA/BW edit, deletion, password gating, provenance stamp).
+
+Frontend-only change on this branch; not yet mirrored/deployed per `REFERENCE.md`'s procedure.
+
 ## Session 2026-08-26 (1) — provenance stamp + staleness banner; and production found at `@49`, not `@47`
 
 Two features, both TDD'd red-first, plus one discovery that matters more than either.
