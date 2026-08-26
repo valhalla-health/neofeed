@@ -1,73 +1,69 @@
 # NeoFeed — Status
 
-**Updated 2026-08-26** · 🟢 **Frontend `3d2978b` is live on BOTH hosts, verified.** · 🔴 **Backend production is `@49`, and `@49` is a TEMP-DEBUG deployment.**
+**Updated 2026-08-26** · 🟢 **Backend production is `@50`. Frontend `746051d` is live on both hosts.
+Backend and frontend are in step, and nothing is pending on either.**
 
-**Frontend deploy 2026-08-26** — the provenance stamp and the offline/staleness banner shipped to
-Cloudflare and GitHub Pages from `3d2978b`. Verified against the real URLs, not `wrangler dev`:
-both shells serve `?v=provenance-0826` on all three changed files; the served `data.js` carries
-`CONSTANTS_VERSION = "2026-08-26.1"`, `APP_VERSION` and `syncFreshness`; the served `app.jsx`
-carries the `navigator.onLine` handling and the Thai offline banner; the served `calculator.jsx`
-sends `constantsVersion` and prints the provenance footer.
+`@50` is the first clean (non-TEMP-DEBUG) backend deployment since `@47`, and it carries three
+things that had been sitting undeployed:
 
-⚠️ **The printed footer works now; the two sheet columns do not.** `@49` ignores the
-`constantsVersion`/`appVersion` fields it is now receiving, so `Daily_Log` AF–AG stay blank until
-the backend is deployed. Every row saved between now and that deploy is unattributable — which is
-the cost of leaving the backend at `@49`.
+1. **The TEMP-DEBUG revert.** `@48`/`@49` carried login-kickback instrumentation —
+   `verifyToken`/`createSession` tracing, a `Debug_Log` sheet writer and `getDebugLogText()`. All of
+   it is gone; `verifyToken` and `createSession` are byte-identical to `c0bc74f`, their last
+   pre-instrumentation state.
+2. **The server-side plausibility guard** (`0004d5c`, committed 2026-08-25) — which had **never been
+   deployed at all**. Until `@50`, nothing live stopped an out-of-range value reaching
+   `Patient_Registry`/`Daily_Log` via a direct POST.
+3. **The provenance columns** — `constantsVersion`/`appVersion` into `Daily_Log` AF–AG.
 
-> ### This file was wrong for two days, in the way it exists to prevent
-> Until 2026-08-26 this file said production was `@47` carrying `34af805`, and that *"nothing is
-> pending on either host."* Both were false. `clasp list-deployments` reports:
->
-> ```
-> AKfycbz8NtHuyTdo4EP-… @49 - TEMP-DEBUG: sheet-backed login-kickback diagnostics
-> ```
->
-> Two deployments (`@48`, `@49`) were cut on 2026-08-24 without the same-commit update to this file
-> that is supposed to be part of the definition of done. **The instrumentation is live in
-> production**: `verifyToken`/`createSession` tracing, the `Debug_Log` sheet writer, and
-> `getDebugLogText()`. Reverting it is a decision, not a chore — the login-kickback bug it was
-> chasing may still be open. Tracked in `BACKLOG.md` § Now.
-
-**Five commits sit on `main` beyond the `30dbff7` this file used to describe:** three TEMP-DEBUG
-(`489a977`, `a52846d`, `680fe69`), the server-side plausibility guard (`0004d5c`), and a docs
-commit. `main` and `origin/main` are in step.
+⚠️ **The `Debug_Log` sheet tab still exists** and still holds the diagnostic rows. Deleting it is a
+sheet operation, not a code one. It holds timestamps and branch labels only — no patient data.
 
 | | |
 |---|---|
 | Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
 | Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
 | Frontend deploy | `git push origin main` deploys **both**. Workers Builds runs `npx wrangler deploy`; GitHub Pages rebuilds from the repo root. Connected 2026-08-23 |
-| Backend | GAS deployment `AKfycbz8Nt…` at **`@49`** — *"TEMP-DEBUG: sheet-backed login-kickback diagnostics"*, cut 2026-08-24. ⚠️ **Debug instrumentation is live** |
-| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` reconciled to the repo on 2026-08-26 (`a65233f`) and **byte-identical to `gas-backend.gs`**. It is therefore *ahead* of what is deployed — a `clasp push` would ship the provenance columns and the plausibility guard together |
+| Backend | GAS deployment `AKfycbz8Nt…` at **`@50`** — *"revert TEMP-DEBUG + plausibility guard + provenance columns AF-AG (GitHub main 746051d)"*, cut 2026-08-26 |
+| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `a5a60ee`, **byte-identical to `gas-backend.gs` and to the deployed source** (`clasp pull` diffed clean). Backups in `~/nicu-tools/_backups/` |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity). Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
-| Migrations | ⏳ **`Daily_Log` AF–AG pending.** `constantsVersion`/`appVersion` are written by the *committed* backend, which is not deployed. Both write paths widen the grid on demand, so no manual migration is required before a deploy; `applyLogHeaderColumns()` only adds the cosmetic header labels |
+| Migrations | 🟡 **`Daily_Log` AF–AG: no action required, one cosmetic step outstanding.** Both write paths widen the grid on demand, so the columns appear on the first save — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
 | Cache-bust | `data.js`, `calculator.jsx`, `app.jsx` all at `?v=provenance-0826` (bumped 2026-08-26 — all three changed, and a stale `data.js` against a fresh `app.jsx` would leave `D_A.syncFreshness` undefined and white-screen the app); `registry.jsx?v=dol-input-fix1` unchanged. Both shells byte-identical |
 
-### 🟠 Two backend changes are committed on `main` and have never been deployed
+## How `@50` was verified
 
-Verified 2026-08-26 against the pre-reconciliation clasp mirror, which *is* the deployed source:
+Not assumed — each step checked, per `REFERENCE.md`:
 
-| Committed | Live? | What it does |
-|---|---|---|
-| **Server-side plausibility guard** — `0004d5c`, 2026-08-25 | ❌ **No** | `_checkRange`/`_validatePatient`/`_validateLogEntry`/`_validateWeightsArray` on `doPost`'s three write paths. `_checkRange` appears **zero times** in the deployed source — `registry.jsx` sets no upper bound and `doPost` is reachable by `curl`, so nothing live stops BW=50000 or GA=200 reaching the sheet today |
-| **Provenance columns** — 2026-08-26 | ❌ No | `constantsVersion`/`appVersion` → Daily_Log AF–AG |
+1. **Mirror diffed first, not overwritten.** All 37 lines unique to `~/nicu-tools/neofeed/รหัส.js`
+   were the TEMP-DEBUG code the repo had just reverted; the 3 lines unique to the repo were their
+   de-instrumented replacements. The mirror held nothing unique. Backup taken first, into
+   `~/nicu-tools/_backups/` — **outside** the clasp project dir, which has no `.claspignore`.
+2. **`clasp show-authorized-user`** → `peeraporn.po@chula.ac.th`, the correct deploy identity.
+3. `clasp push` → 2 files. `clasp create-version` → **50**.
+4. **`clasp update-deployment -V 50 <existing id>`** — the deployment count stayed at **26**, which
+   is the proof a *new* deployment was not created and `NEOFEED_GAS_URL` is unchanged.
+5. **`clasp pull` into a scratch dir, diffed against `gas-backend.gs` → identical.** The deployed
+   source contains `_checkRange` (19), `_provenanceFields` (4), `_ensureLogWidth` (4) and
+   **zero** occurrences of `TEMP-DEBUG`, `_debugLog` or `getDebugLogText`.
+6. **Live smoke test:** an unauthenticated `getActivePatients` against the production URL returns
+   `{"error":"Unauthorized"}` with `content-type: application/json` — the script loads, `doPost`
+   runs, `verifyToken` refuses, and no patient data is returned.
+   ⚠️ *Method note for whoever repeats this:* `curl -L` does **not** work here. Apps Script 302s to a
+   single-use `script.googleusercontent.com/macros/echo?user_content_key=…`; following it
+   automatically consumes the key and the retry returns Google Drive's *"ไม่สามารถเปิดไฟล์ได้"* HTML,
+   which looks like a broken deploy and is not. Capture the `Location` header and fetch it **once**.
 
-The **frontend half of the provenance change is safe to ship alone**: `@49` ignores the two extra
-fields it will start receiving, so the printed order-form footer works immediately and the two sheet
-columns stay blank until a backend deploy.
+⚠️ **Still unexercised by a human:** a real login and a real Calculator save against `@50`. That is
+what would confirm `Daily_Log` AF–AG actually fill with `2026-08-26.1`, and it is also the standing
+`BACKLOG.md` item about `@46`/`@47`'s auth changes never having been exercised outside a stub.
+**One real login plus one save discharges both.**
 
-**What `@49` changed** (relative to `@47`, which is what this file used to describe): the
-TEMP-DEBUG instrumentation only. `@47`'s own content — the `mustChangePassword` server gate, plus
-`usageMetrics()`/`getUsageMetrics()`, which are inert and not on the `doPost` path — is still in
-there underneath.
-
-**Rollback (backend):**
+**Rollback (backend):** there is no clean target, and that is worth knowing *before* an incident.
+`-V 49` restores the TEMP-DEBUG instrumentation; `-V 47` drops the plausibility guard, which only
+became live at `@50`. If `@50` misbehaves, prefer **fixing forward** — cut `51` from a corrected
+source — and reserve this for a genuine emergency:
 ```
-clasp update-deployment -V 47 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
+clasp update-deployment -V 49 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
 ```
-`-V 47` drops only the TEMP-DEBUG instrumentation; it loses nothing else, because nothing else has
-ever been deployed on top of `@47`. The better move is forward, not back: cut a clean version from
-the reconciled mirror, which carries the plausibility guard and the provenance columns together.
 
 **Rollback (frontend, Cloudflare):**
 ```
@@ -119,32 +115,18 @@ with dev tools open before treating this as fully closed.
 it sits inside the assets directory, so it is served and cannot be hidden from `.assetsignore`.
 It holds no secrets. Reasoning recorded in `.assetsignore` itself.
 
-## How `@47` was verified
+## What has been exercised by a real human
 
-Not assumed — each step checked, per `REFERENCE.md`:
-
-1. **Mirror diffed first, not overwritten.** `~/nicu-tools/neofeed/รหัส.js` was 1,346 lines to the
-   repo's 1,470, and **every one of the 124 differing lines was a repo addition** — the mirror held
-   nothing unique this time. (It did on 2026-08-17, which is why the rule exists.) A backup was
-   taken before the copy regardless.
-2. **`clasp show-authorized-user`** → `peeraporn.po@chula.ac.th`, the correct deploy identity.
-3. `clasp push` → 2 files. `clasp create-version` → **47**.
-4. **`clasp update-deployment -V 47 <existing id>`** — the deployment count stayed at **26**, which
-   is the proof a *new* deployment was not created and `NEOFEED_GAS_URL` is unchanged.
-5. **`clasp pull` into a scratch dir, diffed against `gas-backend.gs` → byte-identical.** The
-   deployed source is exactly the source the 14 harnesses pass against.
-6. **Live smoke test:** an unauthenticated `getActivePatients` against the production URL returns
-   `{"error":"Unauthorized"}` — the script loads, `doPost` runs, `verifyToken` refuses, and no
-   patient data is returned.
-
-⚠️ **Real login: reported working by Praew on 2026-08-23**, on the Cloudflare host, after
+**Real login: reported working by Praew on 2026-08-23**, on the Cloudflare host, after
 `https://neofeed.valhalla-health.workers.dev` was added as an Authorized JavaScript origin on
-OAuth client `750019806043-imunne8n…`. That exercises GIS → `verifyToken` → Sheet against `@47`
-end to end, outside a stub, for the first time.
+OAuth client `750019806043-imunne8n…`. That exercised GIS → `verifyToken` → Sheet end to end,
+outside a stub — **against `@47`**. `verifyToken` is byte-identical again at `@50`, so that
+evidence still applies to the auth path.
 
-**A real Delete is still unexercised**, and the harnesses still model neither `CacheService`
-eviction nor `LockService` contention. So the `BACKLOG.md` § Now item **narrows, it does not
-close** — confirm the login personally before ticking it.
+**Never exercised by a human, at any version:** a real Delete; a real save landing in `Daily_Log`
+AF–AG; `CacheService` eviction; `LockService` contention. The harnesses model none of the last two.
+The `@47` verification steps themselves are not repeated here — `CHANGELOG.md` holds them, and this
+file's job is what is live now, not how a superseded version got there.
 
 ## GitHub Pages retirement
 

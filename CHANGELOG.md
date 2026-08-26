@@ -108,9 +108,38 @@ Verified against the real URLs afterward, both hosts: shells serve the new token
 `data.js` carries `CONSTANTS_VERSION = "2026-08-26.1"` and `syncFreshness`, the served `app.jsx`
 carries the `navigator.onLine` handling, and the served `calculator.jsx` sends the stamp.
 
-**Backend NOT deployed.** Stays at `@49` pending Praew's call on the TEMP-DEBUG revert — so the
-printed footer is live but `Daily_Log` AF–AG stay blank, and rows saved in the meantime are
-unattributable.
+### Backend deployed — `@50`, the first clean deployment since `@47`
+
+Praew's call: *"revert the TEMP-DEBUG and deploy the backend."*
+
+The revert was done as three `git revert`s (`680fe69`, `a52846d`, `489a977`) rather than by hand, so
+`verifyToken` and `createSession` came back **byte-identical to `c0bc74f`** — checked with a diff,
+not assumed. The `var tail = token.slice(-6)` that existed only to label debug lines went with them.
+Nothing else moved: the plausibility guard and the provenance columns are both still present, and
+16/16 harnesses stayed green, including `verify-gas-session-revocation` (31 assertions), which is
+the one that actually exercises `verifyToken`.
+
+`@50` therefore carries **three** things at once, two of which had been sitting undeployed:
+
+1. the TEMP-DEBUG revert;
+2. **the server-side plausibility guard (`0004d5c`) — which had never been deployed at all.** Until
+   this deployment, nothing live stopped an out-of-range value reaching the sheet via a direct POST;
+3. the provenance columns.
+
+Verified per `REFERENCE.md`: mirror diffed before copying (all 37 mirror-unique lines were the
+reverted TEMP-DEBUG code), deploy identity confirmed, deployment count **stayed 26** so
+`NEOFEED_GAS_URL` is unchanged, `clasp pull` diffed identical to `gas-backend.gs`, and an
+unauthenticated `getActivePatients` returns `{"error":"Unauthorized"}` as `application/json`.
+
+⚠️ **A method note that cost time and is worth writing down:** `curl -L` cannot smoke-test this
+backend. Apps Script 302s to a **single-use** `script.googleusercontent.com/macros/echo?user_content_key=…`;
+following it automatically consumes the key, and the retry returns Google Drive's
+*"ไม่สามารถเปิดไฟล์ได้"* HTML page. That looks exactly like a broken deploy and is not one. Capture
+the `Location` header and fetch it **once**.
+
+**Still unexercised:** a real login and a real save against `@50` — which is what would show
+`Daily_Log` AF–AG actually filling with `2026-08-26.1`. The `Debug_Log` sheet tab also still exists;
+deleting it is a sheet operation, not a code one.
 
 ---
 

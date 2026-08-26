@@ -32,33 +32,29 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🔴 **deploy/process · Production is `@49`, a TEMP-DEBUG deployment, and two real changes are
-      committed but not live.** Found 2026-08-26 by running `clasp list-deployments` instead of
-      trusting `STATUS.md`, which said `@47`. Three things, all one decision:
-      **(a)** the live backend carries the 2026-08-24 login-kickback instrumentation —
-      `verifyToken`/`createSession` tracing, the `Debug_Log` sheet writer and `getDebugLogText()`.
-      Decide whether the bug it was chasing is closed; if so, revert it.
-      **(b)** the **server-side plausibility guard (`0004d5c`) has never been deployed** —
-      `_checkRange` appears zero times in the deployed source, verified against the pre-reconciliation
-      mirror. `registry.jsx` sets no upper bound and `doPost` is reachable by `curl`, so nothing live
-      stops an out-of-range write today. This is the sharpest half of the item.
-      **(c)** the provenance columns (below) are committed and waiting behind the same deploy.
-      One clean version cut from the reconciled mirror closes all three. **Confirm before the
-      redeploy step** — staff are on it.
+- [ ] 🔒 **security · Exercise `@50` with a real login, a real save and a real Delete.**
+      ✅ **Deployed 2026-08-26** — TEMP-DEBUG reverted, and the server-side plausibility guard
+      (`0004d5c`) is finally live after never having been deployed at all. What remains is the human
+      half, and it is now worth more than before because one session discharges three things at
+      once: the standing *"auth changes never exercised outside a stub"* item, confirmation that
+      `Daily_Log` AF–AG actually fill with `2026-08-26.1`, and a first real Delete. Stubs model
+      neither `CacheService` eviction nor `LockService` contention, so **only a person can close
+      this.** Supersedes the old `@47` version of this item.
+- [ ] 🧹 **chore · Delete the `Debug_Log` sheet tab.** Left behind by the reverted
+      instrumentation. Timestamps and branch labels only — no patient data — so tidiness, not
+      exposure. A sheet operation, not a code one.
+- [ ] 🧹 **chore · Run `applyLogHeaderColumns()` once from the Apps Script editor.** Adds the
+      cosmetic `constantsVersion`/`appVersion` labels to `Daily_Log` row 1. Purely presentational —
+      the columns are read and written by index and already work without it. It executes as the
+      signed-in user and may raise an OAuth consent, **so it is Praew's to run.**
 - [ ] 🩺 **safety · Confirm Na acetate (3 mEq/mL) and KCl (2 mEq/mL) stock concentrations against the
       shelf.** Both were *inferred* from the KCMH worksheet's divisors, not read off an explicit
       strength label. **These corrected concentrations change the mL printed on every order form** —
       the highest-stakes open item in the repo. Blocked on a physical check in the ward, not on code.
-      ⬆️ **Now answerable after the fact:** as of 2026-08-26 every saved row and every printed order
-      carries `CONSTANTS_VERSION`, so when the shelf check lands, *"which orders used the old
-      divisor?"* has an answer — for rows written after the backend deploy. Rows written before it
-      have a blank AF and cannot be attributed. That gap shrinks every day the deploy waits.
-- [ ] 🔒 **security · Exercise `@47` with a real login and a real Delete.** ⬆️ **More
-      pressing since the 2026-08-21 deploy, not less** — `@47` adds an auth gate on top of `@46`'s
-      unexercised auth changes. Both are covered only by stub harnesses, which model neither
-      `CacheService` eviction nor `LockService` contention, and `@46`'s provenance is unknown
-      (`CHANGELOG.md`, session 2026-08-17 (3)). **One real login by Praew discharges the whole
-      item.** A temp-password account would additionally prove the new gate end to end.
+      ⬆️ **Now answerable after the fact:** since `@50` (2026-08-26) every saved row and every
+      printed order carries `CONSTANTS_VERSION`, so when the shelf check lands, *"which orders used
+      the old divisor?"* has an answer. Rows written **before** 2026-08-26 have a blank AF and
+      cannot be attributed — that set is now fixed and will not grow.
 - [ ] 🔒 **security · GitHub Pages publicly serves `gas-backend.gs` and every internal review,
       right now — ⚙️ REDIRECT STUB SHIPPED 2026-08-23 (`30dbff7`), STAFF NOT YET TOLD.** The
       redirect stub (option (b), see below) is live: `valhalla-health.github.io/neofeed/` now
@@ -83,8 +79,9 @@ clinical judgement. Everything else is engineering sequencing.
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live
       sheet yet. To close this: run `getUsageMetrics()` **once from the Apps Script editor** — it is
-      not on the `doPost` path, so **no redeploy is needed** — and it is now **already deployed** in
-      `@47`, so it is sitting in the live project waiting to be called. It executes as the
+      not on the `doPost` path, so **no redeploy is needed** — and it is **already deployed**
+      (`@47` onward, still present in `@50`), so it is sitting in the live project waiting to be
+      called. It executes as the
       signed-in user and may raise an OAuth consent, which is Praew's to approve. **Still
       deliberately not wired to `doPost`**: it was kept off the auth deploy so that release carried
       nothing but the security fix. Wire it when a UI actually wants the number.
