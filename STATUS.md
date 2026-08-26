@@ -29,7 +29,7 @@ commit. `main` and `origin/main` are in step.
 | Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` reconciled to the repo on 2026-08-26 (`a65233f`) and **byte-identical to `gas-backend.gs`**. It is therefore *ahead* of what is deployed — a `clasp push` would ship the provenance columns and the plausibility guard together |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity). Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | ⏳ **`Daily_Log` AF–AG pending.** `constantsVersion`/`appVersion` are written by the *committed* backend, which is not deployed. Both write paths widen the grid on demand, so no manual migration is required before a deploy; `applyLogHeaderColumns()` only adds the cosmetic header labels |
-| Cache-bust | `app.jsx?v=pwd-gate-0821`; `registry.jsx?v=dol-input-fix1`; others unchanged. Both shells byte-identical |
+| Cache-bust | `data.js`, `calculator.jsx`, `app.jsx` all at `?v=provenance-0826` (bumped 2026-08-26 — all three changed, and a stale `data.js` against a fresh `app.jsx` would leave `D_A.syncFreshness` undefined and white-screen the app); `registry.jsx?v=dol-input-fix1` unchanged. Both shells byte-identical |
 
 ### 🟠 Two backend changes are committed on `main` and have never been deployed
 
