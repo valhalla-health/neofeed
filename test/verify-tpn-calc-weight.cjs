@@ -56,6 +56,36 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
 
+// The order form is deliberately withheld until an entry has actually been
+// saved (`savedEntryId` in calculator.jsx) — printing an actionable PN order
+// for a record that does not exist yet is the thing that guard prevents. A
+// freshly-mounted, unsaved Calculator therefore has no #print-form at all.
+//
+// Sections #1/#2 below need BOTH: an unsaved mount (so `onWeightChange` fires —
+// it is skipped whenever `editEntry` is set) and a saved one (so the order form
+// renders). Rather than remounting the primary root mid-section and losing the
+// state those assertions are still driving, read the order form from a separate
+// root seeded with a saved shell entry at the weight under test.
+const printContainer = document.createElement('div');
+document.body.appendChild(printContainer);
+const printRoot = ReactDOM.createRoot(printContainer);
+
+function printTextAt(pt, curWtG) {
+  act(() => {
+    printRoot.render(React.createElement(window.Calculator, {
+      key: 'print-' + curWtG,
+      patient: pt, dol: 3,
+      editEntry: { entryId: 'w-print', lastModified: 'lm-print', ts: '2026-08-20',
+                   dol: 3, weight: curWtG, calcInput: { curWtG: curWtG } },
+      baselineEntry: null, logDate: null,
+      onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
+    }));
+  });
+  const form = printContainer.querySelector('#print-form');
+  if (!form) throw new Error('print form did not render for curWtG=' + curWtG);
+  return form.textContent.replace(/\s+/g, ' ');
+}
+
 const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
 function fieldByLabel(labelText) {
   return [...container.querySelectorAll('.field')]
@@ -97,7 +127,7 @@ eq('TPN calc. weight floors at birth weight', readOnlyValue('TPN calc. weight'),
 eq('onWeightChange propagates the ACTUAL weight, not the floor', lastWeightChange, 1380);
 
 // The order form must compute off the floored weight (1.5 kg), not 1.38 kg.
-const printText1 = container.querySelector('#print-form').textContent.replace(/\s+/g, ' ');
+const printText1 = printTextAt(patient, 1380);
 ok_('print form uses the floored calc weight (1.500 Kg)', /Weight for calculation:\s*1\.500\s*Kg/.test(printText1), printText1);
 ok_('print form flags the birth-weight floor', /birth weight/.test(printText1), printText1);
 
@@ -107,7 +137,7 @@ setField('Current weight', 1500);
 eq('exactly at BW counts as regained', readOnlyValue('TPN calc. weight'), '1500');
 setField('Current weight', 1620);
 eq('TPN calc. weight follows current weight once above BW', readOnlyValue('TPN calc. weight'), '1620');
-const printText2 = container.querySelector('#print-form').textContent.replace(/\s+/g, ' ');
+const printText2 = printTextAt(patient, 1620);
 ok_('print form now uses the real current weight (1.620 Kg)', /Weight for calculation:\s*1\.620\s*Kg/.test(printText2), printText2);
 ok_('print form no longer flags the floor', !/birth weight/.test(printText2), printText2);
 
