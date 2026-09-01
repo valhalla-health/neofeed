@@ -28,12 +28,12 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-08-26.1";
+const CONSTANTS_VERSION = "2026-08-27.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. There is no
 // build step (app-walkthrough.md §7), so this is maintained by hand alongside
 // the ?v= cache-bust tokens in the two HTML shells.
-const APP_VERSION = "2026-08-26-provenance";
+const APP_VERSION = "2026-08-27-safety-review";
 
 // ── Sync freshness — the staleness banner's decision ────────
 // "Is the number on screen still trustworthy?" is a clinical-safety rule, so
@@ -284,7 +284,7 @@ const SALT_SOURCES = {
 const ADDITIVE_PRODUCTS = {
   VITALIPID_INF: { label: "Vitalipid N Infant® (fat-soluble vit)",  dose: "4 mL/kg/day (max 10 mL/day) — add to lipid bag",   note: "BW <2.5 kg: 4 mL/kg · BW ≥2.5 kg: 10 mL/day" },
   SOLUVIT_N:     { label: "Soluvit N® (water-soluble vit)",          dose: "1 mL/kg/day — add to aqueous PN bag" },
-  PEDITRACE:     { label: "Peditrace® (trace elements)",             dose: "1–2 mL/kg/day — add to aqueous PN bag",            note: "Provides Zn 250 µg, Cu 20 µg, Mn <1 µg, Se 2 µg, I 1 µg per mL" },
+  PEDITRACE:     { label: "Peditrace® (trace elements)",             dose: "1 mL/kg/day (maximum 15 mL/day) — add to aqueous PN bag", note: "Provides Zn 250 µg, Cu 20 µg, Mn <1 µg, Se 2 µg, I 1 µg per mL" },
 };
 
 // ============================================================
@@ -347,10 +347,10 @@ const TPN_TARGETS = {
 
   // Phosphorus mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
   // DOL1: 1.0–2.0 mmol/kg × 31 = 31–62 mg/kg
-  // Growing (stable): 1.5–2.0 mmol/kg × 31 = 46–62 mg/kg
+  // Growing premature: 1.6–3.5 mmol/kg × 31 = 50–108 mg/kg
   p: (dol) => {
     if (!dol || dol <= 1) return [31, 62];   // DOL1: 1.0–2.0 mmol×31 = 31–62 mg/kg
-    return [46, 62];                           // Growing: 1.5–2.0 mmol×31 = 46–62 mg/kg
+    return [50, 108];                          // Growing: 1.6–3.5 mmol×31 = 50–108 mg/kg
   },
 
   // Magnesium mEq/kg/day — Mihatsch 2018 (ESPGHAN 2018)
@@ -479,11 +479,11 @@ const TARGETS = {
 
   // Phosphorus mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
   // DOL1: 1.0–2.0 mmol/kg × 31 = 31–62 mg/kg
-  // Growing (stable): 1.5–2.0 mmol/kg × 31 = 46–62 mg/kg
+  // Growing premature: 1.6–3.5 mmol/kg × 31 = 50–108 mg/kg
   p: (dol, isEnteral) => {
     if (isEnteral) return [70, 115];        // ESPGHAN 2022 EN: 2.2–3.7 mmol×31
     if (!dol || dol <= 1) return [31, 62];  // DOL1: 1.0–2.0 mmol×31 = 31–62 mg/kg
-    return [46, 62];                         // Growing: 1.5–2.0 mmol×31 = 46–62 mg/kg
+    return [50, 108];                        // Growing: 1.6–3.5 mmol×31 = 50–108 mg/kg
   },
 
   // Magnesium mEq/kg/day — Mihatsch 2018 (ESPGHAN 2018)
@@ -644,7 +644,7 @@ const ESPGHAN_TARGETS = {
       zn: { preterm:[400,500], term:[250,250], unit:"µg/kg/day" },
       fe: { preterm:[200,250], term:[50,100],  unit:"µg/kg/day", note:"Prefer enteral Fe when possible" },
       cu: 40,   // µg/kg/day all ages
-      // Peditrace® 1–2 mL/kg/day covers Zn, Cu, Se, Mn, I
+      // Peditrace® 1 mL/kg/day (maximum 15 mL/day) covers Zn, Cu, Se, Mn, I
     },
     energy: {
       kcalPerGGlucose: 3.4,
@@ -656,7 +656,7 @@ const ESPGHAN_TARGETS = {
     additives: {
       vitalipid: "BW <2.5 kg: 4 mL/kg/day · BW ≥2.5 kg: 10 mL/day (add to lipid bag)",
       soluvit:   "1 mL/kg/day (add to aqueous PN bag)",
-      peditrace: "1–2 mL/kg/day (add to aqueous PN bag)",
+      peditrace: "1 mL/kg/day, maximum 15 mL/day (add to aqueous PN bag)",
     },
     light: "Protect all PN bags and lipid from light — reduces peroxide formation (ESPGHAN 2018)",
   },

@@ -35,9 +35,10 @@
 //   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory|statusDate|
 //   multiplesCount (R, added 2026-08-14 — 2/3/4, disambiguates twinSuffix's
 //   A–D: "A" alone doesn't say whether the set is twins or triplets)
-// Daily_Log (A–AE): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
+// Daily_Log (A–AG): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
 //   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType|
-//   calcInputJson|entryId|lastModified|lastModifiedBy|ioInput|ioOutput|drainContent
+//   calcInputJson|entryId|lastModified|lastModifiedBy|ioInput|ioOutput|drainContent|
+//   constantsVersion|appVersion
 //   (calcInputJson = raw Calculator inputs, JSON — lets an entry be reopened
 //   and edited exactly as entered, from any device, not just the one that
 //   created it. entryId is the stable key updateDailyNutrition() matches on;
@@ -270,6 +271,15 @@ function _getStaffRowCached(email) {
   return found;
 }
 
+// Authorization values fail closed. A blank/misspelled Staff role used to be
+// promoted to `doctor` (blank) or preserved as an unknown role that could still
+// call getActivePatients. Only these three roles exist in the product model.
+var VALID_STAFF_ROLES = { admin: true, doctor: true, nurse: true };
+function _staffRole(value) {
+  var role = String(value == null ? "" : value).trim().toLowerCase();
+  return VALID_STAFF_ROLES[role] ? role : null;
+}
+
 function createSession(email, role, name, mustChangePassword) {
   var token = Utilities.getUuid();
   var cache = CacheService.getScriptCache();
@@ -303,7 +313,12 @@ function verifyToken(token) {
       cache.remove("sess_" + token);
       return null;
     }
-    parsed.role = String(found.data[1] || "doctor");
+    var currentRole = _staffRole(found.data[1]);
+    if (!currentRole) {
+      cache.remove("sess_" + token);
+      return null;
+    }
+    parsed.role = currentRole;
     parsed.name = String(found.data[2] || parsed.email);
     parsed.mustChangePassword = !_usesGoogleSignIn(parsed.email) &&
       (found.data[6] === true || String(found.data[6] || "").toUpperCase() === "TRUE");
@@ -523,7 +538,7 @@ function getSheetLog() {
       "suppMTV","suppVitD_IU","suppCa_mg","suppCaType",
       "suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType",
       "calcInputJson","entryId","lastModified","lastModifiedBy",
-      "ioInput","ioOutput","drainContent"
+      "ioInput","ioOutput","drainContent","constantsVersion","appVersion"
     ]);
   }
   return sh;
@@ -590,7 +605,8 @@ function doPost(e) {
         var gd = gFound.data;
         if (gd[3] !== true && String(gd[3]).toUpperCase() !== "TRUE")
           return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
-        role = String(gd[1] || "doctor");
+        role = _staffRole(gd[1]);
+        if (!role) return jsonOut({ status: "unauthorized", error: "บัญชีนี้ยังไม่ได้กำหนดสิทธิ์ที่ถูกต้อง — แจ้ง admin" });
         name = String(gd[2] || email);
         var tok = createSession(email, role, name, false);
         // Google/Workspace accounts never go through the password-provisioning
@@ -633,7 +649,8 @@ function doPost(e) {
       }
 
       _clearLockout(failKey); // reset on success
-      role = String(d[1] || "doctor");
+      role = _staffRole(d[1]);
+      if (!role) return jsonOut({ status: "unauthorized", error: "บัญชีนี้ยังไม่ได้กำหนดสิทธิ์ที่ถูกต้อง — แจ้ง admin" });
       name = String(d[2] || email);
       // must_change_password (col G): set TRUE by auto-provisioning when this
       // account got a random temp password instead of one the user chose —
@@ -682,6 +699,7 @@ function doPost(e) {
     if (action === "logDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       var logResult = logDailyNutrition(body.sessionId, body.entry, user.email);
+      if (logResult.error) return jsonOut({ error: logResult.error });
       return jsonOut({ ok: true, entryId: logResult.entryId, lastModified: logResult.lastModified });
     }
     if (action === "updateDailyNutrition") {
@@ -693,7 +711,9 @@ function doPost(e) {
     }
     if (action === "registerPatient" || action === "updatePatient") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
-      registerPatient(body.patient);
+      // Strict `=== true`: an older client sends no isNew at all, and undefined
+      // must not read as a fresh registration or every edit would be refused.
+      registerPatient(body.patient, action === "registerPatient" && body.isNew === true);
       return jsonOut({ ok: true });
     }
     if (action === "updateWeights") {
@@ -856,22 +876,36 @@ function getActivePatients() {
 // targets — targets stay in data.js/TPN_TARGETS and drive UI guidance, not
 // write rejection. Throws; every call site here already runs inside
 // doPost's try/catch, which turns the message into jsonOut({error}).
-// Non-numeric/empty values are left to _numSafe's existing fallback — this
-// only catches numbers that parse but are out of a plausible range.
 function _checkRange(val, min, max, label) {
+  if (val === "" || val == null) return;
   var n = Number(val);
-  if (val !== "" && val != null && isFinite(n) && (n < min || n > max)) {
+  if (!isFinite(n)) throw new Error(label + " must be numeric: " + val);
+  if (n < min || n > max) {
     throw new Error(label + " out of range (" + min + "–" + max + "): " + val);
   }
 }
 
 function _validatePatient(p) {
+  if (p.bw === "" || p.bw == null || !isFinite(Number(p.bw)))
+    throw new Error("Birth weight (g) is required and must be numeric");
+  if (p.ga === "" || p.ga == null || !isFinite(Number(p.ga)))
+    throw new Error("GA (weeks) is required and must be numeric");
   _checkRange(p.bw, 300, 6000, "Birth weight (g)");
   _checkRange(p.ga, 22, 44, "GA (weeks)");
+  // GA is stored as WW.D shorthand, where D is a day count, not a decimal
+  // fraction of a week. Reject 27.9/28.7 and extra precision at the API edge.
+  var ga10 = Number(p.ga) * 10;
+  var gaDay = Math.round(ga10) % 10;
+  if (Math.abs(ga10 - Math.round(ga10)) > 0.000001 || gaDay > 6)
+    throw new Error("GA must use WW.D with day 0–6: " + p.ga);
   _checkRange(p.multiplesCount, 0, 10, "multiplesCount");
 }
 
 function _validateLogEntry(entry) {
+  if (entry.dol === "" || entry.dol == null || !isFinite(Number(entry.dol)))
+    throw new Error("DOL is required and must be numeric");
+  if (entry.weight === "" || entry.weight == null || !isFinite(Number(entry.weight)))
+    throw new Error("Weight (g) is required and must be numeric");
   _checkRange(entry.dol,          1,   400,  "DOL");
   _checkRange(entry.weight,       300, 8000, "Weight (g)");
   _checkRange(entry.fluid,        0,   300,  "Fluid (mL/kg/d)");
@@ -895,6 +929,15 @@ function _validateWeightsArray(weights) {
   }
 }
 
+// Calendar date in the ward's fixed UTC+7 timezone. A server-side fallback is
+// still needed even though the current client sends ts: old/cached clients and
+// direct API calls can omit it, and UTC would label 00:00–06:59 ICT as yesterday.
+function _wardDateKey(value) {
+  var d = value instanceof Date ? value : (value == null ? new Date() : new Date(value));
+  if (!d || isNaN(d.getTime())) return "";
+  return new Date(d.getTime() + 7 * 60 * 60000).toISOString().slice(0, 10);
+}
+
 // ── Daily_Log row builder — columns shared by create + update ─
 // Returns the first 24 columns (A–X); caller appends calcInputJson/entryId/
 // lastModified/lastModifiedBy (Y–AB) since those differ between create/update,
@@ -902,7 +945,7 @@ function _validateWeightsArray(weights) {
 function _buildLogRow(sessionId, entry, submittedBy) {
   _validateLogEntry(entry);
   return [
-    _sheetSafe(entry.ts || new Date().toISOString().slice(0, 10)),
+    _sheetSafe(entry.ts || _wardDateKey()),
     _sheetSafe(sessionId),
     _numSafe(entry.dol), _numSafe(entry.weight), _numSafe(entry.fluid),
     _numSafe(entry.gir), _numSafe(entry.pro),    _numSafe(entry.kcal),
@@ -955,10 +998,25 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""])
     .concat(_ioLogFields(entry))
     .concat(_provenanceFields(entry));
-  var sheet = getSheetLog();
-  _ensureLogWidth(sheet, row.length);
-  sheet.appendRow(row);
-  return { entryId: entryId, lastModified: lastModified };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheetLog();
+    var data = sheet.getDataRange().getValues();
+    var targetDate = String(row[0] || "").slice(0, 10);
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][1]) !== String(sessionId)) continue;
+      var existingDate = _wardDateKey(data[i][0]);
+      if (existingDate === targetDate) {
+        return { error: "มีบันทึกของผู้ป่วยรายนี้ในวันที่ " + targetDate + " แล้ว — กรุณาเปิดรายการเดิมเพื่อแก้ไข" };
+      }
+    }
+    _ensureLogWidth(sheet, row.length);
+    sheet.appendRow(row);
+    return { entryId: entryId, lastModified: lastModified };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ── updateDailyNutrition (optimistic-locked update by entryId) ─
@@ -1305,8 +1363,53 @@ function applyPatHeaderColumns() {
   return ensurePatHeaderColumns(true);
 }
 
+// ── sessionId collision guard ─────────────────────────────────
+// sessionId is generated CLIENT-side as initials+BW+twinSuffix (registry.jsx),
+// so two UNRELATED infants who share both initials and an integer birth weight
+// generate the SAME id. Without this guard registerPatient's upsert silently
+// overwrites the first infant's registry row, and every Daily_Log row for both
+// babies then keys to one id — two nutrition histories merged into one, with
+// nothing in the sheet to show it happened. Twins are separated by twinSuffix;
+// unrelated same-initial infants never were.
+//
+// Two independent signals, because the frontend and backend deploy separately
+// and neither can be assumed to be the newer one:
+//
+//  1. `isNew` — the client states this is a fresh registration rather than an
+//     edit (app.jsx handleAddPatient sends it, handleEditPatient does not). A
+//     fresh registration landing on an existing row IS the collision. An older
+//     client omits the flag entirely, which is exactly why signal 2 exists.
+//  2. dob mismatch — a stored dob disagreeing with the incoming one means a
+//     different infant whatever the client claims, so this holds for any client
+//     version. Skipped when either side is blank, which includes a PDPA-erased
+//     row (pseudonymizePatient clears dob).
+//
+// Returns a Thai message for the bedside, or null when the write is a genuine
+// edit of the same infant. The two messages differ on purpose: "different
+// infant" and "already registered" need different actions from the nurse.
+//
+// ⚠️ This is a STOPGAP. The real fix is an opaque, server-generated sessionId
+// carrying no patient attributes — see PDPA_SECURITY_AUDIT_2026-08-27.md §2.3
+// (kept outside this repo). Keep this guard after that lands anyway: it costs
+// one comparison and catches a duplicate id whatever the cause.
+function _sessionIdConflict(existingRow, p, isNew) {
+  var existingDob = _fmtDate(existingRow[6]);
+  var incomingDob = _fmtDate(p.dob);
+  if (existingDob && incomingDob && existingDob !== incomingDob) {
+    return "ID ซ้ำ (" + p.sessionId + ") — เป็นคนละรายกับที่มีอยู่ (วันเกิดไม่ตรงกัน) " +
+           "ถ้าเป็นแฝดให้เลือก Multiples A/B/C/D, ถ้าไม่ใช่ให้แก้ชื่อย่อ";
+  }
+  if (isNew === true) {
+    return "ID นี้ (" + p.sessionId + ") ลงทะเบียนไว้แล้ว — " +
+           "ถ้าเป็นรายใหม่ที่ชื่อย่อและน้ำหนักแรกเกิดตรงกัน ให้เลือก Multiples A/B/C/D";
+  }
+  return null;
+}
+
 // ── registerPatient (upsert) ──────────────────────────────────
-function registerPatient(p) {
+// `isNew` is optional and defaults to a plain upsert, so an older client that
+// does not send it keeps working exactly as before — see _sessionIdConflict.
+function registerPatient(p, isNew) {
   if (!p || !String(p.sessionId || "").trim()) throw new Error("sessionId is required");
   _validatePatient(p);
   // Serialised: the read (getDataRange) and the write (setValues/appendRow) are
@@ -1333,6 +1436,9 @@ function registerPatient(p) {
     ];
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(p.sessionId)) {
+        // Refuse before writing — this row may belong to a different infant.
+        var conflict = _sessionIdConflict(data[i], p, isNew);
+        if (conflict) throw new Error(conflict);
         // A Patient_Registry tab narrower than 18 columns would make this
         // getRange() out of bounds and throw — surfacing at the bedside as a
         // failed save when EDITING an existing patient. Widen on demand so the

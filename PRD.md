@@ -1,165 +1,165 @@
-# NeoFeed — Product Requirements
+# NeoFeed — ข้อกำหนดผลิตภัณฑ์
 
-**What this file is for:** the product definition NeoFeed has been running without. `CHANGELOG.md`
-records what changed; nothing recorded what the thing is *for*, who it is for, or how we would know
-it was working. Thirty-six sessions of change history and no line anyone could point at to answer
-"should we build this?"
+**ไฟล์นี้มีไว้เพื่ออะไร:** เพื่อกำหนดนิยามของผลิตภัณฑ์ NeoFeed ซึ่งที่ผ่านมาไม่เคยมีบันทึกไว้อย่างชัดเจน `CHANGELOG.md`
+บอกว่าอะไรเปลี่ยนแปลงไปบ้าง แต่ไม่มีสิ่งใดบอกว่าเครื่องมือนี้สร้างขึ้น *เพื่ออะไร* มีไว้สำหรับใคร หรือเราจะรู้ได้อย่างไรว่า
+เครื่องมือนี้ใช้งานได้ผล มีประวัติการเปลี่ยนแปลงถึง 36 เซสชัน แต่ไม่มีข้อความสักบรรทัดที่ใครจะใช้อ้างอิงเพื่อตอบคำถามว่า
+“เราควรสร้างสิ่งนี้หรือไม่”
 
-**Update trigger: rarely.** Only when the product's purpose, users or scope genuinely change. If
-something here needs editing weekly it belongs in `BACKLOG.md` or `STATUS.md`.
+**ปรับปรุงเมื่อ: นาน ๆ ครั้ง** เฉพาะเมื่อวัตถุประสงค์ ผู้ใช้ หรือขอบเขตของผลิตภัณฑ์เปลี่ยนไปอย่างแท้จริง หากเนื้อหาใดในนี้
+จำเป็นต้องแก้ไขทุกสัปดาห์ เนื้อหานั้นควรอยู่ใน `BACKLOG.md` หรือ `STATUS.md`
 
-> ⚠️ **Written 2026-08-21 from the code and the existing docs, not from user research.** Everything
-> under *What it does today* is verified against the source. Everything under *Who it is for* and
-> *Problem* is **reconstructed intent** — plausible, consistent with the app's shape, and **not yet
-> confirmed with a single NICU user.** Sections marked 🟡 are the ones to check with the ward first.
-> Do not cite them as findings.
+> ⚠️ **เขียนขึ้นเมื่อ 2026-08-21 โดยอ้างอิงจากโค้ดและเอกสารที่มีอยู่ ไม่ใช่จากการวิจัยผู้ใช้** ทุกอย่าง
+> ในหัวข้อ *สิ่งที่ระบบทำได้ในปัจจุบัน* ได้รับการตรวจสอบกับซอร์สโค้ดแล้ว ส่วนเนื้อหาในหัวข้อ *ผู้ใช้งานเป้าหมาย* และ
+> *ปัญหา* คือ **เจตนารมณ์ที่เรียบเรียงขึ้นใหม่** ซึ่งสมเหตุสมผลและสอดคล้องกับรูปแบบของแอป แต่ **ยังไม่ได้รับ
+> การยืนยันจากผู้ใช้ใน NICU แม้แต่คนเดียว** หัวข้อที่ทำเครื่องหมาย 🟡 คือประเด็นที่ต้องตรวจสอบกับหอผู้ป่วยก่อน
+> ห้ามนำไปอ้างว่าเป็นผลการศึกษา
 
 ---
 
-## 1 · Problem
+## 1 · ปัญหา
 
-Neonatal parenteral and enteral nutrition is prescribed daily, per infant, from a set of
-weight-and-gestational-age-dependent targets. Done by hand it is arithmetic-heavy, error-prone in a
-way that reaches the patient (a misplaced decimal in a GIR or an electrolyte dose is a real event,
-not a typo), and it has to be redone every single day as the infant's weight changes.
+การสั่งสารอาหารทางหลอดเลือดดำและทางเดินอาหารสำหรับทารกแรกเกิดต้องทำทุกวันเป็นรายบุคคล โดยอ้างอิงเป้าหมาย
+ที่ขึ้นอยู่กับน้ำหนักและอายุครรภ์ การคำนวณด้วยมือมีขั้นตอนทางคณิตศาสตร์มากและเกิดข้อผิดพลาดได้ง่ายในระดับที่
+ส่งผลถึงผู้ป่วยโดยตรง (การใส่จุดทศนิยมผิดใน GIR หรือขนาดอิเล็กโทรไลต์เป็นเหตุการณ์ที่เกิดขึ้นจริง ไม่ใช่เพียงการพิมพ์ผิด)
+และต้องคำนวณใหม่ทุกวันเมื่อน้ำหนักของทารกเปลี่ยนแปลง
 
-The KCMH NICU's prior tool was a paper worksheet plus a spreadsheet. That gives no history, no trend,
-no growth chart alongside the numbers, and no way to see who still needs today's entry.
+เครื่องมือเดิมของ NICU โรงพยาบาลจุฬาลงกรณ์ (KCMH) คือแบบฟอร์มกระดาษร่วมกับสเปรดชีต ซึ่งไม่มีประวัติย้อนหลัง
+ไม่มีแนวโน้ม ไม่มีกราฟการเจริญเติบโตแสดงควบคู่กับตัวเลข และไม่มีวิธีดูว่าผู้ป่วยรายใดยังต้องบันทึกข้อมูลของวันนี้
 
-🟡 **Unverified:** that this is the problem the ward would name first if asked. It is the problem the
-app is built around.
+🟡 **ยังไม่ได้ยืนยัน:** ว่านี่คือปัญหาแรกที่หอผู้ป่วยจะระบุหากถูกถาม แต่เป็นปัญหาหลักที่แอปนี้ถูกสร้างขึ้นมาเพื่อแก้ไข
 
-## 2 · Who it is for
+## 2 · ผู้ใช้งานเป้าหมาย
 
-| Role | In-app | What they do |
+| บทบาท | ค่าในแอป | สิ่งที่ทำ |
 |---|---|---|
-| **Doctor** | `role: "doctor"` | Prescribes the daily TPN + EN plan through the 6-step Calculator. Full clinical write access. |
-| **Nurse** | `role: "nurse"` | Same Calculator access; in practice records intake/output and weights. |
-| **Admin** | `role: "admin"` | Everything above, plus the cross-patient Admin dashboard, per-entry delete, patient delete, and the PDPA erasure endpoint. |
+| **แพทย์** | `role: "doctor"` | สั่งแผน TPN + EN ประจำวันผ่านเครื่องคำนวณ 6 ขั้นตอน และมีสิทธิ์เขียนข้อมูลทางคลินิกทั้งหมด |
+| **พยาบาล** | `role: "nurse"` | เข้าถึงเครื่องคำนวณได้เช่นเดียวกัน ในทางปฏิบัติใช้บันทึกปริมาณสารน้ำเข้า/ออกและน้ำหนัก |
+| **ผู้ดูแลระบบ** | `role: "admin"` | ทำได้ทุกอย่างข้างต้น รวมถึงเข้าถึงแดชบอร์ดผู้ดูแลระบบที่แสดงข้อมูลข้ามผู้ป่วย ลบรายการแต่ละรายการ ลบผู้ป่วย และใช้ endpoint สำหรับการลบข้อมูลตาม PDPA |
 
-Roles gate the nav rail in `app.jsx` (~L409–423): Calculator is doctor/nurse, Admin dashboard is
-admin only.
+บทบาทใช้ควบคุมเมนูนำทางใน `app.jsx` (ประมาณบรรทัด 409–423): แพทย์และพยาบาลเข้าถึงเครื่องคำนวณได้
+ส่วนแดชบอร์ดผู้ดูแลระบบจำกัดเฉพาะผู้ดูแลระบบเท่านั้น
 
-**Not users, but affected:** the infants (the data subjects, who cannot consent), their parents (data
-subjects by proxy under PDPA), ward pharmacy (receives the order the Calculator prints), and the
-hospital's data-protection function (accountable for the Sheet).
+**ไม่ใช่ผู้ใช้ แต่ได้รับผลกระทบ:** ทารก (เจ้าของข้อมูลซึ่งไม่สามารถให้ความยินยอมได้) ผู้ปกครองของทารก
+(ตัวแทนของเจ้าของข้อมูลตาม PDPA) ห้องยาประจำหอผู้ป่วย (รับใบคำสั่งที่พิมพ์จากเครื่องคำนวณ) และหน่วยงาน
+คุ้มครองข้อมูลของโรงพยาบาล (ผู้รับผิดชอบต่อข้อมูลใน Sheet)
 
-🟡 **Unverified:** the doctor/nurse split above describes what the *roles permit*, not what each
-group actually does at 3 a.m. Session 3 of the journey map is where that gets checked.
+🟡 **ยังไม่ได้ยืนยัน:** การแบ่งหน้าที่ระหว่างแพทย์กับพยาบาลข้างต้นอธิบายเพียงว่าแต่ละ *บทบาทได้รับอนุญาต*
+ให้ทำอะไร ไม่ได้หมายความว่าแต่ละกลุ่มปฏิบัติงานจริงอย่างไรในเวลา 03.00 น. ประเด็นนี้จะได้รับการตรวจสอบในเซสชันที่ 3
+ของแผนที่เส้นทางผู้ใช้
 
-## 3 · Jobs to be done
+## 3 · งานที่ผู้ใช้ต้องการทำให้สำเร็จ
 
-1. *"When I round on this infant, I want today's fluid, macronutrient and electrolyte plan computed
-   from their current weight, so I can prescribe without doing the arithmetic by hand."*
-2. *"When I come on shift, I want to see which infants still need today's entry, so nothing is
-   missed."* — this is the `✓ LOGGED` / `NEEDS ENTRY` badge and the stats strip.
-3. *"When I'm deciding whether nutrition is working, I want the trend and the growth chart next to
-   each other, so I can see the effect rather than the last number."*
-4. *"When I got yesterday wrong, I want to correct it in place without creating a second row for the
-   same day."* — the duplicate-date guard and in-place editing.
+1. *“เมื่อฉันตรวจเยี่ยมทารกรายนี้ ฉันต้องการให้ระบบคำนวณแผนสารน้ำ สารอาหารหลัก และอิเล็กโทรไลต์ของวันนี้
+   จากน้ำหนักปัจจุบัน เพื่อให้สั่งการรักษาได้โดยไม่ต้องคำนวณด้วยมือ”*
+2. *“เมื่อฉันเริ่มเวร ฉันต้องการเห็นว่าทารกรายใดยังต้องบันทึกข้อมูลของวันนี้ เพื่อไม่ให้ตกหล่น”*
+   — นี่คือป้าย `✓ LOGGED` / `NEEDS ENTRY` และแถบสถิติ
+3. *“เมื่อฉันประเมินว่าโภชนบำบัดได้ผลหรือไม่ ฉันต้องการดูแนวโน้มและกราฟการเจริญเติบโตควบคู่กัน
+   เพื่อให้เห็นผลลัพธ์แทนที่จะเห็นเพียงค่าล่าสุด”*
+4. *“เมื่อข้อมูลของเมื่อวานไม่ถูกต้อง ฉันต้องการแก้ไขรายการเดิมได้โดยไม่สร้างแถวที่สองสำหรับวันเดียวกัน”*
+   — รองรับด้วยการป้องกันวันที่ซ้ำและการแก้ไขรายการเดิม
 
-## 4 · What it does today — the v1 baseline
+## 4 · สิ่งที่ระบบทำได้ในปัจจุบัน — ขอบเขตพื้นฐานของ v1
 
-This is shipped and live, not a plan. Authoritative detail in `app-walkthrough.md` § 5.
+ฟังก์ชันเหล่านี้เผยแพร่และใช้งานจริงแล้ว ไม่ใช่แผนงาน ดูรายละเอียดที่เป็นแหล่งอ้างอิงหลักได้ใน `app-walkthrough.md` § 5
 
-- **Patient registry** — admit/edit/discharge, NICU → iso → SCN ordering, per-patient
-  logged-today badge, stats strip (Active / Total sessions / Logged today / Needs entry).
-- **6-step TPN + EN Calculator** — fluid plan → TPN macros → electrolytes → vitamins/trace/heparin →
-  enteral feeding → enteral supplements, plus a non-collapsible Intake/Output card. One submission =
-  one `Daily_Log` row. Draft state persisted per session in `localStorage`.
-- **Daily nutrition log + TrendGraph** — nine metrics plotted against target bands, past entries
-  editable in place, back-fill to a past date via `LogDateModal`.
-- **Fenton 2025 growth chart** — weight/length/HC vs PMA, clamped at 42 wk, with `MeasurementLogger`.
-- **Alerts** — stale-weight warnings (≥3 d warn, ≥7 d critical), acknowledgeable per alert.
-- **Admin dashboard** — cross-patient view.
-- **Static clinical reference** — ESPGHAN guidelines and a formula/product panel.
-- **Hybrid auth** — Google Sign-In for Workspace/Gmail, salted iterated-hash password otherwise,
-  6 h sliding session tokens, per-user epoch invalidation on password change.
-- **PDPA machinery** — `Audit_Log` accountability trail, admin `pseudonymizePatient()` erasure,
-  localStorage clearing on logout.
+- **ทะเบียนผู้ป่วย** — รับเข้า/แก้ไข/จำหน่าย เรียงลำดับ NICU → iso → SCN แสดงป้ายว่าบันทึกข้อมูลวันนี้แล้ว
+  เป็นรายผู้ป่วย และแถบสถิติ (กำลังรักษา / เซสชันทั้งหมด / บันทึกแล้ววันนี้ / ต้องบันทึก)
+- **เครื่องคำนวณ TPN + EN 6 ขั้นตอน** — แผนสารน้ำ → สารอาหารหลักใน TPN → อิเล็กโทรไลต์ →
+  วิตามิน/ธาตุรอง/เฮพาริน → การให้อาหารทางเดินอาหาร → อาหารเสริมทางเดินอาหาร พร้อมการ์ดปริมาณสารน้ำเข้า/ออก
+  ที่ไม่สามารถยุบได้ การส่งข้อมูลหนึ่งครั้ง = หนึ่งแถวใน `Daily_Log` ระบบเก็บสถานะแบบร่างแยกตามเซสชันไว้ใน `localStorage`
+- **บันทึกโภชนาการรายวัน + TrendGraph** — แสดงตัวชี้วัด 9 รายการเทียบกับช่วงเป้าหมาย แก้ไขรายการย้อนหลัง
+  ในรายการเดิมได้ และบันทึกย้อนหลังไปยังวันที่ผ่านมาได้ผ่าน `LogDateModal`
+- **กราฟการเจริญเติบโต Fenton 2025** — น้ำหนัก/ความยาว/เส้นรอบศีรษะเทียบกับ PMA จำกัดสูงสุดที่ 42 สัปดาห์
+  พร้อม `MeasurementLogger`
+- **การแจ้งเตือน** — เตือนเมื่อน้ำหนักไม่ได้รับการอัปเดต (≥3 วันเป็นคำเตือน, ≥7 วันเป็นขั้นวิกฤต) และกดยืนยันรับทราบ
+  การแจ้งเตือนแต่ละรายการได้
+- **แดชบอร์ดผู้ดูแลระบบ** — มุมมองข้อมูลข้ามผู้ป่วย
+- **ข้อมูลอ้างอิงทางคลินิกแบบคงที่** — แนวทาง ESPGHAN และแผงข้อมูลสูตร/ผลิตภัณฑ์
+- **การยืนยันตัวตนแบบผสม** — Google Sign-In สำหรับบัญชี Workspace/Gmail และใช้รหัสผ่านแบบแฮชซ้ำพร้อม salt
+  สำหรับกรณีอื่น โทเค็นเซสชันแบบเลื่อนอายุ 6 ชั่วโมง และการทำให้เซสชันของผู้ใช้ทั้งหมดใช้ไม่ได้เมื่อเปลี่ยนรหัสผ่าน
+- **กลไก PDPA** — บันทึกความรับผิดชอบย้อนหลังใน `Audit_Log`, ฟังก์ชัน `pseudonymizePatient()` สำหรับให้ผู้ดูแลระบบ
+  ลบข้อมูล และการล้าง `localStorage` เมื่อออกจากระบบ
 
-**Platform:** React 18 via CDN + in-browser Babel, no build step; GitHub Pages front end; Google Apps
-Script + Google Sheets backend; installable as a PWA.
+**แพลตฟอร์ม:** React 18 ผ่าน CDN + Babel ในเบราว์เซอร์ ไม่มีขั้นตอน build; ส่วนหน้าอยู่บน GitHub Pages;
+ส่วนหลังใช้ Google Apps Script + Google Sheets; ติดตั้งเป็น PWA ได้
 
-## 5 · Explicit non-goals
+## 5 · สิ่งที่ตั้งใจไม่ทำอย่างชัดเจน
 
-Naming these matters more than usual here, because the app is one file-drop away from becoming an
-EMR by accident.
+การระบุเรื่องเหล่านี้สำคัญกว่าปกติ เพราะแอปอาจกลายเป็นเวชระเบียนอิเล็กทรอนิกส์ (EMR) โดยไม่ตั้งใจได้ง่ายมาก
 
-- **Not a medical record.** It records nutrition, not the chart. No notes, orders, meds beyond
-  nutrition, labs beyond what the calculator consumes.
-- **Not a prescribing authority.** It computes and prints an order a clinician signs. Every number
-  is a clinician's to accept or override.
-- **Not a research dataset.** The PDPA lawful basis is Sec 26(6) *medical necessity* — treatment
-  processing only. A research or QI export is a **different lawful basis** and needs its own
-  conversation, not a new endpoint. See `REFERENCE.md`.
-- **Not multi-hospital.** One ward, one Sheet. Nothing in the data model carries a site identifier.
-- **Not an analytics product about staff.** See § 6.
+- **ไม่ใช่เวชระเบียน** ระบบบันทึกข้อมูลโภชนาการ ไม่ใช่เวชระเบียนทั้งหมด ไม่มีบันทึกทางการแพทย์ คำสั่งการรักษา
+  ยานอกเหนือจากด้านโภชนาการ หรือผลตรวจทางห้องปฏิบัติการนอกเหนือจากค่าที่เครื่องคำนวณใช้
+- **ไม่ใช่ผู้มีอำนาจสั่งการรักษา** ระบบคำนวณและพิมพ์ใบคำสั่งให้บุคลากรทางคลินิกลงนาม ตัวเลขทุกค่าต้องได้รับ
+  การยอมรับหรือแก้ไขโดยบุคลากรทางคลินิก
+- **ไม่ใช่ชุดข้อมูลวิจัย** ฐานกฎหมายตาม PDPA คือมาตรา 26(6) *ความจำเป็นทางการแพทย์* — ใช้ประมวลผล
+  เพื่อการรักษาเท่านั้น การส่งออกข้อมูลเพื่อการวิจัยหรือการพัฒนาคุณภาพ (QI) ใช้ **ฐานกฎหมายที่ต่างออกไป**
+  และต้องหารือแยกต่างหาก ไม่ใช่เพียงเพิ่ม endpoint ใหม่ ดู `REFERENCE.md`
+- **ไม่รองรับหลายโรงพยาบาล** ใช้สำหรับหนึ่งหอผู้ป่วยและหนึ่ง Sheet เท่านั้น โมเดลข้อมูลไม่มีตัวระบุสถานพยาบาล
+- **ไม่ใช่ผลิตภัณฑ์วิเคราะห์ข้อมูลบุคลากร** ดู § 6
 
-## 6 · How we would know it is working
+## 6 · เราจะรู้ได้อย่างไรว่าระบบใช้งานได้ผล
 
-**NeoFeed has no metrics at all today.** Nobody knows how many staff use it. The data to answer the
-first question is *already being collected* — `Audit_Log (A–D): ts | action | sessionId | actorEmail`,
-written by `logAudit("readRegistry")` on every `getActivePatients`. **What is missing is a read, not
-instrumentation.**
+**ปัจจุบัน NeoFeed ยังไม่มีตัวชี้วัดใดเลย** ไม่มีใครทราบว่ามีบุคลากรใช้งานกี่คน ข้อมูลสำหรับตอบคำถามแรก
+*มีการเก็บอยู่แล้ว* — `Audit_Log (A–D): ts | action | sessionId | actorEmail` ซึ่งบันทึกโดย
+`logAudit("readRegistry")` ทุกครั้งที่เรียก `getActivePatients` **สิ่งที่ขาดคือการอ่านข้อมูล ไม่ใช่การติดตั้งเครื่องมือเก็บข้อมูล**
 
-| # | Metric | Definition | Status |
+| # | ตัวชี้วัด | คำจำกัดความ | สถานะ |
 |---|---|---|---|
-| **M1** | **Weekly active users** | **distinct `actorEmail` in `Audit_Log` per ISO week** | first one to build |
-| M2 | Daily log coverage | `logged today ÷ active patients`, the ratio the registry stats strip already computes on screen every render and then throws away | not built |
-| M3 | Back-fill rate | share of `Daily_Log` rows whose entry date is before the date they were written — a proxy for whether the tool fits the round or is caught up on later | not built |
+| **M1** | **ผู้ใช้งานประจำสัปดาห์** | **จำนวน `actorEmail` ที่ไม่ซ้ำกันใน `Audit_Log` ต่อสัปดาห์ ISO** | สิ่งแรกที่ต้องสร้าง |
+| M2 | ความครอบคลุมของบันทึกรายวัน | `บันทึกแล้ววันนี้ ÷ ผู้ป่วยที่กำลังรักษา` ซึ่งเป็นอัตราส่วนที่แถบสถิติของทะเบียนคำนวณบนหน้าจอทุกครั้งที่ render แต่ไม่ได้เก็บไว้ | ยังไม่ได้สร้าง |
+| M3 | อัตราการบันทึกย้อนหลัง | สัดส่วนของแถวใน `Daily_Log` ที่วันที่ของรายการอยู่ก่อนวันที่บันทึกจริง — เป็นตัวชี้วัดแทนว่าเครื่องมือนี้เข้ากับขั้นตอนการตรวจเยี่ยมหรือผู้ใช้ต้องกลับมาบันทึกย้อนหลังภายหลัง | ยังไม่ได้สร้าง |
 
-**No targets are set, deliberately.** A target invented from a desk is worse than no target; M1's
-first month of numbers is what a target should be argued from.
+**ตั้งใจยังไม่กำหนดค่าเป้าหมาย** เป้าหมายที่คิดขึ้นจากโต๊ะทำงานแย่กว่าการไม่มีเป้าหมาย ควรใช้ข้อมูลเดือนแรกของ M1
+เป็นพื้นฐานในการหารือเพื่อกำหนดเป้าหมาย
 
-### 🔴 Two constraints that must survive into any implementation
+### 🔴 ข้อจำกัดสองประการที่ต้องคงอยู่ในการพัฒนาทุกครั้ง
 
-1. **Use distinct `actorEmail` per week, never row counts.** Since `syncFromGAS` began firing on tab
-   focus, `Audit_Log` gains a row per user per minute. Row counts stopped measuring usage and now
-   measure how long a tab was left open.
-2. **`Audit_Log` exists for PDPA Sec 39 accountability, not analytics, and it holds staff email.**
-   **Aggregate counts only.** A per-staff ranking turns product analytics into personnel monitoring —
-   a different lawful basis, and a different conversation with the ward. If a number could be used to
-   ask "why is this nurse's count low", it should not be produced.
+1. **ใช้จำนวน `actorEmail` ที่ไม่ซ้ำกันต่อสัปดาห์ ห้ามใช้จำนวนแถว** นับตั้งแต่ `syncFromGAS` เริ่มทำงาน
+   เมื่อแท็บกลับมาอยู่ในโฟกัส `Audit_Log` จะเพิ่มหนึ่งแถวต่อผู้ใช้ต่อนาที จำนวนแถวจึงไม่สะท้อนการใช้งานอีกต่อไป
+   แต่สะท้อนว่าเปิดแท็บค้างไว้นานเพียงใด
+2. **`Audit_Log` มีไว้เพื่อแสดงความรับผิดชอบตาม PDPA มาตรา 39 ไม่ใช่เพื่อการวิเคราะห์ และมีอีเมลของบุคลากร**
+   **ใช้เฉพาะจำนวนรวมเท่านั้น** การจัดอันดับรายบุคคลจะเปลี่ยนการวิเคราะห์ผลิตภัณฑ์ให้กลายเป็นการเฝ้าติดตามบุคลากร
+   ซึ่งต้องใช้ฐานกฎหมายที่ต่างออกไปและต้องหารือกับหอผู้ป่วยแยกต่างหาก หากตัวเลขใดอาจถูกนำไปใช้ถามว่า
+   “ทำไมจำนวนของพยาบาลคนนี้จึงต่ำ” ก็ไม่ควรสร้างตัวเลขนั้นขึ้นมา
 
-## 7 · Constraints that shape every decision
+## 7 · ข้อจำกัดที่มีผลต่อทุกการตัดสินใจ
 
-- **Clinical safety first.** A wrong number reaches an infant. Where product convenience and
-  arithmetic conservatism conflict, conservatism wins. The open stock-concentration item in
-  `BACKLOG.md` § Now is a live example: those four values change the mL printed on every order form.
-- **PDPA Sec 26 sensitive personal data.** Lawful basis is medical necessity; there is no consent
-  flow, and that is correct — but it means the basis does not stretch to secondary use.
-- **No build step is a security property, not just a convenience.** Every non-secret file in this
-  repo is effectively public. Nothing secret goes in source; `SPREADSHEET_ID`/`CLIENT_ID` live in
-  Script Properties for this reason.
-- **Apps Script's ceilings are real product limits** — 6 h is the maximum session TTL `CacheService`
-  allows, not a chosen value; `LockService` and `CacheService` eviction are not modelled by any test
-  harness we have.
-- **Two hand-synced HTML shells.** Any shell change must land in both or they drift silently.
+- **ความปลอดภัยทางคลินิกต้องมาก่อน** ตัวเลขที่ผิดจะส่งผลถึงทารก เมื่อความสะดวกของผลิตภัณฑ์ขัดแย้งกับ
+  ความรอบคอบในการคำนวณ ให้เลือกความรอบคอบ รายการความเข้มข้นของสารละลายตั้งต้นที่ยังไม่ปิดในหัวข้อ Now
+  ของ `BACKLOG.md` เป็นตัวอย่างที่ยังมีผลอยู่: ค่าทั้งสี่นี้เปลี่ยนจำนวน mL ที่พิมพ์ในใบคำสั่งทุกใบ
+- **ข้อมูลส่วนบุคคลที่มีความอ่อนไหวตาม PDPA มาตรา 26** ฐานกฎหมายคือความจำเป็นทางการแพทย์ ไม่มีขั้นตอน
+  ขอความยินยอม ซึ่งเป็นสิ่งที่ถูกต้อง แต่หมายความว่าฐานกฎหมายนี้ไม่ครอบคลุมการนำข้อมูลไปใช้เพื่อวัตถุประสงค์อื่น
+- **การไม่มีขั้นตอน build เป็นคุณสมบัติด้านความปลอดภัย ไม่ใช่เพียงความสะดวก** ไฟล์ที่ไม่ใช่ความลับทุกไฟล์
+  ใน repository นี้ถือว่าเปิดเผยต่อสาธารณะโดยปริยาย ห้ามใส่ข้อมูลลับในซอร์สโค้ด ด้วยเหตุนี้ `SPREADSHEET_ID`/`CLIENT_ID`
+  จึงถูกเก็บไว้ใน Script Properties
+- **เพดานข้อจำกัดของ Apps Script เป็นข้อจำกัดของผลิตภัณฑ์จริง** — 6 ชั่วโมงคืออายุเซสชันสูงสุดที่ `CacheService`
+  อนุญาต ไม่ใช่ค่าที่เลือกเอง และชุดทดสอบที่มีอยู่ไม่ได้จำลองพฤติกรรมของ `LockService` หรือการขับข้อมูลออกจาก `CacheService`
+- **มี HTML shell สองไฟล์ที่ซิงก์ด้วยมือ** การเปลี่ยนแปลง shell ทุกครั้งต้องแก้ไขทั้งสองไฟล์ มิฉะนั้นจะแตกต่างกัน
+  โดยไม่มีสัญญาณเตือน
 
-## 8 · Open product questions
+## 8 · คำถามเกี่ยวกับผลิตภัณฑ์ที่ยังไม่มีคำตอบ
 
-Not bugs — decisions nobody has made.
+ประเด็นเหล่านี้ไม่ใช่บั๊ก แต่เป็นการตัดสินใจที่ยังไม่มีใครทำ
 
-1. **Who owns NeoFeed if Praew stops maintaining it?** It is a live clinical tool with one
-   maintainer, no second reviewer, and a deploy identity tied to one Google account.
-2. **What is the retention policy after discharge?** Records persist indefinitely today. This is
-   both a PDPA gap (`BACKLOG.md`) and an unmade product decision — "how long is this useful for" is
-   a product question before it is a compliance one.
-3. **Is the ward's real unit of work the infant or the round?** The app is built patient-first; the
-   `NEEDS ENTRY` badge hints the actual job is *"get through today's list"*. If so, a round-oriented
-   view might beat the registry.
-4. 🟡 **Does anyone use the TrendGraph?** It is one of the more expensive things in the codebase.
-   M1 tells us if anyone uses the app; nothing tells us which view earns its keep.
+1. **ใครจะรับผิดชอบ NeoFeed หากแพรวหยุดดูแล** นี่คือเครื่องมือทางคลินิกที่ใช้งานจริง มีผู้ดูแลเพียงคนเดียว
+   ไม่มีผู้ตรวจสอบคนที่สอง และตัวตนที่ใช้ deploy ผูกกับบัญชี Google เพียงบัญชีเดียว
+2. **นโยบายเก็บรักษาข้อมูลหลังจำหน่ายผู้ป่วยคืออะไร** ปัจจุบันข้อมูลถูกเก็บไว้อย่างไม่มีกำหนด นี่เป็นทั้งช่องว่าง
+   ด้าน PDPA (`BACKLOG.md`) และการตัดสินใจเกี่ยวกับผลิตภัณฑ์ที่ยังไม่ได้ทำ — “ข้อมูลนี้มีประโยชน์นานเท่าใด”
+   เป็นคำถามด้านผลิตภัณฑ์ก่อนที่จะเป็นคำถามด้านการปฏิบัติตามกฎหมาย
+3. **หน่วยหลักในการทำงานของหอผู้ป่วยควรเป็นตัวทารกหรือรอบตรวจ** แอปถูกออกแบบโดยยึดผู้ป่วยเป็นหลัก แต่ป้าย
+   `NEEDS ENTRY` ชี้ว่างานจริงอาจเป็น *“ทำรายการของวันนี้ให้ครบ”* หากเป็นเช่นนั้น มุมมองที่จัดตามรอบตรวจ
+   อาจเหมาะสมกว่าทะเบียนผู้ป่วย
+4. 🟡 **มีใครใช้ TrendGraph หรือไม่** ฟังก์ชันนี้เป็นหนึ่งในส่วนที่มีต้นทุนในการพัฒนาสูงที่สุดของ codebase
+   M1 บอกได้ว่ามีใครใช้แอปหรือไม่ แต่ยังไม่มีสิ่งใดบอกว่ามุมมองใดคุ้มค่าที่จะคงไว้
 
 ---
 
-## Provenance and course link
+## ที่มาและความเชื่อมโยงกับรายวิชา
 
-Reconstructed on 2026-08-21 from `app-walkthrough.md`, `REFERENCE.md`, `CLAUDE.md`, the source, and
-the backlog. **A PRD and a product-metrics definition are also sessions 6 and 7 of DigiHealth
-`3099706 · Digital Project Management`** — see `Desktop\DigiHealth\00_admin\COURSE_3099706.md`. The
-coursework and this file are the same work; that is deliberate, not double-counting.
+เรียบเรียงขึ้นใหม่เมื่อ 2026-08-21 จาก `app-walkthrough.md`, `REFERENCE.md`, `CLAUDE.md`, ซอร์สโค้ด และ
+backlog **PRD และนิยามตัวชี้วัดผลิตภัณฑ์ยังเป็นเนื้อหาในเซสชันที่ 6 และ 7 ของรายวิชา DigiHealth
+`3099706 · Digital Project Management`** — ดู `Desktop\DigiHealth\00_admin\COURSE_3099706.md`
+งานในรายวิชาและไฟล์นี้เป็นงานชิ้นเดียวกันโดยตั้งใจ ไม่ใช่การนับผลงานซ้ำ
 
-⚠️ **For any coursework artefact: screenshots come from `data.js`'s mock fixtures, never the live
-ward Sheet.** `DigiHealth\` is on OneDrive and no patient data goes there.
+⚠️ **สำหรับชิ้นงานในรายวิชาทุกชิ้น: ภาพหน้าจอต้องมาจากข้อมูลจำลองใน `data.js` เท่านั้น ห้ามใช้ข้อมูลจริง
+จาก Sheet ของหอผู้ป่วย** `DigiHealth\` อยู่บน OneDrive และห้ามนำข้อมูลผู้ป่วยไปเก็บไว้ที่นั่น

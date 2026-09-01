@@ -20,6 +20,17 @@ const fmt = (n, d = 1, keepZeros = false) => {
   return keepZeros ? r.toFixed(d) : String(r);
 };
 
+// Safety alerts must be deterministic and clinically prioritised. A stable
+// sort preserves the calculation order within each severity group so the
+// screen does not jump around while a prescription is being edited.
+function sortClinicalAlerts(items) {
+  const priority = { crit: 0, warn: 1, info: 2 };
+  return items
+    .map((alert, index) => ({ alert, index }))
+    .sort((a, b) => (priority[a.alert.level] ?? 3) - (priority[b.alert.level] ?? 3) || a.index - b.index)
+    .map(({ alert }) => alert);
+}
+
 function NumField({ label, unit, value, onChange, step = 1, min = 0, hint }) {
   const [raw, setRaw] = React.useState(value ? String(value) : "");
   const focusedRef = React.useRef(false);
@@ -131,7 +142,8 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
     setRaw(perKg ? String(perKg) : "");
   }, [perKg]);
   const handle = (e) => {
-    let s = e.target.value.replace(/[^0-9.\-]/g, "");
+    // Electrolyte doses are physical quantities and cannot be negative.
+    let s = e.target.value.replace(/[^0-9.]/g, "");
     const fd = s.indexOf("."); if (fd !== -1) s = s.slice(0, fd + 1) + s.slice(fd + 1).replace(/\./g, "");
     setRaw(s);
     const v = parseFloat(s);
@@ -386,10 +398,15 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     }
 
     let restored = null;
-    try {
-      const raw = localStorage.getItem(`neofeed_calc_${patient.sessionId}`);
-      if (raw) restored = JSON.parse(raw);
-    } catch {}
+    // A deliberately dated/back-filled order must start from clinical history
+    // relative to that date, never from an undated browser draft that may have
+    // been created days later.
+    if (!logDate) {
+      try {
+        const raw = localStorage.getItem(`neofeed_calc_${patient.sessionId}`);
+        if (raw) restored = JSON.parse(raw);
+      } catch {}
+    }
 
     const lastWt = D.lastWeighed(patient);
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
@@ -466,6 +483,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   React.useEffect(() => {
     const ALL = new Set([1, 2, 3, 4, 5, 6]);
     const handler = () => {
+      if (!savedEntryId) {
+        showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
+        return;
+      }
       setOpenSteps(ALL);
       // Wait one frame for React to render all card-b sections
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -475,7 +496,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
-  }, []);
+  }, [savedEntryId]);
 
   // ===== compute =====
   const calc = useMemo(() => {
@@ -847,6 +868,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${calc.dexGPerKg.toFixed(1)} g/kg/d — sheet limit is ${D.MAX_DEXTROSE_G_KG} g/kg/d. Lower dextrose % or bag volume.`, ref: "KCMH TPN worksheet" });
   if (calc.kMeqPerL > D.MAX_K_MEQ_PER_L) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${calc.kMeqPerL.toFixed(0)} mEq/L — max ${D.MAX_K_MEQ_PER_L} mEq/L in the bag. Increase volume or reduce K.`, ref: "KCMH TPN worksheet" });
   if (calc.totalTPN_mL > 0 && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${calc.componentVol.toFixed(1)} mL but the prepared bag is only ${calc.preparedVol.toFixed(1)} mL — over by ${Math.abs(calc.wfiVol).toFixed(1)} mL.`, ref: "WFI q.s." });
+  if (calc.totalTPN_mL > 0 && caPerKg > 0 && k2hpo4 > 0) alerts.push({ level: "warn", title: "Calcium–phosphate compatibility not calculated", body: "This order combines calcium with inorganic phosphate. NeoFeed does not calculate formulation-specific precipitation risk; pharmacy must verify compatibility before compounding or administration.", ref: "ESPGHAN/ESPEN/ESPR/CSPEN 2018" });
   // Vitamins/TE are compounded on actual weight (sheet G43/G45/G46 use C6, not
   // H9), so an overfilled bag under-delivers them. Surfaced, not auto-corrected.
   if (calc.overfill > 1.001 && (inclSoluvit || inclPeditrace)) alerts.push({ level: "info", title: "Vitamins / trace elements not overfill-scaled", body: `Bag is overfilled ×${calc.overfill.toFixed(2)}, but Soluvit/Peditrace are dosed on actual weight per the KCMH sheet — the infant receives ${(calc.deliveredFrac * 100).toFixed(0)}% of the 1 mL/kg (${fmt(calc.soluvitVol * calc.deliveredFrac, 2)} / ${fmt(calc.peditrace_vol * calc.deliveredFrac, 2)} mL). Electrolytes and AA are scaled.`, ref: "KCMH TPN worksheet" });
@@ -1882,7 +1904,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                 <div className="ico"><Icon name="check" size={12} color="#fff" /></div>
                 <div><div className="title">All targets within range</div><div className="body">No safety flags for current prescription.</div></div>
               </div> :
-            alerts.slice(0, 4).map((a, i) =>
+            sortClinicalAlerts(alerts).map((a, i) =>
             <div key={i} className={`alert-row ${a.level}`}>
                 <div className="ico">{a.level === "crit" ? "!" : "!"}</div>
                 <div style={{ flex: 1 }}>
@@ -1906,6 +1928,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             <div className="calc-save-bar">
             {/* Copy order text to clipboard */}
             <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
+              if (!savedEntryId) {
+                showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
+                return;
+              }
               // Completeness check — warn if any clinical step is empty
               // stepStatus keys are content ids, not card display order — map to the
               // visible "Step N" label (fluid=1, TPN=3, electrolytes=4)
@@ -1997,8 +2023,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         </div>
       </div>
       {/* ── Ramathibodi PN order form — print only ── */}
-      <PrintOrderForm
+      {savedEntryId && <PrintOrderForm
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight} route={route}
+        orderDate={editEntry?.ts || logDate || D.todayLocal()}
         dexPct={dexPct} totalTPN_mL={totalTPN_mL} entryId={savedEntryId}
         aaPerKg={aaPerKg} lipidPerKg={lipidPerKg} lipidDripHours={lipidDripHours}
         naCl={naCl} naAcet={naAcet} glycophosP={glycophosP}
@@ -2009,7 +2036,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         suppPO4={suppPO4} suppPO4Type={suppPO4Type}
         suppMTV={suppMTV} suppFerdek={suppFerdek} suppFeType={suppFeType}
         mineral={mineral}
-      />
+      />}
     </>);
 
 }
@@ -2124,7 +2151,7 @@ function KcalLegend({ color, label, pct, target }) {
 }
 
 // ── Ramathibodi PN Order Form (print only) ──────────────────────
-function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, route, dexPct, totalTPN_mL, entryId,
+function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, route, orderDate, dexPct, totalTPN_mL, entryId,
   aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg,
   inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
@@ -2134,7 +2161,9 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
   const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
   // WFI q.s. can legitimately be 0 or negative (over-filled bag) — must not print "—"
   const fSigned = (n, d=1) => isFinite(n) ? Number(n.toFixed(d)).toString() : "—";
-  const today = new Date().toLocaleDateString("th-TH", { year:"numeric", month:"2-digit", day:"2-digit" });
+  const normalizedOrderDate = D.normalizeDateStr(orderDate) || D.todayLocal();
+  const orderDateLabel = new Date(`${normalizedOrderDate}T12:00:00`).toLocaleDateString("th-TH", { year:"numeric", month:"2-digit", day:"2-digit" });
+  const printedAt = new Date().toLocaleDateString("th-TH", { year:"numeric", month:"2-digit", day:"2-digit" });
   const chk = (v) => v ? "☑" : "☐";
   const td  = { border:"1px solid #999", padding:"3px 6px", verticalAlign:"top", fontSize:10 };
   const tdr = { ...td, textAlign:"right" };
@@ -2155,7 +2184,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
           <tr>
             <td style={{ width:"45%" }}>ชื่อ: <strong>{patient?.name || patient?.initials || "—"}</strong></td>
             <td style={{ width:"30%" }}>AN: <strong>{patient?.sessionId || "—"}</strong></td>
-            <td>วันที่ให้ TPN: <strong>{today}</strong></td>
+            <td>วันที่ให้ TPN: <strong>{orderDateLabel}</strong></td>
           </tr>
           <tr>
             <td>DOL: <strong>{dol}</strong> &nbsp; ตึก: <strong>{patient?.currentBed || "—"}</strong></td>
@@ -2417,13 +2446,12 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
       {/* Provenance footer — which values produced the figures above, and
           which Daily_Log row they came from. Deliberately small and last:
           it is for the person reconciling an order after the fact, not for
-          the person signing it. Printed even before the entry is saved, in
-          which case entryId is "(unsaved)" — a printed order with no row
-          behind it is exactly the case worth being able to spot. */}
+          the person signing it. The parent only renders this form after a
+          successful save, so every printable order has a backing row. */}
       <div style={{ marginTop:8, paddingTop:4, borderTop:"1px solid #ccc",
         fontSize:8, color:"#555", display:"flex", justifyContent:"space-between" }}>
         <span>NeoFeed · constants {D.CONSTANTS_VERSION} · app {D.APP_VERSION}</span>
-        <span>entry {entryId || "(unsaved)"} · printed {today}</span>
+        <span>entry {entryId || "(unsaved)"} · printed {printedAt}</span>
       </div>
     </div>
   );

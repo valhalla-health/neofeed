@@ -8,9 +8,9 @@ line in `CHANGELOG.md`. This is the datasheet for that dataset.
 **Update trigger: whenever `CONSTANTS_VERSION` in `data.js` is bumped.** The version string is the
 key; this file is what the key points at. A bump with no row here is a bug in the process.
 
-> ⚠️ **Seeded 2026-08-26 from the repo's own documentation, not from a fresh source check.** Every
-> "verified" claim below is carried over from `CHANGELOG.md` / `CLAUDE.md`, and every review date is
-> **proposed, not agreed** — they are Praew's to set or reject. Nothing here re-verifies anything.
+> ⚠️ **Seeded 2026-08-26 from the repo's own documentation.** Unless a later version-history row or
+> constants-table row names a fresh review, a "verified" claim is carried over from `CHANGELOG.md` /
+> `CLAUDE.md`. Review dates are **proposed, not agreed** — they are Praew's to set or reject.
 
 ---
 
@@ -18,6 +18,7 @@ key; this file is what the key points at. A bump with no row here is a bug in th
 
 | `CONSTANTS_VERSION` | Date | What changed |
 |---|---|---|
+| `2026-08-27.1` | 2026-08-27 | Corrected the growing-premature PN phosphorus target from 46–62 to **50–108 mg/kg/day** (1.6–3.5 mmol/kg/day), matching the published ESPGHAN/ESPEN/ESPR/CSPEN 2018 table. The old range could label a guideline-concordant phosphorus provision as excessive. |
 | `2026-08-26.1` | 2026-08-26 | **Baseline.** No clinical value changed — this is the first version, stamped so that rows written from here on are attributable. Everything before it has a blank `Daily_Log` AF and cannot be attributed. |
 
 ---
@@ -33,7 +34,7 @@ key; this file is what the key points at. A bump with no row here is a bug in th
 | `KCMH_STOCK.naAcetate` (3 mEq/mL) | **Inferred from the KCMH worksheet's divisors** — not read off a strength label | ❌ **never** | — | **blocked on a physical check in the ward** | 🔴 **highest-stakes open item in the repo.** Changes the mL printed on every order form |
 | `KCMH_STOCK.kCl` (2 mEq/mL) | Same — inferred from a divisor | ❌ **never** | — | **blocked on a physical check in the ward** | 🔴 same |
 | `KCMH_STOCK` (remaining: d50w, aminoven10, caGluconate, heparin, …) | Official KCMH pharmacy worksheet, กลุ่มงานเภสัชกรรม ward 9B2/NICU | Pinned continuously by `test/verify-kcmh-constants.cjs` and `test/verify-kcmh-factor.cjs`, which hold an **independent transcription** of the worksheet's formula chain | harness | on any worksheet revision | 🟢 machine-checked |
-| `TPN_TARGETS` | ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Clin Nutr 2018) | Not independently re-checked since first entry | — | **propose annually** | 🟡 sourced, unreviewed |
+| `TPN_TARGETS` | ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Clin Nutr 2018) | **2026-08-27** — amino-acid, electrolyte/mineral ranges reviewed; growing-premature P corrected to 50–108 mg/kg/day. This is a code/source review, not local formulary approval | Codex clinical safety review | **2027-08-27 or next guideline revision** | 🟡 source-checked; local governance pending |
 | `ENTERAL_TARGETS` | ESPGHAN Committee on Nutrition 2022 (JPGN 2022) · WHO 2023 Preterm Feeding Guidelines | Not independently re-checked since first entry | — | **propose annually** | 🟡 sourced, unreviewed |
 | `EN_DB` (feed/formula composition) | Chula Handbook §3 per-100 mL table; BOX 1.3.1 for term mature milk. Corrected 2026-05-28 | Partially — several entries carry an inline *"verify with actual product label at KCMH"* | — | **on any product change** | 🟡 mixed. Product labels change without notice |
 | `MAX_DEXTROSE_G_KG`, `MAX_K_MEQ_PER_L` | The KCMH sheet's own hard safety ceilings | — | — | on worksheet revision | 🟡 |

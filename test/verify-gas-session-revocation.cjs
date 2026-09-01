@@ -11,7 +11,9 @@
 // The fix re-reads the Staff row inside verifyToken, behind a 60s cache
 // (_getStaffRowCached) so it costs one read per user per minute rather than
 // one per authenticated request. This pins both halves: that revocation
-// actually happens, and that the caching actually caches.
+// actually happens, that the caching actually caches, and that role handling
+// fails closed. A blank or misspelled Staff role must never be promoted to a
+// clinical role or retain read access to the registry.
 //
 // These changes were recovered from an uncommitted working copy with no known
 // author and no test coverage (see the commit message on this branch), so this
@@ -164,6 +166,24 @@ sandbox.verifyToken(token);
 staffRows = [['doc@hospital.th', 'doctor', 'Doctor Renamed', true, 'h', 's', false, '']];
 cacheStore.delete('staffrc_doc@hospital.th');
 eq('rename reaches the session',     sandbox.verifyToken(token)?.name, 'Doctor Renamed');
+
+// A role is an authorization value, not presentation metadata. Blank and
+// unknown values must revoke an existing session rather than defaulting to
+// `doctor` (blank) or flowing through to read-only PHI access (unknown).
+console.log('\n── invalid roles fail closed ──');
+reset([['blank@hospital.th', '', 'Blank Role', true, 'h', 's', false, '']]);
+token = sandbox.createSession('blank@hospital.th', 'doctor', 'Blank Role', false);
+eq('blank role is refused',           sandbox.verifyToken(token), null);
+ok('blank-role session is evicted',   !cacheStore.has('sess_' + token));
+
+reset([['typo@hospital.th', 'docter', 'Typo Role', true, 'h', 's', false, '']]);
+token = sandbox.createSession('typo@hospital.th', 'doctor', 'Typo Role', false);
+eq('unknown role is refused',         sandbox.verifyToken(token), null);
+ok('unknown-role session is evicted', !cacheStore.has('sess_' + token));
+
+eq('canonical role is normalized',    sandbox._staffRole(' Nurse '), 'nurse');
+eq('blank role normalizes to null',   sandbox._staffRole(''), null);
+eq('unknown role normalizes to null', sandbox._staffRole('pharmacist'), null);
 
 // ── 4. A deleted staff row revokes ────────────────────────────────────────
 console.log('\n── a removed staff row revokes ──');

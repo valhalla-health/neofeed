@@ -83,8 +83,13 @@ const patient = { sessionId: 'F-1', name: 'T', currentBed: '9B2', diagnosis: '-'
 
 act(() => {
   root.render(React.createElement(window.Calculator, {
-    patient, dol: 5, editEntry: null, baselineEntry: null,
-    logDate: '2026-08-06', onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
+    patient, dol: 5,
+    // The production UI deliberately withholds actionable print output until
+    // a save has returned a stable entryId. This arithmetic harness supplies
+    // a saved shell row so it can continue reading the real print form.
+    editEntry: { entryId: 'fixture-entry', lastModified: 'fixture-stamp', ts: '2026-08-06', dol: 5, weight: 0, calcInput: {} },
+    baselineEntry: null, logDate: null,
+    onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
   }));
 });
 act(() => {

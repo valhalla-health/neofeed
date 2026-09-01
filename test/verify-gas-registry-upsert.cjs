@@ -68,7 +68,14 @@ const EXISTING = ['FO-1','Fo','Fo',2025,33.1,'girls','2026-07-01','2026-08-01','
 let sheet = null;
 const sandbox = {
   SpreadsheetApp: { openById: () => ({ getSheetByName: () => sheet, insertSheet: () => sheet }) },
-  Utilities: { getUuid: () => 'uuid', computeHmacSha256Signature: () => [], base64Encode: () => '' },
+  // formatDate/Session are what _fmtDate reaches for when a dob cell comes back
+  // as a Date object, which is what real getValues() returns for a date-formatted
+  // column — the collision guard compares dob, so that path has to be exercised.
+  Utilities: {
+    getUuid: () => 'uuid', computeHmacSha256Signature: () => [], base64Encode: () => '',
+    formatDate: (d) => new Date(d).toISOString().slice(0, 10),
+  },
+  Session: { getScriptTimeZone: () => 'Asia/Bangkok' },
   PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'sheet-id', setProperty() {} }) },
   CacheService: { getScriptCache: () => ({ get: () => null, put() {}, remove() {} }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
@@ -125,6 +132,70 @@ console.log('\n── _sheetSafe still applied ──');
 sheet = makeSheet(PAT_HEADER.slice(0, 17), [EXISTING.slice(0, 17)], 17);
 sandbox.registerPatient({ ...patient, diagnosis: '=IMPORTXML("evil","//a")' });
 ok('leading = is escaped', String(sheet.writes[0]?.values[0][11]).startsWith("'="));
+
+// ── 5. sessionId collision guard ──────────────────────────────────────────
+// sessionId is initials+BW+twinSuffix, so two unrelated infants sharing both
+// generate the same id and the upsert above would overwrite the first one and
+// merge two Daily_Log histories. These pin that the guard refuses that write
+// WITHOUT breaking the ordinary edit path, which runs through the same call.
+console.log('\n── sessionId collision guard ──');
+
+// (a) A fresh registration landing on an existing id IS the collision.
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+threw = null;
+try { sandbox.registerPatient(patient, true); } catch (e) { threw = e.message; }
+ok('isNew onto an existing id throws',  threw !== null);
+ok('message names the duplicate id',    String(threw).indexOf('FO-1') >= 0);
+eq('nothing written on refusal',        sheet.writes.length, 0);
+eq('nothing appended on refusal',       sheet.appended.length, 0);
+
+// (b) Editing the same infant must still write in place — bed/dx/status
+//     updates go through this exact call and must not be caught by the guard.
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+threw = null;
+try { sandbox.registerPatient({ ...patient, currentBed: 'NICU 3' }); } catch (e) { threw = e.message; }
+eq('editing the same infant does not throw', threw, null);
+eq('edit still writes in place',             sheet.writes.length, 1);
+
+// (c) A different dob means a different infant, caught even with no isNew —
+//     an older frontend that predates the flag still gets the protection.
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+threw = null;
+try { sandbox.registerPatient({ ...patient, dob: '2026-07-09' }); } catch (e) { threw = e.message; }
+ok('dob mismatch throws without isNew', threw !== null);
+eq('no write on dob mismatch',          sheet.writes.length, 0);
+
+// (d) A PDPA-erased row has a blank dob (pseudonymizePatient clears it), so
+//     there is nothing left to compare — the upsert proceeds rather than
+//     locking the row out of all future edits.
+const ERASED = EXISTING.slice(); ERASED[6] = '';
+sheet = makeSheet(PAT_HEADER, [ERASED], 26);
+threw = null;
+try { sandbox.registerPatient(patient); } catch (e) { threw = e.message; }
+eq('blank stored dob still upserts', threw, null);
+eq('erased row written in place',    sheet.writes.length, 1);
+
+// (e) A Date-valued dob cell compares correctly, not by object identity.
+const DATEROW = EXISTING.slice(); DATEROW[6] = new Date(Date.UTC(2026, 6, 1));
+sheet = makeSheet(PAT_HEADER, [DATEROW], 26);
+threw = null;
+try { sandbox.registerPatient({ ...patient, dob: '2026-07-09' }); } catch (e) { threw = e.message; }
+ok('Date-valued stored dob still compares', threw !== null);
+
+// (f) A genuinely new id is untouched by the guard.
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+sandbox.registerPatient({ ...patient, sessionId: 'NEW-2' }, true);
+eq('a genuinely new id still appends', sheet.appended.length, 1);
+
+// (g) The helper itself.
+eq('same dob + edit → no conflict',
+   sandbox._sessionIdConflict(EXISTING, patient, false), null);
+ok('same dob + isNew → conflict',
+   !!sandbox._sessionIdConflict(EXISTING, patient, true));
+ok('dob mismatch → conflict',
+   !!sandbox._sessionIdConflict(EXISTING, { ...patient, dob: '2026-01-01' }, false));
+eq('blank incoming dob → no conflict',
+   sandbox._sessionIdConflict(EXISTING, { ...patient, dob: '' }, false), null);
 
 console.log(`\n${fail === 0 ? 'GAS REGISTRY UPSERT: ALL PASS' : `GAS REGISTRY UPSERT: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

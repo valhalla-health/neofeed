@@ -24,6 +24,22 @@ const readAckedMap = (sessionId) => {
   catch { return {}; }
 };
 
+// Return only an entry strictly earlier than the intended order date. This is
+// important for back-filling: the most recent row overall may be from the
+// future relative to the clinical day being documented.
+function previousLogEntry(entries, targetDate) {
+  const target = D_A.normalizeDateStr(targetDate);
+  if (!target) return null;
+  return (entries || [])
+    .filter(entry => {
+      const entryDate = D_A.normalizeDateStr(entry?.ts);
+      return entryDate && entryDate < target;
+    })
+    .slice()
+    .sort((a, b) => D_A.normalizeDateStr(a.ts).localeCompare(D_A.normalizeDateStr(b.ts)))
+    .slice(-1)[0] || null;
+}
+
 // Single source of truth for "what alerts does this patient currently have" —
 // used by the AlertCenter page, the nav-rail/bottom-nav badge count, and the
 // admin dashboard's "Active alerts" tile. Previously each of those three had
@@ -493,8 +509,23 @@ function App() {
     setPatients(prev => [p, ...prev]);
     setActiveId(p.sessionId);
     if (GAS_ON) {
-      gasPost({ action: "registerPatient", patient: p })
+      // isNew tells the backend this is a registration, not an edit, so its
+      // sessionId collision guard can refuse a second infant landing on an
+      // existing id (same initials + same birth weight) instead of silently
+      // overwriting the first one. See _sessionIdConflict in gas-backend.gs.
+      gasPost({ action: "registerPatient", patient: p, isNew: true })
         .then(res => {
+          // An explicit server refusal is NOT the offline case: the registry
+          // rejected this patient, so roll the optimistic insert back rather
+          // than leaving a row on screen that no sheet ever accepted. gasPost
+          // has already toasted the reason. A network failure has no .error
+          // and still falls through to the "local only" path below, which is
+          // the pre-existing offline behaviour and stays unchanged.
+          if (res.error) {
+            setPatients(prev => prev.filter(x => x !== p));
+            setActiveId(prev => (prev === p.sessionId ? null : prev));
+            return;
+          }
           showToast(`Session ${p.sessionId} registered${res.ok ? " → GAS" : " (local only — check connection)"}`);
         });
     } else {
@@ -534,12 +565,21 @@ function App() {
 
   // ── Weight update (from Fenton chart logger) ──────────────────
   const handleWeightUpdate = (sessionId, weights) => {
+    const previousWeights = patients.find(p => p.sessionId === sessionId)?.weights || [];
     setPatients(prev => prev.map(p =>
       p.sessionId === sessionId ? { ...p, weights } : p
     ));
     if (GAS_ON) {
-      gasPost({ action: "updateWeights", sessionId, weights });
-      // weight saves are silent on success; errors surface via gasPost's error toast
+      gasPost({ action: "updateWeights", sessionId, weights }).then(res => {
+        if (res.ok) return;
+        // Do not leave an unsaved measurement looking authoritative. Only roll
+        // this exact optimistic update back; a newer edit must win if one was
+        // made while the failed request was in flight.
+        setPatients(prev => prev.map(p =>
+          p.sessionId === sessionId && p.weights === weights ? { ...p, weights: previousWeights } : p
+        ));
+      });
+      // Weight saves are silent on success; errors surface via gasPost's toast.
     }
   };
 
@@ -942,8 +982,8 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   // wrong DOL every time it is edited, and the wizard's DOL-indexed targets
   // are computed for the wrong day.
   const displayDol = editEntry ? D_A.entryDol(active, editEntry) : (logDate ? D_A.dolAtDate(active, logDate) : dol);
-  const baselineEntry = !editEntry ? (log[activeId] || []).slice(-1)[0] || null : null;
   const lockDate = editEntry ? editEntry.ts : (logDate || D_A.todayLocal());
+  const baselineEntry = !editEntry ? previousLogEntry(log[activeId] || [], lockDate) : null;
   const holder = useDailyLogLock(active.sessionId, lockDate, token);
 
   return (
@@ -1817,7 +1857,7 @@ function GuidelinesPanel() {
                 ))}
               </div>
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
-                Peditrace® 1–2 mL/kg/day covers Zn, Cu, Se, Mn, I.
+                Peditrace® 1 mL/kg/day (maximum 15 mL/day) covers Zn, Cu, Se, Mn, I.
                 Vitalipid N Infant: BW {'<'}2.5 kg → 4 mL/kg · BW ≥2.5 kg → 10 mL/day (lipid bag).
                 Soluvit N: 1 mL/kg/day (aqueous bag).
               </div>

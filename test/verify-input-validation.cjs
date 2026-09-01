@@ -102,7 +102,7 @@ doesNotThrow('boundary value passes',      () => sandbox._checkRange(100, 0, 100
 doesNotThrow('empty string is skipped',    () => sandbox._checkRange('', 0, 100, 'x'));
 doesNotThrow('null is skipped',            () => sandbox._checkRange(null, 0, 100, 'x'));
 doesNotThrow('undefined is skipped',       () => sandbox._checkRange(undefined, 0, 100, 'x'));
-doesNotThrow('non-numeric garbage skipped (left to _numSafe)', () => sandbox._checkRange('=IMPORTXML(1)', 0, 100, 'x'));
+throws('non-numeric garbage is rejected', () => sandbox._checkRange('=IMPORTXML(1)', 0, 100, 'x'));
 const msg = throws('over-max value throws', () => sandbox._checkRange(400, 0, 100, 'BP (mmHg)'));
 ok('error message names the field and value', /BP \(mmHg\).*400/.test(msg));
 throws('under-min value throws', () => sandbox._checkRange(-5, 0, 100, 'x'));
@@ -124,8 +124,16 @@ doesNotThrow('a plausible extreme-preterm registration still saves',
 eq('plausible registration reached the sheet', sheet.appended.length, 1);
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-doesNotThrow('missing bw/ga (not yet known at admission) does not block save',
+throws('missing BW/GA cannot create a dose-bearing patient record',
   () => sandbox.registerPatient({ sessionId: 'X-4', name: 'N', initials: 'N' }));
+
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+throws('GA day digit above 6 is rejected',
+  () => sandbox.registerPatient({ ...patient, sessionId: 'X-5', ga: 27.9 }));
+
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+throws('GA with more than one decimal place is rejected',
+  () => sandbox.registerPatient({ ...patient, sessionId: 'X-6', ga: 27.25 }));
 
 // ── 3. _buildLogRow (shared by create + update) rejects implausible entries ─
 console.log('\n── _buildLogRow() plausibility guard ──');
@@ -135,6 +143,12 @@ throws('DOL=0 rejected (must be ≥1)',
   () => sandbox._buildLogRow('FO-1', { dol: 0, weight: 1300 }, 'nurse@x'));
 throws('weight=50 g rejected (below any live infant)',
   () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 50 }, 'nurse@x'));
+throws('missing DOL is rejected',
+  () => sandbox._buildLogRow('FO-1', { weight: 1300 }, 'nurse@x'));
+throws('missing weight is rejected',
+  () => sandbox._buildLogRow('FO-1', { dol: 5 }, 'nurse@x'));
+throws('a non-numeric nutrition value is rejected, not silently changed to zero',
+  () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300, fluid: 'not-a-number' }, 'nurse@x'));
 doesNotThrow('a plausible daily entry still builds',
   () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300, fluid: 150, gir: 8, na: 3 }, 'nurse@x'));
 doesNotThrow('optional supplement fields left empty do not block the entry',

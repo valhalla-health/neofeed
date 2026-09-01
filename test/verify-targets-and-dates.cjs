@@ -89,6 +89,15 @@ for (const dol of [1, 2, 3, 4, 5, 6, 7, 8, 14, 30]) {
 eq('K 1.0 mEq/kg/d on DOL 5 is on target', D.rangeStatus(1.0, D.TPN_TARGETS.k(5)), 'ok');
 eq('K 1.0 mEq/kg/d on DOL 10 is off target', D.rangeStatus(1.0, D.TPN_TARGETS.k(10)), 'warn');
 
+// Growing-premature PN phosphorus is 1.6–3.5 mmol/kg/day. At 31 mg/mmol,
+// that is approximately 50–108 mg/kg/day; the previous [46,62] range was an
+// older/narrower band and could tell a clinician to reduce a recommended dose.
+console.log('\n── #3b growing-premature PN phosphorus target (Mihatsch 2018) ──');
+eq('TPN P, DOL 1 stays in the early-PN band', D.TPN_TARGETS.p(1), [31, 62]);
+eq('TPN P, growing premature is 1.6–3.5 mmol/kg/d', D.TPN_TARGETS.p(2), [50, 108]);
+eq('TPN_TARGETS.p and TARGETS.p agree for PN', D.TPN_TARGETS.p(10), D.TARGETS.p(10, false));
+eq('80 mg/kg/d P is on target for growing PN', D.rangeStatus(80, D.TPN_TARGETS.p(10)), 'ok');
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Issue #2 — route-aware targets: a PN infant is never held to enteral numbers
 // ─────────────────────────────────────────────────────────────────────────────
