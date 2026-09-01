@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Eighteen Node scripts. Two check the TPN calculator against the **official KCMH
+Nineteen Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -37,7 +37,11 @@ staleness banner: offline outranks a sync error, a failure one second ago is not
 clock that jumps backwards must not read as fresh. The eighteenth pins the 2026-08-26
 Current-weight / TPN-calc-weight split in Step 1: the calc weight floors at birth weight until
 regained, tracks current weight automatically once it clears it, re-floors if weight drops back
-down, and the Daily_Log `weight` column stays the actual entered weight throughout.
+down, and the Daily_Log `weight` column stays the actual entered weight throughout. The nineteenth pins the two items acted on from
+the **Nutrition Unit's AUG 2026 review** — that every salt caption states the mEq→mL conversion it
+performs and separates compounded from delivered, and that the oral Ca/P timing advisory appears
+exactly when both are ordered. It is the only harness here whose subject is **legibility rather
+than arithmetic**: what it guards against is a correct number being read as a wrong one.
 
 ## Running
 
@@ -60,7 +64,8 @@ node test/verify-sync-freshness.cjs
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
-`verify-delete-session.cjs` and `verify-forced-password-client.cjs` are the only things
+`verify-delete-session.cjs`, `verify-forced-password-client.cjs` and
+`verify-nutrition-unit-review.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
 has no build step. Dependencies are dev-only
@@ -81,6 +86,7 @@ node test/verify-patient-ga-bw-edit.cjs
 node test/verify-delete-session.cjs
 node test/verify-forced-password-client.cjs
 node test/verify-tpn-calc-weight.cjs
+node test/verify-nutrition-unit-review.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -418,6 +424,41 @@ actually measured at. A patient with no birth weight on record never floors
 `calcInput.wtG` with no `curWtG` key, the only shape that existed before this
 split — must land in Current weight and then re-derive TPN calc. weight from
 it and the patient's `bw`, not silently show 0.
+**`verify-nutrition-unit-review.cjs`** — the two items acted on from the
+Nutrition Unit's AUG 2026 review, and the only harness here whose subject is
+**legibility rather than arithmetic**.
+
+Every salt row's caption used to be a bare `→ {solVol} mL/d`, sitting directly
+under an input in mEq/kg. For Glycophos and KCl the two numbers land almost on
+top of each other — an order of 3 mEq/kg renders a caption of `3.2 mL/d` — so
+the arrow reads as "3 mL becomes 3.2 mL after dead space". The Nutrition Unit
+read it that way and filed a phosphorus formula error against it: from
+`3 → 3.2 mL` they computed P = 3 × 31 = 93 mg/day and asked why the app showed
+47 mg/kg/d.
+
+The arithmetic was never wrong. The Glycophos input is **mEq Na/kg/day, not mL**
+(`calculator.jsx` renders `glycophosP * 2` and stores `v / 2`), so an entered 3
+is 1.5 mL/kg/day and 1.5 × 31 = 46.5 → "47". Their 93 mg is the right answer for
+a different prescription — 3 mL/kg/day, i.e. double the Na actually ordered.
+Nothing miscalculated; the caption made the misreading available.
+
+So what is pinned is that each caption **states the conversion it performs** and
+**separates what pharmacy compounds from what reaches the infant**. Expected
+strings are computed from an independent transcription of the chain, the same
+two-implementations rule `verify-kcmh-factor.cjs` follows, against that report's
+own case (1.8 kg, 162 mL bag, 30 mL dead space). It also pins that both
+phosphorus sources report P the same way — before this, only Glycophos did — and
+carries a canary on the three arrow captions deliberately left in the old form
+(MgSO₄, which changes when their slide 5 lands; Ca gluconate, whose input is
+already mg/kg; and the heparin hint, which states both units either side of the
+arrow), so a *new* bare-arrow caption under a mEq/kg input trips it.
+
+Section 3 is their slide 8: oral calcium and phosphate bind each other in the
+gut lumen, so the doses must be separated in time — a fact no daily total can
+express. The advisory must appear when, and only when, both are ordered.
+
+Checked the way the session-revocation harness was: run against the pre-edit
+`calculator.jsx` it fails 14 of its 20 assertions.
 
 ## Note on the source workbook
 

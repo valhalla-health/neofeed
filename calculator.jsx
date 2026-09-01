@@ -1471,18 +1471,38 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 4 }}>Na (mEq/kg)</div>
               <SaltRow label={S.naCl.label} note={`${S.naCl.naMeqPerMl} mEq Na/mL`} perKg={naCl} onChange={setNaCl} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={naCl} onSelect={setNaCl} />
-              {calc.solVol.naCl > 0 && <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>→ {calc.solVol.naCl} mL/d</div>}
+              {calc.solVol.naCl > 0 && (
+                <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
+                  {fmt(naCl, 1)} mEq Na/kg/d = {fmt(naCl / S.naCl.naMeqPerMl, 2)} mL/kg/d
+                  <div style={{ color:"var(--ink-3)" }}>
+                    เตรียม {fmt(calc.solVol.naCl, 1)} mL/d
+                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(naCl / S.naCl.naMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.naCl - naCl / S.naCl.naMeqPerMl * wtKg, 1)} mL`}
+                  </div>
+                </div>
+              )}
 
               <SaltRow label={S.naAcetate.label} note={`metabolic acidosis · ${S.naAcetate.naMeqPerMl} mEq Na/mL`} perKg={naAcet} onChange={setNaAcet} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={naAcet} onSelect={setNaAcet} />
-              {calc.solVol.naAcet > 0 && <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>→ {calc.solVol.naAcet} mL/d</div>}
+              {calc.solVol.naAcet > 0 && (
+                <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
+                  {fmt(naAcet, 1)} mEq Na/kg/d = {fmt(naAcet / S.naAcetate.naMeqPerMl, 2)} mL/kg/d
+                  <div style={{ color:"var(--ink-3)" }}>
+                    เตรียม {fmt(calc.solVol.naAcet, 1)} mL/d
+                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(naAcet / S.naAcetate.naMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.naAcet - naAcet / S.naAcetate.naMeqPerMl * wtKg, 1)} mL`}
+                  </div>
+                </div>
+              )}
 
               <SaltRow label="Glycophos®" note="Na input mEq/kg · 1 mL = 2 mEq Na, P 31 mg/mL"
                 perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)} wtKg={wtKg} unit="mEq Na/kg" />
               <PresetChips values={[1, 2, 3, 4]} current={glycophosP * 2} onSelect={(v) => setGlycophosP(v / 2)} />
               {glycophosP > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
-                  → {fmt(calc.solVol.glycophos,1)} mL/d · P {fmt(glycophosP*31,0)} mg/kg/d
+                  {fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d
+                  <div style={{ color:"var(--ink-3)" }}>
+                    เตรียม {fmt(calc.solVol.glycophos, 1)} mL/d
+                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(glycophosP * wtKg, 1)} + คาสาย ${fmt(calc.solVol.glycophos - glycophosP * wtKg, 1)} mL`}
+                  </div>
                 </div>
               )}
 
@@ -1490,11 +1510,27 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "12px 0 4px" }}>K (mEq/kg)</div>
               <SaltRow label={S.kCl.label} note={`${S.kCl.kMeqPerMl} mEq K/mL`} perKg={kCl} onChange={setKCl} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={kCl} onSelect={setKCl} />
-              {calc.solVol.kCl > 0 && <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>→ {calc.solVol.kCl} mL/d</div>}
+              {calc.solVol.kCl > 0 && (
+                <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
+                  {fmt(kCl, 1)} mEq K/kg/d = {fmt(kCl / S.kCl.kMeqPerMl, 2)} mL/kg/d
+                  <div style={{ color:"var(--ink-3)" }}>
+                    เตรียม {fmt(calc.solVol.kCl, 1)} mL/d
+                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(kCl / S.kCl.kMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.kCl - kCl / S.kCl.kMeqPerMl * wtKg, 1)} mL`}
+                  </div>
+                </div>
+              )}
 
               <SaltRow label="K₂HPO₄" note="1 mEq K/mL · P 15.5 mg/mEq K" perKg={k2hpo4} onChange={setK2HPO4} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={k2hpo4} onSelect={setK2HPO4} />
-              {calc.solVol.k2hpo4 > 0 && <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>→ {calc.solVol.k2hpo4} mL/d</div>}
+              {calc.solVol.k2hpo4 > 0 && (
+                <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
+                  {fmt(k2hpo4, 1)} mEq K/kg/d = {fmt(k2hpo4 / S.k2hpo4.kMeqPerMl, 2)} mL/kg/d · P {fmt(k2hpo4 * S.k2hpo4.pMgPerKMeq, 0)} mg/kg/d
+                  <div style={{ color:"var(--ink-3)" }}>
+                    เตรียม {fmt(calc.solVol.k2hpo4, 2)} mL/d
+                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(k2hpo4 / S.k2hpo4.kMeqPerMl * wtKg, 2)} + คาสาย ${fmt(calc.solVol.k2hpo4 - k2hpo4 / S.k2hpo4.kMeqPerMl * wtKg, 2)} mL`}
+                  </div>
+                </div>
+              )}
 
               {/* ── Mg · Ca ── */}
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "12px 0 4px" }}>Mg (mEq/kg) · Ca (mg/kg)</div>
@@ -1693,6 +1729,13 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                     : `ESPGHAN 2022 target: 2.2–3.7 mmol/kg/day (~68–115 mg/kg/day) · ${D.SUPP_DB[suppPO4Type]?.note || ""}`;
                 })()} />
               <PresetChips values={[30, 40, 60]} current={suppPO4} onSelect={setSuppPO4} />
+              {/* Nutrition Unit AUG2026 slide 8 — oral Ca and P bind each other in the
+                  gut lumen, so the doses have to be separated in time, not just totalled. */}
+              {suppCa > 0 && suppPO4 > 0 && (
+                <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3 }}>
+                  ⚠ ให้ทั้ง Ca และ P — บริหารยาคนละเวลา หรือห่างกันอย่างน้อย 1 ชั่วโมง
+                </div>
+              )}
 
               {/* Vitamin D */}
               <div className="sub-h" style={{ marginTop: 14 }}>Vitamin D drops</div>
