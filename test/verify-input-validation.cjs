@@ -164,5 +164,65 @@ doesNotThrow('a plausible growth-chart update still saves',
   () => sandbox.updateWeights('FO-1', [{ dol: 1, w: 1200 }, { dol: 10, w: 1350 }]));
 eq('plausible weights array written', sheet.writes.length, 1);
 
+// updateWeights used to return undefined (a silent no-op) on an unknown
+// sessionId, and no lock guarded the read-modify-write — see CODE_REVIEW_
+// 2026-08-18.md B4 / BACKLOG.md. Fixed 2026-09-04: it now takes the same
+// LockService lock every other Patient_Registry write in this file takes,
+// and reports a miss instead of doing nothing silently.
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+const missResult = sandbox.updateWeights('DOES-NOT-EXIST', [{ dol: 1, w: 1200 }]);
+ok('unknown sessionId returns an error, not a silent no-op', !!(missResult && missResult.error));
+eq('nothing written for an unknown sessionId', sheet.writes.length, 0);
+
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+const okResult = sandbox.updateWeights('FO-1', [{ dol: 1, w: 1200 }, { dol: 10, w: 1350 }]);
+ok('a real sessionId returns {ok:true}', !!(okResult && okResult.ok));
+
+// ── 6. logDailyNutrition takes a lock like every sibling write ─────────────
+// It was the one write path in gas-backend.gs with no LockService call at
+// all — two devices submitting the same patient's first entry of a day had
+// no mutual exclusion whatsoever. Fixed 2026-09-04; pin that the lock is
+// actually taken, and released on both the happy path and a thrown
+// validation error (a missing `finally` would hold the lock for its full
+// timeout on every rejected save).
+console.log('\n── logDailyNutrition() concurrency lock ──');
+{
+  const noopLock = sandbox.LockService;
+  let waited = 0, released = 0;
+  sandbox.LockService = { getScriptLock: () => ({ waitLock() { waited++; }, releaseLock() { released++; } }) };
+
+  sheet = makeSheet(['ts','sessionId','dol','weight','fluid'], [], 31);
+  sandbox.logDailyNutrition('FO-1', { dol: 5, weight: 1300, fluid: 150 }, 'nurse@x');
+  eq('happy path takes the script lock once', waited, 1);
+  eq('happy path releases the script lock', released, 1);
+
+  waited = 0; released = 0;
+  sheet = makeSheet(['ts','sessionId','dol','weight','fluid'], [], 31);
+  throws('an implausible entry is still rejected under the lock',
+    () => sandbox.logDailyNutrition('FO-1', { dol: 5, weight: 1300, fluid: 99999 }, 'nurse@x'));
+  eq('lock still taken on the path that throws', waited, 1);
+  eq('lock still released on the path that throws', released, 1);
+
+  sandbox.LockService = noopLock;
+}
+
+// ── 7. _buildLogRow's entry.ts fallback is ward-local, not UTC ─────────────
+// new Date().toISOString().slice(0,10) mis-dated any save landing 00:00-06:59
+// ICT (the whole night shift) as the previous calendar day — 02:00 ICT is
+// 19:00 UTC the day before. Fixed 2026-09-04 via _todayWardLocal_().
+console.log('\n── _buildLogRow() night-shift date fallback ──');
+{
+  const RealDate = Date;
+  class FrozenDate extends RealDate {
+    constructor(...a) { return a.length ? new RealDate(...a) : new RealDate('2026-08-08T19:00:00Z'); }
+    static now() { return new RealDate('2026-08-08T19:00:00Z').getTime(); }
+  }
+  sandbox.Date = FrozenDate;
+  // 2026-08-08T19:00:00Z = 2026-08-09 02:00 ICT.
+  const row = sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300 }, 'nurse@x');
+  eq('02:00 ICT falls back to the ward-local day, not the UTC day', row[0], '2026-08-09');
+  sandbox.Date = RealDate;
+}
+
 console.log(`\n${fail === 0 ? 'INPUT VALIDATION: ALL PASS' : `INPUT VALIDATION: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

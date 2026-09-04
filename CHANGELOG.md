@@ -13,6 +13,68 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-04 — four confirmed defects fixed after an independent external review
+
+An external reviewer's critique of an earlier same-day improvement-spec draft was itself checked
+against the live source (not re-trusted from prose) — see `IMPROVEMENT_SPEC_2026-09-04.md`. That
+pass confirmed several `BACKLOG.md`/`CODE_REVIEW_2026-08-18.md` findings precisely and surfaced two
+more with source-level detail. Scoped narrowly to defects with no clinical judgement required —
+the stock-concentration, Fenton-verification, `TARGETS.fluid`, and `registerPatient`-collision
+items all still need Praew's decision and are untouched here.
+
+- **`calculator.jsx` — `SaltRow` no longer accepts a negative electrolyte dose.** Its input regex
+  allowed `-` where `NumField`'s deliberately does not (`BACKLOG.md`/`CODE_REVIEW_2026-08-18.md`).
+  The server's plausibility guard only range-checks the *aggregate* na/k/ca/p total, not each salt
+  row's own value, so a negative single-row entry that nets out in the sum would still reach the
+  printed order line unvalidated — this had to be caught at the input, matching `NumField`'s
+  existing pattern exactly (strip `-` from the allowed charset, don't clamp after the fact).
+- **`gas-backend.gs` — `logDailyNutrition` (create) now takes the same `LockService` lock every
+  sibling write already does.** It was the one write path in the file with no lock at all —
+  `updateDailyNutrition`, `deleteDailyNutrition`, `deletePatient` and `registerPatient` all wrap
+  their read-modify-write in `LockService.getScriptLock()`; the create path didn't, so two devices
+  submitting the same patient's first entry of a day had no mutual exclusion whatsoever. The lock
+  alone does not add the "one row per patient per date" business rule — that's still the separate,
+  larger `BACKLOG.md` § Next item, which needs a lock to be race-free but also needs a product
+  decision about how a collision should behave (reject vs. redirect into edit).
+- **`gas-backend.gs` — `updateWeights` now takes a lock and reports a miss.** Confirmed exactly as
+  `CODE_REVIEW_2026-08-18.md` B4 described: no `LockService` call, and a `sessionId` matching
+  nothing silently returned `undefined`. Now locked like `registerPatient`/`deletePatient`, and
+  returns `{error}` on a miss instead of nothing — `doPost`'s `updateWeights` dispatch was also
+  unconditionally returning `{ok: true}` regardless of what the function did, so that dispatch now
+  checks the result the same way `updateDailyNutrition`'s already does.
+- **`gas-backend.gs` — `_buildLogRow`'s missing-`entry.ts` fallback is ward-local, not UTC.** It
+  used to fall back to `new Date().toISOString().slice(0, 10)` — pure UTC. 02:00 ward-local
+  (Asia/Bangkok, UTC+7) is 19:00 UTC the *previous* day, so any save reaching this fallback during
+  00:00–06:59 ward-local — the whole night shift — was dated one calendar day early. Only fires
+  when the client omits `entry.ts` (the normal path is unaffected), but `BACKLOG.md`'s "Carried
+  over, unverified" section had flagged this exact line since the May doc and it had never been
+  re-checked. Fixed via a new dependency-free `_todayWardLocal_()` next to the existing
+  `WARD_UTC_OFFSET_MIN`/`_isoWeekKeyLocal_` (chose that over routing through `_fmtDate()`, which
+  depends on `Utilities.formatDate`/`Session.getScriptTimeZone` — neither mocked in any test
+  harness today, so reusing it would have required new test-infrastructure changes for a one-line
+  fallback fix).
+
+### Verification
+
+TDD'd red-first per this repo's convention: all seven new assertions (three in
+`test/verify-input-validation.cjs` for `updateWeights`'s miss case, four across two new sections
+for `logDailyNutrition`'s lock — taken, released, and released again on the path that throws — and
+the night-shift fallback) were confirmed failing against the pre-fix source, then passing after.
+One more in `test/verify-nutrition-unit-review.cjs` (added there, not `verify-input-validation.cjs`,
+because it needs the real mounted `<Calculator>` to drive `SaltRow`'s own input handler) was
+confirmed the same way. Full suite re-run, including the two npm-dependent groups installed on
+demand per `test/README.md` (`@babel/core`/`jsdom` for the jsdom-mounted harnesses,
+`playwright` for `runthrough-app.cjs`): all 18 Node harnesses pass.
+`runthrough-app.cjs` (the one real-browser walkthrough) fails at the login step in this specific
+sandbox — confirmed via `git stash` that the identical failure exists against the unmodified source
+too, so it predates and is unrelated to this session's changes; not investigated further here.
+
+Frontend/backend changes on a feature branch, not deployed — `STATUS.md` is unaffected. The two
+`BACKLOG.md` lines these close (`SaltRow` negative doses, `updateWeights` lock) stay in `BACKLOG.md`
+until this lands on `main`, per this file's own definition-of-done rule.
+
+---
+
 ## Session 2026-08-26 (2) — split Step 1's weight field: current weight vs. TPN calc. weight
 
 Ward request: Step 1 had one "Current weight" field feeding every dose calculation directly, with

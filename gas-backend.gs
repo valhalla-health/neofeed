@@ -698,7 +698,8 @@ function doPost(e) {
     }
     if (action === "updateWeights") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
-      updateWeights(body.sessionId, body.weights);
+      var uwResult = updateWeights(body.sessionId, body.weights);
+      if (uwResult && uwResult.error) return jsonOut({ error: uwResult.error });
       return jsonOut({ ok: true });
     }
     if (action === "changePassword") {
@@ -902,7 +903,7 @@ function _validateWeightsArray(weights) {
 function _buildLogRow(sessionId, entry, submittedBy) {
   _validateLogEntry(entry);
   return [
-    _sheetSafe(entry.ts || new Date().toISOString().slice(0, 10)),
+    _sheetSafe(entry.ts || _todayWardLocal_()),
     _sheetSafe(sessionId),
     _numSafe(entry.dol), _numSafe(entry.weight), _numSafe(entry.fluid),
     _numSafe(entry.gir), _numSafe(entry.pro),    _numSafe(entry.kcal),
@@ -948,17 +949,31 @@ function _ensureLogWidth(sheet, width) {
 }
 
 // ── logDailyNutrition (create) ─────────────────────────────────
+// Locked like every other Daily_Log/Patient_Registry write in this file
+// (updateDailyNutrition, deleteDailyNutrition, deletePatient, registerPatient)
+// — this was the one write path without it, which left two devices submitting
+// the same patient's first entry of a day free to both append with no mutual
+// exclusion at all. The lock alone does not add the "one row per patient per
+// date" business rule (tracked separately in BACKLOG.md) — it only makes this
+// function's own append atomic with respect to every other locked write, the
+// same guarantee its siblings already had.
 function logDailyNutrition(sessionId, entry, submittedBy) {
-  var entryId = Utilities.getUuid();
-  var lastModified = new Date().toISOString();
-  var row = _buildLogRow(sessionId, entry, submittedBy)
-    .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""])
-    .concat(_ioLogFields(entry))
-    .concat(_provenanceFields(entry));
-  var sheet = getSheetLog();
-  _ensureLogWidth(sheet, row.length);
-  sheet.appendRow(row);
-  return { entryId: entryId, lastModified: lastModified };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var entryId = Utilities.getUuid();
+    var lastModified = new Date().toISOString();
+    var row = _buildLogRow(sessionId, entry, submittedBy)
+      .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""])
+      .concat(_ioLogFields(entry))
+      .concat(_provenanceFields(entry));
+    var sheet = getSheetLog();
+    _ensureLogWidth(sheet, row.length);
+    sheet.appendRow(row);
+    return { entryId: entryId, lastModified: lastModified };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ── updateDailyNutrition (optimistic-locked update by entryId) ─
@@ -1356,15 +1371,27 @@ function registerPatient(p) {
 }
 
 // ── updateWeights ─────────────────────────────────────────────
+// Locked like every other Patient_Registry write in this file (registerPatient,
+// deletePatient) — this was the other write path missing both a lock and a
+// miss signal: two concurrent measurement submissions used to silently
+// last-write-win, and a sessionId that didn't match anything returned
+// `undefined` with no indication the write never happened.
 function updateWeights(sessionId, weights) {
   _validateWeightsArray(weights);
-  var sheet = getSheetPat();
-  var data  = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(sessionId)) {
-      sheet.getRange(i + 1, 13).setValue(JSON.stringify(weights));
-      return;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheetPat();
+    var data  = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(sessionId)) {
+        sheet.getRange(i + 1, 13).setValue(JSON.stringify(weights));
+        return { ok: true };
+      }
     }
+    return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -1440,6 +1467,21 @@ function logAudit(action, sessionId, actorEmail) {
 // Asia/Bangkok, which has had no DST since 1976 — a fixed offset is correct
 // here, not a simplification.
 var WARD_UTC_OFFSET_MIN = 7 * 60;
+
+// Ward-local ("Asia/Bangkok") calendar date for "now", as YYYY-MM-DD.
+// _buildLogRow's entry.ts fallback used to be new Date().toISOString().slice(0,10)
+// — pure UTC. 02:00 ward-local is 19:00 UTC the PREVIOUS day, so any save that
+// reaches this fallback (entry.ts omitted by the client) during 00:00–06:59
+// ward-local — the whole night shift — got dated one calendar day early.
+// Same WARD_UTC_OFFSET_MIN shift _isoWeekKeyLocal_ below already uses, kept
+// dependency-free (no Utilities.formatDate/Session, unlike _fmtDate) so it
+// needs no new test-harness mocks. Only ever used when the client omits
+// entry.ts — the normal path is the client's own already-correct local date.
+function _todayWardLocal_() {
+  var t = new Date(Date.now() + WARD_UTC_OFFSET_MIN * 60000);
+  var mm = t.getUTCMonth() + 1, dd = t.getUTCDate();
+  return t.getUTCFullYear() + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
+}
 
 // ISO-8601 week key ("2026-W34") for an instant, cut in WARD-LOCAL time.
 // Bucketing in UTC would file a Monday 06:00 ward round (= Sunday 23:00 UTC)
