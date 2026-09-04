@@ -96,6 +96,7 @@ function setField(labelText, value) {
     valueSetter.call(input, String(value));
     input.dispatchEvent(new window.Event('input', { bubbles: true }));
   });
+  return input;
 }
 const text = () => container.textContent.replace(/\s+/g, ' ');
 
@@ -184,6 +185,19 @@ setField('ปริมาณ elem P', 40);
 check('present when both ordered', ADV.test(text()));
 setField('ปริมาณ elem Ca', 0);
 check('absent again once Ca is removed', !ADV.test(text()));
+
+// ── SaltRow rejects a negative electrolyte dose (fixed 2026-09-04) ─────────
+// NumField already deliberately excludes '-' from its allowed charset (see
+// its own comment in calculator.jsx); SaltRow's regex allowed it, so a
+// mistyped negative dose reached calc() unclamped. The server's plausibility
+// guard (_checkRange, min 0 on na/k/ca/p) only ever sees the AGGREGATE total,
+// not this row's own value, so a negative single-salt entry that nets out in
+// the sum would still reach the printed order line unvalidated — this has to
+// be caught here, at the input.
+console.log('\n── SaltRow rejects a negative dose ──');
+const naclInput = setField('20% NaCl', '-3');
+check('a typed "-3" is not rendered with its minus sign', naclInput.value === '3', naclInput.value);
+setField('20% NaCl', 3); // restore the value the SALTS-table assertions above depend on
 
 console.log(fails === 0 ? '\nNUTRITION UNIT REVIEW: ALL PASS' : `\nNUTRITION UNIT REVIEW: ${fails} FAILURE(S)`);
 process.exit(fails ? 1 : 0);
