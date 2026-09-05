@@ -718,7 +718,8 @@ function doPost(e) {
     }
     if (action === "updateWeights") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
-      updateWeights(body.sessionId, body.weights);
+      var uwResult = updateWeights(body.sessionId, body.weights);
+      if (uwResult && uwResult.error) return jsonOut({ error: uwResult.error });
       return jsonOut({ ok: true });
     }
     if (action === "changePassword") {
@@ -991,16 +992,29 @@ function _ensureLogWidth(sheet, width) {
 }
 
 // ── logDailyNutrition (create) ─────────────────────────────────
+// Locked like every other Daily_Log/Patient_Registry write in this file
+// (updateDailyNutrition, deleteDailyNutrition, deletePatient, registerPatient)
+// — this was the one write path without it, which left two devices submitting
+// the same patient's first entry of a day free to both append with no mutual
+// exclusion at all. The lock alone does not add the "one row per patient per
+// date" business rule (tracked separately in BACKLOG.md) — it only makes this
+// function's own append atomic with respect to every other locked write, the
+// same guarantee its siblings already had.
 function logDailyNutrition(sessionId, entry, submittedBy) {
-  var entryId = Utilities.getUuid();
-  var lastModified = new Date().toISOString();
-  var row = _buildLogRow(sessionId, entry, submittedBy)
-    .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""])
-    .concat(_ioLogFields(entry))
-    .concat(_provenanceFields(entry));
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
+    // _buildLogRow validates entry and throws on an implausible value
+    // (_validateLogEntry) — that has to happen inside the lock too, not
+    // before it, or a throwing call never takes the lock at all and the
+    // "every write path takes the same lock" guarantee silently has a hole
+    // on exactly the input that most needed catching.
+    var entryId = Utilities.getUuid();
+    var lastModified = new Date().toISOString();
+    var row = _buildLogRow(sessionId, entry, submittedBy)
+      .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""])
+      .concat(_ioLogFields(entry))
+      .concat(_provenanceFields(entry));
     var sheet = getSheetLog();
     var data = sheet.getDataRange().getValues();
     var targetDate = String(row[0] || "").slice(0, 10);
@@ -1462,15 +1476,27 @@ function registerPatient(p, isNew) {
 }
 
 // ── updateWeights ─────────────────────────────────────────────
+// Locked like every other Patient_Registry write in this file (registerPatient,
+// deletePatient) — this was the other write path missing both a lock and a
+// miss signal: two concurrent measurement submissions used to silently
+// last-write-win, and a sessionId that didn't match anything returned
+// `undefined` with no indication the write never happened.
 function updateWeights(sessionId, weights) {
   _validateWeightsArray(weights);
-  var sheet = getSheetPat();
-  var data  = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(sessionId)) {
-      sheet.getRange(i + 1, 13).setValue(JSON.stringify(weights));
-      return;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheetPat();
+    var data  = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(sessionId)) {
+        sheet.getRange(i + 1, 13).setValue(JSON.stringify(weights));
+        return { ok: true };
+      }
     }
+    return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
+  } finally {
+    lock.releaseLock();
   }
 }
 

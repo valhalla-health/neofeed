@@ -142,12 +142,17 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
     setRaw(perKg ? String(perKg) : "");
   }, [perKg]);
   const handle = (e) => {
-    // Electrolyte doses are physical quantities and cannot be negative.
+    // A salt dose is a physical quantity — same reasoning as NumField just
+    // above: "-" isn't in the allowed charset at all, rather than allowing it
+    // and clamping after parse, which would let a negative value slip through
+    // onChange transiently before the clamp caught it.
     let s = e.target.value.replace(/[^0-9.]/g, "");
     const fd = s.indexOf("."); if (fd !== -1) s = s.slice(0, fd + 1) + s.slice(fd + 1).replace(/\./g, "");
     setRaw(s);
-    const v = parseFloat(s);
-    onChange(isNaN(v) ? 0 : v);
+    let v = parseFloat(s);
+    if (isNaN(v)) v = 0;
+    if (v < 0) v = 0;
+    onChange(v);
   };
   return (
     <div className="salt-row-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 90px", gap: 10, alignItems: "center", padding: "6px 0", borderBottom: "1px dashed var(--line-2)" }}>

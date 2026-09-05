@@ -1,7 +1,25 @@
 # NeoFeed — Status
 
-**Updated 2026-08-26** · 🟢 **Backend production is `@50`. Frontend `746051d` is live on both hosts.
-Backend and frontend are in step, and nothing is pending on either.**
+**Updated 2026-09-05** · 🟡 **Backend production is still `@50` (2026-08-26). Frontend is ahead of
+it and about to move further ahead via `git push` — backend and frontend are OUT of step.**
+
+This push lands a merge of two branches that had diverged without knowing about each other:
+Praew's own `ae912c7` (phosphorus target correction, Peditrace dose correction, a session-id
+duplicate-entry guard + lock on `logDailyNutrition`, `registerPatient`'s `isNew` flag, and a
+previous-log-entry baseline for the day's form) plus PR #55's fixes (`SaltRow` negative-dose
+rejection, an `updateWeights` lock, and the night-shift UTC date-fallback bug) — see `CHANGELOG.md`
+2026-09-05 for the merge itself, including one real regression the merge introduced and fixed
+before it landed (the lock in `logDailyNutrition` had stopped wrapping its own input-validation
+throw). A Fenton `FENTON_WEIGHT` data correction (GA 36-41) rode along in the same push.
+
+**What `git push` actually deploys and what it doesn't:** the frontend (`data.js`, `calculator.jsx`,
+both HTML shells) redeploys automatically to Cloudflare Workers + GitHub Pages the moment this
+lands on `main`. **`gas-backend.gs`'s changes do NOT** — GAS needs its own `clasp push` +
+`clasp deploy --deploymentId AKfycbz8Nt...` (`REFERENCE.md`), which per `CLAUDE.md` needs Praew's
+explicit go-ahead first because staff are on the live app. Until that happens: the session-id
+duplicate-guard, the `updateWeights`/`logDailyNutrition` locks, and the night-shift date fix all
+exist in source but are **not yet protecting anything in production**. The two `BACKLOG.md` lines
+these close stay open until the backend deploy is confirmed live.
 
 `@50` is the first clean (non-TEMP-DEBUG) backend deployment since `@47`, and it carries three
 things that had been sitting undeployed:
