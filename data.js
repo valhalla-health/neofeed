@@ -28,7 +28,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-08-27.1";
+const CONSTANTS_VERSION = "2026-09-05.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. There is no
 // build step (app-walkthrough.md §7), so this is maintained by hand alongside
@@ -724,6 +724,17 @@ const ESPGHAN_TARGETS = {
 // Verified 2026-08-10 against the Fenton 2025 LMS + percentile tables:
 // p3/p10/p90 reproduce the published integers exactly, p50 is the LMS
 // median M, p97 is reconstructed from L/M/S (the table carries no p97).
+// Re-checked 2026-09-05 against the official "2025_ASSIGN_size_for_
+// gestational_age..._v2.pdf" cutoff table (ucalgary.ca/fenton, same PMID
+// 40534585 source, dated v2). GA 36-41 boys and GA 36/40/41 girls were off
+// by 8-51 g on p3/p10/p90/p97 — the 2026-08-10 session's reference table
+// evidently predates this v2 revision at those weeks specifically (GA <=35
+// and GA 42 already matched v2 within +-4 g, so those were left as-is).
+// Corrected p3/p10/p90/p97 to v2; p50 (LMS median) is NOT in the v2 table
+// (it only carries the SGA/LGA cutoffs) and was left untouched — GA 42 and
+// the unaffected weeks show p50 was already fine, so there's no evidence it
+// needs revisiting. FENTON_LENGTH/FENTON_HC have no equivalent public
+// numeric table to re-check against; see BACKLOG.md.
 const FENTON_WEIGHT = {
   boys: [
     [22,  367,  411,  505,  599,  643],
@@ -740,12 +751,12 @@ const FENTON_WEIGHT = {
     [33, 1616, 1757, 2107, 2535, 2768],
     [34, 1792, 1949, 2334, 2796, 3043],
     [35, 1971, 2143, 2561, 3057, 3320],
-    [36, 2149, 2334, 2782, 3310, 3589],
-    [37, 2297, 2513, 3009, 3550, 3819],
-    [38, 2500, 2721, 3225, 3773, 4044],
-    [39, 2691, 2913, 3420, 3970, 4243],
-    [40, 2842, 3069, 3585, 4144, 4420],
-    [41, 2960, 3194, 3725, 4299, 4582],
+    [36, 2141, 2330, 2782, 3306, 3579],
+    [37, 2317, 2523, 3009, 3558, 3838],
+    [38, 2494, 2714, 3225, 3791, 4075],
+    [39, 2655, 2888, 3420, 4000, 4288],
+    [40, 2801, 3040, 3585, 4178, 4471],
+    [41, 2927, 3171, 3725, 4324, 4620],
     [42, 2970, 3213, 3763, 4353, 4643],
     // ── Past the Fenton 2025 reference, which ends at 42 weeks ──
     // Attributed to "WHO Growth Standard 2026" in the header above, but
@@ -774,12 +785,12 @@ const FENTON_WEIGHT = {
     [33, 1524, 1673, 2031, 2447, 2664],
     [34, 1691, 1855, 2247, 2699, 2933],
     [35, 1863, 2043, 2469, 2954, 3203],
-    [36, 2038, 2231, 2688, 3211, 3479],
+    [36, 2034, 2229, 2688, 3204, 3468],
     [37, 2211, 2418, 2900, 3436, 3706],
     [38, 2407, 2618, 3105, 3643, 3912],
     [39, 2593, 2804, 3291, 3828, 4097],
-    [40, 2743, 2957, 3449, 3991, 4262],
-    [41, 2857, 3077, 3583, 4140, 4418],
+    [40, 2736, 2953, 3449, 4002, 4276],
+    [41, 2828, 3051, 3583, 4128, 4410],
     [42, 2859, 3087, 3610, 4184, 4470],
     // ── Past the Fenton 2025 reference — see the note in `boys` above ──
     [44, 2970, 3210, 3750, 4360, 4660],

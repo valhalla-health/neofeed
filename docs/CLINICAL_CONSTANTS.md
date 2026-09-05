@@ -18,6 +18,7 @@ key; this file is what the key points at. A bump with no row here is a bug in th
 
 | `CONSTANTS_VERSION` | Date | What changed |
 |---|---|---|
+| `2026-09-05.1` | 2026-09-05 | Re-checked `FENTON_WEIGHT` against a second official source (ucalgary.ca's v2 size-for-GA cutoff table, not the table used on 2026-08-10) and corrected GA 36–41 boys / GA 36,40,41 girls, which had drifted 8–51 g on p3/p10/p90/p97 from that revision. GA ≤35 and GA 42 already matched and were untouched; p50 (not in the v2 table) was untouched everywhere. See `CHANGELOG.md` 2026-09-05 for the full diff. |
 | `2026-08-27.1` | 2026-08-27 | Corrected the growing-premature PN phosphorus target from 46–62 to **50–108 mg/kg/day** (1.6–3.5 mmol/kg/day), matching the published ESPGHAN/ESPEN/ESPR/CSPEN 2018 table. The old range could label a guideline-concordant phosphorus provision as excessive. |
 | `2026-08-26.1` | 2026-08-26 | **Baseline.** No clinical value changed — this is the first version, stamped so that rows written from here on are attributable. Everything before it has a blank `Daily_Log` AF and cannot be attributed. |
 
@@ -27,9 +28,9 @@ key; this file is what the key points at. A bump with no row here is a bug in th
 
 | Constant | Source | Verified | By | Next review | Status |
 |---|---|---|---|---|---|
-| `FENTON_WEIGHT` | Fenton 2025 (3rd-generation) LMS + percentile tables | **2026-08-10** — GA 22–42 stored every week (was 2-weekly + interpolated); **210 cells re-checked at 0 g discrepancy** | Praew | on the next Fenton revision | 🟢 verified |
-| `FENTON_LENGTH` | — | ❌ **never verified against any source** | — | **before it is trusted** | 🔴 unverified · 4-week steps |
-| `FENTON_HC` | — | ❌ **never verified against any source** | — | **before it is trusted** | 🔴 unverified · 4-week steps |
+| `FENTON_WEIGHT` | Fenton 2025 (3rd-generation) LMS + percentile tables | **2026-08-10** — GA 22–42 stored every week (was 2-weekly + interpolated), 210 cells re-checked at 0 g discrepancy against that session's source. **Re-checked 2026-09-05** against a second, independent official source (ucalgary.ca v2 cutoff table) — GA 36–41 boys / 36,40,41 girls had drifted 8–51 g from that revision and are now corrected to match it exactly | Praew | on the next Fenton revision | 🟢 verified |
+| `FENTON_LENGTH` | — | ❌ **never verified — no public numeric table exists to check against** (weight has one; length/HC only have graphical PDF charts) | — | **before it is trusted**; Praew has emailed tfenton@ucalgary.ca for the LMS parameters | 🔴 unverified · 4-week steps |
+| `FENTON_HC` | — | ❌ **never verified — no public numeric table exists to check against** (weight has one; length/HC only have graphical PDF charts) | — | **before it is trusted**; Praew has emailed tfenton@ucalgary.ca for the LMS parameters | 🔴 unverified · 4-week steps |
 | `FENTON_*` GA 44–50 rows | — | ❌ unverified | — | — | 🔴 **not plotted.** `GA_MAX` in `fenton.jsx` clamps the chart at 42 wk because the reference stops there. Do not widen the axis to "fix" the hidden-measurement banner — source real post-term data first |
 | `KCMH_STOCK.naAcetate` (3 mEq/mL) | **Inferred from the KCMH worksheet's divisors** — not read off a strength label | ❌ **never** | — | **blocked on a physical check in the ward** | 🔴 **highest-stakes open item in the repo.** Changes the mL printed on every order form |
 | `KCMH_STOCK.kCl` (2 mEq/mL) | Same — inferred from a divisor | ❌ **never** | — | **blocked on a physical check in the ward** | 🔴 same |

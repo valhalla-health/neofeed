@@ -124,8 +124,11 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · `SaltRow` accepts negative electrolyte doses** where `NumField` deliberately does
       not.
 - [ ] 🩺 **safety · `FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
-      4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10; the other two
-      were not.
+      4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10 and re-checked
+      2026-09-05 against the official ucalgary.ca v2 cutoff table (which caught and fixed GA
+      36-41 boys / 36,40,41 girls drift — see `CHANGELOG.md`); the other two still have **no
+      public numeric table to check against at all** (charts only). Praew is emailing
+      tfenton@ucalgary.ca for the LMS parameters.
 - [ ] ⚖️ **PDPA · No self-service access/rectification path** for data-subject requests; handled
       manually by an admin editing the registry. Worth a real endpoint if volume grows.
 - [ ] ⚖️ **PDPA · Cross-border transfer (Sec 28) never evaluated** — data lives in Google

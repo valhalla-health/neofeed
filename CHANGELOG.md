@@ -13,6 +13,41 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-05 — FENTON_WEIGHT re-verified against official v2 cutoff table; GA 36-41 corrected
+
+Praew asked whether the Fenton trend graph is really accurate. Weight had been marked "verified,
+0 g discrepancy" since 2026-08-10 (3), so this re-checked it against a different, independent
+official source rather than assuming that stood: the University of Calgary's own downloadable
+size-for-gestational-age cutoff table (`2025_ASSIGN_size_for_gestational_age..._v2.pdf`, same
+PMID 40534585 source, ucalgary.ca/fenton), which carries p3/p10/p90/p97 (not p50) for GA 22-42,
+both sexes.
+
+**Found real drift, not rounding noise.** GA <=35 and GA 42 matched the v2 table within +-4 g —
+consistent with the 2026-08-10 verification. But **GA 36-41 for boys and GA 36/40/41 for girls
+were off by 8-51 g** on p3/p10/p90/p97 — an order of magnitude past the rounding noise seen
+everywhere else. The 2026-08-10 session's source table (Praew's BPD-sandbox export) evidently
+predates this v2 revision at exactly those weeks. GA 37-39 for girls were within +-4 g and left
+alone rather than "corrected" toward noise.
+
+**Fixed:** `FENTON_WEIGHT` boys GA 36-41 and girls GA 36/40/41 now match the official v2 table's
+p3/p10/p90/p97 exactly (re-verified programmatically, 0 g discrepancy on every corrected cell).
+p50 (LMS median) was left untouched on those rows — the v2 cutoff table doesn't carry it, and the
+unaffected weeks (including GA 42, immediately adjacent) show p50 was never the problem. Full
+before/after diff and the source PDF are archived in this session's scratch dir if the numbers
+ever need re-checking.
+
+**Still open, unchanged by this session:** `FENTON_LENGTH`/`FENTON_HC` have no equivalent public
+numeric table at all (ucalgary.ca only publishes graphical charts for those two) — a Mountex/
+fenton_data GitHub dataset that claims to have them was checked and rejected as almost certainly
+synthetic (percentile spacing is a constant integer offset at every single week 22-50, which no
+real meta-analysis output looks like). Praew is emailing tfenton@ucalgary.ca for the actual
+length/HC LMS parameters — see the draft in Gmail.
+
+Verified: `node --check data.js` clean; the corrected cells cross-checked node-side against the
+v2 table before and after editing.
+
+---
+
 ## Session 2026-08-26 (2) — split Step 1's weight field: current weight vs. TPN calc. weight
 
 Ward request: Step 1 had one "Current weight" field feeding every dose calculation directly, with
