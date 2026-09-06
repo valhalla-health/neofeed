@@ -110,10 +110,6 @@ clinical judgement. Everything else is engineering sequencing.
       safety-relevant half, and it is shipped. The rest is a cached shell (read-only, clearly
       labelled) and, only after the server-side one-entry-per-date guard exists, a queued save.
       See `NEOFEED_DIGIHEALTH_UPGRADE_MAP.html` §05 for the three levels.
-- [ ] 🔒 **security · No server-side one-entry-per-date guard.** The duplicate-date lock is frontend
-      only, so the invariant "one `Daily_Log` row per patient per date" is unenforced at the source
-      of truth.
-- [ ] 🔒 **security · `updateWeights` fails silently and takes no lock.**
 - [ ] ⚖️ **PDPA · No retention or auto-purge policy after discharge** — records persist indefinitely
       in the Sheet today. ⭐ **This is the candidate scope for the 3099706 course project** (see
       `PRD.md`'s course-link note): it is genuinely not-yet-built, so the coursework produces real
@@ -121,8 +117,6 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🕓 Later
 
-- [ ] 🩺 **safety · `SaltRow` accepts negative electrolyte doses** where `NumField` deliberately does
-      not.
 - [ ] 🩺 **safety · `FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
       4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10 and re-checked
       2026-09-05 against the official ucalgary.ca v2 cutoff table (which caught and fixed GA

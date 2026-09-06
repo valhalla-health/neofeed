@@ -106,11 +106,46 @@ too, so it predates and is unrelated to this session's changes; not investigated
 
 Landed on `main` via PR #55 on 2026-09-05 (merged as part of reconciling this branch with a
 separately-committed, unpushed local `main` — see the 2026-09-05 entry above and `STATUS.md`).
-The frontend change (`SaltRow`) and the three `gas-backend.gs` fixes are in the merged source as
-of this commit; the backend fixes still need their own `clasp push`/`clasp deploy` to reach the
-live GAS deployment — that has NOT happened as part of this merge. The two `BACKLOG.md` lines
-these close (`SaltRow` negative doses, `updateWeights` lock) can be removed once the backend half
-is actually deployed and verified live, per this file's own definition-of-done rule.
+**Deployed to GAS `@51` on 2026-09-05**, confirmed with Praew first (see `STATUS.md` "How `@51` was
+verified"). The `SaltRow` negative-dose fix and the `updateWeights` lock are now both live; their
+`BACKLOG.md` lines are closed.
+
+---
+
+## Session 2026-09-01 — session-id duplicate-entry guard, `registerPatient` isNew flag, phosphorus/Peditrace constants, previous-entry baseline
+
+Recovered from the working tree on 2026-09-05, where it had been sitting uncommitted since
+2026-08-27 (commit `ae912c7`) — committed and later merged/deployed as it stood; nothing in it was
+re-reviewed at recovery time beyond what the 2026-09-05 merge and deploy sessions checked. Filed
+here now because `BACKLOG.md`'s definition-of-done requires a `CHANGELOG.md` entry to exist before
+an item can leave that file, and this scope of work never got one at the time.
+
+- **`gas-backend.gs` — `logDailyNutrition` gained a server-side one-entry-per-date guard.** Before
+  this, "one `Daily_Log` row per patient per date" was enforced only in the UI; a direct POST (or a
+  race between two devices) could still append a second row for the same patient/date.
+  `logDailyNutrition` now reads existing rows for the session under its own lock and returns a Thai
+  error (`มีบันทึกของผู้ป่วยรายนี้ในวันที่ ... แล้ว — กรุณาเปิดรายการเดิมเพื่อแก้ไข`) instead of
+  appending a duplicate. New coverage: `test/verify-log-create-guard.cjs`.
+- **`gas-backend.gs` — `registerPatient` takes an explicit `isNew` flag** rather than inferring
+  create-vs-update from whether a matching row already exists. This does **not** close
+  `BACKLOG.md`'s open item about two different infants colliding on the same `initials+BW`
+  pseudonym — that needs an identity decision first — but it does mean the API no longer has to
+  guess which case it's in.
+- **`data.js` — growing-premature PN phosphorus corrected from 46–62 to 50–108 mg/kg/day**
+  (1.6–3.5 mmol/kg/day) in both `TPN_TARGETS.p` and `TARGETS.p`, matching the published
+  ESPGHAN/ESPEN/ESPR/CSPEN 2018 table; the old range could label a guideline-concordant phosphorus
+  provision as excessive. Peditrace dose corrected from "1–2 mL/kg/day" to "1 mL/kg/day (maximum
+  15 mL/day)" in the same pass. `CONSTANTS_VERSION` → `2026-08-27.1`; `docs/CLINICAL_CONSTANTS.md`
+  updated in the same change.
+- **`app.jsx`/`calculator.jsx` — `previousLogEntry()` supplies a baseline entry** from the prior
+  day's save, so a new day's Calculator form opens pre-filled from yesterday's inputs rather than
+  blank.
+- New harnesses: `test/verify-safety-review.cjs`, `test/verify-log-create-guard.cjs`; four existing
+  harnesses updated to match.
+
+Full suite passed at the time (20 harnesses including the browser runthrough), per the recovered
+commit message. Deployed to GAS `@51` on 2026-09-05 alongside the 2026-09-04 fixes above — see that
+entry and `STATUS.md`.
 
 ---
 
