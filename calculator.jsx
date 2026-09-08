@@ -176,7 +176,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onSaved, onWeightChange, onDelete }) {
+function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onSaved, onWeightChange, onDelete, centerPoint }) {
   // Current weight — the actual weight entered/measured for this log day.
   // This is what gets saved as the Daily_Log `weight` column and propagated
   // to the patient's displayed current weight (PatientStrip, growth chart).
@@ -406,7 +406,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     // A deliberately dated/back-filled order must start from clinical history
     // relative to that date, never from an undated browser draft that may have
     // been created days later.
-    if (!logDate) {
+    if (!logDate && !centerPoint) {
       try {
         const raw = localStorage.getItem(`neofeed_calc_${patient.sessionId}`);
         if (raw) restored = JSON.parse(raw);
@@ -488,6 +488,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   React.useEffect(() => {
     const ALL = new Set([1, 2, 3, 4, 5, 6]);
     const handler = () => {
+      if (centerPoint) { centerPoint.review(); return; }
       if (!savedEntryId) {
         showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
         return;
@@ -886,6 +887,17 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // exact raw inputs so this entry stays editable on any device later.
   const handleSave = async () => {
     if (saving) return;
+    if (centerPoint) {
+      setSaving(true);
+      try {
+        const result=await centerPoint.save({dol,wtG,wtKg,curWtG,usingBirthWeight,route,orderDate:logDate,
+          dexPct,totalTPN_mL,aaPerKg,lipidPerKg,lipidDripHours,naCl,naAcet,glycophosP,kCl,k2hpo4,mgPerKg,mgStrength,caPerKg,
+          inclSoluvit,inclPeditrace,inclAddamel,heparinUmL,calc,suppVitD,suppCa,suppCaType,suppPO4,suppPO4Type,suppMTV,suppFerdek,suppFeType,mineral,enType,enVol,enFreq});
+        setSavedEntryId(result.sourceRecordId);setSavedLastModified(result.recordedAt);
+      } catch (error) { centerPoint.failed?.(error);showToast('บันทึกไป Center Point ไม่สำเร็จ กรุณาตรวจสถานะและลองใหม่','error'); }
+      finally { setSaving(false); }
+      return;
+    }
     try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
     const _suppPayload = {
       suppMTV:       suppMTV ? 1 : 0,
@@ -2028,7 +2040,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         </div>
       </div>
       {/* ── Ramathibodi PN order form — print only ── */}
-      {savedEntryId && <PrintOrderForm
+      {savedEntryId && !centerPoint && <PrintOrderForm
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight} route={route}
         orderDate={editEntry?.ts || logDate || D.todayLocal()}
         dexPct={dexPct} totalTPN_mL={totalTPN_mL} entryId={savedEntryId}

@@ -160,6 +160,9 @@ export function draftView(client) {
   return {
     hide() { generation++; link = null; ready = false; published = null; role = null; section.hidden = true; fill(null); status.textContent = ''; },
     async show(value) {
+      let launch=section.querySelector('[data-calculator-link]');
+      if(!launch){launch=document.createElement('a');launch.dataset.calculatorLink='';launch.textContent='เปิดเครื่องคำนวณ TPN สำหรับการรับเข้านี้';section.prepend(launch);}
+      launch.href=`/neofeed/calculator?encounter=${encodeURIComponent(value.encounterId)}`;
       if (busy) throw Error('request_in_progress');
       generation++; link = value; ready = false; published = null; fill(null); section.hidden = false;
       find('[data-context]').textContent = `การรับเข้า ${value.encounterId}`; await run(load);

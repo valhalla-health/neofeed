@@ -7,7 +7,7 @@ export class CenterPointClient {
     this.origin = origin; this.store = store; this.fetch = (...args) => fetchImpl(...args);
   }
   async request(operation, body) {
-    if (!['session','resolve','link','details','neofeed/save-draft','neofeed/drafts','neofeed/publish','neofeed/publications','print/create'].includes(operation)) throw Error('unsupported_operation');
+    if (!['session','resolve','link','details','neofeed/save-draft','neofeed/drafts','neofeed/publish','neofeed/publications','print/create','neofeed/withdraw'].includes(operation)) throw Error('unsupported_operation');
     const response = await this.fetch(`${this.origin}/api/${operation}`, { method:'POST', credentials:'same-origin', redirect:'error',
       headers:{'Content-Type':'application/json','X-NCP-Request':'1'}, body:JSON.stringify(body) });
     const data = await response.json();
