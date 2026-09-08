@@ -2727,3 +2727,10 @@ Now captures combined PN+EN totals:
 `{ dol, weight, fluid, gir, pro, kcal, na, k, ca, p, enVolPerKg, route, status }`
 
 Where `enVolPerKg` drives target picker. `pro/kcal/na/k/ca/p` are per-kg combined PN+EN.
+
+## Unreleased — Center Point identity connection
+
+A separate center-point entry point and strict v2 client have been added on the
+codex/center-point-v2 branch. Existing main/frontend shells and GAS are unchanged.
+The new client uses the real Center Point API with UUID-only pending retries and
+no legacy fallback. See center-point/README.md for exact scope and remaining gates.
