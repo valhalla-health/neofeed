@@ -176,7 +176,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onSaved, onWeightChange, onDelete }) {
+function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete }) {
   // Current weight — the actual weight entered/measured for this log day.
   // This is what gets saved as the Daily_Log `weight` column and propagated
   // to the patient's displayed current weight (PatientStrip, growth chart).
@@ -298,6 +298,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
   const [savedLastModified, setSavedLastModified] = useState(editEntry?.lastModified || null);
   const [saving, setSaving] = useState(false);
+  // Publish-lock state — only meaningful behind D.ENABLE_PUBLISH_GATE. A row
+  // opened for edit carries its own published flag; a brand-new entry always
+  // starts as a draft.
+  const [published, setPublished] = useState(!!editEntry?.published);
+  const [publishing, setPublishing] = useState(false);
   const [conflict, setConflict] = useState(null); // {lastModified, lastModifiedBy} of the row on the server
 
   // Hydrates the full raw-input form from a saved entry's calcInput — shared
@@ -933,8 +938,33 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     if (res.conflict) { setConflict(res.current); return; }
     if (!res.ok) return; // gasPost already surfaced an error toast
 
-    if (!savedEntryId) setSavedEntryId(res.entryId);
+    if (res.revised) {
+      // Editing a published row never overwrote it — the server appended a
+      // new revision instead (gas-backend.gs updateDailyNutrition). This is
+      // now a fresh draft under a new id, exactly like a brand-new entry.
+      setSavedEntryId(res.entryId);
+      setPublished(false);
+    } else {
+      if (!savedEntryId) setSavedEntryId(res.entryId);
+    }
     setSavedLastModified(res.lastModified);
+
+    // With the publish gate on, Save deliberately stays on this screen so
+    // Submit and Print are reachable without reopening the entry. With the
+    // gate off — today's behaviour, unchanged — Save still navigates away
+    // immediately, same as before this existed.
+    if (!D.ENABLE_PUBLISH_GATE) onSaved && onSaved();
+  };
+
+  // ── Submit — locks the saved row against further in-place edits (see the
+  // publish-lock design). Only reachable once a row exists to publish.
+  const handlePublish = async () => {
+    if (!savedEntryId || published || publishing) return;
+    setPublishing(true);
+    const res = await onPublish(savedEntryId);
+    setPublishing(false);
+    if (!res.ok) return; // gasPost already surfaced an error toast
+    setPublished(true);
     onSaved && onSaved();
   };
 
@@ -2025,6 +2055,15 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
 
+            {D.ENABLE_PUBLISH_GATE && (
+              <button className="btn primary" style={{ width: "100%", marginTop: 8 }}
+                disabled={!savedEntryId || published || publishing}
+                onClick={handlePublish}>
+                <Icon name="check" size={14} color="#fff" />
+                {publishing ? "กำลังส่ง..." : published ? "ส่งแล้ว" : "Submit"}
+              </button>
+            )}
+
             {savedEntryId && onDelete && (
               <button className="btn" style={{ width: "100%", marginTop: 8, color: "var(--crit)", borderColor: "var(--crit-line)" }}
                 onClick={handleDelete}>
@@ -2040,6 +2079,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight} route={route}
         orderDate={editEntry?.ts || logDate || D.todayLocal()}
         dexPct={dexPct} totalTPN_mL={totalTPN_mL} entryId={savedEntryId}
+        published={D.ENABLE_PUBLISH_GATE ? published : true}
         aaPerKg={aaPerKg} lipidPerKg={lipidPerKg} lipidDripHours={lipidDripHours}
         naCl={naCl} naAcet={naAcet} glycophosP={glycophosP}
         kCl={kCl} k2hpo4={k2hpo4} mgPerKg={mgPerKg} mgStrength={mgStrength} caPerKg={caPerKg}
@@ -2168,7 +2208,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
   aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg,
   inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
-  mineral }) {
+  mineral, published }) {
 
   const f  = (n, d=1) => (isFinite(n) && n > 0) ? Number(n.toFixed(d)).toString() : "—";
   const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
@@ -2183,7 +2223,20 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
   const tdh = { ...td, background:"#f0f0f0", fontWeight:600, textAlign:"center" };
 
   return (
-    <div id="print-form" style={{ fontFamily:"'IBM Plex Sans','Sarabun',serif", fontSize:10.5, color:"#000", padding:"4mm 6mm", display:"none" }}>
+    <div id="print-form" style={{ position:"relative", fontFamily:"'IBM Plex Sans','Sarabun',serif", fontSize:10.5, color:"#000", padding:"4mm 6mm", display:"none" }}>
+
+      {/* Draft watermark — printed before Submit locks the row (see the
+          publish-lock design). Not shown once published, and never shown at
+          all with D.ENABLE_PUBLISH_GATE off (Calculator passes published=true
+          unconditionally in that case). */}
+      {!published && (
+        <div aria-hidden="true" style={{
+          position:"absolute", top:"45%", left:"50%",
+          transform:"translate(-50%, -50%) rotate(-30deg)",
+          fontSize:44, fontWeight:800, color:"rgba(200,0,0,0.28)",
+          letterSpacing:4, whiteSpace:"nowrap", pointerEvents:"none", zIndex:10,
+        }}>รอผลแลป</div>
+      )}
 
       {/* Header */}
       <div style={{ textAlign:"center", borderBottom:"2px solid #000", paddingBottom:4, marginBottom:6 }}>

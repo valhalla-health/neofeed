@@ -445,7 +445,23 @@ function App() {
     const who = user?.email || "";
 
     const apply = (res) => {
-      if (res.ok) {
+      if (res.ok && res.revised) {
+        // Editing a published row never overwrote it — gas-backend.gs
+        // appended a new revision instead. Match that locally: mark the old
+        // row superseded and add the new one, rather than overwriting the
+        // old row's own content with the edit (which would show data the
+        // sheet no longer agrees with until the next resync).
+        // normalizeLogEntries both sorts the result AND drops the row just
+        // marked superseded, so the visible list ends up exactly like a
+        // fresh sync would show it.
+        setLog(prev => ({ ...prev, [id]: D_A.normalizeLogEntries([
+          ...(prev[id] || []).map(e => e.entryId === entryId ? { ...e, supersededAt: res.lastModified } : e),
+          { ...entry, ts, entryId: res.entryId, lastModified: res.lastModified, lastModifiedBy: who,
+            submittedBy: who, published: "", publishedBy: "",
+            revisionNumber: res.revisionNumber, revisionOf: entryId, supersededAt: "" },
+        ]) }));
+        showToast(`สร้างฉบับแก้ไขใหม่สำหรับ DOL ${entry.dol}`);
+      } else if (res.ok) {
         setLog(prev => ({ ...prev, [id]: (prev[id] || []).map(e =>
           e.entryId === entryId ? { ...e, ...entry, ts, lastModified: res.lastModified, lastModifiedBy: who } : e) }));
         showToast(`อัปเดต DOL ${entry.dol} แล้ว`);
@@ -455,6 +471,27 @@ function App() {
 
     if (!GAS_ON) return Promise.resolve(apply({ ok: true, lastModified: new Date().toISOString() }));
     return gasPost({ action: "updateDailyNutrition", sessionId: id, entryId, expectedLastModified, entry: { ...entry, ts } }).then(apply);
+  };
+
+  // Marks an existing Daily_Log row published — locks it against further
+  // in-place edits (gas-backend.gs publishDailyLog; further edits go through
+  // handleUpdateToGAS's res.revised branch above instead). One-directional:
+  // there is no unpublish.
+  const handlePublishToGAS = (entryId) => {
+    const id = active.sessionId;
+    const who = user?.email || "";
+
+    const apply = (res) => {
+      if (res.ok) {
+        setLog(prev => ({ ...prev, [id]: (prev[id] || []).map(e =>
+          e.entryId === entryId ? { ...e, published: res.publishedAt, publishedBy: who } : e) }));
+        showToast(`ส่งรายการเพื่อตรวจทานแล้ว`);
+      }
+      return res;
+    };
+
+    if (!GAS_ON) return Promise.resolve(apply({ ok: true, publishedAt: new Date().toISOString() }));
+    return gasPost({ action: "publishLog", sessionId: id, entryId }).then(apply);
   };
 
   // Permanently removes a Daily_Log row — admin-only (gated where this is passed
@@ -852,6 +889,7 @@ function App() {
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}
               log={log} activeId={activeId} token={user?.token} role={role}
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
+              handlePublishToGAS={handlePublishToGAS}
               handleDeleteEntry={handleDeleteEntry}
               goTo={goTo} setCalcWeights={setCalcWeights} />
           )}
@@ -975,7 +1013,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // while view === "calculator", so its own hook-call sequence is consistent
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role,
-  handleLogToGAS, handleUpdateToGAS, handleDeleteEntry, goTo, setCalcWeights }) {
+  handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo, setCalcWeights }) {
   // Editing an existing row re-derives its DOL from the row's date rather
   // than trusting the stored `dol` column (D_A.entryDol) — otherwise a row
   // saved before this patient had an admission date keeps re-saving that
@@ -1026,7 +1064,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
 
       <Calculator patient={active} dol={displayDol}
         editEntry={editEntry} baselineEntry={baselineEntry} logDate={logDate}
-        onLog={handleLogToGAS} onUpdate={handleUpdateToGAS}
+        onLog={handleLogToGAS} onUpdate={handleUpdateToGAS} onPublish={handlePublishToGAS}
         onSaved={() => goTo("log")}
         onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined}
         onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />

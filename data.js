@@ -35,6 +35,22 @@ const CONSTANTS_VERSION = "2026-09-05.1";
 // the ?v= cache-bust tokens in the two HTML shells.
 const APP_VERSION = "2026-08-27-safety-review";
 
+// ── Publish-lock rollout flag ───────────────────────────────
+// Gates the "Save / Submit / Print" design (approved 2026-09-10): a saved
+// Daily_Log row starts as a draft (prints with a "รอผลแลป" watermark) until a
+// clinician explicitly Submits it, which locks the row — further edits create
+// a new revision instead of overwriting it. The backend (publishLog,
+// updateDailyNutrition's revision branch) is unconditional and always
+// correct regardless of this flag; this only controls whether the Submit
+// button and the draft watermark are shown to staff.
+//
+// Defaults OFF. NeoFeed is a live clinical tool with no frontend deploy gate
+// (AI_SDLC.md §5) — a `main` push reaches every NICU workstation within
+// minutes, so a UI-visible behaviour change like this ships dark first and is
+// flipped on deliberately once the backend has been exercised against a real
+// login, not just the harnesses in test/.
+const ENABLE_PUBLISH_GATE = false;
+
 // ── Sync freshness — the staleness banner's decision ────────
 // "Is the number on screen still trustworthy?" is a clinical-safety rule, so
 // it lives here in the Business Logic layer rather than as a ternary inside
@@ -1052,6 +1068,12 @@ function normalizeDateStr(val) {
 // after the entries it precedes.
 function normalizeLogEntries(entries) {
   return (entries || [])
+    // A superseded row (see gas-backend.gs updateDailyNutrition's revision
+    // branch) is the OLD copy a Submit-then-edit left behind — the current
+    // revision is a separate row already in this array. Dropping it here,
+    // once, keeps every reader (TrendGraph, the entry table, "logged today")
+    // from double-counting a date that has more than one row on record.
+    .filter(e => !e.supersededAt)
     .map(e => ({ ...e, ts: normalizeDateStr(e.ts) }))
     .sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
 }
@@ -1363,6 +1385,8 @@ window.NEOFEED_DATA = {
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.
   CONSTANTS_VERSION, APP_VERSION,
+  // Publish-lock rollout flag — see its declaration above.
+  ENABLE_PUBLISH_GATE,
   // Staleness decision for the sync banner + the thresholds behind it
   syncFreshness, SYNC_WARN_MS, SYNC_STALE_MS,
   // Live DOL helper. entryDol re-derives a saved log row's DOL from its date
