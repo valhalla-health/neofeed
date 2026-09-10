@@ -1,0 +1,104 @@
+cloud-architecture-diagram
+
+direction down
+colorMode pastel
+styleMode plain
+typeface clean
+
+// People and role-based access
+NICU_Users [label: "NICU users", color: blue] {
+  Doctor [icon: user]
+  Nurse [icon: user]
+  Administrator [icon: user]
+}
+
+// Static hosting and installable shell
+Web_Hosting [label: "Static web hosting", color: grey] {
+  GitHub_Pages [label: "GitHub Pages", icon: server]
+  App_Shell [label: "index.html / NeoFeed.html"]
+  PWA_Assets [label: "manifest.json + icons"]
+}
+
+// Client-side application, running on a workstation or installed PWA
+Browser_PWA [label: "NeoFeed browser / PWA", color: teal] {
+  React_App [label: "App root + shared state", icon: monitor]
+
+  Clinical_Features [label: "Clinical feature modules"] {
+    Patient_Registry_UI [label: "Patient registry"]
+    Calculator_UI [label: "TPN + EN calculator"]
+    Daily_Log_UI [label: "Daily log + trends"]
+    Growth_UI [label: "Fenton 2025 growth chart"]
+    Alerts_UI [label: "Alerts"]
+    Admin_UI [label: "Admin dashboard"]
+    Reference_UI [label: "Guidelines + formulas"]
+  }
+
+  Clinical_Data [label: "Clinical constants + helpers"]
+  Browser_Storage [label: "localStorage drafts + alert acknowledgements", icon: database]
+}
+
+// Identity providers and server-side token verification
+External_Identity [label: "External identity", color: purple] {
+  Google_Identity [label: "Google Identity Services"]
+  Google_Tokeninfo [label: "Google tokeninfo verification"]
+}
+
+// Google Apps Script production backend
+Apps_Script_Backend [label: "Google Apps Script web app", color: orange] {
+  GAS_API [label: "doPost JSON action router", icon: server]
+  Auth_RBAC [label: "Authentication + role gates", icon: lock]
+  Clinical_Services [label: "Registry + nutrition-log services"]
+  PDPA_Admin [label: "Admin delete + pseudonymization"]
+  Cache_Service [label: "CacheService: sessions + courtesy edit locks"]
+  Properties_Service [label: "PropertiesService: config + user epoch", icon: key]
+}
+
+// One Google Sheets workbook with four application tabs
+Sheets_Workbook [label: "Google Sheets workbook", color: green] {
+  Patient_Registry [label: "Patient_Registry", icon: database]
+  Daily_Log [label: "Daily_Log", icon: database]
+  Staff [label: "Staff", icon: database]
+  Audit_Log [label: "Audit_Log", icon: database]
+}
+
+// Delivery and browser composition
+GitHub_Pages > App_Shell: Serves HTML, CSS, and scripts
+GitHub_Pages > PWA_Assets: Serves install metadata and icons
+App_Shell > React_App: Loads React 18, Babel, and modules
+PWA_Assets > React_App: Enables installed PWA shell
+
+// Role-gated usage
+Doctor > React_App: Clinical use
+Nurse > React_App: Clinical use
+Administrator > React_App: Administration and review
+React_App <> Clinical_Features: Props, events, and selected view
+Clinical_Data > Clinical_Features: Targets, formulas, and formatting helpers
+React_App <> Browser_Storage: Restore or clear local drafts
+
+// Login and application API
+Google_Identity > React_App: Google ID token
+React_App <> GAS_API: HTTPS JSON actions + session token
+GAS_API <> Google_Tokeninfo: Verify Google token and audience
+GAS_API > Auth_RBAC: Validate account, password state, token, and role
+Auth_RBAC <> Staff: Account status, role, and password metadata
+Auth_RBAC <> Cache_Service: 6-hour sliding sessions
+Auth_RBAC <> Properties_Service: Client ID, Sheet ID, and token epoch
+Auth_RBAC > Clinical_Services: Authorized action
+Auth_RBAC > PDPA_Admin: Admin-only action
+
+// Clinical persistence and accountability
+Clinical_Services <> Patient_Registry: Read and write patient records
+Clinical_Services <> Daily_Log: Create, edit, and read nutrition logs
+Clinical_Services <> Cache_Service: Acquire, refresh, and release edit locks
+PDPA_Admin <> Patient_Registry: Delete or clear identifiers
+PDPA_Admin <> Daily_Log: Delete related clinical rows when authorized
+Clinical_Services > Audit_Log: Registry-read accountability
+PDPA_Admin > Audit_Log: Erasure and deletion accountability
+
+legend {
+  [color: teal, label: "Runs in browser / installed PWA"]
+  [color: orange, label: "Server-side control and business logic"]
+  [color: green, label: "Sensitive persistent data"]
+  [color: purple, label: "External identity boundary"]
+}
+

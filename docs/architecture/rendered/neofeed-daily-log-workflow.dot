@@ -1,0 +1,154 @@
+digraph NeoFeedWorkflow {
+  graph [
+    rankdir=TB,
+    bgcolor="#F7FAFC",
+    pad=0.35,
+    nodesep=0.34,
+    ranksep=0.52,
+    splines=polyline,
+    compound=true,
+    fontname="Arial",
+    fontcolor="#102A43",
+    label=<<B>NeoFeed Authenticated Daily-Log Workflow</B><BR/><FONT POINT-SIZE="12">UML activity notation · hybrid login, synchronization, edit lock, and conflict-safe save</FONT>>,
+    labelloc=t,
+    fontsize=24
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Arial",
+    fontsize=10,
+    fontcolor="#102A43",
+    color="#A9B9C7",
+    fillcolor="#FFFFFF",
+    margin="0.15,0.09"
+  ];
+
+  edge [
+    color="#5D768B",
+    fontcolor="#486581",
+    fontname="Arial",
+    fontsize=9,
+    arrowsize=0.72,
+    penwidth=1.2
+  ];
+
+  start [shape=circle, label="", width=0.22, fixedsize=true, fillcolor="#0F7C86", color="#0F7C86"];
+  finish [shape=doublecircle, label="", width=0.24, fixedsize=true, fillcolor="#102A43", color="#102A43"];
+
+  subgraph cluster_login {
+    label="1 · Authentication";
+    color="#B8A6E6";
+    fillcolor="#F1ECFC";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#6144A7";
+
+    open [label="Open NeoFeed PWA"];
+    auth_method [shape=diamond, label="Login method?", fillcolor="#E4DBF8", color="#8A6AC8"];
+    google_login [label="Google Identity returns ID token"];
+    google_verify [label="Apps Script verifies token + audience\nwith Google tokeninfo"];
+    password_login [label="Submit non-Google email + password"];
+    password_verify [label="Apps Script verifies active Staff row\n+ salted password hash"];
+    issue_session [label="Resolve role and issue 6-hour\nCacheService session token", fillcolor="#E4DBF8"];
+    temp_check [shape=diamond, label="Temporary password?", fillcolor="#E4DBF8", color="#8A6AC8"];
+    force_change [label="Force password change\nClear temporary fields · bump token epoch\nRotate current-device token"];
+  }
+
+  subgraph cluster_sync {
+    label="2 · Initial synchronization";
+    color="#75B9C1";
+    fillcolor="#E8F6F7";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#0F6E78";
+
+    sync_request [label="getActivePatients(session token)", fillcolor="#D5F0F1"];
+    gate [label="Server rechecks token, active account,\nrole, and forced-change state"];
+    registry_read [label="Read Patient_Registry", shape=cylinder];
+    log_read [label="Read + normalize Daily_Log", shape=cylinder];
+    audit_read [label="Append readRegistry event\nto Audit_Log", shape=cylinder];
+    hydrate [label="Return patient + log state\nto the browser"];
+  }
+
+  subgraph cluster_edit {
+    label="3 · Open and edit a daily log";
+    color="#E5AE58";
+    fillcolor="#FFF4E1";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#9A5A00";
+
+    select [label="Select patient and calendar date"];
+    acquire [label="Acquire 90-second courtesy edit lock"];
+    lock_state [shape=diamond, label="Another user\nhas it open?", fillcolor="#FFE1A8", color="#D9830C"];
+    warning [label="Show advisory banner\nForm remains usable"];
+    calculator [label="Open six-step TPN + EN calculator\nHeartbeat refreshes lock every 45 seconds", fillcolor="#FFE1A8"];
+    submit [label="Submit entryId + expectedLastModified\n+ corrected clinical inputs"];
+  }
+
+  subgraph cluster_save {
+    label="4 · Conflict-safe persistence";
+    color="#8FC6A3";
+    fillcolor="#EAF7EE";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#2E7047";
+
+    save_gate [label="Verify session + role + password state"];
+    compare [shape=diamond, label="Does expectedLastModified\nmatch the current row?", fillcolor="#D7EEDC", color="#4E9A68"];
+    write [label="Write updated Daily_Log row\nStamp new lastModified + editor", shape=cylinder, fillcolor="#D7EEDC"];
+    saved [label="Return success\nUpdate browser state"];
+    conflict [label="Return conflict + current editor metadata\nDo not overwrite", fillcolor="#FCE0E0", color="#C45D5D"];
+    release [label="Release courtesy lock\n(or allow automatic expiry)"];
+  }
+
+  start -> open;
+  open -> auth_method;
+  auth_method -> google_login [label="Gmail / Workspace"];
+  google_login -> google_verify;
+  google_verify -> issue_session;
+  auth_method -> password_login [label="Other email"];
+  password_login -> password_verify;
+  password_verify -> issue_session;
+  issue_session -> temp_check;
+  temp_check -> force_change [label="yes"];
+  force_change -> sync_request;
+  temp_check -> sync_request [label="no"];
+
+  sync_request -> gate;
+  gate -> registry_read;
+  gate -> log_read;
+  gate -> audit_read;
+  registry_read -> hydrate;
+  log_read -> hydrate;
+  audit_read -> hydrate;
+
+  hydrate -> select;
+  select -> acquire;
+  acquire -> lock_state;
+  lock_state -> warning [label="yes"];
+  warning -> calculator;
+  lock_state -> calculator [label="no"];
+  calculator -> submit;
+
+  submit -> save_gate;
+  save_gate -> compare;
+  compare -> write [label="match"];
+  write -> saved;
+  saved -> release;
+  compare -> conflict [label="mismatch"];
+  conflict -> release;
+  release -> finish;
+
+  safety_note [
+    shape=note,
+    label="The courtesy lock improves awareness but does not block editing.\nThe lastModified comparison is the real lost-update safeguard.",
+    fillcolor="#FFFDF4",
+    color="#D7B75C",
+    fontsize=10
+  ];
+  conflict -> safety_note [style=dashed, arrowhead=none, color="#B4963E"];
+}
+

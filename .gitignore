@@ -14,3 +14,9 @@ package-lock.json
 
 # Wrangler local state — caches the Cloudflare account ID, never commit
 .wrangler/
+
+# Serena MCP local tool state — machine-specific, never commit
+.serena/
+
+# Graphify knowledge-graph output/cache — regenerable, not source or docs
+graphify-out/
