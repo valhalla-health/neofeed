@@ -1,26 +1,22 @@
 # NeoFeed — Status
 
-**Updated 2026-09-10** · 🟡 **Backend production is still `@51`. Frontend is live on both hosts,
-one deploy ahead of the backend — see the entry immediately below.**
+**Updated 2026-09-10** · 🟢 **Backend production is `@52`. Frontend is live on both hosts with the
+matching source. Backend and frontend are in step, and nothing is pending on either.**
 
-**2026-09-10 — frontend-only, backend source changed but NOT deployed.** PR #58, "Save / Submit /
-Print" publish-lock design — see `CHANGELOG.md` 2026-09-10 (2) for the full description. Merged to
-`main` (`4878a39`), which auto-deployed the frontend half to both hosts. **`gas-backend.gs` was also
-changed in this PR** (five new `Daily_Log` columns AH–AL, `publishDailyLog()`, the `publishLog`
-doPost action, `updateDailyNutrition`'s revision-on-published-edit branch) — **none of that is live**.
-Backend deploys go through the separate `~/nicu-tools/neofeed/` clasp mirror per `REFERENCE.md`, not
-`git push`, and that step was deliberately not taken this session.
+**2026-09-10 — PR #58, "Save / Submit / Print" publish-lock design — backend now deployed.** See
+`CHANGELOG.md` 2026-09-10 (2) for the full description. Merged to `main` (`4878a39`, frontend
+cache-bust fix `5005db7`), which auto-deployed the frontend to both hosts. The backend half
+(`publishDailyLog()`, the `publishLog` doPost action, `updateDailyNutrition`'s
+revision-on-published-edit branch, `Daily_Log` AH–AL) was deployed separately via the
+`~/nicu-tools/neofeed/` clasp mirror, per `REFERENCE.md` — see "How `@52` was verified" below.
 
-**This is safe only because `ENABLE_PUBLISH_GATE` (`data.js`) defaults off**, so the deployed
-frontend never calls `publishLog` or exercises the revision path — the backend gap is invisible.
-**🔴 Before ever flipping that flag on: deploy the backend first.** Flipping the flag against `@51`
-would make the frontend call an action (`publishLog`) and expect a response shape
-(`updateDailyNutrition`'s `revised`/`revisionNumber`) that the live backend doesn't have — `doPost`
-falls through with no matching action, not a clean error the UI is built to show.
+**`ENABLE_PUBLISH_GATE` (`data.js`) still defaults off** — the backend fully supports it now, but
+nothing in the UI calls `publishLog` or exercises the revision path until the flag is deliberately
+flipped. Frontend and backend are no longer mismatched the way the first version of this entry
+described.
 
 Cache-bust: `data.js?v=publishlock-0910`, `calculator.jsx?v=publishlock-0910`,
-`app.jsx?v=publishlock-0910` (all three bumped from the previous session's tokens — this PR touched
-all three files). Both HTML shells confirmed byte-identical after the bump. `gas-backend.gs`'s new
+`app.jsx?v=publishlock-0910`. Both HTML shells confirmed byte-identical. `gas-backend.gs`'s new
 20th harness (`test/verify-publish-lock.cjs`, 76 assertions) and the full existing suite are green;
 see `CHANGELOG.md`.
 
@@ -88,11 +84,52 @@ retained.
 | Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
 | Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
 | Frontend deploy | `git push origin main` deploys **both**. Workers Builds runs `npx wrangler deploy`; GitHub Pages rebuilds from the repo root. Connected 2026-08-23 |
-| Backend | GAS deployment `AKfycbz8Nt…` at **`@51`** — *"Sync merged backend (provenance AF-AG, staff-role fail-closed, input validation, locks, night-shift date fix) - GitHub main 25bd5a5"*, cut 2026-09-05 |
-| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `26465c6`, **byte-identical to `gas-backend.gs` and to the deployed source** (`clasp pull` into a clean scratch dir, diffed clean) |
-| Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via the stored id_token before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
-| Migrations | 🟡 **`Daily_Log` AF–AG: no action required, one cosmetic step outstanding.** Both write paths widen the grid on demand, so the columns appear on the first save — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
-| Cache-bust | `data.js?v=fenton-weight-v2-0905`, `calculator.jsx?v=saltrow-negdose-0905` (both bumped 2026-09-05); `app.jsx?v=safety-dupguard-0827`, `tweaks-panel.jsx?v=dashboard-edit2`, `icons.jsx?v=notes-date-sel1`, `fenton.jsx?v=ga-clamp42`, `registry.jsx?v=dol-input-fix1`, `log.jsx?v=bed-dol-io2` unchanged. Both shells byte-identical, confirmed live on both hosts |
+| Backend | GAS deployment `AKfycbz8Nt…` at **`@52`** — *"Publish-lock: publishDailyLog, revision-on-published-edit, Daily_Log AH-AL - GitHub main 5005db7 (PR #58)"*, cut 2026-09-10 |
+| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `f453583`, **byte-identical to `gas-backend.gs` and to the deployed source** (`clasp pull` into a clean scratch dir, diffed clean) |
+| Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
+| Migrations | 🟡 **`Daily_Log` AH–AL: no action required, one cosmetic step outstanding** — same shape as AF/AG. Both write paths widen the grid on demand, so the columns appear on the first save/publish — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
+| Cache-bust | `data.js?v=publishlock-0910`, `calculator.jsx?v=publishlock-0910`, `app.jsx?v=publishlock-0910` (all three bumped 2026-09-10); `registry.jsx?v=patientid-0910`, `tweaks-panel.jsx?v=dashboard-edit2`, `icons.jsx?v=notes-date-sel1`, `fenton.jsx?v=ga-clamp42`, `log.jsx?v=bed-dol-io2` unchanged. Both shells byte-identical, confirmed live on both hosts |
+
+## How `@52` was verified
+
+Not assumed — each step checked, per `REFERENCE.md`:
+
+1. **Diffed the mirror against the repo first, not overwritten.** `~/nicu-tools/neofeed/รหัส.js`
+   (still at `@51`'s source, `26465c6`) vs. `gas-backend.gs`: every line of the 134-line diff traced
+   to PR #58 (the five new columns, `_revisionFields`, the `updateDailyNutrition` revision branch,
+   `publishDailyLog`, `getActivePatients`'s new fields, `ensureLogHeaderColumns`'s WANT map). The
+   mirror held nothing unique — no reconciliation needed, only a copy.
+2. **Deploy identity confirmed before deploying, not after.** `clasp show-authorized-user` →
+   `peeraporn.po@chula.ac.th`, the documented deploy identity.
+3. Copied `gas-backend.gs` → `รหัส.js`, committed in the mirror's own git repo (`f453583`).
+   `clasp push` → 2 files (`รหัส.js`, `appsscript.json`). `clasp create-version` → **52**.
+4. **`clasp update-deployment -V 52 <existing id>`** — the deployment count stayed at **26**, which
+   is the proof a *new* deployment was not created and `NEOFEED_GAS_URL` is unchanged.
+5. **`clasp pull` into a clean scratch dir (not the working mirror), diffed against `gas-backend.gs`
+   → byte-identical.** Confirms what's live is what's in source control.
+6. **Live smoke test:** an unauthenticated `getActivePatients` against the production URL returns
+   `{"error":"Unauthorized"}` — the script loads, `doPost` runs, `verifyToken` refuses, no patient
+   data returned. Captured the single-use `script.googleusercontent.com/macros/echo?…` redirect
+   `Location` header and fetched it once, per the method note below.
+7. **Frontend cache-bust confirmed live on both hosts** (`data.js?v=publishlock-0910`,
+   `calculator.jsx?v=publishlock-0910`, `app.jsx?v=publishlock-0910`) before this deploy, so backend
+   and frontend are now genuinely in step, not just both individually current.
+
+⚠️ **Still unexercised by a human:** a real login, a real Save, a real Submit and a real Print with
+`ENABLE_PUBLISH_GATE` flipped on — everything above proves the backend is correctly *deployed*, not
+that the end-to-end flow works against a live login outside the test harnesses' mocks. That's the
+standing item to close before turning the flag on for real staff.
+
+**Rollback (backend):** `-V 51` restores the pre-publish-lock source (provenance AF-AG, staff-role
+fail-closed, input validation, locks, night-shift date fix — everything `@51` had):
+```
+clasp update-deployment -V 51 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
+```
+Safe to roll back to at any time: `@52`'s new columns/functions are additive and nothing in `@51`
+reads them, so dropping back to `@51` just makes `publishLog` unreachable again (the frontend
+already can't reach it either, with the flag off).
+
+---
 
 ## How `@51` was verified
 

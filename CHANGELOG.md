@@ -13,6 +13,35 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-10 (3) — PR #58 merged, deployed to both hosts, backend cut to `@52`
+
+Praew: "if CI passed then merge" → merged [PR #58](https://github.com/valhalla-health/neofeed/pull/58)
+(Cloudflare Workers Builds check green, clean merge) via a standard merge commit (`4878a39`), matching
+the repo's existing PR-merge convention. That auto-deployed the frontend half to both hosts.
+
+**Caught before it went unnoticed:** the merge shipped `data.js`/`calculator.jsx`/`app.jsx` changes
+without bumping their `?v=` cache-bust tokens in the two HTML shells. Fixed in a follow-up commit
+(`5005db7`, also pushed straight to `main` — a mechanical hygiene fix, not a new feature) and
+confirmed live on both hosts (`data.js?v=publishlock-0910`, `calculator.jsx?v=publishlock-0910`,
+`app.jsx?v=publishlock-0910`).
+
+**Then asked what to do next; chose "deploy the backend half of PR #58."** Followed `REFERENCE.md`'s
+procedure exactly: diffed `~/nicu-tools/neofeed/รหัส.js` against `gas-backend.gs` first (134-line
+diff, all of it traceable to PR #58, nothing unique to the mirror) → confirmed deploy identity
+(`clasp show-authorized-user` → `peeraporn.po@chula.ac.th`) → copied and committed in the mirror's
+own git repo (`f453583`) → `clasp push` → `clasp create-version` (52) → `clasp update-deployment`
+against the **existing** deployment ID (deployment count stayed at 26 — no new deployment created)
+→ `clasp pull` into a clean scratch dir, diffed byte-identical against `gas-backend.gs` → live
+smoke test (unauthenticated `getActivePatients` → `{"error":"Unauthorized"}`, captured the
+single-use redirect `Location` header and fetched it once, per the method note `STATUS.md` already
+carried from the `@50` deploy). See `STATUS.md`'s "How `@52` was verified" for the full record.
+
+**Still open:** `ENABLE_PUBLISH_GATE` remains off. Backend and frontend are now in step and both
+support the flag being flipped, but nobody has exercised a real login + real Save/Submit/Print
+against it yet — that's the standing item before turning it on for real staff.
+
+---
+
 ## Session 2026-09-10 (2) — "Save / Submit / Print": publish-lock design for the calculator
 
 Built, not yet enabled. Praew asked for a review of what NeoFeed could adopt from the digital-health
