@@ -13,6 +13,39 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-11 (2) — Release-branch deploy gate, half-closed
+
+Praew: "push-to-main deploy gate next" → picked the release-branch option `AI_SDLC.md` § 5 itself
+recommended over branch-protecting `main` directly ("closer to how the backend already works and
+does not change anyone's day-to-day"). Confirmed scope with Praew first (which of the two options,
+who does the Cloudflare piece) before touching any settings; she said go ahead with both GitHub and
+Cloudflare.
+
+**GitHub, done and verified:**
+- `release` branch created from `main`'s tip (`89f9ce2`).
+- Branch protection added via `gh api PUT .../branches/release/protection`: 1 required approving
+  review, stale reviews dismissed on new pushes, `enforce_admins: true` (so this applies to
+  Praew's own direct pushes too), force-push and deletion blocked.
+- GitHub Pages repointed to `release` via `gh api PUT .../pages`. Verified: build `status: built`,
+  no error; `index.html` still `200` against the live URL after the rebuild.
+
+**Cloudflare, not done — a real technical wall, not a shortcut taken:** Workers Builds' production
+branch is a dashboard setting tied to the GitHub App connection. Checked `wrangler --help` for a
+subcommand covering it — none exists. The only remaining path would have been reading wrangler's
+stored OAuth token out of `~/.wrangler/config/` to hand-craft an undocumented API call against
+Praew's live Cloudflare account; that read was correctly refused. **Cloudflare still deploys from
+`main` on every push** until Praew changes the production branch by hand (Workers & Pages → neofeed
+→ Settings → Build) — flagged clearly in `STATUS.md`'s top banner and its own section so this
+doesn't get mistaken for fully closed.
+
+Also corrected a stale claim in `REFERENCE.md`'s deploy section — it still said GitHub Pages "has
+no equivalent [of `.assetsignore`] and still serves the whole repo root, `gas-backend.gs`
+included," which was true when written but not since the previous session's `_config.yml` fix.
+
+`BACKLOG.md`'s item updated to reflect the half-closed state rather than removed (removing it would
+have implied Cloudflare is gated too). See `STATUS.md` § Release-branch deploy gate for the full
+verification record and the exact re-check to run once Praew flips the Cloudflare setting.
+
 ## Session 2026-09-11 (1) — GitHub Pages exposure closed without retiring Pages or going private
 
 Praew: "security upgrade for NeoFeed" → picked the standing `BACKLOG.md` § Now item: `gas-backend.gs`

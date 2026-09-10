@@ -41,16 +41,28 @@ The HMF threshold `patient.ga < 32` still works because all valid values stay un
 
 ### Frontend
 
-`git push origin main` deploys the frontend to **both hosts from the same commit** — Cloudflare
-Workers Builds runs `npx wrangler deploy`, and GitHub Pages rebuilds from the repo root. Wired up
-on 2026-08-23 precisely so the two cannot drift; before that Cloudflare only updated when someone
-remembered to run wrangler by hand, which is the same failure mode as the clasp mirror.
+**`main` is a working branch, not a deploy trigger — `release` is.** Changed 2026-09-11
+(`STATUS.md` § Release-branch deploy gate) to close the exact gap `AI_SDLC.md` § 5 named: a push
+to `main` used to be an unreviewed production deploy on two hosts, because the backend demands
+explicit confirmation before a redeploy and the frontend did not, backwards from the risk since
+the frontend is where the printed dose is drawn. Deploying now means opening a PR from `main` into
+`release` and getting it approved — `release` has branch protection (1 required approval,
+`enforce_admins` on, so this applies even to Praew's own pushes) mirroring the confirm-before-
+`clasp deploy` step the backend already had. Self-approval is expected and fine here: the point was
+never third-party peer review, it's stopping an *unattended agent push* from going live, same as
+"confirm with Praew before running the redeploy step" below.
 
-- **A push to `main` is an unreviewed production deploy on two hosts.** This is the asymmetry
-  `AI_SDLC.md` names: the backend demands explicit confirmation, the frontend does not, and the
-  frontend is where the printed dose is drawn.
-- **Cloudflare publishes only the 18 files the app loads**, per `.assetsignore`. GitHub Pages has
-  no equivalent and still serves the whole repo root, `gas-backend.gs` included. See `STATUS.md`.
+- **Cloudflare Workers Builds' production branch is dashboard-only — no `wrangler` subcommand or
+  public API covers it.** Repointing it from `main` to `release` is Praew's step to do by hand
+  (Workers & Pages → neofeed → Settings → Build). **Until she does, Cloudflare still deploys on
+  every push to `main`** — the gate is only closed on the GitHub Pages side until then. Check
+  `STATUS.md` before assuming both hosts are gated.
+- **GitHub Pages now serves from `release`** (repointed via `gh api .../pages`, verified live and
+  rebuilt clean). Both hosts were wired to deploy from the same branch on 2026-08-23 precisely so
+  they cannot drift; that property is preserved, the branch just changed.
+- **Cloudflare publishes only the 18 files the app loads**, per `.assetsignore`. GitHub Pages had
+  no equivalent until `_config.yml` shipped 2026-09-11 (`5bfdb70`) — Jekyll now excludes the same
+  set (internal docs, `gas-backend.gs`, `docs/`, `test/`). See `STATUS.md` for the verification.
 - **`_headers` sets CSP and other security headers, Cloudflare only.** GitHub Pages has no
   equivalent, so the legacy host is unprotected by it regardless of what ships. See `STATUS.md`
   § Response headers for what it covers and what still needs a live-page check before it ships.

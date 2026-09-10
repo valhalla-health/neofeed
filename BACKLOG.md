@@ -72,15 +72,16 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · `TARGETS.fluid` is documented as taking birth weight, but every call site passes
       current weight.** One of the two is wrong. **Clinical decision, not a bug fix** — decide which
       is correct, then make code and docs agree.
-- [ ] 🔒 **security/process · A push to `main` is an unreviewed production deploy of the
-      frontend.** GitHub Pages serves `index.html` from the repo root, so there is no human gate
-      between an agent's commit and the browser a nurse is holding — while the *backend* requires
-      explicit confirmation to deploy. **The asymmetry is backwards from the risk:** the gated half
-      cannot render a wrong number without the ungated half, and the frontend is where the printed
-      dose is drawn. Demonstrated 2026-08-21, when an agent push put `app.jsx?v=pwd-gate-0821` live
-      within minutes. Fix: protect `main` and require a PR, or serve Pages from a `release` branch
-      that only a human merges into — the second mirrors how the backend already works. Surfaced by
-      `AI_SDLC.md` § 5.
+- [ ] 🔒 **security/process · A push to `main` is an unreviewed production deploy —
+      ⚙️ HALF-CLOSED 2026-09-11, CLOUDFLARE STEP STILL PRAEW'S TO DO.** `release` branch created
+      with branch protection (1 required approval, `enforce_admins` on); GitHub Pages repointed to
+      serve from it and verified live. **Cloudflare Workers Builds still deploys from `main` on
+      every push** — its production-branch setting is dashboard-only, no `wrangler`/API path found.
+      Remaining: Workers & Pages → neofeed → Settings → Build → change production branch to
+      `release`, then re-verify (push something harmless to `main` only, confirm Cloudflare does
+      *not* redeploy; merge to `release`, confirm it does). See `STATUS.md` § Release-branch deploy
+      gate for the full record. Demonstrated 2026-08-21, when an agent push put
+      `app.jsx?v=pwd-gate-0821` live within minutes. Surfaced by `AI_SDLC.md` § 5.
 - [ ] 🧱 **product · There is no error boundary** — `PatientStrip` throwing white-screens the whole
       app. One instance was hit and fixed on 2026-08-18; the class of bug is still open.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it

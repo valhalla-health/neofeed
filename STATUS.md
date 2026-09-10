@@ -1,7 +1,9 @@
 # NeoFeed — Status
 
-**Updated 2026-09-10** · 🟢 **Backend production is `@52`. Frontend is live on both hosts with the
+**Updated 2026-09-11** · 🟢 **Backend production is `@52`. Frontend is live on both hosts with the
 matching source. Backend and frontend are in step, and nothing is pending on either.**
+🟡 **Deploy gate is half-closed — see "Release-branch deploy gate" below before assuming a push to
+`main` is safe on both hosts.**
 
 **2026-09-10 — PR #58, "Save / Submit / Print" publish-lock design — backend now deployed.** See
 `CHANGELOG.md` 2026-09-10 (2) for the full description. Merged to `main` (`4878a39`, frontend
@@ -30,6 +32,35 @@ Cache-bust: `calculator.jsx?v=patientid-0910`, `registry.jsx?v=patientid-0910`, 
 confirmed byte-identical. New harness `test/verify-picker-print-identity.cjs` (9 assertions) plus one
 added case in `verify-gas-registry-upsert.cjs`; all 22 `verify-*.cjs` harnesses green. See
 `CHANGELOG.md` 2026-09-10.
+
+## Release-branch deploy gate
+
+🟡 **Half-closed 2026-09-11.** Closes the exact gap `AI_SDLC.md` § 5 named — a push to `main` used
+to be an unreviewed production deploy on both hosts, backwards from the backend's explicit-
+confirmation-before-`clasp deploy` model, and the frontend is where the printed dose is drawn.
+
+**Done:**
+- `release` branch created from `main`'s tip (`89f9ce2`).
+- Branch protection on `release`: 1 required approving review, stale reviews dismissed on new
+  pushes, `enforce_admins` on (applies to Praew's own pushes too, not just an agent's), force-push
+  and deletion blocked. Deploying now means a PR from `main` → `release`, approved before merge —
+  self-approval is expected and fine, the point is stopping an *unattended* push, not third-party
+  review, same reasoning as the backend's confirm-before-deploy step.
+- GitHub Pages repointed to serve from `release` (`gh api PUT .../pages`, verified: fresh build
+  `status: built`, no error, `index.html` still `200` against the live URL).
+
+**Not done — Praew's step:** Cloudflare Workers Builds' production branch is a dashboard setting
+tied to the GitHub App connection. No `wrangler` subcommand or public Cloudflare API covers it, and
+reading wrangler's stored OAuth token to hand-craft an undocumented call was correctly refused.
+**Until Workers & Pages → neofeed → Settings → Build → production branch is changed from `main` to
+`release` by hand, Cloudflare still deploys on every push to `main`.** The gate is real on GitHub
+Pages, not yet real on Cloudflare — don't tell staff this is fully closed until that setting is
+changed and re-verified (push something harmless to `main` only, confirm Cloudflare does *not*
+pick it up, confirm merging to `release` does).
+
+**Rollback:** revert the branch-protection settings and the Pages source via the same `gh api`
+calls with the previous values (`branch: main`), or just keep pushing to `main` and drop `release`
+— nothing about `main`'s own history or the backend changed.
 
 **2026-09-10 — frontend-only, no backend involved.** Mg's Step 3 row, the printed order form, and
 the delivered-dose cross-check now also show mg/kg/d next to the existing mEq/kg/d (display only —
