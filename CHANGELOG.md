@@ -13,6 +13,42 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-10 (2) — "Save / Submit / Print": publish-lock design for the calculator
+
+Built, not yet enabled. Praew asked for a review of what NeoFeed could adopt from the digital-health
+patterns underlying MyBreastmilk and the NICU Center Point integration; the concrete piece chosen
+(design discussed and approved in-session, not written to a separate spec file — a bounded change to
+an existing flow, not a new subsystem) was Center Point PR #57's "reviewed → immutable → printed"
+pattern, ported into NeoFeed's own standalone calculator rather than only the CP bridge.
+
+**What changed:** a saved `Daily_Log` row is now a *draft* until a clinician explicitly Submits it.
+Five columns appended at AH–AL (`published`, `publishedBy`, `revisionNumber`, `revisionOf`,
+`supersededAt`) — by-index, same contract as AF/AG, nothing inserted ahead of them.
+`updateDailyNutrition` now branches on `published`: a draft still overwrites in place exactly as
+before; a **published row is never overwritten again** — an edit instead appends a new revision row
+(`revisionNumber` bumped, `revisionOf` pointing at the row it replaces) and marks the old row
+`supersededAt`. New `publishDailyLog()` / the `publishLog` doPost action is the only thing that ever
+sets `published`; there is no unpublish. `normalizeLogEntries` (the single funnel every log view reads
+through) drops superseded rows, so TrendGraph and the entry table never double-count a revision chain.
+
+Frontend: `Calculator` gained a Submit action and `PrintOrderForm` gained a "รอผลแลป" (pending lab
+results) watermark on an unpublished print — a draft can still be printed, just visibly marked.
+Editing a published entry now surfaces as a fresh draft under a new id (`res.revised`), handled in
+both `calculator.jsx`'s local state and `app.jsx`'s `handleUpdateToGAS`, which mirrors the
+server's revision instead of overwriting the superseded row's content locally.
+
+**Deliberately unfinished:** gated behind `ENABLE_PUBLISH_GATE` in `data.js`, **defaulting off** —
+AI_SDLC.md §5's frontend-has-no-deploy-gate problem still applies, so a UI-visible workflow change
+ships dark first. The backend logic (publish, revision-on-edit, `getActivePatients` exposing the new
+fields) is unconditional and correct regardless of the flag; only the Submit button and the watermark
+are hidden until someone deliberately flips it on. Nothing was deployed this session — no `clasp
+push`, no backend redeploy, no `main` push. `test/verify-publish-lock.cjs` (76 assertions) pins the
+whole design; `test/verify-log-create-guard.cjs` and `test/verify-provenance-stamp.cjs` were updated
+for the new 38-column (A–AL) row width, and the full existing suite plus `runthrough-app.cjs` (real
+Chromium, real shipped code) were re-run clean against the change.
+
+---
+
 ## Session 2026-09-10 — Patient-identification review: twin label in the switcher, mislabeled print ID
 
 Praew asked for a review of patient-identification safety specifically — "how do we harness this

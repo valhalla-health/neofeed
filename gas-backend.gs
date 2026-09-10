@@ -538,7 +538,8 @@ function getSheetLog() {
       "suppMTV","suppVitD_IU","suppCa_mg","suppCaType",
       "suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType",
       "calcInputJson","entryId","lastModified","lastModifiedBy",
-      "ioInput","ioOutput","drainContent","constantsVersion","appVersion"
+      "ioInput","ioOutput","drainContent","constantsVersion","appVersion",
+      "published","publishedBy","revisionNumber","revisionOf","supersededAt"
     ]);
   }
   return sh;
@@ -709,6 +710,12 @@ function doPost(e) {
       if (updResult.conflict) return jsonOut({ conflict: true, current: updResult.current });
       return jsonOut({ ok: true, lastModified: updResult.lastModified });
     }
+    if (action === "publishLog") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
+      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email);
+      if (pubResult.error) return jsonOut({ error: pubResult.error });
+      return jsonOut({ ok: true, publishedAt: pubResult.publishedAt });
+    }
     if (action === "registerPatient" || action === "updatePatient") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       // Strict `=== true`: an older client sends no isNew at all, and undefined
@@ -836,6 +843,11 @@ function getActivePatients() {
       ioInput:        Number(row[28] || 0),
       ioOutput:       Number(row[29] || 0),
       drainContent:   Number(row[30] || 0),
+      published:      String(row[33] || ""),
+      publishedBy:    String(row[34] || ""),
+      revisionNumber: Number(row[35] || 1),
+      revisionOf:     String(row[36] || ""),
+      supersededAt:   String(row[37] || ""),
     });
   }
 
@@ -980,6 +992,25 @@ function _provenanceFields(entry) {
   return [_sheetSafe(entry.constantsVersion || ""), _sheetSafe(entry.appVersion || "")];
 }
 
+// Publish/revision columns AH–AL — the "Save / Submit / Print" design
+// (approved 2026-09-10): a saved row starts as a draft (published blank),
+// editable in place. An explicit Submit calls publishDailyLog() and locks
+// it. Editing a published row afterward never overwrites it — see the
+// branch in updateDailyNutrition — it appends a new row instead, with
+// revisionNumber bumped and revisionOf pointing back at the row it replaces.
+// Used only for a brand-new row (revision 1 of a fresh date); the revision
+// path in updateDailyNutrition builds its own values for revisionNumber/
+// revisionOf directly, since those depend on the row being replaced.
+function _revisionFields(entry) {
+  return [
+    "", // published — set only by publishDailyLog
+    "", // publishedBy
+    _numSafe(entry.revisionNumber, 1),
+    _sheetSafe(entry.revisionOf || ""),
+    "", // supersededAt — set only when a later revision replaces this row
+  ];
+}
+
 // Widen the grid on demand before any write that could exceed it.
 // getRange() past the grid edge throws, and appendRow() rejects a row wider
 // than the sheet — both surface at the bedside as a failed save. This is the
@@ -1014,7 +1045,8 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     var row = _buildLogRow(sessionId, entry, submittedBy)
       .concat([JSON.stringify(entry.calcInput || {}), entryId, lastModified, submittedBy || ""])
       .concat(_ioLogFields(entry))
-      .concat(_provenanceFields(entry));
+      .concat(_provenanceFields(entry))
+      .concat(_revisionFields(entry));
     var sheet = getSheetLog();
     var data = sheet.getDataRange().getValues();
     var targetDate = String(row[0] || "").slice(0, 10);
@@ -1059,10 +1091,50 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
 
       var originalSubmittedBy = String(data[i][15] || editedBy || "");
       var newLastModified = new Date().toISOString();
+
+      // Published rows are immutable (the "Save / Submit / Print" design,
+      // approved 2026-09-10): once Submit has locked a row, an edit must
+      // never overwrite it — instead it appends a NEW row (a revision) and
+      // marks this one superseded. This is the only branch in the function;
+      // everything below it is the pre-existing overwrite-in-place path,
+      // unchanged, for a row that is still a draft.
+      if (data[i][33]) {
+        var newEntryId = Utilities.getUuid();
+        var nextRevisionNumber = _numSafe(data[i][35], 1) + 1;
+        var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)
+          .concat([JSON.stringify(entry.calcInput || {}), newEntryId, newLastModified, _sheetSafe(editedBy || "")])
+          .concat(_ioLogFields(entry))
+          .concat(_provenanceFields(entry))
+          .concat(["", "", nextRevisionNumber, _sheetSafe(entryId), ""]);
+        _ensureLogWidth(sheet, revisionRow.length);
+        sheet.appendRow(revisionRow);
+        // Mark the row being replaced as superseded — col 38 (AL), same lock,
+        // same write pass. Nothing else about the old row changes: it keeps
+        // its own published/publishedBy/entryId exactly as printed.
+        sheet.getRange(i + 1, 38, 1, 1).setValue(newLastModified);
+        return {
+          ok: true, revised: true,
+          entryId: newEntryId, lastModified: newLastModified,
+          revisionNumber: nextRevisionNumber,
+        };
+      }
+
       var row = _buildLogRow(sessionId, entry, originalSubmittedBy)
         .concat([JSON.stringify(entry.calcInput || {}), entryId, newLastModified, _sheetSafe(editedBy || "")])
         .concat(_ioLogFields(entry))
-        .concat(_provenanceFields(entry));
+        .concat(_provenanceFields(entry))
+        // Draft rows are still overwritten in place, so publish/revision
+        // bookkeeping must be PRESERVED from the existing row, not
+        // recomputed from `entry` (the client payload never carries these —
+        // they are server-managed). A still-draft row is always its own
+        // revision 1 with nothing superseded, but this reads the actual
+        // cells rather than assuming that, so it stays correct even for a
+        // draft that itself resulted from a revision (revisionOf must not
+        // be dropped).
+        .concat([
+          data[i][33] || "", data[i][34] || "",
+          _numSafe(data[i][35], 1), data[i][36] || "", data[i][37] || "",
+        ]);
       // A Daily_Log tab created before the Intake/Output columns is only 28
       // columns wide (and one predating AF–AG only 31), and getRange() past
       // the grid edge throws — which would surface at the bedside as a failed
@@ -1074,6 +1146,33 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       return { ok: true, lastModified: newLastModified };
     }
     return { error: "ไม่พบข้อมูลที่ต้องการแก้ไข — อาจถูกลบไปแล้ว" };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ── publishDailyLog (submit / lock a draft row) ─────────────────
+// The only way a row's `published` column (AH) is ever set. From this point
+// on, updateDailyNutrition will refuse to overwrite the row in place — any
+// further edit creates a new revision instead (see the branch above). There
+// is no unpublish: once locked, a row stays part of the permanent record.
+function publishDailyLog(sessionId, entryId, publishedBy) {
+  if (!entryId) return { error: "entryId is required" };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheetLog();
+    var data  = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][25]) !== String(entryId)) continue;
+      if (String(data[i][1]) !== String(sessionId)) return { error: "Entry does not belong to this patient" };
+      var publishedAt = new Date().toISOString();
+      _ensureLogWidth(sheet, 38);
+      sheet.getRange(i + 1, 34, 1, 1).setValue(publishedAt);
+      sheet.getRange(i + 1, 35, 1, 1).setValue(_sheetSafe(publishedBy || ""));
+      return { ok: true, publishedAt: publishedAt };
+    }
+    return { error: "ไม่พบข้อมูลที่ต้องการส่ง — อาจถูกลบไปแล้ว" };
   } finally {
     lock.releaseLock();
   }
@@ -1270,6 +1369,9 @@ function ensureLogHeaderColumns(apply) {
     29: "ioInput", 30: "ioOutput", 31: "drainContent",
     // AF–AG, added 2026-08-26 — see _provenanceFields
     32: "constantsVersion", 33: "appVersion",
+    // AH–AL, added 2026-09-10 — see _revisionFields / the publish-lock design
+    34: "published", 35: "publishedBy", 36: "revisionNumber",
+    37: "revisionOf", 38: "supersededAt",
   };
   var sh   = getSheetLog();
   var out  = {
@@ -1279,10 +1381,10 @@ function ensureLogHeaderColumns(apply) {
     changes: [], skipped: []
   };
 
-  // 1. Widen the grid if needed — must happen before any getRange(.., 33).
-  var need = 33 - sh.getMaxColumns();
+  // 1. Widen the grid if needed — must happen before any getRange(.., 38).
+  var need = 38 - sh.getMaxColumns();
   if (need > 0) {
-    out.changes.push("grid: " + sh.getMaxColumns() + " -> 33 columns (+" + need + ")");
+    out.changes.push("grid: " + sh.getMaxColumns() + " -> 38 columns (+" + need + ")");
     if (apply === true) sh.insertColumnsAfter(sh.getMaxColumns(), need);
   } else {
     out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
@@ -1308,7 +1410,7 @@ function ensureLogHeaderColumns(apply) {
     out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
   }
 
-  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(33, sh.getLastColumn())).getValues()[0];
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(38, sh.getLastColumn())).getValues()[0];
   Logger.log(JSON.stringify(out, null, 2));
   return out;
 }

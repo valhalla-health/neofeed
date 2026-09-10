@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Nineteen Node scripts. Two check the TPN calculator against the **official KCMH
+Twenty Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -48,8 +48,8 @@ than arithmetic**: what it guards against is a correct number being read as a wr
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
-`verify-provenance-stamp.cjs` and `verify-sync-freshness.cjs` need **no
-dependencies at all** — run them directly:
+`verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs` and
+`verify-publish-lock.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
 node test/verify-targets-and-dates.cjs
@@ -60,6 +60,7 @@ node test/verify-must-change-password.cjs
 node test/verify-input-validation.cjs
 node test/verify-provenance-stamp.cjs
 node test/verify-sync-freshness.cjs
+node test/verify-publish-lock.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
@@ -466,6 +467,23 @@ arrow), so a *new* bare-arrow caption under a mEq/kg input trips it.
 Section 3 is their slide 8: oral calcium and phosphate bind each other in the
 gut lumen, so the doses must be separated in time — a fact no daily total can
 express. The advisory must appear when, and only when, both are ordered.
+
+**`verify-publish-lock.cjs`** — the 2026-09-10 "Save / Submit / Print" publish-lock design
+(`CHANGELOG.md`, same date). A saved `Daily_Log` row starts as a draft (editable in place, printed
+with a "รอผลแลป" watermark) until a clinician explicitly publishes it (`publishDailyLog` /
+`doPost`'s `publishLog` action). Once published, `updateDailyNutrition` never overwrites the row
+again — an edit appends a new revision (columns AH–AL: `published`, `publishedBy`,
+`revisionNumber`, `revisionOf`, `supersededAt`) and marks the old row superseded. Same `vm`-sandbox
+technique as the provenance-stamp harness, driving the real `gas-backend.gs` functions directly:
+schema/width (a 33-column, AF/AG-era tab widens to 38 without throwing, on all three write paths),
+the draft-overwrite path staying byte-for-byte unchanged, the revision-creation path (new row,
+old row superseded, nothing else about the old row touched), the same lock taken on both paths,
+`getActivePatients` exposing the five new fields, and `doPost`'s RBAC gate on `publishLog`. A short
+regex-based section (the same technique the provenance harness uses for its own frontend checks)
+pins that `calculator.jsx`/`app.jsx` actually wire Submit and the watermark through, and that
+`data.js`'s `normalizeLogEntries` — the single funnel every log view reads through — drops
+superseded rows so TrendGraph and the entry table never double-count a revision chain. Gated behind
+`ENABLE_PUBLISH_GATE` in `data.js`, defaulting off; the harness pins that default too.
 
 Checked the way the session-revocation harness was: run against the pre-edit
 `calculator.jsx` it fails 14 of its 20 assertions.
