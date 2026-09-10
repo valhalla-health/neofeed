@@ -543,6 +543,11 @@ const KCMH_STOCK = {
 const MAX_DEXTROSE_G_KG = 18;
 // Max K concentration in the finished bag (G25 = prepared mL × 40 ÷ 1000) — mEq/L
 const MAX_K_MEQ_PER_L = 40;
+// Display-only conversion, not a compounding divisor (KCMH_STOCK's mgso4_10/50
+// stay the mL authority): elemental Mg, MW 24.305 g/mol ÷ valence 2 = mg per mEq.
+// Lets the Mg input (dosed in mEq/kg/d, matching the stock's mEq/mL) also show
+// mg/kg/d for staff cross-checking against a mg-based reference.
+const MG_MG_PER_MEQ = 12.1525;
 
 // ── Traffic-light status helper ───────────────────────────────
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
@@ -1353,7 +1358,7 @@ window.NEOFEED_DATA = {
   // Utility functions
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, MG_MG_PER_MEQ,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.

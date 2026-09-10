@@ -13,6 +13,31 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-10 — Mg now also shows mg/kg/d alongside its mEq/kg/d dose
+
+Praew asked whether three items from an earlier handoff had shipped: a lipid-drip unit, Mg in
+mg/kg/day, and electrolytes accounting for dead space. The first and third were already done
+(lipid: `calculator.jsx` Step 3 already shows g/kg/d, mL/day, mL/hr and mL/kg/d; dead space: the
+overfill Factor added 2026-08-06 already scales Na/K/Mg/Ca/P — see the "Second pass" entry below).
+Mg was still mEq-only, so this session added the mg/kg/d readout **alongside** the existing
+mEq/kg/d — not replacing it, since the input, its presets and the compounding math (mL from
+`KCMH_STOCK.mgso4_10/50`, both in mEq/mL) all stay mEq-based.
+
+**Added:** `data.js` exports `MG_MG_PER_MEQ = 12.1525` (elemental Mg, MW 24.305 g/mol ÷ valence 2)
+— a display-only conversion, not a compounding divisor, so it needed no `CONSTANTS_VERSION` bump.
+`calculator.jsx` uses it in three places: Step 3's Mg row (a new line under the input, matching the
+K₂HPO₄ row's existing mEq→mg pattern rather than the old bare-arrow style — confirmed against
+`test/verify-nutrition-unit-review.cjs`'s three-arrow canary, still exactly 3, no regression), the
+printed order form's Mg⁺⁺ row, and the delivered-dose cross-check section.
+
+**Verified, not assumed:** all 20 `test/verify-*.cjs` harnesses green, including
+`verify-kcmh-factor.cjs` at `DEAD=20` and `DEAD=0` (Mg compounding math is untouched — only a label
+was added) and `verify-nutrition-unit-review.cjs`'s arrow-canary (still 3, this change did not add
+a fourth). Cache-bust bumped: `data.js?v=mg-mgkg-0910`, `calculator.jsx?v=mg-mgkg-0910` in both HTML
+shells, confirmed byte-identical.
+
+---
+
 ## Session 2026-09-05 — FENTON_WEIGHT re-verified against official v2 cutoff table; GA 36-41 corrected
 
 Praew asked whether the Fenton trend graph is really accurate. Weight had been marked "verified,

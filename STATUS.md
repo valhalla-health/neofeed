@@ -1,7 +1,13 @@
 # NeoFeed — Status
 
-**Updated 2026-09-05** · 🟢 **Backend production is `@51`. Frontend is live on both hosts with the
+**Updated 2026-09-10** · 🟢 **Backend production is `@51`. Frontend is live on both hosts with the
 matching source. Backend and frontend are in step, and nothing is pending on either.**
+
+**2026-09-10 — frontend-only, no backend involved.** Mg's Step 3 row, the printed order form, and
+the delivered-dose cross-check now also show mg/kg/d next to the existing mEq/kg/d (display only —
+the input, presets and compounding math are unchanged, still mEq-based). `git push` deploys this to
+both hosts automatically. Cache-bust: `data.js?v=mg-mgkg-0910`, `calculator.jsx?v=mg-mgkg-0910`,
+both HTML shells confirmed byte-identical. See `CHANGELOG.md` 2026-09-10.
 
 2026-09-05 landed a merge of two branches that had diverged without knowing about each other:
 Praew's own `ae912c7` (phosphorus target correction, Peditrace dose correction, a session-id

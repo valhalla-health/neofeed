@@ -1560,9 +1560,17 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               )}
 
               {/* ── Mg · Ca ── */}
-              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "12px 0 4px" }}>Mg (mEq/kg) · Ca (mg/kg)</div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "12px 0 4px" }}>Mg (mEq/kg + mg/kg) · Ca (mg/kg)</div>
               <SaltRow label="MgSO₄" note={`${(mgStrength === "50" ? S.mgso4_50 : S.mgso4_10).mgMeqPerMl} mEq/mL`} perKg={mgPerKg} onChange={setMgPerKg} wtKg={wtKg} />
               <PresetChips values={[0.2, 0.4, 0.6]} current={mgPerKg} onSelect={setMgPerKg} />
+              {/* Dosed and compounded in mEq/kg/d (matches the stock's mEq/mL) —
+                  this line only adds mg/kg/d for cross-checking a mg-based reference,
+                  it does not change what is compounded. */}
+              {mgPerKg > 0 && (
+                <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
+                  {fmt(mgPerKg, 2)} mEq Mg/kg/d = {fmt(mgPerKg * D.MG_MG_PER_MEQ, 1)} mg/kg/d
+                </div>
+              )}
               {/* The KCMH worksheet prints both strengths but compounds from 10% */}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
                 <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial</span>
@@ -2301,7 +2309,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
           {/* Mg */}
           <tr>
             <td style={td}><strong>3. Mg⁺⁺</strong><br/>{chk(mgPerKg > 0)} MgSO₄ {mgStrength}% ({(mgStrength === "50" ? S.mgso4_50 : S.mgso4_10).mgMeqPerMl} mEq/mL)</td>
-            <td style={tdr}><strong>{mgPerKg > 0 ? mgPerKg : "—"}</strong> mEq</td>
+            <td style={tdr}><strong>{mgPerKg > 0 ? mgPerKg : "—"}</strong> mEq
+              {mgPerKg > 0 && <><br/><span style={{ fontSize:9, color:"#555" }}>= {f(mgPerKg*D.MG_MG_PER_MEQ,1)} mg/kg</span></>}</td>
             <td style={tdr}><strong>{mgPerKg > 0 ? f(mgPerKg*(calc.factor||0),2) : "—"}</strong> mEq
               {mgPerKg > 0 && <> = <strong>{f(calc.solVol?.mg,2)}</strong> mL</>}</td>
             <td style={td}>Mg 0-12 mo. 0.4 mEq/kg/day<br/>&gt;1 yr. 0.2 mEq/kg/day</td>
@@ -2427,7 +2436,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
         <tr>
           <td style={td}>Na⁺ <strong>{f(calc.naKg*(wtKg||0),2)}</strong> mEq = <strong>{f(calc.naKg,2)}</strong> mEq/kg</td>
           <td style={td}>K⁺ <strong>{f(calc.kKg*(wtKg||0),2)}</strong> mEq = <strong>{f(calc.kKg,2)}</strong> mEq/kg</td>
-          <td style={td}>Mg²⁺ <strong>{f(mgPerKg*(wtKg||0),2)}</strong> mEq = <strong>{f(mgPerKg,2)}</strong> mEq/kg</td>
+          <td style={td}>Mg²⁺ <strong>{f(mgPerKg*(wtKg||0),2)}</strong> mEq = <strong>{f(mgPerKg,2)}</strong> mEq/kg
+            {mgPerKg > 0 && <> (<strong>{f(mgPerKg*D.MG_MG_PER_MEQ,1)}</strong> mg/kg)</>}</td>
         </tr>
         <tr>
           <td style={td}>Ca²⁺ <strong>{f0(caPerKg*(wtKg||0))}</strong> mg = <strong>{f0(caPerKg)}</strong> mg/kg</td>
