@@ -52,26 +52,6 @@ clinical judgement. Everything else is engineering sequencing.
       printed order carries `CONSTANTS_VERSION`, so when the shelf check lands, *"which orders used
       the old divisor?"* has an answer. Rows written **before** 2026-08-26 have a blank AF and
       cannot be attributed — that set is now fixed and will not grow.
-- [ ] 🔒 **security · GitHub Pages publicly serves `gas-backend.gs` and every internal review,
-      right now — ⚙️ REDIRECT STUB SHIPPED 2026-08-23 (`30dbff7`), STAFF NOT YET TOLD.** The
-      redirect stub (option (b), see below) is live: `valhalla-health.github.io/neofeed/` now
-      bounces the app entry point to `moved.html`. **This does not close the item** — it stops
-      staff from using the calculator there, it does not stop the files below from being fetched
-      directly. Remaining: Praew announces in the staff LINE group → 2-week window → repo goes
-      private (Praew, GitHub Settings) → re-run the exposure check below → tick this.
-      Verified 2026-08-23: `valhalla-health.github.io/neofeed/gas-backend.gs`,
-      `SECURITY_CHECKLIST.md`, `CODE_REVIEW_2026-08-18.md`, `HANDOFF.md`, `PRD.md` and `STATUS.md`
-      all return `200`. (`.git/` does not — checked directly, that part of `STATUS.md`'s "serves all
-      of them" is broader than confirmed.) The two `CODE_REVIEW_*.md` files are the sharpest problem:
-      they are a public, dated list of this app's *unpatched* vulnerabilities, next to the backend
-      source that shows exactly where they live. Cloudflare already blocks this via `.assetsignore`
-      (2026-08-23) — GitHub Pages has no equivalent mechanism, so this stays open on that host until
-      one of: (a) a `.nojekyll`-style file-level exclusion is found for Pages, (b) Pages is retired in
-      favour of Cloudflare alone, or (c) the repo goes private — which **on this free org plan
-      disables Pages immediately** and breaks every staff install pointing there, so it requires the
-      redirect-stub sequence in `REFERENCE.md` first, not a same-day flip. Distinct from the
-      *"push to `main` is an unreviewed deploy"* item below: that one is about an ungated code path,
-      this one is about content already sitting at a public URL independent of any future push.
 - [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live

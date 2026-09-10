@@ -13,6 +13,48 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-11 (1) — GitHub Pages exposure closed without retiring Pages or going private
+
+Praew: "security upgrade for NeoFeed" → picked the standing `BACKLOG.md` § Now item: `gas-backend.gs`
+and both `CODE_REVIEW_*.md` files (a public, dated list of this app's own unpatched vulnerabilities)
+still directly fetchable at `valhalla-health.github.io/neofeed/`, unaffected by the 2026-08-23
+redirect stub (that only protects the app entry point, `/`, not arbitrary file paths).
+
+**Root cause:** legacy GitHub Pages (confirmed via `gh api repos/.../pages` → `build_type: legacy`)
+runs Jekyll on every deploy — there is no `.nojekyll` in the repo — but nothing had ever told Jekyll
+what to leave out. Cloudflare had already solved the identical problem via `.assetsignore`'s
+allow-by-exclusion list.
+
+**Fix (`5bfdb70`):** added `_config.yml` with an `exclude:` list mirroring `.assetsignore` exactly —
+`*.md`, `gas-backend.gs`, `docs/`, `test/`, `node_modules/`, `graphify-out/`, `NeoFeed.html`,
+`wrangler.jsonc`. Dotfiles/dot-directories (`.git`, `.claude`, `.wrangler`) are already skipped by
+Jekyll's own default, so they needed no entry. Confirmed no runtime file (`index.html`, the six
+`.jsx` modules) references anything under the excluded paths before pushing.
+
+**Verified against the live URL after the Pages rebuild finished** (polled `gh api
+repos/.../pages/builds/latest` until `status: built`, no error — took 38s): `gas-backend.gs`,
+`SECURITY_CHECKLIST.md`, `CODE_REVIEW_2026-08-18.md`, `CODE_REVIEW_2026-08-08.md`, `HANDOFF.md`,
+`PRD.md`, `STATUS.md`, `BACKLOG.md`, `REFERENCE.md`, `AI_SDLC.md`, `NeoFeed.html`, `wrangler.jsonc`
+and everything under `docs/` and `test/` now return `404`. The app itself is unaffected —
+`index.html`, `data.js`, `manifest.json`, `moved.html` and all six `.jsx` modules still `200`.
+
+**Adjacent gap found and closed the same session (`5cc98e1`):** `.gitleaks.toml` — the project's
+secret-scanning rule config, not secrets itself — was never added to `.assetsignore`, so Cloudflare
+had been serving it (`200`) the whole time; GitHub Pages already hid it via Jekyll's own dotfile
+default. Added the one missing line, confirmed Cloudflare returns `404` for it after redeploying
+(polled the live URL until it flipped, ~24s).
+
+**This closes the file-exposure half of the `BACKLOG.md` § Now item entirely** — the
+staff-announcement → 2-week-window → repo-private sequence that item originally called for is no
+longer required to close it. Going private remains a separate, larger decision Praew can still make
+later for other reasons. `STATUS.md`'s "What Cloudflare does not serve" and "GitHub Pages
+retirement" sections updated in the same session. No test harness added: this changes what static
+files a deploy host serves, not `gas-backend.gs` behavior, so `test/`'s node-based convention
+doesn't apply — verification was the live `curl` checks recorded above, matching the exact method
+this item's closure criteria always specified.
+
+---
+
 ## Session 2026-09-10 (3) — PR #58 merged, deployed to both hosts, backend cut to `@52`
 
 Praew: "if CI passed then merge" → merged [PR #58](https://github.com/valhalla-health/neofeed/pull/58)

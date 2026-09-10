@@ -223,16 +223,24 @@ GitHub Pages has no rollback — revert the commit and push.
 `.assetsignore` restricts Cloudflare to the 18 files the app actually loads. Verified
 cache-busted on 2026-08-23: `gas-backend.gs`, `gas-backend.gs.js`, `SECURITY_CHECKLIST.md`,
 `CODE_REVIEW_*.md`, `HANDOFF.md`, `PRD.md`, `STATUS.md`, `NeoFeed.html`, `test/`, `docs/`,
-`graphify-out/` and `.git/` all return **404** there.
+`graphify-out/` and `.git/` all return **404** there. `.gitleaks.toml` was missed from this list
+until 2026-09-11 (`5cc98e1`) — confirmed serving `200` before that fix, `404` after (Cloudflare
+redeployed, checked against the live URL, not `wrangler dev`). No real secrets were in it (rules
+and a description of the already-known Spreadsheet-ID incident, not credential values), but it's
+the same "internal tooling, not public" category as everything else here.
 
-⚠️ **GitHub Pages still serves most of them.** It has no equivalent of `.assetsignore`, so the
-backend source and every internal review remain publicly fetchable at
-`valhalla-health.github.io/neofeed/` — confirmed 2026-08-23 for `gas-backend.gs`,
-`SECURITY_CHECKLIST.md`, `CODE_REVIEW_2026-08-18.md`, `HANDOFF.md`, `PRD.md` and this file itself
-(all `200`). `.git/` does not serve there — checked directly, unlike the rest of this list.
-Closing the exposure means retiring Pages or making the repo private — and on a free org plan,
-making it private **disables Pages entirely**, which would break every staff install pointing
-there. Tracked in `BACKLOG.md` § Now.
+🟢 **GitHub Pages closed 2026-09-11 (`5bfdb70`), without retiring Pages or going private.**
+Legacy Pages runs Jekyll (no `.nojekyll`), which was never told what to exclude. Added
+`_config.yml` with an `exclude:` list mirroring `.assetsignore`'s allow-list exactly
+(`*.md`, `gas-backend.gs`, `docs/`, `test/`, `NeoFeed.html`, `wrangler.jsonc`; dotfiles were
+already skipped by Jekyll's own default). Verified against the live URL after the Pages rebuild
+completed (`gh api .../pages/builds/latest` → `status: built`, no error): `gas-backend.gs`,
+`SECURITY_CHECKLIST.md`, both `CODE_REVIEW_*.md` files, `HANDOFF.md`, `PRD.md`, `STATUS.md`,
+`BACKLOG.md`, `REFERENCE.md`, `AI_SDLC.md`, `NeoFeed.html`, `wrangler.jsonc` and everything under
+`docs/` and `test/` now all return **404**. The app itself still loads correctly — `index.html`,
+`data.js`, `manifest.json`, `moved.html` and all six `.jsx` modules still return `200`, confirmed
+same session. This closes the `BACKLOG.md` § Now item's file-exposure half; the app-entry-point
+half was already closed by the redirect stub below.
 
 ## Response headers (Cloudflare only)
 
@@ -301,12 +309,13 @@ checked in Node (string-match doesn't false-positive on lookalikes) and the mech
 correctly (first script in `<head>`, before any resource fetch), but that is inference, not
 observation. Do this check in a real browser before telling staff it's live.
 
-**Still open, unaffected by this push:** `gas-backend.gs`, `SECURITY_CHECKLIST.md` and both
-`CODE_REVIEW_*.md` files are still directly fetchable on GitHub Pages (`200`, checked same
-session) — the guard protects the app entry point (`/`), not arbitrary file paths. That closes
-only when the repo goes private. Remaining sequence: **staff announcement (Praew's action, not yet
-done)** → 2-week window → repo goes private (Praew's action, GitHub Settings) → re-run the
-exposure check → tick the `BACKLOG.md` item.
+**File exposure closed separately, 2026-09-11 (`5bfdb70`):** the guard above protects the app
+entry point (`/`), not arbitrary file paths — `gas-backend.gs`, `SECURITY_CHECKLIST.md` and both
+`CODE_REVIEW_*.md` files stayed fetchable after this push, `200`, until the `_config.yml` Jekyll
+exclude shipped. See "What Cloudflare does not serve" above for the full verification. The
+staff-announcement → 2-week-window → repo-private sequence originally planned for this is no
+longer required to close the item; going private remains a separate, larger decision Praew can
+still make later for other reasons, but is not blocking on this exposure anymore.
 
 **Rollback:** revert `30dbff7`. No backend involvement.
 
