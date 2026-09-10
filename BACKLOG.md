@@ -101,6 +101,12 @@ clinical judgement. Everything else is engineering sequencing.
       within minutes. Fix: protect `main` and require a PR, or serve Pages from a `release` branch
       that only a human merges into — the second mirrors how the backend already works. Surfaced by
       `AI_SDLC.md` § 5.
+- [ ] 🔒 **process · Deploy the backend half of PR #58 (publish-lock) before flipping
+      `ENABLE_PUBLISH_GATE` on.** Merged 2026-09-10: `gas-backend.gs` gained `publishDailyLog()`, the
+      `publishLog` action and `updateDailyNutrition`'s revision branch, but only the frontend
+      auto-deployed — the backend needs its own `clasp push` + deploy step (`REFERENCE.md`), not yet
+      taken. Safe today only because the flag defaults off. See `STATUS.md`'s 2026-09-10 entry for
+      the full warning; delete this line once the backend is actually deployed and verified.
 - [ ] 🧱 **product · There is no error boundary** — `PatientStrip` throwing white-screens the whole
       app. One instance was hit and fixed on 2026-08-18; the class of bug is still open.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it

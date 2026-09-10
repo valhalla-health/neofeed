@@ -1,7 +1,28 @@
 # NeoFeed — Status
 
-**Updated 2026-09-10** · 🟢 **Backend production is `@51`. Frontend is live on both hosts with the
-matching source. Backend and frontend are in step, and nothing is pending on either.**
+**Updated 2026-09-10** · 🟡 **Backend production is still `@51`. Frontend is live on both hosts,
+one deploy ahead of the backend — see the entry immediately below.**
+
+**2026-09-10 — frontend-only, backend source changed but NOT deployed.** PR #58, "Save / Submit /
+Print" publish-lock design — see `CHANGELOG.md` 2026-09-10 (2) for the full description. Merged to
+`main` (`4878a39`), which auto-deployed the frontend half to both hosts. **`gas-backend.gs` was also
+changed in this PR** (five new `Daily_Log` columns AH–AL, `publishDailyLog()`, the `publishLog`
+doPost action, `updateDailyNutrition`'s revision-on-published-edit branch) — **none of that is live**.
+Backend deploys go through the separate `~/nicu-tools/neofeed/` clasp mirror per `REFERENCE.md`, not
+`git push`, and that step was deliberately not taken this session.
+
+**This is safe only because `ENABLE_PUBLISH_GATE` (`data.js`) defaults off**, so the deployed
+frontend never calls `publishLog` or exercises the revision path — the backend gap is invisible.
+**🔴 Before ever flipping that flag on: deploy the backend first.** Flipping the flag against `@51`
+would make the frontend call an action (`publishLog`) and expect a response shape
+(`updateDailyNutrition`'s `revised`/`revisionNumber`) that the live backend doesn't have — `doPost`
+falls through with no matching action, not a clean error the UI is built to show.
+
+Cache-bust: `data.js?v=publishlock-0910`, `calculator.jsx?v=publishlock-0910`,
+`app.jsx?v=publishlock-0910` (all three bumped from the previous session's tokens — this PR touched
+all three files). Both HTML shells confirmed byte-identical after the bump. `gas-backend.gs`'s new
+20th harness (`test/verify-publish-lock.cjs`, 76 assertions) and the full existing suite are green;
+see `CHANGELOG.md`.
 
 **2026-09-10 — frontend-only, no backend involved.** Patient-identification review: `<PatientPicker>`
 (the header's "switch patient" modal) now shows the twin/multiples label next to the name, same as
