@@ -10,6 +10,7 @@
 .claude/
 .gitignore
 .gitleaksignore
+.gitleaks.toml
 .graphifyignore
 
 # Ledgers, reviews and specs — internal, and SECURITY_CHECKLIST.md especially
