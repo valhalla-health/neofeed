@@ -3,6 +3,17 @@
 **Updated 2026-09-10** · 🟢 **Backend production is `@51`. Frontend is live on both hosts with the
 matching source. Backend and frontend are in step, and nothing is pending on either.**
 
+**2026-09-10 — frontend-only, no backend involved.** Patient-identification review: `<PatientPicker>`
+(the header's "switch patient" modal) now shows the twin/multiples label next to the name, same as
+the registry table already did — two twins previously rendered as identical rows there except for a
+small bed chip. The printed TPN order form's `"AN:"` field is relabeled `"NeoFeed ID:"` (it was never
+the hospital's real Admission Number, just the derived, collision-prone `sessionId`) and now also
+prints the twin letter next to the name. `git push` deploys this to both hosts automatically.
+Cache-bust: `calculator.jsx?v=patientid-0910`, `registry.jsx?v=patientid-0910`, both HTML shells
+confirmed byte-identical. New harness `test/verify-picker-print-identity.cjs` (9 assertions) plus one
+added case in `verify-gas-registry-upsert.cjs`; all 22 `verify-*.cjs` harnesses green. See
+`CHANGELOG.md` 2026-09-10.
+
 **2026-09-10 — frontend-only, no backend involved.** Mg's Step 3 row, the printed order form, and
 the delivered-dose cross-check now also show mg/kg/d next to the existing mEq/kg/d (display only —
 the input, presets and compounding math are unchanged, still mEq-based). `git push` deploys this to

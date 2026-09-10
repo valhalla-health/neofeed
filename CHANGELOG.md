@@ -13,6 +13,50 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-10 — Patient-identification review: twin label in the switcher, mislabeled print ID
+
+Praew asked for a review of patient-identification safety specifically — "how do we harness this
+better" — drawing on the identity-linking guardrails already built into MyBreastmilk (never guess
+identity from a weak signal like bed or weight; make the human attest before an identity-critical
+write). Two concrete gaps found and fixed, both about *which infant*, not dosing arithmetic:
+
+**Fixed:** `registry.jsx`'s `<PatientPicker>` — the modal behind the header's "switch patient"
+button, the fastest path to changing the active patient mid-shift — listed bed/name/GA/BW/diagnosis
+per row but never called `multiplesLabel()`. Twins share initials by construction (`sessionId` is
+initials+BW+twinSuffix) and are usually in adjacent beds, so two rows could read identically except
+for a small bed chip; the registry table and mobile cards already carried the label, the picker was
+the one place it was missing. `calculator.jsx`'s `PrintOrderForm` — the printed pharmacy TPN order,
+the highest-consequence document leaving the app — labeled its own derived `sessionId` as `"AN:"`,
+which reads to a pharmacist as the hospital's real Admission Number. It isn't: it's the same
+collision-prone initials+BW+twinSuffix key `_sessionIdConflict` (`gas-backend.gs`) already exists to
+guard against, mislabeled as if it were an independent identifier a pharmacist could cross-check
+against the chart. Relabeled to `"NeoFeed ID:"`, and the twin letter now prints next to the name on
+the same line, for the same reason the picker needed it.
+
+**Not changed, left for a deliberate decision:** the opaque server-generated sessionId from
+`PDPA_SECURITY_AUDIT_2026-08-27.md` §2.3 is still open (filed "Later" in that doc's own backlog) —
+today's fix strengthens the existing stopgap's surrounding UI, it doesn't replace it. A live
+duplicate-initials hint while `NewPatientModal` is still being filled in (today the collision guard
+only fires after "Register" is clicked) was also identified and deliberately left out of this pass.
+
+**Added:** `test/verify-picker-print-identity.cjs` (9 assertions) — mounts the real `<PatientPicker>`
+and `<Calculator>` in jsdom, same technique as `verify-registry-logged-today.cjs` and
+`verify-tpn-calc-weight.cjs`. Run against the pre-edit files, 5 of the 9 fail. Also extended
+`test/verify-gas-registry-upsert.cjs`'s existing collision-guard section with the specific
+nurse-facing mistake this review was about — two twins registered under the same Multiples letter —
+which the existing same-initials-same-BW guard already caught; the new case documents that scenario
+by name rather than adding new guard logic.
+
+**Verified, not assumed:** all 22 `test/verify-*.cjs` harnesses green after the change, including
+every jsdom-dependent one that touches `calculator.jsx`/`registry.jsx`
+(`verify-kcmh-factor.cjs`, `verify-registry-logged-today.cjs`, `verify-bed-dol-io.cjs`,
+`verify-patient-ga-bw-edit.cjs`, `verify-delete-session.cjs`, `verify-tpn-calc-weight.cjs`,
+`verify-nutrition-unit-review.cjs`). Cache-bust bumped: `calculator.jsx?v=patientid-0910`,
+`registry.jsx?v=patientid-0910` in both HTML shells, confirmed byte-identical. `git push` deploys
+this to both hosts automatically — see `STATUS.md`.
+
+---
+
 ## Session 2026-09-10 — Mg now also shows mg/kg/d alongside its mEq/kg/d dose
 
 Praew asked whether three items from an earlier handoff had shipped: a lipid-drip unit, Mg in

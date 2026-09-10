@@ -187,6 +187,17 @@ sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
 sandbox.registerPatient({ ...patient, sessionId: 'NEW-2' }, true);
 eq('a genuinely new id still appends', sheet.appended.length, 1);
 
+// (h) The twin-specific case from the 2026-09-10 identification review: a
+//     nurse picks the same Multiples letter for both twins (same initials,
+//     same integer BW, same twinSuffix by mistake) — sessionId is identical
+//     to an already-registered sibling's, so this is case (a) again under
+//     the scenario that actually produces it on this ward, not a generic typo.
+const EXISTING_TWIN = EXISTING.slice(); EXISTING_TWIN[8] = 'A'; // twinSuffix column
+sheet = makeSheet(PAT_HEADER, [EXISTING_TWIN], 26);
+threw = null;
+try { sandbox.registerPatient({ ...patient, twinSuffix: 'A' }, true); } catch (e) { threw = e.message; }
+ok('registering twin B as twin A (same letter picked twice) is refused', threw !== null);
+
 // (g) The helper itself.
 eq('same dob + edit → no conflict',
    sandbox._sessionIdConflict(EXISTING, patient, false), null);

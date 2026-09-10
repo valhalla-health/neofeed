@@ -64,8 +64,9 @@ node test/verify-sync-freshness.cjs
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
-`verify-delete-session.cjs`, `verify-forced-password-client.cjs` and
-`verify-nutrition-unit-review.cjs` are the only things
+`verify-delete-session.cjs`, `verify-forced-password-client.cjs`,
+`verify-tpn-calc-weight.cjs`, `verify-nutrition-unit-review.cjs` and
+`verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
 has no build step. Dependencies are dev-only
@@ -87,6 +88,7 @@ node test/verify-delete-session.cjs
 node test/verify-forced-password-client.cjs
 node test/verify-tpn-calc-weight.cjs
 node test/verify-nutrition-unit-review.cjs
+node test/verify-picker-print-identity.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -257,6 +259,14 @@ applies on the widened path.
 This one is worth extending whenever a backend function's sheet-range
 arithmetic changes — it is cheap (no npm) and there is no other way to run
 `gas-backend.gs` outside a live Apps Script project.
+
+The collision-guard section also carries a case added in the 2026-09-10
+identification review: registering a second twin under the *same* Multiples
+letter as an already-registered sibling (same initials, same integer BW, same
+`twinSuffix` by mistake) is refused exactly like any other duplicate
+`sessionId` — this doesn't add new guard logic, it documents the specific
+nurse-facing mistake ("picked A for both twins") that the generic
+same-initials-same-BW case already covers.
 
 **`verify-gas-session-revocation.cjs`** — the same `vm` technique pointed at
 the auth path. Sessions live in `CacheService` for `SESSION_TTL_SECONDS`
@@ -459,6 +469,39 @@ express. The advisory must appear when, and only when, both are ordered.
 
 Checked the way the session-revocation harness was: run against the pre-edit
 `calculator.jsx` it fails 14 of its 20 assertions.
+
+**`verify-picker-print-identity.cjs`** — regression cover for the 2026-09-10
+patient-identification review, and unlike every harness above it, the subject
+is *which infant* rather than *which number*. Two defects, both mount real
+components in jsdom:
+
+- `<PatientPicker>` (the modal behind the header's "switch patient" button —
+  the fastest path to changing the active patient mid-shift) listed bed, name,
+  GA, birth weight and diagnosis per row, but never the twin/multiples label.
+  Twins share initials by construction (`sessionId` is
+  initials+BW+twinSuffix) and are usually in adjacent beds, so two rows here
+  could read identically except for a small bed chip. The registry table and
+  mobile cards already call `multiplesLabel()`; the picker was the one place
+  it was missing. The harness asserts both twin rows carry distinct,
+  human-readable text (not just distinguishable-in-theory via bed color).
+- `PrintOrderForm` — the printed pharmacy TPN order, the highest-consequence
+  document that leaves the app — labeled its own derived `sessionId` as
+  `"AN:"`, which reads to a pharmacist as the hospital's real Admission
+  Number. It is not one: it's the same collision-prone
+  initials+BW+twinSuffix key `_sessionIdConflict` in `gas-backend.gs` exists
+  to guard, mislabeled as if it were an independent hospital identifier a
+  pharmacist could cross-check against the chart. Relabeled to
+  `"NeoFeed ID:"`, and the twin letter is now printed next to the patient's
+  name on the same line, for the same reason the picker needed it. The
+  harness reads the rendered `#print-form` text (same technique as
+  `verify-tpn-calc-weight.cjs`) and asserts no `"AN:"` ever appears, the new
+  label carries the right id, and the twin tag appears only when
+  `twinSuffix` is actually set.
+
+Checked against the pre-edit `calculator.jsx`/`registry.jsx`: 5 of 9
+assertions fail (the twin-label ones, and both `"AN:"`-relabeling
+assertions — the print form's twin-tag assertion coincidentally reuses the
+mislabeled-id assertion's regex).
 
 ## Note on the source workbook
 

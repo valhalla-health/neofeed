@@ -2195,8 +2195,13 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
       <table style={{ width:"100%", borderCollapse:"collapse", marginBottom:4, fontSize:10.5 }}>
         <tbody>
           <tr>
-            <td style={{ width:"45%" }}>ชื่อ: <strong>{patient?.name || patient?.initials || "—"}</strong></td>
-            <td style={{ width:"30%" }}>AN: <strong>{patient?.sessionId || "—"}</strong></td>
+            <td style={{ width:"45%" }}>ชื่อ: <strong>{patient?.name || patient?.initials || "—"}</strong>
+              {patient?.twinSuffix && <strong> (Twin {patient.twinSuffix})</strong>}</td>
+            {/* Was labeled "AN:" — read as the hospital's real Admission Number, but this
+                is NeoFeed's own derived sessionId (initials+BW+twinSuffix), which can collide
+                across unrelated infants (see gas-backend.gs's _sessionIdConflict). Mislabeling
+                it as AN gives a pharmacist a false cross-check against the chart. */}
+            <td style={{ width:"30%" }}>NeoFeed ID: <strong>{patient?.sessionId || "—"}</strong></td>
             <td>วันที่ให้ TPN: <strong>{orderDateLabel}</strong></td>
           </tr>
           <tr>

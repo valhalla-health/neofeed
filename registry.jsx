@@ -690,7 +690,14 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
               onMouseLeave={e => { if (p.sessionId !== activeId) e.currentTarget.style.background = ""; }}
             >
               <span className="chip" style={{ justifySelf: "start" }}><span className="d" />{p.currentBed}</span>
-              <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</span>
+              <span>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</span>
+                {/* Twins/multiples share initials by construction and are usually in
+                    adjacent beds — without this label, two rows here can look identical
+                    except for the small bed chip. Same label the registry table/cards
+                    already show (multiplesLabel above); this is the one place it was missing. */}
+                {p.twinSuffix && <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-3)" }}>{multiplesLabel(p)}</span>}
+              </span>
               <span className="mono" style={{ fontSize: 12, color: "var(--brand-2)", fontWeight: 600 }}>{D_R.fmtGA(p.ga)}</span>
               <span className="mono" style={{ fontSize: 12, color: "var(--ink-2)" }}>{p.bw.toLocaleString()}g</span>
               <span style={{ color: "var(--ink-3)", fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis || "—"}</span>
