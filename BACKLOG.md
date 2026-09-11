@@ -32,8 +32,8 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🩺🔒 **safety+security · Ship `review/2026-09-11-fixes` (2026-09-11 full review) — built and
-      tested, NOT deployed.** See `CHANGELOG.md` 2026-09-11 (3). Two halves, deploy the **backend
+- [ ] 🩺🔒 **safety+security · Ship `review/2026-09-11-fixes` (2026-09-11 full review) — backend
+      ✅ DEPLOYED as `@53` 2026-09-12; frontend (merge PR #59) still to do.** See `CHANGELOG.md` 2026-09-11 (3). Two halves, deploy the **backend
       first** (the new frontend sends `expectedLastModified` on Submit, which only the new backend
       checks; everything else is additive both ways):
       1. **Backend:** copy `gas-backend.gs` → `~/nicu-tools/neofeed/รหัส.js`, `clasp push`,

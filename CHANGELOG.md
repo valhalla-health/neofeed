@@ -13,6 +13,15 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-12 (1) — Backend `@53` deployed (PR #59's backend half)
+
+Praew: "deploy backend". Per `REFERENCE.md`: mirror diffed (line endings only), identity confirmed
+(`peeraporn.po@chula.ac.th`), `clasp push` → version 53 → `update-deployment` on `AKfycbz8Nt…`
+(count stayed 26), version 53 pulled back and diffed identical, live smoke test passed including the
+new generic login message. Full record and rollback in `STATUS.md` § How `@53` was verified. The
+frontend half of PR #59 is **not** merged; the backend-first order is compatible. The record is in
+PR #59 rather than a direct push to `main`, since a `main` push is a Cloudflare deploy.
+
 ## Session 2026-09-11 (3) — Full review: fixes on `review/2026-09-11-fixes` (NOT deployed)
 
 Praew asked for an end-to-end review of every part of NeoFeed "as every stakeholder", including

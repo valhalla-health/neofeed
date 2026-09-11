@@ -1,7 +1,10 @@
 # NeoFeed — Status
 
-**Updated 2026-09-11** · 🟢 **Backend production is `@52`. Frontend is live on both hosts with the
-matching source. Backend and frontend are in step, and nothing is pending on either.**
+**Updated 2026-09-12** · 🟢 **Backend production is `@53`** (the 2026-09-11 review's backend fixes,
+PR #59, deployed 2026-09-12 03:37 ICT). 🟡 **Frontend is the `publishlock-0910` build on both hosts
+until PR #59 is merged** — backend-first is the documented order and the two are compatible; see
+"How `@53` was verified" for what staff notice in between. (This record rides in PR #59 because a
+direct docs push to `main` is itself a Cloudflare deploy.)
 🟡 **Deploy gate is half-closed — see "Release-branch deploy gate" below before assuming a push to
 `main` is safe on both hosts.**
 
@@ -120,11 +123,53 @@ retained.
 | Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
 | Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
 | Frontend deploy | `git push origin main` deploys **both**. Workers Builds runs `npx wrangler deploy`; GitHub Pages rebuilds from the repo root. Connected 2026-08-23 |
-| Backend | GAS deployment `AKfycbz8Nt…` at **`@52`** — *"Publish-lock: publishDailyLog, revision-on-published-edit, Daily_Log AH-AL - GitHub main 5005db7 (PR #58)"*, cut 2026-09-10 |
+| Backend | GAS deployment `AKfycbz8Nt…` at **`@53`** — *"2026-09-11 review B1-B7 - GitHub review/2026-09-11-fixes df85531 (PR #59)"*, cut 2026-09-12 03:37 ICT. Previous: `@52` (PR #58) |
 | Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `f453583`, **byte-identical to `gas-backend.gs` and to the deployed source** (`clasp pull` into a clean scratch dir, diffed clean) |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | 🟡 **`Daily_Log` AH–AL: no action required, one cosmetic step outstanding** — same shape as AF/AG. Both write paths widen the grid on demand, so the columns appear on the first save/publish — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
 | Cache-bust | `data.js?v=publishlock-0910`, `calculator.jsx?v=publishlock-0910`, `app.jsx?v=publishlock-0910` (all three bumped 2026-09-10); `registry.jsx?v=patientid-0910`, `tweaks-panel.jsx?v=dashboard-edit2`, `icons.jsx?v=notes-date-sel1`, `fenton.jsx?v=ga-clamp42`, `log.jsx?v=bed-dol-io2` unchanged. Both shells byte-identical, confirmed live on both hosts |
+
+## How `@53` was verified
+
+Deployed on Praew's explicit "deploy backend" (2026-09-12), per `REFERENCE.md`, each step checked:
+
+1. **Mirror diffed first, not overwritten.** `~/nicu-tools/neofeed/รหัส.js` differed from `main`'s
+   `gas-backend.gs` only in line endings (CRLF on disk) — content identical to `5005db7`, the `@52`
+   source. Nothing unique in the mirror. `appsscript.json` `"timeZone": "Asia/Bangkok"` confirmed (the
+   date logic assumes it — `REFERENCE.md`).
+2. **Deploy identity before deploying:** `clasp show-authorized-user` → `peeraporn.po@chula.ac.th`.
+3. Copied the PR #59 branch's `gas-backend.gs` (`df85531`) → `รหัส.js`, committed in the mirror
+   (`8009b39`). `clasp push` → 2 files. `clasp create-version` → **53**.
+4. **`clasp update-deployment -V 53 AKfycbz8Nt…`** — deployment count stayed **26** (no new
+   deployment; `NEOFEED_GAS_URL` unchanged). `clasp list-deployments` shows `AKfycbz8Nt…` at `@53`.
+5. **`clasp pull --versionNumber 53` into a clean scratch dir, diffed against `gas-backend.gs` →
+   identical** (ignoring CR). `LOGIN_FAILED_MSG`, `MIN_PASSWORD_LENGTH`, `_patientExists`,
+   `_patientInSyncWindow` and the publish `expectedLastModified` check are all present.
+6. **Live smoke test** (single-use redirect captured and fetched once): `GET ?action=ping` → `ok`;
+   unauthenticated `getActivePatients` → `{"error":"Unauthorized"}`; `login` with a non-staff email →
+   `"email หรือรหัสผ่านไม่ถูกต้อง"` — the new generic message, which proves `@53` is what answers
+   (`@52` said "ไม่พบบัญชีนี้ในระบบ"), and under `@53` that request writes no Script Property.
+
+**What staff notice while the frontend is still `publishlock-0910`:**
+- Login failures read "email หรือรหัสผ่านไม่ถูกต้อง" for both unknown email and wrong password; a
+  disabled account only hears "บัญชีนี้ถูกระงับ" after typing the right password.
+- A new password must be ≥ 10 characters; the old modal still says "อย่างน้อย 6" but shows the
+  server's "อย่างน้อย 10" refusal.
+- Ward devices (and, until the new frontend asks for `includeArchived`, admin devices too) no longer
+  receive patients discharged/transferred more than 30 days ago. The registry already hid them after 7.
+- Saving an order for a patient whose registration never reached the server is refused.
+- Nothing else is visible: Submit/publish is still unreachable from the UI (`ENABLE_PUBLISH_GATE` off).
+
+⚠️ **Still unexercised by a human:** a real login + save + edit against `@53`.
+
+**Rollback (backend):** `@52` is a clean target — `@53` adds no columns and changes no stored format:
+```
+clasp update-deployment -V 52 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
+```
+If PR #59's frontend is live by then, roll it back too (its Submit sends a stamp `@52` ignores —
+harmless — but the admin archive request assumes `@53`).
+
+---
 
 ## How `@52` was verified
 
