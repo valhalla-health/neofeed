@@ -38,7 +38,7 @@ added case in `verify-gas-registry-upsert.cjs`; all 22 `verify-*.cjs` harnesses 
 
 ## Release-branch deploy gate
 
-🟡 **Half-closed 2026-09-11.** Closes the exact gap `AI_SDLC.md` § 5 named — a push to `main` used
+🟢 **CLOSED 2026-09-12 — both hosts.** Closes the exact gap `AI_SDLC.md` § 5 named — a push to `main` used
 to be an unreviewed production deploy on both hosts, backwards from the backend's explicit-
 confirmation-before-`clasp deploy` model, and the frontend is where the printed dose is drawn.
 
@@ -57,14 +57,20 @@ confirmation-before-`clasp deploy` model, and the frontend is where the printed 
 - GitHub Pages repointed to serve from `release` (`gh api PUT .../pages`, verified: fresh build
   `status: built`, no error, `index.html` still `200` against the live URL).
 
-**Not done — Praew's step:** Cloudflare Workers Builds' production branch is a dashboard setting
-tied to the GitHub App connection. No `wrangler` subcommand or public Cloudflare API covers it, and
-reading wrangler's stored OAuth token to hand-craft an undocumented call was correctly refused.
-**Until Workers & Pages → neofeed → Settings → Build → production branch is changed from `main` to
-`release` by hand, Cloudflare still deploys on every push to `main`.** The gate is real on GitHub
-Pages, not yet real on Cloudflare — don't tell staff this is fully closed until that setting is
-changed and re-verified (push something harmless to `main` only, confirm Cloudflare does *not*
-pick it up, confirm merging to `release` does).
+- **Cloudflare Workers Builds' production branch is now `release`** — changed by Praew in the
+  dashboard (Workers & Pages → neofeed → Settings → Build), which is the only place it can be
+  changed: no `wrangler` subcommand or public API covers it.
+
+**Verified by the real thing, not by inspection (2026-09-12):** merging PR #59 into `main`
+(`891ed2b`) ran a Workers build that reported success **and production did not change** — the live
+`data.js` stayed byte-identical to the pre-merge commit (73,033 bytes vs the merged 74,204). That is
+exactly the check this section used to ask for: *"push something harmless to `main` only, confirm
+Cloudflare does not pick it up."* The other half — *"confirm merging to `release` does"* — is
+outstanding until PR #60 (`main` → `release`) merges.
+
+⚠️ **Consequence, and it is the point:** `main` is no longer a deploy of any kind. **Nothing reaches
+staff until a `main` → `release` PR is approved and merged**, and GitHub forbids self-approval, so
+that approval comes from `tasamew`. A merge to `main` that "did nothing" is the gate working.
 
 **Rollback:** revert the branch-protection settings and the Pages source via the same `gh api`
 calls with the previous values (`branch: main`), or just keep pushing to `main` and drop `release`
@@ -122,7 +128,7 @@ retained.
 |---|---|
 | Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
 | Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
-| Frontend deploy | `git push origin main` deploys **both**. Workers Builds runs `npx wrangler deploy`; GitHub Pages rebuilds from the repo root. Connected 2026-08-23 |
+| Frontend deploy | **Merging into `release` deploys both** (since 2026-09-12). Cloudflare Workers Builds' production branch is `release`; GitHub Pages serves `release`. A push or merge to `main` deploys **nothing** — it only runs a preview build. See § Release-branch deploy gate |
 | Backend | GAS deployment `AKfycbz8Nt…` at **`@53`** — *"2026-09-11 review B1-B7 - GitHub review/2026-09-11-fixes df85531 (PR #59)"*, cut 2026-09-12 03:37 ICT. Previous: `@52` (PR #58) |
 | Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `f453583`, **byte-identical to `gas-backend.gs` and to the deployed source** (`clasp pull` into a clean scratch dir, diffed clean) |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |

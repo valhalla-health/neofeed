@@ -60,11 +60,10 @@ Praew's decision whether that stays the rule or the review count changes; either
 blocked by "Review required" is this, not a bug. The `test` workflow (`.github/workflows/test.yml`)
 runs every harness on each PR and is intended as a required status check on `release`.
 
-- **Cloudflare Workers Builds' production branch is dashboard-only — no `wrangler` subcommand or
-  public API covers it.** Repointing it from `main` to `release` is Praew's step to do by hand
-  (Workers & Pages → neofeed → Settings → Build). **Until she does, Cloudflare still deploys on
-  every push to `main`** — the gate is only closed on the GitHub Pages side until then. Check
-  `STATUS.md` before assuming both hosts are gated.
+- **Cloudflare Workers Builds' production branch is `release`** (changed by Praew in the dashboard
+  on 2026-09-12 — dashboard-only, no `wrangler` subcommand or public API covers it). Both hosts now
+  deploy from `release` and **neither deploys from `main`**: merging PR #59 into `main` built
+  successfully and changed nothing in production, which is the gate working as designed.
 - **GitHub Pages now serves from `release`** (repointed via `gh api .../pages`, verified live and
   rebuilt clean). Both hosts were wired to deploy from the same branch on 2026-08-23 precisely so
   they cannot drift; that property is preserved, the branch just changed.
