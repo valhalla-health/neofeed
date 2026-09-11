@@ -31,6 +31,122 @@ function sortClinicalAlerts(items) {
     .map(({ alert }) => alert);
 }
 
+// ── Calculator input model ────────────────────────────────────────
+// The one definition of "the raw inputs of an order": what gets restored from
+// a saved entry, what gets saved as calcInput, and what "has this form changed
+// since it was saved?" compares. Prefill and change-detection MUST go through
+// the same function, or a freshly opened entry would read as edited.
+function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
+  src = src || {};
+  return {
+    // curWtG is the new key; src.wtG is the pre-migration key an older saved
+    // entry/localStorage draft used for the same "weight typed into the field".
+    curWtG: src.curWtG ?? src.wtG ?? fallbackWeight ?? 0,
+    // A row saved before calcInput existed has no fluid plan; start it from the
+    // ESPGHAN midpoint rather than 0 (2026-09-11 review, F10).
+    fluidTargetPerKg: src.fluidTargetPerKg ?? fallbackFluid ?? 0,
+    otherIV_mL: src.otherIV_mL ?? 0,
+    drug_mL: src.drug_mL ?? 0,
+    ioInput: src.ioInput ?? 0,
+    ioOutput: src.ioOutput ?? 0,
+    drainContent: src.drainContent ?? 0,
+    route: src.route ?? "central",
+    totalTPN_mL: src.totalTPN_mL ?? 0,
+    deadVol_mL: src.deadVol_mL ?? 0,
+    dexPct: src.dexPct ?? 0,
+    aaPerKg: src.aaPerKg ?? 0,
+    lipidPerKg: src.lipidPerKg ?? 0,
+    lipidDripHours: src.lipidDripHours ?? 24,
+    naCl: src.naCl ?? 0,
+    naAcet: src.naAcet ?? 0,
+    glycophosP: src.glycophosP ?? 0,
+    kCl: src.kCl ?? 0,
+    k2hpo4: src.k2hpo4 ?? 0,
+    mgPerKg: src.mgPerKg ?? 0,
+    mgStrength: src.mgStrength ?? "10",
+    caPerKg: src.caPerKg ?? 0,
+    extraP_mg_kg: src.extraP_mg_kg ?? 0,
+    enType: src.enType ?? "BM_20",
+    enVol: src.enVol ?? 0,
+    enFreq: src.enFreq ?? 0,
+    isMEN: src.isMEN ?? false,
+    inclSoluvit: src.inclSoluvit ?? true,
+    inclPeditrace: src.inclPeditrace ?? true,
+    inclAddamel: src.inclAddamel ?? false,
+    heparinUmL: src.heparinUmL ?? 1,
+    suppVitD: src.suppVitD ?? 0,
+    suppCa: src.suppCa ?? 0,
+    suppCaType: src.suppCaType ?? "CA_CACO3_350",
+    suppPO4: src.suppPO4 ?? 0,
+    suppPO4Type: src.suppPO4Type ?? "PO4_PHOSPHATE",
+    suppMTV: src.suppMTV ?? false,
+    suppFerdek: src.suppFerdek ?? 0,
+    suppFeType: src.suppFeType ?? "FE_FERDEK",
+  };
+}
+// Order-independent fingerprint of a flat input object.
+function calcInputKey(inputs) {
+  return JSON.stringify(inputs, Object.keys(inputs || {}).sort());
+}
+
+// What the "changes vs previous order" list compares — per-kg ORDER values,
+// so a weight change alone doesn't flag every electrolyte line.
+const ORDER_DIFF_FIELDS = [
+  ["route", "Route", ""],
+  ["fluidTargetPerKg", "Target fluid", "mL/kg/d"],
+  ["totalTPN_mL", "TPN volume", "mL/d"],
+  ["deadVol_mL", "Dead space", "mL"],
+  ["dexPct", "Dextrose", "%"],
+  ["aaPerKg", "Amino acid", "g/kg/d"],
+  ["lipidPerKg", "SMOF lipid", "g/kg/d"],
+  ["lipidDripHours", "Lipid over", "h"],
+  ["naCl", "20% NaCl", "mEq/kg/d"],
+  ["naAcet", "Na acetate", "mEq/kg/d"],
+  ["glycophosP", "Glycophos", "mL/kg/d"],
+  ["kCl", "KCl", "mEq/kg/d"],
+  ["k2hpo4", "K₂HPO₄", "mEq/kg/d"],
+  ["mgPerKg", "MgSO₄", "mEq/kg/d"],
+  ["mgStrength", "MgSO₄ vial", "%"],
+  ["caPerKg", "Ca gluconate", "mg/kg/d"],
+  ["heparinUmL", "Heparin", "U/mL"],
+  ["inclSoluvit", "Soluvit", ""],
+  ["inclPeditrace", "Peditrace", ""],
+  ["otherIV_mL", "Other IV", "mL/d"],
+  ["drug_mL", "Drug volume", "mL/d"],
+  ["enType", "Feed", ""],
+  ["enVol", "Feed volume", "mL/feed"],
+  ["enFreq", "Feeds", "/d"],
+  ["isMEN", "MEN", ""],
+  ["suppVitD", "Vit D", "IU/kg/d"],
+  ["suppCa", "Oral Ca", "mg/kg/d"],
+  ["suppPO4", "Oral PO₄", "mg/kg/d"],
+  ["suppFerdek", "Oral Fe", "mg/kg/d"],
+  ["suppMTV", "Munti-vim", ""],
+];
+function describeOrderValue(key, v) {
+  if (typeof v === "boolean") return v ? "yes" : "no";
+  if (key === "enType") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
+  return String(v);
+}
+// → [{ label, from, to, unit }] for every order field that differs.
+function diffOrderInputs(prev, cur) {
+  const out = [];
+  for (const [key, label, unit] of ORDER_DIFF_FIELDS) {
+    const a = prev[key], b = cur[key];
+    if (a === b) continue;
+    if (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 1e-9) continue;
+    out.push({ label, from: describeOrderValue(key, a), to: describeOrderValue(key, b), unit });
+  }
+  return out;
+}
+
+// Unsaved work survives a forced logout (session expiry mid-save) — 2026-09-11
+// review, F3. Keyed per patient AND per order date, so it can never be offered
+// on a different day's order. Cleared on a successful save and on deliberate
+// logout (app.jsx); anything older than this is discarded unread.
+const DRAFT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
+const draftStorageKey = (sessionId, dateStr) => `neofeed_draft_${sessionId}_${dateStr}`;
+
 function NumField({ label, unit, value, onChange, step = 1, min = 0, hint }) {
   const [raw, setRaw] = React.useState(value ? String(value) : "");
   const focusedRef = React.useRef(false);
@@ -176,7 +292,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete }) {
+function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, logDate, userLabel, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete }) {
   // Current weight — the actual weight entered/measured for this log day.
   // This is what gets saved as the Daily_Log `weight` column and propagated
   // to the patient's displayed current weight (PatientStrip, growth chart).
@@ -305,6 +421,23 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   const [publishing, setPublishing] = useState(false);
   const [conflict, setConflict] = useState(null); // {lastModified, lastModifiedBy} of the row on the server
 
+  // ── "Is what's on screen what's saved?" ────────────────────────────
+  // savedKey is the fingerprint of the inputs as last saved (or as loaded
+  // from a saved entry); null = nothing saved from this form yet. Print and
+  // Copy are only allowed when the live form still matches it — they used to
+  // be gated on savedEntryId alone, so an edit made after opening a saved
+  // entry printed under that entry's id without ever being saved
+  // (2026-09-11 review, F2).
+  const [savedKey, setSavedKey] = useState(null);
+  // Fingerprint right after prefill, with an untouched ioInput blanked — so
+  // the auto-tracking Input figure never counts as the user having typed.
+  const [prefillKey, setPrefillKey] = useState(null);
+  // Who saved this order, when, and which revision — printed for pharmacy.
+  const [savedMeta, setSavedMeta] = useState(null); // { by, at, revision }
+  // Critical-alert override recorded with the saved order (F1 hard stop).
+  const [critOverride, setCritOverride] = useState(editEntry?.calcInput?.critOverride || null);
+  const [draftOffer, setDraftOffer] = useState(null); // an unsaved draft newer than this form
+
   // Hydrates the full raw-input form from a saved entry's calcInput — shared
   // by "editing an entry" and "starting today from the latest entry" below,
   // since both need the exact same field-by-field restoration.
@@ -312,50 +445,56 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // (must not get silently recomputed); false when borrowing yesterday's
   // numbers as a starting point for a brand-new day, so ioInput still tracks
   // today's recomputed prescribed-fluid total until the user overrides it.
-  const applyCalcInput = (src, fallbackWeight, ioTouched = true) => {
-    // curWtG is the new key; src.wtG is the pre-migration key an older saved
-    // entry/localStorage draft used for the exact same "weight typed into
-    // the field" meaning (there was no separate TPN calc weight yet).
-    setCurWtG(src.curWtG ?? src.wtG ?? fallbackWeight ?? 0);
-    setFluidTargetPerKg(src.fluidTargetPerKg ?? 0);
-    setOtherIV_mL(src.otherIV_mL ?? 0);
-    setDrug_mL(src.drug_mL ?? 0);
-    setIoInput(src.ioInput ?? 0);
+  // ESPGHAN fluid-plan midpoint for this DOL/weight — the default when a
+  // source carries no fluid plan of its own.
+  const fluidMidpoint = (weightG) => {
+    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000);
+    return Math.round((r[0] + r[1]) / 2);
+  };
+  const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
+    const n = normalizeCalcInput(src, fallbackWeight, fallbackFluid);
+    setCurWtG(n.curWtG);
+    setFluidTargetPerKg(n.fluidTargetPerKg);
+    setOtherIV_mL(n.otherIV_mL);
+    setDrug_mL(n.drug_mL);
+    setIoInput(n.ioInput);
     markIoInputTouched(ioTouched);
-    setIoOutput(src.ioOutput ?? 0);
-    setDrainContent(src.drainContent ?? 0);
-    setRoute(src.route ?? "central");
-    setTotalTPN_mL(src.totalTPN_mL ?? 0);
-    setDeadVol_mL(src.deadVol_mL ?? 0);
-    setDexPct(src.dexPct ?? 0);
-    setAaPerKg(src.aaPerKg ?? 0);
-    setLipidPerKg(src.lipidPerKg ?? 0);
-    setLipidDripHours(src.lipidDripHours ?? 24);
-    setNaCl(src.naCl ?? 0);
-    setNaAcet(src.naAcet ?? 0);
-    setGlycophosP(src.glycophosP ?? 0);
-    setKCl(src.kCl ?? 0);
-    setK2HPO4(src.k2hpo4 ?? 0);
-    setMgPerKg(src.mgPerKg ?? 0);
-    setMgStrength(src.mgStrength ?? "10");
-    setCaPerKg(src.caPerKg ?? 0);
-    setExtraP_mg_kg(src.extraP_mg_kg ?? 0);
-    setEnType(src.enType ?? "BM_20");
-    setEnVol(src.enVol ?? 0);
-    setEnFreq(src.enFreq ?? 0);
-    setIsMEN(src.isMEN ?? false);
-    setInclSoluvit(src.inclSoluvit ?? true);
-    setInclPeditrace(src.inclPeditrace ?? true);
-    setInclAddamel(src.inclAddamel ?? false);
-    setHeparinUmL(src.heparinUmL ?? 1);
-    setSuppVitD(src.suppVitD ?? 0);
-    setSuppCa(src.suppCa ?? 0);
-    setSuppCaType(src.suppCaType ?? "CA_CACO3_350");
-    setSuppPO4(src.suppPO4 ?? 0);
-    setSuppPO4Type(src.suppPO4Type ?? "PO4_PHOSPHATE");
-    setSuppMTV(src.suppMTV ?? false);
-    setSuppFerdek(src.suppFerdek ?? 0);
-    setSuppFeType(src.suppFeType ?? "FE_FERDEK");
+    setIoOutput(n.ioOutput);
+    setDrainContent(n.drainContent);
+    setRoute(n.route);
+    setTotalTPN_mL(n.totalTPN_mL);
+    setDeadVol_mL(n.deadVol_mL);
+    setDexPct(n.dexPct);
+    setAaPerKg(n.aaPerKg);
+    setLipidPerKg(n.lipidPerKg);
+    setLipidDripHours(n.lipidDripHours);
+    setNaCl(n.naCl);
+    setNaAcet(n.naAcet);
+    setGlycophosP(n.glycophosP);
+    setKCl(n.kCl);
+    setK2HPO4(n.k2hpo4);
+    setMgPerKg(n.mgPerKg);
+    setMgStrength(n.mgStrength);
+    setCaPerKg(n.caPerKg);
+    setExtraP_mg_kg(n.extraP_mg_kg);
+    setEnType(n.enType);
+    setEnVol(n.enVol);
+    setEnFreq(n.enFreq);
+    setIsMEN(n.isMEN);
+    setInclSoluvit(n.inclSoluvit);
+    setInclPeditrace(n.inclPeditrace);
+    setInclAddamel(n.inclAddamel);
+    setHeparinUmL(n.heparinUmL);
+    setSuppVitD(n.suppVitD);
+    setSuppCa(n.suppCa);
+    setSuppCaType(n.suppCaType);
+    setSuppPO4(n.suppPO4);
+    setSuppPO4Type(n.suppPO4Type);
+    setSuppMTV(n.suppMTV);
+    setSuppFerdek(n.suppFerdek);
+    setSuppFeType(n.suppFeType);
+    setPrefillKey(calcInputKey({ ...n, ioInput: ioTouched ? n.ioInput : null }));
+    return n;
   };
 
   // Raw wizard state for a saved entry, with Intake/Output taken from the
@@ -382,6 +521,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   //    a brand-new row for today, it only borrows the starting numbers)
   // 3. Otherwise restore full calc state from localStorage if previously submitted
   // 4. Otherwise: smart defaults — wt from latest weight, fluid from ESPGHAN midpoint
+  // The clinical date this order is for — keys the unsaved-draft store.
+  const orderDateKey = editEntry ? (D.normalizeDateStr(editEntry.ts) || D.todayLocal()) : (logDate || D.todayLocal());
+
   React.useEffect(() => {
     if (!patient?.sessionId) return;
 
@@ -393,16 +535,40 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
     setConflict(null);
+    setCritOverride(editEntry?.calcInput?.critOverride || null);
+    setSavedMeta(editEntry ? {
+      by: editEntry.lastModifiedBy || editEntry.submittedBy || "",
+      at: editEntry.lastModified || "",
+      revision: editEntry.revisionNumber || 1,
+    } : null);
+
+    // An unsaved draft for this patient + order date, newer than what is
+    // being opened, is offered back rather than silently overwritten.
+    setDraftOffer(null);
+    try {
+      const dk = draftStorageKey(patient.sessionId, orderDateKey);
+      const raw = localStorage.getItem(dk);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        const at = Date.parse(draft?.savedAt || "");
+        if (!isFinite(at) || Date.now() - at > DRAFT_MAX_AGE_MS) localStorage.removeItem(dk);
+        else if (!editEntry?.lastModified || !(Date.parse(editEntry.lastModified) >= at)) setDraftOffer(draft);
+      }
+    } catch {}
 
     if (editEntry) {
-      applyCalcInput(withEntryIO(editEntry), editEntry.weight, true);
+      const src = withEntryIO(editEntry);
+      const n = applyCalcInput(src, editEntry.weight, true, fluidMidpoint(src.curWtG ?? src.wtG ?? editEntry.weight));
+      setSavedKey(calcInputKey(n));
       setPrefilledFrom(null);
       return;
     }
+    setSavedKey(null);
 
     if (baselineEntry) {
       skipWeightPropagateRef.current = true;
-      applyCalcInput(withEntryIO(baselineEntry), baselineEntry.weight, false);
+      const src = withEntryIO(baselineEntry);
+      applyCalcInput(src, baselineEntry.weight, false, fluidMidpoint(src.curWtG ?? src.wtG ?? baselineEntry.weight));
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
     }
@@ -420,49 +586,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
     const lastWt = D.lastWeighed(patient);
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
-    const fluidRange = D.TARGETS.fluid(dol, wtDefault || patient.bw || 1000);
-    const fluidDefault = Math.round((fluidRange[0] + fluidRange[1]) / 2);
-
-    setCurWtG(wtDefault);
-    setFluidTargetPerKg(restored?.fluidTargetPerKg ?? fluidDefault);
-    setOtherIV_mL(restored?.otherIV_mL ?? 0);
-    setDrug_mL(restored?.drug_mL ?? 0);
-    setIoInput(restored?.ioInput ?? 0);
-    markIoInputTouched(false); // fresh entry — track the computed total until edited
-    setIoOutput(restored?.ioOutput ?? 0);
-    setDrainContent(restored?.drainContent ?? 0);
-    setRoute(restored?.route ?? "central");
-    setTotalTPN_mL(restored?.totalTPN_mL ?? 0);
-    setDeadVol_mL(restored?.deadVol_mL ?? 0);
-    setDexPct(restored?.dexPct ?? 0);
-    setAaPerKg(restored?.aaPerKg ?? 0);
-    setLipidPerKg(restored?.lipidPerKg ?? 0);
-    setLipidDripHours(restored?.lipidDripHours ?? 24);
-    setNaCl(restored?.naCl ?? 0);
-    setNaAcet(restored?.naAcet ?? 0);
-    setGlycophosP(restored?.glycophosP ?? 0);
-    setKCl(restored?.kCl ?? 0);
-    setK2HPO4(restored?.k2hpo4 ?? 0);
-    setMgPerKg(restored?.mgPerKg ?? 0);
-    setMgStrength(restored?.mgStrength ?? "10");
-    setCaPerKg(restored?.caPerKg ?? 0);
-    setExtraP_mg_kg(restored?.extraP_mg_kg ?? 0);
-    setEnType(restored?.enType ?? "BM_20");
-    setEnVol(restored?.enVol ?? 0);
-    setEnFreq(restored?.enFreq ?? 0);
-    setIsMEN(restored?.isMEN ?? false);
-    setInclSoluvit(restored?.inclSoluvit ?? true);
-    setInclPeditrace(restored?.inclPeditrace ?? true);
-    setInclAddamel(restored?.inclAddamel ?? false);
-    setHeparinUmL(restored?.heparinUmL ?? 1);
-    setSuppVitD(restored?.suppVitD ?? 0);
-    setSuppCa(restored?.suppCa ?? 0);
-    setSuppCaType(restored?.suppCaType ?? "CA_CACO3_350");
-    setSuppPO4(restored?.suppPO4 ?? 0);
-    setSuppPO4Type(restored?.suppPO4Type ?? "PO4_PHOSPHATE");
-    setSuppMTV(restored?.suppMTV ?? false);
-    setSuppFerdek(restored?.suppFerdek ?? 0);
-    setSuppFeType(restored?.suppFeType ?? "FE_FERDEK");
+    // Fresh entry — ioInput tracks the computed total until edited (ioTouched false).
+    applyCalcInput(restored || {}, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
@@ -472,8 +597,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient?.sessionId, editEntry]);
 
-  // Helper to bundle current input state for persistence
-  const captureState = () => ({
+  // The live inputs, in exactly the shape normalizeCalcInput produces.
+  const currentInputs = () => normalizeCalcInput({
     curWtG, fluidTargetPerKg, otherIV_mL, drug_mL,
     ioInput, ioOutput, drainContent,
     route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg, lipidDripHours,
@@ -481,8 +606,44 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     enType, enVol, enFreq, isMEN,
     inclSoluvit, inclPeditrace, inclAddamel, heparinUmL,
     suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
-    dol, savedAt: new Date().toISOString(),
   });
+  // Helper to bundle current input state for persistence
+  const captureState = () => ({ ...currentInputs(), dol, savedAt: new Date().toISOString() });
+
+  const liveInputs = currentInputs();
+  const formKey = calcInputKey(liveInputs);
+  // Unsaved = nothing saved from this form yet, or the form moved since.
+  const dirty = savedKey === null || formKey !== savedKey;
+  const printable = !!savedEntryId && !dirty;
+  // "The user has typed something" — ignores the auto-tracking Input figure.
+  const userKey = calcInputKey({ ...liveInputs, ioInput: ioInputTouched ? ioInput : null });
+  const userEdited = prefillKey !== null && userKey !== prefillKey && formKey !== savedKey;
+
+  // Autosave unsaved work for this patient + date (F3). Only once the user has
+  // actually changed something, so merely opening a form never leaves a draft.
+  React.useEffect(() => {
+    if (!patient?.sessionId || !userEdited) return;
+    try {
+      localStorage.setItem(draftStorageKey(patient.sessionId, orderDateKey),
+        JSON.stringify({ ...liveInputs, dol, savedAt: new Date().toISOString() }));
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userKey, userEdited]);
+  const clearDraft = () => {
+    try { localStorage.removeItem(draftStorageKey(patient.sessionId, orderDateKey)); } catch {}
+  };
+  const restoreDraft = () => {
+    if (!draftOffer) return;
+    applyCalcInput(draftOffer, curWtG, true, fluidTargetPerKg);
+    setDraftOffer(null);
+  };
+
+  // Changes vs the previous day's order (for the prescriber and pharmacy).
+  const orderChanges = useMemo(() => {
+    if (!previousEntry?.calcInput) return null;
+    return diffOrderInputs(normalizeCalcInput(previousEntry.calcInput, previousEntry.weight, 0), liveInputs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previousEntry, formKey]);
   const toggleStep = (n) => setOpenSteps(prev => {
     const next = new Set(prev);
     next.has(n) ? next.delete(n) : next.add(n);
@@ -497,6 +658,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
         return;
       }
+      // Saved, but edited since: printing now would put unsaved numbers
+      // under the saved row's entry id.
+      if (!printable) {
+        showToast("มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
+        return;
+      }
       setOpenSteps(ALL);
       // Wait one frame for React to render all card-b sections
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -506,7 +673,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
-  }, [savedEntryId]);
+  }, [savedEntryId, printable]);
 
   // ===== compute =====
   const calc = useMemo(() => {
@@ -868,11 +1035,40 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${calc.gir.toFixed(1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
   if (calc.totalKcal > 0 && sNPE === "crit") alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — <20 risks AA oxidised as fuel, >32 risks excess fat deposition.`, ref: "NPC:N 150–200:1" });else
   if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150–200:1" });
-  if (calc.pTotal_mg > 0 && sCaP === "warn") alerts.push({ level: "warn", title: "Ca:P ratio off target", body: `Mass ratio ${calc.caP.toFixed(2)} — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
-  // Oral supplement changes the picture the Step 4 tile shows — flag the combined total separately
-  if (mineral.hasOral && sTotCaP === "crit") alerts.push({ level: "crit", title: "Ca:P ratio (รวม oral supp) — ไม่มี P", body: `Ca ${fmt(mineral.totCa, 0)} mg/kg/d แต่ P รวม = 0 — เสี่ยง metabolic bone disease.`, ref: "ESPGHAN 2018" });else
-  if (mineral.hasOral && sTotCaP === "warn") alerts.push({ level: "warn", title: "Ca:P ratio (รวม oral supp) off target", body: `รวม TPN + EN + oral = ${fmt(mineral.totCaP, 2, true)}:1 (mass) — aim ${tCaP[0]}–${tCaP[1]}:1.`, ref: "ESPGHAN 2018" });
+  // ── Every nutrient tile that is off target or critical is ALSO a line here ──
+  // Until 2026-09-11 only GIR, NPE, Ca:P-warn and the worksheet ceilings were
+  // pushed, so K 5 mEq/kg/d or Ca with zero P turned a tile red while this
+  // panel said "All targets within range" (review F1). The rule is now
+  // structural: a tile's status and its alert come from the same variable.
+  const tileRef = useEN ? "ESPGHAN 2022 (enteral)" : "ESPGHAN 2018 (parenteral)";
+  const pushTile = (status, name, value, decimals, target, unit, critNote) => {
+    if (status === "crit") alerts.push({ level: "crit", title: `${name} critically out of range`,
+      body: `${fmt(value, decimals)} ${unit} — ${critNote || `target ${target[0]}–${target[1]} ${unit}`}.`, ref: tileRef });
+    else if (status === "warn") alerts.push({ level: "warn", title: `${name} off target`,
+      body: `${fmt(value, decimals)} ${unit} — target ${target[0]}–${target[1]} ${unit}.`, ref: tileRef });
+  };
+  pushTile(sPro,  "Protein",   calc.proteinKg,        1, tPro,  "g/kg/d",    "above the 4.8 g/kg/d hard limit");
+  pushTile(sKcal, "Energy",    calc.kcalKg,           0, tKcal, "kcal/kg/d");
+  pushTile(sLip,  "Lipid",     calc.lipidKgTotal,     1, tLip,  "g/kg/d",    "above the 4.5 g/kg/d hard limit");
+  pushTile(sNa,   "Sodium",    calc.naTotalDelivered, 1, tNa,   "mEq/kg/d");
+  pushTile(sK,    "Potassium", calc.kTotalDelivered,  1, tK,    "mEq/kg/d",  "above the 3.5 mEq/kg/d hard limit");
+  // With an oral supplement the order is judged on the total (Step 6 tiles);
+  // without one, on TPN + EN (Step 4 tiles) — never both, or they contradict.
+  if (mineral.hasOral) {
+    pushTile(sTotCa, "Calcium (total incl. oral)",   mineral.totCa, 0, tCa, "mg/kg/d");
+    pushTile(sTotP,  "Phosphate (total incl. oral)", mineral.totP,  0, tP,  "mg/kg/d");
+  } else {
+    pushTile(sCa, "Calcium",    calc.caKg, 0, tCa, "mg/kg/d");
+    pushTile(sP,  "Phosphorus", calc.pKg,  0, tP,  "mg/kg/d");
+  }
+  const caPStatus = mineral.hasOral ? sTotCaP : sCaP;
+  const caPValue  = mineral.hasOral ? mineral.totCaP : calc.caP;
+  const caPScope  = mineral.hasOral ? " (รวม oral supp)" : "";
+  if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${caPScope} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
+  else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2, true)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
+  if (calc.enVolPerKg > 100 && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
   if (calc.totalTPN_mL > 0 && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — switch to central.`, ref: "Safety" });
+  else if (calc.totalTPN_mL > 0 && sOsm === "warn") alerts.push({ level: "warn", title: route === "peripheral" ? "Osmolarity near peripheral limit" : "Osmolarity high for central line", body: `${calc.osm.toFixed(0)} mOsm/L — ${route === "peripheral" ? "peripheral limit 900" : "endothelial risk above 1800"} mOsm/L.`, ref: "Safety" });
   if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${calc.dexGPerKg.toFixed(1)} g/kg/d — sheet limit is ${D.MAX_DEXTROSE_G_KG} g/kg/d. Lower dextrose % or bag volume.`, ref: "KCMH TPN worksheet" });
@@ -891,6 +1087,23 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // exact raw inputs so this entry stays editable on any device later.
   const handleSave = async () => {
     if (saving) return;
+    // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
+    // A critical value can still be ordered — the attending may have a
+    // reason — but never silently: the reason is required, saved with the
+    // order (calcInput.critOverride) and printed on the pharmacy form.
+    const critical = sortClinicalAlerts(alerts).filter(a => a.level === "crit");
+    let override = null;
+    if (critical.length > 0) {
+      const reason = window.prompt(
+        `มีค่าวิกฤต ${critical.length} รายการ:\n• ${critical.map(a => a.title).join("\n• ")}\n\n` +
+        `บันทึกต่อได้เมื่อระบุเหตุผลทางคลินิก (จะพิมพ์ลงใบสั่ง TPN):`, "");
+      if (reason == null || !String(reason).trim()) {
+        showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน", "error");
+        return;
+      }
+      override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
+    }
+    const keyAtSave = formKey;
     try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
     const _suppPayload = {
       suppMTV:       suppMTV ? 1 : 0,
@@ -916,14 +1129,15 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       route: calc.totalTPN_mL > 0
         ? (route === "central" ? "TPN central" : "TPN peripheral")
         : (calc.enVolPerKg > 0 ? "Enteral only" : "NPO"),
-      status: "submitted", ..._suppPayload, calcInput: captureState(),
+      status: "submitted", ..._suppPayload,
+      calcInput: override ? { ...captureState(), critOverride: override } : captureState(),
       // Provenance — which constants and which frontend computed these
       // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
       // constant that later turns out wrong can be traced to the exact rows
       // it affected. Sent on every save, including edits: an edit recomputes
       // the figures with today's constants, so the stamp must move with them.
       constantsVersion: D.CONSTANTS_VERSION,
-      appVersion: D.APP_VERSION,
+      appVersion: D.appVersion(),
       // Editing must keep the entry's original calendar date; a brand-new entry
       // is stamped with today's date unless the user picked a back-date (logDate).
       ...(editEntry ? { ts: editEntry.ts } : logDate ? { ts: logDate } : {}),
@@ -948,6 +1162,17 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
       if (!savedEntryId) setSavedEntryId(res.entryId);
     }
     setSavedLastModified(res.lastModified);
+    // What was just saved is what may now be printed — the inputs as they
+    // were when Save was pressed, not whatever was typed while it ran.
+    setSavedKey(keyAtSave);
+    setCritOverride(override);
+    setSavedMeta({
+      by: userLabel || "",
+      at: res.lastModified || new Date().toISOString(),
+      revision: res.revisionNumber || savedMeta?.revision || 1,
+    });
+    clearDraft();
+    setDraftOffer(null);
 
     // With the publish gate on, Save deliberately stays on this screen so
     // Submit and Print are reachable without reopening the entry. With the
@@ -960,9 +1185,14 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
   // publish-lock design). Only reachable once a row exists to publish.
   const handlePublish = async () => {
     if (!savedEntryId || published || publishing) return;
+    // Submit signs specific numbers — they must be the saved ones.
+    if (dirty) { showToast("มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนส่ง", "error"); return; }
     setPublishing(true);
-    const res = await onPublish(savedEntryId);
+    // savedLastModified makes Submit optimistic-locked (gas-backend.gs
+    // publishDailyLog): if someone else saved this row since, it's refused.
+    const res = await onPublish(savedEntryId, savedLastModified);
     setPublishing(false);
+    if (res.conflict) { setConflict(res.current); return; }
     if (!res.ok) return; // gasPost already surfaced an error toast
     setPublished(true);
     onSaved && onSaved();
@@ -997,6 +1227,24 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
             <button className="btn sm" onClick={() => setConflict(null)}>แก้ไขต่อ</button>
             <button className="btn sm primary" onClick={() => window.location.reload()}>โหลดข้อมูลล่าสุด</button>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved draft from an earlier visit (e.g. the session expired mid-save). */}
+      {draftOffer && (
+        <div style={{ padding:"10px 12px", background:"var(--warn-bg)", border:"1px solid var(--warn-line)",
+             borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--warn)",
+             display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <Icon name="info" size={13} color="var(--warn)" />
+          <span>
+            มีข้อมูลที่กรอกค้างไว้แต่ยังไม่ได้บันทึก
+            {draftOffer.savedAt ? ` (เมื่อ ${new Date(draftOffer.savedAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })})` : ""}
+            {" "}— กู้คืนเพื่อบันทึกต่อ หรือทิ้งไป
+          </span>
+          <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
+            <button className="btn sm" onClick={() => { clearDraft(); setDraftOffer(null); }}>ทิ้ง</button>
+            <button className="btn sm primary" onClick={restoreDraft}>กู้คืน</button>
           </div>
         </div>
       )}
@@ -1550,9 +1798,17 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                 </div>
               )}
 
-              <SaltRow label="Glycophos®" note="Na input mEq/kg · 1 mL = 2 mEq Na, P 31 mg/mL"
+              {/* Entered as SODIUM (as on the KCMH worksheet), which is the
+                  opposite of how phosphate is usually thought about: 1 mmol P/kg
+                  means typing 2. The phosphate it delivers is therefore always
+                  shown, even at 0, so "Glycophos 1" can't silently mean half
+                  the intended P (2026-09-11 review, F7). */}
+              <SaltRow label="Glycophos® (ใส่เป็น Na)" note="ใส่ mEq Na/kg · 2 mEq Na = 1 mL = 1 mmol P (31 mg)"
                 perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)} wtKg={wtKg} unit="mEq Na/kg" />
               <PresetChips values={[1, 2, 3, 4]} current={glycophosP * 2} onSelect={(v) => setGlycophosP(v / 2)} />
+              <div className="glycophos-p" style={{ fontSize:11.5, fontWeight:700, color: glycophosP > 0 ? "var(--brand-2)" : "var(--ink-3)", paddingLeft:2, marginTop:1 }}>
+                → P {fmt(glycophosP, 2)} mmol/kg/d = {fmt(glycophosP * 31, 0)} mg/kg/d
+              </div>
               {glycophosP > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d
@@ -1945,7 +2201,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
             {alerts.length === 0 ?
             <div className="alert-row info">
                 <div className="ico"><Icon name="check" size={12} color="#fff" /></div>
-                <div><div className="title">All targets within range</div><div className="body">No safety flags for current prescription.</div></div>
+                <div><div className="title">No safety flags</div><div className="body">Every prescribed nutrient is within its target range.</div></div>
               </div> :
             sortClinicalAlerts(alerts).map((a, i) =>
             <div key={i} className={`alert-row ${a.level}`}>
@@ -1967,12 +2223,40 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
               <span className="num">{patient?.name || patient?.initials || "—"}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
             </div>
 
+            {/* Saved-state indicator — Print/Copy/Submit need a saved, unchanged form */}
+            {savedEntryId && dirty && (
+              <div style={{ fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 }}>
+                ● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์/คัดลอกได้หลังบันทึก
+              </div>
+            )}
+
+            {/* Changes vs the previous order — the cross-check for rounds and pharmacy */}
+            {previousEntry && (
+              <div className="order-changes" style={{ fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 }}>
+                <div style={{ fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 }}>
+                  เปลี่ยนแปลงจากคำสั่งก่อนหน้า (DOL {D.entryDol(patient, previousEntry)})
+                </div>
+                {!orderChanges
+                  ? <div style={{ color: "var(--ink-3)" }}>คำสั่งก่อนหน้าไม่มีข้อมูลละเอียดให้เปรียบเทียบ</div>
+                  : orderChanges.length === 0
+                    ? <div style={{ color: "var(--ink-3)" }}>ไม่มีการเปลี่ยนแปลง</div>
+                    : orderChanges.map(c => (
+                        <div key={c.label} className="num" style={{ color: "var(--ink)" }}>
+                          {c.label}: {c.from} → <strong>{c.to}</strong> {c.unit}
+                        </div>))}
+              </div>
+            )}
+
             {/* Save bar — sticky on mobile */}
             <div className="calc-save-bar">
             {/* Copy order text to clipboard */}
             <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
               if (!savedEntryId) {
                 showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
+                return;
+              }
+              if (!printable) {
+                showToast("มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนคัดลอก", "error");
                 return;
               }
               // Completeness check — warn if any clinical step is empty
@@ -1986,7 +2270,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
                   !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nCopy order ต่อไปหรือไม่?`)) return;
               const lines = [
                 `══ NeoFeed V2 — TPN Order ══`,
-                `Patient: ${patient?.name||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""} | Session: ${patient?.sessionId||"—"}`,
+                // No name in copied text: it tends to be pasted into chat
+                // apps (LINE) outside the hospital's control — bed + NeoFeed
+                // ID identify the order on the ward without being PHI on
+                // their own (2026-09-11 review, PDPA).
+                `Bed: ${patient?.currentBed||"—"} | NeoFeed ID: ${patient?.sessionId||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""}`,
+                critOverride ? `⚠ CRITICAL OVERRIDE: ${critOverride.alerts.join("; ")} — reason: ${critOverride.reason}` : "",
                 `Route: ${route === "central" ? "Central" : "Peripheral (<900 mOsm/L)"}`,
                 `Osm: ${calc.osm.toFixed(0)} mOsm/L`,
                 `──────────────────────────────`,
@@ -2057,7 +2346,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
 
             {D.ENABLE_PUBLISH_GATE && (
               <button className="btn primary" style={{ width: "100%", marginTop: 8 }}
-                disabled={!savedEntryId || published || publishing}
+                disabled={!savedEntryId || published || publishing || dirty}
                 onClick={handlePublish}>
                 <Icon name="check" size={14} color="#fff" />
                 {publishing ? "กำลังส่ง..." : published ? "ส่งแล้ว" : "Submit"}
@@ -2075,7 +2364,13 @@ function Calculator({ patient, dol, editEntry, baselineEntry, logDate, onLog, on
         </div>
       </div>
       {/* ── Ramathibodi PN order form — print only ── */}
-      {savedEntryId && <PrintOrderForm
+      {/* Rendered only while the form matches what was saved — so neither the
+          Print button nor the browser's own Ctrl+P can put unsaved numbers
+          on a pharmacy order (2026-09-11 review, F2). */}
+      {printable && <PrintOrderForm
+        targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: D.TARGETS.mg(dol), source: tileRef }}
+        savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
+        previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight} route={route}
         orderDate={editEntry?.ts || logDate || D.todayLocal()}
         dexPct={dexPct} totalTPN_mL={totalTPN_mL} entryId={savedEntryId}
@@ -2208,7 +2503,15 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
   aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg,
   inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
-  mineral, published }) {
+  mineral, published, targets, savedMeta, critOverride, orderChanges, previousDol }) {
+  // "Normal requirement" comes from the same targets the tiles use — it used
+  // to be hard-coded form text (P 30-70, Ca 50-120, K 1-3) that contradicted
+  // the calculator after the 2026-09-05 phosphorus correction (review F4).
+  const rng = (r) => (r ? `${r[0]}–${r[1]}` : "—");
+  const tgtNote = targets ? `NeoFeed target DOL ${dol} · ${targets.source}` : "";
+  const savedAtLabel = savedMeta?.at && isFinite(Date.parse(savedMeta.at))
+    ? new Date(savedMeta.at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+    : "—";
 
   const f  = (n, d=1) => (isFinite(n) && n > 0) ? Number(n.toFixed(d)).toString() : "—";
   const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
@@ -2257,6 +2560,13 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
             <td style={{ width:"30%" }}>NeoFeed ID: <strong>{patient?.sessionId || "—"}</strong></td>
             <td>วันที่ให้ TPN: <strong>{orderDateLabel}</strong></td>
           </tr>
+          {/* NeoFeed deliberately stores no HN/AN (PDPA minimisation), but
+              pharmacy needs a chart identifier to dispense against — so the
+              form leaves boxes for it to be written or stickered on. */}
+          <tr>
+            <td>HN: ______________________</td>
+            <td colSpan={2}>AN: ______________________ <span style={{ fontSize:9, color:"#555" }}>(เขียน/ติดสติกเกอร์ — ตรวจตัวตนกับแฟ้มผู้ป่วย)</span></td>
+          </tr>
           <tr>
             <td>DOL: <strong>{dol}</strong> &nbsp; ตึก: <strong>{patient?.currentBed || "—"}</strong></td>
             <td colSpan={2}>โรค: <strong>{patient?.diagnosis || "—"}</strong></td>
@@ -2268,6 +2578,13 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
           </tr>
         </tbody>
       </table>
+
+      {critOverride && (
+        <div style={{ border:"2px solid #c00", color:"#c00", padding:"4px 8px", marginBottom:6, fontSize:10.5, fontWeight:700 }}>
+          ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
+          <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
+        </div>
+      )}
 
       {/* PN Fluid section */}
       <div style={{ fontWeight:700, borderBottom:"1px solid #000", marginBottom:4 }}>PARENTERAL NUTRITION FLUID:</div>
@@ -2342,7 +2659,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
               {naAcet > 0  && <><strong>{f(naAcet*(calc.factor||0),1)}</strong> mEq = <strong>{f(calc.solVol?.naAcet,1)}</strong> mL<br/></>}
               {glycophosP > 0 && <><strong>{f(calc.solVol?.glycophos,1)}</strong> mL<br/></>}
             </td>
-            <td style={td}>Na 2-5 mEq/kg/day<br/>(increase requirement in preterm)</td>
+            <td style={td}>Na {rng(targets?.na)} mEq/kg/day<br/><span style={{ fontSize:9, color:"#555" }}>{tgtNote}</span></td>
           </tr>
           {/* K */}
           <tr>
@@ -2362,7 +2679,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
               {calc.kMeqPerL > 0 && <span style={{ fontSize:9, color: calc.kMeqPerL > D.MAX_K_MEQ_PER_L ? "#c00" : "#555" }}>
                 {f(calc.kMeqPerL,0)} mEq/L in bag</span>}
             </td>
-            <td style={td}>K⁺ 1-3 mEq/kg/day<br/>P preterm 30-70 mg/kg/day<br/>max {D.MAX_K_MEQ_PER_L} mEq/L in bag</td>
+            <td style={td}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>max {D.MAX_K_MEQ_PER_L} mEq/L in bag</td>
           </tr>
           {/* Mg */}
           <tr>
@@ -2371,7 +2688,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
               {mgPerKg > 0 && <><br/><span style={{ fontSize:9, color:"#555" }}>= {f(mgPerKg*D.MG_MG_PER_MEQ,1)} mg/kg</span></>}</td>
             <td style={tdr}><strong>{mgPerKg > 0 ? f(mgPerKg*(calc.factor||0),2) : "—"}</strong> mEq
               {mgPerKg > 0 && <> = <strong>{f(calc.solVol?.mg,2)}</strong> mL</>}</td>
-            <td style={td}>Mg 0-12 mo. 0.4 mEq/kg/day<br/>&gt;1 yr. 0.2 mEq/kg/day</td>
+            <td style={td}>Mg {rng(targets?.mg)} mEq/kg/day</td>
           </tr>
           {/* Ca */}
           <tr>
@@ -2379,7 +2696,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
             <td style={tdr}><strong>{caPerKg > 0 ? caPerKg : "—"}</strong> mg</td>
             <td style={tdr}><strong>{caPerKg > 0 ? f0(caPerKg*(calc.factor||0)) : "—"}</strong> mg
               {caPerKg > 0 && <> = <strong>{f(calc.solVol?.ca,1)}</strong> mL</>}</td>
-            <td style={td}>Ca preterm 50-120 mg/kg/day (Ca:P ~1.7:1)</td>
+            <td style={td}>Ca {rng(targets?.ca)} mg/kg/day (Ca:P {D.TARGETS.caP()[0]}–{D.TARGETS.caP()[1]}:1 mass)</td>
           </tr>
           {/* Vitamins */}
           <tr>
@@ -2489,7 +2806,10 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
         <tr>
           <td style={td}>Dextrose <strong>{f(calc.dexG,1)}</strong> g</td>
           <td style={td}>Amino acid <strong>{f(calc.aaG,1)}</strong> g = <strong>{f(aaPerKg,2)}</strong> g/kg</td>
-          <td style={td}>Energy <strong>{f0(calc.tpnKcal)}</strong> kcal = <strong>{f0(calc.kcalKg)}</strong> kcal/kg</td>
+          {/* TPN-only kcal and its own per-kg, then the TPN+EN total — the old
+              line paired a TPN-only numerator with a TPN+EN per-kg (F6). */}
+          <td style={td}>Energy (TPN) <strong>{f0(calc.tpnKcal)}</strong> kcal = <strong>{wtKg ? f0(calc.tpnKcal / wtKg) : "—"}</strong> kcal/kg
+            {calc.enKcal > 0 && <> · total incl. EN <strong>{f0(calc.kcalKg)}</strong> kcal/kg</>}</td>
         </tr>
         <tr>
           <td style={td}>Na⁺ <strong>{f(calc.naKg*(wtKg||0),2)}</strong> mEq = <strong>{f(calc.naKg,2)}</strong> mEq/kg</td>
@@ -2510,6 +2830,20 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
         Na {f(calc.naKg,2)} mEq/kg · Ca:P {f(calc.caP,2)}:1 (TPN+EN) · Osm {calc.osm ? calc.osm.toFixed(0) : "—"} mOsm/L
       </div>
 
+      {/* Changes vs the previous order — the pharmacist's fastest cross-check */}
+      {orderChanges && (
+        <div style={{ marginTop:6, padding:"4px 8px", border:"1px dashed #999", fontSize:9.5 }}>
+          <strong>เปลี่ยนแปลงจากคำสั่ง DOL {previousDol ?? "ก่อนหน้า"}:</strong>{" "}
+          {orderChanges.length === 0 ? "ไม่มีการเปลี่ยนแปลง"
+            : orderChanges.map(c => `${c.label} ${c.from}→${c.to}${c.unit ? " " + c.unit : ""}`).join(" · ")}
+        </div>
+      )}
+
+      {/* Who saved exactly these numbers, when, and which revision */}
+      <div style={{ marginTop:6, fontSize:9.5 }}>
+        บันทึกโดย <strong>{savedMeta?.by || "—"}</strong> · เวลา <strong>{savedAtLabel}</strong> · ฉบับที่ <strong>{savedMeta?.revision || 1}</strong>
+      </div>
+
       {/* Signature */}
       <div style={{ display:"flex", justifyContent:"space-between", marginTop:14 }}>
         <div>แพทย์ ................................................................</div>
@@ -2523,7 +2857,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
           successful save, so every printable order has a backing row. */}
       <div style={{ marginTop:8, paddingTop:4, borderTop:"1px solid #ccc",
         fontSize:8, color:"#555", display:"flex", justifyContent:"space-between" }}>
-        <span>NeoFeed · constants {D.CONSTANTS_VERSION} · app {D.APP_VERSION}</span>
+        <span>NeoFeed · constants {D.CONSTANTS_VERSION} · app {D.appVersion()}</span>
         <span>entry {entryId || "(unsaved)"} · printed {printedAt}</span>
       </div>
     </div>

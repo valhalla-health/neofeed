@@ -28,7 +28,7 @@ design system) and pulls in each `.jsx` module in dependency order via
 in-browser Babel:
 
 ```
-data.js → tweaks-panel.jsx → icons.jsx → calculator.jsx → fenton.jsx
+data.js → icons.jsx → calculator.jsx → fenton.jsx
   → registry.jsx → log.jsx → app.jsx (mounts <App/>)
 ```
 
@@ -51,7 +51,7 @@ across a refresh.
 | `fenton.jsx` | Fenton 2025 growth chart (weight/length/HC vs. PMA) + `MeasurementLogger`. |
 | `registry.jsx` | Patient registry — desktop table / mobile card list, add/edit patient. |
 | `icons.jsx` | Small inline SVG icon set used everywhere via `<Icon name=.../>`. |
-| `tweaks-panel.jsx` | Dev-only UI customization panel (design tokens), not part of the clinical workflow. |
+| ~~`tweaks-panel.jsx`~~ | Removed 2026-09-11 — a design-tool panel (cross-origin `postMessage`) that shipped to every clinical page load for an accent-colour picker. |
 | `gas-backend.gs` | Google Apps Script backend: auth, CRUD over the Google Sheet, audit log, PDPA erasure endpoint. |
 
 Everything is plain React function components + hooks, no Redux/Zustand —
@@ -578,8 +578,8 @@ notes — don't just add the feature.
   rule. `.preset-chips` in particular wraps by design now (`flex: 1 1 44px`)
   — don't restore `nowrap`/`flex: 1 1 0` to "keep doses on one row"; that's
   what squeezed dose chips to 26px wide.
-- **`tweaks-panel.jsx`** is a dev/design tool, not user-facing clinical
-  functionality — don't wire clinical logic through it.
+- **`tweaks-panel.jsx` was removed on 2026-09-11** — don't reintroduce a
+  design-tool panel into the production shells.
 - **PWA installability** depends on `manifest.json` + `<link rel="manifest">`
   + `<link rel="apple-touch-icon">` being present in **both** `NeoFeed.html`
   and `index.html` heads (same drift risk as the CSS note above — keep them

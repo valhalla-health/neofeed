@@ -43,6 +43,16 @@ performs and separates compounded from delivered, and that the oral Ca/P timing 
 exactly when both are ordered. It is the only harness here whose subject is **legibility rather
 than arithmetic**: what it guards against is a correct number being read as a wrong one.
 
+The twenty-third, `verify-review-0911.cjs`, pins every fix from the **2026-09-11 full review**: the
+backend half (revision forks, Submit locking, login records, date moves, unregistered patients,
+the sync window, audit rows) in a vm sandbox, and the frontend half in jsdom — a critical tile
+always being a critical alert with a required override reason, the print form never showing
+unsaved edits, draft recovery, the Glycophos phosphate line and the mobile twin label. It needs the
+same jsdom dependencies as the harnesses below.
+
+**CI:** `.github/workflows/test.yml` runs every `verify-*.cjs` (plus `DEAD=0` for the Factor
+harness) and the shell byte-identity check on each pull request and on pushes to `main`/`release`.
+
 ## Running
 
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,

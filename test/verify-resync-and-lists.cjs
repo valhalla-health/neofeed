@@ -98,7 +98,7 @@ const load = (f) => vm.runInThisContext(babel.transformSync(fs.readFileSync(DIR 
 }).code);
 
 vm.runInThisContext(fs.readFileSync(DIR + 'data.js', 'utf8'));
-['tweaks-panel.jsx', 'icons.jsx', 'calculator.jsx', 'fenton.jsx', 'registry.jsx', 'log.jsx'].forEach(load);
+['icons.jsx', 'calculator.jsx', 'fenton.jsx', 'registry.jsx', 'log.jsx'].forEach(load);
 const appSrc = babel.transformSync(fs.readFileSync(DIR + 'app.jsx', 'utf8'), {
   presets: [[require('@babel/preset-react'), { runtime: 'classic' }]],
   filename: 'app.jsx', configFile: false, babelrc: false,

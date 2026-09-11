@@ -3,7 +3,7 @@
 # Wrangler uploads from the working tree, not from git, so .gitignore does
 # not apply here — gas-backend.gs.js is ignored by git but sits on disk and
 # would otherwise be served publicly. Everything the running app needs is
-# index.html, manifest.json, data.js, the six .jsx modules and icons/.
+# index.html, manifest.json, moved.html, data.js, the six .jsx modules and icons/.
 # Anything not on that list belongs below.
 
 .git/
@@ -12,6 +12,9 @@
 .gitleaksignore
 .gitleaks.toml
 .graphifyignore
+.github/
+.serena/
+_config.yml
 
 # Ledgers, reviews and specs — internal, and SECURITY_CHECKLIST.md especially
 *.md

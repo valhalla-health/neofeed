@@ -32,6 +32,22 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🩺🔒 **safety+security · Ship `review/2026-09-11-fixes` (2026-09-11 full review) — built and
+      tested, NOT deployed.** See `CHANGELOG.md` 2026-09-11 (3). Two halves, deploy the **backend
+      first** (the new frontend sends `expectedLastModified` on Submit, which only the new backend
+      checks; everything else is additive both ways):
+      1. **Backend:** copy `gas-backend.gs` → `~/nicu-tools/neofeed/รหัส.js`, `clasp push`,
+         `clasp create-version`, `clasp update-deployment -V <n> AKfycbz8Nt…` — **confirm with Praew
+         first**, per `REFERENCE.md`. Behaviour changes staff will notice: one login error message for
+         unknown email/wrong password; ward devices stop receiving patients discharged >30 days.
+      2. **Frontend:** merge the PR into `main` (Cloudflare deploys from `main` until C1 below is
+         done), then `main → release` for GitHub Pages. Cache-bust `?v=review-0911`.
+      3. **Human check after deploy:** open a saved order, change one dose without saving → Print must
+         refuse; enter K 5 mEq/kg/d → Save must ask for a reason and print it.
+- [ ] 🔒 **security · C1 — Cloudflare production branch → `release`** (dashboard only; Praew's step,
+      unchanged — see the "push to `main`" item under Next). Re-confirmed 2026-09-11: Workers Builds
+      built `1922488`, which is on `main` and not on `release`.
+
 - [ ] 🔒 **security · Exercise `@50` with a real login, a real save and a real Delete.**
       ✅ **Deployed 2026-08-26** — TEMP-DEBUG reverted, and the server-side plausibility guard
       (`0004d5c`) is finally live after never having been deployed at all. What remains is the human
@@ -97,6 +113,23 @@ clinical judgement. Everything else is engineering sequencing.
       work rather than a hypothetical.
 
 ## 🕓 Later
+
+- [ ] 🩺 **safety/governance · Decide who may create and Submit a TPN order.** `canWrite` includes
+      nurses for `logDailyNutrition`/`publishLog`, and the Intake/Output card lives inside the
+      Calculator, so a nurse recording urine output re-saves the whole order (2026-09-11 review P2).
+      Proposed: a separate nursing-entry screen (weight, I/O per shift, feeds given) writing its own
+      columns, then narrow order writes to prescribers. **Clinical workflow decision — Praew's.**
+- [ ] 💊 **product · Pharmacist role** — read-only plus a received/verified/compounded status per
+      order. The printed form now carries HN/AN boxes, saved-by/time/revision and changes-vs-previous
+      (2026-09-11); the status loop is not built.
+- [ ] 🩺 **safety · Confirm the HMF start threshold** the app shows (`hmfStart: 40` mL/kg/day). The WHO
+      tab used to say ≥100 while the EN tab said ≥40, both citing WHO 2023; both now show NeoFeed's 40
+      and say "confirm locally".
+- [ ] 🔒 **security/process · GitHub hygiene from the 2026-09-11 review:** make the `test` workflow a
+      required check on `release` once it has run on `main`; decide whether `tasamew` stays admin (and
+      is the `release` approver — see `REFERENCE.md`); confirm 2FA on both GitHub admins and on the
+      Cloudflare account; close/delete the 4 stale branches and draft PRs #56/#57 (`codex/center-point-v2`
+      holds 11 unmerged commits — decide before deleting).
 
 - [ ] 🩺 **safety · `FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
       4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10 and re-checked

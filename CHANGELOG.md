@@ -13,6 +13,82 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-11 (3) — Full review: fixes on `review/2026-09-11-fixes` (NOT deployed)
+
+Praew asked for an end-to-end review of every part of NeoFeed "as every stakeholder", including
+GitHub and Cloudflare, then "do all". The review itself is kept **outside this public repo**
+(`NeoFeed/NEOFEED_FULL_REVIEW_2026-09-11.md`) because it lists exploitable details. Every defect
+below was reproduced against the real code before it was fixed (backend in a vm sandbox, frontend
+in a local mock-mode copy in a real browser), and every fix is pinned by the new
+`test/verify-review-0911.cjs` (78 assertions; confirmed to FAIL against `1922488`).
+
+**Frontend — clinical safety**
+- **F1** A critical tile always produces a critical alert. Only GIR/NPE/Ca:P-warn/worksheet ceilings
+  used to be pushed, so K 5 mEq/kg/d or Ca with zero P showed red tiles under a panel saying *"All
+  targets within range"* (reproduced). Every nutrient tile now feeds the panel from the same status
+  variable. **Save with a critical alert requires a written reason**, stored as
+  `calcInput.critOverride` and printed on the order form.
+- **F2** Print/Copy/Submit need a *saved and unchanged* form. They were gated on `savedEntryId`
+  alone, so an edit after reopening a saved entry printed under that entry's id (reproduced: saved AA
+  3, typed 4.5, print form showed 4.5). `<PrintOrderForm>` now renders only while the form matches
+  the saved fingerprint; an unsaved-changes indicator is shown.
+- **F3** Unsaved work survives a forced logout: drafts autosave per patient + order date
+  (`neofeed_draft_*`), are offered back on reopen, cleared on save and on deliberate logout. The old
+  `localStorage` prefill was shadowed by any previous log entry, i.e. dead from day 2.
+- **F4** Printed "Normal requirement" and the Guidelines P row now come from `TPN_TARGETS` /
+  `ENTERAL_TARGETS` for the DOL (they said P 30-70 / 46–62 against a calculator at 50–108).
+  `ESPGHAN_TARGETS.pn.electrolytes.p.growing` corrected to [1.6, 3.5] mmol.
+- **F5** WHO tab no longer contradicts the EN tab on the HMF start threshold (**Praew to confirm
+  the KCMH value** — the app keeps `hmfStart: 40`).
+- **F6** Printed energy line no longer pairs a TPN-only kcal with a TPN+EN kcal/kg.
+- **F7** Glycophos (entered as Na) always shows the phosphate it delivers, in bold.
+- **F8** "Sync · just now" / "Synced just now" labels bound to the real `lastSync`.
+- **F9** Twin label on the mobile registry cards. **F10** a legacy baseline no longer zeroes the
+  fluid target.
+- Print form additions for pharmacy: HN/AN boxes (NeoFeed still stores none), saved-by / time /
+  revision, and **changes vs the previous order**, also shown on screen.
+- Copy-order text carries bed + NeoFeed ID, not the infant's name (it gets pasted into LINE).
+- `APP_VERSION` was 15 days stale (P1) — the stamp is now `D.appVersion()`, derived from the loaded
+  `?v=` tokens. Registration failures (incl. network) roll back instead of leaving a "local only"
+  patient; failed patient edits roll back.
+- `tweaks-panel.jsx` removed (design tool with cross-origin `postMessage`, shipped for a colour
+  picker). Load order is now `data.js → icons.jsx → calculator.jsx → fenton.jsx → registry.jsx →
+  log.jsx → app.jsx`.
+
+**Backend (`gas-backend.gs`) — needs a `clasp` deploy, which has NOT been run**
+- **B1** A superseded row is not an edit target, and superseding advances its `lastModified` — two
+  editors of one published row used to both create "revision 2" (reproduced).
+- **B2** `publishDailyLog` requires `expectedLastModified`; refuses superseded rows; re-publish is a
+  no-op. **B7** published rows cannot be hard-deleted.
+- **B3** Unknown-email logins record nothing (they created one Script Property each — reproduced),
+  one message for unknown email / wrong password, disabled status only after a correct password,
+  email ≤ 254 chars.
+- **B4** An edit keeps its row's stored date. **B5** log rows for unregistered sessionIds refused.
+- **B6** `getActivePatients` returns active + discharged ≤30 days (+ undatable) and their log rows
+  only; admins may pass `includeArchived`.
+- **B7** registry edits audited (`registerPatient`/`updatePatient` rows in `Audit_Log`); new-password
+  floor 10; `pseudonymizePatient` locked and reports a miss.
+
+**Repo / hosting**
+- `_headers`: CSP `style-src` adds `https://accounts.google.com/gsi/style` — a violation **observed in a
+  real browser console** on the live host today (closes STATUS.md's "no CSP violation observed or
+  ruled out"); `X-Robots-Tag: noindex`. Both shells: robots `noindex` meta. `.assetsignore`: `.github/`,
+  `.serena/`, `_config.yml`.
+- `.github/workflows/test.yml`: runs every harness + the shell-identity check on each PR.
+- **REFERENCE.md corrected:** "self-approval is expected and fine" is false — GitHub never lets an
+  author approve their own PR, so `release` PRs need the other admin.
+- Existing harnesses adjusted, each with a comment saying why: single-sheet stubs stub
+  `_patientExists`; publish calls pass the stamp; two jsdom fixtures supply an override reason /
+  a saved row matching the typed inputs; the safety-review regex now pins the stricter print gate.
+
+**Verified live today, no code involved:** the GitHub Pages → `moved.html` redirect executes in a
+real browser; Cloudflare's security headers are all present; Cloudflare still builds from `main`
+(check-run on `1922488`, a commit not on `release`).
+
+**Still Praew's:** merge (= production on Cloudflare until its production branch is `release`),
+the backend `clasp` deploy, the Cloudflare dashboard setting, and the clinical/role decisions
+listed in `BACKLOG.md`.
+
 ## Session 2026-09-11 (2) — Release-branch deploy gate, half-closed
 
 Praew: "push-to-main deploy gate next" → picked the release-branch option `AI_SDLC.md` § 5 itself
