@@ -125,8 +125,8 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · Confirm the HMF start threshold** the app shows (`hmfStart: 40` mL/kg/day). The WHO
       tab used to say ≥100 while the EN tab said ≥40, both citing WHO 2023; both now show NeoFeed's 40
       and say "confirm locally".
-- [ ] 🔒 **security/process · GitHub hygiene from the 2026-09-11 review:** make the `test` workflow a
-      required check on `release` once it has run on `main`; decide whether `tasamew` stays admin (and
+- [ ] 🔒 **security/process · GitHub hygiene from the 2026-09-11 review:** (the `test` workflow is already a
+      required check on `release`, and secret scanning is on — both done 2026-09-11); decide whether `tasamew` stays admin (and
       is the `release` approver — see `REFERENCE.md`); confirm 2FA on both GitHub admins and on the
       Cloudflare account; close/delete the 4 stale branches and draft PRs #56/#57 (`codex/center-point-v2`
       holds 11 unmerged commits — decide before deleting).

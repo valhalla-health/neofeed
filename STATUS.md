@@ -43,9 +43,14 @@ confirmation-before-`clasp deploy` model, and the frontend is where the printed 
 - `release` branch created from `main`'s tip (`89f9ce2`).
 - Branch protection on `release`: 1 required approving review, stale reviews dismissed on new
   pushes, `enforce_admins` on (applies to Praew's own pushes too, not just an agent's), force-push
-  and deletion blocked. Deploying now means a PR from `main` → `release`, approved before merge —
-  self-approval is expected and fine, the point is stopping an *unattended* push, not third-party
-  review, same reasoning as the backend's confirm-before-deploy step.
+  and deletion blocked. Deploying now means a PR from `main` → `release`, approved before merge.
+  ⚠️ **Corrected 2026-09-11:** this line used to say "self-approval is expected and fine" — GitHub
+  never lets a PR's author approve it, so every `release` PR needs the **other** admin
+  (`tasamew`). See `REFERENCE.md` § Frontend.
+- **2026-09-11 (3), live now:** the `harnesses` check (`.github/workflows/test.yml`, every
+  `verify-*.cjs` + shell identity) is a **required status check on `release`** — verified via
+  `gh api` (`app_id 15368`, GitHub Actions). The workflow file itself lands on `main` with PR #59;
+  it already runs on that PR's branch, green.
 - GitHub Pages repointed to serve from `release` (`gh api PUT .../pages`, verified: fresh build
   `status: built`, no error, `index.html` still `200` against the live URL).
 
@@ -249,6 +254,12 @@ npx wrangler rollback
 ```
 GitHub Pages has no rollback — revert the commit and push.
 
+## GitHub repository security settings
+
+🟢 **2026-09-11 (3):** secret scanning and push protection **enabled** (they were off on this public
+repo, which already had one leaked-identifier incident — see `BACKLOG.md` § Standing guardrails);
+wiki disabled (unused). Verified via `gh api repos/valhalla-health/neofeed`.
+
 ## What Cloudflare does not serve
 
 `.assetsignore` restricts Cloudflare to the 18 files the app actually loads. Verified
@@ -290,7 +301,13 @@ every external origin the app's own files reference — `unpkg.com`, `accounts.g
 unavoidable without a build step since `@babel/standalone` compiles the `.jsx` modules
 client-side.
 
-⚠️ **Gap not yet closed:** the CSP has been confirmed served correctly, but not yet exercised
+🟡 **Exercised in a real browser 2026-09-11 — one violation found:** loading the live login page
+logged *"Loading the stylesheet 'https://accounts.google.com/gsi/style' violates … style-src"*.
+The Sign-In button still renders (it lives in Google's iframe), so nothing is broken for staff;
+the fix (add that URL to `style-src`) is in PR #59, **not yet live**. The paragraph below is the
+pre-2026-09-11 note, kept for history.
+
+~~Gap not yet closed~~ — the CSP has been confirmed served correctly, but not yet exercised
 against a real page load with the browser console open — Claude in Chrome was unreachable both
 when this was written and when it was verified live. No CSP violation has actually been observed
 or ruled out in a real browser. Low risk (the CSP was derived from an exhaustive static audit, and
@@ -333,7 +350,11 @@ github.io/neofeed/` now serves the guard script (confirmed present in the HTML v
 workers.dev` is untouched — guard present in the HTML but inert there, real app still loads,
 headers still correct.
 
-⚠️ **Still not closed:** `curl` confirms the guard *script is served*, not that it *executes and
+✅ **Observed in a real browser 2026-09-11:** opening `valhalla-health.github.io/neofeed/` landed on
+the Thai "NeoFeed ย้ายที่อยู่แล้ว" page with the button to the Cloudflare host. The paragraph below is
+the pre-2026-09-11 note, kept for history.
+
+~~Still not closed~~ — `curl` confirms the guard *script is served*, not that it *executes and
 redirects* — `curl` doesn't run JavaScript. Nobody has opened `valhalla-health.github.io/neofeed/`
 in an actual browser since this shipped and watched it bounce to `moved.html`. The logic was
 checked in Node (string-match doesn't false-positive on lookalikes) and the mechanism is placed
