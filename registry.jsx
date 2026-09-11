@@ -171,6 +171,10 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
               <div className="pmc-row pmc-head">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span className="pmc-name">{p.name || p.initials || "—"}</span>
+                  {/* Twins share initials — without this, Twin A and Twin B
+                      were two identical cards on the phones nurses use
+                      (2026-09-11 review, F9; desktop table + picker had it). */}
+                  {p.twinSuffix && <span className="pmc-twin chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                   <span className="pmc-dol">DOL {dol}</span>
                 </div>
                 <span className="chip ok"><span className="d" />Active</span>
@@ -241,6 +245,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
                 <div className="pmc-row pmc-head">
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span className="pmc-name">{p.name || p.initials || "—"}</span>
+                    {p.twinSuffix && <span className="pmc-twin chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                     <span className="chip"><span className="d" />{p.currentBed}</span>
                   </div>
                   <span className="chip"><span className="d" />{p.status}</span>

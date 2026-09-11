@@ -12,7 +12,7 @@ ways vs. a normal bundled app:
   in `.html`/`.jsx`/`.js` as public.
 - **`gas-backend.gs` is the only real trust boundary.** Everything else in
   the repo (`app.jsx`, `data.js`, `calculator.jsx`, `log.jsx`, `fenton.jsx`,
-  `registry.jsx`, `icons.jsx`, `tweaks-panel.jsx`, both HTML shells) is
+  `registry.jsx`, `icons.jsx`, both HTML shells) is
   static and public. `gas-backend.gs` runs server-side on Apps Script — it's
   the only place a secret or a server-enforced check can actually live.
 

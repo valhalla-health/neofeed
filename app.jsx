@@ -129,14 +129,7 @@ function activeAlertCount(patient, entries) {
   return computeAlerts(patient, entries).filter(a => !acked[ackKey(a.id, a.dol)]).length;
 }
 
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "density": "comfortable",
-  "accent": "#2a7a8c",
-  "showDisclaimer": true
-} /*EDITMODE-END*/;
-
 function App() {
-  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
   // user = { name, role, email, token } — stored in sessionStorage (clears on tab close)
   // Login screen removed — default to a stub user so the app skips the gate.
@@ -220,11 +213,16 @@ function App() {
   const syncFromGAS = React.useCallback(() => {
     if (!GAS_ON) return;
     setSyncState("loading");
-    const tok = (() => { try { return JSON.parse(sessionStorage.getItem("neofeed_session"))?.token || ""; } catch { return ""; } })();
+    const sess = (() => { try { return JSON.parse(sessionStorage.getItem("neofeed_session")) || {}; } catch { return {}; } })();
+    const tok = sess.token || "";
     fetch(GAS_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "getActivePatients", token: tok }),
+      // The server returns only patients within its sync window (active, or
+      // discharged ≤30 days) unless an admin asks for the archive — admins
+      // handle data-subject requests and readmissions. The server re-checks
+      // the role; this flag alone grants nothing.
+      body: JSON.stringify({ action: "getActivePatients", token: tok, includeArchived: sess.role === "admin" }),
     })
       .then(r => r.json())
       .then(data => {
@@ -348,13 +346,13 @@ function App() {
   }, [today]);
 
   // ── Brand accent ─────────────────────────────────────────────
+  // Was driven by tweaks-panel.jsx, a design-tool panel (postMessage to/from
+  // any origin) that shipped to every clinical page load for a colour picker.
+  // Removed 2026-09-11 (review C5); the default accent it always resolved to
+  // stays.
   React.useEffect(() => {
     document.documentElement.style.setProperty("--brand", `oklch(46% 0.085 215)`);
-    if (tweaks.accent && tweaks.accent !== "#2a7a8c") {
-      document.documentElement.style.setProperty("--brand", tweaks.accent);
-      document.documentElement.style.setProperty("--brand-2", tweaks.accent);
-    }
-  }, [tweaks.accent]);
+  }, []);
 
   // ── Shared GAS write helper ───────────────────────────────────
   // Awaits the GAS response and handles three failure modes:
@@ -477,12 +475,14 @@ function App() {
   // in-place edits (gas-backend.gs publishDailyLog; further edits go through
   // handleUpdateToGAS's res.revised branch above instead). One-directional:
   // there is no unpublish.
-  const handlePublishToGAS = (entryId) => {
+  const handlePublishToGAS = (entryId, expectedLastModified) => {
     const id = active.sessionId;
     const who = user?.email || "";
 
     const apply = (res) => {
-      if (res.ok) {
+      if (res.ok && res.alreadyPublished) {
+        showToast("รายการนี้ส่งไปแล้วก่อนหน้านี้");
+      } else if (res.ok) {
         setLog(prev => ({ ...prev, [id]: (prev[id] || []).map(e =>
           e.entryId === entryId ? { ...e, published: res.publishedAt, publishedBy: who } : e) }));
         showToast(`ส่งรายการเพื่อตรวจทานแล้ว`);
@@ -491,7 +491,7 @@ function App() {
     };
 
     if (!GAS_ON) return Promise.resolve(apply({ ok: true, publishedAt: new Date().toISOString() }));
-    return gasPost({ action: "publishLog", sessionId: id, entryId }).then(apply);
+    return gasPost({ action: "publishLog", sessionId: id, entryId, expectedLastModified }).then(apply);
   };
 
   // Permanently removes a Daily_Log row — admin-only (gated where this is passed
@@ -552,18 +552,20 @@ function App() {
       // overwriting the first one. See _sessionIdConflict in gas-backend.gs.
       gasPost({ action: "registerPatient", patient: p, isNew: true })
         .then(res => {
-          // An explicit server refusal is NOT the offline case: the registry
-          // rejected this patient, so roll the optimistic insert back rather
-          // than leaving a row on screen that no sheet ever accepted. gasPost
-          // has already toasted the reason. A network failure has no .error
-          // and still falls through to the "local only" path below, which is
-          // the pre-existing offline behaviour and stays unchanged.
-          if (res.error) {
+          // ANY failure rolls the optimistic insert back — a server refusal
+          // and a network failure alike. The network case used to keep the
+          // patient on screen as "local only", but nothing ever queued it:
+          // an order could be saved against it (the server then held log
+          // rows for a patient it had never registered) and the next sync
+          // silently dropped the patient (2026-09-11 review, B5). gasPost has
+          // already toasted the reason.
+          if (!res.ok) {
             setPatients(prev => prev.filter(x => x !== p));
             setActiveId(prev => (prev === p.sessionId ? null : prev));
+            if (res.networkError) showToast("ลงทะเบียนไม่สำเร็จ — ตรวจสอบการเชื่อมต่อแล้วลองใหม่", "error");
             return;
           }
-          showToast(`Session ${p.sessionId} registered${res.ok ? " → GAS" : " (local only — check connection)"}`);
+          showToast(`Session ${p.sessionId} registered → GAS`);
         });
     } else {
       showToast(`Session ${p.sessionId} registered (local)`);
@@ -572,10 +574,16 @@ function App() {
 
   // ── Edit patient (update bed, dx, status, admitDOL) ──────────
   const handleEditPatient = (p) => {
+    const previous = patients.find(x => x.sessionId === p.sessionId);
     setPatients(prev => prev.map(x => x.sessionId === p.sessionId ? p : x));
     if (GAS_ON) {
       gasPost({ action: "registerPatient", patient: p })
-        .then(res => { if (res.ok) showToast(`${p.name || p.sessionId} อัปเดตแล้ว`); });
+        .then(res => {
+          if (res.ok) { showToast(`${p.name || p.sessionId} อัปเดตแล้ว`); return; }
+          // A refused/failed edit must not stay on screen looking saved —
+          // BW and GA drive every target. Roll back only this exact edit.
+          if (previous) setPatients(prev => prev.map(x => x === p ? previous : x));
+        });
     } else {
       showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
     }
@@ -637,7 +645,7 @@ function App() {
     // acknowledgements) sitting in localStorage past the session that made it.
     try {
       Object.keys(localStorage)
-        .filter(k => k.startsWith("neofeed_calc_") || k.startsWith("neofeed_acked_"))
+        .filter(k => k.startsWith("neofeed_calc_") || k.startsWith("neofeed_acked_") || k.startsWith("neofeed_draft_"))
         .forEach(k => localStorage.removeItem(k));
     } catch {}
     if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
@@ -860,7 +868,14 @@ function App() {
         <RailItem icon="info" label="Formulas + products" active={view === "formulas"} onClick={() => goTo("formulas")} />
 
         <div className="rail-foot">
-          <div className="conn"><span className="dot" /> Sync · just now</div>
+          {/* Bound to the real sync state — this said "just now" permanently,
+              beside a staleness banner built to say otherwise (review F8). */}
+          <div className="conn"><span className="dot" style={{ background:
+            freshness.level === "ok" ? "var(--ok)" : freshness.level === "local" ? "var(--line)"
+            : freshness.level === "warn" ? "var(--warn)" : "var(--crit)" }} />
+            {!GAS_ON ? "Local only"
+              : lastSync ? `Sync · ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+              : "Not synced"}</div>
           <div style={{ marginTop: 4 }}>V2.0 · ESPGHAN 2018/2022</div>
         </div>
       </nav>
@@ -884,10 +899,11 @@ function App() {
             onDelete={role === "admin" ? handleDeletePatient : undefined} />}
 
           {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
-          {view === "admin" && <AdminDashboard patients={patients} log={log} />}
+          {view === "admin" && <AdminDashboard patients={patients} log={log} lastSync={lastSync} />}
           {view === "calculator" && active && (
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}
               log={log} activeId={activeId} token={user?.token} role={role}
+              userLabel={user?.name ? `${user.name}${user.email ? ` (${user.email})` : ""}` : (user?.email || "")}
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
               handlePublishToGAS={handlePublishToGAS}
               handleDeleteEntry={handleDeleteEntry}
@@ -939,17 +955,6 @@ function App() {
         }}
       />
       }
-
-      <TweaksPanel title="Tweaks">
-        <TweakSection label="Appearance">
-          <TweakColor label="Brand accent"
-          value={tweaks.accent}
-          onChange={(v) => setTweak('accent', v)}
-          options={["#2a7a8c", "#3b6f9e", "#4a5da3", "#2f7a5f", "#7a3f5e"]} />
-        </TweakSection>
-        <TweakSection label="Behavior">
-        </TweakSection>
-      </TweaksPanel>
 
       <BottomNav
         view={view}
@@ -1012,7 +1017,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // JSX) so useDailyLogLock's hook calls follow React's rules: it only mounts
 // while view === "calculator", so its own hook-call sequence is consistent
 // across its own renders, independent of App's much larger render.
-function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role,
+function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel,
   handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo, setCalcWeights }) {
   // Editing an existing row re-derives its DOL from the row's date rather
   // than trusting the stored `dol` column (D_A.entryDol) — otherwise a row
@@ -1021,7 +1026,10 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   // are computed for the wrong day.
   const displayDol = editEntry ? D_A.entryDol(active, editEntry) : (logDate ? D_A.dolAtDate(active, logDate) : dol);
   const lockDate = editEntry ? editEntry.ts : (logDate || D_A.todayLocal());
-  const baselineEntry = !editEntry ? previousLogEntry(log[activeId] || [], lockDate) : null;
+  // The order strictly before this one's date — the new day's starting point,
+  // and (for new and edited orders alike) the "changes vs previous" reference.
+  const previousEntry = previousLogEntry(log[activeId] || [], lockDate);
+  const baselineEntry = !editEntry ? previousEntry : null;
   const holder = useDailyLogLock(active.sessionId, lockDate, token);
 
   return (
@@ -1063,7 +1071,8 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
       )}
 
       <Calculator patient={active} dol={displayDol}
-        editEntry={editEntry} baselineEntry={baselineEntry} logDate={logDate}
+        editEntry={editEntry} baselineEntry={baselineEntry} previousEntry={previousEntry}
+        logDate={logDate} userLabel={userLabel}
         onLog={handleLogToGAS} onUpdate={handleUpdateToGAS} onPublish={handlePublishToGAS}
         onSaved={() => goTo("log")}
         onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined}
@@ -1323,6 +1332,7 @@ const CONTACT_MAILTO = "mailto:Valhalla.team.th@gmail.com"
 // ============================================================
 // ChangePasswordModal
 // ============================================================
+const MIN_PASSWORD_LENGTH = 10;
 function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
   const [oldPwd, setOldPwd] = React.useState("");
   const [newPwd, setNewPwd] = React.useState("");
@@ -1332,7 +1342,8 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
 
   const handleSubmit = async () => {
     if (!oldPwd || !newPwd) return setErr("กรุณากรอกข้อมูลให้ครบ");
-    if (newPwd.length < 6) return setErr("รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร");
+    // Mirrors gas-backend.gs MIN_PASSWORD_LENGTH (raised from 6, 2026-09-11).
+    if (newPwd.length < MIN_PASSWORD_LENGTH) return setErr(`รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`);
     if (newPwd !== confirm) return setErr("รหัสผ่านใหม่ไม่ตรงกัน");
     setErr(""); setLoading(true);
     const res = await onSave(oldPwd, newPwd);
@@ -1355,7 +1366,7 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
             <input type="password" className="inp" value={oldPwd} onChange={e => setOldPwd(e.target.value)} placeholder="••••••••" autoFocus />
           </div>
           <div className="field">
-            <label>รหัสผ่านใหม่ <span className="unit">(อย่างน้อย 6 ตัว)</span></label>
+            <label>รหัสผ่านใหม่ <span className="unit">(อย่างน้อย {MIN_PASSWORD_LENGTH} ตัว)</span></label>
             <input type="password" className="inp" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="••••••••" />
           </div>
           <div className="field">
@@ -1539,7 +1550,7 @@ function LoginScreen({ onLogin }) {
 // ============================================================
 // Admin dashboard — read-only oversight, syncs from GAS
 // ============================================================
-function AdminDashboard({ patients, log }) {
+function AdminDashboard({ patients, log, lastSync }) {
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
   // Same "still on the unit" test the registry uses (registry.jsx's
   // isActivePatient): a blank status counts as Active, because the backend
@@ -1569,7 +1580,8 @@ function AdminDashboard({ patients, log }) {
           <h1>Admin dashboard</h1>
           <div className="sub">Read-only oversight · pulled from GAS Patient_Registry & Daily_Log</div>
         </div>
-        <div className="pill"><span className="dot" style={{ background: "var(--brand)" }} /> Synced just now</div>
+        <div className="pill"><span className="dot" style={{ background: "var(--brand)" }} />
+          {lastSync ? `Synced ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : (GAS_ON ? "Not synced" : "Local only")}</div>
       </div>
       <div className="admin-stat-tiles">
         {[
@@ -1828,7 +1840,10 @@ function GuidelinesPanel() {
               <RangeRow label="Mg" min="0.1" max="0.2" unit="mmol/kg/day" />
               <SectionHead>Growing preterm (D2+)</SectionHead>
               <RangeRow label="Ca" min="1.6" max="3.5" unit="mmol/kg/day = 64–140 mg/kg" highlight />
-              <RangeRow label="P" min="1.5" max="2.0" unit="mmol/kg/day = 46–62 mg/kg" highlight />
+              {/* Read from TPN_TARGETS so this page can't drift from the tiles
+                  again — it kept the pre-correction 1.5–2.0 mmol range for two
+                  weeks after the calculator moved to 50–108 (2026-09-11 review, F4). */}
+              <RangeRow label="P" min="1.6" max="3.5" unit={`mmol/kg/day = ${D_A.TPN_TARGETS.p(2)[0]}–${D_A.TPN_TARGETS.p(2)[1]} mg/kg`} highlight />
               <RangeRow label="Mg" min="0.2" max="0.3" unit="mmol/kg/day" />
               <SectionHead>Ca:P ratio</SectionHead>
               <RangeRow label="Molar (PN)" min="0.8" max="1.3" unit=":1 — target 1.3:1 for stable growth" highlight />
@@ -2010,8 +2025,12 @@ function GuidelinesPanel() {
                   body:"All preterm/LBW including <32 wk and <1.5 kg. Clinically stable or not. Base on clinical judgment for unstable infants." },
                 { level:"info", title:"Feed advancement: up to 30 mL/kg/day (Conditional, Moderate certainty)",
                   body:"All trials compared fast (30–40 mL/kg/day) vs slow (10–25). Fast advancement: ↓ time to regain BW, ↓ LOS. No ↑ NEC." },
+                // The start threshold used to read "EN ≥100 mL/kg/day" here while
+                // the EN tab and EN_DB both said ≥40, each citing WHO 2023
+                // (review F5). NeoFeed's own value is the one shown below —
+                // ESPGHAN_TARGETS.en.advancement.hmfStart.
                 { level:"info", title:"HMF: conditionally recommended for <32 wk or <1.5 kg on MOM/DHM",
-                  body:"Start when EN ≥100 mL/kg/day. Use commercially available multicomponent HMF formulated for preterm infants." },
+                  body:`Use commercially available multicomponent HMF formulated for preterm infants. Start threshold: NeoFeed uses ≥${D_A.ESPGHAN_TARGETS.en.advancement.hmfStart} mL/kg/day (unit protocol — confirm locally).` },
                 { level:"info", title:"Iron: 2–4 mg/kg/day (Strong, Moderate certainty)",
                   body:"For human milk-fed preterm/LBW not receiving iron from another source. Start when EN established." },
                 { level:"info", title:"Zinc: 1–3 mg/kg/day (Conditional, Low certainty)",

@@ -103,6 +103,12 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(R('gas-backend.gs'), sandbox);
 
+// logDailyNutrition refuses a sessionId that is not in Patient_Registry since
+// the 2026-09-11 review (B5). This harness's single-sheet stub has no registry
+// tab, so treat every id as registered here; verify-review-0911.cjs exercises
+// the real _patientExists against a real registry stub.
+sandbox._patientExists = () => true;
+
 const ENTRY = {
   dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90,
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20,
@@ -183,7 +189,10 @@ ok('ensureLogHeaderColumns widens to 38',     /\b38 - sh\.getMaxColumns\(\)/.tes
 console.log('\n── calculator.jsx wires the stamp through ──');
 const calc = R('calculator.jsx');
 ok('handleSave sends constantsVersion',  /constantsVersion:\s*D\.CONSTANTS_VERSION/.test(calc));
-ok('handleSave sends appVersion',        /appVersion:\s*D\.APP_VERSION/.test(calc));
+// Since 2026-09-11 the stamp is DERIVED from the loaded ?v= tokens (it was a
+// hand-kept constant that went 15 days stale) — see verify-review-0911.cjs.
+ok('handleSave sends the derived appVersion', /appVersion:\s*D\.appVersion\(\)/.test(calc));
+ok('handleSave no longer sends the hand-kept constant', !/appVersion:\s*D\.APP_VERSION\b/.test(calc));
 ok('PrintOrderForm accepts an entryId',  /entryId/.test(calc.slice(calc.indexOf('function PrintOrderForm'))));
 ok('print form renders CONSTANTS_VERSION',
    /CONSTANTS_VERSION/.test(calc.slice(calc.indexOf('function PrintOrderForm'))));

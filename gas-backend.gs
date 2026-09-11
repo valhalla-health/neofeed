@@ -183,6 +183,11 @@ function safeEqual(a, b) {
 // or a shared unlocked NICU workstation) would otherwise let someone brute
 // force the account's real password via changePassword with no rate limit.
 var LOCKOUT_MS = 15 * 60 * 1000;
+// One answer for "no such staff email" and "wrong password" — see login Path B.
+var LOGIN_FAILED_MSG = "email หรือรหัสผ่านไม่ถูกต้อง";
+// New-password floor. Existing passwords keep working; this applies the next
+// time one is changed. Mirrored in app.jsx's ChangePasswordModal.
+var MIN_PASSWORD_LENGTH = 10;
 function _lockoutStatus(key) {
   var props = PropertiesService.getScriptProperties();
   var raw = (props.getProperty(key) || "0:0").split(":");
@@ -620,6 +625,21 @@ function doPost(e) {
       email = (body.email || "").trim().toLowerCase();
       var password = body.password || "";
       if (!email || !password) return jsonOut({ status: "unauthorized", error: "กรุณากรอก email และรหัสผ่าน" });
+      // RFC 5321 caps an address at 254 characters. Anything longer is not a
+      // staff account, and refusing it here also bounds the lockout key below.
+      if (email.length > 254 || String(password).length > 256)
+        return jsonOut({ status: "unauthorized", error: LOGIN_FAILED_MSG });
+
+      // An email that is not a Staff row gets the same answer as a wrong
+      // password, and records NOTHING. It used to call _recordFailure first,
+      // which wrote one Script Property per unknown email — an unauthenticated
+      // caller could grow a quota-limited store without bound (2026-09-11
+      // review, B3), and once it filled, lockout silently stopped counting and
+      // changePassword failed after writing the new hash. Distinct messages
+      // for "no such account" / "wrong password" also let anyone test which
+      // addresses are staff; one message closes that too.
+      var found = getStaffRow(email);
+      if (!found) return jsonOut({ status: "unauthorized", error: LOGIN_FAILED_MSG });
 
       var failKey = "fail_" + email.replace(/[^a-z0-9]/g, "_");
       var lockState = _lockoutStatus(failKey);
@@ -628,21 +648,19 @@ function doPost(e) {
       }
       var fails = lockState.fails;
 
-      var found = getStaffRow(email);
-      if (!found) { _recordFailure(failKey, fails); return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" }); }
-
       var d = found.data;
-      if (d[3] !== true && String(d[3]).toUpperCase() !== "TRUE")
-        return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
-
       var storedHash = String(d[4] || "");
       var salt       = String(d[5] || "");
       if (!storedHash) return jsonOut({ status: "unauthorized", error: "ยังไม่ได้ตั้งรหัสผ่าน — แจ้ง admin" });
       var pwCheck = verifyPwd(password, salt, storedHash);
       if (!pwCheck.ok) {
         _recordFailure(failKey, fails);
-        return jsonOut({ status: "unauthorized", error: "รหัสผ่านไม่ถูกต้อง" });
+        return jsonOut({ status: "unauthorized", error: LOGIN_FAILED_MSG });
       }
+      // Disabled status is reported only to someone who has just proved the
+      // password — before, it was answered ahead of the password check.
+      if (d[3] !== true && String(d[3]).toUpperCase() !== "TRUE")
+        return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
       if (pwCheck.legacy) {
         // Transparent upgrade: user just proved they know the password, so
         // this is a safe moment to replace the weak v1 hash with v2.
@@ -693,7 +711,12 @@ function doPost(e) {
       return jsonOut({ error: "PasswordChangeRequired", mustChangePassword: true });
     }
 
-    if (action === "getActivePatients") { logAudit("readRegistry", "", user.email); return jsonOut(getActivePatients()); }
+    if (action === "getActivePatients") {
+      logAudit("readRegistry", "", user.email);
+      // Only an admin may ask for the full archive (data-subject requests,
+      // a readmission after the sync window) — see getActivePatients.
+      return jsonOut(getActivePatients({ includeArchived: user.role === "admin" && body.includeArchived === true }));
+    }
 
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
 
@@ -712,15 +735,20 @@ function doPost(e) {
     }
     if (action === "publishLog") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
-      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email);
+      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email, body.expectedLastModified);
       if (pubResult.error) return jsonOut({ error: pubResult.error });
-      return jsonOut({ ok: true, publishedAt: pubResult.publishedAt });
+      if (pubResult.conflict) return jsonOut({ conflict: true, current: pubResult.current });
+      return jsonOut({ ok: true, publishedAt: pubResult.publishedAt, alreadyPublished: !!pubResult.alreadyPublished });
     }
     if (action === "registerPatient" || action === "updatePatient") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       // Strict `=== true`: an older client sends no isNew at all, and undefined
       // must not read as a fresh registration or every edit would be refused.
-      registerPatient(body.patient, action === "registerPatient" && body.isNew === true);
+      var isNewReg = action === "registerPatient" && body.isNew === true;
+      registerPatient(body.patient, isNewReg);
+      // A changed BW or GA silently moves every dose target for this infant,
+      // and the row itself keeps no who/when — so the audit trail does.
+      logAudit(isNewReg ? "registerPatient" : "updatePatient", (body.patient && body.patient.sessionId) || "", user.email);
       return jsonOut({ ok: true });
     }
     if (action === "updateWeights") {
@@ -732,7 +760,7 @@ function doPost(e) {
     if (action === "changePassword") {
       var oldPwd = body.oldPassword || "";
       var newPwd = body.newPassword || "";
-      if (!newPwd || newPwd.length < 6) return jsonOut({ error: "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร" });
+      if (!newPwd || newPwd.length < MIN_PASSWORD_LENGTH) return jsonOut({ error: "รหัสผ่านใหม่ต้องมีอย่างน้อย " + MIN_PASSWORD_LENGTH + " ตัวอักษร" });
       // Same brute-force lockout as login — a valid session token (leaked, or
       // sitting unlocked on a shared NICU workstation) shouldn't let someone
       // guess the account's real password via unlimited oldPassword attempts.
@@ -767,7 +795,8 @@ function doPost(e) {
     }
     if (action === "pseudonymizePatient") {
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
-      pseudonymizePatient(body.sessionId, user.email);
+      var pseudoResult = pseudonymizePatient(body.sessionId, user.email);
+      if (pseudoResult && pseudoResult.error) return jsonOut({ error: pseudoResult.error });
       return jsonOut({ ok: true });
     }
     if (action === "deletePatient") {
@@ -802,17 +831,51 @@ function doPost(e) {
 }
 
 // ── getActivePatients ─────────────────────────────────────────
-function getActivePatients() {
+// Data minimisation (PDPA Sec 22; 2026-09-11 review, B6): this used to return
+// every patient ever registered and every Daily_Log row, to every role, on
+// every tab focus — each device held every past infant's initials and DOB,
+// and the payload grew by ~1–2 KB per logged day forever. It now returns the
+// patients the ward can still see, plus a margin:
+//   • status Active or blank — on the unit;
+//   • no statusDate — can't be aged, so kept (same rule as registry.jsx);
+//   • status changed within ARCHIVE_SYNC_DAYS — the registry shows the last
+//     7 days; 30 leaves room to find and reactivate a readmitted infant via
+//     the patient picker.
+// …and Daily_Log rows only for those patients. An admin can pass
+// includeArchived for the full set (data-subject requests, older readmissions).
+var ARCHIVE_SYNC_DAYS = 30;
+function _patientInSyncWindow(statusValue, statusDateValue, todayKey) {
+  var status = String(statusValue || "").trim();
+  if (!status || status === "Active") return true;
+  var changed = _wardDateKey(statusDateValue instanceof Date ? statusDateValue
+    : (statusDateValue ? String(statusDateValue).slice(0, 10) : null));
+  if (!statusDateValue || !changed) return true;
+  var days = (Date.parse(todayKey + "T00:00:00Z") - Date.parse(changed + "T00:00:00Z")) / 86400000;
+  return days <= ARCHIVE_SYNC_DAYS;
+}
+
+function getActivePatients(opts) {
+  var includeArchived = !!(opts && opts.includeArchived);
+  var todayKey = _wardDateKey();
   var sheetPat = getSheetPat();
   var sheetLog = getSheetLog();
   var patData = sheetPat.getLastRow() > 0 ? sheetPat.getDataRange().getValues() : [[]];
   var logData = sheetLog.getLastRow() > 0 ? sheetLog.getDataRange().getValues() : [[]];
 
+  // Decide the patient set first, so log rows for anyone outside it are
+  // never serialised at all.
+  var inWindow = {};
+  for (var k = 1; k < patData.length; k++) {
+    var kid = String(patData[k][0] || "");
+    if (!kid) continue;
+    if (includeArchived || _patientInSyncWindow(patData[k][9], patData[k][16], todayKey)) inWindow[kid] = true;
+  }
+
   var logMap = {};
   for (var i = 1; i < logData.length; i++) {
     var row = logData[i];
     var sid = String(row[1] || "");
-    if (!sid) continue;
+    if (!sid || !inWindow[sid]) continue;
     if (!logMap[sid]) logMap[sid] = [];
     logMap[sid].push({
       // _fmtDate, not String(): Sheets parses the "YYYY-MM-DD" we append into a
@@ -855,7 +918,7 @@ function getActivePatients() {
   for (var j = 1; j < patData.length; j++) {
     var p = patData[j];
     var sessionId = String(p[0] || "");
-    if (!sessionId) continue;
+    if (!sessionId || !inWindow[sessionId]) continue;
     patients.push({
       sessionId:     sessionId,
       name:          String(p[1] || ""),
@@ -1022,6 +1085,16 @@ function _ensureLogWidth(sheet, width) {
   if (have < width) sheet.insertColumnsAfter(have, width - have);
 }
 
+function _patientExists(sessionId) {
+  var sid = String(sessionId || "");
+  if (!sid) return false;
+  var pat = getSheetPat();
+  if (pat.getLastRow() < 2) return false;
+  var rows = pat.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) if (String(rows[i][0]) === sid) return true;
+  return false;
+}
+
 // ── logDailyNutrition (create) ─────────────────────────────────
 // Locked like every other Daily_Log/Patient_Registry write in this file
 // (updateDailyNutrition, deleteDailyNutrition, deletePatient, registerPatient)
@@ -1047,6 +1120,14 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
       .concat(_ioLogFields(entry))
       .concat(_provenanceFields(entry))
       .concat(_revisionFields(entry));
+    // A row for an unregistered sessionId used to be accepted (2026-09-11
+    // review, B5). Real path: a registration that failed on the network was
+    // kept on screen as "local only", an order was saved against it, and the
+    // next sync dropped the patient — leaving orphan rows keyed to an
+    // initials+BW id that a different infant could register later.
+    if (!_patientExists(sessionId)) {
+      return { error: "ไม่พบผู้ป่วยรายนี้ในทะเบียน — ลงทะเบียนให้สำเร็จก่อนบันทึก (" + sessionId + ")" };
+    }
     var sheet = getSheetLog();
     var data = sheet.getDataRange().getValues();
     var targetDate = String(row[0] || "").slice(0, 10);
@@ -1089,6 +1170,26 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
         } };
       }
 
+      // A superseded row is history, not an edit target. Two editors who both
+      // opened the same published row used to BOTH pass the lastModified
+      // check below and each append a "revision 2" — two current rows for one
+      // patient-day with different doses (2026-09-11 review, B1).
+      if (data[i][37]) {
+        return { conflict: true, current: {
+          lastModified: currentLastModified,
+          lastModifiedBy: String(data[i][27] || ""),
+          superseded: true,
+        } };
+      }
+
+      // An edit keeps the row's own calendar date. `entry.ts` from the client
+      // is ignored here: accepting it let an update move an entry onto a date
+      // that already had one, bypassing logDailyNutrition's one-row-per-date
+      // guard (2026-09-11 review, B4). The current UI always resends the
+      // original date, so this only changes what a direct POST can do.
+      var storedDate = _wardDateKey(data[i][0] instanceof Date ? data[i][0] : String(data[i][0] || "").slice(0, 10));
+      entry = Object.assign({}, entry, { ts: storedDate || String(data[i][0] || "") });
+
       var originalSubmittedBy = String(data[i][15] || editedBy || "");
       var newLastModified = new Date().toISOString();
 
@@ -1109,9 +1210,12 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
         _ensureLogWidth(sheet, revisionRow.length);
         sheet.appendRow(revisionRow);
         // Mark the row being replaced as superseded — col 38 (AL), same lock,
-        // same write pass. Nothing else about the old row changes: it keeps
-        // its own published/publishedBy/entryId exactly as printed.
+        // same write pass — and advance its lastModified (col 27), so a second
+        // editor still holding the old stamp fails the optimistic check even
+        // before the superseded guard above. Its content, published/
+        // publishedBy and entryId stay exactly as printed.
         sheet.getRange(i + 1, 38, 1, 1).setValue(newLastModified);
+        sheet.getRange(i + 1, 27, 1, 1).setValue(newLastModified);
         return {
           ok: true, revised: true,
           entryId: newEntryId, lastModified: newLastModified,
@@ -1156,8 +1260,14 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
 // on, updateDailyNutrition will refuse to overwrite the row in place — any
 // further edit creates a new revision instead (see the branch above). There
 // is no unpublish: once locked, a row stays part of the permanent record.
-function publishDailyLog(sessionId, entryId, publishedBy) {
+// Submit is a signature on specific numbers, so it is optimistic-locked the
+// same way an edit is (2026-09-11 review, B2): `expectedLastModified` must
+// match, or someone else's later save would be locked under the submitter's
+// name. A superseded row can't be submitted, and re-submitting an already
+// published row is a no-op rather than a silent overwrite of who/when.
+function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) {
   if (!entryId) return { error: "entryId is required" };
+  if (!expectedLastModified) return { error: "expectedLastModified is required" };
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -1166,6 +1276,15 @@ function publishDailyLog(sessionId, entryId, publishedBy) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][25]) !== String(entryId)) continue;
       if (String(data[i][1]) !== String(sessionId)) return { error: "Entry does not belong to this patient" };
+      if (data[i][37]) return { error: "รายการนี้มีฉบับแก้ไขใหม่แล้ว — เปิดฉบับล่าสุดก่อนส่ง" };
+      if (data[i][33]) return { ok: true, alreadyPublished: true, publishedAt: String(data[i][33]) };
+      var currentLastModified = String(data[i][26] || "");
+      if (currentLastModified !== String(expectedLastModified)) {
+        return { conflict: true, current: {
+          lastModified: currentLastModified,
+          lastModifiedBy: String(data[i][27] || ""),
+        } };
+      }
       var publishedAt = new Date().toISOString();
       _ensureLogWidth(sheet, 38);
       sheet.getRange(i + 1, 34, 1, 1).setValue(publishedAt);
@@ -1192,6 +1311,11 @@ function deleteDailyNutrition(sessionId, entryId) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][25]) !== String(entryId)) continue;
       if (String(data[i][1]) !== String(sessionId)) return { error: "Entry does not belong to this patient" };
+      // A submitted (published) row is part of the permanent record — "there
+      // is no unpublish" — so it can't be hard-deleted either. Corrections go
+      // through an edit, which appends a revision. Dormant while
+      // ENABLE_PUBLISH_GATE is off: nothing is published yet.
+      if (data[i][33]) return { error: "รายการนี้ส่ง (Submit) แล้ว ลบไม่ได้ — ให้แก้ไขเป็นฉบับใหม่แทน" };
       sheet.deleteRow(i + 1);
       return { ok: true };
     }
@@ -1618,18 +1742,30 @@ function updateWeights(sessionId, weights) {
 // Daily_Log row keyed on it. Flagged in HANDOFF.md; do not treat this
 // function as satisfying a full erasure request on its own.
 function pseudonymizePatient(sessionId, adminEmail) {
-  var sheet = getSheetPat();
-  var data  = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(sessionId)) {
-      var note = "[PDPA-erased " + new Date().toISOString().slice(0, 10) + "]";
-      sheet.getRange(i + 1, 2).setValue(note); // name
-      sheet.getRange(i + 1, 3).setValue("");   // initials
-      sheet.getRange(i + 1, 7).setValue("");   // dob
-      Logger.log("PDPA erasure: " + sessionId + " by " + adminEmail);
-      logAudit("pseudonymize", sessionId, adminEmail);
-      return;
+  if (!sessionId) return { error: "sessionId is required" };
+  // Locked like every other Patient_Registry write — a concurrent upsert of
+  // the same row could otherwise write the name/dob straight back.
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getSheetPat();
+    var data  = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(sessionId)) {
+        var note = "[PDPA-erased " + new Date().toISOString().slice(0, 10) + "]";
+        sheet.getRange(i + 1, 2).setValue(note); // name
+        sheet.getRange(i + 1, 3).setValue("");   // initials
+        sheet.getRange(i + 1, 7).setValue("");   // dob
+        Logger.log("PDPA erasure: " + sessionId + " by " + adminEmail);
+        logAudit("pseudonymize", sessionId, adminEmail);
+        return { ok: true };
+      }
     }
+    // Used to fall through silently and report ok — an erasure request that
+    // matched nothing must say so, not claim success.
+    return { error: "ไม่พบ session นี้ในระบบ — ยังไม่ได้ลบข้อมูลใด ๆ" };
+  } finally {
+    lock.releaseLock();
   }
 }
 

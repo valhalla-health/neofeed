@@ -30,10 +30,29 @@
 // because the sheet would read that as a formula.
 const CONSTANTS_VERSION = "2026-09-05.1";
 
-// APP_VERSION identifies the frontend that ran the arithmetic. There is no
-// build step (app-walkthrough.md §7), so this is maintained by hand alongside
-// the ?v= cache-bust tokens in the two HTML shells.
-const APP_VERSION = "2026-08-27-safety-review";
+// APP_VERSION identifies the frontend that ran the arithmetic. It used to be
+// maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
+// across PR #58 and two other frontend releases — so every row saved in that
+// window claimed the 08-27 frontend (2026-09-11 review, P1). appVersion()
+// below now derives the stamp from the ?v= cache-bust tokens actually loaded,
+// which change on every deploy by definition. APP_VERSION stays only as the
+// fallback for a context with no <script> tags (the Node test harnesses).
+const APP_VERSION = "2026-09-11-review";
+let _appVersionCache = null;
+function appVersion() {
+  if (_appVersionCache) return _appVersionCache;
+  try {
+    const parts = [];
+    document.querySelectorAll('script[src*="?v="]').forEach(s => {
+      const m = String(s.getAttribute("src")).match(/^(?:.*\/)?([A-Za-z][\w-]*)\.(?:jsx?)\?v=([\w.-]+)/);
+      if (m) parts.push(m[1][0].toLowerCase() + "=" + m[2]);
+    });
+    // Starts with a letter by construction, so the sheet never reads it as a
+    // formula (verify-provenance-stamp.cjs rejects a leading = + - @).
+    if (parts.length) return (_appVersionCache = parts.join(";"));
+  } catch (e) { /* no DOM — fall through */ }
+  return APP_VERSION;
+}
 
 // ── Publish-lock rollout flag ───────────────────────────────
 // Gates the "Save / Submit / Print" design (approved 2026-09-10): a saved
@@ -656,7 +675,9 @@ const ESPGHAN_TARGETS = {
       },
       k:  { transition:[0,3], intermediate:[0,3], stable:[2,3],  unit:"mmol/kg/day" },
       ca: { dol1:[0.8,2.0], growing:[1.6,3.5], unit:"mmol/kg/day" },  // × 40.08 = mg/kg
-      p:  { dol1:[1.0,2.0], growing:[1.5,2.0], unit:"mmol/kg/day" },  // × 30.97 = mg/kg
+      // growing was [1.5, 2.0] until 2026-09-11 — the 2026-09-05 correction of
+      // TPN_TARGETS.p (1.6–3.5 mmol = 50–108 mg/kg) never reached this display copy.
+      p:  { dol1:[1.0,2.0], growing:[1.6,3.5], unit:"mmol/kg/day" },  // × 30.97 = mg/kg
       mg: { dol1:[0.1,0.2], growing:[0.2,0.3], unit:"mmol/kg/day" },
       caP_molar:  [0.8, 1.3],   // molar Ca:P ratio — aim 1.3:1 (ESPGHAN 2018)
       caP_mass:   [1.0, 1.7],   // mass ratio — ESPGHAN 0.8–1.3 molar × 1.29 = 1.0–1.7; KCMH aim 1.7:1
@@ -1384,7 +1405,7 @@ window.NEOFEED_DATA = {
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.
-  CONSTANTS_VERSION, APP_VERSION,
+  CONSTANTS_VERSION, APP_VERSION, appVersion,
   // Publish-lock rollout flag — see its declaration above.
   ENABLE_PUBLISH_GATE,
   // Staleness decision for the sync banner + the thresholds behind it
