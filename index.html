@@ -20,6 +20,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="theme-color" content="#0b3c44" />
 <title>NeoFeed</title>
+<!-- Internal clinical tool: keep it out of search indexes (2026-09-11 review, C3). -->
+<meta name="robots" content="noindex, nofollow" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
@@ -1375,9 +1377,13 @@
   /* ============ PRINT STYLES ============ */
   @media print {
     /* Hide all UI — show only Ramathibodi print form */
-    .topbar, .rail, .tweaks-panel, #toast-host, .picker-backdrop,
+    .topbar, .rail, #toast-host, .picker-backdrop,
     .switch-patient, .patient-strip, .page-head, .disclaimer-bar,
     .card, .step-summary, .preset-chips { display: none !important; }
+    /* Everything in the workspace except the order form itself — the edit/
+       back-fill/prefill/lock/draft banners and the staleness banner sit
+       outside .card and used to print above the pharmacy form. */
+    .work-inner > :not(#print-form), .bottom-nav, .app > [role="status"] { display: none !important; }
 
     html, body { height: auto; background: #fff; }
     .app { display: block; height: auto; min-height: auto; overflow: visible; }
@@ -1409,13 +1415,12 @@
   </script>
 
   <!-- App data and modules — ?v= busts browser cache on each deploy -->
-  <script src="data.js?v=publishlock-0910"></script>
-  <script type="text/babel" src="tweaks-panel.jsx?v=dashboard-edit2"></script>
+  <script src="data.js?v=review-0911"></script>
   <script type="text/babel" src="icons.jsx?v=notes-date-sel1"></script>
-  <script type="text/babel" src="calculator.jsx?v=publishlock-0910"></script>
+  <script type="text/babel" src="calculator.jsx?v=review-0911"></script>
   <script type="text/babel" src="fenton.jsx?v=ga-clamp42"></script>
-  <script type="text/babel" src="registry.jsx?v=patientid-0910"></script>
+  <script type="text/babel" src="registry.jsx?v=review-0911"></script>
   <script type="text/babel" src="log.jsx?v=bed-dol-io2"></script>
-  <script type="text/babel" src="app.jsx?v=publishlock-0910"></script>
+  <script type="text/babel" src="app.jsx?v=review-0911"></script>
 </body>
 </html>

@@ -91,6 +91,12 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(R('gas-backend.gs'), sandbox);
 
+// logDailyNutrition refuses a sessionId that is not in Patient_Registry since
+// the 2026-09-11 review (B5). This harness's single-sheet stub has no registry
+// tab, so treat every id as registered here; verify-review-0911.cjs exercises
+// the real _patientExists against a real registry stub.
+sandbox._patientExists = () => true;
+
 const ENTRY = {
   dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90,
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20,
@@ -123,19 +129,21 @@ eq('supersededAt starts blank',         row1[COL_SUPERSEDED_AT], '');
 console.log('\n── publishDailyLog: submit locks the row ──');
 {
   const existing = new Array(ROW_WIDTH).fill('');
-  existing[1] = 'AB-1200'; existing[25] = 'entry-1'; existing[35] = 1;
+  existing[1] = 'AB-1200'; existing[25] = 'entry-1'; existing[26] = 'stamp-1'; existing[35] = 1;
   sheet = makeSheet(40, [existing]);
-  const res = sandbox.publishDailyLog('AB-1200', 'entry-1', 'doc@kcmh');
+  // expectedLastModified is required since the 2026-09-11 review (B2) —
+  // Submit is optimistic-locked like an edit. verify-review-0911.cjs pins it.
+  const res = sandbox.publishDailyLog('AB-1200', 'entry-1', 'doc@kcmh', 'stamp-1');
   ok('publish succeeds', res.ok);
   ok('publishedAt is returned', !!res.publishedAt);
   const publishedRow = sheet.getDataRange().getValues()[1];
   ok('published column is now set',        !!publishedRow[COL_PUBLISHED]);
   eq('publishedBy recorded',                publishedRow[COL_PUBLISHED_BY], 'doc@kcmh');
 
-  const missing = sandbox.publishDailyLog('AB-1200', 'no-such-entry', 'doc@kcmh');
+  const missing = sandbox.publishDailyLog('AB-1200', 'no-such-entry', 'doc@kcmh', 'stamp-1');
   ok('publishing a missing entryId errors', missing.error);
 
-  const wrongPatient = sandbox.publishDailyLog('WRONG-ID', 'entry-1', 'doc@kcmh');
+  const wrongPatient = sandbox.publishDailyLog('WRONG-ID', 'entry-1', 'doc@kcmh', 'stamp-1');
   ok('publishing under the wrong sessionId errors', wrongPatient.error);
 }
 
@@ -231,14 +239,17 @@ console.log('\n── a Daily_Log tab that predates AH–AL is widened, not brok
   // migrated-in-place value must still not crash the revision path.
   sheet = makeSheet(33, [oldPublished]);
   threw = null;
-  try { sandbox.publishDailyLog('AB-1200', 'entry-1', 'doc@kcmh'); } catch (e) { threw = e.message; }
+  try { sandbox.publishDailyLog('AB-1200', 'entry-1', 'doc@kcmh', 'stamp-1'); } catch (e) { threw = e.message; }
   eq('publish on a 33-column tab does not throw', threw, null);
   eq('grid widened to 38 on publish',             sheet.maxColumns, ROW_WIDTH);
 }
 
 console.log('\n── getActivePatients exposes the new fields to the client ──');
 {
-  const patSheet = { getLastRow: () => 0, getDataRange: () => ({ getValues: () => [[]] }) };
+  // Since the 2026-09-11 review (B6) getActivePatients only returns log rows
+  // for patients it returns, so the registry needs the (active) patient.
+  const patRow = new Array(18).fill(''); patRow[0] = 'AB-1200'; patRow[3] = 1200; patRow[4] = 30; patRow[9] = 'Active';
+  const patSheet = { getLastRow: () => 2, getDataRange: () => ({ getValues: () => [new Array(18).fill('header'), patRow] }) };
   const row = new Array(ROW_WIDTH).fill('');
   row[0] = '2026-09-09'; row[1] = 'AB-1200'; row[25] = 'entry-2';
   row[COL_PUBLISHED] = '2026-09-09T10:00:00.000Z';
@@ -268,7 +279,7 @@ console.log('\n── doPost: publishLog action ──');
     return sandbox.doPost({ postData: { contents: JSON.stringify(body) } });
   }
   const published = new Array(ROW_WIDTH).fill('');
-  published[1] = 'AB-1200'; published[25] = 'entry-1'; published[35] = 1;
+  published[1] = 'AB-1200'; published[25] = 'entry-1'; published[26] = 'stamp-1'; published[35] = 1;
   sheet = makeSheet(40, [published]);
 
   const forbidden = callDoPost({ action: 'publishLog', token: 't', sessionId: 'AB-1200', entryId: 'entry-1' },
@@ -276,7 +287,7 @@ console.log('\n── doPost: publishLog action ──');
   const forbiddenBody = JSON.parse(forbidden.setMimeType());
   ok('a role with no write access is refused', forbiddenBody.error === 'Forbidden');
 
-  const asDoctor = callDoPost({ action: 'publishLog', token: 't', sessionId: 'AB-1200', entryId: 'entry-1' },
+  const asDoctor = callDoPost({ action: 'publishLog', token: 't', sessionId: 'AB-1200', entryId: 'entry-1', expectedLastModified: 'stamp-1' },
     { email: 'doc@kcmh', role: 'doctor', name: 'Doc' });
   const asDoctorBody = JSON.parse(asDoctor.setMimeType());
   ok('a doctor can publish', asDoctorBody.ok);

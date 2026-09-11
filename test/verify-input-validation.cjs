@@ -88,6 +88,12 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(require('path').join(__dirname, '..', 'gas-backend.gs'), 'utf8'), sandbox);
 
+// logDailyNutrition refuses a sessionId that is not in Patient_Registry since
+// the 2026-09-11 review (B5). This harness's single-sheet stub has no registry
+// tab, so treat every id as registered here; verify-review-0911.cjs exercises
+// the real _patientExists against a real registry stub.
+sandbox._patientExists = () => true;
+
 const patient = {
   sessionId: 'FO-1', name: 'Fo', initials: 'Fo', bw: 1200, ga: 28, sex: 'girls',
   dob: '2026-07-01', admissionDate: '2026-08-01', twinSuffix: '', status: 'Active',

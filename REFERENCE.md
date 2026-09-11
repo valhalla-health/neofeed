@@ -48,9 +48,17 @@ explicit confirmation before a redeploy and the frontend did not, backwards from
 the frontend is where the printed dose is drawn. Deploying now means opening a PR from `main` into
 `release` and getting it approved — `release` has branch protection (1 required approval,
 `enforce_admins` on, so this applies even to Praew's own pushes) mirroring the confirm-before-
-`clasp deploy` step the backend already had. Self-approval is expected and fine here: the point was
-never third-party peer review, it's stopping an *unattended agent push* from going live, same as
-"confirm with Praew before running the redeploy step" below.
+`clasp deploy` step the backend already had. The point was never third-party peer review, it's
+stopping an *unattended agent push* from going live, same as "confirm with Praew before running
+the redeploy step" below.
+
+⚠️ **Corrected 2026-09-11: self-approval does not exist on GitHub.** This paragraph used to say
+"self-approval is expected and fine". GitHub never lets a PR's author approve it, and with
+`enforce_admins` on, that includes Praew. Every `main → release` PR therefore needs the **other**
+admin collaborator (`tasamew`) to approve it — which is a real second reviewer, not a formality.
+Praew's decision whether that stays the rule or the review count changes; either way, a release
+blocked by "Review required" is this, not a bug. The `test` workflow (`.github/workflows/test.yml`)
+runs every harness on each PR and is intended as a required status check on `release`.
 
 - **Cloudflare Workers Builds' production branch is dashboard-only — no `wrangler` subcommand or
   public API covers it.** Repointing it from `main` to `release` is Praew's step to do by hand
@@ -107,6 +115,15 @@ Running a function from the Apps Script editor (e.g. the one-off `applyStaffHead
 consent — that is Praew's to approve, not something to click through on her behalf.
 
 Redeploys are live and NICU staff are on them: **always confirm before the redeploy step.**
+
+**Apps Script project timezone must be `Asia/Bangkok`.** Several date paths read Sheets' own date
+values through `Session.getScriptTimeZone()` (`_fmtDate`) or assume a Sheets date sits at Bangkok
+midnight (`_wardDateKey` in the one-entry-per-date guard, the 2026-09-11 edit-keeps-its-date rule,
+and the sync window). `appsscript.json` lives only in the clasp mirror, not in this repo — check its
+`"timeZone"` when touching it, and never change it without re-running `test/`.
+
+**Password floor is 10 characters** for any new password (`MIN_PASSWORD_LENGTH`, server and
+client, since 2026-09-11). Existing shorter passwords keep working until next changed.
 
 ## Thai PDPA compliance posture
 

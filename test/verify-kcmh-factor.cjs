@@ -81,13 +81,27 @@ const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
 const patient = { sessionId: 'F-1', name: 'T', currentBed: '9B2', diagnosis: '-', weights: [] };
 
+const IN = {
+  wtKg: 1.2, delivered: 100, dead: Number(process.env.DEAD ?? 20),
+  dexPct: 10, aaPerKg: 3, naCl: 3, naAcet: 1, glyco: 0.5,
+  kCl: 2, k2hpo4: 1, mg: 0.4, ca: 80, hepUmL: 1,
+  soluvitMlKg: 1, peditraceMlKg: 1,
+};
+
 act(() => {
   root.render(React.createElement(window.Calculator, {
     patient, dol: 5,
     // The production UI deliberately withholds actionable print output until
     // a save has returned a stable entryId. This arithmetic harness supplies
     // a saved shell row so it can continue reading the real print form.
-    editEntry: { entryId: 'fixture-entry', lastModified: 'fixture-stamp', ts: '2026-08-06', dol: 5, weight: 0, calcInput: {} },
+    // Since 2026-09-11 the print form renders only while the form matches the
+    // saved row (review F2) — so the shell row carries the same inputs this
+    // harness then types through the real fields. Typing them back leaves the
+    // form un-dirty, and the form below is the one pharmacy would print.
+    editEntry: { entryId: 'fixture-entry', lastModified: 'fixture-stamp', ts: '2026-08-06', dol: 5, weight: IN.wtKg * 1000,
+      calcInput: { curWtG: IN.wtKg * 1000, totalTPN_mL: IN.delivered, deadVol_mL: IN.dead, dexPct: IN.dexPct,
+        aaPerKg: IN.aaPerKg, naCl: IN.naCl, naAcet: IN.naAcet, glycophosP: IN.glyco, kCl: IN.kCl,
+        k2hpo4: IN.k2hpo4, mgPerKg: IN.mg, caPerKg: IN.ca, heparinUmL: IN.hepUmL } },
     baselineEntry: null, logDate: null,
     onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
   }));
@@ -116,12 +130,7 @@ function setField(labelText, value) {
   });
 }
 
-const IN = {
-  wtKg: 1.2, delivered: 100, dead: Number(process.env.DEAD ?? 20),
-  dexPct: 10, aaPerKg: 3, naCl: 3, naAcet: 1, glyco: 0.5,
-  kCl: 2, k2hpo4: 1, mg: 0.4, ca: 80, hepUmL: 1,
-  soluvitMlKg: 1, peditraceMlKg: 1,
-};
+
 
 // NB: labels must include the unit — a bare 'Volume' also matches the ENTERAL
 // feed-volume field, which silently sends the input to the wrong place.

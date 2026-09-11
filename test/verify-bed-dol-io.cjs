@@ -40,6 +40,11 @@ global.getComputedStyle = window.getComputedStyle;
 global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
 global.cancelAnimationFrame = clearTimeout;
 global.IS_REACT_ACT_ENVIRONMENT = true;
+// Save asks for a written reason when the order has a critical alert
+// (2026-09-11 review, F1). This harness's fixture order is not about alerts
+// (its NPE:AA is critically low), so it supplies one; verify-review-0911.cjs
+// pins the refusal when no reason is given.
+window.prompt = () => 'harness: critical value acknowledged';
 const React = require('react');
 const ReactDOM = require('react-dom/client');
 const { act } = require('react');
