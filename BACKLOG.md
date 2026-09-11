@@ -32,8 +32,9 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🩺🔒 **safety+security · Ship `review/2026-09-11-fixes` (2026-09-11 full review) — backend
-      ✅ DEPLOYED as `@53` 2026-09-12; frontend (merge PR #59) still to do.** See `CHANGELOG.md` 2026-09-11 (3). Two halves, deploy the **backend
+- [ ] 🩺🔒 **safety+security · Ship the 2026-09-11 full review — backend ✅ LIVE as `@53`
+      (2026-09-12); frontend merged to `main` (PR #59) but NOT live — needs PR #60 (`main` →
+      `release`, approved by `tasamew`) to reach either host.** See `CHANGELOG.md` 2026-09-11 (3). Two halves, deploy the **backend
       first** (the new frontend sends `expectedLastModified` on Submit, which only the new backend
       checks; everything else is additive both ways):
       1. **Backend:** copy `gas-backend.gs` → `~/nicu-tools/neofeed/รหัส.js`, `clasp push`,
@@ -44,10 +45,6 @@ clinical judgement. Everything else is engineering sequencing.
          done), then `main → release` for GitHub Pages. Cache-bust `?v=review-0911`.
       3. **Human check after deploy:** open a saved order, change one dose without saving → Print must
          refuse; enter K 5 mEq/kg/d → Save must ask for a reason and print it.
-- [ ] 🔒 **security · C1 — Cloudflare production branch → `release`** (dashboard only; Praew's step,
-      unchanged — see the "push to `main`" item under Next). Re-confirmed 2026-09-11: Workers Builds
-      built `1922488`, which is on `main` and not on `release`.
-
 - [ ] 🔒 **security · Exercise `@50` with a real login, a real save and a real Delete.**
       ✅ **Deployed 2026-08-26** — TEMP-DEBUG reverted, and the server-side plausibility guard
       (`0004d5c`) is finally live after never having been deployed at all. What remains is the human
@@ -88,16 +85,6 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · `TARGETS.fluid` is documented as taking birth weight, but every call site passes
       current weight.** One of the two is wrong. **Clinical decision, not a bug fix** — decide which
       is correct, then make code and docs agree.
-- [ ] 🔒 **security/process · A push to `main` is an unreviewed production deploy —
-      ⚙️ HALF-CLOSED 2026-09-11, CLOUDFLARE STEP STILL PRAEW'S TO DO.** `release` branch created
-      with branch protection (1 required approval, `enforce_admins` on); GitHub Pages repointed to
-      serve from it and verified live. **Cloudflare Workers Builds still deploys from `main` on
-      every push** — its production-branch setting is dashboard-only, no `wrangler`/API path found.
-      Remaining: Workers & Pages → neofeed → Settings → Build → change production branch to
-      `release`, then re-verify (push something harmless to `main` only, confirm Cloudflare does
-      *not* redeploy; merge to `release`, confirm it does). See `STATUS.md` § Release-branch deploy
-      gate for the full record. Demonstrated 2026-08-21, when an agent push put
-      `app.jsx?v=pwd-gate-0821` live within minutes. Surfaced by `AI_SDLC.md` § 5.
 - [ ] 🧱 **product · There is no error boundary** — `PatientStrip` throwing white-screens the whole
       app. One instance was hit and fixed on 2026-08-18; the class of bug is still open.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it

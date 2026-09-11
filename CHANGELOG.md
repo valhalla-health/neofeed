@@ -13,6 +13,23 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-12 (2) — PR #59 merged to `main`; deploy gate proven closed on both hosts
+
+Praew merged PR #59 (the frontend half of the 2026-09-11 review) and asked whether Cloudflare was
+all set. It was — but not in the way the merge implied: **she had already switched Workers Builds'
+production branch to `release`**, so the merge into `main` ran a build that reported success and
+deployed nothing. Caught by comparing bytes rather than trusting the green check: the live
+`data.js` was still 73,033 bytes (pre-merge) against the merged 74,204, and identical to the
+pre-merge commit — not an edge-cache artefact (a unique query string still returned the old file).
+
+That accidental experiment **is** the verification this repo had been waiting for: a real push to
+`main` does not reach production. The gate is now closed on both hosts, and `STATUS.md` /
+`REFERENCE.md` / `BACKLOG.md` say so — including the consequence that `main` is no longer a deploy
+of any kind, so nothing reaches staff without a `main` → `release` PR approved by `tasamew`.
+
+PR #60 (`main` → `release`) is open and carries the frontend to both hosts. The backend has been
+live as `@53` since earlier the same day.
+
 ## Session 2026-09-12 (1) — Backend `@53` deployed (PR #59's backend half)
 
 Praew: "deploy backend". Per `REFERENCE.md`: mirror diffed (line endings only), identity confirmed
