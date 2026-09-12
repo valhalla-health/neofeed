@@ -32,20 +32,14 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🩺🔒 **safety+security · Ship the 2026-09-11 full review — backend ✅ LIVE as `@53`
-      (2026-09-12); frontend merged to `main` (PR #59) but NOT live — needs PR #60 (`main` →
-      `release`, approved by `tasamew`) to reach either host.** See `CHANGELOG.md` 2026-09-11 (3). Two halves, deploy the **backend
-      first** (the new frontend sends `expectedLastModified` on Submit, which only the new backend
-      checks; everything else is additive both ways):
-      1. **Backend:** copy `gas-backend.gs` → `~/nicu-tools/neofeed/รหัส.js`, `clasp push`,
-         `clasp create-version`, `clasp update-deployment -V <n> AKfycbz8Nt…` — **confirm with Praew
-         first**, per `REFERENCE.md`. Behaviour changes staff will notice: one login error message for
-         unknown email/wrong password; ward devices stop receiving patients discharged >30 days.
-      2. **Frontend:** merge the PR into `main` (Cloudflare deploys from `main` until C1 below is
-         done), then `main → release` for GitHub Pages. Cache-bust `?v=review-0911`.
-      3. **Human check after deploy:** open a saved order, change one dose without saving → Print must
-         refuse; enter K 5 mEq/kg/d → Save must ask for a reason and print it.
-- [ ] 🔒 **security · Exercise `@50` with a real login, a real save and a real Delete.**
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@53` + `?v=review-0911`) in one bedside session.**
+      Everything shipped 2026-09-12 is verified as *deployed*, none of it as *used*. One session
+      closes the lot: a real login; a real save; **edit a saved order without saving → Print must
+      refuse**; **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the
+      printed form**; check the new printed lines (HN/AN boxes, saved-by/time/revision, changes vs
+      the previous order); a real Delete. Stubs model neither `CacheService` eviction nor
+      `LockService` contention, so **only a person can close this.** Supersedes the `@50`/`@47`
+      versions of this item.
       ✅ **Deployed 2026-08-26** — TEMP-DEBUG reverted, and the server-side plausibility guard
       (`0004d5c`) is finally live after never having been deployed at all. What remains is the human
       half, and it is now worth more than before because one session discharges three things at
