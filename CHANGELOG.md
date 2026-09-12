@@ -13,6 +13,23 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-12 (3) — Frontend `?v=review-0911` live on both hosts
+
+PR #60 (`main` → `release`), approved by `tasamew` and merged, deployed Cloudflare and GitHub
+Pages together — the first deploy to go through the release gate, and the half of its
+verification that was still outstanding (*"confirm merging to `release` does"*). Backend `@53`
+and frontend `review-0911` are now in step.
+
+Verified against the live URLs rather than the green checks — the 2026-09-12 (2) entry is why
+that distinction now matters: module versions, `data.js` byte size, the derived `appVersion()`,
+the CSP violation gone in a real browser, `noindex` header and meta, `tweaks-panel.jsx` /
+`_config.yml` / `gas-backend.gs` / `STATUS.md` all 404, every app file 200, and the same on
+GitHub Pages. Full list in `STATUS.md` § How the 2026-09-12 frontend deploy was verified.
+
+`BACKLOG.md`: the ship item is done and removed; the standing "never exercised by a human" item
+now covers both halves in one bedside session, including the two checks that prove today's
+safety work (Print refuses after an unsaved edit; K 5 demands a reason that then prints).
+
 ## Session 2026-09-12 (2) — PR #59 merged to `main`; deploy gate proven closed on both hosts
 
 Praew merged PR #59 (the frontend half of the 2026-09-11 review) and asked whether Cloudflare was

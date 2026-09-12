@@ -1,12 +1,11 @@
 # NeoFeed — Status
 
-**Updated 2026-09-12** · 🟢 **Backend production is `@53`** (the 2026-09-11 review's backend fixes,
-PR #59, deployed 2026-09-12 03:37 ICT). 🟡 **Frontend is the `publishlock-0910` build on both hosts
-until PR #59 is merged** — backend-first is the documented order and the two are compatible; see
-"How `@53` was verified" for what staff notice in between. (This record rides in PR #59 because a
-direct docs push to `main` is itself a Cloudflare deploy.)
-🟡 **Deploy gate is half-closed — see "Release-branch deploy gate" below before assuming a push to
-`main` is safe on both hosts.**
+**Updated 2026-09-12** · 🟢 **Backend `@53` and frontend `?v=review-0911` are both live and in
+step** — the 2026-09-11 full review, deployed in two halves on 2026-09-12 (backend 03:37 ICT via
+`clasp`, frontend via PR #60 into `release`). Verified on both hosts — see "How the 2026-09-12
+frontend deploy was verified".
+🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
+Pages; `main` deploys nothing. See "Release-branch deploy gate".
 
 **2026-09-10 — PR #58, "Save / Submit / Print" publish-lock design — backend now deployed.** See
 `CHANGELOG.md` 2026-09-10 (2) for the full description. Merged to `main` (`4878a39`, frontend
@@ -66,7 +65,9 @@ confirmation-before-`clasp deploy` model, and the frontend is where the printed 
 `data.js` stayed byte-identical to the pre-merge commit (73,033 bytes vs the merged 74,204). That is
 exactly the check this section used to ask for: *"push something harmless to `main` only, confirm
 Cloudflare does not pick it up."* The other half — *"confirm merging to `release` does"* — is
-outstanding until PR #60 (`main` → `release`) merges.
+since satisfied too: merging PR #60 into `release` deployed **both** hosts (a Cloudflare build and a
+GitHub Pages deployment on the same commit, both green, both serving the new files). Both directions
+of the gate are now demonstrated rather than assumed.
 
 ⚠️ **Consequence, and it is the point:** `main` is no longer a deploy of any kind. **Nothing reaches
 staff until a `main` → `release` PR is approved and merged**, and GitHub forbids self-approval, so
@@ -133,7 +134,32 @@ retained.
 | Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `f453583`, **byte-identical to `gas-backend.gs` and to the deployed source** (`clasp pull` into a clean scratch dir, diffed clean) |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | 🟡 **`Daily_Log` AH–AL: no action required, one cosmetic step outstanding** — same shape as AF/AG. Both write paths widen the grid on demand, so the columns appear on the first save/publish — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
-| Cache-bust | `data.js?v=publishlock-0910`, `calculator.jsx?v=publishlock-0910`, `app.jsx?v=publishlock-0910` (all three bumped 2026-09-10); `registry.jsx?v=patientid-0910`, `tweaks-panel.jsx?v=dashboard-edit2`, `icons.jsx?v=notes-date-sel1`, `fenton.jsx?v=ga-clamp42`, `log.jsx?v=bed-dol-io2` unchanged. Both shells byte-identical, confirmed live on both hosts |
+| Cache-bust | `data.js?v=review-0911`, `calculator.jsx?v=review-0911`, `registry.jsx?v=review-0911`, `app.jsx?v=review-0911` (bumped 2026-09-12); `icons.jsx?v=notes-date-sel1`, `fenton.jsx?v=ga-clamp42`, `log.jsx?v=bed-dol-io2` unchanged; `tweaks-panel.jsx` no longer exists. Both shells byte-identical, confirmed live on both hosts |
+
+## How the 2026-09-12 frontend deploy was verified
+
+PR #59 → `main` (which deployed nothing, by design), then PR #60 `main` → `release`, approved by
+`tasamew` because GitHub forbids self-approval. That merge deployed Cloudflare and GitHub Pages
+together. Checked against the live URLs, not inferred from the green checks:
+
+- **Cloudflare** serves `data.js?v=review-0911`, `calculator.jsx?v=review-0911`,
+  `registry.jsx?v=review-0911`, `app.jsx?v=review-0911`; `data.js` is 74,204 bytes (the pre-deploy
+  file was 73,033) and contains `function appVersion`.
+- **In a real browser:** no CSP violation — the `accounts.google.com/gsi/style` error observed on
+  2026-09-11 is gone and the Sign-In button renders; `window.NEOFEED_DATA.appVersion()` returns
+  `d=review-0911;i=notes-date-sel1;c=review-0911;f=ga-clamp42;r=review-0911;l=bed-dol-io2;a=review-0911`,
+  derived from the loaded files so it cannot go stale; `window.TweaksPanel` is gone.
+- **Headers:** `X-Robots-Tag: noindex, nofollow` plus the `<meta name="robots">` tag; `style-src` now
+  includes `https://accounts.google.com/gsi/style`.
+- **Not served (404):** `tweaks-panel.jsx`, `_config.yml`, `gas-backend.gs`, `STATUS.md`,
+  `SECURITY.md`. **Served (200):** every `.jsx` module, `data.js`, `manifest.json`, icons.
+- **GitHub Pages** (legacy host, still redirecting to Cloudflare) serves the same 74,204-byte
+  `data.js` and still 404s `gas-backend.gs`, `STATUS.md` and `tweaks-panel.jsx`.
+
+**Rollback (frontend):** revert the PR #60 merge on `release`. Independent of the backend — `@53`
+works with the previous frontend, which is exactly the pairing that ran for ~20 h today.
+
+---
 
 ## How `@53` was verified
 
@@ -156,7 +182,7 @@ Deployed on Praew's explicit "deploy backend" (2026-09-12), per `REFERENCE.md`, 
    `"email หรือรหัสผ่านไม่ถูกต้อง"` — the new generic message, which proves `@53` is what answers
    (`@52` said "ไม่พบบัญชีนี้ในระบบ"), and under `@53` that request writes no Script Property.
 
-**What staff notice while the frontend is still `publishlock-0910`:**
+**What staff saw during the ~20 h the backend ran ahead of the frontend (window now closed):**
 - Login failures read "email หรือรหัสผ่านไม่ถูกต้อง" for both unknown email and wrong password; a
   disabled account only hears "บัญชีนี้ถูกระงับ" after typing the right password.
 - A new password must be ≥ 10 characters; the old modal still says "อย่างน้อย 6" but shows the
@@ -166,7 +192,8 @@ Deployed on Praew's explicit "deploy backend" (2026-09-12), per `REFERENCE.md`, 
 - Saving an order for a patient whose registration never reached the server is refused.
 - Nothing else is visible: Submit/publish is still unreachable from the UI (`ENABLE_PUBLISH_GATE` off).
 
-⚠️ **Still unexercised by a human:** a real login + save + edit against `@53`.
+⚠️ **Still unexercised by a human:** a real login + save + edit against `@53` + `review-0911` —
+now one bedside session for both halves, see `BACKLOG.md` § Now.
 
 **Rollback (backend):** `@52` is a clean target — `@53` adds no columns and changes no stored format:
 ```
