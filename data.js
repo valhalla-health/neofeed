@@ -1354,6 +1354,15 @@ function bedOccupant(patients, bed, excludeSessionId) {
   return bedOccupancy(patients, excludeSessionId).get(b) || null;
 }
 
+// Who, if anyone, stops `record` being saved on the bed it names. A record
+// that is not on the unit claims no bed: a discharged patient keeps their old
+// bed label after the bed goes to the next admission, and correcting that
+// record must not read as a double-book. Mirrors _bedConflict in gas-backend.gs.
+function bedBlocker(patients, record) {
+  if (!isOnUnit(record)) return null;
+  return bedOccupant(patients, record.currentBed, record.sessionId);
+}
+
 // The lowest-numbered free bed in a ward — what the transfer modal
 // pre-selects so moving a patient out of NICU lands them on the next running
 // SCN number instead of on whatever bed happened to be listed first.
@@ -1510,7 +1519,7 @@ window.NEOFEED_DATA = {
   liveDol, dolAtDate, entryDol,
   // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
   // the one bed list, and the one-patient-per-bed occupancy helpers
-  normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, nextFreeBed,
+  normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,

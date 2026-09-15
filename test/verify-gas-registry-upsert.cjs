@@ -248,6 +248,28 @@ sheet = makeSheet(PAT_HEADER, [DISCHARGED], 26);
 eq('a discharged patient does not hold their bed',
   bedErr({ ...patient, sessionId: 'OTHER-1' }, true), null);
 
+// The other side of that: the discharged record still carries the old bed
+// label, and the bed has since gone to someone else. Correcting that record
+// (a name, a discharge date) must still save — it is not taking the bed from
+// anyone. Only putting it back on the unit (status Active) claims the bed.
+const ALUMNI = EXISTING.slice(); ALUMNI[0] = 'OLD-1'; ALUMNI[1] = 'Ol'; ALUMNI[9] = 'Discharged';
+const alumni = { ...patient, sessionId: 'OLD-1', name: 'Ol', initials: 'Ol', status: 'Discharged' };
+sheet = makeSheet(PAT_HEADER, [EXISTING, ALUMNI], 26);
+eq('editing a discharged record whose bed was reused saves',
+  bedErr({ ...alumni, diagnosis: 'RDS · corrected' }), null);
+eq('…and the edit reached the sheet', sheet.writes.length > 0, true);
+['Transferred', 'Expired'].forEach(status => {
+  const row = ALUMNI.slice(); row[9] = status;
+  sheet = makeSheet(PAT_HEADER, [EXISTING, row], 26);
+  eq(`…same for a record marked ${status}`, bedErr({ ...alumni, status }), null);
+});
+sheet = makeSheet(PAT_HEADER, [EXISTING, ALUMNI], 26);
+ok('putting that record back to Active on the taken bed is refused',
+  /NICU 11/.test(bedErr({ ...alumni, status: 'Active' }) || ''));
+sheet = makeSheet(PAT_HEADER, [EXISTING, ALUMNI], 26);
+ok('…and so is a blank status, which means Active',
+  /NICU 11/.test(bedErr({ ...alumni, status: '' }) || ''));
+
 // Legacy spellings name the same physical bed and must collide with it.
 const LEGACY = EXISTING.slice(); LEGACY[10] = 'NICU-11';
 sheet = makeSheet(PAT_HEADER, [LEGACY], 26);
