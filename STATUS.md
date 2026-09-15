@@ -1,9 +1,12 @@
 # NeoFeed — Status
 
-**Updated 2026-09-12** · 🟢 **Backend `@53` and frontend `?v=review-0911` are both live and in
-step** — the 2026-09-11 full review, deployed in two halves on 2026-09-12 (backend 03:37 ICT via
-`clasp`, frontend via PR #60 into `release`). Verified on both hosts — see "How the 2026-09-12
-frontend deploy was verified".
+**Updated 2026-09-15** · 🟢 **Backend `@54` and frontend `?v=bed-guard-0915` are both live and in
+step.** This is the ward-gate / one-infant-per-bed release (#63) plus the discharged-record fix (#66).
+- **Frontend:** deployed in two steps on 2026-09-15, `ward-gate-0915` via PR #65 and `bed-guard-0915`
+  via PR #67 (20:42 ICT).
+- **Backend:** `@54` via `clasp` at 20:47 ICT.
+- **Verified** on both hosts and against the pulled version 54 source. See "How the 2026-09-15 deploy
+  was verified".
 🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
 Pages; `main` deploys nothing. See "Release-branch deploy gate".
 
@@ -130,11 +133,84 @@ retained.
 | Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
 | Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
 | Frontend deploy | **Merging into `release` deploys both** (since 2026-09-12). Cloudflare Workers Builds' production branch is `release`; GitHub Pages serves `release`. A push or merge to `main` deploys **nothing** — it only runs a preview build. See § Release-branch deploy gate |
-| Backend | GAS deployment `AKfycbz8Nt…` at **`@53`** — *"2026-09-11 review B1-B7 - GitHub review/2026-09-11-fixes df85531 (PR #59)"*, cut 2026-09-12 03:37 ICT. Previous: `@52` (PR #58) |
-| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `f453583`, **byte-identical to `gas-backend.gs` and to the deployed source** (`clasp pull` into a clean scratch dir, diffed clean) |
+| Backend | GAS deployment `AKfycbz8Nt…` at **`@54`**: *"one infant per bed + discharged-record edit fix - GitHub main 8406cd7 (PR #63 + #66)"*, cut 2026-09-15 20:47 ICT. Previous: `@53` (PR #59) |
+| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `45341e0`, **identical to `gas-backend.gs` at `8406cd7` and to the deployed version 54** (`clasp pull --versionNumber 54` into a clean scratch dir, compared ignoring CR) |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | 🟡 **`Daily_Log` AH–AL: no action required, one cosmetic step outstanding** — same shape as AF/AG. Both write paths widen the grid on demand, so the columns appear on the first save/publish — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
-| Cache-bust | `data.js?v=review-0911`, `calculator.jsx?v=review-0911`, `registry.jsx?v=review-0911`, `app.jsx?v=review-0911` (bumped 2026-09-12); `icons.jsx?v=notes-date-sel1`, `fenton.jsx?v=ga-clamp42`, `log.jsx?v=bed-dol-io2` unchanged; `tweaks-panel.jsx` no longer exists. Both shells byte-identical, confirmed live on both hosts |
+| Cache-bust | `data.js?v=bed-guard-0915`, `registry.jsx?v=bed-guard-0915`, `app.jsx?v=bed-guard-0915` (PR #67); `calculator.jsx?v=ward-gate-0915` (PR #65); `icons.jsx?v=notes-date-sel1`, `fenton.jsx?v=ga-clamp42`, `log.jsx?v=bed-dol-io2` unchanged. Both shells byte-identical, confirmed live on both hosts |
+
+## How the 2026-09-15 deploy was verified
+
+**Frontend.** PR #63 → `main`, then PR #64 bumped the cache-bust tokens, and PR #65 `main` → `release`
+deployed `ward-gate-0915`. While the backend deploy was being planned, a bug turned up in that
+release: the one-bed guard refused edits to a discharged record whose old bed had been reused.
+PR #66 → `main` fixed it (`CHANGELOG.md` 2026-09-15 (2)), and PR #67 `main` → `release` deployed it,
+approved and merged by `tasamew` at 20:42 ICT. That left `ward-gate-0915`'s version of the bug live
+for about 3.5 h, client-side only; `@53` never had the server guard. Checked against the live URLs:
+
+- **Cloudflare and GitHub Pages** both serve `data.js`, `registry.jsx`, `app.jsx` at `?v=bed-guard-0915`
+  and `calculator.jsx` at `?v=ward-gate-0915`. `data.js` is 79,305 bytes on both hosts, matching
+  `release`. `gas-backend.gs` returns 404 on both.
+- **In a real browser** (Cloudflare, login screen only, no sign-in):
+  - `window.NEOFEED_DATA.appVersion()` returns
+    `d=bed-guard-0915;i=notes-date-sel1;c=ward-gate-0915;f=ga-clamp42;r=bed-guard-0915;l=bed-dol-io2;a=bed-guard-0915`.
+  - `NEOFEED_DATA.bedBlocker` and `EditPatientModal` are defined, and `NEOFEED_GAS_URL` is the production deployment.
+  - The only console error is a *report-only* `frame-ancestors` notice from Google's own
+    `accounts.google.com` sign-in frame. Nothing was blocked.
+- CI `test` passed on `fd49e1b`, on `8406cd7` (`main`) and on `release` after #67. A `pages-build-deployment` succeeded on `release`.
+
+**Backend `@54`.** Deployed on Praew's explicit go-ahead, following `REFERENCE.md`, with each step checked:
+
+1. **Remote diffed before overwriting.** `clasp pull` of the live project HEAD into a clean scratch dir
+   was identical to the mirror's `รหัส.js` and `appsscript.json`, and the mirror was identical to `@53`'s
+   source (`ffb62ee`). Nobody had edited HEAD in the Apps Script editor since `@53`, so nothing was lost.
+2. **Deploy identity and settings, checked before deploying:**
+   - `clasp show-authorized-user` → `peeraporn.po@chula.ac.th`;
+   - `appsscript.json` has `timeZone: Asia/Bangkok` and `executeAs: USER_DEPLOYING`;
+   - 53 versions and 26 deployments before the deploy.
+3. Copied `gas-backend.gs` from `8406cd7` into `รหัส.js`. The mirror diff was **+45 lines and nothing
+   else**: `_normBed` and `_bedConflict` with #66's status check, plus the two-line call inside
+   `registerPatient`. Committed in the mirror (`45341e0`). `clasp push` pushed 2 files, and
+   `clasp create-version` created **54**.
+4. **Verified before going live:** `clasp pull --versionNumber 54` into a clean scratch dir matched
+   `gas-backend.gs` at `8406cd7` (ignoring CR). The status check is present, the `@53` markers
+   (`LOGIN_FAILED_MSG`, `MIN_PASSWORD_LENGTH`, `_patientInSyncWindow`) are still there, and the
+   manifest is unchanged.
+5. **`clasp update-deployment -V 54 AKfycbz8Nt…`**: the count stayed **26**, so no new deployment
+   was created and `NEOFEED_GAS_URL` is unchanged. `clasp list-deployments` shows `AKfycbz8Nt…` at `@54`.
+6. **Live smoke test**, with no credentials and no writes:
+   - `GET ?action=ping` → `{"ok":true}`;
+   - `POST registerPatient` without a token → `{"error":"Unauthorized"}`;
+   - `POST getActivePatients` without a token → `{"error":"Unauthorized"}`.
+
+   The bed guard sits behind the auth gate, so this proves the deployment answers, not the guard
+   itself. The guard is pinned by `verify-gas-registry-upsert.cjs` § 6 against the same source.
+
+**What staff see under `@54` + `bed-guard-0915`:**
+- **A bed already held by an Active infant is refused, including across devices.** The server
+  refuses registering or moving another Active infant onto it with
+  "เตียง … มี … อยู่แล้ว — ต้องย้ายผู้ป่วยรายนั้นออกก่อน จึงจะบันทึกเตียงนี้ได้ (หนึ่งเตียงต่อหนึ่งราย)".
+  Until today only the client checked, against a `patients` snapshot that could be minutes old.
+- **Discharged, Transferred and Expired records can be edited** even after their old bed has been
+  reused. Setting one back to Active on that bed is refused.
+- ⚠️ **Beds that were double-booked before 2026-09-15** (two Active infants on one bed, including
+  legacy spellings such as `NICU-3` vs `NICU 3`): re-saving *either* infant without moving one of
+  them is refused. The client has refused this since #65, and the server now does too. The fix is
+  to transfer one of them. Nobody has checked the live census for this; it needs a signed-in person.
+
+⚠️ **Still unexercised by a human:** registering onto an occupied bed from a second device, and
+editing a discharged record whose bed was reused. Both were added to the bedside session in
+`BACKLOG.md` § Now.
+
+**Rollback (backend):** `@53` is a clean target, because `@54` adds no columns and changes no stored format:
+```
+clasp update-deployment -V 53 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
+```
+**Rollback (frontend):** revert the PR #67 merge on `release`, which returns to `ward-gate-0915` and
+its discharged-record bug. Revert PR #65 as well to return to `review-0911`. Either works with `@54`
+or `@53`.
+
+---
 
 ## How the 2026-09-12 frontend deploy was verified
 

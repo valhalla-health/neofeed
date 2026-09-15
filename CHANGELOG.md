@@ -13,6 +13,23 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-15 (3) — Backend `@54` deployed; frontend `?v=bed-guard-0915` live on both hosts
+
+PR #66 merged to `main` (`8406cd7`, no deploy). PR #67 `main` → `release` was approved and merged by
+`tasamew` at 20:42 ICT, which deployed `bed-guard-0915` to Cloudflare and GitHub Pages. The backend
+went live at 20:47 ICT as `@54`, cut via the clasp mirror (`45341e0`) from `gas-backend.gs` at `8406cd7`.
+That carries #63's server-side one-infant-per-bed guard and #66's fix for discharged records.
+
+Checks before overwriting: the remote HEAD matched the `@53` mirror, and the mirror diff was +45 lines
+and nothing else. Version 54 was pulled and matched the source before the deployment was repointed.
+The deployment count stayed 26. Every step, the smoke test and what staff now see are recorded in
+`STATUS.md` § "How the 2026-09-15 deploy was verified".
+
+The `BACKLOG.md` bedside-session item now covers the live `@54` stack, including the cross-device bed
+refusal and editing a discharged record.
+
+---
+
 ## Session 2026-09-15 (2) — One-bed guard no longer refuses edits to a discharged record
 
 Found while planning the backend deploy of the entry below, before it went out. The one-infant-per-bed
