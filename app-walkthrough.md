@@ -442,9 +442,16 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    free-text bed falls into `"other"`, which gets a third tile only when it is
    non-empty — no patient may be made unreachable by a bed label nobody
    recognizes. `PatientRegistry` early-returns the gate after its last hook,
-   so the hook call order stays stable; every count, badge and filter below it
-   is ward-scoped, while the bed-occupancy maps the modals build take the
-   **full** census (a bed is occupied by whoever is in it, gate or not).
+   so the hook call order stays stable; every count and badge below it is
+   ward-scoped, with two deliberate exceptions. The bed-occupancy maps the
+   modals build take the **full** census (a bed is occupied by whoever is in
+   it, gate or not). And **the search box searches the whole unit**, not the
+   open ward: the gate shortens the daily list, it does not partition the
+   census, and answering "ไม่พบ" for an infant one ward over — when the app can
+   see them — is the app withholding what it knows. Browsing (empty box) still
+   shows only the chosen ward, and when a search does pull patients in from
+   elsewhere the list says how many, so an SCN bed appearing on the NICU
+   screen doesn't read as the ward filter having broken.
    Below the gate: patient list, sorted NICU → iso → SCN
    (then numerically within each ward). Desktop: table. Mobile: tappable
    cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, Edit/Open).

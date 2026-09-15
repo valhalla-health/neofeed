@@ -155,6 +155,40 @@ eq('NEEDS ENTRY badges', badges.filter(b => b === 'NEEDS ENTRY').length, 2);
 // The raw comparison the app used to make, kept as the control: if this ever
 // starts passing, Sheets stopped returning dates as values and the
 // normalization above is merely belt-and-braces — it is not wrong to keep.
+// ── search reaches across wards ───────────────────────────────────────────
+// The ward gate shortens the daily list; it does not partition the census.
+// Someone typing a name is looking for that infant, and "ไม่พบ" because they
+// are one ward over — when the app can see them — is the app withholding what
+// it knows (ward decision, 2026-09-15).
+console.log('\n── search is unit-wide, browsing is ward-scoped ──');
+const valueSetter = Object.getOwnPropertyDescriptor(
+  window.HTMLInputElement.prototype, 'value').set;
+const search = (text) => act(() => {
+  const input = document.querySelector('.reg-search input');
+  valueSetter.call(input, text);
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+});
+const shownIds = () => [...document.querySelectorAll('.patient-table tbody tr')]
+  .map(tr => tr.textContent);
+
+render('NICU');
+eq('browsing NICU shows only NICU', shownIds().length, 2);
+// 'Nb' is in SCN 1 — a ward the open screen is not showing.
+search('Nb');
+eq('a search finds the patient in the other ward', shownIds().length, 1);
+eq('…and it is the SCN one', /SCN 1/.test(shownIds()[0] || ''), true);
+eq('…with a note saying the search crossed wards',
+  /ค้นทั้ง unit — 1 ราย/.test(document.getElementById('root').textContent), true);
+
+// A search that matches only patients in the open ward says nothing about
+// other wards — the note must not fire on every search.
+search('อช');
+eq('an in-ward-only hit shows no cross-ward note',
+  /ค้นทั้ง unit/.test(document.getElementById('root').textContent), false);
+
+search('');
+eq('clearing the box goes back to the ward list', shownIds().length, 2);
+
 console.log('\n── control: the comparison that used to be made ──');
 eq('raw `e.ts === today` misses a Sheets Date',
    log.A.some(e => e.ts === today), false);

@@ -46,6 +46,13 @@ non-empty, so the gate cannot make a patient unreachable. The choice lives in `a
 Dashboard-and-back doesn't return to the gate mid-round, and is not persisted, so a fresh load
 always asks.
 
+Two follow-ups Pp settled the same day: **iso rooms stay grouped under NICU** on the gate (as
+built — they are staffed and rounded as part of it), and **the search box searches the whole unit**
+rather than the open ward. Browsing still shows one ward; typing a name does not. The gate exists to
+shorten the daily list, not to partition the census, and an app that can see an infant one ward over
+should not answer "ไม่พบ". When a search pulls in patients from elsewhere the list says how many, so
+an SCN bed on the NICU screen doesn't read as a broken filter.
+
 **4 · One infant per bed.** Enforced four times over — `BedSelect` disables an occupied bed
 (labelled `NICU 5 · ไม่ว่าง (name)`: shown rather than hidden, because a missing bed reads as a
 broken dropdown while a named one tells you whom to move), each modal refuses it on save,

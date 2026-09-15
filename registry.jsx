@@ -129,17 +129,25 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   if (!ward) return <WardGate patients={patients} log={log} today={today} onPick={onWardChange} />;
 
   const q = filter.toLowerCase().trim();
-  // Scoped to the chosen ward, before the text filter. Every count, badge and
-  // modal on this screen is then about one ward — except the bed-occupancy
-  // maps the modals build, which take the full census (a bed is occupied by
-  // whoever is in it, ward gate or not).
+  // The ward this screen is about. Every count, badge and stat below is
+  // scoped to it — except the bed-occupancy maps the modals build, which take
+  // the full census (a bed is occupied by whoever is in it, ward gate or
+  // not), and except a search.
   const wardPatients = patients.filter(p => D_R.wardGroup(p.currentBed) === ward);
-  const filtered = wardPatients.filter(p =>
-    !q ||
+  // **Searching looks across the whole unit, not just the open ward** (ward
+  // decision, 2026-09-15). Someone typing a name is looking for that infant,
+  // and answering "ไม่พบ" because they are one ward over — when the app can
+  // see them — is the app withholding what it knows. The ward gate is there
+  // to shorten the daily list, not to partition the census. Browsing (no
+  // query) still shows only this ward.
+  const matches = (p) =>
     (p.name || "").toLowerCase().includes(q) ||
     (p.currentBed || "").toLowerCase().includes(q) ||
-    (p.diagnosis || "").toLowerCase().includes(q)
-  );
+    (p.diagnosis || "").toLowerCase().includes(q);
+  const filtered = q ? patients.filter(matches) : wardPatients;
+  // How many of the hits are somewhere else, so the list can say so rather
+  // than leaving an SCN bed to appear unexplained on the NICU screen.
+  const offWardHits = q ? filtered.filter(p => D_R.wardGroup(p.currentBed) !== ward).length : 0;
   const sorted   = [...filtered].sort(bedSort);
   const activeSorted   = sorted.filter(isActivePatient);
   // Discharged/Transferred/Expired patients drop off the registry 7 days
@@ -213,7 +221,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           <div className="s-ico"><Icon name="search" size={14} /></div>
           <input
             className="inp"
-            placeholder="ค้นหา · ชื่อย่อ · เตียง · วินิจฉัย"
+            placeholder="ค้นหาทั้ง unit · ชื่อย่อ · เตียง · วินิจฉัย"
             value={filter}
             onChange={e => setFilter(e.target.value)}
           />
@@ -222,6 +230,15 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           <Icon name="plus" size={14} color="#fff" /> New session
         </button>
       </div>
+
+      {/* A search reaches across wards, so say when it brought some back —
+          otherwise an SCN bed appears on the NICU screen with no explanation
+          and reads as the ward filter having broken. */}
+      {offWardHits > 0 && (
+        <div style={{ fontSize: 11.5, color: "var(--ink-3)", margin: "-4px 0 10px" }}>
+          ค้นทั้ง unit — {offWardHits} รายอยู่ ward อื่น (ดูเลขเตียงในแต่ละรายการ)
+        </div>
+      )}
 
       {/* ─── Mobile: card list ─── */}
       <div className="patient-card-list">
@@ -306,7 +323,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
 
         {activeSorted.length === 0 && (
           <div style={{ padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
-            {filter ? "ไม่พบผู้ป่วยที่ตรงกัน" : "ยังไม่มีผู้ป่วยในระบบ"}
+            {filter ? "ไม่พบผู้ป่วยที่ตรงกันทั้ง unit" : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`}
           </div>
         )}
 
@@ -498,7 +515,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
 
         {filtered.length === 0 && (
           <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
-            {filter ? "ไม่พบผู้ป่วยที่ตรงกัน" : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`}
+            {filter ? "ไม่พบผู้ป่วยที่ตรงกันทั้ง unit" : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`}
           </div>
         )}
       </div>
