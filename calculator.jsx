@@ -42,6 +42,11 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     // curWtG is the new key; src.wtG is the pre-migration key an older saved
     // entry/localStorage draft used for the same "weight typed into the field".
     curWtG: src.curWtG ?? src.wtG ?? fallbackWeight ?? 0,
+    // Manual TPN calculation weight; 0 = follow the birth-weight-floor rule.
+    // Absent from every entry saved before 2026-09-15, which is exactly the
+    // automatic behaviour those orders were calculated with, so ?? 0 restores
+    // them unchanged.
+    tpnWtOverrideG: src.tpnWtOverrideG ?? 0,
     // A row saved before calcInput existed has no fluid plan; start it from the
     // ESPGHAN midpoint rather than 0 (2026-09-11 review, F10).
     fluidTargetPerKg: src.fluidTargetPerKg ?? fallbackFluid ?? 0,
@@ -147,13 +152,43 @@ function diffOrderInputs(prev, cur) {
 const DRAFT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 const draftStorageKey = (sessionId, dateStr) => `neofeed_draft_${sessionId}_${dateStr}`;
 
-function NumField({ label, unit, value, onChange, step = 1, min = 0, hint }) {
-  const [raw, setRaw] = React.useState(value ? String(value) : "");
+// `name` + `required` + `onBlankChange` implement the "every field must be
+// filled in before this order can be saved" rule (2026-09-15). What counts as
+// filled is deliberately **the box is not empty**, not "the value is > 0":
+// a fresh form renders 0 as an empty box with a "0" placeholder, so a field
+// nobody has touched looks exactly like a field someone deliberately zeroed.
+// Requiring a typed character separates the two — Other IV, Drug volume and
+// Drain really are 0 most days, and the point of the rule is that somebody
+// says so rather than that the default says so.
+//
+// `seedZero` is the other half: when the form is hydrated from a row that was
+// already saved, a stored 0 IS an entered value, so it renders as "0" rather
+// than as an empty box the user would have to re-type to save a correction to
+// some other field.
+function NumField({ label, unit, value, onChange, step = 1, min = 0, hint,
+  name, required = false, seedZero = false, onBlankChange }) {
+  // Set once the user types anything into this box, cleared when they empty
+  // it again. Without it a typed "0" erased itself: the keystroke sets the
+  // value to 0, the sync effect below re-renders 0 as an empty box, and the
+  // field the user just filled in reads as blank again — which the save gate
+  // would then refuse, with no way to satisfy it. A field remounts (see the
+  // `key` on the required fields) when the form moves to another patient or
+  // entry, so this never carries one order's answer into the next.
+  const typedRef = React.useRef(false);
+  const shown = (v) => (v || ((seedZero || typedRef.current) && v === 0)) ? String(v) : "";
+  const [raw, setRaw] = React.useState(() => shown(value));
   const focusedRef = React.useRef(false);
   React.useEffect(() => {
     if (focusedRef.current) return;
-    setRaw(value ? String(value) : "");
-  }, [value]);
+    setRaw(shown(value));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, seedZero]);
+  // Report blankness up on every change, and once on mount so a field nobody
+  // ever touches still counts against the save gate.
+  React.useEffect(() => {
+    if (!required || !onBlankChange || !name) return;
+    onBlankChange(name, raw.trim() === "");
+  }, [raw, required, name, onBlankChange]);
   const handle = (e) => {
     // Every field here is a physical clinical quantity (weight/volume/rate/
     // dose/%) — none are legitimately negative, so "-" isn't in the allowed
@@ -162,6 +197,7 @@ function NumField({ label, unit, value, onChange, step = 1, min = 0, hint }) {
     let s = e.target.value.replace(/[^0-9.]/g, "");
     const firstDot = s.indexOf(".");
     if (firstDot !== -1) s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, "");
+    typedRef.current = s !== "";   // emptying the box makes it blank again
     setRaw(s);
     let v = parseFloat(s);
     if (isNaN(v)) v = 0;
@@ -175,21 +211,14 @@ function NumField({ label, unit, value, onChange, step = 1, min = 0, hint }) {
         type="text" inputMode="decimal" className="inp num"
         value={raw} placeholder="0" onChange={handle}
         onFocus={(e) => { focusedRef.current = true; e.target.select(); }}
-        onBlur={() => { focusedRef.current = false; }} />
-      {hint && <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>}
-    </div>);
-}
-
-// Read-only counterpart to NumField, for a value that's derived rather than
-// typed (e.g. TPN calculated weight) — same field/label/box sizing so it
-// lines up in a shared grid, but no input behavior.
-function ComputedField({ label, unit, value, hint }) {
-  return (
-    <div className="field">
-      <label>{label}{unit && <span className="unit">({unit})</span>}</label>
-      <div className="inp num" style={{ display: "flex", alignItems: "center", background: "var(--bg-2)", color: "var(--ink-2)", cursor: "default" }}>
-        {value || 0}
-      </div>
+        // Re-sync on blur so the box always shows the value actually in use
+        // once focus leaves it. Without this, a field whose `value` is
+        // computed rather than stored (the TPN calc weight falling back to
+        // its automatic figure when the override is cleared) stays visually
+        // empty while the order below it is calculated from a real number.
+        // A field the user genuinely emptied re-renders empty, which is what
+        // keeps the required-field gate honest.
+        onBlur={() => { focusedRef.current = false; setRaw(shown(value)); }} />
       {hint && <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>}
     </div>);
 }
@@ -317,12 +346,85 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   // computed from. Floors at birth weight while the infant hasn't yet
   // regained it (KCMH bedside convention: dosing per-kg off a still-falling
   // post-natal-weight-loss nadir would over/under-dose everything), then
-  // tracks current weight automatically once it clears birth weight. Purely
-  // derived from curWtG + patient.bw — not independently editable.
+  // tracks current weight automatically once it clears birth weight.
+  //
+  // That rule still *prefills* the field, but since 2026-09-15 the attending
+  // can override it (dry weight after a fluid shift, an oedematous infant,
+  // a dosing weight agreed on rounds that is neither the birth weight nor
+  // today's scale reading). `tpnWtOverrideG` is 0 when the automatic figure
+  // is in use, which is what makes "type the automatic number" the same
+  // thing as "no override" rather than a sticky manual value that stops
+  // following the weight.
   const bwG = patient?.bw || 0;
-  const wtG = (bwG > 0 && curWtG > 0 && curWtG < bwG) ? bwG : curWtG;
-  const usingBirthWeight = wtG === bwG && curWtG > 0 && curWtG < bwG;
+  const [tpnWtOverrideG, setTpnWtOverrideG] = useState(0);
+  const autoWtG = (bwG > 0 && curWtG > 0 && curWtG < bwG) ? bwG : curWtG;
+  const wtG = tpnWtOverrideG > 0 ? tpnWtOverrideG : autoWtG;
+  const tpnWtManual = tpnWtOverrideG > 0 && tpnWtOverrideG !== autoWtG;
+  // Only says "= birth weight" when the automatic rule is what put it there.
+  // An override that happens to equal the birth weight is still an override,
+  // and the order form must not claim the floor rule produced it.
+  const usingBirthWeight = !tpnWtManual && autoWtG === bwG && curWtG > 0 && curWtG < bwG;
   const wtKg = wtG / 1000;
+
+  // ── Required-field gate (2026-09-15) ──────────────────────────────
+  // Step 1 (the fluid plan + both weights) and the Intake / Output card must
+  // be filled in before an order can be saved — see NumField for why "filled"
+  // means a non-empty box rather than a non-zero value. Steps 2-6 are
+  // deliberately NOT in this set: a day with no lipid, no oral supplement and
+  // no enteral feed is a normal day, and a gate that demanded a typed 0 in
+  // every one of those boxes would be cleared by rote within a week.
+  const REQUIRED_FIELDS = [
+    { key: "fluidTargetPerKg", label: "Target fluid" },
+    { key: "otherIV_mL",       label: "Other IV" },
+    { key: "drug_mL",          label: "Drug volume" },
+    { key: "curWtG",           label: "Current weight" },
+    { key: "tpnWtG",           label: "TPN calc. weight" },
+    { key: "ioInput",          label: "Input" },
+    { key: "ioOutput",         label: "Urine output" },
+    { key: "drainContent",     label: "Drain content" },
+  ];
+  const [blankFields, setBlankFields] = useState(() => new Set(REQUIRED_FIELDS.map(f => f.key)));
+  const reportBlank = React.useCallback((key, isBlank) => {
+    setBlankFields(prev => {
+      if (prev.has(key) === isBlank) return prev;   // no-op re-renders would loop
+      const next = new Set(prev);
+      if (isBlank) next.add(key); else next.delete(key);
+      return next;
+    });
+  }, []);
+  const missingFields = REQUIRED_FIELDS.filter(f => blankFields.has(f.key));
+  // Which required fields the entry being edited actually RECORDED. A stored
+  // 0 is a typed 0 — it renders as "0" (NumField `seedZero`) so fixing a typo
+  // elsewhere doesn't mean re-entering every zero the row already holds. A
+  // field the row never carried (a legacy entry from before the Intake/Output
+  // card) must come back blank instead, or the form would show a 0 nobody
+  // wrote and the gate would count it as entered. Per field, not per entry,
+  // because one row can be recorded in one and silent in the next.
+  //
+  // A brand-new form gets no credit at all, including one prefilled from
+  // yesterday: yesterday's urine output is not today's.
+  const seededZeros = React.useMemo(() => {
+    const keys = new Set();
+    if (!editEntry) return keys;
+    const ci = editEntry.calcInput || {};
+    const recorded = (v) => v !== undefined && v !== null && v !== "";
+    const weight = ci.curWtG ?? ci.wtG ?? editEntry.weight;
+    // Same precedence as withEntryIO: the dedicated columns are the record,
+    // and they exist on rows whose calcInput predates them.
+    const carried = {
+      fluidTargetPerKg: ci.fluidTargetPerKg,
+      otherIV_mL:       ci.otherIV_mL,
+      drug_mL:          ci.drug_mL,
+      curWtG:           weight,
+      tpnWtG:           weight,
+      ioInput:          editEntry.ioInput      ?? ci.ioInput,
+      ioOutput:         editEntry.ioOutput     ?? ci.ioOutput,
+      drainContent:     editEntry.drainContent ?? ci.drainContent,
+    };
+    Object.keys(carried).forEach(k => { if (recorded(carried[k])) keys.add(k); });
+    return keys;
+  }, [editEntry]);
+  const seedsZero = (key) => seededZeros.has(key);
 
   // Card key 1 — Fluid plan (displayed as Step 1)
   const [fluidTargetPerKg, setFluidTargetPerKg] = useState(0);
@@ -454,6 +556,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
     const n = normalizeCalcInput(src, fallbackWeight, fallbackFluid);
     setCurWtG(n.curWtG);
+    setTpnWtOverrideG(n.tpnWtOverrideG);
     setFluidTargetPerKg(n.fluidTargetPerKg);
     setOtherIV_mL(n.otherIV_mL);
     setDrug_mL(n.drug_mL);
@@ -523,6 +626,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   // 4. Otherwise: smart defaults — wt from latest weight, fluid from ESPGHAN midpoint
   // The clinical date this order is for — keys the unsaved-draft store.
   const orderDateKey = editEntry ? (D.normalizeDateStr(editEntry.ts) || D.todayLocal()) : (logDate || D.todayLocal());
+  // Identity of the order currently open. The required fields are keyed on it
+  // so switching patient or date gives them fresh inputs: a "0" typed for one
+  // infant must not arrive pre-satisfied on the next one's form.
+  const formIdentity = `${patient?.sessionId || "?"}·${orderDateKey}·${editEntry?.entryId || "new"}`;
 
   React.useEffect(() => {
     if (!patient?.sessionId) return;
@@ -599,7 +706,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
 
   // The live inputs, in exactly the shape normalizeCalcInput produces.
   const currentInputs = () => normalizeCalcInput({
-    curWtG, fluidTargetPerKg, otherIV_mL, drug_mL,
+    curWtG, tpnWtOverrideG, fluidTargetPerKg, otherIV_mL, drug_mL,
     ioInput, ioOutput, drainContent,
     route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
@@ -1087,6 +1194,17 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   // exact raw inputs so this entry stays editable on any device later.
   const handleSave = async () => {
     if (saving) return;
+    // ── Required-field gate (2026-09-15) ──────────────────────────────
+    // Blocks the save outright rather than warning: an order row whose fluid
+    // plan or urine output was never entered is not a partial record, it is a
+    // record that reads as 0 to every trend, target band and alert downstream.
+    // Step 1 is force-opened because the user may have collapsed it, and a
+    // toast naming a field they cannot see is a dead end.
+    if (missingFields.length > 0) {
+      setOpenSteps(prev => new Set(prev).add(1));
+      showToast(`ยังกรอกไม่ครบ — ต้องกรอก: ${missingFields.map(f => f.label).join(", ")}`, "error");
+      return;
+    }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
     // A critical value can still be ordered — the attending may have a
     // reason — but never silently: the reason is required, saved with the
@@ -1308,16 +1426,29 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
           <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr) 1.4fr", gap: 12, alignItems: "stretch" }}>
             <div>
               <NumField label="Target fluid" unit="mL/kg/d" value={fluidTargetPerKg} onChange={setFluidTargetPerKg} step={5}
+                key={`${formIdentity}·fluidTargetPerKg`} name="fluidTargetPerKg" required seedZero={seedsZero("fluidTargetPerKg")} onBlankChange={reportBlank}
                 hint={`= ${fmt(fluidTargetPerKg * wtKg, 0)} mL/d · attending discretion`} />
               <PresetChips values={[60, 80, 100, 120, 150]} current={fluidTargetPerKg} onSelect={setFluidTargetPerKg} />
             </div>
             <NumField label="Other IV" unit="mL/d" value={otherIV_mL} onChange={setOtherIV_mL} step={1}
+              key={`${formIdentity}·otherIV_mL`} name="otherIV_mL" required seedZero={seedsZero("otherIV_mL")} onBlankChange={reportBlank}
               hint={`= ${fmt(otherIV_mL / wtKg, 1)} mL/kg/d`} />
             <NumField label="Drug volume" unit="mL/d" value={drug_mL} onChange={setDrug_mL} step={1}
+              key={`${formIdentity}·drug_mL`} name="drug_mL" required seedZero={seedsZero("drug_mL")} onBlankChange={reportBlank}
               hint={`= ${fmt(drug_mL / wtKg, 1)} mL/kg/d`} />
-            <NumField label="Current weight" unit="g" value={curWtG} onChange={setCurWtG} step={5} />
-            <ComputedField label="TPN calc. weight" unit="g" value={wtG}
-              hint={usingBirthWeight ? "= birth weight (not yet regained)" : curWtG > 0 ? "= current weight" : "—"} />
+            <NumField label="Current weight" unit="g" value={curWtG} onChange={setCurWtG} step={5}
+              key={`${formIdentity}·curWtG`} name="curWtG" required seedZero={seedsZero("curWtG")} onBlankChange={reportBlank} />
+            {/* Editable since 2026-09-15 — prefilled by the birth-weight-floor
+                rule exactly as before, but the attending can overrule it.
+                Typing the automatic figure back in clears the override, so
+                the field resumes tracking the weight instead of freezing at
+                a number that merely matched it once. */}
+            <NumField label="TPN calc. weight" unit="g" value={wtG} step={5}
+              key={`${formIdentity}·tpnWtG`} name="tpnWtG" required seedZero={seedsZero("tpnWtG")} onBlankChange={reportBlank}
+              onChange={(v) => setTpnWtOverrideG(v === autoWtG ? 0 : v)}
+              hint={tpnWtManual
+                ? `⚠ แก้เอง · อัตโนมัติ = ${fmt(autoWtG, 0)} g`
+                : usingBirthWeight ? "= birth weight (not yet regained)" : curWtG > 0 ? "= current weight" : "—"} />
             <div style={{ padding: "10px 14px", borderRadius: 8,
               background: Math.abs(calc.remaining) < 1 ? "var(--ok-bg)" : calc.remaining < -10 ? "oklch(96% 0.04 25)" : "var(--brand-bg)",
               border: `1px solid ${Math.abs(calc.remaining) < 1 ? "var(--ok-line)" : calc.remaining < -10 ? "oklch(60% 0.13 25)" : "var(--brand-line)"}`,
@@ -1335,6 +1466,16 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
               </div>
             </div>
           </div>
+          {tpnWtManual && (
+            <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--warn)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span>
+                TPN calc. weight ถูกแก้เป็น <span className="num" style={{ fontWeight: 600 }}>{fmt(wtG, 0)}</span> g —
+                ทุก dose/target ด้านล่างคิดจากค่านี้ (อัตโนมัติ = {fmt(autoWtG, 0)} g)
+              </span>
+              <button className="btn" style={{ fontSize: 11.5, padding: "3px 10px" }}
+                onClick={() => setTpnWtOverrideG(0)}>ใช้ค่าอัตโนมัติ</button>
+            </div>
+          )}
         </div></div>
       </div>
 
@@ -1353,12 +1494,15 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
         <div className="card-b">
           <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, alignItems: "stretch" }}>
             <NumField label="Input" unit="mL/d" value={ioInput} step={1}
+              key={`${formIdentity}·ioInput`} name="ioInput" required seedZero={seedsZero("ioInput")} onBlankChange={reportBlank}
               onChange={(v) => { markIoInputTouched(true); setIoInput(v); }}
               hint={`(${fmt(ioInputPerKg, 1)} mL/kg/d)`} />
             <NumField label="Urine output" unit="mL/d" value={ioOutput} step={1}
+              key={`${formIdentity}·ioOutput`} name="ioOutput" required seedZero={seedsZero("ioOutput")} onBlankChange={reportBlank}
               onChange={setIoOutput}
               hint={`(${fmt(ioOutputPerKgH, 2)} mL/kg/h)`} />
             <NumField label="Drain content" unit="mL/d" value={drainContent} onChange={setDrainContent} step={1}
+              key={`${formIdentity}·drainContent`} name="drainContent" required seedZero={seedsZero("drainContent")} onBlankChange={reportBlank}
               hint={`(${fmt(ioDrainPerKg, 1)} mL/kg/d)`} />
           </div>
           {(ioInput > 0 || ioOutput > 0 || drainContent > 0) && (
@@ -2220,7 +2364,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
           <div className="card-h"><Icon name="save" size={14} color="var(--brand)" /> Save + Copy Order</div>
           <div className="card-b">
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 }}>
-              <span className="num">{patient?.name || patient?.initials || "—"}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
+              <span className="num">{patient?.name || patient?.initials || "—"}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>}{tpnWtManual && <> (calc. weight set manually to {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
             </div>
 
             {/* Saved-state indicator — Print/Copy/Submit need a saved, unchanged form */}
@@ -2274,7 +2418,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
                 // apps (LINE) outside the hospital's control — bed + NeoFeed
                 // ID identify the order on the ward without being PHI on
                 // their own (2026-09-11 review, PDPA).
-                `Bed: ${patient?.currentBed||"—"} | NeoFeed ID: ${patient?.sessionId||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""}`,
+                `Bed: ${patient?.currentBed||"—"} | NeoFeed ID: ${patient?.sessionId||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""}${tpnWtManual ? ` (calc. weight set manually to ${wtG}g; auto ${autoWtG}g)` : ""}`,
                 critOverride ? `⚠ CRITICAL OVERRIDE: ${critOverride.alerts.join("; ")} — reason: ${critOverride.reason}` : "",
                 `Route: ${route === "central" ? "Central" : "Peripheral (<900 mOsm/L)"}`,
                 `Osm: ${calc.osm.toFixed(0)} mOsm/L`,
@@ -2339,7 +2483,13 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
               📋 Copy Order to Clipboard
             </button>
 
-            <button className="btn primary" style={{ width: "100%" }} disabled={saving}
+            {missingFields.length > 0 && (
+              <div style={{ fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 }}>
+                ยังกรอกไม่ครบ ({missingFields.length}) — ต้องกรอกทุกช่องใน Step 1 และ Intake / Output ก่อนบันทึก:
+                <div style={{ fontWeight: 600 }}>{missingFields.map(f => f.label).join(" · ")}</div>
+              </div>
+            )}
+            <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0}
               onClick={handleSave}>
               <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
@@ -2371,7 +2521,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
         targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: D.TARGETS.mg(dol), source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}
-        patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight} route={route}
+        patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight}
+        tpnWtManual={tpnWtManual} autoWtG={autoWtG} route={route}
         orderDate={editEntry?.ts || logDate || D.todayLocal()}
         dexPct={dexPct} totalTPN_mL={totalTPN_mL} entryId={savedEntryId}
         published={D.ENABLE_PUBLISH_GATE ? published : true}
@@ -2499,7 +2650,7 @@ function KcalLegend({ color, label, pct, target }) {
 }
 
 // ── Ramathibodi PN Order Form (print only) ──────────────────────
-function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, route, orderDate, dexPct, totalTPN_mL, entryId,
+function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpnWtManual, autoWtG, route, orderDate, dexPct, totalTPN_mL, entryId,
   aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg,
   inclSoluvit, inclPeditrace, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
@@ -2574,7 +2725,12 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, rou
           <tr>
             <td>Route: {route === "central" ? <><strong>☑ Central</strong>  ☐ Peripheral</> : <>☐ Central  <strong>☑ Peripheral</strong> (&lt;900 mOsm/L)</>}</td>
             <td colSpan={2}>Weight for calculation: <strong>{wtKg ? wtKg.toFixed(3) : "—"}</strong> Kg
-              {usingBirthWeight && <span style={{ fontSize:9, color:"#555" }}> (birth weight — current {curWtG}g not yet regained)</span>}</td>
+              {usingBirthWeight && <span style={{ fontSize:9, color:"#555" }}> (birth weight — current {curWtG}g not yet regained)</span>}
+              {/* A dosing weight that is neither the scale reading nor the
+                  birth-weight floor is a prescribing decision, so it prints
+                  with what the automatic rule would have given — pharmacy can
+                  see the difference without opening the app. */}
+              {tpnWtManual && <span style={{ fontSize:9, color:"#555" }}> (กำหนดเอง — current {curWtG}g, อัตโนมัติ {autoWtG}g)</span>}</td>
           </tr>
         </tbody>
       </table>
