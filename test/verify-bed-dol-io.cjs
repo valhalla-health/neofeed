@@ -109,6 +109,32 @@ eq('bedOccupant finds the holder',             D.bedOccupant(census, 'SCN 1')?.s
 eq('bedOccupant excludes the patient asking',  D.bedOccupant(census, 'SCN 1', 'c'), null);
 eq('a blank bed has no occupant',              D.bedOccupant(census, ''), null);
 
+// bedBlocker(patients, record): who, if anyone, stops `record` being saved on
+// the bed it names. The one rule app.jsx's save guard and EditPatientModal
+// both ask. A record that is not on the unit claims no bed, so it can be
+// corrected even after its old bed has gone to the next admission — e.g. the
+// discharged 'e' below still says SCN 1, which is now c's.
+eq('bedBlocker names who holds the bed',
+  D.bedBlocker(census, P('new', 'NICU 2'))?.sessionId, 'b');
+eq('bedBlocker: re-saving on your own bed is fine',
+  D.bedBlocker(census, P('b', 'NICU 2')), null);
+eq('bedBlocker: a free bed is fine',            D.bedBlocker(census, P('new', 'NICU 9')), null);
+eq('bedBlocker: a discharged record on a reused bed is fine',
+  D.bedBlocker(census, P('e', 'SCN 1', 'Discharged')), null);
+eq('bedBlocker: …Transferred and Expired too',
+  [D.bedBlocker(census, P('e', 'SCN 1', 'Transferred')),
+   D.bedBlocker(census, P('e', 'SCN 1', 'Expired'))].every(x => x === null), true);
+eq('bedBlocker: back to Active on that bed is refused',
+  D.bedBlocker(census, P('e', 'SCN 1', 'Active'))?.sessionId, 'c');
+eq('bedBlocker: a blank status counts as Active',
+  D.bedBlocker(census, { sessionId: 'e', currentBed: 'SCN 1', status: '' })?.sessionId, 'c');
+// app.jsx's last client-side guard before registerPatient must ask the same
+// question, not re-derive it — that is where the discharged-record refusal
+// lived before 2026-09-15 (2).
+const appSrc = fs.readFileSync(DIR + 'app.jsx', 'utf8');
+ok('app.jsx bedConflict asks bedBlocker',
+  /const bedConflict = \(p\) => \{\s*const holder = D_A\.bedBlocker\(patients, p\);/.test(appSrc));
+
 // "run เลขเตียงต่อ": the lowest free number, so a step-down out of NICU lands
 // on the next SCN bed rather than on whatever gap happens to sort first.
 eq('next free NICU bed skips the taken ones',  D.nextFreeBed(census, 'NICU'), 'NICU 3');
