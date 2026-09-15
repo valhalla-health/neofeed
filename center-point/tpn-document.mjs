@@ -76,6 +76,9 @@ const CONTROL=/[\u0000-\u001f\u007f]/;
 // The free-text limits, shared with NeoFeed's snapshot builder so text it has
 // cleaned always passes here. Lengths are UTF-16 units, as String#length.
 export const TPN_REASON_MAX=300, TPN_ALERT_MAX=160, TPN_CONTROL=CONTROL;
+// The plan period prints in Thai time, to the minute CP's form takes. The packet keeps UTC
+// instants; Thailand keeps no daylight saving, so +7 h is exact for every date.
+const thaiMinute=v=>new Date(Date.parse(v)+7*3600000).toISOString().slice(0,16).replace('T',' ');
 // No lone UTF-16 surrogates. A plain loop, not String#isWellFormed: that needs
 // Chrome 111 / Safari 16.4, and ward and desktop browsers may be older.
 const wellFormed=v=>{for(let i=0;i<v.length;i++){const c=v.charCodeAt(i);if(c>=0xD800&&c<=0xDBFF){const d=v.charCodeAt(i+1);if(!(d>=0xDC00&&d<=0xDFFF))return false;i++;}else if(c>=0xDC00&&c<=0xDFFF)return false;}return true;};
@@ -136,7 +139,7 @@ function validatePrevious(value) {
 export function renderTpn(container, value, previous) {
  const t=validateTpn(value), before=previous===undefined?undefined:validatePrevious(previous), doc=container.ownerDocument;container.replaceChildren();
  const line=doc.createElement('p');line.textContent=`TPN ${t.orderDate} · ${t.route} · DOL ${t.dol} · dosing ${t.dosingWeightG} g · current ${t.currentWeightG} g${t.usingBirthWeight?' · birth-weight basis':''}`;container.append(line);
- const period=doc.createElement('p');period.textContent=`Effective ${t.effectiveFrom} → ${t.effectiveTo}`;container.append(period);
+ const period=doc.createElement('p');period.textContent=`Effective ${thaiMinute(t.effectiveFrom)} → ${thaiMinute(t.effectiveTo)} (เวลาไทย)`;container.append(period);
  if(t.criticalOverride){
   const box=doc.createElement('div'),head=doc.createElement('strong'),why=doc.createElement('p');box.className='tpn-critical';box.setAttribute('role','note');
   head.textContent=`⚠ สั่งทั้งที่มีค่าวิกฤต: ${t.criticalOverride.alerts.join('; ')}`;why.textContent=`เหตุผล: ${t.criticalOverride.reason}`;

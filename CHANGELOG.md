@@ -13,6 +13,40 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-16 (2) — PR #57: three fixes from the CP walk-through
+
+Still a synthetic draft; nothing deployed; the legacy screen is untouched.
+
+A step-by-step pass of a critical-value order through the CP entry (Center Point sprint,
+2026-09-16) found three problems on the CP screens. Praew's decision: fix all three before merging.
+
+- **The plan period printed in UTC.** `renderTpn` printed `Effective 2026-09-15T18:35:00.000Z → …`
+  on an order headed TPN 2026-09-16 that the prescriber had typed as 01:35 Thai time on the 16th,
+  so a reader saw the day before. CP's review and print sheet now say
+  `Effective 2026-09-16 01:35 → 2026-09-17 01:35 (เวลาไทย)`. The packet still stores UTC instants.
+  The line had printed UTC since the CP sheet was first added.
+- **Messages landed off screen.** The CP page sent every `showToast` message to `#feedback`, a line
+  at the top of the page thousands of pixels above Save. Cancelling the critical-value prompt saved
+  nothing, as it should, but looked as if nothing had happened. Messages still go to `#feedback`,
+  and now also show at the bottom of the screen, placed and timed like NeoFeed's own toast, with
+  errors as `role="alert"`. The page's publish, withdraw and failed-action messages use the same
+  path.
+- **The revision label went stale.** After publishing it still said "ฉบับ 1 · รอทบทวน". It now says
+  "ยืนยันแล้ว" after publishing and "ยกเลิกแล้ว" after withdrawing.
+- **Tripwire.** `tpn-document.mjs` changed, so the §6 digest is updated. CP's copy is synced and its
+  `test/neofeed-commit` re-pinned on CP branch `claude/pr57-print-fixes`.
+
+Tests: the new `verify-center-point-sheet-period.cjs` renders the real `tpn-document.mjs` in jsdom.
+Three of its four checks failed before the change: the walk-through time, Thai midnight and the new
+year. CP's browser test `tpn-calculator.mjs` covers the page: it cancels the prompt first and checks
+the refusal is inside the viewport, checks the period on the review and on the desktop sheet, and
+publishes and withdraws from the page. With each fix undone in turn, it fails at that fix's check.
+All 29 harnesses, `DEAD=0`, the center-point build and the client tests (5/5) pass.
+
+Not changed: after a page reload the label shows only the revision number, as before.
+
+---
+
 ## Session 2026-09-16 — Changes since the previous confirmed version (Center Point)
 
 Praew's decisions (2026-09-16):
