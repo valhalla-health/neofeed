@@ -115,7 +115,13 @@ const click = async (el) => { await act(async () => { el.dispatchEvent(new windo
   // app.jsx mounts <App/> itself on load (its last line).
   await act(async () => { vm.runInThisContext(appSrc); });
   await flush();
-  ok('first load shows the registry', /Patient registry/.test(text()));
+  // Since 2026-09-15 the app opens on the ward gate; the patient list is one
+  // tap behind it. Pick NICU, where four of the five mock patients live.
+  ok('first load shows the ward gate', /เลือก ward/.test(text()));
+  const pickWard = async (name) => click(
+    [...document.querySelectorAll('.ward-tile')].find(t => t.textContent.startsWith(name)));
+  await pickWard('NICU');
+  ok('picking a ward shows its registry', /Total sessions/.test(text()));
 
   // Open a patient, then the Calculator, and type a weight into it.
   await click(document.querySelector('.patient-mc'));
@@ -164,7 +170,10 @@ const click = async (el) => { await act(async () => { el.dispatchEvent(new windo
   const root2 = ReactDOM.createRoot(host);
   await act(async () => {
     root2.render(React.createElement(window.PatientRegistry, {
-      patients: [GROWING, ARCHIVED], activeId: null, log: {},
+      // Both fixtures are on NICU beds; without a ward the component renders
+      // the gate instead of a list (2026-09-15).
+      patients: [GROWING, ARCHIVED], activeId: null, log: {}, ward: 'NICU',
+      onWardChange: () => {},
       onSelect: () => {}, onAdd: () => {}, onEdit: () => {},
     }));
   });

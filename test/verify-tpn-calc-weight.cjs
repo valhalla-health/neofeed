@@ -7,6 +7,12 @@
 // nadir over/under-doses everything), then tracks current weight
 // automatically once it clears birth weight.
 //
+// 2026-09-15: that derived field became EDITABLE (ward request) — the rule
+// above still prefills it, but an attending can overrule the dosing weight,
+// and typing the automatic figure back in clears the override rather than
+// freezing the field at a value that merely matched it once. Sections #6-#8
+// cover that; #1-#5 pin the automatic behaviour, which must not have changed.
+//
 // Same jsdom harness as verify-kcmh-factor.cjs / verify-bed-dol-io.cjs
 // section 3: mounts the real <Calculator> and drives its actual inputs.
 const fs = require('fs');
@@ -99,11 +105,26 @@ function setField(labelText, value) {
     input.dispatchEvent(new window.Event('input', { bubbles: true }));
   });
 }
-function readOnlyValue(labelText) {
+// "TPN calc. weight" used to be a read-only <div>; it is an <input> now, so
+// its displayed value is read the same way as every other field.
+function fieldValue(labelText) {
   const field = fieldByLabel(labelText);
   if (!field) throw new Error('field not found: ' + labelText);
-  const box = field.querySelector('.inp');
-  return box ? box.textContent.trim() : null;
+  const input = field.querySelector('input');
+  return input ? input.value : null;
+}
+const readOnlyValue = fieldValue;
+
+// Every field in Step 1 + Intake/Output must carry a typed value before the
+// Calculator will save (2026-09-15 required-field gate). A fresh form renders
+// 0 as an empty box, so a test that only sets the weight can no longer reach
+// the Save button — fill the rest explicitly, exactly as a user must.
+const REQUIRED_LABELS = ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content'];
+function fillRequired(values = {}) {
+  REQUIRED_LABELS.forEach(l => setField(l, values[l] !== undefined ? values[l] : 0));
+}
+function saveButton() {
+  return [...container.querySelectorAll('button')].find(b => /บันทึก|Save/i.test(b.textContent));
 }
 
 // ── #1: weight loss phase — current weight below birth weight ──────────────
@@ -163,10 +184,13 @@ act(() => {
     h.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
 });
 setField('Current weight', 1380);
+ok_('Save is blocked while required fields are blank', saveButton()?.disabled === true,
+  { disabled: saveButton()?.disabled });
+fillRequired({ 'Target fluid': 120 });
+ok_('…and enabled once every required field is entered', saveButton()?.disabled === false,
+  { disabled: saveButton()?.disabled });
 act(() => {
-  [...container.querySelectorAll('button')]
-    .find(b => /บันทึก|Save/i.test(b.textContent))
-    ?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  saveButton()?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 });
 eq('Daily_Log weight column is the actual current weight', saved && saved.weight, 1380);
 ok_('saved calcInput has no bare "wtG" (birth-weight-floored) written as truth',
@@ -204,6 +228,77 @@ act(() => {
 });
 eq('legacy wtG restores into Current weight', fieldByLabel('Current weight').querySelector('input').value, '1400');
 eq('TPN calc. weight re-derives (floors, bw=1500 > 1400)', readOnlyValue('TPN calc. weight'), '1500');
+
+// ── #6: the field is editable, and the override drives every dose ─────────
+console.log('\n── #6 TPN calc. weight is editable and overrides the rule ──');
+act(() => {
+  root.render(React.createElement(window.Calculator, {
+    key: 'override', patient, dol: 3, editEntry: null, baselineEntry: null, logDate: '2026-08-20',
+    onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
+  }));
+});
+act(() => {
+  container.querySelectorAll('.card-h.clickable').forEach((h) =>
+    h.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
+});
+ok_('TPN calc. weight renders as an input, not a read-only box',
+  !!fieldByLabel('TPN calc. weight')?.querySelector('input'), null);
+setField('Current weight', 1380);              // below BW → auto floors to 1500
+eq('prefill still floors at birth weight', fieldValue('TPN calc. weight'), '1500');
+setField('TPN calc. weight', 1450);            // attending overrules the floor
+eq('override sticks', fieldValue('TPN calc. weight'), '1450');
+eq('Current weight is untouched by the override', fieldValue('Current weight'), '1380');
+
+// The override must reach the doses, not just the box: Target fluid 100
+// mL/kg/d × 1.450 kg = 145 mL/d, where the automatic 1.500 kg would give 150.
+setField('Target fluid', 100);
+const planText = [...container.querySelectorAll('.field-hint')]
+  .map(d => d.textContent).find(t => /mL\/d · attending discretion/.test(t)) || '';
+ok_('doses are computed from the overridden weight (145 mL/d)', /=\s*145\s*mL\/d/.test(planText), planText);
+
+// ── #7: typing the automatic figure back in clears the override ───────────
+console.log('\n── #7 override releases back to automatic ──');
+setField('TPN calc. weight', 1500);            // == the automatic figure
+setField('Current weight', 1700);              // now above BW → auto tracks it
+eq('field resumed tracking current weight', fieldValue('TPN calc. weight'), '1700');
+setField('TPN calc. weight', 1650);
+setField('Current weight', 1750);
+eq('a real override does NOT track current weight', fieldValue('TPN calc. weight'), '1650');
+
+// ── #8: the override round-trips through a saved entry ────────────────────
+console.log('\n── #8 override is saved and restored with the entry ──');
+let savedOverride = null;
+fillRequired({ 'Target fluid': 120 });
+act(() => {
+  root.render(React.createElement(window.Calculator, {
+    key: 'override', patient, dol: 3, editEntry: null, baselineEntry: null, logDate: '2026-08-20',
+    onLog(entry) { savedOverride = entry; return Promise.resolve({ ok: true, entryId: 'e-ov', lastModified: 'lm-ov' }); },
+    onUpdate(){}, onSaved(){}, onWeightChange(){},
+  }));
+});
+act(() => { saveButton()?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+eq('calcInput carries the override', savedOverride && savedOverride.calcInput.tpnWtOverrideG, 1650);
+eq('Daily_Log weight column is still the MEASURED weight',
+  savedOverride && savedOverride.weight, 1750);
+
+act(() => {
+  root.render(React.createElement(window.Calculator, {
+    key: 'restore-ov', patient, dol: 3, logDate: null, baselineEntry: null,
+    editEntry: { entryId: 'e-ov', lastModified: 'lm-ov', ts: '2026-08-20', dol: 3,
+                 weight: 1750, calcInput: savedOverride.calcInput },
+    onLog(){}, onUpdate(){ return Promise.resolve({ ok: true }); }, onSaved(){}, onWeightChange(){},
+  }));
+});
+act(() => {
+  container.querySelectorAll('.card-h.clickable').forEach((h) =>
+    h.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
+});
+eq('reopened entry restores the overridden calc weight', fieldValue('TPN calc. weight'), '1650');
+eq('…and the measured weight alongside it', fieldValue('Current weight'), '1750');
+// An entry saved before this field existed has no tpnWtOverrideG at all and
+// must reopen on the automatic rule, not on a stray 0.
+ok_('an entry with no override prints no manual-weight note',
+  /กำหนดเอง/.test(printTextAt(patient, 1750)) === false, 'plain entry must not claim a manual weight');
 
 console.log(`\n${fail === 0 ? 'TPN CALC WEIGHT: ALL PASS' : `TPN CALC WEIGHT: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

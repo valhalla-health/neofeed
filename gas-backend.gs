@@ -1646,6 +1646,44 @@ function _sessionIdConflict(existingRow, p, isNew) {
   return null;
 }
 
+// ── One infant per bed ────────────────────────────────────────
+// The client disables an occupied bed in every picker and refuses one on
+// save, but each of those checks runs against a `patients` snapshot that can
+// be minutes old — two tablets admitting at the same moment both believe the
+// bed is free. This is the only check that sees every device's writes, so it
+// is the one that actually holds the rule.
+//
+// Mirrors normalizeBed() in data.js. Kept as its own small function rather
+// than shared, because Apps Script cannot import the client bundle: if the
+// canonical bed spelling ever changes, BOTH have to move.
+function _normBed(bed) {
+  var s = String(bed == null ? "" : bed).trim().replace(/\s+/g, " ");
+  if (!s) return "";
+  var m = s.match(/^(nicu|scn|iso)\s*-?\s*(\d+)(?:\s*-\s*(\d+))?$/i);
+  if (!m) return s;
+  var ward = m[1].toLowerCase();
+  if (ward === "iso") return m[3] ? "iso " + m[2] + "-" + m[3] : "iso " + m[2];
+  return ward.toUpperCase() + " " + m[2];
+}
+
+// Only a patient still on the unit holds a bed — a discharged/transferred/
+// expired row keeps the bed it was in, but the bed itself is free. Same rule
+// as isOnUnit() in data.js; a blank status means Active.
+function _bedConflict(data, p) {
+  var bed = _normBed(p.currentBed);
+  if (!bed) return null;                       // unassigned is not an occupancy
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(p.sessionId)) continue;   // the patient's own row
+    var status = String(data[i][9] || "Active");
+    if (status !== "Active") continue;
+    if (_normBed(data[i][10]) !== bed) continue;
+    var who = String(data[i][1] || data[i][0]);
+    return "เตียง " + bed + " มี " + who + " อยู่แล้ว — ต้องย้ายผู้ป่วยรายนั้นออกก่อน " +
+           "จึงจะบันทึกเตียงนี้ได้ (หนึ่งเตียงต่อหนึ่งราย)";
+  }
+  return null;
+}
+
 // ── registerPatient (upsert) ──────────────────────────────────
 // `isNew` is optional and defaults to a plain upsert, so an older client that
 // does not send it keeps working exactly as before — see _sessionIdConflict.
@@ -1662,6 +1700,10 @@ function registerPatient(p, isNew) {
   try {
     var sheet = getSheetPat();
     var data  = sheet.getDataRange().getValues();
+    // Inside the lock and after the read, so the census it checks is the one
+    // this write is about to land in.
+    var bedTaken = _bedConflict(data, p);
+    if (bedTaken) throw new Error(bedTaken);
     var row18 = [
       _sheetSafe(p.sessionId), _sheetSafe(p.name || ""), _sheetSafe(p.initials || ""),
       _numSafe(p.bw, 0), _numSafe(p.ga, 0), _sheetSafe(p.sex || "boys"),

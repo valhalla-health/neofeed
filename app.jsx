@@ -150,6 +150,13 @@ function App() {
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
+  // Which ward the registry is showing. null = show the ward gate, which is
+  // deliberately the state every session starts in: the unit runs NICU and
+  // SCN as two censuses, and the first thing a shift does is say which one it
+  // is working. Held here rather than inside PatientRegistry so navigating to
+  // the Dashboard and back doesn't drop the user at the gate again mid-round;
+  // not persisted, so a fresh load always asks.
+  const [ward, setWard] = React.useState(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
   const [lastSync, setLastSync] = React.useState(null);
@@ -542,7 +549,24 @@ function App() {
     });
   };
 
+  // One infant per bed. The modals disable an occupied bed in the picker and
+  // refuse it on save, but every one of them works off a `patients` snapshot
+  // taken when it opened — on a ward with several tablets in use, the bed can
+  // be taken between opening the modal and pressing save. This is the last
+  // client-side point where a patient record is written, so it re-checks
+  // against live state; the backend refuses it once more (registerPatient in
+  // gas-backend.gs), which is the only check that sees other devices' writes.
+  const bedConflict = (p) => {
+    const holder = D_A.bedOccupant(patients, p.currentBed, p.sessionId);
+    if (!holder) return false;
+    showToast(
+      `เตียง ${D_A.normalizeBed(p.currentBed)} มี ${holder.name || holder.sessionId} อยู่แล้ว — ` +
+      `ย้ายผู้ป่วยรายนั้นออกก่อน`, "error");
+    return true;
+  };
+
   const handleAddPatient = (p) => {
+    if (bedConflict(p)) return;
     setPatients(prev => [p, ...prev]);
     setActiveId(p.sessionId);
     if (GAS_ON) {
@@ -574,6 +598,7 @@ function App() {
 
   // ── Edit patient (update bed, dx, status, admitDOL) ──────────
   const handleEditPatient = (p) => {
+    if (bedConflict(p)) return;
     const previous = patients.find(x => x.sessionId === p.sessionId);
     setPatients(prev => prev.map(x => x.sessionId === p.sessionId ? p : x));
     if (GAS_ON) {
@@ -894,11 +919,11 @@ function App() {
           {view !== "registry" && active &&
           <PatientStrip patient={active} onSwitch={() => setPickerOpen(true)} liveWeight={calcWeights[activeId] || null} currentDol={dol} onEdit={() => setEditingPatient(active)} />
           }
-          {editingPatient && <EditPatientModal patient={editingPatient} onClose={() => setEditingPatient(null)}
+          {editingPatient && <EditPatientModal patient={editingPatient} patients={patients} onClose={() => setEditingPatient(null)}
             onSubmit={p => { handleEditPatient(p); setEditingPatient(null); }}
             onDelete={role === "admin" ? handleDeletePatient : undefined} />}
 
-          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
+          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
           {view === "admin" && <AdminDashboard patients={patients} log={log} lastSync={lastSync} />}
           {view === "calculator" && active && (
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}

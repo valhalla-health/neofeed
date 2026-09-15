@@ -73,15 +73,60 @@ eq('blank stays blank',                     D.normalizeBed(''),         '');
 eq('null-safe',                             D.normalizeBed(null),       '');
 // Every normalized form must be a bed the registry dropdown actually offers,
 // otherwise the <select> renders blank again — the original defect.
-const BED_OPTIONS = [
-  ...Array.from({ length: 12 }, (_, i) => `NICU ${i + 1}`),
-  'iso 1-1', 'iso 1-2', 'iso 2-1', 'iso 2-2',
-  'iso 3-1', 'iso 3-2', 'iso 3-3', 'iso 3-4',
-  ...Array.from({ length: 10 }, (_, i) => `SCN ${i + 1}`),
-];
+// Read from data.js rather than re-listed here: the list moved there on
+// 2026-09-15 so the ward gate and the occupancy guard could share it, and a
+// second copy in the harness would pass while the app rendered a different
+// set of beds — which is the exact class of defect this file exists for.
+const BED_OPTIONS = D.BED_OPTIONS;
+eq('NICU runs 1–12',  BED_OPTIONS.filter(b => /^NICU /.test(b)).length, 12);
+eq('SCN runs 1–30',   BED_OPTIONS.filter(b => /^SCN /.test(b)).length, 30);
+eq('SCN 30 is offered', BED_OPTIONS.includes('SCN 30'), true);
+eq('no SCN 31',         BED_OPTIONS.includes('SCN 31'), false);
 eq('normalized value exists in BED_OPTIONS', BED_OPTIONS.includes(D.normalizeBed('NICU 1-1')), true);
 eq('mock fixtures use canonical beds',
   D.MOCK_PATIENTS.every(p => BED_OPTIONS.includes(p.currentBed)), true);
+
+// ══ 1b. One patient per bed + next free running number ═══════════════════
+// The ward's rule (2026-09-15): a bed holds one patient, and moving a patient
+// out of NICU hands them the next free running number in the destination
+// ward rather than an arbitrary free bed.
+console.log('\n── #1b bed occupancy + next free bed ──');
+const P = (id, bed, status) => ({ sessionId: id, name: id, currentBed: bed, status: status || 'Active' });
+const census = [
+  P('a', 'NICU 1'), P('b', 'NICU 2'), P('c', 'SCN 1'), P('d', 'SCN 2'),
+  P('e', 'SCN 4', 'Discharged'),      // gone home — SCN 4 is free again
+  P('f', ''),                          // admitted, not yet bedded
+  P('g', 'NICU 1-1'),                  // legacy spelling of NICU 1 (a double-book already in the sheet)
+];
+const occ = D.bedOccupancy(census);
+eq('an occupied bed maps to its patient',      occ.get('NICU 2')?.sessionId, 'b');
+eq('a legacy spelling collides with the same bed', occ.get('NICU 1')?.sessionId, 'a');
+eq('a discharged patient frees the bed',       occ.has('SCN 4'), false);
+eq('an unbedded patient occupies nothing',     occ.has(''), false);
+eq('excluding a patient frees their own bed',
+  D.bedOccupancy(census, 'b').has('NICU 2'), false);
+eq('bedOccupant finds the holder',             D.bedOccupant(census, 'SCN 1')?.sessionId, 'c');
+eq('bedOccupant excludes the patient asking',  D.bedOccupant(census, 'SCN 1', 'c'), null);
+eq('a blank bed has no occupant',              D.bedOccupant(census, ''), null);
+
+// "run เลขเตียงต่อ": the lowest free number, so a step-down out of NICU lands
+// on the next SCN bed rather than on whatever gap happens to sort first.
+eq('next free NICU bed skips the taken ones',  D.nextFreeBed(census, 'NICU'), 'NICU 3');
+eq('next free SCN bed',                        D.nextFreeBed(census, 'SCN'), 'SCN 3');
+eq('a patient does not block their own ward search',
+  D.nextFreeBed(census, 'SCN', 'c'), 'SCN 1');
+eq('a full ward returns "" (never a wrong bed)',
+  D.nextFreeBed(D.BED_OPTIONS.filter(b => /^SCN /.test(b)).map((b, i) => P('x' + i, b)), 'SCN'), '');
+
+// ── ward grouping for the entry gate ──
+console.log('\n── #1c ward grouping (registry entry gate) ──');
+eq('NICU bed → NICU',            D.wardGroup('NICU 7'),  'NICU');
+eq('iso room is part of NICU',   D.wardGroup('iso 2-1'), 'NICU');
+eq('SCN bed → SCN',              D.wardGroup('SCN 30'),  'SCN');
+eq('no bed → other (still reachable)', D.wardGroup(''),  'other');
+eq('free-text bed → other',      D.wardGroup('9B2'),     'other');
+eq('every canonical bed lands in NICU or SCN',
+  D.BED_OPTIONS.every(b => ['NICU', 'SCN'].includes(D.wardGroup(b))), true);
 
 // Structural: every place a bed can be SET must go through the one picker,
 // so "a bed is one of BED_OPTIONS" holds by construction rather than by
@@ -94,6 +139,11 @@ const bedSelectBody = registrySrc.slice(
   registrySrc.indexOf('function NewPatientModal'));
 const rawSelects = (registrySrc.match(/BED_OPTIONS\.map/g) || []).length;
 const rawSelectsInPicker = (bedSelectBody.match(/BED_OPTIONS\.map/g) || []).length;
+// registry.jsx must not re-declare the list either: data.js and registry.jsx
+// are two <script> tags in one global lexical scope, so a top-level
+// `const BED_OPTIONS` in both is a redeclaration that fails the whole page.
+eq('registry.jsx does not redeclare BED_OPTIONS',
+  /^\s*const BED_OPTIONS\s*=/m.test(registrySrc), false);
 eq('BedSelect exists',                       /function BedSelect\(/.test(registrySrc), true);
 eq('BED_OPTIONS is rendered in one place',   rawSelects, 1);
 eq('…and that place is BedSelect',           rawSelectsInPicker, 1);
@@ -111,7 +161,7 @@ eq('edit modal keeps an unrecorded bed empty',
 // ── 1b. The picker itself, rendered ───────────────────────────────────────
 // The grep checks above prove every modal routes through BedSelect; these
 // prove BedSelect does the right thing with each kind of stored value.
-console.log('\n── #1b BedSelect rendered ──');
+console.log('\n── #1d BedSelect rendered ──');
 const bedHost = document.createElement('div');
 document.body.appendChild(bedHost);
 const bedRoot = ReactDOM.createRoot(bedHost);
@@ -127,7 +177,7 @@ function renderBed(props) {
 // Every canonical bed is offered, and nothing outside BED_OPTIONS is.
 const canonical = renderBed({ value: 'NICU 3' });
 eq('canonical value selects itself',       canonical.value, 'NICU 3');
-eq('offers exactly the 30 defined beds',   canonical.options.length, BED_OPTIONS.length);
+eq('offers exactly the defined beds',      canonical.options.length, BED_OPTIONS.length);
 eq('options are exactly BED_OPTIONS',
   canonical.options.join('|'), BED_OPTIONS.join('|'));
 // A legacy record normalizes onto a real option rather than rendering blank.
