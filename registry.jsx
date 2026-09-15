@@ -905,9 +905,12 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
   // the whole difference between "save again" and "double-book".
   const occupancy = React.useMemo(
     () => D_R.bedOccupancy(patients, patient.sessionId), [patients, patient.sessionId]);
-  const bedTaken  = occupancy.get(D_R.normalizeBed(bed)) || null;
   const [dx, setDx]             = React.useState(patient.diagnosis || "");
   const [status, setStatus]     = React.useState(patient.status || "Active");
+  // Asks about the record as it would be saved — with the status picked here,
+  // not the stored one — so a discharged record can be corrected after its old
+  // bed is reused, while setting it back to Active on that bed is still refused.
+  const bedTaken  = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
   const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
   const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || today);
 
