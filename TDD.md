@@ -25,7 +25,7 @@ later section is organised by these layers.
 |---|---|---|---|
 | **1 · Data Access** (Model) | Raw storage, retrieval, sanitisation | `data.js` reference tables · `localStorage` (`neofeed_calc_*`, `neofeed_acked_*`) · `sessionStorage.neofeed_session` | `getSheetPat/Log/Staff/Audit` · `getActivePatients` · `_buildLogRow` · `logDailyNutrition` · `updateDailyNutrition` · `deleteDailyNutrition` · `registerPatient` · `updateWeights` · `pseudonymizePatient` · `logAudit` · `_sheetSafe` · `_numSafe` · `_parseJson` · `_fmtDate` |
 | **2 · Business Logic** (Service) | Clinical rules, auth rules, no UI | `data.js` → `TPN_TARGETS`, `ENTERAL_TARGETS`, `TARGETS`, `KCMH_STOCK`, `liveDol`, `dolAtDate`, GA helpers · `calculator.jsx` → `calc`, `mineral`, `alerts` · `log.jsx` → `pickTarget` · `app.jsx` → `computeAlerts`, `activeAlertCount` · `fenton.jsx` → percentile + `GrowthVelocity` math | `verifyGoogleIdToken` · `hashPwdV2` / `hashPwdLegacy` / `verifyPwd` / `safeEqual` · `_lockoutStatus` / `_recordFailure` / `_clearLockout` · `getUserEpoch` / `bumpUserEpoch` · `createSession` / `verifyToken` · `_genTempPassword` · `_usesGoogleSignIn` · the `canWrite` / `role === "admin"` gates |
-| **3 · Presentation** (View) | Layout, input capture, rendering only | `NeoFeed.html` / `index.html` shells + CSS · `icons.jsx` · `tweaks-panel.jsx` · all components in `registry.jsx`, `log.jsx`, `fenton.jsx` · `calculator.jsx`'s `NumField`/`Chk`/`Meter`/`Tile`/`SaltRow`/`ElecRow`/`PresetChips`/`CaPRow`/`TwoCol`/`KcalBar`/`PrintOrderForm` · `app.jsx`'s `RailItem`/`PatientStrip`/`AlertCenter`/`LoginScreen`/`ChangePasswordModal`/`AdminDashboard`/`BottomNav`/`GuidelinesPanel`/`FormulasPanel`/`showToast` | — |
+| **3 · Presentation** (View) | Layout, input capture, rendering only | `NeoFeed.html` / `index.html` shells + CSS · `icons.jsx` · all components in `registry.jsx`, `log.jsx`, `fenton.jsx` · `calculator.jsx`'s `NumField`/`Chk`/`Meter`/`Tile`/`SaltRow`/`ElecRow`/`PresetChips`/`CaPRow`/`TwoCol`/`KcalBar`/`PrintOrderForm` · `app.jsx`'s `RailItem`/`PatientStrip`/`AlertCenter`/`LoginScreen`/`ChangePasswordModal`/`AdminDashboard`/`BottomNav`/`GuidelinesPanel`/`FormulasPanel`/`showToast` | — |
 | **4 · Orchestration** (Controller) | Workflow, routing, coordination | `app.jsx` → `App()` (state, `view` router, `syncFromGAS`, `gasPost`, all `handle*` functions) | `doPost(e)` action router · `doGet(e)` |
 
 **Layer-boundary violations that exist today** are listed in §5.2. The most
@@ -360,7 +360,7 @@ Daily_Log row for that sessionId — see §3.3's `handleDeletePatient` row).
 | `LogDateModal` | log.jsx | patient, dol, onConfirm | Today-or-back-date picker |
 | `FentonChart` / `MeasurementLogger` / `GrowthVelocity` | fenton.jsx | patient, currentDol, onUpdate | Fenton percentile curves + measurement entry |
 | `Icon` | icons.jsx | name, size, color, stroke | Inline SVG |
-| `TweaksPanel` + `Tweak*` | tweaks-panel.jsx | — | **Dev/design tool only** — never wire clinical logic through it |
+| ~~`TweaksPanel` + `Tweak*`~~ | ~~tweaks-panel.jsx~~ | — | **Removed 2026-09-11** (design tool, not clinical) |
 
 > `TwoCol` and `PresetChips` are defined at **module level** in
 > `calculator.jsx`, not inside `Calculator`. Moving them inside re-creates the
@@ -428,7 +428,7 @@ against the existing documentation. These are the disagreements found.
 
 ## 6. What this document does not cover
 
-- CSS and the design-token system (see the shells and `tweaks-panel.jsx`)
+- CSS and the design-token system (see the shells)
 - The full ESPGHAN reference content in `GuidelinesPanel` / `FormulasPanel`
 - Deployment and `clasp` mechanics (see `CLAUDE.md`)
 - PDPA legal posture and the security checklist (see `SECURITY_CHECKLIST.md`

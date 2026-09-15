@@ -70,6 +70,14 @@ const patients = [{
   currentBed: 'NICU 1-1',            // ← legacy bed label, as stored today
   diagnosis: 'RDS', weights: [{ dol: 1, w: 2025 }, { dol: 15, w: 1930 }],
   lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0,
+}, {
+  // A roommate, so the one-patient-per-bed rule (2026-09-15) has a bed to
+  // hold. On NICU 5 so bed sorting still leaves Fo first in the list, and
+  // with no Daily_Log rows so the entry assertions below are unaffected.
+  sessionId: 'RM-1', name: 'Rm', initials: 'Rm', bw: 1500, ga: 30.0, sex: 'boys',
+  dob: '2026-07-20', admissionDate: '2026-08-10', twinSuffix: '', status: 'Active',
+  currentBed: 'NICU 5', diagnosis: 'RDS', weights: [{ dol: 1, w: 1500 }],
+  lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0,
 }];
 const mkEntry = (o) => ({
   ts: o.ts, dol: o.dol, weight: o.weight, fluid: o.fluid, gir: o.gir, pro: o.pro,
@@ -181,8 +189,18 @@ await page.locator('input[type="email"], input[placeholder*="email" i]').first()
 await page.locator('input[type="password"]').first().fill('pw');
 await page.locator('form button[type="submit"], button:has-text("เข้าสู่ระบบ")').last().click();
 await page.waitForTimeout(1500);
+await shot('01-ward-gate');
+// Since 2026-09-15 the app opens on a ward gate (NICU / SCN) and the patient
+// list is one tap behind it.
+ok_('logged in, ward gate visible', await page.getByText('เลือก ward').isVisible().catch(() => false));
+ok_('gate offers both wards',
+  await page.locator('.ward-tile', { hasText: 'NICU' }).first().isVisible().catch(() => false) &&
+  await page.locator('.ward-tile', { hasText: 'SCN' }).first().isVisible().catch(() => false));
+await page.locator('.ward-tile').first().click();
+await page.waitForTimeout(600);
 await shot('01-registry');
-ok_('logged in, registry visible', await page.getByText('Patient registry').isVisible().catch(() => false));
+ok_('picking NICU shows that ward\'s registry',
+  await page.getByText('Total sessions').isVisible().catch(() => false));
 
 // ── #1 bed label ──────────────────────────────────────────────────────────
 console.log('\n── bed label on the registry card ──');
@@ -206,9 +224,22 @@ await shot('02-edit-modal');
 const bedSel = page.locator('select').filter({ has: page.locator('option', { hasText: 'NICU 1' }) }).first();
 eq('edit modal preselects the canonical bed', await bedSel.inputValue(), 'NICU 1');
 const opts = await bedSel.locator('option').allTextContents();
+// A bed another patient is in keeps its own label and gains a "· ไม่ว่าง
+// (name)" suffix rather than disappearing — a missing SCN 4 reads as a broken
+// dropdown, while a named one tells you whom to move.
 ok_('picker offers only defined beds + unassigned',
-  opts.every(o => /^(NICU|SCN) \d+$|^iso \d-\d$|ยังไม่ระบุเตียง/.test(o.trim())), opts);
-eq('picker option count (30 beds + unassigned)', opts.length, 31);
+  opts.every(o => /^(NICU|SCN) \d+( · ไม่ว่าง \(.*\))?$|^iso \d-\d( · ไม่ว่าง \(.*\))?$|ยังไม่ระบุเตียง/.test(o.trim())), opts);
+eq('picker option count (50 beds + unassigned)', opts.length, 51);
+// One patient per bed: a bed another active patient is in is listed with
+// their name and cannot be picked (2026-09-15).
+const takenOpts = await bedSel.locator('option[disabled]').allTextContents();
+ok_('the roommate\'s bed is shown but not selectable',
+  takenOpts.some(o => /^NICU 5 · ไม่ว่าง/.test(o.trim())), takenOpts);
+ok_('…naming who is in it',
+  takenOpts.some(o => /Rm/.test(o)), takenOpts);
+ok_('the patient\'s own bed stays selectable',
+  !takenOpts.some(o => /^NICU 1\b/.test(o.trim())), takenOpts);
+eq('exactly one bed is held by someone else', takenOpts.length, 1);
 await page.keyboard.press('Escape');
 await page.locator('button:has-text("Cancel")').first().click().catch(() => {});
 await page.waitForTimeout(400);
@@ -310,8 +341,45 @@ await page.waitForTimeout(900);
 await page.locator('table.tbl tbody tr').nth(1).click();   // 12 ส.ค. — no I/O recorded
 await page.waitForTimeout(1200);
 const io4 = await ioFields();
-eq('12 ส.ค. row keeps its own (empty) I/O', [io4.input, io4.urine, io4.drain], ['', '', '']);
+// The 12 ส.ค. row carries a recorded 0 in all three columns. Since the
+// required-field gate (2026-09-15) a recorded 0 renders as a typed "0" rather
+// than as an empty box — a row that says "urine output 0 mL" is not a row
+// with nothing entered, and the nurse should not have to retype it to fix a
+// weight. What this case is actually about is unchanged: none of the 30 just
+// saved on the 15 ส.ค. row leaks into this one.
+eq('12 ส.ค. row keeps its own I/O', [io4.input, io4.urine, io4.drain], ['0', '0', '0']);
 await shot('07-other-entry');
+
+// ── editable TPN calculation weight (2026-09-15) ──────────────────────────
+// The dosing weight prefills from the birth-weight-floor rule as it always
+// has, but the attending can now overrule it — and when they do, the form and
+// the printed order must both say so rather than presenting a manual weight
+// as the automatic one.
+console.log('\n── TPN calc. weight override ──');
+const tpnWtInput = page.locator('.field')
+  .filter({ has: page.locator('label', { hasText: 'TPN calc. weight' }) }).locator('input').first();
+const autoWt = await tpnWtInput.inputValue();
+ok_('TPN calc. weight is editable, not a read-only box',
+  await tpnWtInput.isEditable().catch(() => false));
+ok_('…and prefilled by the automatic rule', /^\d+$/.test(autoWt), autoWt);
+
+await tpnWtInput.fill('1800');
+await page.waitForTimeout(500);
+const bodyText = () => page.locator('body').innerText();
+{
+  const txt = await bodyText();
+  ok_('an overridden weight is flagged on the form', /แก้เอง/.test(txt),
+    txt.split('\n').filter(l => /TPN calc/.test(l)));
+  ok_('…and the automatic figure is still shown alongside it',
+    txt.includes(`อัตโนมัติ = ${autoWt}`), autoWt);
+}
+await shot('08-tpn-weight-override');
+
+// Releasing the override puts the field back under the automatic rule.
+await page.locator('button:has-text("ใช้ค่าอัตโนมัติ")').first().click();
+await page.waitForTimeout(500);
+eq('"ใช้ค่าอัตโนมัติ" restores the derived weight', await tpnWtInput.inputValue(), autoWt);
+ok_('…and the manual flag is gone', !/แก้เอง/.test(await bodyText()));
 
 console.log('\n── page errors ──');
 // Two external resources are unreachable in this sandbox and are expected to

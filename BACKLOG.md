@@ -32,7 +32,14 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🔒 **security · Exercise `@50` with a real login, a real save and a real Delete.**
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@53` + `?v=review-0911`) in one bedside session.**
+      Everything shipped 2026-09-12 is verified as *deployed*, none of it as *used*. One session
+      closes the lot: a real login; a real save; **edit a saved order without saving → Print must
+      refuse**; **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the
+      printed form**; check the new printed lines (HN/AN boxes, saved-by/time/revision, changes vs
+      the previous order); a real Delete. Stubs model neither `CacheService` eviction nor
+      `LockService` contention, so **only a person can close this.** Supersedes the `@50`/`@47`
+      versions of this item.
       ✅ **Deployed 2026-08-26** — TEMP-DEBUG reverted, and the server-side plausibility guard
       (`0004d5c`) is finally live after never having been deployed at all. What remains is the human
       half, and it is now worth more than before because one session discharges three things at
@@ -52,26 +59,6 @@ clinical judgement. Everything else is engineering sequencing.
       printed order carries `CONSTANTS_VERSION`, so when the shelf check lands, *"which orders used
       the old divisor?"* has an answer. Rows written **before** 2026-08-26 have a blank AF and
       cannot be attributed — that set is now fixed and will not grow.
-- [ ] 🔒 **security · GitHub Pages publicly serves `gas-backend.gs` and every internal review,
-      right now — ⚙️ REDIRECT STUB SHIPPED 2026-08-23 (`30dbff7`), STAFF NOT YET TOLD.** The
-      redirect stub (option (b), see below) is live: `valhalla-health.github.io/neofeed/` now
-      bounces the app entry point to `moved.html`. **This does not close the item** — it stops
-      staff from using the calculator there, it does not stop the files below from being fetched
-      directly. Remaining: Praew announces in the staff LINE group → 2-week window → repo goes
-      private (Praew, GitHub Settings) → re-run the exposure check below → tick this.
-      Verified 2026-08-23: `valhalla-health.github.io/neofeed/gas-backend.gs`,
-      `SECURITY_CHECKLIST.md`, `CODE_REVIEW_2026-08-18.md`, `HANDOFF.md`, `PRD.md` and `STATUS.md`
-      all return `200`. (`.git/` does not — checked directly, that part of `STATUS.md`'s "serves all
-      of them" is broader than confirmed.) The two `CODE_REVIEW_*.md` files are the sharpest problem:
-      they are a public, dated list of this app's *unpatched* vulnerabilities, next to the backend
-      source that shows exactly where they live. Cloudflare already blocks this via `.assetsignore`
-      (2026-08-23) — GitHub Pages has no equivalent mechanism, so this stays open on that host until
-      one of: (a) a `.nojekyll`-style file-level exclusion is found for Pages, (b) Pages is retired in
-      favour of Cloudflare alone, or (c) the repo goes private — which **on this free org plan
-      disables Pages immediately** and breaks every staff install pointing there, so it requires the
-      redirect-stub sequence in `REFERENCE.md` first, not a same-day flip. Distinct from the
-      *"push to `main` is an unreviewed deploy"* item below: that one is about an ungated code path,
-      this one is about content already sitting at a public URL independent of any future push.
 - [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live
@@ -92,15 +79,6 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · `TARGETS.fluid` is documented as taking birth weight, but every call site passes
       current weight.** One of the two is wrong. **Clinical decision, not a bug fix** — decide which
       is correct, then make code and docs agree.
-- [ ] 🔒 **security/process · A push to `main` is an unreviewed production deploy of the
-      frontend.** GitHub Pages serves `index.html` from the repo root, so there is no human gate
-      between an agent's commit and the browser a nurse is holding — while the *backend* requires
-      explicit confirmation to deploy. **The asymmetry is backwards from the risk:** the gated half
-      cannot render a wrong number without the ungated half, and the frontend is where the printed
-      dose is drawn. Demonstrated 2026-08-21, when an agent push put `app.jsx?v=pwd-gate-0821` live
-      within minutes. Fix: protect `main` and require a PR, or serve Pages from a `release` branch
-      that only a human merges into — the second mirrors how the backend already works. Surfaced by
-      `AI_SDLC.md` § 5.
 - [ ] 🧱 **product · There is no error boundary** — `PatientStrip` throwing white-screens the whole
       app. One instance was hit and fixed on 2026-08-18; the class of bug is still open.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it
@@ -116,6 +94,23 @@ clinical judgement. Everything else is engineering sequencing.
       work rather than a hypothetical.
 
 ## 🕓 Later
+
+- [ ] 🩺 **safety/governance · Decide who may create and Submit a TPN order.** `canWrite` includes
+      nurses for `logDailyNutrition`/`publishLog`, and the Intake/Output card lives inside the
+      Calculator, so a nurse recording urine output re-saves the whole order (2026-09-11 review P2).
+      Proposed: a separate nursing-entry screen (weight, I/O per shift, feeds given) writing its own
+      columns, then narrow order writes to prescribers. **Clinical workflow decision — Praew's.**
+- [ ] 💊 **product · Pharmacist role** — read-only plus a received/verified/compounded status per
+      order. The printed form now carries HN/AN boxes, saved-by/time/revision and changes-vs-previous
+      (2026-09-11); the status loop is not built.
+- [ ] 🩺 **safety · Confirm the HMF start threshold** the app shows (`hmfStart: 40` mL/kg/day). The WHO
+      tab used to say ≥100 while the EN tab said ≥40, both citing WHO 2023; both now show NeoFeed's 40
+      and say "confirm locally".
+- [ ] 🔒 **security/process · GitHub hygiene from the 2026-09-11 review:** (the `test` workflow is already a
+      required check on `release`, and secret scanning is on — both done 2026-09-11); decide whether `tasamew` stays admin (and
+      is the `release` approver — see `REFERENCE.md`); confirm 2FA on both GitHub admins and on the
+      Cloudflare account; close/delete the 4 stale branches and draft PRs #56/#57 (`codex/center-point-v2`
+      holds 11 unmerged commits — decide before deleting).
 
 - [ ] 🩺 **safety · `FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
       4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10 and re-checked

@@ -1,0 +1,53 @@
+# Runs every test/verify-*.cjs harness and the HTML-shell identity check.
+#
+# NeoFeed prints pharmacy orders, and until 2026-09-11 nothing ran these
+# harnesses automatically — they were run by hand before a push, and a push
+# to main is a production deploy (STATUS.md § Release-branch deploy gate).
+# This job is meant to be a REQUIRED status check on `release`, so a
+# main → release PR cannot merge red. See IMPROVEMENT_SPEC_2026-09-04.md § 3.2.
+#
+# The app itself still has no build step; the npm packages below are dev-only
+# test dependencies (jsdom harnesses), installed here and never committed —
+# the same command test/README.md documents for local runs.
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [main, release]
+
+permissions:
+  contents: read
+
+jobs:
+  harnesses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # The ward's timezone. The app pins Asia/Bangkok itself; running the
+      # harnesses in it too matches how they are run locally.
+      TZ: Asia/Bangkok
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: The two hand-synced HTML shells are byte-identical
+        run: cmp index.html NeoFeed.html
+
+      - name: Install dev-only test dependencies (not committed)
+        run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom
+
+      - name: Run every verify-*.cjs harness
+        run: |
+          set -e
+          for f in test/verify-*.cjs; do
+            echo "::group::$f"
+            node "$f"
+            echo "::endgroup::"
+          done
+          echo "::group::verify-kcmh-factor.cjs with no dead space"
+          DEAD=0 node test/verify-kcmh-factor.cjs
+          echo "::endgroup::"

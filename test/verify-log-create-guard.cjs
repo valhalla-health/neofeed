@@ -56,6 +56,12 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'gas-backend.gs'), 'utf8'), sandbox);
 
+// logDailyNutrition refuses a sessionId that is not in Patient_Registry since
+// the 2026-09-11 review (B5). This harness's single-sheet stub has no registry
+// tab, so treat every id as registered here; verify-review-0911.cjs exercises
+// the real _patientExists against a real registry stub.
+sandbox._patientExists = () => true;
+
 console.log('\n── ward-local date fallback ──');
 eq('00:30 ICT belongs to the new ward date', sandbox._wardDateKey(new Date('2026-08-26T17:30:00Z')), '2026-08-27');
 eq('23:59 ICT remains on the prior ward date', sandbox._wardDateKey(new Date('2026-08-26T16:59:00Z')), '2026-08-26');
@@ -63,7 +69,7 @@ eq('23:59 ICT remains on the prior ward date', sandbox._wardDateKey(new Date('20
 console.log('\n── a new Daily_Log sheet has the full schema ──');
 dailySheet = null;
 const created = sandbox.getSheetLog();
-eq('header is A–AG (33 columns)', created.appended[0].length, 33);
+eq('header is A–AL (38 columns)', created.appended[0].length, 38);
 eq('AF is constantsVersion', created.appended[0][31], 'constantsVersion');
 eq('AG is appVersion', created.appended[0][32], 'appVersion');
 

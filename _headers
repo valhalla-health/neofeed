@@ -29,9 +29,11 @@
 #   accounts.google.com    /gsi/client, plus the sign-in iframe it renders
 #   fonts.googleapis.com   the IBM Plex / Sarabun stylesheet
 #   fonts.gstatic.com      the font files that stylesheet pulls
+#   accounts.google.com/gsi/style  Sign-In's own stylesheet — observed BLOCKED in a
+#                          real browser console 2026-09-11 before this was added
 #   script.google.com      NEOFEED_GAS_URL — every backend call
 #   *.googleusercontent.com  where a GAS /exec 302-redirects its response
-#   data:                  tweaks-panel.jsx uses one inline SVG data URI
+#   data:                  inline SVG data URIs (img-src)
 #
 # `Cross-Origin-Opener-Policy` is `same-origin-allow-popups`, NOT `same-origin`.
 # Google Sign-In opens a popup for the account chooser; plain `same-origin`
@@ -44,10 +46,11 @@
 # change here does not touch that one.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.gstatic.com https://*.googleusercontent.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com; frame-src https://accounts.google.com; manifest-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.gstatic.com https://*.googleusercontent.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com; frame-src https://accounts.google.com; manifest-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'; frame-ancestors 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()
   Strict-Transport-Security: max-age=31536000
+  X-Robots-Tag: noindex, nofollow

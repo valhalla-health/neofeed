@@ -13,6 +13,426 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-15 — `main` merged into `codex/center-point-v2` (PR #57)
+
+Brings the Center Point branch up to `main` (through PR #64). Still a synthetic draft; nothing
+deployed. Two real conflicts in `calculator.jsx`, both resolved by keeping both sides:
+
+- **`handleSave`: the required-field gate and the F1 critical-alert stop now run before the
+  `centerPoint.save(...)` branch** (Praew's decisions, 2026-09-14 for F1 and 2026-09-15 for the
+  gate). A Center Point save can no longer skip either one. Pinned by
+  `verify-required-log-fields.cjs` §7, which fails if the CP branch is moved back above F1.
+  **Known limit:** the F1 reason is still not carried into the CP snapshot (`neofeed-tpn-v1` has
+  no slot for it). See `NICU-Center-Point/docs/HANDOFF-NEOFEED-PR57-2026-09-14.md`.
+- **`PrintOrderForm`** renders on `printable && !centerPoint`: `main`'s saved-and-unchanged rule
+  plus the branch's CP exclusion.
+
+`verify-safety-review.cjs` pins source text, so two of its patterns now also accept the
+`&& !centerPoint` guard (it only narrows them). Not fixed here: after a CP save, `savedKey` stays
+null, so the "มีการแก้ไขที่ยังไม่ได้บันทึก" line still shows. The CP page runs its own review/print
+state, so this affects wording only.
+
+---
+
+## Session 2026-09-15 — Ward gate, one bed per infant, editable dosing weight, required log fields
+
+Six bedside requests from the ward, all frontend + one backend guard. Nothing about the
+Daily_Log column layout changed, so no sheet migration is needed.
+
+**1 · TPN calc. weight is editable.** It still prefills from the birth-weight-floor rule
+(2026-08-26) — that behaviour is pinned unchanged by `verify-tpn-calc-weight.cjs` §1-5 — but the
+attending can now overrule the dosing weight. `tpnWtOverrideG` is 0 while the automatic figure is
+in use, so typing the automatic number back in clears the override rather than freezing the field
+at a number that merely matched it once; there is a `ใช้ค่าอัตโนมัติ` button too. An override is
+never silent: a `⚠ แก้เอง` field hint, a banner under Step 1, and the manual weight *plus* what the
+rule would have given on both the clipboard order and the printed pharmacy form. `usingBirthWeight`
+is false whenever an override is in play, so the order form cannot claim the floor rule produced a
+weight somebody typed. The `weight` column still records the **measured** weight.
+
+**2 · Every Step 1 + Intake/Output field must be entered before Save.** "Filled" means *the box is
+not empty*, not *the value is non-zero* — a fresh form renders 0 as an empty box with a "0"
+placeholder, so a field nobody touched was indistinguishable from one somebody deliberately zeroed,
+and Other IV / Drug volume / Drain really are 0 most days. Steps 2-6 are deliberately outside the
+gate. Two non-obvious parts, both now pinned by `verify-required-log-fields.cjs`: a typed `0` has to
+survive the value-sync effect (it did not at first — the keystroke set the value to 0, the effect
+wiped the box back to empty, and the field could not be satisfied at all), and the fields are keyed
+on the form identity so a `0` typed for one infant doesn't arrive pre-satisfied on the next.
+Reopening a saved entry seeds its *recorded* zeros as typed zeros, per field — a legacy row that
+never carried an I/O figure still comes back blank rather than showing a 0 nobody wrote.
+
+**3 · The registry opens on a ward gate.** Two tiles, NICU and SCN, each with that ward's active
+count and how many still need today's entry; the list below is scoped to the chosen ward. iso rooms
+group under NICU; anything with no bed or an unrecognized one gets a third tile, shown only when
+non-empty, so the gate cannot make a patient unreachable. The choice lives in `app.jsx` so
+Dashboard-and-back doesn't return to the gate mid-round, and is not persisted, so a fresh load
+always asks.
+
+Two follow-ups Pp settled the same day: **iso rooms stay grouped under NICU** on the gate (as
+built — they are staffed and rounded as part of it), and **the search box searches the whole unit**
+rather than the open ward. Browsing still shows one ward; typing a name does not. The gate exists to
+shorten the daily list, not to partition the census, and an app that can see an infant one ward over
+should not answer "ไม่พบ". When a search pulls in patients from elsewhere the list says how many, so
+an SCN bed on the NICU screen doesn't read as a broken filter.
+
+**4 · One infant per bed.** Enforced four times over — `BedSelect` disables an occupied bed
+(labelled `NICU 5 · ไม่ว่าง (name)`: shown rather than hidden, because a missing bed reads as a
+broken dropdown while a named one tells you whom to move), each modal refuses it on save,
+`handleAddPatient`/`handleEditPatient` re-check against live state, and `registerPatient` refuses it
+server-side. Only the last sees other devices' writes; every client check runs against a `patients`
+snapshot that can be minutes old. A discharged patient frees their bed. A patient's own bed is never
+an obstacle to re-saving them.
+
+**5 · SCN runs 1–30** (was 1–10). Widening is safe in a way narrowing is not: every bed a patient
+already occupies stays in the list.
+
+**6 · Transferring out of NICU runs the bed number on.** The transfer modal now offers the next free
+running number per ward as a one-tap button (`NICU · 3`, `SCN · 7`), so the common NICU → SCN
+step-down lands on the next SCN bed instead of making someone read down a 30-entry dropdown for the
+first gap. `NewPatientModal` seeds the next free NICU bed for the same reason — the old fixed
+`NICU 1` default put every admission on an occupied bed.
+
+`BED_OPTIONS` moved from `registry.jsx` to `data.js` alongside `normalizeBed`, since the gate and
+the occupancy guard need it too. It must **not** be aliased back to a local `const BED_OPTIONS` —
+the two files are `<script>` tags sharing one global lexical scope, so that is a redeclaration that
+kills the page at parse time. The harness pins it, having caught exactly that.
+
+Tests: new `verify-required-log-fields.cjs` (24 assertions). `verify-bed-dol-io.cjs` gains the
+occupancy/next-free-bed/ward-grouping section and now reads `D.BED_OPTIONS` instead of keeping its
+own copy; `verify-gas-registry-upsert.cjs` gains the server-side bed rule and a check that
+`_normBed` agrees with `data.js`'s `normalizeBed`; `verify-tpn-calc-weight.cjs` gains §6-8 for the
+override. `runthrough-app.cjs` drives the ward gate, the occupancy-aware picker and the override in
+a real Chromium. Full suite green, plus `DEAD=0` and the two-shell `cmp`.
+
+---
+
+## Session 2026-09-12 (3) — Frontend `?v=review-0911` live on both hosts
+
+PR #60 (`main` → `release`), approved by `tasamew` and merged, deployed Cloudflare and GitHub
+Pages together — the first deploy to go through the release gate, and the half of its
+verification that was still outstanding (*"confirm merging to `release` does"*). Backend `@53`
+and frontend `review-0911` are now in step.
+
+Verified against the live URLs rather than the green checks — the 2026-09-12 (2) entry is why
+that distinction now matters: module versions, `data.js` byte size, the derived `appVersion()`,
+the CSP violation gone in a real browser, `noindex` header and meta, `tweaks-panel.jsx` /
+`_config.yml` / `gas-backend.gs` / `STATUS.md` all 404, every app file 200, and the same on
+GitHub Pages. Full list in `STATUS.md` § How the 2026-09-12 frontend deploy was verified.
+
+`BACKLOG.md`: the ship item is done and removed; the standing "never exercised by a human" item
+now covers both halves in one bedside session, including the two checks that prove today's
+safety work (Print refuses after an unsaved edit; K 5 demands a reason that then prints).
+
+## Session 2026-09-12 (2) — PR #59 merged to `main`; deploy gate proven closed on both hosts
+
+Praew merged PR #59 (the frontend half of the 2026-09-11 review) and asked whether Cloudflare was
+all set. It was — but not in the way the merge implied: **she had already switched Workers Builds'
+production branch to `release`**, so the merge into `main` ran a build that reported success and
+deployed nothing. Caught by comparing bytes rather than trusting the green check: the live
+`data.js` was still 73,033 bytes (pre-merge) against the merged 74,204, and identical to the
+pre-merge commit — not an edge-cache artefact (a unique query string still returned the old file).
+
+That accidental experiment **is** the verification this repo had been waiting for: a real push to
+`main` does not reach production. The gate is now closed on both hosts, and `STATUS.md` /
+`REFERENCE.md` / `BACKLOG.md` say so — including the consequence that `main` is no longer a deploy
+of any kind, so nothing reaches staff without a `main` → `release` PR approved by `tasamew`.
+
+PR #60 (`main` → `release`) is open and carries the frontend to both hosts. The backend has been
+live as `@53` since earlier the same day.
+
+## Session 2026-09-12 (1) — Backend `@53` deployed (PR #59's backend half)
+
+Praew: "deploy backend". Per `REFERENCE.md`: mirror diffed (line endings only), identity confirmed
+(`peeraporn.po@chula.ac.th`), `clasp push` → version 53 → `update-deployment` on `AKfycbz8Nt…`
+(count stayed 26), version 53 pulled back and diffed identical, live smoke test passed including the
+new generic login message. Full record and rollback in `STATUS.md` § How `@53` was verified. The
+frontend half of PR #59 is **not** merged; the backend-first order is compatible. The record is in
+PR #59 rather than a direct push to `main`, since a `main` push is a Cloudflare deploy.
+
+## Session 2026-09-11 (3) — Full review: fixes on `review/2026-09-11-fixes` (NOT deployed)
+
+Praew asked for an end-to-end review of every part of NeoFeed "as every stakeholder", including
+GitHub and Cloudflare, then "do all". The review itself is kept **outside this public repo**
+(`NeoFeed/NEOFEED_FULL_REVIEW_2026-09-11.md`) because it lists exploitable details. Every defect
+below was reproduced against the real code before it was fixed (backend in a vm sandbox, frontend
+in a local mock-mode copy in a real browser), and every fix is pinned by the new
+`test/verify-review-0911.cjs` (78 assertions; confirmed to FAIL against `1922488`).
+
+**Frontend — clinical safety**
+- **F1** A critical tile always produces a critical alert. Only GIR/NPE/Ca:P-warn/worksheet ceilings
+  used to be pushed, so K 5 mEq/kg/d or Ca with zero P showed red tiles under a panel saying *"All
+  targets within range"* (reproduced). Every nutrient tile now feeds the panel from the same status
+  variable. **Save with a critical alert requires a written reason**, stored as
+  `calcInput.critOverride` and printed on the order form.
+- **F2** Print/Copy/Submit need a *saved and unchanged* form. They were gated on `savedEntryId`
+  alone, so an edit after reopening a saved entry printed under that entry's id (reproduced: saved AA
+  3, typed 4.5, print form showed 4.5). `<PrintOrderForm>` now renders only while the form matches
+  the saved fingerprint; an unsaved-changes indicator is shown.
+- **F3** Unsaved work survives a forced logout: drafts autosave per patient + order date
+  (`neofeed_draft_*`), are offered back on reopen, cleared on save and on deliberate logout. The old
+  `localStorage` prefill was shadowed by any previous log entry, i.e. dead from day 2.
+- **F4** Printed "Normal requirement" and the Guidelines P row now come from `TPN_TARGETS` /
+  `ENTERAL_TARGETS` for the DOL (they said P 30-70 / 46–62 against a calculator at 50–108).
+  `ESPGHAN_TARGETS.pn.electrolytes.p.growing` corrected to [1.6, 3.5] mmol.
+- **F5** WHO tab no longer contradicts the EN tab on the HMF start threshold (**Praew to confirm
+  the KCMH value** — the app keeps `hmfStart: 40`).
+- **F6** Printed energy line no longer pairs a TPN-only kcal with a TPN+EN kcal/kg.
+- **F7** Glycophos (entered as Na) always shows the phosphate it delivers, in bold.
+- **F8** "Sync · just now" / "Synced just now" labels bound to the real `lastSync`.
+- **F9** Twin label on the mobile registry cards. **F10** a legacy baseline no longer zeroes the
+  fluid target.
+- Print form additions for pharmacy: HN/AN boxes (NeoFeed still stores none), saved-by / time /
+  revision, and **changes vs the previous order**, also shown on screen.
+- Copy-order text carries bed + NeoFeed ID, not the infant's name (it gets pasted into LINE).
+- `APP_VERSION` was 15 days stale (P1) — the stamp is now `D.appVersion()`, derived from the loaded
+  `?v=` tokens. Registration failures (incl. network) roll back instead of leaving a "local only"
+  patient; failed patient edits roll back.
+- `tweaks-panel.jsx` removed (design tool with cross-origin `postMessage`, shipped for a colour
+  picker). Load order is now `data.js → icons.jsx → calculator.jsx → fenton.jsx → registry.jsx →
+  log.jsx → app.jsx`.
+
+**Backend (`gas-backend.gs`) — needs a `clasp` deploy, which has NOT been run**
+- **B1** A superseded row is not an edit target, and superseding advances its `lastModified` — two
+  editors of one published row used to both create "revision 2" (reproduced).
+- **B2** `publishDailyLog` requires `expectedLastModified`; refuses superseded rows; re-publish is a
+  no-op. **B7** published rows cannot be hard-deleted.
+- **B3** Unknown-email logins record nothing (they created one Script Property each — reproduced),
+  one message for unknown email / wrong password, disabled status only after a correct password,
+  email ≤ 254 chars.
+- **B4** An edit keeps its row's stored date. **B5** log rows for unregistered sessionIds refused.
+- **B6** `getActivePatients` returns active + discharged ≤30 days (+ undatable) and their log rows
+  only; admins may pass `includeArchived`.
+- **B7** registry edits audited (`registerPatient`/`updatePatient` rows in `Audit_Log`); new-password
+  floor 10; `pseudonymizePatient` locked and reports a miss.
+
+**Repo / hosting**
+- `_headers`: CSP `style-src` adds `https://accounts.google.com/gsi/style` — a violation **observed in a
+  real browser console** on the live host today (closes STATUS.md's "no CSP violation observed or
+  ruled out"); `X-Robots-Tag: noindex`. Both shells: robots `noindex` meta. `.assetsignore`: `.github/`,
+  `.serena/`, `_config.yml`.
+- `.github/workflows/test.yml`: runs every harness + the shell-identity check on each PR.
+- **REFERENCE.md corrected:** "self-approval is expected and fine" is false — GitHub never lets an
+  author approve their own PR, so `release` PRs need the other admin.
+- Existing harnesses adjusted, each with a comment saying why: single-sheet stubs stub
+  `_patientExists`; publish calls pass the stamp; two jsdom fixtures supply an override reason /
+  a saved row matching the typed inputs; the safety-review regex now pins the stricter print gate.
+
+**Verified live today, no code involved:** the GitHub Pages → `moved.html` redirect executes in a
+real browser; Cloudflare's security headers are all present; Cloudflare still builds from `main`
+(check-run on `1922488`, a commit not on `release`).
+
+**Still Praew's:** merge (= production on Cloudflare until its production branch is `release`),
+the backend `clasp` deploy, the Cloudflare dashboard setting, and the clinical/role decisions
+listed in `BACKLOG.md`.
+
+## Session 2026-09-11 (2) — Release-branch deploy gate, half-closed
+
+Praew: "push-to-main deploy gate next" → picked the release-branch option `AI_SDLC.md` § 5 itself
+recommended over branch-protecting `main` directly ("closer to how the backend already works and
+does not change anyone's day-to-day"). Confirmed scope with Praew first (which of the two options,
+who does the Cloudflare piece) before touching any settings; she said go ahead with both GitHub and
+Cloudflare.
+
+**GitHub, done and verified:**
+- `release` branch created from `main`'s tip (`89f9ce2`).
+- Branch protection added via `gh api PUT .../branches/release/protection`: 1 required approving
+  review, stale reviews dismissed on new pushes, `enforce_admins: true` (so this applies to
+  Praew's own direct pushes too), force-push and deletion blocked.
+- GitHub Pages repointed to `release` via `gh api PUT .../pages`. Verified: build `status: built`,
+  no error; `index.html` still `200` against the live URL after the rebuild.
+
+**Cloudflare, not done — a real technical wall, not a shortcut taken:** Workers Builds' production
+branch is a dashboard setting tied to the GitHub App connection. Checked `wrangler --help` for a
+subcommand covering it — none exists. The only remaining path would have been reading wrangler's
+stored OAuth token out of `~/.wrangler/config/` to hand-craft an undocumented API call against
+Praew's live Cloudflare account; that read was correctly refused. **Cloudflare still deploys from
+`main` on every push** until Praew changes the production branch by hand (Workers & Pages → neofeed
+→ Settings → Build) — flagged clearly in `STATUS.md`'s top banner and its own section so this
+doesn't get mistaken for fully closed.
+
+Also corrected a stale claim in `REFERENCE.md`'s deploy section — it still said GitHub Pages "has
+no equivalent [of `.assetsignore`] and still serves the whole repo root, `gas-backend.gs`
+included," which was true when written but not since the previous session's `_config.yml` fix.
+
+`BACKLOG.md`'s item updated to reflect the half-closed state rather than removed (removing it would
+have implied Cloudflare is gated too). See `STATUS.md` § Release-branch deploy gate for the full
+verification record and the exact re-check to run once Praew flips the Cloudflare setting.
+
+## Session 2026-09-11 (1) — GitHub Pages exposure closed without retiring Pages or going private
+
+Praew: "security upgrade for NeoFeed" → picked the standing `BACKLOG.md` § Now item: `gas-backend.gs`
+and both `CODE_REVIEW_*.md` files (a public, dated list of this app's own unpatched vulnerabilities)
+still directly fetchable at `valhalla-health.github.io/neofeed/`, unaffected by the 2026-08-23
+redirect stub (that only protects the app entry point, `/`, not arbitrary file paths).
+
+**Root cause:** legacy GitHub Pages (confirmed via `gh api repos/.../pages` → `build_type: legacy`)
+runs Jekyll on every deploy — there is no `.nojekyll` in the repo — but nothing had ever told Jekyll
+what to leave out. Cloudflare had already solved the identical problem via `.assetsignore`'s
+allow-by-exclusion list.
+
+**Fix (`5bfdb70`):** added `_config.yml` with an `exclude:` list mirroring `.assetsignore` exactly —
+`*.md`, `gas-backend.gs`, `docs/`, `test/`, `node_modules/`, `graphify-out/`, `NeoFeed.html`,
+`wrangler.jsonc`. Dotfiles/dot-directories (`.git`, `.claude`, `.wrangler`) are already skipped by
+Jekyll's own default, so they needed no entry. Confirmed no runtime file (`index.html`, the six
+`.jsx` modules) references anything under the excluded paths before pushing.
+
+**Verified against the live URL after the Pages rebuild finished** (polled `gh api
+repos/.../pages/builds/latest` until `status: built`, no error — took 38s): `gas-backend.gs`,
+`SECURITY_CHECKLIST.md`, `CODE_REVIEW_2026-08-18.md`, `CODE_REVIEW_2026-08-08.md`, `HANDOFF.md`,
+`PRD.md`, `STATUS.md`, `BACKLOG.md`, `REFERENCE.md`, `AI_SDLC.md`, `NeoFeed.html`, `wrangler.jsonc`
+and everything under `docs/` and `test/` now return `404`. The app itself is unaffected —
+`index.html`, `data.js`, `manifest.json`, `moved.html` and all six `.jsx` modules still `200`.
+
+**Adjacent gap found and closed the same session (`5cc98e1`):** `.gitleaks.toml` — the project's
+secret-scanning rule config, not secrets itself — was never added to `.assetsignore`, so Cloudflare
+had been serving it (`200`) the whole time; GitHub Pages already hid it via Jekyll's own dotfile
+default. Added the one missing line, confirmed Cloudflare returns `404` for it after redeploying
+(polled the live URL until it flipped, ~24s).
+
+**This closes the file-exposure half of the `BACKLOG.md` § Now item entirely** — the
+staff-announcement → 2-week-window → repo-private sequence that item originally called for is no
+longer required to close it. Going private remains a separate, larger decision Praew can still make
+later for other reasons. `STATUS.md`'s "What Cloudflare does not serve" and "GitHub Pages
+retirement" sections updated in the same session. No test harness added: this changes what static
+files a deploy host serves, not `gas-backend.gs` behavior, so `test/`'s node-based convention
+doesn't apply — verification was the live `curl` checks recorded above, matching the exact method
+this item's closure criteria always specified.
+
+---
+
+## Session 2026-09-10 (3) — PR #58 merged, deployed to both hosts, backend cut to `@52`
+
+Praew: "if CI passed then merge" → merged [PR #58](https://github.com/valhalla-health/neofeed/pull/58)
+(Cloudflare Workers Builds check green, clean merge) via a standard merge commit (`4878a39`), matching
+the repo's existing PR-merge convention. That auto-deployed the frontend half to both hosts.
+
+**Caught before it went unnoticed:** the merge shipped `data.js`/`calculator.jsx`/`app.jsx` changes
+without bumping their `?v=` cache-bust tokens in the two HTML shells. Fixed in a follow-up commit
+(`5005db7`, also pushed straight to `main` — a mechanical hygiene fix, not a new feature) and
+confirmed live on both hosts (`data.js?v=publishlock-0910`, `calculator.jsx?v=publishlock-0910`,
+`app.jsx?v=publishlock-0910`).
+
+**Then asked what to do next; chose "deploy the backend half of PR #58."** Followed `REFERENCE.md`'s
+procedure exactly: diffed `~/nicu-tools/neofeed/รหัส.js` against `gas-backend.gs` first (134-line
+diff, all of it traceable to PR #58, nothing unique to the mirror) → confirmed deploy identity
+(`clasp show-authorized-user` → `peeraporn.po@chula.ac.th`) → copied and committed in the mirror's
+own git repo (`f453583`) → `clasp push` → `clasp create-version` (52) → `clasp update-deployment`
+against the **existing** deployment ID (deployment count stayed at 26 — no new deployment created)
+→ `clasp pull` into a clean scratch dir, diffed byte-identical against `gas-backend.gs` → live
+smoke test (unauthenticated `getActivePatients` → `{"error":"Unauthorized"}`, captured the
+single-use redirect `Location` header and fetched it once, per the method note `STATUS.md` already
+carried from the `@50` deploy). See `STATUS.md`'s "How `@52` was verified" for the full record.
+
+**Still open:** `ENABLE_PUBLISH_GATE` remains off. Backend and frontend are now in step and both
+support the flag being flipped, but nobody has exercised a real login + real Save/Submit/Print
+against it yet — that's the standing item before turning it on for real staff.
+
+---
+
+## Session 2026-09-10 (2) — "Save / Submit / Print": publish-lock design for the calculator
+
+Built, not yet enabled. Praew asked for a review of what NeoFeed could adopt from the digital-health
+patterns underlying MyBreastmilk and the NICU Center Point integration; the concrete piece chosen
+(design discussed and approved in-session, not written to a separate spec file — a bounded change to
+an existing flow, not a new subsystem) was Center Point PR #57's "reviewed → immutable → printed"
+pattern, ported into NeoFeed's own standalone calculator rather than only the CP bridge.
+
+**What changed:** a saved `Daily_Log` row is now a *draft* until a clinician explicitly Submits it.
+Five columns appended at AH–AL (`published`, `publishedBy`, `revisionNumber`, `revisionOf`,
+`supersededAt`) — by-index, same contract as AF/AG, nothing inserted ahead of them.
+`updateDailyNutrition` now branches on `published`: a draft still overwrites in place exactly as
+before; a **published row is never overwritten again** — an edit instead appends a new revision row
+(`revisionNumber` bumped, `revisionOf` pointing at the row it replaces) and marks the old row
+`supersededAt`. New `publishDailyLog()` / the `publishLog` doPost action is the only thing that ever
+sets `published`; there is no unpublish. `normalizeLogEntries` (the single funnel every log view reads
+through) drops superseded rows, so TrendGraph and the entry table never double-count a revision chain.
+
+Frontend: `Calculator` gained a Submit action and `PrintOrderForm` gained a "รอผลแลป" (pending lab
+results) watermark on an unpublished print — a draft can still be printed, just visibly marked.
+Editing a published entry now surfaces as a fresh draft under a new id (`res.revised`), handled in
+both `calculator.jsx`'s local state and `app.jsx`'s `handleUpdateToGAS`, which mirrors the
+server's revision instead of overwriting the superseded row's content locally.
+
+**Deliberately unfinished:** gated behind `ENABLE_PUBLISH_GATE` in `data.js`, **defaulting off** —
+AI_SDLC.md §5's frontend-has-no-deploy-gate problem still applies, so a UI-visible workflow change
+ships dark first. The backend logic (publish, revision-on-edit, `getActivePatients` exposing the new
+fields) is unconditional and correct regardless of the flag; only the Submit button and the watermark
+are hidden until someone deliberately flips it on. Nothing was deployed this session — no `clasp
+push`, no backend redeploy, no `main` push. `test/verify-publish-lock.cjs` (76 assertions) pins the
+whole design; `test/verify-log-create-guard.cjs` and `test/verify-provenance-stamp.cjs` were updated
+for the new 38-column (A–AL) row width, and the full existing suite plus `runthrough-app.cjs` (real
+Chromium, real shipped code) were re-run clean against the change.
+
+---
+
+## Session 2026-09-10 — Patient-identification review: twin label in the switcher, mislabeled print ID
+
+Praew asked for a review of patient-identification safety specifically — "how do we harness this
+better" — drawing on the identity-linking guardrails already built into MyBreastmilk (never guess
+identity from a weak signal like bed or weight; make the human attest before an identity-critical
+write). Two concrete gaps found and fixed, both about *which infant*, not dosing arithmetic:
+
+**Fixed:** `registry.jsx`'s `<PatientPicker>` — the modal behind the header's "switch patient"
+button, the fastest path to changing the active patient mid-shift — listed bed/name/GA/BW/diagnosis
+per row but never called `multiplesLabel()`. Twins share initials by construction (`sessionId` is
+initials+BW+twinSuffix) and are usually in adjacent beds, so two rows could read identically except
+for a small bed chip; the registry table and mobile cards already carried the label, the picker was
+the one place it was missing. `calculator.jsx`'s `PrintOrderForm` — the printed pharmacy TPN order,
+the highest-consequence document leaving the app — labeled its own derived `sessionId` as `"AN:"`,
+which reads to a pharmacist as the hospital's real Admission Number. It isn't: it's the same
+collision-prone initials+BW+twinSuffix key `_sessionIdConflict` (`gas-backend.gs`) already exists to
+guard against, mislabeled as if it were an independent identifier a pharmacist could cross-check
+against the chart. Relabeled to `"NeoFeed ID:"`, and the twin letter now prints next to the name on
+the same line, for the same reason the picker needed it.
+
+**Not changed, left for a deliberate decision:** the opaque server-generated sessionId from
+`PDPA_SECURITY_AUDIT_2026-08-27.md` §2.3 is still open (filed "Later" in that doc's own backlog) —
+today's fix strengthens the existing stopgap's surrounding UI, it doesn't replace it. A live
+duplicate-initials hint while `NewPatientModal` is still being filled in (today the collision guard
+only fires after "Register" is clicked) was also identified and deliberately left out of this pass.
+
+**Added:** `test/verify-picker-print-identity.cjs` (9 assertions) — mounts the real `<PatientPicker>`
+and `<Calculator>` in jsdom, same technique as `verify-registry-logged-today.cjs` and
+`verify-tpn-calc-weight.cjs`. Run against the pre-edit files, 5 of the 9 fail. Also extended
+`test/verify-gas-registry-upsert.cjs`'s existing collision-guard section with the specific
+nurse-facing mistake this review was about — two twins registered under the same Multiples letter —
+which the existing same-initials-same-BW guard already caught; the new case documents that scenario
+by name rather than adding new guard logic.
+
+**Verified, not assumed:** all 22 `test/verify-*.cjs` harnesses green after the change, including
+every jsdom-dependent one that touches `calculator.jsx`/`registry.jsx`
+(`verify-kcmh-factor.cjs`, `verify-registry-logged-today.cjs`, `verify-bed-dol-io.cjs`,
+`verify-patient-ga-bw-edit.cjs`, `verify-delete-session.cjs`, `verify-tpn-calc-weight.cjs`,
+`verify-nutrition-unit-review.cjs`). Cache-bust bumped: `calculator.jsx?v=patientid-0910`,
+`registry.jsx?v=patientid-0910` in both HTML shells, confirmed byte-identical. `git push` deploys
+this to both hosts automatically — see `STATUS.md`.
+
+---
+
+## Session 2026-09-10 — Mg now also shows mg/kg/d alongside its mEq/kg/d dose
+
+Praew asked whether three items from an earlier handoff had shipped: a lipid-drip unit, Mg in
+mg/kg/day, and electrolytes accounting for dead space. The first and third were already done
+(lipid: `calculator.jsx` Step 3 already shows g/kg/d, mL/day, mL/hr and mL/kg/d; dead space: the
+overfill Factor added 2026-08-06 already scales Na/K/Mg/Ca/P — see the "Second pass" entry below).
+Mg was still mEq-only, so this session added the mg/kg/d readout **alongside** the existing
+mEq/kg/d — not replacing it, since the input, its presets and the compounding math (mL from
+`KCMH_STOCK.mgso4_10/50`, both in mEq/mL) all stay mEq-based.
+
+**Added:** `data.js` exports `MG_MG_PER_MEQ = 12.1525` (elemental Mg, MW 24.305 g/mol ÷ valence 2)
+— a display-only conversion, not a compounding divisor, so it needed no `CONSTANTS_VERSION` bump.
+`calculator.jsx` uses it in three places: Step 3's Mg row (a new line under the input, matching the
+K₂HPO₄ row's existing mEq→mg pattern rather than the old bare-arrow style — confirmed against
+`test/verify-nutrition-unit-review.cjs`'s three-arrow canary, still exactly 3, no regression), the
+printed order form's Mg⁺⁺ row, and the delivered-dose cross-check section.
+
+**Verified, not assumed:** all 20 `test/verify-*.cjs` harnesses green, including
+`verify-kcmh-factor.cjs` at `DEAD=20` and `DEAD=0` (Mg compounding math is untouched — only a label
+was added) and `verify-nutrition-unit-review.cjs`'s arrow-canary (still 3, this change did not add
+a fourth). Cache-bust bumped: `data.js?v=mg-mgkg-0910`, `calculator.jsx?v=mg-mgkg-0910` in both HTML
+shells, confirmed byte-identical.
+
+---
+
 ## Session 2026-09-05 — FENTON_WEIGHT re-verified against official v2 cutoff table; GA 36-41 corrected
 
 Praew asked whether the Fenton trend graph is really accurate. Weight had been marked "verified,

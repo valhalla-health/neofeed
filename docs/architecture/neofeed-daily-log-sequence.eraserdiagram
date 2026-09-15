@@ -1,0 +1,73 @@
+sequence-diagram
+
+colorMode pastel
+styleMode plain
+typeface clean
+
+Staff_User [label: "NICU staff", icon: user] > Browser [label: "NeoFeed PWA", icon: monitor]: Open NeoFeed
+Browser > GitHub_Pages [label: "GitHub Pages", icon: server]: Load index.html, CSS, and scripts
+GitHub_Pages > Browser: Return static application
+
+alt [label: "Gmail or Workspace login"] {
+  Browser > Google_Identity [label: "Google Identity"]: Request ID token
+  Google_Identity > Browser: Return ID token
+  Browser > GAS_API [label: "Apps Script API", icon: server]: login with googleToken
+  GAS_API > Google_Tokeninfo [label: "Google tokeninfo"]: Verify signature context and audience
+  Google_Tokeninfo > GAS_API: Return verified email
+}
+else [label: "Non-Google email login"] {
+  Browser > GAS_API: login with email and password
+  GAS_API > Staff_Sheet [label: "Staff sheet", icon: database]: Read active account, salt, and password hash
+  Staff_Sheet > GAS_API: Return account and role
+}
+
+GAS_API > Staff_Sheet: Resolve active account, role, and forced-change flag
+GAS_API > Session_Cache [label: "CacheService", icon: database]: Create 6-hour session token
+GAS_API > Browser: Return token, role, and mustChangePassword
+
+alt [label: "Temporary password must be replaced"] {
+  Browser > GAS_API: changePassword with old and new password
+  GAS_API > Staff_Sheet: Store new hash and clear temporary-password fields
+  GAS_API > User_Epoch [label: "PropertiesService", icon: key]: Increment user epoch
+  GAS_API > Session_Cache: Rotate current-device token
+  GAS_API > Browser: Return fresh token
+}
+else [label: "Established account"] {
+  Browser > GAS_API: getActivePatients with session token
+  GAS_API > Session_Cache: Verify token and sliding TTL
+  GAS_API > Staff_Sheet: Recheck active account, role, and forced-change flag
+  GAS_API > Patient_Registry [label: "Patient_Registry", icon: database]: Read patient records
+  GAS_API > Daily_Log [label: "Daily_Log", icon: database]: Read and normalize nutrition entries
+  GAS_API > Audit_Log [label: "Audit_Log", icon: database]: Append readRegistry event
+  GAS_API > Browser: Return patients, logs, and synchronization timestamp
+}
+
+Staff_User > Browser: Open one patient and date
+Browser > GAS_API: acquireLogLock with patient key and date
+GAS_API > Session_Cache: Store or inspect 90-second courtesy lock
+GAS_API > Browser: Return lock owner or availability
+
+loop [label: "While the calculator remains open"] {
+  Browser > GAS_API: Refresh courtesy lock every 45 seconds
+  GAS_API > Session_Cache: Extend lock TTL
+}
+
+Staff_User > Browser: Submit corrected daily nutrition entry
+Browser > GAS_API: updateDailyNutrition with entryId and expectedLastModified
+GAS_API > Session_Cache: Verify session and role
+GAS_API > Staff_Sheet: Recheck active and forced-change state
+GAS_API > Daily_Log: Find entryId and compare lastModified
+
+alt [label: "Version matches"] {
+  GAS_API > Daily_Log: Write updated row and new lastModified
+  GAS_API > Browser: Return success and new lastModified
+  Browser > Staff_User: Show saved state
+}
+else [label: "Another device changed the row"] {
+  GAS_API > Browser: Return conflict and current editor metadata
+  Browser > Staff_User: Show conflict warning without overwriting
+}
+
+Browser > GAS_API: releaseLogLock
+GAS_API > Session_Cache: Remove courtesy lock
+

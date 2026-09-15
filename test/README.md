@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Nineteen Node scripts. Two check the TPN calculator against the **official KCMH
+Twenty Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -43,13 +43,23 @@ performs and separates compounded from delivered, and that the oral Ca/P timing 
 exactly when both are ordered. It is the only harness here whose subject is **legibility rather
 than arithmetic**: what it guards against is a correct number being read as a wrong one.
 
+The twenty-third, `verify-review-0911.cjs`, pins every fix from the **2026-09-11 full review**: the
+backend half (revision forks, Submit locking, login records, date moves, unregistered patients,
+the sync window, audit rows) in a vm sandbox, and the frontend half in jsdom — a critical tile
+always being a critical alert with a required override reason, the print form never showing
+unsaved edits, draft recovery, the Glycophos phosphate line and the mobile twin label. It needs the
+same jsdom dependencies as the harnesses below.
+
+**CI:** `.github/workflows/test.yml` runs every `verify-*.cjs` (plus `DEAD=0` for the Factor
+harness) and the shell byte-identity check on each pull request and on pushes to `main`/`release`.
+
 ## Running
 
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
-`verify-provenance-stamp.cjs` and `verify-sync-freshness.cjs` need **no
-dependencies at all** — run them directly:
+`verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs` and
+`verify-publish-lock.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
 node test/verify-targets-and-dates.cjs
@@ -60,12 +70,15 @@ node test/verify-must-change-password.cjs
 node test/verify-input-validation.cjs
 node test/verify-provenance-stamp.cjs
 node test/verify-sync-freshness.cjs
+node test/verify-publish-lock.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
-`verify-delete-session.cjs`, `verify-forced-password-client.cjs` and
-`verify-nutrition-unit-review.cjs` are the only things
+`verify-delete-session.cjs`, `verify-forced-password-client.cjs`,
+`verify-tpn-calc-weight.cjs`, `verify-required-log-fields.cjs`,
+`verify-nutrition-unit-review.cjs` and
+`verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
 has no build step. Dependencies are dev-only
@@ -86,7 +99,9 @@ node test/verify-patient-ga-bw-edit.cjs
 node test/verify-delete-session.cjs
 node test/verify-forced-password-client.cjs
 node test/verify-tpn-calc-weight.cjs
+node test/verify-required-log-fields.cjs
 node test/verify-nutrition-unit-review.cjs
+node test/verify-picker-print-identity.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -184,6 +199,20 @@ the fallback to the `ioInput`/`ioOutput`/`drainContent` columns for a row whose
 `calcInput` predates the card, and — in the other direction — that a brand-new
 entry's Input still tracks the prescribed total live until the user types in it.
 
+Sections 1b-1c were added on 2026-09-15 with the ward's one-patient-per-bed
+rule: `bedOccupancy`/`bedOccupant` (a discharged patient frees their bed, an
+unbedded one occupies nothing, a legacy spelling still collides with the bed
+it names, and excluding a patient frees their own bed so re-saving them is
+never blocked), `nextFreeBed` (the lowest free running number in a ward, `""`
+when the ward is full — never a wrong bed), and `wardGroup`, which decides
+which tile of the registry's ward gate a patient appears under. The bed list
+itself now comes from `data.js` rather than being re-listed here: a second
+copy in the harness would pass while the app rendered a different set of beds,
+which is the exact class of defect this file exists for. It also pins that
+`registry.jsx` does **not** re-declare `const BED_OPTIONS` — the two files
+share one global lexical scope, so that is a parse-time redeclaration that
+kills the page, and it happened during this change.
+
 **`verify-patient-ga-bw-edit.cjs`** — mounts the real `<EditPatientModal>` in
 jsdom and drives its fields, because what it pins is the payload the modal
 submits. GA, birth weight and sex were a read-only chip strip there until
@@ -258,6 +287,14 @@ This one is worth extending whenever a backend function's sheet-range
 arithmetic changes — it is cheap (no npm) and there is no other way to run
 `gas-backend.gs` outside a live Apps Script project.
 
+The collision-guard section also carries a case added in the 2026-09-10
+identification review: registering a second twin under the *same* Multiples
+letter as an already-registered sibling (same initials, same integer BW, same
+`twinSuffix` by mistake) is refused exactly like any other duplicate
+`sessionId` — this doesn't add new guard logic, it documents the specific
+nurse-facing mistake ("picked A for both twins") that the generic
+same-initials-same-BW case already covers.
+
 **`verify-gas-session-revocation.cjs`** — the same `vm` technique pointed at
 the auth path. Sessions live in `CacheService` for `SESSION_TTL_SECONDS`
 (21600 — 6h, Apps Script's cap) and used to be trusted wholesale for that
@@ -302,14 +339,21 @@ The UMD bundles must be the exact versions the script tags pin, because
 That is a feature: a passing run is also proof those hashes still match the
 versions named beside them.
 
-Its fixture is the patient from the 2026-08-17 bug reports — bed stored as
+Its fixture is the patient from the 2026-08-17 bug reports — plus, since
+2026-09-15, a roommate on `NICU 5` so the one-patient-per-bed rule has a bed
+to hold — bed stored as
 `"NICU 1-1"`, log rows whose stored `dol` disagrees with their own date, an
 entry carrying real Intake/Output figures, and one row whose `ts` arrives in
 the stringified-`Date` shape the live sheet can return — so every defect fixed
 that day would be visible on screen if it came back. The malformed-`ts` row is
 also the one with a stale `dol`, so it only renders correctly if `ts`
 normalization and the DOL re-derivation both work, which is the one real
-interaction between that day's two sessions. It checks the rendered bed label and that
+interaction between that day's two sessions. Since 2026-09-15 it also clicks through the ward gate on the way in (the app
+no longer lands on the patient list), checks that the roommate's bed is
+offered-but-disabled in the picker while the patient's own stays selectable,
+and drives the editable TPN calculation weight: that it is a real input, that
+overriding it raises the `แก้เอง` flag alongside the automatic figure, and that
+`ใช้ค่าอัตโนมัติ` puts it back. It checks the rendered bed label and that
 the picker offers nothing outside `BED_OPTIONS`, the DOL/day-admit columns and
 their ordering, that reopening an entry restores Input/urine/drain and the
 balance line, that editing drain and saving sends the right numbers to the
@@ -406,8 +450,9 @@ would still fail the harness.
 
 **`verify-tpn-calc-weight.cjs`** — regression cover for the 2026-08-26 split of
 Step 1's single weight field into "Current weight" (the actual measured
-figure, entered directly) and "TPN calc. weight" (derived, read-only — what
-every per-kg dose and target actually runs on). Same jsdom harness as the
+figure, entered directly) and "TPN calc. weight" (what every per-kg dose and
+target actually runs on — derived by the birth-weight-floor rule, and
+**editable since 2026-09-15**). Same jsdom harness as the
 Factor/bed-dol-io scripts: mounts the real `<Calculator>` and drives it.
 
 It pins the floor/track/re-floor state machine — below birth weight the calc
@@ -424,6 +469,36 @@ actually measured at. A patient with no birth weight on record never floors
 `calcInput.wtG` with no `curWtG` key, the only shape that existed before this
 split — must land in Current weight and then re-derive TPN calc. weight from
 it and the patient's `bw`, not silently show 0.
+
+Sections 6-8 cover the 2026-09-15 change that made the derived field editable:
+that it renders as a real input, that an override drives the doses (not just
+the box) while leaving Current weight alone, that typing the automatic figure
+back in *releases* the override so the field resumes tracking the weight, and
+that a real override round-trips through a saved entry without the `weight`
+column picking it up. Sections 1-5 are unchanged and are what pins that the
+automatic behaviour still prefills exactly as it did.
+
+**`verify-required-log-fields.cjs`** — the 2026-09-15 rule that every field in
+Step 1 and the Intake / Output card must be filled in before an order can be
+saved ("บังคับลง log ทุกช่อง ถึงจะ save ได้"). Mounts the real `<Calculator>`.
+
+The interesting part is what "filled" means. A fresh form renders 0 as an
+**empty box with a "0" placeholder**, so a field nobody has touched looks
+exactly like one somebody deliberately zeroed — and Other IV, Drug volume and
+Drain really are 0 most days. The gate therefore asks for a non-empty box, not
+a non-zero value, which means a typed `0` has to survive the effect that
+re-renders the field from its value. It did not, at first: the keystroke set
+the value to 0, the effect wiped the box back to empty, and the field could
+not be satisfied at all. That case is section 2 here.
+
+The rest: a prefilled figure (the ESPGHAN fluid midpoint, the last weight)
+counts as entered, because the rule is about silent defaults and a visible 130
+mL/kg/d is not silent — but clearing it puts it back in the missing list;
+entering Current weight also satisfies TPN calc. weight, which derives from
+it; Steps 2-6 are outside the gate, so an NPO day with no TPN and no feed
+still saves; reopening a saved entry does not demand re-typing the zeros it
+already records; and a fresh form for the **next** patient starts blocked
+again, which is what stops one infant's answers pre-satisfying another's.
 **`verify-nutrition-unit-review.cjs`** — the two items acted on from the
 Nutrition Unit's AUG 2026 review, and the only harness here whose subject is
 **legibility rather than arithmetic**.
@@ -457,8 +532,58 @@ Section 3 is their slide 8: oral calcium and phosphate bind each other in the
 gut lumen, so the doses must be separated in time — a fact no daily total can
 express. The advisory must appear when, and only when, both are ordered.
 
+**`verify-publish-lock.cjs`** — the 2026-09-10 "Save / Submit / Print" publish-lock design
+(`CHANGELOG.md`, same date). A saved `Daily_Log` row starts as a draft (editable in place, printed
+with a "รอผลแลป" watermark) until a clinician explicitly publishes it (`publishDailyLog` /
+`doPost`'s `publishLog` action). Once published, `updateDailyNutrition` never overwrites the row
+again — an edit appends a new revision (columns AH–AL: `published`, `publishedBy`,
+`revisionNumber`, `revisionOf`, `supersededAt`) and marks the old row superseded. Same `vm`-sandbox
+technique as the provenance-stamp harness, driving the real `gas-backend.gs` functions directly:
+schema/width (a 33-column, AF/AG-era tab widens to 38 without throwing, on all three write paths),
+the draft-overwrite path staying byte-for-byte unchanged, the revision-creation path (new row,
+old row superseded, nothing else about the old row touched), the same lock taken on both paths,
+`getActivePatients` exposing the five new fields, and `doPost`'s RBAC gate on `publishLog`. A short
+regex-based section (the same technique the provenance harness uses for its own frontend checks)
+pins that `calculator.jsx`/`app.jsx` actually wire Submit and the watermark through, and that
+`data.js`'s `normalizeLogEntries` — the single funnel every log view reads through — drops
+superseded rows so TrendGraph and the entry table never double-count a revision chain. Gated behind
+`ENABLE_PUBLISH_GATE` in `data.js`, defaulting off; the harness pins that default too.
+
 Checked the way the session-revocation harness was: run against the pre-edit
 `calculator.jsx` it fails 14 of its 20 assertions.
+
+**`verify-picker-print-identity.cjs`** — regression cover for the 2026-09-10
+patient-identification review, and unlike every harness above it, the subject
+is *which infant* rather than *which number*. Two defects, both mount real
+components in jsdom:
+
+- `<PatientPicker>` (the modal behind the header's "switch patient" button —
+  the fastest path to changing the active patient mid-shift) listed bed, name,
+  GA, birth weight and diagnosis per row, but never the twin/multiples label.
+  Twins share initials by construction (`sessionId` is
+  initials+BW+twinSuffix) and are usually in adjacent beds, so two rows here
+  could read identically except for a small bed chip. The registry table and
+  mobile cards already call `multiplesLabel()`; the picker was the one place
+  it was missing. The harness asserts both twin rows carry distinct,
+  human-readable text (not just distinguishable-in-theory via bed color).
+- `PrintOrderForm` — the printed pharmacy TPN order, the highest-consequence
+  document that leaves the app — labeled its own derived `sessionId` as
+  `"AN:"`, which reads to a pharmacist as the hospital's real Admission
+  Number. It is not one: it's the same collision-prone
+  initials+BW+twinSuffix key `_sessionIdConflict` in `gas-backend.gs` exists
+  to guard, mislabeled as if it were an independent hospital identifier a
+  pharmacist could cross-check against the chart. Relabeled to
+  `"NeoFeed ID:"`, and the twin letter is now printed next to the patient's
+  name on the same line, for the same reason the picker needed it. The
+  harness reads the rendered `#print-form` text (same technique as
+  `verify-tpn-calc-weight.cjs`) and asserts no `"AN:"` ever appears, the new
+  label carries the right id, and the twin tag appears only when
+  `twinSuffix` is actually set.
+
+Checked against the pre-edit `calculator.jsx`/`registry.jsx`: 5 of 9
+assertions fail (the twin-label ones, and both `"AN:"`-relabeling
+assertions — the print form's twin-tag assertion coincidentally reuses the
+mislabeled-id assertion's regex).
 
 ## Note on the source workbook
 

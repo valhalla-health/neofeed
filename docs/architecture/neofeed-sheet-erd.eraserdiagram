@@ -1,0 +1,90 @@
+entity-relationship-diagram
+
+colorMode pastel
+styleMode plain
+typeface clean
+
+Patient_Registry [color: blue] {
+  sessionId string pk
+  name string
+  initials string
+  bw number
+  ga number
+  sex string
+  dob date
+  admissionDate date
+  twinSuffix string
+  status string
+  currentBed string
+  diagnosis string
+  weights json
+  lengths json
+  hcs json
+  bedHistory json
+  statusDate date
+  multiplesCount number
+}
+
+Daily_Log [color: teal] {
+  ts date
+  sessionId string fk
+  dol number
+  weight number
+  fluid number
+  gir number
+  pro number
+  kcal number
+  na number
+  k number
+  ca number
+  p number
+  enVolPerKg number
+  route string
+  status string
+  submittedBy string fk
+  suppMTV number
+  suppVitD_IU number
+  suppCa_mg number
+  suppCaType string
+  suppPO4_mmol number
+  suppPO4Type string
+  suppFe_mg number
+  suppFeType string
+  calcInputJson json
+  entryId string pk
+  lastModified datetime
+  lastModifiedBy string fk
+  ioInput number
+  ioOutput number
+  drainContent number
+}
+
+Staff [color: purple] {
+  email string pk
+  role string
+  name string
+  active boolean
+  password_hash string
+  salt string
+  must_change_password boolean
+  temp_password string
+}
+
+Audit_Log [color: orange] {
+  ts datetime
+  action string
+  sessionId string fk
+  actorEmail string fk
+}
+
+// Many log rows belong to one patient.
+Daily_Log.sessionId > Patient_Registry.sessionId
+
+// These are conceptual actor links; Google Sheets does not enforce FKs.
+Daily_Log.submittedBy > Staff.email
+Daily_Log.lastModifiedBy > Staff.email
+Audit_Log.actorEmail > Staff.email
+
+// Audit sessionId is optional and is blank for registry-wide reads.
+Audit_Log.sessionId > Patient_Registry.sessionId
+

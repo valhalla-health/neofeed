@@ -95,7 +95,7 @@ const load = (f) => vm.runInThisContext(babel.transformSync(fs.readFileSync(DIR 
 }).code);
 
 vm.runInThisContext(fs.readFileSync(DIR + 'data.js', 'utf8'));
-['tweaks-panel.jsx', 'icons.jsx', 'calculator.jsx', 'fenton.jsx', 'registry.jsx', 'log.jsx'].forEach(load);
+['icons.jsx', 'calculator.jsx', 'fenton.jsx', 'registry.jsx', 'log.jsx'].forEach(load);
 const appSrc = babel.transformSync(fs.readFileSync(DIR + 'app.jsx', 'utf8'), {
   presets: [[require('@babel/preset-react'), { runtime: 'classic' }]],
   filename: 'app.jsx', configFile: false, babelrc: false,
@@ -108,7 +108,11 @@ const text = () => document.getElementById('root').textContent;
   console.log('\n1 · A normal session is unaffected while col G is clear');
   await act(async () => { vm.runInThisContext(appSrc); });
   await flush();
-  ok('the app loads to the registry', /Patient registry/.test(text()));
+  // The app lands on the ward gate (NICU / SCN) since 2026-09-15; the
+  // registry list is one tap behind it. What this assertion is really about
+  // is "a clear col G lets the user straight into the app", so it checks the
+  // first screen the app actually shows.
+  ok('the app loads to the ward gate', /เลือก ward/.test(text()));
   ok('no forced password screen', !/ตั้งรหัสผ่านใหม่|เปลี่ยนรหัสผ่าน/.test(text()));
 
   console.log('\n2 · 🔴 col G flagged MID-SESSION → the forced modal, not an error toast');

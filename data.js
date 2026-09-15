@@ -30,10 +30,45 @@
 // because the sheet would read that as a formula.
 const CONSTANTS_VERSION = "2026-09-05.1";
 
-// APP_VERSION identifies the frontend that ran the arithmetic. There is no
-// build step (app-walkthrough.md §7), so this is maintained by hand alongside
-// the ?v= cache-bust tokens in the two HTML shells.
-const APP_VERSION = "2026-08-27-safety-review";
+// APP_VERSION identifies the frontend that ran the arithmetic. It used to be
+// maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
+// across PR #58 and two other frontend releases — so every row saved in that
+// window claimed the 08-27 frontend (2026-09-11 review, P1). appVersion()
+// below now derives the stamp from the ?v= cache-bust tokens actually loaded,
+// which change on every deploy by definition. APP_VERSION stays only as the
+// fallback for a context with no <script> tags (the Node test harnesses).
+const APP_VERSION = "2026-09-11-review";
+let _appVersionCache = null;
+function appVersion() {
+  if (_appVersionCache) return _appVersionCache;
+  try {
+    const parts = [];
+    document.querySelectorAll('script[src*="?v="]').forEach(s => {
+      const m = String(s.getAttribute("src")).match(/^(?:.*\/)?([A-Za-z][\w-]*)\.(?:jsx?)\?v=([\w.-]+)/);
+      if (m) parts.push(m[1][0].toLowerCase() + "=" + m[2]);
+    });
+    // Starts with a letter by construction, so the sheet never reads it as a
+    // formula (verify-provenance-stamp.cjs rejects a leading = + - @).
+    if (parts.length) return (_appVersionCache = parts.join(";"));
+  } catch (e) { /* no DOM — fall through */ }
+  return APP_VERSION;
+}
+
+// ── Publish-lock rollout flag ───────────────────────────────
+// Gates the "Save / Submit / Print" design (approved 2026-09-10): a saved
+// Daily_Log row starts as a draft (prints with a "รอผลแลป" watermark) until a
+// clinician explicitly Submits it, which locks the row — further edits create
+// a new revision instead of overwriting it. The backend (publishLog,
+// updateDailyNutrition's revision branch) is unconditional and always
+// correct regardless of this flag; this only controls whether the Submit
+// button and the draft watermark are shown to staff.
+//
+// Defaults OFF. NeoFeed is a live clinical tool with no frontend deploy gate
+// (AI_SDLC.md §5) — a `main` push reaches every NICU workstation within
+// minutes, so a UI-visible behaviour change like this ships dark first and is
+// flipped on deliberately once the backend has been exercised against a real
+// login, not just the harnesses in test/.
+const ENABLE_PUBLISH_GATE = false;
 
 // ── Sync freshness — the staleness banner's decision ────────
 // "Is the number on screen still trustworthy?" is a clinical-safety rule, so
@@ -543,6 +578,11 @@ const KCMH_STOCK = {
 const MAX_DEXTROSE_G_KG = 18;
 // Max K concentration in the finished bag (G25 = prepared mL × 40 ÷ 1000) — mEq/L
 const MAX_K_MEQ_PER_L = 40;
+// Display-only conversion, not a compounding divisor (KCMH_STOCK's mgso4_10/50
+// stay the mL authority): elemental Mg, MW 24.305 g/mol ÷ valence 2 = mg per mEq.
+// Lets the Mg input (dosed in mEq/kg/d, matching the stock's mEq/mL) also show
+// mg/kg/d for staff cross-checking against a mg-based reference.
+const MG_MG_PER_MEQ = 12.1525;
 
 // ── Traffic-light status helper ───────────────────────────────
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
@@ -635,7 +675,9 @@ const ESPGHAN_TARGETS = {
       },
       k:  { transition:[0,3], intermediate:[0,3], stable:[2,3],  unit:"mmol/kg/day" },
       ca: { dol1:[0.8,2.0], growing:[1.6,3.5], unit:"mmol/kg/day" },  // × 40.08 = mg/kg
-      p:  { dol1:[1.0,2.0], growing:[1.5,2.0], unit:"mmol/kg/day" },  // × 30.97 = mg/kg
+      // growing was [1.5, 2.0] until 2026-09-11 — the 2026-09-05 correction of
+      // TPN_TARGETS.p (1.6–3.5 mmol = 50–108 mg/kg) never reached this display copy.
+      p:  { dol1:[1.0,2.0], growing:[1.6,3.5], unit:"mmol/kg/day" },  // × 30.97 = mg/kg
       mg: { dol1:[0.1,0.2], growing:[0.2,0.3], unit:"mmol/kg/day" },
       caP_molar:  [0.8, 1.3],   // molar Ca:P ratio — aim 1.3:1 (ESPGHAN 2018)
       caP_mass:   [1.0, 1.7],   // mass ratio — ESPGHAN 0.8–1.3 molar × 1.29 = 1.0–1.7; KCMH aim 1.7:1
@@ -1047,6 +1089,12 @@ function normalizeDateStr(val) {
 // after the entries it precedes.
 function normalizeLogEntries(entries) {
   return (entries || [])
+    // A superseded row (see gas-backend.gs updateDailyNutrition's revision
+    // branch) is the OLD copy a Submit-then-edit left behind — the current
+    // revision is a separate row already in this array. Dropping it here,
+    // once, keeps every reader (TrendGraph, the entry table, "logged today")
+    // from double-counting a date that has more than one row on record.
+    .filter(e => !e.supersededAt)
     .map(e => ({ ...e, ts: normalizeDateStr(e.ts) }))
     .sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
 }
@@ -1193,9 +1241,9 @@ function entryDol(patient, entry) {
 }
 
 // ============================================================
-// Bed labels — canonical form is exactly what registry.jsx's BED_OPTIONS
-// offers: "NICU <n>" (1–12) and "SCN <n>" (1–10) are flat bed numbers, while
-// the isolation rooms genuinely are two-part ("iso <room>-<bed>").
+// Bed labels — canonical form is exactly what BED_OPTIONS below offers:
+// "NICU <n>" (1–12) and "SCN <n>" (1–30) are flat bed numbers, while the
+// isolation rooms genuinely are two-part ("iso <room>-<bed>").
 //
 // Stored records carry non-canonical spellings that all name the same bed
 // and must not be shown verbatim:
@@ -1219,6 +1267,101 @@ function normalizeBed(bed) {
   // NICU/SCN beds are a single number; a trailing "-<n>" is the old default's
   // artifact rather than a real sub-bed, so it is dropped.
   return `${ward.toUpperCase()} ${m[2]}`;
+}
+
+// The canonical bed list. It lives here rather than in registry.jsx because
+// three things now need it and only one of them is a dropdown: the picker,
+// the one-patient-per-bed occupancy guard, and the "next free bed" the
+// transfer modal pre-selects. registry.jsx re-exports it as its own
+// BED_OPTIONS so there is still exactly one <select> rendering it.
+//
+// SCN runs 1–30 (widened from 1–10 on 2026-09-15 at the ward's request).
+// Widening is safe in a way narrowing is not: every bed a patient already
+// occupies stays in the list. If SCN is ever narrowed again, patients parked
+// above the new ceiling keep their label — BedSelect carries an off-list bed
+// as an extra option — but they can no longer be re-picked, so check the
+// census first.
+const BED_OPTIONS = [
+  ...Array.from({ length: 12 }, (_, i) => `NICU ${i + 1}`),
+  "iso 1-1", "iso 1-2",
+  "iso 2-1", "iso 2-2",
+  "iso 3-1", "iso 3-2", "iso 3-3", "iso 3-4",
+  ...Array.from({ length: 30 }, (_, i) => `SCN ${i + 1}`),
+];
+
+// Which ward a bed label belongs to: "NICU" | "SCN" | "iso" | "" (no bed) |
+// "other" (free-text bed from the sheet). The ward gate on the registry and
+// the next-free-bed search both group by this, so they can't disagree about
+// where a bed lives.
+function bedWard(bed) {
+  const s = normalizeBed(bed);
+  if (!s) return "";
+  const m = s.match(/^(NICU|SCN|iso)\b/i);
+  if (!m) return "other";
+  const w = m[1].toLowerCase();
+  return w === "iso" ? "iso" : w.toUpperCase();
+}
+
+// Which of the two wards the registry's entry screen puts a patient under.
+// The isolation rooms are NICU rooms — they are staffed and rounded as part
+// of NICU, and the ward gate offers the two wards the unit actually runs, so
+// grouping iso under NICU is what keeps an isolated infant reachable from the
+// screen the team looks for them on. Everything with no bed, or a free-text
+// bed typed straight into the sheet, falls into "other" — which the gate
+// shows as its own tile whenever it is non-empty, so no patient can be made
+// unreachable by a bed label nobody recognizes.
+function wardGroup(bed) {
+  const w = bedWard(bed);
+  if (w === "NICU" || w === "iso") return "NICU";
+  if (w === "SCN") return "SCN";
+  return "other";
+}
+
+// Only a patient still on the unit occupies a bed — a discharged/transferred/
+// expired session keeps its `currentBed` in the record (that is where they
+// were), but the bed itself is free for the next admission. Same definition
+// of "still here" as registry.jsx's isActivePatient, deliberately: if these
+// two ever disagree, a bed reads as occupied by someone the registry no
+// longer lists, and nothing on screen explains why it can't be picked.
+function isOnUnit(p) {
+  return !!p && (!p.status || p.status === "Active");
+}
+
+// Map of bed label → the patient holding it. `excludeSessionId` drops one
+// patient from the map, which is what makes "save my own record again"
+// different from "move onto someone else's bed": every caller that is
+// editing an existing patient passes that patient's own id.
+function bedOccupancy(patients, excludeSessionId) {
+  const map = new Map();
+  (patients || []).forEach(p => {
+    if (!isOnUnit(p)) return;
+    if (excludeSessionId && String(p.sessionId) === String(excludeSessionId)) return;
+    const bed = normalizeBed(p.currentBed);
+    if (!bed) return;
+    // First writer wins, so a pre-existing double-booking (two rows typed
+    // straight into the sheet) names the same patient everywhere it is
+    // reported instead of flipping with list order.
+    if (!map.has(bed)) map.set(bed, p);
+  });
+  return map;
+}
+
+// The patient already in `bed`, or null. Null for a blank bed: "not yet
+// assigned" is not an occupancy, and several unbedded patients are normal.
+function bedOccupant(patients, bed, excludeSessionId) {
+  const b = normalizeBed(bed);
+  if (!b) return null;
+  return bedOccupancy(patients, excludeSessionId).get(b) || null;
+}
+
+// The lowest-numbered free bed in a ward — what the transfer modal
+// pre-selects so moving a patient out of NICU lands them on the next running
+// SCN number instead of on whatever bed happened to be listed first.
+// Returns "" when the ward is full, which callers must treat as "leave the
+// current selection alone", never as "unassign the patient".
+function nextFreeBed(patients, ward, excludeSessionId) {
+  const occupied = bedOccupancy(patients, excludeSessionId);
+  return BED_OPTIONS.find(b => bedWard(b) === ward && !occupied.has(b)) || "";
 }
 
 // ============================================================
@@ -1353,18 +1496,21 @@ window.NEOFEED_DATA = {
   // Utility functions
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, MG_MG_PER_MEQ,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.
-  CONSTANTS_VERSION, APP_VERSION,
+  CONSTANTS_VERSION, APP_VERSION, appVersion,
+  // Publish-lock rollout flag — see its declaration above.
+  ENABLE_PUBLISH_GATE,
   // Staleness decision for the sync banner + the thresholds behind it
   syncFreshness, SYNC_WARN_MS, SYNC_STALE_MS,
   // Live DOL helper. entryDol re-derives a saved log row's DOL from its date
   // instead of trusting the stored (snapshot, goes stale) `dol` column.
   liveDol, dolAtDate, entryDol,
-  // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed)
-  normalizeBed,
+  // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
+  // the one bed list, and the one-patient-per-bed occupancy helpers
+  normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, nextFreeBed,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,

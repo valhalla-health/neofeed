@@ -34,7 +34,7 @@ const R = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 // ── Column indices. Any change here is a schema migration, not a tweak. ───
 const COL_CONSTANTS_VERSION = 31; // AF
 const COL_APP_VERSION       = 32; // AG
-const ROW_WIDTH             = 33;
+const ROW_WIDTH             = 38; // A–AL; AH–AL (publish/revision) added 2026-09-10
 
 // ══ 1 · data.js owns the version strings ══════════════════════════════════
 console.log('\n── data.js exports the versions ──');
@@ -103,6 +103,12 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(R('gas-backend.gs'), sandbox);
 
+// logDailyNutrition refuses a sessionId that is not in Patient_Registry since
+// the 2026-09-11 review (B5). This harness's single-sheet stub has no registry
+// tab, so treat every id as registered here; verify-review-0911.cjs exercises
+// the real _patientExists against a real registry stub.
+sandbox._patientExists = () => true;
+
 const ENTRY = {
   dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90,
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20,
@@ -115,7 +121,7 @@ console.log('\n── create path: logDailyNutrition ──');
 sheet = makeSheet(40);
 sandbox.logDailyNutrition('AB-1200', ENTRY, 'doc@kcmh');
 const created = sheet.appended[0] || [];
-eq('row is 33 columns wide',                    created.length, ROW_WIDTH);
+eq('row is 38 columns wide',                    created.length, ROW_WIDTH);
 eq('constantsVersion lands in AF (index 31)',   created[COL_CONSTANTS_VERSION], '2026-08-26.1');
 eq('appVersion lands in AG (index 32)',         created[COL_APP_VERSION], 'test-app-version');
 
@@ -137,7 +143,7 @@ existing[25] = 'uuid-1'; existing[26] = 'stamp-1'; existing[27] = 'orig@kcmh';
 sheet = makeSheet(40, [existing]);
 sandbox.updateDailyNutrition('AB-1200', 'uuid-1', 'stamp-1', ENTRY, 'editor@kcmh');
 const updated = (sheet.writes[0] && sheet.writes[0].values[0]) || [];
-eq('update writes 33 columns',                  sheet.writes[0] && sheet.writes[0].numCols, ROW_WIDTH);
+eq('update writes 38 columns',                  sheet.writes[0] && sheet.writes[0].numCols, ROW_WIDTH);
 eq('constantsVersion lands in AF on update',    updated[COL_CONSTANTS_VERSION], '2026-08-26.1');
 eq('appVersion lands in AG on update',          updated[COL_APP_VERSION], 'test-app-version');
 eq('original submittedBy still preserved',      updated[15], 'orig@kcmh');
@@ -154,7 +160,7 @@ try {
   sandbox.logDailyNutrition('AB-1200', noVersion, 'doc@kcmh');
 } catch (e) { threw = e.message; }
 eq('save without versions does not throw',      threw, null);
-eq('still writes 33 columns',                   (sheet.appended[0] || []).length, ROW_WIDTH);
+eq('still writes 38 columns',                   (sheet.appended[0] || []).length, ROW_WIDTH);
 eq('missing constantsVersion becomes ""',       (sheet.appended[0] || [])[COL_CONSTANTS_VERSION], '');
 eq('missing appVersion becomes ""',             (sheet.appended[0] || [])[COL_APP_VERSION], '');
 
@@ -165,25 +171,28 @@ sheet = makeSheet(31);
 threw = null;
 try { sandbox.logDailyNutrition('AB-1200', ENTRY, 'doc@kcmh'); } catch (e) { threw = e.message; }
 eq('create on a 31-column tab does not throw',  threw, null);
-eq('grid widened to 33',                        sheet.maxColumns, ROW_WIDTH);
+eq('grid widened to 38',                        sheet.maxColumns, ROW_WIDTH);
 
 sheet = makeSheet(31, [existing.slice(0, 31)]);
 threw = null;
 try { sandbox.updateDailyNutrition('AB-1200', 'uuid-1', 'stamp-1', ENTRY, 'editor@kcmh'); } catch (e) { threw = e.message; }
 eq('update on a 31-column tab does not throw',  threw, null);
-eq('grid widened to 33 on update',              sheet.maxColumns, ROW_WIDTH);
+eq('grid widened to 38 on update',              sheet.maxColumns, ROW_WIDTH);
 
 console.log('\n── header migration knows about the new columns ──');
 const gas = R('gas-backend.gs');
 ok('ensureLogHeaderColumns labels column 32', /32:\s*["']constantsVersion["']/.test(gas));
 ok('ensureLogHeaderColumns labels column 33', /33:\s*["']appVersion["']/.test(gas));
-ok('ensureLogHeaderColumns widens to 33',     /\b33 - sh\.getMaxColumns\(\)/.test(gas));
+ok('ensureLogHeaderColumns widens to 38',     /\b38 - sh\.getMaxColumns\(\)/.test(gas));
 
 // ══ 3 · the frontend actually sends them, and prints them ═════════════════
 console.log('\n── calculator.jsx wires the stamp through ──');
 const calc = R('calculator.jsx');
 ok('handleSave sends constantsVersion',  /constantsVersion:\s*D\.CONSTANTS_VERSION/.test(calc));
-ok('handleSave sends appVersion',        /appVersion:\s*D\.APP_VERSION/.test(calc));
+// Since 2026-09-11 the stamp is DERIVED from the loaded ?v= tokens (it was a
+// hand-kept constant that went 15 days stale) — see verify-review-0911.cjs.
+ok('handleSave sends the derived appVersion', /appVersion:\s*D\.appVersion\(\)/.test(calc));
+ok('handleSave no longer sends the hand-kept constant', !/appVersion:\s*D\.APP_VERSION\b/.test(calc));
 ok('PrintOrderForm accepts an entryId',  /entryId/.test(calc.slice(calc.indexOf('function PrintOrderForm'))));
 ok('print form renders CONSTANTS_VERSION',
    /CONSTANTS_VERSION/.test(calc.slice(calc.indexOf('function PrintOrderForm'))));

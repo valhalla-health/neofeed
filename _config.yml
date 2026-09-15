@@ -1,0 +1,18 @@
+# GitHub Pages (legacy "deploy from a branch" mode, no .nojekyll) runs Jekyll
+# on every deploy. Cloudflare already has an allow-list equivalent in
+# .assetsignore ("Everything the running app needs is index.html,
+# manifest.json, data.js, the six .jsx modules and icons/. Anything not on
+# that list belongs below."); this file gives GitHub Pages the same
+# exclusions so it stops publishing internal docs, backend source and dev-only
+# files. Jekyll already skips dotfiles/dot-directories by default (.git,
+# .claude, .wrangler, .gitleaks.toml, etc.) — only non-dotfile paths need
+# listing here.
+exclude:
+  - "*.md"
+  - gas-backend.gs
+  - docs/
+  - test/
+  - node_modules/
+  - graphify-out/
+  - NeoFeed.html
+  - wrangler.jsonc

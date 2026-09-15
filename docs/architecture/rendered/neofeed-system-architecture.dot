@@ -1,0 +1,184 @@
+digraph NeoFeedArchitecture {
+  graph [
+    rankdir=TB,
+    bgcolor="#F7FAFC",
+    pad=0.35,
+    nodesep=0.38,
+    ranksep=0.62,
+    splines=polyline,
+    compound=true,
+    newrank=true,
+    fontname="Arial",
+    fontcolor="#102A43",
+    label=<<B>NeoFeed System Architecture</B><BR/><FONT POINT-SIZE="12">Current production model · static React PWA + Google Apps Script + Google Sheets</FONT>>,
+    labelloc=t,
+    fontsize=24
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Arial",
+    fontsize=11,
+    fontcolor="#102A43",
+    color="#A9B9C7",
+    fillcolor="#FFFFFF",
+    margin="0.14,0.10"
+  ];
+
+  edge [
+    color="#5D768B",
+    fontcolor="#486581",
+    fontname="Arial",
+    fontsize=9,
+    arrowsize=0.72,
+    penwidth=1.2
+  ];
+
+  subgraph cluster_users {
+    label="NICU users";
+    color="#9BC9D0";
+    fillcolor="#E8F6F7";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#0F6E78";
+
+    doctor [label="Doctor"];
+    nurse [label="Nurse"];
+    admin [label="Administrator"];
+  }
+
+  { rank=same; doctor; nurse; admin; }
+
+  subgraph cluster_hosting {
+    label="Static hosting";
+    color="#C7D2DC";
+    fillcolor="#EEF3F7";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#486581";
+
+    github [label="GitHub Pages", fillcolor="#FFFFFF"];
+    shell [label="index.html / NeoFeed.html\nCSS + script loader"];
+    pwa_assets [label="manifest.json + icons"];
+  }
+
+  { rank=same; github; shell; pwa_assets; }
+
+  subgraph cluster_browser {
+    label="NeoFeed browser / installed PWA";
+    color="#69B7BF";
+    fillcolor="#E6F6F7";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#0F6E78";
+
+    react_app [
+      label="App root + shared state\nAuthentication · navigation · synchronization",
+      color="#0F7C86",
+      fillcolor="#CDEDEF",
+      penwidth=1.8
+    ];
+
+    features [
+      shape=record,
+      label="{Clinical feature modules|Patient registry|TPN + EN calculator|Daily log + trend graphs|Fenton 2025 growth chart|Alerts + admin dashboard|Guidelines + formulas}",
+      fillcolor="#FFFFFF"
+    ];
+
+    helpers [label="Clinical data + helpers\nTargets · formulas · GA/PMA · dates"];
+    local_store [label="localStorage\nCalculator drafts + alert acknowledgements", shape=cylinder];
+  }
+
+  subgraph cluster_identity {
+    label="External identity boundary";
+    color="#B8A6E6";
+    fillcolor="#F1ECFC";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#6144A7";
+
+    google_identity [label="Google Identity Services", fillcolor="#FFFFFF"];
+    tokeninfo [label="Google tokeninfo\nServer-side token + audience verification", fillcolor="#FFFFFF"];
+  }
+
+  { rank=same; google_identity; tokeninfo; }
+
+  subgraph cluster_backend {
+    label="Google Apps Script web app";
+    color="#E5AE58";
+    fillcolor="#FFF4E1";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#9A5A00";
+
+    api [
+      label="doPost JSON action router",
+      color="#D9830C",
+      fillcolor="#FFE1A8",
+      penwidth=1.8
+    ];
+    auth [label="Authentication + RBAC\nForced-password-change gate"];
+    clinical [label="Registry + nutrition-log services\nValidation + optimistic concurrency"];
+    pdpa [label="Admin deletion + pseudonymization\nPDPA-relevant controls"];
+    cache [label="CacheService\n6-hour sessions + 90-second edit locks", shape=cylinder];
+    props [label="PropertiesService\nConfiguration + per-user token epoch", shape=cylinder];
+  }
+
+  subgraph cluster_sheets {
+    label="Google Sheets workbook\nSensitive persistent data";
+    color="#8FC6A3";
+    fillcolor="#EAF7EE";
+    style="rounded,filled";
+    fontname="Arial Bold";
+    fontcolor="#2E7047";
+
+    patient [label="Patient_Registry", shape=cylinder, fillcolor="#FFFFFF"];
+    daily [label="Daily_Log", shape=cylinder, fillcolor="#FFFFFF"];
+    staff [label="Staff", shape=cylinder, fillcolor="#FFFFFF"];
+    audit [label="Audit_Log", shape=cylinder, fillcolor="#FFFFFF"];
+  }
+
+  { rank=same; patient; daily; staff; audit; }
+
+  github -> shell [label="serves"];
+  github -> pwa_assets [label="serves"];
+  shell -> react_app [label="loads React 18 + Babel modules"];
+  pwa_assets -> react_app [label="installable shell"];
+
+  doctor -> react_app [label="clinical use"];
+  nurse -> react_app [label="clinical use"];
+  admin -> react_app [label="administration + review"];
+
+  react_app -> features [dir=both, label="props + events"];
+  helpers -> features [label="verified constants + helpers"];
+  react_app -> local_store [dir=both, label="restore / clear on logout"];
+
+  google_identity -> react_app [label="Google ID token"];
+  react_app -> api [dir=both, label="HTTPS JSON + session token", color="#2F6FED", penwidth=1.7];
+  api -> tokeninfo [dir=both, label="verify Google token"];
+
+  api -> auth [label="validate request"];
+  auth -> staff [dir=both, label="account · role · password state"];
+  auth -> cache [dir=both, label="session token"];
+  auth -> props [dir=both, label="config + epoch"];
+  auth -> clinical [label="authorized clinical action"];
+  auth -> pdpa [label="admin-only action"];
+
+  clinical -> patient [dir=both, label="registry CRUD"];
+  clinical -> daily [dir=both, label="nutrition-log CRUD"];
+  clinical -> cache [dir=both, label="courtesy edit lock"];
+  clinical -> audit [label="registry-read event"];
+  pdpa -> patient [dir=both, label="delete / clear identifiers"];
+  pdpa -> daily [dir=both, label="authorized deletion"];
+  pdpa -> audit [label="erasure / deletion event"];
+
+  note [
+    label="Security boundary: every non-login action requires a valid server-side session.\nPatient-level data remains in the live Google Sheets workbook.",
+    shape=note,
+    fillcolor="#FFFDF4",
+    color="#D7B75C",
+    fontsize=10
+  ];
+  audit -> note [style=dashed, arrowhead=none, color="#B4963E"];
+}

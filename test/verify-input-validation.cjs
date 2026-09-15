@@ -88,6 +88,12 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(require('path').join(__dirname, '..', 'gas-backend.gs'), 'utf8'), sandbox);
 
+// logDailyNutrition refuses a sessionId that is not in Patient_Registry since
+// the 2026-09-11 review (B5). This harness's single-sheet stub has no registry
+// tab, so treat every id as registered here; verify-review-0911.cjs exercises
+// the real _patientExists against a real registry stub.
+sandbox._patientExists = () => true;
+
 const patient = {
   sessionId: 'FO-1', name: 'Fo', initials: 'Fo', bw: 1200, ga: 28, sex: 'girls',
   dob: '2026-07-01', admissionDate: '2026-08-01', twinSuffix: '', status: 'Active',
@@ -119,8 +125,12 @@ throws('GA=99 weeks rejected', () => sandbox.registerPatient({ ...patient, sessi
 eq('rejected GA never reached the sheet', sheet.appended.length, 0);
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+// A free bed: since 2026-09-15 registerPatient refuses a bed another active
+// patient is already in, and EXISTING holds NICU 11. This case is about the
+// BW/GA validators, so it must not trip that guard — see
+// verify-gas-registry-upsert.cjs for the bed rule's own cover.
 doesNotThrow('a plausible extreme-preterm registration still saves',
-  () => sandbox.registerPatient({ ...patient, sessionId: 'X-3', bw: 420, ga: 23 }));
+  () => sandbox.registerPatient({ ...patient, sessionId: 'X-3', bw: 420, ga: 23, currentBed: 'NICU 4' }));
 eq('plausible registration reached the sheet', sheet.appended.length, 1);
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
