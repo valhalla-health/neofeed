@@ -102,14 +102,58 @@ export function validateTpn(value) {
  }
  return structuredClone(value);
 }
-export function renderTpn(container, value) {
- const t=validateTpn(value), doc=container.ownerDocument;container.replaceChildren();
+// What a prescriber orders, read from the packet, in the terms of NeoFeed's own
+// "changes vs previous order" (calculator.jsx ORDER_DIFF_FIELDS) plus the dosing
+// weight and each preparation. Never amounts that follow the weight (bag
+// volumes, delivered doses): those move without the order changing.
+const slot=id=>t=>t.values[id], included=id=>t=>t.values[id]==='—'?'no':'yes', preparation=key=>t=>TPN_PREPARATIONS[t.preparations[key]];
+export const TPN_ORDER_CHANGES=[
+ ['Route','',t=>t.route],['Dosing weight','g',t=>String(t.dosingWeightG)],
+ ['PN volume','mL/day',slot('delivered')],['Dead space','mL',slot('dead')],['Dextrose','%',slot('dexPct')],['Amino acid','g/kg/day',slot('aaKg')],
+ ['SMOF lipid','g/kg/day',slot('lipidKg')],['Lipid over','hr',slot('lipidHours')],
+ ['NaCl','mEq/kg/day',slot('naClKg')],['Na acetate','mEq/kg/day',slot('naAcetKg')],['Glycophos','mL/kg/day',slot('glycoKg')],
+ ['KCl','mEq/kg/day',slot('kClKg')],['K2HPO4','mEq/kg/day',slot('k2Kg')],['MgSO4','mEq/kg/day',slot('mgKg')],['MgSO4 strength','%',slot('mgStrength')],
+ ['Ca gluconate','mg/kg/day',slot('caKg')],['Heparin','unit/mL',slot('heparin')],['Soluvit N','',included('soluvit')],['Peditrace','',included('peditrace')],
+ ['Feed','',preparation('enteral')],['Feed volume','mL/feed',slot('enVol')],['Feeds per 24 hours','',slot('enFreq')],
+ ['Vitamin D','IU/kg/day',slot('vitDKg')],['Oral Ca','mg/kg/day',slot('oralCaKg')],['Oral Ca preparation','',preparation('ca')],
+ ['Oral phosphate','mg/kg/day',slot('oralPKg')],['Oral phosphate preparation','',preparation('phosphate')],
+ ['Oral Fe','mg/kg/day',slot('oralFeKg')],['Oral Fe preparation','',preparation('iron')],['Munti-vim','mL/day',slot('mtv')]
+];
+export function tpnChanges(previous, current) {
+ const a=validateTpn(previous), b=validateTpn(current);
+ return TPN_ORDER_CHANGES.map(([label,unit,read])=>({label,unit,from:read(a),to:read(b)})).filter(c=>c.from!==c.to);
+}
+// The version a TPN order is compared with: {revision, publishedAt, tpn|null},
+// or null when there is none. CP's server decides which revision that is.
+function validatePrevious(value) {
+ const fail=()=>{throw Error('invalid_tpn_snapshot');};
+ if(value===null)return null;
+ if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==3||!['revision','publishedAt','tpn'].every(k=>Object.hasOwn(value,k)))fail();
+ if(!Number.isSafeInteger(value.revision)||value.revision<1||typeof value.publishedAt!=='string'||!Number.isFinite(Date.parse(value.publishedAt)))fail();
+ return {revision:value.revision,publishedAt:value.publishedAt,tpn:value.tpn===null?null:validateTpn(value.tpn)};
+}
+// `previous` is optional: leave it out and no changes section is drawn.
+export function renderTpn(container, value, previous) {
+ const t=validateTpn(value), before=previous===undefined?undefined:validatePrevious(previous), doc=container.ownerDocument;container.replaceChildren();
  const line=doc.createElement('p');line.textContent=`TPN ${t.orderDate} · ${t.route} · DOL ${t.dol} · dosing ${t.dosingWeightG} g · current ${t.currentWeightG} g${t.usingBirthWeight?' · birth-weight basis':''}`;container.append(line);
  const period=doc.createElement('p');period.textContent=`Effective ${t.effectiveFrom} → ${t.effectiveTo}`;container.append(period);
  if(t.criticalOverride){
   const box=doc.createElement('div'),head=doc.createElement('strong'),why=doc.createElement('p');box.className='tpn-critical';box.setAttribute('role','note');
   head.textContent=`⚠ สั่งทั้งที่มีค่าวิกฤต: ${t.criticalOverride.alerts.join('; ')}`;why.textContent=`เหตุผล: ${t.criticalOverride.reason}`;
   box.append(head,why);container.append(box);
+ }
+ if(before!==undefined){
+  const box=doc.createElement('div'),head=doc.createElement('h3');box.className='tpn-changes';
+  const note=text=>{const p=doc.createElement('p');p.textContent=text;box.append(p);};
+  head.textContent=before?`เปลี่ยนแปลงจากฉบับยืนยันก่อนหน้า (ฉบับ ${before.revision})`:'เปลี่ยนแปลงจากฉบับยืนยันก่อนหน้า';box.append(head);
+  if(!before)note('ฉบับยืนยันแรกของรายการนี้ ไม่มีฉบับก่อนหน้าให้เทียบ');
+  else if(!before.tpn)note('ฉบับยืนยันก่อนหน้าไม่มีใบสั่ง TPN ให้เทียบ');
+  else{
+   const changes=tpnChanges(before.tpn,t);
+   if(!changes.length)note('ไม่มีการเปลี่ยนแปลง');
+   else{const list=doc.createElement('ul');for(const c of changes){const li=doc.createElement('li');li.textContent=`${c.label}: ${c.from} → ${c.to}${c.unit?` ${c.unit}`:''}`;list.append(li);}box.append(list);}
+  }
+  container.append(box);
  }
  let section,table;
  for(const [id,group,label,unit] of TPN_FIELDS){

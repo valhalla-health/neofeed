@@ -24,9 +24,10 @@
 //   - the patient table (name, NeoFeed ID, dates, DOL, weight in kg): CP has
 //     its own identity join at the desktop and prints the weights in grams;
 //   - the "saved by / revision" line: CP prints its own revision metadata;
-//   - "changes since the previous order": CP has no previous-order concept
-//     yet (follow-up in CP's HANDOFF). No previousEntry is passed here, so
-//     NeoFeed's form does not render that section in this test.
+//   - "changes since the previous order": NeoFeed compares with the previous
+//     day's entry, CP with the previous confirmed version of the same record
+//     (verify-center-point-order-changes.cjs). Different baselines, so not
+//     compared here; no previousEntry is passed, so NeoFeed's form omits it.
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');

@@ -23,6 +23,10 @@ A record whose latest draft carries a TPN order is reviewed, published and print
 only on the calculator page. The `/neofeed/` drafts view shows it read-only, and CP's
 server refuses a save without a TPN over it (`tpn_draft_superseded`).
 
+The review and CP's print list changes since the previous confirmed version of the
+same record. CP sends that version as `previous`, and `tpnChanges` compares the ordered
+fields.
+
 `tpn-snapshot.mjs` captures values at the source. CP does not run this builder;
 it renders the saved display packet with its matching `tpn-document.mjs` schema.
 The packet is `neofeed-tpn-v2` / `cp-tpn-2`: v1 plus the Mg mg/kg and TPN-only

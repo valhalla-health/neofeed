@@ -78,7 +78,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-delete-session.cjs`, `verify-forced-password-client.cjs`,
 `verify-tpn-calc-weight.cjs`, `verify-required-log-fields.cjs`,
 `verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
-`verify-center-point-drafts-view.cjs`,
+`verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
@@ -105,6 +105,7 @@ node test/verify-required-log-fields.cjs
 node test/verify-center-point-entry.cjs
 node test/verify-center-point-print-parity.cjs
 node test/verify-center-point-drafts-view.cjs
+node test/verify-center-point-order-changes.cjs
 node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
 ```
@@ -538,6 +539,15 @@ Publish and print job do nothing even when forced, and a notice points to the
 calculator page. An observation-only record stays editable, which is the
 control. CP's `tpn_draft_superseded` refusal is explained. Mounts the real
 `center-point/drafts-view.mjs` in jsdom with a stub client.
+
+**`verify-center-point-order-changes.cjs`** — "changes since the previous
+confirmed version" on CP's sheet (Praew, 2026-09-16). `tpnChanges` compares what
+a prescriber orders, in `ORDER_DIFF_FIELDS` terms plus dosing weight and each
+preparation, and never amounts that only follow the weight. `renderTpn`'s third
+argument draws the section: nothing when it is left out, "first confirmed
+version" for `null`, a note when the previous version had no TPN, "no changes",
+or the list. A malformed previous version is refused. CP's server decides which
+revision is previous.
 
 **`verify-center-point-print-parity.cjs`** — CP prints from a hand-kept slot
 list (`center-point/tpn-document.mjs`), so nothing noticed when NeoFeed's

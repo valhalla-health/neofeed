@@ -13,6 +13,30 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-16 — Changes since the previous confirmed version (Center Point)
+
+Praew's decisions (2026-09-16):
+- CP's TPN sheet compares with the previous confirmed version of the same record, which is what
+  this entry builds.
+- Nurses correct weight or intake in the real NeoFeed app, and CP takes data from NeoFeed only.
+  The drafts view stays read-only for TPN records.
+- The free-text critical-value reason stays for now, to be decided before a pilot.
+- PR #57 and CP PR #12 merge together once this lands.
+
+- **`center-point/tpn-document.mjs`:**
+  - `tpnChanges(previous, current)` compares the ordered fields: `ORDER_DIFF_FIELDS` terms plus
+    dosing weight and each preparation, never amounts that only follow the weight.
+  - `renderTpn(container, value, previous)` draws "เปลี่ยนแปลงจากฉบับยืนยันก่อนหน้า (ฉบับ N)"
+    under the critical-value box. It shows the list, "no changes", "first confirmed version" or "the
+    previous version had no TPN". The argument is optional and validated.
+- **`calculator-page.jsx`:** the review passes the `previous` that CP now returns with each draft.
+- The `tpn-document.mjs` tripwire digest is updated; CP is synced and re-pinned.
+
+Tests: the new `verify-center-point-order-changes.cjs` passes 19/19. All harnesses pass. CP covers
+the server baseline (a withdrawn version is skipped) and the calculator and desktop print end to end.
+
+---
+
 ## Session 2026-09-15 (6) — PR #57 third-review fixes
 
 Still a synthetic draft; nothing deployed; the legacy screen is untouched.
