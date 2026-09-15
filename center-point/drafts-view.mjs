@@ -20,6 +20,7 @@ export function draftView(client) {
     </fieldset></form>
     <button type="button" data-reload class="secondary">โหลดฉบับล่าสุดจากเซิร์ฟเวอร์</button>
     <p data-feedback role="status"></p>
+    <p data-tpn-notice role="note" hidden>ร่างล่าสุดเป็นใบสั่ง TPN · ทบทวน ยืนยัน และพิมพ์ได้ที่หน้าเครื่องคำนวณ TPN เท่านั้น หน้านี้แก้ไขหรือยืนยันไม่ได้</p>
     <h3>ฉบับที่ยืนยันแล้ว</h3><pre data-published class="code"></pre>
     <div data-print-area hidden><p>ส่งเอกสารสรุปทดสอบไปตรวจชื่อบน CP Desktop · ยังไม่ใช่ใบสั่ง TPN</p>
       <label>รหัสเครื่อง CP Desktop ที่ลงทะเบียน<input data-workstation autocomplete="off"></label>
@@ -49,28 +50,36 @@ export function draftView(client) {
     mapping_unavailable: 'การเชื่อมต่อถูกยกเลิก กรุณาตรวจสอบใหม่',
     encounter_unavailable: 'การรับเข้านี้ปิดแล้ว', forbidden: 'บัญชีนี้ไม่มีสิทธิ์ดำเนินการ',
     authentication_required: 'กรุณาเข้าสู่ระบบและยืนยัน MFA ใหม่',
-    missing_time: 'กรุณาระบุวันและเวลาให้ครบ', incomplete_plan: 'กรุณาระบุปริมาณที่สั่งและจำนวนมื้อให้ครบ'
+    missing_time: 'กรุณาระบุวันและเวลาให้ครบ', incomplete_plan: 'กรุณาระบุปริมาณที่สั่งและจำนวนมื้อให้ครบ',
+    tpn_draft_superseded: 'ร่างล่าสุดเป็นใบสั่ง TPN · แก้ไขได้ที่หน้าเครื่องคำนวณ TPN เท่านั้น กรุณาโหลดฉบับล่าสุด'
   };
+  // A record whose latest draft carries a TPN order is reviewed, published and
+  // printed only on the calculator page, which shows the whole order and its
+  // critical-value reason. This view's summary shows neither, and its save
+  // carries no TPN, so here the record is read-only (PR #57 third review;
+  // CP's server refuses such a save as tpn_draft_superseded).
+  const tpnRecord = () => !!saved?.tpn;
   function summary(draft) {
     if (!draft) return '';
     const weight = draft.weight;
-    return [`การรับเข้า ${draft.encounterId}`, `ฉบับที่ ${draft.revision} · เวลาข้อมูล ${stamp(draft.observedAt)}`,
+    return [`การรับเข้า ${draft.encounterId}`, ...(draft.tpn ? [`ใบสั่ง TPN วันที่ ${draft.tpn.orderDate} · DOL ${draft.tpn.dol} (ดูทั้งฉบับที่หน้าเครื่องคำนวณ TPN)`] : []), `ฉบับที่ ${draft.revision} · เวลาข้อมูล ${stamp(draft.observedAt)}`,
       weight ? `น้ำหนัก ${weight.value} g · ${weight.measuredDate ? `${weight.measuredDate} (ไม่ทราบเวลาชั่ง)` : stamp(weight.measuredAt)}` : 'น้ำหนัก: ไม่มีข้อมูล',
       draft.prescribed ? `แผน: ${draft.prescribed.volumePerFeedMl} mL/feed × ${draft.prescribed.feedsPer24h} มื้อ/24 ชม. (ไม่ใช่ปริมาณที่ได้รับจริง)` : 'แผน: ไม่มีข้อมูล',
       `แหล่งนม: ${({mothers_milk:'นมแม่ล้วน ก่อนเติมสารเสริม',donor_milk:'นมบริจาค',formula:'นมผสม',mixed:'หลายชนิด / หลังผสมสารเสริม'})[draft.prescribed?.milkSource] ?? 'ยังไม่ระบุ'}`,
       draft.actual ? `ได้รับจริงที่บันทึก: ${draft.actual.volumeMl} mL · ${stamp(draft.actual.startAt)} ถึง ${stamp(draft.actual.endAt)}` : 'ได้รับจริง: ไม่ทราบ'].join('\n');
   }
   function controls() {
-    find('fieldset').disabled = busy || !ready;
+    find('fieldset').disabled = busy || !ready || tpnRecord();
+    find('[data-tpn-notice]').hidden = !(ready && tpnRecord());
     find('[data-reload]').disabled = busy || !link;
     find('[data-time]').hidden = input('precision').value === 'date';
     find('[data-date]').hidden = input('precision').value !== 'date';
-    const reviewable = ready && saved && !dirty && role === 'clinician' && saved.revision !== published?.revision;
+    const reviewable = ready && saved && !tpnRecord() && !dirty && role === 'clinician' && saved.revision !== published?.revision;
     find('[data-review-area]').hidden = !reviewable;
     find('[data-reason-label]').hidden = !published;
     find('[data-reviewed]').disabled = busy; find('[data-reason]').disabled = busy;
     find('[data-publish]').disabled = busy || !reviewable || !find('[data-reviewed]').checked || (!!published && !find('[data-reason]').value);
-    find('[data-print-area]').hidden = !(ready && role === 'clinician' && published && saved?.revision === published.revision && !dirty);
+    find('[data-print-area]').hidden = !(ready && role === 'clinician' && published && !published.tpn && !tpnRecord() && saved?.revision === published.revision && !dirty);
     find('[data-print-job]').disabled = busy;
   }
   function renderPublication() {
@@ -116,7 +125,7 @@ export function draftView(client) {
   form.onchange = form.oninput;
   find('[data-reviewed]').onchange = controls; find('[data-reason]').onchange = controls;
   form.onsubmit = event => {
-    event.preventDefault(); if (!ready) return;
+    event.preventDefault(); if (!ready || tpnRecord()) return;
     void run(async (selected, version) => {
       const fields = { observedAt: iso(input('observedAt').value), weight: null, prescribed: null, actual: null };
       if (input('weight').value !== '') fields.weight = { value: Number(input('weight').value), unit: 'g',
@@ -137,7 +146,7 @@ export function draftView(client) {
     void run(async (selected, version) => { ready = false; published = null; fill(null); await load(selected, version); });
   };
   find('[data-publish]').onclick = () => {
-    if (find('[data-publish]').disabled) return;
+    if (find('[data-publish]').disabled || tpnRecord()) return;
     const revision = saved.revision, reason = find('[data-reason]').value || null;
     void run(async (selected, version) => {
       const result = await client.publishDraft(selected, revision, reason);
@@ -148,7 +157,7 @@ export function draftView(client) {
   };
   find('[data-workstation]').oninput = () => { printRequest = null; find('[data-job]').textContent = ''; };
   find('[data-print-job]').onclick = () => {
-    if (busy || !published || saved?.revision !== published.revision || dirty) return;
+    if (busy || !published || published.tpn || tpnRecord() || saved?.revision !== published.revision || dirty) return;
     printRequest ??= crypto.randomUUID();
     const revision = published.revision, workstation = find('[data-workstation]').value.trim(), requestId = printRequest;
     void run(async (selected, version) => {

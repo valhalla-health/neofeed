@@ -15,6 +15,7 @@
 //      CP with the order, and the CP snapshot carries it to CP's print
 //      (finding 3).
 //   §5 Neither NeoFeed host publishes center-point/ (finding 5).
+//   §6 A tripwire on center-point/tpn-document.mjs, which CP keeps a copy of.
 //
 // Same jsdom harness as verify-required-log-fields.cjs.
 const fs = require('fs');
@@ -295,6 +296,20 @@ function mount(props) {
     ok(`CP accepts ${what}`, !!built, error);
     ok('…and the stored reason is clean', !!built && check(built.criticalOverride.reason), built && built.criticalOverride.reason.slice(-12));
   }
+
+  // ── §6 tripwire: CP holds a copy of center-point/tpn-document.mjs ────────
+  // CP validates and prints with its own copy (web/tpn-document.mjs), checked in
+  // CP's CI against the NeoFeed commit recorded in CP's test/neofeed-commit. An
+  // edit here passes both CIs until someone re-pins, so a changed unit label
+  // would print wrongly on CP (PR #57 third review, finding 4). This fails on
+  // any change to the file, on purpose. After changing it: sync CP's
+  // web/tpn-document.mjs, point CP's test/neofeed-commit at the new NeoFeed
+  // commit, then record the new digest below.
+  console.log('\n── §6 center-point/tpn-document.mjs matches the version CP was synced to ──');
+  const TPN_DOCUMENT_SHA256 = 'c570cba320c06337df46a612e3498b107ef5a5c5467bb6f54a00c99e3ab9e5c5';
+  const digest = require('crypto').createHash('sha256')
+    .update(fs.readFileSync(DIR + 'center-point/tpn-document.mjs', 'utf8').replace(/\r\n/g, '\n')).digest('hex');
+  ok('tpn-document.mjs is the version CP is synced to (else: sync CP, re-pin, update this digest)', digest === TPN_DOCUMENT_SHA256, digest);
 
   // ── §5 NeoFeed's own hosts never serve the CP entry ──────────────────────
   // A main → release merge deploys the working tree to Cloudflare and GitHub

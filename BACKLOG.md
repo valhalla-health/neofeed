@@ -117,8 +117,9 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🔒 **security/process · GitHub hygiene from the 2026-09-11 review:** (the `test` workflow is already a
       required check on `release`, and secret scanning is on — both done 2026-09-11); decide whether `tasamew` stays admin (and
       is the `release` approver — see `REFERENCE.md`); confirm 2FA on both GitHub admins and on the
-      Cloudflare account; close/delete the 4 stale branches and draft PRs #56/#57 (`codex/center-point-v2`
-      holds 11 unmerged commits — decide before deleting).
+      Cloudflare account; close/delete the stale branches and draft PR #56. **Not PR #57**
+      (`codex/center-point-v2`): since 2026-09-15 it is active, paired with NICU-Center-Point PR #12, and the
+      two must merge together (CP accepts only the `neofeed-tpn-v2` packet #57 builds).
 
 - [ ] 🩺 **safety · `FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
       4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10 and re-checked

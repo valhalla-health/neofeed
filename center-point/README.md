@@ -19,6 +19,10 @@ clinical values in browser storage (`test/verify-center-point-entry.cjs` §1) an
 falls back to legacy save after a failure. The separate linking client retains only
 UUID retry/link metadata.
 
+A record whose latest draft carries a TPN order is reviewed, published and printed
+only on the calculator page. The `/neofeed/` drafts view shows it read-only, and CP's
+server refuses a save without a TPN over it (`tpn_draft_superseded`).
+
 `tpn-snapshot.mjs` captures values at the source. CP does not run this builder;
 it renders the saved display packet with its matching `tpn-document.mjs` schema.
 The packet is `neofeed-tpn-v2` / `cp-tpn-2`: v1 plus the Mg mg/kg and TPN-only

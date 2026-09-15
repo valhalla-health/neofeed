@@ -13,6 +13,32 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-15 (6) — PR #57 third-review fixes
+
+Still a synthetic draft; nothing deployed; the legacy screen is untouched.
+
+- **The `/neofeed/` drafts view is read-only for a record that carries a TPN order** (Praew's
+  decision, 2026-09-15). The drafts view and the calculator page edit the same CP record. The
+  drafts view's review text showed weight, feed plan and intake, but no TPN value and no
+  critical-value reason. Its Publish and print-job buttons still acted on the whole TPN revision,
+  and its save sends no TPN, so a nurse's weight correction dropped the doctor's order. Now, when
+  the latest draft has a TPN, the form, Publish and print job are disabled. A notice points to
+  the calculator page, the only place a TPN order is reviewed, published and printed. CP's server
+  refuses such a save as `tpn_draft_superseded` (CP PR #12), and the view explains that refusal.
+- **Tripwire on `center-point/tpn-document.mjs`** (`verify-center-point-entry.cjs` §6). CP keeps a
+  copy that its CI checks against a pinned NeoFeed commit, so an edit here passed both CIs. The
+  test now fails on any change until CP is synced, re-pinned and the digest is updated.
+- **`BACKLOG.md`** no longer lists PR #57 among the drafts to close.
+
+Tests: the new `verify-center-point-drafts-view.cjs` mounts the real drafts view with a stub client.
+It passes 16/16; against the previous drafts view 11 checks fail, including a forced publish, save
+and print job. All harnesses pass.
+
+Not decided: how nurses record weight or intake on a record once it has a TPN order. For now a
+clinician re-saves it in the calculator.
+
+---
+
 ## Session 2026-09-15 (5) — PR #57 re-review fixes
 
 Fixes from a second review of PR #57 after entry (4). Still a synthetic draft; nothing deployed;

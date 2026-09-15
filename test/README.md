@@ -78,6 +78,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-delete-session.cjs`, `verify-forced-password-client.cjs`,
 `verify-tpn-calc-weight.cjs`, `verify-required-log-fields.cjs`,
 `verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
+`verify-center-point-drafts-view.cjs`,
 `verify-nutrition-unit-review.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
@@ -103,6 +104,7 @@ node test/verify-tpn-calc-weight.cjs
 node test/verify-required-log-fields.cjs
 node test/verify-center-point-entry.cjs
 node test/verify-center-point-print-parity.cjs
+node test/verify-center-point-drafts-view.cjs
 node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
 ```
@@ -528,6 +530,14 @@ critical-value reason goes to the bridge, into the `neofeed-tpn-v2` snapshot
 and onto `renderTpn`'s sheet as plain text, and `validateTpn` rejects a
 malformed one. §4b: any reason the prompt accepts (a cut ending on a space, a
 pasted tab, an emoji split at 300) still saves through CP. Both host ignore files keep `center-point/` off NeoFeed's domain.
+
+**`verify-center-point-drafts-view.cjs`** — the `/neofeed/` drafts view on a
+record whose latest draft carries a TPN order. That view's review shows no TPN
+value and its save carries no TPN, so such a record is read-only there. Form,
+Publish and print job do nothing even when forced, and a notice points to the
+calculator page. An observation-only record stays editable, which is the
+control. CP's `tpn_draft_superseded` refusal is explained. Mounts the real
+`center-point/drafts-view.mjs` in jsdom with a stub client.
 
 **`verify-center-point-print-parity.cjs`** — CP prints from a hand-kept slot
 list (`center-point/tpn-document.mjs`), so nothing noticed when NeoFeed's
