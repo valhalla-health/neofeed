@@ -1668,8 +1668,11 @@ function _normBed(bed) {
 
 // Only a patient still on the unit holds a bed — a discharged/transferred/
 // expired row keeps the bed it was in, but the bed itself is free. Same rule
-// as isOnUnit() in data.js; a blank status means Active.
+// as isOnUnit() in data.js; a blank status means Active. It applies to the
+// record being saved too: correcting a discharged record whose old bed has
+// since been reused takes that bed from nobody. Mirrors bedBlocker() in data.js.
 function _bedConflict(data, p) {
+  if (String(p.status || "Active") !== "Active") return null;
   var bed = _normBed(p.currentBed);
   if (!bed) return null;                       // unassigned is not an occupancy
   for (var i = 1; i < data.length; i++) {

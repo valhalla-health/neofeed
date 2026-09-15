@@ -557,7 +557,7 @@ function App() {
   // against live state; the backend refuses it once more (registerPatient in
   // gas-backend.gs), which is the only check that sees other devices' writes.
   const bedConflict = (p) => {
-    const holder = D_A.bedOccupant(patients, p.currentBed, p.sessionId);
+    const holder = D_A.bedBlocker(patients, p);
     if (!holder) return false;
     showToast(
       `เตียง ${D_A.normalizeBed(p.currentBed)} มี ${holder.name || holder.sessionId} อยู่แล้ว — ` +

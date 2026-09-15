@@ -32,14 +32,22 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@53` + `?v=review-0911`) in one bedside session.**
-      Everything shipped 2026-09-12 is verified as *deployed*, none of it as *used*. One session
-      closes the lot: a real login; a real save; **edit a saved order without saving → Print must
-      refuse**; **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the
-      printed form**; check the new printed lines (HN/AN boxes, saved-by/time/revision, changes vs
-      the previous order); a real Delete. Stubs model neither `CacheService` eviction nor
-      `LockService` contention, so **only a person can close this.** Supersedes the `@50`/`@47`
-      versions of this item.
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@54` + `?v=bed-guard-0915`) in one bedside session.**
+      Everything shipped 2026-09-12 and 2026-09-15 is verified as *deployed*, none of it as *used*.
+      One session closes the lot:
+      - a real login and a real save;
+      - **edit a saved order without saving → Print must refuse**;
+      - **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the printed form**;
+      - check the new printed lines (HN/AN boxes, saved-by/time/revision, changes vs the previous order);
+      - a real Delete;
+      - *(2026-09-15)* **from a second device, register or move an infant onto an occupied bed → the
+        server must refuse it**;
+      - **open a discharged record whose bed was reused → it must still save**;
+      - glance at the NICU/SCN gate for any bed held by two Active infants, which is now unsaveable
+        until one is transferred.
+
+      Stubs model neither `CacheService` eviction nor `LockService` contention, so **only a person
+      can close this.** Supersedes the `@53`/`@50`/`@47` versions of this item.
       ✅ **Deployed 2026-08-26** — TEMP-DEBUG reverted, and the server-side plausibility guard
       (`0004d5c`) is finally live after never having been deployed at all. What remains is the human
       half, and it is now worth more than before because one session discharges three things at

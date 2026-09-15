@@ -79,12 +79,13 @@ let submitted = null;
 // unmount it on close), so a reused instance would carry the previous
 // patient's edits into the next assertion.
 let mountSeq = 0;
-function open(patient = PATIENT) {
+function open(patient = PATIENT, patients = [patient]) {
   submitted = null;
   act(() => {
     root.render(React.createElement(globalThis.EditPatientModal, {
       key: 'open' + (++mountSeq),
       patient,
+      patients,
       onClose() {},
       onSubmit(p) { submitted = p; },
     }));
@@ -222,6 +223,26 @@ eq('…and is the only GA week list rendered',
   (registrySrc.match(/GA_WEEK_OPTIONS\.map/g) || []).length, 2);
 eq('the 22-43 range is written once, in it',
   (registrySrc.match(/Array\.from\(\{ length: 22 \}/g) || []).length, 1);
+
+// ══ 7. A discharged record can be corrected after its bed is reused ══════
+// The record keeps the bed label it left from, and that bed goes to the next
+// admission. Correcting the old record must not be refused as a double-book —
+// it claims no bed. Setting it back to Active on that bed still must be.
+console.log('\n── #7 editing a discharged record whose bed was reused ──');
+const GONE_HOME = { ...PATIENT, status: 'Discharged', statusDate: '2026-09-01' };
+const NEXT_ADMIT = { ...PATIENT, sessionId: 'NA-BW1500', name: 'NA', initials: 'NA', bw: 1500 };
+open(GONE_HOME, [GONE_HOME, NEXT_ADMIT]);
+eq('Save is enabled',                         saveBtn().disabled, false);
+ok('…with no bed-taken message',              !host.textContent.includes('อยู่แล้ว'));
+setInput('ชื่อในวงการ', 'KL');
+save();
+eq('the correction is submitted',             submitted?.name, 'KL');
+eq('…still Discharged, same bed label',       `${submitted?.status} ${submitted?.currentBed}`, 'Discharged NICU 7');
+eq('…and the discharge date is not re-stamped', submitted?.statusDate, '2026-09-01');
+open(GONE_HOME, [GONE_HOME, NEXT_ADMIT]);
+setSelect('Status', 'Active');
+eq('back to Active on the taken bed blocks Save', saveBtn().disabled, true);
+ok('…and names who is in it',                 host.textContent.includes('เตียง NICU 7 มี NA อยู่แล้ว'));
 
 console.log(`\n${fail === 0 ? 'GA + BW EDIT: ALL PASS' : `GA + BW EDIT: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

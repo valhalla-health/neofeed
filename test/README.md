@@ -213,6 +213,12 @@ which is the exact class of defect this file exists for. It also pins that
 share one global lexical scope, so that is a parse-time redeclaration that
 kills the page, and it happened during this change.
 
+`bedBlocker` was added the same day, in 2026-09-15 (2). It answers "who stops this record being
+saved on its bed", and a record that is not on the unit is stopped by nobody. A discharged record
+still carries the bed label it left from, so without this rule, correcting it after that bed was
+reused read as a double-book. There is also a structural check that `app.jsx`'s `bedConflict` calls
+`bedBlocker` rather than re-deriving the rule.
+
 **`verify-patient-ga-bw-edit.cjs`** — mounts the real `<EditPatientModal>` in
 jsdom and drives its fields, because what it pins is the payload the modal
 submits. GA, birth weight and sex were a read-only chip strip there until
@@ -231,6 +237,10 @@ dose), and that a GA outside 22–43 wk is neither preselected nor offered but
 must be re-picked before the record can be saved — with a structural check
 that both modals render the one shared `GA_WEEK_OPTIONS` list, so the range
 can't drift between register and edit.
+
+Section 7 (2026-09-15 (2)) mounts the modal for a discharged record whose bed now holds another,
+active infant. Save stays enabled, the correction is submitted with `statusDate` unchanged, and
+picking Active in the form blocks Save and names the infant in the bed.
 
 **`verify-delete-session.cjs`** — pins the admin-only, permanent "Delete
 session" flow end to end, written after a ward question ("can a whole session
@@ -282,6 +292,10 @@ in-place write (`getRange(row, 1, 1, 18)`) used to throw on a
 checks the no-op case on a wide grid, that `multiplesCount`/`currentBed`
 land in columns R/K, and that `_sheetSafe`'s formula-injection guard still
 applies on the widened path.
+
+Section 6 pins the server-side one-infant-per-bed rule in `_bedConflict`, including that a record
+not on the unit (Discharged/Transferred/Expired) can be edited after its old bed has been reused,
+while an Active or blank-status one on that bed is still refused.
 
 This one is worth extending whenever a backend function's sheet-range
 arithmetic changes — it is cheap (no npm) and there is no other way to run

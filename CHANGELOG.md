@@ -34,6 +34,55 @@ state, so this affects wording only.
 
 ---
 
+## Session 2026-09-15 (3) — Backend `@54` deployed; frontend `?v=bed-guard-0915` live on both hosts
+
+PR #66 merged to `main` (`8406cd7`, no deploy). PR #67 `main` → `release` was approved and merged by
+`tasamew` at 20:42 ICT, which deployed `bed-guard-0915` to Cloudflare and GitHub Pages. The backend
+went live at 20:47 ICT as `@54`, cut via the clasp mirror (`45341e0`) from `gas-backend.gs` at `8406cd7`.
+That carries #63's server-side one-infant-per-bed guard and #66's fix for discharged records.
+
+Checks before overwriting: the remote HEAD matched the `@53` mirror, and the mirror diff was +45 lines
+and nothing else. Version 54 was pulled and matched the source before the deployment was repointed.
+The deployment count stayed 26. Every step, the smoke test and what staff now see are recorded in
+`STATUS.md` § "How the 2026-09-15 deploy was verified".
+
+The `BACKLOG.md` bedside-session item now covers the live `@54` stack, including the cross-device bed
+refusal and editing a discharged record.
+
+---
+
+## Session 2026-09-15 (2) — One-bed guard no longer refuses edits to a discharged record
+
+Found while planning the backend deploy of the entry below, before it went out. The one-infant-per-bed
+check looked at who else was in the bed but never at the **record being saved**. A discharged
+(or transferred/expired) record keeps the bed label it left from, and that bed goes to the next
+admission. So correcting the old record (a name, a discharge date, a diagnosis) was refused as a
+double-book: "เตียง NICU 5 มี … อยู่แล้ว". This was live in the frontend since PR #65: the Edit session
+modal's Save was disabled and `handleEditPatient` refused it. Deploying the backend as it stood
+would have added a server-side refusal for the same edit.
+
+**Rule now:** a record that is not on the unit claims no bed. Setting that record back to Active on
+a bed someone else holds is still refused. One helper, `bedBlocker(patients, record)` in `data.js`,
+answers "who stops this record being saved on its bed". `app.jsx`'s `bedConflict` and
+`EditPatientModal` both call it. The modal passes the status currently picked in the form, not the
+stored one. `_bedConflict` in `gas-backend.gs` applies the same status check first.
+
+Cache-bust: `data.js`, `registry.jsx`, `app.jsx` → `?v=bed-guard-0915`. `calculator.jsx` is unchanged
+and keeps `ward-gate-0915`. A new `app.jsx` served against a cached old `data.js` would call a
+`bedBlocker` that doesn't exist.
+
+Tests, each seen failing before the fix: `verify-gas-registry-upsert.cjs` covers Discharged,
+Transferred and Expired records editing on a reused bed, plus Active and blank-status records still
+being refused. `verify-bed-dol-io.cjs` covers `bedBlocker` and pins that `app.jsx`'s guard calls it.
+`verify-patient-ga-bw-edit.cjs` mounts the real modal: Save is enabled for the discharged record,
+the correction is submitted with `statusDate` untouched, and switching to Active blocks Save with the
+named holder.
+
+**Backend not deployed** — still `@53`. This commit is the source the next `clasp` deploy should
+ship, together with the bed guard from the entry below.
+
+---
+
 ## Session 2026-09-15 — Ward gate, one bed per infant, editable dosing weight, required log fields
 
 Six bedside requests from the ward, all frontend + one backend guard. Nothing about the
