@@ -6,13 +6,19 @@
 // reference: when a dose line is added there, CP's sheet silently lacks it.
 // That is how CP came to print no Mg in mg/kg.
 //
-// The check: one fully populated order (TPN, lipid, every electrolyte, Mg, Ca,
+// The check: a fully populated order (TPN, lipid, every electrolyte, Mg, Ca,
 // vitamins, trace, heparin, EN, every oral supplement, a critical override) is
-// saved once through the legacy screen and once through the CP entry. Every
-// dose figure NeoFeed's form prints — each is its own <strong> — must appear
-// in a CP value slot, allowing for CP printing more decimals. A new figure on
-// NeoFeed's form fails this test until CP gets a slot for it, or the figure is
-// added to NOT_ON_CP below with the reason.
+// saved once through the legacy screen and once through the CP entry — first
+// with no dead space, then with 6.3 mL, because an overfilled bag prints lines
+// the plain one does not. Every dose figure NeoFeed's form prints — each is its
+// own <strong> — must appear in a CP value slot, allowing for CP printing more
+// decimals. A new figure on NeoFeed's form fails this test until CP gets a slot
+// for it, or the figure is added to NOT_ON_CP below with the reason.
+//
+// Limit: a figure is matched by value, so another slot holding the same number
+// can hide a missing one. The order uses un-round values to make that unlikely;
+// keep new fixture values distinct (a 7 mL dead space once hid behind the
+// 7 mL/feed enteral volume).
 //
 // Out of scope, deliberately:
 //   - the patient table (name, NeoFeed ID, dates, DOL, weight in kg): CP has
@@ -119,10 +125,14 @@ async function saveOrder(props, extra) {
 
 const decimals = (s) => (s.split('.')[1] || '').length;
 
-(async () => {
+// One order through both screens, then the figure sweep. `extra` is added to
+// ORDER on both screens.
+async function compareOrder(label, extra) {
+  console.log('');
+  console.log('══ ' + label + ' ══');
   console.log('\n── NeoFeed\'s pharmacy form (legacy save) ──');
   await saveOrder({ onLog() { return Promise.resolve({ ok: true, entryId: 'e-parity', lastModified: 'lm-parity' }); }, onUpdate() {}, onSaved() {} },
-    [['Input', 180], ['Urine output', 90], ['Drain content', 0]]);
+    [...extra, ['Input', 180], ['Urine output', 90], ['Drain content', 0]]);
   const form = container.querySelector('#print-form');
   ok('the legacy save rendered the print form', !!form);
   if (!form) { console.log('\nPRINT PARITY: cannot run'); process.exit(1); }
@@ -137,7 +147,7 @@ const decimals = (s) => (s.split('.')[1] || '').length;
 
   console.log('\n── Center Point\'s sheet (CP save → snapshot → renderTpn) ──');
   let payload = null;
-  await saveOrder({ centerPoint: { save(p) { payload = p; return Promise.resolve({ sourceRecordId: patient.sessionId, recordedAt: '2026-09-15T08:00:00.000Z' }); }, review() {}, failed() {} } });
+  await saveOrder({ centerPoint: { save(p) { payload = p; return Promise.resolve({ sourceRecordId: patient.sessionId, recordedAt: '2026-09-15T08:00:00.000Z' }); }, review() {}, failed() {} } }, extra);
   ok('the CP save reached the bridge', !!payload);
   if (!payload) { console.log('\nPRINT PARITY: cannot run'); process.exit(1); }
   const { buildTpn } = await import(pathToFileURL(DIR + 'center-point/tpn-snapshot.mjs').href);
@@ -160,6 +170,21 @@ const decimals = (s) => (s.split('.')[1] || '').length;
   }
   ok(`all ${figures.length} figures found on CP's sheet`, missing.length === 0,
     { missing, hint: 'add a TPN_FIELDS slot (NeoFeed center-point/ and CP web/tpn-document.mjs) or list it in NOT_ON_CP with a reason' });
+  return { payload, figures };
+}
+
+(async () => {
+  // Without dead space the bag is not overfilled: Factor equals the weight
+  // and NeoFeed's overfill-only lines (dead space, "bag ×") are not printed.
+  const plain = await compareOrder('an order with no dead space', []);
+  ok('…that order really has no overfill', plain.payload.calc.overfill <= 1.001, plain.payload.calc.overfill);
+  // With dead space they are, so the sweep covers them (re-review finding 4).
+  const overfilled = await compareOrder('the same order with 6.3 mL dead space (overfilled bag)', [['ปริมาตรคาสาย', 6.3]]);
+  ok('…that order is overfilled', overfilled.payload.calc.overfill > 1.001, overfilled.payload.calc.overfill);
+  ok('…so NeoFeed\'s form printed the dead-space figure', overfilled.figures.some(f => f.fig === '6.3' && /ปริมาตรคาสาย/.test(f.where)),
+    overfilled.figures.filter(f => /ปริมาตรคาสาย/.test(f.where)));
+  ok('…and a Factor that differs from the weight', Math.abs(overfilled.payload.calc.factor - overfilled.payload.wtKg) > 0.001,
+    { factor: overfilled.payload.calc.factor, wtKg: overfilled.payload.wtKg });
 
   act(() => { root.unmount(); });
   console.log(`\n${fail === 0 ? 'PRINT PARITY: ALL PASS' : `PRINT PARITY: ${fail} FAILED`} (${pass} passed)`);

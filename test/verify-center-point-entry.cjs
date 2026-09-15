@@ -262,6 +262,39 @@ function mount(props) {
     try { validateTpn({ ...tpn, criticalOverride: bad }); } catch { threw = true; }
     ok(`validateTpn rejects ${what}`, threw);
   }
+  {
+    let threw = false;
+    try { validateTpn({ ...tpn, criticalOverride: { reason: 'half ' + String.fromCharCode(0xD83D), alerts: ['x'] } }); } catch { threw = true; }
+    ok('validateTpn rejects a lone surrogate (broken text)', threw);
+  }
+
+  // Any reason NeoFeed's prompt accepts must survive CP's validator (re-review
+  // finding 1). handleSave trims and then cuts at 300 UTF-16 units, so the cut
+  // can end on a space or split an emoji, and a pasted tab is kept. Each case
+  // goes through the real prompt → save → buildTpn path.
+  console.log('\n── §4b a reason NeoFeed accepts is never refused by CP ──');
+  const TAB = String.fromCharCode(9), EMOJI = String.fromCodePoint(0x1F600);
+  for (const [what, typed, check] of [
+    ['a long Thai reason whose 300th character is a space', 'ก'.repeat(299) + ' ' + 'ข'.repeat(20),
+      r => r.length <= 300 && r === r.trim()],
+    ['a tab pasted into the reason', 'K high' + TAB + 'attending aware',
+      r => r === 'K high attending aware'],
+    ['an emoji cut in half at character 300', 'x'.repeat(299) + EMOJI + ' tail',
+      r => r.length <= 300 && r.isWellFormed()],
+  ]) {
+    saved = [];
+    mount({ centerPoint });
+    setField('Other IV', 0);
+    setField('Drug volume', 0);
+    setField('Volume(mL/day)', 300);
+    setField('Dextrose final', 25);
+    window.prompt = () => typed;
+    await click(saveButton());
+    let built = null, error = null;
+    try { built = buildTpn(saved[0], window.NEOFEED_DATA, from, to); } catch (e) { error = e.message; }
+    ok(`CP accepts ${what}`, !!built, error);
+    ok('…and the stored reason is clean', !!built && check(built.criticalOverride.reason), built && built.criticalOverride.reason.slice(-12));
+  }
 
   // ── §5 NeoFeed's own hosts never serve the CP entry ──────────────────────
   // A main → release merge deploys the working tree to Cloudflare and GitHub

@@ -526,7 +526,8 @@ reads as saved, and there is no Copy Order button. The Intake / Output card is
 absent and not required, while the legacy screen still requires it. The
 critical-value reason goes to the bridge, into the `neofeed-tpn-v2` snapshot
 and onto `renderTpn`'s sheet as plain text, and `validateTpn` rejects a
-malformed one. Both host ignore files keep `center-point/` off NeoFeed's domain.
+malformed one. §4b: any reason the prompt accepts (a cut ending on a space, a
+pasted tab, an emoji split at 300) still saves through CP. Both host ignore files keep `center-point/` off NeoFeed's domain.
 
 **`verify-center-point-print-parity.cjs`** — CP prints from a hand-kept slot
 list (`center-point/tpn-document.mjs`), so nothing noticed when NeoFeed's
@@ -535,8 +536,11 @@ through both screens and requires every dose figure on `<PrintOrderForm>` (each
 is its own `<strong>`) to appear in a CP value slot, allowing for CP printing
 more decimals. A new figure on NeoFeed's form fails it until CP gets a slot, or
 the figure is listed in `NOT_ON_CP` with its reason. It found the Mg mg/kg and
-TPN-only kcal/kg figures missing. The patient table, the saved-by line and
-"changes since the previous order" are outside it; CP has no previous order yet.
+TPN-only kcal/kg figures missing. The order runs twice, without and with dead
+space, because an overfilled bag prints extra lines. Figures are matched by
+value, so keep fixture values distinct: a second slot with the same number can
+hide a missing one. The patient table, the saved-by line and "changes since the
+previous order" are outside it; CP has no previous order yet.
 
 **`verify-nutrition-unit-review.cjs`** — the two items acted on from the
 Nutrition Unit's AUG 2026 review, and the only harness here whose subject is

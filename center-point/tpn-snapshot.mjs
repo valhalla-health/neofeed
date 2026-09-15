@@ -1,4 +1,31 @@
-import { validateTpn, TPN_SCHEMA, TPN_TEMPLATE } from './tpn-document.mjs';
+import { validateTpn, TPN_SCHEMA, TPN_TEMPLATE, TPN_REASON_MAX, TPN_ALERT_MAX, TPN_CONTROL } from './tpn-document.mjs';
+// Free text as CP stores it. NeoFeed's prompt keeps what was typed: it trims
+// and then cuts at 300 UTF-16 units, so the cut can end on a space or split an
+// emoji, and a pasted tab survives. Any of those would make validateTpn refuse
+// a reason NeoFeed already accepted (re-review, 2026-09-15). So: control
+// characters and whitespace runs become one space, broken surrogates are
+// replaced, and the cut never splits a pair or leaves an edge space.
+const controls = new RegExp(TPN_CONTROL.source, 'g');
+// String#toWellFormed would do this, but needs Chrome 111 / Safari 16.4.
+function replaceLoneSurrogates(s) {
+ let out = '';
+ for (let i = 0; i < s.length; i++) {
+  const c = s.charCodeAt(i), d = s.charCodeAt(i + 1);
+  if (c >= 0xD800 && c <= 0xDBFF && d >= 0xDC00 && d <= 0xDFFF) { out += s[i] + s[i + 1]; i++; }
+  else out += c >= 0xD800 && c <= 0xDFFF ? String.fromCharCode(0xFFFD) : s[i];
+ }
+ return out;
+}
+function tpnText(value, max) {
+ let text = replaceLoneSurrogates(String(value).replace(controls, ' ').replace(/\s+/g, ' ')).trim();
+ if (text.length > max) {
+  text = text.slice(0, max);
+  const last = text.charCodeAt(text.length - 1);
+  if (last >= 0xD800 && last <= 0xDBFF) text = text.slice(0, -1);
+  text = text.trim();
+ }
+ return text;
+}
 // Evaluate only while saving the source calculator. CP never imports this builder.
 export function buildTpn(p, D, effectiveFrom, effectiveTo) {
  const c=p.calc,s=c.solVol||{},m=p.mineral||{},w=p.wtKg||0,factor=c.factor||0,S=D.KCMH_STOCK;
@@ -23,5 +50,5 @@ export function buildTpn(p, D, effectiveFrom, effectiveTo) {
  return validateTpn({schema:TPN_SCHEMA,templateVersion:TPN_TEMPLATE,appVersion:D.APP_VERSION,constantsVersion:D.CONSTANTS_VERSION,
  orderDate:p.orderDate,effectiveFrom,effectiveTo,dosingWeightG:p.wtG,currentWeightG:p.curWtG,usingBirthWeight:p.usingBirthWeight,route:p.route,dol:p.dol,values,
  preparations:{ca:p.suppCa>0?p.suppCaType:'none',phosphate:p.suppPO4>0?p.suppPO4Type:'none',iron:p.suppFerdek>0?p.suppFeType:'none',enteral:p.enVol>0?p.enType:'none'},
- criticalOverride:o?{reason:o.reason,alerts:[...o.alerts]}:null});
+ criticalOverride:o?{reason:tpnText(o.reason,TPN_REASON_MAX),alerts:o.alerts.map(a=>tpnText(a,TPN_ALERT_MAX))}:null});
 }

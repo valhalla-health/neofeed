@@ -13,6 +13,32 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-15 (5) — PR #57 re-review fixes
+
+Fixes from a second review of PR #57 after entry (4). Still a synthetic draft; nothing deployed;
+the legacy screen is untouched.
+
+- **A reason NeoFeed accepts is no longer refused by CP.** `handleSave` trims the prompt answer
+  and then cuts it at 300, so the cut can end on a space or split an emoji, and a pasted tab
+  survives. `validateTpn` refused all three, and the CP save failed with only a generic toast.
+  `buildTpn` now cleans reasons and alert titles with `tpnText`: control characters and
+  whitespace runs become one space, lone surrogates are replaced, and the cut never splits a pair
+  or leaves an edge space. `validateTpn` also refuses broken text. The limits are exported from
+  `tpn-document.mjs` so the two cannot drift. Both use plain loops, not
+  `isWellFormed`/`toWellFormed`, which need Chrome 111 / Safari 16.4.
+- **The print-parity harness also compares an overfilled bag.** Its one order had no dead space,
+  so the dead-space and "bag ×" lines were never compared. It now runs the order twice, the second
+  time with 6.3 mL. The first attempt used 7 mL, which a mutation check showed was matched by the
+  7 mL/feed enteral volume, so the header now states the match-by-value limit.
+- **CI builds the Center Point entry and runs its client tests** (`test.yml`). Before, a change
+  that broke the bundle CP serves, or `center-point/client.mjs`, still passed.
+
+Tests: `verify-center-point-entry.cjs` §4b drives the three reasons through prompt → save →
+`buildTpn`, and each failed before the fix; it also checks the lone-surrogate refusal. All 26
+harnesses, `DEAD=0`, `center-point.test.mjs` 5/5 and a clean `npm ci` + build pass.
+
+---
+
 ## Session 2026-09-15 (4) — PR #57 review fixes (Center Point entry)
 
 Fixes from the 2026-09-15 review of PR #57. Still a synthetic draft; nothing deployed. Every

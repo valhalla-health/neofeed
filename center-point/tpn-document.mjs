@@ -73,6 +73,12 @@ export const TPN_FIELDS = [
 // rendered with textContent, never parsed.
 export const TPN_SCHEMA='neofeed-tpn-v2', TPN_TEMPLATE='cp-tpn-2';
 const CONTROL=/[\u0000-\u001f\u007f]/;
+// The free-text limits, shared with NeoFeed's snapshot builder so text it has
+// cleaned always passes here. Lengths are UTF-16 units, as String#length.
+export const TPN_REASON_MAX=300, TPN_ALERT_MAX=160, TPN_CONTROL=CONTROL;
+// No lone UTF-16 surrogates. A plain loop, not String#isWellFormed: that needs
+// Chrome 111 / Safari 16.4, and ward and desktop browsers may be older.
+const wellFormed=v=>{for(let i=0;i<v.length;i++){const c=v.charCodeAt(i);if(c>=0xD800&&c<=0xDBFF){const d=v.charCodeAt(i+1);if(!(d>=0xDC00&&d<=0xDFFF))return false;i++;}else if(c>=0xDC00&&c<=0xDFFF)return false;}return true;};
 export function validateTpn(value) {
  const fail=()=>{throw Error('invalid_tpn_snapshot');};
  const exact=(v,keys)=>{if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).length!==keys.length||keys.some(k=>!Object.hasOwn(v,k)))fail();};
@@ -88,11 +94,11 @@ export function validateTpn(value) {
  exact(value.preparations,['ca','phosphate','iron','enteral']);
  // Only machine keys from the source constants, no free-text labels or identity.
  for(const v of Object.values(value.preparations))if(typeof v!=='string'||!Object.hasOwn(TPN_PREPARATIONS,v))fail();
- const text=(v,max)=>typeof v==='string'&&v.length>=1&&v.length<=max&&v.trim()===v&&!CONTROL.test(v);
+ const text=(v,max)=>typeof v==='string'&&v.length>=1&&v.length<=max&&v.trim()===v&&!CONTROL.test(v)&&wellFormed(v);
  if(value.criticalOverride!==null){
   exact(value.criticalOverride,['reason','alerts']);
   const {reason,alerts}=value.criticalOverride;
-  if(!text(reason,300)||!Array.isArray(alerts)||alerts.length<1||alerts.length>20||!alerts.every(a=>text(a,160)))fail();
+  if(!text(reason,TPN_REASON_MAX)||!Array.isArray(alerts)||alerts.length<1||alerts.length>20||!alerts.every(a=>text(a,TPN_ALERT_MAX)))fail();
  }
  return structuredClone(value);
 }
