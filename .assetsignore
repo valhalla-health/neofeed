@@ -32,6 +32,10 @@ graphify-out/
 test/
 node_modules/
 
+# Center Point staging entry (PR #57). Synthetic, and served only by CP's own
+# server from `neofeedDirectory` — never by the clinical NeoFeed domain.
+center-point/
+
 # NOTE: wrangler.jsonc cannot be listed here. Wrangler force-includes its own
 # config file when it sits inside the assets directory, so it IS served at
 # /wrangler.jsonc. Verified 2026-08-23: adding it here changes nothing, and

@@ -46,7 +46,7 @@ export const TPN_FIELDS = [
  ['k2Kg','Electrolytes','K2HPO4 ordered as K','mEq/kg/day'],['k2P','Electrolytes','K2HPO4 ordered as P','mg/kg/day'],
  ['k2Bag','Electrolytes','K2HPO4 in bag as K','mEq'],['k2Ml','Electrolytes','K2HPO4','mL'],
  ['kClKg','Electrolytes','KCl ordered','mEq/kg/day'],['kClBag','Electrolytes','KCl in bag','mEq'],['kClMl','Electrolytes','KCl','mL'],['kConc','Electrolytes','K in bag','mEq/L'],
- ['mgKg','Electrolytes','Mg ordered','mEq/kg/day'],['mgBag','Electrolytes','Mg in bag','mEq'],['mgStrength','Electrolytes','MgSO4 strength','%'],['mgMl','Electrolytes','MgSO4','mL'],
+ ['mgKg','Electrolytes','Mg ordered','mEq/kg/day'],['mgMgKg','Electrolytes','Mg ordered','mg/kg/day'],['mgBag','Electrolytes','Mg in bag','mEq'],['mgStrength','Electrolytes','MgSO4 strength','%'],['mgMl','Electrolytes','MgSO4','mL'],
  ['caKg','Electrolytes','Elemental Ca ordered','mg/kg/day'],['caBag','Electrolytes','Elemental Ca in bag','mg'],['caMl','Electrolytes','Ca gluconate','mL'],
  ['soluvit','Vitamins and trace','Soluvit N in bag','mL/day'],['soluvitDelivered','Vitamins and trace','Soluvit delivered','mL/day'],
  ['peditrace','Vitamins and trace','Peditrace in bag','mL/day'],['peditraceDelivered','Vitamins and trace','Peditrace delivered','mL/day'],
@@ -60,17 +60,24 @@ export const TPN_FIELDS = [
  ['minEnCa','Combined minerals','EN Ca','mg/kg/day'],['minEnP','Combined minerals','EN P','mg/kg/day'],
  ['minOralCa','Combined minerals','Oral Ca','mg/kg/day'],['minOralP','Combined minerals','Oral P','mg/kg/day'],['minOralRatio','Combined minerals','Oral Ca:P','ratio'],
  ['minTotalCa','Combined minerals','Total Ca','mg/kg/day'],['minTotalP','Combined minerals','Total P','mg/kg/day'],['minTotalRatio','Combined minerals','Total Ca:P','ratio'],
- ['aaDelivered','Delivered PN','Amino acid','g'],['energy','Delivered PN','Energy','kcal'],['energyKg','Delivered PN','Energy','kcal/kg/day'],
+ ['aaDelivered','Delivered PN','Amino acid','g'],['energy','Delivered PN','Energy (TPN)','kcal'],['energyTpnKg','Delivered PN','Energy (TPN)','kcal/kg/day'],['energyKg','Delivered PN','Energy incl. EN','kcal/kg/day'],
  ['naDelivered','Delivered PN','Na','mEq'],['kDelivered','Delivered PN','K','mEq'],['kKg','Delivered PN','K','mEq/kg/day'],
  ['mgDelivered','Delivered PN','Mg','mEq'],['caDelivered','Delivered PN','Ca','mg'],['pDelivered','Delivered PN','Phosphate','mg'],
  ['osm','Summary','Osmolarity','mOsm/L'],['gir','Summary','GIR','mg/kg/min'],['protein','Summary','Protein','g/kg/day'],['caP','Summary','Ca:P (TPN + EN)','ratio'],
  ['enVol','Enteral plan','Volume per feed','mL/feed'],['enFreq','Enteral plan','Feeds per 24 hours',''],['enDaily','Enteral plan','Planned enteral volume','mL/day']
 ];
+// v2 (2026-09-15): adds the Mg mg/kg and TPN-only energy/kg slots, both printed
+// on NeoFeed's pharmacy form (test/verify-center-point-print-parity.cjs), and
+// `criticalOverride`: the reason a clinician gave for saving past a critical
+// alert (NeoFeed F1). That reason is the one free-text field: plain text only,
+// rendered with textContent, never parsed.
+export const TPN_SCHEMA='neofeed-tpn-v2', TPN_TEMPLATE='cp-tpn-2';
+const CONTROL=/[\u0000-\u001f\u007f]/;
 export function validateTpn(value) {
  const fail=()=>{throw Error('invalid_tpn_snapshot');};
  const exact=(v,keys)=>{if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).length!==keys.length||keys.some(k=>!Object.hasOwn(v,k)))fail();};
- exact(value,['schema','appVersion','constantsVersion','templateVersion','orderDate','effectiveFrom','effectiveTo','dosingWeightG','currentWeightG','usingBirthWeight','route','dol','values','preparations']);
- if(value.schema!=='neofeed-tpn-v1'||value.templateVersion!=='cp-tpn-1')fail();
+ exact(value,['schema','appVersion','constantsVersion','templateVersion','orderDate','effectiveFrom','effectiveTo','dosingWeightG','currentWeightG','usingBirthWeight','route','dol','values','preparations','criticalOverride']);
+ if(value.schema!==TPN_SCHEMA||value.templateVersion!==TPN_TEMPLATE)fail();
  for(const k of ['appVersion','constantsVersion'])if(typeof value[k]!=='string'||!/^[0-9][0-9A-Za-z._-]{0,63}$/.test(value[k]))fail();
  const time=v=>typeof v==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString()===v;
  if(!/^\d{4}-\d\d-\d\d$/.test(value.orderDate)||!time(value.orderDate+'T00:00:00.000Z')||!time(value.effectiveFrom)||!time(value.effectiveTo)||value.effectiveTo<=value.effectiveFrom)fail();
@@ -81,12 +88,23 @@ export function validateTpn(value) {
  exact(value.preparations,['ca','phosphate','iron','enteral']);
  // Only machine keys from the source constants, no free-text labels or identity.
  for(const v of Object.values(value.preparations))if(typeof v!=='string'||!Object.hasOwn(TPN_PREPARATIONS,v))fail();
+ const text=(v,max)=>typeof v==='string'&&v.length>=1&&v.length<=max&&v.trim()===v&&!CONTROL.test(v);
+ if(value.criticalOverride!==null){
+  exact(value.criticalOverride,['reason','alerts']);
+  const {reason,alerts}=value.criticalOverride;
+  if(!text(reason,300)||!Array.isArray(alerts)||alerts.length<1||alerts.length>20||!alerts.every(a=>text(a,160)))fail();
+ }
  return structuredClone(value);
 }
 export function renderTpn(container, value) {
  const t=validateTpn(value), doc=container.ownerDocument;container.replaceChildren();
  const line=doc.createElement('p');line.textContent=`TPN ${t.orderDate} · ${t.route} · DOL ${t.dol} · dosing ${t.dosingWeightG} g · current ${t.currentWeightG} g${t.usingBirthWeight?' · birth-weight basis':''}`;container.append(line);
  const period=doc.createElement('p');period.textContent=`Effective ${t.effectiveFrom} → ${t.effectiveTo}`;container.append(period);
+ if(t.criticalOverride){
+  const box=doc.createElement('div'),head=doc.createElement('strong'),why=doc.createElement('p');box.className='tpn-critical';box.setAttribute('role','note');
+  head.textContent=`⚠ สั่งทั้งที่มีค่าวิกฤต: ${t.criticalOverride.alerts.join('; ')}`;why.textContent=`เหตุผล: ${t.criticalOverride.reason}`;
+  box.append(head,why);container.append(box);
+ }
  let section,table;
  for(const [id,group,label,unit] of TPN_FIELDS){
   if(group!==section){section=group;const h=doc.createElement('h3');h.textContent=group;table=doc.createElement('table');table.className='tpn-table';container.append(h,table);}

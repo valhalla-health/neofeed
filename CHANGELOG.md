@@ -13,6 +13,37 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-15 (4) — PR #57 review fixes (Center Point entry)
+
+Fixes from the 2026-09-15 review of PR #57. Still a synthetic draft; nothing deployed. Every
+`calculator.jsx` change is behind `centerPoint`, so the legacy screen behaves exactly as before and
+no cache-bust is needed.
+
+- **No clinical data in browser storage on the CP screen** (review finding 1). The F3 draft autosave
+  and the draft read both ran there, so a CP order sat in `localStorage` as
+  `neofeed_draft_<CP id>_<date>` for up to 72 h. Both are now off for `centerPoint`. A CP save also
+  sets `savedKey`, so the form stops saying "มีการแก้ไขที่ยังไม่ได้บันทึก". The Copy Order button is
+  hidden, since a saved form would otherwise unlock it, and so is the (gated-off) Submit.
+- **Critical-value reason carried into CP** (finding 3, Praew's decision). `centerPoint.save` now
+  receives `critOverride`. The snapshot moves to `neofeed-tpn-v2` / `cp-tpn-2` with
+  `criticalOverride: {reason, alerts} | null`, which `renderTpn` shows as text. On CP the prompt
+  also says not to type a name or HN, because CP keeps identity out of the packet.
+- **Intake / Output card not on the CP screen** (finding 4, Praew's decision). Input, Urine output
+  and Drain content go nowhere in CP, so they are hidden and out of the gate. Other IV and Drug
+  volume stay required because they feed the fluid budget.
+- **`center-point/` excluded from both hosts** (finding 5): `.assetsignore` and `_config.yml`.
+- **CP print slots** (finding 7): added Mg mg/kg and TPN-only kcal/kg, and relabelled the TPN+EN
+  figure "Energy incl. EN". The new parity harness found the kcal/kg gap; the review had not.
+
+New harnesses: `verify-center-point-entry.cjs` and `verify-center-point-print-parity.cjs`.
+`verify-required-log-fields.cjs` §7 now fills CP's Step 1 only. All 26 harnesses, `DEAD=0`,
+`center-point.test.mjs` 5/5, the shell `cmp` and the `center-point` build pass. CP's matching
+`web/tpn-document.mjs` change is in `valhalla-health/NICU-Center-Point`.
+
+Not done: "changes since the previous order" on CP's sheet. CP has no previous-order concept yet.
+
+---
+
 ## Session 2026-09-15 — `main` merged into `codex/center-point-v2` (PR #57)
 
 Brings the Center Point branch up to `main` (through PR #64). Still a synthetic draft; nothing

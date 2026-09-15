@@ -13,6 +13,8 @@ exclude:
   - docs/
   - test/
   - node_modules/
+  # Center Point staging entry (PR #57): served by CP, never by NeoFeed's host.
+  - center-point/
   - graphify-out/
   - NeoFeed.html
   - wrangler.jsonc

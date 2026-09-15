@@ -200,6 +200,8 @@ ok_('…with the same fields listed', /Drain content/.test(missingText()), missi
 // Center Point mounts this same <Calculator> with a `centerPoint` bridge that
 // replaces onLog. The gate and the F1 critical-value stop both run before that
 // branch (decision 2026-09-15), so neither can be skipped by saving through CP.
+// The CP screen has no Intake / Output card (PR #57 review, finding 4), so its
+// gate is Step 1 alone — verify-center-point-entry.cjs §3 covers that.
 console.log('\n── #7 a Center Point save passes the same gate and F1 stop ──');
 let cpSaved = null, cpLogged = null;
 const centerPoint = {
@@ -211,7 +213,9 @@ ok_('Save is disabled on an untouched CP form', saveButton()?.disabled === true,
 act(() => { saveButton()?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 eq('…and nothing reaches Center Point', cpSaved, null);
 
-REQUIRED.forEach(l => setField(l, l === 'Target fluid' ? 130 : l === 'Current weight' ? 1150 : 0));
+const CP_REQUIRED = REQUIRED.filter(l => !['Input', 'Urine output', 'Drain content'].includes(l));
+CP_REQUIRED.forEach(l => setField(l, l === 'Target fluid' ? 130 : l === 'Current weight' ? 1150 : 0));
+eq('Step 1 alone satisfies the CP gate', missingText(), '');
 setField('Volume(mL/day)', 300);
 setField('Dextrose final', 25);
 const critAlerts = [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => a.textContent);
