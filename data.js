@@ -1241,9 +1241,9 @@ function entryDol(patient, entry) {
 }
 
 // ============================================================
-// Bed labels — canonical form is exactly what registry.jsx's BED_OPTIONS
-// offers: "NICU <n>" (1–12) and "SCN <n>" (1–10) are flat bed numbers, while
-// the isolation rooms genuinely are two-part ("iso <room>-<bed>").
+// Bed labels — canonical form is exactly what BED_OPTIONS below offers:
+// "NICU <n>" (1–12) and "SCN <n>" (1–30) are flat bed numbers, while the
+// isolation rooms genuinely are two-part ("iso <room>-<bed>").
 //
 // Stored records carry non-canonical spellings that all name the same bed
 // and must not be shown verbatim:
@@ -1267,6 +1267,101 @@ function normalizeBed(bed) {
   // NICU/SCN beds are a single number; a trailing "-<n>" is the old default's
   // artifact rather than a real sub-bed, so it is dropped.
   return `${ward.toUpperCase()} ${m[2]}`;
+}
+
+// The canonical bed list. It lives here rather than in registry.jsx because
+// three things now need it and only one of them is a dropdown: the picker,
+// the one-patient-per-bed occupancy guard, and the "next free bed" the
+// transfer modal pre-selects. registry.jsx re-exports it as its own
+// BED_OPTIONS so there is still exactly one <select> rendering it.
+//
+// SCN runs 1–30 (widened from 1–10 on 2026-09-15 at the ward's request).
+// Widening is safe in a way narrowing is not: every bed a patient already
+// occupies stays in the list. If SCN is ever narrowed again, patients parked
+// above the new ceiling keep their label — BedSelect carries an off-list bed
+// as an extra option — but they can no longer be re-picked, so check the
+// census first.
+const BED_OPTIONS = [
+  ...Array.from({ length: 12 }, (_, i) => `NICU ${i + 1}`),
+  "iso 1-1", "iso 1-2",
+  "iso 2-1", "iso 2-2",
+  "iso 3-1", "iso 3-2", "iso 3-3", "iso 3-4",
+  ...Array.from({ length: 30 }, (_, i) => `SCN ${i + 1}`),
+];
+
+// Which ward a bed label belongs to: "NICU" | "SCN" | "iso" | "" (no bed) |
+// "other" (free-text bed from the sheet). The ward gate on the registry and
+// the next-free-bed search both group by this, so they can't disagree about
+// where a bed lives.
+function bedWard(bed) {
+  const s = normalizeBed(bed);
+  if (!s) return "";
+  const m = s.match(/^(NICU|SCN|iso)\b/i);
+  if (!m) return "other";
+  const w = m[1].toLowerCase();
+  return w === "iso" ? "iso" : w.toUpperCase();
+}
+
+// Which of the two wards the registry's entry screen puts a patient under.
+// The isolation rooms are NICU rooms — they are staffed and rounded as part
+// of NICU, and the ward gate offers the two wards the unit actually runs, so
+// grouping iso under NICU is what keeps an isolated infant reachable from the
+// screen the team looks for them on. Everything with no bed, or a free-text
+// bed typed straight into the sheet, falls into "other" — which the gate
+// shows as its own tile whenever it is non-empty, so no patient can be made
+// unreachable by a bed label nobody recognizes.
+function wardGroup(bed) {
+  const w = bedWard(bed);
+  if (w === "NICU" || w === "iso") return "NICU";
+  if (w === "SCN") return "SCN";
+  return "other";
+}
+
+// Only a patient still on the unit occupies a bed — a discharged/transferred/
+// expired session keeps its `currentBed` in the record (that is where they
+// were), but the bed itself is free for the next admission. Same definition
+// of "still here" as registry.jsx's isActivePatient, deliberately: if these
+// two ever disagree, a bed reads as occupied by someone the registry no
+// longer lists, and nothing on screen explains why it can't be picked.
+function isOnUnit(p) {
+  return !!p && (!p.status || p.status === "Active");
+}
+
+// Map of bed label → the patient holding it. `excludeSessionId` drops one
+// patient from the map, which is what makes "save my own record again"
+// different from "move onto someone else's bed": every caller that is
+// editing an existing patient passes that patient's own id.
+function bedOccupancy(patients, excludeSessionId) {
+  const map = new Map();
+  (patients || []).forEach(p => {
+    if (!isOnUnit(p)) return;
+    if (excludeSessionId && String(p.sessionId) === String(excludeSessionId)) return;
+    const bed = normalizeBed(p.currentBed);
+    if (!bed) return;
+    // First writer wins, so a pre-existing double-booking (two rows typed
+    // straight into the sheet) names the same patient everywhere it is
+    // reported instead of flipping with list order.
+    if (!map.has(bed)) map.set(bed, p);
+  });
+  return map;
+}
+
+// The patient already in `bed`, or null. Null for a blank bed: "not yet
+// assigned" is not an occupancy, and several unbedded patients are normal.
+function bedOccupant(patients, bed, excludeSessionId) {
+  const b = normalizeBed(bed);
+  if (!b) return null;
+  return bedOccupancy(patients, excludeSessionId).get(b) || null;
+}
+
+// The lowest-numbered free bed in a ward — what the transfer modal
+// pre-selects so moving a patient out of NICU lands them on the next running
+// SCN number instead of on whatever bed happened to be listed first.
+// Returns "" when the ward is full, which callers must treat as "leave the
+// current selection alone", never as "unassign the patient".
+function nextFreeBed(patients, ward, excludeSessionId) {
+  const occupied = bedOccupancy(patients, excludeSessionId);
+  return BED_OPTIONS.find(b => bedWard(b) === ward && !occupied.has(b)) || "";
 }
 
 // ============================================================
@@ -1413,8 +1508,9 @@ window.NEOFEED_DATA = {
   // Live DOL helper. entryDol re-derives a saved log row's DOL from its date
   // instead of trusting the stored (snapshot, goes stale) `dol` column.
   liveDol, dolAtDate, entryDol,
-  // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed)
-  normalizeBed,
+  // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
+  // the one bed list, and the one-patient-per-bed occupancy helpers
+  normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, nextFreeBed,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,

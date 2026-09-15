@@ -87,15 +87,18 @@ const log = {
 };
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-act(() => {
+// Since 2026-09-15 the registry opens on a ward gate (NICU / SCN) and every
+// count below it is scoped to the chosen ward, so each ward is rendered and
+// read separately. `ward: null` is the gate itself.
+const render = (ward) => act(() => {
   root.render(React.createElement(PatientRegistry, {
-    patients, log, activeId: 'A', onSelect() {}, onAdd() {}, onEdit() {}, onDelete() {},
+    patients, log, activeId: 'A', ward, onWardChange() {},
+    onSelect() {}, onAdd() {}, onEdit() {}, onDelete() {},
   }));
 });
-
-const stats = [...document.querySelectorAll('.reg-stat')].map(
+const readStats = () => [...document.querySelectorAll('.reg-stat')].map(
   el => el.querySelector('.reg-stat-lbl').textContent + '=' + el.querySelector('.reg-stat-val').textContent);
-const badges = [...document.querySelectorAll('.log-badge')].map(el => el.textContent);
+const readBadges = () => [...document.querySelectorAll('.log-badge')].map(el => el.textContent);
 
 let fails = 0;
 const eq = (label, got, want) => {
@@ -104,20 +107,49 @@ const eq = (label, got, want) => {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label.padEnd(52)} got ${JSON.stringify(got)}  want ${JSON.stringify(want)}`);
 };
 
-console.log('\n── registry stats strip ──');
+// ── the gate itself ───────────────────────────────────────────────────────
+console.log('\n── ward gate (no ward chosen) ──');
+render(null);
+const gateText = document.getElementById('root').textContent;
+eq('gate is what renders first', /เลือก ward/.test(gateText), true);
+eq('…offering NICU', /NICU 1–12/.test(gateText), true);
+eq('…and SCN 1–30', /SCN 1–30/.test(gateText), true);
+eq('no patient list yet', document.querySelectorAll('.log-badge').length, 0);
+// Every active patient must be reachable from some tile, or the gate has
+// hidden someone: the two ward tiles plus the conditional "other" tile.
+const reachable = patients.filter(p => !p.status || p.status === 'Active')
+  .every(p => ['NICU', 'SCN', 'other'].includes(D.wardGroup(p.currentBed)));
+eq('every active patient falls under a tile', reachable, true);
+
+// ── NICU: A (legacy "NICU 1-1") + B, both logged today ────────────────────
+console.log('\n── NICU stats strip ──');
+render('NICU');
+let stats = readStats();
+let badges = readBadges();
 console.log('  rendered:', stats.join('   '));
-eq('Active counts a blank status as active', stats[0], 'Active=3');
-eq('Total sessions counts everyone',         stats[1], 'Total sessions=4');
+eq('Active counts only this ward',           stats[0], 'Active=2');
+eq('Total sessions counts this ward',        stats[1], 'Total sessions=2');
 eq('Logged today survives a Sheets Date + back-fill', stats[2], 'Logged today=2');
+eq('Needs entry = active - logged',          stats[3], 'Needs entry=0');
+eq('the three reconcile',
+   Number(stats[2].split('=')[1]) + Number(stats[3].split('=')[1]),
+   Number(stats[0].split('=')[1]));
+eq('one badge per active patient, per layout', badges.length, 4);
+eq('LOGGED badges',      badges.filter(b => b.includes('LOGGED')).length, 4);
+
+// ── SCN: C (blank status, unlogged) + D (discharged, logged today) ────────
+console.log('\n── SCN stats strip ──');
+render('SCN');
+stats = readStats();
+badges = readBadges();
+console.log('  rendered:', stats.join('   '));
+eq('Active counts a blank status as active', stats[0], 'Active=1');
+eq('Total sessions counts the discharged one too', stats[1], 'Total sessions=2');
+eq('a discharged patient logged today does not inflate Logged', stats[2], 'Logged today=0');
 eq('Needs entry = active - logged',          stats[3], 'Needs entry=1');
 eq('the three reconcile',
    Number(stats[2].split('=')[1]) + Number(stats[3].split('=')[1]),
    Number(stats[0].split('=')[1]));
-
-console.log('\n── per-patient badges (mobile card + desktop row) ──');
-console.log('  rendered:', badges.join(' | '));
-eq('one badge per active patient, per layout', badges.length, 6);
-eq('LOGGED badges',      badges.filter(b => b.includes('LOGGED')).length, 4);
 eq('NEEDS ENTRY badges', badges.filter(b => b === 'NEEDS ENTRY').length, 2);
 
 // The raw comparison the app used to make, kept as the control: if this ever

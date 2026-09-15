@@ -122,7 +122,9 @@ eq('multiplesCount reaches the sheet',   sheet.writes[0]?.values[0][17], 2);
 // ── 3. A brand-new patient still appends (appendRow self-widens) ──────────
 console.log('\n── registering a patient not already on the sheet ──');
 sheet = makeSheet(PAT_HEADER.slice(0, 17), [EXISTING.slice(0, 17)], 17);
-sandbox.registerPatient({ ...patient, sessionId: 'NEW-1' });
+// On a free bed: EXISTING is active in NICU 11 and the one-patient-per-bed
+// guard (section 6) would otherwise refuse this registration.
+sandbox.registerPatient({ ...patient, sessionId: 'NEW-1', currentBed: 'NICU 4' });
 eq('appended rather than written in place', sheet.appended.length, 1);
 eq('appended row is 18 wide',               sheet.appended[0]?.length, 18);
 eq('no in-place write',                     sheet.writes.length, 0);
@@ -130,6 +132,8 @@ eq('no in-place write',                     sheet.writes.length, 0);
 // ── 4. Formula-injection guard still applies on the widened path ──────────
 console.log('\n── _sheetSafe still applied ──');
 sheet = makeSheet(PAT_HEADER.slice(0, 17), [EXISTING.slice(0, 17)], 17);
+// Same sessionId as EXISTING, so this is an edit of that row — its own bed is
+// never a conflict with itself.
 sandbox.registerPatient({ ...patient, diagnosis: '=IMPORTXML("evil","//a")' });
 ok('leading = is escaped', String(sheet.writes[0]?.values[0][11]).startsWith("'="));
 
@@ -182,9 +186,10 @@ threw = null;
 try { sandbox.registerPatient({ ...patient, dob: '2026-07-09' }); } catch (e) { threw = e.message; }
 ok('Date-valued stored dob still compares', threw !== null);
 
-// (f) A genuinely new id is untouched by the guard.
+// (f) A genuinely new id is untouched by the guard. On a free bed — NICU 11
+//     is EXISTING's, and section 6 below refuses a double-booking.
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-sandbox.registerPatient({ ...patient, sessionId: 'NEW-2' }, true);
+sandbox.registerPatient({ ...patient, sessionId: 'NEW-2', currentBed: 'SCN 30' }, true);
 eq('a genuinely new id still appends', sheet.appended.length, 1);
 
 // (h) The twin-specific case from the 2026-09-10 identification review: a
@@ -207,6 +212,65 @@ ok('dob mismatch → conflict',
    !!sandbox._sessionIdConflict(EXISTING, { ...patient, dob: '2026-01-01' }, false));
 eq('blank incoming dob → no conflict',
    sandbox._sessionIdConflict(EXISTING, { ...patient, dob: '' }, false), null);
+
+// ══ 6. One infant per bed ════════════════════════════════════════════════
+// The ward's rule since 2026-09-15: a bed holds one patient, and a second
+// patient has to be moved onto a free bed rather than saved on top. Every
+// client picker enforces it too, but only this check sees writes from other
+// devices — two tablets can each believe the bed is free.
+console.log('\n── one infant per bed ──');
+const bedErr = (p, isNew) => {
+  try { sandbox.registerPatient(p, isNew); return null; } catch (e) { return e.message; }
+};
+
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+ok('registering onto an occupied bed is refused',
+  /NICU 11/.test(bedErr({ ...patient, sessionId: 'OTHER-1' }, true) || ''));
+eq('…and nothing reached the sheet', sheet.appended.length + sheet.writes.length, 0);
+
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+ok('the refusal names who is in the bed and what to do',
+  /Fo/.test(bedErr({ ...patient, sessionId: 'OTHER-1' }, true) || '') &&
+  /ย้าย/.test(bedErr({ ...patient, sessionId: 'OTHER-1' }, true) || ''));
+
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+eq('re-saving the SAME patient on their own bed is fine',
+  bedErr({ ...patient, diagnosis: 'RDS · updated' }), null);
+
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+eq('moving onto a free bed is fine',
+  bedErr({ ...patient, sessionId: 'OTHER-1', currentBed: 'SCN 7' }, true), null);
+
+// A discharged patient keeps the bed label on their record, but the bed is
+// free for the next admission — otherwise every bed on the unit silts up.
+const DISCHARGED = EXISTING.slice(); DISCHARGED[9] = 'Discharged';
+sheet = makeSheet(PAT_HEADER, [DISCHARGED], 26);
+eq('a discharged patient does not hold their bed',
+  bedErr({ ...patient, sessionId: 'OTHER-1' }, true), null);
+
+// Legacy spellings name the same physical bed and must collide with it.
+const LEGACY = EXISTING.slice(); LEGACY[10] = 'NICU-11';
+sheet = makeSheet(PAT_HEADER, [LEGACY], 26);
+ok('a legacy bed spelling still counts as occupied',
+  bedErr({ ...patient, sessionId: 'OTHER-1', currentBed: 'NICU 11' }, true) !== null);
+
+// No bed recorded is not an occupancy — several unbedded patients are normal.
+const NOBED = EXISTING.slice(); NOBED[10] = '';
+sheet = makeSheet(PAT_HEADER, [NOBED], 26);
+eq('two patients with no bed do not collide',
+  bedErr({ ...patient, sessionId: 'OTHER-1', currentBed: '' }, true), null);
+
+// The client and the backend must agree on the canonical spelling, or the
+// backend refuses a bed the picker offered (or vice versa).
+// data.js is browser code: it publishes onto `window`. This file has no DOM,
+// so give it the bare global it needs rather than pulling in jsdom.
+globalThis.window = globalThis;
+vm.runInThisContext(fs.readFileSync(require('path').join(__dirname, '..', 'data.js'), 'utf8'));
+const clientNorm = globalThis.window.NEOFEED_DATA.normalizeBed;
+['NICU 1-1', 'NICU-3', 'scn  2', 'iso 3-2', '  nicu   4 ', '9B2', ''].forEach(b => {
+  eq(`_normBed agrees with data.js for ${JSON.stringify(b)}`,
+    sandbox._normBed(b), clientNorm(b));
+});
 
 console.log(`\n${fail === 0 ? 'GAS REGISTRY UPSERT: ALL PASS' : `GAS REGISTRY UPSERT: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

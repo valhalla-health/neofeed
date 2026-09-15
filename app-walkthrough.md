@@ -199,9 +199,17 @@ birth weight, in critical red, next to a mobile card showing +22%.
 
 ### Bed labels
 `currentBed` is free text in the sheet, but the canonical set is exactly what
-`BED_OPTIONS` in `registry.jsx` offers: `NICU 1`–`NICU 12` and `SCN 1`–`SCN 10`
-are flat bed numbers, and only the isolation rooms are genuinely two-part
-(`iso 1-1` … `iso 3-4`). `D.normalizeBed(bed)` (added 2026-08-17) maps the
+`D.BED_OPTIONS` offers: `NICU 1`–`NICU 12` and `SCN 1`–`SCN 30` are flat bed
+numbers, and only the isolation rooms are genuinely two-part
+(`iso 1-1` … `iso 3-4`). **The list lives in `data.js`, not `registry.jsx`**
+(moved 2026-09-15, when SCN was widened from 10 to 30): three things need it
+and only one of them is a dropdown — the picker, the one-patient-per-bed
+guard, and the "next free bed" the transfer modal pre-selects. `registry.jsx`
+reads it as `D_R.BED_OPTIONS` and must *not* alias it to a local
+`const BED_OPTIONS`: `data.js` and `registry.jsx` are two plain `<script>`
+tags sharing one global lexical scope, so a second top-level `const` of that
+name is a redeclaration that kills the page at parse time (the harness pins
+this). `D.normalizeBed(bed)` (added 2026-08-17) maps the
 legacy spellings — `"NICU 1-1"`, `"NICU-3"`, stray casing/whitespace — onto
 that set and leaves anything unrecognized untouched. It runs at the single
 point patient records enter client state (`syncFromGAS` in `app.jsx`), so
@@ -211,6 +219,27 @@ was `NewPatientModal`/`EditPatientModal`'s old default bed — a literal that
 matched no `<option>`, so the dropdown rendered blank while that string was
 submitted anyway, and every patient registered without touching the field was
 filed under a bed that doesn't exist.
+
+**One infant per bed** (2026-09-15). `D.bedOccupancy(patients, exceptId)`
+returns a `bed → patient` Map — only patients still on the unit hold a bed, so
+a Discharged/Transferred/Expired session keeps its `currentBed` in the record
+but frees the bed itself. `exceptId` is what separates "save my own record
+again" from "double-book": every caller editing an existing patient passes
+that patient's own `sessionId`, so re-saving them on the bed they are already
+in is never blocked. `D.bedOccupant` and `D.nextFreeBed(patients, ward,
+exceptId)` are built on it; `nextFreeBed` returns the lowest-numbered free bed
+in a ward and `""` when the ward is full, which callers must treat as "leave
+the selection alone", never as "unassign the patient".
+The rule is enforced **four times over**, and deliberately so: `BedSelect`
+disables an occupied bed (labelled `NICU 5 · ไม่ว่าง (name)` — shown, not
+hidden, because a missing bed reads as a broken dropdown while a named one
+tells you whom to move), each modal refuses it on save, `handleAddPatient`/
+`handleEditPatient` in `app.jsx` re-check against live state, and
+`registerPatient` in `gas-backend.gs` refuses it server-side. Only the last
+of those sees other devices' writes — every client check runs against a
+`patients` snapshot that can be minutes old. `_normBed` in `gas-backend.gs`
+mirrors `normalizeBed`; the harness pins that the two agree, and if the
+canonical spelling ever changes, **both** have to move.
 
 **All three places a bed can be set — register, edit, transfer — render the
 same `BedSelect` component** (`registry.jsx`), so "a bed is one of
@@ -399,7 +428,24 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 
 ## 5. Main views (nav rail / bottom nav)
 
-1. **Patients** (`registry.jsx`) — patient list, sorted NICU → iso → SCN
+1. **Patients** (`registry.jsx`) — **opens on a ward gate** (added
+   2026-09-15): two tiles, NICU and SCN, each with that ward's active count
+   and how many still need today's entry; picking one scopes the whole screen
+   to it, and `← เปลี่ยน ward` goes back. The unit runs the two as separate
+   censuses with separate rounding teams, and the combined list made everyone
+   scroll past the other ward to reach their own. The chosen ward lives in
+   `app.jsx` (`ward`, `null` = show the gate) rather than inside
+   `PatientRegistry`, so navigating to the Dashboard and back doesn't drop the
+   user at the gate mid-round; it is **not** persisted, so a fresh load always
+   asks. `D.wardGroup(bed)` does the grouping: **iso rooms count as NICU**
+   (they are staffed and rounded as part of it), and anything with no bed or a
+   free-text bed falls into `"other"`, which gets a third tile only when it is
+   non-empty — no patient may be made unreachable by a bed label nobody
+   recognizes. `PatientRegistry` early-returns the gate after its last hook,
+   so the hook call order stays stable; every count, badge and filter below it
+   is ward-scoped, while the bed-occupancy maps the modals build take the
+   **full** census (a bed is occupied by whoever is in it, gate or not).
+   Below the gate: patient list, sorted NICU → iso → SCN
    (then numerically within each ward). Desktop: table. Mobile: tappable
    cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, Edit/Open).
    Each active patient carries a `✓ LOGGED` / `NEEDS ENTRY` badge
@@ -465,14 +511,51 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    "Current weight" (`curWtG` state) is the actual measured weight — typed
    in by the user, saved as-is into the Daily_Log `weight` column, and what
    `onWeightChange` propagates to the PatientStrip/growth chart. "TPN calc.
-   weight" is a read-only derived value (`wtG` — kept as the historical name
-   since it already permeates every dosing formula in this file) that every
+   weight" (`wtG` — kept as the historical name
+   since it already permeates every dosing formula in this file) is what every
    per-kg target/dose in `calc`, `mineral`, the salt rows and the printed
-   order form actually run on: it floors at `patient.bw` while `curWtG`
+   order form actually runs on: it floors at `patient.bw` while `curWtG`
    hasn't yet regained birth weight (KCMH bedside convention — dosing per-kg
    off a still-falling post-natal-weight-loss nadir over/under-doses
-   everything), then tracks `curWtG` automatically once it clears `bw`. Not
-   independently editable — there is no `setWtG` any more, only `setCurWtG`.
+   everything), then tracks `curWtG` automatically once it clears `bw`.
+   **That rule now prefills the field rather than owning it** (2026-09-15,
+   ward request): the attending can overrule the dosing weight — dry weight
+   after a fluid shift, an oedematous infant, a weight agreed on rounds that
+   is neither the scale reading nor the birth weight. `tpnWtOverrideG` is `0`
+   when the automatic figure is in use, so typing the automatic number back in
+   *clears* the override instead of freezing the field at a value that merely
+   matched it once (there is also a `ใช้ค่าอัตโนมัติ` button). An override is
+   never silent: the field hints `⚠ แก้เอง · อัตโนมัติ = N g`, a banner under
+   Step 1 says every dose below is computed from it, and both the clipboard
+   order and the printed pharmacy form carry the manual weight *and* what the
+   rule would have given. `usingBirthWeight` is false whenever the override is
+   in play — an override that happens to equal the birth weight is still an
+   override, and the order form must not claim the floor rule produced it.
+   `tpnWtOverrideG` rides in `calcInput` (absent on every pre-2026-09-15 row,
+   which `?? 0` restores as the automatic behaviour those orders were
+   calculated with); the Daily_Log `weight` column stays the **measured**
+   weight, unchanged.
+   **Every field in Step 1 and Intake / Output must be filled before Save**
+   (2026-09-15, "บังคับลง log ทุกช่อง ถึงจะ save ได้"). What counts as filled is
+   *the box is not empty*, not *the value is non-zero* — a fresh form renders
+   0 as an empty box with a "0" placeholder, so a field nobody touched looks
+   exactly like one somebody deliberately zeroed, and Other IV / Drug volume /
+   Drain really are 0 most days. `NumField` reports blankness up via
+   `required`/`onBlankChange`; `missingFields` disables Save and lists what is
+   missing above it, and `handleSave` force-opens Step 1 before toasting (a
+   toast naming a field inside a collapsed accordion is a dead end). Two
+   things that look like details and are not: a typed `0` must survive the
+   value-sync effect (`typedRef` in `NumField` — without it the keystroke set
+   the value to 0, the effect re-rendered it as empty, and the field could not
+   be satisfied at all), and the required fields are `key`ed on `formIdentity`
+   so a `0` typed for one infant doesn't arrive pre-satisfied on the next.
+   Reopening a **saved** entry seeds its recorded zeros as typed zeros
+   (`seedsZero(key)` — per field, not per entry) so fixing a weight doesn't
+   mean re-typing every zero the row holds, while a field the row never
+   carried (a legacy entry from before the Intake/Output card) still comes
+   back blank. Steps 2-6 are deliberately outside the gate: a day with no
+   lipid, no supplement and no enteral feed is a normal day, and a gate
+   demanding a typed 0 in each of those boxes gets cleared by rote.
    `D.ioDivisorG`'s own "today's weight" parameter takes `curWtG` (the real
    entered figure), not the floored `wtG` — see the birth-weight-floor note
    on `ioDivisorG` itself in `data.js`, which already implements the same

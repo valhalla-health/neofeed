@@ -13,6 +13,70 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-15 — Ward gate, one bed per infant, editable dosing weight, required log fields
+
+Six bedside requests from the ward, all frontend + one backend guard. Nothing about the
+Daily_Log column layout changed, so no sheet migration is needed.
+
+**1 · TPN calc. weight is editable.** It still prefills from the birth-weight-floor rule
+(2026-08-26) — that behaviour is pinned unchanged by `verify-tpn-calc-weight.cjs` §1-5 — but the
+attending can now overrule the dosing weight. `tpnWtOverrideG` is 0 while the automatic figure is
+in use, so typing the automatic number back in clears the override rather than freezing the field
+at a number that merely matched it once; there is a `ใช้ค่าอัตโนมัติ` button too. An override is
+never silent: a `⚠ แก้เอง` field hint, a banner under Step 1, and the manual weight *plus* what the
+rule would have given on both the clipboard order and the printed pharmacy form. `usingBirthWeight`
+is false whenever an override is in play, so the order form cannot claim the floor rule produced a
+weight somebody typed. The `weight` column still records the **measured** weight.
+
+**2 · Every Step 1 + Intake/Output field must be entered before Save.** "Filled" means *the box is
+not empty*, not *the value is non-zero* — a fresh form renders 0 as an empty box with a "0"
+placeholder, so a field nobody touched was indistinguishable from one somebody deliberately zeroed,
+and Other IV / Drug volume / Drain really are 0 most days. Steps 2-6 are deliberately outside the
+gate. Two non-obvious parts, both now pinned by `verify-required-log-fields.cjs`: a typed `0` has to
+survive the value-sync effect (it did not at first — the keystroke set the value to 0, the effect
+wiped the box back to empty, and the field could not be satisfied at all), and the fields are keyed
+on the form identity so a `0` typed for one infant doesn't arrive pre-satisfied on the next.
+Reopening a saved entry seeds its *recorded* zeros as typed zeros, per field — a legacy row that
+never carried an I/O figure still comes back blank rather than showing a 0 nobody wrote.
+
+**3 · The registry opens on a ward gate.** Two tiles, NICU and SCN, each with that ward's active
+count and how many still need today's entry; the list below is scoped to the chosen ward. iso rooms
+group under NICU; anything with no bed or an unrecognized one gets a third tile, shown only when
+non-empty, so the gate cannot make a patient unreachable. The choice lives in `app.jsx` so
+Dashboard-and-back doesn't return to the gate mid-round, and is not persisted, so a fresh load
+always asks.
+
+**4 · One infant per bed.** Enforced four times over — `BedSelect` disables an occupied bed
+(labelled `NICU 5 · ไม่ว่าง (name)`: shown rather than hidden, because a missing bed reads as a
+broken dropdown while a named one tells you whom to move), each modal refuses it on save,
+`handleAddPatient`/`handleEditPatient` re-check against live state, and `registerPatient` refuses it
+server-side. Only the last sees other devices' writes; every client check runs against a `patients`
+snapshot that can be minutes old. A discharged patient frees their bed. A patient's own bed is never
+an obstacle to re-saving them.
+
+**5 · SCN runs 1–30** (was 1–10). Widening is safe in a way narrowing is not: every bed a patient
+already occupies stays in the list.
+
+**6 · Transferring out of NICU runs the bed number on.** The transfer modal now offers the next free
+running number per ward as a one-tap button (`NICU · 3`, `SCN · 7`), so the common NICU → SCN
+step-down lands on the next SCN bed instead of making someone read down a 30-entry dropdown for the
+first gap. `NewPatientModal` seeds the next free NICU bed for the same reason — the old fixed
+`NICU 1` default put every admission on an occupied bed.
+
+`BED_OPTIONS` moved from `registry.jsx` to `data.js` alongside `normalizeBed`, since the gate and
+the occupancy guard need it too. It must **not** be aliased back to a local `const BED_OPTIONS` —
+the two files are `<script>` tags sharing one global lexical scope, so that is a redeclaration that
+kills the page at parse time. The harness pins it, having caught exactly that.
+
+Tests: new `verify-required-log-fields.cjs` (24 assertions). `verify-bed-dol-io.cjs` gains the
+occupancy/next-free-bed/ward-grouping section and now reads `D.BED_OPTIONS` instead of keeping its
+own copy; `verify-gas-registry-upsert.cjs` gains the server-side bed rule and a check that
+`_normBed` agrees with `data.js`'s `normalizeBed`; `verify-tpn-calc-weight.cjs` gains §6-8 for the
+override. `runthrough-app.cjs` drives the ward gate, the occupancy-aware picker and the override in
+a real Chromium. Full suite green, plus `DEAD=0` and the two-shell `cmp`.
+
+---
+
 ## Session 2026-09-12 (3) — Frontend `?v=review-0911` live on both hosts
 
 PR #60 (`main` → `release`), approved by `tasamew` and merged, deployed Cloudflare and GitHub

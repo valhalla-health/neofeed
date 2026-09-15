@@ -76,7 +76,8 @@ node test/verify-publish-lock.cjs
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
 `verify-delete-session.cjs`, `verify-forced-password-client.cjs`,
-`verify-tpn-calc-weight.cjs`, `verify-nutrition-unit-review.cjs` and
+`verify-tpn-calc-weight.cjs`, `verify-required-log-fields.cjs`,
+`verify-nutrition-unit-review.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
@@ -98,6 +99,7 @@ node test/verify-patient-ga-bw-edit.cjs
 node test/verify-delete-session.cjs
 node test/verify-forced-password-client.cjs
 node test/verify-tpn-calc-weight.cjs
+node test/verify-required-log-fields.cjs
 node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
 ```
@@ -196,6 +198,20 @@ asserts the round trip (restore → untouched re-save writes the same numbers),
 the fallback to the `ioInput`/`ioOutput`/`drainContent` columns for a row whose
 `calcInput` predates the card, and — in the other direction — that a brand-new
 entry's Input still tracks the prescribed total live until the user types in it.
+
+Sections 1b-1c were added on 2026-09-15 with the ward's one-patient-per-bed
+rule: `bedOccupancy`/`bedOccupant` (a discharged patient frees their bed, an
+unbedded one occupies nothing, a legacy spelling still collides with the bed
+it names, and excluding a patient frees their own bed so re-saving them is
+never blocked), `nextFreeBed` (the lowest free running number in a ward, `""`
+when the ward is full — never a wrong bed), and `wardGroup`, which decides
+which tile of the registry's ward gate a patient appears under. The bed list
+itself now comes from `data.js` rather than being re-listed here: a second
+copy in the harness would pass while the app rendered a different set of beds,
+which is the exact class of defect this file exists for. It also pins that
+`registry.jsx` does **not** re-declare `const BED_OPTIONS` — the two files
+share one global lexical scope, so that is a parse-time redeclaration that
+kills the page, and it happened during this change.
 
 **`verify-patient-ga-bw-edit.cjs`** — mounts the real `<EditPatientModal>` in
 jsdom and drives its fields, because what it pins is the payload the modal
@@ -323,14 +339,21 @@ The UMD bundles must be the exact versions the script tags pin, because
 That is a feature: a passing run is also proof those hashes still match the
 versions named beside them.
 
-Its fixture is the patient from the 2026-08-17 bug reports — bed stored as
+Its fixture is the patient from the 2026-08-17 bug reports — plus, since
+2026-09-15, a roommate on `NICU 5` so the one-patient-per-bed rule has a bed
+to hold — bed stored as
 `"NICU 1-1"`, log rows whose stored `dol` disagrees with their own date, an
 entry carrying real Intake/Output figures, and one row whose `ts` arrives in
 the stringified-`Date` shape the live sheet can return — so every defect fixed
 that day would be visible on screen if it came back. The malformed-`ts` row is
 also the one with a stale `dol`, so it only renders correctly if `ts`
 normalization and the DOL re-derivation both work, which is the one real
-interaction between that day's two sessions. It checks the rendered bed label and that
+interaction between that day's two sessions. Since 2026-09-15 it also clicks through the ward gate on the way in (the app
+no longer lands on the patient list), checks that the roommate's bed is
+offered-but-disabled in the picker while the patient's own stays selectable,
+and drives the editable TPN calculation weight: that it is a real input, that
+overriding it raises the `แก้เอง` flag alongside the automatic figure, and that
+`ใช้ค่าอัตโนมัติ` puts it back. It checks the rendered bed label and that
 the picker offers nothing outside `BED_OPTIONS`, the DOL/day-admit columns and
 their ordering, that reopening an entry restores Input/urine/drain and the
 balance line, that editing drain and saving sends the right numbers to the
@@ -427,8 +450,9 @@ would still fail the harness.
 
 **`verify-tpn-calc-weight.cjs`** — regression cover for the 2026-08-26 split of
 Step 1's single weight field into "Current weight" (the actual measured
-figure, entered directly) and "TPN calc. weight" (derived, read-only — what
-every per-kg dose and target actually runs on). Same jsdom harness as the
+figure, entered directly) and "TPN calc. weight" (what every per-kg dose and
+target actually runs on — derived by the birth-weight-floor rule, and
+**editable since 2026-09-15**). Same jsdom harness as the
 Factor/bed-dol-io scripts: mounts the real `<Calculator>` and drives it.
 
 It pins the floor/track/re-floor state machine — below birth weight the calc
@@ -445,6 +469,36 @@ actually measured at. A patient with no birth weight on record never floors
 `calcInput.wtG` with no `curWtG` key, the only shape that existed before this
 split — must land in Current weight and then re-derive TPN calc. weight from
 it and the patient's `bw`, not silently show 0.
+
+Sections 6-8 cover the 2026-09-15 change that made the derived field editable:
+that it renders as a real input, that an override drives the doses (not just
+the box) while leaving Current weight alone, that typing the automatic figure
+back in *releases* the override so the field resumes tracking the weight, and
+that a real override round-trips through a saved entry without the `weight`
+column picking it up. Sections 1-5 are unchanged and are what pins that the
+automatic behaviour still prefills exactly as it did.
+
+**`verify-required-log-fields.cjs`** — the 2026-09-15 rule that every field in
+Step 1 and the Intake / Output card must be filled in before an order can be
+saved ("บังคับลง log ทุกช่อง ถึงจะ save ได้"). Mounts the real `<Calculator>`.
+
+The interesting part is what "filled" means. A fresh form renders 0 as an
+**empty box with a "0" placeholder**, so a field nobody has touched looks
+exactly like one somebody deliberately zeroed — and Other IV, Drug volume and
+Drain really are 0 most days. The gate therefore asks for a non-empty box, not
+a non-zero value, which means a typed `0` has to survive the effect that
+re-renders the field from its value. It did not, at first: the keystroke set
+the value to 0, the effect wiped the box back to empty, and the field could
+not be satisfied at all. That case is section 2 here.
+
+The rest: a prefilled figure (the ESPGHAN fluid midpoint, the last weight)
+counts as entered, because the rule is about silent defaults and a visible 130
+mL/kg/d is not silent — but clearing it puts it back in the missing list;
+entering Current weight also satisfies TPN calc. weight, which derives from
+it; Steps 2-6 are outside the gate, so an NPO day with no TPN and no feed
+still saves; reopening a saved entry does not demand re-typing the zeros it
+already records; and a fresh form for the **next** patient starts blocked
+again, which is what stops one infant's answers pre-satisfying another's.
 **`verify-nutrition-unit-review.cjs`** — the two items acted on from the
 Nutrition Unit's AUG 2026 review, and the only harness here whose subject is
 **legibility rather than arithmetic**.

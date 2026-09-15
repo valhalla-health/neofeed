@@ -50,7 +50,67 @@ function multiplesLabel(p) {
   return `${term} ${p.twinSuffix}`;
 }
 
-function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit, onDelete }) {
+// ── Ward gate ────────────────────────────────────────────────
+// The first screen of the shift: pick NICU or SCN, then work that ward's
+// list. The unit runs two wards with two different censuses and two rounding
+// teams, and the combined list made every nurse scroll past the other ward's
+// patients to reach their own — so the ward is chosen once on entry and the
+// list stays scoped to it until it is changed.
+//
+// The two tiles are always shown even when a ward is empty (an empty NICU is
+// information, and the tile is where you register the first admission into
+// it). A third "other" tile appears only when patients exist with no bed or
+// an unrecognized one — those patients would otherwise be reachable from no
+// tile at all, which is the one failure mode a gate like this can introduce.
+// Module level, not nested inside WardGate — a component defined inside
+// another is a new type on every render, so React unmounts and remounts it
+// (the reason calculator.jsx keeps TwoCol out of Calculator).
+function WardTile({ label, sub, list, log, today, onPick }) {
+  const logged = list.filter(p => D_R.hasLogOnDate(log[p.sessionId], today)).length;
+  const needs  = list.length - logged;
+  return (
+    <button className="ward-tile" onClick={onPick}
+      style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
+        padding: "22px 24px", borderRadius: 12, border: "1px solid var(--line-2)",
+        background: "var(--bg-1)", cursor: "pointer", textAlign: "left", width: "100%" }}>
+      <div style={{ fontSize: 22, fontWeight: 600, color: "var(--brand-2)", letterSpacing: "-0.02em" }}>{label}</div>
+      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{sub}</div>
+      <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 12.5 }}>
+        <span><span className="num" style={{ fontSize: 18, fontWeight: 600 }}>{list.length}</span>
+          <span style={{ color: "var(--ink-3)" }}> active</span></span>
+        <span style={{ color: needs === 0 ? "var(--ok)" : "var(--crit)" }}>
+          <span className="num" style={{ fontSize: 18, fontWeight: 600 }}>{needs}</span>
+          <span> needs entry</span></span>
+      </div>
+    </button>
+  );
+}
+
+function WardGate({ patients, log, today, onPick }) {
+  const groups = { NICU: [], SCN: [], other: [] };
+  const active = patients.filter(isActivePatient);
+  active.forEach(p => groups[D_R.wardGroup(p.currentBed)].push(p));
+  const tile = (ward) => ({ list: groups[ward], log, today, onPick: () => onPick(ward) });
+
+  return (
+    <>
+      <div className="page-head" style={{ marginBottom: 16 }}>
+        <div>
+          <h1>เลือก ward</h1>
+          <div className="sub">{active.length} active sessions · {today}</div>
+        </div>
+      </div>
+      <div className="ward-gate" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 }}>
+        <WardTile label="NICU" sub="NICU 1–12 · iso 1–3" {...tile("NICU")} />
+        <WardTile label="SCN"  sub="SCN 1–30"            {...tile("SCN")} />
+        {groups.other.length > 0 &&
+          <WardTile label="อื่นๆ" sub="ยังไม่ระบุเตียง / เตียงนอกรายการ" {...tile("other")} />}
+      </div>
+    </>
+  );
+}
+
+function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete }) {
   const [filter, setFilter]         = React.useState("");
   const [showAdd, setShowAdd]       = React.useState(false);
   const [editPatient, setEditPatient]       = React.useState(null);
@@ -62,8 +122,19 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
   // discharged auto-hide all re-evaluate on their own at midnight instead of
   // holding yesterday's answer until someone reloads the tab.
   const today = D_R.useTodayLocal();
+
+  // No ward chosen yet → the gate IS this view. Every hook this component
+  // calls is above this line (five useStates and useTodayLocal), so the early
+  // return can't change the hook call order between renders.
+  if (!ward) return <WardGate patients={patients} log={log} today={today} onPick={onWardChange} />;
+
   const q = filter.toLowerCase().trim();
-  const filtered = patients.filter(p =>
+  // Scoped to the chosen ward, before the text filter. Every count, badge and
+  // modal on this screen is then about one ward — except the bed-occupancy
+  // maps the modals build, which take the full census (a bed is occupied by
+  // whoever is in it, ward gate or not).
+  const wardPatients = patients.filter(p => D_R.wardGroup(p.currentBed) === ward);
+  const filtered = wardPatients.filter(p =>
     !q ||
     (p.name || "").toLowerCase().includes(q) ||
     (p.currentBed || "").toLowerCase().includes(q) ||
@@ -92,7 +163,7 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
   // back-filled past date is appended after today's, which used to make an
   // already-logged patient read as "needs entry") and normalizes `ts` first
   // (the sheet can return it as a Date object, never equal to a date string).
-  const activePatients = patients.filter(isActivePatient);
+  const activePatients = wardPatients.filter(isActivePatient);
   const loggedSet    = new Set(
     activePatients.filter(p => D_R.hasLogOnDate(log[p.sessionId], today)).map(p => p.sessionId)
   );
@@ -104,9 +175,12 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
     <>
       <div className="page-head" style={{ marginBottom: 12 }}>
         <div>
-          <h1>Patient registry</h1>
-          <div className="sub">{patients.length} sessions · {totalActive} active</div>
+          <h1>{ward === "other" ? "อื่นๆ" : ward}</h1>
+          <div className="sub">{wardPatients.length} sessions · {totalActive} active</div>
         </div>
+        <button className="btn" onClick={() => onWardChange?.(null)} style={{ fontSize: 12.5 }}>
+          ← เปลี่ยน ward
+        </button>
       </div>
 
       {/* ── Stats strip ── */}
@@ -115,8 +189,12 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
           <span className="reg-stat-val">{totalActive}</span>
           <span className="reg-stat-lbl">Active</span>
         </div>
+        {/* Ward-scoped like the other three: a strip that mixed one ward's
+            active count with the whole unit's session count invited reading
+            the difference as "13 discharged" when most of it is the other
+            ward still on the unit. */}
         <div className="reg-stat">
-          <span className="reg-stat-val">{patients.length}</span>
+          <span className="reg-stat-val">{wardPatients.length}</span>
           <span className="reg-stat-lbl">Total sessions</span>
         </div>
         <div className={`reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}`}>
@@ -420,15 +498,18 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
 
         {filtered.length === 0 && (
           <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
-            {filter ? "ไม่พบผู้ป่วยที่ตรงกัน" : "ยังไม่มีผู้ป่วยในระบบ — กด New session เพื่อเริ่มต้น"}
+            {filter ? "ไม่พบผู้ป่วยที่ตรงกัน" : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`}
           </div>
         )}
       </div>
 
-      {showAdd          && <NewPatientModal onClose={() => setShowAdd(false)} onSubmit={p => { onAdd(p); setShowAdd(false); }} />}
-      {editPatient      && <EditPatientModal patient={editPatient} onClose={() => setEditPatient(null)}
+      {/* All three get the FULL census, not the ward-filtered list — a bed is
+          occupied by whoever is in it, including a patient the ward gate is
+          currently hiding from view. */}
+      {showAdd          && <NewPatientModal patients={patients} onClose={() => setShowAdd(false)} onSubmit={p => { onAdd(p); setShowAdd(false); }} />}
+      {editPatient      && <EditPatientModal patient={editPatient} patients={patients} onClose={() => setEditPatient(null)}
         onSubmit={p => { onEdit?.(p); setEditPatient(null); }} onDelete={onDelete} />}
-      {transferPatient  && <TransferBedModal patient={transferPatient} onClose={() => setTransferPatient(null)}
+      {transferPatient  && <TransferBedModal patient={transferPatient} patients={patients} onClose={() => setTransferPatient(null)}
         onSubmit={p => { onEdit?.(p); setTransferPatient(null); }} />}
     </>
   );
@@ -443,13 +524,13 @@ function PatientRegistry({ patients, activeId, log = {}, onSelect, onAdd, onEdit
 // anything at 20 wk or 50 wk.
 const GA_WEEK_OPTIONS = Array.from({ length: 22 }, (_, i) => 22 + i);
 
-const BED_OPTIONS = [
-  ...Array.from({ length: 12 }, (_, i) => `NICU ${i + 1}`),
-  "iso 1-1", "iso 1-2",
-  "iso 2-1", "iso 2-2",
-  "iso 3-1", "iso 3-2", "iso 3-3", "iso 3-4",
-  ...Array.from({ length: 10 }, (_, i) => `SCN ${i + 1}`),
-];
+// The canonical bed list now lives in data.js (D_R.BED_OPTIONS), next to
+// normalizeBed and the occupancy helpers — the ward gate and the "one patient
+// per bed" guard need it too, and only one of the three is a dropdown.
+// Referenced through D_R rather than aliased to a local `const BED_OPTIONS`:
+// data.js and this file are two plain <script> tags sharing one global
+// lexical scope, so a second top-level `const` of that name is a redeclaration
+// that kills the whole page at parse time.
 
 // The ONLY bed picker in the app — every place a bed can be set (register,
 // edit, transfer) renders this, so "a bed is one of BED_OPTIONS" holds
@@ -470,21 +551,46 @@ const BED_OPTIONS = [
 //     admitted them to that bed. `allowUnassigned` renders an explicit
 //     "ยังไม่ระบุเตียง" choice instead; the caller decides whether an empty
 //     value is submittable.
-function BedSelect({ value, onChange, allowUnassigned = false, style }) {
+//
+// `occupancy` (a bed → patient Map from D.bedOccupancy, already excluding the
+// patient being edited) makes the one-patient-per-bed rule visible where the
+// bed is picked: a bed someone else is in is listed with their name and is
+// not selectable. It is shown rather than hidden on purpose — "SCN 4 · ไม่ว่าง
+// (สมชาย)" tells you to move that patient first, while a silently missing
+// SCN 4 reads as a bug in the dropdown. The guard is re-checked on save in
+// every modal, and again in the backend, because a stale `patients` snapshot
+// (another nurse admitting on another device) can make this list wrong.
+function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy }) {
   const current = D_R.normalizeBed(value);
-  const isKnown = current === "" || BED_OPTIONS.includes(current);
+  const isKnown = current === "" || D_R.BED_OPTIONS.includes(current);
+  const takenBy = (b) => occupancy?.get(b);
   return (
     <select className="sel" style={style} value={current}
       onChange={e => onChange(e.target.value)}>
       {(allowUnassigned || current === "") &&
         <option value="">— ยังไม่ระบุเตียง —</option>}
-      {BED_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+      {D_R.BED_OPTIONS.map(b => {
+        const holder = takenBy(b);
+        // The patient's own current bed is never disabled: `occupancy` is
+        // built with their sessionId excluded, so this can only fire for
+        // someone else's bed.
+        return <option key={b} value={b} disabled={!!holder}>
+          {holder ? `${b} · ไม่ว่าง (${holder.name || holder.sessionId})` : b}
+        </option>;
+      })}
       {!isKnown && <option value={current}>{current} (ไม่อยู่ในรายการเตียง)</option>}
     </select>
   );
 }
 
-function NewPatientModal({ onClose, onSubmit }) {
+// The one message the three modals show when a bed is already taken. Says who
+// is in it and what to do about it, because "เตียงไม่ว่าง" alone leaves the
+// user clicking the same disabled option again.
+const bedTakenMsg = (bed, holder) =>
+  `เตียง ${bed} มี ${holder.name || holder.sessionId} อยู่แล้ว — ` +
+  `ต้องย้าย ${holder.name || holder.sessionId} ออกก่อน (Transfer) จึงจะบันทึกเตียงนี้ได้`;
+
+function NewPatientModal({ patients, onClose, onSubmit }) {
   const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState("");
   const [bw, setBw]             = React.useState(0);
@@ -499,7 +605,16 @@ function NewPatientModal({ onClose, onSubmit }) {
   // "NICU 1-1", which no <option> matched — so the dropdown rendered blank
   // while the state still submitted that string, filing every patient
   // registered without touching the field under a bed that does not exist.
-  const [bed, setBed]           = React.useState("NICU 1");
+  // Now it is the lowest free NICU bed, computed once on open: seeding a
+  // fixed "NICU 1" put every admission on an occupied bed by default, which
+  // the save guard below would then refuse. Falls back to unassigned when
+  // NICU is full — the user picks, rather than being defaulted onto a bed
+  // that is someone else's.
+  const [bed, setBed]           = React.useState(() => D_R.nextFreeBed(patients, "NICU"));
+  // Who is in which bed right now. No exclusion: a session being registered
+  // holds no bed yet, so every occupied bed belongs to somebody else.
+  const occupancy = React.useMemo(() => D_R.bedOccupancy(patients), [patients]);
+  const bedTaken  = occupancy.get(D_R.normalizeBed(bed)) || null;
   const [dx, setDx]             = React.useState("");
   const [admitDate, setAdmitDate] = React.useState(today);
   const [admitDol, setAdmitDol]   = React.useState(1);
@@ -511,7 +626,9 @@ function NewPatientModal({ onClose, onSubmit }) {
   // Birth weight and GA feed every downstream nutrition calculation (targets,
   // Fenton percentile, HMF threshold) — a 0/blank value here would silently
   // corrupt every subsequent dose for this patient, so block submission on it.
-  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "";
+  // …and one infant per bed: registering onto an occupied bed would leave two
+  // patients reading as the same bed on every board and handover sheet.
+  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && !bedTaken;
 
   // DOB = admitDate − (admitDol − 1) days
   // Via addDaysToDateStr, which is UTC-anchored end to end. The previous
@@ -621,7 +738,12 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div className="row-2">
             <div className="field">
               <label>Bed</label>
-              <BedSelect value={bed} onChange={setBed} allowUnassigned />
+              <BedSelect value={bed} onChange={setBed} allowUnassigned occupancy={occupancy} />
+              {bedTaken && (
+                <div style={{ fontSize: 11, color: "var(--crit)", marginTop: 4 }}>
+                  {bedTakenMsg(D_R.normalizeBed(bed), bedTaken)}
+                </div>
+              )}
             </div>
             <div className="field">
               <label>Diagnosis</label>
@@ -631,7 +753,7 @@ function NewPatientModal({ onClose, onSubmit }) {
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 }}>
             {!canSubmit && (
               <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" }}>
-                กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน
+                {bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : "กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน"}
               </span>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
@@ -717,7 +839,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
   );
 }
 
-function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
+function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
   const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState(patient.name || patient.initials || "");
   // Birth weight, GA and sex are corrections of what was typed at
@@ -761,6 +883,12 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   // diagnosis can't quietly admit them to whatever bed the default happened
   // to name. BedSelect renders the explicit "ยังไม่ระบุเตียง" choice for that.
   const [bed, setBed]           = React.useState(D_R.normalizeBed(patient.currentBed));
+  // This patient is excluded, so re-saving them on the bed they are already
+  // in is never blocked — only moving them onto someone else's is. That is
+  // the whole difference between "save again" and "double-book".
+  const occupancy = React.useMemo(
+    () => D_R.bedOccupancy(patients, patient.sessionId), [patients, patient.sessionId]);
+  const bedTaken  = occupancy.get(D_R.normalizeBed(bed)) || null;
   const [dx, setDx]             = React.useState(patient.diagnosis || "");
   const [status, setStatus]     = React.useState(patient.status || "Active");
   const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
@@ -771,7 +899,7 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
   // Same gate as registration: a 0/blank BW or GA would corrupt every
   // subsequent dose for this patient, so it can be corrected but not cleared.
-  const canSave = bw > 0 && gaW !== "";
+  const canSave = bw > 0 && gaW !== "" && !bedTaken;
 
   // Permanently deletes the session — removes it from Patient_Registry and
   // every Daily_Log row for it on the server (`handleDeletePatient` in
@@ -906,7 +1034,7 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
           <div className="row-2">
             <div className="field">
               <label>Bed</label>
-              <BedSelect value={bed} onChange={setBed} allowUnassigned />
+              <BedSelect value={bed} onChange={setBed} allowUnassigned occupancy={occupancy} />
             </div>
             <div className="field">
               <label>Diagnosis</label>
@@ -914,8 +1042,8 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
             </div>
           </div>
           {!canSave && (
-            <div style={{ fontSize: 11.5, color: "var(--ink-3)", textAlign: "right" }}>
-              ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก
+            <div style={{ fontSize: 11.5, color: bedTaken ? "var(--crit)" : "var(--ink-3)", textAlign: "right" }}>
+              {bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken) : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"}
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
@@ -935,16 +1063,43 @@ function EditPatientModal({ patient, onClose, onSubmit, onDelete }) {
 }
 
 // ── Transfer bed modal ───────────────────────────────────────
-function TransferBedModal({ patient, onClose, onSubmit }) {
+// Moving a patient out of NICU is the one bed change that happens on a
+// schedule (step-down to SCN), and the ward numbers its SCN beds by running
+// order rather than by geography — so the ward buttons here jump straight to
+// the next free number in a ward instead of making the user read down a
+// 30-entry dropdown for the first gap. The dropdown is still there for a
+// deliberate pick; occupied beds are disabled in both paths.
+function TransferBedModal({ patient, patients, onClose, onSubmit }) {
   // Both sides normalized so a legacy "NICU 1-1" record preselects "NICU 1"
   // and re-picking that same bed still counts as "no change" (rather than
   // writing a spurious bedHistory hop from "NICU 1-1" to "NICU 1").
   const currentBed = D_R.normalizeBed(patient.currentBed);
   const [bed, setBed] = React.useState(currentBed);
+  // Excludes this patient: their own bed is not an obstacle to moving them.
+  const occupancy = React.useMemo(
+    () => D_R.bedOccupancy(patients, patient.sessionId), [patients, patient.sessionId]);
+  const bedTaken = occupancy.get(D_R.normalizeBed(bed)) || null;
+
+  // Next free running number per ward, recomputed as the census changes. ""
+  // means the ward is full — the button is disabled rather than clearing the
+  // selection, since "no free bed" must never read as "unassign".
+  const WARDS = ["NICU", "iso", "SCN"];
+  const nextFree = React.useMemo(() => {
+    const out = {};
+    WARDS.forEach(w => { out[w] = D_R.nextFreeBed(patients, w, patient.sessionId); });
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patients, patient.sessionId]);
 
   const save = () => {
     const next = D_R.normalizeBed(bed);
     if (!next || next === currentBed) { onClose(); return; }
+    // Re-checked here and not only at the dropdown: `patients` is a synced
+    // snapshot, so another device can have filled this bed since it loaded.
+    // The backend refuses it a third time — this is the message that explains
+    // what to do about it.
+    const holder = occupancy.get(next);
+    if (holder) { window.alert(bedTakenMsg(next, holder)); return; }
     const bedHistory = [
       ...(patient.bedHistory || []),
       { bed: currentBed, date: D_R.todayLocal() },   // local date, not UTC
@@ -964,8 +1119,30 @@ function TransferBedModal({ patient, onClose, onSubmit }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" }}>
             <span className="chip"><span className="d" />{currentBed || "—"}</span>
             <span style={{ color: "var(--ink-3)" }}>→</span>
-            <BedSelect value={bed} onChange={setBed} style={{ flex: 1 }} />
+            <BedSelect value={bed} onChange={setBed} style={{ flex: 1 }} occupancy={occupancy} />
           </div>
+
+          {/* Next free running number per ward — one tap for the common
+              NICU → SCN step-down. */}
+          <div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 }}>ย้ายไปเตียงว่างถัดไป</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {WARDS.map(w => (
+                <button key={w} className={`btn${bed === nextFree[w] && nextFree[w] ? " primary" : ""}`}
+                  style={{ fontSize: 12 }}
+                  disabled={!nextFree[w]}
+                  onClick={() => setBed(nextFree[w])}>
+                  {w} · {nextFree[w] || "เต็ม"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {bedTaken && (
+            <div style={{ fontSize: 11.5, color: "var(--crit)" }}>
+              {bedTakenMsg(D_R.normalizeBed(bed), bedTaken)}
+            </div>
+          )}
 
           {/* Bed history */}
           {(patient.bedHistory || []).length > 0 && (
@@ -980,7 +1157,7 @@ function TransferBedModal({ patient, onClose, onSubmit }) {
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" onClick={save}
-              disabled={!bed || D_R.normalizeBed(bed) === currentBed}>
+              disabled={!bed || D_R.normalizeBed(bed) === currentBed || !!bedTaken}>
               <Icon name="save" size={14} color="#fff" /> Confirm transfer
             </button>
           </div>

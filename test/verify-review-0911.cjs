@@ -256,6 +256,12 @@ const openAll = () => act(() => {
   container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
 });
 const saveBtn = () => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'บันทึก' || /กำลังบันทึก/.test(b.textContent));
+// Step 1 + Intake/Output must all carry a typed value before Save is reachable
+// (2026-09-15 required-field gate) — a fresh form renders 0 as an empty box.
+// Called before every save below so these sections still test what they are
+// named for rather than tripping on the gate.
+const fillRequired = () => ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']
+  .forEach(l => setField(l, l === 'Target fluid' ? 120 : 0));
 const alertTexts = () => [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => a.textContent.replace(/\s+/g, ' '));
 const printForm = () => container.querySelector('#print-form');
 function mount(props) {
@@ -282,6 +288,7 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   setField('SMOF Lipid', 3.5);
   setField('KCl', 5);
   setField('10% Ca gluconate', 60);
+  fillRequired();
   const texts = alertTexts();
   ok('K 5 mEq/kg/d raises a critical alert', texts.some(t => /Potassium critically/.test(t)), texts);
   ok('Ca with zero P raises a critical alert', texts.some(t => /Ca:P ratio — ไม่มี P/.test(t)), texts);
@@ -354,7 +361,9 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   root = ReactDOM.createRoot(container);
   const twin = (s) => ({ sessionId: 'TW-800-' + s, name: 'TW', initials: 'TW', bw: 800, ga: 26, sex: 'boys', status: 'Active',
     currentBed: 'NICU ' + (s === 'A' ? 1 : 2), twinSuffix: s, multiplesCount: 2, weights: [{ dol: 1, w: 800 }], admissionDate: '2026-09-01' });
-  act(() => { root.render(React.createElement(window.__PatientRegistry, { patients: [twin('A'), twin('B')], log: {}, onSelect() {}, onAdd() {}, onEdit() {} })); });
+  // `ward` is required since 2026-09-15 — without one the registry renders
+  // the ward gate instead of a list. Both twins are on NICU beds.
+  act(() => { root.render(React.createElement(window.__PatientRegistry, { patients: [twin('A'), twin('B')], log: {}, ward: 'NICU', onWardChange() {}, onSelect() {}, onAdd() {}, onEdit() {} })); });
   eq('mobile cards carry Twin A / Twin B', [...container.querySelectorAll('.patient-card-list .pmc-twin')].map(e => e.textContent), ['Twin A', 'Twin B']);
 
   console.log('\n── P1 · the provenance stamp is derived, never hand-kept ──');
