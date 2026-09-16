@@ -1,26 +1,79 @@
 # NeoFeed — Status
 
-**Updated 2026-09-15** · 🟢 **Backend `@54` and frontend `?v=bed-guard-0915` are both live and in
-step.** This is the ward-gate / one-infant-per-bed release (#63) plus the discharged-record fix (#66).
-- **Frontend:** deployed in two steps on 2026-09-15, `ward-gate-0915` via PR #65 and `bed-guard-0915`
-  via PR #67 (20:42 ICT).
-- **Backend:** `@54` via `clasp` at 20:47 ICT.
-- **Verified** on both hosts and against the pulled version 54 source. See "How the 2026-09-15 deploy
-  was verified".
+**Updated 2026-09-16** · 🟢 **Backend `@54` and frontend `?v=sync-poll-0916` are both live.**
+The sync-screen release (#70 → #71).
+- **Frontend:** `release` = `098bd37`, merged by `tasamew` at 10:29 UTC / 17:29 ICT on 2026-09-16.
+  `data.js` and `app.jsx` move to `?v=sync-poll-0916`; `calculator.jsx` stays `ward-gate-0915`
+  (its content changed, but only Center-Point-gated code — see below).
+- **Backend:** **unchanged, still `@54`.** `gas-backend.gs` is byte-identical across this deploy,
+  so no `clasp` step was run and none was needed.
+- ⚠️ **Partly verified — read "How the 2026-09-16 deploy was verified" before trusting this line.**
+  The `release` branch content and the GitHub Pages deployment are confirmed; **the served bytes on
+  neither host were fetched**, because the agent session that prepared this could not reach either
+  domain. A human has not opened the live app since the merge.
+
+**Previous (2026-09-15):** frontend `?v=bed-guard-0915` + backend `@54` — the ward-gate /
+one-infant-per-bed release (#63) plus the discharged-record fix (#66), deployed in two steps,
+`ward-gate-0915` via PR #65 and `bed-guard-0915` via PR #67 (20:42 ICT), backend `@54` via `clasp`
+at 20:47 ICT. Verified on both hosts and against the pulled version 54 source — see "How the
+2026-09-15 deploy was verified".
 🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
 Pages; `main` deploys nothing. See "Release-branch deploy gate".
 
-**2026-09-16 — ⏳ NOT DEPLOYED: frontend sync work is on `claude/sync-loading-screen-ui-s6p61d`,
-awaiting a `release` merge.** Cache-bust in both shells moves to `data.js?v=sync-poll-0916` and
-`app.jsx?v=sync-poll-0916` when it goes. What it carries: the `.app` grid fix — the offline/
-staleness banner was taking the **rail's** grid cell and collapsing the workspace from 1208 px to
-232 px (below the fold on a phone) in exactly the two states the banner exists to announce; a
-4-minute background poll for visible tabs, which is what the ward had been reporting as "sync
-นานกว่าปกติ" — there was no periodic re-sync at all, so a workstation left open and focused never
-refreshed; a sequence guard so the newer of two overlapping syncs wins; a first-load gate that no
-longer falls through on a *failed* first sync; and the redesigned `SyncGate` / staleness banner.
-`gas-backend.gs` is **untouched** — the backend half of "slow" is filed in `BACKLOG.md` § Now and
-needs a measurement and Praew's deploy. See `CHANGELOG.md` 2026-09-16 (3).
+## How the 2026-09-16 deploy was verified
+
+**What ships:** PR #70 (the sync-screen fix) merged to `main` as `39c7dd3`, then PR #71 merged
+`main` → `release` as `098bd37`. 17 commits, because `release` had silently accumulated 15 before
+this one — **a `main` → `release` merge is never "just the change you were working on"**, and the
+backlog has to be enumerated before it is called a deploy. Alongside the sync fix it carried
+**Center Point v2** (#57, #69), which `CHANGELOG.md` 2026-09-16 (2) had described as *"still a
+synthetic draft; nothing deployed"*.
+
+**Confirmed (primary sources, not inspection):**
+- ✅ `origin/release` = `098bd37`; `git merge-base --is-ancestor 6e3b95f origin/release` passes, so
+  the sync fix is genuinely on the deployed branch.
+- ✅ `git show origin/release:NeoFeed.html` carries
+  `grid-template-rows: var(--header-h) auto 1fr`, `.app > [role="status"] { grid-column: 1 / -1;
+  grid-row: 2; }`, and `src="data.js?v=sync-poll-0916"` / `src="app.jsx?v=sync-poll-0916"`.
+- ✅ **GitHub Pages** `pages build and deployment` run 206 on `098bd37` — **success**, 10:30 UTC.
+- ✅ `harnesses` green on `098bd37` itself (run 41, 10:30 UTC), and on both `39c7dd3` (PR #71's
+  head) and `6e3b95f` (PR #70's head). It is a required check on `release`.
+- ✅ **Center Point is inert on the ward's screen.** `calculator.jsx` gains 66 lines, every one
+  behind a `centerPoint` prop: that identifier appears **15× in `calculator.jsx` and 0× in
+  `app.jsx` / `registry.jsx` / `log.jsx` / `fenton.jsx`**. The legacy screen never passes it, so the
+  prop is always `undefined` there and every CP branch is dead code. `center-point/` is excluded
+  from both hosts (`_config.yml` for Pages, `.assetsignore` for Workers).
+- ✅ Both shells byte-identical (`cmp index.html NeoFeed.html`); all 30 harnesses + `DEAD=0` + the
+  center-point build and its 5 client tests pass on `39c7dd3`.
+
+**NOT confirmed — and this is the gap the 2026-09-15 entry did not have:**
+- ❌ **The served bytes on either host were never fetched.** The 2026-09-15 procedure fetched the
+  live URL and diffed it; that step did not happen here. The agent session's egress policy answered
+  `403` to `CONNECT` for both `neofeed.valhalla-health.workers.dev` and `valhalla-health.github.io`,
+  so "Pages reports a successful deployment" is as far as the evidence goes — it is not the same
+  claim as "the live page serves the new file".
+- ❌ **Cloudflare Workers' build on `098bd37` was still running** when this was written. Its build
+  on the same tree at `39c7dd3` succeeded, so this is expected to be fine, but it is not observed.
+- ❌ **No human has opened the live app since the merge.**
+
+**The 60-second check that closes all three** (`?v=` forces past any cache):
+
+```bash
+curl -s https://neofeed.valhalla-health.workers.dev/ | grep -c 'v=sync-poll-0916'   # expect 2
+curl -s https://valhalla-health.github.io/neofeed/ | grep -c 'v=sync-poll-0916'     # expect 2
+```
+
+**Then, at the bedside — the two things only this deploy makes checkable:**
+1. Leave the registry open and untouched for ~5 minutes. **The topbar pill's timestamp must advance
+   on its own.** Before this deploy it never did on a workstation that stayed focused, which is the
+   entire content of the "sync นานกว่าปกติ" report.
+2. **Hover the pill.** Its tooltip now reports the last round trip in seconds. That number is what
+   `BACKLOG.md` § Now needs to size the backend half of "slow" (`getActivePatients` re-reads the
+   whole `Daily_Log` on every sync, and the new 4-minute poll multiplies how often that is paid).
+
+**Rollback:** revert `098bd37` on `release` and push — both hosts redeploy from `release`. No schema
+change, no backend change, no migration. The only persistent side effect is extra `readRegistry`
+rows in `Audit_Log` (~15/hour per open tab) for as long as the poll is live.
 
 **2026-09-10 — PR #58, "Save / Submit / Print" publish-lock design — backend now deployed.** See
 `CHANGELOG.md` 2026-09-10 (2) for the full description. Merged to `main` (`4878a39`, frontend
