@@ -306,7 +306,7 @@ function mount(props) {
   // web/tpn-document.mjs, point CP's test/neofeed-commit at the new NeoFeed
   // commit, then record the new digest below.
   console.log('\n── §6 center-point/tpn-document.mjs matches the version CP was synced to ──');
-  const TPN_DOCUMENT_SHA256 = 'e24c5be2a6ddcd6392ba9e190be4df3b297d3db6c6f3086660ec529761b1fd71';
+  const TPN_DOCUMENT_SHA256 = 'bcedde10311d5e82baef3e77cba452b69e233ffda980954220bf0a05360da504';
   const digest = require('crypto').createHash('sha256')
     .update(fs.readFileSync(DIR + 'center-point/tpn-document.mjs', 'utf8').replace(/\r\n/g, '\n')).digest('hex');
   ok('tpn-document.mjs is the version CP is synced to (else: sync CP, re-pin, update this digest)', digest === TPN_DOCUMENT_SHA256, digest);
