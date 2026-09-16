@@ -110,14 +110,45 @@
   }
 
   /* ============ APP SHELL ============ */
+  /* Three rows, not two: topbar / banner / body. The middle row is `auto`, so
+     it is exactly 0px tall on the ordinary day when no banner is rendered —
+     but it has to EXIST, and .rail/.work have to be placed explicitly below
+     it, because grid auto-placement was the bug here.
+
+     App renders the offline/staleness banner as a bare <div role="status">
+     child of .app with no placement of its own. With two rows and everything
+     after .topbar auto-placed, the banner took the first free cell — which was
+     the RAIL's (row 2, column 1) — shunting .rail into the workspace column
+     and .work into an implicit third row that `overflow: hidden` then clipped.
+     Measured in Chromium at 1440px: the workspace collapsed from 1208px wide
+     to 232px and lost 654px of its height; at 390px it was pushed below the
+     fold entirely. So the layout broke precisely when the app was offline or
+     its data was >15 min old — the two states the banner exists to announce,
+     and the two where a nurse most needs to reach the numbers.
+     test/verify-sync-gate-and-poll.cjs measures these four boxes in real
+     Chromium. */
   .app {
     display: grid;
     grid-template-columns: var(--rail-w) 1fr;
-    grid-template-rows: var(--header-h) 1fr;
+    grid-template-rows: var(--header-h) auto 1fr;
     height: 100vh;
     height: 100dvh; /* iOS Safari: excludes collapsing browser chrome */
     overflow: hidden; /* shell never scrolls — only .work does */
   }
+  /* The banner row. Matches App's <div role="status"> and nothing else —
+     every other role="status" in the app is inside .work-inner, not a direct
+     child of .app (the print block below already relies on the same fact). */
+  .app > [role="status"] { grid-column: 1 / -1; grid-row: 2; }
+  /* Generates no box of its own, so the empty host can never claim a grid
+     cell the way the banner did. Its toasts are position:fixed and are
+     unaffected by it. */
+  #toast-host { display: contents; }
+  /* The banner's Sync button. Inline-styled like the rest of the banner (see
+     App), except for the one thing an inline style cannot express: it sits at
+     the end of the row on a workstation, and becomes a full-width target on
+     the line below the message on a phone — where it is the control someone
+     reaches for one-handed, having just been told the numbers are stale. */
+  .sync-banner-btn { flex: 0 0 auto; }
   .topbar {
     grid-column: 1 / -1;
     grid-row: 1;
@@ -186,6 +217,8 @@
 
   /* ============ NAV RAIL ============ */
   .rail {
+    grid-column: 1;
+    grid-row: 3;
     background: var(--surface);
     border-right: 1px solid var(--line);
     overflow-y: auto;
@@ -233,7 +266,7 @@
   .rail-foot .conn .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 999px; }
 
   /* ============ WORKSPACE ============ */
-  .work { overflow: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+  .work { grid-column: 2; grid-row: 3; overflow: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
   .work-inner { padding: 18px 22px 60px; max-width: 1480px; }
 
   .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
@@ -960,12 +993,16 @@
   @media (max-width: 767px) {
     :root { --rail-w: 0px; --header-h: 52px; }
 
-    /* Shell: 1-column, no rail */
+    /* Shell: 1-column, no rail. The banner row stays (see .app above) — the
+       workspace has to be told to sit in the single remaining column, since
+       the desktop rule puts it in column 2. */
     .app {
       grid-template-columns: 1fr;
-      grid-template-rows: var(--header-h) 1fr;
+      grid-template-rows: var(--header-h) auto 1fr;
     }
+    .work { grid-column: 1; }
     .rail { display: none; }
+    .sync-banner-btn { flex: 1 0 100%; }
 
     /* Topbar: compact */
     .topbar { padding: 0 12px; gap: 8px; }
@@ -1415,12 +1452,12 @@
   </script>
 
   <!-- App data and modules — ?v= busts browser cache on each deploy -->
-  <script src="data.js?v=bed-guard-0915"></script>
+  <script src="data.js?v=sync-poll-0916"></script>
   <script type="text/babel" src="icons.jsx?v=notes-date-sel1"></script>
   <script type="text/babel" src="calculator.jsx?v=ward-gate-0915"></script>
   <script type="text/babel" src="fenton.jsx?v=ga-clamp42"></script>
   <script type="text/babel" src="registry.jsx?v=bed-guard-0915"></script>
   <script type="text/babel" src="log.jsx?v=bed-dol-io2"></script>
-  <script type="text/babel" src="app.jsx?v=bed-guard-0915"></script>
+  <script type="text/babel" src="app.jsx?v=sync-poll-0916"></script>
 </body>
 </html>

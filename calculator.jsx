@@ -321,7 +321,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, logDate, userLabel, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete }) {
+function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, logDate, userLabel, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint }) {
   // Current weight — the actual weight entered/measured for this log day.
   // This is what gets saved as the Daily_Log `weight` column and propagated
   // to the patient's displayed current weight (PatientStrip, growth chart).
@@ -373,6 +373,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   // deliberately NOT in this set: a day with no lipid, no oral supplement and
   // no enteral feed is a normal day, and a gate that demanded a typed 0 in
   // every one of those boxes would be cleared by rote within a week.
+  //
+  // The Center Point entry has no Intake / Output card: none of its three
+  // values go to CP, and a required box whose answer is discarded only teaches
+  // staff to type 0 (PR #57 review, finding 4). Other IV and Drug volume stay —
+  // they feed the fluid budget the TPN volume is chosen against.
+  const IO_FIELD_KEYS = new Set(["ioInput", "ioOutput", "drainContent"]);
   const REQUIRED_FIELDS = [
     { key: "fluidTargetPerKg", label: "Target fluid" },
     { key: "otherIV_mL",       label: "Other IV" },
@@ -382,7 +388,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     { key: "ioInput",          label: "Input" },
     { key: "ioOutput",         label: "Urine output" },
     { key: "drainContent",     label: "Drain content" },
-  ];
+  ].filter(f => !(centerPoint && IO_FIELD_KEYS.has(f.key)));
   const [blankFields, setBlankFields] = useState(() => new Set(REQUIRED_FIELDS.map(f => f.key)));
   const reportBlank = React.useCallback((key, isBlank) => {
     setBlankFields(prev => {
@@ -651,8 +657,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
 
     // An unsaved draft for this patient + order date, newer than what is
     // being opened, is offered back rather than silently overwritten.
+    // Never on the Center Point entry, which keeps no clinical value in
+    // browser storage — it neither writes drafts (below) nor reads them.
     setDraftOffer(null);
-    try {
+    if (!centerPoint) try {
       const dk = draftStorageKey(patient.sessionId, orderDateKey);
       const raw = localStorage.getItem(dk);
       if (raw) {
@@ -684,7 +692,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     // A deliberately dated/back-filled order must start from clinical history
     // relative to that date, never from an undated browser draft that may have
     // been created days later.
-    if (!logDate) {
+    if (!logDate && !centerPoint) {
       try {
         const raw = localStorage.getItem(`neofeed_calc_${patient.sessionId}`);
         if (raw) restored = JSON.parse(raw);
@@ -728,8 +736,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
 
   // Autosave unsaved work for this patient + date (F3). Only once the user has
   // actually changed something, so merely opening a form never leaves a draft.
+  // Off on the Center Point entry: a whole TPN order in localStorage for up to
+  // 72 h on a shared workstation breaks CP's no-clinical-data-in-browser rule
+  // (PR #57 review, finding 1). CP holds unsaved work in the open page only.
   React.useEffect(() => {
-    if (!patient?.sessionId || !userEdited) return;
+    if (centerPoint || !patient?.sessionId || !userEdited) return;
     try {
       localStorage.setItem(draftStorageKey(patient.sessionId, orderDateKey),
         JSON.stringify({ ...liveInputs, dol, savedAt: new Date().toISOString() }));
@@ -761,6 +772,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   React.useEffect(() => {
     const ALL = new Set([1, 2, 3, 4, 5, 6]);
     const handler = () => {
+      if (centerPoint) { centerPoint.review(); return; }
       if (!savedEntryId) {
         showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
         return;
@@ -1212,9 +1224,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     const critical = sortClinicalAlerts(alerts).filter(a => a.level === "crit");
     let override = null;
     if (critical.length > 0) {
+      // Center Point keeps names and HNs out of the order packet (the CP
+      // desktop joins identity only at print), so its prompt says so.
       const reason = window.prompt(
         `มีค่าวิกฤต ${critical.length} รายการ:\n• ${critical.map(a => a.title).join("\n• ")}\n\n` +
-        `บันทึกต่อได้เมื่อระบุเหตุผลทางคลินิก (จะพิมพ์ลงใบสั่ง TPN):`, "");
+        `บันทึกต่อได้เมื่อระบุเหตุผลทางคลินิก (จะพิมพ์ลงใบสั่ง TPN` +
+        `${centerPoint ? " · ห้ามใส่ชื่อหรือ HN" : ""}):`, "");
       if (reason == null || !String(reason).trim()) {
         showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน", "error");
         return;
@@ -1222,6 +1237,23 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
     }
     const keyAtSave = formKey;
+    // Center Point saves pass the same required-field gate and F1 stop above.
+    // The F1 override goes with the order: CP's snapshot carries it to CP's
+    // review and print, as the prompt promises (PR #57 review, finding 3).
+    if (centerPoint) {
+      setSaving(true);
+      try {
+        const result=await centerPoint.save({dol,wtG,wtKg,curWtG,usingBirthWeight,route,orderDate:logDate,
+          dexPct,totalTPN_mL,aaPerKg,lipidPerKg,lipidDripHours,naCl,naAcet,glycophosP,kCl,k2hpo4,mgPerKg,mgStrength,caPerKg,
+          inclSoluvit,inclPeditrace,inclAddamel,heparinUmL,calc,suppVitD,suppCa,suppCaType,suppPO4,suppPO4Type,suppMTV,suppFerdek,suppFeType,mineral,enType,enVol,enFreq,
+          critOverride:override});
+        setSavedEntryId(result.sourceRecordId);setSavedLastModified(result.recordedAt);
+        // What CP now holds is what was on the form when Save was pressed.
+        setSavedKey(keyAtSave);setCritOverride(override);
+      } catch (error) { centerPoint.failed?.(error);showToast('บันทึกไป Center Point ไม่สำเร็จ กรุณาตรวจสถานะและลองใหม่','error'); }
+      finally { setSaving(false); }
+      return;
+    }
     try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
     const _suppPayload = {
       suppMTV:       suppMTV ? 1 : 0,
@@ -1485,8 +1517,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
           weight once that alone clears birth weight (D.ioDivisorG). Urine output is entered
           and stored as raw mL/day, same as Input/Drain — the mL/kg/h rate
           (ioOutputPerKgH above) is shown as a derived hint only. Balance =
-          Input − Output − Drain. */}
-      <div className="card" style={{ marginBottom: 14 }}>
+          Input − Output − Drain. Not on the Center Point entry, which
+          records none of these (see REQUIRED_FIELDS). */}
+      {!centerPoint && <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h">
           <Icon name="drop" size={14} color="var(--brand)" />
           Intake / Output
@@ -1512,7 +1545,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* ===== Step 2 — Enteral feeding ===== */}
       <div className="card" style={{ marginBottom: 14 }}>
@@ -2393,8 +2426,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
 
             {/* Save bar — sticky on mobile */}
             <div className="calc-save-bar">
-            {/* Copy order text to clipboard */}
-            <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
+            {/* Copy order text to clipboard. Not on the Center Point entry:
+                there the order leaves only as CP's reviewed revision, and a
+                CP save makes the form "printable", which would unlock Copy. */}
+            {!centerPoint && <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
               if (!savedEntryId) {
                 showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
                 return;
@@ -2481,11 +2516,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
                 .catch(() => showToast("Copy failed — try again"));
             }}>
               📋 Copy Order to Clipboard
-            </button>
+            </button>}
 
             {missingFields.length > 0 && (
               <div style={{ fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 }}>
-                ยังกรอกไม่ครบ ({missingFields.length}) — ต้องกรอกทุกช่องใน Step 1 และ Intake / Output ก่อนบันทึก:
+                ยังกรอกไม่ครบ ({missingFields.length}) — ต้องกรอกทุกช่องใน Step 1{centerPoint ? "" : " และ Intake / Output"} ก่อนบันทึก:
                 <div style={{ fontWeight: 600 }}>{missingFields.map(f => f.label).join(" · ")}</div>
               </div>
             )}
@@ -2494,7 +2529,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
               <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
 
-            {D.ENABLE_PUBLISH_GATE && (
+            {/* CP has its own review → publish step and passes no onPublish. */}
+            {D.ENABLE_PUBLISH_GATE && !centerPoint && (
               <button className="btn primary" style={{ width: "100%", marginTop: 8 }}
                 disabled={!savedEntryId || published || publishing || dirty}
                 onClick={handlePublish}>
@@ -2517,7 +2553,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
       {/* Rendered only while the form matches what was saved — so neither the
           Print button nor the browser's own Ctrl+P can put unsaved numbers
           on a pharmacy order (2026-09-11 review, F2). */}
-      {printable && <PrintOrderForm
+      {printable && !centerPoint && <PrintOrderForm
         targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: D.TARGETS.mg(dol), source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}

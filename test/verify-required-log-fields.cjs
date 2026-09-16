@@ -196,5 +196,39 @@ mount({ patient: { ...patient, sessionId: 'RQ-2', name: 'RQ2' } });
 ok_('Save is disabled again', saveButton()?.disabled === true, { disabled: saveButton()?.disabled });
 ok_('…with the same fields listed', /Drain content/.test(missingText()), missingText());
 
+// ── #7 the Center Point entry is held to the same gate ────────────────────
+// Center Point mounts this same <Calculator> with a `centerPoint` bridge that
+// replaces onLog. The gate and the F1 critical-value stop both run before that
+// branch (decision 2026-09-15), so neither can be skipped by saving through CP.
+// The CP screen has no Intake / Output card (PR #57 review, finding 4), so its
+// gate is Step 1 alone — verify-center-point-entry.cjs §3 covers that.
+console.log('\n── #7 a Center Point save passes the same gate and F1 stop ──');
+let cpSaved = null, cpLogged = null;
+const centerPoint = {
+  save(p) { cpSaved = p; return Promise.resolve({ sourceRecordId: 'cp-1', recordedAt: '2026-09-15T08:00:00Z' }); },
+  review() {}, failed() {},
+};
+mount({ centerPoint, onLog(e) { cpLogged = e; return Promise.resolve({ ok: true, entryId: 'x', lastModified: 'x' }); } });
+ok_('Save is disabled on an untouched CP form', saveButton()?.disabled === true, { disabled: saveButton()?.disabled });
+act(() => { saveButton()?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+eq('…and nothing reaches Center Point', cpSaved, null);
+
+const CP_REQUIRED = REQUIRED.filter(l => !['Input', 'Urine output', 'Drain content'].includes(l));
+CP_REQUIRED.forEach(l => setField(l, l === 'Target fluid' ? 130 : l === 'Current weight' ? 1150 : 0));
+eq('Step 1 alone satisfies the CP gate', missingText(), '');
+setField('Volume(mL/day)', 300);
+setField('Dextrose final', 25);
+const critAlerts = [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => a.textContent);
+ok_('the order carries a critical alert (dextrose over KCMH max)',
+  critAlerts.some(t => /Dextrose over KCMH max/.test(t)), critAlerts);
+window.prompt = () => null;
+act(() => { saveButton()?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+eq('a critical value with no reason does not reach CP', cpSaved, null);
+
+window.prompt = () => 'attending aware';
+act(() => { saveButton()?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+ok_('with a reason, the order saves through Center Point', !!cpSaved, cpSaved);
+eq('…and never through the legacy onLog', cpLogged, null);
+
 console.log(`\n${fail === 0 ? 'REQUIRED LOG FIELDS: ALL PASS' : `REQUIRED LOG FIELDS: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

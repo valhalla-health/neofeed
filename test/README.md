@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Twenty Node scripts. Two check the TPN calculator against the **official KCMH
+Twenty-four Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -50,8 +50,26 @@ always being a critical alert with a required override reason, the print form ne
 unsaved edits, draft recovery, the Glycophos phosphate line and the mobile twin label. It needs the
 same jsdom dependencies as the harnesses below.
 
+The twenty-fourth, `verify-sync-gate-and-poll.cjs`, pins the **2026-09-16 sync work**, and it is
+the only harness here that measures a *layout*. The staleness banner is a bare
+`<div role="status">` child of `.app`, and `.app` was a two-row grid with nothing after `.topbar`
+placed explicitly — so grid auto-placement gave the banner the rail's cell, pushed the rail into
+the workspace column, and left the workspace 232 px wide and clipped. The app's layout therefore
+broke in exactly the two states the banner exists to announce. Section 1 asserts the grid contract
+in **both** hand-synced shells and then measures all four boxes in real Chromium at 1440 and
+390 px, with and without the banner — static CSS assertions cannot see what a browser does with
+auto-placement, which is the whole lesson of that bug. Sections 2-4 drive the real `<App/>` in
+jsdom: the first-load gate holds on a *failed* first sync (it used to fall through and render an
+empty registry as fact while the server was down) and its retry re-issues exactly one request; a
+visible tab re-syncs on its own every `SYNC_POLL_MS` while a hidden or offline one does not — the
+absence of any such poll is what the ward reported as "sync นานกว่าปกติ"; and of two overlapping
+syncs the **newer** response wins rather than the last to arrive.
+
 **CI:** `.github/workflows/test.yml` runs every `verify-*.cjs` (plus `DEAD=0` for the Factor
 harness) and the shell byte-identity check on each pull request and on pushes to `main`/`release`.
+CI installs no browser, so `verify-sync-gate-and-poll.cjs`'s Chromium measurement prints a SKIP
+there and its static CSS assertions carry the section; run it locally (with `playwright`
+installed) to get the real measurement.
 
 ## Running
 
@@ -73,10 +91,21 @@ node test/verify-sync-freshness.cjs
 node test/verify-publish-lock.cjs
 ```
 
+`verify-sync-gate-and-poll.cjs` needs the jsdom set below, and additionally
+uses `playwright` **if it is installed** — without it the harness still runs and
+simply reports SKIP for the Chromium measurement. To get that measurement:
+
+```bash
+npm install --no-save --no-package-lock playwright
+node test/verify-sync-gate-and-poll.cjs
+```
+
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
 `verify-delete-session.cjs`, `verify-forced-password-client.cjs`,
 `verify-tpn-calc-weight.cjs`, `verify-required-log-fields.cjs`,
+`verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
+`verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
@@ -100,6 +129,10 @@ node test/verify-delete-session.cjs
 node test/verify-forced-password-client.cjs
 node test/verify-tpn-calc-weight.cjs
 node test/verify-required-log-fields.cjs
+node test/verify-center-point-entry.cjs
+node test/verify-center-point-print-parity.cjs
+node test/verify-center-point-drafts-view.cjs
+node test/verify-center-point-order-changes.cjs
 node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
 ```
@@ -513,6 +546,49 @@ it; Steps 2-6 are outside the gate, so an NPO day with no TPN and no feed
 still saves; reopening a saved entry does not demand re-typing the zeros it
 already records; and a fresh form for the **next** patient starts blocked
 again, which is what stops one infant's answers pre-satisfying another's.
+
+**`verify-center-point-entry.cjs`** — the Center Point entry to `<Calculator>`
+(the `centerPoint` prop, PR #57), pinned after the 2026-09-15 review of that PR.
+It mounts the real calculator with a stub bridge. Nothing clinical may reach
+`localStorage` on that screen: no draft autosave and no draft read, with a
+legacy-screen control proving the harness can see an autosave at all. A CP save
+reads as saved, and there is no Copy Order button. The Intake / Output card is
+absent and not required, while the legacy screen still requires it. The
+critical-value reason goes to the bridge, into the `neofeed-tpn-v2` snapshot
+and onto `renderTpn`'s sheet as plain text, and `validateTpn` rejects a
+malformed one. §4b: any reason the prompt accepts (a cut ending on a space, a
+pasted tab, an emoji split at 300) still saves through CP. Both host ignore files keep `center-point/` off NeoFeed's domain.
+
+**`verify-center-point-drafts-view.cjs`** — the `/neofeed/` drafts view on a
+record whose latest draft carries a TPN order. That view's review shows no TPN
+value and its save carries no TPN, so such a record is read-only there. Form,
+Publish and print job do nothing even when forced, and a notice points to the
+calculator page. An observation-only record stays editable, which is the
+control. CP's `tpn_draft_superseded` refusal is explained. Mounts the real
+`center-point/drafts-view.mjs` in jsdom with a stub client.
+
+**`verify-center-point-order-changes.cjs`** — "changes since the previous
+confirmed version" on CP's sheet (Praew, 2026-09-16). `tpnChanges` compares what
+a prescriber orders, in `ORDER_DIFF_FIELDS` terms plus dosing weight and each
+preparation, and never amounts that only follow the weight. `renderTpn`'s third
+argument draws the section: nothing when it is left out, "first confirmed
+version" for `null`, a note when the previous version had no TPN, "no changes",
+or the list. A malformed previous version is refused. CP's server decides which
+revision is previous.
+
+**`verify-center-point-print-parity.cjs`** — CP prints from a hand-kept slot
+list (`center-point/tpn-document.mjs`), so nothing noticed when NeoFeed's
+pharmacy form gained a figure CP lacked. This saves one fully populated order
+through both screens and requires every dose figure on `<PrintOrderForm>` (each
+is its own `<strong>`) to appear in a CP value slot, allowing for CP printing
+more decimals. A new figure on NeoFeed's form fails it until CP gets a slot, or
+the figure is listed in `NOT_ON_CP` with its reason. It found the Mg mg/kg and
+TPN-only kcal/kg figures missing. The order runs twice, without and with dead
+space, because an overfilled bag prints extra lines. Figures are matched by
+value, so keep fixture values distinct: a second slot with the same number can
+hide a missing one. The patient table, the saved-by line and "changes since the
+previous order" are outside it; CP has no previous order yet.
+
 **`verify-nutrition-unit-review.cjs`** — the two items acted on from the
 Nutrition Unit's AUG 2026 review, and the only harness here whose subject is
 **legibility rather than arithmetic**.

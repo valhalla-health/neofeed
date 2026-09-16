@@ -13,6 +13,291 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-16 (3) — The sync-waiting screens, and why sync goes stale
+
+Reported from the ward as **"หน้า sync ไม่สวย และขึ้น sync นานกว่าปกติ"**, with a photo of a
+NICU workstation. The photo turned out to contain two separate defects, one of which is the worst
+layout bug this app has had.
+
+### 1 · The staleness banner destroyed the app's layout — `NeoFeed.html` / `index.html`
+
+`.app` was a two-row grid (`var(--header-h) 1fr`) and only `.topbar` was placed explicitly.
+`App` renders the offline/staleness banner as a bare `<div role="status">` child of `.app`, so
+CSS grid auto-placement handed it the first free cell — **the rail's** — which pushed `.rail`
+into the workspace column and `.work` into an implicit third row that `overflow: hidden` clipped.
+
+Measured in Chromium at 1440 × 900, with the banner up:
+
+| | before | after |
+|---|---|---|
+| banner | x 0, **w 232**, h 654 | x 0, **w 1440**, h 47 |
+| rail | x 232, **w 1208** | x 0, w 232 |
+| workspace | y 710, **w 232, h 190** | y 103, w 1208, h 797 |
+
+So the layout broke *precisely* in the two states the banner exists to announce — offline, and
+data older than 15 minutes — and the ward lost 85% of the workspace at the moment the banner was
+telling them to check their numbers. At 390 px the workspace was pushed below the fold entirely.
+
+`.app` now has three rows (`var(--header-h) auto 1fr`); the banner is placed at
+`grid-column: 1 / -1; grid-row: 2`, and `.rail`/`.work` are pinned to row 3 rather than
+auto-placed. The middle row is `auto`, so it is 0 px tall on every ordinary day. `#toast-host`,
+the only other bare child of `.app`, is `display: contents` so it can never repeat the trick.
+
+### 2 · "sync นานกว่าปกติ" was a sync that was never issued — `app.jsx`, `data.js`
+
+Not a slow request. The app re-synced on login, on tab focus/`visibilitychange`, and on day
+rollover — and a ward workstation raises none of those: the tab sits open and focused on the
+registry for a whole shift. After the login sync it never pulled again, crossed `SYNC_WARN_MS`
+at five minutes and `SYNC_STALE_MS` at fifteen, and then the banner simply stayed up until a
+human clicked Sync. The photo shows exactly this: pill and rail both reading 14:43, wall clock
+15:02, banner at 18 minutes, sync state green.
+
+A visible tab now polls every `SYNC_POLL_MS` (**4 min**, chosen under `SYNC_WARN_MS` = 5 so an
+ordinary tab never even reaches the warn tier). The poll is suppressed when the tab is hidden,
+when the device is offline, when a request is already in flight, and when something else synced
+within the window — a backgrounded tab costs nothing. It is checked every 30 s and only *acts*
+every 4 min, so a tab that was hidden or offline when its slot came round picks the sync up
+within half a minute of coming back.
+
+**Cost, stated rather than assumed:** 15 `Audit_Log` rows per hour per open tab, against a sheet
+`AI_SDLC.md` § 1 already lists as growing without bound. See `BACKLOG.md`.
+
+### 3 · Two sync bugs found while in there — `app.jsx`
+
+- **The last response won, not the newest.** `syncFromGAS` has six callers and no request had any
+  identity; both responses called `setPatients`/`setLog` unconditionally. A slow request landing
+  after a fast one silently rolled the registry back to older data, under a fresh green
+  `GAS · HH:MM` saying it was current. Every response now carries its request's sequence number
+  and is dropped if a later request has been issued. Automatic callers also skip while one is in
+  flight; manual ones deliberately do not, so a wedged fetch can never swallow the Sync button.
+  The in-flight marker holds the request's start time rather than a boolean and expires after
+  60 s, so one fetch Apps Script never answers cannot silently end background syncing for the
+  rest of the shift.
+- **A failed FIRST sync fell through the gate.** The gate was
+  `syncState === "loading" && !lastSync`; a first sync that *failed* is `"error"` with `lastSync`
+  still null, so it rendered an empty registry as fact — the ward saw
+  "ยังไม่มีผู้ป่วยในระบบ" while the server was simply down. The gate now holds on anything that is
+  not a completed sync.
+
+### 4 · The screens themselves
+
+- **`SyncGate`** replaces a 36 px spinner with two lines of English. Thai-first, branded, on a card
+  that fits a 320 px phone and a 1440 px workstation; an indeterminate bar that *stops* when the
+  sync has stalled; the elapsed seconds after 6 s (held back before that — a counter on a load
+  that finishes in 2 s is noise); an explanation naming Apps Script cold start and ward Wi-Fi
+  after 15 s; and a **ลองใหม่** button, since a fetch that never settled previously left no
+  control on screen at all. Offline and server-error are distinct states with their own copy, not
+  a spinner. `prefers-reduced-motion` holds the bar still.
+- **The banner** now keeps its message in a `flex: 1 1 260px` column so a long Thai sentence wraps
+  inside it, and its Sync button is a 40/44 px `.btn` that sits at the end of the row on a
+  workstation and goes full-width on the line below the message on a phone — where it used to be
+  a ~25 px target pinned right by `marginLeft: auto`. It shows "กำลังซิงก์…" and disables while a
+  sync is in flight.
+- The topbar pill's tooltip now carries the **last round-trip in seconds**, so "it's slow today"
+  can be reported as a number.
+
+### Not changed — the backend, which is the other half of "slow"
+
+`getActivePatients` reads `Daily_Log` with `getDataRange().getValues()` — **every row ever
+written, all 38 columns** — and filters to the sync window only afterwards, `JSON.parse`s
+`calcInputJson` per row, and writes an `Audit_Log` row per sync. At ~29 active sessions that is
+~29 new rows a day, so the read grows linearly and forever; the poll above multiplies how often
+it is paid. This is real and is now filed in `BACKLOG.md`, but `gas-backend.gs` is untouched:
+per `AI_SDLC.md` § 5 a backend change needs Praew's explicit deploy, and the client fix already
+answers what the ward reported.
+
+### Tests
+
+New `test/verify-sync-gate-and-poll.cjs` — 59 assertions. Section 1 pins the grid contract in both
+hand-synced shells and then **measures all four boxes in real Chromium** at 1440 and 390 px, with
+and without the banner (it degrades to a notice where playwright isn't installed, as in CI).
+Sections 2-4 drive the real `<App/>` in jsdom: the gate holds on a failed first sync and the retry
+re-issues exactly one request; a visible tab polls and a hidden or offline one does not; the newer
+of two overlapping responses wins. Reverting the grid fix fails 14 assertions; removing the poll
+effect fails 2. All 30 harnesses, `DEAD=0`, `cmp index.html NeoFeed.html`, the center-point build
+and its 5 client tests pass.
+
+---
+
+## Session 2026-09-16 (2) — PR #57: three fixes from the CP walk-through
+
+Still a synthetic draft; nothing deployed; the legacy screen is untouched.
+
+A step-by-step pass of a critical-value order through the CP entry (Center Point sprint,
+2026-09-16) found three problems on the CP screens. Praew's decision: fix all three before merging.
+
+- **The plan period printed in UTC.** `renderTpn` printed `Effective 2026-09-15T18:35:00.000Z → …`
+  on an order headed TPN 2026-09-16 that the prescriber had typed as 01:35 Thai time on the 16th,
+  so a reader saw the day before. CP's review and print sheet now say
+  `Effective 2026-09-16 01:35 → 2026-09-17 01:35 (เวลาไทย)`. The packet still stores UTC instants.
+  The line had printed UTC since the CP sheet was first added.
+- **Messages landed off screen.** The CP page sent every `showToast` message to `#feedback`, a line
+  at the top of the page thousands of pixels above Save. Cancelling the critical-value prompt saved
+  nothing, as it should, but looked as if nothing had happened. Messages still go to `#feedback`,
+  and now also show at the bottom of the screen, placed and timed like NeoFeed's own toast, with
+  errors as `role="alert"`. The page's publish, withdraw and failed-action messages use the same
+  path.
+- **The revision label went stale.** After publishing it still said "ฉบับ 1 · รอทบทวน". It now says
+  "ยืนยันแล้ว" after publishing and "ยกเลิกแล้ว" after withdrawing.
+- **Tripwire.** `tpn-document.mjs` changed, so the §6 digest is updated. CP's copy is synced and its
+  `test/neofeed-commit` re-pinned on CP branch `claude/pr57-print-fixes`.
+
+Tests: the new `verify-center-point-sheet-period.cjs` renders the real `tpn-document.mjs` in jsdom.
+Three of its four checks failed before the change: the walk-through time, Thai midnight and the new
+year. CP's browser test `tpn-calculator.mjs` covers the page: it cancels the prompt first and checks
+the refusal is inside the viewport, checks the period on the review and on the desktop sheet, and
+publishes and withdraws from the page. With each fix undone in turn, it fails at that fix's check.
+All 29 harnesses, `DEAD=0`, the center-point build and the client tests (5/5) pass.
+
+Not changed: after a page reload the label shows only the revision number, as before.
+
+---
+
+## Session 2026-09-16 — Changes since the previous confirmed version (Center Point)
+
+Praew's decisions (2026-09-16):
+- CP's TPN sheet compares with the previous confirmed version of the same record, which is what
+  this entry builds.
+- Nurses correct weight or intake in the real NeoFeed app, and CP takes data from NeoFeed only.
+  The drafts view stays read-only for TPN records.
+- The free-text critical-value reason stays for now, to be decided before a pilot.
+- PR #57 and CP PR #12 merge together once this lands.
+
+- **`center-point/tpn-document.mjs`:**
+  - `tpnChanges(previous, current)` compares the ordered fields: `ORDER_DIFF_FIELDS` terms plus
+    dosing weight and each preparation, never amounts that only follow the weight.
+  - `renderTpn(container, value, previous)` draws "เปลี่ยนแปลงจากฉบับยืนยันก่อนหน้า (ฉบับ N)"
+    under the critical-value box. It shows the list, "no changes", "first confirmed version" or "the
+    previous version had no TPN". The argument is optional and validated.
+- **`calculator-page.jsx`:** the review passes the `previous` that CP now returns with each draft.
+- The `tpn-document.mjs` tripwire digest is updated; CP is synced and re-pinned.
+
+Tests: the new `verify-center-point-order-changes.cjs` passes 19/19. All harnesses pass. CP covers
+the server baseline (a withdrawn version is skipped) and the calculator and desktop print end to end.
+
+---
+
+## Session 2026-09-15 (6) — PR #57 third-review fixes
+
+Still a synthetic draft; nothing deployed; the legacy screen is untouched.
+
+- **The `/neofeed/` drafts view is read-only for a record that carries a TPN order** (Praew's
+  decision, 2026-09-15). The drafts view and the calculator page edit the same CP record. The
+  drafts view's review text showed weight, feed plan and intake, but no TPN value and no
+  critical-value reason. Its Publish and print-job buttons still acted on the whole TPN revision,
+  and its save sends no TPN, so a nurse's weight correction dropped the doctor's order. Now, when
+  the latest draft has a TPN, the form, Publish and print job are disabled. A notice points to
+  the calculator page, the only place a TPN order is reviewed, published and printed. CP's server
+  refuses such a save as `tpn_draft_superseded` (CP PR #12), and the view explains that refusal.
+- **Tripwire on `center-point/tpn-document.mjs`** (`verify-center-point-entry.cjs` §6). CP keeps a
+  copy that its CI checks against a pinned NeoFeed commit, so an edit here passed both CIs. The
+  test now fails on any change until CP is synced, re-pinned and the digest is updated.
+- **`BACKLOG.md`** no longer lists PR #57 among the drafts to close.
+
+Tests: the new `verify-center-point-drafts-view.cjs` mounts the real drafts view with a stub client.
+It passes 16/16; against the previous drafts view 11 checks fail, including a forced publish, save
+and print job. All harnesses pass.
+
+Not decided: how nurses record weight or intake on a record once it has a TPN order. For now a
+clinician re-saves it in the calculator.
+
+---
+
+## Session 2026-09-15 (5) — PR #57 re-review fixes
+
+Fixes from a second review of PR #57 after entry (4). Still a synthetic draft; nothing deployed;
+the legacy screen is untouched.
+
+- **A reason NeoFeed accepts is no longer refused by CP.** `handleSave` trims the prompt answer
+  and then cuts it at 300, so the cut can end on a space or split an emoji, and a pasted tab
+  survives. `validateTpn` refused all three, and the CP save failed with only a generic toast.
+  `buildTpn` now cleans reasons and alert titles with `tpnText`: control characters and
+  whitespace runs become one space, lone surrogates are replaced, and the cut never splits a pair
+  or leaves an edge space. `validateTpn` also refuses broken text. The limits are exported from
+  `tpn-document.mjs` so the two cannot drift. Both use plain loops, not
+  `isWellFormed`/`toWellFormed`, which need Chrome 111 / Safari 16.4.
+- **The print-parity harness also compares an overfilled bag.** Its one order had no dead space,
+  so the dead-space and "bag ×" lines were never compared. It now runs the order twice, the second
+  time with 6.3 mL. The first attempt used 7 mL, which a mutation check showed was matched by the
+  7 mL/feed enteral volume, so the header now states the match-by-value limit.
+- **CI builds the Center Point entry and runs its client tests** (`test.yml`). Before, a change
+  that broke the bundle CP serves, or `center-point/client.mjs`, still passed.
+
+Tests: `verify-center-point-entry.cjs` §4b drives the three reasons through prompt → save →
+`buildTpn`, and each failed before the fix; it also checks the lone-surrogate refusal. All 26
+harnesses, `DEAD=0`, `center-point.test.mjs` 5/5 and a clean `npm ci` + build pass.
+
+---
+
+## Session 2026-09-15 (4) — PR #57 review fixes (Center Point entry)
+
+Fixes from the 2026-09-15 review of PR #57. Still a synthetic draft; nothing deployed. Every
+`calculator.jsx` change is behind `centerPoint`, so the legacy screen behaves exactly as before and
+no cache-bust is needed.
+
+- **No clinical data in browser storage on the CP screen** (review finding 1). The F3 draft autosave
+  and the draft read both ran there, so a CP order sat in `localStorage` as
+  `neofeed_draft_<CP id>_<date>` for up to 72 h. Both are now off for `centerPoint`. A CP save also
+  sets `savedKey`, so the form stops saying "มีการแก้ไขที่ยังไม่ได้บันทึก". The Copy Order button is
+  hidden, since a saved form would otherwise unlock it, and so is the (gated-off) Submit.
+- **Critical-value reason carried into CP** (finding 3, Praew's decision). `centerPoint.save` now
+  receives `critOverride`. The snapshot moves to `neofeed-tpn-v2` / `cp-tpn-2` with
+  `criticalOverride: {reason, alerts} | null`, which `renderTpn` shows as text. On CP the prompt
+  also says not to type a name or HN, because CP keeps identity out of the packet.
+- **Intake / Output card not on the CP screen** (finding 4, Praew's decision). Input, Urine output
+  and Drain content go nowhere in CP, so they are hidden and out of the gate. Other IV and Drug
+  volume stay required because they feed the fluid budget.
+- **`center-point/` excluded from both hosts** (finding 5): `.assetsignore` and `_config.yml`.
+- **CP print slots** (finding 7): added Mg mg/kg and TPN-only kcal/kg, and relabelled the TPN+EN
+  figure "Energy incl. EN". The new parity harness found the kcal/kg gap; the review had not.
+
+New harnesses: `verify-center-point-entry.cjs` and `verify-center-point-print-parity.cjs`.
+`verify-required-log-fields.cjs` §7 now fills CP's Step 1 only. All 26 harnesses, `DEAD=0`,
+`center-point.test.mjs` 5/5, the shell `cmp` and the `center-point` build pass. CP's matching
+`web/tpn-document.mjs` change is in `valhalla-health/NICU-Center-Point`.
+
+Not done: "changes since the previous order" on CP's sheet. CP has no previous-order concept yet.
+
+---
+
+## Session 2026-09-15 — `main` merged into `codex/center-point-v2` (PR #57)
+
+Brings the Center Point branch up to `main` (through PR #64). Still a synthetic draft; nothing
+deployed. Two real conflicts in `calculator.jsx`, both resolved by keeping both sides:
+
+- **`handleSave`: the required-field gate and the F1 critical-alert stop now run before the
+  `centerPoint.save(...)` branch** (Praew's decisions, 2026-09-14 for F1 and 2026-09-15 for the
+  gate). A Center Point save can no longer skip either one. Pinned by
+  `verify-required-log-fields.cjs` §7, which fails if the CP branch is moved back above F1.
+  **Known limit:** the F1 reason is still not carried into the CP snapshot (`neofeed-tpn-v1` has
+  no slot for it). See `NICU-Center-Point/docs/HANDOFF-NEOFEED-PR57-2026-09-14.md`.
+- **`PrintOrderForm`** renders on `printable && !centerPoint`: `main`'s saved-and-unchanged rule
+  plus the branch's CP exclusion.
+
+`verify-safety-review.cjs` pins source text, so two of its patterns now also accept the
+`&& !centerPoint` guard (it only narrows them). Not fixed here: after a CP save, `savedKey` stays
+null, so the "มีการแก้ไขที่ยังไม่ได้บันทึก" line still shows. The CP page runs its own review/print
+state, so this affects wording only.
+
+---
+
+## Session 2026-09-15 (3) — Backend `@54` deployed; frontend `?v=bed-guard-0915` live on both hosts
+
+PR #66 merged to `main` (`8406cd7`, no deploy). PR #67 `main` → `release` was approved and merged by
+`tasamew` at 20:42 ICT, which deployed `bed-guard-0915` to Cloudflare and GitHub Pages. The backend
+went live at 20:47 ICT as `@54`, cut via the clasp mirror (`45341e0`) from `gas-backend.gs` at `8406cd7`.
+That carries #63's server-side one-infant-per-bed guard and #66's fix for discharged records.
+
+Checks before overwriting: the remote HEAD matched the `@53` mirror, and the mirror diff was +45 lines
+and nothing else. Version 54 was pulled and matched the source before the deployment was repointed.
+The deployment count stayed 26. Every step, the smoke test and what staff now see are recorded in
+`STATUS.md` § "How the 2026-09-15 deploy was verified".
+
+The `BACKLOG.md` bedside-session item now covers the live `@54` stack, including the cross-device bed
+refusal and editing a discharged record.
+
+---
+
 ## Session 2026-09-15 (2) — One-bed guard no longer refuses edits to a discharged record
 
 Found while planning the backend deploy of the entry below, before it went out. The one-infant-per-bed
@@ -3158,3 +3443,10 @@ Now captures combined PN+EN totals:
 `{ dol, weight, fluid, gir, pro, kcal, na, k, ca, p, enVolPerKg, route, status }`
 
 Where `enVolPerKg` drives target picker. `pro/kcal/na/k/ca/p` are per-kg combined PN+EN.
+
+## Unreleased — Center Point identity connection
+
+A separate center-point entry point and strict v2 client have been added on the
+codex/center-point-v2 branch. Existing main/frontend shells and GAS are unchanged.
+The new client uses the real Center Point API with UUID-only pending retries and
+no legacy fallback. See center-point/README.md for exact scope and remaining gates.

@@ -32,14 +32,47 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@53` + `?v=review-0911`) in one bedside session.**
-      Everything shipped 2026-09-12 is verified as *deployed*, none of it as *used*. One session
-      closes the lot: a real login; a real save; **edit a saved order without saving → Print must
-      refuse**; **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the
-      printed form**; check the new printed lines (HN/AN boxes, saved-by/time/revision, changes vs
-      the previous order); a real Delete. Stubs model neither `CacheService` eviction nor
-      `LockService` contention, so **only a person can close this.** Supersedes the `@50`/`@47`
-      versions of this item.
+- [ ] 🩺⚡ **backend · `getActivePatients` re-reads the whole `Daily_Log` on every sync.**
+      `getDataRange().getValues()` pulls **every row ever written, all 38 columns**, and only then
+      filters to the sync window; it also `JSON.parse`s `calcInputJson` for every surviving row and
+      appends an `Audit_Log` row per sync. At ~29 active sessions that is ~29 new `Daily_Log` rows a
+      day, so the cost of a sync grows linearly and never comes back down — which is the *other*
+      half of what the ward reported as "sync นานกว่าปกติ" on 2026-09-16. The client half (no
+      periodic re-sync at all) is fixed; this half is not, and the new 4-minute poll multiplies how
+      often it is paid.
+      Candidates, cheapest first: read only the columns actually returned rather than
+      `getDataRange()`; bound the read to the sync window with a `TextFinder`/sorted-range scan
+      instead of a full scan; cache the serialised payload in `CacheService` for ~60 s keyed on the
+      sheet's last write, so N open tabs cost one read rather than N; stop writing an `Audit_Log`
+      row for a poll that returns the same data a human never looked at (**check against PDPA
+      Sec 39 first — `REFERENCE.md` / `AI_SDLC.md` § 1 — an audit trail that drops reads is a
+      compliance change, not an optimisation**).
+      ⚠️ **`gas-backend.gs` is deploy-gated (`AI_SDLC.md` § 5) — this needs Praew's explicit deploy,
+      and a measurement first. There is no timing on the real sheet yet;** the topbar pill's tooltip
+      now reports the last round trip in seconds, which is the cheapest way to get one from the ward.
+- [ ] 📈 **ops · `Audit_Log` growth, now with a known rate.** Already listed under PDPA as growing
+      without bound "since the focus re-sync". As of 2026-09-16 the rate is knowable: the poll adds
+      **15 `readRegistry` rows per hour per open tab**, suppressed while hidden or offline. Decide a
+      retention/rollup policy before the sheet's own size becomes the thing that makes sync slow.
+      Note `PRD.md` § 6 M1 counts *distinct actors per week*, never row counts, so a rollup must not
+      break that — `test/verify-usage-metrics.cjs` test 9 already fails if it does.
+
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@54` + `?v=bed-guard-0915`) in one bedside session.**
+      Everything shipped 2026-09-12 and 2026-09-15 is verified as *deployed*, none of it as *used*.
+      One session closes the lot:
+      - a real login and a real save;
+      - **edit a saved order without saving → Print must refuse**;
+      - **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the printed form**;
+      - check the new printed lines (HN/AN boxes, saved-by/time/revision, changes vs the previous order);
+      - a real Delete;
+      - *(2026-09-15)* **from a second device, register or move an infant onto an occupied bed → the
+        server must refuse it**;
+      - **open a discharged record whose bed was reused → it must still save**;
+      - glance at the NICU/SCN gate for any bed held by two Active infants, which is now unsaveable
+        until one is transferred.
+
+      Stubs model neither `CacheService` eviction nor `LockService` contention, so **only a person
+      can close this.** Supersedes the `@53`/`@50`/`@47` versions of this item.
       ✅ **Deployed 2026-08-26** — TEMP-DEBUG reverted, and the server-side plausibility guard
       (`0004d5c`) is finally live after never having been deployed at all. What remains is the human
       half, and it is now worth more than before because one session discharges three things at
@@ -109,8 +142,9 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🔒 **security/process · GitHub hygiene from the 2026-09-11 review:** (the `test` workflow is already a
       required check on `release`, and secret scanning is on — both done 2026-09-11); decide whether `tasamew` stays admin (and
       is the `release` approver — see `REFERENCE.md`); confirm 2FA on both GitHub admins and on the
-      Cloudflare account; close/delete the 4 stale branches and draft PRs #56/#57 (`codex/center-point-v2`
-      holds 11 unmerged commits — decide before deleting).
+      Cloudflare account; close/delete the stale branches and draft PR #56. **Not PR #57**
+      (`codex/center-point-v2`): since 2026-09-15 it is active, paired with NICU-Center-Point PR #12, and the
+      two must merge together (CP accepts only the `neofeed-tpn-v2` packet #57 builds).
 
 - [ ] 🩺 **safety · `FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
       4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10 and re-checked
