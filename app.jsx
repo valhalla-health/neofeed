@@ -129,6 +129,168 @@ function activeAlertCount(patient, entries) {
   return computeAlerts(patient, entries).filter(a => !acked[ackKey(a.id, a.dol)]).length;
 }
 
+// ============================================================
+// SyncGate — the first-load screen
+// ============================================================
+// Shown only while the FIRST sync of a session is still in flight (App's gate
+// below explains why only the first). Everything a nurse can tell about the
+// app at that moment, they tell from this screen, so it does three jobs the
+// bare spinner it replaced did none of:
+//
+//   1. **Says how long it has been.** A spinner with no clock is the same
+//      picture at 2 s and at 40 s. The elapsed seconds appear once the wait
+//      stops being ordinary (SYNC_SLOW_AFTER_MS), not before — a counter that
+//      starts at 0 s every load is noise on the ~95% of loads that finish
+//      before anyone reads it.
+//   2. **Explains a slow one.** The two real causes are an Apps Script cold
+//      start and ward wifi, and they want different reactions, so the copy
+//      names both rather than blaming the app. See SYNC_VERY_SLOW_AFTER_MS.
+//   3. **Offers a way out.** A fetch that never settles left no control on
+//      screen at all — the only exit was reloading the tab. "ลองใหม่" re-runs
+//      the sync without losing the session.
+//
+// It never shows patient data and never lets the user past — that is the whole
+// point of the gate (mock patients must not be interactable before real ones
+// arrive). Offline is a distinct state rather than a spinner, because a
+// spinner over a dead network is a lie the ward would sit and watch.
+//
+// Thai-first, like the rest of the clinical copy. Inline styles + one <style>
+// for the keyframes, following the banner's rule: a change that needs no CSS
+// in NeoFeed.html/index.html cannot desync the two hand-synced shells.
+const SYNC_SLOW_AFTER_MS      =  6000;
+const SYNC_VERY_SLOW_AFTER_MS = 15000;
+
+function SyncGate({ online, failed, onRetry }) {
+  // One tick a second, and only while it matters — the component unmounts the
+  // moment the first sync lands, so this never runs under the workspace.
+  const [elapsed, setElapsed] = React.useState(0);
+  const startRef = React.useRef(Date.now());
+  React.useEffect(() => {
+    const t = setInterval(() => setElapsed(Date.now() - startRef.current), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const slow     = elapsed >= SYNC_SLOW_AFTER_MS;
+  const verySlow = elapsed >= SYNC_VERY_SLOW_AFTER_MS;
+  const secs     = Math.floor(elapsed / 1000);
+  // Offline and "the request came back an error" are different problems with
+  // different fixes, and neither is "still loading" — don't spin over either.
+  const stalled  = !online || failed;
+
+  const head = !online ? "ไม่ได้เชื่อมต่อเครือข่าย"
+             : failed  ? "เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ"
+             : "กำลังโหลดข้อมูลผู้ป่วย";
+  const sub  = !online ? "อุปกรณ์นี้ออฟไลน์อยู่ — ตรวจสอบ Wi-Fi ของ ward แล้วลองใหม่"
+             : failed  ? "เซิร์ฟเวอร์ไม่ตอบกลับ — กด “ลองใหม่” หรือแจ้ง admin หากยังไม่สำเร็จ"
+             : verySlow ? "ใช้เวลานานกว่าปกติ — เซิร์ฟเวอร์ Apps Script อาจกำลังเริ่มทำงาน (cold start) หรือสัญญาณ Wi-Fi อ่อน"
+             : slow     ? "กำลังซิงก์จาก Google Apps Script"
+             : "กำลังเชื่อมต่อ Google Apps Script";
+
+  const accent = !online ? "var(--crit)" : failed ? "var(--crit)" : "var(--brand)";
+
+  return (
+    <div style={{
+      position:"fixed", inset:0, display:"flex", alignItems:"center", justifyContent:"center",
+      background:"var(--bg)", fontFamily:"'IBM Plex Sans','Noto Sans Thai',sans-serif",
+      padding:"24px calc(20px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px))",
+      overflowY:"auto",
+    }}>
+      {/* min() keeps the card off both edges of a 320px phone and stops it
+          stretching into a letterbox on a 1440px workstation. */}
+      <div role="status" aria-live="polite" style={{
+        width:"min(380px, 100%)", boxSizing:"border-box",
+        background:"var(--surface)", border:"1px solid var(--line)",
+        borderRadius:"var(--r-lg)", boxShadow:"var(--shadow-pop)",
+        padding:"28px 24px 22px", textAlign:"center",
+      }}>
+        {/* Brandmark — the topbar's logo, at rest. Gives the screen an owner:
+            "NeoFeed is loading", not "a page is loading". */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:20 }}>
+          <div style={{
+            width:34, height:34, borderRadius:9, display:"grid", placeItems:"center",
+            background:"linear-gradient(135deg, var(--brand) 0%, oklch(36% 0.09 215) 100%)",
+            boxShadow:"inset 0 -2px 0 oklch(28% 0.08 215 / .4), 0 2px 8px oklch(46% 0.085 215 / .25)",
+          }}>
+            <svg viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="#fff"
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 21 V 7 L 21 21 V 7" />
+              <circle cx="21" cy="7" r="2.2" fill="#fff" stroke="none" />
+            </svg>
+          </div>
+          <div style={{ fontSize:19, fontWeight:600, letterSpacing:"-0.01em", color:"var(--ink)" }}>NeoFeed</div>
+        </div>
+
+        {/* Indeterminate bar rather than a ring: it reads as "something is
+            still happening" at a glance from a metre away, which is the
+            distance a workstation is actually looked at. It stops moving when
+            the sync has stalled — a bar still sliding under "ออฟไลน์" would
+            say the opposite of the words next to it. */}
+        <div style={{
+          height:4, borderRadius:999, background:"var(--line-2)",
+          overflow:"hidden", marginBottom:18, position:"relative",
+        }}>
+          {stalled
+            ? <div style={{ position:"absolute", inset:0, background:accent, opacity:0.45 }} />
+            : <div className="sg-bar" style={{
+                position:"absolute", top:0, bottom:0, width:"40%", borderRadius:999,
+                background:"linear-gradient(90deg, transparent, var(--brand), transparent)",
+              }} />}
+        </div>
+
+        <div style={{ fontSize:15, fontWeight:600, color:"var(--ink)", marginBottom:6, lineHeight:1.4 }}>
+          {head}
+        </div>
+        <div style={{ fontSize:12.5, color:"var(--ink-3)", lineHeight:1.55 }}>
+          {sub}
+        </div>
+
+        {/* The clock, from SYNC_SLOW_AFTER_MS on. Tabular figures so the card
+            doesn't reflow on every tick as the digits change width. */}
+        {(slow || stalled) && (
+          <div style={{
+            marginTop:14, fontSize:11.5, color:"var(--ink-4)",
+            fontVariantNumeric:"tabular-nums", fontFeatureSettings:"'tnum'",
+          }}>
+            รอมาแล้ว {secs} วินาที
+          </div>
+        )}
+
+        {/* Retry waits until SYNC_VERY_SLOW_AFTER_MS — offering it at 6 s
+            invites a second request the first one was about to make redundant.
+            A stalled sync gets it immediately, since waiting changes nothing
+            there. Full width and 44px: on a phone this is the only control on
+            screen, pressed by someone already mildly annoyed. */}
+        {(verySlow || stalled) && (
+          <button className="btn primary" onClick={onRetry} style={{
+            marginTop:16, width:"100%", minHeight:44, justifyContent:"center",
+            fontSize:13.5, fontWeight:600,
+          }}>
+            ลองใหม่
+          </button>
+        )}
+
+        <div style={{
+          marginTop:18, paddingTop:14, borderTop:"1px solid var(--line-2)",
+          fontSize:10.5, color:"var(--ink-4)", letterSpacing:"0.02em",
+        }}>
+          V2.0 · ESPGHAN 2018/2022
+        </div>
+      </div>
+
+      {/* prefers-reduced-motion: the bar holds still instead of sliding. A
+          vestibular trigger on the one screen nobody can navigate away from
+          is not a fair trade for a loading animation. */}
+      <style>{`
+        @keyframes sg-slide { 0% { left: -40%; } 100% { left: 100%; } }
+        .sg-bar { animation: sg-slide 1.15s cubic-bezier(.4,0,.6,1) infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .sg-bar { animation: none; left: 0; width: 100%; opacity: .45; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function App() {
 
   // user = { name, role, email, token } — stored in sessionStorage (clears on tab close)
@@ -217,8 +379,55 @@ function App() {
     });
   }, []);
 
+  // Guards on the ONE request path that replaces client state wholesale.
+  //
+  // syncFromGAS has seven callers — four automatic (login, tab focus, day
+  // rollover, the poll below) and three manual (the topbar button, the
+  // banner's Sync now, SyncGate's retry) — and until 2026-09-16 no request had
+  // any identity at all. Two in flight at once is not hypothetical: focus plus
+  // the manual button, a second apart, against an Apps Script backend that can
+  // take seconds to answer.
+  //
+  // `syncSeqRef` is the correctness half. Both responses call
+  // setPatients/setLog unconditionally, so the LAST to arrive won rather than
+  // the NEWEST: a slow request landing after a fast one silently rolled the
+  // registry back to older data, with a fresh green "GAS · HH:MM" beside it
+  // saying it was current. Every response now carries its own request's
+  // sequence number and is dropped if a later request has been issued since.
+  //
+  // `inFlightRef` is only an economy measure, and it is deliberately NOT an
+  // early return inside syncFromGAS: a fetch that never settles (Apps Script
+  // occasionally just doesn't answer) would wedge it on forever and swallow
+  // every later sync — including the "Sync now" button and SyncGate's retry,
+  // the two controls someone reaches for precisely because a sync appears
+  // stuck. Superseding is always safe, so a manual sync always goes through;
+  // the AUTOMATIC callers skip while one is in flight, since they have nobody
+  // waiting on them. It holds the request's start time rather than a boolean
+  // so that even for them it expires: a request still unanswered after
+  // SYNC_INFLIGHT_MAX_MS stops suppressing the poll, or one hung fetch would
+  // silently end background syncing for the rest of the shift.
+  const SYNC_INFLIGHT_MAX_MS = 60000;
+  const inFlightRef = React.useRef(0);
+  const syncSeqRef  = React.useRef(0);
+  const syncInFlight = React.useCallback(
+    () => inFlightRef.current > 0 && Date.now() - inFlightRef.current < SYNC_INFLIGHT_MAX_MS, []);
+  // Round-trip of the last completed sync, in ms. Read by the topbar pill's
+  // tooltip — a number the ward can quote when reporting "it's slow", instead
+  // of everyone guessing. Not state: it must not re-render anything.
+  const syncMsRef   = React.useRef(null);
+
   const syncFromGAS = React.useCallback(() => {
     if (!GAS_ON) return;
+    const startedAt = Date.now();
+    inFlightRef.current = startedAt;
+    const seq = ++syncSeqRef.current;
+    // A response from a superseded request must not touch state at all; the
+    // request that superseded it owns both the state and the flag.
+    const stale = () => seq !== syncSeqRef.current;
+    const settle = () => {
+      inFlightRef.current = 0;
+      syncMsRef.current = Date.now() - startedAt;
+    };
     setSyncState("loading");
     const sess = (() => { try { return JSON.parse(sessionStorage.getItem("neofeed_session")) || {}; } catch { return {}; } })();
     const tok = sess.token || "";
@@ -233,6 +442,8 @@ function App() {
     })
       .then(r => r.json())
       .then(data => {
+        if (stale()) return;
+        settle();
         // Auth expired → clear session + force re-login
         if (data.error === "Unauthorized") {
           sessionStorage.removeItem("neofeed_session");
@@ -277,6 +488,8 @@ function App() {
         setLastSync(new Date());
       })
       .catch(err => {
+        if (stale()) return;
+        settle();
         console.warn("GAS sync failed:", err);
         setSyncState("error");
       });
@@ -299,6 +512,7 @@ function App() {
     const RESYNC_AFTER_MS = 60000;   // don't re-hit GAS on every tab flick
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
+      if (syncInFlight()) return;
       if (Date.now() - lastSyncRef.current < RESYNC_AFTER_MS) return;
       syncFromGAS();
     };
@@ -308,7 +522,50 @@ function App() {
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [user?.email, syncFromGAS]);
+  }, [user?.email, syncFromGAS, syncInFlight]);
+
+  // ── Background poll ──────────────────────────────────────────
+  // The refetch above only fires on an event the ward's own workstation never
+  // raises. That machine sits on the registry, focused, for a whole shift:
+  // no visibilitychange, no focus, no day rollover until midnight — so after
+  // the login sync it never pulled again, and the "ข้อมูลไม่เป็นปัจจุบัน"
+  // banner appeared at the 15-minute mark and then simply stayed, since the
+  // only thing that could clear it was a human clicking Sync. That is the
+  // reported "sync ใช้เวลานานกว่าปกติ": not a slow round trip, a sync nothing
+  // ever asked for. (The screenshot that opened this: pill and rail both
+  // reading 14:43, wall clock 15:02, banner at 18 minutes.)
+  //
+  // Every condition here is a reason NOT to spend a request, and each one is
+  // load-bearing:
+  //   hidden tab     — a backgrounded PWA or a second monitor's tab must cost
+  //                    nothing; the focus handler above covers its return.
+  //   offline        — the fetch can only fail, and a failure flips syncState
+  //                    to "error", which downgrades the banner's own message
+  //                    from "ออฟไลน์" to a generic stale one. Worse, not better.
+  //   in flight      — see syncInFlight; the poll has nobody waiting on it,
+  //                    and the check expires so a hung fetch cannot end
+  //                    background syncing for the rest of the shift.
+  //   synced just now— a manual Sync or a focus refresh seconds ago already
+  //                    did this poll's job.
+  //
+  // setInterval, not setTimeout chaining: a laptop that suspends fires this
+  // once on wake rather than accumulating a backlog, which is what we want.
+  React.useEffect(() => {
+    if (!GAS_ON || !user) return;
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      if (syncInFlight()) return;
+      if (Date.now() - lastSyncRef.current < D_A.SYNC_POLL_MS) return;
+      syncFromGAS();
+    };
+    // Checked every 30 s but only ACTS every SYNC_POLL_MS (the lastSyncRef
+    // guard above). The gap matters: a tab that was hidden or offline when its
+    // slot came round picks the sync up within half a minute of coming back,
+    // instead of waiting out another full four.
+    const t = setInterval(tick, 30000);
+    return () => clearInterval(t);
+  }, [user?.email, syncFromGAS, syncInFlight]);
   // ── Staleness signal ─────────────────────────────────────────
   // Two inputs, both needed. `online`/`offline` fire immediately when the
   // network drops, which is the fast path; the 30 s tick covers everything
@@ -720,19 +977,15 @@ function App() {
   // accordion collapsed, merely because someone glanced at another app and came
   // back. Only the very first load has nothing to protect; after that the
   // refresh is a background one, surfaced by the topbar's own "Syncing…" pill.
-  if (GAS_ON && syncState === "loading" && !lastSync) {
-    return (
-      <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column",
-        alignItems:"center", justifyContent:"center", gap:16,
-        background:"var(--bg)", color:"var(--ink-2)", fontFamily:"'IBM Plex Sans',sans-serif" }}>
-        <div style={{ width:36, height:36, border:"3px solid var(--line)",
-          borderTopColor:"var(--brand)", borderRadius:"50%",
-          animation:"spin 0.8s linear infinite" }} />
-        <div style={{ fontSize:14, fontWeight:500 }}>Loading patient data…</div>
-        <div style={{ fontSize:12, color:"var(--ink-3)" }}>Syncing from GAS</div>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </div>
-    );
+  //
+  // `syncState !== "ok"` rather than `=== "loading"`: a first sync that FAILS
+  // leaves the state at "error" with lastSync still null, and the old gate let
+  // that fall straight through to the workspace — an empty registry, rendered
+  // as fact, with nothing but the topbar pill saying the fetch had failed.
+  // "ยังไม่มีผู้ป่วยในระบบ" is what the ward saw when the server was down.
+  // The gate now holds, and SyncGate says which of the two it is.
+  if (GAS_ON && syncState !== "ok" && !lastSync) {
+    return <SyncGate online={online} failed={syncState === "error"} onRetry={syncFromGAS} />;
   }
 
   return (
@@ -761,7 +1014,14 @@ function App() {
         <div className="spacer" />
 
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          <div className="pill" data-tip={GAS_ON ? "Google Apps Script · click to refresh" : "GAS_URL not configured"}>
+          {/* The tooltip carries the last round trip, so "it's slow today" can
+              be reported as a number. syncMsRef is a ref, but settle() writes
+              it before setSyncState("ok"), so the re-render that paints the
+              new time reads the matching duration. */}
+          <div className="pill" data-tip={
+            !GAS_ON ? "GAS_URL not configured"
+            : syncMsRef.current == null ? "Google Apps Script"
+            : `Google Apps Script · ซิงก์ล่าสุดใช้เวลา ${(syncMsRef.current / 1000).toFixed(1)} วินาที`}>
             {syncState === "loading"
               ? <span className="dot dot-spin" style={{ width:7, height:7 }} />
               : <span className="dot" style={{ background:
@@ -843,30 +1103,55 @@ function App() {
         const crit = freshness.level === "offline";
         const mins = freshness.ageMs == null ? null : Math.floor(freshness.ageMs / 60000);
         const age  = mins == null ? "ยังไม่เคยซิงก์" : mins < 1 ? "ไม่ถึง 1 นาที" : `${mins} นาที`;
+        const line = crit ? "var(--crit-line)" : "var(--warn-line)";
+        // Two rows on a phone, one on a workstation, from a single flex box:
+        // the text column is `flex: 1 1 260px`, so it takes the rest of a wide
+        // banner and forces the button onto its own line below 260px + the
+        // button's own width. Before this the button was pinned by
+        // `marginLeft: auto` inside a wrapping row, which on a 390px screen
+        // put "Sync now" alone on a second line, right-aligned, ~25px tall —
+        // under the finger of someone who has just been told the numbers on
+        // screen are stale. It is a 44px target now, on both layouts.
         return (
           <div role="status" aria-live="polite" style={{
-            display:"flex", alignItems:"center", gap:8, flexWrap:"wrap",
-            padding:"7px 14px", fontSize:12.5, lineHeight:1.45,
+            display:"flex", alignItems:"center", gap:"8px 12px", flexWrap:"wrap",
+            padding:"8px 14px", fontSize:12.5, lineHeight:1.45,
             background: crit ? "var(--crit-bg)" : "var(--warn-bg)",
             color:      crit ? "var(--crit)"    : "var(--warn)",
-            borderBottom: `1px solid ${crit ? "var(--crit-line)" : "var(--warn-line)"}`,
+            borderBottom: `1px solid ${line}`,
           }}>
             <span style={{ width:7, height:7, borderRadius:"50%", flex:"0 0 auto",
               background: crit ? "var(--crit)" : "var(--warn)" }} />
-            <strong style={{ fontWeight:600 }}>
-              {crit ? "ออฟไลน์ — ไม่ได้เชื่อมต่อเครือข่าย" : "ข้อมูลไม่เป็นปัจจุบัน"}
-            </strong>
-            <span style={{ opacity:0.95 }}>
-              {crit
-                ? `ตัวเลขที่แสดงคือข้อมูลล่าสุดเมื่อ ${age} ที่แล้ว และการบันทึกจะยังไม่ถูกส่งขึ้นเซิร์ฟเวอร์ — ตรวจสอบกับแฟ้มผู้ป่วยก่อนใช้สั่งการรักษา`
-                : `ซิงก์ล่าสุดเมื่อ ${age} ที่แล้ว — กด Sync ก่อนใช้ตัวเลขนี้`}
-            </span>
+            {/* minWidth:0 so a long Thai sentence wraps inside the column
+                instead of widening it past the banner and pushing the button
+                off the edge. */}
+            <div style={{ flex:"1 1 260px", minWidth:0, display:"flex",
+              alignItems:"baseline", gap:"0 8px", flexWrap:"wrap" }}>
+              <strong style={{ fontWeight:600 }}>
+                {crit ? "ออฟไลน์ — ไม่ได้เชื่อมต่อเครือข่าย" : "ข้อมูลไม่เป็นปัจจุบัน"}
+              </strong>
+              <span style={{ opacity:0.95 }}>
+                {crit
+                  ? `ตัวเลขที่แสดงคือข้อมูลล่าสุดเมื่อ ${age} ที่แล้ว และการบันทึกจะยังไม่ถูกส่งขึ้นเซิร์ฟเวอร์ — ตรวจสอบกับแฟ้มผู้ป่วยก่อนใช้สั่งการรักษา`
+                  : `ซิงก์ล่าสุดเมื่อ ${age} ที่แล้ว — กด Sync ก่อนใช้ตัวเลขนี้`}
+              </span>
+            </div>
             {GAS_ON && online && (
-              <button className="icon-btn" onClick={syncFromGAS}
-                style={{ marginLeft:"auto", color:"inherit", fontSize:12,
-                  padding:"2px 10px", width:"auto", borderRadius:4,
-                  border:`1px solid ${crit ? "var(--crit-line)" : "var(--warn-line)"}` }}>
-                Sync now
+              // className="btn", so the shell's own sizing applies: 40px on a
+              // desktop, and 44px under the (hover:none)(pointer:coarse) block
+              // that covers every touch device. Height is deliberately NOT set
+              // inline — an inline min-height would outrank that media query
+              // and shrink the target back on exactly the devices it is for.
+              <button className="btn sync-banner-btn" onClick={syncFromGAS} disabled={syncState === "loading"}
+                style={{ padding:"0 14px", justifyContent:"center", gap:6,
+                  background:"transparent", color:"inherit", fontSize:12.5, fontWeight:600,
+                  border:`1px solid ${line}`, borderRadius:6,
+                  cursor: syncState === "loading" ? "default" : "pointer",
+                  opacity: syncState === "loading" ? 0.55 : 1 }}>
+                {syncState === "loading"
+                  ? <span className="dot dot-spin" style={{ width:7, height:7 }} />
+                  : null}
+                {syncState === "loading" ? "กำลังซิงก์…" : "Sync now"}
               </button>
             )}
           </div>

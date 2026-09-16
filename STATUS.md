@@ -10,6 +10,18 @@ step.** This is the ward-gate / one-infant-per-bed release (#63) plus the discha
 🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
 Pages; `main` deploys nothing. See "Release-branch deploy gate".
 
+**2026-09-16 — ⏳ NOT DEPLOYED: frontend sync work is on `claude/sync-loading-screen-ui-s6p61d`,
+awaiting a `release` merge.** Cache-bust in both shells moves to `data.js?v=sync-poll-0916` and
+`app.jsx?v=sync-poll-0916` when it goes. What it carries: the `.app` grid fix — the offline/
+staleness banner was taking the **rail's** grid cell and collapsing the workspace from 1208 px to
+232 px (below the fold on a phone) in exactly the two states the banner exists to announce; a
+4-minute background poll for visible tabs, which is what the ward had been reporting as "sync
+นานกว่าปกติ" — there was no periodic re-sync at all, so a workstation left open and focused never
+refreshed; a sequence guard so the newer of two overlapping syncs wins; a first-load gate that no
+longer falls through on a *failed* first sync; and the redesigned `SyncGate` / staleness banner.
+`gas-backend.gs` is **untouched** — the backend half of "slow" is filed in `BACKLOG.md` § Now and
+needs a measurement and Praew's deploy. See `CHANGELOG.md` 2026-09-16 (3).
+
 **2026-09-10 — PR #58, "Save / Submit / Print" publish-lock design — backend now deployed.** See
 `CHANGELOG.md` 2026-09-10 (2) for the full description. Merged to `main` (`4878a39`, frontend
 cache-bust fix `5005db7`), which auto-deployed the frontend to both hosts. The backend half

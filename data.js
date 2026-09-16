@@ -84,6 +84,30 @@ const ENABLE_PUBLISH_GATE = false;
 const SYNC_WARN_MS  =  5 * 60 * 1000;
 const SYNC_STALE_MS = 15 * 60 * 1000;
 
+// How often a VISIBLE tab pulls from GAS on its own, with nobody touching it.
+//
+// Until 2026-09-16 there was no such interval: the app re-synced on login, on
+// tab focus/visibilitychange, and on day rollover, and nothing else. On a
+// ward workstation that is the one device it never fires for — the tab sits
+// open and focused on the registry all shift, so no focus event is ever
+// raised and the data simply ages. It crossed SYNC_WARN_MS after five
+// minutes, SYNC_STALE_MS after fifteen, and then the staleness banner stayed
+// on screen permanently, telling the ward to press Sync by hand — which is
+// how "sync ใช้เวลานานกว่าปกติ" was reported: not a slow request, a sync that
+// was never issued.
+//
+// 4 min, against SYNC_WARN_MS = 5: short enough that an ordinary visible tab
+// never reaches even the warn tier, so the banner goes back to meaning what
+// its own comment says it means — something is actually wrong — instead of
+// meaning "nobody has clicked anything for a while".
+//
+// Cost is bounded on purpose, because every sync is also an Audit_Log row
+// (logAudit("readRegistry") in gas-backend.gs) and that sheet already grows
+// without bound (AI_SDLC.md § 1). 4 min = 15 rows/hour per open tab, and the
+// poll is suppressed whenever the tab is hidden, the device is offline, or a
+// request is already in flight — a backgrounded tab costs nothing at all.
+const SYNC_POLL_MS = 4 * 60 * 1000;
+
 // Age of the last SUCCESSFUL sync, clamped at 0. A device clock that jumps
 // backwards (or a DST shift) would otherwise give a negative age and read as
 // impossibly fresh — the one direction this must never fail in.
@@ -1513,7 +1537,7 @@ window.NEOFEED_DATA = {
   // Publish-lock rollout flag — see its declaration above.
   ENABLE_PUBLISH_GATE,
   // Staleness decision for the sync banner + the thresholds behind it
-  syncFreshness, SYNC_WARN_MS, SYNC_STALE_MS,
+  syncFreshness, SYNC_WARN_MS, SYNC_STALE_MS, SYNC_POLL_MS,
   // Live DOL helper. entryDol re-derives a saved log row's DOL from its date
   // instead of trusting the stored (snapshot, goes stale) `dol` column.
   liveDol, dolAtDate, entryDol,
