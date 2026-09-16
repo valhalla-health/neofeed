@@ -7,10 +7,10 @@ The sync-screen release (#70 → #71).
   (its content changed, but only Center-Point-gated code — see below).
 - **Backend:** **unchanged, still `@54`.** `gas-backend.gs` is byte-identical across this deploy,
   so no `clasp` step was run and none was needed.
-- ⚠️ **Partly verified — read "How the 2026-09-16 deploy was verified" before trusting this line.**
-  The `release` branch content and the GitHub Pages deployment are confirmed; **the served bytes on
-  neither host were fetched**, because the agent session that prepared this could not reach either
-  domain. A human has not opened the live app since the merge.
+- ✅ **Served bytes verified on both hosts** at 10:47 UTC / 17:47 ICT — `index.html`, `app.jsx`,
+  `data.js` and `calculator.jsx` fetched live are byte-identical to `origin/release`, and
+  `/center-point/` is `404` on both. ⚠️ **Still open: no human has opened the live app since the
+  merge** — `curl` does not run JavaScript. See "How the 2026-09-16 deploy was verified".
 
 **Previous (2026-09-15):** frontend `?v=bed-guard-0915` + backend `@54` — the ward-gate /
 one-infant-per-bed release (#63) plus the discharged-record fix (#66), deployed in two steps,
@@ -46,17 +46,23 @@ synthetic draft; nothing deployed"*.
 - ✅ Both shells byte-identical (`cmp index.html NeoFeed.html`); all 30 harnesses + `DEAD=0` + the
   center-point build and its 5 client tests pass on `39c7dd3`.
 
-**NOT confirmed — and this is the gap the 2026-09-15 entry did not have:**
-- ❌ **The served bytes on either host were never fetched.** The 2026-09-15 procedure fetched the
-  live URL and diffed it; that step did not happen here. The agent session's egress policy answered
-  `403` to `CONNECT` for both `neofeed.valhalla-health.workers.dev` and `valhalla-health.github.io`,
-  so "Pages reports a successful deployment" is as far as the evidence goes — it is not the same
-  claim as "the live page serves the new file".
-- ❌ **Cloudflare Workers' build on `098bd37` was still running** when this was written. Its build
-  on the same tree at `39c7dd3` succeeded, so this is expected to be fine, but it is not observed.
-- ❌ **No human has opened the live app since the merge.**
+**Closed later the same day (10:47 UTC / 17:47 ICT, from Praew's workstation)** — the first entry
+of this section was written by a session whose egress policy answered `403` to `CONNECT` for both
+hosts, so it recorded two gaps. Both are now closed by primary sources:
+- ✅ **Served bytes, both hosts.** `curl` of `neofeed.valhalla-health.workers.dev` and
+  `valhalla-health.github.io/neofeed` returns `200`; the root (vs `index.html`), `app.jsx`, `data.js` and
+  `calculator.jsx` are each **byte-identical** (`cmp`) to the same file on `origin/release`, and the
+  root carries both `v=sync-poll-0916` tags. `/center-point/` returns **`404` on both** — CP is not
+  served from the clinical domain.
+- ✅ **Cloudflare Workers' build on `098bd37`** — `Workers Builds: neofeed` **success** 10:29:48 UTC
+  (with `build`, `deploy`, `report-build-status` and `harnesses` all success on the same commit).
 
-**The 60-second check that closes all three** (`?v=` forces past any cache):
+**Still NOT confirmed:**
+- ❌ **No human has opened the live app since the merge.** Byte-identity proves what is *served*,
+  not that it *runs* — `curl` does not execute JavaScript. The bedside checks below are the only
+  evidence that the poll and the grid fix work in a real ward browser.
+
+**The 60-second byte check, for whoever repeats this** (`?v=` forces past any cache):
 
 ```bash
 curl -s https://neofeed.valhalla-health.workers.dev/ | grep -c 'v=sync-poll-0916'   # expect 2
