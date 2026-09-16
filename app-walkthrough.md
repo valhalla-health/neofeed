@@ -146,7 +146,7 @@ that it fetched once at login and never again, so entries logged from another
 device never showed up.
 
 **Those background refetches must stay background.** `App`'s first-load gate
-is `syncState === "loading" && !lastSync` — the `!lastSync` half is
+is `syncState !== "ok" && !lastSync` — the `!lastSync` half is
 load-bearing (added 2026-08-18). Only the very first sync has nothing to
 protect; every later one is a refresh underneath a workspace someone is using.
 Gating the whole tree on `"loading"` alone unmounted everything below it on
@@ -156,6 +156,52 @@ state) and any open modal closed — from nothing more than tabbing away and
 back. A refresh is already reported by the topbar's "Syncing…" pill; don't
 give it the full-screen spinner too. `test/verify-resync-and-lists.cjs` mounts
 the real `<App/>` and fires a real focus event to hold this.
+
+The first half of that condition was `syncState === "loading"` until
+2026-09-16. A first sync that *failed* is `"error"` with `lastSync` still
+null, so it fell straight through the gate and rendered an empty registry as
+fact — the ward read "ยังไม่มีผู้ป่วยในระบบ" while the server was simply
+down. Anything that is not a **completed** sync now holds the gate, and
+`SyncGate` (in `app.jsx`, just above `App`) says which state it is: loading,
+slow, server error, or offline, each with its own copy and a ลองใหม่ retry.
+
+**There is also a poll, and it is the only thing that keeps a ward
+workstation current.** `SYNC_POLL_MS` (`data.js`, 4 min) re-syncs a *visible*
+tab with nobody touching it. Until 2026-09-16 there was no such timer: the app
+synced on login, on focus/`visibilitychange`, and on day rollover, and the one
+device that raises none of those is the workstation the ward actually uses —
+it sits open and focused on the registry for a whole shift. The data just
+aged, the staleness banner appeared at fifteen minutes and stayed, and this
+was reported as "sync นานกว่าปกติ". The poll is suppressed while the tab is
+hidden, while offline, while a request is in flight, and inside the window, so
+a backgrounded tab costs nothing; it is checked every 30 s but only *acts*
+every `SYNC_POLL_MS`. Every sync is also an `Audit_Log` write, so raising the
+rate is a real cost, not a free refresh — see `BACKLOG.md`.
+
+**`syncFromGAS` responses are sequence-guarded.** It has six callers and both
+responses of two overlapping requests called `setPatients`/`setLog`
+unconditionally, so the *last to arrive* won rather than the *newest* — a slow
+request landing after a fast one rolled the registry back to older data under
+a fresh green `GAS · HH:MM`. Each response now carries its request's sequence
+number and is dropped if a later one has been issued. The in-flight flag is
+deliberately **not** an early return in `syncFromGAS` itself: a fetch that
+never settles would wedge it forever and swallow the Sync button. Automatic
+callers check it; manual ones supersede.
+
+### The shell is a three-row grid, and the rows are explicit
+`.app` is `grid-template-rows: var(--header-h) auto 1fr` — topbar, banner,
+body — with `.app > [role="status"]` at `grid-column: 1 / -1; grid-row: 2` and
+`.rail`/`.work` pinned to row 3. **Nothing in `.app` may rely on grid
+auto-placement.** It had two rows until 2026-09-16, and `App`'s offline/
+staleness banner is a bare `<div role="status">` child of `.app`: auto-placement
+handed it the *rail's* cell, which pushed `.rail` into the workspace column and
+`.work` into an implicit third row that `overflow: hidden` clipped — the
+workspace went from 1208 px wide to 232 px, and on a phone below the fold
+entirely. The layout broke precisely when the app was offline or its data was
+stale, which are the two states the banner exists to announce. The banner row
+is `auto`, so it is 0 px on an ordinary day. `#toast-host` is `display:
+contents` for the same reason. `test/verify-sync-gate-and-poll.cjs` measures
+all four boxes in real Chromium; jsdom cannot see this class of bug at all.
 
 **A saved Daily_Log row's `dol` column is a snapshot, not a fact** — it
 records what DOL was when that row was written, so it goes stale exactly

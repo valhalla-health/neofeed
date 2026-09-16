@@ -1,6 +1,6 @@
 # Verification harnesses
 
-Twenty Node scripts. Two check the TPN calculator against the **official KCMH
+Twenty-four Node scripts. Two check the TPN calculator against the **official KCMH
 pharmacy worksheet** (กลุ่มงานเภสัชกรรม, ward 9B2/NICU), because those numbers
 become compounding instructions — a wrong divisor is a wrong dose. The third
 pins the clinical-target and calendar-date behaviour fixed in the 2026-08-08
@@ -50,8 +50,26 @@ always being a critical alert with a required override reason, the print form ne
 unsaved edits, draft recovery, the Glycophos phosphate line and the mobile twin label. It needs the
 same jsdom dependencies as the harnesses below.
 
+The twenty-fourth, `verify-sync-gate-and-poll.cjs`, pins the **2026-09-16 sync work**, and it is
+the only harness here that measures a *layout*. The staleness banner is a bare
+`<div role="status">` child of `.app`, and `.app` was a two-row grid with nothing after `.topbar`
+placed explicitly — so grid auto-placement gave the banner the rail's cell, pushed the rail into
+the workspace column, and left the workspace 232 px wide and clipped. The app's layout therefore
+broke in exactly the two states the banner exists to announce. Section 1 asserts the grid contract
+in **both** hand-synced shells and then measures all four boxes in real Chromium at 1440 and
+390 px, with and without the banner — static CSS assertions cannot see what a browser does with
+auto-placement, which is the whole lesson of that bug. Sections 2-4 drive the real `<App/>` in
+jsdom: the first-load gate holds on a *failed* first sync (it used to fall through and render an
+empty registry as fact while the server was down) and its retry re-issues exactly one request; a
+visible tab re-syncs on its own every `SYNC_POLL_MS` while a hidden or offline one does not — the
+absence of any such poll is what the ward reported as "sync นานกว่าปกติ"; and of two overlapping
+syncs the **newer** response wins rather than the last to arrive.
+
 **CI:** `.github/workflows/test.yml` runs every `verify-*.cjs` (plus `DEAD=0` for the Factor
 harness) and the shell byte-identity check on each pull request and on pushes to `main`/`release`.
+CI installs no browser, so `verify-sync-gate-and-poll.cjs`'s Chromium measurement prints a SKIP
+there and its static CSS assertions carry the section; run it locally (with `playwright`
+installed) to get the real measurement.
 
 ## Running
 
@@ -71,6 +89,15 @@ node test/verify-input-validation.cjs
 node test/verify-provenance-stamp.cjs
 node test/verify-sync-freshness.cjs
 node test/verify-publish-lock.cjs
+```
+
+`verify-sync-gate-and-poll.cjs` needs the jsdom set below, and additionally
+uses `playwright` **if it is installed** — without it the harness still runs and
+simply reports SKIP for the Chromium measurement. To get that measurement:
+
+```bash
+npm install --no-save --no-package-lock playwright
+node test/verify-sync-gate-and-poll.cjs
 ```
 
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,

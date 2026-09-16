@@ -13,6 +13,112 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-16 (3) — The sync-waiting screens, and why sync goes stale
+
+Reported from the ward as **"หน้า sync ไม่สวย และขึ้น sync นานกว่าปกติ"**, with a photo of a
+NICU workstation. The photo turned out to contain two separate defects, one of which is the worst
+layout bug this app has had.
+
+### 1 · The staleness banner destroyed the app's layout — `NeoFeed.html` / `index.html`
+
+`.app` was a two-row grid (`var(--header-h) 1fr`) and only `.topbar` was placed explicitly.
+`App` renders the offline/staleness banner as a bare `<div role="status">` child of `.app`, so
+CSS grid auto-placement handed it the first free cell — **the rail's** — which pushed `.rail`
+into the workspace column and `.work` into an implicit third row that `overflow: hidden` clipped.
+
+Measured in Chromium at 1440 × 900, with the banner up:
+
+| | before | after |
+|---|---|---|
+| banner | x 0, **w 232**, h 654 | x 0, **w 1440**, h 47 |
+| rail | x 232, **w 1208** | x 0, w 232 |
+| workspace | y 710, **w 232, h 190** | y 103, w 1208, h 797 |
+
+So the layout broke *precisely* in the two states the banner exists to announce — offline, and
+data older than 15 minutes — and the ward lost 85% of the workspace at the moment the banner was
+telling them to check their numbers. At 390 px the workspace was pushed below the fold entirely.
+
+`.app` now has three rows (`var(--header-h) auto 1fr`); the banner is placed at
+`grid-column: 1 / -1; grid-row: 2`, and `.rail`/`.work` are pinned to row 3 rather than
+auto-placed. The middle row is `auto`, so it is 0 px tall on every ordinary day. `#toast-host`,
+the only other bare child of `.app`, is `display: contents` so it can never repeat the trick.
+
+### 2 · "sync นานกว่าปกติ" was a sync that was never issued — `app.jsx`, `data.js`
+
+Not a slow request. The app re-synced on login, on tab focus/`visibilitychange`, and on day
+rollover — and a ward workstation raises none of those: the tab sits open and focused on the
+registry for a whole shift. After the login sync it never pulled again, crossed `SYNC_WARN_MS`
+at five minutes and `SYNC_STALE_MS` at fifteen, and then the banner simply stayed up until a
+human clicked Sync. The photo shows exactly this: pill and rail both reading 14:43, wall clock
+15:02, banner at 18 minutes, sync state green.
+
+A visible tab now polls every `SYNC_POLL_MS` (**4 min**, chosen under `SYNC_WARN_MS` = 5 so an
+ordinary tab never even reaches the warn tier). The poll is suppressed when the tab is hidden,
+when the device is offline, when a request is already in flight, and when something else synced
+within the window — a backgrounded tab costs nothing. It is checked every 30 s and only *acts*
+every 4 min, so a tab that was hidden or offline when its slot came round picks the sync up
+within half a minute of coming back.
+
+**Cost, stated rather than assumed:** 15 `Audit_Log` rows per hour per open tab, against a sheet
+`AI_SDLC.md` § 1 already lists as growing without bound. See `BACKLOG.md`.
+
+### 3 · Two sync bugs found while in there — `app.jsx`
+
+- **The last response won, not the newest.** `syncFromGAS` has six callers and no request had any
+  identity; both responses called `setPatients`/`setLog` unconditionally. A slow request landing
+  after a fast one silently rolled the registry back to older data, under a fresh green
+  `GAS · HH:MM` saying it was current. Every response now carries its request's sequence number
+  and is dropped if a later request has been issued. Automatic callers also skip while one is in
+  flight; manual ones deliberately do not, so a wedged fetch can never swallow the Sync button.
+  The in-flight marker holds the request's start time rather than a boolean and expires after
+  60 s, so one fetch Apps Script never answers cannot silently end background syncing for the
+  rest of the shift.
+- **A failed FIRST sync fell through the gate.** The gate was
+  `syncState === "loading" && !lastSync`; a first sync that *failed* is `"error"` with `lastSync`
+  still null, so it rendered an empty registry as fact — the ward saw
+  "ยังไม่มีผู้ป่วยในระบบ" while the server was simply down. The gate now holds on anything that is
+  not a completed sync.
+
+### 4 · The screens themselves
+
+- **`SyncGate`** replaces a 36 px spinner with two lines of English. Thai-first, branded, on a card
+  that fits a 320 px phone and a 1440 px workstation; an indeterminate bar that *stops* when the
+  sync has stalled; the elapsed seconds after 6 s (held back before that — a counter on a load
+  that finishes in 2 s is noise); an explanation naming Apps Script cold start and ward Wi-Fi
+  after 15 s; and a **ลองใหม่** button, since a fetch that never settled previously left no
+  control on screen at all. Offline and server-error are distinct states with their own copy, not
+  a spinner. `prefers-reduced-motion` holds the bar still.
+- **The banner** now keeps its message in a `flex: 1 1 260px` column so a long Thai sentence wraps
+  inside it, and its Sync button is a 40/44 px `.btn` that sits at the end of the row on a
+  workstation and goes full-width on the line below the message on a phone — where it used to be
+  a ~25 px target pinned right by `marginLeft: auto`. It shows "กำลังซิงก์…" and disables while a
+  sync is in flight.
+- The topbar pill's tooltip now carries the **last round-trip in seconds**, so "it's slow today"
+  can be reported as a number.
+
+### Not changed — the backend, which is the other half of "slow"
+
+`getActivePatients` reads `Daily_Log` with `getDataRange().getValues()` — **every row ever
+written, all 38 columns** — and filters to the sync window only afterwards, `JSON.parse`s
+`calcInputJson` per row, and writes an `Audit_Log` row per sync. At ~29 active sessions that is
+~29 new rows a day, so the read grows linearly and forever; the poll above multiplies how often
+it is paid. This is real and is now filed in `BACKLOG.md`, but `gas-backend.gs` is untouched:
+per `AI_SDLC.md` § 5 a backend change needs Praew's explicit deploy, and the client fix already
+answers what the ward reported.
+
+### Tests
+
+New `test/verify-sync-gate-and-poll.cjs` — 59 assertions. Section 1 pins the grid contract in both
+hand-synced shells and then **measures all four boxes in real Chromium** at 1440 and 390 px, with
+and without the banner (it degrades to a notice where playwright isn't installed, as in CI).
+Sections 2-4 drive the real `<App/>` in jsdom: the gate holds on a failed first sync and the retry
+re-issues exactly one request; a visible tab polls and a hidden or offline one does not; the newer
+of two overlapping responses wins. Reverting the grid fix fails 14 assertions; removing the poll
+effect fails 2. All 30 harnesses, `DEAD=0`, `cmp index.html NeoFeed.html`, the center-point build
+and its 5 client tests pass.
+
+---
+
 ## Session 2026-09-16 (2) — PR #57: three fixes from the CP walk-through
 
 Still a synthetic draft; nothing deployed; the legacy screen is untouched.
