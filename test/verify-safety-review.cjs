@@ -38,8 +38,10 @@ console.log('\n── a back-fill never starts from a future order ──');
 ok('app owns a previous-entry selector', /function previousLogEntry\(/.test(app));
 ok('CalculatorView selects its baseline relative to the target date',
   /previousLogEntry\(log\[activeId\]\s*\|\|\s*\[\],\s*lockDate\)/.test(app));
+// The optional `&& !centerPoint` below (and on PrintOrderForm) is the Center
+// Point entry: it only narrows these guards, never widens them.
 ok('a dated back-fill does not restore an unrelated local draft',
-  /if\s*\(!logDate\)\s*\{\s*try\s*\{\s*const raw = localStorage\.getItem/.test(calc));
+  /if\s*\(!logDate(?:\s*&&\s*!centerPoint)?\)\s*\{\s*try\s*\{\s*const raw = localStorage\.getItem/.test(calc));
 
 console.log('\n── printed treatment date and product guidance ──');
 ok('PrintOrderForm receives the clinical order date',
@@ -53,7 +55,7 @@ ok('print and copy require a successfully saved entry',
 // MATCH what was saved. verify-review-0911.cjs drives this in jsdom.
 ok('the print form renders only while the form matches the saved row',
   /const printable\s*=\s*!!savedEntryId\s*&&\s*!dirty/.test(calc) &&
-  /\{printable\s*&&\s*<PrintOrderForm/.test(calc) &&
+  /\{printable(?:\s*&&\s*!centerPoint)?\s*&&\s*<PrintOrderForm/.test(calc) &&
   /if\s*\(!printable\)[\s\S]{0,160}ก่อนพิมพ์/.test(calc) &&
   /if\s*\(!printable\)[\s\S]{0,160}ก่อนคัดลอก/.test(calc));
 ok('Peditrace guidance is 1 mL/kg/day (maximum 15 mL)',

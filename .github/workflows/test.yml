@@ -51,3 +51,14 @@ jobs:
           echo "::group::verify-kcmh-factor.cjs with no dead space"
           DEAD=0 node test/verify-kcmh-factor.cjs
           echo "::endgroup::"
+
+      # Center Point serves a bundle of calculator.jsx built from center-point/
+      # (PR #57). Without these, a change that breaks that bundle or CP's client
+      # passed CI; the verify harnesses above load the sources, not the bundle.
+      - name: Center Point entry builds
+        run: |
+          npm ci --prefix center-point
+          npm run build --prefix center-point
+
+      - name: Center Point client tests
+        run: node --test test/center-point.test.mjs

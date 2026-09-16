@@ -20,3 +20,7 @@ package-lock.json
 
 # Graphify knowledge-graph output/cache — regenerable, not source or docs
 graphify-out/
+
+# Center Point build — dist is generated; its lockfile is tracked for npm ci
+center-point/dist/
+!center-point/package-lock.json

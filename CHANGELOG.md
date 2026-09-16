@@ -13,6 +13,134 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-16 — Changes since the previous confirmed version (Center Point)
+
+Praew's decisions (2026-09-16):
+- CP's TPN sheet compares with the previous confirmed version of the same record, which is what
+  this entry builds.
+- Nurses correct weight or intake in the real NeoFeed app, and CP takes data from NeoFeed only.
+  The drafts view stays read-only for TPN records.
+- The free-text critical-value reason stays for now, to be decided before a pilot.
+- PR #57 and CP PR #12 merge together once this lands.
+
+- **`center-point/tpn-document.mjs`:**
+  - `tpnChanges(previous, current)` compares the ordered fields: `ORDER_DIFF_FIELDS` terms plus
+    dosing weight and each preparation, never amounts that only follow the weight.
+  - `renderTpn(container, value, previous)` draws "เปลี่ยนแปลงจากฉบับยืนยันก่อนหน้า (ฉบับ N)"
+    under the critical-value box. It shows the list, "no changes", "first confirmed version" or "the
+    previous version had no TPN". The argument is optional and validated.
+- **`calculator-page.jsx`:** the review passes the `previous` that CP now returns with each draft.
+- The `tpn-document.mjs` tripwire digest is updated; CP is synced and re-pinned.
+
+Tests: the new `verify-center-point-order-changes.cjs` passes 19/19. All harnesses pass. CP covers
+the server baseline (a withdrawn version is skipped) and the calculator and desktop print end to end.
+
+---
+
+## Session 2026-09-15 (6) — PR #57 third-review fixes
+
+Still a synthetic draft; nothing deployed; the legacy screen is untouched.
+
+- **The `/neofeed/` drafts view is read-only for a record that carries a TPN order** (Praew's
+  decision, 2026-09-15). The drafts view and the calculator page edit the same CP record. The
+  drafts view's review text showed weight, feed plan and intake, but no TPN value and no
+  critical-value reason. Its Publish and print-job buttons still acted on the whole TPN revision,
+  and its save sends no TPN, so a nurse's weight correction dropped the doctor's order. Now, when
+  the latest draft has a TPN, the form, Publish and print job are disabled. A notice points to
+  the calculator page, the only place a TPN order is reviewed, published and printed. CP's server
+  refuses such a save as `tpn_draft_superseded` (CP PR #12), and the view explains that refusal.
+- **Tripwire on `center-point/tpn-document.mjs`** (`verify-center-point-entry.cjs` §6). CP keeps a
+  copy that its CI checks against a pinned NeoFeed commit, so an edit here passed both CIs. The
+  test now fails on any change until CP is synced, re-pinned and the digest is updated.
+- **`BACKLOG.md`** no longer lists PR #57 among the drafts to close.
+
+Tests: the new `verify-center-point-drafts-view.cjs` mounts the real drafts view with a stub client.
+It passes 16/16; against the previous drafts view 11 checks fail, including a forced publish, save
+and print job. All harnesses pass.
+
+Not decided: how nurses record weight or intake on a record once it has a TPN order. For now a
+clinician re-saves it in the calculator.
+
+---
+
+## Session 2026-09-15 (5) — PR #57 re-review fixes
+
+Fixes from a second review of PR #57 after entry (4). Still a synthetic draft; nothing deployed;
+the legacy screen is untouched.
+
+- **A reason NeoFeed accepts is no longer refused by CP.** `handleSave` trims the prompt answer
+  and then cuts it at 300, so the cut can end on a space or split an emoji, and a pasted tab
+  survives. `validateTpn` refused all three, and the CP save failed with only a generic toast.
+  `buildTpn` now cleans reasons and alert titles with `tpnText`: control characters and
+  whitespace runs become one space, lone surrogates are replaced, and the cut never splits a pair
+  or leaves an edge space. `validateTpn` also refuses broken text. The limits are exported from
+  `tpn-document.mjs` so the two cannot drift. Both use plain loops, not
+  `isWellFormed`/`toWellFormed`, which need Chrome 111 / Safari 16.4.
+- **The print-parity harness also compares an overfilled bag.** Its one order had no dead space,
+  so the dead-space and "bag ×" lines were never compared. It now runs the order twice, the second
+  time with 6.3 mL. The first attempt used 7 mL, which a mutation check showed was matched by the
+  7 mL/feed enteral volume, so the header now states the match-by-value limit.
+- **CI builds the Center Point entry and runs its client tests** (`test.yml`). Before, a change
+  that broke the bundle CP serves, or `center-point/client.mjs`, still passed.
+
+Tests: `verify-center-point-entry.cjs` §4b drives the three reasons through prompt → save →
+`buildTpn`, and each failed before the fix; it also checks the lone-surrogate refusal. All 26
+harnesses, `DEAD=0`, `center-point.test.mjs` 5/5 and a clean `npm ci` + build pass.
+
+---
+
+## Session 2026-09-15 (4) — PR #57 review fixes (Center Point entry)
+
+Fixes from the 2026-09-15 review of PR #57. Still a synthetic draft; nothing deployed. Every
+`calculator.jsx` change is behind `centerPoint`, so the legacy screen behaves exactly as before and
+no cache-bust is needed.
+
+- **No clinical data in browser storage on the CP screen** (review finding 1). The F3 draft autosave
+  and the draft read both ran there, so a CP order sat in `localStorage` as
+  `neofeed_draft_<CP id>_<date>` for up to 72 h. Both are now off for `centerPoint`. A CP save also
+  sets `savedKey`, so the form stops saying "มีการแก้ไขที่ยังไม่ได้บันทึก". The Copy Order button is
+  hidden, since a saved form would otherwise unlock it, and so is the (gated-off) Submit.
+- **Critical-value reason carried into CP** (finding 3, Praew's decision). `centerPoint.save` now
+  receives `critOverride`. The snapshot moves to `neofeed-tpn-v2` / `cp-tpn-2` with
+  `criticalOverride: {reason, alerts} | null`, which `renderTpn` shows as text. On CP the prompt
+  also says not to type a name or HN, because CP keeps identity out of the packet.
+- **Intake / Output card not on the CP screen** (finding 4, Praew's decision). Input, Urine output
+  and Drain content go nowhere in CP, so they are hidden and out of the gate. Other IV and Drug
+  volume stay required because they feed the fluid budget.
+- **`center-point/` excluded from both hosts** (finding 5): `.assetsignore` and `_config.yml`.
+- **CP print slots** (finding 7): added Mg mg/kg and TPN-only kcal/kg, and relabelled the TPN+EN
+  figure "Energy incl. EN". The new parity harness found the kcal/kg gap; the review had not.
+
+New harnesses: `verify-center-point-entry.cjs` and `verify-center-point-print-parity.cjs`.
+`verify-required-log-fields.cjs` §7 now fills CP's Step 1 only. All 26 harnesses, `DEAD=0`,
+`center-point.test.mjs` 5/5, the shell `cmp` and the `center-point` build pass. CP's matching
+`web/tpn-document.mjs` change is in `valhalla-health/NICU-Center-Point`.
+
+Not done: "changes since the previous order" on CP's sheet. CP has no previous-order concept yet.
+
+---
+
+## Session 2026-09-15 — `main` merged into `codex/center-point-v2` (PR #57)
+
+Brings the Center Point branch up to `main` (through PR #64). Still a synthetic draft; nothing
+deployed. Two real conflicts in `calculator.jsx`, both resolved by keeping both sides:
+
+- **`handleSave`: the required-field gate and the F1 critical-alert stop now run before the
+  `centerPoint.save(...)` branch** (Praew's decisions, 2026-09-14 for F1 and 2026-09-15 for the
+  gate). A Center Point save can no longer skip either one. Pinned by
+  `verify-required-log-fields.cjs` §7, which fails if the CP branch is moved back above F1.
+  **Known limit:** the F1 reason is still not carried into the CP snapshot (`neofeed-tpn-v1` has
+  no slot for it). See `NICU-Center-Point/docs/HANDOFF-NEOFEED-PR57-2026-09-14.md`.
+- **`PrintOrderForm`** renders on `printable && !centerPoint`: `main`'s saved-and-unchanged rule
+  plus the branch's CP exclusion.
+
+`verify-safety-review.cjs` pins source text, so two of its patterns now also accept the
+`&& !centerPoint` guard (it only narrows them). Not fixed here: after a CP save, `savedKey` stays
+null, so the "มีการแก้ไขที่ยังไม่ได้บันทึก" line still shows. The CP page runs its own review/print
+state, so this affects wording only.
+
+---
+
 ## Session 2026-09-15 (3) — Backend `@54` deployed; frontend `?v=bed-guard-0915` live on both hosts
 
 PR #66 merged to `main` (`8406cd7`, no deploy). PR #67 `main` → `release` was approved and merged by
@@ -3175,3 +3303,10 @@ Now captures combined PN+EN totals:
 `{ dol, weight, fluid, gir, pro, kcal, na, k, ca, p, enVolPerKg, route, status }`
 
 Where `enVolPerKg` drives target picker. `pro/kcal/na/k/ca/p` are per-kg combined PN+EN.
+
+## Unreleased — Center Point identity connection
+
+A separate center-point entry point and strict v2 client have been added on the
+codex/center-point-v2 branch. Existing main/frontend shells and GAS are unchanged.
+The new client uses the real Center Point API with UUID-only pending retries and
+no legacy fallback. See center-point/README.md for exact scope and remaining gates.

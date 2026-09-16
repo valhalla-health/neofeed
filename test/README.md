@@ -77,6 +77,8 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
 `verify-delete-session.cjs`, `verify-forced-password-client.cjs`,
 `verify-tpn-calc-weight.cjs`, `verify-required-log-fields.cjs`,
+`verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
+`verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
@@ -100,6 +102,10 @@ node test/verify-delete-session.cjs
 node test/verify-forced-password-client.cjs
 node test/verify-tpn-calc-weight.cjs
 node test/verify-required-log-fields.cjs
+node test/verify-center-point-entry.cjs
+node test/verify-center-point-print-parity.cjs
+node test/verify-center-point-drafts-view.cjs
+node test/verify-center-point-order-changes.cjs
 node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
 ```
@@ -513,6 +519,49 @@ it; Steps 2-6 are outside the gate, so an NPO day with no TPN and no feed
 still saves; reopening a saved entry does not demand re-typing the zeros it
 already records; and a fresh form for the **next** patient starts blocked
 again, which is what stops one infant's answers pre-satisfying another's.
+
+**`verify-center-point-entry.cjs`** — the Center Point entry to `<Calculator>`
+(the `centerPoint` prop, PR #57), pinned after the 2026-09-15 review of that PR.
+It mounts the real calculator with a stub bridge. Nothing clinical may reach
+`localStorage` on that screen: no draft autosave and no draft read, with a
+legacy-screen control proving the harness can see an autosave at all. A CP save
+reads as saved, and there is no Copy Order button. The Intake / Output card is
+absent and not required, while the legacy screen still requires it. The
+critical-value reason goes to the bridge, into the `neofeed-tpn-v2` snapshot
+and onto `renderTpn`'s sheet as plain text, and `validateTpn` rejects a
+malformed one. §4b: any reason the prompt accepts (a cut ending on a space, a
+pasted tab, an emoji split at 300) still saves through CP. Both host ignore files keep `center-point/` off NeoFeed's domain.
+
+**`verify-center-point-drafts-view.cjs`** — the `/neofeed/` drafts view on a
+record whose latest draft carries a TPN order. That view's review shows no TPN
+value and its save carries no TPN, so such a record is read-only there. Form,
+Publish and print job do nothing even when forced, and a notice points to the
+calculator page. An observation-only record stays editable, which is the
+control. CP's `tpn_draft_superseded` refusal is explained. Mounts the real
+`center-point/drafts-view.mjs` in jsdom with a stub client.
+
+**`verify-center-point-order-changes.cjs`** — "changes since the previous
+confirmed version" on CP's sheet (Praew, 2026-09-16). `tpnChanges` compares what
+a prescriber orders, in `ORDER_DIFF_FIELDS` terms plus dosing weight and each
+preparation, and never amounts that only follow the weight. `renderTpn`'s third
+argument draws the section: nothing when it is left out, "first confirmed
+version" for `null`, a note when the previous version had no TPN, "no changes",
+or the list. A malformed previous version is refused. CP's server decides which
+revision is previous.
+
+**`verify-center-point-print-parity.cjs`** — CP prints from a hand-kept slot
+list (`center-point/tpn-document.mjs`), so nothing noticed when NeoFeed's
+pharmacy form gained a figure CP lacked. This saves one fully populated order
+through both screens and requires every dose figure on `<PrintOrderForm>` (each
+is its own `<strong>`) to appear in a CP value slot, allowing for CP printing
+more decimals. A new figure on NeoFeed's form fails it until CP gets a slot, or
+the figure is listed in `NOT_ON_CP` with its reason. It found the Mg mg/kg and
+TPN-only kcal/kg figures missing. The order runs twice, without and with dead
+space, because an overfilled bag prints extra lines. Figures are matched by
+value, so keep fixture values distinct: a second slot with the same number can
+hide a missing one. The patient table, the saved-by line and "changes since the
+previous order" are outside it; CP has no previous order yet.
+
 **`verify-nutrition-unit-review.cjs`** — the two items acted on from the
 Nutrition Unit's AUG 2026 review, and the only harness here whose subject is
 **legibility rather than arithmetic**.
