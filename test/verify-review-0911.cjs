@@ -41,7 +41,9 @@ function makeSheet(header, rows) {
     getRange(row, col, nr = 1, nc = 1) {
       return {
         getValue: () => (data[row - 1] || [])[col - 1] ?? '',
-        getValues: () => [(data[row - 1] || []).slice(col - 1, col - 1 + nc)],
+        // Any number of rows, like the real Range: since 2026-09-17 the write
+        // paths find rows by a narrow column read (perf review UP-B5).
+        getValues: () => Array.from({ length: nr }, (_, i) => { const src = data[row - 1 + i] || []; return Array.from({ length: nc }, (_, j) => src[col - 1 + j] ?? ''); }),
         setValue(v) { if (!data[row - 1]) data[row - 1] = []; data[row - 1][col - 1] = v; },
         setValues(v) { if (!data[row - 1]) data[row - 1] = []; v[0].forEach((x, i) => { data[row - 1][col - 1 + i] = x; }); },
         clearContent() {},
@@ -83,7 +85,15 @@ vm.createContext(sandbox);
 vm.runInContext(R('gas-backend.gs'), sandbox);
 const post = (body) => JSON.parse(sandbox.doPost({ postData: { contents: JSON.stringify(body) } }).setMimeType());
 
-const PAT_HEADER = new Array(18).fill('h');
+// Real labels in row 1: since 2026-09-17 every write to these tabs checks them
+// (the column-drift guard refuses a save under an unexpected label), so the
+// old placeholder 'h' headers would be — correctly — refused.
+const PAT_HEADER = ['sessionId','name','initials','bw','ga','sex','dob','admissionDate','twinSuffix',
+  'status','currentBed','diagnosis','weights','lengths','hcs','bedHistory','statusDate','multiplesCount'];
+const LOG_HEADER = ['ts','sessionId','dol','weight','fluid','gir','pro','kcal','na','k','ca','p','enVolPerKg','route','status','submittedBy',
+  'suppMTV','suppVitD_IU','suppCa_mg','suppCaType','suppPO4_mmol','suppPO4Type','suppFe_mg','suppFeType',
+  'calcInputJson','entryId','lastModified','lastModifiedBy','ioInput','ioOutput','drainContent','constantsVersion','appVersion',
+  'published','publishedBy','revisionNumber','revisionOf','supersededAt'];
 const patRow = (sid, status, statusDate) => {
   const r = new Array(18).fill('');
   r[0] = sid; r[1] = sid.slice(0, 2); r[3] = 1200; r[4] = 30; r[9] = status || 'Active'; r[16] = statusDate || '';
@@ -93,7 +103,7 @@ const ENTRY = { dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 
   enVolPerKg: 20, route: 'TPN central', status: 'submitted' };
 const todayKey = sandbox._wardDateKey();
 const daysAgo = (n) => new Date(Date.parse(todayKey + 'T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
-function freshLog() { sheets.Daily_Log = makeSheet(new Array(W).fill('h')); return sheets.Daily_Log; }
+function freshLog() { sheets.Daily_Log = makeSheet(LOG_HEADER); return sheets.Daily_Log; }
 function logRows() { return sheets.Daily_Log.data.slice(1); }
 
 console.log('\n── B5 · a log row needs a registered patient ──');

@@ -57,8 +57,17 @@ ok('CONSTANTS_VERSION has no formula-injection prefix',
    !/^[=+\-@]/.test(D.CONSTANTS_VERSION || ''));
 
 // ══ 2 · the backend writes them, at the right index ═══════════════════════
+// Row 1 carries Daily_Log's real labels. Since 2026-09-17 every write checks
+// them (the column-drift guard refuses a save under a label the code does not
+// expect), so a placeholder header row would now be refused — correctly.
+const LOG_HEADER = [
+  'ts','sessionId','dol','weight','fluid','gir','pro','kcal','na','k','ca','p','enVolPerKg','route','status','submittedBy',
+  'suppMTV','suppVitD_IU','suppCa_mg','suppCaType','suppPO4_mmol','suppPO4Type','suppFe_mg','suppFeType',
+  'calcInputJson','entryId','lastModified','lastModifiedBy','ioInput','ioOutput','drainContent','constantsVersion','appVersion',
+  'published','publishedBy','revisionNumber','revisionOf','supersededAt',
+];
 function makeSheet(maxColumns, rows) {
-  const data = [new Array(ROW_WIDTH).fill('header'), ...(rows || [])];
+  const data = [LOG_HEADER.slice(), ...(rows || [])];
   return {
     maxColumns, writes: [], appended: [], insertedColumns: [],
     getMaxColumns() { return this.maxColumns; },
@@ -73,9 +82,15 @@ function makeSheet(maxColumns, rows) {
         throw new Error('The coordinates or dimensions of the range are invalid.');
       }
       const sheet = this;
+      // Reads return the real cells, any number of rows: the write paths now
+      // find a row by a narrow column read and re-check it before writing
+      // (2026-09-17 review, UP-B3/UP-B5), which a `[[]]` stub cannot answer.
       return {
         setValues(values) { sheet.writes.push({ row, col, numCols, values }); },
-        setValue() {}, getValue: () => '', getValues: () => [[]],
+        setValue() {},
+        getValue: () => (data[row - 1] || [])[col - 1] ?? '',
+        getValues: () => Array.from({ length: numRows || 1 }, (_, i) =>
+          Array.from({ length: numCols || 1 }, (_, j) => (data[row - 1 + i] || [])[col - 1 + j] ?? '')),
       };
     },
     appendRow(r) {

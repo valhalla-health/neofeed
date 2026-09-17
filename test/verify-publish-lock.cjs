@@ -39,8 +39,17 @@ const COL_REVISION_OF     = 36; // AK
 const COL_SUPERSEDED_AT   = 37; // AL
 const ROW_WIDTH           = 38;
 
+// Row 1 carries Daily_Log's real labels. Since 2026-09-17 every write checks
+// them (the column-drift guard refuses a save under a label the code does not
+// expect), so a placeholder header row would now be refused — correctly.
+const LOG_HEADER = [
+  'ts','sessionId','dol','weight','fluid','gir','pro','kcal','na','k','ca','p','enVolPerKg','route','status','submittedBy',
+  'suppMTV','suppVitD_IU','suppCa_mg','suppCaType','suppPO4_mmol','suppPO4Type','suppFe_mg','suppFeType',
+  'calcInputJson','entryId','lastModified','lastModifiedBy','ioInput','ioOutput','drainContent','constantsVersion','appVersion',
+  'published','publishedBy','revisionNumber','revisionOf','supersededAt',
+];
 function makeSheet(maxColumns, rows) {
-  const data = [new Array(ROW_WIDTH).fill('header'), ...(rows || [])];
+  const data = [LOG_HEADER.slice(), ...(rows || [])];
   return {
     maxColumns, appended: [], insertedColumns: [], deleted: [],
     getMaxColumns() { return this.maxColumns; },
@@ -57,10 +66,15 @@ function makeSheet(maxColumns, rows) {
       }
       const sheet = this;
       return {
+        // Multi-row reads and column-true writes, like the real Range: the
+        // write paths now find a row by a narrow column read, and a revision
+        // supersedes its old row with ONE setValues over AA..AL (2026-09-17
+        // review, UP-B5/UP-B8) — a stub that replaced the whole row from
+        // column A would corrupt the entryId it is asserting on.
         getValue: () => (data[row - 1] || [])[col - 1] ?? '',
-        getValues: () => [(data[row - 1] || []).slice(col - 1, col - 1 + numCols)],
+        getValues: () => Array.from({ length: numRows }, (_, i) => { const src = data[row - 1 + i] || []; return Array.from({ length: numCols }, (_, j) => src[col - 1 + j] ?? ''); }),
         setValue(value) { if (!data[row - 1]) data[row - 1] = []; data[row - 1][col - 1] = value; },
-        setValues(values) { data[row - 1] = values[0].slice(); },
+        setValues(values) { if (!data[row - 1]) data[row - 1] = []; values[0].forEach((v, j) => { data[row - 1][col - 1 + j] = v; }); },
       };
     },
     appendRow(r) {
@@ -257,7 +271,11 @@ console.log('\n── getActivePatients exposes the new fields to the client ─
   row[COL_REVISION_NUMBER] = 2;
   row[COL_REVISION_OF] = 'entry-1';
   row[COL_SUPERSEDED_AT] = '';
-  const logSheet = { getLastRow: () => 2, getDataRange: () => ({ getValues: () => [new Array(ROW_WIDTH).fill('header'), row] }) };
+  // The sync reads column B first and then only the rows it needs (2026-09-17
+  // perf review), so this stub answers ranged reads as well as getDataRange.
+  const logRows = [new Array(ROW_WIDTH).fill('header'), row];
+  const logSheet = { getLastRow: () => 2, getMaxColumns: () => ROW_WIDTH, getDataRange: () => ({ getValues: () => logRows }),
+    getRange: (r, c, nr, nc) => ({ getValues: () => logRows.slice(r - 1, r - 1 + nr).map(x => x.slice(c - 1, c - 1 + nc)) }) };
   const savedOpen = sandbox.SpreadsheetApp.openById;
   sandbox.SpreadsheetApp.openById = () => ({ getSheetByName: (n) => n === 'Daily_Log' ? logSheet : patSheet });
   const result = sandbox.getActivePatients();
