@@ -88,7 +88,10 @@ const mkEntry = (o) => ({
   calcInput: {
     wtG: o.weight, fluidTargetPerKg: o.fluid, otherIV_mL: 0, drug_mL: 9,
     ioInput: o.ioInput || 0, ioOutput: o.ioOutput || 0, drainContent: o.drain || 0,
-    totalTPN_mL: o.tpn || 0, dexPct: 10, aaPerKg: 3, enVol: 0, enFreq: 0,
+    // Dextrose and AA only on rows that have a bag: since the 2026-09-17 review
+    // (UP-C3) ingredients with TPN volume 0 block Save, and the NPO / enteral
+    // rows here are re-saved below.
+    totalTPN_mL: o.tpn || 0, dexPct: o.tpn ? 10 : 0, aaPerKg: o.tpn ? 3 : 0, enVol: 0, enFreq: 0,
   },
 });
 const log = { 'FO-1': [

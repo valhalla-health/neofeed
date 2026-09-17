@@ -151,6 +151,34 @@ function diffOrderInputs(prev, cur) {
 // logout (app.jsx); anything older than this is discarded unread.
 const DRAFT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 const draftStorageKey = (sessionId, dateStr) => `neofeed_draft_${sessionId}_${dateStr}`;
+// app.jsx inserts a new log row optimistically under "tmp_…" (or
+// "local_tmp_…" with no backend) until the server returns the real entryId.
+// Such a row is not saved yet: opening it and printing put an id on the
+// pharmacy form that no Daily_Log row has, and saving it again targeted a row
+// the server has never seen (review 2026-09-17, UP-C9). log.jsx keeps its own
+// copy of this test — the two files load as separate scripts.
+const isPendingEntryId = (id) => /^(local_)?tmp_/.test(String(id || ""));
+
+// The TPN dosing weight (g) a saved row was calculated with (UP-C2). Every
+// per-kg dose follows the dosing weight, and that weight can move without the
+// form changing: it floors at `patient.bw`, so correcting a birth weight
+// re-doses a reopened order that still looked "saved" and printed the new mL
+// under the old entry id. Rows saved from 2026-09-17 carry it as
+// calcInput.tpnWtG (exact). Older rows don't, so it is recovered only from
+// columns whose formula has not changed and depends on nothing but the dosing
+// weight: GIR (delivered dextrose g × 1000 ÷ 1440 ÷ kg) or EN mL/kg/d. No such
+// evidence → null → never blocks (a legacy row is only held back when the
+// record itself shows the weight moved).
+function savedDosingWeightOf(entry) {
+  const ci = entry?.calcInput || {};
+  const num = (v) => { const x = Number(v); return isFinite(x) ? x : 0; };
+  if (num(ci.tpnWtG) > 0) return { g: num(ci.tpnWtG), exact: true };
+  const dexG = num(ci.totalTPN_mL) * num(ci.dexPct) / 100, gir = num(entry?.gir);
+  if (dexG > 0 && gir > 0) return { g: dexG * 1000 / (1440 * gir) * 1000, exact: false };
+  const enTotal = num(ci.enVol) * num(ci.enFreq), enPerKg = num(entry?.enVolPerKg);
+  if (enTotal > 0 && enPerKg > 0) return { g: enTotal / enPerKg * 1000, exact: false };
+  return null;
+}
 
 // `name` + `required` + `onBlankChange` implement the "every field must be
 // filled in before this order can be saved" rule (2026-09-15). What counts as
@@ -545,6 +573,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   // Critical-alert override recorded with the saved order (F1 hard stop).
   const [critOverride, setCritOverride] = useState(editEntry?.calcInput?.critOverride || null);
   const [draftOffer, setDraftOffer] = useState(null); // an unsaved draft newer than this form
+  // Dosing weight the saved row was calculated with — see savedDosingWeightOf.
+  // null = nothing saved from this form, or a legacy row with no evidence.
+  const [savedDosingWt, setSavedDosingWt] = useState(null); // { g, exact }
 
   // Hydrates the full raw-input form from a saved entry's calcInput — shared
   // by "editing an entry" and "starting today from the latest entry" below,
@@ -654,6 +685,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
       at: editEntry.lastModified || "",
       revision: editEntry.revisionNumber || 1,
     } : null);
+    setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
 
     // An unsaved draft for this patient + order date, newer than what is
     // being opened, is offered back rather than silently overwritten.
@@ -728,8 +760,11 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   const liveInputs = currentInputs();
   const formKey = calcInputKey(liveInputs);
   // Unsaved = nothing saved from this form yet, or the form moved since.
+  // (`printable` — saved, unchanged AND nothing else holding the order back —
+  // is derived further down, once the alerts it depends on exist.)
   const dirty = savedKey === null || formKey !== savedKey;
-  const printable = !!savedEntryId && !dirty;
+  // A row still under its optimistic "tmp_" id is not saved (UP-C9).
+  const pendingSave = isPendingEntryId(savedEntryId);
   // "The user has typed something" — ignores the auto-tracking Input figure.
   const userKey = calcInputKey({ ...liveInputs, ioInput: ioInputTouched ? ioInput : null });
   const userEdited = prefillKey !== null && userKey !== prefillKey && formKey !== savedKey;
@@ -767,32 +802,6 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     next.has(n) ? next.delete(n) : next.add(n);
     return next;
   });
-
-  // ── Print handler — opens all steps, prints, then restores ─────
-  React.useEffect(() => {
-    const ALL = new Set([1, 2, 3, 4, 5, 6]);
-    const handler = () => {
-      if (centerPoint) { centerPoint.review(); return; }
-      if (!savedEntryId) {
-        showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
-        return;
-      }
-      // Saved, but edited since: printing now would put unsaved numbers
-      // under the saved row's entry id.
-      if (!printable) {
-        showToast("มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
-        return;
-      }
-      setOpenSteps(ALL);
-      // Wait one frame for React to render all card-b sections
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        window.print();
-        window.onafterprint = () => setOpenSteps(new Set([1]));
-      }));
-    };
-    document.addEventListener('__neofeed_print', handler);
-    return () => document.removeEventListener('__neofeed_print', handler);
-  }, [savedEntryId, printable]);
 
   // ===== compute =====
   const calc = useMemo(() => {
@@ -1180,6 +1189,16 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   };
   const ivRef = "Hard limit · TPN (IV) portion";
 
+  // The bag has ingredients but no volume (UP-C3) — see zeroVolumeBag below.
+  // Here it only widens two bag alerts that used to need volume > 0, so the
+  // screen never hides what the printed form would show.
+  const bagIngredientsWithoutVolume = totalTPN_mL > 0 ? [] : [
+    [aaPerKg, "Amino acid"], [dexPct, "Dextrose"], [naCl, "20% NaCl"], [naAcet, "Na acetate"],
+    [glycophosP, "Glycophos"], [kCl, "KCl"], [k2hpo4, "K₂HPO₄"], [mgPerKg, "MgSO₄"], [caPerKg, "Ca gluconate"],
+  ].filter(([v]) => v > 0).map(([, label]) => label);
+  const zeroVolumeBag = bagIngredientsWithoutVolume.length > 0;
+  const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
+
   const alerts = [];
   if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${calc.gir.toFixed(1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });else
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${calc.gir.toFixed(1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
@@ -1226,17 +1245,73 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${caPScope} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
   else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2, true)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
   if (calc.enVolPerKg > 100 && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
-  if (calc.totalTPN_mL > 0 && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — switch to central.`, ref: "Safety" });
-  else if (calc.totalTPN_mL > 0 && sOsm === "warn") alerts.push({ level: "warn", title: route === "peripheral" ? "Osmolarity near peripheral limit" : "Osmolarity high for central line", body: `${calc.osm.toFixed(0)} mOsm/L — ${route === "peripheral" ? "peripheral limit 900" : "endothelial risk above 1800"} mOsm/L.`, ref: "Safety" });
+  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — switch to central.`, ref: "Safety" });
+  else if (bagOrdered && sOsm === "warn") alerts.push({ level: "warn", title: route === "peripheral" ? "Osmolarity near peripheral limit" : "Osmolarity high for central line", body: `${calc.osm.toFixed(0)} mOsm/L — ${route === "peripheral" ? "peripheral limit 900" : "endothelial risk above 1800"} mOsm/L.`, ref: "Safety" });
   if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${calc.dexGPerKg.toFixed(1)} g/kg/d — sheet limit is ${D.MAX_DEXTROSE_G_KG} g/kg/d. Lower dextrose % or bag volume.`, ref: "KCMH TPN worksheet" });
   if (calc.kMeqPerL > D.MAX_K_MEQ_PER_L) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${calc.kMeqPerL.toFixed(0)} mEq/L — max ${D.MAX_K_MEQ_PER_L} mEq/L in the bag. Increase volume or reduce K.`, ref: "KCMH TPN worksheet" });
-  if (calc.totalTPN_mL > 0 && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${calc.componentVol.toFixed(1)} mL but the prepared bag is only ${calc.preparedVol.toFixed(1)} mL — over by ${Math.abs(calc.wfiVol).toFixed(1)} mL.`, ref: "WFI q.s." });
+  if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${calc.componentVol.toFixed(1)} mL but the prepared bag is only ${calc.preparedVol.toFixed(1)} mL — over by ${Math.abs(calc.wfiVol).toFixed(1)} mL.`, ref: "WFI q.s." });
   if (calc.totalTPN_mL > 0 && caPerKg > 0 && k2hpo4 > 0) alerts.push({ level: "warn", title: "Calcium–phosphate compatibility not calculated", body: "This order combines calcium with inorganic phosphate. NeoFeed does not calculate formulation-specific precipitation risk; pharmacy must verify compatibility before compounding or administration.", ref: "ESPGHAN/ESPEN/ESPR/CSPEN 2018" });
   // Vitamins/TE are compounded on actual weight (sheet G43/G45/G46 use C6, not
   // H9), so an overfilled bag under-delivers them. Surfaced, not auto-corrected.
   if (calc.overfill > 1.001 && (inclSoluvit || inclPeditrace)) alerts.push({ level: "info", title: "Vitamins / trace elements not overfill-scaled", body: `Bag is overfilled ×${calc.overfill.toFixed(2)}, but Soluvit/Peditrace are dosed on actual weight per the KCMH sheet — the infant receives ${(calc.deliveredFrac * 100).toFixed(0)}% of the 1 mL/kg (${fmt(calc.soluvitVol * calc.deliveredFrac, 2)} / ${fmt(calc.peditrace_vol * calc.deliveredFrac, 2)} mL). Electrolytes and AA are scaled.`, ref: "KCMH TPN worksheet" });
+
+  // ── May this order be printed / copied / submitted right now? ─────────────
+  // Saved and unchanged was the whole test (F2). It let through a pharmacy
+  // form whose numbers or acknowledgements no longer match the saved row
+  // (review 2026-09-17):
+  //  • UP-C9  a row still under its optimistic tmp_ id is not saved at all;
+  //  • UP-C3  a bag with ingredients and no volume cannot be compounded;
+  //  • UP-C2  the dosing weight moved after the save (a corrected birth
+  //           weight re-doses every mL while the inputs stay identical);
+  //  • UP-C6  a critical alert on screen that the saved override reason does
+  //           not name — a legacy row, or one saved before the alert existed.
+  const dosingWeightChanged = !!savedDosingWt && wtG > 0 && (savedDosingWt.exact
+    ? Math.abs(savedDosingWt.g - wtG) > 0.01
+    // Recovered from GIR / EN mL/kg: allow 0.5 % (min 1 g) so a legacy row is
+    // only held back when its own record shows the weight moved.
+    : Math.abs(savedDosingWt.g - wtG) > Math.max(1, wtG * 0.005));
+  const uncoveredCritical = alerts.filter(a => a.level === "crit")
+    .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag
+    && !dosingWeightChanged && uncoveredCritical.length === 0;
+  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
+  // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
+  const printBlockMessage = (before) =>
+    pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`
+    : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
+    : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
+    : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
+    : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}`
+    : "";
+  const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
+
+  // ── Print handler — opens all steps, prints, then restores ─────
+  React.useEffect(() => {
+    const ALL = new Set([1, 2, 3, 4, 5, 6]);
+    const handler = () => {
+      if (centerPoint) { centerPoint.review(); return; }
+      if (!savedEntryId) {
+        showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
+        return;
+      }
+      // Saved, but edited since (or held back — see printable): printing now
+      // would put numbers nobody saved under the saved row's entry id.
+      if (!printable) {
+        showToast(printBlockToast || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
+        return;
+      }
+      setOpenSteps(ALL);
+      // Wait one frame for React to render all card-b sections
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        window.print();
+        window.onafterprint = () => setOpenSteps(new Set([1]));
+      }));
+    };
+    document.addEventListener('__neofeed_print', handler);
+    return () => document.removeEventListener('__neofeed_print', handler);
+  }, [savedEntryId, printable, printBlockToast]);
 
   // TwoCol is defined at module level (below) — do NOT define inside Calculator
   // (inline component definitions cause React to unmount/remount on every render → focus lost)
@@ -1255,6 +1330,22 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     if (missingFields.length > 0) {
       setOpenSteps(prev => new Set(prev).add(1));
       showToast(`ยังกรอกไม่ครบ — ต้องกรอก: ${missingFields.map(f => f.label).join(", ")}`, "error");
+      return;
+    }
+    // A row still under its optimistic tmp_ id does not exist on the server
+    // yet — an update would target an id no row has (UP-C9).
+    if (pendingSave) {
+      showToast("รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่", "error");
+      return;
+    }
+    // ── Ingredients with no bag volume (review 2026-09-17, UP-C3) ─────
+    // Not a clinical threshold and not overridable: with TPN volume 0 the
+    // amino acid, dextrose and salts still count as delivered in every
+    // total, while the printed form asks pharmacy for a bag of "—" mL. It
+    // happens when TPN is stopped on a form prefilled from yesterday.
+    if (zeroVolumeBag) {
+      setOpenSteps(prev => new Set(prev).add(2).add(3));
+      showToast(zeroVolumeText, "error");
       return;
     }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
@@ -1277,6 +1368,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
     }
     const keyAtSave = formKey;
+    const dosingWtAtSave = wtG;   // what every dose on this save was computed from (UP-C2)
     // Center Point saves pass the same required-field gate and F1 stop above.
     // The F1 override goes with the order: CP's snapshot carries it to CP's
     // review and print, as the prompt promises (PR #57 review, finding 3).
@@ -1289,7 +1381,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
           critOverride:override});
         setSavedEntryId(result.sourceRecordId);setSavedLastModified(result.recordedAt);
         // What CP now holds is what was on the form when Save was pressed.
-        setSavedKey(keyAtSave);setCritOverride(override);
+        setSavedKey(keyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });
       } catch (error) { centerPoint.failed?.(error);showToast('บันทึกไป Center Point ไม่สำเร็จ กรุณาตรวจสถานะและลองใหม่','error'); }
       finally { setSaving(false); }
       return;
@@ -1320,7 +1412,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
         ? (route === "central" ? "TPN central" : "TPN peripheral")
         : (calc.enVolPerKg > 0 ? "Enteral only" : "NPO"),
       status: "submitted", ..._suppPayload,
-      calcInput: override ? { ...captureState(), critOverride: override } : captureState(),
+      // tpnWtG: the resolved dosing weight these numbers were computed with,
+      // so a reopened row can tell when a birth-weight edit has re-dosed it
+      // (UP-C2). Derived, not an input — normalizeCalcInput ignores it.
+      calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, ...(override ? { critOverride: override } : {}) },
       // Provenance — which constants and which frontend computed these
       // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
       // constant that later turns out wrong can be traced to the exact rows
@@ -1356,6 +1451,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     // were when Save was pressed, not whatever was typed while it ran.
     setSavedKey(keyAtSave);
     setCritOverride(override);
+    setSavedDosingWt({ g: dosingWtAtSave, exact: true });
     setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
@@ -1375,8 +1471,9 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   // publish-lock design). Only reachable once a row exists to publish.
   const handlePublish = async () => {
     if (!savedEntryId || published || publishing) return;
-    // Submit signs specific numbers — they must be the saved ones.
-    if (dirty) { showToast("มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนส่ง", "error"); return; }
+    // Submit signs specific numbers — they must be the saved ones, held back
+    // by nothing that also holds back printing (see printable).
+    if (!printable) { showToast(printBlockMessage("ก่อนส่ง"), "error"); return; }
     setPublishing(true);
     // savedLastModified makes Submit optimistic-locked (gas-backend.gs
     // publishDailyLog): if someone else saved this row since, it's refused.
@@ -1394,7 +1491,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   // action can't fire on a stray click — matches the confirmation already
   // used for the Dashboard's per-row delete.
   const handleDelete = () => {
-    if (!savedEntryId || !onDelete) return;
+    if (!savedEntryId || pendingSave || !onDelete) return;
     const ts = editEntry?.ts || logDate;
     const label = `DOL ${dol}${ts ? ` (${window.NEOFEED_FMT_DATE?.(ts) || ts})` : ""}`;
     if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
@@ -1854,8 +1951,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
 
               {/* ── Bag make-up: components vs WFI q.s. ──────────────────────
                   Mirrors the KCMH worksheet's "Total volume (mL)" (J52) and
-                  "WFI q.s." (I53). Updates live as Step 4 / Step 5 change.  */}
-              {totalTPN_mL > 0 && (
+                  "WFI q.s." (I53). Updates live as Step 4 / Step 5 change.
+                  Also shown for ingredients with no volume (UP-C3) — the
+                  printed form shows this over-full bag, so the screen must. */}
+              {(totalTPN_mL > 0 || zeroVolumeBag) && (
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8,
                   padding:"8px 10px", borderRadius:6,
                   background: calc.wfiVol < 0 ? "var(--crit-bg)" : "var(--bg-2)",
@@ -2446,6 +2545,21 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
                 ● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์/คัดลอกได้หลังบันทึก
               </div>
             )}
+            {/* Saved and unchanged, but still held back (see printable). The
+                no-volume case has its own line by the Save button. */}
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && (
+              <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
+                {!pendingSave && dosingWeightChanged && (
+                  <div style={{ fontWeight: 400 }}>
+                    บันทึกไว้ที่ <span className="num">{fmt(savedDosingWt.g, 0)}</span> g · ตอนนี้ <span className="num">{fmt(wtG, 0)}</span> g
+                  </div>
+                )}
+                {!pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && (
+                  <div style={{ fontWeight: 400 }}>{uncoveredCritical.join(" · ")}</div>
+                )}
+              </div>
+            )}
 
             {/* Changes vs the previous order — the cross-check for rounds and pharmacy */}
             {previousEntry && (
@@ -2475,7 +2589,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
                 return;
               }
               if (!printable) {
-                showToast("มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนคัดลอก", "error");
+                showToast(printBlockMessage("ก่อนคัดลอก") || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนคัดลอก", "error");
                 return;
               }
               // Completeness check — warn if any clinical step is empty
@@ -2564,7 +2678,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
                 <div style={{ fontWeight: 600 }}>{missingFields.map(f => f.label).join(" · ")}</div>
               </div>
             )}
-            <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0}
+            {zeroVolumeBag && (
+              <div className="zero-volume-bag" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {zeroVolumeText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
+            <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || pendingSave}
               onClick={handleSave}>
               <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
@@ -2572,14 +2691,14 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
             {/* CP has its own review → publish step and passes no onPublish. */}
             {D.ENABLE_PUBLISH_GATE && !centerPoint && (
               <button className="btn primary" style={{ width: "100%", marginTop: 8 }}
-                disabled={!savedEntryId || published || publishing || dirty}
+                disabled={!savedEntryId || published || publishing || !printable}
                 onClick={handlePublish}>
                 <Icon name="check" size={14} color="#fff" />
                 {publishing ? "กำลังส่ง..." : published ? "ส่งแล้ว" : "Submit"}
               </button>
             )}
 
-            {savedEntryId && onDelete && (
+            {savedEntryId && !pendingSave && onDelete && (
               <button className="btn" style={{ width: "100%", marginTop: 8, color: "var(--crit)", borderColor: "var(--crit-line)" }}
                 onClick={handleDelete}>
                 <Icon name="trash" size={14} color="var(--crit)" /> ลบบันทึกนี้
