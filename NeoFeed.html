@@ -9,9 +9,30 @@
   // (manifest, icons, fonts), so a GitHub Pages visitor never loads the app
   // shell at all — just bounces straight to moved.html. Cloudflare visitors
   // never match this hostname, so this is a no-op for them.
-  if (window.location.hostname === "valhalla-health.github.io") {
+  //
+  // The trailing dot is stripped first: "valhalla-health.github.io." is the
+  // same host to DNS and to GitHub Pages, but a different string, and it
+  // walked straight past an exact match into the full app (2026-09-17 review,
+  // SEC-F6).
+  //
+  // Before leaving, clear whatever NeoFeed ever stored on this origin
+  // (SEC-F5). valhalla-health.github.io is shared by every Pages site in the
+  // org, and storage is per origin, not per path — so old calculator prefills,
+  // drafts and a session token left from before the move are readable by
+  // five sibling sites. Every access is guarded: storage can be blocked, and
+  // the redirect must happen regardless.
+  // Wrapped so the guard adds no global name to the page the app then loads.
+  (function () {
+    var host = window.location.hostname.replace(/\.$/, "");
+    if (host !== "valhalla-health.github.io") return;
+    try {
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf("neofeed_") === 0) localStorage.removeItem(k);
+      });
+    } catch (e) {}
+    try { sessionStorage.removeItem("neofeed_session"); } catch (e) {}
     window.location.replace("moved.html");
-  }
+  })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
