@@ -675,6 +675,46 @@ assertions fail (the twin-label ones, and both `"AN:"`-relabeling
 assertions — the print form's twin-tag assertion coincidentally reuses the
 mislabeled-id assertion's regex).
 
+**`verify-review-0917-backend-security.cjs`**, **`verify-review-0917-backend-writes.cjs`**,
+**`verify-review-0917-backend-sync.cjs`** — the 2026-09-17 backend review, split three ways. No
+npm dependencies. All three load the real `gas-backend.gs` through **`gas-vm-sandbox.cjs`** (a shared
+helper, not a harness — CI's `verify-*.cjs` glob does not pick it up), whose Sheets double models what
+these fixes are about and the older stubs did not: a string starting `= + - @` written to a cell is
+recorded as a formula injection, a leading apostrophe is stripped on read (so the second-order path
+is visible), `YYYY-MM-DD` comes back as a Date, ranges read any number of rows and throw past the grid,
+CacheService honours TTLs / the 100 KB value cap / the 250-char key cap, and every service can be made
+to throw or the script lock to time out. Set `NEOFEED_GAS_SRC=<path>` to run any of them against a
+different `gas-backend.gs` — that is how they were shown to fail against the pre-review source
+(42ce553: 63, 97 and 25 failures respectively).
+
+- *security* — formula escaping in Audit_Log and on read-back write paths; admin password reset/clear
+  ending sessions; parallel login guesses counted before the hash; no account enumeration (one message,
+  a dummy hash, a CacheService lockout for unknown addresses); the prepared-but-off Google `hd`
+  restriction and its telemetry; the 12-hour absolute session age, including pre-deploy sessions being
+  stamped rather than logged out; `ServiceUnavailable` instead of `Unauthorized` on a Google service
+  failure (at the `doPost` level); SHA-256 key names and the epoch migration (with a rollback check);
+  nothing internal echoed to an unauthenticated caller.
+- *writes* — the column-drift guard (blank optional headers accepted, a different label refused with the
+  exact `SchemaMismatch` shape, reads unaffected) and `sheetHealthReport()` (counts, and no email, name,
+  ID or bed anywhere in it); `Busy` on every write; narrow in-lock reads equal to a full scan on 2,000
+  rows; a hand-moved row refused on every positional write; `deletePatient` ordering, retry and the
+  published-row refusal; the revision fields reaching the client; failed supersede / publish / erasure
+  never half-applied; entry-date normalisation and `DuplicateDate`; the three-way patient merge
+  (including the lost-DOL-17-weight reproduction); PDPA erasure staying erased; sex and
+  measurement-array validation; the 4-column Audit_Log grid.
+- *sync* — the undated-archive window decision; the narrow Daily_Log read proven identical to the
+  pre-review full read (embedded verbatim as the reference) across the perf review's edge cases and
+  row-shift races; the 5-minute payload cache (hit, miss, fresh `ts`, audited hits, TTL, eviction, cache
+  outage, multi-chunk payloads, every write visible to the next sync); and a source-level check that
+  every function taking the script lock and touching either data tab bumps `DATA_VERSION` in its
+  `finally`.
+
+The 2026-09-17 change also upgraded four older harness stubs where the new code legitimately needs
+more of the Sheets API — multi-row `getRange`, column-true `setValues`, `getMaxColumns`, an Audit_Log
+tab, and real header labels in row 1 (a placeholder header is now, correctly, refused as column
+drift). No assertion was weakened; two in `verify-review-0911.cjs` were updated to decisions made that
+day — the lockout counter's hashed key name, and an undated archived patient leaving the ward sync.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

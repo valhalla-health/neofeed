@@ -214,12 +214,15 @@ for (const sid of ['ACT-1', 'RECENT-1', 'OLD-1']) {
   const row = new Array(W).fill(''); row[0] = '2026-09-01'; row[1] = sid; row[25] = 'e-' + sid; sheets.Daily_Log.data.push(row);
 }
 const ward = sandbox.getActivePatients();
-eq('ward sync: active, blank, recent and undatable patients only',
-  ward.patients.map(p => p.sessionId).sort(), ['ACT-1', 'BLANK-1', 'NODATE-1', 'RECENT-1']);
+// NODATE-1 (archived, no statusDate) was kept in the window until Praew's
+// 2026-09-17 decision (review A1): an undated archive now leaves the ward sync
+// and stays reachable through the admin archive below.
+eq('ward sync: active, blank and recent patients only (undated archive out)',
+  ward.patients.map(p => p.sessionId).sort(), ['ACT-1', 'BLANK-1', 'RECENT-1']);
 ok('…and no log rows for anyone outside it', !('OLD-1' in ward.log) && 'ACT-1' in ward.log && 'RECENT-1' in ward.log, Object.keys(ward.log));
 eq('includeArchived returns everyone', sandbox.getActivePatients({ includeArchived: true }).patients.length, 5);
 asUser('doctor');
-eq('a doctor asking for the archive still gets the window', post({ action: 'getActivePatients', token: 't', includeArchived: true }).patients.length, 4);
+eq('a doctor asking for the archive still gets the window', post({ action: 'getActivePatients', token: 't', includeArchived: true }).patients.length, 3);
 asUser('admin');
 eq('an admin asking for the archive gets it', post({ action: 'getActivePatients', token: 't', includeArchived: true }).patients.length, 5);
 

@@ -667,12 +667,13 @@ function onEdit(e) {
     if (!e || !e.range) return;
     var sheet = e.range.getSheet();
     var editedTab = sheet.getName();
-    // An edit to row 1 of either data tab may have fixed (or broken) a header
-    // the column guard checks — drop its cached result, so a fix does not wait
-    // out the TTL. It does not throw. (Structural edits — inserting/deleting a
-    // row or column — fire onChange, not onEdit, and are caught by the TTL and
-    // the per-write row re-check.)
+    // A hand edit to either data tab makes the cached sync payload stale, and
+    // an edit to row 1 may have fixed (or broken) a header the column guard
+    // checks — drop both, so neither waits out its TTL. Neither helper throws.
+    // (Structural edits — inserting/deleting a row or column — fire onChange,
+    // not onEdit, and are caught by the TTLs and the per-write row re-check.)
     if (editedTab === "Daily_Log" || editedTab === "Patient_Registry") {
+      _bumpDataVersion();
       if (e.range.getRow() === 1) _forgetSchemaCheck(editedTab);
       return;
     }
@@ -1095,10 +1096,15 @@ function doPost(e) {
       // Only an admin may ask for the full archive (data-subject requests,
       // a readmission after the sync window) — see getActivePatients. An
       // honoured archive read is audited under its own action (2026-09-17,
-      // SEC-B15).
+      // SEC-B15). Audited BEFORE the payload is produced, so a read served from
+      // the payload cache is audited exactly like one read off the sheet.
       var archive = user.role === "admin" && body.includeArchived === true;
       logAudit(archive ? "readRegistryArchive" : "readRegistry", "", user.email);
-      return jsonOut(getActivePatients({ includeArchived: archive }));
+      // The payload is JSON text straight from getActivePatientsJson — possibly
+      // from its 5-minute cache — rather than an object re-serialised here.
+      var syncOut = ContentService.createTextOutput(getActivePatientsJson({ includeArchived: archive }));
+      syncOut.setMimeType(ContentService.MimeType.JSON);
+      return syncOut;
     }
 
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
@@ -1263,43 +1269,127 @@ function doPost(e) {
 // and the payload grew by ~1–2 KB per logged day forever. It now returns the
 // patients the ward can still see, plus a margin:
 //   • status Active or blank — on the unit;
-//   • no statusDate — can't be aged, so kept (same rule as registry.jsx);
 //   • status changed within ARCHIVE_SYNC_DAYS — the registry shows the last
 //     7 days; 30 leaves room to find and reactivate a readmitted infant via
 //     the patient picker.
 // …and Daily_Log rows only for those patients. An admin can pass
 // includeArchived for the full set (data-subject requests, older readmissions).
+//
+// A non-Active patient with NO usable statusDate (blank or unparseable) is
+// OUTSIDE the window since 2026-09-17 (Praew's decision, review A1). Until then
+// such a record "couldn't be aged, so it was kept" — forever, on every ward
+// device, with every Daily_Log row it ever had: the legacy discharges from
+// before statusDate existed were most of the sync payload and exactly the data
+// minimisation this window exists for. They remain in the sheet and in the
+// admin archive (includeArchived), where a readmission can still be found.
 var ARCHIVE_SYNC_DAYS = 30;
 function _patientInSyncWindow(statusValue, statusDateValue, todayKey) {
   var status = String(statusValue || "").trim();
   if (!status || status === "Active") return true;
+  if (!statusDateValue) return false;
   var changed = _wardDateKey(statusDateValue instanceof Date ? statusDateValue
-    : (statusDateValue ? String(statusDateValue).slice(0, 10) : null));
-  if (!statusDateValue || !changed) return true;
+    : String(statusDateValue).slice(0, 10));
+  if (!changed) return false;
   var days = (Date.parse(todayKey + "T00:00:00Z") - Date.parse(changed + "T00:00:00Z")) / 86400000;
   return days <= ARCHIVE_SYNC_DAYS;
+}
+
+// ── Bounded Daily_Log read (2026-09-17 perf review, proven by equivalence) ──
+// The sync used to read the WHOLE Daily_Log — every row, all 38 columns,
+// calcInputJson included — and then throw away the rows of every patient
+// outside the window. What is always true: rows are only ever added by
+// appendRow (create, revision) and removed by deleteRow, both of which keep
+// the relative order of every other row. So every row of the in-window
+// patients is found by one narrow read of column B, then fetched as at most
+// SYNC_MAX_BLOCKS contiguous blocks; the rows between blocks belong to
+// patients outside the window and are never read.
+//
+// No lock (a sync must not queue behind saves), so a delete or a hand-inserted
+// row between the column-B read and a block read could shift rows. Each
+// block's column B is compared against the first read and the last row is
+// re-checked; ANY disagreement falls back to the old full read. The result is
+// therefore always identical to a getDataRange() snapshot taken at some instant.
+var SYNC_MAX_BLOCKS = 4;
+var SYNC_MIN_SPLIT_GAP = 200;   // rows; smaller gaps are cheaper to read through than to split
+
+function _planLogBlocks(hits) {
+  var gaps = [];
+  for (var i = 1; i < hits.length; i++) {
+    var g = hits[i] - hits[i - 1];
+    if (g > SYNC_MIN_SPLIT_GAP) gaps.push({ at: i, size: g });
+  }
+  gaps.sort(function (a, b) { return b.size - a.size || a.at - b.at; });
+  var cuts = gaps.slice(0, SYNC_MAX_BLOCKS - 1)
+    .map(function (x) { return x.at; })
+    .sort(function (a, b) { return a - b; });
+  var blocks = [], from = 0;
+  for (var c = 0; c < cuts.length; c++) {
+    blocks.push([hits[from], hits[cuts[c] - 1]]);
+    from = cuts[c];
+  }
+  blocks.push([hits[from], hits[hits.length - 1]]);
+  return blocks;
+}
+
+// Returns Daily_Log data rows (header excluded) in sheet order: a superset of
+// every row whose sessionId is in `inWindow`, and never a row out of order.
+function _readLogRowsFor(sheet, inWindow) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var n = lastRow - 1;
+  var sidCol = sheet.getRange(2, 2, n, 1).getValues();
+  var hits = [];
+  for (var r = 0; r < n; r++) {
+    var s = String(sidCol[r][0] || "");
+    if (s && inWindow[s]) hits.push(r);
+  }
+  if (!hits.length) return [];
+  var blocks = _planLogBlocks(hits);
+  var width = Math.min(LOG_WIDTH, sheet.getMaxColumns());
+  var out = [];
+  for (var b = 0; b < blocks.length; b++) {
+    var start = blocks[b][0], end = blocks[b][1];
+    var vals = sheet.getRange(2 + start, 1, end - start + 1, width).getValues();
+    for (var k = 0; k < vals.length; k++) {
+      if (String(vals[k][1] || "") !== String(sidCol[start + k][0] || "")) return _fullLogRows(sheet);
+      out.push(vals[k]);
+    }
+  }
+  if (sheet.getLastRow() !== lastRow) return _fullLogRows(sheet);
+  return out;
+}
+function _fullLogRows(sheet) {
+  return sheet.getLastRow() > 0 ? sheet.getDataRange().getValues().slice(1) : [];
 }
 
 function getActivePatients(opts) {
   var includeArchived = !!(opts && opts.includeArchived);
   var todayKey = _wardDateKey();
-  var sheetPat = getSheetPat();
-  var sheetLog = getSheetLog();
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
+  var sheetPat = getSheetPat(ss);
+  var sheetLog = getSheetLog(ss);
   var patData = sheetPat.getLastRow() > 0 ? sheetPat.getDataRange().getValues() : [[]];
-  var logData = sheetLog.getLastRow() > 0 ? sheetLog.getDataRange().getValues() : [[]];
 
   // Decide the patient set first, so log rows for anyone outside it are
-  // never serialised at all.
-  var inWindow = {};
+  // never read, let alone serialised.
+  var inWindow = {}, anyInWindow = false;
   for (var k = 1; k < patData.length; k++) {
     var kid = String(patData[k][0] || "");
     if (!kid) continue;
-    if (includeArchived || _patientInSyncWindow(patData[k][9], patData[k][16], todayKey)) inWindow[kid] = true;
+    if (includeArchived || _patientInSyncWindow(patData[k][9], patData[k][16], todayKey)) {
+      inWindow[kid] = true;
+      anyInWindow = true;
+    }
   }
 
+  // The archive wants every registered patient, so the column-B pass would
+  // only add a read: it goes straight to the full snapshot, exactly as before.
+  var logRows = !anyInWindow ? []
+    : includeArchived ? _fullLogRows(sheetLog)
+    : _readLogRowsFor(sheetLog, inWindow);
   var logMap = {};
-  for (var i = 1; i < logData.length; i++) {
-    var row = logData[i];
+  for (var i = 0; i < logRows.length; i++) {
+    var row = logRows[i];
     var sid = String(row[1] || "");
     if (!sid || !inWindow[sid]) continue;
     if (!logMap[sid]) logMap[sid] = [];
@@ -1367,6 +1457,110 @@ function getActivePatients(opts) {
     });
   }
   return { patients: patients, log: logMap, ts: new Date().toISOString() };
+}
+
+// ── Shared sync payload cache (Praew's decision 2026-09-17: 5 minutes) ───────
+// N ward tabs polling every 4 minutes cost one sheet read per data change
+// instead of N. Keyed on (variant, ward date, DATA_VERSION). DATA_VERSION is a
+// Script Property replaced by every write to Patient_Registry or Daily_Log —
+// in the `finally` of each locked write, so INSIDE the lock and after the
+// write (see _bumpDataVersion) — which makes a save visible to the very next
+// sync, from any device. The version is read BEFORE the sheets, so a payload
+// built from a pre-write read can only ever be stored under the pre-write
+// version, which no later reader asks for.
+//
+// Not seen by any write path: hand edits in the Sheets UI. onEdit bumps the
+// version for typed edits to either tab; a STRUCTURAL hand edit (deleting or
+// sorting rows, which fires no onEdit) is served stale for at most
+// SYNC_CACHE_TTL_SECONDS.
+//
+// CacheService caps one value at 100 KB, so the JSON is gzipped, base64'd and
+// split into chunks; the head (the chunk count) is written last, so a reader
+// never sees a head without its chunks, and an evicted chunk is just a miss.
+// Any cache failure degrades to an ordinary read — never to an error.
+//
+// Audit is unaffected: doPost writes the readRegistry row before asking for
+// the payload, so a cache hit is audited exactly like a sheet read. Rolling
+// back to a version without this code is clean: it neither reads DATA_VERSION
+// nor the sync1_ keys, which then simply expire.
+var SYNC_CACHE_ENABLED = true;
+var SYNC_CACHE_TTL_SECONDS = 300;
+var SYNC_CACHE_CHUNK_CHARS = 90000;
+var SYNC_CACHE_MAX_CHUNKS = 40;          // ~3.6 MB base64; beyond that, don't cache
+var DATA_VERSION_KEY = "DATA_VERSION";
+
+function _syncCacheKey(includeArchived, todayKey, version) {
+  return "sync1_" + (includeArchived ? "all" : "ward") + "_" + todayKey + "_" + version;
+}
+function _dataVersion() {
+  return PropertiesService.getScriptProperties().getProperty(DATA_VERSION_KEY) || "0";
+}
+// Call inside the script lock, after (in practice: in the finally of) any
+// write to Patient_Registry or Daily_Log — and from any editor-run function
+// that writes either tab. Never throws: a failed bump must not fail a save that
+// has already landed. The current heads are dropped first, so even if
+// setProperty then fails, the next reader misses and rebuilds from the sheet.
+// Pinned by test/verify-review-0917-backend-sync.cjs, which fails if a
+// function that takes the script lock and touches either tab does not bump.
+function _bumpDataVersion() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var old = props.getProperty(DATA_VERSION_KEY) || "0";
+    var today = _wardDateKey();
+    try {
+      CacheService.getScriptCache().removeAll([
+        _syncCacheKey(false, today, old), _syncCacheKey(true, today, old)
+      ]);
+    } catch (e1) { /* cache unavailable: nothing to drop */ }
+    props.setProperty(DATA_VERSION_KEY, Utilities.getUuid());
+  } catch (e) { Logger.log("_bumpDataVersion failed: " + e.message); }
+}
+function _syncCacheGet(key) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var head = cache.get(key);
+    var n = head ? parseInt(head, 10) : 0;
+    if (!(n > 0) || n > SYNC_CACHE_MAX_CHUNKS) return null;
+    var keys = [];
+    for (var i = 0; i < n; i++) keys.push(key + "_" + i);
+    var parts = cache.getAll(keys);
+    var b64 = "";
+    for (var j = 0; j < n; j++) {
+      if (parts[keys[j]] == null) return null;
+      b64 += parts[keys[j]];
+    }
+    return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), "application/x-gzip")).getDataAsString("UTF-8");
+  } catch (e) { return null; }
+}
+function _syncCachePut(key, body) {
+  try {
+    var b64 = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(body, "application/json")).getBytes());
+    var n = Math.ceil(b64.length / SYNC_CACHE_CHUNK_CHARS);
+    if (n < 1 || n > SYNC_CACHE_MAX_CHUNKS) return;
+    var map = {};
+    for (var i = 0; i < n; i++) map[key + "_" + i] = b64.substr(i * SYNC_CACHE_CHUNK_CHARS, SYNC_CACHE_CHUNK_CHARS);
+    var cache = CacheService.getScriptCache();
+    cache.putAll(map, SYNC_CACHE_TTL_SECONDS);
+    cache.put(key, String(n), SYNC_CACHE_TTL_SECONDS);
+  } catch (e) { Logger.log("sync cache put skipped: " + e.message); }
+}
+
+// The JSON text doPost returns for getActivePatients. Byte-identical to
+// JSON.stringify(getActivePatients(opts)) — same keys, same order — except
+// that `ts` is always fresh, including on a cache hit.
+function getActivePatientsJson(opts) {
+  var includeArchived = !!(opts && opts.includeArchived);
+  var key = null;
+  if (SYNC_CACHE_ENABLED) {
+    try { key = _syncCacheKey(includeArchived, _wardDateKey(), _dataVersion()); } catch (e) { key = null; }
+  }
+  var body = key ? _syncCacheGet(key) : null;
+  if (body == null) {
+    var payload = getActivePatients({ includeArchived: includeArchived });
+    body = JSON.stringify({ patients: payload.patients, log: payload.log });
+    if (key) _syncCachePut(key, body);
+  }
+  return body.slice(0, -1) + ',"ts":' + JSON.stringify(new Date().toISOString()) + "}";
 }
 
 // ── Server-side plausibility validation ─────────────────────────
@@ -1726,6 +1920,7 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     sheet.appendRow(row);
     return { entryId: entryId, lastModified: lastModified };
   } finally {
+    _bumpDataVersion();
     lock.releaseLock();
   }
 }
@@ -1853,6 +2048,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     sheet.getRange(rowNum, 1, 1, row.length).setValues([row]);
     return { ok: true, lastModified: newLastModified };
   } finally {
+    _bumpDataVersion();
     lock.releaseLock();
   }
 }
@@ -1912,6 +2108,7 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     sheet.getRange(hit.row, 34, 1, 2).setValues([[publishedAt, _sheetSafe(publishedBy || "")]]);
     return { ok: true, publishedAt: publishedAt };
   } finally {
+    _bumpDataVersion();
     lock.releaseLock();
   }
 }
@@ -1945,6 +2142,7 @@ function deleteDailyNutrition(sessionId, entryId, actorEmail) {
     sheet.deleteRow(hit.row);
     return { ok: true };
   } finally {
+    _bumpDataVersion();
     lock.releaseLock();
   }
 }
@@ -2011,6 +2209,7 @@ function deletePatient(sessionId, actorEmail) {
     }
     return { ok: true };
   } finally {
+    _bumpDataVersion();
     lock.releaseLock();
   }
 }
@@ -2073,9 +2272,10 @@ function releaseLogLock(sessionId, date, user) {
 // editable like any normal entry. Already-migrated rows are untouched;
 // safe to re-run — it only ever fills in blanks, never overwrites.
 //
-// 2026-09-17: refuses on column drift like every other Daily_Log write, and
+// 2026-09-17: refuses on column drift like every other Daily_Log write,
 // escapes the lastModified it writes back (it was read from the sheet — see
-// _sheetSafe's rule).
+// _sheetSafe's rule), and bumps DATA_VERSION so ward devices see the newly
+// editable rows on their next sync instead of after the payload cache expires.
 function backfillLegacyEntryIds() {
   var sheet = getSheetLog();
   _assertSchema(sheet, "Daily_Log");
@@ -2091,6 +2291,7 @@ function backfillLegacyEntryIds() {
     sheet.getRange(i + 1, 26, 1, 2).setValues([[newEntryId, _sheetSafe(lastModified)]]);
     fixed++;
   }
+  if (fixed) _bumpDataVersion();
   Logger.log("Backfilled entryId for " + fixed + " legacy row(s).");
   return fixed;
 }
@@ -2675,6 +2876,7 @@ function registerPatient(p, isNew, base) {
     }
     sheet.appendRow(row18);
   } finally {
+    _bumpDataVersion();
     lock.releaseLock();
   }
 }
@@ -2711,6 +2913,7 @@ function updateWeights(sessionId, weights, baseWeights) {
     }
     return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
   } finally {
+    _bumpDataVersion();
     lock.releaseLock();
   }
 }
@@ -2771,6 +2974,7 @@ function pseudonymizePatient(sessionId, adminEmail) {
     // matched nothing must say so, not claim success.
     return { error: "ไม่พบ session นี้ในระบบ — ยังไม่ได้ลบข้อมูลใด ๆ" };
   } finally {
+    _bumpDataVersion();
     lock.releaseLock();
   }
 }
