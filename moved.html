@@ -4,6 +4,24 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="robots" content="noindex" />
+<script>
+  // Clear anything NeoFeed ever stored on this origin (2026-09-17 review,
+  // SEC-F5). On GitHub Pages this page shares valhalla-health.github.io with
+  // every other Pages site in the org, and browser storage is per origin, not
+  // per path — so calculator prefills, unsaved drafts and a session token left
+  // from before the move are readable by all of them. index.html's hostname
+  // guard does the same before redirecting here; this covers a bookmark
+  // straight to moved.html. Inline and dependency-free like the rest of this
+  // page, and every access guarded, since storage can be blocked outright.
+  (function () {
+    try {
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf("neofeed_") === 0) localStorage.removeItem(k);
+      });
+    } catch (e) {}
+    try { sessionStorage.removeItem("neofeed_session"); } catch (e) {}
+  })();
+</script>
 <title>NeoFeed ย้ายที่อยู่แล้ว</title>
 <!--
   Redirect target for index.html's hostname guard (see index.html § head).
