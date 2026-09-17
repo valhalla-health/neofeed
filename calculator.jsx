@@ -1132,9 +1132,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   const sGir = D.rangeStatus(calc.gir, tGir, { hardHi: 13 });
   const sPro = D.rangeStatus(calc.proteinKg, tPro, { hardHi: 4.8 });
   const sKcal = D.rangeStatus(calc.kcalKg, tKcal);
-  const sLip = D.rangeStatus(calc.lipidKgTotal, tLip, { hardHi: 4.5 });
+  // Lipid, K and NPE:AA tiles show the TOTAL (TPN + EN) against the active
+  // target band only; their hard limits are judged on the IV portion further
+  // down (hardLip / hardK / hardNPE — Praew, 2026-09-17, UP-C4).
+  const sLip = D.rangeStatus(calc.lipidKgTotal, tLip);
   const sNa = D.rangeStatus(calc.naTotalDelivered, tNa);
-  const sK = D.rangeStatus(calc.kTotalDelivered, tK, { hardHi: 3.5 });
+  const sK = D.rangeStatus(calc.kTotalDelivered, tK);
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
   const sCaP = D.rangeStatus(calc.caP, tCaP);
@@ -1142,17 +1145,47 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
   const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
-  const sNPE = D.rangeStatus(calc.npeN, tNPE, { hardLo: 20, hardHi: 32 });
+  const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // Peripheral: crit >900, warn >850 · Central: warn >1600 (endothelial risk), no hard limit
   const sOsm = route === "peripheral"
     ? (calc.osm > 900 ? "crit" : calc.osm > 850 ? "warn" : "ok")
     : (calc.osm > 1800 ? "warn" : "ok");
 
+  // ── Hard limits on the IV (TPN) portion only — Praew, 2026-09-17 (UP-C4) ──
+  // Lipid 4.5 g/kg/d, K 3.5 mEq/kg/d and NPE:AA 20–32 kcal/g are limits on what
+  // is infused. Judged on TPN + EN they sat inside or below the ENTERAL target
+  // bands (lipid 4.8–8.1, K 2.3–4.6), so every infant on full feeds raised
+  // critical alerts that could only be cleared by typing an override reason —
+  // a stop that gets cleared by rote. What they read now: the lipid syringe
+  // (g/kg/d), the bag's K (kKg, delivered mEq/kg/d) and the bag's non-protein
+  // kcal per g AA; with no AA in the bag there is no IV NPE:AA to judge. A
+  // pure-PN order is unchanged — IV and total are the same numbers — and
+  // D.rangeStatus is kept so its semantics (a 0 is "empty", not critical)
+  // carry over exactly. GIR is IV already; protein 4.8 is left on the total.
+  const ivLipidKg = wtKg > 0 ? calc.lipidG / wtKg : 0;
+  const ivKKg     = calc.kKg;
+  const ivNpeN    = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;
+  const hardLip = D.rangeStatus(ivLipidKg, tLip, { hardHi: 4.5 }) === "crit";
+  const hardK   = D.rangeStatus(ivKKg, tK, { hardHi: 3.5 }) === "crit";
+  const hardNPE = ivNpeN !== null && D.rangeStatus(ivNpeN, tNPE, { hardLo: 20, hardHi: 32 }) === "crit";
+  // "· total incl. EN …" only when EN actually moves the figure.
+  const withTotal = (iv, total, d, unit) => Math.abs(total - iv) >= 0.5 * Math.pow(10, -d)
+    ? ` · total incl. EN ${fmt(total, d)} ${unit}` : "";
+  // A value just past a limit must not print AS the limit ("IV 20 < 20" for
+  // 19.97): add decimals until the two read differently.
+  const vsLimit = (v, limit, d) => {
+    while (d < 3 && fmt(v, d) === fmt(limit, d)) d++;
+    return fmt(v, d);
+  };
+  const ivRef = "Hard limit · TPN (IV) portion";
+
   const alerts = [];
   if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${calc.gir.toFixed(1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });else
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${calc.gir.toFixed(1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
-  if (calc.totalKcal > 0 && sNPE === "crit") alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — <20 risks AA oxidised as fuel, >32 risks excess fat deposition.`, ref: "NPC:N 150–200:1" });else
+  // Titles are unchanged from the total-based alerts they replace: a saved
+  // critOverride lists titles, and print checks the current ones against it.
+  if (hardNPE) alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `NPE:AA IV ${vsLimit(ivNpeN, ivNpeN < 20 ? 20 : 32, 0)} kcal/g AA ${ivNpeN < 20 ? "< 20" : "> 32"} hard limit (TPN only) — <20 risks AA oxidised as fuel, >32 risks excess fat deposition${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `NPC:N 150–200:1 · ${ivRef}` });else
   if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150–200:1" });
   // ── Every nutrient tile that is off target or critical is ALSO a line here ──
   // Until 2026-09-11 only GIR, NPE, Ca:P-warn and the worksheet ceilings were
@@ -1168,9 +1201,16 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   };
   pushTile(sPro,  "Protein",   calc.proteinKg,        1, tPro,  "g/kg/d",    "above the 4.8 g/kg/d hard limit");
   pushTile(sKcal, "Energy",    calc.kcalKg,           0, tKcal, "kcal/kg/d");
-  pushTile(sLip,  "Lipid",     calc.lipidKgTotal,     1, tLip,  "g/kg/d",    "above the 4.5 g/kg/d hard limit");
+  // One line per nutrient: an IV hard-limit breach replaces the tile's own
+  // off-target line (its body carries the total too), as the single critical
+  // alert did before the split.
+  if (hardLip) alerts.push({ level: "crit", title: "Lipid critically out of range",
+    body: `Lipid IV ${vsLimit(ivLipidKg, 4.5, 1)} g/kg/d > 4.5 g/kg/d hard limit (TPN lipid only)${withTotal(ivLipidKg, calc.lipidKgTotal, 1, "g/kg/d")}.`, ref: ivRef });
+  else pushTile(sLip, "Lipid", calc.lipidKgTotal, 1, tLip, "g/kg/d");
   pushTile(sNa,   "Sodium",    calc.naTotalDelivered, 1, tNa,   "mEq/kg/d");
-  pushTile(sK,    "Potassium", calc.kTotalDelivered,  1, tK,    "mEq/kg/d",  "above the 3.5 mEq/kg/d hard limit");
+  if (hardK) alerts.push({ level: "crit", title: "Potassium critically out of range",
+    body: `K IV ${vsLimit(ivKKg, 3.5, 1)} mEq/kg/d > 3.5 mEq/kg/d hard limit (TPN only)${withTotal(ivKKg, calc.kTotalDelivered, 1, "mEq/kg/d")}.`, ref: ivRef });
+  else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
   // With an oral supplement the order is judged on the total (Step 6 tiles);
   // without one, on TPN + EN (Step 4 tiles) — never both, or they contradict.
   if (mineral.hasOral) {
