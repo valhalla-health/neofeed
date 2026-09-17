@@ -6,9 +6,14 @@
 # This job is meant to be a REQUIRED status check on `release`, so a
 # main → release PR cannot merge red. See IMPROVEMENT_SPEC_2026-09-04.md § 3.2.
 #
-# The app itself still has no build step; the npm packages below are dev-only
-# test dependencies (jsdom harnesses), installed here and never committed —
-# the same command test/README.md documents for local runs.
+# Since 2026-09-17 the frontend has a build step (tools/build.mjs) whose output
+# is COMMITTED: both hosts serve compiled/, vendor/ and the shells straight
+# from git, and no build ever runs on a host. So this job does three things
+# with it: rebuilds from the .jsx sources and fails if that changes a single
+# byte (stale or hand-edited output cannot merge), runs every harness against
+# the sources as before, and runs them all again against the compiled files
+# that actually ship. The test npm packages below are dev-only, installed here
+# and never committed — the same command test/README.md documents.
 name: test
 
 on:
@@ -22,7 +27,7 @@ permissions:
 jobs:
   harnesses:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       # The ward's timezone. The app pins Asia/Bangkok itself; running the
       # harnesses in it too matches how they are run locally.
@@ -34,13 +39,26 @@ jobs:
         with:
           node-version: 22
 
-      - name: The two hand-synced HTML shells are byte-identical
+      # First, before anything else writes to the tree. tools/package-lock.json
+      # pins esbuild and the React builds; the build refuses other versions.
+      - name: Compiled output is a fresh build of the sources
+        run: |
+          npm ci --prefix tools
+          node tools/build.mjs
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::compiled/, vendor/ or the HTML shells do not match a fresh build of the committed sources. Run 'npm ci --prefix tools && node tools/build.mjs' and commit everything it changes together with the .jsx edit."
+            git status --porcelain
+            git --no-pager diff --stat
+            exit 1
+          fi
+
+      - name: The two HTML shells are byte-identical
         run: cmp index.html NeoFeed.html
 
       - name: Install dev-only test dependencies (not committed)
         run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom
 
-      - name: Run every verify-*.cjs harness
+      - name: Run every verify-*.cjs harness (sources)
         run: |
           set -e
           for f in test/verify-*.cjs; do
@@ -49,6 +67,29 @@ jobs:
             echo "::endgroup::"
           done
           echo "::group::verify-kcmh-factor.cjs with no dead space"
+          DEAD=0 node test/verify-kcmh-factor.cjs
+          echo "::endgroup::"
+
+      # The same harnesses, with every .jsx module they mount replaced by the
+      # compiled/*.js file the browser actually runs (test/compiled-loader.cjs).
+      # A harness that mounts modules but swapped none fails here, so the preload
+      # cannot silently fall back to testing the sources.
+      - name: Run every verify-*.cjs harness (shipped compiled/*.js)
+        env:
+          NODE_OPTIONS: --require ./test/compiled-loader.cjs
+        run: |
+          set -eo pipefail
+          out="$RUNNER_TEMP/harness.out"
+          for f in test/verify-*.cjs; do
+            echo "::group::$f (compiled)"
+            node "$f" | tee "$out"
+            if grep -qE 'transformSync|review-0917-boot' "$f" && ! grep -q '\[compiled-loader\] swapped in' "$out"; then
+              echo "::error file=$f::mounts .jsx modules, but none was replaced by compiled/ output"
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+          echo "::group::verify-kcmh-factor.cjs with no dead space (compiled)"
           DEAD=0 node test/verify-kcmh-factor.cjs
           echo "::endgroup::"
 
