@@ -8,6 +8,8 @@
 //               shells use — not every Apps Script deployment
 //   #3  SEC-F5  the GitHub Pages guard clears neofeed_* storage before it
 //       SEC-F6  redirects, and a trailing-dot hostname no longer slips past
+//   (#2 and #3 read boot.js since the 2026-09-17 build step moved the shells'
+//   two inline scripts into it; test/verify-build-shells.cjs pins the rest.)
 //   #4  SEC-F5  moved.html clears the same storage on its own
 //   #5  deploy  cache-bust tokens, byte-identical shells, AppRoot, admin view
 //               role check
@@ -87,9 +89,12 @@ const scenarios = {
     const headers = read('_headers');
     const csp = headers.split(/\r?\n/).find(l => l.trim().startsWith('Content-Security-Policy:'));
     const connect = csp.split(';').map(s => s.trim()).find(s => s.startsWith('connect-src')).split(/\s+/).slice(1);
-    const urlOf = (html) => (html.match(/window\.NEOFEED_GAS_URL\s*=\s*"([^"]+)"/) || [])[1];
-    const gasIndex = urlOf(read('index.html')), gasShell = urlOf(read('NeoFeed.html'));
-    A.ok('2.1 both shells name the same GAS URL', gasIndex && gasIndex === gasShell);
+    // The URL lives in boot.js, which both shells load: one copy, not two.
+    const urls = [...read('boot.js').matchAll(/window\.NEOFEED_GAS_URL\s*=\s*"([^"]+)"/g)].map(m => m[1]);
+    const gasIndex = urls[0];
+    const loadsBoot = (html) => /<script src="boot\.js\?v=[0-9a-f]{10}"><\/script>/.test(html);
+    A.ok('2.1 both shells load boot.js, which names the GAS URL once',
+      urls.length === 1 && loadsBoot(read('index.html')) && loadsBoot(read('NeoFeed.html')));
     A.ok('2.2 connect-src lists that exact URL, full path', connect.includes(gasIndex));
     A.ok('2.3 …and no bare script.google.com origin', !connect.some(s => /^https:\/\/script\.google\.com\/?$/.test(s) || /\*\.google\.com/.test(s)));
     A.eq('2.4 the only script.google.com source is the deployment', connect.filter(s => s.includes('script.google.com')), [gasIndex]);
@@ -98,26 +103,27 @@ const scenarios = {
   },
 
   async 'pages-guard'(A) {
-    console.log('\n── #3 SEC-F5 / SEC-F6: the GitHub Pages guard in both shells ──');
+    console.log('\n── #3 SEC-F5 / SEC-F6: the GitHub Pages guard (boot.js, first in both shells) ──');
     for (const shell of ['index.html', 'NeoFeed.html']) {
-      const html = read(shell);
+      // Comments removed first: the shell's own comment above the tag names <link>.
+      const html = read(shell).replace(/<!--[\s\S]*?-->/g, '');
       const head = html.slice(0, html.indexOf('</head>'));
-      const first = head.match(/<script>([\s\S]*?)<\/script>/);
-      A.ok(`3.0 ${shell}: the guard is the first script in <head>, before any <link>`,
-        first && head.indexOf(first[0]) < head.indexOf('<link'));
-      const src = first[1];
-      for (const host of ['valhalla-health.github.io', 'valhalla-health.github.io.']) {
-        const r = runInlineScript(src, host);
-        A.eq(`3.1 ${shell} ${host}: redirects to moved.html`, r.replaced, ['moved.html']);
-        A.eq(`3.2 ${shell} ${host}: every neofeed_* localStorage key removed, others kept`, r.localKeys, ['other_site_key']);
-        A.eq(`3.3 ${shell} ${host}: the session removed, others kept`, r.sessionKeys, ['other_session']);
-      }
-      const cf = runInlineScript(src, 'neofeed.valhalla-health.workers.dev');
-      A.eq(`3.4 ${shell} Cloudflare host: no redirect`, cf.replaced, []);
-      A.eq(`3.5 ${shell} Cloudflare host: storage untouched`, cf.localKeys.length + cf.sessionKeys.length, 6);
-      const blocked = runInlineScript(src, 'valhalla-health.github.io', { blocked: true });
-      A.ok(`3.6 ${shell} storage blocked: still redirects, never throws`, blocked.threw === null && blocked.replaced[0] === 'moved.html');
+      const first = head.indexOf('<script');
+      A.ok(`3.0 ${shell}: boot.js is the first script in <head>, before any <link>`,
+        first >= 0 && head.startsWith('<script src="boot.js?v=', first) && first < head.indexOf('<link'));
     }
+    const src = read('boot.js');
+    for (const host of ['valhalla-health.github.io', 'valhalla-health.github.io.']) {
+      const r = runInlineScript(src, host);
+      A.eq(`3.1 ${host}: redirects to moved.html`, r.replaced, ['moved.html']);
+      A.eq(`3.2 ${host}: every neofeed_* localStorage key removed, others kept`, r.localKeys, ['other_site_key']);
+      A.eq(`3.3 ${host}: the session removed, others kept`, r.sessionKeys, ['other_session']);
+    }
+    const cf = runInlineScript(src, 'neofeed.valhalla-health.workers.dev');
+    A.eq('3.4 Cloudflare host: no redirect', cf.replaced, []);
+    A.eq('3.5 Cloudflare host: storage untouched', cf.localKeys.length + cf.sessionKeys.length, 6);
+    const blocked = runInlineScript(src, 'valhalla-health.github.io', { blocked: true });
+    A.ok('3.6 storage blocked: still redirects, never throws', blocked.threw === null && blocked.replaced[0] === 'moved.html');
   },
 
   async 'moved-page'(A) {
@@ -136,8 +142,10 @@ const scenarios = {
     console.log('\n── #5 cache-bust tokens and shell wiring ──');
     const index = read('index.html'), shell = read('NeoFeed.html'), app = read('app.jsx');
     A.ok('5.1 the two shells are byte-identical', index === shell);
-    for (const f of ['app.jsx', 'registry.jsx', 'fenton.jsx']) {
-      A.ok(`5.2 ${f} is cache-busted to review-0917`, index.includes(`src="${f}?v=review-0917"`));
+    // The hand-kept "review-0917" tags became content hashes with the
+    // 2026-09-17 build step, so a changed module cannot ship under an old token.
+    for (const m of ['app', 'registry', 'fenton']) {
+      A.ok(`5.2 ${m} loads precompiled, cache-busted by content hash`, new RegExp(`src="compiled/${m}\\.js\\?v=[0-9a-f]{10}"`).test(index));
     }
     A.ok('5.3 the app mounts AppRoot (the session boundary)', /render\(<AppRoot \/>\)/.test(app));
     A.ok('5.4 the admin view is rendered only for role admin', /view === "admin" && role === "admin" && <AdminDashboard/.test(app));

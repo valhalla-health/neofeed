@@ -1,12 +1,12 @@
 // End-to-end runthrough of the real NeoFeed app in Chromium.
 //
-// The repo is served statically as-is (no file edits). Two things the sandbox
-// can't reach are intercepted and answered locally:
-//   • unpkg.com  → React/ReactDOM/Babel UMD bundles from node_modules
+// The repo is served statically as-is (no file edits). One thing the sandbox
+// can't reach is intercepted and answered locally:
 //   • the GAS URL → an in-process fake backend that mirrors gas-backend.gs's
 //     response shapes and records every write it receives
-// Everything else — data.js, calculator.jsx, log.jsx, registry.jsx, app.jsx —
-// is the actual shipped code.
+// Everything else — boot.js, vendor/ React, data.js, compiled/*.js — is the
+// actual shipped code. Since the 2026-09-17 build step nothing is fetched from
+// unpkg any more; a request there now fails the run.
 // CommonJS on purpose, like every other harness here: `node` honours NODE_PATH
 // for require() but not for ESM import, and the documented way to run these is
 // to install the dev dependencies into a scratch folder and point NODE_PATH at
@@ -16,21 +16,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
-const require_ = require;
 const HERE = __dirname;
 const REPO = path.join(HERE, '..');
 const OUT  = process.argv[2] || path.join(HERE, '.screenshots');
 fs.mkdirSync(OUT, { recursive: true });
-
-// The three CDN bundles index.html pins, resolved out of node_modules. They
-// must be the EXACT pinned versions: index.html carries SRI integrity hashes,
-// so a different build is rejected by the browser — which doubles as a check
-// that those hashes still match the versions named in the script tags.
-// Resolved via the package's own root rather than a deep subpath: React's
-// package.json "exports" map does not expose umd/, so require.resolve() on
-// the file directly is rejected.
-const umdPath = (pkg, sub) =>
-  path.join(path.dirname(require_.resolve(pkg + '/package.json')), sub);
 
 let pass = 0, fail = 0;
 const eq = (name, got, want) => {
@@ -161,17 +150,10 @@ page.on('pageerror', e => errors.push(String(e)));
 page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 const failedReqs = [];
 page.on('requestfailed', r => failedReqs.push(r.url() + ' — ' + (r.failure()?.errorText || '')));
-
-const UMD = {
-  'react.production.min.js': umdPath('react', 'umd/react.production.min.js'),
-  'react-dom.production.min.js': umdPath('react-dom', 'umd/react-dom.production.min.js'),
-  'babel.min.js': umdPath('@babel/standalone', 'babel.min.js'),
-};
-await page.route('**://unpkg.com/**', route => {
-  const hit = Object.keys(UMD).find(k => route.request().url().endsWith(k));
-  if (!hit) return route.fulfill({ status: 404, body: '' });
-  route.fulfill({ status: 200, contentType: 'text/javascript', body: fs.readFileSync(UMD[hit], 'utf8') });
-});
+// Every script the page asks for, wherever from. Only this origin and Google
+// Sign-In are expected (the same list _headers' script-src allows).
+const scriptReqs = [];
+page.on('request', r => { if (r.resourceType() === 'script') scriptReqs.push(r.url()); });
 await page.route('https://accounts.google.com/**', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
 await page.route('**://script.google.com/**', route => {
   let body = {};
@@ -209,9 +191,10 @@ ok_('picking NICU shows that ward\'s registry',
 console.log('\n── bed label on the registry card ──');
 const cardBed = await page.locator('.patient-mc .pmc-row').nth(1).locator('.chip').first().innerText().catch(() => '');
 eq('stored "NICU 1-1" displays as', cardBed.trim(), 'NICU 1');
-// Rendered text only — Babel-standalone injects each .jsx module's compiled
-// source (comments and all) back into the DOM, so page.content() contains
-// registry.jsx's own comments about the bug and can't be used here.
+// Rendered text only. Until the 2026-09-17 build step Babel-standalone
+// injected each .jsx module's compiled source (comments and all) back into the
+// DOM, so page.content() carried registry.jsx's own comments about the bug;
+// visible text is still the right thing to read either way.
 {
   const txt = await page.locator('body').innerText();
   ok_('no "NICU 1-1" in any visible text', !txt.includes('NICU 1-1'),
@@ -394,6 +377,11 @@ ok_('only expected-offline resources failed',
   failedReqs.every(u => EXPECTED_OFFLINE.test(u)), failedReqs);
 const realErrors = errors.filter(e => !/ERR_CONNECTION_RESET|ERR_FAILED|net::/.test(e));
 ok_('no uncaught page errors', realErrors.length === 0, realErrors.slice(0, 5));
+const foreignScripts = scriptReqs.filter(u => !u.startsWith(BASE + '/') && !u.startsWith('https://accounts.google.com/'));
+ok_('scripts come only from this origin and Google Sign-In', foreignScripts.length === 0, foreignScripts);
+ok_('the app ran precompiled: compiled/app.js and vendor/ React were loaded',
+  scriptReqs.some(u => u.startsWith(BASE + '/compiled/app.js?v=')) && scriptReqs.some(u => u.startsWith(BASE + '/vendor/react-dom-')),
+  scriptReqs.map(u => u.replace(BASE, '')));
 
 await browser.close();
 server.close();
