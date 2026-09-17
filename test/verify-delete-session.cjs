@@ -44,11 +44,21 @@ function ok(name, cond) { eq(name, !!cond, true); }
 // ══════════════════════════════════════════════════════════════════════════
 console.log('── Part A: deletePatient() cascades registry + log, in a VM sandbox ──');
 
+// Since 2026-09-17 deletePatient also checks the header row (column-drift
+// guard), re-reads each row right before deleting it, and writes its
+// "deletePatient:start" Audit_Log row first — so the stub answers ranged
+// reads and grid width, and Audit_Log is a tab of its own.
 function makeSheet(header, rows) {
   const data = [header, ...rows];
   return {
-    deleted: [],
+    deleted: [], appended: [],
     getDataRange() { return { getValues: () => data.map(r => r.slice()) }; },
+    getRange(row, col, numRows = 1, numCols = 1) {
+      return { getValues: () => Array.from({ length: numRows }, (_, i) =>
+        Array.from({ length: numCols }, (_, j) => (data[row - 1 + i] || [])[col - 1 + j] ?? '')) };
+    },
+    getMaxColumns() { return Math.max(26, ...data.map(r => r.length)); },
+    appendRow(r) { this.appended.push(r); data.push(r.slice()); },
     deleteRow(row) { this.deleted.push(row); data.splice(row - 1, 1); },
     getLastRow() { return data.length; },
   };
@@ -59,9 +69,10 @@ const PAT_HEADER = ['sessionId','name','initials','bw','ga','sex','dob','admissi
   'statusDate','multiplesCount'];
 const LOG_HEADER = ['ts','sessionId','dol','weight'];
 
-let patSheet, logSheet, lockCalls;
+let patSheet, logSheet, auditSheet, lockCalls;
+const tabFor = (n) => n === 'Patient_Registry' ? patSheet : n === 'Audit_Log' ? auditSheet : logSheet;
 const gasSandbox = {
-  SpreadsheetApp: { openById: () => ({ getSheetByName: (n) => n === 'Patient_Registry' ? patSheet : logSheet, insertSheet: (n) => n === 'Patient_Registry' ? patSheet : logSheet }) },
+  SpreadsheetApp: { openById: () => ({ getSheetByName: tabFor, insertSheet: tabFor }) },
   Utilities: { getUuid: () => 'uuid', computeHmacSha256Signature: () => [], base64Encode: () => '' },
   PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'sheet-id', setProperty() {} }) },
   CacheService: { getScriptCache: () => ({ get: () => null, put() {}, remove() {} }) },
@@ -85,6 +96,7 @@ function reset() {
     ['2026-08-15','KH-BW1090',2,1080],
     ['2026-08-01','FO-1',1,2025],
   ]);
+  auditSheet = makeSheet(['ts', 'action', 'sessionId', 'actorEmail'], []);
   lockCalls = { waited: 0, released: 0 };
 }
 

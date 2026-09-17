@@ -41,7 +41,9 @@ function makeSheet(header, rows) {
     getRange(row, col, nr = 1, nc = 1) {
       return {
         getValue: () => (data[row - 1] || [])[col - 1] ?? '',
-        getValues: () => [(data[row - 1] || []).slice(col - 1, col - 1 + nc)],
+        // Any number of rows, like the real Range: since 2026-09-17 the write
+        // paths find rows by a narrow column read (perf review UP-B5).
+        getValues: () => Array.from({ length: nr }, (_, i) => { const src = data[row - 1 + i] || []; return Array.from({ length: nc }, (_, j) => src[col - 1 + j] ?? ''); }),
         setValue(v) { if (!data[row - 1]) data[row - 1] = []; data[row - 1][col - 1] = v; },
         setValues(v) { if (!data[row - 1]) data[row - 1] = []; v[0].forEach((x, i) => { data[row - 1][col - 1 + i] = x; }); },
         clearContent() {},
@@ -83,7 +85,15 @@ vm.createContext(sandbox);
 vm.runInContext(R('gas-backend.gs'), sandbox);
 const post = (body) => JSON.parse(sandbox.doPost({ postData: { contents: JSON.stringify(body) } }).setMimeType());
 
-const PAT_HEADER = new Array(18).fill('h');
+// Real labels in row 1: since 2026-09-17 every write to these tabs checks them
+// (the column-drift guard refuses a save under an unexpected label), so the
+// old placeholder 'h' headers would be — correctly — refused.
+const PAT_HEADER = ['sessionId','name','initials','bw','ga','sex','dob','admissionDate','twinSuffix',
+  'status','currentBed','diagnosis','weights','lengths','hcs','bedHistory','statusDate','multiplesCount'];
+const LOG_HEADER = ['ts','sessionId','dol','weight','fluid','gir','pro','kcal','na','k','ca','p','enVolPerKg','route','status','submittedBy',
+  'suppMTV','suppVitD_IU','suppCa_mg','suppCaType','suppPO4_mmol','suppPO4Type','suppFe_mg','suppFeType',
+  'calcInputJson','entryId','lastModified','lastModifiedBy','ioInput','ioOutput','drainContent','constantsVersion','appVersion',
+  'published','publishedBy','revisionNumber','revisionOf','supersededAt'];
 const patRow = (sid, status, statusDate) => {
   const r = new Array(18).fill('');
   r[0] = sid; r[1] = sid.slice(0, 2); r[3] = 1200; r[4] = 30; r[9] = status || 'Active'; r[16] = statusDate || '';
@@ -93,7 +103,7 @@ const ENTRY = { dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 
   enVolPerKg: 20, route: 'TPN central', status: 'submitted' };
 const todayKey = sandbox._wardDateKey();
 const daysAgo = (n) => new Date(Date.parse(todayKey + 'T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
-function freshLog() { sheets.Daily_Log = makeSheet(new Array(W).fill('h')); return sheets.Daily_Log; }
+function freshLog() { sheets.Daily_Log = makeSheet(LOG_HEADER); return sheets.Daily_Log; }
 function logRows() { return sheets.Daily_Log.data.slice(1); }
 
 console.log('\n── B5 · a log row needs a registered patient ──');
@@ -164,7 +174,13 @@ for (let i = 0; i < 25; i++) unknowns.push(post({ action: 'login', email: `nobod
 eq('25 unknown-email logins add no Script Properties', Object.keys(props).length - before, 0);
 const wrong = post({ action: 'login', email: 'doc@kcmh.test', password: 'wrong' });
 eq('unknown email and wrong password get the SAME message', unknowns[0].error, wrong.error);
-ok('…a real account\'s failure IS still counted for lockout', Object.keys(props).some(k => k.startsWith('fail_doc')));
+// Since 2026-09-17 the counter key is "fail_" + SHA-256 of the address (review
+// nits: the old underscore mapping collided a.b@x with a_b@x and put the
+// address in the key name). Same assertion, on the new key — and the address
+// itself must no longer appear in any key.
+ok('…a real account\'s failure IS still counted for lockout',
+  ('fail_' + crypto.createHash('sha256').update('doc@kcmh.test').digest('hex')) in props);
+ok('…under a key that does not contain the address', !Object.keys(props).some(k => k.includes('doc')));
 const longEmail = post({ action: 'login', email: 'a'.repeat(300) + '@x.test', password: 'x' });
 eq('an over-long email is refused with the same message', longEmail.error, wrong.error);
 const disabledWrong = post({ action: 'login', email: 'gone@kcmh.test', password: 'wrong' });
@@ -198,12 +214,15 @@ for (const sid of ['ACT-1', 'RECENT-1', 'OLD-1']) {
   const row = new Array(W).fill(''); row[0] = '2026-09-01'; row[1] = sid; row[25] = 'e-' + sid; sheets.Daily_Log.data.push(row);
 }
 const ward = sandbox.getActivePatients();
-eq('ward sync: active, blank, recent and undatable patients only',
-  ward.patients.map(p => p.sessionId).sort(), ['ACT-1', 'BLANK-1', 'NODATE-1', 'RECENT-1']);
+// NODATE-1 (archived, no statusDate) was kept in the window until Praew's
+// 2026-09-17 decision (review A1): an undated archive now leaves the ward sync
+// and stays reachable through the admin archive below.
+eq('ward sync: active, blank and recent patients only (undated archive out)',
+  ward.patients.map(p => p.sessionId).sort(), ['ACT-1', 'BLANK-1', 'RECENT-1']);
 ok('…and no log rows for anyone outside it', !('OLD-1' in ward.log) && 'ACT-1' in ward.log && 'RECENT-1' in ward.log, Object.keys(ward.log));
 eq('includeArchived returns everyone', sandbox.getActivePatients({ includeArchived: true }).patients.length, 5);
 asUser('doctor');
-eq('a doctor asking for the archive still gets the window', post({ action: 'getActivePatients', token: 't', includeArchived: true }).patients.length, 4);
+eq('a doctor asking for the archive still gets the window', post({ action: 'getActivePatients', token: 't', includeArchived: true }).patients.length, 3);
 asUser('admin');
 eq('an admin asking for the archive gets it', post({ action: 'getActivePatients', token: 't', includeArchived: true }).patients.length, 5);
 
