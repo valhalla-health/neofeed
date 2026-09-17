@@ -91,6 +91,9 @@ the frontend waits for a `main` → `release` PR, the backend for Praew's `clasp
   crash — a synced record with a `null` element in `weights[]` threw outside the workspace — so
   measurement arrays are now cleaned where records enter client state (`verify-error-boundary.cjs`,
   4/5 fail before, 17/17 after).
+- "New log → วันนี้" opened today's order under the back-fill banner "กำลังบันทึกย้อนหลัง…" (found
+  while capturing the Thai user guide); only a date that is not today is a back-fill now
+  (`verify-log-date-today.cjs`).
 
 ### 5 · Calculator and printed order — `calculator.jsx`, `log.jsx`
 
