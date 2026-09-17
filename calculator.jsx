@@ -131,6 +131,11 @@ const ORDER_DIFF_FIELDS = [
 function describeOrderValue(key, v) {
   if (typeof v === "boolean") return v ? "yes" : "no";
   if (key === "enType") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
+  // A volume derived from Rate × 24 used to reach this list — and the printed
+  // pharmacy form — as "98.39999999999999" (review 2026-09-17, UP-C13).
+  // toPrecision(12) strips float noise without rounding away a real decimal
+  // (a Glycophos 0.0625 mL/kg/d stays 0.0625).
+  if (typeof v === "number" && isFinite(v)) return String(Number(v.toPrecision(12)));
   return String(v);
 }
 // → [{ label, from, to, unit }] for every order field that differs.
@@ -1265,7 +1270,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
-  // Peripheral: crit >900, warn >850 · Central: warn >1600 (endothelial risk), no hard limit
+  // Peripheral: crit >900, warn >850 · Central: warn >1800 (endothelial risk), no hard limit
   const sOsm = route === "peripheral"
     ? (calc.osm > 900 ? "crit" : calc.osm > 850 ? "warn" : "ok")
     : (calc.osm > 1800 ? "warn" : "ok");
@@ -1464,12 +1469,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const critical = sortClinicalAlerts(alerts).filter(a => a.level === "crit");
     let override = null;
     if (critical.length > 0) {
-      // Center Point keeps names and HNs out of the order packet (the CP
-      // desktop joins identity only at print), so its prompt says so.
+      // The reason prints on the pharmacy form (and, on Center Point, goes
+      // into an order packet that deliberately carries no identity), so both
+      // prompts say to keep names and HNs out of it (SEC-F7).
       const reason = window.prompt(
         `มีค่าวิกฤต ${critical.length} รายการ:\n• ${critical.map(a => a.title).join("\n• ")}\n\n` +
-        `บันทึกต่อได้เมื่อระบุเหตุผลทางคลินิก (จะพิมพ์ลงใบสั่ง TPN` +
-        `${centerPoint ? " · ห้ามใส่ชื่อหรือ HN" : ""}):`, "");
+        `บันทึกต่อได้เมื่อระบุเหตุผลทางคลินิก (จะพิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN):`, "");
       if (reason == null || !String(reason).trim()) {
         showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน", "error");
         return;
@@ -1983,9 +1988,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:44,
                     fontSize:18, color:"var(--mid)", lineHeight:1 }}>↔</div>
                 </div>
+                {/* r × 24 rounded to 2 dp: 4.1 × 24 is 98.39999999999999 in
+                    floating point, and that string reached the Volume box, the
+                    changes list and the printed form (UP-C13). */}
                 <NumField label="Rate" unit="mL/hr"
                   value={parseFloat((totalTPN_mL/24).toFixed(2))}
-                  onChange={(r) => setTotalTPN_mL(r * 24)} step={0.05}
+                  onChange={(r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2)))} step={0.05}
                   hint={totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day` : "ใส่ rate pump"} />
               </div>
 
@@ -2191,7 +2199,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
             <Tile label="Protein" value={calc.proteinKg} unit=" g/kg/d" target={tPro} status={sPro} decimals={1} max={5.5} />
             <Tile label="Lipid (total)" value={calc.lipidKgTotal} unit=" g/kg/d" target={tLip} status={sLip} decimals={1} max={7} />
             <Tile label="NPC : Protein" value={calc.npeN} unit=" kcal/g AA" target={tNPE} status={sNPE} decimals={0} max={60} />
-            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral"?[0,900]:[0,1600]} status={sOsm} decimals={0} max={route==="peripheral"?1100:2200} />
+            {/* Central range 0–1800: the same threshold sOsm and the alert use
+                (UP-C12, Praew 2026-09-17) — it read 0–1600, so 1700 showed
+                outside the printed range on a green tile. */}
+            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral"?[0,900]:[0,1800]} status={sOsm} decimals={0} max={route==="peripheral"?1100:2200} />
           </div>
 
         </div></div>
@@ -2375,8 +2386,11 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               </div>
 
               <div className="sub-h" style={{ marginTop: 14 }}>7. Heparin</div>
+              {/* Units from the PREPARED volume, as the mL beside them are
+                  (solVol.heparin, sheet G51) — with dead space the two halves
+                  of this hint used to disagree (UP-C13). */}
               <NumField label="Heparin" unit="U/mL" value={heparinUmL} onChange={setHeparinUmL} step={0.5}
-                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * totalTPN_mL, 0)} U/day → ${fmt(calc.solVol.heparin, 2)} mL of ${S.heparin.unitsPerMl} U/mL`} />
+                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * calc.preparedVol, 0)} U/day → ${fmt(calc.solVol.heparin, 2)} mL of ${S.heparin.unitsPerMl} U/mL`} />
             </div>
 
             <div style={{ background: "var(--bg-2)", borderRadius: 8, padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
