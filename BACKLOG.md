@@ -122,8 +122,6 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · `TARGETS.fluid` is documented as taking birth weight, but every call site passes
       current weight.** One of the two is wrong. **Clinical decision, not a bug fix** — decide which
       is correct, then make code and docs agree.
-- [ ] 🧱 **product · There is no error boundary** — `PatientStrip` throwing white-screens the whole
-      app. One instance was hit and fixed on 2026-08-18; the class of bug is still open.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it
       a PWA and staff have home-screen installs, but there is **no service worker**, so a home-screen
       icon opens to nothing with no network. Partially addressed 2026-08-26: the staleness banner now

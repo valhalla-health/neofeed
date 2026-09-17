@@ -85,6 +85,12 @@ the frontend waits for a `main` → `release` PR, the backend for Praew's `clasp
   the device's time zone; admins load the >30-day archive only on request.
 - `connect-src` pinned to the NeoFeed Apps Script deployment; the GitHub Pages guard also covers the
   trailing-dot hostname and clears old `neofeed_*` storage on that shared origin.
+- **Error boundaries** (closes the BACKLOG item "There is no error boundary"): a view boundary around the
+  workspace keeps the rail, topbar and sync usable when one view fails to render and clears itself when
+  the user moves on; a root boundary wraps everything else. Writing its harness found one more live
+  crash — a synced record with a `null` element in `weights[]` threw outside the workspace — so
+  measurement arrays are now cleaned where records enter client state (`verify-error-boundary.cjs`,
+  4/5 fail before, 17/17 after).
 
 ### 5 · Calculator and printed order — `calculator.jsx`, `log.jsx`
 
@@ -105,9 +111,9 @@ the frontend waits for a `main` → `release` PR, the backend for Praew's `clasp
 
 ### Tests
 
-New harnesses, each failing on `42ce553` and passing here: `verify-review-0917-shell` (92),
+New harnesses, each failing on `42ce553` and passing here: `verify-error-boundary` (17), `verify-review-0917-shell` (92),
 `-sync` (73), `-session` (69), `-calc` (117), `-drafts` (39), `-backend-security` (101),
-`-backend-writes` (148), `-backend-sync` (95). Integration branch: 38/38 `verify-*.cjs`, `DEAD=0`,
+`-backend-writes` (148), `-backend-sync` (95). Integration branch: 39/39 `verify-*.cjs`, `DEAD=0`,
 shells identical, Center Point 5/5, browser runthrough 41/41. Two extra real-Chromium checks run from a
 scratch folder: the **current live client against the new backend** (19/19 — safe to deploy the
 backend first) and **two devices on the new client and backend** editing one infant (11/11).
