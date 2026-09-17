@@ -451,11 +451,17 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
       drug_mL:          ci.drug_mL,
       curWtG:           weight,
       tpnWtG:           weight,
-      ioInput:          editEntry.ioInput      ?? ci.ioInput,
-      ioOutput:         editEntry.ioOutput     ?? ci.ioOutput,
-      drainContent:     editEntry.drainContent ?? ci.drainContent,
     };
     Object.keys(carried).forEach(k => { if (recorded(carried[k])) keys.add(k); });
+    // Intake / Output: the AC–AE columns can't say "never recorded" —
+    // getActivePatients returns Number('' || 0), so a row saved before the
+    // card existed comes back with 0 in all three, and those zeros used to
+    // count as entered (review 2026-09-17, UP-C5). A zero is a recorded zero
+    // only when calcInput carries the key (every save since 2026-08-10 does);
+    // a non-zero column is real data either way.
+    ["ioInput", "ioOutput", "drainContent"].forEach(k => {
+      if (recorded(ci[k]) || (recorded(editEntry[k]) && Number(editEntry[k]) !== 0)) keys.add(k);
+    });
     return keys;
   }, [editEntry]);
   const seedsZero = (key) => seededZeros.has(key);
@@ -712,9 +718,16 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     }
     setSavedKey(null);
 
+    // Intake / Output is measured bedside for ONE day. A new order borrows
+    // yesterday's plan, never yesterday's urine output or drain: carried over,
+    // they filled the required boxes, so the gate passed and Save wrote
+    // yesterday's figures as today's (review 2026-09-17, UP-C5). Input still
+    // tracks today's prescribed total until typed (ioTouched false).
+    const NEW_DAY_IO = { ioInput: 0, ioOutput: 0, drainContent: 0 };
+
     if (baselineEntry) {
       skipWeightPropagateRef.current = true;
-      const src = withEntryIO(baselineEntry);
+      const src = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
       applyCalcInput(src, baselineEntry.weight, false, fluidMidpoint(src.curWtG ?? src.wtG ?? baselineEntry.weight));
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
@@ -734,7 +747,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     const lastWt = D.lastWeighed(patient);
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
     // Fresh entry — ioInput tracks the computed total until edited (ioTouched false).
-    applyCalcInput(restored || {}, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
+    applyCalcInput(restored ? { ...restored, ...NEW_DAY_IO } : {}, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
