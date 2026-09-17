@@ -174,7 +174,13 @@ for (let i = 0; i < 25; i++) unknowns.push(post({ action: 'login', email: `nobod
 eq('25 unknown-email logins add no Script Properties', Object.keys(props).length - before, 0);
 const wrong = post({ action: 'login', email: 'doc@kcmh.test', password: 'wrong' });
 eq('unknown email and wrong password get the SAME message', unknowns[0].error, wrong.error);
-ok('…a real account\'s failure IS still counted for lockout', Object.keys(props).some(k => k.startsWith('fail_doc')));
+// Since 2026-09-17 the counter key is "fail_" + SHA-256 of the address (review
+// nits: the old underscore mapping collided a.b@x with a_b@x and put the
+// address in the key name). Same assertion, on the new key — and the address
+// itself must no longer appear in any key.
+ok('…a real account\'s failure IS still counted for lockout',
+  ('fail_' + crypto.createHash('sha256').update('doc@kcmh.test').digest('hex')) in props);
+ok('…under a key that does not contain the address', !Object.keys(props).some(k => k.includes('doc')));
 const longEmail = post({ action: 'login', email: 'a'.repeat(300) + '@x.test', password: 'x' });
 eq('an over-long email is refused with the same message', longEmail.error, wrong.error);
 const disabledWrong = post({ action: 'login', email: 'gone@kcmh.test', password: 'wrong' });
