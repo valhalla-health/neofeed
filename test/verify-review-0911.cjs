@@ -323,8 +323,13 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   ok('typing the saved value back makes it printable again', !!printForm());
 
   console.log('\n── F2 · reopening a saved entry ──');
+  // AA 3.5 g/kg with dextrose alone is NPE:AA ≈ 11 — a critical value. Since
+  // the 2026-09-17 review (UP-C6) a saved row prints only when its override
+  // names every critical alert on screen, so the fixture carries the reason a
+  // real save of this order would have required.
   const saved = { entryId: 'e-7', lastModified: 'lm-7', ts: '2026-09-11', dol: 5, weight: 900,
-    calcInput: { curWtG: 900, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3.5 } };
+    calcInput: { curWtG: 900, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3.5,
+      critOverride: { reason: 'fixture — attending aware', alerts: ['NPE:AA critically off target'], at: '2026-09-11T01:00:00.000Z' } } };
   const prev = { entryId: 'e-6', lastModified: 'lm-6', ts: '2026-09-10', dol: 4, weight: 900,
     calcInput: { curWtG: 900, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3 } };
   mount({ patient, editEntry: saved, previousEntry: prev, onLog() {} });
