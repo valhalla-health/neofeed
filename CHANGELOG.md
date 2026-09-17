@@ -105,9 +105,25 @@ the frontend waits for a `main` → `release` PR, the backend for Praew's `clasp
 - **No printed figure changed:** every number on the pharmacy form for six orders was compared before
   and after.
 
-### 6 · Build step — precompiled JavaScript
+### 6 · Build step — precompiled JavaScript (Praew, 2026-09-17: replaces "no build step")
 
-*(See the build section appended when `claude/review-0917-build` merges.)*
+- `tools/build.mjs` (esbuild 0.25.12, exact versions, lockfile committed) compiles each `.jsx` on its
+  own into `compiled/<module>.js` — no bundle, no wrapper, same load order, `"use strict"` as Babel
+  gave. It refuses to build if two scripts declare the same top-level name (natively that is a
+  blank page, under Babel it was a silent overwrite), writes `?v=` tokens as content hashes into
+  both shells, and refuses if the shells differ.
+- React and ReactDOM are self-hosted in `vendor/` (the build checks them against the SRI hashes that
+  used to pin unpkg); the two inline scripts moved into `boot.js`. `script-src` is now
+  `'self' https://accounts.google.com` — **no `'unsafe-inline'`, no `'unsafe-eval'`, no unpkg.**
+- No build runs on either host: the bytes served are the bytes in git. CI rebuilds on a clean
+  checkout and fails the PR if `compiled/` or a token is stale, then runs every harness twice —
+  against the sources and against the compiled files.
+- **Measured (5 cold runs, headless Chromium):** login screen 4,626 ms → **159 ms**; at 4× CPU
+  throttle 34,642 ms → **441 ms**. Rendered DOM identical before/after on every view; 0 CSP
+  violations; the GitHub Pages guard still redirects before any app script runs.
+- `.jsx` files stay published for this release so tabs opened on the old shell mid-deploy still load.
+- **Workflow:** after editing a `.jsx`, `data.js`, `boot.js` or a shell — `npm ci --prefix tools`
+  (once), `node tools/build.mjs`, commit sources and `compiled/` together. See `REFERENCE.md`.
 
 ### Tests
 
