@@ -880,7 +880,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return;
     }
     setEditEntry(null);
-    setLogDate(dateStr || null);
+    setLogDate(dateStr && dateStr !== D_A.todayLocal() ? dateStr : null);
     setView("calculator");
   };
   const startEditEntry = (entry) => {

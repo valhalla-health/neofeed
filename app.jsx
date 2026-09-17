@@ -1439,7 +1439,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       startEditEntry(existing);
       return;
     }
-    setEditEntry(null); setLogDate(dateStr || null); setView("calculator");
+    // LogDateModal hands back today's date string for "วันนี้" too, and a
+    // non-null logDate is what makes the Calculator announce a back-fill —
+    // so today's ordinary order used to open under "กำลังบันทึกย้อนหลัง"
+    // (found 2026-09-17 while capturing the user guide). Only a date that is
+    // not today is a back-fill; today opens as a normal new order, whose date
+    // the Calculator freezes itself (UP-C11).
+    setEditEntry(null); setLogDate(dateStr && dateStr !== D_A.todayLocal() ? dateStr : null); setView("calculator");
   };
   const startEditEntry = (entry) => { setEditEntry(entry); setLogDate(null); setView("calculator"); };
 
