@@ -454,6 +454,59 @@ function AppRoot() {
   return <App key={epoch} notice={notice} onSessionEnd={onSessionEnd} onNoticeSeen={onNoticeSeen} />;
 }
 
+// ── Error boundary ────────────────────────────────────────────
+// There was none, so any exception thrown while rendering — one malformed
+// field in one infant's record, one unanticipated shape from the server —
+// unmounted the entire tree and left the ward with a blank white page and no
+// way back except a reload that often rendered the same record again
+// (BACKLOG "There is no error boundary"; instances hit 2026-08-18 and in the
+// 2026-09-17 review: unknown sex on the Growth chart, `weights:[null]`).
+// Two layers:
+//   • `variant="view"` wraps the workspace only, so the rail, topbar, sync
+//     and the patient list stay usable while one view is broken, and it
+//     clears itself when the user moves to another view or patient
+//     (`resetKey`), instead of trapping them on the error;
+//   • `variant="root"` wraps everything, for a throw outside the workspace.
+// Render errors only: event handlers and async code already report through
+// toasts. Saved data is never affected by a render error, and the calculator
+// autosaves unsaved typing as a draft for the same user, which the fallback
+// says — the person at the bedside needs to know whether to re-enter an order.
+class ViewErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) {
+    console.error("NeoFeed: a view failed to render", error, info && info.componentStack);
+  }
+  componentDidUpdate(prev) {
+    if (this.state.error && prev.resetKey !== this.props.resetKey) this.setState({ error: null });
+  }
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    const root = this.props.variant === "root";
+    return (
+      <div role="alert" className="card" style={{ padding: "24px 20px", maxWidth: 520, margin: root ? "12vh auto" : "24px auto", textAlign: "center" }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--crit, #b3261e)", marginBottom: 6 }}>
+          {root ? "NeoFeed แสดงผลไม่ได้" : "หน้านี้แสดงผลไม่ได้"}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginBottom: 16, lineHeight: 1.6 }}>
+          ข้อมูลที่บันทึกแล้วไม่ได้รับผลกระทบ · งานที่ยังไม่บันทึกในหน้าคำสั่ง (Calc) ถูกเก็บเป็นร่างไว้
+          {root ? " — กดโหลดใหม่ ถ้ายังเกิดซ้ำให้แจ้ง admin" : " — ลองกลับไปหน้ารายชื่อผู้ป่วย หรือโหลดใหม่ ถ้ายังเกิดซ้ำกับผู้ป่วยรายนี้ให้แจ้ง admin"}
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          {!root && this.props.onGoRegistry &&
+            <button className="btn" onClick={() => { this.setState({ error: null }); this.props.onGoRegistry(); }}>กลับไปหน้ารายชื่อผู้ป่วย</button>}
+          <button className="btn primary" onClick={() => location.reload()}>โหลดใหม่</button>
+        </div>
+        <details style={{ marginTop: 14, fontSize: 11, color: "var(--ink-3)", textAlign: "left" }}>
+          <summary style={{ cursor: "pointer" }}>รายละเอียดสำหรับผู้ดูแลระบบ</summary>
+          <code style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{String(error && error.message || error)}</code>
+        </details>
+      </div>
+    );
+  }
+}
+
 // A patient-scoped view opened with no patient selected (bottom nav, rail)
 // rendered an empty workspace — nothing on screen at all (review UP-S10).
 const PATIENT_VIEWS = ["log", "calculator", "fenton", "alerts"];
@@ -835,8 +888,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           // dashboard all show one spelling without each having to normalize
           // (see D.normalizeBed — legacy rows carry "NICU 1-1"/"NICU-1").
           // Sex the same way, for the same reason (normalizeSex, UP-S4).
+          // And the measurement arrays: a record already in the Sheet can hold
+          // a null or non-object element (nothing validated them server-side
+          // until the 2026-09-17 review, SEC-B3), and a dozen readers do
+          // `x.w` / `x.dol` — one bad element blanked every device on the next
+          // sync. Dropping them here keeps the ward working; the server still
+          // holds the bad cell, which `sheetHealthReport()` counts, and refuses
+          // edits to that record until it is corrected.
+          const cleanMeasures = (arr) => Array.isArray(arr)
+            ? arr.filter(x => x && typeof x === "object" && !Array.isArray(x)) : arr;
           const incoming = data.patients.map(p =>
-            ({ ...p, currentBed: D_A.normalizeBed(p.currentBed), sex: normalizeSex(p.sex) }));
+            ({ ...p, currentBed: D_A.normalizeBed(p.currentBed), sex: normalizeSex(p.sex),
+               weights: cleanMeasures(p.weights), lengths: cleanMeasures(p.lengths),
+               hcs: cleanMeasures(p.hcs), bedHistory: cleanMeasures(p.bedHistory) }));
           serverPatientsRef.current = new Map(incoming.map(p => [p.sessionId, p]));
           setPatients(incoming.length > 0 ? incoming : []);
           // Never auto-pick a patient — keep the current selection only if it
@@ -1706,6 +1770,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       {/* Workspace */}
       <main className="work">
         <div className="work-inner">
+          <ViewErrorBoundary variant="view" resetKey={`${view}|${activeId || ""}`} onGoRegistry={() => goTo("registry")}>
           {/* Banner: GAS connected but no real patients yet */}
           {GAS_ON && syncState === "ok" && patients.length === 0 && (
             <div style={{ padding:"12px 16px", background:"var(--brand-bg)", border:"1px solid var(--brand-line)",
@@ -1766,6 +1831,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           {view === "alerts" && active && <AlertCenter patient={active} log={log} onAckChange={() => setAckVersion(v => v + 1)} />}
           {view === "guidelines" && <GuidelinesPanel />}
           {view === "formulas" && <FormulasPanel />}
+          </ViewErrorBoundary>
         </div>
       </main>
 
@@ -3155,4 +3221,4 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-ReactDOM.createRoot(document.getElementById("root")).render(<AppRoot />);
+ReactDOM.createRoot(document.getElementById("root")).render(<ViewErrorBoundary variant="root"><AppRoot /></ViewErrorBoundary>);

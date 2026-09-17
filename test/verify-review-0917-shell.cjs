@@ -139,7 +139,9 @@ const scenarios = {
     for (const f of ['app.jsx', 'registry.jsx', 'fenton.jsx']) {
       A.ok(`5.2 ${f} is cache-busted to review-0917`, index.includes(`src="${f}?v=review-0917"`));
     }
-    A.ok('5.3 the app mounts AppRoot (the session boundary)', /render\(<AppRoot \/>\)/.test(app));
+    // The root error boundary (verify-error-boundary.cjs) may wrap it; what
+    // matters here is that AppRoot, not App, is what gets mounted.
+    A.ok('5.3 the app mounts AppRoot (the session boundary)', /render\((<ViewErrorBoundary variant="root">)?<AppRoot \/>/.test(app));
     A.ok('5.4 the admin view is rendered only for role admin', /view === "admin" && role === "admin" && <AdminDashboard/.test(app));
     A.ok('5.5 no in-tree #toast-host left in App', !/<div id="toast-host"/.test(app));
     A.ok('5.6 no bare fetch(GAS_URL) outside the one transport', (app.match(/fetch\(/g) || []).length === 1);
