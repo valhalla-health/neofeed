@@ -65,6 +65,22 @@ visible tab re-syncs on its own every `SYNC_POLL_MS` while a hidden or offline o
 absence of any such poll is what the ward reported as "sync นานกว่าปกติ"; and of two overlapping
 syncs the **newer** response wins rather than the last to arrive.
 
+`verify-review-0917-calc.cjs` and `verify-review-0917-drafts.cjs` pin the **2026-09-17 calculator
+review**. The first is about when an order may reach the pharmacy form: the lipid 4.5 / K 3.5 /
+NPE:AA 20–32 hard limits judged on the IV portion only (Praew's decision — full enteral feeds used to
+raise critical alerts that could only be cleared by typing a reason), with the F1 invariant re-checked
+across full feeds, IV breaches and a no-volume bag; a digest of every printed figure for six orders,
+captured from `42ce553`, so nothing printed moved (electrolyte `r1` rounding is deliberately
+unchanged until pharmacy confirms the Na dose); ingredients with TPN volume 0 blocking Save and Print;
+yesterday's urine output and drain never satisfying today's required fields; and Print withheld when
+a birth-weight edit re-doses a saved order, when a critical alert is not named in the saved reason, or
+when the row is still an optimistic `tmp_` insert (also unclickable in `log.jsx`). The second pins
+unsaved work: a draft is offered only to the user who typed it, drafts expire at 72 h and
+"previous submission" state at 7 days for every patient on mount, a save conflict's typed order comes
+back after the reload and saves as an ordinary edit of the newer row, and a new order open across
+midnight keeps its date, DOL, typed zeros and draft key. Both fail against `42ce553` (70 of 117 and
+23 of 39 assertions).
+
 **CI:** `.github/workflows/test.yml` runs every `verify-*.cjs` (plus `DEAD=0` for the Factor
 harness) and the shell byte-identity check on each pull request and on pushes to `main`/`release`.
 CI installs no browser, so `verify-sync-gate-and-poll.cjs`'s Chromium measurement prints a SKIP
@@ -106,7 +122,8 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-tpn-calc-weight.cjs`, `verify-required-log-fields.cjs`,
 `verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
 `verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
-`verify-nutrition-unit-review.cjs` and
+`verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
+`verify-review-0917-drafts.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does, and the app itself still
