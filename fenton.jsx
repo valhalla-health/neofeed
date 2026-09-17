@@ -15,7 +15,13 @@ function Segmented({ value, onChange, options }) {
 }
 
 function FentonChart({ patient, currentDol, onUpdate }) {
-  const sex = patient?.sex || "boys";
+  // The reference tables are keyed "boys"/"girls" and nothing else. Any other
+  // value — "M" typed into the sheet, a blank cell — made FENTON_WEIGHT[sex]
+  // undefined, `.filter` threw, and with no error boundary the WHOLE app went
+  // blank (review UP-S4). app.jsx normalises the common spellings at sync;
+  // what is still unknown gets a message here instead of a guessed curve set.
+  const sex = patient?.sex;
+  const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH[sex] && D_F.FENTON_HC[sex]);
   const [metric, setMetric] = React.useState("weight"); // weight | length | hc
   const [view, setView] = React.useState(null); // {x,y,w,h} viewBox override
   const dragRef = React.useRef(null);
@@ -37,7 +43,36 @@ function FentonChart({ patient, currentDol, onUpdate }) {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  // sexValid: the <svg> only exists once there is a chart to draw, so a record
+  // corrected from an unknown sex must attach the observer then.
+  }, [sexValid]);
+
+  if (!sexValid) {
+    return (
+      <div className="card">
+        <div className="card-h fenton-card-h">
+          <Icon name="chart" size={14} color="var(--brand)" />
+          Fenton 2025 growth chart
+        </div>
+        <div className="card-b">
+          <div role="alert" className="fenton-sex-invalid" style={{ padding: "12px 14px", background: "var(--warn-bg)",
+            border: "1px solid var(--warn-line)", borderRadius: 8, marginBottom: 12,
+            fontSize: 13, color: "oklch(42% 0.12 65)", lineHeight: 1.5 }}>
+            <strong>เพศในทะเบียนไม่ถูกต้อง — แก้ที่ Edit session</strong>
+            <div style={{ fontSize: 12, marginTop: 2 }}>
+              กราฟ Fenton แยกตามเพศ จึงแสดงไม่ได้จนกว่าจะระบุ Male หรือ Female
+              {sex ? ` (ค่าที่บันทึกไว้: "${String(sex)}")` : ""} · ยังบันทึกน้ำหนัก/ความยาว/HC ได้ตามปกติ
+            </div>
+          </div>
+          {/* Measurements do not depend on sex — a weights round is not
+              blocked by a registry typo. */}
+          {onUpdate && <div style={{ maxWidth: 320 }}>
+            <MeasurementLogger key={patient.sessionId} patient={patient} currentDol={currentDol} onUpdate={onUpdate} />
+          </div>}
+        </div>
+      </div>
+    );
+  }
 
   // The Fenton 2025 reference ends at 42 weeks. `data.js` carries rows past
   // that attributed to "WHO Growth Standard 2026", but they are unverified and
@@ -386,7 +421,12 @@ function FentonChart({ patient, currentDol, onUpdate }) {
               <GrowthVelocity points={points} metric={metric} />
             </div>
 
-            {onUpdate && <MeasurementLogger patient={patient} currentDol={currentDol} onUpdate={onUpdate} />}
+            {/* key: a new instance per patient (review UP-S2). The logger's
+                DOL is state seeded once, so switching patient from the topbar
+                picker kept the PREVIOUS infant's DOL — and a weights round
+                then filed the next infant's weight under that DOL, overwriting
+                a historical measurement instead of adding today's. */}
+            {onUpdate && <MeasurementLogger key={patient.sessionId} patient={patient} currentDol={currentDol} onUpdate={onUpdate} />}
 
             <div className="legend" style={{ flexDirection: "column", gap: 6 }}>
               <div className="s"><span className="b" style={{ background: "oklch(46% 0.085 215)" }}></span>50th percentile</div>
@@ -455,6 +495,19 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
   // a way back to a blank entry, mirroring the Daily Log's edit-entry pattern.
   const [editingDol, setEditingDol] = React.useState(null);
 
+  // Follow today's DOL. A tab left open on the growth chart past midnight kept
+  // yesterday's DOL in the box, so the morning weight was filed a day early
+  // (UP-S2). Only while the box still holds the previous maximum and no
+  // history row is being corrected — a deliberately typed earlier DOL stays.
+  const prevMaxDolRef = React.useRef(maxDol);
+  React.useEffect(() => {
+    const prev = prevMaxDolRef.current;
+    prevMaxDolRef.current = maxDol;
+    if (prev === maxDol || editingDol != null) return;
+    setDol(d => (d === prev || d === "" ? maxDol : Math.min(d, maxDol)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxDol]);
+
   const loadRow = (x) => {
     setDol(x.dol);
     setW(x.w != null ? String(x.w) : "");
@@ -487,7 +540,9 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
       // `w: null` keeps it out of the weight chart/growth-velocity calc instead of
       // silently duplicating the last known weight as if it were re-measured today.
       : [...weights, { dol: n, w: wt, l: len ?? null, hc: head ?? null }].sort((a, b) => a.dol - b.dol);
-    onUpdate(merged);
+    // false = the app did not attempt the save (an earlier write's result is
+    // still being checked); keep what was typed so it can be saved again.
+    if (onUpdate(merged) === false) return;
     setW(""); setL(""); setHc(""); setEditingDol(null);
   };
 

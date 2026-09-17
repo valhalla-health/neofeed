@@ -3,8 +3,17 @@
 # Wrangler uploads from the working tree, not from git, so .gitignore does
 # not apply here — gas-backend.gs.js is ignored by git but sits on disk and
 # would otherwise be served publicly. Everything the running app needs is
-# index.html, manifest.json, moved.html, data.js, the six .jsx modules and icons/.
-# Anything not on that list belongs below.
+# index.html, manifest.json, moved.html, boot.js, data.js, compiled/, vendor/
+# and icons/. Anything not on that list belongs below.
+#
+# boot.js, compiled/ and vendor/ must never be listed: without boot.js the app
+# silently runs in LOCAL MOCK MODE, without the other two it is a blank page.
+# test/verify-build-shells.cjs fails if any of them is excluded here.
+#
+# The six .jsx sources are no longer loaded by the shells (2026-09-17 build
+# step) but stay published for that release: a browser still holding the
+# previous index.html asks for them until it revalidates. Exclude them in a
+# later release, not this one.
 
 .git/
 .claude/
@@ -15,6 +24,7 @@
 .github/
 .serena/
 _config.yml
+.gitattributes
 
 # Ledgers, reviews and specs — internal, and SECURITY_CHECKLIST.md especially
 *.md
@@ -31,6 +41,9 @@ docs/
 graphify-out/
 test/
 node_modules/
+# The build (tools/build.mjs, its package.json and lockfile). Runs on a
+# developer machine and in CI, never on a host; its output is committed.
+tools/
 
 # Center Point staging entry (PR #57). Synthetic, and served only by CP's own
 # server from `neofeedDirectory` — never by the clinical NeoFeed domain.

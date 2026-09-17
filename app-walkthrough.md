@@ -4,44 +4,72 @@ NeoFeed is a bedside nutrition-management tool for NICU (neonatal intensive
 care) staff at KCMH. It replaces manual TPN/EN (total parenteral / enteral
 nutrition) calculation sheets with a guided calculator, tracks each infant's
 daily nutrition log, and plots growth against Fenton 2025 preterm growth
-curves. There is no build step — it's plain React 18 + Babel loaded from a
-CDN, deployed as static files, backed by a Google Apps Script + Google
-Sheets "backend."
+curves. It's plain React 18 function components written as `.jsx`,
+precompiled by a small committed build (`tools/build.mjs`, since 2026-09-17)
+and deployed as static files straight from git, backed by a Google Apps
+Script + Google Sheets "backend."
 
 Read this before touching the code. For the latest session-by-session
 change log and known caveats, see `HANDOFF.md`.
 
 ## 1. Run it
 
-Open `NeoFeed.html` directly in a browser (or serve the folder statically —
-no bundler, no `npm install`). **`NeoFeed.html` is the source file you edit**,
-but GitHub Pages serves whatever sits at the repo root as `index.html` — so
-`index.html`, not `NeoFeed.html`, is what production actually renders.
-The two are hand-synced copies (same CSS, same script loader, same inline
-config), not a canonical/parallel pair. **Any HTML/CSS/config change must be
+Serve the folder statically and open it — `python -m http.server` from the
+repo root is enough, and so is `npx wrangler dev`. Nothing is installed to
+*run* it: the compiled output is committed. **`NeoFeed.html` is the source
+file you edit**, but GitHub Pages serves whatever sits at the repo root as
+`index.html` — so `index.html`, not `NeoFeed.html`, is what production
+actually renders. The two are hand-synced copies (same CSS, same script
+loader), not a canonical/parallel pair. **Any HTML/CSS change must be
 applied to both files** or they silently drift — see HANDOFF.md's CSS drift
-notes for the recurring history of this.
+notes for the recurring history of this. The one part the build writes into
+both is the `?v=` tokens, and it refuses to run while they differ in
+anything else.
 
-`NeoFeed.html` is the shell: it sets `window.NEOFEED_CLIENT_ID` and
-`window.NEOFEED_GAS_URL` inline, then loads the CSS (embedded, oklch-based
-design system) and pulls in each `.jsx` module in dependency order via
-in-browser Babel:
+**Editing code (since 2026-09-17): edit the `.jsx` sources, then run the
+build, and commit the sources and the compiled output together.**
+
+```bash
+npm ci --prefix tools        # once per clone, and whenever tools/package-lock.json changes
+node tools/build.mjs         # after every .jsx, data.js, boot.js or shell edit
+```
+
+The build compiles each `.jsx` to `compiled/<module>.js` (JSX → plain
+`React.createElement` calls, nothing else lowered or minified), copies React
+into `vendor/`, and rewrites both shells' `?v=` tokens to content hashes.
+Never edit `compiled/` by hand. CI rebuilds on a clean checkout and rejects
+the PR if the committed output is stale, then runs every harness against
+both the sources and `compiled/`. `REFERENCE.md` § The frontend build has the
+why and the full list of what the build checks.
+
+The shell loads, in this order (the build refuses shells that disagree):
 
 ```
-data.js → icons.jsx → calculator.jsx → fenton.jsx
-  → registry.jsx → log.jsx → app.jsx (mounts <App/>)
+boot.js (first in <head>: GitHub Pages guard + NEOFEED_* config)
+  → vendor/react → vendor/react-dom → data.js
+  → compiled/icons.js → calculator.js → fenton.js
+  → registry.js → log.js → app.js (mounts <AppRoot/>)
 ```
 
-`window.NEOFEED_GAS_URL` points at the deployed Apps Script web app. If it's
-commented out, the app falls back to mock data/local state instead of
-hitting the live Google Sheet — check this first when data doesn't persist
-across a refresh.
+with the CSS embedded in `<style>` (oklch-based design system) and the
+Google Fonts stylesheet deliberately last, after every script. There is no
+in-browser Babel and nothing from unpkg any more, which is what lets
+`_headers`' CSP forbid inline script and eval.
+
+`window.NEOFEED_GAS_URL`, set in `boot.js`, points at the deployed Apps
+Script web app. If it's removed, the app falls back to mock data/local state
+instead of hitting the live Google Sheet — check this first when data
+doesn't persist across a refresh.
 
 ## 2. Architecture at a glance
 
 | File | Role |
 |---|---|
-| `NeoFeed.html` / `index.html` | App shell + all CSS (hand-synced pair). Script loader, GAS URL config. `index.html` is what GitHub Pages actually serves. |
+| `NeoFeed.html` / `index.html` | App shell + all CSS (hand-synced pair) and the script loader; `?v=` tokens written by the build. `index.html` is what GitHub Pages actually serves. |
+| `boot.js` | First script in `<head>`: the GitHub Pages retirement guard and the `NEOFEED_CLIENT_ID` / `NEOFEED_GAS_URL` config. Plain script, never compiled. |
+| `tools/` | The build: `build.mjs`, with esbuild and React pinned by `package.json` + a committed lockfile. Runs on developer machines and in CI, never on a host; not published. |
+| `compiled/` | Build output, committed: one plain `.js` per `.jsx` module. What the browser runs. Never edit by hand. |
+| `vendor/` | React 18.3.1 + ReactDOM UMD builds, self-hosted, byte-identical to the unpkg files the shells used to pin by SRI. |
 | `manifest.json` | Web App Manifest (PWA installability) — name, icons, `display: standalone`. |
 | `icons/` | Home-screen icons (`icon.svg` source + generated PNGs at 16/32/180/192/512, plus maskable 192/512 variants for Android's adaptive-icon safe zone). |
 | `app.jsx` | Root `<App/>`: auth, nav rail/bottom-nav, view router, `PatientStrip`, `AlertCenter`, `AdminDashboard`, Thai date/GA formatting helpers, guidelines/formulas reference panels. |
@@ -689,10 +717,24 @@ notes — don't just add the feature.
 
 ## 7. Conventions worth preserving
 
-- **No build tooling.** Don't introduce a bundler/npm dependency without
-  discussing it — the whole point is a zero-install static deploy.
-  `?v=<tag>` query strings on script tags are the cache-busting mechanism;
-  bump them when you change a `.jsx`/`.js` file's content meaningfully.
+- **A committed build, never a host build.** This replaced the old "no
+  build tooling" rule on 2026-09-17 (Praew's decision: in-browser Babel cost
+  seconds per page load and forced `'unsafe-eval'`/`'unsafe-inline'` into
+  the CSP). Edit the `.jsx` sources, run `node tools/build.mjs`, and commit
+  the sources and the compiled output together; CI rejects stale output. What
+  is still true, and worth keeping: nothing builds on Cloudflare or GitHub
+  Pages, both serve the exact bytes in git, and the app needs no
+  `npm install` to run. Don't grow `tools/` into a bundler, add a
+  host-side build command, or add runtime npm dependencies without
+  discussing it — each would give up one of those.
+- **`?v=` tokens are content hashes the build writes** — never edit or
+  "bump" one by hand. `data.js`'s `appVersion()` turns them into the
+  provenance stamp on every saved row, so they must describe the exact bytes.
+- **Every script shares one global scope.** The modules are classic scripts sharing
+  one global scope, and since the build they run as native ES2020, not
+  Babel's ES5: a top-level `const`/`let`/`class` name used in two modules is
+  a load-time SyntaxError (the build refuses it), and reading a `const`
+  before its declaration throws instead of giving `undefined`.
 - **GA math always goes through `data.js` helpers** (§3) — never
   reimplement `fmtGA`/`parseGAInput`/etc. inline.
 - **DOL is always computed live** via `liveDol()`, never stored — if you
@@ -721,7 +763,7 @@ notes — don't just add the feature.
   and `index.html` heads (same drift risk as the CSS note above — keep them
   identical). No service worker is registered on purpose: the app always
   talks to a live GAS backend and a cache-first SW risks serving stale
-  patient data or a stale `.jsx?v=` bundle across the project's cache-busting
+  patient data or a stale `compiled/*.js?v=` script across the project's cache-busting
   convention. If offline support is ever wanted, scope a SW to network-only
   passthrough for anything hitting `NEOFEED_GAS_URL`.
 

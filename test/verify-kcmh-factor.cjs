@@ -98,10 +98,14 @@ act(() => {
     // saved row (review F2) — so the shell row carries the same inputs this
     // harness then types through the real fields. Typing them back leaves the
     // form un-dirty, and the form below is the one pharmacy would print.
+    // The worksheet recipe has no lipid, so its NPE:AA (≈ 9 kcal/g) is a
+    // critical value; since 2026-09-17 (UP-C6) a saved row prints only when its
+    // override names every critical alert, so the shell row carries one.
     editEntry: { entryId: 'fixture-entry', lastModified: 'fixture-stamp', ts: '2026-08-06', dol: 5, weight: IN.wtKg * 1000,
       calcInput: { curWtG: IN.wtKg * 1000, totalTPN_mL: IN.delivered, deadVol_mL: IN.dead, dexPct: IN.dexPct,
         aaPerKg: IN.aaPerKg, naCl: IN.naCl, naAcet: IN.naAcet, glycophosP: IN.glyco, kCl: IN.kCl,
-        k2hpo4: IN.k2hpo4, mgPerKg: IN.mg, caPerKg: IN.ca, heparinUmL: IN.hepUmL } },
+        k2hpo4: IN.k2hpo4, mgPerKg: IN.mg, caPerKg: IN.ca, heparinUmL: IN.hepUmL,
+        critOverride: { reason: 'worksheet fixture', alerts: ['NPE:AA critically off target'], at: '2026-08-06T01:00:00.000Z' } } },
     baselineEntry: null, logDate: null,
     onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
   }));

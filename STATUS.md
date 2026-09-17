@@ -1,5 +1,9 @@
 # NeoFeed — Status
 
+> ⏳ **2026-09-17 — not live yet:** the full review (speed, security, unhappy paths, precompiled JS) is
+> on `main` but **not on `release` and not in Apps Script**. Nothing below changed. Deploy order and the
+> pre-deploy `sheetHealthReport()` check: `BACKLOG.md` § Now, first item.
+
 **Updated 2026-09-16** · 🟢 **Backend `@54` and frontend `?v=sync-poll-0916` are both live.**
 The sync-screen release (#70 → #71).
 - **Frontend:** `release` = `098bd37`, merged by `tasamew` at 10:29 UTC / 17:29 ICT on 2026-09-16.
