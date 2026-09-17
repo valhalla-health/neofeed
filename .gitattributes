@@ -1,0 +1,6 @@
+# Build output is committed and served byte-for-byte by both hosts
+# (tools/build.mjs). Git must never rewrite its line endings: a Windows
+# checkout with core.autocrlf=true would otherwise hand CI different bytes
+# from the ones the ?v= content hashes and the vendor SRI check were taken on.
+compiled/** -text linguist-generated=true
+vendor/** -text

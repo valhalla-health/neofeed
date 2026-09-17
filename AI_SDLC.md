@@ -138,8 +138,8 @@ graph does not know what "verified" means for a clinical constant.
 stubbed local user and mock patients.
 
 **What is not true:** nothing *enforces* it. There is no staging Sheet and no staging deployment —
-one Apps Script deployment, one spreadsheet, and `NEOFEED_GAS_URL` is a literal in both HTML
-shells. A developer who wants live data has only to leave it in place.
+one Apps Script deployment, one spreadsheet, and `NEOFEED_GAS_URL` is a literal in `boot.js`
+(in both HTML shells until 2026-09-17). A developer who wants live data has only to leave it in place.
 
 This is also why the stub harnesses cannot model everything: `STATUS.md` has carried the warning
 that **`@46` has never been exercised by a real login or a real Delete** since 2026-08-17, because

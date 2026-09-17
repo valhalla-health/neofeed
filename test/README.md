@@ -81,8 +81,38 @@ back after the reload and saves as an ordinary edit of the newer row, and a new 
 midnight keeps its date, DOL, typed zeros and draft key. Both fail against `42ce553` (70 of 117 and
 23 of 39 assertions).
 
-**CI:** `.github/workflows/test.yml` runs every `verify-*.cjs` (plus `DEAD=0` for the Factor
-harness) and the shell byte-identity check on each pull request and on pushes to `main`/`release`.
+`verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
+`tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:
+both shells load nothing but `boot.js`, `vendor/` React, `data.js`, `compiled/*.js` and Google
+Sign-In, with no inline `<script>`, no `text/babel` and no unpkg, in the exact load order with
+`boot.js` first in `<head>`; every `?v=` token is the SHA-256 prefix of the file it loads;
+`vendor/` is byte-identical to the React builds the shells used to pin by SRI; `_headers`'
+`script-src` is `'self'` plus Google Sign-In and nothing looser; `.assetsignore` and `_config.yml`
+publish every file the shell loads (a missing `boot.js` silently drops the app into LOCAL MOCK
+MODE) and keep `tools/` private; the Google Fonts stylesheet sits after the last script; and
+`appVersion()` still turns the new script list into the provenance stamp. The CSP and the shells
+only work as a pair — the new CSP renders the old shells blank — so it checks both halves. It fails
+33 of 43 assertions against `claude/review-0917` (the tree before the build step), and each of the
+build's own refusals and this harness's checks was proven to catch a deliberate breakage.
+
+**`compiled-loader.cjs` is not a harness** but a `--require` preload that runs the harnesses
+against the shipped `compiled/*.js` instead of their in-harness `@babel/preset-react` transform of
+the `.jsx` sources — no harness is edited for it:
+
+```bash
+NODE_OPTIONS="--require ./test/compiled-loader.cjs" node test/verify-resync-and-lists.cjs
+```
+
+It swaps a module only when the harness transforms the whole, unmodified `.jsx` file, throws
+otherwise, and prints which modules it replaced. Source-text assertions (regexes over the `.jsx`)
+still read the sources, which is what they pin.
+
+**CI:** `.github/workflows/test.yml` first rebuilds with `npm ci --prefix tools && node tools/build.mjs`
+on the clean checkout and fails if that changes anything (stale or hand-edited `compiled/`, or
+shell tokens), then checks shell byte-identity, then runs every `verify-*.cjs` (plus `DEAD=0` for
+the Factor harness) **twice** — against the sources, then with the compiled preload, where a harness
+that mounts modules but swapped none fails the step. It runs on each pull request and on pushes to
+`main`/`release`.
 CI installs no browser, so `verify-sync-gate-and-poll.cjs`'s Chromium measurement prints a SKIP
 there and its static CSS assertions carry the section; run it locally (with `playwright`
 installed) to get the real measurement.
@@ -92,10 +122,11 @@ installed) to get the real measurement.
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
-`verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs` and
-`verify-publish-lock.cjs` need **no dependencies at all** — run them directly:
+`verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
+`verify-publish-lock.cjs` and `verify-build-shells.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
+node test/verify-build-shells.cjs
 node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
@@ -126,8 +157,10 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-review-0917-drafts.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
-mount real components in jsdom); nothing else does, and the app itself still
-has no build step. Dependencies are dev-only
+mount real components in jsdom); nothing else does. (The frontend build has its
+own pinned install, `npm ci --prefix tools`, which the harnesses do not need:
+they transpile the `.jsx` themselves, or read `compiled/` through
+`compiled-loader.cjs`.) Dependencies are dev-only
 and are **not** committed — install them into a scratch folder and point Node at it:
 
 ```bash
@@ -168,8 +201,14 @@ npm install --no-save playwright && npx playwright install chromium
 node test/runthrough-app.cjs           # screenshots → test/.screenshots/
 ```
 
-It also needs the **exact** pinned CDN versions in `node_modules`
-(`react@18.3.1 react-dom@18.3.1 @babel/standalone@7.29.0`) — see below.
+It no longer needs React or Babel in `node_modules`: since the 2026-09-17 build step the
+app loads React from `vendor/` and its modules from `compiled/`, straight from the repo.
+
+To run every harness against the shipped compiled output, as CI's second pass does:
+
+```bash
+NODE_OPTIONS="--require ./test/compiled-loader.cjs" node test/verify-kcmh-factor.cjs   # any verify-*.cjs
+```
 
 `verify-kcmh-factor.cjs` reads `DEAD` from the environment (mL of dead space,
 default 20). Run it both ways — overfilled and not:
@@ -390,18 +429,19 @@ nothing.
 **`runthrough-app.cjs`** — the only harness that runs the whole app the way a
 nurse does: it serves the repo statically **as-is** (no file edits, `index.html`
 exactly as GitHub Pages would serve it), launches Chromium, logs in, and clicks
-through the registry → dashboard → calculator. Two things a sandbox cannot
-reach are intercepted: `unpkg.com` is answered from `node_modules`, and the
-GAS URL is answered by an in-process fake backend that mirrors
-`gas-backend.gs`'s response shapes **and records every write it receives**, so
-the assertions can check what actually went over the wire rather than only what
-the screen shows. Everything in between — `data.js`, `calculator.jsx`,
-`log.jsx`, `registry.jsx`, `app.jsx` — is the shipped code.
+through the registry → dashboard → calculator. One thing a sandbox cannot
+reach is intercepted: the GAS URL is answered by an in-process fake backend that
+mirrors `gas-backend.gs`'s response shapes **and records every write it
+receives**, so the assertions can check what actually went over the wire rather
+than only what the screen shows. Everything in between — `boot.js`, `vendor/`
+React, `data.js` and `compiled/*.js` — is the shipped code.
 
-The UMD bundles must be the exact versions the script tags pin, because
-`index.html` carries SRI `integrity` hashes and Chromium rejects anything else.
-That is a feature: a passing run is also proof those hashes still match the
-versions named beside them.
+Until 2026-09-17 it also answered `unpkg.com` from `node_modules` with the exact
+React and Babel builds the shells pinned by SRI. The build step removed both
+from the page, so now the reverse is asserted: every script comes from the
+served repo or Google Sign-In, and `compiled/app.js` and `vendor/` React were
+the ones loaded. A request to unpkg fails the run. The SRI pin itself moved to
+`tools/build.mjs` and `verify-build-shells.cjs` §3.
 
 Its fixture is the patient from the 2026-08-17 bug reports — plus, since
 2026-09-15, a roommate on `NICU 5` so the one-patient-per-bed rule has a bed
