@@ -151,6 +151,23 @@ function diffOrderInputs(prev, cur) {
 // logout (app.jsx); anything older than this is discarded unread.
 const DRAFT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
 const draftStorageKey = (sessionId, dateStr) => `neofeed_draft_${sessionId}_${dateStr}`;
+// "Prefilled from previous submission" state (neofeed_calc_<sessionId>). It
+// was never expired, so a shared ward PC kept every infant's last order
+// indefinitely (review 2026-09-17, SEC-F3). A week is past any plausible
+// "continue yesterday's order" use; anything older is deleted unread.
+const CALC_STATE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Whose unsaved draft this is (SEC-F3). Ward PCs are shared, so a draft is
+// only ever offered back to the account that typed it. `userEmail` is the
+// explicit prop; app.jsx currently passes only `userLabel`, which carries the
+// email as "Name (email)" or as the bare email — so the email is read from
+// there. No email → "" → drafts are written unowned and never offered.
+function draftOwnerOf(userEmail, userLabel) {
+  const email = String(userEmail || "").trim()
+    || (String(userLabel || "").match(/([^\s()<>]+@[^\s()<>]+)/) || [])[1] || "";
+  return email.toLowerCase();
+}
+
 // app.jsx inserts a new log row optimistically under "tmp_…" (or
 // "local_tmp_…" with no backend) until the server returns the real entryId.
 // Such a row is not saved yet: opening it and printing put an id on the
@@ -349,7 +366,25 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, logDate, userLabel, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint }) {
+function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint }) {
+  // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
+  // A new, non-back-dated order used to read "today" on every render, so a
+  // form left open across midnight silently became the next day's order: its
+  // required fields remounted blank under a new identity, its draft moved to a
+  // new key, and Save stamped the new date (and the new DOL) onto numbers
+  // typed for the old one. The date is now taken once, when the form opens
+  // for a new order (reset on a patient switch in the prefill effect below),
+  // and everything that identifies the order reads it: the draft key, the
+  // required-field identity, the `ts` sent on save, the printed order date
+  // and the DOL. An edit keeps its row's date; a back-fill keeps `logDate`.
+  const [newOrderDate, setNewOrderDate] = useState(() => D.todayLocal());
+  const orderDateKey = editEntry ? (D.normalizeDateStr(editEntry.ts) || D.todayLocal()) : (logDate || newOrderDate);
+  const orderDayRolledOver = !editEntry && !logDate && newOrderDate !== D.todayLocal();
+  // App's `dol` is live (it ticks at midnight); the order's DOL is the one on
+  // its own date — the same dolAtDate a back-filled order is given.
+  const dol = orderDayRolledOver ? D.dolAtDate(patient, newOrderDate) : dolProp;
+  const draftOwner = draftOwnerOf(userEmail, userLabel);
+
   // Current weight — the actual weight entered/measured for this log day.
   // This is what gets saved as the Daily_Log `weight` column and propagated
   // to the patient's displayed current weight (PatientStrip, growth chart).
@@ -578,7 +613,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   const [savedMeta, setSavedMeta] = useState(null); // { by, at, revision }
   // Critical-alert override recorded with the saved order (F1 hard stop).
   const [critOverride, setCritOverride] = useState(editEntry?.calcInput?.critOverride || null);
-  const [draftOffer, setDraftOffer] = useState(null); // an unsaved draft newer than this form
+  const [draftOffer, setDraftOffer] = useState(null); // this user's unsaved draft for this order
   // Dosing weight the saved row was calculated with — see savedDosingWeightOf.
   // null = nothing saved from this form, or a legacy row with no evidence.
   const [savedDosingWt, setSavedDosingWt] = useState(null); // { g, exact }
@@ -667,15 +702,46 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   //    a brand-new row for today, it only borrows the starting numbers)
   // 3. Otherwise restore full calc state from localStorage if previously submitted
   // 4. Otherwise: smart defaults — wt from latest weight, fluid from ESPGHAN midpoint
-  // The clinical date this order is for — keys the unsaved-draft store.
-  const orderDateKey = editEntry ? (D.normalizeDateStr(editEntry.ts) || D.todayLocal()) : (logDate || D.todayLocal());
+  // `orderDateKey` (top of this component) is the clinical date this order is
+  // for — it keys the unsaved-draft store.
   // Identity of the order currently open. The required fields are keyed on it
   // so switching patient or date gives them fresh inputs: a "0" typed for one
   // infant must not arrive pre-satisfied on the next one's form.
   const formIdentity = `${patient?.sessionId || "?"}·${orderDateKey}·${editEntry?.entryId || "new"}`;
 
+  // Browser-storage expiry, once per mount (SEC-F3). Drafts past 72 h and
+  // "previous submission" state past 7 days are deleted for EVERY patient, not
+  // only the one opened — on a shared ward PC nobody else will ever clean them
+  // up. Declared before the prefill effect so it runs first. Never on the
+  // Center Point entry, which reads nothing from browser storage at all.
+  React.useEffect(() => {
+    if (centerPoint) return;
+    try {
+      const now = Date.now(), doomed = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i) || "";
+        const maxAge = k.startsWith("neofeed_draft_") ? DRAFT_MAX_AGE_MS
+          : k.startsWith("neofeed_calc_") ? CALC_STATE_MAX_AGE_MS : 0;
+        if (!maxAge) continue;
+        let at = NaN;
+        try { at = Date.parse(JSON.parse(localStorage.getItem(k))?.savedAt || ""); } catch {}
+        if (!isFinite(at) || now - at > maxAge) doomed.push(k);
+      }
+      doomed.forEach(k => localStorage.removeItem(k));
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   React.useEffect(() => {
     if (!patient?.sessionId) return;
+
+    // A new order's date is taken when it is opened (UP-C11): a patient switch
+    // is a deliberate new target, so it re-reads today. Read here as well as
+    // set, because this run's draft lookup must not use the previous
+    // patient's frozen date still held in state.
+    const openedOn = D.todayLocal();
+    if (!editEntry && !logDate) setNewOrderDate(openedOn);
+    const dateKey = editEntry ? (D.normalizeDateStr(editEntry.ts) || openedOn) : (logDate || openedOn);
 
     // Re-sync the saved-row identity to the current editEntry every time patient
     // or editEntry changes — a patient switch while this component stays mounted
@@ -693,19 +759,27 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
 
-    // An unsaved draft for this patient + order date, newer than what is
-    // being opened, is offered back rather than silently overwritten.
+    // An unsaved draft for this patient + order date is offered back rather
+    // than silently overwritten — but only to the user who typed it (SEC-F3):
+    // on a shared ward PC the next person to open the infant must not be
+    // handed someone else's unsaved order. Another user's draft, or one with
+    // no owner (written before 2026-09-17), is deleted unread.
+    // It is offered even when the row was saved again after the draft was
+    // taken (UP-C10): that is exactly the save-conflict case, where reloading
+    // the newer row used to hide the typed order for good because only a
+    // draft NEWER than the row was offered. The banner says it is older.
     // Never on the Center Point entry, which keeps no clinical value in
     // browser storage — it neither writes drafts (below) nor reads them.
     setDraftOffer(null);
     if (!centerPoint) try {
-      const dk = draftStorageKey(patient.sessionId, orderDateKey);
+      const dk = draftStorageKey(patient.sessionId, dateKey);
       const raw = localStorage.getItem(dk);
       if (raw) {
         const draft = JSON.parse(raw);
         const at = Date.parse(draft?.savedAt || "");
-        if (!isFinite(at) || Date.now() - at > DRAFT_MAX_AGE_MS) localStorage.removeItem(dk);
-        else if (!editEntry?.lastModified || !(Date.parse(editEntry.lastModified) >= at)) setDraftOffer(draft);
+        const mine = !!draftOwner && draft?.by === draftOwner;
+        if (!mine || !isFinite(at) || Date.now() - at > DRAFT_MAX_AGE_MS) localStorage.removeItem(dk);
+        else setDraftOffer(draft);
       }
     } catch {}
 
@@ -741,6 +815,13 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
       try {
         const raw = localStorage.getItem(`neofeed_calc_${patient.sessionId}`);
         if (raw) restored = JSON.parse(raw);
+        // Expired (or unstamped) previous-submission state is not a starting
+        // point — it is stale clinical data on a shared PC (SEC-F3).
+        const at = Date.parse(restored?.savedAt || "");
+        if (restored && (!isFinite(at) || Date.now() - at > CALC_STATE_MAX_AGE_MS)) {
+          restored = null;
+          localStorage.removeItem(`neofeed_calc_${patient.sessionId}`);
+        }
       } catch {}
     }
 
@@ -787,20 +868,35 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
   // Off on the Center Point entry: a whole TPN order in localStorage for up to
   // 72 h on a shared workstation breaks CP's no-clinical-data-in-browser rule
   // (PR #57 review, finding 1). CP holds unsaved work in the open page only.
-  React.useEffect(() => {
-    if (centerPoint || !patient?.sessionId || !userEdited) return;
+  // Each draft records who typed it (SEC-F3) and which saved version of the
+  // row it was typed on top of (UP-C10) — see the prefill effect.
+  const writeDraft = (inputs) => {
+    if (centerPoint || !patient?.sessionId) return;
     try {
       localStorage.setItem(draftStorageKey(patient.sessionId, orderDateKey),
-        JSON.stringify({ ...liveInputs, dol, savedAt: new Date().toISOString() }));
+        JSON.stringify({ ...inputs, dol, savedAt: new Date().toISOString(),
+          by: draftOwner, baseLastModified: savedLastModified || null }));
     } catch {}
+  };
+  React.useEffect(() => {
+    if (!userEdited) return;
+    writeDraft(liveInputs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userKey, userEdited]);
   const clearDraft = () => {
     try { localStorage.removeItem(draftStorageKey(patient.sessionId, orderDateKey)); } catch {}
   };
+  // A draft typed on an older saved version of this row than the one now open.
+  const draftIsStale = !!(draftOffer && editEntry &&
+    (draftOffer.baseLastModified || null) !== (editEntry.lastModified || null));
   const restoreDraft = () => {
     if (!draftOffer) return;
-    applyCalcInput(draftOffer, curWtG, true, fluidTargetPerKg);
+    const n = applyCalcInput(draftOffer, curWtG, true, fluidTargetPerKg);
+    // Rebase the draft onto the version now open (UP-C10). This form already
+    // holds that row's lastModified, so the next Save is an ordinary edit of
+    // it — the user saw the conflict, reloaded and chose to carry on — rather
+    // than another conflict against the stamp the draft was first typed on.
+    writeDraft(n);
     setDraftOffer(null);
   };
 
@@ -1437,8 +1533,10 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
       constantsVersion: D.CONSTANTS_VERSION,
       appVersion: D.appVersion(),
       // Editing must keep the entry's original calendar date; a brand-new entry
-      // is stamped with today's date unless the user picked a back-date (logDate).
-      ...(editEntry ? { ts: editEntry.ts } : logDate ? { ts: logDate } : {}),
+      // is stamped with the back-date the user picked (logDate) or else the
+      // date the form was opened on — sent explicitly, so a form saved after
+      // midnight is still filed under the day it was written for (UP-C11).
+      ts: editEntry ? editEntry.ts : (logDate || newOrderDate),
     };
 
     setSaving(true);
@@ -1447,7 +1545,12 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
       : await onLog(entry);
     setSaving(false);
 
-    if (res.conflict) { setConflict(res.current); return; }
+    // Make sure the typed order is on disk as this user's draft before showing
+    // the conflict (UP-C10): the way forward is "โหลดข้อมูลล่าสุด", a full
+    // reload, and the draft — still based on the stamp that conflicted — is
+    // what brings the typed values back onto the newer row. Only when there
+    // is something unsaved to bring back.
+    if (res.conflict) { if (dirty) writeDraft(currentInputs()); setConflict(res.current); return; }
     if (!res.ok) return; // gasPost already surfaced an error toast
 
     if (res.revised) {
@@ -1523,6 +1626,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
           <span>
             รายการนี้ถูกแก้ไขจาก{conflict.lastModifiedBy ? ` ${conflict.lastModifiedBy}` : "เครื่องอื่น"} หลังจากหน้านี้เปิดขึ้นมา —
             ข้อมูลที่คุณกรอกยังอยู่ครบ กด "โหลดข้อมูลล่าสุด" เพื่อดูของใหม่ก่อนบันทึกทับ
+            (ข้อมูลที่กรอกเก็บเป็นร่างไว้ — กู้คืนได้หลังโหลด)
           </span>
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
             <button className="btn sm" onClick={() => setConflict(null)}>แก้ไขต่อ</button>
@@ -1531,7 +1635,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
         </div>
       )}
 
-      {/* Unsaved draft from an earlier visit (e.g. the session expired mid-save). */}
+      {/* Unsaved draft from an earlier visit (e.g. the session expired mid-save,
+          or a save conflict was reloaded). Only ever this user's own draft. */}
       {draftOffer && (
         <div style={{ padding:"10px 12px", background:"var(--warn-bg)", border:"1px solid var(--warn-line)",
              borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--warn)",
@@ -1539,7 +1644,8 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
           <Icon name="info" size={13} color="var(--warn)" />
           <span>
             มีข้อมูลที่กรอกค้างไว้แต่ยังไม่ได้บันทึก
-            {draftOffer.savedAt ? ` (เมื่อ ${new Date(draftOffer.savedAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })})` : ""}
+            {draftOffer.savedAt ? ` (เมื่อ ${new Date(draftOffer.savedAt).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${draftOffer.by ? ` · โดย ${draftOffer.by}` : ""})` : ""}
+            {draftIsStale && <strong> · ร่างนี้เก่ากว่าฉบับที่บันทึกล่าสุด — กู้คืนแล้วตรวจกับฉบับล่าสุดก่อนบันทึก</strong>}
             {" "}— กู้คืนเพื่อบันทึกต่อ หรือทิ้งไป
           </span>
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
@@ -1555,6 +1661,17 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
              display:"flex", alignItems:"center", gap:8 }}>
           <Icon name="info" size={13} color="var(--brand-2)" />
           <span>กำลังแก้ไขบันทึก DOL <strong>{editEntry.dol}</strong> ({window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts}) — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่</span>
+        </div>
+      )}
+
+      {/* A new order left open across midnight stays the order for the day it
+          was opened on (UP-C11) — say so, since the rest of the app has moved on. */}
+      {orderDayRolledOver && !conflict && (
+        <div role="status" style={{ padding:"8px 12px", background:"var(--warn-bg)", border:"1px solid var(--warn-line)",
+             borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--warn)",
+             display:"flex", alignItems:"center", gap:8 }}>
+          <Icon name="info" size={13} color="var(--warn)" />
+          <span>คำสั่งนี้เป็นของวันที่ <strong>{window.NEOFEED_FMT_DATE?.(newOrderDate) || newOrderDate}</strong> (DOL <strong>{dol}</strong>) — เปิดไว้ตั้งแต่ก่อนเที่ยงคืน และจะบันทึกเป็นของวันนั้น</span>
         </div>
       )}
 
@@ -2731,7 +2848,7 @@ function Calculator({ patient, dol, editEntry, baselineEntry, previousEntry, log
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight}
         tpnWtManual={tpnWtManual} autoWtG={autoWtG} route={route}
-        orderDate={editEntry?.ts || logDate || D.todayLocal()}
+        orderDate={editEntry?.ts || logDate || newOrderDate}
         dexPct={dexPct} totalTPN_mL={totalTPN_mL} entryId={savedEntryId}
         published={D.ENABLE_PUBLISH_GATE ? published : true}
         aaPerKg={aaPerKg} lipidPerKg={lipidPerKg} lipidDripHours={lipidDripHours}
