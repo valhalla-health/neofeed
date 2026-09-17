@@ -5,11 +5,16 @@ description: Use at the start of any session working on the NeoFeed codebase, or
 
 # NeoFeed app walkthrough
 
-NeoFeed is a NICU nutrition-management app (React 18 + Babel via CDN, no
-build step; Google Apps Script + Google Sheets backend). Before making
-non-trivial changes, read `app-walkthrough.md` at the repo root — it covers:
+NeoFeed is a NICU nutrition-management app (React 18 `.jsx` precompiled by a
+committed build, `tools/build.mjs`, since 2026-09-17 — no in-browser Babel,
+nothing builds on a host; Google Apps Script + Google Sheets backend). Before
+making non-trivial changes, read `app-walkthrough.md` at the repo root — it
+covers:
 
-1. How to run it (`NeoFeed.html` is canonical, not `index.html`)
+1. How to run it (`NeoFeed.html` is canonical, not `index.html`) and how to
+   build: after editing a `.jsx`, run `node tools/build.mjs` and commit the
+   sources with `compiled/` and the shells' new `?v=` tokens (CI rejects
+   stale output)
 2. File-by-file architecture (`app.jsx`, `data.js`, `calculator.jsx`,
    `log.jsx`, `fenton.jsx`, `registry.jsx`, `gas-backend.gs`)
 3. The data model — especially the `WW.D` GA/PMA shorthand encoding, the
@@ -20,9 +25,10 @@ non-trivial changes, read `app-walkthrough.md` at the repo root — it covers:
 5. The six main views and what each does
 6. Thai PDPA compliance posture — lawful basis, erasure/pseudonymization,
    audit trail, what's still open
-7. Conventions that must be preserved (no bundler, GA math only through
-   `data.js` helpers, DOL always computed live, Thai BE date formatting,
-   mobile-first)
+7. Conventions that must be preserved (a committed build, never a host
+   build or a bundler; `?v=` tokens are written by the build, never by hand;
+   GA math only through `data.js` helpers, DOL always computed live, Thai BE
+   date formatting, mobile-first)
 
 ## How to use this skill
 
