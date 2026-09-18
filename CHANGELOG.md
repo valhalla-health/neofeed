@@ -142,6 +142,34 @@ TPN there is no bag and no dead space.
 
 Open decisions this raised are in `BACKLOG.md` § Next ("Decisions from the 2026-09-18 ward requests").
 
+### 5 · Soluvit and Peditrace scale with the overfill (after PR #75 merged)
+
+Praew answered the first open decision the same day ("1. yes"). **Soluvit N and Peditrace are now scaled
+by the overfill like every electrolyte and the amino acid**, so the infant receives the full 1 mL/kg. §4's
+note above no longer holds: the *Vitamins / trace elements not overfill-scaled* info line is removed.
+Pushed to `main` directly (the standing NeoFeed authorization; `main` deploys nothing), to ship with #75
+in one `main` → `release` PR.
+
+- **Bag amount = min(1 mL/kg × weight, cap) × overfill.** The caps (10 / 15 mL a day) stay on what the
+  infant receives. A 2 kg infant on a 120 mL day with 30 mL dead space gets 2.5 mL of each in the bag and
+  receives 2 mL; before this, 2 mL went in and 1.6 mL (80 %) arrived.
+- **NeoFeed now departs from the KCMH worksheet in one named place.** The sheet's G43/G45 (and G46)
+  multiply by actual weight (C6), not the Factor (H9). The 2026-08-06 build followed it on purpose ("fidelity
+  to a sheet inconsistency", surfaced as an alert). On an overfilled bag, the printed vitamin mL,
+  components and WFI therefore differ from what that sheet computes. The form's vitamin rows say
+  "× Factor → delivers … (KCMH sheet G43/G45: × actual weight)", so pharmacy can see why.
+  **Pharmacy needs telling before this ships** (`BACKLOG.md` § Next).
+- On a bag with no dead space nothing changes: the overfill is 1.
+- **Tests.** `verify-ward-requests-0918.cjs` §11 pins the scaled amounts, the removed info line, the
+  print, the bag make-up, the copied order and the caps. Its 9 assertions are exactly what fails
+  against `3f35ef8`; the harness is now 169 assertions. `verify-kcmh-factor.cjs` keeps `sheet()` exactly
+  as the workbook computes and adds the one departure as `vitExtra`. The Soluvit/Peditrace mL, components
+  and WFI it reads are now asserted as sheet + `vitExtra`, and delivered vitamins come back to 1 mL/kg,
+  like AA, Na and Ca. `verify-review-0917-calc.cjs` §6 re-captures one digest, `parity_dead`, the only
+  overfilled order among the six. Exactly 4 of its 90 printed figures moved (Soluvit 1.2 → 1.3, Peditrace
+  1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50); a dump of both versions' figures showed no other
+  difference.
+
 ## Session 2026-09-18 — Backend `@55` deployed (the backend half of the 2026-09-17 review)
 
 On Praew's go-ahead. The steps and evidence are in `STATUS.md` ("How the 2026-09-18 backend deploy

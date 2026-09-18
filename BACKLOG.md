@@ -176,11 +176,11 @@ clinical judgement. Everything else is engineering sequencing.
         line: the app treats 0 as "not ordered", not "low". The team will notice once MEN stops counting.
         In their screenshot the MEN feed's 5 mg/kg of Ca produced "Calcium off target" on a TPN with no
         calcium. That line is gone, the same as for any TPN-only order.
-      - **Soluvit / Peditrace under overfill, now on every NICU/SCN TPN day.** Dead space starts at 30 mL, and
-        per the KCMH sheet (G43/G45: actual weight, not the Factor) the two reach the infant at delivered ÷
-        prepared: 80 % on a 120 mL day, 67 % on a 60 mL one. The calculator already shows an info line
-        (*not overfill-scaled*). **Ask pharmacy** whether they should now be scaled by the Factor, like every
-        electrolyte and the amino acid.
+      - **Tell pharmacy before this release ships: Soluvit and Peditrace are now × Factor** (Praew decided
+        2026-09-18; `CHANGELOG.md` 2026-09-18 (2) §5). On an overfilled bag the printed mL are higher than
+        the KCMH worksheet's G43/G45 give — 2.5 vs 2.0 mL for a 2 kg infant on a 120 mL day — so that the
+        infant receives the full 1 mL/kg. The form's vitamin rows say "× Factor → delivers …" and name the
+        sheet rows. Pharmacy should compound from the form, or change G43/G45 in their own sheet too.
       - **A deliberate 0 dead space has to be chosen again each day.** A new day turns yesterday's 0 into 30,
         because a saved 0 cannot be told apart from the old default. Fine if 0 is rare; otherwise it needs its
         own "no dead space" flag in `calcInput`.

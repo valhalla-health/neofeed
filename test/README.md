@@ -95,8 +95,12 @@ future-ward path (product buttons, 0.15 g/mL, print, copy, saved choice, "change
 end to end while the Center Point entry stays Aminoven only. **Dead space** (§10) — a new NICU/SCN order
 starts at 30 mL and the Factor follows; a new day keeps a dead space somebody set and turns the old
 default's 0 into 30; a saved order reopens with its own; the 0 chip still overrides; a feeds-only day
-prepares no bag. Fails 89 assertions against `f0c172c`. Since this change, a harness order that means
-"no dead space" types 0 (`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
+prepares no bag. **Vitamins** (§11) — Soluvit and Peditrace scale with the overfill (2.5 mL in a 150 mL
+bag for a 2 kg infant on a 120 mL day, delivering 2 mL), the old info line is gone, the print, bag make-up
+and copied order agree, and the 10 / 15 mL caps apply to what the infant receives. 169 assertions: it
+fails 97 against `f0c172c`, and §11's 9 against `3f35ef8` (PR #75 merged, before the vitamin change).
+Since the dead-space change, a harness order that means "no dead space" types 0
+(`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
 
 `verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
 `tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:
@@ -281,10 +285,14 @@ It also asserts the identities the Factor exists to guarantee:
 - delivered dose per kg comes back out **exactly as ordered**, for AA, Na and Ca
 - **osmolarity and GIR are unchanged** by overfill (amount and volume scale
   together, so concentration is invariant)
-- Soluvit and Peditrace are deliberately **not** scaled — the worksheet's
-  compounding cells `G43`/`G45` use actual weight `C6`, while every electrolyte
-  row uses the Factor `H9`. The app surfaces this as an info alert rather than
-  silently "correcting" the sheet.
+- Soluvit and Peditrace are **the one named departure from the sheet** (since
+  2026-09-18, Praew). The worksheet's compounding cells `G43`/`G45` use actual
+  weight `C6`, while every electrolyte row uses the Factor `H9`. Until then the
+  app followed the sheet and showed an info alert that an overfilled bag
+  under-delivered them. Now it scales them by the overfill too, so they come
+  back to the ordered 1 mL/kg. `sheet()` is left exactly as the workbook
+  computes, and the harness adds the difference as `vitExtra`: the vitamin mL,
+  components and WFI on an overfilled bag.
 
 **`verify-bed-dol-io.cjs`** — regression cover for the three defects reported
 from the ward on 2026-08-17. Sections 1 and 2 are pure `data.js`:
