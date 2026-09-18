@@ -13,6 +13,30 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-18 (3) — Frontend deployed: the 2026-09-17 review is live, both halves (PR #74)
+
+PR #74 (`main` → `release`), opened by `praewxtvl`, was approved and merged by `tasamew` at 02:10:44
+UTC / 09:10 ICT; `release` = `dfeb15b`. It ships PR #73's frontend, 28 minutes after the backend went
+live as `@55`. This session verified the deploy afterwards, read-only; the evidence is in `STATUS.md`
+("How the 2026-09-18 frontend deploy was verified"). Not in this release: PR #75, the ward requests
+(2026-09-18 (2)), opened after it.
+
+- **Checking a release is now mechanical.** With content-hash tokens, "the release is live" means that
+  the served shell is `release`'s `index.html` and that every script it loads hashes to its own `?v=`
+  (`REFERENCE.md`, "Proving what a release serves"). Scripted, and fetched on both hosts once as a
+  browser asks and once past any cache: all eight tokens matched, and every file fetched was
+  byte-identical to `origin/release`. That proves what is served, not that it runs; the bedside session
+  in `BACKLOG.md` § Now stays open.
+- **A check that needs no bedside session.** Every save stamps its frontend into `Daily_Log` AG, and
+  every printed order repeats the stamp in its footer. The new frontend's stamp is
+  `b=f48894ce64;…;a=b7969bb20d`; a stamp of named tokens such as `a=sync-poll-0916` means a tab still
+  on the old frontend.
+- **Read check runs, not the combined status.** `gh api …/commits/dfeb15b/status` answers `pending`
+  because this repo has no commit statuses at all; `…/check-runs` lists `harnesses`, `Workers Builds:
+  neofeed` and the Pages jobs, all green.
+- `BACKLOG.md`: "Ship the 2026-09-17 review" is done and deleted; the bedside item names the new
+  frontend; a new chore drops the six `.jsx` sources from both hosts in the next release.
+
 ## Session 2026-09-18 — Backend `@55` deployed (the backend half of the 2026-09-17 review)
 
 On Praew's go-ahead. The steps and evidence are in `STATUS.md` ("How the 2026-09-18 backend deploy

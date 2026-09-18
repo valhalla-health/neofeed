@@ -32,16 +32,6 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🚀 **deploy · Ship the 2026-09-17 review** (`CHANGELOG.md` 2026-09-17; findings list outside the
-      repo in `NeoFeed/NEOFEED_REVIEW_2026-09-17.md` § 6). **Backend first** — the new backend is
-      proven compatible with the live client (19/19 in real Chromium).
-      1. ✅ **Backend done 2026-09-18 — `@55` live at 08:42 ICT** (`STATUS.md`, "How the 2026-09-18
-         backend deploy was verified"). The `sheetHealthReport()` gate caught real drift: row 1 of
-         `Patient_Registry` said `weights(JSON)`/`lengths(JSON)`/`hcs(JSON)`, which the column guard
-         would have refused on every registry write. Relabelled by Praew before the switch.
-      2. `main` → `release` PR (approver `tasamew`); curl both hosts and check each served
-         `compiled/*.js` hashes to its `?v=`.
-      ⚠️ Deploy-gated on both halves — **Praew's go-ahead, not an agent's.**
 - [ ] 📈 **ops · `Audit_Log` growth — now with a hard limit.** The poll adds **15 `readRegistry` rows per
       hour per open tab**, and Google Sheets caps a **workbook** at 10,000,000 cells — empty grid cells
       included. A tab made by `insertSheet` is 26 columns wide, so each 4-column audit row costs 26
@@ -65,11 +55,16 @@ clinical judgement. Everything else is engineering sequencing.
       someone signs in with a non-Workspace Google account for that domain and needs a password
       account first. Steps are in the comment above the flag.
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + `?v=sync-poll-0916`) in one bedside session.**
-      ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch; the
-      rest of this list is still open.
-      Everything shipped 2026-09-12 and 2026-09-15 is verified as *deployed*, none of it as *used*.
-      One session closes the lot:
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + the 2026-09-17 frontend, `release` = `dfeb15b`)
+      in one bedside session.**
+      ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch, from the
+      old `sync-poll-0916` frontend. The new frontend has been live since 09:10 ICT and nobody has
+      reported using it, so every line below is open for it.
+      Everything shipped 2026-09-12, 2026-09-15 and in the 2026-09-18 frontend is verified as
+      *deployed*, none of it as *used*. One session closes the lot:
+      - *(2026-09-18, no bedside needed)* the newest `Daily_Log` rows' `appVersion` (column AG), or a
+        printed order's footer, reads `b=f48894ce64;…;a=b7969bb20d` — the new frontend's stamp, in
+        full in `STATUS.md`;
       - a real login and a real save;
       - **edit a saved order without saving → Print must refuse**;
       - **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the printed form**;
@@ -80,11 +75,14 @@ clinical judgement. Everything else is engineering sequencing.
       - **open a discharged record whose bed was reused → it must still save**;
       - glance at the NICU/SCN gate for any bed held by two Active infants, which is now unsaveable
         until one is transferred.
-      - *(2026-09-17, once the review ships)* leave a workstation untouched 30 min → it must log out
+      - *(2026-09-17 review, live since 2026-09-18 09:10 ICT)* the login screen must render, not stay
+        blank; leave a workstation untouched 30 min → it must log out
         with the idle notice; correct a birth weight on an infant with a saved order → Print must
         refuse with the dosing-weight banner; enter a growth measurement on one device and edit the
         same infant's diagnosis on another that has not synced → the measurement must survive; an
-        infant on full feeds must no longer demand a lipid/K override reason.
+        infant on full feeds must no longer demand a lipid/K override reason;
+        `valhalla-health.github.io/neofeed/` must land on the Thai "moved" page (its guard now runs
+        from `boot.js`).
 
       Stubs model neither `CacheService` eviction nor `LockService` contention, so **only a person
       can close this.** Supersedes the `@53`/`@50`/`@47` versions of this item.
@@ -162,6 +160,11 @@ clinical judgement. Everything else is engineering sequencing.
       registry read still be served when its `Audit_Log` row cannot be written (today: yes, fails
       open)? Should Staff column H keep plaintext temp passwords? Should a session that *expires*
       (not an explicit logout) also clear calculator prefill and alert acknowledgements?
+- [ ] 🧹 **chore · Stop publishing the six `.jsx` sources in the next release.** `.assetsignore` and
+      `_config.yml` kept them for the release that introduced the build step only, so that a browser
+      still holding the previous shell could finish loading. That release has been live since
+      2026-09-18 (`STATUS.md`). Exclude them on both hosts in the same change that flips
+      `test/verify-build-shells.cjs` 5.6, which today requires them to be published.
 
 ## 🕓 Later
 

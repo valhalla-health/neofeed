@@ -1,11 +1,25 @@
 # NeoFeed — Status
 
-> ⏳ **2026-09-18 — half shipped:** the 2026-09-17 review's **backend is live as `@55`**. Its frontend
-> (precompiled JS, idle logout, calculator fixes) is on `main` but **not on `release`**, so the ward
-> still runs `?v=sync-poll-0916`, proven compatible with `@55` (19/19 in real Chromium). Next: the
-> `main` → `release` PR (`BACKLOG.md` § Now, first item).
+> ✅ **2026-09-18 — the 2026-09-17 review is live, both halves:** backend `@55` since 08:42 ICT, and
+> its frontend (precompiled JS, idle logout, calculator fixes) since 09:10 ICT, when PR #74 merged
+> `main` into `release` (`dfeb15b`). On both hosts the shell and every script it loads are
+> byte-identical to `release`. ⚠️ **No one has reported using the new frontend yet**, and `curl` runs
+> no JavaScript. Next: the bedside session in `BACKLOG.md` § Now.
 
-**Updated 2026-09-18** · 🟢 **Backend `@55` and frontend `?v=sync-poll-0916` are live.**
+**Updated 2026-09-18** · 🟢 **Backend `@55` and frontend `release` = `dfeb15b` are live.**
+- **Frontend:** PR #74 (`main` → `release`), approved and merged by `tasamew` at 02:10:44 UTC /
+  09:10 ICT. It ships PR #73's frontend: the `.jsx` modules precompiled into `compiled/`, React
+  self-hosted in `vendor/`, `?v=` tokens that are content hashes, and a CSP with no inline script and
+  no eval. Served bytes verified on both hosts at 09:54 ICT — see "How the 2026-09-18 frontend deploy
+  was verified".
+- **Backend:** `@55`, unchanged since 08:42 ICT. `gas-backend.gs` on `release` is byte-identical to
+  `7049f60`, the source `@55` was cut from, so the two halves are in step.
+- ⚠️ **Not yet exercised by a person:** the new frontend. Its provenance stamp, in `Daily_Log` column
+  AG and in every printed order's footer, can show it in use without a bedside session — see that
+  section.
+
+**Previous (2026-09-18, 08:42–09:10 ICT):** backend `@55` + frontend `?v=sync-poll-0916` — the
+review's backend half, shipped first.
 - **Backend:** `@55` = `gas-backend.gs` at `7049f60` (PR #73), deployed with `clasp` at 08:42 ICT on
   Praew's go-ahead, after `sheetHealthReport()` passed on its second run — see "How the 2026-09-18
   backend deploy was verified".
@@ -32,6 +46,104 @@ at 20:47 ICT. Verified on both hosts and against the pulled version 54 source �
 2026-09-15 deploy was verified".
 🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
 Pages; `main` deploys nothing. See "Release-branch deploy gate".
+
+## How the 2026-09-18 frontend deploy was verified
+
+**What ships:** PR #74 merged `main` (`f0c172c`) into `release` as `dfeb15b` — opened by
+`praewxtvl`, approved by `tasamew` at 02:03 UTC, merged by `tasamew` at 02:10:44 UTC / 09:10 ICT.
+Enumerated because a `main` → `release` merge ships everything waiting (the 2026-09-16 lesson): 33
+commits since the previous release (`098bd37`), which are PR #73 (the 2026-09-17 review) and three
+docs-only changes (#72, `42ce553`, `f0c172c`). Nothing else rode along, and
+`git diff origin/main origin/release` is empty. What changed on the hosts: both shells, `boot.js`
+(new), `compiled/` and `vendor/` (new), `data.js` (null-safe weight look-ups only;
+`CONSTANTS_VERSION` stays `2026-09-05.1`), `moved.html`, and the host configuration (`_headers`,
+`.assetsignore`, `_config.yml`, `wrangler.jsonc`). Five `.jsx` sources changed as well; all six are
+still published, for this release only, but no shell loads them any more.
+
+**Confirmed from primary sources** (read-only; `gh`, then `curl` at 02:54–02:55 UTC / 09:54 ICT):
+- ✅ **Checks on `dfeb15b` itself:** `harnesses` success (run 35298318707, 02:10:51–02:14:37 UTC);
+  `Workers Builds: neofeed` success at 02:11:24 UTC; `pages build and deployment` (run 35298317108)
+  success — the Pages build of `dfeb15b` is `built` with no error, and the `github-pages` deployment
+  reached `success` at 02:11:26 UTC. The combined commit status reads `pending` only because this
+  repo has no commit statuses; everything here reports as a check run.
+- ✅ **Served bytes, both hosts, every request with a `?nocache=` query string.** `/` is
+  byte-identical to `release`'s `index.html` (61,438 bytes) on Cloudflare and on GitHub Pages. Each
+  script the shell loads was fetched twice, once exactly as a browser asks for it and once with
+  `&nocache=` added. Every copy is byte-identical to `origin/release`, and every `?v=` token equals
+  the first 10 hex characters of the SHA-256 of the file it loads (CRLF → LF, as `token()` in
+  `tools/build.mjs`):
+
+  | Script | `?v=` | Bytes |
+  |---|---|---|
+  | `boot.js` | `f48894ce64` | 3,037 |
+  | `data.js` | `3626f2a02e` | 81,018 |
+  | `compiled/icons.js` | `e7f309e445` | 2,515 |
+  | `compiled/calculator.js` | `7afa9076db` | 186,708 |
+  | `compiled/fenton.js` | `690bebc4ac` | 27,307 |
+  | `compiled/registry.js` | `2ab223374f` | 57,286 |
+  | `compiled/log.js` | `7c8755be83` | 28,158 |
+  | `compiled/app.js` | `b7969bb20d` | 130,398 |
+
+  The two `vendor/` React 18.3.1 files (no token; the name carries the version) are byte-identical
+  too, and so are the six `.jsx` sources, `manifest.json` and `moved.html`. Cloudflare answers
+  `/moved.html` with a `307` to `/moved`, its default HTML handling, and serves the same bytes there.
+  `boot.js` matters most here: without it the app silently falls back to LOCAL MOCK MODE.
+- ✅ **Not served — `404` on both hosts:** `gas-backend.gs`, `STATUS.md`, `tools/build.mjs`,
+  `tools/package.json`, `test/verify-build-shells.cjs`, `center-point/`, `NeoFeed.html`.
+- ✅ **Cloudflare's CSP, as served:** `script-src 'self' https://accounts.google.com` — no
+  `'unsafe-inline'`, no `'unsafe-eval'`, no unpkg — and `connect-src` names the NeoFeed Apps Script
+  deployment by its full path. GitHub Pages still sends no CSP (it has no `_headers` support).
+- ✅ **Caching:** Cloudflare serves the shell with `Cache-Control: public, max-age=0, must-revalidate`,
+  so each device gets the new shell at its next page load. GitHub Pages sends `max-age=600`, which
+  matters little, because that host only redirects.
+
+**Still NOT confirmed — `curl` does not run JavaScript:**
+- ❌ **No one has reported using the new frontend since the merge.** Byte identity proves what is
+  *served*, not that it *runs*. If the live CSP refused one of the scripts, the page would be blank,
+  and only a browser can show that.
+- ❌ **Which devices have switched.** A tab opened before 02:11 UTC keeps running `sync-poll-0916`
+  until it is reloaded. That pairing is safe — it is what ran with `@55` from 08:42 to 09:10 ICT — but
+  it has no idle logout and none of the review's client fixes.
+- ❌ **The GitHub Pages redirect now runs from `boot.js`**, not from an inline script in the shell.
+  `curl` shows `boot.js` is served; the redirect was last watched in a real browser on 2026-09-11,
+  under the old inline guard.
+
+**The quickest proof, no bedside session needed:** every save records the frontend that made it in
+`Daily_Log` column AG (`appVersion`), and every printed order carries the same stamp in its footer,
+after "app". The new frontend's stamp is
+
+```
+b=f48894ce64;d=3626f2a02e;i=e7f309e445;c=7afa9076db;f=690bebc4ac;r=2ab223374f;l=7c8755be83;a=b7969bb20d
+```
+
+A stamp made of the old named tokens (for example `a=sync-poll-0916`) came from a tab still on the
+old frontend. `window.NEOFEED_DATA.appVersion()` returns the same string in the console of the login
+screen, with no sign-in.
+
+**Then, at the bedside** — what only this frontend makes checkable (also in `BACKLOG.md` § Now):
+1. The login screen must render, not stay blank, and should appear almost at once (on 2026-09-17 it
+   took 10.7 s).
+2. Leave a workstation untouched for 30 minutes: it must log out and say why.
+3. Correct the birth weight of an infant with a saved order: Print must refuse, with the
+   dosing-weight banner.
+4. Enter a growth measurement on one device, then edit the same infant's diagnosis on another device
+   that has not synced: the measurement must survive.
+5. An infant on full feeds must no longer demand a lipid or K override reason.
+6. Open `valhalla-health.github.io/neofeed/`: it must land on the Thai "moved" page.
+
+**Rollback (frontend):** revert `dfeb15b` on `release` — `git revert -m 1 dfeb15b` on a branch cut
+from `release`, then a PR into `release`; branch protection means `tasamew` approves it, and there is
+no direct push. Both hosts redeploy from `release`. Revert the whole merge, never single files:
+`_headers`, both shells, `boot.js`, `compiled/` and `vendor/` only work as a set (`REFERENCE.md`).
+The result is `sync-poll-0916` with `@55`, the pairing that ran from 08:42 to 09:10 ICT today,
+including Praew's real login and save; the backend needs no change. To release the review again
+afterwards, revert the revert: Git counts the reverted commits as already merged, so a plain
+`main` → `release` PR would not bring them back. If the primary host shows a blank page,
+`npx wrangler rollback` (or the Worker's *Deployments* tab) is faster while the revert PR waits, but
+it covers Cloudflare only, and any build from `release` before the revert lands would put the new
+frontend back.
+
+---
 
 ## How the 2026-09-18 backend deploy was verified
 
@@ -289,11 +401,11 @@ retained.
 | Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
 | Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
 | Frontend deploy | **Merging into `release` deploys both** (since 2026-09-12). Cloudflare Workers Builds' production branch is `release`; GitHub Pages serves `release`. A push or merge to `main` deploys **nothing** — it only runs a preview build. See § Release-branch deploy gate |
-| Backend | GAS deployment `AKfycbz8Nt…` at **`@54`**: *"one infant per bed + discharged-record edit fix - GitHub main 8406cd7 (PR #63 + #66)"*, cut 2026-09-15 20:47 ICT. Previous: `@53` (PR #59) |
-| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `45341e0`, **identical to `gas-backend.gs` at `8406cd7` and to the deployed version 54** (`clasp pull --versionNumber 54` into a clean scratch dir, compared ignoring CR) |
+| Backend | GAS deployment `AKfycbz8Nt…` at **`@55`** = `gas-backend.gs` at `7049f60` (PR #73, the 2026-09-17 review), live since 2026-09-18 08:42 ICT. Previous: `@54` (PR #63 + #66, cut 2026-09-15 20:47 ICT) |
+| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `42dd655`, **identical to `gas-backend.gs` at `7049f60` and to the deployed version 55** (`clasp pull --versionNumber 55` into a clean scratch dir at the deploy). Re-checked read-only after the frontend deploy: clean working tree, still identical ignoring CR |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | 🟡 **`Daily_Log` AH–AL: no action required, one cosmetic step outstanding** — same shape as AF/AG. Both write paths widen the grid on demand, so the columns appear on the first save/publish — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
-| Cache-bust | `data.js?v=bed-guard-0915`, `registry.jsx?v=bed-guard-0915`, `app.jsx?v=bed-guard-0915` (PR #67); `calculator.jsx?v=ward-gate-0915` (PR #65); `icons.jsx?v=notes-date-sel1`, `fenton.jsx?v=ga-clamp42`, `log.jsx?v=bed-dol-io2` unchanged. Both shells byte-identical, confirmed live on both hosts |
+| Cache-bust | Since 2026-09-18 (`dfeb15b`) every `?v=` token is a **content hash** written by `tools/build.mjs`: `boot.js?v=f48894ce64`, `data.js?v=3626f2a02e` and one per `compiled/` module (all eight in "How the 2026-09-18 frontend deploy was verified"). The `vendor/` React files carry their version in the file name instead. Both shells byte-identical, confirmed live on both hosts |
 
 ## How the 2026-09-15 deploy was verified
 
@@ -596,6 +708,11 @@ half was already closed by the redirect stub below.
 
 ## Response headers (Cloudflare only)
 
+🟢 **2026-09-18 (`dfeb15b`): `script-src` is now `'self' https://accounts.google.com`** — no
+`'unsafe-inline'`, no `'unsafe-eval'`, no unpkg — checked in the header Cloudflare serves. The build
+step removed the reason for all three. Where the older paragraphs below say `script-src` still
+carries them, they describe the policy before this release.
+
 🟢 **Live on Cloudflare since `30dbff7`, pushed and verified 2026-08-23.** `_headers` adds a CSP
 plus `X-Frame-Options`, `Referrer-Policy`, `X-Content-Type-Options`, `Cross-Origin-Opener-Policy`,
 `Permissions-Policy` and HSTS. It applies **to Cloudflare only** — GitHub Pages has no `_headers`
@@ -658,6 +775,12 @@ exposure, not the *file* exposure. See below for what's still open.
 "valhalla-health.github.io") location.replace("moved.html")`. `moved.html`: a self-contained Thai
 "moved" page (no external font/CDN dependency) with a button to
 `neofeed.valhalla-health.workers.dev`.
+
+**Since 2026-09-18 (`dfeb15b`) the guard lives in `boot.js`**, still the first script in `<head>`,
+because the shells may no longer carry inline script. It now also strips a trailing dot from the
+hostname and clears old `neofeed_*` storage on that shared origin before redirecting (`CHANGELOG.md`
+2026-09-17 § 4). `boot.js` is served byte-identical on GitHub Pages; the redirect itself has not been
+watched in a browser since the move.
 
 **Verified against the real URLs after the push**, not just `wrangler dev`: `valhalla-health.
 github.io/neofeed/` now serves the guard script (confirmed present in the HTML via `curl`);
