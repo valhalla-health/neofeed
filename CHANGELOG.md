@@ -13,6 +13,96 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-18 (2) — Three requests from the NICU team (NOT deployed)
+
+Praew forwarded three annotated screenshots of the live calculator. Frontend only (`data.js`,
+`calculator.jsx`, `center-point/tpn-snapshot.mjs`); no backend change, no `clasp` step, no new
+`Daily_Log` column. Nothing is deployed until a `main` → `release` PR.
+
+### 1 · "ติ๊ก MEN แล้ว ไม่ต้องเอาไปคิดสารอาหารได้ไหม" — MEN counts toward no nutrient total
+
+A feed ticked **MEN (trophic)** was left out of the fluid total only. It still counted toward energy,
+protein, lipid, the energy split, NPE:AA, P:E, Na, K, Ca, P and Ca:P. The screenshot's own order shows it:
+TPN Na 4 · K 3 · Ca 0 · P 46.5 read as **Na 4.2 · K 3.3 · Ca 5 · P 50 · Ca:P 0.11** because a 20 mL/kg/d
+breast-milk MEN feed was added in. `calc` now builds every EN term from `enCounted` (0 when MEN is
+ticked), so a MEN feed reaches none of the Step 3/4 tiles, the Step 6 "EN (นม)" row, the alerts, the
+saved `Daily_Log` figures, the printed totals or the copied order.
+
+- **Still shown, never counted.** Step 2's "Delivered per kg from EN" box still lists what the feed
+  provides (kcal 13 · pro 0.2 · Na 0.2 · K 0.3 · Ca 5 · P 3), greyed and marked *MEN — not counted in
+  totals*. The checkbox hint reads *Not counted in fluid or nutrient totals*; the Energy distribution card
+  says *EN 0 (MEN — not counted)*; the copied order says *[MEN — not counted in fluid or nutrition]*.
+- **What the record keeps.** `enVolPerKg`, the EN volume tile and the route stay the feed actually given
+  (`savedDosingWeightOf` reads `enVolPerKg`, so its meaning must not move). `pro`/`kcal`/`na`/`k`/`ca`/`p`
+  on a MEN day now exclude the feed. Rows saved earlier with MEN ticked include it; the `appVersion`
+  stamp (AG) tells the two apart. On trophic volumes the difference is small (≈13 kcal and 0.2 g protein
+  per kg at 20 mL/kg/d).
+- **MEN never switches on the enteral targets** (`useEnteralTargets` reads the counted volume), and the
+  "Full EN ≥100 — EN targets active" banner now keys on the same flag, so it can no longer claim targets
+  that are not active.
+- **A consequence worth knowing, and correct:** an order with TPN calcium and no IV phosphate whose only
+  P came from a MEN feed used to show Ca:P as merely off target. With the feed not counted there is no P,
+  so it is the critical "Ca:P ratio — ไม่มี P" alert. A saved order like that reopens unprintable until it
+  is saved again with a reason (UP-C6, unchanged).
+
+**Praew's guard (her decision, 2026-09-18).** Orders prefill from yesterday, so a MEN tick left on after
+feeds are advanced would now hide the feed from nutrition as well as fluid. MEN ticked with EN above
+**24 mL/kg/d** — the ceiling of "MEF (trophic) 12–24 mL/kg/day" on the app's own Feeding Advancement card
+(`MEN_MAX_ML_KG`) — raises a *warning*, "MEN ticked above trophic volume". Never a stop: no reason is asked
+and Save and Print are unaffected.
+
+### 2 · "ด้านข้าง ยังไม่มีแถบของ Mg เทียบกับค่าอ้างอิงแบบ Na K Ca P" — a Magnesium tile
+
+Step 4's tile column gains **Magnesium**, between Potassium and Calcium (the order of the inputs),
+against ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch) — the table the team attached. The range is the existing
+`TARGETS.mg(dol)`, which the printed form's "Normal Requirement" already used; the tile, its alert line
+and the form now read one variable (`tMg`).
+
+- **In mEq/kg/d, the unit Mg is dosed in** (0.2–0.4 in the first days, 0.4–0.6 growing = 0.1–0.2 /
+  0.2–0.3 mmol). The guideline's mg figures are rounded — 0.1 mmol is 2.43 mg, printed 2.5 — so comparing
+  in mg would have flagged the 0.2 and 0.4 presets, which are exactly the ESPGHAN bounds, as off target.
+  A line under the tile gives mg/kg/d (0.6 mEq = 7.3 mg) for reading against the table's mg column.
+- **TPN only.** `EN_DB` carries no Mg for any feed, so the tile cannot include one; the line under it says
+  so. There is no enteral Mg target, so its alert always cites ESPGHAN 2018 parenteral, even on full feeds.
+- **F1 kept.** An off-target Magnesium tile is a "Magnesium off target" warning line. No hard limit, so
+  never critical.
+
+### 3 · "ขอเพิ่มเผื่อกรณี ใช้ 15% Aminoplasmal" — prepared, hidden on NICU and SCN
+
+Checked before building: **the Aminoplasmal 15% label contraindicates it in newborn infants, infants and
+toddlers under 2 years** — *"the amino acid composition does not properly meet the special requirements
+of this paediatric age group"* (UK SmPC, emc 15186; the same wording on Singapore HSA's SIN08352P).
+Every NeoFeed patient is under 2. **Praew's decision (2026-09-18): "plan ไว้สำหรับเด็กโตในอนาคต ปิดช่องนี้
+ไม่โชว์ใน newborn (NICU+SCN)".**
+
+- `KCMH_STOCK.aminoplasmal15` = 0.15 g/mL (150 g/L), with its label caution. `aaProductsFor(patient)`
+  decides what a patient may be ordered: Aminoven only unless the bed's ward is in `OLDER_CHILD_WARDS`,
+  which is **empty** — NeoFeed has no ward for older children — so NICU, iso, SCN, no bed and free-text
+  beds all get Aminoven only, and **nothing changes on any ward's screen today**.
+- The plumbing is in place for that future ward: a Step 3 product choice (only when more than one stock
+  is allowed), the label caution under it, mL = g in bag ÷ 0.15, the printed "☑ 15% Aminoplasmal", the
+  copied order, `calcInput.aaProduct` (absent on older rows = Aminoven, the only stock there was) and an
+  "Amino acid product" line in "changes vs previous order". `solVol.aaAminoven` is renamed `solVol.aa`,
+  since it now holds whichever stock is chosen.
+- **A saved choice the ward does not allow falls back to Aminoven**, and the live inputs then differ from
+  the saved ones, so the order reads as edited and prints only after a new save — never the old entry id
+  over different mL (UP-C2).
+- **Center Point is Aminoven only on any ward.** Its `neofeed-tpn-v2` packet has one amino-acid slot,
+  printed "10% Aminoven infant"; offering another stock there needs a new packet version first.
+  `tpn-snapshot.mjs` reads `solVol.aa`; `tpn-document.mjs` (digest-pinned, copied by CP) is untouched.
+
+`CONSTANTS_VERSION` → `2026-09-18.1` (a `KCMH_STOCK` entry was added; no existing value changed). Register:
+`docs/CLINICAL_CONSTANTS.md`.
+
+### Tests
+
+New harness **`test/verify-ward-requests-0918.cjs`**, 129 assertions, mounting the real calculator with
+the screenshot's own order as the fixture. Against `f0c172c` it fails 71 (35 pass; §7 and §9 stop early
+there, where `aaProductsFor` and the product buttons do not exist). It uses a stubbed
+ward gate to drive the future-ward path, and checks the Center Point packet through `buildTpn`.
+
+Open decisions this raised are in `BACKLOG.md` § Next ("Decisions from the 2026-09-18 ward requests").
+
 ## Session 2026-09-18 — Backend `@55` deployed (the backend half of the 2026-09-17 review)
 
 On Praew's go-ahead. The steps and evidence are in `STATUS.md` ("How the 2026-09-18 backend deploy

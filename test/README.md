@@ -81,6 +81,19 @@ back after the reload and saves as an ordinary edit of the newer row, and a new 
 midnight keeps its date, DOL, typed zeros and draft key. Both fail against `42ce553` (70 of 117 and
 23 of 39 assertions).
 
+`verify-ward-requests-0918.cjs` pins **three requests from the NICU team (2026-09-18)**, with the
+screenshot's own order as its fixture. **MEN** — a trophic feed ticked MEN counts toward no nutrient total
+(tiles, Step 6 EN row, alerts, saved `Daily_Log` figures, printed totals, copied order) while Step 2 still
+shows what the feed provides; an unticked control proves the harness can see EN at all; a Ca-with-no-IV-P
+order whose only P was the MEN feed now raises the no-P stop; and Praew's guard warns (never stops) when
+MEN is ticked above `MEN_MAX_ML_KG`. **Magnesium** — a Step 4 tile against `TARGETS.mg`, in mEq so the
+ESPGHAN bounds 0.2 / 0.4 read in range, with its own alert line citing the parenteral guideline even on
+full feeds. **Aminoplasmal 15%** — contraindicated under 2 years, so `aaProductsFor` offers it on no ward
+today (NICU, iso, SCN, blank and free-text beds all get Aminoven); a saved Aminoplasmal order reopened on
+NICU recomputes as Aminoven and cannot print until saved again; and, with the ward gate stubbed, the
+future-ward path (product buttons, 0.15 g/mL, print, copy, saved choice, "changes vs previous order") works
+end to end while the Center Point entry stays Aminoven only. Fails 71 assertions against `f0c172c`.
+
 `verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
 `tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:
 both shells load nothing but `boot.js`, `vendor/` React, `data.js`, `compiled/*.js` and Google
@@ -154,7 +167,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
 `verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
-`verify-review-0917-drafts.cjs` and
+`verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -185,6 +198,7 @@ node test/verify-center-point-drafts-view.cjs
 node test/verify-center-point-order-changes.cjs
 node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
+node test/verify-ward-requests-0918.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
