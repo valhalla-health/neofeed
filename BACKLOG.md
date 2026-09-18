@@ -219,9 +219,11 @@ clinical judgement. Everything else is engineering sequencing.
       tab used to say ≥100 while the EN tab said ≥40, both citing WHO 2023; both now show NeoFeed's 40
       and say "confirm locally".
 - [ ] 🔒 **security/process · GitHub hygiene from the 2026-09-11 review:** (the `test` workflow is already a
-      required check on `release`, and secret scanning is on — both done 2026-09-11); decide whether `tasamew` stays admin (and
-      is the `release` approver — see `REFERENCE.md`); confirm 2FA on both GitHub admins and on the
-      Cloudflare account; close/delete the stale branches and draft PR #56. **Not PR #57**
+      required check on `release`, and secret scanning is on — both done 2026-09-11); decide whether `tasamew` stays admin (no
+      longer the required `release` approver — 0 approvals since 2026-09-18, see `REFERENCE.md`); **`tasamew` to delete the
+      public fork `tasamew/neofeed`** (asked 2026-09-18) — a 2026-06-16 copy whose `main` holds 3 commits never merged here
+      (the "DOL today" edit-form change, `f4c4708`, `c9e14fe`, `728158f`), so they check those first; confirm 2FA on both
+      GitHub admins and on the Cloudflare account; close/delete the stale branches and draft PR #56. **Not PR #57**
       (`codex/center-point-v2`): since 2026-09-15 it is active, paired with NICU-Center-Point PR #12, and the
       two must merge together (CP accepts only the `neofeed-tpn-v2` packet #57 builds).
 

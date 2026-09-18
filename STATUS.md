@@ -382,12 +382,23 @@ confirmation-before-`clasp deploy` model, and the frontend is where the printed 
 
 **Done:**
 - `release` branch created from `main`'s tip (`89f9ce2`).
-- Branch protection on `release`: 1 required approving review, stale reviews dismissed on new
-  pushes, `enforce_admins` on (applies to Praew's own pushes too, not just an agent's), force-push
-  and deletion blocked. Deploying now means a PR from `main` → `release`, approved before merge.
+- Branch protection on `release`: 1 required approving review (**0 since 2026-09-18**, next
+  bullet), stale reviews dismissed on new pushes, `enforce_admins` on (applies to Praew's own pushes
+  too, not just an agent's), force-push and deletion blocked. Deploying now means a PR from `main` →
+  `release` that passes `harnesses` before merge.
   ⚠️ **Corrected 2026-09-11:** this line used to say "self-approval is expected and fine" — GitHub
-  never lets a PR's author approve it, so every `release` PR needs the **other** admin
-  (`tasamew`). See `REFERENCE.md` § Frontend.
+  never lets a PR's author approve it, so until 2026-09-18 every `release` PR needed the **other**
+  admin (`tasamew`). See `REFERENCE.md` § Frontend.
+- 🟡 **2026-09-18 — approval requirement removed, Praew's decision** (so she can merge `release` PRs
+  herself). `required_approving_review_count` 1 → 0 via `gh api -X PATCH
+  repos/valhalla-health/neofeed/branches/release/protection/required_pull_request_reviews`; a fresh
+  read afterwards confirmed a PR is still required, `harnesses` is still required, `enforce_admins`
+  is still on, and force-push and deletion are still blocked. **What this gives up:** GitHub cannot
+  tell Praew from an agent using her login, so once `harnesses` is green nothing *technical* stops
+  anyone with write access — Praew, `tasamew` or an agent — from merging into `release`. Agents still
+  merge only on Praew's explicit go-ahead; that is now a rule, not a lock. To restore the second
+  reviewer, run the same call with `-F required_approving_review_count=1`. Recorded in PR #78,
+  merged into `main` on Praew's instruction.
 - **2026-09-11 (3), live now:** the `harnesses` check (`.github/workflows/test.yml`, every
   `verify-*.cjs` + shell identity) is a **required status check on `release`** — verified via
   `gh api` (`app_id 15368`, GitHub Actions). The workflow file itself lands on `main` with PR #59;
@@ -409,8 +420,9 @@ GitHub Pages deployment on the same commit, both green, both serving the new fil
 of the gate are now demonstrated rather than assumed.
 
 ⚠️ **Consequence, and it is the point:** `main` is no longer a deploy of any kind. **Nothing reaches
-staff until a `main` → `release` PR is approved and merged**, and GitHub forbids self-approval, so
-that approval comes from `tasamew`. A merge to `main` that "did nothing" is the gate working.
+staff until a `main` → `release` PR passes `harnesses` and is merged.** Until 2026-09-18 it also
+needed `tasamew`'s approval, because GitHub forbids self-approval; since then Praew merges it
+herself. A merge to `main` that "did nothing" is the gate working.
 
 **Rollback:** revert the branch-protection settings and the Pages source via the same `gh api`
 calls with the previous values (`branch: main`), or just keep pushing to `main` and drop `release`
