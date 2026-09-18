@@ -218,6 +218,20 @@ function savedDosingWeightOf(entry) {
   return null;
 }
 
+// The CONSTANTS_VERSION a saved row's figures were computed with (calcMoved).
+// Saves stamp it as calcInput.constantsVersion. The first 2026-09-18.1
+// frontend went live (PR #77, 11:17 ICT on 2026-09-18) before the stamp
+// shipped, so its rows carry none — but it was the first release to save
+// calcInput.aaProduct, and that key dates them. Neither → null: a row from
+// before 2026-09-18, which calcMoved checks against that release's changes.
+const FIRST_AA_PRODUCT_VERSION = "2026-09-18.1";
+function savedCalcVersionOf(entry) {
+  const ci = entry?.calcInput;
+  if (!ci) return null;
+  if (ci.constantsVersion) return String(ci.constantsVersion);
+  return Object.prototype.hasOwnProperty.call(ci, "aaProduct") ? FIRST_AA_PRODUCT_VERSION : null;
+}
+
 // `name` + `required` + `onBlankChange` implement the "every field must be
 // filled in before this order can be saved" rule (2026-09-15). What counts as
 // filled is deliberately **the box is not empty**, not "the value is > 0":
@@ -639,6 +653,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // Dosing weight the saved row was calculated with — see savedDosingWeightOf.
   // null = nothing saved from this form, or a legacy row with no evidence.
   const [savedDosingWt, setSavedDosingWt] = useState(null); // { g, exact }
+  // The CONSTANTS_VERSION the saved row was computed with — see
+  // savedCalcVersionOf. null = nothing saved from this form, or a row saved
+  // before 2026-09-18.
+  const [savedCalcVersion, setSavedCalcVersion] = useState(null);
 
   // Hydrates the full raw-input form from a saved entry's calcInput — shared
   // by "editing an entry" and "starting today from the latest entry" below,
@@ -781,6 +799,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       revision: editEntry.revisionNumber || 1,
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
+    setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
 
     // An unsaved draft for this patient + order date is offered back rather
     // than silently overwritten — but only to the user who typed it (SEC-F3):
@@ -989,8 +1008,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // Only the absolute bag quantities (grams, mEq/day, mL of each stock) grow.
     // No TPN volume, no bag, so no dead space: since a new order starts at
     // 30 mL on the newborn wards (2026-09-18), counting it here would turn a
-    // feeds-only day into a 30 mL bag of water, vitamins and heparin on the
-    // pharmacy form.
+    // feeds-only day into a 30 mL bag of water and heparin on the pharmacy
+    // form. The vitamins that go into that bag are zeroed below, for the same
+    // reason.
     const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;
     const overfill = totalTPN_mL > 0 ? preparedVol / totalTPN_mL : 1;   // G7/C7
     const factor = wtKg * overfill;                                     // H9
@@ -1120,8 +1140,11 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // `deliveredFrac` of them — 80 % on a 120 mL day once every NICU/SCN order
     // started with 30 mL dead space. On an overfilled bag NeoFeed's printed
     // mL therefore exceed that sheet's; the form says so, for pharmacy.
-    const soluvitVol    = inclSoluvit   ? parseFloat((Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ) * overfill).toFixed(1)) : 0;
-    const peditrace_vol = inclPeditrace ? parseFloat((Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * overfill).toFixed(1)) : 0;
+    // With no TPN volume there is no aqueous bag to add them to: 0, not the
+    // mL (and the negative WFI) a feeds-only day used to print (review
+    // 2026-09-18, finding 4).
+    const soluvitVol    = inclSoluvit   && totalTPN_mL > 0 ? parseFloat((Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ) * overfill).toFixed(1)) : 0;
+    const peditrace_vol = inclPeditrace && totalTPN_mL > 0 ? parseFloat((Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * overfill).toFixed(1)) : 0;
 
     // ── Solution volumes mL/day (for pharmacist + order form writing) ────────
     // Every divisor comes from D.KCMH_STOCK — see the "DO NOT change" note there.
@@ -1423,7 +1446,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const caPScope  = mineral.hasOral ? " (รวม oral supp)" : "";
   if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${caPScope} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
   else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2, true)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
-  if (calc.enVolPerKg > 100 && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
+  // Not for a MEN feed: its P:E would be the TPN's alone, judged on an enteral target.
+  if (!isMEN && calc.enVolPerKg > 100 && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
   // A MEN feed is left out of fluid and every nutrient total, and orders
   // prefill from yesterday — so a MEN tick left on after the feed is advanced
   // hides real feeds. Above the trophic ceiling it is flagged; a warning, never
@@ -1449,16 +1473,32 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   //  • UP-C2  the dosing weight moved after the save (a corrected birth
   //           weight re-doses every mL while the inputs stay identical);
   //  • UP-C6  a critical alert on screen that the saved override reason does
-  //           not name — a legacy row, or one saved before the alert existed.
+  //           not name — a legacy row, or one saved before the alert existed;
+  //  • 2026-09-18 (review, finding 1) the calculation changed after the save.
   const dosingWeightChanged = !!savedDosingWt && wtG > 0 && (savedDosingWt.exact
     ? Math.abs(savedDosingWt.g - wtG) > 0.01
     // Recovered from GIR / EN mL/kg: allow 0.5 % (min 1 g) so a legacy row is
     // only held back when its own record shows the weight moved.
     : Math.abs(savedDosingWt.g - wtG) > Math.max(1, wtG * 0.005));
+  // A saved order prints what the calculator computes NOW from its inputs, so
+  // a release that moves a printed figure would reprint an old order with new
+  // numbers under its old entry id and revision — UP-C2's rule again. A row
+  // knows the CONSTANTS_VERSION it was computed with (savedCalcVersionOf);
+  // any other version holds Print until the order is saved again. Rows saved
+  // before 2026-09-18 know none, so for them only that release's own changes
+  // are checked: an overfilled bag with Soluvit or Peditrace (their mL are now
+  // × Factor) and a MEN feed (no longer in the printed totals). A day with no
+  // TPN is not held: the only figures that moved there are vitamin mL for a
+  // bag that does not exist, now "—". A later release that moves a printed
+  // figure bumps CONSTANTS_VERSION and so holds every row dated before it.
+  const calcMoved = !!savedEntryId && (savedCalcVersion
+    ? savedCalcVersion !== D.CONSTANTS_VERSION
+    : (calc.overfill > 1.001 && (inclSoluvit || inclPeditrace))
+      || (isMEN && calc.enVolTotal > 0));
   const uncoveredCritical = alerts.filter(a => a.level === "crit")
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag
-    && !dosingWeightChanged && uncoveredCritical.length === 0;
+    && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
   const printBlockMessage = (before) =>
@@ -1466,6 +1506,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
+    : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}`
     : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}`
     : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
@@ -1564,7 +1605,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
           critOverride:override});
         setSavedEntryId(result.sourceRecordId);setSavedLastModified(result.recordedAt);
         // What CP now holds is what was on the form when Save was pressed.
-        setSavedKey(keyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });
+        setSavedKey(keyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });setSavedCalcVersion(D.CONSTANTS_VERSION);
       } catch (error) { centerPoint.failed?.(error);showToast('บันทึกไป Center Point ไม่สำเร็จ กรุณาตรวจสถานะและลองใหม่','error'); }
       finally { setSaving(false); }
       return;
@@ -1598,7 +1639,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       // tpnWtG: the resolved dosing weight these numbers were computed with,
       // so a reopened row can tell when a birth-weight edit has re-dosed it
       // (UP-C2). Derived, not an input — normalizeCalcInput ignores it.
-      calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, ...(override ? { critOverride: override } : {}) },
+      // constantsVersion: the calculation these numbers came from, so a later
+      // release that moves a printed figure holds this row's reprint (calcMoved).
+      calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
+        ...(override ? { critOverride: override } : {}) },
       // Provenance — which constants and which frontend computed these
       // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
       // constant that later turns out wrong can be traced to the exact rows
@@ -1642,6 +1686,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     setSavedKey(keyAtSave);
     setCritOverride(override);
     setSavedDosingWt({ g: dosingWtAtSave, exact: true });
+    setSavedCalcVersion(D.CONSTANTS_VERSION);
     setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
@@ -1898,7 +1943,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
               {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
               {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>LF ✅</span>}
-              {calc.enVolPerKg >= 100 && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>Full EN ✅</span>}
+              {calc.useEnteralTargets && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>Full EN ✅</span>}
             </div>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
@@ -1994,7 +2039,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                   </div>
                 );
               })()}
-              {calc.enVolPerKg > 100 &&
+              {!isMEN && calc.enVolPerKg > 100 &&
               <Tile label="Protein : Energy" value={calc.peRatio} unit=" g/100kcal" target={tPE} status={sPE} decimals={1} max={5} />
               }
             </div>

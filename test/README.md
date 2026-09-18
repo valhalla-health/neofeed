@@ -97,8 +97,14 @@ starts at 30 mL and the Factor follows; a new day keeps a dead space somebody se
 default's 0 into 30; a saved order reopens with its own; the 0 chip still overrides; a feeds-only day
 prepares no bag. **Vitamins** (§11) — Soluvit and Peditrace scale with the overfill (2.5 mL in a 150 mL
 bag for a 2 kg infant on a 120 mL day, delivering 2 mL), the old info line is gone, the print, bag make-up
-and copied order agree, and the 10 / 15 mL caps apply to what the infant receives. 169 assertions: it
-fails 97 against `f0c172c`, and §11's 9 against `3f35ef8` (PR #75 merged, before the vitamin change).
+and copied order agree, and the 10 / 15 mL caps apply to what the infant receives. **Reprints** (§12) — a
+save stamps `calcInput.constantsVersion`; a saved order stamped with another version, or an unstamped one
+whose printout this release changed (overfilled vitamins, a MEN feed), prints only after it is saved
+again, while other old orders print as before. A row saved on `fc2c35c` (live from 11:17 ICT on
+2026-09-18, before the stamp shipped) is dated by its `aaProduct` key and prints as-is. 193 assertions: it
+fails 112 against `f0c172c`, 24 against `3f35ef8` (PR #75 merged) and 12 — the pre-deploy review's fixes —
+against `fc2c35c`. A harness row that stands for a current order carries the current stamp
+(`verify-kcmh-factor.cjs`).
 Since the dead-space change, a harness order that means "no dead space" types 0
 (`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
 

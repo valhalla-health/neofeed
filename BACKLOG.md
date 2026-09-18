@@ -162,8 +162,8 @@ clinical judgement. Everything else is engineering sequencing.
         did not (bag alone 17 kcal/g). Intended?
       - "Input" on a new day still defaults to the prescribed total and counts as filled; should it be
         typed like Urine output / Drain?
-      - A feeds-only day with Soluvit/Peditrace ticked still prints their mL and a negative WFI line
-        on the TPN form (pre-existing). Should a TPN form print at all with no TPN?
+      - A feeds-only day still prints a TPN form. Since 2026-09-18 it no longer lists vitamin mL or a
+        negative WFI for the bag that does not exist. Should a TPN form print at all with no TPN?
 - [ ] 🩺 **safety · Decisions from the 2026-09-18 ward requests — Praew's** (`CHANGELOG.md` 2026-09-18 (2)).
       - **Which day ends "the first days of life"?** Step 4 switches Ca and P to the growing-preterm ranges
         after DOL 1 (`TPN_TARGETS.ca/p`), but Mg (and Na) after DOL 2. On DOL 2 the new Magnesium tile
@@ -195,6 +195,18 @@ clinical judgement. Everything else is engineering sequencing.
         ward's own value is set in `defaultDeadVolFor`. Its label's line is **2 years**, not a ward, so an age
         check may be wanted then. Center Point needs a packet version with a product slot before it
         can offer it.
+- [ ] 🧱 **follow-ups · From the 2026-09-18 pre-deploy review** (`CHANGELOG.md` 2026-09-18 (2) §6) —
+      engineering, low risk, not blocking.
+      - **Center Point's packet cannot say a feed is MEN.** A CP order with a MEN feed prints its planned
+        enteral volume, but "energy incl. EN" is TPN-only, and the EN Ca/P slots read "—". `calc.isMEN`
+        reaches `buildTpn`, which drops it. The fix is a MEN slot (packet schema bump) or relabelled slots,
+        either way a `tpn-document.mjs` change: sync CP's copy, re-pin, update the digest. CP is
+        synthetic-only, so nothing reaches a patient meanwhile.
+      - **The daily log and alert centre still treat a MEN row at 100 mL/kg/d or more as full feeds.**
+        `log.jsx` `pickTarget` (target bands) and `app.jsx` `computeAlerts` read `enVolPerKg >= 100`,
+        while that row's saved totals exclude the feed. Use `!entry.calcInput?.isMEN && …`.
+        `enVolPerKg` must stay the real volume, because `savedDosingWeightOf` reads it. The calculator
+        already warns on MEN above 24 mL/kg/d, so this only follows an input the ward was told is wrong.
 - [ ] ⚖️ **PDPA · Three questions from the 2026-09-17 security review — Praew / DPO.** Should a
       registry read still be served when its `Audit_Log` row cannot be written (today: yes, fails
       open)? Should Staff column H keep plaintext temp passwords? Should a session that *expires*
