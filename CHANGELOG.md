@@ -13,6 +13,30 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-18 — Backend `@55` deployed (the backend half of the 2026-09-17 review)
+
+On Praew's go-ahead. The steps and evidence are in `STATUS.md` ("How the 2026-09-18 backend deploy
+was verified"); this entry keeps what the session learned. The frontend half still waits for the
+`main` → `release` PR.
+
+- **The pre-deploy gate caught a real problem on its first run.** `sheetHealthReport()` found
+  `Patient_Registry` row 1 labelled `weights(JSON)`, `lengths(JSON)`, `hcs(JSON)`. They were edited by
+  hand at some point, because every version of the code writes `weights`/`lengths`/`hcs`. `@54` reads by
+  position and never noticed; `@55`'s column guard would have refused every registry write the moment
+  it went live.
+- **Relabelling was safe only once it was clear the columns had not shifted, and the report cannot show
+  that.** It names the *expected* labels, not the live ones, and `_parseJson` silently falls back on a
+  non-JSON cell. A temporary read-only diagnostic answered it: live labels, the JSON shape and element
+  keys of M–P, and the failing record's row and reason, with no identifiers. It was tested first against
+  the real source in `test/gas-vm-sandbox.cjs`, pushed to HEAD only, never deployed, then removed.
+- **Live numbers where the review had estimates:** 3 undated archived infants left ward devices, not 47;
+  the workbook is at 1.6 % of the cell limit. The data findings are a new `BACKLOG.md` § Now item.
+- **clasp 3.3.0 cannot delete a file that exists only remotely.** `push` compares local files with HEAD,
+  so a remote-only file never counts as a change ("Script is already up to date"). Any local change
+  makes `push` send the full file set through `updateContent`, which replaces the project's content.
+  That is how the diagnostic was removed.
+- **Praew confirmed a real login and a real save on `@55`** with the live `sync-poll-0916` client.
+
 ## Session 2026-09-17 — Full review: speed, security and unhappy paths (NOT deployed)
 
 Asked for by Praew ahead of a board presentation: *review all of NeoFeed, check its security, bring it

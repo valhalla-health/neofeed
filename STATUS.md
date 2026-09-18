@@ -1,11 +1,20 @@
 # NeoFeed — Status
 
-> ⏳ **2026-09-17 — not live yet:** the full review (speed, security, unhappy paths, precompiled JS) is
-> on `main` but **not on `release` and not in Apps Script**. Nothing below changed. Deploy order and the
-> pre-deploy `sheetHealthReport()` check: `BACKLOG.md` § Now, first item.
+> ⏳ **2026-09-18 — half shipped:** the 2026-09-17 review's **backend is live as `@55`**. Its frontend
+> (precompiled JS, idle logout, calculator fixes) is on `main` but **not on `release`**, so the ward
+> still runs `?v=sync-poll-0916`, proven compatible with `@55` (19/19 in real Chromium). Next: the
+> `main` → `release` PR (`BACKLOG.md` § Now, first item).
 
-**Updated 2026-09-16** · 🟢 **Backend `@54` and frontend `?v=sync-poll-0916` are both live.**
-The sync-screen release (#70 → #71).
+**Updated 2026-09-18** · 🟢 **Backend `@55` and frontend `?v=sync-poll-0916` are live.**
+- **Backend:** `@55` = `gas-backend.gs` at `7049f60` (PR #73), deployed with `clasp` at 08:42 ICT on
+  Praew's go-ahead, after `sheetHealthReport()` passed on its second run — see "How the 2026-09-18
+  backend deploy was verified".
+- **Frontend:** unchanged since 2026-09-16 (`release` = `098bd37`).
+- ✅ **Real login + save on `@55`:** reported working by Praew on 2026-09-18, minutes after the
+  switch, with the live `sync-poll-0916` client.
+
+**Previous (2026-09-16):** backend `@54` + frontend `?v=sync-poll-0916` — the sync-screen release
+(#70 → #71).
 - **Frontend:** `release` = `098bd37`, merged by `tasamew` at 10:29 UTC / 17:29 ICT on 2026-09-16.
   `data.js` and `app.jsx` move to `?v=sync-poll-0916`; `calculator.jsx` stays `ward-gate-0915`
   (its content changed, but only Center-Point-gated code — see below).
@@ -23,6 +32,78 @@ at 20:47 ICT. Verified on both hosts and against the pulled version 54 source �
 2026-09-15 deploy was verified".
 🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
 Pages; `main` deploys nothing. See "Release-branch deploy gate".
+
+## How the 2026-09-18 backend deploy was verified
+
+**Backend `@55`.** Deployed on Praew's explicit go-ahead, following `REFERENCE.md` and the review's
+pre-deploy gate, with each step checked:
+
+1. **All three copies agreed before anything was overwritten.** The mirror's working tree was clean.
+   `clasp pull` of the editor HEAD, and of `--versionNumber 54`, into clean scratch dirs were
+   byte-identical to the mirror's `รหัส.js` and `appsscript.json`, and the mirror was byte-identical to
+   `gas-backend.gs` on `release`. Nobody had edited in the Apps Script editor since `@54`.
+2. **Deploy identity and settings:** `clasp show-authorized-user` → `peeraporn.po@chula.ac.th`
+   (clasp 3.3.0). The manifest is unchanged (`timeZone: Asia/Bangkok`, `executeAs: USER_DEPLOYING`,
+   the same two `oauthScopes`), and the new code calls no Google service that needs another scope
+   (new calls: `Utilities.gzip`/`ungzip`/`newBlob`/base64 and `LockService.waitLock`).
+3. Copied `gas-backend.gs` from `7049f60` into `รหัส.js` with `git show`, so no CRLF: +1586 / −344
+   lines. Committed in the mirror (`42dd655`), `clasp push`, `clasp create-version` → **55**.
+4. **Pre-deploy gate: `sheetHealthReport()`, run by Praew from the editor, FAILED first.**
+   `Patient_Registry` row 1 held `weights(JSON)`, `lengths(JSON)`, `hcs(JSON)` in M1:O1, so the
+   column guard (`_assertSchema`, D7) would have refused every registry write. Every version of the
+   code since the first commit writes `weights`/`lengths`/`hcs`, so the suffixes were added by hand;
+   `@54` and earlier read by position and never noticed. Before anything was relabelled, a temporary
+   read-only diagnostic (pushed to HEAD only, never deployed, removed afterwards) showed nothing had
+   shifted: all 58 records hold JSON arrays in M–P, M's elements carry `dol`/`w`/`l`/`hc` and P's
+   carry `bed`/`date`. Praew retyped M1:O1 and labelled the blank P1 (`bedHistory`) and Q1
+   (`statusDate`). The second run passed: both tabs `ok: true`, and `Patient_Registry` has no blank labels.
+5. **The rest of that report (08:40 ICT):**
+   - the workbook is **158,024** grid cells = **1.6 %** of the 10,000,000-cell limit (`Audit_Log`:
+     1,630 rows × 26 columns = 42,380 cells) — the trim in `BACKLOG.md` is worth doing, not urgent;
+   - `archivedNoStatusDate` **3** — the infants who left ward devices at this deploy (the review
+     estimated 47). `active` 30, `archivedWithin30d` 8, `archivedOlder` 17, `duplicateSessionIds` 0;
+   - `measurementArraysFailingValidation` **1** — a Transferred record, off ward devices, whose stored
+     first weight is `3` (kilograms where grams belong). `@55` refuses an edit of that record until
+     the cell is corrected (`BACKLOG.md` § Now);
+   - `activeWithNoEntryIn30d` 7, `sexNotBoysOrGirls` 0; `Daily_Log` 216 rows, 3 with a blank sessionId.
+6. **`clasp update-deployment -V 55 AKfycbz8Nt…`** at 08:42:09 ICT. `clasp list-deployments` shows
+   `AKfycbz8Nt…` at `@55`, and the count stayed **26**, so `NEOFEED_GAS_URL` is unchanged.
+7. **Verified after going live:** `clasp pull --versionNumber 55` into a clean scratch dir is
+   byte-identical to `gas-backend.gs` at `7049f60`, manifest unchanged. Live smoke test with no
+   credentials and no writes, before (`@54`) and after (`@55`):
+   - `GET ?action=ping` → `{"ok":true,…}` both times;
+   - malformed `POST` (`not json`) → `@54` returned the raw parse error (`Unexpected token 'o', "not json"
+     is not valid JSON`); `@55` returns the generic `เกิดข้อผิดพลาดในระบบ — ลองใหม่อีกครั้ง`, which proves
+     `@55` is the one serving;
+   - `GET` without an action → `{"error":"Use POST for authenticated actions."}`.
+8. **Real login + save:** ✅ reported working by Praew (live `sync-poll-0916` client × `@55`). Which
+   save path it used (an order or a registry edit) was not recorded.
+
+⚠️ **clasp 3.3.0 never deletes a file that exists only in the remote project.** `clasp push` compares
+the local files with HEAD, so after the temporary diagnostic it answered "Script is already up to
+date" and left the extra file there. It was removed by pushing a scratch copy with one trailing
+newline added (any change makes `push` send the full file set, which replaces the project's content),
+then pushing the mirror; `clasp pull` confirmed HEAD = mirror, two files. `@55` was cut before the
+diagnostic existed.
+
+**What changes for staff under `@55` + `sync-poll-0916`** (the rest of the review needs the new frontend):
+- **Sessions end 12 h after they start.** A session already open at the switch was stamped at its
+  first request afterwards, so the deploy logged nobody out.
+- **Saves are refused, with a Thai message, if a column is inserted by hand** into `Daily_Log` or
+  `Patient_Registry`, or if a row moves between the read and the write (UP-B3/B4). Nothing is written.
+- The 3 undated archived infants no longer reach ward devices (the admin archive keeps them). Sync
+  reads less of the sheet and is served from a 5-minute cache.
+- Login failures give one generic message, lockout counts before the slow hash, and logins, failures,
+  lockouts and password changes are audited.
+
+**Rollback (backend):** `@54` is a clean target. `@55` adds no columns, and old code ignores its new
+cache and property keys (revoked session epochs stay revoked). The relabelled headers need no
+rollback, because `@54` reads by position:
+```
+clasp update-deployment -V 54 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
+```
+
+---
 
 ## How the 2026-09-16 deploy was verified
 
@@ -548,6 +629,11 @@ it sits inside the assets directory, so it is served and cannot be hidden from `
 It holds no secrets. Reasoning recorded in `.assetsignore` itself.
 
 ## What has been exercised by a real human
+
+**Real login + real save on `@55`: reported working by Praew on 2026-09-18**, with the live
+`sync-poll-0916` client, minutes after the switch. It is the first human use of the 2026-09-17
+backend (auth hardening, column guard, row re-check, sync cache). Which save path it exercised was
+not recorded.
 
 **Real login: reported working by Praew on 2026-08-23**, on the Cloudflare host, after
 `https://neofeed.valhalla-health.workers.dev` was added as an Authorized JavaScript origin on

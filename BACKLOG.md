@@ -35,11 +35,10 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🚀 **deploy · Ship the 2026-09-17 review** (`CHANGELOG.md` 2026-09-17; findings list outside the
       repo in `NeoFeed/NEOFEED_REVIEW_2026-09-17.md` § 6). **Backend first** — the new backend is
       proven compatible with the live client (19/19 in real Chromium).
-      1. `clasp push` + `create-version`, then **run `sheetHealthReport()` from the editor before
-         switching the deployment**: both data tabs must report `schema ok` (otherwise every save
-         would be refused by the new column guard — fix the header labels first); note
-         `archivedNoStatusDate` (infants that leave ward devices) and `percentOfCellLimit`. Then
-         `update-deployment`, pull-and-diff, credential-free smoke, one real login + save.
+      1. ✅ **Backend done 2026-09-18 — `@55` live at 08:42 ICT** (`STATUS.md`, "How the 2026-09-18
+         backend deploy was verified"). The `sheetHealthReport()` gate caught real drift: row 1 of
+         `Patient_Registry` said `weights(JSON)`/`lengths(JSON)`/`hcs(JSON)`, which the column guard
+         would have refused on every registry write. Relabelled by Praew before the switch.
       2. `main` → `release` PR (approver `tasamew`); curl both hosts and check each served
          `compiled/*.js` hashes to its `?v=`.
       ⚠️ Deploy-gated on both halves — **Praew's go-ahead, not an agent's.**
@@ -48,15 +47,27 @@ clinical judgement. Everything else is engineering sequencing.
       included. A tab made by `insertSheet` is 26 columns wide, so each 4-column audit row costs 26
       cells; at the limit **every bedside save fails** (the audit append fails silently, the writes
       don't). **Manual step for Praew: delete columns E:Z of the live `Audit_Log` tab** (no data lost,
-      ~6.5× headroom); `sheetHealthReport()` reports the grid size. Still decide a retention/rollup
-      policy. `PRD.md` § 6 M1 counts *distinct actors per week*, never row counts, so a rollup must not
+      ~6.5× headroom); `sheetHealthReport()` reports the grid size. **Measured 2026-09-18: 1.6 % of
+      the limit** (workbook 158,024 cells; `Audit_Log` 1,630 rows × 26 columns = 42,380), so the trim
+      is not urgent. Still decide a retention/rollup policy. `PRD.md` § 6 M1 counts *distinct actors per week*, never row counts, so a rollup must not
       break that — `test/verify-usage-metrics.cjs` test 9 already fails if it does.
-- [ ] 🔒 **security · Flip `GOOGLE_HD_ENFORCE` after one normal week on the new backend.** Check the
+- [ ] 🧹 **data · What `sheetHealthReport()` found in the live Sheet on 2026-09-18** (Praew — Sheet
+      edits, not code):
+      - one **Transferred** record's stored first weight is `3`, kilograms where grams belong. `@55`
+        refuses any edit of that record until the cell is corrected. The row is named in the private
+        review file (`NEOFEED_REVIEW_2026-09-17.md` § 11), not here;
+      - **7 Active records have no `Daily_Log` entry in 30 days.** Check whether those infants are still
+        on the unit; each Active record stays on every ward device and in every sync;
+      - **3 `Daily_Log` rows have a blank sessionId**, so no infant owns them.
+- [ ] 🔒 **security · Flip `GOOGLE_HD_ENFORCE` after one normal week on the new backend** (`@55` live
+      since 2026-09-18, so on or after 2026-09-25). Check the
       Script Property `hd_seen_chula.ac.th`: `"yes"` → set the flag to `true` and redeploy; `"no"` →
       someone signs in with a non-Workspace Google account for that domain and needs a password
       account first. Steps are in the comment above the flag.
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@54` + `?v=bed-guard-0915`) in one bedside session.**
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + `?v=sync-poll-0916`) in one bedside session.**
+      ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch; the
+      rest of this list is still open.
       Everything shipped 2026-09-12 and 2026-09-15 is verified as *deployed*, none of it as *used*.
       One session closes the lot:
       - a real login and a real save;
