@@ -24,3 +24,7 @@ graphify-out/
 # Center Point build — dist is generated; its lockfile is tracked for npm ci
 center-point/dist/
 !center-point/package-lock.json
+
+# The frontend build (tools/build.mjs) — its lockfile is tracked for npm ci.
+# Its OUTPUT (compiled/, vendor/) is tracked on purpose: hosts serve git as-is.
+!tools/package-lock.json

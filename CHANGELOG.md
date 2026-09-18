@@ -13,6 +13,156 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-18 — Backend `@55` deployed (the backend half of the 2026-09-17 review)
+
+On Praew's go-ahead. The steps and evidence are in `STATUS.md` ("How the 2026-09-18 backend deploy
+was verified"); this entry keeps what the session learned. The frontend half still waits for the
+`main` → `release` PR.
+
+- **The pre-deploy gate caught a real problem on its first run.** `sheetHealthReport()` found
+  `Patient_Registry` row 1 labelled `weights(JSON)`, `lengths(JSON)`, `hcs(JSON)`. They were edited by
+  hand at some point, because every version of the code writes `weights`/`lengths`/`hcs`. `@54` reads by
+  position and never noticed; `@55`'s column guard would have refused every registry write the moment
+  it went live.
+- **Relabelling was safe only once it was clear the columns had not shifted, and the report cannot show
+  that.** It names the *expected* labels, not the live ones, and `_parseJson` silently falls back on a
+  non-JSON cell. A temporary read-only diagnostic answered it: live labels, the JSON shape and element
+  keys of M–P, and the failing record's row and reason, with no identifiers. It was tested first against
+  the real source in `test/gas-vm-sandbox.cjs`, pushed to HEAD only, never deployed, then removed.
+- **Live numbers where the review had estimates:** 3 undated archived infants left ward devices, not 47;
+  the workbook is at 1.6 % of the cell limit. The data findings are a new `BACKLOG.md` § Now item.
+- **clasp 3.3.0 cannot delete a file that exists only remotely.** `push` compares local files with HEAD,
+  so a remote-only file never counts as a change ("Script is already up to date"). Any local change
+  makes `push` send the full file set through `updateContent`, which replaces the project's content.
+  That is how the diagnostic was removed.
+- **Praew confirmed a real login and a real save on `@55`** with the live `sync-poll-0916` client.
+
+## Session 2026-09-17 — Full review: speed, security and unhappy paths (NOT deployed)
+
+Asked for by Praew ahead of a board presentation: *review all of NeoFeed, check its security, bring it
+up to current web practice, find out why it opens more slowly than before, and fix every unhappy path.*
+Six independent reviews, then fixes on `claude/review-0917-{shell,calc,backend,build}` merged into
+`claude/review-0917`. The detailed findings list stays **outside this public repo**
+(`NeoFeed/NEOFEED_REVIEW_2026-09-17.md`), as with the 2026-09-11 review. **Nothing here is deployed:**
+the frontend waits for a `main` → `release` PR, the backend for Praew's `clasp` go-ahead.
+
+### 1 · "Opens more slowly than before" — measured
+
+- **Before login:** the live login screen took **10.7 s** to appear on a 16-core desktop. In-browser
+  Babel downloaded 3 MB and compiled ~450 KB of JSX on the main thread every load (4.1–4.6 s even from
+  local files, ~27 s at 4× CPU slowdown). The cost grew with the code: 2.9 s on 2026-07-15, 4.6 s today,
+  most of it `calculator.jsx` (106 → 196 KB). The `.jsx` files were also served **uncompressed**
+  (`text/jsx`), and the Google Fonts stylesheet in `<head>` occasionally held every script for ~3.6 s.
+- **After login:** every sync sent **~5.6 MB of JSON** to every open tab every 4 minutes — full order
+  history, 47 archived infants whose missing `statusDate` kept them in the sync forever, and the whole
+  archive on admin devices — after reading every `Daily_Log` row on the server.
+- **Fixes:** precompiled JavaScript with self-hosted React (see § 6), the fonts link moved after the
+  scripts, a narrow server-side sync read, a 5-minute server cache of the sync payload, the undated
+  archive and the admin archive taken out of the default sync.
+
+### 2 · Decisions Praew made during the review
+
+- Hard limits (lipid 4.5 g/kg/d, K 3.5 mEq/kg/d, NPE:AA 20–32) are judged on the **IV (TPN) portion
+  only**; on full enteral feeds they had fired on in-range values and trained rote override reasons.
+- Central-line osmolarity warns above **1800** mOsm/L; the tile's range now says so too.
+- **30-minute idle logout** on the client, and a **12-hour absolute session cap** on the server.
+- Archived infants with no `statusDate` **leave ward devices** (admins can still load the archive).
+- A **5-minute server cache** of the sync payload is allowed.
+- If the Sheet's header row drifts, **saves are refused** rather than written into the wrong columns.
+- Google Sign-In limited to Google-managed domains — **prepared behind `GOOGLE_HD_ENFORCE = false`**.
+- **Precompiled JS replaces "no build step"** (§ 6).
+- **Not changed, on purpose:** electrolyte mL rounding for < 1 kg infants — the Na dose itself is being
+  re-confirmed with pharmacy first (`BACKLOG.md`).
+
+### 3 · Backend — `gas-backend.gs` (needs a `clasp` deploy)
+
+- **Security:** every value written to or written back into the Sheet is formula-escaped, including the
+  audit tab; one validator for all measurement arrays, so a malformed record can no longer take down
+  every ward device on the next poll; admin password resets end existing sessions; login lockout counts
+  before the slow hash (parallel attempts no longer multiply guesses); a PDPA erasure can no longer be
+  undone by a stale device; generic login failures; strict input types; destructive actions audit
+  first; login/lockout/password-change/archive reads audited; lockout and epoch keys hashed (with epoch
+  migration, so nobody is logged out by the deploy).
+- **Robustness:** a transient Google service error answers `ServiceUnavailable` (retryable) instead of
+  logging everyone out; a lock timeout answers `Busy` (retryable, nothing written); every positional
+  write re-checks its row first, so a row deleted or inserted by hand can no longer redirect a write
+  onto another infant; a half-finished patient delete can be completed; revision/publish/erasure writes
+  are single calls; the one-entry-per-date guard rejects malformed dates.
+- **Concurrent edits:** the client now sends the record it last received (`base` / `baseWeights`) and
+  the server merges field by field and measurement by DOL, so a device that has not re-synced no longer
+  erases another device's growth measurements or re-activates a discharged infant.
+- **Speed:** block-bounded `Daily_Log` read with a full-read fallback on any row shift (equivalence-tested
+  on 69 edge cases); gzip payload cache keyed on a data version bumped by every write and by hand edits
+  (`onEdit`); `sheetHealthReport()` (counts only) to run before deploying.
+
+### 4 · App shell, sync, session — `app.jsx`, `registry.jsx`, `fenton.jsx`, shells, `_headers`
+
+- A sync that was already in flight when Save was pressed no longer wipes the just-saved entry.
+- One request helper with a 45 s timeout and Thai messages for non-JSON replies; an unknown write
+  result re-syncs before anything is rolled back.
+- Logout, expiry and idle logout reset the whole app, so the next person on a shared PC never sees the
+  previous user's patients; the login screen says why the session ended.
+- The Growth-chart logger follows the selected infant (it kept the previous infant's DOL); an
+  unrecognised sex shows a message instead of blanking the app.
+- Register/Edit/Transfer keep the form open until the server answers; empty states instead of blank
+  views; exponential backoff during outages; Google Sign-In load failures reported; dates independent of
+  the device's time zone; admins load the >30-day archive only on request.
+- `connect-src` pinned to the NeoFeed Apps Script deployment; the GitHub Pages guard also covers the
+  trailing-dot hostname and clears old `neofeed_*` storage on that shared origin.
+- **Error boundaries** (closes the BACKLOG item "There is no error boundary"): a view boundary around the
+  workspace keeps the rail, topbar and sync usable when one view fails to render and clears itself when
+  the user moves on; a root boundary wraps everything else. Writing its harness found one more live
+  crash — a synced record with a `null` element in `weights[]` threw outside the workspace — so
+  measurement arrays are now cleaned where records enter client state (`verify-error-boundary.cjs`,
+  4/5 fail before, 17/17 after).
+- "New log → วันนี้" opened today's order under the back-fill banner "กำลังบันทึกย้อนหลัง…" (found
+  while capturing the Thai user guide); only a date that is not today is a back-fill now
+  (`verify-log-date-today.cjs`).
+
+### 5 · Calculator and printed order — `calculator.jsx`, `log.jsx`
+
+- Print/Copy are refused (with a banner saying why) when the dosing weight moved after saving (e.g. a
+  corrected birth weight), when a critical alert has no stored reason, while the row is still saving,
+  or when TPN volume is 0 but bag components are still filled in.
+- A new day's Intake/Output starts blank — yesterday's urine and drain no longer satisfy today's
+  required fields.
+- Drafts belong to the user who typed them and expire (72 h; previous-order prefill 7 days); a draft
+  survives a save conflict and rebases after reloading; an order left open past midnight keeps its date.
+- Rate→volume float noise, the heparin hint, and a PDPA note on the override-reason prompt.
+- **No printed figure changed:** every number on the pharmacy form for six orders was compared before
+  and after.
+
+### 6 · Build step — precompiled JavaScript (Praew, 2026-09-17: replaces "no build step")
+
+- `tools/build.mjs` (esbuild 0.25.12, exact versions, lockfile committed) compiles each `.jsx` on its
+  own into `compiled/<module>.js` — no bundle, no wrapper, same load order, `"use strict"` as Babel
+  gave. It refuses to build if two scripts declare the same top-level name (natively that is a
+  blank page, under Babel it was a silent overwrite), writes `?v=` tokens as content hashes into
+  both shells, and refuses if the shells differ.
+- React and ReactDOM are self-hosted in `vendor/` (the build checks them against the SRI hashes that
+  used to pin unpkg); the two inline scripts moved into `boot.js`. `script-src` is now
+  `'self' https://accounts.google.com` — **no `'unsafe-inline'`, no `'unsafe-eval'`, no unpkg.**
+- No build runs on either host: the bytes served are the bytes in git. CI rebuilds on a clean
+  checkout and fails the PR if `compiled/` or a token is stale, then runs every harness twice —
+  against the sources and against the compiled files.
+- **Measured (5 cold runs, headless Chromium):** login screen 4,626 ms → **159 ms**; at 4× CPU
+  throttle 34,642 ms → **441 ms**. Rendered DOM identical before/after on every view; 0 CSP
+  violations; the GitHub Pages guard still redirects before any app script runs.
+- `.jsx` files stay published for this release so tabs opened on the old shell mid-deploy still load.
+- **Workflow:** after editing a `.jsx`, `data.js`, `boot.js` or a shell — `npm ci --prefix tools`
+  (once), `node tools/build.mjs`, commit sources and `compiled/` together. See `REFERENCE.md`.
+
+### Tests
+
+New harnesses, each failing on `42ce553` and passing here: `verify-error-boundary` (17), `verify-review-0917-shell` (92),
+`-sync` (73), `-session` (69), `-calc` (117), `-drafts` (39), `-backend-security` (101),
+`-backend-writes` (148), `-backend-sync` (95). Integration branch: 39/39 `verify-*.cjs`, `DEAD=0`,
+shells identical, Center Point 5/5, browser runthrough 41/41. Two extra real-Chromium checks run from a
+scratch folder: the **current live client against the new backend** (19/19 — safe to deploy the
+backend first) and **two devices on the new client and backend** editing one infant (11/11).
+
+---
+
 ## Session 2026-09-16 (3) — The sync-waiting screens, and why sync goes stale
 
 Reported from the ward as **"หน้า sync ไม่สวย และขึ้น sync นานกว่าปกติ"**, with a photo of a

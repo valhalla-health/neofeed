@@ -32,32 +32,42 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🩺⚡ **backend · `getActivePatients` re-reads the whole `Daily_Log` on every sync.**
-      `getDataRange().getValues()` pulls **every row ever written, all 38 columns**, and only then
-      filters to the sync window; it also `JSON.parse`s `calcInputJson` for every surviving row and
-      appends an `Audit_Log` row per sync. At ~29 active sessions that is ~29 new `Daily_Log` rows a
-      day, so the cost of a sync grows linearly and never comes back down — which is the *other*
-      half of what the ward reported as "sync นานกว่าปกติ" on 2026-09-16. The client half (no
-      periodic re-sync at all) is fixed; this half is not, and the new 4-minute poll multiplies how
-      often it is paid.
-      Candidates, cheapest first: read only the columns actually returned rather than
-      `getDataRange()`; bound the read to the sync window with a `TextFinder`/sorted-range scan
-      instead of a full scan; cache the serialised payload in `CacheService` for ~60 s keyed on the
-      sheet's last write, so N open tabs cost one read rather than N; stop writing an `Audit_Log`
-      row for a poll that returns the same data a human never looked at (**check against PDPA
-      Sec 39 first — `REFERENCE.md` / `AI_SDLC.md` § 1 — an audit trail that drops reads is a
-      compliance change, not an optimisation**).
-      ⚠️ **`gas-backend.gs` is deploy-gated (`AI_SDLC.md` § 5) — this needs Praew's explicit deploy,
-      and a measurement first. There is no timing on the real sheet yet;** the topbar pill's tooltip
-      now reports the last round trip in seconds, which is the cheapest way to get one from the ward.
-- [ ] 📈 **ops · `Audit_Log` growth, now with a known rate.** Already listed under PDPA as growing
-      without bound "since the focus re-sync". As of 2026-09-16 the rate is knowable: the poll adds
-      **15 `readRegistry` rows per hour per open tab**, suppressed while hidden or offline. Decide a
-      retention/rollup policy before the sheet's own size becomes the thing that makes sync slow.
-      Note `PRD.md` § 6 M1 counts *distinct actors per week*, never row counts, so a rollup must not
+- [ ] 🚀 **deploy · Ship the 2026-09-17 review** (`CHANGELOG.md` 2026-09-17; findings list outside the
+      repo in `NeoFeed/NEOFEED_REVIEW_2026-09-17.md` § 6). **Backend first** — the new backend is
+      proven compatible with the live client (19/19 in real Chromium).
+      1. ✅ **Backend done 2026-09-18 — `@55` live at 08:42 ICT** (`STATUS.md`, "How the 2026-09-18
+         backend deploy was verified"). The `sheetHealthReport()` gate caught real drift: row 1 of
+         `Patient_Registry` said `weights(JSON)`/`lengths(JSON)`/`hcs(JSON)`, which the column guard
+         would have refused on every registry write. Relabelled by Praew before the switch.
+      2. `main` → `release` PR (approver `tasamew`); curl both hosts and check each served
+         `compiled/*.js` hashes to its `?v=`.
+      ⚠️ Deploy-gated on both halves — **Praew's go-ahead, not an agent's.**
+- [ ] 📈 **ops · `Audit_Log` growth — now with a hard limit.** The poll adds **15 `readRegistry` rows per
+      hour per open tab**, and Google Sheets caps a **workbook** at 10,000,000 cells — empty grid cells
+      included. A tab made by `insertSheet` is 26 columns wide, so each 4-column audit row costs 26
+      cells; at the limit **every bedside save fails** (the audit append fails silently, the writes
+      don't). **Manual step for Praew: delete columns E:Z of the live `Audit_Log` tab** (no data lost,
+      ~6.5× headroom); `sheetHealthReport()` reports the grid size. **Measured 2026-09-18: 1.6 % of
+      the limit** (workbook 158,024 cells; `Audit_Log` 1,630 rows × 26 columns = 42,380), so the trim
+      is not urgent. Still decide a retention/rollup policy. `PRD.md` § 6 M1 counts *distinct actors per week*, never row counts, so a rollup must not
       break that — `test/verify-usage-metrics.cjs` test 9 already fails if it does.
+- [ ] 🧹 **data · What `sheetHealthReport()` found in the live Sheet on 2026-09-18** (Praew — Sheet
+      edits, not code):
+      - one **Transferred** record's stored first weight is `3`, kilograms where grams belong. `@55`
+        refuses any edit of that record until the cell is corrected. The row is named in the private
+        review file (`NEOFEED_REVIEW_2026-09-17.md` § 11), not here;
+      - **7 Active records have no `Daily_Log` entry in 30 days.** Check whether those infants are still
+        on the unit; each Active record stays on every ward device and in every sync;
+      - **3 `Daily_Log` rows have a blank sessionId**, so no infant owns them.
+- [ ] 🔒 **security · Flip `GOOGLE_HD_ENFORCE` after one normal week on the new backend** (`@55` live
+      since 2026-09-18, so on or after 2026-09-25). Check the
+      Script Property `hd_seen_chula.ac.th`: `"yes"` → set the flag to `true` and redeploy; `"no"` →
+      someone signs in with a non-Workspace Google account for that domain and needs a password
+      account first. Steps are in the comment above the flag.
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@54` + `?v=bed-guard-0915`) in one bedside session.**
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + `?v=sync-poll-0916`) in one bedside session.**
+      ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch; the
+      rest of this list is still open.
       Everything shipped 2026-09-12 and 2026-09-15 is verified as *deployed*, none of it as *used*.
       One session closes the lot:
       - a real login and a real save;
@@ -70,6 +80,11 @@ clinical judgement. Everything else is engineering sequencing.
       - **open a discharged record whose bed was reused → it must still save**;
       - glance at the NICU/SCN gate for any bed held by two Active infants, which is now unsaveable
         until one is transferred.
+      - *(2026-09-17, once the review ships)* leave a workstation untouched 30 min → it must log out
+        with the idle notice; correct a birth weight on an infant with a saved order → Print must
+        refuse with the dosing-weight banner; enter a growth measurement on one device and edit the
+        same infant's diagnosis on another that has not synced → the measurement must survive; an
+        infant on full feeds must no longer demand a lipid/K override reason.
 
       Stubs model neither `CacheService` eviction nor `LockService` contention, so **only a person
       can close this.** Supersedes the `@53`/`@50`/`@47` versions of this item.
@@ -92,6 +107,12 @@ clinical judgement. Everything else is engineering sequencing.
       printed order carries `CONSTANTS_VERSION`, so when the shelf check lands, *"which orders used
       the old divisor?"* has an answer. Rows written **before** 2026-08-26 have a blank AF and
       cannot be attributed — that set is now fixed and will not grow.
+      ⬆️ **2026-09-17 — the same pharmacy check must cover how small volumes print.** Stock volumes
+      for NaCl, Na acetate, KCl, Glycophos, Ca gluconate, Soluvit and Peditrace are rounded to
+      **0.1 mL** (K₂HPO₄ and MgSO₄ to 0.01): for a 500 g infant "NaCl 0.5 mEq = 0.1 mL" is really
+      0.34 mEq (−32 %), KCl/Na acetate +20 %. Praew (2026-09-17): the Na dose itself may still be
+      wrong — confirm with pharmacy before changing either. `verify-review-0917-calc.cjs` § 6 pins
+      today's printed figures so nothing drifts meanwhile.
 - [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live
@@ -112,8 +133,6 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · `TARGETS.fluid` is documented as taking birth weight, but every call site passes
       current weight.** One of the two is wrong. **Clinical decision, not a bug fix** — decide which
       is correct, then make code and docs agree.
-- [ ] 🧱 **product · There is no error boundary** — `PatientStrip` throwing white-screens the whole
-      app. One instance was hit and fixed on 2026-08-18; the class of bug is still open.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it
       a PWA and staff have home-screen installs, but there is **no service worker**, so a home-screen
       icon opens to nothing with no network. Partially addressed 2026-08-26: the staleness banner now
@@ -125,6 +144,24 @@ clinical judgement. Everything else is engineering sequencing.
       in the Sheet today. ⭐ **This is the candidate scope for the 3099706 course project** (see
       `PRD.md`'s course-link note): it is genuinely not-yet-built, so the coursework produces real
       work rather than a hypothetical.
+
+- [ ] 🩺 **safety · Clinical questions from the 2026-09-17 calculator review — Praew's decisions.**
+      - Ca in the bag with no IV phosphate while oral phosphate is ordered: the Step 4 Ca:P tile is
+        red but raises no critical alert (the one remaining red-tile-without-alert case).
+      - No sanity alert for a typed TPN calc. weight far from the current weight (8500 g vs 850 g
+        prints), or for heparin typed as 10 U/mL — thresholds needed.
+      - Protein's 4.8 g/kg/d hard limit still reads TPN + EN; the other hard limits now read the IV
+        portion only. Same rule for protein?
+      - Consequence of IV-only NPE:AA: mixed TPN + feed days can now need a reason where the total
+        did not (bag alone 17 kcal/g). Intended?
+      - "Input" on a new day still defaults to the prescribed total and counts as filled; should it be
+        typed like Urine output / Drain?
+      - A feeds-only day with Soluvit/Peditrace ticked still prints their mL and a negative WFI line
+        on the TPN form (pre-existing). Should a TPN form print at all with no TPN?
+- [ ] ⚖️ **PDPA · Three questions from the 2026-09-17 security review — Praew / DPO.** Should a
+      registry read still be served when its `Audit_Log` row cannot be written (today: yes, fails
+      open)? Should Staff column H keep plaintext temp passwords? Should a session that *expires*
+      (not an explicit logout) also clear calculator prefill and alert acknowledgements?
 
 ## 🕓 Later
 
@@ -170,9 +207,14 @@ verify before acting on any of them.
 
 - [ ] `enVolPerKg` is logged on new submissions, but legacy entries from before session 8 lack the
       field and fall back to PN targets.
-- [ ] GAS `Unauthorized` shows an error toast rather than redirecting to login (old note: `app.jsx`
-      line ~145).
-- [ ] `_buildLogRow`'s date fallback still uses `toISOString()`.
+
+*(Removed 2026-09-17 after checking: "GAS `Unauthorized` shows a toast rather than redirecting" — it
+redirects, and since the review it also says why; "`_buildLogRow`'s date fallback uses `toISOString()`"
+— it uses `_wardDateKey()`.)*
+
+- [ ] 🧹 **docs · Two identifiers in public docs** (2026-09-17 review): `REFERENCE.md` names the
+      Cloudflare account email — refer to it by role; `.gitleaks.toml`'s custom rule only matches
+      `NAME = "…"` assignments, so a bare Sheet ID pasted into a doc passes the scan.
 
 ---
 

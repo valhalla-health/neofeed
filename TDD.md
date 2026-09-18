@@ -378,7 +378,8 @@ Daily_Log row for that sessionId — see §3.3's `handleDeletePatient` row).
 | **Performance** | A timed benchmark | ❌ None |
 
 Run them from the repo root (dev dependencies are installed to a scratch folder,
-never committed — the app itself still has no build step):
+never committed; the app's own build since 2026-09-17, `tools/build.mjs`, has a
+separate pinned install and commits its output, so nothing builds on a host):
 
 ```bash
 node test/verify-kcmh-constants.cjs && DEAD=20 node test/verify-kcmh-factor.cjs && DEAD=0 node test/verify-kcmh-factor.cjs

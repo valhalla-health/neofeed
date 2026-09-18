@@ -20,8 +20,63 @@ reaches AC–AE), and the calculator as Steps 1–5 (it is a six-step wizard). O
 `NeoFeed.html` is the file you edit locally. `index.html` is what **both hosts** actually
 serve — Cloudflare Workers and GitHub Pages. They are hand-synced copies, **not** a
 canonical/generated pair —
-any HTML/CSS/config/script-loader change must be applied to **both** or they silently
+any HTML/CSS/script-loader change must be applied to **both** or they silently
 drift. See `CHANGELOG.md`'s CSS-drift entries for the recurring history.
+
+Since 2026-09-17 one thing in them is no longer hand-kept: the `?v=` tokens, which
+`tools/build.mjs` writes into both. The build refuses to run while the two differ in
+anything else, so a one-sided edit now stops at the build instead of shipping. The
+`NEOFEED_*` config and the GitHub Pages guard are no longer in the shells at all; they
+live in `boot.js`.
+
+## The frontend build
+
+**Changed 2026-09-17, deliberately reversing the "no build step" rule.** The shells used
+to load the 3 MB `@babel/standalone` from unpkg and compile ~530 KB of JSX in every
+browser on every page load — about 4.6 s to the login screen on a workstation and 35 s
+on a slow one (4× CPU throttle, measured 2026-09-17), and the reason `_headers` needed
+`'unsafe-eval'` and `'unsafe-inline'`. Now `tools/build.mjs` precompiles the `.jsx` modules to
+`compiled/*.js`, React/ReactDOM are self-hosted in `vendor/`, and the login screen is up
+in ~160 ms (~440 ms throttled). What did not change is the property the old rule
+protected: **no build runs on any host.** The output is committed, both hosts serve the
+bytes in git, and CI proves those bytes are a fresh build of the committed sources.
+
+**Before committing any change to a `.jsx` file, `data.js`, `boot.js` or either shell:**
+
+```bash
+npm ci --prefix tools        # once per clone, and whenever tools/package-lock.json changes
+node tools/build.mjs
+```
+
+then commit the source edit **together with** everything the build changed
+(`compiled/`, both shells' `?v=` tokens). Edit the `.jsx`, never `compiled/`. If you
+forget, the `test` workflow's first step rebuilds on a clean checkout and fails the PR
+("compiled/, vendor/ or the HTML shells do not match a fresh build"); it then runs every
+harness twice, once against the sources and once against `compiled/`
+(`test/compiled-loader.cjs`).
+
+What the build guarantees, and refuses to write anything without:
+- **Load order** is the `MODULES` list in `tools/build.mjs`: `boot.js` (first in
+  `<head>`) → `vendor/` React → ReactDOM → `data.js` → `compiled/` icons → calculator →
+  fenton → registry → log → app. Shells that disagree are rejected, so this line cannot
+  rot the way the old copies in `HANDOFF.md` did.
+- **One global scope.** Babel used to lower every top-level `const`/`let` to `var`, so a
+  name declared in two modules "worked". As native scripts it is a load-time
+  SyntaxError and a blank screen. The build loads every script into one scope and fails
+  on any collision.
+- **`?v=` tokens are content hashes** (first 10 hex of SHA-256, line endings
+  normalised), so a changed file can never ship under an old token and
+  `appVersion()`'s provenance stamp names exact bytes (`b=…;d=…;i=…;c=…;f=…;r=…;l=…;a=…`).
+- **`vendor/` is byte-identical** to the unpkg React 18.3.1 builds the shells pinned by
+  SRI. Upgrading React means changing `tools/package.json` *and* those pinned hashes on
+  purpose.
+- No inline `<script>` in either shell, no Babel, no unpkg, and the Google Fonts
+  stylesheet after the last script (in `<head>` a slow fonts request held every script
+  back by up to 3.6 s). `test/verify-build-shells.cjs` checks the same from the files
+  alone, plus `_headers`, `.assetsignore` and `_config.yml`.
+
+`compiled/` is marked `-text linguist-generated` in `.gitattributes`: Git never rewrites
+its line endings, and GitHub collapses it in PR diffs, so review the `.jsx` change.
 
 ## GA/PMA convention
 
@@ -67,18 +122,42 @@ runs every harness on each PR and is intended as a required status check on `rel
 - **GitHub Pages now serves from `release`** (repointed via `gh api .../pages`, verified live and
   rebuilt clean). Both hosts were wired to deploy from the same branch on 2026-08-23 precisely so
   they cannot drift; that property is preserved, the branch just changed.
-- **Cloudflare publishes only the 18 files the app loads**, per `.assetsignore`. GitHub Pages had
-  no equivalent until `_config.yml` shipped 2026-09-11 (`5bfdb70`) — Jekyll now excludes the same
-  set (internal docs, `gas-backend.gs`, `docs/`, `test/`). See `STATUS.md` for the verification.
+- **Cloudflare publishes only the files the app loads**, per `.assetsignore`: since the
+  2026-09-17 build step that is `index.html`, `manifest.json`, `moved.html`, `boot.js`, `data.js`,
+  `compiled/`, `vendor/` and `icons/` — plus the six `.jsx` sources, kept for that one release so a
+  browser still holding the previous shell can finish loading (drop them in a later release).
+  GitHub Pages had no equivalent until `_config.yml` shipped 2026-09-11 (`5bfdb70`) — Jekyll now
+  excludes the same set (internal docs, `gas-backend.gs`, `docs/`, `test/`, `tools/`). See
+  `STATUS.md` for the verification.
 - **`_headers` sets CSP and other security headers, Cloudflare only.** GitHub Pages has no
   equivalent, so the legacy host is unprotected by it regardless of what ships. See `STATUS.md`
   § Response headers for what it covers and what still needs a live-page check before it ships.
+  ⚠️ **Since 2026-09-17 the CSP and the shells ship together**: `script-src` no longer allows
+  inline script, eval or unpkg, so the pre-build shells render a blank page under it. Never revert
+  one without the other; reverting the release merge reverts both.
+- **Proving what a release serves.** Workers Builds and Pages build nothing, so the served bytes
+  must equal the bytes in git. After a release, on **both** hosts:
+
+  ```bash
+  H=https://neofeed.valhalla-health.workers.dev     # then again with the GitHub Pages URL
+  curl -s "$H/" | grep -o 'src="[^"]*"'             # every ?v= token in the served shell
+  for f in boot.js data.js compiled/{icons,calculator,fenton,registry,log,app}.js; do
+    printf '%-24s %s\n' "$f" "$(curl -s "$H/$f" | sha256sum | cut -c1-10)"
+  done                                              # each hash must equal that file's ?v= token
+  curl -sI "$H/" | grep -i content-security-policy  # Cloudflare only: no 'unsafe-inline'/'unsafe-eval'
+  ```
+
+  `vendor/` is checked by name: its files carry the React version, and the build refuses other
+  bytes under them. GitHub Pages should answer `/` with the shell and then send any browser to
+  `moved.html` — that redirect is `boot.js`.
 - **Google Sign-In is origin-bound.** Every hostname the app is served from must be an Authorized
   JavaScript origin on OAuth client `750019806043-imunne8n…`. Google allows no wildcards, so
   Cloudflare **preview** URLs can never complete a login — use them for layout only.
 - **Fast local loop:** `npx wrangler dev`. No deploy, instant reload, and quicker than pushing.
 - **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. GitHub Pages has no
-  rollback — revert the commit.
+  rollback — revert the commit. For a release that crosses the 2026-09-17 build step, revert the
+  whole `main → release` merge rather than individual files: `_headers`, both shells, `boot.js`,
+  `compiled/` and `vendor/` only work as a set.
 - The Cloudflare account is `praew.tvl@gmail.com`, **not** the `peeraporn.po@chula.ac.th` identity
   that owns the backend. Deliberate for now, unresolved long-term.
 

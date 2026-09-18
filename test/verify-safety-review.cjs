@@ -44,8 +44,12 @@ ok('a dated back-fill does not restore an unrelated local draft',
   /if\s*\(!logDate(?:\s*&&\s*!centerPoint)?\)\s*\{\s*try\s*\{\s*const raw = localStorage\.getItem/.test(calc));
 
 console.log('\n── printed treatment date and product guidance ──');
+// A new order's date is frozen when the form opens (2026-09-17 review, UP-C11)
+// rather than read as "today" at print time; verify-review-0917-calc.cjs
+// drives that across midnight.
 ok('PrintOrderForm receives the clinical order date',
-  /orderDate=\{editEntry\?\.ts\s*\|\|\s*logDate\s*\|\|\s*D\.todayLocal\(\)\}/.test(calc));
+  /orderDate=\{editEntry\?\.ts\s*\|\|\s*logDate\s*\|\|\s*newOrderDate\}/.test(calc) &&
+  /const \[newOrderDate, setNewOrderDate\] = useState\(\(\) => D\.todayLocal\(\)\)/.test(calc));
 ok('the form labels a formatted order date, not always today',
   /const orderDateLabel\s*=/.test(calc) && /วันที่ให้ TPN:[^\n]*orderDateLabel/.test(calc));
 ok('print and copy require a successfully saved entry',

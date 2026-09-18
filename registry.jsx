@@ -152,13 +152,22 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const activeSorted   = sorted.filter(isActivePatient);
   // Discharged/Transferred/Expired patients drop off the registry 7 days
   // after their statusDate — the name shouldn't linger on the dashboard
-  // once the case is old news. Patients archived before statusDate existed
-  // (no value stored) stay visible since we can't tell their age.
+  // once the case is old news.
+  //
+  // A non-Active record with NO usable statusDate (archived before the field
+  // existed, 2026-07-20, or a cell typed by hand) used to stay on the ward
+  // list forever, "since we can't tell its age". Decided 2026-09-17: it counts
+  // as older than the window and is hidden. The server no longer syncs those
+  // records to ward devices at all, so showing one here only ever happened on
+  // an admin device that has asked for the archive — and admins still reach
+  // them there (the admin dashboard's archive switch, then Switch patient).
+  // Active and blank-status patients are unaffected: they never reach this
+  // filter.
   const ARCHIVE_VISIBLE_DAYS = 7;
   const daysSinceStatus = (p) => {
-    if (!p.statusDate) return -1;
+    if (!p.statusDate) return Infinity;
     const changed = new Date(p.statusDate + "T00:00:00");
-    if (isNaN(changed)) return -1;
+    if (isNaN(changed)) return Infinity;
     return Math.floor((new Date(today + "T00:00:00") - changed) / 86400000);
   };
   const archivedSorted = sorted.filter(p =>
@@ -523,11 +532,12 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       {/* All three get the FULL census, not the ward-filtered list — a bed is
           occupied by whoever is in it, including a patient the ward gate is
           currently hiding from view. */}
-      {showAdd          && <NewPatientModal patients={patients} onClose={() => setShowAdd(false)} onSubmit={p => { onAdd(p); setShowAdd(false); }} />}
+      {/* Each modal closes itself once its request succeeds (useModalSubmit). */}
+      {showAdd          && <NewPatientModal patients={patients} onClose={() => setShowAdd(false)} onSubmit={p => onAdd(p)} />}
       {editPatient      && <EditPatientModal patient={editPatient} patients={patients} onClose={() => setEditPatient(null)}
-        onSubmit={p => { onEdit?.(p); setEditPatient(null); }} onDelete={onDelete} />}
+        onSubmit={p => onEdit?.(p)} onDelete={onDelete} />}
       {transferPatient  && <TransferBedModal patient={transferPatient} patients={patients} onClose={() => setTransferPatient(null)}
-        onSubmit={p => { onEdit?.(p); setTransferPatient(null); }} />}
+        onSubmit={p => onEdit?.(p)} />}
     </>
   );
 }
@@ -607,6 +617,57 @@ const bedTakenMsg = (bed, holder) =>
   `เตียง ${bed} มี ${holder.name || holder.sessionId} อยู่แล้ว — ` +
   `ต้องย้าย ${holder.name || holder.sessionId} ออกก่อน (Transfer) จึงจะบันทึกเตียงนี้ได้`;
 
+// Submit for the three patient modals (review UP-S9). They used to close the
+// instant Register / Save / Confirm was pressed, before the server had said
+// anything — so a refusal (a bed taken on another device, a sessionId that
+// already exists) arrived as a toast over an empty registry, and everything
+// typed into the form was gone. Now the modal stays open while the request is
+// out ("กำลังบันทึก…"), closes itself only on success, and shows the reason in
+// place otherwise, with every field as the user left it.
+//
+// `onSubmit` may return the request's promise (app.jsx does) or nothing at all
+// (local mode, and the harnesses that mount a modal on its own). Nothing, or
+// anything without `ok: false`, is success — which keeps a synchronous caller
+// exactly as it was: submit, then close.
+function useModalSubmit(onSubmit, onClose) {
+  const [busy, setBusy]   = React.useState(false);
+  const [error, setError] = React.useState("");
+  const busyRef    = React.useRef(false);
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => () => { mountedRef.current = false; }, []);
+  const fallback = "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง";
+  const finish = (res) => {
+    busyRef.current = false;
+    if (!mountedRef.current) return;
+    setBusy(false);
+    if (res && res.ok === false) { setError(res.error || fallback); return; }
+    onClose();
+  };
+  const submit = (payload) => {
+    if (busyRef.current) return;
+    setError("");
+    let out;
+    try { out = onSubmit(payload); }
+    catch (e) { setError((e && e.message) || fallback); return; }
+    if (!out || typeof out.then !== "function") { finish(out); return; }
+    busyRef.current = true;
+    setBusy(true);
+    out.then(finish, (e) => finish({ ok: false, error: (e && e.message) || fallback }));
+  };
+  return { busy, error, submit };
+}
+
+// The error line all three modals show above their buttons.
+function SubmitError({ error }) {
+  if (!error) return null;
+  return (
+    <div role="alert" className="modal-submit-error" style={{ padding: "8px 12px", background: "var(--crit-bg)",
+      border: "1px solid var(--crit-line)", borderRadius: 8, fontSize: 12, color: "var(--crit)", lineHeight: 1.5 }}>
+      {error}
+    </div>
+  );
+}
+
 function NewPatientModal({ patients, onClose, onSubmit }) {
   const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState("");
@@ -646,6 +707,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   // …and one infant per bed: registering onto an occupied bed would leave two
   // patients reading as the same bed on every board and handover sheet.
   const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && !bedTaken;
+  const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // DOB = admitDate − (admitDol − 1) days
   // Via addDaysToDateStr, which is UTC-anchored end to end. The previous
@@ -767,6 +829,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
             </div>
           </div>
+          {submitError && <div style={{ marginTop: 14 }}><SubmitError error={submitError} /></div>}
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 }}>
             {!canSubmit && (
               <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" }}>
@@ -774,7 +837,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               </span>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={!canSubmit} onClick={() => onSubmit({
+            <button className="btn primary" disabled={!canSubmit || busy} onClick={() => submit({
               sessionId, name, initials: name, bw, ga, twinSuffix: twin,
               multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
               currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
@@ -782,7 +845,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               dob,
               weights: [{ dol: parseInt(admitDol) || 1, w: bw, l: len || null, hc: hc || null }],
             })}>
-              <Icon name="save" size={14} color="#fff" /> Register
+              <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "Register"}
             </button>
           </div>
         </div>
@@ -892,7 +955,12 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
   const gaInRange               = GA_WEEK_OPTIONS.includes(gaStoredW);
   const [gaW, setGaW]           = React.useState(gaInRange ? String(gaStoredW) : "");
   const [gaD, setGaD]           = React.useState(gaInRange ? String(gaTd % 7) : "");
-  const [sex, setSex]           = React.useState(patient.sex === "girls" ? "girls" : "boys");
+  // A sex the Fenton chart cannot use ("M" typed into the sheet and not caught
+  // by app.jsx's normalizeSex, a blank cell) seeds BLANK and must be picked
+  // before saving. It used to seed "boys" silently, so editing the diagnosis
+  // re-saved an unknown sex as male (review UP-S4).
+  const sexKnown                = patient.sex === "boys" || patient.sex === "girls";
+  const [sex, setSex]           = React.useState(sexKnown ? patient.sex : "");
   // Seeded from the patient's own bed, normalized (so a legacy "NICU 1-1"
   // preselects the real "NICU 1" rather than leaving the dropdown blank and
   // silently re-saving the bogus value) — and with **no fallback bed**: a
@@ -919,7 +987,8 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
   // Same gate as registration: a 0/blank BW or GA would corrupt every
   // subsequent dose for this patient, so it can be corrected but not cleared.
-  const canSave = bw > 0 && gaW !== "" && !bedTaken;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken;
+  const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // Permanently deletes the session — removes it from Patient_Registry and
   // every Daily_Log row for it on the server (`handleDeletePatient` in
@@ -946,8 +1015,14 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
   // archived status doesn't keep resetting the 7-day clock.
   const save = () => {
     const prevStatus = patient.status || "Active";
+    // An Active record that had no statusDate keeps the exact empty value it
+    // came with ("" from the sheet), rather than turning it into null. Under
+    // the three-way merge (app.jsx handleEditPatient, UP-S1) a field that
+    // differs from `base` counts as changed — and a phantom "" → null change
+    // would blank the statusDate another device had just stamped on a
+    // discharge.
     const statusDate = status === "Active"
-      ? null
+      ? (prevStatus === "Active" && !patient.statusDate ? (patient.statusDate ?? null) : null)
       : (status !== prevStatus || !patient.statusDate) ? today : patient.statusDate;
     // weights[0] is the measurement NewPatientModal seeds from the birth
     // weight, so a corrected BW has to carry into it or the Fenton chart and
@@ -962,7 +1037,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
       dol: Number(dol1) || 1,
       ...(bwChanged && Number(w.w) === Number(patient.bw) ? { w: Number(bw) } : {}),
     });
-    onSubmit({
+    submit({
       ...patient,
       name, initials: name,
       bw: Number(bw), ga, sex,
@@ -1006,10 +1081,17 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
             <div className="field">
               <label>Sex</label>
               <select className="sel" value={sex} onChange={e => setSex(e.target.value)}>
+                {sex === "" && <option value="">— เลือก —</option>}
                 <option value="boys">Male</option><option value="girls">Female</option>
               </select>
             </div>
           </div>
+          {!sexKnown && (
+            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "oklch(45% 0.13 65)", lineHeight: 1.5 }}>
+              เพศในทะเบียนของ session นี้ไม่ถูกต้อง{patient.sex ? <> (<strong>{String(patient.sex)}</strong>)</> : null} —
+              เลือก Male หรือ Female ก่อนจึงจะบันทึกได้ (ใช้เลือกกราฟ Fenton)
+            </div>
+          )}
           {gaTd > 0 && !gaInRange && (
             <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "oklch(45% 0.13 65)", lineHeight: 1.5 }}>
               GA เดิมของ session นี้ (<strong>{D_R.fmtGA(patient.ga)} wk</strong>) อยู่นอกช่วง 22–43 wk ที่ระบบรองรับ —
@@ -1063,18 +1145,21 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
           </div>
           {!canSave && (
             <div style={{ fontSize: 11.5, color: bedTaken ? "var(--crit)" : "var(--ink-3)", textAlign: "right" }}>
-              {bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken) : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"}
+              {bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken)
+                : sex === "" ? "ต้องระบุเพศก่อนบันทึก"
+                : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"}
             </div>
           )}
+          <SubmitError error={submitError} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
             {onDelete && (
               <button className="btn" style={{ marginRight: "auto", color: "var(--crit)", borderColor: "var(--crit-line)" }}
-                onClick={handleDelete}>
+                onClick={handleDelete} disabled={busy}>
                 <Icon name="trash" size={14} color="var(--crit)" /> Delete session
               </button>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={!canSave} onClick={save}><Icon name="save" size={14} color="#fff" /> Save changes</button>
+            <button className="btn primary" disabled={!canSave || busy} onClick={save}><Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "Save changes"}</button>
           </div>
         </div>
       </div>
@@ -1099,6 +1184,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit }) {
   const occupancy = React.useMemo(
     () => D_R.bedOccupancy(patients, patient.sessionId), [patients, patient.sessionId]);
   const bedTaken = occupancy.get(D_R.normalizeBed(bed)) || null;
+  const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // Next free running number per ward, recomputed as the census changes. ""
   // means the ward is full — the button is disabled rather than clearing the
@@ -1124,7 +1210,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit }) {
       ...(patient.bedHistory || []),
       { bed: currentBed, date: D_R.todayLocal() },   // local date, not UTC
     ];
-    onSubmit({ ...patient, currentBed: next, bedHistory });
+    submit({ ...patient, currentBed: next, bedHistory });
   };
 
   return (
@@ -1174,11 +1260,12 @@ function TransferBedModal({ patient, patients, onClose, onSubmit }) {
             </div>
           )}
 
+          <SubmitError error={submitError} />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" onClick={save}
-              disabled={!bed || D_R.normalizeBed(bed) === currentBed || !!bedTaken}>
-              <Icon name="save" size={14} color="#fff" /> Confirm transfer
+              disabled={!bed || D_R.normalizeBed(bed) === currentBed || !!bedTaken || busy}>
+              <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "Confirm transfer"}
             </button>
           </div>
         </div>

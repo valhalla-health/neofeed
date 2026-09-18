@@ -1,18 +1,24 @@
 # Frontend Logic Leak — Pre-Deploy Checklist
 
-Run this before every deploy. NeoFeed has **no build step** — `NeoFeed.html`/
-`index.html` load `.jsx`/`.js` files directly via in-browser Babel
-(`app-walkthrough.md` §1). That changes what this checklist means in two
-ways vs. a normal bundled app:
+Run this before every deploy. Since 2026-09-17 NeoFeed has a **committed
+build step**: `tools/build.mjs` compiles the `.jsx` modules to
+`compiled/*.js` (JSX → `React.createElement` only, not minified), React and
+ReactDOM are self-hosted in `vendor/`, and the `NEOFEED_*` config lives in
+`boot.js` (`app-walkthrough.md` §1, `REFERENCE.md` § The frontend build).
+No build runs on a host: both serve the bytes in git. That shapes this
+checklist in two ways:
 
-- **What ships to the browser IS the source.** There is no minifier to
-  strip comments or dead code, and no separate `dist/`/`build/` output to
-  diff against source — round 2 below always finds exactly what round 1
-  found, byte-for-byte. Treat every comment and every commented-out block
-  in `.html`/`.jsx`/`.js` as public.
+- **What ships to the browser is still the source, near enough.** `boot.js`,
+  `data.js` and both shells are served verbatim, and the six `.jsx` sources
+  stay published for the 2026-09-17 release. `compiled/` drops comments
+  but keeps every string literal and every line of logic — the build
+  translates, it does not redact. Treat every comment and every
+  commented-out block in `.html`/`.jsx`/`.js` as public, and audit
+  `compiled/` like source.
 - **`gas-backend.gs` is the only real trust boundary.** Everything else in
   the repo (`app.jsx`, `data.js`, `calculator.jsx`, `log.jsx`, `fenton.jsx`,
-  `registry.jsx`, `icons.jsx`, both HTML shells) is
+  `registry.jsx`, `icons.jsx`, `boot.js`, `compiled/`, `vendor/`, both HTML
+  shells) is
   static and public. `gas-backend.gs` runs server-side on Apps Script — it's
   the only place a secret or a server-enforced check can actually live.
 
@@ -23,14 +29,17 @@ after it's already in the response is not a fix.
 
 ---
 
-## Round 1 — Source audit (`grep` the repo root, every `.jsx`/`.js`/`.html`)
+## Round 1 — Source audit (`grep` the repo root, every `.jsx`/`.js`/`.html`, `boot.js` and `compiled/`)
 
 - [ ] No API keys / tokens / passwords hardcoded as string literals.
       Pattern to run:
-      `grep -rniE "(api[_-]?key|secret|password|token|bearer|private[_-]?key)\s*[:=]\s*[\"'][^\"']" *.jsx *.js *.html`
-      — then manually clear each hit (session-token *variables*/state and
-      `<input type="password">` fields are expected noise, not findings).
-- [ ] `window.NEOFEED_CLIENT_ID` in `NeoFeed.html`/`index.html` is the
+      `grep -rniE "(api[_-]?key|secret|password|token|bearer|private[_-]?key)\s*[:=]\s*[\"'][^\"']" *.jsx *.js *.html compiled/*.js`
+      — `*.js` covers `boot.js` and `data.js`. Then manually clear each hit
+      (session-token *variables*/state and `<input type="password">` fields
+      are expected noise, not findings). `vendor/` is React's own minified
+      code, pinned by hash; it is not grepped, it is checked in Round 2.
+- [ ] `window.NEOFEED_CLIENT_ID` in `boot.js` (in the shells until
+      2026-09-17) is the
       **OAuth web client ID** — public by design (Google Identity Services
       needs it in-browser). Confirm it hasn't been swapped for a client
       *secret* by mistake; a client secret must never appear here.
@@ -38,9 +47,10 @@ after it's already in the response is not a fix.
       auth happens per-request inside `gas-backend.gs` (session token +
       role check), not by hiding the URL. Confirm that assumption still
       holds (see Round 3) before treating the URL itself as fine to expose.
-- [ ] No commented-out secrets/URLs/credentials left in `<script>` blocks —
-      check history-sensitive spots specifically: `NeoFeed.html`/`index.html`
-      around the `NEOFEED_GAS_URL`/`NEOFEED_CLIENT_ID` assignment, and any
+- [ ] No commented-out secrets/URLs/credentials left in scripts — check
+      history-sensitive spots specifically: `boot.js` around the
+      `NEOFEED_GAS_URL`/`NEOFEED_CLIENT_ID` assignment (and both shells, in
+      case an inline `<script>` crept back — the build refuses one), and any
       `// old:` / `// TODO` comment near auth code in `app.jsx`.
 - [ ] `gas-backend.gs`'s `SPREADSHEET_ID`/`CLIENT_ID` are read from Script
       Properties (`_cfg()`), not literals in the file. If either is ever a
@@ -61,20 +71,32 @@ after it's already in the response is not a fix.
       A UI-only gate is not a leak by itself, but it's a red flag that the
       real check may be missing server-side.
 
-## Round 2 — "Build output" audit
+## Round 2 — Build output audit
 
-- [ ] Confirm there is still no `package.json`/bundler/`dist`/`build`
-      folder in the repo. If one has been added since this checklist was
-      last run, **stop and re-scope this checklist** — a real build step
-      means Round 1's grep needs to also run against the built output
-      (minified code can still contain literal strings; minification is
-      not redaction).
-- [ ] If still no build step: Round 1's results already are the "build
-      output" audit — GitHub Pages serves these files as-is. No further
-      action needed here beyond re-confirming Round 1 was run against the
-      actual deployed files (`NeoFeed.html` *and* `index.html` — GitHub
-      Pages serves whichever is at the repo root as `index.html`; both
-      drift independently, see `app-walkthrough.md` §7).
+Re-scoped 2026-09-17, when the build step this round used to say "stop and
+re-scope" for arrived (`tools/build.mjs`). The build's only output is
+`compiled/`, `vendor/` and the shells' `?v=` tokens, all committed.
+
+- [ ] Round 1's grep included `compiled/*.js` (the pattern above does).
+      Compiled output is not minified, but even minified code keeps its
+      literal strings — the build is not redaction.
+- [ ] `compiled/` is a fresh build of the committed `.jsx`: the `test`
+      workflow's "Compiled output is a fresh build of the sources" step is
+      green on the release PR, or locally
+      `npm ci --prefix tools && node tools/build.mjs && git status --porcelain`
+      prints nothing. A hand-edited `compiled/` file is code no reviewer saw.
+- [ ] `vendor/` is still the pinned React: `node test/verify-build-shells.cjs`
+      (§3 compares the files' SHA-384 with the SRI hashes the shells pinned
+      on unpkg). That harness also confirms the shells load nothing from
+      another origin but Google Sign-In, and `_headers`' `script-src` has
+      no `'unsafe-inline'`/`'unsafe-eval'`.
+- [ ] `tools/` is not published: `.assetsignore` and `_config.yml` both
+      exclude it (§5 of the same harness).
+- [ ] After the deploy, the served bytes are the committed ones on **both**
+      hosts — the `curl` loop in `REFERENCE.md` § Deploying compares each
+      served file's hash with its `?v=` token. GitHub Pages serves
+      `index.html` (`NeoFeed.html` is the edited twin; the build refuses to
+      run while they differ).
 
 ## Round 3 — API response audit (`gas-backend.gs` responses vs. what the UI shows)
 

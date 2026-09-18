@@ -515,12 +515,19 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
                 return entries.slice()
                   .sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || "")))
                   .map((e, i) => {
-                  const editable = !!(onEditEntry && e.entryId);
+                  // A row still under app.jsx's optimistic "tmp_" id (or
+                  // "local_tmp_" with no backend) has not been confirmed by
+                  // the server. Opening it gave a printable order with an id
+                  // no Daily_Log row has (review 2026-09-17, UP-C9) — so it is
+                  // shown, marked as saving, and not opened or deleted until
+                  // the real entryId arrives. calculator.jsx has the same test.
+                  const pending = /^(local_)?tmp_/.test(String(e.entryId || ""));
+                  const editable = !!(onEditEntry && e.entryId) && !pending;
                   const eDol = D_L.entryDol(patient, e);
                   return (
                     <tr key={e.entryId || i}
                       onClick={editable ? () => onEditEntry(e) : undefined}
-                      title={editable ? (e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy} — กดเพื่อแก้ไข` : "กดเพื่อแก้ไข") : "บันทึกเก่า — แก้ไขไม่ได้"}
+                      title={pending ? "กำลังบันทึก…" : editable ? (e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy} — กดเพื่อแก้ไข` : "กดเพื่อแก้ไข") : "บันทึกเก่า — แก้ไขไม่ได้"}
                       style={{ cursor: editable ? "pointer" : "default" }}>
                       <td className="num" style={{ fontWeight: 600 }}>{eDol}</td>
                       <td className="num" style={{ color: "var(--ink-3)" }}>{eDol - admitDol}</td>
@@ -534,13 +541,15 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
                       <td className="num">{n(e.ca, 0)} / {n(e.p, 0)}</td>
                       <td style={{ color: "var(--ink-2)" }}>{e.route}</td>
                       <td>
-                        <span className={`chip${e.status === "draft" ? "" : " ok"}`}>
-                          <span className="d" />{e.status === "draft" ? "แบบร่าง" : "บันทึกแล้ว"}
-                        </span>
+                        {pending
+                          ? <span className="chip"><span className="d" />กำลังบันทึก…</span>
+                          : <span className={`chip${e.status === "draft" ? "" : " ok"}`}>
+                              <span className="d" />{e.status === "draft" ? "แบบร่าง" : "บันทึกแล้ว"}
+                            </span>}
                       </td>
                       {onDeleteEntry && (
                         <td onClick={e2 => e2.stopPropagation()}>
-                          {e.entryId && (
+                          {e.entryId && !pending && (
                             <button className="icon-btn" title="ลบบันทึกนี้" onClick={ev => handleDelete(ev, e)}>
                               <Icon name="trash" size={14} color="var(--crit)" />
                             </button>

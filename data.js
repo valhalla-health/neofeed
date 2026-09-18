@@ -1183,9 +1183,12 @@ function liveDol(patient) {
 // `weights[weights.length-1]` is no longer guaranteed to be a weighed entry.
 // Anything displaying/alerting on "current weight" or "days since last
 // weight" must look this up rather than blindly taking the array's last item.
+// `ws[i]?.` because a record already in the Sheet can carry a null element:
+// until the 2026-09-17 backend review nothing validated the array, and one
+// `weights:[null]` threw here for every device on the next sync (SEC-B3).
 function lastWeighed(patient) {
   const ws = patient?.weights || [];
-  for (let i = ws.length - 1; i >= 0; i--) if (ws[i].w != null) return ws[i];
+  for (let i = ws.length - 1; i >= 0; i--) if (ws[i]?.w != null) return ws[i];
   return null;
 }
 
@@ -1196,7 +1199,7 @@ function lastWeighed(patient) {
 function weightAtOrBeforeDol(patient, dol) {
   const ws = patient?.weights || [];
   for (let i = ws.length - 1; i >= 0; i--) {
-    if (ws[i].w != null && ws[i].dol <= dol) return ws[i].w;
+    if (ws[i]?.w != null && ws[i].dol <= dol) return ws[i].w;
   }
   return null;
 }

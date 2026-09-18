@@ -2,17 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<script>
-  // NeoFeed's GitHub Pages host is being retired in favor of Cloudflare —
-  // see BACKLOG.md and STATUS.md § Response headers. This must stay the
-  // very first script in <head>, before any <link> that fetches something
-  // (manifest, icons, fonts), so a GitHub Pages visitor never loads the app
-  // shell at all — just bounces straight to moved.html. Cloudflare visitors
-  // never match this hostname, so this is a no-op for them.
-  if (window.location.hostname === "valhalla-health.github.io") {
-    window.location.replace("moved.html");
-  }
-</script>
+<!-- boot.js: the GitHub Pages retirement guard and the NEOFEED_* config.
+     Must stay the first script in <head>, before any <link> that fetches
+     something, so a GitHub Pages visitor bounces to moved.html before the app
+     shell loads. Same-origin file, not inline, so the CSP needs no
+     'unsafe-inline'. -->
+<script src="boot.js?v=f48894ce64"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -29,7 +24,10 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- Every backend call goes to the Apps Script /exec URL, which answers with a
+     302 to script.googleusercontent.com. Open both connections early. -->
+<link rel="preconnect" href="https://script.google.com" crossorigin />
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin />
 
 <style>
   :root {
@@ -1437,27 +1435,28 @@
 <body>
   <div id="root"></div>
 
-  <!-- React + Babel pinned (production builds) -->
-  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <!-- React 18.3.1, self-hosted. Byte-identical to the unpkg files this shell
+       pinned by SRI until 2026-09-17; tools/build.mjs refuses anything else. -->
+  <script src="vendor/react-18.3.1.production.min.js"></script>
+  <script src="vendor/react-dom-18.3.1.production.min.js"></script>
 
   <!-- Google Sign-In SDK (for Gmail / Google Workspace accounts) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <!-- App config -->
-  <script>
-    window.NEOFEED_CLIENT_ID = "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com";
-    window.NEOFEED_GAS_URL   = "https://script.google.com/macros/s/AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV/exec";
-  </script>
+  <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
+       tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
+       content hash the build writes: never edit one by hand. -->
+  <script src="data.js?v=3626f2a02e"></script>
+  <script src="compiled/icons.js?v=e7f309e445"></script>
+  <script src="compiled/calculator.js?v=7afa9076db"></script>
+  <script src="compiled/fenton.js?v=690bebc4ac"></script>
+  <script src="compiled/registry.js?v=2ab223374f"></script>
+  <script src="compiled/log.js?v=7c8755be83"></script>
+  <script src="compiled/app.js?v=b7969bb20d"></script>
 
-  <!-- App data and modules — ?v= busts browser cache on each deploy -->
-  <script src="data.js?v=sync-poll-0916"></script>
-  <script type="text/babel" src="icons.jsx?v=notes-date-sel1"></script>
-  <script type="text/babel" src="calculator.jsx?v=ward-gate-0915"></script>
-  <script type="text/babel" src="fenton.jsx?v=ga-clamp42"></script>
-  <script type="text/babel" src="registry.jsx?v=bed-guard-0915"></script>
-  <script type="text/babel" src="log.jsx?v=bed-dol-io2"></script>
-  <script type="text/babel" src="app.jsx?v=sync-poll-0916"></script>
+  <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
+       request held back all of them (measured up to 3.6 s); here it only
+       swaps the typeface in when it lands (display=swap). -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </body>
 </html>

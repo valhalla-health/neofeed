@@ -65,8 +65,54 @@ visible tab re-syncs on its own every `SYNC_POLL_MS` while a hidden or offline o
 absence of any such poll is what the ward reported as "sync นานกว่าปกติ"; and of two overlapping
 syncs the **newer** response wins rather than the last to arrive.
 
-**CI:** `.github/workflows/test.yml` runs every `verify-*.cjs` (plus `DEAD=0` for the Factor
-harness) and the shell byte-identity check on each pull request and on pushes to `main`/`release`.
+`verify-review-0917-calc.cjs` and `verify-review-0917-drafts.cjs` pin the **2026-09-17 calculator
+review**. The first is about when an order may reach the pharmacy form: the lipid 4.5 / K 3.5 /
+NPE:AA 20–32 hard limits judged on the IV portion only (Praew's decision — full enteral feeds used to
+raise critical alerts that could only be cleared by typing a reason), with the F1 invariant re-checked
+across full feeds, IV breaches and a no-volume bag; a digest of every printed figure for six orders,
+captured from `42ce553`, so nothing printed moved (electrolyte `r1` rounding is deliberately
+unchanged until pharmacy confirms the Na dose); ingredients with TPN volume 0 blocking Save and Print;
+yesterday's urine output and drain never satisfying today's required fields; and Print withheld when
+a birth-weight edit re-doses a saved order, when a critical alert is not named in the saved reason, or
+when the row is still an optimistic `tmp_` insert (also unclickable in `log.jsx`). The second pins
+unsaved work: a draft is offered only to the user who typed it, drafts expire at 72 h and
+"previous submission" state at 7 days for every patient on mount, a save conflict's typed order comes
+back after the reload and saves as an ordinary edit of the newer row, and a new order open across
+midnight keeps its date, DOL, typed zeros and draft key. Both fail against `42ce553` (70 of 117 and
+23 of 39 assertions).
+
+`verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
+`tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:
+both shells load nothing but `boot.js`, `vendor/` React, `data.js`, `compiled/*.js` and Google
+Sign-In, with no inline `<script>`, no `text/babel` and no unpkg, in the exact load order with
+`boot.js` first in `<head>`; every `?v=` token is the SHA-256 prefix of the file it loads;
+`vendor/` is byte-identical to the React builds the shells used to pin by SRI; `_headers`'
+`script-src` is `'self'` plus Google Sign-In and nothing looser; `.assetsignore` and `_config.yml`
+publish every file the shell loads (a missing `boot.js` silently drops the app into LOCAL MOCK
+MODE) and keep `tools/` private; the Google Fonts stylesheet sits after the last script; and
+`appVersion()` still turns the new script list into the provenance stamp. The CSP and the shells
+only work as a pair — the new CSP renders the old shells blank — so it checks both halves. It fails
+33 of 43 assertions against `claude/review-0917` (the tree before the build step), and each of the
+build's own refusals and this harness's checks was proven to catch a deliberate breakage.
+
+**`compiled-loader.cjs` is not a harness** but a `--require` preload that runs the harnesses
+against the shipped `compiled/*.js` instead of their in-harness `@babel/preset-react` transform of
+the `.jsx` sources — no harness is edited for it:
+
+```bash
+NODE_OPTIONS="--require ./test/compiled-loader.cjs" node test/verify-resync-and-lists.cjs
+```
+
+It swaps a module only when the harness transforms the whole, unmodified `.jsx` file, throws
+otherwise, and prints which modules it replaced. Source-text assertions (regexes over the `.jsx`)
+still read the sources, which is what they pin.
+
+**CI:** `.github/workflows/test.yml` first rebuilds with `npm ci --prefix tools && node tools/build.mjs`
+on the clean checkout and fails if that changes anything (stale or hand-edited `compiled/`, or
+shell tokens), then checks shell byte-identity, then runs every `verify-*.cjs` (plus `DEAD=0` for
+the Factor harness) **twice** — against the sources, then with the compiled preload, where a harness
+that mounts modules but swapped none fails the step. It runs on each pull request and on pushes to
+`main`/`release`.
 CI installs no browser, so `verify-sync-gate-and-poll.cjs`'s Chromium measurement prints a SKIP
 there and its static CSS assertions carry the section; run it locally (with `playwright`
 installed) to get the real measurement.
@@ -76,10 +122,11 @@ installed) to get the real measurement.
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
-`verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs` and
-`verify-publish-lock.cjs` need **no dependencies at all** — run them directly:
+`verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
+`verify-publish-lock.cjs` and `verify-build-shells.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
+node test/verify-build-shells.cjs
 node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
@@ -106,11 +153,14 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-tpn-calc-weight.cjs`, `verify-required-log-fields.cjs`,
 `verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
 `verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
-`verify-nutrition-unit-review.cjs` and
+`verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
+`verify-review-0917-drafts.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
-mount real components in jsdom); nothing else does, and the app itself still
-has no build step. Dependencies are dev-only
+mount real components in jsdom); nothing else does. (The frontend build has its
+own pinned install, `npm ci --prefix tools`, which the harnesses do not need:
+they transpile the `.jsx` themselves, or read `compiled/` through
+`compiled-loader.cjs`.) Dependencies are dev-only
 and are **not** committed — install them into a scratch folder and point Node at it:
 
 ```bash
@@ -151,8 +201,14 @@ npm install --no-save playwright && npx playwright install chromium
 node test/runthrough-app.cjs           # screenshots → test/.screenshots/
 ```
 
-It also needs the **exact** pinned CDN versions in `node_modules`
-(`react@18.3.1 react-dom@18.3.1 @babel/standalone@7.29.0`) — see below.
+It no longer needs React or Babel in `node_modules`: since the 2026-09-17 build step the
+app loads React from `vendor/` and its modules from `compiled/`, straight from the repo.
+
+To run every harness against the shipped compiled output, as CI's second pass does:
+
+```bash
+NODE_OPTIONS="--require ./test/compiled-loader.cjs" node test/verify-kcmh-factor.cjs   # any verify-*.cjs
+```
 
 `verify-kcmh-factor.cjs` reads `DEAD` from the environment (mL of dead space,
 default 20). Run it both ways — overfilled and not:
@@ -373,18 +429,19 @@ nothing.
 **`runthrough-app.cjs`** — the only harness that runs the whole app the way a
 nurse does: it serves the repo statically **as-is** (no file edits, `index.html`
 exactly as GitHub Pages would serve it), launches Chromium, logs in, and clicks
-through the registry → dashboard → calculator. Two things a sandbox cannot
-reach are intercepted: `unpkg.com` is answered from `node_modules`, and the
-GAS URL is answered by an in-process fake backend that mirrors
-`gas-backend.gs`'s response shapes **and records every write it receives**, so
-the assertions can check what actually went over the wire rather than only what
-the screen shows. Everything in between — `data.js`, `calculator.jsx`,
-`log.jsx`, `registry.jsx`, `app.jsx` — is the shipped code.
+through the registry → dashboard → calculator. One thing a sandbox cannot
+reach is intercepted: the GAS URL is answered by an in-process fake backend that
+mirrors `gas-backend.gs`'s response shapes **and records every write it
+receives**, so the assertions can check what actually went over the wire rather
+than only what the screen shows. Everything in between — `boot.js`, `vendor/`
+React, `data.js` and `compiled/*.js` — is the shipped code.
 
-The UMD bundles must be the exact versions the script tags pin, because
-`index.html` carries SRI `integrity` hashes and Chromium rejects anything else.
-That is a feature: a passing run is also proof those hashes still match the
-versions named beside them.
+Until 2026-09-17 it also answered `unpkg.com` from `node_modules` with the exact
+React and Babel builds the shells pinned by SRI. The build step removed both
+from the page, so now the reverse is asserted: every script comes from the
+served repo or Google Sign-In, and `compiled/app.js` and `vendor/` React were
+the ones loaded. A request to unpkg fails the run. The SRI pin itself moved to
+`tools/build.mjs` and `verify-build-shells.cjs` §3.
 
 Its fixture is the patient from the 2026-08-17 bug reports — plus, since
 2026-09-15, a roommate on `NICU 5` so the one-patient-per-bed rule has a bed
@@ -674,6 +731,46 @@ Checked against the pre-edit `calculator.jsx`/`registry.jsx`: 5 of 9
 assertions fail (the twin-label ones, and both `"AN:"`-relabeling
 assertions — the print form's twin-tag assertion coincidentally reuses the
 mislabeled-id assertion's regex).
+
+**`verify-review-0917-backend-security.cjs`**, **`verify-review-0917-backend-writes.cjs`**,
+**`verify-review-0917-backend-sync.cjs`** — the 2026-09-17 backend review, split three ways. No
+npm dependencies. All three load the real `gas-backend.gs` through **`gas-vm-sandbox.cjs`** (a shared
+helper, not a harness — CI's `verify-*.cjs` glob does not pick it up), whose Sheets double models what
+these fixes are about and the older stubs did not: a string starting `= + - @` written to a cell is
+recorded as a formula injection, a leading apostrophe is stripped on read (so the second-order path
+is visible), `YYYY-MM-DD` comes back as a Date, ranges read any number of rows and throw past the grid,
+CacheService honours TTLs / the 100 KB value cap / the 250-char key cap, and every service can be made
+to throw or the script lock to time out. Set `NEOFEED_GAS_SRC=<path>` to run any of them against a
+different `gas-backend.gs` — that is how they were shown to fail against the pre-review source
+(42ce553: 63, 97 and 25 failures respectively).
+
+- *security* — formula escaping in Audit_Log and on read-back write paths; admin password reset/clear
+  ending sessions; parallel login guesses counted before the hash; no account enumeration (one message,
+  a dummy hash, a CacheService lockout for unknown addresses); the prepared-but-off Google `hd`
+  restriction and its telemetry; the 12-hour absolute session age, including pre-deploy sessions being
+  stamped rather than logged out; `ServiceUnavailable` instead of `Unauthorized` on a Google service
+  failure (at the `doPost` level); SHA-256 key names and the epoch migration (with a rollback check);
+  nothing internal echoed to an unauthenticated caller.
+- *writes* — the column-drift guard (blank optional headers accepted, a different label refused with the
+  exact `SchemaMismatch` shape, reads unaffected) and `sheetHealthReport()` (counts, and no email, name,
+  ID or bed anywhere in it); `Busy` on every write; narrow in-lock reads equal to a full scan on 2,000
+  rows; a hand-moved row refused on every positional write; `deletePatient` ordering, retry and the
+  published-row refusal; the revision fields reaching the client; failed supersede / publish / erasure
+  never half-applied; entry-date normalisation and `DuplicateDate`; the three-way patient merge
+  (including the lost-DOL-17-weight reproduction); PDPA erasure staying erased; sex and
+  measurement-array validation; the 4-column Audit_Log grid.
+- *sync* — the undated-archive window decision; the narrow Daily_Log read proven identical to the
+  pre-review full read (embedded verbatim as the reference) across the perf review's edge cases and
+  row-shift races; the 5-minute payload cache (hit, miss, fresh `ts`, audited hits, TTL, eviction, cache
+  outage, multi-chunk payloads, every write visible to the next sync); and a source-level check that
+  every function taking the script lock and touching either data tab bumps `DATA_VERSION` in its
+  `finally`.
+
+The 2026-09-17 change also upgraded four older harness stubs where the new code legitimately needs
+more of the Sheets API — multi-row `getRange`, column-true `setValues`, `getMaxColumns`, an Audit_Log
+tab, and real header labels in row 1 (a placeholder header is now, correctly, refused as column
+drift). No assertion was weakened; two in `verify-review-0911.cjs` were updated to decisions made that
+day — the lockout counter's hashed key name, and an undated archived patient leaving the ward sync.
 
 ## Note on the source workbook
 
