@@ -217,7 +217,8 @@ confirmation-before-`clasp deploy` model, and the frontend is where the printed 
   tell Praew from an agent using her login, so once `harnesses` is green nothing *technical* stops
   anyone with write access — Praew, `tasamew` or an agent — from merging into `release`. Agents still
   merge only on Praew's explicit go-ahead; that is now a rule, not a lock. To restore the second
-  reviewer, run the same call with `-F required_approving_review_count=1`.
+  reviewer, run the same call with `-F required_approving_review_count=1`. Recorded in PR #78,
+  merged into `main` on Praew's instruction.
 - **2026-09-11 (3), live now:** the `harnesses` check (`.github/workflows/test.yml`, every
   `verify-*.cjs` + shell identity) is a **required status check on `release`** — verified via
   `gh api` (`app_id 15368`, GitHub Actions). The workflow file itself lands on `main` with PR #59;
