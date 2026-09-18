@@ -156,6 +156,37 @@ clinical judgement. Everything else is engineering sequencing.
         typed like Urine output / Drain?
       - A feeds-only day with Soluvit/Peditrace ticked still prints their mL and a negative WFI line
         on the TPN form (pre-existing). Should a TPN form print at all with no TPN?
+- [ ] 🩺 **safety · Decisions from the 2026-09-18 ward requests — Praew's** (`CHANGELOG.md` 2026-09-18 (2)).
+      - **Which day ends "the first days of life"?** Step 4 switches Ca and P to the growing-preterm ranges
+        after DOL 1 (`TPN_TARGETS.ca/p`), but Mg (and Na) after DOL 2. On DOL 2 the new Magnesium tile
+        still reads the first-days range while Calcium and Phosphorus beside it read growing. Pre-existing,
+        now visible side by side; ESPGHAN 2018 gives no DOL cutoff.
+      - **Term infants.** The Ca / P / Mg tiles use the preterm rows for every infant. ESPGHAN 2018's
+        0–6 month row (the table the team sent) is lower: Ca 30–60, P 20–40 mg, Mg 0.1–0.2 mmol
+        (0.2–0.4 mEq). A term infant past DOL 2 reads "off target" low against the growing-preterm row.
+      - **FYI for the team's table:** it prints growing-preterm Ca and P as 1.6–3.5 mmol **(100–140 /
+        77–108 mg)**. Those mg figures are 2.5–3.5 mmol; 1.6 mmol is 64 mg Ca / 50 mg P. The published table
+        disagrees with itself, and NeoFeed uses the mmol column (64–140 / 50–108 — `CONSTANTS_VERSION`
+        2026-08-27.1). Worth saying before the team reads the Calcium tile against the mg column.
+      - **Feed magnesium.** `EN_DB` has no Mg for any feed, so the Magnesium tile is the TPN's Mg only
+        (it says so). Counting feeds needs a sourced Mg value per feed.
+      - **Should a TPN with no Ca (or no P, no Mg) be flagged?** A tile at 0 reads "empty" and raises no
+        line: the app treats 0 as "not ordered", not "low". The team will notice once MEN stops counting.
+        In their screenshot the MEN feed's 5 mg/kg of Ca produced "Calcium off target" on a TPN with no
+        calcium. That line is gone, the same as for any TPN-only order.
+      - **Tell pharmacy before this release ships: Soluvit and Peditrace are now × Factor** (Praew decided
+        2026-09-18; `CHANGELOG.md` 2026-09-18 (2) §5). On an overfilled bag the printed mL are higher than
+        the KCMH worksheet's G43/G45 give — 2.5 vs 2.0 mL for a 2 kg infant on a 120 mL day — so that the
+        infant receives the full 1 mL/kg. The form's vitamin rows say "× Factor → delivers …" and name the
+        sheet rows. Pharmacy should compound from the form, or change G43/G45 in their own sheet too.
+      - **A deliberate 0 dead space has to be chosen again each day.** A new day turns yesterday's 0 into 30,
+        because a saved 0 cannot be told apart from the old default. Fine if 0 is rare; otherwise it needs its
+        own "no dead space" flag in `calcInput`.
+      - **When an older-children ward is added** (`bedWard`, `BED_OPTIONS`, then `OLDER_CHILD_WARDS`),
+        Aminoplasmal 15% becomes selectable there, and its new orders start at 0 mL dead space until that
+        ward's own value is set in `defaultDeadVolFor`. Its label's line is **2 years**, not a ward, so an age
+        check may be wanted then. Center Point needs a packet version with a product slot before it
+        can offer it.
 - [ ] ⚖️ **PDPA · Three questions from the 2026-09-17 security review — Praew / DPO.** Should a
       registry read still be served when its `Audit_Log` row cannot be written (today: yes, fails
       open)? Should Staff column H keep plaintext temp passwords? Should a session that *expires*

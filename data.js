@@ -28,7 +28,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-09-05.1";
+const CONSTANTS_VERSION = "2026-09-18.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -578,7 +578,17 @@ const TARGETS = {
 // every printed order form.
 const KCMH_STOCK = {
   d50w:        { label: "D50W",                  gPerMl: 0.5 },
-  aminoven10:  { label: "10% Aminoven infant",   gPerMl: 0.10 },
+  // Amino acid — `label` is what the pharmacy form prints, `short` what the
+  // screen and the copied order say. Which one a patient may be ordered is
+  // aaProductsFor() below, not this table.
+  aminoven10:  { label: "10% Aminoven infant",   short: "Aminoven 10%",     gPerMl: 0.10 },
+  // B. Braun Aminoplasmal 15%: 150 g amino acids/L (UK SmPC; Na 5.3 mmol/L,
+  // theoretical osmolarity 1290 mOsm/L — neither modelled, as for Aminoven).
+  // Its label contraindicates it in newborn infants, infants and toddlers
+  // under 2 years (UK SmPC; Singapore HSA), so it is kept for older children
+  // and no newborn ward is offered it (Praew, 2026-09-18).
+  aminoplasmal15: { label: "15% Aminoplasmal",   short: "Aminoplasmal 15%", gPerMl: 0.15,
+                 caution: "ฉลากยา: ห้ามใช้ในทารกและเด็กอายุต่ำกว่า 2 ปี (not for < 2 years)" },
   smof20:      { label: "20% SMOF",              gPerMl: 0.20 },
   // Na sources — sheet rows 20/21/23
   naCl:        { label: "20% NaCl",              naMeqPerMl: 3.42 },  // H20 = mEq ÷ 3.42
@@ -607,6 +617,12 @@ const MAX_K_MEQ_PER_L = 40;
 // Lets the Mg input (dosed in mEq/kg/d, matching the stock's mEq/mL) also show
 // mg/kg/d for staff cross-checking against a mg-based reference.
 const MG_MG_PER_MEQ = 12.1525;
+// Ceiling of minimal enteral / trophic feeding, mL/kg/day — the "MEF (trophic)
+// 12–24 mL/kg/day" step of the app's own Feeding Advancement card. A feed
+// ticked MEN counts toward neither fluid nor nutrition, and orders prefill
+// from yesterday, so MEN still ticked above this is a warning (never a stop):
+// the feed was probably advanced and the tick left on (Praew, 2026-09-18).
+const MEN_MAX_ML_KG = 24;
 
 // ── Traffic-light status helper ───────────────────────────────
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
@@ -1344,6 +1360,37 @@ function wardGroup(bed) {
   return "other";
 }
 
+// NeoFeed's wards are newborn units — NICU (with its iso rooms) and SCN — so,
+// until a ward for older children is added, every patient is on one, with or
+// without a bed. Praew named the two units in both rules below ("newborn
+// (NICU+SCN)", "SCN+NICU"). A ward for children ≥ 2 years joins by adding its
+// bedWard() value here (once bedWard recognises it), and gets Aminoplasmal
+// and its own dead-space default.
+const OLDER_CHILD_WARDS = Object.freeze([]);
+function isNewbornUnit(patient) {
+  return !OLDER_CHILD_WARDS.includes(bedWard(patient?.currentBed));
+}
+
+// Which amino-acid stocks (KCMH_STOCK keys) a patient may be ordered from,
+// default first. Aminoplasmal 15% is contraindicated under 2 years by its
+// label; Praew (2026-09-18): "plan ไว้สำหรับเด็กโตในอนาคต ปิดช่องนี้ไม่โชว์ใน
+// newborn (NICU+SCN)". So every patient today is offered Aminoven only.
+function aaProductsFor(patient) {
+  return isNewbornUnit(patient) ? ["aminoven10"] : ["aminoven10", "aminoplasmal15"];
+}
+
+// Dead space (ปริมาตรคาสาย, sheet G8) a new TPN order starts with, mL/day —
+// what stays in the giving set, so pharmacy prepares delivered + this and the
+// Factor scales every additive. Praew (2026-09-18): "ใน SCN+NICU แก้เป็น +30 ml
+// อัตโนมัติไปเลย". Until then every order started at 0 (no overfill). It is a
+// starting value — the field and its chips still change it per order — and a
+// saved order keeps its own. A future older-children ward starts at 0 until
+// its own value is decided.
+const NEWBORN_DEAD_VOL_ML = 30;
+function defaultDeadVolFor(patient) {
+  return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
+}
+
 // Only a patient still on the unit occupies a bed — a discharged/transferred/
 // expired session keeps its `currentBed` in the record (that is where they
 // were), but the bed itself is free for the next admission. Same definition
@@ -1532,7 +1579,9 @@ window.NEOFEED_DATA = {
   // Utility functions
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, MG_MG_PER_MEQ,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
+  // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
+  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.

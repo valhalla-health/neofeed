@@ -3,7 +3,9 @@
 // Drives the REAL <Calculator> in jsdom, then checks its rendered order form
 // against an INDEPENDENT re-implementation of the KCMH worksheet's own formula
 // chain (recorded from the workbook earlier this session). Two implementations
-// of the same documented formulas must agree.
+// of the same documented formulas must agree — with one named exception since
+// 2026-09-18: NeoFeed scales Soluvit/Peditrace by the overfill, where the
+// sheet's G43/G45 use actual weight (see vitExtra below).
 const fs = require('fs');
 const vm = require('vm');
 const babel = require('@babel/core');
@@ -153,6 +155,14 @@ setField('10% Ca gluconate', IN.ca);
 setField('Heparin(U/mL)', IN.hepUmL);
 
 const want = sheet(IN);
+// NeoFeed's one deliberate departure from this sheet (Praew, 2026-09-18):
+// Soluvit and Peditrace are scaled by the overfill like every other additive,
+// so the infant receives the full 1 mL/kg; the sheet's G43/G45 stay on actual
+// weight (C6). sheet() above is left exactly as the workbook computes; on an
+// overfilled bag the app's vitamin mL, components and WFI differ from it by
+// precisely vitExtra.
+const overfill = want.prepared / IN.delivered;
+const vitExtra = (want.soluvitMl + want.peditraceMl) * (overfill - 1);
 const form = container.querySelector('#print-form');
 const formText = form.textContent.replace(/\s+/g, ' ');
 const bodyText = container.textContent.replace(/\s+/g, ' ');
@@ -176,8 +186,8 @@ near('D50W mL',                grab(/([\d.]+) mL \(D50W\)/),                  wa
 near('AA g in bag',            grab(/Aminoven infant = [\d.]+ g\/kg\/d = ([\d.]+) g in bag/), want.aaBag, 0.05);
 near('Aminoven mL',            grab(/g\/kg\/d = [\d.]+ g in bag = ([\d.]+) mL/),  want.aaMl,   0.05);
 near('20% NaCl mL',            grab(/mEq = ([\d.]+) mL/),                     want.naClMl,       0.05);
-near('Components total mL',    grab(/Components ([\d.]+) mL/),                want.componentVol, 0.15);
-near('WFI q.s. mL',            grab(/WFI (-?[\d.]+) mL/),                     want.wfi,          0.15);
+near('Components mL (+vitExtra)', grab(/Components ([\d.]+) mL/),             want.componentVol + vitExtra, 0.15);
+near('WFI q.s. mL (−vitExtra)',  grab(/WFI (-?[\d.]+) mL/),                    want.wfi - vitExtra,          0.15);
 near('Dextrose delivered g',   grab(/Dextrose ([\d.]+) g/),                   want.dexDeliveredG, 0.05);
 near('AA delivered g',         grab(/Amino acid ([\d.]+) g =/),               want.aaDeliveredG, 0.05);
 near('Na delivered mEq',       grab(/Na⁺ ([\d.]+) mEq/),                      want.naDelivered,  0.02);
@@ -196,15 +206,25 @@ near('delivered Ca = ordered mg/kg', want.caDelivered / IN.wtKg,  IN.ca,      1e
 const noOverfill = sheet({ ...IN, dead: 0 });
 near('osmolarity unchanged by overfill', want.osm, noOverfill.osm, 0.001);
 near('GIR unchanged by overfill',        want.gir, noOverfill.gir, 1e-9);
-// vitamins deliberately NOT scaled (sheet G43/G45 use C6)
-near('Soluvit mL (not scaled)',    want.soluvitMl,   IN.soluvitMlKg * IN.wtKg,   1e-9);
-near('Peditrace mL (not scaled)',  want.peditraceMl, IN.peditraceMlKg * IN.wtKg, 1e-9);
+// vitamins: the SHEET doses them on actual weight (G43/G45 × C6)…
+near('sheet: Soluvit mL on actual weight',   want.soluvitMl,   IN.soluvitMlKg * IN.wtKg,   1e-9);
+near('sheet: Peditrace mL on actual weight', want.peditraceMl, IN.peditraceMlKg * IN.wtKg, 1e-9);
+// …NeoFeed puts overfill × that in the bag (rounded to 0.1 mL), so what
+// reaches the infant comes back to the ordered 1 mL/kg, like AA, Na and Ca.
+near('app: Soluvit mL = sheet × overfill',   grab(/Soluvit N([\d.]+) mL\/day/),  want.soluvitMl * overfill,   0.05);
+near('app: Peditrace mL = sheet × overfill', grab(/µg\/mL\)([\d.]+) mL\/day/),   want.peditraceMl * overfill, 0.05);
+if (overfill > 1.001) {
+  near('delivered Soluvit = ordered mL/kg',   grab(/× Factor → delivers ([\d.]+) mL \(KCMH sheet G43/), IN.soluvitMlKg * IN.wtKg,   0.05);
+  near('delivered Peditrace = ordered mL/kg', grab(/× Factor → delivers ([\d.]+) mL \(KCMH sheet G45/), IN.peditraceMlKg * IN.wtKg, 0.05);
+}
 
 console.log('\n── UI surfaces the overfill ──');
 const overfilled = IN.dead > 0;
 for (const [label, re, expect] of [
-  // the vitamin caveat must appear ONLY when the bag is actually overfilled
-  ['vitamin overfill caveat', /not overfill-scaled|Vitamins \/ trace/, overfilled],
+  // the vitamins' "× Factor → delivers" note appears ONLY on an overfilled bag
+  ['vitamin "× Factor" note on the form', /× Factor → delivers/, overfilled],
+  // and the old "not overfill-scaled" caveat is gone for good (2026-09-18)
+  ['no "not overfill-scaled" caveat', /not overfill-scaled/, false],
   ['prepared volume shown in app', /Prepared \(เตรียมจริง\)/, true],
   ['delivered section on form',    /DELIVERED IN/, true],
 ]) {

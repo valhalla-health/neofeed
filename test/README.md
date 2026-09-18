@@ -81,6 +81,27 @@ back after the reload and saves as an ordinary edit of the newer row, and a new 
 midnight keeps its date, DOL, typed zeros and draft key. Both fail against `42ce553` (70 of 117 and
 23 of 39 assertions).
 
+`verify-ward-requests-0918.cjs` pins **three requests from the NICU team (2026-09-18)**, with the
+screenshot's own order as its fixture. **MEN** — a trophic feed ticked MEN counts toward no nutrient total
+(tiles, Step 6 EN row, alerts, saved `Daily_Log` figures, printed totals, copied order) while Step 2 still
+shows what the feed provides; an unticked control proves the harness can see EN at all; a Ca-with-no-IV-P
+order whose only P was the MEN feed now raises the no-P stop; and Praew's guard warns (never stops) when
+MEN is ticked above `MEN_MAX_ML_KG`. **Magnesium** — a Step 4 tile against `TARGETS.mg`, in mEq so the
+ESPGHAN bounds 0.2 / 0.4 read in range, with its own alert line citing the parenteral guideline even on
+full feeds. **Aminoplasmal 15%** — contraindicated under 2 years, so `aaProductsFor` offers it on no ward
+today (NICU, iso, SCN, blank and free-text beds all get Aminoven); a saved Aminoplasmal order reopened on
+NICU recomputes as Aminoven and cannot print until saved again; and, with the ward gate stubbed, the
+future-ward path (product buttons, 0.15 g/mL, print, copy, saved choice, "changes vs previous order") works
+end to end while the Center Point entry stays Aminoven only. **Dead space** (§10) — a new NICU/SCN order
+starts at 30 mL and the Factor follows; a new day keeps a dead space somebody set and turns the old
+default's 0 into 30; a saved order reopens with its own; the 0 chip still overrides; a feeds-only day
+prepares no bag. **Vitamins** (§11) — Soluvit and Peditrace scale with the overfill (2.5 mL in a 150 mL
+bag for a 2 kg infant on a 120 mL day, delivering 2 mL), the old info line is gone, the print, bag make-up
+and copied order agree, and the 10 / 15 mL caps apply to what the infant receives. 169 assertions: it
+fails 97 against `f0c172c`, and §11's 9 against `3f35ef8` (PR #75 merged, before the vitamin change).
+Since the dead-space change, a harness order that means "no dead space" types 0
+(`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
+
 `verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
 `tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:
 both shells load nothing but `boot.js`, `vendor/` React, `data.js`, `compiled/*.js` and Google
@@ -154,7 +175,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
 `verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
-`verify-review-0917-drafts.cjs` and
+`verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -185,6 +206,7 @@ node test/verify-center-point-drafts-view.cjs
 node test/verify-center-point-order-changes.cjs
 node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
+node test/verify-ward-requests-0918.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -263,10 +285,14 @@ It also asserts the identities the Factor exists to guarantee:
 - delivered dose per kg comes back out **exactly as ordered**, for AA, Na and Ca
 - **osmolarity and GIR are unchanged** by overfill (amount and volume scale
   together, so concentration is invariant)
-- Soluvit and Peditrace are deliberately **not** scaled — the worksheet's
-  compounding cells `G43`/`G45` use actual weight `C6`, while every electrolyte
-  row uses the Factor `H9`. The app surfaces this as an info alert rather than
-  silently "correcting" the sheet.
+- Soluvit and Peditrace are **the one named departure from the sheet** (since
+  2026-09-18, Praew). The worksheet's compounding cells `G43`/`G45` use actual
+  weight `C6`, while every electrolyte row uses the Factor `H9`. Until then the
+  app followed the sheet and showed an info alert that an overfilled bag
+  under-delivered them. Now it scales them by the overfill too, so they come
+  back to the ordered 1 mL/kg. `sheet()` is left exactly as the workbook
+  computes, and the harness adds the difference as `vitExtra`: the vitamin mL,
+  components and WFI on an overfilled bag.
 
 **`verify-bed-dol-io.cjs`** — regression cover for the three defects reported
 from the ward on 2026-08-17. Sections 1 and 2 are pure `data.js`:
