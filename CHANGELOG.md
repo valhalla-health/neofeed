@@ -13,11 +13,12 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
-## Session 2026-09-18 (2) — Three requests from the NICU team (NOT deployed)
+## Session 2026-09-18 (2) — Ward requests: MEN, a Magnesium tile, Aminoplasmal 15%, dead space 30 mL (NOT deployed)
 
-Praew forwarded three annotated screenshots of the live calculator. Frontend only (`data.js`,
-`calculator.jsx`, `center-point/tpn-snapshot.mjs`); no backend change, no `clasp` step, no new
-`Daily_Log` column. Nothing is deployed until a `main` → `release` PR.
+Praew forwarded three annotated screenshots of the live calculator from the NICU team (§1–§3), then asked
+for a fourth change herself (§4). Frontend only (`data.js`, `calculator.jsx`,
+`center-point/tpn-snapshot.mjs`); no backend change, no `clasp` step, no new `Daily_Log` column. Nothing is
+deployed until a `main` → `release` PR.
 
 ### 1 · "ติ๊ก MEN แล้ว ไม่ต้องเอาไปคิดสารอาหารได้ไหม" — MEN counts toward no nutrient total
 
@@ -91,15 +92,53 @@ Every NeoFeed patient is under 2. **Praew's decision (2026-09-18): "plan ไว�
   printed "10% Aminoven infant"; offering another stock there needs a new packet version first.
   `tpn-snapshot.mjs` reads `solVol.aa`; `tpn-document.mjs` (digest-pinned, copied by CP) is untouched.
 
-`CONSTANTS_VERSION` → `2026-09-18.1` (a `KCMH_STOCK` entry was added; no existing value changed). Register:
-`docs/CLINICAL_CONSTANTS.md`.
+### 4 · "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย" — dead space starts at 30 mL
+
+Praew's own request, the same day, sent with a phone screenshot of Step 3's ปริมาตรคาสาย (dead space)
+field, set to 30 by hand. **A new order on NICU or SCN now starts at 30 mL** (`NEWBORN_DEAD_VOL_ML`, via
+`defaultDeadVolFor(patient)`). Pharmacy prepares delivered + 30 and the Factor scales every additive; the
+per-kg dose delivered is unchanged, as it always is with overfill.
+
+- **A starting value, not a lock.** The field and its 0 / 10 / 20 / 30 chips still change it per order,
+  and the hint reads *NICU/SCN starts at 30*.
+- **Which orders.**
+  - A brand-new order starts at 30.
+  - A new day copied from yesterday keeps a dead space somebody set (10, 20, 30…). Yesterday's **0 was
+    the old default, so it becomes 30**, as does an order that never carried one. A deliberate 0
+    therefore has to be chosen again each day.
+  - **A saved order is the record.** It reopens with its own dead space and prints as saved.
+  - An unsaved draft restores as typed.
+- **"Newborn unit" is one rule** (`isNewbornUnit`): every patient not on a ward in `OLDER_CHILD_WARDS` —
+  every patient today, bed or no bed. `aaProductsFor` now reads it too, with no behaviour change. A future
+  older-children ward starts at 0 until its own value is decided.
+- **No TPN, no bag, no dead space.** `preparedVol` is now 0 when the delivered volume is 0. Without this
+  guard, the default would have turned every feeds-only day into a 30 mL "prepared" bag of water, vitamins
+  and 0.3 mL heparin on the pharmacy form.
+- **What staff will see.**
+  - Every NICU/SCN TPN order shows the Factor and PREPARED figures, and the printed ปริมาตรคาสาย 30 mL.
+  - Whenever Soluvit or Peditrace is ticked, the existing info line *Vitamins / trace elements not
+    overfill-scaled* also appears. Per the KCMH sheet (G43/G45 use actual weight, not the Factor), they
+    reach the infant at delivered ÷ prepared: 80 % on a 120 mL day, 67 % on a 60 mL one. That was already
+    true wherever someone picked 30; now it is every order (`BACKLOG.md` § Next).
+- "Changes vs previous order" reads *Dead space 0 → 30 mL* on each infant's first order after this ships.
+  The order did change.
+
+`CONSTANTS_VERSION` → `2026-09-18.1` for all of this. It covers the new `KCMH_STOCK` entry and the new
+dead-space default; no existing value changed. Register: `docs/CLINICAL_CONSTANTS.md`.
 
 ### Tests
 
-New harness **`test/verify-ward-requests-0918.cjs`**, 129 assertions, mounting the real calculator with
-the screenshot's own order as the fixture. Against `f0c172c` it fails 71 (35 pass; §7 and §9 stop early
-there, where `aaProductsFor` and the product buttons do not exist). It uses a stubbed
-ward gate to drive the future-ward path, and checks the Center Point packet through `buildTpn`.
+New harness **`test/verify-ward-requests-0918.cjs`**, 158 assertions, mounting the real calculator with
+the screenshot's own order as the fixture. Against `f0c172c` it fails 89 (46 pass; §7 and §9 stop early
+there, where `aaProductsFor` and the product buttons do not exist). It uses stubbed ward gates to drive the
+future-ward paths, and checks the Center Point packet through `buildTpn`. Its §1–§9 type dead space 0,
+because their arithmetic is for a bag with no overfill; §10 pins the new default.
+
+Two older harnesses typed nothing for dead space and relied on the old default of 0: four of the six digest
+orders in `verify-review-0917-calc.cjs` §6, and the "no dead space" order in
+`verify-center-point-print-parity.cjs`. They now type 0, so they still pin exactly the orders they were
+written for. **Every digest is unchanged, and no assertion was edited.** `full_en` needed nothing: with no
+TPN there is no bag and no dead space.
 
 Open decisions this raised are in `BACKLOG.md` § Next ("Decisions from the 2026-09-18 ward requests").
 

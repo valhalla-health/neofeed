@@ -176,8 +176,17 @@ clinical judgement. Everything else is engineering sequencing.
         line: the app treats 0 as "not ordered", not "low". The team will notice once MEN stops counting.
         In their screenshot the MEN feed's 5 mg/kg of Ca produced "Calcium off target" on a TPN with no
         calcium. That line is gone, the same as for any TPN-only order.
+      - **Soluvit / Peditrace under overfill, now on every NICU/SCN TPN day.** Dead space starts at 30 mL, and
+        per the KCMH sheet (G43/G45: actual weight, not the Factor) the two reach the infant at delivered ÷
+        prepared: 80 % on a 120 mL day, 67 % on a 60 mL one. The calculator already shows an info line
+        (*not overfill-scaled*). **Ask pharmacy** whether they should now be scaled by the Factor, like every
+        electrolyte and the amino acid.
+      - **A deliberate 0 dead space has to be chosen again each day.** A new day turns yesterday's 0 into 30,
+        because a saved 0 cannot be told apart from the old default. Fine if 0 is rare; otherwise it needs its
+        own "no dead space" flag in `calcInput`.
       - **When an older-children ward is added** (`bedWard`, `BED_OPTIONS`, then `OLDER_CHILD_WARDS`),
-        Aminoplasmal 15% becomes selectable there. Its label's line is **2 years**, not a ward, so an age
+        Aminoplasmal 15% becomes selectable there, and its new orders start at 0 mL dead space until that
+        ward's own value is set in `defaultDeadVolFor`. Its label's line is **2 years**, not a ward, so an age
         check may be wanted then. Center Point needs a packet version with a product slot before it
         can offer it.
 - [ ] ⚖️ **PDPA · Three questions from the 2026-09-17 security review — Praew / DPO.** Should a

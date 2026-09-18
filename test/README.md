@@ -92,7 +92,11 @@ full feeds. **Aminoplasmal 15%** — contraindicated under 2 years, so `aaProduc
 today (NICU, iso, SCN, blank and free-text beds all get Aminoven); a saved Aminoplasmal order reopened on
 NICU recomputes as Aminoven and cannot print until saved again; and, with the ward gate stubbed, the
 future-ward path (product buttons, 0.15 g/mL, print, copy, saved choice, "changes vs previous order") works
-end to end while the Center Point entry stays Aminoven only. Fails 71 assertions against `f0c172c`.
+end to end while the Center Point entry stays Aminoven only. **Dead space** (§10) — a new NICU/SCN order
+starts at 30 mL and the Factor follows; a new day keeps a dead space somebody set and turns the old
+default's 0 into 30; a saved order reopens with its own; the 0 chip still overrides; a feeds-only day
+prepares no bag. Fails 89 assertions against `f0c172c`. Since this change, a harness order that means
+"no dead space" types 0 (`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
 
 `verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
 `tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:

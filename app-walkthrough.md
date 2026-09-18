@@ -668,6 +668,11 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    The amino-acid stock comes from `D.aaProductsFor(patient)` — Aminoven on
    every ward today; Aminoplasmal 15% (contraindicated under 2 years) waits
    for a future older-children ward and is never offered on Center Point.
+   A new order's **dead space** (ปริมาตรคาสาย) starts at
+   `D.defaultDeadVolFor(patient)` — 30 mL on NICU/SCN (2026-09-18) — unless
+   the order it is copied from set a non-zero one; a saved order keeps its
+   own. With no TPN volume there is no bag, so `preparedVol` is 0 whatever
+   the field says.
    Full input state is persisted to
    `localStorage["neofeed_calc_<sessionId>"]` on submit/draft and restored
    on patient switch with a "Prefilled from previous submission (DOL X)"
