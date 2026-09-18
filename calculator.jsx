@@ -60,6 +60,9 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     deadVol_mL: src.deadVol_mL ?? 0,
     dexPct: src.dexPct ?? 0,
     aaPerKg: src.aaPerKg ?? 0,
+    // Which amino-acid stock (a KCMH_STOCK key). Absent from every entry saved
+    // before 2026-09-18, all of which were Aminoven — the only stock there was.
+    aaProduct: src.aaProduct ?? "aminoven10",
     lipidPerKg: src.lipidPerKg ?? 0,
     lipidDripHours: src.lipidDripHours ?? 24,
     naCl: src.naCl ?? 0,
@@ -94,6 +97,17 @@ function calcInputKey(inputs) {
   return JSON.stringify(inputs, Object.keys(inputs || {}).sort());
 }
 
+// The dead space a NEW order starts with (Praew, 2026-09-18: "ใน SCN+NICU
+// แก้เป็น +30 ml อัตโนมัติไปเลย"). A dead space set on the order it is copied
+// from is kept. Yesterday's 0 was the old default, so it — like an order with
+// none — takes the ward's default (D.defaultDeadVolFor: 30 mL on the newborn
+// wards). A saved order being reopened never comes through here: its dead
+// space is part of the record, and so is an unsaved draft's.
+function newOrderDeadVol(src, patient) {
+  const v = Number(src?.deadVol_mL);
+  return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);
+}
+
 // What the "changes vs previous order" list compares — per-kg ORDER values,
 // so a weight change alone doesn't flag every electrolyte line.
 const ORDER_DIFF_FIELDS = [
@@ -103,6 +117,7 @@ const ORDER_DIFF_FIELDS = [
   ["deadVol_mL", "Dead space", "mL"],
   ["dexPct", "Dextrose", "%"],
   ["aaPerKg", "Amino acid", "g/kg/d"],
+  ["aaProduct", "Amino acid product", ""],
   ["lipidPerKg", "SMOF lipid", "g/kg/d"],
   ["lipidDripHours", "Lipid over", "h"],
   ["naCl", "20% NaCl", "mEq/kg/d"],
@@ -131,6 +146,7 @@ const ORDER_DIFF_FIELDS = [
 function describeOrderValue(key, v) {
   if (typeof v === "boolean") return v ? "yes" : "no";
   if (key === "enType") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
+  if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   // A volume derived from Rate × 24 used to reach this list — and the printed
   // pharmacy form — as "98.39999999999999" (review 2026-09-17, UP-C13).
   // toPrecision(12) strips float noise without rounding away a real decimal
@@ -541,6 +557,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const [deadVol_mL, setDeadVol_mL] = useState(0);
   const [dexPct, setDexPct] = useState(0);
   const [aaPerKg, setAaPerKg] = useState(0);
+  const [aaProduct, setAaProduct] = useState("aminoven10");   // KCMH_STOCK key — see aaStockKey
   const [lipidPerKg, setLipidPerKg] = useState(0);
   const [lipidDripHours, setLipidDripHours] = useState(24); // lipid bag infused over 16/20/24h
 
@@ -652,6 +669,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     setDeadVol_mL(n.deadVol_mL);
     setDexPct(n.dexPct);
     setAaPerKg(n.aaPerKg);
+    setAaProduct(n.aaProduct);
     setLipidPerKg(n.lipidPerKg);
     setLipidDripHours(n.lipidDripHours);
     setNaCl(n.naCl);
@@ -806,7 +824,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
 
     if (baselineEntry) {
       skipWeightPropagateRef.current = true;
-      const src = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
+      const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
+      const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
       applyCalcInput(src, baselineEntry.weight, false, fluidMidpoint(src.curWtG ?? src.wtG ?? baselineEntry.weight));
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
@@ -833,7 +852,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const lastWt = D.lastWeighed(patient);
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
     // Fresh entry — ioInput tracks the computed total until edited (ioTouched false).
-    applyCalcInput(restored ? { ...restored, ...NEW_DAY_IO } : {}, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
+    const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
+    applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
@@ -843,11 +863,22 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient?.sessionId, editEntry]);
 
+  // Which amino-acid stock this order compounds from. The ward decides what may
+  // be offered (D.aaProductsFor — Aminoven only on every ward today, because
+  // Aminoplasmal 15% is contraindicated under 2 years). The Center Point entry
+  // is Aminoven only on any ward: its packet (neofeed-tpn-v2) has a single
+  // amino-acid slot, printed "10% Aminoven infant". A saved choice the ward
+  // does not allow falls back to the default — and since the live inputs then
+  // differ from the saved ones, the order reads as edited and must be saved
+  // again before it can print, never old id over new mL (UP-C2).
+  const aaChoices = centerPoint ? ["aminoven10"] : D.aaProductsFor(patient);
+  const aaStockKey = aaChoices.includes(aaProduct) ? aaProduct : aaChoices[0];
+
   // The live inputs, in exactly the shape normalizeCalcInput produces.
   const currentInputs = () => normalizeCalcInput({
     curWtG, tpnWtOverrideG, fluidTargetPerKg, otherIV_mL, drug_mL,
     ioInput, ioOutput, drainContent,
-    route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg, lipidDripHours,
+    route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaProduct: aaStockKey, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
     enType, enVol, enFreq, isMEN,
     inclSoluvit, inclPeditrace, inclAddamel, heparinUmL,
@@ -922,9 +953,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     if (!wtKg) {
       const en0 = D.EN_DB[enType];
       const sv0 = { naCl:0, naAcet:0, glycophos:0, kCl:0, k2hpo4:0, ca:0, mg:0,
-        mg10:0, mg50:0, heparin:0, aaAminoven:0, lipidSMOF:0 };
+        mg10:0, mg50:0, heparin:0, aa:0, lipidSMOF:0 };
       return { wtKg:0, totalTPN_mL, lipidVol:0, lipidBagVol:0, vitalipidVol:0,
         enVolTotal:0, enVolPerKg:0, enKcal:0, enCounted:0, en:en0, useEnteralTargets:false,
+        enFeedKg:{ kcal:0, pro:0, na:0, k:0, ca:0, p:0 }, aaStockKey,
         prescribedFluid:0, totalFluidPerKg:0, remaining:0,
         gir:0, dexG:0, aaG:0, lipidG:0,
         naKg:0, kKg:0, caKg:0, pKg:0, caP:0, caFromEN:0, pFromEN:0,
@@ -935,7 +967,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         pTotal_mg:0, p_glycophos:0, p_k2hpo4:0, na_glycophos:0, isMEN,
         d50wVol:0, soluvitVol:0, peditrace_vol:0, solVol:sv0,
         componentVol:0, wfiVol:0, dexGPerKg:0, kMeqPerL:0, mgStrength,
-        preparedVol: totalTPN_mL + deadVol_mL, deadVol_mL, overfill:1, factor:0,
+        preparedVol: totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0, deadVol_mL, overfill:1, factor:0,
         deliveredFrac:1, dexG_bag:0, aaG_bag:0,
         bag:{ na_mEq:0, k_mEq:0, ca_mg:0, mg_mEq:0, p_mg:0, heparin_units:0 },
       };
@@ -955,13 +987,17 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     //   • Concentration in the bag is likewise unchanged — amount and volume
     //     both scale by `overfill` — so osmolarity needs no change either.
     // Only the absolute bag quantities (grams, mEq/day, mL of each stock) grow.
-    const preparedVol = totalTPN_mL + deadVol_mL;
+    // No TPN volume, no bag, so no dead space: since a new order starts at
+    // 30 mL on the newborn wards (2026-09-18), counting it here would turn a
+    // feeds-only day into a 30 mL bag of water, vitamins and heparin on the
+    // pharmacy form.
+    const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;
     const overfill = totalTPN_mL > 0 ? preparedVol / totalTPN_mL : 1;   // G7/C7
     const factor = wtKg * overfill;                                     // H9
     const deliveredFrac = overfill > 0 ? 1 / overfill : 1;              // C7/G7
 
     const aaG = aaPerKg * wtKg;          // DELIVERED g/day — drives protein + kcal
-    const aaG_bag = aaPerKg * factor;    // IN THE BAG (sheet F11) — drives Aminoven mL
+    const aaG_bag = aaPerKg * factor;    // IN THE BAG (sheet F11) — drives the amino-acid stock mL
     const lipidG = lipidPerKg * wtKg;    // separate syringe: no overfill applied
     const lipidVol = lipidG / 0.20;
     // Vitalipid rides IN the lipid emulsion — it is not a standalone infusion,
@@ -1003,14 +1039,29 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const en = D.EN_DB[enType];
     const enVolTotal = enVol * enFreq;
     const enVolPerKg = enVolTotal / wtKg;
-    const enKcal = enVolTotal / 100 * en.kcal;
-    const enProteinG = enVolTotal / 100 * en.pro;
-    const enLipidG = enVolTotal / 100 * en.fat;
-    const useEnteralTargets = enVolPerKg >= 100;
+    // The feed volume that COUNTS. A MEN (trophic) feed counts toward neither
+    // the fluid total nor any nutrient total — energy, protein, lipid, Na, K,
+    // Ca, P, Ca:P and everything saved or printed from them (NICU team,
+    // 2026-09-18: "ติ๊ก MEN แล้ว ไม่ต้องเอาไปคิดสารอาหาร"; until then it left
+    // fluid only). Every EN term below reads enCounted. enVolTotal/enVolPerKg
+    // stay the feed actually given: the EN volume tile, the route and
+    // Daily_Log's enVolPerKg (which savedDosingWeightOf reads) keep meaning that.
+    const enCounted = isMEN ? 0 : enVolTotal;
+    const enKcal = enCounted / 100 * en.kcal;
+    const enProteinG = enCounted / 100 * en.pro;
+    const enLipidG = enCounted / 100 * en.fat;
+    // A MEN feed is not nutrition, so it never switches on the enteral targets.
+    const useEnteralTargets = enCounted / wtKg >= 100;
+    // What the feed itself provides per kg/day, counted or not — Step 2 shows
+    // it, marked "not counted" when MEN is ticked.
+    const enFeedKg = {
+      kcal: enVolTotal / 100 * en.kcal / wtKg, pro: enVolTotal / 100 * en.pro / wtKg,
+      na:   enVolTotal / 100 * en.na   / wtKg, k:   enVolTotal / 100 * en.k   / wtKg,
+      ca:   enVolTotal / 100 * en.ca   / wtKg, p:   enVolTotal / 100 * en.p   / wtKg,
+    };
 
     // Fluid
     const targetFluid_mLd = fluidTargetPerKg * wtKg;
-    const enCounted = isMEN ? 0 : enVolTotal;
     const prescribedFluid = totalTPN_mL + lipidBagVol + otherIV_mL + drug_mL + enCounted;
     const remaining = targetFluid_mLd - prescribedFluid;
     const totalFluidPerKg = prescribedFluid / wtKg;
@@ -1032,7 +1083,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const lipidKgTotal = totalLipidG / wtKg;
 
     // Distribution per kg
-    const kcalCho = (dexKcal + enVolTotal / 100 * en.cho * 4) / wtKg;
+    const kcalCho = (dexKcal + enCounted / 100 * en.cho * 4) / wtKg;
     const kcalPro = (aaKcal + enProteinG * 4) / wtKg;
     const kcalFat = (lipidKcal + enLipidG * 9) / wtKg;
     const kcalProtPct = kcalKg > 0 ? kcalPro / kcalKg * 100 : 0;
@@ -1043,10 +1094,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const npeN = totalProteinG > 0 ? nonProteinKcal / totalProteinG : 0;
     const peRatio = totalKcal > 0 ? totalProteinG / totalKcal * 100 : 0;
 
-    const naFromEN = en.na * enVolTotal / 100 / wtKg;
-    const kFromEN = en.k * enVolTotal / 100 / wtKg;
-    const caFromEN = en.ca * enVolTotal / 100 / wtKg;
-    const pFromEN = en.p * enVolTotal / 100 / wtKg;
+    const naFromEN = en.na * enCounted / 100 / wtKg;
+    const kFromEN = en.k * enCounted / 100 / wtKg;
+    const caFromEN = en.ca * enCounted / 100 / wtKg;
+    const pFromEN = en.p * enCounted / 100 / wtKg;
 
     // Ca:P mass ratio — uses combined TPN + EN mineral delivery for accuracy
     // When Ca is ordered but total P = 0, Infinity triggers "crit" in rangeStatus
@@ -1089,7 +1140,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       mg50:      mgPerKg> 0 ? r2(mgPerKg* factor / S.mgso4_50.mgMeqPerMl ) : 0,
       // Heparin is dosed per mL of bag (sheet G51 = F51 × G7), so prepared volume
       heparin:   heparinUmL > 0 ? r2(heparinUmL * preparedVol / S.heparin.unitsPerMl) : 0,
-      aaAminoven:r1(aaG_bag / S.aminoven10.gPerMl),
+      aa:        r1(aaG_bag / S[aaStockKey].gPerMl),     // amino acid, chosen stock (aaStockKey)
       lipidSMOF: r1(lipidG / S.smof20.gPerMl),   // separate syringe — no overfill
     };
 
@@ -1109,7 +1160,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // Mirrors the sheet's J52 (Σ component mL) and I53 (WFI q.s. = G7 − Σ).
     // Lipid + Vitalipid are a separate syringe, so they are NOT in this sum.
     const componentVol = parseFloat((
-      d50wVol + solVol.aaAminoven + solVol.naCl + solVol.naAcet + solVol.glycophos +
+      d50wVol + solVol.aa + solVol.naCl + solVol.naAcet + solVol.glycophos +
       solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca +
       soluvitVol + peditrace_vol + solVol.heparin
     ).toFixed(1));
@@ -1133,7 +1184,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
 
     return {
       wtKg, totalTPN_mL, lipidVol, lipidBagVol, vitalipidVol,
-      enVolTotal, enVolPerKg, enKcal, enCounted, en, useEnteralTargets,
+      enVolTotal, enVolPerKg, enKcal, enCounted, en, useEnteralTargets, enFeedKg, aaStockKey,
       prescribedFluid, totalFluidPerKg, remaining,
       gir, dexG, aaG, lipidG,
       naKg, kKg, caKg: caPerKg + caFromEN, pKg: pKg_tpn + pFromEN, caP,
@@ -1149,7 +1200,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       preparedVol, deadVol_mL, overfill, factor, deliveredFrac, dexG_bag, aaG_bag, bag,
     };
   }, [wtG, wtKg, fluidTargetPerKg, otherIV_mL, drug_mL,
-  totalTPN_mL, deadVol_mL, dexPct, aaPerKg, lipidPerKg,
+  totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,
   naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
   enType, enVol, enFreq, isMEN,
   // `route` is deliberately NOT a dependency — the memo never reads it. It is
@@ -1241,6 +1292,14 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 × (40/31) → mass 1.0–1.7.
   // KCMH order form aims at the upper end (~1.7:1).
   const tCaP = D.TARGETS.caP();            // [1.0, 1.7] mass ratio
+  // Mg mEq/kg/day — ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): 0.1–0.2 mmol/kg
+  // in the first days, 0.2–0.3 growing = 0.2–0.4 / 0.4–0.6 mEq. The tile, its
+  // alert and the printed "Normal Requirement" all read this one range, in
+  // mEq because Mg is dosed in mEq: the guideline's mg figures are rounded
+  // (0.1 mmol = 2.43 mg, printed 2.5), so comparing in mg would flag the 0.2
+  // and 0.4 presets — the exact bounds — as off target. Parenteral only: no
+  // enteral Mg target, and no Mg in EN_DB, so the tile is the TPN's Mg.
+  const tMg = D.TARGETS.mg(dol);
 
   // Non-protein energy per g amino acid — classic NPC:N 150–200:1 ÷ 6.25 g AA/g N = 24–32 kcal/g AA
   // (was briefly [30, 40] — that "correction" was unverified; reverted per clinical review 2026-08-11)
@@ -1264,6 +1323,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
   const sCaP = D.rangeStatus(calc.caP, tCaP);
+  const sMg = D.rangeStatus(mgPerKg, tMg);
   // Step 6 total-intake statuses — same targets as Step 4, applied to IV + feed + oral
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
@@ -1326,11 +1386,11 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // panel said "All targets within range" (review F1). The rule is now
   // structural: a tile's status and its alert come from the same variable.
   const tileRef = useEN ? "ESPGHAN 2022 (enteral)" : "ESPGHAN 2018 (parenteral)";
-  const pushTile = (status, name, value, decimals, target, unit, critNote) => {
+  const pushTile = (status, name, value, decimals, target, unit, critNote, ref = tileRef) => {
     if (status === "crit") alerts.push({ level: "crit", title: `${name} critically out of range`,
-      body: `${fmt(value, decimals)} ${unit} — ${critNote || `target ${target[0]}–${target[1]} ${unit}`}.`, ref: tileRef });
+      body: `${fmt(value, decimals)} ${unit} — ${critNote || `target ${target[0]}–${target[1]} ${unit}`}.`, ref });
     else if (status === "warn") alerts.push({ level: "warn", title: `${name} off target`,
-      body: `${fmt(value, decimals)} ${unit} — target ${target[0]}–${target[1]} ${unit}.`, ref: tileRef });
+      body: `${fmt(value, decimals)} ${unit} — target ${target[0]}–${target[1]} ${unit}.`, ref });
   };
   pushTile(sPro,  "Protein",   calc.proteinKg,        1, tPro,  "g/kg/d",    "above the 4.8 g/kg/d hard limit");
   pushTile(sKcal, "Energy",    calc.kcalKg,           0, tKcal, "kcal/kg/d");
@@ -1344,6 +1404,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   if (hardK) alerts.push({ level: "crit", title: "Potassium critically out of range",
     body: `K IV ${vsLimit(ivKKg, 3.5, 1)} mEq/kg/d > 3.5 mEq/kg/d hard limit (TPN only)${withTotal(ivKKg, calc.kTotalDelivered, 1, "mEq/kg/d")}.`, ref: ivRef });
   else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
+  // Mg has only a parenteral reference, so its line never cites the enteral table.
+  pushTile(sMg, "Magnesium", mgPerKg, 2, tMg, "mEq/kg/d", null, "ESPGHAN 2018 (parenteral)");
   // With an oral supplement the order is judged on the total (Step 6 tiles);
   // without one, on TPN + EN (Step 4 tiles) — never both, or they contradict.
   if (mineral.hasOral) {
@@ -1359,6 +1421,13 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${caPScope} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
   else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2, true)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
   if (calc.enVolPerKg > 100 && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
+  // A MEN feed is left out of fluid and every nutrient total, and orders
+  // prefill from yesterday — so a MEN tick left on after the feed is advanced
+  // hides real feeds. Above the trophic ceiling it is flagged; a warning, never
+  // a stop (Praew, 2026-09-18).
+  if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push({ level: "warn", title: "MEN ticked above trophic volume",
+    body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
+    ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d` });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — switch to central.`, ref: "Safety" });
   else if (bagOrdered && sOsm === "warn") alerts.push({ level: "warn", title: route === "peripheral" ? "Osmolarity near peripheral limit" : "Osmolarity high for central line", body: `${calc.osm.toFixed(0)} mOsm/L — ${route === "peripheral" ? "peripheral limit 900" : "endothelial risk above 1800"} mOsm/L.`, ref: "Safety" });
   if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
@@ -1864,27 +1933,33 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 <div className="field en-men-col">
                   <label style={{ visibility: "hidden" }}>MEN</label>
                   <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
-                    hint="Volume not counted in fluid total" />
+                    hint="Not counted in fluid or nutrient totals" />
                 </div>
               </div>
 
-              {/* Full feeds status */}
-              {calc.enVolPerKg >= 100 && (
+              {/* Full feeds status — says the enteral targets are active, so it
+                  shows exactly when they are (never for a MEN feed) */}
+              {calc.useEnteralTargets && (
                 <div style={{ padding: "8px 10px", background: "var(--ok-bg)", border: "1px solid var(--ok-line)",
                   borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600 }}>
                   ✅ Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
                 </div>
               )}
 
-              <div style={{ marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 }}>
-                <div style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 6 }}>Delivered per kg from EN</div>
+              {/* What the feed provides per kg — shown for a MEN feed too, greyed
+                  and marked, because it is real but counts toward no total. */}
+              <div className="en-delivered" style={{ marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 }}>Delivered per kg from EN</span>
+                  {isMEN && calc.enVolTotal > 0 && (
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" }}>MEN — not counted in totals</span>
+                  )}
+                </div>
                 <div style={{ display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" }}>
-                  <span style={{ whiteSpace: "nowrap" }}>kcal <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enKcal / wtKg, 0)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>pro <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.pro / wtKg, 1)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>Na <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.na / wtKg, 1)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>K <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.k / wtKg, 1)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>Ca <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.ca / wtKg, 0)}</span></span>
-                  <span style={{ whiteSpace: "nowrap" }}>P <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(calc.enVolTotal / 100 * calc.en.p / wtKg, 0)}</span></span>
+                  {[["kcal", calc.enFeedKg.kcal, 0], ["pro", calc.enFeedKg.pro, 1], ["Na", calc.enFeedKg.na, 1],
+                    ["K", calc.enFeedKg.k, 1], ["Ca", calc.enFeedKg.ca, 0], ["P", calc.enFeedKg.p, 0]].map(([lab, v, d]) => (
+                    <span key={lab} style={{ whiteSpace: "nowrap" }}>{lab} <span className="num" style={{ fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" }}>{fmt(v, d)}</span></span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -2006,7 +2081,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 <div>
                   <NumField label="ปริมาตรคาสาย (dead space)" unit="mL/day"
                     value={deadVol_mL} onChange={setDeadVol_mL} step={1}
-                    hint={deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"} />
+                    hint={`${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · NICU/SCN starts at ${D.defaultDeadVolFor(patient)}` : ""}`} />
                   <PresetChips values={[0, 10, 20, 30]} current={deadVol_mL} onSelect={setDeadVol_mL} />
                 </div>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
@@ -2068,8 +2143,23 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               <div className="s2-aa-row" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"center",
                 padding:"8px 10px", background:"var(--bg-2)", borderRadius:6 }}>
                 <div>
-                  <NumField label="Amino acid (Aminoven 10%)" unit="g/kg/d" value={aaPerKg} onChange={setAaPerKg} step={0.1} />
+                  <NumField label={`Amino acid (${S[aaStockKey].short})`} unit="g/kg/d" value={aaPerKg} onChange={setAaPerKg} step={0.1} />
                   <PresetChips values={[1.5, 2, 2.5, 3, 3.5]} current={aaPerKg} onSelect={setAaPerKg} />
+                  {/* Offered only where the ward allows more than one stock — on
+                      no ward today (D.aaProductsFor; never on Center Point). */}
+                  {aaChoices.length > 1 && (
+                    <div className="aa-product" style={{ display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Product</span>
+                      <div className="seg" style={{ padding:1 }}>
+                        {aaChoices.map(k => (
+                          <button key={k} className={aaStockKey === k ? "on" : ""} onClick={() => setAaProduct(k)}>{S[k].short}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {S[aaStockKey].caution && (
+                    <div style={{ fontSize:10.5, color:"var(--warn)", fontWeight:600, marginTop:2 }}>⚠ {S[aaStockKey].caution}</div>
+                  )}
                 </div>
                 <div style={{ fontSize:12, color:"var(--ink-2)" }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>
@@ -2083,7 +2173,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 </div>
                 <div style={{ fontSize:12, color:"var(--brand-2)", fontWeight:600 }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Volume</div>
-                  <div className="num" style={{ fontWeight:700, fontSize:15 }}>{fmt(calc.solVol.aaAminoven,1)} mL/day</div>
+                  <div className="num" style={{ fontWeight:700, fontSize:15 }}>{fmt(calc.solVol.aa,1)} mL/day</div>
                 </div>
               </div>
 
@@ -2345,6 +2435,15 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                   color: calc.kMeqPerL > D.MAX_K_MEQ_PER_L ? "var(--crit)" : "var(--ink-3)",
                   fontWeight: calc.kMeqPerL > D.MAX_K_MEQ_PER_L ? 700 : 400 }}>
                   in bag: {fmt(calc.kMeqPerL,0)} mEq/L (max {D.MAX_K_MEQ_PER_L})
+                </div>
+              )}
+              {/* Mg in the unit it is dosed in (tMg), plus mg/kg/d for the
+                  guideline's mg columns. TPN only: EN_DB carries no Mg. */}
+              <Tile label="Magnesium" value={mgPerKg} unit=" mEq/kg/d" target={tMg} status={sMg} decimals={2} max={1} />
+              {mgPerKg > 0 && (
+                <div className="mg-mgkg" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}
+                  title="ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): preterm, first days 0.1–0.2 mmol (2.5–5.0 mg)/kg/d; growing 0.2–0.3 mmol (5.0–7.5 mg)/kg/d · 1 mmol Mg = 2 mEq">
+                  = {fmt(mgPerKg * D.MG_MG_PER_MEQ, 1)} mg/kg/d · TPN only
                 </div>
               )}
               <Tile label="Calcium" value={calc.caKg} unit=" mg/kg/d" target={tCa} status={sCa} decimals={0} max={140} />
@@ -2645,7 +2744,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
             </div>
             <div style={{ marginTop: 12, borderTop: "1px solid var(--line-2)", paddingTop: 10, display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--ink-3)" }}>
               <span>TPN <span className="num" style={{ color: "var(--ink)" }}>{calc.tpnKcal.toFixed(0)}</span></span>
-              <span>EN <span className="num" style={{ color: "var(--ink)" }}>{calc.enKcal.toFixed(0)}</span></span>
+              <span>EN <span className="num" style={{ color: "var(--ink)" }}>{calc.enKcal.toFixed(0)}</span>
+                {isMEN && calc.enVolTotal > 0 && <span style={{ marginLeft: 4 }}>(MEN — not counted)</span>}</span>
               <span>EN share <span className="num" style={{ color: "var(--ink)" }}>{calc.totalKcal > 0 ? (calc.enKcal / calc.totalKcal * 100).toFixed(0) : 0}%</span></span>
             </div>
           </div>
@@ -2766,7 +2866,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 `──────────────────────────────`,
                 `DEXTROSE: ${dexPct}% → D50W ${calc.d50wVol} mL/day | ${calc.dexG_bag.toFixed(1)} g in bag, ${calc.dexG.toFixed(1)} g delivered = ${calc.dexGPerKg.toFixed(1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})`,
                 `  GIR: ${calc.gir.toFixed(1)} mg/kg/min`,
-                `AA (Aminoven 10%): ${aaPerKg} g/kg/d → ${calc.aaG_bag.toFixed(1)} g in bag = ${calc.solVol.aaAminoven} mL/day (${calc.aaG.toFixed(1)} g delivered)`,
+                `AA (${S[aaStockKey].short}): ${aaPerKg} g/kg/d → ${calc.aaG_bag.toFixed(1)} g in bag = ${calc.solVol.aa} mL/day (${calc.aaG.toFixed(1)} g delivered)`,
                 `Lipid (SMOF 20%): ${lipidPerKg} g/kg/d = ${calc.lipidG.toFixed(1)} g/d → ${calc.solVol.lipidSMOF} mL/day`,
                 `Vitalipid N Infant: ${calc.vitalipidVol.toFixed(1)} mL/day → lipid bag`,
                 `──────────────────────────────`,
@@ -2789,7 +2889,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 `BAG MAKE-UP:  components ${calc.componentVol.toFixed(1)} mL + WFI q.s. ${calc.wfiVol.toFixed(1)} mL = ${calc.preparedVol.toFixed(1)} mL prepared`,
                 calc.wfiVol < 0 ? `  !! COMPONENTS EXCEED BAG VOLUME by ${Math.abs(calc.wfiVol).toFixed(1)} mL — cannot compound` : "",
                 `──────────────────────────────`,
-                calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${calc.enVolTotal} mL/day (${calc.enVolPerKg.toFixed(0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid]" : ""}` : "EN: None",
+                calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${calc.enVolTotal} mL/day (${calc.enVolPerKg.toFixed(0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "EN: None",
                 `──────────────────────────────`,
                 (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
                 suppMTV    ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",
@@ -2857,7 +2957,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
           Print button nor the browser's own Ctrl+P can put unsaved numbers
           on a pharmacy order (2026-09-11 review, F2). */}
       {printable && !centerPoint && <PrintOrderForm
-        targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: D.TARGETS.mg(dol), source: tileRef }}
+        targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: tMg, source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight}
@@ -3104,7 +3204,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         </tr>
         <tr>
           <td>Amino acid</td>
-          <td><strong>☑ 10% Aminoven infant</strong> = <strong>{f(aaPerKg,2)}</strong> g/kg/d = <strong>{f(calc.aaG_bag,1)}</strong> g in bag = <strong>{f(calc.solVol?.aaAminoven,1)}</strong> mL</td>
+          <td><strong>☑ {S[calc.aaStockKey]?.label || S.aminoven10.label}</strong> = <strong>{f(aaPerKg,2)}</strong> g/kg/d = <strong>{f(calc.aaG_bag,1)}</strong> g in bag = <strong>{f(calc.solVol?.aa,1)}</strong> mL</td>
         </tr>
         <tr>
           <td>Lipid</td>
