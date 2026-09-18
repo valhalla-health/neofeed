@@ -1360,18 +1360,35 @@ function wardGroup(bed) {
   return "other";
 }
 
+// NeoFeed's wards are newborn units — NICU (with its iso rooms) and SCN — so,
+// until a ward for older children is added, every patient is on one, with or
+// without a bed. Praew named the two units in both rules below ("newborn
+// (NICU+SCN)", "SCN+NICU"). A ward for children ≥ 2 years joins by adding its
+// bedWard() value here (once bedWard recognises it), and gets Aminoplasmal
+// and its own dead-space default.
+const OLDER_CHILD_WARDS = Object.freeze([]);
+function isNewbornUnit(patient) {
+  return !OLDER_CHILD_WARDS.includes(bedWard(patient?.currentBed));
+}
+
 // Which amino-acid stocks (KCMH_STOCK keys) a patient may be ordered from,
 // default first. Aminoplasmal 15% is contraindicated under 2 years by its
 // label; Praew (2026-09-18): "plan ไว้สำหรับเด็กโตในอนาคต ปิดช่องนี้ไม่โชว์ใน
-// newborn (NICU+SCN)". NeoFeed has no ward for older children yet, so this
-// list is empty and every patient — NICU, iso, SCN, no bed or a free-text
-// bed — is offered Aminoven only. A ward for children ≥ 2 years gets the
-// choice by adding its bedWard() value here (once bedWard recognises it).
-const OLDER_CHILD_WARDS = Object.freeze([]);
+// newborn (NICU+SCN)". So every patient today is offered Aminoven only.
 function aaProductsFor(patient) {
-  return OLDER_CHILD_WARDS.includes(bedWard(patient?.currentBed))
-    ? ["aminoven10", "aminoplasmal15"]
-    : ["aminoven10"];
+  return isNewbornUnit(patient) ? ["aminoven10"] : ["aminoven10", "aminoplasmal15"];
+}
+
+// Dead space (ปริมาตรคาสาย, sheet G8) a new TPN order starts with, mL/day —
+// what stays in the giving set, so pharmacy prepares delivered + this and the
+// Factor scales every additive. Praew (2026-09-18): "ใน SCN+NICU แก้เป็น +30 ml
+// อัตโนมัติไปเลย". Until then every order started at 0 (no overfill). It is a
+// starting value — the field and its chips still change it per order — and a
+// saved order keeps its own. A future older-children ward starts at 0 until
+// its own value is decided.
+const NEWBORN_DEAD_VOL_ML = 30;
+function defaultDeadVolFor(patient) {
+  return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
 }
 
 // Only a patient still on the unit occupies a bed — a discharged/transferred/
@@ -1563,8 +1580,8 @@ window.NEOFEED_DATA = {
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
-  // Amino-acid stock a patient may be ordered from (Aminoven only on every ward today)
-  OLDER_CHILD_WARDS, aaProductsFor,
+  // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
+  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.

@@ -97,6 +97,17 @@ function calcInputKey(inputs) {
   return JSON.stringify(inputs, Object.keys(inputs || {}).sort());
 }
 
+// The dead space a NEW order starts with (Praew, 2026-09-18: "ใน SCN+NICU
+// แก้เป็น +30 ml อัตโนมัติไปเลย"). A dead space set on the order it is copied
+// from is kept. Yesterday's 0 was the old default, so it — like an order with
+// none — takes the ward's default (D.defaultDeadVolFor: 30 mL on the newborn
+// wards). A saved order being reopened never comes through here: its dead
+// space is part of the record, and so is an unsaved draft's.
+function newOrderDeadVol(src, patient) {
+  const v = Number(src?.deadVol_mL);
+  return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);
+}
+
 // What the "changes vs previous order" list compares — per-kg ORDER values,
 // so a weight change alone doesn't flag every electrolyte line.
 const ORDER_DIFF_FIELDS = [
@@ -813,7 +824,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
 
     if (baselineEntry) {
       skipWeightPropagateRef.current = true;
-      const src = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
+      const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
+      const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
       applyCalcInput(src, baselineEntry.weight, false, fluidMidpoint(src.curWtG ?? src.wtG ?? baselineEntry.weight));
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
@@ -840,7 +852,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const lastWt = D.lastWeighed(patient);
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
     // Fresh entry — ioInput tracks the computed total until edited (ioTouched false).
-    applyCalcInput(restored ? { ...restored, ...NEW_DAY_IO } : {}, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
+    const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
+    applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
@@ -954,7 +967,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         pTotal_mg:0, p_glycophos:0, p_k2hpo4:0, na_glycophos:0, isMEN,
         d50wVol:0, soluvitVol:0, peditrace_vol:0, solVol:sv0,
         componentVol:0, wfiVol:0, dexGPerKg:0, kMeqPerL:0, mgStrength,
-        preparedVol: totalTPN_mL + deadVol_mL, deadVol_mL, overfill:1, factor:0,
+        preparedVol: totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0, deadVol_mL, overfill:1, factor:0,
         deliveredFrac:1, dexG_bag:0, aaG_bag:0,
         bag:{ na_mEq:0, k_mEq:0, ca_mg:0, mg_mEq:0, p_mg:0, heparin_units:0 },
       };
@@ -974,7 +987,11 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     //   • Concentration in the bag is likewise unchanged — amount and volume
     //     both scale by `overfill` — so osmolarity needs no change either.
     // Only the absolute bag quantities (grams, mEq/day, mL of each stock) grow.
-    const preparedVol = totalTPN_mL + deadVol_mL;
+    // No TPN volume, no bag, so no dead space: since a new order starts at
+    // 30 mL on the newborn wards (2026-09-18), counting it here would turn a
+    // feeds-only day into a 30 mL bag of water, vitamins and heparin on the
+    // pharmacy form.
+    const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;
     const overfill = totalTPN_mL > 0 ? preparedVol / totalTPN_mL : 1;   // G7/C7
     const factor = wtKg * overfill;                                     // H9
     const deliveredFrac = overfill > 0 ? 1 / overfill : 1;              // C7/G7
@@ -2064,7 +2081,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 <div>
                   <NumField label="ปริมาตรคาสาย (dead space)" unit="mL/day"
                     value={deadVol_mL} onChange={setDeadVol_mL} step={1}
-                    hint={deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"} />
+                    hint={`${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · NICU/SCN starts at ${D.defaultDeadVolFor(patient)}` : ""}`} />
                   <PresetChips values={[0, 10, 20, 30]} current={deadVol_mL} onSelect={setDeadVol_mL} />
                 </div>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>

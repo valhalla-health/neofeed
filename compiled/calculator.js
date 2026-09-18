@@ -73,6 +73,10 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
 function calcInputKey(inputs) {
   return JSON.stringify(inputs, Object.keys(inputs || {}).sort());
 }
+function newOrderDeadVol(src, patient) {
+  const v = Number(src?.deadVol_mL);
+  return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);
+}
 const ORDER_DIFF_FIELDS = [
   ["route", "Route", ""],
   ["fluidTargetPerKg", "Target fluid", "mL/kg/d"],
@@ -510,7 +514,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const NEW_DAY_IO = { ioInput: 0, ioOutput: 0, drainContent: 0 };
     if (baselineEntry) {
       skipWeightPropagateRef.current = true;
-      const src = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
+      const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
+      const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
       applyCalcInput(src, baselineEntry.weight, false, fluidMidpoint(src.curWtG ?? src.wtG ?? baselineEntry.weight));
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
       return;
@@ -530,7 +535,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     }
     const lastWt = D.lastWeighed(patient);
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
-    applyCalcInput(restored ? { ...restored, ...NEW_DAY_IO } : {}, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
+    const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
+    applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
     } else {
@@ -703,7 +709,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         dexGPerKg: 0,
         kMeqPerL: 0,
         mgStrength,
-        preparedVol: totalTPN_mL + deadVol_mL,
+        preparedVol: totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0,
         deadVol_mL,
         overfill: 1,
         factor: 0,
@@ -713,7 +719,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         bag: { na_mEq: 0, k_mEq: 0, ca_mg: 0, mg_mEq: 0, p_mg: 0, heparin_units: 0 }
       };
     }
-    const preparedVol = totalTPN_mL + deadVol_mL;
+    const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;
     const overfill = totalTPN_mL > 0 ? preparedVol / totalTPN_mL : 1;
     const factor = wtKg * overfill;
     const deliveredFrac = overfill > 0 ? 1 / overfill : 1;
@@ -1663,7 +1669,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       value: deadVol_mL,
       onChange: setDeadVol_mL,
       step: 1,
-      hint: deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"
+      hint: `${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · NICU/SCN starts at ${D.defaultDeadVolFor(patient)}` : ""}`
     }
   ), /* @__PURE__ */ React.createElement(PresetChips, { values: [0, 10, 20, 30], current: deadVol_mL, onSelect: setDeadVol_mL })), /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" } }, "Prepared (เตรียมจริง)"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontWeight: 700, fontSize: 15, color: "var(--ink)" } }, fmt(calc.preparedVol, 1), " mL/day"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, marginTop: 1 } }, "delivered ", fmt(totalTPN_mL, 1), " mL")), /* @__PURE__ */ React.createElement("div", { style: {
     padding: "8px 10px",

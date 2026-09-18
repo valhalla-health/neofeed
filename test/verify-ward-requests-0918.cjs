@@ -28,6 +28,13 @@
 //          from one list in data.js, and its arithmetic, print and saved order
 //          are pinned here through a stubbed gate. Center Point never offers it:
 //          CP's packet has one amino-acid slot, labelled "10% Aminoven infant".
+//   §10    "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย" — a new order on the newborn
+//          wards starts with 30 mL dead space (ปริมาตรคาสาย), so pharmacy
+//          prepares delivered + 30 and the Factor scales every additive. A new
+//          day keeps a dead space somebody set and turns yesterday's 0 (the old
+//          default) into 30; a saved order is the record and reopens unchanged;
+//          the chips still override. No TPN, no bag: a feeds-only day prepares
+//          nothing, so the default cannot put a 30 mL bag on the pharmacy form.
 //
 // Mounts the real <Calculator> in jsdom (same dev-only deps as the other
 // calculator harnesses — see test/README.md). Fails against f0c172c.
@@ -182,7 +189,9 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
   setField('Current weight', 2000); fillRequired(120);
   selectFeed('BM_20'); setField('Volume(mL/feed)', vol); setField('Frequency', freq);
   setChk('MEN', men);
-  setField('Volume(mL/day)', tpnMl); setField('Dextrose final', 10);
+  // Dead space 0: §1-§9's arithmetic is for a bag with no overfill. A new
+  // order starts at 30 mL on the newborn wards since §10's change.
+  setField('Volume(mL/day)', tpnMl); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10);
   setField('Amino acid', 2); setField('SMOF Lipid', 2);
   setField('20% NaCl', 1); setField('Glycophos', 3); setField('KCl', 3); setField('MgSO₄', 0.6);
 }
@@ -453,7 +462,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       // CP has no Intake / Output card: Step 1 is its whole required set.
       setField('Current weight', 2000);
       ['Target fluid', 'Other IV', 'Drug volume'].forEach(l => setField(l, l === 'Target fluid' ? 120 : 0));
-      setField('Volume(mL/day)', 180); setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+      setField('Volume(mL/day)', 180); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2);
       eq('CP entry: no product buttons even where the ward allows them', aaButtons().length, 0);
       near('CP entry: Aminoven arithmetic, 40 mL', aaVolume(), 40, 1);
       await save();
@@ -464,6 +473,87 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     } finally {
       D.aaProductsFor = realGate;
     }
+  });
+
+  // ═══════════════════════ Dead space: +30 mL on the newborn wards ══════════
+  await section('§10 a new order starts with 30 mL dead space on NICU and SCN (Praew: "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย")', async () => {
+    const deadInput = () => inputFor('ปริมาตรคาสาย');
+    const deadVal = () => { const v = deadInput()?.value; return v === '' ? 0 : Number(v); };   // NumField shows 0 as an empty box
+    const deadChip = (label) => [...deadInput().closest('.field').parentElement.querySelectorAll('.preset-chip')].find(b => b.textContent.trim() === label);
+    const prepared = () => { const m = text(container).match(/Prepared \(เตรียมจริง\)\s*([\d.]+) mL\/day/); return m ? parseFloat(m[1]) : null; };
+    const tpnOrder = () => { setField('Current weight', 2000); fillRequired(120);
+      setField('Volume(mL/day)', 120); setField('Dextrose final', 10); setField('Amino acid', 2); };
+
+    eq('D.NEWBORN_DEAD_VOL_ML = 30', D.NEWBORN_DEAD_VOL_ML, 30);
+    const def = (p) => (typeof D.defaultDeadVolFor === 'function' ? D.defaultDeadVolFor(p) : undefined);
+    for (const bed of ['NICU 5', 'iso 3-2', 'SCN 12', '', 'Ward X (free text)']) {
+      eq(`bed "${bed}" → 30 mL`, def({ currentBed: bed }), 30);
+    }
+    eq('no patient → 30 mL', def(null), 30);
+
+    const log = logger();
+    mount({ patient: pt('DV-2000', 2000), onLog: log.onLog });
+    eq('a new NICU order starts at 30 mL', deadVal(), 30);
+    tpnOrder();
+    near('prepared = delivered 120 + 30 = 150 mL/day', prepared(), 150, 1);
+    ok('Factor = 2 kg × 1.25 overfill = 2.5', /Factor\s*2\.5\s*= 2 kg × 1\.25 overfill/.test(text(container)), text(container).match(/Factor[^o]*overfill/));
+    near('amino acid in the bag scales with it: 2 g/kg × 2.5 = 5 g → 50 mL', aaVolume(), 50, 1);
+    await save();
+    eq('saved calcInput.deadVol_mL = 30', log.entry && log.entry.calcInput.deadVol_mL, 30);
+    ok('print: 150 mL prepared · ปริมาตรคาสาย 30 mL', /150 mL \(Prepared Vol\.\)/.test(printText()) && /ปริมาตรคาสาย 30 mL/.test(printText()),
+      printText().match(/Total Volume:[^F]*/));
+
+    mount({ patient: pt('DS-2000', 2000, { currentBed: 'SCN 12' }), onLog: logger().onLog });
+    eq('a new SCN order starts at 30 mL', deadVal(), 30);
+    tpnOrder();
+    click(deadChip('0'));
+    eq('the 0 chip still overrides it', deadVal(), 0);
+    near('…prepared = delivered, 120 mL/day', prepared(), 120, 1);
+
+    // A new day borrows yesterday's order. Yesterday's 0 was the old default,
+    // so it becomes 30; a dead space somebody set is carried.
+    for (const [yd, want] of [[0, 30], [undefined, 30], [20, 20], [30, 30]]) {
+      const y = { entryId: 'e-y', ts: '2026-09-17', dol: 1, weight: 2000,
+        calcInput: { curWtG: 2000, totalTPN_mL: 120, dexPct: 10, aaPerKg: 2, ...(yd === undefined ? {} : { deadVol_mL: yd }) } };
+      mount({ patient: pt('DY-2000', 2000), dol: 2, baselineEntry: y, previousEntry: y, onLog: logger().onLog });
+      eq(`new day after ${yd === undefined ? 'a legacy order (no dead space)' : `a ${yd} mL order`} → ${want} mL`, deadVal(), want);
+    }
+
+    // A saved order is the record: it reopens with its own dead space and prints unchanged.
+    const saved0 = { entryId: 'e-s0', lastModified: 'lm-s0', ts: '2026-09-18', dol: 1, weight: 2000, ioInput: 150, ioOutput: 60, drainContent: 0,
+      calcInput: { curWtG: 2000, fluidTargetPerKg: 120, otherIV_mL: 0, drug_mL: 0, ioInput: 150, ioOutput: 60, drainContent: 0,
+        totalTPN_mL: 120, deadVol_mL: 0, dexPct: 15, aaPerKg: 2, lipidPerKg: 2 } };   // IV NPE:AA 24 — no critical stop
+    mount({ patient: pt('DR-2000', 2000), editEntry: saved0, onLog: logger().onLog });
+    eq('fixture: no critical alert', alertRows().filter(a => a.level === 'crit').map(a => a.title), []);
+    eq('a saved 0 mL order reopens at 0', deadVal(), 0);
+    ok('…printable as saved: 120 mL prepared', !!printForm() && /120\.0 mL \(Delivered Vol\.\) \/ 120 mL \(Prepared Vol\.\)/.test(printText()),
+      printText().match(/Total Volume:[^F]*/));
+
+    // No TPN, no bag: the default must not turn a feeds-only day into a 30 mL
+    // bag of water, vitamins and heparin on the pharmacy form.
+    const logF = logger();
+    mount({ patient: pt('DF-2000', 2000), dol: 10, onLog: logF.onLog });
+    setField('Current weight', 2000); fillRequired(150);
+    selectFeed('BM_20'); setField('Volume(mL/feed)', 30); setField('Frequency', 8);
+    eq('feeds only: the field still shows the ward default', deadVal(), 30);
+    near('…but nothing is prepared: 0 mL/day', prepared(), 0, 1);
+    await save();
+    ok('…and the printed form asks for no bag', !!printForm() && /— mL \(Prepared Vol\.\)/.test(printText()) && !/ปริมาตรคาสาย 30/.test(printText()),
+      printText().match(/Total Volume:[^F]*/));
+    ok('…no heparin volume either', /7\. Heparin \(100 unit\/mL\)1 unit\/mL = — mL\/day/.test(printText()), printText().match(/7\. Heparin[^0-9]*[\d.]+ unit\/mL = [^ ]+ mL\/day/));
+
+    // Center Point's entry is a newborn-ward order too.
+    mount({ patient: pt('DC-2000', 2000, { currentBed: '' }),
+      centerPoint: { save() { return Promise.resolve({ sourceRecordId: 'DC-2000', recordedAt: '2026-09-18T01:00:00.000Z' }); }, review() {}, failed() {} } });
+    eq('Center Point entry starts at 30 mL', deadVal(), 30);
+
+    // A future older-children ward decides its own default (gate stubbed).
+    const realDefault = D.defaultDeadVolFor;
+    D.defaultDeadVolFor = () => 0;
+    try {
+      mount({ patient: pt('DO-2000', 2000, { currentBed: 'future ward' }), onLog: logger().onLog });
+      eq('a ward whose default is 0 starts at 0', deadVal(), 0);
+    } finally { D.defaultDeadVolFor = realDefault; }
   });
 
   act(() => { root.unmount(); });
