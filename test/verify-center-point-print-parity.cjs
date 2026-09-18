@@ -177,7 +177,8 @@ async function compareOrder(label, extra) {
 (async () => {
   // Without dead space the bag is not overfilled: Factor equals the weight
   // and NeoFeed's overfill-only lines (dead space, "bag ×") are not printed.
-  const plain = await compareOrder('an order with no dead space', []);
+  // Typed as 0: since 2026-09-18 a new order on NICU/SCN starts at 30 mL.
+  const plain = await compareOrder('an order with no dead space', [['ปริมาตรคาสาย', 0]]);
   ok('…that order really has no overfill', plain.payload.calc.overfill <= 1.001, plain.payload.calc.overfill);
   // With dead space they are, so the sweep covers them (re-review finding 4).
   const overfilled = await compareOrder('the same order with 6.3 mL dead space (overfilled bag)', [['ปริมาตรคาสาย', 6.3]]);

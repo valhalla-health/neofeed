@@ -260,7 +260,7 @@ listed by name in §1 but not tabulated — they take props and draw them.
 |---|---|---|---|
 | `calc` (memo) | Full wizard state + weight, dol, route | Derives the whole prescription: total fluid, dextrose g/kg/d and GIR, amino acid and lipid g/kg/d, kcal and NPE:AA ratio, Na/K/Ca/P/Mg per kg, Ca:P mass ratio, osmolarity, bag component volumes, WFI q.s., overfill factor and delivered fraction | One object of derived clinical values, consumed by the tiles, the alerts and the Daily_Log row |
 | `mineral` (memo) | `calc` + oral supplement inputs | Breaks Ca and PO₄ down by source (TPN / EN / oral) and totals them. `mineral.ivCaP` is defined to equal `calc.caP` so the two cannot drift | Mineral memo object |
-| `alerts` (array) | `calc`, `mineral`, `D.TARGETS` | Threshold comparisons producing info / warn / crit flags: GIR out of range, NPE:AA off target, Ca:P off target, osmolarity above peripheral limit, dextrose above the KCMH maximum, K⁺ concentration above the bag maximum, bag not compoundable (negative WFI), vitamins/trace not overfill-scaled | Ordered alert list with level, title, body and reference |
+| `alerts` (array) | `calc`, `mineral`, `D.TARGETS` | Threshold comparisons producing info / warn / crit flags: GIR out of range, NPE:AA off target, Ca:P off target, osmolarity above peripheral limit, dextrose above the KCMH maximum, K⁺ concentration above the bag maximum, bag not compoundable (negative WFI) | Ordered alert list with level, title, body and reference |
 
 > **Ca/PO₄ split.** `calc.caKg` / `calc.pKg` — and therefore the `ca` / `p`
 > columns in every Daily_Log row — count **TPN + EN only**. Oral supplement
@@ -374,7 +374,7 @@ Daily_Log row for that sessionId — see §3.3's `handleDeletePatient` row).
 | Tier | Required | Present today |
 |---|---|---|
 | **Unit** | Components, data cleaning, scoring logic | ⚠ Partial — `test/verify-kcmh-constants.cjs` checks every `KCMH_STOCK` strength against the KCMH pharmacy worksheet's divisors and reproduces two starter recipes. No unit coverage of `TARGETS`, GA helpers, `liveDol`/`dolAtDate`, `pickTarget`, `computeAlerts`, or the alert thresholds |
-| **E2E** | A journey proving the layers interact | ✅ `test/verify-kcmh-factor.cjs` transpiles the real `.jsx`, mounts `<Calculator>` in jsdom, drives the actual inputs and reads results back out of the rendered order form — comparing against an independent transcription of the worksheet's formula chain. Asserts dose-per-kg fidelity, osmolarity/GIR invariance under overfill, and the deliberate non-scaling of Soluvit/Peditrace. No E2E for login, sync, edit-conflict, or erasure |
+| **E2E** | A journey proving the layers interact | ✅ `test/verify-kcmh-factor.cjs` transpiles the real `.jsx`, mounts `<Calculator>` in jsdom, drives the actual inputs and reads results back out of the rendered order form — comparing against an independent transcription of the worksheet's formula chain. Asserts dose-per-kg fidelity, osmolarity/GIR invariance under overfill, and the one named departure from the sheet: since 2026-09-18 Soluvit/Peditrace scale with the overfill (the sheet's G43/G45 use actual weight). No E2E for login, sync, edit-conflict, or erasure |
 | **Performance** | A timed benchmark | ❌ None |
 
 Run them from the repo root (dev dependencies are installed to a scratch folder,

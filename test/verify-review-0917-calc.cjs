@@ -248,26 +248,33 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       return [...form.querySelectorAll('strong')].filter(s => !table.contains(s) && !/บันทึกโดย/.test(s.parentElement.textContent)).map(s => s.textContent.trim());
     };
     const P = pt('CAP-1', 1000, { admissionDate: '2026-09-07' });
+    // Dead space is typed as 0 where an order sets none: at 42ce553 every new
+    // order started at 0. Since 2026-09-18 one on NICU/SCN starts at 30
+    // (verify-ward-requests-0918.cjs §10), which is a different order. full_en
+    // has no TPN, so no bag and no dead space either way.
     const ORDERS = {
       S5_elbw: ['e7466628370cc834', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
         setField('Current weight', 500); fillRequired(150);
-        setField('Volume(mL/day)', 60); setField('Dextrose final', 10); setField('Amino acid', 3); setField('SMOF Lipid', 2);
+        setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('SMOF Lipid', 2);
         setField('20% NaCl', 1); setField('Na Acetate', 1); setField('KCl', 1); setField('Glycophos', 1); }],
       parity_plain: ['f8a53682fe1effb3', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
-      parity_dead: ['aa0510d437c34170', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
+      // Recaptured 2026-09-18 when Soluvit/Peditrace began scaling with the
+      // overfill (Praew). Exactly 4 of its 90 figures moved: Soluvit 1.2 → 1.3,
+      // Peditrace 1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50 (was aa0510d437c34170).
+      parity_dead: ['d70798321bad13ef', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
       mixed_pn_en: ['5baf4705b9b7adbd', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
-        setField('Volume(mL/day)', 90); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('SMOF Lipid', 3);
+        setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('SMOF Lipid', 3);
         setField('20% NaCl', 2); setField('KCl', 2); setField('10% Ca gluconate', 60); setField('Glycophos', 2); setField('MgSO₄', 0.3); }],
       lipid48_k4: ['a53c3c41e71fcc2d', P, () => {
         setField('Current weight', 1000); fillRequired(160);
-        setField('Volume(mL/day)', 110); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('SMOF Lipid', 4.8);
+        setField('Volume(mL/day)', 110); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('SMOF Lipid', 4.8);
         setField('KCl', 4); setField('10% Ca gluconate', 80); setField('Glycophos', 3); }],
       full_en: ['c9690daa62ccf31f', P, () => {
         setField('Current weight', 1500); fillRequired(160); selectFeed('FBM_PF_24'); setField('Volume(mL/feed)', 30); setField('Frequency', 8); }],
     };
     const PARITY = [['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],
-      ['Volume(mL/feed)', 7], ['Frequency', 8], ['Volume(mL/day)', 137], ['Dextrose final', 12.5],
+      ['Volume(mL/feed)', 7], ['Frequency', 8], ['Volume(mL/day)', 137], ['ปริมาตรคาสาย', 0], ['Dextrose final', 12.5],
       ['Amino acid', 3.2], ['SMOF Lipid', 2.6], ['Heparin', 0.5],
       ['20% NaCl', 2.3], ['Na Acetate', 1.1], ['Glycophos', 0.7], ['KCl', 3.1], ['K₂HPO₄', 1.3],
       ['MgSO₄', 0.35], ['10% Ca gluconate', 47], ['Iron', 2.5], ['ปริมาณ elem Ca', 60], ['ปริมาณ elem P', 35], ['Vitamin D', 450],

@@ -656,6 +656,23 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    oral supplement into `calc.caKg`/`calc.pKg` — that would retroactively
    change the meaning of the `ca`/`p` columns in every existing Daily_Log
    row and in `log.jsx`'s TrendGraph target bands.
+   **A MEN (trophic) feed counts toward no total** (2026-09-18, ward
+   request): `calc` builds every EN term from `enCounted`, which is 0 when
+   MEN is ticked — not fluid, not energy/protein/lipid, not Na/K/Ca/P or
+   Ca:P, so not the Daily_Log `pro`/`kcal`/`na`/`k`/`ca`/`p` columns either.
+   `enVolTotal`/`enVolPerKg` stay the feed actually given (the EN volume
+   tile, the route, the `enVolPerKg` column), and Step 2 still lists what the
+   feed provides, marked not counted. MEN above `D.MEN_MAX_ML_KG`
+   (24 mL/kg/d) is a warning, never a stop. Step 4 also has a **Magnesium**
+   tile: the TPN's Mg in mEq/kg/d against `TARGETS.mg` (`EN_DB` has no Mg).
+   The amino-acid stock comes from `D.aaProductsFor(patient)` — Aminoven on
+   every ward today; Aminoplasmal 15% (contraindicated under 2 years) waits
+   for a future older-children ward and is never offered on Center Point.
+   A new order's **dead space** (ปริมาตรคาสาย) starts at
+   `D.defaultDeadVolFor(patient)` — 30 mL on NICU/SCN (2026-09-18) — unless
+   the order it is copied from set a non-zero one; a saved order keeps its
+   own. With no TPN volume there is no bag, so `preparedVol` is 0 whatever
+   the field says.
    Full input state is persisted to
    `localStorage["neofeed_calc_<sessionId>"]` on submit/draft and restored
    on patient switch with a "Prefilled from previous submission (DOL X)"
