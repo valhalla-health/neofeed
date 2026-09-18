@@ -1112,13 +1112,16 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const d50wVol = dexG_bag > 0 ? parseFloat((dexG_bag / S.d50w.gPerMl).toFixed(1)) : 0;
 
     // Vitamins + TE volumes (added to aqueous PN bag)
-    // Both 1 mL/kg/day per the KCMH sheet (B43, B45), capped at 10 / 15 mL.
-    // NOTE: these deliberately use ACTUAL weight, not the Factor — the sheet's
-    // compounding rows G43/G45/G46 are `× C6` while every electrolyte row is
-    // `× H9`. So with overfill the infant receives only `deliveredFrac` of the
-    // 1 mL/kg (surfaced as an alert below rather than silently "corrected").
-    const soluvitVol    = inclSoluvit   ? parseFloat(Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ).toFixed(1)) : 0;
-    const peditrace_vol = inclPeditrace ? parseFloat(Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl).toFixed(1)) : 0;
+    // Both 1 mL/kg/day per the KCMH sheet (B43, B45), capped at 10 / 15 mL a
+    // day to the infant, then scaled by the overfill like every electrolyte
+    // and the amino acid, so the infant receives the full 1 mL/kg (Praew,
+    // 2026-09-18). The KCMH sheet itself does not: its rows G43/G45/G46 are
+    // `× C6` (actual weight), not `× H9`, so an overfilled bag delivered only
+    // `deliveredFrac` of them — 80 % on a 120 mL day once every NICU/SCN order
+    // started with 30 mL dead space. On an overfilled bag NeoFeed's printed
+    // mL therefore exceed that sheet's; the form says so, for pharmacy.
+    const soluvitVol    = inclSoluvit   ? parseFloat((Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ) * overfill).toFixed(1)) : 0;
+    const peditrace_vol = inclPeditrace ? parseFloat((Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * overfill).toFixed(1)) : 0;
 
     // ── Solution volumes mL/day (for pharmacist + order form writing) ────────
     // Every divisor comes from D.KCMH_STOCK — see the "DO NOT change" note there.
@@ -1436,9 +1439,6 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   if (calc.kMeqPerL > D.MAX_K_MEQ_PER_L) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${calc.kMeqPerL.toFixed(0)} mEq/L — max ${D.MAX_K_MEQ_PER_L} mEq/L in the bag. Increase volume or reduce K.`, ref: "KCMH TPN worksheet" });
   if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${calc.componentVol.toFixed(1)} mL but the prepared bag is only ${calc.preparedVol.toFixed(1)} mL — over by ${Math.abs(calc.wfiVol).toFixed(1)} mL.`, ref: "WFI q.s." });
   if (calc.totalTPN_mL > 0 && caPerKg > 0 && k2hpo4 > 0) alerts.push({ level: "warn", title: "Calcium–phosphate compatibility not calculated", body: "This order combines calcium with inorganic phosphate. NeoFeed does not calculate formulation-specific precipitation risk; pharmacy must verify compatibility before compounding or administration.", ref: "ESPGHAN/ESPEN/ESPR/CSPEN 2018" });
-  // Vitamins/TE are compounded on actual weight (sheet G43/G45/G46 use C6, not
-  // H9), so an overfilled bag under-delivers them. Surfaced, not auto-corrected.
-  if (calc.overfill > 1.001 && (inclSoluvit || inclPeditrace)) alerts.push({ level: "info", title: "Vitamins / trace elements not overfill-scaled", body: `Bag is overfilled ×${calc.overfill.toFixed(2)}, but Soluvit/Peditrace are dosed on actual weight per the KCMH sheet — the infant receives ${(calc.deliveredFrac * 100).toFixed(0)}% of the 1 mL/kg (${fmt(calc.soluvitVol * calc.deliveredFrac, 2)} / ${fmt(calc.peditrace_vol * calc.deliveredFrac, 2)} mL). Electrolytes and AA are scaled.`, ref: "KCMH TPN worksheet" });
 
   // ── May this order be printed / copied / submitted right now? ─────────────
   // Saved and unchanged was the whole test (F2). It let through a pharmacy
@@ -2476,12 +2476,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
             <div>
               <div className="sub-h">5. Multivitamin</div>
               <Chk label="Soluvit N® (water-soluble vitamins)" value={inclSoluvit} onChange={setInclSoluvit}
-                hint={inclSoluvit ? `${fmt(calc.soluvitVol, 1)} mL/day  ·  ${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN` : "Not included"} />
+                hint={inclSoluvit ? `${fmt(calc.soluvitVol, 1)} mL/day in bag${calc.overfill > 1.001 ? ` (× Factor → delivers ${fmt(calc.soluvitVol * calc.deliveredFrac, 1)})` : ""}  ·  ${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN` : "Not included"} />
 
               <div className="sub-h" style={{ marginTop: 14 }}>6. Trace Elements</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <Chk label={`Peditrace (Zn ${S.peditrace.znMgPerMl * 1000} µg/mL)`} value={inclPeditrace} onChange={setInclPeditrace}
-                  hint={inclPeditrace ? `${fmt(calc.peditrace_vol, 1)} mL/day  ·  ${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN` : "Not included"} />
+                  hint={inclPeditrace ? `${fmt(calc.peditrace_vol, 1)} mL/day in bag${calc.overfill > 1.001 ? ` (× Factor → delivers ${fmt(calc.peditrace_vol * calc.deliveredFrac, 1)})` : ""}  ·  ${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN` : "Not included"} />
               </div>
 
               <div className="sub-h" style={{ marginTop: 14 }}>7. Heparin</div>
@@ -2882,8 +2882,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 mgPerKg>0 ? `  MgSO4 ${mgStrength}%:    ${mgPerKg} mEq/kg → ${(mgPerKg*calc.factor).toFixed(2)} mEq → ${calc.solVol.mg} mL` : "",
                 calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? calc.caP.toFixed(2) : "!! (Ca ordered, P = 0)"}:1 (mass, TPN+EN)` : "",
                 `──────────────────────────────`,
-                inclSoluvit   ? `Soluvit N:      ${calc.soluvitVol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (not × Factor — delivers ${(calc.soluvitVol*calc.deliveredFrac).toFixed(2)} mL)` : ""}` : "",
-                inclPeditrace ? `Peditrace:      ${calc.peditrace_vol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (not × Factor — delivers ${(calc.peditrace_vol*calc.deliveredFrac).toFixed(2)} mL)` : ""}` : "",
+                inclSoluvit   ? `Soluvit N:      ${calc.soluvitVol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (× Factor — delivers ${(calc.soluvitVol*calc.deliveredFrac).toFixed(2)} mL)` : ""}` : "",
+                inclPeditrace ? `Peditrace:      ${calc.peditrace_vol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (× Factor — delivers ${(calc.peditrace_vol*calc.deliveredFrac).toFixed(2)} mL)` : ""}` : "",
                 `Heparin:        ${heparinUmL} U/mL = ${calc.solVol.heparin} mL of ${S.heparin.unitsPerMl} U/mL`,
                 `──────────────────────────────`,
                 `BAG MAKE-UP:  components ${calc.componentVol.toFixed(1)} mL + WFI q.s. ${calc.wfiVol.toFixed(1)} mL = ${calc.preparedVol.toFixed(1)} mL prepared`,
@@ -3298,14 +3298,14 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={td}><strong>5. Multivitamin</strong><br/>{chk(inclSoluvit)} Soluvit N</td>
             <td style={{...tdr}} colSpan={2}><strong>{inclSoluvit ? f(calc.soluvitVol,1) : "—"}</strong> mL/day</td>
             <td style={td}>Soluvit N {S.soluvit.mlPerKg} mL/kg/day (max {S.soluvit.maxMl} mL/day)
-              {calc.overfill > 1.001 && <div style={{ fontSize:9, color:"#a60" }}>not × Factor (sheet G43) → delivers {f(calc.soluvitVol * calc.deliveredFrac, 2)} mL</div>}</td>
+              {calc.overfill > 1.001 && <div style={{ fontSize:9, color:"#a60" }}>× Factor → delivers {f(calc.soluvitVol * calc.deliveredFrac, 2)} mL (KCMH sheet G43: × actual weight)</div>}</td>
           </tr>
           {/* Trace */}
           <tr>
             <td style={td}><strong>6. Trace Element</strong><br/>{chk(inclPeditrace)} Peditrace (Zn {S.peditrace.znMgPerMl * 1000} µg/mL)</td>
             <td style={{...tdr}} colSpan={2}><strong>{inclPeditrace ? f(calc.peditrace_vol,1) : "—"}</strong> mL/day</td>
             <td style={td}>Peditrace {S.peditrace.mlPerKg} mL/kg/day (max {S.peditrace.maxMl} mL)
-              {calc.overfill > 1.001 && <div style={{ fontSize:9, color:"#a60" }}>not × Factor (sheet G45) → delivers {f(calc.peditrace_vol * calc.deliveredFrac, 2)} mL</div>}</td>
+              {calc.overfill > 1.001 && <div style={{ fontSize:9, color:"#a60" }}>× Factor → delivers {f(calc.peditrace_vol * calc.deliveredFrac, 2)} mL (KCMH sheet G45: × actual weight)</div>}</td>
           </tr>
           {/* Heparin */}
           <tr>

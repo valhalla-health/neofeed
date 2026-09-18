@@ -258,7 +258,10 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
         setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('SMOF Lipid', 2);
         setField('20% NaCl', 1); setField('Na Acetate', 1); setField('KCl', 1); setField('Glycophos', 1); }],
       parity_plain: ['f8a53682fe1effb3', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
-      parity_dead: ['aa0510d437c34170', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
+      // Recaptured 2026-09-18 when Soluvit/Peditrace began scaling with the
+      // overfill (Praew). Exactly 4 of its 90 figures moved: Soluvit 1.2 → 1.3,
+      // Peditrace 1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50 (was aa0510d437c34170).
+      parity_dead: ['d70798321bad13ef', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
       mixed_pn_en: ['5baf4705b9b7adbd', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
         setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('SMOF Lipid', 3);

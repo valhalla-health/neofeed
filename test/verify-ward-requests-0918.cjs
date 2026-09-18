@@ -35,6 +35,10 @@
 //          default) into 30; a saved order is the record and reopens unchanged;
 //          the chips still override. No TPN, no bag: a feeds-only day prepares
 //          nothing, so the default cannot put a 30 mL bag on the pharmacy form.
+//   §11    Praew, "1. yes": Soluvit and Peditrace scale with the overfill like
+//          every other additive, so the infant receives the full 1 mL/kg (the
+//          KCMH sheet's G43/G45 use actual weight). The caps stay on what the
+//          infant receives.
 //
 // Mounts the real <Calculator> in jsdom (same dev-only deps as the other
 // calculator harnesses — see test/README.md). Fails against f0c172c.
@@ -554,6 +558,51 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       mount({ patient: pt('DO-2000', 2000, { currentBed: 'future ward' }), onLog: logger().onLog });
       eq('a ward whose default is 0 starts at 0', deadVal(), 0);
     } finally { D.defaultDeadVolFor = realDefault; }
+  });
+
+  // ═══════════════════════ Soluvit / Peditrace × Factor ═════════════════════
+  await section('§11 Soluvit and Peditrace scale with the overfill, so the infant gets the full 1 mL/kg (Praew: "1. yes")', async () => {
+    // The KCMH sheet doses them on actual weight (G43/G45 × C6), so an
+    // overfilled bag delivered only delivered ÷ prepared of them — 80 % on a
+    // 120 mL day once every NICU/SCN order started with 30 mL dead space.
+    const readout = (label) => {
+      const row = [...container.querySelectorAll('div')].find(d => d.firstElementChild?.tagName === 'SPAN' && d.firstElementChild.textContent === label);
+      return row ? parseFloat(row.children[1]?.textContent) : null;
+    };
+    const tpn = (wtG, ml) => { setField('Current weight', wtG); fillRequired(120);
+      setField('Volume(mL/day)', ml); setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2); };
+
+    const log = logger();
+    mount({ patient: pt('VT-2000', 2000), onLog: log.onLog });
+    tpn(2000, 120);                                  // + 30 mL dead space → prepared 150, overfill 1.25
+    near('Soluvit in the bag = 1 mL/kg × 2 kg × 1.25 = 2.5 mL', readout('Soluvit N (water-sol.)'), 2.5, 1);
+    near('Peditrace in the bag = 2.5 mL', readout('Peditrace'), 2.5, 1);
+    ok('the "not overfill-scaled" info line is gone', !alertTitles().some(t => /overfill-scaled/i.test(t)), alertTitles());
+    await save();
+    const t = printText();
+    ok('print: Soluvit N 2.5 mL/day, × Factor → delivers 2 mL', /Soluvit N2\.5 mL\/day/.test(t) && /Soluvit N 1 mL\/kg\/day[^×]*× Factor → delivers 2 mL/.test(t),
+      t.match(/5\. Multivitamin.{0,160}/));
+    ok('print: Peditrace 2.5 mL/day, × Factor → delivers 2 mL', /\(Zn 250 µg\/mL\)2\.5 mL\/day/.test(t) && /Peditrace 1 mL\/kg\/day[^×]*× Factor → delivers 2 mL/.test(t),
+      t.match(/6\. Trace Element.{0,160}/));
+    // D50W 30 + AA 50 + heparin 1.5 + Soluvit 2.5 + Peditrace 2.5 = 86.5 mL; WFI 150 − 86.5 = 63.5
+    ok('the bag make-up counts the scaled amounts: components 86.5 + WFI 63.5 = 150 mL',
+      /Components 86\.5 mL \+ WFI 63\.5 mL = 150 mL prepared/.test(t), t.match(/Components [^=]*= [\d.]+ mL prepared/));
+    copied = null;
+    await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order/.test(b.textContent)));
+    ok('copied order: "Soluvit N: 2.5 mL/day → aqueous bag (× Factor — delivers 2.00 mL)"',
+      /Soluvit N:\s+2\.5 mL\/day → aqueous bag \(× Factor — delivers 2\.00 mL\)/.test(copied || ''), (copied || '').match(/Soluvit N:[^\n]*/));
+
+    // No overfill, nothing to scale: 1 mL/kg as before.
+    mount({ patient: pt('VN-2000', 2000), onLog: logger().onLog });
+    tpn(2000, 120); setField('ปริมาตรคาสาย', 0);
+    near('dead space 0: Soluvit 2 mL', readout('Soluvit N (water-sol.)'), 2, 1);
+    near('dead space 0: Peditrace 2 mL', readout('Peditrace'), 2, 1);
+
+    // The caps are on what the infant receives (10 / 15 mL a day), then scaled.
+    mount({ patient: pt('VC-12000', 12000, { weights: [{ dol: 1, w: 12000 }] }), onLog: logger().onLog });
+    tpn(12000, 600);                                 // prepared 630, overfill 1.05
+    near('Soluvit capped at 10 mL delivered → 10.5 mL in the bag', readout('Soluvit N (water-sol.)'), 10.5, 1);
+    near('Peditrace 12 mL delivered (under its 15 cap) → 12.6 mL in the bag', readout('Peditrace'), 12.6, 1);
   });
 
   act(() => { root.unmount(); });
