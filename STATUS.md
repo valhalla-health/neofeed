@@ -223,6 +223,11 @@ confirmation-before-`clasp deploy` model, and the frontend is where the printed 
   `verify-*.cjs` + shell identity) is a **required status check on `release`** — verified via
   `gh api` (`app_id 15368`, GitHub Actions). The workflow file itself lands on `main` with PR #59;
   it already runs on that PR's branch, green.
+- **2026-09-18 — a flake in `harnesses` fixed (PR #79, test-only, nothing deployed):**
+  `verify-review-0917-backend-sync.cjs` § A2 "…with a fresh ts" could fail on unchanged code, and did
+  on PR #76's first run (35302157754). The sandbox's `withNow()` pinned `Date.now()` but not the
+  argument-less `new Date()` that stamps `ts`, so the assertion needed the real clock to tick between
+  two syncs. It now pins both; see `CHANGELOG.md` 2026-09-18 (4).
 - GitHub Pages repointed to serve from `release` (`gh api PUT .../pages`, verified: fresh build
   `status: built`, no error, `index.html` still `200` against the live URL).
 

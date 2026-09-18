@@ -13,6 +13,52 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-18 (4) — The `harnesses` flake: `withNow` pinned `Date.now()` but not `new Date()`
+
+Test-only (`test/gas-vm-sandbox.cjs`, `test/verify-review-0917-backend-sync.cjs`, `test/README.md`).
+`gas-backend.gs` is untouched, still byte-identical to `7049f60`, the source of `@55`. Nothing deploys.
+
+**What failed.** PR #76's first `harnesses` run (35302157754, on a docs-only commit) failed
+`verify-review-0917-backend-sync.cjs` § A2 #040 "…with a fresh ts". The re-run passed, and so did `main`
+and `release` on the same code. `harnesses` is a required check on `release`, so the same flake could
+have held up a deploy.
+
+**Why.** A2 syncs once, then again inside `withNow(Date.now() + 2000, …)`, and asserted
+`second.ts !== first.ts`. The second sync is a cache hit, and `getActivePatientsJson` stamps its `ts`
+with an argument-less `new Date()`. `withNow` replaced `Date.now` only, and `new Date()` never calls
+`Date.now`, so the +2 s never reached the stamp. Both stamps came from the real clock, and the assertion
+held only if that clock ticked between two syncs usually under a millisecond apart.
+- Replaying the two syncs 2,000 times in one warmed-up process gave identical stamps 72 % of the time.
+  The second `ts` was the real clock, 2 s short of the pinned time.
+- With the real clock stopped (a scratch preload freezing `Date.now` and `new Date()`), #040 failed on
+  every run. It was the only one of the three backend harnesses' 344 assertions to fail.
+- 120 ordinary runs on Praew's workstation all passed. A real run meets the race once, before the code
+  is warmed up, when the gap is usually 1 ms or more. CI's runner was fast enough once.
+
+**Fix.**
+- `gas-vm-sandbox.cjs` gives the backend a `Date` whose argument-less form (`new Date()`, `Date()`)
+  reads `Date.now()`. It is still the host's `Date`: same prototype, so `instanceof Date` holds both
+  ways, and `now`, `parse` and `UTC` delegate. So `withNow` now pins every clock read in `gas-backend.gs`.
+  That matters beyond A2. The backend reads the clock both ways: `Date.now()` for sessions and cache TTLs,
+  `new Date()` in 12 places, including `_wardDateKey`, `lastModified` and the audit `ts`. So under
+  `withNow` it used to see two different times at once.
+- A2 now asserts the exact pinned time, `ts === new Date(at).toISOString()`, instead of inequality. A
+  stamp served from the cache and one taken from the real clock both fail it.
+- The other `withNow` blocks (backend-security's 12 h sessions, backend-writes' 10-minute schema cache,
+  A2's two 301 s TTL checks) were read for anything the pinned `new Date()` could change. None depends on
+  it: the first expect `Unauthorized` before any date is read, the second use fixed entry dates, and the
+  third build their expected value under the same pinned clock.
+
+**Verified.**
+- The new assertion fails 3/3 against the old sandbox and passes with the fix. With the real clock
+  stopped, the fixed sandbox passes all three backend harnesses (95, 101, 148).
+- 200 runs of the fixed `verify-review-0917-backend-sync.cjs`, 6 at a time: all 200 passed.
+- Everything `test.yml` runs, on Praew's workstation (Node 24; CI uses 22). A fresh build changes nothing,
+  and the two shells are byte-identical. All 42 `verify-*.cjs` harnesses pass against the sources and
+  against `compiled/`, with both `DEAD=0` runs. The Center Point build and its 5 client tests pass.
+- Against the pre-review backend (`42ce553`, via `NEOFEED_GAS_SRC`) the three backend harnesses still
+  fail 63, 97 and 25 times, as `test/README.md` says.
+
 ## Session 2026-09-18 (2) — Ward requests: MEN, a Magnesium tile, Aminoplasmal 15%, dead space 30 mL (NOT deployed)
 
 Praew forwarded three annotated screenshots of the live calculator from the NICU team (§1–§3), then asked
