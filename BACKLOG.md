@@ -32,6 +32,12 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🩺 **safety · Tell pharmacy: the pharmacy form changed on 2026-09-18 at 11:17 ICT** (PR #77,
+      `STATUS.md`). Every new NICU/SCN TPN order starts with 30 mL dead space and prints PREPARED
+      figures, and Soluvit and Peditrace are × Factor, so on an overfilled bag their printed mL (and the
+      components and WFI) differ from the KCMH worksheet's G43/G45 — 2.5 against 2.0 mL for a 2 kg
+      infant on a 120 mL day. § Next asked for pharmacy to be told *before* this shipped, and nothing
+      records that it was. **Praew's to do, or to tick if already done.**
 - [ ] 📈 **ops · `Audit_Log` growth — now with a hard limit.** The poll adds **15 `readRegistry` rows per
       hour per open tab**, and Google Sheets caps a **workbook** at 10,000,000 cells — empty grid cells
       included. A tab made by `insertSheet` is 26 columns wide, so each 4-column audit row costs 26
@@ -55,16 +61,15 @@ clinical judgement. Everything else is engineering sequencing.
       someone signs in with a non-Workspace Google account for that domain and needs a password
       account first. Steps are in the comment above the flag.
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + the 2026-09-17 frontend, `release` = `dfeb15b`)
-      in one bedside session.**
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + `release` = `96afcd0`) in one bedside session.**
       ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch, from the
-      old `sync-poll-0916` frontend. The new frontend has been live since 09:10 ICT and nobody has
-      reported using it, so every line below is open for it.
-      Everything shipped 2026-09-12, 2026-09-15 and in the 2026-09-18 frontend is verified as
+      old `sync-poll-0916` frontend. The review frontend has been live since 09:10 ICT and the ward
+      requests since 11:17 ICT; nobody has reported using either, so every line below is open.
+      Everything shipped 2026-09-12, 2026-09-15 and in the 2026-09-18 frontends is verified as
       *deployed*, none of it as *used*. One session closes the lot:
       - *(2026-09-18, no bedside needed)* the newest `Daily_Log` rows' `appVersion` (column AG), or a
-        printed order's footer, reads `b=f48894ce64;…;a=b7969bb20d` — the new frontend's stamp, in
-        full in `STATUS.md`;
+        printed order's footer, reads `b=f48894ce64;d=1857fa896b;…;c=c22c5394ad;…` with constants
+        `2026-09-18.1` — the live frontend's stamp, in full in `STATUS.md`;
       - a real login and a real save;
       - **edit a saved order without saving → Print must refuse**;
       - **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the printed form**;
@@ -83,6 +88,9 @@ clinical judgement. Everything else is engineering sequencing.
         infant on full feeds must no longer demand a lipid/K override reason;
         `valhalla-health.github.io/neofeed/` must land on the Thai "moved" page (its guard now runs
         from `boot.js`).
+      - *(2026-09-18 ward requests, live since 11:17 ICT)* a MEN feed moves no tile; the Magnesium tile
+        shows; Aminoplasmal 15% is not offered; a new NICU/SCN order starts at 30 mL dead space and
+        prints PREPARED figures; the Soluvit and Peditrace rows print "× Factor → delivers …".
 
       Stubs model neither `CacheService` eviction nor `LockService` contention, so **only a person
       can close this.** Supersedes the `@53`/`@50`/`@47` versions of this item.

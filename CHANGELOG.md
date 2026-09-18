@@ -13,29 +13,34 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
-## Session 2026-09-18 (3) — Frontend deployed: the 2026-09-17 review is live, both halves (PR #74)
+## Session 2026-09-18 (3) — Two frontend deploys recorded: the 2026-09-17 review (PR #74) and the ward requests (PR #77)
 
-PR #74 (`main` → `release`), opened by `praewxtvl`, was approved and merged by `tasamew` at 02:10:44
-UTC / 09:10 ICT; `release` = `dfeb15b`. It ships PR #73's frontend, 28 minutes after the backend went
-live as `@55`. This session verified the deploy afterwards, read-only; the evidence is in `STATUS.md`
-("How the 2026-09-18 frontend deploy was verified"). Not in this release: PR #75, the ward requests
-(2026-09-18 (2)), opened after it.
+Both verified afterwards, read-only; the evidence is in `STATUS.md`. **PR #74** (`main` → `release`),
+opened by `praewxtvl`, was approved and merged by `tasamew` at 02:10:44 UTC / 09:10 ICT (`dfeb15b`). It
+shipped PR #73's frontend, 28 minutes after the backend went live as `@55`. **PR #77** followed at
+04:17:33 UTC / 11:17 ICT (`96afcd0`), again approved and merged by `tasamew`. It shipped the ward
+requests of 2026-09-18 (2), which the entry below still headlines as "NOT deployed". This PR was opened
+between the two releases; merging `main` into it after #75 landed kept both CHANGELOG entries.
 
 - **Checking a release is now mechanical.** With content-hash tokens, "the release is live" means that
   the served shell is `release`'s `index.html` and that every script it loads hashes to its own `?v=`
   (`REFERENCE.md`, "Proving what a release serves"). Scripted, and fetched on both hosts once as a
-  browser asks and once past any cache: all eight tokens matched, and every file fetched was
-  byte-identical to `origin/release`. That proves what is served, not that it runs; the bedside session
-  in `BACKLOG.md` § Now stays open.
-- **A check that needs no bedside session.** Every save stamps its frontend into `Daily_Log` AG, and
-  every printed order repeats the stamp in its footer. The new frontend's stamp is
-  `b=f48894ce64;…;a=b7969bb20d`; a stamp of named tokens such as `a=sync-poll-0916` means a tab still
-  on the old frontend.
+  browser asks and once past any cache: for both releases all eight tokens matched, and every file
+  fetched was byte-identical to `origin/release`. That proves what is served, not that it runs; the
+  bedside session in `BACKLOG.md` § Now stays open.
+- **A check that needs no bedside session.** Every save stamps its frontend into `Daily_Log` AG (and
+  its constants into AF), and every printed order repeats both in its footer. After #77 the stamp has
+  `d=1857fa896b` and `c=c22c5394ad`, with constants `2026-09-18.1`; `d=3626f2a02e` and `c=7afa9076db`
+  mean a tab still on the #74 frontend, and named tokens such as `a=sync-poll-0916` an older one.
+- **#77 changed the pharmacy form, and nothing records that pharmacy was told.** `BACKLOG.md` § Next
+  made telling pharmacy the condition for shipping Soluvit/Peditrace × Factor; it is now the first
+  item in § Now.
 - **Read check runs, not the combined status.** `gh api …/commits/dfeb15b/status` answers `pending`
   because this repo has no commit statuses at all; `…/check-runs` lists `harnesses`, `Workers Builds:
   neofeed` and the Pages jobs, all green.
-- `BACKLOG.md`: "Ship the 2026-09-17 review" is done and deleted; the bedside item names the new
-  frontend; a new chore drops the six `.jsx` sources from both hosts in the next release.
+- `BACKLOG.md`: "Ship the 2026-09-17 review" is done and deleted; the pharmacy item heads § Now; the
+  bedside item names `96afcd0` and gains the ward requests' checks; a new chore drops the six `.jsx`
+  sources from both hosts in the next release.
 
 ## Session 2026-09-18 (2) — Ward requests: MEN, a Magnesium tile, Aminoplasmal 15%, dead space 30 mL (NOT deployed)
 

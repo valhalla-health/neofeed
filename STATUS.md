@@ -1,22 +1,32 @@
 # NeoFeed — Status
 
-> ✅ **2026-09-18 — the 2026-09-17 review is live, both halves:** backend `@55` since 08:42 ICT, and
-> its frontend (precompiled JS, idle logout, calculator fixes) since 09:10 ICT, when PR #74 merged
-> `main` into `release` (`dfeb15b`). On both hosts the shell and every script it loads are
-> byte-identical to `release`. ⚠️ **No one has reported using the new frontend yet**, and `curl` runs
-> no JavaScript. Next: the bedside session in `BACKLOG.md` § Now.
+> ✅ **2026-09-18, 11:17 ICT — frontend `release` = `96afcd0` on both hosts, with backend `@55`.** Two
+> frontend deploys today: the 2026-09-17 review (PR #74, 09:10 ICT), then the ward requests plus
+> Soluvit/Peditrace × Factor (PR #77, 11:17 ICT). On both hosts the shell and every script it loads
+> are byte-identical to `release`. ⚠️ **#77 changed the pharmacy form**: every new NICU/SCN order
+> starts with 30 mL dead space, and Soluvit and Peditrace are now × Factor. `BACKLOG.md` asked for
+> pharmacy to be told before it shipped, and nothing records that it was. ⚠️ **No one has reported
+> using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
+> (`BACKLOG.md` § Now).
 
-**Updated 2026-09-18** · 🟢 **Backend `@55` and frontend `release` = `dfeb15b` are live.**
-- **Frontend:** PR #74 (`main` → `release`), approved and merged by `tasamew` at 02:10:44 UTC /
-  09:10 ICT. It ships PR #73's frontend: the `.jsx` modules precompiled into `compiled/`, React
-  self-hosted in `vendor/`, `?v=` tokens that are content hashes, and a CSP with no inline script and
-  no eval. Served bytes verified on both hosts at 09:54 ICT — see "How the 2026-09-18 frontend deploy
-  was verified".
-- **Backend:** `@55`, unchanged since 08:42 ICT. `gas-backend.gs` on `release` is byte-identical to
-  `7049f60`, the source `@55` was cut from, so the two halves are in step.
-- ⚠️ **Not yet exercised by a person:** the new frontend. Its provenance stamp, in `Daily_Log` column
-  AG and in every printed order's footer, can show it in use without a bedside session — see that
-  section.
+**Updated 2026-09-18, 11:17 ICT** · 🟢 **Backend `@55` and frontend `release` = `96afcd0` are live.**
+- **Frontend:** PR #77 (`main` → `release`), approved and merged by `tasamew` at 04:17 UTC /
+  11:17 ICT. On top of the review frontend (#74) it ships PR #75, the 2026-09-18 ward requests (MEN
+  counts toward no nutrient total, a Magnesium tile, Aminoplasmal 15% hidden on NICU/SCN, a 30 mL
+  dead-space default on NICU/SCN), and Soluvit/Peditrace × Factor — `CHANGELOG.md` 2026-09-18 (2).
+  `CONSTANTS_VERSION` is now `2026-09-18.1`. Served bytes verified on both hosts at 11:37 ICT — see
+  "How the 2026-09-18 ward-requests deploy was verified".
+- **Backend:** `@55`, unchanged since 08:42 ICT. Neither frontend deploy touched `gas-backend.gs`, which
+  is still byte-identical to `7049f60`, the source `@55` was cut from.
+- ⚠️ **Not yet exercised by a person:** either frontend. Their provenance stamps, in `Daily_Log`
+  columns AF–AG and in every printed order's footer, can show them in use without a bedside session —
+  see those sections.
+
+**Previous (2026-09-18, 09:10–11:17 ICT):** backend `@55` + frontend `release` = `dfeb15b` — the
+review's frontend (PR #74), approved and merged by `tasamew` at 02:10:44 UTC / 09:10 ICT: the `.jsx`
+modules precompiled into `compiled/`, React self-hosted in `vendor/`, `?v=` tokens that are content
+hashes, and a CSP with no inline script and no eval. Served bytes verified on both hosts at 09:54 ICT
+— see "How the 2026-09-18 frontend deploy was verified".
 
 **Previous (2026-09-18, 08:42–09:10 ICT):** backend `@55` + frontend `?v=sync-poll-0916` — the
 review's backend half, shipped first.
@@ -47,7 +57,65 @@ at 20:47 ICT. Verified on both hosts and against the pulled version 54 source �
 🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
 Pages; `main` deploys nothing. See "Release-branch deploy gate".
 
+## How the 2026-09-18 ward-requests deploy was verified
+
+**What ships:** PR #77 merged `main` (`fc2c35c`) into `release` as `96afcd0` — opened by
+`praewxtvl`, approved by `tasamew` at 04:17:23 UTC, merged by `tasamew` at 04:17:33 UTC / 11:17 ICT.
+Eight commits since the previous release (`dfeb15b`), merge included: PR #75 (the ward requests) and
+two commits pushed straight to `main` (`6d52242`, `fc2c35c`: Soluvit/Peditrace × Factor and its docs).
+`git diff origin/main origin/release` was empty when checked. What changed on the hosts: `data.js`
+(`CONSTANTS_VERSION` `2026-09-05.1` → `2026-09-18.1`), `compiled/calculator.js`, and the two shell
+tokens that load them; `calculator.jsx` changed too, published but not loaded. No backend change:
+`gas-backend.gs` is untouched.
+
+**Confirmed from primary sources** (read-only; `gh`, then `curl` at 04:37–04:38 UTC / 11:37 ICT, by
+the method in the next section):
+- ✅ **Checks on `96afcd0` itself:** `harnesses` success (run 35306407007, 04:17:38–04:21:39 UTC);
+  `Workers Builds: neofeed` success at 04:18:01 UTC; `pages build and deployment` (run 35306405983)
+  success — the Pages build of `96afcd0` is `built` with no error, and the `github-pages` deployment
+  reached `success` at 04:18:15 UTC.
+- ✅ **Served bytes, both hosts:** `/` is byte-identical to `release`'s `index.html`, and all eight
+  scripts are byte-identical to `origin/release`, each hashing to its own `?v=`. Two tokens changed:
+  `data.js?v=1857fa896b` (84,295 bytes) and `compiled/calculator.js?v=c22c5394ad` (189,428 bytes); the
+  other six are unchanged. The `vendor/` files, the six `.jsx` sources, `manifest.json` and
+  `moved.html` are byte-identical too, and the `404`s and Cloudflare's CSP are unchanged.
+
+**What changes for staff** (details in `CHANGELOG.md` 2026-09-18 (2)):
+- A feed ticked **MEN (trophic)** counts toward no nutrient total: no tile, alert, saved `Daily_Log`
+  figure, printed total or copied order includes it.
+- A **Magnesium tile** beside Na, K, Ca and P. **Aminoplasmal 15%** is built but not offered on NICU
+  or SCN, which is every patient today.
+- **Every new NICU/SCN TPN order starts with 30 mL dead space.** The pharmacy form prints the Factor and
+  PREPARED figures and ปริมาตรคาสาย 30 mL; a day copied from yesterday turns yesterday's 0 into 30; each
+  infant's first order afterwards shows *Dead space 0 → 30 mL* under "Changes vs previous order".
+- **Soluvit and Peditrace are × Factor**, so the infant receives the full 1 mL/kg. On an overfilled bag
+  the printed vitamin mL, components and WFI now differ from the KCMH worksheet (G43/G45): 2.5 against
+  2.0 mL for a 2 kg infant on a 120 mL day.
+- ⚠️ **Pharmacy.** `BACKLOG.md` said to tell pharmacy about × Factor *before this release ships*.
+  Nothing in the repo records that it was done; it is now the first item in § Now.
+
+**Still NOT confirmed — `curl` does not run JavaScript:** the same three gaps as in the next section,
+and nobody has reported using this frontend. **The quickest proof** is its stamp. Saves and printouts
+from this frontend carry
+
+```
+b=f48894ce64;d=1857fa896b;i=e7f309e445;c=c22c5394ad;f=690bebc4ac;r=2ab223374f;l=7c8755be83;a=b7969bb20d
+```
+
+with constants `2026-09-18.1` (`Daily_Log` AF, and the printed footer). A stamp with `d=3626f2a02e` and
+`c=7afa9076db` came from a tab loaded between 09:10 and 11:17 ICT (the #74 frontend); one with named
+tokens such as `a=sync-poll-0916`, from a tab loaded before 09:10.
+
+**Rollback (frontend):** revert `96afcd0` on `release` — `git revert -m 1 96afcd0` in a PR into
+`release`, the procedure in the next section — which returns both hosts to `dfeb15b`. The backend
+needs no change either way.
+
+---
+
 ## How the 2026-09-18 frontend deploy was verified
+
+*Superseded at 11:17 ICT by PR #77 (section above). The tokens and stamp in this section are
+`dfeb15b`'s; `data.js` and `compiled/calculator.js` have changed since.*
 
 **What ships:** PR #74 merged `main` (`f0c172c`) into `release` as `dfeb15b` — opened by
 `praewxtvl`, approved by `tasamew` at 02:03 UTC, merged by `tasamew` at 02:10:44 UTC / 09:10 ICT.
@@ -405,7 +473,7 @@ retained.
 | Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `42dd655`, **identical to `gas-backend.gs` at `7049f60` and to the deployed version 55** (`clasp pull --versionNumber 55` into a clean scratch dir at the deploy). Re-checked read-only after the frontend deploy: clean working tree, still identical ignoring CR |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | 🟡 **`Daily_Log` AH–AL: no action required, one cosmetic step outstanding** — same shape as AF/AG. Both write paths widen the grid on demand, so the columns appear on the first save/publish — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
-| Cache-bust | Since 2026-09-18 (`dfeb15b`) every `?v=` token is a **content hash** written by `tools/build.mjs`: `boot.js?v=f48894ce64`, `data.js?v=3626f2a02e` and one per `compiled/` module (all eight in "How the 2026-09-18 frontend deploy was verified"). The `vendor/` React files carry their version in the file name instead. Both shells byte-identical, confirmed live on both hosts |
+| Cache-bust | Since 2026-09-18 (`dfeb15b`) every `?v=` token is a **content hash** written by `tools/build.mjs`. Live (`96afcd0`): `boot.js?v=f48894ce64`, `data.js?v=1857fa896b`, `compiled/calculator.js?v=c22c5394ad`; the other five `compiled/` tokens are unchanged since `dfeb15b` (listed in "How the 2026-09-18 frontend deploy was verified"). The `vendor/` React files carry their version in the file name instead. Both shells byte-identical, confirmed live on both hosts |
 
 ## How the 2026-09-15 deploy was verified
 
