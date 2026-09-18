@@ -15,6 +15,8 @@
 //     past the grid edge; getLastRow() is the last row WITH CONTENT;
 //   • CacheService honours TTLs against Date.now(), the 100 KB value cap, the
 //     21600 s TTL cap and the 250-char key cap; putAll/getAll/removeAll exist;
+//   • one clock: an argument-less `new Date()` in gas-backend.gs reads
+//     Date.now(), so withNow() pins every clock read, not just Date.now();
 //   • LockService can be told to time out; every service can be told to throw;
 //   • real HMAC-SHA256 / SHA-256 / gzip / base64.
 //
@@ -42,6 +44,22 @@ const wardToday = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0,
 const addDays = (key, n) => new Date(Date.parse(key + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const bkkMidnight = (key) => { const [y, m, d] = key.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d) - 7 * 3600e3); };
 const isDate = (v) => Object.prototype.toString.call(v) === '[object Date]';
+
+// The backend's Date: the host's own (shared realm, so `instanceof Date` holds
+// for fixture Dates), except that an argument-less `new Date()` / `Date()` reads
+// Date.now(), which the real constructor never does. Without this, withNow()
+// moved Date.now() but not the `ts` stamps, and § A2's "…with a fresh ts" in
+// verify-review-0917-backend-sync.cjs passed only if the real clock ticked
+// between two syncs (it didn't on CI run 35302157754, 2026-09-18).
+const HostDate = Date;
+function SandboxDate(...args) {
+  if (!new.target) return new HostDate(HostDate.now()).toString();
+  return args.length ? new HostDate(...args) : new HostDate(HostDate.now());
+}
+SandboxDate.prototype = HostDate.prototype;
+SandboxDate.now = () => HostDate.now();
+SandboxDate.parse = HostDate.parse;
+SandboxDate.UTC = HostDate.UTC;
 
 function boot(opts) {
   opts = opts || {};
@@ -228,7 +246,7 @@ function boot(opts) {
     ContentService: { createTextOutput: (t) => ({ _text: t, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
     Logger: { log: (m) => env.logs.push(String(m)) },
     console,
-    Date,   // shared realm, so `instanceof Date` holds for fixture Dates
+    Date: SandboxDate,   // the host's Date; `new Date()` reads Date.now() (see SandboxDate)
   };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
@@ -303,7 +321,8 @@ function recorder(title) {
   return r;
 }
 
-// Run fn with Date.now() pinned to `ms` (sandbox and host share Date).
+// Run fn with the clock pinned to `ms`: Date.now() on both sides, and every
+// argument-less `new Date()` in the backend (SandboxDate reads Date.now()).
 function withNow(ms, fn) {
   const real = Date.now;
   Date.now = () => ms;
