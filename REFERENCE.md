@@ -122,6 +122,11 @@ login, so **an agent merges into `release` only on Praew's explicit go-ahead** �
 repos/valhalla-health/neofeed/branches/release/protection/required_pull_request_reviews -F
 required_approving_review_count=1`.
 
+**Recording a deploy never takes its own PR** (Praew's global PR rule, 2026-09-18). Write the
+planned `STATUS.md` change in the PR that ships the code. The post-release checks below exist only
+after the merge, so they go in a comment on the `main → release` PR, and `STATUS.md` catches up in
+the next PR on this repo. PRs #62, #68 and #72 each existed only to record a deploy.
+
 - **Cloudflare Workers Builds' production branch is `release`** (changed by Praew in the dashboard
   on 2026-09-12 — dashboard-only, no `wrangler` subcommand or public API covers it). Both hosts now
   deploy from `release` and **neither deploys from `main`**: merging PR #59 into `main` built
@@ -192,8 +197,9 @@ identity. None of it was true any more. The current procedure:
    `gas-backend.gs`; check `clasp list-deployments` shows the same deployment ID at the
    new version; `curl` the served HTML on **both** frontend hosts to confirm the `?v=`
    cache-bust shipped.
-5. **Update `STATUS.md` in the same commit.** This is part of the definition of done, not
-   a follow-up task.
+5. **Update `STATUS.md` as part of the deploy.** This is part of the definition of done, not
+   a follow-up task — but not a docs-only PR either: put the verification in a comment on the
+   PR whose code you deployed, and bring `STATUS.md` up to date in the next PR on this repo.
 
 Running a function from the Apps Script editor (e.g. the one-off `applyStaffHeaderColumns`
 / `applyLogHeaderColumns` migrations) executes as the signed-in user and may raise an OAuth

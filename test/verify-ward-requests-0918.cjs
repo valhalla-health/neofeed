@@ -315,10 +315,12 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     screenshotOrder({ men: true, vol: 30, freq: 8 });                    // 120 mL/kg/d
     eq('MEN at 120 mL/kg/d: Calcium keeps the parenteral DOL-1 range', tileRange('Calcium'), '32–80');
     ok('…no "EN targets active" banner', !/EN targets active/.test(text(container)));
+    ok('…no Protein : Energy tile (a TPN-only ratio judged on the enteral target)', !tileEl('Protein : Energy'));
     ok('…and the MEN warning is up', !!alertOf(TITLE), alertTitles());
     setChk('MEN', false);
     eq('unticked: Calcium switches to the enteral range', tileRange('Calcium'), '120–200');
     ok('…with the banner', /EN targets active/.test(text(container)));
+    ok('…and the Protein : Energy tile', !!tileEl('Protein : Energy'));
   });
 
   // ═══════════════════════ Magnesium tile ═══════════════════════════════════
@@ -545,6 +547,11 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     ok('…and the printed form asks for no bag', !!printForm() && /— mL \(Prepared Vol\.\)/.test(printText()) && !/ปริมาตรคาสาย 30/.test(printText()),
       printText().match(/Total Volume:[^F]*/));
     ok('…no heparin volume either', /7\. Heparin \(100 unit\/mL\)1 unit\/mL = — mL\/day/.test(printText()), printText().match(/7\. Heparin[^0-9]*[\d.]+ unit\/mL = [^ ]+ mL\/day/));
+    // …nor vitamins (they go into the aqueous bag there is none of), so no
+    // "components exceed the bag" line either (review 2026-09-18, finding 4).
+    ok('…no Soluvit or Peditrace mL', /☑ Soluvit N— mL\/day/.test(printText()) && /\(Zn 250 µg\/mL\)— mL\/day/.test(printText()),
+      printText().match(/5\. Multivitamin.{0,60}|6\. Trace Element.{0,60}/g));
+    ok('…and no over-full bag line', !/เกินปริมาตรถุง/.test(printText()) && !/WFI -/.test(printText()), printText().match(/Components[^=]*=[^p]*prepared/));
 
     // Center Point's entry is a newborn-ward order too.
     mount({ patient: pt('DC-2000', 2000, { currentBed: '' }),
@@ -603,6 +610,90 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     tpn(12000, 600);                                 // prepared 630, overfill 1.05
     near('Soluvit capped at 10 mL delivered → 10.5 mL in the bag', readout('Soluvit N (water-sol.)'), 10.5, 1);
     near('Peditrace 12 mL delivered (under its 15 cap) → 12.6 mL in the bag', readout('Peditrace'), 12.6, 1);
+  });
+
+  // ═══════════════════════ A saved order never reprints new numbers ════════
+  await section('§12 a saved order computed with an older calculation prints only after it is saved again (review 2026-09-18, finding 1)', async () => {
+    // A saved order prints what the calculator computes NOW from its inputs.
+    // This release moves printed figures (vitamins × Factor, MEN out of the
+    // totals, no bag without TPN), so an order saved before it would reprint
+    // new numbers under its old entry id and revision — the UP-C2 rule.
+    const banner = () => text(container.querySelector('.print-blocked'));
+    const readout = (label) => {
+      const row = [...container.querySelectorAll('div')].find(d => d.firstElementChild?.tagName === 'SPAN' && d.firstElementChild.textContent === label);
+      return row ? parseFloat(row.children[1]?.textContent) : null;
+    };
+    const row = (id, ci) => ({ entryId: id, lastModified: 'lm-' + id, ts: '2026-09-18', dol: 1, weight: 1500, ioInput: 150, ioOutput: 60, drainContent: 0,
+      calcInput: { curWtG: 1500, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 150, ioOutput: 60, drainContent: 0,
+        totalTPN_mL: 100, deadVol_mL: 20, dexPct: 12.5, aaPerKg: 2, lipidPerKg: 2, ...ci } });   // IV NPE:AA 23 — no critical stop
+    const open = (entry) => {
+      let updated = null;
+      mount({ patient: pt('RP-1500', 1500), editEntry: entry, onLog: logger().onLog,
+        onUpdate: (id, lm, e) => { updated = e; return Promise.resolve({ ok: true, lastModified: 'lm-2' }); } });
+      return () => updated;
+    };
+
+    // New saves carry the stamp.
+    const log = logger();
+    mount({ patient: pt('RS-1500', 1500), onLog: log.onLog });
+    setField('Current weight', 1500); fillRequired(150);
+    setField('Volume(mL/day)', 100); setField('Dextrose final', 12.5); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+    await save();
+    eq('a save stamps calcInput.constantsVersion', log.entry && log.entry.calcInput.constantsVersion, D.CONSTANTS_VERSION);
+    ok('…and prints straight away', !!printForm());
+
+    let got = open(row('s-now', { constantsVersion: D.CONSTANTS_VERSION }));
+    eq('fixture: no critical alert', alertRows().filter(a => a.level === 'crit').map(a => a.title), []);
+    ok('reopened with the current stamp: printable', !!printForm());
+
+    got = open(row('s-old', { constantsVersion: '2026-09-05.1' }));
+    ok('reopened with an older stamp: Print is held', !printForm());
+    ok('…and the banner says why', /ปรับการคำนวณ/.test(banner()), banner());
+    await save();
+    eq('saving it again restamps the row', got() && got().calcInput.constantsVersion, D.CONSTANTS_VERSION);
+    ok('…after which it prints', !!printForm());
+
+    // Rows saved before this release carry no stamp. Only this release's own
+    // changes are checked for them — the reviewer's case first: 1.5 kg, TPN
+    // 100 mL, dead space 20, vitamins ticked. It printed Soluvit 1.5 mL; the
+    // calculator now says 1.8.
+    got = open(row('s-leg-overfill', {}));
+    near('legacy overfilled row: Soluvit is now 1.5 × 1.2 = 1.8 mL', readout('Soluvit N (water-sol.)'), 1.8, 1);
+    ok('…so Print is held', !printForm());
+    ok('…with the reason', /ปรับการคำนวณ/.test(banner()), banner());
+    await save();
+    ok('…until it is saved again', !!printForm() && /Soluvit N1\.8 mL\/day/.test(printText()), printText().match(/Soluvit N[\d.—]+ mL\/day/));
+
+    open(row('s-leg-plain', { deadVol_mL: 0 }));
+    ok('legacy row with no dead space, no MEN, TPN given: prints as before', !!printForm());
+
+    open(row('s-leg-men', { deadVol_mL: 0, enType: 'BM_20', enVol: 5, enFreq: 8, isMEN: true }));
+    ok('legacy row with a MEN feed (totals now exclude it): held', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
+
+    // A day with no TPN has no bag, so nothing compoundable moved: its vitamin
+    // lines now read "—" instead of mL for a bag that never existed.
+    open(row('s-leg-noTPN', { totalTPN_mL: 0, deadVol_mL: 0, dexPct: 0, aaPerKg: 0, lipidPerKg: 0, enType: 'BM_20', enVol: 30, enFreq: 8 }));
+    ok('legacy feeds-only row: not held (no bag)', !!printForm(), banner());
+    ok('…and it reprints with no vitamin mL', /☑ Soluvit N— mL\/day/.test(printText()), printText().match(/5\. Multivitamin.{0,40}/));
+
+    // PR #77 put 2026-09-18.1 live at 11:17 ICT on 2026-09-18, before the
+    // stamp shipped. Rows saved from then on carry no constantsVersion, yet
+    // their figures were computed as now (vitamins × Factor, MEN out of the
+    // totals). That release was also the first to save `aaProduct`, so the key
+    // dates them: they print without a re-save.
+    open(row('s-win-overfill', { aaProduct: 'aminoven10' }));
+    near('a row saved by the 11:17 release (aaProduct, no stamp): Soluvit 1.8 mL, as it printed', readout('Soluvit N (water-sol.)'), 1.8, 1);
+    ok('…prints without a re-save', !!printForm(), banner());
+    open(row('s-win-men', { aaProduct: 'aminoven10', deadVol_mL: 0, enType: 'BM_20', enVol: 5, enFreq: 8, isMEN: true }));
+    ok('…and so does its MEN order', !!printForm(), banner());
+    // Dated as 2026-09-18.1, not as "current": the next release that moves a
+    // printed figure bumps CONSTANTS_VERSION, and that holds these rows too.
+    const realVersion = D.CONSTANTS_VERSION;
+    D.CONSTANTS_VERSION = '2099-01-01.1';
+    try {
+      open(row('s-win-bumped', { aaProduct: 'aminoven10', deadVol_mL: 0 }));
+      ok('once CONSTANTS_VERSION moves on, such a row is held', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
+    } finally { D.CONSTANTS_VERSION = realVersion; }
   });
 
   act(() => { root.unmount(); });
