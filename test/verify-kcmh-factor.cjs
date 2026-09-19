@@ -103,8 +103,13 @@ act(() => {
     // The worksheet recipe has no lipid, so its NPE:AA (≈ 9 kcal/g) is a
     // critical value; since 2026-09-17 (UP-C6) a saved row prints only when its
     // override names every critical alert, so the shell row carries one.
+    // Since 2026-09-18 a saved row also carries the calculation version it was
+    // computed with; an unstamped overfilled row with vitamins is held from
+    // printing until it is saved again. This shell row stands for one saved
+    // with the current calculation, so it carries the current stamp.
     editEntry: { entryId: 'fixture-entry', lastModified: 'fixture-stamp', ts: '2026-08-06', dol: 5, weight: IN.wtKg * 1000,
-      calcInput: { curWtG: IN.wtKg * 1000, totalTPN_mL: IN.delivered, deadVol_mL: IN.dead, dexPct: IN.dexPct,
+      calcInput: { constantsVersion: window.NEOFEED_DATA.CONSTANTS_VERSION,
+        curWtG: IN.wtKg * 1000, totalTPN_mL: IN.delivered, deadVol_mL: IN.dead, dexPct: IN.dexPct,
         aaPerKg: IN.aaPerKg, naCl: IN.naCl, naAcet: IN.naAcet, glycophosP: IN.glyco, kCl: IN.kCl,
         k2hpo4: IN.k2hpo4, mgPerKg: IN.mg, caPerKg: IN.ca, heparinUmL: IN.hepUmL,
         critOverride: { reason: 'worksheet fixture', alerts: ['NPE:AA critically off target'], at: '2026-08-06T01:00:00.000Z' } } },

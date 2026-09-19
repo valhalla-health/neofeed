@@ -49,7 +49,16 @@ key; this file is what the key points at. A bump with no row here is a bug in th
 ## When to bump `CONSTANTS_VERSION`
 
 **Bump** when a change here can move a printed dose: `KCMH_STOCK`, `MAX_DEXTROSE_G_KG`,
-`MAX_K_MEQ_PER_L`, `TPN_TARGETS`, `ENTERAL_TARGETS`, `EN_DB`, `FENTON_*`.
+`MAX_K_MEQ_PER_L`, `TPN_TARGETS`, `ENTERAL_TARGETS`, `EN_DB`, `FENTON_*` — **and, since 2026-09-18,
+when calculator logic can move a printed figure.** Every save stamps the version into `calcInput`, and a
+saved order stamped with another version prints only after it is saved again (`calculator.jsx`,
+`calcMoved`). A bump therefore also asks the ward to re-save any old order before reprinting it. Rows
+saved on the first `2026-09-18.1` frontend (live 11:17 ICT on 2026-09-18, before the stamp shipped) are
+dated by their `calcInput.aaProduct` key (`savedCalcVersionOf`).
+
+One exception, the one `calcMoved` makes for older rows: a figure printed for a day with **no TPN
+volume**, where there is no bag to compound. The fix that zeroed a feeds-only day's vitamin lines
+therefore kept `2026-09-18.1`.
 
 **Do not bump** for comments, labels, UI copy, or anything in `data.js` that is a helper rather than
 a value — `liveDol`, the GA/PMA helpers, `normalizeBed`, `syncFreshness`. Those are covered by

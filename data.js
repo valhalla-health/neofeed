@@ -16,8 +16,11 @@
 //
 // 🔴 BUMP THIS whenever a change below can move a printed dose — KCMH_STOCK,
 // MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, TPN_TARGETS, ENTERAL_TARGETS, EN_DB,
-// FENTON_*. Not for comments, labels or UI. The register of what each version
-// contains is docs/CLINICAL_CONSTANTS.md.
+// FENTON_* — and, since 2026-09-18, whenever calculator.jsx logic can move a
+// printed figure. Not for comments, labels or UI. Every save stamps it into
+// calcInput, and a saved order stamped with another version prints only after
+// it is saved again (calculator.jsx, calcMoved). The register of what each
+// version contains is docs/CLINICAL_CONSTANTS.md.
 //
 // The immediate reason this exists: the Na acetate (3 mEq/mL) and KCl
 // (2 mEq/mL) stock strengths were INFERRED from the KCMH worksheet's divisors,

@@ -59,6 +59,35 @@ held only if that clock ticked between two syncs usually under a millisecond apa
 - Against the pre-review backend (`42ce553`, via `NEOFEED_GAS_SRC`) the three backend harnesses still
   fail 63, 97 and 25 times, as `test/README.md` says.
 
+## Session 2026-09-18 (3) — Two frontend deploys recorded: the 2026-09-17 review (PR #74) and the ward requests (PR #77)
+
+Both verified afterwards, read-only; the evidence is in `STATUS.md`. **PR #74** (`main` → `release`),
+opened by `praewxtvl`, was approved and merged by `tasamew` at 02:10:44 UTC / 09:10 ICT (`dfeb15b`). It
+shipped PR #73's frontend, 28 minutes after the backend went live as `@55`. **PR #77** followed at
+04:17:33 UTC / 11:17 ICT (`96afcd0`), again approved and merged by `tasamew`. It shipped the ward
+requests of 2026-09-18 (2), which the entry below still headlines as "NOT deployed". This PR was opened
+between the two releases; merging `main` into it after #75 landed kept both CHANGELOG entries.
+
+- **Checking a release is now mechanical.** With content-hash tokens, "the release is live" means that
+  the served shell is `release`'s `index.html` and that every script it loads hashes to its own `?v=`
+  (`REFERENCE.md`, "Proving what a release serves"). Scripted, and fetched on both hosts once as a
+  browser asks and once past any cache: for both releases all eight tokens matched, and every file
+  fetched was byte-identical to `origin/release`. That proves what is served, not that it runs; the
+  bedside session in `BACKLOG.md` § Now stays open.
+- **A check that needs no bedside session.** Every save stamps its frontend into `Daily_Log` AG (and
+  its constants into AF), and every printed order repeats both in its footer. After #77 the stamp has
+  `d=1857fa896b` and `c=c22c5394ad`, with constants `2026-09-18.1`; `d=3626f2a02e` and `c=7afa9076db`
+  mean a tab still on the #74 frontend, and named tokens such as `a=sync-poll-0916` an older one.
+- **#77 changed the pharmacy form, and nothing records that pharmacy was told.** `BACKLOG.md` § Next
+  made telling pharmacy the condition for shipping Soluvit/Peditrace × Factor; it is now the first
+  item in § Now.
+- **Read check runs, not the combined status.** `gh api …/commits/dfeb15b/status` answers `pending`
+  because this repo has no commit statuses at all; `…/check-runs` lists `harnesses`, `Workers Builds:
+  neofeed` and the Pages jobs, all green.
+- `BACKLOG.md`: "Ship the 2026-09-17 review" is done and deleted; the pharmacy item heads § Now; the
+  bedside item names `96afcd0` and gains the ward requests' checks; a new chore drops the six `.jsx`
+  sources from both hosts in the next release.
+
 ## Session 2026-09-18 (2) — Ward requests: MEN, a Magnesium tile, Aminoplasmal 15%, dead space 30 mL (NOT deployed)
 
 Praew forwarded three annotated screenshots of the live calculator from the NICU team (§1–§3), then asked
@@ -215,6 +244,56 @@ in one `main` → `release` PR.
   overfilled order among the six. Exactly 4 of its 90 printed figures moved (Soluvit 1.2 → 1.3, Peditrace
   1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50); a dump of both versions' figures showed no other
   difference.
+
+### 6 · The independent pre-deploy review, and its fixes — which missed #77 (NOT deployed)
+
+While the `main` → `release` PR (#77) was still a draft, a reviewer who had not written the code read the
+whole `release..main` diff. **No critical or high findings.** #77 was approved and merged by `tasamew` at
+11:17 ICT, at `fc2c35c`, while the fixes below were still under test, so **none of them is live**. They ship
+in the next `main` → `release` PR. Acted on here:
+
+- **Medium — an order saved before a release reprinted with that release's numbers.** A saved order prints
+  what the calculator computes now from its inputs, so after this release a pre-deploy order with dead
+  space and vitamins would reprint Soluvit 1.8 mL where it had printed 1.5, under the same entry id and
+  revision. That is the UP-C2 rule, "never old id over new mL".
+  - **Every save now stamps `calcInput.constantsVersion`**, and a saved row whose stamp differs from
+    `CONSTANTS_VERSION` prints, copies and submits only after it is saved again (`calcMoved`). The
+    reason goes in the existing red print-blocked line.
+  - **Rows saved on the live `fc2c35c` since 11:17 carry no stamp either**, but their figures were
+    computed exactly as now. That frontend was the first to save `calcInput.aaProduct`, so
+    `savedCalcVersionOf` dates such a row `2026-09-18.1` and it prints without a re-save. Without this,
+    after the next deploy nearly every NICU/SCN order saved today (30 mL dead space, vitamins ticked)
+    would have been held with a false "the calculation changed".
+  - Rows saved before 11:17 know no version. For them, only this release's own print changes are
+    held: an overfilled bag with Soluvit or Peditrace, or a MEN feed.
+  - A day with no TPN is not held. The only figures that moved there are vitamin mL for a bag that does
+    not exist.
+  - `CONSTANTS_VERSION`'s rule now covers calculator logic that moves a printed figure (`data.js`,
+    `docs/CLINICAL_CONSTANTS.md`). **These fixes keep `2026-09-18.1`.** The only printed figures they move
+    are the vitamin lines of a day with no TPN (next bullet), the same no-bag case `calcMoved` exempts.
+    A bump would have held every order saved on `fc2c35c` today.
+- **Low, pre-existing — a feeds-only day printed vitamin mL and a negative WFI.** With no TPN volume there
+  is no bag, so Soluvit and Peditrace are now 0 there, the same as the dead space in §4. §4's comment had
+  claimed the vitamins were already covered; it has been corrected.
+  - The Center Point snapshot sends dead space "—" when there is no TPN.
+- **Low — MEN at 100 mL/kg/d or more.** The Protein : Energy tile and alert no longer judge a TPN-only
+  ratio against the enteral target, and the collapsed "Full EN ✅" chip keys on the same flag as the
+  enteral targets.
+- **Deferred to `BACKLOG.md` § Next:**
+  - Center Point's packet cannot mark a feed as MEN. Its "energy incl. EN" slot is TPN-only then; this
+    needs a CP packet version.
+  - `log.jsx` / `app.jsx` still pick the enteral targets for a MEN row at 100 mL/kg/d or more.
+- **Two questions, already listed:** term infants read against the preterm rows, and gating Aminoplasmal
+  by age as well as ward.
+
+**Tests.** `verify-ward-requests-0918.cjs` §12 (the reprint guard) and additions to §4 and §10, now 193
+assertions. Against the live `fc2c35c` exactly 12 fail: the P:E tile, the feeds-only vitamins (3) and the
+guard (8). Two more pin the dating of rows saved since 11:17; they pass on `fc2c35c`, which has no guard,
+and failed on this fix until `savedCalcVersionOf` read `aaProduct`. `verify-kcmh-factor.cjs`'s shell row
+stands for a current order, so it carries the current stamp. `verify-review-0917-calc.cjs` §6 re-captures
+`full_en`, the feeds-only order: exactly 4 of its 61 figures moved (Soluvit 1.5 → —, Peditrace 1.5 → —,
+components 3 → —, WFI −3 → 0), checked by dumping both versions. All 43 harness runs pass, on sources and on
+`compiled/`.
 
 ## Session 2026-09-18 — Backend `@55` deployed (the backend half of the 2026-09-17 review)
 
