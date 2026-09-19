@@ -772,7 +772,10 @@ these fixes are about and the older stubs did not: a string starting `= + - @` w
 recorded as a formula injection, a leading apostrophe is stripped on read (so the second-order path
 is visible), `YYYY-MM-DD` comes back as a Date, ranges read any number of rows and throw past the grid,
 CacheService honours TTLs / the 100 KB value cap / the 250-char key cap, and every service can be made
-to throw or the script lock to time out. Set `NEOFEED_GAS_SRC=<path>` to run any of them against a
+to throw or the script lock to time out. `withNow(ms, fn)` pins the backend's whole clock: `Date.now()`
+and an argument-less `new Date()` alike. Until 2026-09-18 it pinned `Date.now()` only, so *sync*'s
+"…with a fresh ts" passed only when the real clock ticked between two syncs, and failed CI run
+35302157754 when it didn't. Set `NEOFEED_GAS_SRC=<path>` to run any of them against a
 different `gas-backend.gs` — that is how they were shown to fail against the pre-review source
 (42ce553: 63, 97 and 25 failures respectively).
 

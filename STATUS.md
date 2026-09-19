@@ -21,6 +21,11 @@
 - ⚠️ **Not yet exercised by a person:** either frontend. Their provenance stamps, in `Daily_Log`
   columns AF–AG and in every printed order's footer, can show them in use without a bedside session —
   see those sections.
+- ⏳ **On `main`, waiting for the next `main` → `release` PR:** PR #76, merged into `main` by Praew on
+  2026-09-19 (08:16 ICT), carries the two fixes from #77's pre-deploy review (`CHANGELOG.md` 2026-09-18
+  (2) §6), and PR #79 the harness flake fix. Until that release, the live frontend reprints an order
+  saved before 11:17 ICT on 2026-09-18 with #77's figures (e.g. Soluvit 1.8 mL where it printed 1.5),
+  under the same entry id and revision.
 
 **Previous (2026-09-18, 09:10–11:17 ICT):** backend `@55` + frontend `release` = `dfeb15b` — the
 review's frontend (PR #74), approved and merged by `tasamew` at 02:10:44 UTC / 09:10 ICT: the `.jsx`
@@ -403,6 +408,11 @@ confirmation-before-`clasp deploy` model, and the frontend is where the printed 
   `verify-*.cjs` + shell identity) is a **required status check on `release`** — verified via
   `gh api` (`app_id 15368`, GitHub Actions). The workflow file itself lands on `main` with PR #59;
   it already runs on that PR's branch, green.
+- **2026-09-18 — a flake in `harnesses` fixed (PR #79, test-only, merged into `main` on Praew's instruction, nothing deployed):**
+  `verify-review-0917-backend-sync.cjs` § A2 "…with a fresh ts" could fail on unchanged code, and did
+  on PR #76's first run (35302157754). The sandbox's `withNow()` pinned `Date.now()` but not the
+  argument-less `new Date()` that stamps `ts`, so the assertion needed the real clock to tick between
+  two syncs. It now pins both; see `CHANGELOG.md` 2026-09-18 (4).
 - GitHub Pages repointed to serve from `release` (`gh api PUT .../pages`, verified: fresh build
   `status: built`, no error, `index.html` still `200` against the live URL).
 

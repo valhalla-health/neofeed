@@ -253,10 +253,13 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   const sheetsCells = () => g.sheet('Daily_Log').stats.cellsRead + g.sheet('Patient_Registry').stats.cellsRead;
   const auditRows = g.rows('Audit_Log').length;
   const cellsBefore = sheetsCells();
-  const second = withNow(Date.now() + 2000, () => syncText());
+  const at = Date.now() + 2000;
+  const second = withNow(at, () => syncText());
   T.eq('a second sync inside 5 minutes reads no Patient_Registry / Daily_Log cells', sheetsCells(), cellsBefore);
   T.eq('…returns the same bytes except ts', stripText(second), stripText(first));
-  T.ok('…with a fresh ts', JSON.parse(second).ts !== JSON.parse(first).ts);
+  // Exact, not `!== first.ts`: that passed or failed on whether the real clock
+  // ticked between two fast syncs (CI run 35302157754).
+  T.eq('…with a fresh ts: the time of this request, not the cached one', JSON.parse(second).ts, new Date(at).toISOString());
   T.eq('…and is audited exactly like a sheet read', g.rows('Audit_Log').length, auditRows + 1);
   const head = [...g.cacheStore.entries()].find(([k]) => /^sync1_ward_/.test(k) && g.cacheStore.has(k + '_0'));
   T.ok('cached under the ward date + DATA_VERSION, for 300 s', head && head[0].includes(TODAY) && head[1].ttl === 300, head && head[0]);
