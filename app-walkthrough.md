@@ -561,7 +561,7 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    see it plotted with a target band, smooth Catmull-Rom curve, hover
    crosshair/tooltip, X-axis toggle between admit-day and DOL. Past entries
    are editable in place (weight/length/HC corrections included). The
-   "บันทึกวันนี้" button opens `LogDateModal` first — today, or a past
+   "New log" button opens `LogDateModal` first — today, or a past
    calendar date to back-fill a missed day — before handing off to the
    Calculator with the right DOL/`ts`. Admin role only: a trash icon per row
    (rows with an `entryId`) permanently deletes a `Daily_Log` entry via the
