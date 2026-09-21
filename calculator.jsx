@@ -401,7 +401,15 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d" }) {
 // ============================================================
 // Calculator
 // ============================================================
-function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint }) {
+// `scratch` (2026-09-21) — the Quick calc entry, reached from the floating
+// button rather than from a patient. There is no patient, no Daily_Log row and
+// no Google Sheet write: it is the same wizard, the same `calc`, run on a
+// weight somebody types at the bedside. Everything that would persist a number
+// is off (Save, Submit, Delete, the unsaved-draft store, the
+// previous-submission store, the edit lock, the printed pharmacy form), and
+// what stays is the arithmetic. Deliberately NOT folded into `centerPoint`:
+// that mode still saves, just somewhere else.
+function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint, scratch }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
   // form left open across midnight silently became the next day's order: its
@@ -414,7 +422,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // and the DOL. An edit keeps its row's date; a back-fill keeps `logDate`.
   const [newOrderDate, setNewOrderDate] = useState(() => D.todayLocal());
   const orderDateKey = editEntry ? (D.normalizeDateStr(editEntry.ts) || D.todayLocal()) : (logDate || newOrderDate);
-  const orderDayRolledOver = !editEntry && !logDate && newOrderDate !== D.todayLocal();
+  const orderDayRolledOver = !scratch && !editEntry && !logDate && newOrderDate !== D.todayLocal();
   // App's `dol` is live (it ticks at midnight); the order's DOL is the one on
   // its own date — the same dolAtDate a back-filled order is given.
   const dol = orderDayRolledOver ? D.dolAtDate(patient, newOrderDate) : dolProp;
@@ -486,7 +494,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     { key: "ioInput",          label: "Input" },
     { key: "ioOutput",         label: "Urine output" },
     { key: "drainContent",     label: "Drain content" },
-  ].filter(f => !(centerPoint && IO_FIELD_KEYS.has(f.key)));
+  ].filter(f => !((centerPoint || scratch) && IO_FIELD_KEYS.has(f.key)))
+   // Quick calc saves nothing, so there is nothing to gate: a red "ยังกรอกไม่ครบ"
+   // list under a form with no Save button is a dead end, and the one field it
+   // would really be asking for (the weight) is already the first thing on the
+   // screen and already reads 0 until it is typed.
+   .filter(() => !scratch);
   const [blankFields, setBlankFields] = useState(() => new Set(REQUIRED_FIELDS.map(f => f.key)));
   const reportBlank = React.useCallback((key, isBlank) => {
     setBlankFields(prev => {
@@ -756,7 +769,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // up. Declared before the prefill effect so it runs first. Never on the
   // Center Point entry, which reads nothing from browser storage at all.
   React.useEffect(() => {
-    if (centerPoint) return;
+    if (centerPoint || scratch) return;
     try {
       const now = Date.now(), doomed = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -774,6 +787,17 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   }, []);
 
   React.useEffect(() => {
+    // Quick calc: there is no patient, so there is no history, no draft and no
+    // previous submission to prefill from — and nothing in browser storage is
+    // read or written. It opens as an empty order carrying only the ward's
+    // usual dead space, so the first number typed is the weight it exists for.
+    if (scratch) {
+      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null) }, 0, false, 0);
+      setSavedKey(null);
+      setPrefilledFrom(null);
+      setDraftOffer(null);
+      return;
+    }
     if (!patient?.sessionId) return;
 
     // A new order's date is taken when it is opened (UP-C11): a patient switch
@@ -890,7 +914,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // does not allow falls back to the default — and since the live inputs then
   // differ from the saved ones, the order reads as edited and must be saved
   // again before it can print, never old id over new mL (UP-C2).
-  const aaChoices = centerPoint ? ["aminoven10"] : D.aaProductsFor(patient);
+  const aaChoices = (centerPoint || scratch) ? ["aminoven10"] : D.aaProductsFor(patient);
   const aaStockKey = aaChoices.includes(aaProduct) ? aaProduct : aaChoices[0];
 
   // The live inputs, in exactly the shape normalizeCalcInput produces.
@@ -926,7 +950,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // Each draft records who typed it (SEC-F3) and which saved version of the
   // row it was typed on top of (UP-C10) — see the prefill effect.
   const writeDraft = (inputs) => {
-    if (centerPoint || !patient?.sessionId) return;
+    if (centerPoint || scratch || !patient?.sessionId) return;
     try {
       localStorage.setItem(draftStorageKey(patient.sessionId, orderDateKey),
         JSON.stringify({ ...inputs, dol, savedAt: new Date().toISOString(),
@@ -939,6 +963,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userKey, userEdited]);
   const clearDraft = () => {
+    if (centerPoint || scratch || !patient?.sessionId) return;
     try { localStorage.removeItem(draftStorageKey(patient.sessionId, orderDateKey)); } catch {}
   };
   // A draft typed on an older saved version of this row than the one now open.
@@ -1516,6 +1541,15 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const ALL = new Set([1, 2, 3, 4, 5, 6]);
     const handler = () => {
       if (centerPoint) { centerPoint.review(); return; }
+      // Quick calc prints nothing: a pharmacy order form with no patient on it
+      // is exactly the artifact that could be carried to a bedside as if it
+      // were one. `printable` is already false here (it needs a savedEntryId,
+      // which the quick calc never has), so PrintOrderForm never renders —
+      // this only keeps the toast honest about why.
+      if (scratch) {
+        showToast("คำนวณเร็วไม่ได้ผูกกับผู้ป่วย จึงพิมพ์ใบสั่ง TPN ไม่ได้ — เปิดจากผู้ป่วยเพื่อบันทึกและพิมพ์", "error");
+        return;
+      }
       if (!savedEntryId) {
         showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
         return;
@@ -1545,6 +1579,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // exact raw inputs so this entry stays editable on any device later.
   const handleSave = async () => {
     if (saving) return;
+    // The quick calc renders no Save button; this is the belt to that braces.
+    // It is the only path in this file that reaches Google Sheets, and
+    // "ข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท" is the whole premise of the mode.
+    if (scratch) return;
     // ── Required-field gate (2026-09-15) ──────────────────────────────
     // Blocks the save outright rather than warning: an order row whose fluid
     // plan or urine output was never entered is not a partial record, it is a
@@ -1904,8 +1942,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
           and stored as raw mL/day, same as Input/Drain — the mL/kg/h rate
           (ioOutputPerKgH above) is shown as a derived hint only. Balance =
           Input − Output − Drain. Not on the Center Point entry, which
-          records none of these (see REQUIRED_FIELDS). */}
-      {!centerPoint && <div className="card" style={{ marginBottom: 14 }}>
+          records none of these (see REQUIRED_FIELDS) — nor does the quick calc,
+          which has no patient to measure and no row to record them on. */}
+      {!centerPoint && !scratch && <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-h">
           <Icon name="drop" size={14} color="var(--brand)" />
           Intake / Output
@@ -2822,10 +2861,21 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         </div>
 
         <div className="card">
-          <div className="card-h"><Icon name="save" size={14} color="var(--brand)" /> Save + Copy Order</div>
+          <div className="card-h"><Icon name={scratch ? "calc" : "save"} size={14} color="var(--brand)" /> {scratch ? "ผลคำนวณ · คัดลอก" : "Save + Copy Order"}</div>
           <div className="card-b">
+            {scratch && (
+              <div className="scratch-note" role="note" style={{ fontSize: 11.5, lineHeight: 1.55, marginBottom: 10,
+                padding: "8px 10px", borderRadius: 6, background: "var(--warn-bg)", color: "var(--warn)",
+                border: "1px solid var(--warn-line)" }}>
+                <strong style={{ fontWeight: 700 }}>คำนวณเร็ว — ไม่บันทึกลง Google Sheets</strong>
+                <div style={{ fontWeight: 400 }}>
+                  ไม่ผูกกับผู้ป่วยรายใด ไม่มีใน Daily log และไม่พิมพ์ใบสั่ง TPN —
+                  ปิดหน้านี้แล้วตัวเลขทั้งหมดจะหายไป
+                </div>
+              </div>
+            )}
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 }}>
-              <span className="num">{patient?.name || patient?.initials || "—"}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>}{tpnWtManual && <> (calc. weight set manually to {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
+              <span className="num">{scratch ? "ไม่ผูกกับผู้ป่วย" : (patient?.name || patient?.initials || "—")}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>}{tpnWtManual && <> (calc. weight set manually to {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
             </div>
 
             {/* Saved-state indicator — Print/Copy/Submit need a saved, unchanged form */}
@@ -2873,12 +2923,22 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 there the order leaves only as CP's reviewed revision, and a
                 CP save makes the form "printable", which would unlock Copy. */}
             {!centerPoint && <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
-              if (!savedEntryId) {
+              // The save/printable gate exists so an edited form cannot be
+              // copied out under a saved row's entry id. The quick calc has no
+              // row and no id, so there is nothing to misattribute — and
+              // gating it would make the button permanently dead. What the
+              // copied text must not do is read like an order, which is what
+              // the scratch header below is for.
+              if (!scratch && !savedEntryId) {
                 showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
                 return;
               }
-              if (!printable) {
+              if (!scratch && !printable) {
                 showToast(printBlockMessage("ก่อนคัดลอก") || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนคัดลอก", "error");
+                return;
+              }
+              if (scratch && !(wtKg > 0)) {
+                showToast("ใส่น้ำหนักก่อน จึงจะคัดลอกผลคำนวณได้", "error");
                 return;
               }
               // Completeness check — warn if any clinical step is empty
@@ -2891,12 +2951,19 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               if (incomplete.length > 0 &&
                   !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nCopy order ต่อไปหรือไม่?`)) return;
               const lines = [
-                `══ NeoFeed V2 — TPN Order ══`,
-                // No name in copied text: it tends to be pasted into chat
-                // apps (LINE) outside the hospital's control — bed + NeoFeed
-                // ID identify the order on the ward without being PHI on
-                // their own (2026-09-11 review, PDPA).
-                `Bed: ${patient?.currentBed||"—"} | NeoFeed ID: ${patient?.sessionId||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""}${tpnWtManual ? ` (calc. weight set manually to ${wtG}g; auto ${autoWtG}g)` : ""}`,
+                scratch ? `══ NeoFeed — คำนวณเร็ว (ไม่ใช่คำสั่งการรักษา) ══` : `══ NeoFeed V2 — TPN Order ══`,
+                // The quick calc's text carries no bed and no NeoFeed ID —
+                // there is no patient behind it — and says so on its own
+                // second line, because a paste into LINE arrives without the
+                // screen it came from.
+                scratch
+                  ? `⚠ คำนวณจากน้ำหนักที่พิมพ์เอง · ไม่ผูกกับผู้ป่วย · ไม่ได้บันทึกในระบบ — ตรวจกับผู้ป่วยจริงก่อนใช้`
+                  // No name in copied text: it tends to be pasted into chat
+                  // apps (LINE) outside the hospital's control — bed + NeoFeed
+                  // ID identify the order on the ward without being PHI on
+                  // their own (2026-09-11 review, PDPA).
+                  : `Bed: ${patient?.currentBed||"—"} | NeoFeed ID: ${patient?.sessionId||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""}${tpnWtManual ? ` (calc. weight set manually to ${wtG}g; auto ${autoWtG}g)` : ""}`,
+                scratch ? `DOL: ${dol} | Wt: ${curWtG} g${tpnWtManual ? ` (calc. weight ${wtG}g)` : ""}` : "",
                 critOverride ? `⚠ CRITICAL OVERRIDE: ${critOverride.alerts.join("; ")} — reason: ${critOverride.reason}` : "",
                 `Route: ${route === "central" ? "Central" : "Peripheral (<900 mOsm/L)"}`,
                 `Osm: ${calc.osm.toFixed(0)} mOsm/L`,
@@ -2951,14 +3018,15 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 `──────────────────────────────`,
                 `SUMMARY: Protein ${calc.proteinKg.toFixed(1)} g/kg | Energy ${calc.kcalKg.toFixed(0)} kcal/kg | GIR ${calc.gir.toFixed(1)} mg/kg/min`,
                 `Na ${calc.naTotalDelivered.toFixed(1)} mEq/kg | Ca ${calc.caKg.toFixed(0)} mg/kg | P ${calc.pKg.toFixed(0)} mg/kg  (TPN+EN — see Ca·PO₄ block above for total)`,
-                `══ NeoFeed V2 · ESPGHAN 2018/2022 ══`,
+                scratch ? `══ NeoFeed · คำนวณเร็ว · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`
+                        : `══ NeoFeed V2 · ESPGHAN 2018/2022 ══`,
               ].filter(l => l !== "").join("\n");
 
               navigator.clipboard.writeText(lines)
                 .then(() => showToast("📋 Order copied to clipboard"))
                 .catch(() => showToast("Copy failed — try again"));
             }}>
-              📋 Copy Order to Clipboard
+              📋 {scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"}
             </button>}
 
             {missingFields.length > 0 && (
@@ -2972,13 +3040,15 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 {zeroVolumeText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
-            <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || pendingSave}
-              onClick={handleSave}>
-              <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
+            {!scratch && (
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || pendingSave}
+                onClick={handleSave}>
+                <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
+            )}
 
             {/* CP has its own review → publish step and passes no onPublish. */}
-            {D.ENABLE_PUBLISH_GATE && !centerPoint && (
+            {D.ENABLE_PUBLISH_GATE && !centerPoint && !scratch && (
               <button className="btn primary" style={{ width: "100%", marginTop: 8 }}
                 disabled={!savedEntryId || published || publishing || !printable}
                 onClick={handlePublish}>
@@ -3001,7 +3071,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       {/* Rendered only while the form matches what was saved — so neither the
           Print button nor the browser's own Ctrl+P can put unsaved numbers
           on a pharmacy order (2026-09-11 review, F2). */}
-      {printable && !centerPoint && <PrintOrderForm
+      {printable && !centerPoint && !scratch && <PrintOrderForm
         targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: tMg, source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}

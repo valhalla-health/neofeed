@@ -553,6 +553,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
+  // Which view the quick calc was opened from, so its ← กลับ goes back where
+  // the user actually was rather than dumping them at the registry mid-round.
+  // Not persisted: the quick calc holds nothing worth returning to.
+  const [quickFrom, setQuickFrom] = React.useState(null);
   // Which ward the registry is showing. null = show the ward gate, which is
   // deliberately the state every session starts in: the unit runs NICU and
   // SCN as two censuses, and the first thing a shift does is say which one it
@@ -1835,6 +1839,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             onAddToday={startAddToday} onEditEntry={startEditEntry}
             onDeleteEntry={role === "admin" ? handleDeleteEntry : undefined} />}
           {view === "alerts" && active && <AlertCenter patient={active} log={log} onAckChange={() => setAckVersion(v => v + 1)} />}
+          {/* Quick calc — no patient, no role gate: it is a calculator over a
+              typed weight, it reads no record and writes nothing, so there is
+              no access it could grant that the ESPGHAN reference panels below
+              don't already. (The patient Calculator stays doctor/nurse — that
+              one writes orders.) */}
+          {view === "quickcalc" && <QuickCalcView onBack={() => goTo(quickFrom || "registry")} />}
           {view === "guidelines" && <GuidelinesPanel />}
           {view === "formulas" && <FormulasPanel />}
           </ViewErrorBoundary>
@@ -1868,6 +1878,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         }}
       />
       }
+
+      {view !== "quickcalc" && view !== "calculator" &&
+        <QuickCalcFab onClick={() => { setQuickFrom(view); goTo("quickcalc"); }} />}
 
       <BottomNav
         view={view}
@@ -1993,6 +2006,102 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined}
         onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
     </>
+  );
+}
+
+// ── Quick calc — the floating-button entry ───────────────────
+// Ward request 2026-09-21: "เพิ่มปุ่มขวาล่าง ให้เป็นสำหรับแคลคูเลเตอร์ ใส่ข้อมูล
+// แค่น้ำหนักและคำนวณตามแคลคูเลเตอร์ได้เลย โดยข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท."
+//
+// This is the SAME <Calculator/>, not a second one. Every dose, mL of stock,
+// GIR and target band on the screen is calculator.jsx's own `calc`. A separate
+// "quick" calculator would be a second implementation of KCMH's dosing
+// arithmetic living beside the first, and the two would drift the first time
+// either moved — in the one file in this app that prints pharmacy orders.
+// What the `scratch` prop changes is only what the mode may PERSIST: no Save,
+// no Submit, no unsaved-draft store, no previous-submission store, no edit
+// lock, no printed pharmacy form, no Intake/Output card. Nothing in here
+// reaches the Google Sheet, and nothing survives leaving the page.
+//
+// No patient is attached, so there is no PHI in it to protect (PDPA) and no
+// Daily_Log row it could be mistaken for. Two numbers are still needed, and
+// only two: the weight — typed into Step 1's "Current weight" like any other
+// order — and the DOL, because every ESPGHAN band the wizard grades against
+// is DOL-indexed. Without it a quick calc would quietly read day-1 protein,
+// Na, K, Ca and P targets for a two-week-old.
+const SCRATCH_PATIENT = Object.freeze({
+  sessionId: null, name: null, initials: null,
+  // bw 0 switches off calculator.jsx's birth-weight floor: with no birth
+  // weight on record, the weight typed here IS the dosing weight and there is
+  // nothing to floor it against. The "TPN calc. weight" override still works.
+  bw: 0, ga: 0, sex: "", currentBed: "", diagnosis: "",
+  weights: [], lengths: [], hcs: [],
+});
+
+// Same span the Calculator's own DOL-indexed targets distinguish (day 1, 2,
+// 3–7, 8+) with room past it; a quick calc past four weeks is a growing infant
+// whose bands no longer move.
+const QUICK_DOL_MAX = 60;
+
+function QuickCalcView({ onBack }) {
+  const [dol, setDol] = React.useState(1);
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={onBack}>
+            ← กลับ
+          </button>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            คำนวณเร็ว
+            <span className="chip" style={{ fontSize: 12, fontWeight: 700,
+              background: "var(--warn-bg)", color: "var(--warn)", borderColor: "var(--warn-line)" }}>
+              ไม่บันทึก
+            </span>
+          </h1>
+          <div className="sub">ใส่น้ำหนักแล้วคำนวณได้เลย — ไม่ผูกกับผู้ป่วย ไม่เซฟลง Google Sheets</div>
+        </div>
+        <div className="quick-dol">
+          <label htmlFor="quick-dol-input">DOL</label>
+          <input id="quick-dol-input" className="num" type="number" inputMode="numeric"
+            min={1} max={QUICK_DOL_MAX} step={1} value={dol}
+            onChange={(e) => {
+              // Empty box while retyping must not become NaN and take every
+              // target band with it — hold the last real day until one is typed.
+              const v = Math.round(Number(e.target.value));
+              if (!isFinite(v)) return;
+              setDol(Math.min(QUICK_DOL_MAX, Math.max(1, v)));
+            }} />
+        </div>
+      </div>
+
+      {/* No banner between the head and Step 1 (Praew, 2026-09-21: "ไม่ต้อง
+          ขึ้นกรอบสีเหลืองกลาง"). The ไม่บันทึก chip and the subtitle above
+          already say it on arrival, and the one place it has to be read
+          rather than glanced at — next to Copy, the only way a number here
+          leaves the page — still carries it, in the footer card. A third
+          copy pushed Step 1 below the fold on a phone for no new
+          information. */}
+      <Calculator patient={SCRATCH_PATIENT} dol={dol} scratch
+        editEntry={null} baselineEntry={null} previousEntry={null} logDate={null}
+        userLabel="" userEmail="" />
+    </>
+  );
+}
+
+// ── Quick-calc floating button ───────────────────────────────
+// Bottom-right on every screen size. On a phone it clears the bottom nav and
+// the home-indicator inset; on a workstation it sits in the corner of the
+// viewport. Hidden on the Calculator itself (you are already in it, and
+// navigating away would drop an in-progress order's edit context) and on the
+// quick calc, which has its own ← กลับ.
+function QuickCalcFab({ onClick }) {
+  return (
+    <button type="button" className="quick-fab" onClick={onClick}
+      aria-label="คำนวณเร็ว — ไม่บันทึก" title="คำนวณเร็ว (ไม่บันทึก)">
+      <Icon name="calc" size={22} color="#fff" />
+      <span className="quick-fab-label">คำนวณเร็ว</span>
+    </button>
   );
 }
 

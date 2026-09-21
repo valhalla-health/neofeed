@@ -13,6 +13,76 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-21 — Quick calc: the same calculator, on a typed weight, saving nothing
+
+Frontend only (`app.jsx`, `calculator.jsx`, both shells, `test/verify-quick-calc.cjs`,
+`test/verify-safety-review.cjs`). `gas-backend.gs` is untouched — by design: the whole point of the
+feature is that nothing it does reaches the sheet.
+
+**The request** (Praew, 2026-09-21): *"เพิ่มปุ่มขวาล่าง ให้เป็นสำหรับแคลคูเลเตอร์ ใส่ข้อมูลแค่น้ำหนัก
+และคำนวณตามแคลคูเลเตอร์ได้เลย โดยข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท."* A bedside scratchpad: type a weight,
+get the numbers, register nobody.
+
+**The decision that shaped everything else.** The obvious build is a small one-screen calculator —
+weight in, fluid/GIR/stock mL out. It was rejected. That would be a **second implementation of KCMH's
+dosing arithmetic** sitting beside `calculator.jsx`, the one file in this app that prints pharmacy
+orders, and the two would disagree the first time either moved. So the quick calc mounts **the real
+`<Calculator>`** with a new `scratch` prop and a frozen patient-less record. Every dose, every mL of
+stock, every target band is the same `calc` the ward already prescribes from.
+
+**What `scratch` turns off** — only the things that persist, never the arithmetic: Save, Submit,
+delete, the unsaved-draft store, the `neofeed_calc_*` previous-submission store, the browser-storage
+expiry sweep, the edit lock, the printed pharmacy form, and the Intake/Output card (bedside figures
+for one real infant on one real day — there is neither). `handleSave` also returns early on `scratch`:
+it is the only path in that file that reaches Google Sheets, and a hidden button is not a guarantee.
+
+**Two inputs, not one.** The weight goes into Step 1 as always. The page head also carries a **DOL**,
+because every ESPGHAN band the wizard grades against is DOL-indexed — without one, a quick calc would
+quietly read day-1 protein/Na/K/Ca/P targets for a two-week-old. Since that DOL is picked rather than
+derived, `orderDayRolledOver` is forced false in scratch mode: `dolAtDate` on a patient-less record
+returns 1, so a page left open past midnight would have snapped a DOL 14 calc back to day-1 bands.
+
+**Copy Order stays, and is the only thing that leaves the page.** Its usual gate (saved, unchanged,
+`printable`) can never pass without an entry id, and is not the gate this mode needs — there is no
+row to misattribute a copy to. It is scoped to a real order instead, and the compensating control is
+the text: it opens `คำนวณเร็ว (ไม่ใช่คำสั่งการรักษา)`, states it was not saved, and carries neither
+bed nor NeoFeed ID. A paste into LINE arrives without the screen it came from. Printing is refused
+outright — a pharmacy order form with no patient on it is the one artifact that could be carried to a
+bedside as if it were real.
+
+**PDPA.** `SCRATCH_PATIENT` has no `sessionId`, no name, no initials and `bw: 0`. There is no personal
+data in the view to protect, nothing is written anywhere, and the mode is not role-gated for that
+reason — it grants no access the ESPGHAN reference panels don't already.
+
+**The button.** `QuickCalcFab`, bottom-right at every width — an extended pill on both, not an
+icon-only circle on phones: the app's `calc` glyph is a filled rounded square that reads as "a button",
+and this is a new entry point nobody is looking for yet. It is `position: fixed`, a direct child of
+`.app` but taking no grid cell, so it cannot repeat the 2026-09-16 banner bug; `z-index: 35`, below
+`.bottom-nav`'s 40, so if a future layout change ever makes them overlap the navigation wins. Hidden
+on the Calculator and on itself, and hidden when printing (it is outside `.work-inner`, so the existing
+print rule did not reach it).
+
+**Dropped after review on the device** (Praew, same session): the orange "หน้านี้ไม่บันทึกอะไรทั้งสิ้น"
+card between the page head and Step 1. The `ไม่บันทึก` chip and the subtitle say it on arrival and the
+footer card says it again beside Copy; the third copy only pushed Step 1 below the fold on a phone.
+
+**Tests.** `test/verify-quick-calc.cjs` (46 assertions). § 1 drives the identical order into a scratch
+mount and a patient-bound mount and fails on the first metric tile or step figure that disagrees, with
+a non-zero GIR asserted separately so a page of zeros can't pass it vacuously. § 2 reads `localStorage`
+after the quick calc **and** requires that the patient entry, under the same keystrokes, *did* write its
+draft — without that half the assertion passes for the wrong reason, which is what it did on the first
+run: `calculator.jsx` writes through a bare `localStorage`, which under `vm.runInThisContext` resolves
+against the global scope, so every write threw inside its own `try/catch`. Same for the bare `navigator`
+the Copy button uses, and Node 22's `globalThis.navigator` is read-only, so it has to be redefined.
+§ 3-§ 7 pin the absent Save/Submit/print/IO card, the copied text, the wiring in `app.jsx`, the guards
+in `calculator.jsx` and the button's CSS in both shells.
+
+Two assertions in `verify-safety-review.cjs` were updated, not relaxed: the print/copy save-gate and the
+`PrintOrderForm` render condition now have to name `scratch` in their conditions rather than simply
+having lost the gate. Verified in real Chromium at 430 px and 1440 px.
+
+---
+
 ## Session 2026-09-18 (4) — The `harnesses` flake: `withNow` pinned `Date.now()` but not `new Date()`
 
 Test-only (`test/gas-vm-sandbox.cjs`, `test/verify-review-0917-backend-sync.cjs`, `test/README.md`).
