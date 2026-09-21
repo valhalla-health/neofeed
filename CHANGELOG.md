@@ -66,6 +66,20 @@ print rule did not reach it).
 card between the page head and Step 1. The `ไม่บันทึก` chip and the subtitle say it on arrival and the
 footer card says it again beside Copy; the third copy only pushed Step 1 below the fold on a phone.
 
+**Renamed after the same review** (Praew: *"เปลี่ยนคำว่าคำนวณเร็ว เป็น Calculator และใช้รูปเครื่องคิดเลข
+เป็นตัวแทนปุ่ม"*): the button, the heading and the copied text now read **Calculator** — the same word
+as the patient wizard, which is fine because the `ไม่บันทึก` chip beside the heading is what tells them
+apart and the button is hidden while that wizard is open, so the two labels are never on screen together.
+
+That rename needed a real calculator glyph, which the app did not have. `icons.jsx`'s `calc` is in the
+`filled` list and winds its screen and keys the same way as its body, so under the default nonzero
+fill-rule they fill in rather than cut out: in ink at rail size that passes, but at 22 px in white on
+the solid brand button it was one featureless rounded square. Rather than put `fill-rule="evenodd"` on
+the shared `Icon` — which would silently redraw nine icons across the app — a stroked sibling
+**`calculator`** was added (body, screen, two rows of keys as round-capped zero-length segments) and
+used only by the button. `calc` is untouched; the nav rail and the mobile Calc tab still use it, and
+`verify-quick-calc.cjs` § 5 pins both halves of that split so neither drifts onto the other.
+
 **Tests.** `test/verify-quick-calc.cjs` (46 assertions). § 1 drives the identical order into a scratch
 mount and a patient-bound mount and fails on the first metric tile or step figure that disagrees, with
 a non-zero GIR asserted separately so a page of zeros can't pass it vacuously. § 2 reads `localStorage`

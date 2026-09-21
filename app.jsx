@@ -2053,7 +2053,7 @@ function QuickCalcView({ onBack }) {
             ← กลับ
           </button>
           <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            คำนวณเร็ว
+            Calculator
             <span className="chip" style={{ fontSize: 12, fontWeight: 700,
               background: "var(--warn-bg)", color: "var(--warn)", borderColor: "var(--warn-line)" }}>
               ไม่บันทึก
@@ -2098,9 +2098,11 @@ function QuickCalcView({ onBack }) {
 function QuickCalcFab({ onClick }) {
   return (
     <button type="button" className="quick-fab" onClick={onClick}
-      aria-label="คำนวณเร็ว — ไม่บันทึก" title="คำนวณเร็ว (ไม่บันทึก)">
-      <Icon name="calc" size={22} color="#fff" />
-      <span className="quick-fab-label">คำนวณเร็ว</span>
+      aria-label="Calculator — ไม่บันทึก" title="Calculator (ไม่บันทึก)">
+      {/* `calculator`, not `calc`: see icons.jsx — the filled `calc` glyph
+          collapses to a plain rounded square in white at this size. */}
+      <Icon name="calculator" size={22} color="#fff" stroke={1.9} />
+      <span className="quick-fab-label">Calculator</span>
     </button>
   );
 }

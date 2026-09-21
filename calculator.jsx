@@ -1547,7 +1547,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       // which the quick calc never has), so PrintOrderForm never renders —
       // this only keeps the toast honest about why.
       if (scratch) {
-        showToast("คำนวณเร็วไม่ได้ผูกกับผู้ป่วย จึงพิมพ์ใบสั่ง TPN ไม่ได้ — เปิดจากผู้ป่วยเพื่อบันทึกและพิมพ์", "error");
+        showToast("Calculator นี้ไม่ได้ผูกกับผู้ป่วย จึงพิมพ์ใบสั่ง TPN ไม่ได้ — เปิดจากผู้ป่วยเพื่อบันทึกและพิมพ์", "error");
         return;
       }
       if (!savedEntryId) {
@@ -2867,7 +2867,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               <div className="scratch-note" role="note" style={{ fontSize: 11.5, lineHeight: 1.55, marginBottom: 10,
                 padding: "8px 10px", borderRadius: 6, background: "var(--warn-bg)", color: "var(--warn)",
                 border: "1px solid var(--warn-line)" }}>
-                <strong style={{ fontWeight: 700 }}>คำนวณเร็ว — ไม่บันทึกลง Google Sheets</strong>
+                <strong style={{ fontWeight: 700 }}>Calculator — ไม่บันทึกลง Google Sheets</strong>
                 <div style={{ fontWeight: 400 }}>
                   ไม่ผูกกับผู้ป่วยรายใด ไม่มีใน Daily log และไม่พิมพ์ใบสั่ง TPN —
                   ปิดหน้านี้แล้วตัวเลขทั้งหมดจะหายไป
@@ -2951,7 +2951,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               if (incomplete.length > 0 &&
                   !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nCopy order ต่อไปหรือไม่?`)) return;
               const lines = [
-                scratch ? `══ NeoFeed — คำนวณเร็ว (ไม่ใช่คำสั่งการรักษา) ══` : `══ NeoFeed V2 — TPN Order ══`,
+                scratch ? `══ NeoFeed — Calculator (ไม่ใช่คำสั่งการรักษา) ══` : `══ NeoFeed V2 — TPN Order ══`,
                 // The quick calc's text carries no bed and no NeoFeed ID —
                 // there is no patient behind it — and says so on its own
                 // second line, because a paste into LINE arrives without the
@@ -3018,7 +3018,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 `──────────────────────────────`,
                 `SUMMARY: Protein ${calc.proteinKg.toFixed(1)} g/kg | Energy ${calc.kcalKg.toFixed(0)} kcal/kg | GIR ${calc.gir.toFixed(1)} mg/kg/min`,
                 `Na ${calc.naTotalDelivered.toFixed(1)} mEq/kg | Ca ${calc.caKg.toFixed(0)} mg/kg | P ${calc.pKg.toFixed(0)} mg/kg  (TPN+EN — see Ca·PO₄ block above for total)`,
-                scratch ? `══ NeoFeed · คำนวณเร็ว · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`
+                scratch ? `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`
                         : `══ NeoFeed V2 · ESPGHAN 2018/2022 ══`,
               ].filter(l => l !== "").join("\n");
 

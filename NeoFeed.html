@@ -1231,10 +1231,10 @@
 
     /* Quick-calc button: above the bottom nav, clear of the home-indicator
        inset. It keeps its label at phone width rather than shrinking to a
-       bare glyph — the app's calc icon is a filled rounded square, which on
-       its own says "a button" and not "a calculator", and this is a new
-       entry point nobody is looking for yet. ~130px of a 390px screen, over
-       a list that scrolls under it, is the cost of being findable. */
+       bare glyph: this is a new entry point nobody is looking for yet, and
+       a word costs ~120px of a 390px screen over a list that scrolls under
+       it. (The glyph itself is icons.jsx's stroked `calculator`, not the
+       filled `calc` the rail uses — see the note there.) */
     .quick-fab {
       right: 16px;
       bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 14px);
@@ -1508,12 +1508,12 @@
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
   <script src="data.js?v=ce3e213cfe"></script>
-  <script src="compiled/icons.js?v=e7f309e445"></script>
-  <script src="compiled/calculator.js?v=d6c3d0bf60"></script>
+  <script src="compiled/icons.js?v=5464aa237e"></script>
+  <script src="compiled/calculator.js?v=919e71ace5"></script>
   <script src="compiled/fenton.js?v=690bebc4ac"></script>
   <script src="compiled/registry.js?v=2ab223374f"></script>
   <script src="compiled/log.js?v=7c8755be83"></script>
-  <script src="compiled/app.js?v=54e9eeb0d4"></script>
+  <script src="compiled/app.js?v=7e5c99ac6b"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

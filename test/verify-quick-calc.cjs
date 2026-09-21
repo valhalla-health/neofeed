@@ -78,6 +78,7 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
 
 const appSrc  = fs.readFileSync(DIR + 'app.jsx', 'utf8');
 const calcSrc = fs.readFileSync(DIR + 'calculator.jsx', 'utf8');
+const iconSrc = fs.readFileSync(DIR + 'icons.jsx', 'utf8');
 const shell   = fs.readFileSync(DIR + 'NeoFeed.html', 'utf8');
 const shellTwin = fs.readFileSync(DIR + 'index.html', 'utf8');
 
@@ -230,6 +231,7 @@ copied = null;
 act(() => { copyBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 ok('clicking it copies something', typeof copied === 'string' && copied.length > 0);
 ok('the text declares it is not a treatment order', /ไม่ใช่คำสั่งการรักษา/.test(copied || ''), copied);
+ok('…under the Calculator name', /NeoFeed — Calculator/.test(copied || ''), copied);
 ok('the text declares it was not saved', /ไม่ได้บันทึก/.test(copied || ''), copied);
 ok('it carries no NeoFeed ID', !/NeoFeed ID/.test(copied || ''), copied);
 ok('it carries no bed', !/^Bed:/m.test(copied || ''), copied);
@@ -256,6 +258,23 @@ ok('the quick calc view needs no patient (not in PATIENT_VIEWS)',
   !/const PATIENT_VIEWS = \[[^\]]*quickcalc/.test(appSrc));
 ok('the floating button is rendered by App',
   /<QuickCalcFab\s+onClick=/.test(appSrc));
+// Praew, 2026-09-21: the button reads "Calculator" and is represented by a
+// calculator glyph. The glyph is the STROKED `calculator`, never the filled
+// `calc` the rail uses — that one's screen and keys are wound the same way as
+// its body, so under the default nonzero fill-rule they fill in and it renders
+// as a plain rounded square in white at 22px.
+const fab = /function QuickCalcFab\([\s\S]*?\n}\n/.exec(appSrc)?.[0] || '';
+ok('icons.jsx defines a stroked calculator glyph',
+  /\n\s*calculator:\s*"M/.test(iconSrc) &&
+  !/const filled = \[[^\]]*"calculator"/.test(iconSrc), iconSrc.match(/const filled = \[[^\]]*\]/)?.[0]);
+ok('the button uses it, not the filled `calc`',
+  /<Icon name="calculator"/.test(fab) && !/<Icon name="calc"/.test(fab), fab);
+ok('the rail and the mobile tab keep the original `calc`',
+  /RailItem icon="calc" label="Calculator"/.test(appSrc) &&
+  /id: "calculator", icon: "calc"/.test(appSrc));
+ok('the button is labelled Calculator',
+  /quick-fab-label">Calculator</.test(fab) && /aria-label="Calculator/.test(fab), fab);
+ok('the view is headed Calculator', /<h1[^>]*>\s*\n?\s*Calculator\n/.test(quickView), quickView.slice(0, 600));
 ok('it is hidden on the calculator and on itself',
   /view !== "quickcalc" && view !== "calculator" &&\s*\n?\s*<QuickCalcFab/.test(appSrc),
   /.{0,140}<QuickCalcFab/.exec(appSrc)?.[0]);

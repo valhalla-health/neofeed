@@ -1264,7 +1264,7 @@ const SCRATCH_PATIENT = Object.freeze({
 const QUICK_DOL_MAX = 60;
 function QuickCalcView({ onBack }) {
   const [dol, setDol] = React.useState(1);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBack }, "← กลับ"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "คำนวณเร็ว", /* @__PURE__ */ React.createElement("span", { className: "chip", style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBack }, "← กลับ"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "Calculator", /* @__PURE__ */ React.createElement("span", { className: "chip", style: {
     fontSize: 12,
     fontWeight: 700,
     background: "var(--warn-bg)",
@@ -1309,11 +1309,11 @@ function QuickCalcFab({ onClick }) {
       type: "button",
       className: "quick-fab",
       onClick,
-      "aria-label": "คำนวณเร็ว — ไม่บันทึก",
-      title: "คำนวณเร็ว (ไม่บันทึก)"
+      "aria-label": "Calculator — ไม่บันทึก",
+      title: "Calculator (ไม่บันทึก)"
     },
-    /* @__PURE__ */ React.createElement(Icon, { name: "calc", size: 22, color: "#fff" }),
-    /* @__PURE__ */ React.createElement("span", { className: "quick-fab-label" }, "คำนวณเร็ว")
+    /* @__PURE__ */ React.createElement(Icon, { name: "calculator", size: 22, color: "#fff", stroke: 1.9 }),
+    /* @__PURE__ */ React.createElement("span", { className: "quick-fab-label" }, "Calculator")
   );
 }
 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];

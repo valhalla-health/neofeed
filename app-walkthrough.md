@@ -695,9 +695,17 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 7. **Guidelines (ESPGHAN)** / **Formulas + products** (`GuidelinesPanel`,
    `FormulasPanel` in `app.jsx`) — static clinical reference content, no
    patient data.
-8. **Quick calc** (`QuickCalcView` in `app.jsx`, added 2026-09-21 on a ward
-   request) — reached from `QuickCalcFab`, a floating button bottom-right on
-   every screen size, hidden on the Calculator (you are already in it, and
+8. **Calculator (quick calc)** (`QuickCalcView` in `app.jsx`, added
+   2026-09-21 on a ward request) — reached from `QuickCalcFab`, a floating
+   button bottom-right on every screen size labelled **Calculator**, the same
+   word as the patient wizard: the `ไม่บันทึก` chip beside the heading is what
+   tells them apart, and the button is hidden while the patient Calculator is
+   open, so the two labels are never on screen together. Its glyph is
+   `icons.jsx`'s **stroked `calculator`**, added for it — the filled `calc`
+   the rail uses winds its screen and keys the same way as its body, so under
+   the default nonzero fill-rule they fill in and it renders as a plain
+   rounded square in white at 22 px. `calc` itself is unchanged.
+   The button is hidden on the Calculator (you are already in it, and
    leaving would drop an in-progress order's edit context) and on itself.
    **It is the same `<Calculator>`, run with `scratch`** — not a second,
    slimmer calculator. That matters: a separate quick calculator would be a
