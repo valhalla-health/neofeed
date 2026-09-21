@@ -1868,8 +1868,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 ? `⚠ แก้เอง · อัตโนมัติ = ${fmt(autoWtG, 0)} g`
                 : usingBirthWeight ? "= birth weight (not yet regained)" : curWtG > 0 ? "= current weight" : "—"} />
             <div style={{ padding: "10px 14px", borderRadius: 8,
-              background: Math.abs(calc.remaining) < 1 ? "var(--ok-bg)" : calc.remaining < -10 ? "oklch(96% 0.04 25)" : "var(--brand-bg)",
-              border: `1px solid ${Math.abs(calc.remaining) < 1 ? "var(--ok-line)" : calc.remaining < -10 ? "oklch(60% 0.13 25)" : "var(--brand-line)"}`,
+              background: Math.abs(calc.remaining) < 1 ? "var(--ok-bg)" : calc.remaining < -10 ? "var(--crit-bg)" : "var(--brand-bg)",
+              border: `1px solid ${Math.abs(calc.remaining) < 1 ? "var(--ok-line)" : calc.remaining < -10 ? "var(--crit)" : "var(--brand-line)"}`,
               display: "flex", flexDirection: "column", justifyContent: "center" }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.05 }}>
                 {calc.remaining < -1 ? "Over target" : "Remaining"}
@@ -2261,20 +2261,20 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
           {/* ══ PUMP 2: Lipid (separate pump) ════════════════════════════ */}
           <div style={{ border:"1.5px solid var(--warn-line)", borderRadius:8, overflow:"hidden" }}>
             <div style={{ background:"var(--warn-bg)", padding:"6px 12px", fontSize:11, fontWeight:700,
-              color:"oklch(45% 0.13 65)", display:"flex", alignItems:"center", gap:6 }}>
+              color:"var(--warn-ink)", display:"flex", alignItems:"center", gap:6 }}>
               🫙 Lipid Pump — separate pump
             </div>
             <div style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:10 }}>
 
               {/* Rate — the pump-facing number, always front and center */}
-              <div style={{ background:"linear-gradient(180deg,oklch(96.5% 0.04 75),#fff 70%)",
+              <div style={{ background:"linear-gradient(180deg,var(--warn-bg),#fff 70%)",
                 border:"1.5px solid var(--warn-line)", borderRadius:8, padding:"10px 14px",
                 position:"relative", overflow:"hidden",
                 display:"flex", flexWrap:"wrap", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-                <div style={{ position:"absolute", left:0, top:0, bottom:0, width:3, background:"oklch(55% 0.15 65)" }} />
+                <div style={{ position:"absolute", left:0, top:0, bottom:0, width:3, background:"var(--warn)" }} />
                 <div>
                   <div style={{ fontSize:10, color:"var(--ink-3)", fontWeight:600, letterSpacing:"0.04em" }}>PUMP RATE</div>
-                  <div className="num" style={{ fontSize:30, fontWeight:700, lineHeight:1.15, color:"oklch(38% 0.14 65)" }}>
+                  <div className="num" style={{ fontSize:30, fontWeight:700, lineHeight:1.15, color:"var(--warn-ink)" }}>
                     {calc.lipidBagVol > 0 ? (calc.lipidBagVol/lipidDripHours).toFixed(2) : "—"}
                     <span style={{ fontSize:13, color:"var(--ink-3)", marginLeft:5, fontWeight:400 }}>mL/hr</span>
                   </div>

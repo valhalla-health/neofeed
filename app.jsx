@@ -333,8 +333,8 @@ function SyncGate({ online, failed, detail, onRetry }) {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:20 }}>
           <div style={{
             width:34, height:34, borderRadius:9, display:"grid", placeItems:"center",
-            background:"linear-gradient(135deg, var(--brand) 0%, oklch(36% 0.09 215) 100%)",
-            boxShadow:"inset 0 -2px 0 oklch(28% 0.08 215 / .4), 0 2px 8px oklch(46% 0.085 215 / .25)",
+            background:"linear-gradient(145deg, var(--brand-3) 0%, var(--brand) 55%, var(--brand-ink) 100%)",
+            boxShadow:"inset 0 -2px 0 oklch(28% 0.05 203 / .45), 0 2px 8px oklch(46.3% 0.074 201 / .28)",
           }}>
             <svg viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="#fff"
               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1072,7 +1072,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Removed 2026-09-11 (review C5); the default accent it always resolved to
   // stays.
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(46% 0.085 215)`);
+    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
   }, []);
 
   // ── Shared GAS write helper ───────────────────────────────────
@@ -2061,7 +2061,7 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
   const [wtLabel, wtColor] = patient.bw < 1000
     ? ["ELBW", "var(--crit)"]
     : patient.bw < 1500 ? ["VLBW", "var(--warn)"] : ["LBW", "var(--ink-3)"];
-  const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)";
+  const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
   return (
     <div className="patient-strip">
 
@@ -2206,7 +2206,7 @@ function AlertCenter({ patient, log, onAckChange }) {
         </div>
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>Cautions</div>
-          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "oklch(45% 0.13 65)" }}>{activeAlerts.filter((a) => a.level === "warn").length}</div>
+          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--warn-ink)" }}>{activeAlerts.filter((a) => a.level === "warn").length}</div>
         </div>
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>Info / reminders</div>
@@ -2418,14 +2418,21 @@ function LoginScreen({ onLogin, notice = null }) {
     <div className="login-wrap">
       {/* Logo */}
       <div className="login-logo-mark">
-        <svg viewBox="0 0 36 36" width="52" height="52" fill="none"
-          stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+        {/* The sheet draws this mark as a teal glyph on a white tile, not the
+            reverse. Both colours go through `style`, not a `stroke=`/`fill=`
+            presentation attribute: var() is only substituted in CSS
+            declarations, so as an attribute it would resolve to nothing and
+            the mark would render black. */}
+        <svg viewBox="0 0 36 36" width="56" height="56" fill="none"
+          strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"
+          style={{ stroke: "var(--brand)" }}>
           <path d="M9 27 V 9 L 27 27 V 9" />
-          <circle cx="27" cy="9" r="3" fill="#fff" stroke="none" />
+          <circle cx="27" cy="9" r="3.1" stroke="none" style={{ fill: "var(--brand-3)" }} />
         </svg>
       </div>
 
-      <div className="login-app-name">NeoFeed</div>
+      <div className="login-app-name">Neo<span className="lw">Feed</span></div>
+      <div className="login-eyebrow">Nutrition insight for brighter beginnings</div>
       <div className="login-tagline">Neonatal nutrition,<br />calculated precisely</div>
 
       {/* Why this screen is showing, when the user did not ask for it: idle
@@ -2438,7 +2445,7 @@ function LoginScreen({ onLogin, notice = null }) {
         <div role="status" aria-live="polite" className="login-notice" style={{
           width: "100%", maxWidth: 320, boxSizing: "border-box", marginBottom: 18,
           padding: "10px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.5,
-          background: "var(--warn-bg)", border: "1px solid var(--warn-line)", color: "oklch(42% 0.12 65)",
+          background: "var(--warn-bg)", border: "1px solid var(--warn-line)", color: "var(--warn-ink)",
         }}>
           <div style={{ fontWeight: 600 }}>{notice.title}</div>
           {notice.body && <div style={{ marginTop: 2 }}>{notice.body}</div>}
@@ -2527,7 +2534,7 @@ function LoginScreen({ onLogin, notice = null }) {
           </svg>
           สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla
         </a>
-        <div className="login-footer">VALHALLA TEAM &nbsp;·&nbsp; V2.0</div>
+        <div className="login-footer">VALHALLA&nbsp;HEALTH &nbsp;·&nbsp; V2.0</div>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -2596,7 +2603,7 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
           ["Active sessions", active, "var(--brand)"],
           ["Total patients", patients.length, "var(--ink)"],
           ["Logged entries", totalLogs, "var(--ok)"],
-          ["Active alerts", alertsTotal, "oklch(45% 0.13 65)"]
+          ["Active alerts", alertsTotal, "var(--warn-ink)"]
         ].map(([l, v, c]) =>
           <div key={l} className="card" style={{ padding: 14 }}>
             <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>{l}</div>
@@ -3201,11 +3208,11 @@ function toastHost() {
 function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
-  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(20% 0.01 230)";
+  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur    = type === "error" ? 4200 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue('--toast-bottom').trim() || '24px';
-  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 6px 24px oklch(20% 0 0 / .25);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {
