@@ -773,6 +773,29 @@ notes — don't just add the feature.
   rule. `.preset-chips` in particular wraps by design now (`flex: 1 1 44px`)
   — don't restore `nowrap`/`flex: 1 1 0` to "keep doses on one row"; that's
   what squeezed dose chips to 26px wide.
+- **The palette is the Valhalla Health brand sheet, and it lives in one
+  place** (2026-09-21). The shells' `:root` block is the only definition of
+  it: seven brand colours converted to oklch, plus derived ramps
+  (`--brand-ink`/`--brand-2`/`--brand`/`--brand-3`/`--brand-4`/`--brand-line`/
+  `--brand-bg`/`--brand-bg-2`). Reach for a token, not a literal — every
+  hardcoded `oklch(...)` that used to sit in the JSX was a place the palette
+  could drift, and moving the brand hue took a scripted sweep of five files
+  because of it. Three rules that are not style preferences:
+  - **Clinical status colours are not brand colours.** `--crit`/`--warn`/
+    `--ok` stay outside the brand sheet and were left byte-identical through
+    the Valhalla change. Severity at a bedside is read off a mapping the
+    ward already knows; brand teal never means "normal". If a brand refresh
+    ever seems to call for re-hueing them, that is a clinical decision, not
+    a design one.
+  - **Nordic Sand is decorative only.** It sits at hue 80, next door to
+    `--warn` at 65. It is for hairline rules and the wordmark underline —
+    never a chip, badge, or anything a reader could take for a caution.
+  - **Text tiers are contrast-checked, not eyeballed.** `--ink-3` is pinned
+    at the value that clears 4.5:1 on `--bg-2` (table headers sit on it),
+    and `--crit-ink`/`--warn-ink`/`--ok-ink` exist because the signal
+    colours themselves are fills, not text — `--warn` is only 3.6:1 on
+    white. Use the `-ink` cut whenever a status colour is a word rather
+    than a stripe.
 - **`tweaks-panel.jsx` was removed on 2026-09-11** — don't reintroduce a
   design-tool panel into the production shells.
 - **PWA installability** depends on `manifest.json` + `<link rel="manifest">`

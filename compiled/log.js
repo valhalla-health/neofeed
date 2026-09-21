@@ -31,7 +31,7 @@ function pickTarget(metricKey, entry, patient) {
   return null;
 }
 const METRICS = [
-  { key: "kcal", label: "Energy", unit: "kcal/kg/d", color: "oklch(46% 0.085 215)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
+  { key: "kcal", label: "Energy", unit: "kcal/kg/d", color: "oklch(46.3% 0.074 201)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
   { key: "pro", label: "Protein", unit: "g/kg/d", color: "oklch(55% 0.13 155)", yMax: 5, ticks: [0, 1, 2, 3, 4, 5] },
   { key: "gir", label: "GIR", unit: "mg/kg/min", color: "oklch(58% 0.14 35)", yMax: 14, ticks: [0, 2, 4, 6, 8, 10, 12, 14] },
   { key: "fluid", label: "Fluid", unit: "mL/kg/d", color: "oklch(56% 0.11 280)", yMax: 200, ticks: [0, 40, 80, 120, 160, 200] },
@@ -186,8 +186,8 @@ function TrendGraph({ entries, patient }) {
     fontWeight: 700,
     padding: "1px 6px",
     borderRadius: 999,
-    background: isENMode ? "oklch(94% 0.05 155)" : "oklch(94% 0.04 215)",
-    color: isENMode ? "oklch(40% 0.13 155)" : "oklch(40% 0.13 215)",
+    background: isENMode ? "oklch(94% 0.05 155)" : "var(--brand-bg-2)",
+    color: isENMode ? "oklch(40% 0.13 155)" : "var(--brand-ink)",
     letterSpacing: "0.04em"
   } }, isENMode ? "EN" : "PN")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontFamily: "IBM Plex Mono, monospace", color: "var(--ink-2)", marginTop: 6 } }, targetBand[0], "–", targetBand[1], " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontSize: 11 } }, metric.unit))), points.length >= 2 && latest.y > 0 && points[points.length - 2].y > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--ink-3)", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 } }, "Δ vs prev"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontFamily: "IBM Plex Mono, monospace", color: "var(--ink-2)", marginTop: 6 } }, (() => {
     const prev = points[points.length - 2];
@@ -204,7 +204,7 @@ function TrendGraph({ entries, patient }) {
       onMouseLeave: () => setHover(null)
     },
     /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: gradId, x1: "0", y1: "0", x2: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: metric.color, stopOpacity: "0.22" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: metric.color, stopOpacity: "0" }))),
-    /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "oklch(99.5% 0.002 230)" }),
+    /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "oklch(99.4% 0.004 195)" }),
     targetBand && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
       "rect",
       {
@@ -257,7 +257,7 @@ function TrendGraph({ entries, patient }) {
         x2: W - pad.r,
         y1: yScale(t),
         y2: yScale(t),
-        stroke: "oklch(93% 0.005 230)",
+        stroke: "oklch(93% 0.008 198)",
         strokeWidth: "1"
       }
     ), /* @__PURE__ */ React.createElement(
@@ -351,7 +351,7 @@ function TrendGraph({ entries, patient }) {
     left: `${xScale(hover.x) / W * 100}%`,
     top: `${yScale(hover.y) / H * 100}%`,
     transform: `translate(${xScale(hover.x) > W * 0.7 ? "calc(-100% - 12px)" : "12px"}, -50%)`,
-    background: "oklch(22% 0.015 250)",
+    background: "oklch(24% 0.022 205)",
     color: "#fff",
     padding: "8px 10px",
     borderRadius: 6,
@@ -360,7 +360,7 @@ function TrendGraph({ entries, patient }) {
     lineHeight: 1.5,
     whiteSpace: "nowrap",
     pointerEvents: "none",
-    boxShadow: "0 4px 12px oklch(20% 0.01 230 / .25)",
+    boxShadow: "0 6px 16px oklch(25% 0.02 205 / .26)",
     zIndex: 10
   } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: 2 } }, n(hover.y, metric.key === "weight" ? 0 : 1), " ", /* @__PURE__ */ React.createElement("span", { style: { opacity: 0.7, fontWeight: 400 } }, metric.unit)), /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.7, fontSize: 10 } }, "DOL ", hover.dol, " · Day ", hover.dayAdmit, " admit"), /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.55, fontSize: 9.5 } }, window.NEOFEED_FMT_DATE?.(hover.ts) || hover.ts))));
 }
