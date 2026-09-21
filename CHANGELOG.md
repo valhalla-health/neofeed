@@ -95,6 +95,118 @@ Two assertions in `verify-safety-review.cjs` were updated, not relaxed: the prin
 `PrintOrderForm` render condition now have to name `scratch` in their conditions rather than simply
 having lost the gate. Verified in real Chromium at 430 px and 1440 px.
 
+**Merged with the palette session below** before landing. The only real conflict was the shells' `?v=`
+tokens, which the build writes — resolved by taking one side and rebuilding. One thing the merge
+caught that a clean apply would not have: `.quick-fab` was written with a hand-rolled
+`oklch(… 230 …)` drop shadow, the old hue, hours before the palette session moved every shadow in the
+app onto hue 205 and a single `--shadow-lift` token. It now uses that token, like the modals and the
+picker — a button added the same day as "the design system that had been living in five files" should
+not be the sixth.
+## Session 2026-09-21 — Valhalla Health palette, and the design system that had been living in five files
+
+Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s
+numbers are untouched, and every one of the 42 harnesses passes against both the sources and
+`compiled/`.
+
+**What changed.** The app now wears the Valhalla Health brand sheet. Its seven colours were converted
+to oklch — the space the shells were already written in — so the tints, hovers and hairlines could be
+derived by moving L/C along one hue instead of being matched by eye:
+
+| | hex | oklch |
+|---|---|---|
+| Midnight Teal | `#103F43` | `oklch(33.9% 0.049 203)` |
+| Valhalla Teal | `#12656A` | `oklch(46.3% 0.074 201)` |
+| Neo Teal | `#16838A` | `oklch(55.7% 0.090 202)` |
+| Sea Glass | `#78BFC0` | `oklch(75.8% 0.071 197)` |
+| Mineral Mist | `#D5ECEA` | `oklch(92.6% 0.024 190)` |
+| Nordic Sand | `#D4B98C` | `oklch(79.8% 0.067 80)` |
+| Porcelain Mist | `#F5F8F7` | `oklch(97.7% 0.003 174)` |
+
+The old brand was already a teal (`oklch(46% 0.085 215)`), so the move is mostly a 215 → 201 hue
+shift plus re-basing the neutrals off Porcelain Mist instead of a blue-grey at hue 230. Ink is now
+teal-leaning charcoal rather than blue, so body text sits inside the brand family instead of reading
+cold against it.
+
+**The part that was not a recolour.** The palette had no single definition. `:root` held 27 values;
+another **114** hardcoded `oklch(...)` literals sat outside it — 70 across `app.jsx`,
+`calculator.jsx`, `log.jsx`, `fenton.jsx` and `registry.jsx`, and 44 more in the shells' own CSS body.
+Among them, a warn-as-text cut written out by hand in **14 separate places across five files**.
+Moving the brand hue therefore took a scripted sweep with every single replacement asserted against an
+expected hit count, not an edit to one line. What the sweep left behind is the actual deliverable: a
+ramp (`--brand-ink` … `--brand-bg-2`), `--crit-ink` / `--warn-ink` / `--ok-ink` for status-as-text,
+`--sand`, `--ring`, `--shadow-lift` — and **zero** brand or neutral literals left in the CSS or in
+any JSX `style={{…}}`. `app-walkthrough.md` § 7 now carries the rules.
+
+The ~50 `oklch(...)` literals still in `log.jsx`/`fenton.jsx`/`calculator.jsx` are there by
+construction, not by omission: they feed SVG **presentation attributes** (`fill=`, `stroke=`), and
+`var()` is only substituted in CSS declarations — as an attribute it resolves to nothing and the mark
+renders black. (The login mark hit exactly this and is set through `style` instead.) What remains is
+the chart-series palette plus the brand/status values those charts draw with; they are now written as
+the new palette's exact values.
+
+**Three decisions worth recording, because each could look like an oversight later.**
+- **`--crit`, `--warn` and `--ok` are byte-identical to the pre-Valhalla values.** Severity at a
+  bedside is read off a mapping the ward already knows, and re-hueing it to match a brand is a
+  clinical change wearing a design change's clothes. Brand teal never means "normal".
+- **`--warn` and `--warn-ink` are left outside the sRGB gamut**, where they already were. The
+  in-gamut equivalents (`#c97000`, `#844100`) look identical on an sRGB panel — but the ward reads
+  this on P3 iPads, where the current specs render the more saturated amber that *is* the learned
+  signal. Pinning them would have quietly desaturated a clinical colour to tidy a spec.
+- **Nordic Sand is decorative only** — hairline rules and the login wordmark's underline, nothing
+  else. It sits at hue 80, next door to `--warn` at 65, and a warm chip that does not mean "caution"
+  is the one confusion this app can least afford.
+
+**Contrast was computed, not eyeballed.** Every text tier was run through a WCAG ratio against
+`--surface` and `--bg-2` before the tokens were written, and three failures in the *existing* palette
+were fixed on the way past: `--ink-3` was 4.08:1 on `--bg-2` (table headers sit on exactly that pair)
+and is now 4.52:1; `--ink-4` was 2.38:1 on white and is now 3.09:1; and warn-as-text had no named
+token at all, so its 7.7:1 cut was being re-typed by hand and was one typo from becoming `--warn`'s
+3.6:1. Ratios are recorded inline in `:root`.
+
+**UX work that came with it, all colour/elevation/focus — no box geometry moved**, so the Chromium
+layout assertions in `verify-sync-gate-and-poll.cjs` still describe the same shell:
+- **A visible focus ring, application-wide.** `:focus-visible` on every button, link and rail item.
+  The rail, the bottom nav and every ghost button were keyboard-reachable before this with nothing
+  drawn to say where you were — on a workstation that is driven by keyboard as often as by mouse.
+- **The active rail item carries a leading indicator bar**, not just a tint. Tint is the first thing
+  to disappear on a glare-washed bedside panel. Its `font-weight: 500` override went at the same time,
+  which fixes a jump that predates this session: the extra weight pushed "Guidelines (ESPGHAN)" onto a
+  second line at this rail width (measured 37px → 56px in Chromium), so selecting a view reflowed the
+  rail under the cursor that had just clicked it. Every rail item now holds its height in every
+  selected state.
+- **`prefers-reduced-motion: reduce`** now stands down every transition and animation in one block,
+  instead of each component having to remember. Checked against the calculator's accordions in both
+  motion modes, since the standard `transition-duration: .01ms !important` sweep is exactly the kind
+  of thing that can leave a `visibility`-delayed panel stuck shut — they open and close correctly in
+  both.
+- **The login screen was rebuilt as the brand moment** it is: a Porcelain-Mist ground with soft
+  Sea-Glass/Mineral-Mist ribbons (painted as gradients on a `-1` layer, deliberately no
+  `filter: blur()` — a full-viewport blur is the one effect that stutters on the ward's older Android
+  tablets), the two-tone `Neo`/`Feed` wordmark, a Nordic-Sand hairline, and the mark drawn the way the
+  sheet draws it: a teal glyph on a white tile, not the reverse.
+- Growth-chart percentiles now read as **one sequential teal ramp** (Sea Glass → Valhalla Teal)
+  instead of two unrelated blue-greys plus a teal. Percentiles are an ordered scale and now look like
+  one; the patient's own trace stays red, which is the one separation that has to survive.
+- Card headers, table headers, the patient strip's lead cell, scrims, shadows and the toast all move
+  onto brand-tinted values — on a Porcelain-Mist page a neutral-grey shadow reads as dirt.
+
+**Icons and chrome.** `icons/icon.svg` is now Neo Teal → Midnight Teal with a Sea Glass counter-dot,
+and all seven PNGs were re-rendered from it (headless Chromium at 1024px, then box-downsampled in
+premultiplied alpha by a small stdlib script, so the rounded corners do not fringe). `theme-color` and
+the manifest move to Midnight Teal, and the manifest's `background_color` becomes Porcelain Mist so a
+PWA launch no longer flashes white before settling onto the app's real page colour.
+
+**Center Point** needed one line. It extracts the shell's `<style>` block at build time
+(`center-point/build.mjs`), so the whole palette reaches it for free — but its toast carries its own
+copy of the colours, which is now matched to `app.jsx`'s. The extracted `calculator.css` was checked
+to confirm the new tokens actually land in it.
+
+**Verified.** All 42 harnesses green against the sources and against the shipped `compiled/*.js`;
+`node tools/build.mjs` reproduces the committed output byte-for-byte; the two shells are
+byte-identical; Center Point builds and its client tests pass. The real app was also driven through
+every view in Chromium (registry, dashboard, calculator, growth chart, alerts, guidelines, formulas,
+the patient picker, and mobile at 390px) with no console or page errors.
+
 ---
 
 ## Session 2026-09-18 (4) — The `harnesses` flake: `withNow` pinned `Date.now()` but not `new Date()`

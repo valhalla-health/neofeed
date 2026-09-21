@@ -259,7 +259,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           const dol     = D_R.liveDol(p);
           const delta   = last ? last.w - p.bw : 0;
           const deltaPct = (delta / p.bw) * 100;
-          const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)";
+          const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
           const isActive  = p.sessionId === activeId;
           const entries   = log[p.sessionId] || [];
           const lastEntry = entries[entries.length - 1];
@@ -449,7 +449,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                   <td style={{ color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.diagnosis}</td>
                   <td className="num" style={{ fontWeight: 700, color: "var(--brand-2)", fontSize: 15 }}>{dol}</td>
                   <td className="num">{last ? `${last.w.toLocaleString()} g` : "—"}</td>
-                  <td className="num" style={{ color: !last ? "var(--ink-3)" : deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)", fontWeight: 600 }}>
+                  <td className="num" style={{ color: !last ? "var(--ink-3)" : deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)", fontWeight: 600 }}>
                     {last ? <>
                       {delta >= 0 ? "+" : ""}{delta} g
                       <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({deltaPct.toFixed(1)}%)</span>
@@ -1087,13 +1087,13 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
             </div>
           </div>
           {!sexKnown && (
-            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "oklch(45% 0.13 65)", lineHeight: 1.5 }}>
+            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 }}>
               เพศในทะเบียนของ session นี้ไม่ถูกต้อง{patient.sex ? <> (<strong>{String(patient.sex)}</strong>)</> : null} —
               เลือก Male หรือ Female ก่อนจึงจะบันทึกได้ (ใช้เลือกกราฟ Fenton)
             </div>
           )}
           {gaTd > 0 && !gaInRange && (
-            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "oklch(45% 0.13 65)", lineHeight: 1.5 }}>
+            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 }}>
               GA เดิมของ session นี้ (<strong>{D_R.fmtGA(patient.ga)} wk</strong>) อยู่นอกช่วง 22–43 wk ที่ระบบรองรับ —
               เลือก GA ใหม่ก่อนจึงจะบันทึกได้
             </div>

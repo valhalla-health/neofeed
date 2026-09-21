@@ -57,7 +57,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
         <div className="card-b">
           <div role="alert" className="fenton-sex-invalid" style={{ padding: "12px 14px", background: "var(--warn-bg)",
             border: "1px solid var(--warn-line)", borderRadius: 8, marginBottom: 12,
-            fontSize: 13, color: "oklch(42% 0.12 65)", lineHeight: 1.5 }}>
+            fontSize: 13, color: "var(--warn-ink)", lineHeight: 1.5 }}>
             <strong>เพศในทะเบียนไม่ถูกต้อง — แก้ที่ Edit session</strong>
             <div style={{ fontSize: 12, marginTop: 2 }}>
               กราฟ Fenton แยกตามเพศ จึงแสดงไม่ได้จนกว่าจะระบุ Male หรือ Female
@@ -116,11 +116,11 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
   // build curves
   const PERCENTILES = [
-    { idx: 1, label: "3rd",  color: "oklch(72% 0.06 250)", w: 1.2, dash: "4 3" },
-    { idx: 2, label: "10th", color: "oklch(62% 0.08 250)", w: 1.4, dash: "" },
-    { idx: 3, label: "50th", color: "oklch(46% 0.085 215)", w: 2.0, dash: "" },
-    { idx: 4, label: "90th", color: "oklch(62% 0.08 250)", w: 1.4, dash: "" },
-    { idx: 5, label: "97th", color: "oklch(72% 0.06 250)", w: 1.2, dash: "4 3" },
+    { idx: 1, label: "3rd",  color: "oklch(75.8% 0.071 197)", w: 1.2, dash: "4 3" },
+    { idx: 2, label: "10th", color: "oklch(64% 0.082 199)",   w: 1.4, dash: "" },
+    { idx: 3, label: "50th", color: "oklch(46.3% 0.074 201)", w: 2.0, dash: "" },
+    { idx: 4, label: "90th", color: "oklch(64% 0.082 199)",   w: 1.4, dash: "" },
+    { idx: 5, label: "97th", color: "oklch(75.8% 0.071 197)", w: 1.2, dash: "4 3" },
   ];
 
   // Proper Catmull-Rom → cubic Bezier (tension 0.5) for smooth monotonic curves
@@ -328,15 +328,15 @@ function FentonChart({ patient, currentDol, onUpdate }) {
               onPointerUp={(e) => { dragRef.current = null; e.currentTarget.releasePointerCapture(e.pointerId); }}
             >
               {/* background grid */}
-              <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.5% 0.002 230)" />
+              <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.4% 0.004 195)" />
               {yTicks.map(t => (
-                <line key={`y${t}`} x1={pad.l} x2={W - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="oklch(94% 0.005 230)" />
+                <line key={`y${t}`} x1={pad.l} x2={W - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="oklch(94% 0.008 198)" />
               ))}
               {xTicks.map(t => (
-                <line key={`x${t}`} y1={pad.t} y2={H - pad.b} x1={xScale(t)} x2={xScale(t)} stroke="oklch(94% 0.005 230)" />
+                <line key={`x${t}`} y1={pad.t} y2={H - pad.b} x1={xScale(t)} x2={xScale(t)} stroke="oklch(94% 0.008 198)" />
               ))}
               {/* 10th-90th band */}
-              <path d={bandPath()} fill="oklch(50% 0.1 215 / .07)" />
+              <path d={bandPath()} fill="oklch(55.7% 0.090 202 / .08)" />
 
               {/* percentile curves */}
               {PERCENTILES.map(p => (
@@ -380,7 +380,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
                   <circle cx={xScale(p.pma)} cy={yScale(p.value)} r={px(4)} fill="oklch(50% 0.18 25)" stroke="#fff" strokeWidth={px(1.5)} />
                   {i === points.length - 1 && (
                     <g>
-                      <rect x={xScale(p.pma) + px(8)} y={yScale(p.value) - px(22)} width={px(78)} height={px(20)} fill="oklch(20% 0.01 230 / .92)" rx={px(4)} />
+                      <rect x={xScale(p.pma) + px(8)} y={yScale(p.value) - px(22)} width={px(78)} height={px(20)} fill="oklch(24% 0.022 205 / .93)" rx={px(4)} />
                       <text x={xScale(p.pma) + px(14)} y={yScale(p.value) - px(9)} fontSize={px(10)} fill="#fff" fontFamily="IBM Plex Mono, monospace">DOL {p.dol} · {metric === "weight" ? p.value : p.value}{metric === "weight" ? "g" : "cm"}</text>
                     </g>
                   )}
@@ -429,9 +429,9 @@ function FentonChart({ patient, currentDol, onUpdate }) {
             {onUpdate && <MeasurementLogger key={patient.sessionId} patient={patient} currentDol={currentDol} onUpdate={onUpdate} />}
 
             <div className="legend" style={{ flexDirection: "column", gap: 6 }}>
-              <div className="s"><span className="b" style={{ background: "oklch(46% 0.085 215)" }}></span>50th percentile</div>
-              <div className="s"><span className="b" style={{ background: "oklch(62% 0.08 250)" }}></span>10th & 90th</div>
-              <div className="s"><span className="b" style={{ background: "oklch(72% 0.06 250)", borderTop: "2px dashed oklch(72% 0.06 250)" }}></span>3rd & 97th</div>
+              <div className="s"><span className="b" style={{ background: "oklch(46.3% 0.074 201)" }}></span>50th percentile</div>
+              <div className="s"><span className="b" style={{ background: "oklch(64% 0.082 199)" }}></span>10th & 90th</div>
+              <div className="s"><span className="b" style={{ background: "oklch(75.8% 0.071 197)", borderTop: "2px dashed oklch(75.8% 0.071 197)" }}></span>3rd & 97th</div>
               <div className="s"><span className="b" style={{ background: "oklch(50% 0.18 25)" }}></span>Patient</div>
             </div>
           </div>
@@ -458,7 +458,7 @@ function GrowthVelocity({ points, metric = "weight" }) {
     return (
       <div>
         <div className="num" style={{ fontSize: 22, fontWeight: 500, color:
-          status === "ok" ? "var(--ok)" : status === "warn" ? "oklch(45% 0.13 65)" : "var(--crit)" }}>
+          status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn-ink)" : "var(--crit)" }}>
           {gPerKg.toFixed(1)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>g/kg/d</span>
         </div>
         <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>Target ≥ 15 g/kg/d</div>
@@ -474,7 +474,7 @@ function GrowthVelocity({ points, metric = "weight" }) {
   return (
     <div>
       <div className="num" style={{ fontSize: 22, fontWeight: 500, color:
-        status === "ok" ? "var(--ok)" : status === "warn" ? "oklch(45% 0.13 65)" : "var(--crit)" }}>
+        status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn-ink)" : "var(--crit)" }}>
         {cmPerWk.toFixed(2)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>cm/wk</span>
       </div>
       <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>Target 0.5–1 cm/wk</div>

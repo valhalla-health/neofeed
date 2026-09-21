@@ -213,8 +213,8 @@ function SyncGate({ online, failed, detail, onRetry }) {
     borderRadius: 9,
     display: "grid",
     placeItems: "center",
-    background: "linear-gradient(135deg, var(--brand) 0%, oklch(36% 0.09 215) 100%)",
-    boxShadow: "inset 0 -2px 0 oklch(28% 0.08 215 / .4), 0 2px 8px oklch(46% 0.085 215 / .25)"
+    background: "linear-gradient(145deg, var(--brand-3) 0%, var(--brand) 55%, var(--brand-ink) 100%)",
+    boxShadow: "inset 0 -2px 0 oklch(28% 0.05 203 / .45), 0 2px 8px oklch(46.3% 0.074 201 / .28)"
   } }, /* @__PURE__ */ React.createElement(
     "svg",
     {
@@ -628,7 +628,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }, []);
   const [pendingOpen, setPendingOpen] = React.useState(null);
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(46% 0.085 215)`);
+    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
   }, []);
   const gasPost = React.useCallback(async (payload, { quiet = false } = {}) => {
     if (!GAS_ON) return { ok: true };
@@ -1353,7 +1353,7 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
   const delta = currentW - patient.bw;
   const deltaPct = delta / patient.bw * 100;
   const [wtLabel, wtColor] = patient.bw < 1e3 ? ["ELBW", "var(--crit)"] : patient.bw < 1500 ? ["VLBW", "var(--warn)"] : ["LBW", "var(--ink-3)"];
-  const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)";
+  const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
   return /* @__PURE__ */ React.createElement("div", { className: "patient-strip" }, /* @__PURE__ */ React.createElement("div", { className: "lead" }, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Active session"), /* @__PURE__ */ React.createElement("div", { className: "pid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "id" }, patient.name || patient.initials || "—"), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Bed ", /* @__PURE__ */ React.createElement("span", { className: "num" }, patient.currentBed), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { color: "var(--brand-2)", fontWeight: 700 } }, displayDol)), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Admit ", fmtDate(patient.admissionDate)), onEdit && /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -1395,7 +1395,7 @@ function AlertCenter({ patient, log, onAckChange }) {
     persistAcked(next);
   };
   const activeAlerts = alerts.filter((a) => !acked[ackKeyFor(a)]);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Alert center"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Cross-cutting safety signals based on latest logged values · ", /* @__PURE__ */ React.createElement("span", null, patient.name || patient.initials || "—"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", disabled: activeAlerts.length === 0, onClick: acknowledgeAll }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14 }), " Acknowledge all"))), /* @__PURE__ */ React.createElement("div", { className: "alert-summary-tiles" }, /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Active critical"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--crit)" } }, activeAlerts.filter((a) => a.level === "crit").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Cautions"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "oklch(45% 0.13 65)" } }, activeAlerts.filter((a) => a.level === "warn").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Info / reminders"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--brand)" } }, activeAlerts.filter((a) => a.level === "info").length))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "bell", size: 14, color: "var(--brand)" }), " Patient alerts", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, activeAlerts.length, " active · ", alerts.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 8 } }, alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0)).map((a, i) => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Alert center"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Cross-cutting safety signals based on latest logged values · ", /* @__PURE__ */ React.createElement("span", null, patient.name || patient.initials || "—"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", disabled: activeAlerts.length === 0, onClick: acknowledgeAll }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14 }), " Acknowledge all"))), /* @__PURE__ */ React.createElement("div", { className: "alert-summary-tiles" }, /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Active critical"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--crit)" } }, activeAlerts.filter((a) => a.level === "crit").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Cautions"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--warn-ink)" } }, activeAlerts.filter((a) => a.level === "warn").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Info / reminders"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--brand)" } }, activeAlerts.filter((a) => a.level === "info").length))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "bell", size: 14, color: "var(--brand)" }), " Patient alerts", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, activeAlerts.length, " active · ", alerts.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 8 } }, alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0)).map((a, i) => {
     const ackedAt = acked[ackKeyFor(a)];
     return /* @__PURE__ */ React.createElement("div", { key: ackKeyFor(a), className: `alert-row ${a.level}`, style: ackedAt ? { opacity: 0.5 } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "ico" }, a.level === "crit" ? "!" : a.level === "warn" ? "!" : "i"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { className: "title" }, a.title), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)" }, className: "mono" }, "DOL ", a.dol)), /* @__PURE__ */ React.createElement("div", { className: "body" }, a.body), /* @__PURE__ */ React.createElement("div", { className: "meta" }, "Ref: ", a.ref)), ackedAt ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, color: "var(--ok)" }), " Acknowledged") : /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: () => acknowledge(a) }, "Acknowledge"));
   }))));
@@ -1529,17 +1529,17 @@ function LoginScreen({ onLogin, notice = null }) {
     "svg",
     {
       viewBox: "0 0 36 36",
-      width: "52",
-      height: "52",
+      width: "56",
+      height: "56",
       fill: "none",
-      stroke: "#fff",
-      strokeWidth: "2.6",
+      strokeWidth: "2.8",
       strokeLinecap: "round",
-      strokeLinejoin: "round"
+      strokeLinejoin: "round",
+      style: { stroke: "var(--brand)" }
     },
     /* @__PURE__ */ React.createElement("path", { d: "M9 27 V 9 L 27 27 V 9" }),
-    /* @__PURE__ */ React.createElement("circle", { cx: "27", cy: "9", r: "3", fill: "#fff", stroke: "none" })
-  )), /* @__PURE__ */ React.createElement("div", { className: "login-app-name" }, "NeoFeed"), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
+    /* @__PURE__ */ React.createElement("circle", { cx: "27", cy: "9", r: "3.1", stroke: "none", style: { fill: "var(--brand-3)" } })
+  )), /* @__PURE__ */ React.createElement("div", { className: "login-app-name" }, "Neo", /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")), /* @__PURE__ */ React.createElement("div", { className: "login-eyebrow" }, "Nutrition insight for brighter beginnings"), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
     width: "100%",
     maxWidth: 320,
     boxSizing: "border-box",
@@ -1550,7 +1550,7 @@ function LoginScreen({ onLogin, notice = null }) {
     lineHeight: 1.5,
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",
-    color: "oklch(42% 0.12 65)"
+    color: "var(--warn-ink)"
   } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, notice.title), notice.body && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 2 } }, notice.body)), mode === "google" && /* @__PURE__ */ React.createElement(React.Fragment, null, gsiFailed && /* @__PURE__ */ React.createElement("div", { role: "alert", className: "login-gsi-failed", style: {
     width: "100%",
     maxWidth: 320,
@@ -1658,7 +1658,7 @@ function LoginScreen({ onLogin, notice = null }) {
     },
     /* @__PURE__ */ React.createElement("rect", { x: "2", y: "4", width: "16", height: "13", rx: "2" }),
     /* @__PURE__ */ React.createElement("path", { d: "M2 7l8 5 8-5" })
-  ), "สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla"), /* @__PURE__ */ React.createElement("div", { className: "login-footer" }, "VALHALLA TEAM  ·  V2.0")), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
+  ), "สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla"), /* @__PURE__ */ React.createElement("div", { className: "login-footer" }, "VALHALLA HEALTH  ·  V2.0")), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
 }
 function AdminDashboard({ patients, log, lastSync, includeArchived = false, onToggleArchived }) {
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
@@ -1680,7 +1680,7 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
     ["Active sessions", active, "var(--brand)"],
     ["Total patients", patients.length, "var(--ink)"],
     ["Logged entries", totalLogs, "var(--ok)"],
-    ["Active alerts", alertsTotal, "oklch(45% 0.13 65)"]
+    ["Active alerts", alertsTotal, "var(--warn-ink)"]
   ].map(
     ([l, v, c]) => /* @__PURE__ */ React.createElement("div", { key: l, className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, l), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 30, fontWeight: 500, color: c } }, v))
   )), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "log", size: 14, color: "var(--brand)" }), " Recent log entries", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, allEntries.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { padding: 0 } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { background: "var(--bg-2)", textAlign: "left" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Session"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Bed"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "DOL"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Wt (g)"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "kcal"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Protein"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Route"))), /* @__PURE__ */ React.createElement("tbody", null, allEntries.slice(-20).reverse().map(
@@ -1992,11 +1992,11 @@ function toastHost() {
 function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
-  const bg = type === "error" ? "oklch(38% 0.15 20)" : "oklch(20% 0.01 230)";
+  const bg = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur = type === "error" ? 4200 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue("--toast-bottom").trim() || "24px";
-  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 6px 24px oklch(20% 0 0 / .25);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {
