@@ -246,6 +246,17 @@ clinical judgement. Everything else is engineering sequencing.
       `Utilities.formatDate`); this line is the class. Two ways out, either is small: have `throws()` take
       the expected message pattern and fail a `ReferenceError` outright, or fold that harness onto
       `gas-vm-sandbox.cjs`, which does not have the problem.
+- [ ] 🧱 **infra · A harness that runs nothing passes CI.** `.github/workflows/test.yml` grades each
+      harness by exit code alone (`for f in test/verify-*.cjs; do node "$f"; done` under `set -e`), so a
+      file that executes no assertion — emptied, corrupted, or with its body swallowed by a stray line
+      comment — exits 0 and is counted green. Demonstrated by accident on 2026-09-23: a harness copied
+      through a PowerShell pipeline lost every newline, which commented out everything after the first
+      `//` on the resulting single line; it printed **nothing at all** and exited 0. Only the missing
+      output gave it away, and nothing in the loop looks at output. The compiled pass already greps for
+      `[compiled-loader] swapped in`, which covers module-mounting harnesses in that mode only. Close it
+      the same way for both modes: every harness here ends with a summary line (`ALL PASS`, `N FAILED`,
+      `CALC ORACLE:`, …), so require a recognisable summary token in each harness's stdout and fail the
+      step when one is missing.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it
       a PWA and staff have home-screen installs, but there is **no service worker**, so a home-screen
       icon opens to nothing with no network. Partially addressed 2026-08-26: the staleness banner now
