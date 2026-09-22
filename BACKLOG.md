@@ -235,6 +235,17 @@ clinical judgement. Everything else is engineering sequencing.
         reminder paints the Alerts badge red; the strip prints a raw delta float; alerts keep running
         for discharged sessions and the admin tile counts them; on a phone Formulas and the Admin
         dashboard are unreachable.
+- [ ] 🧱 **infra · A hand-stubbed GAS harness can pass its "must reject" cases for the wrong reason.**
+      `test/verify-input-validation.cjs:25` is `throws(name, fn)` — it asserts only that *something* was
+      thrown, never what. It is the one harness left that stubs the GAS globals by hand (the other five
+      backend harnesses use `test/gas-vm-sandbox.cjs`), so the moment the code under test touches a global
+      that stub does not carry, every refusal assertion in it passes on a `ReferenceError` instead of on a
+      validation refusal, and the "still saves" cases fail loudly enough to look like the only problem.
+      Found on 2026-09-23 by the session working on PR #96, when `registerPatient` began calling `_fmtDate`
+      and `Session` was undefined in that sandbox. **#96 closes the instance** (it adds `Session` and
+      `Utilities.formatDate`); this line is the class. Two ways out, either is small: have `throws()` take
+      the expected message pattern and fail a `ReferenceError` outright, or fold that harness onto
+      `gas-vm-sandbox.cjs`, which does not have the problem.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it
       a PWA and staff have home-screen installs, but there is **no service worker**, so a home-screen
       icon opens to nothing with no network. Partially addressed 2026-08-26: the staleness banner now
