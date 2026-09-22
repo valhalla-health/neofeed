@@ -16,7 +16,9 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-09-22 — Luminous Protection: NeoFeed moves onto the Valhalla brand sheet
 
 Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s
-numbers are untouched, and all 48 harnesses pass against both the sources and `compiled/`.
+numbers are untouched, and every `verify-*.cjs` harness passes against both the sources and
+`compiled/` (43 on this branch at the time of writing; the count moves as harnesses are added, which
+is why it is not pinned here).
 
 **The request** (Praew, 2026-09-22): the login screen loses "Nutrition insight for brighter beginnings"
 and the "สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla" button, gains the Valhalla logo and environment; then —
