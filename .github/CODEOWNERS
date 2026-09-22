@@ -1,0 +1,36 @@
+# Who GitHub asks to review what.
+#
+# This file is ADVISORY today: `main` requires the `harnesses` check, not an
+# approving review (a required review would mean Praew could not merge her own
+# PR, since GitHub never lets an author approve one). What it does do is put
+# the right name on every PR automatically, and it is the one place to add the
+# second clinical reviewer the moment there is one — see AI_SDLC.md § 7:
+# "no change to a printed dose has ever had a second clinical reviewer".
+#
+# To make it binding later, turn on "Require review from Code Owners" in
+# main's protection — only worth doing once the second reviewer below exists.
+
+# Everything, by default.
+*                           @praewxtvl
+
+# ── The files that can move a number on a pharmacy order ──────────────────
+# A change here compounds differently at the bedside. Same set as the
+# change protocol in docs/CLINICAL_CONSTANTS.md § "The change protocol".
+/data.js                    @praewxtvl
+/calculator.jsx             @praewxtvl
+/gas-backend.gs             @praewxtvl
+/docs/CLINICAL_CONSTANTS.md @praewxtvl
+
+# The harnesses that stand between those files and the ward. Weakening one is
+# the quiet way to change a dose, so they carry the same owner.
+/test/verify-kcmh-constants.cjs @praewxtvl
+/test/verify-kcmh-factor.cjs    @praewxtvl
+/test/verify-calc-oracle.cjs    @praewxtvl
+/test/verify-calc-clicks.cjs    @praewxtvl
+/test/verify-calc-fuzz.cjs      @praewxtvl
+
+# ── Second clinical reviewer ──────────────────────────────────────────────
+# When one is named (a KCMH TPN pharmacist or a colleague), add them to the
+# four dose files above — one login per line, space-separated, e.g.
+#   /data.js                  @praewxtvl @their-login
+# and record the agreement in docs/CLINICAL_CONSTANTS.md.

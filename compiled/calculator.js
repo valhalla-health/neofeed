@@ -2022,7 +2022,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       step: 100,
       hint: suppVitD > 0 && wtKg > 0 ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: 400–700 IU/kg` : "ESPGHAN 2022: 400–700 IU/kg/day"
     }
-  ), /* @__PURE__ */ React.createElement(PresetChips, { values: [400, 500, 600, 700], current: suppVitD, onSelect: setSuppVitD, suffix: " IU/kg" }), suppMTV && suppVitD > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--warn)", marginTop: 3 } }, "⚠ Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น ", Math.round((suppVitD + 400) * wtKg), " IU/day"), (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) && /* @__PURE__ */ React.createElement("div", { style: {
+  ), /* @__PURE__ */ React.createElement(PresetChips, { values: [400, 500, 600, 700], current: suppVitD, onSelect: setSuppVitD, suffix: " IU/kg" }), suppMTV && suppVitD > 0 && /* @__PURE__ */ React.createElement("div", { className: "vitd-total", style: { fontSize: 10.5, color: "var(--warn)", marginTop: 3 } }, "⚠ Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น ", Math.round(suppVitD * wtKg + 400), " IU/day"), (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) && /* @__PURE__ */ React.createElement("div", { style: {
     marginTop: 14,
     padding: "12px 14px",
     background: "var(--brand-bg)",
