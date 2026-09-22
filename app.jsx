@@ -282,46 +282,44 @@ function activeAlertCount(patient, entries) {
 // Thai-first, like the rest of the clinical copy. Inline styles + one <style>
 // for the keyframes, following the banner's rule: a change that needs no CSS
 // in NeoFeed.html/index.html cannot desync the two hand-synced shells.
-// ── The NeoFeed mark ─────────────────────────────────────────
-// icons/icon.svg, inline. The tile and the two paths below ARE the master the
-// home-screen icon, the maskable icons and every favicon are rendered from, so
-// the corner of the app and the icon the ward taps to open it are one drawing
-// rather than two that drift (Praew, 2026-09-22: "Logo icon N ให้ใช้ใน app ด้วย
-// มุมซ้ายบน ... ให้แทน n+dot เก่าทุกอัน").
+// ── The NeoFeed wordmark ─────────────────────────────────────
+// The two-tone N IS the "N", then "eo", then a light "Feed" — the lockup from
+// the brand board Praew approved on 2026-09-22, drawn in the Valhalla Teal
+// sheet. ONE component with THREE call sites: the login hero, the topbar
+// corner and the sync gate. It replaced the icon tile in the app's own corner
+// on her instruction — "ส่วนบนซ้ายในหน้า dashboard ... ให้เอา NeoFeed ที่แก้แล้ว
+// นี้ไปใส่ ไม่ต้องใส่ icon" — so the tile is now what it is for: the home-screen
+// and favicon artwork, and nothing inside the app draws it.
 //
-// It replaces the stroked N+dot that the topbar and SyncGate each drew by hand
-// — the last two copies of that mark left anywhere in the app. The login
-// wordmark had already moved to this letter on 2026-09-22; these were what it
-// left behind.
+// The two paths are icons/icon.svg's, character for character, and the four
+// stops are its stops (pinned by test/verify-neofeed-mark.cjs), so the icon
+// and the wordmark cannot drift. The colours are literal because an SVG
+// presentation attribute cannot read a var() — which also means the mark does
+// NOT follow a palette change on its own and has to be re-tinted deliberately.
 //
-// The colours are literal, exactly as in icon.svg and the login wordmark: an
-// SVG presentation attribute cannot read a var(), and this is the product's
-// mark rather than the palette's — it stays itself while the app's chrome
-// changes around it, which is also why it did not follow the app back onto the
-// teal sheet. Its gradient ids are `nfm-*`, distinct from the login wordmark's
-// `nf-*`, so the two can never collide inside one document.
-//
-// test/verify-neofeed-mark.cjs pins that these paths are icon.svg's character
-// for character, and that no N+dot is left in app.jsx.
-const NeoFeedMark = ({ size = 28, label }) => (
-  <svg viewBox="0 0 256 256" width={size} height={size} focusable="false"
-    role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : "true"}>
-    <defs>
-      <linearGradient id="nfm-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
-        <stop offset="0" stopColor="#12656A" />
-        <stop offset="1" stopColor="#103F43" />
-      </linearGradient>
-      <linearGradient id="nfm-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
-        <stop offset="0" stopColor="#78BFC0" />
-        <stop offset="1" stopColor="#5BA2A3" />
-      </linearGradient>
-    </defs>
-    <rect width="256" height="256" rx="56" fill="#D5ECEA" />
-    <g transform="translate(46.17 44.5) scale(1.67)">
-      <path fill="url(#nfm-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" />
-      <path fill="url(#nfm-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" />
-    </g>
-  </svg>
+// role="img" makes a screen reader say "NeoFeed" once, not "e o Feed".
+// Everything about its size lives in CSS and is in em, so a call site sets
+// font-size and nothing else. There is only ever one of these on screen (the
+// login screen replaces the app tree; the sync gate replaces the workspace),
+// so a single set of gradient ids cannot collide.
+const NeoFeedWordmark = ({ className, style }) => (
+  <div className={className ? `nf-wordmark ${className}` : "nf-wordmark"} style={style}
+    role="img" aria-label="NeoFeed">
+    <svg className="nf-n" viewBox="0 0 98 100" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
+          <stop offset="0" stopColor="#12656A" />
+          <stop offset="1" stopColor="#103F43" />
+        </linearGradient>
+        <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
+          <stop offset="0" stopColor="#78BFC0" />
+          <stop offset="1" stopColor="#5BA2A3" />
+        </linearGradient>
+      </defs>
+      <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" />
+      <path fill="url(#nf-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" />
+    </svg>eo<span className="lw">Feed</span>
+  </div>
 );
 
 const SYNC_SLOW_AFTER_MS      =  6000;
@@ -373,8 +371,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
         {/* Brandmark — the topbar's logo, at rest. Gives the screen an owner:
             "NeoFeed is loading", not "a page is loading". */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:20 }}>
-          <NeoFeedMark size={34} />
-          <div style={{ fontSize:19, fontWeight:600, letterSpacing:"-0.01em", color:"var(--ink)" }}>NeoFeed</div>
+          <NeoFeedWordmark style={{ fontSize:23, fontWeight:600, letterSpacing:"-0.015em" }} />
         </div>
 
         {/* Indeterminate bar rather than a ring: it reads as "something is
@@ -1609,12 +1606,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     <div className="app">
       {/* Top bar */}
       <div className="topbar">
-        <div className="brandmark">
-          <div className="logo"><NeoFeedMark size={28} /></div>
-          <div>
-            <div className="name">NeoFeed</div>
-          </div>
-        </div>
+        {/* The wordmark itself, no icon tile (Praew, 2026-09-22). */}
+        <div className="brandmark"><NeoFeedWordmark /></div>
 
         <button
           className="switch-patient"
@@ -2553,29 +2546,7 @@ function LoginScreen({ onLogin, notice = null }) {
 
   return (
     <div className="login-wrap">
-      {/* The wordmark (Praew, 2026-09-22): NeoFeed's two-tone N IS the "N",
-          followed by "eo" and a light "Feed", as on the approved brand board.
-          The two paths are icons/icon.svg's, character for character (pinned
-          by test/verify-neofeed-mark.cjs), so the app icon and the wordmark
-          cannot drift apart. The colours are literal, like icon.svg's: an SVG
-          presentation attribute cannot read var(). role="img" makes a screen
-          reader say "NeoFeed" once, not "e o Feed". */}
-      <div className="login-app-name" role="img" aria-label="NeoFeed">
-        <svg className="login-n" viewBox="0 0 98 100" aria-hidden="true" focusable="false">
-          <defs>
-            <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
-              <stop offset="0" stopColor="#12656A" />
-              <stop offset="1" stopColor="#103F43" />
-            </linearGradient>
-            <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
-              <stop offset="0" stopColor="#78BFC0" />
-              <stop offset="1" stopColor="#5BA2A3" />
-            </linearGradient>
-          </defs>
-          <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" />
-          <path fill="url(#nf-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" />
-        </svg>eo<span className="lw">Feed</span>
-      </div>
+      <NeoFeedWordmark className="login-app-name" />
       <div className="login-tagline">Neonatal nutrition,<br />calculated precisely</div>
 
       {/* Why this screen is showing, when the user did not ask for it: idle

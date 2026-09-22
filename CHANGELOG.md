@@ -74,17 +74,45 @@ page it was opened from — one page in, one page out, so the button is never a 
 way. `quickFrom` went with it. The button reads ← กลับไป Dashboard so the destination is on the
 control. Which page counted as "หน้าแรก" was put to Praew rather than guessed; she chose Dashboard.
 
-### 3 · "Logo icon N ให้ใช้ใน app ด้วย มุมซ้ายบน ในหน้า dashboard ให้แทนn+dot เก่าทุกอัน"
+### 3 · "Logo icon N ให้ใช้ใน app ด้วย มุมซ้ายบน ... ให้แทนn+dot เก่าทุกอัน" — then the wordmark instead
 
 The two-tone N reached the app icons and the login wordmark on 2026-09-22; the topbar and `SyncGate`
 were still each drawing their own stroked N+dot by hand, and those were the last two copies of it
-anywhere. Both now render one `<NeoFeedMark/>`, which *is* `icons/icon.svg` inline — the same tile,
-the same two paths, the same four gradient stops the home-screen icon and every favicon are rendered
-from, so the corner of the app and the icon the ward taps to open it are one drawing. Its gradient ids
-are `nfm-*`, distinct from the login wordmark's `nf-*`, so the two can never collide in one document.
-`.brandmark .logo` stops painting a tile of its own (the SVG draws it) and takes the master's own
-21.9% radius so its shadow follows the tile's corners. `verify-neofeed-mark.cjs` gained a section for
-the in-app mark and now asserts, as its point, that **no N+dot is left in `app.jsx` at all**.
+anywhere. They first became the icon tile — and then, on her look at it, **the wordmark**: *"ส่วนบน
+ซ้ายในหน้า dashboard ... ให้เอา NeoFeed ที่แก้แล้วนี้ไปใส่ ไม่ต้องใส่ icon"*.
+
+So there is now **one `<NeoFeedWordmark/>` with three call sites** — the login hero, the topbar corner
+and the sync gate — carrying `icons/icon.svg`'s two paths and four stops character for character. The
+icon *tile* is drawn by nothing inside the app any more, which is the right answer for it: it is the
+home-screen and favicon artwork, and an app that shows you its own launcher icon in its own toolbar
+is showing you something you pressed to get there. All the wordmark's sizing lives in one CSS rule and
+is in `em`, so a call site sets `font-size` and nothing else (58px login, 19px topbar, 17px on a phone,
+23px on the sync gate). The topbar sizes up two points from the old text because the tile used to carry
+half that corner's weight.
+
+**"Feed" is as dark as the N now.** *"ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ"* — at the light weight and
+`--brand` it read a whole step paler than the bold "Neo" beside it. It takes `--brand-ink`: Midnight
+Teal, which is exactly the stop the N's own body gradient ends on, so "as dark as the dark part of the
+N" is a token reference rather than a literal matched by eye, and the two move together if the sheet
+moves again. The harness asserts both halves of that — the rule, and that the token really is the
+master's dark stop.
+
+`verify-neofeed-mark.cjs` was rewritten around the single component and now asserts, as its point, that
+**no N+dot is left in `app.jsx` at all**, that there is exactly one wordmark in the file rather than
+three copies, and that no component draws the tile. One consequence worth knowing: the literal string
+"NeoFeed" is no longer in the topbar's DOM text — the N is a glyph, so the text is "eoFeed" and the
+product name lives in `aria-label`. `verify-review-0917-session.cjs` § 9.3 had been reading "the shell
+is still rendered" off that string and now reads it off the wordmark's accessible name, which is the
+same claim and also holds that the name is announced.
+
+### 3b · The login background never changed
+
+*"เดิมหน้า login มันมีไล่เชดสีที่ background ด้วย อยากได้สีเดิมเลย."* Measured rather than argued: with
+the content hidden and the drift animation frozen, the ribbons render **pixel-identical** to
+`e39f66b~1` at all nine sample points (top/mid/bottom × left/centre/right) — the gradient *is* the
+original, restored in § 4 below. What left the screen was the **104px teal logo tile** the wordmark
+replaced on 2026-09-22 (`a15a554`): its own three-stop gradient plus a 24px/56px soft shadow was most
+of what read as "ไล่เชดสี" on that ground. Raised for her to call rather than guessed at.
 
 ### 4 · "สีข้างในมันกลืนกันไปหน่อย ไม่โอเค — ย้ายกลับไปใช้สีในรุ่นก่อน ที่เป็นสีขาวฟ้า"
 

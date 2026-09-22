@@ -151,63 +151,77 @@ for (const [file, size, bleed] of PNGS) {
   }
 }
 
-// ── the login screen ──────────────────────────────────────────────────────
-console.log('\n── app.jsx — the login wordmark ──');
+// ── the wordmark, and its three call sites ────────────────────────────────
+// Praew, 2026-09-22: "ส่วนบนซ้ายในหน้า dashboard ... ให้เอา NeoFeed ที่แก้แล้วนี้
+// ไปใส่ ไม่ต้องใส่ icon". The app's own corner is the WORDMARK now, not an icon
+// tile — so the tile above is only ever the home-screen/favicon artwork, and
+// ONE <NeoFeedWordmark/> serves the login hero, the topbar and the sync gate.
+console.log('\n── app.jsx — <NeoFeedWordmark/> ──');
 const app = read('app.jsx');
-const login = /<div className="login-wrap">[\s\S]*?\n {4}<\/div>\n {2}\);/.exec(app)?.[0] || '';
-ok('the login screen is found', login.length > 0);
-ok('the N+dot tile is gone', !/login-logo-mark/.test(login) && !/<circle\b/.test(login));
-const word = /<div className="login-app-name"[^>]*>[\s\S]*?\n {6}<\/div>/.exec(login)?.[0] || '';
-ok('the wordmark is announced as one name: role="img" aria-label="NeoFeed"', /role="img"/.test(word) && /aria-label="NeoFeed"/.test(word), word.slice(0, 120));
-ok('the wordmark leads with the mark, then "eo", then "Feed"', /<svg\b[\s\S]*<\/svg>\s*eo\s*<span className="lw">Feed<\/span>/.test(word), word.slice(0, 200));
+const word = /const NeoFeedWordmark = \([\s\S]*?\n\);/.exec(app)?.[0] || '';
+ok('<NeoFeedWordmark/> is defined', word.length > 0);
+ok('it is announced as one name: role="img" aria-label="NeoFeed"',
+  /role="img"/.test(word) && /aria-label="NeoFeed"/.test(word), word.slice(0, 200));
+ok('it leads with the mark, then "eo", then a light "Feed"',
+  /<svg[\s\S]*<\/svg>eo<span className="lw">Feed<\/span>/.test(word), word.slice(-200));
 ok('no letter N left in the text — the mark IS the N', !/>\s*Neo\b/.test(word));
-for (const [i, d] of paths.entries()) ok(`the wordmark draws icon.svg's shape ${i + 1} with the same path`, word.includes(`d="${d}"`), d.slice(0, 60));
-const stops = (text, attr) => [...text.matchAll(new RegExp(`${attr}="(#[0-9a-f]{6})"`, 'gi'))].map(m => m[1].toUpperCase());
-ok('…and shades it with the same colours, in the same order', JSON.stringify(stops(word, 'stopColor')) === JSON.stringify(stops(svg, 'stop-color')) && stops(svg, 'stop-color').length === 4,
-  { wordmark: stops(word, 'stopColor'), master: stops(svg, 'stop-color') });
-
-// ── the mark inside the app ───────────────────────────────────────────────
-// Praew, 2026-09-22: "Logo icon N ให้ใช้ใน app ด้วย มุมซ้ายบน ในหน้า dashboard
-// ให้แทน n+dot เก่าทุกอัน". The topbar and SyncGate each drew their own stroked
-// N+dot; both now render one <NeoFeedMark/>, and that component is icon.svg.
-console.log('\n── app.jsx — the in-app mark ──');
-const mark = /const NeoFeedMark = \(\{[\s\S]*?\n\);/.exec(app)?.[0] || '';
-ok('<NeoFeedMark/> is defined', mark.length > 0);
 for (const [i, d] of paths.entries())
-  ok(`the app mark draws icon.svg's shape ${i + 1} with the same path`, mark.includes(`d="${d}"`), d.slice(0, 60));
+  ok(`it draws icon.svg's shape ${i + 1} with the same path`, word.includes(`d="${d}"`), d.slice(0, 60));
+const stops = (text, attr) => [...text.matchAll(new RegExp(`${attr}="(#[0-9a-f]{6})"`, 'gi'))].map(m => m[1].toUpperCase());
 ok('…and shades it with the master\'s four stops, in the master\'s order',
-  JSON.stringify(stops(mark, 'stopColor')) === JSON.stringify(stops(svg, 'stop-color')),
-  { mark: stops(mark, 'stopColor'), master: stops(svg, 'stop-color') });
-ok('…on the master\'s tile, with the master\'s corner radius',
-  new RegExp(`<rect[^>]*rx="56"[^>]*fill="#${TILE_RGB.map(c => c.toString(16).padStart(2, '0')).join('')}"`, 'i').test(mark), mark.slice(0, 200));
-ok('its gradient ids cannot collide with the login wordmark\'s',
-  /id="nfm-forest"/.test(mark) && /id="nfm-sage"/.test(mark) && !/id="nf-forest"/.test(mark));
-ok('the topbar corner renders it', /<div className="logo"><NeoFeedMark /.test(app),
-  /.{0,60}<div className="logo">.{0,60}/.exec(app)?.[0]);
-ok('so does the sync gate', /<NeoFeedMark size=\{34\} \/>/.test(app));
+  JSON.stringify(stops(word, 'stopColor')) === JSON.stringify(stops(svg, 'stop-color')) && stops(svg, 'stop-color').length === 4,
+  { wordmark: stops(word, 'stopColor'), master: stops(svg, 'stop-color') });
+ok('it carries no tile — the wordmark is the letter alone',
+  !/<rect\b/.test(word) && /viewBox="0 0 98 100"/.test(word), word.slice(0, 200));
+
+// The three call sites, and only one component behind them.
+ok('the login screen renders it as the hero',
+  /<NeoFeedWordmark className="login-app-name" \/>/.test(app),
+  /.{0,80}NeoFeedWordmark className.{0,40}/.exec(app)?.[0]);
+ok('the topbar corner renders it, with NO icon tile beside it',
+  /<div className="brandmark"><NeoFeedWordmark \/><\/div>/.test(app),
+  /.{0,120}className="brandmark".{0,120}/.exec(app)?.[0]);
+ok('the sync gate renders it too', /<NeoFeedWordmark style=\{\{ fontSize:23/.test(app));
+ok('there is exactly one wordmark component in the file, not three copies',
+  (app.match(/viewBox="0 0 98 100"/g) || []).length === 1,
+  (app.match(/viewBox="0 0 98 100"/g) || []).length);
+ok('the icon TILE is drawn by no component at all — it is icons/ artwork',
+  !/viewBox="0 0 256 256"/.test(app) && !/NeoFeedMark/.test(app),
+  (/.{0,60}NeoFeedMark.{0,40}/.exec(app) || [''])[0]);
 
 // The point of the exercise: the old mark is gone from the app, not merely
 // unused. `M7 21 V 7 L 21 21 V 7` was its one path, drawn twice.
 ok('NO N+dot is left anywhere in app.jsx', !/M7 21 V 7/.test(app), (/.{0,80}M7 21 V 7.{0,40}/.exec(app) || [''])[0]);
-ok('…and the app draws exactly one mark component, not a third copy',
-  (app.match(/viewBox="0 0 256 256"/g) || []).length === 1,
-  (app.match(/viewBox="0 0 256 256"/g) || []).length);
 
 for (const shell of ['NeoFeed.html', 'index.html']) {
   console.log(`\n── ${shell} ──`);
   const css = read(shell);
   ok('the .login-logo-mark rule went with the tile', !/\.login-logo-mark\b/.test(css));
-  // The topbar tile is the SVG's own rect now; a CSS background behind it
-  // would show as a ring around the mark's rounded corners.
-  const logo = /\.brandmark \.logo \{([^}]*)\}/.exec(css)?.[1] || '';
-  ok('.brandmark .logo paints no tile of its own', !/background/.test(logo), logo);
-  ok('…and its radius is the master\'s rx (56/256 = 21.9%)', /border-radius:\s*21\.9%/.test(logo), logo);
-  ok('no second .brandmark .logo rule re-adds a gradient',
-    (css.match(/\.brandmark \.logo \{/g) || []).length === 1,
-    (css.match(/\.brandmark \.logo \{/g) || []).length);
+  // No tile anywhere in the app's chrome: the topbar's .logo box is gone, not
+  // just emptied, so nothing can paint a square behind the wordmark again.
+  ok('the topbar draws no icon tile', !/\.brandmark \.logo\b/.test(css),
+    (/.{0,80}\.brandmark \.logo.{0,60}/.exec(css) || [''])[0]);
+  // One sizing rule, in em, so a call site sets font-size and nothing else.
+  const wm = /\n  \.nf-wordmark \{([^}]*)\}/.exec(css)?.[1] || '';
+  const nfn = /\.nf-wordmark \.nf-n \{([^}]*)\}/.exec(css)?.[1] || '';
+  ok('.nf-wordmark is styled once and takes its colour from --brand',
+    /color:\s*var\(--brand\)/.test(wm), wm.replace(/\s+/g, ' ').slice(0, 160));
+  ok('…and the N is sized in em, to the cap height, on the baseline',
+    /width:\s*0\.684em/.test(nfn) && /height:\s*0\.698em/.test(nfn) && /vertical-align:\s*baseline/.test(nfn),
+    nfn.replace(/\s+/g, ' ').slice(0, 160));
+  // Praew, 2026-09-22: "ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ". --brand-ink IS
+  // Midnight Teal, the stop the N's body gradient ends on — so this is a token
+  // reference to "the dark part of the N", not a literal matched by eye.
+  const lw = /\.nf-wordmark \.lw \{([^}]*)\}/.exec(css)?.[1] || '';
+  ok('"Feed" is as dark as the N\'s dark stop (--brand-ink)',
+    /color:\s*var\(--brand-ink\)/.test(lw), lw.replace(/\s+/g, ' '));
+  const inkTok = /--brand-ink:\s*([^;]+);/.exec(css)?.[1].trim();
+  ok('…and --brand-ink is Midnight Teal, which is that stop',
+    inkTok === 'oklch(33.9% 0.049 203)' && /stop-color="#103F43"/i.test(svg), inkTok);
+  ok('both the topbar and the login hero size it, nothing else',
+    /\.brandmark \.nf-wordmark \{[^}]*font-size/.test(css) && /\.login-app-name \{[^}]*font-size/.test(css));
   const after = /\.login-app-name::after\s*\{([^}]*)\}/.exec(css)?.[1] || '';
   ok('the rule under the wordmark is two-tone: Sage, then Champagne Gold', /var\(--brand-4\)[\s\S]*var\(--sand\)/.test(after), after);
-  const lw = /\.login-app-name \.lw\s*\{([^}]*)\}/.exec(css)?.[1] || '';
   const weight = /font-weight:\s*(\d+)/.exec(lw)?.[1];
   const loaded = /IBM\+Plex\+Sans:wght@([\d;]+)/.exec(css)?.[1]?.split(';') || [];
   ok(`"Feed"'s weight (${weight}) is one the fonts link actually loads`, !!weight && loaded.includes(weight), { weight, loaded });

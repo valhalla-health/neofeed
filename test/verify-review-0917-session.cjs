@@ -288,7 +288,14 @@ const scenarios = {
     A.ok('9.2 …and its growth chart draws', /Fenton 2025 growth chart · Male/.test(t.text()));
     await t.click(document.querySelector('.switch-patient'));
     await t.click([...document.querySelectorAll('.picker-row')].find(r => /XX/.test(r.textContent)));
-    A.ok('9.3 an unknown sex: the app is still on screen', document.getElementById('root').children.length > 0 && /NeoFeed/.test(t.text()));
+    // "the shell is still rendered" was read off the literal string "NeoFeed"
+    // in the topbar. As of 2026-09-22 the corner is <NeoFeedWordmark/>: the N
+    // is an SVG glyph, so the DOM text is "eoFeed" and the product name lives
+    // in the accessible name instead. Assert on that — it is the same claim,
+    // and it now also holds that the name is announced.
+    A.ok('9.3 an unknown sex: the app is still on screen',
+      document.getElementById('root').children.length > 0
+      && !!document.querySelector('.nf-wordmark[aria-label="NeoFeed"]'));
     A.ok('9.4 …the chart says what is wrong', /เพศในทะเบียนไม่ถูกต้อง — แก้ที่ Edit session/.test(t.text()));
     A.ok('9.5 …the strip does not claim Female', !/Female/.test(stripSex()));
     await t.click(t.btn(/Edit session/));

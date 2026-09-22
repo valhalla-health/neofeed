@@ -237,24 +237,17 @@
     box-shadow: 0 1px 0 oklch(92.6% 0.024 190 / .6), 0 1px 3px oklch(25% 0.02 205 / .03);
     position: sticky; top: 0; z-index: 30;
   }
+  /* The app's own corner is the WORDMARK, not an icon tile (Praew,
+     2026-09-22: "ส่วนบนซ้ายในหน้า dashboard ... ให้เอา NeoFeed ที่แก้แล้วนี้ไปใส่
+     ไม่ต้องใส่ icon"). The tile the topbar used to draw is now only what it was
+     always for — the home-screen and favicon artwork in icons/.
+     The width still matches the rail, so the wordmark and the rail items share
+     a left edge; the wordmark is shrink-to-fit inside it. */
   .brandmark {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center;
     width: calc(var(--rail-w) - 18px);
-    font-weight: 600; letter-spacing: -0.01em;
   }
-  /* The tile is the <NeoFeedMark/> SVG's own rounded rect (app.jsx), which is
-     icons/icon.svg's — so this box paints no background and no gradient of its
-     own any more, or one would show as a ring behind the mark. 21.9% is
-     icon.svg's rx (56/256), so the drop shadow follows the tile's corners
-     exactly. */
-  .brandmark .logo {
-    width: 28px; height: 28px; flex: 0 0 auto;
-    border-radius: 21.9%;
-    display: grid; place-items: center;
-    box-shadow: 0 1px 3px oklch(25% 0.02 205 / .16);
-  }
-  .brandmark .logo svg { display: block; }
-  .brandmark .name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .brandmark .nf-wordmark { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; }
 
   .topbar .spacer { flex: 1; }
 
@@ -980,26 +973,41 @@
     }
   }
 
-  /* The wordmark as the brand board draws it: the two-tone N, then "eo" bold
-     and "Feed" light, all in Forest. The weight changes, the colour does not.
-     The N is an inline <svg class="login-n"> in app.jsx, sized to IBM Plex
-     Sans' cap height (0.698em) so it stands exactly as tall as a capital on
-     the same baseline, and scales with the font size below. */
-  .login-app-name {
-    font-size: 58px;
-    font-weight: 700;
-    letter-spacing: -0.045em;
+  /* ── The wordmark, in one place ──────────────────────────────────
+     The brand board's lockup: the two-tone N, then "eo" bold and "Feed"
+     light. <NeoFeedWordmark/> (app.jsx) renders it and THREE screens call it
+     — the login hero, the topbar corner and the sync gate — so everything
+     here is in `em` and a call site sets nothing but font-size.
+     The N is an inline <svg class="nf-n">, sized to IBM Plex Sans' cap height
+     (0.698em) so it stands exactly as tall as a capital on the same baseline
+     and scales with the text. */
+  .nf-wordmark {
     color: var(--brand);
     line-height: 1;
-    margin-bottom: 14px;
+    white-space: nowrap;
   }
-  .login-app-name .login-n {
+  .nf-wordmark .nf-n {
     display: inline-block;
     width: 0.684em; height: 0.698em;
     margin-right: 0.015em;
     vertical-align: baseline;
   }
-  .login-app-name .lw { font-weight: 300; }
+  /* "Feed" is the light weight, so at --brand it read a whole step paler than
+     the bold "Neo" beside it — "ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ" (Praew,
+     2026-09-22). It takes --brand-ink now: Midnight Teal, which is exactly the
+     stop the N's own body gradient ENDS on, so "as dark as the dark part of
+     the N" is a token reference rather than a matched literal, and the two
+     move together if the sheet ever moves again. Light-at-Midnight and
+     bold-at-Valhalla carry the same visual weight, so the word reads as one. */
+  .nf-wordmark .lw { font-weight: 300; color: var(--brand-ink); }
+
+  /* The login hero is the wordmark at 58px, plus the rule underneath it. */
+  .login-app-name {
+    font-size: 58px;
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    margin-bottom: 14px;
+  }
   /* The rule under the wordmark, as the board draws it: Sage, a small gap,
      then Champagne Gold, in two equal halves, the whole 62% as wide as the
      wordmark (a percentage of .login-app-name, which is only as wide as its
@@ -1183,8 +1191,11 @@
     .rail { padding: 10px 8px; overflow: hidden; }
     .rail-section { display: none; }
     .rail-foot { display: none; }
-    .brandmark { width: calc(60px - 18px); }
-    .brandmark .name { display: none; }
+    /* The rail collapses to icons here, but the brandmark cannot: with the
+       tile gone there is nothing left to show if the wordmark is hidden, and
+       42px does not fit it. It sizes to its content instead — the topbar is
+       full width, so the only thing lost is the rail-edge alignment. */
+    .brandmark { width: auto; }
     .rail-item { justify-content: center; padding: 10px 0; gap: 0; }
     .rail-item > span:not([class]) { display: none; }
     .rail-item .count { display: none; }
@@ -1247,7 +1258,7 @@
       gap: 8px;
     }
     .brandmark { width: auto; }
-    .brandmark .name { font-size: 15px; }
+    .brandmark .nf-wordmark { font-size: 17px; }
     .topbar .pill { display: none; }
     .topbar .icon-btn { display: none; }
     .switch-patient .sp-label { display: none; }
@@ -1728,7 +1739,7 @@
   <script src="compiled/fenton.js?v=78775b6b9f"></script>
   <script src="compiled/registry.js?v=2eddc83758"></script>
   <script src="compiled/log.js?v=497399b032"></script>
-  <script src="compiled/app.js?v=a174b9b7c8"></script>
+  <script src="compiled/app.js?v=7ccdb8ec7a"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

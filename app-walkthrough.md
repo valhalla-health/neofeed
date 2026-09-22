@@ -857,10 +857,21 @@ notes — don't just add the feature.
     session introduced survives** — `--brand-3`, `--brand-4`, `--sand`,
     `--crit-ink`/`--warn-ink`/`--ok-ink`, `--shadow-lift`, `--ring`, `--r-xl`
     are all still there with teal values. Don't "clean them up".
-- **The NeoFeed mark is `icons/icon.svg`, and it is drawn in three places
+- **The NeoFeed mark is `icons/icon.svg`, and it is drawn in two places
   from that one master** (2026-09-22): the phone/favicon PNGs are rendered
-  from it, the login wordmark inlines its two paths, and `<NeoFeedMark/>` in
-  `app.jsx` inlines the whole tile for the topbar corner and `SyncGate`.
+  from it, and **one** `<NeoFeedWordmark/>` in `app.jsx` inlines its two
+  paths for all three screens that show the brand — the login hero, the
+  topbar corner and `SyncGate`. **Nothing inside the app draws the icon
+  *tile*.** That is deliberate: the tile is the launcher artwork, and an app
+  showing you its own launcher icon in its own toolbar is showing you the
+  thing you pressed to get there. The wordmark's sizing is one CSS rule in
+  `em`, so a call site sets `font-size` and nothing else. Its "Feed" takes
+  `--brand-ink`, which *is* the stop the N's body gradient ends on — if the
+  sheet moves, keep that identity rather than re-matching a literal.
+  One consequence: the string "NeoFeed" is **not** in the topbar's DOM text
+  (the N is a glyph, so the text is "eoFeed"); the product name is the
+  wordmark's `aria-label`. Don't assert on that string to mean "the shell
+  rendered" — `verify-review-0917-session.cjs` § 9.3 did, and broke.
   `test/verify-neofeed-mark.cjs` pins that all three carry the master's paths
   and gradient stops character for character, decodes all seven PNGs, and
   fails if an N+dot reappears anywhere. **Change the master, then re-render

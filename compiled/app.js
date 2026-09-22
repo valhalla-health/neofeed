@@ -172,20 +172,17 @@ function activeAlertCount(patient, entries) {
   const acked = readAckedMap(patient.sessionId);
   return computeAlerts(patient, entries).filter((a) => !acked[ackKey(a.id, a.dol)]).length;
 }
-const NeoFeedMark = ({ size = 28, label }) => /* @__PURE__ */ React.createElement(
-  "svg",
+const NeoFeedWordmark = ({ className, style }) => /* @__PURE__ */ React.createElement(
+  "div",
   {
-    viewBox: "0 0 256 256",
-    width: size,
-    height: size,
-    focusable: "false",
-    role: label ? "img" : void 0,
-    "aria-label": label,
-    "aria-hidden": label ? void 0 : "true"
+    className: className ? `nf-wordmark ${className}` : "nf-wordmark",
+    style,
+    role: "img",
+    "aria-label": "NeoFeed"
   },
-  /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nfm-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#12656A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#103F43" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nfm-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#78BFC0" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#5BA2A3" }))),
-  /* @__PURE__ */ React.createElement("rect", { width: "256", height: "256", rx: "56", fill: "#D5ECEA" }),
-  /* @__PURE__ */ React.createElement("g", { transform: "translate(46.17 44.5) scale(1.67)" }, /* @__PURE__ */ React.createElement("path", { fill: "url(#nfm-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nfm-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" }))
+  /* @__PURE__ */ React.createElement("svg", { className: "nf-n", viewBox: "0 0 98 100", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#12656A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#103F43" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#78BFC0" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#5BA2A3" }))), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" })),
+  "eo",
+  /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")
 );
 const SYNC_SLOW_AFTER_MS = 6e3;
 const SYNC_VERY_SLOW_AFTER_MS = 15e3;
@@ -222,7 +219,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
     boxShadow: "var(--shadow-pop)",
     padding: "28px 24px 22px",
     textAlign: "center"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 } }, /* @__PURE__ */ React.createElement(NeoFeedMark, { size: 34 }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--ink)" } }, "NeoFeed")), /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 } }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, { style: { fontSize: 23, fontWeight: 600, letterSpacing: "-0.015em" } })), /* @__PURE__ */ React.createElement("div", { style: {
     height: 4,
     borderRadius: 999,
     background: "var(--line-2)",
@@ -958,7 +955,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return /* @__PURE__ */ React.createElement(SyncGate, { online, failed: syncState === "error", detail: syncError, onRetry: () => syncFromGAS() });
   }
   shellReadyRef.current = true;
-  return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement("div", { className: "logo" }, /* @__PURE__ */ React.createElement(NeoFeedMark, { size: 28 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "name" }, "NeoFeed"))), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, null)), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "switch-patient",
@@ -1511,7 +1508,7 @@ function LoginScreen({ onLogin, notice = null }) {
     setMode("google");
     setError(null);
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "login-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "login-app-name", role: "img", "aria-label": "NeoFeed" }, /* @__PURE__ */ React.createElement("svg", { className: "login-n", viewBox: "0 0 98 100", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#12656A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#103F43" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#78BFC0" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#5BA2A3" }))), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" })), "eo", /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
+  return /* @__PURE__ */ React.createElement("div", { className: "login-wrap" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, { className: "login-app-name" }), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
     width: "100%",
     maxWidth: 320,
     boxSizing: "border-box",
