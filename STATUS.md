@@ -1,5 +1,11 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-22, 23:02 ICT — frontend `release` = `31a4226` on both hosts, with backend `@56`.** PR #92
+> released #91: the KCMH TPN team's feedback, a two-sheet order form and no trailing zeros. At 23:08 ICT
+> `node tools/verify-release.mjs 31a4226` passed on both hosts (0 failures, 59 passes; comment on #92).
+> ⚠️ **It changes the pharmacy form**, and pharmacy and the TPN team have not been told (`BACKLOG.md`
+> § Now). ⚠️ No one has used it at a bedside or printed the two-sheet form on the ward printer yet.
+>
 > ✅ **2026-09-22, 21:16 ICT — frontend `release` = `edbd11f` on both hosts, with backend `@56`.** Two
 > frontend releases today. **PR #85** (17:39 ICT, `066528d`) shipped eight PRs: the Calculator button
 > (#82), the new palette, login screen and two-tone N (#81, #83), the reprint hold (#76), #84's backend
@@ -25,13 +31,11 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-22, 21:45 ICT** · 🟢 **Backend `@56` and frontend `release` = `edbd11f` are live.**
-- **Frontend:** PR #88 (`main` → `release`), merged on Praew's instruction at 14:15:43 UTC / 21:15 ICT:
-  #87 (`CHANGELOG.md` 2026-09-22 (2)) on top of PR #85 (10:39 UTC / 17:39 ICT). An installed
-  home-screen icon changes on its next install or refresh. `CONSTANTS_VERSION` is still `2026-09-18.1`:
-  neither release moved a clinical constant, and #87 touched no `data.js`, `gas-backend.gs` or figure in
-  `calc`. Served bytes verified on both hosts at 21:16 ICT — see "How the 2026-09-22 frontend releases
-  were verified".
+**Updated 2026-09-22, 23:56 ICT** · 🟢 **Backend `@56` and frontend `release` = `31a4226` are live.**
+- **Frontend:** PR #92 (`main` → `release`), merged on Praew's instruction ("merge แล้ว deploy") at
+  16:02:49 UTC / 23:02 ICT: #91 (`CHANGELOG.md` 2026-09-22 (4)), whose `main` tree `c6e32b9` is exactly
+  what `release` now holds. `CONSTANTS_VERSION` is still `2026-09-18.1`. Served bytes verified on both
+  hosts at 23:08 ICT — see "How the 2026-09-22 frontend releases were verified".
 - **Backend:** `@56` since 2026-09-22, 16:34:59 ICT: PR #84 (with #86 folded in), deployed with `clasp`
   on Praew's instruction. Every Chula Google Workspace domain (`chula.ac.th`, `student.chula.ac.th`,
   `md.chula.ac.th`, `docchula.com`, `chulahospital.org`) signs in with Google and is given no NeoFeed
@@ -43,15 +47,19 @@
   followed at once by a request. Also any frontend since 2026-09-18, today's two included. The
   frontends' provenance stamps, in `Daily_Log` columns AF–AG and in every printed order's footer, can
   show them in use without a bedside session — see those sections.
-- ⏳ **PR #91: merged into `main` on Praew's instruction ("merge แล้ว deploy"), and released straight after
-  in its own `main` → `release` PR.** It carries the KCMH TPN team's feedback, a two-sheet order form and no
-  trailing zeros (`CHANGELOG.md` 2026-09-22 (4)). Its post-release check is a comment on that release PR,
-  and this banner catches up in the next PR on the repo.
+- ✅ **PR #91 is live**, released by PR #92 at 23:02 ICT. It carries the KCMH TPN team's feedback, a
+  two-sheet order form and no trailing zeros (`CHANGELOG.md` 2026-09-22 (4)); its post-release check is
+  the comment on #92.
   - What changes: ZnSO₄ with a 5 mg/day stop, a K⁺-in-bag tile, lipid in g/kg/h, Glycophos mL, and the
     saver's name on the form.
   - It is frontend only, with no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-18.1`.
   - ⚠️ **It changes the pharmacy form.** The front is the KCMH paper layout and the back is the
     compounding detail. Pharmacy and the TPN team still need telling (`BACKLOG.md` § Now).
+- ⏳ **PR #93: open, not merged, not live.** The quick-calc button on the Ward page, range bars with
+  green / yellow / red zones, a clearer OK green, amber for over-target fluid and for editing a saved row,
+  a pale-blue card frame, and a smaller N in the Android icon (`CHANGELOG.md` 2026-09-22 (5)). Frontend
+  only, no `clasp` step, `CONSTANTS_VERSION` unchanged. ⚠️ **The Android icon changes again**, and it
+  reaches a phone only on a reinstall — as an installed app, not a shortcut.
 - ✅ **Nothing on `main` waits for a release.** #76 and #79, listed here as waiting since 2026-09-19,
   went out with #85, so the reprint risk this line carried is closed: a saved order whose calculation
   has changed now waits for a fresh save instead of reprinting under the same entry id. PR #89, which
@@ -59,6 +67,8 @@
   straight after (`REFERENCE.md` § Frontend: a merge into `main` always comes with its release PR). That
   release moves the `release` branch without changing a served byte, so the hosts keep serving
   `edbd11f`'s files.
+
+**Previous (2026-09-22, 21:15–23:02 ICT):** backend `@56` + frontend `release` = `edbd11f`, PR #88.
 
 **Previous (2026-09-22, 17:39–21:15 ICT):** backend `@56` + frontend `release` = `066528d`, PR #85.
 No post-release check was recorded for it; the 21:16 ICT check of `edbd11f` covers every file it
@@ -109,6 +119,20 @@ Pages; `main` deploys nothing. See "Release-branch deploy gate".
 
 ## How the 2026-09-22 frontend releases were verified
 
+**PR #92 → `release` = `31a4226` (23:02 ICT).** Merged on Praew's instruction ("merge แล้ว deploy"),
+shipping #91 (`c6e32b9` on `main`); `release`'s tree is byte-identical to `c6e32b9`. From the post-release
+comment on #92:
+
+1. `harnesses`, `Workers Builds: neofeed` and GitHub Pages' `build` / `deploy` / `report-build-status`
+   all succeeded on the merge commit.
+2. **`node tools/verify-release.mjs 31a4226`, 0 failures (59 passes), 23:08 ICT:** on both hosts every
+   file the app loads, `manifest.json`, `moved.html` and `icons/` are byte-identical to git at
+   `31a4226`, every `?v=` token matches its file's hash, and Cloudflare's CSP `script-src` is `'self'
+   https://accounts.google.com`.
+3. **Not yet done by a person:** a bedside order on this release, and the two-sheet form printed
+   double-sided on the ward printer. An order saved on it is identifiable: its `Daily_Log` AG and its
+   printed footer carry `c=6f6abad0a9`.
+
 **PR #88 → `release` = `edbd11f` (21:15 ICT).** Opened and merged on Praew's instruction (*"เปิด release
 PR แล้ว merge เลย"*), pinned with `--match-head-commit 9b8de5e` so nothing merged into `main` meanwhile
 could ride along. `release` held no content of its own: its tree was byte-identical to `6ee2762`, the
@@ -134,8 +158,8 @@ could ride along. `release` held no content of its own: its tree was byte-identi
 **PR #85 → `release` = `066528d` (17:39 ICT).** No post-release check was recorded on #85. Nothing
 depends on one now: step 3 covers every file #85 shipped, as served today.
 
-**Rollback (frontend):** revert #88's merge commit on `release` to return to `066528d`'s frontend. Both
-hosts rebuild from `release`, and no backend step is involved.
+**Rollback (frontend):** revert #92's merge commit on `release` to return to `edbd11f`'s frontend (and
+#88's after it for `066528d`). Both hosts rebuild from `release`, and no backend step is involved.
 
 ---
 
@@ -624,7 +648,7 @@ retained.
 | Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` committed as `9027d7e` at the `@56` deploy, copied from `7efbb3b:gas-backend.gs` with `git show` (LF); `clasp pull --versionNumber 56` was byte-identical to that file. See "How the 2026-09-22 backend deploy was verified". Not re-checked since |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | 🟡 **`Daily_Log` AH–AL: no action required, one cosmetic step outstanding** — same shape as AF/AG. Both write paths widen the grid on demand, so the columns appear on the first save/publish — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
-| Cache-bust | Since 2026-09-18 (`dfeb15b`) every `?v=` token is a **content hash** written by `tools/build.mjs`. Live (`edbd11f`): `boot.js?v=f48894ce64`, `data.js?v=ce3e213cfe`, and in `compiled/` `icons.js?v=5464aa237e`, `calculator.js?v=aa8edb3f0d`, `fenton.js?v=5f4a597238`, `registry.js?v=56f2b9b64c`, `log.js?v=439570f5b1`, `app.js?v=47c3f626cb`. So a row saved on this frontend stamps `appVersion` (column AG) `b=f48894ce64;d=ce3e213cfe;i=5464aa237e;c=aa8edb3f0d;f=5f4a597238;r=56f2b9b64c;l=439570f5b1;a=47c3f626cb`. The `vendor/` React files carry their version in the file name instead. `tools/verify-release.mjs` checks every token against its served file on both hosts |
+| Cache-bust | Since 2026-09-18 (`dfeb15b`) every `?v=` token is a **content hash** written by `tools/build.mjs`. Live (`31a4226`): `boot.js?v=f48894ce64`, `data.js?v=58afe2bc87`, and in `compiled/` `icons.js?v=5464aa237e`, `calculator.js?v=6f6abad0a9`, `fenton.js?v=c91a2f185b`, `registry.js?v=35cab6c51d`, `log.js?v=64bbb28f8d`, `app.js?v=b6665f4660`. So a row saved on this frontend stamps `appVersion` (column AG) `b=f48894ce64;d=58afe2bc87;i=5464aa237e;c=6f6abad0a9;f=c91a2f185b;r=35cab6c51d;l=64bbb28f8d;a=b6665f4660`. The `vendor/` React files carry their version in the file name instead. `tools/verify-release.mjs` checks every token against its served file on both hosts |
 
 ## How the 2026-09-15 deploy was verified
 

@@ -141,7 +141,19 @@ the mode may not produce — no Save, no Submit, no delete, no `#print-form`, no
 and that the text it *does* copy names itself as not a treatment order and carries neither bed nor
 NeoFeed ID. § 5-§ 7 are source-level: `SCRATCH_PATIENT` carries no identifiers and a birth weight of
 0, `QuickCalcView` passes no save handler of any kind, every write path in `calculator.jsx` is behind
-the flag, and the button is styled in both hand-synced shells and hidden when printing.
+the flag, and the button is styled in both hand-synced shells and hidden when printing. It also pins
+where the button is: since 2026-09-22 the Ward page only (the gate and the ward's list), with ← back to
+the Ward page and the workspace padded clear of the button while it shows.
+
+`verify-status-zones.cjs` pins the **range bars' green / yellow / red zones** (Praew, 2026-09-22: "สีเขียว
+OK, สีเหลืองระวัง สีแดง alert"). The claim is that a bar can never disagree with its own tile, so it
+mounts the real `<Calculator>` on three orders — mixed, past the hard limits (GIR ≈ 15, protein 5,
+peripheral line, calcium with no phosphate), thin — and checks the rendered page: every needle sits in the
+zone of its tile's status, GIR's inline readout included (§ 1); each bar is tiled edge to edge, and red
+appears only where a tile has a hard limit — GIR above 13, protein 4.8, K⁺ in bag 40, peripheral
+osmolarity 900 (§ 2); 0 and "!!" draw no needle, because neither is a point on the scale (§ 3); and both
+shells style every zone (§ 4). § 2 also reads the source, so a hard-limited tile added later cannot skip
+handing its rule to its bar. Withholding GIR's and protein's rules from their bars fails it 11 times.
 
 `verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
 `tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:
@@ -176,6 +188,11 @@ ones). A re-rendered master without re-rendered PNGs, or the reverse, fails. It 
 weight "Feed" is set in is one the Google Fonts link loads. `node test/verify-neofeed-mark.cjs`. It
 fails 54 of 70 against `75a3038` (the N+dot), and six deliberate breakages were each caught: a gradient
 stop, one path coordinate, the dot put back, an unloaded weight, the rule's Sage half, one stale PNG.
+Since 2026-09-22's second round it measures the letter as well: 52–57% of the square on the whole-square
+icons and 36–42% on the maskable pair, whose furthest ink must also sit inside Android's 66/108 dp
+circle (Praew: "Install icon ... มัน fit ไป"); the light stem is measured against the letter's ink, not
+the tile, so the smaller maskable letter does not read as a missing stem. The maskable PNGs before that
+change fail it 4 times. The PNGs are rendered by `tools/render-icons.cjs`.
 
 **`compiled-loader.cjs` is not a harness** but a `--require` preload that runs the harnesses
 against the shipped `compiled/*.js` instead of their in-harness `@babel/preset-react` transform of
