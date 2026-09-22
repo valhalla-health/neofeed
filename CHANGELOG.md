@@ -16,7 +16,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-09-22 — A forced password change is served at once, not refused for a minute
 
 Backend only (`gas-backend.gs`, `test/verify-staff-cache-password-writes.cjs`). No `.jsx` changed, so no
-build. Not deployed: `@55` keeps the bug until a `clasp` deploy on Praew's go-ahead (`STATUS.md` ⏳).
+build. Opened as PR #86 and folded into PR #84 on Praew's instruction, so it ships with the entry below.
+Not deployed: `@55` keeps the bug until a `clasp` deploy on Praew's go-ahead (`STATUS.md` ⏳).
 
 **The bug** (found 2026-09-22 during PR #84). After a successful forced change, every request answered
 `PasswordChangeRequired`, and `app.jsx` put the forced change screen back up. `verifyToken` reads the
@@ -79,9 +80,10 @@ and keep the domain rule.
 re-reads the row (60 s cache); a deleted or disabled row ends a live session; no unauthenticated action
 or GET returns data. Unchanged, and now pinned in the harness's § 4.
 
-**Found, not fixed here:** after a forced password change, the next minute of requests is still refused
-as `PasswordChangeRequired`, because `verifyToken` reads the Staff row from its 60 s cache, which still
-holds col G `TRUE` (`BACKLOG.md` § Now).
+**Found here, fixed in the same PR:** after a forced password change, the next minute of requests was still
+refused as `PasswordChangeRequired`, because `verifyToken` reads the Staff row from its 60 s cache, which
+still held col G `TRUE`. The fix is the entry above: opened as PR #86, folded into PR #84 on Praew's
+instruction.
 
 `verify-chula-google-signin.cjs`: 57 assertions, 21 fail against `7049f60`.
 

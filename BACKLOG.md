@@ -68,11 +68,6 @@ clinical judgement. Everything else is engineering sequencing.
       in with Google, `clearStaffPassword(email)` removes the password, per "ไม่ต้องมาสร้าง password
       ที่นี่". Not before: a Workspace admin can block Google sign-in to outside apps, and then the
       password is that person's only way in.
-- [ ] 🔒 **bug · A forced password change is still refused for up to a minute afterwards** (found
-      2026-09-22). `changePassword` clears col G and returns a fresh token, but `verifyToken` reads the
-      Staff row from its 60 s cache (`_getStaffRowCached`), which still holds col G `TRUE`, so the next
-      requests answer `PasswordChangeRequired` and the client shows the forced-change screen again.
-      Reproduced in the `gas-vm-sandbox.cjs` double; not yet pinned by a harness.
 
 - [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + `release` = `96afcd0`) in one bedside session.**
       ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch, from the

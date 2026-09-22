@@ -26,17 +26,17 @@
   (2) §6), and PR #79 the harness flake fix. Until that release, the live frontend reprints an order
   saved before 11:17 ICT on 2026-09-18 with #77's figures (e.g. Soluvit 1.8 mL where it printed 1.5),
   under the same entry id and revision.
-- ⏳ **Backend, waiting for merge and then `clasp` on Praew's go-ahead:** PR #84 (2026-09-22). Every
-  Chula Google Workspace domain signs in with Google and gets no NeoFeed password, and the temp-password
-  gate follows how a session signed in rather than its domain (`CHANGELOG.md` 2026-09-22). Until it is
-  deployed, `@55` still gives rows on `student.chula.ac.th`, `md.chula.ac.th`, `docchula.com` and
-  `chulahospital.org` a temp password, and a Google sign-in on such a row is stuck on the forced change.
-- ⏳ **Backend, waiting for merge and then `clasp` on Praew's go-ahead:** PR #86 (2026-09-22). Every
-  backend write to a Staff row's password columns now drops `verifyToken`'s 60 s cached copy of that
-  row (`CHANGELOG.md` 2026-09-22). Until it is deployed, `@55` refuses the first minute of requests after
-  a successful forced password change and puts the forced change screen back up. If a session already on
-  a row with no password cached col G blank, a sign-in on the temp password then provisioned for that row
-  also passes the server gate for up to a minute.
+- ⏳ **Backend, waiting for merge and then one `clasp` deploy on Praew's go-ahead:** PR #84 (2026-09-22),
+  two backend changes (`CHANGELOG.md`, both 2026-09-22 entries). Every Chula Google Workspace domain signs
+  in with Google and gets no NeoFeed password, and the temp-password gate follows how a session signed in
+  rather than its domain. Every backend write to a Staff row's password columns now drops `verifyToken`'s
+  60 s cached copy of that row. That second change was PR #86, folded into #84 on Praew's instruction so
+  that both go live in one deploy. Until it is deployed, `@55` still gives rows on `student.chula.ac.th`,
+  `md.chula.ac.th`, `docchula.com` and `chulahospital.org` a temp password, and a Google sign-in on such
+  a row is stuck on the forced change. It also refuses the first minute of requests after a successful
+  forced password change and puts the forced change screen back up. If a session already on a row with no
+  password cached col G blank, a sign-in on the temp password then provisioned for that row also passes
+  the server gate for up to a minute.
 
 **Previous (2026-09-18, 09:10–11:17 ICT):** backend `@55` + frontend `release` = `dfeb15b` — the
 review's frontend (PR #74), approved and merged by `tasamew` at 02:10:44 UTC / 09:10 ICT: the `.jsx`
