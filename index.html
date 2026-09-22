@@ -859,6 +859,57 @@
   /* ============ BOTTOM NAV (mobile) ============ */
   .bottom-nav { display: none; }
 
+  /* ============ QUICK-CALC FLOATING BUTTON ============ */
+  /* Bottom-right on every screen size (ward request 2026-09-21). A direct
+     child of .app, NOT of the grid's content rows — it is position:fixed, so
+     it takes no grid cell and cannot repeat the banner's auto-placement bug
+     that collapsed the workspace (see the .app comment above).
+     z-index sits below .bottom-nav's 40 deliberately: the two never overlap
+     (the mobile rules below park it clear of the nav), and if a future layout
+     change ever makes them, the navigation wins rather than a shortcut. */
+  .quick-fab {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 35;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    height: 48px;
+    padding: 0 20px 0 17px;
+    border: none;
+    border-radius: 999px;
+    background: var(--brand);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    /* --shadow-lift, the palette's "floating above the page" shadow (the same
+       one the modals and the picker use), not a hand-rolled oklch: PR #81
+       moved every shadow onto hue 205 and gave the design system one
+       definition, and this button was written against the old 230 before that
+       merge. Kept on the token so the next palette move carries it too. */
+    box-shadow: var(--shadow-lift);
+    transition: transform .12s ease, background .12s ease;
+  }
+  .quick-fab:hover { background: var(--brand-2); }
+  .quick-fab:active { transform: translateY(1px); }
+  .quick-fab:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 3px; }
+  .quick-fab svg { flex: 0 0 auto; }
+
+  /* The DOL box in the quick calc's page head. */
+  .quick-dol { display: flex; align-items: center; gap: 8px; }
+  .quick-dol label { font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ink-3); }
+  .quick-dol input {
+    width: 76px; height: 40px; padding: 0 10px; text-align: center;
+    font-size: 15px; font-weight: 600; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm);
+  }
+  .quick-dol input:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
   /* ============ LOGIN SCREEN ============ */
   /* The one screen that is pure brand, so it is the one screen built from
      the Valhalla sheet rather than from the app's working palette: a
@@ -1362,6 +1413,21 @@
     .bnav-item.active { color: var(--brand); }
     .bnav-item.active svg { stroke: var(--brand) !important; }
 
+    /* Quick-calc button: above the bottom nav, clear of the home-indicator
+       inset. It keeps its label at phone width rather than shrinking to a
+       bare glyph: this is a new entry point nobody is looking for yet, and
+       a word costs ~120px of a 390px screen over a list that scrolls under
+       it. (The glyph itself is icons.jsx's stroked `calculator`, not the
+       filled `calc` the rail uses — see the note there.) */
+    .quick-fab {
+      right: 16px;
+      bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 14px);
+      height: 46px;
+      padding: 0 17px 0 14px;
+      font-size: 13px;
+      gap: 8px;
+    }
+
     .bnav-badge {
       position: absolute;
       top: 6px;
@@ -1610,7 +1676,7 @@
     /* Everything in the workspace except the order form itself — the edit/
        back-fill/prefill/lock/draft banners and the staleness banner sit
        outside .card and used to print above the pharmacy form. */
-    .work-inner > :not(#print-form), .bottom-nav, .app > [role="status"] { display: none !important; }
+    .work-inner > :not(#print-form), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
 
     html, body { height: auto; background: #fff; }
     .app { display: block; height: auto; min-height: auto; overflow: visible; }
@@ -1639,12 +1705,12 @@
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
   <script src="data.js?v=ce3e213cfe"></script>
-  <script src="compiled/icons.js?v=e7f309e445"></script>
-  <script src="compiled/calculator.js?v=c8c155d322"></script>
+  <script src="compiled/icons.js?v=5464aa237e"></script>
+  <script src="compiled/calculator.js?v=aa8edb3f0d"></script>
   <script src="compiled/fenton.js?v=78775b6b9f"></script>
   <script src="compiled/registry.js?v=2eddc83758"></script>
   <script src="compiled/log.js?v=497399b032"></script>
-  <script src="compiled/app.js?v=a63393615d"></script>
+  <script src="compiled/app.js?v=ce400442bb"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

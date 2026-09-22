@@ -3,6 +3,17 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
   const paths = {
     dashboard: "M3 13h7V3H3v10zm0 8h7v-6H3v6zm11 0h7V11h-7v10zm0-18v6h7V3h-7z",
     calc:      "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2 4v3h10V7H7zm0 6h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v6h-2v-6zm-8 4h2v2H7v-2zm4 0h2v2h-2v-2z",
+    // Stroked sibling of `calc`, for the quick-calc floating button.
+    // `calc` is in the `filled` list below, and its screen and keys are
+    // subpaths wound the same way as its body — so under the default
+    // nonzero fill-rule they fill in rather than cut out. At rail size, in
+    // ink on a pale background, that reads fine; at 22px in white on the
+    // solid brand button it was one featureless rounded square. Drawn in
+    // strokes instead (body, screen, two rows of keys as round-capped
+    // zero-length segments), so it stays a calculator at any size on any
+    // background. `calc` itself is untouched — the nav rail and the mobile
+    // Calc tab still use it.
+    calculator: "M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8.5 7h7v3h-7zM9 14h.01M12 14h.01M15 14h.01M9 17.5h.01M12 17.5h.01M15 17.5h.01",
     chart:     "M3 3v18h18M7 14l4-5 4 3 5-7",
     log:       "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm3 4h8M8 12h8M8 16h5",
     bell:      "M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z",

@@ -108,6 +108,26 @@ against `fc2c35c`. A harness row that stands for a current order carries the cur
 Since the dead-space change, a harness order that means "no dead space" types 0
 (`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
 
+`verify-quick-calc.cjs` pins the **Quick calc** (2026-09-21, ward request: a floating button that
+calculates from a typed weight and saves nothing). It exists because that feature makes two claims
+that would rot quietly. The first is that it is *the same calculator* — so § 1 mounts the real
+`<Calculator>` twice, once with `scratch` and once patient-bound, drives the identical order into
+both, and fails on the first disagreement across every metric tile and every figure rendered inside
+the six wizard steps; a non-zero GIR is asserted separately so a page of zeros cannot make that pass
+vacuously. The second is that it *persists nothing*: § 2 drives the quick calc and then reads
+`localStorage`, and — this is the load-bearing half — drives the patient entry through the same
+keystrokes and requires that one **did** write its unsaved-order draft. Without it the assertion
+passes for the wrong reason, which is exactly what happened while writing this harness: `calculator.jsx`
+writes through a bare `localStorage`, which under `vm.runInThisContext` resolves against the global
+scope, so the writes threw inside their own `try/catch` and the store was empty because nothing could
+write at all. (The same applies to the bare `navigator` the Copy button uses, and Node 22 ships a
+read-only `globalThis.navigator` that has to be redefined rather than assigned.) § 3-§ 4 then pin what
+the mode may not produce — no Save, no Submit, no delete, no `#print-form`, no Intake/Output card —
+and that the text it *does* copy names itself as not a treatment order and carries neither bed nor
+NeoFeed ID. § 5-§ 7 are source-level: `SCRATCH_PATIENT` carries no identifiers and a birth weight of
+0, `QuickCalcView` passes no save handler of any kind, every write path in `calculator.jsx` is behind
+the flag, and the button is styled in both hand-synced shells and hidden when printing.
+
 `verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
 `tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:
 both shells load nothing but `boot.js`, `vendor/` React, `data.js`, `compiled/*.js` and Google

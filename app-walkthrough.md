@@ -695,6 +695,53 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 7. **Guidelines (ESPGHAN)** / **Formulas + products** (`GuidelinesPanel`,
    `FormulasPanel` in `app.jsx`) — static clinical reference content, no
    patient data.
+8. **Calculator (quick calc)** (`QuickCalcView` in `app.jsx`, added
+   2026-09-21 on a ward request) — reached from `QuickCalcFab`, a floating
+   button bottom-right on every screen size labelled **Calculator**, the same
+   word as the patient wizard: the `ไม่บันทึก` chip beside the heading is what
+   tells them apart, and the button is hidden while the patient Calculator is
+   open, so the two labels are never on screen together. Its glyph is
+   `icons.jsx`'s **stroked `calculator`**, added for it — the filled `calc`
+   the rail uses winds its screen and keys the same way as its body, so under
+   the default nonzero fill-rule they fill in and it renders as a plain
+   rounded square in white at 22 px. `calc` itself is unchanged.
+   The button is hidden on the Calculator (you are already in it, and
+   leaving would drop an in-progress order's edit context) and on itself.
+   **It is the same `<Calculator>`, run with `scratch`** — not a second,
+   slimmer calculator. That matters: a separate quick calculator would be a
+   second implementation of KCMH's dosing arithmetic living beside the first,
+   in the one file that prints pharmacy orders, and the two would drift the
+   first time either moved. `test/verify-quick-calc.cjs` § 1 mounts both and
+   fails on the first tile or step figure that disagrees.
+   What `scratch` changes is only what the mode may **persist**: no Save, no
+   Submit, no delete, no unsaved-draft store, no previous-submission store, no
+   `neofeed_calc_*` read, no edit lock, no printed pharmacy form, and no
+   Intake/Output card (bedside figures for one real infant on one real day —
+   there is neither). Nothing reaches the Google Sheet and nothing survives
+   leaving the page. `handleSave` returns early on `scratch` as well, because
+   it is the only path in `calculator.jsx` that reaches Sheets.
+   It takes **`SCRATCH_PATIENT`**, a frozen record with no `sessionId`, no
+   name and `bw: 0` — so there is no PHI in it (§ 6) and no Daily_Log row it
+   could be mistaken for, and the birth-weight floor is out of play: the
+   weight typed into Step 1 *is* the dosing weight. Two inputs, not one:
+   the weight, and a **DOL** in the page head, because every ESPGHAN band the
+   wizard grades against is DOL-indexed and a quick calc without one would
+   quietly read day-1 protein/Na/K/Ca/P targets for a two-week-old. That DOL
+   is a number somebody picked, so `orderDayRolledOver` is forced false in
+   scratch mode — `dolAtDate` on a patient-less record returns 1, which would
+   snap a DOL 14 calc back to day-1 bands on a page left open past midnight.
+   **Copy Order stays, deliberately, and is the one thing that leaves the
+   page.** Its usual gate (saved, unchanged, `printable`) can never pass here
+   and is not the gate this mode needs — there is no entry id to misattribute
+   — so it is scoped to a real order, and the compensating control is the
+   copied text itself: it opens `คำนวณเร็ว (ไม่ใช่คำสั่งการรักษา)`, says it
+   was not saved, and carries neither bed nor NeoFeed ID. A paste into LINE
+   arrives without the screen it came from.
+   The view carries **no banner between the page head and Step 1** (Praew,
+   2026-09-21: "ไม่ต้องขึ้นกรอบสีเหลืองกลาง"). The `ไม่บันทึก` chip and the
+   subtitle say it on arrival; the footer card says it again next to Copy,
+   where it has to be read rather than glanced at. A third copy only pushed
+   Step 1 below the fold on a phone.
 
 ## 6. Compliance posture (Thai PDPA) — know this before adding data flows
 

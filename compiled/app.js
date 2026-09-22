@@ -338,6 +338,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
+  const [quickFrom, setQuickFrom] = React.useState(null);
   const [ward, setWard] = React.useState(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local");
@@ -1128,7 +1129,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onEditEntry: startEditEntry,
       onDeleteEntry: role === "admin" ? handleDeleteEntry : void 0
     }
-  ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(PatientPicker, { patients, activeId, onSelect: setActiveId, onClose: () => setPickerOpen(false) }), showChangePwd && /* @__PURE__ */ React.createElement(
+  ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "quickcalc" && /* @__PURE__ */ React.createElement(QuickCalcView, { onBack: () => goTo(quickFrom || "registry") }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(PatientPicker, { patients, activeId, onSelect: setActiveId, onClose: () => setPickerOpen(false) }), showChangePwd && /* @__PURE__ */ React.createElement(
     ChangePasswordModal,
     {
       onClose: () => setShowChangePwd(false),
@@ -1146,7 +1147,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         return res;
       }
     }
-  ), /* @__PURE__ */ React.createElement(
+  ), view !== "quickcalc" && view !== "calculator" && /* @__PURE__ */ React.createElement(QuickCalcFab, { onClick: () => {
+    setQuickFrom(view);
+    goTo("quickcalc");
+  } }), /* @__PURE__ */ React.createElement(
     BottomNav,
     {
       view,
@@ -1240,6 +1244,77 @@ function CalculatorView({
       onWeightChange: (w) => setCalcWeights((prev) => ({ ...prev, [activeId]: w }))
     }
   ));
+}
+const SCRATCH_PATIENT = Object.freeze({
+  sessionId: null,
+  name: null,
+  initials: null,
+  // bw 0 switches off calculator.jsx's birth-weight floor: with no birth
+  // weight on record, the weight typed here IS the dosing weight and there is
+  // nothing to floor it against. The "TPN calc. weight" override still works.
+  bw: 0,
+  ga: 0,
+  sex: "",
+  currentBed: "",
+  diagnosis: "",
+  weights: [],
+  lengths: [],
+  hcs: []
+});
+const QUICK_DOL_MAX = 60;
+function QuickCalcView({ onBack }) {
+  const [dol, setDol] = React.useState(1);
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBack }, "← กลับ"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "Calculator", /* @__PURE__ */ React.createElement("span", { className: "chip", style: {
+    fontSize: 12,
+    fontWeight: 700,
+    background: "var(--warn-bg)",
+    color: "var(--warn)",
+    borderColor: "var(--warn-line)"
+  } }, "ไม่บันทึก")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "ใส่น้ำหนักแล้วคำนวณได้เลย — ไม่ผูกกับผู้ป่วย ไม่เซฟลง Google Sheets")), /* @__PURE__ */ React.createElement("div", { className: "quick-dol" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "quick-dol-input" }, "DOL"), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      id: "quick-dol-input",
+      className: "num",
+      type: "number",
+      inputMode: "numeric",
+      min: 1,
+      max: QUICK_DOL_MAX,
+      step: 1,
+      value: dol,
+      onChange: (e) => {
+        const v = Math.round(Number(e.target.value));
+        if (!isFinite(v)) return;
+        setDol(Math.min(QUICK_DOL_MAX, Math.max(1, v)));
+      }
+    }
+  ))), /* @__PURE__ */ React.createElement(
+    Calculator,
+    {
+      patient: SCRATCH_PATIENT,
+      dol,
+      scratch: true,
+      editEntry: null,
+      baselineEntry: null,
+      previousEntry: null,
+      logDate: null,
+      userLabel: "",
+      userEmail: ""
+    }
+  ));
+}
+function QuickCalcFab({ onClick }) {
+  return /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "quick-fab",
+      onClick,
+      "aria-label": "Calculator — ไม่บันทึก",
+      title: "Calculator (ไม่บันทึก)"
+    },
+    /* @__PURE__ */ React.createElement(Icon, { name: "calculator", size: 22, color: "#fff", stroke: 1.9 }),
+    /* @__PURE__ */ React.createElement("span", { className: "quick-fab-label" }, "Calculator")
+  );
 }
 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 function fmtDate(iso) {

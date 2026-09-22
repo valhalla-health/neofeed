@@ -52,16 +52,22 @@ ok('PrintOrderForm receives the clinical order date',
   /const \[newOrderDate, setNewOrderDate\] = useState\(\(\) => D\.todayLocal\(\)\)/.test(calc));
 ok('the form labels a formatted order date, not always today',
   /const orderDateLabel\s*=/.test(calc) && /วันที่ให้ TPN:[^\n]*orderDateLabel/.test(calc));
+// The quick calc (2026-09-21, `scratch`) has no saved row to require: it
+// writes nothing anywhere, so there is no entry id a copy could be
+// misattributed to. The gate is therefore scoped to a real order rather than
+// dropped, and `scratch` must appear in the condition rather than the gate
+// simply being gone. verify-quick-calc.cjs pins the compensating controls —
+// the copied text names itself as not an order, and the mode cannot print.
 ok('print and copy require a successfully saved entry',
   /if\s*\(!savedEntryId\)[\s\S]{0,180}ก่อนพิมพ์/.test(calc) &&
-  /if\s*\(!savedEntryId\)[\s\S]{0,180}ก่อนคัดลอก/.test(calc));
+  /if\s*\(!scratch\s*&&\s*!savedEntryId\)[\s\S]{0,220}ก่อนคัดลอก/.test(calc));
 // Tightened 2026-09-11 (review F2): saved is not enough — the form must still
 // MATCH what was saved. verify-review-0911.cjs drives this in jsdom.
 ok('the print form renders only while the form matches the saved row',
   /const printable\s*=\s*!!savedEntryId\s*&&\s*!dirty/.test(calc) &&
-  /\{printable(?:\s*&&\s*!centerPoint)?\s*&&\s*<PrintOrderForm/.test(calc) &&
+  /\{printable(?:\s*&&\s*!centerPoint)?(?:\s*&&\s*!scratch)?\s*&&\s*<PrintOrderForm/.test(calc) &&
   /if\s*\(!printable\)[\s\S]{0,160}ก่อนพิมพ์/.test(calc) &&
-  /if\s*\(!printable\)[\s\S]{0,160}ก่อนคัดลอก/.test(calc));
+  /if\s*\(!scratch\s*&&\s*!printable\)[\s\S]{0,220}ก่อนคัดลอก/.test(calc));
 ok('Peditrace guidance is 1 mL/kg/day (maximum 15 mL)',
   /Peditrace[^\n]*1 mL\/kg\/day[^\n]*max(?:imum)? 15 mL/i.test(data) &&
   !/Peditrace[^\n]*1[–-]2 mL\/kg\/day/i.test(data + '\n' + app));
