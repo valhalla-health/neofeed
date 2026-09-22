@@ -1,5 +1,11 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-22, 16:34 ICT — backend `@56`, with frontend `release` = `96afcd0` on both hosts.** `@56`
+> is PR #84, with #86 folded in. Every Chula Google Workspace domain signs in with Google and gets no
+> NeoFeed password, and a forced password change is served at once. It was checked live without
+> credentials, and Praew's sign-in rule was run against the deployed code, but ⚠️ **no one has signed in
+> on `@56` yet**. See "How the 2026-09-22 backend deploy was verified".
+>
 > ✅ **2026-09-18, 11:17 ICT — frontend `release` = `96afcd0` on both hosts, with backend `@55`.** Two
 > frontend deploys today: the 2026-09-17 review (PR #74, 09:10 ICT), then the ward requests plus
 > Soluvit/Peditrace × Factor (PR #77, 11:17 ICT). On both hosts the shell and every script it loads
@@ -9,16 +15,22 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-18, 11:17 ICT** · 🟢 **Backend `@55` and frontend `release` = `96afcd0` are live.**
+**Updated 2026-09-22, 16:35 ICT** · 🟢 **Backend `@56` and frontend `release` = `96afcd0` are live.**
 - **Frontend:** PR #77 (`main` → `release`), approved and merged by `tasamew` at 04:17 UTC /
   11:17 ICT. On top of the review frontend (#74) it ships PR #75, the 2026-09-18 ward requests (MEN
   counts toward no nutrient total, a Magnesium tile, Aminoplasmal 15% hidden on NICU/SCN, a 30 mL
   dead-space default on NICU/SCN), and Soluvit/Peditrace × Factor — `CHANGELOG.md` 2026-09-18 (2).
   `CONSTANTS_VERSION` is now `2026-09-18.1`. Served bytes verified on both hosts at 11:37 ICT — see
   "How the 2026-09-18 ward-requests deploy was verified".
-- **Backend:** `@55`, unchanged since 08:42 ICT. Neither frontend deploy touched `gas-backend.gs`, which
-  is still byte-identical to `7049f60`, the source `@55` was cut from.
-- ⚠️ **Not yet exercised by a person:** either frontend. Their provenance stamps, in `Daily_Log`
+- **Backend:** `@56` since 2026-09-22, 16:34:59 ICT: PR #84 (with #86 folded in), deployed with `clasp`
+  on Praew's instruction. Every Chula Google Workspace domain (`chula.ac.th`, `student.chula.ac.th`,
+  `md.chula.ac.th`, `docchula.com`, `chulahospital.org`) signs in with Google and is given no NeoFeed
+  password. The temp-password gate follows how a session signed in, not its domain. Every write to a
+  Staff row's password columns drops `verifyToken`'s 60 s cached copy of it, so a forced password change
+  is served at once. `@56` is `gas-backend.gs` at `7efbb3b`, byte for byte (`CHANGELOG.md`, both
+  2026-09-22 backend entries).
+- ⚠️ **Not yet exercised by a person:** a Chula Google sign-in on `@56`, and a forced password change
+  followed at once by a request. Also either frontend. The frontends' provenance stamps, in `Daily_Log`
   columns AF–AG and in every printed order's footer, can show them in use without a bedside session —
   see those sections.
 - ⏳ **On `main`, waiting for the next `main` → `release` PR:** PR #76, merged into `main` by Praew on
@@ -26,18 +38,12 @@
   (2) §6), and PR #79 the harness flake fix. Until that release, the live frontend reprints an order
   saved before 11:17 ICT on 2026-09-18 with #77's figures (e.g. Soluvit 1.8 mL where it printed 1.5),
   under the same entry id and revision.
-- ⏳ **Backend, merged into `main` on Praew's instruction; one `clasp` deploy follows, also on her
-  instruction:** PR #84 (2026-09-22),
-  two backend changes (`CHANGELOG.md`, both 2026-09-22 entries). Every Chula Google Workspace domain signs
-  in with Google and gets no NeoFeed password, and the temp-password gate follows how a session signed in
-  rather than its domain. Every backend write to a Staff row's password columns now drops `verifyToken`'s
-  60 s cached copy of that row. That second change was PR #86, folded into #84 on Praew's instruction so
-  that both go live in one deploy. Until it is deployed, `@55` still gives rows on `student.chula.ac.th`,
-  `md.chula.ac.th`, `docchula.com` and `chulahospital.org` a temp password, and a Google sign-in on such
-  a row is stuck on the forced change. It also refuses the first minute of requests after a successful
-  forced password change and puts the forced change screen back up. If a session already on a row with no
-  password cached col G blank, a sign-in on the temp password then provisioned for that row also passes
-  the server gate for up to a minute.
+
+**Previous (2026-09-18, 11:17 ICT – 2026-09-22, 16:34 ICT):** backend `@55` + frontend `release` =
+`96afcd0`, the state the 2026-09-18 banner above describes. Under `@55`, rows on `student.chula.ac.th`,
+`md.chula.ac.th`, `docchula.com` and `chulahospital.org` were given a temp password, and a Google sign-in
+on such a row was stuck on the forced change. A successful forced password change was refused for up to a
+minute afterwards.
 
 **Previous (2026-09-18, 09:10–11:17 ICT):** backend `@55` + frontend `release` = `dfeb15b` — the
 review's frontend (PR #74), approved and merged by `tasamew` at 02:10:44 UTC / 09:10 ICT: the `.jsx`
@@ -73,6 +79,54 @@ at 20:47 ICT. Verified on both hosts and against the pulled version 54 source �
 2026-09-15 deploy was verified".
 🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
 Pages; `main` deploys nothing. See "Release-branch deploy gate".
+
+## How the 2026-09-22 backend deploy was verified
+
+**Backend `@56`.** PR #84, with #86 folded in, was merged into `main` as `7efbb3b` on Praew's instruction
+(*"merge #84 แล้ว deploy clasp"*) and deployed the same afternoon, following `REFERENCE.md` § Backend:
+
+1. **All three copies agreed before anything was overwritten.** The mirror's `รหัส.js`, a `clasp pull` of
+   the editor HEAD and a `clasp pull --versionNumber 55` were byte-identical to `gas-backend.gs` at
+   `f3e9e23`, the source `@55` was cut from. Nobody had edited in the Apps Script editor since `@55`.
+2. **Identity and settings:** `clasp show-authorized-user` → `peeraporn.po@chula.ac.th` (clasp 3.3.0).
+   The manifest is unchanged. The new code's only new service call is `CacheService…remove`, which needs
+   no new scope, and it adds no sheet column, so there was no `sheetHealthReport()` gate to run.
+3. `gas-backend.gs` from `7efbb3b` was copied into `รหัส.js` with `git show` (LF): +73 / −24. Committed in
+   the mirror (`9027d7e`), then `clasp push` (16:31 ICT) and `clasp create-version` → **56**. `clasp pull
+   --versionNumber 56` is byte-identical to `7efbb3b:gas-backend.gs`.
+4. **Post-merge CI on `main` (`7efbb3b`) was green before the switch.**
+5. **`clasp update-deployment -V 56 AKfycbz8Nt…`** at 16:34:59 ICT. `clasp list-deployments` shows
+   `AKfycbz8Nt…` at `@56`, and the count stayed **26**, so `NEOFEED_GAS_URL` is unchanged.
+6. **Live smoke test**, with no credentials and no writes, using the same three probes as `@55`'s deploy.
+   `ping` → `{"ok":true,…}`. `GET` with no action → `Use POST for authenticated actions.` A malformed
+   `POST` → the generic Thai error. The answers were identical before and after. The first `ping` after
+   the switch got an HTTP 404 from Google's redirect, once. Three retries 40–60 s later all answered 200.
+7. **Praew's sign-in rule, run against the deployed code:** *"ต้องมี email อยู่ใน list user email จาก google
+   sheet ที่กำหนดไว้เท่านั้น ถึงจะ login ได้ และสามารถใช้ gmail, DNS จาก chula ทั้งหมด ที่มีรายชื่ออยู่เข้าได้ โดยไม่ต้องขอ
+   password จาก V team"*. A 40-check script ran in `test/gas-vm-sandbox.cjs`, pointed through
+   `NEOFEED_GAS_SRC` at the very file `clasp pull --versionNumber 56` returned. Google's tokeninfo was
+   simulated. It checked:
+   - Listed `gmail.com` and each of the five Chula domains: adding the row creates no NeoFeed password, the
+     Google sign-in succeeds with no password change, and the app is served.
+   - Unlisted addresses on all of those domains and on `redcross.or.th`: refused, by Google and by
+     password alike.
+   - `active` = FALSE: refused. A deleted row ends a session already in use.
+   - The control: a `redcross.or.th` row still gets its temp password.
+
+   40/40 pass on `@56`. The same script against `@55`'s code fails 8, all on the four domains this deploy
+   added. The script is not in the repo. `test/verify-chula-google-signin.cjs` pins the same rules for the
+   Chula domains, and `verify-review-0917-backend-security.cjs` pins the Gmail sign-in.
+8. **Not yet done by a person:** a real Chula Google sign-in, which goes through Chula's Workspace (and,
+   for `chula.ac.th` and `student.chula.ac.th`, Chula's Microsoft SSO page). Nor a forced password change
+   followed at once by a request.
+
+**Rollback (backend):** `@55` is a clean target. `@56` adds no column, and `@55` ignores the `authMethod`
+that `@56` sessions carry, so those sessions fall back to the domain rule:
+```
+clasp update-deployment -V 55 AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV
+```
+
+---
 
 ## How the 2026-09-18 ward-requests deploy was verified
 

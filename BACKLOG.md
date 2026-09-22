@@ -60,16 +60,17 @@ clinical judgement. Everything else is engineering sequencing.
       Script Property `hd_seen_chula.ac.th`: `"yes"` → set the flag to `true` and redeploy; `"no"` →
       someone signs in with a non-Workspace Google account for that domain and needs a password
       account first. Steps are in the comment above the flag. **Since the 2026-09-22 Chula domain
-      list there are five `hd_seen_<domain>` properties to check, and the four new ones only start
-      recording once that backend is deployed** — so for them the week starts at that deploy.
-- [ ] 🔒 **security · Deploy the 2026-09-22 Chula Google domains change** (`STATUS.md` ⏳) with `clasp`,
-      on Praew's go-ahead. Then, **Praew's call:** Chula-domain Staff rows that already hold a
-      password keep it — Google sign-in works for them either way. Once each such person has signed
+      list there are five `hd_seen_<domain>` properties to check. The four new ones started recording
+      with `@56` on 2026-09-22 (16:34 ICT)**, so for them the week ends on or after 2026-09-29.
+- [ ] 🔒 **security · Clear the old password on each Chula-domain row once its owner has signed in with
+      Google.** The domain change itself is live (`@56`, 2026-09-22 16:34 ICT). **Praew's call:**
+      Chula-domain Staff rows that already hold a password keep it — Google sign-in works for them
+      either way. Once each such person has signed
       in with Google, `clearStaffPassword(email)` removes the password, per "ไม่ต้องมาสร้าง password
       ที่นี่". Not before: a Workspace admin can block Google sign-in to outside apps, and then the
       password is that person's only way in.
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + `release` = `96afcd0`) in one bedside session.**
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@56` + `release` = `96afcd0`) in one bedside session.**
       ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch, from the
       old `sync-poll-0916` frontend. The review frontend has been live since 09:10 ICT and the ward
       requests since 11:17 ICT; nobody has reported using either, so every line below is open.
