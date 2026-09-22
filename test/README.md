@@ -909,6 +909,27 @@ that the prepared `hd` restriction and its telemetry cover all five domains; and
 before the change keeps its old rule. 57 assertions; 21 fail against `7049f60` (`@55`), including the
 chula.ac.th temp password that the domain-keyed gate let skip the change.
 
+## `verify-safety-fixes-0923.cjs` — the 2026-09-23 review's findings, fixed
+
+The review that found these wrote them down; this is the harness that keeps them fixed. Ten sections,
+100 assertions, **38 of which fail against `d08e0fc`** — and they fail by reproducing the reported
+symptom, not merely by missing a new function: § 2 returns DOL 5 where the infant is 9 days old, § 3b
+finds the admit-date field pre-stamped with today and lets the save through, § 4 finds no merge base
+sent at all, § 7 finds one target band step at one height, § 8 finds the DOL box snapping back to "1",
+and § 10 finds a 250 g weight, GIR 25 and 240 kcal/kg/d all refused, in English.
+
+Sections: § 1 the two weight stores read as one · § 2 DOL anchored on the date of birth · § 3 and
+§ 3b the admit-date guards, in the helper and in the edit modal · § 4 the merge base frozen at editor
+open · § 5 one GIR grading and no float noise in an alert body · § 6 growth velocity, including the
+two states in which it must refuse to grade · § 7 the per-day target band · § 8 the patient-less quick
+calculator · § 9 NPE:AA's low side as a warning · § 10 the server's bounds, its Thai refusals and the
+legacy tolerance on its date check.
+
+§ 1–2, § 5–6 and § 10 are pure functions and a vm sandbox; § 3b, § 4 and § 7–8 mount the real
+`EditPatientModal`, `TrendGraph` and `QuickCalcView` in jsdom, so they need the same dev-only deps as
+the other component harnesses. The jsdom sections render into their own `#probe` node: `app.jsx`
+mounts the whole app into `#root` on its last line.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

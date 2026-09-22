@@ -7,6 +7,105 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-23 (b) — the safety review's findings, fixed
+
+The review that found these is the entry below (`## Session 2026-09-23`); its four fix-first items
+and most of its clinically-important ones are closed here. `test/verify-safety-fixes-0923.cjs` is
+new and pins every one of them: 100 assertions, 38 of which fail against `d08e0fc`.
+
+No figure in `calc` moved and no printed dose changed, so `CONSTANTS_VERSION` stays `2026-09-18.1`.
+One clinical policy did change — see NPE:AA below.
+
+### Day of life is now measured from the date of birth
+
+`dolAtDate` anchored DOL on `weights[0].dol`, the DOL of the first *measurement*. `weights[]` is
+sorted by DOL, so recording an outborn infant's birth weight from the referring hospital prepended a
+DOL-1 row and re-dated the whole record: DOL 8 → 4, PMA 31+0 → 30+3, and with them the fluid, energy
+and Na bands and the DOL printed on the pharmacy form. It now counts from `dob`, which is what day of
+life means and is not an editable array. Two guards came with it: a `dob` *later* than the admission
+date is not believed (that pair means the dob was defaulted, and the admission anchor wins), and a
+record that reaches the client without a `dob` has one derived from `admissionDate` + `weights[0].dol`
+— the same arithmetic both registry modals already use — so no record is left on the old anchor.
+
+### The admission date is guarded, on both sides
+
+Blank, a future date and a Thai Buddhist-era year (2569 for 2026) were all accepted, and each pinned
+DOL at 1 — the day-1 fluid, energy, Na, K, Ca and P bands for an infant of any age. `admissionDateIssue`
+now names each case in Thai, both modals block the save and offer the BE → CE conversion, and
+`gas-backend.gs` checks the same thing on the write path. The edit modal no longer seeds `today` into
+a record that has no admission date (opening such a record and saving any unrelated correction used to
+stamp today, taking a DOL 20 record to DOL 1), and it recomputes and saves `dob` alongside, so a
+correction to either field actually reaches the DOL. The server check follows `_checkSex`'s rule — a
+bad value carried through *unchanged* is not refused, or the record would be locked against the very
+correction that fixes it — and allows a day of slack on "future" so clock skew can never refuse a
+legitimate admission entered late in the evening.
+
+### The three-way merge base is the one the editor opened on
+
+`base` was read out of `serverPatientsRef` at *save* time, and that ref is replaced by every background
+sync. A sync landing while a patient modal sat open therefore swapped the merge base for a record
+*newer* than the one on screen, and the server then read the other device's changes as this device's:
+reproduced re-activating a discharged infant, and deleting a weight another device had just saved. The
+base is now captured when the editor mounts (`useMergeBase`) and travels with the submission.
+
+### The two weight stores are read as one
+
+An order's dosing weight went to `Daily_Log.weight`, a growth measurement to `patient.weights[]`, and
+nothing joined them. A ward that weighs once a day and types it into the order — most of them — built
+a weight history the growth chart, "Wt now" and the stale-weight alert could not see at all: a
+one-point Fenton chart and a red "Weight measurement >7 days overdue" on an infant weighed that
+morning. `D.weightSeries(patient, entries)` joins them at read time rather than copying at write time
+(copying would mean a second server write per order, a second chance to disagree, and a merge to get
+wrong); a deliberate measurement outranks an order's working figure on the same day. A new order now
+also starts from the freshest weight on record rather than carrying yesterday's order weight over
+under the hint "= current weight", and Step 1 names which of the two the number is.
+
+`D.ioDivisorG` is deliberately **not** changed: it has its own documented birth-weight-floor convention
+and feeds a printed per-kg figure.
+
+### Smaller, and all pinned
+
+- **GIR is graded once** (`D.girStatus`). The Alerts page had its own copy of the threshold and called
+  anything over 12 critical while the calculator made 12–13 the yellow margin, so one saved GIR was
+  amber on the order it came from and red on the alert list. Every figure in an alert body now goes
+  through `displayNum` — that page printed "Logged GIR 7.206498951781971" at the bedside.
+- **Growth velocity** is measured from the regain of birth weight, and reports rather than grades in
+  the two states where it cannot judge: the physiological postnatal nadir (it fired "critically low"
+  on every normal infant's first week) and past 42 weeks PMA, where the ≥15 g/kg/d preterm target does
+  not apply and the Fenton reference has stopped. `fenton.jsx`'s own velocity and "latest measurement"
+  readouts now read the unclamped points — they were reading the chart's 42-week clamp and freezing on
+  exactly the long-stay infants being watched hardest.
+- **The trend graph** drew the latest row's target band across the whole history, so a day that was on
+  target for its own day read far below it. Each point now carries the band that applied on its day and
+  the band is drawn as steps.
+- **Quick calc** no longer wears the last-opened infant's identity strip (the gate was "any view that
+  is not the registry"; it is now `PATIENT_VIEWS`), and its DOL box can be emptied — 14 → backspace
+  used to snap to "1", so typing 5 next gave 15.
+- **Server plausibility bounds** refused correct orders: weight < 300 g (NeoFeed is used at 22–23
+  weeks), GIR > 20 (hyperinsulinism is managed at 25–30) and energy of exactly 200 kcal/kg/d, which
+  arrived as `200.00000000000003`. Now 200–8000 g, GIR ≤ 30, kcal ≤ 250, with an epsilon at the
+  boundary — and the refusal is written in Thai instead of surfacing raw English inside a Thai toast.
+
+### NPE:AA < 20 is a warning, not a save-blocking stop — **needs Praew's sign-off**
+
+The only clinical policy changed here, and the one the review marked "team decision". NPE:AA below
+20 kcal/g AA means amino acid is being oxidised for fuel rather than laid down: real, but it is the
+ordinary shape of a ramping PN order, where amino acid reaches target on day 1 while dextrose and
+lipid climb over the week. With AA 3.5 g/kg/d and lipid 3 g/kg/d the ratio only clears 20 at GIR ≥ 8.8,
+so a fluid-restricted day-3 ELBW raised a *critical* alert clearable only by typing an override
+reason — the rote-override problem UP-C4 fixed for lipid, K and osmolarity, surviving on this one
+limit. The high side (> 32) is untouched and still stops the order. `verify-review-0917-calc.cjs` § 4
+is updated with the reasoning; UP-C4's "judged on the bag, not the total" decision is unchanged.
+
+### What was tried and backed out
+
+Rounding every logged figure to clinical precision before saving it. It would have fixed both
+symptoms above, but neither symptom is about storage: the raw print is a display defect and the
+200 kcal refusal is a validation defect, each fixed where it belongs. Rounding the stored row instead
+would have discarded precision in the columns a reprint and every trend are computed from — which is
+what `test/verify-calc-oracle.cjs` caught, in 78 checks, and it was right to.
+
+
 - Current production state → `STATUS.md`
 - Open work → `BACKLOG.md`
 - Conventions, schema, PDPA posture → `REFERENCE.md`

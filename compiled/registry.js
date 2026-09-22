@@ -57,7 +57,7 @@ function WardGate({ patients, log, today, onPick }) {
   const tile = (ward) => ({ list: groups[ward], log, today, onPick: () => onPick(ward) });
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, /* @__PURE__ */ React.createElement(WardTile, { label: "NICU", sub: "NICU 1–12 · iso 1–3", ...tile("NICU") }), /* @__PURE__ */ React.createElement(WardTile, { label: "SCN", sub: "SCN 1–30", ...tile("SCN") }), groups.other.length > 0 && /* @__PURE__ */ React.createElement(WardTile, { label: "อื่นๆ", sub: "ยังไม่ระบุเตียง / เตียงนอกรายการ", ...tile("other") })));
 }
-function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete }) {
+function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor }) {
   const [filter, setFilter] = React.useState("");
   const [showAdd, setShowAdd] = React.useState(false);
   const [editPatient, setEditPatient] = React.useState(null);
@@ -278,7 +278,8 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       patient: editPatient,
       patients,
       onClose: () => setEditPatient(null),
-      onSubmit: (p) => onEdit?.(p),
+      onSubmit: (p, base) => onEdit?.(p, base),
+      mergeBaseFor,
       onDelete
     }
   ), transferPatient && /* @__PURE__ */ React.createElement(
@@ -287,7 +288,8 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       patient: transferPatient,
       patients,
       onClose: () => setTransferPatient(null),
-      onSubmit: (p) => onEdit?.(p)
+      onSubmit: (p, base) => onEdit?.(p, base),
+      mergeBaseFor
     }
   ));
 }
@@ -332,12 +334,12 @@ function useModalSubmit(onSubmit, onClose) {
     }
     onClose();
   };
-  const submit = (payload) => {
+  const submit = (payload, extra) => {
     if (busyRef.current) return;
     setError("");
     let out;
     try {
-      out = onSubmit(payload);
+      out = onSubmit(payload, extra);
     } catch (e) {
       setError(e && e.message || fallback);
       return;
@@ -351,6 +353,26 @@ function useModalSubmit(onSubmit, onClose) {
     out.then(finish, (e) => finish({ ok: false, error: e && e.message || fallback }));
   };
   return { busy, error, submit };
+}
+function AdmitDateIssue({ issue, correction, onFix }) {
+  if (!issue) return null;
+  const canFix = issue.code === "buddhistEra" && correction && onFix;
+  return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, fontSize: 11, color: "var(--crit)", lineHeight: 1.45 } }, issue.message, canFix && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "btn sm",
+      style: { marginLeft: 8, fontSize: 11 },
+      onClick: () => onFix(correction)
+    },
+    "ใช้ ",
+    correction
+  ));
+}
+function useMergeBase(mergeBaseFor, sessionId) {
+  const ref = React.useRef(void 0);
+  if (ref.current === void 0) ref.current = mergeBaseFor ? mergeBaseFor(sessionId) ?? null : void 0;
+  return ref.current;
 }
 function SubmitError({ error }) {
   if (!error) return null;
@@ -381,9 +403,11 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   const [dx, setDx] = React.useState("");
   const [admitDate, setAdmitDate] = React.useState(today);
   const [admitDol, setAdmitDol] = React.useState(1);
+  const admitIssue = D_R.admissionDateIssue(admitDate, today);
+  const admitCE = D_R.toChristianEraDateStr(admitDate, today);
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
   const sessionId = `${(name || "XX").slice(0, 2).toUpperCase()}-BW${bw}${twin ? "-" + twin : ""}`;
-  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && !bedTaken;
+  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && !bedTaken && !admitIssue;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   const dob = React.useMemo(() => {
     if (!admitDate) return today;
@@ -392,7 +416,17 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 560 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Register new session"), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18 } }, /* @__PURE__ */ React.createElement("div", { className: "row-3" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "ชื่อย่อ ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(อักษรแรกของชื่อ + นามสกุล)")), /* @__PURE__ */ React.createElement("input", { className: "inp", maxLength: 2, value: name, onChange: (e) => setName(e.target.value), placeholder: "เช่น  ปพ" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Multiples ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(optional)")), /* @__PURE__ */ React.createElement("select", { className: "sel", value: twin, onChange: (e) => {
     setTwin(e.target.value);
     if (!e.target.value) setMultiplesCount("");
-  } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "—"), /* @__PURE__ */ React.createElement("option", { value: "A" }, "A"), /* @__PURE__ */ React.createElement("option", { value: "B" }, "B"), /* @__PURE__ */ React.createElement("option", { value: "C" }, "C"), /* @__PURE__ */ React.createElement("option", { value: "D" }, "D"))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "How many ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(twin/triplet/quad)")), /* @__PURE__ */ React.createElement("select", { className: "sel", value: multiplesCount, disabled: !twin, onChange: (e) => setMultiplesCount(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "—"), /* @__PURE__ */ React.createElement("option", { value: "2" }, "2 · Twin"), /* @__PURE__ */ React.createElement("option", { value: "3" }, "3 · Triplet"), /* @__PURE__ */ React.createElement("option", { value: "4" }, "4 · Quadruplet")))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-3" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Birth weight ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(g)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", value: bw || "", onChange: (e) => setBw(Math.max(0, parseInt(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "GA ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(weeks + days)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaW, onChange: (e) => setGaW(e.target.value), style: { flex: 1 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "wk"), GA_WEEK_OPTIONS.map((w) => /* @__PURE__ */ React.createElement("option", { key: w, value: w }, w))), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontWeight: 500 } }, "+"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaD, onChange: (e) => setGaD(e.target.value), style: { width: 68 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "d"), [0, 1, 2, 3, 4, 5, 6].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Sex"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: sex, onChange: (e) => setSex(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "boys" }, "Male"), /* @__PURE__ */ React.createElement("option", { value: "girls" }, "Female")))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Admit date"), /* @__PURE__ */ React.createElement("input", { type: "date", className: "inp", value: admitDate, onChange: (e) => setAdmitDate(e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "DOL at admit"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "—"), /* @__PURE__ */ React.createElement("option", { value: "A" }, "A"), /* @__PURE__ */ React.createElement("option", { value: "B" }, "B"), /* @__PURE__ */ React.createElement("option", { value: "C" }, "C"), /* @__PURE__ */ React.createElement("option", { value: "D" }, "D"))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "How many ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(twin/triplet/quad)")), /* @__PURE__ */ React.createElement("select", { className: "sel", value: multiplesCount, disabled: !twin, onChange: (e) => setMultiplesCount(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "—"), /* @__PURE__ */ React.createElement("option", { value: "2" }, "2 · Twin"), /* @__PURE__ */ React.createElement("option", { value: "3" }, "3 · Triplet"), /* @__PURE__ */ React.createElement("option", { value: "4" }, "4 · Quadruplet")))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-3" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Birth weight ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(g)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", value: bw || "", onChange: (e) => setBw(Math.max(0, parseInt(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "GA ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(weeks + days)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaW, onChange: (e) => setGaW(e.target.value), style: { flex: 1 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "wk"), GA_WEEK_OPTIONS.map((w) => /* @__PURE__ */ React.createElement("option", { key: w, value: w }, w))), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontWeight: 500 } }, "+"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaD, onChange: (e) => setGaD(e.target.value), style: { width: 68 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "d"), [0, 1, 2, 3, 4, 5, 6].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Sex"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: sex, onChange: (e) => setSex(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "boys" }, "Male"), /* @__PURE__ */ React.createElement("option", { value: "girls" }, "Female")))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Admit date"), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "date",
+      className: "inp",
+      max: today,
+      min: D_R.ADMIT_DATE_MIN,
+      value: admitDate,
+      onChange: (e) => setAdmitDate(e.target.value)
+    }
+  ), /* @__PURE__ */ React.createElement(AdmitDateIssue, { issue: admitIssue, correction: admitCE, onFix: setAdmitDate })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "DOL at admit"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "number",
@@ -405,7 +439,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
         setAdmitDol(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
       }
     }
-  ), admitDol > 1 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, "DOB: ", dob)))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Length at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: len || "", onChange: (e) => setLen(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "HC at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: hc || "", onChange: (e) => setHc(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" }))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy }), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--crit)", marginTop: 4 } }, bedTakenMsg(D_R.normalizeBed(bed), bedTaken))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), submitError && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement(SubmitError, { error: submitError })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 } }, !canSubmit && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" } }, bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : "กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSubmit || busy, onClick: () => submit({
+  ), admitDol > 1 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, "DOB: ", dob)))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Length at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: len || "", onChange: (e) => setLen(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "HC at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: hc || "", onChange: (e) => setHc(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" }))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy }), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--crit)", marginTop: 4 } }, bedTakenMsg(D_R.normalizeBed(bed), bedTaken))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), submitError && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement(SubmitError, { error: submitError })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 } }, !canSubmit && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" } }, bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้" : "กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSubmit || busy, onClick: () => submit({
     sessionId,
     name,
     initials: name,
@@ -468,7 +502,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
     /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.diagnosis || "—")
   )), filtered.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 18px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่พบผู้ป่วย"))));
 }
-function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
+function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, mergeBaseFor }) {
   const today = D_R.todayLocal();
   const [name, setName] = React.useState(patient.name || patient.initials || "");
   const [bw, setBw] = React.useState(patient.bw || 0);
@@ -488,9 +522,16 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
   const [status, setStatus] = React.useState(patient.status || "Active");
   const bedTaken = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
   const [dol1, setDol1] = React.useState(patient.weights?.[0]?.dol ?? 1);
-  const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || today);
+  const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || "");
+  const admitIssue = D_R.admissionDateIssue(admitDate, today);
+  const admitCE = D_R.toChristianEraDateStr(admitDate, today);
+  const mergeBase = useMergeBase(mergeBaseFor, patient.sessionId);
+  const dob = React.useMemo(() => {
+    if (!admitDate || admitIssue) return patient.dob || "";
+    return D_R.addDaysToDateStr(admitDate, -(Math.max(1, parseInt(dol1, 10) || 1) - 1));
+  }, [admitDate, dol1, admitIssue, patient.dob]);
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
-  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   const handleDelete = () => {
     if (!onDelete) return;
@@ -522,8 +563,9 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
       status,
       statusDate,
       admissionDate: admitDate,
+      dob,
       weights
-    });
+    }, mergeBase);
   };
   return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 560 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Edit session · ", patient.sessionId), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "row-3" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Birth weight ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(g)")), /* @__PURE__ */ React.createElement(
     "input",
@@ -547,7 +589,17 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
         setDol1(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
       }
     }
-  ))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Admit date"), /* @__PURE__ */ React.createElement("input", { type: "date", className: "inp", value: admitDate, onChange: (e) => setAdmitDate(e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Status"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: status, onChange: (e) => setStatus(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Active" }, "Active"), /* @__PURE__ */ React.createElement("option", { value: "Discharged" }, "Discharged"), /* @__PURE__ */ React.createElement("option", { value: "Transferred" }, "Transferred"), /* @__PURE__ */ React.createElement("option", { value: "Expired" }, "Expired")))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), !canSave && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: bedTaken ? "var(--crit)" : "var(--ink-3)", textAlign: "right" } }, bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken) : sex === "" ? "ต้องระบุเพศก่อนบันทึก" : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 } }, onDelete && /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Admit date"), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "date",
+      className: "inp",
+      max: today,
+      min: D_R.ADMIT_DATE_MIN,
+      value: admitDate,
+      onChange: (e) => setAdmitDate(e.target.value)
+    }
+  ), /* @__PURE__ */ React.createElement(AdmitDateIssue, { issue: admitIssue, correction: admitCE, onFix: setAdmitDate })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Status"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: status, onChange: (e) => setStatus(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Active" }, "Active"), /* @__PURE__ */ React.createElement("option", { value: "Discharged" }, "Discharged"), /* @__PURE__ */ React.createElement("option", { value: "Transferred" }, "Transferred"), /* @__PURE__ */ React.createElement("option", { value: "Expired" }, "Expired")))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), !canSave && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: bedTaken ? "var(--crit)" : "var(--ink-3)", textAlign: "right" } }, bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken) : sex === "" ? "ต้องระบุเพศก่อนบันทึก" : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 } }, onDelete && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",
@@ -559,7 +611,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
     " Delete session"
   ), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSave || busy, onClick: save }, /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14, color: "#fff" }), " ", busy ? "กำลังบันทึก…" : "Save changes")))));
 }
-function TransferBedModal({ patient, patients, onClose, onSubmit }) {
+function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }) {
   const currentBed = D_R.normalizeBed(patient.currentBed);
   const [bed, setBed] = React.useState(currentBed);
   const occupancy = React.useMemo(
@@ -568,6 +620,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit }) {
   );
   const bedTaken = occupancy.get(D_R.normalizeBed(bed)) || null;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
+  const mergeBase = useMergeBase(mergeBaseFor, patient.sessionId);
   const WARDS = ["NICU", "iso", "SCN"];
   const nextFree = React.useMemo(() => {
     const out = {};
@@ -592,7 +645,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit }) {
       { bed: currentBed, date: D_R.todayLocal() }
       // local date, not UTC
     ];
-    submit({ ...patient, currentBed: next, bedHistory });
+    submit({ ...patient, currentBed: next, bedHistory }, mergeBase);
   };
   return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 400 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Transfer bed · ", patient.name || patient.initials), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" } }, /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), currentBed || "—"), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)" } }, "→"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, style: { flex: 1 }, occupancy })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 } }, "ย้ายไปเตียงว่างถัดไป"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, WARDS.map((w) => /* @__PURE__ */ React.createElement(
     "button",

@@ -129,28 +129,43 @@ function computeAlerts(patient, entries) {
     const tGir = D_A.TARGETS.gir();
     const tPro = isEN ? T.protein() : T.protein(lastDol);
     const tKcal = isEN ? T.kcal() : T.kcal(lastDol);
-    if (last.gir > tGir[1]) alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: lastDol, ref: "ESPGHAN 2018" });
-    if (last.pro < tPro[0] && lastDol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${lastDol} — target ${tPro[0]}–${tPro[1]} g/kg/d (${src}, ${route}).`, dol: lastDol, ref: src });
-    if (last.kcal < tKcal[0] && lastDol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${lastDol} (${src}, ${route}).`, dol: lastDol, ref: src });
+    const nA = (v, d = 1) => D_A.displayNum(v, d);
+    const girS = D_A.girStatus(last.gir);
+    if (girS === "crit") alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${nA(last.gir, 2)} mg/kg/min — above the ${D_A.GIR_HARD_HI} hard limit; reduce dextrose concentration.`, dol: lastDol, ref: "ESPGHAN 2018" });
+    else if (girS === "warn") alerts.push({ id: "gir-off", level: "warn", title: "GIR off target", body: `Logged GIR ${nA(last.gir, 2)} mg/kg/min — aim ${tGir[0]}–${tGir[1]} mg/kg/min.`, dol: lastDol, ref: "ESPGHAN 2018" });
+    if (last.pro < tPro[0] && lastDol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${nA(last.pro, 2)} g/kg/d on DOL ${lastDol} — target ${tPro[0]}–${tPro[1]} g/kg/d (${src}, ${route}).`, dol: lastDol, ref: src });
+    if (last.kcal < tKcal[0] && lastDol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${nA(last.kcal, 1)} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${lastDol} (${src}, ${route}).`, dol: lastDol, ref: src });
   }
-  const wts = (patient.weights || []).filter((w) => w.w != null);
-  if (wts.length >= 2) {
-    const recent = wts.slice(-Math.min(wts.length, 7));
-    const wFirst = recent[0], wLast = recent[recent.length - 1];
-    const dW = wLast.w - wFirst.w;
-    const days = Math.max(1, wLast.dol - wFirst.dol);
-    const avgKg = (wFirst.w + wLast.w) / 2 / 1e3;
-    const vel = dW / days / avgKg;
-    if (vel < 15) alerts.push({
+  const gv = D_A.growthVelocity(patient, entries);
+  if (gv.status === "critical" || gv.status === "low") {
+    alerts.push({
       id: "growth-velocity",
-      level: vel < 10 ? "crit" : "warn",
-      title: vel < 10 ? "Growth velocity critically low" : "Growth velocity below target",
-      body: `${D_A.displayNum(vel, 1)} g/kg/d over ${days} d (DOL ${wFirst.dol}→${wLast.dol}) — target ≥15 g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
-      dol: wLast.dol,
+      level: gv.status === "critical" ? "crit" : "warn",
+      title: gv.status === "critical" ? "Growth velocity critically low" : "Growth velocity below target",
+      body: `${D_A.displayNum(gv.vel, 1)} g/kg/d over ${gv.days} d (DOL ${gv.from.dol}→${gv.to.dol}, measured from the regain of birth weight) — target ≥${D_A.GROWTH_VEL_TARGET} g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
+      dol: gv.to.dol,
+      ref: "ESPGHAN 2022"
+    });
+  } else if (gv.status === "notRegained") {
+    alerts.push({
+      id: "growth-regain",
+      level: "warn",
+      title: "Birth weight not regained",
+      body: gv.reason,
+      dol: gv.to?.dol,
+      ref: "ESPGHAN 2022"
+    });
+  } else if (gv.status === "physiologicalLoss" || gv.status === "beyondReference") {
+    alerts.push({
+      id: `growth-${gv.status}`,
+      level: "info",
+      title: gv.status === "physiologicalLoss" ? "Growth velocity — not yet assessable" : "Growth velocity — beyond the Fenton reference",
+      body: gv.reason,
+      dol: gv.to?.dol,
       ref: "ESPGHAN 2022"
     });
   }
-  const lastWtEntry = D_A.lastWeighed(patient);
+  const lastWtEntry = D_A.lastWeighed(patient, entries);
   const todaysDol = D_A.liveDol(patient);
   if (lastWtEntry) {
     const daysSince = todaysDol - lastWtEntry.dol;
@@ -159,7 +174,7 @@ function computeAlerts(patient, entries) {
         id: "weight-stale",
         level: daysSince >= 7 ? "crit" : "warn",
         title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
-        body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
+        body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol}${lastWtEntry.src === "order" ? " (จากใบสั่ง TPN)" : ""} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
         dol: todaysDol,
         ref: "ESPGHAN 2022"
       });
@@ -521,7 +536,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           bedHistory: cleanMeasures(p.bedHistory)
         }));
         serverPatientsRef.current = new Map(incoming.map((p) => [p.sessionId, p]));
-        setPatients(incoming.length > 0 ? incoming : []);
+        const withDob = incoming.map((p) => {
+          if (p.dob || !p.admissionDate || D_A.admissionDateIssue(p.admissionDate)) return p;
+          const admitDol = Math.max(1, Number(p.weights?.[0]?.dol) || 1);
+          return { ...p, dob: D_A.addDaysToDateStr(p.admissionDate, -(admitDol - 1)) };
+        });
+        setPatients(withDob.length > 0 ? withDob : []);
         setActiveId((prev) => data.patients.some((p) => p.sessionId === prev) ? prev : null);
       }
       if (data.log) setLog(D_A.normalizeLogMap(data.log));
@@ -812,6 +832,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return res;
     });
   };
+  const mergeBaseFor = React.useCallback(
+    (sessionId) => serverPatientsRef.current.get(sessionId) ?? null,
+    []
+  );
   const bedConflict = (p) => {
     const holder = D_A.bedBlocker(patients, p);
     if (!holder) return null;
@@ -839,13 +863,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return res;
     });
   };
-  const handleEditPatient = (p) => {
+  const handleEditPatient = (p, openedFromBase) => {
     const clash = bedConflict(p);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
     if (blocked) return Promise.resolve(blocked);
     const previous = patients.find((x) => x.sessionId === p.sessionId);
-    const base = serverPatientsRef.current.get(p.sessionId);
+    const base = openedFromBase !== void 0 ? openedFromBase : serverPatientsRef.current.get(p.sessionId);
     setPatients((prev) => prev.map((x) => x.sessionId === p.sessionId ? p : x));
     if (!GAS_ON) {
       showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
@@ -1063,20 +1087,21 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     display: "flex",
     alignItems: "center",
     gap: 10
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14, color: "var(--brand)" }), "ยังไม่มีผู้ป่วยในระบบ — ไปที่ ", /* @__PURE__ */ React.createElement("strong", null, "Patients"), " เพื่อลงทะเบียนผู้ป่วยใหม่"), view !== "registry" && active && /* @__PURE__ */ React.createElement(PatientStrip, { patient: active, onSwitch: () => setPickerOpen(true), liveWeight: calcWeights[activeId] || null, currentDol: dol, onEdit: () => setEditingPatient(active) }), editingPatient && /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14, color: "var(--brand)" }), "ยังไม่มีผู้ป่วยในระบบ — ไปที่ ", /* @__PURE__ */ React.createElement("strong", null, "Patients"), " เพื่อลงทะเบียนผู้ป่วยใหม่"), PATIENT_VIEWS.includes(view) && active && /* @__PURE__ */ React.createElement(PatientStrip, { patient: active, entries: log[activeId] || [], onSwitch: () => setPickerOpen(true), liveWeight: calcWeights[activeId] || null, currentDol: dol, onEdit: () => setEditingPatient(active) }), editingPatient && /* @__PURE__ */ React.createElement(
     EditPatientModal,
     {
       patient: editingPatient,
       patients,
       onClose: () => setEditingPatient(null),
       onSubmit: handleEditPatient,
+      mergeBaseFor,
       onDelete: role === "admin" ? handleDeletePatient : void 0
     }
   ), view === "registry" && /* @__PURE__ */ React.createElement(PatientRegistry, { patients, activeId, role, log, ward, onWardChange: setWard, onSelect: (id) => {
     setEditEntry(null);
     setActiveId(id);
     setView("log");
-  }, onAdd: handleAddPatient, onEdit: handleEditPatient, onDelete: role === "admin" ? handleDeletePatient : void 0 }), view === "admin" && role === "admin" && /* @__PURE__ */ React.createElement(
+  }, onAdd: handleAddPatient, onEdit: handleEditPatient, mergeBaseFor, onDelete: role === "admin" ? handleDeletePatient : void 0 }), view === "admin" && role === "admin" && /* @__PURE__ */ React.createElement(
     AdminDashboard,
     {
       patients,
@@ -1109,7 +1134,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       goTo,
       setCalcWeights
     }
-  ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights) })), view === "log" && active && /* @__PURE__ */ React.createElement(
+  ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, entries: log[activeId] || [], currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights) })), view === "log" && active && /* @__PURE__ */ React.createElement(
     DailyLog,
     {
       patient: active,
@@ -1250,7 +1275,9 @@ const SCRATCH_PATIENT = Object.freeze({
 });
 const QUICK_DOL_MAX = 60;
 function QuickCalcView({ onBack }) {
-  const [dol, setDol] = React.useState(1);
+  const [dolText, setDolText] = React.useState("1");
+  const dolValue = Math.min(QUICK_DOL_MAX, Math.max(1, parseInt(dolText, 10) || 1));
+  const dol = dolValue;
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBack }, "← กลับไป Ward"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "Calculator", /* @__PURE__ */ React.createElement("span", { className: "chip", style: {
     fontSize: 12,
     fontWeight: 700,
@@ -1267,12 +1294,18 @@ function QuickCalcView({ onBack }) {
       min: 1,
       max: QUICK_DOL_MAX,
       step: 1,
-      value: dol,
+      value: dolText,
       onChange: (e) => {
-        const v = Math.round(Number(e.target.value));
+        const raw = e.target.value;
+        if (raw === "") {
+          setDolText("");
+          return;
+        }
+        const v = Math.round(Number(raw));
         if (!isFinite(v)) return;
-        setDol(Math.min(QUICK_DOL_MAX, Math.max(1, v)));
-      }
+        setDolText(String(Math.min(QUICK_DOL_MAX, Math.max(1, v))));
+      },
+      onBlur: () => setDolText(String(dolValue))
     }
   ))), /* @__PURE__ */ React.createElement(
     Calculator,
@@ -1332,9 +1365,9 @@ function fmtGA(ga) {
 function RailItem({ icon, label, active, count, crit, onClick }) {
   return /* @__PURE__ */ React.createElement("div", { className: `rail-item ${active ? "active" : ""} ${crit ? "crit" : ""}`, onClick }, /* @__PURE__ */ React.createElement(Icon, { name: icon, size: 15 }), /* @__PURE__ */ React.createElement("span", null, label), count && /* @__PURE__ */ React.createElement("span", { className: "count" }, count));
 }
-function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
+function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEdit }) {
   const ws = patient.weights || [];
-  const last = D_A.lastWeighed(patient) || ws[ws.length - 1] || null;
+  const last = D_A.lastWeighed(patient, entries) || ws[ws.length - 1] || null;
   const currentW = liveWeight ?? last?.w ?? patient.bw;
   const displayDol = currentDol ?? last?.dol ?? 1;
   const delta = currentW - patient.bw;
