@@ -115,7 +115,7 @@ const scenarios = {
     A.eq('2.7 the nurse\'s sync carries the nurse\'s token', t.syncCalls().pop().token, 'tok-nurse-abcdefg');
     t.server.holdSyncs = false;
     await t.releaseSyncs();
-    A.ok('2.8 once synced, the nurse starts at the ward gate', /เลือก ward/.test(t.text()));
+    A.ok('2.8 once synced, the nurse starts at the ward gate', !!document.querySelector('.ward-gate'));
   },
 
   async 'late-answer-after-logout'(A) {
@@ -135,10 +135,10 @@ const scenarios = {
     await t.click(document.querySelector('.topbar .user'));
     await t.click(t.btn(/ออกจากระบบ/));
     await emailLogin(t);
-    A.ok('2b.0 the nurse is signed in', /เลือก ward/.test(t.text()));
+    A.ok('2b.0 the nurse is signed in', !!document.querySelector('.ward-gate'));
     await t.act(async () => { release(); });
     await t.flush(); await t.flush();
-    A.ok('2b.1 the admin\'s late Unauthorized does not log the nurse out', !hasLoginScreen() && /เลือก ward/.test(t.text()));
+    A.ok('2b.1 the admin\'s late Unauthorized does not log the nurse out', !hasLoginScreen() && !!document.querySelector('.ward-gate'));
     A.ok('2b.2 …nor toasts "session expired" at the nurse', !t.toasts().some(x => /เซสชัน/.test(x)));
     A.ok('2b.3 …and the nurse\'s session is still stored', /tok-nurse/.test(t.window.sessionStorage.getItem('neofeed_session') || ''));
   },
@@ -192,7 +192,7 @@ const scenarios = {
     A.ok('5.2 past the login screen', !hasLoginScreen());
     const sync = t.syncCalls()[0];
     A.eq('5.3 the sync carries the token from memory', sync && sync.token, 'tok-nurse-abcdefg');
-    A.ok('5.4 the ward gate is reached', /เลือก ward/.test(t.text()));
+    A.ok('5.4 the ward gate is reached', !!document.querySelector('.ward-gate'));
   },
 
   async 'login-failures'(A) {
@@ -213,7 +213,7 @@ const scenarios = {
     t.server.hooks = {};
     await t.act(async () => { document.querySelector('.login-form-wrap form').dispatchEvent(new t.window.Event('submit', { bubbles: true, cancelable: true })); });
     await t.flush(); await t.flush();
-    A.ok('6.4 Ctrl+K pressed on the login screen did not open a picker later', !pickerOpen() && /เลือก ward/.test(t.text()));
+    A.ok('6.4 Ctrl+K pressed on the login screen did not open a picker later', !pickerOpen() && !!document.querySelector('.ward-gate'));
   },
 
   async 'password-double-enter'(A) {
@@ -288,7 +288,14 @@ const scenarios = {
     A.ok('9.2 …and its growth chart draws', /Fenton 2025 growth chart · Male/.test(t.text()));
     await t.click(document.querySelector('.switch-patient'));
     await t.click([...document.querySelectorAll('.picker-row')].find(r => /XX/.test(r.textContent)));
-    A.ok('9.3 an unknown sex: the app is still on screen', document.getElementById('root').children.length > 0 && /NeoFeed/.test(t.text()));
+    // "the shell is still rendered" was read off the literal string "NeoFeed"
+    // in the topbar. As of 2026-09-22 the corner is <NeoFeedWordmark/>: the N
+    // is an SVG glyph, so the DOM text is "eoFeed" and the product name lives
+    // in the accessible name instead. Assert on that — it is the same claim,
+    // and it now also holds that the name is announced.
+    A.ok('9.3 an unknown sex: the app is still on screen',
+      document.getElementById('root').children.length > 0
+      && !!document.querySelector('.nf-wordmark[aria-label="NeoFeed"]'));
     A.ok('9.4 …the chart says what is wrong', /เพศในทะเบียนไม่ถูกต้อง — แก้ที่ Edit session/.test(t.text()));
     A.ok('9.5 …the strip does not claim Female', !/Female/.test(stripSex()));
     await t.click(t.btn(/Edit session/));

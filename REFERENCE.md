@@ -159,6 +159,20 @@ planned `STATUS.md` change in the PR that ships the code. The post-release check
 after the merge, so they go in a comment on the `main → release` PR, and `STATUS.md` catches up in
 the next PR on this repo. PRs #62, #68 and #72 each existed only to record a deploy.
 
+**A merge into `main` always comes with its release PR** (Praew, 2026-09-22). `main` deploys
+nothing, so a merged PR is not live until a `main → release` PR merges, and nothing said so outside
+the PR itself: on 2026-09-22 PR #87 sat merged but unreleased while Praew opened the old app and
+asked why nothing had changed. So:
+- **Whoever merges a PR into `main` opens the `main → release` PR in the same session.** If one is
+  already open, it has absorbed the merge on its own: report that PR instead of opening a second.
+  The chat report names both halves, *"merged into `main` — ⏳ not live; release PR #N is green, say
+  'release' to deploy"*, and never calls that merge done or live.
+- **"merge แล้ว deploy" (merge and release) means both steps in one instruction:** merge into `main`,
+  open the release PR, merge it once `harnesses` is green, run `node tools/verify-release.mjs`, and
+  put its result in a comment on the release PR. A plain "merge" still stops at `main`: that is how
+  several PRs go out as one release (#85 took eight, so the ward was not recoloured twice in a row).
+- The gate itself is unchanged: an agent still merges into `release` only on Praew's explicit go-ahead.
+
 - **Cloudflare Workers Builds' production branch is `release`** (changed by Praew in the dashboard
   on 2026-09-12 — dashboard-only, no `wrangler` subcommand or public API covers it). Both hosts now
   deploy from `release` and **neither deploys from `main`**: merging PR #59 into `main` built
@@ -180,23 +194,44 @@ the next PR on this repo. PRs #62, #68 and #72 each existed only to record a dep
   inline script, eval or unpkg, so the pre-build shells render a blank page under it. Never revert
   one without the other; reverting the release merge reverts both.
 - **Proving what a release serves.** Workers Builds and Pages build nothing, so the served bytes
-  must equal the bytes in git. After a release, on **both** hosts:
+  must equal the bytes in git. After a release:
 
   ```bash
-  H=https://neofeed.valhalla-health.workers.dev     # then again with the GitHub Pages URL
-  curl -s "$H/" | grep -o 'src="[^"]*"'             # every ?v= token in the served shell
-  for f in boot.js data.js compiled/{icons,calculator,fenton,registry,log,app}.js; do
-    printf '%-24s %s\n' "$f" "$(curl -s "$H/$f" | sha256sum | cut -c1-10)"
-  done                                              # each hash must equal that file's ?v= token
-  curl -sI "$H/" | grep -i content-security-policy  # Cloudflare only: no 'unsafe-inline'/'unsafe-eval'
+  node tools/verify-release.mjs             # against the tip of `release`; or pass a commit
   ```
 
-  `vendor/` is checked by name: its files carry the React version, and the build refuses other
-  bytes under them. GitHub Pages should answer `/` with the shell and then send any browser to
-  `moved.html` — that redirect is `boot.js`.
+  On **both** hosts it compares with git at that commit, byte for byte: the shell, every script and
+  link the shell names, `manifest.json`, `moved.html` and every file under `icons/`. Every `?v=`
+  token must equal the first 10 hex of its file's sha256. `vendor/` is checked by bytes instead: its
+  files carry the React version in their name, and the build refuses other bytes under them. On
+  Cloudflare the CSP's **`script-src`** must allow no `'unsafe-inline'` and no `'unsafe-eval'`.
+  `style-src` keeps `'unsafe-inline'` on purpose, for the shell's own `<style>` block, so reading the
+  whole header for those words raises a false alarm. It exits 0 only if everything passes, and needs
+  Node 18+ and the network, no `npm install`. It retries a dropped connection or a 5xx twice, and
+  never a 4xx or a byte mismatch.
+
+  **Trust a pass only after seeing it fail.** Pointed at a commit the hosts are not serving, it must
+  fail on exactly the served files that differ. Its first runs, 2026-09-22: 0 failures against
+  `release` = `edbd11f` (#88), and against the previous release `066528d` exactly #87's 15 files on
+  each host, nothing else.
+
+  GitHub Pages should answer `/` with the shell and then send any browser to `moved.html` — that
+  redirect is `boot.js`, which neither `curl` nor the script runs.
 - **Google Sign-In is origin-bound.** Every hostname the app is served from must be an Authorized
-  JavaScript origin on OAuth client `750019806043-imunne8n…`. Google allows no wildcards, so
-  Cloudflare **preview** URLs can never complete a login — use them for layout only.
+  JavaScript origin on OAuth client `750019806043-imunne8n…`. Google allows no wildcards, so a
+  Cloudflare **preview** URL fails sign-in with `Error 400: origin_mismatch` until its exact
+  hostname is registered. Hit on 2026-09-22 on a branch preview; the error names the OAuth policy
+  rather than the app, so it reads as a NeoFeed bug and is not one.
+  - Cloudflare gives a preview two URLs, and they are not equally useful here. The **branch** URL
+    (`<branch>-neofeed.valhalla-health.workers.dev`) is stable for the life of the branch, so it
+    *can* be registered. The **commit** URL (`<hash>-neofeed…`) changes on every push and never can.
+  - So: **use a preview for layout, and register the branch URL only if you need to get past the
+    login screen on it.** Remove it when the branch is merged — a production OAuth client should
+    not accumulate dead origins.
+  - `npx wrangler dev` is usually the better answer: it serves on `http://localhost:8787`, one
+    stable origin, and it is faster than pushing (see below).
+  - **Never** add a preview-only auth bypass to the code to work around this. A login that can be
+    skipped is one merge away from production, in an app that writes pharmacy orders.
 - **Fast local loop:** `npx wrangler dev`. No deploy, instant reload, and quicker than pushing.
 - **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. GitHub Pages has no
   rollback — revert the commit. For a release that crosses the 2026-09-17 build step, revert the

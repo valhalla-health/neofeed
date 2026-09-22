@@ -112,7 +112,8 @@ const text = () => document.getElementById('root').textContent;
   // registry list is one tap behind it. What this assertion is really about
   // is "a clear col G lets the user straight into the app", so it checks the
   // first screen the app actually shows.
-  ok('the app loads to the ward gate', /เลือก ward/.test(text()));
+  // Heading became "Ward" on 2026-09-22 — match the element, not the label.
+  ok('the app loads to the ward gate', !!document.querySelector('.ward-gate'));
   ok('no forced password screen', !/ตั้งรหัสผ่านใหม่|เปลี่ยนรหัสผ่าน/.test(text()));
 
   console.log('\n2 · 🔴 col G flagged MID-SESSION → the forced modal, not an error toast');

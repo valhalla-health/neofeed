@@ -328,12 +328,12 @@ function FentonChart({ patient, currentDol, onUpdate }) {
               onPointerUp={(e) => { dragRef.current = null; e.currentTarget.releasePointerCapture(e.pointerId); }}
             >
               {/* background grid */}
-              <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.2% 0.005 110)" />
+              <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.4% 0.004 195)" />
               {yTicks.map(t => (
-                <line key={`y${t}`} x1={pad.l} x2={W - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="oklch(92.5% 0.019 145)" />
+                <line key={`y${t}`} x1={pad.l} x2={W - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="oklch(94% 0.008 198)" />
               ))}
               {xTicks.map(t => (
-                <line key={`x${t}`} y1={pad.t} y2={H - pad.b} x1={xScale(t)} x2={xScale(t)} stroke="oklch(92.5% 0.019 145)" />
+                <line key={`x${t}`} y1={pad.t} y2={H - pad.b} x1={xScale(t)} x2={xScale(t)} stroke="oklch(94% 0.008 198)" />
               ))}
               {/* 10th-90th band */}
               <path d={bandPath()} fill="oklch(55.7% 0.047 170 / .08)" />
@@ -380,7 +380,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
                   <circle cx={xScale(p.pma)} cy={yScale(p.value)} r={px(4)} fill="oklch(50% 0.18 25)" stroke="#fff" strokeWidth={px(1.5)} />
                   {i === points.length - 1 && (
                     <g>
-                      <rect x={xScale(p.pma) + px(8)} y={yScale(p.value) - px(22)} width={px(78)} height={px(20)} fill="oklch(26.8% 0.030 170 / .93)" rx={px(4)} />
+                      <rect x={xScale(p.pma) + px(8)} y={yScale(p.value) - px(22)} width={px(78)} height={px(20)} fill="oklch(24% 0.022 205 / .93)" rx={px(4)} />
                       <text x={xScale(p.pma) + px(14)} y={yScale(p.value) - px(9)} fontSize={px(10)} fill="#fff" fontFamily="IBM Plex Mono, monospace">DOL {p.dol} · {metric === "weight" ? p.value : p.value}{metric === "weight" ? "g" : "cm"}</text>
                     </g>
                   )}

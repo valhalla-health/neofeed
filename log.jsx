@@ -318,7 +318,7 @@ function TrendGraph({ entries, patient }) {
           </defs>
 
           {/* plot area background */}
-          <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.2% 0.005 110)" />
+          <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.4% 0.004 195)" />
 
           {/* target zone */}
           {targetBand && (
@@ -346,7 +346,7 @@ function TrendGraph({ entries, patient }) {
           {yTicks.map((t, i) => (
             <g key={i}>
               <line x1={pad.l} x2={W - pad.r} y1={yScale(t)} y2={yScale(t)}
-                    stroke="oklch(92.5% 0.019 145)" strokeWidth="1" />
+                    stroke="oklch(93% 0.008 198)" strokeWidth="1" />
               <text x={pad.l - 8} y={yScale(t) + 3.5} fontSize="10" textAnchor="end"
                     fill="var(--ink-3)" fontFamily="IBM Plex Mono, monospace">
                 {metric.key === "weight" ? Math.round(t) : D_L.displayNum(t, 1)}
@@ -406,7 +406,7 @@ function TrendGraph({ entries, patient }) {
             left: `${(xScale(hover.x) / W) * 100}%`,
             top: `${(yScale(hover.y) / H) * 100}%`,
             transform: `translate(${xScale(hover.x) > W * 0.7 ? "calc(-100% - 12px)" : "12px"}, -50%)`,
-            background: "oklch(26.8% 0.030 170)",
+            background: "oklch(24% 0.022 205)",
             color: "#fff",
             padding: "8px 10px",
             borderRadius: 6,
@@ -415,7 +415,7 @@ function TrendGraph({ entries, patient }) {
             lineHeight: 1.5,
             whiteSpace: "nowrap",
             pointerEvents: "none",
-            boxShadow: "0 6px 16px oklch(26.8% 0.030 170 / .26)",
+            boxShadow: "0 6px 16px oklch(25% 0.02 205 / .26)",
             zIndex: 10,
           }}>
             <div style={{ fontWeight: 600, marginBottom: 2 }}>
