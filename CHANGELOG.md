@@ -13,6 +13,127 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 (2) — Back to Valhalla Teal, the N in the corner, and an app that fits the phone
+
+Presentation and navigation only. No clinical logic, no data model, no backend: `gas-backend.gs`,
+`data.js` and every number in `calculator.jsx`'s `calc` are untouched, and all 48 `verify-*.cjs`
+harnesses pass against both the sources and `compiled/`, plus Center Point's build and its 5 tests.
+
+Four requests from Praew on the ward, in the order they arrived.
+
+### 1 · "ทำไงให้ไม่ต้องเลื่อนตรงขอบ ให้มันfix พอดี. Check กับ mobile ทุกรุ่น ทั้ง apple, android"
+
+Three separate causes, found by measuring in Chromium rather than by reading the CSS — the document
+reported clean at every phone width while the screen she was looking at was 10% too wide.
+
+**The login screen's ribbon layer was the scroll.** `.login-wrap` is `overflow-y: auto`, and CSS does
+not allow a `visible`/non-`visible` overflow pair — the other axis computes to `auto` too, so the
+screen scrolled BOTH ways. Its `::before` (the soft ribbons) was `position: absolute; inset: -10%`,
+and an absolutely-positioned box *is* part of its scroll container's scrollable overflow on the right
+and bottom edges. Measured before the fix: **+39px across and +85px down on a 390×844 phone**, +43/+93
+on a 15 Pro Max, +144/+90 at 1440px — a drag in each direction over nothing at all, on the one screen
+in the app that has nothing to scroll. That is both scrollbars in her screenshot.
+The layer is `position: fixed` now. A fixed box never joins an ancestor scroller's overflow region,
+and `.login-wrap` is itself `position: fixed; inset: 0` with no transform, filter or containment, so
+the ribbons resolve against the very same rectangle: same 10% bleed, same picture, no scroll. The
+wrap also pins `overflow-x: hidden` explicitly rather than inheriting it from the `overflow-y`
+shorthand rule.
+
+**`100vw` sheets.** The mobile picker and modal were `width: 100vw`. vw counts the classic-scrollbar
+gutter, so anywhere one is drawn — an Android tablet with a mouse, a desktop window at phone width,
+some webviews — the sheet is wider than the viewport it sits in and the page gains exactly that much
+sideways drag. Both backdrops are `position: fixed; inset: 0`, so `100%` is the visible width, which
+is what was meant all along. `92vw` → `92%` on the desktop sizes for the same reason.
+
+**The left and right safe areas had never been done.** The shell has set `viewport-fit=cover` since
+the PWA work, so the page is drawn *under* the notch and the home indicator. Bottom insets were
+handled (bottom nav, sheets, toasts, the floating button); left and right never were — so on every
+notched iPhone in landscape, and on the curved-edge Androids, the topbar, the workspace and the tab
+bar ran under the cutout. `.topbar`, `.work-inner` (all three of its rules), `.bottom-nav` and
+`.quick-fab` now carry them. `max(design, env(…))` everywhere the design padding has to survive a
+phone with no notch; `.bottom-nav` takes the raw `env()` deliberately, because its tabs are `flex: 1`
+and a minimum there would narrow every tap target on every device to protect a cutout that is not
+present.
+
+**`test/verify-mobile-fit.cjs`** (139 assertions) pins all three. Sections 1-3 are static and run in
+CI; section 4 drives real Chromium at nine device sizes from the 280px Fold cover to the iPad mini,
+twice — once as-is, once with every `env(safe-area-inset-*)` substituted for a literal 44px — and
+asserts that no box on either screen can be dragged sideways, that the login scroller's height never
+exceeds its real content, and that the four chrome elements sit *inside* a 44px notch. CI installs no
+browser, so section 4 degrades to a notice, like `verify-sync-gate-and-poll.cjs`. Reverting the
+`::before` to `absolute` fails it eight times, in both halves — checked, because a regression test
+that cannot fail is not one.
+
+### 2 · "calculator ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard เท่านั้น"
+
+The quick-calc button is **kept** — only where it appears changed. It used to ride every view but the
+two calculators, which put a second, unsaveable calculator in the corner of the patient registry, the
+growth chart and the alert list: five chances to reach for the scratchpad when the order screen was
+meant. It is the Dashboard's alone now, and its ← lands back on the Dashboard rather than on whichever
+page it was opened from — one page in, one page out, so the button is never a door that only opens one
+way. `quickFrom` went with it. The button reads ← กลับไป Dashboard so the destination is on the
+control. Which page counted as "หน้าแรก" was put to Praew rather than guessed; she chose Dashboard.
+
+### 3 · "Logo icon N ให้ใช้ใน app ด้วย มุมซ้ายบน ในหน้า dashboard ให้แทนn+dot เก่าทุกอัน"
+
+The two-tone N reached the app icons and the login wordmark on 2026-09-22; the topbar and `SyncGate`
+were still each drawing their own stroked N+dot by hand, and those were the last two copies of it
+anywhere. Both now render one `<NeoFeedMark/>`, which *is* `icons/icon.svg` inline — the same tile,
+the same two paths, the same four gradient stops the home-screen icon and every favicon are rendered
+from, so the corner of the app and the icon the ward taps to open it are one drawing. Its gradient ids
+are `nfm-*`, distinct from the login wordmark's `nf-*`, so the two can never collide in one document.
+`.brandmark .logo` stops painting a tile of its own (the SVG draws it) and takes the master's own
+21.9% radius so its shadow follows the tile's corners. `verify-neofeed-mark.cjs` gained a section for
+the in-app mark and now asserts, as its point, that **no N+dot is left in `app.jsx` at all**.
+
+### 4 · "สีข้างในมันกลืนกันไปหน่อย ไม่โอเค — ย้ายกลับไปใช้สีในรุ่นก่อน ที่เป็นสีขาวฟ้า"
+
+The Luminous Protection green of the entry above lasted a day: on the ward the app read as one flat
+wash, which is the failure mode of a palette whose ground, structure and accent are all one hue
+family. It is back on the **Valhalla Teal sheet** (#81, the version immediately before the green) —
+Porcelain Mist ground, Valhalla Teal accent, Midnight Teal ink — reverted through the same discipline
+the green commit used going the other way: an explicit green→teal table, every entry asserted to hit
+an exact count, never a search/replace. `:root` was taken verbatim from `e39f66b~1`, so every token
+*name* the green session introduced survives and nothing downstream had to move. The theme-color meta
+and the manifest's two colours went with it.
+
+The clinical status colours did not move, for the third release running. crit/warn/ok are what
+severity is read off at a bedside.
+
+**The login screen and the mark took two passes.** First "ส่วนหน้า login คงไว้ก่อน เดี๋ยวไปหา palette
+สีที่เหมาะสมมาก่อน" — held green by re-declaring, on `.login-wrap` itself, exactly the seven tokens
+that screen consumes. Then "ดึงสี background เดิมมาใช้ก่อน / ส่วน logo กับชื่อ NeoFeed ลองใช้ logo ที่
+ทำใหม่ แต่ใช้ palette สี valhalla teal": the scoped block came out, the ribbons went back to Sea
+Glass over Mineral Mist with the one Nordic Sand breath, and **the mark itself was re-tinted** — the
+brand board's geometry, the teal sheet's colours.
+
+Those colours were derived, not picked. Each part of the letter keeps the *lightness* the board drew
+it at and takes the sheet's hue and chroma, so every contrast inside the mark survives the move:
+body-on-tile 5.50 and 9.38 (green: 5.81 / 7.14), light stem on tile 1.70 (1.71), its darker foot 2.38
+(2.39), and the slit between stem and body 3.23 (3.41). Where the sheet has a named colour it is used
+literally — tile Mineral Mist #D5ECEA, body Valhalla Teal #12656A → Midnight Teal #103F43, stem Sea
+Glass #78BFC0 — and only the stem's foot (#5BA2A3) is derived, because the sheet has nothing at that
+lightness. `icons/icon.svg` is still the single master: the seven PNGs were re-rendered from it in
+Chromium through a canvas, so the antialiased fringe outside a 16px rounded tile snaps to a true
+transparent and `verify-neofeed-mark.cjs`'s `corner === 0` stays exact rather than being relaxed to
+fit a new renderer.
+
+### Not fixed, and visible in every screenshot
+
+The `search` glyph renders as a bare ring — in the topbar's Switch-patient button, in the registry's
+search field, and on the empty-state "เลือกผู้ป่วย" button. `icons.jsx` lists `search` in `filled`,
+and its two subpaths are wound the same way, so under the default nonzero fill-rule the lens fills in
+and only the rim survives. It is the same class of bug as the `calc` glyph on 2026-09-21, and the same
+fix shape (a `fill-rule="evenodd"`, or a stroked sibling). Not touched here because it was not asked
+for and `fill-rule` on the shared `<Icon>` would silently redraw nine icons — raised for Praew to call.
+
+At 280px (the Galaxy Z Fold's cover screen, below every current iPhone and effectively every Android)
+the calculator's `.two-col` rows are ~20px wider than the accordion body clips them to. Nothing
+scrolls — the content is cut, not dragged — so it is outside what was reported, and logged rather than
+chased.
+
+---
+
 ## Session 2026-09-22 — Luminous Protection: NeoFeed moves onto the Valhalla brand sheet
 
 Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s

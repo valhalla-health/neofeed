@@ -172,6 +172,21 @@ function activeAlertCount(patient, entries) {
   const acked = readAckedMap(patient.sessionId);
   return computeAlerts(patient, entries).filter((a) => !acked[ackKey(a.id, a.dol)]).length;
 }
+const NeoFeedMark = ({ size = 28, label }) => /* @__PURE__ */ React.createElement(
+  "svg",
+  {
+    viewBox: "0 0 256 256",
+    width: size,
+    height: size,
+    focusable: "false",
+    role: label ? "img" : void 0,
+    "aria-label": label,
+    "aria-hidden": label ? void 0 : "true"
+  },
+  /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nfm-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#12656A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#103F43" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nfm-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#78BFC0" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#5BA2A3" }))),
+  /* @__PURE__ */ React.createElement("rect", { width: "256", height: "256", rx: "56", fill: "#D5ECEA" }),
+  /* @__PURE__ */ React.createElement("g", { transform: "translate(46.17 44.5) scale(1.67)" }, /* @__PURE__ */ React.createElement("path", { fill: "url(#nfm-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nfm-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" }))
+);
 const SYNC_SLOW_AFTER_MS = 6e3;
 const SYNC_VERY_SLOW_AFTER_MS = 15e3;
 function SyncGate({ online, failed, detail, onRetry }) {
@@ -207,29 +222,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
     boxShadow: "var(--shadow-pop)",
     padding: "28px 24px 22px",
     textAlign: "center"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 } }, /* @__PURE__ */ React.createElement("div", { style: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    display: "grid",
-    placeItems: "center",
-    background: "linear-gradient(145deg, var(--brand-3) 0%, var(--brand) 55%, var(--brand-ink) 100%)",
-    boxShadow: "inset 0 -2px 0 oklch(26.8% 0.030 170 / .45), 0 2px 8px oklch(38.5% 0.047 170 / .28)"
-  } }, /* @__PURE__ */ React.createElement(
-    "svg",
-    {
-      viewBox: "0 0 28 28",
-      width: "20",
-      height: "20",
-      fill: "none",
-      stroke: "#fff",
-      strokeWidth: "2.2",
-      strokeLinecap: "round",
-      strokeLinejoin: "round"
-    },
-    /* @__PURE__ */ React.createElement("path", { d: "M7 21 V 7 L 21 21 V 7" }),
-    /* @__PURE__ */ React.createElement("circle", { cx: "21", cy: "7", r: "2.2", fill: "#fff", stroke: "none" })
-  )), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--ink)" } }, "NeoFeed")), /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 } }, /* @__PURE__ */ React.createElement(NeoFeedMark, { size: 34 }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--ink)" } }, "NeoFeed")), /* @__PURE__ */ React.createElement("div", { style: {
     height: 4,
     borderRadius: 999,
     background: "var(--line-2)",
@@ -338,7 +331,6 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
-  const [quickFrom, setQuickFrom] = React.useState(null);
   const [ward, setWard] = React.useState(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local");
@@ -628,7 +620,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }, []);
   const [pendingOpen, setPendingOpen] = React.useState(null);
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(38.5% 0.047 170)`);
+    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
   }, []);
   const gasPost = React.useCallback(async (payload, { quiet = false } = {}) => {
     if (!GAS_ON) return { ok: true };
@@ -966,7 +958,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return /* @__PURE__ */ React.createElement(SyncGate, { online, failed: syncState === "error", detail: syncError, onRetry: () => syncFromGAS() });
   }
   shellReadyRef.current = true;
-  return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement("div", { className: "logo" }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 28 28", width: "20", height: "20", fill: "none", stroke: "#fff", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M7 21 V 7 L 21 21 V 7" }), /* @__PURE__ */ React.createElement("circle", { cx: "21", cy: "7", r: "2.2", fill: "#fff", stroke: "none" }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "name" }, "NeoFeed"))), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement("div", { className: "logo" }, /* @__PURE__ */ React.createElement(NeoFeedMark, { size: 28 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "name" }, "NeoFeed"))), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "switch-patient",
@@ -1129,7 +1121,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onEditEntry: startEditEntry,
       onDeleteEntry: role === "admin" ? handleDeleteEntry : void 0
     }
-  ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "quickcalc" && /* @__PURE__ */ React.createElement(QuickCalcView, { onBack: () => goTo(quickFrom || "registry") }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(PatientPicker, { patients, activeId, onSelect: setActiveId, onClose: () => setPickerOpen(false) }), showChangePwd && /* @__PURE__ */ React.createElement(
+  ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "quickcalc" && /* @__PURE__ */ React.createElement(QuickCalcView, { onBack: () => goTo("log") }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(PatientPicker, { patients, activeId, onSelect: setActiveId, onClose: () => setPickerOpen(false) }), showChangePwd && /* @__PURE__ */ React.createElement(
     ChangePasswordModal,
     {
       onClose: () => setShowChangePwd(false),
@@ -1147,10 +1139,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         return res;
       }
     }
-  ), view !== "quickcalc" && view !== "calculator" && /* @__PURE__ */ React.createElement(QuickCalcFab, { onClick: () => {
-    setQuickFrom(view);
-    goTo("quickcalc");
-  } }), /* @__PURE__ */ React.createElement(
+  ), view === "log" && /* @__PURE__ */ React.createElement(QuickCalcFab, { onClick: () => goTo("quickcalc") }), /* @__PURE__ */ React.createElement(
     BottomNav,
     {
       view,
@@ -1264,7 +1253,7 @@ const SCRATCH_PATIENT = Object.freeze({
 const QUICK_DOL_MAX = 60;
 function QuickCalcView({ onBack }) {
   const [dol, setDol] = React.useState(1);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBack }, "← กลับ"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "Calculator", /* @__PURE__ */ React.createElement("span", { className: "chip", style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBack }, "← กลับไป Dashboard"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "Calculator", /* @__PURE__ */ React.createElement("span", { className: "chip", style: {
     fontSize: 12,
     fontWeight: 700,
     background: "var(--warn-bg)",
@@ -1522,7 +1511,7 @@ function LoginScreen({ onLogin, notice = null }) {
     setMode("google");
     setError(null);
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "login-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "login-app-name", role: "img", "aria-label": "NeoFeed" }, /* @__PURE__ */ React.createElement("svg", { className: "login-n", viewBox: "0 0 98 100", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#335A4A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#284C40" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#99B29C" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#799781" }))), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" })), "eo", /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
+  return /* @__PURE__ */ React.createElement("div", { className: "login-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "login-app-name", role: "img", "aria-label": "NeoFeed" }, /* @__PURE__ */ React.createElement("svg", { className: "login-n", viewBox: "0 0 98 100", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#12656A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#103F43" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#78BFC0" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#5BA2A3" }))), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" })), "eo", /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
     width: "100%",
     maxWidth: 320,
     boxSizing: "border-box",
@@ -1961,11 +1950,11 @@ function toastHost() {
 function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
-  const bg = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26.8% 0.030 170)";
+  const bg = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur = type === "error" ? 4200 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue("--toast-bottom").trim() || "24px";
-  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(26.8% 0.030 170 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {

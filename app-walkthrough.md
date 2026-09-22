@@ -846,6 +846,45 @@ notes — don't just add the feature.
     colours themselves are fills, not text — `--warn` is only 3.6:1 on
     white. Use the `-ink` cut whenever a status colour is a word rather
     than a stripe.
+  - **The sheet is the TEAL one, and it went green and back once**
+    (2026-09-22). Luminous Protection — Ivory, Pale Jade, Celadon, Sage,
+    Forest, Champagne Gold — replaced it for a day and was reverted the same
+    day: on the ward the app read as one flat wash, because a palette whose
+    ground, structure and accent are all one hue family has nothing left to
+    separate them with. If a future refresh moves the whole app onto one
+    family again, that is the failure to design against. The revert took
+    `:root` verbatim from `e39f66b~1`, so **every token name the green
+    session introduced survives** — `--brand-3`, `--brand-4`, `--sand`,
+    `--crit-ink`/`--warn-ink`/`--ok-ink`, `--shadow-lift`, `--ring`, `--r-xl`
+    are all still there with teal values. Don't "clean them up".
+- **The NeoFeed mark is `icons/icon.svg`, and it is drawn in three places
+  from that one master** (2026-09-22): the phone/favicon PNGs are rendered
+  from it, the login wordmark inlines its two paths, and `<NeoFeedMark/>` in
+  `app.jsx` inlines the whole tile for the topbar corner and `SyncGate`.
+  `test/verify-neofeed-mark.cjs` pins that all three carry the master's paths
+  and gradient stops character for character, decodes all seven PNGs, and
+  fails if an N+dot reappears anywhere. **Change the master, then re-render
+  the PNGs** — the harness fails either half alone. Two things that look like
+  details and are not: the mark's colours are literal hex, not `var()`, because
+  an SVG presentation attribute cannot read a custom property (so the mark does
+  not follow a palette change on its own — it has to be re-tinted deliberately,
+  as it was when the app went back to teal); and the in-app copy's gradient ids
+  are `nfm-*` against the login wordmark's `nf-*`, so two marks can never
+  collide in one document.
+- **The app must not scroll sideways, at any width, on either screen**
+  (2026-09-22) — `test/verify-mobile-fit.cjs`. Three traps, all of which had
+  been sprung at once:
+  - A decorative bleed inside a scroll container is **scrollable overflow**.
+    `.login-wrap::before` at `position: absolute; inset: -10%` gave the login
+    screen 10% of phantom scroll in both axes. Decorative full-bleed layers
+    go `position: fixed`.
+  - `overflow-y: auto` alone silently makes the other axis `auto` too — CSS
+    does not allow a `visible`/non-`visible` pair. Pin both.
+  - **`vw` is not the viewport width** when a classic scrollbar is drawn. Size
+    anything full-width in `%` of a `position: fixed; inset: 0` parent.
+  And because the shell sets `viewport-fit=cover`, anything against a screen
+  edge needs `env(safe-area-inset-left/right)` as well as bottom —
+  `max(design, env(…))`, except where the element's children are `flex: 1`.
 - **`tweaks-panel.jsx` was removed on 2026-09-11** — don't reintroduce a
   design-tool panel into the production shells.
 - **PWA installability** depends on `manifest.json` + `<link rel="manifest">`

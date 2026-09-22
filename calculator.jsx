@@ -2822,7 +2822,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
           <div className="card-b">
             <KcalBar cho={calc.kcalChoPct} pro={calc.kcalProtPct} fat={calc.kcalFatPct} />
             <div className="kcal-legend" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", marginTop: 14, gap: 10 }}>
-              <KcalLegend color="oklch(73.6% 0.082 80)" label="CHO" pct={calc.kcalChoPct} target="45–55%" />
+              <KcalLegend color="oklch(75% 0.13 80)" label="CHO" pct={calc.kcalChoPct} target="45–55%" />
               <KcalLegend color="oklch(55% 0.13 155)" label="Protein" pct={calc.kcalProtPct} target="10–15%" />
               <KcalLegend color="oklch(60% 0.11 25)" label="Fat" pct={calc.kcalFatPct} target="35–45%" />
             </div>
@@ -3185,7 +3185,7 @@ function TwoCol({ children }) {
 function KcalBar({ cho, pro, fat }) {
   return (
     <div style={{ height: 22, borderRadius: 6, overflow: "hidden", display: "flex", border: "1px solid var(--line)" }}>
-      <div style={{ width: `${cho}%`, background: "oklch(73.6% 0.082 80)" }} />
+      <div style={{ width: `${cho}%`, background: "oklch(75% 0.13 80)" }} />
       <div style={{ width: `${pro}%`, background: "oklch(55% 0.13 155)" }} />
       <div style={{ width: `${fat}%`, background: "oklch(60% 0.11 25)" }} />
     </div>);

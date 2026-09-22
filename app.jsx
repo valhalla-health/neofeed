@@ -282,6 +282,48 @@ function activeAlertCount(patient, entries) {
 // Thai-first, like the rest of the clinical copy. Inline styles + one <style>
 // for the keyframes, following the banner's rule: a change that needs no CSS
 // in NeoFeed.html/index.html cannot desync the two hand-synced shells.
+// ── The NeoFeed mark ─────────────────────────────────────────
+// icons/icon.svg, inline. The tile and the two paths below ARE the master the
+// home-screen icon, the maskable icons and every favicon are rendered from, so
+// the corner of the app and the icon the ward taps to open it are one drawing
+// rather than two that drift (Praew, 2026-09-22: "Logo icon N ให้ใช้ใน app ด้วย
+// มุมซ้ายบน ... ให้แทน n+dot เก่าทุกอัน").
+//
+// It replaces the stroked N+dot that the topbar and SyncGate each drew by hand
+// — the last two copies of that mark left anywhere in the app. The login
+// wordmark had already moved to this letter on 2026-09-22; these were what it
+// left behind.
+//
+// The colours are literal, exactly as in icon.svg and the login wordmark: an
+// SVG presentation attribute cannot read a var(), and this is the product's
+// mark rather than the palette's — it stays itself while the app's chrome
+// changes around it, which is also why it did not follow the app back onto the
+// teal sheet. Its gradient ids are `nfm-*`, distinct from the login wordmark's
+// `nf-*`, so the two can never collide inside one document.
+//
+// test/verify-neofeed-mark.cjs pins that these paths are icon.svg's character
+// for character, and that no N+dot is left in app.jsx.
+const NeoFeedMark = ({ size = 28, label }) => (
+  <svg viewBox="0 0 256 256" width={size} height={size} focusable="false"
+    role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : "true"}>
+    <defs>
+      <linearGradient id="nfm-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
+        <stop offset="0" stopColor="#12656A" />
+        <stop offset="1" stopColor="#103F43" />
+      </linearGradient>
+      <linearGradient id="nfm-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
+        <stop offset="0" stopColor="#78BFC0" />
+        <stop offset="1" stopColor="#5BA2A3" />
+      </linearGradient>
+    </defs>
+    <rect width="256" height="256" rx="56" fill="#D5ECEA" />
+    <g transform="translate(46.17 44.5) scale(1.67)">
+      <path fill="url(#nfm-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" />
+      <path fill="url(#nfm-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" />
+    </g>
+  </svg>
+);
+
 const SYNC_SLOW_AFTER_MS      =  6000;
 const SYNC_VERY_SLOW_AFTER_MS = 15000;
 
@@ -331,17 +373,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
         {/* Brandmark — the topbar's logo, at rest. Gives the screen an owner:
             "NeoFeed is loading", not "a page is loading". */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:20 }}>
-          <div style={{
-            width:34, height:34, borderRadius:9, display:"grid", placeItems:"center",
-            background:"linear-gradient(145deg, var(--brand-3) 0%, var(--brand) 55%, var(--brand-ink) 100%)",
-            boxShadow:"inset 0 -2px 0 oklch(26.8% 0.030 170 / .45), 0 2px 8px oklch(38.5% 0.047 170 / .28)",
-          }}>
-            <svg viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="#fff"
-              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 21 V 7 L 21 21 V 7" />
-              <circle cx="21" cy="7" r="2.2" fill="#fff" stroke="none" />
-            </svg>
-          </div>
+          <NeoFeedMark size={34} />
           <div style={{ fontSize:19, fontWeight:600, letterSpacing:"-0.01em", color:"var(--ink)" }}>NeoFeed</div>
         </div>
 
@@ -556,7 +588,6 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Which view the quick calc was opened from, so its ← กลับ goes back where
   // the user actually was rather than dumping them at the registry mid-round.
   // Not persisted: the quick calc holds nothing worth returning to.
-  const [quickFrom, setQuickFrom] = React.useState(null);
   // Which ward the registry is showing. null = show the ward gate, which is
   // deliberately the state every session starts in: the unit runs NICU and
   // SCN as two censuses, and the first thing a shift does is say which one it
@@ -1076,7 +1107,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Removed 2026-09-11 (review C5); the default accent it always resolved to
   // stays.
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(38.5% 0.047 170)`);
+    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
   }, []);
 
   // ── Shared GAS write helper ───────────────────────────────────
@@ -1579,12 +1610,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       {/* Top bar */}
       <div className="topbar">
         <div className="brandmark">
-          <div className="logo">
-            <svg viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 21 V 7 L 21 21 V 7" />
-              <circle cx="21" cy="7" r="2.2" fill="#fff" stroke="none" />
-            </svg>
-          </div>
+          <div className="logo"><NeoFeedMark size={28} /></div>
           <div>
             <div className="name">NeoFeed</div>
           </div>
@@ -1844,7 +1870,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               no access it could grant that the ESPGHAN reference panels below
               don't already. (The patient Calculator stays doctor/nurse — that
               one writes orders.) */}
-          {view === "quickcalc" && <QuickCalcView onBack={() => goTo(quickFrom || "registry")} />}
+          {view === "quickcalc" && <QuickCalcView onBack={() => goTo("log")} />}
           {view === "guidelines" && <GuidelinesPanel />}
           {view === "formulas" && <FormulasPanel />}
           </ViewErrorBoundary>
@@ -1879,8 +1905,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       />
       }
 
-      {view !== "quickcalc" && view !== "calculator" &&
-        <QuickCalcFab onClick={() => { setQuickFrom(view); goTo("quickcalc"); }} />}
+      {/* Dashboard only, and it always hands back to Dashboard — see
+          QuickCalcFab. */}
+      {view === "log" && <QuickCalcFab onClick={() => goTo("quickcalc")} />}
 
       <BottomNav
         view={view}
@@ -2049,8 +2076,9 @@ function QuickCalcView({ onBack }) {
     <>
       <div className="page-head">
         <div>
+          {/* Always Dashboard — the page the button is on. */}
           <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={onBack}>
-            ← กลับ
+            ← กลับไป Dashboard
           </button>
           <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             Calculator
@@ -2090,11 +2118,21 @@ function QuickCalcView({ onBack }) {
 }
 
 // ── Quick-calc floating button ───────────────────────────────
-// Bottom-right on every screen size. On a phone it clears the bottom nav and
-// the home-indicator inset; on a workstation it sits in the corner of the
-// viewport. Hidden on the Calculator itself (you are already in it, and
-// navigating away would drop an in-progress order's edit context) and on the
-// quick calc, which has its own ← กลับ.
+// Bottom-right, and on the DASHBOARD ONLY (Praew, 2026-09-22: "calculator
+// ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard เท่านั้น"). It used to ride every
+// view except the two calculators, which put a second, unsaveable calculator
+// in the corner of the patient registry, the growth chart and the alert list —
+// five chances to reach for the scratchpad when the order screen was meant.
+//
+// One page in, one page out: the two directions are deliberately the same
+// page, so the button is never a one-way door out of a screen it cannot
+// return you to. That is also why Dashboard and not Patients — the ← on the
+// quick calc has to land somewhere, and landing somewhere you did not come
+// from is the confusing half of this.
+//
+// On a phone it clears the bottom nav and the home-indicator inset; on a
+// workstation it sits in the corner of the viewport. Both are clear of the
+// left/right safe-area insets as of 2026-09-22.
 function QuickCalcFab({ onClick }) {
   return (
     <button type="button" className="quick-fab" onClick={onClick}
@@ -2526,12 +2564,12 @@ function LoginScreen({ onLogin, notice = null }) {
         <svg className="login-n" viewBox="0 0 98 100" aria-hidden="true" focusable="false">
           <defs>
             <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
-              <stop offset="0" stopColor="#335A4A" />
-              <stop offset="1" stopColor="#284C40" />
+              <stop offset="0" stopColor="#12656A" />
+              <stop offset="1" stopColor="#103F43" />
             </linearGradient>
             <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
-              <stop offset="0" stopColor="#99B29C" />
-              <stop offset="1" stopColor="#799781" />
+              <stop offset="0" stopColor="#78BFC0" />
+              <stop offset="1" stopColor="#5BA2A3" />
             </linearGradient>
           </defs>
           <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" />
@@ -3313,11 +3351,11 @@ function toastHost() {
 function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
-  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26.8% 0.030 170)";
+  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur    = type === "error" ? 4200 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue('--toast-bottom').trim() || '24px';
-  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(26.8% 0.030 170 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {
