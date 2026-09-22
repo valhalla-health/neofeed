@@ -40,8 +40,6 @@ function WardTile({ label, sub, list, log, today, onPick }) {
         gap: 6,
         padding: "22px 24px",
         borderRadius: 12,
-        border: "1px solid var(--line-2)",
-        background: "var(--bg-1)",
         cursor: "pointer",
         textAlign: "left",
         width: "100%"

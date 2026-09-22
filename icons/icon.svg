@@ -23,11 +23,16 @@
        diagonal, 4.8% outer corners). test/verify-neofeed-mark.cjs pins that
        app.jsx carries these exact path strings.
 
-       At scale 1.4 the letter's furthest ink sits 38.3% of the width from the
-       centre, inside Android's 40% maskable safe zone — the harness measures
-       that rather than trusting it. The ground is the only rect, and the
-       renderer squares off its corners for the full-bleed variants.
-       Every PNG in icons/ is rendered from this file. -->
+       TWO LETTER SIZES, ONE GEOMETRY. Scale 1.4 below (the letter 54.7% of
+       the square's height) is for wherever the whole square is shown: the
+       tab, the "any" icons, the Apple icon. The maskable pair is rendered
+       at scale 1.0 instead (39%, furthest ink 27% from the centre), because
+       Android shows only the middle of a maskable icon: at 1.4 the letter
+       filled 82% of the icon on Praew's Samsung ("มัน fit ไป", 2026-09-22),
+       and its reach of 38.3% sat a hair inside the 40% safe zone.
+       tools/render-icons.cjs writes every PNG in icons/ from this file,
+       squaring off the ground's corners for the full-bleed variants, and
+       test/verify-neofeed-mark.cjs measures both sizes in the PNGs. -->
   <defs>
     <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
       <stop offset="0" stop-color="#335A4A"/>

@@ -13,6 +13,94 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 (5) — The Calculator button moves to the Ward page, the range bars get their colours back, and the Android icon gets room
+
+Frontend only: `calculator.jsx`, `app.jsx`, `registry.jsx`, both shells, `compiled/`, the two maskable icon
+PNGs and `icons/icon.svg`'s note. No backend, no `data.js`, no figure in `calc` and no printed number, so
+`CONSTANTS_VERSION` stays `2026-09-18.1`. Merged into `main` on Praew's instruction ("merge แล้ว deploy")
+and released in its own `main` → `release` PR straight after; the post-release check is a comment on that PR.
+
+### Why
+
+Praew, on the ward that evening, with screenshots of the live app. Her requests, in order:
+
+1. *"ให้ calculator มาอยู่หน้า patient ward แทน"* — the quick-calc button onto the Ward page.
+2. *"ตรงกลาง ward ให้เป็นพื้นขาว เพื่อให้แยกจากกันได้ชัด"* — the NICU/SCN tiles on white.
+3. *"สีพวก overtarget หรือเตือนกำลัง[แก้ไข]ให้เปลี่ยนสีให้ชัดเจนขึ้น"*, and *"สีที่เคยกำหนด range เฝ้าระวัง
+   หายไปหมด ให้เอากลับมา สีเขียว OK, สีเหลืองระวัง สีแดง alert ... สีเขียวอยากให้ชัดไปจาก palette เดิมเลย"*.
+4. The card headers: *"กลับไปใช้กรอบ แนวๆ สีฟ้าคล้ายของเก่า เพื่อให้แยกได้ชัด"*.
+5. The install icon: *"ไม่โอเค มัน fit ไป และมีรูป chrome อยู่ อันเก่าดูพอดี"*, *"ลองทำให้ android ผ่าน"*,
+   keeping variant C.
+
+Nothing was built until she had seen it. The real app was rendered in Chromium against a fake backend
+with made-up patients, the design was injected as a throwaway mockup, and the before/after sheets went to
+her first. Her answers: 1 OK; the Over-target box and the editing banner amber (*"เตือนสีส้ม โอเค"*); the
+blue header on every card, *"แต่ให้มีเชรดขาวอ่อนๆ เหมือนที่เป็นสีเขียวไล่ขาวตอนนี้"*; and *"GIR bar turn
+red at >13"*.
+
+### What changed
+
+1. **The quick-calc button is on the Ward page only** — the ward gate and the ward's list, both `view
+   === "registry"` — and its ← goes back there, on whichever ward was open. This reverses the morning's
+   "Dashboard only" (§ 2 of the (2) entry), on her instruction. While it shows, `.app.has-quick-fab` pads
+   the workspace (108 px; 136 px + inset above a phone's nav), so the list's last rows scroll clear of it.
+   A stale comment left over from the removed `quickFrom` went with it.
+2. **The ward tiles have a surface.** Their inline style painted `var(--bg-1)`, a token that never
+   existed, so they had no fill at all and sat invisible on the page ground. The `.ward-tile` rule now
+   gives them white, the blue frame and a hover.
+3. **Structure is pale blue again.** New `--frame*` tokens draw card borders (1.46:1 on the ground, where
+   `--line` was 1.24:1), the card-header band — pale blue fading to white, over a blue rule, with a navy
+   title at 10.4:1 — and the ward tiles. Structure only: never a status and never the accent, so buttons,
+   focus rings and selected states stay Forest.
+4. **The status colours read again.**
+   - `--ok` gained chroma at the same lightness: `#177C49` → `#017F31`, 5.15:1 on white. It has to stay
+     text-safe, because about a dozen places print `--ok` as small text; the mockup's brighter green
+     (oklch 62%) measured 3.7:1 and was not shipped. `--warn` and `--crit` are byte-identical.
+   - **Range bars draw zones.** `Meter` samples the tile's own grading function (`statusAt`) and bisects
+     every flip, so green / yellow / red cannot disagree with the tile, and a hard limit is named once.
+     Red means a hard limit and nothing else: GIR above 13 (not the "max 12" under it, which is the
+     yellow margin — Praew's call), protein above 4.8, K⁺ in bag above 40, peripheral osmolarity above
+     900. GIR keeps a deeper green for 8–10. The needle is ink with a white keyline, and is not drawn for
+     0 or "!!", which are not points on the scale.
+   - **Over the fluid plan by 1–10 mL/d is amber**, with a stripe; it used to share the brand tint with
+     "Remaining". Over by more than 10 stays critical. The "กำลังแก้ไขบันทึก" banner is amber too.
+   - Active alerts are unchanged.
+5. **The Android icon.** Measured from her home-screen screenshot, the letter filled 82% of the icon: her
+   Samsung shows the middle two thirds of a maskable image, and even Chrome's own conversion
+   (`WebappsIconUtils`) keeps only the middle ~87%. The maskable pair now draws the letter at scale 1.0
+   (39% of the square, was 54.7%), furthest ink 27% from the centre (was 38.3%, a hair inside 40%). That
+   is also inside Android's 66/108 dp circle, which no launcher mask cuts. It lands at about 58% of her
+   launcher's icon; ChatGPT's beside it is 62%. The tab, "any" and Apple icons are byte-identical.
+   `tools/render-icons.cjs` renders the PNGs from the master, and reproduces the five unchanged files to
+   within antialiasing.
+   - **The Chrome badge is not the icon.** It marks a home-screen *shortcut* rather than an installed
+     app. The Cloudflare host is installable (Chrome reports no installability errors and parses the
+     manifest), but the GitHub Pages address lands on `moved.html`, which has no manifest, so adding
+     that one can only make a shortcut. A shortcut never updates its icon either. To get the new icon:
+     remove the old one, open the Cloudflare address in Chrome, ⋮ → Add to Home screen → **Install**.
+
+### Found on the way
+
+- #91, merged while this was in progress, added a **K⁺ in bag** tile graded with a hard limit (40 mEq/L).
+  With the default rule its bar would have shown yellow above 40 beside a red tile. It passes its rule to
+  the bar now, and `verify-status-zones.cjs` checks at the source that no hard-limited tile can skip that.
+- `app-walkthrough.md` still said the quick-calc button rode every screen, stale since the morning.
+- A shell heredoc on this machine ate backslashes (`\b` became a backspace byte, `\n` a line break)
+  while a harness was being edited. Caught before commit; edits went through script files after that.
+
+### Verified
+
+- An LF export of `c5524cc` (the code, merged onto `main` at `c6e32b9`): a fresh `tools/build.mjs`
+  changes nothing, the shells are byte-identical, all 50 `verify-*.cjs` harnesses pass against the
+  sources and again against `compiled/` (plus `DEAD=0 verify-kcmh-factor.cjs` both ways), and Center
+  Point builds and passes its tests.
+- `verify-status-zones.cjs` (new, 169 assertions) fails 11 times when GIR's and protein's rules are
+  withheld from their bars. `verify-neofeed-mark.cjs` fails 4 times on the old maskable PNGs.
+- The real app, rendered in Chromium with made-up patients, matched the mockup Praew approved.
+- ⚠️ **Not yet on a phone**, and not signed in. The icon shows only after a reinstall.
+
+---
+
 ## Session 2026-09-22 (4) — The TPN team's feedback, a two-sheet order form, and no trailing zeros
 
 Frontend only: `data.js`, `calculator.jsx`, `app.jsx`, `log.jsx`, `registry.jsx`, `fenton.jsx`, with
