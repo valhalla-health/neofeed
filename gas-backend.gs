@@ -367,11 +367,14 @@ var LOG_LOCK_TTL_SECONDS = 90;
 // spent. 60s trades a minute of stale access for one read per user per
 // minute.
 //
-// No invalidation hooks: role and `active` are edited by hand in the sheet,
-// not through any API action, so there is no in-app moment to hook. Password
-// changes are unaffected — those bump the user epoch, which verifyToken
-// checks from PropertiesService and is never cached here, so a password
-// change still kills every other session instantly.
+// Hand edits (role, `active`, a col G typed into the sheet) are seen within
+// this TTL. The backend's own writes to a Staff row's cols E–H drop the
+// cached copy at once (_forgetStaffRow), because the copy carries col G,
+// must_change_password. Until 2026-09-22 nothing dropped it, and the claim
+// here that password changes were unaffected was half true: bumping the user
+// epoch (read from PropertiesService, never cached) still revoked every
+// OTHER session at once, but a forced change was refused as
+// PasswordChangeRequired for up to a minute after it succeeded.
 var STAFF_RECHECK_TTL_SECONDS = 60;
 // Caches ONLY what verifyToken reads — email, role, name, active,
 // must_change_password — at their usual indices, with E/F/H blanked. It used to
@@ -382,9 +385,15 @@ function _staffRowForCache(found) {
   var d = found.data || [];
   return { row: found.row, data: [d[0], d[1], d[2], d[3], "", "", d[6], ""] };
 }
+// One key for the reader and for _forgetStaffRow. Trimmed and lowercased like
+// getStaffRow's match, so an address typed into setInitialPassword in another
+// case reaches the entry cached under the session's own (normalised) email.
+function _staffCacheKey(email) {
+  return "staffrc_" + String(email).trim().toLowerCase();
+}
 function _getStaffRowCached(email) {
   var cache = CacheService.getScriptCache();
-  var key   = "staffrc_" + String(email).toLowerCase();
+  var key   = _staffCacheKey(email);
   var hit   = cache.get(key);
   // A miss returns null; a cached "not found" round-trips as the string
   // "null" and parses back to null, so a deleted staff row also revokes
@@ -397,6 +406,16 @@ function _getStaffRowCached(email) {
   catch (e) { Logger.log("staff row cache put skipped: " + e.message); }
   return found;
 }
+// Every function that writes a Staff row's cols E–H calls this after the
+// write (test/verify-staff-cache-password-writes.cjs § 8 checks). A stale
+// copy failed both ways: a forced change stayed refused, and a newly
+// provisioned temp password read col G blank and passed the gate. Best
+// effort, like _forgetSchemaCheck: if the cache throws, the 60 s TTL is the
+// bound again, and the caller still goes on to bump the user epoch.
+function _forgetStaffRow(email) {
+  try { CacheService.getScriptCache().remove(_staffCacheKey(email)); }
+  catch (e) { Logger.log("staff row cache remove skipped: " + e.message); }
+}
 
 // Authorization values fail closed. A blank/misspelled Staff role used to be
 // promoted to `doctor` (blank) or preserved as an unknown role that could still
@@ -407,7 +426,7 @@ function _staffRole(value) {
   return VALID_STAFF_ROLES[role] ? role : null;
 }
 
-function createSession(email, role, name, mustChangePassword) {
+function createSession(email, role, name, mustChangePassword, authMethod) {
   var token = Utilities.getUuid();
   var cache = CacheService.getScriptCache();
   cache.put("sess_" + token, JSON.stringify({
@@ -416,9 +435,22 @@ function createSession(email, role, name, mustChangePassword) {
     name: name,
     epoch: getUserEpoch(email),
     mustChangePassword: Boolean(mustChangePassword),
+    authMethod: authMethod,   // "google" | "password": what proved it (_passwordSession)
     issuedAt: Date.now(),
   }), SESSION_TTL_SECONDS);
   return token;
+}
+
+// Only a session proved by a password can be running on a temp password, so
+// only it is held by col G. A Google session never is: it has no password to
+// change, and a temp password left on its row from before its domain was
+// listed must not trap it (2026-09-22). Keying this on the email domain instead
+// let a chula.ac.th temp password skip the change. A session minted before
+// sessions recorded their method keeps the domain rule it was minted under.
+function _passwordSession(session) {
+  if (session.authMethod === "google") return false;
+  if (session.authMethod === "password") return true;
+  return !_usesGoogleSignIn(session.email);
 }
 
 // Returns the session, or null. `info` (optional) says WHY it is null, so
@@ -472,7 +504,7 @@ function verifyToken(token, info) {
     }
     parsed.role = currentRole;
     parsed.name = String(found.data[2] || parsed.email);
-    parsed.mustChangePassword = !_usesGoogleSignIn(parsed.email) &&
+    parsed.mustChangePassword = _passwordSession(parsed) &&
       (found.data[6] === true || String(found.data[6] || "").toUpperCase() === "TRUE");
     cache.put("sess_" + token, JSON.stringify(parsed), SESSION_TTL_SECONDS); // sliding window — reset TTL on every use
     return parsed;
@@ -525,6 +557,8 @@ function setInitialPassword(email, password) {
     sh.appendRow([_sheetSafe(email), "doctor", _sheetSafe(email.split("@")[0]), true, hash, salt, false, ""]);
     Logger.log("Staff added with password: " + email);
   }
+  // Both branches: the cached copy may hold the old col G, or "not found".
+  _forgetStaffRow(email);
   // An admin reset is exactly the moment an existing session must end: the
   // usual reason for one is "someone else got the temp password first". It
   // used to leave every session already issued on the old password working
@@ -544,6 +578,7 @@ function clearStaffPassword(email) {
   var found = getStaffRow(email);
   if (!found) { Logger.log("No Staff row found for: " + email); return; }
   getSheetStaff().getRange(found.row, 5, 1, 4).clearContent();
+  _forgetStaffRow(email);
   // Same as setInitialPassword: removing the password must also end every
   // session that was issued on it (2026-09-17 review, SEC-B4).
   bumpUserEpoch(email);
@@ -607,7 +642,15 @@ function _genTempPassword() {
 // Workspace-enabled. Add a domain here (lowercase, no @) if the same
 // happens for another one; use clearStaffPassword(email) to undo it for an
 // account that already got one.
-var GOOGLE_WORKSPACE_DOMAINS = ["chula.ac.th"];
+//
+// 2026-09-22 (Praew): every Chula domain signs in with Google and gets no
+// NeoFeed password. Each domain below has a Google Workspace sign-in page
+// (google.com/a/<domain>/ServiceLogin; chula.ac.th and student.chula.ac.th hand
+// on to Chula's Microsoft SSO). redcross.or.th has none, so it stays a password
+// domain. Exact matches only: an unlisted subdomain is a password domain.
+// Listing decides who gets a password, not who may sign in — that is still
+// only an active Staff row (doPost's login).
+var GOOGLE_WORKSPACE_DOMAINS = ["chula.ac.th", "student.chula.ac.th", "md.chula.ac.th", "docchula.com", "chulahospital.org"];
 function _usesGoogleSignIn(email) {
   var domain = String(email).toLowerCase().split("@")[1] || "";
   return domain === "gmail.com" || GOOGLE_WORKSPACE_DOMAINS.indexOf(domain) !== -1;
@@ -624,17 +667,18 @@ function _usesGoogleSignIn(email) {
 //     that domain (proves the Workspace tenant issued the account).
 // Everything else is refused with a message pointing at the password path.
 //
-// Why it ships OFF: if some chula.ac.th sign-ins arrive WITHOUT hd (a consumer
-// Google account on a Workspace address), enforcing would lock those people
-// out. So while it is off, every Workspace-domain Google sign-in records, with
+// Why it ships OFF: if some sign-ins on a listed domain arrive WITHOUT hd (a
+// consumer Google account on a Workspace address), enforcing would lock those
+// people out. So while it is off, every Workspace-domain Google sign-in records, with
 // no personal data, whether its token carried the matching hd:
 //   Script Property  hd_seen_<domain> = "yes" | "no"
 // "no" is sticky — one sign-in without hd is enough to make enforcing unsafe.
 //
 // How to flip it: (1) Apps Script editor → Project Settings → Script
-// Properties, and check hd_seen_chula.ac.th after a normal working week.
-// (2) Only if it reads "yes" (never "no"), set GOOGLE_HD_ENFORCE = true, run the
-// harnesses, and deploy the usual clasp way. If it reads "no", find out who
+// Properties, and check hd_seen_<domain> for every GOOGLE_WORKSPACE_DOMAINS
+// entry after a normal working week — a domain nobody signed in from has none.
+// (2) Only if none reads "no", set GOOGLE_HD_ENFORCE = true, run the
+// harnesses, and deploy the usual clasp way. If one reads "no", find out who
 // signs in without a Workspace account before flipping — they would need a
 // password account (setInitialPassword) first.
 var GOOGLE_HD_ENFORCE = false;
@@ -698,6 +742,7 @@ function onEdit(e) {
       var salt = Utilities.getUuid();
       var hash = hashPwdV2(pwd, salt);
       sheet.getRange(r, 5, 1, 4).setValues([[hash, salt, true, pwd]]);
+      _forgetStaffRow(email);
       Logger.log("Auto-provisioned temp password for: " + email + " (forced change on first login)");
     }
   } catch (err) {
@@ -731,6 +776,7 @@ function backfillDefaultPasswords() {
     var salt = Utilities.getUuid();
     var hash = hashPwdV2(pwd, salt);
     sheet.getRange(i + 1, 5, 1, 4).setValues([[hash, salt, true, pwd]]);
+    _forgetStaffRow(email);
     fixed.push(email);
   }
   // Emails and a count only (2026-09-17 review, SEC-B10). This used to log
@@ -970,11 +1016,10 @@ function doPost(e) {
         role = _staffRole(gd[1]);
         if (!role) return jsonOut({ status: "unauthorized", error: "บัญชีนี้ยังไม่ได้กำหนดสิทธิ์ที่ถูกต้อง — แจ้ง admin" });
         name = String(gd[2] || email);
-        var tok = createSession(email, role, name, false);
+        var tok = createSession(email, role, name, false, "google");
         logAudit("login", "", email);
-        // Google/Workspace accounts never go through the password-provisioning
-        // path (_usesGoogleSignIn excludes them in onEdit/backfillDefaultPasswords),
-        // so there's nothing to force here — always false.
+        // A Google session is never held on a temp password (_passwordSession):
+        // it has no password to change, so there's nothing to force — always false.
         return jsonOut({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google", mustChangePassword: false });
       }
 
@@ -1045,7 +1090,7 @@ function doPost(e) {
       // account got a random temp password instead of one the user chose —
       // the client forces the change-password screen until this clears.
       var mustChange = (d[6] === true || String(d[6] || "").toUpperCase() === "TRUE");
-      var token = createSession(email, role, name, mustChange);
+      var token = createSession(email, role, name, mustChange, "password");
       logAudit("login", "", email);
       return jsonOut({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password", mustChangePassword: mustChange });
     }
@@ -1079,9 +1124,9 @@ function doPost(e) {
     // `changePassword` MUST stay reachable — it is the only way out, and a gate
     // with no exit is a permanent lockout. `logout` is answered above, before
     // verifyToken, so it is unaffected; do not move this check any earlier
-    // without re-reading that. Google/Workspace accounts never reach here with
-    // the flag set: verifyToken clears it for them via _usesGoogleSignIn, since
-    // they have no password to change and so no way out of the gate.
+    // without re-reading that. Google sessions never reach here with the flag
+    // set: verifyToken clears it for them (_passwordSession), since they have
+    // no password to change and so no way out of the gate.
     //
     // The condition reads from `user`, which verifyToken re-derives from the
     // sheet on every call rather than trusting the token's cached copy — so
@@ -1199,12 +1244,16 @@ function doPost(e) {
       // change state, whether this call came from the normal "เปลี่ยนรหัสผ่าน"
       // menu or from the forced first-login screen.
       getSheetStaff().getRange(sf.row, 5, 1, 4).setValues([[newHash, newSalt, false, ""]]);
+      // This request came through verifyToken, so its cached copy of the row
+      // still says col G TRUE: drop it, or the rotated token is refused as
+      // PasswordChangeRequired for up to a minute (2026-09-22).
+      _forgetStaffRow(user.email);
       // Bump the session epoch so every OTHER token issued for this user
       // (e.g. one that leaked, or is sitting on a shared NICU workstation)
       // is invalidated immediately — verifyToken() checks epoch on every
       // call. Re-issue a fresh token so *this* device stays logged in.
       bumpUserEpoch(user.email);
-      var rotatedToken = createSession(user.email, user.role, user.name, false);
+      var rotatedToken = createSession(user.email, user.role, user.name, false, "password");
       logAudit("changePassword", "", user.email);
       return jsonOut({ ok: true, token: rotatedToken, mustChangePassword: false });
     }
