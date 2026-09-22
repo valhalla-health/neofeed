@@ -84,6 +84,39 @@ own under it. Now the mark is above the words, as the Login screen paragraph abo
 login screen shows no version. `.login-footer`, used only by that line, went with it in both shells.
 Pinned by `test/verify-login-endorsement.cjs`; checked in Chromium at 800 px and 375 px.
 
+**Follow-up (Praew, 2026-09-22): the two-tone N replaces the N+dot, in the app icons and on the login
+screen.** Praew approved the NeoFeed brand board (the "shaded N": no dot, a Sage left stem, the diagonal
+and right stem in Forest, a slit between them) and chose to put it in the favicon and phone icons and to
+put the board's wordmark on the login screen. This supersedes the "one deliberate departure" paragraph
+above: there is no N+dot left to be teal or green.
+
+- **The mark is vector, rebuilt rather than traced.** The board's artwork is a generated raster
+  (`neofeed-site/docs/BRAND_HANDOFF.md` calls it concept artwork and names the icon the authority for
+  vector production), and its edges are not quite straight or parallel. So the letter was rebuilt from
+  the icon's measured proportions: stems 28% of the letter's height, a parallel-edged diagonal running
+  from the left stem's top corner to the right stem, a slit 4.6% of the height, 4.8% outer corners. The
+  tile `#D3E3D3` and the two gradients were sampled from the artwork, and the Forest shading ends on
+  Forest itself. `icons/icon.svg` is the master; the letter fills 65.3% of the tile, as in the artwork.
+- **All seven PNGs were re-rendered from it**, by the same method as #81: headless Chromium at 1024 px,
+  then a box filter in premultiplied alpha. The two favicons now carry the tile's own rounded corners
+  (they were full-bleed squares). The maskable pair set the letter at 54% so it stays inside the safe
+  zone. The Apple icon is full-bleed, because iOS draws its own corners.
+- **Login screen.** The white tile with the N+dot is gone (`.login-logo-mark` went with it in both
+  shells). In the wordmark the mark *is* the N: an inline SVG with icon.svg's two paths, sized to IBM Plex
+  Sans' cap height (0.698em), so it stands as tall as a capital and scales with the phone font size. Then
+  "eo" at 700 and "Feed" at 300, both in Forest, as the board sets them. The board changes the weight, not
+  the colour. Plex Sans 300 is now in the Google Fonts link, and the browser fetches it only where it is
+  used. The gold hairline became the board's rule: Sage, a small gap, then Champagne Gold, in two equal
+  halves, 62% as wide as the wordmark and close under it.
+- **Unchanged:** the Guardian V above "by Valhalla Health" at the foot of the screen, as set earlier
+  today. The board's lockup also carries "by VALHALLA HEALTH" under the rule; it was not added there, so
+  the endorsement is not shown twice. Also unchanged: the tagline, `theme-color` and the manifest.
+
+Pinned by `test/verify-neofeed-mark.cjs`, which checks that the icon and the wordmark draw the same paths
+in the same colours and decodes every PNG. It fails 54 of 70 against `75a3038`, and six deliberate
+breakages were each caught. Checked in Chromium at 1280 px and at 375 px, where the layout has no
+horizontal scroll and the mark scales with the text.
+
 ---
 
 ## Session 2026-09-21 — Quick calc: the same calculator, on a typed weight, saving nothing

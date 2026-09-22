@@ -932,16 +932,12 @@
   /* ============ LOGIN SCREEN ============ */
   /* The one screen that is pure brand: an Ivory ground, soft Pale-Jade and
      Sage ribbons echoing the brand board's light, one Champagne-Gold breath
-     low-left, and the NeoFeed mark on a WHITE tile — a white tile carrying
-     the product glyph, not a coloured tile carrying a white one.
-     The N+dot GEOMETRY is untouched — it is still the mark the ward already
-     recognises — but its colour now follows this palette rather than staying
-     teal, here and in the app icons. That is a deliberate departure from
-     Brand Handbook § 07 ("คง N+dot เดิมและ teal เพื่อความคุ้นเคย"), taken on
-     Praew's 2026-09-22 instruction to move NeoFeed onto the sheet: with the
-     whole app in the green family, a teal mark was the single element left
-     outside it. Revert this pair (--brand here, icons/icon.svg) if § 07 is
-     meant to win. */
+     low-left, and the NeoFeed wordmark as the hero.
+     The mark is the two-tone N from the brand board Praew approved on
+     2026-09-22: no dot, a Sage left stem, the diagonal and right stem in
+     Forest. It replaced the N+dot here and in the app icons (icons/icon.svg
+     is the master for both), so Brand Handbook § 07's "คง N+dot เดิมและ teal
+     เพื่อความคุ้นเคย" no longer describes this app. */
   .login-wrap {
     position: fixed; inset: 0;
     display: flex;
@@ -980,43 +976,45 @@
     }
   }
 
-  .login-logo-mark {
-    width: 104px; height: 104px;
-    border-radius: 30px;
-    background: var(--surface);
-    display: flex; align-items: center; justify-content: center;
-    box-shadow:
-      0 24px 56px oklch(29% 0.042 170 / .16),
-      0 6px 16px  oklch(29% 0.042 170 / .10),
-      inset 0 0 0 1px oklch(100% 0 0 / .9);
-    margin-bottom: 28px;
-    flex-shrink: 0;
-  }
-
-  /* "Neo" in Midnight Teal, "Feed" in Neo Teal — the sheet's two-tone
-     wordmark. The lighter half is a <span class="lw"> in app.jsx. */
+  /* The wordmark as the brand board draws it: the two-tone N, then "eo" bold
+     and "Feed" light, all in Forest. The weight changes, the colour does not.
+     The N is an inline <svg class="login-n"> in app.jsx, sized to IBM Plex
+     Sans' cap height (0.698em) so it stands exactly as tall as a capital on
+     the same baseline, and scales with the font size below. */
   .login-app-name {
     font-size: 58px;
     font-weight: 700;
     letter-spacing: -0.045em;
-    color: var(--brand-ink);
+    color: var(--brand);
     line-height: 1;
     margin-bottom: 14px;
   }
-  .login-app-name .lw { color: var(--brand-3); font-weight: 400; }
-  /* Champagne Gold's one appearance on this screen: a 40px hairline under the
-     wordmark, exactly as it sits under "VALHALLA HEALTH" on the brand board.
-     It used to hang off .login-eyebrow::before; that line was removed on
-     2026-09-22 ("เอา Nutrition insight for brighter beginnings ออก") and the
-     rule would have gone with it, so it moved here — same place on screen,
-     now owned by the element it actually belongs to. */
+  .login-app-name .login-n {
+    display: inline-block;
+    width: 0.684em; height: 0.698em;
+    margin-right: 0.015em;
+    vertical-align: baseline;
+  }
+  .login-app-name .lw { font-weight: 300; }
+  /* The rule under the wordmark, as the board draws it: Sage, a small gap,
+     then Champagne Gold, in two equal halves, the whole 62% as wide as the
+     wordmark (a percentage of .login-app-name, which is only as wide as its
+     text) and close under it, like an underline. It is still Champagne
+     Gold's one appearance on this screen. Until 2026-09-22 it was a 40px
+     gold hairline hanging off .login-eyebrow::before; that line was removed
+     ("เอา Nutrition insight for brighter beginnings ออก") and the rule moved
+     here, to the element it belongs to. Its margins are in em, so it keeps
+     its place at the phone size too. */
   .login-app-name::after {
     content: '';
     display: block;
-    width: 40px; height: 2px;
-    margin: 24px auto 26px;
+    width: 62%; height: 2px;
+    margin: 0.07em auto 0.45em;
     border-radius: 2px;
-    background: var(--sand);
+    background: linear-gradient(90deg,
+      var(--brand-4) 0 calc(50% - 2px),
+      transparent calc(50% - 2px) calc(50% + 2px),
+      var(--sand) calc(50% + 2px) 100%);
   }
 
   .login-tagline {
@@ -1114,9 +1112,7 @@
   }
 
   @media (max-width: 767px) {
-    .login-logo-mark { width: 82px; height: 82px; border-radius: 24px; margin-bottom: 22px; }
     .login-app-name  { font-size: 46px; margin-bottom: 10px; }
-    .login-app-name::after { margin: 18px auto 20px; }
     .login-tagline   { font-size: 15px; margin-bottom: 32px; }
   }
 
@@ -1721,11 +1717,11 @@
   <script src="compiled/fenton.js?v=20d2144b0f"></script>
   <script src="compiled/registry.js?v=2eddc83758"></script>
   <script src="compiled/log.js?v=59375d05ed"></script>
-  <script src="compiled/app.js?v=533bfc8c08"></script>
+  <script src="compiled/app.js?v=a0c3d2866f"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only
        swaps the typeface in when it lands (display=swap). -->
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </body>
 </html>

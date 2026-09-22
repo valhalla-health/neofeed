@@ -1522,21 +1522,7 @@ function LoginScreen({ onLogin, notice = null }) {
     setMode("google");
     setError(null);
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "login-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "login-logo-mark" }, /* @__PURE__ */ React.createElement(
-    "svg",
-    {
-      viewBox: "0 0 36 36",
-      width: "56",
-      height: "56",
-      fill: "none",
-      strokeWidth: "2.8",
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      style: { stroke: "var(--brand)" }
-    },
-    /* @__PURE__ */ React.createElement("path", { d: "M9 27 V 9 L 27 27 V 9" }),
-    /* @__PURE__ */ React.createElement("circle", { cx: "27", cy: "9", r: "3.1", stroke: "none", style: { fill: "var(--brand-3)" } })
-  )), /* @__PURE__ */ React.createElement("div", { className: "login-app-name" }, "Neo", /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
+  return /* @__PURE__ */ React.createElement("div", { className: "login-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "login-app-name", role: "img", "aria-label": "NeoFeed" }, /* @__PURE__ */ React.createElement("svg", { className: "login-n", viewBox: "0 0 98 100", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#335A4A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#284C40" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#99B29C" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#799781" }))), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" })), "eo", /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
     width: "100%",
     maxWidth: 320,
     boxSizing: "border-box",
