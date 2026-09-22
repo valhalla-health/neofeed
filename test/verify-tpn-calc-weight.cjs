@@ -149,7 +149,8 @@ eq('onWeightChange propagates the ACTUAL weight, not the floor', lastWeightChang
 
 // The order form must compute off the floored weight (1.5 kg), not 1.38 kg.
 const printText1 = printTextAt(patient, 1380);
-ok_('print form uses the floored calc weight (1.500 Kg)', /Weight for calculation:\s*1\.500\s*Kg/.test(printText1), printText1);
+// Printed without trailing zeros since 2026-09-22 (Praew: "18.0 คือ 18"): 1.5, not 1.500.
+ok_('print form uses the floored calc weight (1.5 Kg)', /Weight for calculation:\s*1\.5\s*Kg/.test(printText1), printText1);
 ok_('print form flags the birth-weight floor', /birth weight/.test(printText1), printText1);
 
 // ── #2: infant regains birth weight — TPN calc. weight tracks current ──────
@@ -159,7 +160,7 @@ eq('exactly at BW counts as regained', readOnlyValue('TPN calc. weight'), '1500'
 setField('Current weight', 1620);
 eq('TPN calc. weight follows current weight once above BW', readOnlyValue('TPN calc. weight'), '1620');
 const printText2 = printTextAt(patient, 1620);
-ok_('print form now uses the real current weight (1.620 Kg)', /Weight for calculation:\s*1\.620\s*Kg/.test(printText2), printText2);
+ok_('print form now uses the real current weight (1.62 Kg)', /Weight for calculation:\s*1\.62\s*Kg/.test(printText2), printText2);
 ok_('print form no longer flags the floor', !/birth weight/.test(printText2), printText2);
 
 // Drop back below BW again — must re-floor, not stick at the last value seen

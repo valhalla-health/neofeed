@@ -1,9 +1,6 @@
 "use strict";
 const D_L = window.NEOFEED_DATA;
-const n = (v, d = 1) => {
-  const x = parseFloat(v);
-  return isFinite(x) ? x.toFixed(d) : "—";
-};
+const n = (v, d = 1) => D_L.displayNum(v, d);
 function pickTarget(metricKey, entry, patient) {
   if (!entry) return null;
   const isEN = (entry.enVolPerKg || 0) >= 100;
@@ -270,7 +267,7 @@ function TrendGraph({ entries, patient }) {
         fill: "var(--ink-3)",
         fontFamily: "IBM Plex Mono, monospace"
       },
-      metric.key === "weight" ? Math.round(t) : t % 1 === 0 ? t : t.toFixed(1)
+      metric.key === "weight" ? Math.round(t) : D_L.displayNum(t, 1)
     ))),
     xTicks.map((t) => /* @__PURE__ */ React.createElement("g", { key: t }, /* @__PURE__ */ React.createElement("line", { x1: xScale(t), x2: xScale(t), y1: H - pad.b, y2: H - pad.b + 4, stroke: "var(--ink-4)" }), /* @__PURE__ */ React.createElement(
       "text",

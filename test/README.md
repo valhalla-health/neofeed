@@ -108,6 +108,21 @@ against `fc2c35c`. A harness row that stands for a current order carries the cur
 Since the dead-space change, a harness order that means "no dead space" types 0
 (`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
 
+`verify-tpn-team-0922.cjs` pins **the KCMH TPN team's feedback and Praew's rules of 2026-09-22**.
+**Zinc** — a ZnSO₄ line in mg of elemental Zn/kg/d, a total with Peditrace's delivered mL × 0.25 mg,
+exactly 5 mg/day passing and 5.1 stopping at Save (confirm + reason), saved as `calcInput.znPerKg`,
+diffed, compounded × Factor, printed as typed, copied, part of the no-volume stop, and absent on Center
+Point. **Lipid** in g/kg/h beside the pump rate. **MEN** named beside the Step 3 totals it is left out of.
+**Glycophos** mL/day beside its mEq Na/day. **The Save stop** asks "ยืนยันการสั่งหรือไม่?" and the back
+sheet says "แพทย์ยืนยันคำสั่ง". **The saver's name** is saved with the order and shown only while it
+belongs to the row's server-stamped email. **K⁺ in bag** has its own tile; the stop stays at 40 mEq/L.
+**The two-sheet order** (§10): one row per product so no figure sits on another product's line, ordered
+products bold, the paper form's own choices printed unticked, no alert text on the doctor's front, and
+the Factor, bag recipe and confirmation on the back. **No trailing zero or float noise** (§8) in any text
+node of the calculator, the form or the copied order, or in the daily log fed the live Sheet's float
+noise; `D.displayNum` is pinned case by case (§9), and a 1234 g infant is computed from its grams while
+its kg shows to 2 decimals (§11). It fails 33 against `6ee2762`.
+
 `verify-quick-calc.cjs` pins the **Quick calc** (2026-09-21, ward request: a floating button that
 calculates from a typed weight and saves nothing). It exists because that feature makes two claims
 that would rot quietly. The first is that it is *the same calculator* — so § 1 mounts the real
@@ -222,7 +237,8 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-center-point-entry.cjs`, `verify-center-point-print-parity.cjs`,
 `verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
-`verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs` and
+`verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
+`verify-tpn-team-0922.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -254,6 +270,7 @@ node test/verify-center-point-order-changes.cjs
 node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
 node test/verify-ward-requests-0918.cjs
+node test/verify-tpn-team-0922.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
