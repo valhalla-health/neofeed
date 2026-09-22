@@ -47,6 +47,14 @@
          Nordic Sand     #D4B98C   oklch(79.8% 0.067  80)
          Porcelain Mist  #F5F8F7   oklch(97.7% 0.003 174)
 
+       ONE COLOUR ON THAT LIST IS NO LONGER USED AS THE ACCENT. Valhalla Teal
+       was --brand until 2026-09-22, when Praew moved the accent onto the
+       NeoFeed mark's Forest so the logo and the controls under it are one
+       colour ("ใช้สีนี้ แทน valhalla teal แทนเท่านั้น"). The surfaces, the ink
+       and the hairlines below are still this sheet's; only the --brand ramp
+       is § 11's. The teal names stay here because they are what the
+       Porcelain-Mist ground and the teal-leaning ink tiers were derived from.
+
        The three clinical status colours further down are deliberately NOT
        from the brand sheet, and are byte-identical to the pre-Valhalla
        palette. crit/warn/ok are what severity is read off at a glance at a
@@ -71,15 +79,29 @@
     --ink-3:     oklch(53.5% 0.016 203);   /*  5.1:1 on white, 4.5:1 on --bg-2 */
     --ink-4:     oklch(63% 0.015 201);     /* dimmed tier — placeholders, em-dashes */
 
-    /* ── brand ramp: Midnight Teal → Mineral Mist ── */
-    --brand-ink:  oklch(33.9% 0.049 203);  /* Midnight Teal — text on brand tints */
-    --brand-2:    oklch(40% 0.065 202);    /* hover / pressed for primary */
-    --brand:      oklch(46.3% 0.074 201);  /* Valhalla Teal — THE accent */
-    --brand-3:    oklch(55.7% 0.090 202);  /* Neo Teal — meters, sparklines */
-    --brand-4:    oklch(75.8% 0.071 197);  /* Sea Glass — fills, chart bands */
-    --brand-line: oklch(86% 0.045 196);
-    --brand-bg:   oklch(95.5% 0.018 193);
-    --brand-bg-2: oklch(92.6% 0.024 190);  /* Mineral Mist */
+    /* ── brand ramp: THE ACCENT IS THE MARK'S GREEN, NOT THE SHEET'S TEAL ──
+       Praew, 2026-09-22: "ถ้าส่วนเนื้อหาด้านใน ใช้สีนี้ แทน valhalla teal
+       แทนเท่านั้น" — the app's accent is the Forest the NeoFeed mark is drawn
+       in, so the logo in the corner and the buttons under it are one colour.
+       The ramp is Brand Handbook § 11's, already contrast-solved there.
+
+       THE REST OF THE PALETTE DELIBERATELY DID NOT FOLLOW. The surfaces above
+       stay Porcelain Mist, the ink stays teal-leaning charcoal, the hairlines
+       stay neutral. A full-green sheet was tried on 2026-09-22 and reverted the
+       same day — "สีข้างในมันกลืนกันไปหน่อย ไม่โอเค" — because when the ground,
+       the structure AND the accent are one hue family there is nothing left to
+       separate them with and the app reads as a single wash. A green accent on
+       a cool neutral ground is the opposite arrangement, and it is the one that
+       works. If a future refresh wants to move the ground too, that is the
+       failure to design against; "แทนเท่านั้น" is load-bearing. ── */
+    --brand-ink:  oklch(29% 0.042 170);    /* text on brand tints — 11.87:1 on --brand-bg */
+    --brand-2:    oklch(33% 0.045 170);    /* hover / pressed for primary */
+    --brand:      oklch(38.5% 0.047 170);  /* Forest #284C40 — THE accent, and the mark's */
+    --brand-3:    oklch(55.7% 0.047 170);  /* meters, sparklines */
+    --brand-4:    oklch(82.4% 0.039 139);  /* Sage #B9CCB4 — fills, chart bands */
+    --brand-line: oklch(87.6% 0.031 148);  /* Celadon #C9DCCB */
+    --brand-bg:   oklch(94.5% 0.016 150);
+    --brand-bg-2: oklch(93.6% 0.020 136);  /* Pale Jade #E4EDE0 */
 
     /* ── Nordic Sand — the sheet's one warm note, and DECORATIVE ONLY:
        hairline rules, the wordmark underline, empty-state marks. Never a
@@ -133,8 +155,9 @@
     --shadow-pop:  0 4px 14px oklch(25% 0.02 205 / .10), 0 1px 2px oklch(25% 0.02 205 / .06);
     --shadow-lift: 0 10px 30px oklch(25% 0.03 205 / .10), 0 2px 6px oklch(25% 0.02 205 / .06);
 
-    /* One focus ring, used by every interactive surface in the file. */
-    --ring: 0 0 0 3px oklch(46.3% 0.074 201 / .18);
+    /* One focus ring, used by every interactive surface in the file. Same
+       hue as --brand, so the ring belongs to the accent that moved. */
+    --ring: 0 0 0 3px oklch(38.5% 0.047 170 / .18);
 
     --rail-w: 232px;
     --header-h: 56px;
@@ -234,7 +257,7 @@
              0 max(18px, env(safe-area-inset-left, 0px));
     background: var(--surface);
     border-bottom: 1px solid var(--line);
-    box-shadow: 0 1px 0 oklch(92.6% 0.024 190 / .6), 0 1px 3px oklch(25% 0.02 205 / .03);
+    box-shadow: 0 1px 0 oklch(93.6% 0.020 136 / .6), 0 1px 3px oklch(25% 0.02 205 / .03);
     position: sticky; top: 0; z-index: 30;
   }
   /* The app's own corner is the WORDMARK, not an icon tile (Praew,
@@ -519,7 +542,7 @@
   .seg button:hover:not(.on) { background: var(--surface); color: var(--ink); }
   .seg button.on {
     background: var(--brand); color: #fff;
-    box-shadow: 0 1px 4px oklch(46.3% 0.074 201 / .35);
+    box-shadow: 0 1px 4px oklch(38.5% 0.047 170 / .35);
     font-weight: 600;
   }
 
@@ -647,13 +670,13 @@
     transition: background .12s, border-color .12s, box-shadow .12s, transform .1s;
     min-height: 40px;
   }
-  .btn:hover { background: var(--bg-2); border-color: oklch(82% 0.014 198); }
+  .btn:hover { background: var(--bg-2); border-color: oklch(82.4% 0.039 139); }
   .btn:active { transform: scale(0.98); }
   .btn.primary {
     background: var(--brand); color: #fff; border-color: var(--brand-2);
-    box-shadow: 0 2px 0 oklch(33.9% 0.049 203 / .45), 0 4px 12px oklch(46.3% 0.074 201 / .22);
+    box-shadow: 0 2px 0 oklch(29% 0.042 170 / .45), 0 4px 12px oklch(38.5% 0.047 170 / .22);
   }
-  .btn.primary:hover { background: var(--brand-2); box-shadow: 0 2px 0 oklch(28% 0.05 203 / .5), 0 6px 18px oklch(46.3% 0.074 201 / .32); }
+  .btn.primary:hover { background: var(--brand-2); box-shadow: 0 2px 0 oklch(26.8% 0.030 170 / .5), 0 6px 18px oklch(38.5% 0.047 170 / .32); }
   .btn.ghost { border-color: transparent; background: transparent; }
   .btn.ghost:hover { background: var(--bg-2); }
   .btn.sm { padding: 5px 10px; font-size: 12px; min-height: 32px; }
@@ -914,13 +937,36 @@
      Sage ribbons echoing the brand board's light, one Champagne-Gold breath
      low-left, and the NeoFeed wordmark as the hero.
      The mark is the two-tone N from the brand board Praew approved on
-     2026-09-22 — no dot, a lighter left stem, the diagonal and right stem
-     darker — drawn in the Valhalla Teal sheet's own colours after her second
-     pass that day ("ลองใช้ logo ที่ทำใหม่ แต่ใช้ palette สี valhalla teal").
-     icons/icon.svg is the master for this, for the in-app mark and for every
-     phone icon. Brand Handbook § 07 wanted "คง N+dot เดิมและ teal": the teal
-     half holds, the N+dot half does not. */
+     2026-09-22 — no dot, a Sage left stem, the diagonal and right stem in
+     Forest — in the board's own colours. icons/icon.svg is the master for it,
+     for the in-app wordmark and for every phone icon. Brand Handbook § 07
+     wanted "คง N+dot เดิมและ teal": the app's chrome is teal again, but
+     neither the mark nor this screen is, so § 07 no longer describes either. */
   .login-wrap {
+    /* ── Luminous Protection, on this screen only ─────────────────────
+       Praew, 2026-09-22, after the app went back to the teal sheet: "ขอกลับ
+       ไปใช้ NeoFeed และหน้า login เดิม สีนี้" — the login screen keeps the
+       green brand-board palette it was designed in, and so does the mark.
+       The app's own chrome is teal; the two are allowed to differ, because
+       this screen is the brand and the workspace is the tool.
+
+       Custom properties inherit, so re-declaring the seven tokens this
+       screen actually consumes pins the whole login tree to the board while
+       :root stays teal — no .login-* rule has to name a literal, and none of
+       them drifts when either palette next moves. The other tokens it reads
+       (--ring, --shadow-lift, --r-xl and every clinical status colour) are
+       byte-identical in both sheets, so they are deliberately absent rather
+       than duplicated. The wordmark takes none of these: its colours are
+       literals, in .nf-wordmark above.
+       Delete this block to put the login screen back on the app's palette. */
+    --bg:      oklch(97.2% 0.011 101);   /* Ivory          #F7F6EE */
+    --brand:   oklch(38.5% 0.047 170);   /* Forest         #284C40 */
+    --brand-4: oklch(82.4% 0.039 139);   /* Sage           #B9CCB4 */
+    --sand:    oklch(73.6% 0.082  80);   /* Champagne Gold #C5A46D */
+    --line:    oklch(87.6% 0.031 148);   /* Celadon        #C9DCCB */
+    --ink-2:   oklch(41.5% 0.028 170);
+    --ink-3:   oklch(51.7% 0.022 170);
+
     position: fixed; inset: 0;
     display: flex;
     flex-direction: column;
@@ -959,10 +1005,10 @@
     position: fixed; inset: -10%;
     z-index: -1;
     background:
-      radial-gradient(ellipse 55% 45% at 78% 12%, oklch(75.8% 0.071 197 / .32) 0%, transparent 62%),
-      radial-gradient(ellipse 70% 50% at 18% 4%,  oklch(92.6% 0.024 190 / .85) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 40% at 8% 92%,  oklch(79.8% 0.067 80 / .16) 0%, transparent 60%),
-      radial-gradient(ellipse 85% 65% at 50% 38%, oklch(92.6% 0.024 190 / .55) 0%, transparent 70%);
+      radial-gradient(ellipse 55% 45% at 78% 12%, oklch(82.4% 0.039 139 / .32) 0%, transparent 62%),
+      radial-gradient(ellipse 70% 50% at 18% 4%,  oklch(93.6% 0.020 136 / .85) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 8% 92%,  oklch(73.6% 0.082 80 / .16) 0%, transparent 60%),
+      radial-gradient(ellipse 85% 65% at 50% 38%, oklch(93.6% 0.020 136 / .55) 0%, transparent 70%);
     pointer-events: none;
   }
   @media (prefers-reduced-motion: no-preference) {
@@ -982,7 +1028,15 @@
      (0.698em) so it stands exactly as tall as a capital on the same baseline
      and scales with the text. */
   .nf-wordmark {
-    color: var(--brand);
+    /* Forest #284C40 — a LITERAL, exactly like the two SVG paths beside it,
+       and deliberately not var(--brand). The mark is the brand board's and
+       does not follow the app's palette: it was re-tinted into the teal sheet
+       when the app moved back to teal, and Praew put it straight back ("ขอ
+       กลับไปใช้ NeoFeed และหน้า login เดิม สีนี้"). A token here would have
+       carried it off again on the next palette move. It is also the stop the
+       N's own body gradient ENDS on, so "Neo", "Feed" and the dark half of
+       the letter are one colour by construction. */
+    color: #284C40;
     line-height: 1;
     white-space: nowrap;
   }
@@ -992,14 +1046,13 @@
     margin-right: 0.015em;
     vertical-align: baseline;
   }
-  /* "Feed" is the light weight, so at --brand it read a whole step paler than
-     the bold "Neo" beside it — "ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ" (Praew,
-     2026-09-22). It takes --brand-ink now: Midnight Teal, which is exactly the
-     stop the N's own body gradient ENDS on, so "as dark as the dark part of
-     the N" is a token reference rather than a matched literal, and the two
-     move together if the sheet ever moves again. Light-at-Midnight and
-     bold-at-Valhalla carry the same visual weight, so the word reads as one. */
-  .nf-wordmark .lw { font-weight: 300; color: var(--brand-ink); }
+  /* "Feed" is the light weight and nothing else: it INHERITS Forest from the
+     rule above, so it is the same colour as "Neo" and as the dark half of the
+     N — which is what "ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ" asked for
+     (Praew, 2026-09-22). It needed its own darker value only while the mark
+     was teal, whose --brand is the letter's TOP stop rather than its bottom;
+     on the board's green the accent already is the dark one. */
+  .nf-wordmark .lw { font-weight: 300; }
 
   /* The login hero is the wordmark at 58px, plus the rule underneath it. */
   .login-app-name {
@@ -1736,10 +1789,10 @@
   <script src="data.js?v=ce3e213cfe"></script>
   <script src="compiled/icons.js?v=5464aa237e"></script>
   <script src="compiled/calculator.js?v=aa8edb3f0d"></script>
-  <script src="compiled/fenton.js?v=78775b6b9f"></script>
+  <script src="compiled/fenton.js?v=5f4a597238"></script>
   <script src="compiled/registry.js?v=56f2b9b64c"></script>
-  <script src="compiled/log.js?v=497399b032"></script>
-  <script src="compiled/app.js?v=7ccdb8ec7a"></script>
+  <script src="compiled/log.js?v=439570f5b1"></script>
+  <script src="compiled/app.js?v=47c3f626cb"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

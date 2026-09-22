@@ -180,7 +180,7 @@ const NeoFeedWordmark = ({ className, style }) => /* @__PURE__ */ React.createEl
     role: "img",
     "aria-label": "NeoFeed"
   },
-  /* @__PURE__ */ React.createElement("svg", { className: "nf-n", viewBox: "0 0 98 100", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#12656A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#103F43" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#78BFC0" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#5BA2A3" }))), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" })),
+  /* @__PURE__ */ React.createElement("svg", { className: "nf-n", viewBox: "0 0 98 100", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#335A4A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#284C40" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#99B29C" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#799781" }))), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" })),
   "eo",
   /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")
 );
@@ -617,7 +617,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }, []);
   const [pendingOpen, setPendingOpen] = React.useState(null);
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
+    document.documentElement.style.setProperty("--brand", `oklch(38.5% 0.047 170)`);
   }, []);
   const gasPost = React.useCallback(async (payload, { quiet = false } = {}) => {
     if (!GAS_ON) return { ok: true };

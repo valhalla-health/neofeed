@@ -48,7 +48,7 @@ function pickTarget(metricKey, entry, patient) {
 }
 
 const METRICS = [
-  { key: "kcal",   label: "Energy",    unit: "kcal/kg/d", color: "oklch(46.3% 0.074 201)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
+  { key: "kcal",   label: "Energy",    unit: "kcal/kg/d", color: "oklch(38.5% 0.047 170)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
   { key: "pro",    label: "Protein",   unit: "g/kg/d",    color: "oklch(55% 0.13 155)",  yMax: 5,   ticks: [0, 1, 2, 3, 4, 5] },
   { key: "gir",    label: "GIR",       unit: "mg/kg/min", color: "oklch(58% 0.14 35)",   yMax: 14,  ticks: [0, 2, 4, 6, 8, 10, 12, 14] },
   { key: "fluid",  label: "Fluid",     unit: "mL/kg/d",   color: "oklch(56% 0.11 280)",  yMax: 200, ticks: [0, 40, 80, 120, 160, 200] },

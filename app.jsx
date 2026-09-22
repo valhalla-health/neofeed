@@ -284,9 +284,15 @@ function activeAlertCount(patient, entries) {
 // in NeoFeed.html/index.html cannot desync the two hand-synced shells.
 // ── The NeoFeed wordmark ─────────────────────────────────────
 // The two-tone N IS the "N", then "eo", then a light "Feed" — the lockup from
-// the brand board Praew approved on 2026-09-22, drawn in the Valhalla Teal
-// sheet. ONE component with THREE call sites: the login hero, the topbar
-// corner and the sync gate. It replaced the icon tile in the app's own corner
+// the brand board Praew approved on 2026-09-22, in the board's OWN colours.
+// ONE component with THREE call sites: the login hero, the topbar corner and
+// the sync gate.
+//
+// It spent a few hours re-tinted into the Valhalla Teal sheet, when the app
+// moved back to teal, and went straight back: "ขอกลับไปใช้ NeoFeed และหน้า
+// login เดิม สีนี้". So the mark is green while the app's chrome is teal, on
+// purpose — a logo is not a UI colour. That is also why every colour in it is
+// a literal rather than a token: it must NOT follow the next palette move. It replaced the icon tile in the app's own corner
 // on her instruction — "ส่วนบนซ้ายในหน้า dashboard ... ให้เอา NeoFeed ที่แก้แล้ว
 // นี้ไปใส่ ไม่ต้องใส่ icon" — so the tile is now what it is for: the home-screen
 // and favicon artwork, and nothing inside the app draws it.
@@ -308,12 +314,12 @@ const NeoFeedWordmark = ({ className, style }) => (
     <svg className="nf-n" viewBox="0 0 98 100" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
-          <stop offset="0" stopColor="#12656A" />
-          <stop offset="1" stopColor="#103F43" />
+          <stop offset="0" stopColor="#335A4A" />
+          <stop offset="1" stopColor="#284C40" />
         </linearGradient>
         <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
-          <stop offset="0" stopColor="#78BFC0" />
-          <stop offset="1" stopColor="#5BA2A3" />
+          <stop offset="0" stopColor="#99B29C" />
+          <stop offset="1" stopColor="#799781" />
         </linearGradient>
       </defs>
       <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" />
@@ -1104,7 +1110,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Removed 2026-09-11 (review C5); the default accent it always resolved to
   // stays.
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
+    document.documentElement.style.setProperty("--brand", `oklch(38.5% 0.047 170)`);
   }, []);
 
   // ── Shared GAS write helper ───────────────────────────────────

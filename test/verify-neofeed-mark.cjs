@@ -31,9 +31,15 @@ function ok(name, cond, detail) {
   cond ? pass++ : fail++;
 }
 
-// The icon's tile: Mineral Mist, the Valhalla Teal sheet's lightest brand
-// colour. (It was the board's jade #D3E3D3 until the app went back to teal.)
-const TILE_RGB = [0xD5, 0xEC, 0xEA];
+// The icon's tile: the jade the brand board draws it on.
+//
+// THE MARK DOES NOT FOLLOW THE APP'S PALETTE. It was re-tinted into the
+// Valhalla Teal sheet when the app moved back to teal, and Praew put it
+// straight back — "ขอกลับไปใช้ NeoFeed และหน้า login เดิม สีนี้". So the logo
+// and the login screen are the board's green while the workspace is teal, on
+// purpose, and every colour in the mark is a LITERAL so the next palette move
+// cannot carry it off again.
+const TILE_RGB = [0xD3, 0xE3, 0xD3];
 
 // ── the master ────────────────────────────────────────────────────────────
 console.log('\n── icons/icon.svg — the master ──');
@@ -42,10 +48,10 @@ const paths = [...svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(m => m[1]);
 ok('no counter-dot', !/<circle\b/.test(svg));
 ok('no stroked N — the letter is filled shapes now', !/\bstroke(-width)?=/.test(svg));
 ok('exactly two shapes: the dark body and the light left stem', paths.length === 2, paths.length);
-ok('the tile is Mineral Mist', new RegExp(`<rect\\b[^>]*fill="#${TILE_RGB.map(c => c.toString(16).padStart(2, '0')).join('')}"`, 'i').test(svg));
-ok('the body is the brand ramp: Valhalla Teal → Midnight Teal', /stop-color="#12656A"/i.test(svg) && /stop-color="#103F43"/i.test(svg));
-ok('the left stem is Sea Glass, falling to a darker Sea Glass', /stop-color="#78BFC0"/i.test(svg) && /stop-color="#5BA2A3"/i.test(svg));
-ok('no green left from the brand board', !/#335A4A|#284C40|#99B29C|#799781|#D3E3D3/i.test(svg));
+ok('the tile is the approved jade', new RegExp(`<rect\\b[^>]*fill="#${TILE_RGB.map(c => c.toString(16).padStart(2, '0')).join('')}"`, 'i').test(svg));
+ok('the body is Forest, shading onto Forest itself', /stop-color="#335A4A"/i.test(svg) && /stop-color="#284C40"/i.test(svg));
+ok('the left stem is Sage, falling to a darker Sage', /stop-color="#99B29C"/i.test(svg) && /stop-color="#799781"/i.test(svg));
+ok('no teal left from the app\'s sheet', !/#12656A|#103F43|#78BFC0|#5BA2A3|#D5ECEA/i.test(svg));
 
 // ── the seven PNGs ────────────────────────────────────────────────────────
 // A minimal PNG reader: 8-bit, non-interlaced, RGB / RGBA / palette.
@@ -140,7 +146,7 @@ for (const [file, size, bleed] of PNGS) {
   const corner = img.px[3];
   ok(bleed ? 'full-bleed: the corner is opaque' : 'its own rounded corners: the corner is transparent', bleed ? corner === 255 : corner === 0, corner);
   ok('no white — the old N was a white stroke', k.white === 0, k.white);
-  ok('the tile is Mineral Mist', near(k.mode, TILE_RGB, 6), k.mode);
+  ok('the tile is the approved jade', near(k.mode, TILE_RGB, 6), k.mode);
   ok('the tile is the ground, not the mark (tile ≥ 40% of the icon)', k.jade / k.opaque >= 0.4, +(k.jade / k.opaque).toFixed(3));
   ok('the dark body is present, and not the whole tile (5–40%)', k.forest.length / k.opaque >= 0.05 && k.forest.length / k.opaque <= 0.4, +(k.forest.length / k.opaque).toFixed(3));
   if (size >= 180) {
@@ -197,6 +203,43 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
   console.log(`\n── ${shell} ──`);
   const css = read(shell);
   ok('the .login-logo-mark rule went with the tile', !/\.login-logo-mark\b/.test(css));
+  // The login screen keeps Luminous Protection while :root is the teal sheet,
+  // scoped by re-declaring the tokens it consumes on .login-wrap itself.
+  // Custom properties inherit, so no .login-* rule names a literal.
+  const wrap = /\n  \.login-wrap \{([\s\S]*?)\n  \}/.exec(css)?.[1] || '';
+  for (const [tok, val] of [['--bg', 'oklch(97.2% 0.011 101)'], ['--brand', 'oklch(38.5% 0.047 170)'],
+                            ['--brand-4', 'oklch(82.4% 0.039 139)'], ['--line', 'oklch(87.6% 0.031 148)']])
+    ok(`.login-wrap pins ${tok} to the brand board`, wrap.includes(`${tok}:`) && wrap.includes(val),
+      wrap.replace(/\s+/g, ' ').slice(0, 200));
+  // The app's ACCENT moved onto the mark's Forest on 2026-09-22 ("ใช้สีนี้ แทน
+  // valhalla teal แทนเท่านั้น"), so --brand and --brand-4 in the scope above
+  // now happen to match :root. They stay anyway — they are what holds this
+  // screen on the board if the app's accent ever moves again, which is the
+  // scope's whole job. What must still differ is the GROUND and the warm
+  // note: the app is Porcelain Mist + Nordic Sand, the login is Ivory +
+  // Champagne Gold. If those ever collapse into one value, the scope has
+  // stopped doing anything and this screen has silently joined the app's
+  // palette.
+  const rootBlock = /^  :root \{[\s\S]*?^  \}/m.exec(css)?.[0] || '';
+  ok('…while :root keeps the app\'s own ground (Porcelain Mist, not Ivory)',
+    /--bg:\s*oklch\(97\.7% 0\.004 195\)/.test(rootBlock)
+    && wrap.includes('oklch(97.2% 0.011 101)'),
+    [/--bg:[^;]*/.exec(rootBlock)?.[0], /--bg:[^;]*/.exec(wrap)?.[0]]);
+  ok('…and its own warm note (Nordic Sand, not Champagne Gold)',
+    /--sand:\s*oklch\(79\.8% 0\.067 80\)/.test(rootBlock)
+    && wrap.includes('oklch(73.6% 0.082  80)'),
+    [/--sand:[^;]*/.exec(rootBlock)?.[0], /--sand:[^;]*/.exec(wrap)?.[0]]);
+  // The accent IS the mark now — that is the point of the 2026-09-22 swap.
+  ok('the app\'s accent is the mark\'s Forest, not Valhalla Teal',
+    /--brand:\s*oklch\(38\.5% 0\.047 170\)/.test(rootBlock)
+    && !/--brand:\s*oklch\(46\.3% 0\.074 201\)/.test(rootBlock),
+    /--brand:[^;]*/.exec(rootBlock)?.[0]);
+  ok('…and the ground/ink it sits on did NOT follow it into the green family',
+    /--ink:\s*oklch\(24% 0\.022 205\)/.test(rootBlock)
+    && /--line:\s*oklch\(90\.5% 0\.008 198\)/.test(rootBlock),
+    [/--ink:[^;]*/.exec(rootBlock)?.[0], /--line:[^;]*/.exec(rootBlock)?.[0]]);
+  ok('the ribbons are the board\'s too: Sage over Pale Jade, one Champagne Gold',
+    /oklch\(82\.4% 0\.039 139 \/ \.32\)/.test(css) && /oklch\(73\.6% 0\.082 80 \/ \.16\)/.test(css));
   // No tile anywhere in the app's chrome: the topbar's .logo box is gone, not
   // just emptied, so nothing can paint a square behind the wordmark again.
   ok('the topbar draws no icon tile', !/\.brandmark \.logo\b/.test(css),
@@ -204,20 +247,24 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
   // One sizing rule, in em, so a call site sets font-size and nothing else.
   const wm = /\n  \.nf-wordmark \{([^}]*)\}/.exec(css)?.[1] || '';
   const nfn = /\.nf-wordmark \.nf-n \{([^}]*)\}/.exec(css)?.[1] || '';
-  ok('.nf-wordmark is styled once and takes its colour from --brand',
-    /color:\s*var\(--brand\)/.test(wm), wm.replace(/\s+/g, ' ').slice(0, 160));
+  // A LITERAL, not var(--brand): the mark must not follow the app's palette.
+  // It is Forest, which is also the stop the N's body gradient ends on, so
+  // "Neo", "Feed" and the dark half of the letter are one colour by
+  // construction rather than by three values agreeing.
+  ok('.nf-wordmark is styled once, in the mark\'s own Forest, not a token',
+    /color:\s*#284C40/i.test(wm) && !/color:\s*var\(/.test(wm), wm.replace(/\s+/g, ' ').slice(0, 200));
+  ok('…and that is the stop the master\'s body gradient ends on',
+    /stop-color="#284C40"/i.test(svg));
   ok('…and the N is sized in em, to the cap height, on the baseline',
     /width:\s*0\.684em/.test(nfn) && /height:\s*0\.698em/.test(nfn) && /vertical-align:\s*baseline/.test(nfn),
     nfn.replace(/\s+/g, ' ').slice(0, 160));
-  // Praew, 2026-09-22: "ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ". --brand-ink IS
-  // Midnight Teal, the stop the N's body gradient ends on — so this is a token
-  // reference to "the dark part of the N", not a literal matched by eye.
+  // Praew, 2026-09-22: "ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ". On the board's
+  // green that needs no second value — "Feed" inherits Forest from the rule
+  // above, so it IS the dark half of the N. It carried its own darker colour
+  // only while the mark was teal, whose accent is the letter's TOP stop.
   const lw = /\.nf-wordmark \.lw \{([^}]*)\}/.exec(css)?.[1] || '';
-  ok('"Feed" is as dark as the N\'s dark stop (--brand-ink)',
-    /color:\s*var\(--brand-ink\)/.test(lw), lw.replace(/\s+/g, ' '));
-  const inkTok = /--brand-ink:\s*([^;]+);/.exec(css)?.[1].trim();
-  ok('…and --brand-ink is Midnight Teal, which is that stop',
-    inkTok === 'oklch(33.9% 0.049 203)' && /stop-color="#103F43"/i.test(svg), inkTok);
+  ok('"Feed" is the light weight and nothing else — it inherits the N\'s dark',
+    /font-weight:\s*300/.test(lw) && !/color:/.test(lw), lw.replace(/\s+/g, ' '));
   ok('both the topbar and the login hero size it, nothing else',
     /\.brandmark \.nf-wordmark \{[^}]*font-size/.test(css) && /\.login-app-name \{[^}]*font-size/.test(css));
   const after = /\.login-app-name::after\s*\{([^}]*)\}/.exec(css)?.[1] || '';

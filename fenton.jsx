@@ -116,11 +116,11 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
   // build curves
   const PERCENTILES = [
-    { idx: 1, label: "3rd",  color: "oklch(75.8% 0.071 197)", w: 1.2, dash: "4 3" },
-    { idx: 2, label: "10th", color: "oklch(64% 0.082 199)",   w: 1.4, dash: "" },
-    { idx: 3, label: "50th", color: "oklch(46.3% 0.074 201)", w: 2.0, dash: "" },
-    { idx: 4, label: "90th", color: "oklch(64% 0.082 199)",   w: 1.4, dash: "" },
-    { idx: 5, label: "97th", color: "oklch(75.8% 0.071 197)", w: 1.2, dash: "4 3" },
+    { idx: 1, label: "3rd",  color: "oklch(82.4% 0.039 139)", w: 1.2, dash: "4 3" },
+    { idx: 2, label: "10th", color: "oklch(64% 0.043 150)",   w: 1.4, dash: "" },
+    { idx: 3, label: "50th", color: "oklch(38.5% 0.047 170)", w: 2.0, dash: "" },
+    { idx: 4, label: "90th", color: "oklch(64% 0.043 150)",   w: 1.4, dash: "" },
+    { idx: 5, label: "97th", color: "oklch(82.4% 0.039 139)", w: 1.2, dash: "4 3" },
   ];
 
   // Proper Catmull-Rom → cubic Bezier (tension 0.5) for smooth monotonic curves
@@ -336,7 +336,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
                 <line key={`x${t}`} y1={pad.t} y2={H - pad.b} x1={xScale(t)} x2={xScale(t)} stroke="oklch(94% 0.008 198)" />
               ))}
               {/* 10th-90th band */}
-              <path d={bandPath()} fill="oklch(55.7% 0.090 202 / .08)" />
+              <path d={bandPath()} fill="oklch(55.7% 0.047 170 / .08)" />
 
               {/* percentile curves */}
               {PERCENTILES.map(p => (
@@ -429,9 +429,9 @@ function FentonChart({ patient, currentDol, onUpdate }) {
             {onUpdate && <MeasurementLogger key={patient.sessionId} patient={patient} currentDol={currentDol} onUpdate={onUpdate} />}
 
             <div className="legend" style={{ flexDirection: "column", gap: 6 }}>
-              <div className="s"><span className="b" style={{ background: "oklch(46.3% 0.074 201)" }}></span>50th percentile</div>
-              <div className="s"><span className="b" style={{ background: "oklch(64% 0.082 199)" }}></span>10th & 90th</div>
-              <div className="s"><span className="b" style={{ background: "oklch(75.8% 0.071 197)", borderTop: "2px dashed oklch(75.8% 0.071 197)" }}></span>3rd & 97th</div>
+              <div className="s"><span className="b" style={{ background: "oklch(38.5% 0.047 170)" }}></span>50th percentile</div>
+              <div className="s"><span className="b" style={{ background: "oklch(64% 0.043 150)" }}></span>10th & 90th</div>
+              <div className="s"><span className="b" style={{ background: "oklch(82.4% 0.039 139)", borderTop: "2px dashed oklch(82.4% 0.039 139)" }}></span>3rd & 97th</div>
               <div className="s"><span className="b" style={{ background: "oklch(50% 0.18 25)" }}></span>Patient</div>
             </div>
           </div>
