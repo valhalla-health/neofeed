@@ -53,6 +53,23 @@ ok('the body is Forest, shading onto Forest itself', /stop-color="#335A4A"/i.tes
 ok('the left stem is Sage, falling to a darker Sage', /stop-color="#99B29C"/i.test(svg) && /stop-color="#799781"/i.test(svg));
 ok('no teal left from the app\'s sheet', !/#12656A|#103F43|#78BFC0|#5BA2A3|#D5ECEA/i.test(svg));
 
+// The frame Praew approved on 2026-09-22 ("icon ใช้อันนี้"): three concentric
+// rects, Pale Jade ground → Ivory ring → jade tile, in that order. The ground
+// carries the id because the renderer targets it by name — it is the only rect
+// that loses its corners on a full-bleed variant.
+const rects = [...svg.matchAll(/<rect\b([^>]*)>/g)].map(m => m[1]);
+ok('three concentric rects: ground, ring, tile', rects.length === 3, rects.length);
+ok('…the ground is Pale Jade, full square, and is the one the renderer names',
+  /id="nf-ground"/.test(rects[0]) && /width="256"/.test(rects[0])
+  && /fill="#E4EDE0"/i.test(rects[0]) && /rx="56"/.test(rects[0]), rects[0]);
+ok('…the ring is Ivory, inset 7%, and keeps its own corners',
+  /x="18"[^>]*y="18"/.test(rects[1]) && /fill="#F7F6EE"/i.test(rects[1])
+  && /rx="/.test(rects[1]) && !/id=/.test(rects[1]), rects[1]);
+ok('…the tile sits inside the ring', /x="34"[^>]*y="34"/.test(rects[2])
+  && /fill="#D3E3D3"/i.test(rects[2]), rects[2]);
+ok('only the ground is named, so a bleed render cannot square off the frame',
+  (svg.match(/id="nf-ground"/g) || []).length === 1);
+
 // ── the seven PNGs ────────────────────────────────────────────────────────
 // A minimal PNG reader: 8-bit, non-interlaced, RGB / RGBA / palette.
 function decodePng(file) {
@@ -105,8 +122,9 @@ function decodePng(file) {
 // classifier also required `g > b`, which is a GREEN test — teal's blue channel
 // is the equal or larger of the two, so every pixel fell through it.
 function census({ w, h, px }) {
-  const k = { forest: [], sage: [], jade: 0, white: 0, opaque: 0 };
+  const k = { forest: [], sage: [], jade: 0, white: 0, ivory: 0, opaque: 0, markR: 0 };
   const freq = new Map();
+  const cx = (w - 1) / 2, cy = (h - 1) / 2;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const o = (y * w + x) * 4, [r, g, b, a] = [px[o], px[o + 1], px[o + 2], px[o + 3]];
     if (a < 250) continue;
@@ -116,6 +134,11 @@ function census({ w, h, px }) {
     else if (L < 110 && g > r) k.forest.push(x);
     else if (L < 195 && g > r) k.sage.push(x);
     else if (g - r >= 8) k.jade++;
+    // Ivory #F7F6EE — the ring. It is deliberately in no other bucket: it is
+    // not white (b is 238), and g-r is negative so it is not jade either.
+    if (Math.abs(r - 0xF7) <= 7 && Math.abs(g - 0xF6) <= 7 && Math.abs(b - 0xEE) <= 7) k.ivory++;
+    // How far the LETTER reaches from the centre, for the maskable safe zone.
+    if (L < 195 && g > r) k.markR = Math.max(k.markR, Math.hypot(x - cx, y - cy));
     const key = (r >> 2) << 16 | (g >> 2) << 8 | (b >> 2);
     freq.set(key, (freq.get(key) || 0) + 1);
   }
@@ -126,18 +149,23 @@ function census({ w, h, px }) {
 const mean = (xs) => xs.reduce((s, v) => s + v, 0) / xs.length;
 const near = (c, want, tol) => c.every((v, i) => Math.abs(v - want[i]) <= tol);
 
+// [file, size, kind] — three variants from the one master:
+//   any      — the full design on its own rounded corners, transparent outside
+//   apple    — the full design, ground squared off; iOS crops the whole square
+//   maskable — NO FRAME. Android crops to a circle well inside the square,
+//              which turns a decorative ring into a crescent at the edge, so
+//              these carry the tile colour and the letter alone.
 const PNGS = [
-  // [file, size, full-bleed?] — the maskable and Apple icons fill the square
-  // (the platform draws the corners); the "any" icons carry their own.
-  ['icons/favicon-16.png', 16, false],
-  ['icons/favicon-32.png', 32, false],
-  ['icons/icon-192.png', 192, false],
-  ['icons/icon-512.png', 512, false],
-  ['icons/icon-192-maskable.png', 192, true],
-  ['icons/icon-512-maskable.png', 512, true],
-  ['icons/apple-touch-icon.png', 180, true],
+  ['icons/favicon-16.png', 16, 'any'],
+  ['icons/favicon-32.png', 32, 'any'],
+  ['icons/icon-192.png', 192, 'any'],
+  ['icons/icon-512.png', 512, 'any'],
+  ['icons/icon-192-maskable.png', 192, 'maskable'],
+  ['icons/icon-512-maskable.png', 512, 'maskable'],
+  ['icons/apple-touch-icon.png', 180, 'apple'],
 ];
-for (const [file, size, bleed] of PNGS) {
+for (const [file, size, kind] of PNGS) {
+  const bleed = kind !== 'any';
   console.log(`\n── ${file} ──`);
   let img;
   try { img = decodePng(file); } catch (e) { ok('decodes', false, e.message); continue; }
@@ -149,6 +177,20 @@ for (const [file, size, bleed] of PNGS) {
   ok('the tile is the approved jade', near(k.mode, TILE_RGB, 6), k.mode);
   ok('the tile is the ground, not the mark (tile ≥ 40% of the icon)', k.jade / k.opaque >= 0.4, +(k.jade / k.opaque).toFixed(3));
   ok('the dark body is present, and not the whole tile (5–40%)', k.forest.length / k.opaque >= 0.05 && k.forest.length / k.opaque <= 0.4, +(k.forest.length / k.opaque).toFixed(3));
+  // The frame, and the one variant that must not have it.
+  if (size >= 32) {
+    const ivoryPct = k.ivory / k.opaque;
+    if (kind === 'maskable')
+      ok('no Ivory ring — a circular mask would crop it to a crescent', ivoryPct < 0.01, +ivoryPct.toFixed(4));
+    else
+      ok('the Ivory ring is present', ivoryPct >= 0.04, +ivoryPct.toFixed(4));
+  }
+  if (kind === 'maskable') {
+    // Android's safe zone is the central 80% DIAMETER, i.e. radius 40% of the
+    // width. Anything of the letter outside it can be cropped by a mask.
+    ok('the letter is inside the maskable safe zone (r ≤ 40%)',
+      k.markR <= size * 0.40, { markR: Math.round(k.markR), limit: Math.round(size * 0.4) });
+  }
   if (size >= 180) {
     // At 16/32 px the antialiased Forest edge outweighs the stem itself, so
     // position is only read where the stem is many pixels wide.

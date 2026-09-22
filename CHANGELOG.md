@@ -173,6 +173,32 @@ login scope still differs from `:root` where it must (Ivory vs Porcelain Mist, C
 Nordic Sand). If those ever collapse into one value, the scope has stopped doing anything and the
 login screen has silently rejoined the app's palette.
 
+### 3e · The icon gets its frame
+
+*"icon ใช้อันนี้."* The approved artwork puts an **Ivory ring between a Pale Jade ground and the jade
+tile**, so `icons/icon.svg` is three concentric rects now instead of one. Measured off that artwork as
+fractions of the square: the ring's outer box is inset 7%, the ring is 6.4% thick, and the letter is
+47% of the square — smaller than the 64% it was on the unframed tile, because the frame takes the room.
+
+**The letter itself did not change**, and could not: those two paths are the wordmark's too, pinned
+character for character by the harness. Only the `<g transform>` that places them inside the tile moved.
+
+**The frame forced the icon set to split three ways, not two.** It was "any" vs full-bleed; it is now:
+
+| variant | what it carries | why |
+|---|---|---|
+| `any` (favicons, 192, 512) | the full design, own rounded corners | what a browser tab and the PWA "any" slot show |
+| `apple` (apple-touch) | full design, **ground** squared off | iOS crops the whole square with a radius close to the master's, so the frame survives as a frame |
+| `maskable` (192, 512) | **no frame** — tile colour + letter | Android crops to a circle *well inside* the square, which turned the ring into a **crescent fragment** at the edge. Caught by rendering the real circular mask, not by reasoning about it |
+
+Only the ground rect carries `id="nf-ground"`, because the renderer squares off exactly that one — give
+the ring or the tile an id and a bleed render would flatten the frame.
+
+`verify-neofeed-mark.cjs` gained eight assertions: the three rects and their colours, that only the
+ground is named, that the **Ivory ring is present on every `any`/`apple` PNG and absent from both
+maskable ones**, and that the letter stays inside Android's 80%-diameter safe zone. The ring assertions
+were checked by re-rendering a maskable icon *with* the frame — it fails, twice.
+
 ### 4 · "สีข้างในมันกลืนกันไปหน่อย ไม่โอเค — ย้ายกลับไปใช้สีในรุ่นก่อน ที่เป็นสีขาวฟ้า"
 
 The Luminous Protection green of the entry above lasted a day: on the ward the app read as one flat
