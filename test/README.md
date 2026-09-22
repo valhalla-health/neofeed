@@ -582,6 +582,20 @@ synthetic `focus` event. The focus listener is throttled to one call a minute
 nothing is sent — the first version of this harness failed for exactly that
 reason and looked like a product bug.
 
+**`verify-staff-cache-password-writes.cjs`** — the gate's exit, found stuck on 2026-09-22. `verifyToken`
+reads the Staff row through a 60 s cache that carries col G, and the `changePassword` request had just
+cached col G `TRUE`. So after a successful forced change the rotated token, and a fresh sign-in with the
+new password, answered `PasswordChangeRequired` until the cache expired, and the client put the forced
+screen back up. The harness drives each function that writes a Staff row's cols E–H (`changePassword`,
+`setInitialPassword`, `clearStaffPassword`, `onEdit`, `backfillDefaultPasswords`) and requires the next
+request to see the write. That includes a row re-added by `setInitialPassword` after its "not found" was
+cached, and the two provisioners, where the stale copy failed **open**: col G read blank, so a sign-in
+on a brand-new temp password passed the gate. It also pins that the cache still caches (one Staff-tab
+read after a change), that a cache failure while dropping the copy neither fails the change nor skips
+the epoch bump, and, at source level, that every E–H write sits in a function that drops the copy. Same
+`gas-vm-sandbox.cjs` as the review harnesses, no npm dependencies. 33 assertions; 10 fail against
+`f3e9e23` (`@55`'s source), and six deliberate breakages of the fix were each caught.
+
 **`verify-input-validation.cjs`** — pins the 2026-08-25 server-side
 plausibility guard. `registry.jsx`'s number inputs set `min="0"` and no upper
 bound at all, and `calculator.jsx`'s daily-entry fields were never

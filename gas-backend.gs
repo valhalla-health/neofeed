@@ -367,11 +367,14 @@ var LOG_LOCK_TTL_SECONDS = 90;
 // spent. 60s trades a minute of stale access for one read per user per
 // minute.
 //
-// No invalidation hooks: role and `active` are edited by hand in the sheet,
-// not through any API action, so there is no in-app moment to hook. Password
-// changes are unaffected — those bump the user epoch, which verifyToken
-// checks from PropertiesService and is never cached here, so a password
-// change still kills every other session instantly.
+// Hand edits (role, `active`, a col G typed into the sheet) are seen within
+// this TTL. The backend's own writes to a Staff row's cols E–H drop the
+// cached copy at once (_forgetStaffRow), because the copy carries col G,
+// must_change_password. Until 2026-09-22 nothing dropped it, and the claim
+// here that password changes were unaffected was half true: bumping the user
+// epoch (read from PropertiesService, never cached) still revoked every
+// OTHER session at once, but a forced change was refused as
+// PasswordChangeRequired for up to a minute after it succeeded.
 var STAFF_RECHECK_TTL_SECONDS = 60;
 // Caches ONLY what verifyToken reads — email, role, name, active,
 // must_change_password — at their usual indices, with E/F/H blanked. It used to
@@ -382,9 +385,15 @@ function _staffRowForCache(found) {
   var d = found.data || [];
   return { row: found.row, data: [d[0], d[1], d[2], d[3], "", "", d[6], ""] };
 }
+// One key for the reader and for _forgetStaffRow. Trimmed and lowercased like
+// getStaffRow's match, so an address typed into setInitialPassword in another
+// case reaches the entry cached under the session's own (normalised) email.
+function _staffCacheKey(email) {
+  return "staffrc_" + String(email).trim().toLowerCase();
+}
 function _getStaffRowCached(email) {
   var cache = CacheService.getScriptCache();
-  var key   = "staffrc_" + String(email).toLowerCase();
+  var key   = _staffCacheKey(email);
   var hit   = cache.get(key);
   // A miss returns null; a cached "not found" round-trips as the string
   // "null" and parses back to null, so a deleted staff row also revokes
@@ -396,6 +405,16 @@ function _getStaffRowCached(email) {
   try { cache.put(key, JSON.stringify(found), STAFF_RECHECK_TTL_SECONDS); }
   catch (e) { Logger.log("staff row cache put skipped: " + e.message); }
   return found;
+}
+// Every function that writes a Staff row's cols E–H calls this after the
+// write (test/verify-staff-cache-password-writes.cjs § 8 checks). A stale
+// copy failed both ways: a forced change stayed refused, and a newly
+// provisioned temp password read col G blank and passed the gate. Best
+// effort, like _forgetSchemaCheck: if the cache throws, the 60 s TTL is the
+// bound again, and the caller still goes on to bump the user epoch.
+function _forgetStaffRow(email) {
+  try { CacheService.getScriptCache().remove(_staffCacheKey(email)); }
+  catch (e) { Logger.log("staff row cache remove skipped: " + e.message); }
 }
 
 // Authorization values fail closed. A blank/misspelled Staff role used to be
@@ -538,6 +557,8 @@ function setInitialPassword(email, password) {
     sh.appendRow([_sheetSafe(email), "doctor", _sheetSafe(email.split("@")[0]), true, hash, salt, false, ""]);
     Logger.log("Staff added with password: " + email);
   }
+  // Both branches: the cached copy may hold the old col G, or "not found".
+  _forgetStaffRow(email);
   // An admin reset is exactly the moment an existing session must end: the
   // usual reason for one is "someone else got the temp password first". It
   // used to leave every session already issued on the old password working
@@ -557,6 +578,7 @@ function clearStaffPassword(email) {
   var found = getStaffRow(email);
   if (!found) { Logger.log("No Staff row found for: " + email); return; }
   getSheetStaff().getRange(found.row, 5, 1, 4).clearContent();
+  _forgetStaffRow(email);
   // Same as setInitialPassword: removing the password must also end every
   // session that was issued on it (2026-09-17 review, SEC-B4).
   bumpUserEpoch(email);
@@ -720,6 +742,7 @@ function onEdit(e) {
       var salt = Utilities.getUuid();
       var hash = hashPwdV2(pwd, salt);
       sheet.getRange(r, 5, 1, 4).setValues([[hash, salt, true, pwd]]);
+      _forgetStaffRow(email);
       Logger.log("Auto-provisioned temp password for: " + email + " (forced change on first login)");
     }
   } catch (err) {
@@ -753,6 +776,7 @@ function backfillDefaultPasswords() {
     var salt = Utilities.getUuid();
     var hash = hashPwdV2(pwd, salt);
     sheet.getRange(i + 1, 5, 1, 4).setValues([[hash, salt, true, pwd]]);
+    _forgetStaffRow(email);
     fixed.push(email);
   }
   // Emails and a count only (2026-09-17 review, SEC-B10). This used to log
@@ -1220,6 +1244,10 @@ function doPost(e) {
       // change state, whether this call came from the normal "เปลี่ยนรหัสผ่าน"
       // menu or from the forced first-login screen.
       getSheetStaff().getRange(sf.row, 5, 1, 4).setValues([[newHash, newSalt, false, ""]]);
+      // This request came through verifyToken, so its cached copy of the row
+      // still says col G TRUE: drop it, or the rotated token is refused as
+      // PasswordChangeRequired for up to a minute (2026-09-22).
+      _forgetStaffRow(user.email);
       // Bump the session epoch so every OTHER token issued for this user
       // (e.g. one that leaked, or is sitting on a shared NICU workstation)
       // is invalidated immediately — verifyToken() checks epoch on every
