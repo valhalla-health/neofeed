@@ -142,10 +142,13 @@ only work as a pair — the new CSP renders the old shells blank — so it check
 33 of 43 assertions against `claude/review-0917` (the tree before the build step), and each of the
 build's own refusals and this harness's checks was proven to catch a deliberate breakage.
 
-`verify-login-endorsement.cjs` pins the login screen's Valhalla endorsement as Praew set it on
-2026-09-22: the Guardian V stacked above "by Valhalla Health" (a centred column in both shells), and no
-version line under it. Source-level and CRLF-normalised, no dependencies:
-`node test/verify-login-endorsement.cjs`. It fails 5 of 7 against `e39f66b`, the side-by-side lockup.
+`verify-login-endorsement.cjs` pins the Valhalla line at the foot of the login screen as Praew
+last set it on 2026-09-22: one line, "by Valhalla Health · © 2026". It also pins what that line no longer
+has: no Guardian V (no `<img>`, no `.login-endorse img` rule in either shell, no
+`icons/valhalla-guardian-v.png`) and no version line. Source-level and CRLF-normalised, no dependencies:
+`node test/verify-login-endorsement.cjs`. It fails 5 of 11 against `76f7610`, where the Guardian V was
+still stacked above "by Valhalla Health". The earlier version, which pinned that stacked lockup, failed
+5 of 7 against `e39f66b`.
 
 `verify-neofeed-mark.cjs` pins the **two-tone N** Praew approved on 2026-09-22 (no dot; a Sage left
 stem, the diagonal and right stem in Forest). `icons/icon.svg` is the master: two filled shapes on the

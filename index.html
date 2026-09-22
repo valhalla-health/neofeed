@@ -1097,18 +1097,12 @@
      on 2026-09-22. Brand Handbook § 07: the endorsement sits under the
      product and never outranks it — so this is 12px next to a 58px wordmark,
      in the quiet ink tier, with no border and no button affordance. It is a
-     signature, not a call to action. Stacked, the mark above the words
-     (Praew, 2026-09-22). */
+     signature, not a call to action. Since Praew's second pass that day it
+     is one line, "by Valhalla Health · © 2026", with no Guardian V above it. */
   .login-endorse {
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
     font-size: 12px;
     letter-spacing: 0.02em;
     color: var(--ink-3);
-  }
-  .login-endorse img {
-    display: block;
-    width: 34px; height: auto;   /* § 10 floors the symbol at 32px */
-    opacity: .92;
   }
 
   @media (max-width: 767px) {
@@ -1717,7 +1711,7 @@
   <script src="compiled/fenton.js?v=20d2144b0f"></script>
   <script src="compiled/registry.js?v=2eddc83758"></script>
   <script src="compiled/log.js?v=59375d05ed"></script>
-  <script src="compiled/app.js?v=a0c3d2866f"></script>
+  <script src="compiled/app.js?v=650b9f174d"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

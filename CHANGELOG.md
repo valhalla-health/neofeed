@@ -117,6 +117,16 @@ in the same colours and decodes every PNG. It fails 54 of 70 against `75a3038`, 
 breakages were each caught. Checked in Chromium at 1280 px and at 375 px, where the layout has no
 horizontal scroll and the mark scales with the text.
 
+**Follow-up (Praew, 2026-09-22): no Guardian V, and a © line.** *"Can I remove V logo below login page.
+Only show by valhalla team เราใส่อะไรที่ดูเป็นลิขสิทธิไปด้วยได้? @2026?"* Offered three wordings, she chose
+one line: **"by Valhalla Health · © 2026"**. The Guardian V above it is gone, and so is
+`icons/valhalla-guardian-v.png`, the raster stand-in. Nothing else used it, so the open question of
+replacing it with the vector master no longer applies. `.login-endorse` lost its `img` rule and its
+column layout, since there is nothing left to stack. The year is fixed at 2026, the year of first
+publication. It does not change by itself on 1 January. Copyright needs no registration, so the line
+only says whose work this is. Pinned by `test/verify-login-endorsement.cjs`, which fails 5 of 11
+against `76f7610`. Checked in Chromium: one line, and no horizontal scroll at 375 px.
+
 ---
 
 ## Session 2026-09-22 — A forced password change is served at once, not refused for a minute

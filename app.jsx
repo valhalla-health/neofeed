@@ -2629,24 +2629,16 @@ function LoginScreen({ onLogin, notice = null }) {
 
       {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}>⚠️ {error}</div>}
 
-      {/* Valhalla endorsement: the Guardian V stacked above "by Valhalla
-          Health", and no version line (Praew, 2026-09-22).
-          The endorsed-brand lockup from the Brand Handbook § 07: the product
-          name is what someone is looking for, so NeoFeed stays the hero at
-          58px and "by Valhalla Health" sits quietly under the form — the
-          handbook's own rule is that the endorsement must never outrank the
-          app name.
-          The Guardian V is the selected Exploration B mark, matted out of the
-          handbook's own proportion study rather than redrawn: § 10 forbids
-          taking geometry from a mockup, so nothing here is traced. It is a
-          raster stand-in until the vector master exists (§ 01 lists it as
-          outstanding), which is why it is used at 34px — comfortably above
-          the 32px floor § 10 sets for the symbol, where the ✓ notch is still
-          legible. Swap in the SVG master when it lands. */}
+      {/* The Valhalla line at the foot of the screen (Praew, 2026-09-22): one
+          quiet line, "by Valhalla Health · © 2026", and no version. The
+          Guardian V that stood above it earlier that day was removed at her
+          request. The line sits under the form because, by the Brand Handbook
+          § 07, the endorsement never outranks the app name. Copyright needs
+          no registration: the © line only says whose work this is, and 2026
+          is the year it was first published. */}
       <div className="login-contact">
         <div className="login-endorse">
-          <img src="icons/valhalla-guardian-v.png" alt="" width="34" height="25" />
-          <span>by Valhalla&nbsp;Health</span>
+          <span>by Valhalla&nbsp;Health · ©&nbsp;2026</span>
         </div>
       </div>
 
