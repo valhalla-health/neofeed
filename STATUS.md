@@ -43,6 +43,14 @@
   followed at once by a request. Also any frontend since 2026-09-18, today's two included. The
   frontends' provenance stamps, in `Daily_Log` columns AF–AG and in every printed order's footer, can
   show them in use without a bedside session — see those sections.
+- ⏳ **Open, not merged: PR #91.** It carries the KCMH TPN team's feedback, a two-sheet order form and no
+  trailing zeros (`CHANGELOG.md` 2026-09-22 (4)).
+  - What changes: ZnSO₄ with a 5 mg/day stop, a K⁺-in-bag tile, lipid in g/kg/h, Glycophos mL, and the
+    saver's name on the form.
+  - It is frontend only, with no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-18.1`.
+  - ⚠️ **It changes the pharmacy form.** The front is the KCMH paper layout and the back is the
+    compounding detail, so tell pharmacy before it ships (`BACKLOG.md` § Now).
+  - Merging it into `main` deploys nothing; it ships with the next `main` → `release` PR.
 - ✅ **Nothing on `main` waits for a release.** #76 and #79, listed here as waiting since 2026-09-19,
   went out with #85, so the reprint risk this line carried is closed: a saved order whose calculation
   has changed now waits for a fresh save instead of reprinting under the same entry id. PR #89, which
