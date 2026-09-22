@@ -249,24 +249,28 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
   // scoped by re-declaring the tokens it consumes on .login-wrap itself.
   // Custom properties inherit, so no .login-* rule names a literal.
   const wrap = /\n  \.login-wrap \{([\s\S]*?)\n  \}/.exec(css)?.[1] || '';
-  for (const [tok, val] of [['--bg', 'oklch(97.2% 0.011 101)'], ['--brand', 'oklch(38.5% 0.047 170)'],
+  for (const [tok, val] of [['--brand', 'oklch(38.5% 0.047 170)'],
                             ['--brand-4', 'oklch(82.4% 0.039 139)'], ['--line', 'oklch(87.6% 0.031 148)']])
     ok(`.login-wrap pins ${tok} to the brand board`, wrap.includes(`${tok}:`) && wrap.includes(val),
       wrap.replace(/\s+/g, ' ').slice(0, 200));
+  // --bg is deliberately NOT pinned (Praew, 2026-09-22, variant C): the login
+  // takes the app's own ground so the two screens are continuous, and follows
+  // :root if that ground ever moves. Pinning it again silently re-splits them.
+  ok('.login-wrap does NOT override --bg — it shares the app\'s ground',
+    !/--bg\s*:/.test(wrap), (/--bg\s*:[^;]*/.exec(wrap) || [''])[0]);
   // The app's ACCENT moved onto the mark's Forest on 2026-09-22 ("ใช้สีนี้ แทน
   // valhalla teal แทนเท่านั้น"), so --brand and --brand-4 in the scope above
   // now happen to match :root. They stay anyway — they are what holds this
   // screen on the board if the app's accent ever moves again, which is the
-  // scope's whole job. What must still differ is the GROUND and the warm
-  // note: the app is Porcelain Mist + Nordic Sand, the login is Ivory +
-  // Champagne Gold. If those ever collapse into one value, the scope has
-  // stopped doing anything and this screen has silently joined the app's
-  // palette.
+  // scope's whole job.
+  // The GROUND is no longer one of the differences: variant C put the login on
+  // the app's Porcelain Mist on purpose. What still differs is the warm note —
+  // the app's Nordic Sand against the board's Champagne Gold, which is the one
+  // colour under the wordmark. If that collapses too, the scope is doing
+  // nothing and this screen has silently joined the app's palette outright.
   const rootBlock = /^  :root \{[\s\S]*?^  \}/m.exec(css)?.[0] || '';
-  ok('…while :root keeps the app\'s own ground (Porcelain Mist, not Ivory)',
-    /--bg:\s*oklch\(97\.7% 0\.004 195\)/.test(rootBlock)
-    && wrap.includes('oklch(97.2% 0.011 101)'),
-    [/--bg:[^;]*/.exec(rootBlock)?.[0], /--bg:[^;]*/.exec(wrap)?.[0]]);
+  ok('…and the ground both screens now share is Porcelain Mist',
+    /--bg:\s*oklch\(97\.7% 0\.004 195\)/.test(rootBlock), /--bg:[^;]*/.exec(rootBlock)?.[0]);
   ok('…and its own warm note (Nordic Sand, not Champagne Gold)',
     /--sand:\s*oklch\(79\.8% 0\.067 80\)/.test(rootBlock)
     && wrap.includes('oklch(73.6% 0.082  80)'),
@@ -280,8 +284,12 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
     /--ink:\s*oklch\(24% 0\.022 205\)/.test(rootBlock)
     && /--line:\s*oklch\(90\.5% 0\.008 198\)/.test(rootBlock),
     [/--ink:[^;]*/.exec(rootBlock)?.[0], /--line:[^;]*/.exec(rootBlock)?.[0]]);
-  ok('the ribbons are the board\'s too: Sage over Pale Jade, one Champagne Gold',
-    /oklch\(82\.4% 0\.039 139 \/ \.32\)/.test(css) && /oklch\(73\.6% 0\.082 80 \/ \.16\)/.test(css));
+  // The ribbons went with the Ivory ground: on Porcelain Mist the wash read as
+  // a second colour rather than as depth. Their absence is asserted, not
+  // assumed — a stray gradient here is how the screen stops matching the app.
+  ok('no ribbon wash is left on the login screen',
+    !/\.login-wrap::before/.test(css) && !/login-drift/.test(css),
+    (/.{0,60}login-wrap::before.{0,40}/.exec(css) || [''])[0]);
   // No tile anywhere in the app's chrome: the topbar's .logo box is gone, not
   // just emptied, so nothing can paint a square behind the wordmark again.
   ok('the topbar draws no icon tile', !/\.brandmark \.logo\b/.test(css),

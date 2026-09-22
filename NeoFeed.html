@@ -958,8 +958,18 @@
        byte-identical in both sheets, so they are deliberately absent rather
        than duplicated. The wordmark takes none of these: its colours are
        literals, in .nf-wordmark above.
-       Delete this block to put the login screen back on the app's palette. */
-    --bg:      oklch(97.2% 0.011 101);   /* Ivory          #F7F6EE */
+       Delete this block to put the login screen back on the app's palette.
+
+       --bg IS NOT HERE ON PURPOSE (Praew, 2026-09-22, choosing variant C from
+       three rendered side by side): the login screen takes the app's own
+       ground, Porcelain Mist, so opening the app is not a step between two
+       products. It follows :root from now on — if the app's ground moves, this
+       screen moves with it, which is the point.
+       What stays below is what this screen still needs that the app does not:
+       the board's warm note, its Celadon hairline and its two green-leaning
+       ink tiers. --brand and --brand-4 happen to match :root today (the app's
+       accent moved onto the mark) and are kept as the insurance they were
+       written to be. */
     --brand:   oklch(38.5% 0.047 170);   /* Forest         #284C40 */
     --brand-4: oklch(82.4% 0.039 139);   /* Sage           #B9CCB4 */
     --sand:    oklch(73.6% 0.082  80);   /* Champagne Gold #C5A46D */
@@ -990,34 +1000,18 @@
     overflow-y: auto;
     isolation: isolate;
   }
-  /* The ribbons. Three very soft ellipses — Pale Jade over Sage with a single
-     warm Champagne-Gold breath low-left, which is the warm/cool balance the
-     brand board's header uses. Painted as one background on a
-     -1 layer so nothing here ever sits over the form, and with no filter:
-     blur() — a full-viewport blur is the one effect that stutters on the
-     ward's older Android tablets. */
-  .login-wrap::before {
-    content: '';
-    /* position: FIXED, not absolute — see the note above .login-wrap. An
-       absolutely-positioned bleed inside a scroll container IS scrollable
-       overflow; a fixed one is not, and here the two resolve against the
-       same rectangle, so this is a pure scroll fix with no visual change. */
-    position: fixed; inset: -10%;
-    z-index: -1;
-    background:
-      radial-gradient(ellipse 55% 45% at 78% 12%, oklch(82.4% 0.039 139 / .32) 0%, transparent 62%),
-      radial-gradient(ellipse 70% 50% at 18% 4%,  oklch(93.6% 0.020 136 / .85) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 40% at 8% 92%,  oklch(73.6% 0.082 80 / .16) 0%, transparent 60%),
-      radial-gradient(ellipse 85% 65% at 50% 38%, oklch(93.6% 0.020 136 / .55) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .login-wrap::before { animation: login-drift 28s ease-in-out infinite alternate; }
-    @keyframes login-drift {
-      from { transform: translate3d(0, 0, 0) scale(1); }
-      to   { transform: translate3d(-1.5%, 1.2%, 0) scale(1.05); }
-    }
-  }
+  /* NO RIBBONS. Three soft ellipses used to wash this screen in Sage, Pale
+     Jade and one breath of Champagne Gold. They went with the Ivory ground on
+     2026-09-22 (variant C): with the app's own Porcelain Mist underneath, the
+     wash read as a second colour rather than as depth, and the point of the
+     change was for the two screens to share one ground.
+
+     If a decorative full-bleed layer ever comes back here, it must be
+     `position: fixed`, NOT absolute. An absolutely-positioned bleed inside a
+     scroll container IS scrollable overflow on the right and bottom edges,
+     and that is exactly how this screen gained 39px of sideways drag and 85px
+     of vertical drag over nothing at all on a 390px phone. The overflow rule
+     below and test/verify-mobile-fit.cjs § 1 both still guard it. */
 
   /* ── The wordmark, in one place ──────────────────────────────────
      The brand board's lockup: the two-tone N, then "eo" bold and "Feed"

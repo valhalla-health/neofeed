@@ -54,16 +54,23 @@ function ok(name, cond, detail) {
 
 const SHELLS = ['NeoFeed.html', 'index.html'];
 
-// ══ 1 · the login screen's decorative layer is out of the scroll region ════
-console.log('\n── #1 the login ribbons are not scrollable overflow ──');
+// ══ 1 · no decorative layer may sit in the login's scroll region ═══════════
+// The ribbons that caused this were REMOVED on 2026-09-22, when the login took
+// the app's own ground. So this section no longer checks a layer that exists —
+// it checks that the contract holds for any layer that comes back. The rule is
+// the durable part; the ribbons were only the first thing to break it.
+console.log('\n── #1 nothing decorative is in the login\'s scroll region ──');
 for (const shell of SHELLS) {
   const css = read(shell);
   const before = /\.login-wrap::before\s*\{([\s\S]*?)\}/.exec(css)?.[1] || '';
-  ok(`${shell}: .login-wrap::before is found`, before.length > 0);
-  ok(`${shell}: …and it is position: fixed, not absolute`,
-    /position:\s*fixed/.test(before) && !/position:\s*absolute/.test(before), before.slice(0, 200));
-  ok(`${shell}: …still bleeding 10% past every edge (same picture)`,
-    /inset:\s*-10%/.test(before), before.slice(0, 200));
+  if (before.length === 0) {
+    ok(`${shell}: no ::before bleed layer at all (the ribbons are gone)`, true);
+  } else {
+    // If one is ever re-added — a new login palette is still outstanding —
+    // it must be fixed, or it becomes scrollable overflow again.
+    ok(`${shell}: a ::before layer exists, so it must be position: fixed`,
+      /position:\s*fixed/.test(before) && !/position:\s*absolute/.test(before), before.slice(0, 200));
+  }
 
   const wrap = /\n  \.login-wrap\s*\{([\s\S]*?)\n  \}/.exec(css)?.[1] || '';
   ok(`${shell}: .login-wrap pins BOTH overflow axes`,

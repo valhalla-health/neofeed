@@ -173,6 +173,30 @@ login scope still differs from `:root` where it must (Ivory vs Porcelain Mist, C
 Nordic Sand). If those ever collapse into one value, the scope has stopped doing anything and the
 login screen has silently rejoined the app's palette.
 
+### 3f · The login screen takes the app's ground, and the ribbons go
+
+Asked as a question — *"ถ้า background หน้า login เหมือนสีเหมือนใน dashboard จะเป็นอย่างไร show me"* —
+so it was **rendered rather than described**: three variants side by side against the dashboard itself,
+with nothing committed until one was chosen. Praew picked **C**.
+
+The two grounds were nearly the same lightness and differed only in temperature — Ivory `#F7F6EE`
+(`oklch(97.2% 0.011 101)`, warm) against Porcelain Mist `#F5F8F7` (`oklch(97.7% 0.004 195)`, cool). So
+`--bg` is **absent** from the `.login-wrap` scope now rather than set to the app's value: the screen
+*follows* `:root`, and moves with the app if that ground ever moves again. Pinning it back is what
+would silently re-split the two screens, and the harness asserts its absence for that reason.
+
+**The ribbons went with it.** On Ivory the Sage / Pale Jade / Champagne Gold wash read as depth; on
+Porcelain Mist it read as a second colour, which is the opposite of what sharing a ground is for. The
+`::before` and the `login-drift` animation are both deleted.
+
+That retires the layer this session started by fixing — so **`verify-mobile-fit.cjs` § 1 was rewritten
+to guard the rule instead of the ribbons**: if a decorative full-bleed layer is ever added here again
+(a login palette is still outstanding) it must be `position: fixed`, and the overflow contract on
+`.login-wrap` is asserted unconditionally either way. The section would otherwise have quietly passed
+forever by checking an element that no longer exists. Measured after the change: `scrollWidth ===
+clientWidth` and `scrollHeight === clientHeight` on a 390×844 phone — the drag this session opened with
+is now impossible by construction rather than by correction.
+
 ### 3e · The icon gets its frame
 
 *"icon ใช้อันนี้."* The approved artwork puts an **Ivory ring between a Pale Jade ground and the jade
