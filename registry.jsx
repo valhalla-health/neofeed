@@ -314,7 +314,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                 <span style={{ color: last ? deltaColor : "var(--ink-3)" }}>
                   <span className="pmc-lbl">Δ</span>
                   {last
-                    ? <><span className="num">{delta >= 0 ? "+" : ""}{delta}</span> g ({deltaPct.toFixed(1)}%)</>
+                    ? <><span className="num">{delta >= 0 ? "+" : ""}{delta}</span> g ({D_R.displayNum(deltaPct, 1)}%)</>
                     : <span className="num">—</span>}
                 </span>
                 {/* Today's entry, stated outright rather than as a quiet grey
@@ -461,7 +461,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                   <td className="num" style={{ color: !last ? "var(--ink-3)" : deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)", fontWeight: 600 }}>
                     {last ? <>
                       {delta >= 0 ? "+" : ""}{delta} g
-                      <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({deltaPct.toFixed(1)}%)</span>
+                      <span style={{ fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 }}>({D_R.displayNum(deltaPct, 1)}%)</span>
                     </> : "—"}
                   </td>
                   <td>

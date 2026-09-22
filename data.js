@@ -615,6 +615,13 @@ const KCMH_STOCK = {
 const MAX_DEXTROSE_G_KG = 18;
 // Max K concentration in the finished bag (G25 = prepared mL × 40 ÷ 1000) — mEq/L
 const MAX_K_MEQ_PER_L = 40;
+// Ceilings the KCMH TPN team quoted for K⁺ concentration by route (2026-09-22,
+// with a "?"). Shown beside MAX_K_MEQ_PER_L for reference only: the stop stays
+// at 40 mEq/L on both routes (Praew, 2026-09-22).
+const K_REF_MEQ_PER_L = { peripheral: 60, central: 200 };
+// Total elemental zinc reaching the infant per day — Peditrace plus ZnSO₄ —
+// above which an order is a critical alert (KCMH TPN team, 2026-09-22).
+const MAX_ZN_MG_DAY = 5;
 // Display-only conversion, not a compounding divisor (KCMH_STOCK's mgso4_10/50
 // stay the mL authority): elemental Mg, MW 24.305 g/mol ÷ valence 2 = mg per mEq.
 // Lets the Mg input (dosed in mEq/kg/d, matching the stock's mEq/mL) also show
@@ -626,6 +633,22 @@ const MG_MG_PER_MEQ = 12.1525;
 // from yesterday, so MEN still ticked above this is a warning (never a stop):
 // the feed was probably advanced and the tick left on (Praew, 2026-09-18).
 const MEN_MAX_ML_KG = 24;
+
+// ── Numbers a person reads ────────────────────────────────────
+// Every figure on a screen, the pharmacy form or a copied order goes through
+// here: at most `maxDecimals`, and never a trailing zero — "18.0" can be read
+// as 180 (Praew, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; the ISMP rule). Display
+// only: saved rows keep full precision. Rounds half away from zero, as
+// toFixed does. Takes numbers or numeric strings (GAS returns both);
+// null, "", NaN and ±Infinity print "—".
+function displayNum(value, maxDecimals = 2) {
+  if (value === null || value === undefined || value === "") return "—";
+  const x = Number(value);
+  if (!isFinite(x)) return "—";
+  const p = Math.pow(10, maxDecimals);
+  const r = Math.sign(x) * Math.round(Math.abs(x) * p) / p;
+  return String(r === 0 ? 0 : r);   // never "-0"
+}
 
 // ── Traffic-light status helper ───────────────────────────────
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
@@ -1580,9 +1603,9 @@ window.NEOFEED_DATA = {
   // Patient data (mock — replace with GAS fetch)
   MOCK_PATIENTS, MOCK_DAILY_LOG,
   // Utility functions
-  rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg,
+  rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg, displayNum,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, K_REF_MEQ_PER_L, MAX_ZN_MG_DAY, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
   // Provenance — which constants and which frontend produced a printed number.

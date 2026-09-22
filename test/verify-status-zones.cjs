@@ -155,6 +155,7 @@ console.log('\n── § 2 each bar is tiled exactly, and red means a hard limit
 const HARD = {                                          // where red must start, as % of the bar
   'GIR (readout)': 13 / 16 * 100,                       // Praew: red above 13
   'Protein': 4.8 / 5.5 * 100,
+  'K⁺ in bag': 40 / 80 * 100,                           // the worksheet's stop (D.MAX_K_MEQ_PER_L)
 };
 for (const { name, container } of mounted) {
   for (const r of readings(container)) {
@@ -184,6 +185,23 @@ for (const { name, container } of mounted) {
   ok('peripheral osmolarity: green to 850, yellow to 900, red beyond',
     osm && osm.zones.map((x) => x.s).join(' ') === 'ok warn crit' &&
     Math.abs(osm.zones[1].from - 850 / 1100 * 100) < 1e-3, osm && osm.zones);
+}
+
+// The same claim at the source, so a tile added later cannot slip past the
+// three orders above: a status graded with a hard limit must reach the tile's
+// bar as its statusAt. (The IV-portion checks, hardLip/hardK/hardNPE, raise
+// alerts and colour no tile, so they are not in scope.)
+{
+  const src = lf(fs.readFileSync(DIR + 'calculator.jsx', 'utf8'));
+  const tiles = [...src.matchAll(/<Tile\b[^>]*\/>/g)].map((m) => m[0]);
+  const direct = [...src.matchAll(/const (s\w+) = D\.rangeStatus\([^;\n]*\{\s*hard/g)].map((m) => m[1]);
+  const bare = direct.filter((n) => tiles.some((t) => t.includes(`status={${n}}`)));
+  ok('no tile is graded with a hard limit its bar does not draw', bare.length === 0, bare);
+  const fns = [...src.matchAll(/const (\w+StatusAt) = \(v\) =>/g)].map((m) => m[1]);
+  ok('every tile grading function reaches a bar as its statusAt',
+    fns.length >= 5 && fns.every((f) => src.includes(`statusAt={${f}}`)), fns);
+  const withHard = tiles.filter((t) => /status=\{(sPro|sKConc)\}/.test(t));
+  ok('…the protein and K⁺-in-bag tiles among them', withHard.length === 2 && withHard.every((t) => /statusAt=\{\w+StatusAt\}/.test(t)), withHard);
 }
 
 // ── § 3 · no needle where there is no reading ──────────────────────────────

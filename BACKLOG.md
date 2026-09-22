@@ -32,6 +32,16 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🩺 **safety · Before the 2026-09-22 TPN-team frontend ships, tell pharmacy and the TPN team what
+      changed** (`CHANGELOG.md` 2026-09-22, "The TPN team's feedback"). **Praew's to do.**
+      - The printed order is now **two sheets, for double-sided printing**. The front is the KCMH paper
+        form's layout, with one row per product. The back is the compounding detail: Factor, stock mL, WFI.
+      - The new **ZnSO₄ line is elemental zinc**, mg/kg/d. **Ask pharmacy whether the paper form's
+        "ZnSO₄ … mg" means elemental Zn too**: a salt figure is about 4.4× higher. Also ask which ZnSO₄
+        stock they add. With its mg Zn/mL, the form could print the mL and count it in the WFI.
+      - MgSO₄'s in-bag mL now names its vial (10%/50%).
+      - **Answers for the team.** GIR uses the delivered rate: Volume ÷ 24 is the Rate box, and dead space
+        is not in it. MEN was not reproduced; ask for a screenshot of the number they saw move.
 - [ ] 🩺 **safety · Tell pharmacy: the pharmacy form changed on 2026-09-18 at 11:17 ICT** (PR #77,
       `STATUS.md`). Every new NICU/SCN TPN order starts with 30 mL dead space and prints PREPARED
       figures, and Soluvit and Peditrace are × Factor, so on an overfilled bag their printed mL (and the
@@ -194,6 +204,14 @@ clinical judgement. Everything else is engineering sequencing.
         typed like Urine output / Drain?
       - A feeds-only day still prints a TPN form. Since 2026-09-18 it no longer lists vitamin mL or a
         negative WFI for the bag that does not exist. Should a TPN form print at all with no TPN?
+- [ ] 🩺 **safety · Questions left by the 2026-09-22 TPN-team release — Praew's**
+      - **Lipid rate ceiling.** The pump card now shows g/kg/h, with no limit on it. Sources give 0.125–0.17
+        g/kg/h; should NeoFeed warn above one?
+      - **K⁺ route ceilings.** The team's "peripheral 60 / central 200 mEq/L" print for reference, with no
+        source named. Ask for one, or drop them.
+      - **Glycophos mL on a phone.** Under 768 px the shell's mobile CSS hides the Step 4 per-day column,
+        which holds the new "= X mL/d"; the line under the chips still gives mL/kg/d and the bag mL. PR #87
+        is reworking the phone layout.
 - [ ] 🩺 **safety · Decisions from the 2026-09-18 ward requests — Praew's** (`CHANGELOG.md` 2026-09-18 (2)).
       - **Which day ends "the first days of life"?** Step 4 switches Ca and P to the growing-preterm ranges
         after DOL 1 (`TPN_TARGETS.ca/p`), but Mg (and Na) after DOL 2. On DOL 2 the new Magnesium tile
@@ -227,6 +245,10 @@ clinical judgement. Everything else is engineering sequencing.
         can offer it.
 - [ ] 🧱 **follow-ups · From the 2026-09-18 pre-deploy review** (`CHANGELOG.md` 2026-09-18 (2) §6) —
       engineering, low risk, not blocking.
+      - **Center Point, since the 2026-09-22 TPN-team release.** CP's `neofeed-tpn-v2` packet has no
+        ZnSO₄ slot, so the CP entry does not offer ZnSO₄. CP's sheet (`tpn-document.mjs`, digest-pinned)
+        still prints its own one-page layout and its own number formats, trailing zeros included. Bring
+        both in with the next packet version.
       - **Center Point's packet cannot say a feed is MEN.** A CP order with a MEN feed prints its planned
         enteral volume, but "energy incl. EN" is TPN-only, and the EN Ca/P slots read "—". `calc.isMEN`
         reaches `buildTpn`, which drops it. The fix is a MEN slot (packet schema bump) or relabelled slots,
