@@ -13,6 +13,71 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 — Luminous Protection: NeoFeed moves onto the Valhalla brand sheet
+
+Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s
+numbers are untouched, and all 48 harnesses pass against both the sources and `compiled/`.
+
+**The request** (Praew, 2026-09-22): the login screen loses "Nutrition insight for brighter beginnings"
+and the "สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla" button, gains the Valhalla logo and environment; then —
+*"ปรับให้ neofeed ใช้ palette นี้ เพื่อความสงบ เรียบหรู รักษาระดับโลก quiet guardian."*
+
+**What the palette is.** Brand Handbook v1.1 § 11, "Luminous Protection": Ivory #F7F6EE, Pale Jade
+#E4EDE0, Celadon #C9DCCB, Sage #B9CCB4, Forest #284C40, Champagne Gold #C5A46D. Converted to oklch the
+same way #81 converted the teal sheet a day earlier — the space the shells are written in — so every
+tint, hover and hairline is derived by moving L/C along the sheet's own hues. The handbook's contrast
+table reproduces to ±0.02 with the same maths, which is what made it safe to derive the rest.
+
+**Six colours, and not one of them is a status colour — so the clinical ones did not move.** crit,
+warn, ok and info are byte-identical to before, for the second release running. The sheet itself
+separates status from brand (§ 11), the palette contains no red and no amber, and severity at a
+bedside is a mapping the ward has already learned. Re-hueing it to match a brand would be a clinical
+change wearing a design change's clothes. Brand green never means "normal"; nothing green is a status.
+
+**What moved.** The `:root` brand half was rewritten — surfaces (Ivory ground, Pale Jade second plane,
+Celadon lines), four ink tiers re-solved on Forest, the brand ramp centred on Forest, and Nordic Sand
+replaced by Champagne Gold. Every text tier was solved against the background it actually lands on, not
+chosen by eye, and the ratios inline were recomputed rather than carried over: ink 14.98 / ink-2 8.51 /
+ink-3 5.51 on white, and the dimmed ink-4 was solved on Pale Jade (3.04) — the worst ground it sits on —
+so the new `--bg-2` could not quietly regress it. `--brand` is Forest, which carries white text and is
+legible as text itself at 9.57:1 in both directions; one token is both the primary button and the accent.
+
+Outside `:root`, 51 literals followed — the alpha variants and SVG presentation attributes that `var()`
+cannot reach. They were migrated by an explicit old→new table with every change printed for review, not
+by search/replace, which § 15 warns against. Three sets were deliberately left alone: the clinical
+status hues, the categorical chart-series hues (re-hueing six data series into one green family is
+exactly the "ไล่เฉดหลายชุดจนแยกยาก" § 11 rules out), and the printed pharmacy order form, which is ink on
+paper rather than a brand surface.
+
+**Champagne Gold is decorative only**, as § 11 requires: 2.17:1 on Ivory and 1.39:1 on Sage, so it fails
+AA as text on every light ground in this palette. It appears once on screen — the 40px hairline under the
+NeoFeed wordmark. That rule used to hang off `.login-eyebrow::before` and would have been deleted with the
+eyebrow; it moved to `.login-app-name::after`, same place on screen, now owned by the element it belongs to.
+
+**Login screen.** The eyebrow and the contact button are gone, and with them `CONTACT_MAILTO`, whose only
+caller was that button. In their place, the endorsed-brand lockup of § 07: the Guardian V above
+"by Valhalla Health", 12px under a 58px wordmark, no border and no button affordance — a signature, not a
+call to action, because the handbook's rule is that the endorsement never outranks the app name.
+
+**The Guardian V is matted, not traced.** § 10 forbids taking geometry from a mockup and § 01 lists the
+vector master as outstanding, so the mark was keyed out of the handbook's own proportion study by alpha
+coverage — the flat Ivory ground and flat Forest mark make that mechanical, and the ✓ notch falls out as
+transparency for free. It is used at 34px, above the 32px floor § 10 sets, where the notch is still
+legible. **It is a raster stand-in: replace `icons/valhalla-guardian-v.png` with the SVG master when it exists.**
+
+**One deliberate departure from the handbook, flagged rather than buried.** § 07 says NeoFeed keeps its
+teal for familiarity. It no longer does: the N+dot geometry is untouched, but its colour follows the
+palette, here and in the re-rendered app icons (Forest gradient, Sage counter-dot, white stroke at 5.85:1
+on the lightest end). With the whole app in the green family a teal mark was the single element left
+outside it. Praew's instruction is newer than § 07 and she owns the brand, but the pair is a two-line
+revert (`--brand` in the shells, `icons/icon.svg`) if § 07 is meant to win.
+
+`theme-color` and the manifest follow (Forest, Ivory background, so a PWA launch no longer flashes the old
+teal). Checked in real Chromium at 430px and 1440px: login, ward gate, registry, and the calculator's
+densest screen, where the status colours still separate cleanly from the new ground.
+
+---
+
 ## Session 2026-09-21 — Quick calc: the same calculator, on a typed weight, saving nothing
 
 Frontend only (`app.jsx`, `calculator.jsx`, both shells, `test/verify-quick-calc.cjs`,

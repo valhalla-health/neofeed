@@ -334,7 +334,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
           <div style={{
             width:34, height:34, borderRadius:9, display:"grid", placeItems:"center",
             background:"linear-gradient(145deg, var(--brand-3) 0%, var(--brand) 55%, var(--brand-ink) 100%)",
-            boxShadow:"inset 0 -2px 0 oklch(28% 0.05 203 / .45), 0 2px 8px oklch(46.3% 0.074 201 / .28)",
+            boxShadow:"inset 0 -2px 0 oklch(26.8% 0.030 170 / .45), 0 2px 8px oklch(38.5% 0.047 170 / .28)",
           }}>
             <svg viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="#fff"
               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1076,7 +1076,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Removed 2026-09-11 (review C5); the default accent it always resolved to
   // stays.
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
+    document.documentElement.style.setProperty("--brand", `oklch(38.5% 0.047 170)`);
   }, []);
 
   // ── Shared GAS write helper ───────────────────────────────────
@@ -2362,18 +2362,6 @@ function AlertCenter({ patient, log, onAckChange }) {
 //   Default : Google Sign-In (Gmail / Google Workspace)
 //   Toggle  : email + password for non-Google domains
 // ============================================================
-const CONTACT_MAILTO = "mailto:Valhalla.team.th@gmail.com"
-  + "?subject=" + encodeURIComponent("สนใจใช้งาน NeoFeed")
-  + "&body=" + encodeURIComponent(
-      "สวัสดีครับ/ค่ะ ทีม Valhalla Health\n\n"
-    + "โรงพยาบาล / หน่วยงาน: \n"
-    + "ชื่อผู้ติดต่อ: \n"
-    + "เบอร์โทรศัพท์: \n"
-    + "อีเมล: \n\n"
-    + "สนใจเกี่ยวกับ: NeoFeed — ระบบคำนวณโภชนาการทารกแรกเกิด (NICU)\n\n"
-    + "ขอบคุณครับ/ค่ะ"
-  );
-
 // ============================================================
 // ChangePasswordModal
 // ============================================================
@@ -2543,7 +2531,6 @@ function LoginScreen({ onLogin, notice = null }) {
       </div>
 
       <div className="login-app-name">Neo<span className="lw">Feed</span></div>
-      <div className="login-eyebrow">Nutrition insight for brighter beginnings</div>
       <div className="login-tagline">Neonatal nutrition,<br />calculated precisely</div>
 
       {/* Why this screen is showing, when the user did not ask for it: idle
@@ -2635,17 +2622,25 @@ function LoginScreen({ onLogin, notice = null }) {
 
       {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}>⚠️ {error}</div>}
 
-      {/* Contact + version footer */}
+      {/* Valhalla endorsement + version.
+          The endorsed-brand lockup from the Brand Handbook § 07: the product
+          name is what someone is looking for, so NeoFeed stays the hero at
+          58px and "by Valhalla Health" sits quietly under the form — the
+          handbook's own rule is that the endorsement must never outrank the
+          app name.
+          The Guardian V is the selected Exploration B mark, matted out of the
+          handbook's own proportion study rather than redrawn: § 10 forbids
+          taking geometry from a mockup, so nothing here is traced. It is a
+          raster stand-in until the vector master exists (§ 01 lists it as
+          outstanding), which is why it is used at 34px — comfortably above
+          the 32px floor § 10 sets for the symbol, where the ✓ notch is still
+          legible. Swap in the SVG master when it lands. */}
       <div className="login-contact">
-        <a className="login-contact-link" href={CONTACT_MAILTO}>
-          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="4" width="16" height="13" rx="2"/>
-            <path d="M2 7l8 5 8-5"/>
-          </svg>
-          สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla
-        </a>
-        <div className="login-footer">VALHALLA&nbsp;HEALTH &nbsp;·&nbsp; V2.0</div>
+        <div className="login-endorse">
+          <img src="icons/valhalla-guardian-v.png" alt="" width="34" height="25" />
+          <span>by Valhalla&nbsp;Health</span>
+        </div>
+        <div className="login-footer">V2.0</div>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -3319,11 +3314,11 @@ function toastHost() {
 function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
-  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
+  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26.8% 0.030 170)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur    = type === "error" ? 4200 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue('--toast-bottom').trim() || '24px';
-  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(26.8% 0.030 170 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {

@@ -214,7 +214,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
     display: "grid",
     placeItems: "center",
     background: "linear-gradient(145deg, var(--brand-3) 0%, var(--brand) 55%, var(--brand-ink) 100%)",
-    boxShadow: "inset 0 -2px 0 oklch(28% 0.05 203 / .45), 0 2px 8px oklch(46.3% 0.074 201 / .28)"
+    boxShadow: "inset 0 -2px 0 oklch(26.8% 0.030 170 / .45), 0 2px 8px oklch(38.5% 0.047 170 / .28)"
   } }, /* @__PURE__ */ React.createElement(
     "svg",
     {
@@ -628,7 +628,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }, []);
   const [pendingOpen, setPendingOpen] = React.useState(null);
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
+    document.documentElement.style.setProperty("--brand", `oklch(38.5% 0.047 170)`);
   }, []);
   const gasPost = React.useCallback(async (payload, { quiet = false } = {}) => {
     if (!GAS_ON) return { ok: true };
@@ -1400,9 +1400,6 @@ function AlertCenter({ patient, log, onAckChange }) {
     return /* @__PURE__ */ React.createElement("div", { key: ackKeyFor(a), className: `alert-row ${a.level}`, style: ackedAt ? { opacity: 0.5 } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "ico" }, a.level === "crit" ? "!" : a.level === "warn" ? "!" : "i"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { className: "title" }, a.title), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)" }, className: "mono" }, "DOL ", a.dol)), /* @__PURE__ */ React.createElement("div", { className: "body" }, a.body), /* @__PURE__ */ React.createElement("div", { className: "meta" }, "Ref: ", a.ref)), ackedAt ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, color: "var(--ok)" }), " Acknowledged") : /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: () => acknowledge(a) }, "Acknowledge"));
   }))));
 }
-const CONTACT_MAILTO = "mailto:Valhalla.team.th@gmail.com?subject=" + encodeURIComponent("สนใจใช้งาน NeoFeed") + "&body=" + encodeURIComponent(
-  "สวัสดีครับ/ค่ะ ทีม Valhalla Health\n\nโรงพยาบาล / หน่วยงาน: \nชื่อผู้ติดต่อ: \nเบอร์โทรศัพท์: \nอีเมล: \n\nสนใจเกี่ยวกับ: NeoFeed — ระบบคำนวณโภชนาการทารกแรกเกิด (NICU)\n\nขอบคุณครับ/ค่ะ"
-);
 const MIN_PASSWORD_LENGTH = 10;
 function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
   const [oldPwd, setOldPwd] = React.useState("");
@@ -1539,7 +1536,7 @@ function LoginScreen({ onLogin, notice = null }) {
     },
     /* @__PURE__ */ React.createElement("path", { d: "M9 27 V 9 L 27 27 V 9" }),
     /* @__PURE__ */ React.createElement("circle", { cx: "27", cy: "9", r: "3.1", stroke: "none", style: { fill: "var(--brand-3)" } })
-  )), /* @__PURE__ */ React.createElement("div", { className: "login-app-name" }, "Neo", /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")), /* @__PURE__ */ React.createElement("div", { className: "login-eyebrow" }, "Nutrition insight for brighter beginnings"), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
+  )), /* @__PURE__ */ React.createElement("div", { className: "login-app-name" }, "Neo", /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
     width: "100%",
     maxWidth: 320,
     boxSizing: "border-box",
@@ -1644,21 +1641,7 @@ function LoginScreen({ onLogin, notice = null }) {
       marginRight: 8,
       verticalAlign: "middle"
     } }), "กำลังตรวจสอบ...") : "เข้าสู่ระบบ"
-  ))), error && /* @__PURE__ */ React.createElement("div", { className: "login-error", style: { maxWidth: 320, width: "100%" } }, "⚠️ ", error), /* @__PURE__ */ React.createElement("div", { className: "login-contact" }, /* @__PURE__ */ React.createElement("a", { className: "login-contact-link", href: CONTACT_MAILTO }, /* @__PURE__ */ React.createElement(
-    "svg",
-    {
-      width: "13",
-      height: "13",
-      viewBox: "0 0 20 20",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "1.8",
-      strokeLinecap: "round",
-      strokeLinejoin: "round"
-    },
-    /* @__PURE__ */ React.createElement("rect", { x: "2", y: "4", width: "16", height: "13", rx: "2" }),
-    /* @__PURE__ */ React.createElement("path", { d: "M2 7l8 5 8-5" })
-  ), "สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla"), /* @__PURE__ */ React.createElement("div", { className: "login-footer" }, "VALHALLA HEALTH  ·  V2.0")), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
+  ))), error && /* @__PURE__ */ React.createElement("div", { className: "login-error", style: { maxWidth: 320, width: "100%" } }, "⚠️ ", error), /* @__PURE__ */ React.createElement("div", { className: "login-contact" }, /* @__PURE__ */ React.createElement("div", { className: "login-endorse" }, /* @__PURE__ */ React.createElement("img", { src: "icons/valhalla-guardian-v.png", alt: "", width: "34", height: "25" }), /* @__PURE__ */ React.createElement("span", null, "by Valhalla Health")), /* @__PURE__ */ React.createElement("div", { className: "login-footer" }, "V2.0")), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
 }
 function AdminDashboard({ patients, log, lastSync, includeArchived = false, onToggleArchived }) {
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
@@ -1992,11 +1975,11 @@ function toastHost() {
 function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
-  const bg = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
+  const bg = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26.8% 0.030 170)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur = type === "error" ? 4200 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue("--toast-bottom").trim() || "24px";
-  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(26.8% 0.030 170 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {
