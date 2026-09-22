@@ -17,7 +17,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 Frontend only: `calculator.jsx`, `app.jsx`, `registry.jsx`, both shells, `compiled/`, the two maskable icon
 PNGs and `icons/icon.svg`'s note. No backend, no `data.js`, no figure in `calc` and no printed number, so
-`CONSTANTS_VERSION` stays `2026-09-18.1`. **PR #93: open, not merged, not live.**
+`CONSTANTS_VERSION` stays `2026-09-18.1`. Merged into `main` on Praew's instruction ("merge แล้ว deploy")
+and released in its own `main` → `release` PR straight after; the post-release check is a comment on that PR.
 
 ### Why
 

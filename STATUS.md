@@ -55,10 +55,12 @@
   - It is frontend only, with no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-18.1`.
   - ⚠️ **It changes the pharmacy form.** The front is the KCMH paper layout and the back is the
     compounding detail. Pharmacy and the TPN team still need telling (`BACKLOG.md` § Now).
-- ⏳ **PR #93: open, not merged, not live.** The quick-calc button on the Ward page, range bars with
-  green / yellow / red zones, a clearer OK green, amber for over-target fluid and for editing a saved row,
-  a pale-blue card frame, and a smaller N in the Android icon (`CHANGELOG.md` 2026-09-22 (5)). Frontend
-  only, no `clasp` step, `CONSTANTS_VERSION` unchanged. ⚠️ **The Android icon changes again**, and it
+- ⏳ **PR #93: merged into `main` on Praew's instruction ("merge แล้ว deploy"), and released straight after
+  in its own `main` → `release` PR.** The quick-calc button on the Ward page, range bars with green /
+  yellow / red zones, a clearer OK green, amber for over-target fluid and for editing a saved row, a
+  pale-blue card frame, and a smaller N in the Android icon (`CHANGELOG.md` 2026-09-22 (5)). Frontend only,
+  no `clasp` step, `CONSTANTS_VERSION` unchanged. Its post-release check is a comment on that release PR,
+  and this banner catches up in the next PR on the repo. ⚠️ **The Android icon changes again**, and it
   reaches a phone only on a reinstall — as an installed app, not a shortcut.
 - ✅ **Nothing on `main` waits for a release.** #76 and #79, listed here as waiting since 2026-09-19,
   went out with #85, so the reprint risk this line carried is closed: a saved order whose calculation
