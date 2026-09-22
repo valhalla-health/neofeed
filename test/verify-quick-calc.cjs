@@ -275,9 +275,20 @@ ok('the rail and the mobile tab keep the original `calc`',
 ok('the button is labelled Calculator',
   /quick-fab-label">Calculator</.test(fab) && /aria-label="Calculator/.test(fab), fab);
 ok('the view is headed Calculator', /<h1[^>]*>\s*\n?\s*Calculator\n/.test(quickView), quickView.slice(0, 600));
-ok('it is hidden on the calculator and on itself',
-  /view !== "quickcalc" && view !== "calculator" &&\s*\n?\s*<QuickCalcFab/.test(appSrc),
-  /.{0,140}<QuickCalcFab/.exec(appSrc)?.[0]);
+// Praew, 2026-09-22: "calculator ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard
+// เท่านั้น". The button used to ride every view but the two calculators; it is
+// the Dashboard's alone now, and its ← lands back on the Dashboard rather than
+// on whichever page the user happened to open it from. Both halves are pinned,
+// because either one alone is a door that only opens one way.
+ok('the button is on the Dashboard and nowhere else',
+  /\{view === "log" && <QuickCalcFab onClick=\{\(\) => goTo\("quickcalc"\)\} \/>\}/.test(appSrc),
+  /.{0,160}<QuickCalcFab/.exec(appSrc)?.[0]);
+ok('…so it is not on the registry, the growth chart, the alerts or either calculator',
+  !/view !== "quickcalc"/.test(appSrc) && !/setQuickFrom/.test(appSrc) && !/quickFrom/.test(appSrc));
+ok('and ← always hands back to the Dashboard',
+  /<QuickCalcView onBack=\{\(\) => goTo\("log"\)\} \/>/.test(appSrc),
+  /.{0,120}QuickCalcView onBack/.exec(appSrc)?.[0]);
+ok('…and says so on the button', /← กลับไป Dashboard/.test(quickView), quickView.slice(0, 700));
 
 // ── § 6 · calculator.jsx keeps every write behind the scratch flag ─────────
 console.log('\n── § 6 the write paths are guarded in calculator.jsx ──');

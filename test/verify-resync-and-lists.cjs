@@ -117,7 +117,11 @@ const click = async (el) => { await act(async () => { el.dispatchEvent(new windo
   await flush();
   // Since 2026-09-15 the app opens on the ward gate; the patient list is one
   // tap behind it. Pick NICU, where four of the five mock patients live.
-  ok('first load shows the ward gate', /เลือก ward/.test(text()));
+  // The gate's heading became "Ward" on 2026-09-22 (it was "เลือก ward").
+  // Matched on its .ward-gate element rather than on the new label: the
+  // element is what the gate IS, and a negative assertion on a common word
+  // like "Ward" would go quietly false the first time another view used it.
+  ok('first load shows the ward gate', !!document.querySelector('.ward-gate'));
   const pickWard = async (name) => click(
     [...document.querySelectorAll('.ward-tile')].find(t => t.textContent.startsWith(name)));
   await pickWard('NICU');

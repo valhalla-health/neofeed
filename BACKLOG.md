@@ -142,6 +142,26 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] 🎨 **ui · The `search` glyph renders as a bare ring wherever it appears.** The topbar's
+      Switch-patient button, the registry's search field and the empty-state "เลือกผู้ป่วย" button all
+      show an outline circle instead of a magnifier — visible in every screenshot Praew has sent since
+      the teal era, so it predates the palette work. `icons.jsx` lists `search` in `filled`, and its
+      lens and rim subpaths are wound the same way, so under the default nonzero fill-rule the lens
+      fills in and only the rim survives. Exactly the `calc` bug of 2026-09-21, with the same two
+      possible fixes: a stroked sibling used only by these call sites, or `fill-rule="evenodd"` on the
+      shared `<Icon>` — the latter silently redraws nine icons, so it needs a look at all nine first.
+      Raised 2026-09-22 (2); **not** fixed there because it was not what was asked for.
+- [ ] 🎨 **ui · At 280px the calculator's `.two-col` rows are clipped, not scrolled.** ~20px wider than
+      the accordion body's `overflow: hidden` allows, so the content is cut rather than draggable. The
+      Galaxy Z Fold's cover screen is the only device this narrow — below every current iPhone (320) and
+      effectively every Android (360) — so it is logged, not chased. Found while measuring for
+      `verify-mobile-fit.cjs` (2026-09-22 (2)), which passes at 280px precisely because nothing scrolls.
+- [ ] 🎨 **ui · The login screen has no palette of its own yet.** Praew, 2026-09-22: *"เดี๋ยวไปหา
+      palette สีที่เหมาะสมมาก่อน"*. It is on the app's teal sheet for now, with the re-tinted two-tone N.
+      The mechanism for holding it on a different one is written down and was used once: re-declare, on
+      `.login-wrap` itself, the seven tokens the screen consumes (`--bg`, `--brand`, `--brand-4`,
+      `--sand`, `--line`, `--ink-2`, `--ink-3`) — custom properties inherit, so no `.login-*` rule has
+      to name a literal. See `CHANGELOG.md` 2026-09-22 (2) § 4.
 - [ ] 🩺 **safety · `registerPatient` silently overwrites on a colliding `initials+BW` pseudonym.**
       Two different infants sharing initials and birth weight collapse into one record. Needs an
       identity decision before code — a collision suffix changes every `Daily_Log` join.

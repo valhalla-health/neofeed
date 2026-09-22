@@ -13,6 +13,299 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 (2) — Back to Valhalla Teal, the N in the corner, and an app that fits the phone
+
+Presentation and navigation only. No clinical logic, no data model, no backend: `gas-backend.gs`,
+`data.js` and every number in `calculator.jsx`'s `calc` are untouched, and all 48 `verify-*.cjs`
+harnesses pass against both the sources and `compiled/`, plus Center Point's build and its 5 tests.
+
+Four requests from Praew on the ward, in the order they arrived.
+
+### 1 · "ทำไงให้ไม่ต้องเลื่อนตรงขอบ ให้มันfix พอดี. Check กับ mobile ทุกรุ่น ทั้ง apple, android"
+
+Three separate causes, found by measuring in Chromium rather than by reading the CSS — the document
+reported clean at every phone width while the screen she was looking at was 10% too wide.
+
+**The login screen's ribbon layer was the scroll.** `.login-wrap` is `overflow-y: auto`, and CSS does
+not allow a `visible`/non-`visible` overflow pair — the other axis computes to `auto` too, so the
+screen scrolled BOTH ways. Its `::before` (the soft ribbons) was `position: absolute; inset: -10%`,
+and an absolutely-positioned box *is* part of its scroll container's scrollable overflow on the right
+and bottom edges. Measured before the fix: **+39px across and +85px down on a 390×844 phone**, +43/+93
+on a 15 Pro Max, +144/+90 at 1440px — a drag in each direction over nothing at all, on the one screen
+in the app that has nothing to scroll. That is both scrollbars in her screenshot.
+The layer is `position: fixed` now. A fixed box never joins an ancestor scroller's overflow region,
+and `.login-wrap` is itself `position: fixed; inset: 0` with no transform, filter or containment, so
+the ribbons resolve against the very same rectangle: same 10% bleed, same picture, no scroll. The
+wrap also pins `overflow-x: hidden` explicitly rather than inheriting it from the `overflow-y`
+shorthand rule.
+
+**`100vw` sheets.** The mobile picker and modal were `width: 100vw`. vw counts the classic-scrollbar
+gutter, so anywhere one is drawn — an Android tablet with a mouse, a desktop window at phone width,
+some webviews — the sheet is wider than the viewport it sits in and the page gains exactly that much
+sideways drag. Both backdrops are `position: fixed; inset: 0`, so `100%` is the visible width, which
+is what was meant all along. `92vw` → `92%` on the desktop sizes for the same reason.
+
+**The left and right safe areas had never been done.** The shell has set `viewport-fit=cover` since
+the PWA work, so the page is drawn *under* the notch and the home indicator. Bottom insets were
+handled (bottom nav, sheets, toasts, the floating button); left and right never were — so on every
+notched iPhone in landscape, and on the curved-edge Androids, the topbar, the workspace and the tab
+bar ran under the cutout. `.topbar`, `.work-inner` (all three of its rules), `.bottom-nav` and
+`.quick-fab` now carry them. `max(design, env(…))` everywhere the design padding has to survive a
+phone with no notch; `.bottom-nav` takes the raw `env()` deliberately, because its tabs are `flex: 1`
+and a minimum there would narrow every tap target on every device to protect a cutout that is not
+present.
+
+**`test/verify-mobile-fit.cjs`** (139 assertions) pins all three. Sections 1-3 are static and run in
+CI; section 4 drives real Chromium at nine device sizes from the 280px Fold cover to the iPad mini,
+twice — once as-is, once with every `env(safe-area-inset-*)` substituted for a literal 44px — and
+asserts that no box on either screen can be dragged sideways, that the login scroller's height never
+exceeds its real content, and that the four chrome elements sit *inside* a 44px notch. CI installs no
+browser, so section 4 degrades to a notice, like `verify-sync-gate-and-poll.cjs`. Reverting the
+`::before` to `absolute` fails it eight times, in both halves — checked, because a regression test
+that cannot fail is not one.
+
+### 2 · "calculator ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard เท่านั้น"
+
+The quick-calc button is **kept** — only where it appears changed. It used to ride every view but the
+two calculators, which put a second, unsaveable calculator in the corner of the patient registry, the
+growth chart and the alert list: five chances to reach for the scratchpad when the order screen was
+meant. It is the Dashboard's alone now, and its ← lands back on the Dashboard rather than on whichever
+page it was opened from — one page in, one page out, so the button is never a door that only opens one
+way. `quickFrom` went with it. The button reads ← กลับไป Dashboard so the destination is on the
+control. Which page counted as "หน้าแรก" was put to Praew rather than guessed; she chose Dashboard.
+
+### 3 · "Logo icon N ให้ใช้ใน app ด้วย มุมซ้ายบน ... ให้แทนn+dot เก่าทุกอัน" — then the wordmark instead
+
+The two-tone N reached the app icons and the login wordmark on 2026-09-22; the topbar and `SyncGate`
+were still each drawing their own stroked N+dot by hand, and those were the last two copies of it
+anywhere. They first became the icon tile — and then, on her look at it, **the wordmark**: *"ส่วนบน
+ซ้ายในหน้า dashboard ... ให้เอา NeoFeed ที่แก้แล้วนี้ไปใส่ ไม่ต้องใส่ icon"*.
+
+So there is now **one `<NeoFeedWordmark/>` with three call sites** — the login hero, the topbar corner
+and the sync gate — carrying `icons/icon.svg`'s two paths and four stops character for character. The
+icon *tile* is drawn by nothing inside the app any more, which is the right answer for it: it is the
+home-screen and favicon artwork, and an app that shows you its own launcher icon in its own toolbar
+is showing you something you pressed to get there. All the wordmark's sizing lives in one CSS rule and
+is in `em`, so a call site sets `font-size` and nothing else (58px login, 19px topbar, 17px on a phone,
+23px on the sync gate). The topbar sizes up two points from the old text because the tile used to carry
+half that corner's weight.
+
+**"Feed" is as dark as the N now.** *"ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ"* — at the light weight and
+`--brand` it read a whole step paler than the bold "Neo" beside it. It takes `--brand-ink`: Midnight
+Teal, which is exactly the stop the N's own body gradient ends on, so "as dark as the dark part of the
+N" is a token reference rather than a literal matched by eye, and the two move together if the sheet
+moves again. The harness asserts both halves of that — the rule, and that the token really is the
+master's dark stop.
+
+`verify-neofeed-mark.cjs` was rewritten around the single component and now asserts, as its point, that
+**no N+dot is left in `app.jsx` at all**, that there is exactly one wordmark in the file rather than
+three copies, and that no component draws the tile. One consequence worth knowing: the literal string
+"NeoFeed" is no longer in the topbar's DOM text — the N is a glyph, so the text is "eoFeed" and the
+product name lives in `aria-label`. `verify-review-0917-session.cjs` § 9.3 had been reading "the shell
+is still rendered" off that string and now reads it off the wordmark's accessible name, which is the
+same claim and also holds that the name is announced.
+
+### 3b · The login background never changed
+
+*"เดิมหน้า login มันมีไล่เชดสีที่ background ด้วย อยากได้สีเดิมเลย."* Measured rather than argued: with
+the content hidden and the drift animation frozen, the ribbons render **pixel-identical** to
+`e39f66b~1` at all nine sample points (top/mid/bottom × left/centre/right) — the gradient *is* the
+original, restored in § 4 below. What left the screen was the **104px teal logo tile** the wordmark
+replaced on 2026-09-22 (`a15a554`): its own three-stop gradient plus a 24px/56px soft shadow was most
+of what read as "ไล่เชดสี" on that ground. Raised for her to call rather than guessed at.
+
+### 3c · The ward gate says "Ward"
+
+*"เปลี่ยนคำว่า เลือก ward เป็น Ward แล้วให้สีเป็นเขียวเข้ม."* The heading is `Ward`.
+
+The colour lasted one round. It went to `--brand-ink` (Midnight Teal, the dark the wordmark's "Feed"
+and the N's body gradient end on) and came straight back on sight — *"กลับไปใช้อันเดิม อันเข้มขึ้น
+ไม่สวย."* It reads badly for a reason worth keeping: a brand-toned heading sits **directly above the
+brand-toned NICU/SCN tile titles**, so the whole column became one flat block of the same colour and
+the page lost the thing a heading is for. The page wants exactly one accent and the tiles already
+have it. The wordmark's "Feed" is a different case and stays dark — it is *inside* a lockup whose N
+ends on that exact colour, with nothing else near it competing.
+
+**Nine harnesses were reading "เลือก ward" as their marker for "the ward gate is on screen"**, in
+`verify-review-0917-session.cjs` (×5), `-sync`, `-resync-and-lists`, `-registry-logged-today`,
+`-forced-password-client`, `-sync-gate-and-poll` (×2) and the Chromium `runthrough-app.cjs`. All of
+them now match the gate's own `.ward-gate` element instead. That is not a mechanical rename: two of
+those assertions are **negative** ("no ward gate behind the error screen"), and a negative match on a
+word as common as "Ward" goes quietly false the first time another view uses it. The element is what
+the gate *is*; the label is what it happens to say.
+
+### 3d · The mark goes back to green, and the app's accent follows it
+
+Two more passes the same day, and the second is the interesting one.
+
+**The mark.** *"ขอกลับไปใช้ NeoFeed และหน้า login เดิม สีนี้"* — the teal re-tint of § 4 lasted hours.
+`icons/icon.svg`, the seven PNGs and `<NeoFeedWordmark/>` are back on the brand board's own colours
+(tile `#D3E3D3`, body Forest `#335A4A` → `#284C40`, stem Sage `#99B29C` → `#799781`), and the login
+screen is back on Luminous Protection — scoped, as before, by re-declaring on `.login-wrap` the seven
+tokens that screen consumes, so `:root` can stay whatever the app needs. **Every colour in the
+wordmark is a literal now rather than a token**, including its text: a mark is not a UI colour, and a
+token there is exactly what carried it off the board the first time. "Feed" needs no colour of its own
+again — it inherits Forest, which *is* the N's dark stop, so the earlier *"feed สีเข้มเท่า N"* holds by
+construction. It needed a separate `--brand-ink` only while the mark was teal, whose accent is the
+letter's **top** stop rather than its bottom.
+
+**The accent.** *"ถ้าส่วนเนื้อหาด้านใน ใช้สีนี้ แทน valhalla teal แทนเท่านั้น / logo บนซ้ายก็ใช้ green
+wordmark เหมือนหน้า login."* The app's `--brand` ramp is now § 11's Forest ramp — so the logo in the
+corner and the buttons under it are one colour — **and nothing else moved**. That last part is the
+whole design:
+
+> The full-green sheet failed nine hours earlier because the ground, the structure *and* the accent
+> were one hue family, leaving nothing to separate them with. This is the opposite arrangement: a
+> green accent on a Porcelain-Mist ground, with teal-leaning charcoal ink and neutral hairlines.
+> Same green, opposite result — `"แทนเท่านั้น"` is load-bearing, and the `:root` comment says so,
+> because the obvious tidy-up later is to make the surfaces match the accent, which is precisely
+> the failure.
+
+**Moved:** the 8 `--brand-*` tokens, `--ring` (literally Valhalla Teal), the four brand-alpha shadows
+`var()` cannot reach, `app.jsx`'s runtime `--brand` override, the Fenton percentile bands and the
+Energy trend line. **Not moved:** every surface, ink tier and hairline; all three clinical status
+colours (third release running); and the categorical CHO/protein/fat series, because one hue family
+across six series is the thing § 11 rules out.
+
+`verify-neofeed-mark.cjs` gained four assertions for exactly this separation: that the app's accent is
+the mark's Forest, that its **ground and ink did not follow it into the green family**, and that the
+login scope still differs from `:root` where it must (Ivory vs Porcelain Mist, Champagne Gold vs
+Nordic Sand). If those ever collapse into one value, the scope has stopped doing anything and the
+login screen has silently rejoined the app's palette.
+
+### 3g · …and loses it again: just the N, on the app's ground
+
+*"icon เอาแค่ตัว N แล้วพื้นหลังขาว น่าจะเข้ากับสีด้านในมากกว่า? / หรือเอาสีพื้นหลังเท่า dashboard."*
+Rendered rather than argued, as with the login ground: three grounds shown **where an icon is actually
+seen** — a light home screen, a dark one, and a 16px browser tab — because on a white documentation page
+all three look fine and the differences that matter are invisible.
+
+**The frame from § 3e lasted one look.** The tab column is what settled it: at 16px the Ivory ring turned
+to mush and, worse, squeezed the letter down with it. Dropping it lets the letter grow from **47% of the
+square to 54%**, and that is where the whole difference shows.
+
+**The ground is Porcelain Mist `#F5F8F7`, not white** — byte for byte the value `:root` gives the page
+background. White looked identical at icon size, so the choice cost nothing and this way the icon is the
+app's colour rather than a colour that resembles it. The same reasoning as § 3f, one layer out.
+
+Flagged when the options were shown, since it is the one thing given up: a near-white icon loses its edge
+against a pale home-screen wallpaper, where the Pale Jade ground had one. Accepted knowingly.
+
+**The three-way icon split of § 3e collapsed back to two** — with no ring to strip, `maskable` and `apple`
+are the same render. `kind` still names all three because the maskable pair carries one assertion the
+others do not: Android's 80%-diameter safe zone. At scale 1.4 the letter's furthest ink sits at **38.3%**
+of the width, inside the 40% limit — measured, and the check was proved live by re-rendering at scale 1.9
+and watching it fail at 98 px against a 77 px limit.
+
+**Two harness repairs that were not tolerance bumps.** The census bucketed the ground with `g - r >= 8`,
+a hue test that worked while the ground was a jade; Porcelain Mist has `g - r` of 3, so that test would
+have read the whole icon as "no ground" and still passed the ≥40% ratio check **vacuously**. It matches
+the ground's actual value by proximity now. And the `no white` assertion — which existed to prove the old
+white-stroked N was gone — had to go entirely: the ground is itself near-white, so it would have counted
+the whole tile and failed for the wrong reason. That claim is made at the SVG level instead, where it is
+exact: no `<circle>`, no stroke, and no N+dot path anywhere in `app.jsx`.
+
+One more thing the tooling caught: **an XML comment may not contain a double hyphen**, and the note
+explaining the ground named the `--bg` token. The SVG failed to decode until it was written out longhand.
+
+### 3f · The login screen takes the app's ground, and the ribbons go
+
+Asked as a question — *"ถ้า background หน้า login เหมือนสีเหมือนใน dashboard จะเป็นอย่างไร show me"* —
+so it was **rendered rather than described**: three variants side by side against the dashboard itself,
+with nothing committed until one was chosen. Praew picked **C**.
+
+The two grounds were nearly the same lightness and differed only in temperature — Ivory `#F7F6EE`
+(`oklch(97.2% 0.011 101)`, warm) against Porcelain Mist `#F5F8F7` (`oklch(97.7% 0.004 195)`, cool). So
+`--bg` is **absent** from the `.login-wrap` scope now rather than set to the app's value: the screen
+*follows* `:root`, and moves with the app if that ground ever moves again. Pinning it back is what
+would silently re-split the two screens, and the harness asserts its absence for that reason.
+
+**The ribbons went with it.** On Ivory the Sage / Pale Jade / Champagne Gold wash read as depth; on
+Porcelain Mist it read as a second colour, which is the opposite of what sharing a ground is for. The
+`::before` and the `login-drift` animation are both deleted.
+
+That retires the layer this session started by fixing — so **`verify-mobile-fit.cjs` § 1 was rewritten
+to guard the rule instead of the ribbons**: if a decorative full-bleed layer is ever added here again
+(a login palette is still outstanding) it must be `position: fixed`, and the overflow contract on
+`.login-wrap` is asserted unconditionally either way. The section would otherwise have quietly passed
+forever by checking an element that no longer exists. Measured after the change: `scrollWidth ===
+clientWidth` and `scrollHeight === clientHeight` on a 390×844 phone — the drag this session opened with
+is now impossible by construction rather than by correction.
+
+### 3e · The icon gets its frame  *(superseded the same day — see § 3g)*
+
+*"icon ใช้อันนี้."* The approved artwork puts an **Ivory ring between a Pale Jade ground and the jade
+tile**, so `icons/icon.svg` is three concentric rects now instead of one. Measured off that artwork as
+fractions of the square: the ring's outer box is inset 7%, the ring is 6.4% thick, and the letter is
+47% of the square — smaller than the 64% it was on the unframed tile, because the frame takes the room.
+
+**The letter itself did not change**, and could not: those two paths are the wordmark's too, pinned
+character for character by the harness. Only the `<g transform>` that places them inside the tile moved.
+
+**The frame forced the icon set to split three ways, not two.** It was "any" vs full-bleed; it is now:
+
+| variant | what it carries | why |
+|---|---|---|
+| `any` (favicons, 192, 512) | the full design, own rounded corners | what a browser tab and the PWA "any" slot show |
+| `apple` (apple-touch) | full design, **ground** squared off | iOS crops the whole square with a radius close to the master's, so the frame survives as a frame |
+| `maskable` (192, 512) | **no frame** — tile colour + letter | Android crops to a circle *well inside* the square, which turned the ring into a **crescent fragment** at the edge. Caught by rendering the real circular mask, not by reasoning about it |
+
+Only the ground rect carries `id="nf-ground"`, because the renderer squares off exactly that one — give
+the ring or the tile an id and a bleed render would flatten the frame.
+
+`verify-neofeed-mark.cjs` gained eight assertions: the three rects and their colours, that only the
+ground is named, that the **Ivory ring is present on every `any`/`apple` PNG and absent from both
+maskable ones**, and that the letter stays inside Android's 80%-diameter safe zone. The ring assertions
+were checked by re-rendering a maskable icon *with* the frame — it fails, twice.
+
+### 4 · "สีข้างในมันกลืนกันไปหน่อย ไม่โอเค — ย้ายกลับไปใช้สีในรุ่นก่อน ที่เป็นสีขาวฟ้า"
+
+The Luminous Protection green of the entry above lasted a day: on the ward the app read as one flat
+wash, which is the failure mode of a palette whose ground, structure and accent are all one hue
+family. It is back on the **Valhalla Teal sheet** (#81, the version immediately before the green) —
+Porcelain Mist ground, Valhalla Teal accent, Midnight Teal ink — reverted through the same discipline
+the green commit used going the other way: an explicit green→teal table, every entry asserted to hit
+an exact count, never a search/replace. `:root` was taken verbatim from `e39f66b~1`, so every token
+*name* the green session introduced survives and nothing downstream had to move. The theme-color meta
+and the manifest's two colours went with it.
+
+The clinical status colours did not move, for the third release running. crit/warn/ok are what
+severity is read off at a bedside.
+
+**The login screen and the mark took two passes.** First "ส่วนหน้า login คงไว้ก่อน เดี๋ยวไปหา palette
+สีที่เหมาะสมมาก่อน" — held green by re-declaring, on `.login-wrap` itself, exactly the seven tokens
+that screen consumes. Then "ดึงสี background เดิมมาใช้ก่อน / ส่วน logo กับชื่อ NeoFeed ลองใช้ logo ที่
+ทำใหม่ แต่ใช้ palette สี valhalla teal": the scoped block came out, the ribbons went back to Sea
+Glass over Mineral Mist with the one Nordic Sand breath, and **the mark itself was re-tinted** — the
+brand board's geometry, the teal sheet's colours.
+
+Those colours were derived, not picked. Each part of the letter keeps the *lightness* the board drew
+it at and takes the sheet's hue and chroma, so every contrast inside the mark survives the move:
+body-on-tile 5.50 and 9.38 (green: 5.81 / 7.14), light stem on tile 1.70 (1.71), its darker foot 2.38
+(2.39), and the slit between stem and body 3.23 (3.41). Where the sheet has a named colour it is used
+literally — tile Mineral Mist #D5ECEA, body Valhalla Teal #12656A → Midnight Teal #103F43, stem Sea
+Glass #78BFC0 — and only the stem's foot (#5BA2A3) is derived, because the sheet has nothing at that
+lightness. `icons/icon.svg` is still the single master: the seven PNGs were re-rendered from it in
+Chromium through a canvas, so the antialiased fringe outside a 16px rounded tile snaps to a true
+transparent and `verify-neofeed-mark.cjs`'s `corner === 0` stays exact rather than being relaxed to
+fit a new renderer.
+
+### Not fixed, and visible in every screenshot
+
+The `search` glyph renders as a bare ring — in the topbar's Switch-patient button, in the registry's
+search field, and on the empty-state "เลือกผู้ป่วย" button. `icons.jsx` lists `search` in `filled`,
+and its two subpaths are wound the same way, so under the default nonzero fill-rule the lens fills in
+and only the rim survives. It is the same class of bug as the `calc` glyph on 2026-09-21, and the same
+fix shape (a `fill-rule="evenodd"`, or a stroked sibling). Not touched here because it was not asked
+for and `fill-rule` on the shared `<Icon>` would silently redraw nine icons — raised for Praew to call.
+
+At 280px (the Galaxy Z Fold's cover screen, below every current iPhone and effectively every Android)
+the calculator's `.two-col` rows are ~20px wider than the accordion body clips them to. Nothing
+scrolls — the content is cut, not dragged — so it is outside what was reported, and logged rather than
+chased.
+
+---
+
 ## Session 2026-09-22 — Luminous Protection: NeoFeed moves onto the Valhalla brand sheet
 
 Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s
