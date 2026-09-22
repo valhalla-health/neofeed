@@ -13,6 +13,52 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 (3) — A merge into `main` says it is not live, and a release proves what it serves
+
+Docs and `tools/` only: nothing the hosts serve changes, and no backend.
+
+### Why
+
+PR #87 was merged into `main` at 20:39 ICT. Later that evening Praew opened the app, saw the old
+screens and asked *"PR 87 ของ NeoFeed live หรือยังนะ ทำไมเข้ายังเหมือนเดิม"*. Nothing was broken. Both
+hosts serve `release` (since 2026-09-12), the last release was #85 at 17:39 ICT, and nobody had opened
+a `main → release` PR. #87 said "not a deploy" inside the PR, but not in the chat where she would see
+it. On her instruction it went out as #88 at 21:15 ICT, verified on both hosts at 21:16 ICT (comment
+on #88).
+
+### What changed
+
+1. **The rule** (`REFERENCE.md` § Frontend, and one paragraph in `STATUS.md` § Release-branch deploy
+   gate; the NeoFeed `CLAUDE.md` outside this repo carries it for local sessions): whoever merges into
+   `main` opens the release PR in the same session and reports "merged, not live". "merge แล้ว deploy"
+   does both steps. A plain "merge" still stops at `main`, which is how PRs are batched into one release.
+2. **`tools/verify-release.mjs`**, the post-release check as one command. On both hosts it compares
+   every file the app loads, plus `manifest.json`, `moved.html` and `icons/`, byte for byte with git at
+   the release commit, checks each `?v=` token against its file's hash, and on Cloudflare checks the
+   CSP's `script-src`. Node rather than bash: `.gitattributes` protects only `compiled/` and `vendor/`,
+   so a `.sh` checked out on Windows gets CRLF and breaks. Proven both ways before it was trusted:
+   0 failures against `edbd11f`, and against the previous release `066528d` exactly #87's 15 files on
+   each host, including `manifest.json`, whose size did not change.
+3. **`REFERENCE.md` "Proving what a release serves"** points at the script. Its CSP line said to look
+   for no `'unsafe-inline'`, but `style-src` carries `'unsafe-inline'` on purpose, for the shell's own
+   `<style>` block. The rule is about `script-src`.
+4. **`STATUS.md` caught up by two releases:** #85 (17:39 ICT, `066528d`), never recorded there, and
+   #88. Its facts table still showed backend `@55`, the `@55` clasp mirror and `96afcd0`'s tokens.
+   `BACKLOG.md`'s bedside-session item now names `edbd11f` and its `appVersion` stamp.
+
+### Found on the way
+
+- The first manual check tripped twice on the checker, not the site: Cloudflare answers `/moved.html`
+  with a 307 to `/moved`, and a CSP match on the whole header caught `style-src`.
+- One `fetch failed` on GitHub Pages did not recur in nine more requests. The script retries a dropped
+  connection or a 5xx twice, and never a 4xx or a byte mismatch.
+- #85 has no post-release check on record. The 21:16 ICT check covers every file it shipped.
+- A desktop Chromium at 390×844 loaded the live app without signing in: the login screen rendered under
+  the CSP with nothing to drag sideways, and `appVersion()` matched `STATUS.md`. Still not a phone, and
+  still nobody signed in.
+
+---
+
 ## Session 2026-09-22 (2) — Back to Valhalla Teal, the N in the corner, and an app that fits the phone
 
 Presentation and navigation only. No clinical logic, no data model, no backend: `gas-backend.gs`,
