@@ -134,6 +134,45 @@ those assertions are **negative** ("no ward gate behind the error screen"), and 
 word as common as "Ward" goes quietly false the first time another view uses it. The element is what
 the gate *is*; the label is what it happens to say.
 
+### 3d · The mark goes back to green, and the app's accent follows it
+
+Two more passes the same day, and the second is the interesting one.
+
+**The mark.** *"ขอกลับไปใช้ NeoFeed และหน้า login เดิม สีนี้"* — the teal re-tint of § 4 lasted hours.
+`icons/icon.svg`, the seven PNGs and `<NeoFeedWordmark/>` are back on the brand board's own colours
+(tile `#D3E3D3`, body Forest `#335A4A` → `#284C40`, stem Sage `#99B29C` → `#799781`), and the login
+screen is back on Luminous Protection — scoped, as before, by re-declaring on `.login-wrap` the seven
+tokens that screen consumes, so `:root` can stay whatever the app needs. **Every colour in the
+wordmark is a literal now rather than a token**, including its text: a mark is not a UI colour, and a
+token there is exactly what carried it off the board the first time. "Feed" needs no colour of its own
+again — it inherits Forest, which *is* the N's dark stop, so the earlier *"feed สีเข้มเท่า N"* holds by
+construction. It needed a separate `--brand-ink` only while the mark was teal, whose accent is the
+letter's **top** stop rather than its bottom.
+
+**The accent.** *"ถ้าส่วนเนื้อหาด้านใน ใช้สีนี้ แทน valhalla teal แทนเท่านั้น / logo บนซ้ายก็ใช้ green
+wordmark เหมือนหน้า login."* The app's `--brand` ramp is now § 11's Forest ramp — so the logo in the
+corner and the buttons under it are one colour — **and nothing else moved**. That last part is the
+whole design:
+
+> The full-green sheet failed nine hours earlier because the ground, the structure *and* the accent
+> were one hue family, leaving nothing to separate them with. This is the opposite arrangement: a
+> green accent on a Porcelain-Mist ground, with teal-leaning charcoal ink and neutral hairlines.
+> Same green, opposite result — `"แทนเท่านั้น"` is load-bearing, and the `:root` comment says so,
+> because the obvious tidy-up later is to make the surfaces match the accent, which is precisely
+> the failure.
+
+**Moved:** the 8 `--brand-*` tokens, `--ring` (literally Valhalla Teal), the four brand-alpha shadows
+`var()` cannot reach, `app.jsx`'s runtime `--brand` override, the Fenton percentile bands and the
+Energy trend line. **Not moved:** every surface, ink tier and hairline; all three clinical status
+colours (third release running); and the categorical CHO/protein/fat series, because one hue family
+across six series is the thing § 11 rules out.
+
+`verify-neofeed-mark.cjs` gained four assertions for exactly this separation: that the app's accent is
+the mark's Forest, that its **ground and ink did not follow it into the green family**, and that the
+login scope still differs from `:root` where it must (Ivory vs Porcelain Mist, Champagne Gold vs
+Nordic Sand). If those ever collapse into one value, the scope has stopped doing anything and the
+login screen has silently rejoined the app's palette.
+
 ### 4 · "สีข้างในมันกลืนกันไปหน่อย ไม่โอเค — ย้ายกลับไปใช้สีในรุ่นก่อน ที่เป็นสีขาวฟ้า"
 
 The Luminous Protection green of the entry above lasted a day: on the ward the app read as one flat
