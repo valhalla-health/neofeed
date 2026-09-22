@@ -31,7 +31,11 @@ function ok(name, cond, detail) {
   cond ? pass++ : fail++;
 }
 
-// The icon's tile: the jade the brand board draws it on.
+// The icon's ground: Porcelain Mist, the app's OWN page background, byte for
+// byte the value :root gives --bg. Praew, 2026-09-22, choosing from three
+// grounds rendered on a light home screen, a dark one and a browser tab
+// ("icon เอาแค่ตัว N ... หรือเอาสีพื้นหลังเท่า dashboard"). Not white: white
+// looked identical at icon size and would only have resembled the app.
 //
 // THE MARK DOES NOT FOLLOW THE APP'S PALETTE. It was re-tinted into the
 // Valhalla Teal sheet when the app moved back to teal, and Praew put it
@@ -39,7 +43,7 @@ function ok(name, cond, detail) {
 // and the login screen are the board's green while the workspace is teal, on
 // purpose, and every colour in the mark is a LITERAL so the next palette move
 // cannot carry it off again.
-const TILE_RGB = [0xD3, 0xE3, 0xD3];
+const GROUND_RGB = [0xF5, 0xF8, 0xF7];
 
 // ── the master ────────────────────────────────────────────────────────────
 console.log('\n── icons/icon.svg — the master ──');
@@ -48,27 +52,21 @@ const paths = [...svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(m => m[1]);
 ok('no counter-dot', !/<circle\b/.test(svg));
 ok('no stroked N — the letter is filled shapes now', !/\bstroke(-width)?=/.test(svg));
 ok('exactly two shapes: the dark body and the light left stem', paths.length === 2, paths.length);
-ok('the tile is the approved jade', new RegExp(`<rect\\b[^>]*fill="#${TILE_RGB.map(c => c.toString(16).padStart(2, '0')).join('')}"`, 'i').test(svg));
+ok('the ground is Porcelain Mist, the app\'s own page background',
+  new RegExp(`<rect\\b[^>]*fill="#${GROUND_RGB.map(c => c.toString(16).padStart(2, '0')).join('')}"`, 'i').test(svg));
 ok('the body is Forest, shading onto Forest itself', /stop-color="#335A4A"/i.test(svg) && /stop-color="#284C40"/i.test(svg));
 ok('the left stem is Sage, falling to a darker Sage', /stop-color="#99B29C"/i.test(svg) && /stop-color="#799781"/i.test(svg));
-ok('no teal left from the app\'s sheet', !/#12656A|#103F43|#78BFC0|#5BA2A3|#D5ECEA/i.test(svg));
+ok('no teal left from the app\'s old sheet', !/#12656A|#103F43|#78BFC0|#5BA2A3|#D5ECEA/i.test(svg));
 
-// The frame Praew approved on 2026-09-22 ("icon ใช้อันนี้"): three concentric
-// rects, Pale Jade ground → Ivory ring → jade tile, in that order. The ground
-// carries the id because the renderer targets it by name — it is the only rect
-// that loses its corners on a full-bleed variant.
+// NO FRAME. An Ivory ring on a Pale Jade ground lasted one look: at 16px it
+// turned to mush and squeezed the letter down with it. One rect now — the
+// ground — and the renderer squares off its corners for the full-bleed
+// variants, which is why it is the only one that carries an id.
 const rects = [...svg.matchAll(/<rect\b([^>]*)>/g)].map(m => m[1]);
-ok('three concentric rects: ground, ring, tile', rects.length === 3, rects.length);
-ok('…the ground is Pale Jade, full square, and is the one the renderer names',
-  /id="nf-ground"/.test(rects[0]) && /width="256"/.test(rects[0])
-  && /fill="#E4EDE0"/i.test(rects[0]) && /rx="56"/.test(rects[0]), rects[0]);
-ok('…the ring is Ivory, inset 7%, and keeps its own corners',
-  /x="18"[^>]*y="18"/.test(rects[1]) && /fill="#F7F6EE"/i.test(rects[1])
-  && /rx="/.test(rects[1]) && !/id=/.test(rects[1]), rects[1]);
-ok('…the tile sits inside the ring', /x="34"[^>]*y="34"/.test(rects[2])
-  && /fill="#D3E3D3"/i.test(rects[2]), rects[2]);
-ok('only the ground is named, so a bleed render cannot square off the frame',
-  (svg.match(/id="nf-ground"/g) || []).length === 1);
+ok('exactly one rect: the ground, no ring and no inner tile', rects.length === 1, rects.length);
+ok('…and it is the one the renderer names', /id="nf-ground"/.test(rects[0]) && /rx="56"/.test(rects[0]), rects[0]);
+ok('no Ivory or Pale Jade left — the frame is gone from the master',
+  !/#F7F6EE|#E4EDE0|#D3E3D3/i.test(svg), (/#(F7F6EE|E4EDE0|D3E3D3)/i.exec(svg) || [''])[0]);
 
 // ── the seven PNGs ────────────────────────────────────────────────────────
 // A minimal PNG reader: 8-bit, non-interlaced, RGB / RGBA / palette.
@@ -116,13 +114,22 @@ function decodePng(file) {
   return { w, h, px: out };
 }
 
-// Opaque pixels only, sorted into the mark's three colours (plus white, which
-// the mark never uses and the old white-stroked N was made of).
-// `g > r` is the cool-family test that survived the green→teal move; the old
-// classifier also required `g > b`, which is a GREEN test — teal's blue channel
-// is the equal or larger of the two, so every pixel fell through it.
+// Opaque pixels sorted into the ground and the letter's two tones.
+//
+// The ground is matched by PROXIMITY to its actual value, not by a hue test.
+// It used to be a jade, caught by `g - r >= 8`; Porcelain Mist is a near-white
+// with g-r of 3, so that test would have read the whole icon as "no ground" and
+// still passed the ratio check vacuously. Proximity says what is meant.
+//
+// There is no `white` bucket any more either. It existed to prove the old
+// white-stroked N was gone — but the ground is itself near-white now, so the
+// check would count the whole tile and fail for the wrong reason. That claim is
+// made at the SVG level instead, where it is exact: no <circle>, no stroke, and
+// no N+dot path anywhere in app.jsx.
 function census({ w, h, px }) {
-  const k = { forest: [], sage: [], jade: 0, white: 0, ivory: 0, opaque: 0, markR: 0 };
+  const k = { forest: [], sage: [], ground: 0, opaque: 0, markR: 0 };
+  const nearGround = (r, g, b) => Math.abs(r - GROUND_RGB[0]) <= 6
+    && Math.abs(g - GROUND_RGB[1]) <= 6 && Math.abs(b - GROUND_RGB[2]) <= 6;
   const freq = new Map();
   const cx = (w - 1) / 2, cy = (h - 1) / 2;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -130,13 +137,9 @@ function census({ w, h, px }) {
     if (a < 250) continue;
     k.opaque++;
     const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    if (r > 240 && g > 240 && b > 240) k.white++;
+    if (nearGround(r, g, b)) k.ground++;
     else if (L < 110 && g > r) k.forest.push(x);
     else if (L < 195 && g > r) k.sage.push(x);
-    else if (g - r >= 8) k.jade++;
-    // Ivory #F7F6EE — the ring. It is deliberately in no other bucket: it is
-    // not white (b is 238), and g-r is negative so it is not jade either.
-    if (Math.abs(r - 0xF7) <= 7 && Math.abs(g - 0xF6) <= 7 && Math.abs(b - 0xEE) <= 7) k.ivory++;
     // How far the LETTER reaches from the centre, for the maskable safe zone.
     if (L < 195 && g > r) k.markR = Math.max(k.markR, Math.hypot(x - cx, y - cy));
     const key = (r >> 2) << 16 | (g >> 2) << 8 | (b >> 2);
@@ -144,17 +147,17 @@ function census({ w, h, px }) {
   }
   const top = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
   k.mode = [(top >> 16) << 2, ((top >> 8) & 255) << 2, (top & 255) << 2];
+  k.groundPct = k.ground / k.opaque;
   return k;
 }
 const mean = (xs) => xs.reduce((s, v) => s + v, 0) / xs.length;
 const near = (c, want, tol) => c.every((v, i) => Math.abs(v - want[i]) <= tol);
 
-// [file, size, kind] — three variants from the one master:
-//   any      — the full design on its own rounded corners, transparent outside
-//   apple    — the full design, ground squared off; iOS crops the whole square
-//   maskable — NO FRAME. Android crops to a circle well inside the square,
-//              which turns a decorative ring into a crescent at the edge, so
-//              these carry the tile colour and the letter alone.
+// [file, size, kind] — with no frame left there are two shapes, not three:
+//   any              — the master's own rounded corners, transparent outside
+//   apple / maskable — ground squared off; the platform draws the shape.
+// `kind` still names all three because the maskable pair carries one extra
+// assertion the others do not: Android's safe zone.
 const PNGS = [
   ['icons/favicon-16.png', 16, 'any'],
   ['icons/favicon-32.png', 32, 'any'],
@@ -173,18 +176,9 @@ for (const [file, size, kind] of PNGS) {
   const k = census(img);
   const corner = img.px[3];
   ok(bleed ? 'full-bleed: the corner is opaque' : 'its own rounded corners: the corner is transparent', bleed ? corner === 255 : corner === 0, corner);
-  ok('no white — the old N was a white stroke', k.white === 0, k.white);
-  ok('the tile is the approved jade', near(k.mode, TILE_RGB, 6), k.mode);
-  ok('the tile is the ground, not the mark (tile ≥ 40% of the icon)', k.jade / k.opaque >= 0.4, +(k.jade / k.opaque).toFixed(3));
+  ok('the ground is Porcelain Mist', near(k.mode, GROUND_RGB, 6), k.mode);
+  ok('…and it IS the ground, not the mark (≥ 40% of the icon)', k.groundPct >= 0.4, +k.groundPct.toFixed(3));
   ok('the dark body is present, and not the whole tile (5–40%)', k.forest.length / k.opaque >= 0.05 && k.forest.length / k.opaque <= 0.4, +(k.forest.length / k.opaque).toFixed(3));
-  // The frame, and the one variant that must not have it.
-  if (size >= 32) {
-    const ivoryPct = k.ivory / k.opaque;
-    if (kind === 'maskable')
-      ok('no Ivory ring — a circular mask would crop it to a crescent', ivoryPct < 0.01, +ivoryPct.toFixed(4));
-    else
-      ok('the Ivory ring is present', ivoryPct >= 0.04, +ivoryPct.toFixed(4));
-  }
   if (kind === 'maskable') {
     // Android's safe zone is the central 80% DIAMETER, i.e. radius 40% of the
     // width. Anything of the letter outside it can be cropped by a mask.

@@ -1,26 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- NeoFeed's app icon: the brand board's two-tone N on a framed jade tile.
-       Praew, 2026-09-22 ("icon ใช้อันนี้").
+  <!-- NeoFeed's app icon: the brand board's two-tone N, and nothing else.
+       Praew, 2026-09-22 ("icon เอาแค่ตัว N ... หรือเอาสีพื้นหลังเท่า dashboard"),
+       choosing from three grounds rendered on a light home screen, a dark one
+       and a browser tab.
 
-       THE LETTER IS UNCHANGED and is the same two paths the wordmark draws —
-       a Sage left stem, the diagonal and right stem in Forest, a slit between
-       them. It is not traced from any mockup; it is built from the approved
-       icon's measured proportions (stems 28% of the letter's height, a
-       parallel-edged diagonal, 4.8% outer corners), and test/verify-neofeed-
-       mark.cjs pins that app.jsx carries these exact path strings.
+       THE GROUND IS THE APP'S OWN, Porcelain Mist #F5F8F7 — byte for byte the
+       value that :root gives the page background, so the icon and the app
+       behind it are one colour. It is NOT white by coincidence: white looked
+       identical at icon size and would have been a colour that merely
+       resembled the app's. (Written out rather than named, because an XML
+       comment may not contain a double hyphen and the token's name has one.)
 
-       WHAT IS NEW IS THE FRAME: an Ivory ring between a Pale Jade ground and
-       the jade tile, which is what the approved artwork puts around the
-       letter. Three concentric rects, measured off that artwork as fractions
-       of the square: the ring's outer box is inset 7%, the ring is 6.4% thick,
-       and the letter is 47% of the square, centred — it sits smaller than it
-       did on the unframed tile because the frame takes the room.
+       NO FRAME. An Ivory ring on a Pale Jade ground lasted one look: at 16px
+       in a browser tab the ring turned to mush and squeezed the letter down
+       with it. Dropping it lets the letter grow from 47% of the square to 54%,
+       which is where the whole difference shows.
 
-       The ground is the ONLY rect whose rx the renderer strips for the
-       full-bleed (maskable / Apple) variants — the ring and the tile keep
-       their corners, or the frame stops being a frame. Every PNG in icons/ is
-       rendered from this file; change it and re-render, or the harness fails
-       on whichever half did not move. -->
+       The letter is unchanged and is the same two paths the wordmark draws —
+       a Sage left stem, the diagonal and right stem in Forest, a slit between.
+       Not traced from a mockup: built from the approved icon's measured
+       proportions (stems 28% of the letter's height, a parallel-edged
+       diagonal, 4.8% outer corners). test/verify-neofeed-mark.cjs pins that
+       app.jsx carries these exact path strings.
+
+       At scale 1.4 the letter's furthest ink sits 38.3% of the width from the
+       centre, inside Android's 40% maskable safe zone — the harness measures
+       that rather than trusting it. The ground is the only rect, and the
+       renderer squares off its corners for the full-bleed variants.
+       Every PNG in icons/ is rendered from this file. -->
   <defs>
     <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
       <stop offset="0" stop-color="#335A4A"/>
@@ -31,10 +38,8 @@
       <stop offset="1" stop-color="#799781"/>
     </linearGradient>
   </defs>
-  <rect id="nf-ground" width="256" height="256" rx="56" fill="#E4EDE0"/>
-  <rect x="18" y="18" width="220" height="220" rx="50" fill="#F7F6EE"/>
-  <rect x="34" y="34" width="188" height="188" rx="38" fill="#D3E3D3"/>
-  <g transform="translate(68 67) scale(1.224)">
+  <rect id="nf-ground" width="256" height="256" rx="56" fill="#F5F8F7"/>
+  <g transform="translate(59.4 58) scale(1.4)">
     <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z"/>
     <path fill="url(#nf-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z"/>
   </g>

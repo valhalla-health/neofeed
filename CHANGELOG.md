@@ -173,6 +173,41 @@ login scope still differs from `:root` where it must (Ivory vs Porcelain Mist, C
 Nordic Sand). If those ever collapse into one value, the scope has stopped doing anything and the
 login screen has silently rejoined the app's palette.
 
+### 3g · …and loses it again: just the N, on the app's ground
+
+*"icon เอาแค่ตัว N แล้วพื้นหลังขาว น่าจะเข้ากับสีด้านในมากกว่า? / หรือเอาสีพื้นหลังเท่า dashboard."*
+Rendered rather than argued, as with the login ground: three grounds shown **where an icon is actually
+seen** — a light home screen, a dark one, and a 16px browser tab — because on a white documentation page
+all three look fine and the differences that matter are invisible.
+
+**The frame from § 3e lasted one look.** The tab column is what settled it: at 16px the Ivory ring turned
+to mush and, worse, squeezed the letter down with it. Dropping it lets the letter grow from **47% of the
+square to 54%**, and that is where the whole difference shows.
+
+**The ground is Porcelain Mist `#F5F8F7`, not white** — byte for byte the value `:root` gives the page
+background. White looked identical at icon size, so the choice cost nothing and this way the icon is the
+app's colour rather than a colour that resembles it. The same reasoning as § 3f, one layer out.
+
+Flagged when the options were shown, since it is the one thing given up: a near-white icon loses its edge
+against a pale home-screen wallpaper, where the Pale Jade ground had one. Accepted knowingly.
+
+**The three-way icon split of § 3e collapsed back to two** — with no ring to strip, `maskable` and `apple`
+are the same render. `kind` still names all three because the maskable pair carries one assertion the
+others do not: Android's 80%-diameter safe zone. At scale 1.4 the letter's furthest ink sits at **38.3%**
+of the width, inside the 40% limit — measured, and the check was proved live by re-rendering at scale 1.9
+and watching it fail at 98 px against a 77 px limit.
+
+**Two harness repairs that were not tolerance bumps.** The census bucketed the ground with `g - r >= 8`,
+a hue test that worked while the ground was a jade; Porcelain Mist has `g - r` of 3, so that test would
+have read the whole icon as "no ground" and still passed the ≥40% ratio check **vacuously**. It matches
+the ground's actual value by proximity now. And the `no white` assertion — which existed to prove the old
+white-stroked N was gone — had to go entirely: the ground is itself near-white, so it would have counted
+the whole tile and failed for the wrong reason. That claim is made at the SVG level instead, where it is
+exact: no `<circle>`, no stroke, and no N+dot path anywhere in `app.jsx`.
+
+One more thing the tooling caught: **an XML comment may not contain a double hyphen**, and the note
+explaining the ground named the `--bg` token. The SVG failed to decode until it was written out longhand.
+
 ### 3f · The login screen takes the app's ground, and the ribbons go
 
 Asked as a question — *"ถ้า background หน้า login เหมือนสีเหมือนใน dashboard จะเป็นอย่างไร show me"* —
@@ -197,7 +232,7 @@ forever by checking an element that no longer exists. Measured after the change:
 clientWidth` and `scrollHeight === clientHeight` on a 390×844 phone — the drag this session opened with
 is now impossible by construction rather than by correction.
 
-### 3e · The icon gets its frame
+### 3e · The icon gets its frame  *(superseded the same day — see § 3g)*
 
 *"icon ใช้อันนี้."* The approved artwork puts an **Ivory ring between a Pale Jade ground and the jade
 tile**, so `icons/icon.svg` is three concentric rects now instead of one. Measured off that artwork as
