@@ -26,7 +26,8 @@
   (2) §6), and PR #79 the harness flake fix. Until that release, the live frontend reprints an order
   saved before 11:17 ICT on 2026-09-18 with #77's figures (e.g. Soluvit 1.8 mL where it printed 1.5),
   under the same entry id and revision.
-- ⏳ **Backend, waiting for merge and then one `clasp` deploy on Praew's go-ahead:** PR #84 (2026-09-22),
+- ⏳ **Backend, merged into `main` on Praew's instruction; one `clasp` deploy follows, also on her
+  instruction:** PR #84 (2026-09-22),
   two backend changes (`CHANGELOG.md`, both 2026-09-22 entries). Every Chula Google Workspace domain signs
   in with Google and gets no NeoFeed password, and the temp-password gate follows how a session signed in
   rather than its domain. Every backend write to a Staff row's password columns now drops `verifyToken`'s
