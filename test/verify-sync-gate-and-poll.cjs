@@ -99,7 +99,7 @@ async function measureInChromium() {
   <div class="topbar"><div class="brandmark"><div class="logo">N</div></div><div class="spacer"></div></div>
   ${withBanner ? '<div role="status" style="padding:8px 14px;font-size:12.5px;background:var(--warn-bg)">ข้อมูลไม่เป็นปัจจุบัน</div>' : ''}
   <nav class="rail"><div class="rail-item">Patients</div></nav>
-  <main class="work"><div class="work-inner">เลือก ward</div></main>
+  <main class="work"><div class="work-inner">Ward</div></main>
   <div id="toast-host"></div>
 </div></div></body></html>`;
 
@@ -256,7 +256,11 @@ const setOnline = (v) => Object.defineProperty(window.navigator, 'onLine',
   console.warn = realWarn;
   ok('gate still up after the first sync fails', /เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ/.test(text()));
   ok('…and the empty-registry message is NOT shown', !/ยังไม่มีผู้ป่วยในระบบ/.test(text()));
-  ok('…and no ward gate / workspace behind it', !/เลือก ward/.test(text()));
+  // The gate's heading became "Ward" on 2026-09-22 (it was "เลือก ward").
+  // Matched on its .ward-gate element rather than on the new label: the
+  // element is what the gate IS, and a negative assertion on a common word
+  // like "Ward" would go quietly false the first time another view used it.
+  ok('…and no ward gate / workspace behind it', !document.querySelector('.ward-gate'));
   ok('a retry control is offered', /ลองใหม่/.test(text()));
 
   console.log('\n── #2b retry re-issues the sync and lets the app through ──');
@@ -265,7 +269,7 @@ const setOnline = (v) => Object.defineProperty(window.navigator, 'onLine',
   await click([...document.querySelectorAll('button')].find(b => /ลองใหม่/.test(b.textContent)));
   await flush();
   eq('retry issued exactly one more request', syncCalls - before, 1);
-  ok('app is through the gate', /เลือก ward/.test(text()));
+  ok('app is through the gate', !!document.querySelector('.ward-gate'));
 
   // ══ 3. The background poll ═══════════════════════════════════════════════
   console.log('\n── #3 a visible tab re-syncs on its own ──');

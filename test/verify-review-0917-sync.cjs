@@ -145,7 +145,8 @@ const scenarios = {
     const t = boot();
     t.quiet();
     await t.start();
-    A.ok('4.0 the first sync succeeded', /เลือก ward/.test(t.text()));
+    // Heading became "Ward" on 2026-09-22 — match the element, not the label.
+    A.ok('4.0 the first sync succeeded', !!document.querySelector('.ward-gate'));
     t.server.hooks.getActivePatients = () => ({ html: true });
     t.clock.advance(5 * 60000);                  // the poll is due
     const n0 = t.syncCalls().length;

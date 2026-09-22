@@ -114,6 +114,20 @@ original, restored in § 4 below. What left the screen was the **104px teal logo
 replaced on 2026-09-22 (`a15a554`): its own three-stop gradient plus a 24px/56px soft shadow was most
 of what read as "ไล่เชดสี" on that ground. Raised for her to call rather than guessed at.
 
+### 3c · The ward gate says "Ward"
+
+*"เปลี่ยนคำว่า เลือก ward เป็น Ward แล้วให้สีเป็นเขียวเข้ม."* The heading is `Ward` in
+`--brand-ink` — Midnight Teal, the same dark the wordmark's "Feed" and the N's body gradient end on,
+so the app has one dark rather than a second one matched by eye.
+
+**Nine harnesses were reading "เลือก ward" as their marker for "the ward gate is on screen"**, in
+`verify-review-0917-session.cjs` (×5), `-sync`, `-resync-and-lists`, `-registry-logged-today`,
+`-forced-password-client`, `-sync-gate-and-poll` (×2) and the Chromium `runthrough-app.cjs`. All of
+them now match the gate's own `.ward-gate` element instead. That is not a mechanical rename: two of
+those assertions are **negative** ("no ward gate behind the error screen"), and a negative match on a
+word as common as "Ward" goes quietly false the first time another view uses it. The element is what
+the gate *is*; the label is what it happens to say.
+
 ### 4 · "สีข้างในมันกลืนกันไปหน่อย ไม่โอเค — ย้ายกลับไปใช้สีในรุ่นก่อน ที่เป็นสีขาวฟ้า"
 
 The Luminous Protection green of the entry above lasted a day: on the ward the app read as one flat

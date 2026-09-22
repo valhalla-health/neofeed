@@ -186,7 +186,7 @@ async function measureInChromium() {
     <div class="topbar"><div class="brandmark"><div class="logo"></div><div class="name">NeoFeed</div></div>
       <button class="switch-patient"><span class="sp-label">Switch patient</span></button><div class="spacer"></div></div>
     <nav class="rail"><div class="rail-item">Patients</div></nav>
-    <main class="work"><div class="work-inner"><h1>เลือก ward</h1>
+    <main class="work"><div class="work-inner"><h1>Ward</h1>
       <div class="card"><div class="card-h">NICU</div><div class="card-b">NICU 1–12 · iso 1–3</div></div></div></main>
     <button class="quick-fab"><span class="quick-fab-label">Calculator</span></button>
     <nav class="bottom-nav">${['Patients','Dashboard','Calc','Growth','Alerts']

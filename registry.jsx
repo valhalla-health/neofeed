@@ -96,7 +96,12 @@ function WardGate({ patients, log, today, onPick }) {
     <>
       <div className="page-head" style={{ marginBottom: 16 }}>
         <div>
-          <h1>เลือก ward</h1>
+          {/* "Ward", in the brand's dark tone rather than body ink (Praew,
+              2026-09-22: "เปลี่ยนคำว่า เลือก ward เป็น Ward แล้วให้สีเป็นเขียวเข้ม").
+              --brand-ink is Midnight Teal, the same dark the wordmark's "Feed"
+              and the N's body gradient end on — one dark in the app, not a
+              second one matched by eye. */}
+          <h1 style={{ color: "var(--brand-ink)" }}>Ward</h1>
           <div className="sub">{active.length} active sessions · {today}</div>
         </div>
       </div>
