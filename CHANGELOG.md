@@ -13,6 +13,146 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 — The TPN team's feedback, a two-sheet order form, and no trailing zeros (NOT deployed)
+
+Frontend only: `data.js`, `calculator.jsx`, `app.jsx`, `log.jsx`, `registry.jsx`, `fenton.jsx`, with
+`compiled/` and both shells rebuilt. There is no backend change, no `clasp` step and no new `Daily_Log`
+column: the backend stores `calcInput` as an opaque JSON cell and checks only the top-level figures, so the
+two new `calcInput` keys need nothing from `@56`. `CONSTANTS_VERSION` stays `2026-09-18.1`, because no
+printed number moved (checked below). Nothing is live until a `main` → `release` PR.
+
+**The requests.** Praew forwarded eight screenshots from the KCMH TPN team, then set four rules of her own in
+the same session. Her decisions, in order:
+- **K⁺.** The stop stays at 40 mEq/L on both routes; the team's "peripheral 60 / central 200" is shown for
+  reference.
+- **Confirming.** Every critical value keeps the confirm + reason stop.
+- **Zinc.** Entered in mg/kg/day, as the paper form's "ZnSO₄ (Additional to the above)" line has it.
+- **Scope.** Everything goes in one PR.
+- **The Admin log table.** At most 2 decimals, and no number anywhere may end in .0.
+- **The print.** Checked items bold, and every value on its own product's line. The doctor's page looks as
+  the paper form always has, alerts are settled in the app, and pharmacy's detail goes on the back. On the
+  front, the pharmacist column is filled, the ranges are NeoFeed's targets, and the critical record prints on
+  the back only.
+- **Labels.** Only the product name for NaCl, Na acetate, MgSO₄ and Ca gluconate, with the Glycophos and
+  K₂HPO₄ strengths on the next line.
+- **Weight.** Computed from the grams, and shown to 2 decimals.
+
+### 1 · Zinc — "ขอให้เพิ่มช่อง ใส่ Zinc … Maximum Zinc 5 mg/day … ยืนยันการสั่งหรือไม่?"
+
+Step 5 gains **"ZnSO₄ (เพิ่มจาก Peditrace)" in mg of elemental Zn/kg/d**, and a total of the zinc reaching the
+infant. That total is Peditrace at the mL the infant receives (1 mL/kg, the 15 mL cap on that) × 0.25 mg/mL,
+plus ZnSO₄, and it shows in mg/day and mg/kg/d. **Above `MAX_ZN_MG_DAY` = 5 mg/day it is a critical alert**,
+so Save asks for a confirmation with a reason; exactly 5 passes.
+- ZnSO₄ is dosed per kg like every additive, so the bag carries it × Factor.
+- It is saved as `calcInput.znPerKg`, which rows saved earlier lack, so they read 0. It appears in "changes
+  vs previous order", on the form's ZnSO₄ line (per kg as typed, bag mg), and in the copied order.
+- It counts toward the no-volume stop, and Center Point does not offer it, because its packet has no slot.
+- **The form says "elemental Zn" outright**: a ZnSO₄ salt figure would be about 4.4× higher.
+- Pharmacy's ZnSO₄ stock is not in `KCMH_STOCK`, so the form prints no mL for it and says its volume is not
+  in the WFI.
+
+### 2 · Lipid — "ยังไม่แสดง rate drip ในหน่วย g/kg/hr"
+
+The pump card, the form's back and the copied order give g/kg/d ÷ hours: 2 g/kg/d over 20 h = 0.1 g/kg/h.
+It is display only; no new limit.
+
+### 3 · Trophic feed — "ขึ้นข้อความว่าไม่นำไปคิด nutrient intakes แต่ … โปรแกรมยังเอาไปคิดอยู่"
+
+**Not reproduced.** The live build (`release` has `enCounted` in its compiled bundle) has left a MEN feed out
+of every total since 2026-09-18 11:17 ICT, and `verify-ward-requests-0918.cjs` passed 193/193 on `main` the
+same day. Step 3's totals now say so where they stand: "นม MEN (trophic) … ไม่นับในค่ารวม". Two possible
+sources of the report: rows saved before 2026-09-18 keep the feed in their saved totals, and the number font's
+dotted zero reads as an 8 when scaled down ("EN 0" can look like "EN 8"). **Ask the team for a screenshot of
+the number they saw move.**
+
+### 4 · Glycophos — "ขอให้เพิ่มช่องแสดง mL ของ Glycophos คู่ไปด้วย"
+
+"= 3 mL/d" sits beside "= 6 mEq Na" at the same size. Under 768 px the shell's mobile CSS hides that column,
+as it always has; the line under the chips still gives mL/kg/d and the bag mL.
+
+### 5 · Confirming — "ยืนยันการสั่งหรือไม่?" / "แพทย์ยืนยันคำสั่ง"
+
+Osmolarity above 900 mOsm/L on a peripheral line, and K⁺ above 40 mEq/L, were already critical alerts,
+stopped at Save for a reason; zinc above 5 mg/day joins them.
+- The stop now opens with "ยืนยันการสั่งหรือไม่?". It still needs a reason, so it cannot be cleared with one
+  tap.
+- The back sheet prints "✔ แพทย์ยืนยันคำสั่ง" above the critical-value heading. The heading is unchanged,
+  because Center Point's sheet prints it too.
+
+### 6 · The doctor's name — "อยากให้มีชื่อหมอที่ key จะได้ติดต่อเวลามีปัญหา"
+
+A reprint printed only the email the server stamped. **Each save now keeps the saver's "Name (email)" as
+`calcInput.savedByLabel`.**
+- It is shown at "แพทย์" on the front, in "บันทึกโดย" on the back, and on the Save card.
+- The name is shown **only while its email is the row's `lastModifiedBy`** (else `submittedBy`), compared
+  case-insensitively (`savedByOf`). Otherwise the email alone shows, as before.
+
+### 7 · K⁺ concentration — "ให้แสดงค่าความเข้มข้นของ K ในสารละลายสุดท้าย"
+
+It was a line of small text. It is now a **"K⁺ in bag" tile**, with 0–40 as its range and the stop
+unchanged. The alert keeps its title (a saved `critOverride` names alerts by title) and adds "reference
+ceilings: peripheral 60 · central 200 mEq/L" (`K_REF_MEQ_PER_L`, display only).
+
+### 8 · GIR — "rate ที่คำนวณ GIR คิดจากอันไหน?"
+
+Answered, and nothing changed. Both options are the same number. Volume and Rate are one field pair (Rate =
+delivered volume ÷ 24), and GIR = Dex % × Rate (mL/h) ÷ (6 × kg). Dead space is not in it.
+
+### 9 · No trailing zeros — Praew: "ห้ามมี .0 เช่น 18.0 คือ 18"
+
+The Admin table printed 60.80000000000001 and 2.9999999999999996, and the form printed 2.000 Kg, 180.0 mL
+and 1.40 mL/hr. **`D.displayNum`** is now the one rounding every display goes through: half away from zero,
+never a trailing zero, "—" for a missing value.
+- `fmt` loses its keep-zeros option and `Tile` its `exact` prop.
+- The form's `f`, the log's `n`, the copied order's `toFixed` calls, and the displays in `app.jsx`,
+  `registry.jsx` and `fenton.jsx` all go through it.
+- The Admin table shows at most 2 decimals (78.48, 2.86, 60.8, 3).
+- The kg weight shows to 2 decimals while every dose is computed from the grams. A typed dose prints as
+  typed.
+
+### 10 · The order on two sheets
+
+The per-kg and in-bag cells stacked only the products ordered, so with no Na acetate Glycophos's 1.5 mL sat
+on the Na acetate line, and KCl's 2 mEq on K₂HPO₄'s. The form now prints on two sheets.
+- **The front is the KCMH paper form.** It has one row per product, ordered products bold, and the paper's
+  other choices (Amiparen, Aminoleban, Nephrosteril, Intralipid, Clinoleic, Addamel N, อื่นๆ) unticked.
+  Liver/Renal dysfunction and Nutritional Status are blank, oral orders go under "8. Other", and the saver's
+  name goes at "แพทย์". There is no alert text.
+- **The back is pharmacy's, after a page break.** It has the Factor, the aqueous bag stock by stock in mL
+  with the WFI q.s., K⁺ in the bag, Ca·PO₄, what reaches the infant, the critical-value confirmation,
+  changes since the last order, and who saved it.
+- MgSO₄ comes as 10% and 50%, so with its strength off the label, **its in-bag mL names its vial**
+  ("= 1.15 mL (10%)").
+
+### Checked
+
+- **The CI steps, run locally on an LF export of the staged tree.** A fresh build changes nothing, the two
+  shells are identical, and **49/49 harnesses pass against the sources and 49/49 against `compiled/`**. The
+  Center Point bundle builds and its client tests pass.
+- **New harness `verify-tpn-team-0922.cjs`: 130 assertions.** It fails 33 against `6ee2762`. §8's sweep was
+  mutation-checked: putting back `toFixed(2)` on the pump rate, and `toFixed(1)` on the copied volume, makes
+  it fail on "1.40" and "180.0".
+- **No printed number moved.** `verify-review-0917-calc.cjs` §6 pins every printed figure of six orders. Its
+  digests were recaptured twice, each after a comparison with `main`:
+  - figure by figure after the display rule: only the two new "—" ZnSO₄ cells, and the TPN volume without
+    its trailing zero;
+  - as sets after the two-sheet layout: every number `main` printed is still printed and none is new, and
+    only the section headings stopped being `<strong>`.
+- **Older harnesses updated where they pinned the old format.** They are `verify-tpn-calc-weight.cjs` (1.5 /
+  1.62 Kg), `verify-ward-requests-0918.cjs` (4 g, 120 mL, 2 mL, and the heparin mL now on the back) and
+  `verify-resync-and-lists.cjs` (the Admin table, fed the live Sheet's float noise).
+- **Seen rendered.** The shipped `compiled/calculator.js` was mounted with the shell's CSS, a synthetic
+  patient and no backend, then checked on screen and on both sheets of the form.
+
+### To tell the ward before this ships
+
+- **Pharmacy: the form is now two sheets, meant for double-sided printing.** The front is the familiar
+  paper layout and the back is the compounding detail. The ZnSO₄ line is **elemental** zinc. MgSO₄'s mL
+  names its vial.
+- **The TPN team.** Items 3 and 8 above are answers, not changes; item 3 still needs their screenshot.
+
+---
+
 ## Session 2026-09-22 — Luminous Protection: NeoFeed moves onto the Valhalla brand sheet
 
 Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s

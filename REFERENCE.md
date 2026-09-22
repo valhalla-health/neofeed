@@ -78,6 +78,38 @@ What the build guarantees, and refuses to write anything without:
 `compiled/` is marked `-text linguist-generated` in `.gitattributes`: Git never rewrites
 its line endings, and GitHub collapses it in PR diffs, so review the `.jsx` change.
 
+## Numbers a person reads
+
+Praew, 2026-09-22: **no number anywhere in the UI ends in a trailing zero** — "18.0" is 18, because a
+trailing zero can be read as a tenfold dose (the ISMP rule). That covers the screens, the printed order
+and the copied order. Every displayed figure goes through `D.displayNum(value, maxDecimals)` (or
+`fmt`/`f`/`n`, which wrap it): rounded half away from zero, never a trailing zero, "—" for a missing
+value. There is no "keep zeros for column alignment" option any more. Storage is untouched: saved rows
+keep full precision, and only the display rounds.
+
+- The Admin dashboard's Recent log entries show at most **2 decimals**.
+- The **weight is computed from its grams**, and a kg weight shows to 2 decimals (1234 g → 1.23 kg).
+- **A typed dose prints as typed.** Only computed figures are rounded.
+- `test/verify-tpn-team-0922.cjs` §8 fails on any trailing zero or float tail in any text node of the
+  calculator, the form, the copied order or the daily log.
+
+## The printed order
+
+Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (Praew):
+
+- **Front: the doctor's order.** It is the KCMH paper form, in the paper's own layout and words, with
+  one table row per product so that no figure can sit on another product's line. Ordered products are
+  bold, and the paper's other choices print unticked. Oral orders go under "8. Other", and the saver's
+  name goes at "แพทย์". It carries **no alert text**: alerts are settled in the app, where a critical one
+  needs a confirmation with a reason at Save. The "Normal Requirement" column is NeoFeed's targets, not
+  the paper's printed ranges, which disagree with the app (review F4).
+- **Back: pharmacy.** The Factor, the aqueous bag stock by stock in mL with the WFI q.s., K⁺ in the bag,
+  Ca·PO₄, what reaches the infant, the critical-value confirmation, changes since the last order, and
+  who saved it.
+
+Two harness contracts: the patient table stays the form's first direct `<table>` child (the parity and
+§6 figure sweeps skip it), and the provenance footer stays the form's last child.
+
 ## GA/PMA convention
 
 **Storage:** `ga` is a number in `WW.D` shorthand:
