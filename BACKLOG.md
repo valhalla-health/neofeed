@@ -70,15 +70,16 @@ clinical judgement. Everything else is engineering sequencing.
       ที่นี่". Not before: a Workspace admin can block Google sign-in to outside apps, and then the
       password is that person's only way in.
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@56` + `release` = `96afcd0`) in one bedside session.**
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@56` + `release` = `edbd11f`) in one bedside session.**
       ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch, from the
       old `sync-poll-0916` frontend. The review frontend has been live since 09:10 ICT and the ward
       requests since 11:17 ICT; nobody has reported using either, so every line below is open.
+      *2026-09-22:* two more frontend releases, #85 (17:39 ICT) and #88 (21:15 ICT), equally unused so far.
       Everything shipped 2026-09-12, 2026-09-15 and in the 2026-09-18 frontends is verified as
       *deployed*, none of it as *used*. One session closes the lot:
-      - *(2026-09-18, no bedside needed)* the newest `Daily_Log` rows' `appVersion` (column AG), or a
-        printed order's footer, reads `b=f48894ce64;d=1857fa896b;…;c=c22c5394ad;…` with constants
-        `2026-09-18.1` — the live frontend's stamp, in full in `STATUS.md`;
+      - *(no bedside needed)* the newest `Daily_Log` rows' `appVersion` (column AG), or a printed
+        order's footer, reads `b=f48894ce64;d=ce3e213cfe;…;a=47c3f626cb` with constants `2026-09-18.1` —
+        the live frontend's stamp since 2026-09-22 21:15 ICT, in full in `STATUS.md`;
       - a real login and a real save;
       - **edit a saved order without saving → Print must refuse**;
       - **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the printed form**;

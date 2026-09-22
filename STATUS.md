@@ -1,5 +1,15 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-22, 21:16 ICT — frontend `release` = `edbd11f` on both hosts, with backend `@56`.** Two
+> frontend releases today. **PR #85** (17:39 ICT, `066528d`) shipped eight PRs: the Calculator button
+> (#82), the new palette, login screen and two-tone N (#81, #83), the reprint hold (#76), #84's backend
+> source (already live as `@56`), and #78–#80 (docs and a test fix). **PR #88** (21:15 ICT, on Praew's
+> instruction) shipped #87 on top: a green accent on a neutral ground, the wordmark in the topbar, the
+> Calculator button on the Dashboard only, and no sideways drag on a phone. On both hosts every file
+> the app loads is byte-identical to `edbd11f`. ⚠️ **The app icon changed**, and ⚠️ **no one has opened
+> either release on a phone yet**: a desktop Chromium at 390×844 rendered the login screen with nothing
+> to drag sideways, but did not sign in. See "How the 2026-09-22 frontend releases were verified".
+>
 > ✅ **2026-09-22, 16:34 ICT — backend `@56`, with frontend `release` = `96afcd0` on both hosts.** `@56`
 > is PR #84, with #86 folded in. Every Chula Google Workspace domain signs in with Google and gets no
 > NeoFeed password, and a forced password change is served at once. It was checked live without
@@ -15,24 +25,13 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-> 🎨 **2026-09-22 (2), on `claude/mobile-calculator-logo-fixes-i6iyfy` — NOT DEPLOYED.** Presentation
-> and navigation only, no clinical logic and no backend: the app is back on the **Valhalla Teal**
-> sheet (the Luminous Protection green of the entry above lasted a day — "สีข้างในมันกลืนกันไปหน่อย"),
-> the two-tone N is now the topbar and `SyncGate` mark and has been re-tinted into that sheet (the
-> seven icon PNGs were re-rendered from `icons/icon.svg`, still the one master), the quick-calc button
-> is the Dashboard's alone and hands back to the Dashboard, and three causes of sideways scroll on a
-> phone are fixed — pinned by the new `test/verify-mobile-fit.cjs`. ⚠️ **The app icon and every
-> favicon changed colour**, so an installed home-screen icon will change on next install/refresh.
-> Nothing here touches `gas-backend.gs`, `data.js` or a single figure in `calc`.
-> See `CHANGELOG.md` 2026-09-22 (2).
-
-**Updated 2026-09-22, 16:35 ICT** · 🟢 **Backend `@56` and frontend `release` = `96afcd0` are live.**
-- **Frontend:** PR #77 (`main` → `release`), approved and merged by `tasamew` at 04:17 UTC /
-  11:17 ICT. On top of the review frontend (#74) it ships PR #75, the 2026-09-18 ward requests (MEN
-  counts toward no nutrient total, a Magnesium tile, Aminoplasmal 15% hidden on NICU/SCN, a 30 mL
-  dead-space default on NICU/SCN), and Soluvit/Peditrace × Factor — `CHANGELOG.md` 2026-09-18 (2).
-  `CONSTANTS_VERSION` is now `2026-09-18.1`. Served bytes verified on both hosts at 11:37 ICT — see
-  "How the 2026-09-18 ward-requests deploy was verified".
+**Updated 2026-09-22, 21:45 ICT** · 🟢 **Backend `@56` and frontend `release` = `edbd11f` are live.**
+- **Frontend:** PR #88 (`main` → `release`), merged on Praew's instruction at 14:15:43 UTC / 21:15 ICT:
+  #87 (`CHANGELOG.md` 2026-09-22 (2)) on top of PR #85 (10:39 UTC / 17:39 ICT). An installed
+  home-screen icon changes on its next install or refresh. `CONSTANTS_VERSION` is still `2026-09-18.1`:
+  neither release moved a clinical constant, and #87 touched no `data.js`, `gas-backend.gs` or figure in
+  `calc`. Served bytes verified on both hosts at 21:16 ICT — see "How the 2026-09-22 frontend releases
+  were verified".
 - **Backend:** `@56` since 2026-09-22, 16:34:59 ICT: PR #84 (with #86 folded in), deployed with `clasp`
   on Praew's instruction. Every Chula Google Workspace domain (`chula.ac.th`, `student.chula.ac.th`,
   `md.chula.ac.th`, `docchula.com`, `chulahospital.org`) signs in with Google and is given no NeoFeed
@@ -41,14 +40,20 @@
   is served at once. `@56` is `gas-backend.gs` at `7efbb3b`, byte for byte (`CHANGELOG.md`, both
   2026-09-22 backend entries).
 - ⚠️ **Not yet exercised by a person:** a Chula Google sign-in on `@56`, and a forced password change
-  followed at once by a request. Also either frontend. The frontends' provenance stamps, in `Daily_Log`
-  columns AF–AG and in every printed order's footer, can show them in use without a bedside session —
-  see those sections.
-- ⏳ **On `main`, waiting for the next `main` → `release` PR:** PR #76, merged into `main` by Praew on
-  2026-09-19 (08:16 ICT), carries the two fixes from #77's pre-deploy review (`CHANGELOG.md` 2026-09-18
-  (2) §6), and PR #79 the harness flake fix. Until that release, the live frontend reprints an order
-  saved before 11:17 ICT on 2026-09-18 with #77's figures (e.g. Soluvit 1.8 mL where it printed 1.5),
-  under the same entry id and revision.
+  followed at once by a request. Also any frontend since 2026-09-18, today's two included. The
+  frontends' provenance stamps, in `Daily_Log` columns AF–AG and in every printed order's footer, can
+  show them in use without a bedside session — see those sections.
+- ✅ **Nothing on `main` waits for a release.** #76 and #79, listed here as waiting since 2026-09-19,
+  went out with #85, so the reprint risk this line carried is closed: a saved order whose calculation
+  has changed now waits for a fresh save instead of reprinting under the same entry id. The PR that
+  wrote this line is docs and `tools/` only, and goes out in its own release straight after it merges
+  (`REFERENCE.md` § Frontend: a merge into `main` always comes with its release PR).
+
+**Previous (2026-09-22, 17:39–21:15 ICT):** backend `@56` + frontend `release` = `066528d`, PR #85.
+No post-release check was recorded for it; the 21:16 ICT check of `edbd11f` covers every file it
+shipped, as served now.
+
+**Previous (2026-09-22, 16:34–17:39 ICT):** backend `@56` + frontend `release` = `96afcd0`.
 
 **Previous (2026-09-18, 11:17 ICT – 2026-09-22, 16:34 ICT):** backend `@55` + frontend `release` =
 `96afcd0`, the state the 2026-09-18 banner above describes. Under `@55`, rows on `student.chula.ac.th`,
@@ -90,6 +95,38 @@ at 20:47 ICT. Verified on both hosts and against the pulled version 54 source �
 2026-09-15 deploy was verified".
 🟢 **Deploy gate is CLOSED on both hosts** — merging into `release` deploys Cloudflare *and* GitHub
 Pages; `main` deploys nothing. See "Release-branch deploy gate".
+
+## How the 2026-09-22 frontend releases were verified
+
+**PR #88 → `release` = `edbd11f` (21:15 ICT).** Opened and merged on Praew's instruction (*"เปิด release
+PR แล้ว merge เลย"*), pinned with `--match-head-commit 9b8de5e` so nothing merged into `main` meanwhile
+could ride along. `release` held no content of its own: its tree was byte-identical to `6ee2762`, the
+`main` commit #85 shipped, so the merge result was exactly `main`'s tip, which `harnesses` had passed.
+
+1. `harnesses` green on #88's own run and on the merge commit (run 35739080660).
+2. The Cloudflare Workers build succeeded on `edbd11f` (14:16:18 UTC), and GitHub Pages built it
+   (14:16:37 UTC, no error).
+3. **Served bytes, both hosts, 21:16 ICT:** the shell, every script and link it names, `manifest.json`,
+   `moved.html` and all eight `icons/` files are byte-identical to git at `edbd11f`, and every `?v=`
+   token equals its file's hash (`compiled/app.js?v=47c3f626cb`, was `650b9f174d`). The Cloudflare CSP's
+   `script-src` is `'self' https://accounts.google.com`. The check had first been shown to fail: pointed
+   at `main` before the merge, it failed on exactly #87's 15 files (plus two bugs in the checker itself,
+   fixed before the real run). Recorded as a comment on #88. `tools/verify-release.mjs` now runs the
+   same check in one command, and gave 0 failures against `edbd11f` the same evening.
+4. **A real browser, not signed in (21:41 ICT):** desktop Chromium emulating 390×844 loaded the
+   Cloudflare host. The login screen rendered under the CSP, the page did not overflow, no element on it
+   could be dragged sideways, and `appVersion()` returned `b=f48894ce64;…;a=47c3f626cb`, the stamp in
+   the facts table below.
+5. **Not yet done by a person:** a phone, signed in — no sideways drag on the Dashboard, the Calculator
+   button on the Dashboard only, and the new icon.
+
+**PR #85 → `release` = `066528d` (17:39 ICT).** No post-release check was recorded on #85. Nothing
+depends on one now: step 3 covers every file #85 shipped, as served today.
+
+**Rollback (frontend):** revert #88's merge commit on `release` to return to `066528d`'s frontend. Both
+hosts rebuild from `release`, and no backend step is involved.
+
+---
 
 ## How the 2026-09-22 backend deploy was verified
 
@@ -511,6 +548,10 @@ staff until a `main` → `release` PR passes `harnesses` and is merged.** Until 
 needed `tasamew`'s approval, because GitHub forbids self-approval; since then Praew merges it
 herself. A merge to `main` that "did nothing" is the gate working.
 
+**Since 2026-09-22 that merge announces itself.** Whoever makes it opens the `main` → `release` PR in the
+same session and says "not live yet" in the chat (`REFERENCE.md` § Frontend). PR #87 had sat merged but
+unreleased while Praew opened the old app and asked why nothing had changed.
+
 **Rollback:** revert the branch-protection settings and the Pages source via the same `gh api`
 calls with the previous values (`branch: main`), or just keep pushing to `main` and drop `release`
 — nothing about `main`'s own history or the backend changed.
@@ -568,11 +609,11 @@ retained.
 | Frontend — primary | Cloudflare Workers static assets → `neofeed.valhalla-health.workers.dev`. Live and verified 2026-08-23 |
 | Frontend — legacy | GitHub Pages → `valhalla-health.github.io/neofeed/`. Still live, and still where NICU staff home-screen installs point |
 | Frontend deploy | **Merging into `release` deploys both** (since 2026-09-12). Cloudflare Workers Builds' production branch is `release`; GitHub Pages serves `release`. A push or merge to `main` deploys **nothing** — it only runs a preview build. See § Release-branch deploy gate |
-| Backend | GAS deployment `AKfycbz8Nt…` at **`@55`** = `gas-backend.gs` at `7049f60` (PR #73, the 2026-09-17 review), live since 2026-09-18 08:42 ICT. Previous: `@54` (PR #63 + #66, cut 2026-09-15 20:47 ICT) |
-| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` at `42dd655`, **identical to `gas-backend.gs` at `7049f60` and to the deployed version 55** (`clasp pull --versionNumber 55` into a clean scratch dir at the deploy). Re-checked read-only after the frontend deploy: clean working tree, still identical ignoring CR |
+| Backend | GAS deployment `AKfycbz8Nt…` at **`@56`** = `gas-backend.gs` at `7efbb3b` (PR #84, with #86 folded in), live since 2026-09-22 16:34:59 ICT. Previous: `@55` (PR #73, the 2026-09-17 review, cut 2026-09-18 08:42 ICT) |
+| Clasp mirror | `~/nicu-tools/neofeed/รหัส.js` committed as `9027d7e` at the `@56` deploy, copied from `7efbb3b:gas-backend.gs` with `git show` (LF); `clasp pull --versionNumber 56` was byte-identical to that file. See "How the 2026-09-22 backend deploy was verified". Not re-checked since |
 | Deploy identity | Backend: `peeraporn.po@chula.ac.th` via `clasp` (`executeAs: USER_DEPLOYING`, so a different account switches the live app's identity) — confirmed via `clasp show-authorized-user` before deploying, not assumed. Frontend hosting: Cloudflare account `praew.tvl@gmail.com` — **a different identity from the backend**, unsettled on purpose |
 | Migrations | 🟡 **`Daily_Log` AH–AL: no action required, one cosmetic step outstanding** — same shape as AF/AG. Both write paths widen the grid on demand, so the columns appear on the first save/publish — no manual migration needed. `applyLogHeaderColumns()` would add the header *labels*, which are cosmetic (the columns are read and written by index). It runs as the signed-in user from the editor and may raise an OAuth consent, **so it is Praew's to run, not an agent's** |
-| Cache-bust | Since 2026-09-18 (`dfeb15b`) every `?v=` token is a **content hash** written by `tools/build.mjs`. Live (`96afcd0`): `boot.js?v=f48894ce64`, `data.js?v=1857fa896b`, `compiled/calculator.js?v=c22c5394ad`; the other five `compiled/` tokens are unchanged since `dfeb15b` (listed in "How the 2026-09-18 frontend deploy was verified"). The `vendor/` React files carry their version in the file name instead. Both shells byte-identical, confirmed live on both hosts |
+| Cache-bust | Since 2026-09-18 (`dfeb15b`) every `?v=` token is a **content hash** written by `tools/build.mjs`. Live (`edbd11f`): `boot.js?v=f48894ce64`, `data.js?v=ce3e213cfe`, and in `compiled/` `icons.js?v=5464aa237e`, `calculator.js?v=aa8edb3f0d`, `fenton.js?v=5f4a597238`, `registry.js?v=56f2b9b64c`, `log.js?v=439570f5b1`, `app.js?v=47c3f626cb`. So a row saved on this frontend stamps `appVersion` (column AG) `b=f48894ce64;d=ce3e213cfe;i=5464aa237e;c=aa8edb3f0d;f=5f4a597238;r=56f2b9b64c;l=439570f5b1;a=47c3f626cb`. The `vendor/` React files carry their version in the file name instead. `tools/verify-release.mjs` checks every token against its served file on both hosts |
 
 ## How the 2026-09-15 deploy was verified
 
