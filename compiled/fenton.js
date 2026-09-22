@@ -246,13 +246,13 @@ function GrowthVelocity({ points, metric = "weight" }) {
     const avgWtKg = (first.value + last.value) / 2 / 1e3;
     const gPerKg = dW / days / avgWtKg;
     const status2 = gPerKg >= 15 ? "ok" : gPerKg >= 10 ? "warn" : "crit";
-    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 22, fontWeight: 500, color: status2 === "ok" ? "var(--ok)" : status2 === "warn" ? "var(--warn-ink)" : "var(--crit)" } }, gPerKg.toFixed(1), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4 } }, "g/kg/d")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 } }, "Target ≥ 15 g/kg/d"));
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 22, fontWeight: 500, color: status2 === "ok" ? "var(--ok)" : status2 === "warn" ? "var(--warn-ink)" : "var(--crit)" } }, D_F.displayNum(gPerKg, 1), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4 } }, "g/kg/d")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 } }, "Target ≥ 15 g/kg/d"));
   }
   const dCm = last.value - first.value;
   const wks = days / 7;
   const cmPerWk = dCm / Math.max(wks, 0.01);
   const status = cmPerWk >= 0.5 && cmPerWk <= 1 ? "ok" : cmPerWk >= 0.3 && cmPerWk < 0.5 ? "warn" : cmPerWk > 1 && cmPerWk <= 1.3 ? "warn" : "crit";
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 22, fontWeight: 500, color: status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn-ink)" : "var(--crit)" } }, cmPerWk.toFixed(2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4 } }, "cm/wk")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 } }, "Target 0.5–1 cm/wk"));
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 22, fontWeight: 500, color: status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn-ink)" : "var(--crit)" } }, D_F.displayNum(cmPerWk, 2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4 } }, "cm/wk")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 } }, "Target 0.5–1 cm/wk"));
 }
 function MeasurementLogger({ patient, currentDol, onUpdate }) {
   const weights = patient.weights || [];

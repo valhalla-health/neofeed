@@ -218,7 +218,7 @@ function computeAlerts(patient, entries) {
       id: "growth-velocity",
       level: vel < 10 ? "crit" : "warn",
       title: vel < 10 ? "Growth velocity critically low" : "Growth velocity below target",
-      body: `${vel.toFixed(1)} g/kg/d over ${days} d (DOL ${wFirst.dol}→${wLast.dol}) — target ≥15 g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
+      body: `${D_A.displayNum(vel, 1)} g/kg/d over ${days} d (DOL ${wFirst.dol}→${wLast.dol}) — target ≥15 g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
       dol: wLast.dol, ref: "ESPGHAN 2022"
     });
   }
@@ -1608,7 +1608,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             !GAS_ON ? "GAS_URL not configured"
             : syncState === "error" && syncError ? `Sync error · ${syncError}`
             : syncMsRef.current == null ? "Google Apps Script"
-            : `Google Apps Script · ซิงก์ล่าสุดใช้เวลา ${(syncMsRef.current / 1000).toFixed(1)} วินาที`}>
+            : `Google Apps Script · ซิงก์ล่าสุดใช้เวลา ${D_A.displayNum(syncMsRef.current / 1000, 1)} วินาที`}>
             {syncState === "loading"
               ? <span className="dot dot-spin" style={{ width:7, height:7 }} />
               : <span className="dot" style={{ background:
@@ -2228,7 +2228,7 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
               {currentW.toLocaleString()}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:3 }}>g</span>
             </span>
             <span style={{ fontSize:12, color:deltaColor, fontWeight:700, whiteSpace:"nowrap" }}>
-              {delta >= 0 ? "+" : ""}{delta}g ({deltaPct.toFixed(1)}%)
+              {delta >= 0 ? "+" : ""}{delta}g ({D_A.displayNum(deltaPct, 1)}%)
             </span>
           </div>
         </div>
@@ -2735,9 +2735,11 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
                   <td className="num" style={{ padding: "8px 12px" }}>{e.sid}</td>
                   <td className="num" style={{ padding: "8px 12px" }}>{e.bed}</td>
                   <td className="num" style={{ padding: "8px 12px" }}>{e.showDol}</td>
-                  <td className="num" style={{ padding: "8px 12px" }}>{e.weight}</td>
-                  <td className="num" style={{ padding: "8px 12px" }}>{e.kcal}</td>
-                  <td className="num" style={{ padding: "8px 12px" }}>{e.pro}</td>
+                  {/* At most 2 decimals, no trailing zero; the Sheet keeps the
+                      full figure (Praew, 2026-09-22 — it printed 60.80000000000001). */}
+                  <td className="num" style={{ padding: "8px 12px" }}>{D_A.displayNum(e.weight, 2)}</td>
+                  <td className="num" style={{ padding: "8px 12px" }}>{D_A.displayNum(e.kcal, 2)}</td>
+                  <td className="num" style={{ padding: "8px 12px" }}>{D_A.displayNum(e.pro, 2)}</td>
                   <td style={{ padding: "8px 12px", color: "var(--ink-2)" }}>{e.route}</td>
                 </tr>
               )}
@@ -3267,7 +3269,7 @@ function FormulasPanel() {
                           );
                         })()}
                       </td>
-                      {[f.kcal, f.pro, f.fat, f.na?.toFixed(2), f.k?.toFixed(2), f.ca, f.p].map((v, j) => (
+                      {[f.kcal, f.pro, f.fat, f.na == null ? null : D_A.displayNum(f.na, 2), f.k == null ? null : D_A.displayNum(f.k, 2), f.ca, f.p].map((v, j) => (
                         <td key={j} className="num" style={{ padding: "7px 10px", textAlign: "center",
                           fontWeight: 500, fontSize: 12.5 }}>{v ?? "—"}</td>
                       ))}

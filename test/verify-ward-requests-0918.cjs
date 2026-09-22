@@ -452,7 +452,8 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       ok('print lists the product change vs the previous order', /Amino acid product Aminoven 10%→Aminoplasmal 15%/.test(t), t.match(/เปลี่ยนแปลงจากคำสั่ง[^บ]*/));
       copied = null;
       await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order/.test(b.textContent)));
-      ok('copied order: "AA (Aminoplasmal 15%): … = 26.7 mL/day"', /AA \(Aminoplasmal 15%\): 2 g\/kg\/d → 4\.0 g in bag = 26\.7 mL\/day/.test(copied || ''), (copied || '').match(/AA [^\n]*/));
+      // "4 g", not "4.0 g": no trailing zeros since 2026-09-22 (Praew).
+      ok('copied order: "AA (Aminoplasmal 15%): … = 26.7 mL/day"', /AA \(Aminoplasmal 15%\): 2 g\/kg\/d → 4 g in bag = 26\.7 mL\/day/.test(copied || ''), (copied || '').match(/AA [^\n]*/));
 
       // Reopening the saved row restores the product and prints as saved.
       mount({ patient: pt('FW-2000', 2000, { currentBed: 'future ward' }), editEntry: { entryId: 'e-1', lastModified: 'lm-1', ts: '2026-09-18', dol: 1, weight: 2000,
@@ -532,7 +533,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     mount({ patient: pt('DR-2000', 2000), editEntry: saved0, onLog: logger().onLog });
     eq('fixture: no critical alert', alertRows().filter(a => a.level === 'crit').map(a => a.title), []);
     eq('a saved 0 mL order reopens at 0', deadVal(), 0);
-    ok('…printable as saved: 120 mL prepared', !!printForm() && /120\.0 mL \(Delivered Vol\.\) \/ 120 mL \(Prepared Vol\.\)/.test(printText()),
+    ok('…printable as saved: 120 mL prepared', !!printForm() && /120 mL \(Delivered Vol\.\) \/ 120 mL \(Prepared Vol\.\)/.test(printText()),
       printText().match(/Total Volume:[^F]*/));
 
     // No TPN, no bag: the default must not turn a feeds-only day into a 30 mL
@@ -596,8 +597,8 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       /Components 86\.5 mL \+ WFI 63\.5 mL = 150 mL prepared/.test(t), t.match(/Components [^=]*= [\d.]+ mL prepared/));
     copied = null;
     await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order/.test(b.textContent)));
-    ok('copied order: "Soluvit N: 2.5 mL/day → aqueous bag (× Factor — delivers 2.00 mL)"',
-      /Soluvit N:\s+2\.5 mL\/day → aqueous bag \(× Factor — delivers 2\.00 mL\)/.test(copied || ''), (copied || '').match(/Soluvit N:[^\n]*/));
+    ok('copied order: "Soluvit N: 2.5 mL/day → aqueous bag (× Factor — delivers 2 mL)"',
+      /Soluvit N:\s+2\.5 mL\/day → aqueous bag \(× Factor — delivers 2 mL\)/.test(copied || ''), (copied || '').match(/Soluvit N:[^\n]*/));
 
     // No overfill, nothing to scale: 1 mL/kg as before.
     mount({ patient: pt('VN-2000', 2000), onLog: logger().onLog });

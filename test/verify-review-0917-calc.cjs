@@ -252,21 +252,29 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     // order started at 0. Since 2026-09-18 one on NICU/SCN starts at 30
     // (verify-ward-requests-0918.cjs §10), which is a different order. full_en
     // has no TPN, so no bag and no dead space either way.
+    //
+    // All six recaptured 2026-09-22 (TPN team feedback + Praew's no-trailing-
+    // zero rule). Compared figure by figure with main (6ee2762), NO figure
+    // changed value. Each order gained the two cells of the new "ZnSO₄
+    // (Additional to the above)" line, "—" with no zinc, and the delivered
+    // TPN volume lost its trailing zero (60.0 → 60, 137.0 → 137, 90.0 → 90,
+    // 110.0 → 110). Was: e7466628370cc834, f8a53682fe1effb3, d70798321bad13ef,
+    // 5baf4705b9b7adbd, a53c3c41e71fcc2d, abaff1c44614ae64.
     const ORDERS = {
-      S5_elbw: ['e7466628370cc834', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
+      S5_elbw: ['5542cdd0f98249bd', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
         setField('Current weight', 500); fillRequired(150);
         setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('SMOF Lipid', 2);
         setField('20% NaCl', 1); setField('Na Acetate', 1); setField('KCl', 1); setField('Glycophos', 1); }],
-      parity_plain: ['f8a53682fe1effb3', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
+      parity_plain: ['3dda285fbbc9e376', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
       // Recaptured 2026-09-18 when Soluvit/Peditrace began scaling with the
       // overfill (Praew). Exactly 4 of its 90 figures moved: Soluvit 1.2 → 1.3,
       // Peditrace 1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50 (was aa0510d437c34170).
-      parity_dead: ['d70798321bad13ef', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
-      mixed_pn_en: ['5baf4705b9b7adbd', P, () => {
+      parity_dead: ['44bd4045851dddd9', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
+      mixed_pn_en: ['1049293d52346e18', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
         setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('SMOF Lipid', 3);
         setField('20% NaCl', 2); setField('KCl', 2); setField('10% Ca gluconate', 60); setField('Glycophos', 2); setField('MgSO₄', 0.3); }],
-      lipid48_k4: ['a53c3c41e71fcc2d', P, () => {
+      lipid48_k4: ['8b4a9abe1d95154d', P, () => {
         setField('Current weight', 1000); fillRequired(160);
         setField('Volume(mL/day)', 110); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('SMOF Lipid', 4.8);
         setField('KCl', 4); setField('10% Ca gluconate', 80); setField('Glycophos', 3); }],
@@ -274,7 +282,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       // Peditrace are no longer printed as mL for it (review finding 4).
       // Exactly 4 of its 61 figures moved: Soluvit 1.5 → —, Peditrace 1.5 → —,
       // components 3 → —, WFI -3 → 0 (was c9690daa62ccf31f).
-      full_en: ['abaff1c44614ae64', P, () => {
+      full_en: ['5691c5491c0d9a2a', P, () => {
         setField('Current weight', 1500); fillRequired(160); selectFeed('FBM_PF_24'); setField('Volume(mL/feed)', 30); setField('Frequency', 8); }],
     };
     const PARITY = [['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],

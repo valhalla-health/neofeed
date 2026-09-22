@@ -459,7 +459,7 @@ function GrowthVelocity({ points, metric = "weight" }) {
       <div>
         <div className="num" style={{ fontSize: 22, fontWeight: 500, color:
           status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn-ink)" : "var(--crit)" }}>
-          {gPerKg.toFixed(1)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>g/kg/d</span>
+          {D_F.displayNum(gPerKg, 1)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>g/kg/d</span>
         </div>
         <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>Target ≥ 15 g/kg/d</div>
       </div>
@@ -475,7 +475,7 @@ function GrowthVelocity({ points, metric = "weight" }) {
     <div>
       <div className="num" style={{ fontSize: 22, fontWeight: 500, color:
         status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn-ink)" : "var(--crit)" }}>
-        {cmPerWk.toFixed(2)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>cm/wk</span>
+        {D_F.displayNum(cmPerWk, 2)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>cm/wk</span>
       </div>
       <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>Target 0.5–1 cm/wk</div>
     </div>
