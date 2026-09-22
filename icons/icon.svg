@@ -1,13 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- NeoFeed's two-tone N (Praew, 2026-09-22): the no-dot, shaded N from the
-       approved Valhalla Health brand board. A Sage left stem, the diagonal and
-       right stem in Forest, and a slit between them where the tile shows
-       through. Built from the approved icon's measured proportions, not traced
-       from it: stems 28% of the letter's height, a parallel-edged diagonal,
-       4.8% outer corners. The tile (#D3E3D3) and the two gradients are sampled
-       from that artwork; the Forest shading ends on Forest itself.
-       The login wordmark (app.jsx) draws these same two paths: one geometry.
-       Every PNG in icons/ is rendered from this letter (CHANGELOG 2026-09-22). -->
+  <!-- NeoFeed's app icon: the brand board's two-tone N, and nothing else.
+       Praew, 2026-09-22 ("icon เอาแค่ตัว N ... หรือเอาสีพื้นหลังเท่า dashboard"),
+       choosing from three grounds rendered on a light home screen, a dark one
+       and a browser tab.
+
+       THE GROUND IS THE APP'S OWN, Porcelain Mist #F5F8F7 — byte for byte the
+       value that :root gives the page background, so the icon and the app
+       behind it are one colour. It is NOT white by coincidence: white looked
+       identical at icon size and would have been a colour that merely
+       resembled the app's. (Written out rather than named, because an XML
+       comment may not contain a double hyphen and the token's name has one.)
+
+       NO FRAME. An Ivory ring on a Pale Jade ground lasted one look: at 16px
+       in a browser tab the ring turned to mush and squeezed the letter down
+       with it. Dropping it lets the letter grow from 47% of the square to 54%,
+       which is where the whole difference shows.
+
+       The letter is unchanged and is the same two paths the wordmark draws —
+       a Sage left stem, the diagonal and right stem in Forest, a slit between.
+       Not traced from a mockup: built from the approved icon's measured
+       proportions (stems 28% of the letter's height, a parallel-edged
+       diagonal, 4.8% outer corners). test/verify-neofeed-mark.cjs pins that
+       app.jsx carries these exact path strings.
+
+       At scale 1.4 the letter's furthest ink sits 38.3% of the width from the
+       centre, inside Android's 40% maskable safe zone — the harness measures
+       that rather than trusting it. The ground is the only rect, and the
+       renderer squares off its corners for the full-bleed variants.
+       Every PNG in icons/ is rendered from this file. -->
   <defs>
     <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
       <stop offset="0" stop-color="#335A4A"/>
@@ -18,8 +38,8 @@
       <stop offset="1" stop-color="#799781"/>
     </linearGradient>
   </defs>
-  <rect width="256" height="256" rx="56" fill="#D3E3D3"/>
-  <g transform="translate(46.17 44.5) scale(1.67)">
+  <rect id="nf-ground" width="256" height="256" rx="56" fill="#F5F8F7"/>
+  <g transform="translate(59.4 58) scale(1.4)">
     <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z"/>
     <path fill="url(#nf-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z"/>
   </g>

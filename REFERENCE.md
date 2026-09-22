@@ -163,8 +163,20 @@ the next PR on this repo. PRs #62, #68 and #72 each existed only to record a dep
   bytes under them. GitHub Pages should answer `/` with the shell and then send any browser to
   `moved.html` — that redirect is `boot.js`.
 - **Google Sign-In is origin-bound.** Every hostname the app is served from must be an Authorized
-  JavaScript origin on OAuth client `750019806043-imunne8n…`. Google allows no wildcards, so
-  Cloudflare **preview** URLs can never complete a login — use them for layout only.
+  JavaScript origin on OAuth client `750019806043-imunne8n…`. Google allows no wildcards, so a
+  Cloudflare **preview** URL fails sign-in with `Error 400: origin_mismatch` until its exact
+  hostname is registered. Hit on 2026-09-22 on a branch preview; the error names the OAuth policy
+  rather than the app, so it reads as a NeoFeed bug and is not one.
+  - Cloudflare gives a preview two URLs, and they are not equally useful here. The **branch** URL
+    (`<branch>-neofeed.valhalla-health.workers.dev`) is stable for the life of the branch, so it
+    *can* be registered. The **commit** URL (`<hash>-neofeed…`) changes on every push and never can.
+  - So: **use a preview for layout, and register the branch URL only if you need to get past the
+    login screen on it.** Remove it when the branch is merged — a production OAuth client should
+    not accumulate dead origins.
+  - `npx wrangler dev` is usually the better answer: it serves on `http://localhost:8787`, one
+    stable origin, and it is faster than pushing (see below).
+  - **Never** add a preview-only auth bypass to the code to work around this. A login that can be
+    skipped is one merge away from production, in an app that writes pharmacy orders.
 - **Fast local loop:** `npx wrangler dev`. No deploy, instant reload, and quicker than pushing.
 - **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. GitHub Pages has no
   rollback — revert the commit. For a release that crosses the 2026-09-17 build step, revert the

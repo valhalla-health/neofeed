@@ -177,7 +177,9 @@ await page.waitForTimeout(1500);
 await shot('01-ward-gate');
 // Since 2026-09-15 the app opens on a ward gate (NICU / SCN) and the patient
 // list is one tap behind it.
-ok_('logged in, ward gate visible', await page.getByText('เลือก ward').isVisible().catch(() => false));
+// The heading became "Ward" on 2026-09-22; the gate is matched on its own
+// element rather than on a word another view could also use.
+ok_('logged in, ward gate visible', await page.locator('.ward-gate').isVisible().catch(() => false));
 ok_('gate offers both wards',
   await page.locator('.ward-tile', { hasText: 'NICU' }).first().isVisible().catch(() => false) &&
   await page.locator('.ward-tile', { hasText: 'SCN' }).first().isVisible().catch(() => false));

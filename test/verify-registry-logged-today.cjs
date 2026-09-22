@@ -111,7 +111,9 @@ const eq = (label, got, want) => {
 console.log('\n── ward gate (no ward chosen) ──');
 render(null);
 const gateText = document.getElementById('root').textContent;
-eq('gate is what renders first', /เลือก ward/.test(gateText), true);
+// Its heading became "Ward" on 2026-09-22; matched on the .ward-gate element
+// instead, which is what the gate IS rather than what it happens to say.
+eq('gate is what renders first', !!document.querySelector('.ward-gate'), true);
 eq('…offering NICU', /NICU 1–12/.test(gateText), true);
 eq('…and SCN 1–30', /SCN 1–30/.test(gateText), true);
 eq('no patient list yet', document.querySelectorAll('.log-badge').length, 0);

@@ -15,6 +15,17 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
+> 🎨 **2026-09-22 (2), on `claude/mobile-calculator-logo-fixes-i6iyfy` — NOT DEPLOYED.** Presentation
+> and navigation only, no clinical logic and no backend: the app is back on the **Valhalla Teal**
+> sheet (the Luminous Protection green of the entry above lasted a day — "สีข้างในมันกลืนกันไปหน่อย"),
+> the two-tone N is now the topbar and `SyncGate` mark and has been re-tinted into that sheet (the
+> seven icon PNGs were re-rendered from `icons/icon.svg`, still the one master), the quick-calc button
+> is the Dashboard's alone and hands back to the Dashboard, and three causes of sideways scroll on a
+> phone are fixed — pinned by the new `test/verify-mobile-fit.cjs`. ⚠️ **The app icon and every
+> favicon changed colour**, so an installed home-screen icon will change on next install/refresh.
+> Nothing here touches `gas-backend.gs`, `data.js` or a single figure in `calc`.
+> See `CHANGELOG.md` 2026-09-22 (2).
+
 **Updated 2026-09-22, 16:35 ICT** · 🟢 **Backend `@56` and frontend `release` = `96afcd0` are live.**
 - **Frontend:** PR #77 (`main` → `release`), approved and merged by `tasamew` at 04:17 UTC /
   11:17 ICT. On top of the review frontend (#74) it ships PR #75, the 2026-09-18 ward requests (MEN

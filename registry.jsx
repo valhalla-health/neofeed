@@ -96,7 +96,13 @@ function WardGate({ patients, log, today, onPick }) {
     <>
       <div className="page-head" style={{ marginBottom: 16 }}>
         <div>
-          <h1>เลือก ward</h1>
+          {/* "Ward" (was "เลือก ward"), in the ordinary heading ink. It spent
+              one round in --brand-ink and came straight back: "กลับไปใช้อันเดิม
+              อันเข้มขึ้นไม่สวย" (Praew, 2026-09-22). A brand-toned heading sat
+              directly above the brand-toned NICU/SCN tiles and read as one
+              muddy column; the page wants exactly one accent, and the tiles
+              already have it. Don't re-tint this without moving those too. */}
+          <h1>Ward</h1>
           <div className="sub">{active.length} active sessions · {today}</div>
         </div>
       </div>
