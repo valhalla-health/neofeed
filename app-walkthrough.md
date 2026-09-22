@@ -467,9 +467,12 @@ Hybrid, handled entirely in `gas-backend.gs`:
   click is inert, only escape hatch is logout) — the rest of the app,
   including the GAS patient sync, is blocked until a real password is set.
   A successful change clears cols G/H. Google/Workspace domains
-  (`GOOGLE_WORKSPACE_DOMAINS`, currently just `chula.ac.th`) are excluded —
-  `clearStaffPassword(email)` undoes it if one picks up a temp password
-  anyway. **Don't reintroduce a single shared constant here** — an earlier
+  (`GOOGLE_WORKSPACE_DOMAINS`: since 2026-09-22 every Chula domain —
+  `chula.ac.th`, `student.chula.ac.th`, `md.chula.ac.th`, `docchula.com`,
+  `chulahospital.org`) are excluded, and the gate holds only a session that
+  signed in with a password (`_passwordSession`), never a Google one —
+  `clearStaffPassword(email)` removes a temp password such an account picked
+  up anyway. **Don't reintroduce a single shared constant here** — an earlier
   same-day version of this trigger used one hardcoded password for every
   new account, which is a standing vulnerability in a no-build-step repo
   (every non-secret file is effectively public — see `SECURITY_CHECKLIST.md`),
