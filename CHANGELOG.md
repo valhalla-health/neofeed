@@ -13,6 +13,43 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 — A forced password change is served at once, not refused for a minute
+
+Backend only (`gas-backend.gs`, `test/verify-staff-cache-password-writes.cjs`). No `.jsx` changed, so no
+build. Not deployed: `@55` keeps the bug until a `clasp` deploy on Praew's go-ahead (`STATUS.md` ⏳).
+
+**The bug** (found 2026-09-22 during PR #84). After a successful forced change, every request answered
+`PasswordChangeRequired`, and `app.jsx` put the forced change screen back up. `verifyToken` reads the
+Staff row through a 60 s cache (`_getStaffRowCached`) that carries col G, and the `changePassword`
+request itself had just cached col G `TRUE`. In the sandbox on `f3e9e23` (`@55`'s source) the rotated
+token was refused from t+0 to t+59 s and served at t+60 s. Signing in again did not help: the copy is
+per user. The cache comment said password changes were unaffected. That held for revoking the other
+sessions (the user epoch), never for col G.
+
+**The fix.** `_forgetStaffRow(email)` drops the cached copy, and every function that writes a Staff row's
+cols E–H calls it after the write:
+- `changePassword` — the reported bug.
+- `setInitialPassword`, in both branches: a row re-added after its deletion was cached as "not found",
+  and its first request was refused as `Unauthorized`.
+- `clearStaffPassword`.
+- `onEdit` and `backfillDefaultPasswords`. These two failed **open**: provisioning a temp password on a
+  row whose copy was cached with col G blank let a sign-in on that temp password through the server gate
+  for up to a minute.
+
+Dropping the copy is best effort: a cache failure is logged, the 60 s bound applies again, and the epoch
+bump still runs. The key now comes from one helper, `_staffCacheKey`, trimmed and lowercased like
+`getStaffRow`, so an address typed into the editor in another case still matches.
+
+**Unchanged.** Hand edits in the Sheets UI (role, `active`, col G typed by hand) are still seen within
+60 s. `onEdit` fires on those edits, so it could drop the copy for every Staff edit and make disabling an
+account instant; not done here. Residual: a request already past its Staff read when the change lands
+can put the old copy back for up to 60 s. The client sends nothing while the forced screen is up, so
+that takes a second tab or device of the same user in flight at that moment.
+
+`verify-staff-cache-password-writes.cjs`: 33 assertions, 10 fail against `f3e9e23`. Six deliberate
+breakages of the fix (no try/catch, an unnormalised key, a cache that never hits, `setInitialPassword`
+dropping only for an existing row, `changePassword` or `onEdit` not dropping) were each caught.
+
 ## Session 2026-09-21 — Quick calc: the same calculator, on a typed weight, saving nothing
 
 Frontend only (`app.jsx`, `calculator.jsx`, both shells, `test/verify-quick-calc.cjs`,
