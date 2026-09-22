@@ -116,9 +116,15 @@ of what read as "ไล่เชดสี" on that ground. Raised for her to cal
 
 ### 3c · The ward gate says "Ward"
 
-*"เปลี่ยนคำว่า เลือก ward เป็น Ward แล้วให้สีเป็นเขียวเข้ม."* The heading is `Ward` in
-`--brand-ink` — Midnight Teal, the same dark the wordmark's "Feed" and the N's body gradient end on,
-so the app has one dark rather than a second one matched by eye.
+*"เปลี่ยนคำว่า เลือก ward เป็น Ward แล้วให้สีเป็นเขียวเข้ม."* The heading is `Ward`.
+
+The colour lasted one round. It went to `--brand-ink` (Midnight Teal, the dark the wordmark's "Feed"
+and the N's body gradient end on) and came straight back on sight — *"กลับไปใช้อันเดิม อันเข้มขึ้น
+ไม่สวย."* It reads badly for a reason worth keeping: a brand-toned heading sits **directly above the
+brand-toned NICU/SCN tile titles**, so the whole column became one flat block of the same colour and
+the page lost the thing a heading is for. The page wants exactly one accent and the tiles already
+have it. The wordmark's "Feed" is a different case and stays dark — it is *inside* a lockup whose N
+ends on that exact colour, with nothing else near it competing.
 
 **Nine harnesses were reading "เลือก ward" as their marker for "the ward gate is on screen"**, in
 `verify-review-0917-session.cjs` (×5), `-sync`, `-resync-and-lists`, `-registry-logged-today`,
