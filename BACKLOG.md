@@ -59,7 +59,20 @@ clinical judgement. Everything else is engineering sequencing.
       since 2026-09-18, so on or after 2026-09-25). Check the
       Script Property `hd_seen_chula.ac.th`: `"yes"` → set the flag to `true` and redeploy; `"no"` →
       someone signs in with a non-Workspace Google account for that domain and needs a password
-      account first. Steps are in the comment above the flag.
+      account first. Steps are in the comment above the flag. **Since the 2026-09-22 Chula domain
+      list there are five `hd_seen_<domain>` properties to check, and the four new ones only start
+      recording once that backend is deployed** — so for them the week starts at that deploy.
+- [ ] 🔒 **security · Deploy the 2026-09-22 Chula Google domains change** (`STATUS.md` ⏳) with `clasp`,
+      on Praew's go-ahead. Then, **Praew's call:** Chula-domain Staff rows that already hold a
+      password keep it — Google sign-in works for them either way. Once each such person has signed
+      in with Google, `clearStaffPassword(email)` removes the password, per "ไม่ต้องมาสร้าง password
+      ที่นี่". Not before: a Workspace admin can block Google sign-in to outside apps, and then the
+      password is that person's only way in.
+- [ ] 🔒 **bug · A forced password change is still refused for up to a minute afterwards** (found
+      2026-09-22). `changePassword` clears col G and returns a fresh token, but `verifyToken` reads the
+      Staff row from its 60 s cache (`_getStaffRowCached`), which still holds col G `TRUE`, so the next
+      requests answer `PasswordChangeRequired` and the client shows the forced-change screen again.
+      Reproduced in the `gas-vm-sandbox.cjs` double; not yet pinned by a harness.
 
 - [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + `release` = `96afcd0`) in one bedside session.**
       ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch, from the

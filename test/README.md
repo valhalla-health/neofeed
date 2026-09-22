@@ -170,7 +170,7 @@ installed) to get the real measurement.
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
 `verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
-`verify-publish-lock.cjs` and `verify-build-shells.cjs` need **no dependencies at all** — run them directly:
+`verify-publish-lock.cjs`, `verify-build-shells.cjs` and `verify-chula-google-signin.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
 node test/verify-build-shells.cjs
@@ -183,6 +183,7 @@ node test/verify-input-validation.cjs
 node test/verify-provenance-stamp.cjs
 node test/verify-sync-freshness.cjs
 node test/verify-publish-lock.cjs
+node test/verify-chula-google-signin.cjs
 ```
 
 `verify-sync-gate-and-poll.cjs` needs the jsdom set below, and additionally
@@ -826,6 +827,19 @@ more of the Sheets API — multi-row `getRange`, column-true `setValues`, `getMa
 tab, and real header labels in row 1 (a placeholder header is now, correctly, refused as column
 drift). No assertion was weakened; two in `verify-review-0911.cjs` were updated to decisions made that
 day — the lockout counter's hashed key name, and an undated archived patient leaving the ward sync.
+
+**`verify-chula-google-signin.cjs`** — Praew's 2026-09-22 rule: every Chula Google Workspace domain
+(`chula.ac.th`, `student.chula.ac.th`, `md.chula.ac.th`, `docchula.com`, `chulahospital.org`) signs in
+with Google and gets no NeoFeed password, and nobody signs in without a Staff row. Same
+`gas-vm-sandbox.cjs` as the review harnesses, no npm dependencies. It pins that no password is
+provisioned for those domains by the `onEdit` trigger or the backfill (with a `redcross.or.th` control,
+and look-alike domains staying password domains); that a Google sign-in on a row that picked up a temp
+password before its domain was listed is **not** stopped by the forced-change gate, while a **password**
+sign-in on that same row still is — the gate follows how the session signed in, not the address; that
+both paths refuse a missing, disabled or role-less Staff row, and deleting the row ends a live session;
+that the prepared `hd` restriction and its telemetry cover all five domains; and that a session minted
+before the change keeps its old rule. 57 assertions; 21 fail against `7049f60` (`@55`), including the
+chula.ac.th temp password that the domain-keyed gate let skip the change.
 
 ## Note on the source workbook
 

@@ -407,7 +407,7 @@ function _staffRole(value) {
   return VALID_STAFF_ROLES[role] ? role : null;
 }
 
-function createSession(email, role, name, mustChangePassword) {
+function createSession(email, role, name, mustChangePassword, authMethod) {
   var token = Utilities.getUuid();
   var cache = CacheService.getScriptCache();
   cache.put("sess_" + token, JSON.stringify({
@@ -416,9 +416,22 @@ function createSession(email, role, name, mustChangePassword) {
     name: name,
     epoch: getUserEpoch(email),
     mustChangePassword: Boolean(mustChangePassword),
+    authMethod: authMethod,   // "google" | "password": what proved it (_passwordSession)
     issuedAt: Date.now(),
   }), SESSION_TTL_SECONDS);
   return token;
+}
+
+// Only a session proved by a password can be running on a temp password, so
+// only it is held by col G. A Google session never is: it has no password to
+// change, and a temp password left on its row from before its domain was
+// listed must not trap it (2026-09-22). Keying this on the email domain instead
+// let a chula.ac.th temp password skip the change. A session minted before
+// sessions recorded their method keeps the domain rule it was minted under.
+function _passwordSession(session) {
+  if (session.authMethod === "google") return false;
+  if (session.authMethod === "password") return true;
+  return !_usesGoogleSignIn(session.email);
 }
 
 // Returns the session, or null. `info` (optional) says WHY it is null, so
@@ -472,7 +485,7 @@ function verifyToken(token, info) {
     }
     parsed.role = currentRole;
     parsed.name = String(found.data[2] || parsed.email);
-    parsed.mustChangePassword = !_usesGoogleSignIn(parsed.email) &&
+    parsed.mustChangePassword = _passwordSession(parsed) &&
       (found.data[6] === true || String(found.data[6] || "").toUpperCase() === "TRUE");
     cache.put("sess_" + token, JSON.stringify(parsed), SESSION_TTL_SECONDS); // sliding window — reset TTL on every use
     return parsed;
@@ -607,7 +620,15 @@ function _genTempPassword() {
 // Workspace-enabled. Add a domain here (lowercase, no @) if the same
 // happens for another one; use clearStaffPassword(email) to undo it for an
 // account that already got one.
-var GOOGLE_WORKSPACE_DOMAINS = ["chula.ac.th"];
+//
+// 2026-09-22 (Praew): every Chula domain signs in with Google and gets no
+// NeoFeed password. Each domain below has a Google Workspace sign-in page
+// (google.com/a/<domain>/ServiceLogin; chula.ac.th and student.chula.ac.th hand
+// on to Chula's Microsoft SSO). redcross.or.th has none, so it stays a password
+// domain. Exact matches only: an unlisted subdomain is a password domain.
+// Listing decides who gets a password, not who may sign in — that is still
+// only an active Staff row (doPost's login).
+var GOOGLE_WORKSPACE_DOMAINS = ["chula.ac.th", "student.chula.ac.th", "md.chula.ac.th", "docchula.com", "chulahospital.org"];
 function _usesGoogleSignIn(email) {
   var domain = String(email).toLowerCase().split("@")[1] || "";
   return domain === "gmail.com" || GOOGLE_WORKSPACE_DOMAINS.indexOf(domain) !== -1;
@@ -624,17 +645,18 @@ function _usesGoogleSignIn(email) {
 //     that domain (proves the Workspace tenant issued the account).
 // Everything else is refused with a message pointing at the password path.
 //
-// Why it ships OFF: if some chula.ac.th sign-ins arrive WITHOUT hd (a consumer
-// Google account on a Workspace address), enforcing would lock those people
-// out. So while it is off, every Workspace-domain Google sign-in records, with
+// Why it ships OFF: if some sign-ins on a listed domain arrive WITHOUT hd (a
+// consumer Google account on a Workspace address), enforcing would lock those
+// people out. So while it is off, every Workspace-domain Google sign-in records, with
 // no personal data, whether its token carried the matching hd:
 //   Script Property  hd_seen_<domain> = "yes" | "no"
 // "no" is sticky — one sign-in without hd is enough to make enforcing unsafe.
 //
 // How to flip it: (1) Apps Script editor → Project Settings → Script
-// Properties, and check hd_seen_chula.ac.th after a normal working week.
-// (2) Only if it reads "yes" (never "no"), set GOOGLE_HD_ENFORCE = true, run the
-// harnesses, and deploy the usual clasp way. If it reads "no", find out who
+// Properties, and check hd_seen_<domain> for every GOOGLE_WORKSPACE_DOMAINS
+// entry after a normal working week — a domain nobody signed in from has none.
+// (2) Only if none reads "no", set GOOGLE_HD_ENFORCE = true, run the
+// harnesses, and deploy the usual clasp way. If one reads "no", find out who
 // signs in without a Workspace account before flipping — they would need a
 // password account (setInitialPassword) first.
 var GOOGLE_HD_ENFORCE = false;
@@ -970,11 +992,10 @@ function doPost(e) {
         role = _staffRole(gd[1]);
         if (!role) return jsonOut({ status: "unauthorized", error: "บัญชีนี้ยังไม่ได้กำหนดสิทธิ์ที่ถูกต้อง — แจ้ง admin" });
         name = String(gd[2] || email);
-        var tok = createSession(email, role, name, false);
+        var tok = createSession(email, role, name, false, "google");
         logAudit("login", "", email);
-        // Google/Workspace accounts never go through the password-provisioning
-        // path (_usesGoogleSignIn excludes them in onEdit/backfillDefaultPasswords),
-        // so there's nothing to force here — always false.
+        // A Google session is never held on a temp password (_passwordSession):
+        // it has no password to change, so there's nothing to force — always false.
         return jsonOut({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google", mustChangePassword: false });
       }
 
@@ -1045,7 +1066,7 @@ function doPost(e) {
       // account got a random temp password instead of one the user chose —
       // the client forces the change-password screen until this clears.
       var mustChange = (d[6] === true || String(d[6] || "").toUpperCase() === "TRUE");
-      var token = createSession(email, role, name, mustChange);
+      var token = createSession(email, role, name, mustChange, "password");
       logAudit("login", "", email);
       return jsonOut({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password", mustChangePassword: mustChange });
     }
@@ -1079,9 +1100,9 @@ function doPost(e) {
     // `changePassword` MUST stay reachable — it is the only way out, and a gate
     // with no exit is a permanent lockout. `logout` is answered above, before
     // verifyToken, so it is unaffected; do not move this check any earlier
-    // without re-reading that. Google/Workspace accounts never reach here with
-    // the flag set: verifyToken clears it for them via _usesGoogleSignIn, since
-    // they have no password to change and so no way out of the gate.
+    // without re-reading that. Google sessions never reach here with the flag
+    // set: verifyToken clears it for them (_passwordSession), since they have
+    // no password to change and so no way out of the gate.
     //
     // The condition reads from `user`, which verifyToken re-derives from the
     // sheet on every call rather than trusting the token's cached copy — so
@@ -1204,7 +1225,7 @@ function doPost(e) {
       // is invalidated immediately — verifyToken() checks epoch on every
       // call. Re-issue a fresh token so *this* device stays logged in.
       bumpUserEpoch(user.email);
-      var rotatedToken = createSession(user.email, user.role, user.name, false);
+      var rotatedToken = createSession(user.email, user.role, user.name, false, "password");
       logAudit("changePassword", "", user.email);
       return jsonOut({ ok: true, token: rotatedToken, mustChangePassword: false });
     }

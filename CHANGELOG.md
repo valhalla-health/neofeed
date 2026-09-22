@@ -13,6 +13,41 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 — Every Chula domain signs in with Google, with no NeoFeed password
+
+Backend only (`gas-backend.gs`, `test/verify-chula-google-signin.cjs`). No `.jsx` changed, so no build.
+Not deployed: `@55` is unchanged until a `clasp` deploy on Praew's go-ahead (`STATUS.md` ⏳).
+
+**The request** (Praew, 2026-09-22, after asking whether `@docchula.com` can use Google): *"ทุกอันที่เป็น
+chula domain ให้ผ่าน google ได้เลย ไม่ต้องมาสร้าง password ที่นี่ และให้เช็คด้วยว่า ทุก email จะต้องมีชื่อใน
+google sheet user เพื่อป้องกันไม่ให้ใครก็ได้เข้ามา"*
+
+**Which domains — checked, not assumed.** `chula.ac.th`, `student.chula.ac.th`, `md.chula.ac.th`,
+`docchula.com` and `chulahospital.org` each have a Google Workspace sign-in page
+(`google.com/a/<domain>/ServiceLogin`; the first two hand on to Chula's Microsoft SSO). `redcross.or.th`
+and a control domain get Google's "not using Google Workspace" page instead. DNS agrees for
+`docchula.com` and `chulahospital.org` (MX at Google). `GOOGLE_WORKSPACE_DOMAINS` now lists the five,
+exact matches only.
+
+**Why the gate changed too.** `verifyToken` decided the temp-password gate by *domain*
+(`!_usesGoogleSignIn(email)`), so listing a domain also lifted the gate for it. A row on a newly listed
+domain that already held a temp password would have kept it working with no forced change, and a
+`chula.ac.th` row already could (harness § 3 fails on `7049f60`). Sessions now record how they signed in
+(`authMethod`), and `_passwordSession` lets col G hold only a password session. A Google session is never
+held, so a Google sign-in on such a row no longer lands on a change screen it cannot complete, which is
+what a `@docchula.com` sign-in meets on `@55`. Sessions minted before the deploy carry no `authMethod`
+and keep the domain rule.
+
+**The allowlist, checked.** Both login paths require an active Staff row with a valid role; every request
+re-reads the row (60 s cache); a deleted or disabled row ends a live session; no unauthenticated action
+or GET returns data. Unchanged, and now pinned in the harness's § 4.
+
+**Found, not fixed here:** after a forced password change, the next minute of requests is still refused
+as `PasswordChangeRequired`, because `verifyToken` reads the Staff row from its 60 s cache, which still
+holds col G `TRUE` (`BACKLOG.md` § Now).
+
+`verify-chula-google-signin.cjs`: 57 assertions, 21 fail against `7049f60`.
+
 ## Session 2026-09-21 — Quick calc: the same calculator, on a typed weight, saving nothing
 
 Frontend only (`app.jsx`, `calculator.jsx`, both shells, `test/verify-quick-calc.cjs`,
