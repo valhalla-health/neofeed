@@ -65,14 +65,17 @@ function multiplesLabel(p) {
 // Module level, not nested inside WardGate — a component defined inside
 // another is a new type on every render, so React unmounts and remounts it
 // (the reason calculator.jsx keeps TwoCol out of Calculator).
+// Its surface, frame and hover live in the shells' .ward-tile rule. The
+// inline style used to paint it `var(--bg-1)`, a token that never existed, so
+// the tile had no fill at all and sat invisible on the page ground until
+// Praew asked for "พื้นขาว เพื่อให้แยกจากกันได้ชัด" (2026-09-22).
 function WardTile({ label, sub, list, log, today, onPick }) {
   const logged = list.filter(p => D_R.hasLogOnDate(log[p.sessionId], today)).length;
   const needs  = list.length - logged;
   return (
     <button className="ward-tile" onClick={onPick}
       style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
-        padding: "22px 24px", borderRadius: 12, border: "1px solid var(--line-2)",
-        background: "var(--bg-1)", cursor: "pointer", textAlign: "left", width: "100%" }}>
+        padding: "22px 24px", borderRadius: 12, cursor: "pointer", textAlign: "left", width: "100%" }}>
       <div style={{ fontSize: 22, fontWeight: 600, color: "var(--brand-2)", letterSpacing: "-0.02em" }}>{label}</div>
       <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{sub}</div>
       <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 12.5 }}>

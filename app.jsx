@@ -588,9 +588,6 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
-  // Which view the quick calc was opened from, so its ← กลับ goes back where
-  // the user actually was rather than dumping them at the registry mid-round.
-  // Not persisted: the quick calc holds nothing worth returning to.
   // Which ward the registry is showing. null = show the ward gate, which is
   // deliberately the state every session starts in: the unit runs NICU and
   // SCN as two censuses, and the first thing a shift does is say which one it
@@ -1608,8 +1605,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }
 
   shellReadyRef.current = true;
+  // The quick-calc button's one page — see QuickCalcFab. Also read by the
+  // root's class, which pads the workspace so the button never sits over the
+  // last rows of the list it floats above.
+  const showQuickFab = view === "registry";
   return (
-    <div className="app">
+    <div className={showQuickFab ? "app has-quick-fab" : "app"}>
       {/* Top bar */}
       <div className="topbar">
         {/* The wordmark itself, no icon tile (Praew, 2026-09-22). */}
@@ -1869,7 +1870,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               no access it could grant that the ESPGHAN reference panels below
               don't already. (The patient Calculator stays doctor/nurse — that
               one writes orders.) */}
-          {view === "quickcalc" && <QuickCalcView onBack={() => goTo("log")} />}
+          {view === "quickcalc" && <QuickCalcView onBack={() => goTo("registry")} />}
           {view === "guidelines" && <GuidelinesPanel />}
           {view === "formulas" && <FormulasPanel />}
           </ViewErrorBoundary>
@@ -1904,9 +1905,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       />
       }
 
-      {/* Dashboard only, and it always hands back to Dashboard — see
+      {/* The Ward page only, and it always hands back to the Ward page — see
           QuickCalcFab. */}
-      {view === "log" && <QuickCalcFab onClick={() => goTo("quickcalc")} />}
+      {showQuickFab && <QuickCalcFab onClick={() => goTo("quickcalc")} />}
 
       <BottomNav
         view={view}
@@ -2075,9 +2076,9 @@ function QuickCalcView({ onBack }) {
     <>
       <div className="page-head">
         <div>
-          {/* Always Dashboard — the page the button is on. */}
+          {/* Always the Ward page — the page the button is on. */}
           <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={onBack}>
-            ← กลับไป Dashboard
+            ← กลับไป Ward
           </button>
           <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             Calculator
@@ -2117,17 +2118,20 @@ function QuickCalcView({ onBack }) {
 }
 
 // ── Quick-calc floating button ───────────────────────────────
-// Bottom-right, and on the DASHBOARD ONLY (Praew, 2026-09-22: "calculator
-// ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard เท่านั้น"). It used to ride every
-// view except the two calculators, which put a second, unsaveable calculator
-// in the corner of the patient registry, the growth chart and the alert list —
-// five chances to reach for the scratchpad when the order screen was meant.
+// Bottom-right, and on the WARD PAGE ONLY — the ward gate and the ward's
+// patient list, both `view === "registry"` (Praew, 2026-09-22, second round:
+// "ให้ calculator มาอยู่หน้า patient ward แทน"). Earlier that day it had gone
+// to the Dashboard alone ("calculator ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard
+// เท่านั้น"); before that it rode every view except the two calculators, which
+// put a second, unsaveable calculator in the corner of the growth chart and
+// the alert list — five chances to reach for the scratchpad when the order
+// screen was meant. The Ward page is the first screen of a shift, and the one
+// view with no patient open, so it is where a patient-less calculator belongs.
 //
 // One page in, one page out: the two directions are deliberately the same
 // page, so the button is never a one-way door out of a screen it cannot
-// return you to. That is also why Dashboard and not Patients — the ← on the
-// quick calc has to land somewhere, and landing somewhere you did not come
-// from is the confusing half of this.
+// return you to — the ← on the quick calc lands back on the Ward page, on
+// whichever ward was open (`ward` is App state, and goTo leaves it alone).
 //
 // On a phone it clears the bottom nav and the home-indicator inset; on a
 // workstation it sits in the corner of the viewport. Both are clear of the

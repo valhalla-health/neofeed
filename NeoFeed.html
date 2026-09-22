@@ -56,10 +56,13 @@
        Porcelain-Mist ground and the teal-leaning ink tiers were derived from.
 
        The three clinical status colours further down are deliberately NOT
-       from the brand sheet, and are byte-identical to the pre-Valhalla
-       palette. crit/warn/ok are what severity is read off at a glance at a
-       bedside; re-hueing them to match a brand would move a mapping the
-       ward has already learned. Brand teal never means "normal".
+       from the brand sheet. crit and warn are byte-identical to the
+       pre-Valhalla palette. ok kept its hue family but gained chroma on
+       2026-09-22: once the accent had moved onto the mark's green, the old
+       OK green read as brand (Praew: "สีเขียวอยากให้ชัดไปจาก palette เดิม
+       เลย"). crit/warn/ok are what severity is read off at a glance at a
+       bedside; re-hueing them to match a brand would move a mapping the ward
+       has already learned. The brand green never means "normal".
 
        Every text tier here was checked against --surface and --bg-2 with a
        WCAG ratio, not by eye — the ratios are noted inline. */
@@ -136,12 +139,38 @@
        Pinning them would quietly desaturate a clinical colour. */
     --warn-ink:  oklch(45% 0.13 65);
 
-    --ok:        oklch(52% 0.12 155);
-    --ok-bg:     oklch(96% 0.03 155);
-    --ok-line:   oklch(86% 0.07 155);
-    --ok-ink:    oklch(42% 0.105 155);     /* 8.0:1 — ok as *text* */
+    /* ok is its own green now, clear of the Forest accent and the Sage
+       tints: more chroma at the same lightness, not a new hue (it was
+       oklch(52% 0.12 155), #177C49). This is the most vivid green at this
+       hue that stays sRGB and >= 4.5:1 on white, and it has to: about a
+       dozen places use --ok as small text. */
+    --ok:        oklch(52% 0.15 148);      /* #017F31 · 5.15:1 on white, 4.73:1 on --ok-bg */
+    --ok-bg:     oklch(96.5% 0.045 150);
+    --ok-line:   oklch(82% 0.12 150);
+    --ok-ink:    oklch(42% 0.12 148);      /* #035E23 · 8.0:1 — ok as *text* */
+
+    /* ── range-bar zones (calculator.jsx Meter) ──
+       Green inside the target, yellow outside it, red past a hard limit, and
+       a deeper green for GIR's 8-10 optimum (Praew, 2026-09-22: "สีเขียว OK,
+       สีเหลืองระวัง สีแดง alert"). Tints, not the status colours themselves,
+       so the ink needle reads on every one of them. */
+    --zone-ok:   oklch(79% 0.14 150);
+    --zone-best: oklch(62% 0.16 148);
+    --zone-warn: oklch(89% 0.115 90);
+    --zone-crit: oklch(73% 0.15 22);
 
     --info:      oklch(50% 0.10 240);
+
+    /* ── card frame: the pale blue the app's structure was drawn in before
+       2026-09-21, back on Praew's request ("กลับไปใช้กรอบ แนวๆ สีฟ้าคล้ายของ
+       เก่า เพื่อให้แยกได้ชัด", 2026-09-22). STRUCTURE ONLY: card borders,
+       card header bands, the ward tiles. Never a status and never the
+       accent, so buttons, focus rings and selected states stay Forest. ── */
+    --frame:        oklch(85% 0.04 232);   /* card border · 1.46:1 on --bg, where --line was 1.24:1 */
+    --frame-head:   oklch(94.5% 0.028 232);/* header band, top stop — fades to white */
+    --frame-head-2: oklch(92% 0.036 232);  /* header hover / pressed */
+    --frame-rule:   oklch(86% 0.04 232);   /* header's bottom rule */
+    --frame-ink:    oklch(33% 0.07 240);   /* #083955 · header title, 10.4:1 on --frame-head */
 
     /* ── radii + elevation ──
        Shadows carry the brand's hue rather than neutral grey: on a
@@ -384,6 +413,11 @@
              60px max(22px, env(safe-area-inset-left, 0px));
     max-width: 1480px;
   }
+  /* The Ward page carries the quick-calc button (app.jsx showQuickFab), and
+     its patient list scrolls under it: pad the end of the list clear of the
+     button (24px inset + 48px button + a gap) so the last row's actions are
+     never trapped beneath it. */
+  .app.has-quick-fab .work-inner { padding-bottom: 108px; }
 
   .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
   .page-head h1 {
@@ -394,7 +428,7 @@
   /* generic card */
   .card {
     background: var(--surface);
-    border: 1.5px solid var(--line);
+    border: 1.5px solid var(--frame);
     border-radius: var(--r);
     box-shadow: var(--shadow-card);
     transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
@@ -406,18 +440,34 @@
   }
   .card-h {
     display: flex; align-items: center; gap: 10px;
-    /* A whisper of Mineral Mist, so a card header separates from its body
-       on a projector or a washed-out bedside panel where a 1px hairline
-       alone does not survive. */
-    background: linear-gradient(180deg, oklch(97.5% 0.008 193) 0%, var(--surface) 100%);
+    /* Pale blue fading to white, over a blue rule (Praew, 2026-09-22: "a
+       pale-blue band, a blue frame and navy text ... แต่ให้มีเชรดขาวอ่อนๆ
+       เหมือนที่เป็นสีเขียวไล่ขาวตอนนี้"). It was a whisper of Mineral Mist,
+       which on the Porcelain-Mist ground left the header, the body and the
+       page one wash; the band is what tells a card's title from its work. */
+    background: linear-gradient(180deg, var(--frame-head) 0%, var(--surface) 100%);
+    color: var(--frame-ink);
     padding: 14px 16px;
-    border-bottom: 1.5px solid var(--line-2);
+    border-bottom: 1.5px solid var(--frame-rule);
     font-weight: 600; font-size: 14px;
     letter-spacing: -0.01em;
   }
   .card > .card-h:first-child { border-radius: calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0; }
   .card-h .h-meta { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-weight: 400; }
   .card-b { padding: 14px; }
+
+  /* Ward gate tiles (registry.jsx WardTile): white on the page ground and
+     framed like the cards (Praew, 2026-09-22: "ตรงกลาง ward ให้เป็นพื้นขาว
+     เพื่อให้แยกจากกันได้ชัด"). Their inline style named a --bg-1 that never
+     existed, so until this rule they had no fill at all. */
+  .ward-tile {
+    background: var(--surface);
+    border: 1.5px solid var(--frame);
+    box-shadow: var(--shadow-card);
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  }
+  .ward-tile:hover  { border-color: var(--brand); box-shadow: var(--shadow-pop); }
+  .ward-tile:active { transform: translateY(1px); }
 
   /* ============ PATIENT HEADER STRIP ============ */
   .patient-strip {
@@ -606,29 +656,33 @@
   .metric.s-crit  .stripe { background: var(--crit); }
   .metric.s-empty .stripe { background: var(--line); }
 
-  /* meter bar */
+  /* range bar — one zone per status, laid out by calculator.jsx's
+     meterZones from the tile's own grading function. The track clips the
+     zones to its rounded ends; the needle sits outside it so it can stand
+     proud of the bar, in ink with a white keyline, whatever zone it is on. */
   .meter {
     position: relative;
-    height: 6px; background: var(--bg-2);
-    border-radius: 999px; margin: 8px 0 4px;
-    overflow: visible;
+    height: 8px; margin: 9px 0 5px;
   }
-  .meter .range-bg {
-    position: absolute; top: 0; bottom: 0;
-    background: var(--brand-4);
+  .meter .meter-track {
+    position: absolute; inset: 0;
+    background: var(--bg-2);
     border-radius: 999px;
-    opacity: .7;
+    overflow: hidden;
   }
+  .meter .zone { position: absolute; top: 0; bottom: 0; }
+  .meter .z-ok   { background: var(--zone-ok); }
+  .meter .z-warn { background: var(--zone-warn); }
+  .meter .z-crit { background: var(--zone-crit); }
+  .meter .z-best { background: var(--zone-best); }
   .meter .needle {
-    position: absolute; top: -3px;
-    width: 3px; height: 12px;
+    position: absolute; top: -5px;
+    width: 4px; height: 18px;
     border-radius: 2px;
     background: var(--ink);
+    box-shadow: 0 0 0 2px var(--surface);
     transform: translateX(-50%);
   }
-  .meter.s-warn .needle { background: var(--warn); }
-  .meter.s-crit .needle { background: var(--crit); }
-  .meter.s-ok   .needle { background: var(--ok); }
 
   /* ============ ALERTS ============ */
   .alert-row {
@@ -701,8 +755,8 @@
   /* ============ ACCORDION STEP CARDS ============ */
   .card-h.clickable { cursor: pointer; user-select: none; }
   .card-h.clickable { transition: background 0.12s ease; }
-  .card-h.clickable:hover  { background: var(--brand-bg); }
-  .card-h.clickable:active { background: var(--brand-bg-2); }
+  .card-h.clickable:hover  { background: var(--frame-head-2); }
+  .card-h.clickable:active { background: var(--frame-head-2); }
   .step-summary {
     flex: 1; margin-left: 8px; display: flex; align-items: center; gap: 6px;
     flex-wrap: wrap; overflow: hidden;
@@ -1322,6 +1376,11 @@
                calc(68px + env(safe-area-inset-bottom, 0px))
                max(12px, env(safe-area-inset-left, 0px));
     }
+    /* …and on the Ward page, for the quick-calc button parked above the
+       nav (58px nav + inset + 14px + its 46px + a gap). */
+    .app.has-quick-fab .work-inner {
+      padding-bottom: calc(136px + env(safe-area-inset-bottom, 0px));
+    }
 
     /* Patient strip: 2×3 grid */
     .patient-strip {
@@ -1539,7 +1598,7 @@
     .card-h.clickable { min-height: 44px; }
 
     /* ── Active/pressed feedback for tappable surfaces ── */
-    .card-h.clickable:active { background: var(--bg-2); }
+    .card-h.clickable:active { background: var(--frame-head-2); }
     .preset-chip:active      { opacity: .7; transform: scale(0.97); }
     .rail-item:active        { background: var(--bg-2); }
     .btn:active              { opacity: .85; }
@@ -1782,11 +1841,11 @@
        content hash the build writes: never edit one by hand. -->
   <script src="data.js?v=ce3e213cfe"></script>
   <script src="compiled/icons.js?v=5464aa237e"></script>
-  <script src="compiled/calculator.js?v=aa8edb3f0d"></script>
+  <script src="compiled/calculator.js?v=a23656eb55"></script>
   <script src="compiled/fenton.js?v=5f4a597238"></script>
-  <script src="compiled/registry.js?v=56f2b9b64c"></script>
+  <script src="compiled/registry.js?v=bfec518208"></script>
   <script src="compiled/log.js?v=439570f5b1"></script>
-  <script src="compiled/app.js?v=47c3f626cb"></script>
+  <script src="compiled/app.js?v=61cb4fb7d4"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

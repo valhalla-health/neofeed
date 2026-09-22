@@ -275,20 +275,30 @@ ok('the rail and the mobile tab keep the original `calc`',
 ok('the button is labelled Calculator',
   /quick-fab-label">Calculator</.test(fab) && /aria-label="Calculator/.test(fab), fab);
 ok('the view is headed Calculator', /<h1[^>]*>\s*\n?\s*Calculator\n/.test(quickView), quickView.slice(0, 600));
-// Praew, 2026-09-22: "calculator ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard
-// เท่านั้น". The button used to ride every view but the two calculators; it is
-// the Dashboard's alone now, and its ← lands back on the Dashboard rather than
-// on whichever page the user happened to open it from. Both halves are pinned,
-// because either one alone is a door that only opens one way.
-ok('the button is on the Dashboard and nowhere else',
-  /\{view === "log" && <QuickCalcFab onClick=\{\(\) => goTo\("quickcalc"\)\} \/>\}/.test(appSrc),
+// Where the button lives. It rode every view but the two calculators until
+// 2026-09-22, then the Dashboard alone ("calculator ให้มีเฉพาะหน้าแรก ต้องกลับ
+// มาที่ dashboard เท่านั้น"), and on the second round that day the Ward page
+// alone ("ให้ calculator มาอยู่หน้า patient ward แทน") — the ward gate and the
+// ward's list, both view === "registry". Its ← lands back on the Ward page
+// rather than on whichever page the user happened to open it from. Both
+// halves are pinned, because either one alone is a door that only opens one way.
+ok('the button is on the Ward page and nowhere else',
+  /const showQuickFab = view === "registry";/.test(appSrc) &&
+  /\{showQuickFab && <QuickCalcFab onClick=\{\(\) => goTo\("quickcalc"\)\} \/>\}/.test(appSrc),
   /.{0,160}<QuickCalcFab/.exec(appSrc)?.[0]);
-ok('…so it is not on the registry, the growth chart, the alerts or either calculator',
+ok('…so it is not on the Dashboard, the growth chart, the alerts or either calculator',
+  (appSrc.match(/<QuickCalcFab\b/g) || []).length === 1 && !/view === "log" && <QuickCalcFab/.test(appSrc) &&
   !/view !== "quickcalc"/.test(appSrc) && !/setQuickFrom/.test(appSrc) && !/quickFrom/.test(appSrc));
-ok('and ← always hands back to the Dashboard',
-  /<QuickCalcView onBack=\{\(\) => goTo\("log"\)\} \/>/.test(appSrc),
+ok('and ← always hands back to the Ward page',
+  /<QuickCalcView onBack=\{\(\) => goTo\("registry"\)\} \/>/.test(appSrc),
   /.{0,120}QuickCalcView onBack/.exec(appSrc)?.[0]);
-ok('…and says so on the button', /← กลับไป Dashboard/.test(quickView), quickView.slice(0, 700));
+ok('…and says so on the button', /← กลับไป Ward/.test(quickView), quickView.slice(0, 700));
+// The ward's list scrolls under the button, so the workspace is padded clear
+// of it for as long as it shows — on a workstation and above a phone's nav.
+ok('the list is padded clear of the button while it shows',
+  /className=\{showQuickFab \? "app has-quick-fab" : "app"\}/.test(appSrc) &&
+  /\.app\.has-quick-fab \.work-inner \{ padding-bottom: 108px; \}/.test(shell) &&
+  /\.app\.has-quick-fab \.work-inner \{\s*padding-bottom: calc\(136px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(shell));
 
 // ── § 6 · calculator.jsx keeps every write behind the scratch flag ─────────
 console.log('\n── § 6 the write paths are guarded in calculator.jsx ──');

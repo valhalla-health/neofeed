@@ -214,30 +214,62 @@ function NumField({
 function Chk({ label, value, onChange, hint }) {
   return /* @__PURE__ */ React.createElement("label", { className: "chk-label", style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 6, background: value ? "var(--brand-bg)" : "var(--bg-2)", border: `1px solid ${value ? "var(--brand-line)" : "var(--line-2)"}`, cursor: "pointer", fontSize: 13 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: value, onChange: (e) => onChange(e.target.checked), style: { marginTop: 2, width: 18, height: 18, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500, color: value ? "var(--brand-2)" : "var(--ink)" } }, label), hint && /* @__PURE__ */ React.createElement("span", { className: "chk-hint", style: { display: "block", color: "var(--ink-3)", marginTop: 2, fontSize: 11 } }, hint)));
 }
-function Meter({ value, target, status, max, optimal }) {
+const ZONE_SAMPLES = 120;
+function meterZones(statusAt, m) {
+  const zones = [];
+  const cell = (i) => (i + 0.5) / ZONE_SAMPLES * m;
+  let start = 0, prev = statusAt(cell(0));
+  for (let i = 1; i < ZONE_SAMPLES; i++) {
+    const s = statusAt(cell(i));
+    if (s === prev) continue;
+    let lo = cell(i - 1), hi = cell(i);
+    for (let k = 0; k < 24; k++) {
+      const mid = (lo + hi) / 2;
+      if (statusAt(mid) === prev) lo = mid;
+      else hi = mid;
+    }
+    zones.push({ from: start, to: hi, status: prev });
+    start = hi;
+    prev = s;
+  }
+  zones.push({ from: start, to: m, status: prev });
+  return zones;
+}
+function Meter({ value, target, max, optimal, statusAt }) {
   const m = max || target[1] * 1.6;
   const pct = (v) => Math.min(100, Math.max(0, v / m * 100));
-  return /* @__PURE__ */ React.createElement("div", { className: `meter s-${status}` }, /* @__PURE__ */ React.createElement("div", { className: "range-bg", style: { left: `${pct(target[0])}%`, right: `${100 - pct(target[1])}%` } }), optimal && /* @__PURE__ */ React.createElement(
+  const zones = meterZones(statusAt || ((v) => D.rangeStatus(v, target)), m);
+  return /* @__PURE__ */ React.createElement("div", { className: "meter" }, /* @__PURE__ */ React.createElement("div", { className: "meter-track" }, zones.map((z, i) => /* @__PURE__ */ React.createElement(
     "div",
     {
-      className: "optimal-zone",
-      title: `Optimal: ${optimal[0]}–${optimal[1]}`,
-      style: {
-        position: "absolute",
-        top: 0,
-        bottom: 0,
-        left: `${pct(optimal[0])}%`,
-        right: `${100 - pct(optimal[1])}%`,
-        background: "oklch(52% 0.12 155 / .45)",
-        borderRadius: 2
-      }
+      key: i,
+      className: `zone z-${z.status}`,
+      style: { left: `${pct(z.from)}%`, width: `${pct(z.to) - pct(z.from)}%` }
     }
-  ), /* @__PURE__ */ React.createElement("div", { className: "needle", style: { left: `${pct(value)}%` } }));
+  )), optimal && /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      className: "zone z-best",
+      title: `Optimal: ${optimal[0]}–${optimal[1]}`,
+      style: { left: `${pct(optimal[0])}%`, width: `${pct(optimal[1]) - pct(optimal[0])}%` }
+    }
+  )), Number.isFinite(value) && value !== 0 && /* @__PURE__ */ React.createElement("div", { className: "needle", style: { left: `${pct(value)}%` } }));
 }
-function Tile({ label, value, unit, decimals = 1, target, status, max, optimal, exact }) {
+function Tile({ label, value, unit, decimals = 1, target, status, max, optimal, exact, statusAt }) {
   const display = fmt(value, decimals, exact);
-  return /* @__PURE__ */ React.createElement("div", { className: `metric s-${status}` }, /* @__PURE__ */ React.createElement("div", { className: "stripe" }), /* @__PURE__ */ React.createElement("div", { className: "lbl" }, label), /* @__PURE__ */ React.createElement("div", { className: "val" }, display, /* @__PURE__ */ React.createElement("span", { className: "u" }, unit)), target && /* @__PURE__ */ React.createElement(Meter, { value: value || 0, target, status, max, optimal }), target && /* @__PURE__ */ React.createElement("div", { className: "target" }, /* @__PURE__ */ React.createElement("span", null, "Range"), /* @__PURE__ */ React.createElement("span", { className: "range" }, target[0], "–", target[1]), optimal && /* @__PURE__ */ React.createElement("span", { style: { color: "oklch(45% 0.12 155)", marginLeft: 8, fontSize: 10 } }, "▮ optimal ", optimal[0], "–", optimal[1])));
+  return /* @__PURE__ */ React.createElement("div", { className: `metric s-${status}` }, /* @__PURE__ */ React.createElement("div", { className: "stripe" }), /* @__PURE__ */ React.createElement("div", { className: "lbl" }, label), /* @__PURE__ */ React.createElement("div", { className: "val" }, display, /* @__PURE__ */ React.createElement("span", { className: "u" }, unit)), target && /* @__PURE__ */ React.createElement(Meter, { value: value || 0, target, max, optimal, statusAt }), target && /* @__PURE__ */ React.createElement("div", { className: "target" }, /* @__PURE__ */ React.createElement("span", null, "Range"), /* @__PURE__ */ React.createElement("span", { className: "range" }, target[0], "–", target[1]), optimal && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ok-ink)", marginLeft: 8, fontSize: 10 } }, "▮ optimal ", optimal[0], "–", optimal[1])));
 }
+const FLUID_TONE = {
+  ok: { bg: "var(--ok-bg)", line: "var(--ok-line)", ink: "var(--ok)" },
+  left: { bg: "var(--brand-bg)", line: "var(--brand-line)", ink: "var(--brand-2)" },
+  warn: {
+    bg: "linear-gradient(180deg, var(--warn-bg), var(--surface) 75%)",
+    line: "var(--warn-line)",
+    ink: "var(--warn-ink)",
+    stripe: "var(--warn)"
+  },
+  crit: { bg: "var(--crit-bg)", line: "var(--crit)", ink: "var(--crit)" }
+};
 function MiniReadout({ label, value, unit, fontSize = 13, color = "var(--ink)" }) {
   return /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 10px", background: "var(--bg-2)", borderRadius: 4, display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)" } }, label), /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, fontSize, color } }, value, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: "var(--ink-3)", marginLeft: 3 } }, unit)));
 }
@@ -1013,8 +1045,13 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const tNPE = D.TARGETS.npePerGAA();
   const tPE = D.TARGETS.peRatio();
   const sFluid = D.rangeStatus(calc.totalFluidPerKg, tFluid);
-  const sGir = D.rangeStatus(calc.gir, tGir, { hardHi: 13 });
-  const sPro = D.rangeStatus(calc.proteinKg, tPro, { hardHi: 4.8 });
+  const fluidTone = Math.abs(calc.remaining) < 1 ? "ok" : calc.remaining < -10 ? "crit" : calc.remaining <= -1 ? "warn" : "left";
+  const GIR_HARD = { hardHi: 13 };
+  const PRO_HARD = { hardHi: 4.8 };
+  const girStatusAt = (v) => D.rangeStatus(v, tGir, GIR_HARD);
+  const proStatusAt = (v) => D.rangeStatus(v, tPro, PRO_HARD);
+  const sGir = girStatusAt(calc.gir);
+  const sPro = proStatusAt(calc.proteinKg);
   const sKcal = D.rangeStatus(calc.kcalKg, tKcal);
   const sLip = D.rangeStatus(calc.lipidKgTotal, tLip);
   const sNa = D.rangeStatus(calc.naTotalDelivered, tNa);
@@ -1028,7 +1065,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
-  const sOsm = route === "peripheral" ? calc.osm > 900 ? "crit" : calc.osm > 850 ? "warn" : "ok" : calc.osm > 1800 ? "warn" : "ok";
+  const osmStatusAt = (v) => route === "peripheral" ? v > 900 ? "crit" : v > 850 ? "warn" : "ok" : v > 1800 ? "warn" : "ok";
+  const sOsm = osmStatusAt(calc.osm);
+  const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
   const ivLipidKg = wtKg > 0 ? calc.lipidG / wtKg : 0;
   const ivKKg = calc.kKg;
   const ivNpeN = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;
@@ -1389,16 +1428,17 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     setDraftOffer(null);
   } }, "ทิ้ง"), /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: restoreDraft }, "กู้คืน"))), editEntry && !conflict && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "8px 12px",
-    background: "var(--brand-bg)",
-    border: "1px solid var(--brand-line)",
+    background: "var(--warn-bg)",
+    border: "1px solid var(--warn-line)",
+    boxShadow: "inset 4px 0 0 var(--warn)",
     borderRadius: 8,
     marginBottom: 10,
     fontSize: 12,
-    color: "var(--brand-2)",
+    color: "var(--warn-ink)",
     display: "flex",
     alignItems: "center",
     gap: 8
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--brand-2)" }), /* @__PURE__ */ React.createElement("span", null, "กำลังแก้ไขบันทึก DOL ", /* @__PURE__ */ React.createElement("strong", null, editEntry.dol), " (", window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts, ") — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่")), orderDayRolledOver && !conflict && /* @__PURE__ */ React.createElement("div", { role: "status", style: {
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--warn)" }), /* @__PURE__ */ React.createElement("span", null, "กำลังแก้ไขบันทึก DOL ", /* @__PURE__ */ React.createElement("strong", null, editEntry.dol), " (", window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts, ") — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่")), orderDayRolledOver && !conflict && /* @__PURE__ */ React.createElement("div", { role: "status", style: {
     padding: "8px 12px",
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",
@@ -1516,15 +1556,16 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   ), /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 14px",
     borderRadius: 8,
-    background: Math.abs(calc.remaining) < 1 ? "var(--ok-bg)" : calc.remaining < -10 ? "var(--crit-bg)" : "var(--brand-bg)",
-    border: `1px solid ${Math.abs(calc.remaining) < 1 ? "var(--ok-line)" : calc.remaining < -10 ? "var(--crit)" : "var(--brand-line)"}`,
+    background: FLUID_TONE[fluidTone].bg,
+    border: `1px solid ${FLUID_TONE[fluidTone].line}`,
+    boxShadow: FLUID_TONE[fluidTone].stripe ? `inset 3px 0 0 ${FLUID_TONE[fluidTone].stripe}` : void 0,
     display: "flex",
     flexDirection: "column",
     justifyContent: "center"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.05 } }, calc.remaining < -1 ? "Over target" : "Remaining"), /* @__PURE__ */ React.createElement("div", { className: "num", style: {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.05 } }, fluidTone === "warn" || fluidTone === "crit" ? "Over target" : "Remaining"), /* @__PURE__ */ React.createElement("div", { className: "num", style: {
     fontSize: 26,
     fontWeight: 500,
-    color: Math.abs(calc.remaining) < 1 ? "var(--ok)" : calc.remaining < -10 ? "var(--crit)" : "var(--brand-2)",
+    color: FLUID_TONE[fluidTone].ink,
     letterSpacing: "-0.02em"
   } }, calc.remaining >= 0 ? "" : "+", fmt(Math.abs(calc.remaining), 1), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--ink-3)", marginLeft: 4 } }, "mL/d ", calc.remaining < 0 ? "over" : "left")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)" } }, "Plan ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(fluidTargetPerKg * wtKg, 0)), " · Prescribed ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(calc.prescribedFluid, 0)), " mL/d"))), tpnWtManual && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 11.5, color: "var(--warn)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", null, "TPN calc. weight ถูกแก้เป็น ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600 } }, fmt(wtG, 0)), " g — ทุก dose/target ด้านล่างคิดจากค่านี้ (อัตโนมัติ = ", fmt(autoWtG, 0), " g)"), /* @__PURE__ */ React.createElement(
     "button",
@@ -1616,7 +1657,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     ["K", calc.enFeedKg.k, 1],
     ["Ca", calc.enFeedKg.ca, 0],
     ["P", calc.enFeedKg.p, 0]
-  ].map(([lab, v, d]) => /* @__PURE__ */ React.createElement("span", { key: lab, style: { whiteSpace: "nowrap" } }, lab, " ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" } }, fmt(v, d))))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "EN volume", value: calc.enVolPerKg, unit: " mL/kg/d", target: [100, 200], status: calc.enVolPerKg >= 100 ? "ok" : calc.enVolPerKg > 0 ? "warn" : "ok", decimals: 0, max: 210 }), (() => {
+  ].map(([lab, v, d]) => /* @__PURE__ */ React.createElement("span", { key: lab, style: { whiteSpace: "nowrap" } }, lab, " ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" } }, fmt(v, d))))))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "EN volume", value: calc.enVolPerKg, unit: " mL/kg/d", target: [100, 200], status: enVolStatusAt(calc.enVolPerKg), statusAt: enVolStatusAt, decimals: 0, max: 210 }), (() => {
     const avail = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
     const availKg = wtKg > 0 ? avail / wtKg : 0;
     const over = avail < 0;
@@ -1721,7 +1762,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       step: 0.5,
       hint: dexPct > 0 ? `${calc.dexG.toFixed(1)} g/d delivered · ${calc.dexGPerKg.toFixed(1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})${calc.overfill > 1.001 ? ` · ${calc.dexG_bag.toFixed(1)} g in bag` : ""}` : ""
     }
-  ), /* @__PURE__ */ React.createElement(PresetChips, { values: [5, 7.5, 10, 12.5, 15], current: dexPct, onSelect: setDexPct, suffix: "%" }), calc.d50wVol > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, padding: "4px 8px", background: "var(--brand-bg)", borderRadius: 4, fontSize: 11 } }, "D50W: ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 700, color: "var(--brand-2)" } }, fmt(calc.d50wVol, 1), " mL/d"), route === "peripheral" && dexPct > 12.5 && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--crit)", fontWeight: 700, marginLeft: 6 } }, "⚠️ Central only!"))), /* @__PURE__ */ React.createElement("div", { style: {
+  ), /* @__PURE__ */ React.createElement(PresetChips, { values: [5, 7.5, 10, 12.5, 15], current: dexPct, onSelect: setDexPct, suffix: "%" }), calc.d50wVol > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, padding: "4px 8px", background: "var(--brand-bg)", borderRadius: 4, fontSize: 11 } }, "D50W: ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 700, color: "var(--brand-2)" } }, fmt(calc.d50wVol, 1), " mL/d"), route === "peripheral" && dexPct > 12.5 && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--crit)", fontWeight: 700, marginLeft: 6 } }, "⚠️ Central only!"))), /* @__PURE__ */ React.createElement("div", { className: `gir-readout s-${sGir}`, style: {
     background: `linear-gradient(180deg,${sGir === "crit" ? "var(--crit-bg)" : sGir === "warn" ? "var(--warn-bg)" : "var(--ok-bg)"},#fff 70%)`,
     border: `1.5px solid ${sGir === "crit" ? "var(--crit-line)" : sGir === "warn" ? "var(--warn-line)" : "var(--ok-line)"}`,
     borderRadius: 8,
@@ -1740,7 +1781,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     fontWeight: 500,
     lineHeight: 1.1,
     color: sGir === "crit" ? "var(--crit)" : sGir === "warn" ? "var(--warn)" : "var(--ok)"
-  } }, fmt(calc.gir, 1), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4, fontWeight: 400 } }, "mg/kg/min")), /* @__PURE__ */ React.createElement(Meter, { value: calc.gir || 0, target: tGir, status: sGir, max: 16, optimal: [8, 10] }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-3)", marginTop: 2 } }, "target 8–10 · max 12"))), /* @__PURE__ */ React.createElement("div", { className: "s2-aa-row", style: {
+  } }, fmt(calc.gir, 1), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4, fontWeight: 400 } }, "mg/kg/min")), /* @__PURE__ */ React.createElement(Meter, { value: calc.gir || 0, target: tGir, max: 16, optimal: [8, 10], statusAt: girStatusAt }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-3)", marginTop: 2 } }, "target 8–10 · max 12"))), /* @__PURE__ */ React.createElement("div", { className: "s2-aa-row", style: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr 1fr",
     gap: 8,
@@ -1789,7 +1830,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     justifyContent: "space-between",
     alignItems: "center",
     fontSize: 12
-  } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)" } }, "Lipid bag total (SMOF + Vitalipid)"), /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 700, color: "var(--ink)" } }, fmt(calc.lipidBagVol, 1), " mL/day")))), /* @__PURE__ */ React.createElement("div", { className: "metric-tiles-4", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "Energy (total)", value: calc.kcalKg, unit: " kcal/kg/d", target: tKcal, status: sKcal, decimals: 0, max: 160 }), /* @__PURE__ */ React.createElement(Tile, { label: "Protein", value: calc.proteinKg, unit: " g/kg/d", target: tPro, status: sPro, decimals: 1, max: 5.5 }), /* @__PURE__ */ React.createElement(Tile, { label: "Lipid (total)", value: calc.lipidKgTotal, unit: " g/kg/d", target: tLip, status: sLip, decimals: 1, max: 7 }), /* @__PURE__ */ React.createElement(Tile, { label: "NPC : Protein", value: calc.npeN, unit: " kcal/g AA", target: tNPE, status: sNPE, decimals: 0, max: 60 }), /* @__PURE__ */ React.createElement(Tile, { label: "Osmolarity", value: calc.osm, unit: " mOsm/L", target: route === "peripheral" ? [0, 900] : [0, 1800], status: sOsm, decimals: 0, max: route === "peripheral" ? 1100 : 2200 }))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(3) }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "Step 4 · Electrolytes", !openSteps.has(3) && naCl + kCl + caPerKg + glycophosP > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, naCl > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Na ", fmt(calc.naKg, 1), " mEq/kg"), kCl > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "K ", fmt(calc.kKg, 1), " mEq/kg"), caPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Ca ", caPerKg, " mg/kg"), glycophosP > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "P ", glycophosP, " mL/kg Glycophos")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[3]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(3) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement("div", { className: `accordion-body${openSteps.has(3) ? " open" : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TwoCol, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 4 } }, "Na (mEq/kg)"), /* @__PURE__ */ React.createElement(SaltRow, { label: S.naCl.label, note: `${S.naCl.naMeqPerMl} mEq Na/mL`, perKg: naCl, onChange: setNaCl, wtKg }), /* @__PURE__ */ React.createElement(PresetChips, { values: [1, 2, 3, 4], current: naCl, onSelect: setNaCl }), calc.solVol.naCl > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--brand-2)", paddingLeft: 2, marginTop: 1, marginBottom: 3 } }, fmt(naCl, 1), " mEq Na/kg/d = ", fmt(naCl / S.naCl.naMeqPerMl, 2), " mL/kg/d", /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "เตรียม ", fmt(calc.solVol.naCl, 1), " mL/d", calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(naCl / S.naCl.naMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.naCl - naCl / S.naCl.naMeqPerMl * wtKg, 1)} mL`)), /* @__PURE__ */ React.createElement(SaltRow, { label: S.naAcetate.label, note: `metabolic acidosis · ${S.naAcetate.naMeqPerMl} mEq Na/mL`, perKg: naAcet, onChange: setNaAcet, wtKg }), /* @__PURE__ */ React.createElement(PresetChips, { values: [1, 2, 3, 4], current: naAcet, onSelect: setNaAcet }), calc.solVol.naAcet > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--brand-2)", paddingLeft: 2, marginTop: 1, marginBottom: 3 } }, fmt(naAcet, 1), " mEq Na/kg/d = ", fmt(naAcet / S.naAcetate.naMeqPerMl, 2), " mL/kg/d", /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "เตรียม ", fmt(calc.solVol.naAcet, 1), " mL/d", calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(naAcet / S.naAcetate.naMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.naAcet - naAcet / S.naAcetate.naMeqPerMl * wtKg, 1)} mL`)), /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)" } }, "Lipid bag total (SMOF + Vitalipid)"), /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 700, color: "var(--ink)" } }, fmt(calc.lipidBagVol, 1), " mL/day")))), /* @__PURE__ */ React.createElement("div", { className: "metric-tiles-4", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "Energy (total)", value: calc.kcalKg, unit: " kcal/kg/d", target: tKcal, status: sKcal, decimals: 0, max: 160 }), /* @__PURE__ */ React.createElement(Tile, { label: "Protein", value: calc.proteinKg, unit: " g/kg/d", target: tPro, status: sPro, statusAt: proStatusAt, decimals: 1, max: 5.5 }), /* @__PURE__ */ React.createElement(Tile, { label: "Lipid (total)", value: calc.lipidKgTotal, unit: " g/kg/d", target: tLip, status: sLip, decimals: 1, max: 7 }), /* @__PURE__ */ React.createElement(Tile, { label: "NPC : Protein", value: calc.npeN, unit: " kcal/g AA", target: tNPE, status: sNPE, decimals: 0, max: 60 }), /* @__PURE__ */ React.createElement(Tile, { label: "Osmolarity", value: calc.osm, unit: " mOsm/L", target: route === "peripheral" ? [0, 900] : [0, 1800], status: sOsm, statusAt: osmStatusAt, decimals: 0, max: route === "peripheral" ? 1100 : 2200 }))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(3) }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "Step 4 · Electrolytes", !openSteps.has(3) && naCl + kCl + caPerKg + glycophosP > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, naCl > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Na ", fmt(calc.naKg, 1), " mEq/kg"), kCl > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "K ", fmt(calc.kKg, 1), " mEq/kg"), caPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Ca ", caPerKg, " mg/kg"), glycophosP > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "P ", glycophosP, " mL/kg Glycophos")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[3]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(3) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement("div", { className: `accordion-body${openSteps.has(3) ? " open" : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TwoCol, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 4 } }, "Na (mEq/kg)"), /* @__PURE__ */ React.createElement(SaltRow, { label: S.naCl.label, note: `${S.naCl.naMeqPerMl} mEq Na/mL`, perKg: naCl, onChange: setNaCl, wtKg }), /* @__PURE__ */ React.createElement(PresetChips, { values: [1, 2, 3, 4], current: naCl, onSelect: setNaCl }), calc.solVol.naCl > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--brand-2)", paddingLeft: 2, marginTop: 1, marginBottom: 3 } }, fmt(naCl, 1), " mEq Na/kg/d = ", fmt(naCl / S.naCl.naMeqPerMl, 2), " mL/kg/d", /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "เตรียม ", fmt(calc.solVol.naCl, 1), " mL/d", calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(naCl / S.naCl.naMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.naCl - naCl / S.naCl.naMeqPerMl * wtKg, 1)} mL`)), /* @__PURE__ */ React.createElement(SaltRow, { label: S.naAcetate.label, note: `metabolic acidosis · ${S.naAcetate.naMeqPerMl} mEq Na/mL`, perKg: naAcet, onChange: setNaAcet, wtKg }), /* @__PURE__ */ React.createElement(PresetChips, { values: [1, 2, 3, 4], current: naAcet, onSelect: setNaAcet }), calc.solVol.naAcet > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--brand-2)", paddingLeft: 2, marginTop: 1, marginBottom: 3 } }, fmt(naAcet, 1), " mEq Na/kg/d = ", fmt(naAcet / S.naAcetate.naMeqPerMl, 2), " mL/kg/d", /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "เตรียม ", fmt(calc.solVol.naAcet, 1), " mL/d", calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(naAcet / S.naAcetate.naMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.naAcet - naAcet / S.naAcetate.naMeqPerMl * wtKg, 1)} mL`)), /* @__PURE__ */ React.createElement(
     SaltRow,
     {
       label: "Glycophos® (ใส่เป็น Na)",

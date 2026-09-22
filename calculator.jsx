@@ -315,40 +315,89 @@ function Chk({ label, value, onChange, hint }) {
 
 }
 
-function Meter({ value, target, status, max, optimal }) {
+// ── Range bar: green / yellow / red zones ────────────────────
+// Praew, 2026-09-22: "สีที่เคยกำหนด range เฝ้าระวัง หายไปหมด ให้เอากลับมา สีเขียว
+// OK, สีเหลืองระวัง สีแดง alert". The bar had become one Sage band on a grey
+// track, and once the accent moved onto the brand green the band, the accent
+// and the OK green were one family — the bar stopped saying anything.
+//
+// The zones are NOT a second copy of the thresholds. `statusAt` is the very
+// function that grades the tile (D.rangeStatus with the tile's own hard
+// limits, or the tile's custom rule), sampled across the bar with every flip
+// bisected to within 1e-6 of the bar's width. So the colour under the needle
+// is always the tile's status, and a hard limit can only move in one place.
+// test/verify-status-zones.cjs asserts exactly that, tile by tile.
+const ZONE_SAMPLES = 120;
+function meterZones(statusAt, m) {
+  const zones = [];
+  const cell = (i) => (i + 0.5) / ZONE_SAMPLES * m;   // midpoints: never exactly 0 ("empty")
+  let start = 0, prev = statusAt(cell(0));
+  for (let i = 1; i < ZONE_SAMPLES; i++) {
+    const s = statusAt(cell(i));
+    if (s === prev) continue;
+    let lo = cell(i - 1), hi = cell(i);
+    for (let k = 0; k < 24; k++) { const mid = (lo + hi) / 2; if (statusAt(mid) === prev) lo = mid; else hi = mid; }
+    zones.push({ from: start, to: hi, status: prev });
+    start = hi; prev = s;
+  }
+  zones.push({ from: start, to: m, status: prev });
+  return zones;
+}
+
+function Meter({ value, target, max, optimal, statusAt }) {
   const m = max || target[1] * 1.6;
   const pct = (v) => Math.min(100, Math.max(0, v / m * 100));
+  const zones = meterZones(statusAt || ((v) => D.rangeStatus(v, target)), m);
   return (
-    <div className={`meter s-${status}`}>
-      <div className="range-bg" style={{ left: `${pct(target[0])}%`, right: `${100 - pct(target[1])}%` }} />
-      {optimal && (
-        <div className="optimal-zone"
-          title={`Optimal: ${optimal[0]}–${optimal[1]}`}
-          style={{ position:"absolute", top:0, bottom:0,
-            left: `${pct(optimal[0])}%`, right: `${100 - pct(optimal[1])}%`,
-            background: "oklch(52% 0.12 155 / .45)", borderRadius: 2 }} />
-      )}
-      <div className="needle" style={{ left: `${pct(value)}%` }} />
+    <div className="meter">
+      <div className="meter-track">
+        {zones.map((z, i) => (
+          <div key={i} className={`zone z-${z.status}`}
+            style={{ left: `${pct(z.from)}%`, width: `${pct(z.to) - pct(z.from)}%` }} />
+        ))}
+        {optimal && (
+          <div className="zone z-best" title={`Optimal: ${optimal[0]}–${optimal[1]}`}
+            style={{ left: `${pct(optimal[0])}%`, width: `${pct(optimal[1]) - pct(optimal[0])}%` }} />
+        )}
+      </div>
+      {/* Ink, not the status colour: it has to read on every zone, and the
+          zone it sits in already says the status. Only for a real reading:
+          0 is nothing entered ("empty", or a tile's own "nothing ordered")
+          and Infinity is the "!!" of a nutrient with nothing to ratio it
+          against — neither is a point on the scale, and a needle parked at
+          either end would sit on a zone that contradicts the tile. */}
+      {Number.isFinite(value) && value !== 0 &&
+        <div className="needle" style={{ left: `${pct(value)}%` }} />}
     </div>);
 }
 
-function Tile({ label, value, unit, decimals = 1, target, status, max, optimal, exact }) {
+function Tile({ label, value, unit, decimals = 1, target, status, max, optimal, exact, statusAt }) {
   const display = fmt(value, decimals, exact); // fmt handles Infinity → "!!", null → "—"
   return (
     <div className={`metric s-${status}`}>
       <div className="stripe" />
       <div className="lbl">{label}</div>
       <div className="val">{display}<span className="u">{unit}</span></div>
-      {target && <Meter value={value || 0} target={target} status={status} max={max} optimal={optimal} />}
+      {target && <Meter value={value || 0} target={target} max={max} optimal={optimal} statusAt={statusAt} />}
       {target && (
         <div className="target">
           <span>Range</span>
           <span className="range">{target[0]}–{target[1]}</span>
-          {optimal && <span style={{ color:"oklch(45% 0.12 155)", marginLeft:8, fontSize:10 }}>▮ optimal {optimal[0]}–{optimal[1]}</span>}
+          {optimal && <span style={{ color:"var(--ok-ink)", marginLeft:8, fontSize:10 }}>▮ optimal {optimal[0]}–{optimal[1]}</span>}
         </div>
       )}
     </div>);
 }
+
+// Step 1's Remaining / Over-target box, by tone: on target (within ±1 mL/d),
+// room left, over by 1–10 mL/d (a caution) and over by more than 10 (critical).
+const FLUID_TONE = {
+  ok:   { bg: "var(--ok-bg)",    line: "var(--ok-line)",    ink: "var(--ok)" },
+  left: { bg: "var(--brand-bg)", line: "var(--brand-line)", ink: "var(--brand-2)" },
+  warn: { bg: "linear-gradient(180deg, var(--warn-bg), var(--surface) 75%)",
+          line: "var(--warn-line)", ink: "var(--warn-ink)", stripe: "var(--warn)" },
+  crit: { bg: "var(--crit-bg)",  line: "var(--crit)",       ink: "var(--crit)" },
+};
 
 function MiniReadout({ label, value, unit, fontSize = 13, color = "var(--ink)" }) {
   return (
@@ -1362,8 +1411,19 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const tPE  = D.TARGETS.peRatio();       // [2.8, 3.6]
 
   const sFluid = D.rangeStatus(calc.totalFluidPerKg, tFluid); // no hardHi — attending discretion, may go >200
-  const sGir = D.rangeStatus(calc.gir, tGir, { hardHi: 13 });
-  const sPro = D.rangeStatus(calc.proteinKg, tPro, { hardHi: 4.8 });
+  // Step 1's Remaining / Over-target box (see FLUID_TONE).
+  const fluidTone = Math.abs(calc.remaining) < 1 ? "ok"
+    : calc.remaining < -10 ? "crit" : calc.remaining <= -1 ? "warn" : "left";
+  // A tile's hard limit is named once and read twice: by its status and by
+  // its range bar's red zone (Meter's statusAt). GIR's red starts above 13,
+  // not at the "max 12" printed under it — 12–13 is the yellow margin before
+  // the hard stop (Praew, 2026-09-22: "GIR bar turn red at >13").
+  const GIR_HARD = { hardHi: 13 };
+  const PRO_HARD = { hardHi: 4.8 };
+  const girStatusAt = (v) => D.rangeStatus(v, tGir, GIR_HARD);
+  const proStatusAt = (v) => D.rangeStatus(v, tPro, PRO_HARD);
+  const sGir = girStatusAt(calc.gir);
+  const sPro = proStatusAt(calc.proteinKg);
   const sKcal = D.rangeStatus(calc.kcalKg, tKcal);
   // Lipid, K and NPE:AA tiles show the TOTAL (TPN + EN) against the active
   // target band only; their hard limits are judged on the IV portion further
@@ -1382,9 +1442,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // Peripheral: crit >900, warn >850 · Central: warn >1800 (endothelial risk), no hard limit
-  const sOsm = route === "peripheral"
-    ? (calc.osm > 900 ? "crit" : calc.osm > 850 ? "warn" : "ok")
-    : (calc.osm > 1800 ? "warn" : "ok");
+  const osmStatusAt = (v) => route === "peripheral"
+    ? (v > 900 ? "crit" : v > 850 ? "warn" : "ok")
+    : (v > 1800 ? "warn" : "ok");
+  const sOsm = osmStatusAt(calc.osm);
+  // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
+  const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
 
   // ── Hard limits on the IV (TPN) portion only — Praew, 2026-09-17 (UP-C4) ──
   // Lipid 4.5 g/kg/d, K 3.5 mEq/kg/d and NPE:AA 20–32 kcal/g are limits on what
@@ -1812,11 +1875,15 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         </div>
       )}
 
+      {/* Amber, with a stripe: editing a saved row is a mode to notice, not a
+          brand tint to read past (Praew, 2026-09-22: "เตือนสีส้ม โอเค"). The
+          same warn palette as the edit-lock notice above the form. */}
       {editEntry && !conflict && (
-        <div style={{ padding:"8px 12px", background:"var(--brand-bg)", border:"1px solid var(--brand-line)",
-             borderRadius:8, marginBottom:10, fontSize:12, color:"var(--brand-2)",
+        <div style={{ padding:"8px 12px", background:"var(--warn-bg)", border:"1px solid var(--warn-line)",
+             boxShadow:"inset 4px 0 0 var(--warn)",
+             borderRadius:8, marginBottom:10, fontSize:12, color:"var(--warn-ink)",
              display:"flex", alignItems:"center", gap:8 }}>
-          <Icon name="info" size={13} color="var(--brand-2)" />
+          <Icon name="info" size={13} color="var(--warn)" />
           <span>กำลังแก้ไขบันทึก DOL <strong>{editEntry.dol}</strong> ({window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts}) — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่</span>
         </div>
       )}
@@ -1905,15 +1972,21 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               hint={tpnWtManual
                 ? `⚠ แก้เอง · อัตโนมัติ = ${fmt(autoWtG, 0)} g`
                 : usingBirthWeight ? "= birth weight (not yet regained)" : curWtG > 0 ? "= current weight" : "—"} />
+            {/* Over the plan by 1–10 mL/d is a caution, in the warn palette
+                (Praew, 2026-09-22: "สีพวก overtarget ...ให้เปลี่ยนสีให้ชัดเจน
+                ขึ้น"). It shared the brand tint with "Remaining", so being over
+                read exactly like having room left. Over by more than 10 stays
+                critical, within ±1 is on target, and room left keeps the tint. */}
             <div style={{ padding: "10px 14px", borderRadius: 8,
-              background: Math.abs(calc.remaining) < 1 ? "var(--ok-bg)" : calc.remaining < -10 ? "var(--crit-bg)" : "var(--brand-bg)",
-              border: `1px solid ${Math.abs(calc.remaining) < 1 ? "var(--ok-line)" : calc.remaining < -10 ? "var(--crit)" : "var(--brand-line)"}`,
+              background: FLUID_TONE[fluidTone].bg,
+              border: `1px solid ${FLUID_TONE[fluidTone].line}`,
+              boxShadow: FLUID_TONE[fluidTone].stripe ? `inset 3px 0 0 ${FLUID_TONE[fluidTone].stripe}` : undefined,
               display: "flex", flexDirection: "column", justifyContent: "center" }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.05 }}>
-                {calc.remaining < -1 ? "Over target" : "Remaining"}
+                {fluidTone === "warn" || fluidTone === "crit" ? "Over target" : "Remaining"}
               </div>
               <div className="num" style={{ fontSize: 26, fontWeight: 500,
-                color: Math.abs(calc.remaining) < 1 ? "var(--ok)" : calc.remaining < -10 ? "var(--crit)" : "var(--brand-2)",
+                color: FLUID_TONE[fluidTone].ink,
                 letterSpacing: "-0.02em" }}>
                 {calc.remaining >= 0 ? "" : "+"}{fmt(Math.abs(calc.remaining), 1)}<span style={{ fontSize: 12, color: "var(--ink-3)", marginLeft: 4 }}>mL/d {calc.remaining < 0 ? "over" : "left"}</span>
               </div>
@@ -2048,7 +2121,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[100, 200]} status={calc.enVolPerKg >= 100 ? "ok" : calc.enVolPerKg > 0 ? "warn" : "ok"} decimals={0} max={210} />
+              <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[100, 200]} status={enVolStatusAt(calc.enVolPerKg)} statusAt={enVolStatusAt} decimals={0} max={210} />
               {(() => {
                 const avail   = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
                 const availKg = wtKg > 0 ? avail / wtKg : 0;
@@ -2207,8 +2280,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                     </div>
                   )}
                 </div>
-                {/* GIR readout inline */}
-                <div style={{ background:`linear-gradient(180deg,${sGir==="crit"?"var(--crit-bg)":sGir==="warn"?"var(--warn-bg)":"var(--ok-bg)"},#fff 70%)`,
+                {/* GIR readout inline. `gir-readout s-…` carries no style; it
+                    names the status for test/verify-status-zones.cjs, the way a
+                    Tile's `metric s-…` does. */}
+                <div className={`gir-readout s-${sGir}`} style={{ background:`linear-gradient(180deg,${sGir==="crit"?"var(--crit-bg)":sGir==="warn"?"var(--warn-bg)":"var(--ok-bg)"},#fff 70%)`,
                   border:`1.5px solid ${sGir==="crit"?"var(--crit-line)":sGir==="warn"?"var(--warn-line)":"var(--ok-line)"}`,
                   borderRadius:8, padding:"8px 12px", position:"relative", overflow:"hidden" }}>
                   <div style={{ position:"absolute", left:0, top:0, bottom:0, width:3,
@@ -2218,7 +2293,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                     color:sGir==="crit"?"var(--crit)":sGir==="warn"?"var(--warn)":"var(--ok)" }}>
                     {fmt(calc.gir,1)}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:4, fontWeight:400 }}>mg/kg/min</span>
                   </div>
-                  <Meter value={calc.gir||0} target={tGir} status={sGir} max={16} optimal={[8,10]} />
+                  <Meter value={calc.gir||0} target={tGir} max={16} optimal={[8,10]} statusAt={girStatusAt} />
                   <div style={{ fontSize:10, color:"var(--ink-3)", marginTop:2 }}>target 8–10 · max 12</div>
                 </div>
               </div>
@@ -2370,13 +2445,13 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
           {/* ══ Metric tiles — horizontal row ═══════════════════════════ */}
           <div className="metric-tiles-4" style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8 }}>
             <Tile label="Energy (total)" value={calc.kcalKg} unit=" kcal/kg/d" target={tKcal} status={sKcal} decimals={0} max={160} />
-            <Tile label="Protein" value={calc.proteinKg} unit=" g/kg/d" target={tPro} status={sPro} decimals={1} max={5.5} />
+            <Tile label="Protein" value={calc.proteinKg} unit=" g/kg/d" target={tPro} status={sPro} statusAt={proStatusAt} decimals={1} max={5.5} />
             <Tile label="Lipid (total)" value={calc.lipidKgTotal} unit=" g/kg/d" target={tLip} status={sLip} decimals={1} max={7} />
             <Tile label="NPC : Protein" value={calc.npeN} unit=" kcal/g AA" target={tNPE} status={sNPE} decimals={0} max={60} />
             {/* Central range 0–1800: the same threshold sOsm and the alert use
                 (UP-C12, Praew 2026-09-17) — it read 0–1600, so 1700 showed
                 outside the printed range on a green tile. */}
-            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral"?[0,900]:[0,1800]} status={sOsm} decimals={0} max={route==="peripheral"?1100:2200} />
+            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral"?[0,900]:[0,1800]} status={sOsm} statusAt={osmStatusAt} decimals={0} max={route==="peripheral"?1100:2200} />
           </div>
 
         </div></div>
