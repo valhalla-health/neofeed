@@ -955,7 +955,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return /* @__PURE__ */ React.createElement(SyncGate, { online, failed: syncState === "error", detail: syncError, onRetry: () => syncFromGAS() });
   }
   shellReadyRef.current = true;
-  return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, null)), /* @__PURE__ */ React.createElement(
+  const showQuickFab = view === "registry";
+  return /* @__PURE__ */ React.createElement("div", { className: showQuickFab ? "app has-quick-fab" : "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, null)), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "switch-patient",
@@ -1118,7 +1119,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onEditEntry: startEditEntry,
       onDeleteEntry: role === "admin" ? handleDeleteEntry : void 0
     }
-  ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "quickcalc" && /* @__PURE__ */ React.createElement(QuickCalcView, { onBack: () => goTo("log") }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(PatientPicker, { patients, activeId, onSelect: setActiveId, onClose: () => setPickerOpen(false) }), showChangePwd && /* @__PURE__ */ React.createElement(
+  ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "quickcalc" && /* @__PURE__ */ React.createElement(QuickCalcView, { onBack: () => goTo("registry") }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(PatientPicker, { patients, activeId, onSelect: setActiveId, onClose: () => setPickerOpen(false) }), showChangePwd && /* @__PURE__ */ React.createElement(
     ChangePasswordModal,
     {
       onClose: () => setShowChangePwd(false),
@@ -1136,7 +1137,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         return res;
       }
     }
-  ), view === "log" && /* @__PURE__ */ React.createElement(QuickCalcFab, { onClick: () => goTo("quickcalc") }), /* @__PURE__ */ React.createElement(
+  ), showQuickFab && /* @__PURE__ */ React.createElement(QuickCalcFab, { onClick: () => goTo("quickcalc") }), /* @__PURE__ */ React.createElement(
     BottomNav,
     {
       view,
@@ -1250,7 +1251,7 @@ const SCRATCH_PATIENT = Object.freeze({
 const QUICK_DOL_MAX = 60;
 function QuickCalcView({ onBack }) {
   const [dol, setDol] = React.useState(1);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBack }, "← กลับไป Dashboard"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "Calculator", /* @__PURE__ */ React.createElement("span", { className: "chip", style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBack }, "← กลับไป Ward"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "Calculator", /* @__PURE__ */ React.createElement("span", { className: "chip", style: {
     fontSize: 12,
     fontWeight: 700,
     background: "var(--warn-bg)",

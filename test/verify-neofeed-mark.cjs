@@ -127,7 +127,7 @@ function decodePng(file) {
 // made at the SVG level instead, where it is exact: no <circle>, no stroke, and
 // no N+dot path anywhere in app.jsx.
 function census({ w, h, px }) {
-  const k = { forest: [], sage: [], ground: 0, opaque: 0, markR: 0 };
+  const k = { forest: [], sage: [], ground: 0, opaque: 0, markR: 0, top: h, bottom: -1 };
   const nearGround = (r, g, b) => Math.abs(r - GROUND_RGB[0]) <= 6
     && Math.abs(g - GROUND_RGB[1]) <= 6 && Math.abs(b - GROUND_RGB[2]) <= 6;
   const freq = new Map();
@@ -141,7 +141,10 @@ function census({ w, h, px }) {
     else if (L < 110 && g > r) k.forest.push(x);
     else if (L < 195 && g > r) k.sage.push(x);
     // How far the LETTER reaches from the centre, for the maskable safe zone.
-    if (L < 195 && g > r) k.markR = Math.max(k.markR, Math.hypot(x - cx, y - cy));
+    if (L < 195 && g > r) {
+      k.markR = Math.max(k.markR, Math.hypot(x - cx, y - cy));
+      k.top = Math.min(k.top, y); k.bottom = Math.max(k.bottom, y);
+    }
     const key = (r >> 2) << 16 | (g >> 2) << 8 | (b >> 2);
     freq.set(key, (freq.get(key) || 0) + 1);
   }
@@ -179,16 +182,37 @@ for (const [file, size, kind] of PNGS) {
   ok('the ground is Porcelain Mist', near(k.mode, GROUND_RGB, 6), k.mode);
   ok('…and it IS the ground, not the mark (≥ 40% of the icon)', k.groundPct >= 0.4, +k.groundPct.toFixed(3));
   ok('the dark body is present, and not the whole tile (5–40%)', k.forest.length / k.opaque >= 0.05 && k.forest.length / k.opaque <= 0.4, +(k.forest.length / k.opaque).toFixed(3));
+  // The letter's height as a share of the square. TWO SIZES, on purpose
+  // (tools/render-icons.cjs): 54.7% wherever the whole square is shown, and
+  // 39% in the maskable pair, because Android shows only the middle of a
+  // maskable icon. At 54.7% the letter filled 82% of the icon on Praew's
+  // Samsung ("Install icon ไม่โอเค มัน fit ไป", 2026-09-22).
+  const letterH = (k.bottom - k.top + 1) / size;
   if (kind === 'maskable') {
     // Android's safe zone is the central 80% DIAMETER, i.e. radius 40% of the
     // width. Anything of the letter outside it can be cropped by a mask.
     ok('the letter is inside the maskable safe zone (r ≤ 40%)',
       k.markR <= size * 0.40, { markR: Math.round(k.markR), limit: Math.round(size * 0.4) });
+    // …and inside the circle Android keeps under ANY launcher mask even when
+    // a launcher uses the whole image as the adaptive layer: 66 dp of 108,
+    // radius 33/108 = 30.6% of the image. Chrome's own conversion pads the
+    // image so that circle is the 40% one above; this holds without it.
+    ok("…and inside Android's 66/108 dp circle, however the launcher crops (r ≤ 30.6%)",
+      k.markR <= size * 33 / 108, { markR: +(k.markR / size).toFixed(3), limit: +(33 / 108).toFixed(3) });
+    ok('the letter is the maskable size: 36–42% of the square, not the whole-square 55%',
+      letterH >= 0.36 && letterH <= 0.42, +letterH.toFixed(3));
+  } else if (size >= 180) {
+    ok('the letter is the whole-square size: 52–57% of the square',
+      letterH >= 0.52 && letterH <= 0.57, +letterH.toFixed(3));
   }
   if (size >= 180) {
     // At 16/32 px the antialiased Forest edge outweighs the stem itself, so
     // position is only read where the stem is many pixels wide.
-    ok('a light stem is present', k.sage.length / k.opaque >= 0.03, +(k.sage.length / k.opaque).toFixed(3));
+    // Against the letter's own ink, not the whole tile: the share of the tile
+    // halves when the letter shrinks, and the maskable letter is smaller on
+    // purpose. 0.27–0.30 in every icon from 180 px up.
+    const stem = k.sage.length / (k.sage.length + k.forest.length);
+    ok("a light stem is present (≥ 20% of the letter's ink)", stem >= 0.2, +stem.toFixed(3));
     ok('…and it is the LEFT stem: the light stem sits left of the dark body', mean(k.sage) < mean(k.forest) - size * 0.1, [Math.round(mean(k.sage)), Math.round(mean(k.forest))]);
   }
 }

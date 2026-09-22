@@ -700,16 +700,19 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    patient data.
 8. **Calculator (quick calc)** (`QuickCalcView` in `app.jsx`, added
    2026-09-21 on a ward request) — reached from `QuickCalcFab`, a floating
-   button bottom-right on every screen size labelled **Calculator**, the same
-   word as the patient wizard: the `ไม่บันทึก` chip beside the heading is what
-   tells them apart, and the button is hidden while the patient Calculator is
-   open, so the two labels are never on screen together. Its glyph is
+   button bottom-right labelled **Calculator**, the same word as the patient
+   wizard: the `ไม่บันทึก` chip beside the heading is what tells them apart.
+   **It is on the Ward page only** — the ward gate and the ward's patient
+   list, both `view === "registry"` (Praew, 2026-09-22, second round: "ให้
+   calculator มาอยู่หน้า patient ward แทน"; it had been on the Dashboard only
+   since that morning, and on every view but the two calculators before
+   that), and its ← returns to the Ward page, on whichever ward was open.
+   While it shows, `.app.has-quick-fab` pads the workspace so the list's last
+   rows scroll clear of it, on a workstation and above a phone's nav. Its glyph is
    `icons.jsx`'s **stroked `calculator`**, added for it — the filled `calc`
    the rail uses winds its screen and keys the same way as its body, so under
    the default nonzero fill-rule they fill in and it renders as a plain
    rounded square in white at 22 px. `calc` itself is unchanged.
-   The button is hidden on the Calculator (you are already in it, and
-   leaving would drop an in-progress order's edit context) and on itself.
    **It is the same `<Calculator>`, run with `scratch`** — not a second,
    slimmer calculator. That matters: a separate quick calculator would be a
    second implementation of KCMH's dosing arithmetic living beside the first,
@@ -834,9 +837,28 @@ notes — don't just add the feature.
   - **Clinical status colours are not brand colours.** `--crit`/`--warn`/
     `--ok` stay outside the brand sheet and were left byte-identical through
     the Valhalla change. Severity at a bedside is read off a mapping the
-    ward already knows; brand teal never means "normal". If a brand refresh
-    ever seems to call for re-hueing them, that is a clinical decision, not
-    a design one.
+    ward already knows; the brand colour never means "normal". If a brand
+    refresh ever seems to call for re-hueing them, that is a clinical
+    decision, not a design one — and it was taken once, by Praew, on
+    2026-09-22: once the accent had moved onto the mark's Forest, the old OK
+    green read as brand, so `--ok` gained chroma at the same lightness
+    (#177C49 → #017F31, still 5.15:1 on white; `--warn` and `--crit`
+    untouched).
+  - **Range bars draw green / yellow / red zones, from the tile's own
+    grading** (2026-09-22). `Meter` samples the `statusAt` function that
+    grades the tile — `D.rangeStatus` with the tile's hard limits, or a
+    custom rule such as osmolarity's — so the zone under the needle is
+    always the tile's status and a hard limit lives in one place. Red means
+    a hard limit and appears nowhere else: GIR above 13 (not the "max 12"
+    printed under it; 12–13 is the yellow margin), protein above 4.8,
+    peripheral osmolarity above 900. The needle is ink, and is not drawn
+    for 0 or "!!", which are not points on the scale.
+    `test/verify-status-zones.cjs` checks all of it on three rendered orders.
+  - **Structure is pale blue** (2026-09-22, "กลับไปใช้กรอบ แนวๆ สีฟ้าคล้าย
+    ของเก่า"). `--frame*` draws card borders, the card-header band (pale
+    blue fading to white, navy title) and the ward tiles. It is structure
+    only — never a status and never the accent, which stays Forest for
+    buttons, focus and selection.
   - **Nordic Sand is decorative only.** It sits at hue 80, next door to
     `--warn` at 65. It is for hairline rules and the wordmark underline —
     never a chip, badge, or anything a reader could take for a caution.
@@ -859,7 +881,9 @@ notes — don't just add the feature.
     are all still there with teal values. Don't "clean them up".
 - **The NeoFeed mark is `icons/icon.svg`, and it is drawn in two places
   from that one master** (2026-09-22): the phone/favicon PNGs are rendered
-  from it, and **one** `<NeoFeedWordmark/>` in `app.jsx` inlines its two
+  from it by `tools/render-icons.cjs` — the two maskable (Android) PNGs at a
+  smaller letter, 39% of the square rather than 55%, because Android shows
+  only the middle of a maskable icon — and **one** `<NeoFeedWordmark/>` in `app.jsx` inlines its two
   paths for all three screens that show the brand — the login hero, the
   topbar corner and `SyncGate`. **Nothing inside the app draws the icon
   *tile*.** That is deliberate: the tile is the launcher artwork, and an app
