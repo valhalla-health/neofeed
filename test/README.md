@@ -97,10 +97,36 @@ starts at 30 mL and the Factor follows; a new day keeps a dead space somebody se
 default's 0 into 30; a saved order reopens with its own; the 0 chip still overrides; a feeds-only day
 prepares no bag. **Vitamins** (§11) — Soluvit and Peditrace scale with the overfill (2.5 mL in a 150 mL
 bag for a 2 kg infant on a 120 mL day, delivering 2 mL), the old info line is gone, the print, bag make-up
-and copied order agree, and the 10 / 15 mL caps apply to what the infant receives. 169 assertions: it
-fails 97 against `f0c172c`, and §11's 9 against `3f35ef8` (PR #75 merged, before the vitamin change).
+and copied order agree, and the 10 / 15 mL caps apply to what the infant receives. **Reprints** (§12) — a
+save stamps `calcInput.constantsVersion`; a saved order stamped with another version, or an unstamped one
+whose printout this release changed (overfilled vitamins, a MEN feed), prints only after it is saved
+again, while other old orders print as before. A row saved on `fc2c35c` (live from 11:17 ICT on
+2026-09-18, before the stamp shipped) is dated by its `aaProduct` key and prints as-is. 193 assertions: it
+fails 112 against `f0c172c`, 24 against `3f35ef8` (PR #75 merged) and 12 — the pre-deploy review's fixes —
+against `fc2c35c`. A harness row that stands for a current order carries the current stamp
+(`verify-kcmh-factor.cjs`).
 Since the dead-space change, a harness order that means "no dead space" types 0
 (`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
+
+`verify-quick-calc.cjs` pins the **Quick calc** (2026-09-21, ward request: a floating button that
+calculates from a typed weight and saves nothing). It exists because that feature makes two claims
+that would rot quietly. The first is that it is *the same calculator* — so § 1 mounts the real
+`<Calculator>` twice, once with `scratch` and once patient-bound, drives the identical order into
+both, and fails on the first disagreement across every metric tile and every figure rendered inside
+the six wizard steps; a non-zero GIR is asserted separately so a page of zeros cannot make that pass
+vacuously. The second is that it *persists nothing*: § 2 drives the quick calc and then reads
+`localStorage`, and — this is the load-bearing half — drives the patient entry through the same
+keystrokes and requires that one **did** write its unsaved-order draft. Without it the assertion
+passes for the wrong reason, which is exactly what happened while writing this harness: `calculator.jsx`
+writes through a bare `localStorage`, which under `vm.runInThisContext` resolves against the global
+scope, so the writes threw inside their own `try/catch` and the store was empty because nothing could
+write at all. (The same applies to the bare `navigator` the Copy button uses, and Node 22 ships a
+read-only `globalThis.navigator` that has to be redefined rather than assigned.) § 3-§ 4 then pin what
+the mode may not produce — no Save, no Submit, no delete, no `#print-form`, no Intake/Output card —
+and that the text it *does* copy names itself as not a treatment order and carries neither bed nor
+NeoFeed ID. § 5-§ 7 are source-level: `SCRATCH_PATIENT` carries no identifiers and a birth weight of
+0, `QuickCalcView` passes no save handler of any kind, every write path in `calculator.jsx` is behind
+the flag, and the button is styled in both hand-synced shells and hidden when printing.
 
 `verify-build-shells.cjs` pins the **2026-09-17 build step**, which replaced in-browser Babel with
 `tools/build.mjs` (`REFERENCE.md` § The frontend build). It is dependency-free and reads files only:
@@ -115,6 +141,26 @@ MODE) and keep `tools/` private; the Google Fonts stylesheet sits after the last
 only work as a pair — the new CSP renders the old shells blank — so it checks both halves. It fails
 33 of 43 assertions against `claude/review-0917` (the tree before the build step), and each of the
 build's own refusals and this harness's checks was proven to catch a deliberate breakage.
+
+`verify-login-endorsement.cjs` pins the Valhalla line at the foot of the login screen as Praew
+last set it on 2026-09-22: one line, "by Valhalla Health · © 2026". It also pins what that line no longer
+has: no Guardian V (no `<img>`, no `.login-endorse img` rule in either shell, no
+`icons/valhalla-guardian-v.png`) and no version line. Source-level and CRLF-normalised, no dependencies:
+`node test/verify-login-endorsement.cjs`. It fails 5 of 11 against `76f7610`, where the Guardian V was
+still stacked above "by Valhalla Health". The earlier version, which pinned that stacked lockup, failed
+5 of 7 against `e39f66b`.
+
+`verify-neofeed-mark.cjs` pins the **two-tone N** Praew approved on 2026-09-22 (no dot; a Sage left
+stem, the diagonal and right stem in Forest). `icons/icon.svg` is the master: two filled shapes on the
+approved jade tile, no `<circle>`, no stroke. The login wordmark must draw the same two paths with the
+same four gradient colours, so the app icon and the wordmark cannot drift apart. It decodes all seven
+PNGs with Node's own `zlib` (a small in-file reader, no dependencies) and checks what each one actually shows:
+the jade tile as the ground, Forest present but no longer the whole tile, no white, the Sage stem left of
+the Forest body, and the right corners (transparent on the "any" icons, opaque on the maskable and Apple
+ones). A re-rendered master without re-rendered PNGs, or the reverse, fails. It also checks that the
+weight "Feed" is set in is one the Google Fonts link loads. `node test/verify-neofeed-mark.cjs`. It
+fails 54 of 70 against `75a3038` (the N+dot), and six deliberate breakages were each caught: a gradient
+stop, one path coordinate, the dot put back, an unloaded weight, the rule's Sage half, one stale PNG.
 
 **`compiled-loader.cjs` is not a harness** but a `--require` preload that runs the harnesses
 against the shipped `compiled/*.js` instead of their in-harness `@babel/preset-react` transform of
@@ -144,7 +190,7 @@ installed) to get the real measurement.
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
 `verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
-`verify-publish-lock.cjs` and `verify-build-shells.cjs` need **no dependencies at all** — run them directly:
+`verify-publish-lock.cjs`, `verify-build-shells.cjs` and `verify-chula-google-signin.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
 node test/verify-build-shells.cjs
@@ -157,6 +203,7 @@ node test/verify-input-validation.cjs
 node test/verify-provenance-stamp.cjs
 node test/verify-sync-freshness.cjs
 node test/verify-publish-lock.cjs
+node test/verify-chula-google-signin.cjs
 ```
 
 `verify-sync-gate-and-poll.cjs` needs the jsdom set below, and additionally
@@ -555,6 +602,20 @@ synthetic `focus` event. The focus listener is throttled to one call a minute
 nothing is sent — the first version of this harness failed for exactly that
 reason and looked like a product bug.
 
+**`verify-staff-cache-password-writes.cjs`** — the gate's exit, found stuck on 2026-09-22. `verifyToken`
+reads the Staff row through a 60 s cache that carries col G, and the `changePassword` request had just
+cached col G `TRUE`. So after a successful forced change the rotated token, and a fresh sign-in with the
+new password, answered `PasswordChangeRequired` until the cache expired, and the client put the forced
+screen back up. The harness drives each function that writes a Staff row's cols E–H (`changePassword`,
+`setInitialPassword`, `clearStaffPassword`, `onEdit`, `backfillDefaultPasswords`) and requires the next
+request to see the write. That includes a row re-added by `setInitialPassword` after its "not found" was
+cached, and the two provisioners, where the stale copy failed **open**: col G read blank, so a sign-in
+on a brand-new temp password passed the gate. It also pins that the cache still caches (one Staff-tab
+read after a change), that a cache failure while dropping the copy neither fails the change nor skips
+the epoch bump, and, at source level, that every E–H write sits in a function that drops the copy. Same
+`gas-vm-sandbox.cjs` as the review harnesses, no npm dependencies. 33 assertions; 10 fail against
+`f3e9e23` (`@55`'s source), and six deliberate breakages of the fix were each caught.
+
 **`verify-input-validation.cjs`** — pins the 2026-08-25 server-side
 plausibility guard. `registry.jsx`'s number inputs set `min="0"` and no upper
 bound at all, and `calculator.jsx`'s daily-entry fields were never
@@ -766,7 +827,10 @@ these fixes are about and the older stubs did not: a string starting `= + - @` w
 recorded as a formula injection, a leading apostrophe is stripped on read (so the second-order path
 is visible), `YYYY-MM-DD` comes back as a Date, ranges read any number of rows and throw past the grid,
 CacheService honours TTLs / the 100 KB value cap / the 250-char key cap, and every service can be made
-to throw or the script lock to time out. Set `NEOFEED_GAS_SRC=<path>` to run any of them against a
+to throw or the script lock to time out. `withNow(ms, fn)` pins the backend's whole clock: `Date.now()`
+and an argument-less `new Date()` alike. Until 2026-09-18 it pinned `Date.now()` only, so *sync*'s
+"…with a fresh ts" passed only when the real clock ticked between two syncs, and failed CI run
+35302157754 when it didn't. Set `NEOFEED_GAS_SRC=<path>` to run any of them against a
 different `gas-backend.gs` — that is how they were shown to fail against the pre-review source
 (42ce553: 63, 97 and 25 failures respectively).
 
@@ -797,6 +861,19 @@ more of the Sheets API — multi-row `getRange`, column-true `setValues`, `getMa
 tab, and real header labels in row 1 (a placeholder header is now, correctly, refused as column
 drift). No assertion was weakened; two in `verify-review-0911.cjs` were updated to decisions made that
 day — the lockout counter's hashed key name, and an undated archived patient leaving the ward sync.
+
+**`verify-chula-google-signin.cjs`** — Praew's 2026-09-22 rule: every Chula Google Workspace domain
+(`chula.ac.th`, `student.chula.ac.th`, `md.chula.ac.th`, `docchula.com`, `chulahospital.org`) signs in
+with Google and gets no NeoFeed password, and nobody signs in without a Staff row. Same
+`gas-vm-sandbox.cjs` as the review harnesses, no npm dependencies. It pins that no password is
+provisioned for those domains by the `onEdit` trigger or the backfill (with a `redcross.or.th` control,
+and look-alike domains staying password domains); that a Google sign-in on a row that picked up a temp
+password before its domain was listed is **not** stopped by the forced-change gate, while a **password**
+sign-in on that same row still is — the gate follows how the session signed in, not the address; that
+both paths refuse a missing, disabled or role-less Staff row, and deleting the row ends a live session;
+that the prepared `hd` restriction and its telemetry cover all five domains; and that a session minted
+before the change keeps its old rule. 57 assertions; 21 fail against `7049f60` (`@55`), including the
+chula.ac.th temp password that the domain-keyed gate let skip the change.
 
 ## Note on the source workbook
 

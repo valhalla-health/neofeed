@@ -467,9 +467,12 @@ Hybrid, handled entirely in `gas-backend.gs`:
   click is inert, only escape hatch is logout) — the rest of the app,
   including the GAS patient sync, is blocked until a real password is set.
   A successful change clears cols G/H. Google/Workspace domains
-  (`GOOGLE_WORKSPACE_DOMAINS`, currently just `chula.ac.th`) are excluded —
-  `clearStaffPassword(email)` undoes it if one picks up a temp password
-  anyway. **Don't reintroduce a single shared constant here** — an earlier
+  (`GOOGLE_WORKSPACE_DOMAINS`: since 2026-09-22 every Chula domain —
+  `chula.ac.th`, `student.chula.ac.th`, `md.chula.ac.th`, `docchula.com`,
+  `chulahospital.org`) are excluded, and the gate holds only a session that
+  signed in with a password (`_passwordSession`), never a Google one —
+  `clearStaffPassword(email)` removes a temp password such an account picked
+  up anyway. **Don't reintroduce a single shared constant here** — an earlier
   same-day version of this trigger used one hardcoded password for every
   new account, which is a standing vulnerability in a no-build-step repo
   (every non-secret file is effectively public — see `SECURITY_CHECKLIST.md`),
@@ -561,7 +564,7 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    see it plotted with a target band, smooth Catmull-Rom curve, hover
    crosshair/tooltip, X-axis toggle between admit-day and DOL. Past entries
    are editable in place (weight/length/HC corrections included). The
-   "บันทึกวันนี้" button opens `LogDateModal` first — today, or a past
+   "New log" button opens `LogDateModal` first — today, or a past
    calendar date to back-fill a missed day — before handing off to the
    Calculator with the right DOL/`ts`. Admin role only: a trash icon per row
    (rows with an `entryId`) permanently deletes a `Daily_Log` entry via the
@@ -695,6 +698,53 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 7. **Guidelines (ESPGHAN)** / **Formulas + products** (`GuidelinesPanel`,
    `FormulasPanel` in `app.jsx`) — static clinical reference content, no
    patient data.
+8. **Calculator (quick calc)** (`QuickCalcView` in `app.jsx`, added
+   2026-09-21 on a ward request) — reached from `QuickCalcFab`, a floating
+   button bottom-right on every screen size labelled **Calculator**, the same
+   word as the patient wizard: the `ไม่บันทึก` chip beside the heading is what
+   tells them apart, and the button is hidden while the patient Calculator is
+   open, so the two labels are never on screen together. Its glyph is
+   `icons.jsx`'s **stroked `calculator`**, added for it — the filled `calc`
+   the rail uses winds its screen and keys the same way as its body, so under
+   the default nonzero fill-rule they fill in and it renders as a plain
+   rounded square in white at 22 px. `calc` itself is unchanged.
+   The button is hidden on the Calculator (you are already in it, and
+   leaving would drop an in-progress order's edit context) and on itself.
+   **It is the same `<Calculator>`, run with `scratch`** — not a second,
+   slimmer calculator. That matters: a separate quick calculator would be a
+   second implementation of KCMH's dosing arithmetic living beside the first,
+   in the one file that prints pharmacy orders, and the two would drift the
+   first time either moved. `test/verify-quick-calc.cjs` § 1 mounts both and
+   fails on the first tile or step figure that disagrees.
+   What `scratch` changes is only what the mode may **persist**: no Save, no
+   Submit, no delete, no unsaved-draft store, no previous-submission store, no
+   `neofeed_calc_*` read, no edit lock, no printed pharmacy form, and no
+   Intake/Output card (bedside figures for one real infant on one real day —
+   there is neither). Nothing reaches the Google Sheet and nothing survives
+   leaving the page. `handleSave` returns early on `scratch` as well, because
+   it is the only path in `calculator.jsx` that reaches Sheets.
+   It takes **`SCRATCH_PATIENT`**, a frozen record with no `sessionId`, no
+   name and `bw: 0` — so there is no PHI in it (§ 6) and no Daily_Log row it
+   could be mistaken for, and the birth-weight floor is out of play: the
+   weight typed into Step 1 *is* the dosing weight. Two inputs, not one:
+   the weight, and a **DOL** in the page head, because every ESPGHAN band the
+   wizard grades against is DOL-indexed and a quick calc without one would
+   quietly read day-1 protein/Na/K/Ca/P targets for a two-week-old. That DOL
+   is a number somebody picked, so `orderDayRolledOver` is forced false in
+   scratch mode — `dolAtDate` on a patient-less record returns 1, which would
+   snap a DOL 14 calc back to day-1 bands on a page left open past midnight.
+   **Copy Order stays, deliberately, and is the one thing that leaves the
+   page.** Its usual gate (saved, unchanged, `printable`) can never pass here
+   and is not the gate this mode needs — there is no entry id to misattribute
+   — so it is scoped to a real order, and the compensating control is the
+   copied text itself: it opens `คำนวณเร็ว (ไม่ใช่คำสั่งการรักษา)`, says it
+   was not saved, and carries neither bed nor NeoFeed ID. A paste into LINE
+   arrives without the screen it came from.
+   The view carries **no banner between the page head and Step 1** (Praew,
+   2026-09-21: "ไม่ต้องขึ้นกรอบสีเหลืองกลาง"). The `ไม่บันทึก` chip and the
+   subtitle say it on arrival; the footer card says it again next to Copy,
+   where it has to be read rather than glanced at. A third copy only pushed
+   Step 1 below the fold on a phone.
 
 ## 6. Compliance posture (Thai PDPA) — know this before adding data flows
 
@@ -773,6 +823,29 @@ notes — don't just add the feature.
   rule. `.preset-chips` in particular wraps by design now (`flex: 1 1 44px`)
   — don't restore `nowrap`/`flex: 1 1 0` to "keep doses on one row"; that's
   what squeezed dose chips to 26px wide.
+- **The palette is the Valhalla Health brand sheet, and it lives in one
+  place** (2026-09-21). The shells' `:root` block is the only definition of
+  it: seven brand colours converted to oklch, plus derived ramps
+  (`--brand-ink`/`--brand-2`/`--brand`/`--brand-3`/`--brand-4`/`--brand-line`/
+  `--brand-bg`/`--brand-bg-2`). Reach for a token, not a literal — every
+  hardcoded `oklch(...)` that used to sit in the JSX was a place the palette
+  could drift, and moving the brand hue took a scripted sweep of five files
+  because of it. Three rules that are not style preferences:
+  - **Clinical status colours are not brand colours.** `--crit`/`--warn`/
+    `--ok` stay outside the brand sheet and were left byte-identical through
+    the Valhalla change. Severity at a bedside is read off a mapping the
+    ward already knows; brand teal never means "normal". If a brand refresh
+    ever seems to call for re-hueing them, that is a clinical decision, not
+    a design one.
+  - **Nordic Sand is decorative only.** It sits at hue 80, next door to
+    `--warn` at 65. It is for hairline rules and the wordmark underline —
+    never a chip, badge, or anything a reader could take for a caution.
+  - **Text tiers are contrast-checked, not eyeballed.** `--ink-3` is pinned
+    at the value that clears 4.5:1 on `--bg-2` (table headers sit on it),
+    and `--crit-ink`/`--warn-ink`/`--ok-ink` exist because the signal
+    colours themselves are fills, not text — `--warn` is only 3.6:1 on
+    white. Use the `-ink` cut whenever a status colour is a word rather
+    than a stripe.
 - **`tweaks-panel.jsx` was removed on 2026-09-11** — don't reintroduce a
   design-tool panel into the production shells.
 - **PWA installability** depends on `manifest.json` + `<link rel="manifest">`

@@ -101,19 +101,31 @@ The HMF threshold `patient.ga < 32` still works because all valid values stay un
 to `main` used to be an unreviewed production deploy on two hosts, because the backend demands
 explicit confirmation before a redeploy and the frontend did not, backwards from the risk since
 the frontend is where the printed dose is drawn. Deploying now means opening a PR from `main` into
-`release` and getting it approved — `release` has branch protection (1 required approval,
-`enforce_admins` on, so this applies even to Praew's own pushes) mirroring the confirm-before-
-`clasp deploy` step the backend already had. The point was never third-party peer review, it's
-stopping an *unattended agent push* from going live, same as "confirm with Praew before running
-the redeploy step" below.
+`release` and merging it once the `harnesses` check passes — `release` has branch protection (PR
+required, `harnesses` required, `enforce_admins` on, so this applies even to Praew's own pushes)
+mirroring the confirm-before-`clasp deploy` step the backend already had. The point was never
+third-party peer review, it's stopping an *unattended agent push* from going live, same as "confirm
+with Praew before running the redeploy step" below.
 
 ⚠️ **Corrected 2026-09-11: self-approval does not exist on GitHub.** This paragraph used to say
 "self-approval is expected and fine". GitHub never lets a PR's author approve it, and with
-`enforce_admins` on, that includes Praew. Every `main → release` PR therefore needs the **other**
-admin collaborator (`tasamew`) to approve it — which is a real second reviewer, not a formality.
-Praew's decision whether that stays the rule or the review count changes; either way, a release
-blocked by "Review required" is this, not a bug. The `test` workflow (`.github/workflows/test.yml`)
-runs every harness on each PR and is intended as a required status check on `release`.
+`enforce_admins` on, that includes Praew. Every `main → release` PR therefore needed the **other**
+admin collaborator (`tasamew`) to approve it — a real second reviewer, not a formality — until
+Praew changed the review count.
+
+**Changed 2026-09-18, Praew's decision: `release` needs 0 approvals.** Praew merges `release` PRs
+herself; `tasamew`'s review is optional. A red `harnesses` check (`.github/workflows/test.yml`, a
+required status check since 2026-09-11) still blocks the merge, and a direct push to `release` is
+still refused. What no longer blocks anything: GitHub cannot tell Praew from an agent using her
+login, so **an agent merges into `release` only on Praew's explicit go-ahead** — a rule, not a lock
+(`STATUS.md` § Release-branch deploy gate). To restore the second reviewer: `gh api -X PATCH
+repos/valhalla-health/neofeed/branches/release/protection/required_pull_request_reviews -F
+required_approving_review_count=1`.
+
+**Recording a deploy never takes its own PR** (Praew's global PR rule, 2026-09-18). Write the
+planned `STATUS.md` change in the PR that ships the code. The post-release checks below exist only
+after the merge, so they go in a comment on the `main → release` PR, and `STATUS.md` catches up in
+the next PR on this repo. PRs #62, #68 and #72 each existed only to record a deploy.
 
 - **Cloudflare Workers Builds' production branch is `release`** (changed by Praew in the dashboard
   on 2026-09-12 — dashboard-only, no `wrangler` subcommand or public API covers it). Both hosts now
@@ -185,8 +197,9 @@ identity. None of it was true any more. The current procedure:
    `gas-backend.gs`; check `clasp list-deployments` shows the same deployment ID at the
    new version; `curl` the served HTML on **both** frontend hosts to confirm the `?v=`
    cache-bust shipped.
-5. **Update `STATUS.md` in the same commit.** This is part of the definition of done, not
-   a follow-up task.
+5. **Update `STATUS.md` as part of the deploy.** This is part of the definition of done, not
+   a follow-up task — but not a docs-only PR either: put the verification in a comment on the
+   PR whose code you deployed, and bring `STATUS.md` up to date in the next PR on this repo.
 
 Running a function from the Apps Script editor (e.g. the one-off `applyStaffHeaderColumns`
 / `applyLogHeaderColumns` migrations) executes as the signed-in user and may raise an OAuth

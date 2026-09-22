@@ -270,7 +270,11 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
         setField('Current weight', 1000); fillRequired(160);
         setField('Volume(mL/day)', 110); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('SMOF Lipid', 4.8);
         setField('KCl', 4); setField('10% Ca gluconate', 80); setField('Glycophos', 3); }],
-      full_en: ['c9690daa62ccf31f', P, () => {
+      // Recaptured 2026-09-18: with no TPN there is no bag, so Soluvit and
+      // Peditrace are no longer printed as mL for it (review finding 4).
+      // Exactly 4 of its 61 figures moved: Soluvit 1.5 → —, Peditrace 1.5 → —,
+      // components 3 → —, WFI -3 → 0 (was c9690daa62ccf31f).
+      full_en: ['abaff1c44614ae64', P, () => {
         setField('Current weight', 1500); fillRequired(160); selectFeed('FBM_PF_24'); setField('Volume(mL/feed)', 30); setField('Frequency', 8); }],
     };
     const PARITY = [['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],

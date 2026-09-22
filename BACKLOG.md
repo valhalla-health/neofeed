@@ -32,16 +32,12 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🚀 **deploy · Ship the 2026-09-17 review** (`CHANGELOG.md` 2026-09-17; findings list outside the
-      repo in `NeoFeed/NEOFEED_REVIEW_2026-09-17.md` § 6). **Backend first** — the new backend is
-      proven compatible with the live client (19/19 in real Chromium).
-      1. ✅ **Backend done 2026-09-18 — `@55` live at 08:42 ICT** (`STATUS.md`, "How the 2026-09-18
-         backend deploy was verified"). The `sheetHealthReport()` gate caught real drift: row 1 of
-         `Patient_Registry` said `weights(JSON)`/`lengths(JSON)`/`hcs(JSON)`, which the column guard
-         would have refused on every registry write. Relabelled by Praew before the switch.
-      2. `main` → `release` PR (approver `tasamew`); curl both hosts and check each served
-         `compiled/*.js` hashes to its `?v=`.
-      ⚠️ Deploy-gated on both halves — **Praew's go-ahead, not an agent's.**
+- [ ] 🩺 **safety · Tell pharmacy: the pharmacy form changed on 2026-09-18 at 11:17 ICT** (PR #77,
+      `STATUS.md`). Every new NICU/SCN TPN order starts with 30 mL dead space and prints PREPARED
+      figures, and Soluvit and Peditrace are × Factor, so on an overfilled bag their printed mL (and the
+      components and WFI) differ from the KCMH worksheet's G43/G45 — 2.5 against 2.0 mL for a 2 kg
+      infant on a 120 mL day. § Next asked for pharmacy to be told *before* this shipped, and nothing
+      records that it was. **Praew's to do, or to tick if already done.**
 - [ ] 📈 **ops · `Audit_Log` growth — now with a hard limit.** The poll adds **15 `readRegistry` rows per
       hour per open tab**, and Google Sheets caps a **workbook** at 10,000,000 cells — empty grid cells
       included. A tab made by `insertSheet` is 26 columns wide, so each 4-column audit row costs 26
@@ -63,13 +59,26 @@ clinical judgement. Everything else is engineering sequencing.
       since 2026-09-18, so on or after 2026-09-25). Check the
       Script Property `hd_seen_chula.ac.th`: `"yes"` → set the flag to `true` and redeploy; `"no"` →
       someone signs in with a non-Workspace Google account for that domain and needs a password
-      account first. Steps are in the comment above the flag.
+      account first. Steps are in the comment above the flag. **Since the 2026-09-22 Chula domain
+      list there are five `hd_seen_<domain>` properties to check. The four new ones started recording
+      with `@56` on 2026-09-22 (16:34 ICT)**, so for them the week ends on or after 2026-09-29.
+- [ ] 🔒 **security · Clear the old password on each Chula-domain row once its owner has signed in with
+      Google.** The domain change itself is live (`@56`, 2026-09-22 16:34 ICT). **Praew's call:**
+      Chula-domain Staff rows that already hold a password keep it — Google sign-in works for them
+      either way. Once each such person has signed
+      in with Google, `clearStaffPassword(email)` removes the password, per "ไม่ต้องมาสร้าง password
+      ที่นี่". Not before: a Workspace admin can block Google sign-in to outside apps, and then the
+      password is that person's only way in.
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@55` + `?v=sync-poll-0916`) in one bedside session.**
-      ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch; the
-      rest of this list is still open.
-      Everything shipped 2026-09-12 and 2026-09-15 is verified as *deployed*, none of it as *used*.
-      One session closes the lot:
+- [ ] 🩺🔒 **safety · Exercise the live stack (`@56` + `release` = `96afcd0`) in one bedside session.**
+      ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch, from the
+      old `sync-poll-0916` frontend. The review frontend has been live since 09:10 ICT and the ward
+      requests since 11:17 ICT; nobody has reported using either, so every line below is open.
+      Everything shipped 2026-09-12, 2026-09-15 and in the 2026-09-18 frontends is verified as
+      *deployed*, none of it as *used*. One session closes the lot:
+      - *(2026-09-18, no bedside needed)* the newest `Daily_Log` rows' `appVersion` (column AG), or a
+        printed order's footer, reads `b=f48894ce64;d=1857fa896b;…;c=c22c5394ad;…` with constants
+        `2026-09-18.1` — the live frontend's stamp, in full in `STATUS.md`;
       - a real login and a real save;
       - **edit a saved order without saving → Print must refuse**;
       - **K 5 mEq/kg/d → Save must demand a reason, and that reason must appear on the printed form**;
@@ -80,11 +89,17 @@ clinical judgement. Everything else is engineering sequencing.
       - **open a discharged record whose bed was reused → it must still save**;
       - glance at the NICU/SCN gate for any bed held by two Active infants, which is now unsaveable
         until one is transferred.
-      - *(2026-09-17, once the review ships)* leave a workstation untouched 30 min → it must log out
+      - *(2026-09-17 review, live since 2026-09-18 09:10 ICT)* the login screen must render, not stay
+        blank; leave a workstation untouched 30 min → it must log out
         with the idle notice; correct a birth weight on an infant with a saved order → Print must
         refuse with the dosing-weight banner; enter a growth measurement on one device and edit the
         same infant's diagnosis on another that has not synced → the measurement must survive; an
-        infant on full feeds must no longer demand a lipid/K override reason.
+        infant on full feeds must no longer demand a lipid/K override reason;
+        `valhalla-health.github.io/neofeed/` must land on the Thai "moved" page (its guard now runs
+        from `boot.js`).
+      - *(2026-09-18 ward requests, live since 11:17 ICT)* a MEN feed moves no tile; the Magnesium tile
+        shows; Aminoplasmal 15% is not offered; a new NICU/SCN order starts at 30 mL dead space and
+        prints PREPARED figures; the Soluvit and Peditrace rows print "× Factor → delivers …".
 
       Stubs model neither `CacheService` eviction nor `LockService` contention, so **only a person
       can close this.** Supersedes the `@53`/`@50`/`@47` versions of this item.
@@ -156,8 +171,8 @@ clinical judgement. Everything else is engineering sequencing.
         did not (bag alone 17 kcal/g). Intended?
       - "Input" on a new day still defaults to the prescribed total and counts as filled; should it be
         typed like Urine output / Drain?
-      - A feeds-only day with Soluvit/Peditrace ticked still prints their mL and a negative WFI line
-        on the TPN form (pre-existing). Should a TPN form print at all with no TPN?
+      - A feeds-only day still prints a TPN form. Since 2026-09-18 it no longer lists vitamin mL or a
+        negative WFI for the bag that does not exist. Should a TPN form print at all with no TPN?
 - [ ] 🩺 **safety · Decisions from the 2026-09-18 ward requests — Praew's** (`CHANGELOG.md` 2026-09-18 (2)).
       - **Which day ends "the first days of life"?** Step 4 switches Ca and P to the growing-preterm ranges
         after DOL 1 (`TPN_TARGETS.ca/p`), but Mg (and Na) after DOL 2. On DOL 2 the new Magnesium tile
@@ -189,10 +204,27 @@ clinical judgement. Everything else is engineering sequencing.
         ward's own value is set in `defaultDeadVolFor`. Its label's line is **2 years**, not a ward, so an age
         check may be wanted then. Center Point needs a packet version with a product slot before it
         can offer it.
+- [ ] 🧱 **follow-ups · From the 2026-09-18 pre-deploy review** (`CHANGELOG.md` 2026-09-18 (2) §6) —
+      engineering, low risk, not blocking.
+      - **Center Point's packet cannot say a feed is MEN.** A CP order with a MEN feed prints its planned
+        enteral volume, but "energy incl. EN" is TPN-only, and the EN Ca/P slots read "—". `calc.isMEN`
+        reaches `buildTpn`, which drops it. The fix is a MEN slot (packet schema bump) or relabelled slots,
+        either way a `tpn-document.mjs` change: sync CP's copy, re-pin, update the digest. CP is
+        synthetic-only, so nothing reaches a patient meanwhile.
+      - **The daily log and alert centre still treat a MEN row at 100 mL/kg/d or more as full feeds.**
+        `log.jsx` `pickTarget` (target bands) and `app.jsx` `computeAlerts` read `enVolPerKg >= 100`,
+        while that row's saved totals exclude the feed. Use `!entry.calcInput?.isMEN && …`.
+        `enVolPerKg` must stay the real volume, because `savedDosingWeightOf` reads it. The calculator
+        already warns on MEN above 24 mL/kg/d, so this only follows an input the ward was told is wrong.
 - [ ] ⚖️ **PDPA · Three questions from the 2026-09-17 security review — Praew / DPO.** Should a
       registry read still be served when its `Audit_Log` row cannot be written (today: yes, fails
       open)? Should Staff column H keep plaintext temp passwords? Should a session that *expires*
       (not an explicit logout) also clear calculator prefill and alert acknowledgements?
+- [ ] 🧹 **chore · Stop publishing the six `.jsx` sources in the next release.** `.assetsignore` and
+      `_config.yml` kept them for the release that introduced the build step only, so that a browser
+      still holding the previous shell could finish loading. That release has been live since
+      2026-09-18 (`STATUS.md`). Exclude them on both hosts in the same change that flips
+      `test/verify-build-shells.cjs` 5.6, which today requires them to be published.
 
 ## 🕓 Later
 
@@ -208,9 +240,11 @@ clinical judgement. Everything else is engineering sequencing.
       tab used to say ≥100 while the EN tab said ≥40, both citing WHO 2023; both now show NeoFeed's 40
       and say "confirm locally".
 - [ ] 🔒 **security/process · GitHub hygiene from the 2026-09-11 review:** (the `test` workflow is already a
-      required check on `release`, and secret scanning is on — both done 2026-09-11); decide whether `tasamew` stays admin (and
-      is the `release` approver — see `REFERENCE.md`); confirm 2FA on both GitHub admins and on the
-      Cloudflare account; close/delete the stale branches and draft PR #56. **Not PR #57**
+      required check on `release`, and secret scanning is on — both done 2026-09-11); decide whether `tasamew` stays admin (no
+      longer the required `release` approver — 0 approvals since 2026-09-18, see `REFERENCE.md`); **`tasamew` to delete the
+      public fork `tasamew/neofeed`** (asked 2026-09-18) — a 2026-06-16 copy whose `main` holds 3 commits never merged here
+      (the "DOL today" edit-form change, `f4c4708`, `c9e14fe`, `728158f`), so they check those first; confirm 2FA on both
+      GitHub admins and on the Cloudflare account; close/delete the stale branches and draft PR #56. **Not PR #57**
       (`codex/center-point-v2`): since 2026-09-15 it is active, paired with NICU-Center-Point PR #12, and the
       two must merge together (CP accepts only the `neofeed-tpn-v2` packet #57 builds).
 

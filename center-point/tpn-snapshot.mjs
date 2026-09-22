@@ -34,7 +34,7 @@ export function buildTpn(p, D, effectiveFrom, effectiveTo) {
  const ratio=n=>n===Infinity?'!!':f(n,2);
  const values={
  naClStrength:z(S.naCl.naMeqPerMl,5),naAcetStrength:z(S.naAcetate.naMeqPerMl,5),glycoNaStrength:z(S.glycophos.naMeqPerMl,5),glycoPStrength:z(S.glycophos.pMgPerMl,5),k2KStrength:z(S.k2hpo4.kMeqPerMl,5),k2PStrength:z(S.k2hpo4.pMgPerKMeq,5),kClStrength:z(S.kCl.kMeqPerMl,5),mgConcentration:z((p.mgStrength==='50'?S.mgso4_50:S.mgso4_10).mgMeqPerMl,5),caConcentration:z(S.caGluconate.caMgPerMl,5),heparinStrength:z(S.heparin.unitsPerMl,5),peditraceZn:z(S.peditrace.znMgPerMl*1000,5),
- delivered:z(p.totalTPN_mL,1),prepared:f(c.preparedVol),dead:f(c.deadVol_mL),factor:f(c.factor,3),overfill:f(c.overfill,3),pnRate:f(p.totalTPN_mL/24,2),
+ delivered:z(p.totalTPN_mL,1),prepared:f(c.preparedVol),dead:p.totalTPN_mL>0?f(c.deadVol_mL):'—',factor:f(c.factor,3),overfill:f(c.overfill,3),pnRate:f(p.totalTPN_mL/24,2),
  dexPct:z(p.dexPct),dexBag:f(c.dexG_bag),d50:f(c.d50wVol),dexDelivered:f(c.dexG),dexKg:f(c.dexGPerKg,2),
  aaKg:f(p.aaPerKg,2),aaBag:f(c.aaG_bag),aaMl:f(s.aa),lipidKg:f(p.lipidPerKg,2),lipidMl:f(s.lipidSMOF),vitalipid:f(c.vitalipidVol),lipidBag:f(c.lipidBagVol),lipidHours:z(p.lipidDripHours||24),lipidRate:f(c.lipidBagVol/(p.lipidDripHours||24),2),
  naClKg:f(p.naCl,3),naClBag:f(p.naCl*factor),naClMl:f(s.naCl),naAcetKg:f(p.naAcet,3),naAcetBag:f(p.naAcet*factor),naAcetMl:f(s.naAcet),glycoKg:f(p.glycophosP,3),glycoMl:f(s.glycophos),naKg:f(c.naKg,2),

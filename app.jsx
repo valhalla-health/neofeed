@@ -333,8 +333,8 @@ function SyncGate({ online, failed, detail, onRetry }) {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:20 }}>
           <div style={{
             width:34, height:34, borderRadius:9, display:"grid", placeItems:"center",
-            background:"linear-gradient(135deg, var(--brand) 0%, oklch(36% 0.09 215) 100%)",
-            boxShadow:"inset 0 -2px 0 oklch(28% 0.08 215 / .4), 0 2px 8px oklch(46% 0.085 215 / .25)",
+            background:"linear-gradient(145deg, var(--brand-3) 0%, var(--brand) 55%, var(--brand-ink) 100%)",
+            boxShadow:"inset 0 -2px 0 oklch(26.8% 0.030 170 / .45), 0 2px 8px oklch(38.5% 0.047 170 / .28)",
           }}>
             <svg viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="#fff"
               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -553,6 +553,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
+  // Which view the quick calc was opened from, so its ← กลับ goes back where
+  // the user actually was rather than dumping them at the registry mid-round.
+  // Not persisted: the quick calc holds nothing worth returning to.
+  const [quickFrom, setQuickFrom] = React.useState(null);
   // Which ward the registry is showing. null = show the ward gate, which is
   // deliberately the state every session starts in: the unit runs NICU and
   // SCN as two censuses, and the first thing a shift does is say which one it
@@ -1072,7 +1076,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Removed 2026-09-11 (review C5); the default accent it always resolved to
   // stays.
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(46% 0.085 215)`);
+    document.documentElement.style.setProperty("--brand", `oklch(38.5% 0.047 170)`);
   }, []);
 
   // ── Shared GAS write helper ───────────────────────────────────
@@ -1835,6 +1839,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             onAddToday={startAddToday} onEditEntry={startEditEntry}
             onDeleteEntry={role === "admin" ? handleDeleteEntry : undefined} />}
           {view === "alerts" && active && <AlertCenter patient={active} log={log} onAckChange={() => setAckVersion(v => v + 1)} />}
+          {/* Quick calc — no patient, no role gate: it is a calculator over a
+              typed weight, it reads no record and writes nothing, so there is
+              no access it could grant that the ESPGHAN reference panels below
+              don't already. (The patient Calculator stays doctor/nurse — that
+              one writes orders.) */}
+          {view === "quickcalc" && <QuickCalcView onBack={() => goTo(quickFrom || "registry")} />}
           {view === "guidelines" && <GuidelinesPanel />}
           {view === "formulas" && <FormulasPanel />}
           </ViewErrorBoundary>
@@ -1868,6 +1878,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         }}
       />
       }
+
+      {view !== "quickcalc" && view !== "calculator" &&
+        <QuickCalcFab onClick={() => { setQuickFrom(view); goTo("quickcalc"); }} />}
 
       <BottomNav
         view={view}
@@ -1996,6 +2009,104 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   );
 }
 
+// ── Quick calc — the floating-button entry ───────────────────
+// Ward request 2026-09-21: "เพิ่มปุ่มขวาล่าง ให้เป็นสำหรับแคลคูเลเตอร์ ใส่ข้อมูล
+// แค่น้ำหนักและคำนวณตามแคลคูเลเตอร์ได้เลย โดยข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท."
+//
+// This is the SAME <Calculator/>, not a second one. Every dose, mL of stock,
+// GIR and target band on the screen is calculator.jsx's own `calc`. A separate
+// "quick" calculator would be a second implementation of KCMH's dosing
+// arithmetic living beside the first, and the two would drift the first time
+// either moved — in the one file in this app that prints pharmacy orders.
+// What the `scratch` prop changes is only what the mode may PERSIST: no Save,
+// no Submit, no unsaved-draft store, no previous-submission store, no edit
+// lock, no printed pharmacy form, no Intake/Output card. Nothing in here
+// reaches the Google Sheet, and nothing survives leaving the page.
+//
+// No patient is attached, so there is no PHI in it to protect (PDPA) and no
+// Daily_Log row it could be mistaken for. Two numbers are still needed, and
+// only two: the weight — typed into Step 1's "Current weight" like any other
+// order — and the DOL, because every ESPGHAN band the wizard grades against
+// is DOL-indexed. Without it a quick calc would quietly read day-1 protein,
+// Na, K, Ca and P targets for a two-week-old.
+const SCRATCH_PATIENT = Object.freeze({
+  sessionId: null, name: null, initials: null,
+  // bw 0 switches off calculator.jsx's birth-weight floor: with no birth
+  // weight on record, the weight typed here IS the dosing weight and there is
+  // nothing to floor it against. The "TPN calc. weight" override still works.
+  bw: 0, ga: 0, sex: "", currentBed: "", diagnosis: "",
+  weights: [], lengths: [], hcs: [],
+});
+
+// Same span the Calculator's own DOL-indexed targets distinguish (day 1, 2,
+// 3–7, 8+) with room past it; a quick calc past four weeks is a growing infant
+// whose bands no longer move.
+const QUICK_DOL_MAX = 60;
+
+function QuickCalcView({ onBack }) {
+  const [dol, setDol] = React.useState(1);
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={onBack}>
+            ← กลับ
+          </button>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            Calculator
+            <span className="chip" style={{ fontSize: 12, fontWeight: 700,
+              background: "var(--warn-bg)", color: "var(--warn)", borderColor: "var(--warn-line)" }}>
+              ไม่บันทึก
+            </span>
+          </h1>
+          <div className="sub">ใส่น้ำหนักแล้วคำนวณได้เลย — ไม่ผูกกับผู้ป่วย ไม่เซฟลง Google Sheets</div>
+        </div>
+        <div className="quick-dol">
+          <label htmlFor="quick-dol-input">DOL</label>
+          <input id="quick-dol-input" className="num" type="number" inputMode="numeric"
+            min={1} max={QUICK_DOL_MAX} step={1} value={dol}
+            onChange={(e) => {
+              // Empty box while retyping must not become NaN and take every
+              // target band with it — hold the last real day until one is typed.
+              const v = Math.round(Number(e.target.value));
+              if (!isFinite(v)) return;
+              setDol(Math.min(QUICK_DOL_MAX, Math.max(1, v)));
+            }} />
+        </div>
+      </div>
+
+      {/* No banner between the head and Step 1 (Praew, 2026-09-21: "ไม่ต้อง
+          ขึ้นกรอบสีเหลืองกลาง"). The ไม่บันทึก chip and the subtitle above
+          already say it on arrival, and the one place it has to be read
+          rather than glanced at — next to Copy, the only way a number here
+          leaves the page — still carries it, in the footer card. A third
+          copy pushed Step 1 below the fold on a phone for no new
+          information. */}
+      <Calculator patient={SCRATCH_PATIENT} dol={dol} scratch
+        editEntry={null} baselineEntry={null} previousEntry={null} logDate={null}
+        userLabel="" userEmail="" />
+    </>
+  );
+}
+
+// ── Quick-calc floating button ───────────────────────────────
+// Bottom-right on every screen size. On a phone it clears the bottom nav and
+// the home-indicator inset; on a workstation it sits in the corner of the
+// viewport. Hidden on the Calculator itself (you are already in it, and
+// navigating away would drop an in-progress order's edit context) and on the
+// quick calc, which has its own ← กลับ.
+function QuickCalcFab({ onClick }) {
+  return (
+    <button type="button" className="quick-fab" onClick={onClick}
+      aria-label="Calculator — ไม่บันทึก" title="Calculator (ไม่บันทึก)">
+      {/* `calculator`, not `calc`: see icons.jsx — the filled `calc` glyph
+          collapses to a plain rounded square in white at this size. */}
+      <Icon name="calculator" size={22} color="#fff" stroke={1.9} />
+      <span className="quick-fab-label">Calculator</span>
+    </button>
+  );
+}
+
 // ── Gestational/post-menstrual age formatter ─────────────────
 // Input: decimal weeks (e.g. 28.43). Output: "28+3"
 // Uses integer days internally → no floating point overflow (28+7 → 29+0)
@@ -2061,7 +2172,7 @@ function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
   const [wtLabel, wtColor] = patient.bw < 1000
     ? ["ELBW", "var(--crit)"]
     : patient.bw < 1500 ? ["VLBW", "var(--warn)"] : ["LBW", "var(--ink-3)"];
-  const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "oklch(45% 0.13 65)" : "var(--ok)";
+  const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
   return (
     <div className="patient-strip">
 
@@ -2206,7 +2317,7 @@ function AlertCenter({ patient, log, onAckChange }) {
         </div>
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>Cautions</div>
-          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "oklch(45% 0.13 65)" }}>{activeAlerts.filter((a) => a.level === "warn").length}</div>
+          <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--warn-ink)" }}>{activeAlerts.filter((a) => a.level === "warn").length}</div>
         </div>
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>Info / reminders</div>
@@ -2251,18 +2362,6 @@ function AlertCenter({ patient, log, onAckChange }) {
 //   Default : Google Sign-In (Gmail / Google Workspace)
 //   Toggle  : email + password for non-Google domains
 // ============================================================
-const CONTACT_MAILTO = "mailto:Valhalla.team.th@gmail.com"
-  + "?subject=" + encodeURIComponent("สนใจใช้งาน NeoFeed")
-  + "&body=" + encodeURIComponent(
-      "สวัสดีครับ/ค่ะ ทีม Valhalla Health\n\n"
-    + "โรงพยาบาล / หน่วยงาน: \n"
-    + "ชื่อผู้ติดต่อ: \n"
-    + "เบอร์โทรศัพท์: \n"
-    + "อีเมล: \n\n"
-    + "สนใจเกี่ยวกับ: NeoFeed — ระบบคำนวณโภชนาการทารกแรกเกิด (NICU)\n\n"
-    + "ขอบคุณครับ/ค่ะ"
-  );
-
 // ============================================================
 // ChangePasswordModal
 // ============================================================
@@ -2416,16 +2515,29 @@ function LoginScreen({ onLogin, notice = null }) {
 
   return (
     <div className="login-wrap">
-      {/* Logo */}
-      <div className="login-logo-mark">
-        <svg viewBox="0 0 36 36" width="52" height="52" fill="none"
-          stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 27 V 9 L 27 27 V 9" />
-          <circle cx="27" cy="9" r="3" fill="#fff" stroke="none" />
-        </svg>
+      {/* The wordmark (Praew, 2026-09-22): NeoFeed's two-tone N IS the "N",
+          followed by "eo" and a light "Feed", as on the approved brand board.
+          The two paths are icons/icon.svg's, character for character (pinned
+          by test/verify-neofeed-mark.cjs), so the app icon and the wordmark
+          cannot drift apart. The colours are literal, like icon.svg's: an SVG
+          presentation attribute cannot read var(). role="img" makes a screen
+          reader say "NeoFeed" once, not "e o Feed". */}
+      <div className="login-app-name" role="img" aria-label="NeoFeed">
+        <svg className="login-n" viewBox="0 0 98 100" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
+              <stop offset="0" stopColor="#335A4A" />
+              <stop offset="1" stopColor="#284C40" />
+            </linearGradient>
+            <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
+              <stop offset="0" stopColor="#99B29C" />
+              <stop offset="1" stopColor="#799781" />
+            </linearGradient>
+          </defs>
+          <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" />
+          <path fill="url(#nf-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" />
+        </svg>eo<span className="lw">Feed</span>
       </div>
-
-      <div className="login-app-name">NeoFeed</div>
       <div className="login-tagline">Neonatal nutrition,<br />calculated precisely</div>
 
       {/* Why this screen is showing, when the user did not ask for it: idle
@@ -2438,7 +2550,7 @@ function LoginScreen({ onLogin, notice = null }) {
         <div role="status" aria-live="polite" className="login-notice" style={{
           width: "100%", maxWidth: 320, boxSizing: "border-box", marginBottom: 18,
           padding: "10px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.5,
-          background: "var(--warn-bg)", border: "1px solid var(--warn-line)", color: "oklch(42% 0.12 65)",
+          background: "var(--warn-bg)", border: "1px solid var(--warn-line)", color: "var(--warn-ink)",
         }}>
           <div style={{ fontWeight: 600 }}>{notice.title}</div>
           {notice.body && <div style={{ marginTop: 2 }}>{notice.body}</div>}
@@ -2517,17 +2629,17 @@ function LoginScreen({ onLogin, notice = null }) {
 
       {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}>⚠️ {error}</div>}
 
-      {/* Contact + version footer */}
+      {/* The Valhalla line at the foot of the screen (Praew, 2026-09-22): one
+          quiet line, "by Valhalla Health · © 2026", and no version. The
+          Guardian V that stood above it earlier that day was removed at her
+          request. The line sits under the form because, by the Brand Handbook
+          § 07, the endorsement never outranks the app name. Copyright needs
+          no registration: the © line only says whose work this is, and 2026
+          is the year it was first published. */}
       <div className="login-contact">
-        <a className="login-contact-link" href={CONTACT_MAILTO}>
-          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="4" width="16" height="13" rx="2"/>
-            <path d="M2 7l8 5 8-5"/>
-          </svg>
-          สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla
-        </a>
-        <div className="login-footer">VALHALLA TEAM &nbsp;·&nbsp; V2.0</div>
+        <div className="login-endorse">
+          <span>by Valhalla&nbsp;Health · ©&nbsp;2026</span>
+        </div>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -2596,7 +2708,7 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
           ["Active sessions", active, "var(--brand)"],
           ["Total patients", patients.length, "var(--ink)"],
           ["Logged entries", totalLogs, "var(--ok)"],
-          ["Active alerts", alertsTotal, "oklch(45% 0.13 65)"]
+          ["Active alerts", alertsTotal, "var(--warn-ink)"]
         ].map(([l, v, c]) =>
           <div key={l} className="card" style={{ padding: 14 }}>
             <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>{l}</div>
@@ -3201,11 +3313,11 @@ function toastHost() {
 function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
-  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(20% 0.01 230)";
+  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26.8% 0.030 170)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur    = type === "error" ? 4200 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue('--toast-bottom').trim() || '24px';
-  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 6px 24px oklch(20% 0 0 / .25);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(26.8% 0.030 170 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {

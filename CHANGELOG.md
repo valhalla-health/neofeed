@@ -13,6 +13,467 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 — Luminous Protection: NeoFeed moves onto the Valhalla brand sheet
+
+Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s
+numbers are untouched, and every `verify-*.cjs` harness passes against both the sources and
+`compiled/` (43 on this branch at the time of writing; the count moves as harnesses are added, which
+is why it is not pinned here).
+
+**The request** (Praew, 2026-09-22): the login screen loses "Nutrition insight for brighter beginnings"
+and the "สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla" button, gains the Valhalla logo and environment; then —
+*"ปรับให้ neofeed ใช้ palette นี้ เพื่อความสงบ เรียบหรู รักษาระดับโลก quiet guardian."*
+
+**What the palette is.** Brand Handbook v1.1 § 11, "Luminous Protection": Ivory #F7F6EE, Pale Jade
+#E4EDE0, Celadon #C9DCCB, Sage #B9CCB4, Forest #284C40, Champagne Gold #C5A46D. Converted to oklch the
+same way #81 converted the teal sheet a day earlier — the space the shells are written in — so every
+tint, hover and hairline is derived by moving L/C along the sheet's own hues. The handbook's contrast
+table reproduces to ±0.02 with the same maths, which is what made it safe to derive the rest.
+
+**Six colours, and not one of them is a status colour — so the clinical ones did not move.** crit,
+warn, ok and info are byte-identical to before, for the second release running. The sheet itself
+separates status from brand (§ 11), the palette contains no red and no amber, and severity at a
+bedside is a mapping the ward has already learned. Re-hueing it to match a brand would be a clinical
+change wearing a design change's clothes. Brand green never means "normal"; nothing green is a status.
+
+**What moved.** The `:root` brand half was rewritten — surfaces (Ivory ground, Pale Jade second plane,
+Celadon lines), four ink tiers re-solved on Forest, the brand ramp centred on Forest, and Nordic Sand
+replaced by Champagne Gold. Every text tier was solved against the background it actually lands on, not
+chosen by eye, and the ratios inline were recomputed rather than carried over: ink 14.98 / ink-2 8.51 /
+ink-3 5.51 on white, and the dimmed ink-4 was solved on Pale Jade (3.04) — the worst ground it sits on —
+so the new `--bg-2` could not quietly regress it. `--brand` is Forest, which carries white text and is
+legible as text itself at 9.57:1 in both directions; one token is both the primary button and the accent.
+
+Outside `:root`, 51 literals followed — the alpha variants and SVG presentation attributes that `var()`
+cannot reach. They were migrated by an explicit old→new table with every change printed for review, not
+by search/replace, which § 15 warns against. Three sets were deliberately left alone: the clinical
+status hues, the categorical chart-series hues (re-hueing six data series into one green family is
+exactly the "ไล่เฉดหลายชุดจนแยกยาก" § 11 rules out), and the printed pharmacy order form, which is ink on
+paper rather than a brand surface.
+
+**Champagne Gold is decorative only**, as § 11 requires: 2.17:1 on Ivory and 1.39:1 on Sage, so it fails
+AA as text on every light ground in this palette. It appears once on screen — the 40px hairline under the
+NeoFeed wordmark. That rule used to hang off `.login-eyebrow::before` and would have been deleted with the
+eyebrow; it moved to `.login-app-name::after`, same place on screen, now owned by the element it belongs to.
+
+**Login screen.** The eyebrow and the contact button are gone, and with them `CONTACT_MAILTO`, whose only
+caller was that button. In their place, the endorsed-brand lockup of § 07: the Guardian V above
+"by Valhalla Health", 12px under a 58px wordmark, no border and no button affordance — a signature, not a
+call to action, because the handbook's rule is that the endorsement never outranks the app name.
+
+**The Guardian V is matted, not traced.** § 10 forbids taking geometry from a mockup and § 01 lists the
+vector master as outstanding, so the mark was keyed out of the handbook's own proportion study by alpha
+coverage — the flat Ivory ground and flat Forest mark make that mechanical, and the ✓ notch falls out as
+transparency for free. It is used at 34px, above the 32px floor § 10 sets, where the notch is still
+legible. **It is a raster stand-in: replace `icons/valhalla-guardian-v.png` with the SVG master when it exists.**
+
+**One deliberate departure from the handbook, flagged rather than buried.** § 07 says NeoFeed keeps its
+teal for familiarity. It no longer does: the N+dot geometry is untouched, but its colour follows the
+palette, here and in the re-rendered app icons (Forest gradient, Sage counter-dot, white stroke at 5.85:1
+on the lightest end). With the whole app in the green family a teal mark was the single element left
+outside it. Praew's instruction is newer than § 07 and she owns the brand, but the pair is a two-line
+revert (`--brand` in the shells, `icons/icon.svg`) if § 07 is meant to win.
+
+`theme-color` and the manifest follow (Forest, Ivory background, so a PWA launch no longer flashes the old
+teal). Checked in real Chromium at 430px and 1440px: login, ward gate, registry, and the calculator's
+densest screen, where the status colours still separate cleanly from the new ground.
+
+**Follow-up (Praew, 2026-09-22): the lockup is stacked, and the version line is gone.** As first
+committed, the Guardian V sat *beside* "by Valhalla Health" in an inline row, with `V2.0` on a line of its
+own under it. Now the mark is above the words, as the Login screen paragraph above describes, and the
+login screen shows no version. `.login-footer`, used only by that line, went with it in both shells.
+Pinned by `test/verify-login-endorsement.cjs`; checked in Chromium at 800 px and 375 px.
+
+**Follow-up (Praew, 2026-09-22): the two-tone N replaces the N+dot, in the app icons and on the login
+screen.** Praew approved the NeoFeed brand board (the "shaded N": no dot, a Sage left stem, the diagonal
+and right stem in Forest, a slit between them) and chose to put it in the favicon and phone icons and to
+put the board's wordmark on the login screen. This supersedes the "one deliberate departure" paragraph
+above: there is no N+dot left to be teal or green.
+
+- **The mark is vector, rebuilt rather than traced.** The board's artwork is a generated raster
+  (`neofeed-site/docs/BRAND_HANDOFF.md` calls it concept artwork and names the icon the authority for
+  vector production), and its edges are not quite straight or parallel. So the letter was rebuilt from
+  the icon's measured proportions: stems 28% of the letter's height, a parallel-edged diagonal running
+  from the left stem's top corner to the right stem, a slit 4.6% of the height, 4.8% outer corners. The
+  tile `#D3E3D3` and the two gradients were sampled from the artwork, and the Forest shading ends on
+  Forest itself. `icons/icon.svg` is the master; the letter fills 65.3% of the tile, as in the artwork.
+- **All seven PNGs were re-rendered from it**, by the same method as #81: headless Chromium at 1024 px,
+  then a box filter in premultiplied alpha. The two favicons now carry the tile's own rounded corners
+  (they were full-bleed squares). The maskable pair set the letter at 54% so it stays inside the safe
+  zone. The Apple icon is full-bleed, because iOS draws its own corners.
+- **Login screen.** The white tile with the N+dot is gone (`.login-logo-mark` went with it in both
+  shells). In the wordmark the mark *is* the N: an inline SVG with icon.svg's two paths, sized to IBM Plex
+  Sans' cap height (0.698em), so it stands as tall as a capital and scales with the phone font size. Then
+  "eo" at 700 and "Feed" at 300, both in Forest, as the board sets them. The board changes the weight, not
+  the colour. Plex Sans 300 is now in the Google Fonts link, and the browser fetches it only where it is
+  used. The gold hairline became the board's rule: Sage, a small gap, then Champagne Gold, in two equal
+  halves, 62% as wide as the wordmark and close under it.
+- **Unchanged:** the Guardian V above "by Valhalla Health" at the foot of the screen, as set earlier
+  today. The board's lockup also carries "by VALHALLA HEALTH" under the rule; it was not added there, so
+  the endorsement is not shown twice. Also unchanged: the tagline, `theme-color` and the manifest.
+
+Pinned by `test/verify-neofeed-mark.cjs`, which checks that the icon and the wordmark draw the same paths
+in the same colours and decodes every PNG. It fails 54 of 70 against `75a3038`, and six deliberate
+breakages were each caught. Checked in Chromium at 1280 px and at 375 px, where the layout has no
+horizontal scroll and the mark scales with the text.
+
+**Follow-up (Praew, 2026-09-22): no Guardian V, and a © line.** *"Can I remove V logo below login page.
+Only show by valhalla team เราใส่อะไรที่ดูเป็นลิขสิทธิไปด้วยได้? @2026?"* Offered three wordings, she chose
+one line: **"by Valhalla Health · © 2026"**. The Guardian V above it is gone, and so is
+`icons/valhalla-guardian-v.png`, the raster stand-in. Nothing else used it, so the open question of
+replacing it with the vector master no longer applies. `.login-endorse` lost its `img` rule and its
+column layout, since there is nothing left to stack. The year is fixed at 2026, the year of first
+publication. It does not change by itself on 1 January. Copyright needs no registration, so the line
+only says whose work this is. Pinned by `test/verify-login-endorsement.cjs`, which fails 5 of 11
+against `76f7610`. Checked in Chromium: one line, and no horizontal scroll at 375 px.
+
+---
+
+## Session 2026-09-22 — A forced password change is served at once, not refused for a minute
+
+Backend only (`gas-backend.gs`, `test/verify-staff-cache-password-writes.cjs`). No `.jsx` changed, so no
+build. Opened as PR #86 and folded into PR #84 on Praew's instruction, so it ships with the entry below.
+Not deployed: `@55` keeps the bug until a `clasp` deploy on Praew's go-ahead (`STATUS.md` ⏳).
+
+**The bug** (found 2026-09-22 during PR #84). After a successful forced change, every request answered
+`PasswordChangeRequired`, and `app.jsx` put the forced change screen back up. `verifyToken` reads the
+Staff row through a 60 s cache (`_getStaffRowCached`) that carries col G, and the `changePassword`
+request itself had just cached col G `TRUE`. In the sandbox on `f3e9e23` (`@55`'s source) the rotated
+token was refused from t+0 to t+59 s and served at t+60 s. Signing in again did not help: the copy is
+per user. The cache comment said password changes were unaffected. That held for revoking the other
+sessions (the user epoch), never for col G.
+
+**The fix.** `_forgetStaffRow(email)` drops the cached copy, and every function that writes a Staff row's
+cols E–H calls it after the write:
+- `changePassword` — the reported bug.
+- `setInitialPassword`, in both branches: a row re-added after its deletion was cached as "not found",
+  and its first request was refused as `Unauthorized`.
+- `clearStaffPassword`.
+- `onEdit` and `backfillDefaultPasswords`. These two failed **open**: provisioning a temp password on a
+  row whose copy was cached with col G blank let a sign-in on that temp password through the server gate
+  for up to a minute.
+
+Dropping the copy is best effort: a cache failure is logged, the 60 s bound applies again, and the epoch
+bump still runs. The key now comes from one helper, `_staffCacheKey`, trimmed and lowercased like
+`getStaffRow`, so an address typed into the editor in another case still matches.
+
+**Unchanged.** Hand edits in the Sheets UI (role, `active`, col G typed by hand) are still seen within
+60 s. `onEdit` fires on those edits, so it could drop the copy for every Staff edit and make disabling an
+account instant; not done here. Residual: a request already past its Staff read when the change lands
+can put the old copy back for up to 60 s. The client sends nothing while the forced screen is up, so
+that takes a second tab or device of the same user in flight at that moment.
+
+`verify-staff-cache-password-writes.cjs`: 33 assertions, 10 fail against `f3e9e23`. Six deliberate
+breakages of the fix (no try/catch, an unnormalised key, a cache that never hits, `setInitialPassword`
+dropping only for an existing row, `changePassword` or `onEdit` not dropping) were each caught.
+
+## Session 2026-09-22 — Every Chula domain signs in with Google, with no NeoFeed password
+
+Backend only (`gas-backend.gs`, `test/verify-chula-google-signin.cjs`). No `.jsx` changed, so no build.
+Not deployed: `@55` is unchanged until a `clasp` deploy on Praew's go-ahead (`STATUS.md` ⏳).
+
+**The request** (Praew, 2026-09-22, after asking whether `@docchula.com` can use Google): *"ทุกอันที่เป็น
+chula domain ให้ผ่าน google ได้เลย ไม่ต้องมาสร้าง password ที่นี่ และให้เช็คด้วยว่า ทุก email จะต้องมีชื่อใน
+google sheet user เพื่อป้องกันไม่ให้ใครก็ได้เข้ามา"*
+
+**Which domains — checked, not assumed.** `chula.ac.th`, `student.chula.ac.th`, `md.chula.ac.th`,
+`docchula.com` and `chulahospital.org` each have a Google Workspace sign-in page
+(`google.com/a/<domain>/ServiceLogin`; the first two hand on to Chula's Microsoft SSO). `redcross.or.th`
+and a control domain get Google's "not using Google Workspace" page instead. DNS agrees for
+`docchula.com` and `chulahospital.org` (MX at Google). `GOOGLE_WORKSPACE_DOMAINS` now lists the five,
+exact matches only.
+
+**Why the gate changed too.** `verifyToken` decided the temp-password gate by *domain*
+(`!_usesGoogleSignIn(email)`), so listing a domain also lifted the gate for it. A row on a newly listed
+domain that already held a temp password would have kept it working with no forced change, and a
+`chula.ac.th` row already could (harness § 3 fails on `7049f60`). Sessions now record how they signed in
+(`authMethod`), and `_passwordSession` lets col G hold only a password session. A Google session is never
+held, so a Google sign-in on such a row no longer lands on a change screen it cannot complete, which is
+what a `@docchula.com` sign-in meets on `@55`. Sessions minted before the deploy carry no `authMethod`
+and keep the domain rule.
+
+**The allowlist, checked.** Both login paths require an active Staff row with a valid role; every request
+re-reads the row (60 s cache); a deleted or disabled row ends a live session; no unauthenticated action
+or GET returns data. Unchanged, and now pinned in the harness's § 4.
+
+**Found here, fixed in the same PR:** after a forced password change, the next minute of requests was still
+refused as `PasswordChangeRequired`, because `verifyToken` reads the Staff row from its 60 s cache, which
+still held col G `TRUE`. The fix is the entry above: opened as PR #86, folded into PR #84 on Praew's
+instruction.
+
+`verify-chula-google-signin.cjs`: 57 assertions, 21 fail against `7049f60`.
+
+## Session 2026-09-21 — Quick calc: the same calculator, on a typed weight, saving nothing
+
+Frontend only (`app.jsx`, `calculator.jsx`, both shells, `test/verify-quick-calc.cjs`,
+`test/verify-safety-review.cjs`). `gas-backend.gs` is untouched — by design: the whole point of the
+feature is that nothing it does reaches the sheet.
+
+**The request** (Praew, 2026-09-21): *"เพิ่มปุ่มขวาล่าง ให้เป็นสำหรับแคลคูเลเตอร์ ใส่ข้อมูลแค่น้ำหนัก
+และคำนวณตามแคลคูเลเตอร์ได้เลย โดยข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท."* A bedside scratchpad: type a weight,
+get the numbers, register nobody.
+
+**The decision that shaped everything else.** The obvious build is a small one-screen calculator —
+weight in, fluid/GIR/stock mL out. It was rejected. That would be a **second implementation of KCMH's
+dosing arithmetic** sitting beside `calculator.jsx`, the one file in this app that prints pharmacy
+orders, and the two would disagree the first time either moved. So the quick calc mounts **the real
+`<Calculator>`** with a new `scratch` prop and a frozen patient-less record. Every dose, every mL of
+stock, every target band is the same `calc` the ward already prescribes from.
+
+**What `scratch` turns off** — only the things that persist, never the arithmetic: Save, Submit,
+delete, the unsaved-draft store, the `neofeed_calc_*` previous-submission store, the browser-storage
+expiry sweep, the edit lock, the printed pharmacy form, and the Intake/Output card (bedside figures
+for one real infant on one real day — there is neither). `handleSave` also returns early on `scratch`:
+it is the only path in that file that reaches Google Sheets, and a hidden button is not a guarantee.
+
+**Two inputs, not one.** The weight goes into Step 1 as always. The page head also carries a **DOL**,
+because every ESPGHAN band the wizard grades against is DOL-indexed — without one, a quick calc would
+quietly read day-1 protein/Na/K/Ca/P targets for a two-week-old. Since that DOL is picked rather than
+derived, `orderDayRolledOver` is forced false in scratch mode: `dolAtDate` on a patient-less record
+returns 1, so a page left open past midnight would have snapped a DOL 14 calc back to day-1 bands.
+
+**Copy Order stays, and is the only thing that leaves the page.** Its usual gate (saved, unchanged,
+`printable`) can never pass without an entry id, and is not the gate this mode needs — there is no
+row to misattribute a copy to. It is scoped to a real order instead, and the compensating control is
+the text: it opens `คำนวณเร็ว (ไม่ใช่คำสั่งการรักษา)`, states it was not saved, and carries neither
+bed nor NeoFeed ID. A paste into LINE arrives without the screen it came from. Printing is refused
+outright — a pharmacy order form with no patient on it is the one artifact that could be carried to a
+bedside as if it were real.
+
+**PDPA.** `SCRATCH_PATIENT` has no `sessionId`, no name, no initials and `bw: 0`. There is no personal
+data in the view to protect, nothing is written anywhere, and the mode is not role-gated for that
+reason — it grants no access the ESPGHAN reference panels don't already.
+
+**The button.** `QuickCalcFab`, bottom-right at every width — an extended pill on both, not an
+icon-only circle on phones: the app's `calc` glyph is a filled rounded square that reads as "a button",
+and this is a new entry point nobody is looking for yet. It is `position: fixed`, a direct child of
+`.app` but taking no grid cell, so it cannot repeat the 2026-09-16 banner bug; `z-index: 35`, below
+`.bottom-nav`'s 40, so if a future layout change ever makes them overlap the navigation wins. Hidden
+on the Calculator and on itself, and hidden when printing (it is outside `.work-inner`, so the existing
+print rule did not reach it).
+
+**Dropped after review on the device** (Praew, same session): the orange "หน้านี้ไม่บันทึกอะไรทั้งสิ้น"
+card between the page head and Step 1. The `ไม่บันทึก` chip and the subtitle say it on arrival and the
+footer card says it again beside Copy; the third copy only pushed Step 1 below the fold on a phone.
+
+**Renamed after the same review** (Praew: *"เปลี่ยนคำว่าคำนวณเร็ว เป็น Calculator และใช้รูปเครื่องคิดเลข
+เป็นตัวแทนปุ่ม"*): the button, the heading and the copied text now read **Calculator** — the same word
+as the patient wizard, which is fine because the `ไม่บันทึก` chip beside the heading is what tells them
+apart and the button is hidden while that wizard is open, so the two labels are never on screen together.
+
+That rename needed a real calculator glyph, which the app did not have. `icons.jsx`'s `calc` is in the
+`filled` list and winds its screen and keys the same way as its body, so under the default nonzero
+fill-rule they fill in rather than cut out: in ink at rail size that passes, but at 22 px in white on
+the solid brand button it was one featureless rounded square. Rather than put `fill-rule="evenodd"` on
+the shared `Icon` — which would silently redraw nine icons across the app — a stroked sibling
+**`calculator`** was added (body, screen, two rows of keys as round-capped zero-length segments) and
+used only by the button. `calc` is untouched; the nav rail and the mobile Calc tab still use it, and
+`verify-quick-calc.cjs` § 5 pins both halves of that split so neither drifts onto the other.
+
+**Tests.** `test/verify-quick-calc.cjs` (46 assertions). § 1 drives the identical order into a scratch
+mount and a patient-bound mount and fails on the first metric tile or step figure that disagrees, with
+a non-zero GIR asserted separately so a page of zeros can't pass it vacuously. § 2 reads `localStorage`
+after the quick calc **and** requires that the patient entry, under the same keystrokes, *did* write its
+draft — without that half the assertion passes for the wrong reason, which is what it did on the first
+run: `calculator.jsx` writes through a bare `localStorage`, which under `vm.runInThisContext` resolves
+against the global scope, so every write threw inside its own `try/catch`. Same for the bare `navigator`
+the Copy button uses, and Node 22's `globalThis.navigator` is read-only, so it has to be redefined.
+§ 3-§ 7 pin the absent Save/Submit/print/IO card, the copied text, the wiring in `app.jsx`, the guards
+in `calculator.jsx` and the button's CSS in both shells.
+
+Two assertions in `verify-safety-review.cjs` were updated, not relaxed: the print/copy save-gate and the
+`PrintOrderForm` render condition now have to name `scratch` in their conditions rather than simply
+having lost the gate. Verified in real Chromium at 430 px and 1440 px.
+
+**Merged with the palette session below** before landing. The only real conflict was the shells' `?v=`
+tokens, which the build writes — resolved by taking one side and rebuilding. One thing the merge
+caught that a clean apply would not have: `.quick-fab` was written with a hand-rolled
+`oklch(… 230 …)` drop shadow, the old hue, hours before the palette session moved every shadow in the
+app onto hue 205 and a single `--shadow-lift` token. It now uses that token, like the modals and the
+picker — a button added the same day as "the design system that had been living in five files" should
+not be the sixth.
+## Session 2026-09-21 — Valhalla Health palette, and the design system that had been living in five files
+
+Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s
+numbers are untouched, and every one of the 42 harnesses passes against both the sources and
+`compiled/`.
+
+**What changed.** The app now wears the Valhalla Health brand sheet. Its seven colours were converted
+to oklch — the space the shells were already written in — so the tints, hovers and hairlines could be
+derived by moving L/C along one hue instead of being matched by eye:
+
+| | hex | oklch |
+|---|---|---|
+| Midnight Teal | `#103F43` | `oklch(33.9% 0.049 203)` |
+| Valhalla Teal | `#12656A` | `oklch(46.3% 0.074 201)` |
+| Neo Teal | `#16838A` | `oklch(55.7% 0.090 202)` |
+| Sea Glass | `#78BFC0` | `oklch(75.8% 0.071 197)` |
+| Mineral Mist | `#D5ECEA` | `oklch(92.6% 0.024 190)` |
+| Nordic Sand | `#D4B98C` | `oklch(79.8% 0.067 80)` |
+| Porcelain Mist | `#F5F8F7` | `oklch(97.7% 0.003 174)` |
+
+The old brand was already a teal (`oklch(46% 0.085 215)`), so the move is mostly a 215 → 201 hue
+shift plus re-basing the neutrals off Porcelain Mist instead of a blue-grey at hue 230. Ink is now
+teal-leaning charcoal rather than blue, so body text sits inside the brand family instead of reading
+cold against it.
+
+**The part that was not a recolour.** The palette had no single definition. `:root` held 27 values;
+another **114** hardcoded `oklch(...)` literals sat outside it — 70 across `app.jsx`,
+`calculator.jsx`, `log.jsx`, `fenton.jsx` and `registry.jsx`, and 44 more in the shells' own CSS body.
+Among them, a warn-as-text cut written out by hand in **14 separate places across five files**.
+Moving the brand hue therefore took a scripted sweep with every single replacement asserted against an
+expected hit count, not an edit to one line. What the sweep left behind is the actual deliverable: a
+ramp (`--brand-ink` … `--brand-bg-2`), `--crit-ink` / `--warn-ink` / `--ok-ink` for status-as-text,
+`--sand`, `--ring`, `--shadow-lift` — and **zero** brand or neutral literals left in the CSS or in
+any JSX `style={{…}}`. `app-walkthrough.md` § 7 now carries the rules.
+
+The ~50 `oklch(...)` literals still in `log.jsx`/`fenton.jsx`/`calculator.jsx` are there by
+construction, not by omission: they feed SVG **presentation attributes** (`fill=`, `stroke=`), and
+`var()` is only substituted in CSS declarations — as an attribute it resolves to nothing and the mark
+renders black. (The login mark hit exactly this and is set through `style` instead.) What remains is
+the chart-series palette plus the brand/status values those charts draw with; they are now written as
+the new palette's exact values.
+
+**Three decisions worth recording, because each could look like an oversight later.**
+- **`--crit`, `--warn` and `--ok` are byte-identical to the pre-Valhalla values.** Severity at a
+  bedside is read off a mapping the ward already knows, and re-hueing it to match a brand is a
+  clinical change wearing a design change's clothes. Brand teal never means "normal".
+- **`--warn` and `--warn-ink` are left outside the sRGB gamut**, where they already were. The
+  in-gamut equivalents (`#c97000`, `#844100`) look identical on an sRGB panel — but the ward reads
+  this on P3 iPads, where the current specs render the more saturated amber that *is* the learned
+  signal. Pinning them would have quietly desaturated a clinical colour to tidy a spec.
+- **Nordic Sand is decorative only** — hairline rules and the login wordmark's underline, nothing
+  else. It sits at hue 80, next door to `--warn` at 65, and a warm chip that does not mean "caution"
+  is the one confusion this app can least afford.
+
+**Contrast was computed, not eyeballed.** Every text tier was run through a WCAG ratio against
+`--surface` and `--bg-2` before the tokens were written, and three failures in the *existing* palette
+were fixed on the way past: `--ink-3` was 4.08:1 on `--bg-2` (table headers sit on exactly that pair)
+and is now 4.52:1; `--ink-4` was 2.38:1 on white and is now 3.09:1; and warn-as-text had no named
+token at all, so its 7.7:1 cut was being re-typed by hand and was one typo from becoming `--warn`'s
+3.6:1. Ratios are recorded inline in `:root`.
+
+**UX work that came with it, all colour/elevation/focus — no box geometry moved**, so the Chromium
+layout assertions in `verify-sync-gate-and-poll.cjs` still describe the same shell:
+- **A visible focus ring, application-wide.** `:focus-visible` on every button, link and rail item.
+  The rail, the bottom nav and every ghost button were keyboard-reachable before this with nothing
+  drawn to say where you were — on a workstation that is driven by keyboard as often as by mouse.
+- **The active rail item carries a leading indicator bar**, not just a tint. Tint is the first thing
+  to disappear on a glare-washed bedside panel. Its `font-weight: 500` override went at the same time,
+  which fixes a jump that predates this session: the extra weight pushed "Guidelines (ESPGHAN)" onto a
+  second line at this rail width (measured 37px → 56px in Chromium), so selecting a view reflowed the
+  rail under the cursor that had just clicked it. Every rail item now holds its height in every
+  selected state.
+- **`prefers-reduced-motion: reduce`** now stands down every transition and animation in one block,
+  instead of each component having to remember. Checked against the calculator's accordions in both
+  motion modes, since the standard `transition-duration: .01ms !important` sweep is exactly the kind
+  of thing that can leave a `visibility`-delayed panel stuck shut — they open and close correctly in
+  both.
+- **The login screen was rebuilt as the brand moment** it is: a Porcelain-Mist ground with soft
+  Sea-Glass/Mineral-Mist ribbons (painted as gradients on a `-1` layer, deliberately no
+  `filter: blur()` — a full-viewport blur is the one effect that stutters on the ward's older Android
+  tablets), the two-tone `Neo`/`Feed` wordmark, a Nordic-Sand hairline, and the mark drawn the way the
+  sheet draws it: a teal glyph on a white tile, not the reverse.
+- Growth-chart percentiles now read as **one sequential teal ramp** (Sea Glass → Valhalla Teal)
+  instead of two unrelated blue-greys plus a teal. Percentiles are an ordered scale and now look like
+  one; the patient's own trace stays red, which is the one separation that has to survive.
+- Card headers, table headers, the patient strip's lead cell, scrims, shadows and the toast all move
+  onto brand-tinted values — on a Porcelain-Mist page a neutral-grey shadow reads as dirt.
+
+**Icons and chrome.** `icons/icon.svg` is now Neo Teal → Midnight Teal with a Sea Glass counter-dot,
+and all seven PNGs were re-rendered from it (headless Chromium at 1024px, then box-downsampled in
+premultiplied alpha by a small stdlib script, so the rounded corners do not fringe). `theme-color` and
+the manifest move to Midnight Teal, and the manifest's `background_color` becomes Porcelain Mist so a
+PWA launch no longer flashes white before settling onto the app's real page colour.
+
+**Center Point** needed one line. It extracts the shell's `<style>` block at build time
+(`center-point/build.mjs`), so the whole palette reaches it for free — but its toast carries its own
+copy of the colours, which is now matched to `app.jsx`'s. The extracted `calculator.css` was checked
+to confirm the new tokens actually land in it.
+
+**Verified.** All 42 harnesses green against the sources and against the shipped `compiled/*.js`;
+`node tools/build.mjs` reproduces the committed output byte-for-byte; the two shells are
+byte-identical; Center Point builds and its client tests pass. The real app was also driven through
+every view in Chromium (registry, dashboard, calculator, growth chart, alerts, guidelines, formulas,
+the patient picker, and mobile at 390px) with no console or page errors.
+
+---
+
+## Session 2026-09-18 (4) — The `harnesses` flake: `withNow` pinned `Date.now()` but not `new Date()`
+
+Test-only (`test/gas-vm-sandbox.cjs`, `test/verify-review-0917-backend-sync.cjs`, `test/README.md`).
+`gas-backend.gs` is untouched, still byte-identical to `7049f60`, the source of `@55`. Nothing deploys.
+
+**What failed.** PR #76's first `harnesses` run (35302157754, on a docs-only commit) failed
+`verify-review-0917-backend-sync.cjs` § A2 #040 "…with a fresh ts". The re-run passed, and so did `main`
+and `release` on the same code. `harnesses` is a required check on `release`, so the same flake could
+have held up a deploy.
+
+**Why.** A2 syncs once, then again inside `withNow(Date.now() + 2000, …)`, and asserted
+`second.ts !== first.ts`. The second sync is a cache hit, and `getActivePatientsJson` stamps its `ts`
+with an argument-less `new Date()`. `withNow` replaced `Date.now` only, and `new Date()` never calls
+`Date.now`, so the +2 s never reached the stamp. Both stamps came from the real clock, and the assertion
+held only if that clock ticked between two syncs usually under a millisecond apart.
+- Replaying the two syncs 2,000 times in one warmed-up process gave identical stamps 72 % of the time.
+  The second `ts` was the real clock, 2 s short of the pinned time.
+- With the real clock stopped (a scratch preload freezing `Date.now` and `new Date()`), #040 failed on
+  every run. It was the only one of the three backend harnesses' 344 assertions to fail.
+- 120 ordinary runs on Praew's workstation all passed. A real run meets the race once, before the code
+  is warmed up, when the gap is usually 1 ms or more. CI's runner was fast enough once.
+
+**Fix.**
+- `gas-vm-sandbox.cjs` gives the backend a `Date` whose argument-less form (`new Date()`, `Date()`)
+  reads `Date.now()`. It is still the host's `Date`: same prototype, so `instanceof Date` holds both
+  ways, and `now`, `parse` and `UTC` delegate. So `withNow` now pins every clock read in `gas-backend.gs`.
+  That matters beyond A2. The backend reads the clock both ways: `Date.now()` for sessions and cache TTLs,
+  `new Date()` in 12 places, including `_wardDateKey`, `lastModified` and the audit `ts`. So under
+  `withNow` it used to see two different times at once.
+- A2 now asserts the exact pinned time, `ts === new Date(at).toISOString()`, instead of inequality. A
+  stamp served from the cache and one taken from the real clock both fail it.
+- The other `withNow` blocks (backend-security's 12 h sessions, backend-writes' 10-minute schema cache,
+  A2's two 301 s TTL checks) were read for anything the pinned `new Date()` could change. None depends on
+  it: the first expect `Unauthorized` before any date is read, the second use fixed entry dates, and the
+  third build their expected value under the same pinned clock.
+
+**Verified.**
+- The new assertion fails 3/3 against the old sandbox and passes with the fix. With the real clock
+  stopped, the fixed sandbox passes all three backend harnesses (95, 101, 148).
+- 200 runs of the fixed `verify-review-0917-backend-sync.cjs`, 6 at a time: all 200 passed.
+- Everything `test.yml` runs, on Praew's workstation (Node 24; CI uses 22). A fresh build changes nothing,
+  and the two shells are byte-identical. All 42 `verify-*.cjs` harnesses pass against the sources and
+  against `compiled/`, with both `DEAD=0` runs. The Center Point build and its 5 client tests pass.
+- Against the pre-review backend (`42ce553`, via `NEOFEED_GAS_SRC`) the three backend harnesses still
+  fail 63, 97 and 25 times, as `test/README.md` says.
+
+## Session 2026-09-18 (3) — Two frontend deploys recorded: the 2026-09-17 review (PR #74) and the ward requests (PR #77)
+
+Both verified afterwards, read-only; the evidence is in `STATUS.md`. **PR #74** (`main` → `release`),
+opened by `praewxtvl`, was approved and merged by `tasamew` at 02:10:44 UTC / 09:10 ICT (`dfeb15b`). It
+shipped PR #73's frontend, 28 minutes after the backend went live as `@55`. **PR #77** followed at
+04:17:33 UTC / 11:17 ICT (`96afcd0`), again approved and merged by `tasamew`. It shipped the ward
+requests of 2026-09-18 (2), which the entry below still headlines as "NOT deployed". This PR was opened
+between the two releases; merging `main` into it after #75 landed kept both CHANGELOG entries.
+
+- **Checking a release is now mechanical.** With content-hash tokens, "the release is live" means that
+  the served shell is `release`'s `index.html` and that every script it loads hashes to its own `?v=`
+  (`REFERENCE.md`, "Proving what a release serves"). Scripted, and fetched on both hosts once as a
+  browser asks and once past any cache: for both releases all eight tokens matched, and every file
+  fetched was byte-identical to `origin/release`. That proves what is served, not that it runs; the
+  bedside session in `BACKLOG.md` § Now stays open.
+- **A check that needs no bedside session.** Every save stamps its frontend into `Daily_Log` AG (and
+  its constants into AF), and every printed order repeats both in its footer. After #77 the stamp has
+  `d=1857fa896b` and `c=c22c5394ad`, with constants `2026-09-18.1`; `d=3626f2a02e` and `c=7afa9076db`
+  mean a tab still on the #74 frontend, and named tokens such as `a=sync-poll-0916` an older one.
+- **#77 changed the pharmacy form, and nothing records that pharmacy was told.** `BACKLOG.md` § Next
+  made telling pharmacy the condition for shipping Soluvit/Peditrace × Factor; it is now the first
+  item in § Now.
+- **Read check runs, not the combined status.** `gh api …/commits/dfeb15b/status` answers `pending`
+  because this repo has no commit statuses at all; `…/check-runs` lists `harnesses`, `Workers Builds:
+  neofeed` and the Pages jobs, all green.
+- `BACKLOG.md`: "Ship the 2026-09-17 review" is done and deleted; the pharmacy item heads § Now; the
+  bedside item names `96afcd0` and gains the ward requests' checks; a new chore drops the six `.jsx`
+  sources from both hosts in the next release.
+
 ## Session 2026-09-18 (2) — Ward requests: MEN, a Magnesium tile, Aminoplasmal 15%, dead space 30 mL (NOT deployed)
 
 Praew forwarded three annotated screenshots of the live calculator from the NICU team (§1–§3), then asked
@@ -169,6 +630,56 @@ in one `main` → `release` PR.
   overfilled order among the six. Exactly 4 of its 90 printed figures moved (Soluvit 1.2 → 1.3, Peditrace
   1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50); a dump of both versions' figures showed no other
   difference.
+
+### 6 · The independent pre-deploy review, and its fixes — which missed #77 (NOT deployed)
+
+While the `main` → `release` PR (#77) was still a draft, a reviewer who had not written the code read the
+whole `release..main` diff. **No critical or high findings.** #77 was approved and merged by `tasamew` at
+11:17 ICT, at `fc2c35c`, while the fixes below were still under test, so **none of them is live**. They ship
+in the next `main` → `release` PR. Acted on here:
+
+- **Medium — an order saved before a release reprinted with that release's numbers.** A saved order prints
+  what the calculator computes now from its inputs, so after this release a pre-deploy order with dead
+  space and vitamins would reprint Soluvit 1.8 mL where it had printed 1.5, under the same entry id and
+  revision. That is the UP-C2 rule, "never old id over new mL".
+  - **Every save now stamps `calcInput.constantsVersion`**, and a saved row whose stamp differs from
+    `CONSTANTS_VERSION` prints, copies and submits only after it is saved again (`calcMoved`). The
+    reason goes in the existing red print-blocked line.
+  - **Rows saved on the live `fc2c35c` since 11:17 carry no stamp either**, but their figures were
+    computed exactly as now. That frontend was the first to save `calcInput.aaProduct`, so
+    `savedCalcVersionOf` dates such a row `2026-09-18.1` and it prints without a re-save. Without this,
+    after the next deploy nearly every NICU/SCN order saved today (30 mL dead space, vitamins ticked)
+    would have been held with a false "the calculation changed".
+  - Rows saved before 11:17 know no version. For them, only this release's own print changes are
+    held: an overfilled bag with Soluvit or Peditrace, or a MEN feed.
+  - A day with no TPN is not held. The only figures that moved there are vitamin mL for a bag that does
+    not exist.
+  - `CONSTANTS_VERSION`'s rule now covers calculator logic that moves a printed figure (`data.js`,
+    `docs/CLINICAL_CONSTANTS.md`). **These fixes keep `2026-09-18.1`.** The only printed figures they move
+    are the vitamin lines of a day with no TPN (next bullet), the same no-bag case `calcMoved` exempts.
+    A bump would have held every order saved on `fc2c35c` today.
+- **Low, pre-existing — a feeds-only day printed vitamin mL and a negative WFI.** With no TPN volume there
+  is no bag, so Soluvit and Peditrace are now 0 there, the same as the dead space in §4. §4's comment had
+  claimed the vitamins were already covered; it has been corrected.
+  - The Center Point snapshot sends dead space "—" when there is no TPN.
+- **Low — MEN at 100 mL/kg/d or more.** The Protein : Energy tile and alert no longer judge a TPN-only
+  ratio against the enteral target, and the collapsed "Full EN ✅" chip keys on the same flag as the
+  enteral targets.
+- **Deferred to `BACKLOG.md` § Next:**
+  - Center Point's packet cannot mark a feed as MEN. Its "energy incl. EN" slot is TPN-only then; this
+    needs a CP packet version.
+  - `log.jsx` / `app.jsx` still pick the enteral targets for a MEN row at 100 mL/kg/d or more.
+- **Two questions, already listed:** term infants read against the preterm rows, and gating Aminoplasmal
+  by age as well as ward.
+
+**Tests.** `verify-ward-requests-0918.cjs` §12 (the reprint guard) and additions to §4 and §10, now 193
+assertions. Against the live `fc2c35c` exactly 12 fail: the P:E tile, the feeds-only vitamins (3) and the
+guard (8). Two more pin the dating of rows saved since 11:17; they pass on `fc2c35c`, which has no guard,
+and failed on this fix until `savedCalcVersionOf` read `aaProduct`. `verify-kcmh-factor.cjs`'s shell row
+stands for a current order, so it carries the current stamp. `verify-review-0917-calc.cjs` §6 re-captures
+`full_en`, the feeds-only order: exactly 4 of its 61 figures moved (Soluvit 1.5 → —, Peditrace 1.5 → —,
+components 3 → —, WFI −3 → 0), checked by dumping both versions. All 43 harness runs pass, on sources and on
+`compiled/`.
 
 ## Session 2026-09-18 — Backend `@55` deployed (the backend half of the 2026-09-17 review)
 

@@ -7,7 +7,7 @@ window.React=React;
 let noticeTimer;
 function say(text,type='ok'){document.getElementById('feedback').textContent=text;document.querySelector('[data-notice]')?.remove();clearTimeout(noticeTimer);
  const error=type==='error',notice=document.createElement('div');notice.dataset.notice='';notice.setAttribute('role',error?'alert':'status');notice.textContent=(error?'⚠ ':'✓ ')+text;
- notice.style.cssText=`position:fixed;bottom:24px;left:50%;transform:translateX(-50%);max-width:90vw;padding:10px 16px;border-radius:8px;z-index:80;text-align:center;font-size:14px;color:#fff;box-shadow:0 6px 24px oklch(20% 0 0 / .25);background:${error?'oklch(38% 0.15 20)':'oklch(20% 0.01 230)'}`;
+ notice.style.cssText=`position:fixed;bottom:24px;left:50%;transform:translateX(-50%);max-width:90vw;padding:10px 16px;border-radius:8px;z-index:80;text-align:center;font-size:14px;color:#fff;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);background:${error?'oklch(38% 0.15 20)':'oklch(26% 0.035 203)'}`;
  document.body.append(notice);noticeTimer=setTimeout(()=>notice.remove(),error?4200:2400);}
 window.showToast=say;
 await import('../data.js');await import('../icons.jsx');await import('../calculator.jsx');
