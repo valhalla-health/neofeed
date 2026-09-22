@@ -257,6 +257,15 @@ clinical judgement. Everything else is engineering sequencing.
       the same way for both modes: every harness here ends with a summary line (`ALL PASS`, `N FAILED`,
       `CALC ORACLE:`, …), so require a recognisable summary token in each harness's stdout and fail the
       step when one is missing.
+      **Blast radius, measured twice (this session and the PR #96 session, independently, same answer):
+      with both PRs in, 54 harnesses — 30 carry the compiled-pass grep, 24 carry nothing in either pass.**
+      The list is one command, and stays current as harnesses are added:
+      `for f in test/verify-*.cjs; do grep -qE 'transformSync|review-0917-boot' "$f" || echo "$f"; done`.
+      It is not a harmless 24: it holds `verify-kcmh-constants` and `verify-kcmh-factor`'s companion
+      checks, `verify-provenance-stamp`, every `verify-review-0917-backend-*`, the auth and session
+      harnesses (`verify-must-change-password`, `verify-login-endorsement`,
+      `verify-gas-session-revocation`, `verify-chula-google-signin`, `verify-staff-cache-password-writes`)
+      and `verify-input-validation` — the ones whose silence would be least noticed and cost the most.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it
       a PWA and staff have home-screen installs, but there is **no service worker**, so a home-screen
       icon opens to nothing with no network. Partially addressed 2026-08-26: the staleness banner now
