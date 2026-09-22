@@ -592,10 +592,14 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     ok('the "not overfill-scaled" info line is gone', !alertTitles().some(t => /overfill-scaled/i.test(t)), alertTitles());
     await save();
     const t = printText();
-    ok('print: Soluvit N 2.5 mL/day, × Factor → delivers 2 mL', /Soluvit N2\.5 mL\/day/.test(t) && /Soluvit N 1 mL\/kg\/day[^×]*× Factor → delivers 2 mL/.test(t),
-      t.match(/5\. Multivitamin.{0,160}/));
-    ok('print: Peditrace 2.5 mL/day, × Factor → delivers 2 mL', /\(Zn 250 µg\/mL\)2\.5 mL\/day/.test(t) && /Peditrace 1 mL\/kg\/day[^×]*× Factor → delivers 2 mL/.test(t),
-      t.match(/6\. Trace Element.{0,160}/));
+    // Since 2026-09-22 the "× Factor → delivers" note is on pharmacy's (back)
+    // sheet, in the bag recipe's line for each vitamin; the doctor's front
+    // sheet prints the in-bag mL alone (Praew: "factor ตรงนี้ ไม่ต้องโชว์").
+    const backLine = (label) => text([...(printForm()?.querySelectorAll('.print-back tr') || [])].find(tr => text(tr.firstElementChild) === label));
+    ok('print: Soluvit N 2.5 mL/day, × Factor → delivers 2 mL', /Soluvit N2\.5 mL\/day/.test(t) && /× Factor → delivers 2 mL/.test(backLine('Soluvit N')),
+      [t.match(/5\. Multivitamin.{0,160}/), backLine('Soluvit N')]);
+    ok('print: Peditrace 2.5 mL/day, × Factor → delivers 2 mL', /\(Zn 250 µg\/mL\)2\.5 mL\/day/.test(t) && /× Factor → delivers 2 mL/.test(backLine('Peditrace')),
+      [t.match(/6\. Trace Element.{0,160}/), backLine('Peditrace')]);
     // D50W 30 + AA 50 + heparin 1.5 + Soluvit 2.5 + Peditrace 2.5 = 86.5 mL; WFI 150 − 86.5 = 63.5
     ok('the bag make-up counts the scaled amounts: components 86.5 + WFI 63.5 = 150 mL',
       /Components 86\.5 mL \+ WFI 63\.5 mL = 150 mL prepared/.test(t), t.match(/Components [^=]*= [\d.]+ mL prepared/));

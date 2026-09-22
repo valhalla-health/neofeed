@@ -3428,10 +3428,6 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </tr>
         </tbody>
       </table>
-      <div style={{ fontSize:9, marginBottom:4 }}>
-        Osm. (mOsm/L) = 50 (%dextrose) + 100 (%amino acid) + 2 (mEq/L of Na) + 2 (mEq/L of K) + 1.4 (mEq/L of Ca) + 1 (mEq/L of Mg)
-        {bag && calc.osm > 0 && <> = {fmt(calc.osm, 0)} mOsm/L</>}
-      </div>
 
       <div style={{ fontWeight:700, borderBottom:"1px solid #000", marginBottom:4 }}>PARENTERAL NUTRITION FLUID:</div>
       <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
@@ -3539,8 +3535,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           {/* 5. Multivitamin */}
           <tr>
             <td style={tdGroup} colSpan={3}>5. Multivitamin</td>
-            <td style={td} rowSpan={3}>Soluvit N {S.soluvit.mlPerKg} mL/kg/day (max {S.soluvit.maxMl} mL/day)
-              {calc.overfill > 1.001 && inclSoluvit && bag && <div style={{ fontSize:9, color:"#a60" }}>× Factor → delivers {f(calc.soluvitVol * calc.deliveredFrac, 2)} mL (KCMH sheet G43: × actual weight)</div>}</td>
+            <td style={td} rowSpan={3}>Soluvit N {S.soluvit.mlPerKg} mL/kg/day (max {S.soluvit.maxMl} mL/day)</td>
           </tr>
           <tr>
             <td style={tdRx(inclSoluvit && bag)}>{chk(inclSoluvit)} Soluvit N</td>
@@ -3554,7 +3549,6 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <tr>
             <td style={tdGroup} colSpan={3}>6. Trace Element</td>
             <td style={td} rowSpan={4}>Peditrace {S.peditrace.mlPerKg} mL/kg/day (max {S.peditrace.maxMl} mL)
-              {calc.overfill > 1.001 && inclPeditrace && bag && <div style={{ fontSize:9, color:"#a60" }}>× Factor → delivers {f(calc.peditrace_vol * calc.deliveredFrac, 2)} mL (KCMH sheet G45: × actual weight)</div>}
               <div style={{ marginTop:2 }}>Zn รวม {f(calc.znTotal_mg, 2)} mg/day{wtKg > 0 && calc.znTotal_mg > 0 ? ` (${f(calc.znTotal_mg / wtKg, 2)} mg/kg/d)` : ""} · max {D.MAX_ZN_MG_DAY} mg/day</div></td>
           </tr>
           <tr>
@@ -3677,8 +3671,11 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             {k2hpo4 > 0 && <tr><td style={td}>K₂HPO₄</td><td style={tdr}>{f(k2hpo4*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.k2hpo4,2)}</strong></td></tr>}
             {mgPerKg > 0 && <tr><td style={td}>MgSO₄ {mgStrength}% <span style={note}>({mgStrength === "50" ? `10% = ${calc.solVol?.mg10}` : `50% = ${calc.solVol?.mg50}`} mL)</span></td><td style={tdr}>{f(mgPerKg*(calc.factor||0),2)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.mg,2)}</strong></td></tr>}
             {caPerKg > 0 && <tr><td style={td}>10% Ca Gluconate</td><td style={tdr}>{f0(caPerKg*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.ca,1)}</strong></td></tr>}
-            {inclSoluvit && bag && <tr><td style={td}>Soluvit N</td><td style={tdr}>× Factor</td><td style={tdr}><strong>{f(calc.soluvitVol,1)}</strong></td></tr>}
-            {inclPeditrace && bag && <tr><td style={td}>Peditrace</td><td style={tdr}>× Factor</td><td style={tdr}><strong>{f(calc.peditrace_vol,1)}</strong></td></tr>}
+            {/* Soluvit and Peditrace are × Factor (Praew, 2026-09-18), so the
+                bag holds more than the order's 1 mL/kg; what reaches the infant
+                is said here, for pharmacy, and not on the doctor's front. */}
+            {inclSoluvit && bag && <tr><td style={td}>Soluvit N</td><td style={tdr}>{calc.overfill > 1.001 ? `× Factor → delivers ${f(calc.soluvitVol * calc.deliveredFrac, 2)} mL (KCMH sheet G43: × actual weight)` : "no overfill"}</td><td style={tdr}><strong>{f(calc.soluvitVol,1)}</strong></td></tr>}
+            {inclPeditrace && bag && <tr><td style={td}>Peditrace</td><td style={tdr}>{calc.overfill > 1.001 ? `× Factor → delivers ${f(calc.peditrace_vol * calc.deliveredFrac, 2)} mL (KCMH sheet G45: × actual weight)` : "no overfill"}</td><td style={tdr}><strong>{f(calc.peditrace_vol,1)}</strong></td></tr>}
             <tr><td style={td}>Heparin {S.heparin.unitsPerMl} unit/mL</td><td style={tdr}>{bag ? `${fmt(heparinUmL * calc.preparedVol, 0)} unit` : "—"}</td><td style={tdr}><strong>{f(calc.solVol?.heparin,2)}</strong></td></tr>
             {znPerKg > 0 && <tr><td style={td}>ZnSO₄ (elemental Zn)</td><td style={tdr}>{f(calc.znSO4_bag_mg, 2)} mg Zn</td><td style={tdr} title="stock not in KCMH_STOCK">ปริมาตร ZnSO₄ ไม่ได้รวมใน WFI — หักตามที่ใส่จริง</td></tr>}
             {/* Bag make-up — the sheet's J52 / I53 */}

@@ -123,6 +123,9 @@ on the Na acetate line, and KCl's 2 mEq on K₂HPO₄'s. The form now prints on 
   changes since the last order, and who saved it.
 - MgSO₄ comes as 10% and 50%, so with its strength off the label, **its in-bag mL names its vial**
   ("= 1.15 mL (10%)").
+- Praew, reviewing the front: "factor ตรงนี้ ไม่ต้องโชว์ · สูตรตรงนี้ก็ไม่ต้องโชว์". The front has no Soluvit
+  or Peditrace "× Factor → delivers" note and no osmolarity formula. The notes are on the back, in
+  the recipe line for each vitamin, in the same words, which `verify-kcmh-factor.cjs` reads.
 
 ### Checked
 

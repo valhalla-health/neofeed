@@ -495,6 +495,14 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('the doctor\'s name is at "แพทย์", as on the paper form', /Dr Test \(doc@kcmh\.test\)/.test(text(frontEl.querySelector('.print-doctor'))), text(frontEl.querySelector('.print-doctor')));
     ok('the front carries no pharmacy working and no alert text',
       !/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/.test(front), front.match(/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/g));
+    // Praew: "factor ตรงนี้ ไม่ต้องโชว์ · สูตรตรงนี้ก็ไม่ต้องโชว์" — the vitamins'
+    // "× Factor → delivers" notes and the osmolarity formula leave the front.
+    ok('no "× Factor → delivers" note on the front', !/× Factor → delivers/.test(front), front.match(/.{30}× Factor → delivers.{20}/));
+    ok('no osmolarity formula on the front', !/Osm\. \(mOsm\/L\)|%dextrose/.test(front), front.match(/Osm\..{60}/));
+    // The note moved to pharmacy's recipe: 2.3 mL in the bag × 180/210 = 1.97 mL.
+    const backRow = (label) => [...back.querySelectorAll('tr')].find(tr => text(tr.firstElementChild) === label) || null;
+    ok('the back\'s Soluvit N line says what it delivers', /× Factor → delivers 1\.97 mL \(KCMH sheet G43/.test(text(backRow('Soluvit N'))), text(backRow('Soluvit N')));
+    ok('…and so does Peditrace\'s', /× Factor → delivers 1\.97 mL \(KCMH sheet G45/.test(text(backRow('Peditrace'))), text(backRow('Peditrace')));
 
     ok('the back has the Factor and the bag make-up', /Factor:/.test(backText) && /Components [\d.]+ mL \+ WFI [\d.]+ mL = 210 mL prepared/.test(backText), backText.slice(0, 300));
     ok('…the lipid pump rate', /Lipid pump rate/.test(backText));
