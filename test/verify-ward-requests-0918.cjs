@@ -452,7 +452,8 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       ok('print lists the product change vs the previous order', /Amino acid product Aminoven 10%→Aminoplasmal 15%/.test(t), t.match(/เปลี่ยนแปลงจากคำสั่ง[^บ]*/));
       copied = null;
       await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order/.test(b.textContent)));
-      ok('copied order: "AA (Aminoplasmal 15%): … = 26.7 mL/day"', /AA \(Aminoplasmal 15%\): 2 g\/kg\/d → 4\.0 g in bag = 26\.7 mL\/day/.test(copied || ''), (copied || '').match(/AA [^\n]*/));
+      // "4 g", not "4.0 g": no trailing zeros since 2026-09-22 (Praew).
+      ok('copied order: "AA (Aminoplasmal 15%): … = 26.7 mL/day"', /AA \(Aminoplasmal 15%\): 2 g\/kg\/d → 4 g in bag = 26\.7 mL\/day/.test(copied || ''), (copied || '').match(/AA [^\n]*/));
 
       // Reopening the saved row restores the product and prints as saved.
       mount({ patient: pt('FW-2000', 2000, { currentBed: 'future ward' }), editEntry: { entryId: 'e-1', lastModified: 'lm-1', ts: '2026-09-18', dol: 1, weight: 2000,
@@ -532,7 +533,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     mount({ patient: pt('DR-2000', 2000), editEntry: saved0, onLog: logger().onLog });
     eq('fixture: no critical alert', alertRows().filter(a => a.level === 'crit').map(a => a.title), []);
     eq('a saved 0 mL order reopens at 0', deadVal(), 0);
-    ok('…printable as saved: 120 mL prepared', !!printForm() && /120\.0 mL \(Delivered Vol\.\) \/ 120 mL \(Prepared Vol\.\)/.test(printText()),
+    ok('…printable as saved: 120 mL prepared', !!printForm() && /120 mL \(Delivered Vol\.\) \/ 120 mL \(Prepared Vol\.\)/.test(printText()),
       printText().match(/Total Volume:[^F]*/));
 
     // No TPN, no bag: the default must not turn a feeds-only day into a 30 mL
@@ -546,7 +547,11 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     await save();
     ok('…and the printed form asks for no bag', !!printForm() && /— mL \(Prepared Vol\.\)/.test(printText()) && !/ปริมาตรคาสาย 30/.test(printText()),
       printText().match(/Total Volume:[^F]*/));
-    ok('…no heparin volume either', /7\. Heparin \(100 unit\/mL\)1 unit\/mL = — mL\/day/.test(printText()), printText().match(/7\. Heparin[^0-9]*[\d.]+ unit\/mL = [^ ]+ mL\/day/));
+    // Since 2026-09-22 the heparin mL is on the pharmacy (back) page's bag
+    // recipe; the doctor's front page prints only the unit/mL ordered.
+    const hepRow = [...(printForm()?.querySelectorAll('.print-back tr') || [])].find(tr => /^Heparin/.test(text(tr.firstElementChild)));
+    ok('…no heparin volume either', !!hepRow && text(hepRow.lastElementChild) === '—' && text(hepRow.children[1]) === '—'
+      && /7\. Heparin \(100 unit\/mL\)1 unit\/mL(?! =)/.test(printText()), [hepRow && text(hepRow), printText().match(/7\. Heparin.{0,40}/)]);
     // …nor vitamins (they go into the aqueous bag there is none of), so no
     // "components exceed the bag" line either (review 2026-09-18, finding 4).
     ok('…no Soluvit or Peditrace mL', /☑ Soluvit N— mL\/day/.test(printText()) && /\(Zn 250 µg\/mL\)— mL\/day/.test(printText()),
@@ -587,17 +592,21 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     ok('the "not overfill-scaled" info line is gone', !alertTitles().some(t => /overfill-scaled/i.test(t)), alertTitles());
     await save();
     const t = printText();
-    ok('print: Soluvit N 2.5 mL/day, × Factor → delivers 2 mL', /Soluvit N2\.5 mL\/day/.test(t) && /Soluvit N 1 mL\/kg\/day[^×]*× Factor → delivers 2 mL/.test(t),
-      t.match(/5\. Multivitamin.{0,160}/));
-    ok('print: Peditrace 2.5 mL/day, × Factor → delivers 2 mL', /\(Zn 250 µg\/mL\)2\.5 mL\/day/.test(t) && /Peditrace 1 mL\/kg\/day[^×]*× Factor → delivers 2 mL/.test(t),
-      t.match(/6\. Trace Element.{0,160}/));
+    // Since 2026-09-22 the "× Factor → delivers" note is on pharmacy's (back)
+    // sheet, in the bag recipe's line for each vitamin; the doctor's front
+    // sheet prints the in-bag mL alone (Praew: "factor ตรงนี้ ไม่ต้องโชว์").
+    const backLine = (label) => text([...(printForm()?.querySelectorAll('.print-back tr') || [])].find(tr => text(tr.firstElementChild) === label));
+    ok('print: Soluvit N 2.5 mL/day, × Factor → delivers 2 mL', /Soluvit N2\.5 mL\/day/.test(t) && /× Factor → delivers 2 mL/.test(backLine('Soluvit N')),
+      [t.match(/5\. Multivitamin.{0,160}/), backLine('Soluvit N')]);
+    ok('print: Peditrace 2.5 mL/day, × Factor → delivers 2 mL', /\(Zn 250 µg\/mL\)2\.5 mL\/day/.test(t) && /× Factor → delivers 2 mL/.test(backLine('Peditrace')),
+      [t.match(/6\. Trace Element.{0,160}/), backLine('Peditrace')]);
     // D50W 30 + AA 50 + heparin 1.5 + Soluvit 2.5 + Peditrace 2.5 = 86.5 mL; WFI 150 − 86.5 = 63.5
     ok('the bag make-up counts the scaled amounts: components 86.5 + WFI 63.5 = 150 mL',
       /Components 86\.5 mL \+ WFI 63\.5 mL = 150 mL prepared/.test(t), t.match(/Components [^=]*= [\d.]+ mL prepared/));
     copied = null;
     await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order/.test(b.textContent)));
-    ok('copied order: "Soluvit N: 2.5 mL/day → aqueous bag (× Factor — delivers 2.00 mL)"',
-      /Soluvit N:\s+2\.5 mL\/day → aqueous bag \(× Factor — delivers 2\.00 mL\)/.test(copied || ''), (copied || '').match(/Soluvit N:[^\n]*/));
+    ok('copied order: "Soluvit N: 2.5 mL/day → aqueous bag (× Factor — delivers 2 mL)"',
+      /Soluvit N:\s+2\.5 mL\/day → aqueous bag \(× Factor — delivers 2 mL\)/.test(copied || ''), (copied || '').match(/Soluvit N:[^\n]*/));
 
     // No overfill, nothing to scale: 1 mL/kg as before.
     mount({ patient: pt('VN-2000', 2000), onLog: logger().onLog });

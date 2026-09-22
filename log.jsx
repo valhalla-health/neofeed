@@ -3,11 +3,10 @@
 // ============================================================
 const D_L = window.NEOFEED_DATA;
 
-// Safe number formatter — handles strings / null from GAS
-const n = (v, d = 1) => {
-  const x = parseFloat(v);
-  return isFinite(x) ? x.toFixed(d) : "—";
-};
+// Safe number formatter — handles strings / null from GAS. At most `d`
+// decimals and never a trailing zero: "3.0 g/kg" can be read as 30 (Praew,
+// 2026-09-22) — D_L.displayNum.
+const n = (v, d = 1) => D_L.displayNum(v, d);
 
 // ============================================================
 // TrendGraph — single-metric trend with target zone + axis toggle
@@ -350,7 +349,7 @@ function TrendGraph({ entries, patient }) {
                     stroke="oklch(93% 0.008 198)" strokeWidth="1" />
               <text x={pad.l - 8} y={yScale(t) + 3.5} fontSize="10" textAnchor="end"
                     fill="var(--ink-3)" fontFamily="IBM Plex Mono, monospace">
-                {metric.key === "weight" ? Math.round(t) : (t % 1 === 0 ? t : t.toFixed(1))}
+                {metric.key === "weight" ? Math.round(t) : D_L.displayNum(t, 1)}
               </text>
             </g>
           ))}

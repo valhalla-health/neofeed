@@ -43,6 +43,8 @@ key; this file is what the key points at. A bump with no row here is a bug in th
 | `ENTERAL_TARGETS` | ESPGHAN Committee on Nutrition 2022 (JPGN 2022) · WHO 2023 Preterm Feeding Guidelines | Not independently re-checked since first entry | — | **propose annually** | 🟡 sourced, unreviewed |
 | `EN_DB` (feed/formula composition) | Chula Handbook §3 per-100 mL table; BOX 1.3.1 for term mature milk. Corrected 2026-05-28 | Partially — several entries carry an inline *"verify with actual product label at KCMH"* | — | **on any product change** | 🟡 mixed. Product labels change without notice |
 | `MAX_DEXTROSE_G_KG`, `MAX_K_MEQ_PER_L` | The KCMH sheet's own hard safety ceilings | — | — | on worksheet revision | 🟡 |
+| `MAX_ZN_MG_DAY` (5 mg/day) | KCMH TPN team, 2026-09-22: "กำหนด Maximum Zinc 5 mg/day" — total elemental zinc from Peditrace + ZnSO₄ | 2026-09-22 — the team's number, adopted as given; not checked against a published source | Praew | with the team, on first use | 🟢 decided · critical-alert threshold (confirm + reason at Save), moves no dose |
+| `K_REF_MEQ_PER_L` (peripheral 60 / central 200 mEq/L) | KCMH TPN team, 2026-09-22, quoted with a "?" | — (reference only) | Praew kept the stop at `MAX_K_MEQ_PER_L` = 40 on both routes | when the team names its source | ⚪ **display only** — printed beside the 40 mEq/L alert; stops nothing |
 
 ---
 
@@ -63,6 +65,12 @@ therefore kept `2026-09-18.1`.
 **Do not bump** for comments, labels, UI copy, or anything in `data.js` that is a helper rather than
 a value — `liveDol`, the GA/PMA helpers, `normalizeBed`, `syncFreshness`. Those are covered by
 `APP_VERSION`.
+
+2026-09-22 kept `2026-09-18.1` for this reason: the TPN team release reformatted every printed number
+(`displayNum`, no trailing zeros) and laid the order out on two sheets, but moved none. Checked against
+`main` for six orders (`verify-review-0917-calc.cjs` §6): every number printed before is still printed,
+and no number is new. The new ZnSO₄ dose is 0 on every row saved before it, and its two new constants
+are an alert threshold and a display-only reference.
 
 Format `YYYY-MM-DD` or `YYYY-MM-DD.N`. `test/verify-provenance-stamp.cjs` enforces the format and
 rejects a leading `=`, `+`, `-` or `@`, which a spreadsheet would read as a formula.

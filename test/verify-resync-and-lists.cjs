@@ -202,8 +202,9 @@ const click = async (el) => { await act(async () => { el.dispatchEvent(new windo
   const adminLog = {
     // Two patients; the OLDER entries belong to the patient that sorts last,
     // which is what made a registry-order slice show stale rows as "recent".
-    'AA-BW900': [{ ts: '2026-08-17', dol: 1, kcal: 100, pro: 3, weight: 950, route: 'TPN central', entryId: 'e-new' }],
-    'DD-BW900': [{ ts: '2026-01-02', dol: 1, kcal: 50, pro: 1, weight: 900, route: 'TPN central', entryId: 'e-old' }],
+    // kcal/pro carry the float noise the live Sheet holds (Praew, 2026-09-22).
+    'AA-BW900': [{ ts: '2026-08-17', dol: 1, kcal: 78.48387096774194, pro: 2.8581644815256255, weight: 950, route: 'TPN central', entryId: 'e-new' }],
+    'DD-BW900': [{ ts: '2026-01-02', dol: 1, kcal: 60.80000000000001, pro: 2.9999999999999996, weight: 900, route: 'TPN central', entryId: 'e-old' }],
   };
   await act(async () => {
     root2.render(React.createElement(global.AdminDashboard, {
@@ -214,6 +215,13 @@ const click = async (el) => { await act(async () => { el.dispatchEvent(new windo
   ok('blank status counts as Active (registry parity)', /Active sessions2/.test(tiles[0]));
   const firstLogRow = host.querySelector('tbody tr').textContent;
   ok('Recent log entries leads with the newest date', /AA-BW900/.test(firstLogRow));
+  // At most 2 decimals and never a trailing zero on this page; the Sheet keeps
+  // the full figure (Praew, 2026-09-22: "หน้านี้ให้โชว์แค่ทศนิยม 2 ตำแหน่ง").
+  const logCells = [...host.querySelectorAll('tbody tr')].map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent));
+  eq('kcal 78.48387096774194 reads 78.48', logCells[0] && logCells[0][4], '78.48');
+  eq('protein 2.8581644815256255 reads 2.86', logCells[0] && logCells[0][5], '2.86');
+  eq('kcal 60.80000000000001 reads 60.8', logCells[1] && logCells[1][4], '60.8');
+  eq('protein 2.9999999999999996 reads 3', logCells[1] && logCells[1][5], '3');
 
   // ══ 5. computeAlerts uses the row's date, not the stored dol ═════════════
   console.log('\n── #5 alert targets keyed on the re-derived DOL ──');
