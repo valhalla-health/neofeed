@@ -13,13 +13,14 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
-## Session 2026-09-22 (4) — The TPN team's feedback, a two-sheet order form, and no trailing zeros (NOT deployed)
+## Session 2026-09-22 (4) — The TPN team's feedback, a two-sheet order form, and no trailing zeros
 
 Frontend only: `data.js`, `calculator.jsx`, `app.jsx`, `log.jsx`, `registry.jsx`, `fenton.jsx`, with
 `compiled/` and both shells rebuilt. There is no backend change, no `clasp` step and no new `Daily_Log`
 column: the backend stores `calcInput` as an opaque JSON cell and checks only the top-level figures, so the
 two new `calcInput` keys need nothing from `@56`. `CONSTANTS_VERSION` stays `2026-09-18.1`, because no
-printed number moved (checked below). Nothing is live until a `main` → `release` PR.
+printed number moved (checked below). Merged into `main` on Praew's instruction ("merge แล้ว deploy") and
+released in its own `main` → `release` PR straight after; the post-release check is a comment on that PR.
 
 **The requests.** Praew forwarded eight screenshots from the KCMH TPN team, then set four rules of her own in
 the same session. Her decisions, in order:
