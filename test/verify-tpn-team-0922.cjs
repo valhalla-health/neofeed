@@ -308,10 +308,15 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('the Save stop asks "ยืนยันการสั่งหรือไม่?"', /ยืนยันการสั่งหรือไม่\?/.test(shown || ''), shown);
     ok('…still says the reason prints on the TPN form, with no name or HN', /พิมพ์ลงใบสั่ง TPN/.test(shown || '') && /ห้ามใส่ชื่อหรือ HN/.test(shown || ''), shown);
     eq('saved', log.calls, 1);
-    const form = printText();
-    ok('the form says "แพทย์ยืนยันคำสั่ง"', /แพทย์ยืนยันคำสั่ง/.test(form), form.slice(0, 500));
+    // Settled in the app, recorded for pharmacy on the back (Praew: "อะไรจะ
+    // alert ให้คุยให้เสร็จใน app"); the doctor's page carries no alert text.
+    const form = text(printForm()?.querySelector('.print-back'));
+    ok('the back page says "แพทย์ยืนยันคำสั่ง"', /แพทย์ยืนยันคำสั่ง/.test(form), form.slice(0, 500));
     ok('…above the critical-value heading, which is unchanged', form.indexOf('แพทย์ยืนยันคำสั่ง') >= 0 && form.indexOf('แพทย์ยืนยันคำสั่ง') < form.indexOf('สั่งทั้งที่มีค่าวิกฤต: Osmolarity > peripheral limit'), form.slice(0, 500));
     ok('…with the reason', form.includes('เหตุผล: fixture — central line tomorrow'), form.slice(0, 500));
+    const frontEl = printForm()?.cloneNode(true);
+    frontEl?.querySelector('.print-back')?.remove();
+    ok('the front page does not repeat it', !!frontEl && !/สั่งทั้งที่มีค่าวิกฤต|แพทย์ยืนยันคำสั่ง/.test(text(frontEl)), text(frontEl).slice(0, 300));
   });
 
   // ═══════════════════════════ §6 Who saved it ═════════════════════════════
@@ -322,8 +327,9 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     await save();
     eq('calcInput.savedByLabel is the saver\'s "Name (email)"', log.entry && log.entry.calcInput.savedByLabel, 'Dr Test (doc@kcmh.test)');
     const top = text(container.querySelector('#print-form .print-saved-by'));
-    ok('the form names the saver', /Dr Test \(doc@kcmh\.test\)/.test(top), top);
-    ok('…at the top, before the PN fluid section', printText().indexOf('Dr Test (doc@kcmh.test)') < printText().indexOf('PARENTERAL NUTRITION FLUID'), printText().slice(0, 300));
+    ok('the back page names the saver, with time and revision', /Dr Test \(doc@kcmh\.test\)/.test(top) && /ฉบับที่/.test(top), top);
+    ok('the front names the doctor at "แพทย์", where the paper form asks',
+      /Dr Test \(doc@kcmh\.test\)/.test(text(container.querySelector('#print-form .print-doctor'))), text(container.querySelector('#print-form .print-doctor')));
     ok('the Save card names the saver too', /Dr Test \(doc@kcmh\.test\)/.test(text(container.querySelector('.saved-by'))), text(container.querySelector('.saved-by')));
 
     const row = (id, extra, ci) => ({ entryId: id, lastModified: '2026-09-22T03:00:00.000Z', ts: '2026-09-22', dol: 1, weight: 2000,
@@ -420,6 +426,101 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     const cell = (i) => text(tr?.querySelectorAll('td')[i]);
     eq('…protein 2.9999999999999996 reads 3 g/kg', cell(6), '3 g/kg');
     eq('…Na / K reads 3 / 2', cell(8), '3 / 2');
+  });
+
+  // ═══════════════════ §10 the printed order: two pages ════════════════════
+  // Praew, 2026-09-22, looking at the printed form: "ช่องที่ถูกเลือกให้เป็นตัวหนา"
+  // and "ค่าที่ขึ้น per kg มันไม่ตรงกับ Na เดี๋ยวจะสั่งผิด" — the per-kg and in-bag
+  // cells stacked only the products ordered, so with no Na acetate Glycophos's
+  // 1.5 mL sat on the Na acetate line and KCl's 2 mEq on K₂HPO₄'s. Then: "เอา
+  // หน้าตาที่หมอสั่ง confirm เห็นเท่าเดิม · อะไรจะ alert ให้คุยให้เสร็จใน app ·
+  // ส่วนของเภสัช … ปริ้นท์อีกหน้าด้านหลัง". So the front is the KCMH paper form,
+  // one line per product, the ordered ones bold; the back is pharmacy's.
+  await section('§10 front = the paper form, one line per product; back = pharmacy', async () => {
+    const log = logger();
+    mount({ patient: pt('PF-2000', 2000), onLog: log.onLog });
+    baseOrder({ dead: 30 });
+    lipidHours(20);
+    setField('20% NaCl', 2); setField('Glycophos', 3); setField('KCl', 2); setField('MgSO₄', 0.4);
+    setField('10% Ca gluconate', 60); setField('ZnSO₄', 0.15); setField('Vitamin D', 400);
+    await save();
+    const form = printForm();
+    ok('fixture: the order printed', !!form);
+    const back = form.querySelector('.print-back');
+    ok('the form has a back page', !!back);
+    eq('…which starts on a new sheet', back && back.style.pageBreakBefore, 'always');
+    const frontEl = form.cloneNode(true);
+    frontEl.querySelector('.print-back')?.remove();
+    frontEl.lastElementChild?.remove();   // the provenance footer, which prints after the back
+    const front = text(frontEl), backText = text(back);
+    const rowOf = (root, label) => [...root.querySelectorAll('tr')].find(tr => text(tr.firstElementChild).includes(label)) || null;
+    const cells = (root, label) => { const tr = rowOf(root, label); return tr ? [...tr.children].map(td => text(td)) : null; };
+    const bold = (root, label) => { const td = rowOf(root, label)?.firstElementChild; return !!td && /^(700|bold)$/.test(window.getComputedStyle(td).fontWeight); };
+
+    // The labels as Praew laid them out (2026-09-22): "NaCl, Na acetate โชว์แค่นี้
+    // · Disodium … (Na = 2 mEq/mL, P = 31 mg/mL) เคาะลงมาบรรทัดล่าง · K₂HPO₄ …
+    // เคาะลงมาบรรทัดล่าง · 3. MgSO₄ โชว์แค่นี้ · 4. Ca Gluconate โชว์แค่นี้".
+    eq('NaCl: the name only', cells(frontEl, 'NaCl')?.[0], '☑ NaCl');
+    eq('Na Acetate: the name only', cells(frontEl, 'Na Acetate')?.[0], '☐ Na Acetate');
+    const secondLine = (label, rest) => {
+      const td = rowOf(frontEl, label)?.firstElementChild;
+      return !!td && new RegExp(`${label}\\s*<br[^>]*>\\s*(<[^>]+>)?\\s*${rest.replace(/[()]/g, '\\$&')}`).test(td.innerHTML);
+    };
+    ok('Disodium glycerophosphate: (Na = 2 mEq/mL, P = 31 mg/mL) on the next line', secondLine('Disodium glycerophosphate', '(Na = 2 mEq/mL, P = 31 mg/mL)'),
+      rowOf(frontEl, 'Disodium glycerophosphate')?.firstElementChild?.innerHTML);
+    ok('K₂HPO₄: (K 1 mEq/mL, P 15.5 mg/mL) on the next line', secondLine('K₂HPO₄', '(K 1 mEq/mL, P 15.5 mg/mL)'),
+      rowOf(frontEl, 'K₂HPO₄')?.firstElementChild?.innerHTML);
+    eq('3. MgSO₄: the name only', cells(frontEl, 'MgSO₄')?.[0], '3. Mg⁺⁺ ☑ MgSO₄');
+    eq('4. Ca Gluconate: the name only', cells(frontEl, 'Ca Gluconate')?.[0], '4. Ca⁺⁺ ☑ Ca Gluconate');
+    // MgSO₄ comes as 10% and 50%, and the mL is the chosen vial's: with the
+    // strength off the label it goes beside the mL instead.
+    ok('…MgSO₄\'s in-bag mL names the vial it is for', /= 1\.15 mL \(10%\)/.test(cells(frontEl, 'MgSO₄')?.[2] || ''), cells(frontEl, 'MgSO₄'));
+
+    // Every figure on its product's own line. Factor = 2 × 210/180.
+    eq('NaCl: 2 mEq per kg · 4.7 mEq = 1.4 mL in the bag', cells(frontEl, 'NaCl')?.slice(1, 3), ['2 mEq', '4.7 mEq = 1.4 mL']);
+    eq('Na Acetate, not ordered: its own line, blank', cells(frontEl, 'Na Acetate')?.slice(1, 3), ['—', '—']);
+    const gly = cells(frontEl, 'Disodium glycerophosphate');
+    ok('Glycophos: 1.5 mL per kg on its own line, with Na 3 mEq and P 46.5 mg', !!gly && /^1\.5 mL/.test(gly[1]) && /Na 3 mEq/.test(gly[1]) && /P 46\.5 mg/.test(gly[1]), gly);
+    eq('…3.5 mL in the bag', gly && gly[2], '3.5 mL');
+    eq('Total Na: 5 mEq per kg', cells(frontEl, 'Total Na')?.[1], '5 mEq');
+    eq('K₂HPO₄, not ordered: its own line, blank', cells(frontEl, 'K₂HPO₄')?.slice(1, 3), ['—', '—']);
+    eq('KCl: 2 mEq per kg · 4.7 mEq = 2.3 mL in the bag', cells(frontEl, 'KCl')?.slice(1, 3), ['2 mEq', '4.7 mEq = 2.3 mL']);
+    ok('ordered products are bold: NaCl, Glycophos, KCl, MgSO₄, Ca gluconate, Peditrace, ZnSO₄',
+      ['NaCl', 'Disodium glycerophosphate', 'KCl', 'MgSO₄', 'Ca Gluconate', 'Peditrace', 'ZnSO₄'].every(l => bold(frontEl, l)),
+      ['NaCl', 'Disodium glycerophosphate', 'KCl', 'MgSO₄', 'Ca Gluconate', 'Peditrace', 'ZnSO₄'].filter(l => !bold(frontEl, l)));
+    ok('…and the ones not ordered are not: Na Acetate, K₂HPO₄, Addamel N', ['Na Acetate', 'K₂HPO₄', 'Addamel N'].every(l => rowOf(frontEl, l) && !bold(frontEl, l)));
+    ok('the paper form\'s other choices are there, unticked', ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].every(s => front.includes(s)),
+      ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].filter(s => !front.includes(s)));
+    ok('the oral orders are under 8. Other', /8\. Other.*Vitamin D/.test(front), front.match(/8\. Other.{0,120}/));
+    ok('the doctor\'s name is at "แพทย์", as on the paper form', /Dr Test \(doc@kcmh\.test\)/.test(text(frontEl.querySelector('.print-doctor'))), text(frontEl.querySelector('.print-doctor')));
+    ok('the front carries no pharmacy working and no alert text',
+      !/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/.test(front), front.match(/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/g));
+
+    ok('the back has the Factor and the bag make-up', /Factor:/.test(backText) && /Components [\d.]+ mL \+ WFI [\d.]+ mL = 210 mL prepared/.test(backText), backText.slice(0, 300));
+    ok('…the lipid pump rate', /Lipid pump rate/.test(backText));
+    ok('…the K⁺ concentration of the bag', /K⁺ in bag 22 mEq\/L/.test(backText), backText.match(/K⁺ in bag.{0,30}/));
+    ok('…who saved it, when, and the revision', /บันทึกโดย Dr Test \(doc@kcmh\.test\)/.test(text(back.querySelector('.print-saved-by'))), text(back.querySelector('.print-saved-by')));
+    ok('…and names the infant, in case the sheets part', backText.includes('PF-2000'), backText.slice(0, 200));
+  });
+
+  // ═══════════════════ §11 the weight: grams in, 2 decimals out ═══════════
+  // Praew, 2026-09-22: "น้ำหนักที่เอามาคิดใช้ น้ำหนักกรัมที่ได้ แต่คิดออกมาแล้วให้ทำเป็น
+  // ทศนิยม 2 ตำแหน่ง" — every dose is computed from the exact grams; the kg
+  // weight is shown to 2 decimals. A typed dose prints exactly as typed.
+  await section('§11 1234 g: computed as 1.234 kg, shown as 1.23 kg', async () => {
+    mount({ patient: pt('WT-1234', 1234), onLog: logger().onLog });
+    setField('Current weight', 1234); fillRequired(120);
+    setField('Volume(mL/day)', 150); setField('ปริมาตรคาสาย', 0);
+    setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+    setField('ZnSO₄', 0.125);
+    await save();
+    const t = printText();
+    ok('the form shows the weight as 1.23 Kg', /Weight for calculation: 1\.23 Kg/.test(t), t.match(/Weight for calculation: \S+ Kg/));
+    // No dead space, so the Factor is the weight itself: 1.234 proves the grams.
+    ok('…while the Factor is computed from 1234 g: 1.234', /Factor:1\.234 = weight/.test(t), t.match(/Factor:[^(]{0,40}/));
+    ok('…and says the weight to 2 decimals where it names it', !/1\.234 kg/.test(t), t.match(/[\d.]+ kg ×/g));
+    ok('a typed ZnSO₄ 0.125 prints as typed, unrounded', /0\.125 mg Zn\/kg/.test(t), t.match(/[\d.—]+ mg Zn\/kg/));
+    ok('…and the Factor box on screen names 1.23 kg', /= 1\.23 kg/.test(text(container)) || !/1\.234 kg/.test(text(container)), text(container).match(/= [\d.]+ kg/g));
   });
 
   // ═══════════════════ the shared display helper ═══════════════════════════

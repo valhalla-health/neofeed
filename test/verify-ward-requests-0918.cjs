@@ -547,7 +547,11 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     await save();
     ok('…and the printed form asks for no bag', !!printForm() && /— mL \(Prepared Vol\.\)/.test(printText()) && !/ปริมาตรคาสาย 30/.test(printText()),
       printText().match(/Total Volume:[^F]*/));
-    ok('…no heparin volume either', /7\. Heparin \(100 unit\/mL\)1 unit\/mL = — mL\/day/.test(printText()), printText().match(/7\. Heparin[^0-9]*[\d.]+ unit\/mL = [^ ]+ mL\/day/));
+    // Since 2026-09-22 the heparin mL is on the pharmacy (back) page's bag
+    // recipe; the doctor's front page prints only the unit/mL ordered.
+    const hepRow = [...(printForm()?.querySelectorAll('.print-back tr') || [])].find(tr => /^Heparin/.test(text(tr.firstElementChild)));
+    ok('…no heparin volume either', !!hepRow && text(hepRow.lastElementChild) === '—' && text(hepRow.children[1]) === '—'
+      && /7\. Heparin \(100 unit\/mL\)1 unit\/mL(?! =)/.test(printText()), [hepRow && text(hepRow), printText().match(/7\. Heparin.{0,40}/)]);
     // …nor vitamins (they go into the aqueous bag there is none of), so no
     // "components exceed the bag" line either (review 2026-09-18, finding 4).
     ok('…no Soluvit or Peditrace mL', /☑ Soluvit N— mL\/day/.test(printText()) && /\(Zn 250 µg\/mL\)— mL\/day/.test(printText()),
