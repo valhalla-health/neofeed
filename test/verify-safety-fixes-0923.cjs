@@ -35,7 +35,40 @@
 //
 // §1–§2, §5–§6 and §10 are pure functions and a vm sandbox; §3–§4, §7–§9 mount
 // the real components in jsdom (same dev-only deps as the other component
-// harnesses — see test/README.md).
+// harnesses — see test/README.md). The jsdom sections render into their own
+// `#probe` node: app.jsx mounts the whole app into `#root` on its last line.
+//
+// ── NEGATIVE CONTROL ───────────────────────────────────────────────────────
+// A harness that has never been seen to fail is a harness nobody should
+// believe. verify-calc-oracle.cjs carries a NEGATIVE_CONTROL=1 switch for this;
+// the equivalent here is to run this file against the commit BEFORE the fixes,
+// which is the real thing rather than a simulation of it — every section must
+// go red, and go red by reproducing the reported symptom:
+//
+//   d=$(mktemp -d)
+//   git -c core.autocrlf=false archive --format=tar d08e0fc | tar -x -C "$d"
+//   cp test/verify-safety-fixes-0923.cjs "$d/test/"
+//   cp -r node_modules "$d/node_modules"
+//   ( cd "$d" && TZ=Asia/Bangkok node test/verify-safety-fixes-0923.cjs )
+//
+// Expected there: 38 FAILED (24 passed), every section contributing —
+//
+//   §1  1   §2  3   §3  1   §3b 6   §4  5   §5  1
+//   §6  1   §7  3   §8  2   §9  3   §10 12
+//
+// and failing for the RIGHT reason, not merely by missing a new export: §2
+// returns DOL 5 for an infant nine days old, §3b finds the admit-date field
+// pre-stamped with today and lets the save through, §4 finds no merge base sent
+// at all, §7 finds one target-band step at one height, §8 finds the DOL box
+// snapping back to "1", §10 finds a 250 g weight, GIR 25 and 240 kcal/kg/d all
+// refused, in English.
+//
+// §1, §3, §5 and §6 score only 1 there because they abort on the first missing
+// helper (D.weightSeries / admissionDateIssue / girStatus / growthVelocity)
+// rather than reaching their later assertions. That is a valid negative control
+// — the section is red — but it is a weaker signal than the others, so when
+// changing one of those helpers, read the section's assertions rather than
+// trusting its count.
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
