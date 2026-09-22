@@ -45,9 +45,11 @@
   show them in use without a bedside session — see those sections.
 - ✅ **Nothing on `main` waits for a release.** #76 and #79, listed here as waiting since 2026-09-19,
   went out with #85, so the reprint risk this line carried is closed: a saved order whose calculation
-  has changed now waits for a fresh save instead of reprinting under the same entry id. The PR that
-  wrote this line is docs and `tools/` only, and goes out in its own release straight after it merges
-  (`REFERENCE.md` § Frontend: a merge into `main` always comes with its release PR).
+  has changed now waits for a fresh save instead of reprinting under the same entry id. PR #89, which
+  wrote this line, is docs and `tools/` only: merged into `main` on Praew's instruction and released
+  straight after (`REFERENCE.md` § Frontend: a merge into `main` always comes with its release PR). That
+  release moves the `release` branch without changing a served byte, so the hosts keep serving
+  `edbd11f`'s files.
 
 **Previous (2026-09-22, 17:39–21:15 ICT):** backend `@56` + frontend `release` = `066528d`, PR #85.
 No post-release check was recorded for it; the 21:16 ICT check of `edbd11f` covers every file it
