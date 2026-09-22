@@ -76,6 +76,12 @@ revert (`--brand` in the shells, `icons/icon.svg`) if § 07 is meant to win.
 teal). Checked in real Chromium at 430px and 1440px: login, ward gate, registry, and the calculator's
 densest screen, where the status colours still separate cleanly from the new ground.
 
+**Follow-up (Praew, 2026-09-22): the lockup is stacked, and the version line is gone.** As first
+committed, the Guardian V sat *beside* "by Valhalla Health" in an inline row, with `V2.0` on a line of its
+own under it. Now the mark is above the words, as the Login screen paragraph above describes, and the
+login screen shows no version. `.login-footer`, used only by that line, went with it in both shells.
+Pinned by `test/verify-login-endorsement.cjs`; checked in Chromium at 800 px and 375 px.
+
 ---
 
 ## Session 2026-09-21 — Quick calc: the same calculator, on a typed weight, saving nothing

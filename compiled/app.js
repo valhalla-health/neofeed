@@ -1641,7 +1641,7 @@ function LoginScreen({ onLogin, notice = null }) {
       marginRight: 8,
       verticalAlign: "middle"
     } }), "กำลังตรวจสอบ...") : "เข้าสู่ระบบ"
-  ))), error && /* @__PURE__ */ React.createElement("div", { className: "login-error", style: { maxWidth: 320, width: "100%" } }, "⚠️ ", error), /* @__PURE__ */ React.createElement("div", { className: "login-contact" }, /* @__PURE__ */ React.createElement("div", { className: "login-endorse" }, /* @__PURE__ */ React.createElement("img", { src: "icons/valhalla-guardian-v.png", alt: "", width: "34", height: "25" }), /* @__PURE__ */ React.createElement("span", null, "by Valhalla Health")), /* @__PURE__ */ React.createElement("div", { className: "login-footer" }, "V2.0")), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
+  ))), error && /* @__PURE__ */ React.createElement("div", { className: "login-error", style: { maxWidth: 320, width: "100%" } }, "⚠️ ", error), /* @__PURE__ */ React.createElement("div", { className: "login-contact" }, /* @__PURE__ */ React.createElement("div", { className: "login-endorse" }, /* @__PURE__ */ React.createElement("img", { src: "icons/valhalla-guardian-v.png", alt: "", width: "34", height: "25" }), /* @__PURE__ */ React.createElement("span", null, "by Valhalla Health"))), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
 }
 function AdminDashboard({ patients, log, lastSync, includeArchived = false, onToggleArchived }) {
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);

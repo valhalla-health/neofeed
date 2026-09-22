@@ -142,6 +142,11 @@ only work as a pair — the new CSP renders the old shells blank — so it check
 33 of 43 assertions against `claude/review-0917` (the tree before the build step), and each of the
 build's own refusals and this harness's checks was proven to catch a deliberate breakage.
 
+`verify-login-endorsement.cjs` pins the login screen's Valhalla endorsement as Praew set it on
+2026-09-22: the Guardian V stacked above "by Valhalla Health" (a centred column in both shells), and no
+version line under it. Source-level and CRLF-normalised, no dependencies:
+`node test/verify-login-endorsement.cjs`. It fails 5 of 7 against `e39f66b`, the side-by-side lockup.
+
 **`compiled-loader.cjs` is not a harness** but a `--require` preload that runs the harnesses
 against the shipped `compiled/*.js` instead of their in-harness `@babel/preset-react` transform of
 the `.jsx` sources — no harness is edited for it:

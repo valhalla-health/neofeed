@@ -2622,7 +2622,8 @@ function LoginScreen({ onLogin, notice = null }) {
 
       {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}>⚠️ {error}</div>}
 
-      {/* Valhalla endorsement + version.
+      {/* Valhalla endorsement: the Guardian V stacked above "by Valhalla
+          Health", and no version line (Praew, 2026-09-22).
           The endorsed-brand lockup from the Brand Handbook § 07: the product
           name is what someone is looking for, so NeoFeed stays the hero at
           58px and "by Valhalla Health" sits quietly under the form — the
@@ -2640,7 +2641,6 @@ function LoginScreen({ onLogin, notice = null }) {
           <img src="icons/valhalla-guardian-v.png" alt="" width="34" height="25" />
           <span>by Valhalla&nbsp;Health</span>
         </div>
-        <div className="login-footer">V2.0</div>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
