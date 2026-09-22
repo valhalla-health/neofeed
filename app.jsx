@@ -334,7 +334,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
           <div style={{
             width:34, height:34, borderRadius:9, display:"grid", placeItems:"center",
             background:"linear-gradient(145deg, var(--brand-3) 0%, var(--brand) 55%, var(--brand-ink) 100%)",
-            boxShadow:"inset 0 -2px 0 oklch(28% 0.05 203 / .45), 0 2px 8px oklch(46.3% 0.074 201 / .28)",
+            boxShadow:"inset 0 -2px 0 oklch(26.8% 0.030 170 / .45), 0 2px 8px oklch(38.5% 0.047 170 / .28)",
           }}>
             <svg viewBox="0 0 28 28" width="20" height="20" fill="none" stroke="#fff"
               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1076,7 +1076,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Removed 2026-09-11 (review C5); the default accent it always resolved to
   // stays.
   React.useEffect(() => {
-    document.documentElement.style.setProperty("--brand", `oklch(46.3% 0.074 201)`);
+    document.documentElement.style.setProperty("--brand", `oklch(38.5% 0.047 170)`);
   }, []);
 
   // ── Shared GAS write helper ───────────────────────────────────
@@ -2362,18 +2362,6 @@ function AlertCenter({ patient, log, onAckChange }) {
 //   Default : Google Sign-In (Gmail / Google Workspace)
 //   Toggle  : email + password for non-Google domains
 // ============================================================
-const CONTACT_MAILTO = "mailto:Valhalla.team.th@gmail.com"
-  + "?subject=" + encodeURIComponent("สนใจใช้งาน NeoFeed")
-  + "&body=" + encodeURIComponent(
-      "สวัสดีครับ/ค่ะ ทีม Valhalla Health\n\n"
-    + "โรงพยาบาล / หน่วยงาน: \n"
-    + "ชื่อผู้ติดต่อ: \n"
-    + "เบอร์โทรศัพท์: \n"
-    + "อีเมล: \n\n"
-    + "สนใจเกี่ยวกับ: NeoFeed — ระบบคำนวณโภชนาการทารกแรกเกิด (NICU)\n\n"
-    + "ขอบคุณครับ/ค่ะ"
-  );
-
 // ============================================================
 // ChangePasswordModal
 // ============================================================
@@ -2527,23 +2515,29 @@ function LoginScreen({ onLogin, notice = null }) {
 
   return (
     <div className="login-wrap">
-      {/* Logo */}
-      <div className="login-logo-mark">
-        {/* The sheet draws this mark as a teal glyph on a white tile, not the
-            reverse. Both colours go through `style`, not a `stroke=`/`fill=`
-            presentation attribute: var() is only substituted in CSS
-            declarations, so as an attribute it would resolve to nothing and
-            the mark would render black. */}
-        <svg viewBox="0 0 36 36" width="56" height="56" fill="none"
-          strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"
-          style={{ stroke: "var(--brand)" }}>
-          <path d="M9 27 V 9 L 27 27 V 9" />
-          <circle cx="27" cy="9" r="3.1" stroke="none" style={{ fill: "var(--brand-3)" }} />
-        </svg>
+      {/* The wordmark (Praew, 2026-09-22): NeoFeed's two-tone N IS the "N",
+          followed by "eo" and a light "Feed", as on the approved brand board.
+          The two paths are icons/icon.svg's, character for character (pinned
+          by test/verify-neofeed-mark.cjs), so the app icon and the wordmark
+          cannot drift apart. The colours are literal, like icon.svg's: an SVG
+          presentation attribute cannot read var(). role="img" makes a screen
+          reader say "NeoFeed" once, not "e o Feed". */}
+      <div className="login-app-name" role="img" aria-label="NeoFeed">
+        <svg className="login-n" viewBox="0 0 98 100" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
+              <stop offset="0" stopColor="#335A4A" />
+              <stop offset="1" stopColor="#284C40" />
+            </linearGradient>
+            <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
+              <stop offset="0" stopColor="#99B29C" />
+              <stop offset="1" stopColor="#799781" />
+            </linearGradient>
+          </defs>
+          <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" />
+          <path fill="url(#nf-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" />
+        </svg>eo<span className="lw">Feed</span>
       </div>
-
-      <div className="login-app-name">Neo<span className="lw">Feed</span></div>
-      <div className="login-eyebrow">Nutrition insight for brighter beginnings</div>
       <div className="login-tagline">Neonatal nutrition,<br />calculated precisely</div>
 
       {/* Why this screen is showing, when the user did not ask for it: idle
@@ -2635,17 +2629,17 @@ function LoginScreen({ onLogin, notice = null }) {
 
       {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}>⚠️ {error}</div>}
 
-      {/* Contact + version footer */}
+      {/* The Valhalla line at the foot of the screen (Praew, 2026-09-22): one
+          quiet line, "by Valhalla Health · © 2026", and no version. The
+          Guardian V that stood above it earlier that day was removed at her
+          request. The line sits under the form because, by the Brand Handbook
+          § 07, the endorsement never outranks the app name. Copyright needs
+          no registration: the © line only says whose work this is, and 2026
+          is the year it was first published. */}
       <div className="login-contact">
-        <a className="login-contact-link" href={CONTACT_MAILTO}>
-          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="4" width="16" height="13" rx="2"/>
-            <path d="M2 7l8 5 8-5"/>
-          </svg>
-          สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla
-        </a>
-        <div className="login-footer">VALHALLA&nbsp;HEALTH &nbsp;·&nbsp; V2.0</div>
+        <div className="login-endorse">
+          <span>by Valhalla&nbsp;Health · ©&nbsp;2026</span>
+        </div>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -3319,11 +3313,11 @@ function toastHost() {
 function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
-  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
+  const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26.8% 0.030 170)";
   const prefix = type === "error" ? "⚠ " : "✓ ";
   const dur    = type === "error" ? 4200 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue('--toast-bottom').trim() || '24px';
-  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
+  t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(26.8% 0.030 170 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;
   host.appendChild(t);
   requestAnimationFrame(() => {

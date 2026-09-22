@@ -13,6 +13,122 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ---
 
+## Session 2026-09-22 — Luminous Protection: NeoFeed moves onto the Valhalla brand sheet
+
+Presentation only. No clinical logic, no data model, no backend: `gas-backend.gs` and `data.js`'s
+numbers are untouched, and every `verify-*.cjs` harness passes against both the sources and
+`compiled/` (43 on this branch at the time of writing; the count moves as harnesses are added, which
+is why it is not pinned here).
+
+**The request** (Praew, 2026-09-22): the login screen loses "Nutrition insight for brighter beginnings"
+and the "สนใจใช้งาน NeoFeed? ติดต่อทีม Valhalla" button, gains the Valhalla logo and environment; then —
+*"ปรับให้ neofeed ใช้ palette นี้ เพื่อความสงบ เรียบหรู รักษาระดับโลก quiet guardian."*
+
+**What the palette is.** Brand Handbook v1.1 § 11, "Luminous Protection": Ivory #F7F6EE, Pale Jade
+#E4EDE0, Celadon #C9DCCB, Sage #B9CCB4, Forest #284C40, Champagne Gold #C5A46D. Converted to oklch the
+same way #81 converted the teal sheet a day earlier — the space the shells are written in — so every
+tint, hover and hairline is derived by moving L/C along the sheet's own hues. The handbook's contrast
+table reproduces to ±0.02 with the same maths, which is what made it safe to derive the rest.
+
+**Six colours, and not one of them is a status colour — so the clinical ones did not move.** crit,
+warn, ok and info are byte-identical to before, for the second release running. The sheet itself
+separates status from brand (§ 11), the palette contains no red and no amber, and severity at a
+bedside is a mapping the ward has already learned. Re-hueing it to match a brand would be a clinical
+change wearing a design change's clothes. Brand green never means "normal"; nothing green is a status.
+
+**What moved.** The `:root` brand half was rewritten — surfaces (Ivory ground, Pale Jade second plane,
+Celadon lines), four ink tiers re-solved on Forest, the brand ramp centred on Forest, and Nordic Sand
+replaced by Champagne Gold. Every text tier was solved against the background it actually lands on, not
+chosen by eye, and the ratios inline were recomputed rather than carried over: ink 14.98 / ink-2 8.51 /
+ink-3 5.51 on white, and the dimmed ink-4 was solved on Pale Jade (3.04) — the worst ground it sits on —
+so the new `--bg-2` could not quietly regress it. `--brand` is Forest, which carries white text and is
+legible as text itself at 9.57:1 in both directions; one token is both the primary button and the accent.
+
+Outside `:root`, 51 literals followed — the alpha variants and SVG presentation attributes that `var()`
+cannot reach. They were migrated by an explicit old→new table with every change printed for review, not
+by search/replace, which § 15 warns against. Three sets were deliberately left alone: the clinical
+status hues, the categorical chart-series hues (re-hueing six data series into one green family is
+exactly the "ไล่เฉดหลายชุดจนแยกยาก" § 11 rules out), and the printed pharmacy order form, which is ink on
+paper rather than a brand surface.
+
+**Champagne Gold is decorative only**, as § 11 requires: 2.17:1 on Ivory and 1.39:1 on Sage, so it fails
+AA as text on every light ground in this palette. It appears once on screen — the 40px hairline under the
+NeoFeed wordmark. That rule used to hang off `.login-eyebrow::before` and would have been deleted with the
+eyebrow; it moved to `.login-app-name::after`, same place on screen, now owned by the element it belongs to.
+
+**Login screen.** The eyebrow and the contact button are gone, and with them `CONTACT_MAILTO`, whose only
+caller was that button. In their place, the endorsed-brand lockup of § 07: the Guardian V above
+"by Valhalla Health", 12px under a 58px wordmark, no border and no button affordance — a signature, not a
+call to action, because the handbook's rule is that the endorsement never outranks the app name.
+
+**The Guardian V is matted, not traced.** § 10 forbids taking geometry from a mockup and § 01 lists the
+vector master as outstanding, so the mark was keyed out of the handbook's own proportion study by alpha
+coverage — the flat Ivory ground and flat Forest mark make that mechanical, and the ✓ notch falls out as
+transparency for free. It is used at 34px, above the 32px floor § 10 sets, where the notch is still
+legible. **It is a raster stand-in: replace `icons/valhalla-guardian-v.png` with the SVG master when it exists.**
+
+**One deliberate departure from the handbook, flagged rather than buried.** § 07 says NeoFeed keeps its
+teal for familiarity. It no longer does: the N+dot geometry is untouched, but its colour follows the
+palette, here and in the re-rendered app icons (Forest gradient, Sage counter-dot, white stroke at 5.85:1
+on the lightest end). With the whole app in the green family a teal mark was the single element left
+outside it. Praew's instruction is newer than § 07 and she owns the brand, but the pair is a two-line
+revert (`--brand` in the shells, `icons/icon.svg`) if § 07 is meant to win.
+
+`theme-color` and the manifest follow (Forest, Ivory background, so a PWA launch no longer flashes the old
+teal). Checked in real Chromium at 430px and 1440px: login, ward gate, registry, and the calculator's
+densest screen, where the status colours still separate cleanly from the new ground.
+
+**Follow-up (Praew, 2026-09-22): the lockup is stacked, and the version line is gone.** As first
+committed, the Guardian V sat *beside* "by Valhalla Health" in an inline row, with `V2.0` on a line of its
+own under it. Now the mark is above the words, as the Login screen paragraph above describes, and the
+login screen shows no version. `.login-footer`, used only by that line, went with it in both shells.
+Pinned by `test/verify-login-endorsement.cjs`; checked in Chromium at 800 px and 375 px.
+
+**Follow-up (Praew, 2026-09-22): the two-tone N replaces the N+dot, in the app icons and on the login
+screen.** Praew approved the NeoFeed brand board (the "shaded N": no dot, a Sage left stem, the diagonal
+and right stem in Forest, a slit between them) and chose to put it in the favicon and phone icons and to
+put the board's wordmark on the login screen. This supersedes the "one deliberate departure" paragraph
+above: there is no N+dot left to be teal or green.
+
+- **The mark is vector, rebuilt rather than traced.** The board's artwork is a generated raster
+  (`neofeed-site/docs/BRAND_HANDOFF.md` calls it concept artwork and names the icon the authority for
+  vector production), and its edges are not quite straight or parallel. So the letter was rebuilt from
+  the icon's measured proportions: stems 28% of the letter's height, a parallel-edged diagonal running
+  from the left stem's top corner to the right stem, a slit 4.6% of the height, 4.8% outer corners. The
+  tile `#D3E3D3` and the two gradients were sampled from the artwork, and the Forest shading ends on
+  Forest itself. `icons/icon.svg` is the master; the letter fills 65.3% of the tile, as in the artwork.
+- **All seven PNGs were re-rendered from it**, by the same method as #81: headless Chromium at 1024 px,
+  then a box filter in premultiplied alpha. The two favicons now carry the tile's own rounded corners
+  (they were full-bleed squares). The maskable pair set the letter at 54% so it stays inside the safe
+  zone. The Apple icon is full-bleed, because iOS draws its own corners.
+- **Login screen.** The white tile with the N+dot is gone (`.login-logo-mark` went with it in both
+  shells). In the wordmark the mark *is* the N: an inline SVG with icon.svg's two paths, sized to IBM Plex
+  Sans' cap height (0.698em), so it stands as tall as a capital and scales with the phone font size. Then
+  "eo" at 700 and "Feed" at 300, both in Forest, as the board sets them. The board changes the weight, not
+  the colour. Plex Sans 300 is now in the Google Fonts link, and the browser fetches it only where it is
+  used. The gold hairline became the board's rule: Sage, a small gap, then Champagne Gold, in two equal
+  halves, 62% as wide as the wordmark and close under it.
+- **Unchanged:** the Guardian V above "by Valhalla Health" at the foot of the screen, as set earlier
+  today. The board's lockup also carries "by VALHALLA HEALTH" under the rule; it was not added there, so
+  the endorsement is not shown twice. Also unchanged: the tagline, `theme-color` and the manifest.
+
+Pinned by `test/verify-neofeed-mark.cjs`, which checks that the icon and the wordmark draw the same paths
+in the same colours and decodes every PNG. It fails 54 of 70 against `75a3038`, and six deliberate
+breakages were each caught. Checked in Chromium at 1280 px and at 375 px, where the layout has no
+horizontal scroll and the mark scales with the text.
+
+**Follow-up (Praew, 2026-09-22): no Guardian V, and a © line.** *"Can I remove V logo below login page.
+Only show by valhalla team เราใส่อะไรที่ดูเป็นลิขสิทธิไปด้วยได้? @2026?"* Offered three wordings, she chose
+one line: **"by Valhalla Health · © 2026"**. The Guardian V above it is gone, and so is
+`icons/valhalla-guardian-v.png`, the raster stand-in. Nothing else used it, so the open question of
+replacing it with the vector master no longer applies. `.login-endorse` lost its `img` rule and its
+column layout, since there is nothing left to stack. The year is fixed at 2026, the year of first
+publication. It does not change by itself on 1 January. Copyright needs no registration, so the line
+only says whose work this is. Pinned by `test/verify-login-endorsement.cjs`, which fails 5 of 11
+against `76f7610`. Checked in Chromium: one line, and no horizontal scroll at 375 px.
+
+---
+
 ## Session 2026-09-22 — A forced password change is served at once, not refused for a minute
 
 Backend only (`gas-backend.gs`, `test/verify-staff-cache-password-writes.cjs`). No `.jsx` changed, so no

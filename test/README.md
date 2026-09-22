@@ -142,6 +142,26 @@ only work as a pair — the new CSP renders the old shells blank — so it check
 33 of 43 assertions against `claude/review-0917` (the tree before the build step), and each of the
 build's own refusals and this harness's checks was proven to catch a deliberate breakage.
 
+`verify-login-endorsement.cjs` pins the Valhalla line at the foot of the login screen as Praew
+last set it on 2026-09-22: one line, "by Valhalla Health · © 2026". It also pins what that line no longer
+has: no Guardian V (no `<img>`, no `.login-endorse img` rule in either shell, no
+`icons/valhalla-guardian-v.png`) and no version line. Source-level and CRLF-normalised, no dependencies:
+`node test/verify-login-endorsement.cjs`. It fails 5 of 11 against `76f7610`, where the Guardian V was
+still stacked above "by Valhalla Health". The earlier version, which pinned that stacked lockup, failed
+5 of 7 against `e39f66b`.
+
+`verify-neofeed-mark.cjs` pins the **two-tone N** Praew approved on 2026-09-22 (no dot; a Sage left
+stem, the diagonal and right stem in Forest). `icons/icon.svg` is the master: two filled shapes on the
+approved jade tile, no `<circle>`, no stroke. The login wordmark must draw the same two paths with the
+same four gradient colours, so the app icon and the wordmark cannot drift apart. It decodes all seven
+PNGs with Node's own `zlib` (a small in-file reader, no dependencies) and checks what each one actually shows:
+the jade tile as the ground, Forest present but no longer the whole tile, no white, the Sage stem left of
+the Forest body, and the right corners (transparent on the "any" icons, opaque on the maskable and Apple
+ones). A re-rendered master without re-rendered PNGs, or the reverse, fails. It also checks that the
+weight "Feed" is set in is one the Google Fonts link loads. `node test/verify-neofeed-mark.cjs`. It
+fails 54 of 70 against `75a3038` (the N+dot), and six deliberate breakages were each caught: a gradient
+stop, one path coordinate, the dot put back, an unloaded weight, the rule's Sage half, one stale PNG.
+
 **`compiled-loader.cjs` is not a harness** but a `--require` preload that runs the harnesses
 against the shipped `compiled/*.js` instead of their in-harness `@babel/preset-react` transform of
 the `.jsx` sources — no harness is edited for it:

@@ -1,15 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- Valhalla Health palette: Neo Teal (#16838A) → Midnight Teal (#103F43),
-       with the counter-dot picked out in Sea Glass (#78BFC0). -->
+  <!-- NeoFeed's two-tone N (Praew, 2026-09-22): the no-dot, shaded N from the
+       approved Valhalla Health brand board. A Sage left stem, the diagonal and
+       right stem in Forest, and a slit between them where the tile shows
+       through. Built from the approved icon's measured proportions, not traced
+       from it: stems 28% of the letter's height, a parallel-edged diagonal,
+       4.8% outer corners. The tile (#D3E3D3) and the two gradients are sampled
+       from that artwork; the Forest shading ends on Forest itself.
+       The login wordmark (app.jsx) draws these same two paths: one geometry.
+       Every PNG in icons/ is rendered from this letter (CHANGELOG 2026-09-22). -->
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#16838A"/>
-      <stop offset="100%" stop-color="#103F43"/>
+    <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
+      <stop offset="0" stop-color="#335A4A"/>
+      <stop offset="1" stop-color="#284C40"/>
+    </linearGradient>
+    <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
+      <stop offset="0" stop-color="#99B29C"/>
+      <stop offset="1" stop-color="#799781"/>
     </linearGradient>
   </defs>
-  <rect x="0" y="0" width="256" height="256" rx="56" ry="56" fill="url(#bg)"/>
-  <g fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 88 182 L 88 76 L 168 182 L 168 92"/>
+  <rect width="256" height="256" rx="56" fill="#D3E3D3"/>
+  <g transform="translate(46.17 44.5) scale(1.67)">
+    <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z"/>
+    <path fill="url(#nf-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z"/>
   </g>
-  <circle cx="168" cy="76" r="12" fill="#78BFC0"/>
 </svg>
