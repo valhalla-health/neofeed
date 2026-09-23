@@ -299,7 +299,9 @@
     display: flex; align-items: center;
     width: calc(var(--rail-w) - 18px);
   }
-  .brandmark .nf-wordmark { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; }
+  /* 1em is the N's height (see .nf-wordmark below): 26px, the size Praew
+     picked from the rendered sheet on 2026-09-23 ("ขนาดจริงใน app ประมาณรูป 2"). */
+  .brandmark .nf-wordmark { font-size: 26px; }
 
   .topbar .spacer { flex: 1; }
 
@@ -987,15 +989,13 @@
   .quick-dol input:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 
   /* ============ LOGIN SCREEN ============ */
-  /* The one screen that is pure brand: an Ivory ground, soft Pale-Jade and
-     Sage ribbons echoing the brand board's light, one Champagne-Gold breath
-     low-left, and the NeoFeed wordmark as the hero.
-     The mark is the two-tone N from the brand board Praew approved on
-     2026-09-22 — no dot, a Sage left stem, the diagonal and right stem in
-     Forest — in the board's own colours. icons/icon.svg is the master for it,
-     for the in-app wordmark and for every phone icon. Brand Handbook § 07
-     wanted "คง N+dot เดิมและ teal": the app's chrome is teal again, but
-     neither the mark nor this screen is, so § 07 no longer describes either. */
+  /* The one screen that is pure brand: the app's own ground with the NeoFeed
+     logo as the hero. The logo is the 2026-09-23 lockup Praew chose from
+     rendered sheets: the N (a swaddled baby: the circle is the head, the dark
+     ribbon the cloth, the light stem the body), "eo" and "Feed" with a bottle
+     and a milk drop in Feed's e's, a Sage / Champagne Gold rule and "by
+     VALHALLA HEALTH". icons/logo.svg is its master and icons/icon.svg the
+     app icon's; <NeoFeedWordmark/> in app.jsx draws the same paths. */
   .login-wrap {
     /* ── Luminous Protection, on this screen only ─────────────────────
        Praew, 2026-09-22, after the app went back to the teal sheet: "ขอกลับ
@@ -1020,13 +1020,13 @@
        products. It follows :root from now on — if the app's ground moves, this
        screen moves with it, which is the point.
        What stays below is what this screen still needs that the app does not:
-       the board's warm note, its Celadon hairline and its two green-leaning
-       ink tiers. --brand and --brand-4 happen to match :root today (the app's
-       accent moved onto the mark) and are kept as the insurance they were
-       written to be. */
+       the board's Celadon hairline and its two green-leaning ink tiers.
+       --brand happens to match :root today (the app's accent moved onto the
+       mark) and is kept as the insurance it was written to be.
+       --brand-4 and --sand (Sage and Champagne Gold) left on 2026-09-23: their
+       one consumer was the CSS rule under the old wordmark, and that rule is
+       now part of the logo drawing, in the logo's own literal colours. */
     --brand:   oklch(38.5% 0.047 170);   /* Forest         #284C40 */
-    --brand-4: oklch(82.4% 0.039 139);   /* Sage           #B9CCB4 */
-    --sand:    oklch(73.6% 0.082  80);   /* Champagne Gold #C5A46D */
     --line:    oklch(87.6% 0.031 148);   /* Celadon        #C9DCCB */
     --ink-2:   oklch(41.5% 0.028 170);
     --ink-3:   oklch(51.7% 0.022 170);
@@ -1068,66 +1068,25 @@
      below and test/verify-mobile-fit.cjs § 1 both still guard it. */
 
   /* ── The wordmark, in one place ──────────────────────────────────
-     The brand board's lockup: the two-tone N, then "eo" bold and "Feed"
-     light. <NeoFeedWordmark/> (app.jsx) renders it and THREE screens call it
-     — the login hero, the topbar corner and the sync gate — so everything
-     here is in `em` and a call site sets nothing but font-size.
-     The N is an inline <svg class="nf-n">, sized to IBM Plex Sans' cap height
-     (0.698em) so it stands exactly as tall as a capital on the same baseline
-     and scales with the text. */
-  .nf-wordmark {
-    /* Forest #284C40 — a LITERAL, exactly like the two SVG paths beside it,
-       and deliberately not var(--brand). The mark is the brand board's and
-       does not follow the app's palette: it was re-tinted into the teal sheet
-       when the app moved back to teal, and Praew put it straight back ("ขอ
-       กลับไปใช้ NeoFeed และหน้า login เดิม สีนี้"). A token here would have
-       carried it off again on the next palette move. It is also the stop the
-       N's own body gradient ENDS on, so "Neo", "Feed" and the dark half of
-       the letter are one colour by construction. */
-    color: #284C40;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .nf-wordmark .nf-n {
-    display: inline-block;
-    width: 0.684em; height: 0.698em;
-    margin-right: 0.015em;
-    vertical-align: baseline;
-  }
-  /* "Feed" is the light weight and nothing else: it INHERITS Forest from the
-     rule above, so it is the same colour as "Neo" and as the dark half of the
-     N — which is what "ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ" asked for
-     (Praew, 2026-09-22). It needed its own darker value only while the mark
-     was teal, whose --brand is the letter's TOP stop rather than its bottom;
-     on the board's green the accent already is the dark one. */
-  .nf-wordmark .lw { font-weight: 300; }
+     <NeoFeedWordmark/> (app.jsx) draws the 2026-09-23 logo as one inline
+     <svg class="nf-mark">, every letter a path, and THREE screens call it:
+     the login hero (the full lockup), the topbar corner and the sync gate.
+     1em is the N's height. The drawing is 456 units wide for an N of 100, so
+     it is 4.56em wide at every call site and its height follows its own
+     viewBox; a call site sets font-size and nothing else. No colour here:
+     the mark paints its own literals, because a logo is not a UI colour and
+     no token may carry it off on the next palette move. */
+  .nf-wordmark { line-height: 0; }
+  .nf-wordmark .nf-mark { display: block; width: 4.56em; max-width: 100%; height: auto; }
 
-  /* The login hero is the wordmark at 58px, plus the rule underneath it. */
+  /* The login hero is the whole lockup at an N of 72px, 328px wide. The rule
+     and "by VALHALLA HEALTH" are part of the drawing, so the CSS rule that
+     used to hang under the wordmark is gone. max-width lets it shrink on a
+     phone narrower than it is. */
   .login-app-name {
-    font-size: 58px;
-    font-weight: 700;
-    letter-spacing: -0.045em;
-    margin-bottom: 14px;
-  }
-  /* The rule under the wordmark, as the board draws it: Sage, a small gap,
-     then Champagne Gold, in two equal halves, the whole 62% as wide as the
-     wordmark (a percentage of .login-app-name, which is only as wide as its
-     text) and close under it, like an underline. It is still Champagne
-     Gold's one appearance on this screen. Until 2026-09-22 it was a 40px
-     gold hairline hanging off .login-eyebrow::before; that line was removed
-     ("เอา Nutrition insight for brighter beginnings ออก") and the rule moved
-     here, to the element it belongs to. Its margins are in em, so it keeps
-     its place at the phone size too. */
-  .login-app-name::after {
-    content: '';
-    display: block;
-    width: 62%; height: 2px;
-    margin: 0.07em auto 0.45em;
-    border-radius: 2px;
-    background: linear-gradient(90deg,
-      var(--brand-4) 0 calc(50% - 2px),
-      transparent calc(50% - 2px) calc(50% + 2px),
-      var(--sand) calc(50% + 2px) 100%);
+    font-size: 72px;
+    max-width: 100%;
+    margin-bottom: 22px;
   }
 
   .login-tagline {
@@ -1206,12 +1165,12 @@
     bottom: 28px;
     display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
-  /* The endorsement lockup, replacing the "ติดต่อทีม Valhalla" button removed
-     on 2026-09-22. Brand Handbook § 07: the endorsement sits under the
-     product and never outranks it — so this is 12px next to a 58px wordmark,
-     in the quiet ink tier, with no border and no button affordance. It is a
-     signature, not a call to action. Since Praew's second pass that day it
-     is one line, "by Valhalla Health · © 2026", with no Guardian V above it. */
+  /* The foot of the login screen, which replaced the "ติดต่อทีม Valhalla"
+     button on 2026-09-22: 12px, in the quiet ink tier, with no border and no
+     button affordance. It is a signature, not a call to action. It read "by
+     Valhalla Health · © 2026" until the 2026-09-23 logo carried "by VALHALLA
+     HEALTH" in the lockup itself; the endorsement is shown once, so the foot
+     is the © line alone. */
   .login-endorse {
     font-size: 12px;
     letter-spacing: 0.02em;
@@ -1219,7 +1178,7 @@
   }
 
   @media (max-width: 767px) {
-    .login-app-name  { font-size: 46px; margin-bottom: 10px; }
+    .login-app-name  { font-size: 64px; margin-bottom: 18px; }
     .login-tagline   { font-size: 15px; margin-bottom: 32px; }
   }
 
@@ -1363,7 +1322,6 @@
       gap: 8px;
     }
     .brandmark { width: auto; }
-    .brandmark .nf-wordmark { font-size: 17px; }
     .topbar .pill { display: none; }
     .topbar .icon-btn { display: none; }
     .switch-patient .sp-label { display: none; }
@@ -1849,11 +1807,11 @@
   <script src="compiled/fenton.js?v=f6010040cd"></script>
   <script src="compiled/registry.js?v=2516b1362f"></script>
   <script src="compiled/log.js?v=ea9db8e547"></script>
-  <script src="compiled/app.js?v=b9d17e2da9"></script>
+  <script src="compiled/app.js?v=bdeb65281b"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only
        swaps the typeface in when it lands (display=swap). -->
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </body>
 </html>

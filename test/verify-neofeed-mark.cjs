@@ -1,20 +1,23 @@
-// verify-neofeed-mark.cjs — the two-tone N: app icons, login wordmark, app mark.
+// verify-neofeed-mark.cjs — the NeoFeed logo: app icons, the logo master, the in-app wordmark.
 //
-// Praew, 2026-09-22, choosing from the brand board she approved (the no-dot,
-// shaded N: a lighter left stem, the diagonal and right stem darker, a slit
-// between them): replace the old N-with-dot in the favicon and phone icons,
-// and put the new wordmark on the login screen. Later the same day: put the
-// mark in the app itself ("Logo icon N ให้ใช้ใน app ด้วย มุมซ้ายบน ... ให้แทน
-// n+dot เก่าทุกอัน"), and draw the whole thing in the Valhalla Teal sheet
-// rather than the board's green ("ลองใช้ logo ที่ทำใหม่ แต่ใช้ palette สี
-// valhalla teal") once the app went back to teal.
+// Praew, 2026-09-23, choosing from rendered sheets: a new logo drawn from her
+// Canva artwork. The N is a swaddled baby ("ศีรษะทารกนอนอยู่แล้วถูกห่อผ้า") — a
+// Sage head in a round bite out of the Forest ribbon, a Sage stem for the body
+// — with the head moved up 5 and forward 3 ("ให้วงกลมขยับขึ้นและมาทางด้านหน้า",
+// then "ปรับศีรษะทารกใน neofeed เท่ากับ icon ที่เลือก"). Then "eo" and "Feed"
+// with a feeding bottle and a milk drop in Feed's two e's ("หยดน้ำ ให้เป็นหยดน้ำ
+// เหมือนต้นฉบับ"), a Sage / Champagne Gold rule and "by VALHALLA HEALTH", in
+// the N's own Forest family (colour option 2). The icon keeps the app's own
+// Porcelain Mist ground ("logo เอาแบบนี้").
 //
-// ONE GEOMETRY, now in THREE places — the master, the login wordmark and the
-// in-app <NeoFeedMark/> — and no copy may drift: icons/icon.svg is the master,
-// and both app.jsx marks must carry the very same two path strings and the very
-// same four gradient stops. The seven PNGs are checked by decoding them (zlib
-// is Node's own; no dependencies), so a master that changed without a re-render
-// — or the reverse — fails here. There must be no N+dot left anywhere.
+// ONE DRAWING, THREE COPIES, and no copy may drift:
+//   icons/icon.svg  — the app-icon master: the N's three paths on the ground
+//   icons/logo.svg  — the lockup master: the N + "eo" + "Feed" + rule + byline
+//   app.jsx         — <NeoFeedWordmark/>, which must carry logo.svg's paths
+//                     character for character, and the N's three are icon.svg's.
+// The seven PNGs are checked by decoding them (zlib is Node's own; no
+// dependencies), so a master that changed without a re-render — or the
+// reverse — fails here.
 //
 // Source-level like verify-login-endorsement.cjs: reads app.jsx and both
 // hand-synced shells, CRLF-normalised so a Windows checkout reads what CI reads.
@@ -23,7 +26,8 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const ROOT = path.join(__dirname, '..');
-const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/\r\n/g, '\n');
+// A missing file reads as empty, so it fails the assertions about it rather than crashing the run.
+const read = (f) => fs.existsSync(path.join(ROOT, f)) ? fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/\r\n/g, '\n') : '';
 
 let pass = 0, fail = 0;
 function ok(name, cond, detail) {
@@ -32,41 +36,65 @@ function ok(name, cond, detail) {
 }
 
 // The icon's ground: Porcelain Mist, the app's OWN page background, byte for
-// byte the value :root gives --bg. Praew, 2026-09-22, choosing from three
-// grounds rendered on a light home screen, a dark one and a browser tab
-// ("icon เอาแค่ตัว N ... หรือเอาสีพื้นหลังเท่า dashboard"). Not white: white
-// looked identical at icon size and would only have resembled the app.
-//
-// THE MARK DOES NOT FOLLOW THE APP'S PALETTE. It was re-tinted into the
-// Valhalla Teal sheet when the app moved back to teal, and Praew put it
-// straight back — "ขอกลับไปใช้ NeoFeed และหน้า login เดิม สีนี้". So the logo
-// and the login screen are the board's green while the workspace is teal, on
-// purpose, and every colour in the mark is a LITERAL so the next palette move
-// cannot carry it off again.
+// byte the value :root gives --bg (Praew, 2026-09-22, and kept on 2026-09-23).
 const GROUND_RGB = [0xF5, 0xF8, 0xF7];
+// The lockup's literal colours (option 2, "สีเข้าชุดกับตัว N"): the word and
+// the byline in the N's Forest, "Feed" a mid green, the rule Sage then
+// Champagne Gold. Literals, because a logo is not a UI colour.
+const INK = { eo: '#284C40', feed: '#5F8D73', ruleL: '#799781', ruleR: '#C5A46D', by: '#284C40' };
+const pathsOf = (text) => [...text.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(m => m[1]);
+const fillOf = (text, d) => d && (new RegExp(`<path\\b[^>]*\\bfill="([^"]+)"[^>]*\\bd="${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`).exec(text) || [])[1];
 
-// ── the master ────────────────────────────────────────────────────────────
-console.log('\n── icons/icon.svg — the master ──');
+// ── icons/icon.svg — the app-icon master ─────────────────────────────────
+console.log('\n── icons/icon.svg — the app-icon master ──');
 const svg = read('icons/icon.svg');
-const paths = [...svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(m => m[1]);
-ok('no counter-dot', !/<circle\b/.test(svg));
-ok('no stroked N — the letter is filled shapes now', !/\bstroke(-width)?=/.test(svg));
-ok('exactly two shapes: the dark body and the light left stem', paths.length === 2, paths.length);
+const N = pathsOf(svg);
+ok('the letter is filled shapes: no <circle>, no stroke', !/<circle\b/.test(svg) && !/\bstroke(-width)?=/.test(svg));
+ok('exactly three shapes: the ribbon and right stem, the stem, the head', N.length === 3, N.length);
+ok('…the ribbon in Forest, the stem and the head in Sage',
+  /fill="url\(#nf-forest\)"[^>]*d="/.test(svg) && (svg.match(/fill="url\(#nf-sage\)"/g) || []).length === 2);
+// The ring round the head is geometry, not a stroke: the head's circle is
+// 11.5 and the bite out of the ribbon 15.5, so the ground shows through a
+// 4-unit ring at every size and on every background.
+ok('the head (r 11.5) sits in a bite (r 15.5) out of the ribbon: a 4-unit ring',
+  /A15\.5 15\.5 /.test(N[0] || '') && /A11\.5 11\.5 /.test(N[2] || ''), [(N[0] || '').slice(0, 90), (N[2] || '').slice(0, 60)]);
 ok('the ground is Porcelain Mist, the app\'s own page background',
   new RegExp(`<rect\\b[^>]*fill="#${GROUND_RGB.map(c => c.toString(16).padStart(2, '0')).join('')}"`, 'i').test(svg));
-ok('the body is Forest, shading onto Forest itself', /stop-color="#335A4A"/i.test(svg) && /stop-color="#284C40"/i.test(svg));
-ok('the left stem is Sage, falling to a darker Sage', /stop-color="#99B29C"/i.test(svg) && /stop-color="#799781"/i.test(svg));
+ok('the ribbon is Forest, shading onto Forest itself', /stop-color="#335A4A"/i.test(svg) && /stop-color="#284C40"/i.test(svg));
+ok('the stem and head are Sage, falling to a darker Sage', /stop-color="#99B29C"/i.test(svg) && /stop-color="#799781"/i.test(svg));
 ok('no teal left from the app\'s old sheet', !/#12656A|#103F43|#78BFC0|#5BA2A3|#D5ECEA/i.test(svg));
-
-// NO FRAME. An Ivory ring on a Pale Jade ground lasted one look: at 16px it
-// turned to mush and squeezed the letter down with it. One rect now — the
-// ground — and the renderer squares off its corners for the full-bleed
-// variants, which is why it is the only one that carries an id.
 const rects = [...svg.matchAll(/<rect\b([^>]*)>/g)].map(m => m[1]);
 ok('exactly one rect: the ground, no ring and no inner tile', rects.length === 1, rects.length);
 ok('…and it is the one the renderer names', /id="nf-ground"/.test(rects[0]) && /rx="56"/.test(rects[0]), rects[0]);
-ok('no Ivory or Pale Jade left — the frame is gone from the master',
-  !/#F7F6EE|#E4EDE0|#D3E3D3/i.test(svg), (/#(F7F6EE|E4EDE0|D3E3D3)/i.exec(svg) || [''])[0]);
+ok('no Ivory or Pale Jade frame', !/#F7F6EE|#E4EDE0|#D3E3D3/i.test(svg), (/#(F7F6EE|E4EDE0|D3E3D3)/i.exec(svg) || [''])[0]);
+// The letter box is 90 x 100; scale 1.59 makes it 62% of the square, the size
+// Praew picked (tools/render-icons.cjs must agree, or the PNGs below fail).
+ok('the letter is drawn at scale 1.59 (62% of the square)', /<g transform="translate\([\d.]+ [\d.]+\) scale\(1\.59\)">/.test(svg),
+  (/<g transform="[^"]*">/.exec(svg) || [''])[0]);
+const render = read('tools/render-icons.cjs');
+ok('…and the renderer knows the 90 x 100 letter and both scales',
+  /LETTER = \{ w: 90, h: 100 \}/.test(render) && /FULL = 1\.59, MASKABLE = 1\.0/.test(render));
+
+// ── icons/logo.svg — the lockup master ───────────────────────────────────
+console.log('\n── icons/logo.svg — the lockup master ──');
+const logo = read('icons/logo.svg');
+const LP = pathsOf(logo);
+ok('it is announced as one name', /role="img"/.test(logo) && /aria-label="NeoFeed by Valhalla Health"/.test(logo));
+ok('eight shapes: the N\'s three, "eo", "Feed", the rule\'s two halves, the byline', LP.length === 8, LP.length);
+for (const [i, d] of N.entries())
+  ok(`it draws icon.svg's shape ${i + 1} with the same path`, LP[i] === d, (LP[i] || '').slice(0, 60));
+const [eoD = '', feedD = '', ruleLD = '', ruleRD = '', byD = ''] = LP.slice(3);
+ok('no font is needed: no <text>, every letter an outline', !/<text\b/.test(logo));
+ok('"eo" and "Feed" are filled even-odd, so their counters (and the bottle and drop) are holes',
+  (logo.match(/fill-rule="evenodd"/g) || []).length === 2);
+// F (1 contour), e + bottle (2), e + drop (2), d (2): the e's eyes are gone
+// and the bottle and the drop stand in their place.
+ok('"Feed" has seven contours: F, e + bottle, e + drop, d', (feedD.match(/M/g) || []).length === 7, (feedD.match(/M/g) || []).length);
+ok('"eo" has four: each letter and its counter', (eoD.match(/M/g) || []).length === 4, (eoD.match(/M/g) || []).length);
+for (const [k, d] of [['eo', eoD], ['feed', feedD], ['ruleL', ruleLD], ['ruleR', ruleRD], ['by', byD]])
+  ok(`${k} is ${INK[k]}, a literal`, (fillOf(logo, d) || '').toUpperCase() === INK[k], fillOf(logo, d));
+const vb = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(logo) || [null, '', ''];
+ok('the drawing is 456 units wide for an N of 100', vb && vb[1] === '456', vb && vb.slice(1));
 
 // ── the seven PNGs ────────────────────────────────────────────────────────
 // A minimal PNG reader: 8-bit, non-interlaced, RGB / RGBA / palette.
@@ -114,18 +142,8 @@ function decodePng(file) {
   return { w, h, px: out };
 }
 
-// Opaque pixels sorted into the ground and the letter's two tones.
-//
-// The ground is matched by PROXIMITY to its actual value, not by a hue test.
-// It used to be a jade, caught by `g - r >= 8`; Porcelain Mist is a near-white
-// with g-r of 3, so that test would have read the whole icon as "no ground" and
-// still passed the ratio check vacuously. Proximity says what is meant.
-//
-// There is no `white` bucket any more either. It existed to prove the old
-// white-stroked N was gone — but the ground is itself near-white now, so the
-// check would count the whole tile and fail for the wrong reason. That claim is
-// made at the SVG level instead, where it is exact: no <circle>, no stroke, and
-// no N+dot path anywhere in app.jsx.
+// Opaque pixels sorted into the ground and the letter's two tones. The ground
+// is matched by PROXIMITY to its actual value (a near-white has no hue to test).
 function census({ w, h, px }) {
   const k = { forest: [], sage: [], ground: 0, opaque: 0, markR: 0, top: h, bottom: -1 };
   const nearGround = (r, g, b) => Math.abs(r - GROUND_RGB[0]) <= 6
@@ -156,11 +174,10 @@ function census({ w, h, px }) {
 const mean = (xs) => xs.reduce((s, v) => s + v, 0) / xs.length;
 const near = (c, want, tol) => c.every((v, i) => Math.abs(v - want[i]) <= tol);
 
-// [file, size, kind] — with no frame left there are two shapes, not three:
+// [file, size, kind]:
 //   any              — the master's own rounded corners, transparent outside
 //   apple / maskable — ground squared off; the platform draws the shape.
-// `kind` still names all three because the maskable pair carries one extra
-// assertion the others do not: Android's safe zone.
+// The maskable pair carries one extra assertion the others do not: Android's safe zone.
 const PNGS = [
   ['icons/favicon-16.png', 16, 'any'],
   ['icons/favicon-32.png', 32, 'any'],
@@ -181,12 +198,11 @@ for (const [file, size, kind] of PNGS) {
   ok(bleed ? 'full-bleed: the corner is opaque' : 'its own rounded corners: the corner is transparent', bleed ? corner === 255 : corner === 0, corner);
   ok('the ground is Porcelain Mist', near(k.mode, GROUND_RGB, 6), k.mode);
   ok('…and it IS the ground, not the mark (≥ 40% of the icon)', k.groundPct >= 0.4, +k.groundPct.toFixed(3));
-  ok('the dark body is present, and not the whole tile (5–40%)', k.forest.length / k.opaque >= 0.05 && k.forest.length / k.opaque <= 0.4, +(k.forest.length / k.opaque).toFixed(3));
+  ok('the dark ribbon is present, and not the whole tile (5–40%)', k.forest.length / k.opaque >= 0.05 && k.forest.length / k.opaque <= 0.4, +(k.forest.length / k.opaque).toFixed(3));
   // The letter's height as a share of the square. TWO SIZES, on purpose
-  // (tools/render-icons.cjs): 54.7% wherever the whole square is shown, and
-  // 39% in the maskable pair, because Android shows only the middle of a
-  // maskable icon. At 54.7% the letter filled 82% of the icon on Praew's
-  // Samsung ("Install icon ไม่โอเค มัน fit ไป", 2026-09-22).
+  // (tools/render-icons.cjs): 62% wherever the whole square is shown, and 39%
+  // in the maskable pair, because Android shows only the middle of a maskable
+  // icon (the middle two thirds on Praew's Samsung).
   const letterH = (k.bottom - k.top + 1) / size;
   if (kind === 'maskable') {
     // Android's safe zone is the central 80% DIAMETER, i.e. radius 40% of the
@@ -194,106 +210,84 @@ for (const [file, size, kind] of PNGS) {
     ok('the letter is inside the maskable safe zone (r ≤ 40%)',
       k.markR <= size * 0.40, { markR: Math.round(k.markR), limit: Math.round(size * 0.4) });
     // …and inside the circle Android keeps under ANY launcher mask even when
-    // a launcher uses the whole image as the adaptive layer: 66 dp of 108,
-    // radius 33/108 = 30.6% of the image. Chrome's own conversion pads the
-    // image so that circle is the 40% one above; this holds without it.
+    // a launcher uses the whole image as the adaptive layer: 66 dp of 108.
     ok("…and inside Android's 66/108 dp circle, however the launcher crops (r ≤ 30.6%)",
       k.markR <= size * 33 / 108, { markR: +(k.markR / size).toFixed(3), limit: +(33 / 108).toFixed(3) });
-    ok('the letter is the maskable size: 36–42% of the square, not the whole-square 55%',
+    ok('the letter is the maskable size: 36–42% of the square, not the whole-square 62%',
       letterH >= 0.36 && letterH <= 0.42, +letterH.toFixed(3));
   } else if (size >= 180) {
-    ok('the letter is the whole-square size: 52–57% of the square',
-      letterH >= 0.52 && letterH <= 0.57, +letterH.toFixed(3));
+    ok('the letter is the whole-square size: 60–64% of the square',
+      letterH >= 0.60 && letterH <= 0.64, +letterH.toFixed(3));
   }
   if (size >= 180) {
     // At 16/32 px the antialiased Forest edge outweighs the stem itself, so
     // position is only read where the stem is many pixels wide.
-    // Against the letter's own ink, not the whole tile: the share of the tile
-    // halves when the letter shrinks, and the maskable letter is smaller on
-    // purpose. 0.27–0.30 in every icon from 180 px up.
     const stem = k.sage.length / (k.sage.length + k.forest.length);
-    ok("a light stem is present (≥ 20% of the letter's ink)", stem >= 0.2, +stem.toFixed(3));
-    ok('…and it is the LEFT stem: the light stem sits left of the dark body', mean(k.sage) < mean(k.forest) - size * 0.1, [Math.round(mean(k.sage)), Math.round(mean(k.forest))]);
+    ok("the light stem and head are present (≥ 20% of the letter's ink)", stem >= 0.2, +stem.toFixed(3));
+    ok('…and they are on the LEFT: the light shapes sit left of the dark ribbon', mean(k.sage) < mean(k.forest) - size * 0.1, [Math.round(mean(k.sage)), Math.round(mean(k.forest))]);
   }
 }
 
-// ── the wordmark, and its three call sites ────────────────────────────────
-// Praew, 2026-09-22: "ส่วนบนซ้ายในหน้า dashboard ... ให้เอา NeoFeed ที่แก้แล้วนี้
-// ไปใส่ ไม่ต้องใส่ icon". The app's own corner is the WORDMARK now, not an icon
-// tile — so the tile above is only ever the home-screen/favicon artwork, and
-// ONE <NeoFeedWordmark/> serves the login hero, the topbar and the sync gate.
+// ── app.jsx — <NeoFeedWordmark/>, and its three call sites ────────────────
 console.log('\n── app.jsx — <NeoFeedWordmark/> ──');
 const app = read('app.jsx');
 const word = /const NeoFeedWordmark = \([\s\S]*?\n\);/.exec(app)?.[0] || '';
 ok('<NeoFeedWordmark/> is defined', word.length > 0);
-ok('it is announced as one name: role="img" aria-label="NeoFeed"',
-  /role="img"/.test(word) && /aria-label="NeoFeed"/.test(word), word.slice(0, 200));
-ok('it leads with the mark, then "eo", then a light "Feed"',
-  /<svg[\s\S]*<\/svg>eo<span className="lw">Feed<\/span>/.test(word), word.slice(-200));
-ok('no letter N left in the text — the mark IS the N', !/>\s*Neo\b/.test(word));
-for (const [i, d] of paths.entries())
-  ok(`it draws icon.svg's shape ${i + 1} with the same path`, word.includes(`d="${d}"`), d.slice(0, 60));
+ok('it is announced as one name: "NeoFeed", or "NeoFeed by Valhalla Health" as the lockup',
+  /role="img"/.test(word) && /aria-label=\{lockup \? "NeoFeed by Valhalla Health" : "NeoFeed"\}/.test(word), word.slice(0, 300));
+for (const [i, d] of LP.entries())
+  ok(`it draws logo.svg's shape ${i + 1} with the same path`, word.includes(`d="${d}"`), d.slice(0, 60));
 const stops = (text, attr) => [...text.matchAll(new RegExp(`${attr}="(#[0-9a-f]{6})"`, 'gi'))].map(m => m[1].toUpperCase());
-ok('…and shades it with the master\'s four stops, in the master\'s order',
+ok('…and shades the N with the master\'s four stops, in the master\'s order',
   JSON.stringify(stops(word, 'stopColor')) === JSON.stringify(stops(svg, 'stop-color')) && stops(svg, 'stop-color').length === 4,
   { wordmark: stops(word, 'stopColor'), master: stops(svg, 'stop-color') });
-ok('it carries no tile — the wordmark is the letter alone',
-  !/<rect\b/.test(word) && /viewBox="0 0 98 100"/.test(word), word.slice(0, 200));
+for (const [k, d] of [['eo', eoD], ['feed', feedD], ['ruleL', ruleLD], ['ruleR', ruleRD], ['by', byD]])
+  ok(`…and paints ${k} in logo.svg's literal ${INK[k]}`, (fillOf(word, d) || '').toUpperCase() === INK[k], fillOf(word, d));
+ok('no letters left as text — every letter is a path', !/<text\b/.test(word) && !/>\s*(Neo|eo|Feed)\s*</.test(word));
+const lockupOnly = /\{lockup && <>([\s\S]*?)<\/>\}/.exec(word)?.[1] || '';
+ok('the rule and the byline are drawn only for the lockup, and nothing else is',
+  [ruleLD, ruleRD, byD].every(d => lockupOnly.includes(`d="${d}"`)) && pathsOf(lockupOnly).length === 3,
+  pathsOf(lockupOnly).length);
+const wordVB = /viewBox=\{lockup \? "0 0 ([\d.]+) ([\d.]+)" : "0 0 ([\d.]+) ([\d.]+)"\}/.exec(word);
+ok('its lockup viewBox is logo.svg\'s', wordVB && `${wordVB[1]} ${wordVB[2]}` === `${vb[1]} ${vb[2]}`, wordVB && wordVB.slice(1));
+ok('…and the word alone is the same width, cut above the rule', wordVB && wordVB[3] === vb[1] && +wordVB[4] > 100 && +wordVB[4] < 102,
+  wordVB && wordVB.slice(3));
+ok('it carries no tile — the wordmark is not the app icon', !/<rect\b/.test(word));
 
 // The three call sites, and only one component behind them.
-ok('the login screen renders it as the hero',
-  /<NeoFeedWordmark className="login-app-name" \/>/.test(app),
+ok('the login screen renders the full lockup as the hero',
+  /<NeoFeedWordmark className="login-app-name" lockup \/>/.test(app),
   /.{0,80}NeoFeedWordmark className.{0,40}/.exec(app)?.[0]);
-ok('the topbar corner renders it, with NO icon tile beside it',
+ok('the topbar corner renders the word, with NO icon tile beside it',
   /<div className="brandmark"><NeoFeedWordmark \/><\/div>/.test(app),
   /.{0,120}className="brandmark".{0,120}/.exec(app)?.[0]);
-ok('the sync gate renders it too', /<NeoFeedWordmark style=\{\{ fontSize:23/.test(app));
+ok('the sync gate renders the word, sized by font-size alone', /<NeoFeedWordmark style=\{\{ fontSize:30 \}\} \/>/.test(app));
 ok('there is exactly one wordmark component in the file, not three copies',
-  (app.match(/viewBox="0 0 98 100"/g) || []).length === 1,
-  (app.match(/viewBox="0 0 98 100"/g) || []).length);
+  (app.match(/className="nf-mark"/g) || []).length === 1, (app.match(/className="nf-mark"/g) || []).length);
 ok('the icon TILE is drawn by no component at all — it is icons/ artwork',
-  !/viewBox="0 0 256 256"/.test(app) && !/NeoFeedMark/.test(app),
-  (/.{0,60}NeoFeedMark.{0,40}/.exec(app) || [''])[0]);
-
-// The point of the exercise: the old mark is gone from the app, not merely
-// unused. `M7 21 V 7 L 21 21 V 7` was its one path, drawn twice.
+  !/viewBox="0 0 256 256"/.test(app) && !/NeoFeedMark/.test(app), (/.{0,60}NeoFeedMark.{0,40}/.exec(app) || [''])[0]);
 ok('NO N+dot is left anywhere in app.jsx', !/M7 21 V 7/.test(app), (/.{0,80}M7 21 V 7.{0,40}/.exec(app) || [''])[0]);
 
 for (const shell of ['NeoFeed.html', 'index.html']) {
   console.log(`\n── ${shell} ──`);
   const css = read(shell);
   ok('the .login-logo-mark rule went with the tile', !/\.login-logo-mark\b/.test(css));
-  // The login screen keeps Luminous Protection while :root is the teal sheet,
-  // scoped by re-declaring the tokens it consumes on .login-wrap itself.
-  // Custom properties inherit, so no .login-* rule names a literal.
+  // The login screen keeps the board's hairline and ink tiers while :root is
+  // the app's, scoped by re-declaring the tokens it consumes on .login-wrap.
   const wrap = /\n  \.login-wrap \{([\s\S]*?)\n  \}/.exec(css)?.[1] || '';
-  for (const [tok, val] of [['--brand', 'oklch(38.5% 0.047 170)'],
-                            ['--brand-4', 'oklch(82.4% 0.039 139)'], ['--line', 'oklch(87.6% 0.031 148)']])
+  for (const [tok, val] of [['--brand', 'oklch(38.5% 0.047 170)'], ['--line', 'oklch(87.6% 0.031 148)']])
     ok(`.login-wrap pins ${tok} to the brand board`, wrap.includes(`${tok}:`) && wrap.includes(val),
       wrap.replace(/\s+/g, ' ').slice(0, 200));
-  // --bg is deliberately NOT pinned (Praew, 2026-09-22, variant C): the login
-  // takes the app's own ground so the two screens are continuous, and follows
-  // :root if that ground ever moves. Pinning it again silently re-splits them.
+  // Sage and Champagne Gold had ONE consumer on this screen: the CSS rule under
+  // the old wordmark. The rule is part of the logo drawing now, in literals, so
+  // re-declaring them here would pin tokens that nothing reads.
+  ok('.login-wrap no longer declares --brand-4 or --sand (their one consumer is gone)',
+    !/--brand-4\s*:/.test(wrap) && !/--sand\s*:/.test(wrap), (/--(brand-4|sand)\s*:[^;]*/.exec(wrap) || [''])[0]);
   ok('.login-wrap does NOT override --bg — it shares the app\'s ground',
     !/--bg\s*:/.test(wrap), (/--bg\s*:[^;]*/.exec(wrap) || [''])[0]);
-  // The app's ACCENT moved onto the mark's Forest on 2026-09-22 ("ใช้สีนี้ แทน
-  // valhalla teal แทนเท่านั้น"), so --brand and --brand-4 in the scope above
-  // now happen to match :root. They stay anyway — they are what holds this
-  // screen on the board if the app's accent ever moves again, which is the
-  // scope's whole job.
-  // The GROUND is no longer one of the differences: variant C put the login on
-  // the app's Porcelain Mist on purpose. What still differs is the warm note —
-  // the app's Nordic Sand against the board's Champagne Gold, which is the one
-  // colour under the wordmark. If that collapses too, the scope is doing
-  // nothing and this screen has silently joined the app's palette outright.
   const rootBlock = /^  :root \{[\s\S]*?^  \}/m.exec(css)?.[0] || '';
-  ok('…and the ground both screens now share is Porcelain Mist',
+  ok('…and the ground both screens share is Porcelain Mist',
     /--bg:\s*oklch\(97\.7% 0\.004 195\)/.test(rootBlock), /--bg:[^;]*/.exec(rootBlock)?.[0]);
-  ok('…and its own warm note (Nordic Sand, not Champagne Gold)',
-    /--sand:\s*oklch\(79\.8% 0\.067 80\)/.test(rootBlock)
-    && wrap.includes('oklch(73.6% 0.082  80)'),
-    [/--sand:[^;]*/.exec(rootBlock)?.[0], /--sand:[^;]*/.exec(wrap)?.[0]]);
-  // The accent IS the mark now — that is the point of the 2026-09-22 swap.
   ok('the app\'s accent is the mark\'s Forest, not Valhalla Teal',
     /--brand:\s*oklch\(38\.5% 0\.047 170\)/.test(rootBlock)
     && !/--brand:\s*oklch\(46\.3% 0\.074 201\)/.test(rootBlock),
@@ -302,44 +296,24 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
     /--ink:\s*oklch\(24% 0\.022 205\)/.test(rootBlock)
     && /--line:\s*oklch\(90\.5% 0\.008 198\)/.test(rootBlock),
     [/--ink:[^;]*/.exec(rootBlock)?.[0], /--line:[^;]*/.exec(rootBlock)?.[0]]);
-  // The ribbons went with the Ivory ground: on Porcelain Mist the wash read as
-  // a second colour rather than as depth. Their absence is asserted, not
-  // assumed — a stray gradient here is how the screen stops matching the app.
   ok('no ribbon wash is left on the login screen',
     !/\.login-wrap::before/.test(css) && !/login-drift/.test(css),
     (/.{0,60}login-wrap::before.{0,40}/.exec(css) || [''])[0]);
-  // No tile anywhere in the app's chrome: the topbar's .logo box is gone, not
-  // just emptied, so nothing can paint a square behind the wordmark again.
   ok('the topbar draws no icon tile', !/\.brandmark \.logo\b/.test(css),
     (/.{0,80}\.brandmark \.logo.{0,60}/.exec(css) || [''])[0]);
-  // One sizing rule, in em, so a call site sets font-size and nothing else.
+  // One sizing rule, in em: 1em is the N's height, and the drawing is 4.56 of
+  // them wide (logo.svg's 456 units for an N of 100). No colour: the mark
+  // paints its own literals.
   const wm = /\n  \.nf-wordmark \{([^}]*)\}/.exec(css)?.[1] || '';
-  const nfn = /\.nf-wordmark \.nf-n \{([^}]*)\}/.exec(css)?.[1] || '';
-  // A LITERAL, not var(--brand): the mark must not follow the app's palette.
-  // It is Forest, which is also the stop the N's body gradient ends on, so
-  // "Neo", "Feed" and the dark half of the letter are one colour by
-  // construction rather than by three values agreeing.
-  ok('.nf-wordmark is styled once, in the mark\'s own Forest, not a token',
-    /color:\s*#284C40/i.test(wm) && !/color:\s*var\(/.test(wm), wm.replace(/\s+/g, ' ').slice(0, 200));
-  ok('…and that is the stop the master\'s body gradient ends on',
-    /stop-color="#284C40"/i.test(svg));
-  ok('…and the N is sized in em, to the cap height, on the baseline',
-    /width:\s*0\.684em/.test(nfn) && /height:\s*0\.698em/.test(nfn) && /vertical-align:\s*baseline/.test(nfn),
-    nfn.replace(/\s+/g, ' ').slice(0, 160));
-  // Praew, 2026-09-22: "ให้คำว่า feed สีเข้มเท่า N ตรงที่เข้มๆ". On the board's
-  // green that needs no second value — "Feed" inherits Forest from the rule
-  // above, so it IS the dark half of the N. It carried its own darker colour
-  // only while the mark was teal, whose accent is the letter's TOP stop.
-  const lw = /\.nf-wordmark \.lw \{([^}]*)\}/.exec(css)?.[1] || '';
-  ok('"Feed" is the light weight and nothing else — it inherits the N\'s dark',
-    /font-weight:\s*300/.test(lw) && !/color:/.test(lw), lw.replace(/\s+/g, ' '));
-  ok('both the topbar and the login hero size it, nothing else',
-    /\.brandmark \.nf-wordmark \{[^}]*font-size/.test(css) && /\.login-app-name \{[^}]*font-size/.test(css));
-  const after = /\.login-app-name::after\s*\{([^}]*)\}/.exec(css)?.[1] || '';
-  ok('the rule under the wordmark is two-tone: Sage, then Champagne Gold', /var\(--brand-4\)[\s\S]*var\(--sand\)/.test(after), after);
-  const weight = /font-weight:\s*(\d+)/.exec(lw)?.[1];
-  const loaded = /IBM\+Plex\+Sans:wght@([\d;]+)/.exec(css)?.[1]?.split(';') || [];
-  ok(`"Feed"'s weight (${weight}) is one the fonts link actually loads`, !!weight && loaded.includes(weight), { weight, loaded });
+  const mk = /\.nf-wordmark \.nf-mark \{([^}]*)\}/.exec(css)?.[1] || '';
+  ok('.nf-mark is sized once, in em: 4.56em wide, its height from its own viewBox',
+    new RegExp(`width:\\s*${(+vb[1] / 100).toFixed(2)}em`).test(mk) && /height:\s*auto/.test(mk) && /max-width:\s*100%/.test(mk),
+    mk.replace(/\s+/g, ' '));
+  ok('.nf-wordmark sets no colour — the logo is not a UI colour', !/color:/.test(wm), wm.replace(/\s+/g, ' '));
+  ok('the old text-wordmark rules are gone (.nf-n, .lw, the ::after rule)',
+    !/\.nf-wordmark \.nf-n\b/.test(css) && !/\.nf-wordmark \.lw\b/.test(css) && !/\.login-app-name::after/.test(css));
+  ok('the topbar sets the N at 26px (Praew, 2026-09-23), and the login hero sizes it too',
+    /\.brandmark \.nf-wordmark \{ font-size: 26px; \}/.test(css) && /\.login-app-name \{[^}]*font-size/.test(css));
 }
 
 console.log(`\n${fail === 0 ? '✅' : '❌'}  ${pass} passed, ${fail} failed\n`);

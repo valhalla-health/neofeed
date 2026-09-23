@@ -169,30 +169,34 @@ only work as a pair — the new CSP renders the old shells blank — so it check
 33 of 43 assertions against `claude/review-0917` (the tree before the build step), and each of the
 build's own refusals and this harness's checks was proven to catch a deliberate breakage.
 
-`verify-login-endorsement.cjs` pins the Valhalla line at the foot of the login screen as Praew
-last set it on 2026-09-22: one line, "by Valhalla Health · © 2026". It also pins what that line no longer
-has: no Guardian V (no `<img>`, no `.login-endorse img` rule in either shell, no
-`icons/valhalla-guardian-v.png`) and no version line. Source-level and CRLF-normalised, no dependencies:
-`node test/verify-login-endorsement.cjs`. It fails 5 of 11 against `76f7610`, where the Guardian V was
-still stacked above "by Valhalla Health". The earlier version, which pinned that stacked lockup, failed
-5 of 7 against `e39f66b`.
+`verify-login-endorsement.cjs` pins the Valhalla endorsement on the login screen, shown once. Since
+2026-09-23 it is "by VALHALLA HEALTH" inside the logo lockup (the login hero is
+`<NeoFeedWordmark lockup/>`, announced as "NeoFeed by Valhalla Health"), so the foot reads "© 2026" and
+must not name Valhalla again; it read "by Valhalla Health · © 2026" from 2026-09-22 until then. It also
+pins what the foot no longer has: no Guardian V (no `<img>`, no `.login-endorse img` rule in either
+shell, no `icons/valhalla-guardian-v.png`) and no version line. Source-level and CRLF-normalised, no
+dependencies: `node test/verify-login-endorsement.cjs` (13 checks). Putting the old foot back fails 2 of
+them. It failed 5 of 11 against `76f7610`, where the Guardian V was still stacked above "by Valhalla
+Health", and its first version failed 5 of 7 against `e39f66b`.
 
-`verify-neofeed-mark.cjs` pins the **two-tone N** Praew approved on 2026-09-22 (no dot; a Sage left
-stem, the diagonal and right stem in Forest). `icons/icon.svg` is the master: two filled shapes on the
-approved jade tile, no `<circle>`, no stroke. The login wordmark must draw the same two paths with the
-same four gradient colours, so the app icon and the wordmark cannot drift apart. It decodes all seven
-PNGs with Node's own `zlib` (a small in-file reader, no dependencies) and checks what each one actually shows:
-the jade tile as the ground, Forest present but no longer the whole tile, no white, the Sage stem left of
-the Forest body, and the right corners (transparent on the "any" icons, opaque on the maskable and Apple
-ones). A re-rendered master without re-rendered PNGs, or the reverse, fails. It also checks that the
-weight "Feed" is set in is one the Google Fonts link loads. `node test/verify-neofeed-mark.cjs`. It
-fails 54 of 70 against `75a3038` (the N+dot), and six deliberate breakages were each caught: a gradient
-stop, one path coordinate, the dot put back, an unloaded weight, the rule's Sage half, one stale PNG.
-Since 2026-09-22's second round it measures the letter as well: 52–57% of the square on the whole-square
-icons and 36–42% on the maskable pair, whose furthest ink must also sit inside Android's 66/108 dp
-circle (Praew: "Install icon ... มัน fit ไป"); the light stem is measured against the letter's ink, not
-the tile, so the smaller maskable letter does not read as a missing stem. The maskable PNGs before that
-change fail it 4 times. The PNGs are rendered by `tools/render-icons.cjs`.
+`verify-neofeed-mark.cjs` pins the **2026-09-23 logo**, three copies of one drawing: `icons/icon.svg`
+(the app icon: the N's three shapes, a Forest ribbon, a Sage stem and a Sage head in a round bite out of
+the ribbon, on Porcelain Mist), `icons/logo.svg` (the lockup: the N, "eo", "Feed" with a bottle and a
+drop in its e's, the rule and the byline, every letter a path) and `<NeoFeedWordmark/>` in `app.jsx`,
+which must carry logo.svg's eight paths character for character and paint them in its literal colours.
+It checks the head's 4-unit ring (r 11.5 in a bite of r 15.5), "Feed"'s seven contours, one component
+with three call sites (the lockup only on the login screen), and the one CSS sizing rule (1em = the N's
+height, 4.56em wide). It decodes all seven PNGs with Node's own `zlib` (a small in-file reader, no
+dependencies) and checks what each one actually shows: the Porcelain Mist ground, Forest present but not
+the whole tile, the light stem and head left of the dark ribbon, the right corners (transparent on the
+"any" icons, opaque on the maskable and Apple ones), the letter at 60–64% of the square on the
+whole-square icons and 36–42% on the maskable pair, whose furthest ink must also sit inside Android's
+66/108 dp circle. A master changed without the component or the PNGs, or the reverse, fails.
+`node test/verify-neofeed-mark.cjs` (137 checks). It fails 44 of 128 against `f19a1fe` (the two-tone N
+of 2026-09-22), and four deliberate breakages were each caught by exactly one check: the head nudged in
+`app.jsx` only, "Feed" recoloured in `app.jsx` only, one stale PNG, and (in
+`verify-login-endorsement.cjs`) the foot repeating the byline. The PNGs are rendered by
+`tools/render-icons.cjs`.
 
 **`compiled-loader.cjs` is not a harness** but a `--require` preload that runs the harnesses
 against the shipped `compiled/*.js` instead of their in-harness `@babel/preset-react` transform of

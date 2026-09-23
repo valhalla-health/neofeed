@@ -204,11 +204,12 @@ clinical judgement. Everything else is engineering sequencing.
       effectively every Android (360) — so it is logged, not chased. Found while measuring for
       `verify-mobile-fit.cjs` (2026-09-22 (2)), which passes at 280px precisely because nothing scrolls.
 - [ ] 🎨 **ui · The login screen has no palette of its own yet.** Praew, 2026-09-22: *"เดี๋ยวไปหา
-      palette สีที่เหมาะสมมาก่อน"*. It is on the app's teal sheet for now, with the re-tinted two-tone N.
-      The mechanism for holding it on a different one is written down and was used once: re-declare, on
-      `.login-wrap` itself, the seven tokens the screen consumes (`--bg`, `--brand`, `--brand-4`,
-      `--sand`, `--line`, `--ink-2`, `--ink-3`) — custom properties inherit, so no `.login-*` rule has
-      to name a literal. See `CHANGELOG.md` 2026-09-22 (2) § 4.
+      palette สีที่เหมาะสมมาก่อน"*. It shares the app's ground, with the 2026-09-23 logo as its hero
+      (whose colours are its own literals). The mechanism for holding it on a different palette is
+      written down and was used once: re-declare, on `.login-wrap` itself, the tokens the screen
+      consumes (today `--brand`, `--line`, `--ink-2`, `--ink-3`, plus `--bg` if the ground should
+      differ) — custom properties inherit, so no `.login-*` rule has to name a literal. See
+      `CHANGELOG.md` 2026-09-22 (2) § 4 and 2026-09-23 (h).
 - [ ] 🩺 **safety · `registerPatient` silently overwrites on a colliding `initials+BW` pseudonym.**
       Two different infants sharing initials and birth weight collapse into one record. Needs an
       identity decision before code — a collision suffix changes every `Daily_Log` join.

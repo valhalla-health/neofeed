@@ -76,6 +76,11 @@
   form and the ward's save button** — the ward, pharmacy and the TPN team need telling. Its post-release
   check is a comment on that release PR, and this banner catches up in the next PR on the repo.
 
+- ⏳ **The new logo (`CHANGELOG.md` 2026-09-23 (h)): open as a PR, not merged, not live.** The N as a
+  swaddled baby, a bottle and a drop in "Feed", the lockup on the login screen, the word in the topbar,
+  and a new app icon on the same Porcelain Mist ground. Frontend only, no `clasp` step,
+  `CONSTANTS_VERSION` unchanged. ⚠️ **The app icon changes**; a phone shows it only after a reinstall.
+
 **Previous (2026-09-22, 21:15–23:02 ICT):** backend `@56` + frontend `release` = `edbd11f`, PR #88.
 
 **Previous (2026-09-22, 17:39–21:15 ICT):** backend `@56` + frontend `release` = `066528d`, PR #85.
