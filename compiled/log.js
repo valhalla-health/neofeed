@@ -28,7 +28,9 @@ function pickTarget(metricKey, entry, patient) {
   return null;
 }
 const METRICS = [
-  { key: "kcal", label: "Energy", unit: "kcal/kg/d", color: "oklch(38.5% 0.047 170)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
+  // Energy is blue, not the dark green it was: that green sat on top of the
+  // green target band and the two read as one (Praew, 2026-09-23).
+  { key: "kcal", label: "Energy", unit: "kcal/kg/d", color: "oklch(50% 0.15 250)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
   { key: "pro", label: "Protein", unit: "g/kg/d", color: "oklch(55% 0.13 155)", yMax: 5, ticks: [0, 1, 2, 3, 4, 5] },
   { key: "gir", label: "GIR", unit: "mg/kg/min", color: "oklch(58% 0.14 35)", yMax: 14, ticks: [0, 2, 4, 6, 8, 10, 12, 14] },
   { key: "fluid", label: "Fluid", unit: "mL/kg/d", color: "oklch(56% 0.11 280)", yMax: 200, ticks: [0, 40, 80, 120, 160, 200] },
@@ -110,14 +112,6 @@ function TrendGraph({ entries, patient }) {
     }
     return d;
   };
-  const areaPath = () => {
-    const lp = linePath();
-    if (!lp || points.length === 0) return "";
-    const lastX = xScale(points[points.length - 1].x);
-    const firstX = xScale(points[0].x);
-    const baseY = H - pad.b;
-    return `${lp} L ${lastX} ${baseY} L ${firstX} ${baseY} Z`;
-  };
   const handleMove = (e) => {
     if (!points.length) return;
     const rect = svgRef.current.getBoundingClientRect();
@@ -164,7 +158,6 @@ function TrendGraph({ entries, patient }) {
     return out;
   })();
   const xAxisLabel = xMode === "dayAdmit" ? "Day of admission" : "Day of life (DOL)";
-  const gradId = `grad-${metricKey}`;
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "trend-controls", style: { display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--line-2)" } }, /* @__PURE__ */ React.createElement("div", { className: "trend-chips", style: { display: "flex", gap: 6, flexWrap: "wrap" } }, METRICS.map((m) => {
     const active = m.key === metricKey;
     return /* @__PURE__ */ React.createElement(
@@ -223,8 +216,7 @@ function TrendGraph({ entries, patient }) {
       onMouseMove: handleMove,
       onMouseLeave: () => setHover(null)
     },
-    /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: gradId, x1: "0", y1: "0", x2: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: metric.color, stopOpacity: "0.22" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: metric.color, stopOpacity: "0" }))),
-    /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "oklch(99.4% 0.004 195)" }),
+    /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "var(--surface)" }),
     bandSteps.map((b, i) => /* @__PURE__ */ React.createElement("g", { key: i }, /* @__PURE__ */ React.createElement(
       "rect",
       {
@@ -318,7 +310,6 @@ function TrendGraph({ entries, patient }) {
     ))),
     /* @__PURE__ */ React.createElement("line", { x1: pad.l, x2: W - pad.r, y1: H - pad.b, y2: H - pad.b, stroke: "var(--ink-3)", strokeWidth: "1" }),
     /* @__PURE__ */ React.createElement("line", { x1: pad.l, x2: pad.l, y1: pad.t, y2: H - pad.b, stroke: "var(--ink-3)", strokeWidth: "1" }),
-    points.length > 0 && /* @__PURE__ */ React.createElement("path", { d: areaPath(), fill: `url(#${gradId})` }),
     points.length > 0 && /* @__PURE__ */ React.createElement(
       "path",
       {

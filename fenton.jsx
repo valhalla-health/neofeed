@@ -335,7 +335,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
               onPointerUp={(e) => { dragRef.current = null; e.currentTarget.releasePointerCapture(e.pointerId); }}
             >
               {/* background grid */}
-              <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.4% 0.004 195)" />
+              <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="var(--surface)" />
               {yTicks.map(t => (
                 <line key={`y${t}`} x1={pad.l} x2={W - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="oklch(94% 0.008 198)" />
               ))}

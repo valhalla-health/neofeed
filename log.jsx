@@ -47,7 +47,9 @@ function pickTarget(metricKey, entry, patient) {
 }
 
 const METRICS = [
-  { key: "kcal",   label: "Energy",    unit: "kcal/kg/d", color: "oklch(38.5% 0.047 170)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
+  // Energy is blue, not the dark green it was: that green sat on top of the
+  // green target band and the two read as one (Praew, 2026-09-23).
+  { key: "kcal",   label: "Energy",    unit: "kcal/kg/d", color: "oklch(50% 0.15 250)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
   { key: "pro",    label: "Protein",   unit: "g/kg/d",    color: "oklch(55% 0.13 155)",  yMax: 5,   ticks: [0, 1, 2, 3, 4, 5] },
   { key: "gir",    label: "GIR",       unit: "mg/kg/min", color: "oklch(58% 0.14 35)",   yMax: 14,  ticks: [0, 2, 4, 6, 8, 10, 12, 14] },
   { key: "fluid",  label: "Fluid",     unit: "mL/kg/d",   color: "oklch(56% 0.11 280)",  yMax: 200, ticks: [0, 40, 80, 120, 160, 200] },
@@ -158,16 +160,6 @@ function TrendGraph({ entries, patient }) {
     return d;
   };
 
-  // area fill under line
-  const areaPath = () => {
-    const lp = linePath();
-    if (!lp || points.length === 0) return "";
-    const lastX = xScale(points[points.length - 1].x);
-    const firstX = xScale(points[0].x);
-    const baseY = H - pad.b;
-    return `${lp} L ${lastX} ${baseY} L ${firstX} ${baseY} Z`;
-  };
-
   // ── hover handling ────────────────────────────────────────
   const handleMove = e => {
     if (!points.length) return;
@@ -233,9 +225,6 @@ function TrendGraph({ entries, patient }) {
   })();
 
   const xAxisLabel = xMode === "dayAdmit" ? "Day of admission" : "Day of life (DOL)";
-
-  // gradient id (per metric, avoids collisions)
-  const gradId = `grad-${metricKey}`;
 
   return (
     <div>
@@ -349,15 +338,9 @@ function TrendGraph({ entries, patient }) {
           onMouseMove={handleMove}
           onMouseLeave={() => setHover(null)}
         >
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={metric.color} stopOpacity="0.22" />
-              <stop offset="100%" stopColor={metric.color} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          {/* plot area background */}
-          <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.4% 0.004 195)" />
+          {/* plot area background — white, so the green target band is the
+              only colour behind the line (Praew, 2026-09-23) */}
+          <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="var(--surface)" />
 
           {/* target zone — one step per band, following the DOL */}
           {bandSteps.map((b, i) => (
@@ -416,8 +399,8 @@ function TrendGraph({ entries, patient }) {
           <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} stroke="var(--ink-3)" strokeWidth="1" />
           <line x1={pad.l} x2={pad.l} y1={pad.t} y2={H - pad.b} stroke="var(--ink-3)" strokeWidth="1" />
 
-          {/* area + line */}
-          {points.length > 0 && <path d={areaPath()} fill={`url(#${gradId})`} />}
+          {/* line only: the tinted area under it used to grey the white plot
+              and muddy the target band (2026-09-23) */}
           {points.length > 0 && (
             <path d={linePath()} stroke={metric.color} strokeWidth="2" fill="none"
                   strokeLinecap="round" strokeLinejoin="round" />
