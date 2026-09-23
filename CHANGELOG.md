@@ -7,6 +7,20 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-23 (c) — White chart backgrounds, a blue Energy line, and the paler range bars
+
+Frontend only: `log.jsx`, `fenton.jsx`, both shells, `compiled/`. No figure, target or printed dose
+moved, so `CONSTANTS_VERSION` stays `2026-09-18.1`.
+
+- **Trend graph (`log.jsx`)** — the plot area is white (was a pale cyan), and the tinted area under
+  the line is gone, so the green target band is the only colour behind the line. Energy is blue
+  (`oklch(50% 0.15 250)`), not the dark green that merged into the green band (Praew, 2026-09-23).
+- **Fenton chart (`fenton.jsx`)** — the same white plot area. Daily weights from the orders were
+  already plotted by `weightSeries` (#96); they were not visible to Praew because #95/#96 have not
+  been released yet.
+- **Range bars on the cards** — `--zone-ok/best/warn/crit` are pale tints. The same change was made
+  on 2026-09-23 in a local tree and never committed; it ships here.
+
 ## Session 2026-09-23 (b) — the safety review's findings, fixed
 
 The review that found these is the entry below (`## Session 2026-09-23`); its four fix-first items

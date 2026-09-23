@@ -211,7 +211,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
         e.currentTarget.releasePointerCapture(e.pointerId);
       }
     },
-    /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "oklch(99.4% 0.004 195)" }),
+    /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "var(--surface)" }),
     yTicks.map((t) => /* @__PURE__ */ React.createElement("line", { key: `y${t}`, x1: pad.l, x2: W - pad.r, y1: yScale(t), y2: yScale(t), stroke: "oklch(94% 0.008 198)" })),
     xTicks.map((t) => /* @__PURE__ */ React.createElement("line", { key: `x${t}`, y1: pad.t, y2: H - pad.b, x1: xScale(t), x2: xScale(t), stroke: "oklch(94% 0.008 198)" })),
     /* @__PURE__ */ React.createElement("path", { d: bandPath(), fill: "oklch(55.7% 0.047 170 / .08)" }),
