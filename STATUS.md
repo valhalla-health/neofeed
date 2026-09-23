@@ -65,10 +65,16 @@
   pales the card range bars (`CHANGELOG.md` 2026-09-23, (b), (c)). Frontend only, no `clasp` step,
   `CONSTANTS_VERSION` unchanged. Its post-release check is a comment on that release PR, and this banner
   catches up in the next PR on the repo.
-- ⏳ **The next PR — the Osm pill, the Ca:P total row and the card frame (`CHANGELOG.md` 2026-09-23 (d)):
-  merged into `main` on Praew's instruction ("merge แล้ว deploy"), and released straight after in its own
-  `main` → `release` PR.** Frontend only, no `clasp` step. Its post-release check is a comment on that
-  release PR.
+- ✅ **PR #99 is live**, released by PR #100 (2026-09-23, `release` = `788902c`; `verify-release.mjs`
+  passed on both hosts, 0 failures — comment on #100): the Osm pill, the Ca:P total row and the card frame
+  (`CHANGELOG.md` 2026-09-23 (d)).
+- ⏳ **PRs #101, #102 and #103: merged into `main` on Praew's instruction ("merge ทั้ง 3 PR แล้ว deploy"),
+  and released straight after in one `main` → `release` PR.** #101: MgSO₄ 10% only, and Energy red above
+  160 kcal/kg/d. #102: "พักไว้ก่อน" parks a patient mid-move, so a bed swap can be saved. #103: Save draft,
+  and the save button becomes **Submit**; a draft cannot print (`CHANGELOG.md` 2026-09-23 (e), (f), (g)).
+  Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged. ⚠️ **#101 and #103 change the pharmacy
+  form and the ward's save button** — the ward, pharmacy and the TPN team need telling. Its post-release
+  check is a comment on that release PR, and this banner catches up in the next PR on the repo.
 
 **Previous (2026-09-22, 21:15–23:02 ICT):** backend `@56` + frontend `release` = `edbd11f`, PR #88.
 
