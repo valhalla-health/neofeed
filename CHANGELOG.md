@@ -10,12 +10,12 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-09-23 (h) — The new NeoFeed logo: a swaddled baby in the N, a bottle and a drop in "Feed"
 
 Presentation only: `icons/icon.svg`, the seven icon PNGs, new `icons/logo.svg`, `app.jsx`
-(`<NeoFeedWordmark/>`, its three call sites, the login foot), both shells, `compiled/`,
-`tools/render-icons.cjs`, and two harnesses. No clinical logic, no data model, no backend, no `clasp`
-step. `CONSTANTS_VERSION` stays `2026-09-18.1`.
+(`<NeoFeedWordmark/>` and its three call sites), both shells, `compiled/`, `tools/render-icons.cjs`, and
+two harnesses. No clinical logic, no data model, no backend, no `clasp` step. `CONSTANTS_VERSION` stays
+`2026-09-18.1`.
 
 Praew brought the logo from Canva ("เปลี่ยน logo and new icon for NeoFeed", then "ปรับเป็นอันนี้แทน")
-and settled it from rendered sheets in five rounds:
+and settled it from rendered sheets over six rounds, the last after seeing the built app:
 
 - **The N** is her image-1 N ("logo เอาแบบนี้"): a Sage stem, a Forest ribbon, and a Sage circle in a
   round bite out of the ribbon. The circle is **a swaddled baby's head** ("ศีรษะทารกนอนอยู่แล้วถูกห่อผ้า"):
@@ -25,50 +25,55 @@ and settled it from rendered sheets in five rounds:
 - **The icon** is that N on the app's own Porcelain Mist ground, as the icon already was, at 62% of
   the square (was 55%); the maskable pair keeps its 39% letter for Android's crop.
 - **The wordmark** is her second artwork: heavy "eo", "Feed" with **a feeding bottle and a milk drop**
-  where its two e's have their eyes, a Sage / Champagne Gold rule and "by VALHALLA HEALTH". She chose
-  colour option 2 of three: everything in the N's own Forest family (option 1 had the artwork's vivid
-  greens beside today's N; option 3 recoloured the N as well). Her note on the first render: the drop
-  should be a drop "เหมือนต้นฉบับ", so it was refitted to the artwork's measured outline (two cubics a
-  side, within 1.7% of its height).
+  where its two e's have their eyes, and a two-tone rule under the word on the login screen. Her notes
+  on the renders: the drop should be a drop "เหมือนต้นฉบับ" (refitted to the artwork's measured outline,
+  two cubics a side, within 1.7% of its height); "สีของ feed ให้เขียวเข้มขึ้นเข้ากับ N เขียวอ่อนตัวหน้า"
+  (she chose C of three greens in the N stem's own hue: `#476655`, a step between the stem and the
+  ribbon); and "ให้ขอบของ F, d มนๆ เหมือน N … เพิ่มความเข้ากันของทั้ง logo", so **every letter's corners
+  are rounded** like the N's (r 3 outside, 1.2 inside), and the rule's left half takes Feed's green.
+  The logo is two greens and a gold: Forest for the N's ribbon and "eo", the Sage family for the stem,
+  the head, "Feed" and the rule, and Champagne Gold.
+- **"by Valhalla Health" stays at the foot**, beside the © line, as she set it on 2026-09-22. Her
+  artwork put "by VALHALLA HEALTH" under the rule, and it shipped that way for one round in this PR;
+  she moved it back ("by Valhalla health เอาไว้ด้านล่าง คู่กับ 2026 เหมือนเดิม").
 - **The size in the app** is her pick from the sheet: the N 26px tall in the topbar, on every width
-  down to 320px. The sync gate draws it at 30px; the login hero is the full lockup at 72px (64px on a
-  phone, and it shrinks to fit a phone narrower than that).
+  down to 320px. The sync gate draws it at 30px; the login hero is the lockup at 72px (64px on a phone,
+  and it shrinks to fit a phone narrower than that).
 
 **Why vectors, not her Canva image.** She asked why not use the Canva picture directly. It is an AI
 image, so Canva holds pixels: it cannot stay sharp from a 16px tab to a 512px icon, and the head move,
-the drop and the recolour could not have been made to it. The Canva connector also listed no designs
-on its account. So the mark was **measured and redrawn**: the N from her image 1 (the fitted edge is
-within 0.2% of the letter's height RMS of the artwork), the letters from **Poppins** ExtraBold ("eo")
-and Bold ("Feed", the byline) — the artwork's type, matched by its counter and stem proportions —
-converted to outlines, spaced by the tightest gap between each pair of outlines to the artwork's.
-Poppins is SIL OFL 1.1, which permits outlining it into a logo; the app loads no font for the mark. The
-four font files were downloaded to a scratch folder with Praew's OK and are not in the repo.
+the drop, the recolour and the rounded corners could not have been made to it. The Canva connector
+also listed no designs on its account. So the mark was **measured and redrawn**: the N from her image 1
+(the fitted edge is within 0.2% of the letter's height RMS of the artwork), the letters from **Poppins**
+ExtraBold ("eo") and Bold ("Feed") — the artwork's type, matched by its counter and stem proportions —
+converted to outlines, spaced by the tightest gap between each pair of outlines to the artwork's, then
+every corner filleted with one cubic. Poppins is SIL OFL 1.1, which permits outlining it into a logo;
+the app loads no font for the mark. The font files were downloaded to a scratch folder with Praew's OK
+and are not in the repo, and neither are the scratch generators: **edit the SVG masters directly.**
 
 **One drawing, three copies, pinned.** `icons/logo.svg` is the lockup master and `icons/icon.svg` the
-icon's; `<NeoFeedWordmark/>` carries logo.svg's eight paths character for character, and the N's three
-are icon.svg's. `lockup` adds the rule and byline for the login screen only. Sizing is one CSS rule —
-1em is the N's height, the drawing 4.56em wide — so a call site sets `font-size` and nothing else. The
-old text wordmark's rules went (`.nf-n`, `.lw`, `.login-app-name::after`), and with them IBM Plex Sans
-300, which only "Feed" used.
-
-**The login foot** reads "© 2026". The lockup now says "by VALHALLA HEALTH", and the 2026-09-22 entry
-kept the endorsement off the old wordmark precisely "so the endorsement is not shown twice"; the same
-rule now removes it from the foot. `.login-wrap` no longer re-declares `--brand-4` and `--sand`: their
-one consumer was the CSS rule under the old wordmark, and the rule is part of the drawing now, in the
+icon's; `<NeoFeedWordmark/>` carries logo.svg's seven paths character for character, and the N's three
+are icon.svg's. `lockup` adds the rule for the login screen only. Sizing is one CSS rule — 1em is the
+N's height, the drawing 4.56em wide — so a call site sets `font-size` and nothing else. The old text
+wordmark's rules went (`.nf-n`, `.lw`, `.login-app-name::after`), and with them IBM Plex Sans 300,
+which only "Feed" used. `.login-wrap` no longer re-declares `--brand-4` and `--sand`: their one
+consumer was the CSS rule under the old wordmark, and the rule is part of the drawing now, in the
 logo's literal colours.
 
-**Harnesses.** `verify-neofeed-mark.cjs` is rewritten around the three copies (137 checks): the N's three
-shapes and its 4-unit ring (head r 11.5 in a bite r 15.5), logo.svg's eight paths and literal colours,
-"Feed"'s seven contours (the bottle and the drop in place of the e's eyes), the letter at 60–64% of the
-whole-square PNGs and 36–42% of the maskable ones inside Android's safe zones, one component with three
-call sites, and the one CSS sizing rule. It fails 44 of 128 against `f19a1fe` (the old N), and each of
-four deliberate breakages is caught by exactly one check: the head nudged in `app.jsx` only, "Feed"
-recoloured in `app.jsx` only, one stale PNG, and the footer repeating the byline
-(`verify-login-endorsement.cjs`, now 13 checks, which also pins that the endorsement is shown once).
+**Harnesses.** `verify-neofeed-mark.cjs` is rewritten around the three copies (136 checks): the N's three
+shapes and its 4-unit ring (head r 11.5 in a bite r 15.5), logo.svg's seven paths and literal colours,
+"Feed"'s seven contours (the bottle and the drop in place of the e's eyes), **no joint of any letter
+turning more than 12°** (the rounded corners; this PR's first commit, with Poppins' own corners, turned
+113–170° and fails it), the letter at 60–64% of the whole-square PNGs and 36–42% of the maskable ones
+inside Android's safe zones, one component with three call sites, and the one CSS sizing rule. It fails
+43 of 128 against `f19a1fe` (the old N), and each deliberate breakage is caught: the head nudged in
+`app.jsx` only, "Feed" recoloured in `app.jsx` only, one stale PNG. `verify-login-endorsement.cjs`
+(12 checks) pins the foot as "by Valhalla Health · © 2026" and that neither the wordmark nor logo.svg
+draws a byline; taking the byline off the foot fails it.
 
 **Rendered, not assumed.** The built app, served from the branch with a fake backend and made-up
-patients, at 390×844, 320×640, 820×1180 and 1280×800: the lockup on the login screen, the word in the
-topbar and on the sync gate, nothing crowded at 320px.
+patients, at 390×844, 320×640, 820×1180 and 1280×800: the lockup on the login screen with the foot
+under it, the word in the topbar and on the sync gate, nothing crowded at 320px.
 
 ⚠️ **The app icon changes.** A phone shows a new home-screen icon only after a reinstall.
 ⚠️ **Outside this repo**, the Thai user guide (2026-09-17) and the เวรแรก quick-start (2026-09-21) carry

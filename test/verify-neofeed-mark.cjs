@@ -6,13 +6,16 @@
 // — with the head moved up 5 and forward 3 ("ให้วงกลมขยับขึ้นและมาทางด้านหน้า",
 // then "ปรับศีรษะทารกใน neofeed เท่ากับ icon ที่เลือก"). Then "eo" and "Feed"
 // with a feeding bottle and a milk drop in Feed's two e's ("หยดน้ำ ให้เป็นหยดน้ำ
-// เหมือนต้นฉบับ"), a Sage / Champagne Gold rule and "by VALHALLA HEALTH", in
-// the N's own Forest family (colour option 2). The icon keeps the app's own
-// Porcelain Mist ground ("logo เอาแบบนี้").
+// เหมือนต้นฉบับ") and a two-tone rule, in the N's own Forest family. Then, from
+// her look at the built app: "by Valhalla health เอาไว้ด้านล่าง คู่กับ 2026
+// เหมือนเดิม" (the byline left the logo), "สีของ feed ให้เขียวเข้มขึ้นเข้ากับ N
+// เขียวอ่อนตัวหน้า" (option C, #476655), and "ให้ขอบของ F, d มนๆ เหมือน N"
+// (every letter's corners rounded, for "ความเข้ากันของทั้ง logo"). The icon
+// keeps the app's own Porcelain Mist ground ("logo เอาแบบนี้").
 //
 // ONE DRAWING, THREE COPIES, and no copy may drift:
 //   icons/icon.svg  — the app-icon master: the N's three paths on the ground
-//   icons/logo.svg  — the lockup master: the N + "eo" + "Feed" + rule + byline
+//   icons/logo.svg  — the lockup master: the N + "eo" + "Feed" + the rule
 //   app.jsx         — <NeoFeedWordmark/>, which must carry logo.svg's paths
 //                     character for character, and the N's three are icon.svg's.
 // The seven PNGs are checked by decoding them (zlib is Node's own; no
@@ -38,10 +41,34 @@ function ok(name, cond, detail) {
 // The icon's ground: Porcelain Mist, the app's OWN page background, byte for
 // byte the value :root gives --bg (Praew, 2026-09-22, and kept on 2026-09-23).
 const GROUND_RGB = [0xF5, 0xF8, 0xF7];
-// The lockup's literal colours (option 2, "สีเข้าชุดกับตัว N"): the word and
-// the byline in the N's Forest, "Feed" a mid green, the rule Sage then
-// Champagne Gold. Literals, because a logo is not a UI colour.
-const INK = { eo: '#284C40', feed: '#5F8D73', ruleL: '#799781', ruleR: '#C5A46D', by: '#284C40' };
+// The lockup's literal colours — two greens and a gold: "eo" in the N's
+// Forest, "Feed" and the rule's left half in one Sage-family green (option C,
+// a step darker than the N's stem), the rule's right half Champagne Gold.
+// Literals, because a logo is not a UI colour.
+const INK = { eo: '#284C40', feed: '#476655', ruleL: '#476655', ruleR: '#C5A46D' };
+// Every joint of a letter's outline must be smooth, i.e. every corner rounded
+// like the N's. Reads the absolute M/L/Q/C/Z path data the logo is written in
+// and returns, per subpath, the largest turn (degrees) at any joint.
+function maxTurns(d) {
+  const tok = d.match(/[MLQCZ]|-?\d*\.?\d+(?:e-?\d+)?/g) || [];
+  const subs = []; let segs = [], cur = null, cmd = null, i = 0;
+  const num = () => +tok[i++];
+  while (i < tok.length) {
+    if (/[MLQCZ]/.test(tok[i])) cmd = tok[i++];
+    if (cmd === 'Z') { subs.push(segs); segs = []; cmd = null; continue; }
+    if (cmd === 'M') { cur = [num(), num()]; cmd = 'L'; continue; }
+    const n = { L: 1, Q: 2, C: 3 }[cmd], pts = [cur];
+    for (let k = 0; k < n; k++) pts.push([num(), num()]);
+    segs.push(pts); cur = pts[pts.length - 1];
+  }
+  const dir = (a, b) => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]); return l > 1e-6 ? [(b[0] - a[0]) / l, (b[1] - a[1]) / l] : null; };
+  const endDir = (s) => { for (let k = s.length - 2; k >= 0; k--) { const v = dir(s[k], s[s.length - 1]); if (v) return v; } };
+  const startDir = (s) => { for (let k = 1; k < s.length; k++) { const v = dir(s[0], s[k]); if (v) return v; } };
+  return subs.map(ss => Math.max(...ss.map((s, j) => {
+    const u = endDir(s), v = startDir(ss[(j + 1) % ss.length]);
+    return u && v ? Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1]))) * 180 / Math.PI : 0;
+  })));
+}
 const pathsOf = (text) => [...text.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(m => m[1]);
 const fillOf = (text, d) => d && (new RegExp(`<path\\b[^>]*\\bfill="([^"]+)"[^>]*\\bd="${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`).exec(text) || [])[1];
 
@@ -79,11 +106,12 @@ ok('…and the renderer knows the 90 x 100 letter and both scales',
 console.log('\n── icons/logo.svg — the lockup master ──');
 const logo = read('icons/logo.svg');
 const LP = pathsOf(logo);
-ok('it is announced as one name', /role="img"/.test(logo) && /aria-label="NeoFeed by Valhalla Health"/.test(logo));
-ok('eight shapes: the N\'s three, "eo", "Feed", the rule\'s two halves, the byline', LP.length === 8, LP.length);
+ok('it is announced as one name', /role="img"/.test(logo) && /aria-label="NeoFeed"/.test(logo));
+ok('seven shapes: the N\'s three, "eo", "Feed", the rule\'s two halves — no byline',
+  LP.length === 7 && !/VALHALLA|Valhalla/.test(logo.replace(/<!--[\s\S]*?-->/g, '')), LP.length);
 for (const [i, d] of N.entries())
   ok(`it draws icon.svg's shape ${i + 1} with the same path`, LP[i] === d, (LP[i] || '').slice(0, 60));
-const [eoD = '', feedD = '', ruleLD = '', ruleRD = '', byD = ''] = LP.slice(3);
+const [eoD = '', feedD = '', ruleLD = '', ruleRD = ''] = LP.slice(3);
 ok('no font is needed: no <text>, every letter an outline', !/<text\b/.test(logo));
 ok('"eo" and "Feed" are filled even-odd, so their counters (and the bottle and drop) are holes',
   (logo.match(/fill-rule="evenodd"/g) || []).length === 2);
@@ -91,8 +119,17 @@ ok('"eo" and "Feed" are filled even-odd, so their counters (and the bottle and d
 // and the bottle and the drop stand in their place.
 ok('"Feed" has seven contours: F, e + bottle, e + drop, d', (feedD.match(/M/g) || []).length === 7, (feedD.match(/M/g) || []).length);
 ok('"eo" has four: each letter and its counter', (eoD.match(/M/g) || []).length === 4, (eoD.match(/M/g) || []).length);
-for (const [k, d] of [['eo', eoD], ['feed', feedD], ['ruleL', ruleLD], ['ruleR', ruleRD], ['by', byD]])
+for (const [k, d] of [['eo', eoD], ['feed', feedD], ['ruleL', ruleLD], ['ruleR', ruleRD]])
   ok(`${k} is ${INK[k]}, a literal`, (fillOf(logo, d) || '').toUpperCase() === INK[k], fillOf(logo, d));
+// Corners rounded like the N's ("ให้ขอบของ F, d มนๆ เหมือน N"): no joint of a
+// letter turns sharply. The bottle and the drop are exempt — a drop has a tip
+// and a bottle a shoulder — so Feed's subpaths 2 (bottle) and 4 (drop) are
+// skipped: F 0, e 1, e 3, d 5 and 6.
+const eoTurns = maxTurns(eoD), feedTurns = maxTurns(feedD);
+ok('every corner of "eo" is rounded (no joint turns more than 12°)',
+  eoTurns.length === 4 && eoTurns.every(t => t <= 12), eoTurns.map(t => Math.round(t)));
+ok('every corner of F, both e\'s and d is rounded (no joint turns more than 12°)',
+  feedTurns.length === 7 && [0, 1, 3, 5, 6].every(k => feedTurns[k] <= 12), feedTurns.map(t => Math.round(t)));
 const vb = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(logo) || [null, '', ''];
 ok('the drawing is 456 units wide for an N of 100', vb && vb[1] === '456', vb && vb.slice(1));
 
@@ -233,20 +270,20 @@ console.log('\n── app.jsx — <NeoFeedWordmark/> ──');
 const app = read('app.jsx');
 const word = /const NeoFeedWordmark = \([\s\S]*?\n\);/.exec(app)?.[0] || '';
 ok('<NeoFeedWordmark/> is defined', word.length > 0);
-ok('it is announced as one name: "NeoFeed", or "NeoFeed by Valhalla Health" as the lockup',
-  /role="img"/.test(word) && /aria-label=\{lockup \? "NeoFeed by Valhalla Health" : "NeoFeed"\}/.test(word), word.slice(0, 300));
+ok('it is announced as one name, "NeoFeed", at every call site',
+  /role="img"/.test(word) && /aria-label="NeoFeed"/.test(word), word.slice(0, 300));
 for (const [i, d] of LP.entries())
   ok(`it draws logo.svg's shape ${i + 1} with the same path`, word.includes(`d="${d}"`), d.slice(0, 60));
 const stops = (text, attr) => [...text.matchAll(new RegExp(`${attr}="(#[0-9a-f]{6})"`, 'gi'))].map(m => m[1].toUpperCase());
 ok('…and shades the N with the master\'s four stops, in the master\'s order',
   JSON.stringify(stops(word, 'stopColor')) === JSON.stringify(stops(svg, 'stop-color')) && stops(svg, 'stop-color').length === 4,
   { wordmark: stops(word, 'stopColor'), master: stops(svg, 'stop-color') });
-for (const [k, d] of [['eo', eoD], ['feed', feedD], ['ruleL', ruleLD], ['ruleR', ruleRD], ['by', byD]])
+for (const [k, d] of [['eo', eoD], ['feed', feedD], ['ruleL', ruleLD], ['ruleR', ruleRD]])
   ok(`…and paints ${k} in logo.svg's literal ${INK[k]}`, (fillOf(word, d) || '').toUpperCase() === INK[k], fillOf(word, d));
 ok('no letters left as text — every letter is a path', !/<text\b/.test(word) && !/>\s*(Neo|eo|Feed)\s*</.test(word));
 const lockupOnly = /\{lockup && <>([\s\S]*?)<\/>\}/.exec(word)?.[1] || '';
-ok('the rule and the byline are drawn only for the lockup, and nothing else is',
-  [ruleLD, ruleRD, byD].every(d => lockupOnly.includes(`d="${d}"`)) && pathsOf(lockupOnly).length === 3,
+ok('the rule is drawn only for the lockup, and nothing else is',
+  [ruleLD, ruleRD].every(d => lockupOnly.includes(`d="${d}"`)) && pathsOf(lockupOnly).length === 2,
   pathsOf(lockupOnly).length);
 const wordVB = /viewBox=\{lockup \? "0 0 ([\d.]+) ([\d.]+)" : "0 0 ([\d.]+) ([\d.]+)"\}/.exec(word);
 ok('its lockup viewBox is logo.svg\'s', wordVB && `${wordVB[1]} ${wordVB[2]}` === `${vb[1]} ${vb[2]}`, wordVB && wordVB.slice(1));

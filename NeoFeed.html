@@ -993,9 +993,11 @@
      logo as the hero. The logo is the 2026-09-23 lockup Praew chose from
      rendered sheets: the N (a swaddled baby: the circle is the head, the dark
      ribbon the cloth, the light stem the body), "eo" and "Feed" with a bottle
-     and a milk drop in Feed's e's, a Sage / Champagne Gold rule and "by
-     VALHALLA HEALTH". icons/logo.svg is its master and icons/icon.svg the
-     app icon's; <NeoFeedWordmark/> in app.jsx draws the same paths. */
+     and a milk drop in Feed's e's, and a green / Champagne Gold rule, every
+     letter's corners rounded like the N's. "by Valhalla Health" stays at the
+     foot of the screen, not in the logo. icons/logo.svg is its master and
+     icons/icon.svg the app icon's; <NeoFeedWordmark/> in app.jsx draws the
+     same paths. */
   .login-wrap {
     /* ── Luminous Protection, on this screen only ─────────────────────
        Praew, 2026-09-22, after the app went back to the teal sheet: "ขอกลับ
@@ -1080,9 +1082,9 @@
   .nf-wordmark .nf-mark { display: block; width: 4.56em; max-width: 100%; height: auto; }
 
   /* The login hero is the whole lockup at an N of 72px, 328px wide. The rule
-     and "by VALHALLA HEALTH" are part of the drawing, so the CSS rule that
-     used to hang under the wordmark is gone. max-width lets it shrink on a
-     phone narrower than it is. */
+     is part of the drawing, so the CSS rule that used to hang under the
+     wordmark is gone. max-width lets it shrink on a phone narrower than it
+     is. */
   .login-app-name {
     font-size: 72px;
     max-width: 100%;
@@ -1165,12 +1167,13 @@
     bottom: 28px;
     display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
-  /* The foot of the login screen, which replaced the "ติดต่อทีม Valhalla"
-     button on 2026-09-22: 12px, in the quiet ink tier, with no border and no
-     button affordance. It is a signature, not a call to action. It read "by
-     Valhalla Health · © 2026" until the 2026-09-23 logo carried "by VALHALLA
-     HEALTH" in the lockup itself; the endorsement is shown once, so the foot
-     is the © line alone. */
+  /* The endorsement, replacing the "ติดต่อทีม Valhalla" button removed on
+     2026-09-22. Brand Handbook § 07: the endorsement sits under the product
+     and never outranks it — so this is 12px under the logo, in the quiet ink
+     tier, with no border and no button affordance. It is a signature, not a
+     call to action: one line, "by Valhalla Health · © 2026". The 2026-09-23
+     logo carried "by VALHALLA HEALTH" for one round; Praew put it back here,
+     so it is shown once. */
   .login-endorse {
     font-size: 12px;
     letter-spacing: 0.02em;
@@ -1807,7 +1810,7 @@
   <script src="compiled/fenton.js?v=f6010040cd"></script>
   <script src="compiled/registry.js?v=2516b1362f"></script>
   <script src="compiled/log.js?v=ea9db8e547"></script>
-  <script src="compiled/app.js?v=bdeb65281b"></script>
+  <script src="compiled/app.js?v=7f550436d8"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

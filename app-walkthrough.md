@@ -881,14 +881,15 @@ notes — don't just add the feature.
     are all still there with teal values. Don't "clean them up".
 - **The NeoFeed logo is two masters in `icons/`, drawn by one component**
   (2026-09-23). `icons/logo.svg` is the lockup: the N, "eo", "Feed" with a
-  bottle and a milk drop in its e's, the Sage / Champagne Gold rule and "by
-  VALHALLA HEALTH". `icons/icon.svg` is the app icon: the N's three shapes on
+  bottle and a milk drop in its e's, every corner rounded like the N's, and
+  the green / Champagne Gold rule ("by Valhalla Health" is not in it: it
+  stays at the login screen's foot). `icons/icon.svg` is the app icon: the N's three shapes on
   Porcelain Mist. The phone/favicon PNGs are rendered from icon.svg by
   `tools/render-icons.cjs` (the maskable pair at 39% of the square rather than
   62%, because Android shows only the middle of a maskable icon), and **one**
   `<NeoFeedWordmark/>` in `app.jsx` inlines logo.svg's paths for all three
-  screens that show the brand: the login hero (`lockup`, with the rule and
-  byline), the topbar corner and `SyncGate`. **Nothing inside the app draws the
+  screens that show the brand: the login hero (`lockup`, with the rule), the
+  topbar corner and `SyncGate`. **Nothing inside the app draws the
   icon *tile*:** it is the launcher artwork, and an app showing you its own
   launcher icon in its toolbar is showing you the thing you pressed to get
   there. Every letter is a path (Poppins outlined), so no font is loaded for it.

@@ -6,8 +6,9 @@
 //   2. "Can I remove V logo below login page. Only show by valhalla team เราใส่อะไรที่ดูเป็น
 //      ลิขสิทธิไปด้วยได้? @2026?" — the Guardian V goes, and the foot reads, on one line,
 //      "by Valhalla Health · © 2026" (the wording she chose from three).
-// Then 2026-09-23: the new logo carries "by VALHALLA HEALTH" under its rule, as her artwork
-// draws it. The endorsement is shown once, so the foot keeps only "© 2026".
+// On 2026-09-23 the new logo carried "by VALHALLA HEALTH" under its rule for one round, and
+// Praew put it back here: "by Valhalla health เอาไว้ด้านล่าง คู่กับ 2026 เหมือนเดิม". So the foot
+// reads as she set it on 2026-09-22, and the logo must not say it a second time.
 //
 // Source-level, like verify-quick-calc.cjs § 7: it reads app.jsx and both
 // hand-synced shells, CRLF-normalised so a Windows checkout reads what CI reads.
@@ -28,13 +29,15 @@ const block = /<div className="login-contact">[\s\S]*?\n {6}<\/div>\n/.exec(app)
 ok('the endorsement block exists', block.includes('className="login-endorse"'), block.slice(0, 200));
 // What a reader sees: tags dropped, &nbsp; read as the space it renders as.
 const text = block.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
-ok('it reads "© 2026", on one line', text === '© 2026', text);
-// The endorsement moved up into the logo: the login hero is the full lockup,
-// which draws "by VALHALLA HEALTH" and is announced with it.
-ok('the login hero is the lockup, which carries the endorsement',
-  /<NeoFeedWordmark className="login-app-name" lockup \/>/.test(app)
-  && /aria-label=\{lockup \? "NeoFeed by Valhalla Health" : "NeoFeed"\}/.test(app));
-ok('…so the foot does not say it a second time', !/Valhalla/i.test(text), text);
+ok('it reads "by Valhalla Health · © 2026", on one line', text === 'by Valhalla Health · © 2026', text);
+// Shown once: the login hero is the logo alone, announced as "NeoFeed", and
+// neither the component nor the logo master draws a byline.
+const word = /const NeoFeedWordmark = \([\s\S]*?\n\);/.exec(app)?.[0] || '';
+const logo = read('icons/logo.svg').replace(/<!--[\s\S]*?-->/g, '');
+ok('the logo does not say it a second time: no byline in the wordmark or in icons/logo.svg',
+  word.length > 0 && /aria-label="NeoFeed"/.test(word) && !/Valhalla/i.test(word.replace(/^\s*\/\/.*$/gm, ''))
+  && !/Valhalla/i.test(logo) && (logo.match(/<path\b/g) || []).length === 7,
+  { words: word.length, paths: (logo.match(/<path\b/g) || []).length });
 ok('the Guardian V is gone from the login screen', !/<img\b/.test(block) && !app.includes('valhalla-guardian-v.png'), block);
 ok('no version line on the login screen', !/V ?2\.0|login-footer/.test(block), block);
 
