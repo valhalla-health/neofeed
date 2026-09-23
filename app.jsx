@@ -199,32 +199,62 @@ function computeAlerts(patient, entries) {
     const tGir  = D_A.TARGETS.gir();
     const tPro  = isEN ? T.protein() : T.protein(lastDol);
     const tKcal = isEN ? T.kcal()    : T.kcal(lastDol);
-    if (last.gir > tGir[1]) alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${last.gir} mg/kg/min — reduce dextrose concentration.`, dol: lastDol, ref: "ESPGHAN 2018" });
-    if (last.pro < tPro[0] && lastDol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${last.pro} g/kg/d on DOL ${lastDol} — target ${tPro[0]}–${tPro[1]} g/kg/d (${src}, ${route}).`, dol: lastDol, ref: src });
-    if (last.kcal < tKcal[0] && lastDol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${last.kcal} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${lastDol} (${src}, ${route}).`, dol: lastDol, ref: src });
+    // ── GIR: graded by D_A.girStatus, the same call the Calculator makes ──
+    // This page used to grade it here, with its own rule (`> tGir[1]`), so a
+    // logged GIR of 12.5 was the Calculator's amber "off target" on the order
+    // it came from and this page's red "critically high" on the alert list,
+    // with nothing to tell a nurse which screen to believe (2026-09-23). Two
+    // copies of one threshold is the defect; the threshold itself was never in
+    // dispute, and now there is only one.
+    //
+    // Every figure below goes through displayNum. They are floating-point
+    // results read off a stored row, and this page printed them raw — "Logged
+    // GIR 7.206498951781971 mg/kg/min" at the bedside. New rows are rounded at
+    // source now (D.roundLogEntry), but every row already in the sheet is not.
+    const nA = (v, d = 1) => D_A.displayNum(v, d);
+    const girS = D_A.girStatus(last.gir);
+    if (girS === "crit") alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${nA(last.gir, 2)} mg/kg/min — above the ${D_A.GIR_HARD_HI} hard limit; reduce dextrose concentration.`, dol: lastDol, ref: "ESPGHAN 2018" });else
+    if (girS === "warn") alerts.push({ id: "gir-off", level: "warn", title: "GIR off target", body: `Logged GIR ${nA(last.gir, 2)} mg/kg/min — aim ${tGir[0]}–${tGir[1]} mg/kg/min.`, dol: lastDol, ref: "ESPGHAN 2018" });
+    if (last.pro < tPro[0] && lastDol > 2) alerts.push({ id: "protein-low", level: "warn", title: "Protein below DOL target", body: `${nA(last.pro, 2)} g/kg/d on DOL ${lastDol} — target ${tPro[0]}–${tPro[1]} g/kg/d (${src}, ${route}).`, dol: lastDol, ref: src });
+    if (last.kcal < tKcal[0] && lastDol > 4) alerts.push({ id: "kcal-low", level: "warn", title: "Energy below growth target", body: `${nA(last.kcal, 1)} kcal/kg/d — target ${tKcal[0]}–${tKcal[1]} kcal/kg/d for DOL ${lastDol} (${src}, ${route}).`, dol: lastDol, ref: src });
   }
 
-  // Growth velocity — from patient.weights (Fenton chart data, most reliable).
-  // Length/HC-only rows carry no `w` — exclude them from this reasoning.
-  const wts = (patient.weights || []).filter(w => w.w != null);
-  if (wts.length >= 2) {
-    const recent = wts.slice(-Math.min(wts.length, 7));
-    const wFirst = recent[0], wLast = recent[recent.length - 1];
-    const dW = wLast.w - wFirst.w;
-    const days = Math.max(1, wLast.dol - wFirst.dol);
-    const avgKg = (wFirst.w + wLast.w) / 2 / 1000;
-    const vel = dW / days / avgKg;
-    if (vel < 15) alerts.push({
+  // ── Growth velocity (D_A.growthVelocity) ────────────────────────────────
+  // The rule used to be "first and last of the past seven weight rows, graded
+  // against ≥15 g/kg/d", unconditionally. That fired "critically low" on every
+  // normal infant through the physiological weight loss of its first week, and
+  // applied a PRETERM target past 42 weeks PMA where the Fenton reference this
+  // app carries has already stopped. Both states are now reported rather than
+  // alarmed on — an info line saying why no velocity is being graded is worth
+  // more than a red one that is wrong (2026-09-23). See data.js growthVelocity.
+  const gv = D_A.growthVelocity(patient, entries);
+  if (gv.status === "critical" || gv.status === "low") {
+    alerts.push({
       id: "growth-velocity",
-      level: vel < 10 ? "crit" : "warn",
-      title: vel < 10 ? "Growth velocity critically low" : "Growth velocity below target",
-      body: `${D_A.displayNum(vel, 1)} g/kg/d over ${days} d (DOL ${wFirst.dol}→${wLast.dol}) — target ≥15 g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
-      dol: wLast.dol, ref: "ESPGHAN 2022"
+      level: gv.status === "critical" ? "crit" : "warn",
+      title: gv.status === "critical" ? "Growth velocity critically low" : "Growth velocity below target",
+      body: `${D_A.displayNum(gv.vel, 1)} g/kg/d over ${gv.days} d (DOL ${gv.from.dol}→${gv.to.dol}, measured from the regain of birth weight) — target ≥${D_A.GROWTH_VEL_TARGET} g/kg/d (ESPGHAN 2022 ≥17–20 for catch-up).`,
+      dol: gv.to.dol, ref: "ESPGHAN 2022"
+    });
+  } else if (gv.status === "notRegained") {
+    alerts.push({
+      id: "growth-regain", level: "warn", title: "Birth weight not regained",
+      body: gv.reason, dol: gv.to?.dol, ref: "ESPGHAN 2022"
+    });
+  } else if (gv.status === "physiologicalLoss" || gv.status === "beyondReference") {
+    alerts.push({
+      id: `growth-${gv.status}`, level: "info",
+      title: gv.status === "physiologicalLoss" ? "Growth velocity — not yet assessable" : "Growth velocity — beyond the Fenton reference",
+      body: gv.reason, dol: gv.to?.dol, ref: "ESPGHAN 2022"
     });
   }
 
-  // Stale weight: warn when no weight measurement in 3+ days
-  const lastWtEntry = D_A.lastWeighed(patient);
+  // Stale weight: warn when no weight in 3+ days — from EITHER store
+  // (D_A.lastWeighed with the log). A ward that records the weight in the
+  // daily order rather than on the growth chart used to get "Weight
+  // measurement >7 days overdue", in red, on an infant weighed that morning:
+  // this alert could only see patient.weights[] (2026-09-23).
+  const lastWtEntry = D_A.lastWeighed(patient, entries);
   const todaysDol = D_A.liveDol(patient);
   if (lastWtEntry) {
     const daysSince = todaysDol - lastWtEntry.dol;
@@ -233,7 +263,7 @@ function computeAlerts(patient, entries) {
         id: "weight-stale",
         level: daysSince >= 7 ? "crit" : "warn",
         title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
-        body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
+        body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol}${lastWtEntry.src === "order" ? " (จากใบสั่ง TPN)" : ""} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
         dol: todaysDol, ref: "ESPGHAN 2022"
       });
     }
@@ -936,8 +966,27 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             ({ ...p, currentBed: D_A.normalizeBed(p.currentBed), sex: normalizeSex(p.sex),
                weights: cleanMeasures(p.weights), lengths: cleanMeasures(p.lengths),
                hcs: cleanMeasures(p.hcs), bedHistory: cleanMeasures(p.bedHistory) }));
+          // The merge base is what the SERVER holds — normalizations of its own
+          // values only (bed, sex, bad array elements). Nothing derived goes in
+          // here, or a value this device invented would read as "unchanged" and
+          // never be written back. See handleEditPatient.
           serverPatientsRef.current = new Map(incoming.map(p => [p.sessionId, p]));
-          setPatients(incoming.length > 0 ? incoming : []);
+          // …then, for state only, give every record a date of birth.
+          //
+          // D_A.dolAtDate anchors DOL on dob (see data.js). A record registered
+          // through NewPatientModal always has one, but a legacy or imported row
+          // may not, and without it DOL falls back to admissionDate + the first
+          // weights[] row's DOL — the anchor that moves when someone records a
+          // birth measurement for an outborn infant. dob is exactly what that
+          // pair encodes (dob = admitDate − (admitDol − 1)), so deriving it once
+          // here puts every record on the anchor that cannot move. The first
+          // edit of that record persists it for real.
+          const withDob = incoming.map(p => {
+            if (p.dob || !p.admissionDate || D_A.admissionDateIssue(p.admissionDate)) return p;
+            const admitDol = Math.max(1, Number(p.weights?.[0]?.dol) || 1);
+            return { ...p, dob: D_A.addDaysToDateStr(p.admissionDate, -(admitDol - 1)) };
+          });
+          setPatients(withDob.length > 0 ? withDob : []);
           // Never auto-pick a patient — keep the current selection only if it
           // still exists in the fresh data, otherwise fall back to none (registry list).
           setActiveId(prev => data.patients.some(p => p.sessionId === prev) ? prev : null);
@@ -1370,6 +1419,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // against live state; the backend refuses it once more (registerPatient in
   // gas-backend.gs), which is the only check that sees other devices' writes.
   // Returns the message (shown inside the modal, UP-S9), or null.
+  // The server's copy of one record, as of right now — captured by a patient
+  // editor when it OPENS and handed back with the submission, so a background
+  // sync cannot move the merge base out from under an open modal. See
+  // handleEditPatient for what that cost before it did.
+  const mergeBaseFor = React.useCallback(
+    (sessionId) => serverPatientsRef.current.get(sessionId) ?? null, []);
+
   const bedConflict = (p) => {
     const holder = D_A.bedBlocker(patients, p);
     if (!holder) return null;
@@ -1433,13 +1489,35 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // sex already normalised — the only form any modal ever saw), replaced by
   // what this device sent once a save of its own succeeds, since that is the
   // latest the server is known to hold for the fields it changed.
-  const handleEditPatient = (p) => {
+  //
+  // ── The base is the one the EDITOR OPENED ON, not the newest one ─────────
+  // `base` used to be read out of serverPatientsRef at SAVE time. That ref is
+  // replaced wholesale by every background sync, so a sync landing while the
+  // modal sat open swapped the merge base for a record NEWER than the one the
+  // user was editing — and the three-way merge then read the other device's
+  // changes as this device's, in both directions (2026-09-23):
+  //
+  //   • another device discharged the infant → status differed from the (new)
+  //     base, so the merge took the modal's stale "Active" and RE-ACTIVATED a
+  //     discharged patient;
+  //   • another device saved a weight → that DOL was in base but not in the
+  //     modal's copy, which _mergeByDol reads as "deleted here", and the
+  //     weight was DELETED.
+  //
+  // A merge base is only a base if it is the common ancestor of both edits, so
+  // it is captured when the editor opens (mergeBaseFor, passed to every modal)
+  // and travels with the submission. The save-time lookup remains only for
+  // callers that pass none — which are the ones editing nothing they could
+  // have raced on.
+  const handleEditPatient = (p, openedFromBase) => {
     const clash = bedConflict(p);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
     if (blocked) return Promise.resolve(blocked);
     const previous = patients.find(x => x.sessionId === p.sessionId);
-    const base = serverPatientsRef.current.get(p.sessionId);
+    const base = openedFromBase !== undefined
+      ? openedFromBase
+      : serverPatientsRef.current.get(p.sessionId);
     setPatients(prev => prev.map(x => x.sessionId === p.sessionId ? p : x));
     if (!GAS_ON) {
       showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
@@ -1815,15 +1893,23 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               ยังไม่มีผู้ป่วยในระบบ — ไปที่ <strong>Patients</strong> เพื่อลงทะเบียนผู้ป่วยใหม่
             </div>
           )}
-          {view !== "registry" && active &&
-          <PatientStrip patient={active} onSwitch={() => setPickerOpen(true)} liveWeight={calcWeights[activeId] || null} currentDol={dol} onEdit={() => setEditingPatient(active)} />
+          {/* PATIENT_VIEWS, not "any view that isn't the registry": the quick
+              calculator is deliberately patient-less (SCRATCH_PATIENT, no PHI,
+              nothing saved), and the old gate still hung the last-opened
+              infant's name, bed, DOL, GA and weight above it — an identity
+              strip over a calculator that knows nothing about that infant, on
+              the one screen whose whole point is that it is not about anyone
+              (2026-09-23). Any future non-patient view is covered by the same
+              rule rather than needing another exception. */}
+          {PATIENT_VIEWS.includes(view) && active &&
+          <PatientStrip patient={active} entries={log[activeId] || []} onSwitch={() => setPickerOpen(true)} liveWeight={calcWeights[activeId] || null} currentDol={dol} onEdit={() => setEditingPatient(active)} />
           }
           {/* The modal waits for the server and closes itself on success (UP-S9). */}
           {editingPatient && <EditPatientModal patient={editingPatient} patients={patients} onClose={() => setEditingPatient(null)}
-            onSubmit={handleEditPatient}
+            onSubmit={handleEditPatient} mergeBaseFor={mergeBaseFor}
             onDelete={role === "admin" ? handleDeletePatient : undefined} />}
 
-          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
+          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}
@@ -1856,7 +1942,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
                   <div className="sub">Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)</div>
                 </div>
               </div>
-              <FentonChart patient={active} currentDol={dol} onUpdate={(weights) =>
+              <FentonChart patient={active} entries={log[activeId] || []} currentDol={dol} onUpdate={(weights) =>
                 handleWeightUpdate(active.sessionId, weights)
               } />
             </>
@@ -2071,7 +2157,15 @@ const SCRATCH_PATIENT = Object.freeze({
 const QUICK_DOL_MAX = 60;
 
 function QuickCalcView({ onBack }) {
-  const [dol, setDol] = React.useState(1);
+  // Held as a STRING so the box can be empty while being retyped. As a number
+  // it could not: clearing "14" re-rendered the input as "1" the moment the
+  // 4 was deleted (Math.max(1, …) on an empty string), so typing 5 next gave
+  // 15 — a two-week-old's targets silently applied to a quick calc meant for
+  // day 5 (2026-09-23). The calculator still receives a real day: `dolValue`
+  // holds the last valid one while the box is empty.
+  const [dolText, setDolText] = React.useState("1");
+  const dolValue = Math.min(QUICK_DOL_MAX, Math.max(1, parseInt(dolText, 10) || 1));
+  const dol = dolValue;
   return (
     <>
       <div className="page-head">
@@ -2092,14 +2186,17 @@ function QuickCalcView({ onBack }) {
         <div className="quick-dol">
           <label htmlFor="quick-dol-input">DOL</label>
           <input id="quick-dol-input" className="num" type="number" inputMode="numeric"
-            min={1} max={QUICK_DOL_MAX} step={1} value={dol}
+            min={1} max={QUICK_DOL_MAX} step={1} value={dolText}
             onChange={(e) => {
-              // Empty box while retyping must not become NaN and take every
-              // target band with it — hold the last real day until one is typed.
-              const v = Math.round(Number(e.target.value));
+              const raw = e.target.value;
+              // An empty box stays empty; the targets keep using the last valid
+              // day (dolValue) until a new one is typed.
+              if (raw === "") { setDolText(""); return; }
+              const v = Math.round(Number(raw));
               if (!isFinite(v)) return;
-              setDol(Math.min(QUICK_DOL_MAX, Math.max(1, v)));
-            }} />
+              setDolText(String(Math.min(QUICK_DOL_MAX, Math.max(1, v))));
+            }}
+            onBlur={() => setDolText(String(dolValue))} />
         </div>
       </div>
 
@@ -2198,13 +2295,16 @@ function RailItem({ icon, label, active, count, crit, onClick }) {
 
 }
 
-function PatientStrip({ patient, onSwitch, liveWeight, currentDol, onEdit }) {
+function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEdit }) {
   // `?? patient.bw` rather than trusting `last.w`: a patient whose only
   // measurements are length/HC (w: null) has no weighed entry at all, and this
   // strip is rendered above every non-registry view — reading `.w` off nothing
   // threw and took the whole app down with it, since there is no error boundary.
+  // Both stores (D_A.lastWeighed with the log): "Wt now" showed the last
+  // growth-chart measurement only, so on a ward that records weight in the
+  // daily TPN order it sat at the birth weight for weeks (2026-09-23).
   const ws = patient.weights || [];
-  const last = D_A.lastWeighed(patient) || ws[ws.length - 1] || null;
+  const last = D_A.lastWeighed(patient, entries) || ws[ws.length - 1] || null;
   const currentW = liveWeight ?? last?.w ?? patient.bw;
   // Use calculated DOL if passed, else fall back to stored value
   const displayDol = currentDol ?? last?.dol ?? 1;

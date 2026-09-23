@@ -7,11 +7,194 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-23 (c) — White chart backgrounds, a blue Energy line, and the paler range bars
+
+Frontend only: `log.jsx`, `fenton.jsx`, both shells, `compiled/`. No figure, target or printed dose
+moved, so `CONSTANTS_VERSION` stays `2026-09-18.1`.
+
+- **Trend graph (`log.jsx`)** — the plot area is white (was a pale cyan), and the tinted area under
+  the line is gone, so the green target band is the only colour behind the line. Energy is blue
+  (`oklch(50% 0.15 250)`), not the dark green that merged into the green band (Praew, 2026-09-23).
+- **Fenton chart (`fenton.jsx`)** — the same white plot area. Daily weights from the orders were
+  already plotted by `weightSeries` (#96); they were not visible to Praew because #95/#96 have not
+  been released yet.
+- **Range bars on the cards** — `--zone-ok/best/warn/crit` are pale tints. The same change was made
+  on 2026-09-23 in a local tree and never committed; it ships here.
+
+## Session 2026-09-23 (b) — the safety review's findings, fixed
+
+The review that found these is the entry below (`## Session 2026-09-23`); its four fix-first items
+and most of its clinically-important ones are closed here. `test/verify-safety-fixes-0923.cjs` is
+new and pins every one of them: 100 assertions, 38 of which fail against `d08e0fc`.
+
+No figure in `calc` moved and no printed dose changed, so `CONSTANTS_VERSION` stays `2026-09-18.1`.
+One clinical policy did change — see NPE:AA below.
+
+### Day of life is now measured from the date of birth
+
+`dolAtDate` anchored DOL on `weights[0].dol`, the DOL of the first *measurement*. `weights[]` is
+sorted by DOL, so recording an outborn infant's birth weight from the referring hospital prepended a
+DOL-1 row and re-dated the whole record: DOL 8 → 4, PMA 31+0 → 30+3, and with them the fluid, energy
+and Na bands and the DOL printed on the pharmacy form. It now counts from `dob`, which is what day of
+life means and is not an editable array. Two guards came with it: a `dob` *later* than the admission
+date is not believed (that pair means the dob was defaulted, and the admission anchor wins), and a
+record that reaches the client without a `dob` has one derived from `admissionDate` + `weights[0].dol`
+— the same arithmetic both registry modals already use — so no record is left on the old anchor.
+
+### The admission date is guarded, on both sides
+
+Blank, a future date and a Thai Buddhist-era year (2569 for 2026) were all accepted, and each pinned
+DOL at 1 — the day-1 fluid, energy, Na, K, Ca and P bands for an infant of any age. `admissionDateIssue`
+now names each case in Thai, both modals block the save and offer the BE → CE conversion, and
+`gas-backend.gs` checks the same thing on the write path. The edit modal no longer seeds `today` into
+a record that has no admission date (opening such a record and saving any unrelated correction used to
+stamp today, taking a DOL 20 record to DOL 1), and it recomputes and saves `dob` alongside, so a
+correction to either field actually reaches the DOL. The server check follows `_checkSex`'s rule — a
+bad value carried through *unchanged* is not refused, or the record would be locked against the very
+correction that fixes it — and allows a day of slack on "future" so clock skew can never refuse a
+legitimate admission entered late in the evening.
+
+### The three-way merge base is the one the editor opened on
+
+`base` was read out of `serverPatientsRef` at *save* time, and that ref is replaced by every background
+sync. A sync landing while a patient modal sat open therefore swapped the merge base for a record
+*newer* than the one on screen, and the server then read the other device's changes as this device's:
+reproduced re-activating a discharged infant, and deleting a weight another device had just saved. The
+base is now captured when the editor mounts (`useMergeBase`) and travels with the submission.
+
+### The two weight stores are read as one
+
+An order's dosing weight went to `Daily_Log.weight`, a growth measurement to `patient.weights[]`, and
+nothing joined them. A ward that weighs once a day and types it into the order — most of them — built
+a weight history the growth chart, "Wt now" and the stale-weight alert could not see at all: a
+one-point Fenton chart and a red "Weight measurement >7 days overdue" on an infant weighed that
+morning. `D.weightSeries(patient, entries)` joins them at read time rather than copying at write time
+(copying would mean a second server write per order, a second chance to disagree, and a merge to get
+wrong); a deliberate measurement outranks an order's working figure on the same day. A new order now
+also starts from the freshest weight on record rather than carrying yesterday's order weight over
+under the hint "= current weight", and Step 1 names which of the two the number is.
+
+`D.ioDivisorG` is deliberately **not** changed: it has its own documented birth-weight-floor convention
+and feeds a printed per-kg figure.
+
+### Smaller, and all pinned
+
+- **GIR is graded once** (`D.girStatus`). The Alerts page had its own copy of the threshold and called
+  anything over 12 critical while the calculator made 12–13 the yellow margin, so one saved GIR was
+  amber on the order it came from and red on the alert list. Every figure in an alert body now goes
+  through `displayNum` — that page printed "Logged GIR 7.206498951781971" at the bedside.
+- **Growth velocity** is measured from the regain of birth weight, and reports rather than grades in
+  the two states where it cannot judge: the physiological postnatal nadir (it fired "critically low"
+  on every normal infant's first week) and past 42 weeks PMA, where the ≥15 g/kg/d preterm target does
+  not apply and the Fenton reference has stopped. `fenton.jsx`'s own velocity and "latest measurement"
+  readouts now read the unclamped points — they were reading the chart's 42-week clamp and freezing on
+  exactly the long-stay infants being watched hardest.
+- **The trend graph** drew the latest row's target band across the whole history, so a day that was on
+  target for its own day read far below it. Each point now carries the band that applied on its day and
+  the band is drawn as steps.
+- **Quick calc** no longer wears the last-opened infant's identity strip (the gate was "any view that
+  is not the registry"; it is now `PATIENT_VIEWS`), and its DOL box can be emptied — 14 → backspace
+  used to snap to "1", so typing 5 next gave 15.
+- **Server plausibility bounds** refused correct orders: weight < 300 g (NeoFeed is used at 22–23
+  weeks), GIR > 20 (hyperinsulinism is managed at 25–30) and energy of exactly 200 kcal/kg/d, which
+  arrived as `200.00000000000003`. Now 200–8000 g, GIR ≤ 30, kcal ≤ 250, with an epsilon at the
+  boundary — and the refusal is written in Thai instead of surfacing raw English inside a Thai toast.
+
+### NPE:AA < 20 is a warning, not a save-blocking stop — **signed off by Praew, 2026-09-23**
+
+The only clinical policy changed here, and the one the review marked "team decision". NPE:AA below
+20 kcal/g AA means amino acid is being oxidised for fuel rather than laid down: real, but it is the
+ordinary shape of a ramping PN order, where amino acid reaches target on day 1 while dextrose and
+lipid climb over the week. With AA 3.5 g/kg/d and lipid 3 g/kg/d the ratio only clears 20 at GIR ≥ 8.8,
+so a fluid-restricted day-3 ELBW raised a *critical* alert clearable only by typing an override
+reason — the rote-override problem UP-C4 fixed for lipid, K and osmolarity, surviving on this one
+limit. The high side (> 32) is untouched and still stops the order. `verify-review-0917-calc.cjs` § 4
+is updated with the reasoning; UP-C4's "judged on the bag, not the total" decision is unchanged.
+
+**Signed off by Praew (Neonatologist, KCMH) on 2026-09-23**, on PR #96, with the reasoning accepted as
+written: an override people type without reading protects nobody, so the information is kept and the
+reflex is removed. The DOL-aware variant that was offered was declined — it would put a third arm of
+clinical policy inside a display threshold. `verify-calc-oracle.cjs` grades the new policy from a hand
+transcription, not from `calculator.jsx`, and is ALL PASS at 1,058 checks on the merged result.
+
+The sign-off carried one condition, now in `BACKLOG.md` § Next: only `crit` alerts are persisted
+(`calcInput.critOverride`) and only criticals reach the pharmacy form, so from this change on a
+sub-20 ratio is visible when the order is written and then leaves no trace. A transient ramp is
+exactly what this downgrade is for; several consecutive days below 20 is a nutrition question, and
+that is the case it gives up the ability to see.
+
+### What was tried and backed out
+
+Rounding every logged figure to clinical precision before saving it. It would have fixed both
+symptoms above, but neither symptom is about storage: the raw print is a display defect and the
+200 kcal refusal is a validation defect, each fixed where it belongs. Rounding the stored row instead
+would have discarded precision in the columns a reprint and every trend are computed from — which is
+what `test/verify-calc-oracle.cjs` caught, in 78 checks, and it was right to.
+
+
 - Current production state → `STATUS.md`
 - Open work → `BACKLOG.md`
 - Conventions, schema, PDPA posture → `REFERENCE.md`
 
 ---
+
+## Session 2026-09-23 — A safety review of the whole app, and three harnesses so the calculator cannot drift
+
+Tests, one one-line calculator fix, `.github/CODEOWNERS`, and two repository settings. No `data.js`
+change, no figure in `calc` and no printed number moved, so `CONSTANTS_VERSION` stays `2026-09-18.1`.
+
+### The review
+
+Praew asked for the calculator to be checked click by click and figure by figure, then the rest of the
+app walked for bugs. The calculator came out clean: 1,058 oracle checks over 12 scenarios, 5,473 over
+250 randomised orders (CI re-runs 80 of them), 242 click assertions and the repo's own 102 harness runs (sources and
+`compiled/`) all agree, and every figure on a printed sheet reconciled by hand. One display bug, no
+dose error. The findings that are *not* in the calculator are listed in `BACKLOG.md` § Now / § Next —
+the two weight stores, the DOL anchor in `weights[0].dol`, the unguarded admit date, and the stale
+`base` a sync leaves a patient modal holding.
+
+### What changed
+
+- **`test/verify-calc-oracle.cjs`** (new) — 12 orders through the real `<Calculator>`, every figure
+  checked on four surfaces against a recomputation that never imports the app's formulas. See
+  `test/README.md` for what it covers and for the `NEGATIVE_CONTROL=1` switch that proves it can fail.
+- **`test/verify-calc-clicks.cjs`** (new) — 242 assertions over every chip, toggle, select, checkbox
+  and button, plus the gates around a printed order.
+- **`test/verify-calc-fuzz.cjs`** (new) — random orders from a fixed seed against a third
+  recomputation, with five invariants that must hold for any order (Factor round-trip, dead-space
+  independence, components + WFI = prepared, no broken number on screen, no critical tile without a
+  critical alert).
+- **`calculator.jsx`** — the Munti-vim vitamin D warning added the drop's fixed 400 IU/day **per kg**:
+  `(suppVitD + 400) × wtKg`. A 2.5 kg infant on 400 IU/kg/d read 2,000 IU/day for a real 1,400, and an
+  800 g infant read 880 for a real 960 — in the one line whose job is to stop a vitamin D overdose. Now
+  `suppVitD × wtKg + 400`. The printed form and the copied order were always right; only this on-screen
+  warning was wrong, which is why no printed figure moves and `CONSTANTS_VERSION` does not change.
+  Pinned by `verify-calc-oracle.cjs` (scenarios B and C), which fails against the line above it.
+- **`.github/CODEOWNERS`** (new) — advisory today: it puts the right name on every PR and is the one
+  place to add the second clinical reviewer `AI_SDLC.md` § 7 says has never existed.
+
+### Two settings, recorded here because they have no file
+
+- **`main` now carries branch protection**, mirroring `release`: the `harnesses` check is required,
+  `enforce_admins` is on, force-push and deletion are refused, 0 approving reviews (GitHub never lets
+  an author approve their own PR, so requiring one would block Praew's own merges). Before this, `main`
+  had **no** effective protection: the repository ruleset named `protect-main` (created 2026-09-07)
+  has an empty target-branches list, so it protects nothing — `gh api repos/valhalla-health/neofeed/rules/branches/main`
+  returns `[]`. A PR with a red `harnesses` could be merged into `main`, and `main` is what every
+  release PR ships.
+- **Every release since the deploy gate now has a tag** — `release-YYYY-MM-DD-prNN` on each
+  `main → release` merge from PR #60 (2026-09-12, the first release under the gate) through #94
+  (2026-09-23). Eleven annotated tags. A rollback is now `git checkout <tag>`, and the provenance stamp
+  on a printed order leads to a commit that leads to a tag.
+
+### Following releases
+
+Tag the release merge as part of the release, the way `STATUS.md` is written as part of the deploy:
+
+```bash
+git tag -a release-$(date +%F)-pr<N> <merge sha> -m "Release $(date +%F) — PR #<N> merged into release"
+git push origin release-$(date +%F)-pr<N>
+```
 
 ## Session 2026-09-22 (5) — The Calculator button moves to the Ward page, the range bars get their colours back, and the Android icon gets room
 

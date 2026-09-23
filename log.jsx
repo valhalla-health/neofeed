@@ -47,7 +47,9 @@ function pickTarget(metricKey, entry, patient) {
 }
 
 const METRICS = [
-  { key: "kcal",   label: "Energy",    unit: "kcal/kg/d", color: "oklch(38.5% 0.047 170)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
+  // Energy is blue, not the dark green it was: that green sat on top of the
+  // green target band and the two read as one (Praew, 2026-09-23).
+  { key: "kcal",   label: "Energy",    unit: "kcal/kg/d", color: "oklch(50% 0.15 250)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
   { key: "pro",    label: "Protein",   unit: "g/kg/d",    color: "oklch(55% 0.13 155)",  yMax: 5,   ticks: [0, 1, 2, 3, 4, 5] },
   { key: "gir",    label: "GIR",       unit: "mg/kg/min", color: "oklch(58% 0.14 35)",   yMax: 14,  ticks: [0, 2, 4, 6, 8, 10, 12, 14] },
   { key: "fluid",  label: "Fluid",     unit: "mL/kg/d",   color: "oklch(56% 0.11 280)",  yMax: 200, ticks: [0, 40, 80, 120, 160, 200] },
@@ -85,6 +87,10 @@ function TrendGraph({ entries, patient }) {
         dayAdmit: eDol - admitDol,
         ts: e.ts,
         raw: e,
+        // The band that applied on THIS day, under THIS day's regime. Almost
+        // every TPN target steps with DOL (fluid, energy, protein, Na, K, Ca,
+        // P), so one band cannot describe a history — see `bandPath` below.
+        band: pickTarget(metricKey, e, patient),
       };
     })
     .sort((a, b) => a.x - b.x), [entries, metricKey, xMode, admitDol, patient]);
@@ -154,16 +160,6 @@ function TrendGraph({ entries, patient }) {
     return d;
   };
 
-  // area fill under line
-  const areaPath = () => {
-    const lp = linePath();
-    if (!lp || points.length === 0) return "";
-    const lastX = xScale(points[points.length - 1].x);
-    const firstX = xScale(points[0].x);
-    const baseY = H - pad.b;
-    return `${lp} L ${lastX} ${baseY} L ${firstX} ${baseY} Z`;
-  };
-
   // ── hover handling ────────────────────────────────────────
   const handleMove = e => {
     if (!points.length) return;
@@ -181,8 +177,11 @@ function TrendGraph({ entries, patient }) {
 
   // ── status of latest point ────────────────────────────────
   const latest = points[points.length - 1];
-  // Dynamic target band based on latest entry's regime (PN vs EN ≥ 100 mL/kg)
-  const targetBand = latest ? pickTarget(metricKey, latest.raw, patient) : null;
+  // Dynamic target band based on latest entry's regime (PN vs EN ≥ 100 mL/kg).
+  // Used for the status dot and the legend — i.e. for the LATEST value only,
+  // which is the one question it answers correctly. The band drawn on the
+  // chart is per-day (bandSteps below).
+  const targetBand = latest ? latest.band : null;
   const isENMode = latest && (latest.raw.enVolPerKg || 0) >= 100;
   let status = "empty";
   if (latest && targetBand) {
@@ -193,10 +192,39 @@ function TrendGraph({ entries, patient }) {
   }
   const statusColor = status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn)" : status === "crit" ? "var(--crit)" : "var(--ink-3)";
 
-  const xAxisLabel = xMode === "dayAdmit" ? "Day of admission" : "Day of life (DOL)";
+  // ── The target band, as it actually moved ─────────────────────────────
+  // It used to be ONE rectangle, spanning the full width at the latest entry's
+  // band. Nearly every target here steps with DOL, so a day that was exactly
+  // on target for its own day was drawn far below "the" band — a DOL-2 energy
+  // of 55 kcal/kg/d (target 50–60) read as less than half of the DOL-20 band
+  // painted over it, and a nurse checking whether the week had gone well was
+  // reading a comparison nobody had made (2026-09-23). Now each point's own
+  // band (point.band) is drawn as a step, so the chart compares every day
+  // against the day it was.
+  //
+  // Steps, not a smooth ribbon: the targets are step functions of DOL, and
+  // interpolating between them would draw a band that never existed.
+  // A plain computation, not a useMemo: this sits below the early return for
+  // an empty log, and a hook there would change the hook order between renders.
+  const bandSteps = (() => {
+    const withBand = points.filter(p => p.band);
+    if (withBand.length === 0) return [];
+    const out = [];
+    for (let i = 0; i < withBand.length; i++) {
+      const p = withBand[i];
+      const prev = out[out.length - 1];
+      // Merge consecutive days that share a band, so a long stretch on one
+      // band is one rectangle rather than a row of abutting ones.
+      if (prev && prev.lo === p.band[0] && prev.hi === p.band[1]) { prev.x1 = p.x; continue; }
+      out.push({ x0: prev ? prev.x1 : p.x, x1: p.x, lo: p.band[0], hi: p.band[1] });
+    }
+    // Extend the first and last steps to the chart edges, so the band does not
+    // appear to start and stop inside the plot area.
+    if (out.length) { out[0].x0 = xMin; out[out.length - 1].x1 = xMax; }
+    return out;
+  })();
 
-  // gradient id (per metric, avoids collisions)
-  const gradId = `grad-${metricKey}`;
+  const xAxisLabel = xMode === "dayAdmit" ? "Day of admission" : "Day of life (DOL)";
 
   return (
     <div>
@@ -310,36 +338,40 @@ function TrendGraph({ entries, patient }) {
           onMouseMove={handleMove}
           onMouseLeave={() => setHover(null)}
         >
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={metric.color} stopOpacity="0.22" />
-              <stop offset="100%" stopColor={metric.color} stopOpacity="0" />
-            </linearGradient>
-          </defs>
+          {/* plot area background — white, so the green target band is the
+              only colour behind the line (Praew, 2026-09-23) */}
+          <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="var(--surface)" />
 
-          {/* plot area background */}
-          <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.4% 0.004 195)" />
-
-          {/* target zone */}
-          {targetBand && (
-            <>
+          {/* target zone — one step per band, following the DOL */}
+          {bandSteps.map((b, i) => (
+            <g key={i}>
               <rect
-                x={pad.l}
-                y={yScale(targetBand[1])}
-                width={W - pad.l - pad.r}
-                height={yScale(targetBand[0]) - yScale(targetBand[1])}
+                x={xScale(b.x0)}
+                y={yScale(b.hi)}
+                width={Math.max(0, xScale(b.x1) - xScale(b.x0))}
+                height={Math.max(0, yScale(b.lo) - yScale(b.hi))}
                 fill="oklch(52% 0.12 155 / .09)"
               />
-              <line x1={pad.l} x2={W - pad.r} y1={yScale(targetBand[0])} y2={yScale(targetBand[0])}
+              <line x1={xScale(b.x0)} x2={xScale(b.x1)} y1={yScale(b.lo)} y2={yScale(b.lo)}
                     stroke="oklch(52% 0.12 155 / .35)" strokeWidth="1" strokeDasharray="3 3" />
-              <line x1={pad.l} x2={W - pad.r} y1={yScale(targetBand[1])} y2={yScale(targetBand[1])}
+              <line x1={xScale(b.x0)} x2={xScale(b.x1)} y1={yScale(b.hi)} y2={yScale(b.hi)}
                     stroke="oklch(52% 0.12 155 / .35)" strokeWidth="1" strokeDasharray="3 3" />
-              <text x={W - pad.r - 4} y={yScale(targetBand[1]) - 4} fontSize="9.5" textAnchor="end"
-                    fill="oklch(40% 0.12 155)" fontFamily="IBM Plex Mono, monospace" fontWeight="600"
-                    style={{ letterSpacing: "0.04em" }}>
-                TARGET
-              </text>
-            </>
+              {/* The risers that make it read as a step rather than two
+                  unrelated bars. */}
+              {i > 0 && (
+                <line x1={xScale(b.x0)} x2={xScale(b.x0)}
+                      y1={yScale(Math.max(b.hi, bandSteps[i - 1].hi))}
+                      y2={yScale(Math.min(b.lo, bandSteps[i - 1].lo))}
+                      stroke="oklch(52% 0.12 155 / .22)" strokeWidth="1" strokeDasharray="3 3" />
+              )}
+            </g>
+          ))}
+          {bandSteps.length > 0 && (
+            <text x={W - pad.r - 4} y={yScale(bandSteps[bandSteps.length - 1].hi) - 4} fontSize="9.5" textAnchor="end"
+                  fill="oklch(40% 0.12 155)" fontFamily="IBM Plex Mono, monospace" fontWeight="600"
+                  style={{ letterSpacing: "0.04em" }}>
+              TARGET
+            </text>
           )}
 
           {/* y grid + labels */}
@@ -367,8 +399,8 @@ function TrendGraph({ entries, patient }) {
           <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} stroke="var(--ink-3)" strokeWidth="1" />
           <line x1={pad.l} x2={pad.l} y1={pad.t} y2={H - pad.b} stroke="var(--ink-3)" strokeWidth="1" />
 
-          {/* area + line */}
-          {points.length > 0 && <path d={areaPath()} fill={`url(#${gradId})`} />}
+          {/* line only: the tinted area under it used to grey the white plot
+              and muddy the target band (2026-09-23) */}
           {points.length > 0 && (
             <path d={linePath()} stroke={metric.color} strokeWidth="2" fill="none"
                   strokeLinecap="round" strokeLinejoin="round" />
@@ -424,6 +456,13 @@ function TrendGraph({ entries, patient }) {
             <div style={{ opacity: 0.7, fontSize: 10 }}>
               DOL {hover.dol} · Day {hover.dayAdmit} admit
             </div>
+            {/* That day's own target, so the point can be read against the
+                band that applied when it was written. */}
+            {hover.band && (
+              <div style={{ opacity: 0.7, fontSize: 10 }}>
+                target {n(hover.band[0], 1)}–{n(hover.band[1], 1)} {metric.unit}
+              </div>
+            )}
             <div style={{ opacity: 0.55, fontSize: 9.5 }}>{window.NEOFEED_FMT_DATE?.(hover.ts) || hover.ts}</div>
           </div>
         )}

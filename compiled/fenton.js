@@ -5,7 +5,7 @@ function Segmented({ value, onChange, options }) {
     (o) => /* @__PURE__ */ React.createElement("button", { key: o.value, className: value === o.value ? "on" : "", onClick: () => onChange(o.value) }, o.label)
   ));
 }
-function FentonChart({ patient, currentDol, onUpdate }) {
+function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const sex = patient?.sex;
   const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH[sex] && D_F.FENTON_HC[sex]);
   const [metric, setMetric] = React.useState("weight");
@@ -16,8 +16,8 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   React.useEffect(() => {
     const el = svgWrapRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect?.width;
+    const ro = new ResizeObserver((entries2) => {
+      const w = entries2[0]?.contentRect?.width;
       if (w) setRenderedWidth(w);
     });
     ro.observe(el);
@@ -98,10 +98,11 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
   const allPoints = (() => {
     if (metric === "weight") {
-      return (patient?.weights || []).map((w) => ({
+      return D_F.weightSeries(patient, entries).map((w) => ({
         pma: pma0 + (w.dol - 1) / 7,
         value: w.w,
-        dol: w.dol
+        dol: w.dol,
+        src: w.src
       }));
     }
     const standalone = (metric === "length" ? patient?.lengths || [] : patient?.hcs || []).map((e) => ({ dol: e.dol, value: e.v }));
@@ -112,6 +113,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   })().filter((p) => p.value != null);
   const points = allPoints.filter((p) => p.pma >= xMin && p.pma <= xMax);
   const hiddenPastMax = allPoints.filter((p) => p.pma > xMax).length;
+  const latestPoint = allPoints.length ? allPoints[allPoints.length - 1] : null;
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
@@ -209,7 +211,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
         e.currentTarget.releasePointerCapture(e.pointerId);
       }
     },
-    /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "oklch(99.4% 0.004 195)" }),
+    /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "var(--surface)" }),
     yTicks.map((t) => /* @__PURE__ */ React.createElement("line", { key: `y${t}`, x1: pad.l, x2: W - pad.r, y1: yScale(t), y2: yScale(t), stroke: "oklch(94% 0.008 198)" })),
     xTicks.map((t) => /* @__PURE__ */ React.createElement("line", { key: `x${t}`, y1: pad.t, y2: H - pad.b, x1: xScale(t), x2: xScale(t), stroke: "oklch(94% 0.008 198)" })),
     /* @__PURE__ */ React.createElement("path", { d: bandPath(), fill: "oklch(55.7% 0.047 170 / .08)" }),
@@ -231,7 +233,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
       }
     ),
     points.map((p, i) => /* @__PURE__ */ React.createElement("g", { key: i }, /* @__PURE__ */ React.createElement("circle", { cx: xScale(p.pma), cy: yScale(p.value), r: px(4), fill: "oklch(50% 0.18 25)", stroke: "#fff", strokeWidth: px(1.5) }), i === points.length - 1 && /* @__PURE__ */ React.createElement("g", null, /* @__PURE__ */ React.createElement("rect", { x: xScale(p.pma) + px(8), y: yScale(p.value) - px(22), width: px(78), height: px(20), fill: "oklch(24% 0.022 205 / .93)", rx: px(4) }), /* @__PURE__ */ React.createElement("text", { x: xScale(p.pma) + px(14), y: yScale(p.value) - px(9), fontSize: px(10), fill: "#fff", fontFamily: "IBM Plex Mono, monospace" }, "DOL ", p.dol, " · ", metric === "weight" ? p.value : p.value, metric === "weight" ? "g" : "cm"))))
-  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "fenton-trajectory", style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "Current trajectory"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28, fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, letterSpacing: "-0.02em" } }, currentPercentile || "—"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)" } }, "percentile band")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "Latest measurement"), points.length > 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13 } }, /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 18, fontWeight: 500 } }, metric === "weight" ? points[points.length - 1].value.toLocaleString() : points[points.length - 1].value, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontSize: 11, marginLeft: 4 } }, metric === "weight" ? "g" : "cm")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 } }, "PMA ", /* @__PURE__ */ React.createElement("span", { className: "num" }, D_F.fmtGA(D_F.daysToGA(Math.round(points[points.length - 1].pma * 7)))), " wk · DOL ", points[points.length - 1].dol)) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)" } }, "No measurements yet")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "Growth velocity"), /* @__PURE__ */ React.createElement(GrowthVelocity, { points, metric })), onUpdate && /* @__PURE__ */ React.createElement(MeasurementLogger, { key: patient.sessionId, patient, currentDol, onUpdate }), /* @__PURE__ */ React.createElement("div", { className: "legend", style: { flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { className: "s" }, /* @__PURE__ */ React.createElement("span", { className: "b", style: { background: "oklch(38.5% 0.047 170)" } }), "50th percentile"), /* @__PURE__ */ React.createElement("div", { className: "s" }, /* @__PURE__ */ React.createElement("span", { className: "b", style: { background: "oklch(64% 0.043 150)" } }), "10th & 90th"), /* @__PURE__ */ React.createElement("div", { className: "s" }, /* @__PURE__ */ React.createElement("span", { className: "b", style: { background: "oklch(82.4% 0.039 139)", borderTop: "2px dashed oklch(82.4% 0.039 139)" } }), "3rd & 97th"), /* @__PURE__ */ React.createElement("div", { className: "s" }, /* @__PURE__ */ React.createElement("span", { className: "b", style: { background: "oklch(50% 0.18 25)" } }), "Patient"))))));
+  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "fenton-trajectory", style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "Current trajectory"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28, fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, letterSpacing: "-0.02em" } }, currentPercentile || "—"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)" } }, "percentile band")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "Latest measurement"), latestPoint ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13 } }, /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 18, fontWeight: 500 } }, metric === "weight" ? latestPoint.value.toLocaleString() : latestPoint.value, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontSize: 11, marginLeft: 4 } }, metric === "weight" ? "g" : "cm")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 } }, "PMA ", /* @__PURE__ */ React.createElement("span", { className: "num" }, D_F.fmtGA(D_F.daysToGA(Math.round(latestPoint.pma * 7)))), " wk · DOL ", latestPoint.dol)) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)" } }, "No measurements yet")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "Growth velocity"), /* @__PURE__ */ React.createElement(GrowthVelocity, { points: allPoints, metric })), onUpdate && /* @__PURE__ */ React.createElement(MeasurementLogger, { key: patient.sessionId, patient, currentDol, onUpdate }), /* @__PURE__ */ React.createElement("div", { className: "legend", style: { flexDirection: "column", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { className: "s" }, /* @__PURE__ */ React.createElement("span", { className: "b", style: { background: "oklch(38.5% 0.047 170)" } }), "50th percentile"), /* @__PURE__ */ React.createElement("div", { className: "s" }, /* @__PURE__ */ React.createElement("span", { className: "b", style: { background: "oklch(64% 0.043 150)" } }), "10th & 90th"), /* @__PURE__ */ React.createElement("div", { className: "s" }, /* @__PURE__ */ React.createElement("span", { className: "b", style: { background: "oklch(82.4% 0.039 139)", borderTop: "2px dashed oklch(82.4% 0.039 139)" } }), "3rd & 97th"), /* @__PURE__ */ React.createElement("div", { className: "s" }, /* @__PURE__ */ React.createElement("span", { className: "b", style: { background: "oklch(50% 0.18 25)" } }), "Patient"))))));
 }
 function GrowthVelocity({ points, metric = "weight" }) {
   if (points.length < 2) {

@@ -14,7 +14,7 @@ function Segmented({ value, onChange, options }) {
   );
 }
 
-function FentonChart({ patient, currentDol, onUpdate }) {
+function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // The reference tables are keyed "boys"/"girls" and nothing else. Any other
   // value — "M" typed into the sheet, a blank cell — made FENTON_WEIGHT[sex]
   // undefined, `.filter` threw, and with no error boundary the WHOLE app went
@@ -182,8 +182,12 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
   const allPoints = (() => {
     if (metric === "weight") {
-      return (patient?.weights || []).map(w => ({
-        pma: pma0 + (w.dol - 1) / 7, value: w.w, dol: w.dol,
+      // D_F.weightSeries, not patient.weights[] alone: an order's dosing
+      // weight is a weight someone put on a scale, and a ward that records it
+      // only there used to get a single-point growth chart (2026-09-23). A
+      // deliberate measurement still wins on any day that has both.
+      return D_F.weightSeries(patient, entries).map(w => ({
+        pma: pma0 + (w.dol - 1) / 7, value: w.w, dol: w.dol, src: w.src,
       }));
     }
     const standalone = (metric === "length" ? (patient?.lengths || []) : (patient?.hcs || []))
@@ -205,6 +209,9 @@ function FentonChart({ patient, currentDol, onUpdate }) {
   // closely. Count them so the UI can say so out loud.
   const points = allPoints.filter(p => p.pma >= xMin && p.pma <= xMax);
   const hiddenPastMax = allPoints.filter(p => p.pma > xMax).length;
+  // The newest measurement there IS, plotted or not. Only the chart is clamped
+  // to the reference; the readouts beside it are not (see GrowthVelocity).
+  const latestPoint = allPoints.length ? allPoints[allPoints.length - 1] : null;
 
   // current percentile estimate
   const currentPercentile = (() => {
@@ -328,7 +335,7 @@ function FentonChart({ patient, currentDol, onUpdate }) {
               onPointerUp={(e) => { dragRef.current = null; e.currentTarget.releasePointerCapture(e.pointerId); }}
             >
               {/* background grid */}
-              <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="oklch(99.4% 0.004 195)" />
+              <rect x={pad.l} y={pad.t} width={W - pad.l - pad.r} height={H - pad.t - pad.b} fill="var(--surface)" />
               {yTicks.map(t => (
                 <line key={`y${t}`} x1={pad.l} x2={W - pad.r} y1={yScale(t)} y2={yScale(t)} stroke="oklch(94% 0.008 198)" />
               ))}
@@ -401,16 +408,16 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
             <div style={{ textAlign: "right" }}>
               <div className="sub-h">Latest measurement</div>
-              {points.length > 0 ? (
+              {latestPoint ? (
                 <div style={{ fontSize: 13 }}>
                   <div className="num" style={{ fontSize: 18, fontWeight: 500 }}>
-                    {metric === "weight" ? points[points.length-1].value.toLocaleString() : points[points.length-1].value}
+                    {metric === "weight" ? latestPoint.value.toLocaleString() : latestPoint.value}
                     <span style={{ color: "var(--ink-3)", fontSize: 11, marginLeft: 4 }}>
                       {metric === "weight" ? "g" : "cm"}
                     </span>
                   </div>
                   <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>
-                    PMA <span className="num">{D_F.fmtGA(D_F.daysToGA(Math.round(points[points.length-1].pma * 7)))}</span> wk · DOL {points[points.length-1].dol}
+                    PMA <span className="num">{D_F.fmtGA(D_F.daysToGA(Math.round(latestPoint.pma * 7)))}</span> wk · DOL {latestPoint.dol}
                   </div>
                 </div>
               ) : <div style={{ fontSize: 12, color: "var(--ink-3)" }}>No measurements yet</div>}
@@ -418,7 +425,14 @@ function FentonChart({ patient, currentDol, onUpdate }) {
 
             <div style={{ textAlign: "right" }}>
               <div className="sub-h">Growth velocity</div>
-              <GrowthVelocity points={points} metric={metric} />
+              {/* allPoints, not the axis-clamped `points`: the chart stops at
+                  GA_MAX 42 wk because the Fenton reference does, but a
+                  measurement past term is still a measurement. Reading the
+                  clamped array froze both this figure and "latest measurement"
+                  at whatever was recorded before 42 weeks — on exactly the
+                  long-stay infants whose growth is watched hardest
+                  (2026-09-23). The chart keeps its clamp and its banner. */}
+              <GrowthVelocity points={allPoints} metric={metric} />
             </div>
 
             {/* key: a new instance per patient (review UP-S2). The logger's

@@ -4,9 +4,11 @@
 //
 // A wrong printed dose is the one failure this product cannot take back, so
 // most of what is pinned here is WHEN the order may reach the form:
-//   §1-§5  UP-C4  hard limits (lipid 4.5, K 3.5, NPE:AA 20–32) on the IV portion
+//   §1-§5  UP-C4  hard limits (lipid 4.5, K 3.5, NPE:AA ≤ 32) on the IV portion
 //                 only (Praew, 2026-09-17) — full feeds no longer raise them —
-//                 and the F1 invariant: no critical tile without a critical alert
+//                 and the F1 invariant: no critical tile without a critical alert.
+//                 §4 was revised on 2026-09-23: the NPE:AA LOW side (< 20) is a
+//                 warning, not a save-blocking critical. See that section.
 //   §6     UP-C1  every printed figure is unchanged (Praew: no change to r1 yet)
 //   §7     UP-C3  ingredients with TPN volume 0 block Save and Print
 //   §8     UP-C5  yesterday's Intake / Output never counts as today's
@@ -203,22 +205,44 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     f1('IV lipid 4.8 + EN');
   });
 
-  await section('§4 UP-C4 · NPE:AA is judged on the bag (decision, not the total)', async () => {
+  // Revised 2026-09-23 (safety review, BACKLOG § Next). UP-C4's decision — that
+  // NPE:AA is judged on the BAG and not on TPN + EN — is unchanged and still
+  // pinned here. What changed is the LEVEL of the low side.
+  //
+  // NPE:AA < 20 kcal/g AA means amino acid is being oxidised for fuel rather
+  // than laid down. Real, but it is the ordinary shape of a ramping PN order:
+  // amino acid reaches target on day 1 while dextrose and lipid climb over the
+  // week. With AA 3.5 g/kg/d and lipid 3 g/kg/d the ratio only clears 20 at
+  // GIR ≥ 8.8, so a fluid-restricted day-3 ELBW raised a CRITICAL alert
+  // clearable only by typing an override reason — which is exactly the
+  // rote-override problem UP-C4 fixed for lipid, K and osmolarity, surviving on
+  // this one limit. The high side (> 32: excess non-protein energy, fat
+  // deposition) is unchanged and still stops the order.
+  await section('§4 UP-C4 · NPE:AA is judged on the bag; the low side warns', async () => {
     // Total NPE:AA 24 (in range) but the bag alone is 17 kcal/g AA.
     mount({ patient: pt('NP-1000', 1000), onLog: logger().onLog });
     setField('Current weight', 1000); fillRequired(150);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
     setField('Volume(mL/day)', 80); setField('Dextrose final', 12.5); setField('Amino acid', 3); setField('SMOF Lipid', 2);
     eq('the NPC : Protein TOTAL tile is in range', tileStatus('NPC : Protein'), 'ok');
-    ok('the bag\'s NPE:AA < 20 is a critical alert', /NPE:AA IV 17 kcal\/g AA < 20 hard limit/.test(alertText('NPE:AA critically off target')), alertRows());
-    ok('…naming the total too', /total incl\. EN 24 kcal\/g/.test(alertText('NPE:AA critically off target')), alertText('NPE:AA critically off target'));
+    ok('the bag\'s NPE:AA is still judged on the BAG, at 17', /NPE:AA IV 17 kcal\/g AA < 20/.test(alertText('NPE:AA off target')), alertRows());
+    eq('…as a warning, so an ordinary ramping order is not stopped',
+       alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['warn']);
+    ok('…naming the total too', /total incl\. EN 24 kcal\/g/.test(alertText('NPE:AA off target')), alertText('NPE:AA off target'));
     f1('mixed PN + EN, IV NPE:AA 17');
     // Pure PN, 19.97 kcal/g: never printed as "20 < 20".
     mount({ patient: pt('NP-850', 900), onLog: logger().onLog });
     setField('Current weight', 850); fillRequired(150);
     setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('SMOF Lipid', 2);
-    eq('pure PN: exactly one NPE:AA line', alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['crit']);
-    ok('a value just under 20 is not shown as "20"', /NPE:AA IV 19\.\d+ kcal\/g AA < 20/.test(alertText('NPE:AA critically off target')), alertText('NPE:AA critically off target'));
+    eq('pure PN: exactly one NPE:AA line, and it warns', alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['warn']);
+    ok('a value just under 20 is not shown as "20"', /NPE:AA IV 19\.\d+ kcal\/g AA < 20/.test(alertText('NPE:AA off target')), alertText('NPE:AA off target'));
+    // The HIGH side is untouched: still critical, still stops the order.
+    mount({ patient: pt('NP-HI', 1000), onLog: logger().onLog });
+    setField('Current weight', 1000); fillRequired(150);
+    setField('Volume(mL/day)', 150); setField('Dextrose final', 25); setField('Amino acid', 1); setField('SMOF Lipid', 3);
+    eq('NPE:AA above 32 is still critical',
+       alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['crit']);
+    ok('…and names the 32 hard limit', /> 32 hard limit/.test(alertText('NPE:AA critically off target')), alertText('NPE:AA critically off target'));
   });
 
   await section('§5 F1 · a critical tile is always a critical alert (more shapes)', async () => {

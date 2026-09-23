@@ -154,6 +154,24 @@ login, so **an agent merges into `release` only on Praew's explicit go-ahead** �
 repos/valhalla-health/neofeed/branches/release/protection/required_pull_request_reviews -F
 required_approving_review_count=1`.
 
+**`main` is protected too, since 2026-09-23** — the same shape as `release` minus the review count:
+`harnesses` required, `enforce_admins` on, force-push and deletion refused, 0 approving reviews. Until
+then `main` had **no** effective protection, so a PR with a red `harnesses` could be merged into the
+branch every release ships from. The repository ruleset named `protect-main` (created 2026-09-07) is
+not that protection: its target-branches list is empty, so it applies to nothing —
+`gh api repos/valhalla-health/neofeed/rules/branches/main` returns `[]`. Read the real settings with
+`gh api repos/valhalla-health/neofeed/branches/main/protection`.
+
+**Every release merge carries a tag**, `release-YYYY-MM-DD-prNN`, added as part of the release the way
+`STATUS.md` is written as part of the deploy. Backfilled 2026-09-23 for every release since the gate
+(PR #60 onward, 11 tags). It makes a rollback `git checkout <tag>` and completes the chain from a
+printed order's provenance stamp → commit → tag:
+
+```bash
+git tag -a release-$(date +%F)-pr<N> <merge sha> -m "Release $(date +%F) — PR #<N> merged into release"
+git push origin release-$(date +%F)-pr<N>
+```
+
 **Recording a deploy never takes its own PR** (Praew's global PR rule, 2026-09-18). Write the
 planned `STATUS.md` change in the PR that ships the code. The post-release checks below exist only
 after the merge, so they go in a comment on the `main → release` PR, and `STATUS.md` catches up in

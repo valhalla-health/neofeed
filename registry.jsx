@@ -119,7 +119,7 @@ function WardGate({ patients, log, today, onPick }) {
   );
 }
 
-function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete }) {
+function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor }) {
   const [filter, setFilter]         = React.useState("");
   const [showAdd, setShowAdd]       = React.useState(false);
   const [editPatient, setEditPatient]       = React.useState(null);
@@ -544,9 +544,9 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       {/* Each modal closes itself once its request succeeds (useModalSubmit). */}
       {showAdd          && <NewPatientModal patients={patients} onClose={() => setShowAdd(false)} onSubmit={p => onAdd(p)} />}
       {editPatient      && <EditPatientModal patient={editPatient} patients={patients} onClose={() => setEditPatient(null)}
-        onSubmit={p => onEdit?.(p)} onDelete={onDelete} />}
+        onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} onDelete={onDelete} />}
       {transferPatient  && <TransferBedModal patient={transferPatient} patients={patients} onClose={() => setTransferPatient(null)}
-        onSubmit={p => onEdit?.(p)} />}
+        onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} />}
     </>
   );
 }
@@ -652,11 +652,15 @@ function useModalSubmit(onSubmit, onClose) {
     if (res && res.ok === false) { setError(res.error || fallback); return; }
     onClose();
   };
-  const submit = (payload) => {
+  // `extra` is the merge base a patient editor captured when it opened — it
+  // travels with the submission so a background sync cannot swap it for a
+  // newer record mid-edit (app.jsx handleEditPatient). Modals with no base to
+  // send simply do not pass one.
+  const submit = (payload, extra) => {
     if (busyRef.current) return;
     setError("");
     let out;
-    try { out = onSubmit(payload); }
+    try { out = onSubmit(payload, extra); }
     catch (e) { setError((e && e.message) || fallback); return; }
     if (!out || typeof out.then !== "function") { finish(out); return; }
     busyRef.current = true;
@@ -664,6 +668,38 @@ function useModalSubmit(onSubmit, onClose) {
     out.then(finish, (e) => finish({ ok: false, error: (e && e.message) || fallback }));
   };
   return { busy, error, submit };
+}
+
+// What admissionDateIssue found, said under the field it belongs to. The
+// Buddhist-era case offers the conversion as a button: it is the one wrong
+// value that is unambiguous about what was meant, and typing 2026 over 2569
+// by hand in a native date picker is worse than it sounds.
+function AdmitDateIssue({ issue, correction, onFix }) {
+  if (!issue) return null;
+  const canFix = issue.code === "buddhistEra" && correction && onFix;
+  return (
+    <div style={{ marginTop: 4, fontSize: 11, color: "var(--crit)", lineHeight: 1.45 }}>
+      {issue.message}
+      {canFix && (
+        <button type="button" className="btn sm" style={{ marginLeft: 8, fontSize: 11 }}
+          onClick={() => onFix(correction)}>ใช้ {correction}</button>
+      )}
+    </div>
+  );
+}
+
+// ── The merge base a patient editor was opened on ────────────────────────
+// Captured on the editor's FIRST render and never re-read. `base` in the
+// three-way merge means "the common ancestor of both edits"; reading it at
+// save time meant a background sync landing mid-edit replaced it with a
+// record NEWER than the one on screen, and the server then attributed the
+// other device's changes to this one — re-activating a discharged infant and
+// deleting a weight another device had just saved (app.jsx handleEditPatient,
+// 2026-09-23). A ref, not state: it must not change for the modal's lifetime.
+function useMergeBase(mergeBaseFor, sessionId) {
+  const ref = React.useRef(undefined);
+  if (ref.current === undefined) ref.current = mergeBaseFor ? (mergeBaseFor(sessionId) ?? null) : undefined;
+  return ref.current;
 }
 
 // The error line all three modals show above their buttons.
@@ -705,6 +741,15 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   const [dx, setDx]             = React.useState("");
   const [admitDate, setAdmitDate] = React.useState(today);
   const [admitDol, setAdmitDol]   = React.useState(1);
+  // Nothing checked this date until 2026-09-23, and it is the anchor for every
+  // DOL, PMA and DOL-indexed target the app computes. A blank, future or
+  // Buddhist-era year (2569 for 2026 — the single likeliest typo on a ward
+  // whose paper forms are all dated in BE) all pinned DOL at 1, which silently
+  // prescribes the day-1 fluid, energy, Na, K, Ca and P bands to an infant of
+  // any age. Registration is now blocked on it, and the BE case offers the
+  // correction rather than just refusing.
+  const admitIssue = D_R.admissionDateIssue(admitDate, today);
+  const admitCE    = D_R.toChristianEraDateStr(admitDate, today);
 
   // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
@@ -715,7 +760,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   // corrupt every subsequent dose for this patient, so block submission on it.
   // …and one infant per bed: registering onto an occupied bed would leave two
   // patients reading as the same bed on every board and handover sheet.
-  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && !bedTaken;
+  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && !bedTaken && !admitIssue;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // DOB = admitDate − (admitDol − 1) days
@@ -793,7 +838,9 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
           <div className="row-2">
             <div className="field">
               <label>Admit date</label>
-              <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
+              <input type="date" className="inp" max={today} min={D_R.ADMIT_DATE_MIN}
+                value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
+              <AdmitDateIssue issue={admitIssue} correction={admitCE} onFix={setAdmitDate} />
             </div>
             <div className="field">
               <label>DOL at admit</label>
@@ -842,7 +889,9 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 }}>
             {!canSubmit && (
               <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" }}>
-                {bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : "กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน"}
+                {bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน"
+                : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้"
+                : "กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน"}
               </span>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
@@ -928,7 +977,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
   );
 }
 
-function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
+function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, mergeBaseFor }) {
   const today = D_R.todayLocal();   // local date, not UTC
   const [name, setName]         = React.useState(patient.name || patient.initials || "");
   // Birth weight, GA and sex are corrections of what was typed at
@@ -989,14 +1038,32 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
   // bed is reused, while setting it back to Active on that bed is still refused.
   const bedTaken  = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
   const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
-  const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || today);
+  // A record with NO admission date keeps none until someone types the real
+  // one. Seeding `today` here meant simply opening such a record and saving
+  // any unrelated correction stamped today as the admission — and DOL 20
+  // became DOL 1, taking every DOL-indexed target down with it (2026-09-23).
+  // The save is blocked instead, which is the only honest answer: the app
+  // cannot compute a day of life without knowing when day one was.
+  const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || "");
+  const admitIssue = D_R.admissionDateIssue(admitDate, today);
+  const admitCE    = D_R.toChristianEraDateStr(admitDate, today);
+  // Frozen at open — see useMergeBase.
+  const mergeBase  = useMergeBase(mergeBaseFor, patient.sessionId);
+  // Date of birth, kept in step with the two fields that define it. dolAtDate
+  // anchors day of life on dob, so an admit-date or DOL-แรกรับ correction that
+  // did not move dob would be a correction the DOL never saw. Same derivation,
+  // and the same UTC-anchored helper, as NewPatientModal.
+  const dob = React.useMemo(() => {
+    if (!admitDate || admitIssue) return patient.dob || "";
+    return D_R.addDaysToDateStr(admitDate, -(Math.max(1, parseInt(dol1, 10) || 1) - 1));
+  }, [admitDate, dol1, admitIssue, patient.dob]);
 
   // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks — same
   // encoding NewPatientModal writes; see the GA/PMA section of the walkthrough.
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
   // Same gate as registration: a 0/blank BW or GA would corrupt every
   // subsequent dose for this patient, so it can be corrected but not cleared.
-  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // Permanently deletes the session — removes it from Patient_Registry and
@@ -1055,8 +1122,9 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
       status,
       statusDate,
       admissionDate: admitDate,
+      dob,
       weights,
-    });
+    }, mergeBase);
   };
 
   return (
@@ -1130,7 +1198,9 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
           <div className="row-2">
             <div className="field">
               <label>Admit date</label>
-              <input type="date" className="inp" value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
+              <input type="date" className="inp" max={today} min={D_R.ADMIT_DATE_MIN}
+                value={admitDate} onChange={e => setAdmitDate(e.target.value)} />
+              <AdmitDateIssue issue={admitIssue} correction={admitCE} onFix={setAdmitDate} />
             </div>
             <div className="field">
               <label>Status</label>
@@ -1183,7 +1253,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete }) {
 // the next free number in a ward instead of making the user read down a
 // 30-entry dropdown for the first gap. The dropdown is still there for a
 // deliberate pick; occupied beds are disabled in both paths.
-function TransferBedModal({ patient, patients, onClose, onSubmit }) {
+function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }) {
   // Both sides normalized so a legacy "NICU 1-1" record preselects "NICU 1"
   // and re-picking that same bed still counts as "no change" (rather than
   // writing a spurious bedHistory hop from "NICU 1-1" to "NICU 1").
@@ -1194,6 +1264,9 @@ function TransferBedModal({ patient, patients, onClose, onSubmit }) {
     () => D_R.bedOccupancy(patients, patient.sessionId), [patients, patient.sessionId]);
   const bedTaken = occupancy.get(D_R.normalizeBed(bed)) || null;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
+  // Frozen at open — a transfer saved after a background sync must not carry
+  // that sync's record as its merge base (see useMergeBase).
+  const mergeBase = useMergeBase(mergeBaseFor, patient.sessionId);
 
   // Next free running number per ward, recomputed as the census changes. ""
   // means the ward is full — the button is disabled rather than clearing the
@@ -1219,7 +1292,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit }) {
       ...(patient.bedHistory || []),
       { bed: currentBed, date: D_R.todayLocal() },   // local date, not UTC
     ];
-    submit({ ...patient, currentBed: next, bedHistory });
+    submit({ ...patient, currentBed: next, bedHistory }, mergeBase);
   };
 
   return (

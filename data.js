@@ -661,6 +661,19 @@ function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
   return "ok";
 }
 
+// ── GIR: ONE grading, used by every screen that grades a GIR ──
+// The Calculator graded GIR as rangeStatus(gir, [4,12], { hardHi: 13 }) while
+// the Alerts page graded the SAME saved number as `gir > 12 → critical`. A
+// logged GIR of 12.5 was therefore amber on the order it came from and red on
+// the alert list, with no way for a nurse to tell which screen to believe
+// (2026-09-23). The threshold was never in dispute — only that two screens
+// each carried their own copy of it. It now lives here, and both call this.
+//   4–12 mg/kg/min  ok   · outside that  warn  · above GIR_HARD_HI  crit
+const GIR_HARD_HI = 13;
+function girStatus(gir) {
+  return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
+}
+
 // ── Osmolarity estimate (mOsm/L) ─────────────────────────────
 // Matches the official KCMH worksheet cell E52 exactly (verified 2026-08-06
 // by reproducing its own cached results: 856 and 896 mOsm/L on sheets s tpn2/s tpn3):
@@ -1211,6 +1224,55 @@ function addDaysToDateStr(dateStr, deltaDays) {
 }
 
 // ============================================================
+// Admission / birth date plausibility (2026-09-23)
+// ============================================================
+// Every DOL, PMA and DOL-indexed target in the app is measured from one of
+// these two dates, and until now nothing checked either of them. Three values
+// were accepted and all three silently pinned DOL at 1 — the day-1 fluid,
+// energy, Na, K, Ca and P bands — for an infant of any age:
+//
+//   • blank        — dolAtDate had no anchor and fell back to the stored
+//                    weights[] DOL;
+//   • a future date — daysSince went negative and Math.max clamped it away;
+//   • a Buddhist-era year (2569 for 2026) — a date 543 years in the future,
+//     which is the same negative case, and the single likeliest typo on a
+//     Thai ward where every paper form is dated in BE.
+//
+// Returns null when the date is usable, else { code, message } with the
+// message already in the language the ward reads. `today` is injectable so
+// the harnesses can pin a date.
+const ADMIT_DATE_MIN = "2000-01-01";   // NeoFeed holds live admissions only
+function admissionDateIssue(dateStr, today) {
+  const s = normalizeDateStr(dateStr);
+  const now = normalizeDateStr(today || todayLocal());
+  if (!s) return { code: "missing", message: "ต้องระบุวันที่ — ระบบใช้วันนี้คำนวณ DOL, PMA และเป้าหมายสารอาหารทุกค่า" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || isNaN(new Date(s + "T00:00:00Z")))
+    return { code: "unparseable", message: `วันที่ไม่ถูกต้อง (${s}) — ใช้รูปแบบ ปี-เดือน-วัน ค.ศ.` };
+  // Check BE before "future": a BE year is a future date, and naming it as the
+  // typo it is beats telling the user their date is in the future.
+  const year = Number(s.slice(0, 4));
+  const nowYear = Number(now.slice(0, 4)) || year;
+  if (year >= nowYear + 400) {
+    return { code: "buddhistEra", message:
+      `ปี ${year} เป็นปี พ.ศ. — กรอกเป็น ค.ศ. (${year - 543})` };
+  }
+  if (s > now) return { code: "future", message: `วันที่ ${s} เป็นวันในอนาคต — ตรวจสอบอีกครั้ง` };
+  if (s < ADMIT_DATE_MIN) return { code: "tooOld", message: `วันที่ ${s} เก่าเกินกว่าที่ระบบรับได้` };
+  return null;
+}
+// Best-effort correction of the one typo worth auto-correcting: a Buddhist-era
+// year typed into a date field. Everything else is returned untouched for
+// admissionDateIssue to report — silently rewriting a date the user meant is
+// how a wrong DOL gets saved without anyone seeing it happen.
+function toChristianEraDateStr(dateStr, today) {
+  const s = normalizeDateStr(dateStr);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const issue = admissionDateIssue(s, today);
+  if (!issue || issue.code !== "buddhistEra") return s;
+  return String(Number(s.slice(0, 4)) - 543).padStart(4, "0") + s.slice(4);
+}
+
+// ============================================================
 // Live DOL — single source of truth for "day of life as of today".
 // Falls back to last stored weight's DOL if no admissionDate.
 // Used by app.jsx PatientStrip, Calculator, Registry table, Fenton.
@@ -1228,10 +1290,57 @@ function liveDol(patient) {
 // `ws[i]?.` because a record already in the Sheet can carry a null element:
 // until the 2026-09-17 backend review nothing validated the array, and one
 // `weights:[null]` threw here for every device on the next sync (SEC-B3).
-function lastWeighed(patient) {
+// `entries` (optional) is this patient's Daily_Log. Passed, the answer is the
+// freshest weight from EITHER store (weightSeries); omitted, it is the old
+// measurements-only answer, which is still what a caller with no log in hand
+// should get rather than a silently different one.
+function lastWeighed(patient, entries) {
+  if (entries) {
+    const series = weightSeries(patient, entries);
+    return series.length ? series[series.length - 1] : null;
+  }
   const ws = patient?.weights || [];
   for (let i = ws.length - 1; i >= 0; i--) if (ws[i]?.w != null) return ws[i];
   return null;
+}
+
+// ============================================================
+// The weight series — BOTH stores, read as one (2026-09-23)
+// ============================================================
+// A weight reaches NeoFeed by two doors and they were never connected:
+//
+//   • the Fenton chart's MeasurementLogger writes patient.weights[]
+//   • every TPN order writes its dosing weight to Daily_Log.weight
+//
+// Nothing copied either way, so a ward that weighs the infant once a day and
+// types that weight into the order — which is most of them — built a complete
+// weight history that the growth chart, the "Wt now" figure on the patient
+// strip and the stale-weight alert could not see at all. The result was a
+// one-point growth chart and a red "Weight measurement >7 days overdue" on an
+// infant weighed that morning.
+//
+// This joins them at READ time rather than copying at write time. Copying
+// would mean a second server write after every order, a second chance for the
+// two stores to disagree, and a merge to get wrong; joining cannot drift
+// because there is only ever one answer. A deliberate measurement outranks an
+// order's working figure on the same day: MeasurementLogger is someone
+// recording a weight, an order is someone using one.
+//
+// Returns [{ dol, w, src: "measured" | "order", ts? }] sorted by DOL.
+function weightSeries(patient, entries) {
+  const byDol = new Map();
+  for (const e of (entries || [])) {
+    const w = Number(e?.weight);
+    if (!isFinite(w) || w <= 0) continue;
+    const dol = entryDol(patient, e);
+    byDol.set(dol, { dol, w, src: "order", ts: normalizeDateStr(e.ts) });
+  }
+  for (const m of (patient?.weights || [])) {
+    if (!m || m.w == null) continue;
+    const dol = Number(m.dol) || 1;
+    byDol.set(dol, { dol, w: Number(m.w), src: "measured" });   // measured wins
+  }
+  return [...byDol.values()].sort((a, b) => a.dol - b.dol);
 }
 
 // Most recent weights[] entry with an actual weight recorded on or before a
@@ -1244,6 +1353,86 @@ function weightAtOrBeforeDol(patient, dol) {
     if (ws[i]?.w != null && ws[i].dol <= dol) return ws[i].w;
   }
   return null;
+}
+
+// ============================================================
+// Growth velocity (g/kg/day) — and, as importantly, when NOT to judge it
+// ============================================================
+// The alert built on this used to take the first and last of the past seven
+// weight rows and grade the slope against ≥15 g/kg/d unconditionally. Two ways
+// that was wrong at the bedside (2026-09-23):
+//
+//   1. **Physiological weight loss.** Every newborn loses weight in the first
+//      days — up to ~10% of birth weight for a preterm infant, regained by
+//      about DOL 7–14. Across that window the slope is NEGATIVE by design, so
+//      a textbook-normal infant raised "Growth velocity critically low" every
+//      day of its first week. Velocity is only meaningful once the nadir is
+//      past, which is why it is conventionally measured from the regain of
+//      birth weight — so that is where this starts measuring.
+//
+//   2. **No reference past term.** ≥15 g/kg/d is a PRETERM target (ESPGHAN
+//      2022, intrauterine growth). Past 42 weeks PMA the Fenton reference this
+//      app carries stops (fenton.jsx GA_MAX, and the chart hides those points),
+//      and a term infant growing a healthy ~20–30 g/day is well under 15 g/kg/d
+//      at 3 kg — so the same rule that false-alarmed in week one false-alarms
+//      again after term, from the opposite direction. Rather than grade against
+//      a target that does not apply, say so: the caller renders that as an
+//      informational line, not an alarm.
+//
+// Returns { status, vel, days, from, to, reason } where status is one of
+//   "ok" | "low" | "critical"          — a real, gradeable velocity
+//   "physiologicalLoss"                — still in the expected-loss window
+//   "beyondReference"                  — past PMA_REFERENCE_MAX weeks
+//   "insufficientData"                 — fewer than two usable weights
+// `reason` is ward-readable text for the non-gradeable cases.
+const PMA_REFERENCE_MAX = 42;            // Fenton 2025 stops here (fenton.jsx GA_MAX)
+const GROWTH_VEL_TARGET = 15;            // g/kg/d, ESPGHAN 2022 minimum
+const GROWTH_VEL_CRITICAL = 10;          // g/kg/d
+const REGAIN_EXPECTED_BY_DOL = 14;       // birth weight normally regained by ~DOL 7–14
+function growthVelocity(patient, entries) {
+  // Both stores (weightSeries): a ward that records weight only in the order
+  // otherwise had no velocity at all, or one computed from two points weeks
+  // apart.
+  const wts = entries
+    ? weightSeries(patient, entries)
+    : (patient?.weights || []).filter(w => w && w.w != null)
+        .slice().sort((a, b) => (a.dol || 0) - (b.dol || 0));
+  if (wts.length < 2) return { status: "insufficientData", vel: null, days: 0 };
+
+  const latest = wts[wts.length - 1];
+
+  // Past the reference the target does not apply — report, don't grade.
+  const pma = gaTotalDays(pmaShort(patient?.ga || 0, latest.dol)) / 7;
+  if (patient?.ga && pma > PMA_REFERENCE_MAX) {
+    return { status: "beyondReference", vel: null, days: 0, to: latest, pma,
+      reason: `PMA ${displayNum(pma, 1)} สัปดาห์ — เกินช่วงอ้างอิง Fenton (${PMA_REFERENCE_MAX} สัปดาห์) และเป้าหมาย ≥${GROWTH_VEL_TARGET} g/kg/d เป็นเป้าของทารกเกิดก่อนกำหนด ไม่ใช้กับทารกครบกำหนด — ระบบไม่ตัดสินอัตราการเจริญเติบโตในช่วงนี้` };
+  }
+
+  // Measure from the regain of birth weight, not from whatever row happens to
+  // be seven back. Before regain there is nothing to grade.
+  const bw = Number(patient?.bw) || 0;
+  const regainIdx = bw > 0 ? wts.findIndex(w => w.w >= bw && w.dol > (wts[0]?.dol ?? 1)) : 0;
+  if (bw > 0 && regainIdx === -1) {
+    const stillLosing = latest.dol <= REGAIN_EXPECTED_BY_DOL;
+    return {
+      status: stillLosing ? "physiologicalLoss" : "notRegained",
+      vel: null, days: 0, to: latest,
+      reason: stillLosing
+        ? `ยังไม่กลับถึงน้ำหนักแรกเกิด (${bw} g) — DOL ${latest.dol} อยู่ในช่วงน้ำหนักลดตามสรีรวิทยา ยังไม่ประเมินอัตราการเจริญเติบโต`
+        : `ยังไม่กลับถึงน้ำหนักแรกเกิด (${bw} g) ภายใน DOL ${REGAIN_EXPECTED_BY_DOL} — ตรวจสอบปริมาณสารอาหารที่ได้รับ`,
+    };
+  }
+
+  // Up to the last seven weighed rows, but never reaching back before regain.
+  const usable = wts.slice(Math.max(regainIdx, wts.length - 7));
+  if (usable.length < 2) return { status: "insufficientData", vel: null, days: 0, to: latest };
+  const from = usable[0], to = usable[usable.length - 1];
+  const days = Math.max(1, to.dol - from.dol);
+  const avgKg = (from.w + to.w) / 2 / 1000;
+  if (!avgKg) return { status: "insufficientData", vel: null, days: 0, to: latest };
+  const vel = (to.w - from.w) / days / avgKg;
+  const status = vel < GROWTH_VEL_CRITICAL ? "critical" : vel < GROWTH_VEL_TARGET ? "low" : "ok";
+  return { status, vel, days, from, to };
 }
 
 // Divisor (grams) for intake/output mL/kg/day math: the previous day's
@@ -1266,20 +1455,66 @@ function ioDivisorG(patient, dol, todayWeightG) {
   return { g: divisor, source: divisor === bw ? "birth" : "prevDay" };
 }
 
+// Whole days between two "YYYY-MM-DD" strings, or null if either is unusable.
+// Both anchored to UTC ("Z"), not local midnight — the difference is then an
+// exact multiple of 86 400 000 by construction, independent of the browser's
+// timezone or any DST rule. Same reasoning as addDaysToDateStr() above.
+function daysBetweenDateStr(fromStr, toStr) {
+  const a = new Date(String(fromStr || "") + "T00:00:00Z");
+  const b = new Date(String(toStr || "") + "T00:00:00Z");
+  if (isNaN(a) || isNaN(b)) return null;
+  return Math.floor((b - a) / 86400000);
+}
+
 // DOL as of an arbitrary calendar date (YYYY-MM-DD) — same math as liveDol,
 // used to back-date a log entry to the DOL that applied on that date.
+//
+// ANCHORED ON DATE OF BIRTH, which is what "day of life" actually counts from:
+// DOL = (date − dob) + 1, so the day an infant is born is DOL 1.
+//
+// It used to anchor on `weights[0].dol` — the DOL of the first measurement —
+// with admissionDate supplying the elapsed days. That conflated a *clinical
+// measurement* with the *admission anchor*, and weights[] is sorted by DOL, so
+// recording a birth measurement for an outborn infant prepended a DOL-1 row and
+// silently re-dated the entire record: an infant admitted on DOL 5 and nine days
+// in went DOL 8 → 4, PMA 31+0 → 30+3, and with them the fluid, energy and Na
+// bands and the DOL printed on the pharmacy form (2026-09-23). dob cannot move
+// that way — it is a fact about the infant, not a row in an editable array, and
+// both registry modals derive and store it from admit date + DOL at admit.
+//
+// The weights[0].dol + admissionDate path stays as the fallback for a record
+// with no dob (registered before dob was stored, or imported). For a record
+// whose dob was derived the usual way the two agree exactly, so this changes
+// no correct patient's DOL — only stops an editable array from moving it.
 function dolAtDate(patient, dateStr) {
   if (!patient) return 1;
   const admitDol = patient.weights?.[0]?.dol ?? 1;
   const lastDol  = patient.weights?.slice(-1)[0]?.dol ?? admitDol;
-  if (!patient.admissionDate || !dateStr) return lastDol;
-  // Both anchored to UTC ("Z"), not local midnight — the difference is then an
-  // exact multiple of 86 400 000 by construction, independent of the browser's
-  // timezone or any DST rule. Same reasoning as addDaysToDateStr() above.
-  const admit = new Date(patient.admissionDate + "T00:00:00Z");
-  const at    = new Date(dateStr + "T00:00:00Z");
-  if (isNaN(admit) || isNaN(at)) return lastDol;
-  const daysSince = Math.floor((at - admit) / 86400000);
+  if (!dateStr) return lastDol;
+
+  // Primary anchor: date of birth. Only a plausible one — a blank, future or
+  // Buddhist-era dob would peg every DOL at 1 (see admissionDateIssue).
+  // (Validity is a property of the stored date itself — judged against today,
+  // never against the date being asked about, which may legitimately be a
+  // back-dated log entry.)
+  //
+  // …and a dob LATER than the admission date is not a birth date: an infant
+  // cannot be admitted before it is born. That combination means the dob is
+  // wrong — a legacy row where it was defaulted to the registration date, most
+  // likely — and trusting it would report DOL 1 for an infant ten days in.
+  // When the two disagree, the pair that agrees with each other wins.
+  const dobCredible = patient.dob
+    && !admissionDateIssue(patient.dob)
+    && (!patient.admissionDate || normalizeDateStr(patient.dob) <= normalizeDateStr(patient.admissionDate));
+  if (dobCredible) {
+    const sinceBirth = daysBetweenDateStr(patient.dob, dateStr);
+    if (sinceBirth != null) return Math.max(1, sinceBirth + 1);
+  }
+
+  // Fallback: admission date + the DOL the first measurement was taken on.
+  if (!patient.admissionDate || admissionDateIssue(patient.admissionDate)) return lastDol;
+  const daysSince = daysBetweenDateStr(patient.admissionDate, dateStr);
+  if (daysSince == null) return lastDol;
   return Math.max(admitDol, admitDol + daysSince);
 }
 
@@ -1604,6 +1839,9 @@ window.NEOFEED_DATA = {
   MOCK_PATIENTS, MOCK_DAILY_LOG,
   // Utility functions
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg, displayNum,
+  // The ONE GIR grading — the Calculator and the Alerts page both call it, so
+  // the same saved GIR can never be amber on one screen and red on the other.
+  girStatus, GIR_HARD_HI,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, K_REF_MEQ_PER_L, MAX_ZN_MG_DAY, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
@@ -1618,7 +1856,15 @@ window.NEOFEED_DATA = {
   syncFreshness, SYNC_WARN_MS, SYNC_STALE_MS, SYNC_POLL_MS,
   // Live DOL helper. entryDol re-derives a saved log row's DOL from its date
   // instead of trusting the stored (snapshot, goes stale) `dol` column.
-  liveDol, dolAtDate, entryDol,
+  liveDol, dolAtDate, entryDol, daysBetweenDateStr,
+  // Admission/birth-date plausibility. Every DOL, PMA and DOL-indexed target
+  // is measured from these, and a blank / future / Buddhist-era value used to
+  // pin DOL at 1 silently. Both registry modals and dolAtDate check it.
+  admissionDateIssue, toChristianEraDateStr, ADMIT_DATE_MIN,
+  // Growth velocity, and the two states in which it must NOT be graded:
+  // physiological weight loss before birth weight is regained, and past the
+  // Fenton reference at 42 weeks PMA.
+  growthVelocity, PMA_REFERENCE_MAX, GROWTH_VEL_TARGET, GROWTH_VEL_CRITICAL,
   // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
   // the one bed list, and the one-patient-per-bed occupancy helpers
   normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
@@ -1630,8 +1876,9 @@ window.NEOFEED_DATA = {
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
   normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate,
-  // Last weights[] entry with an actual weight (skips length/HC-only rows)
-  lastWeighed,
+  // Last weight from either store — pass the patient's Daily_Log as the second
+  // argument to include order weights (see weightSeries).
+  lastWeighed, weightSeries,
   // Weight-at-or-before-a-DOL lookup + the birth-weight-floor divisor it
   // feeds for intake/output mL/kg/day math (see calculator.jsx Step 1)
   weightAtOrBeforeDol, ioDivisorG,
