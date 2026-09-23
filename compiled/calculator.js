@@ -337,6 +337,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const wtG = tpnWtOverrideG > 0 ? tpnWtOverrideG : autoWtG;
   const tpnWtManual = tpnWtOverrideG > 0 && tpnWtOverrideG !== autoWtG;
   const usingBirthWeight = !tpnWtManual && autoWtG === bwG && curWtG > 0 && curWtG < bwG;
+  const latestMeasured = D.lastWeighed(patient);
+  const weightIsMeasured = !!latestMeasured && curWtG > 0 && Math.round(curWtG) === Math.round(latestMeasured.w);
+  const weightSourceHint = weightIsMeasured ? `= น้ำหนักที่ชั่ง (DOL ${latestMeasured.dol})` : "= น้ำหนักที่กรอกในใบสั่งนี้";
   const wtKg = wtG / 1e3;
   const IO_FIELD_KEYS = /* @__PURE__ */ new Set(["ioInput", "ioOutput", "drainContent"]);
   const REQUIRED_FIELDS = [
@@ -571,8 +574,21 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       skipWeightPropagateRef.current = true;
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
       const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
-      applyCalcInput(src, baselineEntry.weight, false, fluidMidpoint(src.curWtG ?? src.wtG ?? baselineEntry.weight));
-      setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
+      const measured = D.lastWeighed(patient);
+      const baselineDol = D.entryDol(patient, baselineEntry);
+      const fresher = measured && measured.dol > baselineDol ? measured : null;
+      const startWeight = fresher ? fresher.w : baselineEntry.weight;
+      applyCalcInput(
+        { ...src, ...fresher ? { curWtG: fresher.w } : {} },
+        startWeight,
+        false,
+        fluidMidpoint(fresher ? fresher.w : src.curWtG ?? src.wtG ?? baselineEntry.weight)
+      );
+      setPrefilledFrom({
+        dol: baselineEntry.dol,
+        baseline: true,
+        ...fresher ? { weightFrom: { dol: fresher.dol, w: fresher.w }, weightWas: baselineEntry.weight } : {}
+      });
       return;
     }
     let restored = null;
@@ -1067,7 +1083,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const tPE = D.TARGETS.peRatio();
   const sFluid = D.rangeStatus(calc.totalFluidPerKg, tFluid);
   const fluidTone = Math.abs(calc.remaining) < 1 ? "ok" : calc.remaining < -10 ? "crit" : calc.remaining <= -1 ? "warn" : "left";
-  const GIR_HARD = { hardHi: 13 };
+  const GIR_HARD = { hardHi: D.GIR_HARD_HI };
   const PRO_HARD = { hardHi: 4.8 };
   const girStatusAt = (v) => D.rangeStatus(v, tGir, GIR_HARD);
   const proStatusAt = (v) => D.rangeStatus(v, tPro, PRO_HARD);
@@ -1096,7 +1112,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const ivNpeN = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;
   const hardLip = D.rangeStatus(ivLipidKg, tLip, { hardHi: 4.5 }) === "crit";
   const hardK = D.rangeStatus(ivKKg, tK, { hardHi: 3.5 }) === "crit";
-  const hardNPE = ivNpeN !== null && D.rangeStatus(ivNpeN, tNPE, { hardLo: 20, hardHi: 32 }) === "crit";
+  const hardNPE = ivNpeN !== null && D.rangeStatus(ivNpeN, tNPE, { hardHi: 32 }) === "crit";
+  const lowNPE = ivNpeN !== null && !hardNPE && ivNpeN < 20;
   const withTotal = (iv, total, d, unit) => Math.abs(total - iv) >= 0.5 * Math.pow(10, -d) ? ` · total incl. EN ${fmt(total, d)} ${unit}` : "";
   const vsLimit = (v, limit, d) => {
     while (d < 3 && fmt(v, d) === fmt(limit, d)) d++;
@@ -1120,8 +1137,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const alerts = [];
   if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${fmt(calc.gir, 1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });
   else if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
-  if (hardNPE) alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `NPE:AA IV ${vsLimit(ivNpeN, ivNpeN < 20 ? 20 : 32, 0)} kcal/g AA ${ivNpeN < 20 ? "< 20" : "> 32"} hard limit (TPN only) — <20 risks AA oxidised as fuel, >32 risks excess fat deposition${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `NPC:N 150–200:1 · ${ivRef}` });
-  else if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150–200:1" });
+  if (hardNPE) alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 32, 0)} kcal/g AA > 32 hard limit (TPN only) — risks excess fat deposition${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `NPC:N 150–200:1 · ${ivRef}` });
+  else if (lowNPE) alerts.push({ level: "warn", title: "NPE:AA off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 20, 0)} kcal/g AA < 20 — พลังงานที่ไม่ใช่โปรตีนยังน้อยเมื่อเทียบกับ amino acid ที่ให้ ปกติพบระหว่างค่อย ๆ เพิ่ม dextrose/lipid ในสัปดาห์แรก ตรวจว่าเป็นไปตามแผน${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: "NPC:N 150–200:1" });
+  else if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${D.displayNum(calc.npeN, 0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150–200:1" });
   const tileRef = useEN ? "ESPGHAN 2022 (enteral)" : "ESPGHAN 2018 (parenteral)";
   const pushTile = (status, name, value, decimals, target, unit, critNote, ref = tileRef) => {
     if (status === "crit") alerts.push({
@@ -1499,7 +1517,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     display: "flex",
     alignItems: "center",
     gap: 8
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--brand-2)" }), /* @__PURE__ */ React.createElement("span", null, prefilledFrom.baseline ? /* @__PURE__ */ React.createElement(React.Fragment, null, "ดึงข้อมูลจากบันทึกล่าสุด (DOL ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.dol), ") มาเป็นค่าตั้งต้น — ตรวจสอบและปรับก่อนบันทึก") : /* @__PURE__ */ React.createElement(React.Fragment, null, "Prefilled from previous submission (DOL ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.dol), ") — review and adjust before submitting today.")), /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--brand-2)" }), /* @__PURE__ */ React.createElement("span", null, prefilledFrom.baseline ? /* @__PURE__ */ React.createElement(React.Fragment, null, "ดึงข้อมูลจากบันทึกล่าสุด (DOL ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.dol), ") มาเป็นค่าตั้งต้น — ตรวจสอบและปรับก่อนบันทึก", prefilledFrom.weightFrom && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", "น้ำหนักใช้ค่าที่ชั่งล่าสุด ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.weightFrom.w, " g"), " (DOL ", prefilledFrom.weightFrom.dol, ")", " แทนน้ำหนักในบันทึกเดิม ", prefilledFrom.weightWas, " g")) : /* @__PURE__ */ React.createElement(React.Fragment, null, "Prefilled from previous submission (DOL ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.dol), ") — review and adjust before submitting today.")), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn sm",
@@ -1579,7 +1597,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       seedZero: seedsZero("tpnWtG"),
       onBlankChange: reportBlank,
       onChange: (v) => setTpnWtOverrideG(v === autoWtG ? 0 : v),
-      hint: tpnWtManual ? `⚠ แก้เอง · อัตโนมัติ = ${fmt(autoWtG, 0)} g` : usingBirthWeight ? "= birth weight (not yet regained)" : curWtG > 0 ? "= current weight" : "—"
+      hint: tpnWtManual ? `⚠ แก้เอง · อัตโนมัติ = ${fmt(autoWtG, 0)} g` : usingBirthWeight ? "= birth weight (not yet regained)" : curWtG > 0 ? weightSourceHint : "—"
     }
   ), /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 14px",

@@ -1621,13 +1621,66 @@ function getActivePatientsJson(opts) {
 // targets — targets stay in data.js/TPN_TARGETS and drive UI guidance, not
 // write rejection. Throws; every call site here already runs inside
 // doPost's try/catch, which turns the message into jsonOut({error}).
+// EPSILON: these bounds are compared against figures the calculator derived by
+// floating-point arithmetic, and an order whose energy read exactly
+// 200 kcal/kg/d arrived as 200.00000000000003 and was refused — naming a number
+// the ward could see was inside the range it was told it had left
+// (2026-09-23). The client now rounds every logged figure before sending it
+// (data.js roundLogEntry), so this is the second of the two defences rather
+// than the only one; it exists for rows from an older bundle, and because a
+// plausibility check has no business splitting hairs in the twelfth decimal.
+var RANGE_EPSILON = 1e-9;
+// The refusal a nurse actually sees. It used to surface as raw English inside a
+// Thai toast — "บันทึกไม่สำเร็จ: Energy (kcal/kg/d) out of range (0–200):
+// 200.00000000000003" — at the bedside, mid-order. The label stays in the
+// clinical English the ward's own forms use; the sentence around it does not.
+function _rangeError(label, val, min, max) {
+  return new Error(
+    "ค่า " + label + " = " + val + " อยู่นอกช่วงที่ระบบรับได้ (" + min + "–" + max + ") — " +
+    "ตรวจสอบตัวเลขอีกครั้ง หากค่านี้ถูกต้องจริง กรุณาแจ้งผู้ดูแลระบบ");
+}
 function _checkRange(val, min, max, label) {
   if (val === "" || val == null) return;
   var n = Number(val);
-  if (!isFinite(n)) throw new Error(label + " must be numeric: " + val);
-  if (n < min || n > max) {
-    throw new Error(label + " out of range (" + min + "–" + max + "): " + val);
+  if (!isFinite(n)) throw new Error("ค่า " + label + " ต้องเป็นตัวเลข: " + val);
+  if (n < min - RANGE_EPSILON || n > max + RANGE_EPSILON) {
+    throw _rangeError(label, val, min, max);
   }
+}
+
+// Mirrors data.js admissionDateIssue, with two concessions this side needs.
+//
+// Blank passes: a legacy row may genuinely have no admission date, and the
+// client blocks saving one (registry.jsx) — refusing it here as well would
+// only lock the record against the correction that fixes it.
+//
+// An UNCHANGED stored value passes, exactly as _checkSex allows a legacy sex
+// through: this runs on every edit, so refusing a bad date the editor never
+// touched would make that record uncorrectable in any other respect. A new or
+// changed bad date is refused.
+//
+// "Future" allows one day of slack. The script's timezone and the ward
+// workstation's need not agree, and a legitimate admission entered late in the
+// evening must never be refused for being a few hours ahead of the server's
+// idea of today. A Buddhist-era year is 543 years out and a typo is days or
+// months out, so nothing this check exists for slips through the gap.
+var ADMIT_DATE_MIN_GS = "2000-01-01";
+function _checkAdmissionDate(val, storedOrNull, label) {
+  if (val === "" || val == null) return;
+  var s = String(_fmtDate(val)).trim();
+  if (!s) return;
+  if (storedOrNull != null && s === String(_fmtDate(storedOrNull)).trim()) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s))
+    throw new Error("ค่า " + label + " ไม่ถูกต้อง (" + s + ") — ใช้รูปแบบ ปี-เดือน-วัน ค.ศ.");
+  var today = _fmtDate(new Date());
+  var year = Number(s.slice(0, 4)), nowYear = Number(String(today).slice(0, 4)) || year;
+  if (year >= nowYear + 400)
+    throw new Error("ค่า " + label + ": ปี " + year + " เป็นปี พ.ศ. — กรอกเป็น ค.ศ. (" + (year - 543) + ")");
+  var tomorrow = _fmtDate(new Date(new Date().getTime() + 86400000));
+  if (s > tomorrow)
+    throw new Error("ค่า " + label + " (" + s + ") เป็นวันในอนาคต — ตรวจสอบอีกครั้ง");
+  if (s < ADMIT_DATE_MIN_GS)
+    throw new Error("ค่า " + label + " (" + s + ") เก่าเกินกว่าที่ระบบรับได้");
 }
 
 function _validatePatient(p) {
@@ -1635,7 +1688,7 @@ function _validatePatient(p) {
     throw new Error("Birth weight (g) is required and must be numeric");
   if (p.ga === "" || p.ga == null || !isFinite(Number(p.ga)))
     throw new Error("GA (weeks) is required and must be numeric");
-  _checkRange(p.bw, 300, 6000, "Birth weight (g)");
+  _checkRange(p.bw, 200, 6000, "Birth weight (g)");
   _checkRange(p.ga, 22, 44, "GA (weeks)");
   // GA is stored as WW.D shorthand, where D is a day count, not a decimal
   // fraction of a week. Reject 27.9/28.7 and extra precision at the API edge.
@@ -1644,6 +1697,8 @@ function _validatePatient(p) {
   if (Math.abs(ga10 - Math.round(ga10)) > 0.000001 || gaDay > 6)
     throw new Error("GA must use WW.D with day 0–6: " + p.ga);
   _checkRange(p.multiplesCount, 0, 10, "multiplesCount");
+  // The dates are checked against the STORED row, so they are validated in
+  // registerPatient beside _checkSex rather than here. See _checkAdmissionDate.
   // The measurement arrays are part of the record every ward device renders.
   // They were never validated here (2026-09-17 review, SEC-B3), so one
   // registerPatient with weights "x" or [null] was stored, synced to every
@@ -1674,11 +1729,26 @@ function _validateLogEntry(entry) {
   if (entry.weight === "" || entry.weight == null || !isFinite(Number(entry.weight)))
     throw new Error("Weight (g) is required and must be numeric");
   _checkRange(entry.dol,          1,   400,  "DOL");
-  _checkRange(entry.weight,       300, 8000, "Weight (g)");
+  // Widened 2026-09-23, after three refusals of orders that were correct:
+  //   • weight floor 300 → 200 g. NeoFeed is used at 22–23 weeks, where a
+  //     birth weight in the 300s is ordinary and the smallest reported
+  //     survivors are lighter still. 200 g remains a real floor against a
+  //     mistyped 20.
+  //   • GIR ceiling 20 → 30 mg/kg/min. 20 is not an upper bound on reality:
+  //     congenital hyperinsulinism and refractory hypoglycaemia are managed at
+  //     25–30, and those are the orders it is most important to be able to
+  //     record.
+  //   • energy ceiling 200 → 250 kcal/kg/d. A fortified high-density feed plus
+  //     lipid passes 200 legitimately, and 200 exactly was refused outright
+  //     (see RANGE_EPSILON).
+  // These are plausibility bounds, not clinical targets: the calculator's own
+  // alerts are what tell a doctor a figure is high. Their job here is only to
+  // stop a typo or a direct POST from writing nonsense into the sheet.
+  _checkRange(entry.weight,       200, 8000, "Weight (g)");
   _checkRange(entry.fluid,        0,   300,  "Fluid (mL/kg/d)");
-  _checkRange(entry.gir,          0,   20,   "GIR (mg/kg/min)");
+  _checkRange(entry.gir,          0,   30,   "GIR (mg/kg/min)");
   _checkRange(entry.pro,          0,   8,    "Protein (g/kg/d)");
-  _checkRange(entry.kcal,         0,   200,  "Energy (kcal/kg/d)");
+  _checkRange(entry.kcal,         0,   250,  "Energy (kcal/kg/d)");
   _checkRange(entry.na,           0,   15,   "Na (mEq/kg/d)");
   _checkRange(entry.k,            0,   10,   "K (mEq/kg/d)");
   _checkRange(entry.ca,           0,   300,  "Ca (mg/kg/d)");
@@ -1728,7 +1798,7 @@ function _validateMeasureArray(arr, kind, allowMissing) {
       throw new Error(label + ".dol must be a whole number 0–400: " + String(el.dol).slice(0, 20));
     }
     if (kind === "weights") {
-      _checkRange(el.w, 300, 8000, label + ".w (g)");
+      _checkRange(el.w, 200, 8000, label + ".w (g)");
       _checkRange(el.l, 20, 70, label + ".l (cm)");
       _checkRange(el.hc, 15, 50, label + ".hc (cm)");
     } else if (kind === "lengths") {
@@ -2889,6 +2959,14 @@ function registerPatient(p, isNew, base) {
       if (conflict) throw new Error(conflict);
     }
     _checkSex(m.sex, stored ? stored[5] : null);
+    // Dates were never checked on this path (2026-09-23 review): every number
+    // was bounded and no date at all, so a direct POST — or a client older than
+    // the guards now in registry.jsx — could store a blank, future or
+    // Buddhist-era admission date. Each pins DOL at 1, and with it the day-1
+    // fluid, energy, Na, K, Ca and P bands, for an infant of any age. dob is
+    // the anchor DOL is now computed from, so it is held to the same rule.
+    _checkAdmissionDate(m.admissionDate, stored ? stored[7] : null, "Admit date");
+    _checkAdmissionDate(m.dob,           stored ? stored[6] : null, "Date of birth");
     // Inside the lock and after the read, so the census it checks is the one
     // this write is about to land in — and on the MERGED record, so a stale
     // device's old "Active" status cannot claim a bed for a discharged patient.

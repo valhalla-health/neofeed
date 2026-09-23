@@ -540,6 +540,20 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // An override that happens to equal the birth weight is still an override,
   // and the order form must not claim the floor rule produced it.
   const usingBirthWeight = !tpnWtManual && autoWtG === bwG && curWtG > 0 && curWtG < bwG;
+
+  // Where the number in "Current weight" actually came from. The hint under
+  // the TPN calc weight used to read "= current weight" whenever the
+  // birth-weight floor was not engaged — including when the value beside it
+  // had been carried over from yesterday's order, which is how the patient
+  // strip could show 1,090 g over an order dosing 1,060 g with nothing on
+  // screen admitting the difference (2026-09-23). A weight is "measured" only
+  // if it matches a row in patient.weights[]; anything else is a figure typed
+  // into this order and not (yet) a recorded measurement.
+  const latestMeasured = D.lastWeighed(patient);
+  const weightIsMeasured = !!latestMeasured && curWtG > 0 && Math.round(curWtG) === Math.round(latestMeasured.w);
+  const weightSourceHint = weightIsMeasured
+    ? `= น้ำหนักที่ชั่ง (DOL ${latestMeasured.dol})`
+    : "= น้ำหนักที่กรอกในใบสั่งนี้";
   const wtKg = wtG / 1000;
 
   // ── Required-field gate (2026-09-15) ──────────────────────────────
@@ -941,8 +955,21 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       skipWeightPropagateRef.current = true;
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
       const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
-      applyCalcInput(src, baselineEntry.weight, false, fluidMidpoint(src.curWtG ?? src.wtG ?? baselineEntry.weight));
-      setPrefilledFrom({ dol: baselineEntry.dol, baseline: true });
+      // The plan carries over from yesterday; the WEIGHT does not, if a newer
+      // one has been measured since. Until 2026-09-23 the whole row came over
+      // together, so an order written after the morning weigh dosed on
+      // yesterday's figure while the patient strip above it showed today's —
+      // two "current weights" on one screen, 30 g apart, neither labelled.
+      // A measurement on a LATER DOL than the order being copied is newer by
+      // definition, and it is the one the ward just put on the scale.
+      const measured = D.lastWeighed(patient);
+      const baselineDol = D.entryDol(patient, baselineEntry);
+      const fresher = measured && measured.dol > baselineDol ? measured : null;
+      const startWeight = fresher ? fresher.w : baselineEntry.weight;
+      applyCalcInput({ ...src, ...(fresher ? { curWtG: fresher.w } : {}) },
+        startWeight, false, fluidMidpoint(fresher ? fresher.w : (src.curWtG ?? src.wtG ?? baselineEntry.weight)));
+      setPrefilledFrom({ dol: baselineEntry.dol, baseline: true,
+        ...(fresher ? { weightFrom: { dol: fresher.dol, w: fresher.w }, weightWas: baselineEntry.weight } : {}) });
       return;
     }
 
@@ -1456,7 +1483,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // its range bar's red zone (Meter's statusAt). GIR's red starts above 13,
   // not at the "max 12" printed under it — 12–13 is the yellow margin before
   // the hard stop (Praew, 2026-09-22: "GIR bar turn red at >13").
-  const GIR_HARD = { hardHi: 13 };
+  // The one GIR grading in the app (D.girStatus). The Alerts page graded the
+  // same saved number itself and called anything over 12 critical, so a logged
+  // 12.5 was amber here and red there (2026-09-23).
+  const GIR_HARD = { hardHi: D.GIR_HARD_HI };
   const PRO_HARD = { hardHi: 4.8 };
   const girStatusAt = (v) => D.rangeStatus(v, tGir, GIR_HARD);
   const proStatusAt = (v) => D.rangeStatus(v, tPro, PRO_HARD);
@@ -1506,7 +1536,17 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const ivNpeN    = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;
   const hardLip = D.rangeStatus(ivLipidKg, tLip, { hardHi: 4.5 }) === "crit";
   const hardK   = D.rangeStatus(ivKKg, tK, { hardHi: 3.5 }) === "crit";
-  const hardNPE = ivNpeN !== null && D.rangeStatus(ivNpeN, tNPE, { hardLo: 20, hardHi: 32 }) === "crit";
+  // Only the HIGH side is a hard stop. NPE:AA < 20 kcal/g means amino acid is
+  // being oxidised for fuel rather than laid down — real, but it is the normal
+  // shape of a ramping PN order, where amino acid goes to target on day 1 while
+  // dextrose and lipid climb over the week. With AA 3.5 g/kg and lipid 3 g/kg
+  // the ratio only clears 20 at GIR ≥ 8.8, so a fluid-restricted day-3 ELBW
+  // tripped a CRITICAL alert that could only be cleared by typing an override
+  // reason — the rote-override problem UP-C4 fixed for lipid, K and osmolarity,
+  // reappearing here (2026-09-23). It is now the warning it always was
+  // clinically; > 32 (excess non-protein energy → fat deposition) still stops.
+  const hardNPE = ivNpeN !== null && D.rangeStatus(ivNpeN, tNPE, { hardHi: 32 }) === "crit";
+  const lowNPE  = ivNpeN !== null && !hardNPE && ivNpeN < 20;
   // "· total incl. EN …" only when EN actually moves the figure.
   const withTotal = (iv, total, d, unit) => Math.abs(total - iv) >= 0.5 * Math.pow(10, -d)
     ? ` · total incl. EN ${fmt(total, d)} ${unit}` : "";
@@ -1534,8 +1574,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
   // Titles are unchanged from the total-based alerts they replace: a saved
   // critOverride lists titles, and print checks the current ones against it.
-  if (hardNPE) alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `NPE:AA IV ${vsLimit(ivNpeN, ivNpeN < 20 ? 20 : 32, 0)} kcal/g AA ${ivNpeN < 20 ? "< 20" : "> 32"} hard limit (TPN only) — <20 risks AA oxidised as fuel, >32 risks excess fat deposition${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `NPC:N 150–200:1 · ${ivRef}` });else
-  if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${calc.npeN.toFixed(0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150–200:1" });
+  if (hardNPE) alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 32, 0)} kcal/g AA > 32 hard limit (TPN only) — risks excess fat deposition${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `NPC:N 150–200:1 · ${ivRef}` });else
+  if (lowNPE) alerts.push({ level: "warn", title: "NPE:AA off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 20, 0)} kcal/g AA < 20 — พลังงานที่ไม่ใช่โปรตีนยังน้อยเมื่อเทียบกับ amino acid ที่ให้ ปกติพบระหว่างค่อย ๆ เพิ่ม dextrose/lipid ในสัปดาห์แรก ตรวจว่าเป็นไปตามแผน${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: "NPC:N 150–200:1" });else
+  if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${D.displayNum(calc.npeN, 0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150–200:1" });
   // ── Every nutrient tile that is off target or critical is ALSO a line here ──
   // Until 2026-09-11 only GIR, NPE, Ca:P-warn and the worksheet ceilings were
   // pushed, so K 5 mEq/kg/d or Ca with zero P turned a tile red while this
@@ -1772,7 +1813,17 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       suppFe_mg:     suppFerdek > 0 && wtKg > 0 ? parseFloat((suppFerdek * wtKg).toFixed(1)) : 0,
       suppFeType:    suppFerdek > 0 ? suppFeType  : "",
     };
-    const entry = {
+    // NOT rounded here, deliberately. The two defects that looked like they
+    // wanted rounding at this point — the Alerts page printing
+    // "GIR 7.206498951781971", and the backend refusing an order reading
+    // exactly 200 kcal/kg/d as "200.00000000000003" — are a display defect and
+    // a validation defect, and are fixed where each belongs (app.jsx
+    // computeAlerts goes through displayNum; gas-backend.gs _checkRange has
+    // RANGE_EPSILON). Rounding the stored row instead would have thrown away
+    // precision that test/verify-calc-oracle.cjs exists to pin, in the columns
+    // a reprint and every trend are computed from, to fix a symptom neither of
+    // them is about (2026-09-23).
+    const entry = ({
       dol, weight: curWtG, fluid: calc.totalFluidPerKg, gir: calc.gir,
       pro: calc.proteinKg, kcal: calc.kcalKg, na: calc.naTotalDelivered, k: calc.kTotalDelivered,
       ca: calc.caKg, p: calc.pKg, enVolPerKg: calc.enVolPerKg,
@@ -1809,7 +1860,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       // date the form was opened on — sent explicitly, so a form saved after
       // midnight is still filed under the day it was written for (UP-C11).
       ts: editEntry ? editEntry.ts : (logDate || newOrderDate),
-    };
+    });
 
     setSaving(true);
     const res = savedEntryId
@@ -1968,7 +2019,11 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
              display:"flex", alignItems:"center", gap:8 }}>
           <Icon name="info" size={13} color="var(--brand-2)" />
           <span>{prefilledFrom.baseline
-            ? <>ดึงข้อมูลจากบันทึกล่าสุด (DOL <strong>{prefilledFrom.dol}</strong>) มาเป็นค่าตั้งต้น — ตรวจสอบและปรับก่อนบันทึก</>
+            ? <>ดึงข้อมูลจากบันทึกล่าสุด (DOL <strong>{prefilledFrom.dol}</strong>) มาเป็นค่าตั้งต้น — ตรวจสอบและปรับก่อนบันทึก
+                {prefilledFrom.weightFrom && <>
+                  {" · "}น้ำหนักใช้ค่าที่ชั่งล่าสุด <strong>{prefilledFrom.weightFrom.w} g</strong> (DOL {prefilledFrom.weightFrom.dol})
+                  {" แทนน้ำหนักในบันทึกเดิม "}{prefilledFrom.weightWas} g
+                </>}</>
             : <>Prefilled from previous submission (DOL <strong>{prefilledFrom.dol}</strong>) — review and adjust before submitting today.</>}</span>
           <button className="btn sm" style={{ marginLeft:"auto", padding:"3px 10px" }}
             onClick={() => setPrefilledFrom(null)}>Dismiss</button>
@@ -2024,7 +2079,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               onChange={(v) => setTpnWtOverrideG(v === autoWtG ? 0 : v)}
               hint={tpnWtManual
                 ? `⚠ แก้เอง · อัตโนมัติ = ${fmt(autoWtG, 0)} g`
-                : usingBirthWeight ? "= birth weight (not yet regained)" : curWtG > 0 ? "= current weight" : "—"} />
+                : usingBirthWeight ? "= birth weight (not yet regained)"
+                : curWtG > 0 ? weightSourceHint : "—"} />
             {/* Over the plan by 1–10 mL/d is a caution, in the warn palette
                 (Praew, 2026-09-22: "สีพวก overtarget ...ให้เปลี่ยนสีให้ชัดเจน
                 ขึ้น"). It shared the brand tint with "Remaining", so being over

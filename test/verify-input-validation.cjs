@@ -75,7 +75,16 @@ const EXISTING = ['FO-1','Fo','Fo',1200,28,'girls','2026-07-01','2026-08-01','',
 let sheet = null;
 const sandbox = {
   SpreadsheetApp: { openById: () => ({ getSheetByName: () => sheet, insertSheet: () => sheet }) },
-  Utilities: { getUuid: () => 'uuid', computeHmacSha256Signature: () => [], base64Encode: () => '' },
+  // formatDate + Session: _fmtDate needs both, and since 2026-09-23
+  // registerPatient runs the admission/birth dates through it
+  // (_checkAdmissionDate). Without them every registration threw
+  // "Session is not defined" — which made the "still saves" cases fail and,
+  // worse, made every "must reject" case pass for the wrong reason.
+  Utilities: {
+    getUuid: () => 'uuid', computeHmacSha256Signature: () => [], base64Encode: () => '',
+    formatDate: (d) => new Date(d.getTime() + 7 * 3600e3).toISOString().slice(0, 10),
+  },
+  Session: { getScriptTimeZone: () => 'Asia/Bangkok' },
   PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'sheet-id', setProperty() {} }) },
   CacheService: { getScriptCache: () => ({ get: () => null, put() {}, remove() {} }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },

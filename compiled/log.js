@@ -53,7 +53,11 @@ function TrendGraph({ entries, patient }) {
       dol: eDol,
       dayAdmit: eDol - admitDol,
       ts: e.ts,
-      raw: e
+      raw: e,
+      // The band that applied on THIS day, under THIS day's regime. Almost
+      // every TPN target steps with DOL (fluid, energy, protein, Na, K, Ca,
+      // P), so one band cannot describe a history — see `bandPath` below.
+      band: pickTarget(metricKey, e, patient)
     };
   }).sort((a, b) => a.x - b.x), [entries, metricKey, xMode, admitDol, patient]);
   if (entries.length === 0) {
@@ -130,7 +134,7 @@ function TrendGraph({ entries, patient }) {
     else setHover(null);
   };
   const latest = points[points.length - 1];
-  const targetBand = latest ? pickTarget(metricKey, latest.raw, patient) : null;
+  const targetBand = latest ? latest.band : null;
   const isENMode = latest && (latest.raw.enVolPerKg || 0) >= 100;
   let status = "empty";
   if (latest && targetBand) {
@@ -140,6 +144,25 @@ function TrendGraph({ entries, patient }) {
     else status = "warn";
   }
   const statusColor = status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn)" : status === "crit" ? "var(--crit)" : "var(--ink-3)";
+  const bandSteps = (() => {
+    const withBand = points.filter((p) => p.band);
+    if (withBand.length === 0) return [];
+    const out = [];
+    for (let i = 0; i < withBand.length; i++) {
+      const p = withBand[i];
+      const prev = out[out.length - 1];
+      if (prev && prev.lo === p.band[0] && prev.hi === p.band[1]) {
+        prev.x1 = p.x;
+        continue;
+      }
+      out.push({ x0: prev ? prev.x1 : p.x, x1: p.x, lo: p.band[0], hi: p.band[1] });
+    }
+    if (out.length) {
+      out[0].x0 = xMin;
+      out[out.length - 1].x1 = xMax;
+    }
+    return out;
+  })();
   const xAxisLabel = xMode === "dayAdmit" ? "Day of admission" : "Day of life (DOL)";
   const gradId = `grad-${metricKey}`;
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "trend-controls", style: { display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--line-2)" } }, /* @__PURE__ */ React.createElement("div", { className: "trend-chips", style: { display: "flex", gap: 6, flexWrap: "wrap" } }, METRICS.map((m) => {
@@ -202,22 +225,22 @@ function TrendGraph({ entries, patient }) {
     },
     /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: gradId, x1: "0", y1: "0", x2: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: metric.color, stopOpacity: "0.22" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: metric.color, stopOpacity: "0" }))),
     /* @__PURE__ */ React.createElement("rect", { x: pad.l, y: pad.t, width: W - pad.l - pad.r, height: H - pad.t - pad.b, fill: "oklch(99.4% 0.004 195)" }),
-    targetBand && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+    bandSteps.map((b, i) => /* @__PURE__ */ React.createElement("g", { key: i }, /* @__PURE__ */ React.createElement(
       "rect",
       {
-        x: pad.l,
-        y: yScale(targetBand[1]),
-        width: W - pad.l - pad.r,
-        height: yScale(targetBand[0]) - yScale(targetBand[1]),
+        x: xScale(b.x0),
+        y: yScale(b.hi),
+        width: Math.max(0, xScale(b.x1) - xScale(b.x0)),
+        height: Math.max(0, yScale(b.lo) - yScale(b.hi)),
         fill: "oklch(52% 0.12 155 / .09)"
       }
     ), /* @__PURE__ */ React.createElement(
       "line",
       {
-        x1: pad.l,
-        x2: W - pad.r,
-        y1: yScale(targetBand[0]),
-        y2: yScale(targetBand[0]),
+        x1: xScale(b.x0),
+        x2: xScale(b.x1),
+        y1: yScale(b.lo),
+        y2: yScale(b.lo),
         stroke: "oklch(52% 0.12 155 / .35)",
         strokeWidth: "1",
         strokeDasharray: "3 3"
@@ -225,19 +248,31 @@ function TrendGraph({ entries, patient }) {
     ), /* @__PURE__ */ React.createElement(
       "line",
       {
-        x1: pad.l,
-        x2: W - pad.r,
-        y1: yScale(targetBand[1]),
-        y2: yScale(targetBand[1]),
+        x1: xScale(b.x0),
+        x2: xScale(b.x1),
+        y1: yScale(b.hi),
+        y2: yScale(b.hi),
         stroke: "oklch(52% 0.12 155 / .35)",
         strokeWidth: "1",
         strokeDasharray: "3 3"
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), i > 0 && /* @__PURE__ */ React.createElement(
+      "line",
+      {
+        x1: xScale(b.x0),
+        x2: xScale(b.x0),
+        y1: yScale(Math.max(b.hi, bandSteps[i - 1].hi)),
+        y2: yScale(Math.min(b.lo, bandSteps[i - 1].lo)),
+        stroke: "oklch(52% 0.12 155 / .22)",
+        strokeWidth: "1",
+        strokeDasharray: "3 3"
+      }
+    ))),
+    bandSteps.length > 0 && /* @__PURE__ */ React.createElement(
       "text",
       {
         x: W - pad.r - 4,
-        y: yScale(targetBand[1]) - 4,
+        y: yScale(bandSteps[bandSteps.length - 1].hi) - 4,
         fontSize: "9.5",
         textAnchor: "end",
         fill: "oklch(40% 0.12 155)",
@@ -246,7 +281,7 @@ function TrendGraph({ entries, patient }) {
         style: { letterSpacing: "0.04em" }
       },
       "TARGET"
-    )),
+    ),
     yTicks.map((t, i) => /* @__PURE__ */ React.createElement("g", { key: i }, /* @__PURE__ */ React.createElement(
       "line",
       {
@@ -359,7 +394,7 @@ function TrendGraph({ entries, patient }) {
     pointerEvents: "none",
     boxShadow: "0 6px 16px oklch(25% 0.02 205 / .26)",
     zIndex: 10
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: 2 } }, n(hover.y, metric.key === "weight" ? 0 : 1), " ", /* @__PURE__ */ React.createElement("span", { style: { opacity: 0.7, fontWeight: 400 } }, metric.unit)), /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.7, fontSize: 10 } }, "DOL ", hover.dol, " · Day ", hover.dayAdmit, " admit"), /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.55, fontSize: 9.5 } }, window.NEOFEED_FMT_DATE?.(hover.ts) || hover.ts))));
+  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: 2 } }, n(hover.y, metric.key === "weight" ? 0 : 1), " ", /* @__PURE__ */ React.createElement("span", { style: { opacity: 0.7, fontWeight: 400 } }, metric.unit)), /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.7, fontSize: 10 } }, "DOL ", hover.dol, " · Day ", hover.dayAdmit, " admit"), hover.band && /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.7, fontSize: 10 } }, "target ", n(hover.band[0], 1), "–", n(hover.band[1], 1), " ", metric.unit), /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.55, fontSize: 9.5 } }, window.NEOFEED_FMT_DATE?.(hover.ts) || hover.ts))));
 }
 function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry }) {
   const entries = log[patient?.sessionId] || [];

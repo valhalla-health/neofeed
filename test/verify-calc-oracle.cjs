@@ -245,7 +245,14 @@ function expectedAlerts(sc, e) {
   const bagOrdered = e.Vd > 0 || zeroVolBag;
   if (e.Vd > 0) { const s = st(e.gir, [4, 12], { hi: 13 }); if (s === 'crit') add('crit', 'GIR critically high'); else if (s === 'warn') add('warn', 'GIR off target'); }
   const ivNpe = e.aaDel > 0 ? (e.tpnKcal - 4 * e.aaDel) / e.aaDel : null;
-  if (ivNpe !== null && st(ivNpe, [24, 32], { lo: 20, hi: 32 }) === 'crit') add('crit', 'NPE:AA critically off target');
+  // Only the HIGH side stops (PR #96, signed off by Praew 2026-09-23): NPE:AA
+  // < 20 on the IV portion is the ordinary shape of a ramping PN order — amino
+  // acid at target on day 1 while dextrose and lipid climb — so it warns; > 32
+  // (excess non-protein energy, fat deposition) still stops the order.
+  // Keep all three branches: an IV ratio under 20 whose TOTAL (with EN) lands
+  // inside 24-32 still warns, which the third branch alone would miss.
+  if (ivNpe !== null && st(ivNpe, [24, 32], { hi: 32 }) === 'crit') add('crit', 'NPE:AA critically off target');
+  else if (ivNpe !== null && ivNpe < 20) add('warn', 'NPE:AA off target');
   else if (e.totKcal > 0 && st(e.npe, [24, 32]) === 'warn') add('warn', 'NPE:AA off target');
   tile(st(e.proKg, T.pro, { hi: 4.8 }), 'Protein');
   tile(st(e.kcalKg, T.kcal), 'Energy');
