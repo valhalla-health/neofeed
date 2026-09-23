@@ -58,13 +58,17 @@
 - ✅ **PR #93 is live**, released by PR #94 (2026-09-22): the quick-calc button on the Ward page, range
   bars with green / yellow / red zones, a pale-blue card frame and a smaller N in the Android icon
   (`CHANGELOG.md` 2026-09-22 (5)). ⚠️ The Android icon reaches a phone only on a reinstall.
-- ⏳ **PRs #95, #96 and #97: merged into `main`, #97 on Praew's instruction ("merge แล้ว deploy"), and
-  released straight after in one `main` → `release` PR.** #95 is the calculator harnesses and the
+- ✅ **PRs #95, #96 and #97 are live**, released by PR #98 (2026-09-23, `release` = `859f867`;
+  `verify-release.mjs` passed on both hosts, 0 failures — comment on #98). #95 is the calculator harnesses and the
   Munti-vim vitamin D fix. #96 is the 2026-09-23 safety fixes, which include daily order weights on the
   Fenton chart (`weightSeries`). #97 gives both charts a white background, makes the Energy line blue and
   pales the card range bars (`CHANGELOG.md` 2026-09-23, (b), (c)). Frontend only, no `clasp` step,
   `CONSTANTS_VERSION` unchanged. Its post-release check is a comment on that release PR, and this banner
   catches up in the next PR on the repo.
+- ⏳ **The next PR — the Osm pill, the Ca:P total row and the card frame (`CHANGELOG.md` 2026-09-23 (d)):
+  merged into `main` on Praew's instruction ("merge แล้ว deploy"), and released straight after in its own
+  `main` → `release` PR.** Frontend only, no `clasp` step. Its post-release check is a comment on that
+  release PR.
 
 **Previous (2026-09-22, 21:15–23:02 ICT):** backend `@56` + frontend `release` = `edbd11f`, PR #88.
 

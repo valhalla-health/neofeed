@@ -1740,8 +1740,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     fontFamily: "IBM Plex Mono,monospace",
     fontSize: 11,
     fontWeight: 600,
-    background: sOsm === "crit" ? "var(--crit-bg)" : sOsm === "warn" ? "var(--warn-bg)" : "var(--ok-bg)",
-    color: sOsm === "crit" ? "var(--crit)" : sOsm === "warn" ? "var(--warn)" : "var(--ok)"
+    /* ok is deliberately NOT green (Praew, 2026-09-23: "ปกติให้เป็นเทา
+       เหลือสีเฉพาะตอนผิดปกติ") — an in-range osmolarity is the common
+       case, and colouring it spends the ward's attention on the state
+       that needs none. warn/crit keep their status colours. */
+    background: sOsm === "crit" ? "var(--crit-bg)" : sOsm === "warn" ? "var(--warn-bg)" : "var(--bg-2)",
+    color: sOsm === "crit" ? "var(--crit)" : sOsm === "warn" ? "var(--warn)" : "var(--ink-2)"
   } }, "Osm ", calc.osm.toFixed(0), " mOsm/L", route === "peripheral" && calc.osm > 900 ? " ⚠️" : "")), !openSteps.has(2) && totalTPN_mL > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, fmt(totalTPN_mL, 0), " mL/d"), calc.overfill > 1.001 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "prep ", fmt(calc.preparedVol, 0), " mL · ×", fmt(calc.overfill, 2)), /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, fmt(totalTPN_mL / 24, 2), " mL/hr"), calc.gir > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "GIR ", fmt(calc.gir, 1)), aaPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "AA ", aaPerKg), lipidPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Lip ", fmt(calc.lipidBagVol / lipidDripHours, 2), " mL/hr")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[2]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(2) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement("div", { className: `accordion-body${openSteps.has(2) ? " open" : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { border: "1.5px solid var(--brand-line)", borderRadius: 8, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
     background: "var(--brand-bg)",
     padding: "6px 12px",
@@ -2326,7 +2330,7 @@ function CaPRow({ label, ca, p, ratio, highlight, total }) {
     padding: "8px 10px",
     alignItems: "baseline",
     borderTop: "1px solid var(--line-2)",
-    background: total ? "var(--brand-bg)" : highlight ? "var(--bg-2)" : "transparent",
+    background: total ? "var(--surface)" : highlight ? "var(--bg-2)" : "transparent",
     fontWeight: total ? 600 : 400
   } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: total ? "var(--brand-2)" : "var(--ink-3)" } }, label), /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontSize: 12.5, textAlign: "right", color: dim ? "var(--ink-4)" : "var(--ink)" } }, fmt(ca, 0)), /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontSize: 12.5, textAlign: "right", color: dim ? "var(--ink-4)" : "var(--ink)" } }, fmt(p, 0)), /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontSize: 12.5, textAlign: "right", color: dim ? "var(--ink-4)" : "var(--ink)" } }, ratio === null ? "—" : ratio > 0 ? `${fmt(ratio, 2)}` : "—"));
 }

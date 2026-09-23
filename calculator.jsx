@@ -2281,8 +2281,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
             </div>
             <span style={{ padding:"2px 10px", borderRadius:999, fontFamily:"IBM Plex Mono,monospace",
               fontSize:11, fontWeight:600,
-              background: sOsm==="crit" ? "var(--crit-bg)" : sOsm==="warn" ? "var(--warn-bg)" : "var(--ok-bg)",
-              color:       sOsm==="crit" ? "var(--crit)"   : sOsm==="warn" ? "var(--warn)"   : "var(--ok)" }}>
+              /* ok is deliberately NOT green (Praew, 2026-09-23: "ปกติให้เป็นเทา
+                 เหลือสีเฉพาะตอนผิดปกติ") — an in-range osmolarity is the common
+                 case, and colouring it spends the ward's attention on the state
+                 that needs none. warn/crit keep their status colours. */
+              background: sOsm==="crit" ? "var(--crit-bg)" : sOsm==="warn" ? "var(--warn-bg)" : "var(--bg-2)",
+              color:       sOsm==="crit" ? "var(--crit)"   : sOsm==="warn" ? "var(--warn)"   : "var(--ink-2)" }}>
               Osm {calc.osm.toFixed(0)} mOsm/L{route==="peripheral" && calc.osm > 900 ? " ⚠️" : ""}
             </span>
           </span>
@@ -3402,7 +3406,7 @@ function CaPRow({ label, ca, p, ratio, highlight, total }) {
       display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.9fr", gap: 6,
       padding: "8px 10px", alignItems: "baseline",
       borderTop: "1px solid var(--line-2)",
-      background: total ? "var(--brand-bg)" : highlight ? "var(--bg-2)" : "transparent",
+      background: total ? "var(--surface)" : highlight ? "var(--bg-2)" : "transparent",
       fontWeight: total ? 600 : 400,
     }}>
       <span style={{ fontSize: 11.5, color: total ? "var(--brand-2)" : "var(--ink-3)" }}>{label}</span>

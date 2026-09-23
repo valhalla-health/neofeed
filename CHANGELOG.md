@@ -7,6 +7,18 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-23 (d) — Three leftover colour changes from the local tree: Osm pill, Ca:P total, card frame
+
+Frontend only: `calculator.jsx`, both shells, `compiled/`. No figure moved; `CONSTANTS_VERSION` stays
+`2026-09-18.1`. These three were made in a local tree on 2026-09-23 and never committed (kept in a
+`git stash` by the (c) session); they ship here on Praew's instruction.
+
+- **Osm pill** — grey when osmolarity is in range. Only warn/crit keep a colour (Praew: "ปกติให้เป็นเทา
+  เหลือสีเฉพาะตอนผิดปกติ").
+- **Ca:P table, total row** — white (`--surface`), not the brand tint.
+- **Metric cards** — the frame uses the status colour itself (`--ok`, `--warn`, `--crit`, `--brand`)
+  instead of its pale `-line` tint, so the state reads at a glance now the range bars are paler.
+
 ## Session 2026-09-23 (c) — White chart backgrounds, a blue Energy line, and the paler range bars
 
 Frontend only: `log.jsx`, `fenton.jsx`, both shells, `compiled/`. No figure, target or printed dose
