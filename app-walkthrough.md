@@ -71,7 +71,7 @@ doesn't persist across a refresh.
 | `compiled/` | Build output, committed: one plain `.js` per `.jsx` module. What the browser runs. Never edit by hand. |
 | `vendor/` | React 18.3.1 + ReactDOM UMD builds, self-hosted, byte-identical to the unpkg files the shells used to pin by SRI. |
 | `manifest.json` | Web App Manifest (PWA installability) — name, icons, `display: standalone`. |
-| `icons/` | Home-screen icons (`icon.svg` source + generated PNGs at 16/32/180/192/512, plus maskable 192/512 variants for Android's adaptive-icon safe zone). |
+| `icons/` | The logo (`logo.svg`, the lockup master) and the home-screen icons (`icon.svg` source + generated PNGs at 16/32/180/192/512, plus maskable 192/512 variants for Android's adaptive-icon safe zone). |
 | `app.jsx` | Root `<App/>`: auth, nav rail/bottom-nav, view router, `PatientStrip`, `AlertCenter`, `AdminDashboard`, Thai date/GA formatting helpers, guidelines/formulas reference panels. |
 | `data.js` | Pure clinical data + helpers — ESPGHAN/WHO nutrition targets, feed/formula database, `liveDol`, `fmtGA`/`parseGAInput`/`gaToDecimalWeeks`, mock patients/log for offline dev. |
 | `calculator.jsx` | The TPN + EN calculator — a 6-step wizard producing one Daily_Log entry. |
@@ -879,33 +879,31 @@ notes — don't just add the feature.
     session introduced survives** — `--brand-3`, `--brand-4`, `--sand`,
     `--crit-ink`/`--warn-ink`/`--ok-ink`, `--shadow-lift`, `--ring`, `--r-xl`
     are all still there with teal values. Don't "clean them up".
-- **The NeoFeed mark is `icons/icon.svg`, and it is drawn in two places
-  from that one master** (2026-09-22): the phone/favicon PNGs are rendered
-  from it by `tools/render-icons.cjs` — the two maskable (Android) PNGs at a
-  smaller letter, 39% of the square rather than 55%, because Android shows
-  only the middle of a maskable icon — and **one** `<NeoFeedWordmark/>` in `app.jsx` inlines its two
-  paths for all three screens that show the brand — the login hero, the
-  topbar corner and `SyncGate`. **Nothing inside the app draws the icon
-  *tile*.** That is deliberate: the tile is the launcher artwork, and an app
-  showing you its own launcher icon in its own toolbar is showing you the
-  thing you pressed to get there. The wordmark's sizing is one CSS rule in
-  `em`, so a call site sets `font-size` and nothing else. Its "Feed" takes
-  `--brand-ink`, which *is* the stop the N's body gradient ends on — if the
-  sheet moves, keep that identity rather than re-matching a literal.
-  One consequence: the string "NeoFeed" is **not** in the topbar's DOM text
-  (the N is a glyph, so the text is "eoFeed"); the product name is the
-  wordmark's `aria-label`. Don't assert on that string to mean "the shell
-  rendered" — `verify-review-0917-session.cjs` § 9.3 did, and broke.
-  `test/verify-neofeed-mark.cjs` pins that all three carry the master's paths
-  and gradient stops character for character, decodes all seven PNGs, and
-  fails if an N+dot reappears anywhere. **Change the master, then re-render
-  the PNGs** — the harness fails either half alone. Two things that look like
-  details and are not: the mark's colours are literal hex, not `var()`, because
-  an SVG presentation attribute cannot read a custom property (so the mark does
-  not follow a palette change on its own — it has to be re-tinted deliberately,
-  as it was when the app went back to teal); and the in-app copy's gradient ids
-  are `nfm-*` against the login wordmark's `nf-*`, so two marks can never
-  collide in one document.
+- **The NeoFeed logo is two masters in `icons/`, drawn by one component**
+  (2026-09-23). `icons/logo.svg` is the lockup: the N, "eo", "Feed" with a
+  bottle and a milk drop in its e's, every corner rounded like the N's, and
+  the green / Champagne Gold rule ("by Valhalla Health" is not in it: it
+  stays at the login screen's foot). `icons/icon.svg` is the app icon: the N's three shapes on
+  Porcelain Mist. The phone/favicon PNGs are rendered from icon.svg by
+  `tools/render-icons.cjs` (the maskable pair at 39% of the square rather than
+  62%, because Android shows only the middle of a maskable icon), and **one**
+  `<NeoFeedWordmark/>` in `app.jsx` inlines logo.svg's paths for all three
+  screens that show the brand: the login hero (`lockup`, with the rule), the
+  topbar corner and `SyncGate`. **Nothing inside the app draws the
+  icon *tile*:** it is the launcher artwork, and an app showing you its own
+  launcher icon in its toolbar is showing you the thing you pressed to get
+  there. Every letter is a path (Poppins outlined), so no font is loaded for it.
+  Sizing is one CSS rule in `em`, with 1em the N's height, so a call site sets
+  `font-size` and nothing else. The string "NeoFeed" is **not** in the DOM text
+  (every letter is a path); the name is the wordmark's `aria-label`, so don't
+  assert on that string to mean "the shell rendered".
+  `test/verify-neofeed-mark.cjs` pins all three copies path for path, decodes
+  all seven PNGs, and fails if an N+dot reappears. **Change a master, then
+  update the component and re-render the PNGs**; the harness fails any one
+  alone. The colours are literal hex, not `var()`: an SVG presentation
+  attribute cannot read a custom property, and a logo is not a UI colour, so it
+  must not follow a palette move. There is only ever one wordmark in the
+  document, so its `nf-*` gradient ids cannot collide.
 - **The app must not scroll sideways, at any width, on either screen**
   (2026-09-22) — `test/verify-mobile-fit.cjs`. Three traps, all of which had
   been sprung at once:

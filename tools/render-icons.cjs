@@ -10,30 +10,24 @@
 // for the same reason as the test harnesses: playwright is a dev tool
 // installed on demand, never a dependency of the app (see test/README.md).
 //
-// The five whole-square PNGs were last written on 2026-09-22 by an earlier,
-// uncommitted renderer. This one reproduces them to within antialiasing (at
-// most 27/255 on an opaque edge pixel, measured), so they were left as they
-// are when it was added and only the maskable pair was written with it.
-//
-// ONE GEOMETRY, TWO LETTER SIZES. The master draws the letter at scale 1.4
-// (54.7% of the square's height), which is right wherever the whole square
-// is shown: a browser tab, the "any" icon, the Apple icon (iOS rounds the
-// corners and shows the rest). A MASKABLE icon is not shown whole. Android
-// treats it as an adaptive icon and shows only the middle — Chrome's own
-// conversion keeps about 87% of it, and on Praew's Samsung the middle two
-// thirds (measured 2026-09-22 from her home screen: the letter filled 82% of
-// the icon, "fit ไป"). So the maskable pair draws the same letter at 1.0 —
-// 39% of the square, furthest ink 27% from the centre — which lands at ~58%
-// of that launcher's icon and inside the 66/108 circle Android guarantees no
-// mask will cut. test/verify-neofeed-mark.cjs measures both sizes in the PNGs.
+// ONE GEOMETRY, TWO LETTER SIZES. The master draws the letter at scale 1.59
+// (62% of the square's height), which is right wherever the whole square is
+// shown: a browser tab, the "any" icon, the Apple icon (iOS rounds the corners
+// and shows the rest). A MASKABLE icon is not shown whole. Android treats it as
+// an adaptive icon and shows only the middle — Chrome's own conversion keeps
+// about 87% of it, and on Praew's Samsung the middle two thirds (measured
+// 2026-09-22 from her home screen). So the maskable pair draws the same letter
+// at 1.0 — 39% of the square — which lands at ~58% of that launcher's icon and
+// inside the 66/108 circle Android guarantees no mask will cut.
+// test/verify-neofeed-mark.cjs measures both sizes in the PNGs.
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..');
 const MASTER = fs.readFileSync(path.join(ROOT, 'icons', 'icon.svg'), 'utf8');
-const LETTER = { w: 98, h: 100 };          // the two paths' box, in master units
-const FULL = 1.4, MASKABLE = 1.0;          // letter scale: whole-square vs maskable
+const LETTER = { w: 90, h: 100 };          // the letter's box, in master units (2026-09-23 N)
+const FULL = 1.59, MASKABLE = 1.0;         // letter scale: whole-square vs maskable
 
 // [file, px, bleed, letter scale] — bleed squares the ground off; the
 // platform draws the shape. `any` keeps the master's own rounded corners.

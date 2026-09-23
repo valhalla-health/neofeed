@@ -1,51 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- NeoFeed's app icon: the brand board's two-tone N, and nothing else.
-       Praew, 2026-09-22 ("icon เอาแค่ตัว N ... หรือเอาสีพื้นหลังเท่า dashboard"),
-       choosing from three grounds rendered on a light home screen, a dark one
-       and a browser tab.
+  <!-- NeoFeed's app icon: the N of the 2026-09-23 logo, on the app's own ground.
+       Praew chose it from rendered sheets ("logo เอาแบบนี้", variant A on the
+       ground the icon already had), then placed the baby's head herself: the
+       circle is a swaddled infant's head, the dark ribbon the cloth wrapped
+       round it, the light stem the body ("ศีรษะทารกนอนอยู่แล้วถูกห่อผ้า"), moved
+       up 5 and forward 3 from where the artwork drew it.
 
-       THE GROUND IS THE APP'S OWN, Porcelain Mist #F5F8F7 — byte for byte the
-       value that :root gives the page background, so the icon and the app
-       behind it are one colour. It is NOT white by coincidence: white looked
-       identical at icon size and would have been a colour that merely
-       resembled the app's. (Written out rather than named, because an XML
-       comment may not contain a double hyphen and the token's name has one.)
+       THREE SHAPES, one letter box of 90 x 100: the ribbon and right stem
+       (Forest), the stem (Sage), and the head (Sage), which sits in a round
+       bite out of the ribbon. The 4-unit gap between them is geometry, not a
+       stroke, so it is the ground showing through at every size and on every
+       background. Redrawn as vectors from Praew's Canva artwork (measured, not
+       traced) so it stays sharp from a 16px tab to a 512px icon.
+       icons/logo.svg and <NeoFeedWordmark/> in app.jsx draw these same three
+       paths; test/verify-neofeed-mark.cjs pins all three copies.
 
-       NO FRAME. An Ivory ring on a Pale Jade ground lasted one look: at 16px
-       in a browser tab the ring turned to mush and squeezed the letter down
-       with it. Dropping it lets the letter grow from 47% of the square to 54%,
-       which is where the whole difference shows.
+       THE GROUND is Porcelain Mist #F5F8F7, byte for byte the app's page
+       background (kept from 2026-09-22). No frame.
 
-       The letter is unchanged and is the same two paths the wordmark draws —
-       a Sage left stem, the diagonal and right stem in Forest, a slit between.
-       Not traced from a mockup: built from the approved icon's measured
-       proportions (stems 28% of the letter's height, a parallel-edged
-       diagonal, 4.8% outer corners). test/verify-neofeed-mark.cjs pins that
-       app.jsx carries these exact path strings.
-
-       TWO LETTER SIZES, ONE GEOMETRY. Scale 1.4 below (the letter 54.7% of
-       the square's height) is for wherever the whole square is shown: the
-       tab, the "any" icons, the Apple icon. The maskable pair is rendered
-       at scale 1.0 instead (39%, furthest ink 27% from the centre), because
-       Android shows only the middle of a maskable icon: at 1.4 the letter
-       filled 82% of the icon on Praew's Samsung ("มัน fit ไป", 2026-09-22),
-       and its reach of 38.3% sat a hair inside the 40% safe zone.
-       tools/render-icons.cjs writes every PNG in icons/ from this file,
-       squaring off the ground's corners for the full-bleed variants, and
-       test/verify-neofeed-mark.cjs measures both sizes in the PNGs. -->
+       TWO LETTER SIZES, ONE GEOMETRY. Scale 1.59 below (the letter 62% of the
+       square's height) is for wherever the whole square is shown: the tab,
+       the "any" icons, the Apple icon. The maskable pair is rendered at scale
+       1.0 instead (39%), because Android shows only the middle of a maskable
+       icon (on Praew's Samsung, the middle two thirds).
+       tools/render-icons.cjs writes every PNG in icons/ from this file. -->
   <defs>
     <linearGradient id="nf-forest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
       <stop offset="0" stop-color="#335A4A"/>
       <stop offset="1" stop-color="#284C40"/>
     </linearGradient>
-    <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22.5" x2="0" y2="100">
+    <linearGradient id="nf-sage" gradientUnits="userSpaceOnUse" x1="0" y1="22" x2="0" y2="100">
       <stop offset="0" stop-color="#99B29C"/>
       <stop offset="1" stop-color="#799781"/>
     </linearGradient>
   </defs>
   <rect id="nf-ground" width="256" height="256" rx="56" fill="#F5F8F7"/>
-  <g transform="translate(59.4 58) scale(1.4)">
-    <path fill="url(#nf-forest)" d="M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z"/>
-    <path fill="url(#nf-sage)" d="M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z"/>
+  <g transform="translate(56.45 48.5) scale(1.59)">
+    <path fill="url(#nf-forest)" d="M0 8 C0 13.11 2.65 19.16 6.4 24.95 A15.5 15.5 0 0 1 27.71 47.05 C40.21 56.58 50.45 66.99 58.81 80.53 C61.77 85.33 68.4 100 78 100 L81 100 A9 9 0 0 0 90 91 L90 4 A4 4 0 0 0 86 0 L66 0 A4 4 0 0 0 62 4 L62 45.01 L28 3.65 A10 10 0 0 0 20.28 0 L8 0 A8 8 0 0 0 0 8 Z"/>
+    <path fill="url(#nf-sage)" d="M0 21.91 C9.27 39.88 24.23 49.21 30 53.96 L30 91 A9 9 0 0 1 21 100 L9 100 A9 9 0 0 1 0 91 Z"/>
+    <path fill="url(#nf-sage)" d="M8.66 28.25 A11.5 11.5 0 0 1 24.5 44.65 C24.43 44.6 24.36 44.55 24.29 44.49 C19.75 41.19 13.63 35.07 8.66 28.25 Z"/>
   </g>
 </svg>
