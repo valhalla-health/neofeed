@@ -76,10 +76,13 @@
   form and the ward's save button** — the ward, pharmacy and the TPN team need telling. Its post-release
   check is a comment on that release PR, and this banner catches up in the next PR on the repo.
 
-- ⏳ **PR #105, the new logo (`CHANGELOG.md` 2026-09-23 (h)): open, not merged, not live.** The N as a
-  swaddled baby, a bottle and a drop in "Feed", the lockup on the login screen, the word in the topbar,
-  and a new app icon on the same Porcelain Mist ground. Frontend only, no `clasp` step,
-  `CONSTANTS_VERSION` unchanged. ⚠️ **The app icon changes**; a phone shows it only after a reinstall.
+- ⏳ **PR #105, the new logo: merged into `main` on Praew's instruction ("merge แล้ว deploy"), and
+  released straight after in one `main` → `release` PR** (`CHANGELOG.md` 2026-09-23 (h)). The N as a
+  swaddled baby, a bottle and a drop in "Feed", every letter's corners rounded, the lockup on the login
+  screen with "by Valhalla Health · © 2026" at its foot, the word in the topbar, and a new app icon on
+  the same Porcelain Mist ground. Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged.
+  ⚠️ **The app icon changes**; a phone shows it only after a reinstall. Its post-release check is a
+  comment on that release PR, and this banner catches up in the next PR on the repo.
 
 **Previous (2026-09-22, 21:15–23:02 ICT):** backend `@56` + frontend `release` = `edbd11f`, PR #88.
 
