@@ -7,6 +7,26 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-23 (f) — Park a patient mid-move ("พักไว้ก่อน") so a bed swap can be saved
+
+Frontend only: `registry.jsx`, `data.js`, `app.jsx`, both shells, `compiled/`, new
+`test/verify-bed-park.cjs`. No backend change and no `clasp` step. `CONSTANTS_VERSION` stays `2026-09-18.1`.
+
+Praew: "ปัญหาช่วงย้ายเตียงแล้วเซฟข้อมูลไม่ได้ ให้สามารถย้ายเตียงแปะไว้ก่อนได้". One infant per bed is enforced
+on the client and in `_bedConflict`, so swapping two occupied beds could not be saved: each move landed on
+a bed the other baby still held. Praew chose the "park without a bed" option (not a temporary double-book).
+
+- **Transfer dialog → พักไว้ก่อน**: the patient leaves their bed (`currentBed` blank, the old bed
+  appended to `bedHistory`). Orders, weights and logs are untouched. A swap is now park B → move A into
+  B's bed → move B into A's.
+- **Parked patients stay on their ward's list** (`D.patientWard`) as **"รอเตียง · จาก NICU 2"** in the
+  warn colour, instead of dropping into "อื่นๆ". The Dashboard header reads "Bed รอเตียง".
+- The refusal on an occupied bed now says how to swap. Moving a parked patient into a bed adds no blank
+  hop to "Previous beds".
+- The rule itself is unchanged: a blank bed is not an occupancy, and the backend still refuses a
+  double-book (`verify-bed-park.cjs` § 3).
+- The printed order shows ตึก "—" while a patient is parked.
+
 ## Session 2026-09-23 (e) — MgSO₄ 10% only; energy red above 160 kcal/kg/d
 
 Frontend only: `calculator.jsx`, `data.js`, both shells, `compiled/`, four harnesses. No stock strength
