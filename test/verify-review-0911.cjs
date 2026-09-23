@@ -274,7 +274,7 @@ function setField(label, value) {
 const openAll = () => act(() => {
   container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
 });
-const saveBtn = () => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'บันทึก' || /กำลังบันทึก/.test(b.textContent));
+const saveBtn = () => [...container.querySelectorAll('button')].find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()) || /กำลังบันทึก/.test(b.textContent));
 // Step 1 + Intake/Output must all carry a typed value before Save is reachable
 // (2026-09-15 required-field gate) — a fresh form renders 0 as an empty box.
 // Called before every save below so these sections still test what they are

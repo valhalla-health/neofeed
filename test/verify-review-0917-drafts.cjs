@@ -76,7 +76,7 @@ function setField(label, value) {
 const click = (el) => act(() => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 const clickAsync = (el) => act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 const buttonText = (text) => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === text);
-const saveBtn = () => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'บันทึก' || /กำลังบันทึก/.test(b.textContent));
+const saveBtn = () => [...container.querySelectorAll('button')].find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()) || /กำลังบันทึก/.test(b.textContent));
 const fillRequired = () => ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']
   .forEach(l => setField(l, l === 'Target fluid' ? 150 : 0));
 const draftBanner = () => /มีข้อมูลที่กรอกค้างไว้/.test(container.textContent);

@@ -376,10 +376,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       curWtG: weight,
       tpnWtG: weight
     };
+    const draftBlank = new Set(Array.isArray(ci.blankFields) ? ci.blankFields : []);
     Object.keys(carried).forEach((k) => {
-      if (recorded(carried[k])) keys.add(k);
+      if (recorded(carried[k]) && !draftBlank.has(k)) keys.add(k);
     });
     ["ioInput", "ioOutput", "drainContent"].forEach((k) => {
+      if (draftBlank.has(k)) return;
       if (recorded(ci[k]) || recorded(editEntry[k]) && Number(editEntry[k]) !== 0) keys.add(k);
     });
     return keys;
@@ -435,6 +437,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const [prefilledFrom, setPrefilledFrom] = useState(null);
   const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
   const [savedLastModified, setSavedLastModified] = useState(editEntry?.lastModified || null);
+  const [savedStatus, setSavedStatus] = useState(editEntry ? D.isDraftEntry(editEntry) ? "draft" : "submitted" : null);
   const [saving, setSaving] = useState(false);
   const [published, setPublished] = useState(!!editEntry?.published);
   const [publishing, setPublishing] = useState(false);
@@ -539,6 +542,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const dateKey = editEntry ? D.normalizeDateStr(editEntry.ts) || openedOn : logDate || openedOn;
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
+    setSavedStatus(editEntry ? D.isDraftEntry(editEntry) ? "draft" : "submitted" : null);
     setConflict(null);
     setCritOverride(editEntry?.calcInput?.critOverride || null);
     setSavedMeta(editEntry ? {
@@ -1203,9 +1207,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const dosingWeightChanged = !!savedDosingWt && wtG > 0 && (savedDosingWt.exact ? Math.abs(savedDosingWt.g - wtG) > 0.01 : Math.abs(savedDosingWt.g - wtG) > Math.max(1, wtG * 5e-3));
   const calcMoved = !!savedEntryId && (savedCalcVersion ? savedCalcVersion !== D.CONSTANTS_VERSION : calc.overfill > 1.001 && (inclSoluvit || inclPeditrace) || isMEN && calc.enVolTotal > 0);
   const uncoveredCritical = alerts.filter((a) => a.level === "crit").map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0;
+  const isDraftSaved = !!savedEntryId && savedStatus === "draft";
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
-  const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
+  const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
   React.useEffect(() => {
     const ALL = /* @__PURE__ */ new Set([1, 2, 3, 4, 5, 6]);
@@ -1235,10 +1240,16 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     document.addEventListener("__neofeed_print", handler);
     return () => document.removeEventListener("__neofeed_print", handler);
   }, [savedEntryId, printable, printBlockToast]);
-  const handleSave = async () => {
+  const handleSave = async (asDraft = false) => {
+    asDraft = asDraft === true;
     if (saving) return;
     if (scratch) return;
-    if (missingFields.length > 0) {
+    if (asDraft && (blankFields.has("curWtG") || !(curWtG > 0))) {
+      setOpenSteps((prev) => new Set(prev).add(1));
+      showToast("บันทึกร่างต้องมีน้ำหนักปัจจุบัน (Current weight) อย่างน้อย", "error");
+      return;
+    }
+    if (!asDraft && missingFields.length > 0) {
       setOpenSteps((prev) => new Set(prev).add(1));
       showToast(`ยังกรอกไม่ครบ — ต้องกรอก: ${missingFields.map((f) => f.label).join(", ")}`, "error");
       return;
@@ -1247,12 +1258,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       showToast("รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่", "error");
       return;
     }
-    if (zeroVolumeBag) {
+    if (!asDraft && zeroVolumeBag) {
       setOpenSteps((prev) => new Set(prev).add(2).add(3));
       showToast(zeroVolumeText, "error");
       return;
     }
-    const critical = sortClinicalAlerts(alerts).filter((a) => a.level === "crit");
+    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit");
     let override = null;
     if (critical.length > 0) {
       const reason = window.prompt(
@@ -1363,7 +1374,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       // Route reflects what was actually delivered, not just the IV-access toggle —
       // a fully-weaned-to-EN day (totalTPN_mL === 0) must not be logged as "TPN ...".
       route: calc.totalTPN_mL > 0 ? route === "central" ? "TPN central" : "TPN peripheral" : calc.enVolPerKg > 0 ? "Enteral only" : "NPO",
-      status: "submitted",
+      status: asDraft ? "draft" : "submitted",
       ..._suppPayload,
       // tpnWtG: the resolved dosing weight these numbers were computed with,
       // so a reopened row can tell when a birth-weight edit has re-dosed it
@@ -1377,7 +1388,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         tpnWtG: dosingWtAtSave,
         constantsVersion: D.CONSTANTS_VERSION,
         ...userLabel ? { savedByLabel: userLabel } : {},
-        ...override ? { critOverride: override } : {}
+        ...override ? { critOverride: override } : {},
+        // Which required boxes were blank — they reopen blank (seededZeros).
+        ...asDraft ? { blankFields: missingFields.map((f) => f.key) } : {}
       },
       // Provenance — which constants and which frontend computed these
       // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
@@ -1408,6 +1421,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       if (!savedEntryId) setSavedEntryId(res.entryId);
     }
     setSavedLastModified(res.lastModified);
+    setSavedStatus(asDraft ? "draft" : "submitted");
     setSavedKey(keyAtSave);
     setCritOverride(override);
     setSavedDosingWt({ g: dosingWtAtSave, exact: true });
@@ -2200,17 +2214,29 @@ Copy order ต่อไปหรือไม่?`)) return;
       scratch ? `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══` : `══ NeoFeed V2 · ESPGHAN 2018/2022 ══`
     ].filter((l) => l !== "").join("\n");
     navigator.clipboard.writeText(lines).then(() => showToast("📋 Order copied to clipboard")).catch(() => showToast("Copy failed — try again"));
-  } }, "📋 ", scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อนบันทึก:", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), !scratch && /* @__PURE__ */ React.createElement(
+  } }, "📋 ", scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อน", centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)", ":", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), isDraftSaved && !dirty && /* @__PURE__ */ React.createElement("div", { className: "draft-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit"), !scratch && !centerPoint && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "btn save-draft",
+      style: { width: "100%", marginBottom: 8 },
+      disabled: saving || pendingSave || savedStatus === "submitted" && !!savedEntryId,
+      title: savedStatus === "submitted" && savedEntryId ? "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง" : "บันทึกไว้ก่อน แม้ยังกรอกไม่ครบ — พิมพ์ไม่ได้จนกว่าจะ Submit",
+      onClick: () => handleSave(true)
+    },
+    /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
+    " ",
+    saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"
+  ), !scratch && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn primary",
       style: { width: "100%" },
       disabled: saving || missingFields.length > 0 || zeroVolumeBag || pendingSave,
-      onClick: handleSave
+      onClick: () => handleSave(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),
     " ",
-    saving ? "กำลังบันทึก..." : "บันทึก"
+    saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"
   ), D.ENABLE_PUBLISH_GATE && !centerPoint && !scratch && /* @__PURE__ */ React.createElement(
     "button",
     {

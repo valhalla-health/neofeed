@@ -93,7 +93,7 @@ function check(labelStart) {
   if (!box.checked) act(() => { box.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 }
 const saveButton = () => [...container.querySelectorAll('button')]
-  .find(b => b.textContent.trim() === 'บันทึก' || /กำลังบันทึก/.test(b.textContent));
+  .find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()) || /กำลังบันทึก/.test(b.textContent));
 
 const patient = { sessionId: '2d0b8f3a-7c1e-4b5a-9f66-1a2b3c4d5e6f', name: 'PARITY', bw: 1200, ga: 29, currentBed: 'NICU 3', diagnosis: '-', weights: [] };
 // Deliberately un-round figures, so one dose is unlikely to match another by accident.

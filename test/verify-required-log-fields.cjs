@@ -88,7 +88,7 @@ function blurField(labelText) {
   });
 }
 const saveButton = () => [...container.querySelectorAll('button')]
-  .find(b => b.textContent.trim() === 'บันทึก' || /กำลังบันทึก/.test(b.textContent));
+  .find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()) || /กำลังบันทึก/.test(b.textContent));
 const missingText = () => [...container.querySelectorAll('div')]
   .map(d => d.textContent).filter(t => /^ยังกรอกไม่ครบ/.test(t)).pop() || '';
 

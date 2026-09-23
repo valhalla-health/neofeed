@@ -270,9 +270,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           const deltaPct = (delta / p.bw) * 100;
           const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
           const isActive  = p.sessionId === activeId;
-          const entries   = log[p.sessionId] || [];
+          const entries   = D_R.finalEntries(log[p.sessionId]);
           const lastEntry = entries[entries.length - 1];
           const hasToday  = loggedSet.has(p.sessionId);
+          const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
 
           return (
             <div key={p.sessionId}
@@ -319,10 +320,11 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                 </span>
                 {/* Today's entry, stated outright rather than as a quiet grey
                     hint — this is the one thing the round asks of the list. */}
-                <span className={"log-badge" + (hasToday ? " is-logged" : "")}
+                <span className={"log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : "")}
                       title={hasToday ? "บันทึกวันนี้แล้ว"
+                        : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit"
                         : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"}>
-                  {hasToday ? "✓ LOGGED" : "NEEDS ENTRY"}
+                  {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                 </span>
               </div>
 
@@ -431,9 +433,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
               const dol      = D_R.liveDol(p);
               const delta    = last ? last.w - p.bw : 0;
               const deltaPct = (delta / p.bw) * 100;
-              const entries  = log[p.sessionId] || [];
+              const entries  = D_R.finalEntries(log[p.sessionId]);
               const lastEntry = entries[entries.length - 1];
               const hasToday  = loggedSet.has(p.sessionId);
+              const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
               const isSelected = p.sessionId === activeId;
 
               return (
@@ -472,10 +475,11 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     {/* Same today's-entry state as the mobile card — the table
                         computed it already but never showed it. */}
                     <div style={{ marginTop: 3 }}>
-                      <span className={"log-badge" + (hasToday ? " is-logged" : "")}
+                      <span className={"log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : "")}
                             title={hasToday ? "บันทึกวันนี้แล้ว"
+                              : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit"
                               : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"}>
-                        {hasToday ? "✓ LOGGED" : "NEEDS ENTRY"}
+                        {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                       </span>
                     </div>
                   </td>

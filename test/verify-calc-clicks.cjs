@@ -273,24 +273,24 @@ const openAll = () => click(btnExact('Open all'));
   ok('Print before saving is refused with a toast', printed === 0 && toasts.some(t => /บันทึกคำสั่งให้สำเร็จก่อนพิมพ์/.test(t.msg)), toasts);
   click([...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent)));
   ok('Copy before saving is refused', copied === null && toasts.some(t => /ก่อนคัดลอก/.test(t.msg)));
-  ok('Save disabled while Step 1 / I/O are blank', btnExact('บันทึก').disabled === true);
+  ok('Save disabled while Step 1 / I/O are blank', btnExact('Submit').disabled === true);
   for (const [l, v] of [['Current weight', 1200], ['Target fluid', 150], ['Other IV', 0], ['Drug volume', 0], ['Urine output', 60], ['Drain content', 0]]) setField(l, v);
   setField('Volume(mL/day)', 150); setField('Dextrose final', 10); setField('Amino acid', 3);
-  ok('Save enabled once every required box is filled', btnExact('บันทึก').disabled === false, [...container.querySelectorAll('div')].map(d => d.textContent).filter(t => /^ยังกรอกไม่ครบ/.test(t)).pop());
+  ok('Save enabled once every required box is filled', btnExact('Submit').disabled === false, [...container.querySelectorAll('div')].map(d => d.textContent).filter(t => /^ยังกรอกไม่ครบ/.test(t)).pop());
   // zero-volume bag blocks Save
   setField('Volume(mL/day)', 0);
-  ok('ingredients with TPN volume 0 disable Save', btnExact('บันทึก').disabled === true && /ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง/.test(text()));
+  ok('ingredients with TPN volume 0 disable Save', btnExact('Submit').disabled === true && /ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง/.test(text()));
   setField('Volume(mL/day)', 150);
   // a critical alert: Save asks for a reason; cancelling does not save
   setField('KCl', 5);   // IV K 5 mEq/kg/d > 3.5 hard limit
   promptAnswer = null;
-  await clickAsync(btnExact('บันทึก'));
+  await clickAsync(btnExact('Submit'));
   ok('cancelled critical reason → nothing saved', calls.onLog.length === 0 && toasts.some(t => /ต้องระบุเหตุผลก่อน/.test(t.msg)));
   promptAnswer = '   ';
-  await clickAsync(btnExact('บันทึก'));
+  await clickAsync(btnExact('Submit'));
   ok('blank critical reason → nothing saved', calls.onLog.length === 0);
   promptAnswer = 'renal loss, K 2.9';
-  await clickAsync(btnExact('บันทึก'));
+  await clickAsync(btnExact('Submit'));
   ok('reason given → saved once', calls.onLog.length === 1);
   ok('the override travels with the order', calls.onLog[0]?.calcInput?.critOverride?.reason === 'renal loss, K 2.9'
     && calls.onLog[0].calcInput.critOverride.alerts.includes('Potassium critically out of range'), calls.onLog[0]?.calcInput?.critOverride);
@@ -311,7 +311,7 @@ const openAll = () => click(btnExact('Open all'));
   await act(async () => { await new Promise(r => setTimeout(r, 10)); });
   ok('Print while unsaved is refused', printed === 0 && toasts.length > 0);
   promptAnswer = 'renal loss, K 2.9';
-  await clickAsync(btnExact('บันทึก'));
+  await clickAsync(btnExact('Submit'));
   ok('second Save updates the same row (no duplicate)', calls.onLog.length === 1 && calls.onUpdate.length === 1 && calls.onUpdate[0].id === 'srv-9');
   // Delete: only when onDelete was given and the row exists
   confirmAnswer = false;
@@ -348,7 +348,7 @@ const openAll = () => click(btnExact('Open all'));
   // ── 10 · Quick calc (scratch): no save, copy works, print refused ─
   act(() => { root.unmount(); }); root = ReactDOM.createRoot(container);
   act(() => { root.render(React.createElement(window.Calculator, { patient: { sessionId: null, bw: 0, weights: [] }, dol: 5, scratch: true, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null, userLabel: '', userEmail: '' })); });
-  ok('quick calc has no Save button', !btnExact('บันทึก'));
+  ok('quick calc has no Save button', !btnExact('Submit'));
   ok('quick calc has no Intake/Output card', !inputFor('Urine output'));
   click(btnExact('Open all'));
   setField('Current weight', 2000); setField('Volume(mL/day)', 200); setField('Dextrose final', 10);

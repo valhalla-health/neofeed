@@ -155,7 +155,8 @@ const readAckedMap = (sessionId) => {
 function previousLogEntry(entries, targetDate) {
   const target = D_A.normalizeDateStr(targetDate);
   if (!target) return null;
-  return (entries || [])
+  // A draft is not yesterday's order: never prefill from it or diff against it.
+  return D_A.finalEntries(entries)
     .filter(entry => {
       const entryDate = D_A.normalizeDateStr(entry?.ts);
       return entryDate && entryDate < target;
@@ -171,8 +172,10 @@ function previousLogEntry(entries, targetDate) {
 // its own hand-rolled copy of this logic and they drifted (e.g. the badge
 // never counted the electrolyte-audit reminder that the page always shows),
 // so the badge silently under-counted what the Alerts page displayed.
-function computeAlerts(patient, entries) {
+function computeAlerts(patient, allEntries) {
   const alerts = [];
+  // Drafts are half-typed orders, not what the infant received (D.isDraftEntry).
+  const entries = D_A.finalEntries(allEntries);
   const last = entries[entries.length - 1];
   if (last) {
     // Route-aware targets — the same switch log.jsx's pickTarget() uses.

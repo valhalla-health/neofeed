@@ -104,9 +104,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     const deltaPct = delta / p.bw * 100;
     const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
     const isActive = p.sessionId === activeId;
-    const entries = log[p.sessionId] || [];
+    const entries = D_R.finalEntries(log[p.sessionId]);
     const lastEntry = entries[entries.length - 1];
     const hasToday = loggedSet.has(p.sessionId);
+    const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
     return /* @__PURE__ */ React.createElement(
       "div",
       {
@@ -121,10 +122,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-stats" }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Wt"), /* @__PURE__ */ React.createElement("span", { className: "num" }, last?.w?.toLocaleString() || "—"), " g"), /* @__PURE__ */ React.createElement("span", { style: { color: last ? deltaColor : "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Δ"), last ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "num" }, delta >= 0 ? "+" : "", delta), " g (", D_R.displayNum(deltaPct, 1), "%)") : /* @__PURE__ */ React.createElement("span", { className: "num" }, "—")), /* @__PURE__ */ React.createElement(
         "span",
         {
-          className: "log-badge" + (hasToday ? " is-logged" : ""),
-          title: hasToday ? "บันทึกวันนี้แล้ว" : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"
+          className: "log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : ""),
+          title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"
         },
-        hasToday ? "✓ LOGGED" : "NEEDS ENTRY"
+        hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
       )),
       /* @__PURE__ */ React.createElement("div", { className: "pmc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: (e) => {
         e.stopPropagation();
@@ -161,9 +162,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     const dol = D_R.liveDol(p);
     const delta = last ? last.w - p.bw : 0;
     const deltaPct = delta / p.bw * 100;
-    const entries = log[p.sessionId] || [];
+    const entries = D_R.finalEntries(log[p.sessionId]);
     const lastEntry = entries[entries.length - 1];
     const hasToday = loggedSet.has(p.sessionId);
+    const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
     const isSelected = p.sessionId === activeId;
     return /* @__PURE__ */ React.createElement(
       "tr",
@@ -192,10 +194,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--ok)", fontWeight: 600 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: "var(--ok)", flexShrink: 0 } }), "Active"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3 } }, /* @__PURE__ */ React.createElement(
         "span",
         {
-          className: "log-badge" + (hasToday ? " is-logged" : ""),
-          title: hasToday ? "บันทึกวันนี้แล้ว" : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"
+          className: "log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : ""),
+          title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"
         },
-        hasToday ? "✓ LOGGED" : "NEEDS ENTRY"
+        hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
       ))),
       /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" } }, /* @__PURE__ */ React.createElement(
         "button",

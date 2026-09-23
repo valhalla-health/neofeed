@@ -1188,7 +1188,28 @@ function normalizeLogMap(logMap) {
 // entry saved after today's would otherwise hide today's from the check.
 function hasLogOnDate(entries, date) {
   const target = normalizeDateStr(date || todayLocal());
-  return (entries || []).some(e => normalizeDateStr(e.ts) === target);
+  return finalEntries(entries).some(e => normalizeDateStr(e.ts) === target);
+}
+// A draft saved today — the ward list shows it as "DRAFT", not "✓ LOGGED".
+function hasDraftOnDate(entries, date) {
+  const target = normalizeDateStr(date || todayLocal());
+  return (entries || []).some(e => isDraftEntry(e) && normalizeDateStr(e.ts) === target);
+}
+
+// ── Draft orders (Praew, 2026-09-23) ──────────────────────────
+// "Save draft" keeps an order whose required boxes are not all filled yet
+// (Daily_Log column O, status "draft"). A draft is not a record of what the
+// infant received: its blank urine output reads as 0 and its figures may be
+// half-typed. So it stays out of every trend, alert, weight series, "logged
+// today" count and previous-order prefill, and it cannot print, until it is
+// completed and Submitted (status "submitted"). Every row saved before drafts
+// existed carries "submitted" (the calculator always wrote it; the backend
+// defaults a blank to it), so old orders count as submitted.
+function isDraftEntry(e) {
+  return !!e && String(e.status || "").toLowerCase() === "draft";
+}
+function finalEntries(entries) {
+  return (entries || []).filter(e => !isDraftEntry(e));
 }
 
 // React hook form of todayLocal(): the current local date, re-rendering the
@@ -1329,7 +1350,7 @@ function lastWeighed(patient, entries) {
 // Returns [{ dol, w, src: "measured" | "order", ts? }] sorted by DOL.
 function weightSeries(patient, entries) {
   const byDol = new Map();
-  for (const e of (entries || [])) {
+  for (const e of finalEntries(entries)) {
     const w = Number(e?.weight);
     if (!isFinite(w) || w <= 0) continue;
     const dol = entryDol(patient, e);
@@ -1875,7 +1896,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, finalEntries,
   // Last weight from either store — pass the patient's Daily_Log as the second
   // argument to include order weights (see weightSeries).
   lastWeighed, weightSeries,
