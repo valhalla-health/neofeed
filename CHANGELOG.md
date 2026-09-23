@@ -86,7 +86,7 @@ and feeds a printed per-kg figure.
   arrived as `200.00000000000003`. Now 200–8000 g, GIR ≤ 30, kcal ≤ 250, with an epsilon at the
   boundary — and the refusal is written in Thai instead of surfacing raw English inside a Thai toast.
 
-### NPE:AA < 20 is a warning, not a save-blocking stop — **needs Praew's sign-off**
+### NPE:AA < 20 is a warning, not a save-blocking stop — **signed off by Praew, 2026-09-23**
 
 The only clinical policy changed here, and the one the review marked "team decision". NPE:AA below
 20 kcal/g AA means amino acid is being oxidised for fuel rather than laid down: real, but it is the
@@ -96,6 +96,18 @@ so a fluid-restricted day-3 ELBW raised a *critical* alert clearable only by typ
 reason — the rote-override problem UP-C4 fixed for lipid, K and osmolarity, surviving on this one
 limit. The high side (> 32) is untouched and still stops the order. `verify-review-0917-calc.cjs` § 4
 is updated with the reasoning; UP-C4's "judged on the bag, not the total" decision is unchanged.
+
+**Signed off by Praew (Neonatologist, KCMH) on 2026-09-23**, on PR #96, with the reasoning accepted as
+written: an override people type without reading protects nobody, so the information is kept and the
+reflex is removed. The DOL-aware variant that was offered was declined — it would put a third arm of
+clinical policy inside a display threshold. `verify-calc-oracle.cjs` grades the new policy from a hand
+transcription, not from `calculator.jsx`, and is ALL PASS at 1,058 checks on the merged result.
+
+The sign-off carried one condition, now in `BACKLOG.md` § Next: only `crit` alerts are persisted
+(`calcInput.critOverride`) and only criticals reach the pharmacy form, so from this change on a
+sub-20 ratio is visible when the order is written and then leaves no trace. A transient ramp is
+exactly what this downgrade is for; several consecutive days below 20 is a nutrition question, and
+that is the case it gives up the ability to see.
 
 ### What was tried and backed out
 

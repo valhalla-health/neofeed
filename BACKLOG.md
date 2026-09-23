@@ -176,6 +176,19 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] 🩺 **safety · A *persistent* low NPE:AA has nowhere to show, now that it no longer stops the
+      order.** Condition attached to Praew's 2026-09-23 sign-off of the NPE:AA downgrade (PR #96;
+      `CHANGELOG.md` § Session 2026-09-23 (b)). Only `crit` alerts are persisted — `calcInput.critOverride`
+      stores titles, and only criticals reach the pharmacy form — so a sub-20 ratio is now visible in
+      the amber tile while the order is being written and leaves no trace afterwards: not in the saved
+      `Daily_Log` row, not on the printed form, not on the Alerts page tomorrow. That is the right
+      trade for a *transient* ramp, which is precisely what the downgrade was for. It is the wrong
+      trade for the same infant sitting below 20 for three or four consecutive days, which is a
+      nutrition question rather than an order-time interruption, and is the one case the downgrade
+      gives up the ability to see. Wanted: a trend signal on the Alerts page computed from the saved
+      rows — the infant has been below 20 kcal/g AA on N consecutive days — not a second order-time
+      alert, and not a return of the stop. `D.girStatus` is the shape to copy: grade it once, in
+      `data.js`, so the order screen and the Alerts page cannot drift apart again the way GIR did.
 - [ ] 🎨 **ui · The `search` glyph renders as a bare ring wherever it appears.** The topbar's
       Switch-patient button, the registry's search field and the empty-state "เลือกผู้ป่วย" button all
       show an outline circle instead of a magnifier — visible in every screenshot Praew has sent since
