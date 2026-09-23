@@ -112,6 +112,64 @@ what `test/verify-calc-oracle.cjs` caught, in 78 checks, and it was right to.
 
 ---
 
+## Session 2026-09-23 — A safety review of the whole app, and three harnesses so the calculator cannot drift
+
+Tests, one one-line calculator fix, `.github/CODEOWNERS`, and two repository settings. No `data.js`
+change, no figure in `calc` and no printed number moved, so `CONSTANTS_VERSION` stays `2026-09-18.1`.
+
+### The review
+
+Praew asked for the calculator to be checked click by click and figure by figure, then the rest of the
+app walked for bugs. The calculator came out clean: 1,058 oracle checks over 12 scenarios, 5,473 over
+250 randomised orders (CI re-runs 80 of them), 242 click assertions and the repo's own 102 harness runs (sources and
+`compiled/`) all agree, and every figure on a printed sheet reconciled by hand. One display bug, no
+dose error. The findings that are *not* in the calculator are listed in `BACKLOG.md` § Now / § Next —
+the two weight stores, the DOL anchor in `weights[0].dol`, the unguarded admit date, and the stale
+`base` a sync leaves a patient modal holding.
+
+### What changed
+
+- **`test/verify-calc-oracle.cjs`** (new) — 12 orders through the real `<Calculator>`, every figure
+  checked on four surfaces against a recomputation that never imports the app's formulas. See
+  `test/README.md` for what it covers and for the `NEGATIVE_CONTROL=1` switch that proves it can fail.
+- **`test/verify-calc-clicks.cjs`** (new) — 242 assertions over every chip, toggle, select, checkbox
+  and button, plus the gates around a printed order.
+- **`test/verify-calc-fuzz.cjs`** (new) — random orders from a fixed seed against a third
+  recomputation, with five invariants that must hold for any order (Factor round-trip, dead-space
+  independence, components + WFI = prepared, no broken number on screen, no critical tile without a
+  critical alert).
+- **`calculator.jsx`** — the Munti-vim vitamin D warning added the drop's fixed 400 IU/day **per kg**:
+  `(suppVitD + 400) × wtKg`. A 2.5 kg infant on 400 IU/kg/d read 2,000 IU/day for a real 1,400, and an
+  800 g infant read 880 for a real 960 — in the one line whose job is to stop a vitamin D overdose. Now
+  `suppVitD × wtKg + 400`. The printed form and the copied order were always right; only this on-screen
+  warning was wrong, which is why no printed figure moves and `CONSTANTS_VERSION` does not change.
+  Pinned by `verify-calc-oracle.cjs` (scenarios B and C), which fails against the line above it.
+- **`.github/CODEOWNERS`** (new) — advisory today: it puts the right name on every PR and is the one
+  place to add the second clinical reviewer `AI_SDLC.md` § 7 says has never existed.
+
+### Two settings, recorded here because they have no file
+
+- **`main` now carries branch protection**, mirroring `release`: the `harnesses` check is required,
+  `enforce_admins` is on, force-push and deletion are refused, 0 approving reviews (GitHub never lets
+  an author approve their own PR, so requiring one would block Praew's own merges). Before this, `main`
+  had **no** effective protection: the repository ruleset named `protect-main` (created 2026-09-07)
+  has an empty target-branches list, so it protects nothing — `gh api repos/valhalla-health/neofeed/rules/branches/main`
+  returns `[]`. A PR with a red `harnesses` could be merged into `main`, and `main` is what every
+  release PR ships.
+- **Every release since the deploy gate now has a tag** — `release-YYYY-MM-DD-prNN` on each
+  `main → release` merge from PR #60 (2026-09-12, the first release under the gate) through #94
+  (2026-09-23). Eleven annotated tags. A rollback is now `git checkout <tag>`, and the provenance stamp
+  on a printed order leads to a commit that leads to a tag.
+
+### Following releases
+
+Tag the release merge as part of the release, the way `STATUS.md` is written as part of the deploy:
+
+```bash
+git tag -a release-$(date +%F)-pr<N> <merge sha> -m "Release $(date +%F) — PR #<N> merged into release"
+git push origin release-$(date +%F)-pr<N>
+```
+
 ## Session 2026-09-22 (5) — The Calculator button moves to the Ward page, the range bars get their colours back, and the Android icon gets room
 
 Frontend only: `calculator.jsx`, `app.jsx`, `registry.jsx`, both shells, `compiled/`, the two maskable icon

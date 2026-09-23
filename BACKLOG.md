@@ -32,6 +32,29 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🩺 **safety · The 2026-09-23 review's four fix-first findings** (`CHANGELOG.md` 2026-09-23; the
+      calculator's own arithmetic came out clean and is now pinned by three harnesses). Each is
+      reproduced, none is in `calc`:
+      - **Two "current weights" that never meet.** An order's weight goes to `Daily_Log.weight`, a
+        growth-chart entry to `patient.weights[]`, and nothing copies either way. So a new order
+        prefills *yesterday's order weight* under the hint "= current weight" even when a newer weight
+        is on record (`calculator.jsx:940-971`), and the growth chart, "Wt now", `PatientStrip` and the
+        stale-weight alert never see an order's weight (`app.jsx:227-240`, `app.jsx:1859`) — a ward that
+        weighs daily in the order reads "Weight measurement >7 days overdue" with a one-point chart.
+        **Praew's decision first: which store owns "the current weight".**
+      - **DOL is inferred from `weights[0].dol`** (`data.js:1273`). The array is sorted by DOL, so
+        recording an outborn infant's birth measurement moves the whole record: DOL 8 → 4, PMA 31+0 →
+        30+3, fluid 140–160 → 120–140, energy 90–120 → 70–100, Na 2–5 → 0–3, every log row's DOL and the
+        DOL printed on the order. Fix by storing the admission DOL (or deriving it from
+        `dob`/`admissionDate`), then `fenton.jsx`'s logger cap and the outborn birth-weight plot follow.
+      - **The admit date is unguarded** (`registry.jsx:706,796,992,1057`; `_validatePatient` checks no
+        date). Blank, future and a Thai BE year are all accepted and pin DOL at 1; editing a record that
+        has no admit date stamps today, which took a DOL 20 record to DOL 1 and its day-1 target bands.
+      - **A sync while a patient modal is open turns the merge against you** (`app.jsx:1442`): `base` is
+        read at save time, so an edit saved after a background poll compares against a *newer* server
+        record — reproduced re-activating a discharged infant and dropping another device's weight. Send
+        the snapshot the modal opened with.
+
 - [ ] 🩺 **safety · Before the 2026-09-22 TPN-team frontend ships, tell pharmacy and the TPN team what
       changed** (`CHANGELOG.md` 2026-09-22, "The TPN team's feedback"). **Praew's to do.**
       - The printed order is now **two sheets, for double-sided printing**. The front is the KCMH paper
@@ -179,6 +202,70 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · `TARGETS.fluid` is documented as taking birth weight, but every call site passes
       current weight.** One of the two is wrong. **Clinical decision, not a bug fix** — decide which
       is correct, then make code and docs agree.
+- [ ] 🩺 **safety · The 2026-09-23 review's clinically-important findings** (`CHANGELOG.md`
+      2026-09-23). Each reproduced; none moves a compounded dose:
+      - **The Alert centre and the calculator disagree about GIR** — `app.jsx:199-204` calls anything
+        above 12 critical, `calculator.jsx:1459` makes 12–13 the yellow margin (Praew, 2026-09-22).
+        The same four alert bodies interpolate the stored value unrounded ("GIR 7.206498951781971").
+      - **Growth velocity** fires "critically low" during the expected postnatal nadir, and freezes
+        past 42 wk PMA because `GrowthVelocity` and "latest measurement" read the clamped `points`
+        (`fenton.jsx:206,421`) — the long-stay infants it matters most for.
+      - **The trend graph draws the latest row's target band across the whole history**
+        (`log.jsx:185,324-343`), so a day that was on target reads far below it.
+      - **Quick calc wears the previously opened infant's identity strip** (`app.jsx:1818`), and its
+        DOL box cannot be emptied — 14 → backspace → "1" → type 5 → **15** (`app.jsx:2096`).
+      - **The NPE:AA < 20 hard stop fires on ordinary orders.** With AA 3 g/kg and lipid 2 it needs
+        GIR ≥ 8.6 to clear; a fluid-restricted day-3 ELBW trips it and must be saved with a typed
+        reason. **Team decision:** warning, or a lower critical floor, or DOL-aware.
+      - **Server bounds refuse legitimate orders** (`gas-backend.gs:1677-1681`): weight < 300 g or
+        > 8 kg (while DOL is allowed to 400 days), GIR > 20, and kcal exactly 200 (float, refused as
+        `200.00000000000003`) — in raw English at the bedside.
+      - **The reference panels contradict the calculator** on six figures (`app.jsx:2954,2965,3013,
+        3034-3036,3054,3144`): lipid 2.0 kcal/mL vs 9 kcal/g, term fluid "DOL 5+", the ELBW/term Na
+        rows, the ≥17–20 growth target vs the alert at 15, Peditrace's Zn, and the DOL-2 lipid band.
+      - **`FENTON_LENGTH`'s 42-week row is ~3 cm high** (`data.js:912-933`): the 50th steps
+        +1.05 cm/wk to 38, +1.45 to 42, then +0.38 — so a 49.9 cm term boy plots near the 8th
+        percentile. Already unverified in `docs/CLINICAL_CONSTANTS.md`; say so on the chart until the
+        LMS parameters arrive.
+      - Smaller, batchable: "SCN 01" ≠ "SCN 1" in `normalizeBed`/`_normBed`; a measurement row cannot
+        be cleared or deleted; with no admit date the logger caps DOL at the last stored one and
+        overwrites it; the weight series is not sorted before plotting; a blank date in `LogDateModal`
+        silently becomes today; a blank sex cell charts as a boy; the Dashboard GIR band is 8–10 while
+        the calculator's is 4–12; a MEN row switches regime differently on the trend; the standing info
+        reminder paints the Alerts badge red; the strip prints a raw delta float; alerts keep running
+        for discharged sessions and the admin tile counts them; on a phone Formulas and the Admin
+        dashboard are unreachable.
+- [ ] 🧱 **infra · A hand-stubbed GAS harness can pass its "must reject" cases for the wrong reason.**
+      `test/verify-input-validation.cjs:25` is `throws(name, fn)` — it asserts only that *something* was
+      thrown, never what. It is the one harness left that stubs the GAS globals by hand (the other five
+      backend harnesses use `test/gas-vm-sandbox.cjs`), so the moment the code under test touches a global
+      that stub does not carry, every refusal assertion in it passes on a `ReferenceError` instead of on a
+      validation refusal, and the "still saves" cases fail loudly enough to look like the only problem.
+      Found on 2026-09-23 by the session working on PR #96, when `registerPatient` began calling `_fmtDate`
+      and `Session` was undefined in that sandbox. **#96 closes the instance** (it adds `Session` and
+      `Utilities.formatDate`); this line is the class. Two ways out, either is small: have `throws()` take
+      the expected message pattern and fail a `ReferenceError` outright, or fold that harness onto
+      `gas-vm-sandbox.cjs`, which does not have the problem.
+- [ ] 🧱 **infra · A harness that runs nothing passes CI.** `.github/workflows/test.yml` grades each
+      harness by exit code alone (`for f in test/verify-*.cjs; do node "$f"; done` under `set -e`), so a
+      file that executes no assertion — emptied, corrupted, or with its body swallowed by a stray line
+      comment — exits 0 and is counted green. Demonstrated by accident on 2026-09-23: a harness copied
+      through a PowerShell pipeline lost every newline, which commented out everything after the first
+      `//` on the resulting single line; it printed **nothing at all** and exited 0. Only the missing
+      output gave it away, and nothing in the loop looks at output. The compiled pass already greps for
+      `[compiled-loader] swapped in`, which covers module-mounting harnesses in that mode only. Close it
+      the same way for both modes: every harness here ends with a summary line (`ALL PASS`, `N FAILED`,
+      `CALC ORACLE:`, …), so require a recognisable summary token in each harness's stdout and fail the
+      step when one is missing.
+      **Blast radius, measured twice (this session and the PR #96 session, independently, same answer):
+      with both PRs in, 54 harnesses — 30 carry the compiled-pass grep, 24 carry nothing in either pass.**
+      The list is one command, and stays current as harnesses are added:
+      `for f in test/verify-*.cjs; do grep -qE 'transformSync|review-0917-boot' "$f" || echo "$f"; done`.
+      It is not a harmless 24: it holds `verify-kcmh-constants` and `verify-kcmh-factor`'s companion
+      checks, `verify-provenance-stamp`, every `verify-review-0917-backend-*`, the auth and session
+      harnesses (`verify-must-change-password`, `verify-login-endorsement`,
+      `verify-gas-session-revocation`, `verify-chula-google-signin`, `verify-staff-cache-password-writes`)
+      and `verify-input-validation` — the ones whose silence would be least noticed and cost the most.
 - [ ] 🧱 **product · The app is installable but has no offline capability.** `manifest.json` makes it
       a PWA and staff have home-screen installs, but there is **no service worker**, so a home-screen
       icon opens to nothing with no network. Partially addressed 2026-08-26: the staleness banner now
