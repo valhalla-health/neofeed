@@ -2324,7 +2324,7 @@ function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEd
           <div>
             <div className="id">{patient.name || patient.initials || "—"}</div>
             <div className="bed">
-              Bed <span className="num">{patient.currentBed}</span>
+              Bed <span className="num">{patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")}</span>
               {" · DOL "}
               <span className="num" style={{ color:"var(--brand-2)", fontWeight:700 }}>{displayDol}</span>
             </div>

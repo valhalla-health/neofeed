@@ -1703,6 +1703,32 @@ function bedBlocker(patients, record) {
 // SCN number instead of on whatever bed happened to be listed first.
 // Returns "" when the ward is full, which callers must treat as "leave the
 // current selection alone", never as "unassign the patient".
+// A patient "parked" mid-move (Praew, 2026-09-23: "ย้ายเตียงแปะไว้ก่อน"): they
+// hold no bed right now but have left one, recorded in bedHistory. A swap of
+// two occupied beds is park A → move B into A's bed → move A into B's — the
+// one-infant-per-bed rule (here and _bedConflict in gas-backend.gs) never
+// bends, because a blank bed is not an occupancy.
+function lastBed(p) {
+  const h = (p && Array.isArray(p.bedHistory)) ? p.bedHistory : [];
+  for (let i = h.length - 1; i >= 0; i--) {
+    const b = normalizeBed(h[i] && h[i].bed);
+    if (b) return b;
+  }
+  return "";
+}
+function isParked(p) {
+  return !!p && !normalizeBed(p.currentBed) && !!lastBed(p);
+}
+// Which ward list a patient belongs on: their bed's ward, or — while parked —
+// the ward of the bed they left, so they stay on the list the nurse is
+// working from instead of dropping into "อื่นๆ" in the middle of a swap.
+function patientWard(p) {
+  const bed = normalizeBed(p && p.currentBed);
+  if (bed) return wardGroup(bed);
+  const last = lastBed(p);
+  return last ? wardGroup(last) : "other";
+}
+
 function nextFreeBed(patients, ward, excludeSessionId) {
   const occupied = bedOccupancy(patients, excludeSessionId);
   return BED_OPTIONS.find(b => bedWard(b) === ward && !occupied.has(b)) || "";
@@ -1868,6 +1894,7 @@ window.NEOFEED_DATA = {
   // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
   // the one bed list, and the one-patient-per-bed occupancy helpers
   normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
+  lastBed, isParked, patientWard,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,
