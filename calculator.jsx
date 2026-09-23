@@ -686,10 +686,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const [kCl, setKCl] = useState(0);
   const [k2hpo4, setK2HPO4] = useState(0);
   const [mgPerKg, setMgPerKg] = useState(0);
-  // Which MgSO₄ vial the bag is compounded from. The official KCMH sheet prints
-  // both strengths on the pharmacy label but its recipe line (J32) uses 10%,
-  // so that is the default here — it changes the mL and therefore the WFI q.s.
-  const [mgStrength, setMgStrength] = useState("10");   // "10" | "50"
+  // Which MgSO₄ vial the bag is compounded from. KCMH uses 10% only (Praew,
+  // 2026-09-23), so a new order is always 10% and there is no 50% choice. The
+  // state stays so an order saved as 50% before then still reprints as saved.
+  const [mgStrength, setMgStrength] = useState("10");   // "10" | legacy "50"
   const [caPerKg, setCaPerKg] = useState(0);
   const [extraP_mg_kg, setExtraP_mg_kg] = useState(0);
 
@@ -1501,7 +1501,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const proStatusAt = (v) => D.rangeStatus(v, tPro, PRO_HARD);
   const sGir = girStatusAt(calc.gir);
   const sPro = proStatusAt(calc.proteinKg);
-  const sKcal = D.rangeStatus(calc.kcalKg, tKcal);
+  // Energy: amber outside the phase band, red above 160 (D.KCAL_HARD_HI —
+  // ESPGHAN 2022: 140–160 only for suboptimal growth, never above 160).
+  const kcalStatusAt = (v) => D.rangeStatus(v, tKcal, { hardHi: D.KCAL_HARD_HI });
+  const sKcal = kcalStatusAt(calc.kcalKg);
   // Lipid, K and NPE:AA tiles show the TOTAL (TPN + EN) against the active
   // target band only; their hard limits are judged on the IV portion further
   // down (hardLip / hardK / hardNPE — Praew, 2026-09-17, UP-C4).
@@ -2589,7 +2592,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
 
           {/* ══ Metric tiles — horizontal row ═══════════════════════════ */}
           <div className="metric-tiles-4" style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8 }}>
-            <Tile label="Energy (total)" value={calc.kcalKg} unit=" kcal/kg/d" target={tKcal} status={sKcal} decimals={0} max={160} />
+            <Tile label="Energy (total)" value={calc.kcalKg} unit=" kcal/kg/d" target={tKcal} status={sKcal} statusAt={kcalStatusAt} decimals={0} max={180} />
             <Tile label="Protein" value={calc.proteinKg} unit=" g/kg/d" target={tPro} status={sPro} statusAt={proStatusAt} decimals={1} max={5.5} />
             <Tile label="Lipid (total)" value={calc.lipidKgTotal} unit=" g/kg/d" target={tLip} status={sLip} decimals={1} max={7} />
             <Tile label="NPC : Protein" value={calc.npeN} unit=" kcal/g AA" target={tNPE} status={sNPE} decimals={0} max={60} />
@@ -2717,20 +2720,17 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                   {fmt(mgPerKg, 2)} mEq Mg/kg/d = {fmt(mgPerKg * D.MG_MG_PER_MEQ, 1)} mg/kg/d
                 </div>
               )}
-              {/* The KCMH worksheet prints both strengths but compounds from 10% */}
-              <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
-                <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial</span>
-                <div className="seg" style={{ padding:1 }}>
-                  {[["10","10%"],["50","50%"]].map(([v,lab]) => (
-                    <button key={v} className={mgStrength === v ? "on" : ""} onClick={() => setMgStrength(v)}>{lab}</button>
-                  ))}
-                </div>
+              {/* KCMH compounds from 10% MgSO₄ only. An order saved as 50% before
+                  2026-09-23 keeps its strength until someone switches it here. */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap" }}>
+                <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial {mgStrength}%</span>
                 {calc.solVol.mg > 0 && (
-                  <span style={{ fontSize:10.5, color:"var(--brand-2)", fontWeight:600 }}>
-                    → {calc.solVol.mg} mL/d
-                    <span style={{ color:"var(--ink-3)", fontWeight:400, marginLeft:5 }}>
-                      ({mgStrength === "50" ? `10% = ${calc.solVol.mg10}` : `50% = ${calc.solVol.mg50}`} mL)
-                    </span>
+                  <span style={{ fontSize:10.5, color:"var(--brand-2)", fontWeight:600 }}>→ {calc.solVol.mg} mL/d</span>
+                )}
+                {mgStrength !== "10" && (
+                  <span style={{ fontSize:10.5, color:"var(--warn-ink)", fontWeight:600 }}>
+                    Saved as {mgStrength}% — KCMH stocks 10% only{" "}
+                    <button type="button" className="preset-chip" onClick={() => setMgStrength("10")}>Use 10%</button>
                   </span>
                 )}
               </div>
@@ -3852,7 +3852,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             {glycophosP > 0 && <tr><td style={td}>Disodium glycerophosphate</td><td style={tdr}>Na {f(glycophosP*S.glycophos.naMeqPerMl*(calc.factor||0),1)} mEq · P {f0(glycophosP*S.glycophos.pMgPerMl*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.glycophos,1)}</strong></td></tr>}
             {kCl > 0 && <tr><td style={td}>KCl</td><td style={tdr}>{f(kCl*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.kCl,1)}</strong></td></tr>}
             {k2hpo4 > 0 && <tr><td style={td}>K₂HPO₄</td><td style={tdr}>{f(k2hpo4*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.k2hpo4,2)}</strong></td></tr>}
-            {mgPerKg > 0 && <tr><td style={td}>MgSO₄ {mgStrength}% <span style={note}>({mgStrength === "50" ? `10% = ${calc.solVol?.mg10}` : `50% = ${calc.solVol?.mg50}`} mL)</span></td><td style={tdr}>{f(mgPerKg*(calc.factor||0),2)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.mg,2)}</strong></td></tr>}
+            {mgPerKg > 0 && <tr><td style={td}>MgSO₄ {mgStrength}%</td><td style={tdr}>{f(mgPerKg*(calc.factor||0),2)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.mg,2)}</strong></td></tr>}
             {caPerKg > 0 && <tr><td style={td}>10% Ca Gluconate</td><td style={tdr}>{f0(caPerKg*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.ca,1)}</strong></td></tr>}
             {/* Soluvit and Peditrace are × Factor (Praew, 2026-09-18), so the
                 bag holds more than the order's 1 mL/kg; what reaches the infant

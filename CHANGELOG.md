@@ -33,6 +33,42 @@ Praew: "ให้เพิ่มปุ่ม save draft เพื่อเวล
   backend defaults a blank to it), so all of them print as before.
 - ⚠️ This changes the ward workflow: the save button is now **Submit**. Tell the ward and the TPN team.
 
+## Session 2026-09-23 (f) — Park a patient mid-move ("พักไว้ก่อน") so a bed swap can be saved
+
+Frontend only: `registry.jsx`, `data.js`, `app.jsx`, both shells, `compiled/`, new
+`test/verify-bed-park.cjs`. No backend change and no `clasp` step. `CONSTANTS_VERSION` stays `2026-09-18.1`.
+
+Praew: "ปัญหาช่วงย้ายเตียงแล้วเซฟข้อมูลไม่ได้ ให้สามารถย้ายเตียงแปะไว้ก่อนได้". One infant per bed is enforced
+on the client and in `_bedConflict`, so swapping two occupied beds could not be saved: each move landed on
+a bed the other baby still held. Praew chose the "park without a bed" option (not a temporary double-book).
+
+- **Transfer dialog → พักไว้ก่อน**: the patient leaves their bed (`currentBed` blank, the old bed
+  appended to `bedHistory`). Orders, weights and logs are untouched. A swap is now park B → move A into
+  B's bed → move B into A's.
+- **Parked patients stay on their ward's list** (`D.patientWard`) as **"รอเตียง · จาก NICU 2"** in the
+  warn colour, instead of dropping into "อื่นๆ". The Dashboard header reads "Bed รอเตียง".
+- The refusal on an occupied bed now says how to swap. Moving a parked patient into a bed adds no blank
+  hop to "Previous beds".
+- The rule itself is unchanged: a blank bed is not an occupancy, and the backend still refuses a
+  double-book (`verify-bed-park.cjs` § 3).
+- The printed order shows ตึก "—" while a patient is parked.
+
+## Session 2026-09-23 (e) — MgSO₄ 10% only; energy red above 160 kcal/kg/d
+
+Frontend only: `calculator.jsx`, `data.js`, both shells, `compiled/`, four harnesses. No stock strength
+or dose divisor moved, so `CONSTANTS_VERSION` stays `2026-09-18.1`. Checked against the CUPA 2023
+lecture "Enteral nutrition in preterm" (slides 17, 18, 21 — ESPGHAN 2022), which Praew sent.
+
+- **MgSO₄ — 10% only** (Praew: KCMH uses 10% MgSO₄ only). The 10% / 50% vial toggle and the "50% = x mL"
+  hints are gone from the card and the compounding sheet. A new order is always 10% (0.812 mEq/mL). An
+  order saved as 50% before today still reprints as saved, and its card shows "Saved as 50% — KCMH stocks
+  10% only" with a **Use 10%** button.
+- **Energy tile** — red above 160 kcal/kg/d (`D.KCAL_HARD_HI`; ESPGHAN 2022: 140–160 only for suboptimal
+  growth, never above 160). 140–160 stays amber. The bar now runs to 180 so the red zone shows.
+- **`TARGETS.kcal`, stable phase** — 115–140 (was 110–140, the 2010 floor), matching `ENTERAL_TARGETS`.
+  Nothing on screen read it; this only removes the second copy that disagreed.
+- Already matched the slides, unchanged: EN energy 115–140, PER 2.8–3.6 g/100 kcal, EN protein 3.5–4.0.
+
 ## Session 2026-09-23 (d) — Three leftover colour changes from the local tree: Osm pill, Ca:P total, card frame
 
 Frontend only: `calculator.jsx`, both shells, `compiled/`. No figure moved; `CONSTANTS_VERSION` stays

@@ -192,12 +192,11 @@ const openAll = () => click(btnExact('Open all'));
     ok(`lipid over ${h}h → g/kg/h`, Math.abs(num(container.querySelector('.lipid-gkgh').textContent) - 2 / h) <= 0.0005);
   }
   setField('MgSO₄', 0.4);
-  const vialBtn = (v) => { const vial = [...container.querySelectorAll('span')].find(s => s.textContent === 'Vial'); return [...vial.parentElement.querySelectorAll('.seg button')].find(b => b.textContent === `${v}%`); };
-  click(vialBtn('50'));
-  // 0.4 × factor(1.2 × 130/100 = 1.56) = 0.624 mEq ÷ 4.06 = 0.154 → 0.15 mL
-  ok('Mg 50% vial → 0.15 mL', /→ 0\.15 mL\/d/.test(text()), text().match(/→ [\d.]+ mL\/d \(10%/)?.[0]);
-  click(vialBtn('10'));
-  // 0.624 ÷ 0.812 = 0.768 → 0.77 mL
+  // KCMH stocks 10% MgSO₄ only (Praew, 2026-09-23): no vial choice, no 50% mL.
+  const vialLbl = [...container.querySelectorAll('span')].find(s => s.textContent === 'Vial 10%');
+  ok('MgSO₄ vial reads 10%, with no strength toggle', !!vialLbl && !vialLbl.parentElement.querySelector('.seg'));
+  ok('no 50% MgSO₄ figure anywhere on the card', !/50% =|MgSO₄ 50%/.test(text()));
+  // 0.4 × factor(1.2 × 130/100 = 1.56) = 0.624 mEq ÷ 0.812 = 0.768 → 0.77 mL
   ok('Mg 10% vial → 0.77 mL', /→ 0\.77 mL\/d/.test(text()));
 
   // ── 4 · checkboxes ────────────────────────────────────────────
