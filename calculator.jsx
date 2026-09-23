@@ -2873,9 +2873,16 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                   ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: 400–700 IU/kg`
                   : "ESPGHAN 2022: 400–700 IU/kg/day"} />
               <PresetChips values={[400, 500, 600, 700]} current={suppVitD} onSelect={setSuppVitD} suffix=" IU/kg" />
+              {/* Munti-vim is a fixed 1 mL/day, so its D3 is 400 IU/DAY — not
+                  400 IU/kg/day. It used to be added per kg ((suppVitD + 400) ×
+                  wtKg), which overstated the total for every infant above 1 kg
+                  (2.5 kg on 400 IU/kg: 2000 IU/day shown for a real 1400) and
+                  understated it below 1 kg — in the one line whose job is to
+                  stop a vitamin D overdose. The printed form and the copied
+                  order were always right; only this warning was wrong. */}
               {suppMTV && suppVitD > 0 && (
-                <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3 }}>
-                  ⚠ Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {Math.round((suppVitD + 400) * wtKg)} IU/day
+                <div className="vitd-total" style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3 }}>
+                  ⚠ Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {Math.round(suppVitD * wtKg + 400)} IU/day
                 </div>
               )}
 

@@ -909,6 +909,50 @@ that the prepared `hd` restriction and its telemetry cover all five domains; and
 before the change keeps its old rule. 57 assertions; 21 fail against `7049f60` (`@55`), including the
 chula.ac.th temp password that the domain-keyed gate let skip the change.
 
+## The three calculator harnesses (2026-09-23)
+
+`verify-calc-oracle.cjs`, `verify-calc-clicks.cjs` and `verify-calc-fuzz.cjs` came out of the
+2026-09-23 safety review. Everything else here pins *what the app did on the day it was written*;
+these three ask whether the arithmetic is right at all, and they are the reason a future change to
+`calc` cannot quietly move a dose.
+
+**`verify-calc-oracle.cjs`** — 12 orders typed into the real `<Calculator>`, saved through the real
+Save button, then every figure read back off four surfaces at once: the `Daily_Log` entry handed to
+`onLog`, the tiles and bedside readouts, the printed pharmacy form (front and back) and the copied
+order text — plus the Active-alerts panel, compared by level and title. 1,058 checks. The rule that
+makes it worth running is at the top of the file: **it must never import the app's own formulas.**
+Stock strengths, feed compositions, energy densities and the ESPGHAN bands are transcribed into it
+by hand, so a changed constant in `data.js` shows up as a disagreement instead of being copied into
+the expectation. Change `data.js`, change this file too — from the source, not from `data.js`.
+The scenarios cover a below-birth-weight ELBW day 3, a growing preterm on peripheral PN entered by
+pump rate with the 50% Mg vial and every oral supplement, a feeds-only day, a term infant on a manual
+dosing weight with a MEN feed and the Vitalipid cap, an alert-stress order, the 16 kg
+Soluvit/Peditrace ceilings, and every remaining feed in `EN_DB`.
+`NEGATIVE_CONTROL=1` perturbs one expected GIR by 0.4 mg/kg/min; the run must then fail on all four
+surfaces GIR appears on. **Trust a pass only after seeing that fail.**
+
+**`verify-calc-clicks.cjs`** — 242 assertions that press things rather than type into them: all 16
+preset-chip groups, both routes, the three lipid durations, both Mg vials, every checkbox, every
+option of every select, volume↔rate typed a character at a time, the dosing-weight override and its
+reset. For each control: the value reaches the field it names, the control shows itself as chosen, and
+the figure that depends on it moves as the label promises. It also drives the gates around a printed
+order — Print and Copy refused before a save, Save disabled until Step 1 and Intake/Output are filled,
+a zero-volume bag refused, a critical value demanding a typed reason (cancelled, blank, then given),
+the second save updating the same row instead of appending, Delete behind its confirm, the prefill and
+draft banners, and the quick calc's narrower set.
+
+**`verify-calc-fuzz.cjs`** — pseudo-random orders from a fixed seed (the seed and the whole input
+object print with any failure), each checked against a recomputation written separately from the
+oracle's — a third opinion, not a copy of the second. Five invariants hold for every order, however
+odd: the Factor round-trip (what reaches the infant per kg is what was ordered, to within the 0.05 mL
+a syringe can be drawn to); dead space moves no delivered figure; components + WFI q.s. = the prepared
+volume; no NaN, Infinity, float tail or trailing zero in any text node; and no critical tile without a
+critical alert. CI runs the default 80 orders (≈40 s, twice — sources and `compiled/`); a deep local
+run is `FUZZ_N=500`. The three harnesses together are why the job's timeout went from 20 to 30 minutes.
+
+All three mount the modules the same way the other jsdom harnesses do, so
+`NODE_OPTIONS=--require ./test/compiled-loader.cjs` runs them against the shipped `compiled/*.js`.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

@@ -27,7 +27,12 @@ permissions:
 jobs:
   harnesses:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 30, not 20, since 2026-09-23: the three calculator harnesses added that
+    # day (oracle, clicks, fuzz) cost about two minutes per mode, and every
+    # harness here runs twice — once against the sources, once against
+    # compiled/. A deeper fuzz run is deliberately NOT the default: FUZZ_N=500
+    # is for a local session, not for every PR.
+    timeout-minutes: 30
     env:
       # The ward's timezone. The app pins Asia/Bangkok itself; running the
       # harnesses in it too matches how they are run locally.
