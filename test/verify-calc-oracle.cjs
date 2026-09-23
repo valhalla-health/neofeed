@@ -527,7 +527,7 @@ async function run(scIn) {
   same(sc, 'alerts (level:title)', shownAlerts, expectedAlerts(sc, e));
 
   // ─ Save ─
-  const saveBtn = btnExact('บันทึก');
+  const saveBtn = btnExact('Submit');
   has(sc, 'Save button enabled', saveBtn && !saveBtn.disabled);
   if (saveBtn && !saveBtn.disabled) await clickAsync(saveBtn);
   has(sc, 'onLog received an entry', !!saved);

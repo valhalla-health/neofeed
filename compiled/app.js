@@ -112,13 +112,14 @@ const readAckedMap = (sessionId) => {
 function previousLogEntry(entries, targetDate) {
   const target = D_A.normalizeDateStr(targetDate);
   if (!target) return null;
-  return (entries || []).filter((entry) => {
+  return D_A.finalEntries(entries).filter((entry) => {
     const entryDate = D_A.normalizeDateStr(entry?.ts);
     return entryDate && entryDate < target;
   }).slice().sort((a, b) => D_A.normalizeDateStr(a.ts).localeCompare(D_A.normalizeDateStr(b.ts))).slice(-1)[0] || null;
 }
-function computeAlerts(patient, entries) {
+function computeAlerts(patient, allEntries) {
   const alerts = [];
+  const entries = D_A.finalEntries(allEntries);
   const last = entries[entries.length - 1];
   if (last) {
     const isEN = (last.enVolPerKg || 0) >= 100;

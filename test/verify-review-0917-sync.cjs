@@ -29,7 +29,7 @@ const {
 const REQUIRED = [['Current weight', 950], ['Target fluid', 120], ['Other IV', 0], ['Drug volume', 0],
   ['Input', 110], ['Urine output', 30], ['Drain content', 0]];
 const fillRequired = async (t) => { for (const [l, v] of REQUIRED) await t.typeInto(t.fieldInput(l), v); };
-const saveButton = () => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'บันทึก');
+const saveButton = () => [...document.querySelectorAll('button')].find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()));
 const hasLoginScreen = () => !!document.querySelector('.login-wrap');
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 

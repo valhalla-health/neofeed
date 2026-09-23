@@ -96,7 +96,7 @@ function selectFeed(key) {
 const click = (el) => act(() => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 const clickAsync = (el) => act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 const buttonText = (re) => [...container.querySelectorAll('button')].find(b => re.test(b.textContent));
-const saveBtn = () => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'บันทึก' || /กำลังบันทึก/.test(b.textContent));
+const saveBtn = () => [...container.querySelectorAll('button')].find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()) || /กำลังบันทึก/.test(b.textContent));
 const fillRequired = (tf) => ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']
   .forEach(l => setField(l, l === 'Target fluid' ? tf : 0));
 const alertRows = () => [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => ({

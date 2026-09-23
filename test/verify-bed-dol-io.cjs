@@ -304,7 +304,7 @@ eq('Drain content restored',                shown.drain, '12');
 // …and an untouched re-save must write the same figures back, not zeros.
 act(() => {
   [...container.querySelectorAll('button')]
-    .find(b => /บันทึก|Save/i.test(b.textContent))
+    .find(b => b.textContent.trim() === 'Submit')
     ?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 });
 eq('re-save preserves ioInput',      logged && logged.ioInput,      214);

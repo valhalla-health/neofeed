@@ -304,7 +304,7 @@ ok('the list is padded clear of the button while it shows',
 console.log('\n── § 6 the write paths are guarded in calculator.jsx ──');
 ok('Calculator takes a scratch prop', /function Calculator\(\{[^}]*\bscratch\b/.test(calcSrc));
 ok('handleSave returns before doing anything in scratch mode',
-  /const handleSave = async \(\) => \{[\s\S]{0,400}?if \(scratch\) return;/.test(calcSrc));
+  /const handleSave = async \((?:asDraft = false)?\) => \{[\s\S]{0,400}?if \(scratch\) return;/.test(calcSrc));
 ok('the unsaved-draft store is off', /const writeDraft = \(inputs\) => \{\s*\n?\s*if \(centerPoint \|\| scratch/.test(calcSrc));
 ok('the previous-submission store is never read',
   /if \(scratch\) \{[\s\S]{0,400}?applyCalcInput\(\{ deadVol_mL/.test(calcSrc));
