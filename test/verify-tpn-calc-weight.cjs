@@ -124,7 +124,7 @@ function fillRequired(values = {}) {
   REQUIRED_LABELS.forEach(l => setField(l, values[l] !== undefined ? values[l] : 0));
 }
 function saveButton() {
-  return [...container.querySelectorAll('button')].find(b => /บันทึก|Save/i.test(b.textContent));
+  return [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Submit');
 }
 
 // ── #1: weight loss phase — current weight below birth weight ──────────────

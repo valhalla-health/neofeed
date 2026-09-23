@@ -155,6 +155,7 @@ console.log('\n── § 2 each bar is tiled exactly, and red means a hard limit
 const HARD = {                                          // where red must start, as % of the bar
   'GIR (readout)': 13 / 16 * 100,                       // Praew: red above 13
   'Protein': 4.8 / 5.5 * 100,
+  'Energy (total)': 160 / 180 * 100,                    // ESPGHAN 2022: never above 160 (D.KCAL_HARD_HI)
   'K⁺ in bag': 40 / 80 * 100,                           // the worksheet's stop (D.MAX_K_MEQ_PER_L)
 };
 for (const { name, container } of mounted) {

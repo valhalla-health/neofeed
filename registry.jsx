@@ -28,6 +28,20 @@ const bedSort = (a, b) => {
     bedA.localeCompare(bedB, undefined, { numeric: true, sensitivity: "base" });
 };
 
+// The bed chip on every list. A parked patient (D_R.isParked — moved out of
+// their bed, new bed not chosen yet) reads "รอเตียง · from <old bed>" in the
+// warn colour, so the list says plainly who still needs a bed.
+function BedChip({ p, style }) {
+  if (D_R.isParked(p)) {
+    return (
+      <span className="chip warn" style={style} title={`ย้ายออกจาก ${D_R.lastBed(p)} แล้ว — ยังไม่ได้เลือกเตียงใหม่`}>
+        <span className="d" />รอเตียง · จาก {D_R.lastBed(p)}
+      </span>
+    );
+  }
+  return <span className="chip" style={style}><span className="d" />{p.currentBed}</span>;
+}
+
 // One definition of "still on the unit" for the whole registry — the list, the
 // Active tile, and the Logged today / Needs entry split all have to agree, and
 // they didn't: the list counted a blank status as Active (the backend defaults
@@ -92,7 +106,7 @@ function WardTile({ label, sub, list, log, today, onPick }) {
 function WardGate({ patients, log, today, onPick }) {
   const groups = { NICU: [], SCN: [], other: [] };
   const active = patients.filter(isActivePatient);
-  active.forEach(p => groups[D_R.wardGroup(p.currentBed)].push(p));
+  active.forEach(p => groups[D_R.patientWard(p)].push(p));
   const tile = (ward) => ({ list: groups[ward], log, today, onPick: () => onPick(ward) });
 
   return (
@@ -142,7 +156,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   // scoped to it — except the bed-occupancy maps the modals build, which take
   // the full census (a bed is occupied by whoever is in it, ward gate or
   // not), and except a search.
-  const wardPatients = patients.filter(p => D_R.wardGroup(p.currentBed) === ward);
+  const wardPatients = patients.filter(p => D_R.patientWard(p) === ward);
   // **Searching looks across the whole unit, not just the open ward** (ward
   // decision, 2026-09-15). Someone typing a name is looking for that infant,
   // and answering "ไม่พบ" because they are one ward over — when the app can
@@ -156,7 +170,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const filtered = q ? patients.filter(matches) : wardPatients;
   // How many of the hits are somewhere else, so the list can say so rather
   // than leaving an SCN bed to appear unexplained on the NICU screen.
-  const offWardHits = q ? filtered.filter(p => D_R.wardGroup(p.currentBed) !== ward).length : 0;
+  const offWardHits = q ? filtered.filter(p => D_R.patientWard(p) !== ward).length : 0;
   const sorted   = [...filtered].sort(bedSort);
   const activeSorted   = sorted.filter(isActivePatient);
   // Discharged/Transferred/Expired patients drop off the registry 7 days
@@ -270,9 +284,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           const deltaPct = (delta / p.bw) * 100;
           const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
           const isActive  = p.sessionId === activeId;
-          const entries   = log[p.sessionId] || [];
+          const entries   = D_R.finalEntries(log[p.sessionId]);
           const lastEntry = entries[entries.length - 1];
           const hasToday  = loggedSet.has(p.sessionId);
+          const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
 
           return (
             <div key={p.sessionId}
@@ -295,7 +310,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
 
               {/* Row 2: bed + GA · BW */}
               <div className="pmc-row">
-                <span className="chip"><span className="d" />{p.currentBed}</span>
+                <BedChip p={p} />
                 <span className="pmc-meta">
                   <span className="num">{D_R.fmtGA(p.ga)}</span> wk ·{" "}
                   <span className="num">{p.bw.toLocaleString()}</span> g
@@ -319,10 +334,11 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                 </span>
                 {/* Today's entry, stated outright rather than as a quiet grey
                     hint — this is the one thing the round asks of the list. */}
-                <span className={"log-badge" + (hasToday ? " is-logged" : "")}
+                <span className={"log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : "")}
                       title={hasToday ? "บันทึกวันนี้แล้ว"
+                        : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit"
                         : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"}>
-                  {hasToday ? "✓ LOGGED" : "NEEDS ENTRY"}
+                  {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                 </span>
               </div>
 
@@ -359,7 +375,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span className="pmc-name">{p.name || p.initials || "—"}</span>
                     {p.twinSuffix && <span className="pmc-twin chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
-                    <span className="chip"><span className="d" />{p.currentBed}</span>
+                    <BedChip p={p} />
                   </div>
                   <span className="chip"><span className="d" />{p.status}</span>
                 </div>
@@ -431,9 +447,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
               const dol      = D_R.liveDol(p);
               const delta    = last ? last.w - p.bw : 0;
               const deltaPct = (delta / p.bw) * 100;
-              const entries  = log[p.sessionId] || [];
+              const entries  = D_R.finalEntries(log[p.sessionId]);
               const lastEntry = entries[entries.length - 1];
               const hasToday  = loggedSet.has(p.sessionId);
+              const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
               const isSelected = p.sessionId === activeId;
 
               return (
@@ -443,7 +460,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     onClick={() => onSelect(p.sessionId)}
                     tabIndex={0}
                     onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.sessionId); } }}>
-                  <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
+                  <td><BedChip p={p} /></td>
                   <td>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</div>
                     {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{multiplesLabel(p)}</div>}
@@ -472,10 +489,11 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     {/* Same today's-entry state as the mobile card — the table
                         computed it already but never showed it. */}
                     <div style={{ marginTop: 3 }}>
-                      <span className={"log-badge" + (hasToday ? " is-logged" : "")}
+                      <span className={"log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : "")}
                             title={hasToday ? "บันทึกวันนี้แล้ว"
+                              : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit"
                               : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"}>
-                        {hasToday ? "✓ LOGGED" : "NEEDS ENTRY"}
+                        {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                       </span>
                     </div>
                   </td>
@@ -511,7 +529,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
             {showArchived && archivedSorted.map(p => (
               <tr key={p.sessionId} style={{ opacity: 0.5, cursor: "pointer" }}
                   onClick={() => onSelect(p.sessionId)}>
-                <td><span className="chip"><span className="d" />{p.currentBed}</span></td>
+                <td><BedChip p={p} /></td>
                 <td style={{ fontWeight: 600, fontSize: 13 }}>{p.name || p.initials || "—"}</td>
                 <td className="num">{D_R.fmtGA(p.ga)}</td>
                 <td className="num">{D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))}</td>
@@ -954,7 +972,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
               onMouseEnter={e => { if (p.sessionId !== activeId) e.currentTarget.style.background = "var(--bg-2)"; }}
               onMouseLeave={e => { if (p.sessionId !== activeId) e.currentTarget.style.background = ""; }}
             >
-              <span className="chip" style={{ justifySelf: "start" }}><span className="d" />{p.currentBed}</span>
+              <BedChip p={p} style={{ justifySelf: "start" }} />
               <span>
                 <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</span>
                 {/* Twins/multiples share initials by construction and are usually in
@@ -1288,11 +1306,23 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     // what to do about it.
     const holder = occupancy.get(next);
     if (holder) { window.alert(bedTakenMsg(next, holder)); return; }
-    const bedHistory = [
-      ...(patient.bedHistory || []),
-      { bed: currentBed, date: D_R.todayLocal() },   // local date, not UTC
-    ];
+    // A parked patient already recorded the bed they left when they were
+    // parked; a blank hop would only add an empty line to "Previous beds".
+    const bedHistory = currentBed
+      ? [...(patient.bedHistory || []), { bed: currentBed, date: D_R.todayLocal() }]   // local date, not UTC
+      : (patient.bedHistory || []);
     submit({ ...patient, currentBed: next, bedHistory }, mergeBase);
+  };
+
+  // Park: leave this bed now, choose the new one later (Praew, 2026-09-23 —
+  // "ให้สามารถย้ายเตียงแปะไว้ก่อนได้"). Frees the bed so the patient moving in
+  // can be saved; this one stays on the same ward list as "รอเตียง" with every
+  // order, weight and log untouched. A blank bed is not an occupancy, so the
+  // backend's one-infant-per-bed check has nothing to refuse.
+  const park = () => {
+    if (!currentBed) { onClose(); return; }
+    const bedHistory = [...(patient.bedHistory || []), { bed: currentBed, date: D_R.todayLocal() }];
+    submit({ ...patient, currentBed: "", bedHistory }, mergeBase);
   };
 
   return (
@@ -1329,6 +1359,16 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
           {bedTaken && (
             <div style={{ fontSize: 11.5, color: "var(--crit)" }}>
               {bedTakenMsg(D_R.normalizeBed(bed), bedTaken)}
+              <div style={{ color: "var(--ink-3)", marginTop: 4 }}>
+                สลับเตียง: เปิด ⇄ ของ {bedTaken.name || bedTaken.initials || bedTaken.sessionId} แล้วกด
+                "พักไว้ก่อน" เตียงนี้จะว่าง จึงย้ายรายนี้เข้าได้
+              </div>
+            </div>
+          )}
+
+          {!currentBed && (
+            <div style={{ fontSize: 11.5, color: "var(--warn-ink)" }}>
+              รอเตียง — ย้ายออกจาก {D_R.lastBed(patient) || "เตียงเดิม"} แล้ว เลือกเตียงใหม่ด้านบน
             </div>
           )}
 
@@ -1343,7 +1383,13 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
           )}
 
           <SubmitError error={submitError} />
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+            {currentBed && (
+              <button className="btn" onClick={park} disabled={busy} style={{ marginRight: "auto" }}
+                title="ย้ายออกจากเตียงนี้ก่อน แล้วค่อยเลือกเตียงใหม่ — ข้อมูลและ order ยังอยู่ครบ">
+                พักไว้ก่อน
+              </button>
+            )}
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" onClick={save}
               disabled={!bed || D_R.normalizeBed(bed) === currentBed || !!bedTaken || busy}>

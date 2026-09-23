@@ -473,6 +473,9 @@ function TrendGraph({ entries, patient }) {
 
 function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry }) {
   const entries = log[patient?.sessionId] || [];
+  // The trend graph plots submitted orders only; a draft is listed in the
+  // table below (to open and finish) but is not a data point (D.isDraftEntry).
+  const finalLog = D_L.finalEntries(entries);
   const [showDateModal, setShowDateModal] = React.useState(false);
 
   const handleDelete = (e, entry) => {
@@ -507,10 +510,10 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
         <div className="card-h">
           <Icon name="chart" size={14} color="var(--brand)" />
           Trend graph
-          <span className="h-meta">{entries.length} {entries.length === 1 ? "record" : "records"}</span>
+          <span className="h-meta">{finalLog.length} {finalLog.length === 1 ? "record" : "records"}</span>
         </div>
         <div className="card-b">
-          <TrendGraph entries={entries} patient={patient} />
+          <TrendGraph entries={finalLog} patient={patient} />
         </div>
       </div>
 
@@ -581,8 +584,8 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
                       <td>
                         {pending
                           ? <span className="chip"><span className="d" />กำลังบันทึก…</span>
-                          : <span className={`chip${e.status === "draft" ? "" : " ok"}`}>
-                              <span className="d" />{e.status === "draft" ? "แบบร่าง" : "บันทึกแล้ว"}
+                          : <span className={`chip${D_L.isDraftEntry(e) ? " warn" : " ok"}`}>
+                              <span className="d" />{D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit" : "Submitted"}
                             </span>}
                       </td>
                       {onDeleteEntry && (

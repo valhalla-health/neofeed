@@ -619,7 +619,11 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       curWtG:           weight,
       tpnWtG:           weight,
     };
-    Object.keys(carried).forEach(k => { if (recorded(carried[k])) keys.add(k); });
+    // A draft names the required boxes that were still blank when it was
+    // saved (calcInput.blankFields). Their stored 0 is not a typed 0, so they
+    // reopen blank and Submit still asks for them.
+    const draftBlank = new Set(Array.isArray(ci.blankFields) ? ci.blankFields : []);
+    Object.keys(carried).forEach(k => { if (recorded(carried[k]) && !draftBlank.has(k)) keys.add(k); });
     // Intake / Output: the AC–AE columns can't say "never recorded" —
     // getActivePatients returns Number('' || 0), so a row saved before the
     // card existed comes back with 0 in all three, and those zeros used to
@@ -627,6 +631,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // only when calcInput carries the key (every save since 2026-08-10 does);
     // a non-zero column is real data either way.
     ["ioInput", "ioOutput", "drainContent"].forEach(k => {
+      if (draftBlank.has(k)) return;
       if (recorded(ci[k]) || (recorded(editEntry[k]) && Number(editEntry[k]) !== 0)) keys.add(k);
     });
     return keys;
@@ -681,10 +686,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const [kCl, setKCl] = useState(0);
   const [k2hpo4, setK2HPO4] = useState(0);
   const [mgPerKg, setMgPerKg] = useState(0);
-  // Which MgSO₄ vial the bag is compounded from. The official KCMH sheet prints
-  // both strengths on the pharmacy label but its recipe line (J32) uses 10%,
-  // so that is the default here — it changes the mL and therefore the WFI q.s.
-  const [mgStrength, setMgStrength] = useState("10");   // "10" | "50"
+  // Which MgSO₄ vial the bag is compounded from. KCMH uses 10% only (Praew,
+  // 2026-09-23), so a new order is always 10% and there is no 50% choice. The
+  // state stays so an order saved as 50% before then still reprints as saved.
+  const [mgStrength, setMgStrength] = useState("10");   // "10" | legacy "50"
   const [caPerKg, setCaPerKg] = useState(0);
   const [extraP_mg_kg, setExtraP_mg_kg] = useState(0);
 
@@ -724,6 +729,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // update that row instead of appending a duplicate.
   const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
   const [savedLastModified, setSavedLastModified] = useState(editEntry?.lastModified || null);
+  // "draft" | "submitted" | null (nothing saved yet). A draft cannot print or
+  // copy until it is completed and Submitted (D.isDraftEntry — Praew, 2026-09-23).
+  const [savedStatus, setSavedStatus] = useState(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
   const [saving, setSaving] = useState(false);
   // Publish-lock state — only meaningful behind D.ENABLE_PUBLISH_GATE. A row
   // opened for edit carries its own published flag; a brand-new entry always
@@ -901,6 +909,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // patient's row, which would misdirect the next save.
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
+    setSavedStatus(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
     setConflict(null);
     setCritOverride(editEntry?.calcInput?.critOverride || null);
     setSavedMeta(editEntry ? {
@@ -1492,7 +1501,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const proStatusAt = (v) => D.rangeStatus(v, tPro, PRO_HARD);
   const sGir = girStatusAt(calc.gir);
   const sPro = proStatusAt(calc.proteinKg);
-  const sKcal = D.rangeStatus(calc.kcalKg, tKcal);
+  // Energy: amber outside the phase band, red above 160 (D.KCAL_HARD_HI —
+  // ESPGHAN 2022: 140–160 only for suboptimal growth, never above 160).
+  const kcalStatusAt = (v) => D.rangeStatus(v, tKcal, { hardHi: D.KCAL_HARD_HI });
+  const sKcal = kcalStatusAt(calc.kcalKg);
   // Lipid, K and NPE:AA tiles show the TOTAL (TPN + EN) against the active
   // target band only; their hard limits are judged on the IV portion further
   // down (hardLip / hardK / hardNPE — Praew, 2026-09-17, UP-C4).
@@ -1674,12 +1686,14 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       || (isMEN && calc.enVolTotal > 0));
   const uncoveredCritical = alerts.filter(a => a.level === "crit")
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
+  const isDraftSaved = !!savedEntryId && savedStatus === "draft";
   const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag
-    && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0;
+    && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
   const printBlockMessage = (before) =>
     pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`
+    : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
@@ -1729,7 +1743,13 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // ── Save (draft or submit) — creates a new row the first time, then updates
   // that same row for every further save in this visit. calcInput carries the
   // exact raw inputs so this entry stays editable on any device later.
-  const handleSave = async () => {
+  // asDraft (Save draft — Praew, 2026-09-23): keeps an order whose required
+  // boxes are not all filled yet. Only the current weight is needed (the
+  // backend refuses a row without one, and every dose hangs off it). The
+  // required-field gate, the no-volume stop and the critical-value reason are
+  // all asked for at Submit instead — a draft can neither print nor count.
+  const handleSave = async (asDraft = false) => {
+    asDraft = asDraft === true;
     if (saving) return;
     // The quick calc renders no Save button; this is the belt to that braces.
     // It is the only path in this file that reaches Google Sheets, and
@@ -1741,7 +1761,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // record that reads as 0 to every trend, target band and alert downstream.
     // Step 1 is force-opened because the user may have collapsed it, and a
     // toast naming a field they cannot see is a dead end.
-    if (missingFields.length > 0) {
+    if (asDraft && (blankFields.has("curWtG") || !(curWtG > 0))) {
+      setOpenSteps(prev => new Set(prev).add(1));
+      showToast("บันทึกร่างต้องมีน้ำหนักปัจจุบัน (Current weight) อย่างน้อย", "error");
+      return;
+    }
+    if (!asDraft && missingFields.length > 0) {
       setOpenSteps(prev => new Set(prev).add(1));
       showToast(`ยังกรอกไม่ครบ — ต้องกรอก: ${missingFields.map(f => f.label).join(", ")}`, "error");
       return;
@@ -1757,7 +1782,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // amino acid, dextrose and salts still count as delivered in every
     // total, while the printed form asks pharmacy for a bag of "—" mL. It
     // happens when TPN is stopped on a form prefilled from yesterday.
-    if (zeroVolumeBag) {
+    if (!asDraft && zeroVolumeBag) {
       setOpenSteps(prev => new Set(prev).add(2).add(3));
       showToast(zeroVolumeText, "error");
       return;
@@ -1766,7 +1791,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // A critical value can still be ordered — the attending may have a
     // reason — but never silently: the reason is required, saved with the
     // order (calcInput.critOverride) and printed on the pharmacy form.
-    const critical = sortClinicalAlerts(alerts).filter(a => a.level === "crit");
+    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit");
     let override = null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
@@ -1837,7 +1862,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       route: calc.totalTPN_mL > 0
         ? (route === "central" ? "TPN central" : "TPN peripheral")
         : (calc.enVolPerKg > 0 ? "Enteral only" : "NPO"),
-      status: "submitted", ..._suppPayload,
+      status: asDraft ? "draft" : "submitted", ..._suppPayload,
       // tpnWtG: the resolved dosing weight these numbers were computed with,
       // so a reopened row can tell when a birth-weight edit has re-dosed it
       // (UP-C2). Derived, not an input — normalizeCalcInput ignores it.
@@ -1847,7 +1872,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       // to call (savedByOf). Not an input — normalizeCalcInput ignores it.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
         ...(userLabel ? { savedByLabel: userLabel } : {}),
-        ...(override ? { critOverride: override } : {}) },
+        ...(override ? { critOverride: override } : {}),
+        // Which required boxes were blank — they reopen blank (seededZeros).
+        ...(asDraft ? { blankFields: missingFields.map(f => f.key) } : {}) },
       // Provenance — which constants and which frontend computed these
       // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
       // constant that later turns out wrong can be traced to the exact rows
@@ -1886,6 +1913,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       if (!savedEntryId) setSavedEntryId(res.entryId);
     }
     setSavedLastModified(res.lastModified);
+    setSavedStatus(asDraft ? "draft" : "submitted");
     // What was just saved is what may now be printed — the inputs as they
     // were when Save was pressed, not whatever was typed while it ran.
     setSavedKey(keyAtSave);
@@ -2564,7 +2592,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
 
           {/* ══ Metric tiles — horizontal row ═══════════════════════════ */}
           <div className="metric-tiles-4" style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8 }}>
-            <Tile label="Energy (total)" value={calc.kcalKg} unit=" kcal/kg/d" target={tKcal} status={sKcal} decimals={0} max={160} />
+            <Tile label="Energy (total)" value={calc.kcalKg} unit=" kcal/kg/d" target={tKcal} status={sKcal} statusAt={kcalStatusAt} decimals={0} max={180} />
             <Tile label="Protein" value={calc.proteinKg} unit=" g/kg/d" target={tPro} status={sPro} statusAt={proStatusAt} decimals={1} max={5.5} />
             <Tile label="Lipid (total)" value={calc.lipidKgTotal} unit=" g/kg/d" target={tLip} status={sLip} decimals={1} max={7} />
             <Tile label="NPC : Protein" value={calc.npeN} unit=" kcal/g AA" target={tNPE} status={sNPE} decimals={0} max={60} />
@@ -2692,20 +2720,17 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                   {fmt(mgPerKg, 2)} mEq Mg/kg/d = {fmt(mgPerKg * D.MG_MG_PER_MEQ, 1)} mg/kg/d
                 </div>
               )}
-              {/* The KCMH worksheet prints both strengths but compounds from 10% */}
-              <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
-                <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial</span>
-                <div className="seg" style={{ padding:1 }}>
-                  {[["10","10%"],["50","50%"]].map(([v,lab]) => (
-                    <button key={v} className={mgStrength === v ? "on" : ""} onClick={() => setMgStrength(v)}>{lab}</button>
-                  ))}
-                </div>
+              {/* KCMH compounds from 10% MgSO₄ only. An order saved as 50% before
+                  2026-09-23 keeps its strength until someone switches it here. */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap" }}>
+                <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial {mgStrength}%</span>
                 {calc.solVol.mg > 0 && (
-                  <span style={{ fontSize:10.5, color:"var(--brand-2)", fontWeight:600 }}>
-                    → {calc.solVol.mg} mL/d
-                    <span style={{ color:"var(--ink-3)", fontWeight:400, marginLeft:5 }}>
-                      ({mgStrength === "50" ? `10% = ${calc.solVol.mg10}` : `50% = ${calc.solVol.mg50}`} mL)
-                    </span>
+                  <span style={{ fontSize:10.5, color:"var(--brand-2)", fontWeight:600 }}>→ {calc.solVol.mg} mL/d</span>
+                )}
+                {mgStrength !== "10" && (
+                  <span style={{ fontSize:10.5, color:"var(--warn-ink)", fontWeight:600 }}>
+                    Saved as {mgStrength}% — KCMH stocks 10% only{" "}
+                    <button type="button" className="preset-chip" onClick={() => setMgStrength("10")}>Use 10%</button>
                   </span>
                 )}
               </div>
@@ -3276,7 +3301,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
 
             {missingFields.length > 0 && (
               <div style={{ fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 }}>
-                ยังกรอกไม่ครบ ({missingFields.length}) — ต้องกรอกทุกช่องใน Step 1{centerPoint ? "" : " และ Intake / Output"} ก่อนบันทึก:
+                ยังกรอกไม่ครบ ({missingFields.length}) — ต้องกรอกทุกช่องใน Step 1{centerPoint ? "" : " และ Intake / Output"} ก่อน{centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)"}:
                 <div style={{ fontWeight: 600 }}>{missingFields.map(f => f.label).join(" · ")}</div>
               </div>
             )}
@@ -3285,10 +3310,25 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 {zeroVolumeText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {isDraftSaved && !dirty && (
+              <div className="draft-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
+                ● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit
+              </div>
+            )}
+            {/* Save draft: keep an incomplete order (Praew, 2026-09-23). Not on
+                Center Point, which has its own review step. */}
+            {!scratch && !centerPoint && (
+              <button className="btn save-draft" style={{ width: "100%", marginBottom: 8 }}
+                disabled={saving || pendingSave || (savedStatus === "submitted" && !!savedEntryId)}
+                title={savedStatus === "submitted" && savedEntryId ? "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง" : "บันทึกไว้ก่อน แม้ยังกรอกไม่ครบ — พิมพ์ไม่ได้จนกว่าจะ Submit"}
+                onClick={() => handleSave(true)}>
+                <Icon name="save" size={14} /> {saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"}
+              </button>
+            )}
             {!scratch && (
               <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || pendingSave}
-                onClick={handleSave}>
-                <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : "บันทึก"}
+                onClick={() => handleSave(false)}>
+                <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
             )}
 
@@ -3812,7 +3852,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             {glycophosP > 0 && <tr><td style={td}>Disodium glycerophosphate</td><td style={tdr}>Na {f(glycophosP*S.glycophos.naMeqPerMl*(calc.factor||0),1)} mEq · P {f0(glycophosP*S.glycophos.pMgPerMl*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.glycophos,1)}</strong></td></tr>}
             {kCl > 0 && <tr><td style={td}>KCl</td><td style={tdr}>{f(kCl*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.kCl,1)}</strong></td></tr>}
             {k2hpo4 > 0 && <tr><td style={td}>K₂HPO₄</td><td style={tdr}>{f(k2hpo4*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.k2hpo4,2)}</strong></td></tr>}
-            {mgPerKg > 0 && <tr><td style={td}>MgSO₄ {mgStrength}% <span style={note}>({mgStrength === "50" ? `10% = ${calc.solVol?.mg10}` : `50% = ${calc.solVol?.mg50}`} mL)</span></td><td style={tdr}>{f(mgPerKg*(calc.factor||0),2)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.mg,2)}</strong></td></tr>}
+            {mgPerKg > 0 && <tr><td style={td}>MgSO₄ {mgStrength}%</td><td style={tdr}>{f(mgPerKg*(calc.factor||0),2)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.mg,2)}</strong></td></tr>}
             {caPerKg > 0 && <tr><td style={td}>10% Ca Gluconate</td><td style={tdr}>{f0(caPerKg*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.ca,1)}</strong></td></tr>}
             {/* Soluvit and Peditrace are × Factor (Praew, 2026-09-18), so the
                 bag holds more than the order's 1 mL/kg; what reaches the infant

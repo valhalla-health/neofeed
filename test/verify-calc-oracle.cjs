@@ -22,7 +22,7 @@
 // being a second opinion.
 //
 // 12 scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
-// peripheral PN entered by pump rate with the 50% Mg vial and every oral
+// peripheral PN entered by pump rate (10% Mg — KCMH's only vial) and every oral
 // supplement, a feeds-only day with no bag, a term infant on a manual dosing
 // weight with a MEN feed and the Vitalipid cap, an alert-stress order, the
 // 16 kg Soluvit/Peditrace ceilings, and every remaining feed in EN_DB.
@@ -296,10 +296,10 @@ const SCEN = [
     ioOut: 40, drain: 5, tpn: 100, dead: 30, dex: 10, aa: 3, lip: 2, lipH: 24,
     naCl: 2, naAc: 1, glyNa: 1, kCl: 1, k2: 0.5, mg: 0.3, ca: 50, hep: 0.5,
     feed: 'BM_20', enVol: 1, enFreq: 8, weights: [{ dol: 1, w: 900 }, { dol: 2, w: 870 }] },
-  { name: 'B growing preterm peripheral, rate entry, 50% Mg, Zn, all oral supplements', bw: 1100, cur: 1450, dol: 16,
+  { name: 'B growing preterm peripheral, rate entry, Zn, all oral supplements', bw: 1100, cur: 1450, dol: 16,
     route: 'peripheral', fluid: 160, otherIV: 0, drug: 1.2, ioOut: 90, drain: 0, ioInput: 230,
     tpn: 80.4, useRate: 3.35, dead: 20, dex: 12.5, aa: 3.5, lip: 3, lipH: 20,
-    naCl: 3, glyNa: 2, kCl: 2, mg: 0.5, mgVial: '50', ca: 80, zn: 0.3, hep: 1,
+    naCl: 3, glyNa: 2, kCl: 2, mg: 0.5, mgVial: '10', ca: 80, zn: 0.3, hep: 1,
     feed: 'FBM_PF_22', enVol: 8, enFreq: 8,
     mtv: true, vitD: 400, fe: 2, feType: 'FE_FERROKID', oCa: 50, caType: 'CA_CACO3_1000', oP: 30, po4Type: 'PO4_NEUTRAL',
     weights: [{ dol: 1, w: 1100 }, { dol: 14, w: 1400 }, { dol: 15, w: 1430 }] },
@@ -427,10 +427,6 @@ async function run(scIn) {
   setField('KCl', sc.kCl);
   setField('K₂HPO₄', sc.k2);
   setField('MgSO₄', sc.mg);
-  {
-    const vial = [...container.querySelectorAll('span')].find(s => s.textContent === 'Vial');
-    click([...vial.parentElement.querySelectorAll('.seg button')].find(b => b.textContent === `${sc.mgVial}%`));
-  }
   setField('10% Ca gluconate', sc.ca);
   // Step 5
   setCheck('Soluvit N', sc.soluvit);
@@ -531,7 +527,7 @@ async function run(scIn) {
   same(sc, 'alerts (level:title)', shownAlerts, expectedAlerts(sc, e));
 
   // ─ Save ─
-  const saveBtn = btnExact('บันทึก');
+  const saveBtn = btnExact('Submit');
   has(sc, 'Save button enabled', saveBtn && !saveBtn.disabled);
   if (saveBtn && !saveBtn.disabled) await clickAsync(saveBtn);
   has(sc, 'onLog received an entry', !!saved);

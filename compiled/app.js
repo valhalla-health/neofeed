@@ -112,13 +112,14 @@ const readAckedMap = (sessionId) => {
 function previousLogEntry(entries, targetDate) {
   const target = D_A.normalizeDateStr(targetDate);
   if (!target) return null;
-  return (entries || []).filter((entry) => {
+  return D_A.finalEntries(entries).filter((entry) => {
     const entryDate = D_A.normalizeDateStr(entry?.ts);
     return entryDate && entryDate < target;
   }).slice().sort((a, b) => D_A.normalizeDateStr(a.ts).localeCompare(D_A.normalizeDateStr(b.ts))).slice(-1)[0] || null;
 }
-function computeAlerts(patient, entries) {
+function computeAlerts(patient, allEntries) {
   const alerts = [];
+  const entries = D_A.finalEntries(allEntries);
   const last = entries[entries.length - 1];
   if (last) {
     const isEN = (last.enVolPerKg || 0) >= 100;
@@ -1374,7 +1375,7 @@ function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEd
   const deltaPct = delta / patient.bw * 100;
   const [wtLabel, wtColor] = patient.bw < 1e3 ? ["ELBW", "var(--crit)"] : patient.bw < 1500 ? ["VLBW", "var(--warn)"] : ["LBW", "var(--ink-3)"];
   const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
-  return /* @__PURE__ */ React.createElement("div", { className: "patient-strip" }, /* @__PURE__ */ React.createElement("div", { className: "lead" }, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Active session"), /* @__PURE__ */ React.createElement("div", { className: "pid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "id" }, patient.name || patient.initials || "—"), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Bed ", /* @__PURE__ */ React.createElement("span", { className: "num" }, patient.currentBed), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { color: "var(--brand-2)", fontWeight: 700 } }, displayDol)), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Admit ", fmtDate(patient.admissionDate)), onEdit && /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "patient-strip" }, /* @__PURE__ */ React.createElement("div", { className: "lead" }, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Active session"), /* @__PURE__ */ React.createElement("div", { className: "pid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "id" }, patient.name || patient.initials || "—"), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Bed ", /* @__PURE__ */ React.createElement("span", { className: "num" }, patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { color: "var(--brand-2)", fontWeight: 700 } }, displayDol)), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Admit ", fmtDate(patient.admissionDate)), onEdit && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn sm",

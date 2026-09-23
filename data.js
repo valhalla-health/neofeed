@@ -506,7 +506,7 @@ const TARGETS = {
   kcal: (dol) => {
     if (dol <= 2) return [45, 55];    // Early PN (non-protein + AA)
     if (dol <= 7) return [70, 100];   // Advancing
-    return [110, 140];                 // Full nutrition target (ESPGHAN 2022 EN)
+    return [115, 140];                 // Full nutrition target (ESPGHAN 2022 EN; was 110 — the 2010 floor)
   },
 
   // Lipid g/kg/day
@@ -670,6 +670,10 @@ function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
 // each carried their own copy of it. It now lives here, and both call this.
 //   4–12 mg/kg/min  ok   · outside that  warn  · above GIR_HARD_HI  crit
 const GIR_HARD_HI = 13;
+// Energy ceiling — ESPGHAN 2022 EN: 140–160 kcal/kg/d only for suboptimal
+// growth, once protein and other nutrients are sufficient, and never above
+// 160 (CUPA 2023 lecture, slide 17). 140–160 grades amber, above 160 red.
+const KCAL_HARD_HI = 160;
 function girStatus(gir) {
   return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
 }
@@ -1188,7 +1192,28 @@ function normalizeLogMap(logMap) {
 // entry saved after today's would otherwise hide today's from the check.
 function hasLogOnDate(entries, date) {
   const target = normalizeDateStr(date || todayLocal());
-  return (entries || []).some(e => normalizeDateStr(e.ts) === target);
+  return finalEntries(entries).some(e => normalizeDateStr(e.ts) === target);
+}
+// A draft saved today — the ward list shows it as "DRAFT", not "✓ LOGGED".
+function hasDraftOnDate(entries, date) {
+  const target = normalizeDateStr(date || todayLocal());
+  return (entries || []).some(e => isDraftEntry(e) && normalizeDateStr(e.ts) === target);
+}
+
+// ── Draft orders (Praew, 2026-09-23) ──────────────────────────
+// "Save draft" keeps an order whose required boxes are not all filled yet
+// (Daily_Log column O, status "draft"). A draft is not a record of what the
+// infant received: its blank urine output reads as 0 and its figures may be
+// half-typed. So it stays out of every trend, alert, weight series, "logged
+// today" count and previous-order prefill, and it cannot print, until it is
+// completed and Submitted (status "submitted"). Every row saved before drafts
+// existed carries "submitted" (the calculator always wrote it; the backend
+// defaults a blank to it), so old orders count as submitted.
+function isDraftEntry(e) {
+  return !!e && String(e.status || "").toLowerCase() === "draft";
+}
+function finalEntries(entries) {
+  return (entries || []).filter(e => !isDraftEntry(e));
 }
 
 // React hook form of todayLocal(): the current local date, re-rendering the
@@ -1329,7 +1354,7 @@ function lastWeighed(patient, entries) {
 // Returns [{ dol, w, src: "measured" | "order", ts? }] sorted by DOL.
 function weightSeries(patient, entries) {
   const byDol = new Map();
-  for (const e of (entries || [])) {
+  for (const e of finalEntries(entries)) {
     const w = Number(e?.weight);
     if (!isFinite(w) || w <= 0) continue;
     const dol = entryDol(patient, e);
@@ -1703,6 +1728,32 @@ function bedBlocker(patients, record) {
 // SCN number instead of on whatever bed happened to be listed first.
 // Returns "" when the ward is full, which callers must treat as "leave the
 // current selection alone", never as "unassign the patient".
+// A patient "parked" mid-move (Praew, 2026-09-23: "ย้ายเตียงแปะไว้ก่อน"): they
+// hold no bed right now but have left one, recorded in bedHistory. A swap of
+// two occupied beds is park A → move B into A's bed → move A into B's — the
+// one-infant-per-bed rule (here and _bedConflict in gas-backend.gs) never
+// bends, because a blank bed is not an occupancy.
+function lastBed(p) {
+  const h = (p && Array.isArray(p.bedHistory)) ? p.bedHistory : [];
+  for (let i = h.length - 1; i >= 0; i--) {
+    const b = normalizeBed(h[i] && h[i].bed);
+    if (b) return b;
+  }
+  return "";
+}
+function isParked(p) {
+  return !!p && !normalizeBed(p.currentBed) && !!lastBed(p);
+}
+// Which ward list a patient belongs on: their bed's ward, or — while parked —
+// the ward of the bed they left, so they stay on the list the nurse is
+// working from instead of dropping into "อื่นๆ" in the middle of a swap.
+function patientWard(p) {
+  const bed = normalizeBed(p && p.currentBed);
+  if (bed) return wardGroup(bed);
+  const last = lastBed(p);
+  return last ? wardGroup(last) : "other";
+}
+
 function nextFreeBed(patients, ward, excludeSessionId) {
   const occupied = bedOccupancy(patients, excludeSessionId);
   return BED_OPTIONS.find(b => bedWard(b) === ward && !occupied.has(b)) || "";
@@ -1841,7 +1892,7 @@ window.NEOFEED_DATA = {
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg, displayNum,
   // The ONE GIR grading — the Calculator and the Alerts page both call it, so
   // the same saved GIR can never be amber on one screen and red on the other.
-  girStatus, GIR_HARD_HI,
+  girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, K_REF_MEQ_PER_L, MAX_ZN_MG_DAY, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
@@ -1868,6 +1919,7 @@ window.NEOFEED_DATA = {
   // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
   // the one bed list, and the one-patient-per-bed occupancy helpers
   normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
+  lastBed, isParked, patientWard,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,
@@ -1875,7 +1927,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, finalEntries,
   // Last weight from either store — pass the patient's Daily_Log as the second
   // argument to include order weights (see weightSeries).
   lastWeighed, weightSeries,
