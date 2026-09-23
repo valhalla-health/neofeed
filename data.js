@@ -506,7 +506,7 @@ const TARGETS = {
   kcal: (dol) => {
     if (dol <= 2) return [45, 55];    // Early PN (non-protein + AA)
     if (dol <= 7) return [70, 100];   // Advancing
-    return [110, 140];                 // Full nutrition target (ESPGHAN 2022 EN)
+    return [115, 140];                 // Full nutrition target (ESPGHAN 2022 EN; was 110 — the 2010 floor)
   },
 
   // Lipid g/kg/day
@@ -670,6 +670,10 @@ function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
 // each carried their own copy of it. It now lives here, and both call this.
 //   4–12 mg/kg/min  ok   · outside that  warn  · above GIR_HARD_HI  crit
 const GIR_HARD_HI = 13;
+// Energy ceiling — ESPGHAN 2022 EN: 140–160 kcal/kg/d only for suboptimal
+// growth, once protein and other nutrients are sufficient, and never above
+// 160 (CUPA 2023 lecture, slide 17). 140–160 grades amber, above 160 red.
+const KCAL_HARD_HI = 160;
 function girStatus(gir) {
   return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
 }
@@ -1867,7 +1871,7 @@ window.NEOFEED_DATA = {
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg, displayNum,
   // The ONE GIR grading — the Calculator and the Alerts page both call it, so
   // the same saved GIR can never be amber on one screen and red on the other.
-  girStatus, GIR_HARD_HI,
+  girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, K_REF_MEQ_PER_L, MAX_ZN_MG_DAY, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
