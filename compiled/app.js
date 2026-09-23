@@ -188,7 +188,7 @@ function activeAlertCount(patient, entries) {
   const acked = readAckedMap(patient.sessionId);
   return computeAlerts(patient, entries).filter((a) => !acked[ackKey(a.id, a.dol)]).length;
 }
-const NeoFeedWordmark = ({ className, style }) => /* @__PURE__ */ React.createElement(
+const NeoFeedWordmark = ({ className, style, lockup = false }) => /* @__PURE__ */ React.createElement(
   "div",
   {
     className: className ? `nf-wordmark ${className}` : "nf-wordmark",
@@ -196,9 +196,22 @@ const NeoFeedWordmark = ({ className, style }) => /* @__PURE__ */ React.createEl
     role: "img",
     "aria-label": "NeoFeed"
   },
-  /* @__PURE__ */ React.createElement("svg", { className: "nf-n", viewBox: "0 0 98 100", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#335A4A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#284C40" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22.5", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#99B29C" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#799781" }))), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 4.8A4.8 4.8 0 0 1 4.8 0L25.76 0A4.8 4.8 0 0 1 29.44 1.71L70 50L70 4.8A4.8 4.8 0 0 1 74.8 0L93.2 0A4.8 4.8 0 0 1 98 4.8L98 95.2A4.8 4.8 0 0 1 93.2 100L81.14 100A4.8 4.8 0 0 1 77.46 98.29L28 39.4L0 16.5Z" }), /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 22.5L28 45.4L28 95.2A4.8 4.8 0 0 1 23.2 100L4.8 100A4.8 4.8 0 0 1 0 95.2Z" })),
-  "eo",
-  /* @__PURE__ */ React.createElement("span", { className: "lw" }, "Feed")
+  /* @__PURE__ */ React.createElement(
+    "svg",
+    {
+      className: "nf-mark",
+      viewBox: lockup ? "0 0 456 112.9" : "0 0 456 100.9",
+      "aria-hidden": "true",
+      focusable: "false"
+    },
+    /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-forest", gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#335A4A" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#284C40" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "nf-sage", gradientUnits: "userSpaceOnUse", x1: "0", y1: "22", x2: "0", y2: "100" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#99B29C" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#799781" }))),
+    /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-forest)", d: "M0 8 C0 13.11 2.65 19.16 6.4 24.95 A15.5 15.5 0 0 1 27.71 47.05 C40.21 56.58 50.45 66.99 58.81 80.53 C61.77 85.33 68.4 100 78 100 L81 100 A9 9 0 0 0 90 91 L90 4 A4 4 0 0 0 86 0 L66 0 A4 4 0 0 0 62 4 L62 45.01 L28 3.65 A10 10 0 0 0 20.28 0 L8 0 A8 8 0 0 0 0 8 Z" }),
+    /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M0 21.91 C9.27 39.88 24.23 49.21 30 53.96 L30 91 A9 9 0 0 1 21 100 L9 100 A9 9 0 0 1 0 91 Z" }),
+    /* @__PURE__ */ React.createElement("path", { fill: "url(#nf-sage)", d: "M8.66 28.25 A11.5 11.5 0 0 1 24.5 44.65 C24.43 44.6 24.36 44.55 24.29 44.49 C19.75 41.19 13.63 35.07 8.66 28.25 Z" }),
+    /* @__PURE__ */ React.createElement("path", { fill: "#284C40", fillRule: "evenodd", d: "M151.85 73.49L114.61 73.49C113.92 73.49 113.38 74.07 113.45 74.76Q113.98 78.87 116.13 81.03Q118.61 83.5 122.46 83.5Q126.85 83.5 129.2 80.29C129.78 79.29 130.89 78.66 132.05 78.66L149.4 78.66C151.32 78.66 152.63 80.41 152.09 82.25Q150.52 86.49 147.59 90.05Q143.47 95.05 137.2 97.91Q130.93 100.77 123.34 100.77Q114.21 100.77 107.11 96.92Q100.02 93.07 96 85.92Q91.99 78.77 91.99 69.09Q91.99 59.41 95.95 52.31Q99.91 45.22 107 41.37Q114.1 37.52 123.34 37.52Q132.47 37.52 139.51 41.26Q146.55 45 150.51 51.98Q154.47 58.97 154.47 68.43Q154.47 69.82 154.37 71.22C154.24 72.52 153.16 73.49 151.85 73.49ZM132.4 61.84Q132.05 58.73 129.83 56.83Q127.19 54.57 123.23 54.57Q119.27 54.57 116.74 56.71Q114.65 58.48 113.76 61.64C113.59 62.37 114.13 63.04 114.88 63.04L131.27 63.04C131.93 63.04 132.44 62.5 132.4 61.84ZM155.21 69.09Q155.21 59.52 159.44 52.37Q163.68 45.22 170.99 41.37Q178.31 37.52 187.55 37.52Q196.79 37.52 204.1 41.37Q211.42 45.22 215.65 52.37Q219.89 59.52 219.89 69.09Q219.89 78.66 215.65 85.86Q211.42 93.07 204.05 96.92Q196.68 100.77 187.44 100.77Q178.2 100.77 170.88 96.92Q163.57 93.07 159.39 85.92Q155.21 78.77 155.21 69.09ZM198 69.09Q198 62.82 194.97 59.52Q191.95 56.22 187.55 56.22Q183.15 56.22 180.18 59.52Q177.21 62.82 177.21 69.09Q177.21 75.47 180.07 78.77Q182.93 82.07 187.44 82.07Q191.95 82.07 194.97 78.72Q198 75.36 198 69.09Z" }),
+    /* @__PURE__ */ React.createElement("path", { fill: "#476655", fillRule: "evenodd", d: "M273.14 25.78L273.14 34.85C273.14 36.51 271.8 37.85 270.14 37.85L242.88 37.85C242.22 37.85 241.68 38.39 241.68 39.05L241.68 52.93C241.68 53.59 242.22 54.13 242.88 54.13L262.22 54.13C263.88 54.13 265.22 55.47 265.22 57.13L265.22 65.76C265.22 67.42 263.88 68.76 262.22 68.76L242.88 68.76C242.22 68.76 241.68 69.3 241.68 69.96L241.68 97C241.68 98.66 240.34 100 238.68 100L225.87 100C224.21 100 222.87 98.66 222.87 97L222.87 25.78C222.87 24.12 224.21 22.78 225.87 22.78L270.14 22.78C271.8 22.78 273.14 24.12 273.14 25.78ZM324.99 73.82L286.2 73.82C285.5 73.82 284.96 74.41 285.04 75.11Q285.72 79.89 288.58 82.56Q291.83 85.59 296.56 85.59Q302.53 85.59 305.41 81.32C305.98 80.3 307.1 79.65 308.27 79.65L322.51 79.65C324.47 79.65 325.78 81.46 325.17 83.31Q323.58 87.21 320.81 90.54Q316.8 95.38 310.75 98.13Q304.7 100.88 297.22 100.88Q288.2 100.88 281.16 97.03Q274.12 93.18 270.16 86.03Q266.2 78.88 266.2 69.31Q266.2 59.74 270.1 52.59Q274.01 45.44 281.05 41.59Q288.09 37.74 297.22 37.74Q306.13 37.74 313.06 41.48Q319.99 45.22 323.89 52.15Q327.8 59.08 327.8 68.32Q327.8 69.8 327.7 71.35C327.57 72.76 326.4 73.82 324.99 73.82ZM297.86 49.11V46.06A0.62 0.62 0 0 1 299.09 46.06V49.11Q302.11 49.11 302.11 50.75V52.64L303.9 54.28V65.52A1.39 1.39 0 0 1 302.51 66.91H294.45A1.39 1.39 0 0 1 293.06 65.52V54.28L294.84 52.64V50.75Q294.84 49.11 297.86 49.11ZM387.57 73.82L348.78 73.82C348.08 73.82 347.55 74.41 347.62 75.11Q348.3 79.89 351.17 82.56Q354.41 85.59 359.14 85.59Q365.11 85.59 368 81.32C368.57 80.3 369.68 79.65 370.85 79.65L385.09 79.65C387.05 79.65 388.36 81.46 387.75 83.31Q386.16 87.21 383.4 90.54Q379.38 95.38 373.33 98.13Q367.28 100.88 359.8 100.88Q350.78 100.88 343.74 97.03Q336.7 93.18 332.74 86.03Q328.78 78.88 328.78 69.31Q328.78 59.74 332.69 52.59Q336.59 45.44 343.63 41.59Q350.67 37.74 359.8 37.74Q368.71 37.74 375.64 41.48Q382.57 45.22 386.48 52.15Q390.38 59.08 390.38 68.32Q390.38 69.8 390.28 71.35C390.15 72.76 388.99 73.82 387.57 73.82ZM360.63 46.07C364.13 52 366.54 55.77 366.54 59.81C366.54 62.84 363.7 66.28 360.63 66.28C357.56 66.28 354.72 62.84 354.72 59.81C354.72 55.77 357.13 52 360.63 46.07ZM418.18 37.74Q424.23 37.74 429.23 40.27Q432.31 41.82 434.57 44.04C435.33 44.96 437.1 44.31 437.1 43.13L437.1 21.6C437.1 19.94 438.44 18.6 440.1 18.6L452.91 18.6C454.56 18.6 455.91 19.94 455.91 21.6L455.91 97C455.91 98.66 454.56 100 452.91 100L440.1 100C438.44 100 437.1 98.66 437.1 97L437.1 95.16C437.1 94.05 435.38 93.46 434.71 94.35Q432.56 96.62 429.56 98.24Q424.67 100.88 418.18 100.88Q410.59 100.88 404.43 96.97Q398.27 93.07 394.69 85.86Q391.12 78.66 391.12 69.2Q391.12 59.74 394.69 52.59Q398.27 45.44 404.43 41.59Q410.59 37.74 418.18 37.74ZM423.68 54.13Q418.07 54.13 414.16 58.15Q410.26 62.16 410.26 69.2Q410.26 76.24 414.16 80.36Q418.07 84.49 423.68 84.49Q429.29 84.49 433.19 80.42Q437.1 76.35 437.1 69.31Q437.1 62.27 433.19 58.2Q429.29 54.13 423.68 54.13Z" }),
+    lockup && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("path", { fill: "#476655", d: "M53.03 106.59H227.95V112.81H53.03A3.11 3.11 0 0 1 53.03 106.59Z" }), /* @__PURE__ */ React.createElement("path", { fill: "#C5A46D", d: "M227.95 106.59H402.88A3.11 3.11 0 0 1 402.88 112.81H227.95Z" }))
+  )
 );
 const SYNC_SLOW_AFTER_MS = 6e3;
 const SYNC_VERY_SLOW_AFTER_MS = 15e3;
@@ -235,7 +248,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
     boxShadow: "var(--shadow-pop)",
     padding: "28px 24px 22px",
     textAlign: "center"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 } }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, { style: { fontSize: 23, fontWeight: 600, letterSpacing: "-0.015em" } })), /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 } }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, { style: { fontSize: 30 } })), /* @__PURE__ */ React.createElement("div", { style: {
     height: 4,
     borderRadius: 999,
     background: "var(--line-2)",
@@ -1543,7 +1556,7 @@ function LoginScreen({ onLogin, notice = null }) {
     setMode("google");
     setError(null);
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "login-wrap" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, { className: "login-app-name" }), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
+  return /* @__PURE__ */ React.createElement("div", { className: "login-wrap" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, { className: "login-app-name", lockup: true }), /* @__PURE__ */ React.createElement("div", { className: "login-tagline" }, "Neonatal nutrition,", /* @__PURE__ */ React.createElement("br", null), "calculated precisely"), notice && /* @__PURE__ */ React.createElement("div", { role: "status", "aria-live": "polite", className: "login-notice", style: {
     width: "100%",
     maxWidth: 320,
     boxSizing: "border-box",
