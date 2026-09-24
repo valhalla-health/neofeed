@@ -7,6 +7,32 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-25 (1) — Release #120 went red at midnight: a date boundary in a harness, not the app
+
+Pp: *"merge ทั้งสอง PR แล้ว deploy"*. #118 and #119 merged into `main` (`67ed949`) and were released by PR
+#120: `release` = `e05a78d`, merged at 23:58:39 ICT on 2026-09-24. Both `harnesses` runs on `67ed949` passed
+(the PR head and the `main` push). **The post-merge run on `e05a78d` failed at 00:00:00.229 ICT**, on
+exactly one harness: `verify-nursing-backend.cjs` § 4. Assertion 057, "a date two days ahead is refused",
+was accepted instead, and so 059, "none of the refusals wrote a row", counted 2 rows, not 1.
+
+**Cause: the harness and the backend read two different days.**
+- The harness fixes `TODAY` when the file loads.
+- The backend refuses a date later than its own **live** tomorrow (`gas-backend.gs`, the nursing date
+  check).
+- A run that crosses Bangkok midnight between the two makes `TODAY + 2` equal to the backend's tomorrow,
+  so the save is accepted.
+- **Reproduced deterministically**, by starting `Date.now()` just before midnight with the run in real
+  time. Only a crossing 150–450 ms into the run (the window before § 4) fails, and it fails exactly 057
+  and 059. At every other offset it is 94/94.
+
+**Fix:** that one refusal builds its date and makes its call inside `withNow(Date.now(), …)`, so both read
+one instant. The same sweep passes at every offset (5–1300 ms), from the sources and from `compiled/`.
+
+**The app was never in question.** `release`'s tree is `main`'s at `67ed949`, which passed twice. The
+failed job was re-run once.
+
+**Not swept:** other harnesses also fix `TODAY` at load; this sweep covered only the one that failed.
+
 ## Session 2026-09-24 (11) — Login speed: the first sync rides in the login reply (Pp, fixes 1–4)
 
 Pp: *"เช็คให้ด้วยว่าทำไมตอนนี้ login เริ่มช้า ใช้เวลานาน จะทำยังไงให้เร็วขึ้น lean ขึ้นได้"*, and after the
