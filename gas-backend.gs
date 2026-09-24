@@ -3266,6 +3266,12 @@ function _mergeAppendOnly(stored, base, incoming) {
   });
   return out;
 }
+// True for a Patient_Registry row that pseudonymizePatient erased: its name
+// cell carries the marker, and its blank initials and dob ARE the erasure, not
+// a legacy gap. Every write path that could fill B, C or G asks this first.
+function _isPdpaErased(row) {
+  return String(row[1] || "").indexOf("[PDPA-erased") === 0;
+}
 // The record to write for an existing row. `base` may be null (no merge).
 function _mergePatient(storedRow, incoming, base) {
   var s = _storedPatient(storedRow);
@@ -3291,7 +3297,7 @@ function _mergePatient(storedRow, incoming, base) {
   // straight back, silently undoing a data-subject request. With or without
   // base, a client write can no longer restore them; a deliberate un-erase is
   // out of scope for the API.
-  if (String(storedRow[1] || "").indexOf("[PDPA-erased") === 0) {
+  if (_isPdpaErased(storedRow)) {
     m.name = String(storedRow[1]);
     m.initials = String(storedRow[2] || "");
     m.dob = _fmtDate(storedRow[6]);
@@ -3424,8 +3430,11 @@ function updateWeights(sessionId, weights, baseWeights, dob) {
         // admission weight — into an EMPTY dob cell only, never over a real one
         // — so a dob-less legacy record stops re-dating once a birth measurement
         // is recorded (F2, 2026-09-24). A bad dob is skipped, never blocking the
-        // weight save.
-        if (dob && !String(data[i][6] || "").trim()) {
+        // weight save. Never into an erased row: its dob cell is empty because
+        // the erasure emptied it, and the dob a device sends — derived from the
+        // retained admission date, or held from before the erasure — is the
+        // very birth date that was erased. The weight itself still saves.
+        if (dob && !String(data[i][6] || "").trim() && !_isPdpaErased(data[i])) {
           try {
             _checkAdmissionDate(dob, null, "Date of birth");
             sheet.getRange(i + 1, 7).setValue(_sheetSafe(_fmtDate(dob)));
