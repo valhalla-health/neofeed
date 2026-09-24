@@ -508,6 +508,7 @@ const NURSING_ML_FIELDS = [
 ];
 const whoOf = (email) => String(email || "").split("@")[0];
 const ml1 = (x) => Math.round(x * 10) / 10;
+const nursingOutMl = (r) => r?.urineMl == null || r?.drainMl == null ? null : ml1(Number(r.urineMl) + Number(r.drainMl));
 function urineRate(patient, rec) {
   if (rec?.urineMl == null) return null;
   const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null);
@@ -525,7 +526,7 @@ function NurseNum({ name, label, unit, value, onChange, integer = false, hint })
       placeholder: "—",
       value,
       onChange: (e) => {
-        let s = e.target.value.replace(integer ? /[^0-9]/g : /[^0-9.]/g, "");
+        let s = e.target.value.replace(/[^0-9.]/g, "");
         const dot = s.indexOf(".");
         if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "");
         onChange(s);
@@ -575,7 +576,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
   NURSING_ML_FIELDS.forEach(([k, lbl]) => {
     if (vals[k] != null && !(vals[k] >= 0 && vals[k] <= 3e3)) problems.push(`${lbl} ต้องอยู่ระหว่าง 0–3000 mL`);
   });
-  if (vals.stoolCount != null && !(Number.isInteger(vals.stoolCount) && vals.stoolCount <= 20)) problems.push("อุจจาระ 0–20 ครั้ง");
+  if (vals.stoolCount != null && !(Number.isInteger(vals.stoolCount) && vals.stoolCount <= 20)) problems.push("อุจจาระเป็นจำนวนเต็ม 0–20 ครั้ง");
   if (weight != null && !(weight >= 200 && weight <= 8e3)) problems.push("น้ำหนัก 200–8000 g");
   if (!date || date > today) problems.push("วันที่ต้องไม่เกินวันนี้");
   const admitted = D_L.normalizeDateStr(patient?.admissionDate || "");
@@ -583,7 +584,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
   if (editing && !anyIO) problems.push("บันทึกต้องมีอย่างน้อยหนึ่งค่า — การลบทั้งรายการทำได้โดย admin");
   if (!editing && !anyIO && !weightChanged) problems.push("ยังไม่ได้กรอกค่าใดเลย");
   const intake = D_L.nursingIntakeMl(vals);
-  const out = ml1((vals.urineMl ?? 0) + (vals.drainMl ?? 0));
+  const out = nursingOutMl(vals);
   const rate = urineRate(patient, { ts: date, urineMl: vals.urineMl });
   const submit = () => {
     if (busy || problems.length) return;
@@ -619,7 +620,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
       style: { width: 460 },
       onClick: (e) => e.stopPropagation()
     },
-    /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน", " · ", patient?.name || patient?.initials || "—", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--ink-3)" } }, " · ", patient?.currentBed || "—")), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose, "aria-label": "ปิด" }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))),
+    /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน", " · ", patient?.name || patient?.initials || "—", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--ink-3)" } }, " · ", patient?.currentBed || "—")), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose, "aria-label": "ปิด", disabled: busy }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))),
     /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "nio-date" }, "ยอด 24 ชม. ที่ปิดยอดเช้าวันที่"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
       "input",
       {
@@ -656,7 +657,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
         onChange: set("urineMl"),
         hint: rate != null ? `${D_L.displayNum(rate, 1)} mL/kg/h` : null
       }
-    ), /* @__PURE__ */ React.createElement(NurseNum, { name: "drainMl", label: "Drain", unit: "mL/24 ชม.", value: f.drainMl, onChange: set("drainMl") }), /* @__PURE__ */ React.createElement(NurseNum, { name: "stoolCount", label: "อุจจาระ", unit: "ครั้ง", value: f.stoolCount, onChange: set("stoolCount"), integer: true })), /* @__PURE__ */ React.createElement("div", { className: "nio-sum", "aria-live": "polite" }, "เข้า ", /* @__PURE__ */ React.createElement("span", { className: "num" }, intake ?? "—"), " mL · ออก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, vals.urineMl == null && vals.drainMl == null ? "—" : out), " mL", intake != null && vals.urineMl != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · Balance ", /* @__PURE__ */ React.createElement("span", { className: "num" }, intake - out >= 0 ? "+" : "", ml1(intake - out)), " mL")), /* @__PURE__ */ React.createElement("div", { className: "nio-note" }, "ช่องที่เว้นว่าง = ไม่ได้บันทึก (ไม่ใช่ 0) · ข้อมูลนี้ใช้คำนวณโภชนาการ แฟ้มผู้ป่วยยังเป็นบันทึกหลัก"), problems.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "nio-problems", role: "alert", style: { fontSize: 12, color: "var(--crit-ink)", lineHeight: 1.5 } }, problems.join(" · ")), error && /* @__PURE__ */ React.createElement("div", { role: "alert", style: { fontSize: 12.5, color: "var(--crit-ink)", fontWeight: 600 } }, error), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: busy || problems.length > 0, onClick: submit }, /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14, color: "#fff" }), " ", busy ? "กำลังบันทึก…" : "บันทึก")))
+    ), /* @__PURE__ */ React.createElement(NurseNum, { name: "drainMl", label: "Drain", unit: "mL/24 ชม.", value: f.drainMl, onChange: set("drainMl") }), /* @__PURE__ */ React.createElement(NurseNum, { name: "stoolCount", label: "อุจจาระ", unit: "ครั้ง", value: f.stoolCount, onChange: set("stoolCount"), integer: true })), /* @__PURE__ */ React.createElement("div", { className: "nio-sum", "aria-live": "polite" }, "เข้า ", /* @__PURE__ */ React.createElement("span", { className: "num" }, intake ?? "—"), " mL · ออก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, out ?? "—"), " mL", intake != null && out != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · Balance ", /* @__PURE__ */ React.createElement("span", { className: "num" }, intake - out >= 0 ? "+" : "", ml1(intake - out)), " mL"), (intake == null || out == null) && (vals.ivInMl != null || vals.enInMl != null || vals.urineMl != null || vals.drainMl != null) && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)" } }, "ยอดรวมต้องมีทั้งสองช่อง — ไม่ได้ให้/ไม่มี ใส่ 0")), /* @__PURE__ */ React.createElement("div", { className: "nio-note" }, "ช่องที่เว้นว่าง = ไม่ได้บันทึก (ไม่ใช่ 0) · ข้อมูลนี้ใช้คำนวณโภชนาการ แฟ้มผู้ป่วยยังเป็นบันทึกหลัก"), problems.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "nio-problems", role: "alert", style: { fontSize: 12, color: "var(--crit-ink)", lineHeight: 1.5 } }, problems.join(" · ")), error && /* @__PURE__ */ React.createElement("div", { role: "alert", style: { fontSize: 12.5, color: "var(--crit-ink)", fontWeight: 600 } }, error), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose, disabled: busy }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: busy || problems.length > 0, onClick: submit }, /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14, color: "#fff" }), " ", busy ? "กำลังบันทึก…" : "บันทึก")))
   ));
 }
 function NursingIOCard({ patient, records, onOpen, onDelete }) {
@@ -667,7 +668,9 @@ function NursingIOCard({ patient, records, onOpen, onDelete }) {
   return /* @__PURE__ */ React.createElement("div", { className: "card nursing-io", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "I/O ประจำวัน (พยาบาล)", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, "ยอด 24 ชม. · ", records.length, " วัน")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement("div", { className: "nio-head" }, /* @__PURE__ */ React.createElement("span", { className: "log-badge" + (todays ? " is-logged" : "") }, todays ? "✓ วันนี้บันทึกแล้ว" : "วันนี้ยังไม่ได้บันทึก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary nio-add", onClick: () => onOpen(todays || null) }, /* @__PURE__ */ React.createElement(Icon, { name: todays ? "log" : "plus", size: 14, color: "#fff" }), " ", todays ? "แก้ไข I/O วันนี้" : "บันทึก I/O")), shown.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "nio-empty" }, "ยังไม่มีบันทึก I/O — กด “บันทึก I/O” (เลือกวันที่ย้อนหลังได้)") : /* @__PURE__ */ React.createElement("div", { className: "nio-list" }, shown.map((r) => {
     const intake = D_L.nursingIntakeMl(r);
     const rate = urineRate(patient, r);
-    const bal = intake != null && r.urineMl != null ? ml1(intake - r.urineMl - (r.drainMl ?? 0)) : null;
+    const out = nursingOutMl(r);
+    const bal = intake != null && out != null ? ml1(intake - out) : null;
+    const inText = intake != null ? String(intake) : r.ivInMl != null || r.enInMl != null ? `— (IV ${v(r.ivInMl)} · นม/EN ${v(r.enInMl)})` : "—";
     return /* @__PURE__ */ React.createElement(
       "div",
       {
@@ -684,7 +687,7 @@ function NursingIOCard({ patient, records, onOpen, onDelete }) {
         }
       },
       /* @__PURE__ */ React.createElement("div", { className: "nio-date" }, /* @__PURE__ */ React.createElement("strong", null, window.NEOFEED_FMT_DATE?.(r.ts) || r.ts), /* @__PURE__ */ React.createElement("span", { className: "nio-dol" }, "DOL ", D_L.dolAtDate(patient, r.ts))),
-      /* @__PURE__ */ React.createElement("div", { className: "nio-vals num" }, /* @__PURE__ */ React.createElement("span", null, "เข้า ", v(intake), r.enInMl != null && r.feedType ? ` (${nursingFeedLabel(r.feedType)})` : ""), /* @__PURE__ */ React.createElement("span", null, "ปัสสาวะ ", v(r.urineMl), rate != null ? ` · ${D_L.displayNum(rate, 1)} mL/kg/h` : ""), /* @__PURE__ */ React.createElement("span", null, "Drain ", v(r.drainMl)), /* @__PURE__ */ React.createElement("span", null, "Bal ", bal == null ? "—" : `${bal >= 0 ? "+" : ""}${bal}`), /* @__PURE__ */ React.createElement("span", null, "อุจจาระ ", v(r.stoolCount))),
+      /* @__PURE__ */ React.createElement("div", { className: "nio-vals num" }, /* @__PURE__ */ React.createElement("span", null, "เข้า ", inText, r.enInMl != null && r.feedType ? ` (${nursingFeedLabel(r.feedType)})` : ""), /* @__PURE__ */ React.createElement("span", null, "ปัสสาวะ ", v(r.urineMl), rate != null ? ` · ${D_L.displayNum(rate, 1)} mL/kg/h` : ""), /* @__PURE__ */ React.createElement("span", null, "Drain ", v(r.drainMl)), /* @__PURE__ */ React.createElement("span", null, "Bal ", bal == null ? "—" : `${bal >= 0 ? "+" : ""}${bal}`), /* @__PURE__ */ React.createElement("span", null, "อุจจาระ ", v(r.stoolCount))),
       /* @__PURE__ */ React.createElement("div", { className: "nio-who" }, whoOf(r.lastModifiedBy || r.enteredBy), onDelete && r.entryId && !String(r.entryId).startsWith("tmp_") && /* @__PURE__ */ React.createElement(
         "button",
         {

@@ -657,6 +657,25 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // stays blank.
   const [nursingApplied, setNursingApplied] = useState(null);
   const seedsZero = (key) => seededZeros.has(key) || !!nursingApplied?.keys?.has(key);
+  // A figure stops being "the nurses'" the moment the prescriber edits its box:
+  // from then on an emptied box is blank, never the typed zero a recorded 0
+  // seeds (review of 2026-09-24 — an emptied box snapped back to "0" and let a
+  // Submit through on a figure nobody recorded).
+  const releaseNursingKey = (key) => setNursingApplied(prev => {
+    if (!prev?.keys?.has(key)) return prev;
+    const keys = new Set(prev.keys);
+    keys.delete(key);
+    return keys.size ? { ...prev, keys } : null;
+  });
+  // Bumped by every take / re-take / clear of the nurses' figures: the three
+  // Intake / Output boxes remount, so what they show is the value just set —
+  // a box typed in before the tap must not keep its "typed" state, which would
+  // show a cleared figure as "0" rather than blank.
+  const [ioGen, setIoGen] = useState(0);
+  // `nursing` is null while the backend does not serve nursing records (its
+  // switch is off): nothing is offered then, and nothing already taken is
+  // reported as "deleted" merely because the records stopped arriving.
+  const nursingServed = Array.isArray(nursing);
 
   // Card key 1 — Fluid plan (displayed as Step 1)
   const [fluidTargetPerKg, setFluidTargetPerKg] = useState(0);
@@ -869,6 +888,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // as typing (the unsaved-draft store keeps it). Never on a saved order, whose
   // figures are its record.
   const applyNursingIO = (dateKey) => {
+    if (!nursingServed) return false;
+    setIoGen(g => g + 1);
     const rec = D.nursingRecordOn(nursing, dateKey);
     // Taken again after the nurses changed their record: a figure they have
     // since blanked, or a record since deleted, must not stay in the form as if
@@ -884,7 +905,10 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     if (rec?.drainMl != null) { setDrainContent(Number(rec.drainMl)); keys.add("drainContent"); }
     else if (dropped("drainContent")) setDrainContent(0);
     if (!keys.size) { setNursingApplied(null); return false; }
-    setNursingApplied({ date: D.normalizeDateStr(rec.ts), keys, rec });
+    // Input needs BOTH halves: IV alone, with the enteral total not recorded,
+    // is not the day's intake (blank ≠ 0), so Input is left to the prescriber.
+    const partialIntake = intake == null && (rec.ivInMl != null || rec.enInMl != null);
+    setNursingApplied({ date: D.normalizeDateStr(rec.ts), keys, rec, partialIntake });
     return true;
   };
 
@@ -1469,14 +1493,14 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const ioBalance = ioInput - ioOutput - drainContent;
   // The nurses' record for this order's date, when there is one to offer (a
   // new order only; never quick calc or Center Point, which record no I/O).
-  const nursingForDate = (!centerPoint && !scratch && !editEntry) ? D.nursingRecordOn(nursing, orderDateKey) : null;
+  const nursingForDate = (nursingServed && !centerPoint && !scratch && !editEntry) ? D.nursingRecordOn(nursing, orderDateKey) : null;
   // The nurses corrected (or deleted) the record after this form took its
   // figures — say so, so an order is not written on totals the ward has
   // already corrected. Compared on the figures taken, not on the row's stamp,
   // which also moves when a provisional row is confirmed.
   // ("||" = a record with none of the three, e.g. a stool count alone: nothing to take.)
   const nursingTaken = (r) => r ? [D.nursingIntakeMl(r), r.urineMl ?? null, r.drainMl ?? null].join("|") : "";
-  const nursingChanged = !!nursingApplied && !editEntry &&
+  const nursingChanged = !!nursingApplied && nursingServed && !editEntry &&
     nursingTaken(D.nursingRecordOn(nursing, nursingApplied.date)) !== nursingTaken(nursingApplied.rec);
 
   // ── Ca · PO₄ · Ca:P summary (Step 6) ────────────────────────────
@@ -2233,15 +2257,16 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         <div className="card-b">
           <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, alignItems: "stretch" }}>
             <NumField label="Input" unit="mL/d" value={ioInput} step={1}
-              key={`${formIdentity}·ioInput`} name="ioInput" required seedZero={seedsZero("ioInput")} onBlankChange={reportBlank}
-              onChange={(v) => { markIoInputTouched(true); setIoInput(v); }}
+              key={`${formIdentity}·ioInput·${ioGen}`} name="ioInput" required seedZero={seedsZero("ioInput")} onBlankChange={reportBlank}
+              onChange={(v) => { markIoInputTouched(true); releaseNursingKey("ioInput"); setIoInput(v); }}
               hint={`(${fmt(ioInputPerKg, 1)} mL/kg/d)`} />
             <NumField label="Urine output" unit="mL/d" value={ioOutput} step={1}
-              key={`${formIdentity}·ioOutput`} name="ioOutput" required seedZero={seedsZero("ioOutput")} onBlankChange={reportBlank}
-              onChange={setIoOutput}
+              key={`${formIdentity}·ioOutput·${ioGen}`} name="ioOutput" required seedZero={seedsZero("ioOutput")} onBlankChange={reportBlank}
+              onChange={(v) => { releaseNursingKey("ioOutput"); setIoOutput(v); }}
               hint={`(${fmt(ioOutputPerKgH, 2)} mL/kg/h)`} />
-            <NumField label="Drain content" unit="mL/d" value={drainContent} onChange={setDrainContent} step={1}
-              key={`${formIdentity}·drainContent`} name="drainContent" required seedZero={seedsZero("drainContent")} onBlankChange={reportBlank}
+            <NumField label="Drain content" unit="mL/d" value={drainContent} step={1}
+              onChange={(v) => { releaseNursingKey("drainContent"); setDrainContent(v); }}
+              key={`${formIdentity}·drainContent·${ioGen}`} name="drainContent" required seedZero={seedsZero("drainContent")} onBlankChange={reportBlank}
               hint={`(${fmt(ioDrainPerKg, 1)} mL/kg/d)`} />
           </div>
           {(ioInput > 0 || ioOutput > 0 || drainContent > 0) && (
@@ -2257,6 +2282,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
             <div className="nursing-prefill-note" style={{ marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 }}>
               เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า {window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date}
               {" "}({[nursingApplied.keys.has("ioInput") && "Input", nursingApplied.keys.has("ioOutput") && "Urine", nursingApplied.keys.has("drainContent") && "Drain"].filter(Boolean).join(" · ")}) — แก้ได้
+              {nursingApplied.partialIntake && <> · <strong>Input ไม่ได้เติม: บันทึก IV หรือ นม/EN ไม่ครบ</strong></>}
             </div>
           )}
           {nursingChanged && (

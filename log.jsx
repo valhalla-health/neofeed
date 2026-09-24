@@ -695,6 +695,9 @@ const NURSING_ML_FIELDS = [
 const whoOf = (email) => String(email || "").split("@")[0];
 // Sums of typed decimals, to 0.1 mL — never "99.60000000000001".
 const ml1 = (x) => Math.round(x * 10) / 10;
+// Out = urine + drain, and only when BOTH were recorded: a blank drain is not
+// "no drain" (blank ≠ 0 — the form asks for 0 when there is none).
+const nursingOutMl = (r) => (r?.urineMl == null || r?.drainMl == null) ? null : ml1(Number(r.urineMl) + Number(r.drainMl));
 
 // Urine in mL/kg/h against the same divisor the Calculator's Intake/Output card
 // uses for the order of that date (D.ioDivisorG — the previous day's weight,
@@ -714,7 +717,9 @@ function NurseNum({ name, label, unit, value, onChange, integer = false, hint })
       <input id={`nio-${name}`} name={name} type="text" inputMode={integer ? "numeric" : "decimal"}
         className="inp num" placeholder="—" value={value}
         onChange={e => {
-          let s = e.target.value.replace(integer ? /[^0-9]/g : /[^0-9.]/g, "");
+          // Digits and one point, integer or not: a count typed as "1.5" must
+          // be refused below, never silently rewritten to 15.
+          let s = e.target.value.replace(/[^0-9.]/g, "");
           const dot = s.indexOf(".");
           if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "");
           onChange(s);
@@ -763,7 +768,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
   NURSING_ML_FIELDS.forEach(([k, lbl]) => {
     if (vals[k] != null && !(vals[k] >= 0 && vals[k] <= 3000)) problems.push(`${lbl} ต้องอยู่ระหว่าง 0–3000 mL`);
   });
-  if (vals.stoolCount != null && !(Number.isInteger(vals.stoolCount) && vals.stoolCount <= 20)) problems.push("อุจจาระ 0–20 ครั้ง");
+  if (vals.stoolCount != null && !(Number.isInteger(vals.stoolCount) && vals.stoolCount <= 20)) problems.push("อุจจาระเป็นจำนวนเต็ม 0–20 ครั้ง");
   if (weight != null && !(weight >= 200 && weight <= 8000)) problems.push("น้ำหนัก 200–8000 g");
   if (!date || date > today) problems.push("วันที่ต้องไม่เกินวันนี้");
   const admitted = D_L.normalizeDateStr(patient?.admissionDate || "");
@@ -772,7 +777,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
   if (!editing && !anyIO && !weightChanged) problems.push("ยังไม่ได้กรอกค่าใดเลย");
 
   const intake = D_L.nursingIntakeMl(vals);
-  const out = ml1((vals.urineMl ?? 0) + (vals.drainMl ?? 0));
+  const out = nursingOutMl(vals);
   const rate = urineRate(patient, { ts: date, urineMl: vals.urineMl });
 
   const submit = () => {
@@ -800,7 +805,9 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
             {editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน"} · {patient?.name || patient?.initials || "—"}
             <span style={{ fontWeight: 400, color: "var(--ink-3)" }}> · {patient?.currentBed || "—"}</span>
           </div>
-          <button className="icon-btn" onClick={onClose} aria-label="ปิด"><Icon name="x" size={14} /></button>
+          {/* Not while a save is in flight: the save answers into this form
+              (its writes are quiet), so closing it would hide a refusal. */}
+          <button className="icon-btn" onClick={onClose} aria-label="ปิด" disabled={busy}><Icon name="x" size={14} /></button>
         </div>
         <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="field">
@@ -834,8 +841,10 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
             <NurseNum name="stoolCount" label="อุจจาระ" unit="ครั้ง" value={f.stoolCount} onChange={set("stoolCount")} integer />
           </div>
           <div className="nio-sum" aria-live="polite">
-            เข้า <span className="num">{intake ?? "—"}</span> mL · ออก <span className="num">{vals.urineMl == null && vals.drainMl == null ? "—" : out}</span> mL
-            {intake != null && vals.urineMl != null && <> · Balance <span className="num">{intake - out >= 0 ? "+" : ""}{ml1(intake - out)}</span> mL</>}
+            เข้า <span className="num">{intake ?? "—"}</span> mL · ออก <span className="num">{out ?? "—"}</span> mL
+            {intake != null && out != null && <> · Balance <span className="num">{intake - out >= 0 ? "+" : ""}{ml1(intake - out)}</span> mL</>}
+            {(intake == null || out == null) && (vals.ivInMl != null || vals.enInMl != null || vals.urineMl != null || vals.drainMl != null) &&
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>ยอดรวมต้องมีทั้งสองช่อง — ไม่ได้ให้/ไม่มี ใส่ 0</div>}
           </div>
           <div className="nio-note">
             ช่องที่เว้นว่าง = ไม่ได้บันทึก (ไม่ใช่ 0) · ข้อมูลนี้ใช้คำนวณโภชนาการ แฟ้มผู้ป่วยยังเป็นบันทึกหลัก
@@ -847,7 +856,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
           )}
           {error && <div role="alert" style={{ fontSize: 12.5, color: "var(--crit-ink)", fontWeight: 600 }}>{error}</div>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <button className="btn" onClick={onClose}>ยกเลิก</button>
+            <button className="btn" onClick={onClose} disabled={busy}>ยกเลิก</button>
             <button className="btn primary" disabled={busy || problems.length > 0} onClick={submit}>
               <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "บันทึก"}
             </button>
@@ -885,7 +894,12 @@ function NursingIOCard({ patient, records, onOpen, onDelete }) {
               {shown.map(r => {
                 const intake = D_L.nursingIntakeMl(r);
                 const rate = urineRate(patient, r);
-                const bal = intake != null && r.urineMl != null ? ml1(intake - r.urineMl - (r.drainMl ?? 0)) : null;
+                const out = nursingOutMl(r);
+                const bal = intake != null && out != null ? ml1(intake - out) : null;
+                // Only one half of the intake recorded: show the halves, never
+                // a "total" that silently counts the blank one as 0.
+                const inText = intake != null ? String(intake)
+                  : (r.ivInMl != null || r.enInMl != null) ? `— (IV ${v(r.ivInMl)} · นม/EN ${v(r.enInMl)})` : "—";
                 return (
                   <div key={r.entryId || r.ts} className="nio-row" role="button" tabIndex={0}
                     onClick={() => onOpen(r)}
@@ -895,7 +909,7 @@ function NursingIOCard({ patient, records, onOpen, onDelete }) {
                       <span className="nio-dol">DOL {D_L.dolAtDate(patient, r.ts)}</span>
                     </div>
                     <div className="nio-vals num">
-                      <span>เข้า {v(intake)}{r.enInMl != null && r.feedType ? ` (${nursingFeedLabel(r.feedType)})` : ""}</span>
+                      <span>เข้า {inText}{r.enInMl != null && r.feedType ? ` (${nursingFeedLabel(r.feedType)})` : ""}</span>
                       <span>ปัสสาวะ {v(r.urineMl)}{rate != null ? ` · ${D_L.displayNum(rate, 1)} mL/kg/h` : ""}</span>
                       <span>Drain {v(r.drainMl)}</span>
                       <span>Bal {bal == null ? "—" : `${bal >= 0 ? "+" : ""}${bal}`}</span>

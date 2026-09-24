@@ -411,6 +411,14 @@ function Calculator({
   }, [editEntry]);
   const [nursingApplied, setNursingApplied] = useState(null);
   const seedsZero = (key) => seededZeros.has(key) || !!nursingApplied?.keys?.has(key);
+  const releaseNursingKey = (key) => setNursingApplied((prev) => {
+    if (!prev?.keys?.has(key)) return prev;
+    const keys = new Set(prev.keys);
+    keys.delete(key);
+    return keys.size ? { ...prev, keys } : null;
+  });
+  const [ioGen, setIoGen] = useState(0);
+  const nursingServed = Array.isArray(nursing);
   const [fluidTargetPerKg, setFluidTargetPerKg] = useState(0);
   const [otherIV_mL, setOtherIV_mL] = useState(0);
   const [drug_mL, setDrug_mL] = useState(0);
@@ -533,6 +541,8 @@ function Calculator({
     return src;
   };
   const applyNursingIO = (dateKey) => {
+    if (!nursingServed) return false;
+    setIoGen((g) => g + 1);
     const rec = D.nursingRecordOn(nursing, dateKey);
     const dropped = (key) => !!nursingApplied?.keys?.has(key);
     const keys = /* @__PURE__ */ new Set();
@@ -554,7 +564,8 @@ function Calculator({
       setNursingApplied(null);
       return false;
     }
-    setNursingApplied({ date: D.normalizeDateStr(rec.ts), keys, rec });
+    const partialIntake = intake == null && (rec.ivInMl != null || rec.enInMl != null);
+    setNursingApplied({ date: D.normalizeDateStr(rec.ts), keys, rec, partialIntake });
     return true;
   };
   const formIdentity = `${patient?.sessionId || "?"}·${orderDateKey}·${editEntry?.entryId || "new"}`;
@@ -1088,9 +1099,9 @@ function Calculator({
   const ioOutputPerKgH = ioDivisorKg ? Math.round(ioOutput / ioDivisorKg / 24 * 100) / 100 : null;
   const ioDrainPerKg = ioDivisorKg ? drainContent / ioDivisorKg : null;
   const ioBalance = ioInput - ioOutput - drainContent;
-  const nursingForDate = !centerPoint && !scratch && !editEntry ? D.nursingRecordOn(nursing, orderDateKey) : null;
+  const nursingForDate = nursingServed && !centerPoint && !scratch && !editEntry ? D.nursingRecordOn(nursing, orderDateKey) : null;
   const nursingTaken = (r) => r ? [D.nursingIntakeMl(r), r.urineMl ?? null, r.drainMl ?? null].join("|") : "";
-  const nursingChanged = !!nursingApplied && !editEntry && nursingTaken(D.nursingRecordOn(nursing, nursingApplied.date)) !== nursingTaken(nursingApplied.rec);
+  const nursingChanged = !!nursingApplied && nursingServed && !editEntry && nursingTaken(D.nursingRecordOn(nursing, nursingApplied.date)) !== nursingTaken(nursingApplied.rec);
   const mineral = useMemo(() => {
     const ratio = (ca, p) => p > 0 ? ca / p : ca > 0 ? Infinity : 0;
     const tpnCa = caPerKg, tpnP = calc.pTotal_mg > 0 && wtKg > 0 ? calc.pTotal_mg / wtKg : 0;
@@ -1699,13 +1710,14 @@ function Calculator({
       unit: "mL/d",
       value: ioInput,
       step: 1,
-      key: `${formIdentity}·ioInput`,
+      key: `${formIdentity}·ioInput·${ioGen}`,
       name: "ioInput",
       required: true,
       seedZero: seedsZero("ioInput"),
       onBlankChange: reportBlank,
       onChange: (v) => {
         markIoInputTouched(true);
+        releaseNursingKey("ioInput");
         setIoInput(v);
       },
       hint: `(${fmt(ioInputPerKg, 1)} mL/kg/d)`
@@ -1717,12 +1729,15 @@ function Calculator({
       unit: "mL/d",
       value: ioOutput,
       step: 1,
-      key: `${formIdentity}·ioOutput`,
+      key: `${formIdentity}·ioOutput·${ioGen}`,
       name: "ioOutput",
       required: true,
       seedZero: seedsZero("ioOutput"),
       onBlankChange: reportBlank,
-      onChange: setIoOutput,
+      onChange: (v) => {
+        releaseNursingKey("ioOutput");
+        setIoOutput(v);
+      },
       hint: `(${fmt(ioOutputPerKgH, 2)} mL/kg/h)`
     }
   ), /* @__PURE__ */ React.createElement(
@@ -1731,16 +1746,19 @@ function Calculator({
       label: "Drain content",
       unit: "mL/d",
       value: drainContent,
-      onChange: setDrainContent,
       step: 1,
-      key: `${formIdentity}·drainContent`,
+      onChange: (v) => {
+        releaseNursingKey("drainContent");
+        setDrainContent(v);
+      },
+      key: `${formIdentity}·drainContent·${ioGen}`,
       name: "drainContent",
       required: true,
       seedZero: seedsZero("drainContent"),
       onBlankChange: reportBlank,
       hint: `(${fmt(ioDrainPerKg, 1)} mL/kg/d)`
     }
-  )), (ioInput > 0 || ioOutput > 0 || drainContent > 0) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" } }, "Balance ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: "var(--ink-2)" } }, ioBalance >= 0 ? "+" : "", fmt(ioBalance, 0)), " mL/d", ioDivisorGVal != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · divisor ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(ioDivisorGVal, 0)), " g", ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)")), nursingApplied && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-note", style: { marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 } }, "เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า ", window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date, " ", "(", [nursingApplied.keys.has("ioInput") && "Input", nursingApplied.keys.has("ioOutput") && "Urine", nursingApplied.keys.has("drainContent") && "Drain"].filter(Boolean).join(" · "), ") — แก้ได้"), nursingChanged && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-changed", role: "alert", style: {
+  )), (ioInput > 0 || ioOutput > 0 || drainContent > 0) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" } }, "Balance ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: "var(--ink-2)" } }, ioBalance >= 0 ? "+" : "", fmt(ioBalance, 0)), " mL/d", ioDivisorGVal != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · divisor ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(ioDivisorGVal, 0)), " g", ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)")), nursingApplied && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-note", style: { marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 } }, "เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า ", window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date, " ", "(", [nursingApplied.keys.has("ioInput") && "Input", nursingApplied.keys.has("ioOutput") && "Urine", nursingApplied.keys.has("drainContent") && "Drain"].filter(Boolean).join(" · "), ") — แก้ได้", nursingApplied.partialIntake && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", /* @__PURE__ */ React.createElement("strong", null, "Input ไม่ได้เติม: บันทึก IV หรือ นม/EN ไม่ครบ"))), nursingChanged && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-changed", role: "alert", style: {
     marginTop: 8,
     display: "flex",
     alignItems: "center",

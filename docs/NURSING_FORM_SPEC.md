@@ -45,9 +45,11 @@ lastModified | lastModifiedBy | appVersion`
   **closed**. The order dated X is offered the record dated X: the order written that morning reads it
   as "the past 24 h". A second record for a date is refused with `DuplicateDate` and the existing
   `entryId`, as Daily_Log does, and the client says "open the existing one".
-- **Blank ≠ 0.** A blank cell means *not recorded*; `0` means *measured, none*. The sync sends a blank
-  as `null` (`_numOrNull`), never 0, and every total says "—" rather than add a blank as zero. This is
-  the Calculator's own `NumField` / `typedRef` lesson (walkthrough § 5).
+- **Blank ≠ 0.** A blank cell means *not recorded*; `0` means *measured, none*.
+  - The sync sends a blank as `null` (`_numOrNull`), never 0.
+  - Every total says "—" rather than add a blank as zero. Intake needs both IV and EN; Out needs both
+    urine and drain. The card shows the recorded halves, and the form asks for 0 when there is none.
+  - This is the Calculator's own `NumField` / `typedRef` lesson (walkthrough § 5).
 - **mL per 24 h, as measured.** Per-kg and mL/kg/h figures are derived on display through
   `D.ioDivisorG` (the same divisor as the Calculator's I/O card), never stored.
 - **No weight column.** The form's weight goes to `Patient_Registry.weights` through `updateWeights`,
@@ -55,7 +57,7 @@ lastModified | lastModifiedBy | appVersion`
   the chart, "Wt now", the stale-weight alert and the Calculator all read it already.
 - **`feedType` is a formulary key** (the `EN_DB` keys, plus `MIXED` for several), from a list in the
   form and checked against `^[A-Z][A-Z0-9_]{0,39}$` on the server. It is never free text. **There is
-  no notes column** (§ 6, minimisation).
+  no notes column** (§ 6, minimisation). `appVersion` (column M) holds a build token or nothing.
 - **No status/void column.** An edit keeps its `entryId`, its date and its first author; a mistaken
   row is deleted by an admin, audited (D3).
 - **Created on the first nursing save, at exactly 13 columns.** `insertSheet` makes 26, and Google
@@ -74,7 +76,8 @@ lastModified | lastModifiedBy | appVersion`
 | `deletePatient` | admin | also removes that patient's `Nursing_Log` rows, and no one else's |
 
 **The go-live switch, `_nursingEnabled()`:** the Script Property `NURSING_LOG_ENABLED` must be
-exactly `"true"`. It is read per request, and an unreadable property reads as off. **Off, the
+exactly `"true"`. It is read per request, once per sync (for both the cache key and the payload), and
+an unreadable property reads as off. **Off, the
 backend is the one before the nursing form:**
 - the sync has no `nursing` key;
 - the three nursing actions refuse with `NotEnabled`;
@@ -113,10 +116,13 @@ check it either); "on the unit" (a discharged infant's last day can still be com
 - **A live sum:** in · out · balance, to 0.1 mL. The form states that a blank box means not recorded
   (not 0), and that the chart stays the record.
 - **Errors in place.** A refusal, a `DuplicateDate` (which re-syncs) or an edit conflict (which
-  re-syncs and names who) is shown in the form, and the form keeps what was typed. The one
-  exception: once the I/O row has landed, the form closes even if the weight could not be sent
-  (an earlier write's result is unknown). A second Save would be a second record for the date, so
-  a toast says the weight is the one thing to re-type.
+  re-syncs and names who) is shown in the form, and the form keeps what was typed.
+  - **The weight write is awaited,** so a refused weight-only save keeps the form and the weight.
+  - **The form cannot be closed while a save is in flight.**
+  - **The one exception:** once the I/O row has landed, the form closes even if the weight could not
+    be saved. A second Save would be a second record for the date, so a toast says the weight is the
+    one thing to re-type.
+- **The stool count is a whole number.** "1.5" is refused as typed, never rewritten.
 - **A tap outside the form closes it only while nothing has been typed.** On a phone the backdrop is
   the strip above a bottom sheet, one stray tap from losing a day's figures.
 - **Nothing in browser storage.** The form keeps no draft, so there is no new key for `endSession`'s
@@ -130,6 +136,10 @@ check it either); "on the unit" (a discharged infant's last day can still be com
   - **The tap fills three fields:** Input = IV + EN actually received, Urine = urine, Drain = drain.
   - **Every field stays editable,** and a note says where the figures came from.
   - **The gate:** a recorded 0 counts as entered; a blank stays blank, and the gate still asks for it.
+  - **A figure stops being the nurses' when the prescriber edits its box.** Emptied, the box is blank
+    (never a seeded "0"). Clearing a corrected or deleted record leaves the prescriber's own figures.
+  - **With intake half-recorded** (IV or EN blank), the tap takes Urine and Drain, leaves Input to the
+    prescriber, and says so.
   - **The tap counts as typing,** so the unsaved-draft store keeps it. After the tap, Input no longer
     tracks the prescribed total.
 - **The weight IS prefilled** on every order opened on a patient, from the ward or by the patient's
@@ -142,7 +152,8 @@ check it either); "on the unit" (a discharged infant's last day can still be com
   - The quick calc has no patient and stays blank.
 - **Never** on a saved order (its figures are its record), on Center Point, or on the quick calc.
 - **A record corrected or deleted after it was taken is flagged,** with a one-tap "ใช้ยอดล่าสุด" /
-  "ล้างยอดที่เติมไว้". An order is not written on totals the ward has already corrected.
+  "ล้างยอดที่เติมไว้". An order is not written on totals the ward has already corrected. While the
+  switch is off, nothing is offered or flagged: records that stopped arriving were not deleted.
 - **Restoring an unsaved draft** brings back what was typed: the note goes, and the record is offered
   again.
 - **D5, a nurse:** no Save draft, no Submit, no publish, no **New log** on the Dashboard, no
@@ -221,7 +232,7 @@ neither collects anything (§ 5.4).
 
 ## 9 · Tests (Logic)
 
-- **`verify-nursing-backend.cjs`** (`gas-vm-sandbox`, 86 assertions): the go-live switch (off = the old
+- **`verify-nursing-backend.cjs`** (`gas-vm-sandbox`, 94 assertions): the go-live switch (off = the old
   backend, a flip seen on the next sync, erasure either way, unreadable = off); the tab created on the
   first save at 13 columns and never by a sync; D3 role gates; D5 order refusals, with registry and weight writes
   still open to nurses; bounds, whole stools, the feed key, an empty record, an unregistered patient
@@ -230,7 +241,7 @@ neither collects anything (§ 5.4).
   audit rows, including the strict delete-start; formula injection; the `deletePatient` cascade; the
   column-drift guard. It fails on `68e302f`.
 - **`verify-nursing-frontend.cjs`** (jsdom and the real `<App/>` against a fake Apps Script; Chromium
-  when playwright is installed; 239 assertions, 215 without a browser):
+  when playwright is installed; 262 assertions, 238 without a browser):
   - the helpers;
   - the form: blank ≠ 0 in the payload, bounds, no free-text box, weight-only saves, the offered
     weight, in-place errors, the backdrop guard, nothing in browser storage;

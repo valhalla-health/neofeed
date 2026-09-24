@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (7) — Pre-merge review of the nurse form: 8 findings, all fixed
+
+An independent read-only review of the nurse-form commits, run before merging #111 at Pp's go-ahead.
+All 8 findings were confirmed and fixed. All sit behind `NURSING_LOG_ENABLED`, so none reached the
+ward. Each fix has assertions that fail on `9f3357d`.
+
+1. **A nurses' figure taken into the Calculator could come back as a typed "0".** It happened when the
+   box was emptied, or when a corrected or deleted record was cleared, and the "0" let a Submit
+   through. Now a figure stops being the nurses' as soon as the prescriber edits its box. Clearing
+   leaves the box blank, and a figure the prescriber typed over stays theirs.
+2. **The nursing form could be closed mid-save.** Its writes are quiet, so a refusal went unseen.
+   ✕ and ยกเลิก are now disabled while saving.
+3. **A weight-only save said "saved" before the write answered.** A refusal then lost the weight. The
+   weight write is now awaited, and a refusal stays in the form with the weight.
+4. **Backend: a failed DATA_VERSION bump left the switched-on (`+n`) sync payload cached.** The bump
+   now drops every variant. The switch is also read once per sync, for both the key and the payload.
+5. **Backend: `appVersion` was unchecked free text in `Nursing_Log`.** It is now a build token, or
+   blank. This keeps the PDPA minimisation promise.
+6. **A total counted a blank half as 0.** IV 100 with a blank enteral total read "เข้า 100".
+   Intake now needs both IV and EN, and Out needs both urine and drain. The card shows the halves, and
+   the form asks for 0 when there is none. The Calculator's tap leaves Input to the prescriber when
+   intake is half-recorded, and says so.
+7. **The stool box rewrote "1.5" as 15.** A fraction is now kept as typed, and refused.
+8. **Switching the form off made an open Calculator claim** a taken record had been deleted. With
+   nothing served, nothing is offered or flagged.
+
+- `test/verify-nursing-backend.cjs`: 94 assertions.
+- `test/verify-nursing-frontend.cjs`: 262 assertions (238 without a browser).
+
 ## Session 2026-09-24 (6) — D4 settled: the prescriber types Intake/Output; the weight is prefilled
 
 Pp confirmed D4 (§ (5) had read it the other way): **"D4 หมอพิมพ์เอง"**, then **"แต่ถ้าเข้าผ่าน ward

@@ -887,8 +887,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     }
     if (weightG != null) {
       const rec = patients.find((p) => p.sessionId === id);
-      if (handleWeightUpdate(id, D_A.upsertWeight(rec?.weights || [], dol2, weightG)) === false) {
-        if (!entry) return { ok: false, error: "ยังบันทึกน้ำหนักไม่ได้ — รอผลการบันทึกครั้งก่อนแล้วลองใหม่" };
+      const sent = handleWeightUpdate(id, D_A.upsertWeight(rec?.weights || [], dol2, weightG), { quiet: true });
+      const wres = sent === false ? { ok: false, error: "ยังบันทึกน้ำหนักไม่ได้ — รอผลการบันทึกครั้งก่อนแล้วลองใหม่" } : await sent;
+      if (!wres || !wres.ok) {
+        if (!entry) return { ok: false, error: wres && wres.error || "บันทึกน้ำหนักไม่สำเร็จ — ลองใหม่อีกครั้ง" };
         showToast("บันทึก I/O แล้ว แต่ยังบันทึกน้ำหนักไม่ได้ — ใส่น้ำหนักอีกครั้งหลังซิงก์", "error");
         return { ok: true };
       }
@@ -1044,8 +1046,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       startEditEntry(hit);
     }
   }, [lastSync]);
-  const handleWeightUpdate = (sessionId, weights) => {
-    if (blockedByUnknownWrite()) return false;
+  const handleWeightUpdate = (sessionId, weights, opts) => {
+    if (blockedByUnknownWrite(!!opts?.quiet)) return false;
     const rec0 = patients.find((p) => p.sessionId === sessionId);
     const previousWeights = rec0?.weights || [];
     const derivedDob = rec0?.dob || "";
@@ -1058,23 +1060,25 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       if (rec) serverPatientsRef.current.set(sessionId, { ...rec, weights });
     };
     if (GAS_ON) {
-      writeGAS({
+      return writeGAS({
         action: "updateWeights",
         sessionId,
         weights,
         ...derivedDob ? { dob: derivedDob } : {},
         ...baseRecord ? { baseWeights: baseRecord.weights || [] } : {}
-      }).then((res) => {
+      }, opts).then((res) => {
         if (res.ok) {
           remember();
-          return;
+          return res;
         }
-        if (res.unknown) return;
+        if (res.unknown) return res;
         setPatients((prev) => prev.map(
           (p) => p.sessionId === sessionId && p.weights === weights ? { ...p, weights: previousWeights } : p
         ));
+        return res;
       });
     }
+    return Promise.resolve({ ok: true });
   };
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [showChangePwd, setShowChangePwd] = React.useState(false);
@@ -1268,7 +1272,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       activeId,
       token: user?.token,
       role,
-      nursing: nursing[activeId] || [],
+      nursing: nursingLive ? nursing[activeId] || [] : null,
       ordersReadOnly,
       userLabel: user?.name ? `${user.name}${user.email ? ` (${user.email})` : ""}` : user?.email || "",
       userEmail: user?.email || "",

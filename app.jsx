@@ -1511,12 +1511,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     }
     if (weightG != null) {
       const rec = patients.find(p => p.sessionId === id);
-      if (handleWeightUpdate(id, D_A.upsertWeight(rec?.weights || [], dol, weightG)) === false) {
-        // Refused before it was sent (an earlier write's result is unknown).
-        // Once the I/O row has landed the form must close anyway: a second Save
-        // from it would be a second record for the date, or an edit against a
-        // stamp that has since moved. The weight is the one thing to re-type.
-        if (!entry) return { ok: false, error: "ยังบันทึกน้ำหนักไม่ได้ — รอผลการบันทึกครั้งก่อนแล้วลองใหม่" };
+      const sent = handleWeightUpdate(id, D_A.upsertWeight(rec?.weights || [], dol, weightG), { quiet: true });
+      // Awaited, not fire-and-forget: a refusal must reach the form while it
+      // still holds the typed weight (review of 2026-09-24 — a weight-only
+      // save said "saved", closed, and then lost the weight to a Busy).
+      const wres = sent === false
+        ? { ok: false, error: "ยังบันทึกน้ำหนักไม่ได้ — รอผลการบันทึกครั้งก่อนแล้วลองใหม่" }
+        : await sent;
+      if (!wres || !wres.ok) {
+        // Once the I/O row has landed the form must close anyway: a second
+        // Save from it would be a second record for the date, or an edit
+        // against a stamp that has since moved. The weight is the one thing to
+        // re-type.
+        if (!entry) return { ok: false, error: (wres && wres.error) || "บันทึกน้ำหนักไม่สำเร็จ — ลองใหม่อีกครั้ง" };
         showToast("บันทึก I/O แล้ว แต่ยังบันทึกน้ำหนักไม่ได้ — ใส่น้ำหนักอีกครั้งหลังซิงก์", "error");
         return { ok: true };
       }
@@ -1767,8 +1774,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // this device's copy (UP-S1; see handleEditPatient).
   // Returns false when the save was not attempted, so MeasurementLogger keeps
   // what was typed instead of clearing it.
-  const handleWeightUpdate = (sessionId, weights) => {
-    if (blockedByUnknownWrite()) return false;
+  // Returns false when the save was not attempted; otherwise a promise of the
+  // write's result, for a caller that must know how it ended (the nursing
+  // form keeps its typed weight on a refusal). `opts` is gasPost's.
+  const handleWeightUpdate = (sessionId, weights, opts) => {
+    if (blockedByUnknownWrite(!!opts?.quiet)) return false;
     const rec0 = patients.find(p => p.sessionId === sessionId);
     const previousWeights = rec0?.weights || [];
     // Send the derived dob so the server can capture it into an empty dob cell
@@ -1790,17 +1800,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       // failure rolls back only this exact optimistic update (a newer edit made
       // while the request was in flight must win); an unknown result is left
       // for the verification sync to settle (UP-B10).
-      writeGAS({ action: "updateWeights", sessionId, weights,
+      // Weight saves are silent on success; errors surface via gasPost's toast.
+      return writeGAS({ action: "updateWeights", sessionId, weights,
         ...(derivedDob ? { dob: derivedDob } : {}),
-        ...(baseRecord ? { baseWeights: baseRecord.weights || [] } : {}) }).then(res => {
-        if (res.ok) { remember(); return; }
-        if (res.unknown) return;
+        ...(baseRecord ? { baseWeights: baseRecord.weights || [] } : {}) }, opts).then(res => {
+        if (res.ok) { remember(); return res; }
+        if (res.unknown) return res;
         setPatients(prev => prev.map(p =>
           p.sessionId === sessionId && p.weights === weights ? { ...p, weights: previousWeights } : p
         ));
+        return res;
       });
-      // Weight saves are silent on success; errors surface via gasPost's toast.
     }
+    return Promise.resolve({ ok: true });
   };
 
   const [showUserMenu, setShowUserMenu] = React.useState(false);
@@ -2115,7 +2127,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           {view === "calculator" && active && (
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}
               log={log} activeId={activeId} token={user?.token} role={role}
-              nursing={nursing[activeId] || []} ordersReadOnly={ordersReadOnly}
+              nursing={nursingLive ? (nursing[activeId] || []) : null} ordersReadOnly={ordersReadOnly}
               userLabel={user?.name ? `${user.name}${user.email ? ` (${user.email})` : ""}` : (user?.email || "")}
               userEmail={user?.email || ""}
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}

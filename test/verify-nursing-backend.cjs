@@ -24,10 +24,12 @@
 //   §6  The sync carries the rows: blanks as null, a measured 0 as 0, only
 //       for patients in the sync window — and a save shows on the very next
 //       sync (DATA_VERSION bump through the payload cache). A payload the
-//       previous deploy cached (no `nursing`) is never served after this one.
+//       previous deploy cached (no `nursing`) is never served after this one,
+//       nor, switched on, a stale payload after a failed version bump.
 //   §7  Accountability (PDPA Sec 39): every write is an Audit_Log row; a
 //       delete is recorded before anything is destroyed.
-//   §8  Formula injection: nothing a client sends lands as a live formula.
+//   §8  Formula injection: nothing a client sends lands as a live formula;
+//       appVersion is a build token or blank, never a note.
 //   §9  deletePatient takes the patient's Nursing_Log rows with it, and no one
 //       else's.
 //   §10 The column-drift guard covers Nursing_Log.
@@ -268,6 +270,27 @@ T.section('§6 The sync carries it — blanks null, zeros 0, window-scoped, fres
   const fresh = sync(g3);
   T.ok('a payload cached under the pre-nursing key (sync1_) is never served after the deploy',
     (fresh.nursing['AA-900'] || []).some(r => r.entryId === 'e-hand'), fresh.nursing);
+
+  // A write whose DATA_VERSION bump fails must still not leave the switched-on
+  // payload in the cache: the bump drops the current heads FIRST — every
+  // variant of them, "+n" included — so the next reader rebuilds from the
+  // sheet (review of 2026-09-24: only the switched-off heads were dropped).
+  const g4 = ward();
+  sync(g4);                                   // primes the "+n" payload
+  g4.env.propSetThrows = true;
+  const w4 = g4.as(g4.nt, { action: 'logNursingEntry', sessionId: 'AA-900', entry: N() });
+  g4.env.propSetThrows = false;
+  T.ok('fixture: the save landed although its version bump failed', w4.ok === true && nursingRows(g4).length === 1, w4);
+  T.eq('switched on, a failed version bump still does not serve the stale payload: the new row is in the next sync',
+    (sync(g4).nursing['AA-900'] || []).length, 1);
+
+  // The switch is read once per sync, and the payload obeys that one read.
+  const g5 = ward();
+  T.ok('getActivePatients follows the nursingOn it is handed (off → no `nursing`)',
+    !('nursing' in g5.sb.getActivePatients({ nursingOn: false })));
+  g5.props.delete('NURSING_LOG_ENABLED');
+  T.ok('…and (on → `nursing`) whatever the property says at that instant',
+    'nursing' in g5.sb.getActivePatients({ nursingOn: true }));
 });
 
 // ════════════════════════════════════════════════════════════════════════
@@ -300,6 +323,18 @@ T.section('§8 Nothing a client sends lands as a live formula', () => {
   const r = g.as(evil, { action: 'logNursingEntry', sessionId: 'AA-900', entry: N({ appVersion: '=IMPORTXML("x")' }) });
   T.ok('the save goes through', r.ok === true, r);
   T.eq('…with no formula injected anywhere', g.env.injections, []);
+  // Column M is a build token, never free text: the one column a hand-made
+  // request could otherwise fill with a name or a note (PDPA minimisation).
+  const note = 'Baby of Mrs Somchai, HN 1234567 — HBsAg+ ' + 'x'.repeat(200);
+  const r2 = g.as(g.nt, { action: 'logNursingEntry', sessionId: 'BB-900', entry: N({ appVersion: note }) });
+  T.ok('a note smuggled in as appVersion does not block the save', r2.ok === true, r2);
+  const byId = (id) => nursingRows(g).find(x => x[8] === id) || [];
+  T.eq('…and is not stored: column M is blank', byId(r2.entryId)[12], '');
+  const r3 = g.as(g.nt, { action: 'logNursingEntry', sessionId: 'BB-900',
+    entry: N({ ts: addDays(TODAY, -1), appVersion: 'b=f48894ce64;d=09ec74e9c7;a=c11b05a99d' }) });
+  T.eq('a real build token is kept', byId(r3.entryId)[12], 'b=f48894ce64;d=09ec74e9c7;a=c11b05a99d');
+  const r4 = g.as(g.nt, { action: 'logNursingEntry', sessionId: 'BB-900', entry: N({ ts: addDays(TODAY, -2), appVersion: '2026-09-11-review' }) });
+  T.eq('…and so is the fallback version name', byId(r4.entryId)[12], '2026-09-11-review');
 });
 
 // ════════════════════════════════════════════════════════════════════════

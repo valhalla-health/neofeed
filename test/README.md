@@ -1013,7 +1013,7 @@ Chromium and a global playwright: `NODE_PATH="$(npm root -g)" node test/<file>`.
 
 UX roadmap #4, built to Pp's decisions (`docs/NURSING_FORM_SPEC.md` § 8).
 
-**`verify-nursing-backend.cjs`** (86 assertions; fails on `68e302f`, run as
+**`verify-nursing-backend.cjs`** (94 assertions; fails on `68e302f`, run as
 `NEOFEED_GAS_SRC=<old gas-backend.gs>`). It uses the shared Sheets double, `gas-vm-sandbox.cjs`, and
 needs no npm dependencies. It covers:
 - **the go-live switch** (`NURSING_LOG_ENABLED`): off, it is the old backend; a flip is seen on the
@@ -1029,7 +1029,7 @@ needs no npm dependencies. It covers:
 - audit rows, including a delete's strict start row;
 - formula injection, the `deletePatient` cascade, and the column-drift guard.
 
-**`verify-nursing-frontend.cjs`** (239 assertions with a browser, 215 without; fails on `b64c7fa`,
+**`verify-nursing-frontend.cjs`** (262 assertions with a browser, 238 without; fails on `b64c7fa`,
 the backend commit). It runs one scenario per process through `review-0917-boot.cjs`:
 - the `data.js` helpers;
 - the form: blank ≠ 0 in the payload, the bounds, no free-text box, a weight-only save, the offered
@@ -1045,6 +1045,9 @@ the backend commit). It runs one scenario per process through `review-0917-boot.
   backend serves `nursing`, nothing changes.** After it, the scenarios cover the nurse, doctor and
   admin paths, `DuplicateDate`, the edit conflict and the switch both ways;
 - a Chromium layout pass at 280–1280 px, which prints `SKIP` without playwright.
+
+The eight pre-merge review findings (`CHANGELOG.md` 2026-09-24 (7)) each have assertions in these two
+harnesses that fail on `9f3357d`.
 
 The §6a scenario is the one that also passes on `b64c7fa`. It pins that the old behaviour is kept
 until the switch is on.

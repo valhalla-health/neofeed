@@ -158,7 +158,8 @@ const scenarios = {
     const t = boot({ session: null });
     const { D } = fixture(t);
     A.eq('1.1 nursingIntakeMl: nothing recorded is null, not 0', D.nursingIntakeMl({ ivInMl: null, enInMl: null }), null);
-    A.eq('1.2 …a recorded 0 is 0', D.nursingIntakeMl({ ivInMl: 0, enInMl: null }), 0);
+    A.eq('1.2 …one half blank is no total either (IV 0, enteral not recorded)', D.nursingIntakeMl({ ivInMl: 0, enInMl: null }), null);
+    A.eq('1.2b …both recorded as 0 is 0', D.nursingIntakeMl({ ivInMl: 0, enInMl: 0 }), 0);
     A.eq('1.3 …IV + enteral', D.nursingIntakeMl({ ivInMl: 100, enInMl: 60 }), 160);
     A.eq('1.4 …to 0.1 mL (0.1 + 0.2 reads 0.3)', D.nursingIntakeMl({ ivInMl: 0.1, enInMl: 0.2 }), 0.3);
     A.eq('1.5 …and no record is null', D.nursingIntakeMl(null), null);
@@ -248,9 +249,11 @@ const scenarios = {
     A.ok('2.19 3001 mL is refused', /IV เข้า ต้องอยู่ระหว่าง 0–3000 mL/.test(problemsText()) && saveBtn().disabled);
     await t.typeInto(box('ivInMl'), '3000');
     A.ok('2.20 3000 mL is accepted', !problemsText() && !saveBtn().disabled);
-    await t.typeInto(box('stoolCount'), '2.5');
-    A.eq('2.21 the stool count takes whole numbers only (2.5 → 25)', box('stoolCount').value, '25');
-    A.ok('2.22 …and 25 is past the ward\'s 20', /อุจจาระ 0–20 ครั้ง/.test(problemsText()));
+    await t.typeInto(box('stoolCount'), '1.5');
+    A.eq('2.21 a fractional stool count is kept as typed — never rewritten (1.5 used to become 15)', box('stoolCount').value, '1.5');
+    A.ok('2.22 …and refused', /อุจจาระเป็นจำนวนเต็ม 0–20 ครั้ง/.test(problemsText()) && saveBtn().disabled);
+    await t.typeInto(box('stoolCount'), '25');
+    A.ok('2.22b …as is 25, past the ward\'s 20', /อุจจาระเป็นจำนวนเต็ม 0–20 ครั้ง/.test(problemsText()));
     await t.typeInto(box('stoolCount'), '3');
     await t.typeInto(box('weightG'), '150');
     A.ok('2.23 a 150 g weight is refused', /น้ำหนัก 200–8000 g/.test(problemsText()));
@@ -293,6 +296,29 @@ const scenarios = {
     A.eq('2.35 …the form stays open', closed, 0);
     A.eq('2.36 …with what was typed', box('drainMl').value, '5');
     A.ok('2.37 …and Save works again', saveBtn() && !saveBtn().disabled);
+
+    // While a save is in flight the form cannot be closed: its writes are
+    // quiet, so a refusal must come back to it (review of 2026-09-24).
+    let settle;
+    const pendingReply = new Promise(r => { settle = r; });
+    const heldSubmit = { onSubmit: (p) => { submitted.push(p); return pendingReply; } };
+    await P.render(null);
+    await P.render(t.React.createElement(Modal, { patient, record: null, onClose: () => { closed++; }, ...heldSubmit }));
+    await t.typeInto(box('urineMl'), '12');
+    closed = 0;
+    await t.click(saveBtn());
+    const xBtn = $('.nursing-modal .picker-h .icon-btn');
+    const cancelBtn = $$('button', modal()).find(b => b.textContent.trim() === 'ยกเลิก');
+    A.ok('2.37b while saving, ✕ and ยกเลิก are disabled', xBtn.disabled && cancelBtn.disabled);
+    await t.click($('.picker-backdrop'));
+    A.eq('2.37c …and a tap outside does not close it either', closed, 0);
+    await t.act(async () => { settle({ ok: false, error: 'บันทึกไม่สำเร็จ: Busy' }); });
+    await t.flush();
+    A.ok('2.37d the refusal comes back to the open form', /บันทึกไม่สำเร็จ: Busy/.test(modal().textContent) && !cancelBtn.disabled);
+    reply = { ok: false, error: 'บันทึกไม่สำเร็จ: ทดสอบ' };
+    await open();
+    await t.typeInto(box('drainMl'), '5');
+    await t.click(saveBtn()); await t.flush();
 
     // A stray tap outside a form with typing in it does not close it.
     await t.click($('.picker-backdrop'));
@@ -373,7 +399,9 @@ const scenarios = {
       vals(0), ['เข้า 160 (Breast Milk (20 kcal/oz, mature))', 'ปัสสาวะ 63 · 2.5 mL/kg/h', 'Drain 10.4', 'Bal +86.6', 'อุจจาระ 0']);
     A.eq('3.12 a day with nothing but a stool count shows "—", never 0',
       vals(2), ['เข้า —', 'ปัสสาวะ —', 'Drain —', 'Bal —', 'อุจจาระ 1']);
-    A.ok('3.13 a recorded IV of 0 reads 0', vals(3)[0] === 'เข้า 0');
+    A.eq('3.13 IV 0 with the enteral total blank: the halves, never a "total" of 0', vals(3)[0], 'เข้า — (IV 0 · นม/EN —)');
+    A.eq('3.13a …and no balance from half an intake', vals(3)[3], 'Bal —');
+    A.eq('3.13c a blank drain is not "no drain": no balance without it', vals(1)[3], 'Bal —');
     A.eq('3.13b sums are to 0.1 mL, never 0.09999999999999998', [vals(5)[0], vals(5)[3]], ['เข้า 0.3', 'Bal +0.1']);
     A.eq('3.14 who saved it, without the domain', $('.nio-who', rows[0]).textContent.trim(), 'nurse.one');
     A.eq('3.15 DOL beside each date', $('.nio-dol', rows[0]).textContent, 'DOL 11');
@@ -458,6 +486,14 @@ const scenarios = {
     await t.typeInto(calcField(t, 'Urine output'), '12');
     A.eq('4.15 every figure taken is editable', val('Urine output'), '12');
 
+    // Emptying a box the nurses' figure filled leaves it EMPTY: it stops being
+    // their figure the moment the prescriber edits it (review of 2026-09-24 —
+    // it snapped back to a typed "0" that let a Submit through).
+    await t.typeInto(calcField(t, 'Urine output'), '');
+    A.eq('4.15a emptying a taken figure leaves the box blank, not "0"', val('Urine output'), '');
+    A.ok('4.15b …and the gate asks for it again', /Urine output/.test(missingText()), missingText());
+    await t.typeInto(calcField(t, 'Urine output'), '12');
+
     // Left and reopened: nothing fills itself again, the draft is offered.
     // Restoring it restores what was TYPED, with no note claiming the
     // figures are the nurses'.
@@ -501,8 +537,24 @@ const scenarios = {
     await calc({ nursing: [{ ...rec, urineMl: 40, lastModified: 'lm-3', lastModifiedBy: 'x@test.th' }] });
     A.ok('4.30 a new stamp with the same figures is not a change', !$('.nursing-prefill-changed'));
 
-    // Deleted after the prescriber took it.
+    // Typed over, then the record goes: the prescriber's own figure stays.
+    await t.typeInto(calcField(t, 'Urine output'), '48');
     await calc({ nursing: [] });
+    const gone48 = $('.nursing-prefill-changed');
+    await t.click($$('button', gone48).find(b => /ล้างยอดที่เติมไว้/.test(b.textContent)));
+    A.eq('4.30a a figure the prescriber typed over is theirs: clearing the nurses\' leaves it', val('Urine output'), '48');
+    A.eq('4.30b …while the nurses\' Input goes back to tracking the prescribed total', val('Input'), blankIO[0]);
+
+    // Typed BEFORE the tap, taken, then the record goes: cleared to blank,
+    // never to the "0" the earlier typing would have left.
+    await reset();
+    await calc({ nursing: [rec] });
+    await t.typeInto(calcField(t, 'Urine output'), '30');
+    await t.click(offer());
+    A.eq('4.30c fixture: the tap replaced what was typed', val('Urine output'), '0');
+    await calc({ nursing: [] });
+
+    // Deleted after the prescriber took it.
     const gone = $('.nursing-prefill-changed');
     A.ok('4.31 a record deleted after it was taken is flagged', !!gone && /ถูกลบแล้ว/.test(gone.textContent));
     await t.click($$('button', gone).find(b => /ล้างยอดที่เติมไว้/.test(b.textContent)));
@@ -510,6 +562,13 @@ const scenarios = {
     A.ok('4.33 …the gate asks for it again', /Urine output/.test(missingText()), missingText());
     A.eq('4.34 …Input tracks the prescribed total again', val('Input'), blankIO[0]);
     A.ok('4.35 …and the note goes', !$('.nursing-prefill-note') && !$('.nursing-prefill-changed'));
+
+    // Half an intake: Urine and Drain are taken, Input is not — and it says so.
+    await reset();
+    await calc({ nursing: [{ ...rec, ivInMl: 100, enInMl: null, urineMl: 20, drainMl: 0 }] });
+    await t.click(offer());
+    A.eq('4.35a IV recorded, enteral blank: Input is NOT taken; Urine and Drain are', io(), [blankIO[0], '20', '0']);
+    A.ok('4.35b …and the note says why', /Input ไม่ได้เติม/.test(($('.nursing-prefill-note') || {}).textContent || ''));
 
     // A stool-count-only record has nothing to take.
     await reset();
@@ -716,7 +775,7 @@ const scenarios = {
     await t.typeInto(t.fieldInput('IV เข้า', modal()), '110');
     await t.click(saveBtn()); await t.flush();
     A.eq('6c.7 …and now the edit lands', t.server.nursing['AA-BW900'][0].ivInMl, 110);
-    A.ok('6c.8 …and the card shows it', !modal() && /เข้า 110/.test($('.nio-row').textContent));
+    A.ok('6c.8 …and the card shows it', !modal() && /IV 110/.test($('.nio-row').textContent));
   },
 
   async 'app-doctor'(A) {
@@ -724,7 +783,7 @@ const scenarios = {
     const t = boot({ session: DOCTOR });
     t.quiet();
     const today = t.D().todayLocal();
-    nursingBackend(t, { serve: true, nursing: { 'AA-BW900': [{ ts: today, entryId: 'srv-1', ivInMl: 100, enInMl: null,
+    nursingBackend(t, { serve: true, nursing: { 'AA-BW900': [{ ts: today, entryId: 'srv-1', ivInMl: 100, enInMl: 0,
       urineMl: 30, drainMl: null, stoolCount: null, feedType: '', lastModified: 'lm-1', enteredBy: 'n@test.th', lastModifiedBy: 'n@test.th' }] } });
     await t.start();
     await t.pickWard('NICU'); await t.openPatientRow(/AA/);
@@ -743,9 +802,22 @@ const scenarios = {
     console.log('\n── §6e The go-live switch, both ways, on the next sync ──');
     const t = boot({ session: NURSE });
     t.quiet();
-    nursingBackend(t, { serve: true });
+    const today = t.D().todayLocal();
+    nursingBackend(t, { serve: true, nursing: { 'AA-BW900': [{ ts: today, entryId: 'srv-1', ivInMl: 100, enInMl: 20,
+      urineMl: 30, drainMl: 0, stoolCount: null, feedType: '', lastModified: 'lm-1', enteredBy: 'n@test.th', lastModifiedBy: 'n@test.th' }] } });
     await t.start();
-    await t.pickWard('NICU'); await t.openPatientRow(/AA/);
+    // Figures taken in the Calculator, then the switch goes off: they stay,
+    // and nothing claims the record was deleted (review of 2026-09-24).
+    await t.pickWard('NICU'); await t.openPatientRow(/AA/); await t.rail(/Calculator/);
+    await t.click($('.nursing-prefill-apply'));
+    A.eq('6e.0 fixture: taken in the Calculator', t.fieldInput('Urine output')?.value, '30');
+    t.server.serveNursing = false;
+    await t.click(t.syncButton()); await t.flush(); await t.flush();
+    A.ok('6e.0a switched off: no "ถูกลบแล้ว" flag over figures that were never deleted', !$('.nursing-prefill-changed'));
+    A.eq('6e.0b …and the figures stay', t.fieldInput('Urine output')?.value, '30');
+    t.server.serveNursing = true;
+    await t.click(t.syncButton()); await t.flush(); await t.flush();
+    await t.rail(/Dashboard/);
     A.ok('6e.1 on: the card, and no New log for a nurse', $$('.nursing-io').length === 1 && !t.btn(/New log/));
     // Pp switches it off (NURSING_LOG_ENABLED removed): the next sync has no `nursing`.
     t.server.serveNursing = false;
@@ -809,6 +881,28 @@ const scenarios = {
     A.ok('6f.3 the form closed anyway — a second Save would be a second record for the date', !modal());
     A.ok('6f.4 …and says the weight is the one thing to re-type',
       t.toasts().some(m => /บันทึก I\/O แล้ว แต่ยังบันทึกน้ำหนักไม่ได้/.test(m)), t.toasts());
+  },
+
+  async 'app-weight-refused'(A) {
+    console.log('\n── §6g A weight-only save the server refuses: the form stays, with the weight ──');
+    const t = boot({ session: NURSE });
+    t.quiet();
+    nursingBackend(t, { serve: true });
+    await t.start();
+    await t.pickWard('NICU'); await t.openPatientRow(/AA/);
+    const S = t.server;
+    S.hooks.updateWeights = () => ({ reply: { error: 'ระบบกำลังบันทึกรายการอื่นอยู่ — ลองใหม่อีกครั้ง', code: 'Busy', retryable: true } });
+    await t.click($('.nio-add'));
+    await t.typeInto(t.fieldInput('น้ำหนัก', modal()), '1111');
+    await t.click(saveBtn()); await t.flush(); await t.flush();
+    A.eq('6g.1 the weight was sent', t.callsOf('updateWeights').length, 1);
+    A.ok('6g.2 the refusal is in the form, which stays open', !!modal() && /ลองใหม่อีกครั้ง/.test(modal().textContent));
+    A.eq('6g.3 …still holding the typed weight', t.fieldInput('น้ำหนัก', modal())?.value, '1111');
+    A.ok('6g.4 …and no "saved" toast', !t.toasts().some(m => /บันทึกน้ำหนักแล้ว/.test(m)), t.toasts());
+    delete S.hooks.updateWeights;
+    await t.click(saveBtn()); await t.flush(); await t.flush();
+    A.ok('6g.5 once the server takes it, the form closes', !modal() && t.callsOf('updateWeights').length === 2);
+    A.ok('6g.6 …and says so', t.toasts().some(m => /บันทึกน้ำหนักแล้ว/.test(m)), t.toasts());
   },
 
   // ═══════════════════════════════════════════════════════════════════════

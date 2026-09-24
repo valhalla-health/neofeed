@@ -1393,11 +1393,13 @@ function upsertWeight(weights, dol, w) {
 // 24 h" (the Calculator's Intake/Output card offers it with one tap, Pp's D4).
 // Every volume is mL per 24 h and may be null: null means "not recorded" and
 // must never be read as a measured 0 (gas-backend.gs _numOrNull).
-// What went in, IV + enteral; null when neither was recorded. Rounded to
-// 0.1 mL, so 0.1 + 0.2 reads 0.3 on the card and in the Calculator's box.
+// What went in, IV + enteral — and only when BOTH were recorded: IV 100 with
+// the enteral total blank is not an intake of 100 (blank ≠ 0; the nurses type 0
+// for "none"). Rounded to 0.1 mL, so 0.1 + 0.2 reads 0.3 on the card and in
+// the Calculator's box.
 function nursingIntakeMl(rec) {
   const iv = rec?.ivInMl, en = rec?.enInMl;
-  if (iv == null && en == null) return null;
+  if (iv == null || en == null) return null;
   return Math.round(((Number(iv) || 0) + (Number(en) || 0)) * 10) / 10;
 }
 // The record for one date, or null.

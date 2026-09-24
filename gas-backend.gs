@@ -1608,7 +1608,7 @@ function getActivePatients(opts) {
   // Only while the nursing form is switched on (_nursingEnabled). Off, the
   // payload keeps the shape it had before the nursing form — no `nursing` key
   // at all — which is what tells the frontend to keep the old workflow.
-  var nursingOn = _nursingEnabled();
+  var nursingOn = (opts && typeof opts.nursingOn === "boolean") ? opts.nursingOn : _nursingEnabled();
   var nursingMap = {};
   var sheetNursing = (anyInWindow && nursingOn) ? ss.getSheetByName("Nursing_Log") : null;
   var nLast = sheetNursing ? sheetNursing.getLastRow() : 0;
@@ -1727,8 +1727,11 @@ function _bumpDataVersion() {
     var old = props.getProperty(DATA_VERSION_KEY) || "0";
     var today = _wardDateKey();
     try {
+      // Every variant of the current heads — with and without the nursing
+      // switch's "+n" — whichever state the switch is in right now.
       CacheService.getScriptCache().removeAll([
-        _syncCacheKey(false, today, old), _syncCacheKey(true, today, old)
+        _syncCacheKey(false, today, old, false), _syncCacheKey(true, today, old, false),
+        _syncCacheKey(false, today, old, true), _syncCacheKey(true, today, old, true)
       ]);
     } catch (e1) { /* cache unavailable: nothing to drop */ }
     props.setProperty(DATA_VERSION_KEY, Utilities.getUuid());
@@ -1769,13 +1772,17 @@ function _syncCachePut(key, body) {
 // that `ts` is always fresh, including on a cache hit.
 function getActivePatientsJson(opts) {
   var includeArchived = !!(opts && opts.includeArchived);
+  // The nursing switch is read ONCE for both the cache key and the payload: a
+  // Script Properties hiccup between two reads would otherwise cache a payload
+  // of one shape under the other shape's key, for SYNC_CACHE_TTL_SECONDS.
+  var nursingOn = _nursingEnabled();
   var key = null;
   if (SYNC_CACHE_ENABLED) {
-    try { key = _syncCacheKey(includeArchived, _wardDateKey(), _dataVersion(), _nursingEnabled()); } catch (e) { key = null; }
+    try { key = _syncCacheKey(includeArchived, _wardDateKey(), _dataVersion(), nursingOn); } catch (e) { key = null; }
   }
   var body = key ? _syncCacheGet(key) : null;
   if (body == null) {
-    var payload = getActivePatients({ includeArchived: includeArchived });
+    var payload = getActivePatients({ includeArchived: includeArchived, nursingOn: nursingOn });
     body = JSON.stringify({ patients: payload.patients, log: payload.log, nursing: payload.nursing });
     if (key) _syncCachePut(key, body);
   }
@@ -2492,8 +2499,17 @@ function _buildNursingRow(sessionId, entry, entryId, enteredBy, lastModified, la
     _numSafe(entry.ivInMl), _numSafe(entry.enInMl), _sheetSafe(entry.feedType || ""),
     _numSafe(entry.urineMl), _numSafe(entry.drainMl), _numSafe(entry.stoolCount),
     _sheetSafe(entryId), _sheetSafe(enteredBy || ""), lastModified, _sheetSafe(lastModifiedBy || ""),
-    _sheetSafe(entry.appVersion || ""),
+    _sheetSafe(_nursingAppVersion(entry.appVersion)),
   ];
+}
+// Column M holds the build that wrote the row — data.js appVersion(), e.g.
+// "b=f48894ce64;d=09ec74e9c7;…" or "2026-09-11-review" — and nothing else. It
+// was the one column a hand-made request could fill with free text (a name, a
+// note), which Nursing_Log promises never to hold; anything that is not a
+// build token is stored as blank rather than refusing the nurses' save.
+var NURSING_APP_VERSION_RE = /^[A-Za-z0-9][A-Za-z0-9=;._-]{0,199}$/;
+function _nursingAppVersion(v) {
+  return (typeof v === "string" && NURSING_APP_VERSION_RE.test(v)) ? v : "";
 }
 // entryId is column I (9). Same { row, data } / { shifted } contract as
 // _findLogRowByEntryId.
