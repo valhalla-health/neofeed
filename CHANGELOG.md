@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (3) — Clinical decisions (Pp)
+
+Pp's clinical calls from the review, now coded. Stacked on the backend batch; the `gas-backend.gs` change
+(the collision confirm) rides with that batch's `clasp` deploy — Pp's call. Regression test:
+`test/verify-clinical-0924.cjs` (fails 5 against the pre-decision tree, passes after).
+
+- **`TARGETS.fluid` — birth-weight floor.** It now takes the birth weight and, while the infant is still
+  below it (postnatal loss), holds the fluid tier at birth weight rather than dropping into a lighter,
+  higher-fluid tier off the nadir; it tracks current weight once regained. The calculator already passed
+  the floored dosing weight, so **the ordered dose is unchanged** — this aligns the trend-graph target
+  bands (`log.jsx`) and the default-fluid helper. (Pp: "ใช้ current weight แต่ถ้ายังไม่ถึง birth ให้ใช้
+  birth ไปก่อน จนกว่าจะ gain." Current weight = the weight the doctor logs each day.)
+- **NPE:AA < 20 stays a warning, not a stop.** Already the case since PR #96; confirmed as Pp's intent and
+  pinned by a guard assertion — no behaviour change.
+- **`registerPatient` pseudonym collision — warn, then confirm.** A colliding id (initials + BW) no longer
+  either silently overwrites or hard-refuses: the server returns a `needsConfirm` warning and writes
+  nothing; the client warns the doctor and, only on an explicit yes, re-sends with `confirmOverwrite` to
+  write. (`_sessionIdConflict`'s existing "use Multiples A/B/C/D / change initials" guidance is the warning
+  text.)
+- **Stock:** KCl 2 mEq/mL confirmed (no change needed); Na acetate left untouched pending Pp's shelf check.
+
 ## Session 2026-09-24 (2) — Backend batch: F2 + BE-1..4 (needs a clasp deploy)
 
 The deploy-gated half of the review, plus F2. **`gas-backend.gs` changes here are NOT live until
