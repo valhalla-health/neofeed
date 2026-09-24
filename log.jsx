@@ -68,15 +68,38 @@ function TrendGraph({ entries, patient }) {
 
   const metric = METRICS.find(m => m.key === metricKey);
 
-  // admit DOL = first weight entry's DOL (matches app.jsx convention)
-  const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
+  // The admission day's DOL, from the anchor (D_L.admissionDol) — not the first
+  // weights[] row, which is the birth row for any record with a birth
+  // measurement and put every point days too far into the admission.
+  const admitDol = D_L.admissionDol(patient);
 
   // map entries → {x, y, raw}. Each point's DOL is re-derived from the row's
   // calendar date (D_L.entryDol) rather than read off the stored `dol`
   // column, so a row written before the admission date was set — or before a
   // later correction to it — plots on the day it was actually recorded
   // instead of collapsing onto DOL 1.
-  const points = React.useMemo(() => entries
+  const points = React.useMemo(() => metricKey === "weight"
+    // Weight is the one series every screen reads (D_L.weightSeries): growth-
+    // chart measurements and order weights, the measurement winning on a day
+    // with both. It plotted the orders alone, so "Latest" here disagreed with
+    // the patient strip and the growth chart on any day that was weighed on
+    // the chart (2026-09-24). A measured point has no date of its own.
+    ? D_L.weightSeries(patient, entries).map(w => ({
+        x: xMode === "dayAdmit" ? (w.dol - admitDol) : w.dol,
+        y: w.w,
+        dol: w.dol,
+        dayAdmit: w.dol - admitDol,
+        ts: w.ts || "",
+        src: w.src,
+        raw: (w.ts && entries.find(e => D_L.normalizeDateStr(e.ts) === w.ts)) || {},
+        band: null,
+      }))
+      // An outborn infant's birth weight predates the admission: on the
+      // day-of-admission axis (which starts at 0) it has no place; the DOL
+      // axis shows it.
+      .filter(p => xMode !== "dayAdmit" || p.x >= 0)
+      .sort((a, b) => a.x - b.x)
+    : entries
     .filter(e => e[metricKey] != null && isFinite(parseFloat(e[metricKey])))
     .map(e => {
       const eDol = D_L.entryDol(patient, e);
@@ -285,7 +308,7 @@ function TrendGraph({ entries, patient }) {
               <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginLeft: 6, fontFamily: "inherit", fontWeight: 400 }}>{metric.unit}</span>
             </div>
             <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2, fontFamily: "IBM Plex Mono, monospace" }}>
-              DOL {latest.dol} · Day {latest.dayAdmit} of admission · {window.NEOFEED_FMT_DATE?.(latest.ts) || latest.ts}
+              DOL {latest.dol} · Day {latest.dayAdmit} of admission · {latest.ts ? (window.NEOFEED_FMT_DATE?.(latest.ts) || latest.ts) : "growth chart"}
             </div>
           </div>
           {targetBand && (
@@ -548,7 +571,8 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
             </thead>
             <tbody>
               {(() => {
-                const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
+                // Day admit counts from the admission day's DOL (D_L.admissionDol).
+                const admitDol = D_L.admissionDol(patient);
                 // Newest first by calendar date. Sorting on the stored `dol`
                 // put rows out of order whenever that column was stale (the
                 // same reason the DOL cell below is re-derived); `ts` is the

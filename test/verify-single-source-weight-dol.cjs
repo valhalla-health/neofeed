@@ -312,6 +312,15 @@ runScenarios(__filename, 'SINGLE SOURCE — WEIGHT AND DOL', {
     await openInfant(t);
     await t.rail(/^Growth/);
     A.eq('5.5 the logger\'s DOL is today\'s, not a stored higher one', digits(fieldValue(t, 'DOL')), DOL_NOW);
+    // …but correcting that row updates it where it is, rather than filing a
+    // second row on today's DOL.
+    const histRow = [...document.querySelectorAll('[title="Tap to edit DOL 25"]')][0];
+    await t.click(histRow);
+    await t.typeInto(t.fieldInput('Wt'), 1655);
+    await t.click(t.btn(/Update measurement/));
+    const saved = t.server.patients[0].weights;
+    A.eq('5.6 correcting a row above today updates it in place',
+      saved.filter(w => w.dol === 25).map(w => w.w).concat(saved.filter(w => w.dol === DOL_NOW).length), [1655, 0]);
     restore();
   },
 
