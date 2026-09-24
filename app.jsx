@@ -1786,7 +1786,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     // sync once this birth/early measurement lands and becomes weights[0]. It is
     // only correct to capture it now, while weights[0] is still the admission
     // weight — which is exactly this save. The server writes it only if empty.
-    const derivedDob = rec0?.dob || "";
+    // Never for an erased record: its dob is empty because the PDPA erasure
+    // emptied it, and the one sync derived from its admission date is the
+    // erased birth date. The server refuses it too (_isPdpaErased).
+    const erased = String(rec0?.name || "").startsWith("[PDPA-erased");
+    const derivedDob = erased ? "" : (rec0?.dob || "");
     const baseRecord = serverPatientsRef.current.get(sessionId);
     setPatients(prev => prev.map(p =>
       p.sessionId === sessionId ? { ...p, weights } : p

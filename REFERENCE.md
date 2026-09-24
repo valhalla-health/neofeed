@@ -282,7 +282,13 @@ identity. None of it was true any more. The current procedure:
    `gas-backend.gs`; check `clasp list-deployments` shows the same deployment ID at the
    new version; `curl` the served HTML on **both** frontend hosts to confirm the `?v=`
    cache-bust shipped.
-5. **Update `STATUS.md` as part of the deploy.** This is part of the definition of done, not
+5. **Commit the mirror and push it.** Commit `รหัส.js` in `~/nicu-tools/neofeed`, naming the
+   version and the source commit (e.g. `Backend @58: … (from main 2731387, PR #111)`), then
+   `git push origin main` to its private GitHub remote and check that
+   `git ls-remote origin refs/heads/main` matches the mirror's `HEAD`. Step 1 is why: the
+   mirror has held code no other copy had, and an unpushed commit lives on one PC only. No step
+   said to push until 2026-09-24, when the remote was found three deploys behind (`@56`–`@58`).
+6. **Update `STATUS.md` as part of the deploy.** This is part of the definition of done, not
    a follow-up task — but not a docs-only PR either: put the verification in a comment on the
    PR whose code you deployed, and bring `STATUS.md` up to date in the next PR on this repo.
 
