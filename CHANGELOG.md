@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (2) — Backend batch: F2 + BE-1..4 (needs a clasp deploy)
+
+The deploy-gated half of the review, plus F2. **`gas-backend.gs` changes here are NOT live until
+`clasp push` + `clasp deploy` — Pp's call.** The one frontend change (F2 client) auto-releases with the
+next `main → release`. Regression test: `test/verify-backend-batch-0924.cjs` (fails 10 assertions against
+the pre-batch backend, passes after). Stacked on the frontend PR.
+
+- **F2 — a dob-less legacy record no longer re-dates on sync.** `updateWeights` now accepts a
+  client-derived `dob` and writes it to an **empty** dob cell only (never over a real one); `app.jsx`'s
+  `handleWeightUpdate` sends it, captured while `weights[0]` is still the admission weight — the moment a
+  birth measurement is recorded. Together with #107's F1, every record now settles on a stored `dob`
+  anchor that a later measurement cannot move.
+- **BE-1 — the backend now knows a draft from an order.** `_buildLogRow` stores `status` as `"draft"`
+  only when it is exactly that, else `"submitted"` (no unvalidated free text); `sheetHealthReport` reads
+  column O, reports `draftRows`, and no longer lets a draft satisfy `activeWithNoEntryIn30d` — an infant
+  with only drafts for 30 days is flagged.
+- **BE-2 — the two positional Staff-sheet writes are row-guarded.** `changePassword` and the legacy-hash
+  upgrade now assert the row still holds the account's email before writing (the guard the data tabs
+  already had); the opportunistic hash upgrade is wrapped so a row shift skips it rather than blocking a
+  valid login.
+- **BE-3 — the remaining validation refusals are Thai.** BW/GA/WW.D/sex/DOL/weight required-and-type
+  messages and "entry does not belong to this patient" no longer surface as raw English in a Thai toast.
+- **BE-4 — patient status is canonicalised on write.** A blank, stray-space (`" Active"`) or unrecognised
+  status is normalised before the one-infant-per-bed check reads it, closing the ghost-record / bed-skip
+  hole a direct POST could open.
+
+Still deferred to the clinical-decisions PR (Pp's calls, now made): `TARGETS.fluid` birth-weight floor,
+NPE:AA → warning, and `registerPatient`'s collision alert-and-confirm.
+
 ## Session 2026-09-24 — Pre-meeting review bug fixes (frontend)
 
 The 2026-09-24 pre-meeting review's bugs (artifact in the session; memory

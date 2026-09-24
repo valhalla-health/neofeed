@@ -1079,8 +1079,14 @@ function doPost(e) {
       }
       if (pwCheck.legacy) {
         // Transparent upgrade: user just proved they know the password, so
-        // this is a safe moment to replace the weak v1 hash with v2.
-        getSheetStaff().getRange(found.row, 5).setValue(hashPwdV2(password, salt));
+        // this is a safe moment to replace the weak v1 hash with v2. Guard the
+        // positional write against a Staff-row shift (BE-2), and never let a
+        // failed opportunistic upgrade block a valid login — it retries next time.
+        try {
+          var _staffUp = getSheetStaff();
+          _assertRowStillHolds(_staffUp, found.row, 1, email);
+          _staffUp.getRange(found.row, 5).setValue(hashPwdV2(password, salt));
+        } catch (e) {}
       }
 
       role = _staffRole(d[1]);
@@ -1203,7 +1209,7 @@ function doPost(e) {
     }
     if (action === "updateWeights") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
-      var uwResult = updateWeights(body.sessionId, body.weights, Array.isArray(body.baseWeights) ? body.baseWeights : null);
+      var uwResult = updateWeights(body.sessionId, body.weights, Array.isArray(body.baseWeights) ? body.baseWeights : null, body.dob);
       if (uwResult && uwResult.error) return jsonOut(_errorBody(uwResult));
       logAudit("updateWeights", body.sessionId, user.email);
       return jsonOut({ ok: true });
@@ -1243,7 +1249,9 @@ function doPost(e) {
       // write — a successful change always resolves any pending forced-
       // change state, whether this call came from the normal "เปลี่ยนรหัสผ่าน"
       // menu or from the forced first-login screen.
-      getSheetStaff().getRange(sf.row, 5, 1, 4).setValues([[newHash, newSalt, false, ""]]);
+      var _staffChg = getSheetStaff();
+      _assertRowStillHolds(_staffChg, sf.row, 1, user.email);   // BE-2: don't write to a shifted row
+      _staffChg.getRange(sf.row, 5, 1, 4).setValues([[newHash, newSalt, false, ""]]);
       // This request came through verifyToken, so its cached copy of the row
       // still says col G TRUE: drop it, or the rotated token is refused as
       // PasswordChangeRequired for up to a minute (2026-09-22).
@@ -1685,9 +1693,9 @@ function _checkAdmissionDate(val, storedOrNull, label) {
 
 function _validatePatient(p) {
   if (p.bw === "" || p.bw == null || !isFinite(Number(p.bw)))
-    throw new Error("Birth weight (g) is required and must be numeric");
+    throw new Error("ต้องระบุน้ำหนักแรกเกิด (g) เป็นตัวเลข");
   if (p.ga === "" || p.ga == null || !isFinite(Number(p.ga)))
-    throw new Error("GA (weeks) is required and must be numeric");
+    throw new Error("ต้องระบุ GA (สัปดาห์) เป็นตัวเลข");
   _checkRange(p.bw, 200, 6000, "Birth weight (g)");
   _checkRange(p.ga, 22, 44, "GA (weeks)");
   // GA is stored as WW.D shorthand, where D is a day count, not a decimal
@@ -1695,7 +1703,7 @@ function _validatePatient(p) {
   var ga10 = Number(p.ga) * 10;
   var gaDay = Math.round(ga10) % 10;
   if (Math.abs(ga10 - Math.round(ga10)) > 0.000001 || gaDay > 6)
-    throw new Error("GA must use WW.D with day 0–6: " + p.ga);
+    throw new Error("GA ต้องอยู่ในรูป WW.D โดยวันเป็น 0–6: " + p.ga);
   _checkRange(p.multiplesCount, 0, 10, "multiplesCount");
   // The dates are checked against the STORED row, so they are validated in
   // registerPatient beside _checkSex rather than here. See _checkAdmissionDate.
@@ -1720,14 +1728,29 @@ function _checkSex(incoming, storedOrNull) {
   var v = String(incoming == null ? "" : incoming).trim();
   if (VALID_SEX[v] === true) return;
   if (storedOrNull !== null && _patientFieldNorm("sex", incoming) === _patientFieldNorm("sex", storedOrNull)) return;
-  throw new Error("sex must be \"boys\" or \"girls\": " + String(incoming).slice(0, 40));
+  throw new Error("เพศต้องเป็น boys หรือ girls: " + String(incoming).slice(0, 40));
+}
+
+// Patient status is one of four canonical values. A blank or unrecognised value
+// (a direct POST, or "Active" with a stray leading space) used to slip past the
+// exact-string bed check and stay in the sync window forever while being
+// invisible to every client "active" list — a permanent ghost (2026-09-24).
+// Canonicalise on write: a value that differs only by case/whitespace is
+// corrected, and anything truly unrecognised falls back to Active so the
+// patient surfaces rather than disappearing.
+var VALID_STATUS = { Active: 1, Discharged: 1, Transferred: 1, Expired: 1 };
+function _normStatus(v) {
+  var s = String(v == null ? "" : v).trim();
+  if (VALID_STATUS[s]) return s;
+  for (var k in VALID_STATUS) if (k.toLowerCase() === s.toLowerCase()) return k;
+  return "Active";
 }
 
 function _validateLogEntry(entry) {
   if (entry.dol === "" || entry.dol == null || !isFinite(Number(entry.dol)))
-    throw new Error("DOL is required and must be numeric");
+    throw new Error("ต้องระบุ DOL เป็นตัวเลข");
   if (entry.weight === "" || entry.weight == null || !isFinite(Number(entry.weight)))
-    throw new Error("Weight (g) is required and must be numeric");
+    throw new Error("ต้องระบุน้ำหนัก (g) เป็นตัวเลข");
   _checkRange(entry.dol,          1,   400,  "DOL");
   // Widened 2026-09-23, after three refusals of orders that were correct:
   //   • weight floor 300 → 200 g. NeoFeed is used at 22–23 weeks, where a
@@ -1856,7 +1879,7 @@ function _buildLogRow(sessionId, entry, submittedBy) {
     _numSafe(entry.gir), _numSafe(entry.pro),    _numSafe(entry.kcal),
     _numSafe(entry.na),  _numSafe(entry.k),      _numSafe(entry.ca),
     _numSafe(entry.p),   _numSafe(entry.enVolPerKg), _sheetSafe(entry.route  || ""),
-    _sheetSafe(entry.status || "submitted"), _sheetSafe(submittedBy || ""),
+    _sheetSafe(entry.status === "draft" ? "draft" : "submitted"), _sheetSafe(submittedBy || ""),
     _numSafe(entry.suppMTV, 0), _numSafe(entry.suppVitD_IU, 0),
     _numSafe(entry.suppCa_mg, 0),  _sheetSafe(entry.suppCaType  || ""),
     _numSafe(entry.suppPO4_mmol, 0), _sheetSafe(entry.suppPO4Type || ""),
@@ -2062,7 +2085,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     if (!hit) return { error: "ไม่พบข้อมูลที่ต้องการแก้ไข — อาจถูกลบไปแล้ว" };
     var rowNum = hit.row;
     var cur = hit.data;
-    if (String(cur[1]) !== String(sessionId)) return { error: "Entry does not belong to this patient" };
+    if (String(cur[1]) !== String(sessionId)) return { error: "บันทึกนี้ไม่ตรงกับผู้ป่วยรายนี้" };
 
     var currentLastModified = String(cur[26] || "");
     if (currentLastModified !== String(expectedLastModified || "")) {
@@ -2207,7 +2230,7 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     if (hit && hit.shifted) throw _codedError(ROW_MOVED_MSG, "", true);
     if (!hit) return { error: "ไม่พบข้อมูลที่ต้องการส่ง — อาจถูกลบไปแล้ว" };
     var cur = hit.data;
-    if (String(cur[1]) !== String(sessionId)) return { error: "Entry does not belong to this patient" };
+    if (String(cur[1]) !== String(sessionId)) return { error: "บันทึกนี้ไม่ตรงกับผู้ป่วยรายนี้" };
     if (cur[37]) return { error: "รายการนี้มีฉบับแก้ไขใหม่แล้ว — เปิดฉบับล่าสุดก่อนส่ง" };
     if (cur[33]) return { ok: true, alreadyPublished: true, publishedAt: String(cur[33]) };
     var currentLastModified = String(cur[26] || "");
@@ -2673,11 +2696,15 @@ function sheetHealthReport() {
     if (VALID_SEX[String(pat[i][5] || "").trim()] !== true) r.sexNotBoysOrGirls++;
   }
   var lastRow = logSheet.getLastRow();
-  var ab = lastRow > 1 ? logSheet.getRange(2, 1, lastRow - 1, 2).getValues() : [];
-  var lastEntry = {}, blankRows = 0;
+  // 15 columns so column O (status, index 14) is available: a draft is not a
+  // logged order, so it must not satisfy activeWithNoEntryIn30d — an infant with
+  // only drafts for 30 days should still be flagged (BE-1, 2026-09-24).
+  var ab = lastRow > 1 ? logSheet.getRange(2, 1, lastRow - 1, 15).getValues() : [];
+  var lastEntry = {}, blankRows = 0, draftRows = 0;
   for (var j = 0; j < ab.length; j++) {
     var s = String(ab[j][1] || "");
     if (!s) { blankRows++; continue; }
+    if (String(ab[j][14] || "").trim() === "draft") { draftRows++; continue; }
     var d = _wardDateKey(ab[j][0] instanceof Date ? ab[j][0] : String(ab[j][0]).slice(0, 10));
     if (d && (!lastEntry[s] || d > lastEntry[s])) lastEntry[s] = d;
   }
@@ -2686,7 +2713,7 @@ function sheetHealthReport() {
     if (!last || (Date.parse(today + "T00:00:00Z") - Date.parse(last + "T00:00:00Z")) / 86400000 > 30) r.activeWithNoEntryIn30d++;
   });
   out.registry = r;
-  out.dailyLog = { rows: ab.length, blankRows: blankRows };
+  out.dailyLog = { rows: ab.length, blankRows: blankRows, draftRows: draftRows };
   Logger.log(JSON.stringify(out, null, 2));
   return out;
 }
@@ -2953,6 +2980,9 @@ function registerPatient(p, isNew, base) {
       throw new Error("ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว (ไม่ได้บันทึกการแก้ไข)");
     }
     var m = stored ? _mergePatient(stored, p, isNew === true ? null : base) : p;
+    // Canonicalise status BEFORE the bed check reads it — a stray-space "Active"
+    // must not skip the one-infant-per-bed guard (BE-4, 2026-09-24).
+    m.status = _normStatus(m.status);
     if (stored) {
       // Refuse before writing — this row may belong to a different infant.
       var conflict = _sessionIdConflict(stored, m, isNew);
@@ -2976,7 +3006,7 @@ function registerPatient(p, isNew, base) {
       _sheetSafe(m.sessionId), _sheetSafe(m.name || ""), _sheetSafe(m.initials || ""),
       _numSafe(m.bw, 0), _numSafe(m.ga, 0), _sheetSafe(m.sex || "boys"),
       _sheetSafe(m.dob || ""), _sheetSafe(m.admissionDate || ""), _sheetSafe(m.twinSuffix || ""),
-      _sheetSafe(m.status || "Active"), _sheetSafe(m.currentBed || ""), _sheetSafe(m.diagnosis || ""),
+      _sheetSafe(m.status), _sheetSafe(m.currentBed || ""), _sheetSafe(m.diagnosis || ""),
       _sheetSafe(JSON.stringify(m.weights    || [])),
       _sheetSafe(JSON.stringify(m.lengths    || [])),
       _sheetSafe(JSON.stringify(m.hcs        || [])),
@@ -3019,7 +3049,7 @@ function registerPatient(p, isNew, base) {
 // `base` (see the three-way merge above), so two devices logging different
 // measurements no longer erase each other's. Every element is validated in
 // full either way (SEC-B3).
-function updateWeights(sessionId, weights, baseWeights) {
+function updateWeights(sessionId, weights, baseWeights, dob) {
   _validateWeightsArray(weights);
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   var lock = LockService.getScriptLock();
@@ -3035,6 +3065,17 @@ function updateWeights(sessionId, weights, baseWeights) {
           : weights;
         _assertRowStillHolds(sheet, i + 1, 1, sessionId);
         sheet.getRange(i + 1, 13).setValue(_sheetSafe(JSON.stringify(toWrite)));
+        // Persist a dob the client derived while weights[0] was still the
+        // admission weight — into an EMPTY dob cell only, never over a real one
+        // — so a dob-less legacy record stops re-dating once a birth measurement
+        // is recorded (F2, 2026-09-24). A bad dob is skipped, never blocking the
+        // weight save.
+        if (dob && !String(data[i][6] || "").trim()) {
+          try {
+            _checkAdmissionDate(dob, null, "Date of birth");
+            sheet.getRange(i + 1, 7).setValue(_sheetSafe(_fmtDate(dob)));
+          } catch (e) {}
+        }
         return { ok: true };
       }
     }

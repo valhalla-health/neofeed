@@ -116,7 +116,7 @@ T.section('A4 · sheetHealthReport counts, and carries no email, name, ID or bed
   T.eq('Active with no Daily_Log row in 30 days', out.registry.activeWithNoEntryIn30d, 1);
   T.eq('records whose stored arrays would now be refused', out.registry.measurementArraysFailingValidation, 1);
   T.eq('records with a sex other than boys/girls', out.registry.sexNotBoysOrGirls, 1);
-  T.eq('Daily_Log rows (blank ones included) / blank rows', out.dailyLog, { rows: 4, blankRows: 1 });
+  T.eq('Daily_Log rows (blank ones included) / blank rows', out.dailyLog, { rows: 4, blankRows: 1, draftRows: 0 });
   const dl = out.schema.find(s => s.tab === 'Daily_Log');
   T.ok('schema: Daily_Log reported as NOT ok at Y', dl && dl.ok === false && dl.mismatchedColumns.length === 1 && /^Y /.test(dl.mismatchedColumns[0]), dl);
   T.ok('schema: Patient_Registry ok', out.schema.find(s => s.tab === 'Patient_Registry').ok === true);

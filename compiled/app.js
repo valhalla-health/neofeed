@@ -931,7 +931,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }, [lastSync]);
   const handleWeightUpdate = (sessionId, weights) => {
     if (blockedByUnknownWrite()) return false;
-    const previousWeights = patients.find((p) => p.sessionId === sessionId)?.weights || [];
+    const rec0 = patients.find((p) => p.sessionId === sessionId);
+    const previousWeights = rec0?.weights || [];
+    const derivedDob = rec0?.dob || "";
     const baseRecord = serverPatientsRef.current.get(sessionId);
     setPatients((prev) => prev.map(
       (p) => p.sessionId === sessionId ? { ...p, weights } : p
@@ -945,6 +947,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         action: "updateWeights",
         sessionId,
         weights,
+        ...derivedDob ? { dob: derivedDob } : {},
         ...baseRecord ? { baseWeights: baseRecord.weights || [] } : {}
       }).then((res) => {
         if (res.ok) {

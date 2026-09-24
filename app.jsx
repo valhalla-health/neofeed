@@ -1602,7 +1602,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // what was typed instead of clearing it.
   const handleWeightUpdate = (sessionId, weights) => {
     if (blockedByUnknownWrite()) return false;
-    const previousWeights = patients.find(p => p.sessionId === sessionId)?.weights || [];
+    const rec0 = patients.find(p => p.sessionId === sessionId);
+    const previousWeights = rec0?.weights || [];
+    // Send the derived dob so the server can capture it into an empty dob cell
+    // (F2): a legacy record with no stored dob otherwise re-dates on the next
+    // sync once this birth/early measurement lands and becomes weights[0]. It is
+    // only correct to capture it now, while weights[0] is still the admission
+    // weight — which is exactly this save. The server writes it only if empty.
+    const derivedDob = rec0?.dob || "";
     const baseRecord = serverPatientsRef.current.get(sessionId);
     setPatients(prev => prev.map(p =>
       p.sessionId === sessionId ? { ...p, weights } : p
@@ -1617,6 +1624,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       // while the request was in flight must win); an unknown result is left
       // for the verification sync to settle (UP-B10).
       writeGAS({ action: "updateWeights", sessionId, weights,
+        ...(derivedDob ? { dob: derivedDob } : {}),
         ...(baseRecord ? { baseWeights: baseRecord.weights || [] } : {}) }).then(res => {
         if (res.ok) { remember(); return; }
         if (res.unknown) return;
