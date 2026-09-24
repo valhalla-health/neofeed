@@ -1104,6 +1104,24 @@ same record never erased still sends its derived one. Scenario 1 fails on `4434a
 and from `compiled/`. A device that synced before the erasure cannot be caught here, because its copy
 still shows the real name; the backend harness's § 2 covers it.
 
+## Weight chip first, and no velocity until above birth weight, 2026-09-24 — one harness
+
+Pp's two requests (`CHANGELOG.md` 2026-09-24 (10)). **`verify-weight-chip-and-bw-velocity.cjs`**
+(37 assertions; the jsdom set) mounts the real `TrendGraph` and `FentonChart` and calls the real
+`computeAlerts`:
+- § 1: the trend graph's Weight chip comes before Energy, the other seven keep their order, and the
+  graph still opens on Energy;
+- § 2: `growthVelocity` grades nothing until a weight is above birth weight. The reported shape is two
+  order weights equal to a 1,200 g birth weight on DOL 8 and 10;
+- § 3: the Growth chart says "Weight below birth weight" or "Weight at birth weight" with the BW,
+  instead of a g/kg/d figure, and adds "not regained by DOL 14" past DOL 14;
+- § 4: the Alerts page follows. The reported shape raises the informational "not yet assessable" line,
+  not "Growth velocity critically low".
+
+24 assertions fail on `3bb6288`, and § 3 reproduces the reported readout verbatim there. The controls (a
+real gain above birth weight, a fall below it after a real regain, a history that starts above birth
+weight) pass before and after, so the harness can tell a quieter alarm from a missing one.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

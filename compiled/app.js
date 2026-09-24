@@ -157,7 +157,7 @@ function computeAlerts(patient, allEntries) {
     alerts.push({
       id: "growth-regain",
       level: "warn",
-      title: "Birth weight not regained",
+      title: gv.atBirthWeight ? "Weight not above birth weight" : "Birth weight not regained",
       body: gv.reason,
       dol: gv.to?.dol,
       ref: "ESPGHAN 2022"
