@@ -955,6 +955,103 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Sequence number of the last sync whose snapshot was applied.
   const appliedSeqRef = React.useRef(0);
 
+  // ── Sign-in: the snapshot it carried, and its timing (login speed, 2026-09-24)
+  // A login reply can carry the first registry snapshot (loginRequest,
+  // `wantSync`). It waits in loginSyncRef, in memory only and never in
+  // sessionStorage, until the first-sync effect below applies it through
+  // applySnapshot. signInRef holds the sign-in's timing marks until that first
+  // snapshot lands. Then the admin dashboard shows the result (signInTiming), and
+  // so does the console, so "login is slow" becomes a number. Seconds and a
+  // character count only: no email, no patient.
+  const loginSyncRef = React.useRef(null);   // { email, data } | null
+  const signInRef    = React.useRef(null);   // { clickAt, replyAt, serverMs, chars, embedded } | null
+  const [signInTiming, setSignInTiming] = React.useState(null);
+  const finishSignInTiming = React.useCallback(() => {
+    const s = signInRef.current;
+    if (!s) return;
+    signInRef.current = null;
+    const appliedAt = perfNowMs();
+    const t = {
+      totalMs: Math.round(appliedAt - s.clickAt), loginMs: Math.round(s.replyAt - s.clickAt),
+      dataMs: Math.round(appliedAt - s.replyAt), serverMs: s.serverMs, chars: s.chars, embedded: !!s.embedded,
+    };
+    try { console.info("[NeoFeed] sign-in timing " + JSON.stringify(t)); } catch (e) { /* no console: nothing to do */ }
+    setSignInTiming(t);
+  }, []);
+
+  // ── Apply one registry snapshot ─────────────────────────────────────────
+  // The body of a successful sync, and of the first snapshot a sign-in may
+  // carry (login speed, 2026-09-24). Both go through this one path, so they can
+  // never normalize a record differently. `seq` is the snapshot's place in
+  // syncSeqRef's order.
+  const applySnapshot = React.useCallback((data, seq) => {
+    if (Array.isArray(data.patients)) {
+      // Replace mock data with real GAS data (even if empty registry).
+      // Bed labels are canonicalized here, at the single point every
+      // patient record enters client state, so the registry cards, the
+      // patient strip, the calculator's print header and the admin
+      // dashboard all show one spelling without each having to normalize
+      // (see D.normalizeBed — legacy rows carry "NICU 1-1"/"NICU-1").
+      // Sex the same way, for the same reason (normalizeSex, UP-S4).
+      // And the measurement arrays: a record already in the Sheet can hold
+      // a null or non-object element (nothing validated them server-side
+      // until the 2026-09-17 review, SEC-B3), and a dozen readers do
+      // `x.w` / `x.dol` — one bad element blanked every device on the next
+      // sync. Dropping them here keeps the ward working; the server still
+      // holds the bad cell, which `sheetHealthReport()` counts, and refuses
+      // edits to that record until it is corrected.
+      const cleanMeasures = (arr) => Array.isArray(arr)
+        ? arr.filter(x => x && typeof x === "object" && !Array.isArray(x)) : arr;
+      const incoming = data.patients.map(p =>
+        ({ ...p, currentBed: D_A.normalizeBed(p.currentBed), sex: normalizeSex(p.sex),
+           weights: cleanMeasures(p.weights), lengths: cleanMeasures(p.lengths),
+           hcs: cleanMeasures(p.hcs), bedHistory: cleanMeasures(p.bedHistory) }));
+      // The merge base is what the SERVER holds — normalizations of its own
+      // values only (bed, sex, bad array elements). Nothing derived goes in
+      // here, or a value this device invented would read as "unchanged" and
+      // never be written back. See handleEditPatient.
+      serverPatientsRef.current = new Map(incoming.map(p => [p.sessionId, p]));
+      // …then, for state only, give every record a date of birth.
+      //
+      // D_A.dolAtDate anchors DOL on dob (see data.js). A record registered
+      // through NewPatientModal always has one, but a legacy or imported row
+      // may not, and without it DOL falls back to admissionDate + the first
+      // weights[] row's DOL — the anchor that moves when someone records a
+      // birth measurement for an outborn infant. dob is exactly what that
+      // pair encodes (dob = admitDate − (admitDol − 1)), so deriving it once
+      // here puts every record on the anchor that cannot move. The first
+      // edit of that record persists it for real.
+      const withDob = incoming.map(p => {
+        if (p.dob) return p;
+        const dob = D_A.dobFromAdmission(p);
+        return dob ? { ...p, dob } : p;
+      });
+      setPatients(withDob.length > 0 ? withDob : []);
+      // Never auto-pick a patient — keep the current selection only if it
+      // still exists in the fresh data, otherwise fall back to none (registry list).
+      setActiveId(prev => data.patients.some(p => p.sessionId === prev) ? prev : null);
+    }
+    // Normalize before anything reads it: Sheets hands `ts` back as a date
+    // value (stringified to "Sun Aug 17 2026 …"), which never matches a
+    // YYYY-MM-DD comparison, and rows arrive in insertion order rather
+    // than date order. See D.normalizeLogMap.
+    if (data.log) setLog(D_A.normalizeLogMap(data.log));
+    // Both ways: switched on, the card appears and a nurse's Submit goes;
+    // switched off again, both come back on the same sync.
+    const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
+    setNursingLive(nursingServed);
+    setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
+    // Every write this device made has now been checked against the sheet.
+    unknownWriteRef.current = false;
+    appliedSeqRef.current = seq;
+    syncFailsRef.current = 0;
+    setSyncError("");
+    setSyncState("ok");
+    setLastSync(new Date());
+    // The first snapshot after a sign-in closes its timing (see signInRef).
+    finishSignInTiming();
+  }, [finishSignInTiming]);
+
   const syncFromGAS = React.useCallback(() => {
     if (!GAS_ON || endedRef.current) return;
     const startedAt = Date.now();
@@ -1024,69 +1121,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           return;
         }
 
-        if (Array.isArray(data.patients)) {
-          // Replace mock data with real GAS data (even if empty registry).
-          // Bed labels are canonicalized here, at the single point every
-          // patient record enters client state, so the registry cards, the
-          // patient strip, the calculator's print header and the admin
-          // dashboard all show one spelling without each having to normalize
-          // (see D.normalizeBed — legacy rows carry "NICU 1-1"/"NICU-1").
-          // Sex the same way, for the same reason (normalizeSex, UP-S4).
-          // And the measurement arrays: a record already in the Sheet can hold
-          // a null or non-object element (nothing validated them server-side
-          // until the 2026-09-17 review, SEC-B3), and a dozen readers do
-          // `x.w` / `x.dol` — one bad element blanked every device on the next
-          // sync. Dropping them here keeps the ward working; the server still
-          // holds the bad cell, which `sheetHealthReport()` counts, and refuses
-          // edits to that record until it is corrected.
-          const cleanMeasures = (arr) => Array.isArray(arr)
-            ? arr.filter(x => x && typeof x === "object" && !Array.isArray(x)) : arr;
-          const incoming = data.patients.map(p =>
-            ({ ...p, currentBed: D_A.normalizeBed(p.currentBed), sex: normalizeSex(p.sex),
-               weights: cleanMeasures(p.weights), lengths: cleanMeasures(p.lengths),
-               hcs: cleanMeasures(p.hcs), bedHistory: cleanMeasures(p.bedHistory) }));
-          // The merge base is what the SERVER holds — normalizations of its own
-          // values only (bed, sex, bad array elements). Nothing derived goes in
-          // here, or a value this device invented would read as "unchanged" and
-          // never be written back. See handleEditPatient.
-          serverPatientsRef.current = new Map(incoming.map(p => [p.sessionId, p]));
-          // …then, for state only, give every record a date of birth.
-          //
-          // D_A.dolAtDate anchors DOL on dob (see data.js). A record registered
-          // through NewPatientModal always has one, but a legacy or imported row
-          // may not, and without it DOL falls back to admissionDate + the first
-          // weights[] row's DOL — the anchor that moves when someone records a
-          // birth measurement for an outborn infant. dob is exactly what that
-          // pair encodes (dob = admitDate − (admitDol − 1)), so deriving it once
-          // here puts every record on the anchor that cannot move. The first
-          // edit of that record persists it for real.
-          const withDob = incoming.map(p => {
-            if (p.dob) return p;
-            const dob = D_A.dobFromAdmission(p);
-            return dob ? { ...p, dob } : p;
-          });
-          setPatients(withDob.length > 0 ? withDob : []);
-          // Never auto-pick a patient — keep the current selection only if it
-          // still exists in the fresh data, otherwise fall back to none (registry list).
-          setActiveId(prev => data.patients.some(p => p.sessionId === prev) ? prev : null);
-        }
-        // Normalize before anything reads it: Sheets hands `ts` back as a date
-        // value (stringified to "Sun Aug 17 2026 …"), which never matches a
-        // YYYY-MM-DD comparison, and rows arrive in insertion order rather
-        // than date order. See D.normalizeLogMap.
-        if (data.log) setLog(D_A.normalizeLogMap(data.log));
-        // Both ways: switched on, the card appears and a nurse's Submit goes;
-        // switched off again, both come back on the same sync.
-        const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
-        setNursingLive(nursingServed);
-        setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
-        // Every write this device made has now been checked against the sheet.
-        unknownWriteRef.current = false;
-        appliedSeqRef.current = seq;
-        syncFailsRef.current = 0;
-        setSyncError("");
-        setSyncState("ok");
-        setLastSync(new Date());
+        applySnapshot(data, seq);
       })
       .catch(err => {
         if (stale()) return;
@@ -1094,11 +1129,37 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         console.warn("GAS sync failed:", err);
         failed(err && err.kind ? err.message : "");
       });
-  }, [flagPasswordChangeRequired]);
+  }, [flagPasswordChangeRequired, applySnapshot]);
   syncRef.current = syncFromGAS;
 
-  // Sync after login — fires when user changes (null → logged-in object)
-  React.useEffect(() => { if (user) syncFromGAS(); }, [user?.email]);
+  // Sync after login. Fires when the user changes (null → logged-in object) and
+  // when a pending temp password clears. Two rules (login speed, 2026-09-24):
+  //
+  // - Not while a temp password is pending. The server refuses every request
+  //   but changePassword then, so this sync could only fail. And nothing ran it
+  //   again once the password was changed: the effect was keyed on email alone,
+  //   so a new account sat on a "server error" until the next poll. Keyed on
+  //   the flag too, so clearing it syncs at once.
+  // - A sign-in whose reply carried the first snapshot applies that instead of
+  //   asking for it again.
+  React.useEffect(() => {
+    if (!user) return;
+    // (Its timing is dropped too: it would count the time spent choosing a
+    // new password.)
+    if (user.mustChangePassword) { loginSyncRef.current = null; signInRef.current = null; return; }
+    const carried = loginSyncRef.current;
+    loginSyncRef.current = null;
+    if (carried && carried.email === user.email && GAS_ON && !endedRef.current) {
+      // Its own place in the sync order, so any sync issued earlier and still
+      // in flight is recognised as older and dropped when it lands.
+      const seq = ++syncSeqRef.current;
+      lastSyncAttemptRef.current = Date.now();
+      if (signInRef.current) syncMsRef.current = Math.round(signInRef.current.replyAt - signInRef.current.clickAt);
+      applySnapshot(carried.data, seq);
+      return;
+    }
+    syncFromGAS();
+  }, [user?.email, user?.mustChangePassword]);
 
   // Keep the registry honest without a manual refresh. The app used to fetch
   // once at login and then never again, so on a workstation left open all
@@ -1114,6 +1175,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const RESYNC_AFTER_MS = 60000;   // don't re-hit GAS on every tab flick
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
+      // A pending temp password: the server would refuse it (see the
+      // first-sync effect, which syncs the moment the flag clears).
+      if (userRef.current?.mustChangePassword) return;
       if (syncInFlight()) return;
       if (syncBackingOff()) return;
       if (Date.now() - lastSyncRef.current < RESYNC_AFTER_MS) return;
@@ -1158,6 +1222,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (!GAS_ON || !user) return;
     const tick = () => {
       if (document.visibilityState !== "visible") return;
+      if (userRef.current?.mustChangePassword) return;   // refused until changed
       if (typeof navigator !== "undefined" && navigator.onLine === false) return;
       if (syncInFlight()) return;
       if (syncBackingOff()) return;
@@ -1830,9 +1895,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   shellReadyRef.current = false;
 
   if (!user) {
-    return <LoginScreen notice={notice} onLogin={(u) => {
+    return <LoginScreen notice={notice} onLogin={(u, extra) => {
+      // Only the user goes to sessionStorage. The snapshot the reply carried
+      // (patient data) stays in memory, for the first-sync effect.
       writeSession(u);
       if (onNoticeSeen) onNoticeSeen();
+      loginSyncRef.current = extra && extra.sync ? { email: u.email, data: extra.sync } : null;
+      signInRef.current = extra && extra.timing ? { ...extra.timing, embedded: !!(extra && extra.sync) } : null;
       setUser(u);
     }} />;
   }
@@ -2118,6 +2187,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}
           {view === "admin" && role === "admin" && <AdminDashboard patients={patients} log={log} lastSync={lastSync}
+            signInTiming={signInTiming}
             includeArchived={includeArchived}
             onToggleArchived={() => {
               includeArchivedRef.current = !includeArchived;
@@ -2824,15 +2894,36 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
 // well inside a second.
 const GSI_LOAD_TIMEOUT_MS = 10000;
 
+// Milliseconds for timing only (login speed, 2026-09-24). performance.now()
+// where the browser has it, because a wall-clock change cannot move it.
+const perfNowMs = () => (typeof performance !== "undefined" && typeof performance.now === "function")
+  ? performance.now() : Date.now();
+
 // Both login paths end here. Through gasRequest, so a hung login stops at
 // GAS_TIMEOUT_MS and an HTML error page reads as a sentence, not as
 // "Unexpected token '<'" (UP-S8).
-async function loginRequest(body) {
+//
+// `wantSync` asks the server to send the first registry snapshot with the
+// reply (gas-backend.gs _loginReply, login speed 2026-09-24). A sign-in used to
+// wait for a second round trip before the ward list could appear. An older
+// backend ignores the flag, and the app then syncs the ordinary way. Resolves
+// to { user, sync, timing }. `user` is exactly what it always was, and the
+// only part written to sessionStorage. `sync` stays in memory.
+async function loginRequest(body, clickAt) {
   let data;
-  try { data = await gasRequest({ action: "login", ...body }); }
+  try { data = await gasRequest({ action: "login", wantSync: true, ...body }); }
   catch (e) { throw new Error(`เข้าสู่ระบบไม่สำเร็จ — ${e && e.kind ? e.message : gasErrorText("network")}`); }
   if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
-  return { name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword };
+  const user = { name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword };
+  const s = data.sync;
+  const sync = s && typeof s === "object" && !Array.isArray(s) && Array.isArray(s.patients) ? s : null;
+  const timing = {
+    clickAt: typeof clickAt === "number" ? clickAt : perfNowMs(),
+    replyAt: perfNowMs(),
+    serverMs: typeof data.serverMs === "number" ? data.serverMs : null,
+    chars: sync && typeof data.syncChars === "number" ? data.syncChars : null,
+  };
+  return { user, sync, timing };
 }
 
 function LoginScreen({ onLogin, notice = null }) {
@@ -2857,9 +2948,11 @@ function LoginScreen({ onLogin, notice = null }) {
       google.accounts.id.initialize({
         client_id: window.NEOFEED_CLIENT_ID,
         callback: async (resp) => {
+          const clickAt = perfNowMs();
           setLoading(true); setError(null);
           try {
-            onLogin(await loginRequest({ googleToken: resp.credential }));
+            const r = await loginRequest({ googleToken: resp.credential }, clickAt);
+            onLogin(r.user, r);
           } catch (err) { setError(err.message); setLoading(false); }
         },
       });
@@ -2892,9 +2985,11 @@ function LoginScreen({ onLogin, notice = null }) {
   const submitEmail = async (e) => {
     e && e.preventDefault();
     if (!email.trim() || !password) { setError("กรุณากรอก email และรหัสผ่าน"); return; }
+    const clickAt = perfNowMs();
     setLoading(true); setError(null);
     try {
-      onLogin(await loginRequest({ email: email.trim().toLowerCase(), password }));
+      const r = await loginRequest({ email: email.trim().toLowerCase(), password }, clickAt);
+      onLogin(r.user, r);
     } catch (err) { setError(err.message); setLoading(false); }
   };
 
@@ -3134,7 +3229,7 @@ function CensusWard({ w }) {
 // ============================================================
 // Admin dashboard — read-only oversight, syncs from GAS
 // ============================================================
-function AdminDashboard({ patients, log, lastSync, includeArchived = false, onToggleArchived }) {
+function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived }) {
   // Re-renders at midnight, so a workstation left on this page rolls the
   // census over to the new day's "Logged today" on its own.
   const today = D_A.useTodayLocal();
@@ -3178,6 +3273,21 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
         <div className="pill"><span className="dot" style={{ background: "var(--brand)" }} />
           {lastSync ? `Synced ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : (GAS_ON ? "Not synced" : "Local only")}</div>
       </div>
+      {/* How long this device's last sign-in took, measured here, from the
+          click to the ward's data being on screen (login speed, 2026-09-24).
+          "Login is slow" becomes a number to quote, and before/after a change
+          can be compared. Seconds and a size only, never a name. */}
+      {signInTiming && (() => {
+        const t = signInTiming, sec = (ms) => D_A.displayNum(ms / 1000, 1);
+        return (
+          <div className="signin-timing" style={{ fontSize: 12, color: "var(--ink-3)", margin: "-4px 0 12px", lineHeight: 1.5 }}>
+            Sign-in on this device: <b className="num" style={{ color: "var(--ink-2)" }}>{sec(t.totalMs)} s</b>
+            {t.embedded
+              ? <> · data came with the login reply{t.serverMs != null && <> · server {sec(t.serverMs)} s</>}{t.chars != null && <> · ≈{D_A.displayNum(t.chars / 1e6, 1)} MB</>}</>
+              : <> · login {sec(t.loginMs)} s + data {sec(t.dataMs)} s (separate request)</>}
+          </div>
+        );
+      })()}
       {/* The archive switch (UP-S14). Off at every login and never stored:
           the discharged archive is pulled only while an admin is looking for
           something in it. Once on, archived sessions appear in Switch patient

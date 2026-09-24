@@ -9,7 +9,8 @@
 // getActivePatients / getActivePatientsJson against REFERENCE — the pre-review
 // full-read getActivePatients, embedded verbatim below and evaluated in the
 // same sandbox, so it uses the same (new, A1) window rule and helpers. Output
-// must be identical except `ts`, which must be fresh.
+// must be identical except `ts`, which must be fresh, and, since 2026-09-24,
+// except the superseded rows the ward sync no longer sends (see refFor).
 //
 // See gas-vm-sandbox.cjs for the Sheets/Cache double. No npm dependencies.
 // Fails against the pre-review source (42ce553): NEOFEED_GAS_SRC=<that file>.
@@ -113,6 +114,20 @@ function __refGetActivePatients(opts) {
 `;
 
 const TODAY = wardToday();
+// What the server must return: REFERENCE's output, with one documented change.
+// Since 2026-09-24 (login speed, CHANGELOG 2026-09-24 (11)) the WARD sync omits
+// superseded rows. Those are the old copy of a revised order, which every client
+// drops on arrival (data.js normalizeLogEntries). The admin archive still sends
+// them. REFERENCE_SRC stays verbatim; the change is applied here, in the open,
+// and the server keeps every key and its order, so the text comparisons below
+// still hold byte for byte.
+function refFor(g, opts) {
+  const ref = g.sb.__refGetActivePatients(opts);
+  if (opts && opts.includeArchived) return ref;
+  const log = {};
+  for (const sid of Object.keys(ref.log)) log[sid] = ref.log[sid].filter(r => !r.supersededAt);
+  return Object.assign({}, ref, { log });
+}
 const strip = (o) => JSON.stringify(Object.assign({}, o, { ts: 'X' }));
 const stripText = (s) => s.replace(/,"ts":"[^"]*"}$/, ',"ts":"X"}');
 const E = (extra) => Object.assign({ dol: 4, weight: 1260, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 3, k: 2, ca: 60, p: 40,
@@ -136,7 +151,7 @@ function setup(patRows, logRows, logOpts) {
   return g;
 }
 function same(g, label, opts) {
-  const ref = g.sb.__refGetActivePatients(opts);
+  const ref = refFor(g, opts);
   const got = g.sb.getActivePatients(opts);
   T.ok(label + ' — object identical to the full-read reference', strip(ref) === strip(got), { ref: strip(ref).slice(0, 240), got: strip(got).slice(0, 240) });
   const text = g.sb.getActivePatientsJson(opts);
@@ -223,19 +238,19 @@ T.section('A3 · a row shift between the column-B read and a block read falls ba
     g.sheet('Daily_Log').data.push(lrow(g, 'OUT-1', TODAY), lrow(g, 'AA-1', TODAY), lrow(g, 'BB-1', TODAY), lrow(g, 'AA-1', addDays(TODAY, -1)), lrow(g, 'OUT-1', TODAY));
     once(g.sheet('Daily_Log'), (sh) => sh.data.splice(1, 1));
     const b = g.sb.getActivePatients({}); g.sheet('Daily_Log').hooks = {};
-    T.ok('a delete above the block → identical to a post-delete snapshot', strip(b) === strip(g.sb.__refGetActivePatients({}))); }
+    T.ok('a delete above the block → identical to a post-delete snapshot', strip(b) === strip(refFor(g, {}))); }
   { const g = setup([]);
     g.sheet('Patient_Registry').data.push(pat(g, 'AA-1'));
     g.sheet('Daily_Log').data.push(lrow(g, 'AA-1', TODAY), lrow(g, 'AA-1', addDays(TODAY, -1)), lrow(g, 'AA-1', addDays(TODAY, -2)));
     once(g.sheet('Daily_Log'), (sh) => sh.data.splice(2, 1));
     const b = g.sb.getActivePatients({}); g.sheet('Daily_Log').hooks = {};
-    T.ok('a delete inside one patient\'s run (column B unchanged) → caught by the last-row check', strip(b) === strip(g.sb.__refGetActivePatients({}))); }
+    T.ok('a delete inside one patient\'s run (column B unchanged) → caught by the last-row check', strip(b) === strip(refFor(g, {}))); }
   { const g = setup([]);
     g.sheet('Patient_Registry').data.push(pat(g, 'AA-1'), pat(g, 'BB-1'));
     g.sheet('Daily_Log').data.push(lrow(g, 'AA-1', TODAY), lrow(g, 'BB-1', TODAY));
     once(g.sheet('Daily_Log'), (sh) => sh.data.push(lrow(g, 'AA-1', addDays(TODAY, -5))));
     const b = g.sb.getActivePatients({}); g.sheet('Daily_Log').hooks = {};
-    T.ok('an append between reads → the re-read includes it', strip(b) === strip(g.sb.__refGetActivePatients({}))); }
+    T.ok('an append between reads → the re-read includes it', strip(b) === strip(refFor(g, {}))); }
 });
 
 T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visible to the next sync', () => {
@@ -245,7 +260,7 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   const syncText = (tok, archived) => g.postText({ action: 'getActivePatients', token: tok || g.dt, includeArchived: !!archived });
   const matches = (label, tok, archived) => {
     const text = syncText(tok, archived);
-    const ref = JSON.stringify(g.sb.__refGetActivePatients({ includeArchived: !!archived && tok === g.at }));
+    const ref = JSON.stringify(refFor(g, { includeArchived: !!archived && tok === g.at }));
     T.ok(label, stripText(text) === stripText(ref), { got: text.slice(0, 160), want: ref.slice(0, 160) });
     return text;
   };
@@ -296,9 +311,9 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   matches('a typed hand edit + onEdit is visible at once');
   syncText();
   g.sheet('Daily_Log').data.splice(1, 1);
-  const stale = stripText(syncText()) !== stripText(JSON.stringify(g.sb.__refGetActivePatients({})));
+  const stale = stripText(syncText()) !== stripText(JSON.stringify(refFor(g, {})));
   T.ok('KNOWN LIMIT (documented): a structural hand edit with no onEdit is stale until the TTL', stale);
-  const fresh = withNow(Date.now() + 301e3, () => stripText(syncText()) === stripText(JSON.stringify(g.sb.__refGetActivePatients({}))));
+  const fresh = withNow(Date.now() + 301e3, () => stripText(syncText()) === stripText(JSON.stringify(refFor(g, {}))));
   T.ok('…and correct once the TTL has passed', fresh);
 });
 
@@ -326,7 +341,7 @@ T.section('A2 · cache failure modes degrade to a correct read', () => {
   const head = [...g.cacheStore.entries()].find(([k]) => /^sync\d+_ward_/.test(k) && g.cacheStore.has(k + '_0'));
   const b = g.sb.getActivePatientsJson({});
   T.ok('a multi-chunk payload (' + (head && head[1].v) + ' chunks) round-trips byte-identical', head && Number(head[1].v) >= 2 && stripText(a) === stripText(b) &&
-    stripText(b) === stripText(JSON.stringify(g.sb.__refGetActivePatients({}))));
+    stripText(b) === stripText(JSON.stringify(refFor(g, {}))));
   const realKey = g.sb._wardDateKey;
   g.sb.getActivePatientsJson({});
   g.sb._wardDateKey = function (v) { return v === undefined ? addDays(TODAY, 1) : realKey(v); };

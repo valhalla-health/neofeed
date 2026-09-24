@@ -96,6 +96,43 @@ function _cfg(key) {
 function SPREADSHEET_ID_() { return _cfg("SPREADSHEET_ID"); }
 function CLIENT_ID_() { return _cfg("CLIENT_ID"); }
 
+// ── One spreadsheet handle per request (login speed, 2026-09-24) ──────────
+// Each SpreadsheetApp.openById is a round trip to the Sheets service, and one
+// sign-in used to make four or five of them. They were the Staff read, the
+// login's Audit_Log append, the sync's own open, the token check's Staff re-read
+// and the sync's audit append. Inside a doPost request, every reader now shares
+// one handle. doPost opens the scope and closes it in its `finally`, so a
+// handle never outlives its request. Outside a request (an editor-run function,
+// a trigger), _book() opens the file exactly as before.
+var _requestBook = null;
+var _inRequest = false;
+function _book() {
+  if (!_inRequest) return SpreadsheetApp.openById(SPREADSHEET_ID_());
+  if (!_requestBook) _requestBook = SpreadsheetApp.openById(SPREADSHEET_ID_());
+  return _requestBook;
+}
+function _beginRequest() { _requestBook = null; _inRequest = true; }
+function _endRequest() { _requestBook = null; _inRequest = false; }
+
+// ── Request timing (login speed, 2026-09-24) ────────────────────────────────
+// Per-phase milliseconds for a sign-in and a sync, written as one JSON line
+// to the execution log (Apps Script ▸ Executions), so where the time goes can
+// be read instead of guessed. The line holds only milliseconds, a cache
+// hit/miss and a character count. It never holds an email, a sessionId or a
+// patient value.
+function _timer() {
+  var t0 = Date.now(), last = t0, ms = {};
+  return {
+    lap: function (phase) { var now = Date.now(); ms[phase] = (ms[phase] || 0) + (now - last); last = now; },
+    total: function () { return Date.now() - t0; },
+    log: function (action, extra) {
+      var line = { timing: action, totalMs: Date.now() - t0, ms: ms };
+      for (var k in (extra || {})) if (Object.prototype.hasOwnProperty.call(extra, k)) line[k] = extra[k];
+      Logger.log(JSON.stringify(line));
+    }
+  };
+}
+
 // ── Nursing I/O go-live switch (UX roadmap #4) ─────────────────
 // OFF unless the Script Property NURSING_LOG_ENABLED is exactly "true". Set it
 // (Project Settings → Script Properties) only once the DPO has signed off the
@@ -444,6 +481,16 @@ function _forgetStaffRow(email) {
   try { CacheService.getScriptCache().remove(_staffCacheKey(email)); }
   catch (e) { Logger.log("staff row cache remove skipped: " + e.message); }
 }
+// A successful login has just read this user's Staff row, so the first token
+// check after it need not read the tab again (login speed, 2026-09-24). That
+// check is the sync every sign-in waits for, and it used to miss the cache and
+// re-read Staff. Same shape and TTL as _getStaffRowCached, so the revocation
+// bound is unchanged: a disable or demotion is still seen within
+// STAFF_RECHECK_TTL_SECONDS. Best effort, like the other cache helpers.
+function _primeStaffRow(email, found) {
+  try { CacheService.getScriptCache().put(_staffCacheKey(email), JSON.stringify(_staffRowForCache(found)), STAFF_RECHECK_TTL_SECONDS); }
+  catch (e) { Logger.log("staff row cache prime skipped: " + e.message); }
+}
 
 // Authorization values fail closed. A blank/misspelled Staff role used to be
 // promoted to `doctor` (blank) or preserved as an unknown role that could still
@@ -546,7 +593,7 @@ function _sessionServiceFailure(info, e) {
 
 // ── Staff sheet ───────────────────────────────────────────────
 function getSheetStaff() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
+  var ss = _book();
   var sh = ss.getSheetByName("Staff");
   if (!sh) {
     sh = ss.insertSheet("Staff");
@@ -854,7 +901,7 @@ var NURSING_WIDTH = NURSING_HEADERS.length; // 13, A–M
 // `ss` is optional: a caller that already opened the spreadsheet can pass it,
 // so one execution opens the file once. No argument behaves exactly as before.
 function getSheetPat(ss) {
-  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID_());
+  ss = ss || _book();
   var sh = ss.getSheetByName("Patient_Registry");
   if (!sh) {
     sh = ss.insertSheet("Patient_Registry");
@@ -863,7 +910,7 @@ function getSheetPat(ss) {
   return sh;
 }
 function getSheetLog(ss) {
-  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID_());
+  ss = ss || _book();
   var sh = ss.getSheetByName("Daily_Log");
   if (!sh) {
     sh = ss.insertSheet("Daily_Log");
@@ -876,7 +923,7 @@ function getSheetLog(ss) {
 // its 13 columns: insertSheet makes 26, and Google counts empty grid cells
 // against the workbook's 10 M-cell cap — the Audit_Log lesson (BACKLOG § Now).
 function getSheetNursing(ss) {
-  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID_());
+  ss = ss || _book();
   var sh = ss.getSheetByName("Nursing_Log");
   if (!sh) {
     sh = ss.insertSheet("Nursing_Log");
@@ -1016,7 +1063,48 @@ function _auditLoginFailure(email, failsIncludingThis) {
   if (failsIncludingThis === LOCKOUT_MAX_FAILS) logAudit("lockout", "", email);
 }
 
+// A successful login's reply. It carries the first sync when the client asks
+// for it with `wantSync` (login speed, 2026-09-24). Every sign-in used to wait
+// for a second round trip: login, then getActivePatients with the new token,
+// which meant another request, another token check and Staff read, and another
+// trip through Apps Script's redirect.
+//
+// - The payload is exactly the ward sync the client would have asked for next
+//   (getActivePatientsJson, the same cache). It is audited the same way and
+//   before it is produced (readRegistry).
+// - Never while a temp password is pending. doPost would refuse that sync, and
+//   its gate is the only thing between a temp password and the registry.
+// - A sync that throws is left out rather than failing the sign-in. The client
+//   then asks for it the ordinary way and meets the error there.
+// - An older client never sends wantSync and gets exactly the reply it always
+//   did. `serverMs` and `syncChars` come only with wantSync, for the client's
+//   timing readout.
+function _loginReply(resp, body, tm) {
+  var sync = null, stats = {};
+  if (body.wantSync === true) {
+    if (!resp.mustChangePassword) {
+      try {
+        logAudit("readRegistry", "", resp.email);
+        sync = getActivePatientsJson({ includeArchived: false }, stats);
+        tm.lap("sync");
+      } catch (e) {
+        Logger.log("login: embedded sync left out: " + e.message);
+        sync = null;
+      }
+    }
+    resp.serverMs = tm.total();
+    if (sync) resp.syncChars = sync.length;
+  }
+  tm.log("login", { sync: sync ? stats.cache : "none", chars: sync ? sync.length : 0 });
+  if (!sync) return jsonOut(resp);
+  var out = ContentService.createTextOutput(JSON.stringify(resp).slice(0, -1) + ',"sync":' + sync + "}");
+  out.setMimeType(ContentService.MimeType.JSON);
+  return out;
+}
+
 function doPost(e) {
+  _beginRequest();
+  var tm = _timer();
   var action = "";
   var authed = false;
   try {
@@ -1051,6 +1139,7 @@ function doPost(e) {
           Logger.log("login: server config problem: " + cfgErr.message);
           return jsonOut({ status: "error", error: "ระบบยังไม่ได้ตั้งค่า (server config) — แจ้ง admin" });
         }
+        tm.lap("google");
         email = gVerify.email;
         if (!email) {
           Logger.log("Google sign-in refused: " + gVerify.reason);
@@ -1066,6 +1155,7 @@ function doPost(e) {
           return jsonOut({ status: "unauthorized", error: GOOGLE_HD_REFUSED_MSG });
         }
         var gFound = getStaffRow(email);
+        tm.lap("staff");
         if (!gFound) {
           logAudit("loginFail", "", email);
           return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" });
@@ -1080,9 +1170,11 @@ function doPost(e) {
         name = String(gd[2] || email);
         var tok = createSession(email, role, name, false, "google");
         logAudit("login", "", email);
+        _primeStaffRow(email, gFound);
+        tm.lap("session");
         // A Google session is never held on a temp password (_passwordSession):
         // it has no password to change, so there's nothing to force — always false.
-        return jsonOut({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google", mustChangePassword: false });
+        return _loginReply({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google", mustChangePassword: false }, body, tm);
       }
 
       // Path B: email + password (non-Google accounts)
@@ -1097,6 +1189,7 @@ function doPost(e) {
         return jsonOut({ status: "unauthorized", error: LOGIN_FAILED_MSG });
 
       var found = getStaffRow(email);
+      tm.lap("staff");
       var d = found ? found.data : null;
       var storedHash = d ? String(d[4] || "") : "";
       var salt       = d ? String(d[5] || "") : "";
@@ -1121,10 +1214,12 @@ function doPost(e) {
 
       var failKey = _loginFailKey(email);
       var attempt = _beginPasswordAttempt(failKey, "props");
+      tm.lap("lock");
       if (attempt.locked) {
         return jsonOut({ status: "unauthorized", error: LOCKOUT_LOGIN_MSG });
       }
       var pwCheck = verifyPwd(password, salt, storedHash);
+      tm.lap("hash");
       if (!pwCheck.ok) {
         _auditLoginFailure(email, attempt.fails);
         return jsonOut({ status: "unauthorized", error: LOGIN_FAILED_MSG });
@@ -1160,7 +1255,9 @@ function doPost(e) {
       var mustChange = (d[6] === true || String(d[6] || "").toUpperCase() === "TRUE");
       var token = createSession(email, role, name, mustChange, "password");
       logAudit("login", "", email);
-      return jsonOut({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password", mustChangePassword: mustChange });
+      _primeStaffRow(email, found);
+      tm.lap("session");
+      return _loginReply({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password", mustChangePassword: mustChange }, body, tm);
     }
 
     // ── all other actions require valid session token ──────────
@@ -1168,6 +1265,7 @@ function doPost(e) {
     // failure is "try again", never "you are signed out".
     var authInfo = {};
     var user = verifyToken(body.token, authInfo);
+    tm.lap("auth");
     if (!user) {
       if (authInfo.serviceUnavailable) {
         return jsonOut({ error: SERVICE_UNAVAILABLE_MSG, code: "ServiceUnavailable", retryable: true });
@@ -1213,9 +1311,14 @@ function doPost(e) {
       // the payload cache is audited exactly like one read off the sheet.
       var archive = user.role === "admin" && body.includeArchived === true;
       logAudit(archive ? "readRegistryArchive" : "readRegistry", "", user.email);
+      tm.lap("audit");
       // The payload is JSON text straight from getActivePatientsJson — possibly
       // from its 5-minute cache — rather than an object re-serialised here.
-      var syncOut = ContentService.createTextOutput(getActivePatientsJson({ includeArchived: archive }));
+      var syncStats = {};
+      var syncText = getActivePatientsJson({ includeArchived: archive }, syncStats);
+      tm.lap("payload");
+      tm.log("getActivePatients", { cache: syncStats.cache, chars: syncText.length, archive: archive });
+      var syncOut = ContentService.createTextOutput(syncText);
       syncOut.setMimeType(ContentService.MimeType.JSON);
       return syncOut;
     }
@@ -1427,6 +1530,8 @@ function doPost(e) {
     }
     if (action === "login") resp.status = "error";
     return jsonOut(resp);
+  } finally {
+    _endRequest();
   }
 }
 
@@ -1533,7 +1638,7 @@ function _fullLogRows(sheet) {
 function getActivePatients(opts) {
   var includeArchived = !!(opts && opts.includeArchived);
   var todayKey = _wardDateKey();
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
+  var ss = _book();
   var sheetPat = getSheetPat(ss);
   var sheetLog = getSheetLog(ss);
   var patData = sheetPat.getLastRow() > 0 ? sheetPat.getDataRange().getValues() : [[]];
@@ -1561,6 +1666,16 @@ function getActivePatients(opts) {
     var sid = String(row[1] || "");
     if (!sid || !inWindow[sid]) continue;
     if (!logMap[sid]) logMap[sid] = [];
+    // A superseded row (AL set) is the old copy of a Submitted order, left
+    // behind when a revision replaced it (updateDailyNutrition's revision
+    // branch). The revision is its own row, and every client drops the old
+    // copy on arrival (data.js normalizeLogEntries). So the ward sync no
+    // longer sends it: a revised order used to cross the wire twice, full
+    // calcInputJson and all (login speed, 2026-09-24). The ward payload is
+    // therefore exactly the old one minus those rows, with the same keys in
+    // the same order (the key is made first). The admin archive still sends
+    // them, exactly as before.
+    if (!includeArchived && String(row[37] || "")) continue;
     logMap[sid].push({
       // _fmtDate, not String(): Sheets parses the "YYYY-MM-DD" we append into a
       // real date value, so String() yields "Sun Aug 17 2026 00:00:00 GMT+0700
@@ -1769,8 +1884,9 @@ function _syncCachePut(key, body) {
 
 // The JSON text doPost returns for getActivePatients. Byte-identical to
 // JSON.stringify(getActivePatients(opts)) — same keys, same order — except
-// that `ts` is always fresh, including on a cache hit.
-function getActivePatientsJson(opts) {
+// that `ts` is always fresh, including on a cache hit. `stats` (optional) is
+// filled with { cache: "hit" | "miss" | "off" } for the timing line.
+function getActivePatientsJson(opts, stats) {
   var includeArchived = !!(opts && opts.includeArchived);
   // The nursing switch is read ONCE for both the cache key and the payload: a
   // Script Properties hiccup between two reads would otherwise cache a payload
@@ -1781,6 +1897,7 @@ function getActivePatientsJson(opts) {
     try { key = _syncCacheKey(includeArchived, _wardDateKey(), _dataVersion(), nursingOn); } catch (e) { key = null; }
   }
   var body = key ? _syncCacheGet(key) : null;
+  if (stats) stats.cache = !key ? "off" : body == null ? "miss" : "hit";
   if (body == null) {
     var payload = getActivePatients({ includeArchived: includeArchived, nursingOn: nursingOn });
     body = JSON.stringify({ patients: payload.patients, log: payload.log, nursing: payload.nursing });
@@ -2679,7 +2796,7 @@ function deletePatient(sessionId, actorEmail) {
     // reason as Daily_Log's: a sessionId can be re-issued to a different
     // infant, who must not inherit this one's Intake/Output. Found before
     // anything is deleted; no tab yet means nothing to find.
-    var nurseSheet = SpreadsheetApp.openById(SPREADSHEET_ID_()).getSheetByName("Nursing_Log");
+    var nurseSheet = _book().getSheetByName("Nursing_Log");
     var nurseRows = [];
     if (nurseSheet) {
       _assertSchema(nurseSheet, "Nursing_Log");
@@ -2989,7 +3106,7 @@ function applyPatHeaderColumns() {
 //     client edit could no longer send back unchanged (SEC-B3 / sex rule).
 // Nothing is written except the schema-cache removal and the execution log.
 function sheetHealthReport() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
+  var ss = _book();
   var today = _wardDateKey();
   var out = {
     generatedAt: new Date().toISOString(),
@@ -3523,7 +3640,7 @@ function pseudonymizePatient(sessionId, adminEmail) {
 // The LIVE tab predates this and has to be trimmed by hand (see
 // sheetHealthReport for the numbers).
 function getSheetAudit() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID_());
+  var ss = _book();
   var sh = ss.getSheetByName("Audit_Log");
   if (!sh) {
     sh = ss.insertSheet("Audit_Log");
