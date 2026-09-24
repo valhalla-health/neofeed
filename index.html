@@ -1600,8 +1600,12 @@
     .patient-mc .pmc-diagnosis { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; }
     .patient-mc .pmc-stats { font-size: 12px; color: var(--ink-2); gap: 14px; font-family: "IBM Plex Mono", monospace; }
     .patient-mc .pmc-lbl { color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
-    .patient-mc .pmc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
-    .patient-mc .pmc-actions .btn { width: 100%; justify-content: center; min-height: 44px; }
+    /* Three actions since 2026-09-24 (UX roadmap #3): ⇄ bed, Edit, Open —
+       the desktop row's order. One row from 360px up; below that a Thai
+       label wraps at its word break inside a taller button rather than
+       clipping (measured 280–430px in Chromium, verify-mobile-bed-button). */
+    .patient-mc .pmc-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 2px; }
+    .patient-mc .pmc-actions .btn { width: 100%; justify-content: center; text-align: center; min-height: 44px; }
 
     /* ── Trend graph: stack controls, scrollable chips with snap ── */
     .trend-controls > div:first-child { width: 100%; }
@@ -1841,7 +1845,7 @@
   <script src="compiled/icons.js?v=8ad9fe42c3"></script>
   <script src="compiled/calculator.js?v=d6ffb4afd6"></script>
   <script src="compiled/fenton.js?v=444c073f49"></script>
-  <script src="compiled/registry.js?v=3394fee20f"></script>
+  <script src="compiled/registry.js?v=f2b9d68b3b"></script>
   <script src="compiled/log.js?v=4cf7029149"></script>
   <script src="compiled/app.js?v=1e19eccbf5"></script>
 

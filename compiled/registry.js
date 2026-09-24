@@ -133,7 +133,19 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         },
         hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
       )),
-      /* @__PURE__ */ React.createElement("div", { className: "pmc-actions" }, /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: (e) => {
+      /* @__PURE__ */ React.createElement("div", { className: "pmc-actions" }, /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "btn sm pmc-bed",
+          onClick: (e) => {
+            e.stopPropagation();
+            setTransferPatient(p);
+          },
+          "aria-label": `${D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"} ${p.name || p.initials || ""}`.trim()
+        },
+        "⇄ ",
+        D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"
+      ), /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: (e) => {
         e.stopPropagation();
         setEditPatient(p);
       } }, "Edit"), /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: (e) => {
