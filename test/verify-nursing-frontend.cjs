@@ -12,13 +12,19 @@
 //   §3  The Dashboard card: is today in yet, the last seven days newest first,
 //       "—" for not recorded (never 0), urine in mL/kg/h on the Calculator's
 //       own divisor, and a delete button only where one was given.
-//   §4  D4: a NEW order's Intake/Output is filled from the nurses' totals for
-//       its date — a recorded 0 counts as entered, a blank does not — and
-//       opening that form writes no draft. A saved order is never touched. A
-//       record that arrives, changes or goes after the form opened is offered,
-//       not forced in; a restored draft is what was typed, not the record.
+//   §4  D4 (Pp: "หมอพิมพ์เอง"): the prescriber types a new order's
+//       Intake/Output. The nurses' totals for its date are OFFERED — one tap,
+//       never filled in by themselves. Once taken, a recorded 0 counts as
+//       entered and a blank does not; the tap is kept like typing. A saved
+//       order is never touched. A record that changes or goes after it was
+//       taken is flagged, not swapped in; a restored draft is what was typed.
+//   §4w The weight IS prefilled on an order opened on a patient (Pp: "ถ้าเข้า
+//       ผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก"): the latest weight measured
+//       on or before the order's own day — the nurses' included. A back-filled
+//       order took a weight measured after its date (DOL 8 took DOL 20's).
 //   §5  D5: a nurse computes and cannot save — no Save draft / Submit, no
-//       unsaved-draft store, the reason said where the buttons were.
+//       unsaved-draft store, the reason said where the buttons were — and is
+//       offered the nurses' totals with one tap, like a prescriber.
 //   §6  The real <App/> against a fake Apps Script:
 //       6a  until the backend serves `nursing` (its switch, NURSING_LOG_ENABLED,
 //           is off until the DPO signs off — D7), nothing changes: no card, and
@@ -396,8 +402,8 @@ const scenarios = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════
-  async 'calc-prefill'(A) {
-    console.log('\n── §4 D4: a new order starts from the nurses\' totals ──');
+  async 'calc-offer'(A) {
+    console.log('\n── §4 D4: the prescriber types Intake/Output; the nurses\' totals are one tap away ──');
     const t = boot({ session: null });
     t.quiet();
     global.showToast = () => {};
@@ -413,98 +419,152 @@ const scenarios = {
     }));
     const val = (label) => (calcField(t, label) || {}).value;
     const reset = async () => { await P.render(null); localStorage.clear(); };
+    const offer = () => $('.nursing-prefill-apply');
+    const io = () => [val('Input'), val('Urine output'), val('Drain content')];
 
-    // What Input reads with no nursing record: the prescribed total it tracks.
+    // What a new order's Intake/Output reads with no nursing record at all:
+    // Input tracks the prescribed total (blank: nothing prescribed yet).
     await reset();
     await calc({ nursing: [] });
-    const prescribed = val('Input');
-    A.ok('4.0 fixture: with no record, Input tracks the prescribed total (blank: nothing prescribed yet)', prescribed !== '160', prescribed);
+    const blankIO = io();
+    A.ok('4.0 fixture: with no record, Intake/Output opens as Input tracking the prescribed total, the rest blank',
+      blankIO[0] !== '160' && blankIO[1] === '' && blankIO[2] === '', blankIO);
 
     await reset();
     await calc({ nursing: [rec] });
-    A.eq('4.1 Input = IV + enteral actually received (100 + 60)', val('Input'), '160');
-    A.eq('4.2 a urine output the nurses recorded as 0 is shown as 0 …', val('Urine output'), '0');
-    A.ok('4.3 …and counts as entered', !/Urine output/.test(missingText()) && !/Input/.test(missingText()), missingText());
-    A.eq('4.4 a drain they left blank stays blank …', val('Drain content'), '');
-    A.ok('4.5 …and the gate still asks for it', /Drain content/.test(missingText()), missingText());
+    A.eq('4.1 THE DECISION (D4 "หมอพิมพ์เอง"): with a record for the date, Intake/Output fills nothing by itself', io(), blankIO);
+    // …but the WEIGHT is prefilled for an order opened on a patient (Pp:
+    // "ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก"): the latest measured
+    // weight — the store the nurses' form writes to.
+    A.eq('4.1b the weight IS prefilled: the latest measured weight (1050 g, DOL 10)', val('Current weight'), '1050');
+    A.ok('4.2 …the gate still asks for every Intake/Output box', ['Input', 'Urine output', 'Drain content'].every(l => missingText().includes(l)), missingText());
+    A.ok('4.3 …the record is offered, with the morning it closed',
+      !!offer() && /ใช้ยอด I\/O จากบันทึกพยาบาล/.test(offer().textContent) && offer().textContent.includes(today), offer() && offer().textContent);
+    A.ok('4.4 …and no note claims figures nobody took', !$('.nursing-prefill-note'));
+    A.eq('4.5 opening the form writes no draft', draftKeys(), []);
+    await t.click(offer());
+    A.eq('4.6 one tap: Input = IV + enteral actually received (100 + 60) …', val('Input'), '160');
+    A.eq('4.7 …a urine output recorded as 0 shows as 0 …', val('Urine output'), '0');
+    A.ok('4.8 …and counts as entered', !/Urine output/.test(missingText()) && !/Input/.test(missingText()), missingText());
+    A.eq('4.9 a drain they left blank stays blank …', val('Drain content'), '');
+    A.ok('4.10 …and the gate still asks for it', /Drain content/.test(missingText()), missingText());
     const note = $('.nursing-prefill-note');
-    A.ok('4.6 the card says where the figures came from, and which', !!note && /เติมจากบันทึกพยาบาล/.test(note.textContent) && /\(Input · Urine\)/.test(note.textContent));
-    A.eq('4.7 THE DEFECT GUARDED: opening a prefilled form writes no draft', draftKeys(), []);
+    A.ok('4.11 the card says where the figures came from, and which', !!note && /เติมจากบันทึกพยาบาล/.test(note.textContent) && /\(Input · Urine\)/.test(note.textContent));
+    A.ok('4.12 …and the offer is gone', !offer());
+    A.eq('4.13 the tap was the prescriber\'s choice: the unsaved draft keeps it', draftKeys().length, 1);
     await t.typeInto(calcField(t, 'Target fluid'), '170');
-    A.eq('4.8 Input does not go back to tracking the prescribed total', val('Input'), '160');
+    A.eq('4.14 Input no longer tracks the prescribed total', val('Input'), '160');
     await t.typeInto(calcField(t, 'Drain content'), '3');
-    A.eq('4.9 …while typing is still typing: a draft is kept', draftKeys().length, 1);
     await t.typeInto(calcField(t, 'Urine output'), '12');
-    A.eq('4.10 every prefilled figure is editable', val('Urine output'), '12');
-    // Left and reopened: the record fills the form again and the draft is
-    // offered. Restoring it restores what was TYPED — and the note must stop
-    // claiming the figures are the nurses'.
+    A.eq('4.15 every figure taken is editable', val('Urine output'), '12');
+
+    // Left and reopened: nothing fills itself again, the draft is offered.
+    // Restoring it restores what was TYPED, with no note claiming the
+    // figures are the nurses'.
     await P.render(null);
     await calc({ nursing: [rec] });
-    A.ok('4.10a reopened: the record fills the form again, and the draft is offered',
-      !!$('.nursing-prefill-note') && hasButton(/^กู้คืน$/));
+    A.ok('4.16 reopened: nothing filled, the record and the draft both offered',
+      io()[0] === blankIO[0] && !!offer() && hasButton(/^กู้คืน$/));
     await t.click($$('button').find(b => b.textContent.trim() === 'กู้คืน'));
-    A.eq('4.10b restoring the draft brings back what was typed', [val('Urine output'), val('Drain content')], ['12', '3']);
-    A.ok('4.10c …and the note no longer claims the nurses\' record; the record is offered instead',
-      !$('.nursing-prefill-note') && !!$('.nursing-prefill-apply'));
+    A.eq('4.17 restoring the draft brings back what was typed', [val('Urine output'), val('Drain content')], ['12', '3']);
+    A.ok('4.18 …with no "filled from" note; the record is still offered', !$('.nursing-prefill-note') && !!offer());
 
     await reset();
     await calc({ nursing: [{ ...rec, ts: day(-1) }] });
-    A.ok('4.11 a record for another date is not used', !$('.nursing-prefill-note') && val('Input') === prescribed);
-    A.ok('4.12 …nor offered', !$('.nursing-prefill-apply'));
+    A.ok('4.19 a record for another date is neither used nor offered', !$('.nursing-prefill-note') && !offer() && io()[0] === blankIO[0]);
 
     await reset();
     const saved = { ts: today, entryId: 'e-9', dol: 11, weight: 1050, status: 'submitted', lastModified: 'lm-9',
       ioInput: 111, ioOutput: 22, drainContent: 3, calcInput: { curWtG: 1050, fluidTargetPerKg: 150 } };
     await calc({ nursing: [rec], editEntry: saved });
-    A.eq('4.13 a SAVED order keeps its own figures', [val('Input'), val('Urine output'), val('Drain content')], ['111', '22', '3']);
-    A.ok('4.14 …and is offered nothing', !$('.nursing-prefill-note') && !$('.nursing-prefill-apply'));
+    A.eq('4.20 a SAVED order keeps its own figures', io(), ['111', '22', '3']);
+    A.ok('4.21 …and is offered nothing', !$('.nursing-prefill-note') && !offer());
 
-    // Arrives after the form opened: offered, not forced.
+    // Arrives after the form opened: offered the same way.
     await reset();
     await calc({ nursing: [] });
+    A.ok('4.22 fixture: nothing to offer yet', !offer());
     await calc({ nursing: [rec] });
-    A.eq('4.15 a record arriving later does not change the form by itself', val('Input'), prescribed);
-    const apply = $('.nursing-prefill-apply');
-    A.ok('4.16 …it is offered', !!apply && /ใช้ยอด I\/O จากบันทึกพยาบาล/.test(apply.textContent));
-    await t.click(apply);
-    A.eq('4.17 …and one tap takes it', [val('Input'), val('Urine output')], ['160', '0']);
-    A.ok('4.18 …with the same note', !!$('.nursing-prefill-note'));
+    A.eq('4.23 a record arriving later changes nothing by itself', io(), blankIO);
+    A.ok('4.24 …it is offered', !!offer());
+    await t.click(offer());
+    A.eq('4.25 …and one tap takes it', [val('Input'), val('Urine output')], ['160', '0']);
 
-    // Corrected after the form took it.
+    // Corrected after the prescriber took it.
     await calc({ nursing: [{ ...rec, urineMl: 40, lastModified: 'lm-2' }] });
     const changed = $('.nursing-prefill-changed');
-    A.ok('4.19 a record corrected after the prefill is flagged', !!changed && /พยาบาลแก้ยอด I\/O นี้หลังเติมแล้ว/.test(changed.textContent));
-    A.eq('4.20 …and not swapped in silently', val('Urine output'), '0');
+    A.ok('4.26 a record corrected after it was taken is flagged', !!changed && /พยาบาลแก้ยอด I\/O นี้หลังเติมแล้ว/.test(changed.textContent));
+    A.eq('4.27 …and not swapped in silently', val('Urine output'), '0');
     await t.click($$('button', changed).find(b => /ใช้ยอดล่าสุด/.test(b.textContent)));
-    A.eq('4.21 one tap takes the correction', val('Urine output'), '40');
-    A.ok('4.22 …and the flag goes', !$('.nursing-prefill-changed'));
+    A.eq('4.28 one tap takes the correction', val('Urine output'), '40');
+    A.ok('4.29 …and the flag goes', !$('.nursing-prefill-changed'));
     await calc({ nursing: [{ ...rec, urineMl: 40, lastModified: 'lm-3', lastModifiedBy: 'x@test.th' }] });
-    A.ok('4.23 a new stamp with the same figures is not a change', !$('.nursing-prefill-changed'));
+    A.ok('4.30 a new stamp with the same figures is not a change', !$('.nursing-prefill-changed'));
 
-    // Deleted after the form took it.
+    // Deleted after the prescriber took it.
     await calc({ nursing: [] });
     const gone = $('.nursing-prefill-changed');
-    A.ok('4.24 a record deleted after the prefill is flagged', !!gone && /ถูกลบแล้ว/.test(gone.textContent));
+    A.ok('4.31 a record deleted after it was taken is flagged', !!gone && /ถูกลบแล้ว/.test(gone.textContent));
     await t.click($$('button', gone).find(b => /ล้างยอดที่เติมไว้/.test(b.textContent)));
-    A.eq('4.25 one tap clears what it filled: urine blank again', val('Urine output'), '');
-    A.ok('4.26 …the gate asks for it again', /Urine output/.test(missingText()), missingText());
-    A.eq('4.27 …Input tracks the prescribed total again', val('Input'), prescribed);
-    A.ok('4.28 …and the note goes', !$('.nursing-prefill-note') && !$('.nursing-prefill-changed'));
+    A.eq('4.32 one tap clears what it filled: urine blank again', val('Urine output'), '');
+    A.ok('4.33 …the gate asks for it again', /Urine output/.test(missingText()), missingText());
+    A.eq('4.34 …Input tracks the prescribed total again', val('Input'), blankIO[0]);
+    A.ok('4.35 …and the note goes', !$('.nursing-prefill-note') && !$('.nursing-prefill-changed'));
 
     // A stool-count-only record has nothing to take.
     await reset();
-    await calc({ nursing: [] });
     await calc({ nursing: [{ ...rec, ivInMl: null, enInMl: null, urineMl: null, drainMl: null }] });
-    A.ok('4.29 a record with no I/O figure is not offered', !$('.nursing-prefill-apply'));
+    A.ok('4.36 a record with no I/O figure is not offered', !offer());
 
     // Center Point and the quick calc record no I/O at all.
     await reset();
     await calc({ nursing: [rec], centerPoint: true });
-    A.ok('4.30 Center Point: no prefill, no offer', !$('.nursing-prefill-note') && !$('.nursing-prefill-apply'));
+    A.ok('4.37 Center Point: nothing offered', !$('.nursing-prefill-note') && !offer());
     await reset();
     await calc({ nursing: [rec], scratch: true, patient: null });
-    A.ok('4.31 quick calc: no prefill, no offer', !$('.nursing-prefill-note') && !$('.nursing-prefill-apply'));
+    A.ok('4.38 quick calc: nothing offered', !$('.nursing-prefill-note') && !offer());
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  async 'calc-weight'(A) {
+    console.log('\n── §4w The weight IS prefilled: the latest measured on or before the order\'s day ──');
+    // Pp, 2026-09-24: "ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก".
+    const t = boot({ session: null });
+    t.quiet();
+    global.showToast = () => {};
+    const D = t.D();
+    const today = D.todayLocal();
+    const day = (n) => D.addDaysToDateStr(today, n);
+    const P = probe(t);
+    // Admitted 20 days ago (DOL 1); today is DOL 21. Weighed DOL 1, 5, 7 and 20.
+    const patient = mkPatient({ sessionId: 'WT-1000', bw: 1000, dob: day(-20), admissionDate: day(-20),
+      weights: [{ dol: 1, w: 1000, l: null, hc: null }, { dol: 5, w: 1010, l: null, hc: null },
+        { dol: 7, w: 1050, l: null, hc: null }, { dol: 20, w: 1300, l: null, hc: null }] });
+    const order = (dol, weight) => ({ ts: day(dol - 21), entryId: 'e' + dol, dol, weight, status: 'submitted', lastModified: 'x',
+      calcInput: { curWtG: weight, fluidTargetPerKg: 140 } });
+    let toStrip = [];   // what the Calculator pushes to the PatientStrip as the live weight
+    const open = async ({ dol, logDate = null, baseline = null, weights = patient.weights }) => {
+      await P.render(null);
+      localStorage.clear();
+      toStrip = [];
+      await P.render(t.React.createElement(t.window.Calculator, {
+        patient: { ...patient, weights }, dol, editEntry: null, baselineEntry: baseline, previousEntry: baseline, logDate,
+        userLabel: 'Dr', userEmail: 'dr@test.th', onLog() {}, onUpdate() {}, onSaved() {}, onWeightChange: (w) => toStrip.push(w) }));
+      return (calcField(t, 'Current weight') || {}).value;
+    };
+    A.eq('W.1 a new order today, no previous order: the latest measured weight', await open({ dol: 21 }), '1300');
+    A.eq('W.2 …with a previous order (DOL 19, 1250 g): a weight measured since wins (2026-09-23)',
+      await open({ dol: 21, baseline: order(19, 1250) }), '1300');
+    A.eq('W.3 THE DEFECT: a BACK-FILLED DOL 8 order does not take the DOL 20 weight — it takes DOL 7\'s',
+      await open({ dol: 8, logDate: day(-13), baseline: order(5, 1010) }), '1050');
+    A.ok('W.4 …and says it is a measured weight, from DOL 7', /= น้ำหนักที่ชั่ง \(DOL 7\)/.test($('#probe').textContent));
+    A.eq('W.5 a back-filled DOL 6 order, previous order DOL 5: nothing measured since, so the order\'s own 1010 g',
+      await open({ dol: 6, logDate: day(-15), baseline: order(5, 1010) }), '1010');
+    A.eq('W.6 a back-filled first order (no previous order): the latest weight on or before its day',
+      await open({ dol: 6, logDate: day(-15) }), '1010');
+    A.eq('W.6b …and that historical weight is not pushed to the patient strip as the current one', toStrip, []);
+    A.eq('W.7 nothing weighed on or before the order\'s day: the birth weight — never a later weight',
+      await open({ dol: 8, logDate: day(-13), weights: [{ dol: 12, w: 1100, l: null, hc: null }] }), '1000');
   },
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -532,7 +592,10 @@ const scenarios = {
     A.ok('5.3 …no Save draft', !$('.save-draft'));
     A.ok('5.4 …and says why, where they were', /พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์/.test(($('.nurse-readonly-note') || {}).textContent || ''));
     A.eq('5.5 …no "ยังกรอกไม่ครบ" list for a form nobody here can save', missingText(), '');
-    A.eq('5.6 the nurses\' totals still fill the calculator', (calcField(t, 'Input') || {}).value, '120');
+    const nurseOffer = $('.nursing-prefill-apply');
+    A.ok('5.6 the nurses\' totals are offered to a nurse\'s calculator too, not filled in', !!nurseOffer && (calcField(t, 'Input') || {}).value !== '120');
+    await t.click(nurseOffer);
+    A.eq('5.6b …one tap computes with them', (calcField(t, 'Input') || {}).value, '120');
     await t.typeInto(calcField(t, 'Target fluid'), '165');
     await t.typeInto(calcField(t, 'Other IV'), '2');
     A.eq('5.7 typing keeps no unsaved order in browser storage', draftKeys(), []);
@@ -599,7 +662,10 @@ const scenarios = {
     await t.rail(/Calculator/);
     A.ok('6b.14 the nurse\'s Calculator has no Submit', !hasButton(/^Submit$/) && !$('.save-draft'));
     A.eq('6b.15 …it says why', $$('.nurse-readonly-note').length, 1);
-    A.eq('6b.16 …and today\'s figures are already in it', [t.fieldInput('Input')?.value, t.fieldInput('Urine output')?.value], ['160', '0']);
+    A.eq('6b.16 the weight the nurse just recorded (1080 g) is the Calculator\'s current weight', t.fieldInput('Current weight')?.value, '1080');
+    A.eq('6b.16a …while Intake/Output waits to be typed or taken', t.fieldInput('Urine output')?.value, '');
+    await t.click($('.nursing-prefill-apply'));
+    A.eq('6b.16b …today\'s I/O one tap away', [t.fieldInput('Input')?.value, t.fieldInput('Urine output')?.value], ['160', '0']);
     A.eq('6b.17 no order write was ever sent', t.callsOf('logDailyNutrition').length + t.callsOf('updateDailyNutrition').length, 0);
     A.eq('6b.18 …and no edit lock taken', t.callsOf('acquireLock').length + t.callsOf('lockDailyLog').length, 0);
 
@@ -668,7 +734,9 @@ const scenarios = {
     await t.rail(/Calculator/);
     A.ok('6d.4 the doctor\'s Calculator has Submit', hasButton(/^Submit$/));
     A.eq('6d.5 …and no read-only note', $$('.nurse-readonly-note').length, 0);
-    A.eq('6d.6 …and today\'s nursing totals in Intake/Output', [t.fieldInput('Input')?.value, t.fieldInput('Urine output')?.value], ['100', '30']);
+    A.ok('6d.6 …today\'s nursing totals are offered, not filled in', !!$('.nursing-prefill-apply') && t.fieldInput('Urine output')?.value === '');
+    await t.click($('.nursing-prefill-apply'));
+    A.eq('6d.7 …and one tap takes them', [t.fieldInput('Input')?.value, t.fieldInput('Urine output')?.value], ['100', '30']);
   },
 
   async 'app-switch'(A) {

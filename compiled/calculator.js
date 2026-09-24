@@ -356,7 +356,11 @@ function Calculator({
   const wtG = tpnWtOverrideG > 0 ? tpnWtOverrideG : autoWtG;
   const tpnWtManual = tpnWtOverrideG > 0 && tpnWtOverrideG !== autoWtG;
   const usingBirthWeight = !tpnWtManual && autoWtG === bwG && curWtG > 0 && curWtG < bwG;
-  const latestMeasured = D.lastWeighed(patient);
+  const measuredByOrderDay = () => {
+    const cap = Number.isFinite(Number(dol)) ? Number(dol) : Infinity;
+    return D.lastWeighed({ weights: (patient?.weights || []).filter((x) => x && Number(x.dol) <= cap) });
+  };
+  const latestMeasured = measuredByOrderDay();
   const weightIsMeasured = !!latestMeasured && curWtG > 0 && Math.round(curWtG) === Math.round(latestMeasured.w);
   const weightSourceHint = weightIsMeasured ? `= น้ำหนักที่ชั่ง (DOL ${latestMeasured.dol})` : "= น้ำหนักที่กรอกในใบสั่งนี้";
   const wtKg = wtG / 1e3;
@@ -528,9 +532,9 @@ function Calculator({
     if (entry?.drainContent != null) src.drainContent = entry.drainContent;
     return src;
   };
-  const applyNursingIO = (dateKey, n) => {
+  const applyNursingIO = (dateKey) => {
     const rec = D.nursingRecordOn(nursing, dateKey);
-    const dropped = (key) => !n && !!nursingApplied?.keys?.has(key);
+    const dropped = (key) => !!nursingApplied?.keys?.has(key);
     const keys = /* @__PURE__ */ new Set();
     const intake = rec ? D.nursingIntakeMl(rec) : null;
     if (intake != null) {
@@ -551,12 +555,6 @@ function Calculator({
       return false;
     }
     setNursingApplied({ date: D.normalizeDateStr(rec.ts), keys, rec });
-    if (n) setPrefillKey(calcInputKey({
-      ...n,
-      ioInput: intake != null ? intake : null,
-      ioOutput: rec.urineMl != null ? Number(rec.urineMl) : n.ioOutput,
-      drainContent: rec.drainMl != null ? Number(rec.drainMl) : n.drainContent
-    }));
     return true;
   };
   const formIdentity = `${patient?.sessionId || "?"}·${orderDateKey}·${editEntry?.entryId || "new"}`;
@@ -630,17 +628,16 @@ function Calculator({
       skipWeightPropagateRef.current = true;
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
       const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
-      const measured = D.lastWeighed(patient);
+      const measured = measuredByOrderDay();
       const baselineDol = D.entryDol(patient, baselineEntry);
       const fresher = measured && measured.dol > baselineDol ? measured : null;
       const startWeight = fresher ? fresher.w : baselineEntry.weight;
-      const nBase = applyCalcInput(
+      applyCalcInput(
         { ...src, ...fresher ? { curWtG: fresher.w } : {} },
         startWeight,
         false,
         fluidMidpoint(fresher ? fresher.w : src.curWtG ?? src.wtG ?? baselineEntry.weight)
       );
-      if (!centerPoint) applyNursingIO(dateKey, nBase);
       setPrefilledFrom({
         dol: baselineEntry.dol,
         baseline: true,
@@ -661,11 +658,11 @@ function Calculator({
       } catch {
       }
     }
-    const lastWt = D.lastWeighed(patient);
+    const lastWt = measuredByOrderDay();
+    if (logDate) skipWeightPropagateRef.current = true;
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
     const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
-    const nFresh = applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
-    if (!centerPoint) applyNursingIO(dateKey, nFresh);
+    applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
     } else {
@@ -1752,12 +1749,12 @@ function Calculator({
     fontSize: 12,
     color: "var(--warn-ink)",
     fontWeight: 600
-  } }, nursingForDate ? "พยาบาลแก้ยอด I/O นี้หลังเติมแล้ว" : "บันทึก I/O ที่ใช้เติมถูกลบแล้ว", /* @__PURE__ */ React.createElement("button", { className: "btn sm nursing-prefill-apply", onClick: () => applyNursingIO(nursingApplied.date, null) }, nursingForDate ? "ใช้ยอดล่าสุด" : "ล้างยอดที่เติมไว้")), !nursingApplied && nursingForDate && nursingTaken(nursingForDate) !== "||" && /* @__PURE__ */ React.createElement(
+  } }, nursingForDate ? "พยาบาลแก้ยอด I/O นี้หลังเติมแล้ว" : "บันทึก I/O ที่ใช้เติมถูกลบแล้ว", /* @__PURE__ */ React.createElement("button", { className: "btn sm nursing-prefill-apply", onClick: () => applyNursingIO(nursingApplied.date) }, nursingForDate ? "ใช้ยอดล่าสุด" : "ล้างยอดที่เติมไว้")), !nursingApplied && nursingForDate && nursingTaken(nursingForDate) !== "||" && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn sm nursing-prefill-apply",
       style: { marginTop: 8 },
-      onClick: () => applyNursingIO(orderDateKey, null)
+      onClick: () => applyNursingIO(orderDateKey)
     },
     "ใช้ยอด I/O จากบันทึกพยาบาล (ปิดยอดเช้า ",
     window.NEOFEED_FMT_DATE?.(orderDateKey) || orderDateKey,

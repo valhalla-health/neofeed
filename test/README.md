@@ -1029,14 +1029,17 @@ needs no npm dependencies. It covers:
 - audit rows, including a delete's strict start row;
 - formula injection, the `deletePatient` cascade, and the column-drift guard.
 
-**`verify-nursing-frontend.cjs`** (222 assertions with a browser, 198 without; fails on `b64c7fa`,
+**`verify-nursing-frontend.cjs`** (239 assertions with a browser, 215 without; fails on `b64c7fa`,
 the backend commit). It runs one scenario per process through `review-0917-boot.cjs`:
 - the `data.js` helpers;
 - the form: blank ≠ 0 in the payload, the bounds, no free-text box, a weight-only save, the offered
   weight, errors shown in place, the backdrop guard, nothing kept in browser storage;
 - the Dashboard card;
-- D4: the prefill, **no draft written by opening a prefilled form**, saved orders untouched, and
-  late, corrected or deleted records offered or flagged;
+- D4: **nothing fills a new order's Intake/Output by itself**. The nurses' record is a one-tap
+  offer, saved orders are untouched, and corrected or deleted records are flagged. §4 fails on
+  `3c02db2`, which auto-filled;
+- the weight prefill (§4w): the latest weight on or before the order's day. A back-filled order
+  took a later weight before; this fails on `3c02db2`;
 - D5: a nurse's Calculator saves nothing;
 - the real `<App/>` against the fake Apps Script, extended with the nursing actions. **Before the
   backend serves `nursing`, nothing changes.** After it, the scenarios cover the nurse, doctor and

@@ -550,7 +550,18 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // screen admitting the difference (2026-09-23). A weight is "measured" only
   // if it matches a row in patient.weights[]; anything else is a figure typed
   // into this order and not (yet) a recorded measurement.
-  const latestMeasured = D.lastWeighed(patient);
+  //
+  // "Latest" means on or before THIS order's day — which is also the weight a
+  // new order starts from (the prefill effect below). Pp, 2026-09-24: "ถ้าเข้า
+  // ผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก" — the nurses' morning weight
+  // included, as it lands in the same weights[]. D.lastWeighed alone is the
+  // newest of all, so a BACK-FILLED order started from a weight put on the
+  // scale days after its date (a DOL 8 order took the DOL 20 weight).
+  const measuredByOrderDay = () => {
+    const cap = Number.isFinite(Number(dol)) ? Number(dol) : Infinity;
+    return D.lastWeighed({ weights: (patient?.weights || []).filter(x => x && Number(x.dol) <= cap) });
+  };
+  const latestMeasured = measuredByOrderDay();
   const weightIsMeasured = !!latestMeasured && curWtG > 0 && Math.round(curWtG) === Math.round(latestMeasured.w);
   const weightSourceHint = weightIsMeasured
     ? `= น้ำหนักที่ชั่ง (DOL ${latestMeasured.dol})`
@@ -639,10 +650,11 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     });
     return keys;
   }, [editEntry]);
-  // Intake / Output a new order took from the nurses' record for its date
-  // (UX roadmap #4, D4): { date, keys, rec }, or null. A figure the nurses
-  // recorded — a 0 included — is a measurement, so it seeds as a typed zero and
-  // satisfies the required-field gate; a field they left blank stays blank.
+  // Intake / Output the prescriber took, with one tap, from the nurses' record
+  // for the order's date (UX roadmap #4, D4): { date, keys, rec }, or null. A
+  // figure the nurses recorded — a 0 included — is a measurement, so it seeds as
+  // a typed zero and satisfies the required-field gate; a field they left blank
+  // stays blank.
   const [nursingApplied, setNursingApplied] = useState(null);
   const seedsZero = (key) => seededZeros.has(key) || !!nursingApplied?.keys?.has(key);
 
@@ -849,22 +861,20 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     return src;
   };
 
-  // D4 (Pp, 2026-09-24): a NEW order's Intake / Output starts from the nurses'
-  // 24-hour totals for its date — "Input ในใบ order เป็นเหมือนยอดที่จะคำนวณใน
-  // วันนั้นเฉยๆ แต่จะ prefill โดยใช้ข้อมูล intake ที่ได้รับจริงใน 24 ชม. ที่ผ่านมา
-  // ได้" — filled automatically and left editable ("calculator ให้เติมเอง").
-  // Never on a saved order, whose figures are its record. Input becomes IV +
-  // enteral actually received and stops tracking the prescribed total. `n` is
-  // what the prefill just applied: the "opened vs edited" fingerprint is taken
-  // with these figures in it, so opening a prefilled form is not typing (no
-  // draft is written for it). null = applied later by hand (the button).
-  const applyNursingIO = (dateKey, n) => {
+  // D4 (Pp, 2026-09-24): "หมอพิมพ์เอง" — the prescriber types a new order's
+  // Intake / Output. The nurses' 24-hour totals for the order's date are one
+  // tap away (the button on the Intake / Output card), never filled in by
+  // themselves: Input = IV + enteral actually received, and Urine and Drain as
+  // recorded, each left editable. A tap is the prescriber's choice, so it counts
+  // as typing (the unsaved-draft store keeps it). Never on a saved order, whose
+  // figures are its record.
+  const applyNursingIO = (dateKey) => {
     const rec = D.nursingRecordOn(nursing, dateKey);
-    // Taken again by hand (n == null) after the nurses changed their record: a
-    // figure they have since blanked, or a record since deleted, must not stay
-    // in the form as if it were still theirs — it goes back to blank (Input
-    // back to tracking the prescribed total), for the prescriber to fill.
-    const dropped = (key) => !n && !!nursingApplied?.keys?.has(key);
+    // Taken again after the nurses changed their record: a figure they have
+    // since blanked, or a record since deleted, must not stay in the form as if
+    // it were still theirs — it goes back to blank (Input back to tracking the
+    // prescribed total), for the prescriber to fill.
+    const dropped = (key) => !!nursingApplied?.keys?.has(key);
     const keys = new Set();
     const intake = rec ? D.nursingIntakeMl(rec) : null;
     if (intake != null) { setIoInput(intake); markIoInputTouched(true); keys.add("ioInput"); }
@@ -875,10 +885,6 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     else if (dropped("drainContent")) setDrainContent(0);
     if (!keys.size) { setNursingApplied(null); return false; }
     setNursingApplied({ date: D.normalizeDateStr(rec.ts), keys, rec });
-    if (n) setPrefillKey(calcInputKey({ ...n,
-      ioInput: intake != null ? intake : null,
-      ioOutput: rec.urineMl != null ? Number(rec.urineMl) : n.ioOutput,
-      drainContent: rec.drainMl != null ? Number(rec.drainMl) : n.drainContent }));
     return true;
   };
 
@@ -1002,6 +1008,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // tracks today's prescribed total until typed (ioTouched false).
     const NEW_DAY_IO = { ioInput: 0, ioOutput: 0, drainContent: 0 };
 
+    // A new order starts from the latest weight measured on or before its own
+    // day (measuredByOrderDay, above).
+
     if (baselineEntry) {
       skipWeightPropagateRef.current = true;
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
@@ -1013,13 +1022,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       // two "current weights" on one screen, 30 g apart, neither labelled.
       // A measurement on a LATER DOL than the order being copied is newer by
       // definition, and it is the one the ward just put on the scale.
-      const measured = D.lastWeighed(patient);
+      const measured = measuredByOrderDay();
       const baselineDol = D.entryDol(patient, baselineEntry);
       const fresher = measured && measured.dol > baselineDol ? measured : null;
       const startWeight = fresher ? fresher.w : baselineEntry.weight;
-      const nBase = applyCalcInput({ ...src, ...(fresher ? { curWtG: fresher.w } : {}) },
+      applyCalcInput({ ...src, ...(fresher ? { curWtG: fresher.w } : {}) },
         startWeight, false, fluidMidpoint(fresher ? fresher.w : (src.curWtG ?? src.wtG ?? baselineEntry.weight)));
-      if (!centerPoint) applyNursingIO(dateKey, nBase);
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true,
         ...(fresher ? { weightFrom: { dol: fresher.dol, w: fresher.w }, weightWas: baselineEntry.weight } : {}) });
       return;
@@ -1043,12 +1051,14 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       } catch {}
     }
 
-    const lastWt = D.lastWeighed(patient);
+    const lastWt = measuredByOrderDay();
+    // A back-filled order's weight is historical, as the baseline's is above:
+    // it must not flash into the PatientStrip as the current weight.
+    if (logDate) skipWeightPropagateRef.current = true;
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
     // Fresh entry — ioInput tracks the computed total until edited (ioTouched false).
     const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
-    const nFresh = applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
-    if (!centerPoint) applyNursingIO(dateKey, nFresh);
+    applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
@@ -2240,8 +2250,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)"}</>}
             </div>
           )}
-          {/* Where the figures came from (D4) — or, when the nurses' record
-              arrived after this form opened, one tap to take it. */}
+          {/* D4: the nurses' record for this order's date, one tap away —
+              never filled in by itself — and, once taken, where the figures
+              came from, and whether the ward has changed them since. */}
           {nursingApplied && (
             <div className="nursing-prefill-note" style={{ marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 }}>
               เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า {window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date}
@@ -2252,14 +2263,14 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
             <div className="nursing-prefill-changed" role="alert" style={{ marginTop: 8, display: "flex", alignItems: "center",
               gap: 8, flexWrap: "wrap", fontSize: 12, color: "var(--warn-ink)", fontWeight: 600 }}>
               {nursingForDate ? "พยาบาลแก้ยอด I/O นี้หลังเติมแล้ว" : "บันทึก I/O ที่ใช้เติมถูกลบแล้ว"}
-              <button className="btn sm nursing-prefill-apply" onClick={() => applyNursingIO(nursingApplied.date, null)}>
+              <button className="btn sm nursing-prefill-apply" onClick={() => applyNursingIO(nursingApplied.date)}>
                 {nursingForDate ? "ใช้ยอดล่าสุด" : "ล้างยอดที่เติมไว้"}
               </button>
             </div>
           )}
           {!nursingApplied && nursingForDate && nursingTaken(nursingForDate) !== "||" && (
             <button className="btn sm nursing-prefill-apply" style={{ marginTop: 8 }}
-              onClick={() => applyNursingIO(orderDateKey, null)}>
+              onClick={() => applyNursingIO(orderDateKey)}>
               ใช้ยอด I/O จากบันทึกพยาบาล (ปิดยอดเช้า {window.NEOFEED_FMT_DATE?.(orderDateKey) || orderDateKey})
             </button>
           )}

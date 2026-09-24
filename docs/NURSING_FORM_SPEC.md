@@ -26,7 +26,7 @@ roadmap (alarm fatigue, admin census, mobile bed button) shipped in PR #111.
 | Part | What | Where |
 |---|---|---|
 | **Backend** | A `Nursing_Log` tab, 3 actions, `nursing` in the sync payload, and **D5**: a nurse's order write is refused | `gas-backend.gs` · `verify-nursing-backend.cjs` |
-| **Frontend** | An **I/O ประจำวัน** card on each infant's Dashboard, with its form; the Calculator's Intake/Output **filled from it** on a new order (D4); a nurse's Calculator **computes but does not save** (D5) | `log.jsx`, `app.jsx`, `calculator.jsx`, `data.js`, both shells · `verify-nursing-frontend.cjs` |
+| **Frontend** | An **I/O ประจำวัน** card on each infant's Dashboard, with its form; the Calculator's Intake/Output **typed by the prescriber**, with the nurses' record **one tap away** (D4); a nurse's Calculator **computes but does not save** (D5) | `log.jsx`, `app.jsx`, `calculator.jsx`, `data.js`, both shells · `verify-nursing-frontend.cjs` |
 | **Go-live** | Release the frontend and `clasp push` the backend in either order; both are inert. **After D7**, set `NURSING_LOG_ENABLED` = `true` (§ 5.4). | Pp |
 
 A card and a form, not a new view: the Dashboard is where the ward already looks for an infant, it sits
@@ -42,8 +42,8 @@ record.** NeoFeed's I/O is a nutrition worksheet, and the form says so on screen
 lastModified | lastModifiedBy | appVersion`
 
 - **One row per infant per date (D1: daily totals, no shifts).** `ts` is the morning the 24-hour total
-  **closed**. The order dated X is filled from the record dated X: the order written that morning reads
-  it as "the past 24 h". A second record for a date is refused with `DuplicateDate` and the existing
+  **closed**. The order dated X is offered the record dated X: the order written that morning reads it
+  as "the past 24 h". A second record for a date is refused with `DuplicateDate` and the existing
   `entryId`, as Daily_Log does, and the client says "open the existing one".
 - **Blank ≠ 0.** A blank cell means *not recorded*; `0` means *measured, none*. The sync sends a blank
   as `null` (`_numOrNull`), never 0, and every total says "—" rather than add a blank as zero. This is
@@ -124,16 +124,27 @@ check it either); "on the unit" (a discharged infant's last day can still be com
 
 ### 5.3 The Calculator (D4, D5)
 
-- **D4, a new order only:** Input = IV + EN actually received, Urine = urine, Drain = drain, all
-  taken from the nurses' record **for the order's date**. The fields stay editable, and a note says
-  where the figures came from. A recorded 0 counts as entered for the required-field gate; a blank
-  stays blank and the gate still asks for it. **Opening a prefilled form writes no draft.** Once
-  filled, Input no longer tracks the prescribed total.
+- **D4 (Pp: "หมอพิมพ์เอง"): the prescriber types a new order's Intake/Output.** When the nurses have
+  a record **for the order's date**, the card offers it as one tap, "ใช้ยอด I/O จากบันทึกพยาบาล":
+  - **Nothing fills itself.** Opening the form changes nothing and writes no draft.
+  - **The tap fills three fields:** Input = IV + EN actually received, Urine = urine, Drain = drain.
+  - **Every field stays editable,** and a note says where the figures came from.
+  - **The gate:** a recorded 0 counts as entered; a blank stays blank, and the gate still asks for it.
+  - **The tap counts as typing,** so the unsaved-draft store keeps it. After the tap, Input no longer
+    tracks the prescribed total.
+- **The weight IS prefilled** on every order opened on a patient, from the ward or by the patient's
+  name (Pp: "ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก"):
+  - It is the latest weight measured **on or before the order's own day**, the nurses' morning weight
+    included (§ 3: one weight store).
+  - A back-filled order used to take a weight measured after its date (a DOL 8 order took DOL 20's).
+    It no longer does, and its historical weight is not shown in the patient strip as the current
+    one.
+  - The quick calc has no patient and stays blank.
 - **Never** on a saved order (its figures are its record), on Center Point, or on the quick calc.
-- **A record that arrives after the form opened** is offered as one tap, not forced in. **A record
-  corrected or deleted after the fill is flagged**, with a one-tap "ใช้ยอดล่าสุด" / "ล้างยอดที่เติมไว้".
-  An order is not written on totals the ward has already corrected. **Restoring an unsaved draft**
-  brings back what was typed: the note goes, and the record is offered again.
+- **A record corrected or deleted after it was taken is flagged,** with a one-tap "ใช้ยอดล่าสุด" /
+  "ล้างยอดที่เติมไว้". An order is not written on totals the ward has already corrected.
+- **Restoring an unsaved draft** brings back what was typed: the note goes, and the record is offered
+  again.
 - **D5, a nurse:** no Save draft, no Submit, no publish, no **New log** on the Dashboard, no
   unsaved-order draft in browser storage, and no edit lock (a nurse computing is not "editing this
   order"). A note sits where the buttons were. Copy and Print still work on an order a doctor saved.
@@ -189,7 +200,7 @@ neither collects anything (§ 5.4).
 | Two devices, one record | `DuplicateDate` on create, `expectedLastModified` conflict on edit; both are shown in the form and both re-sync. |
 | **The nursing backend goes live with an unrelated deploy, before D7** | It ships dark: nothing happens until `NURSING_LOG_ENABLED` is set by hand (§ 4). A backend batch is already waiting on a `clasp` deploy (`CHANGELOG.md` § 2026-09-24 (2)–(3)), which is why this switch exists. |
 | **Nurses lose order saves before the I/O form exists for them** | D5 and the form come on together, with the switch (§ 5.4). The sync cache key carries the switch, so no stale payload bridges a flip (§ 4). |
-| Auto-fill hides that a figure is not a prescription | The note on the Calculator's I/O card says where it came from; every field stays editable; a saved order is never touched. |
+| A nursing figure mistaken for a prescription | Nothing fills itself (D4): the prescriber types, or taps to take the record. A note then says where the figures came from, every field stays editable, and a saved order is never touched. |
 | Ward Wi-Fi dead zones | A clear failed-save error in the form. No silent offline queue: the app has no service worker on purpose (walkthrough § 7). |
 | **Cells (Sindri)** | 1 row × ~45 infants × 365 d ≈ 16 k rows/yr × 13 columns ≈ **0.21 M cells/yr**. |
 | **Sync payload (Sindri)** | One ~250-byte row per infant per day on the unit, about a tenth of an order row, which carries its `calcInput` JSON. It rides the existing 5-minute shared cache. |
@@ -203,7 +214,7 @@ neither collects anything (§ 5.4).
 | **D1** | Shifts, and which 24 h a total covers | "เอาแค่ยอดประจำวัน" · "Input ในใบ order เป็นเหมือนยอดที่จะคำนวณในวันนั้นเฉยๆ แต่จะ prefill โดยใช้ข้อมูล intake ที่ได้รับจริงใน 24 ชม. ที่ผ่านมาได้" | one daily total per infant, dated the morning it closed (§ 3) |
 | **D2** | Fields | "default" | weight · IV in · EN in (+ feed) · urine · drain · stools; no residual/vomit |
 | **D3** | Who writes | "admin ทำได้ทุกอย่าง" | nurse, doctor and admin write; admin also deletes |
-| **D4** | Calculator link | "calculator ให้เติมเอง เพราะเหมือนมาใช้เครื่องคิดเลขเฉยๆ" | **read as "the Calculator fills it in itself"**: a new order is prefilled and stays editable (§ 5.3). *If Pp meant "the prescriber types it themselves", switching to the one-tap offer that already exists for a late record is a one-line change.* |
+| **D4** | Calculator link | "calculator ให้เติมเอง เพราะเหมือนมาใช้เครื่องคิดเลขเฉยๆ", then (asked to confirm) **"หมอพิมพ์เอง"** · "แต่ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก" | **The prescriber types Intake/Output**; the nurses' record is a one-tap offer, never an auto-fill. **The weight is prefilled** from the latest measurement on or before the order's day (§ 5.3). |
 | **D5** | Narrow order writes to prescribers | "พยาบาลบันทึกหรือ submit ไม่ได้ ได้แค่ใช้ calculator" | now, not after 2 weeks: server-side refusal plus a compute-only Calculator, switched on together (§ 5.4) |
 | **D6** | Retention | "เก็บไว้ตลอดไปก่อน รอคุย" | indefinite for now; open with the DPO (§ 6) |
 | **D7** | DPO sign-off | "รอคุย" | **open. `NURSING_LOG_ENABLED` stays unset until it is given.** |
@@ -219,12 +230,14 @@ neither collects anything (§ 5.4).
   audit rows, including the strict delete-start; formula injection; the `deletePatient` cascade; the
   column-drift guard. It fails on `68e302f`.
 - **`verify-nursing-frontend.cjs`** (jsdom and the real `<App/>` against a fake Apps Script; Chromium
-  when playwright is installed; 222 assertions, 198 without a browser):
+  when playwright is installed; 239 assertions, 215 without a browser):
   - the helpers;
   - the form: blank ≠ 0 in the payload, bounds, no free-text box, weight-only saves, the offered
     weight, in-place errors, the backdrop guard, nothing in browser storage;
   - the card;
-  - D4 (prefill, no draft on open, saved orders untouched, late / corrected / deleted records);
+  - D4 (nothing fills itself; the one-tap offer; no draft on open; saved orders untouched; corrected
+    or deleted records flagged);
+  - the weight prefill, including a back-filled order never taking a later weight;
   - D5;
   - the App before and after the backend serves `nursing`, for nurse, doctor and admin, including
     `DuplicateDate`, the conflict and the switch both ways;

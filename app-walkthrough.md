@@ -631,17 +631,23 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    below Step 1 (added 2026-08-10) — see the `ioInput`/`ioOutput`/
    `drainContent` note in §3's Daily_Log entry shape above for the field
    semantics and the per-kg/day divisor rule.
-   **A new order's Intake/Output is filled from the nurses' record for its
-   date** (Pp's D4, 2026-09-24; `applyNursingIO`):
-   - Input = IV + EN actually received; Urine and Drain are taken as recorded.
-   - The fields stay editable, and a note says where the figures came from.
+   **The prescriber types a new order's Intake/Output (Pp's D4, 2026-09-24:
+   "หมอพิมพ์เอง").** When the nurses have a record for the order's date, the
+   card offers it as one tap (`applyNursingIO`); nothing fills itself.
+   - The tap fills Input = IV + EN actually received, and takes Urine and Drain
+     as recorded. The fields stay editable, and a note says where the figures
+     came from.
    - A recorded 0 seeds as a typed zero (`seedsZero`), so it satisfies the
      required-field gate; a blank stays blank.
-   - The `prefillKey` fingerprint includes the filled figures, so opening the
-     form writes no draft.
+   - The tap counts as typing, so the unsaved-draft store keeps it.
    - Never on a saved order, Center Point or the quick calc.
-   - A record that arrives later is offered as a button. One corrected or
-     deleted after the fill is flagged (`nursingChanged`).
+   - A record corrected or deleted after it was taken is flagged
+     (`nursingChanged`).
+
+   **The weight IS prefilled** (Pp: "ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill
+   น้ำหนัก"). It is the latest weight measured on or before the order's own
+   day (`measuredByOrderDay`), which includes the nurses' morning weight. A
+   back-filled order no longer takes a weight measured after its date.
 
    **A nurse's Calculator, while the nursing form is switched on (D5):** there is no
    Save draft, Submit or publish, `writeDraft` is off, and there is no edit lock.

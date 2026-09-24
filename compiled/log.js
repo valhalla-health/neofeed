@@ -633,7 +633,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
         onChange: (e) => pickDate(e.target.value),
         style: { flex: "1 1 160px", minHeight: 44 }
       }
-    ), /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 12 } }, "DOL ", dol)), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 } }, "ใบสั่งของวันที่ ", window.NEOFEED_FMT_DATE?.(date) || date, " จะเติม Intake/Output จากยอดนี้")), /* @__PURE__ */ React.createElement("div", { className: "nio-grid" }, /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 12 } }, "DOL ", dol)), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 } }, "ใบสั่งของวันที่ ", window.NEOFEED_FMT_DATE?.(date) || date, " กดใช้ยอดนี้ได้ที่ Intake/Output ใน Calculator")), /* @__PURE__ */ React.createElement("div", { className: "nio-grid" }, /* @__PURE__ */ React.createElement(
       NurseNum,
       {
         name: "weightG",

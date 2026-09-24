@@ -1390,7 +1390,7 @@ function upsertWeight(weights, dol, w) {
 // ── Nursing Intake/Output (UX roadmap #4, 2026-09-24) ────────────────────────
 // One record per infant per date: the ward's 24-hour totals, dated the morning
 // the total CLOSED — so an order written that morning reads it as "the past
-// 24 h" (the Calculator prefills its Intake/Output card from it, Pp's D4).
+// 24 h" (the Calculator's Intake/Output card offers it with one tap, Pp's D4).
 // Every volume is mL per 24 h and may be null: null means "not recorded" and
 // must never be read as a measured 0 (gas-backend.gs _numOrNull).
 // What went in, IV + enteral; null when neither was recorded. Rounded to

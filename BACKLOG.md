@@ -182,7 +182,8 @@ clinical judgement. Everything else is engineering sequencing.
       - daily totals only (D1);
       - an "I/O ประจำวัน" card + form on each infant's Dashboard;
       - the weight goes to the growth store;
-      - a new order's Intake/Output is filled from the nurses' record (D4);
+      - the nurses' record is a one-tap offer on a new order's Intake/Output, and the weight is
+        prefilled (D4);
       - nurses compute but no longer save or Submit orders (D5).
 
       Pinned by `test/verify-nursing-backend.cjs` and `test/verify-nursing-frontend.cjs`.
@@ -198,8 +199,10 @@ clinical judgement. Everything else is engineering sequencing.
 
       **Still open:**
       - D6: retention is indefinite for now, to settle with the DPO.
-      - D4's reading: "the Calculator fills it in itself". If Pp meant "the prescriber types it", the
-        one-tap offer is already built.
+
+      D4 is settled (Pp: "หมอพิมพ์เอง"). The prescriber types Intake/Output, and the nurses' record is
+      a one-tap offer. The weight is prefilled from the latest measurement on or before the order's
+      day (`CHANGELOG.md` § 2026-09-24 (6)).
 - [ ] ⚖️ **PDPA · The lawful-basis citation reads "Sec 26(6)"; the Act's health-care exception is Sec
       26(5)(a)** (medical diagnosis, health care, medical treatment, under professional confidentiality).
       Found 2026-09-24 while reviewing the nursing form. **DPO to confirm** (it is part of the nursing

@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (6) — D4 settled: the prescriber types Intake/Output; the weight is prefilled
+
+Pp confirmed D4 (§ (5) had read it the other way): **"D4 หมอพิมพ์เอง"**, then **"แต่ถ้าเข้าผ่าน ward
+หรือชื่อคนไข้ ให้ prefill น้ำหนัก"**, then "Review/merge #111 ได้เลย".
+
+- **Nothing fills a new order's Intake/Output by itself.**
+  - With a nurses' record for the order's date, the card offers it as one tap ("ใช้ยอด I/O จากบันทึกพยาบาล").
+  - The tap is the prescriber's choice, and the unsaved-draft store keeps it like typing.
+  - The "filled from" note, the flags for a corrected or deleted record, and the seeded-zero rule are
+    unchanged.
+  - A nurse's compute-only Calculator is offered the record the same way.
+- **The weight is prefilled** on every order opened on a patient: the latest weight measured **on or
+  before the order's own day**, the nurses' morning weight included.
+- **Fixed on the way (older than this PR):** a back-filled order took the newest weight of all, one
+  measured after its own date. A DOL 8 order started at the DOL 20 weight. The "= น้ำหนักที่ชั่ง
+  (DOL x)" hint follows the same rule now. That historical weight is also no longer pushed to the
+  patient strip as the current one. Today's orders are unchanged.
+- `test/verify-nursing-frontend.cjs`: 239 assertions (215 without a browser).
+  - §4 (the one-tap offer) fails on `3c02db2`.
+  - §4w (the weight) fails on `3c02db2` for every back-filled case.
+
 ## Session 2026-09-24 (5) — Nurse form built to Pp's decisions (ships switched off until D7)
 
 Pp answered the spec's § 8 in Thai:

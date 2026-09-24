@@ -678,7 +678,8 @@ function LogDateModal({ patient, dol, onClose, onConfirm }) {
 // ============================================================
 // docs/NURSING_FORM_SPEC.md, built to Pp's decisions of 2026-09-24. ONE record
 // per infant per date (D1: daily totals only), dated the morning the 24-hour
-// total closed — so the order written that morning is prefilled from it (D4).
+// total closed — so the order written that morning can take it with one tap
+// (D4: the prescriber types Intake/Output; nothing fills itself).
 // The chart stays the record of care; this is the nutrition worksheet. Shown
 // only once the backend serves nursing records (App passes `nursing` = null
 // until then), which is also when nurses stop saving orders (D5).
@@ -811,7 +812,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
               <span className="chip brand" style={{ fontSize: 12 }}>DOL {dol}</span>
             </div>
             <div className="field-hint" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
-              ใบสั่งของวันที่ {window.NEOFEED_FMT_DATE?.(date) || date} จะเติม Intake/Output จากยอดนี้
+              ใบสั่งของวันที่ {window.NEOFEED_FMT_DATE?.(date) || date} กดใช้ยอดนี้ได้ที่ Intake/Output ใน Calculator
             </div>
           </div>
           <div className="nio-grid">
