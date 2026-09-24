@@ -253,12 +253,12 @@ function computeAlerts(patient, allEntries) {
     });
   }
 
-  // Stale weight: warn when no weight in 3+ days — from EITHER store
-  // (D_A.lastWeighed with the log). A ward that records the weight in the
-  // daily order rather than on the growth chart used to get "Weight
-  // measurement >7 days overdue", in red, on an infant weighed that morning:
-  // this alert could only see patient.weights[] (2026-09-23).
-  const lastWtEntry = D_A.lastWeighed(patient, entries);
+  // Stale weight: warn when no weight in 3+ days — the same current weight
+  // every screen shows (D_A.currentWeight with the log). A ward that records
+  // the weight in the daily order rather than on the growth chart used to get
+  // "Weight measurement >7 days overdue", in red, on an infant weighed that
+  // morning: this alert could only see patient.weights[] (2026-09-23).
+  const lastWtEntry = D_A.currentWeight(patient, entries);
   const todaysDol = D_A.liveDol(patient);
   if (lastWtEntry) {
     const daysSince = todaysDol - lastWtEntry.dol;
@@ -660,8 +660,6 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // re-evaluated when something else re-rendered App, so a tab sitting idle
   // (the exact case that produces stale data) would never show the warning.
   const [staleTick, setStaleTick] = React.useState(0);
-  const [calcWeights, setCalcWeights] = React.useState({});
-  React.useEffect(() => { setCalcWeights({}); }, [activeId]); // reset typed weight on patient switch
 
   // Which existing log entry the Calculator is editing (null = creating a new entry).
   // Cleared on any ordinary navigation so it never bleeds into an unrelated Calculator visit.
@@ -673,8 +671,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const goTo = (v) => { setEditEntry(null); setLogDate(null); setView(v); };
 
   const active = patients.find((p) => p.sessionId === activeId);
-  const lastWt = active?.weights?.slice(-1)[0];
-  // DOL = admissionDOL + daysSinceAdmit — single source of truth (data.js → liveDol)
+  // Today's DOL, from the anchor (data.js liveDol → dolAtDate) — the one every
+  // patient view shows.
   const dol = D_A.liveDol(active);
 
   // Bumped whenever AlertCenter acknowledges something for the active patient,
@@ -994,9 +992,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           // here puts every record on the anchor that cannot move. The first
           // edit of that record persists it for real.
           const withDob = incoming.map(p => {
-            if (p.dob || !p.admissionDate || D_A.admissionDateIssue(p.admissionDate)) return p;
-            const admitDol = Math.max(1, Number(p.weights?.[0]?.dol) || 1);
-            return { ...p, dob: D_A.addDaysToDateStr(p.admissionDate, -(admitDol - 1)) };
+            if (p.dob) return p;
+            const dob = D_A.dobFromAdmission(p);
+            return dob ? { ...p, dob } : p;
           });
           setPatients(withDob.length > 0 ? withDob : []);
           // Never auto-pick a patient — keep the current selection only if it
@@ -1378,10 +1376,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (blocked) return Promise.resolve(blocked);
     const prevEntries = log[id] || [];
     setLog(prev => ({ ...prev, [id]: (prev[id] || []).filter(e => e.entryId !== entry.entryId) }));
+    // The DOL the table showed for this row — from its date, not its stored column.
+    const shownDol = D_A.entryDol(active, entry);
 
-    if (!GAS_ON) { showToast(`ลบบันทึก DOL ${entry.dol} แล้ว`); return Promise.resolve({ ok: true }); }
+    if (!GAS_ON) { showToast(`ลบบันทึก DOL ${shownDol} แล้ว`); return Promise.resolve({ ok: true }); }
     return writeGAS({ action: "deleteDailyNutrition", sessionId: id, entryId: entry.entryId }).then(res => {
-      if (res.ok) showToast(`ลบบันทึก DOL ${entry.dol} แล้ว`);
+      if (res.ok) showToast(`ลบบันทึก DOL ${shownDol} แล้ว`);
       else if (!res.unknown) setLog(prev => ({ ...prev, [id]: prevEntries }));
       return res;
     });
@@ -1937,7 +1937,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               (2026-09-23). Any future non-patient view is covered by the same
               rule rather than needing another exception. */}
           {PATIENT_VIEWS.includes(view) && active &&
-          <PatientStrip patient={active} entries={log[activeId] || []} onSwitch={() => setPickerOpen(true)} liveWeight={calcWeights[activeId] || null} currentDol={dol} onEdit={() => setEditingPatient(active)} />
+          <PatientStrip patient={active} entries={log[activeId] || []} onSwitch={() => setPickerOpen(true)} currentDol={dol} onEdit={() => setEditingPatient(active)} />
           }
           {/* The modal waits for the server and closes itself on success (UP-S9). */}
           {editingPatient && <EditPatientModal patient={editingPatient} patients={patients} onClose={() => setEditingPatient(null)}
@@ -1967,7 +1967,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
               handlePublishToGAS={handlePublishToGAS}
               handleDeleteEntry={handleDeleteEntry}
-              goTo={goTo} setCalcWeights={setCalcWeights} />
+              goTo={goTo} />
           )}
           {view === "fenton" && active &&
           <>
@@ -2091,7 +2091,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // while view === "calculator", so its own hook-call sequence is consistent
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel, userEmail,
-  handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo, setCalcWeights }) {
+  handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo }) {
   // Editing an existing row re-derives its DOL from the row's date rather
   // than trusting the stored `dol` column (D_A.entryDol) — otherwise a row
   // saved before this patient had an admission date keeps re-saving that
@@ -2151,8 +2151,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         userEmail={userEmail}
         onLog={handleLogToGAS} onUpdate={handleUpdateToGAS} onPublish={handlePublishToGAS}
         onSaved={() => goTo("log")}
-        onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined}
-        onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
+        onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined} />
     </>
   );
 }
@@ -2330,19 +2329,20 @@ function RailItem({ icon, label, active, count, crit, onClick }) {
 
 }
 
-function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEdit }) {
-  // `?? patient.bw` rather than trusting `last.w`: a patient whose only
-  // measurements are length/HC (w: null) has no weighed entry at all, and this
-  // strip is rendered above every non-registry view — reading `.w` off nothing
-  // threw and took the whole app down with it, since there is no error boundary.
-  // Both stores (D_A.lastWeighed with the log): "Wt now" showed the last
-  // growth-chart measurement only, so on a ward that records weight in the
-  // daily TPN order it sat at the birth weight for weeks (2026-09-23).
-  const ws = patient.weights || [];
-  const last = D_A.lastWeighed(patient, entries) || ws[ws.length - 1] || null;
-  const currentW = liveWeight ?? last?.w ?? patient.bw;
-  // Use calculated DOL if passed, else fall back to stored value
-  const displayDol = currentDol ?? last?.dol ?? 1;
+function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
+  // The infant's weight from the one place every screen reads it
+  // (D_A.currentWeight with the log — Praew, 2026-09-24): the latest recorded
+  // weight, from the growth chart or a saved order. It used to prefer the
+  // number being typed in the Calculator — unsaved, a draft, a back-fill's —
+  // and kept showing it on the Dashboard, Growth and Alerts
+  // pages until the patient changed, beside an alert quoting the real one.
+  // `?? patient.bw` for a record with no weighed row at all (a length/HC-only
+  // history): reading `.w` off nothing took the app down.
+  const last = D_A.currentWeight(patient, entries);
+  const currentW = last?.w ?? patient.bw;
+  // Today's DOL (App's liveDol). An order for another day names its own DOL
+  // and date in the Calculator's header, never here.
+  const displayDol = currentDol;
   const delta = currentW - patient.bw;
   const deltaPct = delta / patient.bw * 100;
   const [wtLabel, wtColor] = patient.bw < 1000

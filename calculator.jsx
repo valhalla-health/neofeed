@@ -479,7 +479,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // previous-submission store, the edit lock, the printed pharmacy form), and
 // what stays is the arithmetic. Deliberately NOT folded into `centerPoint`:
 // that mode still saves, just somewhere else.
-function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint, scratch }) {
+function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onOrderDate, onDelete, centerPoint, scratch }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
   // form left open across midnight silently became the next day's order: its
@@ -499,24 +499,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const draftOwner = draftOwnerOf(userEmail, userLabel);
 
   // Current weight — the actual weight entered/measured for this log day.
-  // This is what gets saved as the Daily_Log `weight` column and propagated
-  // to the patient's displayed current weight (PatientStrip, growth chart).
+  // Save writes it to the Daily_Log `weight` column, and from there
+  // (D.weightSeries → D.currentWeight) it becomes the infant's weight on every
+  // screen — once the order is saved, not while it is typed. The patient strip
+  // used to show this box live, and kept an unsaved, draft or back-filled
+  // figure there on every page until the patient changed (2026-09-24).
   const [curWtG, setCurWtG] = useState(0);
-
-  // Set alongside setCurWtG whenever the prefill effect below applies a
-  // historical weight (edit or baseline) — tells the propagation effect to
-  // skip that one change so a stale/past weight never flashes into the
-  // PatientStrip header before the user has looked at or touched the field.
-  const skipWeightPropagateRef = React.useRef(false);
-
-  // Skip while editing a past entry, or for the one curWtG update caused by
-  // baseline-prefill — that weight is historical, not the patient's current
-  // weight, and must not overwrite the PatientStrip display.
-  React.useEffect(() => {
-    if (editEntry || !onWeightChange || curWtG <= 0) return;
-    if (skipWeightPropagateRef.current) { skipWeightPropagateRef.current = false; return; }
-    onWeightChange(curWtG);
-  }, [curWtG, editEntry]);
 
   // TPN calculated weight — the weight every dose/target below is actually
   // computed from. Floors at birth weight while the infant hasn't yet
@@ -961,7 +949,6 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const NEW_DAY_IO = { ioInput: 0, ioOutput: 0, drainContent: 0 };
 
     if (baselineEntry) {
-      skipWeightPropagateRef.current = true;
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
       const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
       // The plan carries over from yesterday; the WEIGHT does not, if a newer
