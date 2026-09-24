@@ -1312,29 +1312,6 @@ function liveDol(patient) {
   return dolAtDate(patient, todayLocal());
 }
 
-// Most recent weights[] entry that actually carries a weight (`w`) — a
-// length/HC-only measurement (see MeasurementLogger) is stored with `w: null`
-// so it doesn't fabricate a weight reading, but that means
-// `weights[weights.length-1]` is no longer guaranteed to be a weighed entry.
-// Anything displaying/alerting on "current weight" or "days since last
-// weight" must look this up rather than blindly taking the array's last item.
-// `ws[i]?.` because a record already in the Sheet can carry a null element:
-// until the 2026-09-17 backend review nothing validated the array, and one
-// `weights:[null]` threw here for every device on the next sync (SEC-B3).
-// `entries` (optional) is this patient's Daily_Log. Passed, the answer is the
-// freshest weight from EITHER store (weightSeries); omitted, it is the old
-// measurements-only answer, which is still what a caller with no log in hand
-// should get rather than a silently different one.
-function lastWeighed(patient, entries) {
-  if (entries) {
-    const series = weightSeries(patient, entries);
-    return series.length ? series[series.length - 1] : null;
-  }
-  const ws = patient?.weights || [];
-  for (let i = ws.length - 1; i >= 0; i--) if (ws[i]?.w != null) return ws[i];
-  return null;
-}
-
 // ============================================================
 // The weight series — BOTH stores, read as one (2026-09-23)
 // ============================================================
@@ -1390,25 +1367,16 @@ function weightSeries(patient, entries) {
 // or the latest overall when `asOfDol` is omitted. A back-fill passes its own
 // DOL, so an earlier day is never given a later weight. Called with no log it
 // is the growth chart alone, which is right only for a caller that genuinely
-// has none (Center Point, the quick calc).
+// has none (Center Point, the quick calc). It replaces lastWeighed and
+// weightAtOrBeforeDol, which read the growth chart unless handed the log.
+// Null-safe through weightSeries: a length/HC-only row (`w: null`) is not a
+// weight, and a stored array can carry a null element (SEC-B3).
 //
 // Returns { dol, w, src: "measured" | "order", ts? } or null.
 function currentWeight(patient, entries, asOfDol) {
   const series = weightSeries(patient, entries || []);
   for (let i = series.length - 1; i >= 0; i--) {
     if (asOfDol == null || series[i].dol <= asOfDol) return series[i];
-  }
-  return null;
-}
-
-// Most recent weights[] entry with an actual weight recorded on or before a
-// given DOL — e.g. weightAtOrBeforeDol(patient, dol-1) is "yesterday's weight"
-// for a fluid-balance divisor. Returns null if the patient has no weighed
-// entry that early (e.g. dol-1 predates admission).
-function weightAtOrBeforeDol(patient, dol) {
-  const ws = patient?.weights || [];
-  for (let i = ws.length - 1; i >= 0; i--) {
-    if (ws[i]?.w != null && ws[i].dol <= dol) return ws[i].w;
   }
   return null;
 }
@@ -2076,11 +2044,11 @@ window.NEOFEED_DATA = {
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
   normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
-  // (see currentWeight). lastWeighed is its old name and goes with its callers.
-  currentWeight, lastWeighed, weightSeries,
-  // Weight-at-or-before-a-DOL lookup + the birth-weight-floor divisor it
-  // feeds for intake/output mL/kg/day math (see calculator.jsx Step 1)
-  weightAtOrBeforeDol, ioDivisorG,
+  // (see currentWeight) — and the joined series it reads.
+  currentWeight, weightSeries,
+  // The birth-weight-floor divisor for intake/output mL/kg/day math (see
+  // calculator.jsx Step 1); its previous-day weight is currentWeight's
+  ioDivisorG,
   // GA / PMA helpers (WW.D shorthand)
   gaTotalDays, daysToGA, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput,
   // Corrected age in days (negative = still preterm)

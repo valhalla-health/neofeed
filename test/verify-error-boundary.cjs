@@ -33,8 +33,11 @@ const scenarios = {
     await t.openPatientRow(/NW/);
     A.ok('1.3 the patient opens (strip rendered)', !!document.querySelector('.patient-strip'));
     A.ok('1.4 no fallback after opening either', !/แสดงผลไม่ได้/.test(t.text()));
-    A.eq('1.5 lastWeighed skips null elements', t.D().lastWeighed({ weights: [{ dol: 1, w: 900 }, null] }), { dol: 1, w: 900 });
-    A.eq('1.6 weightAtOrBeforeDol skips null elements', t.D().weightAtOrBeforeDol({ weights: [{ dol: 1, w: 900 }, null] }, 5), 900);
+    // currentWeight replaced lastWeighed and weightAtOrBeforeDol (2026-09-24);
+    // the null element must be as harmless to it as it was to them.
+    A.eq('1.5 currentWeight skips null elements', t.D().currentWeight({ weights: [{ dol: 1, w: 900 }, null] }, [null]), { dol: 1, w: 900, src: 'measured' });
+    A.eq('1.6 …and so does the I/O divisor\'s previous-day lookup',
+      t.D().ioDivisorG({ bw: 800, weights: [{ dol: 1, w: 900 }, null] }, 5, 0, [null]), { g: 900, source: 'prevDay' });
   },
 
   async 'view-throws'(A) {

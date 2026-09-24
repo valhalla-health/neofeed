@@ -145,6 +145,31 @@ the flag, and the button is styled in both hand-synced shells and hidden when pr
 where the button is: since 2026-09-22 the Ward page only (the gate and the ward's list), with ← back to
 the Ward page and the workspace padded clear of the button while it shows.
 
+`verify-single-source-weight-dol.cjs` pins **one weight and one day of life per infant, on every screen**
+(Praew, 2026-09-24: "ตรงกันทุกหน้าจอ ... ให้เอามาจากที่เดียวกัน"). It boots the real `<App/>` on
+`review-0917-boot.cjs`'s fake Apps Script and walks ONE fixture infant through it. The infant is outborn,
+born 20 days ago and admitted on DOL 6, with a DOL-1 birth row ahead of a legacy registration row. Every saved
+order's stored `dol` is two days stale, DOL 20 carries both a measured 1,600 g and an order's 1,610 g, and a
+draft carries 1,700 g. Every figure on screen must equal the one function behind it:
+- the strip, the Ward row, a new order's Current weight, the Trend's Latest and Fenton's latest read
+  `D.currentWeight` (1,600 g, the measurement winning the tie), and typing 1,650 in the Calculator moves none
+  of them;
+- a back-fill for DOL 17 starts from the DOL-16 weight;
+- the edit banner, the Ward badge and the header chip show DOLs from dates, the chip with the order's date;
+- "Day admit" counts from `D.admissionDol` (6, not the birth row's 1);
+- the I/O divisor is yesterday's order weight, so 100 mL/d reads 2.59 mL/kg/h;
+- an admission date moved two days earlier moves every growth-chart row two DOLs, except the birth and
+  admission rows, and a move onto the day of birth disables Save;
+- a registration files the birth weight on DOL 1;
+- the growth chart's logger files on today's DOL, yet updates a row stored above today in place;
+- Center Point's calculator page takes a birth date and computes DOL with `D.dolAtDate`
+  (`center-point/order-setup.mjs`), refusing a Buddhist-era or after-the-order date.
+
+§1 checks the `data.js` resolvers directly. §7 is source-level and CRLF-normalised: no `lastWeighed(`,
+`weightAtOrBeforeDol(`, `onWeightChange`, `liveWeight` or `calcWeights`, no stored `dol` displayed, and no DOL
+counted from `weights[0]` outside `data.js`. Each scenario runs in its own process. Written before the fix, it
+failed 40 of its first 55 checks there.
+
 `verify-status-zones.cjs` pins the **range bars' green / yellow / red zones** (Praew, 2026-09-22: "สีเขียว
 OK, สีเหลืองระวัง สีแดง alert"). The claim is that a bar can never disagree with its own tile, so it
 mounts the real `<Calculator>` on three orders — mixed, past the hard limits (GIR ≈ 15, protein 5,
@@ -258,7 +283,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
 `verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
-`verify-tpn-team-0922.cjs` and
+`verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -291,6 +316,7 @@ node test/verify-nutrition-unit-review.cjs
 node test/verify-picker-print-identity.cjs
 node test/verify-ward-requests-0918.cjs
 node test/verify-tpn-team-0922.cjs
+node test/verify-single-source-weight-dol.cjs
 ```
 
 `verify-resync-and-lists.cjs` is the only one that mounts the **whole**
@@ -688,11 +714,13 @@ weight pins to `patient.bw` (and the printed order form both switches its
 "Weight for calculation" figure and adds a birth-weight note), at or above it
 tracks the current weight automatically, and dropping back below birth weight
 re-floors rather than sticking at the last value seen above it (a stale-
-closure bug this harness would catch). It also pins that `onWeightChange` and
-the saved Daily_Log `weight` column both carry the real entered weight, never
-the floored one — that's what feeds the growth chart and PatientStrip, so
-using the calc weight there would fabricate a weight the infant was never
-actually measured at. A patient with no birth weight on record never floors
+closure bug this harness would catch). It also pins that the saved Daily_Log
+`weight` column carries the real entered weight, never the floored one — that's
+what feeds the growth chart and PatientStrip, so using the calc weight there
+would fabricate a weight the infant was never actually measured at. (Until
+2026-09-24 it also pinned `onWeightChange`, which handed the typed weight to the
+strip as it was typed; the strip now shows only the recorded weight, and the
+check is that nothing is handed out.) A patient with no birth weight on record never floors
 (nothing to floor against). Last, restoring a pre-migration saved entry —
 `calcInput.wtG` with no `curWtG` key, the only shape that existed before this
 split — must land in Current weight and then re-derive TPN calc. weight from

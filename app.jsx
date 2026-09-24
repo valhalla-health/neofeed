@@ -1282,7 +1282,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       if (res.ok) {
         setLog(prev => ({ ...prev, [id]: (prev[id] || []).map(e =>
           e.entryId === tempId ? { ...e, entryId: res.entryId, lastModified: res.lastModified } : e) }));
-        showToast(`Logged DOL ${entry.dol} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
+        showToast(`Logged DOL ${D_A.entryDol(active, { ...entry, ts })} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
       } else if (res.unknown) {
         // UP-B10: not rolled back. The provisional row stays until the
         // verification sync replaces this patient's log with the sheet's —
@@ -1327,11 +1327,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             submittedBy: who, published: "", publishedBy: "",
             revisionNumber: res.revisionNumber, revisionOf: entryId, supersededAt: "" },
         ]) }));
-        showToast(`สร้างฉบับแก้ไขใหม่สำหรับ DOL ${entry.dol}`);
+        showToast(`สร้างฉบับแก้ไขใหม่สำหรับ DOL ${D_A.entryDol(active, { ...entry, ts })}`);
       } else if (res.ok) {
         setLog(prev => ({ ...prev, [id]: (prev[id] || []).map(e =>
           e.entryId === entryId ? { ...e, ...entry, ts, lastModified: res.lastModified, lastModifiedBy: who } : e) }));
-        showToast(`อัปเดต DOL ${entry.dol} แล้ว`);
+        showToast(`อัปเดต DOL ${D_A.entryDol(active, { ...entry, ts })} แล้ว`);
       }
       // Nothing was applied before the answer, so an unknown result has
       // nothing to roll back — the verification sync shows what the row is.
