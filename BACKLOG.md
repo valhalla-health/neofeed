@@ -34,10 +34,11 @@ clinical judgement. Everything else is engineering sequencing.
 
 - [ ] ⚖️ **PDPA · Check the live `Patient_Registry` for erased rows the refill already reached.**
       **Praew's to do** (Sheet access). Look for rows whose name (B) starts `[PDPA-erased` and whose dob (G)
-      is not empty. A refill could only have run from about 14:22 ICT on 2026-09-24. `Audit_Log`'s
-      `pseudonymize` rows name every erased sessionId, and none means there is nothing to check. For a hit,
-      either clear that G cell by hand and note it here, or erase the record again once `@59` is live. The
-      second way is audited, but it re-dates the marker to that day.
+      is not empty. A refill could only have run on 2026-09-24, from about 14:22 ICT to 21:17:37 ICT, when
+      `@59` went live. `Audit_Log`'s `pseudonymize` rows name every erased sessionId, and none means there
+      is nothing to check. For a hit, either clear that G cell by hand and note it here, or erase the
+      record again, now that `@59` is live. The second way is audited, but it re-dates the marker to that
+      day.
 - [ ] 🩺 **safety · Before the 2026-09-22 TPN-team frontend ships, tell pharmacy and the TPN team what
       changed** (`CHANGELOG.md` 2026-09-22, "The TPN team's feedback"). **Praew's to do.**
       - The printed order is now **two sheets, for double-sided printing**. The front is the KCMH paper
@@ -295,6 +296,13 @@ clinical judgement. Everything else is engineering sequencing.
         raw delta float; on a phone Formulas is unreachable. *(Closed 2026-09-24 by the UX roadmap: the
         info reminder no longer lights the Alerts badge, discharged sessions raise no alerts and the
         admin tile no longer counts them, and the Admin dashboard has a phone tab.)*
+- [ ] 🧱 **infra · A harness that fixes `TODAY` at load can go red on a run across Bangkok midnight.**
+      Release #120's post-merge run did, at 00:00:00.229 ICT on 2026-09-25: `verify-nursing-backend.cjs`
+      built "two days ahead" from its load-time `TODAY`, while the backend refused against its own live
+      tomorrow (`CHANGELOG.md` 2026-09-25 (1)). #121 fixes that one refusal with `withNow(Date.now(), …)`;
+      this line is the class. Other harnesses also fix `TODAY` at load and were not swept. Start
+      `Date.now()` just before midnight, run each of them at a few offsets, and pin any that fail the same
+      way.
 - [ ] 🧱 **infra · A hand-stubbed GAS harness can pass its "must reject" cases for the wrong reason.**
       `test/verify-input-validation.cjs:25` is `throws(name, fn)` — it asserts only that *something* was
       thrown, never what. It is the one harness left that stubs the GAS globals by hand (the other five

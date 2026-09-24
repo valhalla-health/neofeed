@@ -1,5 +1,17 @@
 # NeoFeed — Status
 
+> 🟡 **2026-09-24, 23:58 ICT — frontend `release` = `e05a78d` on both hosts, with backend `@59`.**
+> PR #120 released #118 and #119: the Weight chip first, no growth velocity until a weight is above
+> birth weight, and the login-speed frontend. GitHub Pages and Cloudflare both deployed it, but ⚠️ **no
+> one has run `node tools/verify-release.mjs e05a78d` yet**: the cloud session that merged it cannot reach
+> either host. ⚠️ **#119's backend is not deployed**, so a sign-in still takes two round trips.
+> ⚠️ **Some growth alarms are quieter** (`CHANGELOG.md` 2026-09-24 (10)).
+>
+> ✅ **2026-09-24, 21:17–21:27 ICT — backend `@59`, then frontend `release` = `79f04ba` on both hosts.**
+> PR #117 released #116, the PDPA erased-dob fix, and #115 (docs). `@59` is `gas-backend.gs` at
+> `3bb6288`, byte for byte. `node tools/verify-release.mjs 79f04ba` passed on both hosts (0 failures,
+> 61 passes; comment on #117).
+>
 > ✅ **2026-09-24, 20:24 ICT — frontend `release` = `971c370` on both hosts, with backend `@58`.**
 > PR #114 released #113: one weight and one day of life per infant on every screen, and Center Point's
 > DOL from the birth date. Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged.
@@ -50,38 +62,45 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-24, 21:10 ICT** · 🟡 **Backend `@58` and frontend `release` = `971c370` are live; `@58`
-carries the PDPA defect that #116 fixes (first bullet).** Caught up with #114 in #115, the next PR on the
-repo, as the release comment on #114 asked.
-- ⏳ **PRs #118 and #119: merged into `main` on Pp's instruction ("merge ทั้งสอง PR แล้ว deploy"),
-  2026-09-24, ~23:45 ICT.**
+**Updated 2026-09-25, 00:13 ICT** · 🟡 **Backend `@59` and frontend `release` = `e05a78d` are live.
+`verify-release.mjs e05a78d` and #119's backend wait for Pp (first bullet).** Caught up with #117 and
+#120 in #121, the next PR on the repo, as both release PRs asked.
+- 🟡 **PRs #118 and #119: the frontend is live, released by PR #120** on Pp's instruction ("merge ทั้งสอง
+  PR แล้ว deploy") at 16:58:39 UTC / 23:58 ICT. `release` = `e05a78d`, whose tree is `main` at `67ed949`.
   - **#118, frontend only:** the Weight chip first, and no growth velocity until a weight is above
     birth weight. It makes some alarms quieter, all listed in `CHANGELOG.md` 2026-09-24 (10).
   - **#119, backend + frontend:** login-speed fixes 1–4 (`CHANGELOG.md` 2026-09-24 (11)).
-  - **Frontend:** goes out in one `main` → `release` PR, and its checks are that PR's comments.
-  - **Backend:** needs `clasp` from Pp's PC; the cloud session that merged these has no clasp mirror.
-    Deploy `gas-backend.gs` at #119's merge commit. It also carries #116's fix if `@59` is not live yet.
-  - Either half alone is safe: the new frontend falls back to an ordinary sync against the old
-    backend, and the new backend gives an old frontend the old reply.
-- ⏳ **PR #116, the PDPA erased-dob fix: merged into `main` on Praew's instruction ("merge แล้ว deploy").
-  Its backend goes live as `@59` with `clasp`, and its frontend in one `main` → `release` PR, straight
-  after.** Until `@59`, from about 14:22 ICT, a growth-chart or nurse-form weight save on a PDPA-erased
-  record wrote its date of birth back: `@57`/`@58`'s `updateWeights` fills an empty dob cell (F2, #108),
-  and the erasure had emptied it (`CHANGELOG.md` 2026-09-24 (9)). Whether any erased row was refilled can
-  only be read from the live Sheet (`BACKLOG.md` § Now). The deploy checks are comments on the release
-  PR, and this banner catches up in the next PR on the repo.
-- **Frontend:** PR #114 (`main` → `release`), merged on Praew's instruction at 13:24 UTC / 20:24 ICT. It
-  carries #113, `main` at `4434a77`. `CONSTANTS_VERSION` is still `2026-09-18.1`. Served bytes were
-  verified on both hosts (61 passes, 0 failures), and `verify-release.mjs b7bd722` failed only on the seven
-  files that changed, as a negative control (comment on #114). Before it, PR #112 released #111 as
-  `b7bd722` at 17:56 ICT (comment on #112).
-- **Backend:** `@58` since 2026-09-24, 17:58 ICT: #111's nursing backend, deployed with `clasp` on
-  Praew's instruction. It is `gas-backend.gs` at `2731387`, byte for byte, and inert while
-  `NURSING_LOG_ENABLED` is unset. `@57`, live from 14:17 ICT, carried #108 (F2, BE-1..4) and #109 (the
-  registration collision confirm). Rollback: `clasp update-deployment -V 57 …`. Either half can roll
-  back alone while the switch is off.
+  - **Deployed:** on `e05a78d`, GitHub Pages `build`/`deploy`/`report-build-status` and Cloudflare
+    `Workers Builds: neofeed` succeeded.
+  - ⚠️ **Not verified yet: `node tools/verify-release.mjs e05a78d`.** The cloud session's network policy
+    refuses both hosts (403), so the check waits for Pp, or for a session that allows
+    `neofeed.valhalla-health.workers.dev` and `valhalla-health.github.io`. The tag
+    `release-2026-09-24-pr120` waits for Pp too: the session's git access refused the tag push.
+  - **The post-merge `harnesses` run on `e05a78d` failed at 00:00:00.229 ICT**, because one harness
+    crossed Bangkok midnight; the app was not at fault (`CHANGELOG.md` 2026-09-25 (1)).
+    The one re-run passed at 00:13 ICT (run 36031082609, attempt 2). The harness fix is #121.
+  - ⏳ **Backend:** #119's `gas-backend.gs` needs `clasp` from Pp's PC, from `main` at `67ed949`
+    (+130/−13 lines on `@59`'s source). Until then `@59` ignores the login reply's sync request and the
+    new frontend falls back to one ordinary sync: the old speed, nothing broken. The new backend gives
+    an old frontend the old reply, so either half can roll back alone.
+- ✅ **PR #116 is live**, the PDPA erased-dob fix: backend `@59` from 21:17:37 ICT, then its frontend in
+  PR #117 at 21:19 ICT (`release` = `79f04ba`; `verify-release.mjs` passed on both hosts, 0 failures —
+  comment on #117). From about 14:22 ICT until `@59`, a growth-chart or nurse-form weight save on a
+  PDPA-erased record wrote its date of birth back: `@57`/`@58`'s `updateWeights` fills an empty dob cell
+  (F2, #108), and the erasure had emptied it (`CHANGELOG.md` 2026-09-24 (9)). Whether any erased row
+  was refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
+- **Frontend:** PR #120 (`main` → `release`), merged on Pp's instruction at 16:58:39 UTC / 23:58 ICT. It
+  carries #118 and #119, `main` at `67ed949`. `CONSTANTS_VERSION` is still `2026-09-18.1`. Its served
+  bytes are not verified yet (first bullet). Before it, PR #117 released #116 and #115 as `79f04ba` at
+  21:19 ICT, and PR #114 released #113 as `971c370` at 20:24 ICT; both were verified on both hosts
+  (comments on #117 and #114).
+- **Backend:** `@59` since 2026-09-24, 21:17:37 ICT: #116's PDPA fix, deployed with `clasp` on Pp's
+  instruction. It is `gas-backend.gs` at `3bb6288`, byte for byte (mirror commit `aadfe68`). `@58`, live
+  from 17:58 ICT, carried #111's nursing backend, inert while `NURSING_LOG_ENABLED` is unset. Rollback:
+  `clasp update-deployment -V 58 …`. Either half works with the other at either version.
 - ⚠️ **Not yet exercised by a person:** a bedside order, a Chula Google sign-in, or a phone bed move on
-  `@58` + `971c370`, or a new order started from the single-source weight.
+  `@59` + `e05a78d`; a new order started from the single-source weight; the Growth tab's "Weight below
+  birth weight" line; and a weight save on a PDPA-erased record.
 - ⏸ **The nurse form waits for D7**, the DPO's sign-off (`BACKLOG.md` § Next). Only then set
   `NURSING_LOG_ENABLED`.
 - ✅ **PR #113 is live**, one source for weight and day of life (and Center Point's DOL): merged into
@@ -94,9 +113,8 @@ repo, as the release comment on #114 asked.
   - the Calculator header names another day's order by date;
   - the Edit modal refuses an admission correction that would move a measurement onto the day of birth.
   - CP's calculator page asks for the birth date instead of a DOL.
-- ⏳ **PR #115, docs only: merged into `main` on Praew's instruction.** `REFERENCE.md` § Backend gains
-  step 5, commit the clasp mirror and push it, and this banner catches up with #114. Nothing served
-  changes, so it rides the next `main` → `release` PR.
+- ✅ **PR #115 (docs only) rode PR #117 to `release`**: `REFERENCE.md` § Backend step 5, commit the clasp
+  mirror and push it. `@59`'s deploy followed it (mirror `aadfe68` pushed, comment on #117).
 
 **Previous (2026-09-22, 23:02 ICT – 2026-09-24, 14:17 ICT):** backend `@56`, and frontend releases from
 `31a4226` onward, which the bullets below record as they were written.

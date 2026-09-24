@@ -29,9 +29,10 @@ was accepted instead, and so 059, "none of the refusals wrote a row", counted 2 
 one instant. The same sweep passes at every offset (5–1300 ms), from the sources and from `compiled/`.
 
 **The app was never in question.** `release`'s tree is `main`'s at `67ed949`, which passed twice. The
-failed job was re-run once.
+failed job was re-run once, and passed at 00:13 ICT.
 
 **Not swept:** other harnesses also fix `TODAY` at load; this sweep covered only the one that failed.
+`BACKLOG.md` § Next tracks the rest (infra, "A harness that fixes `TODAY` at load").
 
 ## Session 2026-09-24 (11) — Login speed: the first sync rides in the login reply (Pp, fixes 1–4)
 
