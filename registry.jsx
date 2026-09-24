@@ -278,7 +278,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           // No fallback to the raw last array element: that element can be a
           // length/HC-only row (`w: null`), which turns Δ into `null - bw`
           // — a bogus −100% — instead of the honest "—" a null `last` gives.
-          const last    = D_R.lastWeighed(p, log[p.sessionId]) || null;
+          const last    = D_R.currentWeight(p, log[p.sessionId]) || null;
           const dol     = D_R.liveDol(p);
           const delta   = last ? last.w - p.bw : 0;
           const deltaPct = (delta / p.bw) * 100;
@@ -337,7 +337,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                 <span className={"log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : "")}
                       title={hasToday ? "บันทึกวันนี้แล้ว"
                         : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit"
-                        : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"}>
+                        : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"}>
                   {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                 </span>
               </div>
@@ -446,13 +446,13 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           </thead>
           <tbody>
             {activeSorted.map(p => {
-              // D_R.lastWeighed, not the raw last array element — same as the
-              // mobile card above. A length/HC-only measurement is stored with
+              // D_R.currentWeight with the log, not the raw last array element —
+              // same as the mobile card above and every other screen. A length/HC-only measurement is stored with
               // `w: null` (see MeasurementLogger), so the newest entry is not
               // necessarily a weighed one: taking it blind showed "— g" for the
               // weight and a Δ of `null - bw`, i.e. every such patient reading
               // as −100% of birth weight, in critical red, on the ward list.
-              const last     = D_R.lastWeighed(p, log[p.sessionId]) || null;
+              const last     = D_R.currentWeight(p, log[p.sessionId]) || null;
               const dol      = D_R.liveDol(p);
               const delta    = last ? last.w - p.bw : 0;
               const deltaPct = (delta / p.bw) * 100;
@@ -501,7 +501,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                       <span className={"log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : "")}
                             title={hasToday ? "บันทึกวันนี้แล้ว"
                               : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit"
-                              : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"}>
+                              : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"}>
                         {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                       </span>
                     </div>
@@ -931,7 +931,12 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
               admissionDate: admitDate,
               dob,
-              weights: [{ dol: parseInt(admitDol) || 1, w: bw, l: len || null, hc: hc || null }],
+              // Birth weight, length and HC are the DAY OF BIRTH's, so they are
+              // filed on DOL 1 — not on the admission DOL, where an outborn
+              // infant's birth point used to sit at the admission PMA on the
+              // growth chart and outrank the admission-day order's weight
+              // (2026-09-24). DOL comes from `dob`, never from this row.
+              weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }],
             })}>
               <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "Register"}
             </button>
@@ -1067,16 +1072,14 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // not the stored one — so a discharged record can be corrected after its old
   // bed is reused, while setting it back to Active on that bed is still refused.
   const bedTaken  = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
-  // Seed the admission-DOL field from the STORED anchor (dob + admissionDate),
-  // not from weights[0].dol. An outborn infant's birth measurement becomes
-  // weights[0] with DOL 1, so seeding from the array re-derived a wrong dob on
-  // every later edit and persisted it (2026-09-24 blocker). Fall back to the
-  // array only for legacy rows with no dob (app.jsx gives them one on sync).
-  const initialDol1 = (patient.dob && patient.admissionDate
-      && !D_R.admissionDateIssue(patient.admissionDate, today)
-      && D_R.daysBetweenDateStr(patient.dob, patient.admissionDate) != null)
-    ? Math.max(1, D_R.daysBetweenDateStr(patient.dob, patient.admissionDate) + 1)
-    : (patient.weights?.[0]?.dol ?? 1);
+  // Seed the admission-DOL field from the anchor (D_R.admissionDol: the DOL
+  // of the admission date, from dob), not from weights[0].dol. An outborn
+  // infant's birth measurement becomes weights[0] with DOL 1, so seeding from
+  // the array re-derived a wrong dob on every later edit and persisted it
+  // (2026-09-24 blocker). admissionDol also refuses a dob that is not a birth
+  // date (one after the admission date) rather than seeding 1 from it, and
+  // falls back to the array only for a record with no usable admission date.
+  const initialDol1 = D_R.admissionDol(patient);
   const [dol1, setDol1]         = React.useState(initialDol1);
   // A record with NO admission date keeps none until someone types the real
   // one. Seeding `today` here meant simply opening such a record and saving
@@ -1097,13 +1100,37 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     if (!admitDate || admitIssue) return patient.dob || "";
     return D_R.addDaysToDateStr(admitDate, -(Math.max(1, parseInt(dol1, 10) || 1) - 1));
   }, [admitDate, dol1, admitIssue, patient.dob]);
+  // A cleared DOL แรกรับ used to save as 1 — every DOL, PMA and DOL-banded
+  // target moved to admission-on-the-birthday without anyone typing it.
+  const dol1Missing = String(dol1).trim() === "";
+
+  // Growth-chart rows keep their calendar day when this edit moves the DOL
+  // anchor (2026-09-24): a measurement taken on the 15th stays on the 15th,
+  // as every order already does, the birth row stays DOL 1 and the admission
+  // row follows the admission DOL (D_R.anchorShiftDays / moveGrowthRows). A
+  // move that puts a row on or before the day of birth, or onto another row,
+  // blocks Save and says which. Arrays the record does not carry are left out
+  // of the save, so the server's merge cannot read them as deleted.
+  const growth = React.useMemo(() => {
+    const shift = D_R.anchorShiftDays(patient, { ...patient, admissionDate: admitDate, dob });
+    const dolAfter = dol1Missing ? initialDol1 : Math.max(1, parseInt(dol1, 10) || 1);
+    const moved = {};
+    let conflict = null;
+    for (const k of ["weights", "lengths", "hcs"]) {
+      if (!Array.isArray(patient[k])) continue;
+      const r = D_R.moveGrowthRows(patient[k], shift, initialDol1, dolAfter);
+      moved[k] = r.rows;
+      if (r.conflict && !conflict) conflict = r.conflict;
+    }
+    return { shift, dolAfter, moved, conflict };
+  }, [patient, admitDate, dob, dol1, dol1Missing, initialDol1]);
 
   // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks — same
   // encoding NewPatientModal writes; see the GA/PMA section of the walkthrough.
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
   // Same gate as registration: a 0/blank BW or GA would corrupt every
   // subsequent dose for this patient, so it can be corrected but not cleared.
-  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // Permanently deletes the session — removes it from Patient_Registry and
@@ -1148,16 +1175,12 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     // admission weight rather than a birth weight that happens to differ),
     // it is a real measurement and not ours to overwrite.
     const bwChanged = Number(bw) !== Number(patient.bw);
-    // Only stamp weights[0].dol when the admission-DOL field was actually
-    // changed. Otherwise a plain edit (diagnosis, bed, discharge) would move a
-    // recorded birth/admission measurement's DOL and, through dob, re-date the
-    // whole record (2026-09-24 blocker).
-    const dol1Changed = (Number(dol1) || 1) !== (Number(initialDol1) || 1);
-    const weights = (patient.weights || []).map((w, i) => i !== 0 ? w : {
-      ...w,
-      ...(dol1Changed ? { dol: Number(dol1) || 1 } : {}),
-      ...(bwChanged && Number(w.w) === Number(patient.bw) ? { w: Number(bw) } : {}),
-    });
+    const seeded = (patient.weights || []).map((w, i) =>
+      (i === 0 && w && bwChanged && Number(w.w) === Number(patient.bw)) ? { ...w, w: Number(bw) } : w);
+    // Then every row keeps its calendar day through an anchor correction (see
+    // `growth`). A plain edit (diagnosis, bed, discharge) moves no row: the
+    // shift is 0 and the admission DOL unchanged (2026-09-24 blocker).
+    const weights = D_R.moveGrowthRows(seeded, growth.shift, initialDol1, growth.dolAfter).rows;
     submit({
       ...patient,
       name, initials: name,
@@ -1169,6 +1192,8 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       admissionDate: admitDate,
       dob,
       weights,
+      ...("lengths" in growth.moved ? { lengths: growth.moved.lengths } : {}),
+      ...("hcs" in growth.moved ? { hcs: growth.moved.hcs } : {}),
     }, mergeBase);
   };
 
@@ -1268,8 +1293,14 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
             </div>
           </div>
           {!canSave && (
-            <div style={{ fontSize: 11.5, color: bedTaken ? "var(--crit)" : "var(--ink-3)", textAlign: "right" }}>
+            <div style={{ fontSize: 11.5, color: bedTaken || growth.conflict ? "var(--crit)" : "var(--ink-3)", textAlign: "right" }}>
               {bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken)
+                : growth.conflict
+                  ? `การแก้วันรับ/DOL แรกรับนี้จะย้ายค่าที่วัดไว้ของ DOL ${growth.conflict.dol} ไป${growth.conflict.to <= 1
+                      ? "อยู่ตรงหรือก่อนวันเกิด"
+                      : `ทับ DOL ${growth.conflict.to} ที่มีค่าที่วัดไว้แล้ว`} — ตรวจสอบวันรับและ DOL แรกรับ`
+                : dol1Missing ? "ต้องระบุ DOL แรกรับก่อนบันทึก"
+                : admitIssue ? "แก้วันที่รับเข้าก่อนบันทึก"
                 : sex === "" ? "ต้องระบุเพศก่อนบันทึก"
                 : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"}
             </div>

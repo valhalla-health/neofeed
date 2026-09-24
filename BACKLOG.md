@@ -32,29 +32,6 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 🩺 **safety · The 2026-09-23 review's four fix-first findings** (`CHANGELOG.md` 2026-09-23; the
-      calculator's own arithmetic came out clean and is now pinned by three harnesses). Each is
-      reproduced, none is in `calc`:
-      - **Two "current weights" that never meet.** An order's weight goes to `Daily_Log.weight`, a
-        growth-chart entry to `patient.weights[]`, and nothing copies either way. So a new order
-        prefills *yesterday's order weight* under the hint "= current weight" even when a newer weight
-        is on record (`calculator.jsx:940-971`), and the growth chart, "Wt now", `PatientStrip` and the
-        stale-weight alert never see an order's weight (`app.jsx:227-240`, `app.jsx:1859`) — a ward that
-        weighs daily in the order reads "Weight measurement >7 days overdue" with a one-point chart.
-        **Praew's decision first: which store owns "the current weight".**
-      - **DOL is inferred from `weights[0].dol`** (`data.js:1273`). The array is sorted by DOL, so
-        recording an outborn infant's birth measurement moves the whole record: DOL 8 → 4, PMA 31+0 →
-        30+3, fluid 140–160 → 120–140, energy 90–120 → 70–100, Na 2–5 → 0–3, every log row's DOL and the
-        DOL printed on the order. Fix by storing the admission DOL (or deriving it from
-        `dob`/`admissionDate`), then `fenton.jsx`'s logger cap and the outborn birth-weight plot follow.
-      - **The admit date is unguarded** (`registry.jsx:706,796,992,1057`; `_validatePatient` checks no
-        date). Blank, future and a Thai BE year are all accepted and pin DOL at 1; editing a record that
-        has no admit date stamps today, which took a DOL 20 record to DOL 1 and its day-1 target bands.
-      - **A sync while a patient modal is open turns the merge against you** (`app.jsx:1442`): `base` is
-        read at save time, so an edit saved after a background poll compares against a *newer* server
-        record — reproduced re-activating a discharged infant and dropping another device's weight. Send
-        the snapshot the modal opened with.
-
 - [ ] 🩺 **safety · Before the 2026-09-22 TPN-team frontend ships, tell pharmacy and the TPN team what
       changed** (`CHANGELOG.md` 2026-09-22, "The TPN team's feedback"). **Praew's to do.**
       - The printed order is now **two sheets, for double-sided printing**. The front is the KCMH paper
@@ -201,8 +178,8 @@ clinical judgement. Everything else is engineering sequencing.
       - D6: retention is indefinite for now, to settle with the DPO.
 
       D4 is settled (Pp: "หมอพิมพ์เอง"). The prescriber types Intake/Output, and the nurses' record is
-      a one-tap offer. The weight is prefilled from the latest measurement on or before the order's
-      day (`CHANGELOG.md` § 2026-09-24 (6)).
+      a one-tap offer. The weight is prefilled from `D.currentWeight` on or before the order's
+      day, the nurses' morning weight included (`CHANGELOG.md` § 2026-09-24 (6), (8)).
 - [ ] ⚖️ **PDPA · The lawful-basis citation reads "Sec 26(6)"; the Act's health-care exception is Sec
       26(5)(a)** (medical diagnosis, health care, medical treatment, under professional confidentiality).
       Found 2026-09-24 while reviewing the nursing form. **DPO to confirm** (it is part of the nursing
@@ -210,6 +187,19 @@ clinical judgement. Everything else is engineering sequencing.
       line, and the note above `pseudonymizePatient`), `REFERENCE.md` § PDPA, `PRD.md`
       § 5, and `app-walkthrough.md` § 6. It is legal text, so it is not edited on an agent's reading
       alone.
+- [ ] 🩺 **safety · Center Point owns the birth facts — CP repo (Praew's decision, 2026-09-24).** New
+      patients will be registered in CP only and linked from there, so CP captures the date of birth, GA
+      and birth weight at registration. CP stores none of them today and computes no DOL. Its calculator
+      page asks for the birth date and computes DOL with NeoFeed's `D.dolAtDate`
+      (`center-point/order-setup.mjs`, `CHANGELOG.md` 2026-09-24 (8)). Then:
+      - NeoFeed's CP page fills the birth date from the link instead of asking.
+      - CP carries NeoFeed's DOL rule (day of birth = DOL 1, Bangkok calendar dates), and a shared table
+        of test dates keeps the two copies in step (like the `tpn-document` parity test).
+      - CP's own screens show that DOL.
+      - CP's server checks every `tpn.dol` against the birth date and the order date.
+      Whether the birth date lives in the central database or the workstation vault is a PDPA question
+      for that design. CP's browser test that types "DOL 3" (`test/browser/tpn-calculator.mjs`) changes
+      with it.
 
 - [ ] 🩺 **safety · A *persistent* low NPE:AA has nowhere to show, now that it no longer stops the
       order.** Condition attached to Praew's 2026-09-23 sign-off of the NPE:AA downgrade (PR #96;
@@ -391,6 +381,14 @@ clinical judgement. Everything else is engineering sequencing.
       `test/verify-build-shells.cjs` 5.6, which today requires them to be published.
 
 ## 🕓 Later
+
+- [ ] 🧱 **data · A date on every growth-chart row.** Rows in `weights`, `lengths` and `hcs` are keyed by
+      DOL. Since 2026-09-24 an anchor correction moves them with it (`D.moveGrowthRows`); a stored date
+      would make that unnecessary. It needs a migration of every record, and it must agree with PR #111's
+      nurse form, which writes rows in the current `{dol, w}` shape.
+- [ ] 🧱 **data · Existing outborn records keep the birth weight on the admission DOL.** New registrations
+      file it on DOL 1 since 2026-09-24. Records registered before still plot their birth point at the
+      admission PMA on the growth chart. A one-off correction is possible if Praew wants it.
 
 - [ ] 🩺 **safety/governance · Decide who may create and Submit a TPN order.** `canWrite` includes
       nurses for `logDailyNutrition`/`publishLog`, and the Intake/Output card lives inside the

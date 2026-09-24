@@ -172,7 +172,7 @@ function computeAlerts(patient, allEntries) {
       ref: "ESPGHAN 2022"
     });
   }
-  const lastWtEntry = D_A.lastWeighed(patient, entries);
+  const lastWtEntry = D_A.currentWeight(patient, entries);
   const todaysDol = D_A.liveDol(patient);
   if (lastWtEntry) {
     const daysSince = todaysDol - lastWtEntry.dol;
@@ -398,10 +398,6 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     typeof navigator === "undefined" || navigator.onLine !== false
   );
   const [staleTick, setStaleTick] = React.useState(0);
-  const [calcWeights, setCalcWeights] = React.useState({});
-  React.useEffect(() => {
-    setCalcWeights({});
-  }, [activeId]);
   const [editEntry, setEditEntry] = React.useState(null);
   const [logDate, setLogDate] = React.useState(null);
   React.useEffect(() => {
@@ -414,7 +410,6 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setView(v);
   };
   const active = patients.find((p) => p.sessionId === activeId);
-  const lastWt = active?.weights?.slice(-1)[0];
   const dol = D_A.liveDol(active);
   const [ackVersion, setAckVersion] = React.useState(0);
   const alertBadge = React.useMemo(
@@ -580,9 +575,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         }));
         serverPatientsRef.current = new Map(incoming.map((p) => [p.sessionId, p]));
         const withDob = incoming.map((p) => {
-          if (p.dob || !p.admissionDate || D_A.admissionDateIssue(p.admissionDate)) return p;
-          const admitDol = Math.max(1, Number(p.weights?.[0]?.dol) || 1);
-          return { ...p, dob: D_A.addDaysToDateStr(p.admissionDate, -(admitDol - 1)) };
+          if (p.dob) return p;
+          const dob = D_A.dobFromAdmission(p);
+          return dob ? { ...p, dob } : p;
         });
         setPatients(withDob.length > 0 ? withDob : []);
         setActiveId((prev) => data.patients.some((p) => p.sessionId === prev) ? prev : null);
@@ -760,7 +755,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const reconcile = (res) => {
       if (res.ok) {
         setLog((prev) => ({ ...prev, [id]: (prev[id] || []).map((e) => e.entryId === tempId ? { ...e, entryId: res.entryId, lastModified: res.lastModified } : e) }));
-        showToast(`Logged DOL ${entry.dol} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
+        showToast(`Logged DOL ${D_A.entryDol(active, { ...entry, ts })} · ${entry.status === "submitted" ? "Submitted" : "Draft saved"}`);
       } else if (res.unknown) {
       } else {
         setLog((prev) => ({ ...prev, [id]: (prev[id] || []).filter((e) => e.entryId !== tempId) }));
@@ -802,10 +797,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             supersededAt: ""
           }
         ]) }));
-        showToast(`สร้างฉบับแก้ไขใหม่สำหรับ DOL ${entry.dol}`);
+        showToast(`สร้างฉบับแก้ไขใหม่สำหรับ DOL ${D_A.entryDol(active, { ...entry, ts })}`);
       } else if (res.ok) {
         setLog((prev) => ({ ...prev, [id]: (prev[id] || []).map((e) => e.entryId === entryId ? { ...e, ...entry, ts, lastModified: res.lastModified, lastModifiedBy: who } : e) }));
-        showToast(`อัปเดต DOL ${entry.dol} แล้ว`);
+        showToast(`อัปเดต DOL ${D_A.entryDol(active, { ...entry, ts })} แล้ว`);
       }
       return res;
     };
@@ -835,12 +830,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (blocked) return Promise.resolve(blocked);
     const prevEntries = log[id] || [];
     setLog((prev) => ({ ...prev, [id]: (prev[id] || []).filter((e) => e.entryId !== entry.entryId) }));
+    const shownDol = D_A.entryDol(active, entry);
     if (!GAS_ON) {
-      showToast(`ลบบันทึก DOL ${entry.dol} แล้ว`);
+      showToast(`ลบบันทึก DOL ${shownDol} แล้ว`);
       return Promise.resolve({ ok: true });
     }
     return writeGAS({ action: "deleteDailyNutrition", sessionId: id, entryId: entry.entryId }).then((res) => {
-      if (res.ok) showToast(`ลบบันทึก DOL ${entry.dol} แล้ว`);
+      if (res.ok) showToast(`ลบบันทึก DOL ${shownDol} แล้ว`);
       else if (!res.unknown) setLog((prev) => ({ ...prev, [id]: prevEntries }));
       return res;
     });
@@ -1234,7 +1230,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     display: "flex",
     alignItems: "center",
     gap: 10
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14, color: "var(--brand)" }), "ยังไม่มีผู้ป่วยในระบบ — ไปที่ ", /* @__PURE__ */ React.createElement("strong", null, "Patients"), " เพื่อลงทะเบียนผู้ป่วยใหม่"), PATIENT_VIEWS.includes(view) && active && /* @__PURE__ */ React.createElement(PatientStrip, { patient: active, entries: log[activeId] || [], onSwitch: () => setPickerOpen(true), liveWeight: calcWeights[activeId] || null, currentDol: dol, onEdit: () => setEditingPatient(active) }), editingPatient && /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14, color: "var(--brand)" }), "ยังไม่มีผู้ป่วยในระบบ — ไปที่ ", /* @__PURE__ */ React.createElement("strong", null, "Patients"), " เพื่อลงทะเบียนผู้ป่วยใหม่"), PATIENT_VIEWS.includes(view) && active && /* @__PURE__ */ React.createElement(PatientStrip, { patient: active, entries: log[activeId] || [], onSwitch: () => setPickerOpen(true), currentDol: dol, onEdit: () => setEditingPatient(active) }), editingPatient && /* @__PURE__ */ React.createElement(
     EditPatientModal,
     {
       patient: editingPatient,
@@ -1280,8 +1276,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       handleUpdateToGAS,
       handlePublishToGAS,
       handleDeleteEntry,
-      goTo,
-      setCalcWeights
+      goTo
     }
   ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, entries: log[activeId] || [], currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights) })), view === "log" && active && /* @__PURE__ */ React.createElement(
     DailyLog,
@@ -1366,16 +1361,18 @@ function CalculatorView({
   handlePublishToGAS,
   handleDeleteEntry,
   goTo,
-  setCalcWeights,
   nursing = [],
   ordersReadOnly = false
 }) {
-  const displayDol = editEntry ? D_A.entryDol(active, editEntry) : logDate ? D_A.dolAtDate(active, logDate) : dol;
-  const lockDate = editEntry ? editEntry.ts : logDate || D_A.todayLocal();
+  const today = D_A.todayLocal();
+  const [reportedOrderDate, setReportedOrderDate] = React.useState(null);
+  const orderDate = editEntry ? D_A.normalizeDateStr(editEntry.ts) || today : logDate || reportedOrderDate || today;
+  const displayDol = editEntry ? D_A.entryDol(active, editEntry) : orderDate === today ? dol : D_A.dolAtDate(active, orderDate);
+  const lockDate = orderDate;
   const previousEntry = previousLogEntry(log[activeId] || [], lockDate);
   const baselineEntry = !editEntry ? previousEntry : null;
   const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol)), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
     document.querySelector(".work-inner")?.setAttribute("data-date", (/* @__PURE__ */ new Date()).toLocaleDateString("th-TH"));
     document.dispatchEvent(new CustomEvent("__neofeed_print"));
   } }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), holder && /* @__PURE__ */ React.createElement("div", { style: {
@@ -1393,7 +1390,9 @@ function CalculatorView({
     Calculator,
     {
       patient: active,
+      entries: log[activeId] || [],
       dol: displayDol,
+      onOrderDate: setReportedOrderDate,
       editEntry,
       baselineEntry,
       previousEntry,
@@ -1409,8 +1408,7 @@ function CalculatorView({
       onDelete: role === "admin" ? (entry) => handleDeleteEntry(entry).then((res) => {
         if (res.ok) goTo("log");
         return res;
-      }) : void 0,
-      onWeightChange: (w) => setCalcWeights((prev) => ({ ...prev, [activeId]: w }))
+      }) : void 0
     }
   ));
 }
@@ -1522,11 +1520,10 @@ function fmtGA(ga) {
 function RailItem({ icon, label, active, count, crit, warn, onClick }) {
   return /* @__PURE__ */ React.createElement("div", { className: `rail-item ${active ? "active" : ""} ${crit ? "crit" : warn ? "warn" : ""}`, onClick }, /* @__PURE__ */ React.createElement(Icon, { name: icon, size: 15 }), /* @__PURE__ */ React.createElement("span", null, label), count && /* @__PURE__ */ React.createElement("span", { className: "count" }, count));
 }
-function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEdit }) {
-  const ws = patient.weights || [];
-  const last = D_A.lastWeighed(patient, entries) || ws[ws.length - 1] || null;
-  const currentW = liveWeight ?? last?.w ?? patient.bw;
-  const displayDol = currentDol ?? last?.dol ?? 1;
+function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
+  const last = D_A.currentWeight(patient, entries);
+  const currentW = last?.w ?? patient.bw;
+  const displayDol = currentDol;
   const delta = currentW - patient.bw;
   const deltaPct = delta / patient.bw * 100;
   const [wtLabel, wtColor] = patient.bw < 1e3 ? ["ELBW", "var(--crit)"] : patient.bw < 1500 ? ["VLBW", "var(--warn)"] : ["LBW", "var(--ink-3)"];

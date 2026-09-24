@@ -67,9 +67,8 @@ const root = ReactDOM.createRoot(container);
 // for a record that does not exist yet is the thing that guard prevents. A
 // freshly-mounted, unsaved Calculator therefore has no #print-form at all.
 //
-// Sections #1/#2 below need BOTH: an unsaved mount (so `onWeightChange` fires —
-// it is skipped whenever `editEntry` is set) and a saved one (so the order form
-// renders). Rather than remounting the primary root mid-section and losing the
+// Sections #1/#2 below need BOTH: an unsaved mount (a new order, as the ward
+// types it) and a saved one (so the order form renders). Rather than remounting the primary root mid-section and losing the
 // state those assertions are still driving, read the order form from a separate
 // root seeded with a saved shell entry at the weight under test.
 const printContainer = document.createElement('div');
@@ -130,11 +129,10 @@ function saveButton() {
 // ── #1: weight loss phase — current weight below birth weight ──────────────
 console.log('\n── #1 below birth weight: TPN calc. weight floors at BW ──');
 const patient = { sessionId: 'W-1', name: 'W', bw: 1500, currentBed: 'NICU 1', diagnosis: '-', weights: [] };
-let lastWeightChange = null;
 act(() => {
   root.render(React.createElement(window.Calculator, {
     patient, dol: 3, editEntry: null, baselineEntry: null, logDate: '2026-08-20',
-    onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(w) { lastWeightChange = w; },
+    onLog(){}, onUpdate(){}, onSaved(){},
   }));
 });
 act(() => {
@@ -145,7 +143,13 @@ act(() => {
 setField('Current weight', 1380); // below BW 1500 — still in the post-natal nadir
 eq('Current weight field shows what was typed', fieldByLabel('Current weight').querySelector('input').value, '1380');
 eq('TPN calc. weight floors at birth weight', readOnlyValue('TPN calc. weight'), '1500');
-eq('onWeightChange propagates the ACTUAL weight, not the floor', lastWeightChange, 1380);
+// Until 2026-09-24 the typed weight was also handed to the patient strip as it
+// was typed (onWeightChange), and this checked it was the actual weight, not
+// the floor. The strip now shows only the recorded weight (D.currentWeight), so
+// the Calculator hands nothing out; where the floor must never reach is the
+// saved `weight` column, pinned below.
+ok_('the Calculator hands no typed weight to the strip',
+  !/\bonWeightChange\b/.test(fs.readFileSync(DIR + 'calculator.jsx', 'utf8')), 'onWeightChange is still in calculator.jsx');
 
 // The order form must compute off the floored weight (1.5 kg), not 1.38 kg.
 const printText1 = printTextAt(patient, 1380);

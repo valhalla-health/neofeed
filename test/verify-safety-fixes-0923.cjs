@@ -306,8 +306,10 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
     eq('the series has every day from both stores', series.length, 6);
     eq('…newest first from the log', series[series.length - 1].w, 1060);
     eq('…tagged with where it came from', series[series.length - 1].src, 'order');
-    eq('lastWeighed with the log sees the order weight', D.lastWeighed(patient, entries).w, 1060);
-    eq('…without it, the old measurements-only answer is unchanged', D.lastWeighed(patient).w, 900);
+    // D.currentWeight replaced lastWeighed on 2026-09-24 (every screen calls it
+    // with the log); the two answers are the same.
+    eq('currentWeight with the log sees the order weight', D.currentWeight(patient, entries).w, 1060);
+    eq('…without it, the measurements-only answer is unchanged', D.currentWeight(patient).w, 900);
 
     // A deliberate measurement outranks an order's working figure on the same day.
     const both = { ...patient, weights: [{ dol: 1, w: 900 }, { dol: 21, w: 1075 }] };
