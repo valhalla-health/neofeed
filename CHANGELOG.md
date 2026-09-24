@@ -9,7 +9,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ## Session 2026-09-24 (9) — PDPA: a weight save wrote an erased record's date of birth back
 
-Pp's bug report, the same day. **Live from about 14:22 ICT on 2026-09-24; fixed in #116, not deployed.**
+Pp's bug report, the same day. **Live from about 14:22 ICT on 2026-09-24 until `@59`; fixed in #116.**
 `@57` (14:17 ICT) and `@58` carry F2 (#108), and every frontend since `77ed485` (#110, 14:22 ICT) sends a
 dob with each growth-chart and nurse-form weight save. Together, a weight save on a PDPA-erased record
 wrote a date of birth back into it, undoing part of a data-subject erasure.
@@ -44,10 +44,11 @@ Tests:
   save on an erased record sends no `dob`, and the never-erased control still sends its derived one.
   Scenario 1 fails on `4434a77` (#113, which #114 released), from the sources and from `compiled/`.
 
-**Not deployed.** The backend half needs `clasp` to `@59` on Praew's go-ahead (`REFERENCE.md` § Backend).
-It adds no column, scope or migration, and `@58` is its rollback. The backend alone closes the hole: it
-refuses the derived dob and the real one. The frontend half rides the next `main` → `release` PR.
-Whether any erased row was already refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
+**Deploy: merged into `main` on Praew's instruction ("merge แล้ว deploy").** The backend goes live as `@59`
+with `clasp` (`REFERENCE.md` § Backend) and the frontend in one `main` → `release` PR, straight after; the
+checks are comments on that release PR. It adds no column, scope or migration, and `@58` is the backend's
+rollback. The backend alone closes the hole: it refuses the derived dob and the real one. Whether any
+erased row was already refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
 
 ## Session 2026-09-24 (8) — One source for weight and day of life, NeoFeed and Center Point (Pp)
 

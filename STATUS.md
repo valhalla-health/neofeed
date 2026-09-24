@@ -43,15 +43,16 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-24, 20:40 ICT** · 🟡 **Backend `@58` and frontend `release` = `971c370` are live, and
-both carry the PDPA defect in the first bullet.** Caught up here in the next PR on the repo, as the release
-comments ask: #110 and #112 by #113, and #114 by #116.
-- 🔴 **PDPA defect, live from about 14:22 ICT: a growth-chart or nurse-form weight save on a PDPA-erased
-  record writes its date of birth back.** `@57`/`@58`'s `updateWeights` fills an empty dob cell (F2, #108),
-  and the erasure had emptied it. Every frontend since `77ed485` sends a dob derived from the admission
-  date, which the erasure keeps. Fixed in #116, **not deployed**: its backend half needs `clasp` to `@59`
-  on Praew's go-ahead, and closes the hole alone. Whether any erased row was already refilled can only be
-  read from the live Sheet (`BACKLOG.md` § Now; `CHANGELOG.md` 2026-09-24 (9)).
+**Updated 2026-09-24, 21:00 ICT** · 🟡 **Backend `@58` and frontend `release` = `971c370` are live; `@58`
+carries the PDPA defect that #116 fixes (first bullet).** Caught up here in the next PR on the repo, as the
+release comments ask: #110 and #112 by #113, and #114 by #116.
+- ⏳ **PR #116, the PDPA erased-dob fix: merged into `main` on Praew's instruction ("merge แล้ว deploy").
+  Its backend goes live as `@59` with `clasp`, and its frontend in one `main` → `release` PR, straight
+  after.** Until `@59`, from about 14:22 ICT, a growth-chart or nurse-form weight save on a PDPA-erased
+  record wrote its date of birth back: `@57`/`@58`'s `updateWeights` fills an empty dob cell (F2, #108),
+  and the erasure had emptied it (`CHANGELOG.md` 2026-09-24 (9)). Whether any erased row was refilled can
+  only be read from the live Sheet (`BACKLOG.md` § Now). The deploy checks are comments on the release
+  PR, and this banner catches up in the next PR on the repo.
 - **Frontend:** PR #114 (`main` → `release`), merged by `praewxtvl` at 13:24:37 UTC / 20:24 ICT, released
   #113 (`main` at `4434a77`), so `release` = `971c370`. Its post-release check belongs in a comment on #114,
   and there was none at 20:31 ICT. Before it, PR #112 (`main` → `release`), merged on Praew's instruction
