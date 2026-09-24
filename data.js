@@ -1374,6 +1374,55 @@ function weightSeries(patient, entries) {
   return [...byDol.values()].sort((a, b) => a.dol - b.dol);
 }
 
+// A weight recorded for one DOL, merged into weights[] exactly the way the
+// growth chart's MeasurementLogger merges it: an entry already on that DOL
+// keeps its length/HC and takes the new weight; otherwise a new entry is added
+// and the array stays sorted by DOL. The nursing I/O form records its weight
+// through this (UX roadmap #4), so a nurse's weight is an ordinary measurement
+// — one store, the one every weight reader already joins (weightSeries).
+function upsertWeight(weights, dol, w) {
+  const list = Array.isArray(weights) ? weights : [];
+  const n = Number(dol);
+  if (list.some(x => x && x.dol === n)) return list.map(x => (x && x.dol === n) ? { ...x, w } : x);
+  return [...list, { dol: n, w, l: null, hc: null }].sort((a, b) => a.dol - b.dol);
+}
+
+// ── Nursing Intake/Output (UX roadmap #4, 2026-09-24) ────────────────────────
+// One record per infant per date: the ward's 24-hour totals, dated the morning
+// the total CLOSED — so an order written that morning reads it as "the past
+// 24 h" (the Calculator's Intake/Output card offers it with one tap, Pp's D4).
+// Every volume is mL per 24 h and may be null: null means "not recorded" and
+// must never be read as a measured 0 (gas-backend.gs _numOrNull).
+// What went in, IV + enteral — and only when BOTH were recorded: IV 100 with
+// the enteral total blank is not an intake of 100 (blank ≠ 0; the nurses type 0
+// for "none"). Rounded to 0.1 mL, so 0.1 + 0.2 reads 0.3 on the card and in
+// the Calculator's box.
+function nursingIntakeMl(rec) {
+  const iv = rec?.ivInMl, en = rec?.enInMl;
+  if (iv == null || en == null) return null;
+  return Math.round(((Number(iv) || 0) + (Number(en) || 0)) * 10) / 10;
+}
+// The record for one date, or null.
+function nursingRecordOn(records, date) {
+  const d = normalizeDateStr(date);
+  if (!d) return null;
+  return (records || []).find(r => normalizeDateStr(r?.ts) === d) || null;
+}
+// Every record's date as YYYY-MM-DD (Sheets can hand `ts` back as a Date),
+// newest first — the order the Dashboard card lists them in.
+function normalizeNursingMap(map) {
+  const out = {};
+  for (const [sid, recs] of Object.entries(map || {})) {
+    if (!Array.isArray(recs)) continue;
+    out[sid] = recs
+      .filter(r => r && typeof r === "object")
+      .map(r => ({ ...r, ts: normalizeDateStr(r.ts) }))
+      .filter(r => r.ts)
+      .sort((a, b) => b.ts.localeCompare(a.ts));
+  }
+  return out;
+}
+
 // Most recent weights[] entry with an actual weight recorded on or before a
 // given DOL — e.g. weightAtOrBeforeDol(patient, dol-1) is "yesterday's weight"
 // for a fluid-balance divisor. Returns null if the patient has no weighed
@@ -1936,6 +1985,10 @@ window.NEOFEED_DATA = {
   // the one bed list, and the one-patient-per-bed occupancy helpers
   normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
   lastBed, isParked, patientWard,
+  // "Still on the unit" — the one definition the bed guard, the Alerts badge
+  // and the admin census all read, so a discharged infant cannot hold a bed on
+  // one screen, raise an alarm on a second and count as a census on a third.
+  isOnUnit,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,
@@ -1947,6 +2000,9 @@ window.NEOFEED_DATA = {
   // Last weight from either store — pass the patient's Daily_Log as the second
   // argument to include order weights (see weightSeries).
   lastWeighed, weightSeries,
+  // A weight merged into weights[] the growth chart's way (the nursing form
+  // records its weight through it), and the nursing I/O helpers
+  upsertWeight, nursingIntakeMl, nursingRecordOn, normalizeNursingMap,
   // Weight-at-or-before-a-DOL lookup + the birth-weight-floor divisor it
   // feeds for intake/output mL/kg/day math (see calculator.jsx Step 1)
   weightAtOrBeforeDol, ioDivisorG,

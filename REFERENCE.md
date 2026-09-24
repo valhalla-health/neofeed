@@ -292,6 +292,22 @@ consent — that is Praew's to approve, not something to click through on her be
 
 Redeploys are live and NICU staff are on them: **always confirm before the redeploy step.**
 
+**The nursing I/O form (2026-09-24, `docs/NURSING_FORM_SPEC.md`) ships switched off.** Its backend
+code can go out with any `clasp` deploy, and its frontend with any release. Neither changes anything
+until the Script Property **`NURSING_LOG_ENABLED`** is set to exactly `true`:
+
+1. **The gate is D7.** Leave the property unset until the DPO has signed off spec § 6.
+2. **Set it only once the frontend that carries the I/O card is live** on both hosts. On the next
+   sync, the card appears and nurses stop saving orders, together.
+3. **To switch it off, delete the property.** It takes effect on the next sync.
+
+**Never switch it on while an old frontend is still served.** An old frontend has no I/O card, and
+the backend then refuses a nurse's order save (D5), which leaves nurses nowhere to record I/O.
+
+The sync cache key carries the payload's shape (`sync2_`, plus `+n` while the switch is on), so no
+stale payload bridges a deploy or a flip. `Nursing_Log` is created by the first nursing save; there
+is no migration to run.
+
 **Apps Script project timezone must be `Asia/Bangkok`.** Several date paths read Sheets' own date
 values through `Session.getScriptTimeZone()` (`_fmtDate`) or assume a Sheets date sits at Bangkok
 midnight (`_wardDateKey` in the one-entry-per-date guard, the 2026-09-11 edit-keeps-its-date rule,

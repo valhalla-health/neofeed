@@ -72,7 +72,9 @@ const LOG_HEADER = ['ts','sessionId','dol','weight'];
 let patSheet, logSheet, auditSheet, lockCalls;
 const tabFor = (n) => n === 'Patient_Registry' ? patSheet : n === 'Audit_Log' ? auditSheet : logSheet;
 const gasSandbox = {
-  SpreadsheetApp: { openById: () => ({ getSheetByName: tabFor, insertSheet: tabFor }) },
+  // A tab this stub does not model is absent, as in real Sheets — deletePatient
+  // looks up Nursing_Log (2026-09-24) and skips it when there is none.
+  SpreadsheetApp: { openById: () => ({ getSheetByName: (n) => n === 'Nursing_Log' ? null : tabFor(n), insertSheet: tabFor }) },
   Utilities: { getUuid: () => 'uuid', computeHmacSha256Signature: () => [], base64Encode: () => '' },
   PropertiesService: { getScriptProperties: () => ({ getProperty: () => 'sheet-id', setProperty() {} }) },
   CacheService: { getScriptCache: () => ({ get: () => null, put() {}, remove() {} }) },
