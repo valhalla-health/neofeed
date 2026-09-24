@@ -167,8 +167,8 @@ draft carries 1,700 g. Every figure on screen must equal the one function behind
 
 §1 checks the `data.js` resolvers directly. §7 is source-level and CRLF-normalised: no `lastWeighed(`,
 `weightAtOrBeforeDol(`, `onWeightChange`, `liveWeight` or `calcWeights`, no stored `dol` displayed, and no DOL
-counted from `weights[0]` outside `data.js`. Each scenario runs in its own process. Written before the fix, it
-failed 40 of its first 55 checks there.
+counted from `weights[0]` outside `data.js`. Each scenario runs in its own process. It fails 42 of its 59
+checks on `2731387` (`main` before this work, the nurse form included) and passes all 59 after.
 
 `verify-status-zones.cjs` pins the **range bars' green / yellow / red zones** (Praew, 2026-09-22: "สีเขียว
 OK, สีเหลืองระวัง สีแดง alert"). The claim is that a bar can never disagree with its own tile, so it

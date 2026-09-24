@@ -13,7 +13,8 @@ Pp: *"น้ำหนัก และ day of life ของทุกที่ �
 then *"Check DOL ของ center point กับ neofeed ให้ตรงกัน"*. Spec and plan: `docs/WEIGHT_DOL_SINGLE_SOURCE_SPEC.md`,
 `docs/WEIGHT_DOL_SINGLE_SOURCE_PLAN.md`. Frontend only: no `clasp`, `CONSTANTS_VERSION` unchanged. Regression
 test: `test/verify-single-source-weight-dol.cjs`, which walks one fixture infant through every screen of the
-real `<App/>`; it failed 40 of 55 checks on the tree before this session.
+real `<App/>`. It fails 42 of its 59 checks on `main` at `2731387` (#111 included, which had already fixed the
+back-fill prefill, check 3.4) and passes 59 of 59 here.
 
 The helpers existed and most screens used them. What disagreed was what was kept along the way:
 
