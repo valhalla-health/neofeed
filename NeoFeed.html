@@ -400,6 +400,9 @@
   }
   .rail-item.active .count { background: #fff; border-color: var(--brand-line); color: var(--brand-ink); }
   .rail-item.crit .count { background: var(--crit-bg); border-color: var(--crit-line); color: var(--crit); }
+  /* Cautions only — the badge wears the worst thing it counts (alarm fatigue,
+     2026-09-24). Red is kept for an unacknowledged critical. */
+  .rail-item.warn .count { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-ink); }
 
   .rail-foot {
     margin-top: auto; padding: 10px 8px; font-size: 11px; color: var(--ink-3);
@@ -1544,6 +1547,12 @@
       border: 1.5px solid var(--surface);
       pointer-events: none;
     }
+    /* Only the Alerts badge claims a severity (alarm fatigue, 2026-09-24).
+       Cautions are the .chip.warn pairing — 6.8:1, where white on --warn is
+       3.6:1 — so an unacknowledged critical stays the one solid red. The
+       Dashboard's entry count is information, not an alarm: neutral. */
+    .bnav-badge.warn    { background: var(--warn-bg); color: var(--warn-ink); border-color: var(--warn-line); }
+    .bnav-badge.neutral { background: var(--bg-2); color: var(--ink-2); border-color: var(--line); }
 
     /* ── iOS: prevent auto-zoom on input focus (requires font-size ≥ 16px) ── */
     .inp, .sel { font-size: 16px !important; }
@@ -1804,13 +1813,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=4992b1cc30"></script>
+  <script src="data.js?v=b6bcff8cee"></script>
   <script src="compiled/icons.js?v=8ad9fe42c3"></script>
   <script src="compiled/calculator.js?v=d6ffb4afd6"></script>
   <script src="compiled/fenton.js?v=444c073f49"></script>
   <script src="compiled/registry.js?v=3394fee20f"></script>
   <script src="compiled/log.js?v=4cf7029149"></script>
-  <script src="compiled/app.js?v=1ffcc1084d"></script>
+  <script src="compiled/app.js?v=bf5aeb35d9"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

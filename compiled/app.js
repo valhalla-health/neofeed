@@ -109,6 +109,11 @@ const readAckedMap = (sessionId) => {
     return {};
   }
 };
+const alertAckKey = (a) => a.ack || ackKey(a.id, a.dol);
+const isParenteralEntry = (e) => {
+  const route = String(e?.route ?? "").trim();
+  return !route || /\bT?PN\b/i.test(route);
+};
 function previousLogEntry(entries, targetDate) {
   const target = D_A.normalizeDateStr(targetDate);
   if (!target) return null;
@@ -118,6 +123,7 @@ function previousLogEntry(entries, targetDate) {
   }).slice().sort((a, b) => D_A.normalizeDateStr(a.ts).localeCompare(D_A.normalizeDateStr(b.ts))).slice(-1)[0] || null;
 }
 function computeAlerts(patient, allEntries) {
+  if (!D_A.isOnUnit(patient)) return [];
   const alerts = [];
   const entries = D_A.finalEntries(allEntries);
   const last = entries[entries.length - 1];
@@ -171,22 +177,42 @@ function computeAlerts(patient, allEntries) {
   if (lastWtEntry) {
     const daysSince = todaysDol - lastWtEntry.dol;
     if (daysSince >= 3) {
+      const level = daysSince >= 7 ? "crit" : "warn";
       alerts.push({
         id: "weight-stale",
-        level: daysSince >= 7 ? "crit" : "warn",
+        level,
         title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
         body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol}${lastWtEntry.src === "order" ? " (จากใบสั่ง TPN)" : ""} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
         dol: todaysDol,
-        ref: "ESPGHAN 2022"
+        ref: "ESPGHAN 2022",
+        // Acknowledged per missing weight and per level, not per calendar day.
+        // Keyed on today's DOL, an acknowledged caution came back every morning
+        // with nothing new to say (alarm fatigue, 2026-09-24). Now it comes back
+        // when it escalates past 7 days, and a new weight clears it outright.
+        ack: ackKey(`weight-stale-${level}`, lastWtEntry.dol)
       });
     }
   }
-  alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: last ? D_A.entryDol(patient, last) : void 0, ref: "KCMH protocol" });
+  if (last && isParenteralEntry(last)) {
+    alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: D_A.entryDol(patient, last), ref: "KCMH protocol" });
+  }
   return alerts;
 }
-function activeAlertCount(patient, entries) {
+const isActionableAlert = (a) => a.level === "crit" || a.level === "warn";
+const ALERT_LEVEL_RANK = { crit: 0, warn: 1, info: 2 };
+function alertBadgeFor(patient, entries) {
+  if (!patient) return { count: 0, crit: 0, warn: 0, level: null };
   const acked = readAckedMap(patient.sessionId);
-  return computeAlerts(patient, entries).filter((a) => !acked[ackKey(a.id, a.dol)]).length;
+  let crit = 0, warn = 0;
+  for (const a of computeAlerts(patient, entries)) {
+    if (!isActionableAlert(a) || acked[alertAckKey(a)]) continue;
+    if (a.level === "crit") crit++;
+    else warn++;
+  }
+  return { count: crit + warn, crit, warn, level: crit ? "crit" : warn ? "warn" : null };
+}
+function activeAlertCount(patient, entries) {
+  return alertBadgeFor(patient, entries).count;
 }
 const NeoFeedWordmark = ({ className, style, lockup = false }) => /* @__PURE__ */ React.createElement(
   "div",
@@ -388,10 +414,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const lastWt = active?.weights?.slice(-1)[0];
   const dol = D_A.liveDol(active);
   const [ackVersion, setAckVersion] = React.useState(0);
-  const alertCount = React.useMemo(() => {
-    if (!active) return 0;
-    return activeAlertCount(active, log[active.sessionId] || []);
-  }, [active, log, dol, ackVersion]);
+  const alertBadge = React.useMemo(
+    () => alertBadgeFor(active, active && log[active.sessionId] || []),
+    [active, log, dol, ackVersion]
+  );
   const flagPasswordChangeRequired = React.useCallback(() => {
     setUser((u) => {
       if (!u || u.mustChangePassword) return u;
@@ -1109,7 +1135,18 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       syncState === "loading" ? /* @__PURE__ */ React.createElement("span", { className: "dot dot-spin", style: { width: 7, height: 7 } }) : null,
       syncState === "loading" ? "กำลังซิงก์…" : "Sync now"
     ));
-  })(), /* @__PURE__ */ React.createElement("nav", { className: "rail" }, /* @__PURE__ */ React.createElement("div", { className: "rail-section" }, "Workspace"), /* @__PURE__ */ React.createElement(RailItem, { icon: "users", label: "Patients", active: view === "registry", count: patients.length, onClick: () => goTo("registry") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "log", label: "Dashboard", active: view === "log", count: (log[activeId] || []).length, onClick: () => goTo("log") }), (role === "doctor" || role === "nurse") && /* @__PURE__ */ React.createElement(RailItem, { icon: "calc", label: "Calculator", active: view === "calculator", onClick: () => goTo("calculator") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "chart", label: "Growth chart", active: view === "fenton", onClick: () => goTo("fenton") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "bell", label: "Alerts", active: view === "alerts", count: alertCount || null, crit: alertCount > 0, onClick: () => goTo("alerts") }), role === "admin" && /* @__PURE__ */ React.createElement(RailItem, { icon: "chart", label: "Admin dashboard", active: view === "admin", onClick: () => goTo("admin") }), /* @__PURE__ */ React.createElement("div", { className: "rail-section" }, "Reference"), /* @__PURE__ */ React.createElement(RailItem, { icon: "info", label: "Guidelines (ESPGHAN)", active: view === "guidelines", onClick: () => goTo("guidelines") }), /* @__PURE__ */ React.createElement("div", { className: "rail-item", style: { opacity: 0.45, cursor: "default", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 15 }), /* @__PURE__ */ React.createElement("span", null, "Drug compatibility"), /* @__PURE__ */ React.createElement("span", { className: "count", style: { marginLeft: "auto", fontSize: 10 } }, "soon")), /* @__PURE__ */ React.createElement(RailItem, { icon: "info", label: "Formulas + products", active: view === "formulas", onClick: () => goTo("formulas") }), /* @__PURE__ */ React.createElement("div", { className: "rail-foot" }, /* @__PURE__ */ React.createElement("div", { className: "conn" }, /* @__PURE__ */ React.createElement("span", { className: "dot", style: { background: freshness.level === "ok" ? "var(--ok)" : freshness.level === "local" ? "var(--line)" : freshness.level === "warn" ? "var(--warn)" : "var(--crit)" } }), !GAS_ON ? "Local only" : lastSync ? `Sync · ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not synced"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4 } }, "V2.0 · ESPGHAN 2018/2022"))), /* @__PURE__ */ React.createElement("main", { className: "work" }, /* @__PURE__ */ React.createElement("div", { className: "work-inner" }, /* @__PURE__ */ React.createElement(ViewErrorBoundary, { variant: "view", resetKey: `${view}|${activeId || ""}`, onGoRegistry: () => goTo("registry") }, GAS_ON && syncState === "ok" && patients.length === 0 && /* @__PURE__ */ React.createElement("div", { style: {
+  })(), /* @__PURE__ */ React.createElement("nav", { className: "rail" }, /* @__PURE__ */ React.createElement("div", { className: "rail-section" }, "Workspace"), /* @__PURE__ */ React.createElement(RailItem, { icon: "users", label: "Patients", active: view === "registry", count: patients.length, onClick: () => goTo("registry") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "log", label: "Dashboard", active: view === "log", count: (log[activeId] || []).length, onClick: () => goTo("log") }), (role === "doctor" || role === "nurse") && /* @__PURE__ */ React.createElement(RailItem, { icon: "calc", label: "Calculator", active: view === "calculator", onClick: () => goTo("calculator") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "chart", label: "Growth chart", active: view === "fenton", onClick: () => goTo("fenton") }), /* @__PURE__ */ React.createElement(
+    RailItem,
+    {
+      icon: "bell",
+      label: "Alerts",
+      active: view === "alerts",
+      count: alertBadge.count || null,
+      crit: alertBadge.level === "crit",
+      warn: alertBadge.level === "warn",
+      onClick: () => goTo("alerts")
+    }
+  ), role === "admin" && /* @__PURE__ */ React.createElement(RailItem, { icon: "chart", label: "Admin dashboard", active: view === "admin", onClick: () => goTo("admin") }), /* @__PURE__ */ React.createElement("div", { className: "rail-section" }, "Reference"), /* @__PURE__ */ React.createElement(RailItem, { icon: "info", label: "Guidelines (ESPGHAN)", active: view === "guidelines", onClick: () => goTo("guidelines") }), /* @__PURE__ */ React.createElement("div", { className: "rail-item", style: { opacity: 0.45, cursor: "default", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 15 }), /* @__PURE__ */ React.createElement("span", null, "Drug compatibility"), /* @__PURE__ */ React.createElement("span", { className: "count", style: { marginLeft: "auto", fontSize: 10 } }, "soon")), /* @__PURE__ */ React.createElement(RailItem, { icon: "info", label: "Formulas + products", active: view === "formulas", onClick: () => goTo("formulas") }), /* @__PURE__ */ React.createElement("div", { className: "rail-foot" }, /* @__PURE__ */ React.createElement("div", { className: "conn" }, /* @__PURE__ */ React.createElement("span", { className: "dot", style: { background: freshness.level === "ok" ? "var(--ok)" : freshness.level === "local" ? "var(--line)" : freshness.level === "warn" ? "var(--warn)" : "var(--crit)" } }), !GAS_ON ? "Local only" : lastSync ? `Sync · ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not synced"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4 } }, "V2.0 · ESPGHAN 2018/2022"))), /* @__PURE__ */ React.createElement("main", { className: "work" }, /* @__PURE__ */ React.createElement("div", { className: "work-inner" }, /* @__PURE__ */ React.createElement(ViewErrorBoundary, { variant: "view", resetKey: `${view}|${activeId || ""}`, onGoRegistry: () => goTo("registry") }, GAS_ON && syncState === "ok" && patients.length === 0 && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "12px 16px",
     background: "var(--brand-bg)",
     border: "1px solid var(--brand-line)",
@@ -1200,7 +1237,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     {
       view,
       setView: goTo,
-      alertCount,
+      alertCount: alertBadge.count,
+      alertLevel: alertBadge.level,
       logCount: (log[activeId] || []).length,
       role
     }
@@ -1395,8 +1433,8 @@ window.NEOFEED_FMT_DATE = fmtDate;
 function fmtGA(ga) {
   return D_A.fmtGA(ga);
 }
-function RailItem({ icon, label, active, count, crit, onClick }) {
-  return /* @__PURE__ */ React.createElement("div", { className: `rail-item ${active ? "active" : ""} ${crit ? "crit" : ""}`, onClick }, /* @__PURE__ */ React.createElement(Icon, { name: icon, size: 15 }), /* @__PURE__ */ React.createElement("span", null, label), count && /* @__PURE__ */ React.createElement("span", { className: "count" }, count));
+function RailItem({ icon, label, active, count, crit, warn, onClick }) {
+  return /* @__PURE__ */ React.createElement("div", { className: `rail-item ${active ? "active" : ""} ${crit ? "crit" : warn ? "warn" : ""}`, onClick }, /* @__PURE__ */ React.createElement(Icon, { name: icon, size: 15 }), /* @__PURE__ */ React.createElement("span", null, label), count && /* @__PURE__ */ React.createElement("span", { className: "count" }, count));
 }
 function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEdit }) {
   const ws = patient.weights || [];
@@ -1425,7 +1463,8 @@ function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEd
 function AlertCenter({ patient, log, onAckChange }) {
   const entries = log[patient.sessionId] || [];
   const alerts = computeAlerts(patient, entries);
-  const ackKeyFor = (a) => ackKey(a.id, a.dol);
+  const onUnit = D_A.isOnUnit(patient);
+  const ackKeyFor = alertAckKey;
   const storageKey = `neofeed_acked_${patient.sessionId}`;
   const [acked, setAcked] = React.useState(() => readAckedMap(patient.sessionId));
   React.useEffect(() => {
@@ -1448,7 +1487,7 @@ function AlertCenter({ patient, log, onAckChange }) {
     persistAcked(next);
   };
   const activeAlerts = alerts.filter((a) => !acked[ackKeyFor(a)]);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Alert center"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Cross-cutting safety signals based on latest logged values · ", /* @__PURE__ */ React.createElement("span", null, patient.name || patient.initials || "—"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", disabled: activeAlerts.length === 0, onClick: acknowledgeAll }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14 }), " Acknowledge all"))), /* @__PURE__ */ React.createElement("div", { className: "alert-summary-tiles" }, /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Active critical"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--crit)" } }, activeAlerts.filter((a) => a.level === "crit").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Cautions"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--warn-ink)" } }, activeAlerts.filter((a) => a.level === "warn").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Info / reminders"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--brand)" } }, activeAlerts.filter((a) => a.level === "info").length))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "bell", size: 14, color: "var(--brand)" }), " Patient alerts", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, activeAlerts.length, " active · ", alerts.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 8 } }, alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0)).map((a, i) => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Alert center"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Cross-cutting safety signals based on latest logged values · ", /* @__PURE__ */ React.createElement("span", null, patient.name || patient.initials || "—"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", disabled: activeAlerts.length === 0, onClick: acknowledgeAll }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14 }), " Acknowledge all"))), /* @__PURE__ */ React.createElement("div", { className: "alert-summary-tiles" }, /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Active critical"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--crit)" } }, activeAlerts.filter((a) => a.level === "crit").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Cautions"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--warn-ink)" } }, activeAlerts.filter((a) => a.level === "warn").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Info / reminders"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--brand)" } }, activeAlerts.filter((a) => a.level === "info").length))), /* @__PURE__ */ React.createElement("div", { className: "alert-badge-note", style: { fontSize: 12, color: "var(--ink-3)", margin: "-4px 0 12px" } }, "ตัวเลขบนเมนู Alerts นับเฉพาะ Critical และ Caution ที่ยังไม่ได้ Acknowledge — Info / reminders ไม่นับ"), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "bell", size: 14, color: "var(--brand)" }), " Patient alerts", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, activeAlerts.length, " active · ", alerts.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 8 } }, alerts.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "alert-empty", style: { fontSize: 13, color: "var(--ink-3)", padding: "6px 2px" } }, onUnit ? "ไม่มีการแจ้งเตือนสำหรับผู้ป่วยรายนี้" : `ผู้ป่วยรายนี้ไม่ได้อยู่ใน unit แล้ว (${patient.status}) — ไม่มีการแจ้งเตือน`), alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0) || ALERT_LEVEL_RANK[a.level] - ALERT_LEVEL_RANK[b.level]).map((a, i) => {
     const ackedAt = acked[ackKeyFor(a)];
     return /* @__PURE__ */ React.createElement("div", { key: ackKeyFor(a), className: `alert-row ${a.level}`, style: ackedAt ? { opacity: 0.5 } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "ico" }, a.level === "crit" ? "!" : a.level === "warn" ? "!" : "i"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { className: "title" }, a.title), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)" }, className: "mono" }, "DOL ", a.dol)), /* @__PURE__ */ React.createElement("div", { className: "body" }, a.body), /* @__PURE__ */ React.createElement("div", { className: "meta" }, "Ref: ", a.ref)), ackedAt ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, color: "var(--ok)" }), " Acknowledged") : /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: () => acknowledge(a) }, "Acknowledge"));
   }))));
@@ -1709,13 +1748,13 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
     (e, i) => /* @__PURE__ */ React.createElement("tr", { key: i, style: { borderTop: "1px solid var(--line-2)" } }, /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.sid), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.bed), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.showDol), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.weight, 2)), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.kcal, 2)), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.pro, 2)), /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 12px", color: "var(--ink-2)" } }, e.route))
   ))))));
 }
-function BottomNav({ view, setView, alertCount, logCount, role }) {
+function BottomNav({ view, setView, alertCount, alertLevel, logCount, role }) {
   const tabs = [
     { id: "registry", icon: "users", label: "Patients" },
-    { id: "log", icon: "log", label: "Dashboard", badge: logCount },
+    { id: "log", icon: "log", label: "Dashboard", badge: logCount, tone: "neutral" },
     ...role === "doctor" || role === "nurse" ? [{ id: "calculator", icon: "calc", label: "Calc" }] : [],
     { id: "fenton", icon: "chart", label: "Growth" },
-    { id: "alerts", icon: "bell", label: "Alerts", badge: alertCount }
+    { id: "alerts", icon: "bell", label: "Alerts", badge: alertCount, tone: alertLevel === "warn" ? "warn" : "" }
   ];
   return /* @__PURE__ */ React.createElement("nav", { className: "bottom-nav", "aria-label": "Main navigation" }, tabs.map((t) => /* @__PURE__ */ React.createElement(
     "button",
@@ -1725,7 +1764,7 @@ function BottomNav({ view, setView, alertCount, logCount, role }) {
       onClick: () => setView(t.id),
       "aria-label": t.label
     },
-    t.badge > 0 && /* @__PURE__ */ React.createElement("span", { className: "bnav-badge" }, t.badge),
+    t.badge > 0 && /* @__PURE__ */ React.createElement("span", { className: `bnav-badge${t.tone ? " " + t.tone : ""}` }, t.badge),
     /* @__PURE__ */ React.createElement(Icon, { name: t.icon, size: 23, color: view === t.id ? "var(--brand)" : "var(--ink-4)" }),
     /* @__PURE__ */ React.createElement("span", null, t.label)
   )));

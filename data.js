@@ -1936,6 +1936,10 @@ window.NEOFEED_DATA = {
   // the one bed list, and the one-patient-per-bed occupancy helpers
   normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
   lastBed, isParked, patientWard,
+  // "Still on the unit" — the one definition the bed guard, the Alerts badge
+  // and the admin census all read, so a discharged infant cannot hold a bed on
+  // one screen, raise an alarm on a second and count as a census on a third.
+  isOnUnit,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,

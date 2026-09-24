@@ -148,6 +148,19 @@ const readAckedMap = (sessionId) => {
   try { return JSON.parse(localStorage.getItem(`neofeed_acked_${sessionId}`)) || {}; }
   catch { return {}; }
 };
+// An alert may name its own acknowledge key (`ack`) when "the same finding" is
+// not "the same id on the same DOL" — see weight-stale in computeAlerts.
+const alertAckKey = (a) => a.ack || ackKey(a.id, a.dol);
+
+// Was this saved order a parenteral one? calculator.jsx writes "TPN central" /
+// "TPN peripheral" whenever the bag has volume and "Enteral only" / "NPO" when
+// it has none; older rows carry free text such as "TPN + EBM 25 mL/kg" or
+// "Full EN 135 mL/kg". A row with no route cannot say, and counts as
+// parenteral — the reading that keeps a reminder rather than drops one.
+const isParenteralEntry = (e) => {
+  const route = String(e?.route ?? "").trim();
+  return !route || /\bT?PN\b/i.test(route);
+};
 
 // Return only an entry strictly earlier than the intended order date. This is
 // important for back-filling: the most recent row overall may be from the
@@ -173,6 +186,12 @@ function previousLogEntry(entries, targetDate) {
 // never counted the electrolyte-audit reminder that the page always shows),
 // so the badge silently under-counted what the Alerts page displayed.
 function computeAlerts(patient, allEntries) {
+  // Nobody can act on an alert about an infant who has left the unit: the last
+  // order is no longer running, and "weight >7 days overdue" only ever grows
+  // after discharge. A discharged session still raised its full list here, and
+  // the admin tile summed it with the ward's (2026-09-23 review). It raises
+  // nothing now — the same "still here" test the bed guard uses.
+  if (!D_A.isOnUnit(patient)) return [];
   const alerts = [];
   // Drafts are half-typed orders, not what the infant received (D.isDraftEntry).
   const entries = D_A.finalEntries(allEntries);
@@ -263,12 +282,18 @@ function computeAlerts(patient, allEntries) {
   if (lastWtEntry) {
     const daysSince = todaysDol - lastWtEntry.dol;
     if (daysSince >= 3) {
+      const level = daysSince >= 7 ? "crit" : "warn";
       alerts.push({
         id: "weight-stale",
-        level: daysSince >= 7 ? "crit" : "warn",
+        level,
         title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
         body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol}${lastWtEntry.src === "order" ? " (จากใบสั่ง TPN)" : ""} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
-        dol: todaysDol, ref: "ESPGHAN 2022"
+        dol: todaysDol, ref: "ESPGHAN 2022",
+        // Acknowledged per missing weight and per level, not per calendar day.
+        // Keyed on today's DOL, an acknowledged caution came back every morning
+        // with nothing new to say (alarm fatigue, 2026-09-24). Now it comes back
+        // when it escalates past 7 days, and a new weight clears it outright.
+        ack: ackKey(`weight-stale-${level}`, lastWtEntry.dol),
       });
     }
   }
@@ -279,13 +304,41 @@ function computeAlerts(patient, allEntries) {
   // that anyway, on every patient, in the same visual language as the alerts
   // that ARE computed. Keep it phrased as the reminder it is until an actual
   // electrolyte-draw date is captured and this can be derived.
-  alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: last ? D_A.entryDol(patient, last) : undefined, ref: "KCMH protocol" });
+  // Only while on PN, which is what its own text says (2026-09-24). It was
+  // pushed for every infant, orderless and on full feeds included, so every
+  // list carried one line nobody could act on — and it lit the badge.
+  if (last && isParenteralEntry(last)) {
+    alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: D_A.entryDol(patient, last), ref: "KCMH protocol" });
+  }
 
   return alerts;
 }
-function activeAlertCount(patient, entries) {
+
+// ── Alarm fatigue (UX roadmap #1, 2026-09-24) ─────────────────────────────
+// A badge that is always lit is a badge nobody reads. The Alerts badge counted
+// every unacknowledged alert, the standing electrolyte *reminder* included, so
+// it was never empty on an infant with an order, and RailItem's old
+// `crit={alertCount > 0}` painted it red on every one of them. The rules now,
+// each pinned by test/verify-alarm-fatigue.cjs:
+//   1. Only a finding somebody can act on counts — `crit` and `warn`. `info`
+//      lines stay on the Alerts page and never reach a badge or a tile.
+//   2. The badge wears the worst thing it counts: red only for an
+//      unacknowledged critical, amber for cautions alone.
+//   3. A session that has left the unit raises nothing (computeAlerts).
+const isActionableAlert = (a) => a.level === "crit" || a.level === "warn";
+const ALERT_LEVEL_RANK = { crit: 0, warn: 1, info: 2 };
+function alertBadgeFor(patient, entries) {
+  if (!patient) return { count: 0, crit: 0, warn: 0, level: null };
   const acked = readAckedMap(patient.sessionId);
-  return computeAlerts(patient, entries).filter(a => !acked[ackKey(a.id, a.dol)]).length;
+  let crit = 0, warn = 0;
+  for (const a of computeAlerts(patient, entries)) {
+    if (!isActionableAlert(a) || acked[alertAckKey(a)]) continue;
+    if (a.level === "crit") crit++; else warn++;
+  }
+  return { count: crit + warn, crit, warn, level: crit ? "crit" : warn ? "warn" : null };
+}
+function activeAlertCount(patient, entries) {
+  return alertBadgeFor(patient, entries).count;
 }
 
 // ============================================================
@@ -681,10 +734,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // so this memo (which reads localStorage directly) knows to recompute.
   const [ackVersion, setAckVersion] = React.useState(0);
 
-  const alertCount = React.useMemo(() => {
-    if (!active) return 0;
-    return activeAlertCount(active, log[active.sessionId] || []);
-  }, [active, log, dol, ackVersion]);
+  // { count, level } — actionable, unacknowledged alerts only (alertBadgeFor).
+  const alertBadge = React.useMemo(
+    () => alertBadgeFor(active, (active && log[active.sessionId]) || []),
+    [active, log, dol, ackVersion]);
 
   // ── GAS fetch (initial + manual sync) ────────────────────────
   // Token is sent in POST body — never in URL (prevents token leakage in server logs)
@@ -1891,7 +1944,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         <RailItem icon="log" label="Dashboard" active={view === "log"} count={(log[activeId] || []).length} onClick={() => goTo("log")} />
         {(role === "doctor" || role === "nurse") && <RailItem icon="calc" label="Calculator" active={view === "calculator"} onClick={() => goTo("calculator")} />}
         <RailItem icon="chart" label="Growth chart" active={view === "fenton"} onClick={() => goTo("fenton")} />
-        <RailItem icon="bell" label="Alerts" active={view === "alerts"} count={alertCount || null} crit={alertCount > 0} onClick={() => goTo("alerts")} />
+        <RailItem icon="bell" label="Alerts" active={view === "alerts"} count={alertBadge.count || null}
+          crit={alertBadge.level === "crit"} warn={alertBadge.level === "warn"} onClick={() => goTo("alerts")} />
         {role === "admin" && <RailItem icon="chart" label="Admin dashboard" active={view === "admin"} onClick={() => goTo("admin")} />}
 
         <div className="rail-section">Reference</div>
@@ -2033,7 +2087,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       <BottomNav
         view={view}
         setView={goTo}
-        alertCount={alertCount}
+        alertCount={alertBadge.count}
+        alertLevel={alertBadge.level}
         logCount={(log[activeId] || []).length}
         role={role}
       />
@@ -2320,9 +2375,9 @@ window.NEOFEED_FMT_DATE = fmtDate;
 // Delegates to D_A.fmtGA for single source of truth.
 function fmtGA(ga) { return D_A.fmtGA(ga); }
 
-function RailItem({ icon, label, active, count, crit, onClick }) {
+function RailItem({ icon, label, active, count, crit, warn, onClick }) {
   return (
-    <div className={`rail-item ${active ? "active" : ""} ${crit ? "crit" : ""}`} onClick={onClick}>
+    <div className={`rail-item ${active ? "active" : ""} ${crit ? "crit" : warn ? "warn" : ""}`} onClick={onClick}>
       <Icon name={icon} size={15} />
       <span>{label}</span>
       {count && <span className="count">{count}</span>}
@@ -2448,14 +2503,16 @@ function AlertCenter({ patient, log, onAckChange }) {
   // Each alert carries a stable `id` (independent of dol/wording) — combined
   // with dol below to form the acknowledge key, so an ack only silences that
   // specific day's instance and a fresh recurrence (new dol) surfaces again.
+  // An alert that names its own key (`ack`) is acknowledged on that instead.
   // computeAlerts() is the single shared source of truth (see its definition
   // near the top of this file) — also used by the nav badge and admin tile.
   const alerts = computeAlerts(patient, entries);
+  const onUnit = D_A.isOnUnit(patient);
 
   // ── Acknowledge state — per-device, keyed by patient session (localStorage).
   // Not yet synced server-side (would need a new Patient sheet column); a
   // second reviewer on another device won't see this device's acknowledgments.
-  const ackKeyFor = (a) => ackKey(a.id, a.dol);
+  const ackKeyFor = alertAckKey;
   const storageKey = `neofeed_acked_${patient.sessionId}`;
   const [acked, setAcked] = React.useState(() => readAckedMap(patient.sessionId));
   React.useEffect(() => { setAcked(readAckedMap(patient.sessionId)); }, [storageKey]);
@@ -2500,6 +2557,10 @@ function AlertCenter({ patient, log, onAckChange }) {
           <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--brand)" }}>{activeAlerts.filter((a) => a.level === "info").length}</div>
         </div>
       </div>
+      {/* Says what the badge counts, once, where someone checking it lands. */}
+      <div className="alert-badge-note" style={{ fontSize: 12, color: "var(--ink-3)", margin: "-4px 0 12px" }}>
+        ตัวเลขบนเมนู Alerts นับเฉพาะ Critical และ Caution ที่ยังไม่ได้ Acknowledge — Info / reminders ไม่นับ
+      </div>
 
       <div className="card">
         <div className="card-h">
@@ -2507,7 +2568,20 @@ function AlertCenter({ patient, log, onAckChange }) {
           <span className="h-meta">{activeAlerts.length} active · {alerts.length} total</span>
         </div>
         <div className="card-b" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0)).map((a, i) => {
+          {/* An empty list says why it is empty: a discharged session raises
+              nothing by design (computeAlerts), which is not the same news as
+              an infant on the unit with nothing wrong. */}
+          {alerts.length === 0 && (
+            <div className="alert-empty" style={{ fontSize: 13, color: "var(--ink-3)", padding: "6px 2px" }}>
+              {onUnit
+                ? "ไม่มีการแจ้งเตือนสำหรับผู้ป่วยรายนี้"
+                : `ผู้ป่วยรายนี้ไม่ได้อยู่ใน unit แล้ว (${patient.status}) — ไม่มีการแจ้งเตือน`}
+            </div>
+          )}
+          {/* Unacknowledged first, then worst first: critical, caution, info. */}
+          {alerts.slice().sort((a, b) =>
+            ((acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0)) ||
+            (ALERT_LEVEL_RANK[a.level] - ALERT_LEVEL_RANK[b.level])).map((a, i) => {
             const ackedAt = acked[ackKeyFor(a)];
             return (
             <div key={ackKeyFor(a)} className={`alert-row ${a.level}`} style={ackedAt ? { opacity: 0.5 } : undefined}>
@@ -2909,13 +2983,18 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
 // ============================================================
 // BottomNav — mobile-only tab bar (≤767px)
 // ============================================================
-function BottomNav({ view, setView, alertCount, logCount, role }) {
+function BottomNav({ view, setView, alertCount, alertLevel, logCount, role }) {
+  // A badge's colour is a claim about severity, so only the Alerts badge may
+  // make one (alarm fatigue, 2026-09-24): red for an unacknowledged critical,
+  // amber for cautions. The Dashboard's number is how many entries the infant
+  // has — information, not an alarm — and it was drawn in the same solid red
+  // on every phone. It is neutral now, as it always was on the desktop rail.
   const tabs = [
     { id: "registry",   icon: "users",  label: "Patients" },
-    { id: "log",        icon: "log",    label: "Dashboard", badge: logCount   },
+    { id: "log",        icon: "log",    label: "Dashboard", badge: logCount, tone: "neutral" },
     ...((role === "doctor" || role === "nurse") ? [{ id: "calculator", icon: "calc", label: "Calc" }] : []),
     { id: "fenton",     icon: "chart",  label: "Growth"   },
-    { id: "alerts",     icon: "bell",   label: "Alerts", badge: alertCount },
+    { id: "alerts",     icon: "bell",   label: "Alerts", badge: alertCount, tone: alertLevel === "warn" ? "warn" : "" },
   ];
   return (
     <nav className="bottom-nav" aria-label="Main navigation">
@@ -2926,7 +3005,7 @@ function BottomNav({ view, setView, alertCount, logCount, role }) {
           onClick={() => setView(t.id)}
           aria-label={t.label}
         >
-          {t.badge > 0 && <span className="bnav-badge">{t.badge}</span>}
+          {t.badge > 0 && <span className={`bnav-badge${t.tone ? " " + t.tone : ""}`}>{t.badge}</span>}
           <Icon name={t.icon} size={23} color={view === t.id ? "var(--brand)" : "var(--ink-4)"} />
           <span>{t.label}</span>
         </button>
