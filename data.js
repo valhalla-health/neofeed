@@ -1435,7 +1435,7 @@ function currentWeight(patient, entries, asOfDol) {
 // ============================================================
 // The alert built on this used to take the first and last of the past seven
 // weight rows and grade the slope against ≥15 g/kg/d unconditionally. Two ways
-// that was wrong at the bedside (2026-09-23):
+// that was wrong at the bedside (2026-09-23), and a third found on 2026-09-24:
 //
 //   1. **Physiological weight loss.** Every newborn loses weight in the first
 //      days — up to ~10% of birth weight for a preterm infant, regained by
@@ -1454,12 +1454,25 @@ function currentWeight(patient, entries, asOfDol) {
 //      a target that does not apply, say so: the caller renders that as an
 //      informational line, not an alarm.
 //
+//   3. **Back AT birth weight is not growth** (Pp, 2026-09-24). A weight that
+//      has only returned to birth weight has not gained anything yet, so it is
+//      not graded either. The regain is the first weight >= birth weight, and
+//      grading used to start right there: two order weights left at the
+//      birth-weight prefill (1,200 g on a 1,200 g infant, DOL 8 and 10) read
+//      "0 g/kg/d" in critical red on DOL 10. Now velocity is graded only once a
+//      weight rises ABOVE birth weight. It is still measured from the regain,
+//      so a week spent flat at birth weight still counts against it.
+//
 // Returns { status, vel, days, from, to, reason } where status is one of
 //   "ok" | "low" | "critical"          — a real, gradeable velocity
-//   "physiologicalLoss"                — still in the expected-loss window
+//   "physiologicalLoss"                — not yet above birth weight, DOL <= 14
+//   "notRegained"                      — not yet above birth weight past DOL 14
 //   "beyondReference"                  — past PMA_REFERENCE_MAX weeks
 //   "insufficientData"                 — fewer than two usable weights
-// `reason` is ward-readable text for the non-gradeable cases.
+// `reason` is ward-readable text for the non-gradeable cases. The two
+// not-yet-above states also carry `bw`, and `atBirthWeight`: true when the
+// latest weight equals birth weight, false when it is below it. The Growth
+// chart's readout says "Weight at/below birth weight" from these.
 const PMA_REFERENCE_MAX = 42;            // Fenton 2025 stops here (fenton.jsx GA_MAX)
 const GROWTH_VEL_TARGET = 15;            // g/kg/d, ESPGHAN 2022 minimum
 const GROWTH_VEL_CRITICAL = 10;          // g/kg/d
@@ -1497,14 +1510,24 @@ function growthVelocity(patient, entries) {
   const regainIdx = bw > 0
     ? (hasLossWindow ? wts.findIndex(w => w.w >= bw && w.dol > (wts[0]?.dol ?? 1)) : 0)
     : 0;
-  if (bw > 0 && regainIdx === -1) {
+  // Graded only once a weight on or after the regain is ABOVE birth weight
+  // (point 3 above). Until then the latest weight is at or below birth weight:
+  // either nothing after birth reached it (regainIdx -1), or everything from
+  // the regain on is <= it. A series that starts above birth weight passes.
+  const aboveBirthWeight = regainIdx !== -1 && wts.slice(regainIdx).some(w => w.w > bw);
+  if (bw > 0 && !aboveBirthWeight) {
     const stillLosing = latest.dol <= REGAIN_EXPECTED_BY_DOL;
+    const atBirthWeight = latest.w >= bw;
     return {
       status: stillLosing ? "physiologicalLoss" : "notRegained",
-      vel: null, days: 0, to: latest,
-      reason: stillLosing
-        ? `ยังไม่กลับถึงน้ำหนักแรกเกิด (${bw} g) — DOL ${latest.dol} อยู่ในช่วงน้ำหนักลดตามสรีรวิทยา ยังไม่ประเมินอัตราการเจริญเติบโต`
-        : `ยังไม่กลับถึงน้ำหนักแรกเกิด (${bw} g) ภายใน DOL ${REGAIN_EXPECTED_BY_DOL} — ตรวจสอบปริมาณสารอาหารที่ได้รับ`,
+      vel: null, days: 0, to: latest, bw, atBirthWeight,
+      reason: atBirthWeight
+        ? (stillLosing
+          ? `น้ำหนักเท่ากับน้ำหนักแรกเกิด (${bw} g) ยังไม่เพิ่มขึ้น — DOL ${latest.dol} ยังไม่ประเมินอัตราการเจริญเติบโตจนกว่าน้ำหนักจะเกินน้ำหนักแรกเกิด`
+          : `น้ำหนักยังไม่เกินน้ำหนักแรกเกิด (${bw} g) ภายใน DOL ${REGAIN_EXPECTED_BY_DOL} — ตรวจสอบปริมาณสารอาหารที่ได้รับ`)
+        : (stillLosing
+          ? `ยังไม่กลับถึงน้ำหนักแรกเกิด (${bw} g) — DOL ${latest.dol} อยู่ในช่วงน้ำหนักลดตามสรีรวิทยา ยังไม่ประเมินอัตราการเจริญเติบโต`
+          : `ยังไม่กลับถึงน้ำหนักแรกเกิด (${bw} g) ภายใน DOL ${REGAIN_EXPECTED_BY_DOL} — ตรวจสอบปริมาณสารอาหารที่ได้รับ`),
     };
   }
 
@@ -2076,10 +2099,11 @@ window.NEOFEED_DATA = {
   // is measured from these, and a blank / future / Buddhist-era value used to
   // pin DOL at 1 silently. Both registry modals and dolAtDate check it.
   admissionDateIssue, toChristianEraDateStr, ADMIT_DATE_MIN,
-  // Growth velocity, and the two states in which it must NOT be graded:
-  // physiological weight loss before birth weight is regained, and past the
-  // Fenton reference at 42 weeks PMA.
-  growthVelocity, PMA_REFERENCE_MAX, GROWTH_VEL_TARGET, GROWTH_VEL_CRITICAL,
+  // Growth velocity, and when it must NOT be graded: before any weight is
+  // above birth weight (below it, or only back AT it), and past the Fenton
+  // reference at 42 weeks PMA. REGAIN_EXPECTED_BY_DOL (14) splits the
+  // not-yet-above case into the expected window and a caution past it.
+  growthVelocity, PMA_REFERENCE_MAX, GROWTH_VEL_TARGET, GROWTH_VEL_CRITICAL, REGAIN_EXPECTED_BY_DOL,
   // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
   // the one bed list, and the one-patient-per-bed occupancy helpers
   normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
