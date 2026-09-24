@@ -337,6 +337,9 @@ function alertBadgeFor(patient, entries) {
   }
   return { count: crit + warn, crit, warn, level: crit ? "crit" : warn ? "warn" : null };
 }
+// The badge's number alone, for one infant on this device. The screens read
+// alertBadgeFor (they need the level too); this stays as the stable name the
+// harnesses measure the badge by, before and after the 2026-09-24 change.
 function activeAlertCount(patient, entries) {
   return alertBadgeFor(patient, entries).count;
 }
@@ -1946,7 +1949,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         <RailItem icon="chart" label="Growth chart" active={view === "fenton"} onClick={() => goTo("fenton")} />
         <RailItem icon="bell" label="Alerts" active={view === "alerts"} count={alertBadge.count || null}
           crit={alertBadge.level === "crit"} warn={alertBadge.level === "warn"} onClick={() => goTo("alerts")} />
-        {role === "admin" && <RailItem icon="chart" label="Admin dashboard" active={view === "admin"} onClick={() => goTo("admin")} />}
+        {role === "admin" && <RailItem icon="dashboard" label="Admin dashboard" active={view === "admin"} onClick={() => goTo("admin")} />}
 
         <div className="rail-section">Reference</div>
         <RailItem icon="info" label="Guidelines (ESPGHAN)" active={view === "guidelines"} onClick={() => goTo("guidelines")} />
@@ -2877,16 +2880,137 @@ function LoginScreen({ onLogin, notice = null }) {
 }
 
 // ============================================================
+// Admin census (UX roadmap #2, 2026-09-24)
+// ============================================================
+// What an admin opens this page to find out, ward by ward: how full it is,
+// whether today's orders are in, who is waiting for a bed, and how many
+// infants carry a critical or a caution finding. Aggregates only: the census
+// names beds, never babies. An admin who needs a name opens Patients, which
+// already shows it to every role.
+//
+// Every count reads the helpers the ward screens read, so the census and the
+// ward gate cannot disagree about who is where:
+//   on the unit       D_A.isOnUnit — a blank status counts, as on the registry
+//   which ward        D_A.patientWard — a parked infant stays on the ward of
+//                     the bed they left, as on the registry list
+//   beds              D_A.BED_OPTIONS grouped by D_A.wardGroup (NICU 1–12 and
+//                     the iso rooms = 20, SCN 1–30 = 30)
+//   logged / draft    D_A.hasLogOnDate / D_A.hasDraftOnDate for today;
+//                     logged + needs entry = active, as on the ward tiles
+//   critical/caution  computeAlerts, one count per infant at its worst level,
+//                     and deliberately NOT net of acknowledgements: those are
+//                     per device, and one device's acks say nothing about the
+//                     unit an admin is looking at
+const CENSUS_WARDS = [
+  { ward: "NICU",  label: "NICU" },
+  { ward: "SCN",   label: "SCN" },
+  { ward: "other", label: "อื่นๆ" },
+];
+const CENSUS_WINDOW_DAYS = 7;
+function buildCensus(patients, log, today) {
+  const all = patients || [];
+  const onUnit = all.filter(D_A.isOnUnit);
+  const blank = () => ({ active: 0, logged: 0, needs: 0, draft: 0, parked: 0, crit: 0, warn: 0, beds: new Set() });
+  const by = { NICU: blank(), SCN: blank(), other: blank() };
+  const holders = new Map();   // canonical bed → infants on the unit recorded in it
+  let unbedded = 0, offList = 0;
+  for (const p of onUnit) {
+    const w = by[D_A.patientWard(p)] || by.other;
+    const entries = (log && log[p.sessionId]) || [];
+    w.active++;
+    if (D_A.hasLogOnDate(entries, today)) w.logged++;
+    else { w.needs++; if (D_A.hasDraftOnDate(entries, today)) w.draft++; }
+    const alerts = computeAlerts(p, entries);
+    if (alerts.some(a => a.level === "crit")) w.crit++;
+    else if (alerts.some(a => a.level === "warn")) w.warn++;
+    if (D_A.isParked(p)) { w.parked++; continue; }
+    const bed = D_A.normalizeBed(p.currentBed);
+    if (!bed) { unbedded++; continue; }
+    if (!D_A.BED_OPTIONS.includes(bed)) { offList++; continue; }
+    w.beds.add(bed);
+    holders.set(bed, (holders.get(bed) || 0) + 1);
+  }
+  const wards = CENSUS_WARDS
+    // "อื่นๆ" only when someone is in it — the same rule as the ward gate.
+    .filter(({ ward }) => ward !== "other" || by.other.active > 0)
+    .map(({ ward, label }) => {
+      const { beds, ...counts } = by[ward];
+      const capacity = ward === "other" ? null : D_A.BED_OPTIONS.filter(b => D_A.wardGroup(b) === ward).length;
+      return { ward, label, capacity, occupied: beds.size, ...counts };
+    });
+  const sum = (k) => wards.reduce((s, w) => s + w[k], 0);
+  const total = { ward: "total", label: "ทั้ง unit", capacity: D_A.BED_OPTIONS.length };
+  ["occupied", "active", "logged", "needs", "draft", "parked", "crit", "warn"].forEach(k => { total[k] = sum(k); });
+
+  // Admissions and departures inside the window, today included. The window
+  // sits well inside the 30 days of departures every device syncs, so the
+  // answer does not depend on the admin's archive switch.
+  const since = D_A.addDaysToDateStr(today, -(CENSUS_WINDOW_DAYS - 1));
+  const inWindow = (d) => { const s = D_A.normalizeDateStr(d); return !!s && s >= since && s <= today; };
+  const movement = { admitted: 0, Discharged: 0, Transferred: 0, Expired: 0 };
+  all.forEach(p => {
+    if (inWindow(p.admissionDate)) movement.admitted++;
+    if (!D_A.isOnUnit(p) && movement[p.status] != null && inWindow(p.statusDate)) movement[p.status]++;
+  });
+  // Two infants on the unit recorded in one bed. Every save path refuses to
+  // create this (BedSelect, both modals, App, registerPatient), so one here was
+  // typed into the Sheet or predates the guard — and until one of the pair is
+  // moved, neither record can be saved.
+  const doubleBooked = [...holders].filter(([, n]) => n > 1)
+    .map(([bed, n]) => ({ bed, n }))
+    .sort((a, b) => D_A.BED_OPTIONS.indexOf(a.bed) - D_A.BED_OPTIONS.indexOf(b.bed));
+  return { wards, total, movement, doubleBooked, unbedded, offList, windowDays: CENSUS_WINDOW_DAYS };
+}
+
+// One ward's card. Module level, not nested in AdminDashboard: a component
+// defined inside another is a new type on every render and remounts.
+function CensusWard({ w }) {
+  const pct = w.capacity ? Math.round(w.occupied / w.capacity * 100) : null;
+  // Status colours only where a number is a finding — the -ink cut, since
+  // each is a word, not a stripe. A count is otherwise plain ink.
+  const stat = (label, value, tone, sub) => (
+    <div className={`census-stat${tone ? " " + tone : ""}`}>
+      <div className="v num">{value}</div>
+      <div className="l">{label}{sub ? <span className="s"> · {sub}</span> : null}</div>
+    </div>
+  );
+  return (
+    <div className={`census-ward${w.ward === "total" ? " total" : ""}`} data-ward={w.ward}>
+      <div className="census-ward-h">
+        <span className="census-ward-name">{w.label}</span>
+        {w.capacity != null
+          ? <span className="census-beds">เตียง <span className="num">{w.occupied}/{w.capacity}</span> · ว่าง <span className="num">{w.capacity - w.occupied}</span></span>
+          : <span className="census-beds">ไม่มีเตียงในรายการ</span>}
+      </div>
+      {pct != null &&
+        <div className="census-bar" role="img" aria-label={`ครองเตียง ${pct}%`}><span style={{ width: `${pct}%` }} /></div>}
+      <div className="census-stats">
+        {stat("Active", w.active)}
+        {stat("Logged today", w.logged, w.active > 0 && w.logged === w.active ? "ok" : "")}
+        {stat("Needs entry", w.needs, w.needs ? "warn" : "", w.draft ? `draft ${w.draft}` : null)}
+        {stat("รอเตียง", w.parked, w.parked ? "warn" : "")}
+        {stat("Critical", w.crit, w.crit ? "crit" : "")}
+        {stat("Caution", w.warn, w.warn ? "warn" : "")}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Admin dashboard — read-only oversight, syncs from GAS
 // ============================================================
 function AdminDashboard({ patients, log, lastSync, includeArchived = false, onToggleArchived }) {
+  // Re-renders at midnight, so a workstation left on this page rolls the
+  // census over to the new day's "Logged today" on its own.
+  const today = D_A.useTodayLocal();
+  const census = buildCensus(patients, log, today);
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
   // Same "still on the unit" test the registry uses (registry.jsx's
   // isActivePatient): a blank status counts as Active, because the backend
   // defaults it but a patient added locally — or a row typed straight into
   // the sheet — can have none. Requiring the literal string made this tile
   // read lower than the registry's own Active count for the same census.
-  const active = patients.filter(p => !p.status || p.status === "Active").length;
+  const active = patients.filter(D_A.isOnUnit).length;
   // Newest first by calendar date, not by whichever patient happens to come
   // last in the registry. flatMap groups by patient, so `.slice(-20)` on the
   // raw concatenation returned "the last patients' entries" — a table titled
@@ -2897,11 +3021,18 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
     .flatMap(p => (log[p.sessionId] || []).map(e =>
       ({ ...e, sid: p.sessionId, bed: p.currentBed, showDol: D_A.entryDol(p, e) })))
     .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
-  // Compute alert count across all patients via the shared computeAlerts() —
-  // same source of truth as the per-patient nav badge and the Alerts page.
-  const alertsTotal = patients.reduce((sum, p) => {
-    return sum + activeAlertCount(p, log[p.sessionId] || []);
-  }, 0);
+  // Infants on the unit with a critical or caution finding, from the census —
+  // the same computeAlerts() the nav badge and the Alerts page read, counted
+  // per infant and not net of any one device's acknowledgements (see
+  // buildCensus). Until 2026-09-24 this tile summed every alert, info lines
+  // and discharged sessions included, net of the admin's own acks.
+  const withAlerts = census.total.crit + census.total.warn;
+  const m = census.movement;
+  const flags = [
+    ...census.doubleBooked.map(d => `เตียงซ้อน ${d.bed} (${d.n} ราย)`),
+    ...(census.unbedded ? [`ยังไม่ระบุเตียง ${census.unbedded} ราย`] : []),
+    ...(census.offList ? [`เตียงนอกรายการ ${census.offList} ราย`] : []),
+  ];
   return (
     <>
       <div className="page-head">
@@ -2937,7 +3068,7 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
           ["Active sessions", active, "var(--brand)"],
           ["Total patients", patients.length, "var(--ink)"],
           ["Logged entries", totalLogs, "var(--ok)"],
-          ["Active alerts", alertsTotal, "var(--warn-ink)"]
+          ["Infants with alerts", withAlerts, census.total.crit ? "var(--crit-ink)" : withAlerts ? "var(--warn-ink)" : "var(--ink)"]
         ].map(([l, v, c]) =>
           <div key={l} className="card" style={{ padding: 14 }}>
             <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>{l}</div>
@@ -2945,9 +3076,37 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
           </div>
         )}
       </div>
+      <div className="card census-card" style={{ marginBottom: 14 }}>
+        <div className="card-h"><Icon name="dashboard" size={14} color="var(--brand)" /> Census
+          <span className="h-meta">{fmtDate(today)} · เฉพาะผู้ป่วยที่ยังอยู่ใน unit</span></div>
+        <div className="card-b">
+          <div className="census-grid">
+            {census.wards.map(w => <CensusWard key={w.ward} w={w} />)}
+            <CensusWard w={census.total} />
+          </div>
+          <div className="census-note census-movement">
+            ความเคลื่อนไหว {census.windowDays} วัน · รับใหม่ <span className="num">{m.admitted}</span>
+            {" · "}Discharged <span className="num">{m.Discharged}</span>
+            {" · "}Transferred <span className="num">{m.Transferred}</span>
+            {" · "}Expired <span className="num">{m.Expired}</span>
+          </div>
+          {/* Bed labels, never names: the fix is made on the Patients page,
+              whose unit-wide search finds a bed by its label. */}
+          {flags.length > 0 && (
+            <div className="census-flags" role="note">
+              <strong>ต้องตรวจสอบ</strong> · {flags.join(" · ")} — ค้นหาเลขเตียงในหน้า Patients เพื่อแก้
+            </div>
+          )}
+          <div className="census-note">
+            Critical / Caution นับเป็นจำนวนทารก ตามระดับที่รุนแรงที่สุดของแต่ละราย และไม่หักการ Acknowledge ของเครื่องใด
+          </div>
+        </div>
+      </div>
       <div className="card">
         <div className="card-h"><Icon name="log" size={14} color="var(--brand)" /> Recent log entries<span className="h-meta">{allEntries.length} total</span></div>
-        <div className="card-b" style={{ padding: 0 }}>
+        {/* Scrolls inside its card on a phone rather than widening the page
+            (reachable there since the Admin tab, 2026-09-24). */}
+        <div className="card-b admin-recent" style={{ padding: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
             <thead><tr style={{ background: "var(--bg-2)", textAlign: "left" }}>
               <th style={{ padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" }}>Session</th>
@@ -2995,6 +3154,9 @@ function BottomNav({ view, setView, alertCount, alertLevel, logCount, role }) {
     ...((role === "doctor" || role === "nurse") ? [{ id: "calculator", icon: "calc", label: "Calc" }] : []),
     { id: "fenton",     icon: "chart",  label: "Growth"   },
     { id: "alerts",     icon: "bell",   label: "Alerts", badge: alertCount, tone: alertLevel === "warn" ? "warn" : "" },
+    // The admin dashboard had no way in on a phone (2026-09-23 review). Admin
+    // has no Calc tab, so this keeps the bar at five.
+    ...(role === "admin" ? [{ id: "admin", icon: "dashboard", label: "Admin" }] : []),
   ];
   return (
     <nav className="bottom-nav" aria-label="Main navigation">
