@@ -58,8 +58,11 @@ Caught up here, in the next PR on the repo, as the release comments on #110 and 
   `@58` + `b7bd722`.
 - ⏸ **The nurse form waits for D7**, the DPO's sign-off (`BACKLOG.md` § Next). Only then set
   `NURSING_LOG_ENABLED`.
-- ⏳ **PR #113, one source for weight and day of life (and Center Point's DOL): open, not merged.**
-  Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-09-24 (8)).
+- ⏳ **PR #113, one source for weight and day of life (and Center Point's DOL): merged into `main` on
+  Praew's instruction ("merge แล้ว deploy"), and released straight after in one `main` → `release` PR.**
+  Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-09-24 (8)). Its
+  post-release check is a comment on that release PR, and this banner catches up in the next PR on the
+  repo.
   ⚠️ **It changes what the ward sees:**
   - the patient strip no longer shows a weight while it is typed;
   - a new order starts from the strip's weight;
