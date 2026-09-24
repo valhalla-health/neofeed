@@ -68,15 +68,38 @@ function TrendGraph({ entries, patient }) {
 
   const metric = METRICS.find(m => m.key === metricKey);
 
-  // admit DOL = first weight entry's DOL (matches app.jsx convention)
-  const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
+  // The admission day's DOL, from the anchor (D_L.admissionDol) — not the first
+  // weights[] row, which is the birth row for any record with a birth
+  // measurement and put every point days too far into the admission.
+  const admitDol = D_L.admissionDol(patient);
 
   // map entries → {x, y, raw}. Each point's DOL is re-derived from the row's
   // calendar date (D_L.entryDol) rather than read off the stored `dol`
   // column, so a row written before the admission date was set — or before a
   // later correction to it — plots on the day it was actually recorded
   // instead of collapsing onto DOL 1.
-  const points = React.useMemo(() => entries
+  const points = React.useMemo(() => metricKey === "weight"
+    // Weight is the one series every screen reads (D_L.weightSeries): growth-
+    // chart measurements and order weights, the measurement winning on a day
+    // with both. It plotted the orders alone, so "Latest" here disagreed with
+    // the patient strip and the growth chart on any day that was weighed on
+    // the chart (2026-09-24). A measured point has no date of its own.
+    ? D_L.weightSeries(patient, entries).map(w => ({
+        x: xMode === "dayAdmit" ? (w.dol - admitDol) : w.dol,
+        y: w.w,
+        dol: w.dol,
+        dayAdmit: w.dol - admitDol,
+        ts: w.ts || "",
+        src: w.src,
+        raw: (w.ts && entries.find(e => D_L.normalizeDateStr(e.ts) === w.ts)) || {},
+        band: null,
+      }))
+      // An outborn infant's birth weight predates the admission: on the
+      // day-of-admission axis (which starts at 0) it has no place; the DOL
+      // axis shows it.
+      .filter(p => xMode !== "dayAdmit" || p.x >= 0)
+      .sort((a, b) => a.x - b.x)
+    : entries
     .filter(e => e[metricKey] != null && isFinite(parseFloat(e[metricKey])))
     .map(e => {
       const eDol = D_L.entryDol(patient, e);
@@ -285,7 +308,7 @@ function TrendGraph({ entries, patient }) {
               <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginLeft: 6, fontFamily: "inherit", fontWeight: 400 }}>{metric.unit}</span>
             </div>
             <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2, fontFamily: "IBM Plex Mono, monospace" }}>
-              DOL {latest.dol} · Day {latest.dayAdmit} of admission · {window.NEOFEED_FMT_DATE?.(latest.ts) || latest.ts}
+              DOL {latest.dol} · Day {latest.dayAdmit} of admission · {latest.ts ? (window.NEOFEED_FMT_DATE?.(latest.ts) || latest.ts) : "growth chart"}
             </div>
           </div>
           {targetBand && (
@@ -511,11 +534,11 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
       )}
 
       {nursing && onSaveNursing && (
-        <NursingIOCard patient={patient} records={nursing} onOpen={(rec) => setNursingOpen(rec)}
+        <NursingIOCard patient={patient} records={nursing} entries={entries} onOpen={(rec) => setNursingOpen(rec)}
           onDelete={onDeleteNursing} />
       )}
       {nursingOpen !== undefined && (
-        <NursingEntryModal patient={patient} record={nursingOpen} onClose={() => setNursingOpen(undefined)}
+        <NursingEntryModal patient={patient} record={nursingOpen} entries={entries} onClose={() => setNursingOpen(undefined)}
           onSubmit={onSaveNursing} />
       )}
 
@@ -561,7 +584,8 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
             </thead>
             <tbody>
               {(() => {
-                const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
+                // Day admit counts from the admission day's DOL (D_L.admissionDol).
+                const admitDol = D_L.admissionDol(patient);
                 // Newest first by calendar date. Sorting on the stored `dol`
                 // put rows out of order whenever that column was stale (the
                 // same reason the DOL cell below is re-derived); `ts` is the
@@ -701,10 +725,13 @@ const nursingOutMl = (r) => (r?.urineMl == null || r?.drainMl == null) ? null : 
 
 // Urine in mL/kg/h against the same divisor the Calculator's Intake/Output card
 // uses for the order of that date (D.ioDivisorG — the previous day's weight,
-// floored at birth weight). Null when either is missing.
-function urineRate(patient, rec) {
+// floored at birth weight). Null when either is missing. `entries` is the
+// patient's Daily_Log: the divisor reads yesterday's weight from the growth
+// chart AND the orders, as the Calculator does (2026-09-24) — without it an
+// order-only ward's card and Calculator divided by different weights.
+function urineRate(patient, rec, entries) {
   if (rec?.urineMl == null) return null;
-  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null);
+  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null, entries);
   return g ? rec.urineMl / (g / 1000) / 24 : null;
 }
 
@@ -729,7 +756,7 @@ function NurseNum({ name, label, unit, value, onChange, integer = false, hint })
   );
 }
 
-function NursingEntryModal({ patient, record, onClose, onSubmit }) {
+function NursingEntryModal({ patient, record, entries, onClose, onSubmit }) {
   const today = D_L.todayLocal();
   const editing = !!record;
   const [date, setDate] = React.useState(record ? record.ts : today);
@@ -778,7 +805,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
 
   const intake = D_L.nursingIntakeMl(vals);
   const out = nursingOutMl(vals);
-  const rate = urineRate(patient, { ts: date, urineMl: vals.urineMl });
+  const rate = urineRate(patient, { ts: date, urineMl: vals.urineMl }, entries);
 
   const submit = () => {
     if (busy || problems.length) return;
@@ -869,7 +896,7 @@ function NursingEntryModal({ patient, record, onClose, onSubmit }) {
 
 // The Dashboard card: today's state first (the round's question is "is it in
 // yet?"), then the last seven days newest first, each opening its record.
-function NursingIOCard({ patient, records, onOpen, onDelete }) {
+function NursingIOCard({ patient, records, entries, onOpen, onDelete }) {
   const today = D_L.todayLocal();
   const todays = D_L.nursingRecordOn(records, today);
   const shown = records.slice(0, 7);
@@ -893,7 +920,7 @@ function NursingIOCard({ patient, records, onOpen, onDelete }) {
           : <div className="nio-list">
               {shown.map(r => {
                 const intake = D_L.nursingIntakeMl(r);
-                const rate = urineRate(patient, r);
+                const rate = urineRate(patient, r, entries);
                 const out = nursingOutMl(r);
                 const bal = intake != null && out != null ? ml1(intake - out) : null;
                 // Only one half of the intake recorded: show the halves, never

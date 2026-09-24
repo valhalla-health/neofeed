@@ -6,7 +6,7 @@
 //      the tab after a minute unmounted a half-finished Calculator and threw
 //      away every typed field.
 //   2. The registry's desktop table must read "current weight" through
-//      D.lastWeighed like the mobile card does. Taking `weights[last]` blind
+//      D.currentWeight (then D.lastWeighed) like the mobile card does. Taking `weights[last]` blind
 //      picks up a length/HC-only row (`w: null`) and reports −100% of birth
 //      weight, in critical red, for a patient who is in fact growing.
 //   3. The archived registry row must span exactly as many columns as <thead>.

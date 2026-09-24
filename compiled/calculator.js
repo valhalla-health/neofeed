@@ -317,6 +317,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 }
 function Calculator({
   patient,
+  entries,
   dol: dolProp,
   editEntry,
   baselineEntry,
@@ -328,7 +329,7 @@ function Calculator({
   onUpdate,
   onPublish,
   onSaved,
-  onWeightChange,
+  onOrderDate,
   onDelete,
   centerPoint,
   scratch,
@@ -339,30 +340,22 @@ function Calculator({
   const orderDateKey = editEntry ? D.normalizeDateStr(editEntry.ts) || D.todayLocal() : logDate || newOrderDate;
   const orderDayRolledOver = !scratch && !editEntry && !logDate && newOrderDate !== D.todayLocal();
   const dol = orderDayRolledOver ? D.dolAtDate(patient, newOrderDate) : dolProp;
+  React.useEffect(() => {
+    onOrderDate?.(orderDateKey);
+  }, [orderDateKey]);
+  const orderIsToday = !editEntry && !logDate && !orderDayRolledOver;
+  const weightAsOfDol = orderIsToday ? void 0 : dol;
   const draftOwner = draftOwnerOf(userEmail, userLabel);
   const [curWtG, setCurWtG] = useState(0);
-  const skipWeightPropagateRef = React.useRef(false);
-  React.useEffect(() => {
-    if (editEntry || !onWeightChange || curWtG <= 0) return;
-    if (skipWeightPropagateRef.current) {
-      skipWeightPropagateRef.current = false;
-      return;
-    }
-    onWeightChange(curWtG);
-  }, [curWtG, editEntry]);
   const bwG = patient?.bw || 0;
   const [tpnWtOverrideG, setTpnWtOverrideG] = useState(0);
   const autoWtG = bwG > 0 && curWtG > 0 && curWtG < bwG ? bwG : curWtG;
   const wtG = tpnWtOverrideG > 0 ? tpnWtOverrideG : autoWtG;
   const tpnWtManual = tpnWtOverrideG > 0 && tpnWtOverrideG !== autoWtG;
   const usingBirthWeight = !tpnWtManual && autoWtG === bwG && curWtG > 0 && curWtG < bwG;
-  const measuredByOrderDay = () => {
-    const cap = Number.isFinite(Number(dol)) ? Number(dol) : Infinity;
-    return D.lastWeighed({ weights: (patient?.weights || []).filter((x) => x && Number(x.dol) <= cap) });
-  };
-  const latestMeasured = measuredByOrderDay();
-  const weightIsMeasured = !!latestMeasured && curWtG > 0 && Math.round(curWtG) === Math.round(latestMeasured.w);
-  const weightSourceHint = weightIsMeasured ? `= น้ำหนักที่ชั่ง (DOL ${latestMeasured.dol})` : "= น้ำหนักที่กรอกในใบสั่งนี้";
+  const recordedWeight = D.currentWeight(patient, entries, weightAsOfDol);
+  const weightIsRecorded = !!recordedWeight && curWtG > 0 && Math.round(curWtG) === Math.round(recordedWeight.w);
+  const weightSourceHint = !weightIsRecorded ? "= น้ำหนักที่กรอกในใบสั่งนี้" : recordedWeight.src === "measured" ? `= น้ำหนักที่ชั่ง (DOL ${recordedWeight.dol})` : `= น้ำหนักในคำสั่ง DOL ${recordedWeight.dol}`;
   const wtKg = wtG / 1e3;
   const IO_FIELD_KEYS = /* @__PURE__ */ new Set(["ioInput", "ioOutput", "drainContent"]);
   const REQUIRED_FIELDS = [
@@ -636,23 +629,16 @@ function Calculator({
     setSavedKey(null);
     const NEW_DAY_IO = { ioInput: 0, ioOutput: 0, drainContent: 0 };
     if (baselineEntry) {
-      skipWeightPropagateRef.current = true;
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
       const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
-      const measured = measuredByOrderDay();
-      const baselineDol = D.entryDol(patient, baselineEntry);
-      const fresher = measured && measured.dol > baselineDol ? measured : null;
-      const startWeight = fresher ? fresher.w : baselineEntry.weight;
-      applyCalcInput(
-        { ...src, ...fresher ? { curWtG: fresher.w } : {} },
-        startWeight,
-        false,
-        fluidMidpoint(fresher ? fresher.w : src.curWtG ?? src.wtG ?? baselineEntry.weight)
-      );
+      const baselineWeight = src.curWtG ?? src.wtG ?? baselineEntry.weight;
+      const recorded2 = D.currentWeight(patient, entries, weightAsOfDol);
+      const startWeight = recorded2 ? recorded2.w : baselineWeight;
+      applyCalcInput({ ...src, curWtG: startWeight }, startWeight, false, fluidMidpoint(startWeight));
       setPrefilledFrom({
-        dol: baselineEntry.dol,
+        dol: D.entryDol(patient, baselineEntry),
         baseline: true,
-        ...fresher ? { weightFrom: { dol: fresher.dol, w: fresher.w }, weightWas: baselineEntry.weight } : {}
+        ...recorded2 && Math.round(recorded2.w) !== Math.round(baselineWeight) ? { weightFrom: { dol: recorded2.dol, w: recorded2.w, src: recorded2.src }, weightWas: baselineWeight } : {}
       });
       return;
     }
@@ -669,13 +655,12 @@ function Calculator({
       } catch {
       }
     }
-    const lastWt = measuredByOrderDay();
-    if (logDate) skipWeightPropagateRef.current = true;
-    const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
+    const recorded = D.currentWeight(patient, entries, weightAsOfDol);
+    const wtDefault = recorded?.w ?? restored?.curWtG ?? restored?.wtG ?? patient.bw ?? 0;
     const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
-    applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
+    applyCalcInput({ ...fresh, curWtG: wtDefault, deadVol_mL: newOrderDeadVol(fresh, patient) }, wtDefault, false, fluidMidpoint(wtDefault));
     if (restored?.savedAt) {
-      setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
+      setPrefilledFrom({ savedAt: restored.savedAt });
     } else {
       setPrefilledFrom(null);
     }
@@ -1092,7 +1077,7 @@ function Calculator({
     if (ioInputTouchedRef.current) return;
     setIoInput(Math.round(calc.prescribedFluid) || 0);
   }, [calc.prescribedFluid, ioInputTouched]);
-  const ioDivisor = D.ioDivisorG(patient, dol, curWtG);
+  const ioDivisor = D.ioDivisorG(patient, dol, curWtG, entries);
   const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1e3 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
@@ -1566,7 +1551,7 @@ function Calculator({
     display: "flex",
     alignItems: "center",
     gap: 8
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--warn)" }), /* @__PURE__ */ React.createElement("span", null, "กำลังแก้ไขบันทึก DOL ", /* @__PURE__ */ React.createElement("strong", null, editEntry.dol), " (", window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts, ") — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่")), orderDayRolledOver && !conflict && /* @__PURE__ */ React.createElement("div", { role: "status", style: {
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--warn)" }), /* @__PURE__ */ React.createElement("span", null, "กำลังแก้ไขบันทึก DOL ", /* @__PURE__ */ React.createElement("strong", null, dol), " (", window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts, ") — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่")), orderDayRolledOver && !conflict && /* @__PURE__ */ React.createElement("div", { role: "status", style: {
     padding: "8px 12px",
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",
@@ -1599,7 +1584,7 @@ function Calculator({
     display: "flex",
     alignItems: "center",
     gap: 8
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--brand-2)" }), /* @__PURE__ */ React.createElement("span", null, prefilledFrom.baseline ? /* @__PURE__ */ React.createElement(React.Fragment, null, "ดึงข้อมูลจากบันทึกล่าสุด (DOL ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.dol), ") มาเป็นค่าตั้งต้น — ตรวจสอบและปรับก่อนบันทึก", prefilledFrom.weightFrom && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", "น้ำหนักใช้ค่าที่ชั่งล่าสุด ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.weightFrom.w, " g"), " (DOL ", prefilledFrom.weightFrom.dol, ")", " แทนน้ำหนักในบันทึกเดิม ", prefilledFrom.weightWas, " g")) : /* @__PURE__ */ React.createElement(React.Fragment, null, "Prefilled from previous submission (DOL ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.dol), ") — review and adjust before submitting today.")), /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--brand-2)" }), /* @__PURE__ */ React.createElement("span", null, prefilledFrom.baseline ? /* @__PURE__ */ React.createElement(React.Fragment, null, "ดึงข้อมูลจากบันทึกล่าสุด (DOL ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.dol), ") มาเป็นค่าตั้งต้น — ตรวจสอบและปรับก่อนบันทึก", prefilledFrom.weightFrom && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", "น้ำหนักใช้ค่า", prefilledFrom.weightFrom.src === "order" ? "ในคำสั่ง" : "ที่ชั่ง", "ล่าสุด ", /* @__PURE__ */ React.createElement("strong", null, prefilledFrom.weightFrom.w, " g"), " (DOL ", prefilledFrom.weightFrom.dol, ")", " แทนน้ำหนักในบันทึกเดิม ", prefilledFrom.weightWas, " g")) : /* @__PURE__ */ React.createElement(React.Fragment, null, "Prefilled from previous submission (saved ", /* @__PURE__ */ React.createElement("strong", null, window.NEOFEED_FMT_DATE?.(D.normalizeDateStr(new Date(prefilledFrom.savedAt))) || D.normalizeDateStr(new Date(prefilledFrom.savedAt))), ") — review and adjust before submitting today.")), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn sm",

@@ -479,7 +479,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // previous-submission store, the edit lock, the printed pharmacy form), and
 // what stays is the arithmetic. Deliberately NOT folded into `centerPoint`:
 // that mode still saves, just somewhere else.
-function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint, scratch,
+function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onOrderDate, onDelete, centerPoint, scratch,
   nursing = [], ordersReadOnly = false }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
@@ -497,27 +497,24 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // App's `dol` is live (it ticks at midnight); the order's DOL is the one on
   // its own date — the same dolAtDate a back-filled order is given.
   const dol = orderDayRolledOver ? D.dolAtDate(patient, newOrderDate) : dolProp;
+  // Tell the page which day this order is for, so its header names the order's
+  // own DOL and date, and looks up the previous order from it, instead of
+  // moving to the next day at midnight while this order stays on its own.
+  React.useEffect(() => { onOrderDate?.(orderDateKey); }, [orderDateKey]);
+  // A new order for today reads the weight the strip shows; any other day —
+  // an edit, a back-fill, an order left open past midnight — reads it as of
+  // its own DOL, so an earlier day is never given a later weight.
+  const orderIsToday = !editEntry && !logDate && !orderDayRolledOver;
+  const weightAsOfDol = orderIsToday ? undefined : dol;
   const draftOwner = draftOwnerOf(userEmail, userLabel);
 
   // Current weight — the actual weight entered/measured for this log day.
-  // This is what gets saved as the Daily_Log `weight` column and propagated
-  // to the patient's displayed current weight (PatientStrip, growth chart).
+  // Save writes it to the Daily_Log `weight` column, and from there
+  // (D.weightSeries → D.currentWeight) it becomes the infant's weight on every
+  // screen — once the order is saved, not while it is typed. The patient strip
+  // used to show this box live, and kept an unsaved, draft or back-filled
+  // figure there on every page until the patient changed (2026-09-24).
   const [curWtG, setCurWtG] = useState(0);
-
-  // Set alongside setCurWtG whenever the prefill effect below applies a
-  // historical weight (edit or baseline) — tells the propagation effect to
-  // skip that one change so a stale/past weight never flashes into the
-  // PatientStrip header before the user has looked at or touched the field.
-  const skipWeightPropagateRef = React.useRef(false);
-
-  // Skip while editing a past entry, or for the one curWtG update caused by
-  // baseline-prefill — that weight is historical, not the patient's current
-  // weight, and must not overwrite the PatientStrip display.
-  React.useEffect(() => {
-    if (editEntry || !onWeightChange || curWtG <= 0) return;
-    if (skipWeightPropagateRef.current) { skipWeightPropagateRef.current = false; return; }
-    onWeightChange(curWtG);
-  }, [curWtG, editEntry]);
 
   // TPN calculated weight — the weight every dose/target below is actually
   // computed from. Floors at birth weight while the infant hasn't yet
@@ -547,25 +544,20 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // birth-weight floor was not engaged — including when the value beside it
   // had been carried over from yesterday's order, which is how the patient
   // strip could show 1,090 g over an order dosing 1,060 g with nothing on
-  // screen admitting the difference (2026-09-23). A weight is "measured" only
-  // if it matches a row in patient.weights[]; anything else is a figure typed
-  // into this order and not (yet) a recorded measurement.
-  //
-  // "Latest" means on or before THIS order's day — which is also the weight a
-  // new order starts from (the prefill effect below). Pp, 2026-09-24: "ถ้าเข้า
-  // ผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก" — the nurses' morning weight
-  // included, as it lands in the same weights[]. D.lastWeighed alone is the
-  // newest of all, so a BACK-FILLED order started from a weight put on the
-  // scale days after its date (a DOL 8 order took the DOL 20 weight).
-  const measuredByOrderDay = () => {
-    const cap = Number.isFinite(Number(dol)) ? Number(dol) : Infinity;
-    return D.lastWeighed({ weights: (patient?.weights || []).filter(x => x && Number(x.dol) <= cap) });
-  };
-  const latestMeasured = measuredByOrderDay();
-  const weightIsMeasured = !!latestMeasured && curWtG > 0 && Math.round(curWtG) === Math.round(latestMeasured.w);
-  const weightSourceHint = weightIsMeasured
-    ? `= น้ำหนักที่ชั่ง (DOL ${latestMeasured.dol})`
-    : "= น้ำหนักที่กรอกในใบสั่งนี้";
+  // screen admitting the difference (2026-09-23). The hint names the recorded
+  // weight the box matches — D.currentWeight, the one every screen shows: a
+  // growth-chart measurement (the nurses' morning weight included — it lands
+  // in weights[]), or an earlier order's weight (since 2026-09-24; it used to
+  // see the growth chart only). Anything else is a figure typed into this
+  // order and not (yet) a recorded weight. It is the weight a new order starts
+  // from (Pp, 2026-09-24: "ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก"),
+  // as of this order's own DOL when it is not today's — a back-filled DOL 8
+  // order used to start at the DOL 20 weight.
+  const recordedWeight = D.currentWeight(patient, entries, weightAsOfDol);
+  const weightIsRecorded = !!recordedWeight && curWtG > 0 && Math.round(curWtG) === Math.round(recordedWeight.w);
+  const weightSourceHint = !weightIsRecorded ? "= น้ำหนักที่กรอกในใบสั่งนี้"
+    : recordedWeight.src === "measured" ? `= น้ำหนักที่ชั่ง (DOL ${recordedWeight.dol})`
+    : `= น้ำหนักในคำสั่ง DOL ${recordedWeight.dol}`;
   const wtKg = wtG / 1000;
 
   // ── Required-field gate (2026-09-15) ──────────────────────────────
@@ -1032,28 +1024,27 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // tracks today's prescribed total until typed (ioTouched false).
     const NEW_DAY_IO = { ioInput: 0, ioOutput: 0, drainContent: 0 };
 
-    // A new order starts from the latest weight measured on or before its own
-    // day (measuredByOrderDay, above).
+    // A new order starts from the weight on record for its own day
+    // (D.currentWeight — recordedWeight, above).
 
     if (baselineEntry) {
-      skipWeightPropagateRef.current = true;
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
       const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
-      // The plan carries over from yesterday; the WEIGHT does not, if a newer
-      // one has been measured since. Until 2026-09-23 the whole row came over
-      // together, so an order written after the morning weigh dosed on
-      // yesterday's figure while the patient strip above it showed today's —
-      // two "current weights" on one screen, 30 g apart, neither labelled.
-      // A measurement on a LATER DOL than the order being copied is newer by
-      // definition, and it is the one the ward just put on the scale.
-      const measured = measuredByOrderDay();
-      const baselineDol = D.entryDol(patient, baselineEntry);
-      const fresher = measured && measured.dol > baselineDol ? measured : null;
-      const startWeight = fresher ? fresher.w : baselineEntry.weight;
-      applyCalcInput({ ...src, ...(fresher ? { curWtG: fresher.w } : {}) },
-        startWeight, false, fluidMidpoint(fresher ? fresher.w : (src.curWtG ?? src.wtG ?? baselineEntry.weight)));
-      setPrefilledFrom({ dol: baselineEntry.dol, baseline: true,
-        ...(fresher ? { weightFrom: { dol: fresher.dol, w: fresher.w }, weightWas: baselineEntry.weight } : {}) });
+      // The plan carries over from the previous order; the WEIGHT is the one on
+      // record for this order's day — D.currentWeight, the same answer the
+      // patient strip gives (as of this order's DOL for a back-fill, so an
+      // earlier day is never handed a later weight). Until 2026-09-23 the whole
+      // row came over, weight included, under a strip showing the morning's
+      // weigh; until 2026-09-24 the fix read the growth chart alone and let
+      // the order win a same-day tie, so the box could still start 10 g away
+      // from the strip, and a back-fill took a weight from after its own day.
+      const baselineWeight = src.curWtG ?? src.wtG ?? baselineEntry.weight;
+      const recorded = D.currentWeight(patient, entries, weightAsOfDol);
+      const startWeight = recorded ? recorded.w : baselineWeight;
+      applyCalcInput({ ...src, curWtG: startWeight }, startWeight, false, fluidMidpoint(startWeight));
+      setPrefilledFrom({ dol: D.entryDol(patient, baselineEntry), baseline: true,
+        ...(recorded && Math.round(recorded.w) !== Math.round(baselineWeight)
+          ? { weightFrom: { dol: recorded.dol, w: recorded.w, src: recorded.src }, weightWas: baselineWeight } : {}) });
       return;
     }
 
@@ -1075,17 +1066,18 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       } catch {}
     }
 
-    const lastWt = measuredByOrderDay();
-    // A back-filled order's weight is historical, as the baseline's is above:
-    // it must not flash into the PatientStrip as the current weight.
-    if (logDate) skipWeightPropagateRef.current = true;
-    const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
+    // No earlier order to copy: the weight on record (D.currentWeight, as the
+    // strip shows it), then this browser's last submission, then the birth
+    // weight. The record comes first — a weight typed on this device days ago
+    // is not the infant's weight if the ward has weighed it since.
+    const recorded = D.currentWeight(patient, entries, weightAsOfDol);
+    const wtDefault = recorded?.w ?? restored?.curWtG ?? restored?.wtG ?? patient.bw ?? 0;
     // Fresh entry — ioInput tracks the computed total until edited (ioTouched false).
     const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
-    applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
+    applyCalcInput({ ...fresh, curWtG: wtDefault, deadVol_mL: newOrderDeadVol(fresh, patient) }, wtDefault, false, fluidMidpoint(wtDefault));
 
     if (restored?.savedAt) {
-      setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
+      setPrefilledFrom({ savedAt: restored.savedAt });
     } else {
       setPrefilledFrom(null);
     }
@@ -1484,7 +1476,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   //
   // Balance = Input − Output(urine) − Drain: both are real fluid losses now
   // that Output no longer folds drain in, so both are subtracted explicitly.
-  const ioDivisor = D.ioDivisorG(patient, dol, curWtG);
+  const ioDivisor = D.ioDivisorG(patient, dol, curWtG, entries);
   const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
@@ -2111,7 +2103,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
              borderRadius:8, marginBottom:10, fontSize:12, color:"var(--warn-ink)",
              display:"flex", alignItems:"center", gap:8 }}>
           <Icon name="info" size={13} color="var(--warn)" />
-          <span>กำลังแก้ไขบันทึก DOL <strong>{editEntry.dol}</strong> ({window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts}) — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่</span>
+          <span>กำลังแก้ไขบันทึก DOL <strong>{dol}</strong> ({window.NEOFEED_FMT_DATE?.(editEntry.ts) || editEntry.ts}) — บันทึกเพื่ออัปเดตรายการเดิม ไม่สร้างรายการใหม่</span>
         </div>
       )}
 
@@ -2144,10 +2136,13 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
           <span>{prefilledFrom.baseline
             ? <>ดึงข้อมูลจากบันทึกล่าสุด (DOL <strong>{prefilledFrom.dol}</strong>) มาเป็นค่าตั้งต้น — ตรวจสอบและปรับก่อนบันทึก
                 {prefilledFrom.weightFrom && <>
-                  {" · "}น้ำหนักใช้ค่าที่ชั่งล่าสุด <strong>{prefilledFrom.weightFrom.w} g</strong> (DOL {prefilledFrom.weightFrom.dol})
+                  {" · "}น้ำหนักใช้ค่า{prefilledFrom.weightFrom.src === "order" ? "ในคำสั่ง" : "ที่ชั่ง"}ล่าสุด <strong>{prefilledFrom.weightFrom.w} g</strong> (DOL {prefilledFrom.weightFrom.dol})
                   {" แทนน้ำหนักในบันทึกเดิม "}{prefilledFrom.weightWas} g
                 </>}</>
-            : <>Prefilled from previous submission (DOL <strong>{prefilledFrom.dol}</strong>) — review and adjust before submitting today.</>}</span>
+            // The browser's copy of a previous submission records when it was
+            // saved, not which day's order it was: say the former rather than
+            // print the DOL number it stored, which goes stale like any other.
+            : <>Prefilled from previous submission (saved <strong>{window.NEOFEED_FMT_DATE?.(D.normalizeDateStr(new Date(prefilledFrom.savedAt))) || D.normalizeDateStr(new Date(prefilledFrom.savedAt))}</strong>) — review and adjust before submitting today.</>}</span>
           <button className="btn sm" style={{ marginLeft:"auto", padding:"3px 10px" }}
             onClick={() => setPrefilledFrom(null)}>Dismiss</button>
         </div>

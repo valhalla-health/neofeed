@@ -418,6 +418,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
                   </div>
                   <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>
                     PMA <span className="num">{D_F.fmtGA(D_F.daysToGA(Math.round(latestPoint.pma * 7)))}</span> wk · DOL {latestPoint.dol}
+                    {/* The series joins the orders' weights (weightSeries), so
+                        the latest point may be an order's, not a measurement. */}
+                    {latestPoint.src === "order" ? " · จากใบสั่ง" : ""}
                   </div>
                 </div>
               ) : <div style={{ fontSize: 12, color: "var(--ink-3)" }}>No measurements yet</div>}
@@ -504,9 +507,15 @@ function GrowthVelocity({ points, metric = "weight", patient, entries }) {
 
 function MeasurementLogger({ patient, currentDol, onUpdate }) {
   const weights = patient.weights || [];
-  const lastDol = weights.length ? weights[weights.length - 1].dol : 1;
-  // Cap at today's auto-computed DOL (admissionDate + daysSinceAdmit) — not last stored entry
-  const maxDol = Math.max(lastDol, currentDol || lastDol);
+  // The highest DOL any row is filed on — only the fallback for a record with
+  // no DOL anchor. Null-safe: a stored array can carry a null element.
+  const lastDol = weights.reduce((m, x) => Math.max(m, Number(x?.dol) || 0), 0) || 1;
+  // Today's DOL (App's liveDol, the one every screen shows) is where a new
+  // measurement goes, and the cap. It used to be max(last stored row, today),
+  // so a row filed above today — an anchor corrected before rows followed it —
+  // became the default and the cap, and the morning's weight was filed days
+  // ahead of the order written beside it (2026-09-24).
+  const maxDol = currentDol || lastDol;
   const [dol, setDol] = React.useState(maxDol);
   const [w, setW] = React.useState("");
   const [l, setL] = React.useState("");
@@ -542,7 +551,10 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
   const save = () => {
     let n = parseInt(dol, 10);
     if (!n || n < 1) return;
-    if (n > maxDol) n = maxDol;
+    // The cap is for a NEW measurement. Correcting a row keeps its own DOL
+    // (the box is locked while editing), even one filed above today: capping
+    // it would file a second row on today instead of updating that one.
+    if (editingDol == null && n > maxDol) n = maxDol;
     // Negative measurements are physically impossible and would silently
     // corrupt the Fenton percentile / growth-velocity math for this patient —
     // drop the offending field rather than saving a bad value.

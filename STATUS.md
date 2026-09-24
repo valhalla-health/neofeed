@@ -1,5 +1,17 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-24, 17:56–17:59 ICT — frontend `release` = `b7bd722` on both hosts, with backend `@58`.**
+> PR #112 released #111: alarm fatigue, the admin census, the mobile bed button, and the nurse form, which
+> is **switched off** (`NURSING_LOG_ENABLED` is unset, so `@58` behaves as `@57` and nurses still save
+> orders). `node tools/verify-release.mjs b7bd722` passed on both hosts (0 failures, 61 passes; comment on
+> #112). ⚠️ No one has used this pairing at a bedside yet.
+>
+> ✅ **2026-09-24, 14:17–14:24 ICT — backend `@57`, then frontend `release` = `77ed485` on both hosts.**
+> PR #110 released three PRs: #107, the pre-meeting review's frontend fixes, including the outborn DOL/dob
+> blocker; #108, the backend batch; and #109, the clinical decisions. `@57` is `gas-backend.gs` at
+> `68e302f`, byte for byte. `verify-release.mjs 77ed485` passed on both hosts (0 failures, 61 passes;
+> comments on #110).
+>
 > ✅ **2026-09-22, 23:02 ICT — frontend `release` = `31a4226` on both hosts, with backend `@56`.** PR #92
 > released #91: the KCMH TPN team's feedback, a two-sheet order form and no trailing zeros. At 23:08 ICT
 > `node tools/verify-release.mjs 31a4226` passed on both hosts (0 failures, 59 passes; comment on #92).
@@ -31,7 +43,35 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-22, 23:56 ICT** · 🟢 **Backend `@56` and frontend `release` = `31a4226` are live.**
+**Updated 2026-09-24, 18:56 ICT** · 🟢 **Backend `@58` and frontend `release` = `b7bd722` are live.**
+Caught up here, in the next PR on the repo, as the release comments on #110 and #112 asked.
+- **Frontend:** PR #112 (`main` → `release`), merged on Praew's instruction at 10:56 UTC / 17:56 ICT. It
+  carries #111, `main` at `2731387`. `CONSTANTS_VERSION` is still `2026-09-18.1`. Served bytes were
+  verified on both hosts, and `verify-release.mjs 77ed485` failed only on the six files that changed, as a
+  negative control (comment on #112).
+- **Backend:** `@58` since 2026-09-24, 17:58 ICT: #111's nursing backend, deployed with `clasp` on
+  Praew's instruction. It is `gas-backend.gs` at `2731387`, byte for byte, and inert while
+  `NURSING_LOG_ENABLED` is unset. `@57`, live from 14:17 ICT, carried #108 (F2, BE-1..4) and #109 (the
+  registration collision confirm). Rollback: `clasp update-deployment -V 57 …`. Either half can roll
+  back alone while the switch is off.
+- ⚠️ **Not yet exercised by a person:** a bedside order, a Chula Google sign-in, or a phone bed move on
+  `@58` + `b7bd722`.
+- ⏸ **The nurse form waits for D7**, the DPO's sign-off (`BACKLOG.md` § Next). Only then set
+  `NURSING_LOG_ENABLED`.
+- ⏳ **PR #113, one source for weight and day of life (and Center Point's DOL): merged into `main` on
+  Praew's instruction ("merge แล้ว deploy"), and released straight after in one `main` → `release` PR.**
+  Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-09-24 (8)). Its
+  post-release check is a comment on that release PR, and this banner catches up in the next PR on the
+  repo.
+  ⚠️ **It changes what the ward sees:**
+  - the patient strip no longer shows a weight while it is typed;
+  - a new order starts from the strip's weight;
+  - the Calculator header names another day's order by date;
+  - the Edit modal refuses an admission correction that would move a measurement onto the day of birth.
+  - CP's calculator page asks for the birth date instead of a DOL.
+
+**Previous (2026-09-22, 23:02 ICT – 2026-09-24, 14:17 ICT):** backend `@56`, and frontend releases from
+`31a4226` onward, which the bullets below record as they were written.
 - **Frontend:** PR #92 (`main` → `release`), merged on Praew's instruction ("merge แล้ว deploy") at
   16:02:49 UTC / 23:02 ICT: #91 (`CHANGELOG.md` 2026-09-22 (4)), whose `main` tree `c6e32b9` is exactly
   what `release` now holds. `CONSTANTS_VERSION` is still `2026-09-18.1`. Served bytes verified on both

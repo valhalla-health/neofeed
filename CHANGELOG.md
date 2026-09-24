@@ -7,6 +7,76 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (8) — One source for weight and day of life, NeoFeed and Center Point (Pp)
+
+Pp: *"น้ำหนัก และ day of life ของทุกที่ ในคนๆเดียวกัน ตรงกันทุกหน้าจอ ไม่ว่าจะไปอยู่ตรงไหน ให้เอามาจากที่เดียวกัน"*,
+then *"Check DOL ของ center point กับ neofeed ให้ตรงกัน"*. Spec and plan: `docs/WEIGHT_DOL_SINGLE_SOURCE_SPEC.md`,
+`docs/WEIGHT_DOL_SINGLE_SOURCE_PLAN.md`. Frontend only: no `clasp`, `CONSTANTS_VERSION` unchanged. Regression
+test: `test/verify-single-source-weight-dol.cjs`, which walks one fixture infant through every screen of the
+real `<App/>`. It fails 42 of its 59 checks on `main` at `2731387` (#111 included, which had already fixed the
+back-fill prefill, check 3.4) and passes 59 of 59 here.
+
+The helpers existed and most screens used them. What disagreed was what was kept along the way:
+
+- **The patient strip showed the weight being typed.** It preferred the Calculator's Current weight box
+  (unsaved, a draft, a back-fill's) and kept it on the Dashboard, Growth and Alerts pages until the patient
+  changed, beside an alert quoting the real weight. Every screen now reads **`D.currentWeight(patient, log,
+  asOfDol?)`**: the latest point of `weightSeries` (growth chart plus submitted orders, drafts out, the
+  measurement winning a same-DOL tie, as in #96), on or before a DOL when one is given. `lastWeighed` and
+  `weightAtOrBeforeDol` are gone, and so are the Calculator's `onWeightChange` and App's `calcWeights`.
+- **A new order started from a different weight than the strip.** It read the growth chart alone and let the
+  order win a tie (1,610 g under a strip reading 1,600 g). It now reads `currentWeight` like the strip. A
+  back-fill (or an order left open past midnight) reads it as of its own DOL, where it used to take a weight
+  from after its own day. The hint names an order's weight as well as a measurement.
+- **The I/O divisor reads the same series (Pp's decision).** Yesterday's weight is `currentWeight(…, DOL − 1)`,
+  so on a ward that weighs in the order, urine mL/kg/h is divided by yesterday's order weight instead of the
+  birth weight or an old measurement. The birth-weight floor is unchanged. It is an on-screen hint only; it
+  is neither printed nor saved.
+- **Stored DOLs were displayed.** The Ward badge "บันทึกล่าสุด DOL", the Calculator's edit and baseline banners,
+  and the save, update and delete toasts now show `entryDol`, from the row's date. The browser-copy banner
+  shows the day it was saved. `entryDol` re-derives whenever the record has any anchor (`hasDolAnchor`): a
+  record with a dob and no admission date used to show stored DOLs.
+- **"Day admit" and the Trend's axis counted from the birth row.** They now count from `D.admissionDol`, the
+  admission date's DOL from the anchor, so an infant admitted on DOL 6 with a DOL-1 birth row no longer reads
+  five days further in. The Edit modal's DOL แรกรับ seeds from `admissionDol` too, and the legacy-dob
+  derivation at sync moved into `D.dobFromAdmission`. The Trend's Weight plots `weightSeries`, so its "Latest"
+  is the strip's weight.
+- **Growth-chart rows were left behind by an anchor correction.** Orders re-derive their DOL from their date;
+  measurement rows carry only a DOL. Correcting the admission date or DOL แรกรับ now moves every row in
+  `weights`, `lengths` and `hcs` with the anchor (`D.anchorShiftDays`, `D.moveGrowthRows`). The birth row stays
+  on DOL 1, and the row on the old admission DOL follows the admission. A move that lands a row on or before
+  birth, or onto another row, blocks Save and names the row. A cleared DOL แรกรับ no longer saves as 1.
+- **Birth measurements were filed on the admission DOL.** New registrations file birth weight, length and HC on
+  DOL 1. Existing records are unchanged (BACKLOG § Later).
+- **The Calculator's header named today's DOL over another day's order.** The Calculator reports its order date
+  (`onOrderDate`); the chip names that day's DOL and, when it is not today, its date. The previous-order lookup
+  follows it past midnight. The strip always shows today's DOL.
+- **The growth chart's logger** files a new measurement on today's DOL and caps there. It used to cap at
+  `max(last stored row, today)`. Correcting a row filed above today still updates that row in place.
+- **Center Point's calculator page took DOL typed.** CP saved and printed it, checked it only as a whole number,
+  and tied it to neither the birth date nor the order date. CP stores no birth date and computes no DOL of its
+  own. The setup form now asks for the date of birth, and `center-point/order-setup.mjs` hands the Calculator
+  `D.dolAtDate` for the TPN date. A bad birth date is refused in NeoFeed's words. **Decided by Pp:** CP will own
+  the birth facts (date of birth, GA, birth weight) from registration, as new patients will be registered only
+  in CP. That is CP-repo work (BACKLOG § Next).
+
+**Merged with #111 (the nurse form), which landed on `main` during this session.** #111's D4 prefill ("the
+latest measurement on or before the order's day", Pp: "ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก") now reads
+`D.currentWeight`. It is still bounded at the order's day, and the nurses' morning weight is still a measurement.
+It now sees the orders' weights too, and a measurement wins a same-day tie. #111's strip guard ("a historical
+weight is not pushed to the strip") is subsumed: nothing is pushed. The Dashboard I/O card's urine mL/kg/h
+passes the log to `D.ioDivisorG`, so it divides by the same weight as the Calculator's Intake/Output card.
+Otherwise an order-only ward's card would have used the growth chart alone. #111's five harnesses pass
+unchanged.
+
+Harnesses changed with the API, invariants kept: `verify-tpn-calc-weight` (nothing propagates a typed weight;
+the saved `weight` column is still the entered one), `verify-calc-clicks` (a browser's previous submission
+still prefills the plan; the weight comes from the record), `verify-safety-fixes-0923` and
+`verify-error-boundary` (`currentWeight`, still null-safe). BACKLOG § Now's "2026-09-23 review's four
+fix-first findings" block is closed. Two of its items were done on 2026-09-23 (#96: the admit-date guard and
+the modal's merge base), and this session finishes the other two (the two current weights; DOL from
+`weights[0]`, with its logger cap and outborn birth point).
+
 ## Session 2026-09-24 (7) — Pre-merge review of the nurse form: 8 findings, all fixed
 
 An independent read-only review of the nurse-form commits, run before merging #111 at Pp's go-ahead.
