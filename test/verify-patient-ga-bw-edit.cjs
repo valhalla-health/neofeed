@@ -234,7 +234,7 @@ const NEXT_ADMIT = { ...PATIENT, sessionId: 'NA-BW1500', name: 'NA', initials: '
 open(GONE_HOME, [GONE_HOME, NEXT_ADMIT]);
 eq('Save is enabled',                         saveBtn().disabled, false);
 ok('…with no bed-taken message',              !host.textContent.includes('อยู่แล้ว'));
-setInput('ชื่อในวงการ', 'KL');
+setInput('ชื่อย่อ', 'KL');
 save();
 eq('the correction is submitted',             submitted?.name, 'KL');
 eq('…still Discharged, same bed label',       `${submitted?.status} ${submitted?.currentBed}`, 'Discharged NICU 7');

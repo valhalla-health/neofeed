@@ -7,6 +7,61 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 — Pre-meeting review bug fixes (frontend)
+
+The 2026-09-24 pre-meeting review's bugs (artifact in the session; memory
+`neofeed-premeeting-review-2026-09-24`). Frontend only — no `clasp` step,
+`CONSTANTS_VERSION` stays `2026-09-18.1`. `test/verify-review-fixes-0924.cjs`
+fails against `24460a5` (8 assertions, the symptoms reproduced) and passes after;
+`verify-safety-fixes-0923.cjs` stays green (the F5 change was refined until it
+did — see below).
+
+- **F1 (blocker) · `registry.jsx` EditPatientModal.** The "DOL แรกรับ" field
+  seeded from `weights[0].dol`, so once a ward recorded an outborn infant's
+  birth measurement (which sorts to `weights[0]`, DOL 1) any later edit
+  re-derived a wrong `dob` and persisted it — shifting DOL, PMA and every
+  DOL-indexed target on the record of record. It now seeds from the stored
+  anchor (`dob` + `admissionDate`), and `weights[0].dol` is written only when
+  the field was actually changed. #96 fixed this at read time; this closes the
+  persist path.
+- **Sex was silently defaulting to Male at registration** (`registry.jsx`
+  NewPatientModal seeded `"boys"` and did not require it) — a quickly-registered
+  girl was filed under the boys' Fenton curves. Now blank, with a "— เลือก —"
+  option, and required in `canSubmit`, matching EditPatientModal. (Found in the
+  stakeholder walkthrough.)
+- **F3 · `fenton.jsx` growth-velocity read-out** graded ≥15/≥10 itself and,
+  fed unclamped points, showed a red "critically low" past 42 wk PMA where the
+  Alerts page declines to judge. It now defers to `data.js growthVelocity` (the
+  one grader), rendering the physiological-loss / beyond-reference states as
+  neutral text. Length/HC keep their own cm/wk slope.
+- **F5 · `data.js growthVelocity`** could never treat the first series point as
+  the regain, so a history beginning already above birth weight (outborn
+  admitted grown; order-only history) returned `insufficientData`. It now
+  measures from the start when there is no loss window — defined as "dipped
+  below bw, or the first point is exactly at bw" so the flat-start regain case
+  (harness §6) is unchanged.
+- **F4 · `registry.jsx` list** weight/Δ-birth columns read the measurements-only
+  store while the strip/chart/alerts already join daily-order weights; both rows
+  now pass the log to `lastWeighed`.
+- **`ชื่อในวงการ` → `ชื่อย่อ`** everywhere (Praew, 2026-09-24): the EditPatientModal
+  label and one code comment; register and edit now name the field the same way.
+- **Cosmetic / quality:** the PatientStrip status chip is no longer always green
+  (Discharged/Transferred/Expired render neutral, not "ok"); undefined tokens
+  `var(--red)`×2 → `var(--crit-ink)` and `var(--mid)` → `var(--ink-3)`; the
+  SyncGate font stack drops the never-loaded `Noto Sans Thai` for the loaded
+  IBM Plex Sans Thai / Sarabun; the sync pill's dead `data-tip` becomes a real
+  `title` tooltip; the `search` glyph renders as a proper magnifier (`fill-rule:
+  evenodd`, scoped to that icon); and two comments that cited a reverted
+  `roundLogEntry` defence (`app.jsx`, `gas-backend.gs`) now describe the real one.
+- **Deferred, deliberately** (reported in the review, not in this PR): F2 (a
+  legacy record with no stored `dob` still re-dates on sync — needs a backend
+  `dob` write on `updateWeights` plus care to capture the admission DOL before a
+  birth measurement moves `weights[0]`; F1 already protects every record that
+  has a `dob`); and the backend batch BE-1..BE-4 (draft-status validation +
+  draft-aware `sheetHealthReport`, the two Staff-sheet row-move guards, the
+  remaining English validation messages, patient-status normalisation) — those
+  need a `clasp` deploy, which is Praew's call.
+
 ## Session 2026-09-23 (h) — The new NeoFeed logo: a swaddled baby in the N, a bottle and a drop in "Feed"
 
 Presentation only: `icons/icon.svg`, the seven icon PNGs, new `icons/logo.svg`, `app.jsx`

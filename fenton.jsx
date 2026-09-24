@@ -432,7 +432,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
                   at whatever was recorded before 42 weeks — on exactly the
                   long-stay infants whose growth is watched hardest
                   (2026-09-23). The chart keeps its clamp and its banner. */}
-              <GrowthVelocity points={allPoints} metric={metric} />
+              <GrowthVelocity points={allPoints} metric={metric} patient={patient} entries={entries} />
             </div>
 
             {/* key: a new instance per patient (review UP-S2). The logger's
@@ -455,7 +455,31 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   );
 }
 
-function GrowthVelocity({ points, metric = "weight" }) {
+function GrowthVelocity({ points, metric = "weight", patient, entries }) {
+  // Weight: defer to data.js growthVelocity — it measures from the regain of
+  // birth weight and refuses to grade during the physiological-loss window or
+  // past the Fenton reference (42 wk PMA). The Alerts page reads the same
+  // source, so the two screens can no longer disagree (this readout showed a
+  // red "critically low" where Alerts said "not assessed" — 2026-09-24).
+  if (metric === "weight") {
+    const gv = D_F.growthVelocity(patient, entries);
+    if (gv.status === "insufficientData")
+      return <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Need ≥ 2 measurements</div>;
+    if (gv.vel == null)
+      return <div style={{ fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.45, maxWidth: 230 }}>{gv.reason || "ยังประเมินอัตราการเจริญเติบโตไม่ได้"}</div>;
+    const color = gv.status === "ok" ? "var(--ok)" : gv.status === "low" ? "var(--warn-ink)" : "var(--crit)";
+    return (
+      <div>
+        <div className="num" style={{ fontSize: 22, fontWeight: 500, color }}>
+          {D_F.displayNum(gv.vel, 1)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>g/kg/d</span>
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>Target ≥ 15 g/kg/d · {gv.days} วัน</div>
+      </div>
+    );
+  }
+
+  // length / HC — cm/wk (no data.js equivalent; the reference caveats above are
+  // weight-specific, so this keeps its own simple slope).
   if (points.length < 2) {
     return <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Need ≥ 2 measurements</div>;
   }
@@ -463,24 +487,6 @@ function GrowthVelocity({ points, metric = "weight" }) {
   const first = recent[0];
   const last = recent[recent.length - 1];
   const days = Math.max(1, (last.pma - first.pma) * 7);
-
-  if (metric === "weight") {
-    const dW = last.value - first.value;
-    const avgWtKg = (first.value + last.value) / 2 / 1000;
-    const gPerKg = dW / days / avgWtKg;
-    const status = gPerKg >= 15 ? "ok" : gPerKg >= 10 ? "warn" : "crit";
-    return (
-      <div>
-        <div className="num" style={{ fontSize: 22, fontWeight: 500, color:
-          status === "ok" ? "var(--ok)" : status === "warn" ? "var(--warn-ink)" : "var(--crit)" }}>
-          {D_F.displayNum(gPerKg, 1)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>g/kg/d</span>
-        </div>
-        <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>Target ≥ 15 g/kg/d</div>
-      </div>
-    );
-  }
-
-  // length / HC — cm/wk
   const dCm = last.value - first.value;
   const wks = days / 7;
   const cmPerWk = dCm / Math.max(wks, 0.01);

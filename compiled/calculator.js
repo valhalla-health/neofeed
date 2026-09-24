@@ -1786,7 +1786,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     justifyContent: "center",
     height: 44,
     fontSize: 18,
-    color: "var(--mid)",
+    color: "var(--ink-3)",
     lineHeight: 1
   } }, "↔")), /* @__PURE__ */ React.createElement(
     NumField,

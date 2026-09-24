@@ -212,8 +212,9 @@ function computeAlerts(patient, allEntries) {
     //
     // Every figure below goes through displayNum. They are floating-point
     // results read off a stored row, and this page printed them raw — "Logged
-    // GIR 7.206498951781971 mg/kg/min" at the bedside. New rows are rounded at
-    // source now (D.roundLogEntry), but every row already in the sheet is not.
+    // GIR 7.206498951781971 mg/kg/min" at the bedside. Nothing rounds a row at
+    // write time, so displayNum here is the only guard between a stored float
+    // and the bedside — keep every figure below going through it.
     const nA = (v, d = 1) => D_A.displayNum(v, d);
     const girS = D_A.girStatus(last.gir);
     if (girS === "crit") alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${nA(last.gir, 2)} mg/kg/min — above the ${D_A.GIR_HARD_HI} hard limit; reduce dextrose concentration.`, dol: lastDol, ref: "ESPGHAN 2018" });else
@@ -403,7 +404,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
   return (
     <div style={{
       position:"fixed", inset:0, display:"flex", alignItems:"center", justifyContent:"center",
-      background:"var(--bg)", fontFamily:"'IBM Plex Sans','Noto Sans Thai',sans-serif",
+      background:"var(--bg)", fontFamily:"'IBM Plex Sans','IBM Plex Sans Thai','Sarabun',sans-serif",
       padding:"24px calc(20px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px))",
       overflowY:"auto",
     }}>
@@ -1719,7 +1720,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               be reported as a number. syncMsRef is a ref, but settle() writes
               it before setSyncState("ok"), so the re-render that paints the
               new time reads the matching duration. */}
-          <div className="pill" data-tip={
+          <div className="pill" title={
             !GAS_ON ? "GAS_URL not configured"
             : syncState === "error" && syncError ? `Sync error · ${syncError}`
             : syncMsRef.current == null ? "Google Apps Script"
@@ -1765,7 +1766,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
                 </button>
                 <div style={{ height: 1, background: "var(--line)" }} />
               </>}
-              <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13, color: "var(--red, #c0392b)" }}
+              <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13, color: "var(--crit-ink)" }}
                 onClick={() => { setShowUserMenu(false); handleLogout(); }}>
                 ออกจากระบบ
               </button>
@@ -2408,7 +2409,7 @@ function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEd
         <div className="lbl">Diagnosis</div>
         <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
           <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700 }}>{patient.diagnosis}</div>
-          <span className="chip ok" style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
+          <span className={"chip" + (!patient.status || patient.status === "Active" ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
         </div>
       </div>
 
@@ -2568,7 +2569,7 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
             <label>ยืนยันรหัสผ่านใหม่</label>
             <input type="password" className="inp" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === "Enter" && handleSubmit()} />
           </div>
-          {err && <div style={{ color: "var(--red, #c0392b)", fontSize: 13 }}>{err}</div>}
+          {err && <div style={{ color: "var(--crit-ink)", fontSize: 13 }}>{err}</div>}
         </div>
         <div className="modal-foot">
           {forced

@@ -36,6 +36,7 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
   const d = paths[name];
   if (!d) return null;
   const filled = ["calc", "bell", "users", "settings", "search", "drop", "milk", "weight", "pdf"].includes(name);
-  return /* @__PURE__ */ React.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: filled ? color : "none", stroke: filled ? "none" : color, strokeWidth: stroke, strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d }));
+  const evenOdd = name === "search";
+  return /* @__PURE__ */ React.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: filled ? color : "none", stroke: filled ? "none" : color, strokeWidth: stroke, strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d, fillRule: evenOdd ? "evenodd" : void 0 }));
 };
 window.Icon = Icon;

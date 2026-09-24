@@ -1436,7 +1436,17 @@ function growthVelocity(patient, entries) {
   // Measure from the regain of birth weight, not from whatever row happens to
   // be seven back. Before regain there is nothing to grade.
   const bw = Number(patient?.bw) || 0;
-  const regainIdx = bw > 0 ? wts.findIndex(w => w.w >= bw && w.dol > (wts[0]?.dol ?? 1)) : 0;
+  // Skip the loss window only when there is one to skip: either the series
+  // dipped below birth weight, or its first point sits exactly AT birth weight
+  // (the birth point itself, which is not a "regain"). A series that begins
+  // already ABOVE birth weight — an outborn infant admitted grown, or an
+  // order-only history — has no loss to skip, so its first point IS the start,
+  // and two such points now grade instead of returning insufficientData
+  // (2026-09-24). A record that did lose and regain is unaffected.
+  const hasLossWindow = wts.some(w => w.w < bw) || (wts[0]?.w ?? Infinity) <= bw;
+  const regainIdx = bw > 0
+    ? (hasLossWindow ? wts.findIndex(w => w.w >= bw && w.dol > (wts[0]?.dol ?? 1)) : 0)
+    : 0;
   if (bw > 0 && regainIdx === -1) {
     const stillLosing = latest.dol <= REGAIN_EXPECTED_BY_DOL;
     return {

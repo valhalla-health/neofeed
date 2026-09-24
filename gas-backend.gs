@@ -1625,10 +1625,10 @@ function getActivePatientsJson(opts) {
 // floating-point arithmetic, and an order whose energy read exactly
 // 200 kcal/kg/d arrived as 200.00000000000003 and was refused — naming a number
 // the ward could see was inside the range it was told it had left
-// (2026-09-23). The client now rounds every logged figure before sending it
-// (data.js roundLogEntry), so this is the second of the two defences rather
-// than the only one; it exists for rows from an older bundle, and because a
-// plausibility check has no business splitting hairs in the twelfth decimal.
+// (2026-09-23). Nothing rounds a figure at write time (client or server), so
+// this epsilon is the only thing keeping a plausibility check from splitting
+// hairs in the twelfth decimal and refusing an order the ward was told was in
+// range.
 var RANGE_EPSILON = 1e-9;
 // The refusal a nurse actually sees. It used to surface as raw English inside a
 // Thai toast — "บันทึกไม่สำเร็จ: Energy (kcal/kg/d) out of range (0–200):
