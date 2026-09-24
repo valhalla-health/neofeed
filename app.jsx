@@ -2092,13 +2092,21 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel, userEmail,
   handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo }) {
+  // The day this order is for, as the Calculator reports it (onOrderDate): an
+  // edit's own date, a back-fill's, or the day a new order was opened on —
+  // which stays put if the form is left open past midnight. The header chip
+  // and the previous-order lookup follow it, so neither moves to the next day
+  // while the order below is still for the one before (2026-09-24).
+  const today = D_A.todayLocal();
+  const [reportedOrderDate, setReportedOrderDate] = React.useState(null);
+  const orderDate = editEntry ? (D_A.normalizeDateStr(editEntry.ts) || today) : (logDate || reportedOrderDate || today);
   // Editing an existing row re-derives its DOL from the row's date rather
   // than trusting the stored `dol` column (D_A.entryDol) — otherwise a row
   // saved before this patient had an admission date keeps re-saving that
   // wrong DOL every time it is edited, and the wizard's DOL-indexed targets
   // are computed for the wrong day.
-  const displayDol = editEntry ? D_A.entryDol(active, editEntry) : (logDate ? D_A.dolAtDate(active, logDate) : dol);
-  const lockDate = editEntry ? editEntry.ts : (logDate || D_A.todayLocal());
+  const displayDol = editEntry ? D_A.entryDol(active, editEntry) : (orderDate === today ? dol : D_A.dolAtDate(active, orderDate));
+  const lockDate = orderDate;
   // The order strictly before this one's date — the new day's starting point,
   // and (for new and edited orders alike) the "changes vs previous" reference.
   const previousEntry = previousLogEntry(log[activeId] || [], lockDate);
@@ -2116,7 +2124,12 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
           )}
           <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order"}
-            <span className="chip brand" style={{ fontSize: 13, fontWeight: 700 }}>DOL {displayDol}</span>
+            {/* Today's order reads just its DOL, which the strip above also
+                shows; any other day's names its date, so "DOL 16" under a
+                strip reading "DOL 21" says which day it belongs to. */}
+            <span className="chip brand" style={{ fontSize: 13, fontWeight: 700 }}>
+              DOL {displayDol}{orderDate !== today ? ` · ${fmtDate(orderDate)}` : ""}
+            </span>
           </h1>
           <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds</div>
         </div>
@@ -2143,7 +2156,8 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         </div>
       )}
 
-      <Calculator patient={active} dol={displayDol}
+      <Calculator patient={active} entries={log[activeId] || []} dol={displayDol}
+        onOrderDate={setReportedOrderDate}
         editEntry={editEntry} baselineEntry={baselineEntry} previousEntry={previousEntry}
         logDate={logDate} userLabel={userLabel}
         // The signed-in email, so calculator.jsx can offer a draft back only to

@@ -327,7 +327,11 @@ const openAll = () => click(btnExact('Open all'));
   window.localStorage.setItem('neofeed_calc_CS-1', JSON.stringify({ curWtG: 1111, fluidTargetPerKg: 140, totalTPN_mL: 90, dexPct: 10, dol: 9, savedAt: new Date().toISOString() }));
   act(() => { root.unmount(); }); root = ReactDOM.createRoot(container);
   act(() => { root.render(React.createElement(window.Calculator, { patient: { sessionId: 'CS-1', name: 'Sweep', bw: 1000, admissionDate: '2026-09-01', currentBed: 'SCN 3', weights: [{ dol: 1, w: 1000 }] }, dol: 10, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null, userLabel: 'Dr Sweep (sweep@kcmh.test)', userEmail: 'sweep@kcmh.test', onLog() {}, onUpdate() {}, onSaved() {}, onWeightChange() {} })); });
-  ok('previous submission prefills the form', inputFor('Current weight').value === '1111' && /Prefilled from previous submission/.test(text()));
+  // The plan comes from this browser's last submission; the weight is the one
+  // on record (D.currentWeight — the strip's), since 2026-09-24: a browser's
+  // copy is not where the infant's weight lives.
+  ok('previous submission prefills the form', inputFor('Target fluid').value === '140' && /Prefilled from previous submission/.test(text()));
+  ok('…with the recorded weight, not the browser copy\'s', inputFor('Current weight').value === '1000');
   click([...container.querySelectorAll('button')].find(b => b.textContent === 'Dismiss'));
   ok('Dismiss hides the prefill banner', !/Prefilled from previous submission/.test(text()));
   // a draft typed by this user is offered back; restore brings its values
