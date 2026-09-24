@@ -384,6 +384,13 @@ clinical judgement. Everything else is engineering sequencing.
       registry read still be served when its `Audit_Log` row cannot be written (today: yes, fails
       open)? Should Staff column H keep plaintext temp passwords? Should a session that *expires*
       (not an explicit logout) also clear calculator prefill and alert acknowledgements?
+- [ ] ⚖️ **PDPA · An erasure leaves the date of birth recoverable — Praew / DPO.** `pseudonymizePatient`
+      blanks the dob (G), but the clinical data it keeps gives it back. Every `Daily_Log` row has a date
+      and a DOL (dob = date − (DOL − 1)). On a legacy record, so do the admission date and the first
+      weight row's DOL: `test/verify-pdpa-erased-dob-backend.cjs` § 1 asserts that equality. Decide whether
+      that is acceptable under the medical-necessity basis, or what else an erasure must change. Found on
+      2026-09-24 while fixing the dob refill (#116); the only residual risk recorded before was the
+      `sessionId`.
 - [ ] 🧹 **chore · Stop publishing the six `.jsx` sources in the next release.** `.assetsignore` and
       `_config.yml` kept them for the release that introduced the build step only, so that a browser
       still holding the previous shell could finish loading. That release has been live since
