@@ -58,6 +58,14 @@ Caught up here, in the next PR on the repo, as the release comments on #110 and 
   `@58` + `b7bd722`.
 - ⏸ **The nurse form waits for D7**, the DPO's sign-off (`BACKLOG.md` § Next). Only then set
   `NURSING_LOG_ENABLED`.
+- ⏳ **PR #113, one source for weight and day of life (and Center Point's DOL): open, not merged.**
+  Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-09-24 (8)).
+  ⚠️ **It changes what the ward sees:**
+  - the patient strip no longer shows a weight while it is typed;
+  - a new order starts from the strip's weight;
+  - the Calculator header names another day's order by date;
+  - the Edit modal refuses an admission correction that would move a measurement onto the day of birth.
+  - CP's calculator page asks for the birth date instead of a DOL.
 
 **Previous (2026-09-22, 23:02 ICT – 2026-09-24, 14:17 ICT):** backend `@56`, and frontend releases from
 `31a4226` onward, which the bullets below record as they were written.
