@@ -610,7 +610,8 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    blanks identifiers but keeps the clinical row, for cases where
    retaining de-identified history matters more than removing it outright.
 2. **Dashboard** (`log.jsx`) — the active patient's daily nutrition log +
-   `TrendGraph`: pick a metric (Energy/Protein/GIR/Fluid/Na/K/Ca/P/Weight),
+   `TrendGraph`: pick a metric (Weight/Energy/Protein/GIR/Fluid/Na/K/Ca/P —
+   Weight leads the chip row since 2026-09-24, Energy is still the default),
    see it plotted with a target band, smooth Catmull-Rom curve, hover
    crosshair/tooltip, X-axis toggle between admit-day and DOL. Past entries
    are editable in place (weight/length/HC corrections included). The
@@ -774,6 +775,15 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 4. **Growth chart** (`fenton.jsx`) — Fenton 2025 percentile curves for
    weight/length/HC vs. PMA, plus `MeasurementLogger` to add new
    measurements. Uses `D.gaToDecimalWeeks` for the true decimal x-axis.
+   The weight **Growth velocity** readout and the Alerts page both read
+   `D.growthVelocity` — one grader, so the two screens cannot disagree.
+   **A velocity is graded only once a weight is ABOVE birth weight**
+   (2026-09-24). It is measured from the regain, the first weight at or above
+   birth weight. Until a weight is above it, the readout says **"Weight below
+   birth weight"**, or "Weight at birth weight" when the weight equals it, with
+   the BW under it, and is amber past DOL 14. Being back *at* birth weight is not
+   growth. Two order weights left at the birth-weight prefill used to read "0
+   g/kg/d" in critical red. `test/verify-weight-chip-and-bw-velocity.cjs`.
 5. **Alerts** (`AlertCenter` in `app.jsx`) — flags things like stale weight
    (warn ≥3 days, critical ≥7 days since last entry). Acknowledge is
    per-alert and persisted (per device, `neofeed_acked_<sessionId>`).

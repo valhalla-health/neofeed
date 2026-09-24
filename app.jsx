@@ -260,8 +260,12 @@ function computeAlerts(patient, allEntries) {
       dol: gv.to.dol, ref: "ESPGHAN 2022"
     });
   } else if (gv.status === "notRegained") {
+    // Not yet ABOVE birth weight past DOL 14. That includes an infant sitting
+    // exactly at it, which is not "not regained" in the usual sense, so it gets
+    // its own title (data.js growthVelocity, point 3; 2026-09-24).
     alerts.push({
-      id: "growth-regain", level: "warn", title: "Birth weight not regained",
+      id: "growth-regain", level: "warn",
+      title: gv.atBirthWeight ? "Weight not above birth weight" : "Birth weight not regained",
       body: gv.reason, dol: gv.to?.dol, ref: "ESPGHAN 2022"
     });
   } else if (gv.status === "physiologicalLoss" || gv.status === "beyondReference") {

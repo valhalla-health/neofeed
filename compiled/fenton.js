@@ -240,6 +240,11 @@ function GrowthVelocity({ points, metric = "weight", patient, entries }) {
     const gv = D_F.growthVelocity(patient, entries);
     if (gv.status === "insufficientData")
       return /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)" } }, "Need ≥ 2 measurements");
+    if (gv.status === "physiologicalLoss" || gv.status === "notRegained") {
+      const late = gv.status === "notRegained";
+      const pct = (gv.to.w - gv.bw) / gv.bw * 100;
+      return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 600, lineHeight: 1.3, color: late ? "var(--warn-ink)" : "var(--ink-2)" } }, gv.atBirthWeight ? "Weight at birth weight" : "Weight below birth weight"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 } }, "BW ", /* @__PURE__ */ React.createElement("span", { className: "num" }, Number(gv.bw).toLocaleString()), " g", !gv.atBirthWeight && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, D_F.displayNum(pct, 1), "%")), late && ` · ${gv.atBirthWeight ? "not above BW" : "not regained"} by DOL ${D_F.REGAIN_EXPECTED_BY_DOL}`));
+    }
     if (gv.vel == null)
       return /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.45, maxWidth: 230 } }, gv.reason || "ยังประเมินอัตราการเจริญเติบโตไม่ได้");
     const color = gv.status === "ok" ? "var(--ok)" : gv.status === "low" ? "var(--warn-ink)" : "var(--crit)";

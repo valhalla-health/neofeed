@@ -74,6 +74,62 @@ Tests:
 - This `gas-backend.gs` includes #116's PDPA fix. If `@59` is not live yet, this deploy ships that too.
 - Read the result under Apps Script ▸ Executions (the `{"timing":…}` lines) and on the admin dashboard.
 
+## Session 2026-09-24 (10) — Weight chip first; no growth velocity until the weight is above birth weight (Pp)
+
+Two requests from Pp, with phone screenshots:
+
+1. **"ให้ weight มาอยู่ก่อนหน้า energy"** — put Weight before Energy. The Dashboard trend graph's
+   Weight chip was the last of nine, so on a phone it was reached only by scrolling the chip row to its
+   far end. `log.jsx` `METRICS` now starts with Weight. The graph still opens on Energy.
+2. **"ถ้าน้ำหนักยังไม่ gain BW ตรง growth velocity ให้ขึ้นว่า Weight below birth weight แทน"** — if the
+   infant hasn't regained birth weight, the Growth velocity block should say "Weight below birth weight"
+   instead. The reported screen read **"0 g/kg/d"** in critical red, "Target ≥ 15 g/kg/d · 2 วัน", on
+   DOL 10. Its latest weight was 1,200 g from an order.
+
+Why it read 0: `growthVelocity` (`data.js`) counted the regain of birth weight as the first weight
+**>= birth weight**, and started grading right there. Two order weights equal to the birth weight gave a
+slope of 0 over 2 days, which is "critical". A new order's Current weight is prefilled from birth weight
+when nothing newer is recorded, so this shape is easy to produce. The same infant raised "Growth
+velocity critically low" on the Alerts page. Only a weight at or above birth weight can produce this
+readout; below it, the block already showed a Thai sentence instead of a number.
+
+What changed:
+- **`data.js` `growthVelocity`:** velocity is graded only once a weight on or after the regain is
+  **above** birth weight. It is still measured from the regain, so a week spent flat at birth weight
+  still counts against the first velocity. Until then the status is `physiologicalLoss` (DOL ≤ 14) or
+  `notRegained` (past DOL 14), as for an infant below birth weight. Both now carry `bw` and
+  `atBirthWeight`. `REGAIN_EXPECTED_BY_DOL` (14) is exported for the readout.
+- **`fenton.jsx` `GrowthVelocity`:** in those two states the readout says **"Weight below birth
+  weight"**, with `BW 1,300 g · -7.7%` under it. Past DOL 14 it is amber and adds "not regained by
+  DOL 14", matching the Alerts page's caution; before that it is neutral.
+  An infant exactly AT birth weight reads **"Weight at birth weight"**, because "below" would
+  contradict the two numbers on screen. That is the reported infant if its birth weight is 1,200 g.
+  **Pp confirmed "at" the same day ("ใช้ at ได้")**, so don't "correct" it to "below".
+- **`app.jsx` `computeAlerts`:** unchanged except the title of the past-DOL-14 caution for an infant
+  exactly at birth weight, which is now "Weight not above birth weight" instead of "Birth weight not
+  regained".
+
+⚠️ **What the ward will see differently on the Alerts page.** Every change here makes an alarm quieter,
+which is why each is listed:
+- An infant **at** birth weight, never above it, on DOL ≤ 14 (the reported one): the critical "Growth
+  velocity critically low" becomes the informational "Growth velocity — not yet assessable". The red
+  badge drops by one.
+- The same past DOL 14: critical becomes a caution (amber), the level an infant just below birth weight
+  already gets. Both infants are equally "not growing yet", and now they read the same.
+- An infant who touched birth weight and dipped below it again before ever exceeding it: a critical
+  negative velocity becomes "not yet assessable" (DOL ≤ 14) or the caution (past DOL 14).
+- **Unchanged:** once a weight is above birth weight, grading is exactly as before. That includes
+  a 0 g/kg/d plateau above it and a fall back below it after a real regain, which still alarm.
+
+Tests: **`test/verify-weight-chip-and-bw-velocity.cjs`** (37 assertions, the jsdom set). § 1 is the chip
+order, § 2 `growthVelocity`, § 3 the Growth chart readout and § 4 the Alerts page. It fails 24 on
+`3bb6288` and reproduces the reported readout verbatim there ("0g/kg/dTarget ≥ 15 g/kg/d · 2 วัน"). Its
+controls (a real gain above birth weight, a drop after a real regain, a history that starts above birth
+weight) pass on both.
+
+**Deploy:** frontend only. No `clasp`, `CONSTANTS_VERSION` unchanged (no printed figure moves). It is not
+live until a `main` → `release` PR.
+
 ## Session 2026-09-24 (9) — PDPA: a weight save wrote an erased record's date of birth back
 
 Pp's bug report, the same day. **Live from about 14:22 ICT on 2026-09-24 until `@59`; fixed in #116.**
