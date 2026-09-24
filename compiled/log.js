@@ -387,8 +387,9 @@ function TrendGraph({ entries, patient }) {
     zIndex: 10
   } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: 2 } }, n(hover.y, metric.key === "weight" ? 0 : 1), " ", /* @__PURE__ */ React.createElement("span", { style: { opacity: 0.7, fontWeight: 400 } }, metric.unit)), /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.7, fontSize: 10 } }, "DOL ", hover.dol, " · Day ", hover.dayAdmit, " admit"), hover.band && /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.7, fontSize: 10 } }, "target ", n(hover.band[0], 1), "–", n(hover.band[1], 1), " ", metric.unit), /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.55, fontSize: 9.5 } }, window.NEOFEED_FMT_DATE?.(hover.ts) || hover.ts))));
 }
-function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry }) {
+function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, nursing = null, onSaveNursing, onDeleteNursing }) {
   const entries = log[patient?.sessionId] || [];
+  const [nursingOpen, setNursingOpen] = React.useState(void 0);
   const finalLog = D_L.finalEntries(entries);
   const [showDateModal, setShowDateModal] = React.useState(false);
   const handleDelete = (e, entry) => {
@@ -407,6 +408,22 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
         setShowDateModal(false);
         onAddToday(dateStr);
       }
+    }
+  ), nursing && onSaveNursing && /* @__PURE__ */ React.createElement(
+    NursingIOCard,
+    {
+      patient,
+      records: nursing,
+      onOpen: (rec) => setNursingOpen(rec),
+      onDelete: onDeleteNursing
+    }
+  ), nursingOpen !== void 0 && /* @__PURE__ */ React.createElement(
+    NursingEntryModal,
+    {
+      patient,
+      record: nursingOpen,
+      onClose: () => setNursingOpen(void 0),
+      onSubmit: onSaveNursing
     }
   ), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "chart", size: 14, color: "var(--brand)" }), "Trend graph", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, finalLog.length, " ", finalLog.length === 1 ? "record" : "records")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TrendGraph, { entries: finalLog, patient }))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "log", size: 14, color: "var(--brand)" }), "All entries", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, entries.length, " records")), entries.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { textAlign: "center", color: "var(--ink-3)", fontSize: 13, padding: 24 } }, "No log entries yet.") : /* @__PURE__ */ React.createElement("table", { className: "tbl" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Day admit"), /* @__PURE__ */ React.createElement("th", null, "Date"), /* @__PURE__ */ React.createElement("th", null, "Weight"), /* @__PURE__ */ React.createElement("th", null, "Fluid"), /* @__PURE__ */ React.createElement("th", null, "GIR"), /* @__PURE__ */ React.createElement("th", null, "Protein"), /* @__PURE__ */ React.createElement("th", null, "Energy"), /* @__PURE__ */ React.createElement("th", null, "Na / K"), /* @__PURE__ */ React.createElement("th", null, "Ca / P"), /* @__PURE__ */ React.createElement("th", null, "Route"), /* @__PURE__ */ React.createElement("th", null, "สถานะ"), onDeleteEntry && /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, (() => {
     const admitDol = patient?.weights?.[0]?.dol ?? entries[0]?.dol ?? 1;
@@ -481,5 +498,209 @@ function LogDateModal({ patient, dol, onClose, onConfirm }) {
     }
   ), /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 12 } }, "DOL ", pickedDol)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: () => onConfirm(mode === "pick" ? date : today) }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 14, color: "#fff" }), " ดำเนินการต่อ")))));
 }
+const NURSING_FEED_OPTIONS = [...Object.entries(D_L.EN_DB).map(([k, v]) => [k, v.label]), ["MIXED", "หลายชนิด"]];
+const nursingFeedLabel = (k) => k === "MIXED" ? "หลายชนิด" : D_L.EN_DB[k]?.label || k || "";
+const NURSING_ML_FIELDS = [
+  ["ivInMl", "IV เข้า"],
+  ["enInMl", "นม/EN เข้า"],
+  ["urineMl", "ปัสสาวะ"],
+  ["drainMl", "Drain"]
+];
+const whoOf = (email) => String(email || "").split("@")[0];
+const ml1 = (x) => Math.round(x * 10) / 10;
+function urineRate(patient, rec) {
+  if (rec?.urineMl == null) return null;
+  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null);
+  return g ? rec.urineMl / (g / 1e3) / 24 : null;
+}
+function NurseNum({ name, label, unit, value, onChange, integer = false, hint }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", { htmlFor: `nio-${name}` }, label, unit && /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(", unit, ")")), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      id: `nio-${name}`,
+      name,
+      type: "text",
+      inputMode: integer ? "numeric" : "decimal",
+      className: "inp num",
+      placeholder: "—",
+      value,
+      onChange: (e) => {
+        let s = e.target.value.replace(integer ? /[^0-9]/g : /[^0-9.]/g, "");
+        const dot = s.indexOf(".");
+        if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "");
+        onChange(s);
+      }
+    }
+  ), hint && /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 } }, hint));
+}
+function NursingEntryModal({ patient, record, onClose, onSubmit }) {
+  const today = D_L.todayLocal();
+  const editing = !!record;
+  const [date, setDate] = React.useState(record ? record.ts : today);
+  const dol = D_L.dolAtDate(patient, date);
+  const measuredAt = (d) => (patient?.weights || []).find((w) => w && w.dol === D_L.dolAtDate(patient, d) && w.w != null) || null;
+  const str = (v) => v == null ? "" : String(v);
+  const [f, setF] = React.useState(() => ({
+    weightG: str(measuredAt(record ? record.ts : today)?.w),
+    ivInMl: str(record?.ivInMl),
+    enInMl: str(record?.enInMl),
+    feedType: record?.feedType || "",
+    urineMl: str(record?.urineMl),
+    drainMl: str(record?.drainMl),
+    stoolCount: str(record?.stoolCount)
+  }));
+  const [weightTouched, setWeightTouched] = React.useState(false);
+  const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
+  const [opened] = React.useState(() => JSON.stringify({ date, f }));
+  const pristine = JSON.stringify({ date, f }) === opened;
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const pickDate = (d) => {
+    setDate(d);
+    if (!weightTouched) setF((prev) => ({ ...prev, weightG: str(measuredAt(d)?.w) }));
+  };
+  const num = (s) => s === "" || s == null ? null : Number(s);
+  const vals = {
+    ivInMl: num(f.ivInMl),
+    enInMl: num(f.enInMl),
+    urineMl: num(f.urineMl),
+    drainMl: num(f.drainMl),
+    stoolCount: num(f.stoolCount)
+  };
+  const weight = num(f.weightG);
+  const anyIO = Object.values(vals).some((v) => v != null);
+  const measured = measuredAt(date);
+  const weightChanged = weight != null && weight !== (measured?.w ?? null);
+  const problems = [];
+  NURSING_ML_FIELDS.forEach(([k, lbl]) => {
+    if (vals[k] != null && !(vals[k] >= 0 && vals[k] <= 3e3)) problems.push(`${lbl} ต้องอยู่ระหว่าง 0–3000 mL`);
+  });
+  if (vals.stoolCount != null && !(Number.isInteger(vals.stoolCount) && vals.stoolCount <= 20)) problems.push("อุจจาระ 0–20 ครั้ง");
+  if (weight != null && !(weight >= 200 && weight <= 8e3)) problems.push("น้ำหนัก 200–8000 g");
+  if (!date || date > today) problems.push("วันที่ต้องไม่เกินวันนี้");
+  const admitted = D_L.normalizeDateStr(patient?.admissionDate || "");
+  if (!editing && date && admitted && date < admitted) problems.push("วันที่ต้องไม่ก่อนวันรับเข้า");
+  if (editing && !anyIO) problems.push("บันทึกต้องมีอย่างน้อยหนึ่งค่า — การลบทั้งรายการทำได้โดย admin");
+  if (!editing && !anyIO && !weightChanged) problems.push("ยังไม่ได้กรอกค่าใดเลย");
+  const intake = D_L.nursingIntakeMl(vals);
+  const out = ml1((vals.urineMl ?? 0) + (vals.drainMl ?? 0));
+  const rate = urineRate(patient, { ts: date, urineMl: vals.urineMl });
+  const submit = () => {
+    if (busy || problems.length) return;
+    setError("");
+    setBusy(true);
+    Promise.resolve(onSubmit({
+      date,
+      dol,
+      entry: anyIO ? { ts: date, ...vals, feedType: f.feedType, appVersion: D_L.appVersion() } : null,
+      weightG: weightChanged ? weight : null,
+      record: record || null
+    })).then((res) => {
+      setBusy(false);
+      if (res && res.ok === false) {
+        setError(res.error || "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง");
+        return;
+      }
+      onClose();
+    }, (e) => {
+      setBusy(false);
+      setError(e && e.message || "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง");
+    });
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: () => {
+    if (pristine && !busy) onClose();
+  } }, /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      className: "picker nursing-modal",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-label": editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน",
+      style: { width: 460 },
+      onClick: (e) => e.stopPropagation()
+    },
+    /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน", " · ", patient?.name || patient?.initials || "—", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--ink-3)" } }, " · ", patient?.currentBed || "—")), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose, "aria-label": "ปิด" }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))),
+    /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "nio-date" }, "ยอด 24 ชม. ที่ปิดยอดเช้าวันที่"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        id: "nio-date",
+        type: "date",
+        className: "inp",
+        value: date,
+        disabled: editing,
+        min: admitted || void 0,
+        max: today,
+        onChange: (e) => pickDate(e.target.value),
+        style: { flex: "1 1 160px", minHeight: 44 }
+      }
+    ), /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 12 } }, "DOL ", dol)), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 } }, "ใบสั่งของวันที่ ", window.NEOFEED_FMT_DATE?.(date) || date, " จะเติม Intake/Output จากยอดนี้")), /* @__PURE__ */ React.createElement("div", { className: "nio-grid" }, /* @__PURE__ */ React.createElement(
+      NurseNum,
+      {
+        name: "weightG",
+        label: "น้ำหนักเช้านี้",
+        unit: "g",
+        value: f.weightG,
+        onChange: (v) => {
+          setWeightTouched(true);
+          set("weightG")(v);
+        },
+        hint: measured ? `บันทึกไว้แล้ว ${measured.w} g — แก้ได้` : "ไม่บังคับ · เข้ากราฟการเจริญเติบโต"
+      }
+    ), /* @__PURE__ */ React.createElement(NurseNum, { name: "ivInMl", label: "IV เข้า", unit: "mL/24 ชม.", value: f.ivInMl, onChange: set("ivInMl") }), /* @__PURE__ */ React.createElement(NurseNum, { name: "enInMl", label: "นม/EN เข้า", unit: "mL/24 ชม.", value: f.enInMl, onChange: set("enInMl") }), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", { htmlFor: "nio-feed" }, "ชนิดนม"), /* @__PURE__ */ React.createElement("select", { id: "nio-feed", className: "sel", value: f.feedType, onChange: (e) => set("feedType")(e.target.value), style: { minHeight: 44 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "— ไม่ระบุ —"), NURSING_FEED_OPTIONS.map(([k, lbl]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, lbl)))), /* @__PURE__ */ React.createElement(
+      NurseNum,
+      {
+        name: "urineMl",
+        label: "ปัสสาวะ",
+        unit: "mL/24 ชม.",
+        value: f.urineMl,
+        onChange: set("urineMl"),
+        hint: rate != null ? `${D_L.displayNum(rate, 1)} mL/kg/h` : null
+      }
+    ), /* @__PURE__ */ React.createElement(NurseNum, { name: "drainMl", label: "Drain", unit: "mL/24 ชม.", value: f.drainMl, onChange: set("drainMl") }), /* @__PURE__ */ React.createElement(NurseNum, { name: "stoolCount", label: "อุจจาระ", unit: "ครั้ง", value: f.stoolCount, onChange: set("stoolCount"), integer: true })), /* @__PURE__ */ React.createElement("div", { className: "nio-sum", "aria-live": "polite" }, "เข้า ", /* @__PURE__ */ React.createElement("span", { className: "num" }, intake ?? "—"), " mL · ออก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, vals.urineMl == null && vals.drainMl == null ? "—" : out), " mL", intake != null && vals.urineMl != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · Balance ", /* @__PURE__ */ React.createElement("span", { className: "num" }, intake - out >= 0 ? "+" : "", ml1(intake - out)), " mL")), /* @__PURE__ */ React.createElement("div", { className: "nio-note" }, "ช่องที่เว้นว่าง = ไม่ได้บันทึก (ไม่ใช่ 0) · ข้อมูลนี้ใช้คำนวณโภชนาการ แฟ้มผู้ป่วยยังเป็นบันทึกหลัก"), problems.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "nio-problems", role: "alert", style: { fontSize: 12, color: "var(--crit-ink)", lineHeight: 1.5 } }, problems.join(" · ")), error && /* @__PURE__ */ React.createElement("div", { role: "alert", style: { fontSize: 12.5, color: "var(--crit-ink)", fontWeight: 600 } }, error), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: busy || problems.length > 0, onClick: submit }, /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14, color: "#fff" }), " ", busy ? "กำลังบันทึก…" : "บันทึก")))
+  ));
+}
+function NursingIOCard({ patient, records, onOpen, onDelete }) {
+  const today = D_L.todayLocal();
+  const todays = D_L.nursingRecordOn(records, today);
+  const shown = records.slice(0, 7);
+  const v = (x) => x == null ? "—" : x;
+  return /* @__PURE__ */ React.createElement("div", { className: "card nursing-io", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "I/O ประจำวัน (พยาบาล)", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, "ยอด 24 ชม. · ", records.length, " วัน")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement("div", { className: "nio-head" }, /* @__PURE__ */ React.createElement("span", { className: "log-badge" + (todays ? " is-logged" : "") }, todays ? "✓ วันนี้บันทึกแล้ว" : "วันนี้ยังไม่ได้บันทึก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary nio-add", onClick: () => onOpen(todays || null) }, /* @__PURE__ */ React.createElement(Icon, { name: todays ? "log" : "plus", size: 14, color: "#fff" }), " ", todays ? "แก้ไข I/O วันนี้" : "บันทึก I/O")), shown.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "nio-empty" }, "ยังไม่มีบันทึก I/O — กด “บันทึก I/O” (เลือกวันที่ย้อนหลังได้)") : /* @__PURE__ */ React.createElement("div", { className: "nio-list" }, shown.map((r) => {
+    const intake = D_L.nursingIntakeMl(r);
+    const rate = urineRate(patient, r);
+    const bal = intake != null && r.urineMl != null ? ml1(intake - r.urineMl - (r.drainMl ?? 0)) : null;
+    return /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        key: r.entryId || r.ts,
+        className: "nio-row",
+        role: "button",
+        tabIndex: 0,
+        onClick: () => onOpen(r),
+        onKeyDown: (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen(r);
+          }
+        }
+      },
+      /* @__PURE__ */ React.createElement("div", { className: "nio-date" }, /* @__PURE__ */ React.createElement("strong", null, window.NEOFEED_FMT_DATE?.(r.ts) || r.ts), /* @__PURE__ */ React.createElement("span", { className: "nio-dol" }, "DOL ", D_L.dolAtDate(patient, r.ts))),
+      /* @__PURE__ */ React.createElement("div", { className: "nio-vals num" }, /* @__PURE__ */ React.createElement("span", null, "เข้า ", v(intake), r.enInMl != null && r.feedType ? ` (${nursingFeedLabel(r.feedType)})` : ""), /* @__PURE__ */ React.createElement("span", null, "ปัสสาวะ ", v(r.urineMl), rate != null ? ` · ${D_L.displayNum(rate, 1)} mL/kg/h` : ""), /* @__PURE__ */ React.createElement("span", null, "Drain ", v(r.drainMl)), /* @__PURE__ */ React.createElement("span", null, "Bal ", bal == null ? "—" : `${bal >= 0 ? "+" : ""}${bal}`), /* @__PURE__ */ React.createElement("span", null, "อุจจาระ ", v(r.stoolCount))),
+      /* @__PURE__ */ React.createElement("div", { className: "nio-who" }, whoOf(r.lastModifiedBy || r.enteredBy), onDelete && r.entryId && !String(r.entryId).startsWith("tmp_") && /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "btn sm nio-del",
+          "aria-label": `ลบ I/O ${r.ts}`,
+          onClick: (e) => {
+            e.stopPropagation();
+            if (window.confirm(`ลบบันทึก I/O วันที่ ${window.NEOFEED_FMT_DATE?.(r.ts) || r.ts} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) onDelete(r);
+          }
+        },
+        /* @__PURE__ */ React.createElement(Icon, { name: "trash", size: 12, color: "var(--crit)" })
+      ))
+    );
+  })), records.length > shown.length && /* @__PURE__ */ React.createElement("div", { className: "nio-more" }, "แสดง 7 วันล่าสุด จาก ", records.length, " วัน")));
+}
 window.DailyLog = DailyLog;
 window.TrendGraph = TrendGraph;
+window.NursingIOCard = NursingIOCard;
+window.NursingEntryModal = NursingEntryModal;

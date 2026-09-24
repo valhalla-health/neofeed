@@ -684,6 +684,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Patient registry — empty until GAS sync completes (prevents mock patient identity confusion)
   const [patients, setPatients] = React.useState(GAS_ON ? [] : D_A.MOCK_PATIENTS);
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
+  // Nursing I/O records by sessionId (UX roadmap #4), and whether the backend
+  // serves them at all. nursingLive follows the sync payload: it carries a
+  // `nursing` map exactly while the backend's switch is on (gas-backend.gs
+  // _nursingEnabled — set after the DPO's sign-off, D7), which is also exactly
+  // while the server refuses a nurse's order write (D5). Its sync cache is
+  // keyed on the switch, so no payload of the other shape bridges a flip.
+  // Local dev has it on.
+  const [nursing, setNursing] = React.useState({});
+  const [nursingLive, setNursingLive] = React.useState(!GAS_ON);
+  // D5 (Pp, 2026-09-24): "พยาบาลบันทึกหรือ submit ไม่ได้ ได้แค่ใช้ calculator".
+  // Only against a backend that also refuses it — while its switch is off, the
+  // Calculator's Intake/Output card is still the nurses' only way to record I/O.
+  const ordersReadOnly = role === "nurse" && nursingLive;
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
   // Which ward the registry is showing. null = show the ward gate, which is
@@ -1064,6 +1077,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         // YYYY-MM-DD comparison, and rows arrive in insertion order rather
         // than date order. See D.normalizeLogMap.
         if (data.log) setLog(D_A.normalizeLogMap(data.log));
+        // Both ways: switched on, the card appears and a nurse's Submit goes;
+        // switched off again, both come back on the same sync.
+        const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
+        setNursingLive(nursingServed);
+        setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
         // Every write this device made has now been checked against the sheet.
         unknownWriteRef.current = false;
         appliedSeqRef.current = seq;
@@ -1439,6 +1457,84 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return writeGAS({ action: "deleteDailyNutrition", sessionId: id, entryId: entry.entryId }).then(res => {
       if (res.ok) showToast(`ลบบันทึก DOL ${entry.dol} แล้ว`);
       else if (!res.unknown) setLog(prev => ({ ...prev, [id]: prevEntries }));
+      return res;
+    });
+  };
+
+  // ── Nursing I/O (UX roadmap #4) ──────────────────────────────
+  // The modal hands back { entry, weightG, dol, record }: entry is null when
+  // only a weight was typed, record is the row being edited (null = new). The
+  // weight goes through handleWeightUpdate — the growth chart's own path — so a
+  // nurse's weight is an ordinary measurement in weights[], seen by the chart,
+  // "Wt now", the stale-weight alert and the Calculator alike. Resolves
+  // { ok: true } or { ok: false, error } for the modal to show in place.
+  const handleNursingSave = async ({ entry, weightG, dol, record }) => {
+    const id = active.sessionId;
+    const who = user?.email || "";
+    if (entry) {
+      const blocked = blockedByUnknownWrite(true);
+      if (blocked) return blocked;
+      if (record && record.entryId && !String(record.entryId).startsWith("tmp_")) {
+        const res = GAS_ON
+          ? await writeGAS({ action: "updateNursingEntry", sessionId: id, entryId: record.entryId,
+              expectedLastModified: record.lastModified, entry }, { quiet: true })
+          : { ok: true, lastModified: new Date().toISOString() };
+        if (res.conflict) {
+          syncFromGAS();
+          return { ok: false, error: `บันทึกนี้ถูกแก้จากอีกเครื่อง (${res.current?.lastModifiedBy || "ผู้ใช้อื่น"}) — ปิดแล้วเปิดใหม่หลังซิงก์` };
+        }
+        if (!res.ok) return res;
+        setNursing(prev => ({ ...prev, [id]: (prev[id] || []).map(r => r.entryId === record.entryId
+          ? { ...r, ...entry, ts: record.ts, lastModified: res.lastModified, lastModifiedBy: who } : r) }));
+      } else {
+        const tempId = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+        const now = new Date().toISOString();
+        setNursing(prev => D_A.normalizeNursingMap({ ...prev, [id]: [...(prev[id] || []),
+          { ...entry, entryId: tempId, enteredBy: who, lastModified: now, lastModifiedBy: who }] }));
+        const res = GAS_ON
+          ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true })
+          : { ok: true, entryId: "local_" + tempId, lastModified: now };
+        if (res.ok) {
+          setNursing(prev => ({ ...prev, [id]: (prev[id] || []).map(r =>
+            r.entryId === tempId ? { ...r, entryId: res.entryId, lastModified: res.lastModified } : r) }));
+        } else if (!res.unknown) {
+          // An unknown result keeps the provisional row for the verification
+          // sync to settle, as an order save does (UP-B10).
+          setNursing(prev => ({ ...prev, [id]: (prev[id] || []).filter(r => r.entryId !== tempId) }));
+          if (isDuplicateDate(res)) {
+            syncFromGAS();
+            return { ok: false, error: "มีบันทึก I/O ของวันที่นี้แล้ว (อาจบันทึกจากอีกเครื่อง) — ปิดหน้าต่างนี้แล้วแตะรายการเดิมเพื่อแก้ไข" };
+          }
+          return res;
+        } else return res;
+      }
+    }
+    if (weightG != null) {
+      const rec = patients.find(p => p.sessionId === id);
+      if (handleWeightUpdate(id, D_A.upsertWeight(rec?.weights || [], dol, weightG)) === false) {
+        // Refused before it was sent (an earlier write's result is unknown).
+        // Once the I/O row has landed the form must close anyway: a second Save
+        // from it would be a second record for the date, or an edit against a
+        // stamp that has since moved. The weight is the one thing to re-type.
+        if (!entry) return { ok: false, error: "ยังบันทึกน้ำหนักไม่ได้ — รอผลการบันทึกครั้งก่อนแล้วลองใหม่" };
+        showToast("บันทึก I/O แล้ว แต่ยังบันทึกน้ำหนักไม่ได้ — ใส่น้ำหนักอีกครั้งหลังซิงก์", "error");
+        return { ok: true };
+      }
+    }
+    showToast(entry ? "บันทึก I/O ประจำวันแล้ว" : "บันทึกน้ำหนักแล้ว");
+    return { ok: true };
+  };
+  // Admin only (gated where this is passed down), audited server-side.
+  const handleNursingDelete = (record) => {
+    const id = active.sessionId;
+    const blocked = blockedByUnknownWrite();
+    if (blocked) return Promise.resolve(blocked);
+    const prevRecords = nursing[id] || [];
+    setNursing(prev => ({ ...prev, [id]: (prev[id] || []).filter(r => r.entryId !== record.entryId) }));
+    if (!GAS_ON) { showToast("ลบบันทึก I/O แล้ว"); return Promise.resolve({ ok: true }); }
+    return writeGAS({ action: "deleteNursingEntry", sessionId: id, entryId: record.entryId }).then(res => {
+      if (res.ok) showToast("ลบบันทึก I/O แล้ว");
+      else if (!res.unknown) setNursing(prev => ({ ...prev, [id]: prevRecords }));
       return res;
     });
   };
@@ -2019,6 +2115,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           {view === "calculator" && active && (
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}
               log={log} activeId={activeId} token={user?.token} role={role}
+              nursing={nursing[activeId] || []} ordersReadOnly={ordersReadOnly}
               userLabel={user?.name ? `${user.name}${user.email ? ` (${user.email})` : ""}` : (user?.email || "")}
               userEmail={user?.email || ""}
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
@@ -2040,8 +2137,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             </>
           }
           {view === "log" && active && <DailyLog patient={active} log={log} dol={dol}
-            onAddToday={startAddToday} onEditEntry={startEditEntry}
-            onDeleteEntry={role === "admin" ? handleDeleteEntry : undefined} />}
+            // "New log" opens a new ORDER, which a nurse no longer writes (D5).
+            onAddToday={ordersReadOnly ? undefined : startAddToday} onEditEntry={startEditEntry}
+            onDeleteEntry={role === "admin" ? handleDeleteEntry : undefined}
+            nursing={nursingLive ? (nursing[activeId] || []) : null}
+            onSaveNursing={handleNursingSave}
+            onDeleteNursing={role === "admin" ? handleNursingDelete : undefined} />}
           {view === "alerts" && active && <AlertCenter patient={active} log={log} onAckChange={() => setAckVersion(v => v + 1)} />}
           {/* Quick calc — no patient, no role gate: it is a calculator over a
               typed weight, it reads no record and writes nothing, so there is
@@ -2149,7 +2250,8 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // while view === "calculator", so its own hook-call sequence is consistent
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel, userEmail,
-  handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo, setCalcWeights }) {
+  handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo, setCalcWeights,
+  nursing = [], ordersReadOnly = false }) {
   // Editing an existing row re-derives its DOL from the row's date rather
   // than trusting the stored `dol` column (D_A.entryDol) — otherwise a row
   // saved before this patient had an admission date keeps re-saving that
@@ -2161,7 +2263,9 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   // and (for new and edited orders alike) the "changes vs previous" reference.
   const previousEntry = previousLogEntry(log[activeId] || [], lockDate);
   const baselineEntry = !editEntry ? previousEntry : null;
-  const holder = useDailyLogLock(active.sessionId, lockDate, token);
+  // The courtesy lock announces "someone is editing this order" — which a nurse
+  // computing without saving (D5) is not, so the nurse takes none.
+  const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
 
   return (
     <>
@@ -2209,6 +2313,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         userEmail={userEmail}
         onLog={handleLogToGAS} onUpdate={handleUpdateToGAS} onPublish={handlePublishToGAS}
         onSaved={() => goTo("log")}
+        nursing={nursing} ordersReadOnly={ordersReadOnly}
         onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined}
         onWeightChange={(w) => setCalcWeights(prev => ({ ...prev, [activeId]: w }))} />
     </>

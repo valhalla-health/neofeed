@@ -479,7 +479,8 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // previous-submission store, the edit lock, the printed pharmacy form), and
 // what stays is the arithmetic. Deliberately NOT folded into `centerPoint`:
 // that mode still saves, just somewhere else.
-function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint, scratch }) {
+function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onWeightChange, onDelete, centerPoint, scratch,
+  nursing = [], ordersReadOnly = false }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
   // form left open across midnight silently became the next day's order: its
@@ -583,7 +584,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
    // list under a form with no Save button is a dead end, and the one field it
    // would really be asking for (the weight) is already the first thing on the
    // screen and already reads 0 until it is typed.
-   .filter(() => !scratch);
+   .filter(() => !scratch)
+   // Nor does a nurse's (D5, 2026-09-24): a nurse computes, a prescriber saves.
+   .filter(() => !ordersReadOnly);
   const [blankFields, setBlankFields] = useState(() => new Set(REQUIRED_FIELDS.map(f => f.key)));
   const reportBlank = React.useCallback((key, isBlank) => {
     setBlankFields(prev => {
@@ -636,7 +639,12 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     });
     return keys;
   }, [editEntry]);
-  const seedsZero = (key) => seededZeros.has(key);
+  // Intake / Output a new order took from the nurses' record for its date
+  // (UX roadmap #4, D4): { date, keys, rec }, or null. A figure the nurses
+  // recorded — a 0 included — is a measurement, so it seeds as a typed zero and
+  // satisfies the required-field gate; a field they left blank stays blank.
+  const [nursingApplied, setNursingApplied] = useState(null);
+  const seedsZero = (key) => seededZeros.has(key) || !!nursingApplied?.keys?.has(key);
 
   // Card key 1 — Fluid plan (displayed as Step 1)
   const [fluidTargetPerKg, setFluidTargetPerKg] = useState(0);
@@ -841,6 +849,39 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     return src;
   };
 
+  // D4 (Pp, 2026-09-24): a NEW order's Intake / Output starts from the nurses'
+  // 24-hour totals for its date — "Input ในใบ order เป็นเหมือนยอดที่จะคำนวณใน
+  // วันนั้นเฉยๆ แต่จะ prefill โดยใช้ข้อมูล intake ที่ได้รับจริงใน 24 ชม. ที่ผ่านมา
+  // ได้" — filled automatically and left editable ("calculator ให้เติมเอง").
+  // Never on a saved order, whose figures are its record. Input becomes IV +
+  // enteral actually received and stops tracking the prescribed total. `n` is
+  // what the prefill just applied: the "opened vs edited" fingerprint is taken
+  // with these figures in it, so opening a prefilled form is not typing (no
+  // draft is written for it). null = applied later by hand (the button).
+  const applyNursingIO = (dateKey, n) => {
+    const rec = D.nursingRecordOn(nursing, dateKey);
+    // Taken again by hand (n == null) after the nurses changed their record: a
+    // figure they have since blanked, or a record since deleted, must not stay
+    // in the form as if it were still theirs — it goes back to blank (Input
+    // back to tracking the prescribed total), for the prescriber to fill.
+    const dropped = (key) => !n && !!nursingApplied?.keys?.has(key);
+    const keys = new Set();
+    const intake = rec ? D.nursingIntakeMl(rec) : null;
+    if (intake != null) { setIoInput(intake); markIoInputTouched(true); keys.add("ioInput"); }
+    else if (dropped("ioInput")) markIoInputTouched(false);
+    if (rec?.urineMl != null) { setIoOutput(Number(rec.urineMl)); keys.add("ioOutput"); }
+    else if (dropped("ioOutput")) setIoOutput(0);
+    if (rec?.drainMl != null) { setDrainContent(Number(rec.drainMl)); keys.add("drainContent"); }
+    else if (dropped("drainContent")) setDrainContent(0);
+    if (!keys.size) { setNursingApplied(null); return false; }
+    setNursingApplied({ date: D.normalizeDateStr(rec.ts), keys, rec });
+    if (n) setPrefillKey(calcInputKey({ ...n,
+      ioInput: intake != null ? intake : null,
+      ioOutput: rec.urineMl != null ? Number(rec.urineMl) : n.ioOutput,
+      drainContent: rec.drainMl != null ? Number(rec.drainMl) : n.drainContent }));
+    return true;
+  };
+
   // ── Prefill on patient change ──────────────────────────────────
   // 1. Editing an existing entry → restore its exact original inputs (calcInput),
   //    so edits work correctly regardless of which device created the entry
@@ -893,6 +934,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       return;
     }
     if (!patient?.sessionId) return;
+    setNursingApplied(null);
 
     // A new order's date is taken when it is opened (UP-C11): a patient switch
     // is a deliberate new target, so it re-reads today. Read here as well as
@@ -975,8 +1017,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
       const baselineDol = D.entryDol(patient, baselineEntry);
       const fresher = measured && measured.dol > baselineDol ? measured : null;
       const startWeight = fresher ? fresher.w : baselineEntry.weight;
-      applyCalcInput({ ...src, ...(fresher ? { curWtG: fresher.w } : {}) },
+      const nBase = applyCalcInput({ ...src, ...(fresher ? { curWtG: fresher.w } : {}) },
         startWeight, false, fluidMidpoint(fresher ? fresher.w : (src.curWtG ?? src.wtG ?? baselineEntry.weight)));
+      if (!centerPoint) applyNursingIO(dateKey, nBase);
       setPrefilledFrom({ dol: baselineEntry.dol, baseline: true,
         ...(fresher ? { weightFrom: { dol: fresher.dol, w: fresher.w }, weightWas: baselineEntry.weight } : {}) });
       return;
@@ -1004,7 +1047,8 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     const wtDefault = restored?.curWtG ?? restored?.wtG ?? lastWt?.w ?? patient.bw ?? 0;
     // Fresh entry — ioInput tracks the computed total until edited (ioTouched false).
     const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
-    applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
+    const nFresh = applyCalcInput({ ...fresh, deadVol_mL: newOrderDeadVol(fresh, patient) }, lastWt?.w ?? patient.bw ?? 0, false, fluidMidpoint(wtDefault));
+    if (!centerPoint) applyNursingIO(dateKey, nFresh);
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt, dol: restored.dol });
@@ -1058,7 +1102,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // Each draft records who typed it (SEC-F3) and which saved version of the
   // row it was typed on top of (UP-C10) — see the prefill effect.
   const writeDraft = (inputs) => {
-    if (centerPoint || scratch || !patient?.sessionId) return;
+    if (centerPoint || scratch || ordersReadOnly || !patient?.sessionId) return;
     try {
       localStorage.setItem(draftStorageKey(patient.sessionId, orderDateKey),
         JSON.stringify({ ...inputs, dol, savedAt: new Date().toISOString(),
@@ -1071,7 +1115,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userKey, userEdited]);
   const clearDraft = () => {
-    if (centerPoint || scratch || !patient?.sessionId) return;
+    if (centerPoint || scratch || ordersReadOnly || !patient?.sessionId) return;
     try { localStorage.removeItem(draftStorageKey(patient.sessionId, orderDateKey)); } catch {}
   };
   // A draft typed on an older saved version of this row than the one now open.
@@ -1079,6 +1123,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     (draftOffer.baseLastModified || null) !== (editEntry.lastModified || null));
   const restoreDraft = () => {
     if (!draftOffer) return;
+    // The draft's Intake/Output is what was typed, not the nurses' record: the
+    // "filled from" note goes, and the record is offered again (D4).
+    setNursingApplied(null);
     const n = applyCalcInput(draftOffer, curWtG, true, fluidTargetPerKg);
     // Rebase the draft onto the version now open (UP-C10). This form already
     // holds that row's lastModified, so the next Save is an ordinary edit of
@@ -1410,6 +1457,17 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const ioOutputPerKgH = ioDivisorKg ? Math.round((ioOutput / ioDivisorKg / 24) * 100) / 100 : null;
   const ioDrainPerKg = ioDivisorKg ? drainContent / ioDivisorKg : null;
   const ioBalance = ioInput - ioOutput - drainContent;
+  // The nurses' record for this order's date, when there is one to offer (a
+  // new order only; never quick calc or Center Point, which record no I/O).
+  const nursingForDate = (!centerPoint && !scratch && !editEntry) ? D.nursingRecordOn(nursing, orderDateKey) : null;
+  // The nurses corrected (or deleted) the record after this form took its
+  // figures — say so, so an order is not written on totals the ward has
+  // already corrected. Compared on the figures taken, not on the row's stamp,
+  // which also moves when a provisional row is confirmed.
+  // ("||" = a record with none of the three, e.g. a stool count alone: nothing to take.)
+  const nursingTaken = (r) => r ? [D.nursingIntakeMl(r), r.urineMl ?? null, r.drainMl ?? null].join("|") : "";
+  const nursingChanged = !!nursingApplied && !editEntry &&
+    nursingTaken(D.nursingRecordOn(nursing, nursingApplied.date)) !== nursingTaken(nursingApplied.rec);
 
   // ── Ca · PO₄ · Ca:P summary (Step 6) ────────────────────────────
   // Oral supplement doses are entered as elemental mg/kg/day, i.e. already in
@@ -1717,7 +1775,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
         return;
       }
       if (!savedEntryId) {
-        showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
+        showToast(ordersReadOnly ? "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว" : "กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
         return;
       }
       // Saved, but edited since (or held back — see printable): printing now
@@ -1755,6 +1813,9 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     // It is the only path in this file that reaches Google Sheets, and
     // "ข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท" is the whole premise of the mode.
     if (scratch) return;
+    // …and nor does a nurse's form once the backend refuses a nurse's order
+    // write (D5): no Save button is rendered either — this is the belt.
+    if (ordersReadOnly) return;
     // ── Required-field gate (2026-09-15) ──────────────────────────────
     // Blocks the save outright rather than warning: an order row whose fluid
     // plan or urine output was never entered is not a partial record, it is a
@@ -2178,6 +2239,29 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               Balance <span className="num" style={{ fontWeight: 600, color: "var(--ink-2)" }}>{ioBalance >= 0 ? "+" : ""}{fmt(ioBalance, 0)}</span> mL/d
               {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)"}</>}
             </div>
+          )}
+          {/* Where the figures came from (D4) — or, when the nurses' record
+              arrived after this form opened, one tap to take it. */}
+          {nursingApplied && (
+            <div className="nursing-prefill-note" style={{ marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 }}>
+              เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า {window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date}
+              {" "}({[nursingApplied.keys.has("ioInput") && "Input", nursingApplied.keys.has("ioOutput") && "Urine", nursingApplied.keys.has("drainContent") && "Drain"].filter(Boolean).join(" · ")}) — แก้ได้
+            </div>
+          )}
+          {nursingChanged && (
+            <div className="nursing-prefill-changed" role="alert" style={{ marginTop: 8, display: "flex", alignItems: "center",
+              gap: 8, flexWrap: "wrap", fontSize: 12, color: "var(--warn-ink)", fontWeight: 600 }}>
+              {nursingForDate ? "พยาบาลแก้ยอด I/O นี้หลังเติมแล้ว" : "บันทึก I/O ที่ใช้เติมถูกลบแล้ว"}
+              <button className="btn sm nursing-prefill-apply" onClick={() => applyNursingIO(nursingApplied.date, null)}>
+                {nursingForDate ? "ใช้ยอดล่าสุด" : "ล้างยอดที่เติมไว้"}
+              </button>
+            </div>
+          )}
+          {!nursingApplied && nursingForDate && nursingTaken(nursingForDate) !== "||" && (
+            <button className="btn sm nursing-prefill-apply" style={{ marginTop: 8 }}
+              onClick={() => applyNursingIO(orderDateKey, null)}>
+              ใช้ยอด I/O จากบันทึกพยาบาล (ปิดยอดเช้า {window.NEOFEED_FMT_DATE?.(orderDateKey) || orderDateKey})
+            </button>
           )}
         </div>
       </div>}
@@ -3131,6 +3215,16 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 </div>
               </div>
             )}
+            {/* D5 (Pp, 2026-09-24): a nurse computes; a prescriber saves. Said
+                where the Save and Submit buttons would have been. */}
+            {ordersReadOnly && (
+              <div className="nurse-readonly-note" role="note" style={{ fontSize: 11.5, lineHeight: 1.55, marginBottom: 10,
+                padding: "8px 10px", borderRadius: 6, background: "var(--bg-2)", color: "var(--ink-2)",
+                border: "1px solid var(--line)" }}>
+                <strong style={{ fontWeight: 700 }}>พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์</strong>
+                <div>บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · คัดลอก/พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว</div>
+              </div>
+            )}
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 }}>
               <span className="num">{scratch ? "ไม่ผูกกับผู้ป่วย" : (patient?.name || patient?.initials || "—")}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>}{tpnWtManual && <> (calc. weight set manually to {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
             </div>
@@ -3194,7 +3288,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
               // copied text must not do is read like an order, which is what
               // the scratch header below is for.
               if (!scratch && !savedEntryId) {
-                showToast("กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
+                showToast(ordersReadOnly ? "คัดลอกได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว" : "กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
                 return;
               }
               if (!scratch && !printable) {
@@ -3317,7 +3411,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
             )}
             {/* Save draft: keep an incomplete order (Praew, 2026-09-23). Not on
                 Center Point, which has its own review step. */}
-            {!scratch && !centerPoint && (
+            {!scratch && !centerPoint && !ordersReadOnly && (
               <button className="btn save-draft" style={{ width: "100%", marginBottom: 8 }}
                 disabled={saving || pendingSave || (savedStatus === "submitted" && !!savedEntryId)}
                 title={savedStatus === "submitted" && savedEntryId ? "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง" : "บันทึกไว้ก่อน แม้ยังกรอกไม่ครบ — พิมพ์ไม่ได้จนกว่าจะ Submit"}
@@ -3325,7 +3419,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 <Icon name="save" size={14} /> {saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"}
               </button>
             )}
-            {!scratch && (
+            {!scratch && !ordersReadOnly && (
               <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
@@ -3333,7 +3427,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
             )}
 
             {/* CP has its own review → publish step and passes no onPublish. */}
-            {D.ENABLE_PUBLISH_GATE && !centerPoint && !scratch && (
+            {D.ENABLE_PUBLISH_GATE && !centerPoint && !scratch && !ordersReadOnly && (
               <button className="btn primary" style={{ width: "100%", marginTop: 8 }}
                 disabled={!savedEntryId || published || publishing || !printable}
                 onClick={handlePublish}>

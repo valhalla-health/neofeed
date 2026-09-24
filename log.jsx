@@ -471,8 +471,12 @@ function TrendGraph({ entries, patient }) {
   );
 }
 
-function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry }) {
+// `nursing` is this infant's nursing I/O records, or null while the backend
+// does not serve them (the card is then not shown at all — see NursingIOCard).
+function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, nursing = null, onSaveNursing, onDeleteNursing }) {
   const entries = log[patient?.sessionId] || [];
+  // undefined = closed; null = a new record; an object = that record.
+  const [nursingOpen, setNursingOpen] = React.useState(undefined);
   // The trend graph plots submitted orders only; a draft is listed in the
   // table below (to open and finish) but is not a data point (D.isDraftEntry).
   const finalLog = D_L.finalEntries(entries);
@@ -504,6 +508,15 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry })
         <LogDateModal patient={patient} dol={dol}
           onClose={() => setShowDateModal(false)}
           onConfirm={(dateStr) => { setShowDateModal(false); onAddToday(dateStr); }} />
+      )}
+
+      {nursing && onSaveNursing && (
+        <NursingIOCard patient={patient} records={nursing} onOpen={(rec) => setNursingOpen(rec)}
+          onDelete={onDeleteNursing} />
+      )}
+      {nursingOpen !== undefined && (
+        <NursingEntryModal patient={patient} record={nursingOpen} onClose={() => setNursingOpen(undefined)}
+          onSubmit={onSaveNursing} />
       )}
 
       <div className="card" style={{ marginBottom: 14 }}>
@@ -660,5 +673,257 @@ function LogDateModal({ patient, dol, onClose, onConfirm }) {
   );
 }
 
+// ============================================================
+// Nursing Intake/Output — the ward's daily totals (UX roadmap #4)
+// ============================================================
+// docs/NURSING_FORM_SPEC.md, built to Pp's decisions of 2026-09-24. ONE record
+// per infant per date (D1: daily totals only), dated the morning the 24-hour
+// total closed — so the order written that morning is prefilled from it (D4).
+// The chart stays the record of care; this is the nutrition worksheet. Shown
+// only once the backend serves nursing records (App passes `nursing` = null
+// until then), which is also when nurses stop saving orders (D5).
+//
+// What the ward can pick as the feed: the formulary's own keys plus "several".
+// Never free text — the backend refuses anything that is not a key (PDPA
+// minimisation: nothing in Nursing_Log can hold a name or a note).
+const NURSING_FEED_OPTIONS = [...Object.entries(D_L.EN_DB).map(([k, v]) => [k, v.label]), ["MIXED", "หลายชนิด"]];
+const nursingFeedLabel = (k) => k === "MIXED" ? "หลายชนิด" : (D_L.EN_DB[k]?.label || k || "");
+const NURSING_ML_FIELDS = [
+  ["ivInMl", "IV เข้า"], ["enInMl", "นม/EN เข้า"], ["urineMl", "ปัสสาวะ"], ["drainMl", "Drain"],
+];
+const whoOf = (email) => String(email || "").split("@")[0];
+// Sums of typed decimals, to 0.1 mL — never "99.60000000000001".
+const ml1 = (x) => Math.round(x * 10) / 10;
+
+// Urine in mL/kg/h against the same divisor the Calculator's Intake/Output card
+// uses for the order of that date (D.ioDivisorG — the previous day's weight,
+// floored at birth weight). Null when either is missing.
+function urineRate(patient, rec) {
+  if (rec?.urineMl == null) return null;
+  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null);
+  return g ? rec.urineMl / (g / 1000) / 24 : null;
+}
+
+// A box where EMPTY means "not recorded" — which is not 0. The form keeps the
+// raw text; parsing happens once, on submit and for the live totals.
+function NurseNum({ name, label, unit, value, onChange, integer = false, hint }) {
+  return (
+    <div className="field">
+      <label htmlFor={`nio-${name}`}>{label}{unit && <span className="unit">({unit})</span>}</label>
+      <input id={`nio-${name}`} name={name} type="text" inputMode={integer ? "numeric" : "decimal"}
+        className="inp num" placeholder="—" value={value}
+        onChange={e => {
+          let s = e.target.value.replace(integer ? /[^0-9]/g : /[^0-9.]/g, "");
+          const dot = s.indexOf(".");
+          if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "");
+          onChange(s);
+        }} />
+      {hint && <div className="field-hint" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>}
+    </div>
+  );
+}
+
+function NursingEntryModal({ patient, record, onClose, onSubmit }) {
+  const today = D_L.todayLocal();
+  const editing = !!record;
+  const [date, setDate] = React.useState(record ? record.ts : today);
+  const dol = D_L.dolAtDate(patient, date);
+  const measuredAt = (d) => (patient?.weights || []).find(w => w && w.dol === D_L.dolAtDate(patient, d) && w.w != null) || null;
+  const str = (v) => v == null ? "" : String(v);
+  const [f, setF] = React.useState(() => ({
+    weightG: str(measuredAt(record ? record.ts : today)?.w),
+    ivInMl: str(record?.ivInMl), enInMl: str(record?.enInMl), feedType: record?.feedType || "",
+    urineMl: str(record?.urineMl), drainMl: str(record?.drainMl), stoolCount: str(record?.stoolCount),
+  }));
+  const [weightTouched, setWeightTouched] = React.useState(false);
+  const set = (k) => (v) => setF(prev => ({ ...prev, [k]: v }));
+  // A tap outside the sheet closes it only while nothing has been typed — on a
+  // phone the backdrop is the strip above a bottom sheet, one stray tap away
+  // from losing a whole day's figures. Cancel and ✕ always close.
+  const [opened] = React.useState(() => JSON.stringify({ date, f }));
+  const pristine = JSON.stringify({ date, f }) === opened;
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  // A new record's weight follows the date until someone types one.
+  const pickDate = (d) => {
+    setDate(d);
+    if (!weightTouched) setF(prev => ({ ...prev, weightG: str(measuredAt(d)?.w) }));
+  };
+
+  const num = (s) => (s === "" || s == null) ? null : Number(s);
+  const vals = { ivInMl: num(f.ivInMl), enInMl: num(f.enInMl), urineMl: num(f.urineMl),
+    drainMl: num(f.drainMl), stoolCount: num(f.stoolCount) };
+  const weight = num(f.weightG);
+  const anyIO = Object.values(vals).some(v => v != null);
+  const measured = measuredAt(date);
+  const weightChanged = weight != null && weight !== (measured?.w ?? null);
+  const problems = [];
+  NURSING_ML_FIELDS.forEach(([k, lbl]) => {
+    if (vals[k] != null && !(vals[k] >= 0 && vals[k] <= 3000)) problems.push(`${lbl} ต้องอยู่ระหว่าง 0–3000 mL`);
+  });
+  if (vals.stoolCount != null && !(Number.isInteger(vals.stoolCount) && vals.stoolCount <= 20)) problems.push("อุจจาระ 0–20 ครั้ง");
+  if (weight != null && !(weight >= 200 && weight <= 8000)) problems.push("น้ำหนัก 200–8000 g");
+  if (!date || date > today) problems.push("วันที่ต้องไม่เกินวันนี้");
+  const admitted = D_L.normalizeDateStr(patient?.admissionDate || "");
+  if (!editing && date && admitted && date < admitted) problems.push("วันที่ต้องไม่ก่อนวันรับเข้า");
+  if (editing && !anyIO) problems.push("บันทึกต้องมีอย่างน้อยหนึ่งค่า — การลบทั้งรายการทำได้โดย admin");
+  if (!editing && !anyIO && !weightChanged) problems.push("ยังไม่ได้กรอกค่าใดเลย");
+
+  const intake = D_L.nursingIntakeMl(vals);
+  const out = ml1((vals.urineMl ?? 0) + (vals.drainMl ?? 0));
+  const rate = urineRate(patient, { ts: date, urineMl: vals.urineMl });
+
+  const submit = () => {
+    if (busy || problems.length) return;
+    setError("");
+    setBusy(true);
+    Promise.resolve(onSubmit({
+      date, dol,
+      entry: anyIO ? { ts: date, ...vals, feedType: f.feedType, appVersion: D_L.appVersion() } : null,
+      weightG: weightChanged ? weight : null,
+      record: record || null,
+    })).then(res => {
+      setBusy(false);
+      if (res && res.ok === false) { setError(res.error || "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง"); return; }
+      onClose();
+    }, (e) => { setBusy(false); setError((e && e.message) || "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง"); });
+  };
+
+  return (
+    <div className="picker-backdrop" onClick={() => { if (pristine && !busy) onClose(); }}>
+      <div className="picker nursing-modal" role="dialog" aria-modal="true" aria-label={editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน"}
+        style={{ width: 460 }} onClick={e => e.stopPropagation()}>
+        <div className="picker-h" style={{ justifyContent: "space-between" }}>
+          <div style={{ fontWeight: 600, fontSize: 15 }}>
+            {editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน"} · {patient?.name || patient?.initials || "—"}
+            <span style={{ fontWeight: 400, color: "var(--ink-3)" }}> · {patient?.currentBed || "—"}</span>
+          </div>
+          <button className="icon-btn" onClick={onClose} aria-label="ปิด"><Icon name="x" size={14} /></button>
+        </div>
+        <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="field">
+            <label htmlFor="nio-date">ยอด 24 ชม. ที่ปิดยอดเช้าวันที่</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <input id="nio-date" type="date" className="inp" value={date} disabled={editing}
+                min={admitted || undefined} max={today}
+                onChange={e => pickDate(e.target.value)} style={{ flex: "1 1 160px", minHeight: 44 }} />
+              <span className="chip brand" style={{ fontSize: 12 }}>DOL {dol}</span>
+            </div>
+            <div className="field-hint" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+              ใบสั่งของวันที่ {window.NEOFEED_FMT_DATE?.(date) || date} จะเติม Intake/Output จากยอดนี้
+            </div>
+          </div>
+          <div className="nio-grid">
+            <NurseNum name="weightG" label="น้ำหนักเช้านี้" unit="g" value={f.weightG}
+              onChange={(v) => { setWeightTouched(true); set("weightG")(v); }}
+              hint={measured ? `บันทึกไว้แล้ว ${measured.w} g — แก้ได้` : "ไม่บังคับ · เข้ากราฟการเจริญเติบโต"} />
+            <NurseNum name="ivInMl" label="IV เข้า" unit="mL/24 ชม." value={f.ivInMl} onChange={set("ivInMl")} />
+            <NurseNum name="enInMl" label="นม/EN เข้า" unit="mL/24 ชม." value={f.enInMl} onChange={set("enInMl")} />
+            <div className="field">
+              <label htmlFor="nio-feed">ชนิดนม</label>
+              <select id="nio-feed" className="sel" value={f.feedType} onChange={e => set("feedType")(e.target.value)} style={{ minHeight: 44 }}>
+                <option value="">— ไม่ระบุ —</option>
+                {NURSING_FEED_OPTIONS.map(([k, lbl]) => <option key={k} value={k}>{lbl}</option>)}
+              </select>
+            </div>
+            <NurseNum name="urineMl" label="ปัสสาวะ" unit="mL/24 ชม." value={f.urineMl} onChange={set("urineMl")}
+              hint={rate != null ? `${D_L.displayNum(rate, 1)} mL/kg/h` : null} />
+            <NurseNum name="drainMl" label="Drain" unit="mL/24 ชม." value={f.drainMl} onChange={set("drainMl")} />
+            <NurseNum name="stoolCount" label="อุจจาระ" unit="ครั้ง" value={f.stoolCount} onChange={set("stoolCount")} integer />
+          </div>
+          <div className="nio-sum" aria-live="polite">
+            เข้า <span className="num">{intake ?? "—"}</span> mL · ออก <span className="num">{vals.urineMl == null && vals.drainMl == null ? "—" : out}</span> mL
+            {intake != null && vals.urineMl != null && <> · Balance <span className="num">{intake - out >= 0 ? "+" : ""}{ml1(intake - out)}</span> mL</>}
+          </div>
+          <div className="nio-note">
+            ช่องที่เว้นว่าง = ไม่ได้บันทึก (ไม่ใช่ 0) · ข้อมูลนี้ใช้คำนวณโภชนาการ แฟ้มผู้ป่วยยังเป็นบันทึกหลัก
+          </div>
+          {problems.length > 0 && (
+            <div className="nio-problems" role="alert" style={{ fontSize: 12, color: "var(--crit-ink)", lineHeight: 1.5 }}>
+              {problems.join(" · ")}
+            </div>
+          )}
+          {error && <div role="alert" style={{ fontSize: 12.5, color: "var(--crit-ink)", fontWeight: 600 }}>{error}</div>}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button className="btn" onClick={onClose}>ยกเลิก</button>
+            <button className="btn primary" disabled={busy || problems.length > 0} onClick={submit}>
+              <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "บันทึก"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The Dashboard card: today's state first (the round's question is "is it in
+// yet?"), then the last seven days newest first, each opening its record.
+function NursingIOCard({ patient, records, onOpen, onDelete }) {
+  const today = D_L.todayLocal();
+  const todays = D_L.nursingRecordOn(records, today);
+  const shown = records.slice(0, 7);
+  const v = (x) => x == null ? "—" : x;
+  return (
+    <div className="card nursing-io" style={{ marginBottom: 14 }}>
+      <div className="card-h">
+        <Icon name="drop" size={14} color="var(--brand)" />
+        I/O ประจำวัน (พยาบาล)
+        <span className="h-meta">ยอด 24 ชม. · {records.length} วัน</span>
+      </div>
+      <div className="card-b">
+        <div className="nio-head">
+          <span className={"log-badge" + (todays ? " is-logged" : "")}>{todays ? "✓ วันนี้บันทึกแล้ว" : "วันนี้ยังไม่ได้บันทึก"}</span>
+          <button className="btn primary nio-add" onClick={() => onOpen(todays || null)}>
+            <Icon name={todays ? "log" : "plus"} size={14} color="#fff" /> {todays ? "แก้ไข I/O วันนี้" : "บันทึก I/O"}
+          </button>
+        </div>
+        {shown.length === 0
+          ? <div className="nio-empty">ยังไม่มีบันทึก I/O — กด “บันทึก I/O” (เลือกวันที่ย้อนหลังได้)</div>
+          : <div className="nio-list">
+              {shown.map(r => {
+                const intake = D_L.nursingIntakeMl(r);
+                const rate = urineRate(patient, r);
+                const bal = intake != null && r.urineMl != null ? ml1(intake - r.urineMl - (r.drainMl ?? 0)) : null;
+                return (
+                  <div key={r.entryId || r.ts} className="nio-row" role="button" tabIndex={0}
+                    onClick={() => onOpen(r)}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(r); } }}>
+                    <div className="nio-date">
+                      <strong>{window.NEOFEED_FMT_DATE?.(r.ts) || r.ts}</strong>
+                      <span className="nio-dol">DOL {D_L.dolAtDate(patient, r.ts)}</span>
+                    </div>
+                    <div className="nio-vals num">
+                      <span>เข้า {v(intake)}{r.enInMl != null && r.feedType ? ` (${nursingFeedLabel(r.feedType)})` : ""}</span>
+                      <span>ปัสสาวะ {v(r.urineMl)}{rate != null ? ` · ${D_L.displayNum(rate, 1)} mL/kg/h` : ""}</span>
+                      <span>Drain {v(r.drainMl)}</span>
+                      <span>Bal {bal == null ? "—" : `${bal >= 0 ? "+" : ""}${bal}`}</span>
+                      <span>อุจจาระ {v(r.stoolCount)}</span>
+                    </div>
+                    <div className="nio-who">
+                      {whoOf(r.lastModifiedBy || r.enteredBy)}
+                      {onDelete && r.entryId && !String(r.entryId).startsWith("tmp_") && (
+                        <button className="btn sm nio-del" aria-label={`ลบ I/O ${r.ts}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (window.confirm(`ลบบันทึก I/O วันที่ ${window.NEOFEED_FMT_DATE?.(r.ts) || r.ts} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) onDelete(r);
+                          }}>
+                          <Icon name="trash" size={12} color="var(--crit)" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>}
+        {records.length > shown.length &&
+          <div className="nio-more">แสดง 7 วันล่าสุด จาก {records.length} วัน</div>}
+      </div>
+    </div>
+  );
+}
+
 window.DailyLog = DailyLog;
 window.TrendGraph = TrendGraph;
+window.NursingIOCard = NursingIOCard;
+window.NursingEntryModal = NursingEntryModal;

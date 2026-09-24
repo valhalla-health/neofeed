@@ -381,6 +381,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   userRef.current = user;
   const [patients, setPatients] = React.useState(GAS_ON ? [] : D_A.MOCK_PATIENTS);
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
+  const [nursing, setNursing] = React.useState({});
+  const [nursingLive, setNursingLive] = React.useState(!GAS_ON);
+  const ordersReadOnly = role === "nurse" && nursingLive;
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
   const [ward, setWard] = React.useState(null);
@@ -585,6 +588,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         setActiveId((prev) => data.patients.some((p) => p.sessionId === prev) ? prev : null);
       }
       if (data.log) setLog(D_A.normalizeLogMap(data.log));
+      const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
+      setNursingLive(nursingServed);
+      setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
       unknownWriteRef.current = false;
       appliedSeqRef.current = seq;
       syncFailsRef.current = 0;
@@ -836,6 +842,73 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return writeGAS({ action: "deleteDailyNutrition", sessionId: id, entryId: entry.entryId }).then((res) => {
       if (res.ok) showToast(`ลบบันทึก DOL ${entry.dol} แล้ว`);
       else if (!res.unknown) setLog((prev) => ({ ...prev, [id]: prevEntries }));
+      return res;
+    });
+  };
+  const handleNursingSave = async ({ entry, weightG, dol: dol2, record }) => {
+    const id = active.sessionId;
+    const who = user?.email || "";
+    if (entry) {
+      const blocked = blockedByUnknownWrite(true);
+      if (blocked) return blocked;
+      if (record && record.entryId && !String(record.entryId).startsWith("tmp_")) {
+        const res = GAS_ON ? await writeGAS({
+          action: "updateNursingEntry",
+          sessionId: id,
+          entryId: record.entryId,
+          expectedLastModified: record.lastModified,
+          entry
+        }, { quiet: true }) : { ok: true, lastModified: (/* @__PURE__ */ new Date()).toISOString() };
+        if (res.conflict) {
+          syncFromGAS();
+          return { ok: false, error: `บันทึกนี้ถูกแก้จากอีกเครื่อง (${res.current?.lastModifiedBy || "ผู้ใช้อื่น"}) — ปิดแล้วเปิดใหม่หลังซิงก์` };
+        }
+        if (!res.ok) return res;
+        setNursing((prev) => ({ ...prev, [id]: (prev[id] || []).map((r) => r.entryId === record.entryId ? { ...r, ...entry, ts: record.ts, lastModified: res.lastModified, lastModifiedBy: who } : r) }));
+      } else {
+        const tempId = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        setNursing((prev) => D_A.normalizeNursingMap({ ...prev, [id]: [
+          ...prev[id] || [],
+          { ...entry, entryId: tempId, enteredBy: who, lastModified: now, lastModifiedBy: who }
+        ] }));
+        const res = GAS_ON ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true }) : { ok: true, entryId: "local_" + tempId, lastModified: now };
+        if (res.ok) {
+          setNursing((prev) => ({ ...prev, [id]: (prev[id] || []).map((r) => r.entryId === tempId ? { ...r, entryId: res.entryId, lastModified: res.lastModified } : r) }));
+        } else if (!res.unknown) {
+          setNursing((prev) => ({ ...prev, [id]: (prev[id] || []).filter((r) => r.entryId !== tempId) }));
+          if (isDuplicateDate(res)) {
+            syncFromGAS();
+            return { ok: false, error: "มีบันทึก I/O ของวันที่นี้แล้ว (อาจบันทึกจากอีกเครื่อง) — ปิดหน้าต่างนี้แล้วแตะรายการเดิมเพื่อแก้ไข" };
+          }
+          return res;
+        } else return res;
+      }
+    }
+    if (weightG != null) {
+      const rec = patients.find((p) => p.sessionId === id);
+      if (handleWeightUpdate(id, D_A.upsertWeight(rec?.weights || [], dol2, weightG)) === false) {
+        if (!entry) return { ok: false, error: "ยังบันทึกน้ำหนักไม่ได้ — รอผลการบันทึกครั้งก่อนแล้วลองใหม่" };
+        showToast("บันทึก I/O แล้ว แต่ยังบันทึกน้ำหนักไม่ได้ — ใส่น้ำหนักอีกครั้งหลังซิงก์", "error");
+        return { ok: true };
+      }
+    }
+    showToast(entry ? "บันทึก I/O ประจำวันแล้ว" : "บันทึกน้ำหนักแล้ว");
+    return { ok: true };
+  };
+  const handleNursingDelete = (record) => {
+    const id = active.sessionId;
+    const blocked = blockedByUnknownWrite();
+    if (blocked) return Promise.resolve(blocked);
+    const prevRecords = nursing[id] || [];
+    setNursing((prev) => ({ ...prev, [id]: (prev[id] || []).filter((r) => r.entryId !== record.entryId) }));
+    if (!GAS_ON) {
+      showToast("ลบบันทึก I/O แล้ว");
+      return Promise.resolve({ ok: true });
+    }
+    return writeGAS({ action: "deleteNursingEntry", sessionId: id, entryId: record.entryId }).then((res) => {
+      if (res.ok) showToast("ลบบันทึก I/O แล้ว");
+      else if (!res.unknown) setNursing((prev) => ({ ...prev, [id]: prevRecords }));
       return res;
     });
   };
@@ -1195,6 +1268,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       activeId,
       token: user?.token,
       role,
+      nursing: nursing[activeId] || [],
+      ordersReadOnly,
       userLabel: user?.name ? `${user.name}${user.email ? ` (${user.email})` : ""}` : user?.email || "",
       userEmail: user?.email || "",
       handleLogToGAS,
@@ -1210,9 +1285,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       patient: active,
       log,
       dol,
-      onAddToday: startAddToday,
+      onAddToday: ordersReadOnly ? void 0 : startAddToday,
       onEditEntry: startEditEntry,
-      onDeleteEntry: role === "admin" ? handleDeleteEntry : void 0
+      onDeleteEntry: role === "admin" ? handleDeleteEntry : void 0,
+      nursing: nursingLive ? nursing[activeId] || [] : null,
+      onSaveNursing: handleNursingSave,
+      onDeleteNursing: role === "admin" ? handleNursingDelete : void 0
     }
   ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "quickcalc" && /* @__PURE__ */ React.createElement(QuickCalcView, { onBack: () => goTo("registry") }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(PatientPicker, { patients, activeId, onSelect: setActiveId, onClose: () => setPickerOpen(false) }), showChangePwd && /* @__PURE__ */ React.createElement(
     ChangePasswordModal,
@@ -1284,13 +1362,15 @@ function CalculatorView({
   handlePublishToGAS,
   handleDeleteEntry,
   goTo,
-  setCalcWeights
+  setCalcWeights,
+  nursing = [],
+  ordersReadOnly = false
 }) {
   const displayDol = editEntry ? D_A.entryDol(active, editEntry) : logDate ? D_A.dolAtDate(active, logDate) : dol;
   const lockDate = editEntry ? editEntry.ts : logDate || D_A.todayLocal();
   const previousEntry = previousLogEntry(log[activeId] || [], lockDate);
   const baselineEntry = !editEntry ? previousEntry : null;
-  const holder = useDailyLogLock(active.sessionId, lockDate, token);
+  const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol)), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
     document.querySelector(".work-inner")?.setAttribute("data-date", (/* @__PURE__ */ new Date()).toLocaleDateString("th-TH"));
     document.dispatchEvent(new CustomEvent("__neofeed_print"));
@@ -1320,6 +1400,8 @@ function CalculatorView({
       onUpdate: handleUpdateToGAS,
       onPublish: handlePublishToGAS,
       onSaved: () => goTo("log"),
+      nursing,
+      ordersReadOnly,
       onDelete: role === "admin" ? (entry) => handleDeleteEntry(entry).then((res) => {
         if (res.ok) goTo("log");
         return res;
