@@ -122,6 +122,15 @@ runScenarios(__filename, 'SINGLE SOURCE — WEIGHT AND DOL', {
       tooFar && tooFar.conflict, { dol: 12, to: 1 });
     const collide = call('moveGrowthRows', [{ dol: 1, w: 1500 }, { dol: 6, w: 1500 }, { dol: 14, w: 1480 }], 0, 6, 14);
     A.eq('1.11 two rows landing on one DOL is a conflict', collide && collide.conflict, { dol: 6, to: 14 });
+    // Correcting "DOL at admission" 6 → 1 (the infant was inborn after all):
+    // the legacy registration row IS the birth weight, and lands on DOL 1 —
+    // unless a birth row is already there, which is a collision.
+    const legacy = [{ dol: 6, w: 1500 }, { dol: 12, w: 1450 }, { dol: 20, w: 1600 }];
+    const toBirth = call('moveGrowthRows', legacy, -5, 6, 1);
+    A.eq('1.13 the admission row may become the birth row (admitted on DOL 1)',
+      toBirth && toBirth.conflict === null ? toBirth.rows.map(r => r.dol) : toBirth && toBirth.conflict, [1, 7, 15]);
+    const both = call('moveGrowthRows', P.weights, -5, 6, 1);
+    A.eq('1.14 …but not onto a birth row that is already there', both && both.conflict, { dol: 6, to: 1 });
     const noMeasureYesterday = { ...P, weights: P.weights.filter(w => w.dol !== 20) };
     A.eq('1.12 the I/O divisor\'s yesterday reads the order weights too',
       D.ioDivisorG(noMeasureYesterday, 21, 1650, log), { g: 1610, source: 'prevDay' });

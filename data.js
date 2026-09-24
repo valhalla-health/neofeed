@@ -1686,15 +1686,19 @@ function moveGrowthRows(rows, shift, admitDolBefore, admitDolAfter) {
     if (!r || typeof r !== "object") return r;
     const dol = Number(r.dol);
     if (!isFinite(dol) || dol <= 1) return r;
-    if (admitDolBefore > 1 && dol === admitDolBefore) return { ...r, dol: admitDolAfter };
+    if (admitDolBefore > 1 && dol === admitDolBefore) return { ...r, dol: Math.max(1, admitDolAfter) };
     return { ...r, dol: dol + shift };
   });
   // Each conflict is named by the row that moved: first one pushed onto or
   // before the day of birth, then one landing on a DOL another row holds (two
-  // rows that already shared a DOL are not this edit's doing).
+  // rows that already shared a DOL are not this edit's doing). A row on the
+  // admission DOL follows the admission, so it may land on DOL 1 — an infant
+  // admitted on its birthday, whose registration row IS the birth weight —
+  // and only a birth row already there (the second check) refuses it.
+  const followsAdmission = (dol) => admitDolBefore > 1 && dol === admitDolBefore;
   for (let i = 0; i < out.length; i++) {
     const was = Number(list[i]?.dol), now = Number(out[i]?.dol);
-    if (was > 1 && now <= 1) return { rows: list, conflict: { dol: was, to: now } };
+    if (was > 1 && now <= 1 && !followsAdmission(was)) return { rows: list, conflict: { dol: was, to: now } };
   }
   for (let i = 0; i < out.length; i++) {
     const was = Number(list[i]?.dol), now = Number(out[i]?.dol);
