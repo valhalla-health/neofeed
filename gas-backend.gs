@@ -1201,7 +1201,10 @@ function doPost(e) {
       // `base` = the patient as this device last received it; present only
       // from a client that knows the three-way merge (see registerPatient).
       var regBase = (!isNewReg && body.base && typeof body.base === "object" && !Array.isArray(body.base)) ? body.base : null;
-      registerPatient(body.patient, isNewReg, regBase);
+      var regResult = registerPatient(body.patient, isNewReg, regBase, body.confirmOverwrite === true);
+      // A colliding id was found and this call did not confirm an overwrite:
+      // pass the warning back so the client can ask, and write nothing.
+      if (regResult && regResult.needsConfirm) return jsonOut(regResult);
       // A changed BW or GA silently moves every dose target for this infant,
       // and the row itself keeps no who/when — so the audit trail does.
       logAudit(isNewReg ? "registerPatient" : "updatePatient", (body.patient && body.patient.sessionId) || "", user.email);
@@ -2952,7 +2955,7 @@ function _mergePatient(storedRow, incoming, base) {
 // `isNew` is optional and defaults to a plain upsert, so an older client that
 // does not send it keeps working exactly as before — see _sessionIdConflict.
 // `base` is optional too — see the three-way merge above.
-function registerPatient(p, isNew, base) {
+function registerPatient(p, isNew, base, confirmOverwrite) {
   if (!p || typeof p !== "object" || !_requiredString(p.sessionId) || !p.sessionId.trim()) {
     throw new Error("sessionId is required");
   }
@@ -2984,9 +2987,13 @@ function registerPatient(p, isNew, base) {
     // must not skip the one-infant-per-bed guard (BE-4, 2026-09-24).
     m.status = _normStatus(m.status);
     if (stored) {
-      // Refuse before writing — this row may belong to a different infant.
+      // The id already exists (initials + BW collide): a different infant, a
+      // twin, or a re-registration. Old behaviour refused outright; Pp's rule
+      // (2026-09-24) is to WARN and let the doctor confirm an overwrite. Return
+      // a needs-confirm signal — nothing is written — unless this call already
+      // carries that confirmation.
       var conflict = _sessionIdConflict(stored, m, isNew);
-      if (conflict) throw new Error(conflict);
+      if (conflict && confirmOverwrite !== true) return { needsConfirm: true, error: conflict };
     }
     _checkSex(m.sex, stored ? stored[5] : null);
     // Dates were never checked on this path (2026-09-23 review): every number

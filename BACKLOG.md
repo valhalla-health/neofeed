@@ -201,12 +201,6 @@ clinical judgement. Everything else is engineering sequencing.
       consumes (today `--brand`, `--line`, `--ink-2`, `--ink-3`, plus `--bg` if the ground should
       differ) — custom properties inherit, so no `.login-*` rule has to name a literal. See
       `CHANGELOG.md` 2026-09-22 (2) § 4 and 2026-09-23 (h).
-- [ ] 🩺 **safety · `registerPatient` silently overwrites on a colliding `initials+BW` pseudonym.**
-      Two different infants sharing initials and birth weight collapse into one record. Needs an
-      identity decision before code — a collision suffix changes every `Daily_Log` join.
-- [ ] 🩺 **safety · `TARGETS.fluid` is documented as taking birth weight, but every call site passes
-      current weight.** One of the two is wrong. **Clinical decision, not a bug fix** — decide which
-      is correct, then make code and docs agree.
 - [ ] 🩺 **safety · The 2026-09-23 review's clinically-important findings** (`CHANGELOG.md`
       2026-09-23). Each reproduced; none moves a compounded dose:
       - **The Alert centre and the calculator disagree about GIR** — `app.jsx:199-204` calls anything

@@ -1465,25 +1465,40 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     // existing id (same initials + same birth weight) instead of silently
     // overwriting the first one. See _sessionIdConflict in gas-backend.gs.
     // No `base`: there is no earlier server copy to merge against.
+    const rollback = () => {
+      setPatients(prev => prev.filter(x => x !== p));
+      setActiveId(prev => (prev === p.sessionId ? null : prev));
+    };
+    const settle = (res) => {
+      if (res.ok) {
+        serverPatientsRef.current.set(p.sessionId, p);
+        showToast(`Session ${p.sessionId} registered → GAS`);
+      } else if (!res.unknown) {
+        // A definite failure rolls the optimistic insert back. The network
+        // case used to keep the patient on screen as "local only", but
+        // nothing ever queued it: an order could be saved against it (the
+        // server then held log rows for a patient it had never registered)
+        // and the next sync silently dropped the patient (2026-09-11
+        // review, B5). An UNKNOWN result is different (UP-B10): it stays
+        // until the verification sync shows whether it landed, and the
+        // unknown-write gate refuses any order against it meanwhile — so
+        // B5 cannot come back through this door.
+        rollback();
+      }
+      return res;
+    };
     return writeGAS({ action: "registerPatient", patient: p, isNew: true }, { quiet: true })
       .then(res => {
-        if (res.ok) {
-          serverPatientsRef.current.set(p.sessionId, p);
-          showToast(`Session ${p.sessionId} registered → GAS`);
-        } else if (!res.unknown) {
-          // A definite failure rolls the optimistic insert back. The network
-          // case used to keep the patient on screen as "local only", but
-          // nothing ever queued it: an order could be saved against it (the
-          // server then held log rows for a patient it had never registered)
-          // and the next sync silently dropped the patient (2026-09-11
-          // review, B5). An UNKNOWN result is different (UP-B10): it stays
-          // until the verification sync shows whether it landed, and the
-          // unknown-write gate refuses any order against it meanwhile — so
-          // B5 cannot come back through this door.
-          setPatients(prev => prev.filter(x => x !== p));
-          setActiveId(prev => (prev === p.sessionId ? null : prev));
+        if (res.needsConfirm) {
+          // The id (initials + BW) already exists. Warn, and overwrite only on
+          // an explicit yes — Pp, 2026-09-24. Declining leaves the existing
+          // record untouched and rolls back the optimistic insert.
+          const yes = typeof window !== "undefined" && typeof window.confirm === "function"
+            && window.confirm(`${res.error}\n\nยืนยันเขียนทับข้อมูลเดิมหรือไม่?`);
+          if (!yes) { rollback(); return { ok: false, refused: true, error: "ยกเลิก — ไม่ได้เขียนทับข้อมูลเดิม" }; }
+          return writeGAS({ action: "registerPatient", patient: p, isNew: true, confirmOverwrite: true }, { quiet: true }).then(settle);
         }
-        return res;
+        return settle(res);
       });
   };
 

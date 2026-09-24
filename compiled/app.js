@@ -866,15 +866,31 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       showToast(`Session ${p.sessionId} registered (local)`);
       return Promise.resolve({ ok: true });
     }
-    return writeGAS({ action: "registerPatient", patient: p, isNew: true }, { quiet: true }).then((res) => {
+    const rollback = () => {
+      setPatients((prev) => prev.filter((x) => x !== p));
+      setActiveId((prev) => prev === p.sessionId ? null : prev);
+    };
+    const settle = (res) => {
       if (res.ok) {
         serverPatientsRef.current.set(p.sessionId, p);
         showToast(`Session ${p.sessionId} registered → GAS`);
       } else if (!res.unknown) {
-        setPatients((prev) => prev.filter((x) => x !== p));
-        setActiveId((prev) => prev === p.sessionId ? null : prev);
+        rollback();
       }
       return res;
+    };
+    return writeGAS({ action: "registerPatient", patient: p, isNew: true }, { quiet: true }).then((res) => {
+      if (res.needsConfirm) {
+        const yes = typeof window !== "undefined" && typeof window.confirm === "function" && window.confirm(`${res.error}
+
+ยืนยันเขียนทับข้อมูลเดิมหรือไม่?`);
+        if (!yes) {
+          rollback();
+          return { ok: false, refused: true, error: "ยกเลิก — ไม่ได้เขียนทับข้อมูลเดิม" };
+        }
+        return writeGAS({ action: "registerPatient", patient: p, isNew: true, confirmOverwrite: true }, { quiet: true }).then(settle);
+      }
+      return settle(res);
     });
   };
   const handleEditPatient = (p, openedFromBase) => {

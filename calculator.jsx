@@ -774,7 +774,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // ESPGHAN fluid-plan midpoint for this DOL/weight — the default when a
   // source carries no fluid plan of its own.
   const fluidMidpoint = (weightG) => {
-    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000);
+    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000, patient?.bw);
     return Math.round((r[0] + r[1]) / 2);
   };
   const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
@@ -1453,7 +1453,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // Target switching
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
-  const tFluid = D.TARGETS.fluid(dol, wtG);
+  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too
   const tGir   = D.TARGETS.gir();                         // [4, 12] display range
   const tPro   = T.protein(dol);
   const tKcal  = T.kcal(dol);
