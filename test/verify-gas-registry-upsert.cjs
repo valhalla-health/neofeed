@@ -146,9 +146,9 @@ console.log('\n── sessionId collision guard ──');
 
 // (a) A fresh registration landing on an existing id IS the collision.
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-threw = null;
-try { sandbox.registerPatient(patient, true); } catch (e) { threw = e.message; }
-ok('isNew onto an existing id throws',  threw !== null);
+var rA = sandbox.registerPatient(patient, true);
+threw = rA && rA.needsConfirm ? rA.error : null;   // now a needs-confirm warning, not a throw (2026-09-24)
+ok('isNew onto an existing id returns needsConfirm',  threw !== null);
 ok('message names the duplicate id',    String(threw).indexOf('FO-1') >= 0);
 eq('nothing written on refusal',        sheet.writes.length, 0);
 eq('nothing appended on refusal',       sheet.appended.length, 0);
@@ -164,9 +164,9 @@ eq('edit still writes in place',             sheet.writes.length, 1);
 // (c) A different dob means a different infant, caught even with no isNew —
 //     an older frontend that predates the flag still gets the protection.
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-threw = null;
-try { sandbox.registerPatient({ ...patient, dob: '2026-07-09' }); } catch (e) { threw = e.message; }
-ok('dob mismatch throws without isNew', threw !== null);
+var rC = sandbox.registerPatient({ ...patient, dob: '2026-07-09' });
+threw = rC && rC.needsConfirm ? rC.error : null;
+ok('dob mismatch returns needsConfirm without isNew', threw !== null);
 eq('no write on dob mismatch',          sheet.writes.length, 0);
 
 // (d) A PDPA-erased row has a blank dob (pseudonymizePatient clears it), so
@@ -182,8 +182,8 @@ eq('erased row written in place',    sheet.writes.length, 1);
 // (e) A Date-valued dob cell compares correctly, not by object identity.
 const DATEROW = EXISTING.slice(); DATEROW[6] = new Date(Date.UTC(2026, 6, 1));
 sheet = makeSheet(PAT_HEADER, [DATEROW], 26);
-threw = null;
-try { sandbox.registerPatient({ ...patient, dob: '2026-07-09' }); } catch (e) { threw = e.message; }
+var rE = sandbox.registerPatient({ ...patient, dob: '2026-07-09' });
+threw = rE && rE.needsConfirm ? rE.error : null;
 ok('Date-valued stored dob still compares', threw !== null);
 
 // (f) A genuinely new id is untouched by the guard. On a free bed — NICU 11
@@ -199,8 +199,8 @@ eq('a genuinely new id still appends', sheet.appended.length, 1);
 //     the scenario that actually produces it on this ward, not a generic typo.
 const EXISTING_TWIN = EXISTING.slice(); EXISTING_TWIN[8] = 'A'; // twinSuffix column
 sheet = makeSheet(PAT_HEADER, [EXISTING_TWIN], 26);
-threw = null;
-try { sandbox.registerPatient({ ...patient, twinSuffix: 'A' }, true); } catch (e) { threw = e.message; }
+var rH = sandbox.registerPatient({ ...patient, twinSuffix: 'A' }, true);
+threw = rH && rH.needsConfirm ? rH.error : null;
 ok('registering twin B as twin A (same letter picked twice) is refused', threw !== null);
 
 // (g) The helper itself.

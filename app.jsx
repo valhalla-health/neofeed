@@ -212,8 +212,9 @@ function computeAlerts(patient, allEntries) {
     //
     // Every figure below goes through displayNum. They are floating-point
     // results read off a stored row, and this page printed them raw — "Logged
-    // GIR 7.206498951781971 mg/kg/min" at the bedside. New rows are rounded at
-    // source now (D.roundLogEntry), but every row already in the sheet is not.
+    // GIR 7.206498951781971 mg/kg/min" at the bedside. Nothing rounds a row at
+    // write time, so displayNum here is the only guard between a stored float
+    // and the bedside — keep every figure below going through it.
     const nA = (v, d = 1) => D_A.displayNum(v, d);
     const girS = D_A.girStatus(last.gir);
     if (girS === "crit") alerts.push({ id: "gir-high", level: "crit", title: "GIR critically high", body: `Logged GIR ${nA(last.gir, 2)} mg/kg/min — above the ${D_A.GIR_HARD_HI} hard limit; reduce dextrose concentration.`, dol: lastDol, ref: "ESPGHAN 2018" });else
@@ -403,7 +404,7 @@ function SyncGate({ online, failed, detail, onRetry }) {
   return (
     <div style={{
       position:"fixed", inset:0, display:"flex", alignItems:"center", justifyContent:"center",
-      background:"var(--bg)", fontFamily:"'IBM Plex Sans','Noto Sans Thai',sans-serif",
+      background:"var(--bg)", fontFamily:"'IBM Plex Sans','IBM Plex Sans Thai','Sarabun',sans-serif",
       padding:"24px calc(20px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px))",
       overflowY:"auto",
     }}>
@@ -1464,25 +1465,40 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     // existing id (same initials + same birth weight) instead of silently
     // overwriting the first one. See _sessionIdConflict in gas-backend.gs.
     // No `base`: there is no earlier server copy to merge against.
+    const rollback = () => {
+      setPatients(prev => prev.filter(x => x !== p));
+      setActiveId(prev => (prev === p.sessionId ? null : prev));
+    };
+    const settle = (res) => {
+      if (res.ok) {
+        serverPatientsRef.current.set(p.sessionId, p);
+        showToast(`Session ${p.sessionId} registered → GAS`);
+      } else if (!res.unknown) {
+        // A definite failure rolls the optimistic insert back. The network
+        // case used to keep the patient on screen as "local only", but
+        // nothing ever queued it: an order could be saved against it (the
+        // server then held log rows for a patient it had never registered)
+        // and the next sync silently dropped the patient (2026-09-11
+        // review, B5). An UNKNOWN result is different (UP-B10): it stays
+        // until the verification sync shows whether it landed, and the
+        // unknown-write gate refuses any order against it meanwhile — so
+        // B5 cannot come back through this door.
+        rollback();
+      }
+      return res;
+    };
     return writeGAS({ action: "registerPatient", patient: p, isNew: true }, { quiet: true })
       .then(res => {
-        if (res.ok) {
-          serverPatientsRef.current.set(p.sessionId, p);
-          showToast(`Session ${p.sessionId} registered → GAS`);
-        } else if (!res.unknown) {
-          // A definite failure rolls the optimistic insert back. The network
-          // case used to keep the patient on screen as "local only", but
-          // nothing ever queued it: an order could be saved against it (the
-          // server then held log rows for a patient it had never registered)
-          // and the next sync silently dropped the patient (2026-09-11
-          // review, B5). An UNKNOWN result is different (UP-B10): it stays
-          // until the verification sync shows whether it landed, and the
-          // unknown-write gate refuses any order against it meanwhile — so
-          // B5 cannot come back through this door.
-          setPatients(prev => prev.filter(x => x !== p));
-          setActiveId(prev => (prev === p.sessionId ? null : prev));
+        if (res.needsConfirm) {
+          // The id (initials + BW) already exists. Warn, and overwrite only on
+          // an explicit yes — Pp, 2026-09-24. Declining leaves the existing
+          // record untouched and rolls back the optimistic insert.
+          const yes = typeof window !== "undefined" && typeof window.confirm === "function"
+            && window.confirm(`${res.error}\n\nยืนยันเขียนทับข้อมูลเดิมหรือไม่?`);
+          if (!yes) { rollback(); return { ok: false, refused: true, error: "ยกเลิก — ไม่ได้เขียนทับข้อมูลเดิม" }; }
+          return writeGAS({ action: "registerPatient", patient: p, isNew: true, confirmOverwrite: true }, { quiet: true }).then(settle);
         }
-        return res;
+        return settle(res);
       });
   };
 
@@ -1601,7 +1617,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // what was typed instead of clearing it.
   const handleWeightUpdate = (sessionId, weights) => {
     if (blockedByUnknownWrite()) return false;
-    const previousWeights = patients.find(p => p.sessionId === sessionId)?.weights || [];
+    const rec0 = patients.find(p => p.sessionId === sessionId);
+    const previousWeights = rec0?.weights || [];
+    // Send the derived dob so the server can capture it into an empty dob cell
+    // (F2): a legacy record with no stored dob otherwise re-dates on the next
+    // sync once this birth/early measurement lands and becomes weights[0]. It is
+    // only correct to capture it now, while weights[0] is still the admission
+    // weight — which is exactly this save. The server writes it only if empty.
+    const derivedDob = rec0?.dob || "";
     const baseRecord = serverPatientsRef.current.get(sessionId);
     setPatients(prev => prev.map(p =>
       p.sessionId === sessionId ? { ...p, weights } : p
@@ -1616,6 +1639,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       // while the request was in flight must win); an unknown result is left
       // for the verification sync to settle (UP-B10).
       writeGAS({ action: "updateWeights", sessionId, weights,
+        ...(derivedDob ? { dob: derivedDob } : {}),
         ...(baseRecord ? { baseWeights: baseRecord.weights || [] } : {}) }).then(res => {
         if (res.ok) { remember(); return; }
         if (res.unknown) return;
@@ -1719,7 +1743,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               be reported as a number. syncMsRef is a ref, but settle() writes
               it before setSyncState("ok"), so the re-render that paints the
               new time reads the matching duration. */}
-          <div className="pill" data-tip={
+          <div className="pill" title={
             !GAS_ON ? "GAS_URL not configured"
             : syncState === "error" && syncError ? `Sync error · ${syncError}`
             : syncMsRef.current == null ? "Google Apps Script"
@@ -1765,7 +1789,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
                 </button>
                 <div style={{ height: 1, background: "var(--line)" }} />
               </>}
-              <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13, color: "var(--red, #c0392b)" }}
+              <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13, color: "var(--crit-ink)" }}
                 onClick={() => { setShowUserMenu(false); handleLogout(); }}>
                 ออกจากระบบ
               </button>
@@ -2408,7 +2432,7 @@ function PatientStrip({ patient, entries, onSwitch, liveWeight, currentDol, onEd
         <div className="lbl">Diagnosis</div>
         <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
           <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700 }}>{patient.diagnosis}</div>
-          <span className="chip ok" style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
+          <span className={"chip" + (!patient.status || patient.status === "Active" ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
         </div>
       </div>
 
@@ -2568,7 +2592,7 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
             <label>ยืนยันรหัสผ่านใหม่</label>
             <input type="password" className="inp" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === "Enter" && handleSubmit()} />
           </div>
-          {err && <div style={{ color: "var(--red, #c0392b)", fontSize: 13 }}>{err}</div>}
+          {err && <div style={{ color: "var(--crit-ink)", fontSize: 13 }}>{err}</div>}
         </div>
         <div className="modal-foot">
           {forced

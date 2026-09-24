@@ -134,6 +134,7 @@ const scenarios = {
     await t.typeInto(t.fieldInput('ชื่อย่อ', modal), 'BB');
     await t.typeInto(t.fieldInput('Birth weight', modal), 1000);
     await t.selectVal(t.fieldInput('GA', modal), 30);
+    await t.selectVal(t.fieldInput('Sex', modal), 'boys');
     await t.click(t.btn(/Register/, modal));
     const reg = t.callsOf('registerPatient').pop();
     A.ok('3.11 a registration is sent with isNew', reg && reg.isNew === true);
@@ -155,7 +156,7 @@ const scenarios = {
     A.ok(`4.1 ten failing minutes cost 3–5 requests, not ~20 (sent ${n})`, n >= 3 && n <= 5);
     const pill = document.querySelector('.topbar .pill');
     A.ok('4.2 the pill says Sync error', /Sync error/.test(pill.textContent));
-    A.ok('4.3 its tooltip carries the reason, in Thai', /ตอบกลับผิดรูปแบบ/.test(pill.getAttribute('data-tip') || ''));
+    A.ok('4.3 its tooltip carries the reason, in Thai', /ตอบกลับผิดรูปแบบ/.test(pill.getAttribute('title') || ''));
     const before = t.syncCalls().length;
     await t.click(t.syncButton());
     A.eq('4.4 a manual Sync goes out immediately, backoff or not', t.syncCalls().length, before + 1);
@@ -209,6 +210,7 @@ const scenarios = {
     await t.typeInto(t.fieldInput('ชื่อย่อ', modal()), 'BB');
     await t.typeInto(t.fieldInput('Birth weight', modal()), 1000);
     await t.selectVal(t.fieldInput('GA', modal()), 30);
+    await t.selectVal(t.fieldInput('Sex', modal()), 'boys');
     t.server.hooks.registerPatient = (b) => (b.isNew ? { html: true, land: true } : undefined);
     t.server.holdSyncs = true;
     await t.click(t.btn(/Register/, modal()));
@@ -237,7 +239,7 @@ const scenarios = {
     await t.click(t.syncButton());
     A.ok('7.1 ServiceUnavailable on a sync is not a logout', !hasLoginScreen() && /NICU/.test(t.text()));
     A.ok('7.2 …the session is kept', !!window.sessionStorage.getItem('neofeed_session'));
-    A.ok('7.3 …the pill tooltip carries the server message', (document.querySelector('.topbar .pill').getAttribute('data-tip') || '').includes(svc));
+    A.ok('7.3 …the pill tooltip carries the server message', (document.querySelector('.topbar .pill').getAttribute('title') || '').includes(svc));
     A.ok('7.4 …and it is shown once as a toast', t.toasts().some(x => x.includes(svc)));
     t.server.hooks = {};
     await t.click(t.syncButton());

@@ -774,7 +774,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // ESPGHAN fluid-plan midpoint for this DOL/weight — the default when a
   // source carries no fluid plan of its own.
   const fluidMidpoint = (weightG) => {
-    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000);
+    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000, patient?.bw);
     return Math.round((r[0] + r[1]) / 2);
   };
   const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
@@ -1453,7 +1453,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   // Target switching
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
-  const tFluid = D.TARGETS.fluid(dol, wtG);
+  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too
   const tGir   = D.TARGETS.gir();                         // [4, 12] display range
   const tPro   = T.protein(dol);
   const tKcal  = T.kcal(dol);
@@ -2359,7 +2359,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"center" }}>
                   <div style={{ fontSize:12, visibility:"hidden" }}>&nbsp;</div>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:44,
-                    fontSize:18, color:"var(--mid)", lineHeight:1 }}>↔</div>
+                    fontSize:18, color:"var(--ink-3)", lineHeight:1 }}>↔</div>
                 </div>
                 {/* r × 24 rounded to 2 dp: 4.1 × 24 is 98.39999999999999 in
                     floating point, and that string reached the Volume box, the

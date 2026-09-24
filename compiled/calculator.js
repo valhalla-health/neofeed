@@ -450,7 +450,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   const [savedDosingWt, setSavedDosingWt] = useState(null);
   const [savedCalcVersion, setSavedCalcVersion] = useState(null);
   const fluidMidpoint = (weightG) => {
-    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1e3);
+    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1e3, patient?.bw);
     return Math.round((r[0] + r[1]) / 2);
   };
   const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
@@ -1072,7 +1072,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
   };
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
-  const tFluid = D.TARGETS.fluid(dol, wtG);
+  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);
   const tGir = D.TARGETS.gir();
   const tPro = T.protein(dol);
   const tKcal = T.kcal(dol);
@@ -1786,7 +1786,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
     justifyContent: "center",
     height: 44,
     fontSize: 18,
-    color: "var(--mid)",
+    color: "var(--ink-3)",
     lineHeight: 1
   } }, "↔")), /* @__PURE__ */ React.createElement(
     NumField,

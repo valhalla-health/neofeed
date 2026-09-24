@@ -464,19 +464,25 @@ const ENTERAL_TARGETS = {
 // Both PN and EN phases — highest-level reference used in calculator
 const TARGETS = {
 
-  // Fluid mL/kg/day by DOL and birth weight (grams)
+  // Fluid mL/kg/day by DOL and birth-weight tier (grams)
   // ESPGHAN 2018: Jochum F et al. — 4-tier by BW (ELBW / VLBW / preterm / term)
-  fluid: (dol, wtG) => {
+  // wtG is the current dosing weight; bwG (optional) applies the birth-weight
+  // floor Pp set 2026-09-24: while the infant is still below birth weight
+  // (postnatal loss) the tier is held at birth weight rather than dropping into
+  // a lighter, higher-fluid tier off the nadir, and it tracks current weight
+  // once regained. Called without bwG it floors nothing (legacy behaviour).
+  fluid: (dol, wtG, bwG) => {
+    const w = (bwG && wtG < bwG) ? bwG : wtG;
     const d = Math.min(dol, 7);
-    if (wtG < 1000) {         // ELBW <1000g — highest IWL, humidified incubator essential
+    if (w < 1000) {           // ELBW <1000g — highest IWL, humidified incubator essential
       const map = {1:[80,100], 2:[100,120], 3:[120,140], 4:[140,160], 5:[160,180], 6:[160,180], 7:[160,180]};
       return map[d] || [160, 180];
     }
-    if (wtG < 1500) {         // VLBW 1000–1500g
+    if (w < 1500) {           // VLBW 1000–1500g
       const map = {1:[70,90], 2:[90,110], 3:[110,130], 4:[130,150], 5:[140,160], 6:[140,160], 7:[140,160]};
       return map[d] || [140, 160];
     }
-    if (wtG < 2500) {         // Preterm >1500g
+    if (w < 2500) {           // Preterm >1500g
       const map = {1:[60,80], 2:[80,100], 3:[100,120], 4:[120,140], 5:[140,160], 6:[140,160], 7:[140,160]};
       return map[d] || [140, 160];
     }
@@ -1436,7 +1442,17 @@ function growthVelocity(patient, entries) {
   // Measure from the regain of birth weight, not from whatever row happens to
   // be seven back. Before regain there is nothing to grade.
   const bw = Number(patient?.bw) || 0;
-  const regainIdx = bw > 0 ? wts.findIndex(w => w.w >= bw && w.dol > (wts[0]?.dol ?? 1)) : 0;
+  // Skip the loss window only when there is one to skip: either the series
+  // dipped below birth weight, or its first point sits exactly AT birth weight
+  // (the birth point itself, which is not a "regain"). A series that begins
+  // already ABOVE birth weight — an outborn infant admitted grown, or an
+  // order-only history — has no loss to skip, so its first point IS the start,
+  // and two such points now grade instead of returning insufficientData
+  // (2026-09-24). A record that did lose and regain is unaffected.
+  const hasLossWindow = wts.some(w => w.w < bw) || (wts[0]?.w ?? Infinity) <= bw;
+  const regainIdx = bw > 0
+    ? (hasLossWindow ? wts.findIndex(w => w.w >= bw && w.dol > (wts[0]?.dol ?? 1)) : 0)
+    : 0;
   if (bw > 0 && regainIdx === -1) {
     const stillLosing = latest.dol <= REGAIN_EXPECTED_BY_DOL;
     return {
