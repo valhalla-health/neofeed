@@ -2359,7 +2359,7 @@ function Calculator({ patient, dol: dolProp, editEntry, baselineEntry, previousE
                 <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"center" }}>
                   <div style={{ fontSize:12, visibility:"hidden" }}>&nbsp;</div>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:44,
-                    fontSize:18, color:"var(--mid)", lineHeight:1 }}>↔</div>
+                    fontSize:18, color:"var(--ink-3)", lineHeight:1 }}>↔</div>
                 </div>
                 {/* r × 24 rounded to 2 dp: 4.1 × 24 is 98.39999999999999 in
                     floating point, and that string reached the Volume box, the

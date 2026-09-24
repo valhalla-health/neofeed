@@ -248,6 +248,7 @@ const scenarios = {
     await t.typeInto(t.fieldInput('ชื่อย่อ', host), 'BB');
     await t.typeInto(t.fieldInput('Birth weight', host), 1000);
     await t.selectVal(t.fieldInput('GA', host), 30);
+    await t.selectVal(t.fieldInput('Sex', host), 'boys');
     await t.click([...host.querySelectorAll('button')].find(b => /Register/.test(b.textContent)));
     await settle(d, { ok: false, error: 'ID นี้ (BB-BW1000) ลงทะเบียนไว้แล้ว' });
     A.ok('9.8 Register: the refusal is shown inside the modal', /ลงทะเบียนไว้แล้ว/.test(host.textContent));

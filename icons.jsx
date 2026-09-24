@@ -37,9 +37,15 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
   if (!d) return null;
   // some icons are stroked, some filled
   const filled = ["calc","bell","users","settings","search","drop","milk","weight","pdf"].includes(name);
+  // The magnifier is an annulus (rim r8 minus lens r6) plus a handle: its two
+  // circle subpaths wind the same way, so under the default nonzero rule the
+  // lens does not cut a hole and it renders as a solid blob instead of a lens.
+  // evenodd draws the ring correctly. Scoped to this glyph so the other filled
+  // icons (single closed shapes) are untouched.
+  const evenOdd = name === "search";
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : "none"} stroke={filled ? "none" : color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
-      <path d={d} />
+      <path d={d} fillRule={evenOdd ? "evenodd" : undefined} />
     </svg>
   );
 };

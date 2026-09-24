@@ -278,7 +278,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           // No fallback to the raw last array element: that element can be a
           // length/HC-only row (`w: null`), which turns Δ into `null - bw`
           // — a bogus −100% — instead of the honest "—" a null `last` gives.
-          const last    = D_R.lastWeighed(p) || null;
+          const last    = D_R.lastWeighed(p, log[p.sessionId]) || null;
           const dol     = D_R.liveDol(p);
           const delta   = last ? last.w - p.bw : 0;
           const deltaPct = (delta / p.bw) * 100;
@@ -443,7 +443,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
               // necessarily a weighed one: taking it blind showed "— g" for the
               // weight and a Δ of `null - bw`, i.e. every such patient reading
               // as −100% of birth weight, in critical red, on the ward list.
-              const last     = D_R.lastWeighed(p) || null;
+              const last     = D_R.lastWeighed(p, log[p.sessionId]) || null;
               const dol      = D_R.liveDol(p);
               const delta    = last ? last.w - p.bw : 0;
               const deltaPct = (delta / p.bw) * 100;
@@ -741,7 +741,9 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   const [len, setLen]           = React.useState(0);
   const [twin, setTwin]         = React.useState("");
   const [multiplesCount, setMultiplesCount] = React.useState("");
-  const [sex, setSex]           = React.useState("boys");
+  // No default sex: seeding "boys" filed a quickly-registered girl under the
+  // boys' Fenton curves silently. Blank, required below, matching EditPatientModal.
+  const [sex, setSex]           = React.useState("");
   // Default must be a real BED_OPTIONS value. It used to be the literal
   // "NICU 1-1", which no <option> matched — so the dropdown rendered blank
   // while the state still submitted that string, filing every patient
@@ -778,7 +780,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   // corrupt every subsequent dose for this patient, so block submission on it.
   // …and one infant per bed: registering onto an occupied bed would leave two
   // patients reading as the same bed on every board and handover sheet.
-  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && !bedTaken && !admitIssue;
+  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // DOB = admitDate − (admitDol − 1) days
@@ -848,6 +850,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
             <div className="field">
               <label>Sex</label>
               <select className="sel" value={sex} onChange={e => setSex(e.target.value)}>
+                {sex === "" && <option value="">— เลือก —</option>}
                 <option value="boys">Male</option><option value="girls">Female</option>
               </select>
             </div>
@@ -1015,7 +1018,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // would leave the patient's whole log stranded under an id nothing points
   // at any more. The BW baked into the id is a label from the day it was
   // issued; `patient.bw` is the clinical value, and that is what every
-  // calculation reads. Same reason editing ชื่อในวงการ has never renamed it.
+  // calculation reads. Same reason editing ชื่อย่อ has never renamed it.
   const [bw, setBw]             = React.useState(patient.bw || 0);
   // Decode through gaTotalDays, not Math.floor/×10 by hand, so a hand-edited
   // sheet value like 27.9 seeds the selects as 27+6 — exactly what every
@@ -1055,7 +1058,17 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // not the stored one — so a discharged record can be corrected after its old
   // bed is reused, while setting it back to Active on that bed is still refused.
   const bedTaken  = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
-  const [dol1, setDol1]         = React.useState(patient.weights?.[0]?.dol ?? 1);
+  // Seed the admission-DOL field from the STORED anchor (dob + admissionDate),
+  // not from weights[0].dol. An outborn infant's birth measurement becomes
+  // weights[0] with DOL 1, so seeding from the array re-derived a wrong dob on
+  // every later edit and persisted it (2026-09-24 blocker). Fall back to the
+  // array only for legacy rows with no dob (app.jsx gives them one on sync).
+  const initialDol1 = (patient.dob && patient.admissionDate
+      && !D_R.admissionDateIssue(patient.admissionDate, today)
+      && D_R.daysBetweenDateStr(patient.dob, patient.admissionDate) != null)
+    ? Math.max(1, D_R.daysBetweenDateStr(patient.dob, patient.admissionDate) + 1)
+    : (patient.weights?.[0]?.dol ?? 1);
+  const [dol1, setDol1]         = React.useState(initialDol1);
   // A record with NO admission date keeps none until someone types the real
   // one. Seeding `today` here meant simply opening such a record and saving
   // any unrelated correction stamped today as the admission — and DOL 20
@@ -1126,9 +1139,14 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     // admission weight rather than a birth weight that happens to differ),
     // it is a real measurement and not ours to overwrite.
     const bwChanged = Number(bw) !== Number(patient.bw);
+    // Only stamp weights[0].dol when the admission-DOL field was actually
+    // changed. Otherwise a plain edit (diagnosis, bed, discharge) would move a
+    // recorded birth/admission measurement's DOL and, through dob, re-date the
+    // whole record (2026-09-24 blocker).
+    const dol1Changed = (Number(dol1) || 1) !== (Number(initialDol1) || 1);
     const weights = (patient.weights || []).map((w, i) => i !== 0 ? w : {
       ...w,
-      dol: Number(dol1) || 1,
+      ...(dol1Changed ? { dol: Number(dol1) || 1 } : {}),
       ...(bwChanged && Number(w.w) === Number(patient.bw) ? { w: Number(bw) } : {}),
     });
     submit({
@@ -1201,7 +1219,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
           )}
           <div className="row-2">
             <div className="field">
-              <label>ชื่อในวงการ</label>
+              <label>ชื่อย่อ <span className="unit">(อักษรแรกของชื่อ + นามสกุล)</span></label>
               <input className="inp" maxLength={2} value={name} onChange={e => setName(e.target.value)} />
             </div>
             <div className="field">

@@ -189,15 +189,6 @@ clinical judgement. Everything else is engineering sequencing.
       rows — the infant has been below 20 kcal/g AA on N consecutive days — not a second order-time
       alert, and not a return of the stop. `D.girStatus` is the shape to copy: grade it once, in
       `data.js`, so the order screen and the Alerts page cannot drift apart again the way GIR did.
-- [ ] 🎨 **ui · The `search` glyph renders as a bare ring wherever it appears.** The topbar's
-      Switch-patient button, the registry's search field and the empty-state "เลือกผู้ป่วย" button all
-      show an outline circle instead of a magnifier — visible in every screenshot Praew has sent since
-      the teal era, so it predates the palette work. `icons.jsx` lists `search` in `filled`, and its
-      lens and rim subpaths are wound the same way, so under the default nonzero fill-rule the lens
-      fills in and only the rim survives. Exactly the `calc` bug of 2026-09-21, with the same two
-      possible fixes: a stroked sibling used only by these call sites, or `fill-rule="evenodd"` on the
-      shared `<Icon>` — the latter silently redraws nine icons, so it needs a look at all nine first.
-      Raised 2026-09-22 (2); **not** fixed there because it was not what was asked for.
 - [ ] 🎨 **ui · At 280px the calculator's `.two-col` rows are clipped, not scrolled.** ~20px wider than
       the accordion body's `overflow: hidden` allows, so the content is cut rather than draggable. The
       Galaxy Z Fold's cover screen is the only device this narrow — below every current iPhone (320) and
