@@ -277,7 +277,9 @@ console.log('\n── getActivePatients exposes the new fields to the client ─
   const logSheet = { getLastRow: () => 2, getMaxColumns: () => ROW_WIDTH, getDataRange: () => ({ getValues: () => logRows }),
     getRange: (r, c, nr, nc) => ({ getValues: () => logRows.slice(r - 1, r - 1 + nr).map(x => x.slice(c - 1, c - 1 + nc)) }) };
   const savedOpen = sandbox.SpreadsheetApp.openById;
-  sandbox.SpreadsheetApp.openById = () => ({ getSheetByName: (n) => n === 'Daily_Log' ? logSheet : patSheet });
+  // Nursing_Log is absent here, as in real Sheets before the first nursing
+  // save: the sync reads it by name and treats no tab as no records.
+  sandbox.SpreadsheetApp.openById = () => ({ getSheetByName: (n) => n === 'Nursing_Log' ? null : n === 'Daily_Log' ? logSheet : patSheet });
   const result = sandbox.getActivePatients();
   sandbox.SpreadsheetApp.openById = savedOpen;
 

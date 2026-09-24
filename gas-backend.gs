@@ -54,6 +54,11 @@
 // Audit_Log (A–D): ts | action | sessionId | actorEmail
 //   (accountability trail for PDPA-relevant actions — registry reads,
 //   erasures — since Apps Script's own execution log expires after 7 days)
+// Nursing_Log (A–M, since 2026-09-24; created on the first nursing save):
+//   ts|sessionId|ivInMl|enInMl|feedType|urineMl|drainMl|stoolCount|
+//   entryId|enteredBy|lastModified|lastModifiedBy|appVersion
+//   (the nurses' daily Intake/Output totals, one row per patient per date —
+//   see NURSING_HEADERS and docs/NURSING_FORM_SPEC.md)
 //
 // PDPA lawful basis: Section 26(6) medical necessity + professional confidentiality
 // ============================================================
@@ -90,6 +95,29 @@ function _cfg(key) {
 }
 function SPREADSHEET_ID_() { return _cfg("SPREADSHEET_ID"); }
 function CLIENT_ID_() { return _cfg("CLIENT_ID"); }
+
+// ── Nursing I/O go-live switch (UX roadmap #4) ─────────────────
+// OFF unless the Script Property NURSING_LOG_ENABLED is exactly "true". Set it
+// (Project Settings → Script Properties) only once the DPO has signed off the
+// nursing form's PDPA review (docs/NURSING_FORM_SPEC.md § 6, decision D7) AND
+// the frontend that carries the I/O card is released. Off, this backend
+// behaves exactly as the one before the nursing form: the sync carries no
+// `nursing`, the three nursing actions refuse (NotEnabled), and a nurse still
+// saves orders — so deploying this code, e.g. with an unrelated backend fix,
+// switches nothing on. On, the frontend sees `nursing` in the sync and moves
+// nurses to the I/O card and a compute-only Calculator on the same sync as
+// the server starts refusing a nurse's order write (D5). Deleting the
+// property (or any value but "true") switches it back off within one sync.
+// Read per request: nothing to redeploy either way. Never throws — a
+// Properties outage reads as OFF, the behaviour this backend had before.
+function _nursingEnabled() {
+  try {
+    return PropertiesService.getScriptProperties().getProperty("NURSING_LOG_ENABLED") === "true";
+  } catch (e) {
+    return false;
+  }
+}
+var NURSING_NOT_ENABLED = { error: "ยังไม่เปิดใช้บันทึก I/O ของพยาบาล — ใช้ Calculator ตามเดิม", code: "NotEnabled" };
 
 // ── Google ID token verifier (for Gmail/Workspace Sign-In path) ─
 // SECURITY: the old implementation only base64-decoded the JWT payload and
@@ -716,7 +744,8 @@ function onEdit(e) {
     // checks — drop both, so neither waits out its TTL. Neither helper throws.
     // (Structural edits — inserting/deleting a row or column — fire onChange,
     // not onEdit, and are caught by the TTLs and the per-write row re-check.)
-    if (editedTab === "Daily_Log" || editedTab === "Patient_Registry") {
+    // Nursing_Log too, since 2026-09-24: its rows ride in the same sync payload.
+    if (editedTab === "Daily_Log" || editedTab === "Patient_Registry" || editedTab === "Nursing_Log") {
       _bumpDataVersion();
       if (e.range.getRow() === 1) _forgetSchemaCheck(editedTab);
       return;
@@ -807,6 +836,21 @@ var LOG_HEADERS = [
   "published","publishedBy","revisionNumber","revisionOf","supersededAt"
 ];
 var LOG_WIDTH = LOG_HEADERS.length; // 38, A–AL
+// Nursing_Log (A–M) — the nurses' daily Intake/Output totals (UX roadmap #4,
+// docs/NURSING_FORM_SPEC.md; Pp's decisions 2026-09-24). ONE row per patient
+// per date, daily totals only (D1). `ts` is the date the 24-hour total CLOSED —
+// the morning the ward adds it up — so the order written that morning reads it
+// as "the past 24 h" (the Calculator's Intake/Output prefill, D4). mL per 24 h
+// as measured; blank means "not recorded", never 0. Per-kg figures are derived
+// on display, never stored. No free-text column on purpose (PDPA minimisation).
+// Weight is NOT here: a nurse's weight is a measurement and goes through
+// updateWeights into Patient_Registry.weights, so there is one current weight,
+// not three.
+var NURSING_HEADERS = [
+  "ts","sessionId","ivInMl","enInMl","feedType","urineMl","drainMl","stoolCount",
+  "entryId","enteredBy","lastModified","lastModifiedBy","appVersion"
+];
+var NURSING_WIDTH = NURSING_HEADERS.length; // 13, A–M
 // `ss` is optional: a caller that already opened the spreadsheet can pass it,
 // so one execution opens the file once. No argument behaves exactly as before.
 function getSheetPat(ss) {
@@ -824,6 +868,23 @@ function getSheetLog(ss) {
   if (!sh) {
     sh = ss.insertSheet("Daily_Log");
     sh.appendRow(LOG_HEADERS.slice());
+  }
+  return sh;
+}
+// Created on the first nursing WRITE, never by a read (getActivePatients looks
+// the tab up by name and treats "absent" as "no records"). Trimmed to exactly
+// its 13 columns: insertSheet makes 26, and Google counts empty grid cells
+// against the workbook's 10 M-cell cap — the Audit_Log lesson (BACKLOG § Now).
+function getSheetNursing(ss) {
+  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID_());
+  var sh = ss.getSheetByName("Nursing_Log");
+  if (!sh) {
+    sh = ss.insertSheet("Nursing_Log");
+    sh.appendRow(NURSING_HEADERS.slice());
+    try {
+      var extra = sh.getMaxColumns() - NURSING_WIDTH;
+      if (extra > 0) sh.deleteColumns(NURSING_WIDTH + 1, extra);
+    } catch (e) { Logger.log("Nursing_Log column trim skipped: " + e.message); }
   }
   return sh;
 }
@@ -856,7 +917,8 @@ function _colLetter(n) {
   return s;
 }
 function _expectedHeaders(tab) {
-  return tab === "Daily_Log" ? LOG_HEADERS : tab === "Patient_Registry" ? PAT_HEADERS : null;
+  return tab === "Daily_Log" ? LOG_HEADERS : tab === "Patient_Registry" ? PAT_HEADERS
+    : tab === "Nursing_Log" ? NURSING_HEADERS : null;
 }
 // Pure check, no cache: null when fine, else { col, label } for the first bad cell.
 function _schemaMismatch(sheet, tab) {
@@ -1159,9 +1221,20 @@ function doPost(e) {
     }
 
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
+    // TPN orders are written by prescribers (D5, Pp 2026-09-24: "พยาบาลบันทึกหรือ
+    // submit ไม่ได้ ได้แค่ใช้ calculator"). A nurse still opens the Calculator and
+    // computes, and records the day's Intake/Output in Nursing_Log instead —
+    // which is why this narrowing holds exactly while the nursing actions below
+    // are switched on (_nursingEnabled) and not before: until then the
+    // Calculator's I/O card is the nurses' only way to record it, and a nurse's
+    // order save is what it always was. Registry edits, bed moves and growth
+    // measurements stay canWrite: those are nursing work.
+    var canWriteOrder = user.role === "doctor" || user.role === "admin" || !_nursingEnabled();
+    var ORDER_FORBIDDEN = { error: "พยาบาลใช้ Calculator ได้ แต่บันทึกหรือ Submit ใบสั่ง TPN ไม่ได้ — บันทึก I/O ที่ Dashboard", code: "Forbidden" };
 
     if (action === "logDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
+      if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
       var logResult = logDailyNutrition(body.sessionId, body.entry, user.email);
       // DuplicateDate carries the existing row's entryId, so a client can open
       // that entry instead of just reporting the refusal.
@@ -1170,6 +1243,7 @@ function doPost(e) {
     }
     if (action === "updateDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
+      if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
       var updResult = updateDailyNutrition(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email);
       if (updResult.error) return jsonOut(_errorBody(updResult));
       if (updResult.conflict) return jsonOut({ conflict: true, current: updResult.current });
@@ -1188,6 +1262,7 @@ function doPost(e) {
     }
     if (action === "publishLog") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
+      if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
       var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email, body.expectedLastModified);
       if (pubResult.error) return jsonOut(_errorBody(pubResult));
       if (pubResult.conflict) return jsonOut({ conflict: true, current: pubResult.current });
@@ -1288,6 +1363,39 @@ function doPost(e) {
       var delResult = deleteDailyNutrition(body.sessionId, body.entryId, user.email);
       if (delResult.error) return jsonOut(_errorBody(delResult));
       logAudit("deleteDailyLog", body.sessionId, user.email);
+      return jsonOut({ ok: true });
+    }
+    // ── Nursing Intake/Output (UX roadmap #4) ──────────────────────────────
+    // Refused outright until switched on (_nursingEnabled — the DPO's sign-off,
+    // D7). Written by every role (D3: nurse, doctor, admin); deleted by admin
+    // only, as Daily_Log is. Each write leaves an Audit_Log row (PDPA Sec 39):
+    // the row itself also names who entered and last changed it. deletePatient
+    // clears a patient's Nursing_Log rows whether or not the switch is on —
+    // erasure must reach rows written while it was.
+    if ((action === "logNursingEntry" || action === "updateNursingEntry" || action === "deleteNursingEntry")
+        && !_nursingEnabled()) {
+      return jsonOut(NURSING_NOT_ENABLED);
+    }
+    if (action === "logNursingEntry") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
+      var nlog = logNursingEntry(body.sessionId, body.entry, user.email);
+      if (nlog.error) return jsonOut(_errorBody(nlog));
+      logAudit("logNursingEntry", body.sessionId, user.email);
+      return jsonOut({ ok: true, entryId: nlog.entryId, lastModified: nlog.lastModified });
+    }
+    if (action === "updateNursingEntry") {
+      if (!canWrite) return jsonOut({ error: "Forbidden" });
+      var nupd = updateNursingEntry(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email);
+      if (nupd.error) return jsonOut(_errorBody(nupd));
+      if (nupd.conflict) return jsonOut({ conflict: true, current: nupd.current });
+      logAudit("updateNursingEntry", body.sessionId, user.email);
+      return jsonOut({ ok: true, lastModified: nupd.lastModified });
+    }
+    if (action === "deleteNursingEntry") {
+      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      var ndel = deleteNursingEntry(body.sessionId, body.entryId, user.email);
+      if (ndel.error) return jsonOut(_errorBody(ndel));
+      logAudit("deleteNursingEntry", body.sessionId, user.email);
       return jsonOut({ ok: true });
     }
     // ── Daily-log edit lock (acquire on open + heartbeat, release on close) ──
@@ -1490,6 +1598,43 @@ function getActivePatients(opts) {
     });
   }
 
+  // Nursing_Log rows for the same patient set (UX roadmap #4). The tab is looked
+  // up by name and never created here — a read must not add a tab to the live
+  // Sheet, and "no tab yet" simply means "no records yet". Blank cells come back
+  // null, not 0: a blank is "not recorded", and neither the Calculator's
+  // Intake/Output prefill nor a 24-h total may read it as a measured zero.
+  // Every row for an in-window patient, like Daily_Log: a nursing row is a
+  // tenth the size of an order row, and one per infant per day.
+  // Only while the nursing form is switched on (_nursingEnabled). Off, the
+  // payload keeps the shape it had before the nursing form — no `nursing` key
+  // at all — which is what tells the frontend to keep the old workflow.
+  var nursingOn = (opts && typeof opts.nursingOn === "boolean") ? opts.nursingOn : _nursingEnabled();
+  var nursingMap = {};
+  var sheetNursing = (anyInWindow && nursingOn) ? ss.getSheetByName("Nursing_Log") : null;
+  var nLast = sheetNursing ? sheetNursing.getLastRow() : 0;
+  if (nLast > 1) {
+    var nRows = sheetNursing.getRange(2, 1, nLast - 1, Math.min(NURSING_WIDTH, sheetNursing.getMaxColumns())).getValues();
+    for (var q = 0; q < nRows.length; q++) {
+      var nr = nRows[q];
+      var nsid = String(nr[1] || "");
+      if (!nsid || !inWindow[nsid]) continue;
+      if (!nursingMap[nsid]) nursingMap[nsid] = [];
+      nursingMap[nsid].push({
+        ts:             _fmtDate(nr[0]),
+        ivInMl:         _numOrNull(nr[2]),
+        enInMl:         _numOrNull(nr[3]),
+        feedType:       String(nr[4] || ""),
+        urineMl:        _numOrNull(nr[5]),
+        drainMl:        _numOrNull(nr[6]),
+        stoolCount:     _numOrNull(nr[7]),
+        entryId:        String(nr[8] || ""),
+        enteredBy:      String(nr[9] || ""),
+        lastModified:   String(nr[10] || ""),
+        lastModifiedBy: String(nr[11] || ""),
+      });
+    }
+  }
+
   var patients = [];
   for (var j = 1; j < patData.length; j++) {
     var p = patData[j];
@@ -1516,7 +1661,9 @@ function getActivePatients(opts) {
       multiplesCount: Number(p[17] || 0),
     });
   }
-  return { patients: patients, log: logMap, ts: new Date().toISOString() };
+  var out = { patients: patients, log: logMap, ts: new Date().toISOString() };
+  if (nursingOn) out.nursing = nursingMap;
+  return out;
 }
 
 // ── Shared sync payload cache (Praew's decision 2026-09-17: 5 minutes) ───────
@@ -1542,15 +1689,27 @@ function getActivePatients(opts) {
 // Audit is unaffected: doPost writes the readRegistry row before asking for
 // the payload, so a cache hit is audited exactly like a sheet read. Rolling
 // back to a version without this code is clean: it neither reads DATA_VERSION
-// nor the sync1_ keys, which then simply expire.
+// nor the sync keys, which then simply expire.
+//
+// The prefix names the payload's SHAPE, and moves whenever the shape does, so
+// a new deploy never serves a payload the code before it cached. sync2_ since
+// 2026-09-24, when the payload gained `nursing` (UX roadmap #4), and "+n" in
+// the variant while the nursing switch is on (_nursingEnabled): the frontend
+// takes a payload WITH `nursing` as the sign that this backend refuses a
+// nurse's order write (D5), so a payload of the other shape must never be
+// served across a deploy or a flip of the switch — for up to
+// SYNC_CACHE_TTL_SECONDS it would show nurses a Submit the server refuses, or
+// hide the one it accepts.
 var SYNC_CACHE_ENABLED = true;
 var SYNC_CACHE_TTL_SECONDS = 300;
 var SYNC_CACHE_CHUNK_CHARS = 90000;
 var SYNC_CACHE_MAX_CHUNKS = 40;          // ~3.6 MB base64; beyond that, don't cache
 var DATA_VERSION_KEY = "DATA_VERSION";
 
-function _syncCacheKey(includeArchived, todayKey, version) {
-  return "sync1_" + (includeArchived ? "all" : "ward") + "_" + todayKey + "_" + version;
+function _syncCacheKey(includeArchived, todayKey, version, nursingOn) {
+  // "+n": the nursing switch is part of the shape, so flipping it is seen on
+  // the very next sync — no write has to bump DATA_VERSION first.
+  return "sync2_" + (includeArchived ? "all" : "ward") + (nursingOn ? "+n" : "") + "_" + todayKey + "_" + version;
 }
 function _dataVersion() {
   return PropertiesService.getScriptProperties().getProperty(DATA_VERSION_KEY) || "0";
@@ -1568,8 +1727,11 @@ function _bumpDataVersion() {
     var old = props.getProperty(DATA_VERSION_KEY) || "0";
     var today = _wardDateKey();
     try {
+      // Every variant of the current heads — with and without the nursing
+      // switch's "+n" — whichever state the switch is in right now.
       CacheService.getScriptCache().removeAll([
-        _syncCacheKey(false, today, old), _syncCacheKey(true, today, old)
+        _syncCacheKey(false, today, old, false), _syncCacheKey(true, today, old, false),
+        _syncCacheKey(false, today, old, true), _syncCacheKey(true, today, old, true)
       ]);
     } catch (e1) { /* cache unavailable: nothing to drop */ }
     props.setProperty(DATA_VERSION_KEY, Utilities.getUuid());
@@ -1610,14 +1772,18 @@ function _syncCachePut(key, body) {
 // that `ts` is always fresh, including on a cache hit.
 function getActivePatientsJson(opts) {
   var includeArchived = !!(opts && opts.includeArchived);
+  // The nursing switch is read ONCE for both the cache key and the payload: a
+  // Script Properties hiccup between two reads would otherwise cache a payload
+  // of one shape under the other shape's key, for SYNC_CACHE_TTL_SECONDS.
+  var nursingOn = _nursingEnabled();
   var key = null;
   if (SYNC_CACHE_ENABLED) {
-    try { key = _syncCacheKey(includeArchived, _wardDateKey(), _dataVersion()); } catch (e) { key = null; }
+    try { key = _syncCacheKey(includeArchived, _wardDateKey(), _dataVersion(), nursingOn); } catch (e) { key = null; }
   }
   var body = key ? _syncCacheGet(key) : null;
   if (body == null) {
-    var payload = getActivePatients({ includeArchived: includeArchived });
-    body = JSON.stringify({ patients: payload.patients, log: payload.log });
+    var payload = getActivePatients({ includeArchived: includeArchived, nursingOn: nursingOn });
+    body = JSON.stringify({ patients: payload.patients, log: payload.log, nursing: payload.nursing });
     if (key) _syncCachePut(key, body);
   }
   return body.slice(0, -1) + ',"ts":' + JSON.stringify(new Date().toISOString()) + "}";
@@ -2292,6 +2458,172 @@ function deleteDailyNutrition(sessionId, entryId, actorEmail) {
   }
 }
 
+// ── Nursing_Log: the nurses' daily Intake/Output (UX roadmap #4) ─────────────
+// Mirrors the Daily_Log write paths on purpose — same lock, same schema guard,
+// same one-row-per-patient-per-date rule with the same DuplicateDate contract,
+// same optimistic-concurrency check, same re-check before a positional write,
+// same DATA_VERSION bump so the next sync from any device sees the save.
+// Plausibility bounds, not clinical targets: 0–3000 mL per 24 h (the order's own
+// I/O bounds) and 0–20 stools. A blank field stays blank ("not recorded"); a
+// record with nothing in it at all is refused, because it would read as a
+// completed day. feedType is an EN_DB-style key or blank — never free text
+// (PDPA minimisation: no column here can hold a name or a note).
+var NURSING_ML_FIELDS = [
+  ["ivInMl", "IV intake (mL/24 h)"], ["enInMl", "Enteral intake (mL/24 h)"],
+  ["urineMl", "Urine (mL/24 h)"], ["drainMl", "Drain (mL/24 h)"],
+];
+var NURSING_FEED_KEY_RE = /^[A-Z][A-Z0-9_]{0,39}$/;
+var NURSING_EMPTY_MSG = "ยังไม่ได้กรอกค่าใดเลย — กรอกอย่างน้อยหนึ่งช่องก่อนบันทึก";
+function _validateNursingEntry(entry) {
+  var any = false;
+  for (var i = 0; i < NURSING_ML_FIELDS.length; i++) {
+    var k = NURSING_ML_FIELDS[i][0];
+    _checkRange(entry[k], 0, 3000, NURSING_ML_FIELDS[i][1]);
+    if (entry[k] !== "" && entry[k] != null) any = true;
+  }
+  _checkRange(entry.stoolCount, 0, 20, "Stool (ครั้ง/24 ชม.)");
+  if (entry.stoolCount !== "" && entry.stoolCount != null) {
+    if (Math.floor(Number(entry.stoolCount)) !== Number(entry.stoolCount)) throw new Error("จำนวนครั้งอุจจาระต้องเป็นจำนวนเต็ม");
+    any = true;
+  }
+  var feed = entry.feedType == null ? "" : entry.feedType;
+  if (typeof feed !== "string" || (feed !== "" && !NURSING_FEED_KEY_RE.test(feed))) {
+    throw new Error("ชนิดนมไม่ถูกต้อง — เลือกจากรายการ");
+  }
+  if (!any) throw new Error(NURSING_EMPTY_MSG);
+}
+function _buildNursingRow(sessionId, entry, entryId, enteredBy, lastModified, lastModifiedBy) {
+  _validateNursingEntry(entry);
+  return [
+    _sheetSafe(entry.ts), _sheetSafe(sessionId),
+    _numSafe(entry.ivInMl), _numSafe(entry.enInMl), _sheetSafe(entry.feedType || ""),
+    _numSafe(entry.urineMl), _numSafe(entry.drainMl), _numSafe(entry.stoolCount),
+    _sheetSafe(entryId), _sheetSafe(enteredBy || ""), lastModified, _sheetSafe(lastModifiedBy || ""),
+    _sheetSafe(_nursingAppVersion(entry.appVersion)),
+  ];
+}
+// Column M holds the build that wrote the row — data.js appVersion(), e.g.
+// "b=f48894ce64;d=09ec74e9c7;…" or "2026-09-11-review" — and nothing else. It
+// was the one column a hand-made request could fill with free text (a name, a
+// note), which Nursing_Log promises never to hold; anything that is not a
+// build token is stored as blank rather than refusing the nurses' save.
+var NURSING_APP_VERSION_RE = /^[A-Za-z0-9][A-Za-z0-9=;._-]{0,199}$/;
+function _nursingAppVersion(v) {
+  return (typeof v === "string" && NURSING_APP_VERSION_RE.test(v)) ? v : "";
+}
+// entryId is column I (9). Same { row, data } / { shifted } contract as
+// _findLogRowByEntryId.
+function _findNursingRowByEntryId(sheet, entryId) {
+  var want = String(entryId);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2 || sheet.getMaxColumns() < 9) return null;
+  var ids = sheet.getRange(2, 9, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) !== want) continue;
+    var data = sheet.getRange(i + 2, 1, 1, Math.min(NURSING_WIDTH, sheet.getMaxColumns())).getValues()[0];
+    if (String(data[8]) !== want) return { shifted: true };
+    return { row: i + 2, data: data };
+  }
+  return null;
+}
+function _findNursingOnDate(sheet, sessionId, targetDate) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  var rows = sheet.getRange(2, 1, lastRow - 1, Math.min(9, sheet.getMaxColumns())).getValues();
+  var sid = String(sessionId);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][1]) !== sid) continue;
+    if (_wardDateKey(rows[i][0]) !== targetDate) continue;
+    return { entryId: String(rows[i][8] == null ? "" : rows[i][8]) };
+  }
+  return null;
+}
+function logNursingEntry(sessionId, entry, enteredBy) {
+  var lock = LockService.getScriptLock();
+  _waitLockOrBusy(lock, 10000);
+  try {
+    if (!_requiredString(sessionId)) return { error: "sessionId is required" };
+    entry = (entry && typeof entry === "object") ? entry : {};
+    var dateCheck = _normaliseEntryDate(entry.ts);
+    if (dateCheck.error) return { error: dateCheck.error };
+    entry = Object.assign({}, entry, { ts: dateCheck.ts });
+    var entryId = Utilities.getUuid();
+    var lastModified = new Date().toISOString();
+    // Validates (and throws) inside the lock, as logDailyNutrition does.
+    var row = _buildNursingRow(sessionId, entry, entryId, enteredBy, lastModified, enteredBy);
+    if (!_patientExists(sessionId)) {
+      return { error: "ไม่พบผู้ป่วยรายนี้ในทะเบียน — ลงทะเบียนให้สำเร็จก่อนบันทึก (" + sessionId + ")" };
+    }
+    var sheet = getSheetNursing();
+    _assertSchema(sheet, "Nursing_Log");
+    var existing = _findNursingOnDate(sheet, sessionId, dateCheck.ts);
+    if (existing) {
+      return {
+        error: "มีบันทึก I/O ของผู้ป่วยรายนี้ในวันที่ " + dateCheck.ts + " แล้ว — กรุณาเปิดรายการเดิมเพื่อแก้ไข",
+        code: "DuplicateDate", entryId: existing.entryId,
+      };
+    }
+    sheet.appendRow(row);
+    return { entryId: entryId, lastModified: lastModified };
+  } finally {
+    _bumpDataVersion();
+    lock.releaseLock();
+  }
+}
+// An edit keeps the row's own date and its original enteredBy; only the values
+// and lastModified/lastModifiedBy move. Refused, not overwritten, when the row
+// changed since the client read it.
+function updateNursingEntry(sessionId, entryId, expectedLastModified, entry, editedBy) {
+  if (!_requiredString(entryId)) return { error: "entryId is required" };
+  if (!_requiredString(sessionId)) return { error: "sessionId is required" };
+  var lock = LockService.getScriptLock();
+  _waitLockOrBusy(lock, 10000);
+  try {
+    var sheet = getSheetNursing();
+    _assertSchema(sheet, "Nursing_Log");
+    var hit = _findNursingRowByEntryId(sheet, entryId);
+    if (hit && hit.shifted) throw _codedError(ROW_MOVED_MSG, "", true);
+    if (!hit) return { error: "ไม่พบบันทึก I/O ที่ต้องการแก้ไข — อาจถูกลบไปแล้ว" };
+    var cur = hit.data;
+    if (String(cur[1]) !== String(sessionId)) return { error: "บันทึกนี้ไม่ตรงกับผู้ป่วยรายนี้" };
+    var currentLastModified = String(cur[10] || "");
+    if (currentLastModified !== String(expectedLastModified || "")) {
+      return { conflict: true, current: { lastModified: currentLastModified, lastModifiedBy: String(cur[11] || "") } };
+    }
+    entry = (entry && typeof entry === "object") ? entry : {};
+    entry = Object.assign({}, entry, { ts: _wardDateKey(cur[0] instanceof Date ? cur[0] : String(cur[0] || "").slice(0, 10)) });
+    var newLastModified = new Date().toISOString();
+    var row = _buildNursingRow(sessionId, entry, entryId, String(cur[9] || editedBy || ""), newLastModified, editedBy);
+    _assertRowStillHolds(sheet, hit.row, 9, entryId);
+    sheet.getRange(hit.row, 1, 1, row.length).setValues([row]);
+    return { ok: true, lastModified: newLastModified };
+  } finally {
+    _bumpDataVersion();
+    lock.releaseLock();
+  }
+}
+function deleteNursingEntry(sessionId, entryId, actorEmail) {
+  if (!_requiredString(entryId)) return { error: "entryId is required" };
+  if (!_requiredString(sessionId)) return { error: "sessionId is required" };
+  var lock = LockService.getScriptLock();
+  _waitLockOrBusy(lock, 10000);
+  try {
+    var sheet = getSheetNursing();
+    _assertSchema(sheet, "Nursing_Log");
+    var hit = _findNursingRowByEntryId(sheet, entryId);
+    if (hit && hit.shifted) throw _codedError(ROW_MOVED_MSG, "", true);
+    if (!hit) return { error: "ไม่พบบันทึก I/O ที่ต้องการลบ — อาจถูกลบไปแล้ว" };
+    if (String(hit.data[1]) !== String(sessionId)) return { error: "บันทึกนี้ไม่ตรงกับผู้ป่วยรายนี้" };
+    _logAuditStrict("deleteNursingLog:start", sessionId, actorEmail || "");
+    _assertRowStillHolds(sheet, hit.row, 9, entryId);
+    sheet.deleteRow(hit.row);
+    return { ok: true };
+  } finally {
+    _bumpDataVersion();
+    lock.releaseLock();
+  }
+}
+
 // ── deletePatient (admin-only, permanent) ───────────────────────
 // Removes the Patient_Registry row AND every Daily_Log row for that
 // sessionId. Previously the "Delete session" button in the UI was
@@ -2343,10 +2675,26 @@ function deletePatient(sessionId, actorEmail) {
     if (anyPublished) {
       return { error: "ผู้ป่วยรายนี้มีรายการที่ส่ง (Submit) แล้ว ลบทั้ง session ไม่ได้ — รายการที่ส่งแล้วเป็นส่วนหนึ่งของเวชระเบียน" };
     }
+    // Nursing_Log rows go with the patient too (UX roadmap #4), for the same
+    // reason as Daily_Log's: a sessionId can be re-issued to a different
+    // infant, who must not inherit this one's Intake/Output. Found before
+    // anything is deleted; no tab yet means nothing to find.
+    var nurseSheet = SpreadsheetApp.openById(SPREADSHEET_ID_()).getSheetByName("Nursing_Log");
+    var nurseRows = [];
+    if (nurseSheet) {
+      _assertSchema(nurseSheet, "Nursing_Log");
+      var nLastRow = nurseSheet.getLastRow();
+      var nIds = nLastRow > 1 ? nurseSheet.getRange(2, 2, nLastRow - 1, 1).getValues() : [];
+      for (var n = 0; n < nIds.length; n++) if (String(nIds[n][0]) === sid) nurseRows.push(n + 2);
+    }
     _logAuditStrict("deletePatient:start", sid, actorEmail || "");
     for (var k = logRows.length - 1; k >= 0; k--) {
       _assertRowStillHolds(logSheet, logRows[k], 2, sid);
       logSheet.deleteRow(logRows[k]);
+    }
+    for (var nk = nurseRows.length - 1; nk >= 0; nk--) {
+      _assertRowStillHolds(nurseSheet, nurseRows[nk], 2, sid);
+      nurseSheet.deleteRow(nurseRows[nk]);
     }
     for (var m = patRows.length - 1; m >= 0; m--) {
       _assertRowStillHolds(patSheet, patRows[m], 1, sid);
@@ -3369,6 +3717,14 @@ function _numSafe(val, dflt) {
   if (val === "" || val == null) return dflt;
   var n = Number(val);
   return isFinite(n) ? n : dflt;
+}
+// A cell read back as a number, or null when it holds nothing — for columns
+// where blank means "not recorded" and must stay distinguishable from 0
+// (Nursing_Log). _numSafe's `|| 0` habit is exactly what that must not do.
+function _numOrNull(val) {
+  if (val === "" || val == null) return null;
+  var n = Number(val);
+  return isFinite(n) ? n : null;
 }
 function _parseJson(str, fallback) {
   try { if (!str) return fallback; return JSON.parse(String(str)); }

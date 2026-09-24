@@ -7,6 +7,202 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (7) — Pre-merge review of the nurse form: 8 findings, all fixed
+
+An independent read-only review of the nurse-form commits, run before merging #111 at Pp's go-ahead.
+All 8 findings were confirmed and fixed. All sit behind `NURSING_LOG_ENABLED`, so none reached the
+ward. Each fix has assertions that fail on `9f3357d`.
+
+1. **A nurses' figure taken into the Calculator could come back as a typed "0".** It happened when the
+   box was emptied, or when a corrected or deleted record was cleared, and the "0" let a Submit
+   through. Now a figure stops being the nurses' as soon as the prescriber edits its box. Clearing
+   leaves the box blank, and a figure the prescriber typed over stays theirs.
+2. **The nursing form could be closed mid-save.** Its writes are quiet, so a refusal went unseen.
+   ✕ and ยกเลิก are now disabled while saving.
+3. **A weight-only save said "saved" before the write answered.** A refusal then lost the weight. The
+   weight write is now awaited, and a refusal stays in the form with the weight.
+4. **Backend: a failed DATA_VERSION bump left the switched-on (`+n`) sync payload cached.** The bump
+   now drops every variant. The switch is also read once per sync, for both the key and the payload.
+5. **Backend: `appVersion` was unchecked free text in `Nursing_Log`.** It is now a build token, or
+   blank. This keeps the PDPA minimisation promise.
+6. **A total counted a blank half as 0.** IV 100 with a blank enteral total read "เข้า 100".
+   Intake now needs both IV and EN, and Out needs both urine and drain. The card shows the halves, and
+   the form asks for 0 when there is none. The Calculator's tap leaves Input to the prescriber when
+   intake is half-recorded, and says so.
+7. **The stool box rewrote "1.5" as 15.** A fraction is now kept as typed, and refused.
+8. **Switching the form off made an open Calculator claim** a taken record had been deleted. With
+   nothing served, nothing is offered or flagged.
+
+- `test/verify-nursing-backend.cjs`: 94 assertions.
+- `test/verify-nursing-frontend.cjs`: 262 assertions (238 without a browser).
+
+## Session 2026-09-24 (6) — D4 settled: the prescriber types Intake/Output; the weight is prefilled
+
+Pp confirmed D4 (§ (5) had read it the other way): **"D4 หมอพิมพ์เอง"**, then **"แต่ถ้าเข้าผ่าน ward
+หรือชื่อคนไข้ ให้ prefill น้ำหนัก"**, then "Review/merge #111 ได้เลย".
+
+- **Nothing fills a new order's Intake/Output by itself.**
+  - With a nurses' record for the order's date, the card offers it as one tap ("ใช้ยอด I/O จากบันทึกพยาบาล").
+  - The tap is the prescriber's choice, and the unsaved-draft store keeps it like typing.
+  - The "filled from" note, the flags for a corrected or deleted record, and the seeded-zero rule are
+    unchanged.
+  - A nurse's compute-only Calculator is offered the record the same way.
+- **The weight is prefilled** on every order opened on a patient: the latest weight measured **on or
+  before the order's own day**, the nurses' morning weight included.
+- **Fixed on the way (older than this PR):** a back-filled order took the newest weight of all, one
+  measured after its own date. A DOL 8 order started at the DOL 20 weight. The "= น้ำหนักที่ชั่ง
+  (DOL x)" hint follows the same rule now. That historical weight is also no longer pushed to the
+  patient strip as the current one. Today's orders are unchanged.
+- `test/verify-nursing-frontend.cjs`: 239 assertions (215 without a browser).
+  - §4 (the one-tap offer) fails on `3c02db2`.
+  - §4w (the weight) fails on `3c02db2` for every back-filled case.
+
+## Session 2026-09-24 (5) — Nurse form built to Pp's decisions (ships switched off until D7)
+
+Pp answered the spec's § 8 in Thai:
+- **A:** OK.
+- **D1:** "เอาแค่ยอดประจำวัน" (daily totals; the order's Input may be prefilled from what was actually
+  received in the past 24 h).
+- **D2:** the default fields.
+- **D3:** "admin ทำได้ทุกอย่าง".
+- **D4:** "calculator ให้เติมเอง".
+- **D5:** "พยาบาลบันทึกหรือ submit ไม่ได้ ได้แค่ใช้ calculator".
+- **D6:** "เก็บไว้ตลอดไปก่อน รอคุย".
+- **D7:** "รอคุย".
+
+`docs/NURSING_FORM_SPEC.md` now records the answers and what was built from each.
+`CONSTANTS_VERSION` stays `2026-09-18.1`.
+
+**Go-live is a switch, not a deploy.** The backend ships dark. Nothing changes until Pp sets the
+Script Property `NURSING_LOG_ENABLED` = `true`, **after D7 and after the frontend is released**
+(spec § 5.4). A backend batch is already waiting for its own `clasp` deploy (§§ (2)–(3) below). Without the
+switch, that deploy would have taken the nursing form live before the DPO signed off.
+
+### Backend — `test/verify-nursing-backend.cjs` (86 assertions; fails on `68e302f`)
+
+- **The switch, `_nursingEnabled()`:** `NURSING_LOG_ENABLED` must be exactly `"true"`, and an
+  unreadable property reads as off. **Off, this is the old backend:**
+  - the sync has no `nursing` key;
+  - the nursing actions refuse with `NotEnabled`;
+  - nurses save orders.
+
+  A flip is seen on the next sync. `deletePatient` cascades either way.
+
+- **`Nursing_Log` (A–M, 13 columns)**: one row per infant per date, dated the morning the 24-h total
+  closed. It is created on the first nursing save, trimmed to 13 columns, and never created by a sync.
+- **Validation:** blanks come back as `null`, never 0. Each volume is 0–3000 mL, stools are a whole
+  number 0–20, and the feed is a formulary key, never free text. There are no notes. An empty record
+  is refused. `DuplicateDate`, edit conflicts, row re-checks, audit rows and a strict delete-start
+  row follow Daily_Log's patterns.
+- **Actions:** `logNursingEntry` and `updateNursingEntry` (nurse, doctor, admin), and
+  `deleteNursingEntry` (admin only). `getActivePatients` carries `nursing`. `deletePatient` cascades.
+- **D5:** `logDailyNutrition`, `updateDailyNutrition` and `publishLog` refuse a nurse (`Forbidden`, in
+  Thai, pointing to the Dashboard). Registry edits and growth measurements stay nursing work.
+- **The sync cache key names the payload's shape:** `sync2_` (was `sync1_`), plus `+n` while the switch
+  is on. Neither a deploy nor a flip ever serves a payload of the other shape.
+
+### Frontend — `test/verify-nursing-frontend.cjs` (222 assertions with a browser, 198 without; fails on `b64c7fa`)
+
+- **"I/O ประจำวัน" on each infant's Dashboard** (`NursingIOCard`):
+  - it says whether today is in yet;
+  - it lists the last 7 days, newest first, with urine in mL/kg/h on the Calculator's own divisor;
+  - a blank shows "—", never 0, and every sum is to 0.1 mL;
+  - an admin sees a 🗑 on each saved row.
+- **Its form** (`NursingEntryModal`):
+  - a date (≤ today, ≥ admission), weight, IV, EN + feed, urine, drain and stools;
+  - blank ≠ 0 end to end;
+  - the weight goes to `weights[]` through `updateWeights`, like the growth chart's (`D.upsertWeight`),
+    so there is one weight store;
+  - refusals, `DuplicateDate` and conflicts are shown in the form. Once the I/O row has landed the
+    form closes even if the weight could not be sent, so a second Save cannot make a second record;
+  - a tap outside a form with typing in it does not close it;
+  - nothing is kept in browser storage.
+- **D4:** a new order's Intake/Output is filled from the nurses' record for its date and stays
+  editable:
+  - a recorded 0 counts as entered, and a blank does not;
+  - opening a prefilled form writes no draft;
+  - it never applies to a saved order, Center Point or the quick calc;
+  - a record that arrives later is offered with one tap;
+  - one corrected or deleted after the fill is flagged;
+  - a restored draft is what was typed, not the record.
+- **D5:** a nurse's Calculator computes but does not save:
+  - there is no Save draft, Submit or publish, no New log on the Dashboard, no draft and no edit lock;
+  - a note explains why;
+  - it follows the sync payload both ways. It is on exactly while the payload carries `nursing`,
+    which means while the backend's switch is on.
+- CSS for `.nio-*` and `.nursing-modal` in both shells. Measured in Chromium at 280–1280 px: nothing
+  scrolls sideways, and every target is ≥ 44 px on touch.
+
+### Open
+
+- **D7:** the DPO's sign-off on spec § 6, including the Sec 26(5)(a) citation. This blocks
+  `NURSING_LOG_ENABLED`. The deploys themselves are safe, since the form ships switched off.
+- **D6:** retention is indefinite for now and is to be discussed with the DPO.
+- **D4:** it was read as "the Calculator fills it in itself". If Pp meant "the prescriber types it",
+  the one-tap offer is already built.
+
+## Session 2026-09-24 (4) — UX roadmap: alarm fatigue → admin census → mobile bed button → nurse form spec
+
+Pp set the order: "alarm fatigue → admin census → ปุ่มเตียงมือถือ (เล็ก/reuse) → ฟอร์มพยาบาล + PDPA
+(ใหญ่)". The first three are frontend-only. There is no `clasp` step. `CONSTANTS_VERSION` stays
+`2026-09-18.1`: no clinical threshold moved. The fourth is a spec only. Each item has its own commit
+and harness, and every harness fails against `68e302f`.
+
+### 1 · Alarm fatigue — `test/verify-alarm-fatigue.cjs` (57 assertions, 39 fail before)
+
+- **The Alerts badge counts only unacknowledged `crit` + `warn`, and wears the worst of them**
+  (`alertBadgeFor`). It used to count every alert. The standing electrolyte *reminder* was pushed for
+  every infant with an order, so the badge was never empty, and `crit={alertCount > 0}` drew it red.
+  Now it is red only for a critical and amber for cautions, on the rail and on the phone's tab bar.
+- **The Dashboard's entry count on the phone tab is neutral.** It is a count, and it was drawn in
+  alarm red.
+- **A session that has left the unit raises nothing** (`D.isOnUnit`, now exported from `data.js`).
+  Before, it raised its full list, and the admin tile summed it with the ward's.
+- **The PN electrolyte reminder shows only while the latest submitted order is parenteral.** That is
+  what its own text says. A row with no route keeps it.
+- **An acknowledged stale-weight caution stays acknowledged until it escalates past 7 days**, or until
+  a new weight clears it. It was keyed on today's DOL, so it came back every morning with nothing new
+  to say. The 3- and 7-day thresholds are unchanged.
+- The Alerts page sorts unacknowledged, then crit → warn → info. It says what the badge counts, and
+  why an empty list is empty.
+
+### 2 · Admin census — `test/verify-admin-census.cjs` (58 assertions with a browser, 44 without; 25 fail before)
+
+- **A census card per ward and one for the unit** (`buildCensus`). Each shows beds occupied/free
+  (NICU incl. iso = 20, SCN = 30), active, logged today, needs entry (drafts named), รอเตียง, and
+  infants with a critical / a caution. It adds 7 days of admissions and departures, and flags two
+  infants in one bed, no bed, and off-list beds. It reads the ward screens' own helpers, so logged +
+  needs entry = active, exactly as on the ward tiles.
+- **The alert columns count infants, and are not net of any device's acknowledgements.** Acks are per
+  device, so one device's acks say nothing about the unit. The fourth tile is now "Infants with
+  alerts". It used to sum every alert, info and discharged sessions included, net of the admin's own
+  acks: 16 against the 2 infants actually affected in the harness fixture.
+- **It names beds, never babies.** The harness fails if any name or NeoFeed ID reaches the census.
+- **An Admin tab on the phone** (the 2026-09-23 review: unreachable on a phone). The rail's Admin item
+  gets the `dashboard` glyph instead of sharing Growth chart's. Recent log entries scrolls inside its
+  own card. Measured in Chromium at 280–1280 px: the page never scrolls sideways.
+
+### 3 · Mobile bed button — `test/verify-mobile-bed-button.cjs` (42 assertions with a browser, 24 without; 16 fail before)
+
+- **The phone card gets ⇄ (`⇄ ย้ายเตียง`, or `⇄ เลือกเตียง` while parked).** It opens the same
+  `TransferBedModal` as the desktop row's ⇄, unchanged; that is the "reuse" in the roadmap. On a phone,
+  a bed changed through Edit wrote no "Previous beds" hop. พักไว้ก่อน, the only way to swap two
+  occupied beds, was out of reach. The modal's own swap hint ("เปิด ⇄ ของ …") could not be followed.
+- The card's actions are one row of three from 360 px. Below that, a Thai label wraps at its word
+  break inside a taller button, never clipped, and every action stays ≥ 44 × 44.
+
+### 4 · Nurse form + PDPA — spec only: `docs/NURSING_FORM_SPEC.md`
+
+- **Design:** a `Nursing_Log` tab, one row per infant per shift, so a nurse's I/O no longer re-saves
+  the TPN order. The Calculator offers the 24 h totals as a one-tap suggestion. Narrowing order
+  writes to prescribers is a later phase.
+- **Reviews:** a DPIA-lite, a red team, cell and quota arithmetic, and a test plan.
+- **Blocked on Pp's D1–D7:** shifts and which 24 h a total covers, fields, who writes, the Calculator
+  link, when to narrow order writes, retention, and DPO sign-off.
+- **Found on the way:** the repo cites the PDPA lawful basis as "Sec 26(6)". The Act's health-care
+  exception is **Sec 26(5)(a)**. This is logged in `BACKLOG.md` for the DPO to confirm. The legal text
+  is not edited here.
+
 ## Session 2026-09-24 (3) — Clinical decisions (Pp)
 
 Pp's clinical calls from the review, now coded. Stacked on the backend batch; the `gas-backend.gs` change

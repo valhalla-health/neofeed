@@ -414,6 +414,19 @@ in place, not just its display.
   established account.
 - **`Audit_Log`** (A–D): `ts | action | sessionId | actorEmail` — accountability
   trail since Apps Script's own execution log expires after 7 days.
+- **`Nursing_Log`** (A–M, since 2026-09-24; UX roadmap #4,
+  `docs/NURSING_FORM_SPEC.md`): `ts | sessionId | ivInMl | enInMl | feedType |
+  urineMl | drainMl | stoolCount | entryId | enteredBy | lastModified |
+  lastModifiedBy | appVersion`.
+  - **One row per infant per date:** the ward's 24-h totals, dated the morning
+    the total closed. A second row is `DuplicateDate`.
+  - **Blank ≠ 0:** the sync sends a blank cell as `null`.
+  - **No weight column:** the form's weight goes to `Patient_Registry.weights`.
+  - **No free text:** `feedType` is an `EN_DB` key or `MIXED`.
+  - **Created by the first nursing save, at 13 columns.** A sync only reads it.
+    `deletePatient` cascades to it.
+  - **Switched off until the Script Property `NURSING_LOG_ENABLED` = `true`**, which waits for the
+    DPO (spec D7). Off, the backend behaves exactly as it did before the nursing form.
 
 If you change the Daily_Log column layout, either clear the sheet (the
 script re-writes headers on next run) or add new columns in the exact
@@ -490,6 +503,15 @@ stays logged in. Roles are `admin` / `doctor` / `nurse`; role gates what's in
 the nav rail (`app.jsx` ~L409–423): Calculator is doctor/nurse only, Admin
 dashboard is admin only.
 
+**Order writes are prescribers' (Pp's D5, 2026-09-24).** While the nursing
+form is switched on (`_nursingEnabled`), `logDailyNutrition`,
+`updateDailyNutrition` and `publishLog` refuse a nurse with `Forbidden`. A nurse
+still computes in the Calculator, and still edits the registry and records
+growth measurements. The frontend follows the server, not the role alone:
+`ordersReadOnly = role === "nurse" && nursingLive`, where `nursingLive` is true
+exactly while the sync payload carries `nursing`, i.e. while the switch is on.
+Off, nothing changes (spec § 5.4).
+
 String fields that get written into the Google Sheet from client-submitted
 JSON (patient name/diagnosis/route/etc.) are passed through `_sheetSafe()`
 first — it prefixes values starting with `=+-@` with an apostrophe so Sheets
@@ -531,7 +553,13 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    screen doesn't read as the ward filter having broken.
    Below the gate: patient list, sorted NICU → iso → SCN
    (then numerically within each ward). Desktop: table. Mobile: tappable
-   cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, Edit/Open).
+   cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, ⇄/Edit/Open).
+   **Both layouts' ⇄ open the one `TransferBedModal`** (the card's since
+   2026-09-24). It is the only path that appends a "Previous beds" hop and
+   the only home of พักไว้ก่อน, the one way to swap two occupied beds, so a
+   bed move must never be given a second, slimmer modal. Edit's `BedSelect`
+   corrects a bed; it does not record a move. A parked infant's card reads
+   `⇄ เลือกเตียง`. `test/verify-mobile-bed-button.cjs` pins it.
    Each active patient carries a `✓ LOGGED` / `NEEDS ENTRY` badge
    (`.log-badge`) for "does this patient have a Daily_Log entry dated
    today", on both layouts. The stats strip above the list (Active / Total
@@ -569,6 +597,18 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    Calculator with the right DOL/`ts`. Admin role only: a trash icon per row
    (rows with an `entryId`) permanently deletes a `Daily_Log` entry via the
    `deleteDailyNutrition` GAS action, audit-logged.
+   **I/O ประจำวัน** (`NursingIOCard` + `NursingEntryModal`, 2026-09-24; UX
+   roadmap #4). Shown only while the backend serves `nursing` (above).
+   - **The card:** whether today's 24-h totals are in, the last 7 days newest
+     first ("—" for not recorded, urine in mL/kg/h on `D.ioDivisorG`), and who
+     saved each.
+   - **The form:** date, weight, IV, EN + feed, urine, drain and stools. Blank
+     boxes are sent as `null`. The weight goes through `handleWeightUpdate`, the
+     growth chart's own path.
+   - Every role records (D3). Admin also deletes. A nurse has no **New log**,
+     because it opens a new *order* (D5).
+   - `test/verify-nursing-frontend.cjs` pins it.
+
    **Duplicate-date guard** (added 2026-08-10, `app.jsx`'s `startAddToday`):
    a patient can only have one `Daily_Log` row per calendar date — if one
    already exists for the date picked in `LogDateModal`, the app does not
@@ -591,6 +631,27 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    below Step 1 (added 2026-08-10) — see the `ioInput`/`ioOutput`/
    `drainContent` note in §3's Daily_Log entry shape above for the field
    semantics and the per-kg/day divisor rule.
+   **The prescriber types a new order's Intake/Output (Pp's D4, 2026-09-24:
+   "หมอพิมพ์เอง").** When the nurses have a record for the order's date, the
+   card offers it as one tap (`applyNursingIO`); nothing fills itself.
+   - The tap fills Input = IV + EN actually received, and takes Urine and Drain
+     as recorded. The fields stay editable, and a note says where the figures
+     came from.
+   - A recorded 0 seeds as a typed zero (`seedsZero`), so it satisfies the
+     required-field gate; a blank stays blank.
+   - The tap counts as typing, so the unsaved-draft store keeps it.
+   - Never on a saved order, Center Point or the quick calc.
+   - A record corrected or deleted after it was taken is flagged
+     (`nursingChanged`).
+
+   **The weight IS prefilled** (Pp: "ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill
+   น้ำหนัก"). It is the latest weight measured on or before the order's own
+   day (`measuredByOrderDay`), which includes the nurses' morning weight. A
+   back-filled order no longer takes a weight measured after its date.
+
+   **A nurse's Calculator, while the nursing form is switched on (D5):** there is no
+   Save draft, Submit or publish, `writeDraft` is off, and there is no edit lock.
+   A note explains why (`ordersReadOnly`).
    **Step 1 carries two weight fields, not one** (added 2026-08-26):
    "Current weight" (`curWtG` state) is the actual measured weight — typed
    in by the user, saved as-is into the Daily_Log `weight` column, and what
@@ -693,8 +754,35 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    measurements. Uses `D.gaToDecimalWeeks` for the true decimal x-axis.
 5. **Alerts** (`AlertCenter` in `app.jsx`) — flags things like stale weight
    (warn ≥3 days, critical ≥7 days since last entry). Acknowledge is
-   per-alert and persisted.
+   per-alert and persisted (per device, `neofeed_acked_<sessionId>`).
+   **The badge counts only what someone can act on** (alarm fatigue,
+   2026-09-24): `alertBadgeFor` counts unacknowledged `crit` + `warn`, never
+   `info`, and returns the worst level, so the rail/bottom-nav badge is red
+   only for a critical and amber (`.warn`) for cautions alone. Before this
+   the standing electrolyte reminder lit it on every infant with an order,
+   in red. Three rules ride with it. `computeAlerts` returns nothing for a
+   session that has left the unit (`D.isOnUnit`). The PN electrolyte
+   reminder appears only while the latest submitted order is parenteral
+   (`isParenteralEntry`: a "TPN …" route, or no route at all). An alert may
+   carry its own acknowledge key (`ack`), and weight-stale uses it: it is
+   acknowledged per missing weight and level, so it returns when it
+   escalates past 7 days rather than every morning. The page sorts
+   unacknowledged, then crit → warn → info. The Dashboard's entry count on
+   the phone tab is a neutral badge: a count is not an alarm.
+   `test/verify-alarm-fatigue.cjs` pins all of it.
 6. **Admin dashboard** (`AdminDashboard`, admin only) — cross-patient view.
+   Since 2026-09-24 it leads with a **census** (`buildCensus`), one card per
+   ward and one for the unit. Each shows beds occupied/free (NICU incl. iso
+   = 20, SCN = 30), active, logged today, needs entry (drafts named), รอเตียง,
+   and infants with a critical / a caution. Below that come 7 days of
+   admissions and departures, and flags for two infants in one bed, no bed,
+   and off-list beds. It reads the ward screens' own helpers, so logged +
+   needs entry = active, as on the ward tiles. The alert columns count
+   infants at their worst level and are deliberately *not* net of any
+   device's acknowledgements. **It names beds, never babies**, and its
+   harness fails if a name or NeoFeed ID reaches it. Admins reach it on a
+   phone from an **Admin** tab (admin has no Calc tab, so the bar stays at
+   five). `test/verify-admin-census.cjs`.
 7. **Guidelines (ESPGHAN)** / **Formulas + products** (`GuidelinesPanel`,
    `FormulasPanel` in `app.jsx`) — static clinical reference content, no
    patient data.
@@ -757,7 +845,21 @@ under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
 - **Lawful basis:** Sec 26(6) medical necessity + professional
   confidentiality, documented at the top of `gas-backend.gs`. This covers
   *treatment* processing only — a new secondary use (research/QI export)
-  would need its own basis.
+  would need its own basis. *(Citation under review since 2026-09-24: the
+  Act's health-care exception is Sec 26(5)(a). `BACKLOG.md` tracks the DPO's
+  confirmation and the five places that carry "26(6)". Don't cite 26(6) in
+  anything new.)*
+- **Nursing I/O (`Nursing_Log`, 2026-09-24)** is a new flow of health data. Its
+  DPIA-lite is `docs/NURSING_FORM_SPEC.md` § 6:
+  - treatment only;
+  - no free text, and the feed is a key;
+  - every write is audited, and a delete's start row is written first;
+  - no per-nurse metric;
+  - nothing is stored on the device.
+
+  **Its switch, `NURSING_LOG_ENABLED`, stays unset until the DPO signs that
+  table off (D7).** Switched off, nothing is collected. Retention is indefinite
+  for now (D6), and is part of the open retention item.
 - **Erasure:** `pseudonymizePatient()` in `gas-backend.gs`, admin-only,
   clears name/initials/dob but retains de-identified clinical history for
   medical-record retention duty. Residual risk: `sessionId` is derived from

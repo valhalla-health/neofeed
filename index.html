@@ -400,6 +400,9 @@
   }
   .rail-item.active .count { background: #fff; border-color: var(--brand-line); color: var(--brand-ink); }
   .rail-item.crit .count { background: var(--crit-bg); border-color: var(--crit-line); color: var(--crit); }
+  /* Cautions only — the badge wears the worst thing it counts (alarm fatigue,
+     2026-09-24). Red is kept for an unacknowledged critical. */
+  .rail-item.warn .count { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-ink); }
 
   .rail-foot {
     margin-top: auto; padding: 10px 8px; font-size: 11px; color: var(--ink-3);
@@ -1544,6 +1547,12 @@
       border: 1.5px solid var(--surface);
       pointer-events: none;
     }
+    /* Only the Alerts badge claims a severity (alarm fatigue, 2026-09-24).
+       Cautions are the .chip.warn pairing — 6.8:1, where white on --warn is
+       3.6:1 — so an unacknowledged critical stays the one solid red. The
+       Dashboard's entry count is information, not an alarm: neutral. */
+    .bnav-badge.warn    { background: var(--warn-bg); color: var(--warn-ink); border-color: var(--warn-line); }
+    .bnav-badge.neutral { background: var(--bg-2); color: var(--ink-2); border-color: var(--line); }
 
     /* ── iOS: prevent auto-zoom on input focus (requires font-size ≥ 16px) ── */
     .inp, .sel { font-size: 16px !important; }
@@ -1591,8 +1600,12 @@
     .patient-mc .pmc-diagnosis { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; }
     .patient-mc .pmc-stats { font-size: 12px; color: var(--ink-2); gap: 14px; font-family: "IBM Plex Mono", monospace; }
     .patient-mc .pmc-lbl { color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
-    .patient-mc .pmc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
-    .patient-mc .pmc-actions .btn { width: 100%; justify-content: center; min-height: 44px; }
+    /* Three actions since 2026-09-24 (UX roadmap #3): ⇄ bed, Edit, Open —
+       the desktop row's order. One row from 360px up; below that a Thai
+       label wraps at its word break inside a taller button rather than
+       clipping (measured 280–430px in Chromium, verify-mobile-bed-button). */
+    .patient-mc .pmc-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 2px; }
+    .patient-mc .pmc-actions .btn { width: 100%; justify-content: center; text-align: center; min-height: 44px; }
 
     /* ── Trend graph: stack controls, scrollable chips with snap ── */
     .trend-controls > div:first-child { width: 100%; }
@@ -1744,6 +1757,61 @@
   .guidelines-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   /* Alert summary 3-col tiles */
   .alert-summary-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+  /* ── Admin census (UX roadmap #2, 2026-09-24) — one card per ward. Cards,
+     not a table, so a phone gets one column and the page never scrolls
+     sideways (verify-admin-census § 4); min() keeps the 240px track from
+     overflowing a 280px screen. Status colours are the -ink cuts, and only
+     on a number that is a finding. */
+  .census-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; }
+  .census-ward { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+  .census-ward.total { background: var(--bg-2); }
+  .census-ward-h { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; }
+  .census-ward-name { font-size: 16px; font-weight: 600; color: var(--brand-2); letter-spacing: -0.01em; }
+  .census-beds { font-size: 12px; color: var(--ink-3); }
+  .census-bar { height: 6px; margin: 8px 0 10px; border-radius: 999px; background: var(--line-2); overflow: hidden; }
+  .census-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--brand-3); }
+  .census-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; margin-top: 8px; }
+  .census-stat .v { font-size: 20px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+  .census-stat .l { font-size: 11px; color: var(--ink-3); line-height: 1.3; }
+  .census-stat.ok   .v { color: var(--ok-ink); }
+  .census-stat.warn .v { color: var(--warn-ink); }
+  .census-stat.crit .v { color: var(--crit-ink); }
+  .census-note  { margin-top: 10px; font-size: 12px; color: var(--ink-3); line-height: 1.5; }
+  .census-flags { margin-top: 10px; padding: 8px 10px; font-size: 12.5px; line-height: 1.5; color: var(--warn-ink); background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: var(--r-sm); }
+  /* ── Nursing I/O (UX roadmap #4, 2026-09-24) — the Dashboard's daily-totals
+     card and its form. Each row is a button (it opens that day's record), so
+     it is at least 44px tall on any device; its figures wrap onto more lines
+     rather than widen the page (verify-nursing-frontend § 6). */
+  .nio-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .nio-head .log-badge { font-size: 11px; padding: 3px 9px; }
+  .nio-add { min-height: 44px; }
+  .nio-empty, .nio-more { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; }
+  .nio-more { margin-top: 8px; }
+  .nio-list { border: 1px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
+  .nio-row { display: grid; grid-template-columns: minmax(92px, auto) minmax(0, 1fr) auto; align-items: center; gap: 4px 12px;
+    min-height: 44px; padding: 8px 12px; border-top: 1px solid var(--line-2); background: var(--surface); cursor: pointer; }
+  .nio-row:first-child { border-top: 0; }
+  .nio-row:hover { background: var(--bg-2); }
+  .nio-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+  .nio-date { display: flex; flex-direction: column; font-size: 13px; line-height: 1.3; }
+  .nio-dol { font-size: 11px; color: var(--ink-3); }
+  .nio-vals { display: flex; flex-wrap: wrap; gap: 2px 14px; min-width: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+  .nio-who { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11.5px; color: var(--ink-3); }
+  /* .btn.sm is two classes and 32px on a mouse-driven desktop; this must outrank it. */
+  .btn.nio-del { min-width: 44px; min-height: 44px; justify-content: center; }
+  .nio-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .nio-sum { padding: 8px 10px; font-size: 13px; color: var(--ink-2); background: var(--bg-2); border-radius: var(--r-sm); }
+  .nio-note { font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
+  .nursing-modal .picker-h .icon-btn { width: 44px; height: 44px; flex-shrink: 0; }
+  @media (max-width: 480px) {
+    /* Date and who on the first line, the figures under them at full width. */
+    .nio-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .nio-vals { grid-column: 1 / -1; grid-row: 2; }
+  }
+  @media (max-width: 340px) { .nio-grid { grid-template-columns: minmax(0, 1fr); } }
+  /* Recent log entries keeps its seven columns; on a phone it scrolls inside
+     its own card instead of widening the page. */
+  .admin-recent { overflow-x: auto; }
   /* Step 6 Ca · PO₄ · Ca:P total tiles: 3-col → 1-col on mobile (see mobile block) */
   .capo4-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   /* Feeding advancement 5-col vertical stack */
@@ -1804,13 +1872,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=4992b1cc30"></script>
+  <script src="data.js?v=3832109c5d"></script>
   <script src="compiled/icons.js?v=8ad9fe42c3"></script>
-  <script src="compiled/calculator.js?v=d6ffb4afd6"></script>
+  <script src="compiled/calculator.js?v=691ec06fff"></script>
   <script src="compiled/fenton.js?v=444c073f49"></script>
-  <script src="compiled/registry.js?v=3394fee20f"></script>
-  <script src="compiled/log.js?v=4cf7029149"></script>
-  <script src="compiled/app.js?v=1ffcc1084d"></script>
+  <script src="compiled/registry.js?v=f2b9d68b3b"></script>
+  <script src="compiled/log.js?v=58c10a8087"></script>
+  <script src="compiled/app.js?v=401b6addfe"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

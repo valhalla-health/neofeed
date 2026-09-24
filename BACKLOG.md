@@ -176,6 +176,41 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] 🩺⚖️ **product · UX roadmap #4: the nursing I/O form + PDPA — ⚙️ BUILT 2026-09-24, SWITCHED
+      OFF: `NURSING_LOG_ENABLED` waits for D7 (DPO sign-off).** Pp decided § 8 of `docs/NURSING_FORM_SPEC.md`
+      the same day, and it was built to those answers (`CHANGELOG.md` § Session 2026-09-24 (5)):
+      - daily totals only (D1);
+      - an "I/O ประจำวัน" card + form on each infant's Dashboard;
+      - the weight goes to the growth store;
+      - the nurses' record is a one-tap offer on a new order's Intake/Output, and the weight is
+        prefilled (D4);
+      - nurses compute but no longer save or Submit orders (D5).
+
+      Pinned by `test/verify-nursing-backend.cjs` and `test/verify-nursing-frontend.cjs`.
+
+      **To close:**
+      1. Release the frontend and `clasp push` the backend, in either order. Both are inert while the
+         switch is off, so they can ride any release.
+      2. D7: the DPO signs off spec § 6 (and the 26(5)(a) citation below).
+      3. Set the Script Property `NURSING_LOG_ENABLED` = `true`. **Only after step 1's frontend is
+         live**: an old frontend has no I/O card, and its nurses would be refused order saves with
+         nowhere to record I/O. To switch it off, delete the property (it takes effect on the next
+         sync).
+
+      **Still open:**
+      - D6: retention is indefinite for now, to settle with the DPO.
+
+      D4 is settled (Pp: "หมอพิมพ์เอง"). The prescriber types Intake/Output, and the nurses' record is
+      a one-tap offer. The weight is prefilled from the latest measurement on or before the order's
+      day (`CHANGELOG.md` § 2026-09-24 (6)).
+- [ ] ⚖️ **PDPA · The lawful-basis citation reads "Sec 26(6)"; the Act's health-care exception is Sec
+      26(5)(a)** (medical diagnosis, health care, medical treatment, under professional confidentiality).
+      Found 2026-09-24 while reviewing the nursing form. **DPO to confirm** (it is part of the nursing
+      form's D7), then correct all five at once: `gas-backend.gs` (the header's "PDPA lawful basis"
+      line, and the note above `pseudonymizePatient`), `REFERENCE.md` § PDPA, `PRD.md`
+      § 5, and `app-walkthrough.md` § 6. It is legal text, so it is not edited on an agent's reading
+      alone.
+
 - [ ] 🩺 **safety · A *persistent* low NPE:AA has nowhere to show, now that it no longer stops the
       order.** Condition attached to Praew's 2026-09-23 sign-off of the NPE:AA downgrade (PR #96;
       `CHANGELOG.md` § Session 2026-09-23 (b)). Only `crit` alerts are persisted — `calcInput.critOverride`
@@ -230,10 +265,10 @@ clinical judgement. Everything else is engineering sequencing.
         be cleared or deleted; with no admit date the logger caps DOL at the last stored one and
         overwrites it; the weight series is not sorted before plotting; a blank date in `LogDateModal`
         silently becomes today; a blank sex cell charts as a boy; the Dashboard GIR band is 8–10 while
-        the calculator's is 4–12; a MEN row switches regime differently on the trend; the standing info
-        reminder paints the Alerts badge red; the strip prints a raw delta float; alerts keep running
-        for discharged sessions and the admin tile counts them; on a phone Formulas and the Admin
-        dashboard are unreachable.
+        the calculator's is 4–12; a MEN row switches regime differently on the trend; the strip prints a
+        raw delta float; on a phone Formulas is unreachable. *(Closed 2026-09-24 by the UX roadmap: the
+        info reminder no longer lights the Alerts badge, discharged sessions raise no alerts and the
+        admin tile no longer counts them, and the Admin dashboard has a phone tab.)*
 - [ ] 🧱 **infra · A hand-stubbed GAS harness can pass its "must reject" cases for the wrong reason.**
       `test/verify-input-validation.cjs:25` is `throws(name, fn)` — it asserts only that *something* was
       thrown, never what. It is the one harness left that stubs the GAS globals by hand (the other five
@@ -362,6 +397,10 @@ clinical judgement. Everything else is engineering sequencing.
       Calculator, so a nurse recording urine output re-saves the whole order (2026-09-11 review P2).
       Proposed: a separate nursing-entry screen (weight, I/O per shift, feeds given) writing its own
       columns, then narrow order writes to prescribers. **Clinical workflow decision — Praew's.**
+      ➡️ *2026-09-24: now designed as `docs/NURSING_FORM_SPEC.md` — see § Next, UX roadmap #4; this
+      decision is its D5.* ➡️ *2026-09-24 (5): **decided and built.** Pp: "พยาบาลบันทึกหรือ submit
+      ไม่ได้ ได้แค่ใช้ calculator". It goes live with the nursing form's switch (§ Next), not
+      before.*
 - [ ] 💊 **product · Pharmacist role** — read-only plus a received/verified/compounded status per
       order. The printed form now carries HN/AN boxes, saved-by/time/revision and changes-vs-previous
       (2026-09-11); the status loop is not built.
