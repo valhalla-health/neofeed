@@ -1046,7 +1046,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (blockedByUnknownWrite(!!opts?.quiet)) return false;
     const rec0 = patients.find((p) => p.sessionId === sessionId);
     const previousWeights = rec0?.weights || [];
-    const derivedDob = rec0?.dob || "";
+    const erased = String(rec0?.name || "").startsWith("[PDPA-erased");
+    const derivedDob = erased ? "" : rec0?.dob || "";
     const baseRecord = serverPatientsRef.current.get(sessionId);
     setPatients((prev) => prev.map(
       (p) => p.sessionId === sessionId ? { ...p, weights } : p
