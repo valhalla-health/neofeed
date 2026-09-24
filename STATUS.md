@@ -43,12 +43,21 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-24, 18:56 ICT** · 🟢 **Backend `@58` and frontend `release` = `b7bd722` are live.**
-Caught up here, in the next PR on the repo, as the release comments on #110 and #112 asked.
-- **Frontend:** PR #112 (`main` → `release`), merged on Praew's instruction at 10:56 UTC / 17:56 ICT. It
-  carries #111, `main` at `2731387`. `CONSTANTS_VERSION` is still `2026-09-18.1`. Served bytes were
-  verified on both hosts, and `verify-release.mjs 77ed485` failed only on the six files that changed, as a
-  negative control (comment on #112).
+**Updated 2026-09-24, 20:40 ICT** · 🟡 **Backend `@58` and frontend `release` = `971c370` are live, and
+both carry the PDPA defect in the first bullet.** Caught up here in the next PR on the repo, as the release
+comments ask: #110 and #112 by #113, and #114 by #116.
+- 🔴 **PDPA defect, live from about 14:22 ICT: a growth-chart or nurse-form weight save on a PDPA-erased
+  record writes its date of birth back.** `@57`/`@58`'s `updateWeights` fills an empty dob cell (F2, #108),
+  and the erasure had emptied it. Every frontend since `77ed485` sends a dob derived from the admission
+  date, which the erasure keeps. Fixed in #116, **not deployed**: its backend half needs `clasp` to `@59`
+  on Praew's go-ahead, and closes the hole alone. Whether any erased row was already refilled can only be
+  read from the live Sheet (`BACKLOG.md` § Now; `CHANGELOG.md` 2026-09-24 (9)).
+- **Frontend:** PR #114 (`main` → `release`), merged by `praewxtvl` at 13:24:37 UTC / 20:24 ICT, released
+  #113 (`main` at `4434a77`), so `release` = `971c370`. Its post-release check belongs in a comment on #114,
+  and there was none at 20:31 ICT. Before it, PR #112 (`main` → `release`), merged on Praew's instruction
+  at 10:56 UTC / 17:56 ICT, carried #111, `main` at `2731387`. `CONSTANTS_VERSION` is still `2026-09-18.1`.
+  #112's served bytes were verified on both hosts, and `verify-release.mjs 77ed485` failed only on the six
+  files that changed, as a negative control (comment on #112).
 - **Backend:** `@58` since 2026-09-24, 17:58 ICT: #111's nursing backend, deployed with `clasp` on
   Praew's instruction. It is `gas-backend.gs` at `2731387`, byte for byte, and inert while
   `NURSING_LOG_ENABLED` is unset. `@57`, live from 14:17 ICT, carried #108 (F2, BE-1..4) and #109 (the
@@ -59,10 +68,9 @@ Caught up here, in the next PR on the repo, as the release comments on #110 and 
 - ⏸ **The nurse form waits for D7**, the DPO's sign-off (`BACKLOG.md` § Next). Only then set
   `NURSING_LOG_ENABLED`.
 - ⏳ **PR #113, one source for weight and day of life (and Center Point's DOL): merged into `main` on
-  Praew's instruction ("merge แล้ว deploy"), and released straight after in one `main` → `release` PR.**
+  Praew's instruction ("merge แล้ว deploy"), and released by PR #114 at 20:24 ICT (`release` = `971c370`).**
   Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-09-24 (8)). Its
-  post-release check is a comment on that release PR, and this banner catches up in the next PR on the
-  repo.
+  post-release check belongs in a comment on #114.
   ⚠️ **It changes what the ward sees:**
   - the patient strip no longer shows a weight while it is typed;
   - a new order starts from the strip's weight;

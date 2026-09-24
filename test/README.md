@@ -250,7 +250,8 @@ installed) to get the real measurement.
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
 `verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
-`verify-publish-lock.cjs`, `verify-build-shells.cjs` and `verify-chula-google-signin.cjs` need **no dependencies at all** — run them directly:
+`verify-publish-lock.cjs`, `verify-build-shells.cjs`, `verify-chula-google-signin.cjs` and
+`verify-pdpa-erased-dob-backend.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
 node test/verify-build-shells.cjs
@@ -264,6 +265,7 @@ node test/verify-provenance-stamp.cjs
 node test/verify-sync-freshness.cjs
 node test/verify-publish-lock.cjs
 node test/verify-chula-google-signin.cjs
+node test/verify-pdpa-erased-dob-backend.cjs
 ```
 
 `verify-sync-gate-and-poll.cjs` needs the jsdom set below, and additionally
@@ -283,7 +285,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
 `verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
-`verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs` and
+`verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs`, `verify-pdpa-erased-dob-frontend.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -1079,6 +1081,28 @@ harnesses that fail on `9f3357d`.
 
 The §6a scenario is the one that also passes on `b64c7fa`. It pins that the old behaviour is kept
 until the switch is on.
+
+## PDPA: an erased date of birth stays erased, 2026-09-24 — two harnesses
+
+A weight save wrote the date of birth back into a PDPA-erased record (`CHANGELOG.md` 2026-09-24 (9)).
+F2's `updateWeights` fills an empty dob cell, and the erasure had emptied it. F2 itself is pinned by
+`verify-backend-batch-0924.cjs` § F2, and the registry writes by `verify-review-0917-backend-writes.cjs`
+§ SEC-B6.
+
+**`verify-pdpa-erased-dob-backend.cjs`** (21 assertions, no npm dependencies; 6 fail on `2731387`,
+`@58`'s source, run as `NEOFEED_GAS_SRC=<that gas-backend.gs>`). It uses `gas-vm-sandbox.cjs`:
+- § 1: a device that synced after the erasure sends the dob it derives from the retained admission date,
+  which is the erased date of birth. The weight saves and the dob cell stays empty, for a doctor and for
+  a nurse;
+- § 2: a device that synced before the erasure sends the real dob. It is not written back either;
+- § 3, the control: the same record, never erased, still gets its dob. It passes before and after the
+  fix, which shows the harness can see a refill.
+
+**`verify-pdpa-erased-dob-frontend.cjs`** (7 assertions; the jsdom set). It runs the real `<App/>`
+through `review-0917-boot.cjs`. A Growth-chart weight save on an erased record sends no `dob`, and the
+same record never erased still sends its derived one. Scenario 1 fails on `4434a77`, from the sources
+and from `compiled/`. A device that synced before the erasure cannot be caught here, because its copy
+still shows the real name; the backend harness's § 2 covers it.
 
 ## Note on the source workbook
 

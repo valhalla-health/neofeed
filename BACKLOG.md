@@ -32,6 +32,16 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] ⚖️ **PDPA · Deploy the erased-dob fix (#116): backend `@59` with `clasp`, then its frontend half in the
+      next `main` → `release` PR.** **Praew's go-ahead.** Until `@59` is live, a growth-chart or nurse-form
+      weight save on a PDPA-erased record writes its date of birth back (`CHANGELOG.md` 2026-09-24 (9)).
+      The backend alone closes it. No column, scope or migration; `@58` is the rollback.
+- [ ] ⚖️ **PDPA · Check the live `Patient_Registry` for erased rows the refill already reached.**
+      **Praew's to do** (Sheet access). Look for rows whose name (B) starts `[PDPA-erased` and whose dob (G)
+      is not empty. A refill could only have run from about 14:22 ICT on 2026-09-24. `Audit_Log`'s
+      `pseudonymize` rows name every erased sessionId, and none means there is nothing to check. For a hit,
+      either clear that G cell by hand and note it here, or erase the record again once `@59` is live. The
+      second way is audited, but it re-dates the marker to that day.
 - [ ] 🩺 **safety · Before the 2026-09-22 TPN-team frontend ships, tell pharmacy and the TPN team what
       changed** (`CHANGELOG.md` 2026-09-22, "The TPN team's feedback"). **Praew's to do.**
       - The printed order is now **two sheets, for double-sided printing**. The front is the KCMH paper
