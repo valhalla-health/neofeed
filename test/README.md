@@ -977,6 +977,38 @@ legacy tolerance on its date check.
 the other component harnesses. The jsdom sections render into their own `#probe` node: `app.jsx`
 mounts the whole app into `#root` on its last line.
 
+## The UX roadmap, 2026-09-24 — three harnesses
+
+One per item. Each fails against `68e302f` by reproducing the reported symptom, not merely by
+missing a new function. Each mounts the real modules in jsdom, like the harnesses above.
+
+**`verify-alarm-fatigue.cjs`** (57 assertions; 39 fail before). **The Alerts badge counts only
+unacknowledged critical and caution alerts, and is coloured by the worst.** Against `68e302f`:
+- an in-range PN infant carries a red "1", which is the info reminder;
+- a caution-only infant reads a red "2";
+- a discharged infant still raises `gir-high`;
+- an acknowledged stale weight is back the next morning.
+
+§ 6 mounts the real `<App/>` in local mode on a fixture census, swapped into `MOCK_PATIENTS` before
+`app.jsx` loads, and reads the rail and the phone tab bar.
+
+**`verify-admin-census.cjs`** (58 assertions; 44 without a browser; 25 fail before). **The admin
+census and its phone tab.**
+- `buildCensus` on a 13-record fixture covers beds, parked, drafts, a double-booked bed, the
+  7-day window edges and acknowledgement independence.
+- **It checks that no name or NeoFeed ID reaches the census.**
+- An admin session of the real App finds an Admin tab on the phone.
+- § 4 renders the real page into the shell CSS and measures it in Chromium at 280–1280 px.
+
+**`verify-mobile-bed-button.cjs`** (42 assertions; 24 without a browser; 16 fail before). **The
+phone card's ⇄ opens the one `TransferBedModal`.** It drives a real move (the bed, the "Previous
+beds" hop, the frozen merge base) and a real park from the card. It checks that archived cards get
+no ⇄. It measures the three-action row at 280–430 px.
+
+**The two Chromium sections** use playwright when it can be required, and print `SKIP` when it
+cannot, as CI installs no browser, like `verify-mobile-fit.cjs`. Locally, with the pre-installed
+Chromium and a global playwright: `NODE_PATH="$(npm root -g)" node test/<file>`.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

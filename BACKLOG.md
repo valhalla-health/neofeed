@@ -176,6 +176,20 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] 🩺⚖️ **product · UX roadmap #4: the nursing I/O form + PDPA — spec drafted, waiting on Pp.**
+      `docs/NURSING_FORM_SPEC.md` has the design: a `Nursing_Log` tab, per-shift entry, the Calculator
+      offering the 24 h totals as a one-tap suggestion, then narrowing TPN-order writes to prescribers
+      as a later phase. It also has a DPIA-lite (Vera), a red team (Omen), cell and quota arithmetic
+      (Sindri) and a test plan. **Blocked on D1–D7 in its § 8** — shifts and which 24 h a total covers,
+      fields, who writes, the Calculator link, when to narrow order writes, retention, and DPO sign-off.
+      Building may start once D1–D5 are answered; **deploying waits for D6–D7**. Supersedes the § Later
+      item "Decide who may create and Submit a TPN order", which is now its Phase 3 (D5).
+- [ ] ⚖️ **PDPA · The lawful-basis citation reads "Sec 26(6)"; the Act's health-care exception is Sec
+      26(5)(a)** (medical diagnosis, health care, medical treatment, under professional confidentiality).
+      Found 2026-09-24 while reviewing the nursing form. **DPO to confirm**, then correct all five at
+      once: `gas-backend.gs:58` and `:3101`, `REFERENCE.md` § PDPA, `PRD.md` § 5, `app-walkthrough.md`
+      § 6. Legal text, so not edited on an agent's reading alone.
+
 - [ ] 🩺 **safety · A *persistent* low NPE:AA has nowhere to show, now that it no longer stops the
       order.** Condition attached to Praew's 2026-09-23 sign-off of the NPE:AA downgrade (PR #96;
       `CHANGELOG.md` § Session 2026-09-23 (b)). Only `crit` alerts are persisted — `calcInput.critOverride`
@@ -230,10 +244,10 @@ clinical judgement. Everything else is engineering sequencing.
         be cleared or deleted; with no admit date the logger caps DOL at the last stored one and
         overwrites it; the weight series is not sorted before plotting; a blank date in `LogDateModal`
         silently becomes today; a blank sex cell charts as a boy; the Dashboard GIR band is 8–10 while
-        the calculator's is 4–12; a MEN row switches regime differently on the trend; the standing info
-        reminder paints the Alerts badge red; the strip prints a raw delta float; alerts keep running
-        for discharged sessions and the admin tile counts them; on a phone Formulas and the Admin
-        dashboard are unreachable.
+        the calculator's is 4–12; a MEN row switches regime differently on the trend; the strip prints a
+        raw delta float; on a phone Formulas is unreachable. *(Closed 2026-09-24 by the UX roadmap: the
+        info reminder no longer lights the Alerts badge, discharged sessions raise no alerts and the
+        admin tile no longer counts them, and the Admin dashboard has a phone tab.)*
 - [ ] 🧱 **infra · A hand-stubbed GAS harness can pass its "must reject" cases for the wrong reason.**
       `test/verify-input-validation.cjs:25` is `throws(name, fn)` — it asserts only that *something* was
       thrown, never what. It is the one harness left that stubs the GAS globals by hand (the other five
@@ -362,6 +376,8 @@ clinical judgement. Everything else is engineering sequencing.
       Calculator, so a nurse recording urine output re-saves the whole order (2026-09-11 review P2).
       Proposed: a separate nursing-entry screen (weight, I/O per shift, feeds given) writing its own
       columns, then narrow order writes to prescribers. **Clinical workflow decision — Praew's.**
+      ➡️ *2026-09-24: now designed as `docs/NURSING_FORM_SPEC.md` — see § Next, UX roadmap #4; this
+      decision is its D5.*
 - [ ] 💊 **product · Pharmacist role** — read-only plus a received/verified/compounded status per
       order. The printed form now carries HN/AN boxes, saved-by/time/revision and changes-vs-previous
       (2026-09-11); the status loop is not built.

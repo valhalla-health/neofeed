@@ -531,7 +531,13 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    screen doesn't read as the ward filter having broken.
    Below the gate: patient list, sorted NICU → iso → SCN
    (then numerically within each ward). Desktop: table. Mobile: tappable
-   cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, Edit/Open).
+   cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, ⇄/Edit/Open).
+   **Both layouts' ⇄ open the one `TransferBedModal`** (the card's since
+   2026-09-24). It is the only path that appends a "Previous beds" hop and
+   the only home of พักไว้ก่อน, the one way to swap two occupied beds, so a
+   bed move must never be given a second, slimmer modal. Edit's `BedSelect`
+   corrects a bed; it does not record a move. A parked infant's card reads
+   `⇄ เลือกเตียง`. `test/verify-mobile-bed-button.cjs` pins it.
    Each active patient carries a `✓ LOGGED` / `NEEDS ENTRY` badge
    (`.log-badge`) for "does this patient have a Daily_Log entry dated
    today", on both layouts. The stats strip above the list (Active / Total
@@ -693,8 +699,35 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    measurements. Uses `D.gaToDecimalWeeks` for the true decimal x-axis.
 5. **Alerts** (`AlertCenter` in `app.jsx`) — flags things like stale weight
    (warn ≥3 days, critical ≥7 days since last entry). Acknowledge is
-   per-alert and persisted.
+   per-alert and persisted (per device, `neofeed_acked_<sessionId>`).
+   **The badge counts only what someone can act on** (alarm fatigue,
+   2026-09-24): `alertBadgeFor` counts unacknowledged `crit` + `warn`, never
+   `info`, and returns the worst level, so the rail/bottom-nav badge is red
+   only for a critical and amber (`.warn`) for cautions alone. Before this
+   the standing electrolyte reminder lit it on every infant with an order,
+   in red. Three rules ride with it. `computeAlerts` returns nothing for a
+   session that has left the unit (`D.isOnUnit`). The PN electrolyte
+   reminder appears only while the latest submitted order is parenteral
+   (`isParenteralEntry`: a "TPN …" route, or no route at all). An alert may
+   carry its own acknowledge key (`ack`), and weight-stale uses it: it is
+   acknowledged per missing weight and level, so it returns when it
+   escalates past 7 days rather than every morning. The page sorts
+   unacknowledged, then crit → warn → info. The Dashboard's entry count on
+   the phone tab is a neutral badge: a count is not an alarm.
+   `test/verify-alarm-fatigue.cjs` pins all of it.
 6. **Admin dashboard** (`AdminDashboard`, admin only) — cross-patient view.
+   Since 2026-09-24 it leads with a **census** (`buildCensus`), one card per
+   ward and one for the unit. Each shows beds occupied/free (NICU incl. iso
+   = 20, SCN = 30), active, logged today, needs entry (drafts named), รอเตียง,
+   and infants with a critical / a caution. Below that come 7 days of
+   admissions and departures, and flags for two infants in one bed, no bed,
+   and off-list beds. It reads the ward screens' own helpers, so logged +
+   needs entry = active, as on the ward tiles. The alert columns count
+   infants at their worst level and are deliberately *not* net of any
+   device's acknowledgements. **It names beds, never babies**, and its
+   harness fails if a name or NeoFeed ID reaches it. Admins reach it on a
+   phone from an **Admin** tab (admin has no Calc tab, so the bar stays at
+   five). `test/verify-admin-census.cjs`.
 7. **Guidelines (ESPGHAN)** / **Formulas + products** (`GuidelinesPanel`,
    `FormulasPanel` in `app.jsx`) — static clinical reference content, no
    patient data.
@@ -757,7 +790,10 @@ under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
 - **Lawful basis:** Sec 26(6) medical necessity + professional
   confidentiality, documented at the top of `gas-backend.gs`. This covers
   *treatment* processing only — a new secondary use (research/QI export)
-  would need its own basis.
+  would need its own basis. *(Citation under review since 2026-09-24: the
+  Act's health-care exception is Sec 26(5)(a). `BACKLOG.md` tracks the DPO's
+  confirmation and the five places that carry "26(6)". Don't cite 26(6) in
+  anything new.)*
 - **Erasure:** `pseudonymizePatient()` in `gas-backend.gs`, admin-only,
   clears name/initials/dob but retains de-identified clinical history for
   medical-record retention duty. Residual risk: `sessionId` is derived from
