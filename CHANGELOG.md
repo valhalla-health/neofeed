@@ -35,9 +35,9 @@ What changed:
 - **`fenton.jsx` `GrowthVelocity`:** in those two states the readout says **"Weight below birth
   weight"**, with `BW 1,300 g · -7.7%` under it. Past DOL 14 it is amber and adds "not regained by
   DOL 14", matching the Alerts page's caution; before that it is neutral.
-  ⚠️ **One deliberate departure from the request's wording:** an infant exactly AT birth weight reads
-  **"Weight at birth weight"**, because "below" would contradict the two numbers on screen. That is the
-  reported infant if its birth weight is 1,200 g. One word to change if Pp wants "below" there too.
+  An infant exactly AT birth weight reads **"Weight at birth weight"**, because "below" would
+  contradict the two numbers on screen. That is the reported infant if its birth weight is 1,200 g.
+  **Pp confirmed "at" the same day ("ใช้ at ได้")**, so don't "correct" it to "below".
 - **`app.jsx` `computeAlerts`:** unchanged except the title of the past-DOL-14 caution for an infant
   exactly at birth weight, which is now "Weight not above birth weight" instead of "Birth weight not
   regained".
