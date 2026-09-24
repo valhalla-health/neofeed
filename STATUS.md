@@ -76,6 +76,9 @@ Caught up here, in #115, the next PR on the repo, as the release comment on #114
   - the Calculator header names another day's order by date;
   - the Edit modal refuses an admission correction that would move a measurement onto the day of birth.
   - CP's calculator page asks for the birth date instead of a DOL.
+- ⏳ **PR #115, docs only: merged into `main` on Praew's instruction.** `REFERENCE.md` § Backend gains
+  step 5, commit the clasp mirror and push it, and this banner catches up with #114. Nothing served
+  changes, so it rides the next `main` → `release` PR.
 
 **Previous (2026-09-22, 23:02 ICT – 2026-09-24, 14:17 ICT):** backend `@56`, and frontend releases from
 `31a4226` onward, which the bullets below record as they were written.
