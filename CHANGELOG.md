@@ -7,6 +7,49 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (9) — PDPA: a weight save wrote an erased record's date of birth back
+
+Pp's bug report, the same day. **Live from about 14:22 ICT on 2026-09-24 until `@59`; fixed in #116.**
+`@57` (14:17 ICT) and `@58` carry F2 (#108), and every frontend since `77ed485` (#110, 14:22 ICT) sends a
+dob with each growth-chart and nurse-form weight save. Together, a weight save on a PDPA-erased record
+wrote a date of birth back into it, undoing part of a data-subject erasure.
+
+How:
+- `pseudonymizePatient` (PDPA s.33) empties name, initials and dob (B, C, G). Since SEC-B6 (2026-09-17),
+  `_mergePatient` keeps them empty on every registry write: it looks for the `[PDPA-erased` marker in B.
+- F2 taught `updateWeights` to write the client's dob into an **empty** G, to settle legacy records that
+  never had one. `updateWeights` is a positional write of its own and never goes through `_mergePatient`,
+  so it had no erasure test. An erased row's G is empty too.
+- Sync gives every record without a dob one derived from its admission date and first weight row's DOL
+  (`D.dobFromAdmission` since #113). The erasure keeps both, as clinical data, so for an erased record
+  the derivation rebuilds the erased birth date exactly. `handleWeightUpdate` sent it. A device that
+  synced before the erasure sent the real one.
+
+Fix:
+- **Backend:** `_isPdpaErased(row)` is now the one erasure test, used by `_mergePatient` and by
+  `updateWeights`, which skips the dob refill for an erased row. The weight still saves.
+- **Frontend:** `handleWeightUpdate` sends no dob for a record whose name carries the marker. Only the
+  server can refuse a device that synced before the erasure, because that device's copy still shows the
+  real name.
+- **Left alone:** sync still derives a dob for an erased record, for DOL. For an existing record it is
+  never displayed or stored. After this fix it leaves the device only inside an Edit, whose modal
+  computes its own dob from the admission date anyway, and `_mergePatient` keeps that out of an erased
+  row (SEC-B6).
+
+Tests:
+- **`test/verify-pdpa-erased-dob-backend.cjs`** (21 assertions, no npm dependencies). § 1 is a device that
+  synced after the erasure (doctor and nurse), § 2 one that synced before it, and § 3 the same record never
+  erased. 6 fail on `2731387`, `@58`'s source byte for byte; the § 3 control passes on both.
+- **`test/verify-pdpa-erased-dob-frontend.cjs`** (7 assertions, jsdom, the real `<App/>`). A Growth-chart
+  save on an erased record sends no `dob`, and the never-erased control still sends its derived one.
+  Scenario 1 fails on `4434a77` (#113, which #114 released), from the sources and from `compiled/`.
+
+**Deploy: merged into `main` on Praew's instruction ("merge แล้ว deploy").** The backend goes live as `@59`
+with `clasp` (`REFERENCE.md` § Backend) and the frontend in one `main` → `release` PR, straight after; the
+checks are comments on that release PR. It adds no column, scope or migration, and `@58` is the backend's
+rollback. The backend alone closes the hole: it refuses the derived dob and the real one. Whether any
+erased row was already refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
+
 ## Session 2026-09-24 (8) — One source for weight and day of life, NeoFeed and Center Point (Pp)
 
 Pp: *"น้ำหนัก และ day of life ของทุกที่ ในคนๆเดียวกัน ตรงกันทุกหน้าจอ ไม่ว่าจะไปอยู่ตรงไหน ให้เอามาจากที่เดียวกัน"*,

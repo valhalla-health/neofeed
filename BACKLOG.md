@@ -32,6 +32,12 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] ⚖️ **PDPA · Check the live `Patient_Registry` for erased rows the refill already reached.**
+      **Praew's to do** (Sheet access). Look for rows whose name (B) starts `[PDPA-erased` and whose dob (G)
+      is not empty. A refill could only have run from about 14:22 ICT on 2026-09-24. `Audit_Log`'s
+      `pseudonymize` rows name every erased sessionId, and none means there is nothing to check. For a hit,
+      either clear that G cell by hand and note it here, or erase the record again once `@59` is live. The
+      second way is audited, but it re-dates the marker to that day.
 - [ ] 🩺 **safety · Before the 2026-09-22 TPN-team frontend ships, tell pharmacy and the TPN team what
       changed** (`CHANGELOG.md` 2026-09-22, "The TPN team's feedback"). **Praew's to do.**
       - The printed order is now **two sheets, for double-sided printing**. The front is the KCMH paper
@@ -374,6 +380,13 @@ clinical judgement. Everything else is engineering sequencing.
       registry read still be served when its `Audit_Log` row cannot be written (today: yes, fails
       open)? Should Staff column H keep plaintext temp passwords? Should a session that *expires*
       (not an explicit logout) also clear calculator prefill and alert acknowledgements?
+- [ ] ⚖️ **PDPA · An erasure leaves the date of birth recoverable — Praew / DPO.** `pseudonymizePatient`
+      blanks the dob (G), but the clinical data it keeps gives it back. Every `Daily_Log` row has a date
+      and a DOL (dob = date − (DOL − 1)). On a legacy record, so do the admission date and the first
+      weight row's DOL: `test/verify-pdpa-erased-dob-backend.cjs` § 1 asserts that equality. Decide whether
+      that is acceptable under the medical-necessity basis, or what else an erasure must change. Found on
+      2026-09-24 while fixing the dob refill (#116); the only residual risk recorded before was the
+      `sessionId`.
 - [ ] 🧹 **chore · Stop publishing the six `.jsx` sources in the next release.** `.assetsignore` and
       `_config.yml` kept them for the release that introduced the build step only, so that a browser
       still holding the previous shell could finish loading. That release has been live since

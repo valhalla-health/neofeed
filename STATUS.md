@@ -50,8 +50,16 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-24, 20:34 ICT** · 🟢 **Backend `@58` and frontend `release` = `971c370` are live.**
-Caught up here, in #115, the next PR on the repo, as the release comment on #114 asked.
+**Updated 2026-09-24, 21:10 ICT** · 🟡 **Backend `@58` and frontend `release` = `971c370` are live; `@58`
+carries the PDPA defect that #116 fixes (first bullet).** Caught up with #114 in #115, the next PR on the
+repo, as the release comment on #114 asked.
+- ⏳ **PR #116, the PDPA erased-dob fix: merged into `main` on Praew's instruction ("merge แล้ว deploy").
+  Its backend goes live as `@59` with `clasp`, and its frontend in one `main` → `release` PR, straight
+  after.** Until `@59`, from about 14:22 ICT, a growth-chart or nurse-form weight save on a PDPA-erased
+  record wrote its date of birth back: `@57`/`@58`'s `updateWeights` fills an empty dob cell (F2, #108),
+  and the erasure had emptied it (`CHANGELOG.md` 2026-09-24 (9)). Whether any erased row was refilled can
+  only be read from the live Sheet (`BACKLOG.md` § Now). The deploy checks are comments on the release
+  PR, and this banner catches up in the next PR on the repo.
 - **Frontend:** PR #114 (`main` → `release`), merged on Praew's instruction at 13:24 UTC / 20:24 ICT. It
   carries #113, `main` at `4434a77`. `CONSTANTS_VERSION` is still `2026-09-18.1`. Served bytes were
   verified on both hosts (61 passes, 0 failures), and `verify-release.mjs b7bd722` failed only on the seven
