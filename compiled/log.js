@@ -28,6 +28,10 @@ function pickTarget(metricKey, entry, patient) {
   return null;
 }
 const METRICS = [
+  // Weight leads the row (Pp, 2026-09-24: "ให้ weight มาอยู่ก่อนหน้า energy").
+  // It sat last, behind eight nutrients, so on a phone it was reached only by
+  // scrolling the chip row to its far end. Energy stays the default metric.
+  { key: "weight", label: "Weight", unit: "g", color: "oklch(50% 0.12 25)", yMax: null, ticks: null },
   // Energy is blue, not the dark green it was: that green sat on top of the
   // green target band and the two read as one (Praew, 2026-09-23).
   { key: "kcal", label: "Energy", unit: "kcal/kg/d", color: "oklch(50% 0.15 250)", yMax: 160, ticks: [0, 30, 60, 90, 120, 150] },
@@ -37,8 +41,7 @@ const METRICS = [
   { key: "na", label: "Sodium", unit: "mEq/kg/d", color: "oklch(64% 0.13 60)", yMax: 8, ticks: [0, 2, 4, 6, 8] },
   { key: "k", label: "Potassium", unit: "mEq/kg/d", color: "oklch(60% 0.13 320)", yMax: 6, ticks: [0, 1, 2, 3, 4, 5, 6] },
   { key: "ca", label: "Calcium", unit: "mg/kg/d", color: "oklch(58% 0.12 95)", yMax: 220, ticks: [0, 50, 100, 150, 200] },
-  { key: "p", label: "Phosphorus", unit: "mg/kg/d", color: "oklch(54% 0.13 340)", yMax: 130, ticks: [0, 25, 50, 75, 100, 125] },
-  { key: "weight", label: "Weight", unit: "g", color: "oklch(50% 0.12 25)", yMax: null, ticks: null }
+  { key: "p", label: "Phosphorus", unit: "mg/kg/d", color: "oklch(54% 0.13 340)", yMax: 130, ticks: [0, 25, 50, 75, 100, 125] }
 ];
 function TrendGraph({ entries, patient }) {
   const [metricKey, setMetricKey] = React.useState("kcal");

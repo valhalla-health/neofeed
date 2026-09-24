@@ -157,7 +157,7 @@ function computeAlerts(patient, allEntries) {
     alerts.push({
       id: "growth-regain",
       level: "warn",
-      title: "Birth weight not regained",
+      title: gv.atBirthWeight ? "Weight not above birth weight" : "Birth weight not regained",
       body: gv.reason,
       dol: gv.to?.dol,
       ref: "ESPGHAN 2022"
@@ -511,6 +511,61 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }, []);
   const serverPatientsRef = React.useRef(/* @__PURE__ */ new Map());
   const appliedSeqRef = React.useRef(0);
+  const loginSyncRef = React.useRef(null);
+  const signInRef = React.useRef(null);
+  const [signInTiming, setSignInTiming] = React.useState(null);
+  const finishSignInTiming = React.useCallback(() => {
+    const s = signInRef.current;
+    if (!s) return;
+    signInRef.current = null;
+    const appliedAt = perfNowMs();
+    const t = {
+      totalMs: Math.round(appliedAt - s.clickAt),
+      loginMs: Math.round(s.replyAt - s.clickAt),
+      dataMs: Math.round(appliedAt - s.replyAt),
+      serverMs: s.serverMs,
+      chars: s.chars,
+      embedded: !!s.embedded
+    };
+    try {
+      console.info("[NeoFeed] sign-in timing " + JSON.stringify(t));
+    } catch (e) {
+    }
+    setSignInTiming(t);
+  }, []);
+  const applySnapshot = React.useCallback((data, seq) => {
+    if (Array.isArray(data.patients)) {
+      const cleanMeasures = (arr) => Array.isArray(arr) ? arr.filter((x) => x && typeof x === "object" && !Array.isArray(x)) : arr;
+      const incoming = data.patients.map((p) => ({
+        ...p,
+        currentBed: D_A.normalizeBed(p.currentBed),
+        sex: normalizeSex(p.sex),
+        weights: cleanMeasures(p.weights),
+        lengths: cleanMeasures(p.lengths),
+        hcs: cleanMeasures(p.hcs),
+        bedHistory: cleanMeasures(p.bedHistory)
+      }));
+      serverPatientsRef.current = new Map(incoming.map((p) => [p.sessionId, p]));
+      const withDob = incoming.map((p) => {
+        if (p.dob) return p;
+        const dob = D_A.dobFromAdmission(p);
+        return dob ? { ...p, dob } : p;
+      });
+      setPatients(withDob.length > 0 ? withDob : []);
+      setActiveId((prev) => data.patients.some((p) => p.sessionId === prev) ? prev : null);
+    }
+    if (data.log) setLog(D_A.normalizeLogMap(data.log));
+    const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
+    setNursingLive(nursingServed);
+    setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
+    unknownWriteRef.current = false;
+    appliedSeqRef.current = seq;
+    syncFailsRef.current = 0;
+    setSyncError("");
+    setSyncState("ok");
+    setLastSync(/* @__PURE__ */ new Date());
+    finishSignInTiming();
+  }, [finishSignInTiming]);
   const syncFromGAS = React.useCallback(() => {
     if (!GAS_ON || endedRef.current) return;
     const startedAt = Date.now();
@@ -562,47 +617,33 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         else if (syncRef.current) syncRef.current();
         return;
       }
-      if (Array.isArray(data.patients)) {
-        const cleanMeasures = (arr) => Array.isArray(arr) ? arr.filter((x) => x && typeof x === "object" && !Array.isArray(x)) : arr;
-        const incoming = data.patients.map((p) => ({
-          ...p,
-          currentBed: D_A.normalizeBed(p.currentBed),
-          sex: normalizeSex(p.sex),
-          weights: cleanMeasures(p.weights),
-          lengths: cleanMeasures(p.lengths),
-          hcs: cleanMeasures(p.hcs),
-          bedHistory: cleanMeasures(p.bedHistory)
-        }));
-        serverPatientsRef.current = new Map(incoming.map((p) => [p.sessionId, p]));
-        const withDob = incoming.map((p) => {
-          if (p.dob) return p;
-          const dob = D_A.dobFromAdmission(p);
-          return dob ? { ...p, dob } : p;
-        });
-        setPatients(withDob.length > 0 ? withDob : []);
-        setActiveId((prev) => data.patients.some((p) => p.sessionId === prev) ? prev : null);
-      }
-      if (data.log) setLog(D_A.normalizeLogMap(data.log));
-      const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
-      setNursingLive(nursingServed);
-      setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
-      unknownWriteRef.current = false;
-      appliedSeqRef.current = seq;
-      syncFailsRef.current = 0;
-      setSyncError("");
-      setSyncState("ok");
-      setLastSync(/* @__PURE__ */ new Date());
+      applySnapshot(data, seq);
     }).catch((err) => {
       if (stale()) return;
       settle();
       console.warn("GAS sync failed:", err);
       failed(err && err.kind ? err.message : "");
     });
-  }, [flagPasswordChangeRequired]);
+  }, [flagPasswordChangeRequired, applySnapshot]);
   syncRef.current = syncFromGAS;
   React.useEffect(() => {
-    if (user) syncFromGAS();
-  }, [user?.email]);
+    if (!user) return;
+    if (user.mustChangePassword) {
+      loginSyncRef.current = null;
+      signInRef.current = null;
+      return;
+    }
+    const carried = loginSyncRef.current;
+    loginSyncRef.current = null;
+    if (carried && carried.email === user.email && GAS_ON && !endedRef.current) {
+      const seq = ++syncSeqRef.current;
+      lastSyncAttemptRef.current = Date.now();
+      if (signInRef.current) syncMsRef.current = Math.round(signInRef.current.replyAt - signInRef.current.clickAt);
+      applySnapshot(carried.data, seq);
+      return;
+    }
+    syncFromGAS();
+  }, [user?.email, user?.mustChangePassword]);
   const today = D_A.useTodayLocal();
   const lastSyncRef = React.useRef(0);
   React.useEffect(() => {
@@ -613,6 +654,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const RESYNC_AFTER_MS = 6e4;
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
+      if (userRef.current?.mustChangePassword) return;
       if (syncInFlight()) return;
       if (syncBackingOff()) return;
       if (Date.now() - lastSyncRef.current < RESYNC_AFTER_MS) return;
@@ -629,6 +671,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (!GAS_ON || !user) return;
     const tick = () => {
       if (document.visibilityState !== "visible") return;
+      if (userRef.current?.mustChangePassword) return;
       if (typeof navigator !== "undefined" && navigator.onLine === false) return;
       if (syncInFlight()) return;
       if (syncBackingOff()) return;
@@ -1083,9 +1126,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const handleLogout = () => endSession("manual");
   shellReadyRef.current = false;
   if (!user) {
-    return /* @__PURE__ */ React.createElement(LoginScreen, { notice, onLogin: (u) => {
+    return /* @__PURE__ */ React.createElement(LoginScreen, { notice, onLogin: (u, extra) => {
       writeSession(u);
       if (onNoticeSeen) onNoticeSeen();
+      loginSyncRef.current = extra && extra.sync ? { email: u.email, data: extra.sync } : null;
+      signInRef.current = extra && extra.timing ? { ...extra.timing, embedded: !!(extra && extra.sync) } : null;
       setUser(u);
     } });
   }
@@ -1251,6 +1296,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       patients,
       log,
       lastSync,
+      signInTiming,
       includeArchived,
       onToggleArchived: () => {
         includeArchivedRef.current = !includeArchived;
@@ -1604,15 +1650,25 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
   return /* @__PURE__ */ React.createElement("div", { className: "modal-backdrop", onClick: forced ? void 0 : onClose }, /* @__PURE__ */ React.createElement("div", { className: "modal-box", onClick: (e) => e.stopPropagation(), style: { maxWidth: 340 } }, /* @__PURE__ */ React.createElement("div", { className: "modal-head" }, /* @__PURE__ */ React.createElement("h2", null, "เปลี่ยนรหัสผ่าน")), /* @__PURE__ */ React.createElement("div", { className: "modal-body", style: { display: "flex", flexDirection: "column", gap: 12 } }, forced && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-2)", background: "var(--surface-2, #f4f6f7)", borderRadius: 8, padding: "8px 10px" } }, "บัญชีนี้ใช้รหัสผ่านชั่วคราว — กรุณากรอกรหัสผ่านชั่วคราวที่ได้รับ แล้วตั้งรหัสผ่านใหม่ก่อนใช้งานระบบ"), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, forced ? "รหัสผ่านชั่วคราว" : "รหัสผ่านเดิม"), /* @__PURE__ */ React.createElement("input", { type: "password", className: "inp", value: oldPwd, onChange: (e) => setOldPwd(e.target.value), placeholder: "••••••••", autoFocus: true })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "รหัสผ่านใหม่ ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(อย่างน้อย ", MIN_PASSWORD_LENGTH, " ตัว)")), /* @__PURE__ */ React.createElement("input", { type: "password", className: "inp", value: newPwd, onChange: (e) => setNewPwd(e.target.value), placeholder: "••••••••" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "ยืนยันรหัสผ่านใหม่"), /* @__PURE__ */ React.createElement("input", { type: "password", className: "inp", value: confirm, onChange: (e) => setConfirm(e.target.value), placeholder: "••••••••", onKeyDown: (e) => e.key === "Enter" && handleSubmit() })), err && /* @__PURE__ */ React.createElement("div", { style: { color: "var(--crit-ink)", fontSize: 13 } }, err)), /* @__PURE__ */ React.createElement("div", { className: "modal-foot" }, forced ? /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onLogout }, "ออกจากระบบ") : /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSubmit, disabled: loading }, loading ? "กำลังบันทึก…" : "บันทึก"))));
 }
 const GSI_LOAD_TIMEOUT_MS = 1e4;
-async function loginRequest(body) {
+const perfNowMs = () => typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+async function loginRequest(body, clickAt) {
   let data;
   try {
-    data = await gasRequest({ action: "login", ...body });
+    data = await gasRequest({ action: "login", wantSync: true, ...body });
   } catch (e) {
     throw new Error(`เข้าสู่ระบบไม่สำเร็จ — ${e && e.kind ? e.message : gasErrorText("network")}`);
   }
   if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
-  return { name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword };
+  const user = { name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword };
+  const s = data.sync;
+  const sync = s && typeof s === "object" && !Array.isArray(s) && Array.isArray(s.patients) ? s : null;
+  const timing = {
+    clickAt: typeof clickAt === "number" ? clickAt : perfNowMs(),
+    replyAt: perfNowMs(),
+    serverMs: typeof data.serverMs === "number" ? data.serverMs : null,
+    chars: sync && typeof data.syncChars === "number" ? data.syncChars : null
+  };
+  return { user, sync, timing };
 }
 function LoginScreen({ onLogin, notice = null }) {
   const [mode, setMode] = React.useState("google");
@@ -1631,10 +1687,12 @@ function LoginScreen({ onLogin, notice = null }) {
       google.accounts.id.initialize({
         client_id: window.NEOFEED_CLIENT_ID,
         callback: async (resp) => {
+          const clickAt = perfNowMs();
           setLoading(true);
           setError(null);
           try {
-            onLogin(await loginRequest({ googleToken: resp.credential }));
+            const r = await loginRequest({ googleToken: resp.credential }, clickAt);
+            onLogin(r.user, r);
           } catch (err) {
             setError(err.message);
             setLoading(false);
@@ -1681,10 +1739,12 @@ function LoginScreen({ onLogin, notice = null }) {
       setError("กรุณากรอก email และรหัสผ่าน");
       return;
     }
+    const clickAt = perfNowMs();
     setLoading(true);
     setError(null);
     try {
-      onLogin(await loginRequest({ email: email.trim().toLowerCase(), password }));
+      const r = await loginRequest({ email: email.trim().toLowerCase(), password }, clickAt);
+      onLogin(r.user, r);
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -1874,7 +1934,7 @@ function CensusWard({ w }) {
   const stat = (label, value, tone, sub) => /* @__PURE__ */ React.createElement("div", { className: `census-stat${tone ? " " + tone : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "v num" }, value), /* @__PURE__ */ React.createElement("div", { className: "l" }, label, sub ? /* @__PURE__ */ React.createElement("span", { className: "s" }, " · ", sub) : null));
   return /* @__PURE__ */ React.createElement("div", { className: `census-ward${w.ward === "total" ? " total" : ""}`, "data-ward": w.ward }, /* @__PURE__ */ React.createElement("div", { className: "census-ward-h" }, /* @__PURE__ */ React.createElement("span", { className: "census-ward-name" }, w.label), w.capacity != null ? /* @__PURE__ */ React.createElement("span", { className: "census-beds" }, "เตียง ", /* @__PURE__ */ React.createElement("span", { className: "num" }, w.occupied, "/", w.capacity), " · ว่าง ", /* @__PURE__ */ React.createElement("span", { className: "num" }, w.capacity - w.occupied)) : /* @__PURE__ */ React.createElement("span", { className: "census-beds" }, "ไม่มีเตียงในรายการ")), pct != null && /* @__PURE__ */ React.createElement("div", { className: "census-bar", role: "img", "aria-label": `ครองเตียง ${pct}%` }, /* @__PURE__ */ React.createElement("span", { style: { width: `${pct}%` } })), /* @__PURE__ */ React.createElement("div", { className: "census-stats" }, stat("Active", w.active), stat("Logged today", w.logged, w.active > 0 && w.logged === w.active ? "ok" : ""), stat("Needs entry", w.needs, w.needs ? "warn" : "", w.draft ? `draft ${w.draft}` : null), stat("รอเตียง", w.parked, w.parked ? "warn" : ""), stat("Critical", w.crit, w.crit ? "crit" : ""), stat("Caution", w.warn, w.warn ? "warn" : "")));
 }
-function AdminDashboard({ patients, log, lastSync, includeArchived = false, onToggleArchived }) {
+function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived }) {
   const today = D_A.useTodayLocal();
   const census = buildCensus(patients, log, today);
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
@@ -1887,7 +1947,10 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
     ...census.unbedded ? [`ยังไม่ระบุเตียง ${census.unbedded} ราย`] : [],
     ...census.offList ? [`เตียงนอกรายการ ${census.offList} ราย`] : []
   ];
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Admin dashboard"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Read-only oversight · pulled from GAS Patient_Registry & Daily_Log")), /* @__PURE__ */ React.createElement("div", { className: "pill" }, /* @__PURE__ */ React.createElement("span", { className: "dot", style: { background: "var(--brand)" } }), lastSync ? `Synced ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : GAS_ON ? "Not synced" : "Local only")), GAS_ON && onToggleArchived && /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 220px", minWidth: 0, fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.5 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: "var(--ink)" } }, "แสดงผู้ป่วยที่จำหน่ายเกิน 30 วัน"), includeArchived ? "เปิดอยู่ — ดึงข้อมูลผู้ป่วยที่จำหน่ายแล้วทั้งหมดลงเครื่องนี้ ปิดเมื่อใช้งานเสร็จ" : "ปิดอยู่ — ซิงก์เฉพาะผู้ป่วยที่ยังอยู่หรือจำหน่ายไม่เกิน 30 วัน"), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Admin dashboard"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Read-only oversight · pulled from GAS Patient_Registry & Daily_Log")), /* @__PURE__ */ React.createElement("div", { className: "pill" }, /* @__PURE__ */ React.createElement("span", { className: "dot", style: { background: "var(--brand)" } }), lastSync ? `Synced ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : GAS_ON ? "Not synced" : "Local only")), signInTiming && (() => {
+    const t = signInTiming, sec = (ms) => D_A.displayNum(ms / 1e3, 1);
+    return /* @__PURE__ */ React.createElement("div", { className: "signin-timing", style: { fontSize: 12, color: "var(--ink-3)", margin: "-4px 0 12px", lineHeight: 1.5 } }, "Sign-in on this device: ", /* @__PURE__ */ React.createElement("b", { className: "num", style: { color: "var(--ink-2)" } }, sec(t.totalMs), " s"), t.embedded ? /* @__PURE__ */ React.createElement(React.Fragment, null, " · data came with the login reply", t.serverMs != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · server ", sec(t.serverMs), " s"), t.chars != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ≈", D_A.displayNum(t.chars / 1e6, 1), " MB")) : /* @__PURE__ */ React.createElement(React.Fragment, null, " · login ", sec(t.loginMs), " s + data ", sec(t.dataMs), " s (separate request)"));
+  })(), GAS_ON && onToggleArchived && /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 220px", minWidth: 0, fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.5 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: "var(--ink)" } }, "แสดงผู้ป่วยที่จำหน่ายเกิน 30 วัน"), includeArchived ? "เปิดอยู่ — ดึงข้อมูลผู้ป่วยที่จำหน่ายแล้วทั้งหมดลงเครื่องนี้ ปิดเมื่อใช้งานเสร็จ" : "ปิดอยู่ — ซิงก์เฉพาะผู้ป่วยที่ยังอยู่หรือจำหน่ายไม่เกิน 30 วัน"), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: `btn archive-toggle${includeArchived ? " primary" : ""}`,

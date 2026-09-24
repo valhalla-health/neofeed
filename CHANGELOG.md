@@ -7,6 +7,129 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (11) — Login speed: the first sync rides in the login reply (Pp, fixes 1–4)
+
+Pp: *"เช็คให้ด้วยว่าทำไมตอนนี้ login เริ่มช้า ใช้เวลานาน จะทำยังไงให้เร็วขึ้น lean ขึ้นได้"*, and after the
+diagnosis, *"ทำ login fix 1-4 เลย"*. (Entry (10) is the same day's Weight-chip / birth-weight PR, #118.)
+
+**Diagnosis, from the code.** Nothing was measured on the live system; fix 1 exists so the next
+answer is a number.
+- **Two round trips before the ward list appears.** A sign-in was login, then getActivePatients
+  with the new token. SyncGate holds the screen for both.
+- **Every sign-in waits for a full sync.** Since 2026-09-18 every session end remounts the app (SEC-F2),
+  and the 30-minute idle logout means more sign-ins per shift.
+- **The sync grows with Daily_Log.** It carries every row of every infant in the window, each with its
+  calcInputJson. A revised order crossed the wire twice: the superseded copy, which every client drops,
+  and the revision.
+- **Repeated fixed work.** Across its two requests a sign-in made 4–5 `openById` calls and read Staff
+  twice: login never filled the 60 s staff-row cache, so the token check re-read it. It also appended
+  two Audit_Log rows (unchanged, see below).
+- **Password sign-in.** About 1 s of hashing (3,000 HMAC rounds), plus up to 5 s waiting for the
+  script lock behind order saves at shift change. Both unchanged; see `BACKLOG.md`.
+- **Temp-password accounts.** The first sync of a temp-password account was refused, and nothing
+  re-ran it after the password change: the effect was keyed on email alone.
+
+**What changed:**
+1. **Measure.**
+   - Server: one JSON line per sign-in and per sync in the execution log. It holds per-phase
+     milliseconds, cache hit/miss and size (`_timer`), and never an email or a sessionId.
+   - Client: the admin dashboard shows *"Sign-in on this device: X s"* and whether the data came with
+     the login reply. A console line says the same.
+2. **The login reply carries the first sync.**
+   - Login sends `wantSync`, and `_loginReply` embeds `getActivePatientsJson`: the same ward payload
+     and the same cache. It is audited as `readRegistry` right after `login`.
+   - Never on a pending temp password, which doPost's gate would refuse. A sync that throws is left
+     out, not a failed sign-in.
+   - The client applies it through `applySnapshot`, which is syncFromGAS's old success branch moved
+     verbatim, so both paths normalize identically. Only the user object goes to sessionStorage; the
+     carried data stays in memory.
+   - Both halves are compatible with the other half's old version: an old client never sends
+     `wantSync` and gets the old reply, and a new client falls back to an ordinary sync.
+3. **Leaner server.**
+   - One spreadsheet handle per `doPost` request (`_book`), released in doPost's `finally`. Outside a
+     request (editor, triggers) it opens exactly as before.
+   - Login fills the staff-row cache (`_primeStaffRow`), with the same shape and TTL, so the revocation
+     bound is unchanged.
+   - The ward sync leaves out superseded rows, keeping every key in order; the admin archive still
+     sends them. `verify-review-0917-backend-sync.cjs` now compares against its verbatim reference
+     minus superseded rows (`refFor`).
+4. **Temp password.**
+   - The first-sync effect is keyed on `mustChangePassword` too, so nothing syncs while it is pending
+     (the poll and focus refresh skip too).
+   - It syncs the moment the flag clears.
+
+What the ward sees: a sign-in should be one round trip shorter. Nothing else on screen changes except
+the admin dashboard's timing line. Audit_Log gets the same rows per sign-in as before: `login`, then
+`readRegistry`.
+
+Tests:
+- **`test/verify-login-speed-0924.cjs`** (43 assertions). One scenario runs the backend in the vm
+  sandbox; four drive the real `<App/>`. It fails 28 on `3bb6288`, in every scenario.
+- The sync-equivalence harness is updated as above.
+- The full suite is green against the sources and against `compiled/`.
+
+**Deploy:**
+- Both halves, in either order: the backend with `clasp`, on Pp's instruction, and the frontend in a
+  `main` → `release` PR. Each half alone is safe. `CONSTANTS_VERSION` is unchanged.
+- This `gas-backend.gs` includes #116's PDPA fix. If `@59` is not live yet, this deploy ships that too.
+- Read the result under Apps Script ▸ Executions (the `{"timing":…}` lines) and on the admin dashboard.
+
+## Session 2026-09-24 (10) — Weight chip first; no growth velocity until the weight is above birth weight (Pp)
+
+Two requests from Pp, with phone screenshots:
+
+1. **"ให้ weight มาอยู่ก่อนหน้า energy"** — put Weight before Energy. The Dashboard trend graph's
+   Weight chip was the last of nine, so on a phone it was reached only by scrolling the chip row to its
+   far end. `log.jsx` `METRICS` now starts with Weight. The graph still opens on Energy.
+2. **"ถ้าน้ำหนักยังไม่ gain BW ตรง growth velocity ให้ขึ้นว่า Weight below birth weight แทน"** — if the
+   infant hasn't regained birth weight, the Growth velocity block should say "Weight below birth weight"
+   instead. The reported screen read **"0 g/kg/d"** in critical red, "Target ≥ 15 g/kg/d · 2 วัน", on
+   DOL 10. Its latest weight was 1,200 g from an order.
+
+Why it read 0: `growthVelocity` (`data.js`) counted the regain of birth weight as the first weight
+**>= birth weight**, and started grading right there. Two order weights equal to the birth weight gave a
+slope of 0 over 2 days, which is "critical". A new order's Current weight is prefilled from birth weight
+when nothing newer is recorded, so this shape is easy to produce. The same infant raised "Growth
+velocity critically low" on the Alerts page. Only a weight at or above birth weight can produce this
+readout; below it, the block already showed a Thai sentence instead of a number.
+
+What changed:
+- **`data.js` `growthVelocity`:** velocity is graded only once a weight on or after the regain is
+  **above** birth weight. It is still measured from the regain, so a week spent flat at birth weight
+  still counts against the first velocity. Until then the status is `physiologicalLoss` (DOL ≤ 14) or
+  `notRegained` (past DOL 14), as for an infant below birth weight. Both now carry `bw` and
+  `atBirthWeight`. `REGAIN_EXPECTED_BY_DOL` (14) is exported for the readout.
+- **`fenton.jsx` `GrowthVelocity`:** in those two states the readout says **"Weight below birth
+  weight"**, with `BW 1,300 g · -7.7%` under it. Past DOL 14 it is amber and adds "not regained by
+  DOL 14", matching the Alerts page's caution; before that it is neutral.
+  An infant exactly AT birth weight reads **"Weight at birth weight"**, because "below" would
+  contradict the two numbers on screen. That is the reported infant if its birth weight is 1,200 g.
+  **Pp confirmed "at" the same day ("ใช้ at ได้")**, so don't "correct" it to "below".
+- **`app.jsx` `computeAlerts`:** unchanged except the title of the past-DOL-14 caution for an infant
+  exactly at birth weight, which is now "Weight not above birth weight" instead of "Birth weight not
+  regained".
+
+⚠️ **What the ward will see differently on the Alerts page.** Every change here makes an alarm quieter,
+which is why each is listed:
+- An infant **at** birth weight, never above it, on DOL ≤ 14 (the reported one): the critical "Growth
+  velocity critically low" becomes the informational "Growth velocity — not yet assessable". The red
+  badge drops by one.
+- The same past DOL 14: critical becomes a caution (amber), the level an infant just below birth weight
+  already gets. Both infants are equally "not growing yet", and now they read the same.
+- An infant who touched birth weight and dipped below it again before ever exceeding it: a critical
+  negative velocity becomes "not yet assessable" (DOL ≤ 14) or the caution (past DOL 14).
+- **Unchanged:** once a weight is above birth weight, grading is exactly as before. That includes
+  a 0 g/kg/d plateau above it and a fall back below it after a real regain, which still alarm.
+
+Tests: **`test/verify-weight-chip-and-bw-velocity.cjs`** (37 assertions, the jsdom set). § 1 is the chip
+order, § 2 `growthVelocity`, § 3 the Growth chart readout and § 4 the Alerts page. It fails 24 on
+`3bb6288` and reproduces the reported readout verbatim there ("0g/kg/dTarget ≥ 15 g/kg/d · 2 วัน"). Its
+controls (a real gain above birth weight, a drop after a real regain, a history that starts above birth
+weight) pass on both.
+
+**Deploy:** frontend only. No `clasp`, `CONSTANTS_VERSION` unchanged (no printed figure moves). It is not
+live until a `main` → `release` PR.
+
 ## Session 2026-09-24 (9) — PDPA: a weight save wrote an erased record's date of birth back
 
 Pp's bug report, the same day. **Live from about 14:22 ICT on 2026-09-24 until `@59`; fixed in #116.**

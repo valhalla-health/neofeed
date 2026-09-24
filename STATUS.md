@@ -53,6 +53,16 @@
 **Updated 2026-09-24, 21:10 ICT** · 🟡 **Backend `@58` and frontend `release` = `971c370` are live; `@58`
 carries the PDPA defect that #116 fixes (first bullet).** Caught up with #114 in #115, the next PR on the
 repo, as the release comment on #114 asked.
+- ⏳ **PRs #118 and #119: merged into `main` on Pp's instruction ("merge ทั้งสอง PR แล้ว deploy"),
+  2026-09-24, ~23:45 ICT.**
+  - **#118, frontend only:** the Weight chip first, and no growth velocity until a weight is above
+    birth weight. It makes some alarms quieter, all listed in `CHANGELOG.md` 2026-09-24 (10).
+  - **#119, backend + frontend:** login-speed fixes 1–4 (`CHANGELOG.md` 2026-09-24 (11)).
+  - **Frontend:** goes out in one `main` → `release` PR, and its checks are that PR's comments.
+  - **Backend:** needs `clasp` from Pp's PC; the cloud session that merged these has no clasp mirror.
+    Deploy `gas-backend.gs` at #119's merge commit. It also carries #116's fix if `@59` is not live yet.
+  - Either half alone is safe: the new frontend falls back to an ordinary sync against the old
+    backend, and the new backend gives an old frontend the old reply.
 - ⏳ **PR #116, the PDPA erased-dob fix: merged into `main` on Praew's instruction ("merge แล้ว deploy").
   Its backend goes live as `@59` with `clasp`, and its frontend in one `main` → `release` PR, straight
   after.** Until `@59`, from about 14:22 ICT, a growth-chart or nurse-form weight save on a PDPA-erased

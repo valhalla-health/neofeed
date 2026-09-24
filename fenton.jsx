@@ -468,6 +468,28 @@ function GrowthVelocity({ points, metric = "weight", patient, entries }) {
     const gv = D_F.growthVelocity(patient, entries);
     if (gv.status === "insufficientData")
       return <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Need ≥ 2 measurements</div>;
+    // Not yet above birth weight: say so in words, not as a g/kg/d figure (Pp,
+    // 2026-09-24: "ถ้าน้ำหนักยังไม่ gain BW … ให้ขึ้นว่า Weight below birth
+    // weight แทน"). Grading starts only once a weight rises above birth weight
+    // (data.js growthVelocity, point 3). A weight exactly AT birth weight says
+    // "at", because "below" would contradict the two numbers on screen. Amber
+    // past DOL 14, matching the Alerts page's caution; neutral before it.
+    if (gv.status === "physiologicalLoss" || gv.status === "notRegained") {
+      const late = gv.status === "notRegained";
+      const pct = (gv.to.w - gv.bw) / gv.bw * 100;
+      return (
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3, color: late ? "var(--warn-ink)" : "var(--ink-2)" }}>
+            {gv.atBirthWeight ? "Weight at birth weight" : "Weight below birth weight"}
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>
+            BW <span className="num">{Number(gv.bw).toLocaleString()}</span> g
+            {!gv.atBirthWeight && <> · <span className="num">{D_F.displayNum(pct, 1)}%</span></>}
+            {late && ` · ${gv.atBirthWeight ? "not above BW" : "not regained"} by DOL ${D_F.REGAIN_EXPECTED_BY_DOL}`}
+          </div>
+        </div>
+      );
+    }
     if (gv.vel == null)
       return <div style={{ fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.45, maxWidth: 230 }}>{gv.reason || "ยังประเมินอัตราการเจริญเติบโตไม่ได้"}</div>;
     const color = gv.status === "ok" ? "var(--ok)" : gv.status === "low" ? "var(--warn-ink)" : "var(--crit)";

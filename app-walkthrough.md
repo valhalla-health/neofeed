@@ -216,6 +216,20 @@ deliberately **not** an early return in `syncFromGAS` itself: a fetch that
 never settles would wedge it forever and swallow the Sync button. Automatic
 callers check it; manual ones supersede.
 
+**A sign-in carries its first sync** (2026-09-24, login speed).
+- `loginRequest` sends `wantSync`. The server's `_loginReply` embeds exactly the ward payload
+  getActivePatients would return, audited as `readRegistry`. It never does so while a temp password
+  is pending.
+- The first-sync effect applies that payload through **`applySnapshot`**, the one function both it
+  and `syncFromGAS` use to take a snapshot into state, instead of asking again. Don't give either a
+  second copy of that logic.
+- An older backend ignores the flag, and the effect falls back to `syncFromGAS()`.
+- The carried data is never written to sessionStorage; only the user object is.
+- The effect is keyed on `mustChangePassword` as well as email. Nothing syncs while a temp password
+  is pending (the poll and focus refresh skip too), and it syncs the moment the flag clears.
+- The ward sync leaves out superseded rows, which every client drops anyway
+  (`normalizeLogEntries`). The admin archive keeps them.
+
 ### The shell is a three-row grid, and the rows are explicit
 `.app` is `grid-template-rows: var(--header-h) auto 1fr` — topbar, banner,
 body — with `.app > [role="status"]` at `grid-column: 1 / -1; grid-row: 2` and
@@ -503,6 +517,14 @@ stays logged in. Roles are `admin` / `doctor` / `nurse`; role gates what's in
 the nav rail (`app.jsx` ~L409–423): Calculator is doctor/nurse only, Admin
 dashboard is admin only.
 
+**One spreadsheet handle per request** (2026-09-24). Inside `doPost`, every reader shares one
+`openById` through `_book()`. The handle is released in doPost's `finally`; outside a request
+(editor runs, triggers) `_book()` opens fresh, as before. New backend code calls `_book()`, not
+`SpreadsheetApp.openById(...)`. A successful login also fills the 60 s staff-row cache
+(`_primeStaffRow`), so the token check on the sync right after it does not re-read Staff. Each
+sign-in and each sync writes one `{"timing":…}` line to the execution log (`_timer`). The line holds
+milliseconds, a cache hit/miss and a size: never an email or a sessionId.
+
 **Order writes are prescribers' (Pp's D5, 2026-09-24).** While the nursing
 form is switched on (`_nursingEnabled`), `logDailyNutrition`,
 `updateDailyNutrition` and `publishLog` refuse a nurse with `Forbidden`. A nurse
@@ -588,7 +610,8 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    blanks identifiers but keeps the clinical row, for cases where
    retaining de-identified history matters more than removing it outright.
 2. **Dashboard** (`log.jsx`) — the active patient's daily nutrition log +
-   `TrendGraph`: pick a metric (Energy/Protein/GIR/Fluid/Na/K/Ca/P/Weight),
+   `TrendGraph`: pick a metric (Weight/Energy/Protein/GIR/Fluid/Na/K/Ca/P —
+   Weight leads the chip row since 2026-09-24, Energy is still the default),
    see it plotted with a target band, smooth Catmull-Rom curve, hover
    crosshair/tooltip, X-axis toggle between admit-day and DOL. Past entries
    are editable in place (weight/length/HC corrections included). The
@@ -752,6 +775,15 @@ reintroduce a bypass that's independent of `GAS_ON`.)
 4. **Growth chart** (`fenton.jsx`) — Fenton 2025 percentile curves for
    weight/length/HC vs. PMA, plus `MeasurementLogger` to add new
    measurements. Uses `D.gaToDecimalWeeks` for the true decimal x-axis.
+   The weight **Growth velocity** readout and the Alerts page both read
+   `D.growthVelocity` — one grader, so the two screens cannot disagree.
+   **A velocity is graded only once a weight is ABOVE birth weight**
+   (2026-09-24). It is measured from the regain, the first weight at or above
+   birth weight. Until a weight is above it, the readout says **"Weight below
+   birth weight"**, or "Weight at birth weight" when the weight equals it, with
+   the BW under it, and is amber past DOL 14. Being back *at* birth weight is not
+   growth. Two order weights left at the birth-weight prefill used to read "0
+   g/kg/d" in critical red. `test/verify-weight-chip-and-bw-velocity.cjs`.
 5. **Alerts** (`AlertCenter` in `app.jsx`) — flags things like stale weight
    (warn ≥3 days, critical ≥7 days since last entry). Acknowledge is
    per-alert and persisted (per device, `neofeed_acked_<sessionId>`).
@@ -782,7 +814,10 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    device's acknowledgements. **It names beds, never babies**, and its
    harness fails if a name or NeoFeed ID reaches it. Admins reach it on a
    phone from an **Admin** tab (admin has no Calc tab, so the bar stays at
-   five). `test/verify-admin-census.cjs`.
+   five). `test/verify-admin-census.cjs`. Under the page head, *"Sign-in on this
+   device: X s"* is this device's last sign-in, measured from the click to the
+   ward's data on screen (2026-09-24). It is the number to quote when "login is
+   slow", and it holds seconds and a size only.
 7. **Guidelines (ESPGHAN)** / **Formulas + products** (`GuidelinesPanel`,
    `FormulasPanel` in `app.jsx`) — static clinical reference content, no
    patient data.

@@ -1104,6 +1104,48 @@ same record never erased still sends its derived one. Scenario 1 fails on `4434a
 and from `compiled/`. A device that synced before the erasure cannot be caught here, because its copy
 still shows the real name; the backend harness's § 2 covers it.
 
+## Weight chip first, and no velocity until above birth weight, 2026-09-24 — one harness
+
+Pp's two requests (`CHANGELOG.md` 2026-09-24 (10)). **`verify-weight-chip-and-bw-velocity.cjs`**
+(37 assertions; the jsdom set) mounts the real `TrendGraph` and `FentonChart` and calls the real
+`computeAlerts`:
+- § 1: the trend graph's Weight chip comes before Energy, the other seven keep their order, and the
+  graph still opens on Energy;
+- § 2: `growthVelocity` grades nothing until a weight is above birth weight. The reported shape is two
+  order weights equal to a 1,200 g birth weight on DOL 8 and 10;
+- § 3: the Growth chart says "Weight below birth weight" or "Weight at birth weight" with the BW,
+  instead of a g/kg/d figure, and adds "not regained by DOL 14" past DOL 14;
+- § 4: the Alerts page follows. The reported shape raises the informational "not yet assessable" line,
+  not "Growth velocity critically low".
+
+24 assertions fail on `3bb6288`, and § 3 reproduces the reported readout verbatim there. The controls (a
+real gain above birth weight, a fall below it after a real regain, a history that starts above birth
+weight) pass before and after, so the harness can tell a quieter alarm from a missing one.
+
+## Login speed, 2026-09-24 — one harness, and one comparison changed
+
+Pp's fixes 1–4 (`CHANGELOG.md` 2026-09-24 (11)). **`verify-login-speed-0924.cjs`** (43 assertions)
+has one `server` scenario in the vm sandbox (no npm dependencies) and four scenarios that drive the real
+`<App/>` through `review-0917-boot.cjs`:
+- the login reply carries the first sync only with `wantSync`, and never on a pending temp password,
+  a wrong password or a disabled account. It is byte-identical to getActivePatients except `ts`, and is
+  audited `login` then `readRegistry`;
+- one `openById` per request. The token check after a cold login reads no Staff cell;
+- the ward sync leaves out superseded rows, while the admin archive keeps them;
+- the timing lines hold no email or sessionId;
+- on the client, the carried snapshot is applied with no second request and is never stored. An old
+  backend's reply falls back to one ordinary sync;
+- a temp-password account sends no sync until it changes its password, then syncs at once;
+- the admin dashboard shows the sign-in time.
+
+It fails 28 on `3bb6288`, in every scenario. The 15 that pass there are the compatibility controls.
+
+**`verify-review-0917-backend-sync.cjs`** proves the fast sync equal to a verbatim copy of the old
+full-read `getActivePatients`. Since this change, its ward comparisons go through `refFor`, which
+removes superseded rows from the reference's output. That is the one documented difference, applied in
+the open. The reference source is untouched, and the admin archive comparisons still take the reference
+as it is.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

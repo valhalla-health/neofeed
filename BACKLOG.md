@@ -159,6 +159,36 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] ⚡ **perf · Login speed: fixes 1–4 BUILT 2026-09-24, not deployed; the rest waits on numbers.**
+      Pp: "login เริ่มช้า … จะทำยังไงให้เร็วขึ้น lean ขึ้นได้". The diagnosis and what was built are in
+      `CHANGELOG.md` § Session 2026-09-24 (11). In short: the first sync now rides in the login reply,
+      a request opens the Sheet once, login fills the staff cache, the ward sync drops superseded
+      rows, a temp-password account syncs as soon as it changes its password, and both ends measure.
+      Pinned by `test/verify-login-speed-0924.cjs`.
+
+      **To close:**
+      1. Deploy both halves, in either order: `clasp` the backend and release the frontend. Each
+         half alone is safe (old client: no `wantSync`; old backend: the client falls back to an
+         ordinary sync).
+      2. Read the numbers: the admin dashboard's "Sign-in on this device" line, and the
+         `{"timing":…}` lines under Apps Script ▸ Executions. Decide from those which of the items
+         below is worth its risk.
+
+      **Not built, each needs a decision** (the 2026-09-24 diagnosis, ranked):
+      - **calcInput on demand.** It is about 55% of every synced row. Fetch it when an order is opened
+        for edit or print. Clinical: an old order can no longer be reprinted offline. PDPA: less data
+        on each device. Needs `clasp` + frontend.
+      - **Sync only the last N days per infant**, and the full history when one is opened. This stops
+        the growth, but the trend graph, alerts and census need clinical review first.
+      - **At most one `readRegistry` audit row per user per N minutes.** It must keep M1 (distinct
+        users per week). The DPO decides, because Audit_Log is the PDPA s.39 record.
+      - **Take the password-attempt counter off the global script lock**, so a sign-in stops queuing
+        up to 5 s behind order saves at shift change. Needs a security review of SEC-B5.
+      - **Do not lower the 3,000 hash rounds.** A PBKDF2 "v3", rehashed at each account's next login,
+        could be stronger at the same speed. Needs a security review.
+      - **Minify and defer `calculator.js`.** This only affects the page load before the login screen.
+        Long-term caching needs hashed file names, because the hosts ignore `?v=`.
+
 - [ ] 🩺⚖️ **product · UX roadmap #4: the nursing I/O form + PDPA — ⚙️ BUILT 2026-09-24, SWITCHED
       OFF: `NURSING_LOG_ENABLED` waits for D7 (DPO sign-off).** Pp decided § 8 of `docs/NURSING_FORM_SPEC.md`
       the same day, and it was built to those answers (`CHANGELOG.md` § Session 2026-09-24 (5)):
