@@ -261,7 +261,7 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   // ticked between two fast syncs (CI run 35302157754).
   T.eq('…with a fresh ts: the time of this request, not the cached one', JSON.parse(second).ts, new Date(at).toISOString());
   T.eq('…and is audited exactly like a sheet read', g.rows('Audit_Log').length, auditRows + 1);
-  const head = [...g.cacheStore.entries()].find(([k]) => /^sync1_ward_/.test(k) && g.cacheStore.has(k + '_0'));
+  const head = [...g.cacheStore.entries()].find(([k]) => /^sync\d+_ward_/.test(k) && g.cacheStore.has(k + '_0'));
   T.ok('cached under the ward date + DATA_VERSION, for 300 s', head && head[0].includes(TODAY) && head[1].ttl === 300, head && head[0]);
   const expired = withNow(Date.now() + 301e3, () => { const c = sheetsCells(); syncText(); return sheetsCells() > c; });
   T.ok('after 300 s it reads the sheet again', expired);
@@ -307,7 +307,7 @@ T.section('A2 · cache failure modes degrade to a correct read', () => {
   g.sheet('Patient_Registry').data.push(pat(g, 'AA-1'));
   g.sheet('Daily_Log').data.push(lrow(g, 'AA-1', TODAY));
   g.sb.getActivePatientsJson({});
-  const chunk = [...g.cacheStore.keys()].find(k => /^sync1_.*_0$/.test(k));
+  const chunk = [...g.cacheStore.keys()].find(k => /^sync\d+_.*_0$/.test(k));
   g.cacheStore.delete(chunk);
   same(g, 'an evicted chunk → miss → correct');
   g.env.cacheThrows = true;
@@ -323,7 +323,7 @@ T.section('A2 · cache failure modes degrade to a correct read', () => {
   for (let i = 0; i < 60; i++) g.sheet('Daily_Log').data.push(lrow(g, 'AA-1', addDays(TODAY, -2 - i), { 24: JSON.stringify({ blob: crypto.randomBytes(2500).toString('hex') }) }));
   g.sb._bumpDataVersion();
   const a = g.sb.getActivePatientsJson({});
-  const head = [...g.cacheStore.entries()].find(([k]) => /^sync1_ward_/.test(k) && g.cacheStore.has(k + '_0'));
+  const head = [...g.cacheStore.entries()].find(([k]) => /^sync\d+_ward_/.test(k) && g.cacheStore.has(k + '_0'));
   const b = g.sb.getActivePatientsJson({});
   T.ok('a multi-chunk payload (' + (head && head[1].v) + ' chunks) round-trips byte-identical', head && Number(head[1].v) >= 2 && stripText(a) === stripText(b) &&
     stripText(b) === stripText(JSON.stringify(g.sb.__refGetActivePatients({}))));

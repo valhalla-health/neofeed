@@ -148,6 +148,19 @@ const readAckedMap = (sessionId) => {
   try { return JSON.parse(localStorage.getItem(`neofeed_acked_${sessionId}`)) || {}; }
   catch { return {}; }
 };
+// An alert may name its own acknowledge key (`ack`) when "the same finding" is
+// not "the same id on the same DOL" — see weight-stale in computeAlerts.
+const alertAckKey = (a) => a.ack || ackKey(a.id, a.dol);
+
+// Was this saved order a parenteral one? calculator.jsx writes "TPN central" /
+// "TPN peripheral" whenever the bag has volume and "Enteral only" / "NPO" when
+// it has none; older rows carry free text such as "TPN + EBM 25 mL/kg" or
+// "Full EN 135 mL/kg". A row with no route cannot say, and counts as
+// parenteral — the reading that keeps a reminder rather than drops one.
+const isParenteralEntry = (e) => {
+  const route = String(e?.route ?? "").trim();
+  return !route || /\bT?PN\b/i.test(route);
+};
 
 // Return only an entry strictly earlier than the intended order date. This is
 // important for back-filling: the most recent row overall may be from the
@@ -173,6 +186,12 @@ function previousLogEntry(entries, targetDate) {
 // never counted the electrolyte-audit reminder that the page always shows),
 // so the badge silently under-counted what the Alerts page displayed.
 function computeAlerts(patient, allEntries) {
+  // Nobody can act on an alert about an infant who has left the unit: the last
+  // order is no longer running, and "weight >7 days overdue" only ever grows
+  // after discharge. A discharged session still raised its full list here, and
+  // the admin tile summed it with the ward's (2026-09-23 review). It raises
+  // nothing now — the same "still here" test the bed guard uses.
+  if (!D_A.isOnUnit(patient)) return [];
   const alerts = [];
   // Drafts are half-typed orders, not what the infant received (D.isDraftEntry).
   const entries = D_A.finalEntries(allEntries);
@@ -263,12 +282,18 @@ function computeAlerts(patient, allEntries) {
   if (lastWtEntry) {
     const daysSince = todaysDol - lastWtEntry.dol;
     if (daysSince >= 3) {
+      const level = daysSince >= 7 ? "crit" : "warn";
       alerts.push({
         id: "weight-stale",
-        level: daysSince >= 7 ? "crit" : "warn",
+        level,
         title: daysSince >= 7 ? "Weight measurement >7 days overdue" : "Weight measurement stale",
         body: `Last weight ${lastWtEntry.w} g on DOL ${lastWtEntry.dol}${lastWtEntry.src === "order" ? " (จากใบสั่ง TPN)" : ""} — ${daysSince} days ago. ESPGHAN: daily weights for VLBW/ELBW infants.`,
-        dol: todaysDol, ref: "ESPGHAN 2022"
+        dol: todaysDol, ref: "ESPGHAN 2022",
+        // Acknowledged per missing weight and per level, not per calendar day.
+        // Keyed on today's DOL, an acknowledged caution came back every morning
+        // with nothing new to say (alarm fatigue, 2026-09-24). Now it comes back
+        // when it escalates past 7 days, and a new weight clears it outright.
+        ack: ackKey(`weight-stale-${level}`, lastWtEntry.dol),
       });
     }
   }
@@ -279,13 +304,44 @@ function computeAlerts(patient, allEntries) {
   // that anyway, on every patient, in the same visual language as the alerts
   // that ARE computed. Keep it phrased as the reminder it is until an actual
   // electrolyte-draw date is captured and this can be derived.
-  alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: last ? D_A.entryDol(patient, last) : undefined, ref: "KCMH protocol" });
+  // Only while on PN, which is what its own text says (2026-09-24). It was
+  // pushed for every infant, orderless and on full feeds included, so every
+  // list carried one line nobody could act on — and it lit the badge.
+  if (last && isParenteralEntry(last)) {
+    alerts.push({ id: "electrolyte-audit", level: "info", title: "Electrolyte review — protocol reminder", body: "KCMH protocol: review serum electrolytes at least weekly while on PN. NeoFeed does not track draw dates — check the chart.", dol: D_A.entryDol(patient, last), ref: "KCMH protocol" });
+  }
 
   return alerts;
 }
-function activeAlertCount(patient, entries) {
+
+// ── Alarm fatigue (UX roadmap #1, 2026-09-24) ─────────────────────────────
+// A badge that is always lit is a badge nobody reads. The Alerts badge counted
+// every unacknowledged alert, the standing electrolyte *reminder* included, so
+// it was never empty on an infant with an order, and RailItem's old
+// `crit={alertCount > 0}` painted it red on every one of them. The rules now,
+// each pinned by test/verify-alarm-fatigue.cjs:
+//   1. Only a finding somebody can act on counts — `crit` and `warn`. `info`
+//      lines stay on the Alerts page and never reach a badge or a tile.
+//   2. The badge wears the worst thing it counts: red only for an
+//      unacknowledged critical, amber for cautions alone.
+//   3. A session that has left the unit raises nothing (computeAlerts).
+const isActionableAlert = (a) => a.level === "crit" || a.level === "warn";
+const ALERT_LEVEL_RANK = { crit: 0, warn: 1, info: 2 };
+function alertBadgeFor(patient, entries) {
+  if (!patient) return { count: 0, crit: 0, warn: 0, level: null };
   const acked = readAckedMap(patient.sessionId);
-  return computeAlerts(patient, entries).filter(a => !acked[ackKey(a.id, a.dol)]).length;
+  let crit = 0, warn = 0;
+  for (const a of computeAlerts(patient, entries)) {
+    if (!isActionableAlert(a) || acked[alertAckKey(a)]) continue;
+    if (a.level === "crit") crit++; else warn++;
+  }
+  return { count: crit + warn, crit, warn, level: crit ? "crit" : warn ? "warn" : null };
+}
+// The badge's number alone, for one infant on this device. The screens read
+// alertBadgeFor (they need the level too); this stays as the stable name the
+// harnesses measure the badge by, before and after the 2026-09-24 change.
+function activeAlertCount(patient, entries) {
+  return alertBadgeFor(patient, entries).count;
 }
 
 // ============================================================
@@ -628,6 +684,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Patient registry — empty until GAS sync completes (prevents mock patient identity confusion)
   const [patients, setPatients] = React.useState(GAS_ON ? [] : D_A.MOCK_PATIENTS);
   const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
+  // Nursing I/O records by sessionId (UX roadmap #4), and whether the backend
+  // serves them at all. nursingLive follows the sync payload: it carries a
+  // `nursing` map exactly while the backend's switch is on (gas-backend.gs
+  // _nursingEnabled — set after the DPO's sign-off, D7), which is also exactly
+  // while the server refuses a nurse's order write (D5). Its sync cache is
+  // keyed on the switch, so no payload of the other shape bridges a flip.
+  // Local dev has it on.
+  const [nursing, setNursing] = React.useState({});
+  const [nursingLive, setNursingLive] = React.useState(!GAS_ON);
+  // D5 (Pp, 2026-09-24): "พยาบาลบันทึกหรือ submit ไม่ได้ ได้แค่ใช้ calculator".
+  // Only against a backend that also refuses it — while its switch is off, the
+  // Calculator's Intake/Output card is still the nurses' only way to record I/O.
+  const ordersReadOnly = role === "nurse" && nursingLive;
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
   // Which ward the registry is showing. null = show the ward gate, which is
@@ -679,10 +748,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // so this memo (which reads localStorage directly) knows to recompute.
   const [ackVersion, setAckVersion] = React.useState(0);
 
-  const alertCount = React.useMemo(() => {
-    if (!active) return 0;
-    return activeAlertCount(active, log[active.sessionId] || []);
-  }, [active, log, dol, ackVersion]);
+  // { count, level } — actionable, unacknowledged alerts only (alertBadgeFor).
+  const alertBadge = React.useMemo(
+    () => alertBadgeFor(active, (active && log[active.sessionId]) || []),
+    [active, log, dol, ackVersion]);
 
   // ── GAS fetch (initial + manual sync) ────────────────────────
   // Token is sent in POST body — never in URL (prevents token leakage in server logs)
@@ -1006,6 +1075,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         // YYYY-MM-DD comparison, and rows arrive in insertion order rather
         // than date order. See D.normalizeLogMap.
         if (data.log) setLog(D_A.normalizeLogMap(data.log));
+        // Both ways: switched on, the card appears and a nurse's Submit goes;
+        // switched off again, both come back on the same sync.
+        const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
+        setNursingLive(nursingServed);
+        setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
         // Every write this device made has now been checked against the sheet.
         unknownWriteRef.current = false;
         appliedSeqRef.current = seq;
@@ -1387,6 +1461,91 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     });
   };
 
+  // ── Nursing I/O (UX roadmap #4) ──────────────────────────────
+  // The modal hands back { entry, weightG, dol, record }: entry is null when
+  // only a weight was typed, record is the row being edited (null = new). The
+  // weight goes through handleWeightUpdate — the growth chart's own path — so a
+  // nurse's weight is an ordinary measurement in weights[], seen by the chart,
+  // "Wt now", the stale-weight alert and the Calculator alike. Resolves
+  // { ok: true } or { ok: false, error } for the modal to show in place.
+  const handleNursingSave = async ({ entry, weightG, dol, record }) => {
+    const id = active.sessionId;
+    const who = user?.email || "";
+    if (entry) {
+      const blocked = blockedByUnknownWrite(true);
+      if (blocked) return blocked;
+      if (record && record.entryId && !String(record.entryId).startsWith("tmp_")) {
+        const res = GAS_ON
+          ? await writeGAS({ action: "updateNursingEntry", sessionId: id, entryId: record.entryId,
+              expectedLastModified: record.lastModified, entry }, { quiet: true })
+          : { ok: true, lastModified: new Date().toISOString() };
+        if (res.conflict) {
+          syncFromGAS();
+          return { ok: false, error: `บันทึกนี้ถูกแก้จากอีกเครื่อง (${res.current?.lastModifiedBy || "ผู้ใช้อื่น"}) — ปิดแล้วเปิดใหม่หลังซิงก์` };
+        }
+        if (!res.ok) return res;
+        setNursing(prev => ({ ...prev, [id]: (prev[id] || []).map(r => r.entryId === record.entryId
+          ? { ...r, ...entry, ts: record.ts, lastModified: res.lastModified, lastModifiedBy: who } : r) }));
+      } else {
+        const tempId = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+        const now = new Date().toISOString();
+        setNursing(prev => D_A.normalizeNursingMap({ ...prev, [id]: [...(prev[id] || []),
+          { ...entry, entryId: tempId, enteredBy: who, lastModified: now, lastModifiedBy: who }] }));
+        const res = GAS_ON
+          ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true })
+          : { ok: true, entryId: "local_" + tempId, lastModified: now };
+        if (res.ok) {
+          setNursing(prev => ({ ...prev, [id]: (prev[id] || []).map(r =>
+            r.entryId === tempId ? { ...r, entryId: res.entryId, lastModified: res.lastModified } : r) }));
+        } else if (!res.unknown) {
+          // An unknown result keeps the provisional row for the verification
+          // sync to settle, as an order save does (UP-B10).
+          setNursing(prev => ({ ...prev, [id]: (prev[id] || []).filter(r => r.entryId !== tempId) }));
+          if (isDuplicateDate(res)) {
+            syncFromGAS();
+            return { ok: false, error: "มีบันทึก I/O ของวันที่นี้แล้ว (อาจบันทึกจากอีกเครื่อง) — ปิดหน้าต่างนี้แล้วแตะรายการเดิมเพื่อแก้ไข" };
+          }
+          return res;
+        } else return res;
+      }
+    }
+    if (weightG != null) {
+      const rec = patients.find(p => p.sessionId === id);
+      const sent = handleWeightUpdate(id, D_A.upsertWeight(rec?.weights || [], dol, weightG), { quiet: true });
+      // Awaited, not fire-and-forget: a refusal must reach the form while it
+      // still holds the typed weight (review of 2026-09-24 — a weight-only
+      // save said "saved", closed, and then lost the weight to a Busy).
+      const wres = sent === false
+        ? { ok: false, error: "ยังบันทึกน้ำหนักไม่ได้ — รอผลการบันทึกครั้งก่อนแล้วลองใหม่" }
+        : await sent;
+      if (!wres || !wres.ok) {
+        // Once the I/O row has landed the form must close anyway: a second
+        // Save from it would be a second record for the date, or an edit
+        // against a stamp that has since moved. The weight is the one thing to
+        // re-type.
+        if (!entry) return { ok: false, error: (wres && wres.error) || "บันทึกน้ำหนักไม่สำเร็จ — ลองใหม่อีกครั้ง" };
+        showToast("บันทึก I/O แล้ว แต่ยังบันทึกน้ำหนักไม่ได้ — ใส่น้ำหนักอีกครั้งหลังซิงก์", "error");
+        return { ok: true };
+      }
+    }
+    showToast(entry ? "บันทึก I/O ประจำวันแล้ว" : "บันทึกน้ำหนักแล้ว");
+    return { ok: true };
+  };
+  // Admin only (gated where this is passed down), audited server-side.
+  const handleNursingDelete = (record) => {
+    const id = active.sessionId;
+    const blocked = blockedByUnknownWrite();
+    if (blocked) return Promise.resolve(blocked);
+    const prevRecords = nursing[id] || [];
+    setNursing(prev => ({ ...prev, [id]: (prev[id] || []).filter(r => r.entryId !== record.entryId) }));
+    if (!GAS_ON) { showToast("ลบบันทึก I/O แล้ว"); return Promise.resolve({ ok: true }); }
+    return writeGAS({ action: "deleteNursingEntry", sessionId: id, entryId: record.entryId }).then(res => {
+      if (res.ok) showToast("ลบบันทึก I/O แล้ว");
+      else if (!res.unknown) setNursing(prev => ({ ...prev, [id]: prevRecords }));
+      return res;
+    });
+  };
+
   // Permanently deletes the session — removes it from Patient_Registry and
   // every Daily_Log row for it server-side (`deletePatient` GAS action), not
   // just this browser's state. Used to be local-state-only, which looked
@@ -1615,8 +1774,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // this device's copy (UP-S1; see handleEditPatient).
   // Returns false when the save was not attempted, so MeasurementLogger keeps
   // what was typed instead of clearing it.
-  const handleWeightUpdate = (sessionId, weights) => {
-    if (blockedByUnknownWrite()) return false;
+  // Returns false when the save was not attempted; otherwise a promise of the
+  // write's result, for a caller that must know how it ended (the nursing
+  // form keeps its typed weight on a refusal). `opts` is gasPost's.
+  const handleWeightUpdate = (sessionId, weights, opts) => {
+    if (blockedByUnknownWrite(!!opts?.quiet)) return false;
     const rec0 = patients.find(p => p.sessionId === sessionId);
     const previousWeights = rec0?.weights || [];
     // Send the derived dob so the server can capture it into an empty dob cell
@@ -1638,17 +1800,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       // failure rolls back only this exact optimistic update (a newer edit made
       // while the request was in flight must win); an unknown result is left
       // for the verification sync to settle (UP-B10).
-      writeGAS({ action: "updateWeights", sessionId, weights,
+      // Weight saves are silent on success; errors surface via gasPost's toast.
+      return writeGAS({ action: "updateWeights", sessionId, weights,
         ...(derivedDob ? { dob: derivedDob } : {}),
-        ...(baseRecord ? { baseWeights: baseRecord.weights || [] } : {}) }).then(res => {
-        if (res.ok) { remember(); return; }
-        if (res.unknown) return;
+        ...(baseRecord ? { baseWeights: baseRecord.weights || [] } : {}) }, opts).then(res => {
+        if (res.ok) { remember(); return res; }
+        if (res.unknown) return res;
         setPatients(prev => prev.map(p =>
           p.sessionId === sessionId && p.weights === weights ? { ...p, weights: previousWeights } : p
         ));
+        return res;
       });
-      // Weight saves are silent on success; errors surface via gasPost's toast.
     }
+    return Promise.resolve({ ok: true });
   };
 
   const [showUserMenu, setShowUserMenu] = React.useState(false);
@@ -1891,8 +2055,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         <RailItem icon="log" label="Dashboard" active={view === "log"} count={(log[activeId] || []).length} onClick={() => goTo("log")} />
         {(role === "doctor" || role === "nurse") && <RailItem icon="calc" label="Calculator" active={view === "calculator"} onClick={() => goTo("calculator")} />}
         <RailItem icon="chart" label="Growth chart" active={view === "fenton"} onClick={() => goTo("fenton")} />
-        <RailItem icon="bell" label="Alerts" active={view === "alerts"} count={alertCount || null} crit={alertCount > 0} onClick={() => goTo("alerts")} />
-        {role === "admin" && <RailItem icon="chart" label="Admin dashboard" active={view === "admin"} onClick={() => goTo("admin")} />}
+        <RailItem icon="bell" label="Alerts" active={view === "alerts"} count={alertBadge.count || null}
+          crit={alertBadge.level === "crit"} warn={alertBadge.level === "warn"} onClick={() => goTo("alerts")} />
+        {role === "admin" && <RailItem icon="dashboard" label="Admin dashboard" active={view === "admin"} onClick={() => goTo("admin")} />}
 
         <div className="rail-section">Reference</div>
         <RailItem icon="info" label="Guidelines (ESPGHAN)" active={view === "guidelines"} onClick={() => goTo("guidelines")} />
@@ -1962,6 +2127,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           {view === "calculator" && active && (
             <CalculatorView active={active} dol={dol} editEntry={editEntry} logDate={logDate}
               log={log} activeId={activeId} token={user?.token} role={role}
+              nursing={nursingLive ? (nursing[activeId] || []) : null} ordersReadOnly={ordersReadOnly}
               userLabel={user?.name ? `${user.name}${user.email ? ` (${user.email})` : ""}` : (user?.email || "")}
               userEmail={user?.email || ""}
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
@@ -1983,8 +2149,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             </>
           }
           {view === "log" && active && <DailyLog patient={active} log={log} dol={dol}
-            onAddToday={startAddToday} onEditEntry={startEditEntry}
-            onDeleteEntry={role === "admin" ? handleDeleteEntry : undefined} />}
+            // "New log" opens a new ORDER, which a nurse no longer writes (D5).
+            onAddToday={ordersReadOnly ? undefined : startAddToday} onEditEntry={startEditEntry}
+            onDeleteEntry={role === "admin" ? handleDeleteEntry : undefined}
+            nursing={nursingLive ? (nursing[activeId] || []) : null}
+            onSaveNursing={handleNursingSave}
+            onDeleteNursing={role === "admin" ? handleNursingDelete : undefined} />}
           {view === "alerts" && active && <AlertCenter patient={active} log={log} onAckChange={() => setAckVersion(v => v + 1)} />}
           {/* Quick calc — no patient, no role gate: it is a calculator over a
               typed weight, it reads no record and writes nothing, so there is
@@ -2033,7 +2203,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       <BottomNav
         view={view}
         setView={goTo}
-        alertCount={alertCount}
+        alertCount={alertBadge.count}
+        alertLevel={alertBadge.level}
         logCount={(log[activeId] || []).length}
         role={role}
       />
@@ -2091,7 +2262,8 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // while view === "calculator", so its own hook-call sequence is consistent
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel, userEmail,
-  handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo }) {
+  handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo,
+  nursing = [], ordersReadOnly = false }) {
   // The day this order is for, as the Calculator reports it (onOrderDate): an
   // edit's own date, a back-fill's, or the day a new order was opened on —
   // which stays put if the form is left open past midnight. The header chip
@@ -2111,7 +2283,9 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   // and (for new and edited orders alike) the "changes vs previous" reference.
   const previousEntry = previousLogEntry(log[activeId] || [], lockDate);
   const baselineEntry = !editEntry ? previousEntry : null;
-  const holder = useDailyLogLock(active.sessionId, lockDate, token);
+  // The courtesy lock announces "someone is editing this order" — which a nurse
+  // computing without saving (D5) is not, so the nurse takes none.
+  const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
 
   return (
     <>
@@ -2165,6 +2339,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         userEmail={userEmail}
         onLog={handleLogToGAS} onUpdate={handleUpdateToGAS} onPublish={handlePublishToGAS}
         onSaved={() => goTo("log")}
+        nursing={nursing} ordersReadOnly={ordersReadOnly}
         onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined} />
     </>
   );
@@ -2333,9 +2508,9 @@ window.NEOFEED_FMT_DATE = fmtDate;
 // Delegates to D_A.fmtGA for single source of truth.
 function fmtGA(ga) { return D_A.fmtGA(ga); }
 
-function RailItem({ icon, label, active, count, crit, onClick }) {
+function RailItem({ icon, label, active, count, crit, warn, onClick }) {
   return (
-    <div className={`rail-item ${active ? "active" : ""} ${crit ? "crit" : ""}`} onClick={onClick}>
+    <div className={`rail-item ${active ? "active" : ""} ${crit ? "crit" : warn ? "warn" : ""}`} onClick={onClick}>
       <Icon name={icon} size={15} />
       <span>{label}</span>
       {count && <span className="count">{count}</span>}
@@ -2462,14 +2637,16 @@ function AlertCenter({ patient, log, onAckChange }) {
   // Each alert carries a stable `id` (independent of dol/wording) — combined
   // with dol below to form the acknowledge key, so an ack only silences that
   // specific day's instance and a fresh recurrence (new dol) surfaces again.
+  // An alert that names its own key (`ack`) is acknowledged on that instead.
   // computeAlerts() is the single shared source of truth (see its definition
   // near the top of this file) — also used by the nav badge and admin tile.
   const alerts = computeAlerts(patient, entries);
+  const onUnit = D_A.isOnUnit(patient);
 
   // ── Acknowledge state — per-device, keyed by patient session (localStorage).
   // Not yet synced server-side (would need a new Patient sheet column); a
   // second reviewer on another device won't see this device's acknowledgments.
-  const ackKeyFor = (a) => ackKey(a.id, a.dol);
+  const ackKeyFor = alertAckKey;
   const storageKey = `neofeed_acked_${patient.sessionId}`;
   const [acked, setAcked] = React.useState(() => readAckedMap(patient.sessionId));
   React.useEffect(() => { setAcked(readAckedMap(patient.sessionId)); }, [storageKey]);
@@ -2514,6 +2691,10 @@ function AlertCenter({ patient, log, onAckChange }) {
           <div className="num" style={{ fontSize: 32, fontWeight: 500, color: "var(--brand)" }}>{activeAlerts.filter((a) => a.level === "info").length}</div>
         </div>
       </div>
+      {/* Says what the badge counts, once, where someone checking it lands. */}
+      <div className="alert-badge-note" style={{ fontSize: 12, color: "var(--ink-3)", margin: "-4px 0 12px" }}>
+        ตัวเลขบนเมนู Alerts นับเฉพาะ Critical และ Caution ที่ยังไม่ได้ Acknowledge — Info / reminders ไม่นับ
+      </div>
 
       <div className="card">
         <div className="card-h">
@@ -2521,7 +2702,20 @@ function AlertCenter({ patient, log, onAckChange }) {
           <span className="h-meta">{activeAlerts.length} active · {alerts.length} total</span>
         </div>
         <div className="card-b" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0)).map((a, i) => {
+          {/* An empty list says why it is empty: a discharged session raises
+              nothing by design (computeAlerts), which is not the same news as
+              an infant on the unit with nothing wrong. */}
+          {alerts.length === 0 && (
+            <div className="alert-empty" style={{ fontSize: 13, color: "var(--ink-3)", padding: "6px 2px" }}>
+              {onUnit
+                ? "ไม่มีการแจ้งเตือนสำหรับผู้ป่วยรายนี้"
+                : `ผู้ป่วยรายนี้ไม่ได้อยู่ใน unit แล้ว (${patient.status}) — ไม่มีการแจ้งเตือน`}
+            </div>
+          )}
+          {/* Unacknowledged first, then worst first: critical, caution, info. */}
+          {alerts.slice().sort((a, b) =>
+            ((acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0)) ||
+            (ALERT_LEVEL_RANK[a.level] - ALERT_LEVEL_RANK[b.level])).map((a, i) => {
             const ackedAt = acked[ackKeyFor(a)];
             return (
             <div key={ackKeyFor(a)} className={`alert-row ${a.level}`} style={ackedAt ? { opacity: 0.5 } : undefined}>
@@ -2817,16 +3011,137 @@ function LoginScreen({ onLogin, notice = null }) {
 }
 
 // ============================================================
+// Admin census (UX roadmap #2, 2026-09-24)
+// ============================================================
+// What an admin opens this page to find out, ward by ward: how full it is,
+// whether today's orders are in, who is waiting for a bed, and how many
+// infants carry a critical or a caution finding. Aggregates only: the census
+// names beds, never babies. An admin who needs a name opens Patients, which
+// already shows it to every role.
+//
+// Every count reads the helpers the ward screens read, so the census and the
+// ward gate cannot disagree about who is where:
+//   on the unit       D_A.isOnUnit — a blank status counts, as on the registry
+//   which ward        D_A.patientWard — a parked infant stays on the ward of
+//                     the bed they left, as on the registry list
+//   beds              D_A.BED_OPTIONS grouped by D_A.wardGroup (NICU 1–12 and
+//                     the iso rooms = 20, SCN 1–30 = 30)
+//   logged / draft    D_A.hasLogOnDate / D_A.hasDraftOnDate for today;
+//                     logged + needs entry = active, as on the ward tiles
+//   critical/caution  computeAlerts, one count per infant at its worst level,
+//                     and deliberately NOT net of acknowledgements: those are
+//                     per device, and one device's acks say nothing about the
+//                     unit an admin is looking at
+const CENSUS_WARDS = [
+  { ward: "NICU",  label: "NICU" },
+  { ward: "SCN",   label: "SCN" },
+  { ward: "other", label: "อื่นๆ" },
+];
+const CENSUS_WINDOW_DAYS = 7;
+function buildCensus(patients, log, today) {
+  const all = patients || [];
+  const onUnit = all.filter(D_A.isOnUnit);
+  const blank = () => ({ active: 0, logged: 0, needs: 0, draft: 0, parked: 0, crit: 0, warn: 0, beds: new Set() });
+  const by = { NICU: blank(), SCN: blank(), other: blank() };
+  const holders = new Map();   // canonical bed → infants on the unit recorded in it
+  let unbedded = 0, offList = 0;
+  for (const p of onUnit) {
+    const w = by[D_A.patientWard(p)] || by.other;
+    const entries = (log && log[p.sessionId]) || [];
+    w.active++;
+    if (D_A.hasLogOnDate(entries, today)) w.logged++;
+    else { w.needs++; if (D_A.hasDraftOnDate(entries, today)) w.draft++; }
+    const alerts = computeAlerts(p, entries);
+    if (alerts.some(a => a.level === "crit")) w.crit++;
+    else if (alerts.some(a => a.level === "warn")) w.warn++;
+    if (D_A.isParked(p)) { w.parked++; continue; }
+    const bed = D_A.normalizeBed(p.currentBed);
+    if (!bed) { unbedded++; continue; }
+    if (!D_A.BED_OPTIONS.includes(bed)) { offList++; continue; }
+    w.beds.add(bed);
+    holders.set(bed, (holders.get(bed) || 0) + 1);
+  }
+  const wards = CENSUS_WARDS
+    // "อื่นๆ" only when someone is in it — the same rule as the ward gate.
+    .filter(({ ward }) => ward !== "other" || by.other.active > 0)
+    .map(({ ward, label }) => {
+      const { beds, ...counts } = by[ward];
+      const capacity = ward === "other" ? null : D_A.BED_OPTIONS.filter(b => D_A.wardGroup(b) === ward).length;
+      return { ward, label, capacity, occupied: beds.size, ...counts };
+    });
+  const sum = (k) => wards.reduce((s, w) => s + w[k], 0);
+  const total = { ward: "total", label: "ทั้ง unit", capacity: D_A.BED_OPTIONS.length };
+  ["occupied", "active", "logged", "needs", "draft", "parked", "crit", "warn"].forEach(k => { total[k] = sum(k); });
+
+  // Admissions and departures inside the window, today included. The window
+  // sits well inside the 30 days of departures every device syncs, so the
+  // answer does not depend on the admin's archive switch.
+  const since = D_A.addDaysToDateStr(today, -(CENSUS_WINDOW_DAYS - 1));
+  const inWindow = (d) => { const s = D_A.normalizeDateStr(d); return !!s && s >= since && s <= today; };
+  const movement = { admitted: 0, Discharged: 0, Transferred: 0, Expired: 0 };
+  all.forEach(p => {
+    if (inWindow(p.admissionDate)) movement.admitted++;
+    if (!D_A.isOnUnit(p) && movement[p.status] != null && inWindow(p.statusDate)) movement[p.status]++;
+  });
+  // Two infants on the unit recorded in one bed. Every save path refuses to
+  // create this (BedSelect, both modals, App, registerPatient), so one here was
+  // typed into the Sheet or predates the guard — and until one of the pair is
+  // moved, neither record can be saved.
+  const doubleBooked = [...holders].filter(([, n]) => n > 1)
+    .map(([bed, n]) => ({ bed, n }))
+    .sort((a, b) => D_A.BED_OPTIONS.indexOf(a.bed) - D_A.BED_OPTIONS.indexOf(b.bed));
+  return { wards, total, movement, doubleBooked, unbedded, offList, windowDays: CENSUS_WINDOW_DAYS };
+}
+
+// One ward's card. Module level, not nested in AdminDashboard: a component
+// defined inside another is a new type on every render and remounts.
+function CensusWard({ w }) {
+  const pct = w.capacity ? Math.round(w.occupied / w.capacity * 100) : null;
+  // Status colours only where a number is a finding — the -ink cut, since
+  // each is a word, not a stripe. A count is otherwise plain ink.
+  const stat = (label, value, tone, sub) => (
+    <div className={`census-stat${tone ? " " + tone : ""}`}>
+      <div className="v num">{value}</div>
+      <div className="l">{label}{sub ? <span className="s"> · {sub}</span> : null}</div>
+    </div>
+  );
+  return (
+    <div className={`census-ward${w.ward === "total" ? " total" : ""}`} data-ward={w.ward}>
+      <div className="census-ward-h">
+        <span className="census-ward-name">{w.label}</span>
+        {w.capacity != null
+          ? <span className="census-beds">เตียง <span className="num">{w.occupied}/{w.capacity}</span> · ว่าง <span className="num">{w.capacity - w.occupied}</span></span>
+          : <span className="census-beds">ไม่มีเตียงในรายการ</span>}
+      </div>
+      {pct != null &&
+        <div className="census-bar" role="img" aria-label={`ครองเตียง ${pct}%`}><span style={{ width: `${pct}%` }} /></div>}
+      <div className="census-stats">
+        {stat("Active", w.active)}
+        {stat("Logged today", w.logged, w.active > 0 && w.logged === w.active ? "ok" : "")}
+        {stat("Needs entry", w.needs, w.needs ? "warn" : "", w.draft ? `draft ${w.draft}` : null)}
+        {stat("รอเตียง", w.parked, w.parked ? "warn" : "")}
+        {stat("Critical", w.crit, w.crit ? "crit" : "")}
+        {stat("Caution", w.warn, w.warn ? "warn" : "")}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Admin dashboard — read-only oversight, syncs from GAS
 // ============================================================
 function AdminDashboard({ patients, log, lastSync, includeArchived = false, onToggleArchived }) {
+  // Re-renders at midnight, so a workstation left on this page rolls the
+  // census over to the new day's "Logged today" on its own.
+  const today = D_A.useTodayLocal();
+  const census = buildCensus(patients, log, today);
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
   // Same "still on the unit" test the registry uses (registry.jsx's
   // isActivePatient): a blank status counts as Active, because the backend
   // defaults it but a patient added locally — or a row typed straight into
   // the sheet — can have none. Requiring the literal string made this tile
   // read lower than the registry's own Active count for the same census.
-  const active = patients.filter(p => !p.status || p.status === "Active").length;
+  const active = patients.filter(D_A.isOnUnit).length;
   // Newest first by calendar date, not by whichever patient happens to come
   // last in the registry. flatMap groups by patient, so `.slice(-20)` on the
   // raw concatenation returned "the last patients' entries" — a table titled
@@ -2837,11 +3152,18 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
     .flatMap(p => (log[p.sessionId] || []).map(e =>
       ({ ...e, sid: p.sessionId, bed: p.currentBed, showDol: D_A.entryDol(p, e) })))
     .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
-  // Compute alert count across all patients via the shared computeAlerts() —
-  // same source of truth as the per-patient nav badge and the Alerts page.
-  const alertsTotal = patients.reduce((sum, p) => {
-    return sum + activeAlertCount(p, log[p.sessionId] || []);
-  }, 0);
+  // Infants on the unit with a critical or caution finding, from the census —
+  // the same computeAlerts() the nav badge and the Alerts page read, counted
+  // per infant and not net of any one device's acknowledgements (see
+  // buildCensus). Until 2026-09-24 this tile summed every alert, info lines
+  // and discharged sessions included, net of the admin's own acks.
+  const withAlerts = census.total.crit + census.total.warn;
+  const m = census.movement;
+  const flags = [
+    ...census.doubleBooked.map(d => `เตียงซ้อน ${d.bed} (${d.n} ราย)`),
+    ...(census.unbedded ? [`ยังไม่ระบุเตียง ${census.unbedded} ราย`] : []),
+    ...(census.offList ? [`เตียงนอกรายการ ${census.offList} ราย`] : []),
+  ];
   return (
     <>
       <div className="page-head">
@@ -2877,7 +3199,7 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
           ["Active sessions", active, "var(--brand)"],
           ["Total patients", patients.length, "var(--ink)"],
           ["Logged entries", totalLogs, "var(--ok)"],
-          ["Active alerts", alertsTotal, "var(--warn-ink)"]
+          ["Infants with alerts", withAlerts, census.total.crit ? "var(--crit-ink)" : withAlerts ? "var(--warn-ink)" : "var(--ink)"]
         ].map(([l, v, c]) =>
           <div key={l} className="card" style={{ padding: 14 }}>
             <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 }}>{l}</div>
@@ -2885,9 +3207,37 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
           </div>
         )}
       </div>
+      <div className="card census-card" style={{ marginBottom: 14 }}>
+        <div className="card-h"><Icon name="dashboard" size={14} color="var(--brand)" /> Census
+          <span className="h-meta">{fmtDate(today)} · เฉพาะผู้ป่วยที่ยังอยู่ใน unit</span></div>
+        <div className="card-b">
+          <div className="census-grid">
+            {census.wards.map(w => <CensusWard key={w.ward} w={w} />)}
+            <CensusWard w={census.total} />
+          </div>
+          <div className="census-note census-movement">
+            ความเคลื่อนไหว {census.windowDays} วัน · รับใหม่ <span className="num">{m.admitted}</span>
+            {" · "}Discharged <span className="num">{m.Discharged}</span>
+            {" · "}Transferred <span className="num">{m.Transferred}</span>
+            {" · "}Expired <span className="num">{m.Expired}</span>
+          </div>
+          {/* Bed labels, never names: the fix is made on the Patients page,
+              whose unit-wide search finds a bed by its label. */}
+          {flags.length > 0 && (
+            <div className="census-flags" role="note">
+              <strong>ต้องตรวจสอบ</strong> · {flags.join(" · ")} — ค้นหาเลขเตียงในหน้า Patients เพื่อแก้
+            </div>
+          )}
+          <div className="census-note">
+            Critical / Caution นับเป็นจำนวนทารก ตามระดับที่รุนแรงที่สุดของแต่ละราย และไม่หักการ Acknowledge ของเครื่องใด
+          </div>
+        </div>
+      </div>
       <div className="card">
         <div className="card-h"><Icon name="log" size={14} color="var(--brand)" /> Recent log entries<span className="h-meta">{allEntries.length} total</span></div>
-        <div className="card-b" style={{ padding: 0 }}>
+        {/* Scrolls inside its card on a phone rather than widening the page
+            (reachable there since the Admin tab, 2026-09-24). */}
+        <div className="card-b admin-recent" style={{ padding: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
             <thead><tr style={{ background: "var(--bg-2)", textAlign: "left" }}>
               <th style={{ padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" }}>Session</th>
@@ -2923,13 +3273,21 @@ function AdminDashboard({ patients, log, lastSync, includeArchived = false, onTo
 // ============================================================
 // BottomNav — mobile-only tab bar (≤767px)
 // ============================================================
-function BottomNav({ view, setView, alertCount, logCount, role }) {
+function BottomNav({ view, setView, alertCount, alertLevel, logCount, role }) {
+  // A badge's colour is a claim about severity, so only the Alerts badge may
+  // make one (alarm fatigue, 2026-09-24): red for an unacknowledged critical,
+  // amber for cautions. The Dashboard's number is how many entries the infant
+  // has — information, not an alarm — and it was drawn in the same solid red
+  // on every phone. It is neutral now, as it always was on the desktop rail.
   const tabs = [
     { id: "registry",   icon: "users",  label: "Patients" },
-    { id: "log",        icon: "log",    label: "Dashboard", badge: logCount   },
+    { id: "log",        icon: "log",    label: "Dashboard", badge: logCount, tone: "neutral" },
     ...((role === "doctor" || role === "nurse") ? [{ id: "calculator", icon: "calc", label: "Calc" }] : []),
     { id: "fenton",     icon: "chart",  label: "Growth"   },
-    { id: "alerts",     icon: "bell",   label: "Alerts", badge: alertCount },
+    { id: "alerts",     icon: "bell",   label: "Alerts", badge: alertCount, tone: alertLevel === "warn" ? "warn" : "" },
+    // The admin dashboard had no way in on a phone (2026-09-23 review). Admin
+    // has no Calc tab, so this keeps the bar at five.
+    ...(role === "admin" ? [{ id: "admin", icon: "dashboard", label: "Admin" }] : []),
   ];
   return (
     <nav className="bottom-nav" aria-label="Main navigation">
@@ -2940,7 +3298,7 @@ function BottomNav({ view, setView, alertCount, logCount, role }) {
           onClick={() => setView(t.id)}
           aria-label={t.label}
         >
-          {t.badge > 0 && <span className="bnav-badge">{t.badge}</span>}
+          {t.badge > 0 && <span className={`bnav-badge${t.tone ? " " + t.tone : ""}`}>{t.badge}</span>}
           <Icon name={t.icon} size={23} color={view === t.id ? "var(--brand)" : "var(--ink-4)"} />
           <span>{t.label}</span>
         </button>

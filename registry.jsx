@@ -342,8 +342,17 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                 </span>
               </div>
 
-              {/* Actions */}
+              {/* Actions. ⇄ opens the same TransferBedModal as the desktop
+                  table's ⇄ (UX roadmap #3, 2026-09-24). A phone had no way in
+                  to it: a bed changed through Edit records no "Previous beds"
+                  hop, and พักไว้ก่อน — the only way to swap two occupied beds —
+                  lives nowhere else. The modal's own swap hint says "เปิด ⇄
+                  ของ …", which was an instruction no phone could follow. */}
               <div className="pmc-actions">
+                <button className="btn sm pmc-bed" onClick={e => { e.stopPropagation(); setTransferPatient(p); }}
+                  aria-label={`${D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"} ${p.name || p.initials || ""}`.trim()}>
+                  ⇄ {D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"}
+                </button>
                 <button className="btn sm" onClick={e => { e.stopPropagation(); setEditPatient(p); }}>
                   Edit
                 </button>
