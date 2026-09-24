@@ -1374,6 +1374,33 @@ function weightSeries(patient, entries) {
   return [...byDol.values()].sort((a, b) => a.dol - b.dol);
 }
 
+// ============================================================
+// Current weight — the ONE answer to "what does this infant weigh" (2026-09-24)
+// ============================================================
+// Praew, 2026-09-24: an infant's weight must read the same on every screen,
+// from one place. It did not: the patient strip showed whatever was being
+// typed in the Calculator, a new order started from the growth chart alone,
+// and the Trend read the orders alone. Every screen that shows or starts from
+// "the current weight" — the patient strip, the Ward list, a new order's
+// Current weight box, the I/O divisor, the stale-weight alert — now calls this
+// with the patient's Daily_Log.
+//
+// It is the latest point of weightSeries (both stores, drafts excluded, a
+// measurement winning over an order on the same DOL) on or before `asOfDol`,
+// or the latest overall when `asOfDol` is omitted. A back-fill passes its own
+// DOL, so an earlier day is never given a later weight. Called with no log it
+// is the growth chart alone, which is right only for a caller that genuinely
+// has none (Center Point, the quick calc).
+//
+// Returns { dol, w, src: "measured" | "order", ts? } or null.
+function currentWeight(patient, entries, asOfDol) {
+  const series = weightSeries(patient, entries || []);
+  for (let i = series.length - 1; i >= 0; i--) {
+    if (asOfDol == null || series[i].dol <= asOfDol) return series[i];
+  }
+  return null;
+}
+
 // Most recent weights[] entry with an actual weight recorded on or before a
 // given DOL — e.g. weightAtOrBeforeDol(patient, dol-1) is "yesterday's weight"
 // for a fluid-balance divisor. Returns null if the patient has no weighed
@@ -1487,9 +1514,16 @@ function growthVelocity(patient, entries) {
 // but today's actual weight already exceeds birth weight, today's weight is
 // used instead so the divisor doesn't stay pinned to birth weight once the
 // infant has clearly grown past it.
-function ioDivisorG(patient, dol, todayWeightG) {
+//
+// `entries` is the patient's Daily_Log. "The previous day's weight" is read
+// from the same series as every other weight in the app (currentWeight, as of
+// DOL − 1): until 2026-09-24 it came from the growth chart alone, so a ward
+// that weighs in the order had its urine mL/kg/h divided by the birth weight
+// or a weeks-old measurement (Praew's decision, 2026-09-24). The floor rules
+// above are unchanged.
+function ioDivisorG(patient, dol, todayWeightG, entries) {
   const bw = patient?.bw || 0;
-  const prevW = weightAtOrBeforeDol(patient, (dol || 1) - 1);
+  const prevW = currentWeight(patient, entries, (dol || 1) - 1)?.w ?? null;
   const base = prevW != null ? prevW : bw;
   const divisor = base ? (base < bw ? bw : base) : (bw || null);
   if (divisor === bw && todayWeightG > bw) return { g: todayWeightG, source: "today" };
@@ -1527,27 +1561,36 @@ function daysBetweenDateStr(fromStr, toStr) {
 // with no dob (registered before dob was stored, or imported). For a record
 // whose dob was derived the usual way the two agree exactly, so this changes
 // no correct patient's DOL — only stops an editable array from moving it.
+// Primary anchor: date of birth. Only a plausible one — a blank, future or
+// Buddhist-era dob would peg every DOL at 1 (see admissionDateIssue).
+// (Validity is a property of the stored date itself — judged against today,
+// never against the date being asked about, which may legitimately be a
+// back-dated log entry.)
+//
+// …and a dob LATER than the admission date is not a birth date: an infant
+// cannot be admitted before it is born. That combination means the dob is
+// wrong — a legacy row where it was defaulted to the registration date, most
+// likely — and trusting it would report DOL 1 for an infant ten days in.
+// When the two disagree, the pair that agrees with each other wins.
+function dobCredible(patient) {
+  return !!(patient?.dob
+    && !admissionDateIssue(patient.dob)
+    && (!patient.admissionDate || normalizeDateStr(patient.dob) <= normalizeDateStr(patient.admissionDate)));
+}
+// True when dolAtDate can measure a date from something real: a credible dob,
+// or a usable admission date. Without either it can only repeat the last
+// stored weights[] DOL, which is no DOL for a date at all.
+function hasDolAnchor(patient) {
+  return dobCredible(patient) || !!(patient?.admissionDate && !admissionDateIssue(patient.admissionDate));
+}
+
 function dolAtDate(patient, dateStr) {
   if (!patient) return 1;
   const admitDol = patient.weights?.[0]?.dol ?? 1;
   const lastDol  = patient.weights?.slice(-1)[0]?.dol ?? admitDol;
   if (!dateStr) return lastDol;
 
-  // Primary anchor: date of birth. Only a plausible one — a blank, future or
-  // Buddhist-era dob would peg every DOL at 1 (see admissionDateIssue).
-  // (Validity is a property of the stored date itself — judged against today,
-  // never against the date being asked about, which may legitimately be a
-  // back-dated log entry.)
-  //
-  // …and a dob LATER than the admission date is not a birth date: an infant
-  // cannot be admitted before it is born. That combination means the dob is
-  // wrong — a legacy row where it was defaulted to the registration date, most
-  // likely — and trusting it would report DOL 1 for an infant ten days in.
-  // When the two disagree, the pair that agrees with each other wins.
-  const dobCredible = patient.dob
-    && !admissionDateIssue(patient.dob)
-    && (!patient.admissionDate || normalizeDateStr(patient.dob) <= normalizeDateStr(patient.admissionDate));
-  if (dobCredible) {
+  if (dobCredible(patient)) {
     const sinceBirth = daysBetweenDateStr(patient.dob, dateStr);
     if (sinceBirth != null) return Math.max(1, sinceBirth + 1);
   }
@@ -1578,11 +1621,91 @@ function dolAtDate(patient, dateStr) {
 // column — the exact staleness this function exists to avoid. syncFromGAS
 // already normalizes the whole log map, so this is belt-and-braces for any
 // caller holding an entry that didn't come through there.
+// The gate is hasDolAnchor, not "has an admission date" (2026-09-24): a record
+// with a dob and no admission date showed stored DOLs in the log beside a
+// dob-based DOL in the strip, and one whose admission date was unusable had
+// every row collapse onto the same frozen DOL.
 function entryDol(patient, entry) {
   if (!entry) return 1;
   const ts = normalizeDateStr(entry.ts);
-  if (ts && patient?.admissionDate) return dolAtDate(patient, ts);
+  if (ts && hasDolAnchor(patient)) return dolAtDate(patient, ts);
   return entry.dol || 1;
+}
+
+// The DOL of the admission day — what the Dashboard's "Day admit" counts from
+// and the Edit form's "DOL แรกรับ" opens on. From the anchor, never from
+// weights[0]: that is the birth row for any record with a birth measurement,
+// which read every order as five days further into the admission than it was
+// for an infant admitted on DOL 6 (2026-09-24). Only a record with no usable
+// admission date falls back to the first row, as it always did.
+function admissionDol(patient) {
+  const adm = normalizeDateStr(patient?.admissionDate);
+  if (adm && !admissionDateIssue(adm)) return dolAtDate(patient, adm);
+  return Number(patient?.weights?.[0]?.dol) || 1;
+}
+
+// The dob a legacy record without one implies: admission date − (the first
+// row's DOL − 1). app.jsx gives every such record one at sync, so DOL is on the
+// anchor that cannot move; the first edit of the record persists it. "" when
+// there is no usable admission date to derive from.
+function dobFromAdmission(patient) {
+  if (!patient?.admissionDate || admissionDateIssue(patient.admissionDate)) return "";
+  const admitDol = Math.max(1, Number(patient.weights?.[0]?.dol) || 1);
+  return addDaysToDateStr(normalizeDateStr(patient.admissionDate), -(admitDol - 1));
+}
+
+// ============================================================
+// Growth-chart rows follow a corrected DOL anchor (2026-09-24)
+// ============================================================
+// weights[], lengths[] and hcs[] rows are keyed by the DOL that applied on the
+// day each was taken, and carry no date. Orders re-derive their DOL from their
+// own date (entryDol), so correcting the admission date or the DOL at
+// admission moved every order and left every measurement where it was: a
+// weight and an order from the same morning ended up days apart, and
+// "measured wins on the same DOL" then paired weights from different days.
+//
+// anchorShiftDays is how far every DOL moves when a record changes from
+// `before` to `after` (0 if either has no anchor). moveGrowthRows applies it,
+// keeping each row on its calendar day, except the two rows the anchor itself
+// defines:
+//   • the birth row (DOL ≤ 1) — birth is DOL 1 whatever the anchor;
+//   • rows on the old admission DOL — a legacy registration filed the birth
+//     weight there — which move to the new admission DOL.
+// It returns { rows, conflict }. `conflict` is { dol, to } for the first row
+// that would land on or before the day of birth, or onto another row; the
+// rows are then returned unmoved and the edit must not save.
+function anchorShiftDays(before, after) {
+  if (!hasDolAnchor(before) || !hasDolAnchor(after)) return 0;
+  const ref = todayLocal();
+  return dolAtDate(after, ref) - dolAtDate(before, ref);
+}
+function moveGrowthRows(rows, shift, admitDolBefore, admitDolAfter) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!shift && admitDolBefore === admitDolAfter) return { rows: list, conflict: null };
+  const out = list.map(r => {
+    if (!r || typeof r !== "object") return r;
+    const dol = Number(r.dol);
+    if (!isFinite(dol) || dol <= 1) return r;
+    if (admitDolBefore > 1 && dol === admitDolBefore) return { ...r, dol: admitDolAfter };
+    return { ...r, dol: dol + shift };
+  });
+  // Each conflict is named by the row that moved: first one pushed onto or
+  // before the day of birth, then one landing on a DOL another row holds (two
+  // rows that already shared a DOL are not this edit's doing).
+  for (let i = 0; i < out.length; i++) {
+    const was = Number(list[i]?.dol), now = Number(out[i]?.dol);
+    if (was > 1 && now <= 1) return { rows: list, conflict: { dol: was, to: now } };
+  }
+  for (let i = 0; i < out.length; i++) {
+    const was = Number(list[i]?.dol), now = Number(out[i]?.dol);
+    if (was === now) continue;
+    for (let j = 0; j < out.length; j++) {
+      if (j !== i && now === Number(out[j]?.dol) && was !== Number(list[j]?.dol)) {
+        return { rows: list, conflict: { dol: was, to: now } };
+      }
+    }
+  }
+  return { rows: out.slice().sort((a, b) => (Number(a?.dol) || 0) - (Number(b?.dol) || 0)), conflict: null };
 }
 
 // ============================================================
@@ -1922,8 +2045,12 @@ window.NEOFEED_DATA = {
   // Staleness decision for the sync banner + the thresholds behind it
   syncFreshness, SYNC_WARN_MS, SYNC_STALE_MS, SYNC_POLL_MS,
   // Live DOL helper. entryDol re-derives a saved log row's DOL from its date
-  // instead of trusting the stored (snapshot, goes stale) `dol` column.
-  liveDol, dolAtDate, entryDol, daysBetweenDateStr,
+  // instead of trusting the stored (snapshot, goes stale) `dol` column;
+  // admissionDol is the admission day's DOL, from the anchor.
+  liveDol, dolAtDate, entryDol, admissionDol, daysBetweenDateStr,
+  dobCredible, hasDolAnchor, dobFromAdmission,
+  // Growth-chart rows follow a corrected anchor (EditPatientModal)
+  anchorShiftDays, moveGrowthRows,
   // Admission/birth-date plausibility. Every DOL, PMA and DOL-indexed target
   // is measured from these, and a blank / future / Buddhist-era value used to
   // pin DOL at 1 silently. Both registry modals and dolAtDate check it.
@@ -1944,9 +2071,9 @@ window.NEOFEED_DATA = {
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
   normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, finalEntries,
-  // Last weight from either store — pass the patient's Daily_Log as the second
-  // argument to include order weights (see weightSeries).
-  lastWeighed, weightSeries,
+  // THE current weight — every screen calls it with the patient's Daily_Log
+  // (see currentWeight). lastWeighed is its old name and goes with its callers.
+  currentWeight, lastWeighed, weightSeries,
   // Weight-at-or-before-a-DOL lookup + the birth-weight-floor divisor it
   // feeds for intake/output mL/kg/day math (see calculator.jsx Step 1)
   weightAtOrBeforeDol, ioDivisorG,
