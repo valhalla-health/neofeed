@@ -104,7 +104,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       onChange: (e) => setFilter(e.target.value)
     }
   )), /* @__PURE__ */ React.createElement("button", { className: "btn primary", style: { whiteSpace: "nowrap" }, onClick: () => setShowAdd(true) }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 14, color: "#fff" }), " New session")), offWardHits > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", margin: "-4px 0 10px" } }, "ค้นทั้ง unit — ", offWardHits, " รายอยู่ ward อื่น (ดูเลขเตียงในแต่ละรายการ)"), /* @__PURE__ */ React.createElement("div", { className: "patient-card-list" }, activeSorted.map((p) => {
-    const last = D_R.lastWeighed(p, log[p.sessionId]) || null;
+    const last = D_R.currentWeight(p, log[p.sessionId]) || null;
     const dol = D_R.liveDol(p);
     const delta = last ? last.w - p.bw : 0;
     const deltaPct = delta / p.bw * 100;
@@ -129,7 +129,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         "span",
         {
           className: "log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : ""),
-          title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"
+          title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"
         },
         hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
       )),
@@ -176,7 +176,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     /* @__PURE__ */ React.createElement("div", { className: "pmc-row" }, /* @__PURE__ */ React.createElement("span", { className: "pmc-meta" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, D_R.fmtGA(p.ga)), " wk · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, p.bw.toLocaleString()), " g")),
     p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis)
   )))), /* @__PURE__ */ React.createElement("div", { className: "card patient-table" }, /* @__PURE__ */ React.createElement("table", { className: "tbl", style: { tableLayout: "fixed", width: "100%" } }, /* @__PURE__ */ React.createElement("colgroup", null, /* @__PURE__ */ React.createElement("col", { style: { width: 90 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 68 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 62 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 62 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 68 } }), /* @__PURE__ */ React.createElement("col", null), /* @__PURE__ */ React.createElement("col", { style: { width: 48 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 78 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 108 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 118 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 150 } })), /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Bed"), /* @__PURE__ */ React.createElement("th", null, "Name"), /* @__PURE__ */ React.createElement("th", null, "GA"), /* @__PURE__ */ React.createElement("th", null, "PCA"), /* @__PURE__ */ React.createElement("th", null, "BW (g)"), /* @__PURE__ */ React.createElement("th", null, "Diagnosis"), /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Wt now"), /* @__PURE__ */ React.createElement("th", null, "Δ birth"), /* @__PURE__ */ React.createElement("th", null, "Status"), /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, activeSorted.map((p) => {
-    const last = D_R.lastWeighed(p, log[p.sessionId]) || null;
+    const last = D_R.currentWeight(p, log[p.sessionId]) || null;
     const dol = D_R.liveDol(p);
     const delta = last ? last.w - p.bw : 0;
     const deltaPct = delta / p.bw * 100;
@@ -213,7 +213,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         "span",
         {
           className: "log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : ""),
-          title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${lastEntry.dol}` : "ยังไม่มีบันทึก"
+          title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"
         },
         hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
       ))),
@@ -473,7 +473,12 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
     status: "Active",
     admissionDate: admitDate,
     dob,
-    weights: [{ dol: parseInt(admitDol) || 1, w: bw, l: len || null, hc: hc || null }]
+    // Birth weight, length and HC are the DAY OF BIRTH's, so they are
+    // filed on DOL 1 — not on the admission DOL, where an outborn
+    // infant's birth point used to sit at the admission PMA on the
+    // growth chart and outrank the admission-day order's weight
+    // (2026-09-24). DOL comes from `dob`, never from this row.
+    weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }]
   }) }, /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14, color: "#fff" }), " ", busy ? "กำลังบันทึก…" : "Register")))));
 }
 function PatientPicker({ patients, activeId, onSelect, onClose }) {
@@ -541,7 +546,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const [dx, setDx] = React.useState(patient.diagnosis || "");
   const [status, setStatus] = React.useState(patient.status || "Active");
   const bedTaken = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
-  const initialDol1 = patient.dob && patient.admissionDate && !D_R.admissionDateIssue(patient.admissionDate, today) && D_R.daysBetweenDateStr(patient.dob, patient.admissionDate) != null ? Math.max(1, D_R.daysBetweenDateStr(patient.dob, patient.admissionDate) + 1) : patient.weights?.[0]?.dol ?? 1;
+  const initialDol1 = D_R.admissionDol(patient);
   const [dol1, setDol1] = React.useState(initialDol1);
   const [admitDate, setAdmitDate] = React.useState(patient.admissionDate || "");
   const admitIssue = D_R.admissionDateIssue(admitDate, today);
@@ -551,8 +556,22 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     if (!admitDate || admitIssue) return patient.dob || "";
     return D_R.addDaysToDateStr(admitDate, -(Math.max(1, parseInt(dol1, 10) || 1) - 1));
   }, [admitDate, dol1, admitIssue, patient.dob]);
+  const dol1Missing = String(dol1).trim() === "";
+  const growth = React.useMemo(() => {
+    const shift = D_R.anchorShiftDays(patient, { ...patient, admissionDate: admitDate, dob });
+    const dolAfter = dol1Missing ? initialDol1 : Math.max(1, parseInt(dol1, 10) || 1);
+    const moved = {};
+    let conflict = null;
+    for (const k of ["weights", "lengths", "hcs"]) {
+      if (!Array.isArray(patient[k])) continue;
+      const r = D_R.moveGrowthRows(patient[k], shift, initialDol1, dolAfter);
+      moved[k] = r.rows;
+      if (r.conflict && !conflict) conflict = r.conflict;
+    }
+    return { shift, dolAfter, moved, conflict };
+  }, [patient, admitDate, dob, dol1, dol1Missing, initialDol1]);
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
-  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   const handleDelete = () => {
     if (!onDelete) return;
@@ -567,12 +586,8 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     const prevStatus = patient.status || "Active";
     const statusDate = status === "Active" ? prevStatus === "Active" && !patient.statusDate ? patient.statusDate ?? null : null : status !== prevStatus || !patient.statusDate ? today : patient.statusDate;
     const bwChanged = Number(bw) !== Number(patient.bw);
-    const dol1Changed = (Number(dol1) || 1) !== (Number(initialDol1) || 1);
-    const weights = (patient.weights || []).map((w, i) => i !== 0 ? w : {
-      ...w,
-      ...dol1Changed ? { dol: Number(dol1) || 1 } : {},
-      ...bwChanged && Number(w.w) === Number(patient.bw) ? { w: Number(bw) } : {}
-    });
+    const seeded = (patient.weights || []).map((w, i) => i === 0 && w && bwChanged && Number(w.w) === Number(patient.bw) ? { ...w, w: Number(bw) } : w);
+    const weights = D_R.moveGrowthRows(seeded, growth.shift, initialDol1, growth.dolAfter).rows;
     submit({
       ...patient,
       name,
@@ -586,7 +601,9 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       statusDate,
       admissionDate: admitDate,
       dob,
-      weights
+      weights,
+      ..."lengths" in growth.moved ? { lengths: growth.moved.lengths } : {},
+      ..."hcs" in growth.moved ? { hcs: growth.moved.hcs } : {}
     }, mergeBase);
   };
   return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 560 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Edit session · ", patient.sessionId), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "row-3" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Birth weight ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(g)")), /* @__PURE__ */ React.createElement(
@@ -621,7 +638,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       value: admitDate,
       onChange: (e) => setAdmitDate(e.target.value)
     }
-  ), /* @__PURE__ */ React.createElement(AdmitDateIssue, { issue: admitIssue, correction: admitCE, onFix: setAdmitDate })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Status"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: status, onChange: (e) => setStatus(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Active" }, "Active"), /* @__PURE__ */ React.createElement("option", { value: "Discharged" }, "Discharged"), /* @__PURE__ */ React.createElement("option", { value: "Transferred" }, "Transferred"), /* @__PURE__ */ React.createElement("option", { value: "Expired" }, "Expired")))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), !canSave && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: bedTaken ? "var(--crit)" : "var(--ink-3)", textAlign: "right" } }, bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken) : sex === "" ? "ต้องระบุเพศก่อนบันทึก" : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 } }, onDelete && /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement(AdmitDateIssue, { issue: admitIssue, correction: admitCE, onFix: setAdmitDate })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Status"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: status, onChange: (e) => setStatus(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Active" }, "Active"), /* @__PURE__ */ React.createElement("option", { value: "Discharged" }, "Discharged"), /* @__PURE__ */ React.createElement("option", { value: "Transferred" }, "Transferred"), /* @__PURE__ */ React.createElement("option", { value: "Expired" }, "Expired")))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), !canSave && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: bedTaken || growth.conflict ? "var(--crit)" : "var(--ink-3)", textAlign: "right" } }, bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken) : growth.conflict ? `การแก้วันรับ/DOL แรกรับนี้จะย้ายค่าที่วัดไว้ของ DOL ${growth.conflict.dol} ไป${growth.conflict.to <= 1 ? "อยู่ตรงหรือก่อนวันเกิด" : `ทับ DOL ${growth.conflict.to} ที่มีค่าที่วัดไว้แล้ว`} — ตรวจสอบวันรับและ DOL แรกรับ` : dol1Missing ? "ต้องระบุ DOL แรกรับก่อนบันทึก" : admitIssue ? "แก้วันที่รับเข้าก่อนบันทึก" : sex === "" ? "ต้องระบุเพศก่อนบันทึก" : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 } }, onDelete && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",
