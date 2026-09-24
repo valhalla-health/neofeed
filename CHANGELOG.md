@@ -7,6 +7,73 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (11) — Login speed: the first sync rides in the login reply (Pp, fixes 1–4)
+
+Pp: *"เช็คให้ด้วยว่าทำไมตอนนี้ login เริ่มช้า ใช้เวลานาน จะทำยังไงให้เร็วขึ้น lean ขึ้นได้"*, and after the
+diagnosis, *"ทำ login fix 1-4 เลย"*. (Entry (10) is the same day's Weight-chip / birth-weight PR, #118.)
+
+**Diagnosis, from the code.** Nothing was measured on the live system; fix 1 exists so the next
+answer is a number.
+- **Two round trips before the ward list appears.** A sign-in was login, then getActivePatients
+  with the new token. SyncGate holds the screen for both.
+- **Every sign-in waits for a full sync.** Since 2026-09-18 every session end remounts the app (SEC-F2),
+  and the 30-minute idle logout means more sign-ins per shift.
+- **The sync grows with Daily_Log.** It carries every row of every infant in the window, each with its
+  calcInputJson. A revised order crossed the wire twice: the superseded copy, which every client drops,
+  and the revision.
+- **Repeated fixed work.** Across its two requests a sign-in made 4–5 `openById` calls and read Staff
+  twice: login never filled the 60 s staff-row cache, so the token check re-read it. It also appended
+  two Audit_Log rows (unchanged, see below).
+- **Password sign-in.** About 1 s of hashing (3,000 HMAC rounds), plus up to 5 s waiting for the
+  script lock behind order saves at shift change. Both unchanged; see `BACKLOG.md`.
+- **Temp-password accounts.** The first sync of a temp-password account was refused, and nothing
+  re-ran it after the password change: the effect was keyed on email alone.
+
+**What changed:**
+1. **Measure.**
+   - Server: one JSON line per sign-in and per sync in the execution log. It holds per-phase
+     milliseconds, cache hit/miss and size (`_timer`), and never an email or a sessionId.
+   - Client: the admin dashboard shows *"Sign-in on this device: X s"* and whether the data came with
+     the login reply. A console line says the same.
+2. **The login reply carries the first sync.**
+   - Login sends `wantSync`, and `_loginReply` embeds `getActivePatientsJson`: the same ward payload
+     and the same cache. It is audited as `readRegistry` right after `login`.
+   - Never on a pending temp password, which doPost's gate would refuse. A sync that throws is left
+     out, not a failed sign-in.
+   - The client applies it through `applySnapshot`, which is syncFromGAS's old success branch moved
+     verbatim, so both paths normalize identically. Only the user object goes to sessionStorage; the
+     carried data stays in memory.
+   - Both halves are compatible with the other half's old version: an old client never sends
+     `wantSync` and gets the old reply, and a new client falls back to an ordinary sync.
+3. **Leaner server.**
+   - One spreadsheet handle per `doPost` request (`_book`), released in doPost's `finally`. Outside a
+     request (editor, triggers) it opens exactly as before.
+   - Login fills the staff-row cache (`_primeStaffRow`), with the same shape and TTL, so the revocation
+     bound is unchanged.
+   - The ward sync leaves out superseded rows, keeping every key in order; the admin archive still
+     sends them. `verify-review-0917-backend-sync.cjs` now compares against its verbatim reference
+     minus superseded rows (`refFor`).
+4. **Temp password.**
+   - The first-sync effect is keyed on `mustChangePassword` too, so nothing syncs while it is pending
+     (the poll and focus refresh skip too).
+   - It syncs the moment the flag clears.
+
+What the ward sees: a sign-in should be one round trip shorter. Nothing else on screen changes except
+the admin dashboard's timing line. Audit_Log gets the same rows per sign-in as before: `login`, then
+`readRegistry`.
+
+Tests:
+- **`test/verify-login-speed-0924.cjs`** (43 assertions). One scenario runs the backend in the vm
+  sandbox; four drive the real `<App/>`. It fails 28 on `3bb6288`, in every scenario.
+- The sync-equivalence harness is updated as above.
+- The full suite is green against the sources and against `compiled/`.
+
+**Deploy:**
+- Both halves, in either order: the backend with `clasp`, on Pp's instruction, and the frontend in a
+  `main` → `release` PR. Each half alone is safe. `CONSTANTS_VERSION` is unchanged.
+- This `gas-backend.gs` includes #116's PDPA fix. If `@59` is not live yet, this deploy ships that too.
+- Read the result under Apps Script ▸ Executions (the `{"timing":…}` lines) and on the admin dashboard.
+
 ## Session 2026-09-24 (10) — Weight chip first; no growth velocity until the weight is above birth weight (Pp)
 
 Two requests from Pp, with phone screenshots:
