@@ -1009,6 +1009,43 @@ no ⇄. It measures the three-action row at 280–430 px.
 cannot, as CI installs no browser, like `verify-mobile-fit.cjs`. Locally, with the pre-installed
 Chromium and a global playwright: `NODE_PATH="$(npm root -g)" node test/<file>`.
 
+## The nurse form, 2026-09-24 — two harnesses
+
+UX roadmap #4, built to Pp's decisions (`docs/NURSING_FORM_SPEC.md` § 8).
+
+**`verify-nursing-backend.cjs`** (86 assertions; fails on `68e302f`, run as
+`NEOFEED_GAS_SRC=<old gas-backend.gs>`). It uses the shared Sheets double, `gas-vm-sandbox.cjs`, and
+needs no npm dependencies. It covers:
+- **the go-live switch** (`NURSING_LOG_ENABLED`): off, it is the old backend; a flip is seen on the
+  next sync; erasure works either way;
+- `Nursing_Log` is created by the first save at 13 columns, and never by a sync;
+- the role gates (D3), and D5: a nurse's order write is refused, while registry and weight writes
+  stay open;
+- the validation, in Thai: blanks stay blank, the bounds hold, the feed is a key, an empty record is
+  refused;
+- `DuplicateDate` and edit conflicts;
+- the sync payload: blank → null, window-scoped, and never a payload cached by the previous deploy,
+  which lacked `nursing` (the `sync2_` key, with `+n` while the switch is on);
+- audit rows, including a delete's strict start row;
+- formula injection, the `deletePatient` cascade, and the column-drift guard.
+
+**`verify-nursing-frontend.cjs`** (222 assertions with a browser, 198 without; fails on `b64c7fa`,
+the backend commit). It runs one scenario per process through `review-0917-boot.cjs`:
+- the `data.js` helpers;
+- the form: blank ≠ 0 in the payload, the bounds, no free-text box, a weight-only save, the offered
+  weight, errors shown in place, the backdrop guard, nothing kept in browser storage;
+- the Dashboard card;
+- D4: the prefill, **no draft written by opening a prefilled form**, saved orders untouched, and
+  late, corrected or deleted records offered or flagged;
+- D5: a nurse's Calculator saves nothing;
+- the real `<App/>` against the fake Apps Script, extended with the nursing actions. **Before the
+  backend serves `nursing`, nothing changes.** After it, the scenarios cover the nurse, doctor and
+  admin paths, `DuplicateDate`, the edit conflict and the switch both ways;
+- a Chromium layout pass at 280–1280 px, which prints `SKIP` without playwright.
+
+The §6a scenario is the one that also passes on `b64c7fa`. It pins that the old behaviour is kept
+until the switch is on.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

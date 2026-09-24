@@ -176,19 +176,37 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
-- [ ] 🩺⚖️ **product · UX roadmap #4: the nursing I/O form + PDPA — spec drafted, waiting on Pp.**
-      `docs/NURSING_FORM_SPEC.md` has the design: a `Nursing_Log` tab, per-shift entry, the Calculator
-      offering the 24 h totals as a one-tap suggestion, then narrowing TPN-order writes to prescribers
-      as a later phase. It also has a DPIA-lite (Vera), a red team (Omen), cell and quota arithmetic
-      (Sindri) and a test plan. **Blocked on D1–D7 in its § 8** — shifts and which 24 h a total covers,
-      fields, who writes, the Calculator link, when to narrow order writes, retention, and DPO sign-off.
-      Building may start once D1–D5 are answered; **deploying waits for D6–D7**. Supersedes the § Later
-      item "Decide who may create and Submit a TPN order", which is now its Phase 3 (D5).
+- [ ] 🩺⚖️ **product · UX roadmap #4: the nursing I/O form + PDPA — ⚙️ BUILT 2026-09-24, SWITCHED
+      OFF: `NURSING_LOG_ENABLED` waits for D7 (DPO sign-off).** Pp decided § 8 of `docs/NURSING_FORM_SPEC.md`
+      the same day, and it was built to those answers (`CHANGELOG.md` § Session 2026-09-24 (5)):
+      - daily totals only (D1);
+      - an "I/O ประจำวัน" card + form on each infant's Dashboard;
+      - the weight goes to the growth store;
+      - a new order's Intake/Output is filled from the nurses' record (D4);
+      - nurses compute but no longer save or Submit orders (D5).
+
+      Pinned by `test/verify-nursing-backend.cjs` and `test/verify-nursing-frontend.cjs`.
+
+      **To close:**
+      1. Release the frontend and `clasp push` the backend, in either order. Both are inert while the
+         switch is off, so they can ride any release.
+      2. D7: the DPO signs off spec § 6 (and the 26(5)(a) citation below).
+      3. Set the Script Property `NURSING_LOG_ENABLED` = `true`. **Only after step 1's frontend is
+         live**: an old frontend has no I/O card, and its nurses would be refused order saves with
+         nowhere to record I/O. To switch it off, delete the property (it takes effect on the next
+         sync).
+
+      **Still open:**
+      - D6: retention is indefinite for now, to settle with the DPO.
+      - D4's reading: "the Calculator fills it in itself". If Pp meant "the prescriber types it", the
+        one-tap offer is already built.
 - [ ] ⚖️ **PDPA · The lawful-basis citation reads "Sec 26(6)"; the Act's health-care exception is Sec
       26(5)(a)** (medical diagnosis, health care, medical treatment, under professional confidentiality).
-      Found 2026-09-24 while reviewing the nursing form. **DPO to confirm**, then correct all five at
-      once: `gas-backend.gs:58` and `:3101`, `REFERENCE.md` § PDPA, `PRD.md` § 5, `app-walkthrough.md`
-      § 6. Legal text, so not edited on an agent's reading alone.
+      Found 2026-09-24 while reviewing the nursing form. **DPO to confirm** (it is part of the nursing
+      form's D7), then correct all five at once: `gas-backend.gs` (the header's "PDPA lawful basis"
+      line, and the note above `pseudonymizePatient`), `REFERENCE.md` § PDPA, `PRD.md`
+      § 5, and `app-walkthrough.md` § 6. It is legal text, so it is not edited on an agent's reading
+      alone.
 
 - [ ] 🩺 **safety · A *persistent* low NPE:AA has nowhere to show, now that it no longer stops the
       order.** Condition attached to Praew's 2026-09-23 sign-off of the NPE:AA downgrade (PR #96;
@@ -377,7 +395,9 @@ clinical judgement. Everything else is engineering sequencing.
       Proposed: a separate nursing-entry screen (weight, I/O per shift, feeds given) writing its own
       columns, then narrow order writes to prescribers. **Clinical workflow decision — Praew's.**
       ➡️ *2026-09-24: now designed as `docs/NURSING_FORM_SPEC.md` — see § Next, UX roadmap #4; this
-      decision is its D5.*
+      decision is its D5.* ➡️ *2026-09-24 (5): **decided and built.** Pp: "พยาบาลบันทึกหรือ submit
+      ไม่ได้ ได้แค่ใช้ calculator". It goes live with the nursing form's switch (§ Next), not
+      before.*
 - [ ] 💊 **product · Pharmacist role** — read-only plus a received/verified/compounded status per
       order. The printed form now carries HN/AN boxes, saved-by/time/revision and changes-vs-previous
       (2026-09-11); the status loop is not built.

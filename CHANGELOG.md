@@ -7,6 +7,90 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-24 (5) — Nurse form built to Pp's decisions (ships switched off until D7)
+
+Pp answered the spec's § 8 in Thai:
+- **A:** OK.
+- **D1:** "เอาแค่ยอดประจำวัน" (daily totals; the order's Input may be prefilled from what was actually
+  received in the past 24 h).
+- **D2:** the default fields.
+- **D3:** "admin ทำได้ทุกอย่าง".
+- **D4:** "calculator ให้เติมเอง".
+- **D5:** "พยาบาลบันทึกหรือ submit ไม่ได้ ได้แค่ใช้ calculator".
+- **D6:** "เก็บไว้ตลอดไปก่อน รอคุย".
+- **D7:** "รอคุย".
+
+`docs/NURSING_FORM_SPEC.md` now records the answers and what was built from each.
+`CONSTANTS_VERSION` stays `2026-09-18.1`.
+
+**Go-live is a switch, not a deploy.** The backend ships dark. Nothing changes until Pp sets the
+Script Property `NURSING_LOG_ENABLED` = `true`, **after D7 and after the frontend is released**
+(spec § 5.4). A backend batch is already waiting for its own `clasp` deploy (§§ (2)–(3) below). Without the
+switch, that deploy would have taken the nursing form live before the DPO signed off.
+
+### Backend — `test/verify-nursing-backend.cjs` (86 assertions; fails on `68e302f`)
+
+- **The switch, `_nursingEnabled()`:** `NURSING_LOG_ENABLED` must be exactly `"true"`, and an
+  unreadable property reads as off. **Off, this is the old backend:**
+  - the sync has no `nursing` key;
+  - the nursing actions refuse with `NotEnabled`;
+  - nurses save orders.
+
+  A flip is seen on the next sync. `deletePatient` cascades either way.
+
+- **`Nursing_Log` (A–M, 13 columns)**: one row per infant per date, dated the morning the 24-h total
+  closed. It is created on the first nursing save, trimmed to 13 columns, and never created by a sync.
+- **Validation:** blanks come back as `null`, never 0. Each volume is 0–3000 mL, stools are a whole
+  number 0–20, and the feed is a formulary key, never free text. There are no notes. An empty record
+  is refused. `DuplicateDate`, edit conflicts, row re-checks, audit rows and a strict delete-start
+  row follow Daily_Log's patterns.
+- **Actions:** `logNursingEntry` and `updateNursingEntry` (nurse, doctor, admin), and
+  `deleteNursingEntry` (admin only). `getActivePatients` carries `nursing`. `deletePatient` cascades.
+- **D5:** `logDailyNutrition`, `updateDailyNutrition` and `publishLog` refuse a nurse (`Forbidden`, in
+  Thai, pointing to the Dashboard). Registry edits and growth measurements stay nursing work.
+- **The sync cache key names the payload's shape:** `sync2_` (was `sync1_`), plus `+n` while the switch
+  is on. Neither a deploy nor a flip ever serves a payload of the other shape.
+
+### Frontend — `test/verify-nursing-frontend.cjs` (222 assertions with a browser, 198 without; fails on `b64c7fa`)
+
+- **"I/O ประจำวัน" on each infant's Dashboard** (`NursingIOCard`):
+  - it says whether today is in yet;
+  - it lists the last 7 days, newest first, with urine in mL/kg/h on the Calculator's own divisor;
+  - a blank shows "—", never 0, and every sum is to 0.1 mL;
+  - an admin sees a 🗑 on each saved row.
+- **Its form** (`NursingEntryModal`):
+  - a date (≤ today, ≥ admission), weight, IV, EN + feed, urine, drain and stools;
+  - blank ≠ 0 end to end;
+  - the weight goes to `weights[]` through `updateWeights`, like the growth chart's (`D.upsertWeight`),
+    so there is one weight store;
+  - refusals, `DuplicateDate` and conflicts are shown in the form. Once the I/O row has landed the
+    form closes even if the weight could not be sent, so a second Save cannot make a second record;
+  - a tap outside a form with typing in it does not close it;
+  - nothing is kept in browser storage.
+- **D4:** a new order's Intake/Output is filled from the nurses' record for its date and stays
+  editable:
+  - a recorded 0 counts as entered, and a blank does not;
+  - opening a prefilled form writes no draft;
+  - it never applies to a saved order, Center Point or the quick calc;
+  - a record that arrives later is offered with one tap;
+  - one corrected or deleted after the fill is flagged;
+  - a restored draft is what was typed, not the record.
+- **D5:** a nurse's Calculator computes but does not save:
+  - there is no Save draft, Submit or publish, no New log on the Dashboard, no draft and no edit lock;
+  - a note explains why;
+  - it follows the sync payload both ways. It is on exactly while the payload carries `nursing`,
+    which means while the backend's switch is on.
+- CSS for `.nio-*` and `.nursing-modal` in both shells. Measured in Chromium at 280–1280 px: nothing
+  scrolls sideways, and every target is ≥ 44 px on touch.
+
+### Open
+
+- **D7:** the DPO's sign-off on spec § 6, including the Sec 26(5)(a) citation. This blocks
+  `NURSING_LOG_ENABLED`. The deploys themselves are safe, since the form ships switched off.
+- **D6:** retention is indefinite for now and is to be discussed with the DPO.
+- **D4:** it was read as "the Calculator fills it in itself". If Pp meant "the prescriber types it",
+  the one-tap offer is already built.
+
 ## Session 2026-09-24 (4) — UX roadmap: alarm fatigue → admin census → mobile bed button → nurse form spec
 
 Pp set the order: "alarm fatigue → admin census → ปุ่มเตียงมือถือ (เล็ก/reuse) → ฟอร์มพยาบาล + PDPA
