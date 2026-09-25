@@ -439,36 +439,41 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
       onClose: () => setNursingOpen(void 0),
       onSubmit: onSaveNursing
     }
-  ), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "chart", size: 14, color: "var(--brand)" }), "Trend graph", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, finalLog.length, " ", finalLog.length === 1 ? "record" : "records")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TrendGraph, { entries: finalLog, patient }))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "log", size: 14, color: "var(--brand)" }), "All entries", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, entries.length, " records")), entries.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { textAlign: "center", color: "var(--ink-3)", fontSize: 13, padding: 24 } }, "No log entries yet.") : /* @__PURE__ */ React.createElement("table", { className: "tbl" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Day admit"), /* @__PURE__ */ React.createElement("th", null, "Date"), /* @__PURE__ */ React.createElement("th", null, "Weight"), /* @__PURE__ */ React.createElement("th", null, "Fluid"), /* @__PURE__ */ React.createElement("th", null, "GIR"), /* @__PURE__ */ React.createElement("th", null, "Protein"), /* @__PURE__ */ React.createElement("th", null, "Energy"), /* @__PURE__ */ React.createElement("th", null, "Na / K"), /* @__PURE__ */ React.createElement("th", null, "Ca / P"), /* @__PURE__ */ React.createElement("th", null, "Route"), /* @__PURE__ */ React.createElement("th", null, "สถานะ"), onDeleteEntry && /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, (() => {
-    const admitDol = D_L.admissionDol(patient);
-    return entries.slice().sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || ""))).map((e, i) => {
-      const pending = /^(local_)?tmp_/.test(String(e.entryId || ""));
-      const editable = !!(onEditEntry && e.entryId) && !pending;
-      const eDol = D_L.entryDol(patient, e);
-      return /* @__PURE__ */ React.createElement(
-        "tr",
-        {
-          key: e.entryId || i,
-          onClick: editable ? () => onEditEntry(e) : void 0,
-          title: pending ? "กำลังบันทึก…" : editable ? e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy} — กดเพื่อแก้ไข` : "กดเพื่อแก้ไข" : "บันทึกเก่า — แก้ไขไม่ได้",
-          style: { cursor: editable ? "pointer" : "default" }
-        },
-        /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600 } }, eDol),
-        /* @__PURE__ */ React.createElement("td", { className: "num", style: { color: "var(--ink-3)" } }, eDol - admitDol),
-        /* @__PURE__ */ React.createElement("td", { style: { color: "var(--ink-3)", fontSize: 11.5 } }, window.NEOFEED_FMT_DATE?.(e.ts) || e.ts),
-        /* @__PURE__ */ React.createElement("td", { className: "num" }, e.weight || "—", " g"),
-        /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.fluid, 0), " mL/kg"),
-        /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.gir, 1)),
-        /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.pro, 1), " g/kg"),
-        /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.kcal, 0), " kcal/kg"),
-        /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.na, 1), " / ", n(e.k, 1)),
-        /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.ca, 0), " / ", n(e.p, 0)),
-        /* @__PURE__ */ React.createElement("td", { style: { color: "var(--ink-2)" } }, e.route),
-        /* @__PURE__ */ React.createElement("td", null, pending ? /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "กำลังบันทึก…") : /* @__PURE__ */ React.createElement("span", { className: `chip${D_L.isDraftEntry(e) ? " warn" : " ok"}` }, /* @__PURE__ */ React.createElement("span", { className: "d" }), D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit" : "Submitted")),
-        onDeleteEntry && /* @__PURE__ */ React.createElement("td", { onClick: (e2) => e2.stopPropagation() }, e.entryId && !pending && /* @__PURE__ */ React.createElement("button", { className: "icon-btn", title: "ลบบันทึกนี้", onClick: (ev) => handleDelete(ev, e) }, /* @__PURE__ */ React.createElement(Icon, { name: "trash", size: 14, color: "var(--crit)" })))
-      );
-    });
-  })()))));
+  ), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "chart", size: 14, color: "var(--brand)" }), "Trend graph", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, finalLog.length, " ", finalLog.length === 1 ? "record" : "records")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TrendGraph, { entries: finalLog, patient }))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "log", size: 14, color: "var(--brand)" }), "All entries", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, entries.length, " records")), entries.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { textAlign: "center", color: "var(--ink-3)", fontSize: 13, padding: 24 } }, "No log entries yet.") : (
+    // Scrolls inside the card when it is wider than the workspace (a
+    // landscape phone, an iPad), instead of dragging the whole screen
+    // sideways — 2026-09-25 phone sweep.
+    /* @__PURE__ */ React.createElement("div", { className: "tbl-scroll" }, /* @__PURE__ */ React.createElement("table", { className: "tbl" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Day admit"), /* @__PURE__ */ React.createElement("th", null, "Date"), /* @__PURE__ */ React.createElement("th", null, "Weight"), /* @__PURE__ */ React.createElement("th", null, "Fluid"), /* @__PURE__ */ React.createElement("th", null, "GIR"), /* @__PURE__ */ React.createElement("th", null, "Protein"), /* @__PURE__ */ React.createElement("th", null, "Energy"), /* @__PURE__ */ React.createElement("th", null, "Na / K"), /* @__PURE__ */ React.createElement("th", null, "Ca / P"), /* @__PURE__ */ React.createElement("th", null, "Route"), /* @__PURE__ */ React.createElement("th", null, "สถานะ"), onDeleteEntry && /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, (() => {
+      const admitDol = D_L.admissionDol(patient);
+      return entries.slice().sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || ""))).map((e, i) => {
+        const pending = /^(local_)?tmp_/.test(String(e.entryId || ""));
+        const editable = !!(onEditEntry && e.entryId) && !pending;
+        const eDol = D_L.entryDol(patient, e);
+        return /* @__PURE__ */ React.createElement(
+          "tr",
+          {
+            key: e.entryId || i,
+            onClick: editable ? () => onEditEntry(e) : void 0,
+            title: pending ? "กำลังบันทึก…" : editable ? e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy} — กดเพื่อแก้ไข` : "กดเพื่อแก้ไข" : "บันทึกเก่า — แก้ไขไม่ได้",
+            style: { cursor: editable ? "pointer" : "default" }
+          },
+          /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600 } }, eDol),
+          /* @__PURE__ */ React.createElement("td", { className: "num", style: { color: "var(--ink-3)" } }, eDol - admitDol),
+          /* @__PURE__ */ React.createElement("td", { style: { color: "var(--ink-3)", fontSize: 11.5 } }, window.NEOFEED_FMT_DATE?.(e.ts) || e.ts),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, e.weight || "—", " g"),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.fluid, 0), " mL/kg"),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.gir, 1)),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.pro, 1), " g/kg"),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.kcal, 0), " kcal/kg"),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.na, 1), " / ", n(e.k, 1)),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.ca, 0), " / ", n(e.p, 0)),
+          /* @__PURE__ */ React.createElement("td", { style: { color: "var(--ink-2)" } }, e.route),
+          /* @__PURE__ */ React.createElement("td", null, pending ? /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "กำลังบันทึก…") : /* @__PURE__ */ React.createElement("span", { className: `chip${D_L.isDraftEntry(e) ? " warn" : " ok"}` }, /* @__PURE__ */ React.createElement("span", { className: "d" }), D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit" : "Submitted")),
+          onDeleteEntry && /* @__PURE__ */ React.createElement("td", { onClick: (e2) => e2.stopPropagation() }, e.entryId && !pending && /* @__PURE__ */ React.createElement("button", { className: "icon-btn", title: "ลบบันทึกนี้", onClick: (ev) => handleDelete(ev, e) }, /* @__PURE__ */ React.createElement(Icon, { name: "trash", size: 14, color: "var(--crit)" })))
+        );
+      });
+    })())))
+  )));
 }
 function LogDateModal({ patient, dol, onClose, onConfirm }) {
   const today = D_L.todayLocal();

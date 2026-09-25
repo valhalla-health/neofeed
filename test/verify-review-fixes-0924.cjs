@@ -154,7 +154,8 @@ const btn = (re) => [...document.getElementById('probe').querySelectorAll('butto
     eq('the sex select opens with no default (blank), not "boys"', sexSel && sexSel.value, '');
 
     // Fill everything EXCEPT sex, then check Register is still blocked.
-    await set(fieldInput('ชื่อย่อ'), 'อบ');
+    await set(fieldInput('ชื่อ'), 'อบ');
+    await set(fieldInput('นามสกุล'), 'จด');   // ใจดี: two letters, the leading vowel not counted
     await set(fieldInput('Birth weight'), 1000);
     await set(fieldInput('GA'), '29');
     const reg = btn(/Register|ลงทะเบียน/);

@@ -923,19 +923,31 @@
   }
 
   /* ============ ACCORDION TRANSITION ============ */
+  /* An open step is as tall as its content: there is no height to outgrow.
+     Until 2026-09-25 the open state was `max-height: 1800px`, a number meant
+     to be "taller than any step". On a phone the two-column steps stack, and
+     Step 3 measured 1943px at 360px wide, so its last 143px (the Lipid and
+     NPC : Protein tiles) were clipped with nothing to scroll to (Pp, from an
+     Android phone: "เลื่อนแล้วไม่เต็มช่อง"). The one grid row slides from 0fr
+     to 1fr, which is the content's own height, so the animation stays and
+     the cap goes. `.accordion-inner` (StepBody in calculator.jsx) is the one
+     grid item: min-height: 0 lets the row close to nothing, and its
+     overflow: hidden clips only while the row is sliding. */
   .accordion-body {
-    overflow: hidden;
-    max-height: 0;
+    display: grid;
+    grid-template-rows: 0fr;
+    grid-template-columns: minmax(0, 1fr);
     visibility: hidden;
-    transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                 visibility 0s linear 0.28s;
   }
   .accordion-body.open {
-    max-height: 1800px;
+    grid-template-rows: 1fr;
     visibility: visible;
-    transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1),
                 visibility 0s linear 0s;
   }
+  .accordion-inner { min-height: 0; overflow: hidden; }
 
   /* ============ BOTTOM NAV (mobile) ============ */
   .bottom-nav { display: none; }
@@ -1040,7 +1052,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* Centred by auto margins (the first child's margin-top, the footer's
+       below), not justify-content: center. Centring with justify-content
+       pushes content that does not fit past the TOP of the scroll area as
+       well as the bottom, where it can never be scrolled back to; auto
+       margins centre the column when it fits and fall to 0 when it does not,
+       so a landscape phone scrolls from the top of the logo down to the
+       footer (2026-09-25 phone sweep). */
+    justify-content: flex-start;
     text-align: center;
     background: var(--bg);
     /* Safe areas on all four sides: the shell sets viewport-fit=cover, so
@@ -1048,7 +1067,7 @@
        footer under the home indicator. max() keeps the design padding on
        every device that has no inset. */
     padding: 40px max(24px, env(safe-area-inset-right, 0px))
-             calc(96px + env(safe-area-inset-bottom, 0px))
+             calc(28px + env(safe-area-inset-bottom, 0px))
              max(24px, env(safe-area-inset-left, 0px));
     gap: 0;
     /* Explicit on BOTH axes. `overflow-y: auto` alone leaves overflow-x
@@ -1165,9 +1184,15 @@
     box-shadow: var(--shadow-lift);
   }
 
+  .login-wrap > :first-child { margin-top: auto; }
+  /* The footer is in the column's flow, last, pushed down by its auto margin.
+     It used to be `position: absolute; bottom: 28px` over a padding reserved
+     for it — which holds only while the column fits. On a landscape phone
+     (844×390) it landed on the form, and its text took the tap meant for
+     เข้าสู่ระบบ: nobody could sign in with the phone turned sideways. */
   .login-contact {
-    position: absolute;
-    bottom: 28px;
+    margin-top: auto;
+    padding-top: 28px;
     display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
   /* The endorsement, replacing the "ติดต่อทีม Valhalla" button removed on
@@ -1200,6 +1225,13 @@
   /* ============ PATIENT REGISTRY ============ */
   .patient-card-list { display: none; }
   .patient-table     { display: block; }
+  /* A table wider than the workspace scrolls inside its own card, never the
+     page. From 768px up the ward list is this table, whose columns need about
+     850px: on a landscape phone or an iPad it ran up to 159px past the
+     workspace, and the whole screen dragged sideways to reach Edit and Open.
+     The Dashboard's entries did the same (log.jsx .tbl-scroll). 2026-09-25
+     phone sweep; the app must not scroll sideways at any width. */
+  .patient-table, .tbl-scroll { overflow-x: auto; }
 
   .reg-stats { display: flex; gap: 8px; margin-bottom: 16px; }
   .reg-stat {
@@ -1245,8 +1277,31 @@
 
   .reg-filter { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
   .reg-filter .reg-search { position: relative; flex: 1; max-width: 400px; }
-  .reg-filter .reg-search .inp { padding-left: 36px; height: 38px; }
+  .reg-filter .reg-search .inp { padding-left: 36px; padding-right: 40px; height: 38px; }
   .reg-filter .reg-search .s-ico { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+  /* Clear (×), inside the box's right edge. 32px here; 44px on touch below. */
+  .reg-filter .reg-search .s-clear {
+    position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+    width: 32px; height: 32px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 999px; background: transparent; color: var(--ink-3); cursor: pointer;
+  }
+  .reg-filter .reg-search .s-clear:hover { background: var(--bg-2); color: var(--ink); }
+  .reg-search-note { font-size: 11.5px; color: var(--ink-3); margin: -4px 0 10px; }
+  .search-miss { line-height: 1.5; }
+
+  /* ── Patient name: ชื่อ + นามสกุล (registry.jsx NameFields) ── */
+  /* Two boxes of two characters each, side by side at every width — .row-2
+     stacks on a phone, which would spend a whole row on each two-letter box. */
+  .row-2.pair-row { grid-template-columns: 1fr 1fr; }
+  .name-fields { display: flex; flex-direction: column; gap: 6px; }
+  .name-note { font-size: 11px; color: var(--warn-ink); line-height: 1.4; }
+  .name-rule { font-size: 11px; color: var(--ink-3); line-height: 1.4; }
+  .name-foreign {
+    display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+    font-size: 12.5px; color: var(--ink-2); cursor: pointer;
+  }
+  .name-foreign input { width: 18px; height: 18px; margin: 0; accent-color: var(--brand); }
 
   .patient-table table.tbl td { vertical-align: middle; padding-top: 9px; padding-bottom: 9px; }
   .patient-table table.tbl tr.p-active td { background: var(--brand-bg); }
@@ -1258,7 +1313,10 @@
   /* ============ TABLET: 768–1199px — icon-only rail ============ */
   @media (min-width: 768px) and (max-width: 1199px) {
     :root { --rail-w: 60px; }
-    .rail { padding: 10px 8px; overflow: hidden; }
+    /* overflow-y stays auto (the base rule's): `overflow: hidden` here cut
+       the rail's lower items off on a landscape phone (915×412, eight items
+       in 356px) with nothing to scroll to — 2026-09-25 phone sweep. */
+    .rail { padding: 10px 8px; overflow-x: hidden; overflow-y: auto; }
     .rail-section { display: none; }
     .rail-foot { display: none; }
     /* The rail collapses to icons here, but the brandmark cannot: with the
@@ -1304,6 +1362,9 @@
       display: flex; align-items: center; justify-content: center;
     }
     .patient-mc .pmc-actions .btn { min-height: 44px; }
+    .reg-filter .reg-search .s-clear { width: 44px; height: 44px; right: 0; }
+    .reg-filter .reg-search .inp { padding-right: 46px; }
+    .name-foreign { min-height: 44px; }
   }
 
   /* ============ MOBILE: ≤767px ============ */
@@ -1350,9 +1411,11 @@
       padding-bottom: calc(136px + env(safe-area-inset-bottom, 0px));
     }
 
-    /* Patient strip: 2×3 grid */
+    /* Patient strip: 2×3 grid. minmax(0, 1fr), not 1fr: a bare 1fr column
+       cannot shrink below its content, so one wide cell pushed the grid past
+       the strip's clipped edge on a phone (2026-09-25 phone sweep). */
     .patient-strip {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
     .patient-strip > div {
       border-right: none;
@@ -1386,8 +1449,11 @@
     .page-head > div + div { display: flex; gap: 6px; width: 100%; }
     .page-head > div + div .btn { flex: 1; justify-content: center; font-size: 13px; }
 
-    /* Metric tiles: 2 col */
-    .metric-tiles-4 { grid-template-columns: 1fr 1fr !important; }
+    /* Metric tiles: 2 col. Every calculator grid below is minmax(0, 1fr),
+       not a bare 1fr, which cannot shrink below its content: on a 280px or
+       320px phone, or a phone with large text, bare-1fr columns pushed their
+       content past a clipped edge (2026-09-25 phone sweep). */
+    .metric-tiles-4 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
     .metric .val { font-size: 24px; }
 
     /* Fenton growth chart: chart above stats instead of squeezed beside a fixed 200px column */
@@ -1398,16 +1464,16 @@
 
     /* ── Calculator: fix all inner grids ── */
     /* TwoCol (Steps 3/4/5): inputs+tiles → stack vertically */
-    .two-col { grid-template-columns: 1fr !important; }
+    .two-col { grid-template-columns: minmax(0, 1fr) !important; }
     /* Step 1: 5-col inputs → 2-col */
-    .s1-grid { grid-template-columns: 1fr 1fr !important; }
+    .s1-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
     /* Step 2 sub-rows: 3-col → 2-col */
-    .s2-aa-row  { grid-template-columns: 1fr 1fr !important; }
-    .s2-lip-row { grid-template-columns: 1fr 1fr !important; }
+    .s2-aa-row  { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+    .s2-lip-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
     /* Bottom (energy+alerts+save): 3-col → 1-col */
     .calc-bottom { grid-template-columns: 1fr !important; }
     /* SaltRow: 1.6fr 1fr 90px → 1fr 80px (hide = total col, shown in readout below) */
-    .salt-row-grid { grid-template-columns: 1fr 80px !important; gap: 6px !important; }
+    .salt-row-grid { grid-template-columns: minmax(0, 1fr) 80px !important; gap: 6px !important; }
     .salt-row-grid > div:nth-child(3) { display: none !important; }
     /* Step 2 card-h: wrap route+Osm to new line */
     .step2-card-h { flex-wrap: wrap; padding: 10px 12px; gap: 6px; }
@@ -1681,6 +1747,9 @@
     .reg-stat  { flex: 0 0 calc(50% - 5px); }
     .reg-filter { flex-wrap: wrap; }
     .reg-filter .reg-search { max-width: 100%; }
+    .reg-filter .reg-search .s-clear { width: 44px; height: 44px; right: 0; }
+    .reg-filter .reg-search .inp { padding-right: 46px; }
+    .name-foreign { min-height: 44px; }
 
     /* ── Overscroll: prevent Android/iOS rubber-band on body ── */
     body { overscroll-behavior: none; }
@@ -1721,7 +1790,7 @@
     .step-summary-chip { font-size: 12px; padding: 3px 8px; }
 
     /* ── Android UX: EN fields — 2-col + MEN full width ── */
-    .en-fields-row { grid-template-columns: 1fr 1fr !important; }
+    .en-fields-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
     .en-men-col    { grid-column: 1 / -1; }
 
     /* ── Android UX: readability — bump small inline font sizes ── */
@@ -1872,13 +1941,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=fb7f87230e"></script>
-  <script src="compiled/icons.js?v=8ad9fe42c3"></script>
-  <script src="compiled/calculator.js?v=239f9d0c0c"></script>
+  <script src="data.js?v=9705fb2be2"></script>
+  <script src="compiled/icons.js?v=98d52ac7b1"></script>
+  <script src="compiled/calculator.js?v=d7cd51810b"></script>
   <script src="compiled/fenton.js?v=f9e6212215"></script>
-  <script src="compiled/registry.js?v=b39c7a3fd5"></script>
-  <script src="compiled/log.js?v=bd519c4b67"></script>
-  <script src="compiled/app.js?v=d08783ff63"></script>
+  <script src="compiled/registry.js?v=5ddd55f370"></script>
+  <script src="compiled/log.js?v=5ef4788e27"></script>
+  <script src="compiled/app.js?v=e759a33bad"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

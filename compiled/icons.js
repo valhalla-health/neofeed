@@ -19,7 +19,13 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
     bell: "M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z",
     users: "M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-8 1a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm0 2c-2.67 0-8 1.34-8 4v3h9v-2.5c0-1.2.6-2.3 1.5-3-1-1-2.2-1.5-2.5-1.5zm8 0c-.3 0-.8 0-1.4.1A4.5 4.5 0 0 1 17 18v2h7v-3c0-2.66-5.33-3-8-3z",
     settings: "M19.4 13a7 7 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3h-4l-.3 3a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1L11 21h4l.3-3a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z",
-    search: "M21 21l-5.2-5.2A8 8 0 1 0 14 17a8 8 0 0 0 1.8-1.2L21 21zM10 16a6 6 0 1 1 6-6 6 6 0 0 1-6 6z",
+    // Rim (r8 minus the r6 lens, evenodd below) and a handle 2.6 wide, from
+    // the rim's tangent at 45° outwards. The handle used to be a line drawn out
+    // and straight back, which encloses no area, so in fill it vanished and
+    // the glyph read as a plain "O" — on the topbar's search button too
+    // (2026-09-25, "ค้นหายาก"). Starting at the tangent keeps it clear of the
+    // rim, where evenodd would cut the overlap back out.
+    search: "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0zM16 10a6 6 0 1 1-12 0 6 6 0 0 1 12 0zM14.74 16.58L16.58 14.74L21.72 19.88L19.88 21.72z",
     plus: "M12 5v14M5 12h14",
     swap: "M7 4l-4 4 4 4V9h14V7H7V4zm10 16l4-4-4-4v3H3v2h14v3z",
     save: "M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 3-3 3 3 0 0 1-3 3zm3-10H5V5h10v4z",
