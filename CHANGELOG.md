@@ -7,6 +7,37 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-25 (5) — PR #123 checked before its merge: the phone sweep's server refused every file on Windows
+
+Pp: *"check Pr113 NeoFeed clasp and merge"*, then the link to #123. #113 has been live since 2026-09-24
+(release #114), so the PR meant is #123.
+
+- **No `clasp` step.** #123 does not touch `gas-backend.gs`, which has not changed since `67ed949`, the
+  source of `@60`. The backend takes the new name as it is: `_validatePatient` and `registerPatient` put no
+  rule on `name` or `initials`, and store both through `_sheetSafe`, so "รย ทอ" and "Jo Sm" are written
+  unchanged. The id keeps its shape: two initials, BW, twin.
+- **CI's steps, run on Pp's PC on an LF export of `f79dd82`:**
+  - a fresh build changes nothing, and the two shells are identical;
+  - every harness passes against the sources and against `compiled/`, and so do `DEAD=0` and Center
+    Point's build and tests;
+  - the one exception is `verify-phone-sweep.cjs` § 2–3, below.
+- **Why the sweep failed:** its test server refused every file on Windows.
+  - `DIR` is `path.join(__dirname, '..') + '/'`, and `path.join(DIR, p)` comes back with `\` there, so
+    `file.startsWith(DIR)` was always false.
+  - Every request got a 404, the page stayed blank, and all 24 profiles timed out on their first click.
+  - CI never saw it: it installs no browser, so it skips § 2–3, and in a Linux container the separators
+    match.
+- **Fix, in the test only:** compare against `path.join(DIR)`, which ends in the platform's separator.
+  - With it, the sweep passes in Chromium on Windows: 220 checks, all 24 profiles and 162
+    screens with no problem, and the negative control (the 1800 px cap put back) is caught.
+  - `verify-ward-requests-0925.cjs` § 6 needs no server, and it passed here in Chromium (158 checks). Only
+    the xkb re-derivation of the keyboard table is skipped, since Windows has no xkb data; all 94 key pairs
+    were checked against the Kedmanee layout by hand.
+  - At 360 px a step measured 1832 px here, above the old 1800 px cap, so the clipping reproduces on
+    Windows as well (1943 px in the cloud container).
+- **Nothing served changes** here: one test file, and the docs. `STATUS.md` catches up with release #122
+  and marks #123 merged into `main`.
+
 ## Session 2026-09-25 (4) — Pp's answers on PR #123: the switcher stays unit-wide
 
 Pp answered the five questions left open on PR #123: *"1. No 2. Later 3-4 later 5 ok"*. Docs only.
