@@ -155,7 +155,7 @@ const btn = (re) => [...document.getElementById('probe').querySelectorAll('butto
 
     // Fill everything EXCEPT sex, then check Register is still blocked.
     await set(fieldInput('ชื่อ'), 'อบ');
-    await set(fieldInput('นามสกุล'), 'ใจ');
+    await set(fieldInput('นามสกุล'), 'จด');   // ใจดี: two letters, the leading vowel not counted
     await set(fieldInput('Birth weight'), 1000);
     await set(fieldInput('GA'), '29');
     const reg = btn(/Register|ลงทะเบียน/);

@@ -7,6 +7,78 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-25 (3) — Letters only in a name; every phone swept for the same bug
+
+Pp, on PR #123: *"Check ด้วย ว่า all phone จะไม่มีปัญหาการเลื่อนหน้าจอแบบเดียวกัน"*, *"ชื่อเช่น กค จด มันจะมีเว้นวรรค
+ด้วย"*, *"จะต้องมีช่อง admit รับแยก เป็นชื่อ อีกช่อง เป็นนามสกุลไหม เพื่อจะได้ค้นหาง่าย ๆ ทั้งสองแบบ"*, and *"ให้ใช้เป็น
+ตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์ เช่น ทองดี ใช้ ทอ, เรยา ใช้ รย"*. Frontend only again: no `clasp` step,
+`CONSTANTS_VERSION` unchanged.
+
+**1 · A name part is its first two LETTERS.** This supersedes entry (2)'s code points.
+- A letter is one of the 44 consonants. Every vowel (before, after, above or below the letter) and every
+  tone mark is dropped: ทองดี → ทอ, เรยา → รย, สมศรี → สม, ใจดี → จด, พัฒนา → พฒ, น้ำฝน → นฝ.
+  - ฤ and ฦ are vowels in Thai grammar, though Unicode files them among the consonants, so they are dropped
+    too: ฤทัย → ทย.
+  - อ ย ว ห count wherever they stand.
+- Stored with the space, as Pp's example "กค จด". The sessionId is still the first letter of each part
+  (รย ทอ → รท-BW…).
+- **Separate first-name and surname boxes at admission: already the case.** NameFields has been two boxes since
+  entry (2), and the search answers either one. They are stored in the one `name` column, split at the
+  space, so no Sheet column and no `clasp` step is needed.
+- **Search compares letters to letters** (`thaiLetters`): เรยา, เร, ทอง and ทองดี all find `รย ทอ`, whatever
+  vowels or tone marks were typed or left out.
+- **The name box waits for the keyboard.** Dropping vowels rewrites the box on nearly every keystroke, and
+  rewriting a box under an Android keyboard that is composing a word (Gboard or Samsung, with suggestions
+  on) makes it repeat or scramble letters.
+  - While a composition is open the box shows the raw text.
+  - It is cut to two letters on `compositionend`.
+  - With no composition it is cut at every keystroke.
+
+**2 · Every phone, swept.** New `test/verify-phone-sweep.cjs` signs in to the real app and opens every screen
+on 24 device profiles:
+- portrait phones from the 280 px Galaxy Z Fold cover to the 440 px iPhone 16 Pro Max;
+- three landscape phones and three tablets;
+- three phones with text at 130%.
+
+On each screen it asks whether any box clips its content, whether the end can actually be tapped (a
+hit-test), and whether anything drags sideways. The step clipping was fixed in (2); the sweep found **six
+more of the same kind**, all of them older than today:
+- **Landscape phones could not sign in.** The login footer was `position: absolute; bottom: 28px` over a
+  padding reserved for it. At 844×390 the form outgrew the screen, the footer landed on the form, and its
+  text took the tap meant for เข้าสู่ระบบ.
+  - The footer is now in the flow, last. The column is centred by auto margins, not
+    `justify-content: center`, which also pushed the top of a too-tall column out of reach.
+- **The icon rail was cut off** at 915×412. The tablet block set `overflow: hidden` on it; it scrolls now.
+- **The patient strip clipped the current weight** on 280–440 px phones: "+70g (5.9%" with no bracket at
+  430 px.
+  - Its phone grid is `minmax(0, 1fr)`, the weights wrap, and the delta may break.
+  - Birth weight and current weight stack when they do not fit; the divider hides itself when they stack.
+  - A long diagnosis breaks rather than running past the edge.
+- **Four calculator grids clipped** on a 280 px phone or with large text: the EN fields, TPN volume/rate,
+  dextrose/GIR, and the AA row. They, and the calculator's phone overrides (metric tiles, Step 1, the
+  AA, lipid, EN and salt rows), are `minmax(0, 1fr)` now.
+  - `TwoCol` too: a `<select>` is as wide as its longest option.
+  - A field label may break before its unit, and the GIR number before `mg/kg/min`.
+- **The ward table and the Dashboard's entries dragged the whole screen sideways** from 768 px up, by up to
+  159 px, to reach Edit and Open. They scroll inside their own card now (`.patient-table`, `.tbl-scroll`).
+
+After the fixes, all 24 profiles are clean: 162 screens, 0 problems. The harness's negative control puts
+the 1800 px cap back and must see it clip.
+
+**Not covered:** iPhone Safari itself. The container has Chromium only, and `playwright install` is not
+allowed there. Everything used here is supported from iOS 16. On older iOS a step opens without its slide
+(grid rows still size it), and a long diagnosis may not break mid-word (`overflow-wrap: anywhere` is
+iOS 15.4). `BACKLOG.md` asks for one look on a real iPhone.
+
+**Tests.**
+- `verify-phone-sweep.cjs` has 220 checks. Section 1, the CSS and JSX pins, runs in CI. The sweep and the
+  negative control need playwright. On `b0bfda9` (the pre-sweep head of #123), section 1 fails all 33 of its
+  checks.
+- `verify-ward-requests-0925.cjs` is now 159 checks: the letter rule, Pp's two examples, and the
+  composing-keyboard case.
+- `verify-review-fixes-0924` and `verify-single-source-weight-dol` now type นามสกุล `จด`: "ใจ" alone is one
+  letter now.
+
 ## Session 2026-09-25 (2) — Android step clipping, ชื่อ + นามสกุล, and a search that finds people
 
 Pp, with two screenshots from an Android phone: *"Android เลื่อนแล้วไม่เต็มช่อง ให้แก้ไข"*; *"อยากปรับให้ใส่ชื่อ

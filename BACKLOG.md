@@ -160,19 +160,24 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
-- [ ] 🩺⚖️ **product · ชื่อ + นามสกุล and the ward search (2026-09-25): three loose ends.** Built in
+- [ ] 🩺⚖️ **product · ชื่อ + นามสกุล and the ward search (2026-09-25): four loose ends.** Built in
       `CHANGELOG.md` § Session 2026-09-25 (2), pinned by `test/verify-ward-requests-0925.cjs`.
       1. **The server's duplicate-id message still says "แก้ชื่อย่อ"** (`_sessionIdConflict` in
          `gas-backend.gs`). The box it names no longer exists: the id now comes from the first consonant
          of each name part. Reword it, for example "ถ้าไม่ใช่แฝด ตรวจชื่อ/นามสกุลและน้ำหนักแรกเกิด".
          Needs a `clasp` deploy, so it is Pp's call. The frontend is correct either way.
-      2. ⚖️ **Tell the DPO the name holds four characters now.** It held two (one letter of each name),
-         and now holds two of each, or two English letters of each for a foreign infant. It is Pp's decision,
-         for finding and identifying an infant. The id and Copy Order stay at initials, and no full name is
-         stored. It belongs in the next DPIA note, beside D7.
+      2. ⚖️ **Tell the DPO the name holds four letters now.** It held two (one letter of each name), and
+         now holds two letters of each, with no vowels or tone marks, or two English letters of each for a
+         foreign infant. It is Pp's decision, for finding and identifying an infant. The id and Copy Order
+         stay at initials, and no full name is stored. It belongs in the next DPIA note, beside D7.
       3. **Pp to say:** should the topbar switcher also list only the chosen ward? It was left unit-wide
          because it is the way to any infant from any screen. The ward list's own box is ward-scoped, as
          asked.
+      4. **One look on a real iPhone (Safari).** `test/verify-phone-sweep.cjs` checks 24 device sizes, but
+         only in Chromium; the cloud container has no WebKit. Check two things there:
+         - the calculator with every step open;
+         - the login in landscape.
+         Everything used is supported from iOS 16. Older iOS opens a step without its slide.
 
 - [ ] ⚡ **perf · Login speed: fixes 1–4 LIVE 2026-09-25 (`release` = `e05a78d`, backend `@60`); the rest
       waits on numbers.**

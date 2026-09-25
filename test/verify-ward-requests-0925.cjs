@@ -6,10 +6,12 @@
 //      wide, so its last 143px (the Lipid and NPC : Protein tiles) were cut
 //      off with nothing to scroll to. A step now opens by sliding one grid row
 //      from 0fr to 1fr — the content's own height — through StepBody.
-//   2. "ใส่ชื่อ เป็นชื่อ + นามสกุล เอาตัวอักษรไทย สองตัวแรก", then "ให้ใส่เป็นชื่อ
-//      ภาษาไทย (ยกเว้นต่างชาติ)" — the name is two boxes, the first two
-//      characters of the first name and of the surname, Thai unless the infant
-//      is foreign (English). Stored as "สม ใจ"; the sessionId keeps initials.
+//   2. "ใส่ชื่อ เป็นชื่อ + นามสกุล เอาตัวอักษรไทย สองตัวแรก", "ให้ใส่เป็นชื่อ
+//      ภาษาไทย (ยกเว้นต่างชาติ)", then "ให้ใช้เป็นตัวอักษรเท่านั้น ไม่นับสระหรือ
+//      วรรณยุกต์ เช่น ทองดี ใช้ ทอ, เรยา ใช้ รย" — the name is two boxes, the
+//      first two LETTERS (consonants) of the first name and of the surname, Thai
+//      unless the infant is foreign (English). Stored as "รย ทอ"; the sessionId
+//      keeps initials.
 //   3. "ช่องค้นหา เอาวอร์ดออก … ให้ค้นหาได้ทั้งชื่อนามสกุล … ค้นหายากมาก" — the
 //      ward list searches its own ward (verify-registry-logged-today.cjs pins
 //      that half), and one forgiving search (data.js searchPatients) answers a
@@ -102,80 +104,88 @@ vm.runInThisContext(babel.transformSync(fs.readFileSync(DIR + 'registry.jsx', 'u
 }).code);
 
 // ══ 2 · the name: two parts, two characters each ═══════════════════════════
-console.log('\n── #2 ชื่อ + นามสกุล, two characters each (Thai; English if foreign) ──');
+console.log('\n── #2 ชื่อ + นามสกุล, two letters each — no vowel, no tone mark (Thai; English if foreign) ──');
 const TH = [
-  ['สมศรี', 'สม'], ['ปราณี', 'ปร'], ['พัฒนา', 'พั'], ['น้ำฝน', 'น้'], ['เพ็ญ', 'เพ'],
-  ['ใจดี', 'ใจ'], ['ไพลิน', 'ไพ'],
+  ['ทองดี', 'ทอ'], ['เรยา', 'รย'],               // Pp's own examples
+  ['สมศรี', 'สม'], ['ปราณี', 'ปร'], ['ใจดี', 'จด'], ['ไพลิน', 'พล'], // a leading vowel is not a letter
+  ['พัฒนา', 'พฒ'], ['น้ำฝน', 'นฝ'], ['เพ็ญ', 'พญ'], ['อุ่นใจ', 'อน'], // nor a vowel or tone mark on one
+  ['ฤทัย', 'ทย'],             // ฤ is a vowel, though Unicode files it among the consonants
+  ['หญิง', 'หญ'], ['กิตติคุณ', 'กต'], ['จันทร์ดี', 'จน'],
   ['Sombat', ''],            // not Thai: nothing is kept (the box says why)
   ['ส1ม', 'สม'],              // digits are not letters
   ['๑๒สม', 'สม'],             // nor are Thai digits
-  ['ัสม', 'สม'],              // a mark cannot begin a name
-  ['าสม', 'สม'],              // nor can a following vowel
-  ['ทํางาน', 'ทำ'],           // ํ + า is ำ, one character
-  [' ใจ ดี ', 'ใจ'],          // spaces are not letters
+  ['ทํางาน', 'ทง'],           // ํ + า is a vowel, typed in two strokes or one
+  [' ใจ ดี ', 'จด'],          // spaces are not letters
   ['ด.ญ.สมศรี', 'ดญ'],         // an honorific is not stripped here — NameFields questions it
 ];
 for (const [raw, want] of TH) eq(`Thai: ${JSON.stringify(raw)} keeps`, D.namePart(raw, false), want);
 const EN = [['john', 'Jo'], ['SMITH', 'Sm'], ['José', 'Jo'], ["o'neil", 'On'], ['ส้ม', ''], ['x1y', 'Xy']];
 for (const [raw, want] of EN) eq(`foreign: ${JSON.stringify(raw)} keeps`, D.namePart(raw, true), want);
-eq('two characters is the rule', D.NAME_PART_CHARS, 2);
-eq('complete: both parts at two', [D.nameComplete('สม', 'ใจ'), D.nameComplete('ส', 'ใจ'), D.nameComplete('สม', ''),
-  D.nameComplete('Jo', 'Sm', true), D.nameComplete('jo', 'Sm', true)], [true, false, false, true, false]);
-eq('stored as "ชื่อ นามสกุล"', [D.composePatientName('สม', 'ใจ'), D.composePatientName('Jo', 'Sm', true)], ['สม ใจ', 'Jo Sm']);
-eq('split back into its parts', D.splitPatientName('สม ใจ'), { first: 'สม', last: 'ใจ', foreign: false });
+eq('two letters is the rule', D.NAME_PART_CHARS, 2);
+eq('complete: both parts at two letters', [D.nameComplete('สม', 'จด'), D.nameComplete('ส', 'จด'), D.nameComplete('สม', ''),
+  D.nameComplete('สม', 'ใจ'), D.nameComplete('Jo', 'Sm', true), D.nameComplete('jo', 'Sm', true)],
+  [true, false, false, false, true, false]);
+eq('stored as "ชื่อ นามสกุล" — Pp\'s example', [D.composePatientName('เรยา', 'ทองดี'), D.composePatientName('John', 'Smith', true)], ['รย ทอ', 'Jo Sm']);
+eq('split back into its parts', D.splitPatientName('รย ทอ'), { first: 'รย', last: 'ทอ', foreign: false });
 eq('…an English one says it is foreign', D.splitPatientName('Jo Sm'), { first: 'Jo', last: 'Sm', foreign: true });
 eq('names from before 2026-09-25 do not split — kept as they are',
-  ['ปพ', 'KH', 'Fo', 'JO SM', '[PDPA-erased 2026-09-01]', 'ส ใ', '', null].map(D.splitPatientName),
-  [null, null, null, null, null, null, null, null]);
-eq('the id keeps initials: first consonant of each part (a leading vowel is skipped)',
-  [D.nameInitials('สม', 'ใจ'), D.nameInitials('เพ', 'แก'), D.nameInitials('อุ', 'ไพ'), D.nameInitials('Jo', 'Sm')],
-  ['สจ', 'พก', 'อพ', 'JS']);
+  ['ปพ', 'KH', 'Fo', 'JO SM', '[PDPA-erased 2026-09-01]', 'ส ใ', 'ปร พั', '', null].map(D.splitPatientName),
+  [null, null, null, null, null, null, null, null, null]);
+eq('the id keeps initials: the first letter of each part',
+  [D.nameInitials('สม', 'จด'), D.nameInitials('รย', 'ทอ'), D.nameInitials('Jo', 'Sm')], ['สจ', 'รท', 'JS']);
+eq('…and of a word, its first consonant (a leading vowel is not a letter)',
+  [D.nameInitials('เพ็ญ', 'แก้ว'), D.nameInitials('อุ่น', 'ไพลิน')], ['พก', 'อพ']);
 
 // ══ 3 · the search ═════════════════════════════════════════════════════════
 console.log('\n── #3 one forgiving search: first name or surname, whole or begun ──');
 const P = (sessionId, name, currentBed, diagnosis, extra) => Object.assign(
   { sessionId, name, initials: name, currentBed, diagnosis, status: 'Active' }, extra || {});
 const WARD = [
-  P('สใ-BW1200', 'สม ใจ',  'NICU 1',  'RDS'),
-  P('ปพ-BW900',  'ปร พั',  'NICU 10', 'NEC'),
-  P('นใ-BW1500', 'น้ ใจ',  'NICU 5',  'PDA'),
+  P('สจ-BW1200', 'สม จด',  'NICU 1',  'RDS'),     // สมศรี ใจดี
+  P('ปพ-BW900',  'ปร พฒ',  'NICU 10', 'NEC'),     // ปราณี พัฒนา
+  P('นจ-BW1500', 'นฝ จด',  'NICU 5',  'PDA'),     // น้ำฝน ใจดี
   P('ปพ-BW1100', 'ปพ',     'NICU 3',  'RDS'),     // registered before 2026-09-25
   P('JS-BW2000', 'Jo Sm',  'NICU 12', 'TTNB'),    // foreign
   P('FO-1',      'Fo',     'iso 1-2', ''),         // an old Latin nickname
+  P('รท-BW1300', 'รย ทอ',  'NICU 7',  'TTN'),     // เรยา ทองดี — Pp's example
 ];
 const names = (q) => D.searchPatients(WARD, q).hits.map(p => p.name);
 const CASES = [
-  ['สม',           ['สม ใจ']],                     // a first name, begun
-  ['สมศรี',        ['สม ใจ']],                     // …typed whole
-  ['สมศรี ใจดี',   ['สม ใจ']],                     // both, whole
-  ['สม ใจ',        ['สม ใจ']],                     // as displayed
-  ['สมใจ',         ['สม ใจ']],                     // …without the space
-  ['ใจดี',         ['สม ใจ', 'น้ ใจ']],            // a surname finds everyone who has it
-  ['ปราณี พัฒนา',  ['ปร พั', 'ปพ']],               // the old initials still answer, below the real match
-  ['พัฒนา',        ['ปร พั', 'ปพ']],
-  ['น้ำฝน',        ['น้ ใจ']],
-  ['นำฝน',         ['น้ ใจ']],                     // a tone mark left out
-  ['ด.ญ. สมศรี',   ['สม ใจ']],                     // an honorific copied from the record
-  ['บุตรนางสมศรี', ['สม ใจ']],
+  ['เรยา',         ['รย ทอ']],                     // Pp's example: the first name typed whole
+  ['ทองดี',        ['รย ทอ']],                     // …the surname
+  ['เร',           ['รย ทอ']],                     // begun, vowel and all
+  ['ทอง',          ['รย ทอ']],
+  ['สม',           ['สม จด']],                     // a first name, begun
+  ['สมศรี',        ['สม จด']],                     // …typed whole
+  ['สมศรี ใจดี',   ['สม จด']],                     // both, whole
+  ['สม จด',        ['สม จด']],                     // as displayed
+  ['สมจด',         ['สม จด']],                     // …without the space
+  ['ใจดี',         ['สม จด', 'นฝ จด']],            // a surname finds everyone who has it
+  ['ปราณี พัฒนา',  ['ปร พฒ', 'ปพ']],               // the old initials still answer, below the real match
+  ['พัฒนา',        ['ปร พฒ', 'ปพ']],
+  ['น้ำฝน',        ['นฝ จด']],
+  ['นำฝน',         ['นฝ จด']],                     // a tone mark left out
+  ['ด.ญ. สมศรี',   ['สม จด']],                     // an honorific copied from the record
+  ['บุตรนางสมศรี', ['สม จด']],
   ['john',         ['Jo Sm']],
   ['smith',        ['Jo Sm']],
   ['fo',           ['Fo']],                        // an old nickname, as it always matched
-  ['5',            ['น้ ใจ']],                     // a bed number
-  ['1',            ['สม ใจ', 'ปร พั', 'Jo Sm', 'Fo']], // NICU 1 first, then 10, 12, iso 1-2
-  ['nicu 5',       ['น้ ใจ']],
-  ['สใ-bw1200',    ['สม ใจ']],                     // the NeoFeed ID on the order form
-  ['nec',          ['ปร พั']],                     // a diagnosis, last
-  ['สุ',           []],
+  ['5',            ['นฝ จด']],                     // a bed number
+  ['1',            ['สม จด', 'ปร พฒ', 'Jo Sm', 'Fo']], // NICU 1 first, then 10, 12, iso 1-2
+  ['nicu 5',       ['นฝ จด']],
+  ['สจ-bw1200',    ['สม จด']],                     // the NeoFeed ID on the order form
+  ['nec',          ['ปร พฒ']],                     // a diagnosis, last
+  ['กข',           []],
   ['',             []],
 ];
 for (const [q, want] of CASES) eq(`"${q}" finds`, names(q), want);
 eq('the exact name ranks above a begun one',
-  D.patientSearchRank(WARD[0], 'สม ใจ') > D.patientSearchRank(WARD[0], 'สม'), true);
+  D.patientSearchRank(WARD[0], 'สม จด') > D.patientSearchRank(WARD[0], 'สม'), true);
 {
   // The keyboard left in English: nothing matches as typed, so it is read as
   // the Thai keys, and the result says so.
   const r = D.searchPatients(WARD, 'l,');
-  eq('"l," (สม on an English keyboard) is read as Thai', [r.hits.map(p => p.name), r.thai], [['สม ใจ'], 'สม']);
+  eq('"l," (สม on an English keyboard) is read as Thai', [r.hits.map(p => p.name), r.thai], [['สม จด'], 'สม']);
   eq('…but a query that matches as typed is never re-read', D.searchPatients(WARD, 'fo').thai, '');
   eq('…and a bed number is never read as a letter (5 is ถ)', D.searchPatients(WARD, '55').hits.length, 0);
   eq('the classic check: "l;ylfu" is สวัสดี', D.qwertyToThai('l;ylfu'), 'สวัสดี');
@@ -237,9 +247,27 @@ const foreignBox = () => host.querySelector('.name-foreign input');
   let sent = null;
   mount(global.NewPatientModal, { patients: [], onClose() {}, onSubmit: (p) => { sent = p; } });
   ok('Register: a ชื่อ box and a นามสกุล box, and no ชื่อย่อ box', !!input('ชื่อ') && !!input('นามสกุล') && !field('ชื่อย่อ'));
+  type('ชื่อ', 'เรยา');
+  type('นามสกุล', 'ทองดี');
+  eq('Pp\'s example: each box keeps its first two letters', [input('ชื่อ').value, input('นามสกุล').value], ['รย', 'ทอ']);
+  ok('…and the rule is said under them', /ไม่นับสระและวรรณยุกต์/.test(host.textContent));
   type('ชื่อ', 'สมศรี');
   type('นามสกุล', 'ใจดี');
-  eq('each box keeps its first two characters', [input('ชื่อ').value, input('นามสกุล').value], ['สม', 'ใจ']);
+  eq('a leading vowel is not a letter (ใจดี → จด)', [input('ชื่อ').value, input('นามสกุล').value], ['สม', 'จด']);
+  // A keyboard composing a word: the box is left as typed until the word is
+  // finished, then cut — rewriting it mid-word is what scrambles Android input.
+  {
+    const el = input('ชื่อ');
+    const comp = (type) => act(() => { el.dispatchEvent(new window.CompositionEvent(type, { bubbles: true })); });
+    const raw = (v) => act(() => { setters.INPUT.call(el, v); el.dispatchEvent(new window.Event('input', { bubbles: true })); });
+    comp('compositionstart');
+    raw('เร');
+    eq('while a word is being composed the box keeps the raw text', input('ชื่อ').value, 'เร');
+    raw('เรยา');
+    comp('compositionend');
+    eq('…and cuts it to two letters when the word is done', input('ชื่อ').value, 'รย');
+    type('ชื่อ', 'สม');
+  }
   type('ชื่อ', 'สมx');
   ok('a Latin letter is not saved…', input('ชื่อ').value === 'สม');
   ok('…and the box says why, pointing a foreign infant at the tick box',
@@ -254,12 +282,12 @@ const foreignBox = () => host.querySelector('.name-foreign input');
   type('GA', '30');
   type('Sex', 'girls');
   const reg = button(/Register/);
-  ok('Register waits for both parts at two characters', reg.disabled && /นามสกุล อย่างละ 2 ตัว/.test(host.textContent));
+  ok('Register waits for both parts at two letters', reg.disabled && /นามสกุล อย่างละ 2 ตัวอักษร/.test(host.textContent));
   type('ชื่อ', 'สม');
   ok('…and opens when they are', !reg.disabled);
   click(reg);
-  eq('saved as "สม ใจ", initials สจ, id สจ-BW1000',
-    sent && [sent.name, sent.initials, sent.sessionId], ['สม ใจ', 'สจ', 'สจ-BW1000']);
+  eq('saved as "สม จด", initials สจ, id สจ-BW1000',
+    sent && [sent.name, sent.initials, sent.sessionId], ['สม จด', 'สจ', 'สจ-BW1000']);
 
   // A foreign infant.
   click(foreignBox());
@@ -297,8 +325,8 @@ const foreignBox = () => host.querySelector('.name-foreign input');
   eq('a whole new name replaces it; the id does not move',
     sent && [sent.name, sent.initials, sent.sessionId], ['กล มน', 'กม', 'KH-BW1090']);
 
-  open({ ...base, name: 'สม ใจ', initials: 'สจ' });
-  eq('Edit, a two-part name opens in its boxes', [input('ชื่อ').value, input('นามสกุล').value, foreignBox().checked], ['สม', 'ใจ', false]);
+  open({ ...base, name: 'สม จด', initials: 'สจ' });
+  eq('Edit, a two-part name opens in its boxes', [input('ชื่อ').value, input('นามสกุล').value, foreignBox().checked], ['สม', 'จด', false]);
   type('นามสกุล', '');
   ok('…and must stay complete', button(/Save changes/).disabled);
   open({ ...base, name: 'Jo Sm', initials: 'JS' });
@@ -318,9 +346,9 @@ console.log('\n── #5 the ward list and the topbar switcher search the same w
   ok('switcher: the box asks for a name or a surname', /^ค้นหา/.test(pick.placeholder) && /นามสกุล/.test(pick.placeholder));
   act(() => { setters.INPUT.call(pick, 'ใจดี'); pick.dispatchEvent(new window.Event('input', { bubbles: true })); });
   const rows = () => [...host.querySelectorAll('.picker-row')].map(r => r.textContent);
-  ok('switcher: a surname finds both infants who have it', rows().length === 2 && rows().every(t => /ใจ/.test(t)), rows());
+  ok('switcher: a surname finds both infants who have it', rows().length === 2 && rows().every(t => /จด/.test(t)), rows());
   act(() => { setters.INPUT.call(pick, 'ปราณี'); pick.dispatchEvent(new window.Event('input', { bubbles: true })); });
-  ok('switcher: the best match is first', /ปร พั/.test(rows()[0] || ''), rows());
+  ok('switcher: the best match is first', /ปร พฒ/.test(rows()[0] || ''), rows());
   click(host.querySelector('.picker-row'));
   eq('…and picking it opens that infant', picked, 'ปพ-BW900');
 
@@ -335,12 +363,12 @@ console.log('\n── #5 the ward list and the topbar switcher search the same w
     box.getAttribute('autocomplete') === 'off' && box.getAttribute('spellcheck') === 'false');
   ok('ward list: no clear button while the box is empty', !host.querySelector('.s-clear'));
   typeBox('ปราณี');
-  eq('ward list: best match first, the old-initials candidate after it', cards(), ['ปร พั', 'ปพ']);
+  eq('ward list: best match first, the old-initials candidate after it', cards(), ['ปร พฒ', 'ปพ']);
   ok('…and it says how many it found', /พบ 2 รายใน NICU/.test(host.textContent));
   click(host.querySelector('.s-clear'));
   eq('the clear button empties the box and brings the ward back', [box.value, cards().length], ['', 4]);
   typeBox('l,');
-  eq('an English-keyboard query is read as Thai…', cards(), ['สม ใจ']);
+  eq('an English-keyboard query is read as Thai…', cards(), ['สม จด']);
   ok('…and the list says what it searched for', /ค้นเป็น “สม” \(แป้นพิมพ์ภาษาไทย\)/.test(host.textContent));
   act(() => { box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
   eq('Escape clears the box', box.value, '');

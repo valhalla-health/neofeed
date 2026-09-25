@@ -95,14 +95,20 @@ big conditional block plus `RailItem`/`BottomNav`.
   (see `data.js`) — it's a pseudonym, not an anonymous ID (see § 6). Since
   2026-09-25 the initials are `D.nameInitials(first, last)`, the first
   consonant of each name part (a leading vowel is not an initial), so
-  `สม ใจ` at 1200 g is `สจ-BW1200`. The id deliberately keeps two letters while
+  `สม จด` at 1200 g is `สจ-BW1200`. The id deliberately keeps two letters while
   the name holds four: Copy Order carries the id, never the name, into LINE.
-- **`name`** — since 2026-09-25, **ชื่อ + นามสกุล: the first two characters of
-  the first name and of the surname**, stored as `"ปร พั"` (one space). A
-  character is a code point, the way the old box's `maxLength={2}` counted, so
-  พัฒนา → พั. Thai letters, except a foreign infant (ชาวต่างชาติ): English,
-  `"Jo Sm"`. Both patient modals render one `NameFields`, and every keystroke
-  goes through `D.namePart`, so a box shows exactly what is saved. A name from
+- **`name`** — since 2026-09-25, **ชื่อ + นามสกุล: the first two LETTERS of
+  the first name and of the surname**, stored as `"รย ทอ"` (one space; Pp's
+  example was "กค จด"). A letter is one of the 44 consonants: every vowel
+  (before, after, above or below) and tone mark is dropped, and so are ฤ ฦ,
+  which Thai grammar counts as vowels — ทองดี → ทอ, เรยา → รย, ใจดี → จด
+  (Pp: "ให้ใช้เป็นตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์"). Thai, except a
+  foreign infant (ชาวต่างชาติ): the first two English letters, `"Jo Sm"`. Both
+  patient modals render one `NameFields` — two boxes, one per part — and what
+  is typed goes through `D.namePart`, so a box shows exactly what is saved.
+  **A word being composed is left alone until `compositionend`**: rewriting a
+  box under an Android keyboard that is composing (Gboard, Samsung) makes it
+  repeat or scramble letters, and dropping vowels rewrites it constantly. A name from
   before that date (the two-letter initials "ปพ", a nickname, a PDPA-erased
   marker) does not split (`D.splitPatientName` → null) and is **kept as it is**
   until someone types a whole new name; don't "migrate" those rows in bulk.
@@ -588,8 +594,9 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    **Every search box goes through `D.searchPatients`** (`data.js`) — the ward
    list and the topbar switcher (which still lists the whole unit) — so they
    cannot disagree. It ranks, best first: the first name or the surname, whole
-   or begun, either way round (สมศรี, สม, ใจดี, สมใจ all find `สม ใจ`), tone
-   marks forgiven, an honorific ignored; a pre-2026-09-25 two-letter name by
+   or begun, either way round, compared by letters alone (`thaiLetters`: เรยา,
+   เร, ทอง and ทองดี all find `รย ทอ`), an honorific ignored; a
+   pre-2026-09-25 two-letter name by
    the initials of what was typed; then bed number, NeoFeed ID, diagnosis. A
    query that finds nothing is read once more as typed on the Thai keyboard
    layout (`l,` is สม), and the list says it did. Don't give a screen its own
@@ -919,10 +926,10 @@ under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
 - **Erasure:** `pseudonymizePatient()` in `gas-backend.gs`, admin-only,
   clears name/initials/dob but retains de-identified clinical history for
   medical-record retention duty. **The stored name** is, since 2026-09-25, two
-  characters of the first name and two of the surname (it was one letter of
-  each) — Pp's call, for finding and identifying an infant on the ward; still
-  not a full name, and the id and Copy Order stay at initials. `BACKLOG.md`
-  carries telling the DPO. Residual risk: `sessionId` is derived from
+  letters of the first name and two of the surname, vowels and tone marks not
+  kept (it was one letter of each) — Pp's call, for finding and identifying an
+  infant on the ward; still not a full name, and the id and Copy Order stay at
+  initials. `BACKLOG.md` carries telling the DPO. Residual risk: `sessionId` is derived from
   initials+BW+twinSuffix, so it's a pseudonym staff can reverse-map on a
   small census — erasure can't scrub that pattern without breaking every
   Daily_Log join. **There is no client entry point** — nothing in any `.jsx`
@@ -977,6 +984,25 @@ notes — don't just add the feature.
   (overflow, tap targets, sticky bars, safe-area insets). Test narrow
   viewports before calling a UI change done — see `HANDOFF.md`'s session
   logs for the specific patterns already fixed (don't regress them).
+- **Nothing is cut off, out of reach, or dragged sideways, on any phone** —
+  `test/verify-phone-sweep.cjs` signs in and opens every screen at 24 device
+  profiles (280 px Fold cover to 440 px Pro Max, landscape phones, tablets,
+  130 % text) and fails on a box that clips its content, an end that cannot be
+  tapped, or a sideways drag. Its first run (2026-09-25) found six bugs of the
+  kind the Android report was, and the rules they left behind are:
+  - a grid a phone rule narrows is `minmax(0, 1fr)`, never a bare `1fr`,
+    which cannot shrink below its content — and a `<select>` is as wide as
+    its longest option;
+  - text in a narrow box needs somewhere to break (`<wbr/>` before a unit,
+    `overflow-wrap: anywhere` for a diagnosis, no `nowrap` on a delta);
+  - a table wider than the workspace scrolls inside its card
+    (`.patient-table`, `.tbl-scroll`), never the page;
+  - the login footer is in the flow and the column is centred by auto
+    margins: absolute positioning and `justify-content: center` both break on
+    a landscape phone, where the column is taller than the screen;
+  - the icon rail scrolls rather than clips.
+  It runs in Chromium only (no WebKit in the cloud container), so an iPhone
+  look is still a person's job.
 - **Nothing that opens and closes is capped at a height.** A calculator step
   body is `StepBody` (`calculator.jsx`): one grid row sliding from `0fr` to
   `1fr`, the content's own height. It replaced `max-height: 1800px`, which

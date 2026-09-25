@@ -1147,10 +1147,32 @@ removes superseded rows from the reference's output. That is the one documented 
 the open. The reference source is untouched, and the admin archive comparisons still take the reference
 as it is.
 
+## Every phone swept, 2026-09-25 — one harness
+
+Pp: "Check ด้วย ว่า all phone จะไม่มีปัญหาการเลื่อนหน้าจอแบบเดียวกัน" (`CHANGELOG.md` 2026-09-25 (3)).
+**`verify-phone-sweep.cjs`** (220 assertions; no npm dependencies for § 1, `playwright` for § 2–3).
+- **§ 2, the sweep:** it serves the repo, answers the GAS URL with a fake backend, signs in and opens every
+  screen: the ward list, Register, Edit, Dashboard, Growth, Alerts, and the calculator with every step
+  open. It does this at 24 device profiles: 280 px Galaxy Z Fold cover to 440 px iPhone 16 Pro Max, three
+  landscape phones, three tablets, and three phones at 130 % text. On each screen it fails on:
+  - a box with overflow hidden holding more than itself (content cut off with nothing to scroll to: the
+    Android report's bug);
+  - a lowest piece of content that a tap at the end of the scroll does not land on (a real hit-test, so
+    the tab bar, the Calculator button and a modal's backdrop count in their true stacking order);
+  - a sideways drag of the document or the workspace.
+- **§ 3, negative control:** the old 1800 px cap put back must be reported.
+- **§ 1, static pins, run in CI:** the six fixes its first run led to (the login footer, the rail, the
+  patient strip, the calculator grids, two tables).
+  - On `b0bfda9` § 1 fails all 33 checks.
+  - About four minutes locally. CI installs no browser, so there § 2–3 are a notice, as in
+    `verify-mobile-fit.cjs`.
+
 ## Android step clipping, ชื่อ + นามสกุล, and the search, 2026-09-25 — one harness, six adjusted
 
-Pp's three requests (`CHANGELOG.md` 2026-09-25 (2)). **`verify-ward-requests-0925.cjs`** (145 assertions;
-the jsdom set, plus `playwright` if installed, which CI does not install):
+Pp's three requests (`CHANGELOG.md` 2026-09-25 (2), and the letters-only rule of (3)).
+**`verify-ward-requests-0925.cjs`** (159 assertions; the jsdom set, plus `playwright` if installed, which CI
+does not install). The name sections now pin the letters-only rule: ทองดี → ทอ, เรยา → รย, and a composing
+keyboard's word left whole until `compositionend`.
 - § 1: in both shells, no rule caps `.accordion-body` at a height. A step slides one grid row from `0fr`
   to `1fr`, and `calculator.jsx` renders all six step bodies through `StepBody`;
 - § 2: `D.namePart` keeps the first two characters of a first name or a surname: Thai, or English for a

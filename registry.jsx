@@ -798,23 +798,34 @@ function SubmitError({ error }) {
 }
 
 // ชื่อ + นามสกุล: the two boxes both patient modals render (Pp, 2026-09-25:
-// "ใส่ชื่อ เป็นชื่อ + นามสกุล เอาตัวอักษรไทย สองตัวแรก", then "ให้ใส่เป็นชื่อ
-// ภาษาไทย (ยกเว้นต่างชาติ)"). Every keystroke goes through D_R.namePart, so a
-// box holds at most its two characters and shows exactly what will be saved.
-// Thai letters, unless ชาวต่างชาติ is ticked, which takes English letters.
-// A letter of the other script is not saved, and not dropped silently either:
-// the note under the box says why (usually a keyboard left in English) and
-// points a foreign infant at the tick box. A Thai part that reads as an
-// honorific (ด.ช. typed first gives "ดช") is questioned, because the name is
-// the person's, not the title in front of it.
+// "ใส่ชื่อ เป็นชื่อ + นามสกุล เอาตัวอักษรไทย สองตัวแรก", "ให้ใส่เป็นชื่อภาษาไทย
+// (ยกเว้นต่างชาติ)", then "ให้ใช้เป็นตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์ เช่น
+// ทองดี ใช้ ทอ, เรยา ใช้ รย"). What is typed goes through D_R.namePart, so a
+// box holds its two letters — vowels and tone marks never counted or kept —
+// and shows exactly what will be saved. Thai, unless ชาวต่างชาติ is ticked,
+// which takes English letters. A letter of the other script is not saved,
+// and not dropped silently either: the note under the box says why (usually
+// a keyboard left in English) and points a foreign infant at the tick box. A
+// Thai part that reads as an honorific (ด.ช. typed first gives "ดช") is
+// questioned, because the name is the person's, not the title in front of it.
+//
+// A word being composed is left alone until the keyboard finishes it. Android
+// keyboards that compose (Gboard, Samsung, with suggestions on) hold the word
+// being typed; rewriting the box under them — and dropping vowels rewrites it
+// on nearly every keystroke — makes them repeat or scramble letters. So while
+// a composition is open the box shows the raw text (`draft`), and it is cut to
+// its two letters on compositionend. With no composition (a hardware keyboard,
+// suggestions off) every keystroke is cut at once.
 //
 // `value` is { first, last, foreign }; `onChange` receives the next one.
 const NAME_TITLE_PARTS = ["ดช", "ดญ", "นส"];
 function NameFields({ value, onChange }) {
-  const { first, last, foreign } = value;
+  const { foreign } = value;
   const [wrongScript, setWrongScript] = React.useState({ first: false, last: false });
-  const type = (key) => (e) => {
-    const raw = e.target.value;
+  const [draft, setDraft] = React.useState({ first: null, last: null });
+  const composing = React.useRef({ first: false, last: false });
+  const commit = (key, raw) => {
+    setDraft(d => ({ ...d, [key]: null }));
     setWrongScript(s => ({ ...s, [key]: (foreign ? /[\u0E00-\u0E7F]/ : /[A-Za-z]/).test(raw) }));
     onChange({ ...value, [key]: D_R.namePart(raw, foreign) });
   };
@@ -828,10 +839,16 @@ function NameFields({ value, onChange }) {
     const says = note(key, part);
     return (
       <div className="field">
-        <label>{label} <span className="unit">(2 ตัวแรก)</span></label>
-        <input className="inp" lang={foreign ? "en" : "th"} value={part} placeholder={example}
+        <label>{label} <span className="unit">(2 ตัวอักษร)</span></label>
+        <input className="inp" lang={foreign ? "en" : "th"} value={draft[key] ?? part} placeholder={example}
           autoComplete="off" autoCorrect="off" autoCapitalize={foreign ? "words" : "off"} spellCheck={false}
-          onChange={type(key)} />
+          onCompositionStart={() => { composing.current[key] = true; }}
+          onCompositionEnd={e => { composing.current[key] = false; commit(key, e.currentTarget.value); }}
+          onChange={e => {
+            const raw = e.target.value;
+            if (composing.current[key]) setDraft(d => ({ ...d, [key]: raw }));
+            else commit(key, raw);
+          }} />
         {says && <div className="name-note">{says}</div>}
       </div>
     );
@@ -839,8 +856,12 @@ function NameFields({ value, onChange }) {
   return (
     <div className="name-fields">
       <div className="row-2 pair-row">
-        {box("first", "ชื่อ",    foreign ? "เช่น John → Jo" : "เช่น สมศรี → สม")}
-        {box("last",  "นามสกุล", foreign ? "เช่น Smith → Sm" : "เช่น ใจดี → ใจ")}
+        {box("first", "ชื่อ",    foreign ? "เช่น John → Jo"  : "เช่น เรยา → รย")}
+        {box("last",  "นามสกุล", foreign ? "เช่น Smith → Sm" : "เช่น ทองดี → ทอ")}
+      </div>
+      <div className="name-rule">
+        {foreign ? "2 ตัวอักษรแรกของชื่อและนามสกุล ภาษาอังกฤษ"
+                 : "2 ตัวอักษรแรกของชื่อและนามสกุล ไม่นับสระและวรรณยุกต์ · ไม่ต้องใส่คำนำหน้า"}
       </div>
       <label className="name-foreign">
         {/* Switching script empties both boxes: nothing typed in one script
@@ -848,6 +869,7 @@ function NameFields({ value, onChange }) {
             would show a name that is not the one being registered. */}
         <input type="checkbox" checked={foreign} onChange={e => {
           setWrongScript({ first: false, last: false });
+          setDraft({ first: null, last: null });
           onChange({ first: "", last: "", foreign: e.target.checked });
         }} />
         ชาวต่างชาติ — ใช้ชื่อภาษาอังกฤษ
@@ -1042,7 +1064,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" }}>
                 {bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน"
                 : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้"
-                : !nameOk ? "กรอกชื่อ + นามสกุล อย่างละ 2 ตัวก่อนลงทะเบียน"
+                : !nameOk ? "กรอกชื่อ + นามสกุล อย่างละ 2 ตัวอักษรก่อนลงทะเบียน"
                 : "กรอกน้ำหนักแรกเกิด · GA · เพศ ให้ครบก่อนลงทะเบียน"}
               </span>
             )}
@@ -1393,7 +1415,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
           {oldName && nameKept && (
             <div style={{ marginTop: -4, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 }}>
               ชื่อเดิม <strong style={{ color: "var(--ink-2)" }}>{oldName}</strong> (แบบเดิม) —
-              เว้นว่างไว้เพื่อใช้ชื่อเดิม หรือกรอกชื่อ + นามสกุลใหม่ อย่างละ 2 ตัว
+              เว้นว่างไว้เพื่อใช้ชื่อเดิม หรือกรอกชื่อ + นามสกุลใหม่ อย่างละ 2 ตัวอักษร
             </div>
           )}
           <div className="row-3">
@@ -1438,7 +1460,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
                   ? `การแก้วันรับ/DOL แรกรับนี้จะย้ายค่าที่วัดไว้ของ DOL ${growth.conflict.dol} ไป${growth.conflict.to <= 1
                       ? "อยู่ตรงหรือก่อนวันเกิด"
                       : `ทับ DOL ${growth.conflict.to} ที่มีค่าที่วัดไว้แล้ว`} — ตรวจสอบวันรับและ DOL แรกรับ`
-                : nameMissing ? "กรอกชื่อ + นามสกุลให้ครบ อย่างละ 2 ตัว"
+                : nameMissing ? "กรอกชื่อ + นามสกุลให้ครบ อย่างละ 2 ตัวอักษร"
                 : dol1Missing ? "ต้องระบุ DOL แรกรับก่อนบันทึก"
                 : admitIssue ? "แก้วันที่รับเข้าก่อนบันทึก"
                 : sex === "" ? "ต้องระบุเพศก่อนบันทึก"

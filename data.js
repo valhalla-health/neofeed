@@ -2052,35 +2052,40 @@ const SUPP_DB = {
 // Patient name (ชื่อ + นามสกุล) and the patient search
 // ============================================================
 // Pp, 2026-09-25: "ใส่ชื่อ เป็นชื่อ + นามสกุล เอาตัวอักษรไทย สองตัวแรก", then
-// "ให้ใส่เป็นชื่อภาษาไทย (ยกเว้นต่างชาติ)". Until then a name was ONE box of two
-// characters, the first letter of the first name and of the surname ("ปพ"),
-// and the ward reported it as close to unsearchable ("ค้นหายากมาก"): one letter
-// of a name matches half the unit, and nobody finds "ปราณี" in "ปพ". A name is
-// now two parts, the first two characters of the first name and of the
-// surname, stored in the one `name` column as "ปร พั" (one space between).
+// "ให้ใส่เป็นชื่อภาษาไทย (ยกเว้นต่างชาติ)", then "ให้ใช้เป็นตัวอักษรเท่านั้น
+// ไม่นับสระหรือวรรณยุกต์ เช่น ทองดี ใช้ ทอ, เรยา ใช้ รย". Until then a name was
+// ONE box of two characters, the first letter of the first name and of the
+// surname ("ปพ"), and the ward reported it as close to unsearchable
+// ("ค้นหายากมาก"): one letter of a name matches half the unit. A name is now
+// two parts, the first two LETTERS of the first name and of the surname,
+// stored in the one `name` column as "รย ทอ" (one space between; Pp's own
+// example was "กค จด").
 //
-// A character is what the old box's maxLength and `slice(0, 2)` counted, a
-// code point, so a vowel or tone mark is a character of its own: "ปราณี" →
-// "ปร", "พัฒนา" → "พั", "น้ำฝน" → "น้". searchFold forgives the tone marks, so
-// "น้" is found by น้ำฝน, by นำฝน and by plain น.
+// A letter is one of the 44 consonants (พยัญชนะ). Every vowel is dropped —
+// before the letter (เ แ โ ใ ไ), after it (ะ า ำ ๅ), above or below it — and
+// so is every tone mark and ์. ฤ and ฦ are vowels in Thai grammar although
+// Unicode files them among the consonants, so they are dropped too. อ ย ว ห
+// are consonants wherever they stand: ทองดี → ทอ, เรยา → รย, สมศรี → สม,
+// ใจดี → จด, พัฒนา → พฒ, น้ำฝน → นฝ.
 //
-// Thai letters, so every name is typed and searched from one keyboard. The
-// exception is a foreign infant (`foreign`): English letters, the first
+// Thai, so every name is typed and searched from one keyboard. The exception
+// is a foreign infant (`foreign`): the first two English letters, the first
 // capitalised ("John Smith" → "Jo Sm"). Which one a stored name is needs no
 // column of its own: its letters say so.
 const NAME_PART_CHARS = 2;
-// What a Thai part keeps: consonants, vowels and the marks written on them.
-// Thai digits, ฯ, ๆ and ฿ are not letters, and nothing outside Thai is kept.
-const THAI_NAME_DROP_RE  = /[^\u0E01-\u0E2E\u0E30-\u0E3A\u0E40-\u0E45\u0E47-\u0E4E]/g;
-// What cannot begin a name: a following vowel (ะ ั า ำ ิ … ๅ) or a mark
-// written on a letter. Typed first by mistake, it would be half the part.
-const THAI_NOT_INITIAL_RE = /^[\u0E30-\u0E3A\u0E45\u0E47-\u0E4E]+/;
+// The 44: ก–ร, ล, ว–ฮ (U+0E24 ฤ and U+0E26 ฦ left out).
+const THAI_CONSONANTS_RE = /[\u0E01-\u0E23\u0E25\u0E27-\u0E2E]/g;
 const HAS_THAI_RE  = /[\u0E00-\u0E7F]/;
 const HAS_LATIN_RE = /[A-Za-z]/;
+// A word's letters, in order: what a Thai name part is cut from, and what a
+// search word is compared by.
+function thaiLetters(s) {
+  return String(s ?? "").match(THAI_CONSONANTS_RE) || [];
+}
 
-// The part of one typed name that is kept. Both patient modals run every
-// keystroke through this, so a box shows exactly what will be saved, and
-// typing on past two characters changes nothing.
+// The part of one typed name that is kept. Both patient modals run what is
+// typed through this, so a box shows exactly what will be saved, and typing
+// on past two letters changes nothing.
 function namePart(raw, foreign) {
   const s = String(raw ?? "").normalize("NFC");
   if (foreign) {
@@ -2089,14 +2094,10 @@ function namePart(raw, foreign) {
       .slice(0, NAME_PART_CHARS);
     return letters.charAt(0).toUpperCase() + letters.slice(1).toLowerCase();
   }
-  const thai = s
-    .replace(/\u0E4D\u0E32/g, "\u0E33")        // ํ + า is ำ typed in two strokes
-    .replace(THAI_NAME_DROP_RE, "")
-    .replace(THAI_NOT_INITIAL_RE, "");
-  return Array.from(thai).slice(0, NAME_PART_CHARS).join("");
+  return thaiLetters(s).slice(0, NAME_PART_CHARS).join("");
 }
 
-// Both parts at their full two characters. Registration requires it; an edit
+// Both parts at their full two letters. Registration requires it; an edit
 // requires it as soon as anything is typed into either box.
 function nameComplete(first, last, foreign) {
   const full = (x) => { const p = namePart(x, foreign); return p === String(x ?? "") && Array.from(p).length === NAME_PART_CHARS; };
@@ -2120,15 +2121,15 @@ function splitPatientName(name) {
 }
 
 // The two letters a NEW sessionId starts with (sessionId = initials + BW +
-// twin): the first consonant of each part, the way Thai initials are written
-// (เพ็ญ's initial is พ, not its leading vowel), or the first letter of an
-// English part. The id keeps initials rather than the four stored characters:
-// it is copied into orders that leave the app (LINE), where it deliberately
-// stands in for the name (calculator.jsx, Copy Order).
+// twin): the first letter of each part, so "สม จด" → "สจ". The id keeps
+// initials rather than the four stored letters: it is copied into orders that
+// leave the app (LINE), where it deliberately stands in for the name
+// (calculator.jsx, Copy Order). For a word that is not a stored part (the old
+// two-letter names' search, below) it is the first consonant: เพ็ญ → พ.
 function nameInitial(part) {
   const s = String(part ?? "");
-  const m = /[\u0E01-\u0E2E]/.exec(s);
-  return m ? m[0] : s.charAt(0).toUpperCase();
+  const t = thaiLetters(s);
+  return t.length ? t[0] : s.charAt(0).toUpperCase();
 }
 function nameInitials(first, last) {
   return nameInitial(first) + nameInitial(last);
@@ -2179,33 +2180,39 @@ function qwertyToThai(s) {
 }
 
 // One folded query against one patient's name.
-//   100  the words are the two parts exactly ("สม ใจ")
+//   100  the words are the two parts exactly ("รย ทอ")
 //    80  every word begins a part, or a part begins the word — so a whole
-//        "สมศรี" finds "สม", and "ส" finds it too — first name or surname
-//    70  the two parts typed together, without the space ("สมใจ")
+//        "เรยา" finds "รย", and "ร" finds it too — first name or surname
+//    70  the two parts typed together, without the space ("รยทอ")
 //    60  a name from before 2026-09-25, matched as it always was: the query
 //        anywhere in it, or it at the start of the query
 //  45/40/35  such a name that is two Thai letters — the old initials — against
 //        the initials of the words typed, so "สมศรี ใจดี" still finds the
 //        "สใ" registered last week (both words, the first, the second)
+// A Thai word is compared by its letters alone (thaiLetters), exactly as the
+// stored part was cut: "ทองดี", "ทอง" and "ทอ" all read ทอ…, whatever vowels
+// or tone marks were typed or left out. An English word by its letters.
 function nameSearchRank(name, q) {
   const words = q.split(" ").filter(Boolean);
   if (!words.length) return 0;
   const either = (a, b) => a.startsWith(b) || b.startsWith(a);
   const parts = splitPatientName(name);
   if (parts) {
-    const f = searchFold(parts.first), l = searchFold(parts.last);
-    if (words.every(w => either(w, f) || either(w, l))) {
-      return words.length === 2 && words[0] === f && words[1] === l ? 100 : 80;
+    const key = (w) => parts.foreign ? w.replace(/[^a-z]/g, "") : thaiLetters(w).join("");
+    const f = key(searchFold(parts.first)), l = key(searchFold(parts.last));
+    const keys = words.map(key).filter(Boolean);
+    if (!keys.length) return 0;
+    if (keys.every(k => either(k, f) || either(k, l))) {
+      return keys.length === 2 && keys[0] === f && keys[1] === l ? 100 : 80;
     }
-    return words.length > 1 && either(words.join(""), f + l) ? 70 : 0;
+    return keys.length > 1 && either(keys.join(""), f + l) ? 70 : 0;
   }
   const whole = searchFold(name);
   if (!whole) return 0;
   if (whole.includes(q) || q.startsWith(whole)) return 60;
   if (/^[\u0E01-\u0E2E\u0E40-\u0E44]{2}$/.test(whole)) {
-    // Whoever typed the old initials may have written a leading vowel (\u0E43 of
-    // \u0E43\u0E08\u0E14\u0E35) or the consonant after it (\u0E08): either counts.
+    // Whoever typed the old initials may have written a leading vowel (ใ of
+    // ใจดี) or the consonant after it (จ): either counts.
     const starts = (w, letter) => w.charAt(0) === letter || nameInitial(w) === letter;
     if (words.length >= 2) return starts(words[0], whole[0]) && starts(words[1], whole[1]) ? 45 : 0;
     if (starts(words[0], whole[0])) return 40;
