@@ -7,6 +7,211 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-25 (5) — PR #123 checked before its merge: the phone sweep's server refused every file on Windows
+
+Pp: *"check Pr113 NeoFeed clasp and merge"*, then the link to #123. #113 has been live since 2026-09-24
+(release #114), so the PR meant is #123.
+
+- **No `clasp` step.** #123 does not touch `gas-backend.gs`, which has not changed since `67ed949`, the
+  source of `@60`. The backend takes the new name as it is: `_validatePatient` and `registerPatient` put no
+  rule on `name` or `initials`, and store both through `_sheetSafe`, so "รย ทอ" and "Jo Sm" are written
+  unchanged. The id keeps its shape: two initials, BW, twin.
+- **CI's steps, run on Pp's PC on an LF export of `f79dd82`:**
+  - a fresh build changes nothing, and the two shells are identical;
+  - every harness passes against the sources and against `compiled/`, and so do `DEAD=0` and Center
+    Point's build and tests;
+  - the one exception is `verify-phone-sweep.cjs` § 2–3, below.
+- **Why the sweep failed:** its test server refused every file on Windows.
+  - `DIR` is `path.join(__dirname, '..') + '/'`, and `path.join(DIR, p)` comes back with `\` there, so
+    `file.startsWith(DIR)` was always false.
+  - Every request got a 404, the page stayed blank, and all 24 profiles timed out on their first click.
+  - CI never saw it: it installs no browser, so it skips § 2–3, and in a Linux container the separators
+    match.
+- **Fix, in the test only:** compare against `path.join(DIR)`, which ends in the platform's separator.
+  - With it, the sweep passes in Chromium on Windows: 220 checks, all 24 profiles and 162
+    screens with no problem, and the negative control (the 1800 px cap put back) is caught.
+  - `verify-ward-requests-0925.cjs` § 6 needs no server, and it passed here in Chromium (158 checks). Only
+    the xkb re-derivation of the keyboard table is skipped, since Windows has no xkb data; all 94 key pairs
+    were checked against the Kedmanee layout by hand.
+  - At 360 px a step measured 1832 px here, above the old 1800 px cap, so the clipping reproduces on
+    Windows as well (1943 px in the cloud container).
+- **Nothing served changes** here: one test file, and the docs. `STATUS.md` catches up with release #122
+  and marks #123 merged into `main`.
+
+## Session 2026-09-25 (4) — Pp's answers on PR #123: the switcher stays unit-wide
+
+Pp answered the five questions left open on PR #123: *"1. No 2. Later 3-4 later 5 ok"*. Docs only.
+
+- **The topbar switcher stays unit-wide ("No").** It is the way to any infant from any screen. Only the
+  ward list's own box is ward-scoped, as in entry (2). No code changes.
+- **Foreign names are confirmed ("ok").** A foreign infant's name part is its first two English letters,
+  vowels counted: John Smith → `"Jo Sm"`. Only the Thai rule drops vowels (entry (3)).
+- **Later:**
+  - the server's "แก้ชื่อย่อ" message, which needs a `clasp` deploy;
+  - the DPO note that the name holds four letters;
+  - one look on a real iPhone.
+
+  All three stay in `BACKLOG.md` § Next.
+
+## Session 2026-09-25 (3) — Letters only in a name; every phone swept for the same bug
+
+Pp, on PR #123: *"Check ด้วย ว่า all phone จะไม่มีปัญหาการเลื่อนหน้าจอแบบเดียวกัน"*, *"ชื่อเช่น กค จด มันจะมีเว้นวรรค
+ด้วย"*, *"จะต้องมีช่อง admit รับแยก เป็นชื่อ อีกช่อง เป็นนามสกุลไหม เพื่อจะได้ค้นหาง่าย ๆ ทั้งสองแบบ"*, and *"ให้ใช้เป็น
+ตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์ เช่น ทองดี ใช้ ทอ, เรยา ใช้ รย"*. Frontend only again: no `clasp` step,
+`CONSTANTS_VERSION` unchanged.
+
+**1 · A name part is its first two LETTERS.** This supersedes entry (2)'s code points.
+- A letter is one of the 44 consonants. Every vowel (before, after, above or below the letter) and every
+  tone mark is dropped: ทองดี → ทอ, เรยา → รย, สมศรี → สม, ใจดี → จด, พัฒนา → พฒ, น้ำฝน → นฝ.
+  - ฤ and ฦ are vowels in Thai grammar, though Unicode files them among the consonants, so they are dropped
+    too: ฤทัย → ทย.
+  - อ ย ว ห count wherever they stand.
+- Stored with the space, as Pp's example "กค จด". The sessionId is still the first letter of each part
+  (รย ทอ → รท-BW…).
+- **Separate first-name and surname boxes at admission: already the case.** NameFields has been two boxes since
+  entry (2), and the search answers either one. They are stored in the one `name` column, split at the
+  space, so no Sheet column and no `clasp` step is needed.
+- **Search compares letters to letters** (`thaiLetters`): เรยา, เร, ทอง and ทองดี all find `รย ทอ`, whatever
+  vowels or tone marks were typed or left out.
+- **The name box waits for the keyboard.** Dropping vowels rewrites the box on nearly every keystroke, and
+  rewriting a box under an Android keyboard that is composing a word (Gboard or Samsung, with suggestions
+  on) makes it repeat or scramble letters.
+  - While a composition is open the box shows the raw text.
+  - It is cut to two letters on `compositionend`.
+  - With no composition it is cut at every keystroke.
+
+**2 · Every phone, swept.** New `test/verify-phone-sweep.cjs` signs in to the real app and opens every screen
+on 24 device profiles:
+- portrait phones from the 280 px Galaxy Z Fold cover to the 440 px iPhone 16 Pro Max;
+- three landscape phones and three tablets;
+- three phones with text at 130%.
+
+On each screen it asks whether any box clips its content, whether the end can actually be tapped (a
+hit-test), and whether anything drags sideways. The step clipping was fixed in (2); the sweep found **six
+more of the same kind**, all of them older than today:
+- **Landscape phones could not sign in.** The login footer was `position: absolute; bottom: 28px` over a
+  padding reserved for it. At 844×390 the form outgrew the screen, the footer landed on the form, and its
+  text took the tap meant for เข้าสู่ระบบ.
+  - The footer is now in the flow, last. The column is centred by auto margins, not
+    `justify-content: center`, which also pushed the top of a too-tall column out of reach.
+- **The icon rail was cut off** at 915×412. The tablet block set `overflow: hidden` on it; it scrolls now.
+- **The patient strip clipped the current weight** on 280–440 px phones: "+70g (5.9%" with no bracket at
+  430 px.
+  - Its phone grid is `minmax(0, 1fr)`, the weights wrap, and the delta may break.
+  - Birth weight and current weight stack when they do not fit; the divider hides itself when they stack.
+  - A long diagnosis breaks rather than running past the edge.
+- **Four calculator grids clipped** on a 280 px phone or with large text: the EN fields, TPN volume/rate,
+  dextrose/GIR, and the AA row. They, and the calculator's phone overrides (metric tiles, Step 1, the
+  AA, lipid, EN and salt rows), are `minmax(0, 1fr)` now.
+  - `TwoCol` too: a `<select>` is as wide as its longest option.
+  - A field label may break before its unit, and the GIR number before `mg/kg/min`.
+- **The ward table and the Dashboard's entries dragged the whole screen sideways** from 768 px up, by up to
+  159 px, to reach Edit and Open. They scroll inside their own card now (`.patient-table`, `.tbl-scroll`).
+
+After the fixes, all 24 profiles are clean: 162 screens, 0 problems. The harness's negative control puts
+the 1800 px cap back and must see it clip.
+
+**Not covered:** iPhone Safari itself. The container has Chromium only, and `playwright install` is not
+allowed there. Everything used here is supported from iOS 16. On older iOS a step opens without its slide
+(grid rows still size it), and a long diagnosis may not break mid-word (`overflow-wrap: anywhere` is
+iOS 15.4). `BACKLOG.md` asks for one look on a real iPhone.
+
+**Tests.**
+- `verify-phone-sweep.cjs` has 220 checks. Section 1, the CSS and JSX pins, runs in CI. The sweep and the
+  negative control need playwright. On `b0bfda9` (the pre-sweep head of #123), section 1 fails all 33 of its
+  checks.
+- `verify-ward-requests-0925.cjs` is now 159 checks: the letter rule, Pp's two examples, and the
+  composing-keyboard case.
+- `verify-review-fixes-0924` and `verify-single-source-weight-dol` now type นามสกุล `จด`: "ใจ" alone is one
+  letter now.
+
+## Session 2026-09-25 (2) — Android step clipping, ชื่อ + นามสกุล, and a search that finds people
+
+Pp, with two screenshots from an Android phone: *"Android เลื่อนแล้วไม่เต็มช่อง ให้แก้ไข"*; *"อยากปรับให้ใส่ชื่อ
+เป็นชื่อ + นามสกุล เอาตัวอักษรไทย สองตัวแรก"*; *"ช่องค้นหา เอาวอร์ดออก เพราะแยกตั้งแต่ต้นแล้ว แต่ให้ค้นหาได้
+ทั้งชื่อนามสกุล … ได้รับแจ้งมาว่าค้นหายากมาก"*; then, mid-session, *"ให้ใส่เป็นชื่อภาษาไทย (ยกเว้นต่างชาติ)"*.
+Frontend only: no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-18.1` (no dose moves).
+
+**1 · A calculator step was cut off on a phone.** `.accordion-body.open` was `max-height: 1800px`, a
+number meant to be "taller than any step". Below 768 px the two-column steps stack. Measured in
+Chromium on the real app at 360 px, Step 3 is **1943 px**, so its last **143 px** were clipped: the
+Lipid (total) and NPC : Protein tiles in the screenshot, with nothing to scroll to. Step 4 was 1757 px,
+43 px under the cap before any warning line or larger Android font pushed it over.
+- The step body now slides **one grid row from `0fr` to `1fr`**, which is the content's own height, so
+  there is no number to outgrow and the animation stays.
+- **`StepBody`** (`calculator.jsx`) renders all six step bodies. Its `.accordion-inner` is the one grid
+  item (`min-height: 0`, clips only while sliding).
+- **Measured after the fix:** shown equals content at 320, 360, 390, 412 and 1280 px, and every closed step
+  is 0 px and hidden. The new harness puts the old rule back and must see 360 px clip (negative control).
+
+**2 · The name is ชื่อ + นามสกุล, two characters each.** It had been one box of two characters, the
+first letter of the first name and of the surname ("ปพ"). One letter of a name matches half the unit,
+and "ปราณี" is not findable in "ปพ".
+- **What's stored:** two boxes (`NameFields`, both patient modals), each keeping the first two
+  characters typed, in the `name` column as `"ปร พั"`.
+  - A **character** is a code point, as the old box's `maxLength={2}` counted, so a vowel or tone mark
+    is one of the two: สมศรี → สม, ปราณี → ปร, พัฒนา → พั, น้ำฝน → น้.
+- **Thai only, except a foreign infant.** Ticking ชาวต่างชาติ switches both boxes to English (John Smith
+  → `"Jo Sm"`).
+  - Script is not saved as a column: an English name reopens with the box ticked.
+  - A letter of the other script is not saved. The note under the box says why, and points a foreign
+    infant at the tick box. A keyboard left in English is the usual cause.
+  - A Thai part that reads as an honorific (ด.ช. → "ดช") is questioned.
+- **The sessionId keeps initials:** the first consonant of each part, so สม ใจ → `สจ-BW1200` (a leading
+  vowel is not an initial: เพ็ญ → พ).
+  - The id is what Copy Order carries into LINE in the name's place. It must not grow to four characters
+    with the name.
+  - An existing id never changes (walkthrough § 3).
+- **Names from before this change are kept as they are.** "ปพ", a nickname or a PDPA-erased marker does not
+  split into parts, so Edit opens both boxes empty, shows "ชื่อเดิม …", and saves the old name untouched
+  unless a whole new one is typed. Half a new name blocks Save.
+- `registerPatient` stores the name as free text, so **nothing server-side changed**.
+  - ⚠️ The server's duplicate-id message still says "แก้ชื่อย่อ". Rewording it needs a `clasp` deploy
+    (`BACKLOG.md`).
+
+**3 · Search: in the open ward, and forgiving.**
+- **The ward list searches its own ward**, reversing the 2026-09-15 unit-wide search. The one case that
+  search was for survives: a search that finds no active infant here says *ไม่พบ "…" ใน NICU* and
+  offers the ward that has a match in one tap, query kept (`SearchMiss`).
+- **`← เปลี่ยน ward` clears the box**, so the next ward never opens filtered by a query nobody sees.
+- **`D.searchPatients` (`data.js`) is the one search**, behind the ward list and the topbar switcher, so
+  the two boxes cannot disagree. The switcher keeps listing the whole unit. Best match first:
+  - Every word begins the first name or the surname, or a part begins the word, so สมศรี ใจดี, สม, ใจดี
+    and สมใจ all find `สม ใจ`.
+  - Tone marks are forgiven (นำฝน finds น้), and an honorific copied from the record is ignored
+    (ด.ญ., บุตรนาง …).
+  - A pre-2026-09-25 two-letter name still answers the initials of what is typed (ปราณี พัฒนา finds
+    `ปพ`), ranked below a real match.
+  - Then bed number (5 is NICU 5; 1 is NICU 1, then 10–12), NeoFeed ID, and diagnosis.
+  - A query that finds nothing is read once more as typed on the **Thai keyboard layout** (`l,` is สม),
+    and the list says so. The table is generated from the X11 Kedmanee definition, and the harness
+    re-derives all 94 keys from it where xkb-data is installed.
+- **The box itself:** a clear ×, 44 px on touch, and Escape clears. "พบ N รายใน NICU" is shown under it.
+  There is no autocomplete, autocorrect or spellcheck: a shared workstation should not remember what was
+  searched, and a phone should not "correct" สม.
+- **The search glyph was an "O".** Its handle was a line drawn out and straight back, which encloses no
+  area, so the fill dropped it. That included the topbar's search button in the screenshots. It now has
+  a 2.6-wide handle, tangent to the rim so `evenodd` cannot cut it out.
+
+**Tests.**
+- New `test/verify-ward-requests-0925.cjs`, 145 checks:
+  - static CSS in both shells, and `StepBody` for all six steps;
+  - the name and search helpers;
+  - both modals and both search boxes in jsdom;
+  - the search glyph's geometry;
+  - in Chromium: the shipped calculator at five widths, the negative control, and the glyph drawn.
+- `verify-registry-logged-today.cjs`: its "search reaches across wards" section is rewritten to pin the
+  ward-scoped search and the other-ward offer.
+- Five harnesses that typed Latin "BB"/"KL"/"อบ" into the old ชื่อย่อ box now fill ชื่อ + นามสกุล:
+  `verify-patient-ga-bw-edit`, `verify-review-0917-shell`, `verify-review-0917-sync`,
+  `verify-review-fixes-0924` and `verify-single-source-weight-dol`.
+
+**Not done, deliberately:**
+- the server message above;
+- whether the topbar switcher should also be limited to the chosen ward (it is the way to any infant
+  from any screen, so it was left unit-wide; Pp to say);
+- a DPO note that the name now holds four characters rather than two (`BACKLOG.md`).
+
 ## Session 2026-09-25 (1) — Release #120 went red at midnight: a date boundary in a harness, not the app
 
 Pp: *"merge ทั้งสอง PR แล้ว deploy"*. #118 and #119 merged into `main` (`67ed949`) and were released by PR

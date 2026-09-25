@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-25, 14:50 ICT — frontend `release` = `8e605fb` on both hosts, with backend `@60`.**
+> PR #122 released #121, a harness fix and docs. No served file changed, so both hosts still serve
+> `e05a78d`'s bytes. `node tools/verify-release.mjs 8e605fb` passed on both hosts (0 failures, 61
+> passes), and the tag `release-2026-09-25-pr122` is pushed (comment on #122).
+>
 > ✅ **2026-09-25, 12:02–12:11 ICT — backend `@60`, with frontend `release` = `e05a78d` on both hosts.**
 > #119's backend, login-speed fixes 1–4, went live as `@60` at 12:11:30 ICT: `gas-backend.gs` at
 > `67ed949`, byte for byte, and all nine backend harnesses passed against the pulled `@60` (comment on
@@ -68,14 +73,28 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-25, 14:32 ICT** · ✅ **Backend `@60` and frontend `release` = `e05a78d` are live, and
-both are verified.** Caught up with #117, #120 and the `@60` deploy in #121, the next PR on the repo, as
-the release PRs asked.
-- ⏳ **PR #121: merged into `main` on Pp's instruction ("merge แล้ว deploy"), and released straight after
-  in one `main` → `release` PR.** It is test and docs only, so nothing served changes:
-  `verify-nursing-backend.cjs` now builds "two days ahead" and the backend's tomorrow from one instant
-  (`CHANGELOG.md` 2026-09-25 (1)), and this banner catches up with #117, #120 and `@60`. The release
-  checks are comments on the release PR.
+**Updated 2026-09-25, 18:42 ICT** · ✅ **Backend `@60` and frontend `release` = `8e605fb` are live, and
+both are verified.** `8e605fb` serves the same bytes as `e05a78d`. Caught up with #122 in #123, the next
+PR on the repo, as #122 asked.
+- ⏳ **PR #123: merged into `main` on Pp's instruction. Not live until a `main` → `release` PR.** Frontend
+  only: no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-18.1`. Nothing moves a dose, but it
+  changes what the ward types and sees (`CHANGELOG.md` 2026-09-25 (2)–(5)):
+  - no calculator step is cut off on a phone (Step 3 lost its last 143 px on a 360 px Android), plus six
+    more clipping or sideways-drag fixes, among them signing in on a phone held sideways;
+  - registration takes ชื่อ + นามสกุล, the first two letters of each (ทองดี → ทอ), stored as "รย ทอ". A
+    foreign infant takes English letters, and a name from before stays as it is;
+  - the ward list searches the open ward only, and a miss offers the ward that has a match.
+  - ⚠️ **Checked in Chromium only:** nobody has looked at it on a real iPhone (`BACKLOG.md` § Next).
+  - ⚠️ **The stored name now holds four letters, not two**, and it prints on the order form. The DPO
+    note is for later (`BACKLOG.md` § Next).
+  - ⚠️ **The server's duplicate-id message still says "แก้ชื่อย่อ"**, a box that no longer exists.
+    Rewording it needs a `clasp` deploy (`BACKLOG.md` § Next).
+- ✅ **PR #121 is live**, released by PR #122 on Pp's instruction ("merge แล้ว deploy") at 14:50:51 ICT:
+  `release` = `8e605fb`, whose tree is `main` at `55d56ba`. It is test and docs only, so no served file
+  changed: `verify-nursing-backend.cjs` now builds "two days ahead" and the backend's tomorrow from one
+  instant (`CHANGELOG.md` 2026-09-25 (1)). `node tools/verify-release.mjs 8e605fb` passed on both hosts
+  at 15:05 ICT (61 passes, 0 failures), and its negative control failed on exactly the files expected.
+  The tag `release-2026-09-25-pr122` is pushed (comment on #122).
 - ✅ **PRs #118 and #119 are live.** The frontend was released by PR #120 on Pp's instruction ("merge
   ทั้งสอง PR แล้ว deploy") at 16:58:39 UTC / 23:58 ICT: `release` = `e05a78d`, whose tree is `main` at
   `67ed949`. #119's backend followed as `@60` on 2026-09-25, 12:11:30 ICT.
@@ -104,9 +123,11 @@ the release PRs asked.
   PDPA-erased record wrote its date of birth back: `@57`/`@58`'s `updateWeights` fills an empty dob cell
   (F2, #108), and the erasure had emptied it (`CHANGELOG.md` 2026-09-24 (9)). Whether any erased row
   was refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
-- **Frontend:** PR #120 (`main` → `release`), merged on Pp's instruction at 16:58:39 UTC / 23:58 ICT. It
-  carries #118 and #119, `main` at `67ed949`. `CONSTANTS_VERSION` is still `2026-09-18.1`. Its served
-  bytes were verified on both hosts on 2026-09-25 (61 passes, 0 failures; comment on #120). Before it,
+- **Frontend:** PR #122 (`main` → `release`), merged on Pp's instruction on 2026-09-25 at 14:50:51 ICT:
+  `release` = `8e605fb`, `main` at `55d56ba`. It changed no served file, so the app is still what PR #120
+  released on 2026-09-24 at 16:58:39 UTC / 23:58 ICT: #118 and #119, `main` at `67ed949`.
+  `CONSTANTS_VERSION` is still `2026-09-18.1`. Both releases' served bytes were verified on both hosts
+  (61 passes, 0 failures; comments on #122 and #120). Before them,
   PR #117 released #116 and #115 as `79f04ba` at 21:19 ICT, and PR #114 released #113 as `971c370` at
   20:24 ICT; both were verified on both hosts (comments on #117 and #114).
 - **Backend:** `@60` since 2026-09-25, 12:11:30 ICT: #119's login speed, deployed with `clasp` on Pp's

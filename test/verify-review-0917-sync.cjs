@@ -131,7 +131,8 @@ const scenarios = {
     await t.pickWard('NICU');
     await t.click(t.btn(/New session/));
     const modal = document.querySelector('.picker');
-    await t.typeInto(t.fieldInput('ชื่อย่อ', modal), 'BB');
+    await t.typeInto(t.fieldInput('ชื่อ', modal), 'บบ');
+    await t.typeInto(t.fieldInput('นามสกุล', modal), 'ดด');
     await t.typeInto(t.fieldInput('Birth weight', modal), 1000);
     await t.selectVal(t.fieldInput('GA', modal), 30);
     await t.selectVal(t.fieldInput('Sex', modal), 'boys');
@@ -207,7 +208,8 @@ const scenarios = {
     await t.pickWard('NICU');
     await t.click(t.btn(/New session/));
     const modal = () => document.querySelector('.picker');
-    await t.typeInto(t.fieldInput('ชื่อย่อ', modal()), 'BB');
+    await t.typeInto(t.fieldInput('ชื่อ', modal()), 'บบ');
+    await t.typeInto(t.fieldInput('นามสกุล', modal()), 'ดด');
     await t.typeInto(t.fieldInput('Birth weight', modal()), 1000);
     await t.selectVal(t.fieldInput('GA', modal()), 30);
     await t.selectVal(t.fieldInput('Sex', modal()), 'boys');
@@ -217,15 +219,15 @@ const scenarios = {
     await t.flush();
     A.ok('6.1 the modal stays open', !!modal());
     A.ok('6.2 …saying the result is unknown', modal() && /ไม่ทราบผลการบันทึก/.test(modal().textContent));
-    A.eq('6.3 …with the typed initials still there', modal() && t.fieldInput('ชื่อย่อ', modal()).value, 'BB');
-    A.ok('6.4 the patient is not rolled back off the registry', [...document.querySelectorAll('.patient-table tbody tr')].some(r => /BB/.test(r.textContent)));
+    A.eq('6.3 …with the typed name still there', modal() && [t.fieldInput('ชื่อ', modal()).value, t.fieldInput('นามสกุล', modal()).value], ['บบ', 'ดด']);
+    A.ok('6.4 the patient is not rolled back off the registry', [...document.querySelectorAll('.patient-table tbody tr')].some(r => /บบ ดด/.test(r.textContent)));
     const regs = t.callsOf('registerPatient').length;
     await t.click(t.btn(/Register/, modal()));
     A.eq('6.5 pressing Register again sends nothing while unknown', t.callsOf('registerPatient').length, regs);
     t.server.holdSyncs = false;
     await t.releaseSyncs();
-    A.ok('6.6 the verification sync confirms it: still registered', [...document.querySelectorAll('.patient-table tbody tr')].some(r => /BB/.test(r.textContent)));
-    A.eq('6.7 exactly one registration on the server', t.server.patients.filter(p => p.name === 'BB').length, 1);
+    A.ok('6.6 the verification sync confirms it: still registered', [...document.querySelectorAll('.patient-table tbody tr')].some(r => /บบ ดด/.test(r.textContent)));
+    A.eq('6.7 exactly one registration on the server', t.server.patients.filter(p => p.name === 'บบ ดด').length, 1);
   },
 
   async 'error-codes'(A) {
