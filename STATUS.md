@@ -1,5 +1,11 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-25, 12:02–12:11 ICT — backend `@60`, with frontend `release` = `e05a78d` on both hosts.**
+> #119's backend, login-speed fixes 1–4, went live as `@60` at 12:11:30 ICT: `gas-backend.gs` at
+> `67ed949`, byte for byte, and all nine backend harnesses passed against the pulled `@60` (comment on
+> #119). `node tools/verify-release.mjs e05a78d` passed on both hosts (0 failures, 61 passes), and the tag
+> `release-2026-09-24-pr120` is pushed (comment on #120). ⚠️ **No one has signed in on `@60` yet.**
+>
 > 🟡 **2026-09-24, 23:58 ICT — frontend `release` = `e05a78d` on both hosts, with backend `@59`.**
 > PR #120 released #118 and #119: the Weight chip first, no growth velocity until a weight is above
 > birth weight, and the login-speed frontend. GitHub Pages and Cloudflare both deployed it, but ⚠️ **no
@@ -62,27 +68,31 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-25, 00:13 ICT** · 🟡 **Backend `@59` and frontend `release` = `e05a78d` are live.
-`verify-release.mjs e05a78d` and #119's backend wait for Pp (first bullet).** Caught up with #117 and
-#120 in #121, the next PR on the repo, as both release PRs asked.
-- 🟡 **PRs #118 and #119: the frontend is live, released by PR #120** on Pp's instruction ("merge ทั้งสอง
-  PR แล้ว deploy") at 16:58:39 UTC / 23:58 ICT. `release` = `e05a78d`, whose tree is `main` at `67ed949`.
+**Updated 2026-09-25, 12:20 ICT** · ✅ **Backend `@60` and frontend `release` = `e05a78d` are live, and
+both are verified.** Caught up with #117, #120 and the `@60` deploy in #121, the next PR on the repo, as
+the release PRs asked.
+- ✅ **PRs #118 and #119 are live.** The frontend was released by PR #120 on Pp's instruction ("merge
+  ทั้งสอง PR แล้ว deploy") at 16:58:39 UTC / 23:58 ICT: `release` = `e05a78d`, whose tree is `main` at
+  `67ed949`. #119's backend followed as `@60` on 2026-09-25, 12:11:30 ICT.
   - **#118, frontend only:** the Weight chip first, and no growth velocity until a weight is above
     birth weight. It makes some alarms quieter, all listed in `CHANGELOG.md` 2026-09-24 (10).
   - **#119, backend + frontend:** login-speed fixes 1–4 (`CHANGELOG.md` 2026-09-24 (11)).
   - **Deployed:** on `e05a78d`, GitHub Pages `build`/`deploy`/`report-build-status` and Cloudflare
     `Workers Builds: neofeed` succeeded.
-  - ⚠️ **Not verified yet: `node tools/verify-release.mjs e05a78d`.** The cloud session's network policy
-    refuses both hosts (403), so the check waits for Pp, or for a session that allows
-    `neofeed.valhalla-health.workers.dev` and `valhalla-health.github.io`. The tag
-    `release-2026-09-24-pr120` waits for Pp too: the session's git access refused the tag push.
+  - ✅ **Verified from Pp's PC, 2026-09-25, 12:03 ICT:** `node tools/verify-release.mjs e05a78d` → 61
+    passes, 0 failures on both hosts. As a negative control, `verify-release.mjs 79f04ba` failed on
+    exactly the five served files that changed, on each host (10 failures). The tag
+    `release-2026-09-24-pr120` is pushed (comment on #120). The cloud session that merged #120 could
+    reach neither host (403) and could not push the tag.
   - **The post-merge `harnesses` run on `e05a78d` failed at 00:00:00.229 ICT**, because one harness
     crossed Bangkok midnight; the app was not at fault (`CHANGELOG.md` 2026-09-25 (1)).
     The one re-run passed at 00:13 ICT (run 36031082609, attempt 2). The harness fix is #121.
-  - ⏳ **Backend:** #119's `gas-backend.gs` needs `clasp` from Pp's PC, from `main` at `67ed949`
-    (+130/−13 lines on `@59`'s source). Until then `@59` ignores the login reply's sync request and the
-    new frontend falls back to one ordinary sync: the old speed, nothing broken. The new backend gives
-    an old frontend the old reply, so either half can roll back alone.
+  - ✅ **Backend `@60`, live since 2026-09-25, 12:11:30 ICT**, deployed with `clasp` from Pp's PC on her
+    instruction. It is `gas-backend.gs` at `67ed949`, byte for byte (+130/−13 on `@59`'s source; mirror
+    commit `a5afe15`, pushed). All nine backend harnesses passed against the file pulled back from
+    version 60 (561 checks), and a credential-free smoke test answered the same before and after
+    (comment on #119). The new backend gives an old frontend the old reply, so either half can roll
+    back alone.
 - ✅ **PR #116 is live**, the PDPA erased-dob fix: backend `@59` from 21:17:37 ICT, then its frontend in
   PR #117 at 21:19 ICT (`release` = `79f04ba`; `verify-release.mjs` passed on both hosts, 0 failures —
   comment on #117). From about 14:22 ICT until `@59`, a growth-chart or nurse-form weight save on a
@@ -91,16 +101,17 @@
   was refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
 - **Frontend:** PR #120 (`main` → `release`), merged on Pp's instruction at 16:58:39 UTC / 23:58 ICT. It
   carries #118 and #119, `main` at `67ed949`. `CONSTANTS_VERSION` is still `2026-09-18.1`. Its served
-  bytes are not verified yet (first bullet). Before it, PR #117 released #116 and #115 as `79f04ba` at
-  21:19 ICT, and PR #114 released #113 as `971c370` at 20:24 ICT; both were verified on both hosts
-  (comments on #117 and #114).
-- **Backend:** `@59` since 2026-09-24, 21:17:37 ICT: #116's PDPA fix, deployed with `clasp` on Pp's
-  instruction. It is `gas-backend.gs` at `3bb6288`, byte for byte (mirror commit `aadfe68`). `@58`, live
-  from 17:58 ICT, carried #111's nursing backend, inert while `NURSING_LOG_ENABLED` is unset. Rollback:
-  `clasp update-deployment -V 58 …`. Either half works with the other at either version.
-- ⚠️ **Not yet exercised by a person:** a bedside order, a Chula Google sign-in, or a phone bed move on
-  `@59` + `e05a78d`; a new order started from the single-source weight; the Growth tab's "Weight below
-  birth weight" line; and a weight save on a PDPA-erased record.
+  bytes were verified on both hosts on 2026-09-25 (61 passes, 0 failures; comment on #120). Before it,
+  PR #117 released #116 and #115 as `79f04ba` at 21:19 ICT, and PR #114 released #113 as `971c370` at
+  20:24 ICT; both were verified on both hosts (comments on #117 and #114).
+- **Backend:** `@60` since 2026-09-25, 12:11:30 ICT: #119's login speed, deployed with `clasp` on Pp's
+  instruction. It is `gas-backend.gs` at `67ed949`, byte for byte (mirror commit `a5afe15`). `@59`, live
+  from 2026-09-24, 21:17:37 ICT, carried #116's PDPA fix. Rollback: `clasp update-deployment -V 59 …`.
+  Either half works with the other at either version.
+- ⚠️ **Not yet exercised by a person:** a sign-in on `@60`, whose reply now carries the first sync; a
+  bedside order, a Chula Google sign-in, or a phone bed move on `@60` + `e05a78d`; a new order started
+  from the single-source weight; the Growth tab's "Weight below birth weight" line; and a weight save on
+  a PDPA-erased record.
 - ⏸ **The nurse form waits for D7**, the DPO's sign-off (`BACKLOG.md` § Next). Only then set
   `NURSING_LOG_ENABLED`.
 - ✅ **PR #113 is live**, one source for weight and day of life (and Center Point's DOL): merged into

@@ -160,7 +160,8 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
-- [ ] ⚡ **perf · Login speed: fixes 1–4 BUILT 2026-09-24, not deployed; the rest waits on numbers.**
+- [ ] ⚡ **perf · Login speed: fixes 1–4 LIVE 2026-09-25 (`release` = `e05a78d`, backend `@60`); the rest
+      waits on numbers.**
       Pp: "login เริ่มช้า … จะทำยังไงให้เร็วขึ้น lean ขึ้นได้". The diagnosis and what was built are in
       `CHANGELOG.md` § Session 2026-09-24 (11). In short: the first sync now rides in the login reply,
       a request opens the Sheet once, login fills the staff cache, the ward sync drops superseded
@@ -168,9 +169,8 @@ clinical judgement. Everything else is engineering sequencing.
       Pinned by `test/verify-login-speed-0924.cjs`.
 
       **To close:**
-      1. Deploy both halves, in either order: `clasp` the backend and release the frontend. Each
-         half alone is safe (old client: no `wantSync`; old backend: the client falls back to an
-         ordinary sync).
+      1. ✅ Deploy both halves. The frontend went out in release PR #120 (2026-09-24, 23:58 ICT), and
+         the backend as `@60` (2026-09-25, 12:11:30 ICT; comments on #120 and #119).
       2. Read the numbers: the admin dashboard's "Sign-in on this device" line, and the
          `{"timing":…}` lines under Apps Script ▸ Executions. Decide from those which of the items
          below is worth its risk.
