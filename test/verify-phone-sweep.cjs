@@ -242,10 +242,14 @@ async function sweep() {
   try { browser = await chromium.launch(exe ? { executablePath: exe } : {}); }
   catch (e) { console.log('  SKIP  could not launch Chromium (' + e.message.split('\n')[0] + ')'); return; }
   const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+  // path.join(DIR), not DIR: DIR ends in '/', which path.join turns into '\' on Windows, so
+  // file.startsWith(DIR) refused every file there with a 404 and the sweep never got past
+  // the login screen on Pp's PC (2026-09-25, PR #123 check).
+  const ROOT = path.join(DIR);
   const server = http.createServer((req, res) => {
     let p = decodeURIComponent(req.url.split('?')[0]); if (p === '/') p = '/index.html';
-    const file = path.join(DIR, p);
-    if (!file.startsWith(DIR) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
+    const file = path.join(ROOT, p);
+    if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'text/plain' }); res.end(fs.readFileSync(file));
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
