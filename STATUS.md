@@ -68,9 +68,14 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-25, 12:20 ICT** · ✅ **Backend `@60` and frontend `release` = `e05a78d` are live, and
+**Updated 2026-09-25, 14:32 ICT** · ✅ **Backend `@60` and frontend `release` = `e05a78d` are live, and
 both are verified.** Caught up with #117, #120 and the `@60` deploy in #121, the next PR on the repo, as
 the release PRs asked.
+- ⏳ **PR #121: merged into `main` on Pp's instruction ("merge แล้ว deploy"), and released straight after
+  in one `main` → `release` PR.** It is test and docs only, so nothing served changes:
+  `verify-nursing-backend.cjs` now builds "two days ahead" and the backend's tomorrow from one instant
+  (`CHANGELOG.md` 2026-09-25 (1)), and this banner catches up with #117, #120 and `@60`. The release
+  checks are comments on the release PR.
 - ✅ **PRs #118 and #119 are live.** The frontend was released by PR #120 on Pp's instruction ("merge
   ทั้งสอง PR แล้ว deploy") at 16:58:39 UTC / 23:58 ICT: `release` = `e05a78d`, whose tree is `main` at
   `67ed949`. #119's backend followed as `@60` on 2026-09-25, 12:11:30 ICT.
