@@ -160,6 +160,20 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] 🩺⚖️ **product · ชื่อ + นามสกุล and the ward search (2026-09-25): three loose ends.** Built in
+      `CHANGELOG.md` § Session 2026-09-25 (2), pinned by `test/verify-ward-requests-0925.cjs`.
+      1. **The server's duplicate-id message still says "แก้ชื่อย่อ"** (`_sessionIdConflict` in
+         `gas-backend.gs`). The box it names no longer exists: the id now comes from the first consonant
+         of each name part. Reword it, for example "ถ้าไม่ใช่แฝด ตรวจชื่อ/นามสกุลและน้ำหนักแรกเกิด".
+         Needs a `clasp` deploy, so it is Pp's call. The frontend is correct either way.
+      2. ⚖️ **Tell the DPO the name holds four characters now.** It held two (one letter of each name),
+         and now holds two of each, or two English letters of each for a foreign infant. It is Pp's decision,
+         for finding and identifying an infant. The id and Copy Order stay at initials, and no full name is
+         stored. It belongs in the next DPIA note, beside D7.
+      3. **Pp to say:** should the topbar switcher also list only the chosen ward? It was left unit-wide
+         because it is the way to any infant from any screen. The ward list's own box is ward-scoped, as
+         asked.
+
 - [ ] ⚡ **perf · Login speed: fixes 1–4 LIVE 2026-09-25 (`release` = `e05a78d`, backend `@60`); the rest
       waits on numbers.**
       Pp: "login เริ่มช้า … จะทำยังไงให้เร็วขึ้น lean ขึ้นได้". The diagnosis and what was built are in

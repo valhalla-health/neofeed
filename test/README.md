@@ -285,7 +285,8 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-center-point-drafts-view.cjs`, `verify-center-point-order-changes.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
 `verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
-`verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs`, `verify-pdpa-erased-dob-frontend.cjs` and
+`verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs`, `verify-pdpa-erased-dob-frontend.cjs`,
+`verify-ward-requests-0925.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -1145,6 +1146,43 @@ full-read `getActivePatients`. Since this change, its ward comparisons go throug
 removes superseded rows from the reference's output. That is the one documented difference, applied in
 the open. The reference source is untouched, and the admin archive comparisons still take the reference
 as it is.
+
+## Android step clipping, ชื่อ + นามสกุล, and the search, 2026-09-25 — one harness, six adjusted
+
+Pp's three requests (`CHANGELOG.md` 2026-09-25 (2)). **`verify-ward-requests-0925.cjs`** (145 assertions;
+the jsdom set, plus `playwright` if installed, which CI does not install):
+- § 1: in both shells, no rule caps `.accordion-body` at a height. A step slides one grid row from `0fr`
+  to `1fr`, and `calculator.jsx` renders all six step bodies through `StepBody`;
+- § 2: `D.namePart` keeps the first two characters of a first name or a surname: Thai, or English for a
+  foreign infant. Also pinned: the stored `"สม ใจ"`, and pre-2026-09-25 names that must not split. The
+  id keeps initials (first consonant: สม ใจ → สจ);
+- § 3: `D.searchPatients`, one query at a time: first name or surname, whole or begun, tone marks,
+  honorifics, the old two-letter initials, bed, NeoFeed ID, diagnosis, and a query typed on an English
+  keyboard. It also re-derives all 94 keys of the Thai layout from xkb `th` where xkb-data is installed;
+- § 4: Register and Edit, in jsdom:
+  - the two boxes, the script note and the honorific note;
+  - the Register gate, and what is saved;
+  - an old name kept untouched through an unrelated edit;
+  - an English name reopening with ชาวต่างชาติ ticked;
+- § 5: the ward list's box and the topbar switcher, in jsdom: best match first, the count, the clear
+  button, Escape. It also covers the search glyph's handle, and 44 px touch sizes in both shells;
+- § 6, in Chromium: the shipped `compiled/calculator.js` at 320–1280 px, all six steps open.
+  - No step is clipped, and every closed step is 0 px and hidden.
+  - At 360 px a step really is taller than the old cap (1943 px).
+  - **Negative control:** the old `max-height: 1800px` rule put back must clip.
+  - The search glyph is drawn with its handle and a hollow lens.
+
+On `55d56ba` it fails § 1's twenty checks and then stops at § 2, where `D.namePart` does not exist.
+
+`verify-registry-logged-today.cjs`'s search section now pins the reverse of 2026-09-15:
+- a search stays in the open ward;
+- a miss offers the other ward in one tap, query kept;
+- `← เปลี่ยน ward` clears the box.
+
+Five harnesses that registered or renamed an infant through the old ชื่อย่อ box now fill ชื่อ and
+นามสกุล with Thai letters: `verify-patient-ga-bw-edit`, `verify-review-0917-shell`,
+`verify-review-0917-sync`, `verify-review-fixes-0924` and `verify-single-source-weight-dol`. What they pin
+is unchanged.
 
 ## Note on the source workbook
 

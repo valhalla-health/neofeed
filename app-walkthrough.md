@@ -92,7 +92,20 @@ big conditional block plus `RailItem`/`BottomNav`.
 ### Client-side identifiers
 - **`sessionId`** — the patient's key everywhere in the client (`Patient_Registry`
   and `Daily_Log` both key off it). Generated as `initials + BW + twinSuffix`
-  (see `data.js`) — it's a pseudonym, not an anonymous ID (see § 6).
+  (see `data.js`) — it's a pseudonym, not an anonymous ID (see § 6). Since
+  2026-09-25 the initials are `D.nameInitials(first, last)`, the first
+  consonant of each name part (a leading vowel is not an initial), so
+  `สม ใจ` at 1200 g is `สจ-BW1200`. The id deliberately keeps two letters while
+  the name holds four: Copy Order carries the id, never the name, into LINE.
+- **`name`** — since 2026-09-25, **ชื่อ + นามสกุล: the first two characters of
+  the first name and of the surname**, stored as `"ปร พั"` (one space). A
+  character is a code point, the way the old box's `maxLength={2}` counted, so
+  พัฒนา → พั. Thai letters, except a foreign infant (ชาวต่างชาติ): English,
+  `"Jo Sm"`. Both patient modals render one `NameFields`, and every keystroke
+  goes through `D.namePart`, so a box shows exactly what is saved. A name from
+  before that date (the two-letter initials "ปพ", a nickname, a PDPA-erased
+  marker) does not split (`D.splitPatientName` → null) and is **kept as it is**
+  until someone types a whole new name; don't "migrate" those rows in bulk.
 - **`entryId`** — stable key for a single Daily_Log row, used by
   `updateDailyNutrition()` to match an existing entry for edit-in-place
   rather than always inserting.
@@ -102,7 +115,7 @@ is how it's *generated* at registration, not a formula the app keeps in sync:
 `Patient_Registry` and every `Daily_Log` row are matched on the literal string
 (`registerPatient`'s upsert, `updateDailyNutrition`, `deletePatient` all scan
 for it), so recomputing it after a correction would strand the patient's whole
-log under an id nothing points at. Editing `ชื่อในวงการ` has never renamed it,
+log under an id nothing points at. Editing the name has never renamed it,
 and as of 2026-08-19 **`bw`, `ga` and `sex` are editable in
 `EditPatientModal`** on the same terms — they were a read-only chip strip until
 then, so a registration typo could only be fixed by deleting the session and
@@ -566,13 +579,21 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    so the hook call order stays stable; every count and badge below it is
    ward-scoped, with two deliberate exceptions. The bed-occupancy maps the
    modals build take the **full** census (a bed is occupied by whoever is in
-   it, gate or not). And **the search box searches the whole unit**, not the
-   open ward: the gate shortens the daily list, it does not partition the
-   census, and answering "ไม่พบ" for an infant one ward over — when the app can
-   see them — is the app withholding what it knows. Browsing (empty box) still
-   shows only the chosen ward, and when a search does pull patients in from
-   elsewhere the list says how many, so an SCN bed appearing on the NICU
-   screen doesn't read as the ward filter having broken.
+   it, gate or not). **The search box searches the open ward** (Pp,
+   2026-09-25: "ช่องค้นหา เอาวอร์ดออก เพราะแยกตั้งแต่ต้นแล้ว", reversing the
+   2026-09-15 unit-wide search, which mixed the other ward's infants into the
+   list). The one case the unit-wide search was for survives: a search with no
+   active match here says `ไม่พบ "…" ใน NICU` and offers the ward that has one,
+   in one tap, query kept (`SearchMiss`). `← เปลี่ยน ward` clears the box.
+   **Every search box goes through `D.searchPatients`** (`data.js`) — the ward
+   list and the topbar switcher (which still lists the whole unit) — so they
+   cannot disagree. It ranks, best first: the first name or the surname, whole
+   or begun, either way round (สมศรี, สม, ใจดี, สมใจ all find `สม ใจ`), tone
+   marks forgiven, an honorific ignored; a pre-2026-09-25 two-letter name by
+   the initials of what was typed; then bed number, NeoFeed ID, diagnosis. A
+   query that finds nothing is read once more as typed on the Thai keyboard
+   layout (`l,` is สม), and the list says it did. Don't give a screen its own
+   `includes()` filter again: that is what made a name typed in full unfindable.
    Below the gate: patient list, sorted NICU → iso → SCN
    (then numerically within each ward). Desktop: table. Mobile: tappable
    cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, ⇄/Edit/Open).
@@ -897,7 +918,11 @@ under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
   for now (D6), and is part of the open retention item.
 - **Erasure:** `pseudonymizePatient()` in `gas-backend.gs`, admin-only,
   clears name/initials/dob but retains de-identified clinical history for
-  medical-record retention duty. Residual risk: `sessionId` is derived from
+  medical-record retention duty. **The stored name** is, since 2026-09-25, two
+  characters of the first name and two of the surname (it was one letter of
+  each) — Pp's call, for finding and identifying an infant on the ward; still
+  not a full name, and the id and Copy Order stay at initials. `BACKLOG.md`
+  carries telling the DPO. Residual risk: `sessionId` is derived from
   initials+BW+twinSuffix, so it's a pseudonym staff can reverse-map on a
   small census — erasure can't scrub that pattern without breaking every
   Daily_Log join. **There is no client entry point** — nothing in any `.jsx`
@@ -952,6 +977,12 @@ notes — don't just add the feature.
   (overflow, tap targets, sticky bars, safe-area insets). Test narrow
   viewports before calling a UI change done — see `HANDOFF.md`'s session
   logs for the specific patterns already fixed (don't regress them).
+- **Nothing that opens and closes is capped at a height.** A calculator step
+  body is `StepBody` (`calculator.jsx`): one grid row sliding from `0fr` to
+  `1fr`, the content's own height. It replaced `max-height: 1800px`, which
+  clipped Step 3 (1943 px at 360 px wide) on phones (2026-09-25,
+  `test/verify-ward-requests-0925.cjs`). A `max-height` "big enough" for a
+  desktop is not big enough once the columns stack.
 - **44px minimum tap target on touch, in both dimensions.** Two blocks
   enforce it: the `≤767px` "Touch targets" rules for phones, and a
   `(hover: none) and (pointer: coarse) and (min-width: 768px)` block for
