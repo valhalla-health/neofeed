@@ -193,7 +193,12 @@ T.section('§4 Validation — blank stays blank; bounds, stools, feed type, empt
   refuse('a formula as feed type is refused', { enInMl: 40, feedType: '=HYPERLINK("x")' });
   refuse('a record with nothing in it is refused', { ivInMl: '', urineMl: null }, /อย่างน้อยหนึ่งช่อง/);
   refuse('a malformed date is refused', { ts: '24/09/2026', urineMl: 10 });
-  refuse('a date two days ahead is refused', { ts: addDays(TODAY, 2), urineMl: 10 });
+  // "Two days ahead" and the backend's own "tomorrow" come from ONE pinned
+  // instant. TODAY is fixed when this file loads, while the backend reads the
+  // live clock. A run that crossed Bangkok midnight between the two made this
+  // date only one day ahead of the backend's today, so the save was accepted.
+  // That turned the release's post-merge run red at 00:00 ICT, 2026-09-25.
+  withNow(Date.now(), () => refuse('a date two days ahead is refused', { ts: addDays(wardToday(), 2), urineMl: 10 }));
   const ghost = g.as(g.nt, { action: 'logNursingEntry', sessionId: 'ZZ-000', entry: N() });
   T.ok('an unregistered patient is refused, in Thai', !!ghost.error && isThai(ghost.error), ghost);
   T.eq('none of the refusals wrote a row', nursingRows(g).length, 1);

@@ -34,10 +34,11 @@ clinical judgement. Everything else is engineering sequencing.
 
 - [ ] ⚖️ **PDPA · Check the live `Patient_Registry` for erased rows the refill already reached.**
       **Praew's to do** (Sheet access). Look for rows whose name (B) starts `[PDPA-erased` and whose dob (G)
-      is not empty. A refill could only have run from about 14:22 ICT on 2026-09-24. `Audit_Log`'s
-      `pseudonymize` rows name every erased sessionId, and none means there is nothing to check. For a hit,
-      either clear that G cell by hand and note it here, or erase the record again once `@59` is live. The
-      second way is audited, but it re-dates the marker to that day.
+      is not empty. A refill could only have run on 2026-09-24, from about 14:22 ICT to 21:17:37 ICT, when
+      `@59` went live. `Audit_Log`'s `pseudonymize` rows name every erased sessionId, and none means there
+      is nothing to check. For a hit, either clear that G cell by hand and note it here, or erase the
+      record again, now that `@59` is live. The second way is audited, but it re-dates the marker to that
+      day.
 - [ ] 🩺 **safety · Before the 2026-09-22 TPN-team frontend ships, tell pharmacy and the TPN team what
       changed** (`CHANGELOG.md` 2026-09-22, "The TPN team's feedback"). **Praew's to do.**
       - The printed order is now **two sheets, for double-sided printing**. The front is the KCMH paper
@@ -159,7 +160,8 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
-- [ ] ⚡ **perf · Login speed: fixes 1–4 BUILT 2026-09-24, not deployed; the rest waits on numbers.**
+- [ ] ⚡ **perf · Login speed: fixes 1–4 LIVE 2026-09-25 (`release` = `e05a78d`, backend `@60`); the rest
+      waits on numbers.**
       Pp: "login เริ่มช้า … จะทำยังไงให้เร็วขึ้น lean ขึ้นได้". The diagnosis and what was built are in
       `CHANGELOG.md` § Session 2026-09-24 (11). In short: the first sync now rides in the login reply,
       a request opens the Sheet once, login fills the staff cache, the ward sync drops superseded
@@ -167,9 +169,8 @@ clinical judgement. Everything else is engineering sequencing.
       Pinned by `test/verify-login-speed-0924.cjs`.
 
       **To close:**
-      1. Deploy both halves, in either order: `clasp` the backend and release the frontend. Each
-         half alone is safe (old client: no `wantSync`; old backend: the client falls back to an
-         ordinary sync).
+      1. ✅ Deploy both halves. The frontend went out in release PR #120 (2026-09-24, 23:58 ICT), and
+         the backend as `@60` (2026-09-25, 12:11:30 ICT; comments on #120 and #119).
       2. Read the numbers: the admin dashboard's "Sign-in on this device" line, and the
          `{"timing":…}` lines under Apps Script ▸ Executions. Decide from those which of the items
          below is worth its risk.
@@ -295,6 +296,13 @@ clinical judgement. Everything else is engineering sequencing.
         raw delta float; on a phone Formulas is unreachable. *(Closed 2026-09-24 by the UX roadmap: the
         info reminder no longer lights the Alerts badge, discharged sessions raise no alerts and the
         admin tile no longer counts them, and the Admin dashboard has a phone tab.)*
+- [ ] 🧱 **infra · A harness that fixes `TODAY` at load can go red on a run across Bangkok midnight.**
+      Release #120's post-merge run did, at 00:00:00.229 ICT on 2026-09-25: `verify-nursing-backend.cjs`
+      built "two days ahead" from its load-time `TODAY`, while the backend refused against its own live
+      tomorrow (`CHANGELOG.md` 2026-09-25 (1)). #121 fixes that one refusal with `withNow(Date.now(), …)`;
+      this line is the class. Other harnesses also fix `TODAY` at load and were not swept. Start
+      `Date.now()` just before midnight, run each of them at a few offsets, and pin any that fail the same
+      way.
 - [ ] 🧱 **infra · A hand-stubbed GAS harness can pass its "must reject" cases for the wrong reason.**
       `test/verify-input-validation.cjs:25` is `throws(name, fn)` — it asserts only that *something* was
       thrown, never what. It is the one harness left that stubs the GAS globals by hand (the other five
