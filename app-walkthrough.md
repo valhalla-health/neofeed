@@ -103,7 +103,8 @@ big conditional block plus `RailItem`/`BottomNav`.
   (before, after, above or below) and tone mark is dropped, and so are ฤ ฦ,
   which Thai grammar counts as vowels — ทองดี → ทอ, เรยา → รย, ใจดี → จด
   (Pp: "ให้ใช้เป็นตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์"). Thai, except a
-  foreign infant (ชาวต่างชาติ): the first two English letters, `"Jo Sm"`. Both
+  foreign infant (ชาวต่างชาติ): the first two English letters, vowels counted,
+  `"Jo Sm"` (Pp confirmed, 2026-09-25). Both
   patient modals render one `NameFields` — two boxes, one per part — and what
   is typed goes through `D.namePart`, so a box shows exactly what is saved.
   **A word being composed is left alone until `compositionend`**: rewriting a
@@ -592,9 +593,11 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    active match here says `ไม่พบ "…" ใน NICU` and offers the ward that has one,
    in one tap, query kept (`SearchMiss`). `← เปลี่ยน ward` clears the box.
    **Every search box goes through `D.searchPatients`** (`data.js`) — the ward
-   list and the topbar switcher (which still lists the whole unit) — so they
-   cannot disagree. It ranks, best first: the first name or the surname, whole
-   or begun, either way round, compared by letters alone (`thaiLetters`: เรยา,
+   list and the topbar switcher — so they cannot disagree. **The switcher lists
+   the whole unit on purpose** (Pp, 2026-09-25: it stays unit-wide, as the way
+   to any infant from any screen). The search ranks, best first: the first
+   name or the surname, whole or begun, either way round, compared by letters
+   alone (`thaiLetters`: เรยา,
    เร, ทอง and ทองดี all find `รย ทอ`), an honorific ignored; a
    pre-2026-09-25 two-letter name by
    the initials of what was typed; then bed number, NeoFeed ID, diagnosis. A

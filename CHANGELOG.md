@@ -7,6 +7,21 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-25 (4) — Pp's answers on PR #123: the switcher stays unit-wide
+
+Pp answered the five questions left open on PR #123: *"1. No 2. Later 3-4 later 5 ok"*. Docs only.
+
+- **The topbar switcher stays unit-wide ("No").** It is the way to any infant from any screen. Only the
+  ward list's own box is ward-scoped, as in entry (2). No code changes.
+- **Foreign names are confirmed ("ok").** A foreign infant's name part is its first two English letters,
+  vowels counted: John Smith → `"Jo Sm"`. Only the Thai rule drops vowels (entry (3)).
+- **Later:**
+  - the server's "แก้ชื่อย่อ" message, which needs a `clasp` deploy;
+  - the DPO note that the name holds four letters;
+  - one look on a real iPhone.
+
+  All three stay in `BACKLOG.md` § Next.
+
 ## Session 2026-09-25 (3) — Letters only in a name; every phone swept for the same bug
 
 Pp, on PR #123: *"Check ด้วย ว่า all phone จะไม่มีปัญหาการเลื่อนหน้าจอแบบเดียวกัน"*, *"ชื่อเช่น กค จด มันจะมีเว้นวรรค
