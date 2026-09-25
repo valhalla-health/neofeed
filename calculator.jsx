@@ -2171,7 +2171,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(1) ? "▲" : "▼"}</span>
           </div>
         </div>
-        <div className={`accordion-body${openSteps.has(1) ? ' open' : ''}`}><div className="card-b">
+        <StepBody open={openSteps.has(1)}><div className="card-b">
           <div className="s1-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr) 1.4fr", gap: 12, alignItems: "stretch" }}>
             <div>
               <NumField label="Target fluid" unit="mL/kg/d" value={fluidTargetPerKg} onChange={setFluidTargetPerKg} step={5}
@@ -2232,7 +2232,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 onClick={() => setTpnWtOverrideG(0)}>ใช้ค่าอัตโนมัติ</button>
             </div>
           )}
-        </div></div>
+        </div></StepBody>
       </div>
 
       {/* ===== Intake / Output (volume card) ─────────────────────
@@ -2316,7 +2316,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(5) ? "▲" : "▼"}</span>
           </div>
         </div>
-        <div className={`accordion-body${openSteps.has(5) ? ' open' : ''}`}><div className="card-b">
+        <StepBody open={openSteps.has(5)}><div className="card-b">
           <TwoCol>
             <div>
               <div className="field">
@@ -2409,7 +2409,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               }
             </div>
           </TwoCol>
-        </div></div>
+        </div></StepBody>
       </div>
 
       {/* ===== Step 3 — TPN main bag ===== */}
@@ -2450,7 +2450,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           </div>
         </div>
 
-        <div className={`accordion-body${openSteps.has(2) ? ' open' : ''}`}><div className="card-b" style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        <StepBody open={openSteps.has(2)}><div className="card-b" style={{ display:"flex", flexDirection:"column", gap:12 }}>
 
           {/* ══ PUMP 1: TPN Aqueous ══════════════════════════════════════ */}
           <div style={{ border:"1.5px solid var(--brand-line)", borderRadius:8, overflow:"hidden" }}>
@@ -2726,7 +2726,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             </div>
           )}
 
-        </div></div>
+        </div></StepBody>
       </div>
 
       {/* ===== Step 4 — Electrolytes ===== */}
@@ -2747,7 +2747,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(3) ? "▲" : "▼"}</span>
           </div>
         </div>
-        <div className={`accordion-body${openSteps.has(3) ? ' open' : ''}`}><div className="card-b">
+        <StepBody open={openSteps.has(3)}><div className="card-b">
           <TwoCol>
             <div>
               {/* ── Na ── */}
@@ -2880,7 +2880,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <Tile label="Ca:P ratio" value={calc.caP} unit=":1 (mass)" target={tCaP} status={sCaP} decimals={2} max={2.5} />
             </div>
           </TwoCol>
-        </div></div>
+        </div></StepBody>
       </div>
 
       {/* ===== Step 5 — Vitamins, Trace Elements, Heparin ===== */}
@@ -2901,7 +2901,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(4) ? "▲" : "▼"}</span>
           </div>
         </div>
-        <div className={`accordion-body${openSteps.has(4) ? ' open' : ''}`}><div className="card-b">
+        <StepBody open={openSteps.has(4)}><div className="card-b">
           <TwoCol>
             <div>
               <div className="sub-h">5. Multivitamin</div>
@@ -2960,7 +2960,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             </div>
           </TwoCol>
-        </div></div>
+        </div></StepBody>
       </div>
 
       {/* ===== Step 6 — Enteral Supplements ===== */}
@@ -2982,7 +2982,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <span style={{ fontSize:13, color:"var(--ink-3)" }}>{openSteps.has(6) ? "▲" : "▼"}</span>
           </div>
         </div>
-        <div className={`accordion-body${openSteps.has(6) ? ' open' : ''}`}><div className="card-b">
+        <StepBody open={openSteps.has(6)}><div className="card-b">
           <div className="guidelines-grid">
             {/* ── Left column ── */}
             <div>
@@ -3181,7 +3181,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               )}
             </div>
           )}
-        </div></div>
+        </div></StepBody>
       </div>
 
       {/* ===== Energy distribution + Alerts + Save ===== */}
@@ -3585,6 +3585,20 @@ function CaPRow({ label, ca, p, ratio, highlight, total }) {
 }
 
 // ── Module-level layout helpers ─────────────────────────────────
+// One step's collapsible body. The shells' .accordion-body slides a single
+// grid row from 0fr to 1fr, so an open step is exactly as tall as its content
+// on every screen — it replaced a `max-height: 1800px` that clipped Step 3's
+// last tiles on a phone (2026-09-25). The row needs exactly one grid item
+// between it and the padded .card-b, and that is .accordion-inner: build every
+// step body through this, never a hand-written "accordion-body" div.
+function StepBody({ open, children }) {
+  return (
+    <div className={`accordion-body${open ? " open" : ""}`}>
+      <div className="accordion-inner">{children}</div>
+    </div>
+  );
+}
+
 function TwoCol({ children }) {
   return (
     <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 14 }}>

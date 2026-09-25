@@ -2049,6 +2049,227 @@ const SUPP_DB = {
 };
 
 // ============================================================
+// Patient name (ชื่อ + นามสกุล) and the patient search
+// ============================================================
+// Pp, 2026-09-25: "ใส่ชื่อ เป็นชื่อ + นามสกุล เอาตัวอักษรไทย สองตัวแรก", then
+// "ให้ใส่เป็นชื่อภาษาไทย (ยกเว้นต่างชาติ)". Until then a name was ONE box of two
+// characters, the first letter of the first name and of the surname ("ปพ"),
+// and the ward reported it as close to unsearchable ("ค้นหายากมาก"): one letter
+// of a name matches half the unit, and nobody finds "ปราณี" in "ปพ". A name is
+// now two parts, the first two characters of the first name and of the
+// surname, stored in the one `name` column as "ปร พั" (one space between).
+//
+// A character is what the old box's maxLength and `slice(0, 2)` counted, a
+// code point, so a vowel or tone mark is a character of its own: "ปราณี" →
+// "ปร", "พัฒนา" → "พั", "น้ำฝน" → "น้". searchFold forgives the tone marks, so
+// "น้" is found by น้ำฝน, by นำฝน and by plain น.
+//
+// Thai letters, so every name is typed and searched from one keyboard. The
+// exception is a foreign infant (`foreign`): English letters, the first
+// capitalised ("John Smith" → "Jo Sm"). Which one a stored name is needs no
+// column of its own: its letters say so.
+const NAME_PART_CHARS = 2;
+// What a Thai part keeps: consonants, vowels and the marks written on them.
+// Thai digits, ฯ, ๆ and ฿ are not letters, and nothing outside Thai is kept.
+const THAI_NAME_DROP_RE  = /[^\u0E01-\u0E2E\u0E30-\u0E3A\u0E40-\u0E45\u0E47-\u0E4E]/g;
+// What cannot begin a name: a following vowel (ะ ั า ำ ิ … ๅ) or a mark
+// written on a letter. Typed first by mistake, it would be half the part.
+const THAI_NOT_INITIAL_RE = /^[\u0E30-\u0E3A\u0E45\u0E47-\u0E4E]+/;
+const HAS_THAI_RE  = /[\u0E00-\u0E7F]/;
+const HAS_LATIN_RE = /[A-Za-z]/;
+
+// The part of one typed name that is kept. Both patient modals run every
+// keystroke through this, so a box shows exactly what will be saved, and
+// typing on past two characters changes nothing.
+function namePart(raw, foreign) {
+  const s = String(raw ?? "").normalize("NFC");
+  if (foreign) {
+    // "José" → "Jo": accents off, then letters only.
+    const letters = s.normalize("NFD").replace(/[\u0300-\u036F]/g, "").replace(/[^A-Za-z]/g, "")
+      .slice(0, NAME_PART_CHARS);
+    return letters.charAt(0).toUpperCase() + letters.slice(1).toLowerCase();
+  }
+  const thai = s
+    .replace(/\u0E4D\u0E32/g, "\u0E33")        // ํ + า is ำ typed in two strokes
+    .replace(THAI_NAME_DROP_RE, "")
+    .replace(THAI_NOT_INITIAL_RE, "");
+  return Array.from(thai).slice(0, NAME_PART_CHARS).join("");
+}
+
+// Both parts at their full two characters. Registration requires it; an edit
+// requires it as soon as anything is typed into either box.
+function nameComplete(first, last, foreign) {
+  const full = (x) => { const p = namePart(x, foreign); return p === String(x ?? "") && Array.from(p).length === NAME_PART_CHARS; };
+  return full(first) && full(last);
+}
+
+// The stored form, "ชื่อ นามสกุล".
+function composePatientName(first, last, foreign) {
+  return `${namePart(first, foreign)} ${namePart(last, foreign)}`.trim();
+}
+
+// A stored name back into its two parts, or null when it is not in the
+// two-part form: a name registered before 2026-09-25 (the two-letter "ปพ", a
+// Latin nickname), a cell typed by hand, a PDPA-erased row. Callers keep such
+// a name exactly as it is unless somebody types a new one.
+function splitPatientName(name) {
+  const m = /^(\S+) (\S+)$/.exec(String(name ?? "").trim());
+  if (!m) return null;
+  const foreign = !HAS_THAI_RE.test(m[0]);
+  return nameComplete(m[1], m[2], foreign) ? { first: m[1], last: m[2], foreign } : null;
+}
+
+// The two letters a NEW sessionId starts with (sessionId = initials + BW +
+// twin): the first consonant of each part, the way Thai initials are written
+// (เพ็ญ's initial is พ, not its leading vowel), or the first letter of an
+// English part. The id keeps initials rather than the four stored characters:
+// it is copied into orders that leave the app (LINE), where it deliberately
+// stands in for the name (calculator.jsx, Copy Order).
+function nameInitial(part) {
+  const s = String(part ?? "");
+  const m = /[\u0E01-\u0E2E]/.exec(s);
+  return m ? m[0] : s.charAt(0).toUpperCase();
+}
+function nameInitials(first, last) {
+  return nameInitial(first) + nameInitial(last);
+}
+
+// ── Search ────────────────────────────────────────────────────
+// What two spellings of one name have in common: for comparing, never for
+// storing. Tone marks and the other marks from U+0E47 are dropped (they are
+// what gets left out or mistyped), ํ+า is ำ, zero-width characters go, Latin
+// is lower-cased, and dots and white space become single spaces.
+function searchFold(s) {
+  return String(s ?? "")
+    .normalize("NFC")
+    .replace(/\u0E4D\u0E32/g, "\u0E33")
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+    .replace(/[\u0E47-\u0E4E]/g, "")
+    .toLowerCase()
+    .replace(/[\s.]+/g, " ")
+    .trim();
+}
+
+// Honorifics a query may begin with when it is copied from the hospital
+// record. A query is tried with them and without, so a real name that starts
+// the same way (นางนวล) is still found. Longest first, so บุตรนาง wins over บุตร.
+const NAME_TITLES = ["เด็กหญิง", "เด็กชาย", "ด.ญ.", "ด.ช.", "บุตรนางสาว", "บุตรนาง", "บุตร",
+  "นางสาว", "น.ส.", "นาง", "นาย", "ทารก"].map(searchFold).sort((a, b) => b.length - a.length);
+function stripNameTitles(folded) {
+  let s = folded;
+  for (let again = true; again;) {
+    again = false;
+    for (const t of NAME_TITLES) {
+      if (s.startsWith(t) && s.length > t.length) { s = s.slice(t.length).trim(); again = true; break; }
+    }
+  }
+  return s;
+}
+
+// A query typed with the keyboard left in English, read as the Thai keys it
+// was meant for: "l;ylfu" is "สวัสดี". Both shift levels of the Kedmanee
+// layout, generated from its X11 definition (xkb symbols/th "basic").
+const KEDMANEE_EN = "`~1!2@3#4$5%6^7&8*9(0)-_=+qQwWeErRtTyYuUiIoOpP[{]}aAsSdDfFgGhHjJkKlL;:'\"\\|zZxXcCvVbBnNmM,<.>/?";
+const KEDMANEE_TH = "_%ๅ+/๑-๒ภ๓ถ๔ุูึ฿ค๕ต๖จ๗ข๘ช๙ๆ๐ไ\"ำฎพฑะธัํี๊รณนฯยญบฐล,ฟฤหฆกฏดโเฌ้็่๋าษสศวซง.ฃฅผ(ป)แฉอฮิฺื์ท?มฒใฬฝฦ";
+function qwertyToThai(s) {
+  return Array.from(String(s ?? "")).map(c => {
+    const i = KEDMANEE_EN.indexOf(c);
+    return i < 0 ? c : KEDMANEE_TH[i];
+  }).join("");
+}
+
+// One folded query against one patient's name.
+//   100  the words are the two parts exactly ("สม ใจ")
+//    80  every word begins a part, or a part begins the word — so a whole
+//        "สมศรี" finds "สม", and "ส" finds it too — first name or surname
+//    70  the two parts typed together, without the space ("สมใจ")
+//    60  a name from before 2026-09-25, matched as it always was: the query
+//        anywhere in it, or it at the start of the query
+//  45/40/35  such a name that is two Thai letters — the old initials — against
+//        the initials of the words typed, so "สมศรี ใจดี" still finds the
+//        "สใ" registered last week (both words, the first, the second)
+function nameSearchRank(name, q) {
+  const words = q.split(" ").filter(Boolean);
+  if (!words.length) return 0;
+  const either = (a, b) => a.startsWith(b) || b.startsWith(a);
+  const parts = splitPatientName(name);
+  if (parts) {
+    const f = searchFold(parts.first), l = searchFold(parts.last);
+    if (words.every(w => either(w, f) || either(w, l))) {
+      return words.length === 2 && words[0] === f && words[1] === l ? 100 : 80;
+    }
+    return words.length > 1 && either(words.join(""), f + l) ? 70 : 0;
+  }
+  const whole = searchFold(name);
+  if (!whole) return 0;
+  if (whole.includes(q) || q.startsWith(whole)) return 60;
+  if (/^[\u0E01-\u0E2E\u0E40-\u0E44]{2}$/.test(whole)) {
+    // Whoever typed the old initials may have written a leading vowel (\u0E43 of
+    // \u0E43\u0E08\u0E14\u0E35) or the consonant after it (\u0E08): either counts.
+    const starts = (w, letter) => w.charAt(0) === letter || nameInitial(w) === letter;
+    if (words.length >= 2) return starts(words[0], whole[0]) && starts(words[1], whole[1]) ? 45 : 0;
+    if (starts(words[0], whole[0])) return 40;
+    if (starts(words[0], whole[1])) return 35;
+  }
+  return 0;
+}
+
+// A bed: a number is a bed number (50 exact, 30 as its start — "1" is NICU 1
+// first, then 10–12); anything else anywhere in the label, 30. A parked
+// infant answers to the bed they left, which is what their card shows.
+function bedSearchRank(p, q) {
+  const bed = (normalizeBed(p.currentBed) || lastBed(p)).toLowerCase();
+  if (!bed) return 0;
+  if (/^\d+(-\d+)?$/.test(q)) {
+    const num = (/\d+(?:-\d+)?$/.exec(bed) || [""])[0];
+    return num === q ? 50 : num.startsWith(q) ? 30 : 0;
+  }
+  const flat = q.replace(/\s+/g, "");
+  return flat.length >= 2 && bed.replace(/\s+/g, "").includes(flat) ? 30 : 0;
+}
+
+// How well one patient answers the search box: 0 is not at all, and higher is
+// a better answer — the name (above), then the bed, then the NeoFeed ID as
+// printed on the order form (20), then the diagnosis (10). A query that
+// starts with an honorific is also tried without it.
+function patientSearchRank(p, query) {
+  const q = searchFold(query);
+  if (!q || !p) return 0;
+  const bare = stripNameTitles(q);
+  const id = searchFold(p.sessionId), dx = searchFold(p.diagnosis);
+  let best = 0;
+  for (const v of bare && bare !== q ? [q, bare] : [q]) {
+    best = Math.max(best,
+      nameSearchRank(p.name || p.initials, v),
+      bedSearchRank(p, v),
+      v.length >= 3 && /\D/.test(v) && id.startsWith(v) ? 20 : 0,
+      v.length >= 2 && dx.includes(v) ? 10 : 0);
+  }
+  return best;
+}
+
+// The search box over a list: the patients that answer `query`, best first,
+// ties in the order given (the ward list passes them in bed order). One
+// function behind every search box, so no two can disagree. When nothing
+// answers and the query has English letters and no Thai, it is read once more
+// as typed on the Thai layout; `thai` is then that reading, so the list can
+// say what it searched for. It is "" whenever the query was used as typed.
+function searchPatients(patients, query) {
+  const list = Array.isArray(patients) ? patients : [];
+  const run = (q) => list
+    .map((p, i) => ({ p, i, r: patientSearchRank(p, q) }))
+    .filter(x => x.r > 0)
+    .sort((a, b) => b.r - a.r || a.i - b.i)
+    .map(x => x.p);
+  const text = String(query ?? "");
+  const hits = run(text);
+  if (hits.length || !HAS_LATIN_RE.test(text) || HAS_THAI_RE.test(text)) return { hits, thai: "" };
+  const thai = qwertyToThai(text.trim());
+  const thaiHits = run(thai);
+  return thaiHits.length ? { hits: thaiHits, thai } : { hits: [], thai: "" };
+}
+
+// ============================================================
 // Export
 // ============================================================
 window.NEOFEED_DATA = {
@@ -2133,4 +2354,8 @@ window.NEOFEED_DATA = {
   gaTotalDays, daysToGA, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput,
   // Corrected age in days (negative = still preterm)
   correctedAge,
+  // Patient name: ชื่อ + นามสกุล, two characters each (Thai; English for a
+  // foreign infant), and the one search every search box goes through
+  NAME_PART_CHARS, namePart, nameComplete, composePatientName, splitPatientName, nameInitials,
+  searchFold, qwertyToThai, patientSearchRank, searchPatients,
 };

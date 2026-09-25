@@ -923,19 +923,31 @@
   }
 
   /* ============ ACCORDION TRANSITION ============ */
+  /* An open step is as tall as its content: there is no height to outgrow.
+     Until 2026-09-25 the open state was `max-height: 1800px`, a number meant
+     to be "taller than any step". On a phone the two-column steps stack, and
+     Step 3 measured 1943px at 360px wide, so its last 143px (the Lipid and
+     NPC : Protein tiles) were clipped with nothing to scroll to (Pp, from an
+     Android phone: "เลื่อนแล้วไม่เต็มช่อง"). The one grid row slides from 0fr
+     to 1fr, which is the content's own height, so the animation stays and
+     the cap goes. `.accordion-inner` (StepBody in calculator.jsx) is the one
+     grid item: min-height: 0 lets the row close to nothing, and its
+     overflow: hidden clips only while the row is sliding. */
   .accordion-body {
-    overflow: hidden;
-    max-height: 0;
+    display: grid;
+    grid-template-rows: 0fr;
+    grid-template-columns: minmax(0, 1fr);
     visibility: hidden;
-    transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                 visibility 0s linear 0.28s;
   }
   .accordion-body.open {
-    max-height: 1800px;
+    grid-template-rows: 1fr;
     visibility: visible;
-    transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1),
                 visibility 0s linear 0s;
   }
+  .accordion-inner { min-height: 0; overflow: hidden; }
 
   /* ============ BOTTOM NAV (mobile) ============ */
   .bottom-nav { display: none; }
@@ -1245,8 +1257,30 @@
 
   .reg-filter { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
   .reg-filter .reg-search { position: relative; flex: 1; max-width: 400px; }
-  .reg-filter .reg-search .inp { padding-left: 36px; height: 38px; }
+  .reg-filter .reg-search .inp { padding-left: 36px; padding-right: 40px; height: 38px; }
   .reg-filter .reg-search .s-ico { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+  /* Clear (×), inside the box's right edge. 32px here; 44px on touch below. */
+  .reg-filter .reg-search .s-clear {
+    position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+    width: 32px; height: 32px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 999px; background: transparent; color: var(--ink-3); cursor: pointer;
+  }
+  .reg-filter .reg-search .s-clear:hover { background: var(--bg-2); color: var(--ink); }
+  .reg-search-note { font-size: 11.5px; color: var(--ink-3); margin: -4px 0 10px; }
+  .search-miss { line-height: 1.5; }
+
+  /* ── Patient name: ชื่อ + นามสกุล (registry.jsx NameFields) ── */
+  /* Two boxes of two characters each, side by side at every width — .row-2
+     stacks on a phone, which would spend a whole row on each two-letter box. */
+  .row-2.pair-row { grid-template-columns: 1fr 1fr; }
+  .name-fields { display: flex; flex-direction: column; gap: 6px; }
+  .name-note { font-size: 11px; color: var(--warn-ink); line-height: 1.4; }
+  .name-foreign {
+    display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+    font-size: 12.5px; color: var(--ink-2); cursor: pointer;
+  }
+  .name-foreign input { width: 18px; height: 18px; margin: 0; accent-color: var(--brand); }
 
   .patient-table table.tbl td { vertical-align: middle; padding-top: 9px; padding-bottom: 9px; }
   .patient-table table.tbl tr.p-active td { background: var(--brand-bg); }
@@ -1304,6 +1338,9 @@
       display: flex; align-items: center; justify-content: center;
     }
     .patient-mc .pmc-actions .btn { min-height: 44px; }
+    .reg-filter .reg-search .s-clear { width: 44px; height: 44px; right: 0; }
+    .reg-filter .reg-search .inp { padding-right: 46px; }
+    .name-foreign { min-height: 44px; }
   }
 
   /* ============ MOBILE: ≤767px ============ */
@@ -1681,6 +1718,9 @@
     .reg-stat  { flex: 0 0 calc(50% - 5px); }
     .reg-filter { flex-wrap: wrap; }
     .reg-filter .reg-search { max-width: 100%; }
+    .reg-filter .reg-search .s-clear { width: 44px; height: 44px; right: 0; }
+    .reg-filter .reg-search .inp { padding-right: 46px; }
+    .name-foreign { min-height: 44px; }
 
     /* ── Overscroll: prevent Android/iOS rubber-band on body ── */
     body { overscroll-behavior: none; }
@@ -1872,11 +1912,11 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=fb7f87230e"></script>
-  <script src="compiled/icons.js?v=8ad9fe42c3"></script>
-  <script src="compiled/calculator.js?v=239f9d0c0c"></script>
+  <script src="data.js?v=fd23b73b97"></script>
+  <script src="compiled/icons.js?v=98d52ac7b1"></script>
+  <script src="compiled/calculator.js?v=30a57126e9"></script>
   <script src="compiled/fenton.js?v=f9e6212215"></script>
-  <script src="compiled/registry.js?v=b39c7a3fd5"></script>
+  <script src="compiled/registry.js?v=a626f42972"></script>
   <script src="compiled/log.js?v=bd519c4b67"></script>
   <script src="compiled/app.js?v=d08783ff63"></script>
 

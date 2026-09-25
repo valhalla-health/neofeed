@@ -234,9 +234,13 @@ const NEXT_ADMIT = { ...PATIENT, sessionId: 'NA-BW1500', name: 'NA', initials: '
 open(GONE_HOME, [GONE_HOME, NEXT_ADMIT]);
 eq('Save is enabled',                         saveBtn().disabled, false);
 ok('…with no bed-taken message',              !host.textContent.includes('อยู่แล้ว'));
-setInput('ชื่อย่อ', 'KL');
+// The name is two boxes since 2026-09-25 (ชื่อ + นามสกุล, two characters
+// each); 'KH' is a pre-2026-09-25 name, so both boxes open empty and a new
+// name replaces it only once both are typed.
+setInput('ชื่อ', 'กล');
+setInput('นามสกุล', 'มน');
 save();
-eq('the correction is submitted',             submitted?.name, 'KL');
+eq('the correction is submitted',             submitted?.name, 'กล มน');
 eq('…still Discharged, same bed label',       `${submitted?.status} ${submitted?.currentBed}`, 'Discharged NICU 7');
 eq('…and the discharge date is not re-stamped', submitted?.statusDate, '2026-09-01');
 open(GONE_HOME, [GONE_HOME, NEXT_ADMIT]);

@@ -157,12 +157,14 @@ eq('NEEDS ENTRY badges', badges.filter(b => b === 'NEEDS ENTRY').length, 2);
 // The raw comparison the app used to make, kept as the control: if this ever
 // starts passing, Sheets stopped returning dates as values and the
 // normalization above is merely belt-and-braces — it is not wrong to keep.
-// ── search reaches across wards ───────────────────────────────────────────
-// The ward gate shortens the daily list; it does not partition the census.
-// Someone typing a name is looking for that infant, and "ไม่พบ" because they
-// are one ward over — when the app can see them — is the app withholding what
-// it knows (ward decision, 2026-09-15).
-console.log('\n── search is unit-wide, browsing is ward-scoped ──');
+// ── search stays in the open ward ─────────────────────────────────────────
+// Pp, 2026-09-25: "ช่องค้นหา เอาวอร์ดออก เพราะแยกตั้งแต่ต้นแล้ว". The ward is
+// chosen at the gate and the search answers for that ward. From 2026-09-15
+// until then a search reached across the unit and mixed the other ward's
+// infants into this ward's list. What survives of that is the one case it was
+// for: a search that finds nobody here names the ward that has a match, one
+// tap away, rather than a bare "ไม่พบ" for an infant the app can see.
+console.log('\n── search stays in the open ward; a miss names the other ward ──');
 const valueSetter = Object.getOwnPropertyDescriptor(
   window.HTMLInputElement.prototype, 'value').set;
 const search = (text) => act(() => {
@@ -172,24 +174,56 @@ const search = (text) => act(() => {
 });
 const shownIds = () => [...document.querySelectorAll('.patient-table tbody tr')]
   .map(tr => tr.textContent);
+const cards = () => [...document.querySelectorAll('.patient-card-list > .patient-mc')]
+  .map(el => el.textContent);
+const rootText = () => document.getElementById('root').textContent;
+const wardChanges = [];
+const renderTracked = (ward) => act(() => {
+  root.render(React.createElement(PatientRegistry, {
+    patients, log, activeId: 'A', ward,
+    onWardChange(w) { wardChanges.push(w); },
+    onSelect() {}, onAdd() {}, onEdit() {}, onDelete() {},
+  }));
+});
+const click = (el) => act(() => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 
-render('NICU');
+renderTracked('NICU');
 eq('browsing NICU shows only NICU', shownIds().length, 2);
-// 'Nb' is in SCN 1 — a ward the open screen is not showing.
+// 'Nb' is in SCN 1, a ward the open screen is not showing.
 search('Nb');
-eq('a search finds the patient in the other ward', shownIds().length, 1);
-eq('…and it is the SCN one', /SCN 1/.test(shownIds()[0] || ''), true);
-eq('…with a note saying the search crossed wards',
-  /ค้นทั้ง unit — 1 ราย/.test(document.getElementById('root').textContent), true);
+eq('a search does not pull in the other ward', [shownIds().length, cards().length], [0, 0]);
+eq('…it says it found nobody here',        /ไม่พบ “Nb” ใน NICU/.test(rootText()), true);
+eq('…and nothing reads as a unit-wide search', /ค้นทั้ง unit/.test(rootText()), false);
+const goSCN = [...document.querySelectorAll('.patient-card-list .search-miss button')];
+eq('…offering the ward that has a match', goSCN.map(b => b.textContent), ['พบใน SCN 1 ราย · ไปดู →']);
+click(goSCN[0]);
+eq('…which switches to that ward',          wardChanges, ['SCN']);
+renderTracked('SCN');
+eq('…where the same search shows the infant', cards().length === 1 && /SCN 1/.test(cards()[0]), true);
+eq('…and says what it found',              /พบ 1 รายใน SCN/.test(rootText()), true);
 
-// A search that matches only patients in the open ward says nothing about
-// other wards — the note must not fire on every search.
+// A search that matches in the open ward says nothing about other wards.
+renderTracked('NICU');
 search('อช');
-eq('an in-ward-only hit shows no cross-ward note',
-  /ค้นทั้ง unit/.test(document.getElementById('root').textContent), false);
+eq('an in-ward hit lists only it',          shownIds().length, 1);
+eq('…with the count, and no other-ward offer',
+  [/พบ 1 รายใน NICU/.test(rootText()), !!document.querySelector('.search-miss')], [true, false]);
+
+// Nobody anywhere: a plain miss, nothing offered.
+search('ซซซ');
+eq('a miss everywhere offers no ward',      document.querySelectorAll('.search-miss button').length, 0);
 
 search('');
 eq('clearing the box goes back to the ward list', shownIds().length, 2);
+
+// The search belongs to the ward it was typed in: going back to the gate
+// clears it, so the next ward does not open filtered by a query nobody sees.
+search('อช');
+const back = [...document.querySelectorAll('button')].find(b => /เปลี่ยน ward/.test(b.textContent));
+click(back);
+eq('← เปลี่ยน ward asks for the gate',     wardChanges[wardChanges.length - 1], null);
+renderTracked('NICU');
+eq('…and the box is empty on the way back', [document.querySelector('.reg-search input').value, shownIds().length], ['', 2]);
 
 console.log('\n── control: the comparison that used to be made ──');
 eq('raw `e.ts === today` misses a Sheets Date',

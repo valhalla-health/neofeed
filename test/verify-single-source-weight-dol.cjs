@@ -268,7 +268,8 @@ runScenarios(__filename, 'SINGLE SOURCE — WEIGHT AND DOL', {
       });
       await t.flush();
     };
-    await set(field('ชื่อย่อ'), 'อบ');
+    await set(field('ชื่อ'), 'อบ');
+    await set(field('นามสกุล'), 'ใจ');
     await set(field('Birth weight'), 1200);
     await set(field('GA'), '29');
     await set(field('Sex'), 'girls');
