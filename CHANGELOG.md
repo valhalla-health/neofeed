@@ -56,10 +56,30 @@ the chip, from rendered before/after sheets.
 - **Why CI missed the chip.** `verify-phone-sweep.cjs` flags content cut off inside an `overflow: hidden`
   box, not content spilling over its neighbour, and its fixture has no parked infant.
 
-The harness is `test/verify-bed-transfer-0927.cjs`: 68 checks, 53 without a browser. Every section
-except the § 6b guard fails on `f675420`. In the Browser pane, on a local copy with a fake backend, a
-full swap was run by hand: park นฝ จด, move สม จด into NICU 3, then นฝ จด into NICU 1. Each save carried
-its hop with `at`.
+Two more, found by a read-only audit in another session, confirmed here with a render or the real app,
+and approved by Pp:
+
+- **Switch patient read an infant who had left as the infant in their old bed.**
+  - It listed a Discharged, Transferred or Expired infant under their old bed, with no status.
+  - Searching that bed's number put them first: "9" gave a Transferred "NICU 9", then the infant now in
+    NICU 9, two rows alike.
+  - Now every infant on the unit comes first, and one who has left follows, dimmed. Their bed cell reads
+    "Transferred จาก NICU 9" (`LeftUnitBed`). They are still reachable, since admins work the archive
+    through this list.
+- **A device kept its own copy after a patient save.**
+  - After a successful Edit, ⇄ or park, it put its own record into state and into the merge base.
+  - It kept them until the next poll, up to 4 min, even when the server's merge had kept another
+    device's newer bed.
+  - In that window the list showed the old bed, and a ⇄ recorded it as "Previous bed". The server still
+    refused any double-booking.
+  - It now syncs once after the save (`resyncAfterSave`). If other writes are still out, the last one to
+    answer asks.
+
+The harnesses are `test/verify-bed-transfer-0927.cjs` (75 checks, 60 without a browser; every section
+except the § 6b guard fails on `f675420`) and `test/verify-bed-transfer-0927-sync.cjs` (the real App
+against the fake Apps Script, given the server's merge; fails on `f675420`). In the Browser pane, on a
+local copy with a fake backend, a full swap was run by hand: park นฝ จด, move สม จด into NICU 3, then
+นฝ จด into NICU 1. Each save carried its hop with `at`.
 
 ## Session 2026-09-25 (5) — PR #123 checked before its merge: the phone sweep's server refused every file on Windows
 

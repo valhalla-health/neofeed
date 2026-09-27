@@ -595,7 +595,11 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    **Every search box goes through `D.searchPatients`** (`data.js`) — the ward
    list and the topbar switcher — so they cannot disagree. **The switcher lists
    the whole unit on purpose** (Pp, 2026-09-25: it stays unit-wide, as the way
-   to any infant from any screen). The search ranks, best first: the first
+   to any infant from any screen). Since 2026-09-27 it lists every infant on
+   the unit first, then those who have left it, dimmed, each with its status
+   where the bed would be ("Transferred จาก NICU 9", `LeftUnitBed`): a departed
+   infant keeps their old bed's label, and was found by its number above the
+   infant now in that bed. The search ranks, best first: the first
    name or the surname, whole or begun, either way round, compared by letters
    alone (`thaiLetters`: เรยา,
    เร, ทอง and ทองดี all find `รย ทอ`), an honorific ignored; a
