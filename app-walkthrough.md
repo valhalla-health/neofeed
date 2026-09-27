@@ -102,8 +102,8 @@ big conditional block plus `RailItem`/`BottomNav`.
   is refused by the server (`IdTaken`), and `handleAddPatient` draws again.
   A second registration of the same baby no longer lands on the first one's
   id, so registration asks outright when an infant on file has the **same
-  birth weight and date of birth**: `D.possibleDuplicate` on this device, then
-  `_possibleDuplicate` on the server over every row. Open the old record, or
+  birth weight and date of birth**. Only the server asks (`_possibleDuplicate`,
+  over every row); the device shows its sentence. Open the old record, or
   answer "a different baby" (`confirmDuplicate`).
 - **`name`** — since 2026-09-25, **ชื่อ + นามสกุล: the first two LETTERS of
   the first name and of the surname**, stored as `"รย ทอ"` (one space; Pp's
@@ -120,7 +120,9 @@ big conditional block plus `RailItem`/`BottomNav`.
   is typed goes through `D.namePart`, so a box shows exactly what is saved.
   **A word being composed is left alone until `compositionend`**: rewriting a
   box under an Android keyboard that is composing (Gboard, Samsung) makes it
-  repeat or scramble letters, and dropping vowels rewrites it constantly. A name from
+  repeat or scramble letters, and dropping vowels rewrites it constantly. Every screen,
+  message and search reads a name through **`D.patientName`** (`name`, else the old
+  `initials`), the one definition since 2026-09-27. A name from
   before that date (the two-letter initials "ปพ", a nickname, a PDPA-erased
   marker) does not split (`D.splitPatientName` → null) and is **kept as it is**
   until someone types a whole new name; don't "migrate" those rows in bulk.

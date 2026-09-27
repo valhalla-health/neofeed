@@ -90,10 +90,13 @@ both are verified.** Caught up with #126 in #127, the next PR on the repo, as #1
   on Pp's decisions that day (`CHANGELOG.md` 2026-09-27 (2)):
   - Admit date and DOL แรกรับ can be corrected again. It has been refused since release #106.
     **Backend: needs a `clasp` deploy.**
-  - A new infant's id is `NF-` and six random digits. A taken id is drawn again, and registration asks
+  - A new infant's id is `NF-` and six random digits. A taken id is drawn again, and the server asks
     when an infant on file has the same BW and date of birth.
   - A name with one consonant keeps its vowels (ฤดี → ฤด).
-  - **Order:** release the frontend first, then `clasp`.
+  - One source for each kind of data it touches: the name, dob from admission, "on the unit", "bed taken",
+    the look-alike question (the server only).
+  - **Order: `clasp` first, then release the frontend straight after.** A new frontend on `@60` would
+    register the same baby twice with no question.
   - ⚠️ **It changes what the ward sees:** a new infant's NeoFeed ID (Edit, the order form, Copy Order's
     LINE text) reads `NF-` and six digits, and registering a look-alike asks first. The Thai manual
     needs both once it is live.

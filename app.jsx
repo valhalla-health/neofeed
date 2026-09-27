@@ -1642,11 +1642,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setLog(prev => { const next = { ...prev }; delete next[id]; return next; });
     if (wasActive) { setActiveId(null); goTo("registry"); }
 
-    if (!GAS_ON) { showToast(`ลบ session ${patient.name || id} แล้ว`); return Promise.resolve({ ok: true }); }
+    if (!GAS_ON) { showToast(`ลบ session ${D_A.patientName(patient) || id} แล้ว`); return Promise.resolve({ ok: true }); }
     return writeGAS({ action: "deletePatient", sessionId: id }).then(res => {
       if (res.ok) {
         serverPatientsRef.current.delete(id);
-        showToast(`ลบ session ${patient.name || id} ถาวรแล้ว`);
+        showToast(`ลบ session ${D_A.patientName(patient) || id} ถาวรแล้ว`);
       } else if (!res.unknown) {
         setPatients(prevPatients);
         setLog(prevLog);
@@ -1674,8 +1674,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const bedConflict = (p) => {
     const holder = D_A.bedBlocker(patients, p);
     if (!holder) return null;
-    return `เตียง ${D_A.normalizeBed(p.currentBed)} มี ${holder.name || holder.sessionId} อยู่แล้ว — ` +
-      `ย้ายผู้ป่วยรายนั้นออกก่อน`;
+    return D_A.bedTakenMsg(D_A.normalizeBed(p.currentBed), holder);
   };
 
   // Both patient handlers return the request's promise, and the modals stay
@@ -1689,17 +1688,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (blocked) return Promise.resolve(blocked);
     // The same baby registered twice (Pp, 2026-09-27)? The id is random now, so
     // a second registration no longer lands on the first one's id the way the
-    // initials-and-weight id made it: ask, here from what this device has
-    // synced, and again below if the server, which sees every row, finds one.
+    // initials-and-weight id made it. The server asks (PossibleDuplicate): it
+    // sees every row, stored dates of birth included, and it is the one place
+    // the question is asked and worded. This device only shows its words.
     const cancelled = { ok: false, refused: true, error: "ยกเลิก — ยังไม่ได้ลงทะเบียน" };
     const askNewInfant = (msg) => typeof window !== "undefined" && typeof window.confirm === "function"
       && window.confirm(`${msg}\n\nถ้าเป็นคนละคน กด OK เพื่อลงทะเบียนเป็นรายใหม่`);
     let confirmDuplicate = false;
-    const lookalike = D_A.possibleDuplicate(patients, p0);
-    if (lookalike) {
-      if (!askNewInfant(D_A.possibleDuplicateMsg(lookalike, p0))) return Promise.resolve(cancelled);
-      confirmDuplicate = true;
-    }
     let p = p0;
     setPatients(prev => [p0, ...prev]);
     setActiveId(p0.sessionId);
@@ -1821,14 +1816,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       : serverPatientsRef.current.get(p.sessionId);
     setPatients(prev => prev.map(x => x.sessionId === p.sessionId ? p : x));
     if (!GAS_ON) {
-      showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
+      showToast(`${D_A.patientName(p) || p.sessionId} อัปเดตแล้ว`);
       return Promise.resolve({ ok: true });
     }
     return writeGAS({ action: "registerPatient", patient: p, ...(base ? { base } : {}) }, { quiet: true })
       .then(res => {
         if (res.ok) {
           serverPatientsRef.current.set(p.sessionId, p);
-          showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
+          showToast(`${D_A.patientName(p) || p.sessionId} อัปเดตแล้ว`);
           resyncAfterSave();
         } else if (!res.unknown && previous) {
           // A refused/failed edit must not stay on screen looking saved —
@@ -2671,7 +2666,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
         <div className="lbl">Active session</div>
         <div className="pid">
           <div>
-            <div className="id">{patient.name || patient.initials || "—"}</div>
+            <div className="id">{D_A.patientName(patient) || "—"}</div>
             <div className="bed">
               Bed <span className="num">{patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")}</span>
               {" · DOL "}
@@ -2759,7 +2754,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
           {/* A long word ("hyperbilirubinemia") breaks rather than running
               past the strip's clipped edge in a narrow column (tablet). */}
           <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700, minWidth:0, overflowWrap:"anywhere" }}>{patient.diagnosis}</div>
-          <span className={"chip" + (!patient.status || patient.status === "Active" ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
+          <span className={"chip" + (D_A.isOnUnit(patient) ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
         </div>
       </div>
 
@@ -2806,7 +2801,7 @@ function AlertCenter({ patient, log, onAckChange }) {
       <div className="page-head">
         <div>
           <h1>Alert center</h1>
-          <div className="sub">Cross-cutting safety signals based on latest logged values · <span>{patient.name || patient.initials || "—"}</span></div>
+          <div className="sub">Cross-cutting safety signals based on latest logged values · <span>{D_A.patientName(patient) || "—"}</span></div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" disabled={activeAlerts.length === 0} onClick={acknowledgeAll}>

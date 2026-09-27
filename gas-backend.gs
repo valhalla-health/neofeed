@@ -3254,8 +3254,9 @@ function _sessionIdConflict(existingRow, p, isNew, base) {
 // lands two registrations of one baby on the same id, so this asks outright —
 // a second device registering the same admission, or a readmission after a
 // transfer out. Every row, not only the synced ones; never an erased row (its
-// dob is gone). Returns the question for the bedside, or null. Mirrors
-// possibleDuplicate / possibleDuplicateMsg in data.js.
+// dob is gone). Returns the question for the bedside, or null. This is the
+// only copy of the rule and of its words (2026-09-27, single source of
+// truth): the client asks nothing itself, and shows this sentence as it is.
 function _possibleDuplicate(data, p) {
   var dob = _fmtDate(p.dob), bw = Number(p.bw);
   if (!dob || !(bw > 0)) return null;

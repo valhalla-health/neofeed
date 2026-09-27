@@ -972,13 +972,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       goTo("registry");
     }
     if (!GAS_ON) {
-      showToast(`ลบ session ${patient.name || id} แล้ว`);
+      showToast(`ลบ session ${D_A.patientName(patient) || id} แล้ว`);
       return Promise.resolve({ ok: true });
     }
     return writeGAS({ action: "deletePatient", sessionId: id }).then((res) => {
       if (res.ok) {
         serverPatientsRef.current.delete(id);
-        showToast(`ลบ session ${patient.name || id} ถาวรแล้ว`);
+        showToast(`ลบ session ${D_A.patientName(patient) || id} ถาวรแล้ว`);
       } else if (!res.unknown) {
         setPatients(prevPatients);
         setLog(prevLog);
@@ -994,7 +994,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const bedConflict = (p) => {
     const holder = D_A.bedBlocker(patients, p);
     if (!holder) return null;
-    return `เตียง ${D_A.normalizeBed(p.currentBed)} มี ${holder.name || holder.sessionId} อยู่แล้ว — ย้ายผู้ป่วยรายนั้นออกก่อน`;
+    return D_A.bedTakenMsg(D_A.normalizeBed(p.currentBed), holder);
   };
   const handleAddPatient = (p0) => {
     const clash = bedConflict(p0);
@@ -1006,11 +1006,6 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 
 ถ้าเป็นคนละคน กด OK เพื่อลงทะเบียนเป็นรายใหม่`);
     let confirmDuplicate = false;
-    const lookalike = D_A.possibleDuplicate(patients, p0);
-    if (lookalike) {
-      if (!askNewInfant(D_A.possibleDuplicateMsg(lookalike, p0))) return Promise.resolve(cancelled);
-      confirmDuplicate = true;
-    }
     let p = p0;
     setPatients((prev) => [p0, ...prev]);
     setActiveId(p0.sessionId);
@@ -1078,13 +1073,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const base = openedFromBase !== void 0 ? openedFromBase : serverPatientsRef.current.get(p.sessionId);
     setPatients((prev) => prev.map((x) => x.sessionId === p.sessionId ? p : x));
     if (!GAS_ON) {
-      showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
+      showToast(`${D_A.patientName(p) || p.sessionId} อัปเดตแล้ว`);
       return Promise.resolve({ ok: true });
     }
     return writeGAS({ action: "registerPatient", patient: p, ...base ? { base } : {} }, { quiet: true }).then((res) => {
       if (res.ok) {
         serverPatientsRef.current.set(p.sessionId, p);
-        showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
+        showToast(`${D_A.patientName(p) || p.sessionId} อัปเดตแล้ว`);
         resyncAfterSave();
       } else if (!res.unknown && previous) {
         setPatients((prev) => prev.map((x) => x === p ? previous : x));
@@ -1612,7 +1607,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
   const deltaPct = delta / patient.bw * 100;
   const [wtLabel, wtColor] = patient.bw < 1e3 ? ["ELBW", "var(--crit)"] : patient.bw < 1500 ? ["VLBW", "var(--warn)"] : ["LBW", "var(--ink-3)"];
   const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
-  return /* @__PURE__ */ React.createElement("div", { className: "patient-strip" }, /* @__PURE__ */ React.createElement("div", { className: "lead" }, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Active session"), /* @__PURE__ */ React.createElement("div", { className: "pid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "id" }, patient.name || patient.initials || "—"), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Bed ", /* @__PURE__ */ React.createElement("span", { className: "num" }, patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { color: "var(--brand-2)", fontWeight: 700 } }, displayDol)), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Admit ", fmtDate(patient.admissionDate)), onEdit && /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "patient-strip" }, /* @__PURE__ */ React.createElement("div", { className: "lead" }, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Active session"), /* @__PURE__ */ React.createElement("div", { className: "pid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "id" }, D_A.patientName(patient) || "—"), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Bed ", /* @__PURE__ */ React.createElement("span", { className: "num" }, patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { color: "var(--brand-2)", fontWeight: 700 } }, displayDol)), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Admit ", fmtDate(patient.admissionDate)), onEdit && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn sm",
@@ -1625,7 +1620,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
     const caDays = D_A.correctedAge(patient.ga, displayDol);
     const caLabel = caDays >= 0 ? `CA ${Math.floor(caDays / 7)}+${caDays % 7} wk` : null;
     return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "PMA"), /* @__PURE__ */ React.createElement("div", { className: "val num", style: { color: "var(--brand-2)" } }, fmtGA(D_A.pmaShort(patient.ga, displayDol)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4 } }, "wk")), caLabel && /* @__PURE__ */ React.createElement("div", { className: "sub", style: { color: "var(--ok)", fontWeight: 600 } }, caLabel));
-  })(), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Diagnosis"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { className: "val", style: { fontSize: 13, lineHeight: 1.3, fontWeight: 700, minWidth: 0, overflowWrap: "anywhere" } }, patient.diagnosis), /* @__PURE__ */ React.createElement("span", { className: "chip" + (!patient.status || patient.status === "Active" ? " ok" : ""), style: { fontSize: 11 } }, /* @__PURE__ */ React.createElement("span", { className: "d" }), patient.status))));
+  })(), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Diagnosis"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { className: "val", style: { fontSize: 13, lineHeight: 1.3, fontWeight: 700, minWidth: 0, overflowWrap: "anywhere" } }, patient.diagnosis), /* @__PURE__ */ React.createElement("span", { className: "chip" + (D_A.isOnUnit(patient) ? " ok" : ""), style: { fontSize: 11 } }, /* @__PURE__ */ React.createElement("span", { className: "d" }), patient.status))));
 }
 function AlertCenter({ patient, log, onAckChange }) {
   const entries = log[patient.sessionId] || [];
@@ -1654,7 +1649,7 @@ function AlertCenter({ patient, log, onAckChange }) {
     persistAcked(next);
   };
   const activeAlerts = alerts.filter((a) => !acked[ackKeyFor(a)]);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Alert center"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Cross-cutting safety signals based on latest logged values · ", /* @__PURE__ */ React.createElement("span", null, patient.name || patient.initials || "—"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", disabled: activeAlerts.length === 0, onClick: acknowledgeAll }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14 }), " Acknowledge all"))), /* @__PURE__ */ React.createElement("div", { className: "alert-summary-tiles" }, /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Active critical"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--crit)" } }, activeAlerts.filter((a) => a.level === "crit").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Cautions"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--warn-ink)" } }, activeAlerts.filter((a) => a.level === "warn").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Info / reminders"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--brand)" } }, activeAlerts.filter((a) => a.level === "info").length))), /* @__PURE__ */ React.createElement("div", { className: "alert-badge-note", style: { fontSize: 12, color: "var(--ink-3)", margin: "-4px 0 12px" } }, "ตัวเลขบนเมนู Alerts นับเฉพาะ Critical และ Caution ที่ยังไม่ได้ Acknowledge — Info / reminders ไม่นับ"), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "bell", size: 14, color: "var(--brand)" }), " Patient alerts", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, activeAlerts.length, " active · ", alerts.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 8 } }, alerts.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "alert-empty", style: { fontSize: 13, color: "var(--ink-3)", padding: "6px 2px" } }, onUnit ? "ไม่มีการแจ้งเตือนสำหรับผู้ป่วยรายนี้" : `ผู้ป่วยรายนี้ไม่ได้อยู่ใน unit แล้ว (${patient.status}) — ไม่มีการแจ้งเตือน`), alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0) || ALERT_LEVEL_RANK[a.level] - ALERT_LEVEL_RANK[b.level]).map((a, i) => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Alert center"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Cross-cutting safety signals based on latest logged values · ", /* @__PURE__ */ React.createElement("span", null, D_A.patientName(patient) || "—"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", disabled: activeAlerts.length === 0, onClick: acknowledgeAll }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14 }), " Acknowledge all"))), /* @__PURE__ */ React.createElement("div", { className: "alert-summary-tiles" }, /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Active critical"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--crit)" } }, activeAlerts.filter((a) => a.level === "crit").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Cautions"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--warn-ink)" } }, activeAlerts.filter((a) => a.level === "warn").length)), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, "Info / reminders"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 32, fontWeight: 500, color: "var(--brand)" } }, activeAlerts.filter((a) => a.level === "info").length))), /* @__PURE__ */ React.createElement("div", { className: "alert-badge-note", style: { fontSize: 12, color: "var(--ink-3)", margin: "-4px 0 12px" } }, "ตัวเลขบนเมนู Alerts นับเฉพาะ Critical และ Caution ที่ยังไม่ได้ Acknowledge — Info / reminders ไม่นับ"), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "bell", size: 14, color: "var(--brand)" }), " Patient alerts", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, activeAlerts.length, " active · ", alerts.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 8 } }, alerts.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "alert-empty", style: { fontSize: 13, color: "var(--ink-3)", padding: "6px 2px" } }, onUnit ? "ไม่มีการแจ้งเตือนสำหรับผู้ป่วยรายนี้" : `ผู้ป่วยรายนี้ไม่ได้อยู่ใน unit แล้ว (${patient.status}) — ไม่มีการแจ้งเตือน`), alerts.slice().sort((a, b) => (acked[ackKeyFor(a)] ? 1 : 0) - (acked[ackKeyFor(b)] ? 1 : 0) || ALERT_LEVEL_RANK[a.level] - ALERT_LEVEL_RANK[b.level]).map((a, i) => {
     const ackedAt = acked[ackKeyFor(a)];
     return /* @__PURE__ */ React.createElement("div", { key: ackKeyFor(a), className: `alert-row ${a.level}`, style: ackedAt ? { opacity: 0.5 } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "ico" }, a.level === "crit" ? "!" : a.level === "warn" ? "!" : "i"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", { className: "title" }, a.title), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)" }, className: "mono" }, "DOL ", a.dol)), /* @__PURE__ */ React.createElement("div", { className: "body" }, a.body), /* @__PURE__ */ React.createElement("div", { className: "meta" }, "Ref: ", a.ref)), ackedAt ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, color: "var(--ok)" }), " Acknowledged") : /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: () => acknowledge(a) }, "Acknowledge"));
   }))));

@@ -38,9 +38,9 @@ bugs did not work, and the harnesses on either side could not see them, because 
   - A taken id is refused as `IdTaken`, and `handleAddPatient` draws again, up to three times, without a word
     to the user. Nothing is ever written over the record that holds it.
   - The old id caught a second registration of the same baby by accident; a random id does not. So
-    registration now asks outright when an infant on file has the same birth weight and date of birth: this
-    device's list first (`D.possibleDuplicate`), then the server over every row (`_possibleDuplicate`, asked
-    last, after the bed and date checks). OK sends `confirmDuplicate`.
+    registration now asks outright when an infant on file has the same birth weight and date of birth. The
+    server asks (`_possibleDuplicate`, over every row, after the bed and date checks); the device shows its
+    sentence and OK sends `confirmDuplicate`.
   - `gasPost` keeps `needsConfirm`, and the server's own sentence as `message`.
   - `confirmOverwrite` is now unused (`BACKLOG.md`). No server message names initials any more.
 
@@ -53,16 +53,39 @@ bugs did not work, and the harnesses on either side could not see them, because 
 
 **Also:** an NF id is found with or without `NF-`, and by four digits or more.
 
-**Tests.** New `test/verify-name-id-0927.cjs`, 63 checks. § 5 runs the real `<App/>` in jsdom against the real
-backend. It fails 35 against `f675420`, in every section. `verify-backend-batch-0924`,
+**4 · One source for each kind of data (Pp: "check ว่าทุกอันเข้ากับ single of truth ข้อมูลชนิดเดียวกัน
+ต้องมาจากแหล่งเดียวเท่านั้น").** Checked before the merge. Each kind of data in this change now has one
+definition:
+- **The displayed name:** `D.patientName` (`name`, else the old `initials`). About twenty screens, messages and
+  the search each spelled out their own fallback, three different ways.
+- **Date of birth from an admission date and DOL:** `D.dobFromAdmitDol`. The Register modal, the Edit modal and
+  `dobFromAdmission` each had their own copy of the arithmetic.
+- **"Still on the unit":** `registry.jsx`'s `isActivePatient` is now `D.isOnUnit` itself, not a copy of it. Two
+  more copies written out inline (the archive filter, the Dashboard status chip) read it too.
+- **"Bed taken":** one client message, `D.bedTakenMsg`. The modals and App's last check worded it two ways.
+- **The look-alike question:** the server only. The device's own copy read a dob it derives for old records,
+  and a parked infant's last bed, so it could answer differently from the server. It is gone, and the device
+  shows the server's sentence.
+- **The NF prefix:** one constant, `SESSION_ID_PREFIX`.
+- Left as they are, on purpose:
+  - rules the server must hold as well: the bed spelling, one-infant-per-bed, the status list. Apps Script
+    cannot load the client's code, and the server is what refuses.
+  - old ids carrying initials and BW, which are Daily_Log keys.
+  - `initials`, written from the same two boxes as `name`.
+
+**Tests.** New `test/verify-name-id-0927.cjs`, 68 checks. § 3 pins each single source, and each of its static
+checks fails on the code before this pass. § 5 runs the real `<App/>` in jsdom against the real backend. It
+fails 35 against `f675420`, in every section. `verify-backend-batch-0924`,
 `verify-gas-registry-upsert` and `verify-review-0917-backend-writes` answer the new question for their
 look-alike fixtures, and
 `verify-ward-requests-0925` now expects ใจ to be a complete part and an NF id at registration.
 
-**Deploy order: release the frontend first, then `clasp`.**
-- The new frontend works on `@60`: a taken id is drawn again, and look-alikes are asked from its own list.
-- The new backend behind today's frontend would answer a taken initials id with "รีเฟรชหน้า …", which only
-  helps once the new frontend is out.
+**Deploy order: `clasp` first, then release the frontend straight after.**
+- The look-alike question lives on the server only. A new frontend on `@60` would register a second record of
+  the same baby with no question.
+- In the minutes between the two, today's frontend on the new backend is refused rather than asked. A
+  look-alike cannot be confirmed from it, and a taken initials id is told to refresh.
+
 ## Session 2026-09-27 — The bed-transfer review: the parked chip over the name, and six more
 
 Pp found it while capturing the manual's screenshots from release `10a4272`. On the desktop ward list a

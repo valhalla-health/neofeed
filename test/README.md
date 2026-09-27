@@ -1248,7 +1248,7 @@ own label. It now checks that the option can be chosen, and matches the hint's o
 
 ## Names, Edit patient and the NeoFeed ID, 2026-09-27 — one harness, four adjusted
 
-**`verify-name-id-0927.cjs`** (63 assertions; the jsdom set). The 2026-09-27 audit drove the real client
+**`verify-name-id-0927.cjs`** (68 assertions; the jsdom set). The 2026-09-27 audit drove the real client
 against the real backend. It found three bugs that neither side's harnesses could see, because each fakes
 the other. § 5 is built the same way: the real `<App/>` in jsdom (review-0917-boot's driver), with every
 request answered by the real `gas-backend.gs` in `gas-vm-sandbox.cjs`.
@@ -1256,7 +1256,13 @@ request answered by the real `gas-backend.gs` in `gas-vm-sandbox.cjs`.
   cut as before.
 - § 2: a new id is `NF-` and six random digits, with no modulo bias. Search finds it with or without `NF-`,
   or by four digits or more.
-- § 3: `possibleDuplicate` matches the same birth weight and date of birth, never an erased record.
+- § 3, one source for each kind of data (Pp's check before the merge):
+  - one definition each for the displayed name, dob from an admission date and DOL, the bed-taken message,
+    "on the unit" and the NF prefix;
+  - no view spells one out again;
+  - the look-alike rule and its words live in `gas-backend.gs` only.
+
+  Each static check fails on the tree before that pass (`21cfcd5`).
 - § 4, the backend:
   - an Admit date or DOL แรกรับ correction saves, including on a record with no stored dob and on one dated
     in พ.ศ.;
@@ -1265,7 +1271,7 @@ request answered by the real `gas-backend.gs` in `gas-vm-sandbox.cjs`.
 - § 5, both together:
   - the Edit modal's Admit-date correction lands on the sheet;
   - a taken id is drawn again without a word to the user;
-  - a look-alike is asked about from this device's list, and from the server for a record no ward syncs.
+  - the server asks about a look-alike, whether this device has synced it or not.
 
 Against `f675420` (release `10a4272`) it fails 35 of those checks, in every section.
 

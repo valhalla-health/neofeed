@@ -1684,14 +1684,22 @@ function admissionDol(patient) {
   return Number(patient?.weights?.[0]?.dol) || 1;
 }
 
+// Date of birth from an admission date and the DOL on that day: admission date
+// − (DOL − 1). The one place it is computed (2026-09-27, single source of
+// truth): the Register and Edit modals and dobFromAdmission below each had
+// their own copy of this arithmetic. A blank or non-numeric DOL counts as 1.
+function dobFromAdmitDol(admitDate, admitDol) {
+  const dol = Math.max(1, parseInt(admitDol, 10) || 1);
+  return addDaysToDateStr(admitDate, -(dol - 1));
+}
+
 // The dob a legacy record without one implies: admission date − (the first
 // row's DOL − 1). app.jsx gives every such record one at sync, so DOL is on the
 // anchor that cannot move; the first edit of the record persists it. "" when
 // there is no usable admission date to derive from.
 function dobFromAdmission(patient) {
   if (!patient?.admissionDate || admissionDateIssue(patient.admissionDate)) return "";
-  const admitDol = Math.max(1, Number(patient.weights?.[0]?.dol) || 1);
-  return addDaysToDateStr(normalizeDateStr(patient.admissionDate), -(admitDol - 1));
+  return dobFromAdmitDol(normalizeDateStr(patient.admissionDate), patient.weights?.[0]?.dol);
 }
 
 // ============================================================
@@ -1904,6 +1912,15 @@ function bedOccupant(patients, bed, excludeSessionId) {
 function bedBlocker(patients, record) {
   if (!isOnUnit(record)) return null;
   return bedOccupant(patients, record.currentBed, record.sessionId);
+}
+
+// The one message for a bed someone else holds (2026-09-27, single source of
+// truth: the modals and App's last check worded it two ways). It says who is in
+// it and what to do, because "เตียงไม่ว่าง" alone leaves the user clicking the
+// same option again. The server words its own refusal (_bedConflict).
+function bedTakenMsg(bed, holder) {
+  const who = patientName(holder) || holder.sessionId;
+  return `เตียง ${bed} มี ${who} อยู่แล้ว — ต้องย้าย ${who} ออกก่อน (Transfer) จึงจะบันทึกเตียงนี้ได้`;
 }
 
 // A patient "parked" mid-move (Praew, 2026-09-23: "ย้ายเตียงแปะไว้ก่อน"): they
@@ -2160,6 +2177,14 @@ function nameInitials(first, last) {
   return nameInitial(first) + nameInitial(last);
 }
 
+// The infant's name as every screen, form and search shows it: the `name`
+// column, or the `initials` one for a record from before names were stored, or
+// "". The one definition (2026-09-27, single source of truth); each caller adds
+// only its own placeholder, "—" or the NeoFeed ID where someone must be named.
+function patientName(p) {
+  return String((p && (p.name || p.initials)) || "");
+}
+
 // ── NeoFeed ID ────────────────────────────────────────────────
 // A new infant's sessionId is "NF-" and six random digits (Pp, 2026-09-27:
 // "สร้าง ID … มันก็แค่ ID ที่หลังบ้านจะเข้าใจตรงกันเฉยๆ user ไม่ต้องรู้ความหมาย
@@ -2171,6 +2196,7 @@ function nameInitials(first, last) {
 // one never changes: only new registrations get this form. An id that is
 // already taken is refused by the server, and handleAddPatient (app.jsx) draws
 // another one.
+const SESSION_ID_PREFIX = "NF-";
 function newSessionId() {
   const c = (typeof globalThis !== "undefined" && globalThis.crypto)
     || (typeof window !== "undefined" && window.crypto);
@@ -2183,33 +2209,7 @@ function newSessionId() {
   } else {
     n = Math.floor(Math.random() * 1000000);
   }
-  return "NF-" + String(n).padStart(6, "0");
-}
-
-// An infant already on file that a new registration may be the same baby as
-// (Pp, 2026-09-27): the same birth weight and the same date of birth. The old
-// initials-and-weight id caught this by accident, because two registrations of
-// one baby drew the same id. A random id does not, so it is asked outright: a
-// second device registering the same admission, or a baby transferred out and
-// back. An erased record is never a match: its dob is gone. Mirrors
-// _possibleDuplicate in gas-backend.gs, which asks again under the lock over
-// every row, not only the ones this device has synced.
-function possibleDuplicate(patients, p) {
-  const dob = normalizeDateStr(p && p.dob);
-  const bw = Number(p && p.bw);
-  if (!dob || !(bw > 0)) return null;
-  return (patients || []).find(x => x && String(x.sessionId) !== String(p.sessionId)
-    && Number(x.bw) === bw && normalizeDateStr(x.dob) === dob
-    && !String(x.name || "").startsWith("[PDPA-erased")) || null;
-}
-// What the registration asks when possibleDuplicate finds someone. Same
-// wording as the server's.
-function possibleDuplicateMsg(existing, p) {
-  const bed = normalizeBed(existing.currentBed) || lastBed(existing);
-  return `มีเด็ก BW ${Number(p.bw)} g เกิดวันที่ ${normalizeDateStr(p.dob)} อยู่ในระบบแล้ว: ` +
-    `${existing.name || existing.initials || "—"} (${existing.status || "Active"} ` +
-    `${bed ? "เตียง " + bed : "ยังไม่ระบุเตียง"} ID ${existing.sessionId}) ` +
-    `ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่`;
+  return SESSION_ID_PREFIX + String(n).padStart(6, "0");
 }
 
 // ── Search ────────────────────────────────────────────────────
@@ -2323,7 +2323,7 @@ function bedSearchRank(p, q) {
 function idSearchRank(id, v) {
   const flat = v.replace(/[\s-]/g, "");
   const idFlat = id.replace(/[\s-]/g, "");
-  if (/^\d+$/.test(flat)) return flat.length >= 4 && idFlat.startsWith("nf" + flat) ? 20 : 0;
+  if (/^\d+$/.test(flat)) return flat.length >= 4 && idFlat.startsWith(SESSION_ID_PREFIX.replace(/-/g, "").toLowerCase() + flat) ? 20 : 0;
   return flat.length >= 3 && idFlat.startsWith(flat) ? 20 : 0;
 }
 function patientSearchRank(p, query) {
@@ -2334,7 +2334,7 @@ function patientSearchRank(p, query) {
   let best = 0;
   for (const v of bare && bare !== q ? [q, bare] : [q]) {
     best = Math.max(best,
-      nameSearchRank(p.name || p.initials, v),
+      nameSearchRank(patientName(p), v),
       bedSearchRank(p, v),
       idSearchRank(id, v),
       v.length >= 2 && dx.includes(v) ? 10 : 0);
@@ -2407,7 +2407,7 @@ window.NEOFEED_DATA = {
   // instead of trusting the stored (snapshot, goes stale) `dol` column;
   // admissionDol is the admission day's DOL, from the anchor.
   liveDol, dolAtDate, entryDol, admissionDol, daysBetweenDateStr,
-  dobCredible, hasDolAnchor, dobFromAdmission,
+  dobCredible, hasDolAnchor, dobFromAdmission, dobFromAdmitDol,
   // Growth-chart rows follow a corrected anchor (EditPatientModal)
   anchorShiftDays, moveGrowthRows,
   // Admission/birth-date plausibility. Every DOL, PMA and DOL-indexed target
@@ -2421,7 +2421,7 @@ window.NEOFEED_DATA = {
   growthVelocity, PMA_REFERENCE_MAX, GROWTH_VEL_TARGET, GROWTH_VEL_CRITICAL, REGAIN_EXPECTED_BY_DOL,
   // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
   // the one bed list, and the one-patient-per-bed occupancy helpers
-  normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
+  normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, bedTakenMsg, nextFreeBed,
   lastBed, isParked, patientWard, bedHop,
   // "Still on the unit" — the one definition the bed guard, the Alerts badge
   // and the admin census all read, so a discharged infant cannot hold a bed on
@@ -2451,6 +2451,6 @@ window.NEOFEED_DATA = {
   // Patient name: ชื่อ + นามสกุล, two characters each (Thai; English for a
   // foreign infant), and the one search every search box goes through
   NAME_PART_CHARS, namePart, nameComplete, composePatientName, splitPatientName, nameInitials,
-  newSessionId, possibleDuplicate, possibleDuplicateMsg,
+  newSessionId, patientName,
   searchFold, qwertyToThai, patientSearchRank, searchPatients,
 };

@@ -3264,7 +3264,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             )}
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 }}>
-              <span className="num">{scratch ? "ไม่ผูกกับผู้ป่วย" : (patient?.name || patient?.initials || "—")}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>}{tpnWtManual && <> (calc. weight set manually to {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
+              <span className="num">{scratch ? "ไม่ผูกกับผู้ป่วย" : (D.patientName(patient) || "—")}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>}{tpnWtManual && <> (calc. weight set manually to {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
             </div>
             {/* Whom to call about this order (TPN team, 2026-09-22) — the same
                 name the printed form carries (savedByOf). */}
@@ -3725,7 +3725,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
       <table style={{ width:"100%", borderCollapse:"collapse", marginBottom:4, fontSize:10.5 }}>
         <tbody>
           <tr>
-            <td style={{ width:"45%" }}>ชื่อ: <strong>{patient?.name || patient?.initials || "—"}</strong>
+            <td style={{ width:"45%" }}>ชื่อ: <strong>{D.patientName(patient) || "—"}</strong>
               {patient?.twinSuffix && <strong> (Twin {patient.twinSuffix})</strong>}</td>
             {/* Was labeled "AN:" — read as the hospital's real Admission Number, but this
                 is NeoFeed's own sessionId: "NF-" and six random digits since 2026-09-27,
@@ -3929,7 +3929,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <div style={{ fontWeight:700, fontSize:12 }}>สำหรับเภสัชกร — รายละเอียดการผสม (ด้านหลังใบสั่ง)</div>
           {/* Plain text, no figures: this sheet must name the infant if the two part. */}
           <div style={{ fontSize:10 }}>
-            {patient?.name || patient?.initials || "—"}{patient?.twinSuffix ? ` (Twin ${patient.twinSuffix})` : ""} · NeoFeed ID {patient?.sessionId || "—"} · DOL {dol} · ตึก {patient?.currentBed || "—"} · วันที่ให้ TPN {orderDateLabel}
+            {D.patientName(patient) || "—"}{patient?.twinSuffix ? ` (Twin ${patient.twinSuffix})` : ""} · NeoFeed ID {patient?.sessionId || "—"} · DOL {dol} · ตึก {patient?.currentBed || "—"} · วันที่ให้ TPN {orderDateLabel}
           </div>
         </div>
 

@@ -15,12 +15,15 @@
 //
 //   § 1 names       a name with fewer than two letters keeps two characters
 //   § 2 id          "NF-" + six random digits; search finds it, with or without NF-
-//   § 3 duplicate   same birth weight and date of birth = maybe the same baby
+//   § 3 one source  one definition each: the displayed name, dob from an
+//                   admission date + DOL, the bed-taken message, "on the unit",
+//                   the NF prefix; the look-alike rule and its words on the
+//                   server only (Pp: "ข้อมูลชนิดเดียวกัน ต้องมาจากแหล่งเดียว")
 //   § 4 backend     corrections save; a conflict, a taken id and a look-alike are
 //                   each refused in words (none says ชื่อย่อ), nothing written
 //   § 5 together    the real <App/> in jsdom against the real gas-backend.gs
 //                   (gas-vm-sandbox): an Admit-date correction lands, a taken id
-//                   is drawn again, a look-alike asks first — here and on the server
+//                   is drawn again, and the server asks about a look-alike (synced or not)
 //
 // Negative control: every section fails against f675420 (release 10a4272).
 // Dev-only deps as in test/README.md. One scenario per process (runScenarios).
@@ -152,20 +155,41 @@ const scenarios = {
   },
 
   // ════ § 3 ════
-  async 'duplicate'(A) {
-    console.log('\n── § 3 possibleDuplicate: same birth weight and date of birth ──');
+  async 'single-source'(A) {
+    console.log('\n── § 3 one source for each kind of data ──');
     const D = loadData();
-    const on = { sessionId: 'NF-111111', name: 'สม จด', bw: 900, dob: '2026-09-20', status: 'Transferred', currentBed: 'NICU 11' };
-    const reg = { sessionId: 'NF-222222', bw: 900, dob: '2026-09-20' };
-    A.eq('3.1 same BW and dob: found', D.possibleDuplicate([on], reg)?.sessionId, 'NF-111111');
-    A.eq('3.2 another dob: not', D.possibleDuplicate([on], { ...reg, dob: '2026-09-21' }), null);
-    A.eq('3.3 another BW: not', D.possibleDuplicate([on], { ...reg, bw: 901 }), null);
-    A.eq('3.4 itself: not', D.possibleDuplicate([on], { ...reg, sessionId: 'NF-111111' }), null);
-    A.eq('3.5 an erased record: not', D.possibleDuplicate([{ ...on, name: '[PDPA-erased 2026-09-20]' }], reg), null);
-    A.eq('3.6 no dob on the registration: not asked', D.possibleDuplicate([on], { ...reg, dob: '' }), null);
-    const msg = D.possibleDuplicateMsg(on, reg);
-    A.ok('3.7 the question names the infant, status, bed and id',
-      ['สม จด', 'Transferred', 'NICU 11', 'NF-111111', '900', '2026-09-20'].every(s => msg.includes(s)));
+    const read = (f) => fs.readFileSync(path.join(DIR, f), 'utf8');
+    const code = (f) => read(f).split('\n').filter(l => !/^\s*(\/\/|\*|\{\/\*)/.test(l)).join('\n');
+    A.eq('3.1 patientName: the name, else the old initials, else ""',
+      [D.patientName({ name: 'สม จด', initials: 'สจ' }), D.patientName({ name: '', initials: 'ปพ' }), D.patientName({}), D.patientName(null)],
+      ['สม จด', 'ปพ', '', '']);
+    A.eq('3.2 dobFromAdmitDol: admission date − (DOL − 1); a blank DOL is 1',
+      [D.dobFromAdmitDol('2026-09-20', 3), D.dobFromAdmitDol('2026-09-20', ''), D.dobFromAdmitDol('2026-09-20', '3')],
+      ['2026-09-18', '2026-09-20', '2026-09-18']);
+    A.eq('3.3 …and the legacy-record dob is the same arithmetic',
+      D.dobFromAdmission({ admissionDate: '2026-09-20', weights: [{ dol: 3, w: 900 }] }), D.dobFromAdmitDol('2026-09-20', 3));
+    const m1 = D.bedTakenMsg('NICU 5', { sessionId: 'NF-000001', name: 'สม จด' });
+    const m2 = D.bedTakenMsg('NICU 5', { sessionId: 'NF-000002', name: '', initials: '' });
+    A.ok('3.4 bedTakenMsg names who is in the bed, or the id when there is no name',
+      m1.split('สม จด').length === 3 && m2.includes('NF-000002'));
+    A.ok('3.5 the look-alike rule is not on the device', typeof D.possibleDuplicate === 'undefined' && typeof D.possibleDuplicateMsg === 'undefined');
+    const Q = 'ถ้าเป็นคนเดียวกัน ให้เปิด record เดิม';
+    A.eq('3.6 …and its words are in gas-backend.gs only',
+      ['data.js', 'app.jsx', 'registry.jsx', 'gas-backend.gs'].map(f => code(f).includes(Q)), [false, false, false, true]);
+    const views = ['registry.jsx', 'app.jsx', 'calculator.jsx', 'log.jsx'];
+    // A patient's name falls back to its initials, its id or `id`; a staff user's (the edit-lock
+    // holder: holder.name || holder.email) is not a patient's name and is left alone.
+    A.eq('3.7 no view builds its own patient name (name || initials / sessionId / id)',
+      views.map(f => /\.name \|\| ([\w?]+\.)?(initials|sessionId|id)\b/.test(code(f))), [false, false, false, false]);
+    A.ok('3.8 registry\'s "still on the unit" is isOnUnit itself', /const isActivePatient = D_R\.isOnUnit;/.test(read('registry.jsx')));
+    A.eq('3.9 …and no view writes that rule out again',
+      ['registry.jsx', 'app.jsx'].map(f => /!\w+\.status \|\| \w+\.status === "Active"|\w+\.status && \w+\.status !== "Active"/.test(code(f))), [false, false]);
+    A.eq('3.10 both modals take dob from dobFromAdmitDol, and no view does the arithmetic',
+      [(code('registry.jsx').match(/D_R\.dobFromAdmitDol\(/g) || []).length, /addDaysToDateStr\(admitDate/.test(code('registry.jsx'))], [2, false]);
+    A.eq('3.11 one bed-taken wording on the device (data.js)',
+      ['data.js', 'registry.jsx', 'app.jsx'].map(f => (code(f).match(/จึงจะบันทึกเตียงนี้ได้/g) || []).length), [1, 0, 0]);
+    A.ok('3.12 the NF prefix is one constant', /const SESSION_ID_PREFIX = "NF-";/.test(read('data.js'))
+      && /SESSION_ID_PREFIX \+ String\(n\)/.test(read('data.js')) && !/"nf" \+/.test(read('data.js')));
   },
 
   // ════ § 4 ════
@@ -268,7 +292,7 @@ const scenarios = {
   },
 
   async 'app-lookalike'(A) {
-    console.log('\n── § 5c a look-alike asks first: from this device, and from the server ──');
+    console.log('\n── § 5c the server asks about a look-alike, synced to this device or not ──');
     const g = backend();
     // Synced to the ward (transferred three days ago)…
     g.seed('NF-600001', { name: 'สม จด', initials: 'สจ', bw: 900, dob: day(-20), admit: day(-20), status: 'Transferred', bed: 'NICU 11', statusDate: day(-3) });
@@ -293,15 +317,15 @@ const scenarios = {
       await t.settle();
     };
     await admitAs(day(-20));
-    A.ok('5c.1 asked before sending, naming the infant on file', t.confirms.length === 1 && /สม จด/.test(t.confirms[0]) && /Transferred/.test(t.confirms[0]));
-    A.eq('5c.2 declined: nothing sent, nothing written', [t.callsOf('registerPatient').length, g.rows('Patient_Registry').length], [0, 2]);
+    A.ok('5c.1 the server asked, naming the infant on file', t.confirms.length === 1 && /สม จด/.test(t.confirms[0]) && /Transferred/.test(t.confirms[0]));
+    A.eq('5c.2 declined: one request (the question), nothing written', [t.callsOf('registerPatient').length, g.rows('Patient_Registry').length], [1, 2]);
     A.ok('5c.3 …and the modal says so', /ยกเลิก/.test(modalError(t)));
     await t.click(t.btn(/Cancel/, t.modal()));
-    // 2. The same, accepted: sent once, with confirmDuplicate.
+    // 2. The same, accepted: asked again, then sent with confirmDuplicate.
     t.answer = true;
     await admitAs(day(-20));
-    const r1 = t.callsOf('registerPatient');
-    A.eq('5c.4 accepted: one request, carrying confirmDuplicate', [r1.length, r1[0]?.confirmDuplicate], [1, true]);
+    const r1 = t.callsOf('registerPatient').slice(1);
+    A.eq('5c.4 accepted: the question, then the request with confirmDuplicate', [r1.length, !!r1[0]?.confirmDuplicate, r1[1]?.confirmDuplicate], [2, false, true]);
     A.ok('5c.5 …and a second record exists, under its own id', g.rows('Patient_Registry').filter(r => r[1] === 'สด จง').length === 1);
     // 3. A look-alike only the server sees: it asks, and a yes sends again.
     t.confirms.length = 0;
@@ -320,7 +344,7 @@ const scenarios = {
       await t.click(t.btn(/Register/, m));
       await t.settle();
     }
-    const r2 = t.callsOf('registerPatient').slice(1);
+    const r2 = t.callsOf('registerPatient').slice(3);
     A.ok('5c.6 the server asked, naming the record no ward syncs', t.confirms.length === 1 && /ปร พฒ/.test(t.confirms[0]) && /NF-600002/.test(t.confirms[0]));
     A.eq('5c.7 a yes sends it again with confirmDuplicate, and it lands', [r2.length, r2[1]?.confirmDuplicate, g.rows('Patient_Registry').some(r => r[1] === 'ปร พง')], [2, true, true]);
   },
