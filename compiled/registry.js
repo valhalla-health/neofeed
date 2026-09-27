@@ -27,6 +27,10 @@ function BedChip({ p, style, stacked }) {
   }
   return /* @__PURE__ */ React.createElement("span", { className: "bed-chip chip", style }, /* @__PURE__ */ React.createElement("span", { className: "d" }), p.currentBed || D_R.lastBed(p));
 }
+function LeftUnitBed({ p, style }) {
+  const from = p.currentBed || D_R.lastBed(p);
+  return /* @__PURE__ */ React.createElement("span", { className: "bed-chip bed-wait bed-left", style, title: `${p.status} — ออกจาก unit แล้ว` }, /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), p.status), " ", from && /* @__PURE__ */ React.createElement("span", { className: "bed-wait-from" }, "จาก ", from));
+}
 const isActivePatient = (p) => !p.status || p.status === "Active";
 const MULTIPLES_COUNT_TERM = { 2: "Twin", 3: "Triplet", 4: "Quadruplet" };
 const MULTIPLES_LETTER_FALLBACK = { A: "Twin", B: "Twin", C: "Triplet", D: "Quadruplet" };
@@ -563,7 +567,8 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
 function PatientPicker({ patients, activeId, onSelect, onClose }) {
   const [q, setQ] = React.useState("");
   const byBed = [...patients].sort(bedSort);
-  const filtered = q.trim() ? D_R.searchPatients(byBed, q).hits : byBed;
+  const found = q.trim() ? D_R.searchPatients(byBed, q).hits : byBed;
+  const filtered = [...found.filter(isActivePatient), ...found.filter((p) => !isActivePatient(p))];
   React.useEffect(() => {
     const h = (e) => {
       if (e.key === "Escape") onClose();
@@ -602,7 +607,8 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
         padding: "10px 18px",
         cursor: "pointer",
         background: p.sessionId === activeId ? "var(--brand-bg)" : void 0,
-        borderBottom: "1px solid var(--line-2)"
+        borderBottom: "1px solid var(--line-2)",
+        opacity: isActivePatient(p) ? void 0 : 0.6
       },
       onMouseEnter: (e) => {
         if (p.sessionId !== activeId) e.currentTarget.style.background = "var(--bg-2)";
@@ -611,7 +617,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
         if (p.sessionId !== activeId) e.currentTarget.style.background = "";
       }
     },
-    /* @__PURE__ */ React.createElement(BedChip, { p, stacked: true, style: { justifySelf: "start" } }),
+    isActivePatient(p) ? /* @__PURE__ */ React.createElement(BedChip, { p, stacked: true, style: { justifySelf: "start" } }) : /* @__PURE__ */ React.createElement(LeftUnitBed, { p, style: { justifySelf: "start" } }),
     /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: 14 } }, p.name || p.initials || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 10.5, color: "var(--ink-3)" } }, multiplesLabel(p))),
     /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 12, color: "var(--brand-2)", fontWeight: 600 } }, D_R.fmtGA(p.ga)),
     /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 12, color: "var(--ink-2)" } }, p.bw.toLocaleString(), "g"),

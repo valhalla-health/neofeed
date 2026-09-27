@@ -820,6 +820,9 @@
   .bed-chip, .bed-chip .chip { white-space: normal; }
   .bed-wait { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
   .bed-wait-from { font-size: 10.5px; line-height: 1.25; font-weight: 500; color: var(--warn-ink); }
+  /* Switch patient: an infant who has left the unit (LeftUnitBed) — the
+     status chip, and the bed left from in grey, not the warn colour. */
+  .bed-left .bed-wait-from { color: var(--ink-3); }
 
   /* ============ PATIENT PICKER (modal-style) ============ */
   .picker-backdrop {
@@ -1959,9 +1962,9 @@
   <script src="compiled/icons.js?v=98d52ac7b1"></script>
   <script src="compiled/calculator.js?v=d7cd51810b"></script>
   <script src="compiled/fenton.js?v=f9e6212215"></script>
-  <script src="compiled/registry.js?v=669702c15b"></script>
+  <script src="compiled/registry.js?v=5893306535"></script>
   <script src="compiled/log.js?v=5ef4788e27"></script>
-  <script src="compiled/app.js?v=e759a33bad"></script>
+  <script src="compiled/app.js?v=9ed999de4c"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

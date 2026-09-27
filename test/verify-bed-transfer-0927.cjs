@@ -11,8 +11,13 @@
 //      list: a "รอเตียง" chip with a small "จาก NICU 7" line under it, in the
 //      column's own width. The phone card keeps its one-line chip.
 //   §2 an infant who left the unit while parked is not "รอเตียง": the archive
-//      row, the phone's archive card and the Switch-patient list show the bed
-//      they last had, in the ordinary chip
+//      row and the phone's archive card show the bed they last had, in the
+//      ordinary chip
+//   §2b Switch patient lists the unit first. An infant who has left (found by
+//      another session, confirmed here) was listed under their old bed with no
+//      status, and searching that bed's number put them above the infant now
+//      in it. Now they come after the unit, dimmed, their bed cell reading
+//      "Transferred จาก NICU 9"
 //   §3 the transfer dialog: a bed someone is in can be chosen, which says who
 //      is in it and how to swap (park them first). Confirm stays disabled.
 //      Register and Edit still refuse the bed at the dropdown.
@@ -202,7 +207,38 @@ const parkedLook = (cell) => {
     ok('phone archive card: no "รอเตียง"', !!archivedCard && !/รอเตียง/.test(archivedCard.textContent), archivedCard?.textContent);
 
     await mountPicker(patients);
-    eq('Switch patient: the bed they last had', pickerRow('BC')?.children[0].textContent.trim(), 'NICU 9');
+    eq('Switch patient: their status, and the bed they left from', pickerRow('BC')?.children[0].textContent.trim(), 'Discharged จาก NICU 9');
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
+  await section('§2b Switch patient: the unit first; an infant who has left never reads as in their old bed', async () => {
+    const t3 = D.addDaysToDateStr(TODAY, -3);
+    const patients = [
+      rec('BK', { currentBed: 'NICU 1' }),
+      rec('BL', { currentBed: 'NICU 9', status: 'Transferred', statusDate: t3 }),     // left NICU 9 three days ago
+      rec('BM', { currentBed: 'NICU 9' }),                                           // in NICU 9 now
+      rec('BN', { bedHistory: [{ bed: 'NICU 7', date: TODAY }] }),                  // parked
+      rec('BO', { status: 'Discharged', statusDate: TODAY, bedHistory: [{ bed: 'NICU 12', date: TODAY }] }),
+    ];
+    await mountPicker(patients);
+    const names = () => [...probe.querySelectorAll('.picker-row')].map(r => r.children[1].textContent.trim());
+    eq('browsing: every infant on the unit, then those who have left', names(), ['BK', 'BM', 'BN', 'BL', 'BO']);
+    const input = probe.querySelector('.picker-h input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, '9');
+      input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    await flush();
+    eq('searching "9": the infant in NICU 9 before the one who left it', names(), ['BM', 'BL']);
+    const left = pickerRow('BL');
+    eq('the departed row\'s bed cell: status, then the bed left from', left?.children[0].textContent.trim(), 'Transferred จาก NICU 9');
+    // The cell itself may be the chip (querySelectorAll never returns the element it is called on).
+    const chipsIn = (el) => [el, ...el.querySelectorAll('.chip')].filter(e => e.classList.contains('chip'));
+    ok('…with no plain "NICU 9" bed chip', !!left && !chipsIn(left.children[0]).some(c => c.textContent.trim() === 'NICU 9'),
+      left && chipsIn(left.children[0]).map(c => c.textContent.trim()));
+    eq('…dimmed', left?.style.opacity, '0.6');
+    eq('the infant in NICU 9 is not dimmed', pickerRow('BM')?.style.opacity, '');
+    eq('the tooltip says they have left', left?.children[0].getAttribute('title'), 'Transferred — ออกจาก unit แล้ว');
   });
 
   // ══════════════════════════════════════════════════════════════════════
@@ -393,6 +429,7 @@ const parkedLook = (cell) => {
       P('ธอ-BW1000', 'ธน อร', '', { bedHistory: [{ bed: 'NICU 7', date: today }] }),
       P('นจ-BW1000', 'นฝ จด', '', { bedHistory: [{ bed: 'NICU 12', date: today }] }),
       P('วส-BW1000', 'วร สข', '', { status: 'Discharged', statusDate: today, bedHistory: [{ bed: 'NICU 10', date: today }] }),
+      P('ทฟ-BW1000', 'ทฟ กด', 'NICU 11', { status: 'Transferred', statusDate: today }),   // the widest status chip
       P('ทก-BW1000', 'ทอ กล', 'SCN 30'),
       P('มน-BW1000', 'มน นา', '', { bedHistory: [{ bed: 'SCN 30', date: today }] }),
     ];
@@ -448,7 +485,7 @@ const parkedLook = (cell) => {
         await page.waitForTimeout(150);
         const nicu = await page.evaluate(TABLE);
         ok(`${W}px NICU table: every bed cell inside its column, clear of the name (${nicu.length} rows)`,
-          nicu.length === 6 && clean(nicu), nicu.filter(r => r.past > 0.5 || r.overName));
+          nicu.length === 7 && clean(nicu), nicu.filter(r => r.past > 0.5 || r.overName));
         await page.locator('button', { hasText: 'เปลี่ยน ward' }).click();
         await page.locator('.ward-tile', { hasText: 'SCN' }).first().click();
         await page.waitForSelector('.patient-table tbody tr');
@@ -458,7 +495,7 @@ const parkedLook = (cell) => {
         await page.waitForSelector('.picker-row');
         const pick = await page.evaluate(PICKER);
         ok(`${W}px Switch patient: no bed column over a name (${pick.length} rows)`,
-          pick.length === 8 && pick.every(r => !r.overName), pick.filter(r => r.overName));
+          pick.length === 9 && pick.every(r => !r.overName), pick.filter(r => r.overName));
         ok(`${W}px no page errors`, errors.length === 0, errors);
       } catch (e) {
         ok(`${W}px the app opened and every screen was reached`, false, e.message.split('\n')[0]);

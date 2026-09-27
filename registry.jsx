@@ -64,6 +64,21 @@ function BedChip({ p, style, stacked }) {
   return <span className="bed-chip chip" style={style}><span className="d" />{p.currentBed || D_R.lastBed(p)}</span>;
 }
 
+// Switch patient's bed cell for an infant who has left the unit (Discharged,
+// Transferred, Expired): the status where the bed would be, and the bed they
+// left from under it. Their record keeps that bed's label, and the plain chip
+// made the row read as the infant in that bed — found first by its number,
+// above the infant who is in it now (2026-09-27).
+function LeftUnitBed({ p, style }) {
+  const from = p.currentBed || D_R.lastBed(p);
+  return (
+    <span className="bed-chip bed-wait bed-left" style={style} title={`${p.status} — ออกจาก unit แล้ว`}>
+      <span className="chip"><span className="d" />{p.status}</span>{" "}
+      {from && <span className="bed-wait-from">จาก {from}</span>}
+    </span>
+  );
+}
+
 // One definition of "still on the unit" for the whole registry — the list, the
 // Active tile, and the Logged today / Needs entry split all have to agree, and
 // they didn't: the list counted a blank status as Active (the backend defaults
@@ -1126,7 +1141,12 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
 function PatientPicker({ patients, activeId, onSelect, onClose }) {
   const [q, setQ] = React.useState("");
   const byBed = [...patients].sort(bedSort);
-  const filtered = q.trim() ? D_R.searchPatients(byBed, q).hits : byBed;
+  const found = q.trim() ? D_R.searchPatients(byBed, q).hits : byBed;
+  // Every infant on the unit first, then those who have left it, each group
+  // in bed (or search) order. A departed infant is still reachable here — an
+  // admin works the archive through this list — but never above, or mistaken
+  // for, the infant now in their old bed (see LeftUnitBed).
+  const filtered = [...found.filter(isActivePatient), ...found.filter(p => !isActivePatient(p))];
 
   React.useEffect(() => {
     const h = e => { if (e.key === "Escape") onClose(); };
@@ -1154,12 +1174,15 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
                 gap: 10,
                 alignItems: "center", padding: "10px 18px", cursor: "pointer",
                 background: p.sessionId === activeId ? "var(--brand-bg)" : undefined,
-                borderBottom: "1px solid var(--line-2)"
+                borderBottom: "1px solid var(--line-2)",
+                opacity: isActivePatient(p) ? undefined : 0.6,
               }}
               onMouseEnter={e => { if (p.sessionId !== activeId) e.currentTarget.style.background = "var(--bg-2)"; }}
               onMouseLeave={e => { if (p.sessionId !== activeId) e.currentTarget.style.background = ""; }}
             >
-              <BedChip p={p} stacked style={{ justifySelf: "start" }} />
+              {isActivePatient(p)
+                ? <BedChip p={p} stacked style={{ justifySelf: "start" }} />
+                : <LeftUnitBed p={p} style={{ justifySelf: "start" }} />}
               <span>
                 <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</span>
                 {/* Twins/multiples share initials by construction and are usually in
