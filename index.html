@@ -812,6 +812,18 @@
   .chip.brand { color: var(--brand-ink); border-color: var(--brand-line); background: var(--brand-bg); }
   .chip.brand .d { background: var(--brand); }
 
+  /* Bed cells (registry.jsx BedChip). Never wider than the column: a label
+     longer than it wraps inside it, where the parked chip used to print over
+     the infant's name (2026-09-27). Stacked, a parked infant is a "รอเตียง"
+     chip with the bed left on a small line under it (.bed-wait). */
+  .bed-chip { max-width: 100%; }
+  .bed-chip, .bed-chip .chip { white-space: normal; }
+  .bed-wait { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+  .bed-wait-from { font-size: 10.5px; line-height: 1.25; font-weight: 500; color: var(--warn-ink); }
+  /* Switch patient: an infant who has left the unit (LeftUnitBed) — the
+     status chip, and the bed left from in grey, not the warn colour. */
+  .bed-left .bed-wait-from { color: var(--ink-3); }
+
   /* ============ PATIENT PICKER (modal-style) ============ */
   .picker-backdrop {
     position: fixed; inset: 0; background: oklch(24% 0.022 205 / .38);
@@ -1817,6 +1829,11 @@
     .picker-row > span:nth-child(3) { grid-column: 2; grid-row: 1; }
     .picker-row > span:nth-child(4) { grid-column: 3; grid-row: 1; font-size: 12px; }
     .picker-row > span:nth-child(5) { display: none !important; }
+    /* A parked infant's bed (BedChip stacked, 2026-09-27): one line here,
+       where the bed has the row's width, at the size of the other beds. */
+    .picker-row > .bed-wait { flex-direction: row; align-items: center; gap: 6px; }
+    .picker-row > .bed-wait .chip { font-size: 15px; }
+    .picker-row > .bed-wait .bed-wait-from { font-size: 13px; }
   }
 
   /* ============ RESPONSIVE GRID HELPERS (targeted by className) ============ */
@@ -1941,13 +1958,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=9705fb2be2"></script>
+  <script src="data.js?v=48408a0dad"></script>
   <script src="compiled/icons.js?v=98d52ac7b1"></script>
   <script src="compiled/calculator.js?v=d7cd51810b"></script>
   <script src="compiled/fenton.js?v=f9e6212215"></script>
-  <script src="compiled/registry.js?v=5ddd55f370"></script>
+  <script src="compiled/registry.js?v=5893306535"></script>
   <script src="compiled/log.js?v=5ef4788e27"></script>
-  <script src="compiled/app.js?v=e759a33bad"></script>
+  <script src="compiled/app.js?v=9ed999de4c"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only
