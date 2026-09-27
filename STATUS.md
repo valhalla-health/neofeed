@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-27, 15:57 ICT — frontend `release` = `10a4272` on both hosts, with backend `@60`.**
+> PR #124 released #123: every phone swept, ชื่อ + นามสกุล, and a ward search that finds people.
+> `node tools/verify-release.mjs 10a4272` passed on both hosts: 0 failures, 31 checks on Cloudflare and
+> 30 on GitHub Pages. The tag `release-2026-09-27-pr124` is pushed (comment on #124).
+>
 > ✅ **2026-09-25, 14:50 ICT — frontend `release` = `8e605fb` on both hosts, with backend `@60`.**
 > PR #122 released #121, a harness fix and docs. No served file changed, so both hosts still serve
 > `e05a78d`'s bytes. `node tools/verify-release.mjs 8e605fb` passed on both hosts (0 failures, 61
@@ -73,12 +78,22 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-25, 18:42 ICT** · ✅ **Backend `@60` and frontend `release` = `8e605fb` are live, and
-both are verified.** `8e605fb` serves the same bytes as `e05a78d`. Caught up with #122 in #123, the next
-PR on the repo, as #122 asked.
-- ⏳ **PR #123: merged into `main` on Pp's instruction. Not live until a `main` → `release` PR.** Frontend
-  only: no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-18.1`. Nothing moves a dose, but it
-  changes what the ward types and sees (`CHANGELOG.md` 2026-09-25 (2)–(5)):
+**Updated 2026-09-27, 19:51 ICT** · ✅ **Backend `@60` and frontend `release` = `10a4272` are live, and
+both are verified.** Caught up with #124 in #125, the next PR on the repo, as #124 asked.
+- ⏳ **PR #125, the bed-transfer review: open, not merged.** Frontend only: no `clasp` step (the backend
+  already accepts the new `at` on a bed hop), and `CONSTANTS_VERSION` stays `2026-09-18.1`. Nothing moves
+  a dose. It fixes nine bed-move bugs (`CHANGELOG.md` 2026-09-27). ⚠️ **It changes what the ward sees:**
+  - a parked infant's bed cell on desktop: a "รอเตียง" chip with "จาก NICU 7" under it;
+  - choosing a taken bed in ⇄ says how to swap, and the next-free shortcut offers a real free bed;
+  - a bed changed in Edit now appears in "Previous beds";
+  - Switch patient lists the unit first, with infants who have left dimmed at the end;
+  - each patient save is followed by one sync.
+  - ⚠️ **Re-shoot any manual screenshot that shows a parked infant** once it is released.
+- ✅ **PR #123 is live**, released by PR #124 on Pp's instruction ("จัดการ PR 123-124 ด้วย deploy แล้วขึ้น
+  live") at 15:57 ICT: `release` = `10a4272`, whose tree is `main` at `f675420`. Frontend only: no `clasp`
+  step, and `CONSTANTS_VERSION` stays `2026-09-18.1`. Post-merge CI on `release` passed (run
+  36307823970). Nothing moves a dose, but it changes what the ward types and sees
+  (`CHANGELOG.md` 2026-09-25 (2)–(5)):
   - no calculator step is cut off on a phone (Step 3 lost its last 143 px on a 360 px Android), plus six
     more clipping or sideways-drag fixes, among them signing in on a phone held sideways;
   - registration takes ชื่อ + นามสกุล, the first two letters of each (ทองดี → ทอ), stored as "รย ทอ". A
@@ -123,9 +138,11 @@ PR on the repo, as #122 asked.
   PDPA-erased record wrote its date of birth back: `@57`/`@58`'s `updateWeights` fills an empty dob cell
   (F2, #108), and the erasure had emptied it (`CHANGELOG.md` 2026-09-24 (9)). Whether any erased row
   was refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
-- **Frontend:** PR #122 (`main` → `release`), merged on Pp's instruction on 2026-09-25 at 14:50:51 ICT:
-  `release` = `8e605fb`, `main` at `55d56ba`. It changed no served file, so the app is still what PR #120
-  released on 2026-09-24 at 16:58:39 UTC / 23:58 ICT: #118 and #119, `main` at `67ed949`.
+- **Frontend:** PR #124 (`main` → `release`), merged on Pp's instruction on 2026-09-27 at 15:57 ICT:
+  `release` = `10a4272`, `main` at `f675420` (#123). Its served bytes were verified on both hosts (0
+  failures; comment on #124). Before it, PR #122 (`main` → `release`), merged on 2026-09-25 at 14:50:51
+  ICT: `release` = `8e605fb`, `main` at `55d56ba`. It changed no served file, so that app was still what
+  PR #120 released on 2026-09-24 at 16:58:39 UTC / 23:58 ICT: #118 and #119, `main` at `67ed949`.
   `CONSTANTS_VERSION` is still `2026-09-18.1`. Both releases' served bytes were verified on both hosts
   (61 passes, 0 failures; comments on #122 and #120). Before them,
   PR #117 released #116 and #115 as `79f04ba` at 21:19 ICT, and PR #114 released #113 as `971c370` at
