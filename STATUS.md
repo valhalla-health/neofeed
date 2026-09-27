@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-27, 20:35 ICT — frontend `release` = `3453ba8` on both hosts, with backend `@60`.**
+> PR #126 released #125: the parked chip no longer covers the name, and eight more bed-move bugs.
+> `node tools/verify-release.mjs 3453ba8` passed on both hosts: 0 failures, 31 checks on Cloudflare and
+> 30 on GitHub Pages. The tag `release-2026-09-27-pr126` is pushed (comment on #126).
+>
 > ✅ **2026-09-27, 15:57 ICT — frontend `release` = `10a4272` on both hosts, with backend `@60`.**
 > PR #124 released #123: every phone swept, ชื่อ + นามสกุล, and a ward search that finds people.
 > `node tools/verify-release.mjs 10a4272` passed on both hosts: 0 failures, 31 checks on Cloudflare and
@@ -78,19 +83,24 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-27, 20:17 ICT** · ✅ **Backend `@60` and frontend `release` = `10a4272` are live, and
-both are verified.** Caught up with #124 in #125, the next PR on the repo, as #124 asked.
-- ⏳ **PR #127 (`claude/name-id-fixes-0927`): open, not merged.** Backend + frontend, from the 2026-09-27
-  audit, on Pp's decisions that day (`CHANGELOG.md` 2026-09-27 (2)):
+**Updated 2026-09-27, 20:51 ICT** · ✅ **Backend `@60` and frontend `release` = `3453ba8` are live, and
+both are verified.** Caught up with #126 in #127, the next PR on the repo, as #126 asked.
+- ⏳ **PR #127: merged into `main` on Pp's instruction. Not live until a `main` → `release` PR, and its
+  backend half not until a `clasp` deploy (Pp's call).** Backend + frontend, from the 2026-09-27 audit,
+  on Pp's decisions that day (`CHANGELOG.md` 2026-09-27 (2)):
   - Admit date and DOL แรกรับ can be corrected again. It has been refused since release #106.
     **Backend: needs a `clasp` deploy.**
   - A new infant's id is `NF-` and six random digits. A taken id is drawn again, and registration asks
     when an infant on file has the same BW and date of birth.
   - A name with one consonant keeps its vowels (ฤดี → ฤด).
   - **Order:** release the frontend first, then `clasp`.
-- ⏳ **PR #125, the bed-transfer review: merged into `main` on Pp's instruction ("merge PR 125 แล้ว
-  deploy"), and released straight after in one `main` → `release` PR.** The release checks are comments
-  on the release PR. Frontend only: no `clasp` step (the backend
+  - ⚠️ **It changes what the ward sees:** a new infant's NeoFeed ID (Edit, the order form, Copy Order's
+    LINE text) reads `NF-` and six digits, and registering a look-alike asks first. The Thai manual
+    needs both once it is live.
+- ✅ **PR #125 is live**, released by PR #126 on Pp's instruction ("merge PR 125 แล้ว deploy") at 20:35
+  ICT: `release` = `3453ba8`, whose tree is `main` at `e751f52`. Post-merge CI on `release` passed (run
+  36322940298), and `verify-release.mjs 3453ba8` passed on both hosts (comment on #126). Frontend only:
+  no `clasp` step (the backend
   already accepts the new `at` on a bed hop), and `CONSTANTS_VERSION` stays `2026-09-18.1`. Nothing moves
   a dose. It fixes nine bed-move bugs (`CHANGELOG.md` 2026-09-27). ⚠️ **It changes what the ward sees:**
   - a parked infant's bed cell on desktop: a "รอเตียง" chip with "จาก NICU 7" under it;
@@ -98,7 +108,7 @@ both are verified.** Caught up with #124 in #125, the next PR on the repo, as #1
   - a bed changed in Edit now appears in "Previous beds";
   - Switch patient lists the unit first, with infants who have left dimmed at the end;
   - each patient save is followed by one sync.
-  - ⚠️ **Re-shoot any manual screenshot that shows a parked infant** once it is released.
+  - ⚠️ **Re-shoot any manual screenshot that shows a parked infant.**
 - ✅ **PR #123 is live**, released by PR #124 on Pp's instruction ("จัดการ PR 123-124 ด้วย deploy แล้วขึ้น
   live") at 15:57 ICT: `release` = `10a4272`, whose tree is `main` at `f675420`. Frontend only: no `clasp`
   step, and `CONSTANTS_VERSION` stays `2026-09-18.1`. Post-merge CI on `release` passed (run
@@ -148,9 +158,10 @@ both are verified.** Caught up with #124 in #125, the next PR on the repo, as #1
   PDPA-erased record wrote its date of birth back: `@57`/`@58`'s `updateWeights` fills an empty dob cell
   (F2, #108), and the erasure had emptied it (`CHANGELOG.md` 2026-09-24 (9)). Whether any erased row
   was refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
-- **Frontend:** PR #124 (`main` → `release`), merged on Pp's instruction on 2026-09-27 at 15:57 ICT:
-  `release` = `10a4272`, `main` at `f675420` (#123). Its served bytes were verified on both hosts (0
-  failures; comment on #124). Before it, PR #122 (`main` → `release`), merged on 2026-09-25 at 14:50:51
+- **Frontend:** PR #126 (`main` → `release`), merged on Pp's instruction on 2026-09-27 at 20:35 ICT:
+  `release` = `3453ba8`, `main` at `e751f52` (#125). Its served bytes were verified on both hosts (0
+  failures; comment on #126). Before it, PR #124, merged on 2026-09-27 at 15:57 ICT: `release` =
+  `10a4272`, `main` at `f675420` (#123), also verified on both hosts (comment on #124). Before that, PR #122 (`main` → `release`), merged on 2026-09-25 at 14:50:51
   ICT: `release` = `8e605fb`, `main` at `55d56ba`. It changed no served file, so that app was still what
   PR #120 released on 2026-09-24 at 16:58:39 UTC / 23:58 ICT: #118 and #119, `main` at `67ed949`.
   `CONSTANTS_VERSION` is still `2026-09-18.1`. Both releases' served bytes were verified on both hosts
