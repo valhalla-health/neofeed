@@ -91,25 +91,38 @@ big conditional block plus `RailItem`/`BottomNav`.
 
 ### Client-side identifiers
 - **`sessionId`** — the patient's key everywhere in the client (`Patient_Registry`
-  and `Daily_Log` both key off it). Generated as `initials + BW + twinSuffix`
-  (see `data.js`) — it's a pseudonym, not an anonymous ID (see § 6). Since
-  2026-09-25 the initials are `D.nameInitials(first, last)`, the first
-  consonant of each name part (a leading vowel is not an initial), so
-  `สม จด` at 1200 g is `สจ-BW1200`. The id deliberately keeps two letters while
-  the name holds four: Copy Order carries the id, never the name, into LINE.
+  and `Daily_Log` both key off it). **Since 2026-09-27 a new one is `"NF-"` and
+  six random digits** (`D.newSessionId`), and it carries nothing about the
+  infant (Pp: "user ไม่ต้องรู้ความหมาย แค่บอกว่าเป็น ID เดียวกัน"). Before that
+  it was `initials + BW + twinSuffix` (`สจ-BW1200`). That was a pseudonym staff
+  could reverse (see § 6), and it went into every order copied to LINE. Two
+  unrelated infants with the same initials and birth weight also drew the same
+  id, and the server refused the second with advice nobody could follow. Ids
+  issued before keep that form (see below). A drawn id that is already taken
+  is refused by the server (`IdTaken`), and `handleAddPatient` draws again.
+  A second registration of the same baby no longer lands on the first one's
+  id, so registration asks outright when an infant on file has the **same
+  birth weight and date of birth**. Only the server asks (`_possibleDuplicate`,
+  over every row); the device shows its sentence. Open the old record, or
+  answer "a different baby" (`confirmDuplicate`).
 - **`name`** — since 2026-09-25, **ชื่อ + นามสกุล: the first two LETTERS of
   the first name and of the surname**, stored as `"รย ทอ"` (one space; Pp's
   example was "กค จด"). A letter is one of the 44 consonants: every vowel
   (before, after, above or below) and tone mark is dropped, and so are ฤ ฦ,
   which Thai grammar counts as vowels — ทองดี → ทอ, เรยา → รย, ใจดี → จด
-  (Pp: "ให้ใช้เป็นตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์"). Thai, except a
+  (Pp: "ให้ใช้เป็นตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์"). A name with fewer
+  than two letters keeps its vowels as well, so it still has two characters:
+  ฤดี → ฤด, ใจ → ใจ, คำ → คำ (Pp, 2026-09-27); until then it could not be
+  registered. Thai, except a
   foreign infant (ชาวต่างชาติ): the first two English letters, vowels counted,
   `"Jo Sm"` (Pp confirmed, 2026-09-25). Both
   patient modals render one `NameFields` — two boxes, one per part — and what
   is typed goes through `D.namePart`, so a box shows exactly what is saved.
   **A word being composed is left alone until `compositionend`**: rewriting a
   box under an Android keyboard that is composing (Gboard, Samsung) makes it
-  repeat or scramble letters, and dropping vowels rewrites it constantly. A name from
+  repeat or scramble letters, and dropping vowels rewrites it constantly. Every screen,
+  message and search reads a name through **`D.patientName`** (`name`, else the old
+  `initials`), the one definition since 2026-09-27. A name from
   before that date (the two-letter initials "ปพ", a nickname, a PDPA-erased
   marker) does not split (`D.splitPatientName` → null) and is **kept as it is**
   until someone types a whole new name; don't "migrate" those rows in bulk.
@@ -117,8 +130,9 @@ big conditional block plus `RailItem`/`BottomNav`.
   `updateDailyNutrition()` to match an existing entry for edit-in-place
   rather than always inserting.
 
-**A sessionId is never re-derived once issued.** `initials + BW + twinSuffix`
-is how it's *generated* at registration, not a formula the app keeps in sync:
+**A sessionId is never re-derived once issued.** It is drawn at registration
+(composed from `initials + BW + twinSuffix` before 2026-09-27), and it is not a
+formula the app keeps in sync:
 `Patient_Registry` and every `Daily_Log` row are matched on the literal string
 (`registerPatient`'s upsert, `updateDailyNutrition`, `deletePatient` all scan
 for it), so recomputing it after a correction would strand the patient's whole
@@ -940,11 +954,12 @@ under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
   medical-record retention duty. **The stored name** is, since 2026-09-25, two
   letters of the first name and two of the surname, vowels and tone marks not
   kept (it was one letter of each) — Pp's call, for finding and identifying an
-  infant on the ward; still not a full name, and the id and Copy Order stay at
-  initials. `BACKLOG.md` carries telling the DPO. Residual risk: `sessionId` is derived from
-  initials+BW+twinSuffix, so it's a pseudonym staff can reverse-map on a
-  small census — erasure can't scrub that pattern without breaking every
-  Daily_Log join. **There is no client entry point** — nothing in any `.jsx`
+  infant on the ward; still not a full name. `BACKLOG.md` carries telling the DPO.
+  **The id** carries nothing since 2026-09-27 (`NF-` and six random digits), so
+  Copy Order's LINE text holds no initials for a new infant. Residual risk: an
+  id issued before that is initials+BW+twinSuffix, a pseudonym staff can
+  reverse-map on a small census — erasure can't scrub that pattern without
+  breaking every Daily_Log join. **There is no client entry point** — nothing in any `.jsx`
   or `.html` file calls the `pseudonymizePatient` action, so an erasure
   request today has to be run by hand from the Apps Script editor. "Admin-only"
   currently means developer-only.

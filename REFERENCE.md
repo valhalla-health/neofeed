@@ -338,11 +338,12 @@ secondary uses (e.g. research/QI exports) if those are ever added.
   admin-only, triggered via `action: "pseudonymizePatient"`. Clears name,
   initials, dob from Patient_Registry; retains de-identified clinical history
   (bw/ga/diagnosis/weights) for the hospital's own medical-record retention
-  duty. **Residual risk:** `sessionId` is generated as
-  `initials+BW+twinSuffix` (see `data.js`), so it's a pseudonym, not
-  anonymous — staff present at admission can still reverse-map it on a small
-  census. Erasure does not (and structurally cannot, without breaking every
-  Daily_Log join) scrub that pattern from an already-issued sessionId.
+  duty. **Residual risk:** a `sessionId` issued before 2026-09-27 is
+  `initials+BW+twinSuffix`, so it's a pseudonym, not anonymous — staff
+  present at admission can still reverse-map it on a small census. Erasure
+  does not (and structurally cannot, without breaking every Daily_Log join)
+  scrub that pattern from an already-issued sessionId. An id issued since is
+  `NF-` and six random digits (`data.js` `newSessionId`) and carries nothing.
 - *Access/rectification* — no self-service path yet; handled manually via
   admin editing the registry. Worth a real endpoint if request volume grows.
 

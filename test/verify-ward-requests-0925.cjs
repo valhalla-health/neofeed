@@ -122,15 +122,18 @@ for (const [raw, want] of TH) eq(`Thai: ${JSON.stringify(raw)} keeps`, D.namePar
 const EN = [['john', 'Jo'], ['SMITH', 'Sm'], ['José', 'Jo'], ["o'neil", 'On'], ['ส้ม', ''], ['x1y', 'Xy']];
 for (const [raw, want] of EN) eq(`foreign: ${JSON.stringify(raw)} keeps`, D.namePart(raw, true), want);
 eq('two letters is the rule', D.NAME_PART_CHARS, 2);
+// ใจ is a whole name with one letter: since 2026-09-27 such a name keeps its
+// vowels (Pp: "ฤดี จะใช้ ฤด … ให้นับสระเฉพาะชื่อแบบนี้"), so "ใจ" is a complete part.
 eq('complete: both parts at two letters', [D.nameComplete('สม', 'จด'), D.nameComplete('ส', 'จด'), D.nameComplete('สม', ''),
   D.nameComplete('สม', 'ใจ'), D.nameComplete('Jo', 'Sm', true), D.nameComplete('jo', 'Sm', true)],
-  [true, false, false, false, true, false]);
+  [true, false, false, true, true, false]);
 eq('stored as "ชื่อ นามสกุล" — Pp\'s example', [D.composePatientName('เรยา', 'ทองดี'), D.composePatientName('John', 'Smith', true)], ['รย ทอ', 'Jo Sm']);
 eq('split back into its parts', D.splitPatientName('รย ทอ'), { first: 'รย', last: 'ทอ', foreign: false });
 eq('…an English one says it is foreign', D.splitPatientName('Jo Sm'), { first: 'Jo', last: 'Sm', foreign: true });
+// 'ปร พั' reads as a name since 2026-09-27: พั has one letter, so it keeps its vowel.
 eq('names from before 2026-09-25 do not split — kept as they are',
   ['ปพ', 'KH', 'Fo', 'JO SM', '[PDPA-erased 2026-09-01]', 'ส ใ', 'ปร พั', '', null].map(D.splitPatientName),
-  [null, null, null, null, null, null, null, null, null]);
+  [null, null, null, null, null, null, { first: 'ปร', last: 'พั', foreign: false }, null, null]);
 eq('the id keeps initials: the first letter of each part',
   [D.nameInitials('สม', 'จด'), D.nameInitials('รย', 'ทอ'), D.nameInitials('Jo', 'Sm')], ['สจ', 'รท', 'JS']);
 eq('…and of a word, its first consonant (a leading vowel is not a letter)',
@@ -286,8 +289,9 @@ const foreignBox = () => host.querySelector('.name-foreign input');
   type('ชื่อ', 'สม');
   ok('…and opens when they are', !reg.disabled);
   click(reg);
-  eq('saved as "สม จด", initials สจ, id สจ-BW1000',
-    sent && [sent.name, sent.initials, sent.sessionId], ['สม จด', 'สจ', 'สจ-BW1000']);
+  // The id is random since 2026-09-27 (D.newSessionId), no longer initials + BW.
+  eq('saved as "สม จด", initials สจ, and an NF id',
+    sent && [sent.name, sent.initials, /^NF-\d{6}$/.test(sent.sessionId)], ['สม จด', 'สจ', true]);
 
   // A foreign infant.
   click(foreignBox());
@@ -298,7 +302,7 @@ const foreignBox = () => host.querySelector('.name-foreign input');
   type('ชื่อ', 'Joส');
   ok('…and question Thai instead', input('ชื่อ').value === 'Jo' && /พิมพ์เป็นภาษาอังกฤษ/.test(host.textContent));
   click(button(/Register/));
-  eq('saved as "Jo Sm", id JS-BW1000', sent && [sent.name, sent.initials, sent.sessionId], ['Jo Sm', 'JS', 'JS-BW1000']);
+  eq('saved as "Jo Sm", initials JS, and an NF id', sent && [sent.name, sent.initials, /^NF-\d{6}$/.test(sent.sessionId)], ['Jo Sm', 'JS', true]);
 }
 {
   const base = { sessionId: 'KH-BW1090', name: 'KH', initials: 'KH', bw: 1090, ga: 29.2, sex: 'boys',

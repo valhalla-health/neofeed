@@ -189,7 +189,9 @@ ok('Date-valued stored dob still compares', threw !== null);
 // (f) A genuinely new id is untouched by the guard. On a free bed — NICU 11
 //     is EXISTING's, and section 6 below refuses a double-booking.
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-sandbox.registerPatient({ ...patient, sessionId: 'NEW-2', currentBed: 'SCN 30' }, true);
+// Same BW and dob as EXISTING, so since 2026-09-27 the server first asks
+// whether it is the same infant; the last argument is the ward's "no".
+sandbox.registerPatient({ ...patient, sessionId: 'NEW-2', currentBed: 'SCN 30' }, true, null, false, true);
 eq('a genuinely new id still appends', sheet.appended.length, 1);
 
 // (h) The twin-specific case from the 2026-09-10 identification review: a
