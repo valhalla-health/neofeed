@@ -837,7 +837,7 @@ function NursingEntryModal({ patient, record, entries, onClose, onSubmit }) {
         style={{ width: 460 }} onClick={e => e.stopPropagation()}>
         <div className="picker-h" style={{ justifyContent: "space-between" }}>
           <div style={{ fontWeight: 600, fontSize: 15 }}>
-            {editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน"} · {patient?.name || patient?.initials || "—"}
+            {editing ? "แก้ไข I/O ประจำวัน" : "บันทึก I/O ประจำวัน"} · {D_L.patientName(patient) || "—"}
             <span style={{ fontWeight: 400, color: "var(--ink-3)" }}> · {patient?.currentBed || "—"}</span>
           </div>
           {/* Not while a save is in flight: the save answers into this form

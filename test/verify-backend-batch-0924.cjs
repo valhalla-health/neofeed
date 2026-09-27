@@ -59,7 +59,10 @@ T.section('BE-4 · status is canonicalised — no bed-skip, no ghost record', ()
   T.eq('…and stored status is canonical "Active"', patRowOf(g, 'AA-900')[9], 'Active');
   const dup = g.as({ action: 'registerPatient', isNew: true, patient: P('AB-900', { status: ' Active', currentBed: 'NICU 1' }) });
   T.ok('a second " Active" infant on the same bed is REFUSED (bed check ran)', !!dup.error, dup);
-  const weird = g.as({ action: 'registerPatient', isNew: true, patient: P('AC-900', { status: 'ZZZ', currentBed: 'NICU 2' }) });
+  // AC shares AA's birth weight and date of birth, so since 2026-09-27 the
+  // server first asks whether it is the same infant (PossibleDuplicate);
+  // confirmDuplicate is the ward's "no, another baby".
+  const weird = g.as({ action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('AC-900', { status: 'ZZZ', currentBed: 'NICU 2' }) });
   T.ok('an unrecognised status is accepted', weird.ok === true, weird);
   T.eq('…and stored as Active, never a ghost', patRowOf(g, 'AC-900')[9], 'Active');
 });

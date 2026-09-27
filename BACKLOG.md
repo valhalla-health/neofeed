@@ -160,6 +160,13 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] **cleanup · `confirmOverwrite` is unused since 2026-09-27.** `registerPatient` still accepts it and
+      writes a registration over the record that holds the id, which would file one infant's Daily_Log
+      under another's name. No client sends it: a taken id is drawn again. Remove it, and the 2026-09-24
+      decision it served, with the next backend change. Needs a `clasp` deploy.
+- [ ] **product · a foreign name with one letter, or with no surname** (a Myanmar "U", a single-name
+      mother) still cannot be registered: each part needs two English letters. Rare. Pp to say whether to
+      allow a one-letter part or an empty surname for ชาวต่างชาติ.
 - [ ] 🧱 **ux/infra · Loose ends from the bed-transfer review (2026-09-27).** Found while tracing the bed
       moves (`CHANGELOG.md` § Session 2026-09-27). None of them misplaces an infant, so none was built.
       1. **The phone sweep cannot see one box printing over another.** `verify-phone-sweep.cjs` flags
@@ -181,14 +188,14 @@ clinical judgement. Everything else is engineering sequencing.
       `test/verify-ward-requests-0925.cjs` and `test/verify-phone-sweep.cjs`. Pp answered on PR #123
       (entry (4)): the topbar switcher stays unit-wide, the foreign-name rule is confirmed, and these three
       wait.
-      1. **The server's duplicate-id message still says "แก้ชื่อย่อ"** (`_sessionIdConflict` in
-         `gas-backend.gs`). The box it names no longer exists: the id now comes from the first consonant
-         of each name part. Reword it, for example "ถ้าไม่ใช่แฝด ตรวจชื่อ/นามสกุลและน้ำหนักแรกเกิด".
-         Needs a `clasp` deploy. **Pp: later.** The frontend is correct either way.
+      1. ~~**The server's duplicate-id message still says "แก้ชื่อย่อ"**~~ **Done 2026-09-27**
+         (PR #127): a new id is random, a taken one is drawn again, and no message
+         names initials. Live with the next `clasp` deploy (`CHANGELOG.md` 2026-09-27 (2)).
       2. ⚖️ **Tell the DPO the name holds four letters now.** It held two (one letter of each name), and
          now holds two letters of each, with no vowels or tone marks, or two English letters of each for a
-         foreign infant. It is Pp's decision, for finding and identifying an infant. The id and Copy Order
-         stay at initials, and no full name is stored. It belongs in the next DPIA note, beside D7.
+         foreign infant. It is Pp's decision, for finding and identifying an infant. A new infant's id
+         carries nothing since 2026-09-27 (`NF-` and six random digits), so Copy Order carries no initials;
+         no full name is stored. It belongs in the next DPIA note, beside D7.
          **Pp: later.**
       3. **One look on a real iPhone (Safari).** `test/verify-phone-sweep.cjs` checks 24 device sizes, but
          only in Chromium; the cloud container has no WebKit. Check two things there:
@@ -545,9 +552,10 @@ are decisions to *keep*, not work to do.
 - **Do not widen the Fenton axis past 42 wk** to "fix" the hidden-measurement banner. The GA 44–50
   rows in `data.js` are unverified. Source real post-term data first. `GA_MAX` in `fenton.jsx` is the
   single switch for domain, ticks and dataset filter.
-- **Accepted residual risk:** `sessionId` = `initials+BW+twinSuffix` is a **pseudonym, not
-  anonymous**. Erasure cannot scrub that pattern from an already-issued sessionId without breaking
-  every `Daily_Log` join. Documented and accepted, not fixed.
+- **Accepted residual risk:** a `sessionId` issued before 2026-09-27 = `initials+BW+twinSuffix` is a
+  **pseudonym, not anonymous**. Erasure cannot scrub that pattern from an already-issued sessionId
+  without breaking every `Daily_Log` join. Documented and accepted, not fixed. Ids issued since are
+  `NF-` and six random digits and carry nothing.
 - **Mobile Fenton chart keeps pan/zoom**; the SVG width-760 layout survives via
   `width: 100%; height: auto`. Recorded so nobody "fixes" it into a responsive rewrite.
 - 🔴 **This Sheet's sharing must never become "anyone with the link."** Verified 2026-08-23:

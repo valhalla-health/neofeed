@@ -84,7 +84,9 @@ function LeftUnitBed({ p, style }) {
 // they didn't: the list counted a blank status as Active (the backend defaults
 // it, but locally-added patients can be blank) while the Active tile required
 // the literal string, so the tile could read lower than the list it sits above.
-const isActivePatient = (p) => !p.status || p.status === "Active";
+// …and since 2026-09-27 it is data.js's isOnUnit itself, not a copy of it: the
+// one-infant-per-bed rule, the admin census and this list read one rule.
+const isActivePatient = D_R.isOnUnit;
 
 // AddPatientModal's "Multiples" letter (A–D) only records this session's
 // position in the set, not how many siblings there are — "A" means the same
@@ -253,7 +255,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     return Math.floor((new Date(today + "T00:00:00") - changed) / 86400000);
   };
   const archivedSorted = sorted.filter(p =>
-    p.status && p.status !== "Active" && daysSinceStatus(p) <= ARCHIVE_VISIBLE_DAYS
+    !isActivePatient(p) && daysSinceStatus(p) <= ARCHIVE_VISIBLE_DAYS
   );
 
   // Summary stats — all three counts are over the *same* set (active patients)
@@ -389,7 +391,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
               {/* Row 1: name + DOL + status */}
               <div className="pmc-row pmc-head">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className="pmc-name">{p.name || p.initials || "—"}</span>
+                  <span className="pmc-name">{D_R.patientName(p) || "—"}</span>
                   {/* Twins share initials — without this, Twin A and Twin B
                       were two identical cards on the phones nurses use
                       (2026-09-11 review, F9; desktop table + picker had it). */}
@@ -441,7 +443,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                   ของ …", which was an instruction no phone could follow. */}
               <div className="pmc-actions">
                 <button className="btn sm pmc-bed" onClick={e => { e.stopPropagation(); setTransferPatient(p); }}
-                  aria-label={`${D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"} ${p.name || p.initials || ""}`.trim()}>
+                  aria-label={`${D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"} ${D_R.patientName(p)}`.trim()}>
                   ⇄ {D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"}
                 </button>
                 <button className="btn sm" onClick={e => { e.stopPropagation(); setEditPatient(p); }}>
@@ -473,7 +475,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                    onClick={() => onSelect(p.sessionId)}>
                 <div className="pmc-row pmc-head">
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="pmc-name">{p.name || p.initials || "—"}</span>
+                    <span className="pmc-name">{D_R.patientName(p) || "—"}</span>
                     {p.twinSuffix && <span className="pmc-twin chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                     <BedChip p={p} />
                   </div>
@@ -562,7 +564,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.sessionId); } }}>
                   <td><BedChip p={p} stacked /></td>
                   <td>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{D_R.patientName(p) || "—"}</div>
                     {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{multiplesLabel(p)}</div>}
                   </td>
                   <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>
@@ -630,7 +632,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
               <tr key={p.sessionId} style={{ opacity: 0.5, cursor: "pointer" }}
                   onClick={() => onSelect(p.sessionId)}>
                 <td><BedChip p={p} stacked /></td>
-                <td style={{ fontWeight: 600, fontSize: 13 }}>{p.name || p.initials || "—"}</td>
+                <td style={{ fontWeight: 600, fontSize: 13 }}>{D_R.patientName(p) || "—"}</td>
                 <td className="num">{D_R.fmtGA(p.ga)}</td>
                 <td className="num">{D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))}</td>
                 <td className="num">{p.bw.toLocaleString()}</td>
@@ -739,7 +741,7 @@ function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy,
         // built with their sessionId excluded, so this can only fire for
         // someone else's bed.
         return <option key={b} value={b} disabled={!!holder && !occupiedSelectable}>
-          {holder ? `${b} · ไม่ว่าง (${holder.name || holder.sessionId})` : b}
+          {holder ? `${b} · ไม่ว่าง (${D_R.patientName(holder) || holder.sessionId})` : b}
         </option>;
       })}
       {!isKnown && <option value={current}>{current} (ไม่อยู่ในรายการเตียง)</option>}
@@ -747,12 +749,10 @@ function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy,
   );
 }
 
-// The one message the three modals show when a bed is already taken. Says who
-// is in it and what to do about it, because "เตียงไม่ว่าง" alone leaves the
-// user clicking the same disabled option again.
-const bedTakenMsg = (bed, holder) =>
-  `เตียง ${bed} มี ${holder.name || holder.sessionId} อยู่แล้ว — ` +
-  `ต้องย้าย ${holder.name || holder.sessionId} ออกก่อน (Transfer) จึงจะบันทึกเตียงนี้ได้`;
+// The one message for a bed that is already taken lives in data.js
+// (D_R.bedTakenMsg): the three modals and App's last check word it the same.
+// Called through D_R, never re-declared here: data.js and this file share one
+// global scope, so a `const bedTakenMsg` here would stop the page loading.
 
 // Submit for the three patient modals (review UP-S9). They used to close the
 // instant Register / Save / Confirm was pressed, before the server had said
@@ -967,11 +967,14 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
 
   // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
-  // initials + BW + twin, as before 2026-09-25: the id keeps two letters (the
-  // first consonant of each part), not the four the name now holds — it is
-  // what an order copied out of the app carries in the name's place.
+  // The `initials` column still follows the name. The id no longer does: it
+  // is drawn once per registration, "NF-" and six random digits, and carries
+  // nothing about the infant (D_R.newSessionId, Pp 2026-09-27). It used to be
+  // initials + BW + twin letter, which is how two unrelated infants ended up
+  // with one id. If the drawn id is already taken, handleAddPatient (app.jsx)
+  // draws another before anything is written.
   const initials  = nameOk ? D_R.nameInitials(nameIn.first, nameIn.last) : "";
-  const sessionId = `${initials || "XX"}-BW${bw}${twin ? "-" + twin : ""}`;
+  const [sessionId] = React.useState(() => D_R.newSessionId());
 
   // Birth weight and GA feed every downstream nutrition calculation (targets,
   // Fenton percentile, HMF threshold) — a 0/blank value here would silently
@@ -990,7 +993,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   // the day before. Fixed 2026-08-08.
   const dob = React.useMemo(() => {
     if (!admitDate) return today;
-    return D_R.addDaysToDateStr(admitDate, -(Math.max(1, parseInt(admitDol) || 1) - 1));
+    return D_R.dobFromAdmitDol(admitDate, admitDol);
   }, [admitDate, admitDol]);
 
   return (
@@ -1093,7 +1096,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               <BedSelect value={bed} onChange={setBed} allowUnassigned occupancy={occupancy} />
               {bedTaken && (
                 <div style={{ fontSize: 11, color: "var(--crit)", marginTop: 4 }}>
-                  {bedTakenMsg(D_R.normalizeBed(bed), bedTaken)}
+                  {D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken)}
                 </div>
               )}
             </div>
@@ -1184,7 +1187,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
                 ? <BedChip p={p} stacked style={{ justifySelf: "start" }} />
                 : <LeftUnitBed p={p} style={{ justifySelf: "start" }} />}
               <span>
-                <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</span>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{D_R.patientName(p) || "—"}</span>
                 {/* Twins/multiples share initials by construction and are usually in
                     adjacent beds — without this label, two rows here can look identical
                     except for the small bed chip. Same label the registry table/cards
@@ -1214,7 +1217,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // is unless a whole new one is typed: opening a record to fix its diagnosis
   // must not demand, or quietly rewrite, a name.
   const storedName = D_R.splitPatientName(patient.name);
-  const oldName    = storedName ? "" : (patient.name || patient.initials || "");
+  const oldName    = storedName ? "" : D_R.patientName(patient);
   const [nameIn, setNameIn]     = React.useState(storedName
     ? { first: storedName.first, last: storedName.last, foreign: storedName.foreign }
     : { first: "", last: "", foreign: false });
@@ -1236,9 +1239,10 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // Patient_Registry and Daily_Log are matched on (registerPatient's upsert,
   // updateDailyNutrition, deletePatient all scan for it), so regenerating it
   // would leave the patient's whole log stranded under an id nothing points
-  // at any more. The BW baked into the id is a label from the day it was
-  // issued; `patient.bw` is the clinical value, and that is what every
-  // calculation reads. Same reason editing the name has never renamed it.
+  // at any more. The BW baked into an old id is a label from the day it was
+  // issued (an id drawn since 2026-09-27 carries none); `patient.bw` is the
+  // clinical value, and that is what every calculation reads. Same reason
+  // editing the name has never renamed it.
   const [bw, setBw]             = React.useState(patient.bw || 0);
   // Decode through gaTotalDays, not Math.floor/×10 by hand, so a hand-edited
   // sheet value like 27.9 seeds the selects as 27+6 — exactly what every
@@ -1304,7 +1308,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // and the same UTC-anchored helper, as NewPatientModal.
   const dob = React.useMemo(() => {
     if (!admitDate || admitIssue) return patient.dob || "";
-    return D_R.addDaysToDateStr(admitDate, -(Math.max(1, parseInt(dol1, 10) || 1) - 1));
+    return D_R.dobFromAdmitDol(admitDate, dol1);
   }, [admitDate, dol1, admitIssue, patient.dob]);
   // A cleared DOL แรกรับ used to save as 1 — every DOL, PMA and DOL-banded
   // target moved to admission-on-the-birthday without anyone typing it.
@@ -1362,7 +1366,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // Dashboard's per-entry trash icon.
   const handleDelete = () => {
     if (!onDelete) return;
-    const label = patient.name || patient.sessionId;
+    const label = D_R.patientName(patient) || patient.sessionId;
     if (!window.confirm(
       `ลบ session ${label} ถาวรใช่หรือไม่? ข้อมูลผู้ป่วยและบันทึกประจำวันทั้งหมดของ session นี้จะถูกลบออกจากระบบ — การลบนี้ไม่สามารถย้อนกลับได้`
     )) return;
@@ -1524,7 +1528,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
           </div>
           {!canSave && (
             <div style={{ fontSize: 11.5, color: bedTaken || growth.conflict ? "var(--crit)" : "var(--ink-3)", textAlign: "right" }}>
-              {bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken)
+              {bedTaken ? D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken)
                 : growth.conflict
                   ? `การแก้วันรับ/DOL แรกรับนี้จะย้ายค่าที่วัดไว้ของ DOL ${growth.conflict.dol} ไป${growth.conflict.to <= 1
                       ? "อยู่ตรงหรือก่อนวันเกิด"
@@ -1603,7 +1607,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     // The backend refuses it a third time — this is the message that explains
     // what to do about it.
     const holder = occupancy.get(next);
-    if (holder) { window.alert(bedTakenMsg(next, holder)); return; }
+    if (holder) { window.alert(D_R.bedTakenMsg(next, holder)); return; }
     // A parked patient already recorded the bed they left when they were
     // parked; a blank hop would only add an empty line to "Previous beds".
     const bedHistory = currentBed
@@ -1627,7 +1631,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     <div className="picker-backdrop" onClick={onClose}>
       <div className="picker" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
         <div className="picker-h" style={{ justifyContent: "space-between" }}>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>Transfer bed · {patient.name || patient.initials}</div>
+          <div style={{ fontWeight: 600, fontSize: 15 }}>Transfer bed · {D_R.patientName(patient)}</div>
           <button className="icon-btn" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1656,9 +1660,9 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
 
           {bedTaken && (
             <div style={{ fontSize: 11.5, color: "var(--crit)" }}>
-              {bedTakenMsg(D_R.normalizeBed(bed), bedTaken)}
+              {D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken)}
               <div style={{ color: "var(--ink-3)", marginTop: 4 }}>
-                สลับเตียง: เปิด ⇄ ของ {bedTaken.name || bedTaken.initials || bedTaken.sessionId} แล้วกด
+                สลับเตียง: เปิด ⇄ ของ {D_R.patientName(bedTaken) || bedTaken.sessionId} แล้วกด
                 "พักไว้ก่อน" เตียงนี้จะว่าง จึงย้ายรายนี้เข้าได้
               </div>
             </div>

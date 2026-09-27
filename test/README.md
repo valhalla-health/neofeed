@@ -286,7 +286,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
 `verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
 `verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs`, `verify-pdpa-erased-dob-frontend.cjs`,
-`verify-ward-requests-0925.cjs` and
+`verify-ward-requests-0925.cjs`, `verify-name-id-0927.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -1245,6 +1245,41 @@ given the server's three-way merge.
 `verify-bed-park.cjs` set a disabled option by script, and its swap-hint check matched the park button's
 own label. It now checks that the option can be chosen, and matches the hint's own words.
 `verify-mobile-bed-button.cjs` compares a hop's bed and date, since each hop now also carries `at`.
+
+## Names, Edit patient and the NeoFeed ID, 2026-09-27 — one harness, four adjusted
+
+**`verify-name-id-0927.cjs`** (68 assertions; the jsdom set). The 2026-09-27 audit drove the real client
+against the real backend. It found three bugs that neither side's harnesses could see, because each fakes
+the other. § 5 is built the same way: the real `<App/>` in jsdom (review-0917-boot's driver), with every
+request answered by the real `gas-backend.gs` in `gas-vm-sandbox.cjs`.
+- § 1: a name with fewer than two letters keeps its vowels (ฤดี → ฤด, ใจ → ใจ, คำ → คำ). Every other name is
+  cut as before.
+- § 2: a new id is `NF-` and six random digits, with no modulo bias. Search finds it with or without `NF-`,
+  or by four digits or more.
+- § 3, one source for each kind of data (Pp's check before the merge):
+  - one definition each for the displayed name, dob from an admission date and DOL, the bed-taken message,
+    "on the unit" and the NF prefix;
+  - no view spells one out again;
+  - the look-alike rule and its words live in `gas-backend.gs` only.
+
+  Each static check fails on the tree before that pass (`21cfcd5`).
+- § 4, the backend:
+  - an Admit date or DOL แรกรับ correction saves, including on a record with no stored dob and on one dated
+    in พ.ศ.;
+  - two devices correcting one dob, a taken id and a look-alike are each refused in words, none of them
+    "ชื่อย่อ", and nothing is written.
+- § 5, both together:
+  - the Edit modal's Admit-date correction lands on the sheet;
+  - a taken id is drawn again without a word to the user;
+  - the server asks about a look-alike, whether this device has synced it or not.
+
+Against `f675420` (release `10a4272`) it fails 35 of those checks, in every section.
+
+`verify-backend-batch-0924.cjs` (BE-4) and `verify-gas-registry-upsert.cjs` (§ 5f) each register a second
+fixture infant with the same birth weight and date of birth as the first. They now send the ward's answer,
+`confirmDuplicate`. What they pin is unchanged. `verify-review-0917-backend-writes.cjs` does the same for BB-2. `verify-ward-requests-0925.cjs` now expects "ใจ" to be a
+complete part and "ปร พั" to read as a name (a part with one letter keeps its vowel), and a registration to
+carry an NF id rather than initials + BW.
 
 ## Note on the source workbook
 

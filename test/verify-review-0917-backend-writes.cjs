@@ -200,7 +200,9 @@ T.section('UP-B3 · a row moved by hand between read and write is refused, never
   const scenario = (label, setup, act, colFor) => {
     const g = ward();
     g.as(g.at, { action: 'registerPatient', isNew: true, patient: P('AA-1') });
-    g.as(g.at, { action: 'registerPatient', isNew: true, patient: P('BB-2') });
+    // BB-2 shares AA-1's birth weight and dob: since 2026-09-27 the server asks whether it is the
+    // same infant first, and confirmDuplicate is the ward's "no, another baby".
+    g.as(g.at, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('BB-2') });
     const ids = setup(g);
     const sheetName = colFor === 1 ? 'Patient_Registry' : 'Daily_Log';
     const beforeRows = JSON.stringify(g.rows(sheetName).filter(r => r.some(v => v !== '')));
@@ -227,7 +229,7 @@ T.section('UP-B3 · a row moved by hand between read and write is refused, never
 T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retry finishes, published refused', () => {
   const g = ward();
   g.as(g.at, { action: 'registerPatient', isNew: true, patient: P('AA-1') });
-  g.as(g.at, { action: 'registerPatient', isNew: true, patient: P('BB-2') });
+  g.as(g.at, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('BB-2') });   // same BW + dob: see above
   ['2026-09-08', '2026-09-09', '2026-09-10'].forEach(d => g.as(g.at, { action: 'logDailyNutrition', sessionId: 'AA-1', entry: E({ ts: d }) }));
   g.as(g.at, { action: 'logDailyNutrition', sessionId: 'BB-2', entry: E({ ts: '2026-09-10' }) });
   const order = [];

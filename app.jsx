@@ -1371,7 +1371,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       // the sheet — shown verbatim, not wrapped in a generic prefix.
       const error = data.code === "SchemaMismatch" ? String(data.error) : `บันทึกไม่สำเร็จ: ${data.error}`;
       toast(error);
+      // `needsConfirm` (registerPatient: the id is taken, or the infant looks
+      // like one already on file) used to be dropped right here, so the one
+      // caller that asks about it, handleAddPatient, never saw it (2026-09-27
+      // audit). `message` is the server's own sentence, for a dialog.
       return { ok: false, refused: true, error, code: data.code || "", retryable: !!data.retryable,
+        ...(data.needsConfirm ? { needsConfirm: true, message: String(data.error) } : {}),
         ...(data.entryId ? { entryId: data.entryId } : {}) };
     }
     return { ok: true, ...data };
@@ -1637,11 +1642,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setLog(prev => { const next = { ...prev }; delete next[id]; return next; });
     if (wasActive) { setActiveId(null); goTo("registry"); }
 
-    if (!GAS_ON) { showToast(`ลบ session ${patient.name || id} แล้ว`); return Promise.resolve({ ok: true }); }
+    if (!GAS_ON) { showToast(`ลบ session ${D_A.patientName(patient) || id} แล้ว`); return Promise.resolve({ ok: true }); }
     return writeGAS({ action: "deletePatient", sessionId: id }).then(res => {
       if (res.ok) {
         serverPatientsRef.current.delete(id);
-        showToast(`ลบ session ${patient.name || id} ถาวรแล้ว`);
+        showToast(`ลบ session ${D_A.patientName(patient) || id} ถาวรแล้ว`);
       } else if (!res.unknown) {
         setPatients(prevPatients);
         setLog(prevLog);
@@ -1669,33 +1674,44 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const bedConflict = (p) => {
     const holder = D_A.bedBlocker(patients, p);
     if (!holder) return null;
-    return `เตียง ${D_A.normalizeBed(p.currentBed)} มี ${holder.name || holder.sessionId} อยู่แล้ว — ` +
-      `ย้ายผู้ป่วยรายนั้นออกก่อน`;
+    return D_A.bedTakenMsg(D_A.normalizeBed(p.currentBed), holder);
   };
 
   // Both patient handlers return the request's promise, and the modals stay
   // open until it answers (UP-S9): they used to close the moment Register /
   // Save was pressed, so a refusal (a bed taken on another device, a duplicate
   // sessionId) was a toast over an empty screen and everything typed was gone.
-  const handleAddPatient = (p) => {
-    const clash = bedConflict(p);
+  const handleAddPatient = (p0) => {
+    const clash = bedConflict(p0);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
     if (blocked) return Promise.resolve(blocked);
-    setPatients(prev => [p, ...prev]);
-    setActiveId(p.sessionId);
+    // The same baby registered twice (Pp, 2026-09-27)? The id is random now, so
+    // a second registration no longer lands on the first one's id the way the
+    // initials-and-weight id made it. The server asks (PossibleDuplicate): it
+    // sees every row, stored dates of birth included, and it is the one place
+    // the question is asked and worded. This device only shows its words.
+    const cancelled = { ok: false, refused: true, error: "ยกเลิก — ยังไม่ได้ลงทะเบียน" };
+    const askNewInfant = (msg) => typeof window !== "undefined" && typeof window.confirm === "function"
+      && window.confirm(`${msg}\n\nถ้าเป็นคนละคน กด OK เพื่อลงทะเบียนเป็นรายใหม่`);
+    let confirmDuplicate = false;
+    let p = p0;
+    setPatients(prev => [p0, ...prev]);
+    setActiveId(p0.sessionId);
     if (!GAS_ON) {
       showToast(`Session ${p.sessionId} registered (local)`);
       return Promise.resolve({ ok: true });
     }
-    // isNew tells the backend this is a registration, not an edit, so its
-    // sessionId collision guard can refuse a second infant landing on an
-    // existing id (same initials + same birth weight) instead of silently
-    // overwriting the first one. See _sessionIdConflict in gas-backend.gs.
-    // No `base`: there is no earlier server copy to merge against.
+    // isNew tells the backend this is a registration, not an edit: an id that
+    // already exists is refused rather than written over (IdTaken), and the
+    // server asks whether the infant is one already on file
+    // (PossibleDuplicate). See _sessionIdConflict and _possibleDuplicate in
+    // gas-backend.gs. No `base`: there is no earlier server copy to merge
+    // against.
     const rollback = () => {
-      setPatients(prev => prev.filter(x => x !== p));
-      setActiveId(prev => (prev === p.sessionId ? null : prev));
+      const gone = p;
+      setPatients(prev => prev.filter(x => x !== gone));
+      setActiveId(prev => (prev === gone.sessionId ? null : prev));
     };
     const settle = (res) => {
       if (res.ok) {
@@ -1715,19 +1731,31 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       return res;
     };
-    return writeGAS({ action: "registerPatient", patient: p, isNew: true }, { quiet: true })
+    // An id that is already taken is a coincidence of the draw (IdTaken, or an
+    // older server's collision reply, which carries no code): draw another and
+    // send again, a few times, before anything is shown. Nothing is ever
+    // written over the record that holds it. The 2026-09-24 "confirm, then
+    // overwrite" never reached anyone (gasPost dropped needsConfirm), and an
+    // overwrite would have filed one infant's Daily_Log under another's name.
+    const redraw = () => {
+      const prev = p;
+      const next = { ...prev, sessionId: D_A.newSessionId() };
+      p = next;
+      setPatients(list => list.map(x => (x === prev ? next : x)));
+      setActiveId(id => (id === prev.sessionId ? next.sessionId : id));
+    };
+    const attempt = (draws) => writeGAS({ action: "registerPatient", patient: p, isNew: true,
+        ...(confirmDuplicate ? { confirmDuplicate: true } : {}) }, { quiet: true })
       .then(res => {
-        if (res.needsConfirm) {
-          // The id (initials + BW) already exists. Warn, and overwrite only on
-          // an explicit yes — Pp, 2026-09-24. Declining leaves the existing
-          // record untouched and rolls back the optimistic insert.
-          const yes = typeof window !== "undefined" && typeof window.confirm === "function"
-            && window.confirm(`${res.error}\n\nยืนยันเขียนทับข้อมูลเดิมหรือไม่?`);
-          if (!yes) { rollback(); return { ok: false, refused: true, error: "ยกเลิก — ไม่ได้เขียนทับข้อมูลเดิม" }; }
-          return writeGAS({ action: "registerPatient", patient: p, isNew: true, confirmOverwrite: true }, { quiet: true }).then(settle);
+        if (res.needsConfirm && res.code === "PossibleDuplicate" && !confirmDuplicate) {
+          if (!askNewInfant(res.message || res.error)) { rollback(); return cancelled; }
+          confirmDuplicate = true;
+          return attempt(draws);
         }
+        if (res.needsConfirm && res.code !== "PossibleDuplicate" && draws < 3) { redraw(); return attempt(draws + 1); }
         return settle(res);
       });
+    return attempt(0);
   };
 
   // ── Edit patient (update bed, dx, status, admitDOL) ──────────
@@ -1788,14 +1816,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       : serverPatientsRef.current.get(p.sessionId);
     setPatients(prev => prev.map(x => x.sessionId === p.sessionId ? p : x));
     if (!GAS_ON) {
-      showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
+      showToast(`${D_A.patientName(p) || p.sessionId} อัปเดตแล้ว`);
       return Promise.resolve({ ok: true });
     }
     return writeGAS({ action: "registerPatient", patient: p, ...(base ? { base } : {}) }, { quiet: true })
       .then(res => {
         if (res.ok) {
           serverPatientsRef.current.set(p.sessionId, p);
-          showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
+          showToast(`${D_A.patientName(p) || p.sessionId} อัปเดตแล้ว`);
           resyncAfterSave();
         } else if (!res.unknown && previous) {
           // A refused/failed edit must not stay on screen looking saved —
@@ -2638,7 +2666,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
         <div className="lbl">Active session</div>
         <div className="pid">
           <div>
-            <div className="id">{patient.name || patient.initials || "—"}</div>
+            <div className="id">{D_A.patientName(patient) || "—"}</div>
             <div className="bed">
               Bed <span className="num">{patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")}</span>
               {" · DOL "}
@@ -2726,7 +2754,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
           {/* A long word ("hyperbilirubinemia") breaks rather than running
               past the strip's clipped edge in a narrow column (tablet). */}
           <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700, minWidth:0, overflowWrap:"anywhere" }}>{patient.diagnosis}</div>
-          <span className={"chip" + (!patient.status || patient.status === "Active" ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
+          <span className={"chip" + (D_A.isOnUnit(patient) ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
         </div>
       </div>
 
@@ -2773,7 +2801,7 @@ function AlertCenter({ patient, log, onAckChange }) {
       <div className="page-head">
         <div>
           <h1>Alert center</h1>
-          <div className="sub">Cross-cutting safety signals based on latest logged values · <span>{patient.name || patient.initials || "—"}</span></div>
+          <div className="sub">Cross-cutting safety signals based on latest logged values · <span>{D_A.patientName(patient) || "—"}</span></div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" disabled={activeAlerts.length === 0} onClick={acknowledgeAll}>

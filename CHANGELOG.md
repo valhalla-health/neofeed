@@ -7,6 +7,85 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-27 (2) — Names, Edit patient and the NeoFeed ID: an audit, then Pp's three decisions
+
+Pp: *"check all bug associated with name and edit patient name . check all transfer and find name or bed
+whether it is work? verify and scrutinize"*. The audit ran the real client (release `10a4272`, which is `main`
+`f675420`) in Chromium, with every Apps Script call answered by the real `gas-backend.gs` in
+`test/gas-vm-sandbox.cjs`. Transfers and search worked; the bed findings went to PR #125. Three name and Edit
+bugs did not work, and the harnesses on either side could not see them, because each fakes the other.
+
+**1 · No Admit date or DOL แรกรับ could be corrected (live since release #106, 2026-09-23).**
+- Since 2026-09-23 the Edit modal moves `dob` with those two fields. That is right: DOL is measured from it.
+- `registerPatient` then ran `_sessionIdConflict`'s dob check on the merged record, read any moved dob as "a
+  different infant", and refused: *"ID ซ้ำ … วันเกิดไม่ตรงกัน … ให้แก้ชื่อย่อ"*.
+- A record with no stored dob could be corrected once, then never again. A record dated in พ.ศ. could not be
+  saved from Edit at all: Save waits for the date to be converted, and the conversion was refused.
+- **Fix (Pp: "แก้ที่ backend"):** an edit carrying `base` whose stored dob is still the one that device saw is
+  a correction, not a different infant. If the stored dob moved under it (another device corrected it first),
+  it is refused as an edit conflict, in words: *"มีคนแก้วันรับหรือ DOL แรกรับของรายนี้จากอีกเครื่องไปแล้ว …"*.
+  A write with no base keeps the old rule. **Needs a `clasp` deploy.**
+
+**2 · The registration's confirm never reached anyone, and its advice could not be followed (since 2026-09-24).**
+- `gasPost` turned every server `error` into a refusal and dropped `needsConfirm`, so `handleAddPatient`'s
+  "confirm, then overwrite" (the 2026-09-24 decision) never ran.
+- The ward was told to pick Multiples A–D for a non-twin, or to fix the initials, a box #123 removed.
+- An overwrite would have been worse: the registration replaces the other infant's row and leaves its
+  Daily_Log under the same id, so two infants' histories merge.
+- **Fix (Pp: "ใช้รหัสสุ่ม"; "สร้าง ID … user ไม่ต้องรู้ความหมาย แค่บอกว่าเป็น ID เดียวกัน"):** a new infant's
+  id is `NF-` and six random digits (`D.newSessionId`). It carries nothing about the infant, so Copy Order's
+  LINE text no longer carries initials and weight. Existing ids never change: Daily_Log is keyed on them.
+  - A taken id is refused as `IdTaken`, and `handleAddPatient` draws again, up to three times, without a word
+    to the user. Nothing is ever written over the record that holds it.
+  - The old id caught a second registration of the same baby by accident; a random id does not. So
+    registration now asks outright when an infant on file has the same birth weight and date of birth. The
+    server asks (`_possibleDuplicate`, over every row, after the bed and date checks); the device shows its
+    sentence and OK sends `confirmDuplicate`.
+  - `gasPost` keeps `needsConfirm`, and the server's own sentence as `message`.
+  - `confirmOverwrite` is now unused (`BACKLOG.md`). No server message names initials any more.
+
+**3 · A name part with one consonant could not be registered (since #123).**
+- ฤดี → ด, ใจ → จ, คำ → ค: two letters were required and these have one, so Register stayed disabled.
+- **Fix (Pp: "ฤดี จะใช้ ฤด … ถ้าเกิดขึ้นจริง ให้นับสระเฉพาะชื่อแบบนี้"):** a name with fewer than two letters
+  keeps its vowels as well, in the order typed, so it has two characters: ฤดี → ฤด, ใจ → ใจ, คำ → คำ. Tone
+  marks never count. Every other name is cut exactly as before.
+- A foreign name with one letter, or no surname, still cannot be registered (`BACKLOG.md`).
+
+**Also:** an NF id is found with or without `NF-`, and by four digits or more.
+
+**4 · One source for each kind of data (Pp: "check ว่าทุกอันเข้ากับ single of truth ข้อมูลชนิดเดียวกัน
+ต้องมาจากแหล่งเดียวเท่านั้น").** Checked before the merge. Each kind of data in this change now has one
+definition:
+- **The displayed name:** `D.patientName` (`name`, else the old `initials`). About twenty screens, messages and
+  the search each spelled out their own fallback, three different ways.
+- **Date of birth from an admission date and DOL:** `D.dobFromAdmitDol`. The Register modal, the Edit modal and
+  `dobFromAdmission` each had their own copy of the arithmetic.
+- **"Still on the unit":** `registry.jsx`'s `isActivePatient` is now `D.isOnUnit` itself, not a copy of it. Two
+  more copies written out inline (the archive filter, the Dashboard status chip) read it too.
+- **"Bed taken":** one client message, `D.bedTakenMsg`. The modals and App's last check worded it two ways.
+- **The look-alike question:** the server only. The device's own copy read a dob it derives for old records,
+  and a parked infant's last bed, so it could answer differently from the server. It is gone, and the device
+  shows the server's sentence.
+- **The NF prefix:** one constant, `SESSION_ID_PREFIX`.
+- Left as they are, on purpose:
+  - rules the server must hold as well: the bed spelling, one-infant-per-bed, the status list. Apps Script
+    cannot load the client's code, and the server is what refuses.
+  - old ids carrying initials and BW, which are Daily_Log keys.
+  - `initials`, written from the same two boxes as `name`.
+
+**Tests.** New `test/verify-name-id-0927.cjs`, 68 checks. § 3 pins each single source, and each of its static
+checks fails on the code before this pass. § 5 runs the real `<App/>` in jsdom against the real backend. It
+fails 35 against `f675420`, in every section. `verify-backend-batch-0924`,
+`verify-gas-registry-upsert` and `verify-review-0917-backend-writes` answer the new question for their
+look-alike fixtures, and
+`verify-ward-requests-0925` now expects ใจ to be a complete part and an NF id at registration.
+
+**Deploy order: `clasp` first, then release the frontend straight after.**
+- The look-alike question lives on the server only. A new frontend on `@60` would register a second record of
+  the same baby with no question.
+- In the minutes between the two, today's frontend on the new backend is refused rather than asked. A
+  look-alike cannot be confirmed from it, and a taken initials id is told to refresh.
+
 ## Session 2026-09-27 — The bed-transfer review: the parked chip over the name, and six more
 
 Pp found it while capturing the manual's screenshots from release `10a4272`. On the desktop ward list a
