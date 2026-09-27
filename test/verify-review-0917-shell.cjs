@@ -245,14 +245,16 @@ const scenarios = {
     // Register
     calls = 0; closed = 0; d = pending();
     await mount(global.NewPatientModal, { onClose: () => closed++, onSubmit: () => { calls++; return d.p; } });
-    await t.typeInto(t.fieldInput('ชื่อย่อ', host), 'BB');
+    await t.typeInto(t.fieldInput('ชื่อ', host), 'บบ');
+    await t.typeInto(t.fieldInput('นามสกุล', host), 'ดด');
     await t.typeInto(t.fieldInput('Birth weight', host), 1000);
     await t.selectVal(t.fieldInput('GA', host), 30);
     await t.selectVal(t.fieldInput('Sex', host), 'boys');
     await t.click([...host.querySelectorAll('button')].find(b => /Register/.test(b.textContent)));
     await settle(d, { ok: false, error: 'ID นี้ (BB-BW1000) ลงทะเบียนไว้แล้ว' });
     A.ok('9.8 Register: the refusal is shown inside the modal', /ลงทะเบียนไว้แล้ว/.test(host.textContent));
-    A.ok('9.9 Register: nothing typed was lost', closed === 0 && t.fieldInput('ชื่อย่อ', host).value === 'BB');
+    A.ok('9.9 Register: nothing typed was lost', closed === 0 && t.fieldInput('ชื่อ', host).value === 'บบ'
+      && t.fieldInput('นามสกุล', host).value === 'ดด');
 
     // Transfer
     calls = 0; closed = 0; d = pending();

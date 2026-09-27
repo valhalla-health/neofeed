@@ -567,6 +567,10 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
             No log entries yet.
           </div>
         ) : (
+          // Scrolls inside the card when it is wider than the workspace (a
+          // landscape phone, an iPad), instead of dragging the whole screen
+          // sideways — 2026-09-25 phone sweep.
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead>
               <tr>
@@ -643,6 +647,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
               })()}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </>

@@ -2653,24 +2653,35 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
       </div>
 
       {/* ── BW + Current weight — merged column ── */}
-      <div style={{ padding:0, flexDirection:"row" }}>
+      {/* The two halves sit side by side where they fit and stack where they
+          do not (flex-wrap: a 280px phone, or large text, gave Birth weight a
+          38% it could not fit "1,180 g" into, and the strip clipped it —
+          2026-09-25 phone sweep). The divider is Current weight's own left
+          border, pulled 1px left: beside Birth weight it is the line between
+          them, and at the start of a line of its own it falls outside this box,
+          whose overflow: hidden then hides it. */}
+      <div style={{ padding:0, flexDirection:"row", flexWrap:"wrap", overflow:"hidden" }}>
         {/* BW — narrower half */}
-        <div style={{ flex:"0 0 38%", padding:"10px 8px 10px 14px", display:"flex", flexDirection:"column" }}>
+        <div style={{ flex:"1 1 38%", padding:"10px 8px 10px 14px", display:"flex", flexDirection:"column" }}>
           <div className="lbl">Birth weight</div>
           <div className="val num">
             {patient.bw.toLocaleString()}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:3 }}>g</span>
           </div>
           <div className="sub" style={{ color:wtColor, fontWeight:600 }}>{wtLabel}</div>
         </div>
-        <div style={{ width:1, background:"var(--line-2)", alignSelf:"stretch" }} />
-        {/* Current weight — wider half, val + delta on one line */}
-        <div style={{ flex:"1 1 62%", padding:"10px 14px 10px 10px", display:"flex", flexDirection:"column" }}>
+        {/* Current weight — wider half, val + delta on one line where it
+            fits. It wraps the delta under the weight where it does not: on a
+            430px phone "+70g (5.9%)" ran 18px past the strip, whose
+            overflow: hidden cut it off mid-bracket (2026-09-25 phone sweep). */}
+        <div style={{ flex:"1 1 62%", padding:"10px 14px 10px 10px", marginLeft:-1, borderLeft:"1px solid var(--line-2)", display:"flex", flexDirection:"column" }}>
           <div className="lbl">Current weight</div>
-          <div style={{ display:"flex", alignItems:"baseline", gap:7, marginTop:1, flexWrap:"nowrap" }}>
+          <div style={{ display:"flex", alignItems:"baseline", columnGap:7, rowGap:2, marginTop:1, flexWrap:"wrap" }}>
             <span className="num" style={{ fontFamily:"IBM Plex Mono,monospace", fontSize:17, fontWeight:500, letterSpacing:"-0.01em" }}>
               {currentW.toLocaleString()}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:3 }}>g</span>
             </span>
-            <span style={{ fontSize:12, color:deltaColor, fontWeight:700, whiteSpace:"nowrap" }}>
+            {/* May break at its space ("+70g" / "(5.9%)"): at 360px the cell is
+                narrower than the whole delta, which was 4px too wide unbroken. */}
+            <span style={{ fontSize:12, color:deltaColor, fontWeight:700, minWidth:0 }}>
               {delta >= 0 ? "+" : ""}{delta}g ({D_A.displayNum(deltaPct, 1)}%)
             </span>
           </div>
@@ -2698,7 +2709,9 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
       <div>
         <div className="lbl">Diagnosis</div>
         <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-          <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700 }}>{patient.diagnosis}</div>
+          {/* A long word ("hyperbilirubinemia") breaks rather than running
+              past the strip's clipped edge in a narrow column (tablet). */}
+          <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700, minWidth:0, overflowWrap:"anywhere" }}>{patient.diagnosis}</div>
           <span className={"chip" + (!patient.status || patient.status === "Active" ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
         </div>
       </div>

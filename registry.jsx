@@ -133,6 +133,27 @@ function WardGate({ patients, log, today, onPick }) {
   );
 }
 
+// A search that found no active infant in the open ward. It says what was
+// searched and where, and when another ward has a match it offers that ward in
+// one tap, query kept — an infant moved to SCN overnight is not lost behind a
+// bare "ไม่พบ" (the case the 2026-09-15 unit-wide search existed for).
+function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
+  return (
+    <div className="search-miss">
+      <div>ไม่พบ “{query}” ใน {wardName}</div>
+      {elsewhere.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 }}>
+          {elsewhere.map(x => (
+            <button key={x.ward} type="button" className="btn sm" onClick={() => onWardChange?.(x.ward)}>
+              พบใน {x.ward === "other" ? "อื่นๆ" : x.ward} {x.n} ราย · ไปดู →
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor }) {
   const [filter, setFilter]         = React.useState("");
   const [showAdd, setShowAdd]       = React.useState(false);
@@ -151,27 +172,28 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   // return can't change the hook call order between renders.
   if (!ward) return <WardGate patients={patients} log={log} today={today} onPick={onWardChange} />;
 
-  const q = filter.toLowerCase().trim();
+  const q = filter.trim();
+  const wardName = ward === "other" ? "อื่นๆ" : ward;
   // The ward this screen is about. Every count, badge and stat below is
   // scoped to it — except the bed-occupancy maps the modals build, which take
   // the full census (a bed is occupied by whoever is in it, ward gate or
-  // not), and except a search.
+  // not).
   const wardPatients = patients.filter(p => D_R.patientWard(p) === ward);
-  // **Searching looks across the whole unit, not just the open ward** (ward
-  // decision, 2026-09-15). Someone typing a name is looking for that infant,
-  // and answering "ไม่พบ" because they are one ward over — when the app can
-  // see them — is the app withholding what it knows. The ward gate is there
-  // to shorten the daily list, not to partition the census. Browsing (no
-  // query) still shows only this ward.
-  const matches = (p) =>
-    (p.name || "").toLowerCase().includes(q) ||
-    (p.currentBed || "").toLowerCase().includes(q) ||
-    (p.diagnosis || "").toLowerCase().includes(q);
-  const filtered = q ? patients.filter(matches) : wardPatients;
-  // How many of the hits are somewhere else, so the list can say so rather
-  // than leaving an SCN bed to appear unexplained on the NICU screen.
-  const offWardHits = q ? filtered.filter(p => D_R.patientWard(p) !== ward).length : 0;
-  const sorted   = [...filtered].sort(bedSort);
+  // **A search looks in the open ward only** (Pp, 2026-09-25: "ช่องค้นหา
+  // เอาวอร์ดออก เพราะแยกตั้งแต่ต้นแล้ว"). From 2026-09-15 it searched the whole
+  // unit and mixed the other ward's infants into this ward's list; the ward is
+  // picked once, at the gate, and the list answers for that ward. The
+  // 2026-09-15 reason still holds for the one case it was about: a search
+  // that finds NOBODY here says which other ward has a match, one tap away
+  // (SearchMiss), rather than a bare "ไม่พบ" for an infant the app can see.
+  //
+  // D_R.searchPatients is the one search (the topbar switcher uses it too):
+  // first name or surname, whole or begun, tone marks forgiven, an honorific
+  // ignored, the keyboard left in English read as Thai; then bed, NeoFeed ID,
+  // diagnosis. Best match first; browsing (empty box) keeps bed order.
+  const byBed = [...wardPatients].sort(bedSort);
+  const search = q ? D_R.searchPatients(byBed, q) : null;
+  const sorted = search ? search.hits : byBed;
   const activeSorted   = sorted.filter(isActivePatient);
   // Discharged/Transferred/Expired patients drop off the registry 7 days
   // after their statusDate — the name shouldn't linger on the dashboard
@@ -211,14 +233,27 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const loggedToday  = loggedSet.size;
   const needsLog     = totalActive - loggedToday;
 
+  // Asked only when this ward has no active match: which other ward does.
+  // Active infants only — this is "they moved", not the archive.
+  const elsewhere = q && activeSorted.length === 0
+    ? ["NICU", "SCN", "other"].filter(w => w !== ward).map(w => ({
+        ward: w,
+        n: D_R.searchPatients(patients.filter(p => D_R.patientWard(p) === w && isActivePatient(p)), q).hits.length,
+      })).filter(x => x.n > 0)
+    : [];
+  const miss = <SearchMiss query={q} wardName={wardName} elsewhere={elsewhere} onWardChange={onWardChange} />;
+
   return (
     <>
       <div className="page-head" style={{ marginBottom: 12 }}>
         <div>
-          <h1>{ward === "other" ? "อื่นๆ" : ward}</h1>
+          <h1>{wardName}</h1>
           <div className="sub">{wardPatients.length} sessions · {totalActive} active</div>
         </div>
-        <button className="btn" onClick={() => onWardChange?.(null)} style={{ fontSize: 12.5 }}>
+        {/* Clears the search too: it belongs to the ward it was typed in, and
+            carried to the next ward it would hide that ward's list behind a
+            query nobody can see being applied. */}
+        <button className="btn" onClick={() => { setFilter(""); onWardChange?.(null); }} style={{ fontSize: 12.5 }}>
           ← เปลี่ยน ward
         </button>
       </div>
@@ -251,24 +286,43 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       <div className="reg-filter">
         <div className="reg-search">
           <div className="s-ico"><Icon name="search" size={14} /></div>
+          {/* No autocomplete, autocorrect or spellcheck: a name is two
+              letters, and a phone's keyboard "correcting" สม into a word, or
+              a browser remembering what was searched on a shared ward
+              workstation, is the opposite of what this box is for. */}
           <input
             className="inp"
-            placeholder="ค้นหาทั้ง unit · ชื่อย่อ · เตียง · วินิจฉัย"
+            lang="th"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            aria-label={`ค้นหาผู้ป่วยใน ${wardName}`}
+            placeholder="ค้นหา ชื่อ หรือ นามสกุล · เลขเตียง"
             value={filter}
             onChange={e => setFilter(e.target.value)}
+            onKeyDown={e => { if (e.key === "Escape" && filter) { e.preventDefault(); setFilter(""); } }}
           />
+          {filter && (
+            <button type="button" className="s-clear" aria-label="ล้างคำค้นหา" onClick={() => setFilter("")}>
+              <Icon name="x" size={14} />
+            </button>
+          )}
         </div>
         <button className="btn primary" style={{ whiteSpace: "nowrap" }} onClick={() => setShowAdd(true)}>
           <Icon name="plus" size={14} color="#fff" /> New session
         </button>
       </div>
 
-      {/* A search reaches across wards, so say when it brought some back —
-          otherwise an SCN bed appears on the NICU screen with no explanation
-          and reads as the ward filter having broken. */}
-      {offWardHits > 0 && (
-        <div style={{ fontSize: 11.5, color: "var(--ink-3)", margin: "-4px 0 10px" }}>
-          ค้นทั้ง unit — {offWardHits} รายอยู่ ward อื่น (ดูเลขเตียงในแต่ละรายการ)
+      {/* What the search found, said once under the box — on a phone the first
+          card can be below the fold. When the keyboard was left in English
+          and the query was read as Thai, it says what it searched for. */}
+      {q && activeSorted.length > 0 && (
+        <div className="reg-search-note">
+          พบ {activeSorted.length} รายใน {wardName}
+          {search.thai && <> · ค้นเป็น “{search.thai}” (แป้นพิมพ์ภาษาไทย)</>}
         </div>
       )}
 
@@ -366,7 +420,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
 
         {activeSorted.length === 0 && (
           <div style={{ padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
-            {filter ? "ไม่พบผู้ป่วยที่ตรงกันทั้ง unit" : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`}
+            {q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`}
           </div>
         )}
 
@@ -558,9 +612,12 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           </tbody>
         </table>
 
-        {filtered.length === 0 && (
+        {/* A search that finds no active infant says so here even when an
+            archived one matched (it is in the collapsed row above), because
+            this is where the other ward's match is offered. */}
+        {(q ? activeSorted.length === 0 : sorted.length === 0) && (
           <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
-            {filter ? "ไม่พบผู้ป่วยที่ตรงกันทั้ง unit" : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`}
+            {q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`}
           </div>
         )}
       </div>
@@ -740,9 +797,93 @@ function SubmitError({ error }) {
   );
 }
 
+// ชื่อ + นามสกุล: the two boxes both patient modals render (Pp, 2026-09-25:
+// "ใส่ชื่อ เป็นชื่อ + นามสกุล เอาตัวอักษรไทย สองตัวแรก", "ให้ใส่เป็นชื่อภาษาไทย
+// (ยกเว้นต่างชาติ)", then "ให้ใช้เป็นตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์ เช่น
+// ทองดี ใช้ ทอ, เรยา ใช้ รย"). What is typed goes through D_R.namePart, so a
+// box holds its two letters — vowels and tone marks never counted or kept —
+// and shows exactly what will be saved. Thai, unless ชาวต่างชาติ is ticked,
+// which takes English letters. A letter of the other script is not saved,
+// and not dropped silently either: the note under the box says why (usually
+// a keyboard left in English) and points a foreign infant at the tick box. A
+// Thai part that reads as an honorific (ด.ช. typed first gives "ดช") is
+// questioned, because the name is the person's, not the title in front of it.
+//
+// A word being composed is left alone until the keyboard finishes it. Android
+// keyboards that compose (Gboard, Samsung, with suggestions on) hold the word
+// being typed; rewriting the box under them — and dropping vowels rewrites it
+// on nearly every keystroke — makes them repeat or scramble letters. So while
+// a composition is open the box shows the raw text (`draft`), and it is cut to
+// its two letters on compositionend. With no composition (a hardware keyboard,
+// suggestions off) every keystroke is cut at once.
+//
+// `value` is { first, last, foreign }; `onChange` receives the next one.
+const NAME_TITLE_PARTS = ["ดช", "ดญ", "นส"];
+function NameFields({ value, onChange }) {
+  const { foreign } = value;
+  const [wrongScript, setWrongScript] = React.useState({ first: false, last: false });
+  const [draft, setDraft] = React.useState({ first: null, last: null });
+  const composing = React.useRef({ first: false, last: false });
+  const commit = (key, raw) => {
+    setDraft(d => ({ ...d, [key]: null }));
+    setWrongScript(s => ({ ...s, [key]: (foreign ? /[\u0E00-\u0E7F]/ : /[A-Za-z]/).test(raw) }));
+    onChange({ ...value, [key]: D_R.namePart(raw, foreign) });
+  };
+  const note = (key, part) =>
+    wrongScript[key] ? (foreign ? "ติ๊ก “ชาวต่างชาติ” ไว้ — พิมพ์เป็นภาษาอังกฤษ"
+                                : "พิมพ์เป็นภาษาไทย (ชาวต่างชาติ: ติ๊กช่องด้านล่าง)")
+    : !foreign && NAME_TITLE_PARTS.includes(part) ? "ไม่ต้องใส่คำนำหน้า (ด.ช. / ด.ญ. / น.ส.)"
+    : "";
+  const box = (key, label, example) => {
+    const part = value[key];
+    const says = note(key, part);
+    return (
+      <div className="field">
+        <label>{label} <span className="unit">(2 ตัวอักษร)</span></label>
+        <input className="inp" lang={foreign ? "en" : "th"} value={draft[key] ?? part} placeholder={example}
+          autoComplete="off" autoCorrect="off" autoCapitalize={foreign ? "words" : "off"} spellCheck={false}
+          onCompositionStart={() => { composing.current[key] = true; }}
+          onCompositionEnd={e => { composing.current[key] = false; commit(key, e.currentTarget.value); }}
+          onChange={e => {
+            const raw = e.target.value;
+            if (composing.current[key]) setDraft(d => ({ ...d, [key]: raw }));
+            else commit(key, raw);
+          }} />
+        {says && <div className="name-note">{says}</div>}
+      </div>
+    );
+  };
+  return (
+    <div className="name-fields">
+      <div className="row-2 pair-row">
+        {box("first", "ชื่อ",    foreign ? "เช่น John → Jo"  : "เช่น เรยา → รย")}
+        {box("last",  "นามสกุล", foreign ? "เช่น Smith → Sm" : "เช่น ทองดี → ทอ")}
+      </div>
+      <div className="name-rule">
+        {foreign ? "2 ตัวอักษรแรกของชื่อและนามสกุล ภาษาอังกฤษ"
+                 : "2 ตัวอักษรแรกของชื่อและนามสกุล ไม่นับสระและวรรณยุกต์ · ไม่ต้องใส่คำนำหน้า"}
+      </div>
+      <label className="name-foreign">
+        {/* Switching script empties both boxes: nothing typed in one script
+            survives the other's filter, and keeping it on screen unsaved
+            would show a name that is not the one being registered. */}
+        <input type="checkbox" checked={foreign} onChange={e => {
+          setWrongScript({ first: false, last: false });
+          setDraft({ first: null, last: null });
+          onChange({ first: "", last: "", foreign: e.target.checked });
+        }} />
+        ชาวต่างชาติ — ใช้ชื่อภาษาอังกฤษ
+      </label>
+    </div>
+  );
+}
+
 function NewPatientModal({ patients, onClose, onSubmit }) {
   const today = D_R.todayLocal();   // local date, not UTC
-  const [name, setName]         = React.useState("");
+  // ชื่อ + นามสกุล, two characters each (NameFields). Registration needs both.
+  const [nameIn, setNameIn]     = React.useState({ first: "", last: "", foreign: false });
+  const nameOk = D_R.nameComplete(nameIn.first, nameIn.last, nameIn.foreign);
+  const name   = nameOk ? D_R.composePatientName(nameIn.first, nameIn.last, nameIn.foreign) : "";
   const [bw, setBw]             = React.useState(0);
   const [gaW, setGaW]           = React.useState("");
   const [gaD, setGaD]           = React.useState("");
@@ -782,14 +923,18 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
 
   // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
-  const sessionId = `${(name || "XX").slice(0, 2).toUpperCase()}-BW${bw}${twin ? "-" + twin : ""}`;
+  // initials + BW + twin, as before 2026-09-25: the id keeps two letters (the
+  // first consonant of each part), not the four the name now holds — it is
+  // what an order copied out of the app carries in the name's place.
+  const initials  = nameOk ? D_R.nameInitials(nameIn.first, nameIn.last) : "";
+  const sessionId = `${initials || "XX"}-BW${bw}${twin ? "-" + twin : ""}`;
 
   // Birth weight and GA feed every downstream nutrition calculation (targets,
   // Fenton percentile, HMF threshold) — a 0/blank value here would silently
   // corrupt every subsequent dose for this patient, so block submission on it.
   // …and one infant per bed: registering onto an occupied bed would leave two
   // patients reading as the same bed on every board and handover sheet.
-  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
+  const canSubmit = nameOk && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // DOB = admitDate − (admitDol − 1) days
@@ -812,11 +957,9 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
           <button className="icon-btn" onClick={onClose}><Icon name="x" size={14} /></button>
         </div>
         <div style={{ padding: 18 }}>
-          <div className="row-3">
-            <div className="field">
-              <label>ชื่อย่อ <span className="unit">(อักษรแรกของชื่อ + นามสกุล)</span></label>
-              <input className="inp" maxLength={2} value={name} onChange={e => setName(e.target.value)} placeholder="เช่น  ปพ" />
-            </div>
+          <NameFields value={nameIn} onChange={setNameIn} />
+          <div style={{ height: 10 }} />
+          <div className="row-2 pair-row">
             <div className="field">
               <label>Multiples <span className="unit">(optional)</span></label>
               <select className="sel" value={twin} onChange={e => {
@@ -921,12 +1064,13 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" }}>
                 {bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน"
                 : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้"
-                : "กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน"}
+                : !nameOk ? "กรอกชื่อ + นามสกุล อย่างละ 2 ตัวอักษรก่อนลงทะเบียน"
+                : "กรอกน้ำหนักแรกเกิด · GA · เพศ ให้ครบก่อนลงทะเบียน"}
               </span>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
             <button className="btn primary" disabled={!canSubmit || busy} onClick={() => submit({
-              sessionId, name, initials: name, bw, ga, twinSuffix: twin,
+              sessionId, name, initials, bw, ga, twinSuffix: twin,
               multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
               currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
               admissionDate: admitDate,
@@ -947,17 +1091,13 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   );
 }
 
-// Quick switcher (popup from topbar)
+// Quick switcher (popup from topbar). It lists the whole unit — it is the
+// way to any infant from any screen — and searches through the ward list's
+// own D_R.searchPatients, so the two boxes answer a name the same way.
 function PatientPicker({ patients, activeId, onSelect, onClose }) {
   const [q, setQ] = React.useState("");
-  const ql = q.toLowerCase().trim();
-  const filtered = patients
-    .filter(p =>
-      !ql ||
-      (p.name || "").toLowerCase().includes(ql) ||
-      (p.currentBed || "").toLowerCase().includes(ql)
-    )
-    .sort(bedSort);
+  const byBed = [...patients].sort(bedSort);
+  const filtered = q.trim() ? D_R.searchPatients(byBed, q).hits : byBed;
 
   React.useEffect(() => {
     const h = e => { if (e.key === "Escape") onClose(); };
@@ -970,7 +1110,8 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
       <div className="picker" onClick={e => e.stopPropagation()}>
         <div className="picker-h">
           <Icon name="search" size={16} color="var(--ink-3)" />
-          <input placeholder="ค้นหา · เลขเตียง หรือ ชื่อย่อ" value={q} onChange={e => setQ(e.target.value)} autoFocus />
+          <input placeholder="ค้นหา ชื่อ หรือ นามสกุล · เลขเตียง" value={q} onChange={e => setQ(e.target.value)} autoFocus
+            lang="th" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
           <button className="btn sm" onClick={onClose}>Close</button>
         </div>
         <div style={{ padding: "6px 0", maxHeight: 480, overflowY: "auto" }}>
@@ -1014,7 +1155,20 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
 
 function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, mergeBaseFor }) {
   const today = D_R.todayLocal();   // local date, not UTC
-  const [name, setName]         = React.useState(patient.name || patient.initials || "");
+  // ชื่อ + นามสกุล (NameFields). A name already in the two-part form opens in
+  // its two boxes and must stay complete. One from before 2026-09-25 — the
+  // two-letter "ปพ", a nickname, a PDPA-erased row — does not split into
+  // parts, so the boxes open empty and the stored name is kept exactly as it
+  // is unless a whole new one is typed: opening a record to fix its diagnosis
+  // must not demand, or quietly rewrite, a name.
+  const storedName = D_R.splitPatientName(patient.name);
+  const oldName    = storedName ? "" : (patient.name || patient.initials || "");
+  const [nameIn, setNameIn]     = React.useState(storedName
+    ? { first: storedName.first, last: storedName.last, foreign: storedName.foreign }
+    : { first: "", last: "", foreign: false });
+  const nameOk      = D_R.nameComplete(nameIn.first, nameIn.last, nameIn.foreign);
+  const nameKept    = !storedName && !nameIn.first && !nameIn.last;
+  const nameMissing = !nameOk && !nameKept;
   // Birth weight, GA and sex are corrections of what was typed at
   // registration, not new clinical events — and every one of them silently
   // rescales the whole chart downstream if it is wrong: the ESPGHAN kcal /
@@ -1032,7 +1186,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // would leave the patient's whole log stranded under an id nothing points
   // at any more. The BW baked into the id is a label from the day it was
   // issued; `patient.bw` is the clinical value, and that is what every
-  // calculation reads. Same reason editing ชื่อย่อ has never renamed it.
+  // calculation reads. Same reason editing the name has never renamed it.
   const [bw, setBw]             = React.useState(patient.bw || 0);
   // Decode through gaTotalDays, not Math.floor/×10 by hand, so a hand-edited
   // sheet value like 27.9 seeds the selects as 27+6 — exactly what every
@@ -1130,7 +1284,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
   // Same gate as registration: a 0/blank BW or GA would corrupt every
   // subsequent dose for this patient, so it can be corrected but not cleared.
-  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && !nameMissing && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
 
   // Permanently deletes the session — removes it from Patient_Registry and
@@ -1181,9 +1335,15 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     // `growth`). A plain edit (diagnosis, bed, discharge) moves no row: the
     // shift is 0 and the admission DOL unchanged (2026-09-24 blocker).
     const weights = D_R.moveGrowthRows(seeded, growth.shift, initialDol1, growth.dolAfter).rows;
+    // sessionId never follows a corrected name (see the note on bw above);
+    // `initials` does, as it always followed the name.
+    const named = nameOk
+      ? { name: D_R.composePatientName(nameIn.first, nameIn.last, nameIn.foreign),
+          initials: D_R.nameInitials(nameIn.first, nameIn.last) }
+      : {};
     submit({
       ...patient,
-      name, initials: name,
+      ...named,
       bw: Number(bw), ga, sex,
       currentBed: D_R.normalizeBed(bed),
       diagnosis: dx,
@@ -1251,11 +1411,14 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
               จะคำนวณใหม่ทั้งหมด ส่วนรหัส session <strong>{patient.sessionId}</strong> ยังคงเดิม (เป็นคีย์ของบันทึกประจำวันทุกรายการ)
             </div>
           )}
-          <div className="row-2">
-            <div className="field">
-              <label>ชื่อย่อ <span className="unit">(อักษรแรกของชื่อ + นามสกุล)</span></label>
-              <input className="inp" maxLength={2} value={name} onChange={e => setName(e.target.value)} />
+          <NameFields value={nameIn} onChange={setNameIn} />
+          {oldName && nameKept && (
+            <div style={{ marginTop: -4, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 }}>
+              ชื่อเดิม <strong style={{ color: "var(--ink-2)" }}>{oldName}</strong> (แบบเดิม) —
+              เว้นว่างไว้เพื่อใช้ชื่อเดิม หรือกรอกชื่อ + นามสกุลใหม่ อย่างละ 2 ตัวอักษร
             </div>
+          )}
+          <div className="row-3">
             <div className="field">
               <label>DOL แรกรับ</label>
               <input type="number" className="inp" min={1} value={dol1}
@@ -1264,8 +1427,6 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
                   setDol1(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
                 }} />
             </div>
-          </div>
-          <div className="row-2">
             <div className="field">
               <label>Admit date</label>
               <input type="date" className="inp" max={today} min={D_R.ADMIT_DATE_MIN}
@@ -1299,6 +1460,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
                   ? `การแก้วันรับ/DOL แรกรับนี้จะย้ายค่าที่วัดไว้ของ DOL ${growth.conflict.dol} ไป${growth.conflict.to <= 1
                       ? "อยู่ตรงหรือก่อนวันเกิด"
                       : `ทับ DOL ${growth.conflict.to} ที่มีค่าที่วัดไว้แล้ว`} — ตรวจสอบวันรับและ DOL แรกรับ`
+                : nameMissing ? "กรอกชื่อ + นามสกุลให้ครบ อย่างละ 2 ตัวอักษร"
                 : dol1Missing ? "ต้องระบุ DOL แรกรับก่อนบันทึก"
                 : admitIssue ? "แก้วันที่รับเข้าก่อนบันทึก"
                 : sex === "" ? "ต้องระบุเพศก่อนบันทึก"

@@ -92,7 +92,27 @@ big conditional block plus `RailItem`/`BottomNav`.
 ### Client-side identifiers
 - **`sessionId`** — the patient's key everywhere in the client (`Patient_Registry`
   and `Daily_Log` both key off it). Generated as `initials + BW + twinSuffix`
-  (see `data.js`) — it's a pseudonym, not an anonymous ID (see § 6).
+  (see `data.js`) — it's a pseudonym, not an anonymous ID (see § 6). Since
+  2026-09-25 the initials are `D.nameInitials(first, last)`, the first
+  consonant of each name part (a leading vowel is not an initial), so
+  `สม จด` at 1200 g is `สจ-BW1200`. The id deliberately keeps two letters while
+  the name holds four: Copy Order carries the id, never the name, into LINE.
+- **`name`** — since 2026-09-25, **ชื่อ + นามสกุล: the first two LETTERS of
+  the first name and of the surname**, stored as `"รย ทอ"` (one space; Pp's
+  example was "กค จด"). A letter is one of the 44 consonants: every vowel
+  (before, after, above or below) and tone mark is dropped, and so are ฤ ฦ,
+  which Thai grammar counts as vowels — ทองดี → ทอ, เรยา → รย, ใจดี → จด
+  (Pp: "ให้ใช้เป็นตัวอักษรเท่านั้น ไม่นับสระหรือวรรณยุกต์"). Thai, except a
+  foreign infant (ชาวต่างชาติ): the first two English letters, vowels counted,
+  `"Jo Sm"` (Pp confirmed, 2026-09-25). Both
+  patient modals render one `NameFields` — two boxes, one per part — and what
+  is typed goes through `D.namePart`, so a box shows exactly what is saved.
+  **A word being composed is left alone until `compositionend`**: rewriting a
+  box under an Android keyboard that is composing (Gboard, Samsung) makes it
+  repeat or scramble letters, and dropping vowels rewrites it constantly. A name from
+  before that date (the two-letter initials "ปพ", a nickname, a PDPA-erased
+  marker) does not split (`D.splitPatientName` → null) and is **kept as it is**
+  until someone types a whole new name; don't "migrate" those rows in bulk.
 - **`entryId`** — stable key for a single Daily_Log row, used by
   `updateDailyNutrition()` to match an existing entry for edit-in-place
   rather than always inserting.
@@ -102,7 +122,7 @@ is how it's *generated* at registration, not a formula the app keeps in sync:
 `Patient_Registry` and every `Daily_Log` row are matched on the literal string
 (`registerPatient`'s upsert, `updateDailyNutrition`, `deletePatient` all scan
 for it), so recomputing it after a correction would strand the patient's whole
-log under an id nothing points at. Editing `ชื่อในวงการ` has never renamed it,
+log under an id nothing points at. Editing the name has never renamed it,
 and as of 2026-08-19 **`bw`, `ga` and `sex` are editable in
 `EditPatientModal`** on the same terms — they were a read-only chip strip until
 then, so a registration typo could only be fixed by deleting the session and
@@ -566,13 +586,24 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    so the hook call order stays stable; every count and badge below it is
    ward-scoped, with two deliberate exceptions. The bed-occupancy maps the
    modals build take the **full** census (a bed is occupied by whoever is in
-   it, gate or not). And **the search box searches the whole unit**, not the
-   open ward: the gate shortens the daily list, it does not partition the
-   census, and answering "ไม่พบ" for an infant one ward over — when the app can
-   see them — is the app withholding what it knows. Browsing (empty box) still
-   shows only the chosen ward, and when a search does pull patients in from
-   elsewhere the list says how many, so an SCN bed appearing on the NICU
-   screen doesn't read as the ward filter having broken.
+   it, gate or not). **The search box searches the open ward** (Pp,
+   2026-09-25: "ช่องค้นหา เอาวอร์ดออก เพราะแยกตั้งแต่ต้นแล้ว", reversing the
+   2026-09-15 unit-wide search, which mixed the other ward's infants into the
+   list). The one case the unit-wide search was for survives: a search with no
+   active match here says `ไม่พบ "…" ใน NICU` and offers the ward that has one,
+   in one tap, query kept (`SearchMiss`). `← เปลี่ยน ward` clears the box.
+   **Every search box goes through `D.searchPatients`** (`data.js`) — the ward
+   list and the topbar switcher — so they cannot disagree. **The switcher lists
+   the whole unit on purpose** (Pp, 2026-09-25: it stays unit-wide, as the way
+   to any infant from any screen). The search ranks, best first: the first
+   name or the surname, whole or begun, either way round, compared by letters
+   alone (`thaiLetters`: เรยา,
+   เร, ทอง and ทองดี all find `รย ทอ`), an honorific ignored; a
+   pre-2026-09-25 two-letter name by
+   the initials of what was typed; then bed number, NeoFeed ID, diagnosis. A
+   query that finds nothing is read once more as typed on the Thai keyboard
+   layout (`l,` is สม), and the list says it did. Don't give a screen its own
+   `includes()` filter again: that is what made a name typed in full unfindable.
    Below the gate: patient list, sorted NICU → iso → SCN
    (then numerically within each ward). Desktop: table. Mobile: tappable
    cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, ⇄/Edit/Open).
@@ -897,7 +928,11 @@ under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
   for now (D6), and is part of the open retention item.
 - **Erasure:** `pseudonymizePatient()` in `gas-backend.gs`, admin-only,
   clears name/initials/dob but retains de-identified clinical history for
-  medical-record retention duty. Residual risk: `sessionId` is derived from
+  medical-record retention duty. **The stored name** is, since 2026-09-25, two
+  letters of the first name and two of the surname, vowels and tone marks not
+  kept (it was one letter of each) — Pp's call, for finding and identifying an
+  infant on the ward; still not a full name, and the id and Copy Order stay at
+  initials. `BACKLOG.md` carries telling the DPO. Residual risk: `sessionId` is derived from
   initials+BW+twinSuffix, so it's a pseudonym staff can reverse-map on a
   small census — erasure can't scrub that pattern without breaking every
   Daily_Log join. **There is no client entry point** — nothing in any `.jsx`
@@ -952,6 +987,31 @@ notes — don't just add the feature.
   (overflow, tap targets, sticky bars, safe-area insets). Test narrow
   viewports before calling a UI change done — see `HANDOFF.md`'s session
   logs for the specific patterns already fixed (don't regress them).
+- **Nothing is cut off, out of reach, or dragged sideways, on any phone** —
+  `test/verify-phone-sweep.cjs` signs in and opens every screen at 24 device
+  profiles (280 px Fold cover to 440 px Pro Max, landscape phones, tablets,
+  130 % text) and fails on a box that clips its content, an end that cannot be
+  tapped, or a sideways drag. Its first run (2026-09-25) found six bugs of the
+  kind the Android report was, and the rules they left behind are:
+  - a grid a phone rule narrows is `minmax(0, 1fr)`, never a bare `1fr`,
+    which cannot shrink below its content — and a `<select>` is as wide as
+    its longest option;
+  - text in a narrow box needs somewhere to break (`<wbr/>` before a unit,
+    `overflow-wrap: anywhere` for a diagnosis, no `nowrap` on a delta);
+  - a table wider than the workspace scrolls inside its card
+    (`.patient-table`, `.tbl-scroll`), never the page;
+  - the login footer is in the flow and the column is centred by auto
+    margins: absolute positioning and `justify-content: center` both break on
+    a landscape phone, where the column is taller than the screen;
+  - the icon rail scrolls rather than clips.
+  It runs in Chromium only (no WebKit in the cloud container), so an iPhone
+  look is still a person's job.
+- **Nothing that opens and closes is capped at a height.** A calculator step
+  body is `StepBody` (`calculator.jsx`): one grid row sliding from `0fr` to
+  `1fr`, the content's own height. It replaced `max-height: 1800px`, which
+  clipped Step 3 (1943 px at 360 px wide) on phones (2026-09-25,
+  `test/verify-ward-requests-0925.cjs`). A `max-height` "big enough" for a
+  desktop is not big enough once the columns stack.
 - **44px minimum tap target on touch, in both dimensions.** Two blocks
   enforce it: the `≤767px` "Touch targets" rules for phones, and a
   `(hover: none) and (pointer: coarse) and (min-width: 768px)` block for

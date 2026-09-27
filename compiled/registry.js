@@ -63,6 +63,9 @@ function WardGate({ patients, log, today, onPick }) {
   const tile = (ward) => ({ list: groups[ward], log, today, onPick: () => onPick(ward) });
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, /* @__PURE__ */ React.createElement(WardTile, { label: "NICU", sub: "NICU 1–12 · iso 1–3", ...tile("NICU") }), /* @__PURE__ */ React.createElement(WardTile, { label: "SCN", sub: "SCN 1–30", ...tile("SCN") }), groups.other.length > 0 && /* @__PURE__ */ React.createElement(WardTile, { label: "อื่นๆ", sub: "ยังไม่ระบุเตียง / เตียงนอกรายการ", ...tile("other") })));
 }
+function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "search-miss" }, /* @__PURE__ */ React.createElement("div", null, "ไม่พบ “", query, "” ใน ", wardName), elsewhere.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } }, elsewhere.map((x) => /* @__PURE__ */ React.createElement("button", { key: x.ward, type: "button", className: "btn sm", onClick: () => onWardChange?.(x.ward) }, "พบใน ", x.ward === "other" ? "อื่นๆ" : x.ward, " ", x.n, " ราย · ไปดู →"))));
+}
 function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor }) {
   const [filter, setFilter] = React.useState("");
   const [showAdd, setShowAdd] = React.useState(false);
@@ -71,12 +74,12 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const [showArchived, setShowArchived] = React.useState(false);
   const today = D_R.useTodayLocal();
   if (!ward) return /* @__PURE__ */ React.createElement(WardGate, { patients, log, today, onPick: onWardChange });
-  const q = filter.toLowerCase().trim();
+  const q = filter.trim();
+  const wardName = ward === "other" ? "อื่นๆ" : ward;
   const wardPatients = patients.filter((p) => D_R.patientWard(p) === ward);
-  const matches = (p) => (p.name || "").toLowerCase().includes(q) || (p.currentBed || "").toLowerCase().includes(q) || (p.diagnosis || "").toLowerCase().includes(q);
-  const filtered = q ? patients.filter(matches) : wardPatients;
-  const offWardHits = q ? filtered.filter((p) => D_R.patientWard(p) !== ward).length : 0;
-  const sorted = [...filtered].sort(bedSort);
+  const byBed = [...wardPatients].sort(bedSort);
+  const search = q ? D_R.searchPatients(byBed, q) : null;
+  const sorted = search ? search.hits : byBed;
   const activeSorted = sorted.filter(isActivePatient);
   const ARCHIVE_VISIBLE_DAYS = 7;
   const daysSinceStatus = (p) => {
@@ -95,15 +98,37 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const totalActive = activePatients.length;
   const loggedToday = loggedSet.size;
   const needsLog = totalActive - loggedToday;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, ward === "other" ? "อื่นๆ" : ward), /* @__PURE__ */ React.createElement("div", { className: "sub" }, wardPatients.length, " sessions · ", totalActive, " active")), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => onWardChange?.(null), style: { fontSize: 12.5 } }, "← เปลี่ยน ward")), /* @__PURE__ */ React.createElement("div", { className: "reg-stats" }, /* @__PURE__ */ React.createElement("div", { className: "reg-stat s-brand" }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, totalActive), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Active")), /* @__PURE__ */ React.createElement("div", { className: "reg-stat" }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, wardPatients.length), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Total sessions")), /* @__PURE__ */ React.createElement("div", { className: `reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}` }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, loggedToday), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Logged today")), /* @__PURE__ */ React.createElement("div", { className: `reg-stat ${needsLog === 0 ? "" : needsLog <= 1 ? "s-warn" : "s-crit"}` }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, needsLog), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Needs entry"))), /* @__PURE__ */ React.createElement("div", { className: "reg-filter" }, /* @__PURE__ */ React.createElement("div", { className: "reg-search" }, /* @__PURE__ */ React.createElement("div", { className: "s-ico" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 14 })), /* @__PURE__ */ React.createElement(
+  const elsewhere = q && activeSorted.length === 0 ? ["NICU", "SCN", "other"].filter((w) => w !== ward).map((w) => ({
+    ward: w,
+    n: D_R.searchPatients(patients.filter((p) => D_R.patientWard(p) === w && isActivePatient(p)), q).hits.length
+  })).filter((x) => x.n > 0) : [];
+  const miss = /* @__PURE__ */ React.createElement(SearchMiss, { query: q, wardName, elsewhere, onWardChange });
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, wardPatients.length, " sessions · ", totalActive, " active")), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
+    setFilter("");
+    onWardChange?.(null);
+  }, style: { fontSize: 12.5 } }, "← เปลี่ยน ward")), /* @__PURE__ */ React.createElement("div", { className: "reg-stats" }, /* @__PURE__ */ React.createElement("div", { className: "reg-stat s-brand" }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, totalActive), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Active")), /* @__PURE__ */ React.createElement("div", { className: "reg-stat" }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, wardPatients.length), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Total sessions")), /* @__PURE__ */ React.createElement("div", { className: `reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}` }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, loggedToday), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Logged today")), /* @__PURE__ */ React.createElement("div", { className: `reg-stat ${needsLog === 0 ? "" : needsLog <= 1 ? "s-warn" : "s-crit"}` }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, needsLog), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Needs entry"))), /* @__PURE__ */ React.createElement("div", { className: "reg-filter" }, /* @__PURE__ */ React.createElement("div", { className: "reg-search" }, /* @__PURE__ */ React.createElement("div", { className: "s-ico" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 14 })), /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "inp",
-      placeholder: "ค้นหาทั้ง unit · ชื่อย่อ · เตียง · วินิจฉัย",
+      lang: "th",
+      inputMode: "search",
+      enterKeyHint: "search",
+      autoComplete: "off",
+      autoCorrect: "off",
+      autoCapitalize: "off",
+      spellCheck: false,
+      "aria-label": `ค้นหาผู้ป่วยใน ${wardName}`,
+      placeholder: "ค้นหา ชื่อ หรือ นามสกุล · เลขเตียง",
       value: filter,
-      onChange: (e) => setFilter(e.target.value)
+      onChange: (e) => setFilter(e.target.value),
+      onKeyDown: (e) => {
+        if (e.key === "Escape" && filter) {
+          e.preventDefault();
+          setFilter("");
+        }
+      }
     }
-  )), /* @__PURE__ */ React.createElement("button", { className: "btn primary", style: { whiteSpace: "nowrap" }, onClick: () => setShowAdd(true) }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 14, color: "#fff" }), " New session")), offWardHits > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", margin: "-4px 0 10px" } }, "ค้นทั้ง unit — ", offWardHits, " รายอยู่ ward อื่น (ดูเลขเตียงในแต่ละรายการ)"), /* @__PURE__ */ React.createElement("div", { className: "patient-card-list" }, activeSorted.map((p) => {
+  ), filter && /* @__PURE__ */ React.createElement("button", { type: "button", className: "s-clear", "aria-label": "ล้างคำค้นหา", onClick: () => setFilter("") }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("button", { className: "btn primary", style: { whiteSpace: "nowrap" }, onClick: () => setShowAdd(true) }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 14, color: "#fff" }), " New session")), q && activeSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "reg-search-note" }, "พบ ", activeSorted.length, " รายใน ", wardName, search.thai && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ค้นเป็น “", search.thai, "” (แป้นพิมพ์ภาษาไทย)")), /* @__PURE__ */ React.createElement("div", { className: "patient-card-list" }, activeSorted.map((p) => {
     const last = D_R.currentWeight(p, log[p.sessionId]) || null;
     const dol = D_R.liveDol(p);
     const delta = last ? last.w - p.bw : 0;
@@ -153,7 +178,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         onSelect(p.sessionId);
       } }, "Open ", /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: "#fff" })))
     );
-  }), activeSorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, filter ? "ไม่พบผู้ป่วยที่ตรงกันทั้ง unit" : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`), archivedSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(
+  }), activeSorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`), archivedSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",
@@ -292,7 +317,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       e.stopPropagation();
       setEditPatient(p);
     } }, "Edit"))
-  )))), filtered.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, filter ? "ไม่พบผู้ป่วยที่ตรงกันทั้ง unit" : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`)), showAdd && /* @__PURE__ */ React.createElement(NewPatientModal, { patients, onClose: () => setShowAdd(false), onSubmit: (p) => onAdd(p) }), editPatient && /* @__PURE__ */ React.createElement(
+  )))), (q ? activeSorted.length === 0 : sorted.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`)), showAdd && /* @__PURE__ */ React.createElement(NewPatientModal, { patients, onClose: () => setShowAdd(false), onSubmit: (p) => onAdd(p) }), editPatient && /* @__PURE__ */ React.createElement(
     EditPatientModal,
     {
       patient: editPatient,
@@ -406,9 +431,58 @@ function SubmitError({ error }) {
     lineHeight: 1.5
   } }, error);
 }
+const NAME_TITLE_PARTS = ["ดช", "ดญ", "นส"];
+function NameFields({ value, onChange }) {
+  const { foreign } = value;
+  const [wrongScript, setWrongScript] = React.useState({ first: false, last: false });
+  const [draft, setDraft] = React.useState({ first: null, last: null });
+  const composing = React.useRef({ first: false, last: false });
+  const commit = (key, raw) => {
+    setDraft((d) => ({ ...d, [key]: null }));
+    setWrongScript((s) => ({ ...s, [key]: (foreign ? /[\u0E00-\u0E7F]/ : /[A-Za-z]/).test(raw) }));
+    onChange({ ...value, [key]: D_R.namePart(raw, foreign) });
+  };
+  const note = (key, part) => wrongScript[key] ? foreign ? "ติ๊ก “ชาวต่างชาติ” ไว้ — พิมพ์เป็นภาษาอังกฤษ" : "พิมพ์เป็นภาษาไทย (ชาวต่างชาติ: ติ๊กช่องด้านล่าง)" : !foreign && NAME_TITLE_PARTS.includes(part) ? "ไม่ต้องใส่คำนำหน้า (ด.ช. / ด.ญ. / น.ส.)" : "";
+  const box = (key, label, example) => {
+    const part = value[key];
+    const says = note(key, part);
+    return /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, label, " ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(2 ตัวอักษร)")), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "inp",
+        lang: foreign ? "en" : "th",
+        value: draft[key] ?? part,
+        placeholder: example,
+        autoComplete: "off",
+        autoCorrect: "off",
+        autoCapitalize: foreign ? "words" : "off",
+        spellCheck: false,
+        onCompositionStart: () => {
+          composing.current[key] = true;
+        },
+        onCompositionEnd: (e) => {
+          composing.current[key] = false;
+          commit(key, e.currentTarget.value);
+        },
+        onChange: (e) => {
+          const raw = e.target.value;
+          if (composing.current[key]) setDraft((d) => ({ ...d, [key]: raw }));
+          else commit(key, raw);
+        }
+      }
+    ), says && /* @__PURE__ */ React.createElement("div", { className: "name-note" }, says));
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "name-fields" }, /* @__PURE__ */ React.createElement("div", { className: "row-2 pair-row" }, box("first", "ชื่อ", foreign ? "เช่น John → Jo" : "เช่น เรยา → รย"), box("last", "นามสกุล", foreign ? "เช่น Smith → Sm" : "เช่น ทองดี → ทอ")), /* @__PURE__ */ React.createElement("div", { className: "name-rule" }, foreign ? "2 ตัวอักษรแรกของชื่อและนามสกุล ภาษาอังกฤษ" : "2 ตัวอักษรแรกของชื่อและนามสกุล ไม่นับสระและวรรณยุกต์ · ไม่ต้องใส่คำนำหน้า"), /* @__PURE__ */ React.createElement("label", { className: "name-foreign" }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: foreign, onChange: (e) => {
+    setWrongScript({ first: false, last: false });
+    setDraft({ first: null, last: null });
+    onChange({ first: "", last: "", foreign: e.target.checked });
+  } }), "ชาวต่างชาติ — ใช้ชื่อภาษาอังกฤษ"));
+}
 function NewPatientModal({ patients, onClose, onSubmit }) {
   const today = D_R.todayLocal();
-  const [name, setName] = React.useState("");
+  const [nameIn, setNameIn] = React.useState({ first: "", last: "", foreign: false });
+  const nameOk = D_R.nameComplete(nameIn.first, nameIn.last, nameIn.foreign);
+  const name = nameOk ? D_R.composePatientName(nameIn.first, nameIn.last, nameIn.foreign) : "";
   const [bw, setBw] = React.useState(0);
   const [gaW, setGaW] = React.useState("");
   const [gaD, setGaD] = React.useState("");
@@ -426,14 +500,15 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   const admitIssue = D_R.admissionDateIssue(admitDate, today);
   const admitCE = D_R.toChristianEraDateStr(admitDate, today);
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
-  const sessionId = `${(name || "XX").slice(0, 2).toUpperCase()}-BW${bw}${twin ? "-" + twin : ""}`;
-  const canSubmit = name.trim().length > 0 && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
+  const initials = nameOk ? D_R.nameInitials(nameIn.first, nameIn.last) : "";
+  const sessionId = `${initials || "XX"}-BW${bw}${twin ? "-" + twin : ""}`;
+  const canSubmit = nameOk && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   const dob = React.useMemo(() => {
     if (!admitDate) return today;
     return D_R.addDaysToDateStr(admitDate, -(Math.max(1, parseInt(admitDol) || 1) - 1));
   }, [admitDate, admitDol]);
-  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 560 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Register new session"), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18 } }, /* @__PURE__ */ React.createElement("div", { className: "row-3" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "ชื่อย่อ ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(อักษรแรกของชื่อ + นามสกุล)")), /* @__PURE__ */ React.createElement("input", { className: "inp", maxLength: 2, value: name, onChange: (e) => setName(e.target.value), placeholder: "เช่น  ปพ" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Multiples ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(optional)")), /* @__PURE__ */ React.createElement("select", { className: "sel", value: twin, onChange: (e) => {
+  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 560 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Register new session"), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18 } }, /* @__PURE__ */ React.createElement(NameFields, { value: nameIn, onChange: setNameIn }), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2 pair-row" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Multiples ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(optional)")), /* @__PURE__ */ React.createElement("select", { className: "sel", value: twin, onChange: (e) => {
     setTwin(e.target.value);
     if (!e.target.value) setMultiplesCount("");
   } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "—"), /* @__PURE__ */ React.createElement("option", { value: "A" }, "A"), /* @__PURE__ */ React.createElement("option", { value: "B" }, "B"), /* @__PURE__ */ React.createElement("option", { value: "C" }, "C"), /* @__PURE__ */ React.createElement("option", { value: "D" }, "D"))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "How many ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(twin/triplet/quad)")), /* @__PURE__ */ React.createElement("select", { className: "sel", value: multiplesCount, disabled: !twin, onChange: (e) => setMultiplesCount(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "—"), /* @__PURE__ */ React.createElement("option", { value: "2" }, "2 · Twin"), /* @__PURE__ */ React.createElement("option", { value: "3" }, "3 · Triplet"), /* @__PURE__ */ React.createElement("option", { value: "4" }, "4 · Quadruplet")))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-3" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Birth weight ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(g)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", value: bw || "", onChange: (e) => setBw(Math.max(0, parseInt(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "GA ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(weeks + days)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaW, onChange: (e) => setGaW(e.target.value), style: { flex: 1 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "wk"), GA_WEEK_OPTIONS.map((w) => /* @__PURE__ */ React.createElement("option", { key: w, value: w }, w))), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontWeight: 500 } }, "+"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaD, onChange: (e) => setGaD(e.target.value), style: { width: 68 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "d"), [0, 1, 2, 3, 4, 5, 6].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Sex"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: sex, onChange: (e) => setSex(e.target.value) }, sex === "" && /* @__PURE__ */ React.createElement("option", { value: "" }, "— เลือก —"), /* @__PURE__ */ React.createElement("option", { value: "boys" }, "Male"), /* @__PURE__ */ React.createElement("option", { value: "girls" }, "Female")))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Admit date"), /* @__PURE__ */ React.createElement(
@@ -459,10 +534,10 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
         setAdmitDol(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
       }
     }
-  ), admitDol > 1 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, "DOB: ", dob)))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Length at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: len || "", onChange: (e) => setLen(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "HC at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: hc || "", onChange: (e) => setHc(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" }))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy }), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--crit)", marginTop: 4 } }, bedTakenMsg(D_R.normalizeBed(bed), bedTaken))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), submitError && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement(SubmitError, { error: submitError })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 } }, !canSubmit && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" } }, bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้" : "กรอกชื่อย่อ · น้ำหนักแรกเกิด · GA ให้ครบก่อนลงทะเบียน"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSubmit || busy, onClick: () => submit({
+  ), admitDol > 1 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, "DOB: ", dob)))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Length at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: len || "", onChange: (e) => setLen(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "HC at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: hc || "", onChange: (e) => setHc(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" }))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy }), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--crit)", marginTop: 4 } }, bedTakenMsg(D_R.normalizeBed(bed), bedTaken))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), submitError && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement(SubmitError, { error: submitError })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 } }, !canSubmit && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" } }, bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้" : !nameOk ? "กรอกชื่อ + นามสกุล อย่างละ 2 ตัวอักษรก่อนลงทะเบียน" : "กรอกน้ำหนักแรกเกิด · GA · เพศ ให้ครบก่อนลงทะเบียน"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSubmit || busy, onClick: () => submit({
     sessionId,
     name,
-    initials: name,
+    initials,
     bw,
     ga,
     twinSuffix: twin,
@@ -483,10 +558,8 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
 }
 function PatientPicker({ patients, activeId, onSelect, onClose }) {
   const [q, setQ] = React.useState("");
-  const ql = q.toLowerCase().trim();
-  const filtered = patients.filter(
-    (p) => !ql || (p.name || "").toLowerCase().includes(ql) || (p.currentBed || "").toLowerCase().includes(ql)
-  ).sort(bedSort);
+  const byBed = [...patients].sort(bedSort);
+  const filtered = q.trim() ? D_R.searchPatients(byBed, q).hits : byBed;
   React.useEffect(() => {
     const h = (e) => {
       if (e.key === "Escape") onClose();
@@ -494,7 +567,21 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, []);
-  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 16, color: "var(--ink-3)" }), /* @__PURE__ */ React.createElement("input", { placeholder: "ค้นหา · เลขเตียง หรือ ชื่อย่อ", value: q, onChange: (e) => setQ(e.target.value), autoFocus: true }), /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: onClose }, "Close")), /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 0", maxHeight: 480, overflowY: "auto" } }, filtered.map((p) => /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 16, color: "var(--ink-3)" }), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      placeholder: "ค้นหา ชื่อ หรือ นามสกุล · เลขเตียง",
+      value: q,
+      onChange: (e) => setQ(e.target.value),
+      autoFocus: true,
+      lang: "th",
+      enterKeyHint: "search",
+      autoComplete: "off",
+      autoCorrect: "off",
+      autoCapitalize: "off",
+      spellCheck: false
+    }
+  ), /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: onClose }, "Close")), /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 0", maxHeight: 480, overflowY: "auto" } }, filtered.map((p) => /* @__PURE__ */ React.createElement(
     "div",
     {
       key: p.sessionId,
@@ -529,7 +616,12 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
 }
 function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, mergeBaseFor }) {
   const today = D_R.todayLocal();
-  const [name, setName] = React.useState(patient.name || patient.initials || "");
+  const storedName = D_R.splitPatientName(patient.name);
+  const oldName = storedName ? "" : patient.name || patient.initials || "";
+  const [nameIn, setNameIn] = React.useState(storedName ? { first: storedName.first, last: storedName.last, foreign: storedName.foreign } : { first: "", last: "", foreign: false });
+  const nameOk = D_R.nameComplete(nameIn.first, nameIn.last, nameIn.foreign);
+  const nameKept = !storedName && !nameIn.first && !nameIn.last;
+  const nameMissing = !nameOk && !nameKept;
   const [bw, setBw] = React.useState(patient.bw || 0);
   const gaTd = D_R.gaTotalDays(patient.ga);
   const gaStoredW = Math.floor(gaTd / 7);
@@ -571,7 +663,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     return { shift, dolAfter, moved, conflict };
   }, [patient, admitDate, dob, dol1, dol1Missing, initialDol1]);
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
-  const canSave = bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && !nameMissing && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   const handleDelete = () => {
     if (!onDelete) return;
@@ -588,10 +680,13 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     const bwChanged = Number(bw) !== Number(patient.bw);
     const seeded = (patient.weights || []).map((w, i) => i === 0 && w && bwChanged && Number(w.w) === Number(patient.bw) ? { ...w, w: Number(bw) } : w);
     const weights = D_R.moveGrowthRows(seeded, growth.shift, initialDol1, growth.dolAfter).rows;
+    const named = nameOk ? {
+      name: D_R.composePatientName(nameIn.first, nameIn.last, nameIn.foreign),
+      initials: D_R.nameInitials(nameIn.first, nameIn.last)
+    } : {};
     submit({
       ...patient,
-      name,
-      initials: name,
+      ...named,
       bw: Number(bw),
       ga,
       sex,
@@ -616,7 +711,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       onChange: (e) => setBw(Math.max(0, parseInt(e.target.value, 10) || 0)),
       placeholder: "0"
     }
-  )), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "GA ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(weeks + days)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaW, onChange: (e) => setGaW(e.target.value), style: { flex: 1 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "wk"), GA_WEEK_OPTIONS.map((w) => /* @__PURE__ */ React.createElement("option", { key: w, value: w }, w))), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontWeight: 500 } }, "+"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaD, onChange: (e) => setGaD(e.target.value), style: { width: 64 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "d"), [0, 1, 2, 3, 4, 5, 6].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Sex"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: sex, onChange: (e) => setSex(e.target.value) }, sex === "" && /* @__PURE__ */ React.createElement("option", { value: "" }, "— เลือก —"), /* @__PURE__ */ React.createElement("option", { value: "boys" }, "Male"), /* @__PURE__ */ React.createElement("option", { value: "girls" }, "Female")))), !sexKnown && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 } }, "เพศในทะเบียนของ session นี้ไม่ถูกต้อง", patient.sex ? /* @__PURE__ */ React.createElement(React.Fragment, null, " (", /* @__PURE__ */ React.createElement("strong", null, String(patient.sex)), ")") : null, " — เลือก Male หรือ Female ก่อนจึงจะบันทึกได้ (ใช้เลือกกราฟ Fenton)"), gaTd > 0 && !gaInRange && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 } }, "GA เดิมของ session นี้ (", /* @__PURE__ */ React.createElement("strong", null, D_R.fmtGA(patient.ga), " wk"), ") อยู่นอกช่วง 22–43 wk ที่ระบบรองรับ — เลือก GA ใหม่ก่อนจึงจะบันทึกได้"), Number(bw) !== Number(patient.bw) && bw > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "var(--bg-2)", borderRadius: 8, fontSize: 11.5, color: "var(--ink-2)", lineHeight: 1.5 } }, "แก้ BW จาก ", /* @__PURE__ */ React.createElement("strong", null, patient.bw, " g"), " เป็น ", /* @__PURE__ */ React.createElement("strong", null, bw, " g"), " — เป้าหมายสารอาหารและกราฟ Fenton จะคำนวณใหม่ทั้งหมด ส่วนรหัส session ", /* @__PURE__ */ React.createElement("strong", null, patient.sessionId), " ยังคงเดิม (เป็นคีย์ของบันทึกประจำวันทุกรายการ)"), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "ชื่อย่อ ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(อักษรแรกของชื่อ + นามสกุล)")), /* @__PURE__ */ React.createElement("input", { className: "inp", maxLength: 2, value: name, onChange: (e) => setName(e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "DOL แรกรับ"), /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "GA ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(weeks + days)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaW, onChange: (e) => setGaW(e.target.value), style: { flex: 1 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "wk"), GA_WEEK_OPTIONS.map((w) => /* @__PURE__ */ React.createElement("option", { key: w, value: w }, w))), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontWeight: 500 } }, "+"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: gaD, onChange: (e) => setGaD(e.target.value), style: { width: 64 } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "d"), [0, 1, 2, 3, 4, 5, 6].map((d) => /* @__PURE__ */ React.createElement("option", { key: d, value: d }, d))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Sex"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: sex, onChange: (e) => setSex(e.target.value) }, sex === "" && /* @__PURE__ */ React.createElement("option", { value: "" }, "— เลือก —"), /* @__PURE__ */ React.createElement("option", { value: "boys" }, "Male"), /* @__PURE__ */ React.createElement("option", { value: "girls" }, "Female")))), !sexKnown && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 } }, "เพศในทะเบียนของ session นี้ไม่ถูกต้อง", patient.sex ? /* @__PURE__ */ React.createElement(React.Fragment, null, " (", /* @__PURE__ */ React.createElement("strong", null, String(patient.sex)), ")") : null, " — เลือก Male หรือ Female ก่อนจึงจะบันทึกได้ (ใช้เลือกกราฟ Fenton)"), gaTd > 0 && !gaInRange && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 } }, "GA เดิมของ session นี้ (", /* @__PURE__ */ React.createElement("strong", null, D_R.fmtGA(patient.ga), " wk"), ") อยู่นอกช่วง 22–43 wk ที่ระบบรองรับ — เลือก GA ใหม่ก่อนจึงจะบันทึกได้"), Number(bw) !== Number(patient.bw) && bw > 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 12px", background: "var(--bg-2)", borderRadius: 8, fontSize: 11.5, color: "var(--ink-2)", lineHeight: 1.5 } }, "แก้ BW จาก ", /* @__PURE__ */ React.createElement("strong", null, patient.bw, " g"), " เป็น ", /* @__PURE__ */ React.createElement("strong", null, bw, " g"), " — เป้าหมายสารอาหารและกราฟ Fenton จะคำนวณใหม่ทั้งหมด ส่วนรหัส session ", /* @__PURE__ */ React.createElement("strong", null, patient.sessionId), " ยังคงเดิม (เป็นคีย์ของบันทึกประจำวันทุกรายการ)"), /* @__PURE__ */ React.createElement(NameFields, { value: nameIn, onChange: setNameIn }), oldName && nameKept && /* @__PURE__ */ React.createElement("div", { style: { marginTop: -4, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 } }, "ชื่อเดิม ", /* @__PURE__ */ React.createElement("strong", { style: { color: "var(--ink-2)" } }, oldName), " (แบบเดิม) — เว้นว่างไว้เพื่อใช้ชื่อเดิม หรือกรอกชื่อ + นามสกุลใหม่ อย่างละ 2 ตัวอักษร"), /* @__PURE__ */ React.createElement("div", { className: "row-3" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "DOL แรกรับ"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "number",
@@ -628,7 +723,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
         setDol1(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
       }
     }
-  ))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Admit date"), /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Admit date"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "date",
@@ -638,7 +733,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       value: admitDate,
       onChange: (e) => setAdmitDate(e.target.value)
     }
-  ), /* @__PURE__ */ React.createElement(AdmitDateIssue, { issue: admitIssue, correction: admitCE, onFix: setAdmitDate })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Status"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: status, onChange: (e) => setStatus(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Active" }, "Active"), /* @__PURE__ */ React.createElement("option", { value: "Discharged" }, "Discharged"), /* @__PURE__ */ React.createElement("option", { value: "Transferred" }, "Transferred"), /* @__PURE__ */ React.createElement("option", { value: "Expired" }, "Expired")))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), !canSave && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: bedTaken || growth.conflict ? "var(--crit)" : "var(--ink-3)", textAlign: "right" } }, bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken) : growth.conflict ? `การแก้วันรับ/DOL แรกรับนี้จะย้ายค่าที่วัดไว้ของ DOL ${growth.conflict.dol} ไป${growth.conflict.to <= 1 ? "อยู่ตรงหรือก่อนวันเกิด" : `ทับ DOL ${growth.conflict.to} ที่มีค่าที่วัดไว้แล้ว`} — ตรวจสอบวันรับและ DOL แรกรับ` : dol1Missing ? "ต้องระบุ DOL แรกรับก่อนบันทึก" : admitIssue ? "แก้วันที่รับเข้าก่อนบันทึก" : sex === "" ? "ต้องระบุเพศก่อนบันทึก" : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 } }, onDelete && /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement(AdmitDateIssue, { issue: admitIssue, correction: admitCE, onFix: setAdmitDate })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Status"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: status, onChange: (e) => setStatus(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Active" }, "Active"), /* @__PURE__ */ React.createElement("option", { value: "Discharged" }, "Discharged"), /* @__PURE__ */ React.createElement("option", { value: "Transferred" }, "Transferred"), /* @__PURE__ */ React.createElement("option", { value: "Expired" }, "Expired")))), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), !canSave && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: bedTaken || growth.conflict ? "var(--crit)" : "var(--ink-3)", textAlign: "right" } }, bedTaken ? bedTakenMsg(D_R.normalizeBed(bed), bedTaken) : growth.conflict ? `การแก้วันรับ/DOL แรกรับนี้จะย้ายค่าที่วัดไว้ของ DOL ${growth.conflict.dol} ไป${growth.conflict.to <= 1 ? "อยู่ตรงหรือก่อนวันเกิด" : `ทับ DOL ${growth.conflict.to} ที่มีค่าที่วัดไว้แล้ว`} — ตรวจสอบวันรับและ DOL แรกรับ` : nameMissing ? "กรอกชื่อ + นามสกุลให้ครบ อย่างละ 2 ตัวอักษร" : dol1Missing ? "ต้องระบุ DOL แรกรับก่อนบันทึก" : admitIssue ? "แก้วันที่รับเข้าก่อนบันทึก" : sex === "" ? "ต้องระบุเพศก่อนบันทึก" : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 } }, onDelete && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",
