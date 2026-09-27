@@ -17,11 +17,15 @@ const bedSort = (a, b) => {
   const rank = (bed) => WARD_RANK[(bed.match(/^[a-z]+/i) || [""])[0].toLowerCase()] ?? 3;
   return rank(bedA) - rank(bedB) || bedA.localeCompare(bedB, void 0, { numeric: true, sensitivity: "base" });
 };
-function BedChip({ p, style }) {
+function BedChip({ p, style, stacked }) {
   if (D_R.isParked(p)) {
-    return /* @__PURE__ */ React.createElement("span", { className: "chip warn", style, title: `ย้ายออกจาก ${D_R.lastBed(p)} แล้ว — ยังไม่ได้เลือกเตียงใหม่` }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "รอเตียง · จาก ", D_R.lastBed(p));
+    const title = `ย้ายออกจาก ${D_R.lastBed(p)} แล้ว — ยังไม่ได้เลือกเตียงใหม่`;
+    if (stacked) {
+      return /* @__PURE__ */ React.createElement("span", { className: "bed-chip bed-wait", style, title }, /* @__PURE__ */ React.createElement("span", { className: "chip warn" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "รอเตียง"), " ", /* @__PURE__ */ React.createElement("span", { className: "bed-wait-from" }, "จาก ", D_R.lastBed(p)));
+    }
+    return /* @__PURE__ */ React.createElement("span", { className: "bed-chip chip warn", style, title }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "รอเตียง · จาก ", D_R.lastBed(p));
   }
-  return /* @__PURE__ */ React.createElement("span", { className: "chip", style }, /* @__PURE__ */ React.createElement("span", { className: "d" }), p.currentBed);
+  return /* @__PURE__ */ React.createElement("span", { className: "bed-chip chip", style }, /* @__PURE__ */ React.createElement("span", { className: "d" }), p.currentBed || D_R.lastBed(p));
 }
 const isActivePatient = (p) => !p.status || p.status === "Active";
 const MULTIPLES_COUNT_TERM = { 2: "Twin", 3: "Triplet", 4: "Quadruplet" };
@@ -225,7 +229,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           }
         }
       },
-      /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChip, { p })),
+      /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChip, { p, stacked: true })),
       /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 14 } }, p.name || p.initials || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, multiplesLabel(p))),
       /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600, color: "var(--brand-2)" } }, D_R.fmtGA(p.ga)),
       /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600, color: "var(--ok)" } }, D_R.fmtGA(D_R.pmaShort(p.ga, dol))),
@@ -305,7 +309,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       style: { opacity: 0.5, cursor: "pointer" },
       onClick: () => onSelect(p.sessionId)
     },
-    /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChip, { p })),
+    /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChip, { p, stacked: true })),
     /* @__PURE__ */ React.createElement("td", { style: { fontWeight: 600, fontSize: 13 } }, p.name || p.initials || "—"),
     /* @__PURE__ */ React.createElement("td", { className: "num" }, D_R.fmtGA(p.ga)),
     /* @__PURE__ */ React.createElement("td", { className: "num" }, D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))),
@@ -339,7 +343,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   ));
 }
 const GA_WEEK_OPTIONS = Array.from({ length: 22 }, (_, i) => 22 + i);
-function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy }) {
+function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy, occupiedSelectable = false }) {
   const current = D_R.normalizeBed(value);
   const isKnown = current === "" || D_R.BED_OPTIONS.includes(current);
   const takenBy = (b) => occupancy?.get(b);
@@ -354,7 +358,7 @@ function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy 
     (allowUnassigned || current === "") && /* @__PURE__ */ React.createElement("option", { value: "" }, "— ยังไม่ระบุเตียง —"),
     D_R.BED_OPTIONS.map((b) => {
       const holder = takenBy(b);
-      return /* @__PURE__ */ React.createElement("option", { key: b, value: b, disabled: !!holder }, holder ? `${b} · ไม่ว่าง (${holder.name || holder.sessionId})` : b);
+      return /* @__PURE__ */ React.createElement("option", { key: b, value: b, disabled: !!holder && !occupiedSelectable }, holder ? `${b} · ไม่ว่าง (${holder.name || holder.sessionId})` : b);
     }),
     !isKnown && /* @__PURE__ */ React.createElement("option", { value: current }, current, " (ไม่อยู่ในรายการเตียง)")
   );
@@ -607,7 +611,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
         if (p.sessionId !== activeId) e.currentTarget.style.background = "";
       }
     },
-    /* @__PURE__ */ React.createElement(BedChip, { p, style: { justifySelf: "start" } }),
+    /* @__PURE__ */ React.createElement(BedChip, { p, stacked: true, style: { justifySelf: "start" } }),
     /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: 14 } }, p.name || p.initials || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 10.5, color: "var(--ink-3)" } }, multiplesLabel(p))),
     /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 12, color: "var(--brand-2)", fontWeight: 600 } }, D_R.fmtGA(p.ga)),
     /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 12, color: "var(--ink-2)" } }, p.bw.toLocaleString(), "g"),
@@ -665,6 +669,9 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
   const canSave = bw > 0 && gaW !== "" && sex !== "" && !nameMissing && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
+  const bedLeft = D_R.normalizeBed(patient.currentBed);
+  const hopRef = React.useRef(null);
+  const bedMoves = (next) => D_R.isOnUnit(patient) && !!bedLeft && next !== bedLeft;
   const handleDelete = () => {
     if (!onDelete) return;
     const label = patient.name || patient.sessionId;
@@ -684,13 +691,16 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       name: D_R.composePatientName(nameIn.first, nameIn.last, nameIn.foreign),
       initials: D_R.nameInitials(nameIn.first, nameIn.last)
     } : {};
+    const nextBed = D_R.normalizeBed(bed);
+    const moved = bedMoves(nextBed) ? { bedHistory: [...patient.bedHistory || [], hopRef.current = hopRef.current || D_R.bedHop(bedLeft)] } : {};
     submit({
       ...patient,
       ...named,
+      ...moved,
       bw: Number(bw),
       ga,
       sex,
-      currentBed: D_R.normalizeBed(bed),
+      currentBed: nextBed,
       diagnosis: dx,
       status,
       statusDate,
@@ -759,10 +769,12 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
   const nextFree = React.useMemo(() => {
     const out = {};
     WARDS.forEach((w) => {
-      out[w] = D_R.nextFreeBed(patients, w, patient.sessionId);
+      out[w] = D_R.nextFreeBed(patients, w);
     });
     return out;
-  }, [patients, patient.sessionId]);
+  }, [patients]);
+  const hopRef = React.useRef(null);
+  const hop = () => hopRef.current = hopRef.current || D_R.bedHop(currentBed);
   const save = () => {
     const next = D_R.normalizeBed(bed);
     if (!next || next === currentBed) {
@@ -774,7 +786,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
       window.alert(bedTakenMsg(next, holder));
       return;
     }
-    const bedHistory = currentBed ? [...patient.bedHistory || [], { bed: currentBed, date: D_R.todayLocal() }] : patient.bedHistory || [];
+    const bedHistory = currentBed ? [...patient.bedHistory || [], hop()] : patient.bedHistory || [];
     submit({ ...patient, currentBed: next, bedHistory }, mergeBase);
   };
   const park = () => {
@@ -782,10 +794,10 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
       onClose();
       return;
     }
-    const bedHistory = [...patient.bedHistory || [], { bed: currentBed, date: D_R.todayLocal() }];
+    const bedHistory = [...patient.bedHistory || [], hop()];
     submit({ ...patient, currentBed: "", bedHistory }, mergeBase);
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 400 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Transfer bed · ", patient.name || patient.initials), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" } }, /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), currentBed || "—"), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)" } }, "→"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, style: { flex: 1 }, occupancy })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 } }, "ย้ายไปเตียงว่างถัดไป"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, WARDS.map((w) => /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 400 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Transfer bed · ", patient.name || patient.initials), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" } }, /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), currentBed || "—"), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)" } }, "→"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, style: { flex: 1 }, occupancy, occupiedSelectable: true })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 } }, "ย้ายไปเตียงว่างถัดไป"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, WARDS.map((w) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: w,

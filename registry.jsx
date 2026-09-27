@@ -31,15 +31,37 @@ const bedSort = (a, b) => {
 // The bed chip on every list. A parked patient (D_R.isParked — moved out of
 // their bed, new bed not chosen yet) reads "รอเตียง · from <old bed>" in the
 // warn colour, so the list says plainly who still needs a bed.
-function BedChip({ p, style }) {
+//
+// `stacked` is for the two fixed-width bed columns: the ward table's 90 px and
+// Switch patient's 84 px. The one-line chip is 122 px, and it printed over the
+// infant's name there ("รอเตียง · จาก NIธน อร", Pp, 2026-09-27). Stacked, the
+// warn chip says "รอเตียง" and the bed left sits on a small line under it —
+// the way the table already puts "Twin A" under a name — so neither column
+// widens (Pp chose this from rendered sheets over a two-line chip in a 110 px
+// column and a one-line chip in a 156 px one). The phone card has the room
+// and keeps one line.
+//
+// An infant who has left the unit is never waiting for a bed: a discharged
+// record with no bed shows the bed they last had, in the plain chip.
+// `bed-chip` keeps any chip inside its column (the shells' .bed-chip rule).
+function BedChip({ p, style, stacked }) {
   if (D_R.isParked(p)) {
+    const title = `ย้ายออกจาก ${D_R.lastBed(p)} แล้ว — ยังไม่ได้เลือกเตียงใหม่`;
+    if (stacked) {
+      return (
+        <span className="bed-chip bed-wait" style={style} title={title}>
+          <span className="chip warn"><span className="d" />รอเตียง</span>{" "}
+          <span className="bed-wait-from">จาก {D_R.lastBed(p)}</span>
+        </span>
+      );
+    }
     return (
-      <span className="chip warn" style={style} title={`ย้ายออกจาก ${D_R.lastBed(p)} แล้ว — ยังไม่ได้เลือกเตียงใหม่`}>
+      <span className="bed-chip chip warn" style={style} title={title}>
         <span className="d" />รอเตียง · จาก {D_R.lastBed(p)}
       </span>
     );
   }
-  return <span className="chip" style={style}><span className="d" />{p.currentBed}</span>;
+  return <span className="bed-chip chip" style={style}><span className="d" />{p.currentBed || D_R.lastBed(p)}</span>;
 }
 
 // One definition of "still on the unit" for the whole registry — the list, the
@@ -523,7 +545,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     onClick={() => onSelect(p.sessionId)}
                     tabIndex={0}
                     onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.sessionId); } }}>
-                  <td><BedChip p={p} /></td>
+                  <td><BedChip p={p} stacked /></td>
                   <td>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</div>
                     {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{multiplesLabel(p)}</div>}
@@ -592,7 +614,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
             {showArchived && archivedSorted.map(p => (
               <tr key={p.sessionId} style={{ opacity: 0.5, cursor: "pointer" }}
                   onClick={() => onSelect(p.sessionId)}>
-                <td><BedChip p={p} /></td>
+                <td><BedChip p={p} stacked /></td>
                 <td style={{ fontWeight: 600, fontSize: 13 }}>{p.name || p.initials || "—"}</td>
                 <td className="num">{D_R.fmtGA(p.ga)}</td>
                 <td className="num">{D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))}</td>
@@ -680,7 +702,14 @@ const GA_WEEK_OPTIONS = Array.from({ length: 22 }, (_, i) => 22 + i);
 // SCN 4 reads as a bug in the dropdown. The guard is re-checked on save in
 // every modal, and again in the backend, because a stale `patients` snapshot
 // (another nurse admitting on another device) can make this list wrong.
-function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy }) {
+//
+// `occupiedSelectable` (the transfer dialog only) lets a taken bed be CHOSEN,
+// still labelled "ไม่ว่าง (name)". Choosing it is how a nurse asks for a swap,
+// and the dialog answers with who is in it and how to swap (park them first),
+// with Confirm disabled. A disabled option cannot be chosen at all, so from
+// 2026-09-23 to 2026-09-27 that answer was written but never seen: only a
+// harness that set the value by script ever reached it.
+function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy, occupiedSelectable = false }) {
   const current = D_R.normalizeBed(value);
   const isKnown = current === "" || D_R.BED_OPTIONS.includes(current);
   const takenBy = (b) => occupancy?.get(b);
@@ -694,7 +723,7 @@ function BedSelect({ value, onChange, allowUnassigned = false, style, occupancy 
         // The patient's own current bed is never disabled: `occupancy` is
         // built with their sessionId excluded, so this can only fire for
         // someone else's bed.
-        return <option key={b} value={b} disabled={!!holder}>
+        return <option key={b} value={b} disabled={!!holder && !occupiedSelectable}>
           {holder ? `${b} · ไม่ว่าง (${holder.name || holder.sessionId})` : b}
         </option>;
       })}
@@ -1130,7 +1159,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
               onMouseEnter={e => { if (p.sessionId !== activeId) e.currentTarget.style.background = "var(--bg-2)"; }}
               onMouseLeave={e => { if (p.sessionId !== activeId) e.currentTarget.style.background = ""; }}
             >
-              <BedChip p={p} style={{ justifySelf: "start" }} />
+              <BedChip p={p} stacked style={{ justifySelf: "start" }} />
               <span>
                 <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name || p.initials || "—"}</span>
                 {/* Twins/multiples share initials by construction and are usually in
@@ -1286,6 +1315,18 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // subsequent dose for this patient, so it can be corrected but not cleared.
   const canSave = bw > 0 && gaW !== "" && sex !== "" && !nameMissing && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
+  // A bed changed or cleared here is a move, and records the bed left in
+  // "Previous beds" exactly as ⇄ does (Pp, 2026-09-27). Without it, clearing
+  // the bed of an infant in NICU 5 who came up from SCN 2 read "รอเตียง · จาก
+  // SCN 2" and moved them to the SCN list. Re-saving a legacy spelling
+  // ("NICU-5" → "NICU 5") is not a move, and neither is giving a parked or
+  // unbedded infant a bed: there is no bed to leave. Nor is correcting the
+  // bed on a record that had already left the unit — that baby left the bed
+  // on their discharge day, not today. One hop per dialog, so a retried save
+  // re-sends the same one (see D_R.bedHop).
+  const bedLeft  = D_R.normalizeBed(patient.currentBed);
+  const hopRef   = React.useRef(null);
+  const bedMoves = (next) => D_R.isOnUnit(patient) && !!bedLeft && next !== bedLeft;
 
   // Permanently deletes the session — removes it from Patient_Registry and
   // every Daily_Log row for it on the server (`handleDeletePatient` in
@@ -1341,11 +1382,16 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       ? { name: D_R.composePatientName(nameIn.first, nameIn.last, nameIn.foreign),
           initials: D_R.nameInitials(nameIn.first, nameIn.last) }
       : {};
+    const nextBed = D_R.normalizeBed(bed);
+    const moved = bedMoves(nextBed)
+      ? { bedHistory: [...(patient.bedHistory || []), (hopRef.current = hopRef.current || D_R.bedHop(bedLeft))] }
+      : {};
     submit({
       ...patient,
       ...named,
+      ...moved,
       bw: Number(bw), ga, sex,
-      currentBed: D_R.normalizeBed(bed),
+      currentBed: nextBed,
       diagnosis: dx,
       status,
       statusDate,
@@ -1509,13 +1555,22 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
   // Next free running number per ward, recomputed as the census changes. ""
   // means the ward is full — the button is disabled rather than clearing the
   // selection, since "no free bed" must never read as "unassign".
+  // The infant's own bed is not free for this: it is where they are. Until
+  // 2026-09-27 it was searched with them excluded, so an infant in NICU 1 was
+  // offered "NICU · NICU 1", already highlighted, a move that goes nowhere.
   const WARDS = ["NICU", "iso", "SCN"];
   const nextFree = React.useMemo(() => {
     const out = {};
-    WARDS.forEach(w => { out[w] = D_R.nextFreeBed(patients, w, patient.sessionId); });
+    WARDS.forEach(w => { out[w] = D_R.nextFreeBed(patients, w); });
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patients, patient.sessionId]);
+  }, [patients]);
+
+  // The hop this dialog records, made on the first save or park and re-sent
+  // unchanged on a retry, so the server can tell a retry from a second move
+  // (see D_R.bedHop).
+  const hopRef = React.useRef(null);
+  const hop = () => (hopRef.current = hopRef.current || D_R.bedHop(currentBed));
 
   const save = () => {
     const next = D_R.normalizeBed(bed);
@@ -1529,7 +1584,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     // A parked patient already recorded the bed they left when they were
     // parked; a blank hop would only add an empty line to "Previous beds".
     const bedHistory = currentBed
-      ? [...(patient.bedHistory || []), { bed: currentBed, date: D_R.todayLocal() }]   // local date, not UTC
+      ? [...(patient.bedHistory || []), hop()]
       : (patient.bedHistory || []);
     submit({ ...patient, currentBed: next, bedHistory }, mergeBase);
   };
@@ -1541,7 +1596,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
   // backend's one-infant-per-bed check has nothing to refuse.
   const park = () => {
     if (!currentBed) { onClose(); return; }
-    const bedHistory = [...(patient.bedHistory || []), { bed: currentBed, date: D_R.todayLocal() }];
+    const bedHistory = [...(patient.bedHistory || []), hop()];
     submit({ ...patient, currentBed: "", bedHistory }, mergeBase);
   };
 
@@ -1557,7 +1612,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" }}>
             <span className="chip"><span className="d" />{currentBed || "—"}</span>
             <span style={{ color: "var(--ink-3)" }}>→</span>
-            <BedSelect value={bed} onChange={setBed} style={{ flex: 1 }} occupancy={occupancy} />
+            <BedSelect value={bed} onChange={setBed} style={{ flex: 1 }} occupancy={occupancy} occupiedSelectable />
           </div>
 
           {/* Next free running number per ward — one tap for the common
