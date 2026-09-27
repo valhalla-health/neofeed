@@ -164,7 +164,9 @@ const btn = (re, scope = probe) => [...scope.querySelectorAll('button')].find(b 
     eq('one save', edits.length, 1);
     const saved = edits[0] && edits[0].p;
     eq('…to SCN 1', saved && saved.currentBed, 'SCN 1');
-    eq('…with the bed it left in "Previous beds"', saved && saved.bedHistory, [{ bed: 'NICU 1', date: TODAY }]);
+    // Bed and day; each hop also carries `at` (verify-bed-transfer-0927.cjs § 6).
+    eq('…with the bed it left in "Previous beds"', saved && saved.bedHistory.map(({ bed, date }) => ({ bed, date })),
+       [{ bed: 'NICU 1', date: TODAY }]);
     ok('…carrying the merge base frozen when the modal opened', edits[0] && edits[0].base && edits[0].base.sessionId === 'BA-BW1000');
     ok('the modal closed itself on success', !modalTitle());
   });
@@ -176,7 +178,8 @@ const btn = (re, scope = probe) => [...scope.querySelectorAll('button')].find(b 
     await click(btn(/พักไว้ก่อน/));
     const saved = edits[0] && edits[0].p;
     eq('park frees the bed', saved && saved.currentBed, '');
-    eq('…and records the bed it left', saved && saved.bedHistory, [{ bed: 'NICU 1', date: TODAY }]);
+    eq('…and records the bed it left', saved && saved.bedHistory.map(({ bed, date }) => ({ bed, date })),
+       [{ bed: 'NICU 1', date: TODAY }]);
     ok('…so the infant is parked, and stays on the NICU list', saved && D.isParked(saved) && D.patientWard(saved) === 'NICU');
   });
 

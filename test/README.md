@@ -1206,6 +1206,46 @@ Five harnesses that registered or renamed an infant through the old ชื่อ
 `verify-review-0917-sync`, `verify-review-fixes-0924` and `verify-single-source-weight-dol`. What they pin
 is unchanged.
 
+## The bed-transfer review, 2026-09-27 — two harnesses, two adjusted
+
+Pp: *"verify and scrutinize all bed transfer bug"*, after a parked infant's chip printed over the infant's
+name on the release she was capturing for the manual (`CHANGELOG.md` 2026-09-27).
+**`verify-bed-transfer-0927.cjs`** (75 assertions; 60 without a browser). Every section except the § 6b
+guard fails on `f675420`, the tree release `10a4272` serves.
+- § 1–2, jsdom:
+  - the parked bed cell in the ward table and in Switch patient: the "รอเตียง" chip and the "จาก NICU 7"
+    line, with the tooltip kept and no column widened;
+  - the phone card's one-line chip;
+  - an infant who left the unit while parked is not "รอเตียง".
+- § 2b, jsdom: Switch patient lists the unit first, both browsing and searching a bed number. An infant
+  who has left follows, dimmed, and their bed cell reads "Transferred จาก NICU 9", never a plain bed chip.
+- § 3–5, jsdom:
+  - in the transfer dialog a taken bed can be chosen; it names who is in it and how to swap, and
+    Confirm stays disabled. Edit still refuses the bed at the dropdown;
+  - "next free bed" never offers the infant's own bed;
+  - Edit records the bed left. It records nothing for a legacy spelling, for a parked infant given a
+    bed, or for a correction on a discharged record.
+- § 6: the real `gas-backend.gs` in `gas-vm-sandbox.cjs`, driven by the real dialog. NICU 4 → SCN 1 →
+  NICU 4 → park keeps its last hop, and a retried park adds none. § 6b: a retry from the same dialog
+  re-sends the same hop.
+- § 7, in Chromium (playwright; CI skips it): the real app with a fake backend at 1024, 1280 and
+  1440 px.
+  - Nothing in a bed cell reaches past its column or over the name, on the NICU and SCN tables with
+    archive rows and in Switch patient.
+  - At 390 px, the phone card and Switch patient.
+
+**`verify-bed-transfer-0927-sync.cjs`** (7 assertions; one scenario through `review-0917-boot.cjs`, like
+`verify-review-0917-sync.cjs`; fails on `f675420`). It drives the real App against the fake Apps Script,
+given the server's three-way merge.
+- An Edit opens on an infant in SCN 1, and another device moves the infant to SCN 9. This device then
+  saves a diagnosis.
+- The device syncs once after the save, and lists SCN 9.
+- A park from it records SCN 9 as the bed left, on a base holding SCN 9.
+
+`verify-bed-park.cjs` set a disabled option by script, and its swap-hint check matched the park button's
+own label. It now checks that the option can be chosen, and matches the hint's own words.
+`verify-mobile-bed-button.cjs` compares a hop's bed and date, since each hop now also carries `at`.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

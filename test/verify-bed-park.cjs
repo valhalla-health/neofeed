@@ -105,9 +105,15 @@ render();
 const tA = transferFor('Baby A');
 ok('Baby A has a transfer button', !!tA);
 click(tA);
+// A user can only choose an option that is not disabled. Until 2026-09-27 this
+// harness set B's bed by script although the dialog disabled it, so it tested
+// a refusal no user could reach (verify-bed-transfer-0927.cjs § 3).
+const bOpt = [...document.querySelectorAll('.picker select option')].find(o => o.value === 'NICU 2');
+ok('B\'s bed can be chosen in the transfer dialog', !!bOpt && !bOpt.disabled);
 pickBed('NICU 2');
 ok('moving A onto B\'s bed is refused (one infant per bed)', /NICU 2 มี Baby B/.test(text()));
-ok('…and the refusal tells how to swap', /พักไว้ก่อน/.test(text()));
+// The hint's own words: "พักไว้ก่อน" alone also matches the park button.
+ok('…and the refusal tells how to swap', /สลับเตียง: เปิด ⇄ ของ Baby B แล้วกด "พักไว้ก่อน"/.test(text()));
 const confirm = byText('Confirm transfer') || [...document.querySelectorAll('.picker button.primary')][0];
 ok('Confirm transfer is disabled onto an occupied bed', confirm && confirm.disabled);
 click(byText('Cancel'));

@@ -7,6 +7,80 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-27 — The bed-transfer review: the parked chip over the name, and six more
+
+Pp found it while capturing the manual's screenshots from release `10a4272`. On the desktop ward list a
+parked infant's chip, "รอเตียง · จาก NICU 7" (122 px), sat in the 90 px Bed column and printed over the
+infant's name ("รอเตียง · จาก NIธน อร"). Then: *"verify and scrutinize all bed transfer bug"*.
+
+Frontend only: `data.js`, `registry.jsx`, both shells, `compiled/registry.js`. There is no `clasp` step,
+`CONSTANTS_VERSION` stays `2026-09-18.1`, and nothing moves a dose. Every bug below was reproduced first,
+on the real app with a fake backend or on the real `gas-backend.gs`. Pp chose the fixes, and look C for
+the chip, from rendered before/after sheets.
+
+- **The parked chip in the two fixed-width bed columns.** It ran 44–51 px past the ward table's 90 px
+  column at 1024–1440 px, and 38 px past Switch patient's 84 px one, over the name.
+  - It is now a "รอเตียง" warn chip with "จาก NICU 7" on a small line under it (`BedChip` `stacked`), the
+    way "Twin A" sits under a name. No column widens.
+  - Not chosen: a two-line chip (Bed 90 → 110 px), and a one-line chip (Bed 90 → 156 px, which takes
+    66 px from Diagnosis on every row).
+  - The phone card keeps its one-line chip. Switch patient on a phone shows the parked bed on one line,
+    at the size of the other beds' chips.
+  - A `.bed-chip` rule keeps any bed label inside its column. The new line reads 7.7:1 on white and 6.8:1
+    on a hovered row, measured in the browser.
+- **An infant who left the unit while parked still read "รอเตียง".** `isParked` ignored status, so a
+  baby discharged, transferred or expired while parked showed the warn chip on the archive rows, in
+  Switch patient and on the Dashboard strip. It now requires `isOnUnit`, and the archive row shows the
+  bed they last had.
+- **The swap hint was never seen.**
+  - The transfer dialog disabled a taken bed, and a disabled option cannot be chosen. So #102's
+    "สลับเตียง: เปิด ⇄ ของ … แล้วกด พักไว้ก่อน" could not appear.
+  - `verify-bed-park.cjs` reached it only by setting the option by script, and its check matched the
+    park button's own label.
+  - Now the transfer dialog, and only it, lets a taken bed be chosen. Choosing one says who is in it and
+    how to swap, and Confirm stays disabled. Register and Edit still disable it.
+- **"ย้ายไปเตียงว่างถัดไป" offered the bed the infant was already in**, highlighted (an infant in NICU 1
+  was offered "NICU · NICU 1"), because the search left the infant out of the census. It no longer does.
+  `nextFreeBed` keeps the option, and the dialog stops using it.
+- **Edit recorded no hop.** Clearing the bed of an infant in NICU 5 who came up from SCN 2 made them
+  "รอเตียง · จาก SCN 2" on the SCN list. Edit now records the bed left, as ⇄ does. Three cases record
+  nothing: re-saving a legacy spelling, giving a parked infant a bed, and correcting a record that had
+  already left the unit.
+- **The server dropped a same-day return hop.**
+  - `_mergeAppendOnly` skips an incoming entry equal to one it holds, and a hop was only `{ bed, date }`.
+  - So after NICU 4 → SCN 1 → NICU 4 on one day, parking stored `[NICU 4, SCN 1]`. Every device then
+    read "รอเตียง · จาก SCN 1" on the SCN list. This was reproduced on the real `gas-backend.gs`.
+  - Every hop now carries `at` (`D.bedHop`). A dialog makes it once, so a retried save is still the same
+    hop.
+  - No backend change: `_validateMeasureArray` already accepts the field.
+- **Why CI missed the chip.** `verify-phone-sweep.cjs` flags content cut off inside an `overflow: hidden`
+  box, not content spilling over its neighbour, and its fixture has no parked infant.
+
+Two more, found by a read-only audit in another session, confirmed here with a render or the real app,
+and approved by Pp:
+
+- **Switch patient read an infant who had left as the infant in their old bed.**
+  - It listed a Discharged, Transferred or Expired infant under their old bed, with no status.
+  - Searching that bed's number put them first: "9" gave a Transferred "NICU 9", then the infant now in
+    NICU 9, two rows alike.
+  - Now every infant on the unit comes first, and one who has left follows, dimmed. Their bed cell reads
+    "Transferred จาก NICU 9" (`LeftUnitBed`). They are still reachable, since admins work the archive
+    through this list.
+- **A device kept its own copy after a patient save.**
+  - After a successful Edit, ⇄ or park, it put its own record into state and into the merge base.
+  - It kept them until the next poll, up to 4 min, even when the server's merge had kept another
+    device's newer bed.
+  - In that window the list showed the old bed, and a ⇄ recorded it as "Previous bed". The server still
+    refused any double-booking.
+  - It now syncs once after the save (`resyncAfterSave`). If other writes are still out, the last one to
+    answer asks.
+
+The harnesses are `test/verify-bed-transfer-0927.cjs` (75 checks, 60 without a browser; every section
+except the § 6b guard fails on `f675420`) and `test/verify-bed-transfer-0927-sync.cjs` (the real App
+against the fake Apps Script, given the server's merge; fails on `f675420`). In the Browser pane, on a
+local copy with a fake backend, a full swap was run by hand: park นฝ จด, move สม จด into NICU 3, then
+นฝ จด into NICU 1. Each save carried its hop with `at`.
+
 ## Session 2026-09-25 (5) — PR #123 checked before its merge: the phone sweep's server refused every file on Windows
 
 Pp: *"check Pr113 NeoFeed clasp and merge"*, then the link to #123. #113 has been live since 2026-09-24

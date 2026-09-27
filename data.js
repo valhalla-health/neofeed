@@ -1906,11 +1906,6 @@ function bedBlocker(patients, record) {
   return bedOccupant(patients, record.currentBed, record.sessionId);
 }
 
-// The lowest-numbered free bed in a ward — what the transfer modal
-// pre-selects so moving a patient out of NICU lands them on the next running
-// SCN number instead of on whatever bed happened to be listed first.
-// Returns "" when the ward is full, which callers must treat as "leave the
-// current selection alone", never as "unassign the patient".
 // A patient "parked" mid-move (Praew, 2026-09-23: "ย้ายเตียงแปะไว้ก่อน"): they
 // hold no bed right now but have left one, recorded in bedHistory. A swap of
 // two occupied beds is park A → move B into A's bed → move A into B's — the
@@ -1924,8 +1919,22 @@ function lastBed(p) {
   }
   return "";
 }
+// Only an infant still on the unit is waiting for a bed. One discharged,
+// transferred or expired while parked keeps the blank bed and the history,
+// and read "รอเตียง" in the warn colour on the archive rows, Switch patient
+// and the Dashboard strip (2026-09-27).
 function isParked(p) {
-  return !!p && !normalizeBed(p.currentBed) && !!lastBed(p);
+  return !!p && isOnUnit(p) && !normalizeBed(p.currentBed) && !!lastBed(p);
+}
+// One "Previous beds" entry: the bed left, the local day, and the moment.
+// `at` makes every move its own entry. gas-backend.gs merges bedHistory
+// append-only and skips an incoming entry equal to one it already holds, so
+// with only { bed, date } a same-day return — NICU 4 → SCN 1 → NICU 4, then
+// park — lost its last hop, and every device then read "รอเตียง · จาก SCN 1"
+// on the SCN list (2026-09-27). A dialog makes its hop once and re-sends that
+// same hop on a retry, so a retried save still reads as the same move.
+function bedHop(bed) {
+  return { bed: normalizeBed(bed), date: todayLocal(), at: new Date().toISOString() };
 }
 // Which ward list a patient belongs on: their bed's ward, or — while parked —
 // the ward of the bed they left, so they stay on the list the nurse is
@@ -1937,6 +1946,11 @@ function patientWard(p) {
   return last ? wardGroup(last) : "other";
 }
 
+// The lowest-numbered free bed in a ward — what the transfer modal
+// pre-selects so moving a patient out of NICU lands them on the next running
+// SCN number instead of on whatever bed happened to be listed first.
+// Returns "" when the ward is full, which callers must treat as "leave the
+// current selection alone", never as "unassign the patient".
 function nextFreeBed(patients, ward, excludeSessionId) {
   const occupied = bedOccupancy(patients, excludeSessionId);
   return BED_OPTIONS.find(b => bedWard(b) === ward && !occupied.has(b)) || "";
@@ -2335,7 +2349,7 @@ window.NEOFEED_DATA = {
   // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
   // the one bed list, and the one-patient-per-bed occupancy helpers
   normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, nextFreeBed,
-  lastBed, isParked, patientWard,
+  lastBed, isParked, patientWard, bedHop,
   // "Still on the unit" — the one definition the bed guard, the Alerts badge
   // and the admin census all read, so a discharged infant cannot hold a bed on
   // one screen, raise an alarm on a second and count as a census on a third.
