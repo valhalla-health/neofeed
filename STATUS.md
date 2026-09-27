@@ -78,9 +78,11 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-27, 19:51 ICT** · ✅ **Backend `@60` and frontend `release` = `10a4272` are live, and
+**Updated 2026-09-27, 20:17 ICT** · ✅ **Backend `@60` and frontend `release` = `10a4272` are live, and
 both are verified.** Caught up with #124 in #125, the next PR on the repo, as #124 asked.
-- ⏳ **PR #125, the bed-transfer review: open, not merged.** Frontend only: no `clasp` step (the backend
+- ⏳ **PR #125, the bed-transfer review: merged into `main` on Pp's instruction ("merge PR 125 แล้ว
+  deploy"), and released straight after in one `main` → `release` PR.** The release checks are comments
+  on the release PR. Frontend only: no `clasp` step (the backend
   already accepts the new `at` on a bed hop), and `CONSTANTS_VERSION` stays `2026-09-18.1`. Nothing moves
   a dose. It fixes nine bed-move bugs (`CHANGELOG.md` 2026-09-27). ⚠️ **It changes what the ward sees:**
   - a parked infant's bed cell on desktop: a "รอเตียง" chip with "จาก NICU 7" under it;
