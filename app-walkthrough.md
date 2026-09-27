@@ -608,11 +608,16 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    (then numerically within each ward). Desktop: table. Mobile: tappable
    cards (name+status, bed+GA/BW/DOL, diagnosis, weight+Δ, ⇄/Edit/Open).
    **Both layouts' ⇄ open the one `TransferBedModal`** (the card's since
-   2026-09-24). It is the only path that appends a "Previous beds" hop and
-   the only home of พักไว้ก่อน, the one way to swap two occupied beds, so a
-   bed move must never be given a second, slimmer modal. Edit's `BedSelect`
-   corrects a bed; it does not record a move. A parked infant's card reads
-   `⇄ เลือกเตียง`. `test/verify-mobile-bed-button.cjs` pins it.
+   2026-09-24). It is the only home of พักไว้ก่อน, the one way to swap two
+   occupied beds, so a bed move must never be given a second, slimmer modal.
+   Choosing a taken bed there says who is in it and how to swap, with
+   Confirm disabled. Since 2026-09-27 Edit records a "Previous beds" hop too,
+   when it moves an infant still on the unit out of a bed, so that a bed
+   cleared in Edit cannot file the infant under an older bed's ward. Every
+   hop is `D.bedHop` (bed, day, `at`). A parked infant's card reads
+   `⇄ เลือกเตียง`, and their bed cell in the table and Switch patient reads
+   "รอเตียง" with "จาก <bed>" under it. `test/verify-mobile-bed-button.cjs`
+   and `test/verify-bed-transfer-0927.cjs` pin it.
    Each active patient carries a `✓ LOGGED` / `NEEDS ENTRY` badge
    (`.log-badge`) for "does this patient have a Daily_Log entry dated
    today", on both layouts. The stats strip above the list (Active / Total

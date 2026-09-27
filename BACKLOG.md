@@ -160,6 +160,22 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] 🧱 **ux/infra · Loose ends from the bed-transfer review (2026-09-27).** Found while tracing the bed
+      moves (`CHANGELOG.md` § Session 2026-09-27). None of them misplaces an infant, so none was built.
+      1. **The phone sweep cannot see one box printing over another.** `verify-phone-sweep.cjs` flags
+         content cut off inside an `overflow: hidden` box. The parked chip spilled over the Name column
+         with overflow visible, so it passed. `verify-bed-transfer-0927.cjs` § 7 now measures bed
+         cells. A general probe would compare each table cell's drawn content with its column.
+      2. **Switch patient on a phone styles its cells by position** (`.picker-row > span:nth-child(n)`
+         in both shells). That rule was written on 2026-05-28 for the old order (name first). The same
+         day the columns were reordered with the bed first, and the rule was not updated. So on a phone
+         the bed chip is drawn large and the name small and grey, the reverse of the rule's own comment.
+         It is readable, but give the cells classes and decide which one leads.
+      3. **An infant never given a bed shows an empty pill** in the Bed column (`BedChip` with a blank
+         `currentBed` and no history). "—" would say it.
+      4. **"SCN 01" ≠ "SCN 1"** in `normalizeBed`/`_normBed` (already listed under the 2026-09-23
+         review, below) is the one bed-label gap left.
+
 - [ ] 🩺⚖️ **product · ชื่อ + นามสกุล and the ward search (2026-09-25): three loose ends, all "later" (Pp).**
       Built in `CHANGELOG.md` § Session 2026-09-25 (2) and (3), pinned by
       `test/verify-ward-requests-0925.cjs` and `test/verify-phone-sweep.cjs`. Pp answered on PR #123
