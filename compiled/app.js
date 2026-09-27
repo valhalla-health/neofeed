@@ -765,6 +765,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         error,
         code: data.code || "",
         retryable: !!data.retryable,
+        ...data.needsConfirm ? { needsConfirm: true, message: String(data.error) } : {},
         ...data.entryId ? { entryId: data.entryId } : {}
       };
     }
@@ -995,20 +996,32 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (!holder) return null;
     return `เตียง ${D_A.normalizeBed(p.currentBed)} มี ${holder.name || holder.sessionId} อยู่แล้ว — ย้ายผู้ป่วยรายนั้นออกก่อน`;
   };
-  const handleAddPatient = (p) => {
-    const clash = bedConflict(p);
+  const handleAddPatient = (p0) => {
+    const clash = bedConflict(p0);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
     if (blocked) return Promise.resolve(blocked);
-    setPatients((prev) => [p, ...prev]);
-    setActiveId(p.sessionId);
+    const cancelled = { ok: false, refused: true, error: "ยกเลิก — ยังไม่ได้ลงทะเบียน" };
+    const askNewInfant = (msg) => typeof window !== "undefined" && typeof window.confirm === "function" && window.confirm(`${msg}
+
+ถ้าเป็นคนละคน กด OK เพื่อลงทะเบียนเป็นรายใหม่`);
+    let confirmDuplicate = false;
+    const lookalike = D_A.possibleDuplicate(patients, p0);
+    if (lookalike) {
+      if (!askNewInfant(D_A.possibleDuplicateMsg(lookalike, p0))) return Promise.resolve(cancelled);
+      confirmDuplicate = true;
+    }
+    let p = p0;
+    setPatients((prev) => [p0, ...prev]);
+    setActiveId(p0.sessionId);
     if (!GAS_ON) {
       showToast(`Session ${p.sessionId} registered (local)`);
       return Promise.resolve({ ok: true });
     }
     const rollback = () => {
-      setPatients((prev) => prev.filter((x) => x !== p));
-      setActiveId((prev) => prev === p.sessionId ? null : prev);
+      const gone = p;
+      setPatients((prev) => prev.filter((x) => x !== gone));
+      setActiveId((prev) => prev === gone.sessionId ? null : prev);
     };
     const settle = (res) => {
       if (res.ok) {
@@ -1019,19 +1032,34 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       return res;
     };
-    return writeGAS({ action: "registerPatient", patient: p, isNew: true }, { quiet: true }).then((res) => {
-      if (res.needsConfirm) {
-        const yes = typeof window !== "undefined" && typeof window.confirm === "function" && window.confirm(`${res.error}
-
-ยืนยันเขียนทับข้อมูลเดิมหรือไม่?`);
-        if (!yes) {
+    const redraw = () => {
+      const prev = p;
+      const next = { ...prev, sessionId: D_A.newSessionId() };
+      p = next;
+      setPatients((list) => list.map((x) => x === prev ? next : x));
+      setActiveId((id) => id === prev.sessionId ? next.sessionId : id);
+    };
+    const attempt = (draws) => writeGAS({
+      action: "registerPatient",
+      patient: p,
+      isNew: true,
+      ...confirmDuplicate ? { confirmDuplicate: true } : {}
+    }, { quiet: true }).then((res) => {
+      if (res.needsConfirm && res.code === "PossibleDuplicate" && !confirmDuplicate) {
+        if (!askNewInfant(res.message || res.error)) {
           rollback();
-          return { ok: false, refused: true, error: "ยกเลิก — ไม่ได้เขียนทับข้อมูลเดิม" };
+          return cancelled;
         }
-        return writeGAS({ action: "registerPatient", patient: p, isNew: true, confirmOverwrite: true }, { quiet: true }).then(settle);
+        confirmDuplicate = true;
+        return attempt(draws);
+      }
+      if (res.needsConfirm && res.code !== "PossibleDuplicate" && draws < 3) {
+        redraw();
+        return attempt(draws + 1);
       }
       return settle(res);
     });
+    return attempt(0);
   };
   const handleEditPatient = (p, openedFromBase) => {
     const clash = bedConflict(p);

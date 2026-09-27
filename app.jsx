@@ -1371,7 +1371,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       // the sheet — shown verbatim, not wrapped in a generic prefix.
       const error = data.code === "SchemaMismatch" ? String(data.error) : `บันทึกไม่สำเร็จ: ${data.error}`;
       toast(error);
+      // `needsConfirm` (registerPatient: the id is taken, or the infant looks
+      // like one already on file) used to be dropped right here, so the one
+      // caller that asks about it, handleAddPatient, never saw it (2026-09-27
+      // audit). `message` is the server's own sentence, for a dialog.
       return { ok: false, refused: true, error, code: data.code || "", retryable: !!data.retryable,
+        ...(data.needsConfirm ? { needsConfirm: true, message: String(data.error) } : {}),
         ...(data.entryId ? { entryId: data.entryId } : {}) };
     }
     return { ok: true, ...data };
@@ -1677,25 +1682,41 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // open until it answers (UP-S9): they used to close the moment Register /
   // Save was pressed, so a refusal (a bed taken on another device, a duplicate
   // sessionId) was a toast over an empty screen and everything typed was gone.
-  const handleAddPatient = (p) => {
-    const clash = bedConflict(p);
+  const handleAddPatient = (p0) => {
+    const clash = bedConflict(p0);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
     if (blocked) return Promise.resolve(blocked);
-    setPatients(prev => [p, ...prev]);
-    setActiveId(p.sessionId);
+    // The same baby registered twice (Pp, 2026-09-27)? The id is random now, so
+    // a second registration no longer lands on the first one's id the way the
+    // initials-and-weight id made it: ask, here from what this device has
+    // synced, and again below if the server, which sees every row, finds one.
+    const cancelled = { ok: false, refused: true, error: "ยกเลิก — ยังไม่ได้ลงทะเบียน" };
+    const askNewInfant = (msg) => typeof window !== "undefined" && typeof window.confirm === "function"
+      && window.confirm(`${msg}\n\nถ้าเป็นคนละคน กด OK เพื่อลงทะเบียนเป็นรายใหม่`);
+    let confirmDuplicate = false;
+    const lookalike = D_A.possibleDuplicate(patients, p0);
+    if (lookalike) {
+      if (!askNewInfant(D_A.possibleDuplicateMsg(lookalike, p0))) return Promise.resolve(cancelled);
+      confirmDuplicate = true;
+    }
+    let p = p0;
+    setPatients(prev => [p0, ...prev]);
+    setActiveId(p0.sessionId);
     if (!GAS_ON) {
       showToast(`Session ${p.sessionId} registered (local)`);
       return Promise.resolve({ ok: true });
     }
-    // isNew tells the backend this is a registration, not an edit, so its
-    // sessionId collision guard can refuse a second infant landing on an
-    // existing id (same initials + same birth weight) instead of silently
-    // overwriting the first one. See _sessionIdConflict in gas-backend.gs.
-    // No `base`: there is no earlier server copy to merge against.
+    // isNew tells the backend this is a registration, not an edit: an id that
+    // already exists is refused rather than written over (IdTaken), and the
+    // server asks whether the infant is one already on file
+    // (PossibleDuplicate). See _sessionIdConflict and _possibleDuplicate in
+    // gas-backend.gs. No `base`: there is no earlier server copy to merge
+    // against.
     const rollback = () => {
-      setPatients(prev => prev.filter(x => x !== p));
-      setActiveId(prev => (prev === p.sessionId ? null : prev));
+      const gone = p;
+      setPatients(prev => prev.filter(x => x !== gone));
+      setActiveId(prev => (prev === gone.sessionId ? null : prev));
     };
     const settle = (res) => {
       if (res.ok) {
@@ -1715,19 +1736,31 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       return res;
     };
-    return writeGAS({ action: "registerPatient", patient: p, isNew: true }, { quiet: true })
+    // An id that is already taken is a coincidence of the draw (IdTaken, or an
+    // older server's collision reply, which carries no code): draw another and
+    // send again, a few times, before anything is shown. Nothing is ever
+    // written over the record that holds it. The 2026-09-24 "confirm, then
+    // overwrite" never reached anyone (gasPost dropped needsConfirm), and an
+    // overwrite would have filed one infant's Daily_Log under another's name.
+    const redraw = () => {
+      const prev = p;
+      const next = { ...prev, sessionId: D_A.newSessionId() };
+      p = next;
+      setPatients(list => list.map(x => (x === prev ? next : x)));
+      setActiveId(id => (id === prev.sessionId ? next.sessionId : id));
+    };
+    const attempt = (draws) => writeGAS({ action: "registerPatient", patient: p, isNew: true,
+        ...(confirmDuplicate ? { confirmDuplicate: true } : {}) }, { quiet: true })
       .then(res => {
-        if (res.needsConfirm) {
-          // The id (initials + BW) already exists. Warn, and overwrite only on
-          // an explicit yes — Pp, 2026-09-24. Declining leaves the existing
-          // record untouched and rolls back the optimistic insert.
-          const yes = typeof window !== "undefined" && typeof window.confirm === "function"
-            && window.confirm(`${res.error}\n\nยืนยันเขียนทับข้อมูลเดิมหรือไม่?`);
-          if (!yes) { rollback(); return { ok: false, refused: true, error: "ยกเลิก — ไม่ได้เขียนทับข้อมูลเดิม" }; }
-          return writeGAS({ action: "registerPatient", patient: p, isNew: true, confirmOverwrite: true }, { quiet: true }).then(settle);
+        if (res.needsConfirm && res.code === "PossibleDuplicate" && !confirmDuplicate) {
+          if (!askNewInfant(res.message || res.error)) { rollback(); return cancelled; }
+          confirmDuplicate = true;
+          return attempt(draws);
         }
+        if (res.needsConfirm && res.code !== "PossibleDuplicate" && draws < 3) { redraw(); return attempt(draws + 1); }
         return settle(res);
       });
+    return attempt(0);
   };
 
   // ── Edit patient (update bed, dx, status, admitDOL) ──────────

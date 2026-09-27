@@ -501,7 +501,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   const admitCE = D_R.toChristianEraDateStr(admitDate, today);
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
   const initials = nameOk ? D_R.nameInitials(nameIn.first, nameIn.last) : "";
-  const sessionId = `${initials || "XX"}-BW${bw}${twin ? "-" + twin : ""}`;
+  const [sessionId] = React.useState(() => D_R.newSessionId());
   const canSubmit = nameOk && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   const dob = React.useMemo(() => {

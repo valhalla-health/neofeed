@@ -286,7 +286,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
 `verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
 `verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs`, `verify-pdpa-erased-dob-frontend.cjs`,
-`verify-ward-requests-0925.cjs` and
+`verify-ward-requests-0925.cjs`, `verify-name-id-0927.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -1205,6 +1205,33 @@ Five harnesses that registered or renamed an infant through the old ชื่อ
 นามสกุล with Thai letters: `verify-patient-ga-bw-edit`, `verify-review-0917-shell`,
 `verify-review-0917-sync`, `verify-review-fixes-0924` and `verify-single-source-weight-dol`. What they pin
 is unchanged.
+
+## Names, Edit patient and the NeoFeed ID, 2026-09-27 — one harness, two adjusted
+
+**`verify-name-id-0927.cjs`** (63 assertions; the jsdom set). The 2026-09-27 audit drove the real client
+against the real backend. It found three bugs that neither side's harnesses could see, because each fakes
+the other. § 5 is built the same way: the real `<App/>` in jsdom (review-0917-boot's driver), with every
+request answered by the real `gas-backend.gs` in `gas-vm-sandbox.cjs`.
+- § 1: a name with fewer than two letters keeps its vowels (ฤดี → ฤด, ใจ → ใจ, คำ → คำ). Every other name is
+  cut as before.
+- § 2: a new id is `NF-` and six random digits, with no modulo bias. Search finds it with or without `NF-`,
+  or by four digits or more.
+- § 3: `possibleDuplicate` matches the same birth weight and date of birth, never an erased record.
+- § 4, the backend:
+  - an Admit date or DOL แรกรับ correction saves, including on a record with no stored dob and on one dated
+    in พ.ศ.;
+  - two devices correcting one dob, a taken id and a look-alike are each refused in words, none of them
+    "ชื่อย่อ", and nothing is written.
+- § 5, both together:
+  - the Edit modal's Admit-date correction lands on the sheet;
+  - a taken id is drawn again without a word to the user;
+  - a look-alike is asked about from this device's list, and from the server for a record no ward syncs.
+
+Against `f675420` (release `10a4272`) it fails 35 of those checks, in every section.
+
+`verify-backend-batch-0924.cjs` (BE-4) and `verify-gas-registry-upsert.cjs` (§ 5f) each register a second
+fixture infant with the same birth weight and date of birth as the first. They now send the ward's answer,
+`confirmDuplicate`. What they pin is unchanged.
 
 ## Note on the source workbook
 

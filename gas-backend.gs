@@ -1379,9 +1379,10 @@ function doPost(e) {
       // `base` = the patient as this device last received it; present only
       // from a client that knows the three-way merge (see registerPatient).
       var regBase = (!isNewReg && body.base && typeof body.base === "object" && !Array.isArray(body.base)) ? body.base : null;
-      var regResult = registerPatient(body.patient, isNewReg, regBase, body.confirmOverwrite === true);
-      // A colliding id was found and this call did not confirm an overwrite:
-      // pass the warning back so the client can ask, and write nothing.
+      var regResult = registerPatient(body.patient, isNewReg, regBase, body.confirmOverwrite === true,
+        body.confirmDuplicate === true);
+      // A taken id, or an infant that looks like one already on file, and this
+      // call did not confirm: pass the question back and write nothing.
       if (regResult && regResult.needsConfirm) return jsonOut(regResult);
       // A changed BW or GA silently moves every dose target for this infant,
       // and the row itself keeps no who/when — so the audit trail does.
@@ -3207,24 +3208,66 @@ function sheetHealthReport() {
 //     version. Skipped when either side is blank, which includes a PDPA-erased
 //     row (pseudonymizePatient clears dob).
 //
-// Returns a Thai message for the bedside, or null when the write is a genuine
-// edit of the same infant. The two messages differ on purpose: "different
-// infant" and "already registered" need different actions from the nurse.
+// Returns { code, message } — a Thai message for the bedside — or null when the
+// write is a genuine edit of the same infant:
+//   IdTaken          a registration (isNew) on an id that exists. Since
+//                    2026-09-27 the client draws the id at random ("NF-" and six
+//                    digits, data.js newSessionId) and draws again on this reply,
+//                    so it is a coincidence of the draw, never a person.
+//   EditConflict     an edit carrying `base` whose stored dob is no longer the
+//                    one that device saw, and which moves it again: two devices
+//                    corrected the same record. registerPatient refuses it.
+//   DifferentInfant  signal 2 for a write with no base at all (a client older
+//                    than the 2026-09-17 merge).
 //
-// ⚠️ This is a STOPGAP. The real fix is an opaque, server-generated sessionId
-// carrying no patient attributes — see PDPA_SECURITY_AUDIT_2026-08-27.md §2.3
-// (kept outside this repo). Keep this guard after that lands anyway: it costs
-// one comparison and catches a duplicate id whatever the cause.
-function _sessionIdConflict(existingRow, p, isNew) {
+// An edit carrying `base` whose stored dob is still the one that device saw is
+// NOT a conflict when it moves dob: that is the Admit date or DOL แรกรับ being
+// corrected. Until 2026-09-27 it read as "a different infant", so from release
+// #106 (2026-09-23, when the Edit modal began moving dob with those fields) no
+// admission date could be corrected at all — the refusal told the ward to fix
+// the initials.
+//
+// The real fix the old comment here asked for — an opaque sessionId carrying no
+// patient attributes (PDPA_SECURITY_AUDIT_2026-08-27.md §2.3, outside this
+// repo) — is what new registrations get since 2026-09-27; ids issued before
+// keep their initials+BW form. Keep this guard anyway: it costs one comparison
+// and catches a duplicate id whatever the cause.
+function _sessionIdConflict(existingRow, p, isNew, base) {
+  if (isNew === true) {
+    return { code: "IdTaken", message: "ID นี้ (" + p.sessionId + ") มีในระบบแล้ว — " +
+             "รีเฟรชหน้าแล้วลงทะเบียนใหม่ ระบบจะออก ID ใหม่ให้" };
+  }
   var existingDob = _fmtDate(existingRow[6]);
   var incomingDob = _fmtDate(p.dob);
-  if (existingDob && incomingDob && existingDob !== incomingDob) {
-    return "ID ซ้ำ (" + p.sessionId + ") — เป็นคนละรายกับที่มีอยู่ (วันเกิดไม่ตรงกัน) " +
-           "ถ้าเป็นแฝดให้เลือก Multiples A/B/C/D, ถ้าไม่ใช่ให้แก้ชื่อย่อ";
+  if (!existingDob || !incomingDob || existingDob === incomingDob) return null;
+  if (base) {
+    if (_fmtDate(base.dob) === existingDob) return null;
+    return { code: "EditConflict", message: "มีคนแก้วันรับหรือ DOL แรกรับของรายนี้จากอีกเครื่องไปแล้ว — " +
+             "ปิดหน้าต่างนี้ แล้วเปิดแก้ใหม่" };
   }
-  if (isNew === true) {
-    return "ID นี้ (" + p.sessionId + ") ลงทะเบียนไว้แล้ว — " +
-           "ถ้าเป็นรายใหม่ที่ชื่อย่อและน้ำหนักแรกเกิดตรงกัน ให้เลือก Multiples A/B/C/D";
+  return { code: "DifferentInfant", message: "ID ซ้ำ (" + p.sessionId + ") — วันเกิดไม่ตรงกับรายที่มีอยู่ " +
+           "รีเฟรชหน้าแล้วลองใหม่" };
+}
+
+// A registration that may be an infant already on file (Pp, 2026-09-27): the
+// same birth weight and date of birth under another id. A random id no longer
+// lands two registrations of one baby on the same id, so this asks outright —
+// a second device registering the same admission, or a readmission after a
+// transfer out. Every row, not only the synced ones; never an erased row (its
+// dob is gone). Returns the question for the bedside, or null. Mirrors
+// possibleDuplicate / possibleDuplicateMsg in data.js.
+function _possibleDuplicate(data, p) {
+  var dob = _fmtDate(p.dob), bw = Number(p.bw);
+  if (!dob || !(bw > 0)) return null;
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    if (!r[0] || String(r[0]) === String(p.sessionId) || _isPdpaErased(r)) continue;
+    if (Number(r[3]) !== bw || _fmtDate(r[6]) !== dob) continue;
+    var bed = _normBed(r[10]);
+    return "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว: " +
+      String(r[1] || r[2] || "—") + " (" + String(r[9] || "Active") + " " +
+      (bed ? "เตียง " + bed : "ยังไม่ระบุเตียง") + " ID " + String(r[0]) + ") " +
+      "ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่";
   }
   return null;
 }
@@ -3425,8 +3468,9 @@ function _mergePatient(storedRow, incoming, base) {
 // ── registerPatient (upsert) ──────────────────────────────────
 // `isNew` is optional and defaults to a plain upsert, so an older client that
 // does not send it keeps working exactly as before — see _sessionIdConflict.
-// `base` is optional too — see the three-way merge above.
-function registerPatient(p, isNew, base, confirmOverwrite) {
+// `base` is optional too — see the three-way merge above. `confirmDuplicate`
+// is the client's "yes, a different infant" to _possibleDuplicate's question.
+function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate) {
   if (!p || typeof p !== "object" || !_requiredString(p.sessionId) || !p.sessionId.trim()) {
     throw new Error("sessionId is required");
   }
@@ -3458,13 +3502,14 @@ function registerPatient(p, isNew, base, confirmOverwrite) {
     // must not skip the one-infant-per-bed guard (BE-4, 2026-09-24).
     m.status = _normStatus(m.status);
     if (stored) {
-      // The id already exists (initials + BW collide): a different infant, a
-      // twin, or a re-registration. Old behaviour refused outright; Pp's rule
-      // (2026-09-24) is to WARN and let the doctor confirm an overwrite. Return
-      // a needs-confirm signal — nothing is written — unless this call already
-      // carries that confirmation.
-      var conflict = _sessionIdConflict(stored, m, isNew);
-      if (conflict && confirmOverwrite !== true) return { needsConfirm: true, error: conflict };
+      // The id already exists. A registration on it (IdTaken) returns a
+      // needs-confirm signal and writes nothing, unless this call carries
+      // confirmOverwrite (Pp, 2026-09-24; no client sends it since 2026-09-27 —
+      // it draws a new id instead). Two devices correcting one record's dob
+      // (EditConflict) is refused outright: there is nothing to confirm.
+      var conflict = _sessionIdConflict(stored, m, isNew, base);
+      if (conflict && conflict.code === "EditConflict") throw new Error(conflict.message);
+      if (conflict && confirmOverwrite !== true) return { needsConfirm: true, code: conflict.code, error: conflict.message };
     }
     _checkSex(m.sex, stored ? stored[5] : null);
     // Dates were never checked on this path (2026-09-23 review): every number
@@ -3480,6 +3525,12 @@ function registerPatient(p, isNew, base, confirmOverwrite) {
     // device's old "Active" status cannot claim a bed for a discharged patient.
     var bedTaken = _bedConflict(data, m);
     if (bedTaken) throw new Error(bedTaken);
+    // Asked last, of a registration that would otherwise be written: no
+    // question about the baby for a save that is refused anyway.
+    if (!stored && isNew === true && confirmDuplicate !== true) {
+      var lookalike = _possibleDuplicate(data, m);
+      if (lookalike) return { needsConfirm: true, code: "PossibleDuplicate", error: lookalike };
+    }
     var row18 = [
       _sheetSafe(m.sessionId), _sheetSafe(m.name || ""), _sheetSafe(m.initials || ""),
       _numSafe(m.bw, 0), _numSafe(m.ga, 0), _sheetSafe(m.sex || "boys"),
@@ -3575,12 +3626,13 @@ function updateWeights(sessionId, weights, baseWeights, dob) {
 // Sec 26(6)/24 medical-necessity basis this system relies on both justify
 // keeping de-identified clinical history rather than deleting it outright.
 //
-// Known residual risk: sessionId itself is generated as initials+BW+twin
-// suffix (see data.js), so it is not a true pseudonym — on a small census it
-// can still be reverse-mapped to the patient by staff who were present at
-// admission. Erasure here removes the *stored* identifiers but cannot scrub
-// that pattern from an already-issued sessionId without breaking every
-// Daily_Log row keyed on it. Flagged in HANDOFF.md; do not treat this
+// Known residual risk: a sessionId issued before 2026-09-27 is initials+BW+
+// twin suffix, so it is not a true pseudonym — on a small census it can still
+// be reverse-mapped to the patient by staff who were present at admission.
+// Erasure here removes the *stored* identifiers but cannot scrub that pattern
+// from an already-issued sessionId without breaking every Daily_Log row keyed
+// on it. Ids issued since then are random ("NF-" + six digits, data.js
+// newSessionId) and carry nothing. Flagged in HANDOFF.md; do not treat this
 // function as satisfying a full erasure request on its own.
 //
 // Since 2026-09-17: the "pseudonymize:start" audit row is written before

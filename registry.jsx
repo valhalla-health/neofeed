@@ -923,11 +923,14 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
 
   // GA stored as WW.D shorthand (e.g. 26+4 → 26.4), not decimal weeks
   const ga = gaW !== "" ? parseInt(gaW) + parseInt(gaD || 0) / 10 : 0;
-  // initials + BW + twin, as before 2026-09-25: the id keeps two letters (the
-  // first consonant of each part), not the four the name now holds — it is
-  // what an order copied out of the app carries in the name's place.
+  // The `initials` column still follows the name. The id no longer does: it
+  // is drawn once per registration, "NF-" and six random digits, and carries
+  // nothing about the infant (D_R.newSessionId, Pp 2026-09-27). It used to be
+  // initials + BW + twin letter, which is how two unrelated infants ended up
+  // with one id. If the drawn id is already taken, handleAddPatient (app.jsx)
+  // draws another before anything is written.
   const initials  = nameOk ? D_R.nameInitials(nameIn.first, nameIn.last) : "";
-  const sessionId = `${initials || "XX"}-BW${bw}${twin ? "-" + twin : ""}`;
+  const [sessionId] = React.useState(() => D_R.newSessionId());
 
   // Birth weight and GA feed every downstream nutrition calculation (targets,
   // Fenton percentile, HMF threshold) — a 0/blank value here would silently
@@ -1184,9 +1187,10 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // Patient_Registry and Daily_Log are matched on (registerPatient's upsert,
   // updateDailyNutrition, deletePatient all scan for it), so regenerating it
   // would leave the patient's whole log stranded under an id nothing points
-  // at any more. The BW baked into the id is a label from the day it was
-  // issued; `patient.bw` is the clinical value, and that is what every
-  // calculation reads. Same reason editing the name has never renamed it.
+  // at any more. The BW baked into an old id is a label from the day it was
+  // issued (an id drawn since 2026-09-27 carries none); `patient.bw` is the
+  // clinical value, and that is what every calculation reads. Same reason
+  // editing the name has never renamed it.
   const [bw, setBw]             = React.useState(patient.bw || 0);
   // Decode through gaTotalDays, not Math.floor/×10 by hand, so a hand-edited
   // sheet value like 27.9 seeds the selects as 27+6 — exactly what every

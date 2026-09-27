@@ -2068,6 +2068,12 @@ const SUPP_DB = {
 // are consonants wherever they stand: ทองดี → ทอ, เรยา → รย, สมศรี → สม,
 // ใจดี → จด, พัฒนา → พฒ, น้ำฝน → นฝ.
 //
+// Except a name with fewer than two letters (Pp, 2026-09-27: "ฤดี จะใช้ ฤด …
+// ถ้าเกิดขึ้นจริง ให้นับสระเฉพาะชื่อแบบนี้"). There its vowels count too, ฤ and
+// ฦ with them, in the order typed, so it still keeps two characters: ฤดี → ฤด,
+// ใจ → ใจ, คำ → คำ. Tone marks and ์ never count. Until then such a name could
+// not be registered at all: two letters were required, and it has one.
+//
 // Thai, so every name is typed and searched from one keyboard. The exception
 // is a foreign infant (`foreign`): the first two English letters, the first
 // capitalised ("John Smith" → "Jo Sm"). Which one a stored name is needs no
@@ -2075,6 +2081,9 @@ const SUPP_DB = {
 const NAME_PART_CHARS = 2;
 // The 44: ก–ร, ล, ว–ฮ (U+0E24 ฤ and U+0E26 ฦ left out).
 const THAI_CONSONANTS_RE = /[\u0E01-\u0E23\u0E25\u0E27-\u0E2E]/g;
+// A name with fewer than two letters is cut from these instead: the letters,
+// ฤ ฦ, and the vowels (ะ–ู, เ–ๅ). None of the marks: ็ ่ ้ ๊ ๋ ์ ํ ๎.
+const THAI_SHORT_NAME_RE = /[\u0E01-\u0E2E\u0E30-\u0E39\u0E40-\u0E45]/g;
 const HAS_THAI_RE  = /[\u0E00-\u0E7F]/;
 const HAS_LATIN_RE = /[A-Za-z]/;
 // A word's letters, in order: what a Thai name part is cut from, and what a
@@ -2094,7 +2103,10 @@ function namePart(raw, foreign) {
       .slice(0, NAME_PART_CHARS);
     return letters.charAt(0).toUpperCase() + letters.slice(1).toLowerCase();
   }
-  return thaiLetters(s).slice(0, NAME_PART_CHARS).join("");
+  const letters = thaiLetters(s);
+  if (letters.length >= NAME_PART_CHARS) return letters.slice(0, NAME_PART_CHARS).join("");
+  // Fewer than two letters: the vowels count as well (ฤดี → ฤด, ใจ → ใจ).
+  return (s.match(THAI_SHORT_NAME_RE) || []).slice(0, NAME_PART_CHARS).join("");
 }
 
 // Both parts at their full two letters. Registration requires it; an edit
@@ -2120,12 +2132,11 @@ function splitPatientName(name) {
   return nameComplete(m[1], m[2], foreign) ? { first: m[1], last: m[2], foreign } : null;
 }
 
-// The two letters a NEW sessionId starts with (sessionId = initials + BW +
-// twin): the first letter of each part, so "สม จด" → "สจ". The id keeps
-// initials rather than the four stored letters: it is copied into orders that
-// leave the app (LINE), where it deliberately stands in for the name
-// (calculator.jsx, Copy Order). For a word that is not a stored part (the old
-// two-letter names' search, below) it is the first consonant: เพ็ญ → พ.
+// The two letters of the `initials` column: the first letter of each part, so
+// "สม จด" → "สจ" (ฤด → ด: ฤ is a vowel). A new sessionId began with them until
+// 2026-09-27; it is random now (newSessionId, below). For a word that is not a
+// stored part (the old two-letter names' search, below) it is the first
+// consonant: เพ็ญ → พ.
 function nameInitial(part) {
   const s = String(part ?? "");
   const t = thaiLetters(s);
@@ -2133,6 +2144,58 @@ function nameInitial(part) {
 }
 function nameInitials(first, last) {
   return nameInitial(first) + nameInitial(last);
+}
+
+// ── NeoFeed ID ────────────────────────────────────────────────
+// A new infant's sessionId is "NF-" and six random digits (Pp, 2026-09-27:
+// "สร้าง ID … มันก็แค่ ID ที่หลังบ้านจะเข้าใจตรงกันเฉยๆ user ไม่ต้องรู้ความหมาย
+// แค่บอกว่าเป็น ID เดียวกัน"). Until then it was the initials, the birth weight
+// and the twin letter ("สจ-BW900-A"). That put patient data into every order
+// copied to LINE, and two unrelated infants with the same initials and weight
+// drew the same id, which the server refused with advice nobody could follow.
+// The id is the key of every Patient_Registry and Daily_Log row, so an existing
+// one never changes: only new registrations get this form. An id that is
+// already taken is refused by the server, and handleAddPatient (app.jsx) draws
+// another one.
+function newSessionId() {
+  const c = (typeof globalThis !== "undefined" && globalThis.crypto)
+    || (typeof window !== "undefined" && window.crypto);
+  let n;
+  if (c && typeof c.getRandomValues === "function") {
+    const a = new Uint32Array(1);
+    // 4294000000 is the largest multiple of 10^6 below 2^32: no modulo bias.
+    do { c.getRandomValues(a); } while (a[0] >= 4294000000);
+    n = a[0] % 1000000;
+  } else {
+    n = Math.floor(Math.random() * 1000000);
+  }
+  return "NF-" + String(n).padStart(6, "0");
+}
+
+// An infant already on file that a new registration may be the same baby as
+// (Pp, 2026-09-27): the same birth weight and the same date of birth. The old
+// initials-and-weight id caught this by accident, because two registrations of
+// one baby drew the same id. A random id does not, so it is asked outright: a
+// second device registering the same admission, or a baby transferred out and
+// back. An erased record is never a match: its dob is gone. Mirrors
+// _possibleDuplicate in gas-backend.gs, which asks again under the lock over
+// every row, not only the ones this device has synced.
+function possibleDuplicate(patients, p) {
+  const dob = normalizeDateStr(p && p.dob);
+  const bw = Number(p && p.bw);
+  if (!dob || !(bw > 0)) return null;
+  return (patients || []).find(x => x && String(x.sessionId) !== String(p.sessionId)
+    && Number(x.bw) === bw && normalizeDateStr(x.dob) === dob
+    && !String(x.name || "").startsWith("[PDPA-erased")) || null;
+}
+// What the registration asks when possibleDuplicate finds someone. Same
+// wording as the server's.
+function possibleDuplicateMsg(existing, p) {
+  const bed = normalizeBed(existing.currentBed) || lastBed(existing);
+  return `มีเด็ก BW ${Number(p.bw)} g เกิดวันที่ ${normalizeDateStr(p.dob)} อยู่ในระบบแล้ว: ` +
+    `${existing.name || existing.initials || "—"} (${existing.status || "Active"} ` +
+    `${bed ? "เตียง " + bed : "ยังไม่ระบุเตียง"} ID ${existing.sessionId}) ` +
+    `ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่`;
 }
 
 // ── Search ────────────────────────────────────────────────────
@@ -2239,6 +2302,16 @@ function bedSearchRank(p, q) {
 // a better answer — the name (above), then the bed, then the NeoFeed ID as
 // printed on the order form (20), then the diagnosis (10). A query that
 // starts with an honorific is also tried without it.
+//
+// The ID is compared without its hyphens, so "สจ-BW900", "nf-482913" and
+// "nf482913" all find theirs. Four or more digits alone are the digits of an
+// NF id (482913 finds NF-482913): no bed number is that long.
+function idSearchRank(id, v) {
+  const flat = v.replace(/[\s-]/g, "");
+  const idFlat = id.replace(/[\s-]/g, "");
+  if (/^\d+$/.test(flat)) return flat.length >= 4 && idFlat.startsWith("nf" + flat) ? 20 : 0;
+  return flat.length >= 3 && idFlat.startsWith(flat) ? 20 : 0;
+}
 function patientSearchRank(p, query) {
   const q = searchFold(query);
   if (!q || !p) return 0;
@@ -2249,7 +2322,7 @@ function patientSearchRank(p, query) {
     best = Math.max(best,
       nameSearchRank(p.name || p.initials, v),
       bedSearchRank(p, v),
-      v.length >= 3 && /\D/.test(v) && id.startsWith(v) ? 20 : 0,
+      idSearchRank(id, v),
       v.length >= 2 && dx.includes(v) ? 10 : 0);
   }
   return best;
@@ -2364,5 +2437,6 @@ window.NEOFEED_DATA = {
   // Patient name: ชื่อ + นามสกุล, two characters each (Thai; English for a
   // foreign infant), and the one search every search box goes through
   NAME_PART_CHARS, namePart, nameComplete, composePatientName, splitPatientName, nameInitials,
+  newSessionId, possibleDuplicate, possibleDuplicateMsg,
   searchFold, qwertyToThai, patientSearchRank, searchPatients,
 };

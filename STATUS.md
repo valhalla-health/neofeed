@@ -76,6 +76,14 @@
 **Updated 2026-09-25, 18:42 ICT** · ✅ **Backend `@60` and frontend `release` = `8e605fb` are live, and
 both are verified.** `8e605fb` serves the same bytes as `e05a78d`. Caught up with #122 in #123, the next
 PR on the repo, as #122 asked.
+- ⏳ **Branch `claude/name-id-fixes-0927`: open, not merged.** Backend + frontend, from the 2026-09-27
+  audit, on Pp's decisions that day (`CHANGELOG.md` 2026-09-27):
+  - Admit date and DOL แรกรับ can be corrected again. It has been refused since release #106.
+    **Backend: needs a `clasp` deploy.**
+  - A new infant's id is `NF-` and six random digits. A taken id is drawn again, and registration asks
+    when an infant on file has the same BW and date of birth.
+  - A name with one consonant keeps its vowels (ฤดี → ฤด).
+  - **Order:** release the frontend first, then `clasp`.
 - ⏳ **PR #123: merged into `main` on Pp's instruction. Not live until a `main` → `release` PR.** Frontend
   only: no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-18.1`. Nothing moves a dose, but it
   changes what the ward types and sees (`CHANGELOG.md` 2026-09-25 (2)–(5)):
