@@ -1206,7 +1206,47 @@ Five harnesses that registered or renamed an infant through the old ชื่อ
 `verify-review-0917-sync`, `verify-review-fixes-0924` and `verify-single-source-weight-dol`. What they pin
 is unchanged.
 
-## Names, Edit patient and the NeoFeed ID, 2026-09-27 — one harness, two adjusted
+## The bed-transfer review, 2026-09-27 — two harnesses, two adjusted
+
+Pp: *"verify and scrutinize all bed transfer bug"*, after a parked infant's chip printed over the infant's
+name on the release she was capturing for the manual (`CHANGELOG.md` 2026-09-27).
+**`verify-bed-transfer-0927.cjs`** (75 assertions; 60 without a browser). Every section except the § 6b
+guard fails on `f675420`, the tree release `10a4272` serves.
+- § 1–2, jsdom:
+  - the parked bed cell in the ward table and in Switch patient: the "รอเตียง" chip and the "จาก NICU 7"
+    line, with the tooltip kept and no column widened;
+  - the phone card's one-line chip;
+  - an infant who left the unit while parked is not "รอเตียง".
+- § 2b, jsdom: Switch patient lists the unit first, both browsing and searching a bed number. An infant
+  who has left follows, dimmed, and their bed cell reads "Transferred จาก NICU 9", never a plain bed chip.
+- § 3–5, jsdom:
+  - in the transfer dialog a taken bed can be chosen; it names who is in it and how to swap, and
+    Confirm stays disabled. Edit still refuses the bed at the dropdown;
+  - "next free bed" never offers the infant's own bed;
+  - Edit records the bed left. It records nothing for a legacy spelling, for a parked infant given a
+    bed, or for a correction on a discharged record.
+- § 6: the real `gas-backend.gs` in `gas-vm-sandbox.cjs`, driven by the real dialog. NICU 4 → SCN 1 →
+  NICU 4 → park keeps its last hop, and a retried park adds none. § 6b: a retry from the same dialog
+  re-sends the same hop.
+- § 7, in Chromium (playwright; CI skips it): the real app with a fake backend at 1024, 1280 and
+  1440 px.
+  - Nothing in a bed cell reaches past its column or over the name, on the NICU and SCN tables with
+    archive rows and in Switch patient.
+  - At 390 px, the phone card and Switch patient.
+
+**`verify-bed-transfer-0927-sync.cjs`** (7 assertions; one scenario through `review-0917-boot.cjs`, like
+`verify-review-0917-sync.cjs`; fails on `f675420`). It drives the real App against the fake Apps Script,
+given the server's three-way merge.
+- An Edit opens on an infant in SCN 1, and another device moves the infant to SCN 9. This device then
+  saves a diagnosis.
+- The device syncs once after the save, and lists SCN 9.
+- A park from it records SCN 9 as the bed left, on a base holding SCN 9.
+
+`verify-bed-park.cjs` set a disabled option by script, and its swap-hint check matched the park button's
+own label. It now checks that the option can be chosen, and matches the hint's own words.
+`verify-mobile-bed-button.cjs` compares a hop's bed and date, since each hop now also carries `at`.
+
+## Names, Edit patient and the NeoFeed ID, 2026-09-27 — one harness, four adjusted
 
 **`verify-name-id-0927.cjs`** (63 assertions; the jsdom set). The 2026-09-27 audit drove the real client
 against the real backend. It found three bugs that neither side's harnesses could see, because each fakes
@@ -1231,7 +1271,9 @@ Against `f675420` (release `10a4272`) it fails 35 of those checks, in every sect
 
 `verify-backend-batch-0924.cjs` (BE-4) and `verify-gas-registry-upsert.cjs` (§ 5f) each register a second
 fixture infant with the same birth weight and date of birth as the first. They now send the ward's answer,
-`confirmDuplicate`. What they pin is unchanged.
+`confirmDuplicate`. What they pin is unchanged. `verify-review-0917-backend-writes.cjs` does the same for BB-2. `verify-ward-requests-0925.cjs` now expects "ใจ" to be a
+complete part and "ปร พั" to read as a name (a part with one letter keeps its vowel), and a registration to
+carry an NF id rather than initials + BW.
 
 ## Note on the source workbook
 

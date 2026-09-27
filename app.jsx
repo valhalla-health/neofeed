@@ -1797,6 +1797,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // and travels with the submission. The save-time lookup remains only for
   // callers that pass none — which are the ones editing nothing they could
   // have raced on.
+  // After a patient save the server's record is the truth. Its three-way merge
+  // keeps whatever another device wrote to a field this save did not change —
+  // a bed move, a discharge — so it can differ from `p`. This device used to
+  // show `p`, and build the next save's base and the bed occupancy on it, until
+  // the next poll, up to SYNC_POLL_MS later: a ⇄ in that window recorded the
+  // wrong "Previous bed" (2026-09-27; Pp: sync straight after a successful
+  // save). If other writes are still out, the last one to answer asks.
+  const resyncAfterSave = () => {
+    if (!GAS_ON || endedRef.current) return;
+    if (pendingWritesRef.current > 0) { resyncAfterWritesRef.current = true; return; }
+    if (syncRef.current) syncRef.current();
+  };
+
   const handleEditPatient = (p, openedFromBase) => {
     const clash = bedConflict(p);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
@@ -1816,6 +1829,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         if (res.ok) {
           serverPatientsRef.current.set(p.sessionId, p);
           showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
+          resyncAfterSave();
         } else if (!res.unknown && previous) {
           // A refused/failed edit must not stay on screen looking saved —
           // BW and GA drive every target. Roll back only this exact edit.

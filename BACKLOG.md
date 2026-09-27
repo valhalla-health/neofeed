@@ -167,14 +167,30 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] **product · a foreign name with one letter, or with no surname** (a Myanmar "U", a single-name
       mother) still cannot be registered: each part needs two English letters. Rare. Pp to say whether to
       allow a one-letter part or an empty surname for ชาวต่างชาติ.
+- [ ] 🧱 **ux/infra · Loose ends from the bed-transfer review (2026-09-27).** Found while tracing the bed
+      moves (`CHANGELOG.md` § Session 2026-09-27). None of them misplaces an infant, so none was built.
+      1. **The phone sweep cannot see one box printing over another.** `verify-phone-sweep.cjs` flags
+         content cut off inside an `overflow: hidden` box. The parked chip spilled over the Name column
+         with overflow visible, so it passed. `verify-bed-transfer-0927.cjs` § 7 now measures bed
+         cells. A general probe would compare each table cell's drawn content with its column.
+      2. **Switch patient on a phone styles its cells by position** (`.picker-row > span:nth-child(n)`
+         in both shells). That rule was written on 2026-05-28 for the old order (name first). The same
+         day the columns were reordered with the bed first, and the rule was not updated. So on a phone
+         the bed chip is drawn large and the name small and grey, the reverse of the rule's own comment.
+         It is readable, but give the cells classes and decide which one leads.
+      3. **An infant never given a bed shows an empty pill** in the Bed column (`BedChip` with a blank
+         `currentBed` and no history). "—" would say it.
+      4. **"SCN 01" ≠ "SCN 1"** in `normalizeBed`/`_normBed` (already listed under the 2026-09-23
+         review, below) is the one bed-label gap left.
+
 - [ ] 🩺⚖️ **product · ชื่อ + นามสกุล and the ward search (2026-09-25): three loose ends, all "later" (Pp).**
       Built in `CHANGELOG.md` § Session 2026-09-25 (2) and (3), pinned by
       `test/verify-ward-requests-0925.cjs` and `test/verify-phone-sweep.cjs`. Pp answered on PR #123
       (entry (4)): the topbar switcher stays unit-wide, the foreign-name rule is confirmed, and these three
       wait.
       1. ~~**The server's duplicate-id message still says "แก้ชื่อย่อ"**~~ **Done 2026-09-27**
-         (`claude/name-id-fixes-0927`): a new id is random, a taken one is drawn again, and no message
-         names initials. Live with the next `clasp` deploy (`CHANGELOG.md` 2026-09-27).
+         (PR #127): a new id is random, a taken one is drawn again, and no message
+         names initials. Live with the next `clasp` deploy (`CHANGELOG.md` 2026-09-27 (2)).
       2. ⚖️ **Tell the DPO the name holds four letters now.** It held two (one letter of each name), and
          now holds two letters of each, with no vowels or tone marks, or two English letters of each for a
          foreign infant. It is Pp's decision, for finding and identifying an infant. A new infant's id

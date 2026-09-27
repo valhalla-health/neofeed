@@ -1061,6 +1061,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     });
     return attempt(0);
   };
+  const resyncAfterSave = () => {
+    if (!GAS_ON || endedRef.current) return;
+    if (pendingWritesRef.current > 0) {
+      resyncAfterWritesRef.current = true;
+      return;
+    }
+    if (syncRef.current) syncRef.current();
+  };
   const handleEditPatient = (p, openedFromBase) => {
     const clash = bedConflict(p);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
@@ -1077,6 +1085,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       if (res.ok) {
         serverPatientsRef.current.set(p.sessionId, p);
         showToast(`${p.name || p.sessionId} อัปเดตแล้ว`);
+        resyncAfterSave();
       } else if (!res.unknown && previous) {
         setPatients((prev) => prev.map((x) => x === p ? previous : x));
       }
