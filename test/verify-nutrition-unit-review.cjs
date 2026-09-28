@@ -145,11 +145,15 @@ for (const [label, perKg, divisor, dp, head] of SALTS) {
   const delivered = mlPerKg * WT;
 
   const wantHead = `${fmt(perKg, 1)} ${head} = ${fmt(mlPerKg, 2)} mL/kg/d`;
-  const wantSplit = `${TRIEM} ${fmt(prepared, dp)} mL/d = ${TUENG} ${fmt(delivered, dp)}`
-                  + ` + ${KASAI} ${fmt(prepared - delivered, dp)} mL`;
+  // Since 2026-09-28 the caption shows the prepared mL only: the split into what
+  // reaches the infant and what stays in the line is calculated, not shown
+  // (Praew: "เก็บเป็นเลขคำนวณไว้หลังบ้าน ไม่โชว์ในหน้า UI").
+  const wantPrepared = `${TRIEM} ${fmt(prepared, dp)} mL/d`;
+  const unwanted = `${TUENG} ${fmt(delivered, dp)}`;
 
   check(`${label} — conversion shown`, t1.includes(wantHead), wantHead);
-  check(`${label} — compounded vs delivered split`, t1.includes(wantSplit), wantSplit);
+  check(`${label} — the prepared mL is shown`, t1.includes(wantPrepared), wantPrepared);
+  check(`${label} — no to-patient / in-line split`, !t1.includes(unwanted) && !t1.includes('+ ' + KASAI), unwanted);
 }
 
 // Both phosphorus sources must report P the same way — only Glycophos did before.

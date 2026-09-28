@@ -15,7 +15,7 @@
 // sheet knew WHO submitted an order and WHEN, never WHICH VALUES it used.
 //
 // 🔴 BUMP THIS whenever a change below can move a printed dose — KCMH_STOCK,
-// MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, TPN_TARGETS, ENTERAL_TARGETS, EN_DB,
+// MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, TPN_TARGETS, ENTERAL_TARGETS, EN_DB,
 // FENTON_* — and, since 2026-09-18, whenever calculator.jsx logic can move a
 // printed figure. Not for comments, labels or UI. Every save stamps it into
 // calcInput, and a saved order stamped with another version prints only after
@@ -31,7 +31,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-09-18.1";
+const CONSTANTS_VERSION = "2026-09-28.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -601,7 +601,11 @@ const KCMH_STOCK = {
   smof20:      { label: "20% SMOF",              gPerMl: 0.20 },
   // Na sources — sheet rows 20/21/23
   naCl:        { label: "20% NaCl",              naMeqPerMl: 3.42 },  // H20 = mEq ÷ 3.42
-  naAcetate:   { label: "Na Acetate",            naMeqPerMl: 3.0  },  // H21 = mEq ÷ 3
+  // acetateMeqPerMl: read it off the vial label before setting it. The TPN
+  // team gave "Na 3, acetate 6 mEq" per mL (2026-09-28), but sodium acetate is
+  // 1 : 1, so 6 may be the label's osmolarity; Praew chose to wait for the
+  // label. While null, the calculator shows no acetate.
+  naAcetate:   { label: "Na Acetate",            naMeqPerMl: 3.0, acetateMeqPerMl: null },  // H21 = mEq ÷ 3
   glycophos:   { label: "Glycophos®",            naMeqPerMl: 2, pMgPerMl: 31 },
   // K sources — sheet rows 27/29
   k2hpo4:      { label: "K₂HPO₄",                kMeqPerMl: 1, pMgPerKMeq: 15.5 },
@@ -619,12 +623,26 @@ const KCMH_STOCK = {
 
 // Max dextrose the KCMH sheet allows (F9 = 18 × weight) — g/kg/day
 const MAX_DEXTROSE_G_KG = 18;
-// Max K concentration in the finished bag (G25 = prepared mL × 40 ÷ 1000) — mEq/L
-const MAX_K_MEQ_PER_L = 40;
-// Ceilings the KCMH TPN team quoted for K⁺ concentration by route (2026-09-22,
-// with a "?"). Shown beside MAX_K_MEQ_PER_L for reference only: the stop stays
-// at 40 mEq/L on both routes (Praew, 2026-09-22).
-const K_REF_MEQ_PER_L = { peripheral: 60, central: 200 };
+// K⁺ concentration in the finished bag, mEq/L, by route (TPN team meeting and
+// Praew, 2026-09-28): amber above `warn`; critical above `red`, ordered only
+// with a confirmed reason; and above `hardMax` not ordered at all — Save and
+// Print refuse it (Praew: "K ทาง central ลดเป็น 120 ให้ขึ้นแดง แต่ max ที่ 200").
+// Central red at 120 follows published neonatal practice (IWK Health NICU);
+// nothing published supports more than 120 (docs/CLINICAL_CONSTANTS.md).
+// The 200 maximum holds on both routes (Praew, reviewing PR #129: "max 200
+// ทั้งสองสาย"); on central only, switching a bag to Peripheral turned the stop
+// into a critical alert that a typed reason cleared.
+// Replaces the KCMH worksheet's single 40 mEq/L stop (G25), which the team
+// cancelled.
+const K_BAG_MEQ_PER_L = {
+  peripheral: { warn: 40, red: 60,  hardMax: 200 },
+  central:    { warn: 60, red: 120, hardMax: 200 },
+};
+const kBagLimitsFor = (route) => K_BAG_MEQ_PER_L[route === "central" ? "central" : "peripheral"];
+// Lipid infusion rate ceiling, g/kg/h (TPN team meeting and Praew, 2026-09-28):
+// amber above `warn`, critical above `max`. Graded on the figure the pump card
+// shows (2 decimals), so its colour never disagrees with its number.
+const LIPID_GKGH = { warn: 0.13, max: 0.17 };
 // Total elemental zinc reaching the infant per day — Peditrace plus ZnSO₄ —
 // above which an order is a critical alert (KCMH TPN team, 2026-09-22).
 const MAX_ZN_MG_DAY = 5;
@@ -689,7 +707,8 @@ function girStatus(gir) {
 // by reproducing its own cached results: 856 and 896 mOsm/L on sheets s tpn2/s tpn3):
 //   Osm (mOsm/L) = 50×D% + 100×AA% + 2×Na(mEq/L) + 2×K(mEq/L) + 1.4×Ca(mEq/L) + 1×Mg(mEq/L)
 // Ca unit: caMgPerL = elemental Ca mg/L → convert to mEq/L ÷20 (MW=40, valence=2)
-// Peripheral limit: <900 mOsm/L · Central: no hard limit but >1800 mOsm/L = endothelial risk
+// Peripheral limit: <900 mOsm/L · Central: no upper limit (Praew, 2026-09-28; it
+// used to warn above 1800 mOsm/L)
 function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {
   return (
     50  * dexPct     +   // dextrose %
@@ -2392,7 +2411,7 @@ window.NEOFEED_DATA = {
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, MAX_K_MEQ_PER_L, K_REF_MEQ_PER_L, MAX_ZN_MG_DAY, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
   // Provenance — which constants and which frontend produced a printed number.

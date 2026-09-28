@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ✅ **2026-09-27, 21:43–21:44 ICT — backend `@61`, then frontend `release` = `ec6ff6e` on both hosts.**
+> PR #128 released #127: Admit date corrections again, `NF-` ids, the look-alike question. `@61` is
+> `gas-backend.gs` at `6269b88`, byte for byte. `node tools/verify-release.mjs ec6ff6e` passed on both
+> hosts (0 failures, 61 passes). The tag `release-2026-09-27-pr128` is pushed (comment on #128).
+>
 > ✅ **2026-09-27, 20:35 ICT — frontend `release` = `3453ba8` on both hosts, with backend `@60`.**
 > PR #126 released #125: the parked chip no longer covers the name, and eight more bed-move bugs.
 > `node tools/verify-release.mjs 3453ba8` passed on both hosts: 0 failures, 31 checks on Cloudflare and
@@ -83,13 +88,33 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-27, 20:51 ICT** · ✅ **Backend `@60` and frontend `release` = `3453ba8` are live, and
-both are verified.** Caught up with #126 in #127, the next PR on the repo, as #126 asked.
-- ⏳ **PR #127: merged into `main` on Pp's instruction. Not live until a `main` → `release` PR, and its
-  backend half not until a `clasp` deploy (Pp's call).** Backend + frontend, from the 2026-09-27 audit,
+**Updated 2026-09-28, 21:13 ICT** · ✅ **Backend `@61` and frontend `release` = `ec6ff6e` are live, and
+both are verified.** Caught up with #128 in #129, the next PR on the repo, as #128 asked.
+- ⏳ **PR #129, the KCMH TPN team's 2026-09-28 meeting: merged into `main` on Pp's instruction ("เมื่อ
+  review PR129 เสร็จ ให้ merge and deploy เลย"), and released straight after in one `main` → `release`
+  PR.** The release checks are comments on the release PR. Frontend only: no `clasp` step.
+  **`CONSTANTS_VERSION` `2026-09-18.1` → `2026-09-28.1`** (the K⁺ limit prints on the form), so an order
+  saved before the release prints again only after it is saved again (`CHANGELOG.md` 2026-09-28).
+  ⚠️ **It changes what the ward and pharmacy see:**
+  - K⁺ in the bag by route: peripheral amber > 40, critical > 60 mEq/L; central amber > 60, critical
+    > 120. **Above 200 on either line the order cannot be saved or printed**, the first limit no reason
+    clears (peripheral added in review, Pp: "max 200 ทั้งสองสาย"). No upper osmolarity limit on a
+    central line.
+  - Lipid rate: g/kg/h to 2 decimals, amber > 0.13, critical > 0.17; lipid hours typed, 1–24.
+  - Dead-space chips 30 / 50 / 100; no WFI in Step 2 (the form and the copied order keep it).
+  - "20% lipid", "สารน้ำเกินแผน", the dextrose hint in g/kg/d, no grams on the amino-acid row, P per
+    mL in the phosphate notes, feeds grouped preterm / post-discharge / high-energy (Pre Nan listed).
+  - The form: no Nutritional Status row, and "แพทย์" with the name only.
+  - ⚠️ Pharmacy and the TPN team should hear about the re-save and the K⁺ maximum at release
+    (`BACKLOG.md` § Now).
+- ✅ **PR #127 is live**: backend `@61` at 21:43 ICT, then released by PR #128 at 21:44 ICT on Pp's
+  instruction ("clasp แล้ว merge #128 เลย"): `release` = `ec6ff6e`, whose tree is `main` at `6269b88`.
+  `@61` is `gas-backend.gs` at `6269b88`, byte for byte (mirror commit `17900ce`), and all 12 backend
+  harnesses passed against the file pulled back from version 61. `verify-release.mjs ec6ff6e` passed on
+  both hosts (0 failures, 61 passes); post-merge CI on `release` passed (run 36327041317). Comment on
+  #128. Backend + frontend, from the 2026-09-27 audit,
   on Pp's decisions that day (`CHANGELOG.md` 2026-09-27 (2)):
-  - Admit date and DOL แรกรับ can be corrected again. It has been refused since release #106.
-    **Backend: needs a `clasp` deploy.**
+  - Admit date and DOL แรกรับ can be corrected again. It had been refused since release #106.
   - A new infant's id is `NF-` and six random digits. A taken id is drawn again, and the server asks
     when an infant on file has the same BW and date of birth.
   - A name with one consonant keeps its vowels (ฤดี → ฤด).
@@ -99,7 +124,8 @@ both are verified.** Caught up with #126 in #127, the next PR on the repo, as #1
     register the same baby twice with no question.
   - ⚠️ **It changes what the ward sees:** a new infant's NeoFeed ID (Edit, the order form, Copy Order's
     LINE text) reads `NF-` and six digits, and registering a look-alike asks first. The Thai manual
-    needs both once it is live.
+    needs both.
+  - ⚠️ **Not checked yet:** registering and correcting an Admit date at a bedside, and a real phone.
 - ✅ **PR #125 is live**, released by PR #126 on Pp's instruction ("merge PR 125 แล้ว deploy") at 20:35
   ICT: `release` = `3453ba8`, whose tree is `main` at `e751f52`. Post-merge CI on `release` passed (run
   36322940298), and `verify-release.mjs 3453ba8` passed on both hosts (comment on #126). Frontend only:
@@ -161,9 +187,10 @@ both are verified.** Caught up with #126 in #127, the next PR on the repo, as #1
   PDPA-erased record wrote its date of birth back: `@57`/`@58`'s `updateWeights` fills an empty dob cell
   (F2, #108), and the erasure had emptied it (`CHANGELOG.md` 2026-09-24 (9)). Whether any erased row
   was refilled can only be read from the live Sheet (`BACKLOG.md` § Now).
-- **Frontend:** PR #126 (`main` → `release`), merged on Pp's instruction on 2026-09-27 at 20:35 ICT:
-  `release` = `3453ba8`, `main` at `e751f52` (#125). Its served bytes were verified on both hosts (0
-  failures; comment on #126). Before it, PR #124, merged on 2026-09-27 at 15:57 ICT: `release` =
+- **Frontend:** PR #128 (`main` → `release`), merged on Pp's instruction on 2026-09-27 at 21:44 ICT:
+  `release` = `ec6ff6e`, `main` at `6269b88` (#127). Its served bytes were verified on both hosts (0
+  failures; comment on #128). Before it, PR #126, merged on 2026-09-27 at 20:35 ICT: `release` =
+  `3453ba8`, `main` at `e751f52` (#125), verified on both hosts (comment on #126). Before that, PR #124, merged on 2026-09-27 at 15:57 ICT: `release` =
   `10a4272`, `main` at `f675420` (#123), also verified on both hosts (comment on #124). Before that, PR #122 (`main` → `release`), merged on 2026-09-25 at 14:50:51
   ICT: `release` = `8e605fb`, `main` at `55d56ba`. It changed no served file, so that app was still what
   PR #120 released on 2026-09-24 at 16:58:39 UTC / 23:58 ICT: #118 and #119, `main` at `67ed949`.
@@ -171,10 +198,12 @@ both are verified.** Caught up with #126 in #127, the next PR on the repo, as #1
   (61 passes, 0 failures; comments on #122 and #120). Before them,
   PR #117 released #116 and #115 as `79f04ba` at 21:19 ICT, and PR #114 released #113 as `971c370` at
   20:24 ICT; both were verified on both hosts (comments on #117 and #114).
-- **Backend:** `@60` since 2026-09-25, 12:11:30 ICT: #119's login speed, deployed with `clasp` on Pp's
-  instruction. It is `gas-backend.gs` at `67ed949`, byte for byte (mirror commit `a5afe15`). `@59`, live
-  from 2026-09-24, 21:17:37 ICT, carried #116's PDPA fix. Rollback: `clasp update-deployment -V 59 …`.
-  Either half works with the other at either version.
+- **Backend:** `@61` since 2026-09-27, 21:43 ICT: #127's Admit-date, id and look-alike fixes, deployed
+  with `clasp` on Pp's instruction. It is `gas-backend.gs` at `6269b88`, byte for byte (mirror commit
+  `17900ce`). Rollback: `clasp update-deployment -V 60 …`. `@60`, live from 2026-09-25, 12:11:30 ICT,
+  was #119's login speed (`67ed949`, mirror `a5afe15`); `@59`, from 2026-09-24, 21:17:37 ICT, carried
+  #116's PDPA fix. Roll the frontend back before the backend: #127's frontend on `@60` would register
+  the same baby twice with no question.
 - ⚠️ **Not yet exercised by a person:** a sign-in on `@60`, whose reply now carries the first sync; a
   bedside order, a Chula Google sign-in, or a phone bed move on `@60` + `e05a78d`; a new order started
   from the single-source weight; the Growth tab's "Weight below birth weight" line; and a weight save on

@@ -7,6 +7,220 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-28 (6) — Review of PR #129: the K⁺ maximum holds on a peripheral line too
+
+`data.js`, `calculator.jsx`, both shells and `compiled/`; docs. `CONSTANTS_VERSION` stays 2026-09-28.1 (not
+released yet). Same PR #129, reviewed before merge on Pp's instruction ("เมื่อ review PR129 เสร็จ ให้ merge and
+deploy เลย").
+
+### Why
+
+Two review passes (standards, and spec against BACKLOG § Now and Pp's answers) found one safety gap: only central
+had a maximum, so a bag above 200 mEq/L refused on Central became, on Peripheral, a critical alert that one typed
+reason cleared, and it saved and printed. The more restrictive line took the more concentrated bag. Asked, Pp:
+*"max 200 ทั้งสองสาย"*.
+
+### What changed
+
+1. **`K_BAG_MEQ_PER_L.peripheral.hardMax = 200`.** Every path already reads the route's `hardMax`: Submit and
+   Save refuse, Print is held, the tile, alerts, form, back sheet and copied order name it ("confirm > 60 · max
+   200", peripheral). Amber 40 and critical 60 are unchanged. The peripheral tile's bar now ends at 200, as
+   central's does (it was 90, 1.5 × the critical 60), so its colours sit in the first 30 %.
+2. **The quick calc's copied text flags a bag above the maximum** (`!! K⁺ … IS ABOVE THE 200 mEq/L MAXIMUM —
+   cannot be ordered`), as it flags an over-full bag. A patient's Copy already waited for a printable order.
+3. `docs/CLINICAL_CONSTANTS.md`: the "When to bump" list named the deleted `MAX_K_MEQ_PER_L`; it names
+   `K_BAG_MEQ_PER_L` now, as `data.js` does. The register and constants rows give the peripheral maximum.
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` § 10 and § 10b, 113 checks; 9 fail against `76db4d9`. § 10 also covers the print
+hold for a saved row above the maximum, which no check reached before. Three harnesses that pinned the peripheral
+line's old wording or bar now pin "max 200" (`verify-tpn-team-0922`, `verify-calc-oracle`) and a bar ending at
+200 (`verify-status-zones`).
+
+### Review findings left as they are
+
+- K⁺ is graded on the raw figure and shown to 0 decimals, so 200.4 reads "200, above the maximum 200". It errs
+  on the safe side.
+- The lipid hours box keeps the last valid value while an out-of-range one is typed, and corrects it on blur.
+- The "changes since the last order" line on the form says "20% lipid" (item 18 asked for the screen only);
+  the form's own tick box still says SMOF. BACKLOG already holds the form wording as a question.
+- Center Point never re-checks the maximum on a revision saved before this release (unchanged by this PR).
+- Code duplication the standards pass named (the g/kg/h figure worked out in three places, the route test
+  repeated) is left for a later tidy-up; every copy agrees today.
+
+## Session 2026-09-28 (5) — KCl 2 mEq/mL confirmed; the acetate display, built and waiting for the vial label
+
+`calculator.jsx`, `data.js`, both shells and `compiled/`. No figure moves: acetate stays hidden while its constant
+is `null`. `CONSTANTS_VERSION` stays 2026-09-28.1. Same PR #129, not merged.
+
+### Why
+
+Pp: *"แสดง acetate ด้วย · KCl 2 mEq/mL ถูกต้อง"*. The TPN team gave Na acetate as "Na 3, acetate 6 mEq" per mL,
+which sodium acetate's 1 : 1 formula cannot carry (6 is probably the label's mOsm/mL). Asked which figure to show,
+Pp chose to wait for the vial label.
+
+### What changed
+
+1. **KCl 2 mEq/mL is confirmed** (Pp), the value NeoFeed already uses. `docs/CLINICAL_CONSTANTS.md` marks it 🟢;
+   BACKLOG's stock-strength item now keeps only the small-volume rounding question.
+2. **The acetate display is built and off.** `KCMH_STOCK.naAcetate.acetateMeqPerMl` is `null`. Once set from the
+   label, Step 4's Na acetate note gives acetate per mL, its caption gives acetate mEq/kg/d, and the copied order
+   gives the bag's acetate. The form is unchanged.
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` § 13: nothing about acetate shows as shipped; with a value set for the check, the note,
+the caption (3 mEq Na/kg/d = 1 mL/kg/d · acetate 3 mEq/kg/d) and the copied order (7 mEq in a 2 kg infant's
+overfilled bag) show it. 104 checks.
+
+## Session 2026-09-28 (4) — Na acetate stock confirmed by the TPN team
+
+Docs only (`BACKLOG.md`, `docs/CLINICAL_CONSTANTS.md`). No code, constant or `CONSTANTS_VERSION` change. Same PR #129,
+not merged. Added from the Desktop session that sorted the inbox and mapped the meeting notes.
+
+### Why
+
+Meeting item 20 read *"Na ace 1 ml=Na 3 ace 6"*. Asked to confirm it from the vial, Pp checked with the TPN team:
+*"confirm with tpn team แล้ว 1 mL มี Na 3 กับ acetate 6 mEq"*. Pp also confirmed the central K⁺ answer already
+built in (3): above 200 is a hard stop.
+
+### What changed
+
+1. `BACKLOG.md` B · 20 is answered. Na 3 mEq/mL is `KCMH_STOCK.naAcetate`, so doses and printed mL stand. Acetate
+   6 mEq/mL does not fit sodium acetate's 1 : 1 formula (6 may be mOsm/mL). NeoFeed shows no acetate, so it prints
+   nothing wrong, but the label must be read before acetate is ever displayed.
+2. `BACKLOG.md` § Now safety item: Na acetate confirmed; **KCl 2 mEq/mL stays open**, as does small-volume rounding.
+3. `docs/CLINICAL_CONSTANTS.md`: `naAcetate` is 🟢 for Na; `kCl` is now the highest-stakes open item.
+
+## Session 2026-09-28 (3) — Central K⁺: red above 120, and 200 as a maximum that cannot be ordered
+
+`calculator.jsx`, `data.js`, both shells and `compiled/`. Still `CONSTANTS_VERSION` 2026-09-28.1: nothing has
+shipped under it yet. Same PR #129, not merged.
+
+### Why
+
+The literature check the same day found no neonatal or paediatric source for a central K⁺ limit of 200 mEq/L
+(ANMF 2020 central ≤ 80; IWK Health NICU 120; IMSN 2020 keeps 200 mmol/L bags for adult critical care). Pp:
+*"K ทาง central ลดเป็น 120 ให้ขึ้นแดง แต่ max ที่ 200"*.
+
+### What changed
+
+1. `D.K_BAG_MEQ_PER_L` is `{ warn, red, hardMax }`: peripheral 40 / 60 (no hard maximum); central 60 / 120 / 200.
+2. Central above 120 is critical ("K⁺ concentration too high"), ordered with a confirmed reason, as before.
+3. **Central above 200 cannot be ordered** (`kOverMax`), the first threshold in NeoFeed that no reason can
+   clear. Like the no-volume bag: Submit is disabled with a line saying why, Save refuses, Print is held, and the
+   alert reads "K⁺ above the maximum". A draft can still be kept.
+4. The K⁺ tile's bar ends at the 200 maximum on a central line (red from 120), and at 1.5 × 60 on a peripheral
+   one. The line under it, the form and the copied order say "confirm > 120 · max 200" on a central line and
+   "confirm > 60" on a peripheral one, instead of "max".
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` §10: central 117 amber, 130 red with Submit still open, 213 above the maximum
+with Submit disabled and a draft still possible, and both routes' wording on the form and the copied order (98
+checks). `verify-tpn-team-0922` §7, `verify-kcmh-constants`, `verify-status-zones` (red from 60 % of a central
+bar, 66.7 % of a peripheral one) and `verify-calc-oracle` (its own rule, and the copied-order wording) follow.
+
+## Session 2026-09-28 (2) — Pp's answers: K⁺ by route, no central osmolarity limit, a lipid rate ceiling
+
+`calculator.jsx`, `data.js`, both shells and `compiled/`. **`CONSTANTS_VERSION` 2026-09-18.1 → 2026-09-28.1**:
+the K⁺ limit is on the register's bump list (`docs/CLINICAL_CONSTANTS.md`) and prints on the form, so an order
+saved before this prints only after it is saved again (`calcMoved`). Same PR #129, not merged.
+
+### Why
+
+Pp answered the team questions the same day: *"rate ของ lipid โชว์ทศนิยม 2 ตำแหน่ง · ถึงผู้ป่วย + คาสาย
+ลบออกได้ เก็บเป็นเลขคำนวณไว้หลังบ้าน ไม่โชว์ในหน้า UI · lipid เพดาน 0.13-0.17 g/kg/h พิมพ์ได้ 1–24 ชั่วโมง ·
+K ทาง central เริ่มสีเหลืองที่ 60 · osmolarity ทาง central ไม่มี upper limit ยกเลิกเกณฑ์ 40 mEq/L ของ KCMH"*.
+The K⁺ and lipid numbers are the TPN team's, from its meeting, confirmed by her: the register's
+second-clinician step. The code review of PR #129 also asked for a lipid rate check once hours below 16 could be
+typed, and for typed hours to match Center Point's one-decimal print.
+
+### What changed
+
+1. **K⁺ in the bag by route** (`D.K_BAG_MEQ_PER_L`, `D.kBagLimitsFor`): peripheral amber above 40, critical
+   above 60; central amber above 60, critical above 200 mEq/L. The critical alert keeps its title, "K⁺
+   concentration too high", and asks for a reason at Submit; amber is a new caution, "K⁺ concentration high".
+   The tile's range and bar (red from two thirds of a bar 1.5 × max long), the line under it, the form's two K⁺
+   lines and the copied order name the route's limit. `MAX_K_MEQ_PER_L` (40 on both routes) and
+   `K_REF_MEQ_PER_L` are gone.
+2. **No upper osmolarity limit on a central line**: no warning above 1800, and no range on the tile. Peripheral
+   is unchanged: amber above 850, critical above 900.
+3. **Lipid rate ceiling** (`D.LIPID_GKGH`): amber above 0.13, critical above 0.17 g/kg/h, graded on the
+   2-decimal figure the pump card shows. So 0.125 (shown 0.13) is green, and 4 g/kg/d over 24 h (0.167, shown
+   0.17) is amber. The card says "เพดาน 0.13–0.17"; critical needs a reason at Submit. The range is ESPGHAN
+   2005's infant maximum of 3–4 g/kg/d over 24 h (PMID 16254497); ESPGHAN 2018 gives no hourly limit and advises
+   continuous 24-hour lipid in newborns (R 4.10).
+4. **The pump rate stays at 2 decimals** (Pp). Typed hours keep one decimal, as Center Point's sheet prints them
+   (16.25 → 16.3).
+5. **Step 4's salt captions drop "= ถึงผู้ป่วย … + คาสาย …".** The prepared mL (เตรียม) stays; the split is
+   still calculated.
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` §5–6 and new §10–12: 92 checks; the 19 new ones fail against `6b752a1`. Harnesses
+that pinned the old rules now pin these: `verify-tpn-team-0922` §7; `verify-kcmh-constants` (the route table
+instead of the 40 stop); `verify-status-zones` (K⁺ red from 66.7 % of the bar); `verify-review-0917-calc` (§2
+counts the lipid-rate line apart; §12 central has no range); `verify-calc-oracle` (its own route K⁺ and
+lipid-rate rules); `verify-nutrition-unit-review` (prepared mL shown, no split); `verify-ward-requests-0918` §12
+(rows dated 2026-09-18.1 are now held until saved again, which its 2099 case foresaw).
+
+## Session 2026-09-28 — The TPN team's meeting: 28 requests into BACKLOG, eleven display changes built
+
+Frontend only: `calculator.jsx`, `app.jsx` (the Formula page's groups), both shells and `compiled/`. No
+backend, no `data.js`, and no dose or compounding figure moves, so `CONSTANTS_VERSION` stays `2026-09-18.1`
+(`data.js`: "not for comments, labels or UI"). The form's lipid g/kg/h now prints to 2 decimals; it is a
+conversion in brackets, not a dose. PR #129, not merged.
+
+### Why
+
+Pp met the KCMH TPN team on 2026-09-28 and sent her notes: 28 numbered requests. Pp: *"ลงใน BACKLOG เลย
+แยก 3 กลุ่มตามที่เสนอ เสร็จแล้ว ทำส่วนที่แก้ไขได้ทันที"*. `BACKLOG.md` § Now holds all 28 in three groups:
+A, display changes that need no new number (built here); B, questions for the team; C, design work. Items 1
+and 3 already worked that way.
+
+### What changed
+
+1. **Item 10 · dead-space chips 30 / 50 / 100** (were 0 / 10 / 20 / 30). A new NICU/SCN order still starts
+   at 30; 0 or any other value is typed.
+2. **Item 11 · the dextrose hint** gives g/kg/d (max 18) only; "g/d delivered" and "g in bag" left it.
+3. **Item 14 · the amino-acid row** lost its grams column ("In bag / delivered", or "Total"); dose and volume
+   stay.
+4. **Item 15 · WFI q.s. left Step 2.** The bag make-up keeps Components and Bag total; an over-full bag still
+   turns it red and says "cannot be compounded", and the components figure turns red with it. The form and
+   the copied order keep WFI.
+5. **Item 16 · lipid.** g/kg/h to 2 decimals on screen, form and copied order (0.083 → 0.08). "Infuse over"
+   can be typed, besides the 16 / 20 / 24 chips: 1–24 h. Over 24 is held at 24 (lipid hangs 24 h at most);
+   under 1 h, which is also what an emptied box reads, keeps the last good value. **The pump rate keeps 2
+   decimals**: at low rates 1 decimal moves the dose (a 500 g infant on 0.5 g/kg/d: 0.135 → 0.1 mL/h, 26 %
+   less), so that is a question for the team (BACKLOG B · 16).
+6. **Item 18 · "20% lipid"** on screen, for "SMOF Lipid 20%", "SMOF volume" and "(SMOF + Vitalipid)", and in
+   the changes-vs-previous list. The form still ticks "20% SMOF" on the KCMH paper form's own list and the
+   copied order still names SMOF; the team is asked (B).
+7. **Item 19 · P per mL** in both phosphate notes, from `KCMH_STOCK`: K₂HPO₄ "1 mEq K/mL · P 15.5 mg/mL" (was
+   "mg/mEq K"); Glycophos "ใส่ mEq Na/kg · 2 mEq Na/mL · P 31 mg/mL (1 mmol)". The "เตรียม … = ถึงผู้ป่วย +
+   คาสาย" line stays until a pharmacist view exists (C): it was added on 2026-09-01 after the Nutrition Unit
+   misread a salt's mL.
+8. **Item 25 · "Over target" → "สารน้ำเกินแผน"** in Step 1, and Step 5's "IV เกิน target" → "IV เกินแผนสารน้ำ".
+9. **Item 4 · no Nutritional Status row** on the form's front.
+10. **Item 28 · "แพทย์" carries the name only.** `nameOnlyOf()` drops the "(email)"; a row saved before names
+    were kept leaves the line blank to sign. The back sheet's "บันทึกโดย" keeps the email for pharmacy.
+11. **Item 6 · feed groups.** Step 5: preterm formula (PF 20, Enfalac Premature 22, Hi-Q LBW 24),
+    post-discharge formula (Pre Nan 22), high-energy (FBM ↔ Infatrini, Infatrini 30). Same keys, same labels.
+    The Formula page groups them the same way and now lists Pre Nan, which it had left out.
+
+### Tests
+
+`test/verify-tpn-meeting-0928.cjs`: 65 assertions over the eleven; 33 of them fail against `6269b88`.
+Harnesses that pinned what the meeting changed now pin the new behaviour: the lipid field's label in ten of
+them (`setField('20% lipid', …)`), the chips (`verify-calc-clicks`; `verify-ward-requests-0918` §10, where 0 is
+now typed), g/kg/h to 2 decimals (`verify-tpn-team-0922` §2, `verify-calc-clicks`, `verify-calc-oracle`), the
+name-only "แพทย์" (`verify-tpn-team-0922` §6 and §10), "สารน้ำเกินแผน" and "Lipid volume"
+(`verify-calc-oracle`), the two-column AA row (`verify-phone-sweep`), and the fuzz's I3, which now reads the
+bag total and the over-full warning instead of an on-screen WFI (the oracle still checks WFI on the form and
+the copied order).
+
 ## Session 2026-09-27 (2) — Names, Edit patient and the NeoFeed ID: an audit, then Pp's three decisions
 
 Pp: *"check all bug associated with name and edit patient name . check all transfer and find name or bed

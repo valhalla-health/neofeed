@@ -3917,7 +3917,10 @@ function FormulasPanel() {
     { label: "🤱 Breast Milk", keys: ["BM_20","BM_HMF_24"] },
     { label: "🥛 HiQ LF (Dumex)", keys: ["HIQLF_20","HIQLF_24","HIQLF_27"] },
     { label: "🍼 Enfalac LF (MJN)", keys: ["ENFALAC_20","ENFALAC_24","ENFALAC_27"] },
-    { label: "⚡ High-energy / Mixed", keys: ["BM_PF_20","FBM_PF_22","FBM_PF_24","FBM_INF_MIX","INFATRINI_30"] },
+    // Grouped as the calculator's feed list (TPN team, 2026-09-28). Pre Nan was on no row here.
+    { label: "👶 Preterm formula", keys: ["BM_PF_20","FBM_PF_22","FBM_PF_24"] },
+    { label: "🏠 Post-discharge formula", keys: ["PRENAN_22"] },
+    { label: "⚡ High-energy / Mixed", keys: ["FBM_INF_MIX","INFATRINI_30"] },
   ];
 
   const cols = ["Formula","kcal","Protein","Fat","Na","K","Ca","P","Osm","LF?","Note"];

@@ -304,7 +304,7 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   setField('Volume(mL/day)', 110);
   setField('Dextrose final', 10);
   setField('Amino acid', 3);
-  setField('SMOF Lipid', 3.5);
+  setField('20% lipid', 3.5);
   setField('KCl', 5);
   setField('10% Ca gluconate', 60);
   fillRequired();

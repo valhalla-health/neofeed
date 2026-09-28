@@ -147,10 +147,12 @@ const openAll = () => click(btnExact('Open all'));
   setField('Volume(mL/day)', 100);
   const chipGroups = [
     ['Target fluid', [60, 80, 100, 120, 150]],
-    ['ปริมาตรคาสาย', [0, 10, 20, 30]],
+    // 30 / 50 / 100 since 2026-09-28 (TPN team). 30 is clicked last, so the
+    // dependents below still work on a 130 mL bag.
+    ['ปริมาตรคาสาย', [50, 100, 30]],
     ['Dextrose final', [5, 7.5, 10, 12.5, 15]],
     ['Amino acid', [1.5, 2, 2.5, 3, 3.5]],
-    ['SMOF Lipid 20%', [0.5, 1, 2, 3, 4]],
+    ['20% lipid', [0.5, 1, 2, 3, 4]],
     ['20% NaCl', [1, 2, 3, 4]],
     ['Na Acetate', [1, 2, 3, 4]],
     ['Glycophos', [1, 2, 3, 4]],
@@ -183,13 +185,13 @@ const openAll = () => click(btnExact('Open all'));
   ok('D10 chip → D50W 26 mL/d on a 130 mL bag', /D50W: 26 mL\/d/.test(text()), text().match(/D50W: [\d.]+ mL\/d/)?.[0]);
 
   // ── 3 · segmented toggles ─────────────────────────────────────
-  setField('SMOF Lipid 20%', 2);
+  setField('20% lipid', 2);
   for (const h of [16, 20, 24]) {
     click([...container.querySelectorAll('button')].find(b => b.textContent === `${h}h`));
     // 2 g/kg × 1.2 kg = 2.4 g = 12 mL SMOF + Vitalipid 4.8 mL = 16.8 mL
     const rate = num(text().match(/PUMP RATE([\d.]+)mL\/hr/)?.[1]);
     ok(`lipid over ${h}h → rate ${(16.8 / h).toFixed(2)}`, Math.abs(rate - 16.8 / h) <= 0.005, rate);
-    ok(`lipid over ${h}h → g/kg/h`, Math.abs(num(container.querySelector('.lipid-gkgh').textContent) - 2 / h) <= 0.0005);
+    ok(`lipid over ${h}h → g/kg/h`, Math.abs(num(container.querySelector('.lipid-gkgh').textContent) - 2 / h) <= 0.005 + 1e-9);   // 2 decimals since 2026-09-28 (0.125 shows 0.13)
   }
   setField('MgSO₄', 0.4);
   // KCMH stocks 10% MgSO₄ only (Praew, 2026-09-23): no vial choice, no 50% mL.
