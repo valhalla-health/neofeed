@@ -274,9 +274,10 @@ function expectedAlerts(sc, e) {
   if (e.Vd > 0 && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
   if (e.dexGkg > 18) add('crit', 'Dextrose over KCMH max');
   // K⁺ in the bag by route since 2026-09-28 (TPN team and Praew): peripheral amber > 40, critical > 60;
-  // central amber > 60, critical > 200. Written out here, not read from data.js.
-  { const k = sc.route === 'central' ? { warn: 60, max: 200 } : { warn: 40, max: 60 };
-    if (e.kPerL > k.max) add('crit', 'K⁺ concentration too high'); else if (e.kPerL > k.warn) add('warn', 'K⁺ concentration high'); }
+  // central amber > 60, critical > 120, not orderable > 200. Written out here, not read from data.js.
+  { const k = sc.route === 'central' ? { warn: 60, red: 120, hardMax: 200 } : { warn: 40, red: 60 };
+    if (k.hardMax && e.kPerL > k.hardMax) add('crit', 'K⁺ above the maximum');
+    else if (e.kPerL > k.red) add('crit', 'K⁺ concentration too high'); else if (e.kPerL > k.warn) add('warn', 'K⁺ concentration high'); }
   // Lipid g/kg/h against 0.13 / 0.17, on the 2-decimal figure shown (TPN team and Praew, 2026-09-28).
   if (sc.lip > 0) { const g = Math.round(sc.lip / sc.lipH * 100) / 100;
     if (g > 0.17) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
@@ -621,7 +622,7 @@ async function run(scIn) {
     near(sc, 'copy summary protein', g(/SUMMARY: Protein ([\d.]+) g\/kg/), e.proKg, 1);
     near(sc, 'copy summary energy', g(/Energy ([\d.]+) kcal\/kg \|/), e.kcalKg, 0);
     near(sc, 'copy total Na delivered', g(/Total Na: +[\d.]+ mEq in bag = ([\d.]+) mEq\/kg\/d/), e.naKg, 1);
-    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L, max (?:60 on a peripheral|200 on a central) line\)/), e.kPerL, 0);
+    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L; confirm above (?:60 on a peripheral|120, max 200 on a central) line\)/), e.kPerL, 0);
     near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
     if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.oCa > 0) near(sc, 'copy oral Ca tabs/day', g(/mg\/day → ([\d.]+) tab\/day/), e.oCa_tabs, 2);

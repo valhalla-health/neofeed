@@ -358,7 +358,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
   // ═══════════════════════════ §7 K⁺ in the bag ════════════════════════════
   // Since the TPN team's meeting of 2026-09-28 the bag's K⁺ is graded by route
   // (D.K_BAG_MEQ_PER_L): peripheral amber above 40 and critical above 60,
-  // central amber above 60 and critical above 200. The worksheet's single
+  // central amber above 60, critical above 120, not orderable above 200. The worksheet's single
   // 40 mEq/L stop is gone (verify-tpn-meeting-0928 §10 has the full grid).
   await section('§7 K⁺ concentration of the bag has its own tile, graded by route', async () => {
     const log = logger();
@@ -371,7 +371,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     setField('Volume(mL/day)', 100); setField('KCl', 2.75);   // 5.5 mEq in 100 mL = 55 mEq/L
     eq('KCl 2.75 in 100 mL: 55 mEq/L', tileVal('K⁺ in bag'), '55 mEq/L');
     eq('…on a central line: within range', tileStatus('K⁺ in bag'), 'ok');
-    ok('under the tile: the central thresholds', /central: amber > 60 · red > 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    ok('under the tile: the central thresholds', /central: amber > 60 · red > 120 · max 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
     click(button(/^Peripheral$/));
     eq('…on a peripheral line: amber', tileStatus('K⁺ in bag'), 'warn');
     const w = alertOf('K⁺ concentration high');

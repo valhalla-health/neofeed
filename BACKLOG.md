@@ -99,7 +99,8 @@ clinical judgement. Everything else is engineering sequencing.
           200 only below 17.5 mL/kg/d, so its critical alert would almost never fire. ESPGHAN 2018 gives no
           central osmolarity limit either; "central" should mean a checked central tip (Kolaček R 10.13–10.16).
           `docs/CLINICAL_CONSTANTS.md` has the sources.
-          - [ ] 🩺 **Praew / TPN team, before this ships: keep central K⁺ 200, or lower it (80–120)?**
+          - [x] 🩺 **Praew / TPN team, before this ships: keep central K⁺ 200, or lower it (80–120)?** Answered
+            2026-09-28: red above 120, and 200 as a maximum that cannot be ordered (`CHANGELOG.md` 2026-09-28 (3)).
         - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
           (split in two) or a stop.
         - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,

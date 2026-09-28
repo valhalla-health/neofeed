@@ -156,7 +156,7 @@ const HARD = {                                          // where red must start,
   'GIR (readout)': 13 / 16 * 100,                       // Praew: red above 13
   'Protein': 4.8 / 5.5 * 100,
   'Energy (total)': 160 / 180 * 100,                    // ESPGHAN 2022: never above 160 (D.KCAL_HARD_HI)
-  'K⁺ in bag': 100 / 1.5,                               // red above the route's max, on a bar 1.5 × max long (D.K_BAG_MEQ_PER_L, 2026-09-28)
+  'K⁺ in bag': 120 / 200 * 100,                         // central: red above 120 on a bar that ends at the 200 maximum (D.K_BAG_MEQ_PER_L, 2026-09-28)
 };
 for (const { name, container } of mounted) {
   for (const r of readings(container)) {
@@ -166,6 +166,7 @@ for (const { name, container } of mounted) {
     const route = name === 'past the hard limits' ? 'peripheral' : 'central';
     let want = HARD[r.label];
     if (r.label === 'Osmolarity' && route === 'peripheral') want = 900 / 1100 * 100;
+    if (r.label === 'K⁺ in bag' && route === 'peripheral') want = 60 / 90 * 100;   // red above 60 on a bar 1.5 × 60 long
     if (want === undefined) {
       ok(`${name} · ${r.label}: no red — it has no hard limit of its own`, red.length === 0, red);
     } else {

@@ -1625,10 +1625,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
-  // Praew, 2026-09-28): amber above `warn`, critical above `max`. It replaced
+  // Praew, 2026-09-28): amber above `warn`, critical above `red`, and above
+  // `hardMax` (central 200) not orderable at all — see kOverMax. It replaced
   // the worksheet's single 40 mEq/L stop (G25) on both routes.
   const kLim = D.kBagLimitsFor(route);
-  const kConcStatusAt = (v) => D.rangeStatus(v, [0, kLim.warn], { hardHi: kLim.max });
+  const kRouteLabel = route === "central" ? "central" : "peripheral";
+  const kConcStatusAt = (v) => D.rangeStatus(v, [0, kLim.warn], { hardHi: kLim.red });
   const sKConc = kConcStatusAt(calc.kMeqPerL);
   // Peripheral: crit >900, warn >850 · Central: no upper limit (Praew,
   // 2026-09-28; it warned above 1800 until then)
@@ -1690,6 +1692,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [znPerKg, "ZnSO₄"],
   ].filter(([v]) => v > 0).map(([, label]) => label);
   const zeroVolumeBag = bagIngredientsWithoutVolume.length > 0;
+  // K⁺ above the route's hard maximum (central 200 mEq/L; Praew, 2026-09-28):
+  // like the no-volume bag, not a confirm-with-reason alert — Submit and Print
+  // refuse it. A draft may still be kept.
+  const kOverMax = kLim.hardMax != null && calc.kMeqPerL > kLim.hardMax;
+  const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
 
   const alerts = [];
@@ -1755,12 +1762,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${fmt(calc.dexGPerKg, 1)} g/kg/d — sheet limit is ${D.MAX_DEXTROSE_G_KG} g/kg/d. Lower dextrose % or bag volume.`, ref: "KCMH TPN worksheet" });
   // By route since 2026-09-28 (D.K_BAG_MEQ_PER_L — TPN team and Praew): above
-  // `max` is critical, so it is ordered only with a confirmed reason; above
-  // `warn` is a caution. The critical title is unchanged: a saved critOverride
-  // names alerts by title.
-  const kRouteLabel = route === "central" ? "central" : "peripheral";
-  if (calc.kMeqPerL > kLim.max) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.max} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
-  else if (calc.kMeqPerL > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (critical above ${kLim.max}).`, ref: "TPN team, 2026-09-28" });
+  // `hardMax` the order cannot be saved (kOverMax); above `red` it is critical,
+  // so it is ordered only with a confirmed reason; above `warn` is a caution.
+  // The critical title is unchanged: a saved critOverride names alerts by title.
+  if (kLim.hardMax != null && calc.kMeqPerL > kLim.hardMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
+  else if (calc.kMeqPerL > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
+  else if (calc.kMeqPerL > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (critical above ${kLim.red}).`, ref: "TPN team, 2026-09-28" });
   // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
   if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
   else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
@@ -1804,7 +1811,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit")
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -1812,6 +1819,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`
     : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
+    : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
     : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}`
@@ -1905,6 +1913,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!asDraft && zeroVolumeBag) {
       setOpenSteps(prev => new Set(prev).add(2).add(3));
       showToast(zeroVolumeText, "error");
+      return;
+    }
+    // ── K⁺ above the route's hard maximum (Praew, 2026-09-28) ─────────
+    // Not overridable either: a reason confirms a critical value, but above
+    // the maximum there is no order to confirm.
+    if (!asDraft && kOverMax) {
+      setOpenSteps(prev => new Set(prev).add(3));
+      showToast(kOverMaxText, "error");
       return;
     }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
@@ -2909,9 +2925,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {/* K⁺ concentration of the finished bag, not a per-kg dose. A tile
                   since the TPN team missed it as a line of small text
                   (2026-09-22); graded by route since 2026-09-28. */}
-              <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, kLim.warn]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={kLim.max * 1.5} />
+              <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, kLim.warn]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={kLim.hardMax || kLim.red * 1.5} />
               <div className="k-conc-ref" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}>
-                {route === "central" ? "central" : "peripheral"}: amber &gt; {kLim.warn} · red &gt; {kLim.max} mEq/L
+                {kRouteLabel}: amber &gt; {kLim.warn} · red &gt; {kLim.red}{kLim.hardMax ? ` · max ${kLim.hardMax}` : ""} mEq/L
               </div>
               {/* Mg in the unit it is dosed in (tMg), plus mg/kg/d for the
                   guideline's mg columns. TPN only: EN_DB carries no Mg. */}
@@ -3323,7 +3339,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3430,7 +3446,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `  Total Na:     ${fmt(calc.bag.na_mEq, 1)} mEq in bag = ${fmt(calc.naKg, 1)} mEq/kg/d delivered`,
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
-                `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L, max ${D.kBagLimitsFor(route).max} on a ${route === "central" ? "central" : "peripheral"} line)`,
+                `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L; confirm above ${kLim.red}${kLim.hardMax ? `, max ${kLim.hardMax}` : ""} on a ${kRouteLabel} line)`,
                 caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${fmt(caPerKg*calc.factor, 0)} mg → ${calc.solVol.ca} mL` : "",
                 mgPerKg>0 ? `  MgSO4 ${mgStrength}%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg*calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
                 calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? fmt(calc.caP, 2) : "!! (Ca ordered, P = 0)"}:1 (mass, TPN+EN)` : "",
@@ -3483,6 +3499,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {zeroVolumeText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {kOverMax && (
+              <div className="k-over-max" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {kOverMaxText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
             {isDraftSaved && !dirty && (
               <div className="draft-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit
@@ -3499,7 +3520,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || kOverMax || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
@@ -3879,7 +3900,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           {/* 2. K⁺ */}
           <tr>
             <td style={tdGroup} colSpan={3}>2. K⁺</td>
-            <td style={td} rowSpan={3}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>max {D.kBagLimitsFor(route).max} mEq/L in bag ({route === "central" ? "central" : "peripheral"})</td>
+            <td style={td} rowSpan={3}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>K⁺ in bag: confirm &gt; {D.kBagLimitsFor(route).red}{D.kBagLimitsFor(route).hardMax ? ` · max ${D.kBagLimitsFor(route).hardMax}` : ""} mEq/L ({route === "central" ? "central" : "peripheral"})</td>
           </tr>
           <tr>
             <td style={tdRx(k2hpo4 > 0)}>{chk(k2hpo4 > 0)} K₂HPO₄<br/><span style={plain}>(K {S.k2hpo4.kMeqPerMl} mEq/mL, P {S.k2hpo4.pMgPerKMeq} mg/mL)</span></td>
@@ -4062,7 +4083,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             </tr>
             <tr>
               <td style={td} colSpan={3}>
-                K⁺ in bag {fmt(calc.kMeqPerL, 0)} mEq/L (max {D.kBagLimitsFor(route).max}, {route === "central" ? "central" : "peripheral"}) · Osm {bag && calc.osm ? fmt(calc.osm, 0) : "—"} mOsm/L · Lipid + Vitalipid are a separate syringe, not in this bag
+                K⁺ in bag {fmt(calc.kMeqPerL, 0)} mEq/L (confirm &gt; {D.kBagLimitsFor(route).red}{D.kBagLimitsFor(route).hardMax ? `, max ${D.kBagLimitsFor(route).hardMax}` : ""}, {route === "central" ? "central" : "peripheral"}) · Osm {bag && calc.osm ? fmt(calc.osm, 0) : "—"} mOsm/L · Lipid + Vitalipid are a separate syringe, not in this bag
               </td>
             </tr>
           </tbody>

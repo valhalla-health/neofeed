@@ -1300,13 +1300,13 @@ the requests that change what the screen and the form show and need no new numbe
   and the Formula page (a static read of `app.jsx`) grouped the same way with Pre Nan on it.
 
 Praew's answers the same day added three sections: § 10, K⁺ in the bag by route (peripheral amber above 40,
-critical above 60; central amber above 60, critical above 200), on the tile, its alerts, the form and the copied
-order; § 11, no upper osmolarity limit on a central line; § 12, the lipid rate ceiling (amber above 0.13,
+critical above 60; central amber above 60, critical above 120, and above 200 not orderable: Submit disabled, a
+draft still possible), on the tile, its alerts, the form and the copied order; § 11, no upper osmolarity limit on a central line; § 12, the lipid rate ceiling (amber above 0.13,
 critical above 0.17 g/kg/h, graded on the 2-decimal figure shown). § 5 also pins typed hours kept to one decimal,
 and § 6 that Step 4 no longer shows the to-patient / in-line split.
 
 Against `6269b88` it failed 33 of its first 65 checks, in every section; the 19 checks added with Praew's answers
-fail against `6b752a1`. 92 checks in all.
+fail against `6b752a1`. 98 checks in all, with the central maximum added in (3).
 
 ## Note on the source workbook
 

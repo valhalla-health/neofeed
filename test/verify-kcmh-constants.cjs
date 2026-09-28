@@ -78,9 +78,10 @@ near('Max dextrose g/kg', D.MAX_DEXTROSE_G_KG,      18,      0);
 // The sheet's 40 mEq/L K⁺ stop (G25) was cancelled at the TPN team meeting on
 // 2026-09-28; K⁺ in the bag is graded by route (D.K_BAG_MEQ_PER_L).
 near('K peripheral amber mEq/L', D.K_BAG_MEQ_PER_L.peripheral.warn, 40, 0);
-near('K peripheral max mEq/L',   D.K_BAG_MEQ_PER_L.peripheral.max,  60, 0);
+near('K peripheral red mEq/L',   D.K_BAG_MEQ_PER_L.peripheral.red,  60, 0);
 near('K central amber mEq/L',    D.K_BAG_MEQ_PER_L.central.warn,    60, 0);
-near('K central max mEq/L',      D.K_BAG_MEQ_PER_L.central.max,    200, 0);
+near('K central red mEq/L',      D.K_BAG_MEQ_PER_L.central.red,    120, 0);
+near('K central max mEq/L',      D.K_BAG_MEQ_PER_L.central.hardMax, 200, 0);
 
 console.log(fails === 0 ? '\nALL PASS' : `\n${fails} FAILURE(S)`);
 process.exit(fails ? 1 : 0);

@@ -18,7 +18,8 @@
 //
 // Praew's answers to the team questions, 2026-09-28 (BACKLOG B · 16, 23 · 26):
 //   §10  K⁺ in the bag by route: peripheral amber > 40, red > 60; central amber
-//        > 60, red > 200; the KCMH 40 mEq/L stop is gone.
+//        > 60, red > 120, and above 200 not orderable ("K ทาง central ลดเป็น 120
+//        ให้ขึ้นแดง แต่ max ที่ 200"); the KCMH 40 mEq/L stop is gone.
 //   §11  "osmolarity ทาง central ไม่มี upper limit".
 //   §12  "lipid เพดาน 0.13-0.17 g/kg/h": amber above 0.13, red above 0.17.
 //
@@ -356,14 +357,14 @@ function baseOrder({ tf = 120 } = {}) {
   });
 
   // ═══════════════════════════ §10 K⁺ by route ═════════════════════════════
-  await section('§10 K⁺ in the bag by route: peripheral amber > 40, red > 60; central amber > 60, red > 200', async () => {
+  await section('§10 K⁺ in the bag by route: peripheral amber > 40, red > 60; central amber > 60, red > 120, max 200', async () => {
     const log = logger();
     mount({ patient: pt('KR-2000', 2000), onLog: log.onLog });
     setField('Current weight', 2000); fillRequired(120);
     setField('ปริมาตรคาสาย', 0);
     // KCl alone in the bag: K⁺ mEq/L = KCl mEq/kg × 2 kg ÷ volume.
     const kAt = (ml, perKg) => { setField('Volume(mL/day)', ml); setField('KCl', perKg); };
-    const kAlerts = () => alertRows().filter(a => /^K⁺ concentration/.test(a.title)).map(a => `${a.level}:${a.title}`);
+    const kAlerts = () => alertRows().filter(a => /^K⁺ (concentration|above)/.test(a.title)).map(a => `${a.level}:${a.title}`);
     click(button(/^Peripheral$/));
     kAt(100, 1.75);   // 35
     eq('peripheral 35 mEq/L: green, no K⁺ alert', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag'), kAlerts()], ['35 mEq/L', 'ok', []]);
@@ -374,21 +375,32 @@ function baseOrder({ tf = 120 } = {}) {
     ok('the line under the tile gives the peripheral thresholds', /peripheral: amber > 40 · red > 60 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
     click(button(/^Central$/));
     eq('the same 65 on a central line: amber', [tileStatus('K⁺ in bag'), kAlerts()], ['warn', ['warn:K⁺ concentration high']]);
-    ok('…and the line under the tile gives the central ones', /central: amber > 60 · red > 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    ok('…and the line under the tile gives the central ones', /central: amber > 60 · red > 120 · max 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
     kAt(100, 2.5);    // 50
     eq('central 50: green', [tileStatus('K⁺ in bag'), kAlerts()], ['ok', []]);
-    kAt(30, 2.9);     // 193
-    eq('central 193: amber', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag'), kAlerts()], ['193 mEq/L', 'warn', ['warn:K⁺ concentration high']]);
+    kAt(30, 1.75);    // 117
+    eq('central 117: amber', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag'), kAlerts()], ['117 mEq/L', 'warn', ['warn:K⁺ concentration high']]);
+    kAt(30, 1.95);    // 130
+    eq('central 130: red, a critical alert', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag'), kAlerts()], ['130 mEq/L', 'crit', ['crit:K⁺ concentration too high']]);
+    ok('…and Submit still works (with a reason)', !!saveBtn() && !saveBtn().disabled);
     kAt(30, 3.2);     // 213
-    eq('central 213: red', [tileStatus('K⁺ in bag'), kAlerts()], ['crit', ['crit:K⁺ concentration too high']]);
+    eq('central 213: above the 200 maximum', [tileStatus('K⁺ in bag'), kAlerts()], ['crit', ['crit:K⁺ above the maximum']]);
+    ok('…Submit is disabled, and the line by it says why', !!saveBtn() && saveBtn().disabled && /เกินค่าสูงสุด 200 mEq\/L/.test(text(container.querySelector('.k-over-max'))), text(container.querySelector('.k-over-max')));
+    const draft = [...container.querySelectorAll('button.save-draft')][0];
+    await clickAsync(draft);
+    eq('…but it can still be kept as a draft', log.calls, 1);
     click(button(/^Peripheral$/));
     kAt(100, 2.5);    // 50, amber: saves with no reason
     await save();
-    eq('saved', log.calls, 1);
-    ok('the form gives the route’s limit', /max 60 mEq\/L in bag \(peripheral\)/.test(printText()), printText().match(/max \d+ mEq\/L in bag.{0,14}/));
-    ok('…and so does its back sheet', /K⁺ in bag 50 mEq\/L \(max 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag [^·]*/));
+    ok('submitted (an update of the draft): the form prints', !!printForm());
+    ok('the form gives the route’s limit', /K⁺ in bag: confirm > 60 mEq\/L \(peripheral\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
+    ok('…and so does its back sheet', /K⁺ in bag 50 mEq\/L \(confirm > 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
     const copy = await copyOrder();
-    ok('…and the copied order', /\(50 mEq\/L, max 60 on a peripheral line\)/.test(copy), copy.match(/Total K:[^\n]*/));
+    ok('…and the copied order', /\(50 mEq\/L; confirm above 60 on a peripheral line\)/.test(copy), copy.match(/Total K:[^\n]*/));
+    click(button(/^Central$/));
+    await save();
+    ok('on a central line the form gives both numbers', /K⁺ in bag: confirm > 120 · max 200 mEq\/L \(central\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
+    ok('…and so does the copied order', /\(50 mEq\/L; confirm above 120, max 200 on a central line\)/.test(await copyOrder()));
   });
 
   // ═══════════════════════════ §11 osmolarity, central ═════════════════════

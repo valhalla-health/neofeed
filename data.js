@@ -620,12 +620,16 @@ const KCMH_STOCK = {
 // Max dextrose the KCMH sheet allows (F9 = 18 × weight) — g/kg/day
 const MAX_DEXTROSE_G_KG = 18;
 // K⁺ concentration in the finished bag, mEq/L, by route (TPN team meeting and
-// Praew, 2026-09-28): amber above `warn`, critical above `max` — a critical
-// value is ordered only with a confirmed reason. Replaces the KCMH worksheet's
-// single 40 mEq/L stop (G25), which the team cancelled.
+// Praew, 2026-09-28): amber above `warn`; critical above `red`, ordered only
+// with a confirmed reason; and above `hardMax` not ordered at all — Save and
+// Print refuse it (Praew: "K ทาง central ลดเป็น 120 ให้ขึ้นแดง แต่ max ที่ 200").
+// Central red at 120 follows published neonatal practice (IWK Health NICU);
+// nothing published supports more than 120 (docs/CLINICAL_CONSTANTS.md).
+// Replaces the KCMH worksheet's single 40 mEq/L stop (G25), which the team
+// cancelled.
 const K_BAG_MEQ_PER_L = {
-  peripheral: { warn: 40, max: 60 },
-  central:    { warn: 60, max: 200 },
+  peripheral: { warn: 40, red: 60 },
+  central:    { warn: 60, red: 120, hardMax: 200 },
 };
 const kBagLimitsFor = (route) => K_BAG_MEQ_PER_L[route === "central" ? "central" : "peripheral"];
 // Lipid infusion rate ceiling, g/kg/h (TPN team meeting and Praew, 2026-09-28):

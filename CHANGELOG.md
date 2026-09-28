@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-28 (3) — Central K⁺: red above 120, and 200 as a maximum that cannot be ordered
+
+`calculator.jsx`, `data.js`, both shells and `compiled/`. Still `CONSTANTS_VERSION` 2026-09-28.1: nothing has
+shipped under it yet. Same PR #129, not merged.
+
+### Why
+
+The literature check the same day found no neonatal or paediatric source for a central K⁺ limit of 200 mEq/L
+(ANMF 2020 central ≤ 80; IWK Health NICU 120; IMSN 2020 keeps 200 mmol/L bags for adult critical care). Pp:
+*"K ทาง central ลดเป็น 120 ให้ขึ้นแดง แต่ max ที่ 200"*.
+
+### What changed
+
+1. `D.K_BAG_MEQ_PER_L` is `{ warn, red, hardMax }`: peripheral 40 / 60 (no hard maximum); central 60 / 120 / 200.
+2. Central above 120 is critical ("K⁺ concentration too high"), ordered with a confirmed reason, as before.
+3. **Central above 200 cannot be ordered** (`kOverMax`), the first threshold in NeoFeed that no reason can
+   clear. Like the no-volume bag: Submit is disabled with a line saying why, Save refuses, Print is held, and the
+   alert reads "K⁺ above the maximum". A draft can still be kept.
+4. The K⁺ tile's bar ends at the 200 maximum on a central line (red from 120), and at 1.5 × 60 on a peripheral
+   one. The line under it, the form and the copied order say "confirm > 120 · max 200" on a central line and
+   "confirm > 60" on a peripheral one, instead of "max".
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` §10: central 117 amber, 130 red with Submit still open, 213 above the maximum
+with Submit disabled and a draft still possible, and both routes' wording on the form and the copied order (98
+checks). `verify-tpn-team-0922` §7, `verify-kcmh-constants`, `verify-status-zones` (red from 60 % of a central
+bar, 66.7 % of a peripheral one) and `verify-calc-oracle` (its own rule, and the copied-order wording) follow.
+
 ## Session 2026-09-28 (2) — Pp's answers: K⁺ by route, no central osmolarity limit, a lipid rate ceiling
 
 `calculator.jsx`, `data.js`, both shells and `compiled/`. **`CONSTANTS_VERSION` 2026-09-18.1 → 2026-09-28.1**:
