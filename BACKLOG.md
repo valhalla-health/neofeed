@@ -55,6 +55,81 @@ clinical judgement. Everything else is engineering sequencing.
       components and WFI) differ from the KCMH worksheet's G43/G45 — 2.5 against 2.0 mL for a 2 kg
       infant on a 120 mL day. § Next asked for pharmacy to be told *before* this shipped, and nothing
       records that it was. **Praew's to do, or to tick if already done.**
+- [ ] 🩺 **safety/product · The TPN team's meeting of 2026-09-28: 28 requests, in three groups.** The item
+      numbers are those of Praew's meeting notes. Items 1 and 3 already work that way, so there is nothing
+      to build, only the team to tell: Peditrace is × Factor, so it covers the line's volume
+      (`calculator.jsx` `peditrace_vol`, since 2026-09-18), and lipid is dosed on the actual weight with no
+      overfill (`lipidG`).
+      - **A · Can do now** (display only, no new numbers):
+        - 4 · No "Nutritional Status" row on the printed form.
+        - 6 · Step 5's feed groups: Hi-Q LBW under preterm formula, Pre Nan under post-discharge formula.
+          Today both sit in "Preterm / High-energy". The Formula page never listed Pre Nan.
+        - 10 · Dead-space chips 30 / 50 / 100 (today 0 / 10 / 20 / 30). Any value can still be typed.
+        - 11 · The dextrose hint drops "g/d delivered" and "g in bag".
+        - 14 · The AA row drops its grams column ("In bag / delivered"); volume stays.
+        - 15 · Step 2 drops "WFI q.s."; the printed form keeps it.
+        - 16 · g/kg/h to 2 decimals (today 3); infusion hours can be typed, besides 16 / 20 / 24.
+        - 18 · "20% lipid" on screen instead of "SMOF Lipid 20%".
+        - 19 · P per mL in both phosphate notes: K₂HPO₄ "P 15.5 mg/mL" (today "mg/mEq K"), Glycophos
+          "P 31 mg/mL".
+        - 25 · "Over target" (Step 1 fluid) in words that cannot be read as "over the bottle".
+        - 28 · No email at "แพทย์" on the front sheet: the name only.
+      - **B · Waiting for the team's numbers — Praew to ask.**
+        - **6 · New feeds.** Hi-Q Pepti Gastro 20 and 24 kcal/oz, and Nutramigen: per 100 mL kcal, protein,
+          fat, CHO, Na, K, Ca, P and osmolality from the labels KCMH stocks, and how 24 kcal/oz is mixed.
+        - **12–13 · Phase.** Who sets acute / stable / recovery, on what criteria; for each phase the
+          glucose (mg/kg/min and g/kg/d), energy, amino acid and lipid ranges; which references follow the
+          phase and which stay on DOL. Today energy, lipid, Na and K switch by DOL (transition ≤ 2,
+          intermediate ≤ 7, then stable, as the Reference page's electrolyte table prints), so "stable"
+          would mean two things. Below 37 weeks PMA, what separates acute from recovery? The calculator
+          uses no PMA yet.
+        - **14 · Amino acid for older children.** Is "10% aminoparen" Amiparen 10% (`AA_PRODUCTS` lists it,
+          > 1 yr) and "15% aa" Aminoplasmal 15% (not under 2 yr)? Which beds count as an older-children
+          ward (`OLDER_CHILD_WARDS` is empty), and their dead space.
+        - **16 · Lipid.** The g/kg/h ceiling (sources give 0.125–0.17). **The pump rate to 1 decimal is not
+          built**, because at low rates rounding moves the dose: a 500 g infant on 0.5 g/kg/d has a
+          3.25 mL/day lipid bag, 0.135 mL/h, and 1 decimal shows 0.1, 26 % less. What steps do the ward's
+          syringe pumps take? Typed hours are held to 1–24 (lipid hangs 24 h at most): right bounds?
+        - **17 · Vitalipid.** Which products (N Infant, N Adult), each one's dose (today 4 mL/kg, max
+          10 mL) and who gets which.
+        - **20 · Na acetate.** The vial's Na and acetate per mL. Sodium acetate is 1 : 1, so 3 mEq Na/mL
+          carries 3 mmol acetate/mL; "ace 6" is probably its osmolarity, 6 mOsm/mL. Same shelf check as
+          "Confirm Na acetate …" below. Show acetate, in mmol/kg/d?
+        - **21 · Ca–P precipitation.** Whose curve (manufacturer or pharmacy) for K₂HPO₄ with Aminoven
+          Infant 10 %, at which AA and Ca concentrations and temperature, and where it warns or stops.
+          Glycophos is an organic phosphate, outside such a curve.
+        - **22 · Mg in mg/kg/d.** Milligrams of elemental Mg or of MgSO₄·7H₂O? They differ about 10×:
+          1 mEq = 12.2 mg Mg = 123 mg MgSO₄·7H₂O. The app's mg/kg/d line is elemental. Which range: the
+          one the Magnesium tile already cites (ESPGHAN 2018: preterm first days 0.1–0.2 mmol, 2.5–5 mg;
+          growing 0.2–0.3 mmol, 5–7.5 mg)?
+        - **23 · 26 · K⁺ and osmolarity by route.** Peripheral: yellow 40–60, red and confirm above 60.
+          Central: red and confirm above 200, so where does its yellow start? Does the KCMH 40 mEq/L stop
+          (worksheet G25) go? Osmolarity on a central line only warns above 1800 today: confirm from what
+          value? The source for 60 / 200 is still open (2026-09-22 questions, § Next).
+        - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
+          (split in two) or a stop.
+        - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,
+          Vitalipid N, Glycophos?) and keep their name; the rest read generic (brand), as item 14 says.
+      - **C · New design work** (each needs a design Praew signs off; some also need B's numbers).
+        - **7 · 8 · Feeds.** Brand and concentration chosen separately; a second feed with its own volume
+          and feeds a day (BM alternating with PF, unequal counts) in place of the fixed 50 : 50
+          "FBM 24 ↔ Infatrini 30". Touches `calcInput`, `Daily_Log`, the form and Center Point's packet.
+        - **2 · Phosphate typed directly**, in which unit and landing in which salt. Today P follows the
+          Na or K typed for Glycophos or K₂HPO₄.
+        - **5 · Liver and renal dysfunction in the app**, saved with the order and printed ticked; decide
+          whether they prompt anything (Peditrace's Mn and Cu in cholestasis, for one).
+        - **9 · 28 · Acknowledging red alerts.** A tick per red alert before Print (today: a typed reason
+          at Submit); the front sheet lists the critical alerts with a tick and a signature, and has a
+          "ยืนยันการสั่ง" box for the sticker and signature.
+        - **19 · 27 · A pharmacist view.** How many TPN orders there are; Submit = compound, Save draft =
+          may be waiting for labs, do not compound yet; and the "เตรียม … = ถึงผู้ป่วย + คาสาย" split,
+          which moves here from the doctor's screen. It stays on that screen until then: it was added on
+          2026-09-01 after the Nutrition Unit misread a salt's mL (`verify-nutrition-unit-review.cjs`).
+          Joins "Pharmacist role" in § Later.
+        - **26 · Alert tiers.** Confirm with a reason (osmolarity, K⁺, over the bottle) versus a hard stop.
+          **"Bag cannot be compounded"** (components over the prepared bag) is a critical alert today, so
+          a typed reason saves and prints it; a bag that cannot be made should stop.
+        - **12 · 13 · The phase field, and glucose g/kg/d as large as GIR**, once B has the ranges.
 - [ ] 📈 **ops · `Audit_Log` growth — now with a hard limit.** The poll adds **15 `readRegistry` rows per
       hour per open tab**, and Google Sheets caps a **workbook** at 10,000,000 cells — empty grid cells
       included. A tab made by `insertSheet` is 26 columns wide, so each 4-column audit row costs 26
