@@ -601,7 +601,11 @@ const KCMH_STOCK = {
   smof20:      { label: "20% SMOF",              gPerMl: 0.20 },
   // Na sources — sheet rows 20/21/23
   naCl:        { label: "20% NaCl",              naMeqPerMl: 3.42 },  // H20 = mEq ÷ 3.42
-  naAcetate:   { label: "Na Acetate",            naMeqPerMl: 3.0  },  // H21 = mEq ÷ 3
+  // acetateMeqPerMl: read it off the vial label before setting it. The TPN
+  // team gave "Na 3, acetate 6 mEq" per mL (2026-09-28), but sodium acetate is
+  // 1 : 1, so 6 may be the label's osmolarity; Praew chose to wait for the
+  // label. While null, the calculator shows no acetate.
+  naAcetate:   { label: "Na Acetate",            naMeqPerMl: 3.0, acetateMeqPerMl: null },  // H21 = mEq ÷ 3
   glycophos:   { label: "Glycophos®",            naMeqPerMl: 2, pMgPerMl: 31 },
   // K sources — sheet rows 27/29
   k2hpo4:      { label: "K₂HPO₄",                kMeqPerMl: 1, pMgPerKMeq: 15.5 },

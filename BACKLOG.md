@@ -88,6 +88,11 @@ clinical judgement. Everything else is engineering sequencing.
           3 mEq Na/mL would carry 3 mEq acetate/mL, and 6 may be the osmolarity (6 mOsm/mL). NeoFeed shows no
           acetate today (`naAcet` feeds Na only), so nothing prints wrong. **Before acetate is ever shown (in
           mmol/kg/d?), read acetate and mOsm per mL off the vial label.**
+          ➡️ *Later the same day:* Praew asked for acetate to be shown, then chose to wait for the label. The
+          display is built (Step 4 caption and note, copied order) and switched off:
+          `KCMH_STOCK.naAcetate.acetateMeqPerMl` is `null`.
+          - [ ] 🩺 **Praew: photograph the Na acetate vial label; set `acetateMeqPerMl` from it (3 if the 6 is
+            mOsm/mL) and add its row to `docs/CLINICAL_CONSTANTS.md`.**
         - **21 · Ca–P precipitation.** Whose curve (manufacturer or pharmacy) for K₂HPO₄ with Aminoven
           Infant 10 %, at which AA and Ca concentrations and temperature, and where it warns or stops.
           Glycophos is an organic phosphate, outside such a curve.
@@ -209,8 +214,9 @@ clinical judgement. Everything else is engineering sequencing.
       cosmetic `constantsVersion`/`appVersion` labels to `Daily_Log` row 1. Purely presentational —
       the columns are read and written by index and already work without it. It executes as the
       signed-in user and may raise an OAuth consent, **so it is Praew's to run.**
-- [ ] 🩺 **safety · Confirm Na acetate (3 mEq/mL) and KCl (2 mEq/mL) stock concentrations against the
-      shelf.** Both were *inferred* from the KCMH worksheet's divisors, not read off an explicit
+- [ ] 🩺 **safety · Small-volume rounding on the pharmacy form — both stock strengths are now confirmed.**
+      Na acetate 3 mEq/mL and KCl 2 mEq/mL were confirmed on 2026-09-28 (below); what stays open is the
+      0.1 mL rounding of small stock volumes. History: both strengths were *inferred* from the KCMH worksheet's divisors, not read off an explicit
       strength label. **These corrected concentrations change the mL printed on every order form** —
       the highest-stakes open item in the repo. Blocked on a physical check in the ward, not on code.
       ⬆️ **Now answerable after the fact:** since `@50` (2026-08-26) every saved row and every
@@ -224,8 +230,8 @@ clinical judgement. Everything else is engineering sequencing.
       wrong — confirm with pharmacy before changing either. `verify-review-0917-calc.cjs` § 6 pins
       today's printed figures so nothing drifts meanwhile.
       ✅ **2026-09-28 — Na acetate confirmed** (B · 20 above): Praew checked with the TPN team, and 1 mL
-      carries Na 3 mEq, the value NeoFeed already uses. **Still open: KCl 2 mEq/mL**, and the small-volume
-      rounding above.
+      carries Na 3 mEq, the value NeoFeed already uses. ✅ **2026-09-28 — KCl confirmed**: Praew, "KCl 2 mEq/mL
+      ถูกต้อง", the value NeoFeed already uses. **Still open: the small-volume rounding above.**
 - [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live

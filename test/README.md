@@ -1306,7 +1306,9 @@ critical above 0.17 g/kg/h, graded on the 2-decimal figure shown). § 5 also pin
 and § 6 that Step 4 no longer shows the to-patient / in-line split.
 
 Against `6269b88` it failed 33 of its first 65 checks, in every section; the 19 checks added with Praew's answers
-fail against `6b752a1`. 98 checks in all, with the central maximum added in (3).
+fail against `6b752a1`. § 13 pins the acetate display: hidden while `KCMH_STOCK.naAcetate.acetateMeqPerMl` is
+`null` (as shipped, until the vial label is read), shown in the note, caption and copied order once it is set.
+104 checks in all.
 
 ## Note on the source workbook
 

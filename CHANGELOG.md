@@ -7,6 +7,31 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-28 (5) — KCl 2 mEq/mL confirmed; the acetate display, built and waiting for the vial label
+
+`calculator.jsx`, `data.js`, both shells and `compiled/`. No figure moves: acetate stays hidden while its constant
+is `null`. `CONSTANTS_VERSION` stays 2026-09-28.1. Same PR #129, not merged.
+
+### Why
+
+Pp: *"แสดง acetate ด้วย · KCl 2 mEq/mL ถูกต้อง"*. The TPN team gave Na acetate as "Na 3, acetate 6 mEq" per mL,
+which sodium acetate's 1 : 1 formula cannot carry (6 is probably the label's mOsm/mL). Asked which figure to show,
+Pp chose to wait for the vial label.
+
+### What changed
+
+1. **KCl 2 mEq/mL is confirmed** (Pp), the value NeoFeed already uses. `docs/CLINICAL_CONSTANTS.md` marks it 🟢;
+   BACKLOG's stock-strength item now keeps only the small-volume rounding question.
+2. **The acetate display is built and off.** `KCMH_STOCK.naAcetate.acetateMeqPerMl` is `null`. Once set from the
+   label, Step 4's Na acetate note gives acetate per mL, its caption gives acetate mEq/kg/d, and the copied order
+   gives the bag's acetate. The form is unchanged.
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` § 13: nothing about acetate shows as shipped; with a value set for the check, the note,
+the caption (3 mEq Na/kg/d = 1 mL/kg/d · acetate 3 mEq/kg/d) and the copied order (7 mEq in a 2 kg infant's
+overfilled bag) show it. 104 checks.
+
 ## Session 2026-09-28 (4) — Na acetate stock confirmed by the TPN team
 
 Docs only (`BACKLOG.md`, `docs/CLINICAL_CONSTANTS.md`). No code, constant or `CONSTANTS_VERSION` change. Same PR #129,

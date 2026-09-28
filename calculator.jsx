@@ -2831,11 +2831,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </div>
               )}
 
-              <SaltRow label={S.naAcetate.label} note={`metabolic acidosis · ${S.naAcetate.naMeqPerMl} mEq Na/mL`} perKg={naAcet} onChange={setNaAcet} wtKg={wtKg} />
+              {/* Acetate appears once S.naAcetate.acetateMeqPerMl is read off the
+                  vial label (TPN team, 2026-09-28; Praew: wait for the label).
+                  Until then it is null and nothing about acetate is shown. */}
+              <SaltRow label={S.naAcetate.label} note={`metabolic acidosis · ${S.naAcetate.naMeqPerMl} mEq Na/mL${S.naAcetate.acetateMeqPerMl ? ` · acetate ${S.naAcetate.acetateMeqPerMl} mEq/mL` : ""}`} perKg={naAcet} onChange={setNaAcet} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={naAcet} onSelect={setNaAcet} />
               {calc.solVol.naAcet > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(naAcet, 1)} mEq Na/kg/d = {fmt(naAcet / S.naAcetate.naMeqPerMl, 2)} mL/kg/d
+                  {S.naAcetate.acetateMeqPerMl ? ` · acetate ${fmt(naAcet / S.naAcetate.naMeqPerMl * S.naAcetate.acetateMeqPerMl, 1)} mEq/kg/d` : ""}
                   <div style={{ color:"var(--ink-3)" }}>
                     เตรียม {fmt(calc.solVol.naAcet, 1)} mL/d
                   </div>
@@ -3441,7 +3445,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `──────────────────────────────`,
                 `ELECTROLYTES (ordered per kg → amount IN BAG → mL of stock):`,
                 naCl>0 ? `  ${S.naCl.label}:    ${naCl} mEq/kg → ${fmt(naCl*calc.factor, 1)} mEq → ${calc.solVol.naCl} mL` : "",
-                naAcet>0 ? `  Na Acetate:   ${naAcet} mEq/kg → ${fmt(naAcet*calc.factor, 1)} mEq → ${calc.solVol.naAcet} mL` : "",
+                naAcet>0 ? `  Na Acetate:   ${naAcet} mEq/kg → ${fmt(naAcet*calc.factor, 1)} mEq → ${calc.solVol.naAcet} mL${S.naAcetate.acetateMeqPerMl ? ` (acetate ${fmt(naAcet*calc.factor / S.naAcetate.naMeqPerMl * S.naAcetate.acetateMeqPerMl, 1)} mEq)` : ""}` : "",
                 glycophosP>0 ? `  Glycophos®:   ${glycophosP} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*2*calc.factor, 1)} mEq | P ${fmt(glycophosP*31*calc.factor, 0)} mg)` : "",
                 `  Total Na:     ${fmt(calc.bag.na_mEq, 1)} mEq in bag = ${fmt(calc.naKg, 1)} mEq/kg/d delivered`,
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",

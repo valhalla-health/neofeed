@@ -22,6 +22,7 @@
 //        ให้ขึ้นแดง แต่ max ที่ 200"); the KCMH 40 mEq/L stop is gone.
 //   §11  "osmolarity ทาง central ไม่มี upper limit".
 //   §12  "lipid เพดาน 0.13-0.17 g/kg/h": amber above 0.13, red above 0.17.
+//   §13  "แสดง acetate ด้วย" — built, and hidden until the vial label gives acetate per mL.
 //
 // Mounts the real <Calculator> in jsdom (same dev-only deps as the other
 // calculator harnesses — see test/README.md). Fails against 6269b88.
@@ -439,6 +440,34 @@ function baseOrder({ tf = 120 } = {}) {
     await clickAsync(saveBtn());
     ok('Save asks for a reason for it', /Lipid rate above the ceiling/.test(shown || ''), shown);
     eq('…and saves with one', log.calls, 1);
+  });
+
+  // ═══════════════════════════ §13 acetate, prepared ═══════════════════════
+  // Praew: "แสดง acetate ด้วย", then "รอดูฉลากก่อน" — the display is built but
+  // waits for S.naAcetate.acetateMeqPerMl, which stays null until the vial
+  // label is read. Checked both ways: as shipped (null), and with a value.
+  await section('§13 acetate from Na acetate: hidden while the label is unread, shown once a value is set', async () => {
+    const naAcRow = () => saltRow('Na Acetate');
+    const caption = () => text(naAcRow()?.nextElementSibling?.nextElementSibling);
+    eq('as shipped, acetate per mL is not set', D.KCMH_STOCK.naAcetate.acetateMeqPerMl, null);
+    mount({ patient: pt('AC-2000', 2000), onLog: logger().onLog });
+    baseOrder();
+    setField('Na Acetate', 3);   // 1 mL/kg
+    ok('the caption gives Na and mL only', /3 mEq Na\/kg\/d = 1 mL\/kg\/d/.test(caption()) && !/acetate/.test(caption()), caption());
+    ok('…and the note names no acetate', !/acetate/.test(text(naAcRow()?.querySelector('.salt-note'))), text(naAcRow()?.querySelector('.salt-note')));
+    const was = D.KCMH_STOCK.naAcetate.acetateMeqPerMl;
+    D.KCMH_STOCK.naAcetate.acetateMeqPerMl = 3;   // a label value, for this check only
+    try {
+      mount({ patient: pt('AD-2000', 2000), onLog: logger().onLog });
+      baseOrder();
+      setField('Na Acetate', 3);
+      ok('with 3 mEq/mL set: "· acetate 3 mEq/kg/d" in the caption', /1 mL\/kg\/d · acetate 3 mEq\/kg\/d/.test(caption()), caption());
+      ok('…"acetate 3 mEq/mL" in the note', /acetate 3 mEq\/mL/.test(text(naAcRow()?.querySelector('.salt-note'))), text(naAcRow()?.querySelector('.salt-note')));
+      await save();   // the copy button works on a saved order
+      const copy = await copyOrder();
+      // 3 mEq/kg × 2 kg × 210/180 overfill = 7 mEq Na in the bag → 7 mEq acetate
+      ok('…and the copied order gives the bag\'s acetate', /Na Acetate:[^\n]*\(acetate 7 mEq\)/.test(copy), copy.match(/Na Acetate:[^\n]*/));
+    } finally { D.KCMH_STOCK.naAcetate.acetateMeqPerMl = was; }
   });
 
   console.log(`\nTPN MEETING 2026-09-28: ${fail ? fail + ' FAILED' : 'ALL PASSED'} (${pass} passed)`);
