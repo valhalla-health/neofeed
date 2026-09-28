@@ -7,6 +7,61 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-28 — The TPN team's meeting: 28 requests into BACKLOG, eleven display changes built
+
+Frontend only: `calculator.jsx`, `app.jsx` (the Formula page's groups), both shells and `compiled/`. No
+backend, no `data.js`, and no dose or compounding figure moves, so `CONSTANTS_VERSION` stays `2026-09-18.1`
+(`data.js`: "not for comments, labels or UI"). The form's lipid g/kg/h now prints to 2 decimals; it is a
+conversion in brackets, not a dose. On `claude/tpn-meeting-0928`, not merged.
+
+### Why
+
+Pp met the KCMH TPN team on 2026-09-28 and sent her notes: 28 numbered requests. Pp: *"ลงใน BACKLOG เลย
+แยก 3 กลุ่มตามที่เสนอ เสร็จแล้ว ทำส่วนที่แก้ไขได้ทันที"*. `BACKLOG.md` § Now holds all 28 in three groups:
+A, display changes that need no new number (built here); B, questions for the team; C, design work. Items 1
+and 3 already worked that way.
+
+### What changed
+
+1. **Item 10 · dead-space chips 30 / 50 / 100** (were 0 / 10 / 20 / 30). A new NICU/SCN order still starts
+   at 30; 0 or any other value is typed.
+2. **Item 11 · the dextrose hint** gives g/kg/d (max 18) only; "g/d delivered" and "g in bag" left it.
+3. **Item 14 · the amino-acid row** lost its grams column ("In bag / delivered", or "Total"); dose and volume
+   stay.
+4. **Item 15 · WFI q.s. left Step 2.** The bag make-up keeps Components and Bag total; an over-full bag still
+   turns it red and says "cannot be compounded", and the components figure turns red with it. The form and
+   the copied order keep WFI.
+5. **Item 16 · lipid.** g/kg/h to 2 decimals on screen, form and copied order (0.083 → 0.08). "Infuse over"
+   can be typed, besides the 16 / 20 / 24 chips: 1–24 h. Over 24 is held at 24 (lipid hangs 24 h at most);
+   under 1 h, which is also what an emptied box reads, keeps the last good value. **The pump rate keeps 2
+   decimals**: at low rates 1 decimal moves the dose (a 500 g infant on 0.5 g/kg/d: 0.135 → 0.1 mL/h, 26 %
+   less), so that is a question for the team (BACKLOG B · 16).
+6. **Item 18 · "20% lipid"** on screen, for "SMOF Lipid 20%", "SMOF volume" and "(SMOF + Vitalipid)", and in
+   the changes-vs-previous list. The form still ticks "20% SMOF" on the KCMH paper form's own list and the
+   copied order still names SMOF; the team is asked (B).
+7. **Item 19 · P per mL** in both phosphate notes, from `KCMH_STOCK`: K₂HPO₄ "1 mEq K/mL · P 15.5 mg/mL" (was
+   "mg/mEq K"); Glycophos "ใส่ mEq Na/kg · 2 mEq Na/mL · P 31 mg/mL (1 mmol)". The "เตรียม … = ถึงผู้ป่วย +
+   คาสาย" line stays until a pharmacist view exists (C): it was added on 2026-09-01 after the Nutrition Unit
+   misread a salt's mL.
+8. **Item 25 · "Over target" → "สารน้ำเกินแผน"** in Step 1, and Step 5's "IV เกิน target" → "IV เกินแผนสารน้ำ".
+9. **Item 4 · no Nutritional Status row** on the form's front.
+10. **Item 28 · "แพทย์" carries the name only.** `nameOnlyOf()` drops the "(email)"; a row saved before names
+    were kept leaves the line blank to sign. The back sheet's "บันทึกโดย" keeps the email for pharmacy.
+11. **Item 6 · feed groups.** Step 5: preterm formula (PF 20, Enfalac Premature 22, Hi-Q LBW 24),
+    post-discharge formula (Pre Nan 22), high-energy (FBM ↔ Infatrini, Infatrini 30). Same keys, same labels.
+    The Formula page groups them the same way and now lists Pre Nan, which it had left out.
+
+### Tests
+
+`test/verify-tpn-meeting-0928.cjs`: 65 assertions over the eleven; 33 of them fail against `6269b88`.
+Harnesses that pinned what the meeting changed now pin the new behaviour: the lipid field's label in ten of
+them (`setField('20% lipid', …)`), the chips (`verify-calc-clicks`; `verify-ward-requests-0918` §10, where 0 is
+now typed), g/kg/h to 2 decimals (`verify-tpn-team-0922` §2, `verify-calc-clicks`, `verify-calc-oracle`), the
+name-only "แพทย์" (`verify-tpn-team-0922` §6 and §10), "สารน้ำเกินแผน" and "Lipid volume"
+(`verify-calc-oracle`), the two-column AA row (`verify-phone-sweep`), and the fuzz's I3, which now reads the
+bag total and the over-full warning instead of an on-screen WFI (the oracle still checks WFI on the form and
+the copied order).
+
 ## Session 2026-09-27 (2) — Names, Edit patient and the NeoFeed ID: an audit, then Pp's three decisions
 
 Pp: *"check all bug associated with name and edit patient name . check all transfer and find name or bed

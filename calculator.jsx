@@ -114,7 +114,7 @@ const ORDER_DIFF_FIELDS = [
   ["dexPct", "Dextrose", "%"],
   ["aaPerKg", "Amino acid", "g/kg/d"],
   ["aaProduct", "Amino acid product", ""],
-  ["lipidPerKg", "SMOF lipid", "g/kg/d"],
+  ["lipidPerKg", "20% lipid", "g/kg/d"],
   ["lipidDripHours", "Lipid over", "h"],
   ["naCl", "20% NaCl", "mEq/kg/d"],
   ["naAcet", "Na acetate", "mEq/kg/d"],
@@ -196,6 +196,13 @@ function savedByOf(entry) {
   const email = String(entry?.lastModifiedBy || entry?.submittedBy || "").trim();
   const label = String(entry?.calcInput?.savedByLabel || "").trim();
   return label && email && draftOwnerOf("", label) === email.toLowerCase() ? label : email;
+}
+// The name in a savedByOf() label, for the front sheet's "แพทย์" line, which
+// carries no email (TPN team, 2026-09-28): "Dr A (a@kcmh)" → "Dr A". A bare
+// email gives "", and the line is left to be signed.
+function nameOnlyOf(label) {
+  const name = String(label || "").replace(/\s*\([^()]*@[^()]*\)\s*$/, "").trim();
+  return name.includes("@") ? "" : name;
 }
 // When a row was saved, in Bangkok time ("22/09/2569 10:30"), or "—".
 function savedAtLabelOf(at) {
@@ -709,7 +716,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [aaPerKg, setAaPerKg] = useState(0);
   const [aaProduct, setAaProduct] = useState("aminoven10");   // KCMH_STOCK key — see aaStockKey
   const [lipidPerKg, setLipidPerKg] = useState(0);
-  const [lipidDripHours, setLipidDripHours] = useState(24); // lipid bag infused over 16/20/24h
+  const [lipidDripHours, setLipidDripHours] = useState(24); // lipid bag infused over this many hours
+  // Hours typed into the lipid pump card (TPN team, 2026-09-28), 1–24 h. Over 24
+  // is held at 24: lipid hangs 24 h at most. Under 1 h is not taken — an emptied
+  // box reads as 0 — so the box keeps the last good value and the bag is never
+  // divided by 0 or by a fraction of an hour.
+  const setLipidHoursTyped = (h) => { if (h >= 1) setLipidDripHours(Math.min(h, 24)); };
 
   // Card key 3 — Electrolytes (displayed as Step 4; all zero baseline)
   const [naCl, setNaCl] = useState(0);
@@ -2206,14 +2218,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 (Praew, 2026-09-22: "สีพวก overtarget ...ให้เปลี่ยนสีให้ชัดเจน
                 ขึ้น"). It shared the brand tint with "Remaining", so being over
                 read exactly like having room left. Over by more than 10 stays
-                critical, within ±1 is on target, and room left keeps the tint. */}
+                critical, within ±1 is on target, and room left keeps the tint.
+                Its words say which target (TPN team, 2026-09-28: "Over target"
+                could be read as over the bottle). */}
             <div style={{ padding: "10px 14px", borderRadius: 8,
               background: FLUID_TONE[fluidTone].bg,
               border: `1px solid ${FLUID_TONE[fluidTone].line}`,
               boxShadow: FLUID_TONE[fluidTone].stripe ? `inset 3px 0 0 ${FLUID_TONE[fluidTone].stripe}` : undefined,
               display: "flex", flexDirection: "column", justifyContent: "center" }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.05 }}>
-                {fluidTone === "warn" || fluidTone === "crit" ? "Over target" : "Remaining"}
+                {fluidTone === "warn" || fluidTone === "crit" ? "สารน้ำเกินแผน" : "Remaining"}
               </div>
               <div className="num" style={{ fontSize: 26, fontWeight: 500,
                 color: FLUID_TONE[fluidTone].ink,
@@ -2329,8 +2343,19 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     {["BM_20","BM_HMF_24"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
-                  <optgroup label="⚡ Preterm / High-energy formula">
-                    {["BM_PF_20","FBM_PF_22","PRENAN_22","FBM_PF_24","FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
+                  {/* Hi-Q LBW is a preterm formula and Pre Nan a post-discharge
+                      one (TPN team, 2026-09-28); they shared one group with the
+                      high-energy feeds. Same keys, same labels, only grouped. */}
+                  <optgroup label="👶 Preterm formula">
+                    {["BM_PF_20","FBM_PF_22","FBM_PF_24"].filter(k => D.EN_DB[k]).map(k =>
+                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
+                  </optgroup>
+                  <optgroup label="🏠 Post-discharge formula">
+                    {["PRENAN_22"].filter(k => D.EN_DB[k]).map(k =>
+                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
+                  </optgroup>
+                  <optgroup label="⚡ High-energy formula">
+                    {["FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
                   <optgroup label="🥛 Lactose-free">
@@ -2400,7 +2425,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     </div>
                     <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
                       {over
-                        ? <span style={{ color:"var(--crit)", fontWeight:600 }}>IV เกิน target {fmt(Math.abs(avail), 0)} mL</span>
+                        ? <span style={{ color:"var(--crit)", fontWeight:600 }}>IV เกินแผนสารน้ำ {fmt(Math.abs(avail), 0)} mL</span>
                         : <span>= {fmt(availKg, 0)} mL/kg/d</span>
                       }
                     </div>
@@ -2499,7 +2524,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   <NumField label="ปริมาตรคาสาย (dead space)" unit="mL/day"
                     value={deadVol_mL} onChange={setDeadVol_mL} step={1}
                     hint={`${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · NICU/SCN starts at ${D.defaultDeadVolFor(patient)}` : ""}`} />
-                  <PresetChips values={[0, 10, 20, 30]} current={deadVol_mL} onSelect={setDeadVol_mL} />
+                  {/* The TPN room's line volumes (TPN team, 2026-09-28); 0 or any
+                      other value is typed in the box above. */}
+                  <PresetChips values={[30, 50, 100]} current={deadVol_mL} onSelect={setDeadVol_mL} />
                 </div>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Prepared (เตรียมจริง)</div>
@@ -2528,10 +2555,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {/* Dextrose + GIR row */}
               <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)", gap:10, alignItems:"start" }}>
                 <div>
+                  {/* g/kg/d only: grams delivered and in the bag are for the TPN
+                      room, which works in mL and has them on the form (TPN team,
+                      2026-09-28). */}
                   <NumField label="Dextrose final" unit="%" value={dexPct} onChange={setDexPct} step={0.5}
-                    hint={dexPct > 0
-                      ? `${fmt(calc.dexG, 1)} g/d delivered · ${fmt(calc.dexGPerKg, 1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})${calc.overfill > 1.001 ? ` · ${fmt(calc.dexG_bag, 1)} g in bag` : ""}`
-                      : ""} />
+                    hint={dexPct > 0 ? `${fmt(calc.dexGPerKg, 1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})` : ""} />
                   <PresetChips values={[5, 7.5, 10, 12.5, 15]} current={dexPct} onSelect={setDexPct} suffix="%" />
                   {calc.d50wVol > 0 && (
                     <div style={{ marginTop:4, padding:"4px 8px", background:"var(--brand-bg)", borderRadius:4, fontSize:11 }}>
@@ -2561,8 +2589,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </div>
               </div>
 
-              {/* AA row */}
-              <div className="s2-aa-row" style={{ display:"grid", gridTemplateColumns:"repeat(3, minmax(0, 1fr))", gap:8, alignItems:"center",
+              {/* AA row: dose and volume. No grams column — the TPN room works
+                  in mL and the form keeps "g in bag" (TPN team, 2026-09-28). */}
+              <div className="s2-aa-row" style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0, 1fr))", gap:8, alignItems:"center",
                 padding:"8px 10px", background:"var(--bg-2)", borderRadius:6 }}>
                 <div>
                   <NumField label={`Amino acid (${S[aaStockKey].short})`} unit="g/kg/d" value={aaPerKg} onChange={setAaPerKg} step={0.1} />
@@ -2583,42 +2612,29 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     <div style={{ fontSize:10.5, color:"var(--warn)", fontWeight:600, marginTop:2 }}>⚠ {S[aaStockKey].caution}</div>
                   )}
                 </div>
-                <div style={{ fontSize:12, color:"var(--ink-2)" }}>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>
-                    {calc.overfill > 1.001 ? "In bag / delivered" : "Total"}
-                  </div>
-                  <div className="num" style={{ fontWeight:600, fontSize:15 }}>
-                    {calc.overfill > 1.001
-                      ? <>{fmt(calc.aaG_bag,1)}<span style={{ color:"var(--ink-3)", fontWeight:400 }}> / {fmt(calc.aaG,1)}</span> g/day</>
-                      : <>{fmt(calc.aaG,1)} g/day</>}
-                  </div>
-                </div>
                 <div style={{ fontSize:12, color:"var(--brand-2)", fontWeight:600 }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Volume</div>
                   <div className="num" style={{ fontWeight:700, fontSize:15 }}>{fmt(calc.solVol.aa,1)} mL/day</div>
                 </div>
               </div>
 
-              {/* ── Bag make-up: components vs WFI q.s. ──────────────────────
-                  Mirrors the KCMH worksheet's "Total volume (mL)" (J52) and
-                  "WFI q.s." (I53). Updates live as Step 4 / Step 5 change.
-                  Also shown for ingredients with no volume (UP-C3) — the
-                  printed form shows this over-full bag, so the screen must. */}
+              {/* ── Bag make-up: components vs the prepared bag ──────────────
+                  Mirrors the KCMH worksheet's "Total volume (mL)" (J52).
+                  Updates live as Step 4 / Step 5 change. WFI q.s. (I53) is
+                  the TPN room's figure: it is on the form and the copied
+                  order, not on this screen (TPN team, 2026-09-28). An over-full
+                  bag still turns this box red and says so. Also shown for
+                  ingredients with no volume (UP-C3) — the printed form shows
+                  this over-full bag, so the screen must. */}
               {(totalTPN_mL > 0 || zeroVolumeBag) && (
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8,
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8,
                   padding:"8px 10px", borderRadius:6,
                   background: calc.wfiVol < 0 ? "var(--crit-bg)" : "var(--bg-2)",
                   border: calc.wfiVol < 0 ? "1.5px solid var(--crit-line)" : "1px solid var(--line-2)" }}>
                   <div>
                     <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Components</div>
-                    <div className="num" style={{ fontWeight:600, fontSize:15 }}>{fmt(calc.componentVol,1)} mL</div>
-                  </div>
-                  <div>
-                    <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>WFI q.s.</div>
-                    <div className="num" style={{ fontWeight:700, fontSize:15,
-                      color: calc.wfiVol < 0 ? "var(--crit)" : "var(--brand-2)" }}>
-                      {fmt(calc.wfiVol,1)} mL
-                    </div>
+                    <div className="num" style={{ fontWeight:600, fontSize:15,
+                      color: calc.wfiVol < 0 ? "var(--crit)" : undefined }}>{fmt(calc.componentVol,1)} mL</div>
                   </div>
                   <div>
                     <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Bag total (prepared)</div>
@@ -2659,15 +2675,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     {fmt(calc.lipidBagVol,1)} mL/day over {lipidDripHours} h
                   </div>
                   {/* The same rate as lipid per kg per hour (TPN team,
-                      2026-09-22). SMOF only: Vitalipid in the bag is not fat. */}
+                      2026-09-22), to 2 decimals (2026-09-28). Lipid only:
+                      Vitalipid in the bag is not fat. */}
                   {lipidPerKg > 0 && (
                     <div className="lipid-gkgh" style={{ fontSize:12, fontWeight:600, color:"var(--warn-ink)", marginTop:2 }}>
-                      = <span className="num">{fmt(lipidPerKg / lipidDripHours, 3)}</span> g/kg/h
+                      = <span className="num">{fmt(lipidPerKg / lipidDripHours, 2)}</span> g/kg/h
                     </div>
                   )}
                 </div>
                 <div>
-                  <div style={{ fontSize:10, color:"var(--ink-3)", fontWeight:600, letterSpacing:"0.04em", marginBottom:4 }}>INFUSE OVER</div>
+                  {/* Any number of hours can be typed, besides the three chips
+                      (TPN team, 2026-09-28) — see setLipidHoursTyped. */}
+                  <NumField label="Infuse over" unit="h" value={lipidDripHours} onChange={setLipidHoursTyped} step={1} hint="1–24 h" />
                   <div className="seg" style={{ padding:1 }}>
                     {[16, 20, 24].map(h => (
                       <button key={h} className={lipidDripHours === h ? "on" : ""} onClick={() => setLipidDripHours(h)}>{h}h</button>
@@ -2678,11 +2697,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
               <div className="s2-lip-row" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"center" }}>
                 <div>
-                  <NumField label="SMOF Lipid 20%" unit="g/kg/d" value={lipidPerKg} onChange={setLipidPerKg} step={0.1} />
+                  {/* The dose, by concentration rather than brand (TPN team,
+                      2026-09-28). The form still ticks the product on the KCMH
+                      paper form's own list. */}
+                  <NumField label="20% lipid" unit="g/kg/d" value={lipidPerKg} onChange={setLipidPerKg} step={0.1} />
                   <PresetChips values={[0.5, 1, 2, 3, 4]} current={lipidPerKg} onSelect={setLipidPerKg} />
                 </div>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>SMOF volume</div>
+                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Lipid volume</div>
                   <div className="num" style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>
                     {lipidPerKg > 0 ? fmt(calc.solVol.lipidSMOF,1) : "—"} mL/day
                   </div>
@@ -2703,7 +2725,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {calc.lipidBagVol > 0 && (
                 <div style={{ padding:"7px 10px", background:"var(--bg-2)", borderRadius:6,
                   display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:12 }}>
-                  <span style={{ color:"var(--ink-2)" }}>Lipid bag total (SMOF + Vitalipid)</span>
+                  <span style={{ color:"var(--ink-2)" }}>Lipid bag total (20% lipid + Vitalipid)</span>
                   <span className="num" style={{ fontWeight:700, color:"var(--ink)" }}>
                     {fmt(calc.lipidBagVol,1)} mL/day
                   </span>
@@ -2787,7 +2809,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   means typing 2. The phosphate it delivers is therefore always
                   shown, even at 0, so "Glycophos 1" can't silently mean half
                   the intended P (2026-09-11 review, F7). */}
-              <SaltRow label="Glycophos® (ใส่เป็น Na)" note="ใส่ mEq Na/kg · 2 mEq Na = 1 mL = 1 mmol P (31 mg)"
+              {/* P per mL, as the K₂HPO₄ note below (TPN team, 2026-09-28). */}
+              <SaltRow label="Glycophos® (ใส่เป็น Na)" note={`ใส่ mEq Na/kg · ${S.glycophos.naMeqPerMl} mEq Na/mL · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol)`}
                 perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)} wtKg={wtKg} unit="mEq Na/kg"
                 mlPerKg={glycophosP} />
               <PresetChips values={[1, 2, 3, 4]} current={glycophosP * 2} onSelect={(v) => setGlycophosP(v / 2)} />
@@ -2818,7 +2841,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </div>
               )}
 
-              <SaltRow label="K₂HPO₄" note="1 mEq K/mL · P 15.5 mg/mEq K" perKg={k2hpo4} onChange={setK2HPO4} wtKg={wtKg} />
+              <SaltRow label="K₂HPO₄" note={`${S.k2hpo4.kMeqPerMl} mEq K/mL · P ${fmt(S.k2hpo4.pMgPerKMeq * S.k2hpo4.kMeqPerMl, 1)} mg/mL`} perKg={k2hpo4} onChange={setK2HPO4} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={k2hpo4} onSelect={setK2HPO4} />
               {calc.solVol.k2hpo4 > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
@@ -3373,7 +3396,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 calc.overfill > 1.001
                   ? `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (+${fmt(deadVol_mL, 1)} mL ปริมาตรคาสาย) · Factor ${fmt(calc.factor, 3)} = ${fmt(calc.wtKg, 2)} kg × ${fmt(calc.overfill, 3)}`
                   : `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (no overfill)`,
-                `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day over ${lipidDripHours}h → Rate ${fmt(calc.lipidBagVol/lipidDripHours, 2)} mL/hr${lipidPerKg > 0 ? ` (${fmt(lipidPerKg/lipidDripHours, 3)} g/kg/h)` : ""}`,
+                `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day over ${lipidDripHours}h → Rate ${fmt(calc.lipidBagVol/lipidDripHours, 2)} mL/hr${lipidPerKg > 0 ? ` (${fmt(lipidPerKg/lipidDripHours, 2)} g/kg/h)` : ""}`,
                 `  Prescribed:  ${fmt(calc.prescribedFluid, 0)} mL/day | Remaining: ${fmt(calc.remaining, 1)} mL`,
                 `──────────────────────────────`,
                 `DEXTROSE: ${dexPct}% → D50W ${calc.d50wVol} mL/day | ${fmt(calc.dexG_bag, 1)} g in bag, ${fmt(calc.dexG, 1)} g delivered = ${fmt(calc.dexGPerKg, 1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})`,
@@ -3745,9 +3768,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td>อายุ: DOL <strong>{dol}</strong> &nbsp; ตึก: <strong>{patient?.currentBed || "—"}</strong></td>
             <td colSpan={2}>โรค: <strong>{patient?.diagnosis || "—"}</strong> &nbsp; ☐ Liver Dysfunction &nbsp; ☐ Renal Dysfunction</td>
           </tr>
-          <tr>
-            <td colSpan={3}>Nutritional Status: ☐ Normal &nbsp; ☐ Mild &nbsp; ☐ Moderate &nbsp; ☐ Severe malnutrition</td>
-          </tr>
+          {/* The paper form's Nutritional Status row is left off (TPN team,
+              2026-09-28). */}
           <tr>
             <td>Route of Delivery: {route === "central" ? <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;<strong>☑ Central</strong></> : <><strong>☑ Peripheral</strong> (&lt;900 mOsm/L) &nbsp;☐ Central</>}</td>
             <td colSpan={2}>Weight for calculation: <strong>{f(wtKg, 2)}</strong> Kg
@@ -3917,9 +3939,10 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
       </table>
 
       {/* Who signs — the paper form's own line, with the saver's name printed
-          so pharmacy knows whom to call (TPN team, 2026-09-22). */}
+          so pharmacy knows whom to call (TPN team, 2026-09-22). The name only:
+          no email on the doctor's sheet (2026-09-28); the back keeps it. */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginTop:14, gap:12 }}>
-        <div>แพทย์ <span className="print-doctor" style={{ fontWeight:700 }}>{savedMeta?.by || ""}</span> ........................................ (ลงนาม)</div>
+        <div>แพทย์ <span className="print-doctor" style={{ fontWeight:700 }}>{nameOnlyOf(savedMeta?.by)}</span> ........................................ (ลงนาม)</div>
         <div>รหัส ................................</div>
       </div>
 
@@ -3984,7 +4007,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               = Rate <strong>{calc.lipidBagVol > 0 ? f(calc.lipidBagVol/(lipidDripHours||24),2) : "—"}</strong> mL/hr
               {/* A conversion of two figures printed on this line, so plain
                   text like the Mg mg/kg one — not a dose of its own. */}
-              {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 3)} g/kg/h)</span>}</td>
+              {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}</td>
           </tr>
         </tbody></table>
 

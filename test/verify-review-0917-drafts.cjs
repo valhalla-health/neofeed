@@ -221,7 +221,7 @@ const ago = (ms) => new Date(Date.now() - ms).toISOString();
       // CalculatorView passes App's live DOL: 11 on 09-17 (admitted 09-07 at DOL 1).
       mount({ patient: P, dol: 11, logDate: null, onLog });
       setField('Current weight', 1000); fillRequired();
-      setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('SMOF Lipid', 3);
+      setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 3);
       eq('23:59 — Save is enabled', saveBtn()?.disabled, false);
 
       today = '2026-09-18';                       // useTodayLocal ticks; App re-renders with DOL 12

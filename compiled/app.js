@@ -2264,7 +2264,10 @@ function FormulasPanel() {
     { label: "🤱 Breast Milk", keys: ["BM_20", "BM_HMF_24"] },
     { label: "🥛 HiQ LF (Dumex)", keys: ["HIQLF_20", "HIQLF_24", "HIQLF_27"] },
     { label: "🍼 Enfalac LF (MJN)", keys: ["ENFALAC_20", "ENFALAC_24", "ENFALAC_27"] },
-    { label: "⚡ High-energy / Mixed", keys: ["BM_PF_20", "FBM_PF_22", "FBM_PF_24", "FBM_INF_MIX", "INFATRINI_30"] }
+    // Grouped as the calculator's feed list (TPN team, 2026-09-28). Pre Nan was on no row here.
+    { label: "👶 Preterm formula", keys: ["BM_PF_20", "FBM_PF_22", "FBM_PF_24"] },
+    { label: "🏠 Post-discharge formula", keys: ["PRENAN_22"] },
+    { label: "⚡ High-energy / Mixed", keys: ["FBM_INF_MIX", "INFATRINI_30"] }
   ];
   const cols = ["Formula", "kcal", "Protein", "Fat", "Na", "K", "Ca", "P", "Osm", "LF?", "Note"];
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Formula + Feed Reference"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "KCMH NICU formulary · per 100 mL prepared formula")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)" } }, "Units: kcal · g · mmol (Na/K) · mg (Ca/P)")), groups.map(({ label, keys }) => /* @__PURE__ */ React.createElement("div", { key: label, className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "milk", size: 14, color: "var(--brand)" }), label), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { background: "var(--bg-2)" } }, ["Formula", "kcal/100mL", "Protein g", "Fat g", "Na mmol", "K mmol", "Ca mg", "P mg", "Osm", "LF", "Note"].map((h, i) => /* @__PURE__ */ React.createElement("th", { key: i, style: {

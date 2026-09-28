@@ -170,7 +170,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
 function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
   setField('Current weight', 2000); fillRequired(120);
   setField('Volume(mL/day)', tpnMl); setField('ปริมาตรคาสาย', dead);
-  setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+  setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
 }
 
 (async () => {
@@ -249,17 +249,18 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     mount({ patient: pt('LP-2000', 2000), onLog: logger().onLog });
     baseOrder();
     const rate = () => text(container.querySelector('.lipid-gkgh'));
-    ok('2 g/kg/d over 24 h = 0.083 g/kg/h', /0\.083 g\/kg\/h/.test(rate()), rate());
+    // 2 decimals since the TPN team's 2026-09-28 meeting (verify-tpn-meeting-0928 §5).
+    ok('2 g/kg/d over 24 h = 0.08 g/kg/h', /(^|[^\d.])0\.08 g\/kg\/h/.test(rate()), rate());
     lipidHours(20);
     ok('…over 20 h = 0.1 g/kg/h', /(^|[^\d.])0\.1 g\/kg\/h/.test(rate()), rate());
     lipidHours(16);
-    ok('…over 16 h = 0.125 g/kg/h', /0\.125 g\/kg\/h/.test(rate()), rate());
+    ok('…over 16 h = 0.13 g/kg/h', /(^|[^\d.])0\.13 g\/kg\/h/.test(rate()), rate());
     lipidHours(20);
     await save();
     ok('the form\'s lipid pump line has it', /Lipid pump rate.{0,120}0\.1 g\/kg\/h/.test(printText()), printText().match(/Lipid pump rate.{0,140}/));
     const copy = await copyOrder();
     ok('…and so does the copied order', /Lipid bag:[^\n]*0\.1 g\/kg\/h/.test(copy), copy.match(/Lipid bag:[^\n]*/));
-    setField('SMOF Lipid', 0);
+    setField('20% lipid', 0);
     ok('no lipid: no rate', !container.querySelector('.lipid-gkgh'));
   });
 
@@ -301,7 +302,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     mount({ patient: pt('OP-2000', 2000), onLog: log.onLog });
     baseOrder();
     // D12.5 + AA 3 g/kg in 180 mL: 625 + 333 = 958 mOsm/L. SMOF 3 keeps IV NPE:AA ≥ 20.
-    setField('Dextrose final', 12.5); setField('Amino acid', 3); setField('SMOF Lipid', 3);
+    setField('Dextrose final', 12.5); setField('Amino acid', 3); setField('20% lipid', 3);
     click(button(/^Peripheral$/));
     eq('the only critical alert is osmolarity', alertRows().filter(a => a.level === 'crit').map(a => a.title), ['Osmolarity > peripheral limit']);
     const shown = await save('fixture — central line tomorrow');
@@ -328,8 +329,9 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     eq('calcInput.savedByLabel is the saver\'s "Name (email)"', log.entry && log.entry.calcInput.savedByLabel, 'Dr Test (doc@kcmh.test)');
     const top = text(container.querySelector('#print-form .print-saved-by'));
     ok('the back page names the saver, with time and revision', /Dr Test \(doc@kcmh\.test\)/.test(top) && /ฉบับที่/.test(top), top);
-    ok('the front names the doctor at "แพทย์", where the paper form asks',
-      /Dr Test \(doc@kcmh\.test\)/.test(text(container.querySelector('#print-form .print-doctor'))), text(container.querySelector('#print-form .print-doctor')));
+    // The name only since 2026-09-28: no email on the doctor's sheet (verify-tpn-meeting-0928 §8).
+    eq('the front names the doctor at "แพทย์", where the paper form asks',
+      text(container.querySelector('#print-form .print-doctor')), 'Dr Test');
     ok('the Save card names the saver too', /Dr Test \(doc@kcmh\.test\)/.test(text(container.querySelector('.saved-by'))), text(container.querySelector('.saved-by')));
 
     const row = (id, extra, ci) => ({ entryId: id, lastModified: '2026-09-22T03:00:00.000Z', ts: '2026-09-22', dol: 1, weight: 2000,
@@ -492,7 +494,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('the paper form\'s other choices are there, unticked', ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].every(s => front.includes(s)),
       ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].filter(s => !front.includes(s)));
     ok('the oral orders are under 8. Other', /8\. Other.*Vitamin D/.test(front), front.match(/8\. Other.{0,120}/));
-    ok('the doctor\'s name is at "แพทย์", as on the paper form', /Dr Test \(doc@kcmh\.test\)/.test(text(frontEl.querySelector('.print-doctor'))), text(frontEl.querySelector('.print-doctor')));
+    eq('the doctor\'s name is at "แพทย์", as on the paper form (no email since 2026-09-28)', text(frontEl.querySelector('.print-doctor')), 'Dr Test');
     ok('the front carries no pharmacy working and no alert text',
       !/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/.test(front), front.match(/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/g));
     // Praew: "factor ตรงนี้ ไม่ต้องโชว์ · สูตรตรงนี้ก็ไม่ต้องโชว์" — the vitamins'
@@ -519,7 +521,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     mount({ patient: pt('WT-1234', 1234), onLog: logger().onLog });
     setField('Current weight', 1234); fillRequired(120);
     setField('Volume(mL/day)', 150); setField('ปริมาตรคาสาย', 0);
-    setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+    setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
     setField('ZnSO₄', 0.125);
     await save();
     const t = printText();

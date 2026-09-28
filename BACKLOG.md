@@ -60,20 +60,11 @@ clinical judgement. Everything else is engineering sequencing.
       to build, only the team to tell: Peditrace is × Factor, so it covers the line's volume
       (`calculator.jsx` `peditrace_vol`, since 2026-09-18), and lipid is dosed on the actual weight with no
       overfill (`lipidG`).
-      - **A · Can do now** (display only, no new numbers):
-        - 4 · No "Nutritional Status" row on the printed form.
-        - 6 · Step 5's feed groups: Hi-Q LBW under preterm formula, Pre Nan under post-discharge formula.
-          Today both sit in "Preterm / High-energy". The Formula page never listed Pre Nan.
-        - 10 · Dead-space chips 30 / 50 / 100 (today 0 / 10 / 20 / 30). Any value can still be typed.
-        - 11 · The dextrose hint drops "g/d delivered" and "g in bag".
-        - 14 · The AA row drops its grams column ("In bag / delivered"); volume stays.
-        - 15 · Step 2 drops "WFI q.s."; the printed form keeps it.
-        - 16 · g/kg/h to 2 decimals (today 3); infusion hours can be typed, besides 16 / 20 / 24.
-        - 18 · "20% lipid" on screen instead of "SMOF Lipid 20%".
-        - 19 · P per mL in both phosphate notes: K₂HPO₄ "P 15.5 mg/mL" (today "mg/mEq K"), Glycophos
-          "P 31 mg/mL".
-        - 25 · "Over target" (Step 1 fluid) in words that cannot be read as "over the bottle".
-        - 28 · No email at "แพทย์" on the front sheet: the name only.
+      - **A · Can do now — built on `claude/tpn-meeting-0928`** (`CHANGELOG.md` 2026-09-28): 4 (no
+        Nutritional Status), 6 (feed groups), 10 (dead-space chips 30 / 50 / 100), 11 (dextrose hint),
+        14 (no grams column), 15 (no WFI in Step 2), 16 (g/kg/h to 2 decimals, typed hours), 18 ("20% lipid"
+        on screen), 19 (P per mL), 25 ("สารน้ำเกินแผน"), 28 (no email at "แพทย์"). The parts of 6, 14, 16,
+        18 and 19 that need the team are under B and C.
       - **B · Waiting for the team's numbers — Praew to ask.**
         - **6 · New feeds.** Hi-Q Pepti Gastro 20 and 24 kcal/oz, and Nutramigen: per 100 mL kcal, protein,
           fat, CHO, Na, K, Ca, P and osmolality from the labels KCMH stocks, and how 24 kcal/oz is mixed.
@@ -110,6 +101,10 @@ clinical judgement. Everything else is engineering sequencing.
           (split in two) or a stop.
         - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,
           Vitalipid N, Glycophos?) and keep their name; the rest read generic (brand), as item 14 says.
+        - **The edges of what A built.** 18: the form still ticks "20% SMOF" on the KCMH paper form's own list,
+          and the copied order names SMOF: change them too? 11 and 14: the form keeps "g in bag", as the paper
+          form has it: fine? 6: built as groups, not as new names: the right reading? 25: "สารน้ำเกินแผน": the
+          right words? 19: cut "ถึงผู้ป่วย + คาสาย" from the doctor's screen now, before a pharmacist view?
       - **C · New design work** (each needs a design Praew signs off; some also need B's numbers).
         - **7 · 8 · Feeds.** Brand and concentration chosen separately; a second feed with its own volume
           and feeds a day (BM alternating with PF, unequal counts) in place of the fixed 50 : 50

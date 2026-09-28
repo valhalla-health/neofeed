@@ -1281,6 +1281,26 @@ fixture infant with the same birth weight and date of birth as the first. They n
 complete part and "ปร พั" to read as a name (a part with one letter keeps its vowel), and a registration to
 carry an NF id rather than initials + BW.
 
+`verify-tpn-meeting-0928.cjs` pins **group A of the TPN team's meeting on 2026-09-28** (`BACKLOG.md` § Now),
+the requests that change what the screen and the form show and need no new number. It mounts the real
+`<Calculator>` in jsdom:
+
+- § 1, the dead-space chips are 30 / 50 / 100, a new NICU order still starts at 30, and 0 or 45 can be typed;
+- § 2–4, the dextrose hint gives g/kg/d only, the AA row has no grams column, and Step 2 has no WFI while the
+  form's back sheet keeps it and an over-full bag still says "cannot be compounded";
+- § 5, "20% lipid" on screen and no product in the lipid card; g/kg/h to 2 decimals on screen, form and
+  copied order; typed hours (18 h saves and prints; 30 is held at 24; an emptied box or 0.5 keeps the last
+  value); the pump rate's 2 decimals unchanged, since that is a question for the team; the form's front still
+  ticks the paper form's own "20% SMOF";
+- § 6, both phosphate notes give P per mL;
+- § 7, "สารน้ำเกินแผน" and "IV เกินแผนสารน้ำ" where "Over target" and "IV เกิน target" were;
+- § 8, no Nutritional Status on the front, "แพทย์" with the name only (blank for a row saved with an email
+  alone), and the back sheet still naming the saver with the email;
+- § 9, preterm, post-discharge and high-energy feeds in their own groups, every feed still offered once,
+  and the Formula page (a static read of `app.jsx`) grouped the same way with Pre Nan on it.
+
+Against `6269b88` it fails 33 of its 65 checks, in every section.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

@@ -418,7 +418,7 @@ async function run(scIn) {
   setField('ปริมาตรคาสาย', sc.dead);
   setField('Dextrose final', sc.dex);
   setField('Amino acid', sc.aa);
-  setField('SMOF Lipid 20%', sc.lip);
+  setField('20% lipid', sc.lip);
   click([...container.querySelectorAll('button')].find(b => b.textContent === `${sc.lipH}h`));
   // Step 4
   setField('20% NaCl', sc.naCl);
@@ -453,7 +453,7 @@ async function run(scIn) {
   const grabT = (re) => { const m = t.match(re); return m ? parseFloat(m[1]) : null; };
   near(sc, 'Step1 Plan mL/d', grabT(/Plan ([\d.]+) · Prescribed/), e.planMl, 0);
   near(sc, 'Step1 Prescribed mL/d', grabT(/· Prescribed ([\d.]+) mL\/d/), e.prescribed, 0);
-  near(sc, 'Step1 Remaining |mL|', grabT(/(?:Remaining|Over target)\+?([\d.]+)mL\/d (?:left|over)/), Math.abs(e.remaining), 1);
+  near(sc, 'Step1 Remaining |mL|', grabT(/(?:Remaining|สารน้ำเกินแผน)\+?([\d.]+)mL\/d (?:left|over)/), Math.abs(e.remaining), 1);
   near(sc, 'TPN calc weight shown (g)', num(inputFor('TPN calc. weight').value), e.wG, 0);
   near(sc, 'EN volume tile mL/kg/d', tileVal('EN volume'), e.enPerKg, 0);
   if (e.availEN >= 0) near(sc, 'Remaining fluid for EN mL/d', grabT(/Remaining fluid for EN([\d.]+)mL\/day/), e.availEN, 0);
@@ -474,12 +474,13 @@ async function run(scIn) {
   near(sc, 'AA stock mL/day', grabT(/Volume([\d.]+) mL\/day/), e.aaMl, 1);
   if (e.Vd > 0) {
     near(sc, 'Components mL', grabT(/Components([\d.]+) mL/), e.components, 1);
-    near(sc, 'WFI q.s. mL', grabT(/WFI q\.s\.(-?[\d.]+) mL/), e.wfi, 1);
+    // WFI q.s. left the screen on 2026-09-28 (TPN team); the print and copy
+    // checks below still hold it to the oracle.
   }
   if (sc.lip > 0) {
     near(sc, 'Lipid pump rate mL/hr', grabT(/PUMP RATE([\d.]+)mL\/hr/), e.lipRate, 2);
-    near(sc, 'Lipid g/kg/h', num(container.querySelector('.lipid-gkgh')?.textContent), e.lipGkgh, 3);
-    near(sc, 'SMOF mL/day', grabT(/SMOF volume([\d.]+) mL\/day/), e.smof, 1);
+    near(sc, 'Lipid g/kg/h', num(container.querySelector('.lipid-gkgh')?.textContent), e.lipGkgh, 2);   // 2 decimals since 2026-09-28
+    near(sc, 'Lipid mL/day', grabT(/Lipid volume([\d.]+) mL\/day/), e.smof, 1);
     near(sc, 'Vitalipid mL/day', grabT(/\+ Vitalipid N([\d.]+) mL\/day/), e.vitalipid, 1);
   }
   near(sc, 'tile Energy kcal/kg/d', tileVal('Energy (total)'), e.kcalKg, 0);

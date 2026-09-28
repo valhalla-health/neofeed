@@ -196,7 +196,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
   // Dead space 0: §1-§9's arithmetic is for a bag with no overfill. A new
   // order starts at 30 mL on the newborn wards since §10's change.
   setField('Volume(mL/day)', tpnMl); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10);
-  setField('Amino acid', 2); setField('SMOF Lipid', 2);
+  setField('Amino acid', 2); setField('20% lipid', 2);
   setField('20% NaCl', 1); setField('Glycophos', 3); setField('KCl', 3); setField('MgSO₄', 0.6);
 }
 
@@ -469,7 +469,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       // CP has no Intake / Output card: Step 1 is its whole required set.
       setField('Current weight', 2000);
       ['Target fluid', 'Other IV', 'Drug volume'].forEach(l => setField(l, l === 'Target fluid' ? 120 : 0));
-      setField('Volume(mL/day)', 180); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+      setField('Volume(mL/day)', 180); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
       eq('CP entry: no product buttons even where the ward allows them', aaButtons().length, 0);
       near('CP entry: Aminoven arithmetic, 40 mL', aaVolume(), 40, 1);
       await save();
@@ -486,7 +486,6 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
   await section('§10 a new order starts with 30 mL dead space on NICU and SCN (Praew: "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย")', async () => {
     const deadInput = () => inputFor('ปริมาตรคาสาย');
     const deadVal = () => { const v = deadInput()?.value; return v === '' ? 0 : Number(v); };   // NumField shows 0 as an empty box
-    const deadChip = (label) => [...deadInput().closest('.field').parentElement.querySelectorAll('.preset-chip')].find(b => b.textContent.trim() === label);
     const prepared = () => { const m = text(container).match(/Prepared \(เตรียมจริง\)\s*([\d.]+) mL\/day/); return m ? parseFloat(m[1]) : null; };
     const tpnOrder = () => { setField('Current weight', 2000); fillRequired(120);
       setField('Volume(mL/day)', 120); setField('Dextrose final', 10); setField('Amino acid', 2); };
@@ -513,8 +512,8 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     mount({ patient: pt('DS-2000', 2000, { currentBed: 'SCN 12' }), onLog: logger().onLog });
     eq('a new SCN order starts at 30 mL', deadVal(), 30);
     tpnOrder();
-    click(deadChip('0'));
-    eq('the 0 chip still overrides it', deadVal(), 0);
+    setField('ปริมาตรคาสาย', 0);   // typed: the chips are 30 / 50 / 100 since 2026-09-28
+    eq('a typed 0 still overrides it', deadVal(), 0);
     near('…prepared = delivered, 120 mL/day', prepared(), 120, 1);
 
     // A new day borrows yesterday's order. Yesterday's 0 was the old default,
@@ -582,7 +581,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       return row ? parseFloat(row.children[1]?.textContent) : null;
     };
     const tpn = (wtG, ml) => { setField('Current weight', wtG); fillRequired(120);
-      setField('Volume(mL/day)', ml); setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2); };
+      setField('Volume(mL/day)', ml); setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2); };
 
     const log = logger();
     mount({ patient: pt('VT-2000', 2000), onLog: log.onLog });
@@ -646,7 +645,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     const log = logger();
     mount({ patient: pt('RS-1500', 1500), onLog: log.onLog });
     setField('Current weight', 1500); fillRequired(150);
-    setField('Volume(mL/day)', 100); setField('Dextrose final', 12.5); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+    setField('Volume(mL/day)', 100); setField('Dextrose final', 12.5); setField('Amino acid', 2); setField('20% lipid', 2);
     await save();
     eq('a save stamps calcInput.constantsVersion', log.entry && log.entry.calcInput.constantsVersion, D.CONSTANTS_VERSION);
     ok('…and prints straight away', !!printForm());

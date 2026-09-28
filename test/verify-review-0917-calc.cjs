@@ -175,7 +175,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     const log = logger();
     mount({ patient: pt('IV-1000', 1000), onLog: log.onLog });
     setField('Current weight', 1000); fillRequired(160);
-    setField('Volume(mL/day)', 110); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('SMOF Lipid', 4.8);
+    setField('Volume(mL/day)', 110); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('20% lipid', 4.8);
     setField('KCl', 4); setField('10% Ca gluconate', 80); setField('Glycophos', 3);
     ok('lipid 4.8 raises "Lipid critically out of range"', critTitles().includes('Lipid critically out of range'), critTitles());
     ok('…showing the IV value against the limit', /Lipid IV 4\.8 g\/kg\/d > 4\.5 g\/kg\/d hard limit/.test(alertText('Lipid critically out of range')), alertText('Lipid critically out of range'));
@@ -198,7 +198,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
   await section('§3 UP-C4 · IV lipid 4.8 with feeds on top: the alert shows both figures', async () => {
     mount({ patient: pt('IV-1000', 1000), onLog: logger().onLog });
     setField('Current weight', 1000); fillRequired(160);
-    setField('Volume(mL/day)', 110); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('SMOF Lipid', 4.8);
+    setField('Volume(mL/day)', 110); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('20% lipid', 4.8);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 10); setField('Frequency', 8);
     ok('still critical on the IV 4.8', /Lipid IV 4\.8 g\/kg\/d > 4\.5/.test(alertText('Lipid critically out of range')), alertText('Lipid critically out of range'));
     ok('…with the TPN + EN total alongside', /total incl\. EN \d+(\.\d)? g\/kg\/d/.test(alertText('Lipid critically out of range')), alertText('Lipid critically out of range'));
@@ -223,7 +223,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     mount({ patient: pt('NP-1000', 1000), onLog: logger().onLog });
     setField('Current weight', 1000); fillRequired(150);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
-    setField('Volume(mL/day)', 80); setField('Dextrose final', 12.5); setField('Amino acid', 3); setField('SMOF Lipid', 2);
+    setField('Volume(mL/day)', 80); setField('Dextrose final', 12.5); setField('Amino acid', 3); setField('20% lipid', 2);
     eq('the NPC : Protein TOTAL tile is in range', tileStatus('NPC : Protein'), 'ok');
     ok('the bag\'s NPE:AA is still judged on the BAG, at 17', /NPE:AA IV 17 kcal\/g AA < 20/.test(alertText('NPE:AA off target')), alertRows());
     eq('…as a warning, so an ordinary ramping order is not stopped',
@@ -233,13 +233,13 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     // Pure PN, 19.97 kcal/g: never printed as "20 < 20".
     mount({ patient: pt('NP-850', 900), onLog: logger().onLog });
     setField('Current weight', 850); fillRequired(150);
-    setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('SMOF Lipid', 2);
+    setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 2);
     eq('pure PN: exactly one NPE:AA line, and it warns', alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['warn']);
     ok('a value just under 20 is not shown as "20"', /NPE:AA IV 19\.\d+ kcal\/g AA < 20/.test(alertText('NPE:AA off target')), alertText('NPE:AA off target'));
     // The HIGH side is untouched: still critical, still stops the order.
     mount({ patient: pt('NP-HI', 1000), onLog: logger().onLog });
     setField('Current weight', 1000); fillRequired(150);
-    setField('Volume(mL/day)', 150); setField('Dextrose final', 25); setField('Amino acid', 1); setField('SMOF Lipid', 3);
+    setField('Volume(mL/day)', 150); setField('Dextrose final', 25); setField('Amino acid', 1); setField('20% lipid', 3);
     eq('NPE:AA above 32 is still critical',
        alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['crit']);
     ok('…and names the 32 hard limit', /> 32 hard limit/.test(alertText('NPE:AA critically off target')), alertText('NPE:AA critically off target'));
@@ -256,7 +256,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     mount({ patient: pt('PR-1000', 1000), onLog: logger().onLog });
     setField('Current weight', 1100); fillRequired(150);
     selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
-    setField('Volume(mL/day)', 90); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('SMOF Lipid', 3);
+    setField('Volume(mL/day)', 90); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('20% lipid', 3);
     ok('protein 4.8 hard limit still on the TOTAL (unchanged, open question)', critTitles().includes('Protein critically out of range'), critTitles());
     f1('protein over 4.8 on PN + EN');
   });
@@ -293,7 +293,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     const ORDERS = {
       S5_elbw: ['390ca29da4f341e1', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
         setField('Current weight', 500); fillRequired(150);
-        setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('SMOF Lipid', 2);
+        setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 2);
         setField('20% NaCl', 1); setField('Na Acetate', 1); setField('KCl', 1); setField('Glycophos', 1); }],
       parity_plain: ['28dee697feed160b', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
       // Recaptured 2026-09-18 when Soluvit/Peditrace began scaling with the
@@ -302,11 +302,11 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       parity_dead: ['0db6f59f3b7827db', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
       mixed_pn_en: ['981b3ea0856ce4b9', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
-        setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('SMOF Lipid', 3);
+        setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('20% lipid', 3);
         setField('20% NaCl', 2); setField('KCl', 2); setField('10% Ca gluconate', 60); setField('Glycophos', 2); setField('MgSO₄', 0.3); }],
       lipid48_k4: ['1128ab62af411542', P, () => {
         setField('Current weight', 1000); fillRequired(160);
-        setField('Volume(mL/day)', 110); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('SMOF Lipid', 4.8);
+        setField('Volume(mL/day)', 110); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('20% lipid', 4.8);
         setField('KCl', 4); setField('10% Ca gluconate', 80); setField('Glycophos', 3); }],
       // Recaptured 2026-09-18: with no TPN there is no bag, so Soluvit and
       // Peditrace are no longer printed as mL for it (review finding 4).
@@ -317,7 +317,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     };
     const PARITY = [['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],
       ['Volume(mL/feed)', 7], ['Frequency', 8], ['Volume(mL/day)', 137], ['ปริมาตรคาสาย', 0], ['Dextrose final', 12.5],
-      ['Amino acid', 3.2], ['SMOF Lipid', 2.6], ['Heparin', 0.5],
+      ['Amino acid', 3.2], ['20% lipid', 2.6], ['Heparin', 0.5],
       ['20% NaCl', 2.3], ['Na Acetate', 1.1], ['Glycophos', 0.7], ['KCl', 3.1], ['K₂HPO₄', 1.3],
       ['MgSO₄', 0.35], ['10% Ca gluconate', 47], ['Iron', 2.5], ['ปริมาณ elem Ca', 60], ['ปริมาณ elem P', 35], ['Vitamin D', 450],
       ['Input', 180], ['Urine output', 90], ['Drain content', 0]];
@@ -346,7 +346,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     const log = logger();
     mount({ patient: pt('ZV-1200', 1200), dol: 17, baselineEntry: yesterday, previousEntry: yesterday, onLog: log.onLog });
     fillRequired(150);
-    setField('Volume(mL/day)', 0); setField('SMOF Lipid', 0);          // TPN stopped, ingredients left in
+    setField('Volume(mL/day)', 0); setField('20% lipid', 0);          // TPN stopped, ingredients left in
     const msg = container.querySelector('.zero-volume-bag')?.textContent || '';
     ok('the form says volume 0 with ingredients, and names them',
       /ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: Amino acid, Dextrose, 20% NaCl, Glycophos, KCl, Ca gluconate/.test(msg), msg);
@@ -424,7 +424,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     const log = logger();
     mount({ patient: P900, onLog: log.onLog });
     Object.entries({ 'Current weight': 850, 'Target fluid': 150, 'Other IV': 0, 'Drug volume': 0, 'Input': 130, 'Urine output': 60, 'Drain content': 0,
-      'Volume(mL/day)': 110, 'Dextrose final': 12.5, 'Amino acid': 3, 'SMOF Lipid': 3, '20% NaCl': 2, 'KCl': 1, '10% Ca gluconate': 60, 'Glycophos': 2 })
+      'Volume(mL/day)': 110, 'Dextrose final': 12.5, 'Amino acid': 3, '20% lipid': 3, '20% NaCl': 2, 'KCl': 1, '10% Ca gluconate': 60, 'Glycophos': 2 })
       .forEach(([l, v]) => setField(l, v));
     await save('x');
     eq('a save records the resolved dosing weight (floored at BW 900)', log.entry && log.entry.calcInput.tpnWtG, 900);

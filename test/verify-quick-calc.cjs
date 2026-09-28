@@ -149,7 +149,7 @@ const ORDER = [
   ['Volume',                         'mL/day',   120],
   ['ปริมาตรคาสาย (dead space)',       'mL/day',    30],
   ['Dextrose final',                 '%',         12.5],
-  ['SMOF Lipid 20%',                 'g/kg/d',     2],
+  ['20% lipid',                 'g/kg/d',     2],
 ];
 function driveOrder(container) { ORDER.forEach(([l, u, v]) => setField(container, l, u, v)); }
 
