@@ -717,11 +717,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [aaProduct, setAaProduct] = useState("aminoven10");   // KCMH_STOCK key — see aaStockKey
   const [lipidPerKg, setLipidPerKg] = useState(0);
   const [lipidDripHours, setLipidDripHours] = useState(24); // lipid bag infused over this many hours
-  // Hours typed into the lipid pump card (TPN team, 2026-09-28), 1–24 h. Over 24
+  // Hours typed into the lipid pump card (TPN team, 2026-09-28), 1–24 h, to one
+  // decimal — Center Point's sheet prints the hours to one decimal too. Over 24
   // is held at 24: lipid hangs 24 h at most. Under 1 h is not taken — an emptied
   // box reads as 0 — so the box keeps the last good value and the bag is never
   // divided by 0 or by a fraction of an hour.
-  const setLipidHoursTyped = (h) => { if (h >= 1) setLipidDripHours(Math.min(h, 24)); };
+  const setLipidHoursTyped = (h) => {
+    const r = Math.round(h * 10) / 10;
+    if (r >= 1) setLipidDripHours(Math.min(r, 24));
+  };
 
   // Card key 3 — Electrolytes (displayed as Step 4; all zero baseline)
   const [naCl, setNaCl] = useState(0);
@@ -1620,14 +1624,22 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
-  // K⁺ concentration of the bag against the worksheet's stop (G25), either route.
-  const kConcStatusAt = (v) => D.rangeStatus(v, [0, D.MAX_K_MEQ_PER_L], { hardHi: D.MAX_K_MEQ_PER_L });
+  // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
+  // Praew, 2026-09-28): amber above `warn`, critical above `max`. It replaced
+  // the worksheet's single 40 mEq/L stop (G25) on both routes.
+  const kLim = D.kBagLimitsFor(route);
+  const kConcStatusAt = (v) => D.rangeStatus(v, [0, kLim.warn], { hardHi: kLim.max });
   const sKConc = kConcStatusAt(calc.kMeqPerL);
-  // Peripheral: crit >900, warn >850 · Central: warn >1800 (endothelial risk), no hard limit
+  // Peripheral: crit >900, warn >850 · Central: no upper limit (Praew,
+  // 2026-09-28; it warned above 1800 until then)
   const osmStatusAt = (v) => route === "peripheral"
     ? (v > 900 ? "crit" : v > 850 ? "warn" : "ok")
-    : (v > 1800 ? "warn" : "ok");
+    : "ok";
   const sOsm = osmStatusAt(calc.osm);
+  // Lipid g/kg/h against the ceiling (D.LIPID_GKGH; TPN team and Praew,
+  // 2026-09-28), graded on the 2-decimal figure the pump card shows.
+  const lipidGkgh = lipidPerKg > 0 && lipidDripHours > 0 ? Math.round(lipidPerKg / lipidDripHours * 100) / 100 : 0;
+  const sLipidGkgh = lipidGkgh > D.LIPID_GKGH.max ? "crit" : lipidGkgh > D.LIPID_GKGH.warn ? "warn" : "ok";
   // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
   const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
 
@@ -1738,14 +1750,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d` });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — switch to central.`, ref: "Safety" });
-  else if (bagOrdered && sOsm === "warn") alerts.push({ level: "warn", title: route === "peripheral" ? "Osmolarity near peripheral limit" : "Osmolarity high for central line", body: `${calc.osm.toFixed(0)} mOsm/L — ${route === "peripheral" ? "peripheral limit 900" : "endothelial risk above 1800"} mOsm/L.`, ref: "Safety" });
+  else if (bagOrdered && sOsm === "warn") alerts.push({ level: "warn", title: "Osmolarity near peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — peripheral limit 900 mOsm/L.`, ref: "Safety" });
   if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${fmt(calc.dexGPerKg, 1)} g/kg/d — sheet limit is ${D.MAX_DEXTROSE_G_KG} g/kg/d. Lower dextrose % or bag volume.`, ref: "KCMH TPN worksheet" });
-  // The stop is the worksheet's 40 mEq/L on either route; the route ceilings
-  // the TPN team quoted are shown for reference only (Praew, 2026-09-22).
-  // The title is unchanged: a saved critOverride names alerts by title.
-  if (calc.kMeqPerL > D.MAX_K_MEQ_PER_L) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L — max ${D.MAX_K_MEQ_PER_L} mEq/L in the bag (reference ceilings: peripheral ${D.K_REF_MEQ_PER_L.peripheral} · central ${D.K_REF_MEQ_PER_L.central} mEq/L). Increase volume or reduce K.`, ref: "KCMH TPN worksheet" });
+  // By route since 2026-09-28 (D.K_BAG_MEQ_PER_L — TPN team and Praew): above
+  // `max` is critical, so it is ordered only with a confirmed reason; above
+  // `warn` is a caution. The critical title is unchanged: a saved critOverride
+  // names alerts by title.
+  const kRouteLabel = route === "central" ? "central" : "peripheral";
+  if (calc.kMeqPerL > kLim.max) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.max} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
+  else if (calc.kMeqPerL > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (critical above ${kLim.max}).`, ref: "TPN team, 2026-09-28" });
+  // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
+  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
+  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
@@ -2675,11 +2693,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     {fmt(calc.lipidBagVol,1)} mL/day over {lipidDripHours} h
                   </div>
                   {/* The same rate as lipid per kg per hour (TPN team,
-                      2026-09-22), to 2 decimals (2026-09-28). Lipid only:
+                      2026-09-22), to 2 decimals and against the team's ceiling
+                      (2026-09-28): amber above 0.13, red above 0.17. Lipid only:
                       Vitalipid in the bag is not fat. */}
                   {lipidPerKg > 0 && (
-                    <div className="lipid-gkgh" style={{ fontSize:12, fontWeight:600, color:"var(--warn-ink)", marginTop:2 }}>
-                      = <span className="num">{fmt(lipidPerKg / lipidDripHours, 2)}</span> g/kg/h
+                    <div className={`lipid-gkgh s-${sLipidGkgh}`} style={{ fontSize:12, fontWeight:600, marginTop:2,
+                      color: sLipidGkgh === "crit" ? "var(--crit)" : sLipidGkgh === "warn" ? "var(--warn-ink)" : "var(--ink-2)" }}>
+                      = <span className="num">{fmt(lipidGkgh, 2)}</span> g/kg/h
+                      <span className="lipid-ceiling" style={{ fontWeight:400, color:"var(--ink-3)", marginLeft:6 }}>เพดาน {D.LIPID_GKGH.warn}–{D.LIPID_GKGH.max}</span>
                     </div>
                   )}
                 </div>
@@ -2740,10 +2761,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <Tile label="Protein" value={calc.proteinKg} unit=" g/kg/d" target={tPro} status={sPro} statusAt={proStatusAt} decimals={1} max={5.5} />
             <Tile label="Lipid (total)" value={calc.lipidKgTotal} unit=" g/kg/d" target={tLip} status={sLip} decimals={1} max={7} />
             <Tile label="NPC : Protein" value={calc.npeN} unit=" kcal/g AA" target={tNPE} status={sNPE} decimals={0} max={60} />
-            {/* Central range 0–1800: the same threshold sOsm and the alert use
-                (UP-C12, Praew 2026-09-17) — it read 0–1600, so 1700 showed
-                outside the printed range on a green tile. */}
-            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral"?[0,900]:[0,1800]} status={sOsm} statusAt={osmStatusAt} decimals={0} max={route==="peripheral"?1100:2200} />
+            {/* Peripheral range 0–900, the same threshold sOsm and the alert use
+                (UP-C12, Praew 2026-09-17). A central line has no upper limit
+                (Praew, 2026-09-28), so its tile shows the figure with no range. */}
+            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral" ? [0,900] : null} status={sOsm} statusAt={osmStatusAt} decimals={0} max={1100} />
           </div>
           {/* A MEN feed is in none of these totals (since 2026-09-18), and Step
               2 says so — but the TPN team read the totals here as still
@@ -2779,6 +2800,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           <TwoCol>
             <div>
               {/* ── Na ── */}
+              {/* Each salt shows its conversion and the mL the pharmacy prepares
+                  (เตรียม). The split into what reaches the infant and what stays in
+                  the line is calculated but not shown (Praew, 2026-09-28). */}
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 4 }}>Na (mEq/kg)</div>
               <SaltRow label={S.naCl.label} note={`${S.naCl.naMeqPerMl} mEq Na/mL`} perKg={naCl} onChange={setNaCl} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={naCl} onSelect={setNaCl} />
@@ -2787,7 +2811,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {fmt(naCl, 1)} mEq Na/kg/d = {fmt(naCl / S.naCl.naMeqPerMl, 2)} mL/kg/d
                   <div style={{ color:"var(--ink-3)" }}>
                     เตรียม {fmt(calc.solVol.naCl, 1)} mL/d
-                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(naCl / S.naCl.naMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.naCl - naCl / S.naCl.naMeqPerMl * wtKg, 1)} mL`}
                   </div>
                 </div>
               )}
@@ -2799,7 +2822,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {fmt(naAcet, 1)} mEq Na/kg/d = {fmt(naAcet / S.naAcetate.naMeqPerMl, 2)} mL/kg/d
                   <div style={{ color:"var(--ink-3)" }}>
                     เตรียม {fmt(calc.solVol.naAcet, 1)} mL/d
-                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(naAcet / S.naAcetate.naMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.naAcet - naAcet / S.naAcetate.naMeqPerMl * wtKg, 1)} mL`}
                   </div>
                 </div>
               )}
@@ -2822,7 +2844,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d
                   <div style={{ color:"var(--ink-3)" }}>
                     เตรียม {fmt(calc.solVol.glycophos, 1)} mL/d
-                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(glycophosP * wtKg, 1)} + คาสาย ${fmt(calc.solVol.glycophos - glycophosP * wtKg, 1)} mL`}
                   </div>
                 </div>
               )}
@@ -2836,7 +2857,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {fmt(kCl, 1)} mEq K/kg/d = {fmt(kCl / S.kCl.kMeqPerMl, 2)} mL/kg/d
                   <div style={{ color:"var(--ink-3)" }}>
                     เตรียม {fmt(calc.solVol.kCl, 1)} mL/d
-                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(kCl / S.kCl.kMeqPerMl * wtKg, 1)} + คาสาย ${fmt(calc.solVol.kCl - kCl / S.kCl.kMeqPerMl * wtKg, 1)} mL`}
                   </div>
                 </div>
               )}
@@ -2848,7 +2868,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {fmt(k2hpo4, 1)} mEq K/kg/d = {fmt(k2hpo4 / S.k2hpo4.kMeqPerMl, 2)} mL/kg/d · P {fmt(k2hpo4 * S.k2hpo4.pMgPerKMeq, 0)} mg/kg/d
                   <div style={{ color:"var(--ink-3)" }}>
                     เตรียม {fmt(calc.solVol.k2hpo4, 2)} mL/d
-                    {calc.overfill > 1.001 && ` = ถึงผู้ป่วย ${fmt(k2hpo4 / S.k2hpo4.kMeqPerMl * wtKg, 2)} + คาสาย ${fmt(calc.solVol.k2hpo4 - k2hpo4 / S.k2hpo4.kMeqPerMl * wtKg, 2)} mL`}
                   </div>
                 </div>
               )}
@@ -2887,13 +2906,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <Tile label="Sodium" value={calc.naTotalDelivered} unit=" mEq/kg/d" target={tNa} status={sNa} decimals={1} max={7} />
               <Tile label="Potassium" value={calc.kTotalDelivered} unit=" mEq/kg/d" target={tK} status={sK} decimals={1} max={4} />
-              {/* K⁺ concentration of the finished bag — the sheet's G25 stop,
-                  40 mEq/L on either route, not a per-kg dose. A tile since the
-                  TPN team missed it as a line of small text (2026-09-22); the
-                  route ceilings they quoted are for reference (Praew). */}
-              <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, D.MAX_K_MEQ_PER_L]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={D.MAX_K_MEQ_PER_L * 2} />
+              {/* K⁺ concentration of the finished bag, not a per-kg dose. A tile
+                  since the TPN team missed it as a line of small text
+                  (2026-09-22); graded by route since 2026-09-28. */}
+              <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, kLim.warn]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={kLim.max * 1.5} />
               <div className="k-conc-ref" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}>
-                max {D.MAX_K_MEQ_PER_L} (KCMH) · ref. peripheral {D.K_REF_MEQ_PER_L.peripheral} / central {D.K_REF_MEQ_PER_L.central} mEq/L
+                {route === "central" ? "central" : "peripheral"}: amber &gt; {kLim.warn} · red &gt; {kLim.max} mEq/L
               </div>
               {/* Mg in the unit it is dosed in (tMg), plus mg/kg/d for the
                   guideline's mg columns. TPN only: EN_DB carries no Mg. */}
@@ -3412,7 +3430,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `  Total Na:     ${fmt(calc.bag.na_mEq, 1)} mEq in bag = ${fmt(calc.naKg, 1)} mEq/kg/d delivered`,
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
-                `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L, max ${D.MAX_K_MEQ_PER_L})`,
+                `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L, max ${D.kBagLimitsFor(route).max} on a ${route === "central" ? "central" : "peripheral"} line)`,
                 caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${fmt(caPerKg*calc.factor, 0)} mg → ${calc.solVol.ca} mL` : "",
                 mgPerKg>0 ? `  MgSO4 ${mgStrength}%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg*calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
                 calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? fmt(calc.caP, 2) : "!! (Ca ordered, P = 0)"}:1 (mass, TPN+EN)` : "",
@@ -3861,7 +3879,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           {/* 2. K⁺ */}
           <tr>
             <td style={tdGroup} colSpan={3}>2. K⁺</td>
-            <td style={td} rowSpan={3}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>max {D.MAX_K_MEQ_PER_L} mEq/L in bag</td>
+            <td style={td} rowSpan={3}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>max {D.kBagLimitsFor(route).max} mEq/L in bag ({route === "central" ? "central" : "peripheral"})</td>
           </tr>
           <tr>
             <td style={tdRx(k2hpo4 > 0)}>{chk(k2hpo4 > 0)} K₂HPO₄<br/><span style={plain}>(K {S.k2hpo4.kMeqPerMl} mEq/mL, P {S.k2hpo4.pMgPerKMeq} mg/mL)</span></td>
@@ -4044,7 +4062,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             </tr>
             <tr>
               <td style={td} colSpan={3}>
-                K⁺ in bag {fmt(calc.kMeqPerL, 0)} mEq/L (max {D.MAX_K_MEQ_PER_L}) · Osm {bag && calc.osm ? fmt(calc.osm, 0) : "—"} mOsm/L · Lipid + Vitalipid are a separate syringe, not in this bag
+                K⁺ in bag {fmt(calc.kMeqPerL, 0)} mEq/L (max {D.kBagLimitsFor(route).max}, {route === "central" ? "central" : "peripheral"}) · Osm {bag && calc.osm ? fmt(calc.osm, 0) : "—"} mOsm/L · Lipid + Vitalipid are a separate syringe, not in this bag
               </td>
             </tr>
           </tbody>

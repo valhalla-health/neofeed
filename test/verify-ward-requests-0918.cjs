@@ -688,12 +688,14 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     // stamp shipped. Rows saved from then on carry no constantsVersion, yet
     // their figures were computed as now (vitamins × Factor, MEN out of the
     // totals). That release was also the first to save `aaProduct`, so the key
-    // dates them: they print without a re-save.
+    // dates them as 2026-09-18.1. They printed without a re-save until
+    // 2026-09-28.1 moved the version on (K⁺ limits by route, TPN team); since
+    // then they are held like any older row, which the 2099 case below foresaw.
     open(row('s-win-overfill', { aaProduct: 'aminoven10' }));
     near('a row saved by the 11:17 release (aaProduct, no stamp): Soluvit 1.8 mL, as it printed', readout('Soluvit N (water-sol.)'), 1.8, 1);
-    ok('…prints without a re-save', !!printForm(), banner());
+    ok('…is held since 2026-09-28.1, until saved again', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
     open(row('s-win-men', { aaProduct: 'aminoven10', deadVol_mL: 0, enType: 'BM_20', enVol: 5, enFreq: 8, isMEN: true }));
-    ok('…and so does its MEN order', !!printForm(), banner());
+    ok('…and so is its MEN order', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
     // Dated as 2026-09-18.1, not as "current": the next release that moves a
     // printed figure bumps CONSTANTS_VERSION, and that holds these rows too.
     const realVersion = D.CONSTANTS_VERSION;

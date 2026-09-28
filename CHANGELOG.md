@@ -7,6 +7,50 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-28 (2) — Pp's answers: K⁺ by route, no central osmolarity limit, a lipid rate ceiling
+
+`calculator.jsx`, `data.js`, both shells and `compiled/`. **`CONSTANTS_VERSION` 2026-09-18.1 → 2026-09-28.1**:
+the K⁺ limit is on the register's bump list (`docs/CLINICAL_CONSTANTS.md`) and prints on the form, so an order
+saved before this prints only after it is saved again (`calcMoved`). Same PR #129, not merged.
+
+### Why
+
+Pp answered the team questions the same day: *"rate ของ lipid โชว์ทศนิยม 2 ตำแหน่ง · ถึงผู้ป่วย + คาสาย
+ลบออกได้ เก็บเป็นเลขคำนวณไว้หลังบ้าน ไม่โชว์ในหน้า UI · lipid เพดาน 0.13-0.17 g/kg/h พิมพ์ได้ 1–24 ชั่วโมง ·
+K ทาง central เริ่มสีเหลืองที่ 60 · osmolarity ทาง central ไม่มี upper limit ยกเลิกเกณฑ์ 40 mEq/L ของ KCMH"*.
+The K⁺ and lipid numbers are the TPN team's, from its meeting, confirmed by her: the register's
+second-clinician step. The code review of PR #129 also asked for a lipid rate check once hours below 16 could be
+typed, and for typed hours to match Center Point's one-decimal print.
+
+### What changed
+
+1. **K⁺ in the bag by route** (`D.K_BAG_MEQ_PER_L`, `D.kBagLimitsFor`): peripheral amber above 40, critical
+   above 60; central amber above 60, critical above 200 mEq/L. The critical alert keeps its title, "K⁺
+   concentration too high", and asks for a reason at Submit; amber is a new caution, "K⁺ concentration high".
+   The tile's range and bar (red from two thirds of a bar 1.5 × max long), the line under it, the form's two K⁺
+   lines and the copied order name the route's limit. `MAX_K_MEQ_PER_L` (40 on both routes) and
+   `K_REF_MEQ_PER_L` are gone.
+2. **No upper osmolarity limit on a central line**: no warning above 1800, and no range on the tile. Peripheral
+   is unchanged: amber above 850, critical above 900.
+3. **Lipid rate ceiling** (`D.LIPID_GKGH`): amber above 0.13, critical above 0.17 g/kg/h, graded on the
+   2-decimal figure the pump card shows. So 0.125 (shown 0.13) is green, and 4 g/kg/d over 24 h (0.167, shown
+   0.17) is amber. The card says "เพดาน 0.13–0.17"; critical needs a reason at Submit. The range is ESPGHAN
+   2005's infant maximum of 3–4 g/kg/d over 24 h (PMID 16254497); ESPGHAN 2018 gives no hourly limit and advises
+   continuous 24-hour lipid in newborns (R 4.10).
+4. **The pump rate stays at 2 decimals** (Pp). Typed hours keep one decimal, as Center Point's sheet prints them
+   (16.25 → 16.3).
+5. **Step 4's salt captions drop "= ถึงผู้ป่วย … + คาสาย …".** The prepared mL (เตรียม) stays; the split is
+   still calculated.
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` §5–6 and new §10–12: 92 checks; the 19 new ones fail against `6b752a1`. Harnesses
+that pinned the old rules now pin these: `verify-tpn-team-0922` §7; `verify-kcmh-constants` (the route table
+instead of the 40 stop); `verify-status-zones` (K⁺ red from 66.7 % of the bar); `verify-review-0917-calc` (§2
+counts the lipid-rate line apart; §12 central has no range); `verify-calc-oracle` (its own route K⁺ and
+lipid-rate rules); `verify-nutrition-unit-review` (prepared mL shown, no split); `verify-ward-requests-0918` §12
+(rows dated 2026-09-18.1 are now held until saved again, which its 2099 case foresaw).
+
 ## Session 2026-09-28 — The TPN team's meeting: 28 requests into BACKLOG, eleven display changes built
 
 Frontend only: `calculator.jsx`, `app.jsx` (the Formula page's groups), both shells and `compiled/`. No

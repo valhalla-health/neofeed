@@ -77,10 +77,8 @@ clinical judgement. Everything else is engineering sequencing.
         - **14 · Amino acid for older children.** Is "10% aminoparen" Amiparen 10% (`AA_PRODUCTS` lists it,
           > 1 yr) and "15% aa" Aminoplasmal 15% (not under 2 yr)? Which beds count as an older-children
           ward (`OLDER_CHILD_WARDS` is empty), and their dead space.
-        - **16 · Lipid.** The g/kg/h ceiling (sources give 0.125–0.17). **The pump rate to 1 decimal is not
-          built**, because at low rates rounding moves the dose: a 500 g infant on 0.5 g/kg/d has a
-          3.25 mL/day lipid bag, 0.135 mL/h, and 1 decimal shows 0.1, 26 % less. What steps do the ward's
-          syringe pumps take? Typed hours are held to 1–24 (lipid hangs 24 h at most): right bounds?
+        - ~~16 · Lipid~~ — **answered by Praew on 2026-09-28 and built** (`CHANGELOG.md` 2026-09-28 (2)): the
+          pump rate stays at 2 decimals; ceiling amber above 0.13, critical above 0.17 g/kg/h; hours 1–24.
         - **17 · Vitalipid.** Which products (N Infant, N Adult), each one's dose (today 4 mL/kg, max
           10 mL) and who gets which.
         - **20 · Na acetate.** The vial's Na and acetate per mL. Sodium acetate is 1 : 1, so 3 mEq Na/mL
@@ -93,10 +91,9 @@ clinical judgement. Everything else is engineering sequencing.
           1 mEq = 12.2 mg Mg = 123 mg MgSO₄·7H₂O. The app's mg/kg/d line is elemental. Which range: the
           one the Magnesium tile already cites (ESPGHAN 2018: preterm first days 0.1–0.2 mmol, 2.5–5 mg;
           growing 0.2–0.3 mmol, 5–7.5 mg)?
-        - **23 · 26 · K⁺ and osmolarity by route.** Peripheral: yellow 40–60, red and confirm above 60.
-          Central: red and confirm above 200, so where does its yellow start? Does the KCMH 40 mEq/L stop
-          (worksheet G25) go? Osmolarity on a central line only warns above 1800 today: confirm from what
-          value? The source for 60 / 200 is still open (2026-09-22 questions, § Next).
+        - ~~23 · 26 · K⁺ and osmolarity by route~~ — **answered by Praew on 2026-09-28 and built**: central
+          amber from 60; the KCMH 40 mEq/L stop is cancelled; no upper osmolarity limit on a central line. The
+          source for 60 / 200 is still open (2026-09-22 questions, § Next).
         - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
           (split in two) or a stop.
         - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,
@@ -104,7 +101,7 @@ clinical judgement. Everything else is engineering sequencing.
         - **The edges of what A built.** 18: the form still ticks "20% SMOF" on the KCMH paper form's own list,
           and the copied order names SMOF: change them too? 11 and 14: the form keeps "g in bag", as the paper
           form has it: fine? 6: built as groups, not as new names: the right reading? 25: "สารน้ำเกินแผน": the
-          right words? 19: cut "ถึงผู้ป่วย + คาสาย" from the doctor's screen now, before a pharmacist view?
+          right words? (19 is answered: the split is removed from the screen and still calculated.)
       - **C · New design work** (each needs a design Praew signs off; some also need B's numbers).
         - **7 · 8 · Feeds.** Brand and concentration chosen separately; a second feed with its own volume
           and feeds a day (BM alternating with PF, unequal counts) in place of the fixed 50 : 50
@@ -117,10 +114,9 @@ clinical judgement. Everything else is engineering sequencing.
           at Submit); the front sheet lists the critical alerts with a tick and a signature, and has a
           "ยืนยันการสั่ง" box for the sticker and signature.
         - **19 · 27 · A pharmacist view.** How many TPN orders there are; Submit = compound, Save draft =
-          may be waiting for labs, do not compound yet; and the "เตรียม … = ถึงผู้ป่วย + คาสาย" split,
-          which moves here from the doctor's screen. It stays on that screen until then: it was added on
-          2026-09-01 after the Nutrition Unit misread a salt's mL (`verify-nutrition-unit-review.cjs`).
-          Joins "Pharmacist role" in § Later.
+          may be waiting for labs, do not compound yet. The "ถึงผู้ป่วย + คาสาย" split left the doctor's
+          screen on 2026-09-28 (Praew: calculated, not shown); a pharmacist view could show it again. Joins
+          "Pharmacist role" in § Later.
         - **26 · Alert tiers.** Confirm with a reason (osmolarity, K⁺, over the bottle) versus a hard stop.
           **"Bag cannot be compounded"** (components over the prepared bag) is a critical alert today, so
           a typed reason saves and prints it; a bag that cannot be made should stop.
@@ -514,6 +510,9 @@ clinical judgement. Everything else is engineering sequencing.
         can offer it.
 - [ ] 🧱 **follow-ups · From the 2026-09-18 pre-deploy review** (`CHANGELOG.md` 2026-09-18 (2) §6) —
       engineering, low risk, not blocking.
+      - **Center Point, since the 2026-09-28 TPN-team meeting (PR #129).** NeoFeed's changes list says "20%
+        lipid"; CP's `tpn-document.mjs:116` still says "SMOF lipid". Rename it with the next packet version, in
+        both copies, and re-pin the digest.
       - **Center Point, since the 2026-09-22 TPN-team release.** CP's `neofeed-tpn-v2` packet has no
         ZnSO₄ slot, so the CP entry does not offer ZnSO₄. CP's sheet (`tpn-document.mjs`, digest-pinned)
         still prints its own one-page layout and its own number formats, trailing zeros included. Bring

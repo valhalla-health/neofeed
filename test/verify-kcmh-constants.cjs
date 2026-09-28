@@ -75,7 +75,12 @@ near('Ca gluc mg/mL',     S.caGluconate.caMgPerMl,  9.01755, 0.00001);
 near('Peditrace mL/kg',   S.peditrace.mlPerKg,      1.0,     0);
 near('Soluvit mL/kg',     S.soluvit.mlPerKg,        1.0,     0);
 near('Max dextrose g/kg', D.MAX_DEXTROSE_G_KG,      18,      0);
-near('Max K mEq/L',       D.MAX_K_MEQ_PER_L,        40,      0);
+// The sheet's 40 mEq/L K⁺ stop (G25) was cancelled at the TPN team meeting on
+// 2026-09-28; K⁺ in the bag is graded by route (D.K_BAG_MEQ_PER_L).
+near('K peripheral amber mEq/L', D.K_BAG_MEQ_PER_L.peripheral.warn, 40, 0);
+near('K peripheral max mEq/L',   D.K_BAG_MEQ_PER_L.peripheral.max,  60, 0);
+near('K central amber mEq/L',    D.K_BAG_MEQ_PER_L.central.warn,    60, 0);
+near('K central max mEq/L',      D.K_BAG_MEQ_PER_L.central.max,    200, 0);
 
 console.log(fails === 0 ? '\nALL PASS' : `\n${fails} FAILURE(S)`);
 process.exit(fails ? 1 : 0);

@@ -156,7 +156,7 @@ const HARD = {                                          // where red must start,
   'GIR (readout)': 13 / 16 * 100,                       // Praew: red above 13
   'Protein': 4.8 / 5.5 * 100,
   'Energy (total)': 160 / 180 * 100,                    // ESPGHAN 2022: never above 160 (D.KCAL_HARD_HI)
-  'K⁺ in bag': 40 / 80 * 100,                           // the worksheet's stop (D.MAX_K_MEQ_PER_L)
+  'K⁺ in bag': 100 / 1.5,                               // red above the route's max, on a bar 1.5 × max long (D.K_BAG_MEQ_PER_L, 2026-09-28)
 };
 for (const { name, container } of mounted) {
   for (const r of readings(container)) {

@@ -8,12 +8,19 @@
 //   §3   14  "ตัด deliver, g in bag ออก (ห้อง TPN ใช้ vol ml เป็นหลัก)" — the AA row.
 //   §4   15  "ตัด WFI จากหน้า interface แต่ยังอยู่ในใบปริ้น".
 //   §5   16  "g/kg/hr เอาทศนิยมสองตำแหน่ง", "free text จำนวนชั่วโมงได้"; 18 "แก้เป็น
-//            20% lipid". The pump rate's own decimals are a question for the
-//            team (BACKLOG B · 16), so its 2 decimals are pinned unchanged here.
-//   §6   19  "เปลี่ยนหน่วยให้เหมือนกัน เช่น P 15.5 mg/ml" — phosphate per mL.
+//            20% lipid". Praew's answers the same day: the pump rate stays at 2
+//            decimals; hours 1–24 (kept to one decimal, as Center Point prints).
+//   §6   19  "เปลี่ยนหน่วยให้เหมือนกัน เช่น P 15.5 mg/ml" — phosphate per mL; and
+//            Praew: "ถึงผู้ป่วย + คาสาย ลบออกได้ เก็บเป็นเลขคำนวณไว้หลังบ้าน".
 //   §7   25  "เปลี่ยนคำ over target ให้เข้าใจง่ายกว่านี้ ไม่สับสนกับเกินขวด".
 //   §8    4  "ตัด nutrition status ออก"; 28 "เซ็นชื่อ (เอาเมลออก)" — the form.
 //   §9    6  "แก้ HiQ LBW เป็น preterm formula, แก้ Pre Nan เป็น post discharge".
+//
+// Praew's answers to the team questions, 2026-09-28 (BACKLOG B · 16, 23 · 26):
+//   §10  K⁺ in the bag by route: peripheral amber > 40, red > 60; central amber
+//        > 60, red > 200; the KCMH 40 mEq/L stop is gone.
+//   §11  "osmolarity ทาง central ไม่มี upper limit".
+//   §12  "lipid เพดาน 0.13-0.17 g/kg/h": amber above 0.13, red above 0.17.
 //
 // Mounts the real <Calculator> in jsdom (same dev-only deps as the other
 // calculator harnesses — see test/README.md). Fails against 6269b88.
@@ -105,6 +112,13 @@ function screenText() {
   c.querySelector('#print-form')?.remove();
   return text(c);
 }
+const alertRows = () => [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => ({
+  level: ['crit', 'warn', 'info'].find(c => a.classList.contains(c)),
+  title: a.querySelector('.title')?.textContent || '', text: a.textContent.replace(/\s+/g, ' ') }));
+const tileEl = (label) => [...container.querySelectorAll('.metric')].find(x => x.querySelector('.lbl')?.textContent === label) || null;
+const tileVal = (label) => { const t = tileEl(label); return t ? t.querySelector('.val').textContent : null; };
+const statusOf = (el) => (el?.className.match(/\bs-(\w+)/) || [])[1] || null;
+const tileStatus = (label) => statusOf(tileEl(label));
 const frontSheet = () => { const f = printForm()?.cloneNode(true); f?.querySelector('.print-back')?.remove(); return f || null; };
 const lipidHours = (h) => click([...container.querySelectorAll('.seg button')].find(b => b.textContent.trim() === `${h}h`));
 const lipidCard = () => [...container.querySelectorAll('div')].find(d => /^🫙 Lipid Pump/.test(text(d)) && d.children.length === 0)?.parentElement || null;
@@ -227,7 +241,7 @@ function baseOrder({ tf = 120 } = {}) {
     lipidHours(16);
     ok('…over 16 h = 0.13 g/kg/h (0.125, 2 decimals)', /= 0\.13 g\/kg\/h/.test(gkgh()), gkgh());
     // 20 mL lipid + 8 mL Vitalipid = 28 mL
-    ok('the pump rate keeps its 2 decimals (a team question)', /PUMP RATE\s*1\.75\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
+    ok('the pump rate keeps its 2 decimals (Praew, 2026-09-28)', /PUMP RATE\s*1\.75\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
     const hrs = inputFor('Infuse over');
     ok('the hours can be typed', !!hrs);
     setField('Infuse over', 18);
@@ -245,6 +259,9 @@ function baseOrder({ tf = 120 } = {}) {
     setField('Infuse over', 0.5);
     blur(inputFor('Infuse over'));
     eq('under 1 h is not taken: it stays at 24', inputFor('Infuse over')?.value, '24');
+    setField('Infuse over', 16.25);
+    blur(inputFor('Infuse over'));
+    eq('16.25 h is kept as 16.3 (one decimal, as Center Point prints)', inputFor('Infuse over')?.value, '16.3');
     lipidHours(20);
     eq('a chip still sets the hours, and the box follows', inputFor('Infuse over')?.value, '20');
     setField('Infuse over', 18);
@@ -268,6 +285,12 @@ function baseOrder({ tf = 120 } = {}) {
     ok('…no longer per mEq K', !/mEq K$|mg\/mEq/.test(note('K₂HPO₄')), note('K₂HPO₄'));
     ok('Glycophos: "2 mEq Na/mL · P 31 mg/mL"', /2 mEq Na\/mL · P 31 mg\/mL/.test(note('Glycophos')), note('Glycophos'));
     ok('…still says it is entered as sodium', /ใส่ mEq Na\/kg/.test(note('Glycophos')), note('Glycophos'));
+    // Praew: the to-patient / in-line split is calculated, not shown. The 30 mL
+    // dead space of a new NICU order overfills the bag, which is when it showed.
+    setField('20% NaCl', 2); setField('KCl', 1); setField('Glycophos', 2);
+    const step4 = text([...container.querySelectorAll('.salt-row-grid')][0]?.closest('.card-b'));
+    ok('Step 4 still gives the prepared mL of each salt (เตรียม … mL/d)', /เตรียม [\d.]+ mL\/d/.test(step4), step4.slice(0, 200));
+    ok('…with no "= ถึงผู้ป่วย … + คาสาย …" split', !/ถึงผู้ป่วย [\d.]+ \+ คาสาย/.test(step4), step4.match(/.{20}ถึงผู้ป่วย.{30}/));
   });
 
   // ═══════════════════════════ §7 over the fluid plan ══════════════════════
@@ -330,6 +353,80 @@ function baseOrder({ tf = 120 } = {}) {
     eq('Formula page · high-energy', pageKeys(/High-energy/), ['FBM_INF_MIX', 'INFATRINI_30']);
     const all = [...block.matchAll(/"([A-Z0-9_]+)"/g)].map(m => m[1]);
     eq('Formula page · no key twice', all.length, new Set(all).size);
+  });
+
+  // ═══════════════════════════ §10 K⁺ by route ═════════════════════════════
+  await section('§10 K⁺ in the bag by route: peripheral amber > 40, red > 60; central amber > 60, red > 200', async () => {
+    const log = logger();
+    mount({ patient: pt('KR-2000', 2000), onLog: log.onLog });
+    setField('Current weight', 2000); fillRequired(120);
+    setField('ปริมาตรคาสาย', 0);
+    // KCl alone in the bag: K⁺ mEq/L = KCl mEq/kg × 2 kg ÷ volume.
+    const kAt = (ml, perKg) => { setField('Volume(mL/day)', ml); setField('KCl', perKg); };
+    const kAlerts = () => alertRows().filter(a => /^K⁺ concentration/.test(a.title)).map(a => `${a.level}:${a.title}`);
+    click(button(/^Peripheral$/));
+    kAt(100, 1.75);   // 35
+    eq('peripheral 35 mEq/L: green, no K⁺ alert', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag'), kAlerts()], ['35 mEq/L', 'ok', []]);
+    kAt(100, 2.5);    // 50
+    eq('peripheral 50: amber, a caution', [tileStatus('K⁺ in bag'), kAlerts()], ['warn', ['warn:K⁺ concentration high']]);
+    kAt(100, 3.25);   // 65
+    eq('peripheral 65: red, a critical alert', [tileStatus('K⁺ in bag'), kAlerts()], ['crit', ['crit:K⁺ concentration too high']]);
+    ok('the line under the tile gives the peripheral thresholds', /peripheral: amber > 40 · red > 60 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    click(button(/^Central$/));
+    eq('the same 65 on a central line: amber', [tileStatus('K⁺ in bag'), kAlerts()], ['warn', ['warn:K⁺ concentration high']]);
+    ok('…and the line under the tile gives the central ones', /central: amber > 60 · red > 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    kAt(100, 2.5);    // 50
+    eq('central 50: green', [tileStatus('K⁺ in bag'), kAlerts()], ['ok', []]);
+    kAt(30, 2.9);     // 193
+    eq('central 193: amber', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag'), kAlerts()], ['193 mEq/L', 'warn', ['warn:K⁺ concentration high']]);
+    kAt(30, 3.2);     // 213
+    eq('central 213: red', [tileStatus('K⁺ in bag'), kAlerts()], ['crit', ['crit:K⁺ concentration too high']]);
+    click(button(/^Peripheral$/));
+    kAt(100, 2.5);    // 50, amber: saves with no reason
+    await save();
+    eq('saved', log.calls, 1);
+    ok('the form gives the route’s limit', /max 60 mEq\/L in bag \(peripheral\)/.test(printText()), printText().match(/max \d+ mEq\/L in bag.{0,14}/));
+    ok('…and so does its back sheet', /K⁺ in bag 50 mEq\/L \(max 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag [^·]*/));
+    const copy = await copyOrder();
+    ok('…and the copied order', /\(50 mEq\/L, max 60 on a peripheral line\)/.test(copy), copy.match(/Total K:[^\n]*/));
+  });
+
+  // ═══════════════════════════ §11 osmolarity, central ═════════════════════
+  await section('§11 a central line has no upper osmolarity limit', async () => {
+    mount({ patient: pt('OC-1000', 1000), onLog: logger().onLog });
+    setField('Current weight', 1000); fillRequired(150);
+    setField('Volume(mL/day)', 100); setField('Dextrose final', 25); setField('Amino acid', 6);
+    click(button(/^Central$/));
+    const osm = Number((tileVal('Osmolarity') || '').replace(/[^\d.]/g, ''));
+    ok('the bag is above the old 1800 mOsm/L warning', osm > 1800, osm);
+    const osmAlerts = () => alertRows().filter(a => /smolar/.test(a.title)).map(a => a.title);
+    eq('central: green, no osmolarity alert, no range on the tile', [tileStatus('Osmolarity'), osmAlerts(), !!tileEl('Osmolarity')?.querySelector('.range')], ['ok', [], false]);
+    click(button(/^Peripheral$/));
+    eq('the same bag on a peripheral line: red, with its critical alert', [tileStatus('Osmolarity'), osmAlerts()], ['crit', ['Osmolarity > peripheral limit']]);
+  });
+
+  // ═══════════════════════════ §12 lipid rate ceiling ══════════════════════
+  await section('§12 lipid rate ceiling 0.13–0.17 g/kg/h: amber above 0.13, red above 0.17', async () => {
+    const log = logger();
+    mount({ patient: pt('LC-2000', 2000), onLog: log.onLog });
+    baseOrder();   // 2 g/kg/d over 24 h
+    const gk = () => container.querySelector('.lipid-gkgh');
+    const lipAlerts = () => alertRows().filter(a => /^Lipid rate/.test(a.title)).map(a => `${a.level}:${a.title}`);
+    ok('the pump card names the ceiling', /เพดาน 0\.13–0\.17/.test(text(gk())), text(gk()));
+    eq('2 over 24 h = 0.08: green, no alert', [statusOf(gk()), lipAlerts()], ['ok', []]);
+    lipidHours(16);   // 0.125, shown 0.13
+    eq('2 over 16 h = 0.125, shown 0.13: green (graded on the figure shown)', [(text(gk()).match(/[\d.]+ g\/kg\/h/) || [])[0], statusOf(gk()), lipAlerts()], ['0.13 g/kg/h', 'ok', []]);
+    setLipid(3); lipidHours(20);   // 0.15
+    eq('3 over 20 h = 0.15: amber, a caution', [statusOf(gk()), lipAlerts()], ['warn', ['warn:Lipid rate near the ceiling']]);
+    lipidHours(24); setLipid(4);   // 0.1667, shown 0.17
+    eq('4 over 24 h = 0.17: amber, not red', [statusOf(gk()), lipAlerts()], ['warn', ['warn:Lipid rate near the ceiling']]);
+    setLipid(3); lipidHours(16);   // 0.1875, shown 0.19
+    eq('3 over 16 h = 0.19: red, a critical alert', [statusOf(gk()), lipAlerts()], ['crit', ['crit:Lipid rate above the ceiling']]);
+    let shown = null;
+    window.prompt = (m) => { shown = m; return 'fixture — short infusion'; };
+    await clickAsync(saveBtn());
+    ok('Save asks for a reason for it', /Lipid rate above the ceiling/.test(shown || ''), shown);
+    eq('…and saves with one', log.calls, 1);
   });
 
   console.log(`\nTPN MEETING 2026-09-28: ${fail ? fail + ' FAILED' : 'ALL PASSED'} (${pass} passed)`);

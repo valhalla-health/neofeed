@@ -269,11 +269,17 @@ function expectedAlerts(sc, e) {
   if (sc.men && e.enPerKg > 24) add('warn', 'MEN ticked above trophic volume');
   if (bagOrdered) {
     if (sc.route === 'peripheral') { if (e.osm > 900) add('crit', 'Osmolarity > peripheral limit'); else if (e.osm > 850) add('warn', 'Osmolarity near peripheral limit'); }
-    else if (e.osm > 1800) add('warn', 'Osmolarity high for central line');
+    // A central line has no upper osmolarity limit since 2026-09-28 (Praew).
   }
   if (e.Vd > 0 && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
   if (e.dexGkg > 18) add('crit', 'Dextrose over KCMH max');
-  if (e.kPerL > 40) add('crit', 'K⁺ concentration too high');
+  // K⁺ in the bag by route since 2026-09-28 (TPN team and Praew): peripheral amber > 40, critical > 60;
+  // central amber > 60, critical > 200. Written out here, not read from data.js.
+  { const k = sc.route === 'central' ? { warn: 60, max: 200 } : { warn: 40, max: 60 };
+    if (e.kPerL > k.max) add('crit', 'K⁺ concentration too high'); else if (e.kPerL > k.warn) add('warn', 'K⁺ concentration high'); }
+  // Lipid g/kg/h against 0.13 / 0.17, on the 2-decimal figure shown (TPN team and Praew, 2026-09-28).
+  if (sc.lip > 0) { const g = Math.round(sc.lip / sc.lipH * 100) / 100;
+    if (g > 0.17) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
   if (e.znTot > 5) add('crit', 'Zinc total above 5 mg/day');
   if (bagOrdered && e.wfi < 0) add('crit', 'Bag cannot be compounded');
   if (e.Vd > 0 && sc.ca > 0 && sc.k2 > 0) add('warn', 'Calcium–phosphate compatibility not calculated');
@@ -615,7 +621,7 @@ async function run(scIn) {
     near(sc, 'copy summary protein', g(/SUMMARY: Protein ([\d.]+) g\/kg/), e.proKg, 1);
     near(sc, 'copy summary energy', g(/Energy ([\d.]+) kcal\/kg \|/), e.kcalKg, 0);
     near(sc, 'copy total Na delivered', g(/Total Na: +[\d.]+ mEq in bag = ([\d.]+) mEq\/kg\/d/), e.naKg, 1);
-    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L, max 40\)/), e.kPerL, 0);
+    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L, max (?:60 on a peripheral|200 on a central) line\)/), e.kPerL, 0);
     near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
     if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.oCa > 0) near(sc, 'copy oral Ca tabs/day', g(/mg\/day → ([\d.]+) tab\/day/), e.oCa_tabs, 2);

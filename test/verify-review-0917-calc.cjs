@@ -182,7 +182,8 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     ok('K 4 raises "Potassium critically out of range"', critTitles().includes('Potassium critically out of range'), critTitles());
     ok('…showing the IV value against the limit', /K IV 4 mEq\/kg\/d > 3\.5 mEq\/kg\/d hard limit/.test(alertText('Potassium critically out of range')), alertText('Potassium critically out of range'));
     ok('pure PN: no "total incl. EN" (IV and total are the same)', !/total incl\. EN/.test(alertText('Lipid critically out of range') + alertText('Potassium critically out of range')));
-    eq('one line per nutrient (no extra Lipid/Potassium "off target")', alertRows().filter(a => /^(Lipid|Potassium)/.test(a.title)).length, 2);
+    // "Lipid rate …" (2026-09-28) is the infusion-rate ceiling, a separate check — not a second dose line.
+    eq('one line per nutrient (no extra Lipid/Potassium "off target")', alertRows().filter(a => /^(Lipid|Potassium)/.test(a.title) && !/^Lipid rate/.test(a.title)).length, 2);
     ok('the TOTAL tiles are not critical', ['ok', 'warn'].includes(tileStatus('Lipid (total)')) && ['ok', 'warn'].includes(tileStatus('Potassium')),
       [tileStatus('Lipid (total)'), tileStatus('Potassium')]);
     f1('IV lipid 4.8 / K 4');
@@ -523,12 +524,14 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
   });
 
   // ═══════════════════════ UP-C12 · central osmolarity range ════════════════
-  await section('§12 UP-C12 · central osmolarity tile range is 0–1800, the warn threshold', async () => {
+  // Since 2026-09-28 a central line has no upper osmolarity limit (Praew), so its
+  // tile shows the figure with no range; peripheral keeps 0–900.
+  await section('§12 UP-C12 · central osmolarity has no range and no limit; peripheral 0–900', async () => {
     mount({ patient: pt('OS-1000', 1000), onLog: logger().onLog });
     setField('Current weight', 1000); fillRequired(150);
     setField('Volume(mL/day)', 100); setField('Dextrose final', 25); setField('Amino acid', 4.5);
-    eq('central tile range', tileRange('Osmolarity'), '0–1800');
-    eq('~1700 mOsm/L is inside it (ok, no alert)', [tileStatus('Osmolarity'), alertRows().filter(a => /smolar/.test(a.title)).length], ['ok', 0]);
+    eq('central tile: no range', tileRange('Osmolarity'), undefined);
+    eq('~1700 mOsm/L on a central line: ok, no alert', [tileStatus('Osmolarity'), alertRows().filter(a => /smolar/.test(a.title)).length], ['ok', 0]);
     click(buttonText(/^Peripheral$/));
     eq('peripheral tile range unchanged', tileRange('Osmolarity'), '0–900');
   });

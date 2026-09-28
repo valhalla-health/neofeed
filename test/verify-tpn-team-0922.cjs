@@ -23,7 +23,8 @@
 //        with the order and printed at the top of the form. A reprint showed only
 //        the email. A name is shown only while it belongs to the email the server
 //        stamped on the row.
-//   §7   "ให้แสดงค่าความเข้มข้นของ K ในสารละลายสุดท้ายด้วย" — its own tile. Praew: the
+//   §7   "ให้แสดงค่าความเข้มข้นของ K ในสารละลายสุดท้ายด้วย" — its own tile. (Graded by
+//        route since 2026-09-28; what follows is the 2026-09-22 rule.) Praew: the
 //        stop stays at 40 mEq/L (KCMH worksheet G25) on both routes; the alert shows
 //        peripheral 60 / central 200 for reference.
 //   §8   Praew: "ถ้ามีเลขใดๆ ที่เป็น user interface ห้ามมี .0 เช่น 18.0 คือ 18" — no
@@ -355,22 +356,32 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
   });
 
   // ═══════════════════════════ §7 K⁺ in the bag ════════════════════════════
-  await section('§7 K⁺ concentration of the bag has its own tile; the stop stays at 40 mEq/L', async () => {
+  // Since the TPN team's meeting of 2026-09-28 the bag's K⁺ is graded by route
+  // (D.K_BAG_MEQ_PER_L): peripheral amber above 40 and critical above 60,
+  // central amber above 60 and critical above 200. The worksheet's single
+  // 40 mEq/L stop is gone (verify-tpn-meeting-0928 §10 has the full grid).
+  await section('§7 K⁺ concentration of the bag has its own tile, graded by route', async () => {
     const log = logger();
     mount({ patient: pt('KC-2000', 2000), onLog: log.onLog });
     baseOrder();
     setField('KCl', 2);   // 4 mEq in 180 mL = 22 mEq/L
     eq('KCl 2 mEq/kg in 180 mL: the tile reads 22', tileVal('K⁺ in bag'), '22 mEq/L');
     eq('…within range', tileStatus('K⁺ in bag'), 'ok');
-    ok('…no concentration alert', !alertOf('K⁺ concentration too high'), alertTitles());
+    ok('…no concentration alert', !alertOf('K⁺ concentration too high') && !alertOf('K⁺ concentration high'), alertTitles());
     setField('Volume(mL/day)', 100); setField('KCl', 2.75);   // 5.5 mEq in 100 mL = 55 mEq/L
     eq('KCl 2.75 in 100 mL: 55 mEq/L', tileVal('K⁺ in bag'), '55 mEq/L');
-    eq('…critical', tileStatus('K⁺ in bag'), 'crit');
+    eq('…on a central line: within range', tileStatus('K⁺ in bag'), 'ok');
+    ok('under the tile: the central thresholds', /central: amber > 60 · red > 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    click(button(/^Peripheral$/));
+    eq('…on a peripheral line: amber', tileStatus('K⁺ in bag'), 'warn');
+    const w = alertOf('K⁺ concentration high');
+    ok('…a caution naming 55 against 40 for a peripheral line', !!w && w.level === 'warn' && /55 mEq\/L/.test(w.text) && /40 mEq\/L for a peripheral line/.test(w.text), w && w.text);
+    ok('under the tile: the peripheral thresholds', /peripheral: amber > 40 · red > 60 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    setField('KCl', 3.5);   // 7 mEq in 100 mL = 70 mEq/L
+    eq('KCl 3.5 in 100 mL on a peripheral line: 70 mEq/L, critical', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag')], ['70 mEq/L', 'crit']);
     const a = alertOf('K⁺ concentration too high');
     ok('…the alert is critical and keeps its title', !!a && a.level === 'crit', alertRows());
-    ok('…it says 55 against the 40 mEq/L limit', !!a && /55 mEq\/L/.test(a.text) && /40 mEq\/L/.test(a.text), a && a.text);
-    ok('…with peripheral 60 / central 200 for reference', !!a && /peripheral 60/.test(a.text) && /central 200/.test(a.text), a && a.text);
-    ok('under the tile: the limit and the references', /40/.test(text(container.querySelector('.k-conc-ref'))) && /60/.test(text(container.querySelector('.k-conc-ref'))) && /200/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    ok('…it says 70 against 60 for a peripheral line', !!a && /70 mEq\/L/.test(a.text) && /60 mEq\/L for a peripheral line/.test(a.text), a && a.text);
     const shown = await save('fixture — hypokalaemia, fluid restricted');
     ok('Save stops on it', (shown || '').includes('K⁺ concentration too high'), shown);
     eq('…and saves with a reason', log.calls, 1);
