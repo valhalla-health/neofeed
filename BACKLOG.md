@@ -92,8 +92,14 @@ clinical judgement. Everything else is engineering sequencing.
           one the Magnesium tile already cites (ESPGHAN 2018: preterm first days 0.1–0.2 mmol, 2.5–5 mg;
           growing 0.2–0.3 mmol, 5–7.5 mg)?
         - ~~23 · 26 · K⁺ and osmolarity by route~~ — **answered by Praew on 2026-09-28 and built**: central
-          amber from 60; the KCMH 40 mEq/L stop is cancelled; no upper osmolarity limit on a central line. The
-          source for 60 / 200 is still open (2026-09-22 questions, § Next).
+          amber from 60; the KCMH 40 mEq/L stop is cancelled; no upper osmolarity limit on a central line.
+          **Source search (2026-09-28):** peripheral 60 fits published neonatal practice, but central 200 is
+          above every neonatal or paediatric source found (ANMF 2020 central ≤ 80; IWK Health NICU 120; IMSN
+          2020: 200 mmol/L bags are adult critical care only). At the 3.5 mEq/kg/d IV K⁺ stop a bag reaches
+          200 only below 17.5 mL/kg/d, so its critical alert would almost never fire. ESPGHAN 2018 gives no
+          central osmolarity limit either; "central" should mean a checked central tip (Kolaček R 10.13–10.16).
+          `docs/CLINICAL_CONSTANTS.md` has the sources.
+          - [ ] 🩺 **Praew / TPN team, before this ships: keep central K⁺ 200, or lower it (80–120)?**
         - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
           (split in two) or a stop.
         - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,
