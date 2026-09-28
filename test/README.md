@@ -1308,7 +1308,12 @@ and § 6 that Step 4 no longer shows the to-patient / in-line split.
 Against `6269b88` it failed 33 of its first 65 checks, in every section; the 19 checks added with Praew's answers
 fail against `6b752a1`. § 13 pins the acetate display: hidden while `KCMH_STOCK.naAcetate.acetateMeqPerMl` is
 `null` (as shipped, until the vial label is read), shown in the note, caption and copied order once it is set.
-104 checks in all.
+The review of PR #129 added Praew's "max 200 ทั้งสองสาย": § 10 now pins the 200 maximum on a peripheral line too
+(a central bag above it switched to Peripheral stays refused; peripheral 199 is critical, not the maximum), the
+peripheral limit on the form, back sheet and copied order, and a saved row above it reopening without Print
+even with every critical alert given a reason (and, as the control, printing at 50 mEq/L); § 10b, the quick
+calc's copied text flagging a bag above the maximum. Against `76db4d9`, 9 checks fail.
+113 checks in all.
 
 ## Note on the source workbook
 

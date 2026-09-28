@@ -110,6 +110,9 @@ clinical judgement. Everything else is engineering sequencing.
           `docs/CLINICAL_CONSTANTS.md` has the sources.
           - [x] 🩺 **Praew / TPN team, before this ships: keep central K⁺ 200, or lower it (80–120)?** Answered
             2026-09-28: red above 120, and 200 as a maximum that cannot be ordered (`CHANGELOG.md` 2026-09-28 (3)).
+          - [x] 🩺 **Peripheral K⁺ maximum.** The review of PR #129 found that switching a central bag above
+            200 to Peripheral made it orderable with a reason. Praew: "max 200 ทั้งสองสาย" — built
+            (`CHANGELOG.md` 2026-09-28 (6)). Whether peripheral should stop lower than 200 is for the team.
         - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
           (split in two) or a stop.
         - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,

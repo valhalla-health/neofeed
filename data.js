@@ -629,10 +629,13 @@ const MAX_DEXTROSE_G_KG = 18;
 // Print refuse it (Praew: "K ทาง central ลดเป็น 120 ให้ขึ้นแดง แต่ max ที่ 200").
 // Central red at 120 follows published neonatal practice (IWK Health NICU);
 // nothing published supports more than 120 (docs/CLINICAL_CONSTANTS.md).
+// The 200 maximum holds on both routes (Praew, reviewing PR #129: "max 200
+// ทั้งสองสาย"); on central only, switching a bag to Peripheral turned the stop
+// into a critical alert that a typed reason cleared.
 // Replaces the KCMH worksheet's single 40 mEq/L stop (G25), which the team
 // cancelled.
 const K_BAG_MEQ_PER_L = {
-  peripheral: { warn: 40, red: 60 },
+  peripheral: { warn: 40, red: 60,  hardMax: 200 },
   central:    { warn: 60, red: 120, hardMax: 200 },
 };
 const kBagLimitsFor = (route) => K_BAG_MEQ_PER_L[route === "central" ? "central" : "peripheral"];

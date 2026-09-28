@@ -2297,6 +2297,10 @@ Copy order ต่อไปหรือไม่?`)) return;
       kCl > 0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl * calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
       k2hpo4 > 0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4 * calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4 * 15.5 * calc.factor, 0)} mg)` : "",
       `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L; confirm above ${kLim.red}${kLim.hardMax ? `, max ${kLim.hardMax}` : ""} on a ${kRouteLabel} line)`,
+      // Only the quick calc reaches here with kOverMax (a patient's
+      // Copy waits for `printable`), so its text says so, as an
+      // over-full bag's does.
+      kOverMax ? `  !! K⁺ ${fmt(calc.kMeqPerL, 0)} mEq/L IS ABOVE THE ${kLim.hardMax} mEq/L MAXIMUM — cannot be ordered` : "",
       caPerKg > 0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${fmt(caPerKg * calc.factor, 0)} mg → ${calc.solVol.ca} mL` : "",
       mgPerKg > 0 ? `  MgSO4 ${mgStrength}%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg * calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
       calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? fmt(calc.caP, 2) : "!! (Ca ordered, P = 0)"}:1 (mass, TPN+EN)` : "",

@@ -1626,7 +1626,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
   // Praew, 2026-09-28): amber above `warn`, critical above `red`, and above
-  // `hardMax` (central 200) not orderable at all — see kOverMax. It replaced
+  // `hardMax` (200 on both routes) not orderable at all — see kOverMax. It replaced
   // the worksheet's single 40 mEq/L stop (G25) on both routes.
   const kLim = D.kBagLimitsFor(route);
   const kRouteLabel = route === "central" ? "central" : "peripheral";
@@ -1692,7 +1692,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [znPerKg, "ZnSO₄"],
   ].filter(([v]) => v > 0).map(([, label]) => label);
   const zeroVolumeBag = bagIngredientsWithoutVolume.length > 0;
-  // K⁺ above the route's hard maximum (central 200 mEq/L; Praew, 2026-09-28):
+  // K⁺ above the route's hard maximum (200 mEq/L on both; Praew, 2026-09-28):
   // like the no-volume bag, not a confirm-with-reason alert — Submit and Print
   // refuse it. A draft may still be kept.
   const kOverMax = kLim.hardMax != null && calc.kMeqPerL > kLim.hardMax;
@@ -3451,6 +3451,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
                 `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L; confirm above ${kLim.red}${kLim.hardMax ? `, max ${kLim.hardMax}` : ""} on a ${kRouteLabel} line)`,
+                // Only the quick calc reaches here with kOverMax (a patient's
+                // Copy waits for `printable`), so its text says so, as an
+                // over-full bag's does.
+                kOverMax ? `  !! K⁺ ${fmt(calc.kMeqPerL, 0)} mEq/L IS ABOVE THE ${kLim.hardMax} mEq/L MAXIMUM — cannot be ordered` : "",
                 caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${fmt(caPerKg*calc.factor, 0)} mg → ${calc.solVol.ca} mL` : "",
                 mgPerKg>0 ? `  MgSO4 ${mgStrength}%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg*calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
                 calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? fmt(calc.caP, 2) : "!! (Ca ordered, P = 0)"}:1 (mass, TPN+EN)` : "",

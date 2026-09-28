@@ -7,6 +7,48 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-28 (6) — Review of PR #129: the K⁺ maximum holds on a peripheral line too
+
+`data.js`, `calculator.jsx`, both shells and `compiled/`; docs. `CONSTANTS_VERSION` stays 2026-09-28.1 (not
+released yet). Same PR #129, reviewed before merge on Pp's instruction ("เมื่อ review PR129 เสร็จ ให้ merge and
+deploy เลย").
+
+### Why
+
+Two review passes (standards, and spec against BACKLOG § Now and Pp's answers) found one safety gap: only central
+had a maximum, so a bag above 200 mEq/L refused on Central became, on Peripheral, a critical alert that one typed
+reason cleared, and it saved and printed. The more restrictive line took the more concentrated bag. Asked, Pp:
+*"max 200 ทั้งสองสาย"*.
+
+### What changed
+
+1. **`K_BAG_MEQ_PER_L.peripheral.hardMax = 200`.** Every path already reads the route's `hardMax`: Submit and
+   Save refuse, Print is held, the tile, alerts, form, back sheet and copied order name it ("confirm > 60 · max
+   200", peripheral). Amber 40 and critical 60 are unchanged. The peripheral tile's bar now ends at 200, as
+   central's does (it was 90, 1.5 × the critical 60), so its colours sit in the first 30 %.
+2. **The quick calc's copied text flags a bag above the maximum** (`!! K⁺ … IS ABOVE THE 200 mEq/L MAXIMUM —
+   cannot be ordered`), as it flags an over-full bag. A patient's Copy already waited for a printable order.
+3. `docs/CLINICAL_CONSTANTS.md`: the "When to bump" list named the deleted `MAX_K_MEQ_PER_L`; it names
+   `K_BAG_MEQ_PER_L` now, as `data.js` does. The register and constants rows give the peripheral maximum.
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` § 10 and § 10b, 113 checks; 9 fail against `76db4d9`. § 10 also covers the print
+hold for a saved row above the maximum, which no check reached before. Three harnesses that pinned the peripheral
+line's old wording or bar now pin "max 200" (`verify-tpn-team-0922`, `verify-calc-oracle`) and a bar ending at
+200 (`verify-status-zones`).
+
+### Review findings left as they are
+
+- K⁺ is graded on the raw figure and shown to 0 decimals, so 200.4 reads "200, above the maximum 200". It errs
+  on the safe side.
+- The lipid hours box keeps the last valid value while an out-of-range one is typed, and corrects it on blur.
+- The "changes since the last order" line on the form says "20% lipid" (item 18 asked for the screen only);
+  the form's own tick box still says SMOF. BACKLOG already holds the form wording as a question.
+- Center Point never re-checks the maximum on a revision saved before this release (unchanged by this PR).
+- Code duplication the standards pass named (the g/kg/h figure worked out in three places, the route test
+  repeated) is left for a later tidy-up; every copy agrees today.
+
 ## Session 2026-09-28 (5) — KCl 2 mEq/mL confirmed; the acetate display, built and waiting for the vial label
 
 `calculator.jsx`, `data.js`, both shells and `compiled/`. No figure moves: acetate stays hidden while its constant

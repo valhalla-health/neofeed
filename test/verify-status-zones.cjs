@@ -166,7 +166,9 @@ for (const { name, container } of mounted) {
     const route = name === 'past the hard limits' ? 'peripheral' : 'central';
     let want = HARD[r.label];
     if (r.label === 'Osmolarity' && route === 'peripheral') want = 900 / 1100 * 100;
-    if (r.label === 'K⁺ in bag' && route === 'peripheral') want = 60 / 90 * 100;   // red above 60 on a bar 1.5 × 60 long
+    // Red above 60 on a bar that ends at the 200 maximum, as central's does
+    // (Praew, reviewing PR #129: "max 200 ทั้งสองสาย"; it was 1.5 × 60 long).
+    if (r.label === 'K⁺ in bag' && route === 'peripheral') want = 60 / 200 * 100;
     if (want === undefined) {
       ok(`${name} · ${r.label}: no red — it has no hard limit of its own`, red.length === 0, red);
     } else {
