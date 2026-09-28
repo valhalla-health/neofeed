@@ -7,6 +7,25 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-09-28 (4) — Na acetate stock confirmed by the TPN team
+
+Docs only (`BACKLOG.md`, `docs/CLINICAL_CONSTANTS.md`). No code, constant or `CONSTANTS_VERSION` change. Same PR #129,
+not merged. Added from the Desktop session that sorted the inbox and mapped the meeting notes.
+
+### Why
+
+Meeting item 20 read *"Na ace 1 ml=Na 3 ace 6"*. Asked to confirm it from the vial, Pp checked with the TPN team:
+*"confirm with tpn team แล้ว 1 mL มี Na 3 กับ acetate 6 mEq"*. Pp also confirmed the central K⁺ answer already
+built in (3): above 200 is a hard stop.
+
+### What changed
+
+1. `BACKLOG.md` B · 20 is answered. Na 3 mEq/mL is `KCMH_STOCK.naAcetate`, so doses and printed mL stand. Acetate
+   6 mEq/mL does not fit sodium acetate's 1 : 1 formula (6 may be mOsm/mL). NeoFeed shows no acetate, so it prints
+   nothing wrong, but the label must be read before acetate is ever displayed.
+2. `BACKLOG.md` § Now safety item: Na acetate confirmed; **KCl 2 mEq/mL stays open**, as does small-volume rounding.
+3. `docs/CLINICAL_CONSTANTS.md`: `naAcetate` is 🟢 for Na; `kCl` is now the highest-stakes open item.
+
 ## Session 2026-09-28 (3) — Central K⁺: red above 120, and 200 as a maximum that cannot be ordered
 
 `calculator.jsx`, `data.js`, both shells and `compiled/`. Still `CONSTANTS_VERSION` 2026-09-28.1: nothing has

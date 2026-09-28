@@ -81,9 +81,13 @@ clinical judgement. Everything else is engineering sequencing.
           pump rate stays at 2 decimals; ceiling amber above 0.13, critical above 0.17 g/kg/h; hours 1–24.
         - **17 · Vitalipid.** Which products (N Infant, N Adult), each one's dose (today 4 mL/kg, max
           10 mL) and who gets which.
-        - **20 · Na acetate.** The vial's Na and acetate per mL. Sodium acetate is 1 : 1, so 3 mEq Na/mL
-          carries 3 mmol acetate/mL; "ace 6" is probably its osmolarity, 6 mOsm/mL. Same shelf check as
-          "Confirm Na acetate …" below. Show acetate, in mmol/kg/d?
+        - ~~20 · Na acetate~~ — **answered by Praew on 2026-09-28, after checking with the TPN team**:
+          *"confirm with tpn team แล้ว 1 mL มี Na 3 กับ acetate 6 mEq"*. **Na 3 mEq/mL is
+          `KCMH_STOCK.naAcetate`**, so every Na dose and printed mL stands; the Na half of "Confirm Na
+          acetate …" below is closed. The team gives acetate as 6 mEq/mL. Sodium acetate is 1 : 1, so
+          3 mEq Na/mL would carry 3 mEq acetate/mL, and 6 may be the osmolarity (6 mOsm/mL). NeoFeed shows no
+          acetate today (`naAcet` feeds Na only), so nothing prints wrong. **Before acetate is ever shown (in
+          mmol/kg/d?), read acetate and mOsm per mL off the vial label.**
         - **21 · Ca–P precipitation.** Whose curve (manufacturer or pharmacy) for K₂HPO₄ with Aminoven
           Infant 10 %, at which AA and Ca concentrations and temperature, and where it warns or stops.
           Glycophos is an organic phosphate, outside such a curve.
@@ -219,6 +223,9 @@ clinical judgement. Everything else is engineering sequencing.
       0.34 mEq (−32 %), KCl/Na acetate +20 %. Praew (2026-09-17): the Na dose itself may still be
       wrong — confirm with pharmacy before changing either. `verify-review-0917-calc.cjs` § 6 pins
       today's printed figures so nothing drifts meanwhile.
+      ✅ **2026-09-28 — Na acetate confirmed** (B · 20 above): Praew checked with the TPN team, and 1 mL
+      carries Na 3 mEq, the value NeoFeed already uses. **Still open: KCl 2 mEq/mL**, and the small-volume
+      rounding above.
 - [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live
