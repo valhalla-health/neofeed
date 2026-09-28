@@ -23,7 +23,8 @@
 //        with the order and printed at the top of the form. A reprint showed only
 //        the email. A name is shown only while it belongs to the email the server
 //        stamped on the row.
-//   §7   "ให้แสดงค่าความเข้มข้นของ K ในสารละลายสุดท้ายด้วย" — its own tile. Praew: the
+//   §7   "ให้แสดงค่าความเข้มข้นของ K ในสารละลายสุดท้ายด้วย" — its own tile. (Graded by
+//        route since 2026-09-28; what follows is the 2026-09-22 rule.) Praew: the
 //        stop stays at 40 mEq/L (KCMH worksheet G25) on both routes; the alert shows
 //        peripheral 60 / central 200 for reference.
 //   §8   Praew: "ถ้ามีเลขใดๆ ที่เป็น user interface ห้ามมี .0 เช่น 18.0 คือ 18" — no
@@ -170,7 +171,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
 function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
   setField('Current weight', 2000); fillRequired(120);
   setField('Volume(mL/day)', tpnMl); setField('ปริมาตรคาสาย', dead);
-  setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+  setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
 }
 
 (async () => {
@@ -249,17 +250,18 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     mount({ patient: pt('LP-2000', 2000), onLog: logger().onLog });
     baseOrder();
     const rate = () => text(container.querySelector('.lipid-gkgh'));
-    ok('2 g/kg/d over 24 h = 0.083 g/kg/h', /0\.083 g\/kg\/h/.test(rate()), rate());
+    // 2 decimals since the TPN team's 2026-09-28 meeting (verify-tpn-meeting-0928 §5).
+    ok('2 g/kg/d over 24 h = 0.08 g/kg/h', /(^|[^\d.])0\.08 g\/kg\/h/.test(rate()), rate());
     lipidHours(20);
     ok('…over 20 h = 0.1 g/kg/h', /(^|[^\d.])0\.1 g\/kg\/h/.test(rate()), rate());
     lipidHours(16);
-    ok('…over 16 h = 0.125 g/kg/h', /0\.125 g\/kg\/h/.test(rate()), rate());
+    ok('…over 16 h = 0.13 g/kg/h', /(^|[^\d.])0\.13 g\/kg\/h/.test(rate()), rate());
     lipidHours(20);
     await save();
     ok('the form\'s lipid pump line has it', /Lipid pump rate.{0,120}0\.1 g\/kg\/h/.test(printText()), printText().match(/Lipid pump rate.{0,140}/));
     const copy = await copyOrder();
     ok('…and so does the copied order', /Lipid bag:[^\n]*0\.1 g\/kg\/h/.test(copy), copy.match(/Lipid bag:[^\n]*/));
-    setField('SMOF Lipid', 0);
+    setField('20% lipid', 0);
     ok('no lipid: no rate', !container.querySelector('.lipid-gkgh'));
   });
 
@@ -301,7 +303,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     mount({ patient: pt('OP-2000', 2000), onLog: log.onLog });
     baseOrder();
     // D12.5 + AA 3 g/kg in 180 mL: 625 + 333 = 958 mOsm/L. SMOF 3 keeps IV NPE:AA ≥ 20.
-    setField('Dextrose final', 12.5); setField('Amino acid', 3); setField('SMOF Lipid', 3);
+    setField('Dextrose final', 12.5); setField('Amino acid', 3); setField('20% lipid', 3);
     click(button(/^Peripheral$/));
     eq('the only critical alert is osmolarity', alertRows().filter(a => a.level === 'crit').map(a => a.title), ['Osmolarity > peripheral limit']);
     const shown = await save('fixture — central line tomorrow');
@@ -328,8 +330,9 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     eq('calcInput.savedByLabel is the saver\'s "Name (email)"', log.entry && log.entry.calcInput.savedByLabel, 'Dr Test (doc@kcmh.test)');
     const top = text(container.querySelector('#print-form .print-saved-by'));
     ok('the back page names the saver, with time and revision', /Dr Test \(doc@kcmh\.test\)/.test(top) && /ฉบับที่/.test(top), top);
-    ok('the front names the doctor at "แพทย์", where the paper form asks',
-      /Dr Test \(doc@kcmh\.test\)/.test(text(container.querySelector('#print-form .print-doctor'))), text(container.querySelector('#print-form .print-doctor')));
+    // The name only since 2026-09-28: no email on the doctor's sheet (verify-tpn-meeting-0928 §8).
+    eq('the front names the doctor at "แพทย์", where the paper form asks',
+      text(container.querySelector('#print-form .print-doctor')), 'Dr Test');
     ok('the Save card names the saver too', /Dr Test \(doc@kcmh\.test\)/.test(text(container.querySelector('.saved-by'))), text(container.querySelector('.saved-by')));
 
     const row = (id, extra, ci) => ({ entryId: id, lastModified: '2026-09-22T03:00:00.000Z', ts: '2026-09-22', dol: 1, weight: 2000,
@@ -353,22 +356,33 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
   });
 
   // ═══════════════════════════ §7 K⁺ in the bag ════════════════════════════
-  await section('§7 K⁺ concentration of the bag has its own tile; the stop stays at 40 mEq/L', async () => {
+  // Since the TPN team's meeting of 2026-09-28 the bag's K⁺ is graded by route
+  // (D.K_BAG_MEQ_PER_L): peripheral amber above 40 and critical above 60,
+  // central amber above 60, critical above 120, not orderable above 200. The worksheet's single
+  // 40 mEq/L stop is gone (verify-tpn-meeting-0928 §10 has the full grid).
+  await section('§7 K⁺ concentration of the bag has its own tile, graded by route', async () => {
     const log = logger();
     mount({ patient: pt('KC-2000', 2000), onLog: log.onLog });
     baseOrder();
     setField('KCl', 2);   // 4 mEq in 180 mL = 22 mEq/L
     eq('KCl 2 mEq/kg in 180 mL: the tile reads 22', tileVal('K⁺ in bag'), '22 mEq/L');
     eq('…within range', tileStatus('K⁺ in bag'), 'ok');
-    ok('…no concentration alert', !alertOf('K⁺ concentration too high'), alertTitles());
+    ok('…no concentration alert', !alertOf('K⁺ concentration too high') && !alertOf('K⁺ concentration high'), alertTitles());
     setField('Volume(mL/day)', 100); setField('KCl', 2.75);   // 5.5 mEq in 100 mL = 55 mEq/L
     eq('KCl 2.75 in 100 mL: 55 mEq/L', tileVal('K⁺ in bag'), '55 mEq/L');
-    eq('…critical', tileStatus('K⁺ in bag'), 'crit');
+    eq('…on a central line: within range', tileStatus('K⁺ in bag'), 'ok');
+    ok('under the tile: the central thresholds', /central: amber > 60 · red > 120 · max 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    click(button(/^Peripheral$/));
+    eq('…on a peripheral line: amber', tileStatus('K⁺ in bag'), 'warn');
+    const w = alertOf('K⁺ concentration high');
+    ok('…a caution naming 55 against 40 for a peripheral line', !!w && w.level === 'warn' && /55 mEq\/L/.test(w.text) && /40 mEq\/L for a peripheral line/.test(w.text), w && w.text);
+    // "· max 200" since the review of PR #129 (Praew, "max 200 ทั้งสองสาย").
+    ok('under the tile: the peripheral thresholds', /peripheral: amber > 40 · red > 60 · max 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    setField('KCl', 3.5);   // 7 mEq in 100 mL = 70 mEq/L
+    eq('KCl 3.5 in 100 mL on a peripheral line: 70 mEq/L, critical', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag')], ['70 mEq/L', 'crit']);
     const a = alertOf('K⁺ concentration too high');
     ok('…the alert is critical and keeps its title', !!a && a.level === 'crit', alertRows());
-    ok('…it says 55 against the 40 mEq/L limit', !!a && /55 mEq\/L/.test(a.text) && /40 mEq\/L/.test(a.text), a && a.text);
-    ok('…with peripheral 60 / central 200 for reference', !!a && /peripheral 60/.test(a.text) && /central 200/.test(a.text), a && a.text);
-    ok('under the tile: the limit and the references', /40/.test(text(container.querySelector('.k-conc-ref'))) && /60/.test(text(container.querySelector('.k-conc-ref'))) && /200/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    ok('…it says 70 against 60 for a peripheral line', !!a && /70 mEq\/L/.test(a.text) && /60 mEq\/L for a peripheral line/.test(a.text), a && a.text);
     const shown = await save('fixture — hypokalaemia, fluid restricted');
     ok('Save stops on it', (shown || '').includes('K⁺ concentration too high'), shown);
     eq('…and saves with a reason', log.calls, 1);
@@ -492,7 +506,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('the paper form\'s other choices are there, unticked', ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].every(s => front.includes(s)),
       ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].filter(s => !front.includes(s)));
     ok('the oral orders are under 8. Other', /8\. Other.*Vitamin D/.test(front), front.match(/8\. Other.{0,120}/));
-    ok('the doctor\'s name is at "แพทย์", as on the paper form', /Dr Test \(doc@kcmh\.test\)/.test(text(frontEl.querySelector('.print-doctor'))), text(frontEl.querySelector('.print-doctor')));
+    eq('the doctor\'s name is at "แพทย์", as on the paper form (no email since 2026-09-28)', text(frontEl.querySelector('.print-doctor')), 'Dr Test');
     ok('the front carries no pharmacy working and no alert text',
       !/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/.test(front), front.match(/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/g));
     // Praew: "factor ตรงนี้ ไม่ต้องโชว์ · สูตรตรงนี้ก็ไม่ต้องโชว์" — the vitamins'
@@ -519,7 +533,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     mount({ patient: pt('WT-1234', 1234), onLog: logger().onLog });
     setField('Current weight', 1234); fillRequired(120);
     setField('Volume(mL/day)', 150); setField('ปริมาตรคาสาย', 0);
-    setField('Dextrose final', 10); setField('Amino acid', 2); setField('SMOF Lipid', 2);
+    setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
     setField('ZnSO₄', 0.125);
     await save();
     const t = printText();

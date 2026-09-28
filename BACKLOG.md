@@ -55,6 +55,91 @@ clinical judgement. Everything else is engineering sequencing.
       components and WFI) differ from the KCMH worksheet's G43/G45 — 2.5 against 2.0 mL for a 2 kg
       infant on a 120 mL day. § Next asked for pharmacy to be told *before* this shipped, and nothing
       records that it was. **Praew's to do, or to tick if already done.**
+- [ ] 🩺 **safety/product · The TPN team's meeting of 2026-09-28: 28 requests, in three groups.** The item
+      numbers are those of Praew's meeting notes. Items 1 and 3 already work that way, so there is nothing
+      to build, only the team to tell: Peditrace is × Factor, so it covers the line's volume
+      (`calculator.jsx` `peditrace_vol`, since 2026-09-18), and lipid is dosed on the actual weight with no
+      overfill (`lipidG`).
+      - **A · Can do now — built in PR #129** (`CHANGELOG.md` 2026-09-28): 4 (no
+        Nutritional Status), 6 (feed groups), 10 (dead-space chips 30 / 50 / 100), 11 (dextrose hint),
+        14 (no grams column), 15 (no WFI in Step 2), 16 (g/kg/h to 2 decimals, typed hours), 18 ("20% lipid"
+        on screen), 19 (P per mL), 25 ("สารน้ำเกินแผน"), 28 (no email at "แพทย์"). The parts of 6, 14, 16,
+        18 and 19 that need the team are under B and C.
+      - **B · Waiting for the team's numbers — Praew to ask.**
+        - **6 · New feeds.** Hi-Q Pepti Gastro 20 and 24 kcal/oz, and Nutramigen: per 100 mL kcal, protein,
+          fat, CHO, Na, K, Ca, P and osmolality from the labels KCMH stocks, and how 24 kcal/oz is mixed.
+        - **12–13 · Phase.** Who sets acute / stable / recovery, on what criteria; for each phase the
+          glucose (mg/kg/min and g/kg/d), energy, amino acid and lipid ranges; which references follow the
+          phase and which stay on DOL. Today energy, lipid, Na and K switch by DOL (transition ≤ 2,
+          intermediate ≤ 7, then stable, as the Reference page's electrolyte table prints), so "stable"
+          would mean two things. Below 37 weeks PMA, what separates acute from recovery? The calculator
+          uses no PMA yet.
+        - **14 · Amino acid for older children.** Is "10% aminoparen" Amiparen 10% (`AA_PRODUCTS` lists it,
+          > 1 yr) and "15% aa" Aminoplasmal 15% (not under 2 yr)? Which beds count as an older-children
+          ward (`OLDER_CHILD_WARDS` is empty), and their dead space.
+        - ~~16 · Lipid~~ — **answered by Praew on 2026-09-28 and built** (`CHANGELOG.md` 2026-09-28 (2)): the
+          pump rate stays at 2 decimals; ceiling amber above 0.13, critical above 0.17 g/kg/h; hours 1–24.
+        - **17 · Vitalipid.** Which products (N Infant, N Adult), each one's dose (today 4 mL/kg, max
+          10 mL) and who gets which.
+        - ~~20 · Na acetate~~ — **answered by Praew on 2026-09-28, after checking with the TPN team**:
+          *"confirm with tpn team แล้ว 1 mL มี Na 3 กับ acetate 6 mEq"*. **Na 3 mEq/mL is
+          `KCMH_STOCK.naAcetate`**, so every Na dose and printed mL stands; the Na half of "Confirm Na
+          acetate …" below is closed. The team gives acetate as 6 mEq/mL. Sodium acetate is 1 : 1, so
+          3 mEq Na/mL would carry 3 mEq acetate/mL, and 6 may be the osmolarity (6 mOsm/mL). NeoFeed shows no
+          acetate today (`naAcet` feeds Na only), so nothing prints wrong. **Before acetate is ever shown (in
+          mmol/kg/d?), read acetate and mOsm per mL off the vial label.**
+          ➡️ *Later the same day:* Praew asked for acetate to be shown, then chose to wait for the label. The
+          display is built (Step 4 caption and note, copied order) and switched off:
+          `KCMH_STOCK.naAcetate.acetateMeqPerMl` is `null`.
+          - [ ] 🩺 **Praew: photograph the Na acetate vial label; set `acetateMeqPerMl` from it (3 if the 6 is
+            mOsm/mL) and add its row to `docs/CLINICAL_CONSTANTS.md`.**
+        - **21 · Ca–P precipitation.** Whose curve (manufacturer or pharmacy) for K₂HPO₄ with Aminoven
+          Infant 10 %, at which AA and Ca concentrations and temperature, and where it warns or stops.
+          Glycophos is an organic phosphate, outside such a curve.
+        - **22 · Mg in mg/kg/d.** Milligrams of elemental Mg or of MgSO₄·7H₂O? They differ about 10×:
+          1 mEq = 12.2 mg Mg = 123 mg MgSO₄·7H₂O. The app's mg/kg/d line is elemental. Which range: the
+          one the Magnesium tile already cites (ESPGHAN 2018: preterm first days 0.1–0.2 mmol, 2.5–5 mg;
+          growing 0.2–0.3 mmol, 5–7.5 mg)?
+        - ~~23 · 26 · K⁺ and osmolarity by route~~ — **answered by Praew on 2026-09-28 and built**: central
+          amber from 60; the KCMH 40 mEq/L stop is cancelled; no upper osmolarity limit on a central line.
+          **Source search (2026-09-28):** peripheral 60 fits published neonatal practice, but central 200 is
+          above every neonatal or paediatric source found (ANMF 2020 central ≤ 80; IWK Health NICU 120; IMSN
+          2020: 200 mmol/L bags are adult critical care only). At the 3.5 mEq/kg/d IV K⁺ stop a bag reaches
+          200 only below 17.5 mL/kg/d, so its critical alert would almost never fire. ESPGHAN 2018 gives no
+          central osmolarity limit either; "central" should mean a checked central tip (Kolaček R 10.13–10.16).
+          `docs/CLINICAL_CONSTANTS.md` has the sources.
+          - [x] 🩺 **Praew / TPN team, before this ships: keep central K⁺ 200, or lower it (80–120)?** Answered
+            2026-09-28: red above 120, and 200 as a maximum that cannot be ordered (`CHANGELOG.md` 2026-09-28 (3)).
+          - [x] 🩺 **Peripheral K⁺ maximum.** The review of PR #129 found that switching a central bag above
+            200 to Peripheral made it orderable with a reason. Praew: "max 200 ทั้งสองสาย" — built
+            (`CHANGELOG.md` 2026-09-28 (6)). Whether peripheral should stop lower than 200 is for the team.
+        - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
+          (split in two) or a stop.
+        - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,
+          Vitalipid N, Glycophos?) and keep their name; the rest read generic (brand), as item 14 says.
+        - **The edges of what A built.** 18: the form still ticks "20% SMOF" on the KCMH paper form's own list,
+          and the copied order names SMOF: change them too? 11 and 14: the form keeps "g in bag", as the paper
+          form has it: fine? 6: built as groups, not as new names: the right reading? 25: "สารน้ำเกินแผน": the
+          right words? (19 is answered: the split is removed from the screen and still calculated.)
+      - **C · New design work** (each needs a design Praew signs off; some also need B's numbers).
+        - **7 · 8 · Feeds.** Brand and concentration chosen separately; a second feed with its own volume
+          and feeds a day (BM alternating with PF, unequal counts) in place of the fixed 50 : 50
+          "FBM 24 ↔ Infatrini 30". Touches `calcInput`, `Daily_Log`, the form and Center Point's packet.
+        - **2 · Phosphate typed directly**, in which unit and landing in which salt. Today P follows the
+          Na or K typed for Glycophos or K₂HPO₄.
+        - **5 · Liver and renal dysfunction in the app**, saved with the order and printed ticked; decide
+          whether they prompt anything (Peditrace's Mn and Cu in cholestasis, for one).
+        - **9 · 28 · Acknowledging red alerts.** A tick per red alert before Print (today: a typed reason
+          at Submit); the front sheet lists the critical alerts with a tick and a signature, and has a
+          "ยืนยันการสั่ง" box for the sticker and signature.
+        - **19 · 27 · A pharmacist view.** How many TPN orders there are; Submit = compound, Save draft =
+          may be waiting for labs, do not compound yet. The "ถึงผู้ป่วย + คาสาย" split left the doctor's
+          screen on 2026-09-28 (Praew: calculated, not shown); a pharmacist view could show it again. Joins
+          "Pharmacist role" in § Later.
+        - **26 · Alert tiers.** Confirm with a reason (osmolarity, K⁺, over the bottle) versus a hard stop.
+          **"Bag cannot be compounded"** (components over the prepared bag) is a critical alert today, so
+          a typed reason saves and prints it; a bag that cannot be made should stop.
+        - **12 · 13 · The phase field, and glucose g/kg/d as large as GIR**, once B has the ranges.
 - [ ] 📈 **ops · `Audit_Log` growth — now with a hard limit.** The poll adds **15 `readRegistry` rows per
       hour per open tab**, and Google Sheets caps a **workbook** at 10,000,000 cells — empty grid cells
       included. A tab made by `insertSheet` is 26 columns wide, so each 4-column audit row costs 26
@@ -132,8 +217,9 @@ clinical judgement. Everything else is engineering sequencing.
       cosmetic `constantsVersion`/`appVersion` labels to `Daily_Log` row 1. Purely presentational —
       the columns are read and written by index and already work without it. It executes as the
       signed-in user and may raise an OAuth consent, **so it is Praew's to run.**
-- [ ] 🩺 **safety · Confirm Na acetate (3 mEq/mL) and KCl (2 mEq/mL) stock concentrations against the
-      shelf.** Both were *inferred* from the KCMH worksheet's divisors, not read off an explicit
+- [ ] 🩺 **safety · Small-volume rounding on the pharmacy form — both stock strengths are now confirmed.**
+      Na acetate 3 mEq/mL and KCl 2 mEq/mL were confirmed on 2026-09-28 (below); what stays open is the
+      0.1 mL rounding of small stock volumes. History: both strengths were *inferred* from the KCMH worksheet's divisors, not read off an explicit
       strength label. **These corrected concentrations change the mL printed on every order form** —
       the highest-stakes open item in the repo. Blocked on a physical check in the ward, not on code.
       ⬆️ **Now answerable after the fact:** since `@50` (2026-08-26) every saved row and every
@@ -146,6 +232,9 @@ clinical judgement. Everything else is engineering sequencing.
       0.34 mEq (−32 %), KCl/Na acetate +20 %. Praew (2026-09-17): the Na dose itself may still be
       wrong — confirm with pharmacy before changing either. `verify-review-0917-calc.cjs` § 6 pins
       today's printed figures so nothing drifts meanwhile.
+      ✅ **2026-09-28 — Na acetate confirmed** (B · 20 above): Praew checked with the TPN team, and 1 mL
+      carries Na 3 mEq, the value NeoFeed already uses. ✅ **2026-09-28 — KCl confirmed**: Praew, "KCl 2 mEq/mL
+      ถูกต้อง", the value NeoFeed already uses. **Still open: the small-volume rounding above.**
 - [ ] 📈 **product · M1, weekly active users — ⚙️ BUILT 2026-08-21, NOT YET RUN.** `usageMetrics()` +
       `getUsageMetrics()` are in `gas-backend.gs`, pinned by `test/verify-usage-metrics.cjs`
       (30 assertions, green). **The number still does not exist**, because nothing has read the live
@@ -444,6 +533,9 @@ clinical judgement. Everything else is engineering sequencing.
         can offer it.
 - [ ] 🧱 **follow-ups · From the 2026-09-18 pre-deploy review** (`CHANGELOG.md` 2026-09-18 (2) §6) —
       engineering, low risk, not blocking.
+      - **Center Point, since the 2026-09-28 TPN-team meeting (PR #129).** NeoFeed's changes list says "20%
+        lipid"; CP's `tpn-document.mjs:116` still says "SMOF lipid". Rename it with the next packet version, in
+        both copies, and re-pin the digest.
       - **Center Point, since the 2026-09-22 TPN-team release.** CP's `neofeed-tpn-v2` packet has no
         ZnSO₄ slot, so the CP entry does not offer ZnSO₄. CP's sheet (`tpn-document.mjs`, digest-pinned)
         still prints its own one-page layout and its own number formats, trailing zeros included. Bring

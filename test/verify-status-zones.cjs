@@ -156,7 +156,7 @@ const HARD = {                                          // where red must start,
   'GIR (readout)': 13 / 16 * 100,                       // Praew: red above 13
   'Protein': 4.8 / 5.5 * 100,
   'Energy (total)': 160 / 180 * 100,                    // ESPGHAN 2022: never above 160 (D.KCAL_HARD_HI)
-  'K⁺ in bag': 40 / 80 * 100,                           // the worksheet's stop (D.MAX_K_MEQ_PER_L)
+  'K⁺ in bag': 120 / 200 * 100,                         // central: red above 120 on a bar that ends at the 200 maximum (D.K_BAG_MEQ_PER_L, 2026-09-28)
 };
 for (const { name, container } of mounted) {
   for (const r of readings(container)) {
@@ -166,6 +166,9 @@ for (const { name, container } of mounted) {
     const route = name === 'past the hard limits' ? 'peripheral' : 'central';
     let want = HARD[r.label];
     if (r.label === 'Osmolarity' && route === 'peripheral') want = 900 / 1100 * 100;
+    // Red above 60 on a bar that ends at the 200 maximum, as central's does
+    // (Praew, reviewing PR #129: "max 200 ทั้งสองสาย"; it was 1.5 × 60 long).
+    if (r.label === 'K⁺ in bag' && route === 'peripheral') want = 60 / 200 * 100;
     if (want === undefined) {
       ok(`${name} · ${r.label}: no red — it has no hard limit of its own`, red.length === 0, red);
     } else {

@@ -269,11 +269,18 @@ function expectedAlerts(sc, e) {
   if (sc.men && e.enPerKg > 24) add('warn', 'MEN ticked above trophic volume');
   if (bagOrdered) {
     if (sc.route === 'peripheral') { if (e.osm > 900) add('crit', 'Osmolarity > peripheral limit'); else if (e.osm > 850) add('warn', 'Osmolarity near peripheral limit'); }
-    else if (e.osm > 1800) add('warn', 'Osmolarity high for central line');
+    // A central line has no upper osmolarity limit since 2026-09-28 (Praew).
   }
   if (e.Vd > 0 && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
   if (e.dexGkg > 18) add('crit', 'Dextrose over KCMH max');
-  if (e.kPerL > 40) add('crit', 'K⁺ concentration too high');
+  // K⁺ in the bag by route since 2026-09-28 (TPN team and Praew): peripheral amber > 40, critical > 60;
+  // central amber > 60, critical > 120, not orderable > 200. Written out here, not read from data.js.
+  { const k = sc.route === 'central' ? { warn: 60, red: 120, hardMax: 200 } : { warn: 40, red: 60 };
+    if (k.hardMax && e.kPerL > k.hardMax) add('crit', 'K⁺ above the maximum');
+    else if (e.kPerL > k.red) add('crit', 'K⁺ concentration too high'); else if (e.kPerL > k.warn) add('warn', 'K⁺ concentration high'); }
+  // Lipid g/kg/h against 0.13 / 0.17, on the 2-decimal figure shown (TPN team and Praew, 2026-09-28).
+  if (sc.lip > 0) { const g = Math.round(sc.lip / sc.lipH * 100) / 100;
+    if (g > 0.17) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
   if (e.znTot > 5) add('crit', 'Zinc total above 5 mg/day');
   if (bagOrdered && e.wfi < 0) add('crit', 'Bag cannot be compounded');
   if (e.Vd > 0 && sc.ca > 0 && sc.k2 > 0) add('warn', 'Calcium–phosphate compatibility not calculated');
@@ -418,7 +425,7 @@ async function run(scIn) {
   setField('ปริมาตรคาสาย', sc.dead);
   setField('Dextrose final', sc.dex);
   setField('Amino acid', sc.aa);
-  setField('SMOF Lipid 20%', sc.lip);
+  setField('20% lipid', sc.lip);
   click([...container.querySelectorAll('button')].find(b => b.textContent === `${sc.lipH}h`));
   // Step 4
   setField('20% NaCl', sc.naCl);
@@ -453,7 +460,7 @@ async function run(scIn) {
   const grabT = (re) => { const m = t.match(re); return m ? parseFloat(m[1]) : null; };
   near(sc, 'Step1 Plan mL/d', grabT(/Plan ([\d.]+) · Prescribed/), e.planMl, 0);
   near(sc, 'Step1 Prescribed mL/d', grabT(/· Prescribed ([\d.]+) mL\/d/), e.prescribed, 0);
-  near(sc, 'Step1 Remaining |mL|', grabT(/(?:Remaining|Over target)\+?([\d.]+)mL\/d (?:left|over)/), Math.abs(e.remaining), 1);
+  near(sc, 'Step1 Remaining |mL|', grabT(/(?:Remaining|สารน้ำเกินแผน)\+?([\d.]+)mL\/d (?:left|over)/), Math.abs(e.remaining), 1);
   near(sc, 'TPN calc weight shown (g)', num(inputFor('TPN calc. weight').value), e.wG, 0);
   near(sc, 'EN volume tile mL/kg/d', tileVal('EN volume'), e.enPerKg, 0);
   if (e.availEN >= 0) near(sc, 'Remaining fluid for EN mL/d', grabT(/Remaining fluid for EN([\d.]+)mL\/day/), e.availEN, 0);
@@ -474,12 +481,13 @@ async function run(scIn) {
   near(sc, 'AA stock mL/day', grabT(/Volume([\d.]+) mL\/day/), e.aaMl, 1);
   if (e.Vd > 0) {
     near(sc, 'Components mL', grabT(/Components([\d.]+) mL/), e.components, 1);
-    near(sc, 'WFI q.s. mL', grabT(/WFI q\.s\.(-?[\d.]+) mL/), e.wfi, 1);
+    // WFI q.s. left the screen on 2026-09-28 (TPN team); the print and copy
+    // checks below still hold it to the oracle.
   }
   if (sc.lip > 0) {
     near(sc, 'Lipid pump rate mL/hr', grabT(/PUMP RATE([\d.]+)mL\/hr/), e.lipRate, 2);
-    near(sc, 'Lipid g/kg/h', num(container.querySelector('.lipid-gkgh')?.textContent), e.lipGkgh, 3);
-    near(sc, 'SMOF mL/day', grabT(/SMOF volume([\d.]+) mL\/day/), e.smof, 1);
+    near(sc, 'Lipid g/kg/h', num(container.querySelector('.lipid-gkgh')?.textContent), e.lipGkgh, 2);   // 2 decimals since 2026-09-28
+    near(sc, 'Lipid mL/day', grabT(/Lipid volume([\d.]+) mL\/day/), e.smof, 1);
     near(sc, 'Vitalipid mL/day', grabT(/\+ Vitalipid N([\d.]+) mL\/day/), e.vitalipid, 1);
   }
   near(sc, 'tile Energy kcal/kg/d', tileVal('Energy (total)'), e.kcalKg, 0);
@@ -614,7 +622,8 @@ async function run(scIn) {
     near(sc, 'copy summary protein', g(/SUMMARY: Protein ([\d.]+) g\/kg/), e.proKg, 1);
     near(sc, 'copy summary energy', g(/Energy ([\d.]+) kcal\/kg \|/), e.kcalKg, 0);
     near(sc, 'copy total Na delivered', g(/Total Na: +[\d.]+ mEq in bag = ([\d.]+) mEq\/kg\/d/), e.naKg, 1);
-    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L, max 40\)/), e.kPerL, 0);
+    // Max 200 on both routes since the review of PR #129 (Praew, "max 200 ทั้งสองสาย").
+    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L; confirm above (?:60, max 200 on a peripheral|120, max 200 on a central) line\)/), e.kPerL, 0);
     near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
     if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.oCa > 0) near(sc, 'copy oral Ca tabs/day', g(/mg\/day → ([\d.]+) tab\/day/), e.oCa_tabs, 2);

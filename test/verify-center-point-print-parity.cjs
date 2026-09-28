@@ -102,7 +102,7 @@ const ORDER = [
   ['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],
   ['Volume(mL/feed)', 7], ['Frequency', 8],
   ['Volume(mL/day)', 137], ['Dextrose final', 12.5],
-  ['Amino acid', 3.2], ['SMOF Lipid', 2.6], ['Heparin', 0.5],
+  ['Amino acid', 3.2], ['20% lipid', 2.6], ['Heparin', 0.5],
   ['20% NaCl', 2.3], ['Na Acetate', 1.1], ['Glycophos', 0.7], ['KCl', 3.1], ['K₂HPO₄', 1.3],
   ['MgSO₄', 0.35], ['10% Ca gluconate', 47],
   ['Iron', 2.5], ['ปริมาณ elem Ca', 60], ['ปริมาณ elem P', 35], ['Vitamin D', 450],

@@ -11,7 +11,10 @@
 //   I1  the Factor round-trip: what reaches the infant per kg is what was
 //       ordered, to within the 0.05 mL a syringe can be drawn to
 //   I2  dead space moves no delivered figure — not GIR, not osmolarity, not kcal/kg
-//   I3  components + WFI q.s. = the prepared volume
+//   I3  the bag make-up adds up: its bag total is the prepared volume, and it
+//       says "cannot be compounded" exactly when the components exceed it
+//       (WFI q.s. < 0). WFI itself left the screen on 2026-09-28 (TPN team);
+//       verify-calc-oracle.cjs still checks it on the form and the copied order.
 //   I4  no NaN, Infinity, undefined, float tail or trailing zero in any text
 //       node on screen (Praew's rule: "18.0" can be read as 180)
 //   I5  a critical tile always comes with a critical alert (the F1 rule)
@@ -166,7 +169,7 @@ for (let i = 0; i < COUNT; i++) {
   if (menBox.checked !== s.men) act(() => menBox.click());
   click([...container.querySelectorAll('.step2-ctrl .seg button')].find(b => b.textContent === (s.route === 'central' ? 'Central' : 'Peripheral')));
   setField('Volume(mL/day)', s.tpn); setField('ปริมาตรคาสาย', s.dead);
-  setField('Dextrose final', s.dex); setField('Amino acid', s.aa); setField('SMOF Lipid 20%', s.lip);
+  setField('Dextrose final', s.dex); setField('Amino acid', s.aa); setField('20% lipid', s.lip);
   click([...container.querySelectorAll('button')].find(b => b.textContent === `${s.lipH}h`));
   setField('20% NaCl', s.naCl); setField('Na Acetate', s.naAc); setField('Glycophos', s.glyNa);
   setField('KCl', s.kCl); setField('K₂HPO₄', s.k2); setField('MgSO₄', s.mg);
@@ -197,13 +200,18 @@ for (let i = 0; i < COUNT; i++) {
   // toFixed and Math.round can land on either side of it (10.45 → 10.4 / 10.5)
   if (e.d50 > 0) nearTol(s, 'D50W mL', grab(/D50W: ([\d.]+) mL\/d/), e.d50, 0.1001);
   if (s.aa > 0) nearTol(s, 'AA mL', grab(/Volume([\d.]+) mL\/day/), e.aaMl, 0.1001);
-  if (s.lip > 0) { nearTol(s, 'SMOF mL', grab(/SMOF volume([\d.]+) mL\/day/), e.smof, 0.1001);
+  if (s.lip > 0) { nearTol(s, 'Lipid mL', grab(/Lipid volume([\d.]+) mL\/day/), e.smof, 0.1001);
     near(s, 'Vitalipid mL', grab(/\+ Vitalipid N([\d.]+) mL\/day/), e.vitalipid, 1); }
 
-  // I3 · components + WFI = prepared
+  // I3 · the bag make-up: bag total = prepared; "cannot be compounded" ⇔ components > prepared
   if (s.tpn > 0) {
-    const comp = grab(/Components([\d.]+) mL/), wfi = grab(/WFI q\.s\.(-?[\d.]+) mL/);
-    checks++; if (comp === null || wfi === null || Math.abs(comp + wfi - e.Vp) > 0.051) fail(s, 'I3 components+WFI=prepared', [comp, wfi], e.Vp);
+    const comp = grab(/Components([\d.]+) mL/), bag = grab(/Bag total \(prepared\)([\d.]+) mL/);
+    checks++; if (comp === null || bag === null || Math.abs(bag - e.Vp) > 0.051) fail(s, 'I3 bag total = prepared', [comp, bag], e.Vp);
+    // Components are shown to 1 decimal: within 0.05 of the bag the rounding cannot tell.
+    if (comp !== null && Math.abs(comp - e.Vp) > 0.051) {
+      const said = /cannot be compounded/.test(text()), over = comp > e.Vp;
+      checks++; if (said !== over) fail(s, 'I3 "cannot be compounded" exactly when components > prepared', { comp, said }, { Vp: e.Vp, over });
+    }
   }
   // I4 · nothing broken on screen. Per TEXT NODE, not the concatenated text:
   // adjacent chips ("0.2" "0.4" "0.6") join into "0.20.40.6" in textContent.
