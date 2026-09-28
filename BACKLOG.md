@@ -60,7 +60,7 @@ clinical judgement. Everything else is engineering sequencing.
       to build, only the team to tell: Peditrace is × Factor, so it covers the line's volume
       (`calculator.jsx` `peditrace_vol`, since 2026-09-18), and lipid is dosed on the actual weight with no
       overfill (`lipidG`).
-      - **A · Can do now — built on `claude/tpn-meeting-0928`** (`CHANGELOG.md` 2026-09-28): 4 (no
+      - **A · Can do now — built in PR #129** (`CHANGELOG.md` 2026-09-28): 4 (no
         Nutritional Status), 6 (feed groups), 10 (dead-space chips 30 / 50 / 100), 11 (dextrose hint),
         14 (no grams column), 15 (no WFI in Step 2), 16 (g/kg/h to 2 decimals, typed hours), 18 ("20% lipid"
         on screen), 19 (P per mL), 25 ("สารน้ำเกินแผน"), 28 (no email at "แพทย์"). The parts of 6, 14, 16,

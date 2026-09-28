@@ -12,7 +12,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 Frontend only: `calculator.jsx`, `app.jsx` (the Formula page's groups), both shells and `compiled/`. No
 backend, no `data.js`, and no dose or compounding figure moves, so `CONSTANTS_VERSION` stays `2026-09-18.1`
 (`data.js`: "not for comments, labels or UI"). The form's lipid g/kg/h now prints to 2 decimals; it is a
-conversion in brackets, not a dose. On `claude/tpn-meeting-0928`, not merged.
+conversion in brackets, not a dose. PR #129, not merged.
 
 ### Why
 
