@@ -286,7 +286,7 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
 `verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
 `verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs`, `verify-pdpa-erased-dob-frontend.cjs`,
-`verify-ward-requests-0925.cjs`, `verify-name-id-0927.cjs` and
+`verify-ward-requests-0925.cjs`, `verify-name-id-0927.cjs`, `verify-ward-requests-1001.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -1314,6 +1314,25 @@ peripheral limit on the form, back sheet and copied order, and a saved row above
 even with every critical alert given a reason (and, as the control, printing at 50 mEq/L); § 10b, the quick
 calc's copied text flagging a bag above the maximum. Against `76db4d9`, 9 checks fail.
 113 checks in all.
+
+## The search wording and the All entries table, 2026-10-01 — one harness, seven adjusted
+
+Pp's four requests from three phone screenshots (`CHANGELOG.md` 2026-10-01).
+**`verify-ward-requests-1001.cjs`** (28 assertions; the jsdom set).
+- § 1: in both shells, `table.tbl-entries` cells are `nowrap` and its headers top-aligned; `.th-unit` is a
+  block under the name with `text-transform: none`; `.tbl-scroll` still scrolls sideways;
+- § 2: the ward list's box and the topbar switcher both read "เตียง / ชื่อ / นามสกุล", each with an
+  aria-label starting "ค้นหา", and the old wording is gone from `registry.jsx`;
+- § 3: the real `<DailyLog>`: the columns (no Day admit), each unit under its name from `METRICS`, no unit
+  in any cell, and each row's `data-admit-day` equal to `entryDol − admissionDol` (9 and 7 for an infant
+  admitted on DOL 6, one of the rows carrying a stale stored `dol`).
+
+Against `HEAD` before the change, 23 of the 28 fail. Seven harnesses read the old layout and were moved to the
+new one, pinning the same facts: `verify-tpn-team-0922` (cell indices; "3", not "3 g/kg"),
+`verify-single-source-weight-dol` 5.1 and `runthrough-app` (Day admit read from `data-admit-day`),
+`verify-review-0917-calc` (rows found by the weight cell), `verify-phone-sweep` (the table's class list),
+`verify-ward-requests-0925` (the placeholder wording) and `verify-review-0917-session` (the switcher found by
+its aria-label).
 
 ## Note on the source workbook
 

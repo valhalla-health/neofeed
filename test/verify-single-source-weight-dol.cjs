@@ -287,8 +287,10 @@ runScenarios(__filename, 'SINGLE SOURCE — WEIGHT AND DOL', {
     const t = boot({ patients: [P], log: LOG });
     const restore = t.quiet();
     await openInfant(t);
+    // Not a column since 2026-10-01 (Pp: hide it, keep the calculation); the
+    // row carries it as data-admit-day.
     A.eq('5.1 "Day admit" counts from the admission DOL (6), not the birth row',
-      [16, 18, 20].map(d => tableRow(d) && digits(tableRow(d).cells[1].textContent)), [10, 12, 14]);
+      [16, 18, 20].map(d => tableRow(d) && digits(tableRow(d).dataset.admitDay)), [10, 12, 14]);
     await t.click([...document.querySelectorAll('.trend-chip')].find(b => /Weight/.test(b.textContent)));
     const latest = document.querySelector('.trend-latest')?.firstElementChild?.children[1]?.textContent;
     A.eq('5.2 the Trend\'s Weight reads the same latest weight as the strip', digits(latest), WEIGHT_NOW);

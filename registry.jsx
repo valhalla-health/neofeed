@@ -328,7 +328,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           {/* No autocomplete, autocorrect or spellcheck: a name is two
               letters, and a phone's keyboard "correcting" สม into a word, or
               a browser remembering what was searched on a shared ward
-              workstation, is the opposite of what this box is for. */}
+              workstation, is the opposite of what this box is for.
+              The placeholder is Pp's wording (2026-10-01), bed first and
+              short enough not to be cut off on a phone; the magnifier and
+              aria-label already say it is a search. */}
           <input
             className="inp"
             lang="th"
@@ -339,7 +342,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
             autoCapitalize="off"
             spellCheck={false}
             aria-label={`ค้นหาผู้ป่วยใน ${wardName}`}
-            placeholder="ค้นหา ชื่อ หรือ นามสกุล · เลขเตียง"
+            placeholder="เตียง / ชื่อ / นามสกุล"
             value={filter}
             onChange={e => setFilter(e.target.value)}
             onKeyDown={e => { if (e.key === "Escape" && filter) { e.preventDefault(); setFilter(""); } }}
@@ -1162,7 +1165,8 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
       <div className="picker" onClick={e => e.stopPropagation()}>
         <div className="picker-h">
           <Icon name="search" size={16} color="var(--ink-3)" />
-          <input placeholder="ค้นหา ชื่อ หรือ นามสกุล · เลขเตียง" value={q} onChange={e => setQ(e.target.value)} autoFocus
+          {/* The ward list's wording (Pp, 2026-10-01); the label says "search". */}
+          <input aria-label="ค้นหาผู้ป่วย" placeholder="เตียง / ชื่อ / นามสกุล" value={q} onChange={e => setQ(e.target.value)} autoFocus
             lang="th" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
           <button className="btn sm" onClick={onClose}>Close</button>
         </div>

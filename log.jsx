@@ -570,20 +570,25 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
           // Scrolls inside the card when it is wider than the workspace (a
           // landscape phone, an iPad), instead of dragging the whole screen
           // sideways — 2026-09-25 phone sweep.
+          //
+          // Pp, 2026-10-01: every cell on one line ("6 / 2", a date) instead
+          // of stacked three high on a phone — .tbl-entries is nowrap and the
+          // box above scrolls; each unit once, under its column name, not
+          // after every number (the Trend's METRICS units, so the two agree);
+          // and no Day admit column. The Trend still plots by admission day.
           <div className="tbl-scroll">
-          <table className="tbl">
+          <table className="tbl tbl-entries">
             <thead>
               <tr>
                 <th>DOL</th>
-                <th>Day admit</th>
                 <th>Date</th>
-                <th>Weight</th>
-                <th>Fluid</th>
-                <th>GIR</th>
-                <th>Protein</th>
-                <th>Energy</th>
-                <th>Na / K</th>
-                <th>Ca / P</th>
+                <EntryTh label="Weight" metric="weight" />
+                <EntryTh label="Fluid" metric="fluid" />
+                <EntryTh label="GIR" metric="gir" />
+                <EntryTh label="Protein" metric="pro" />
+                <EntryTh label="Energy" metric="kcal" />
+                <EntryTh label="Na / K" metric="na" />
+                <EntryTh label="Ca / P" metric="ca" />
                 <th>Route</th>
                 <th>สถานะ</th>
                 {onDeleteEntry && <th></th>}
@@ -591,7 +596,9 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
             </thead>
             <tbody>
               {(() => {
-                // Day admit counts from the admission day's DOL (D_L.admissionDol).
+                // The admission day, counted from the admission day's DOL
+                // (D_L.admissionDol) exactly as the Day admit column did. Not
+                // shown since 2026-10-01; kept on the row as data-admit-day.
                 const admitDol = D_L.admissionDol(patient);
                 // Newest first by calendar date. Sorting on the stored `dol`
                 // put rows out of order whenever that column was stale (the
@@ -610,18 +617,17 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
                   const editable = !!(onEditEntry && e.entryId) && !pending;
                   const eDol = D_L.entryDol(patient, e);
                   return (
-                    <tr key={e.entryId || i}
+                    <tr key={e.entryId || i} data-admit-day={eDol - admitDol}
                       onClick={editable ? () => onEditEntry(e) : undefined}
                       title={pending ? "กำลังบันทึก…" : editable ? (e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy} — กดเพื่อแก้ไข` : "กดเพื่อแก้ไข") : "บันทึกเก่า — แก้ไขไม่ได้"}
                       style={{ cursor: editable ? "pointer" : "default" }}>
                       <td className="num" style={{ fontWeight: 600 }}>{eDol}</td>
-                      <td className="num" style={{ color: "var(--ink-3)" }}>{eDol - admitDol}</td>
                       <td style={{ color: "var(--ink-3)", fontSize: 11.5 }}>{window.NEOFEED_FMT_DATE?.(e.ts) || e.ts}</td>
-                      <td className="num">{e.weight || "—"} g</td>
-                      <td className="num">{n(e.fluid, 0)} mL/kg</td>
+                      <td className="num">{e.weight || "—"}</td>
+                      <td className="num">{n(e.fluid, 0)}</td>
                       <td className="num">{n(e.gir, 1)}</td>
-                      <td className="num">{n(e.pro, 1)} g/kg</td>
-                      <td className="num">{n(e.kcal, 0)} kcal/kg</td>
+                      <td className="num">{n(e.pro, 1)}</td>
+                      <td className="num">{n(e.kcal, 0)}</td>
                       <td className="num">{n(e.na, 1)} / {n(e.k, 1)}</td>
                       <td className="num">{n(e.ca, 0)} / {n(e.p, 0)}</td>
                       <td style={{ color: "var(--ink-2)" }}>{e.route}</td>
@@ -652,6 +658,14 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
       </div>
     </>
   );
+}
+
+// A column of the All entries table: its name, and under it the unit, from
+// the Trend's METRICS so the table and the graph cannot disagree on one.
+// Na / K and Ca / P share a unit, so the first of each pair names it.
+function EntryTh({ label, metric }) {
+  const unit = METRICS.find(m => m.key === metric).unit;
+  return <th>{label}<span className="th-unit">{unit}</span></th>;
 }
 
 // Choice shown when starting a new log entry — today, or back-dated to a

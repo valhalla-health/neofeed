@@ -43,7 +43,7 @@ async function emailLogin(t, email = 'n@test.th') {
   });
   await t.flush(); await t.flush();
 }
-const pickerOpen = () => !!document.querySelector('.picker input[placeholder^="ค้นหา"]');
+const pickerOpen = () => !!document.querySelector('.picker input[aria-label^="ค้นหา"]');
 const ctrlK = (t) => t.act(async () => {
   document.dispatchEvent(new t.window.KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
 });

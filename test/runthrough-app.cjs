@@ -240,13 +240,15 @@ await page.locator('.bottom-nav button, nav button').filter({ hasText: /Dashboar
 await page.waitForTimeout(1000);
 await shot('03-dashboard');
 
+// Day admit is not a column since 2026-10-01 (Pp); the row carries it as
+// data-admit-day, computed exactly as the column was.
 const rows = await page.locator('table.tbl tbody tr').evaluateAll(trs =>
-  trs.map(tr => [...tr.children].slice(0, 3).map(td => td.textContent.trim())));
+  trs.map(tr => [tr.children[0], tr.dataset.admitDay, tr.children[1]].map(x => String(x?.textContent ?? x ?? '').trim())));
 console.log('    DOL | Day admit | Date');
 rows.forEach(r => console.log(`     ${r[0].padStart(2)} |    ${r[1].padStart(2)}     | ${r[2]}`));
 eq('rows are newest-date first, DOL matches date',
   rows.map(r => r[0]), ['15', '12', '11', '9', '1']);
-eq('day-of-admission column agrees',
+eq('day-of-admission agrees',
   rows.map(r => r[1]), ['14', '11', '10', '8', '0']);
 
 // header DOL for today (2026-08-17 is "today" only if the clock says so, so

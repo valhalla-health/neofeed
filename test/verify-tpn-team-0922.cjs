@@ -436,10 +436,11 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     const tr = container.querySelector('table.tbl tbody tr');
     ok('fixture: the daily log rendered the row', !!tr);
     eq('daily log row', badNumbersIn(tr), []);
-    // DOL · Day admit · Date · Weight · Fluid · GIR · Protein · Energy · Na / K · Ca / P
+    // DOL · Date · Weight · Fluid · GIR · Protein · Energy · Na / K · Ca / P
+    // (no Day admit column, and the units sit in the header — Pp, 2026-10-01)
     const cell = (i) => text(tr?.querySelectorAll('td')[i]);
-    eq('…protein 2.9999999999999996 reads 3 g/kg', cell(6), '3 g/kg');
-    eq('…Na / K reads 3 / 2', cell(8), '3 / 2');
+    eq('…protein 2.9999999999999996 reads 3', cell(5), '3');
+    eq('…Na / K reads 3 / 2', cell(7), '3 / 2');
   });
 
   // ═══════════════════ §10 the printed order: two pages ════════════════════
