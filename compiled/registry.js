@@ -126,7 +126,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       autoCapitalize: "off",
       spellCheck: false,
       "aria-label": `ค้นหาผู้ป่วยใน ${wardName}`,
-      placeholder: "ค้นหา ชื่อ หรือ นามสกุล · เลขเตียง",
+      placeholder: "เตียง / ชื่อ / นามสกุล",
       value: filter,
       onChange: (e) => setFilter(e.target.value),
       onKeyDown: (e) => {
@@ -578,7 +578,8 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
   return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "picker", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 16, color: "var(--ink-3)" }), /* @__PURE__ */ React.createElement(
     "input",
     {
-      placeholder: "ค้นหา ชื่อ หรือ นามสกุล · เลขเตียง",
+      "aria-label": "ค้นหาผู้ป่วย",
+      placeholder: "เตียง / ชื่อ / นามสกุล",
       value: q,
       onChange: (e) => setQ(e.target.value),
       autoFocus: true,

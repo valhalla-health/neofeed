@@ -7,6 +7,36 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-01 — The search wording and the All entries table
+
+`registry.jsx`, `log.jsx`, both shells and `compiled/`; tests; docs. No clinical constant or calculation changed.
+
+### Why
+
+Pp, from three phone screenshots (ward list, Dashboard): *"ช่องค้นหา ให้ขึ้นว่า เตียง / ชื่อ / นามสกุล"*;
+*"ช่อง all entries ให้ปิด column day of admit ไม่ต้องโชว์แต่ให้คำนวณเหมือนเดิม"*; *"หน่วยให้เอาไปไว้ใต้
+เฮดเดอร์ … จะได้อ่านง่ายขึ้น"*; *"ในแต่ละแถว ให้ตัวอักษรอยู่แถวเดียวกัน … na/k 6 / 4"*. On a phone the table
+stacked "6 / 2" and every date three lines high, the unit after every number, and the search box's
+placeholder was cut off.
+
+### What changed
+
+1. **Both search boxes** (the ward list and the topbar switcher, one search behind both) read
+   "เตียง / ชื่อ / นามสกุล". "ค้นหา" is in the aria-label; the switcher had none and now has one.
+2. **All entries: no Day admit column.** The figure is computed as before (`entryDol − D.admissionDol`)
+   and kept on each row as `data-admit-day`. The Trend's admit-day axis and "Day N of admission" are
+   unchanged.
+3. **Each unit once, under its column name** (`EntryTh`), from the Trend's `METRICS`: g, mL/kg/d,
+   mg/kg/min, g/kg/d, kcal/kg/d, mEq/kg/d, mg/kg/d. The cells show the number alone. Fluid and Energy
+   read "/kg/d" where the cells said "/kg". `.th-unit` is exempt from the header's uppercase.
+4. **One line per cell** (`table.tbl-entries`, `white-space: nowrap`, names top-aligned). The table
+   already scrolled sideways inside `.tbl-scroll`; on a 412 px phone a row is now 41 px tall.
+
+### Tests
+
+`verify-ward-requests-1001.cjs`, 28 checks, 23 fail against the previous commit. Seven harnesses that read
+the old columns or wording now read the new ones (test/README.md lists them).
+
 ## Session 2026-09-28 (6) — Review of PR #129: the K⁺ maximum holds on a peripheral line too
 
 `data.js`, `calculator.jsx`, both shells and `compiled/`; docs. `CONSTANTS_VERSION` stays 2026-09-28.1 (not

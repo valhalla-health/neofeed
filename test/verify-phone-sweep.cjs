@@ -87,7 +87,7 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
   ok('app.jsx: the patient strip\'s weights wrap rather than clip',
     /flexDirection:"row", flexWrap:"wrap", overflow:"hidden"/.test(app) && !/whiteSpace:"nowrap" \}\}>\s*\{delta >= 0/.test(app));
   ok('app.jsx: a long diagnosis breaks inside the strip', /overflowWrap:"anywhere"/.test(app));
-  ok('log.jsx: the entries table sits in a .tbl-scroll box', /<div className="tbl-scroll">\s*<table className="tbl">/.test(log));
+  ok('log.jsx: the entries table sits in a .tbl-scroll box', /<div className="tbl-scroll">\s*<table className="tbl[ "]/.test(log));
 }
 
 // ══ 2 · the sweep ════════════════════════════════════════════════════════════

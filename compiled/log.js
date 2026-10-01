@@ -443,7 +443,13 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
     // Scrolls inside the card when it is wider than the workspace (a
     // landscape phone, an iPad), instead of dragging the whole screen
     // sideways — 2026-09-25 phone sweep.
-    /* @__PURE__ */ React.createElement("div", { className: "tbl-scroll" }, /* @__PURE__ */ React.createElement("table", { className: "tbl" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Day admit"), /* @__PURE__ */ React.createElement("th", null, "Date"), /* @__PURE__ */ React.createElement("th", null, "Weight"), /* @__PURE__ */ React.createElement("th", null, "Fluid"), /* @__PURE__ */ React.createElement("th", null, "GIR"), /* @__PURE__ */ React.createElement("th", null, "Protein"), /* @__PURE__ */ React.createElement("th", null, "Energy"), /* @__PURE__ */ React.createElement("th", null, "Na / K"), /* @__PURE__ */ React.createElement("th", null, "Ca / P"), /* @__PURE__ */ React.createElement("th", null, "Route"), /* @__PURE__ */ React.createElement("th", null, "สถานะ"), onDeleteEntry && /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, (() => {
+    //
+    // Pp, 2026-10-01: every cell on one line ("6 / 2", a date) instead
+    // of stacked three high on a phone — .tbl-entries is nowrap and the
+    // box above scrolls; each unit once, under its column name, not
+    // after every number (the Trend's METRICS units, so the two agree);
+    // and no Day admit column. The Trend still plots by admission day.
+    /* @__PURE__ */ React.createElement("div", { className: "tbl-scroll" }, /* @__PURE__ */ React.createElement("table", { className: "tbl tbl-entries" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Date"), /* @__PURE__ */ React.createElement(EntryTh, { label: "Weight", metric: "weight" }), /* @__PURE__ */ React.createElement(EntryTh, { label: "Fluid", metric: "fluid" }), /* @__PURE__ */ React.createElement(EntryTh, { label: "GIR", metric: "gir" }), /* @__PURE__ */ React.createElement(EntryTh, { label: "Protein", metric: "pro" }), /* @__PURE__ */ React.createElement(EntryTh, { label: "Energy", metric: "kcal" }), /* @__PURE__ */ React.createElement(EntryTh, { label: "Na / K", metric: "na" }), /* @__PURE__ */ React.createElement(EntryTh, { label: "Ca / P", metric: "ca" }), /* @__PURE__ */ React.createElement("th", null, "Route"), /* @__PURE__ */ React.createElement("th", null, "สถานะ"), onDeleteEntry && /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, (() => {
       const admitDol = D_L.admissionDol(patient);
       return entries.slice().sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || ""))).map((e, i) => {
         const pending = /^(local_)?tmp_/.test(String(e.entryId || ""));
@@ -453,18 +459,18 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
           "tr",
           {
             key: e.entryId || i,
+            "data-admit-day": eDol - admitDol,
             onClick: editable ? () => onEditEntry(e) : void 0,
             title: pending ? "กำลังบันทึก…" : editable ? e.lastModifiedBy ? `แก้ไขล่าสุดโดย ${e.lastModifiedBy} — กดเพื่อแก้ไข` : "กดเพื่อแก้ไข" : "บันทึกเก่า — แก้ไขไม่ได้",
             style: { cursor: editable ? "pointer" : "default" }
           },
           /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600 } }, eDol),
-          /* @__PURE__ */ React.createElement("td", { className: "num", style: { color: "var(--ink-3)" } }, eDol - admitDol),
           /* @__PURE__ */ React.createElement("td", { style: { color: "var(--ink-3)", fontSize: 11.5 } }, window.NEOFEED_FMT_DATE?.(e.ts) || e.ts),
-          /* @__PURE__ */ React.createElement("td", { className: "num" }, e.weight || "—", " g"),
-          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.fluid, 0), " mL/kg"),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, e.weight || "—"),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.fluid, 0)),
           /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.gir, 1)),
-          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.pro, 1), " g/kg"),
-          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.kcal, 0), " kcal/kg"),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.pro, 1)),
+          /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.kcal, 0)),
           /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.na, 1), " / ", n(e.k, 1)),
           /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.ca, 0), " / ", n(e.p, 0)),
           /* @__PURE__ */ React.createElement("td", { style: { color: "var(--ink-2)" } }, e.route),
@@ -474,6 +480,10 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
       });
     })())))
   )));
+}
+function EntryTh({ label, metric }) {
+  const unit = METRICS.find((m) => m.key === metric).unit;
+  return /* @__PURE__ */ React.createElement("th", null, label, /* @__PURE__ */ React.createElement("span", { className: "th-unit" }, unit));
 }
 function LogDateModal({ patient, dol, onClose, onConfirm }) {
   const today = D_L.todayLocal();
