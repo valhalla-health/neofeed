@@ -347,7 +347,9 @@ console.log('\n── #5 the ward list and the topbar switcher search the same w
   let picked = null;
   mount(global.PatientPicker, { patients, activeId: null, onSelect: (id) => { picked = id; }, onClose() {} });
   const pick = host.querySelector('.picker-h input');
-  ok('switcher: the box asks for a name or a surname', /^ค้นหา/.test(pick.placeholder) && /นามสกุล/.test(pick.placeholder));
+  // Pp's wording since 2026-10-01: "เตียง / ชื่อ / นามสกุล" in both boxes.
+  ok('switcher: the box asks for a bed, a name or a surname', /ชื่อ/.test(pick.placeholder) && /นามสกุล/.test(pick.placeholder)
+    && /^ค้นหา/.test(pick.getAttribute('aria-label') || ''), pick.placeholder);
   act(() => { setters.INPUT.call(pick, 'ใจดี'); pick.dispatchEvent(new window.Event('input', { bubbles: true })); });
   const rows = () => [...host.querySelectorAll('.picker-row')].map(r => r.textContent);
   ok('switcher: a surname finds both infants who have it', rows().length === 2 && rows().every(t => /จด/.test(t)), rows());
@@ -362,7 +364,7 @@ console.log('\n── #5 the ward list and the topbar switcher search the same w
   const cards = () => [...host.querySelectorAll('.patient-card-list > .patient-mc .pmc-name')].map(n => n.textContent);
   const typeBox = (v) => act(() => { setters.INPUT.call(box, v); box.dispatchEvent(new window.Event('input', { bubbles: true })); });
   ok('ward list: the box asks for a name or a surname, not "the whole unit"',
-    /ชื่อ หรือ นามสกุล/.test(box.placeholder) && !/unit/.test(box.placeholder), box.placeholder);
+    /ชื่อ/.test(box.placeholder) && /นามสกุล/.test(box.placeholder) && !/unit/.test(box.placeholder), box.placeholder);
   ok('ward list: no autocomplete or spellcheck on a shared workstation',
     box.getAttribute('autocomplete') === 'off' && box.getAttribute('spellcheck') === 'false');
   ok('ward list: no clear button while the box is empty', !host.querySelector('.s-clear'));

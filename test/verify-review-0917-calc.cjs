@@ -513,7 +513,9 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     act(() => { root.render(React.createElement(window.DailyLog, { patient: P, log: { [P.sessionId]: rows }, dol: 10,
       onAddToday() {}, onEditEntry: (e) => edited.push(e.entryId), onDeleteEntry: (e) => deleted.push(e.entryId) })); });
     const trs = [...container.querySelectorAll('table.tbl tbody tr')];
-    const tmpRow = trs.find(tr => /1000 g/.test(tr.textContent)), realRow = trs.find(tr => /990 g/.test(tr.textContent));
+    // DOL · Date · Weight …: the weight is the third cell, its unit in the header.
+    const byWeight = (w) => trs.find(tr => tr.cells[2]?.textContent.trim() === w);
+    const tmpRow = byWeight('1000'), realRow = byWeight('990');
     ok('the log shows the tmp_ row as "กำลังบันทึก…"', /กำลังบันทึก…/.test(tmpRow?.textContent || ''), tmpRow?.textContent);
     click(tmpRow);
     eq('clicking it opens nothing', edited, []);

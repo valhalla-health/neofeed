@@ -791,6 +791,18 @@
   }
   table.tbl tr:hover td { background: var(--bg-2); }
   table.tbl td.num { font-family: "IBM Plex Mono", monospace; }
+  /* The Dashboard's All entries (log.jsx), Pp 2026-10-01: one line per cell,
+     so "6 / 2" and a date read across instead of stacked three high on a
+     phone; .tbl-scroll scrolls the table sideways instead. Names align at the
+     top, each unit on its own line beneath — never uppercased: "ML/KG" is
+     not a unit, and mL vs ML is not a difference to blur on a dose. */
+  table.tbl-entries th, table.tbl-entries td { white-space: nowrap; }
+  table.tbl-entries th { vertical-align: top; }
+  table.tbl th .th-unit {
+    display: block; margin-top: 2px;
+    font-size: 10px; font-weight: 400; color: var(--ink-3);
+    letter-spacing: 0; text-transform: none;
+  }
 
   /* status chip */
   .chip {
@@ -1962,8 +1974,8 @@
   <script src="compiled/icons.js?v=98d52ac7b1"></script>
   <script src="compiled/calculator.js?v=377b8bf3c6"></script>
   <script src="compiled/fenton.js?v=f9e6212215"></script>
-  <script src="compiled/registry.js?v=24a37a273a"></script>
-  <script src="compiled/log.js?v=f3072f7079"></script>
+  <script src="compiled/registry.js?v=d106d9af15"></script>
+  <script src="compiled/log.js?v=c159cd5a45"></script>
   <script src="compiled/app.js?v=93d950a106"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts

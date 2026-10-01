@@ -674,6 +674,15 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    Calculator with the right DOL/`ts`. Admin role only: a trash icon per row
    (rows with an `entryId`) permanently deletes a `Daily_Log` entry via the
    `deleteDailyNutrition` GAS action, audit-logged.
+   **The "All entries" table** (Pp, 2026-10-01): every cell on one line
+   (`table.tbl-entries` is `white-space: nowrap`; `.tbl-scroll` scrolls it
+   sideways), each unit once under its column name (`EntryTh`, reading the
+   Trend's `METRICS` units so the two cannot disagree, `.th-unit` exempt from
+   the header's uppercase: mL must never read ML), no unit in the cells, and
+   **no Day admit column**. The admission day is still computed exactly as
+   the column did (`entryDol − D.admissionDol`) and kept on each row as
+   `data-admit-day`; the Trend's admit-day axis is unchanged. Pinned by
+   `test/verify-ward-requests-1001.cjs`.
    **I/O ประจำวัน** (`NursingIOCard` + `NursingEntryModal`, 2026-09-24; UX
    roadmap #4). Shown only while the backend serves `nursing` (above).
    - **The card:** whether today's 24-h totals are in, the last 7 days newest
