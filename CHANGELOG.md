@@ -44,7 +44,11 @@ line endings, and wrote its own polling loop to wait for the hosts.
   a wrong host printed one retry line, then the full report, and exited 1.
 - `verify-quick-calc.cjs` in a Windows worktree: 6 of 56 checks failed on CRLF before the
   `.gitattributes` change, all 56 pass after a re-checkout with it.
-- The browser sections in CI: see this PR's `harnesses` run.
+- The browser sections in CI, first run (#134, `3318527`): every SKIP came from the sources pass, as
+  designed, and none from the compiled pass, where the sections ran for the first time off a laptop:
+  phone sweep 220 passed, ward requests 0925 158, mobile fit 135, admin census 58, bed transfer 75,
+  mobile bed button 42, nursing frontend 262. Chromium on the Ubuntu runner laid the Thai text out
+  closely enough that nothing tripped. The whole job took 9 minutes, the same as before.
 
 ---
 
