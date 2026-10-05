@@ -32,6 +32,12 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 💬 **ops · Ship help requests (`CHANGELOG.md` 2026-10-05).** The backend goes first, with the
+      `script.send_mail` scope added to the mirror's manifest and `authorizeHelpMail` run once as
+      `peeraporn.po@chula.ac.th` (**Praew approves the consent**; REFERENCE.md § Backend). Then release the
+      frontend, send one real request, and check it reaches praew.tvl@gmail.com through the
+      valhalla.team.th filter. A frontend released before the backend shows "ส่งเรื่องไม่สำเร็จ" and
+      nothing worse.
 - [ ] ⚖️ **PDPA · Check the live `Patient_Registry` for erased rows the refill already reached.**
       **Praew's to do** (Sheet access). Look for rows whose name (B) starts `[PDPA-erased` and whose dob (G)
       is not empty. A refill could only have run on 2026-09-24, from about 14:22 ICT to 21:17:37 ICT, when

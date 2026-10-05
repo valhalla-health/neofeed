@@ -763,6 +763,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         ok: false,
         refused: true,
         error,
+        serverError: String(data.error),
         code: data.code || "",
         retryable: !!data.retryable,
         ...data.needsConfirm ? { needsConfirm: true, message: String(data.error) } : {},
@@ -1154,6 +1155,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   };
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [showChangePwd, setShowChangePwd] = React.useState(false);
+  const [showHelp, setShowHelp] = React.useState(false);
   const [editingPatient, setEditingPatient] = React.useState(null);
   const handleLogout = () => endSession("manual");
   shellReadyRef.current = false;
@@ -1219,6 +1221,17 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     },
     "🔑 เปลี่ยนรหัสผ่าน"
   ), /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: "var(--line)" } })), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "btn",
+      style: { width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13 },
+      onClick: () => {
+        setShowHelp(true);
+        setShowUserMenu(false);
+      }
+    },
+    "💬 ขอความช่วยเหลือ"
+  ), /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: "var(--line)" } }), /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",
@@ -1384,6 +1397,24 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           }
           showToast("เปลี่ยนรหัสผ่านสำเร็จ");
           setShowChangePwd(false);
+        }
+        return res;
+      }
+    }
+  ), showHelp && /* @__PURE__ */ React.createElement(
+    HelpRequestModal,
+    {
+      onClose: () => setShowHelp(false),
+      onSend: async (category, detail) => {
+        const res = await gasPost({ action: "sendHelpRequest", category, detail, context: {
+          view,
+          appVersion: D_A.appVersion(),
+          userAgent: typeof navigator !== "undefined" && navigator.userAgent || "",
+          clientTime: (/* @__PURE__ */ new Date()).toISOString()
+        } }, { quiet: true });
+        if (res.ok) {
+          showToast("ส่งถึงทีม Valhalla แล้ว");
+          setShowHelp(false);
         }
         return res;
       }
@@ -1680,6 +1711,58 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
     if (res && res.ok === false) setErr(res.error || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
   };
   return /* @__PURE__ */ React.createElement("div", { className: "modal-backdrop", onClick: forced ? void 0 : onClose }, /* @__PURE__ */ React.createElement("div", { className: "modal-box", onClick: (e) => e.stopPropagation(), style: { maxWidth: 340 } }, /* @__PURE__ */ React.createElement("div", { className: "modal-head" }, /* @__PURE__ */ React.createElement("h2", null, "เปลี่ยนรหัสผ่าน")), /* @__PURE__ */ React.createElement("div", { className: "modal-body", style: { display: "flex", flexDirection: "column", gap: 12 } }, forced && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-2)", background: "var(--surface-2, #f4f6f7)", borderRadius: 8, padding: "8px 10px" } }, "บัญชีนี้ใช้รหัสผ่านชั่วคราว — กรุณากรอกรหัสผ่านชั่วคราวที่ได้รับ แล้วตั้งรหัสผ่านใหม่ก่อนใช้งานระบบ"), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, forced ? "รหัสผ่านชั่วคราว" : "รหัสผ่านเดิม"), /* @__PURE__ */ React.createElement("input", { type: "password", className: "inp", value: oldPwd, onChange: (e) => setOldPwd(e.target.value), placeholder: "••••••••", autoFocus: true })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "รหัสผ่านใหม่ ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(อย่างน้อย ", MIN_PASSWORD_LENGTH, " ตัว)")), /* @__PURE__ */ React.createElement("input", { type: "password", className: "inp", value: newPwd, onChange: (e) => setNewPwd(e.target.value), placeholder: "••••••••" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "ยืนยันรหัสผ่านใหม่"), /* @__PURE__ */ React.createElement("input", { type: "password", className: "inp", value: confirm, onChange: (e) => setConfirm(e.target.value), placeholder: "••••••••", onKeyDown: (e) => e.key === "Enter" && handleSubmit() })), err && /* @__PURE__ */ React.createElement("div", { style: { color: "var(--crit-ink)", fontSize: 13 } }, err)), /* @__PURE__ */ React.createElement("div", { className: "modal-foot" }, forced ? /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onLogout }, "ออกจากระบบ") : /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSubmit, disabled: loading }, loading ? "กำลังบันทึก…" : "บันทึก"))));
+}
+const HELP_CATEGORY_OPTIONS = [
+  ["bug", "ใช้งานไม่ได้"],
+  ["numbers", "ตัวเลขดูแปลก"],
+  ["feature", "อยากได้ฟีเจอร์"],
+  ["other", "อื่น ๆ"]
+];
+const HELP_DETAIL_MAX = 2e3;
+function HelpRequestModal({ onClose, onSend }) {
+  const [category, setCategory] = React.useState("bug");
+  const [detail, setDetail] = React.useState("");
+  const [err, setErr] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const busyRef = React.useRef(false);
+  const handleSend = async () => {
+    if (loading || busyRef.current) return;
+    if (!detail.trim()) return setErr("เขียนรายละเอียดก่อนส่ง");
+    if (detail.length > HELP_DETAIL_MAX) return setErr(`รายละเอียดยาวเกิน ${HELP_DETAIL_MAX} ตัวอักษร`);
+    setErr("");
+    setLoading(true);
+    busyRef.current = true;
+    let res;
+    try {
+      res = await onSend(category, detail);
+    } finally {
+      busyRef.current = false;
+    }
+    setLoading(false);
+    if (!res || res.ok) return;
+    if (res.refused) setErr(res.serverError || res.error);
+    else if (res.offline) setErr(`ส่งไม่ได้ — ${gasErrorText("offline")}`);
+    else if (res.unknown) setErr(`ไม่แน่ใจว่าส่งถึงทีมหรือยัง — ${gasErrorText(res.timeout ? "timeout" : res.networkError ? "network" : "badResponse")} ถ้ากดส่งอีกครั้ง ทีมอาจได้เรื่องนี้ 2 ฉบับ`);
+    else if (res.error) setErr(res.error);
+  };
+  return (
+    // A tap outside closes only an empty form, so typed text is not lost.
+    /* @__PURE__ */ React.createElement("div", { className: "modal-backdrop", onClick: () => {
+      if (!detail.trim()) onClose();
+    } }, /* @__PURE__ */ React.createElement("div", { className: "modal-box", onClick: (e) => e.stopPropagation(), style: { maxWidth: 420 } }, /* @__PURE__ */ React.createElement("div", { className: "modal-head" }, /* @__PURE__ */ React.createElement("h2", null, "ขอความช่วยเหลือ")), /* @__PURE__ */ React.createElement("div", { className: "modal-body", style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-2)", background: "var(--surface-2, #f4f6f7)", borderRadius: 8, padding: "8px 10px" } }, "เรื่องนี้ส่งถึงทีม Valhalla ทางอีเมล ห้ามใส่ HN ชื่อผู้ป่วย หรือข้อมูลที่บอกได้ว่าเป็นเด็กคนไหน บอกแค่ว่าอยู่หน้าไหนและทำอะไรอยู่"), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "ประเภท"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: category, onChange: (e) => setCategory(e.target.value) }, HELP_CATEGORY_OPTIONS.map(([v, l]) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, l)))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "รายละเอียด"), /* @__PURE__ */ React.createElement(
+      "textarea",
+      {
+        className: "inp",
+        rows: 5,
+        maxLength: HELP_DETAIL_MAX,
+        value: detail,
+        style: { resize: "vertical" },
+        onChange: (e) => setDetail(e.target.value),
+        placeholder: "เช่น กด Save แล้วหมุนค้าง ลองสองครั้งแล้ว",
+        autoFocus: true
+      }
+    )), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)" } }, "แนบให้อัตโนมัติ: หน้าที่เปิดอยู่ version ของแอป browser และเวลา ทีมจะตอบกลับทางอีเมลที่ใช้ login"), err && /* @__PURE__ */ React.createElement("div", { role: "alert", style: { color: "var(--crit-ink)", fontSize: 13 } }, err)), /* @__PURE__ */ React.createElement("div", { className: "modal-foot" }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSend, disabled: loading }, loading ? "กำลังส่ง…" : "ส่ง"))))
+  );
 }
 const GSI_LOAD_TIMEOUT_MS = 1e4;
 const perfNowMs = () => typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
