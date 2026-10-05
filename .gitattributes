@@ -1,3 +1,9 @@
+# Every text file is LF in the repo and in every checkout, Windows included
+# (2026-10-04). With core.autocrlf=true a Windows checkout used to be CRLF, and
+# test/verify-quick-calc.cjs failed there on line endings alone, so a local run
+# meant exporting with `git -c core.autocrlf=false archive` first.
+* text=auto eol=lf
+
 # Build output is committed and served byte-for-byte by both hosts
 # (tools/build.mjs). Git must never rewrite its line endings: a Windows
 # checkout with core.autocrlf=true would otherwise hand CI different bytes

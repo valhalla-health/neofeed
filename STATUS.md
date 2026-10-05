@@ -1,5 +1,20 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-01, 11:16–11:17 ICT — frontend `release` = `a127baf` on both hosts, with backend `@61`.**
+> PR #133 released #131: both search boxes read "เตียง / ชื่อ / นามสกุล", and All entries drops the Day
+> admit column and keeps each row on one line. Frontend only; `CONSTANTS_VERSION` stays `2026-09-28.1`.
+> `node tools/verify-release.mjs a127baf` passed on both hosts (0 failures, 61 passes), and the tag
+> `release-2026-10-01-pr133` is pushed (comment on #133). The first release PR for #131, #132, conflicted
+> because #130 had been squash-merged; it was closed, and #133 carries the same tree with `release` as a
+> second parent.
+>
+> ✅ **2026-09-28, 21:33 ICT — frontend `release` = `3ae2e18` on both hosts, with backend `@61`.**
+> PR #130 released #129, the TPN team's 2026-09-28 meeting: K⁺ by route with a 200 maximum, the lipid
+> rate ceiling. Frontend only; `CONSTANTS_VERSION` `2026-09-18.1` → `2026-09-28.1`.
+> `node tools/verify-release.mjs 3ae2e18` passed on both hosts (0 failures, 61 passes), and the tag
+> `release-2026-09-28-pr130` is pushed (comment on #130). #130 was the one squash merge on `release`;
+> squash and rebase merging are off since 2026-10-04 (`REFERENCE.md` § Frontend).
+>
 > ✅ **2026-09-27, 21:43–21:44 ICT — backend `@61`, then frontend `release` = `ec6ff6e` on both hosts.**
 > PR #128 released #127: Admit date corrections again, `NF-` ids, the look-alike question. `@61` is
 > `gas-backend.gs` at `6269b88`, byte for byte. `node tools/verify-release.mjs ec6ff6e` passed on both
@@ -88,11 +103,19 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-28, 21:13 ICT** · ✅ **Backend `@61` and frontend `release` = `ec6ff6e` are live, and
-both are verified.** Caught up with #128 in #129, the next PR on the repo, as #128 asked.
-- ⏳ **PR #129, the KCMH TPN team's 2026-09-28 meeting: merged into `main` on Pp's instruction ("เมื่อ
-  review PR129 เสร็จ ให้ merge and deploy เลย"), and released straight after in one `main` → `release`
-  PR.** The release checks are comments on the release PR. Frontend only: no `clasp` step.
+**Updated 2026-10-04** · ✅ **Backend `@61` and frontend `release` = `a127baf` are live, and both are
+verified.** Caught up with #130 and #133 in #134, the next PR on the repo.
+- ✅ **PR #131 is live**, released by PR #133 at 11:17 ICT on 2026-10-01 on Pp's instruction ("update
+  neofeed repo and deploy to live new version"): `release` = `a127baf`, whose tree is `main` at
+  `2c109ab`. Frontend only: no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-28.1`, so no order
+  needs saving again. Before the merge, all 76 harnesses passed locally on the release commit, including
+  the browser sections CI skipped then (comment on #133). ⚠️ **It changes what the ward sees:** both
+  search boxes read "เตียง / ชื่อ / นามสกุล"; All entries has no Day admit column, shows each unit once
+  under its column name, and keeps every cell on one line (`CHANGELOG.md` 2026-10-01).
+- ✅ **PR #129 is live**, released by PR #130 at 21:33 ICT on 2026-09-28: `release` = `3ae2e18`,
+  `verify-release.mjs 3ae2e18` 0 failures and 61 passes on both hosts, tag `release-2026-09-28-pr130`
+  (comment on #130). The KCMH TPN team's 2026-09-28 meeting, merged into `main` on Pp's instruction
+  ("เมื่อ review PR129 เสร็จ ให้ merge and deploy เลย"). Frontend only: no `clasp` step.
   **`CONSTANTS_VERSION` `2026-09-18.1` → `2026-09-28.1`** (the K⁺ limit prints on the form), so an order
   saved before the release prints again only after it is saved again (`CHANGELOG.md` 2026-09-28).
   ⚠️ **It changes what the ward and pharmacy see:**
@@ -124,7 +147,7 @@ both are verified.** Caught up with #128 in #129, the next PR on the repo, as #1
     register the same baby twice with no question.
   - ⚠️ **It changes what the ward sees:** a new infant's NeoFeed ID (Edit, the order form, Copy Order's
     LINE text) reads `NF-` and six digits, and registering a look-alike asks first. The Thai manual
-    needs both.
+    has both since its Version 6 (2026-09-27).
   - ⚠️ **Not checked yet:** registering and correcting an Admit date at a bedside, and a real phone.
 - ✅ **PR #125 is live**, released by PR #126 on Pp's instruction ("merge PR 125 แล้ว deploy") at 20:35
   ICT: `release` = `3453ba8`, whose tree is `main` at `e751f52`. Post-merge CI on `release` passed (run

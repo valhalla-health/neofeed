@@ -162,6 +162,12 @@ not that protection: its target-branches list is empty, so it applies to nothing
 `gh api repos/valhalla-health/neofeed/rules/branches/main` returns `[]`. Read the real settings with
 `gh api repos/valhalla-health/neofeed/branches/main/protection`.
 
+**Merge commits only, since 2026-10-04.** Squash and rebase merging are switched off for the whole
+repo (`allow_squash_merge` and `allow_rebase_merge` false). #130 was squash-merged into `release` on
+2026-09-28, so `main` never contained `release`'s new commit and the next release PR, #132, conflicted
+with a green `harnesses`; #133 had to rebuild it as a merge commit. Every other merge into `main` and
+`release` had been a merge commit, so the setting removes the one button that broke the chain.
+
 **Every release merge carries a tag**, `release-YYYY-MM-DD-prNN`, added as part of the release the way
 `STATUS.md` is written as part of the deploy. Backfilled 2026-09-23 for every release since the gate
 (PR #60 onward, 11 tags). It makes a rollback `git checkout <tag>` and completes the chain from a
@@ -186,8 +192,8 @@ asked why nothing had changed. So:
   The chat report names both halves, *"merged into `main` — ⏳ not live; release PR #N is green, say
   'release' to deploy"*, and never calls that merge done or live.
 - **"merge แล้ว deploy" (merge and release) means both steps in one instruction:** merge into `main`,
-  open the release PR, merge it once `harnesses` is green, run `node tools/verify-release.mjs`, and
-  put its result in a comment on the release PR. A plain "merge" still stops at `main`: that is how
+  open the release PR, merge it once `harnesses` is green, run `node tools/verify-release.mjs --wait`,
+  and put its result in a comment on the release PR. A plain "merge" still stops at `main`: that is how
   several PRs go out as one release (#85 took eight, so the ward was not recoloured twice in a row).
 - The gate itself is unchanged: an agent still merges into `release` only on Praew's explicit go-ahead.
 
@@ -216,7 +222,14 @@ asked why nothing had changed. So:
 
   ```bash
   node tools/verify-release.mjs             # against the tip of `release`; or pass a commit
+  node tools/verify-release.mjs --wait      # right after the merge: re-check every 30 s until
+                                            # both hosts serve the new tip (10 min; --wait=N)
   ```
+
+  Both hosts take a minute or two to pick up a merge, so a run straight after it fails on every
+  changed file. `--wait` holds each attempt's output and prints one line per retry, then the full
+  report of the last attempt. It refuses a commit that is not the tip of `release`, since the hosts
+  would never serve it.
 
   On **both** hosts it compares with git at that commit, byte for byte: the shell, every script and
   link the shell names, `manifest.json`, `moved.html` and every file under `icons/`. Every `?v=`

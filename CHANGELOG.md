@@ -7,6 +7,51 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-04 — The agent's environment: merge commits only, browser sections in CI, LF checkouts, AGENTS.md
+
+`AGENTS.md`, `CLAUDE.md`, `.gitattributes`, `.github/workflows/test.yml`, `tools/verify-release.mjs`,
+`REFERENCE.md`, `test/README.md`; one repo setting. No app file changed, so nothing to release.
+
+### Why
+
+A retrospective on the 2026-10-01 release (#131 → #133), at Pp's request. Release PR #132 conflicted
+with a green `harnesses` because #130 had been squash-merged, and the fix lived only in a memory note
+on Pp's laptop. #131 and #132 came from a cloud session, which clones this repo and nothing else, so
+it saw none of that note and none of the steering kept outside the repo. The release session then
+spent 26 minutes running by hand the browser sections CI skips, after exporting the tree to get LF
+line endings, and wrote its own polling loop to wait for the hosts.
+
+### What changed
+
+1. **Merge commits only.** Squash and rebase merging are off for the repo (`REFERENCE.md` §
+   Deploying, and rolling back). #130 was the one squash among the merges into `main` and `release`.
+2. **`AGENTS.md`** (and a one-line `CLAUDE.md` that imports it): what to read before merging,
+   releasing, editing a `.jsx` file or touching clinical code. Pointers only, since the repo is
+   public. Both hosts already skip `*.md`.
+3. **CI runs the browser sections.** Playwright and Chromium go into their own folder and are reached
+   through `NODE_PATH` in the compiled pass only, so the eight harnesses with browser sections run
+   them once, against the shipped files. A browser SKIP fails that pass. Timeout 30 → 45 min.
+4. **LF in every checkout.** `* text=auto eol=lf` ahead of the `compiled/` and `vendor/` rules. The
+   index was already all LF, so no committed byte changed.
+5. **`verify-release.mjs --wait[=N]`** re-checks every 30 s until both hosts serve the tip of
+   `release` (10 min by default), and refuses any other commit.
+
+### Verified
+
+- `verify-release.mjs --wait=1` on the live release `a127baf`: 0 failures, 61 passes, first try.
+  Against the release before it, `3ae2e18`, without `--wait`: 6 failures, exactly #131's three
+  served files on each host. `2c109ab --wait`: refused at once (exit 2). A throwaway copy pointed at
+  a wrong host printed one retry line, then the full report, and exited 1.
+- `verify-quick-calc.cjs` in a Windows worktree: 6 of 56 checks failed on CRLF before the
+  `.gitattributes` change, all 56 pass after a re-checkout with it.
+- The browser sections in CI, first run (#134, `3318527`): every SKIP came from the sources pass, as
+  designed, and none from the compiled pass, where the sections ran for the first time off a laptop:
+  phone sweep 220 passed, ward requests 0925 158, mobile fit 135, admin census 58, bed transfer 75,
+  mobile bed button 42, nursing frontend 262. Chromium on the Ubuntu runner laid the Thai text out
+  closely enough that nothing tripped. The whole job took 9 minutes, the same as before.
+
+---
+
 ## Session 2026-10-01 — The search wording and the All entries table
 
 `registry.jsx`, `log.jsx`, both shells and `compiled/`; tests; docs. No clinical constant or calculation changed.
