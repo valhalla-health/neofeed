@@ -1375,7 +1375,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       // like one already on file) used to be dropped right here, so the one
       // caller that asks about it, handleAddPatient, never saw it (2026-09-27
       // audit). `message` is the server's own sentence, for a dialog.
-      return { ok: false, refused: true, error, code: data.code || "", retryable: !!data.retryable,
+      // `serverError` is the refusal without the "บันทึกไม่สำเร็จ" prefix, for
+      // a caller whose action is not a save (HelpRequestModal).
+      return { ok: false, refused: true, error, serverError: String(data.error), code: data.code || "", retryable: !!data.retryable,
         ...(data.needsConfirm ? { needsConfirm: true, message: String(data.error) } : {}),
         ...(data.entryId ? { entryId: data.entryId } : {}) };
     }
@@ -1932,6 +1934,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [showChangePwd, setShowChangePwd] = React.useState(false);
+  const [showHelp, setShowHelp] = React.useState(false);
   const [editingPatient, setEditingPatient] = React.useState(null);
 
   const handleLogout = () => endSession("manual");
@@ -2072,6 +2075,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
                 </button>
                 <div style={{ height: 1, background: "var(--line)" }} />
               </>}
+              <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13 }}
+                onClick={() => { setShowHelp(true); setShowUserMenu(false); }}>
+                💬 ขอความช่วยเหลือ
+              </button>
+              <div style={{ height: 1, background: "var(--line)" }} />
               <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13, color: "var(--crit-ink)" }}
                 onClick={() => { setShowUserMenu(false); handleLogout(); }}>
                 ออกจากระบบ
@@ -2311,6 +2319,27 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           }
           // Returned so a refusal shows inside the modal, as the forced
           // variant's already did (UP-S5).
+          return res;
+        }}
+      />
+      }
+
+      {showHelp &&
+      <HelpRequestModal
+        onClose={() => setShowHelp(false)}
+        onSend={async (category, detail) => {
+          // The context is four lines about the app, never the patient on
+          // screen: this request leaves as an email (HelpRequestModal).
+          const res = await gasPost({ action: "sendHelpRequest", category, detail, context: {
+            view,
+            appVersion: D_A.appVersion(),
+            userAgent: (typeof navigator !== "undefined" && navigator.userAgent) || "",
+            clientTime: new Date().toISOString(),
+          } }, { quiet: true });
+          if (res.ok) {
+            showToast("ส่งถึงทีม Valhalla แล้ว");
+            setShowHelp(false);
+          }
           return res;
         }}
       />
@@ -2941,6 +2970,81 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
             : <button className="btn" onClick={onClose}>ยกเลิก</button>}
           <button className="btn primary" onClick={handleSubmit} disabled={loading}>
             {loading ? "กำลังบันทึก…" : "บันทึก"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// HelpRequestModal — staff ask the Valhalla team for help (Pp, 2026-10-05).
+// gas-backend.gs sendHelpRequest mails it to the team, so what this sends
+// leaves the hospital's systems: the category, the text, and the page, app
+// version, browser and time. Never the patient on screen, and the form asks
+// for no HN or name in the text. Pinned by
+// test/verify-help-request-frontend.cjs.
+// ============================================================
+const HELP_CATEGORY_OPTIONS = [
+  ["bug", "ใช้งานไม่ได้"], ["numbers", "ตัวเลขดูแปลก"], ["feature", "อยากได้ฟีเจอร์"], ["other", "อื่น ๆ"],
+];
+const HELP_DETAIL_MAX = 2000; // mirrors gas-backend.gs HELP_DETAIL_MAX
+function HelpRequestModal({ onClose, onSend }) {
+  const [category, setCategory] = React.useState("bug");
+  const [detail, setDetail] = React.useState("");
+  const [err, setErr] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  // One request per click, as in ChangePasswordModal: a double tap would
+  // otherwise mail the team twice.
+  const busyRef = React.useRef(false);
+
+  const handleSend = async () => {
+    if (loading || busyRef.current) return;
+    if (!detail.trim()) return setErr("เขียนรายละเอียดก่อนส่ง");
+    if (detail.length > HELP_DETAIL_MAX) return setErr(`รายละเอียดยาวเกิน ${HELP_DETAIL_MAX} ตัวอักษร`);
+    setErr(""); setLoading(true);
+    busyRef.current = true;
+    let res;
+    try { res = await onSend(category, detail); }
+    finally { busyRef.current = false; }
+    setLoading(false);
+    if (!res || res.ok) return;
+    // gasPost words its failures for a save; this is not one.
+    if (res.refused) setErr(res.serverError || res.error);
+    else if (res.offline) setErr(`ส่งไม่ได้ — ${gasErrorText("offline")}`);
+    else if (res.unknown) setErr(`ไม่แน่ใจว่าส่งถึงทีมหรือยัง — ${gasErrorText(res.timeout ? "timeout" : res.networkError ? "network" : "badResponse")} ถ้ากดส่งอีกครั้ง ทีมอาจได้เรื่องนี้ 2 ฉบับ`);
+    else if (res.error) setErr(res.error);
+  };
+
+  return (
+    // A tap outside closes only an empty form, so typed text is not lost.
+    <div className="modal-backdrop" onClick={() => { if (!detail.trim()) onClose(); }}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+        <div className="modal-head"><h2>ขอความช่วยเหลือ</h2></div>
+        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", background: "var(--surface-2, #f4f6f7)", borderRadius: 8, padding: "8px 10px" }}>
+            เรื่องนี้ส่งถึงทีม Valhalla ทางอีเมล ห้ามใส่ HN ชื่อผู้ป่วย หรือข้อมูลที่บอกได้ว่าเป็นเด็กคนไหน บอกแค่ว่าอยู่หน้าไหนและทำอะไรอยู่
+          </div>
+          <div className="field">
+            <label>ประเภท</label>
+            <select className="sel" value={category} onChange={e => setCategory(e.target.value)}>
+              {HELP_CATEGORY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label>รายละเอียด</label>
+            <textarea className="inp" rows={5} maxLength={HELP_DETAIL_MAX} value={detail} style={{ resize: "vertical" }}
+              onChange={e => setDetail(e.target.value)} placeholder="เช่น กด Save แล้วหมุนค้าง ลองสองครั้งแล้ว" autoFocus />
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+            แนบให้อัตโนมัติ: หน้าที่เปิดอยู่ version ของแอป browser และเวลา ทีมจะตอบกลับทางอีเมลที่ใช้ login
+          </div>
+          {err && <div role="alert" style={{ color: "var(--crit-ink)", fontSize: 13 }}>{err}</div>}
+        </div>
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose}>ยกเลิก</button>
+          <button className="btn primary" onClick={handleSend} disabled={loading}>
+            {loading ? "กำลังส่ง…" : "ส่ง"}
           </button>
         </div>
       </div>

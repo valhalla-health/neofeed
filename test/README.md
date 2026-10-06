@@ -286,7 +286,8 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
 `verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
 `verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs`, `verify-pdpa-erased-dob-frontend.cjs`,
-`verify-ward-requests-0925.cjs`, `verify-name-id-0927.cjs`, `verify-ward-requests-1001.cjs` and
+`verify-ward-requests-0925.cjs`, `verify-name-id-0927.cjs`, `verify-ward-requests-1001.cjs`,
+`verify-help-request-frontend.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -1333,6 +1334,28 @@ new one, pinning the same facts: `verify-tpn-team-0922` (cell indices; "3", not 
 `verify-review-0917-calc` (rows found by the weight cell), `verify-phone-sweep` (the table's class list),
 `verify-ward-requests-0925` (the placeholder wording) and `verify-review-0917-session` (the switcher found by
 its aria-label).
+
+## Help requests from inside the app, 2026-10-05 — two harnesses
+
+Pp's request: staff ask the Valhalla team for help from NeoFeed, by email (`CHANGELOG.md` 2026-10-05).
+`gas-vm-sandbox.cjs` gained a `MailApp` double that records every `sendEmail` and can be told to throw.
+
+**`verify-help-request-backend.cjs`** (64 assertions; no npm). § 1 only a signed-in session sends, and not
+on a temp password; § 2 the mail: to valhalla.team.th@gmail.com, subject `[NeoFeed help] <ประเภท>` (the
+team account's Gmail filter forwards on that tag), sender name NeoFeed, replyTo the staff member, the
+request and its context in a plain-text body, one `helpRequest` audit row; § 3 every role; § 4 the Script
+Property `HELP_REQUEST_TO`; § 5 validation in Thai (category from the list, non-blank detail, at most 2000
+characters); § 6 control characters out, so a crafted userAgent cannot start a line; § 7 five per person per
+rolling hour; § 8 a MailApp failure is MailFailed, retryable, unaudited, and does not use up the allowance;
+§ 9 a cache outage does not block a request; § 10 `authorizeHelpMail` sends nothing. Against `origin/main`
+before the change, 52 of the 64 fail.
+
+**`verify-help-request-frontend.cjs`** (29 assertions; the jsdom set). The user menu item and the form
+(four categories, the "no HN" notice); a blank detail refused in place; one request carrying the category,
+the detail and exactly four context fields, with no patient or session id; the toast; a refusal shown in the
+server's words and a network failure as "ไม่แน่ใจว่าส่งถึงทีมหรือยัง", the text kept both times; the item
+for a Google sign-in user. Against `origin/main` it reports 9 failures and 1 pass (the unchanged
+change-password check); three scenarios stop where the form should open.
 
 ## Note on the source workbook
 

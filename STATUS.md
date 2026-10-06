@@ -1,5 +1,15 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-01, 11:17 ICT — frontend `release` = `a127baf` on both hosts, with backend `@61`.**
+> PR #133 released #131: the search reads "เตียง / ชื่อ / นามสกุล", and the All entries table is one line
+> per row. `node tools/verify-release.mjs a127baf` passed on both hosts (0 failures, 61 passes). The tag
+> `release-2026-10-01-pr133` is pushed (comment on #133).
+>
+> ✅ **2026-09-28, 21:33–21:38 ICT — frontend `release` = `3ae2e18` on both hosts, with backend `@61`.**
+> PR #130 released #129: the TPN team's meeting, K⁺ by route with a 200 maximum, the lipid rate ceiling,
+> `CONSTANTS_VERSION` `2026-09-28.1`. `node tools/verify-release.mjs 3ae2e18` passed on both hosts (0
+> failures, 61 passes). The tag `release-2026-09-28-pr130` is pushed (comment on #130).
+>
 > ✅ **2026-09-27, 21:43–21:44 ICT — backend `@61`, then frontend `release` = `ec6ff6e` on both hosts.**
 > PR #128 released #127: Admit date corrections again, `NF-` ids, the look-alike question. `@61` is
 > `gas-backend.gs` at `6269b88`, byte for byte. `node tools/verify-release.mjs ec6ff6e` passed on both
@@ -88,11 +98,27 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-09-28, 21:13 ICT** · ✅ **Backend `@61` and frontend `release` = `ec6ff6e` are live, and
-both are verified.** Caught up with #128 in #129, the next PR on the repo, as #128 asked.
-- ⏳ **PR #129, the KCMH TPN team's 2026-09-28 meeting: merged into `main` on Pp's instruction ("เมื่อ
-  review PR129 เสร็จ ให้ merge and deploy เลย"), and released straight after in one `main` → `release`
-  PR.** The release checks are comments on the release PR. Frontend only: no `clasp` step.
+**Updated 2026-10-06, 15:39 ICT** · ✅ **Backend `@61` and frontend `release` = `a127baf` are live, and
+both are verified.** Caught up with #130 and #133 in #135, the next PR on the repo, as both asked.
+- ⏳ **PR #135, help requests: merged into `main` on Pp's instruction ("merge แล้ว deploy"). Not live
+  until backend `@62` and a `main` → `release` PR.** Backend + frontend (`CHANGELOG.md` 2026-10-05):
+  - User menu → 💬 ขอความช่วยเหลือ: a category and a detail, mailed by the backend to
+    valhalla.team.th@gmail.com as `[NeoFeed help] <ประเภท>`. That account's Gmail filter forwards it to
+    praew.tvl@gmail.com. The app attaches the page, version, browser and time, never the patient.
+  - **The backend needs the `script.send_mail` scope.** Added to the mirror's manifest and pushed to HEAD
+    on 2026-10-06 (mirror `eb995b9`), with `@61` still serving. Pp ran `authorizeHelpMail` as
+    `peeraporn.po@chula.ac.th` at 15:36 ICT and approved it ("MailApp authorised: 1500 recipients left
+    today").
+  - **Order: `clasp` first, then release.** A new frontend on `@61` only shows "ส่งเรื่องไม่สำเร็จ".
+  - ⚠️ **Not checked yet:** a real request from the app arriving at praew.tvl@gmail.com.
+- ✅ **PR #131 is live**, released by PR #133 on 2026-10-01 at 11:17 ICT: `release` = `a127baf`, whose
+  tree is `main` at `2c109ab`, and `main` is an ancestor of `release` again. Frontend only: the search
+  wording and a one-line All entries table (`CHANGELOG.md` 2026-10-01). `verify-release.mjs a127baf`
+  passed on both hosts (comment on #133). ⚠️ Not checked yet: a real phone on this release.
+- ✅ **PR #129 is live**, released by PR #130 on Pp's instruction ("เมื่อ review PR129 เสร็จ ให้ merge and
+  deploy เลย") at 21:33 ICT: `release` = `3ae2e18`, a squash merge whose tree is `main` at `0fe760d`.
+  `verify-release.mjs 3ae2e18` passed on both hosts, and post-merge CI on `release` passed (run
+  36436856668; comment on #130). Frontend only: no `clasp` step.
   **`CONSTANTS_VERSION` `2026-09-18.1` → `2026-09-28.1`** (the K⁺ limit prints on the form), so an order
   saved before the release prints again only after it is saved again (`CHANGELOG.md` 2026-09-28).
   ⚠️ **It changes what the ward and pharmacy see:**
