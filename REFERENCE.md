@@ -314,6 +314,23 @@ The sync cache key carries the payload's shape (`sync2_`, plus `+n` while the sw
 stale payload bridges a deploy or a flip. `Nursing_Log` is created by the first nursing save; there
 is no migration to run.
 
+**Help requests (2026-10-05) need one more OAuth scope.** `sendHelpRequest` mails through `MailApp`,
+which no deployment before it used, and the mirror's manifest lists its scopes explicitly:
+
+1. **Before `clasp push`, add `"https://www.googleapis.com/auth/script.send_mail"`** to `oauthScopes` in
+   `~/nicu-tools/neofeed/appsscript.json`. Without it every harness passes and production still fails.
+2. **After the push, approve the scope once.** In the Apps Script editor, signed in as
+   `peeraporn.po@chula.ac.th`, run `authorizeHelpMail` and accept the consent screen. That is Praew's to
+   approve. It sends no mail; the execution log shows the day's remaining quota.
+3. **Then `clasp update-deployment` as usual, and send one real request from the app.** It should reach
+   valhalla.team.th@gmail.com and arrive at praew.tvl@gmail.com through the team account's Gmail filter
+   on `[NeoFeed help]`. Do not test the forward by mailing the team from praew.tvl: Gmail drops the
+   forwarded copy as a duplicate of the one in Sent (seen 2026-10-05).
+
+Until step 2, a staff member who presses ส่ง sees "ส่งเรื่องไม่สำเร็จ — ลองใหม่อีกครั้ง…" and nothing else
+changes. The Script Property **`HELP_REQUEST_TO`** moves the recipient without a code change. The
+subject tag is load-bearing: change `HELP_SUBJECT_TAG` only together with that Gmail filter.
+
 **Apps Script project timezone must be `Asia/Bangkok`.** Several date paths read Sheets' own date
 values through `Session.getScriptTimeZone()` (`_fmtDate`) or assume a Sheets date sits at Bangkok
 midnight (`_wardDateKey` in the one-entry-per-date guard, the 2026-09-11 edit-keeps-its-date rule,

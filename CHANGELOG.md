@@ -7,6 +7,47 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-05 — Help requests from inside the app
+
+`app.jsx`, `gas-backend.gs`, both shells and `compiled/`; tests; docs. No clinical constant or
+calculation changed.
+
+### Why
+
+Pp wants staff to reach the Valhalla team from inside NeoFeed, by email, so that a daily Claude task
+can read the requests and summarise them, and fixes can be run from her desktop. The address is the
+team's Gmail, valhalla.team.th@gmail.com (already the contact in `SECURITY.md`). Its Gmail filter
+forwards any subject containing "NeoFeed help" to praew.tvl@gmail.com; Pp set the filter up the same day.
+
+### What changed
+
+1. **User menu → 💬 ขอความช่วยเหลือ**, for every role and both sign-in methods. It sits in the menu,
+   not on the login screen, whose contact button was removed on 2026-09-22.
+2. **The form** (`HelpRequestModal`): a category (ใช้งานไม่ได้, ตัวเลขดูแปลก, อยากได้ฟีเจอร์, อื่น ๆ),
+   the detail (up to 2000 characters), and a notice that asks for no HN, no patient name, nothing that
+   identifies an infant. The app attaches four things and says so: the page, the app version, the
+   browser and the device time. **It never attaches the patient on screen.** A refusal or a network
+   failure is shown in the form and the text is kept; a tap outside closes only an empty form.
+3. **`sendHelpRequest` in the backend.** Any signed-in session that is not on a temp password. It mails
+   the team with subject `[NeoFeed help] <ประเภท>`, sender name NeoFeed and replyTo the staff member, so
+   the team can answer them directly. Control characters are stripped and every context field is one
+   capped line. Five requests per person per rolling hour (CacheService; fails open). A MailApp failure
+   is a Thai "try again" (MailFailed). Every sent request is an Audit_Log row, `helpRequest`.
+4. **`gasPost` refusals carry `serverError`**, the server's sentence without the "บันทึกไม่สำเร็จ"
+   prefix, for a caller whose action is not a save.
+
+### Deploy
+
+The backend needs the `script.send_mail` scope, which no deploy has had: add it to the mirror's
+`appsscript.json`, push, run `authorizeHelpMail` once as the deploying account (Pp approves the
+consent), then update the deployment. REFERENCE.md § Backend has the steps. Ship the backend before the
+frontend; the other order only shows "ส่งเรื่องไม่สำเร็จ" until the backend is live.
+
+### Tests
+
+`verify-help-request-backend.cjs` (64 checks, 52 fail against `origin/main`) and
+`verify-help-request-frontend.cjs` (29 checks). `gas-vm-sandbox.cjs` gained a `MailApp` double.
+
 ## Session 2026-10-01 — The search wording and the All entries table
 
 `registry.jsx`, `log.jsx`, both shells and `compiled/`; tests; docs. No clinical constant or calculation changed.

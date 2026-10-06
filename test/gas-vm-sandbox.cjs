@@ -67,6 +67,7 @@ function boot(opts) {
     sheets: {}, injections: [], logs: [], cacheThrows: false, propsThrow: false, propSetThrows: false,
     openByIdThrows: null, lockTimeout: false, lockWaits: 0, lockReleases: 0, lockHeld: 0,
     urlFetch: { code: 400, body: '{"error":"invalid_token"}' }, urlFetchThrows: null, hmacCalls: 0, hmacHook: null,
+    mails: [], mailThrows: null,
   };
 
   function cellIn(sheetName, row, col, v) {
@@ -243,6 +244,12 @@ function boot(opts) {
       if (env.urlFetchThrows) throw new Error(env.urlFetchThrows);
       return { getResponseCode: () => env.urlFetch.code, getContentText: () => env.urlFetch.body };
     } },
+    // Records every sendEmail(options) call; `mailThrows` makes it throw the
+    // way a missing send_mail scope or a spent daily quota does.
+    MailApp: {
+      sendEmail: (o) => { if (env.mailThrows) throw new Error(env.mailThrows); env.mails.push(o); },
+      getRemainingDailyQuota: () => { if (env.mailThrows) throw new Error(env.mailThrows); return 100; },
+    },
     ContentService: { createTextOutput: (t) => ({ _text: t, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
     Logger: { log: (m) => env.logs.push(String(m)) },
     console,
