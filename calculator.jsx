@@ -1626,12 +1626,25 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
   // Praew, 2026-09-28): amber above `warn`, critical above `red`, and above
-  // `hardMax` (200 on both routes) not orderable at all — see kOverMax. It replaced
-  // the worksheet's single 40 mEq/L stop (G25) on both routes.
+  // `hardMax` (peripheral 60 since 2026-10-08, central 200) not orderable at
+  // all — see kOverMax. It replaced the worksheet's single 40 mEq/L stop (G25)
+  // on both routes.
   const kLim = D.kBagLimitsFor(route);
   const kRouteLabel = route === "central" ? "central" : "peripheral";
-  const kConcStatusAt = (v) => D.rangeStatus(v, [0, kLim.warn], { hardHi: kLim.red });
+  // Graded with float noise stripped (toPrecision(12), as describeOrderValue
+  // does). A bag that is 60 mEq/L on paper computes as 60.00000000000001 in
+  // about a quarter of weight/volume pairs (1 kg, 50 mL, KCl 3), and once 60
+  // became the peripheral maximum that refused an order at its own ceiling:
+  // "60 mEq/L เกินค่าสูงสุด 60". A real decimal stays: 60.4 is above 60.
+  const kGrade = (v) => isFinite(v) ? Number(v.toPrecision(12)) : v;
+  const kMeqPerLGraded = kGrade(calc.kMeqPerL);
+  const kConcStatusAt = (v) => D.rangeStatus(kGrade(v), [0, kLim.warn], { hardHi: kLim.red });
   const sKConc = kConcStatusAt(calc.kMeqPerL);
+  // The tile's bar ends at the maximum when that lies above red (central 200).
+  // Where the maximum IS red (peripheral 60 since 2026-10-08), ending there
+  // would leave no red on the bar and park an over-maximum needle on amber, so
+  // the bar runs to 1.5 × red, as it did before the maximum existed.
+  const kBarMax = kLim.hardMax > kLim.red ? kLim.hardMax : kLim.red * 1.5;
   // Peripheral: crit >900, warn >850 · Central: no upper limit (Praew,
   // 2026-09-28; it warned above 1800 until then)
   const osmStatusAt = (v) => route === "peripheral"
@@ -1692,10 +1705,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [znPerKg, "ZnSO₄"],
   ].filter(([v]) => v > 0).map(([, label]) => label);
   const zeroVolumeBag = bagIngredientsWithoutVolume.length > 0;
-  // K⁺ above the route's hard maximum (200 mEq/L on both; Praew, 2026-09-28):
-  // like the no-volume bag, not a confirm-with-reason alert — Submit and Print
-  // refuse it. A draft may still be kept.
-  const kOverMax = kLim.hardMax != null && calc.kMeqPerL > kLim.hardMax;
+  // K⁺ above the route's hard maximum (central 200 mEq/L, Praew, 2026-09-28;
+  // peripheral 60, Praew, 2026-10-08): like the no-volume bag, not a
+  // confirm-with-reason alert — Submit and Print refuse it. A draft may still
+  // be kept.
+  const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;
   const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
 
@@ -1765,9 +1779,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // `hardMax` the order cannot be saved (kOverMax); above `red` it is critical,
   // so it is ordered only with a confirmed reason; above `warn` is a caution.
   // The critical title is unchanged: a saved critOverride names alerts by title.
-  if (kLim.hardMax != null && calc.kMeqPerL > kLim.hardMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
-  else if (calc.kMeqPerL > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
-  else if (calc.kMeqPerL > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (critical above ${kLim.red}).`, ref: "TPN team, 2026-09-28" });
+  if (kOverMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
+  else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
+  else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (critical above ${kLim.red}).`, ref: "TPN team, 2026-09-28" });
   // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
   if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
   else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
@@ -2929,7 +2943,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {/* K⁺ concentration of the finished bag, not a per-kg dose. A tile
                   since the TPN team missed it as a line of small text
                   (2026-09-22); graded by route since 2026-09-28. */}
-              <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, kLim.warn]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={kLim.hardMax || kLim.red * 1.5} />
+              <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, kLim.warn]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={kBarMax} />
               <div className="k-conc-ref" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}>
                 {kRouteLabel}: amber &gt; {kLim.warn} · red &gt; {kLim.red}{kLim.hardMax ? ` · max ${kLim.hardMax}` : ""} mEq/L
               </div>

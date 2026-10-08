@@ -1314,7 +1314,7 @@ The review of PR #129 added Praew's "max 200 ทั้งสองสาย": §
 peripheral limit on the form, back sheet and copied order, and a saved row above it reopening without Print
 even with every critical alert given a reason (and, as the control, printing at 50 mEq/L); § 10b, the quick
 calc's copied text flagging a bag above the maximum. Against `76db4d9`, 9 checks fail.
-113 checks in all.
+113 checks in all. Since 2026-10-08 the peripheral maximum is 60, and § 10 and the new § 14 pin it (below).
 
 ## The search wording and the All entries table, 2026-10-01 — one harness, seven adjusted
 
@@ -1356,6 +1356,26 @@ the detail and exactly four context fields, with no patient or session id; the t
 server's words and a network failure as "ไม่แน่ใจว่าส่งถึงทีมหรือยัง", the text kept both times; the item
 for a Google sign-in user. Against `origin/main` it reports 9 failures and 1 pass (the unchanged
 change-password check); three scenarios stop where the form should open.
+
+## The peripheral K⁺ maximum 60, 2026-10-08 — one harness extended, four adjusted
+
+Pp: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60" (it was 200; `CHANGELOG.md` 2026-10-08).
+**`verify-tpn-meeting-0928.cjs` § 14** (the jsdom set): the constant (peripheral 40 / 60 / 60, central
+60 / 120 / 200); peripheral 61, 65, 100, 150, 199 and 200 each red with "K⁺ above the maximum" alone, Submit
+disabled and the line by it naming the peripheral 60, a typed reason saving nothing and a draft still kept;
+peripheral 60 amber with Submit open in five fixtures, three of which land above 60 in floating point (the
+check says which), and one of them saved with no reason asked and printed; central 65 amber, 200 a confirm,
+201 refused; a peripheral order saved at 100 mEq/L under 2026-09-28.1 with its reason, refused on reopening and
+printable once brought to 60 and saved again; an order at 50 under 2026-09-28.1 held for re-save; one at 60
+under the new version printing. § 10 now pins the 60 maximum on a peripheral line (65 is above it; the switched
+213 bag names 60; the form, back sheet and copied order say "max 60"). 149 checks; against `f055360`, 30 fail.
+With the maximum lowered but K⁺ graded on the raw figure, 5 fail: the three floating-point 60s, the save and
+its print.
+
+Adjusted: `verify-kcmh-constants` pins `peripheral.hardMax` = 60; `verify-tpn-team-0922` § 7 (peripheral 70 is
+above the maximum, and the critical tier with a reason is shown at central 130); `verify-status-zones`
+(the peripheral bar is 90 long, red from 60); `verify-calc-oracle` (its own rule has the peripheral 60 and grades
+without float noise; the copied order's "max 60").
 
 ## Note on the source workbook
 

@@ -7,6 +7,77 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-08 — The peripheral K⁺ maximum is 60 mEq/L
+
+`data.js`, `calculator.jsx`, both shells and `compiled/`; tests; docs. **`CONSTANTS_VERSION` 2026-09-28.1 →
+2026-10-08.1.** PR #137, not merged, not deployed.
+
+### Why
+
+Pp, in chat: *"เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60"*. Since the review of PR #129 the maximum was 200 on both
+routes, so a peripheral bag of 61–200 mEq/L was a critical alert that one typed reason cleared. 60 is the IWK
+Health NICU peripheral figure the 2026-09-28 source search found (`docs/CLINICAL_CONSTANTS.md`).
+
+### What changed
+
+1. **`K_BAG_MEQ_PER_L.peripheral.hardMax` 200 → 60.** Amber 40 and red 60 stay, and central stays 60 / 120 / 200.
+   Every path already reads the route's `hardMax`, so above 60 on a peripheral line Submit is disabled, Save
+   refuses, Print and Copy are held, and a draft can still be kept, as above 200 on a central line.
+2. **K⁺ is graded with float noise stripped** (`kGrade`, `toPrecision(12)`). A bag that is 60 mEq/L on paper
+   computes as 60.00000000000001 for about a quarter of weight and volume pairs (1 kg, 50 mL, KCl 3 mEq/kg/d is
+   one). With 60 as a maximum, that order was refused as "60 mEq/L เกินค่าสูงสุด 60". A real decimal still counts:
+   60.4 is above 60. The same rule now applies at every K⁺ threshold on both routes, so a bag exactly at 40, 120
+   or 200 is graded as that figure too.
+3. **The peripheral K⁺ bar runs to 90 again** (1.5 × red, as before the maximum existed), red from 60. Ending it
+   at the maximum, as central's does at 200, would leave no red on it and park an over-maximum needle on amber
+   under a red tile. Display only.
+4. **`CONSTANTS_VERSION` 2026-10-08.1.** `K_BAG_MEQ_PER_L` is on the bump list and the form prints the maximum
+   ("max 60" where it said "max 200"), so an order saved before this release prints again only after it is saved
+   again (`calcMoved`). No dose moves.
+
+### What the ward sees on a peripheral line
+
+- **Up to 40 mEq/L:** green, as before.
+- **Above 40, up to and including 60:** amber, the caution "K⁺ concentration high" ("… above 40 mEq/L for a
+  peripheral line (critical above 60)"); it saves with no reason and prints. Under the tile: "peripheral: amber
+  > 40 · red > 60 · max 60 mEq/L"; the form "K⁺ in bag: confirm > 60 · max 60 mEq/L (peripheral)"; the back
+  sheet "(confirm > 60, max 60, peripheral)"; the copied order "confirm above 60, max 60 on a peripheral line".
+- **Above 60:** red, and one critical alert, "K⁺ above the maximum": "… the most a peripheral line may carry is
+  60 mEq/L, so this order cannot be saved." By Submit: "K⁺ ในถุง N mEq/L เกินค่าสูงสุด 60 mEq/L ของสาย peripheral —
+  เพิ่มปริมาตรหรือลด K — บันทึก/พิมพ์ไม่ได้". "K⁺ concentration too high", the alert a reason confirms, can no
+  longer appear on a peripheral line. The quick calc's copy reads "!! K⁺ N mEq/L IS ABOVE THE 60 mEq/L MAXIMUM".
+
+### Orders saved before this release
+
+- **Any order dated by an earlier version** (`savedCalcVersionOf`: its stamp, or 2026-09-18.1 from its
+  `aaProduct` key) reopens with Print and Copy held: "NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก …". Saving it
+  again restamps it, and it prints.
+- **A peripheral order of 61–200 mEq/L**, saved then with a reason for "K⁺ concentration too high", reopens with
+  "K⁺ above the maximum", which that reason does not cover. The line by Submit says why, ahead of the re-save
+  message, and Submit stays disabled, so it prints only after K⁺ is brought to 60 or below and the order is
+  saved again. The row itself stays in `Daily_Log` unchanged; nothing re-grades it there.
+- **Center Point** keeps the gap the review of PR #129 named: it never re-checks the maximum on a revision saved
+  before the release. CP is synthetic-only.
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` § 14, new: peripheral 61, 65, 100, 150, 199 and 200 refused (red, the one alert,
+Submit disabled, a reason does not save it, a draft does); 60 allowed in five fixtures, three of which compute
+above 60 in floating point, and one saved with no reason asked and printed; central 65 amber, 200 a confirm, 201
+refused; a peripheral order saved at 100 with its reason now refused and printable once brought to 60 and saved;
+an order at 50 under 2026-09-28.1 held for re-save; one at 60 under the new version printing. § 10 follows the
+new maximum. 149 checks; 30 fail against `f055360`, and 5 (the floating-point 60s) fail with the maximum lowered
+but no float-noise grading. `verify-kcmh-constants` pins the peripheral maximum (fails against `f055360`).
+Adjusted: `verify-tpn-team-0922` § 7 (peripheral 70 is above the maximum; the critical tier is shown on a central
+130), `verify-status-zones` (peripheral red from 60 of 90) and `verify-calc-oracle` (its own rule carries the
+peripheral 60 and strips float noise; the copied-order wording).
+
+### Left as it is
+
+- The wording keeps the confirm threshold beside the maximum: "red > 60 · max 60", "confirm > 60 · max 60",
+  "(critical above 60)". On a peripheral line there is nothing left to confirm above 60. Whether to print only
+  "max 60" there is Pp's call; it is a wording change on the pharmacy form.
+
 ## Session 2026-10-05 — Help requests from inside the app
 
 `app.jsx`, `gas-backend.gs`, both shells and `compiled/`; tests; docs. No clinical constant or
