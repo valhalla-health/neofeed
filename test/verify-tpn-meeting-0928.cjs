@@ -21,12 +21,19 @@
 //        > 60, red > 120, and above 200 not orderable ("K ทาง central ลดเป็น 120
 //        ให้ขึ้นแดง แต่ max ที่ 200"); the KCMH 40 mEq/L stop is gone. Reviewing
 //        this PR, Praew: "max 200 ทั้งสองสาย" — peripheral too (§10, §10b).
+//        Since 2026-10-08 the peripheral maximum is 60 (§14).
 //   §11  "osmolarity ทาง central ไม่มี upper limit".
 //   §12  "lipid เพดาน 0.13-0.17 g/kg/h": amber above 0.13, red above 0.17.
 //   §13  "แสดง acetate ด้วย" — built, and hidden until the vial label gives acetate per mL.
 //
+// Praew, 2026-10-08: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60" (it was 200):
+//   §14  peripheral 61–200 mEq/L cannot be ordered, 60 can (however the
+//        arithmetic lands on it), central is unchanged, and a peripheral order
+//        saved above 60 before the change no longer prints. §10 follows.
+//
 // Mounts the real <Calculator> in jsdom (same dev-only deps as the other
-// calculator harnesses — see test/README.md). Fails against 6269b88.
+// calculator harnesses — see test/README.md). Fails against 6269b88; §10 and
+// §14 fail against f055360 (peripheral maximum 200).
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
@@ -361,8 +368,10 @@ function baseOrder({ tf = 120 } = {}) {
   // ═══════════════════════════ §10 K⁺ by route ═════════════════════════════
   // Review of PR #129, Praew: "max 200 ทั้งสองสาย". Until then only central had
   // a maximum, so switching a 213 mEq/L bag to Peripheral turned the stop into
-  // a critical alert that one typed reason cleared.
-  await section('§10 K⁺ in the bag by route: peripheral amber > 40, red > 60; central amber > 60, red > 120; max 200 on both', async () => {
+  // a critical alert that one typed reason cleared. Since 2026-10-08 (Praew)
+  // the peripheral maximum is 60, so above 60 a peripheral bag is a stop, not
+  // a confirm: §14 has the full peripheral grid.
+  await section('§10 K⁺ in the bag by route: peripheral amber > 40, max 60; central amber > 60, red > 120, max 200', async () => {
     const log = logger();
     mount({ patient: pt('KR-2000', 2000), onLog: log.onLog });
     setField('Current weight', 2000); fillRequired(120);
@@ -376,11 +385,8 @@ function baseOrder({ tf = 120 } = {}) {
     kAt(100, 2.5);    // 50
     eq('peripheral 50: amber, a caution', [tileStatus('K⁺ in bag'), kAlerts()], ['warn', ['warn:K⁺ concentration high']]);
     kAt(100, 3.25);   // 65
-    eq('peripheral 65: red, a critical alert', [tileStatus('K⁺ in bag'), kAlerts()], ['crit', ['crit:K⁺ concentration too high']]);
-    ok('the line under the tile gives the peripheral thresholds', /peripheral: amber > 40 · red > 60 · max 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
-    kAt(30, 2.98);    // 199
-    eq('peripheral 199: red, not yet the maximum; Submit works with a reason', [tileVal('K⁺ in bag'), kAlerts(), !!saveBtn() && !saveBtn().disabled], ['199 mEq/L', ['crit:K⁺ concentration too high'], true]);
-    kAt(100, 3.25);   // back to 65
+    eq('peripheral 65: red, above the 60 maximum; Submit disabled', [tileStatus('K⁺ in bag'), kAlerts(), !!saveBtn() && saveBtn().disabled], ['crit', ['crit:K⁺ above the maximum'], true]);
+    ok('the line under the tile gives the peripheral thresholds', /peripheral: amber > 40 · red > 60 · max 60 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
     click(button(/^Central$/));
     eq('the same 65 on a central line: amber', [tileStatus('K⁺ in bag'), kAlerts()], ['warn', ['warn:K⁺ concentration high']]);
     ok('…and the line under the tile gives the central ones', /central: amber > 60 · red > 120 · max 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
@@ -396,7 +402,7 @@ function baseOrder({ tf = 120 } = {}) {
     ok('…Submit is disabled, and the line by it says why', !!saveBtn() && saveBtn().disabled && /เกินค่าสูงสุด 200 mEq\/L/.test(text(container.querySelector('.k-over-max'))), text(container.querySelector('.k-over-max')));
     click(button(/^Peripheral$/));
     eq('the same 213 switched to Peripheral: still above the maximum', [tileStatus('K⁺ in bag'), kAlerts()], ['crit', ['crit:K⁺ above the maximum']]);
-    ok('…Submit stays disabled, and the line names the peripheral line', !!saveBtn() && saveBtn().disabled && /เกินค่าสูงสุด 200 mEq\/L ของสาย peripheral/.test(text(container.querySelector('.k-over-max'))), text(container.querySelector('.k-over-max')));
+    ok('…Submit stays disabled, and the line names the peripheral line', !!saveBtn() && saveBtn().disabled && /เกินค่าสูงสุด 60 mEq\/L ของสาย peripheral/.test(text(container.querySelector('.k-over-max'))), text(container.querySelector('.k-over-max')));
     click(button(/^Central$/));
     const draft = [...container.querySelectorAll('button.save-draft')][0];
     await clickAsync(draft);
@@ -405,10 +411,10 @@ function baseOrder({ tf = 120 } = {}) {
     kAt(100, 2.5);    // 50, amber: saves with no reason
     await save();
     ok('submitted (an update of the draft): the form prints', !!printForm());
-    ok('the form gives the route’s limit', /K⁺ in bag: confirm > 60 · max 200 mEq\/L \(peripheral\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
-    ok('…and so does its back sheet', /K⁺ in bag 50 mEq\/L \(confirm > 60, max 200, peripheral\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
+    ok('the form gives the route’s limit', /K⁺ in bag: confirm > 60 · max 60 mEq\/L \(peripheral\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
+    ok('…and so does its back sheet', /K⁺ in bag 50 mEq\/L \(confirm > 60, max 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
     const copy = await copyOrder();
-    ok('…and the copied order', /\(50 mEq\/L; confirm above 60, max 200 on a peripheral line\)/.test(copy), copy.match(/Total K:[^\n]*/));
+    ok('…and the copied order', /\(50 mEq\/L; confirm above 60, max 60 on a peripheral line\)/.test(copy), copy.match(/Total K:[^\n]*/));
     click(button(/^Central$/));
     await save();
     ok('on a central line the form gives both numbers', /K⁺ in bag: confirm > 120 · max 200 mEq\/L \(central\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
@@ -429,7 +435,7 @@ function baseOrder({ tf = 120 } = {}) {
     const critTitles = alertRows().filter(a => a.level === 'crit').map(a => a.title);
     ok('reopened at 250 mEq/L, peripheral: "K⁺ above the maximum"', critTitles.includes('K⁺ above the maximum'), critTitles);
     reopen(12.5, critTitles);
-    ok('…with every critical alert given a reason, it still does not print', !printForm() && /เกินค่าสูงสุด 200/.test(text(container.querySelector('.k-over-max'))), text(container.querySelector('.k-over-max')));
+    ok('…with every critical alert given a reason, it still does not print', !printForm() && /เกินค่าสูงสุด 60/.test(text(container.querySelector('.k-over-max'))), text(container.querySelector('.k-over-max')));
     reopen(2.5, critTitles);   // 50 mEq/L: the control
     ok('…while the same row at 50 mEq/L prints', !!printForm());
   });
@@ -516,6 +522,124 @@ function baseOrder({ tf = 120 } = {}) {
       // 3 mEq/kg × 2 kg × 210/180 overfill = 7 mEq Na in the bag → 7 mEq acetate
       ok('…and the copied order gives the bag\'s acetate', /Na Acetate:[^\n]*\(acetate 7 mEq\)/.test(copy), copy.match(/Na Acetate:[^\n]*/));
     } finally { D.KCMH_STOCK.naAcetate.acetateMeqPerMl = was; }
+  });
+
+  // ═══════════════════════ §14 peripheral maximum 60 ═══════════════════════
+  // Praew, 2026-10-08: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60". The maximum was
+  // 200 on both routes, so a peripheral bag of 61–200 mEq/L was ordered with a
+  // typed reason. Now the maximum is the critical threshold itself: above 60 a
+  // peripheral bag cannot be ordered, and 60 can. A bag that is 60 mEq/L on
+  // paper can compute as 60.00000000000001 (1 kg, 50 mL, KCl 3), and the
+  // ceiling must not refuse its own value. Synthetic infants only.
+  await section('§14 peripheral K⁺ maximum 60 (Praew, 2026-10-08): 61–200 refused, 60 allowed, central unchanged, old orders held', async () => {
+    eq('the constant: peripheral 40 / 60 / 60, central 60 / 120 / 200',
+      [D.K_BAG_MEQ_PER_L.peripheral, D.K_BAG_MEQ_PER_L.central],
+      [{ warn: 40, red: 60, hardMax: 60 }, { warn: 60, red: 120, hardMax: 200 }]);
+    const kAlerts = () => alertRows().filter(a => /^K⁺ (concentration|above)/.test(a.title)).map(a => `${a.level}:${a.title}`);
+    const submitOpen = () => !!saveBtn() && !saveBtn().disabled;
+    const overMaxLine = () => text(container.querySelector('.k-over-max'));
+    const order = (sid, { wtG = 2000, vol = 100, dead = 0, route = 'Peripheral', onLog = logger().onLog } = {}) => {
+      mount({ patient: pt(sid, wtG), onLog });
+      setField('Current weight', wtG); fillRequired(120);
+      setField('ปริมาตรคาสาย', dead);
+      setField('Volume(mL/day)', vol);
+      click(button(new RegExp(`^${route}$`)));
+    };
+
+    // 2 kg, 100 mL, no dead space, KCl alone: mEq/L = KCl mEq/kg × 20.
+    const log = logger();
+    order('KP-2000', { onLog: log.onLog });
+    for (const [perKg, shown] of [[3.05, 61], [3.25, 65], [5, 100], [7.5, 150], [9.95, 199], [10, 200]]) {
+      setField('KCl', perKg);
+      eq(`peripheral ${shown}: red, "K⁺ above the maximum" alone, Submit disabled`,
+        [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag'), kAlerts(), submitOpen()],
+        [`${shown} mEq/L`, 'crit', ['crit:K⁺ above the maximum'], false]);
+      ok(`…the line by Submit: ${shown} against the peripheral 60`,
+        new RegExp(`K⁺ ในถุง ${shown} mEq/L เกินค่าสูงสุด 60 mEq/L ของสาย peripheral`).test(overMaxLine()), overMaxLine());
+    }
+    const over = alertRows().find(a => a.title === 'K⁺ above the maximum');
+    ok('the alert at 200: the most a peripheral line may carry is 60', !!over && /200 mEq\/L in the bag — the most a peripheral line may carry is 60 mEq\/L/.test(over.text), over && over.text);
+    window.prompt = () => 'fixture — attending aware';
+    await clickAsync(saveBtn());
+    eq('…a typed reason does not get it saved', log.calls, 0);
+    await clickAsync([...container.querySelectorAll('button.save-draft')][0]);
+    eq('…but it can still be kept as a draft', log.calls, 1);
+    ok('…which does not print', !printForm());
+
+    // 60 itself, every way the arithmetic reaches it.
+    const at60 = [
+      ['2 kg, 100 mL, KCl 3', { wtG: 2000, vol: 100, dead: 0 }, 3, 0],
+      ['2 kg, 100 mL, KCl 2 + K₂HPO₄ 1', { wtG: 2000, vol: 100, dead: 0 }, 2, 1],
+      ['1 kg, 50 mL + 30 dead space, KCl 3', { wtG: 1000, vol: 50, dead: 30 }, 3, 0],
+      ['500 g, 30 mL + 30 dead space, KCl 3.6', { wtG: 500, vol: 30, dead: 30 }, 3.6, 0],
+      ['2 kg, 180 mL + 30 dead space, KCl 5.4', { wtG: 2000, vol: 180, dead: 30 }, 5.4, 0],
+    ];
+    // The calculator's own formula (calculator.jsx: bag K ÷ prepared litres), to
+    // show which fixtures land above 60 in floating point.
+    const rawK = ({ wtG, vol, dead }, kCl, k2) => (kCl + k2) * (wtG / 1000 * ((vol + dead) / vol)) / ((vol + dead) / 1000);
+    ok('fixture: three of the five compute above 60 in floating point', at60.filter(([, o, k, k2]) => rawK(o, k, k2) > 60).length === 3,
+      at60.map(([n, o, k, k2]) => `${n}: ${rawK(o, k, k2)}`));
+    for (const [name, o, kCl, k2] of at60) {
+      order('K6-' + o.wtG, o);
+      setField('KCl', kCl);
+      if (k2) setField('K₂HPO₄', k2);
+      eq(`peripheral 60 (${name}): amber, a caution only, Submit open`,
+        [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag'), kAlerts(), submitOpen(), !!container.querySelector('.k-over-max')],
+        ['60 mEq/L', 'warn', ['warn:K⁺ concentration high'], true, false]);
+    }
+    // The last one saves with no reason asked, and prints.
+    let asked = 0;
+    window.prompt = () => { asked++; return null; };
+    const log60 = logger();
+    order('K6-SAVE', { wtG: 1000, vol: 50, dead: 30, onLog: log60.onLog });
+    setField('KCl', 3);
+    await save();
+    eq('a 60 mEq/L peripheral order saves with no reason asked', [log60.calls, asked], [1, 0]);
+    ok('…and prints', !!printForm());
+
+    // Central is unchanged: red above 120 with a reason, 200 orderable, 201 not.
+    order('KC-2000', { route: 'Central' });
+    setField('KCl', 3.25);    // 65
+    eq('central 65: amber', [tileStatus('K⁺ in bag'), kAlerts(), submitOpen()], ['warn', ['warn:K⁺ concentration high'], true]);
+    setField('KCl', 10);      // 200
+    eq('central 200: red, a confirm with a reason, not the maximum', [tileVal('K⁺ in bag'), kAlerts(), submitOpen()], ['200 mEq/L', ['crit:K⁺ concentration too high'], true]);
+    setField('KCl', 10.05);   // 201
+    eq('central 201: above the 200 maximum', [tileVal('K⁺ in bag'), kAlerts(), submitOpen()], ['201 mEq/L', ['crit:K⁺ above the maximum'], false]);
+    ok('…and the line names the central 200', /เกินค่าสูงสุด 200 mEq\/L ของสาย central/.test(overMaxLine()), overMaxLine());
+
+    // Orders saved before the change. A peripheral order of 61–200 was saved
+    // with a reason for "K⁺ concentration too high". It is above the maximum
+    // now, which no reason covers: it does not print, and it is saved again
+    // only once its bag is at 60 or below. CONSTANTS_VERSION moved with the
+    // maximum, so any order saved before it waits for a re-save (calcMoved).
+    const savedRow = (id, kCl, extra) => ({ entryId: id, lastModified: 'lm-' + id, status: 'submitted', ts: '2026-09-28', dol: 1,
+      weight: 2000, ioInput: 150, ioOutput: 60, drainContent: 0, lastModifiedBy: 'doc@kcmh.test',
+      calcInput: { curWtG: 2000, fluidTargetPerKg: 120, otherIV_mL: 0, drug_mL: 0, ioInput: 150, ioOutput: 60, drainContent: 0,
+        totalTPN_mL: 100, deadVol_mL: 0, route: 'peripheral', kCl, aaProduct: 'aminoven10', tpnWtG: 2000, ...extra } });
+    const reopen = (row) => {
+      const box = { updated: null };
+      mount({ patient: pt('KS-2000', 2000), onLog: logger().onLog, editEntry: row,
+        onUpdate: (id, lm, e) => { box.updated = e; return Promise.resolve({ ok: true, lastModified: 'lm-2' }); } });
+      return box;
+    };
+    const before = { constantsVersion: '2026-09-28.1' };
+    const reason = { critOverride: { alerts: ['K⁺ concentration too high'], reason: 'fixture — attending aware' } };
+    window.prompt = () => 'fixture — attending aware';
+    let box = reopen(savedRow('k-old-100', 5, { ...before, ...reason }));
+    eq('a peripheral order saved at 100 mEq/L with its reason: now "K⁺ above the maximum"', kAlerts(), ['crit:K⁺ above the maximum']);
+    ok('…it does not print', !printForm());
+    ok('…the line says why: 100 against the peripheral 60, cannot be saved or printed',
+      /K⁺ ในถุง 100 mEq\/L เกินค่าสูงสุด 60 mEq\/L ของสาย peripheral — เพิ่มปริมาตรหรือลด K — บันทึก\/พิมพ์ไม่ได้/.test(overMaxLine()), overMaxLine());
+    ok('…and Submit stays shut', !submitOpen());
+    setField('KCl', 3);       // 60
+    await save();
+    ok('brought to 60 and saved again: it prints', !!box.updated && !!printForm());
+    eq('…restamped with the new version', box.updated?.calcInput?.constantsVersion, D.CONSTANTS_VERSION);
+    reopen(savedRow('k-old-50', 2.5, before));
+    ok('a peripheral order saved at 50 under 2026-09-28.1: held until saved again', !printForm() && /ปรับการคำนวณ/.test(text(container.querySelector('.print-blocked'))),
+      text(container.querySelector('.print-blocked')));
+    reopen(savedRow('k-now-60', 3, { constantsVersion: D.CONSTANTS_VERSION }));
+    ok('…while one saved at 60 under the new version prints', !!printForm());
   });
 
   console.log(`\nTPN MEETING 2026-09-28: ${fail ? fail + ' FAILED' : 'ALL PASSED'} (${pass} passed)`);
