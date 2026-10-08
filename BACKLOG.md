@@ -505,6 +505,10 @@ clinical judgement. Everything else is engineering sequencing.
       safety-relevant half, and it is shipped. The rest is a cached shell (read-only, clearly
       labelled) and, only after the server-side one-entry-per-date guard exists, a queued save.
       See `NEOFEED_DIGIHEALTH_UPGRADE_MAP.html` §05 for the three levels.
+- [ ] 🧱 **infra · A local install with no internet (Pp, 2026-10-08).** One ward PC runs the unchanged
+      `gas-backend.gs` on Node 24 with SQLite and serves the app over the hospital LAN; every write is
+      kept on that PC and backed up to a hospital share. Spec: `docs/LOCAL_OFFLINE_SPEC.md`. Phase 1
+      (runtime, server, admin CLI, tests, synthetic data only) comes first; phases 2–3 need hospital IT.
 - [ ] ⚖️ **PDPA · No retention or auto-purge policy after discharge** — records persist indefinitely
       in the Sheet today. ⭐ **This is the candidate scope for the 3099706 course project** (see
       `PRD.md`'s course-link note): it is genuinely not-yet-built, so the coursework produces real
