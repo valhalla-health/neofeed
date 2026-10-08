@@ -32,12 +32,28 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] 💬 **ops · Ship help requests (`CHANGELOG.md` 2026-10-05).** The backend goes first, with the
-      `script.send_mail` scope added to the mirror's manifest and `authorizeHelpMail` run once as
-      `peeraporn.po@chula.ac.th` (**Praew approves the consent**; REFERENCE.md § Backend). Then release the
-      frontend, send one real request, and check it reaches praew.tvl@gmail.com through the
-      valhalla.team.th filter. A frontend released before the backend shows "ส่งเรื่องไม่สำเร็จ" and
-      nothing worse.
+- [ ] 🩺 **safety · What the 2026-10-08 outside review left open** (`CHANGELOG.md` 2026-10-08 (2)). Its
+      advice: hold routine pharmacy use until these close. Fixed already: the peripheral K⁺ maximum (#137,
+      released by #138) and the dosing weight (that entry). The 0.1 mL rounding is the pharmacy item below.
+      - **Ward acceptance before the first routine order**, with synthetic infants on the ward's own phone,
+        workstation and printer: ELBW small-volume salts; dosing below birth weight; outborn admission and
+        DOL; peripheral K⁺ at and above 60, central at and above 200; lipid either side of the ceiling; MEN
+        and feeds-only days; mixed PN/EN; a revision of a published order. Pharmacy reconciles the printed
+        ingredients, prepared against delivered volume, Factor, WFI, the salt rounding and both sheets.
+        Also: a draft after a network failure, two people editing one order, logout and a shared device.
+        **Praew's to arrange.**
+      - **Lipid ceiling against the label.** The US SMOFlipid label caps pediatric infusion at 0.75 mL/kg/h
+        (0.15 g/kg/h); NeoFeed turns critical above 0.17 (TPN team, 2026-09-28). Ask the TPN team what the
+        Thai product label and local policy say. **Praew's to ask.**
+      - **The backend trusts the client's numbers.** It range-checks the totals but does not recompute
+        them from `calcInput`, check route concentration limits, or require an override reason before a
+        publish. A signed-in account with a modified client can store safe-looking totals beside
+        contradictory inputs. Separate hardening; size it after the ward acceptance.
+      - Decided, not to do (Pp, 2026-10-08): nurse order writes stay tied to `NURSING_LOG_ENABLED` (D5
+        holds once the nursing form is on); the lipid rate stays graded on the 2-decimal figure shown.
+- [ ] 💬 **ops · Send one real help request** (`CHANGELOG.md` 2026-10-05). Shipped on 2026-10-06 by #136
+      with backend `@62`. Left: send one from the app and check it reaches praew.tvl@gmail.com through the
+      valhalla.team.th filter.
 - [ ] ⚖️ **PDPA · Check the live `Patient_Registry` for erased rows the refill already reached.**
       **Praew's to do** (Sheet access). Look for rows whose name (B) starts `[PDPA-erased` and whose dob (G)
       is not empty. A refill could only have run on 2026-09-24, from about 14:22 ICT to 21:17:37 ICT, when
@@ -612,7 +628,10 @@ clinical judgement. Everything else is engineering sequencing.
       longer the required `release` approver — 0 approvals since 2026-09-18, see `REFERENCE.md`); **`tasamew` to delete the
       public fork `tasamew/neofeed`** (asked 2026-09-18) — a 2026-06-16 copy whose `main` holds 3 commits never merged here
       (the "DOL today" edit-form change, `f4c4708`, `c9e14fe`, `728158f`), so they check those first; confirm 2FA on both
-      GitHub admins and on the Cloudflare account; close/delete the stale branches and draft PR #56. **Not PR #57**
+      GitHub admins and on the Cloudflare account; close/delete the stale branches and draft PR #56.
+      The 2026-10-08 outside review adds two org settings: default repository permission is `admin`
+      and 2FA is not required. The org has one member (Praew), so today the default reaches only her;
+      set it to `read` and require 2FA before anyone else joins. **Not PR #57**
       (`codex/center-point-v2`): since 2026-09-15 it is active, paired with NICU-Center-Point PR #12, and the
       two must merge together (CP accepts only the `neofeed-tpn-v2` packet #57 builds).
 

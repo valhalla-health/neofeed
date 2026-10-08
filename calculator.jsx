@@ -1712,8 +1712,22 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;
   const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
+  // The weight every dose is computed from (Pp, 2026-10-08; D.TPN_WT_*).
+  // Outside the range it is a typo, not a judgement: no order, no draft,
+  // the way gas-backend.gs refuses it. A typed weight far from the
+  // automatic one may be right (dry weight, oedema), so it is critical:
+  // ordered with a reason, which prints. Only a typed weight is judged
+  // against the automatic one; the birth-weight floor is the rule itself.
+  const [tpnWtLo, tpnWtHi] = D.TPN_WT_RANGE_G;
+  const tpnWtOutOfRange = wtG > 0 && (wtG < tpnWtLo || wtG > tpnWtHi);
+  const tpnWtOutOfRangeText = `TPN calc. weight ${fmt(wtG, 0)} g อยู่นอกช่วง ${tpnWtLo}–${tpnWtHi} g — ตรวจว่าพิมพ์ถูกหลัก`;
+  const tpnWtDiff = tpnWtManual && autoWtG > 0 ? Math.abs(wtG - autoWtG) / autoWtG : 0;
+  // Float noise stripped as for K⁺: 900 → 1080 g is 20 %, not above it.
+  const tpnWtFar = !tpnWtOutOfRange && Number(tpnWtDiff.toPrecision(12)) > D.TPN_WT_MANUAL_MAX_DIFF;
 
   const alerts = [];
+  if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
+  else if (tpnWtFar) alerts.push({ level: "crit", title: "TPN calc. weight far from automatic", body: `${fmt(wtG, 0)} g typed, automatic ${fmt(autoWtG, 0)} g (${wtG > autoWtG ? "+" : "−"}${fmt(tpnWtDiff * 100, 0)} %, more than ${fmt(D.TPN_WT_MANUAL_MAX_DIFF * 100, 0)} %). Every dose and mL on this order is computed from ${fmt(wtG, 0)} g — check the digits.`, ref: "Pp, 2026-10-08" });
   if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${fmt(calc.gir, 1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });else
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
   // Titles are unchanged from the total-based alerts they replace: a saved
@@ -1825,7 +1839,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit")
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -1834,6 +1848,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
+    : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
     : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}`
@@ -1906,6 +1921,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (asDraft && (blankFields.has("curWtG") || !(curWtG > 0))) {
       setOpenSteps(prev => new Set(prev).add(1));
       showToast("บันทึกร่างต้องมีน้ำหนักปัจจุบัน (Current weight) อย่างน้อย", "error");
+      return;
+    }
+    // ── TPN calc. weight out of range (Pp, 2026-10-08) ───────────────
+    // Draft or not: gas-backend.gs refuses the row either way, and a
+    // reason cannot confirm a weight no infant here has.
+    if (tpnWtOutOfRange) {
+      setOpenSteps(prev => new Set(prev).add(1));
+      showToast(tpnWtOutOfRangeText, "error");
       return;
     }
     if (!asDraft && missingFields.length > 0) {
@@ -2288,7 +2311,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             </div>
           </div>
           {tpnWtManual && (
-            <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--warn)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div className="tpn-wt-manual" style={{ marginTop: 10, fontSize: 11.5, color: tpnWtFar || tpnWtOutOfRange ? "var(--crit)" : "var(--warn)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span>
                 TPN calc. weight ถูกแก้เป็น <span className="num" style={{ fontWeight: 600 }}>{fmt(wtG, 0)}</span> g —
                 ทุก dose/target ด้านล่างคิดจากค่านี้ (อัตโนมัติ = {fmt(autoWtG, 0)} g)
@@ -3357,7 +3380,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3526,6 +3549,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {kOverMaxText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {tpnWtOutOfRange && (
+              <div className="tpn-wt-out-of-range" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {tpnWtOutOfRangeText} — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)
+              </div>
+            )}
             {isDraftSaved && !dirty && (
               <div className="draft-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit
@@ -3535,14 +3563,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 Center Point, which has its own review step. */}
             {!scratch && !centerPoint && !ordersReadOnly && (
               <button className="btn save-draft" style={{ width: "100%", marginBottom: 8 }}
-                disabled={saving || pendingSave || (savedStatus === "submitted" && !!savedEntryId)}
+                disabled={saving || pendingSave || tpnWtOutOfRange || (savedStatus === "submitted" && !!savedEntryId)}
                 title={savedStatus === "submitted" && savedEntryId ? "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง" : "บันทึกไว้ก่อน แม้ยังกรอกไม่ครบ — พิมพ์ไม่ได้จนกว่าจะ Submit"}
                 onClick={() => handleSave(true)}>
                 <Icon name="save" size={14} /> {saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"}
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || kOverMax || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || kOverMax || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
