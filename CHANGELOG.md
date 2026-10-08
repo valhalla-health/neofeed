@@ -10,7 +10,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-08 (2) — The dosing weight has bounds; the outside review, item by item
 
 `data.js`, `calculator.jsx`, `gas-backend.gs`, both shells and `compiled/`; tests; docs. **`CONSTANTS_VERSION`
-unchanged** (a stop and an alert move no dose). PR #TBD, not merged. **The backend half needs a `clasp`
+unchanged** (a stop and an alert move no dose). PR #139, not merged. **The backend half needs a `clasp`
 deploy** (`@63`); the two halves can go in either order.
 
 ### Why

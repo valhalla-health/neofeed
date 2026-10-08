@@ -109,8 +109,8 @@
 > (`BACKLOG.md` § Now).
 
 **Updated 2026-10-08, 21:00 ICT** · ✅ **Backend `@62` and frontend `release` = `ff5aa43` are live, and
-both are verified.** Caught up with #136 and #138 in PR #TBD, the next PR on the repo, as both asked.
-- ⏳ **PR #TBD, the dosing weight: not merged, not deployed.** Frontend and backend (`@63`), in either order
+both are verified.** Caught up with #136 and #138 in PR #139, the next PR on the repo, as both asked.
+- ⏳ **PR #139, the dosing weight: not merged, not deployed.** Frontend and backend (`@63`), in either order
   (`CHANGELOG.md` 2026-10-08 (2)). From an outside review of `62b6dec` that saved a 900 g infant's order
   dosed at 8,500 g. Pp decided the threshold in chat.
   - **TPN calc. weight outside 200–8,000 g:** no Submit, no draft, and the backend refuses it.
