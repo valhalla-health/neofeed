@@ -55,6 +55,11 @@ clinical judgement. Everything else is engineering sequencing.
       - MgSO₄'s in-bag mL now names its vial (10%/50%).
       - **Answers for the team.** GIR uses the delivered rate: Volume ÷ 24 is the Rate box, and dead space
         is not in it. MEN was not reproduced; ask for a screenshot of the number they saw move.
+      - **K⁺ in the bag (2026-10-08).** The notice now says: **peripheral maximum 60 mEq/L** (it was 200;
+        Praew), central 200. Above 60 a peripheral order cannot be saved or printed, and the form reads "max
+        60". Orders saved before that release must be saved again before they print (`CONSTANTS_VERSION`
+        2026-10-08.1), and a peripheral order saved at 61–200 only once its K⁺ is 60 or below. **It goes out
+        after the release that carries it**, not before.
 - [ ] 🩺 **safety · Tell pharmacy: the pharmacy form changed on 2026-09-18 at 11:17 ICT** (PR #77,
       `STATUS.md`). Every new NICU/SCN TPN order starts with 30 mL dead space and prints PREPARED
       figures, and Soluvit and Peditrace are × Factor, so on an overfilled bag their printed mL (and the
@@ -118,7 +123,10 @@ clinical judgement. Everything else is engineering sequencing.
             2026-09-28: red above 120, and 200 as a maximum that cannot be ordered (`CHANGELOG.md` 2026-09-28 (3)).
           - [x] 🩺 **Peripheral K⁺ maximum.** The review of PR #129 found that switching a central bag above
             200 to Peripheral made it orderable with a reason. Praew: "max 200 ทั้งสองสาย" — built
-            (`CHANGELOG.md` 2026-09-28 (6)). Whether peripheral should stop lower than 200 is for the team.
+            (`CHANGELOG.md` 2026-09-28 (6)). ~~Whether peripheral should stop lower than 200 is for the team.~~
+            **Answered by Praew on 2026-10-08, in chat: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60"** — built
+            (`CHANGELOG.md` 2026-10-08). Above 60 a peripheral bag cannot be ordered; there is no confirm tier left
+            on that route.
         - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
           (split in two) or a stop.
         - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,
@@ -344,7 +352,8 @@ clinical judgement. Everything else is engineering sequencing.
       **To close:**
       1. Release the frontend and `clasp push` the backend, in either order. Both are inert while the
          switch is off, so they can ride any release.
-      2. D7: the DPO signs off spec § 6 (and the 26(5)(a) citation below).
+      2. D7: the DPO signs off spec § 6 (and the 26(5)(a) citation below). Praew, 2026-10-08: the
+         hospital's DPO role sits with IT; she is drafting the letter to IT.
       3. Set the Script Property `NURSING_LOG_ENABLED` = `true`. **Only after step 1's frontend is
          live**: an old frontend has no I/O card, and its nurses would be refused order saves with
          nowhere to record I/O. To switch it off, delete the property (it takes effect on the next

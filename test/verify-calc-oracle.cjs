@@ -273,11 +273,13 @@ function expectedAlerts(sc, e) {
   }
   if (e.Vd > 0 && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
   if (e.dexGkg > 18) add('crit', 'Dextrose over KCMH max');
-  // K⁺ in the bag by route since 2026-09-28 (TPN team and Praew): peripheral amber > 40, critical > 60;
-  // central amber > 60, critical > 120, not orderable > 200. Written out here, not read from data.js.
-  { const k = sc.route === 'central' ? { warn: 60, red: 120, hardMax: 200 } : { warn: 40, red: 60 };
-    if (k.hardMax && e.kPerL > k.hardMax) add('crit', 'K⁺ above the maximum');
-    else if (e.kPerL > k.red) add('crit', 'K⁺ concentration too high'); else if (e.kPerL > k.warn) add('warn', 'K⁺ concentration high'); }
+  // K⁺ in the bag by route since 2026-09-28 (TPN team and Praew): peripheral amber > 40, not orderable
+  // > 60 (Praew, 2026-10-08; it was 200); central amber > 60, critical > 120, not orderable > 200.
+  // Graded without float noise, so a bag that is 60 on paper is 60. Written out here, not read from data.js.
+  { const k = sc.route === 'central' ? { warn: 60, red: 120, hardMax: 200 } : { warn: 40, red: 60, hardMax: 60 };
+    const v = Number(e.kPerL.toPrecision(12));
+    if (k.hardMax && v > k.hardMax) add('crit', 'K⁺ above the maximum');
+    else if (v > k.red) add('crit', 'K⁺ concentration too high'); else if (v > k.warn) add('warn', 'K⁺ concentration high'); }
   // Lipid g/kg/h against 0.13 / 0.17, on the 2-decimal figure shown (TPN team and Praew, 2026-09-28).
   if (sc.lip > 0) { const g = Math.round(sc.lip / sc.lipH * 100) / 100;
     if (g > 0.17) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
@@ -622,8 +624,8 @@ async function run(scIn) {
     near(sc, 'copy summary protein', g(/SUMMARY: Protein ([\d.]+) g\/kg/), e.proKg, 1);
     near(sc, 'copy summary energy', g(/Energy ([\d.]+) kcal\/kg \|/), e.kcalKg, 0);
     near(sc, 'copy total Na delivered', g(/Total Na: +[\d.]+ mEq in bag = ([\d.]+) mEq\/kg\/d/), e.naKg, 1);
-    // Max 200 on both routes since the review of PR #129 (Praew, "max 200 ทั้งสองสาย").
-    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L; confirm above (?:60, max 200 on a peripheral|120, max 200 on a central) line\)/), e.kPerL, 0);
+    // Max 200 on a central line; 60 on a peripheral one since 2026-10-08 (Praew).
+    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L; confirm above (?:60, max 60 on a peripheral|120, max 200 on a central) line\)/), e.kPerL, 0);
     near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
     if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.oCa > 0) near(sc, 'copy oral Ca tabs/day', g(/mg\/day → ([\d.]+) tab\/day/), e.oCa_tabs, 2);

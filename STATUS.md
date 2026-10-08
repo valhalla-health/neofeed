@@ -98,8 +98,20 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-06, 15:39 ICT** · ✅ **Backend `@61` and frontend `release` = `a127baf` are live, and
+**Updated 2026-10-08, 09:15 ICT** · ✅ **Backend `@61` and frontend `release` = `a127baf` are live, and
 both are verified.** Caught up with #130 and #133 in #135, the next PR on the repo, as both asked.
+- ⏳ **The peripheral K⁺ maximum is 60 mEq/L: on its PR branch, not merged, not deployed.** Frontend only, no
+  `clasp` step (`CHANGELOG.md` 2026-10-08). Pp, in chat: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60". Live, the
+  peripheral maximum is still 200.
+  - **`CONSTANTS_VERSION` `2026-09-28.1` → `2026-10-08.1`** (the maximum prints on the form), so once released
+    an order saved before it prints again only after it is saved again.
+  - ⚠️ **It changes what the ward and pharmacy see** on a peripheral line: above 40 up to 60 is amber and saves
+    with no reason; above 60 the order cannot be saved or printed (a draft can), where 61–200 used to be a
+    critical alert cleared by a typed reason. A peripheral order saved at 61–200 before the release stays
+    unprintable until its K⁺ is brought to 60 or below and it is saved again. Central is unchanged.
+  - K⁺ is graded without floating-point noise, so a bag that is 60 on paper is 60, never 60.00000000000001
+    (live, such a bag reads as critical; with a 60 maximum it would have been refused).
+  - ⚠️ Pharmacy and the TPN team hear about it after the release that carries it (`BACKLOG.md` § Now).
 - ⏳ **PR #135, help requests: merged into `main` on Pp's instruction ("merge แล้ว deploy"). Not live
   until backend `@62` and a `main` → `release` PR.** Backend + frontend (`CHANGELOG.md` 2026-10-05):
   - User menu → 💬 ขอความช่วยเหลือ: a category and a detail, mailed by the backend to
