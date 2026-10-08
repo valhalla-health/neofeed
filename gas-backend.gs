@@ -2074,6 +2074,17 @@ function _validateLogEntry(entry) {
   _checkRange(entry.ioInput,      0,   3000, "I/O input (mL/d)");
   _checkRange(entry.ioOutput,     0,   3000, "I/O output (mL/d)");
   _checkRange(entry.drainContent, 0,   3000, "Drain content (mL/d)");
+  // The dosing weight. entry.weight is the measured weight; the TPN calc.
+  // weight typed over it, which every dose on the order follows, was never
+  // checked: an outside review (2026-10-08) saved a 900 g infant's order
+  // dosed at 8,500 g. Same bounds as entry.weight (data.js TPN_WT_RANGE_G).
+  // tpnWtOverrideG 0 means "no override"; a blank tpnWtG is a row from
+  // before UP-C2 recorded it, so neither is refused.
+  var ci = entry.calcInput;
+  if (ci && typeof ci === "object") {
+    _checkRange(ci.tpnWtG, 200, 8000, "TPN calc. weight (g)");
+    if (Number(ci.tpnWtOverrideG) !== 0) _checkRange(ci.tpnWtOverrideG, 200, 8000, "TPN calc. weight (g)");
+  }
 }
 
 // ── Growth measurement arrays: weights / lengths / hcs / bedHistory ─────────
