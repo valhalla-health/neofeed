@@ -1377,6 +1377,27 @@ above the maximum, and the critical tier with a reason is shown at central 130);
 (the peripheral bar is 90 long, red from 60); `verify-calc-oracle` (its own rule has the peripheral 60 and grades
 without float noise; the copied order's "max 60").
 
+## The dosing weight, 2026-10-08 — one harness, one extended, one adjusted
+
+Pp, after the outside review's 900 g infant dosed at 8,500 g (`CHANGELOG.md` 2026-10-08 (2)).
+**`verify-dosing-weight-1008.cjs`** (jsdom): a typed weight at exactly ±20 % (1,080 and 720 over 900 g) saves
+with no alert and no reason asked; +21 % and −21 % are critical, naming both weights; a cancelled reason saves
+nothing, a given one saves with the alert in `critOverride`, prints with the reason and leaves Print open;
+8,500 over 900 g is out of range alone (no "far" alert beside it), with its banner, both buttons disabled
+and nothing sent; 7,000 over 700 g is critical; 8,000 and 200 save, 8,001 and 199 do not; the birth-weight
+floor raises nothing, a weight typed over it is judged against it, and "ใช้ค่าอัตโนมัติ" clears the alert;
+a measured 9,000 g with no override stops the same way. 48 checks; against `453108a`, 23 fail.
+
+**`verify-input-validation.cjs` § 3b**: `_buildLogRow` refuses `calcInput.tpnWtG` 8,500 (the review's
+probe), 8,001, 199, 0 and "x", an override of 9,000 beside an in-range `tpnWtG`, and a negative override,
+naming "TPN calc. weight (g)"; it accepts 8,000 and 200, a far but in-range weight, override 0, a row with
+no `tpnWtG` and one with no `calcInput`. 14 checks; on the old backend, 9 fail.
+
+Adjusted: **`verify-calc-oracle.cjs`** models both alerts itself, and its 16 kg "F caps" scenario, the only
+weight at which the Soluvit and Peditrace ceilings bind, now expects Submit disabled and no save, print or
+copy; its ceilings are still checked on screen. 1,000 checks (1,053 before: F's print and copy are gone);
+against `453108a` it reports F's 5 surfaces, and `NEGATIVE_CONTROL=1` still fails 4.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

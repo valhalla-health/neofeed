@@ -7,6 +7,64 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-08 (2) — The dosing weight has bounds; the outside review, item by item
+
+`data.js`, `calculator.jsx`, `gas-backend.gs`, both shells and `compiled/`; tests; docs. **`CONSTANTS_VERSION`
+unchanged** (a stop and an alert move no dose). PR #139, merged into `main` on Pp's instruction ("merge แล้ว deploy"). **The backend half needs a `clasp`
+deploy** (`@63`); the two halves can go in either order.
+
+### Why
+
+Pp ran an outside review (GPT) of release `62b6dec` with backend `@62`, ahead of next week, when the ward
+starts saving and printing real TPN orders for pharmacy. Its report stays outside the repo
+(`~\repos\neofeed-audit-20261008\REVIEW.md`). It recommends holding routine pharmacy use until four P1
+findings close. Each one was checked against `main` at `453108a` before anything changed, and Pp decided the
+open ones in chat:
+
+| Finding | Against `main` | Outcome |
+|---|---|---|
+| P1 · live peripheral K⁺ maximum is 200 | True live; PR #137 (max 60) was merged into `main` but not released | Released by PR #138 on Pp's instruction |
+| P1 · 0.1 mL rounding of small stock volumes (NaCl 0.146 → 0.1 mL for 500 g, −32 %) | True; already `BACKLOG.md` § Now, blocked on pharmacy | Open. No code change until pharmacy says how they measure |
+| P1 · a nurse can save and Submit orders while `NURSING_LOG_ENABLED` is off | True, and by design: D5 holds once the nursing I/O form is on, because until then the Calculator's I/O card is the nurses' only way to record I/O | **Pp: keep as it is** |
+| P1 · the typed TPN calc. weight has no bound (900 g measured, 8,500 g dosing, accepted) | True: only `entry.weight`, the measured weight, was range-checked | **Fixed here** (Pp: critical beyond 20 %) |
+| Lipid rate graded on the 2-decimal figure (3.48 g/kg over 20 h = 0.174, shown and graded 0.17, amber) | True, and by design (2026-09-28: colour never disagrees with the number shown) | **Pp: keep as it is** |
+| GitHub org: default repository permission `admin`, 2FA not required | True. The org has one member, Pp; `tasamew` is an outside collaborator with admin on `neofeed` | Pp's settings; not changed |
+| Backend trusts client calculations (totals not recomputed, `calcInput` not cross-checked) | True; known architecture | Open, separate hardening |
+| US SMOFlipid label: pediatric max 0.15 g/kg/h, below the 0.17 ceiling | Not checked against the Thai label | Question for the TPN team |
+| 9 kcal/g IV lipid vs about 10 kcal/g for 20 % SMOFlipid | Intentional, the KCMH worksheet's figure | No change |
+| Privacy residuals (fail-open read audit, temp passwords in Staff H, DOB from date − DOL) | Known | Open, governance |
+
+### What changed
+
+1. **TPN calc. weight outside 200–8,000 g cannot be saved** (`D.TPN_WT_RANGE_G`, the bounds of a Daily_Log
+   weight). Submit and Save draft are disabled, a banner reads "TPN calc. weight N g อยู่นอกช่วง 200–8000 g —
+   ตรวจว่าพิมพ์ถูกหลัก — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)", and the critical alert "TPN calc. weight out of range"
+   explains it. Drafts too, because the backend refuses them. A measured weight above 8,000 g with no override
+   stops the same way, since it becomes the dosing weight.
+2. **A typed weight more than 20 % from the automatic one is critical** (`D.TPN_WT_MANUAL_MAX_DIFF`, Pp:
+   "ต่างเกิน 20%"). "TPN calc. weight far from automatic" names both weights and the difference
+   ("1090 g typed, automatic 900 g (+21 %, more than 20 %)"). Like every critical alert it is ordered only
+   with a typed reason, and the reason prints. The line under Step 1 turns red. Exactly 20 % is not above it
+   (float noise stripped, as for K⁺). Only a typed weight is judged: the birth-weight floor is the rule
+   itself, so 1,000 g dosing for a 750 g infant below birth weight raises nothing.
+3. **`gas-backend.gs` refuses `calcInput.tpnWtG` or a non-zero `tpnWtOverrideG` outside 200–8,000 g**
+   ("TPN calc. weight (g)"). A row from before UP-C2, with no `tpnWtG`, still saves. The 20 % rule stays in
+   the calculator: a reason is a clinical judgement, not a plausibility bound.
+
+An order saved before this release with a typed weight more than 20 % away now shows a critical alert its
+saved override does not name, so Print waits for a re-save with a reason (UP-C6, unchanged). #137's version
+bump already holds every older order for a re-save.
+
+### Tests
+
+- `verify-dosing-weight-1008.cjs` (new, jsdom): 48 checks over seven sections; **23 fail on `453108a`**.
+- `verify-input-validation.cjs` § 3b: 14 new checks; **9 fail on the old backend**.
+- `verify-calc-oracle.cjs` adjusted: its 16 kg scenario, the only one where the Soluvit and Peditrace ceilings
+  bind, is now refused, so those ceilings are checked on screen only. Under 8 kg neither binds. The backend
+  already refused a measured weight above 8,000 g, so only a typed dosing weight could reach them, and that
+  is refused now too.
+- Every harness in both modes from an LF export (`git -c core.autocrlf=false archive`): see the PR.
+
 ## Session 2026-10-08 — The peripheral K⁺ maximum is 60 mEq/L
 
 `data.js`, `calculator.jsx`, both shells and `compiled/`; tests; docs. **`CONSTANTS_VERSION` 2026-09-28.1 →

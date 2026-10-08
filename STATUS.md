@@ -1,5 +1,15 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-08, 20:45–20:47 ICT — frontend `release` = `ff5aa43` on both hosts, with backend `@62`.**
+> PR #138 released #137: the peripheral K⁺ maximum is 60 mEq/L, and `CONSTANTS_VERSION` is `2026-10-08.1`,
+> so every order saved before it is saved again before it prints. `node tools/verify-release.mjs ff5aa43`
+> passed on both hosts (0 failures, 61 passes). The tag `release-2026-10-08-pr138` is pushed (comment on #138).
+>
+> ✅ **2026-10-06, 15:49–16:02 ICT — backend `@62`, then frontend `release` = `62b6dec` on both hosts.**
+> PR #136 released #135: help requests from the user menu. `@62` is `gas-backend.gs` at `f055360`, byte for
+> byte. `node tools/verify-release.mjs 62b6dec` passed on both hosts (0 failures, 61 passes). The tag
+> `release-2026-10-06-pr136` is pushed (comment on #136).
+>
 > ✅ **2026-10-01, 11:17 ICT — frontend `release` = `a127baf` on both hosts, with backend `@61`.**
 > PR #133 released #131: the search reads "เตียง / ชื่อ / นามสกุล", and the All entries table is one line
 > per row. `node tools/verify-release.mjs a127baf` passed on both hosts (0 failures, 61 passes). The tag
@@ -98,30 +108,26 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-08, 09:15 ICT** · ✅ **Backend `@61` and frontend `release` = `a127baf` are live, and
-both are verified.** Caught up with #130 and #133 in #135, the next PR on the repo, as both asked.
-- ⏳ **PR #137, the peripheral K⁺ maximum is 60 mEq/L: not merged, not deployed.** Frontend only, no
-  `clasp` step (`CHANGELOG.md` 2026-10-08). Pp, in chat: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60". Live, the
-  peripheral maximum is still 200.
-  - **`CONSTANTS_VERSION` `2026-09-28.1` → `2026-10-08.1`** (the maximum prints on the form), so once released
-    an order saved before it prints again only after it is saved again.
-  - ⚠️ **It changes what the ward and pharmacy see** on a peripheral line: above 40 up to 60 is amber and saves
-    with no reason; above 60 the order cannot be saved or printed (a draft can), where 61–200 used to be a
-    critical alert cleared by a typed reason. A peripheral order saved at 61–200 before the release stays
-    unprintable until its K⁺ is brought to 60 or below and it is saved again. Central is unchanged.
-  - K⁺ is graded without floating-point noise, so a bag that is 60 on paper is 60, never 60.00000000000001
-    (live, such a bag reads as critical; with a 60 maximum it would have been refused).
-  - ⚠️ Pharmacy and the TPN team hear about it after the release that carries it (`BACKLOG.md` § Now).
-- ⏳ **PR #135, help requests: merged into `main` on Pp's instruction ("merge แล้ว deploy"). Not live
-  until backend `@62` and a `main` → `release` PR.** Backend + frontend (`CHANGELOG.md` 2026-10-05):
-  - User menu → 💬 ขอความช่วยเหลือ: a category and a detail, mailed by the backend to
-    valhalla.team.th@gmail.com as `[NeoFeed help] <ประเภท>`. That account's Gmail filter forwards it to
-    praew.tvl@gmail.com. The app attaches the page, version, browser and time, never the patient.
-  - **The backend needs the `script.send_mail` scope.** Added to the mirror's manifest and pushed to HEAD
-    on 2026-10-06 (mirror `eb995b9`), with `@61` still serving. Pp ran `authorizeHelpMail` as
-    `peeraporn.po@chula.ac.th` at 15:36 ICT and approved it ("MailApp authorised: 1500 recipients left
-    today").
-  - **Order: `clasp` first, then release.** A new frontend on `@61` only shows "ส่งเรื่องไม่สำเร็จ".
+**Updated 2026-10-08, 21:00 ICT** · ✅ **Backend `@62` and frontend `release` = `ff5aa43` are live, and
+both are verified.** Caught up with #136 and #138 in PR #139, the next PR on the repo, as both asked.
+- ⏳ **PR #139, the dosing weight: merged into `main` on Pp's instruction ("merge แล้ว deploy").** Backend
+  `@63` and a `main` → `release` PR follow in the same session. Frontend and backend, in either order
+  (`CHANGELOG.md` 2026-10-08 (2)). From an outside review of `62b6dec` that saved a 900 g infant's order
+  dosed at 8,500 g. Pp decided the threshold in chat.
+  - **TPN calc. weight outside 200–8,000 g:** no Submit, no draft, and the backend refuses it.
+  - **A typed weight more than 20 % from the automatic one** is a critical alert, ordered only with a typed
+    reason, which prints. `CONSTANTS_VERSION` stays `2026-10-08.1`: no dose moves.
+  - ⚠️ A saved order with a typed weight more than 20 % away and no reason on file needs a re-save with a
+    reason before it prints. #138's version bump already asks every older order for one re-save.
+- ✅ **PR #137 is live**, released by PR #138 on Pp's instruction on 2026-10-08 at 20:45 ICT: `release` =
+  `ff5aa43`, whose tree is `main` at `453108a`. The peripheral K⁺ maximum is 60 mEq/L; above it the order
+  cannot be saved or printed (a draft can). Central is unchanged. **`CONSTANTS_VERSION` `2026-09-28.1` →
+  `2026-10-08.1`**, so an order saved before 20:45 ICT prints again only after it is saved again.
+  `verify-release.mjs ff5aa43` passed on both hosts (comment on #138).
+  - ⚠️ Pharmacy and the TPN team hear about it now, after the release (`BACKLOG.md` § Now).
+- ✅ **PR #135 is live**, released by PR #136 on 2026-10-06: backend `@62` at 15:49 ICT, then `release` =
+  `62b6dec` at 16:01 ICT. User menu → 💬 ขอความช่วยเหลือ mails a category and a detail to
+  valhalla.team.th@gmail.com, which forwards it to praew.tvl@gmail.com. Never the patient.
   - ⚠️ **Not checked yet:** a real request from the app arriving at praew.tvl@gmail.com.
 - ✅ **PR #131 is live**, released by PR #133 on 2026-10-01 at 11:17 ICT: `release` = `a127baf`, whose
   tree is `main` at `2c109ab`, and `main` is an ancestor of `release` again. Frontend only: the search

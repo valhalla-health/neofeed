@@ -649,6 +649,16 @@ const LIPID_GKGH = { warn: 0.13, max: 0.17 };
 // Total elemental zinc reaching the infant per day — Peditrace plus ZnSO₄ —
 // above which an order is a critical alert (KCMH TPN team, 2026-09-22).
 const MAX_ZN_MG_DAY = 5;
+// The TPN calc. weight, which the attending may type over the automatic one
+// (calculator.jsx, since 2026-09-15); every dose and mL on the order follows
+// it. Pp, 2026-10-08, after an outside review saved a 900 g infant's order
+// dosed at 8,500 g: outside TPN_WT_RANGE_G the order cannot be saved at all,
+// draft included (the bounds of a Daily_Log weight; gas-backend.gs refuses it
+// too), and a typed weight more than TPN_WT_MANUAL_MAX_DIFF (a fraction) away
+// from the automatic one is critical, so it is ordered only with a reason.
+// Alert thresholds: they move no dose, so CONSTANTS_VERSION stays.
+const TPN_WT_RANGE_G = [200, 8000];
+const TPN_WT_MANUAL_MAX_DIFF = 0.2;
 // Display-only conversion, not a compounding divisor (KCMH_STOCK's mgso4_10/50
 // stay the mL authority): elemental Mg, MW 24.305 g/mol ÷ valence 2 = mg per mEq.
 // Lets the Mg input (dosed in mEq/kg/d, matching the stock's mEq/mL) also show
@@ -2414,7 +2424,7 @@ window.NEOFEED_DATA = {
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
   // Provenance — which constants and which frontend produced a printed number.

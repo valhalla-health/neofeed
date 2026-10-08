@@ -25,7 +25,10 @@
 // peripheral PN entered by pump rate (10% Mg — KCMH's only vial) and every oral
 // supplement, a feeds-only day with no bag, a term infant on a manual dosing
 // weight with a MEN feed and the Vitalipid cap, an alert-stress order, the
-// 16 kg Soluvit/Peditrace ceilings, and every remaining feed in EN_DB.
+// 16 kg Soluvit/Peditrace ceilings, and every remaining feed in EN_DB. Since
+// 2026-10-08 (Pp) a dosing weight above 8,000 g is no order at all, so the
+// 16 kg ceilings are checked on screen and the scenario must then refuse to
+// save, print or copy; under 8 kg neither ceiling binds.
 //
 // NEGATIVE_CONTROL=1 perturbs one expected GIR by 0.4 mg/kg/min: the run must
 // then fail on all four surfaces GIR appears on. Trust a pass only after
@@ -239,6 +242,12 @@ function expectedAlerts(sc, e) {
     : ((hard.hi != null && v > hard.hi) || (hard.lo != null && v < hard.lo)) ? 'crit' : (v < lo || v > hi) ? 'warn' : 'ok';
   const out = [];
   const add = (level, title) => out.push(`${level}:${title}`);
+  // The dosing weight (Pp, 2026-10-08): outside 200–8,000 g it cannot be
+  // ordered; a typed weight more than 20 % from the automatic one is critical.
+  const autoG = (sc.bw > 0 && sc.cur > 0 && sc.cur < sc.bw) ? sc.bw : sc.cur;
+  if (e.wG < 200 || e.wG > 8000) add('crit', 'TPN calc. weight out of range');
+  else if (sc.tpnWtOverride > 0 && sc.tpnWtOverride !== autoG && Math.abs(e.wG - autoG) / autoG > 0.2)
+    add('crit', 'TPN calc. weight far from automatic');
   const tile = (s, name) => { if (s === 'crit') add('crit', `${name} critically out of range`); else if (s === 'warn') add('warn', `${name} off target`); };
   const bagIngr = [sc.aa, sc.dex, sc.naCl, sc.naAc, sc.glyNa, sc.kCl, sc.k2, sc.mg, sc.ca, sc.zn].some(v => v > 0);
   const zeroVolBag = e.Vd === 0 && bagIngr;
@@ -538,9 +547,10 @@ async function run(scIn) {
 
   // ─ Save ─
   const saveBtn = btnExact('Submit');
-  has(sc, 'Save button enabled', saveBtn && !saveBtn.disabled);
+  const orderable = e.wG >= 200 && e.wG <= 8000;   // F, 16 kg: refused (Pp, 2026-10-08)
+  same(sc, 'Save button enabled', !!(saveBtn && !saveBtn.disabled), orderable);
   if (saveBtn && !saveBtn.disabled) await clickAsync(saveBtn);
-  has(sc, 'onLog received an entry', !!saved);
+  same(sc, 'onLog received an entry', !!saved, orderable);
   if (saved) {
     near(sc, 'saved weight', saved.weight, sc.cur);
     near(sc, 'saved fluid mL/kg/d', saved.fluid, e.fluidKg, 6);
@@ -566,7 +576,7 @@ async function run(scIn) {
 
   // ─ printed pharmacy form ─
   const form = container.querySelector('#print-form');
-  has(sc, 'print form rendered after save', !!form);
+  same(sc, 'print form rendered after save', !!form, orderable);
   if (form) {
     const p = form.textContent.replace(/\s+/g, ' ');
     // the form prints "—" for a zero figure (f/f0), so "—" reads as 0 here
@@ -614,7 +624,7 @@ async function run(scIn) {
   // ─ copied order text ─
   const copyBtn = [...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent));
   if (copyBtn) await clickAsync(copyBtn);
-  has(sc, 'copy produced text', typeof copied === 'string' && copied.length > 100);
+  same(sc, 'copy produced text', typeof copied === 'string' && copied.length > 100, orderable);
   if (copied) {
     const c = copied;
     const g = (re) => { const m = c.match(re); return m ? parseFloat(m[1]) : null; };
