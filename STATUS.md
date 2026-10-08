@@ -100,7 +100,7 @@
 
 **Updated 2026-10-08, 09:15 ICT** · ✅ **Backend `@61` and frontend `release` = `a127baf` are live, and
 both are verified.** Caught up with #130 and #133 in #135, the next PR on the repo, as both asked.
-- ⏳ **The peripheral K⁺ maximum is 60 mEq/L: on its PR branch, not merged, not deployed.** Frontend only, no
+- ⏳ **PR #137, the peripheral K⁺ maximum is 60 mEq/L: not merged, not deployed.** Frontend only, no
   `clasp` step (`CHANGELOG.md` 2026-10-08). Pp, in chat: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60". Live, the
   peripheral maximum is still 200.
   - **`CONSTANTS_VERSION` `2026-09-28.1` → `2026-10-08.1`** (the maximum prints on the form), so once released

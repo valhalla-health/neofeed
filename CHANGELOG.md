@@ -10,7 +10,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-08 — The peripheral K⁺ maximum is 60 mEq/L
 
 `data.js`, `calculator.jsx`, both shells and `compiled/`; tests; docs. **`CONSTANTS_VERSION` 2026-09-28.1 →
-2026-10-08.1.** Not merged, not deployed.
+2026-10-08.1.** PR #137, not merged, not deployed.
 
 ### Why
 
