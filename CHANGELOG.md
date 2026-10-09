@@ -10,7 +10,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-09 — The iPhone zoom that hid the help menu
 
 Both shells only (CSS); a new harness; docs. No `.jsx`, no `compiled/` change, no clinical constant or
-calculation. **`CONSTANTS_VERSION` unchanged.** Frontend only: no `clasp` step.
+calculation. **`CONSTANTS_VERSION` unchanged.** Frontend only: no `clasp` step. PR #142, not merged, not
+deployed.
 
 ### Why
 

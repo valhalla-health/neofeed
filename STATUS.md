@@ -114,7 +114,7 @@ both are verified.** Caught up with #136 and #138 in PR #139, the next PR on the
   valhalla-health/main" (2026-10-08, 22:31 ICT), whose tree is `main` at `fbb19f4`, so #139 is on `release`.
   The 2026-10-09 session could not reach either host or Apps Script, so neither that frontend nor `@63` is
   verified from it. The session that released it should add the banner line.
-- ⏳ **The iPhone zoom that hid the help menu: on its PR branch, not merged, not deployed.** Shells only
+- ⏳ **PR #142, the iPhone zoom that hid the help menu: not merged, not deployed.** Shells only
   (CSS), no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-10-09). Pp, from an iPhone:
   "หน้าล้นใน iphone 18 และยังไม่เห็นปุ่ม ขอความช่วยเหลือที่ให้ส่ง email".
   - The topbar's patient search was 14 px, so iOS zoomed the page in on a tap and stayed zoomed. That cut the
