@@ -1,5 +1,16 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-09, 18:01–18:03 ICT — frontend `release` = `679e9db` on both hosts, with backend `@63`.**
+> PR #143 released #142: on an iPhone every text field is 16 px, so a tap on the patient search no longer
+> zooms the page and pushes the avatar, and the help menu behind it, off screen. Shells only (CSS).
+> `node tools/verify-release.mjs 679e9db` passed on both hosts (0 failures, 61 passes). The tag
+> `release-2026-10-09-pr143` is pushed (comment on #143).
+>
+> ✅ **2026-10-08, 21:38–22:42 ICT — backend `@63`, then frontend `release` = `6bb00d8` on both hosts.**
+> PR #140 released #139: the TPN calc. weight has bounds (200–8,000 g, critical beyond 20 %). `@63` is
+> `gas-backend.gs` at `fbb19f4`, byte for byte. `node tools/verify-release.mjs 6bb00d8` passed on both hosts
+> (0 failures, 61 passes). The tag `release-2026-10-08-pr140` is pushed (comment on #140).
+>
 > ✅ **2026-10-08, 20:45–20:47 ICT — frontend `release` = `ff5aa43` on both hosts, with backend `@62`.**
 > PR #138 released #137: the peripheral K⁺ maximum is 60 mEq/L, and `CONSTANTS_VERSION` is `2026-10-08.1`,
 > so every order saved before it is saved again before it prints. `node tools/verify-release.mjs ff5aa43`
@@ -108,22 +119,31 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-09** · ✅ **Backend `@62` and frontend `release` = `ff5aa43` are live, and
-both are verified.** Caught up with #136 and #138 in PR #139, the next PR on the repo, as both asked.
-- ⚠️ **Not recorded here yet: PR #140.** In git, `release` = `6bb00d8`, "Merge pull request #140 from
-  valhalla-health/main" (2026-10-08, 22:31 ICT), whose tree is `main` at `fbb19f4`, so #139 is on `release`.
-  The 2026-10-09 session could not reach either host or Apps Script, so neither that frontend nor `@63` is
-  verified from it. The session that released it should add the banner line.
-- ⏳ **PR #142, the iPhone zoom that hid the help menu: not merged, not deployed.** Shells only
+**Updated 2026-10-09, 19:00 ICT** · ✅ **Backend `@63` and frontend `release` = `679e9db` are live, and
+both are verified.** Caught up with #140 and #143 in PR #144, the next PR on the repo, as both asked.
+- ⏳ **PR #144, a help button beside the login name and one cropped picture: not merged, not deployed.**
+  Backend first: `@64` takes the picture (`clasp`, no new scope), then a `main` → `release` PR. Pp,
+  2026-10-09: "ให้ปุ่ม help button อยู่บนขวา ใกล้ชื่อ login" and "ให้แนบรูปที่ครอปไว้ ได้ด้วย"
+  (`CHANGELOG.md` 2026-10-09 (2)). `CONSTANTS_VERSION` unchanged.
+  - The topbar's help button opens the same form as the menu item: ขอความช่วยเหลือ on a wide screen,
+    ช่วยเหลือ on a phone, the icon alone from 310 to 359 px, the menu item only below that.
+  - One picture, redrawn by the app as a JPEG of at most 1600 px with no EXIF, mailed as an attachment.
+    The backend refuses anything that is not a JPEG by its first bytes, or is over 1.5 MB.
+  - ⚠️ A screenshot can show a patient. The form asks for names, beds and HN to be cropped out and shows
+    the picture before it goes; nothing enforces it. DPO note pending (`BACKLOG.md`).
+  - ⚠️ An old frontend against `@64` is unchanged; this frontend against `@63` would mail the request
+    without its picture, so the backend goes first.
+- ✅ **PR #142 is live**, released by PR #143 on Pp's instruction ("deploy เลย") on 2026-10-09 at 18:01 ICT:
+  `release` = `679e9db`, whose tree is `main` at `d59e156`. Shells only
   (CSS), no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-10-09). Pp, from an iPhone:
   "หน้าล้นใน iphone 18 และยังไม่เห็นปุ่ม ขอความช่วยเหลือที่ให้ส่ง email".
   - The topbar's patient search was 14 px, so iOS zoomed the page in on a tap and stayed zoomed. That cut the
     sheet off at the right and left the avatar, and the help menu behind it, off screen. Now every text field
     is 16 px on a phone and on any touch screen, and the avatar is a 44 px target.
   - A dialog never runs past the screen: on a sideways phone, the help form's ส่ง was below the edge.
-  - ⚠️ Not checked on a real iPhone: the cloud container has no WebKit.
-- ⏳ **PR #139, the dosing weight: merged into `main` on Pp's instruction ("merge แล้ว deploy").** Backend
-  `@63` and a `main` → `release` PR follow in the same session. Frontend and backend, in either order
+  - ⚠️ Not checked on a real iPhone yet. A phone still zoomed in from before needs one pinch out.
+- ✅ **PR #139 is live**, released by PR #140 on Pp's instruction ("merge แล้ว deploy") on 2026-10-08:
+  backend `@63` at 21:38 ICT, then `release` = `6bb00d8` at 22:31 ICT. Frontend and backend, in either order
   (`CHANGELOG.md` 2026-10-08 (2)). From an outside review of `62b6dec` that saved a 900 g infant's order
   dosed at 8,500 g. Pp decided the threshold in chat.
   - **TPN calc. weight outside 200–8,000 g:** no Submit, no draft, and the backend refuses it.
