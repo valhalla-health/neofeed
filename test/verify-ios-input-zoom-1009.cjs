@@ -161,8 +161,10 @@ async function visit(browser, BASE, file, [name, W, H, touch], only) {
     out.avatar = await page.evaluate(BOX, '.topbar .user');
     await page.locator('.topbar .user').click({ timeout: 5000 });
     await page.waitForTimeout(200);
-    out.helpItem = await page.evaluate(BOX, ['button', 'ขอความช่วยเหลือ']);
-    await page.locator('button', { hasText: 'ขอความช่วยเหลือ' }).click({ timeout: 5000 });
+    // The menu's item, not the topbar's .help-btn (2026-10-09 (2)), which
+    // carries the same words and comes first.
+    out.helpItem = await page.evaluate(BOX, ['button:not(.help-btn)', 'ขอความช่วยเหลือ']);
+    await page.locator('button:not(.help-btn)', { hasText: 'ขอความช่วยเหลือ' }).click({ timeout: 5000 });
     await look('help request');
     out.sendBtn = await page.evaluate(BOX, ['.modal-foot button', 'ส่ง']);
     await page.locator('.modal-box button', { hasText: 'ยกเลิก' }).click({ timeout: 5000 });

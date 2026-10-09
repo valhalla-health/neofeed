@@ -1050,6 +1050,14 @@ notes — don't just add the feature.
   where a sideways phone (wider than 767 px) misses it. Don't give a field an
   inline or `!important` font size under 16 px either. Chromium never zooms, so
   `test/verify-ios-input-zoom-1009.cjs` measures every field instead.
+- **The topbar is full on a phone, and the wordmark gives way first.** The
+  NeoFeed wordmark is `max-width: 100%` inside a box that may shrink, so
+  anything added to the topbar squeezes it before anything overlaps. The help
+  button (2026-10-09) fits only because its form steps down with the width
+  (ช่วยเหลือ from 360 px, the icon alone from 310 px, hidden below) and the
+  empty `.topbar-sync` wrapper is hidden on a phone. Before adding to the
+  topbar, run `test/verify-help-button-1009.cjs`, which fails when the
+  wordmark loses width at any phone size.
 - **A dialog is never taller than the screen.** `.modal-box` is a column
   capped at 90 dvh (82 dvh on a phone, as the picker sheet is) and its
   `.modal-body` scrolls. A new dialog keeps the head / body / foot structure,

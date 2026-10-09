@@ -331,6 +331,10 @@ Until step 2, a staff member who presses ส่ง sees "ส่งเรื่�
 changes. The Script Property **`HELP_REQUEST_TO`** moves the recipient without a code change. The
 subject tag is load-bearing: change `HELP_SUBJECT_TAG` only together with that Gmail filter.
 
+**A picture with the request (2026-10-09, `@64`) needs no new scope:** a `MailApp` attachment goes under
+`script.send_mail`. Deploy the backend before the frontend. An older backend ignores `image`, so the
+request would arrive without the picture and nobody would see why.
+
 **Apps Script project timezone must be `Asia/Bangkok`.** Several date paths read Sheets' own date
 values through `Session.getScriptTimeZone()` (`_fmtDate`) or assume a Sheets date sits at Bangkok
 midnight (`_wardDateKey` in the one-entry-per-date guard, the 2026-09-11 edit-keeps-its-date rule,

@@ -3757,12 +3757,21 @@ function logAudit(action, sessionId, actorEmail) {
 // attaches only the page, the app version, the browser and the time, never
 // the patient on screen. The detail is free text, so this is asked for, not
 // enforced. Pinned by test/verify-help-request-backend.cjs.
+//
+// One picture may come with it (Pp, 2026-10-09: "ให้แนบรูปที่ครอปไว้ ได้ด้วย"),
+// a screenshot the sender has cropped. The form asks them to cut out names,
+// beds and HN first, and shows what will go. Like the detail, that is asked
+// for, not enforced: the reminder at the foot of the mail covers the picture
+// too. The app re-encodes every picture as a JPEG of at most 1600 px, which
+// also drops its EXIF (location, device). Here it must still decode to a
+// JPEG, by its first bytes, and stay under HELP_IMAGE_MAX_BYTES.
 var HELP_REQUEST_TO_DEFAULT = "valhalla.team.th@gmail.com";
 var HELP_SUBJECT_TAG = "[NeoFeed help]";
 var HELP_CATEGORIES = { bug: "ใช้งานไม่ได้", numbers: "ตัวเลขดูแปลก", feature: "อยากได้ฟีเจอร์", other: "อื่น ๆ" };
 var HELP_DETAIL_MAX = 2000;
 var HELP_RATE_MAX = 5;              // requests per person …
 var HELP_RATE_WINDOW_MS = 3600000;  // … per rolling hour
+var HELP_IMAGE_MAX_BYTES = 1500000; // mirrors app.jsx HELP_IMAGE_MAX_BYTES
 
 // Script Property HELP_REQUEST_TO moves the recipient without a code change.
 function _helpRecipient() {
@@ -3799,6 +3808,28 @@ function _helpRecordSend(email, sends) {
   } catch (e) { Logger.log("help rate limit write failed: " + e.message); }
 }
 
+// The optional picture: { none: true }, { bytes } or a BadRequest.
+// Checked before the rate limit, so a refused picture costs nothing.
+function _helpImage(img) {
+  if (img === undefined || img === null) return { none: true };
+  var bad = { error: "รูปที่แนบใช้ไม่ได้ — ลบรูปแล้วแนบใหม่อีกครั้ง", code: "BadRequest" };
+  if (typeof img !== "object" || Array.isArray(img) || img.mimeType !== "image/jpeg") return bad;
+  var data = typeof img.data === "string" ? img.data : "";
+  // Length first, so an oversized string is refused before the regex reads it.
+  if (data.length > Math.ceil(HELP_IMAGE_MAX_BYTES / 3) * 4) {
+    return { error: "รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่", code: "BadRequest" };
+  }
+  if (!data || !/^[A-Za-z0-9+\/]+={0,2}$/.test(data)) return bad;
+  var bytes;
+  try { bytes = Utilities.base64Decode(data); } catch (e) { return bad; }
+  if (bytes.length > HELP_IMAGE_MAX_BYTES) {
+    return { error: "รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่", code: "BadRequest" };
+  }
+  // A JPEG starts FF D8 FF. Anything else is not mailed, whatever it claims.
+  if (bytes.length < 4 || (bytes[0] & 0xff) !== 0xff || (bytes[1] & 0xff) !== 0xd8 || (bytes[2] & 0xff) !== 0xff) return bad;
+  return { bytes: bytes };
+}
+
 function sendHelpRequest(body, user) {
   var category = typeof body.category === "string" &&
     Object.prototype.hasOwnProperty.call(HELP_CATEGORIES, body.category) ? body.category : "";
@@ -3812,6 +3843,9 @@ function sendHelpRequest(body, user) {
   if (detail.length > HELP_DETAIL_MAX) {
     return { error: "รายละเอียดยาวเกิน " + HELP_DETAIL_MAX + " ตัวอักษร — ตัดให้สั้นลงแล้วส่งอีกครั้ง", code: "BadRequest" };
   }
+
+  var image = _helpImage(body.image);
+  if (image.error) return image;
 
   var now = Date.now();
   var sends = _helpRecentSends(user.email, now);
@@ -3836,14 +3870,20 @@ function sendHelpRequest(body, user) {
     "version: " + _helpLine(ctx.appVersion, 200),
     "browser: " + _helpLine(ctx.userAgent, 300),
     "เวลาในเครื่อง: " + _helpLine(ctx.clientTime, 40),
+    "รูปแนบ: " + (image.none ? "ไม่มี" : "1 รูป (" + Math.max(1, Math.round(image.bytes.length / 1024)) + " KB)"),
     "",
-    "ฟอร์มนี้ขอไม่ให้ใส่ HN หรือชื่อผู้ป่วย ถ้าอีเมลนี้มีข้อมูลที่ระบุตัวผู้ป่วย ให้ลบส่วนนั้นก่อน forward ต่อ",
+    "ฟอร์มนี้ขอไม่ให้ใส่ HN หรือชื่อผู้ป่วย ถ้าอีเมลนี้หรือรูปที่แนบมีข้อมูลที่ระบุตัวผู้ป่วย ให้ลบส่วนนั้นก่อน forward ต่อ",
     "ตอบกลับอีเมลนี้ จะถึงผู้ส่งโดยตรง",
   ].join("\n");
 
+  var mail = { to: _helpRecipient(), subject: HELP_SUBJECT_TAG + " " + label, body: text,
+    name: "NeoFeed", replyTo: user.email };
+  if (!image.none) {
+    var stamp = new Date(now + WARD_UTC_OFFSET_MIN * 60000).toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
+    mail.attachments = [Utilities.newBlob(image.bytes, "image/jpeg", "neofeed-help-" + stamp + ".jpg")];
+  }
   try {
-    MailApp.sendEmail({ to: _helpRecipient(), subject: HELP_SUBJECT_TAG + " " + label, body: text,
-      name: "NeoFeed", replyTo: user.email });
+    MailApp.sendEmail(mail);
   } catch (e) {
     // The raw message (a missing scope, a spent quota) is for the script log,
     // not the ward.

@@ -1415,6 +1415,46 @@ under 16 px. It also checks that the avatar is 44 × 44 inside the screen, that 
 the negative control: put the old `.inp, .sel` rule back and the topbar search reads 14 px. 123 checks;
 against `fbb19f4`, 52 fail.
 
+## The help button and a picture, 2026-10-09 (2) — one harness new, two extended
+
+Pp: the help button at the top right beside the login name, and a cropped picture with the request
+(`CHANGELOG.md` 2026-10-09 (2)). **`verify-help-request-backend.cjs`** 64 → 94: § 11 a JPEG goes as one
+attachment, byte for byte, named `neofeed-help-<YYYYMMDD-HHMM>.jpg`, and the body says so; § 12 a PNG, a PNG
+or PDF claiming JPEG, a `data:` URL, one byte over 1.5 MB and nine more are refused in Thai, nothing mailed,
+nothing counted against the hour. `gas-vm-sandbox.cjs`'s `newBlob` now keeps its third argument, the file
+name. Against `main`'s backend (`d59e156`), 25 of the 94 fail. **`verify-help-request-frontend.cjs`** 29 →
+53: #5 the topbar button opens the form directly and the menu item stays; #6–#8 the picture (preview, ลบรูป,
+the request's `image`, a PDF, a picture that will not open, one that will not shrink), with `Image`, the
+canvas and object URLs stood in for. `menuItem()` names the user menu's item; `t.btn(/ขอความช่วยเหลือ/)`
+now finds the topbar button first. Against `main`'s `app.jsx` and `icons.jsx`, 11 fail, all in #5–#8.
+
+**`verify-help-button-1009.cjs`** (no npm dependencies for § 1, `playwright` for § 2–4, so CI runs § 1
+only). § 1 both shells carry the same `.help-btn` lines, and the narrow-phone block sits after the phone
+block, which would otherwise undo it. § 2 in Chromium at 280, 300, 310, 320, 340, 359, 360, 375, 402 and 440
+px, a landscape iPhone, an iPad and two desktops: the button is inside the screen, clear of the search and
+the avatar, 44 px tall on touch, shows the right words for the width (or is hidden below 310 px, where the
+menu item must be on screen), opens the form with ส่ง on screen, leaves no sideways scroll, and the NeoFeed
+wordmark keeps its full 4.56em. The wordmark is the check that bites: it shrinks before anything overlaps.
+§ 3 a real 3000 × 2000 JPEG with an EXIF block goes in at 402 px and at 1440 px; the preview and the request
+hold a 1600 × 1067 JPEG with no EXIF, under 1.5 MB. § 4, the negative control: with the narrow-phone block
+taken out, the 320 px wordmark is squeezed. 154 checks; against `main` (`d59e156`), 80 fail.
+`verify-ios-input-zoom-1009.cjs` clicked the first button reading ขอความช่วยเหลือ, which is now the topbar's;
+it names the menu item (`button:not(.help-btn)`) and is back to 123/123.
+
+**Running the browser sections on Pp's PC.** The global `playwright` (1.62.1) wants Chromium build 1234;
+`%LOCALAPPDATA%\ms-playwright` holds 1217 and 1248, so every harness's browser section prints SKIP. Rather
+than download a browser, preload a three-line shim that fills in `executablePath`:
+
+```js
+// pw-launch-shim.cjs: node -r ./pw-launch-shim.cjs test/verify-help-button-1009.cjs
+const pw = require('playwright');
+const launch = pw.chromium.launch.bind(pw.chromium);
+pw.chromium.launch = (o = {}) => launch(Object.assign({}, o, { executablePath: o.executablePath || process.env.CHROME_EXE }));
+```
+
+with `CHROME_EXE` set to `…\ms-playwright\chromium-1248\chrome-win64\chrome.exe`. In Git Bash, give
+`NODE_OPTIONS` and `NODE_PATH` Windows paths (`cygpath -m`): Node does not read `/c/…` there.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named
