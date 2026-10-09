@@ -121,8 +121,9 @@
 
 **Updated 2026-10-09, 19:00 ICT** · ✅ **Backend `@63` and frontend `release` = `679e9db` are live, and
 both are verified.** Caught up with #140 and #143 in PR #144, the next PR on the repo, as both asked.
-- ⏳ **PR #144, a help button beside the login name and one cropped picture: not merged, not deployed.**
-  Backend first: `@64` takes the picture (`clasp`, no new scope), then a `main` → `release` PR. Pp,
+- ⏳ **PR #144, a help button beside the login name and one cropped picture: merged into `main` on Pp's
+  instruction ("merge แล้ว deploy").** Backend `@64` (`clasp`, no new scope), then a `main` → `release`
+  PR, follow in the same session. Pp,
   2026-10-09: "ให้ปุ่ม help button อยู่บนขวา ใกล้ชื่อ login" and "ให้แนบรูปที่ครอปไว้ ได้ด้วย"
   (`CHANGELOG.md` 2026-10-09 (2)). `CONSTANTS_VERSION` unchanged.
   - The topbar's help button opens the same form as the menu item: ขอความช่วยเหลือ on a wide screen,

@@ -11,8 +11,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 `app.jsx`, `icons.jsx`, both shells (CSS), `gas-backend.gs`; one new harness and two extended ones; docs. No
 clinical constant or calculation. **`CONSTANTS_VERSION` unchanged.** Backend first: `@64` takes the picture,
-with no new OAuth scope (MailApp attachments use `script.send_mail`, approved for `@62`). PR #144, not merged,
-not deployed. Also catches `STATUS.md` up with releases #140 and #143.
+with no new OAuth scope (MailApp attachments use `script.send_mail`, approved for `@62`). PR #144, merged into
+`main` on Pp's instruction ("merge แล้ว deploy"). Also catches `STATUS.md` up with releases #140 and #143.
 
 ### Why
 
