@@ -108,8 +108,20 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-08, 21:00 ICT** · ✅ **Backend `@62` and frontend `release` = `ff5aa43` are live, and
+**Updated 2026-10-09** · ✅ **Backend `@62` and frontend `release` = `ff5aa43` are live, and
 both are verified.** Caught up with #136 and #138 in PR #139, the next PR on the repo, as both asked.
+- ⚠️ **Not recorded here yet: PR #140.** In git, `release` = `6bb00d8`, "Merge pull request #140 from
+  valhalla-health/main" (2026-10-08, 22:31 ICT), whose tree is `main` at `fbb19f4`, so #139 is on `release`.
+  The 2026-10-09 session could not reach either host or Apps Script, so neither that frontend nor `@63` is
+  verified from it. The session that released it should add the banner line.
+- ⏳ **PR #142, the iPhone zoom that hid the help menu: not merged, not deployed.** Shells only
+  (CSS), no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-10-09). Pp, from an iPhone:
+  "หน้าล้นใน iphone 18 และยังไม่เห็นปุ่ม ขอความช่วยเหลือที่ให้ส่ง email".
+  - The topbar's patient search was 14 px, so iOS zoomed the page in on a tap and stayed zoomed. That cut the
+    sheet off at the right and left the avatar, and the help menu behind it, off screen. Now every text field
+    is 16 px on a phone and on any touch screen, and the avatar is a 44 px target.
+  - A dialog never runs past the screen: on a sideways phone, the help form's ส่ง was below the edge.
+  - ⚠️ Not checked on a real iPhone: the cloud container has no WebKit.
 - ⏳ **PR #139, the dosing weight: merged into `main` on Pp's instruction ("merge แล้ว deploy").** Backend
   `@63` and a `main` → `release` PR follow in the same session. Frontend and backend, in either order
   (`CHANGELOG.md` 2026-10-08 (2)). From an outside review of `62b6dec` that saved a 900 g infant's order

@@ -863,8 +863,14 @@
     z-index: 60; display: grid; place-items: center;
     backdrop-filter: blur(2px);
   }
+  /* Never taller than the screen: the head and the buttons stay put and the
+     body scrolls. A phone turned sideways is 402px tall and the help form
+     about 430px, so its ส่ง and ยกเลิก sat below the edge with nothing to
+     scroll (2026-10-09). */
   .modal-box {
     width: min(420px, 92%);
+    max-height: 90vh; max-height: 90dvh;
+    display: flex; flex-direction: column;
     background: var(--surface); border-radius: var(--r-lg);
     box-shadow: var(--shadow-lift); border: 1px solid var(--line);
   }
@@ -872,7 +878,7 @@
     padding: 16px 18px 12px; border-bottom: 1px solid var(--line-2);
   }
   .modal-head h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
-  .modal-body { padding: 16px 18px; }
+  .modal-body { padding: 16px 18px; overflow-y: auto; min-height: 0; }
   .modal-foot {
     display: flex; justify-content: flex-end; gap: 8px;
     padding: 12px 18px 16px; border-top: 1px solid var(--line-2);
@@ -1374,6 +1380,7 @@
     .trend-xaxis-seg button { min-height: 44px !important; }
     .trend-chips > button   { min-height: 44px; }
     .switch-patient   { min-height: 44px; min-width: 44px; }
+    .user             { min-height: 44px; }
     .card-h.clickable { min-height: 44px; }
     /* Collapsed tablet rail is 60px wide with 8px side padding, leaving the
        item 43px — trim the padding by 1px so a full 44px fits inside it. */
@@ -1421,7 +1428,9 @@
     /* User chip: avatar only */
     .user .name { display: none; }
     .user .role { display: none; }
-    .user { padding: 3px; border-radius: 999px; }
+    /* 44px: it is the only way into the user menu (password, help, sign
+       out), and it was 34px (2026-10-09). */
+    .user { padding: 3px; border-radius: 999px; min-width: 44px; min-height: 44px; justify-content: center; }
 
     /* Work area: pad bottom for tab bar + iOS home indicator */
     .work-inner {
@@ -1528,6 +1537,7 @@
     /* Modal (e.g. change password) → bottom sheet, same as picker */
     .modal-box {
       width: 100% !important;   /* not 100vw — see .picker above */
+      max-height: 82vh; max-height: 82dvh;   /* the picker's, above the tab bar */
       border-radius: var(--r-lg) var(--r-lg) 0 0;
     }
     .modal-backdrop { align-items: flex-end; padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
@@ -1644,8 +1654,8 @@
     .bnav-badge.warn    { background: var(--warn-bg); color: var(--warn-ink); border-color: var(--warn-line); }
     .bnav-badge.neutral { background: var(--bg-2); color: var(--ink-2); border-color: var(--line); }
 
-    /* ── iOS: prevent auto-zoom on input focus (requires font-size ≥ 16px) ── */
-    .inp, .sel { font-size: 16px !important; }
+    /* iOS's 16px rule for text fields is its own block, after this one: it
+       has to reach every field, and a phone turned sideways too. */
 
     /* ── Touch targets: minimum 44px on all interactive elements ── */
     /* min-width too, not just min-height — icon-only buttons (Growth's +/-,
@@ -1846,6 +1856,24 @@
     .picker-row > .bed-wait { flex-direction: row; align-items: center; gap: 6px; }
     .picker-row > .bed-wait .chip { font-size: 15px; }
     .picker-row > .bed-wait .bed-wait-from { font-size: 13px; }
+  }
+
+  /* ============ iOS: NO ZOOM WHEN A TEXT FIELD TAKES FOCUS ============ */
+  /* An iPhone zooms the page in when a text field under 16px takes focus, and
+     it does not zoom back out when the field lets go. This rule used to sit
+     in the phone block as `.inp, .sel`, a class list, and the topbar's patient
+     search carries neither class: at 14px, tapping it zoomed the page by
+     16/14, cut the sheet's Close button off at the right edge, and left the
+     avatar, with the help menu behind it, past the edge after the sheet
+     closed (Pp, 2026-10-09). The quick calc's DOL box (15px) did the same.
+     Keyed on the element, so a field added without a class is covered too;
+     and on any touch screen, because a phone turned sideways is wider than
+     767px. A mouse never zooms, so a workstation keeps the denser 13–14px.
+     Chromium never zooms on focus, so only a measurement catches this:
+     test/verify-ios-input-zoom-1009.cjs. */
+  @media (max-width: 767px), (hover: none) and (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea, select, .inp, .sel { font-size: 16px !important; }
   }
 
   /* ============ RESPONSIVE GRID HELPERS (targeted by className) ============ */

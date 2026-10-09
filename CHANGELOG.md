@@ -7,6 +7,66 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-09 — The iPhone zoom that hid the help menu
+
+Both shells only (CSS); a new harness; docs. No `.jsx`, no `compiled/` change, no clinical constant or
+calculation. **`CONSTANTS_VERSION` unchanged.** Frontend only: no `clasp` step. PR #142, not merged, not
+deployed.
+
+### Why
+
+Pp, from an iPhone, with a screenshot of the topbar's patient search open: *"หน้าล้นใน iphone 18 และยังไม่เห็นปุ่ม
+ขอความช่วยเหลือที่ให้ส่ง email"*. In the screenshot the sheet's Close button and the weights were cut off at the
+right edge, and the bed chips were 1.16× the size they render at 402 px.
+
+Both complaints have one cause. iOS zooms the page in when a text field under 16 px takes focus, and it does
+not zoom back out when the field lets go. The phone block's 16 px rule was `.inp, .sel`, a class list, and the
+topbar's patient search (`registry.jsx`, `PatientPicker`) carries neither class: it was 14 px, so a tap on it
+zoomed the page by 16/14. The zoom outlived the sheet. With it, the avatar, the only way into the user menu and
+its 💬 ขอความช่วยเหลือ, sat past the right edge of the screen. The help item itself was there: release `62b6dec`
+has it, and at 402 px un-zoomed the menu opens fully on screen. The quick calc's DOL box (`className="num"`,
+15 px) zoomed the same way. Every phone sweep here runs in Chromium, which never zooms on focus, so none of them
+could see it.
+
+### What changed
+
+1. **Every text field is 16 px on a phone and on any touch screen.** One rule, keyed on the element:
+   `input` (not checkbox, radio or range), `textarea`, `select`, plus `.inp` and `.sel`, under
+   `@media (max-width: 767px), (hover: none) and (pointer: coarse)`. It replaces the phone block's class-list
+   rule. A field added without a class is covered, and so is a phone turned sideways: at 874 px it is wider
+   than 767, and every field there was 14 px. A workstation with a mouse keeps its 13–14 px fields.
+2. **The avatar is a 44 px target**: 44 × 44 on a phone (it was 34 px) and 44 px tall on a touch tablet or a
+   sideways phone (it was 42). It is the only way into the user menu.
+3. **A dialog is never taller than the screen.** Writing the harness found this one on the same path: on a
+   phone turned sideways (402 px tall), the help form is about 430 px tall, so its ส่ง and ยกเลิก sat below
+   the edge with nothing to scroll. It was already like that on `main`. `.modal-box` is now a column capped at
+   90 dvh (82 dvh on a phone, the picker sheet's figure), and `.modal-body` scrolls between a fixed head and
+   fixed buttons. Change password uses the same box.
+
+### What the ward sees
+
+- On a phone, the topbar's patient search and the quick calc's DOL box read slightly larger (16 px), and tapping
+  them no longer zooms the page.
+- On a sideways phone or a touch tablet, every text field reads 16 px.
+- The avatar's circle on a phone is a little larger.
+- Nothing changes on a desktop.
+
+### Tests
+
+`verify-ios-input-zoom-1009.cjs` (new): § 1, static, in both shells (the rule, the avatar, the dialog cap);
+§ 2 in Chromium at Pp's 402 px and five other phones plus a landscape iPhone: sign in, open the topbar search,
+the ward list, the help form, the register form, the quick calc and the calculator with every step open, then
+measure every visible text field (none under 16 px). It also checks that the avatar is 44 × 44 and on screen,
+that the help item is on screen, and that the help form's ส่ง is on screen. A desktop with a mouse keeps its
+14 px search. § 3 is the negative control: the shell with the old class-list rule shows the topbar search at
+14 px. 123 checks; **52 fail on `fbb19f4`**. CI installs no browser, so there only § 1 runs.
+
+### Not checked
+
+No WebKit in the cloud container: nobody has tapped the search on a real iPhone with this change yet. The zoom
+is iOS's documented behaviour below 16 px, and the harness measures the size iOS reads. Pp's phone may still be
+zoomed in from before. A pinch out, or reloading the page, resets it.
+
 ## Session 2026-10-08 (2) — The dosing weight has bounds; the outside review, item by item
 
 `data.js`, `calculator.jsx`, `gas-backend.gs`, both shells and `compiled/`; tests; docs. **`CONSTANTS_VERSION`
