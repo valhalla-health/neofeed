@@ -1039,6 +1039,22 @@ notes — don't just add the feature.
   - the icon rail scrolls rather than clips.
   It runs in Chromium only (no WebKit in the cloud container), so an iPhone
   look is still a person's job.
+- **Every text field is 16 px on a touch screen, keyed on the element.** An
+  iPhone zooms the page in when a field under 16 px takes focus and stays
+  zoomed after it lets go. The rule was once a class list (`.inp, .sel`), and
+  the topbar's patient search, which has neither class, zoomed the page
+  until the avatar and the help menu behind it were off screen (2026-10-09).
+  The rule is now its own block,
+  `@media (max-width: 767px), (hover: none) and (pointer: coarse)`, over
+  `input`, `textarea` and `select`. Don't move it back into the phone block,
+  where a sideways phone (wider than 767 px) misses it. Don't give a field an
+  inline or `!important` font size under 16 px either. Chromium never zooms, so
+  `test/verify-ios-input-zoom-1009.cjs` measures every field instead.
+- **A dialog is never taller than the screen.** `.modal-box` is a column
+  capped at 90 dvh (82 dvh on a phone, as the picker sheet is) and its
+  `.modal-body` scrolls. A new dialog keeps the head / body / foot structure,
+  or its buttons can end up below the edge of a sideways phone, as the help
+  form's did.
 - **Nothing that opens and closes is capped at a height.** A calculator step
   body is `StepBody` (`calculator.jsx`): one grid row sliding from `0fr` to
   `1fr`, the content's own height. It replaced `max-height: 1800px`, which
