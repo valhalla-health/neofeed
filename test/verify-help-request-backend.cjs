@@ -25,6 +25,12 @@
 //       "try again" (MailFailed, retryable), writes no audit row and does not
 //       use up the hourly allowance.
 //   §9  A CacheService outage does not block a request (the limit fails open).
+//   §10 authorizeHelpMail sends nothing.
+//   §11 One cropped picture (Pp, 2026-10-09) goes as a JPEG attachment named
+//       neofeed-help-<date-time>.jpg, byte for byte, and the body says so.
+//   §12 A picture that is not a JPEG by its first bytes, is not bare base64,
+//       or is over 1.5 MB is refused in Thai: nothing mailed, no audit row,
+//       no hourly allowance used.
 //
 // NEGATIVE CONTROL — every section but §1's Unauthorized goes red against the
 // backend before this feature:
@@ -193,6 +199,66 @@ T.section('§10 authorizeHelpMail: the one-off consent run, which sends nothing'
   T.eq('10.1 it reports the day\'s remaining quota', g.sb.authorizeHelpMail(), 100);
   T.eq('10.2 …without mailing anyone', g.env.mails.length, 0);
   T.ok('10.3 …and says so in the script log', g.env.logs.some(l => /MailApp/.test(l) && /100/.test(l)), g.env.logs);
+});
+
+// A JPEG is FF D8 FF …; these are the first bytes the backend checks.
+const jpeg = (n) => { const b = Buffer.alloc(n, 0x41); b[0] = 0xff; b[1] = 0xd8; b[2] = 0xff; b[3] = 0xe0; return b; };
+const b64 = (buf) => buf.toString('base64');
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+
+T.section('§11 one cropped picture goes with the request as a JPEG attachment (Pp, 2026-10-09)', () => {
+  const g = ward();
+  const doc = g.session('doc@kcmh.test', 'doctor');
+  const pic = jpeg(2048);
+  const r = ask(g, doc, { image: { mimeType: 'image/jpeg', data: b64(pic) } });
+  T.eq('11.1 ok', r, { ok: true });
+  const m = g.env.mails[0] || {};
+  const att = (m.attachments || [])[0] || {};
+  T.eq('11.2 exactly one attachment', (m.attachments || []).length, 1);
+  T.eq('11.3 …a JPEG', att.type, 'image/jpeg');
+  T.ok('11.4 …named neofeed-help-<Bangkok date-time>.jpg', /^neofeed-help-\d{8}-\d{4}\.jpg$/.test(att.name || ''), att.name);
+  T.ok('11.5 …with the bytes the app sent, unchanged', Buffer.isBuffer(att._buf) && att._buf.equals(pic));
+  T.ok('11.6 the body says a picture is attached, and its size', String(m.body).includes('รูปแนบ: 1 รูป (2 KB)'), m.body);
+  T.ok('11.7 the reminder at the foot covers the picture too', String(m.body).includes('หรือรูปที่แนบ'), m.body);
+  T.eq('11.8 one audit row, as for any request', helpAudits(g).length, 1);
+
+  const g2 = ward();
+  ask(g2, g2.session('doc@kcmh.test', 'doctor'));
+  const plain = g2.env.mails[0] || {};
+  T.ok('11.9 without a picture: no attachments key at all', !('attachments' in plain), plain);
+  T.ok('11.10 …and the body says so', String(plain.body).includes('รูปแนบ: ไม่มี'), plain.body);
+  ask(g2, g2.session('doc@kcmh.test', 'doctor'), { image: null });
+  T.ok('11.11 image: null is the same as none', !('attachments' in (g2.env.mails[1] || {})), g2.env.mails[1]);
+});
+
+T.section('§12 a picture that is not a small JPEG is refused in Thai and sends nothing', () => {
+  const g = ward();
+  const doc = g.session('doc@kcmh.test', 'doctor');
+  const MAX = 1500000;
+  const cases = [
+    ['12.1 a PNG, said to be a PNG', { mimeType: 'image/png', data: b64(PNG) }],
+    ['12.2 a PNG, said to be a JPEG (the first bytes decide)', { mimeType: 'image/jpeg', data: b64(PNG) }],
+    ['12.3 a PDF, said to be a JPEG', { mimeType: 'image/jpeg', data: b64(Buffer.from('%PDF-1.7 x')) }],
+    ['12.4 no mimeType', { data: b64(jpeg(64)) }],
+    ['12.5 empty data', { mimeType: 'image/jpeg', data: '' }],
+    ['12.6 data that is not base64', { mimeType: 'image/jpeg', data: '/9j/<script>' }],
+    ['12.7 a data: URL instead of bare base64', { mimeType: 'image/jpeg', data: 'data:image/jpeg;base64,' + b64(jpeg(64)) }],
+    ['12.8 a string instead of an object', 'aGVsbG8='],
+    ['12.9 an array', [b64(jpeg(64))]],
+    ['12.10 one byte over the cap', { mimeType: 'image/jpeg', data: b64(jpeg(MAX + 1)) }],
+    ['12.11 a string far over the cap (refused on its length)', { mimeType: 'image/jpeg', data: 'A'.repeat(4 * MAX) }],
+  ];
+  for (const [name, image] of cases) {
+    const r = ask(g, doc, { image });
+    T.ok(name + ' → BadRequest with a Thai message', r.code === 'BadRequest' && isThai(r.error), r);
+  }
+  T.eq('12.12 nothing was mailed', g.env.mails.length, 0);
+  T.eq('12.13 no audit row', helpAudits(g).length, 0);
+  // Eleven refusals used none of the five an hour.
+  for (let i = 1; i <= 5; i++) T.eq('12.' + (13 + i) + ' after the refusals, request ' + i + ' still goes', ask(g, doc).ok, true);
+  const g2 = ward();
+  T.eq('12.19 exactly the cap is accepted', ask(g2, g2.session('doc@kcmh.test', 'doctor'),
+    { image: { mimeType: 'image/jpeg', data: b64(jpeg(MAX)) } }).ok, true);
 });
 
 T.done();

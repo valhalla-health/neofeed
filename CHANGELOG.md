@@ -7,6 +7,71 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-09 (2) — A help button beside the login name, and one cropped picture
+
+`app.jsx`, `icons.jsx`, both shells (CSS), `gas-backend.gs`; one new harness and two extended ones; docs. No
+clinical constant or calculation. **`CONSTANTS_VERSION` unchanged.** Backend first: `@64` takes the picture,
+with no new OAuth scope (MailApp attachments use `script.send_mail`, approved for `@62`). PR #144, merged into
+`main` on Pp's instruction ("merge แล้ว deploy"). Also catches `STATUS.md` up with releases #140 and #143.
+
+### Why
+
+PR #143 released #142 at 18:01 ICT, and Pp still could not see a button: the help request lived inside the
+avatar menu. Shown a rendered sheet of the real app with two mockups, she asked for it at the top right,
+beside the login name (*"ให้ปุ่ม help button อยู่บนขวา ใกล้ชื่อ login"*), picked the phone form with the short
+word over the icon alone, and then asked for a picture too (*"ให้แนบรูปที่ครอปไว้ ได้ด้วย"*).
+
+### What changed
+
+- **The topbar's help button** sits directly before the login name and opens the same form as the menu item,
+  which stays. It reads ขอความช่วยเหลือ from 768 px, ช่วยเหลือ on a phone, the icon alone (44 px square) from
+  310 to 359 px, and is hidden below 310 px, where the menu item is the way in.
+  - The breakpoints are measured, and the test that bit was the NeoFeed wordmark: it is `max-width: 100%`
+    inside a box that may shrink, so a crowded topbar squeezes the wordmark before anything overlaps. The
+    first cut shrank it from 119 to 104 px at 300 px and to 114 px at 360 px.
+  - Part of the cure: the sync pill's wrapper. On a phone its two children were hidden but the empty wrapper
+    still took a flex gap, 8 px the button needed at 360 px. It is `.topbar-sync` now, laid out in CSS rather
+    than inline (an inline `display: flex` beat the phone rule that hides it).
+- **One picture** in the help form, optional. The form asks for names, beds and HN to be cropped out, then
+  shows the picture that will go, with ลบรูป. The app redraws it on a canvas as a JPEG whose longer side is at
+  most 1600 px (quality 0.82, smaller again if it is still over 1.5 MB): a phone photo goes as a few hundred
+  KB, its EXIF (place, device) is gone, and a transparent PNG lands on white. A PDF, a picture the browser
+  cannot open and one that will not shrink each get a Thai sentence in the form, and the request still goes
+  without it.
+- **`sendHelpRequest`** takes `image: { mimeType: "image/jpeg", data }` (bare base64). Before the rate limit,
+  so a refusal costs nothing, it refuses anything that is not a JPEG by its first bytes (FF D8 FF), is not
+  bare base64, or decodes to more than 1.5 MB, checking the string's length before the regex reads it. The
+  picture goes as `neofeed-help-<YYYYMMDD-HHMM>.jpg`; the body says "รูปแนบ: 1 รูป (N KB)" or "ไม่มี", and its
+  closing reminder now covers the picture too.
+
+### Tests
+
+- **`verify-help-request-backend.cjs`** 64 → 94. § 11 the attachment, byte for byte, its name and the body
+  line; § 12 eleven refusals (PNG, a PNG or PDF claiming JPEG, a `data:` URL, over the cap by one byte, a
+  string four times the cap…), none mailed, none counted against the hour. On `main`'s backend: 25 fail.
+  `gas-vm-sandbox.cjs`'s `newBlob` now keeps the file name, as Apps Script's does.
+- **`verify-help-request-frontend.cjs`** 29 → 53. #5 the topbar button; #6–#8 the picture, with `Image`, the
+  canvas and object URLs stood in for. Two old checks would have passed by accident on the new button, which
+  carries the menu item's words and comes first in the document; they now name the menu item. On `main`'s
+  `app.jsx` and `icons.jsx`: 11 fail, all in #5–#8.
+- **`verify-help-button-1009.cjs`** (new, 154 checks, Chromium). The button at 14 sizes from 280 px to 1440 px
+  (inside the screen, clear of the search and the avatar, 44 px on touch, the right words, no sideways scroll,
+  the wordmark at full width) and a real 3000 × 2000 JPEG with an EXIF block in, a 1600 × 1067 JPEG without
+  EXIF out. Negative control: with the narrow-phone block taken out, the 320 px wordmark is squeezed. On
+  `main`: 80 fail.
+- **`verify-ios-input-zoom-1009.cjs`** (#142's) found the help item by its words and clicked the first
+  match, which is now the topbar button: 15 of its checks failed in Chromium. It names the menu item now
+  (`button:not(.help-btn)`) and passes 123/123. CI runs no browser, so only a local run could see this.
+- On this PC the global `playwright` 1.62.1 wants Chromium build 1234 and only 1217 and 1248 are installed,
+  so every browser section skips unless `chromium.launch` is pointed at 1248 (a preload shim outside the
+  repo, `test/README.md`).
+
+### Not checked
+
+- A real iPhone, and a real request with a picture arriving at praew.tvl@gmail.com through the team's filter.
+- ⚠️ A screenshot of NeoFeed can show a patient. The form asks, and shows the picture first; nothing enforces
+  it. A DPO note joins the one on the four-letter name (`BACKLOG.md`).
+
 ## Session 2026-10-09 — The iPhone zoom that hid the help menu
 
 Both shells only (CSS); a new harness; docs. No `.jsx`, no `compiled/` change, no clinical constant or

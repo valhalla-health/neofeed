@@ -304,6 +304,9 @@
   .brandmark .nf-wordmark { font-size: 26px; }
 
   .topbar .spacer { flex: 1; }
+  /* The sync pill and the sync button. In CSS, not inline, so the phone
+     block can hide the wrapper as well as its children. */
+  .topbar-sync { display: flex; align-items: center; gap: 6px; }
 
   .pill {
     display: inline-flex; align-items: center; gap: 6px;
@@ -923,6 +926,30 @@
     padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg-2);
   }
 
+  /* help-btn — the way to the Valhalla team, in sight beside the login name
+     (Pp, 2026-10-09). It opens the same form as the user menu's item. */
+  .help-btn {
+    display: inline-flex; align-items: center; gap: 7px; flex: none;
+    height: 36px; padding: 0 12px 0 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--brand);
+    white-space: nowrap; cursor: pointer;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .help-btn:hover { border-color: var(--brand); background: var(--brand-bg); }
+  .help-btn svg { flex: none; }
+  .help-btn .hb-short { display: none; }
+
+  /* The help form's picture: the sender sees what the team will see. */
+  .help-shot-note { font-size: 12.5px; color: var(--ink-2); margin-bottom: 6px; }
+  .help-shot-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .help-shot { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .help-shot img {
+    display: block; max-width: 100%; max-height: 180px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2);
+  }
+  .help-attach { align-self: flex-start; }
+
 
   /* scrollbar */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -1380,6 +1407,7 @@
     .trend-xaxis-seg button { min-height: 44px !important; }
     .trend-chips > button   { min-height: 44px; }
     .switch-patient   { min-height: 44px; min-width: 44px; }
+    .help-btn         { min-height: 44px; }
     .user             { min-height: 44px; }
     .card-h.clickable { min-height: 44px; }
     /* Collapsed tablet rail is 60px wide with 8px side padding, leaving the
@@ -1422,6 +1450,9 @@
     .brandmark { width: auto; }
     .topbar .pill { display: none; }
     .topbar .icon-btn { display: none; }
+    /* Its two children are hidden just above, but the empty wrapper still
+       took a gap: 8px the help button needs at 360px (2026-10-09). */
+    .topbar .topbar-sync { display: none; }
     .switch-patient .sp-label { display: none; }
     .switch-patient .sp-kbd  { display: none; }
     .switch-patient { padding: 0 8px; min-width: 36px; }
@@ -1431,6 +1462,11 @@
     /* 44px: it is the only way into the user menu (password, help, sign
        out), and it was 34px (2026-10-09). */
     .user { padding: 3px; border-radius: 999px; min-width: 44px; min-height: 44px; justify-content: center; }
+    /* Help: the short word on a phone, at the avatar's 44px. Narrower
+       phones get the icon only, then the user menu's item (below). */
+    .help-btn { height: 44px; padding: 0 10px; gap: 5px; }
+    .help-btn .hb-long  { display: none; }
+    .help-btn .hb-short { display: inline; }
 
     /* Work area: pad bottom for tab bar + iOS home indicator */
     .work-inner {
@@ -1858,6 +1894,19 @@
     .picker-row > .bed-wait .bed-wait-from { font-size: 13px; }
   }
 
+  /* ============ HELP BUTTON ON NARROW PHONES ============ */
+  /* Measured in test/verify-help-button-1009.cjs, where the test is that the
+     NeoFeed wordmark keeps its full width: the word "ช่วยเหลือ" fits from
+     357px and the icon alone from 307px. Below that (a folded Galaxy Z Fold
+     is 280px) the user menu's 💬 ขอความช่วยเหลือ is the way in. */
+  @media (max-width: 359px) {
+    .help-btn { width: 44px; padding: 0; justify-content: center; }
+    .help-btn .hb-short { display: none; }
+  }
+  @media (max-width: 309px) {
+    .help-btn { display: none; }
+  }
+
   /* ============ iOS: NO ZOOM WHEN A TEXT FIELD TAKES FOCUS ============ */
   /* An iPhone zooms the page in when a text field under 16px takes focus, and
      it does not zoom back out when the field lets go. This rule used to sit
@@ -1999,12 +2048,12 @@
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
   <script src="data.js?v=11db106622"></script>
-  <script src="compiled/icons.js?v=98d52ac7b1"></script>
+  <script src="compiled/icons.js?v=c6019724e5"></script>
   <script src="compiled/calculator.js?v=a766eb094b"></script>
   <script src="compiled/fenton.js?v=f9e6212215"></script>
   <script src="compiled/registry.js?v=d106d9af15"></script>
   <script src="compiled/log.js?v=c159cd5a45"></script>
-  <script src="compiled/app.js?v=5775a52802"></script>
+  <script src="compiled/app.js?v=a6471bed22"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

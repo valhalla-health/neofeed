@@ -33,6 +33,8 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
     check: "M5 13l4 4L19 7",
     x: "M6 6l12 12M18 6l-12 12",
     info: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z",
+    // A speech bubble with a question mark: the topbar's help button.
+    help: "M4 4.5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8.5L7 20.5v-4H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1zM9.8 8.6a2.3 2.3 0 1 1 3.2 2.1c-.6.3-1 .8-1 1.4v.3M12 14.6h.01",
     drop: "M12 2s-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z",
     milk: "M8 2h8v3l-1 2v4l2 4v7a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-7l2-4V7L8 5V2z",
     weight: "M6 8h12l2 12H4L6 8zm3 0a3 3 0 1 1 6 0",

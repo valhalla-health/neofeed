@@ -53,7 +53,15 @@ clinical judgement. Everything else is engineering sequencing.
         holds once the nursing form is on); the lipid rate stays graded on the 2-decimal figure shown.
 - [ ] 💬 **ops · Send one real help request** (`CHANGELOG.md` 2026-10-05). Shipped on 2026-10-06 by #136
       with backend `@62`. Left: send one from the app and check it reaches praew.tvl@gmail.com through the
-      valhalla.team.th filter.
+      valhalla.team.th filter. Once PR #144 is live (`@64` first), send it from the topbar button on a phone,
+      with a cropped picture, and check the forwarded copy still carries the attachment. As of 2026-10-09
+      the only "[NeoFeed help]" mail in praew.tvl@gmail.com is the 2026-10-05 filter test, which Gmail
+      showed in Sent alone, so the forward itself is unproven.
+- [ ] ⚖️ **PDPA · Tell the DPO a help request can carry a picture** (PR #144, `CHANGELOG.md` 2026-10-09
+      (2)). A screenshot of NeoFeed can show an infant's initials, bed and weights, and it leaves by email to
+      a Gmail account. The form asks for names, beds and HN to be cropped out and shows the picture before
+      it goes; nothing enforces it. The app strips EXIF. Goes in the same DPIA note as the four-letter name
+      (§ Next) and D7. **Praew / DPO.**
 - [ ] ⚖️ **PDPA · Check the live `Patient_Registry` for erased rows the refill already reached.**
       **Praew's to do** (Sheet access). Look for rows whose name (B) starts `[PDPA-erased` and whose dob (G)
       is not empty. A refill could only have run on 2026-09-24, from about 14:22 ICT to 21:17:37 ICT, when
