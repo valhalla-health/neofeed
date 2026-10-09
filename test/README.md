@@ -1398,6 +1398,23 @@ weight at which the Soluvit and Peditrace ceilings bind, now expects Submit disa
 copy; its ceilings are still checked on screen. 1,000 checks (1,053 before: F's print and copy are gone);
 against `453108a` it reports F's 5 surfaces, and `NEGATIVE_CONTROL=1` still fails 4.
 
+## The iPhone zoom, 2026-10-09 — one harness
+
+Pp, from an iPhone: the page ran off the right edge, and the help menu could not be found (`CHANGELOG.md`
+2026-10-09). **`verify-ios-input-zoom-1009.cjs`** (no npm dependencies for § 1, `playwright` for § 2–3, so CI
+runs § 1 only). iOS zooms in on a text field under 16 px and stays zoomed; Chromium never does, so this
+harness measures the font size, the figure iOS reads. § 1, in both shells: one rule keyed on the element
+(`input` but not checkbox, radio or range, `textarea`, `select`, `.inp`, `.sel`) at 16 px `!important`
+under `(max-width: 767px), (hover: none) and (pointer: coarse)`, and no class-list rule left in the phone
+block; the avatar 44 × 44 on a phone; `.modal-box` capped at 90 dvh (82 on a phone) as a column with a
+scrolling `.modal-body`. § 2 in Chromium at 402 px (Pp's iPhone), 375, 280, 360, 420 and 440 px, and a
+landscape iPhone at 874 × 402: it signs in and opens the topbar search, the ward list, the help form, the
+register form, the quick calc and the calculator with every step open, and fails on any visible text field
+under 16 px. It also checks that the avatar is 44 × 44 inside the screen, that the help item is inside it at
+44 px tall, and that the help form's ส่ง is inside it. A desktop with a mouse keeps its 14 px search. § 3 is
+the negative control: put the old `.inp, .sel` rule back and the topbar search reads 14 px. 123 checks;
+against `fbb19f4`, 52 fail.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named
