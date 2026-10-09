@@ -59,6 +59,9 @@ word over the icon alone, and then asked for a picture too (*"ให้แนบ
   the wordmark at full width) and a real 3000 × 2000 JPEG with an EXIF block in, a 1600 × 1067 JPEG without
   EXIF out. Negative control: with the narrow-phone block taken out, the 320 px wordmark is squeezed. On
   `main`: 80 fail.
+- **`verify-ios-input-zoom-1009.cjs`** (#142's) found the help item by its words and clicked the first
+  match, which is now the topbar button: 15 of its checks failed in Chromium. It names the menu item now
+  (`button:not(.help-btn)`) and passes 123/123. CI runs no browser, so only a local run could see this.
 - On this PC the global `playwright` 1.62.1 wants Chromium build 1234 and only 1217 and 1248 are installed,
   so every browser section skips unless `chromium.launch` is pointed at 1248 (a preload shim outside the
   repo, `test/README.md`).

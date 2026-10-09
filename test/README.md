@@ -1438,6 +1438,8 @@ wordmark keeps its full 4.56em. The wordmark is the check that bites: it shrinks
 § 3 a real 3000 × 2000 JPEG with an EXIF block goes in at 402 px and at 1440 px; the preview and the request
 hold a 1600 × 1067 JPEG with no EXIF, under 1.5 MB. § 4, the negative control: with the narrow-phone block
 taken out, the 320 px wordmark is squeezed. 154 checks; against `main` (`d59e156`), 80 fail.
+`verify-ios-input-zoom-1009.cjs` clicked the first button reading ขอความช่วยเหลือ, which is now the topbar's;
+it names the menu item (`button:not(.help-btn)`) and is back to 123/123.
 
 **Running the browser sections on Pp's PC.** The global `playwright` (1.62.1) wants Chromium build 1234;
 `%LOCALAPPDATA%\ms-playwright` holds 1217 and 1248, so every harness's browser section prints SKIP. Rather
