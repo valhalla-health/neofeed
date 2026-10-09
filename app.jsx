@@ -2024,7 +2024,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 
         <div className="spacer" />
 
-        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <div className="topbar-sync">
           {/* The tooltip carries the last round trip, so "it's slow today" can
               be reported as a number. syncMsRef is a ref, but settle() writes
               it before setSyncState("ok"), so the re-render that paints the
@@ -2057,6 +2057,16 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         </div>
 
 
+
+        {/* Help, in sight beside the login name (Pp, 2026-10-09: "ให้ปุ่ม help
+            button อยู่บนขวา ใกล้ชื่อ login"). The user menu keeps its item, and
+            on a screen too narrow for this button that item is the way in. */}
+        <button type="button" className="help-btn" title="ขอความช่วยเหลือ" aria-label="ขอความช่วยเหลือ"
+          onClick={() => { setShowUserMenu(false); setShowHelp(true); }}>
+          <Icon name="help" size={18} stroke={1.8} />
+          <span className="hb-long">ขอความช่วยเหลือ</span>
+          <span className="hb-short">ช่วยเหลือ</span>
+        </button>
 
         <div style={{ position: "relative" }}>
           <div className="user" onClick={() => setShowUserMenu(m => !m)} style={{ cursor: "pointer" }} title="เมนูผู้ใช้">
@@ -2327,15 +2337,18 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       {showHelp &&
       <HelpRequestModal
         onClose={() => setShowHelp(false)}
-        onSend={async (category, detail) => {
+        onSend={async (category, detail, imageData) => {
           // The context is four lines about the app, never the patient on
-          // screen: this request leaves as an email (HelpRequestModal).
-          const res = await gasPost({ action: "sendHelpRequest", category, detail, context: {
+          // screen: this request leaves as an email (HelpRequestModal). The
+          // picture, when there is one, is the one the sender cropped and saw.
+          const req = { action: "sendHelpRequest", category, detail, context: {
             view,
             appVersion: D_A.appVersion(),
             userAgent: (typeof navigator !== "undefined" && navigator.userAgent) || "",
             clientTime: new Date().toISOString(),
-          } }, { quiet: true });
+          } };
+          if (imageData) req.image = { mimeType: "image/jpeg", data: imageData };
+          const res = await gasPost(req, { quiet: true });
           if (res.ok) {
             showToast("ส่งถึงทีม Valhalla แล้ว");
             setShowHelp(false);
@@ -2984,28 +2997,93 @@ function ChangePasswordModal({ onClose, onSave, forced, onLogout }) {
 // version, browser and time. Never the patient on screen, and the form asks
 // for no HN or name in the text. Pinned by
 // test/verify-help-request-frontend.cjs.
+//
+// One cropped picture may go with it (Pp, 2026-10-09). The form asks the
+// sender to cut out names, beds and HN first, and shows the picture that will
+// go, so they see what the team will see.
 // ============================================================
 const HELP_CATEGORY_OPTIONS = [
   ["bug", "ใช้งานไม่ได้"], ["numbers", "ตัวเลขดูแปลก"], ["feature", "อยากได้ฟีเจอร์"], ["other", "อื่น ๆ"],
 ];
 const HELP_DETAIL_MAX = 2000; // mirrors gas-backend.gs HELP_DETAIL_MAX
+const HELP_IMAGE_MAX_BYTES = 1500000; // mirrors gas-backend.gs HELP_IMAGE_MAX_BYTES
+const HELP_IMAGE_MAX_EDGE = 1600;
+
+// Redraws a picked picture as a JPEG whose longer side is at most
+// HELP_IMAGE_MAX_EDGE px. Redrawing drops its EXIF (where and on what it was
+// taken), and a phone's 4000 px photo goes as a few hundred KB instead of
+// several MB. A transparent PNG is laid on white, not black. Resolves to
+// { data (bare base64), dataUrl, bytes, width, height }; rejects with a Thai
+// sentence.
+function helpImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type || "")) return reject(new Error("แนบได้เฉพาะรูปภาพ"));
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
+    };
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) return reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
+      // Almost every picture fits on the first pass; a huge, noisy one is
+      // drawn smaller until it does.
+      let edge = Math.min(HELP_IMAGE_MAX_EDGE, Math.max(w, h));
+      for (let pass = 0; pass < 4; pass++) {
+        const s = edge / Math.max(w, h);
+        const cw = Math.max(1, Math.round(w * s)), ch = Math.max(1, Math.round(h * s));
+        const canvas = document.createElement("canvas");
+        canvas.width = cw; canvas.height = ch;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) break;
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.drawImage(img, 0, 0, cw, ch);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        if (!/^data:image\/jpeg;base64,/.test(dataUrl)) break;
+        const data = dataUrl.slice(dataUrl.indexOf(",") + 1);
+        const bytes = Math.floor(data.length * 3 / 4) - (data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0);
+        if (bytes <= HELP_IMAGE_MAX_BYTES) return resolve({ data, dataUrl, bytes, width: cw, height: ch });
+        edge = Math.round(edge * 0.7);
+      }
+      reject(new Error("รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่"));
+    };
+    img.src = url;
+  });
+}
 function HelpRequestModal({ onClose, onSend }) {
   const [category, setCategory] = React.useState("bug");
   const [detail, setDetail] = React.useState("");
   const [err, setErr] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [image, setImage] = React.useState(null);   // helpImageFromFile's result
+  const [imageBusy, setImageBusy] = React.useState(false);
+  const fileRef = React.useRef(null);
   // One request per click, as in ChangePasswordModal: a double tap would
   // otherwise mail the team twice.
   const busyRef = React.useRef(false);
 
+  const pickImage = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    // Cleared, so the same picture can be picked again after ลบรูป.
+    e.target.value = "";
+    if (!file) return;
+    setErr(""); setImageBusy(true);
+    try { setImage(await helpImageFromFile(file)); }
+    catch (x) { setImage(null); setErr((x && x.message) || "เปิดรูปนี้ไม่ได้"); }
+    finally { setImageBusy(false); }
+  };
+
   const handleSend = async () => {
-    if (loading || busyRef.current) return;
+    if (loading || imageBusy || busyRef.current) return;
     if (!detail.trim()) return setErr("เขียนรายละเอียดก่อนส่ง");
     if (detail.length > HELP_DETAIL_MAX) return setErr(`รายละเอียดยาวเกิน ${HELP_DETAIL_MAX} ตัวอักษร`);
     setErr(""); setLoading(true);
     busyRef.current = true;
     let res;
-    try { res = await onSend(category, detail); }
+    try { res = await onSend(category, detail, image ? image.data : null); }
     finally { busyRef.current = false; }
     setLoading(false);
     if (!res || res.ok) return;
@@ -3017,8 +3095,9 @@ function HelpRequestModal({ onClose, onSend }) {
   };
 
   return (
-    // A tap outside closes only an empty form, so typed text is not lost.
-    <div className="modal-backdrop" onClick={() => { if (!detail.trim()) onClose(); }}>
+    // A tap outside closes only an empty form, so typed text and a picked
+    // picture are not lost.
+    <div className="modal-backdrop" onClick={() => { if (!detail.trim() && !image) onClose(); }}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
         <div className="modal-head"><h2>ขอความช่วยเหลือ</h2></div>
         <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -3036,6 +3115,25 @@ function HelpRequestModal({ onClose, onSend }) {
             <textarea className="inp" rows={5} maxLength={HELP_DETAIL_MAX} value={detail} style={{ resize: "vertical" }}
               onChange={e => setDetail(e.target.value)} placeholder="เช่น กด Save แล้วหมุนค้าง ลองสองครั้งแล้ว" autoFocus />
           </div>
+          <div className="field">
+            <label>รูป (ไม่บังคับ)</label>
+            <div className="help-shot-note">ครอปให้เหลือแค่ส่วนที่มีปัญหา ตัดชื่อ เตียง และ HN ออกก่อนแนบ</div>
+            {/* Hidden, not display:none, and opened from the button: the
+                button carries the label and the 44px target. */}
+            <input ref={fileRef} type="file" accept="image/*" className="help-shot-input"
+              tabIndex={-1} aria-hidden="true" onChange={pickImage} />
+            {image ? (
+              <div className="help-shot">
+                <img src={image.dataUrl} alt="รูปที่จะส่งไปกับเรื่องนี้" />
+                <button type="button" className="btn sm" onClick={() => setImage(null)}>ลบรูป</button>
+              </div>
+            ) : (
+              <button type="button" className="btn help-attach" disabled={imageBusy}
+                onClick={() => fileRef.current && fileRef.current.click()}>
+                {imageBusy ? "กำลังเตรียมรูป…" : "📎 แนบรูป"}
+              </button>
+            )}
+          </div>
           <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
             แนบให้อัตโนมัติ: หน้าที่เปิดอยู่ version ของแอป browser และเวลา ทีมจะตอบกลับทางอีเมลที่ใช้ login
           </div>
@@ -3043,7 +3141,7 @@ function HelpRequestModal({ onClose, onSend }) {
         </div>
         <div className="modal-foot">
           <button className="btn" onClick={onClose}>ยกเลิก</button>
-          <button className="btn primary" onClick={handleSend} disabled={loading}>
+          <button className="btn primary" onClick={handleSend} disabled={loading || imageBusy}>
             {loading ? "กำลังส่ง…" : "ส่ง"}
           </button>
         </div>

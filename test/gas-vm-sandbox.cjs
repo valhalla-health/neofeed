@@ -202,9 +202,10 @@ function boot(opts) {
   };
 
   const toSigned = (buf) => Array.from(buf).map(b => (b > 127 ? b - 256 : b));
-  const newBlob = (d, type) => {
+  const newBlob = (d, type, name) => {
     const buf = typeof d === 'string' ? Buffer.from(d, 'utf8') : Buffer.from(d.map(b => b & 0xff));
-    return { _buf: buf, type, getBytes: () => toSigned(buf), getDataAsString: () => buf.toString('utf8') };
+    return { _buf: buf, type, name, getName: () => name, getContentType: () => type,
+      getBytes: () => toSigned(buf), getDataAsString: () => buf.toString('utf8') };
   };
   const spreadsheet = {
     getSheetByName: (n) => env.sheets[n] || null,

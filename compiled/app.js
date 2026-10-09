@@ -1200,7 +1200,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     },
     /* @__PURE__ */ React.createElement("span", { className: "sp-icon" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 13, color: "var(--ink-2)" })),
     /* @__PURE__ */ React.createElement("span", { className: "sp-label" }, "Switch patient")
-  ), /* @__PURE__ */ React.createElement("div", { className: "spacer" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { className: "pill", title: !GAS_ON ? "GAS_URL not configured" : syncState === "error" && syncError ? `Sync error · ${syncError}` : syncMsRef.current == null ? "Google Apps Script" : `Google Apps Script · ซิงก์ล่าสุดใช้เวลา ${D_A.displayNum(syncMsRef.current / 1e3, 1)} วินาที` }, syncState === "loading" ? /* @__PURE__ */ React.createElement("span", { className: "dot dot-spin", style: { width: 7, height: 7 } }) : /* @__PURE__ */ React.createElement("span", { className: "dot", style: { background: syncState === "ok" ? "var(--ok)" : syncState === "error" ? "var(--crit)" : "var(--line)" } }), syncState === "loading" ? "Syncing…" : syncState === "ok" ? `GAS · ${lastSync ? lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}` : syncState === "error" ? "Sync error" : "Local only"), GAS_ON && /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { className: "spacer" }), /* @__PURE__ */ React.createElement("div", { className: "topbar-sync" }, /* @__PURE__ */ React.createElement("div", { className: "pill", title: !GAS_ON ? "GAS_URL not configured" : syncState === "error" && syncError ? `Sync error · ${syncError}` : syncMsRef.current == null ? "Google Apps Script" : `Google Apps Script · ซิงก์ล่าสุดใช้เวลา ${D_A.displayNum(syncMsRef.current / 1e3, 1)} วินาที` }, syncState === "loading" ? /* @__PURE__ */ React.createElement("span", { className: "dot dot-spin", style: { width: 7, height: 7 } }) : /* @__PURE__ */ React.createElement("span", { className: "dot", style: { background: syncState === "ok" ? "var(--ok)" : syncState === "error" ? "var(--crit)" : "var(--line)" } }), syncState === "loading" ? "Syncing…" : syncState === "ok" ? `GAS · ${lastSync ? lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}` : syncState === "error" ? "Sync error" : "Local only"), GAS_ON && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "icon-btn",
@@ -1209,7 +1209,22 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       style: { opacity: syncState === "loading" ? 0.4 : 1, pointerEvents: syncState === "loading" ? "none" : "auto" }
     },
     /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 16 16", width: "13", height: "13", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" }), /* @__PURE__ */ React.createElement("polyline", { points: "14,2 14,5 11,5" }))
-  )), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("div", { className: "user", onClick: () => setShowUserMenu((m) => !m), style: { cursor: "pointer" }, title: "เมนูผู้ใช้" }, /* @__PURE__ */ React.createElement("div", { className: "av" }, firstChar(authName || user?.email || "?")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "name" }, authName || user?.email || "—"), /* @__PURE__ */ React.createElement("div", { className: "role" }, role === "admin" ? "Administrator · KCMH" : "Neonatology · KCMH"))), showUserMenu && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 4px 16px #0002", minWidth: 170, zIndex: 999, overflow: "hidden" } }, user?.authMethod !== "google" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "help-btn",
+      title: "ขอความช่วยเหลือ",
+      "aria-label": "ขอความช่วยเหลือ",
+      onClick: () => {
+        setShowUserMenu(false);
+        setShowHelp(true);
+      }
+    },
+    /* @__PURE__ */ React.createElement(Icon, { name: "help", size: 18, stroke: 1.8 }),
+    /* @__PURE__ */ React.createElement("span", { className: "hb-long" }, "ขอความช่วยเหลือ"),
+    /* @__PURE__ */ React.createElement("span", { className: "hb-short" }, "ช่วยเหลือ")
+  ), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("div", { className: "user", onClick: () => setShowUserMenu((m) => !m), style: { cursor: "pointer" }, title: "เมนูผู้ใช้" }, /* @__PURE__ */ React.createElement("div", { className: "av" }, firstChar(authName || user?.email || "?")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "name" }, authName || user?.email || "—"), /* @__PURE__ */ React.createElement("div", { className: "role" }, role === "admin" ? "Administrator · KCMH" : "Neonatology · KCMH"))), showUserMenu && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 4px 16px #0002", minWidth: 170, zIndex: 999, overflow: "hidden" } }, user?.authMethod !== "google" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",
@@ -1405,13 +1420,15 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     HelpRequestModal,
     {
       onClose: () => setShowHelp(false),
-      onSend: async (category, detail) => {
-        const res = await gasPost({ action: "sendHelpRequest", category, detail, context: {
+      onSend: async (category, detail, imageData) => {
+        const req = { action: "sendHelpRequest", category, detail, context: {
           view,
           appVersion: D_A.appVersion(),
           userAgent: typeof navigator !== "undefined" && navigator.userAgent || "",
           clientTime: (/* @__PURE__ */ new Date()).toISOString()
-        } }, { quiet: true });
+        } };
+        if (imageData) req.image = { mimeType: "image/jpeg", data: imageData };
+        const res = await gasPost(req, { quiet: true });
         if (res.ok) {
           showToast("ส่งถึงทีม Valhalla แล้ว");
           setShowHelp(false);
@@ -1719,14 +1736,71 @@ const HELP_CATEGORY_OPTIONS = [
   ["other", "อื่น ๆ"]
 ];
 const HELP_DETAIL_MAX = 2e3;
+const HELP_IMAGE_MAX_BYTES = 15e5;
+const HELP_IMAGE_MAX_EDGE = 1600;
+function helpImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type || "")) return reject(new Error("แนบได้เฉพาะรูปภาพ"));
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
+    };
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) return reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
+      let edge = Math.min(HELP_IMAGE_MAX_EDGE, Math.max(w, h));
+      for (let pass = 0; pass < 4; pass++) {
+        const s = edge / Math.max(w, h);
+        const cw = Math.max(1, Math.round(w * s)), ch = Math.max(1, Math.round(h * s));
+        const canvas = document.createElement("canvas");
+        canvas.width = cw;
+        canvas.height = ch;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) break;
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.drawImage(img, 0, 0, cw, ch);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        if (!/^data:image\/jpeg;base64,/.test(dataUrl)) break;
+        const data = dataUrl.slice(dataUrl.indexOf(",") + 1);
+        const bytes = Math.floor(data.length * 3 / 4) - (data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0);
+        if (bytes <= HELP_IMAGE_MAX_BYTES) return resolve({ data, dataUrl, bytes, width: cw, height: ch });
+        edge = Math.round(edge * 0.7);
+      }
+      reject(new Error("รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่"));
+    };
+    img.src = url;
+  });
+}
 function HelpRequestModal({ onClose, onSend }) {
   const [category, setCategory] = React.useState("bug");
   const [detail, setDetail] = React.useState("");
   const [err, setErr] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [image, setImage] = React.useState(null);
+  const [imageBusy, setImageBusy] = React.useState(false);
+  const fileRef = React.useRef(null);
   const busyRef = React.useRef(false);
+  const pickImage = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setErr("");
+    setImageBusy(true);
+    try {
+      setImage(await helpImageFromFile(file));
+    } catch (x) {
+      setImage(null);
+      setErr(x && x.message || "เปิดรูปนี้ไม่ได้");
+    } finally {
+      setImageBusy(false);
+    }
+  };
   const handleSend = async () => {
-    if (loading || busyRef.current) return;
+    if (loading || imageBusy || busyRef.current) return;
     if (!detail.trim()) return setErr("เขียนรายละเอียดก่อนส่ง");
     if (detail.length > HELP_DETAIL_MAX) return setErr(`รายละเอียดยาวเกิน ${HELP_DETAIL_MAX} ตัวอักษร`);
     setErr("");
@@ -1734,7 +1808,7 @@ function HelpRequestModal({ onClose, onSend }) {
     busyRef.current = true;
     let res;
     try {
-      res = await onSend(category, detail);
+      res = await onSend(category, detail, image ? image.data : null);
     } finally {
       busyRef.current = false;
     }
@@ -1746,9 +1820,10 @@ function HelpRequestModal({ onClose, onSend }) {
     else if (res.error) setErr(res.error);
   };
   return (
-    // A tap outside closes only an empty form, so typed text is not lost.
+    // A tap outside closes only an empty form, so typed text and a picked
+    // picture are not lost.
     /* @__PURE__ */ React.createElement("div", { className: "modal-backdrop", onClick: () => {
-      if (!detail.trim()) onClose();
+      if (!detail.trim() && !image) onClose();
     } }, /* @__PURE__ */ React.createElement("div", { className: "modal-box", onClick: (e) => e.stopPropagation(), style: { maxWidth: 420 } }, /* @__PURE__ */ React.createElement("div", { className: "modal-head" }, /* @__PURE__ */ React.createElement("h2", null, "ขอความช่วยเหลือ")), /* @__PURE__ */ React.createElement("div", { className: "modal-body", style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-2)", background: "var(--surface-2, #f4f6f7)", borderRadius: 8, padding: "8px 10px" } }, "เรื่องนี้ส่งถึงทีม Valhalla ทางอีเมล ห้ามใส่ HN ชื่อผู้ป่วย หรือข้อมูลที่บอกได้ว่าเป็นเด็กคนไหน บอกแค่ว่าอยู่หน้าไหนและทำอะไรอยู่"), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "ประเภท"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: category, onChange: (e) => setCategory(e.target.value) }, HELP_CATEGORY_OPTIONS.map(([v, l]) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, l)))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "รายละเอียด"), /* @__PURE__ */ React.createElement(
       "textarea",
       {
@@ -1761,7 +1836,27 @@ function HelpRequestModal({ onClose, onSend }) {
         placeholder: "เช่น กด Save แล้วหมุนค้าง ลองสองครั้งแล้ว",
         autoFocus: true
       }
-    )), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)" } }, "แนบให้อัตโนมัติ: หน้าที่เปิดอยู่ version ของแอป browser และเวลา ทีมจะตอบกลับทางอีเมลที่ใช้ login"), err && /* @__PURE__ */ React.createElement("div", { role: "alert", style: { color: "var(--crit-ink)", fontSize: 13 } }, err)), /* @__PURE__ */ React.createElement("div", { className: "modal-foot" }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSend, disabled: loading }, loading ? "กำลังส่ง…" : "ส่ง"))))
+    )), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "รูป (ไม่บังคับ)"), /* @__PURE__ */ React.createElement("div", { className: "help-shot-note" }, "ครอปให้เหลือแค่ส่วนที่มีปัญหา ตัดชื่อ เตียง และ HN ออกก่อนแนบ"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        ref: fileRef,
+        type: "file",
+        accept: "image/*",
+        className: "help-shot-input",
+        tabIndex: -1,
+        "aria-hidden": "true",
+        onChange: pickImage
+      }
+    ), image ? /* @__PURE__ */ React.createElement("div", { className: "help-shot" }, /* @__PURE__ */ React.createElement("img", { src: image.dataUrl, alt: "รูปที่จะส่งไปกับเรื่องนี้" }), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: () => setImage(null) }, "ลบรูป")) : /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "btn help-attach",
+        disabled: imageBusy,
+        onClick: () => fileRef.current && fileRef.current.click()
+      },
+      imageBusy ? "กำลังเตรียมรูป…" : "📎 แนบรูป"
+    )), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)" } }, "แนบให้อัตโนมัติ: หน้าที่เปิดอยู่ version ของแอป browser และเวลา ทีมจะตอบกลับทางอีเมลที่ใช้ login"), err && /* @__PURE__ */ React.createElement("div", { role: "alert", style: { color: "var(--crit-ink)", fontSize: 13 } }, err)), /* @__PURE__ */ React.createElement("div", { className: "modal-foot" }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "ยกเลิก"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSend, disabled: loading || imageBusy }, loading ? "กำลังส่ง…" : "ส่ง"))))
   );
 }
 const GSI_LOAD_TIMEOUT_MS = 1e4;
