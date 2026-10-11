@@ -1,0 +1,21 @@
+diff --git a/gas-backend.gs b/gas-backend.gs
+index cb97d6a..2c5bd0c 100644
+--- a/gas-backend.gs
++++ b/gas-backend.gs
+@@ -3671,6 +3671,7 @@ function pseudonymizePatient(sessionId, adminEmail) {
+     var sheet = getSheetPat();
+     _assertSchema(sheet, "Patient_Registry");
+     var data  = sheet.getDataRange().getValues();
++    Logger.log("pseudonymize: " + (data.length - 1) + " registry rows to scan");
+     for (var i = 1; i < data.length; i++) {
+       if (String(data[i][0]) === String(sessionId)) {
+         var note = "[PDPA-erased " + new Date().toISOString().slice(0, 10) + "]";
+@@ -3685,7 +3686,7 @@ function pseudonymizePatient(sessionId, adminEmail) {
+           _sheetSafeRoundTrip(cur[5]),   // F sex — unchanged
+           "",                            // G dob
+         ]]);
+-        Logger.log("PDPA erasure: " + sessionId + " by " + adminEmail);
++        Logger.log("PDPA erasure: " + sessionId + " (" + cur[1] + ", born " + cur[6] + ") by " + adminEmail);
+         logAudit("pseudonymize", sessionId, adminEmail);
+         return { ok: true };
+       }

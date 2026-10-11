@@ -277,6 +277,12 @@ npm install --no-save --no-package-lock playwright
 node test/verify-sync-gate-and-poll.cjs
 ```
 
+The same holds for the other harnesses with browser sections (`verify-phone-sweep.cjs`,
+`verify-mobile-fit.cjs`, `verify-admin-census.cjs`, `verify-mobile-bed-button.cjs`,
+`verify-nursing-frontend.cjs`, `verify-bed-transfer-0927.cjs`, `verify-ward-requests-0925.cjs`).
+**CI runs those sections since 2026-10-04**, once, in its compiled pass, and there a SKIP fails the
+job. Locally a SKIP still only means Playwright is not installed.
+
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
 `verify-delete-session.cjs`, `verify-forced-password-client.cjs`,

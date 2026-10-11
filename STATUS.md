@@ -34,7 +34,9 @@
 > ✅ **2026-09-28, 21:33–21:38 ICT — frontend `release` = `3ae2e18` on both hosts, with backend `@61`.**
 > PR #130 released #129: the TPN team's meeting, K⁺ by route with a 200 maximum, the lipid rate ceiling,
 > `CONSTANTS_VERSION` `2026-09-28.1`. `node tools/verify-release.mjs 3ae2e18` passed on both hosts (0
-> failures, 61 passes). The tag `release-2026-09-28-pr130` is pushed (comment on #130).
+> failures, 61 passes). The tag `release-2026-09-28-pr130` is pushed (comment on #130). #130 was the one
+> squash merge on `release`; squash and rebase merging are off since 2026-10-04 (`REFERENCE.md` §
+> Deploying, and rolling back).
 >
 > ✅ **2026-09-27, 21:43–21:44 ICT — backend `@61`, then frontend `release` = `ec6ff6e` on both hosts.**
 > PR #128 released #127: Admit date corrections again, `NF-` ids, the look-alike question. `@61` is
@@ -126,6 +128,10 @@
 
 **Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
 verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 asked.
+- ⏳ **PR #134, the agent's environment: merged into `main` on Pp's instruction ("fix and merge").** No
+  served file changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Merge
+  commits only, the browser sections in CI, LF checkouts, `AGENTS.md` and Vera, the pre-PR review
+  (`CHANGELOG.md` 2026-10-11 (4) and (5)). `AGENTS.md` now points at OpenSpec too (#146).
 - ⏳ **PR #146, OpenSpec: merged into `main` on Pp's instruction ("merge PR146 เลย").** No served file
   changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Pp, 2026-10-11:
   "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md` 2026-10-11 (3)). Adds `openspec/` and the `/opsx:*` commands
@@ -231,7 +237,7 @@ verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 ask
     register the same baby twice with no question.
   - ⚠️ **It changes what the ward sees:** a new infant's NeoFeed ID (Edit, the order form, Copy Order's
     LINE text) reads `NF-` and six digits, and registering a look-alike asks first. The Thai manual
-    needs both.
+    has both since its Version 6 (2026-09-27).
   - ⚠️ **Not checked yet:** registering and correcting an Admit date at a bedside, and a real phone.
 - ✅ **PR #125 is live**, released by PR #126 on Pp's instruction ("merge PR 125 แล้ว deploy") at 20:35
   ICT: `release` = `3453ba8`, whose tree is `main` at `e751f52`. Post-merge CI on `release` passed (run

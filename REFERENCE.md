@@ -124,6 +124,50 @@ Two harness contracts: the patient table stays the form's first direct `<table>`
 
 The HMF threshold `patient.ga < 32` still works because all valid values stay under integer 32.
 
+## Pre-PR review (Vera)
+
+Before you open or update a PR whose diff touches a dose file (`data.js`, `calculator.jsx`,
+`gas-backend.gs`, `docs/CLINICAL_CONSTANTS.md`), the printed order, the auth boundary or patient
+data, run the `vera` subagent (`.claude/agents/vera.md`). She reads the diff in her own context with
+read-only tools and returns BLOCK or NO BLOCK. She is a second pair of eyes for what CI cannot see;
+the `harnesses` check stays the only machine gate, and Pp the only approver.
+
+1. **Keep the change small.** Split a dose-file diff of more than about 400 changed lines first;
+   review finds less as a change grows.
+2. **Write one review file outside the repo**, in this order: Pp's request as she wrote it, when
+   there is one; then the diff; then a line `## Author's claims` and the commit messages.
+   ```
+   git fetch -q origin
+   git diff origin/main...HEAD
+   git log --format='%h %s%n%n%b' origin/main..HEAD
+   ```
+   Give Vera that path and nothing else. Your own summary and reasoning stay out, and the commit
+   messages come last, so she judges the change before she reads its pitch.
+3. **Paste her report unedited** into the PR body under `## Vera`, and under each finding write
+   `fixed in <sha>` or `disputed: <why>`.
+4. **A BLOCK holds the PR** until the 🔴 is fixed and Vera has run again, or until Pp overrides it in
+   the PR with her reason.
+5. **A test Vera proposes goes in only if it fails on the code before the fix and passes after.**
+   Otherwise leave it out and say so under the finding.
+6. **An agent that cannot start a subagent** (Codex, a chat) writes `Vera: not run` under `## Vera`.
+
+Her report's shape is checked by `.claude/hooks/vera-report.cjs` when she stops, which sends her back
+once if it is off (`test/verify-vera-report.cjs`). It needs Node, and Claude Code runs a project
+agent's hooks only in a folder you have trusted.
+
+**Her benchmark.** `test/vera-bench/` holds six diffs against a fixed commit, with five planted defects
+(a dose on the wrong basis, a `>` turned `>=`, an erased name in a log, a nurse given an admin-only
+delete, a volume rounded twice) and seven decoys that look wrong and are right; `key.json` says where
+each sits. Before you change `vera.md`, her tools or her model, run `node tools/vera-bench.mjs
+prepare`, start Vera once per review file it prints, save each report under `reports/`, run
+`node tools/vera-bench.mjs score <folder>`, and record the score in `CHANGELOG.md`. A change that
+catches less or flags more decoys does not go in.
+
+**Keeping her useful.** The `fixed` and `disputed` marks are her score. A class of finding that is
+useful less than three times in four, over about 20 findings, comes out of `vera.md`. A class she
+raises twice becomes a harness test whose failure message says how to fix it, and leaves her prompt.
+The reasons for each rule, with sources: the two 2026-10-11 Vera entries in `CHANGELOG.md`.
+
 ## Deploying, and rolling back
 
 ### Frontend
@@ -162,6 +206,12 @@ not that protection: its target-branches list is empty, so it applies to nothing
 `gh api repos/valhalla-health/neofeed/rules/branches/main` returns `[]`. Read the real settings with
 `gh api repos/valhalla-health/neofeed/branches/main/protection`.
 
+**Merge commits only, since 2026-10-04.** Squash and rebase merging are switched off for the whole
+repo (`allow_squash_merge` and `allow_rebase_merge` false). #130 was squash-merged into `release` on
+2026-09-28, so `main` never contained `release`'s new commit and the next release PR, #132, conflicted
+with a green `harnesses`; #133 had to rebuild it as a merge commit. Every other merge into `main` and
+`release` had been a merge commit, so the setting removes the one button that broke the chain.
+
 **Every release merge carries a tag**, `release-YYYY-MM-DD-prNN`, added as part of the release the way
 `STATUS.md` is written as part of the deploy. Backfilled 2026-09-23 for every release since the gate
 (PR #60 onward, 11 tags). It makes a rollback `git checkout <tag>` and completes the chain from a
@@ -186,8 +236,8 @@ asked why nothing had changed. So:
   The chat report names both halves, *"merged into `main` — ⏳ not live; release PR #N is green, say
   'release' to deploy"*, and never calls that merge done or live.
 - **"merge แล้ว deploy" (merge and release) means both steps in one instruction:** merge into `main`,
-  open the release PR, merge it once `harnesses` is green, run `node tools/verify-release.mjs`, and
-  put its result in a comment on the release PR. A plain "merge" still stops at `main`: that is how
+  open the release PR, merge it once `harnesses` is green, run `node tools/verify-release.mjs --wait`,
+  and put its result in a comment on the release PR. A plain "merge" still stops at `main`: that is how
   several PRs go out as one release (#85 took eight, so the ward was not recoloured twice in a row).
 - The gate itself is unchanged: an agent still merges into `release` only on Praew's explicit go-ahead.
 
@@ -216,7 +266,14 @@ asked why nothing had changed. So:
 
   ```bash
   node tools/verify-release.mjs             # against the tip of `release`; or pass a commit
+  node tools/verify-release.mjs --wait      # right after the merge: re-check every 30 s until
+                                            # both hosts serve the new tip (10 min; --wait=N)
   ```
+
+  Both hosts take a minute or two to pick up a merge, so a run straight after it fails on every
+  changed file. `--wait` holds each attempt's output and prints one line per retry, then the full
+  report of the last attempt. It refuses a commit that is not the tip of `release`, since the hosts
+  would never serve it.
 
   On **both** hosts it compares with git at that commit, byte for byte: the shell, every script and
   link the shell names, `manifest.json`, `moved.html` and every file under `icons/`. Every `?v=`

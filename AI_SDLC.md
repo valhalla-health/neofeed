@@ -209,6 +209,11 @@ Concretely: **no change to a printed dose has ever had a second clinical reviewe
 worksheet harnesses are a proxy for one — they encode the pharmacy's arithmetic and refuse to let
 it drift — but a worksheet cannot catch a change to something the worksheet does not cover.
 
+Since 2026-10-11 an AI reviewer, Vera (`REFERENCE.md` § Pre-PR review (Vera)), reads every risky diff
+in her own context, with read-only tools, before its PR. She narrows this gap and does not close it:
+she can block a PR but never approve one, and she is not the second clinician the change protocol in
+`docs/CLINICAL_CONSTANTS.md` asks for.
+
 **The rule to hold, whatever else changes:**
 
 > An agent may draft, test, document, and push source. **A human clinician decides whether it

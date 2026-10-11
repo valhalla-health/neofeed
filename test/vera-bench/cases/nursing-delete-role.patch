@@ -1,0 +1,42 @@
+diff --git a/gas-backend.gs b/gas-backend.gs
+index cb97d6a..c3ec344 100644
+--- a/gas-backend.gs
++++ b/gas-backend.gs
+@@ -1487,26 +1487,18 @@ function doPost(e) {
+         && !_nursingEnabled()) {
+       return jsonOut(NURSING_NOT_ENABLED);
+     }
+-    if (action === "logNursingEntry") {
++    if (action === "logNursingEntry" || action === "updateNursingEntry" || action === "deleteNursingEntry") {
+       if (!canWrite) return jsonOut({ error: "Forbidden" });
+-      var nlog = logNursingEntry(body.sessionId, body.entry, user.email);
+-      if (nlog.error) return jsonOut(_errorBody(nlog));
+-      logAudit("logNursingEntry", body.sessionId, user.email);
+-      return jsonOut({ ok: true, entryId: nlog.entryId, lastModified: nlog.lastModified });
+-    }
+-    if (action === "updateNursingEntry") {
+-      if (!canWrite) return jsonOut({ error: "Forbidden" });
+-      var nupd = updateNursingEntry(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email);
+-      if (nupd.error) return jsonOut(_errorBody(nupd));
+-      if (nupd.conflict) return jsonOut({ conflict: true, current: nupd.current });
+-      logAudit("updateNursingEntry", body.sessionId, user.email);
+-      return jsonOut({ ok: true, lastModified: nupd.lastModified });
+-    }
+-    if (action === "deleteNursingEntry") {
+-      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+-      var ndel = deleteNursingEntry(body.sessionId, body.entryId, user.email);
+-      if (ndel.error) return jsonOut(_errorBody(ndel));
+-      logAudit("deleteNursingEntry", body.sessionId, user.email);
++      var nres = action === "logNursingEntry"
++        ? logNursingEntry(body.sessionId, body.entry, user.email)
++        : action === "updateNursingEntry"
++          ? updateNursingEntry(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email)
++          : deleteNursingEntry(body.sessionId, body.entryId, user.email);
++      if (nres.error) return jsonOut(_errorBody(nres));
++      if (nres.conflict) return jsonOut({ conflict: true, current: nres.current });
++      logAudit(action, body.sessionId, user.email);
++      if (action === "logNursingEntry") return jsonOut({ ok: true, entryId: nres.entryId, lastModified: nres.lastModified });
++      if (action === "updateNursingEntry") return jsonOut({ ok: true, lastModified: nres.lastModified });
+       return jsonOut({ ok: true });
+     }
+     // ── Daily-log edit lock (acquire on open + heartbeat, release on close) ──

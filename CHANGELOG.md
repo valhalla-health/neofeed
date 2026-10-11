@@ -7,6 +7,146 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 (5) — Vera's seeded-bug benchmark: 6/6 verdicts, 4/5 defects, 0/7 decoys
+
+`test/vera-bench/` (key, six cases, the first run's reports), `tools/vera-bench.mjs`,
+`test/verify-vera-bench.cjs`, `.claude/hooks/vera-report.cjs`, `.claude/agents/vera.md`,
+`REFERENCE.md` § Pre-PR review (Vera). No app file changed.
+
+### Why
+
+Pp, after the Vera entry that follows this one: "วัดผล Vera ด้วย bug ที่ฝังไว้ก่อน". A reviewer nobody has measured is
+an opinion. The method is from a talk in Pp's YouTube notes (AI LABS, 2026-09-11, at
+[13:15](https://www.youtube.com/watch?v=BwNNcob3-A0&t=795s)): seed known defects and decoys that look
+wrong but are right, then score what the reviewer catches and what it wrongly flags.
+
+### What changed
+
+1. **Six cases against `c47d6ea`**, each a diff with a request in Pp's words and commit messages
+   under `## Author's claims`. Five plant one defect: GIR from the bag's dextrose instead of the
+   delivered dose (1.5× at 60 mL/day plus 30 mL dead space), the K⁺ maximum turned from `>` to `>=`
+   under a commit message claiming 60 is still allowed, the erased name and DOB written to the log by
+   `pseudonymizePatient`, the nursing branches folded so a nurse can delete an entry, and K₂HPO₄
+   rounded with `r1(r2(…))`. The sixth holds three decoys and nothing else. Seven decoys in all.
+2. **`tools/vera-bench.mjs`** prepares one worktree per case at the base commit, writes the review
+   files, and scores the reports: a defect counts as caught at its minimum severity on the right
+   file, within five lines or by quoting the planted line; a 🔴 or 🟠 on a decoy is a false positive.
+3. **Building the cases found a gap in Vera's rubric.** Her 🔴 covered a wrong number or data leaving
+   its boundary, but not a role gaining an action it was never given, so the nursing case could not be
+   a BLOCK. 🔴 now covers it. She also reads committed files from a `Repo:` folder when the review
+   file names one.
+4. **The run found a gap in her report check.** Her phi-log finding was right, but it cited
+   `gas-backend.gas:3689`. `vera-report.cjs` now refuses a cited path that is not in the repo and
+   sends her back to fix it.
+
+### Score (first run, Opus)
+
+| Case | Verdict | Planted defect | Decoys flagged |
+|---|---|---|---|
+| gir-basis | BLOCK, right | caught, 🔴 at 1263 | 0/1 |
+| k-edge-pitch | BLOCK, right | caught, 🔴 at 1712; called the commit message's claim false | 0/1 |
+| phi-log | BLOCK, right | found, but cited `gas-backend.gas`: scored a miss | 0/1 |
+| nursing-delete-role | BLOCK, right | caught, 🔴 at 1491 | 0/1 |
+| clean-decoys | NO BLOCK, right | none planted | 0/3 |
+| k2hpo4-double-round | BLOCK, right | caught, two 🔴 at 1400 | none planted |
+
+Beyond the key she raised five more findings: three missing change-protocol steps, the pharmacy back
+sheet contradicting itself under the wrong GIR, and Audit_Log as the right place for the erasure
+record Pp asked for. The scorer lists six, the sixth being the misspelt phi-log finding. Her rounding example `r1(r2(0.447))` = 0.5 next to "0.4 mEq" was checked in Node and holds.
+
+How it ran: each case went to an Opus subagent of another session that read `vera.md` and was held to
+Read, Grep and Glob by its prompt, because the `claude` CLI's login had expired and `vera` itself
+could not start. So her tool limit and her Stop hook were not in force. The six reports are kept in
+`runs/2026-10-11-opus/`, and `verify-vera-bench.cjs` § 3 checks they still score 6/6, 4/5 and 0/7.
+
+### Tests
+
+`verify-vera-bench.cjs` 44/44 and `verify-vera-report.cjs` 22/22, also under CI's
+`NODE_OPTIONS=--require ./test/compiled-loader.cjs`; 2.13 (a path that is not in the repo) failed
+before the hook change. `verify-build-shells.cjs` 44/44.
+
+## Session 2026-10-11 (4) — Vera, an independent review before every risky PR
+
+`.claude/agents/vera.md`, `.claude/hooks/vera-report.cjs`, `test/verify-vera-report.cjs`,
+`REFERENCE.md` § Pre-PR review (Vera), `AGENTS.md`, `AI_SDLC.md` § 7. No app file changed, so nothing
+to release. Added to this PR (#134, the agent's environment) on Pp's instruction, after `main` was
+merged in. #134 merged into `main` on Pp's instruction ("fix and merge"); `main` was merged in again
+for #146, and `AGENTS.md` gained its OpenSpec line.
+
+### Why
+
+Pp asked how to improve the harness, and to study how large engineering teams run AI review. A kit
+drafted in a claude.ai chat proposed a `vera` and an `omen` subagent plus hooks, but it was written
+without this repo: its edit hook refused every `.jsx` file (it told the agent to rewrite `app.jsx` as
+`.js`), and it blocked `gh pr merge` outright, against Pp's merge-on-instruction rule. Its one sound
+idea was a reviewer that reads the diff in its own context. `AI_SDLC.md` § 7 names the gap it narrows:
+no change to a printed dose has ever had a second reviewer.
+
+### What changed
+
+1. **`vera` subagent.** Tools are Read, Grep and Glob only, so she cannot edit or run anything even
+   in bypassPermissions, where a subagent inherits the parent's mode and a "read-only" prompt binds
+   nothing. She gets one review file (Pp's request, the diff, then the commit messages under
+   `## Author's claims`) and none of the author's reasoning; she judges the diff before she reads
+   the claims. She triages the diff into dose, patient data, access and printed order, checks each
+   against this repo's own rules (`docs/CLINICAL_CONSTANTS.md` change protocol, `REFERENCE.md` PDPA),
+   tries to refute each finding before keeping it, and reports at most five.
+2. **BLOCK or NO BLOCK, never PASS.** A 🔴 needs a quoted line and the input that fails. Her NO BLOCK
+   is not an approval and not the second clinician of the change protocol.
+3. **The report's shape is a hook, not a request.** `vera-report.cjs` runs when she stops and sends
+   her back once if the verdict, the five-finding cap, a `path:line`, an Evidence line or a
+   `Fails when:` line is missing, or if the verdict disagrees with the severities.
+4. **The main agent's side** is `REFERENCE.md` § Pre-PR review (Vera): split a dose diff over about
+   400 lines, write the review file, paste her report unedited into the PR, mark each finding `fixed`
+   or `disputed`, add a test she proposes only if it fails before the fix and passes after.
+
+### Why each rule (sources read 2026-10-11)
+
+- Read-only by tools; a fresh reviewer that sees the diff and the criteria, not the reasoning; a Stop
+  hook as a deterministic gate; a reviewer asked for gaps "will usually report some": Claude Code docs,
+  [best practices](https://code.claude.com/docs/en/best-practices) and
+  [subagents](https://code.claude.com/docs/en/sub-agents).
+- Draw the boundary "around access and actions, not around a model's instructions"; tier review by
+  risk; reviewers prove their findings: [Anthropic, 2026-07-21](https://claude.com/blog/how-anthropic-secures-its-ai-native-software-development-lifecycle).
+- Findings advise and never approve: [Claude Code Code Review](https://code.claude.com/docs/en/code-review).
+- Precision over volume, nits suppressed, 75% of comments rated useful, usefulness tracked per
+  category: [Uber uReview, 2025-08-12](https://www.uber.com/blog/ureview/); AutoCommenter held back
+  until its useful ratio reached 80%: [Google, AIware 2024](https://arxiv.org/abs/2405.13565).
+- A proposed test counts only once it runs and catches something: Meta,
+  [TestGen-LLM](https://arxiv.org/abs/2402.09171) and [ACH](https://arxiv.org/abs/2501.12862).
+- Repeat findings become checks whose error message teaches the fix:
+  [OpenAI, harness engineering, 2026-02-11](https://openai.com/index/harness-engineering/).
+- Small changes review better: [Google, ICSE-SEIP 2018](https://storage.googleapis.com/gweb-research2023-media/pubtools/4476.pdf),
+  [Google eng-practices](https://google.github.io/eng-practices/review/developer/small-cls.html).
+  The 400-line figure is a vendor's (SmartBear), not peer-reviewed.
+- Two humans for the top source level: [SLSA v1.2](https://slsa.dev/spec/v1.2/source-requirements),
+  which is why Vera does not count as the second clinician.
+- Commit messages last, read as claims: Laurie Voss (Arize), "The Death of the Code Review", at
+  [21:22](https://www.youtube.com/watch?v=_mi3alkqy4s&t=1282s), reports a study in which an innocent
+  commit message hid vulnerable code from an autonomous reviewer 88% of the time, against 35% for
+  humans. From Pp's YouTube knowledge notes; the study itself was not read.
+
+### Tests
+
+`node test/verify-vera-report.cjs`: 20 pass. Before the checker existed it failed to load; with the
+five-finding cap raised to 10 and the 🔴-under-NO-BLOCK rule removed, 2.3 and 2.7 failed, so the
+harness catches a loosened rule. CI runs it with every other `verify-*.cjs`.
+
+A dry run on a real dose change: Vera's instructions, run as an Opus subagent with Read, Grep and Glob
+only, on PR #137's diff (the peripheral K⁺ maximum of 60). She returned NO BLOCK with two 🟠 and three
+🟡 findings, and her report passes `vera-report.cjs` with no problems. Her finding 2 was checked by
+hand and holds: `kGrade` (`calculator.jsx:1639`) strips only float noise, so a bag of 60.25 mEq/L
+(1,205 g, 60 mL/day, KCl 3 mEq/kg/day; dead space cancels out) is refused, while the stop line rounds
+it and reads "K⁺ ในถุง 60 mEq/L เกินค่าสูงสุด 60 mEq/L". Her findings went to Pp to decide; none is
+fixed in this PR.
+
+### Not checked
+
+- The `vera` agent itself in a NeoFeed session, and her Stop hook firing as SubagentStop there. A
+  headless run in this worktree listed `vera` among its agents, so the frontmatter loads, but the
+  CLI's login had expired before she started. Claude Code runs a project agent's hooks only in a
+  trusted folder.
+
 ## Session 2026-10-11 (3) — OpenSpec, kept off both hosts
 
 `openspec/`, `.claude/commands/opsx/`, seven skills each in `.claude/skills/` and `.agents/skills/`,
@@ -38,6 +178,7 @@ agent, Claude Code or Codex, starts from the same written contract.
 
 - No spec yet. The first change through `/opsx:propose` writes the first one.
 - `AGENTS.md` (PR #134, open) does not mention OpenSpec; whichever of the two merges second adds a line.
+  #134 merged second and added it (2026-10-11 (4)).
 
 ## Session 2026-10-11 (2) — A tile that is fine says nothing
 
@@ -413,6 +554,51 @@ frontend; the other order only shows "ส่งเรื่องไม่สำ
 
 `verify-help-request-backend.cjs` (64 checks, 52 fail against `origin/main`) and
 `verify-help-request-frontend.cjs` (29 checks). `gas-vm-sandbox.cjs` gained a `MailApp` double.
+
+## Session 2026-10-04 — The agent's environment: merge commits only, browser sections in CI, LF checkouts, AGENTS.md
+
+`AGENTS.md`, `CLAUDE.md`, `.gitattributes`, `.github/workflows/test.yml`, `tools/verify-release.mjs`,
+`REFERENCE.md`, `test/README.md`; one repo setting. No app file changed, so nothing to release.
+
+### Why
+
+A retrospective on the 2026-10-01 release (#131 → #133), at Pp's request. Release PR #132 conflicted
+with a green `harnesses` because #130 had been squash-merged, and the fix lived only in a memory note
+on Pp's laptop. #131 and #132 came from a cloud session, which clones this repo and nothing else, so
+it saw none of that note and none of the steering kept outside the repo. The release session then
+spent 26 minutes running by hand the browser sections CI skips, after exporting the tree to get LF
+line endings, and wrote its own polling loop to wait for the hosts.
+
+### What changed
+
+1. **Merge commits only.** Squash and rebase merging are off for the repo (`REFERENCE.md` §
+   Deploying, and rolling back). #130 was the one squash among the merges into `main` and `release`.
+2. **`AGENTS.md`** (and a one-line `CLAUDE.md` that imports it): what to read before merging,
+   releasing, editing a `.jsx` file or touching clinical code. Pointers only, since the repo is
+   public. Both hosts already skip `*.md`.
+3. **CI runs the browser sections.** Playwright and Chromium go into their own folder and are reached
+   through `NODE_PATH` in the compiled pass only, so the eight harnesses with browser sections run
+   them once, against the shipped files. A browser SKIP fails that pass. Timeout 30 → 45 min.
+4. **LF in every checkout.** `* text=auto eol=lf` ahead of the `compiled/` and `vendor/` rules. The
+   index was already all LF, so no committed byte changed.
+5. **`verify-release.mjs --wait[=N]`** re-checks every 30 s until both hosts serve the tip of
+   `release` (10 min by default), and refuses any other commit.
+
+### Verified
+
+- `verify-release.mjs --wait=1` on the live release `a127baf`: 0 failures, 61 passes, first try.
+  Against the release before it, `3ae2e18`, without `--wait`: 6 failures, exactly #131's three
+  served files on each host. `2c109ab --wait`: refused at once (exit 2). A throwaway copy pointed at
+  a wrong host printed one retry line, then the full report, and exited 1.
+- `verify-quick-calc.cjs` in a Windows worktree: 6 of 56 checks failed on CRLF before the
+  `.gitattributes` change, all 56 pass after a re-checkout with it.
+- The browser sections in CI, first run (#134, `3318527`): every SKIP came from the sources pass, as
+  designed, and none from the compiled pass, where the sections ran for the first time off a laptop:
+  phone sweep 220 passed, ward requests 0925 158, mobile fit 135, admin census 58, bed transfer 75,
+  mobile bed button 42, nursing frontend 262. Chromium on the Ubuntu runner laid the Thai text out
+  closely enough that nothing tripped. The whole job took 9 minutes, the same as before.
+
+---
 
 ## Session 2026-10-01 — The search wording and the All entries table
 

@@ -16,6 +16,9 @@
 //
 //   node tools/verify-release.mjs             # against the tip of `release`
 //   node tools/verify-release.mjs <commit>    # against any commit or branch
+//   node tools/verify-release.mjs --wait[=N]  # right after merging a release PR: check
+//                                             # again every 30 s until both hosts serve
+//                                             # the tip of `release`, for up to N min (10)
 //
 // Exit 0 only if every check passes. Needs Node 18+ and the network, and no
 // npm install. Set GH_TOKEN to lift GitHub's anonymous API rate limit (two
@@ -35,10 +38,19 @@ const HOSTS = [
 ];
 const ALWAYS = ["manifest.json", "moved.html"]; // plus every file under icons/
 
+const args = process.argv.slice(2);
+const waitArg = args.find((a) => a === "--wait" || a.startsWith("--wait="));
+const WAIT_MIN = waitArg ? Number(waitArg.split("=")[1] ?? 10) : 0;
+const RETRY_MS = 30_000;
+
 let failures = 0;
-const pass = (m) => console.log(`  PASS ${m}`);
-const fail = (m) => { failures++; console.log(`  FAIL ${m}`); };
-const note = (m) => console.log(`  note ${m}`);
+// While an attempt runs its output is held, so a --wait attempt that the hosts
+// have not caught up with prints one line instead of every check.
+let held = null;
+const out = (m) => (held ? held.push(m) : console.log(m));
+const pass = (m) => out(`  PASS ${m}`);
+const fail = (m) => { failures++; out(`  FAIL ${m}`); };
+const note = (m) => out(`  note ${m}`);
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -86,11 +98,16 @@ function fresh(url) {
 }
 
 async function main() {
-  const ref = process.argv[2] || "release";
+  if (waitArg && !(WAIT_MIN > 0)) throw new Error(`--wait takes minutes, as in --wait=15 (got ${waitArg})`);
+  const ref = args.find((a) => !a.startsWith("--")) || "release";
   const sha = (await github(`commits/${encodeURIComponent(ref)}`)).sha;
   const releaseTip = ref === "release" ? sha : (await github("commits/release")).sha;
   console.log(`Checking both hosts against ${sha}${ref === sha ? "" : ` (${ref})`}`);
   if (sha !== releaseTip) {
+    if (WAIT_MIN) {
+      throw new Error(`--wait waits for the hosts to serve ${ref}, but they deploy release ` +
+        `(${releaseTip.slice(0, 7)}), so it could never pass. Merge the release PR first, or drop --wait.`);
+    }
     note(`not the tip of release (${releaseTip.slice(0, 7)}), which is what the hosts serve: expect failures`);
   }
 
@@ -117,63 +134,86 @@ async function main() {
     else fail(`${path} differs from git (served ${served.length} B, git ${git.length} B)`);
   }
 
-  for (const { base, csp } of HOSTS) {
-    console.log(`=== ${base}`);
-    const basePath = new URL(base).pathname;
-    let shell;
-    try { shell = await get(fresh(base)); }
-    catch (e) { fail(`shell: ${e.message}`); continue; }
-    await compare("index.html", shell.buf);
-
-    const seen = new Set(["index.html"]);
-    const html = shell.buf.toString("utf8");
-    for (const [, attr, value] of html.matchAll(/\s(src|href)="([^"]+)"/g)) {
-      const url = new URL(value, base);
-      if (!/^https?:$/.test(url.protocol)) continue;
-      if (url.origin !== new URL(base).origin) {
-        if (attr === "src") note(`skip external script ${value}`);
-        continue;
+  const start = Date.now();
+  const deadline = start + WAIT_MIN * 60_000;
+  for (let attempt = 1; ; attempt++) {
+    failures = 0;
+    held = [];
+    await checkHosts();
+    const lines = held;
+    held = null;
+    if (failures === 0 || !WAIT_MIN || Date.now() + RETRY_MS > deadline) {
+      for (const m of lines) console.log(m);
+      if (failures && WAIT_MIN) {
+        console.log(`  gave up after ${Math.round((Date.now() - start) / 1000)} s, with no time left in ` +
+          `--wait=${WAIT_MIN} for another try: the hosts still differ from ${sha.slice(0, 7)}`);
       }
-      if (!url.pathname.startsWith(basePath)) { fail(`${value} points outside the app`); continue; }
-      const path = decodeURIComponent(url.pathname.slice(basePath.length));
-      if (path === "" || seen.has(path)) continue;
-      seen.add(path);
-
-      let served;
-      try { served = (await get(fresh(url.href))).buf; }
-      catch (e) { fail(`${path}: ${e.message} from host`); continue; }
-      await compare(path, served);
-
-      const token = url.searchParams.get("v");
-      if (!token) continue;
-      const got = sha256(served).slice(0, 10);
-      if (got === token) pass(`${path} ?v=${token} matches its hash`);
-      else if (path.startsWith("vendor/")) note(`${path} ?v=${token}, hash ${got}: vendor/ is checked by name`);
-      else fail(`${path} ?v=${token} but the served file hashes to ${got}`);
+      break;
     }
-
-    for (const path of [...ALWAYS, ...iconPaths]) {
-      if (seen.has(path)) continue;
-      seen.add(path);
-      let served;
-      try { served = (await get(fresh(new URL(path, base).href))).buf; }
-      catch (e) { fail(`${path}: ${e.message} from host`); continue; }
-      await compare(path, served);
-    }
-
-    if (!csp) { note("no CSP check: this host cannot set response headers"); continue; }
-    const header = shell.headers.get("content-security-policy");
-    if (!header) { fail("no Content-Security-Policy header"); continue; }
-    const directives = header.split(";").map((d) => d.trim()).filter(Boolean);
-    const named = (n) => directives.find((d) => d.split(/\s+/)[0].toLowerCase() === n);
-    const scriptSrc = named("script-src") || named("default-src");
-    if (!scriptSrc) fail("CSP has neither script-src nor default-src");
-    else if (/'unsafe-(inline|eval)'/i.test(scriptSrc)) fail(`CSP allows inline script or eval: ${scriptSrc}`);
-    else pass(`CSP ${scriptSrc}, no 'unsafe-inline' or 'unsafe-eval'`);
+    console.log(`  try ${attempt} at ${new Date().toTimeString().slice(0, 8)}: ${failures} failure(s), ` +
+      `the hosts are not serving ${sha.slice(0, 7)} yet; again in ${RETRY_MS / 1000} s`);
+    await sleep(RETRY_MS);
   }
 
   console.log(`=== ${failures} failure(s)`);
   process.exitCode = failures ? 1 : 0;
+
+  async function checkHosts() {
+    for (const { base, csp } of HOSTS) {
+      out(`=== ${base}`);
+      const basePath = new URL(base).pathname;
+      let shell;
+      try { shell = await get(fresh(base)); }
+      catch (e) { fail(`shell: ${e.message}`); continue; }
+      await compare("index.html", shell.buf);
+
+      const seen = new Set(["index.html"]);
+      const html = shell.buf.toString("utf8");
+      for (const [, attr, value] of html.matchAll(/\s(src|href)="([^"]+)"/g)) {
+        const url = new URL(value, base);
+        if (!/^https?:$/.test(url.protocol)) continue;
+        if (url.origin !== new URL(base).origin) {
+          if (attr === "src") note(`skip external script ${value}`);
+          continue;
+        }
+        if (!url.pathname.startsWith(basePath)) { fail(`${value} points outside the app`); continue; }
+        const path = decodeURIComponent(url.pathname.slice(basePath.length));
+        if (path === "" || seen.has(path)) continue;
+        seen.add(path);
+
+        let served;
+        try { served = (await get(fresh(url.href))).buf; }
+        catch (e) { fail(`${path}: ${e.message} from host`); continue; }
+        await compare(path, served);
+
+        const token = url.searchParams.get("v");
+        if (!token) continue;
+        const got = sha256(served).slice(0, 10);
+        if (got === token) pass(`${path} ?v=${token} matches its hash`);
+        else if (path.startsWith("vendor/")) note(`${path} ?v=${token}, hash ${got}: vendor/ is checked by name`);
+        else fail(`${path} ?v=${token} but the served file hashes to ${got}`);
+      }
+
+      for (const path of [...ALWAYS, ...iconPaths]) {
+        if (seen.has(path)) continue;
+        seen.add(path);
+        let served;
+        try { served = (await get(fresh(new URL(path, base).href))).buf; }
+        catch (e) { fail(`${path}: ${e.message} from host`); continue; }
+        await compare(path, served);
+      }
+
+      if (!csp) { note("no CSP check: this host cannot set response headers"); continue; }
+      const header = shell.headers.get("content-security-policy");
+      if (!header) { fail("no Content-Security-Policy header"); continue; }
+      const directives = header.split(";").map((d) => d.trim()).filter(Boolean);
+      const named = (n) => directives.find((d) => d.split(/\s+/)[0].toLowerCase() === n);
+      const scriptSrc = named("script-src") || named("default-src");
+      if (!scriptSrc) fail("CSP has neither script-src nor default-src");
+      else if (/'unsafe-(inline|eval)'/i.test(scriptSrc)) fail(`CSP allows inline script or eval: ${scriptSrc}`);
+      else pass(`CSP ${scriptSrc}, no 'unsafe-inline' or 'unsafe-eval'`);
+    }
+  }
 }
 
 main().catch((e) => {
