@@ -265,7 +265,6 @@ function Meter({ value, target, max, optimal, statusAt }) {
   )), Number.isFinite(value) && value !== 0 && /* @__PURE__ */ React.createElement("div", { className: "needle", style: { left: `${pct(value)}%` } }));
 }
 function statusWord(status, value, target) {
-  if (status === "ok") return target ? "In range" : "OK";
   if (status !== "warn" && status !== "crit") return null;
   const v = typeof value === "number" && !Number.isNaN(value) ? value : null;
   const lo = target && Number.isFinite(target[0]) ? target[0] : null;

@@ -15,9 +15,10 @@ const rowA11y = (onActivate) => ({
   },
 });
 
-// The shape in front of a stat's number: tick, triangle or octagon for
-// ok / warn / crit (window.STATUS_ICON, icons.jsx). Nothing when the stat has no
-// severity. Decorative: the number and its label are what is read out.
+// The shape in front of a stat's number: a triangle for warn, an octagon for
+// crit (window.STATUS_ICON, icons.jsx). Nothing for ok or for a stat with no
+// severity, the same quiet-when-normal rule as the calculator's tiles.
+// Decorative: the number and its label are what is read out.
 function RegStatMark({ tone }) {
   const name = tone && window.STATUS_ICON && window.STATUS_ICON[tone];
   if (!name) return null;
@@ -320,10 +321,11 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           <span className="reg-stat-val">{wardPatients.length}</span>
           <span className="reg-stat-lbl">Total sessions</span>
         </div>
-        {/* The status is a shape ahead of the number, as well as the colour
-            the number and the mark are drawn in: the 3px side stripe that was
-            the only thing separating these four is gone (Hallmark audit
-            2026-10-11, C1). The label under each already names the count. */}
+        {/* A stat that is off normal has a shape ahead of the number, as well as
+            the colour the number is drawn in: the 3px side stripe that was the
+            only thing separating these four is gone (Hallmark audit
+            2026-10-11, C1). A stat that is fine has none (Pp, 2026-10-11). The
+            label under each already names the count. */}
         <div className={`reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}`}>
           <RegStatMark tone={loggedToday === totalActive && totalActive > 0 ? "ok" : loggedToday > 0 ? "warn" : "crit"} />
           <span className="reg-stat-val">{loggedToday}</span>
