@@ -77,8 +77,12 @@ ok('2.10 an empty report', checkReport('').length > 0);
 ok('2.11 a 🔴 without the input that fails', has(checkReport(BLOCK.replace(/\n {3}Fails when:[^\n]*/, '')), /Fails when/));
 
 console.log('\n── #3 the SubagentStop hook ──');
+// Claude Code runs the hook as a plain node process. CI's compiled pass sets
+// NODE_OPTIONS=--require ./test/compiled-loader.cjs, which would also load into
+// this child and print its own line on the stdout the hook answers on.
+const HOOK_ENV = { ...process.env, NODE_OPTIONS: '' };
 function runHook(input) {
-  const r = spawnSync(process.execPath, [HOOK], { input: JSON.stringify(input), encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [HOOK], { input: JSON.stringify(input), encoding: 'utf8', env: HOOK_ENV });
   let out = null;
   try { out = r.stdout.trim() ? JSON.parse(r.stdout) : null; } catch { out = 'unparsable: ' + r.stdout; }
   return { status: r.status, out };
@@ -91,7 +95,7 @@ const good = runHook({ agent_type: 'vera', stop_hook_active: false, last_assista
 eq('3.4 a good report: Vera finishes (no output)', [good.status, good.out], [0, null]);
 const again = runHook({ agent_type: 'vera', stop_hook_active: true, last_assistant_message: 'still not a report' });
 eq('3.5 a second stop: Vera finishes, so the hook cannot loop', [again.status, again.out], [0, null]);
-const junk = spawnSync(process.execPath, [HOOK], { input: 'not json', encoding: 'utf8' });
+const junk = spawnSync(process.execPath, [HOOK], { input: 'not json', encoding: 'utf8', env: HOOK_ENV });
 eq('3.6 unreadable input: Vera finishes', [junk.status, junk.stdout.trim()], [0, '']);
 
 console.log(`\nVERA REPORT: ${fail === 0 ? 'ALL PASS' : `${fail} FAILED`} (${pass} passed, ${fail} failed)`);
