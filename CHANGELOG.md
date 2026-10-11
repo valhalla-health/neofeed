@@ -11,7 +11,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 Docs only: `docs/stakeholder/` removed, one item in `AGENTS.md`. No served file, no harness and no
 `CONSTANTS_VERSION` change; both hosts skip `*.md` and `docs/`. Branch `claude/nf-20-22-product-docs`,
-PR #152. Nothing to deploy: no `main` → `release` PR is needed for docs.
+PR #152, merged into `main` on Pp's instruction ("merge ทั้งสาม PR"). Nothing to deploy: no `main` → `release` PR is needed for docs.
 
 ### Why
 
