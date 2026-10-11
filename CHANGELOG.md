@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-11 (7) — NF-17: the printed bag adds up, and a click moves the screen
+## Session 2026-10-11 (8) — NF-17: the printed bag adds up, and a click moves the screen
 
 `test/verify-calc-sum.cjs` (new), `calculator.jsx` (`wfiVol`), `compiled/calculator.js` and the shells'
 `?v=` token, `data.js` (`CONSTANTS_VERSION` 2026-10-08.1 → **2026-10-11.1**), `docs/CLINICAL_CONSTANTS.md`,

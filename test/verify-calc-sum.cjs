@@ -195,7 +195,7 @@ const OWN = [
   // S7 is the regression case for the NF-17 WFI fix (Pp, 2026-10-11). Before it, 130.45 mL
   // prepared printed "87.5 + WFI 42.9 = 130.5": displayNum rounded the tie up and toFixed
   // rounded 42.94999… down. WFI now comes from the printed prepared volume (87.5 + 43 = 130.5).
-  // CHANGELOG.md, 2026-10-11 (7). Do not loosen the tolerance to make it pass.
+  // CHANGELOG.md, 2026-10-11 (8). Do not loosen the tolerance to make it pass.
   { name: 'S7 prepared volume with a second decimal (80.45 + 50 mL)', bw: 1000, cur: 1000, dol: 10, fluid: 150, ioOut: 50,
     tpn: 80.45, dead: 50, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 40, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },
 ];

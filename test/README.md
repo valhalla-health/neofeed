@@ -1011,7 +1011,7 @@ from the delivered volume) and `=3` (`deadVol_mL` out of the memo's dependencies
 memory and must fail; the patched text is transformed under another name, so the compiled loader never
 stands in for it. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
 130.45 mL printed "87.5 + 42.9 = 130.5"; WFI now comes from the printed prepared volume, so it prints
-87.5 + 43 = 130.5 (`CHANGELOG.md`, 2026-10-11 (7)). The oracle's scenario H holds the same rule.
+87.5 + 43 = 130.5 (`CHANGELOG.md`, 2026-10-11 (8)). The oracle's scenario H holds the same rule.
 
 All four mount the modules the same way the other jsdom harnesses do, so
 `NODE_OPTIONS=--require ./test/compiled-loader.cjs` runs them against the shipped `compiled/*.js`.
