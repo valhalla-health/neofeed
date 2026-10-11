@@ -39,7 +39,13 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
     milk: "M8 2h8v3l-1 2v4l2 4v7a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-7l2-4V7L8 5V2z",
     weight: "M6 8h12l2 12H4L6 8zm3 0a3 3 0 1 1 6 0",
     pdf: "M8 2h7l5 5v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 9v8h2v-3h1a2 2 0 0 0 0-4H8zm5 0v8h2c1.5 0 3-1 3-4s-1.5-4-3-4h-2z",
-    trash: "M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v6M14 11v6"
+    trash: "M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v6M14 11v6",
+    // The two shapes a severity needs besides `check`: a triangle for warn, an
+    // octagon for crit. Stroked, with the dot as a zero-length round-capped
+    // segment, so both stay legible at 13px and in greyscale. They replace the
+    // warning emoji, which the OS paints in its own colours, not --warn / --crit.
+    warn: "M12 3l10 18H2L12 3zM12 10v5M12 18h.01",
+    stop: "M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5zM12 8v5M12 16h.01"
   };
   const d = paths[name];
   if (!d) return null;
@@ -48,3 +54,4 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
   return /* @__PURE__ */ React.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: filled ? color : "none", stroke: filled ? "none" : color, strokeWidth: stroke, strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d, fillRule: evenOdd ? "evenodd" : void 0 }));
 };
 window.Icon = Icon;
+window.STATUS_ICON = { ok: "check", warn: "warn", crit: "stop" };

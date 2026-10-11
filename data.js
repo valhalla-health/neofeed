@@ -263,14 +263,14 @@ const EN_DB = {
     kcal: 80, pro: 1.80, fat: 4.3, cho: 8.7,
     na: 1.13, k: 1.47, ca: 78, p: 51,
     osm: 255, lf: true,
-    note: "P goal met at 150 mL/kg ✅ — still need Na supplement",
+    note: "P goal met at 150 mL/kg — still need Na supplement",
   },
   ENFALAC_27: {
     label: "Enfalac LF — 27 kcal/oz (90 kcal/100mL)",
     kcal: 90, pro: 2.00, fat: 4.8, cho: 9.8,
     na: 1.27, k: 1.67, ca: 87, p: 58,
     osm: 290, lf: true,
-    note: "Ca goal met at 150 mL/kg ✅",
+    note: "Ca goal met at 150 mL/kg",
   },
 
   // ── Infatrini (Nutricia) — 100 kcal/100 mL ────────────────
