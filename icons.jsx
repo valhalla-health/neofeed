@@ -66,9 +66,10 @@ const Icon = ({ name, size = 16, color = "currentColor", stroke = 1.6 }) => {
 
 window.Icon = Icon;
 
-// The three severities as a shape, so a status is never carried by colour alone
-// (WCAG 1.4.1; Hallmark audit 2026-10-11, C1). One mapping for the calculator's
-// tiles and the registry's stat strip. The words belong to the Tile
-// (calculator.jsx statusWord); the colours stay --ok / --warn / --crit, which
-// the ward has already learned.
-window.STATUS_ICON = { ok: "check", warn: "warn", crit: "stop" };
+// The two off-normal severities as a shape, so a status is never carried by
+// colour alone (WCAG 1.4.1; Hallmark audit 2026-10-11, C1). One mapping for the
+// calculator's tiles and the registry's stat strip. `ok` has no shape on
+// purpose: a normal value is the quiet state (Pp, 2026-10-11). The words belong
+// to the Tile (calculator.jsx statusWord); the colours stay --ok / --warn /
+// --crit, which the ward has already learned.
+window.STATUS_ICON = { warn: "warn", crit: "stop" };

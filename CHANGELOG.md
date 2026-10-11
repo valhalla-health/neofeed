@@ -7,6 +7,31 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 (2) — A tile that is fine says nothing
+
+`calculator.jsx`, `icons.jsx`, `registry.jsx`, both shells (CSS); one harness changed. No clinical constant or
+calculation. **`CONSTANTS_VERSION` unchanged.** A follow-up to the entry above, made before it was released.
+
+### Why
+
+Shown where the words appear (seventeen tiles in Steps 2, 3, 4 and 6), Pp asked for the normal state to say
+nothing: *"ไม่แสดง In range ตอนปกติ แก้ก่อนปล่อย"*. Seventeen *In range* chips would spend the ward's attention on
+the state that needs none, which is the call she had already made for the Osmolarity chip in Step 3.
+
+### What changed
+
+- **An ok tile has no chip.** A warn or crit tile is unchanged: a shape and one of *Low*, *High*, *Caution*,
+  *Critical low*, *Critical high* or plain *Critical*. *In range* and *OK*, listed in the entry above, no longer
+  exist. The absence of a chip is the signal, so nothing depends on the green.
+- **The registry's ok stat has no tick** either, for the same reason; *Logged today* and *Needs entry* keep their
+  triangle and octagon when they are off. `window.STATUS_ICON` is `{ warn, crit }`.
+- The `.stat-chip.s-ok` and `.reg-stat.s-ok .reg-stat-mark` rules are gone from both shells.
+
+### Tests
+
+`verify-status-words-1011.cjs` (36 checks): `statusWord('ok', …)` is `null`, an ok tile has no `.stat-chip`, and
+`RegStatMark tone="ok"` draws nothing; the warn / crit checks are as before.
+
 ## Session 2026-10-11 — Severity as a word and a shape, and no colour emoji on any screen
 
 `calculator.jsx`, `registry.jsx`, `app.jsx`, `icons.jsx`, `data.js`, both shells (CSS); one new harness and one
