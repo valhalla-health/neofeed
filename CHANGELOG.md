@@ -7,6 +7,32 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 (7) — Product pages: decisions, ward requests, feedback
+
+Docs only: `docs/product/product-decisions.md`, `docs/product/requests.md`, `docs/product/feedback.md`, one
+item in `AGENTS.md`. No served file, no harness and no `CONSTANTS_VERSION` change; both hosts skip `*.md`.
+Branch `claude/nf-20-22-product-docs`, not merged.
+
+### Why
+
+Pp asked for NF-20, NF-21 and NF-22 from her YouTube-Knowledge mapping (Stanford PM talks by Jiaona Zhang
+and Anand Subramani): one page for who NeoFeed serves and the bets in flight, a table that turns each ward
+request back into its problem, and a weekly check-in with one ward user. `PRD.md` defines the product but
+changes rarely; nothing recorded a bet's predicted outcome, a decision's dropped options, or what the ward
+says week to week.
+
+### What changed
+
+- **`product-decisions.md`:** the ward user, the problem and why it matters (from `PRD.md` §§ 1–2); five
+  bets from `BACKLOG.md` § Now and `STATUS.md`, each with a life-cycle stage and a success line written
+  before work. A bet with no success line stays at *problem*, so four of the five sit there. Five dated
+  decisions from `CHANGELOG.md` and `BACKLOG.md`, each with who decided and the options dropped.
+- **`requests.md`:** six real ward requests (2026-09-18 NICU team; 2026-09-22 and 2026-09-28 TPN team), each
+  with its source. Three are built; three wait for Pp's options and status.
+- **`feedback.md`:** the five-question check-in script (Thai, with English), an entry format that also takes
+  VH-52's forwarded comments, and an empty log.
+- Every predicted outcome, threshold and check date the repo does not give is `TODO(Pp)`.
+
 ## Session 2026-10-11 (6) — Peripheral K⁺: the maximum alone
 
 `calculator.jsx` (`kRedIsMax`, `kBagLimitParts`, five display sites), `compiled/calculator.js` and the

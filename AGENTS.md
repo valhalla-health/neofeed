@@ -17,5 +17,8 @@ Read before you act:
   `openspec/specs/`, this repo's rules in `openspec/config.yaml`. Neither host serves `openspec/` or `.agents/`.
 - **Clinical rules, GA/PMA, the printed order, PDPA**: the matching section of `REFERENCE.md`.
 - **What is live now, and rollback**: `STATUS.md`. **Open work**: `BACKLOG.md`.
+- **Who NeoFeed is for, the bets in flight and product decisions**: `docs/product/product-decisions.md`.
+  Ward requests and their options: `docs/product/requests.md`. Ward feedback, read before any UI work:
+  `docs/product/feedback.md`. No patient details or staff names in any of the three.
 - **Running the harnesses**: `test/README.md`.
 - **Why something is the way it is**: `CHANGELOG.md`, newest first. Add an entry for your session.
