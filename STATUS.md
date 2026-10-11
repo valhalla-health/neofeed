@@ -128,13 +128,19 @@
 
 **Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
 verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 asked.
+- ⏳ **PR #149, a tile that is fine says nothing: merged into `main` on Pp's instruction ("merge แล้ว
+  deploy", with "แก้ก่อนปล่อย" for this fix).** Frontend only. It goes out in the same release as #147:
+  PR #148 (`main` → `release`) was open and absorbs it. Pp, 2026-10-11, once she saw where the words
+  appear: "ไม่แสดง In range ตอนปกติ" (`CHANGELOG.md` 2026-10-11 (2)). `CONSTANTS_VERSION` unchanged.
+  - *In range* and *OK* are gone: an ok tile has no chip, and an ok stat in the registry has no tick.
 - ⏳ **PR #147, severity as a word and a shape, and no colour emoji on any screen: merged into `main` on
   Pp's instruction ("merge แล้ว deploy").** Frontend only, no `clasp` step; a `main` → `release` PR
   follows in the same session. Pp, 2026-10-11, after a Hallmark audit of the live app: "แก้ตามภาพนี้ทั้งหมด"
   and "จัดการ emoji ในทุกหน้าเลย" (`CHANGELOG.md` 2026-10-11). `CONSTANTS_VERSION` unchanged.
-  - A calculator tile says ok / warn / crit with a shape and a word beside its label (*In range*, *Low*,
-    *High*, *Critical low*, *Critical high*, *OK*, *Caution*). The side stripe is gone; the hues and the
-    meter are not. The registry's *Logged today* and *Needs entry* get the same three shapes.
+  - A calculator tile that is off its range says so with a shape and a word beside its label (*Low*,
+    *High*, *Caution*, *Critical low*, *Critical high*); a tile that is fine says nothing (PR #149, above).
+    The side stripe is gone; the hues and the meter are not. The registry's *Logged today* and *Needs
+    entry* get a triangle or an octagon when they are off.
   - ⚠️ **The words are inferred from the meter's zones, not given by a clinician.** They are the strings in
     `statusWord` (`calculator.jsx`): confirm them or change them there.
   - No colour emoji is drawn as an icon on any screen any more; ✓ / ⚠ prefixes on toasts and ☐ ☑ on the

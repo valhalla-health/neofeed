@@ -166,7 +166,7 @@ catches less or flags more decoys does not go in.
 **Keeping her useful.** The `fixed` and `disputed` marks are her score. A class of finding that is
 useful less than three times in four, over about 20 findings, comes out of `vera.md`. A class she
 raises twice becomes a harness test whose failure message says how to fix it, and leaves her prompt.
-The reasons for each rule, with sources: `CHANGELOG.md` 2026-10-11 (2) and (3).
+The reasons for each rule, with sources: the two 2026-10-11 Vera entries in `CHANGELOG.md`.
 
 ## Deploying, and rolling back
 
