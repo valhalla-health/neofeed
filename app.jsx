@@ -2081,13 +2081,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               {user?.authMethod !== "google" && <>
                 <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13 }}
                   onClick={() => { setShowChangePwd(true); setShowUserMenu(false); }}>
-                  🔑 เปลี่ยนรหัสผ่าน
+                  เปลี่ยนรหัสผ่าน
                 </button>
                 <div style={{ height: 1, background: "var(--line)" }} />
               </>}
               <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13 }}
                 onClick={() => { setShowHelp(true); setShowUserMenu(false); }}>
-                💬 ขอความช่วยเหลือ
+                ขอความช่วยเหลือ
               </button>
               <div style={{ height: 1, background: "var(--line)" }} />
               <button className="btn" style={{ width: "100%", justifyContent: "flex-start", borderRadius: 0, padding: "10px 14px", fontSize: 13, color: "var(--crit-ink)" }}
@@ -3130,7 +3130,7 @@ function HelpRequestModal({ onClose, onSend }) {
             ) : (
               <button type="button" className="btn help-attach" disabled={imageBusy}
                 onClick={() => fileRef.current && fileRef.current.click()}>
-                {imageBusy ? "กำลังเตรียมรูป…" : "📎 แนบรูป"}
+                {imageBusy ? "กำลังเตรียมรูป…" : "แนบรูป"}
               </button>
             )}
           </div>
@@ -3349,7 +3349,7 @@ function LoginScreen({ onLogin, notice = null }) {
         </div>
       )}
 
-      {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}>⚠️ {error}</div>}
+      {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}><span aria-hidden="true" style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 6 }}><Icon name="warn" size={15} stroke={2.2} /></span>{error}</div>}
 
       {/* The Valhalla line at the foot of the screen (Praew, 2026-09-22): one
           quiet line, "by Valhalla Health · © 2026", and no version. The
@@ -3774,7 +3774,7 @@ function GuidelinesPanel() {
       </div>
 
       <Seg
-        tabs={[["pn","💉 PN (ESPGHAN 2018)"], ["en","🍼 EN (ESPGHAN 2022)"], ["who","🌍 WHO 2023"]]}
+        tabs={[["pn","PN (ESPGHAN 2018)"], ["en","EN (ESPGHAN 2022)"], ["who","WHO 2023"]]}
         active={tab}
         onChange={setTab}
       />
@@ -3980,11 +3980,12 @@ function GuidelinesPanel() {
               <RangeRow label="Ca" min="120" max="200" unit="mg/kg/day = 3.0–5.0 mmol/kg (↑)" highlight />
               <RangeRow label="P" min="70" max="115" unit="mg/kg/day = 2.2–3.7 mmol/kg (↑)" highlight />
               <SectionHead>Vitamins + trace (enteral)</SectionHead>
-              <RangeRow label="Vitamin D" min="400" max="700" unit="IU/kg/day (⚠️ per kg, not per day!)" highlight />
+              <RangeRow label="Vitamin D" min="400" max="700" unit="IU/kg/day (per kg, not per day!)" highlight />
               <RangeRow label="Iron" min="2" max="3" unit="mg/kg/day, start at 2 wks (up to 6)" />
               <RangeRow label="Zinc" min="2.0" max="3.0" unit="mg/kg/day (↑↑ from 1.1–2.0)" highlight />
-              <div style={{ marginTop: 8, fontSize: 11, color: "var(--ok)", fontWeight: 500 }}>
-                ✅ Key 2022 changes: DHA↑ · K↑ · Ca↑ · P↑ · Zn↑ · Vit D switched to per kg/day
+              <div style={{ marginTop: 8, fontSize: 11, color: "var(--ok)", fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
+                <Icon name="check" size={13} stroke={2.2} />
+                Key 2022 changes: DHA↑ · K↑ · Ca↑ · P↑ · Zn↑ · Vit D switched to per kg/day
               </div>
             </div>
           </div>
@@ -4116,13 +4117,13 @@ function GuidelinesPanel() {
 function FormulasPanel() {
   const DB = D_A.EN_DB;
   const groups = [
-    { label: "🤱 Breast Milk", keys: ["BM_20","BM_HMF_24"] },
-    { label: "🥛 HiQ LF (Dumex)", keys: ["HIQLF_20","HIQLF_24","HIQLF_27"] },
-    { label: "🍼 Enfalac LF (MJN)", keys: ["ENFALAC_20","ENFALAC_24","ENFALAC_27"] },
+    { label: "Breast Milk", keys: ["BM_20","BM_HMF_24"] },
+    { label: "HiQ LF (Dumex)", keys: ["HIQLF_20","HIQLF_24","HIQLF_27"] },
+    { label: "Enfalac LF (MJN)", keys: ["ENFALAC_20","ENFALAC_24","ENFALAC_27"] },
     // Grouped as the calculator's feed list (TPN team, 2026-09-28). Pre Nan was on no row here.
-    { label: "👶 Preterm formula", keys: ["BM_PF_20","FBM_PF_22","FBM_PF_24"] },
-    { label: "🏠 Post-discharge formula", keys: ["PRENAN_22"] },
-    { label: "⚡ High-energy / Mixed", keys: ["FBM_INF_MIX","INFATRINI_30"] },
+    { label: "Preterm formula", keys: ["BM_PF_20","FBM_PF_22","FBM_PF_24"] },
+    { label: "Post-discharge formula", keys: ["PRENAN_22"] },
+    { label: "High-energy / Mixed", keys: ["FBM_INF_MIX","INFATRINI_30"] },
   ];
 
   const cols = ["Formula","kcal","Protein","Fat","Na","K","Ca","P","Osm","LF?","Note"];
@@ -4180,8 +4181,8 @@ function FormulasPanel() {
                       ))}
                       <td className="num" style={{ padding: "7px 10px", textAlign: "center", fontSize: 12 }}>{f.osm}</td>
                       <td style={{ padding: "7px 10px", textAlign: "center", fontSize: 12 }}>
-                        <span style={{ color: f.lf ? "var(--ok)" : "var(--ink-3)" }}>
-                          {f.lf ? "✅" : "—"}
+                        <span style={{ color: f.lf ? "var(--ok)" : "var(--ink-3)", display: "inline-flex" }}>
+                          {f.lf ? <Icon name="check" size={15} stroke={2.2} /> : "—"}
                         </span>
                       </td>
                       <td style={{ padding: "7px 10px", fontSize: 11, color: "var(--ink-3)",

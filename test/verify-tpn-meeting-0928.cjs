@@ -131,7 +131,7 @@ const statusOf = (el) => (el?.className.match(/\bs-(\w+)/) || [])[1] || null;
 const tileStatus = (label) => statusOf(tileEl(label));
 const frontSheet = () => { const f = printForm()?.cloneNode(true); f?.querySelector('.print-back')?.remove(); return f || null; };
 const lipidHours = (h) => click([...container.querySelectorAll('.seg button')].find(b => b.textContent.trim() === `${h}h`));
-const lipidCard = () => [...container.querySelectorAll('div')].find(d => /^🫙 Lipid Pump/.test(text(d)) && d.children.length === 0)?.parentElement || null;
+const lipidCard = () => [...container.querySelectorAll('div')].find(d => /^Lipid Pump/.test(text(d)) && d.children.length === 0)?.parentElement || null;
 
 const BASE = { dol: 1, editEntry: null, baselineEntry: null, previousEntry: null, logDate: '2026-09-28',
   userLabel: 'Dr Test (doc@kcmh.test)', onUpdate() { return Promise.resolve({ ok: true, lastModified: 'lm-u' }); },
