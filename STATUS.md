@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-09, 19:20–19:31 ICT — backend `@64`, then frontend `release` = `1fce931` on both hosts.**
+> PR #145 released #144: a help button beside the login name, and one cropped picture in the help form.
+> `@64` is `gas-backend.gs` at `c47d6ea`, byte for byte. `node tools/verify-release.mjs 1fce931` passed on
+> both hosts (0 failures, 61 passes). The tag `release-2026-10-09-pr145` is pushed (comment on #145).
+>
 > ✅ **2026-10-09, 18:01–18:03 ICT — frontend `release` = `679e9db` on both hosts, with backend `@63`.**
 > PR #143 released #142: on an iPhone every text field is 16 px, so a tap on the patient search no longer
 > zooms the page and pushes the avatar, and the help menu behind it, off screen. Shells only (CSS).
@@ -119,13 +124,16 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-09, 19:00 ICT** · ✅ **Backend `@63` and frontend `release` = `679e9db` are live, and
-both are verified.** Caught up with #140 and #143 in PR #144, the next PR on the repo, as both asked.
-- ⏳ **PR #144, a help button beside the login name and one cropped picture: merged into `main` on Pp's
-  instruction ("merge แล้ว deploy").** Backend `@64` (`clasp`, no new scope), then a `main` → `release`
-  PR, follow in the same session. Pp,
-  2026-10-09: "ให้ปุ่ม help button อยู่บนขวา ใกล้ชื่อ login" and "ให้แนบรูปที่ครอปไว้ ได้ด้วย"
-  (`CHANGELOG.md` 2026-10-09 (2)). `CONSTANTS_VERSION` unchanged.
+**Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
+verified.** Caught up with #145 in PR #NNN, the next PR on the repo, as #145 asked.
+- ⏳ **PR #NNN, OpenSpec: open.** Pp, 2026-10-11: "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md`
+  2026-10-11). Adds `openspec/` and the `/opsx:*` commands and skills for Claude Code and Codex. No served
+  file changes: `.assetsignore` and `_config.yml` now keep `openspec/` and `.agents/` off both hosts, and
+  `verify-build-shells.cjs` 5.7–5.8 pin that. `CONSTANTS_VERSION` unchanged.
+- ✅ **PR #144 is live**, released by PR #145 on Pp's instruction ("merge แล้ว deploy") on 2026-10-09:
+  backend `@64` at 19:20 ICT (no new scope), then `release` = `1fce931` at 19:30 ICT, whose tree is `main`
+  at `c47d6ea`. Pp, 2026-10-09: "ให้ปุ่ม help button อยู่บนขวา ใกล้ชื่อ login" and "ให้แนบรูปที่ครอปไว้
+  ได้ด้วย" (`CHANGELOG.md` 2026-10-09 (2)). `CONSTANTS_VERSION` unchanged.
   - The topbar's help button opens the same form as the menu item: ขอความช่วยเหลือ on a wide screen,
     ช่วยเหลือ on a phone, the icon alone from 310 to 359 px, the menu item only below that.
   - One picture, redrawn by the app as a JPEG of at most 1600 px with no EXIF, mailed as an attachment.
@@ -134,6 +142,8 @@ both are verified.** Caught up with #140 and #143 in PR #144, the next PR on the
     the picture before it goes; nothing enforces it. DPO note pending (`BACKLOG.md`).
   - ⚠️ An old frontend against `@64` is unchanged; this frontend against `@63` would mail the request
     without its picture, so the backend goes first.
+  - ⚠️ **Not checked yet:** a real request with a picture, sent from a phone, arriving at
+    praew.tvl@gmail.com; a real iPhone.
 - ✅ **PR #142 is live**, released by PR #143 on Pp's instruction ("deploy เลย") on 2026-10-09 at 18:01 ICT:
   `release` = `679e9db`, whose tree is `main` at `d59e156`. Shells only
   (CSS), no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-10-09). Pp, from an iPhone:

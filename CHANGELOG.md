@@ -7,6 +7,38 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 — OpenSpec, kept off both hosts
+
+`openspec/`, `.claude/commands/opsx/`, seven skills each in `.claude/skills/` and `.agents/skills/`,
+`.assetsignore`, `_config.yml`, `test/verify-build-shells.cjs`; docs. No served file, clinical constant or
+calculation. **`CONSTANTS_VERSION` unchanged.** No `clasp` step. PR #NNN. Also catches `STATUS.md` up with
+release #145.
+
+### Why
+
+Pp read openspec.dev and asked for it in NeoFeed first (*"ลองติดตั้งใน NeoFeed เลย"*). Plans written with
+superpowers end with their task; OpenSpec keeps the agreed behaviour in `openspec/specs/`, so the next
+agent, Claude Code or Codex, starts from the same written contract.
+
+### What changed
+
+- **`openspec init --tools claude,codex`** with OpenSpec 1.14.1: `openspec/config.yaml` and empty
+  `specs/` and `changes/archive/`; `/opsx:explore`, `propose`, `apply`, `verify`, `sync`, `update` and
+  `archive` for Claude Code; the same seven as skills in `.agents/skills/` for Codex. It touched no existing
+  file. Telemetry was off for the run (`OPENSPEC_TELEMETRY=0`).
+- **`openspec/config.yaml` carries NeoFeed's rules** an agent cannot read off the code: synthetic infants
+  only, a dose change names its source and bumps `CONSTANTS_VERSION`, every clinical behaviour gets a
+  harness case, the build step after a `.jsx` edit, and what deploys what. OpenSpec puts this into every
+  proposal (checked with a throwaway change, deleted).
+- **Neither host serves it.** `*.md` already hid the specs and skills, but not `openspec/config.yaml` or the
+  marker files, so `.assetsignore` lists `openspec/` and `.agents/`, and `_config.yml` lists `openspec/`
+  (Jekyll skips dotfiles). `verify-build-shells.cjs` 5.7 and 5.8 failed before that change and pass after it.
+
+### Not done
+
+- No spec yet. The first change through `/opsx:propose` writes the first one.
+- `AGENTS.md` (PR #134, open) does not mention OpenSpec; whichever of the two merges second adds a line.
+
 ## Session 2026-10-09 (2) — A help button beside the login name, and one cropped picture
 
 `app.jsx`, `icons.jsx`, both shells (CSS), `gas-backend.gs`; one new harness and two extended ones; docs. No

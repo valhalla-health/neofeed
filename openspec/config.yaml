@@ -1,0 +1,43 @@
+schema: spec-driven
+
+context: |
+  NeoFeed is a NICU nutrition/TPN calculator in use at KCMH; its orders print for pharmacy.
+  Specs, proposals and examples use synthetic infants only: never a real name, HN or bed history.
+  A change that can move a dose names its source (TPN team decision, guideline) and bumps
+  CONSTANTS_VERSION in data.js; one that only moves an alert threshold does not.
+  Every clinical behaviour a spec adds or changes gets a case in a test/verify-*.cjs harness.
+  After a .jsx edit, `npm ci --prefix tools && node tools/build.mjs` and commit compiled/ with it;
+  CI fails on stale output.
+  A push to main deploys nothing. Merging main into release deploys the frontend to both hosts;
+  gas-backend.gs goes live only through an explicit clasp deploy, which needs Pp's go-ahead.
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

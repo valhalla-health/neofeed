@@ -49,6 +49,12 @@ tools/
 # server from `neofeedDirectory` — never by the clinical NeoFeed domain.
 center-point/
 
+# OpenSpec (2026-10-11): specs and change proposals, and the agent skills that
+# drive them. `*.md` above covers most of it, not openspec/config.yaml or the
+# marker files.
+openspec/
+.agents/
+
 # NOTE: wrangler.jsonc cannot be listed here. Wrangler force-includes its own
 # config file when it sits inside the assets directory, so it IS served at
 # /wrangler.jsonc. Verified 2026-08-23: adding it here changes nothing, and
