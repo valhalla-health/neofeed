@@ -27,8 +27,9 @@ no change to a printed dose has ever had a second reviewer.
 
 1. **`vera` subagent.** Tools are Read, Grep and Glob only, so she cannot edit or run anything even
    in bypassPermissions, where a subagent inherits the parent's mode and a "read-only" prompt binds
-   nothing. She gets one review file (Pp's request, commit messages, diff) and none of the author's
-   reasoning. She triages the diff into dose, patient data, access and printed order, checks each
+   nothing. She gets one review file (Pp's request, the diff, then the commit messages under
+   `## Author's claims`) and none of the author's reasoning; she judges the diff before she reads
+   the claims. She triages the diff into dose, patient data, access and printed order, checks each
    against this repo's own rules (`docs/CLINICAL_CONSTANTS.md` change protocol, `REFERENCE.md` PDPA),
    tries to refute each finding before keeping it, and reports at most five.
 2. **BLOCK or NO BLOCK, never PASS.** A 🔴 needs a quoted line and the input that fails. Her NO BLOCK
@@ -61,6 +62,10 @@ no change to a printed dose has ever had a second reviewer.
   The 400-line figure is a vendor's (SmartBear), not peer-reviewed.
 - Two humans for the top source level: [SLSA v1.2](https://slsa.dev/spec/v1.2/source-requirements),
   which is why Vera does not count as the second clinician.
+- Commit messages last, read as claims: Laurie Voss (Arize), "The Death of the Code Review", at
+  [21:22](https://www.youtube.com/watch?v=_mi3alkqy4s&t=1282s), reports a study in which an innocent
+  commit message hid vulnerable code from an autonomous reviewer 88% of the time, against 35% for
+  humans. From Pp's YouTube knowledge notes; the study itself was not read.
 
 ### Tests
 
@@ -68,10 +73,20 @@ no change to a printed dose has ever had a second reviewer.
 five-finding cap raised to 10 and the 🔴-under-NO-BLOCK rule removed, 2.3 and 2.7 failed, so the
 harness catches a loosened rule. CI runs it with every other `verify-*.cjs`.
 
+A dry run on a real dose change: Vera's instructions, run as an Opus subagent with Read, Grep and Glob
+only, on PR #137's diff (the peripheral K⁺ maximum of 60). She returned NO BLOCK with two 🟠 and three
+🟡 findings, and her report passes `vera-report.cjs` with no problems. Her finding 2 was checked by
+hand and holds: `kGrade` (`calculator.jsx:1639`) strips only float noise, so a bag of 60.25 mEq/L
+(1,205 g, 60 mL/day, KCl 3 mEq/kg/day; dead space cancels out) is refused, while the stop line rounds
+it and reads "K⁺ ในถุง 60 mEq/L เกินค่าสูงสุด 60 mEq/L". Her findings went to Pp to decide; none is
+fixed in this PR.
+
 ### Not checked
 
-- Vera on a live PR in a NeoFeed session, and her Stop hook firing as SubagentStop there. Claude Code
-  runs a project agent's hooks only in a trusted folder.
+- The `vera` agent itself in a NeoFeed session, and her Stop hook firing as SubagentStop there. A
+  headless run in this worktree listed `vera` among its agents, so the frontmatter loads, but the
+  CLI's login had expired before she started. Claude Code runs a project agent's hooks only in a
+  trusted folder.
 
 ## Session 2026-10-09 (2) — A help button beside the login name, and one cropped picture
 

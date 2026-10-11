@@ -134,15 +134,15 @@ the `harnesses` check stays the only machine gate, and Pp the only approver.
 
 1. **Keep the change small.** Split a dose-file diff of more than about 400 changed lines first;
    review finds less as a change grows.
-2. **Write one review file outside the repo**: Pp's request as she wrote it, when there is one, then
-   the output of
+2. **Write one review file outside the repo**, in this order: Pp's request as she wrote it, when
+   there is one; then the diff; then a line `## Author's claims` and the commit messages.
    ```
    git fetch -q origin
-   git log --format='%h %s%n%n%b' origin/main..HEAD
    git diff origin/main...HEAD
+   git log --format='%h %s%n%n%b' origin/main..HEAD
    ```
-   Give Vera that path and nothing else. Your own summary and reasoning stay out, so she judges the
-   change and not your account of it.
+   Give Vera that path and nothing else. Your own summary and reasoning stay out, and the commit
+   messages come last, so she judges the change before she reads its pitch.
 3. **Paste her report unedited** into the PR body under `## Vera`, and under each finding write
    `fixed in <sha>` or `disputed: <why>`.
 4. **A BLOCK holds the PR** until the 🔴 is fixed and Vera has run again, or until Pp overrides it in
