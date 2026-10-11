@@ -1,0 +1,26 @@
+diff --git a/calculator.jsx b/calculator.jsx
+index 6f924c4..7fa999a 100644
+--- a/calculator.jsx
++++ b/calculator.jsx
+@@ -1245,7 +1245,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry,
+     const aaG = aaPerKg * wtKg;          // DELIVERED g/day — drives protein + kcal
+     const aaG_bag = aaPerKg * factor;    // IN THE BAG (sheet F11) — drives the amino-acid stock mL
+     const lipidG = lipidPerKg * wtKg;    // separate syringe: no overfill applied
+-    const lipidVol = lipidG / 0.20;
++    const lipidVol = lipidG / S.smof20.gPerMl;
+     // Vitalipid rides IN the lipid emulsion — it is not a standalone infusion,
+     // so with no lipid ordered there is no Vitalipid. Computing it from weight
+     // alone put 4 mL/kg/d (cap 10) of phantom volume into prescribedFluid, into
+@@ -1258,9 +1258,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry,
+ 
+     // dexPct is the final concentration of the PREPARED bag (sheet D10), so the
+     // infant receives that concentration in the delivered volume.
+-    const dexG = totalTPN_mL * dexPct / 100;   // DELIVERED g/day — drives GIR + kcal
+-    const dexG_bag = preparedVol * dexPct / 100; // IN THE BAG (F10) — drives D50W mL
+-    const gir = dexG * 1000 / (1440 * wtKg);
++    const dexG = totalTPN_mL * dexPct / 100;   // DELIVERED g/day — drives kcal
++    const dexG_bag = preparedVol * dexPct / 100; // IN THE BAG (F10) — drives D50W mL and GIR
++    const gir = dexG_bag * 1000 / (1440 * wtKg);  // same dextrose as the pharmacy sheet's F10
+ 
+     // Phosphate sources
+     // Glycophos®: 1 mL = 1 mmol P + 2 mmol Na

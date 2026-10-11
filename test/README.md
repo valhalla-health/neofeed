@@ -277,6 +277,12 @@ npm install --no-save --no-package-lock playwright
 node test/verify-sync-gate-and-poll.cjs
 ```
 
+The same holds for the other harnesses with browser sections (`verify-phone-sweep.cjs`,
+`verify-mobile-fit.cjs`, `verify-admin-census.cjs`, `verify-mobile-bed-button.cjs`,
+`verify-nursing-frontend.cjs`, `verify-bed-transfer-0927.cjs`, `verify-ward-requests-0925.cjs`).
+**CI runs those sections since 2026-10-04**, once, in its compiled pass, and there a SKIP fails the
+job. Locally a SKIP still only means Playwright is not installed.
+
 The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-bed-dol-io.cjs`, `verify-patient-ga-bw-edit.cjs`,
 `verify-delete-session.cjs`, `verify-forced-password-client.cjs`,
@@ -1440,6 +1446,8 @@ hold a 1600 × 1067 JPEG with no EXIF, under 1.5 MB. § 4, the negative control:
 taken out, the 320 px wordmark is squeezed. 154 checks; against `main` (`d59e156`), 80 fail.
 `verify-ios-input-zoom-1009.cjs` clicked the first button reading ขอความช่วยเหลือ, which is now the topbar's;
 it names the menu item (`button:not(.help-btn)`) and is back to 123/123.
+
+**`verify-status-words-1011.cjs`** (jsdom, no browser; it also runs against `compiled/`) pins the 2026-10-11 Hallmark-audit fix. `statusWord()` gives an off-range tile a word, with the direction read from the value against the tile's own target; a tile that is fine says nothing. Every warn / crit tile of the real calculator has a chip beside its `.lbl` (its own tone, a shape, one of the six words, the side of the range the number is on), an ok tile has none, and no tile has a `.stripe`. No colour emoji is on the calculator screen, in an `<optgroup>` label or in a feed note. `RegStatMark` draws a shape for warn / crit and nothing otherwise. The layout cost of the chip is covered by the existing browser sections (`verify-mobile-fit`, `verify-phone-sweep`, `verify-help-button-1009`).
 
 **Running the browser sections on Pp's PC.** The global `playwright` (1.62.1) wants Chromium build 1234;
 `%LOCALAPPDATA%\ms-playwright` holds 1217 and 1248, so every harness's browser section prints SKIP. Rather

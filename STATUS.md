@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-09, 19:30–19:31 ICT — backend `@64`, then frontend `release` = `1fce931` on both hosts.**
+> PR #145 released #144: a help button beside the login name, and one cropped picture. `@64` is
+> `gas-backend.gs` at `c47d6ea`, byte for byte. `node tools/verify-release.mjs 1fce931` passed on both
+> hosts (0 failures, 61 passes). The tag `release-2026-10-09-pr145` is pushed (comment on #145).
+>
 > ✅ **2026-10-09, 18:01–18:03 ICT — frontend `release` = `679e9db` on both hosts, with backend `@63`.**
 > PR #143 released #142: on an iPhone every text field is 16 px, so a tap on the patient search no longer
 > zooms the page and pushes the avatar, and the help menu behind it, off screen. Shells only (CSS).
@@ -29,7 +34,9 @@
 > ✅ **2026-09-28, 21:33–21:38 ICT — frontend `release` = `3ae2e18` on both hosts, with backend `@61`.**
 > PR #130 released #129: the TPN team's meeting, K⁺ by route with a 200 maximum, the lipid rate ceiling,
 > `CONSTANTS_VERSION` `2026-09-28.1`. `node tools/verify-release.mjs 3ae2e18` passed on both hosts (0
-> failures, 61 passes). The tag `release-2026-09-28-pr130` is pushed (comment on #130).
+> failures, 61 passes). The tag `release-2026-09-28-pr130` is pushed (comment on #130). #130 was the one
+> squash merge on `release`; squash and rebase merging are off since 2026-10-04 (`REFERENCE.md` §
+> Deploying, and rolling back).
 >
 > ✅ **2026-09-27, 21:43–21:44 ICT — backend `@61`, then frontend `release` = `ec6ff6e` on both hosts.**
 > PR #128 released #127: Admit date corrections again, `NF-` ids, the look-alike question. `@61` is
@@ -119,11 +126,38 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-09, 19:00 ICT** · ✅ **Backend `@63` and frontend `release` = `679e9db` are live, and
-both are verified.** Caught up with #140 and #143 in PR #144, the next PR on the repo, as both asked.
-- ⏳ **PR #144, a help button beside the login name and one cropped picture: merged into `main` on Pp's
-  instruction ("merge แล้ว deploy").** Backend `@64` (`clasp`, no new scope), then a `main` → `release`
-  PR, follow in the same session. Pp,
+**Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
+verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 asked.
+- ⏳ **PR #134, the agent's environment: merged into `main` on Pp's instruction ("fix and merge").** No
+  served file changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Merge
+  commits only, the browser sections in CI, LF checkouts, `AGENTS.md` and Vera, the pre-PR review
+  (`CHANGELOG.md` 2026-10-11 (4) and (5)). `AGENTS.md` now points at OpenSpec too (#146).
+- ⏳ **PR #146, OpenSpec: merged into `main` on Pp's instruction ("merge PR146 เลย").** No served file
+  changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Pp, 2026-10-11:
+  "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md` 2026-10-11 (3)). Adds `openspec/` and the `/opsx:*` commands
+  and skills for Claude Code and Codex. `.assetsignore` and `_config.yml` keep `openspec/` and `.agents/`
+  off both hosts, and `verify-build-shells.cjs` 5.7–5.8 pin that. `CONSTANTS_VERSION` unchanged.
+- ⏳ **PR #149, a tile that is fine says nothing: merged into `main` on Pp's instruction ("merge แล้ว
+  deploy", with "แก้ก่อนปล่อย" for this fix).** Frontend only. It goes out in the same release as #147:
+  PR #148 (`main` → `release`) was open and absorbs it. Pp, 2026-10-11, once she saw where the words
+  appear: "ไม่แสดง In range ตอนปกติ" (`CHANGELOG.md` 2026-10-11 (2)). `CONSTANTS_VERSION` unchanged.
+  - *In range* and *OK* are gone: an ok tile has no chip, and an ok stat in the registry has no tick.
+- ⏳ **PR #147, severity as a word and a shape, and no colour emoji on any screen: merged into `main` on
+  Pp's instruction ("merge แล้ว deploy").** Frontend only, no `clasp` step; a `main` → `release` PR
+  follows in the same session. Pp, 2026-10-11, after a Hallmark audit of the live app: "แก้ตามภาพนี้ทั้งหมด"
+  and "จัดการ emoji ในทุกหน้าเลย" (`CHANGELOG.md` 2026-10-11). `CONSTANTS_VERSION` unchanged.
+  - A calculator tile that is off its range says so with a shape and a word beside its label (*Low*,
+    *High*, *Caution*, *Critical low*, *Critical high*); a tile that is fine says nothing (PR #149, above).
+    The side stripe is gone; the hues and the meter are not. The registry's *Logged today* and *Needs
+    entry* get a triangle or an octagon when they are off.
+  - ⚠️ **The words are inferred from the meter's zones, not given by a clinician.** They are the strings in
+    `statusWord` (`calculator.jsx`): confirm them or change them there.
+  - No colour emoji is drawn as an icon on any screen any more; ✓ / ⚠ prefixes on toasts and ☐ ☑ on the
+    printed form are plain text and stay.
+  - ⚠️ Not checked yet: the chip on a real tablet and a phone at the bedside.
+- ✅ **PR #144 is live**, released by PR #145 on Pp's instruction ("merge แล้ว deploy") on 2026-10-09 at
+  19:30 ICT: `release` = `1fce931`, whose tree is `main` at `c47d6ea`, with backend `@64` (`clasp`, no new
+  scope) first. `verify-release.mjs 1fce931` passed on both hosts (comment on #145). Pp,
   2026-10-09: "ให้ปุ่ม help button อยู่บนขวา ใกล้ชื่อ login" and "ให้แนบรูปที่ครอปไว้ ได้ด้วย"
   (`CHANGELOG.md` 2026-10-09 (2)). `CONSTANTS_VERSION` unchanged.
   - The topbar's help button opens the same form as the menu item: ขอความช่วยเหลือ on a wide screen,
@@ -134,6 +168,8 @@ both are verified.** Caught up with #140 and #143 in PR #144, the next PR on the
     the picture before it goes; nothing enforces it. DPO note pending (`BACKLOG.md`).
   - ⚠️ An old frontend against `@64` is unchanged; this frontend against `@63` would mail the request
     without its picture, so the backend goes first.
+  - ⚠️ **Not checked yet:** a real request with a picture, sent from a phone, arriving at
+    praew.tvl@gmail.com; a real iPhone.
 - ✅ **PR #142 is live**, released by PR #143 on Pp's instruction ("deploy เลย") on 2026-10-09 at 18:01 ICT:
   `release` = `679e9db`, whose tree is `main` at `d59e156`. Shells only
   (CSS), no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-10-09). Pp, from an iPhone:
@@ -201,7 +237,7 @@ both are verified.** Caught up with #140 and #143 in PR #144, the next PR on the
     register the same baby twice with no question.
   - ⚠️ **It changes what the ward sees:** a new infant's NeoFeed ID (Edit, the order form, Copy Order's
     LINE text) reads `NF-` and six digits, and registering a look-alike asks first. The Thai manual
-    needs both.
+    has both since its Version 6 (2026-09-27).
   - ⚠️ **Not checked yet:** registering and correcting an Admit date at a bedside, and a real phone.
 - ✅ **PR #125 is live**, released by PR #126 on Pp's instruction ("merge PR 125 แล้ว deploy") at 20:35
   ICT: `release` = `3453ba8`, whose tree is `main` at `e751f52`. Post-merge CI on `release` passed (run

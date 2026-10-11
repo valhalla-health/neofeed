@@ -1,0 +1,35 @@
+diff --git a/calculator.jsx b/calculator.jsx
+index 6f924c4..deb7ca4 100644
+--- a/calculator.jsx
++++ b/calculator.jsx
+@@ -1429,7 +1429,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry,
+       solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca +
+       soluvitVol + peditrace_vol + solVol.heparin
+     ).toFixed(1));
+-    const wfiVol = parseFloat((preparedVol - componentVol).toFixed(1));
++    const wfiVol = r1(preparedVol - componentVol);
+ 
+     // ── Sheet safety ceilings ────────────────────────────────────────────────
+     // The sheet tests bag amounts against factor-scaled limits (F10 vs F9 = 18×H9,
+@@ -1729,7 +1729,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry,
+   if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
+   else if (tpnWtFar) alerts.push({ level: "crit", title: "TPN calc. weight far from automatic", body: `${fmt(wtG, 0)} g typed, automatic ${fmt(autoWtG, 0)} g (${wtG > autoWtG ? "+" : "−"}${fmt(tpnWtDiff * 100, 0)} %, more than ${fmt(D.TPN_WT_MANUAL_MAX_DIFF * 100, 0)} %). Every dose and mL on this order is computed from ${fmt(wtG, 0)} g — check the digits.`, ref: "Pp, 2026-10-08" });
+   if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${fmt(calc.gir, 1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });else
+-  if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
++  if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} mg/kg/min — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
+   // Titles are unchanged from the total-based alerts they replace: a saved
+   // critOverride lists titles, and print checks the current ones against it.
+   if (hardNPE) alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 32, 0)} kcal/g AA > 32 hard limit (TPN only) — risks excess fat deposition${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `NPC:N 150–200:1 · ${ivRef}` });else
+diff --git a/gas-backend.gs b/gas-backend.gs
+index cb97d6a..6bd306d 100644
+--- a/gas-backend.gs
++++ b/gas-backend.gs
+@@ -468,7 +468,7 @@ function _getStaffRowCached(email) {
+   }
+   var found = _staffRowForCache(getStaffRow(email));
+   try { cache.put(key, JSON.stringify(found), STAFF_RECHECK_TTL_SECONDS); }
+-  catch (e) { Logger.log("staff row cache put skipped: " + e.message); }
++  catch (e) { Logger.log("staff row cache put skipped (" + e.name + "): " + e.message); }
+   return found;
+ }
+ // Every function that writes a Staff row's cols E–H calls this after the

@@ -1,0 +1,87 @@
+{
+  "base": "c47d6ea33b3b58a7565c3fe8c047c62decefc05d",
+  "cases": [
+    {
+      "id": "gir-basis",
+      "expect": "BLOCK",
+      "defects": [
+        { "id": "gir-on-bag-dextrose", "file": "calculator.jsx", "line": 1263, "min": "🔴",
+          "snippet": "dexG_bag * 1000 / (1440 * wtKg)",
+          "what": "GIR from the bag's dextrose (dead space included), not the delivered dose: overstated by the overfill, 1.5× at 60 mL/day + 30 mL" }
+      ],
+      "decoys": [
+        { "id": "lipid-strength-from-stock", "file": "calculator.jsx", "line": 1248,
+          "snippet": "lipidG / S.smof20.gPerMl",
+          "what": "KCMH_STOCK.smof20.gPerMl is 0.20, so the volume is unchanged" }
+      ]
+    },
+    {
+      "id": "k-edge-pitch",
+      "expect": "BLOCK",
+      "defects": [
+        { "id": "k-max-refuses-60", "file": "calculator.jsx", "line": 1712, "min": "🔴",
+          "snippet": "kMeqPerLGraded >= kLim.hardMax",
+          "what": ">= refuses a peripheral bag of exactly 60 mEq/L, which the maximum allows; the commit message claims the opposite" }
+      ],
+      "decoys": [
+        { "id": "lipid-compare-flipped", "file": "calculator.jsx", "line": 1657,
+          "snippet": "D.LIPID_GKGH.max < lipidGkgh",
+          "what": "a < b is b > a: the same grading" }
+      ]
+    },
+    {
+      "id": "phi-log",
+      "expect": "BLOCK",
+      "defects": [
+        { "id": "erased-name-and-dob-logged", "file": "gas-backend.gs", "line": 3689, "min": "🔴",
+          "snippet": "cur[1] + \", born \" + cur[6]",
+          "what": "the PDPA erasure writes the erased name (B) and DOB (G) into the execution log" }
+      ],
+      "decoys": [
+        { "id": "row-count-log", "file": "gas-backend.gs", "line": 3674,
+          "snippet": "registry rows to scan",
+          "what": "a row count identifies no one" }
+      ]
+    },
+    {
+      "id": "nursing-delete-role",
+      "expect": "BLOCK",
+      "defects": [
+        { "id": "nurse-can-delete", "file": "gas-backend.gs", "line": 1492, "min": "🔴",
+          "snippet": "var nres = action === \"logNursingEntry\"",
+          "what": "the merged branch checks canWrite for all three actions, so a nurse or doctor can now delete a nursing entry; deletion was admin-only (D3)" }
+      ],
+      "decoys": [
+        { "id": "conflict-check-for-all", "file": "gas-backend.gs", "line": 1498,
+          "snippet": "if (nres.conflict)",
+          "what": "only updateNursingEntry ever returns conflict, so the shared check changes nothing" }
+      ]
+    },
+    {
+      "id": "clean-decoys",
+      "expect": "NO BLOCK",
+      "defects": [],
+      "decoys": [
+        { "id": "wfi-r1", "file": "calculator.jsx", "line": 1432,
+          "snippet": "r1(preparedVol - componentVol)",
+          "what": "r1 is parseFloat(n.toFixed(1)), the same expression it replaces" },
+        { "id": "gir-alert-unit", "file": "calculator.jsx", "line": 1732,
+          "snippet": "mg/kg/min — aim",
+          "what": "adds the unit to an on-screen alert; no number changes" },
+        { "id": "cache-log-error-name", "file": "gas-backend.gs", "line": 471,
+          "snippet": "\"staff row cache put skipped (\" + e.name",
+          "what": "an error name identifies no one" }
+      ]
+    },
+    {
+      "id": "k2hpo4-double-round",
+      "expect": "BLOCK",
+      "defects": [
+        { "id": "k2hpo4-rounded-twice", "file": "calculator.jsx", "line": 1400, "min": "🔴",
+          "snippet": "r1(r2(k2hpo4 * factor / S.k2hpo4.kMeqPerMl))",
+          "what": "rounded to 0.01, then to 0.1: 0.045–0.049 mL prints 0.1 where rounding once gives 0.0, and under 0.045 mL prints 0 where the base printed 0.04; the bag's K and P amounts still count the unrounded dose (K₂HPO₄ is 1 mEq/mL)" }
+      ],
+      "decoys": []
+    }
+  ]
+}

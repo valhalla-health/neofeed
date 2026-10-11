@@ -1,0 +1,13 @@
+diff --git a/calculator.jsx b/calculator.jsx
+index 6f924c4..d4c68e9 100644
+--- a/calculator.jsx
++++ b/calculator.jsx
+@@ -1397,7 +1397,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry,
+       naAcet:    naAcet > 0 ? r1(naAcet * factor / S.naAcetate.naMeqPerMl) : 0, // Na Acetate
+       glycophos: r1(glycophosP * factor),                                       // 1 mL = 1 mmol P
+       kCl:       kCl    > 0 ? r1(kCl    * factor / S.kCl.kMeqPerMl       ) : 0, // KCl
+-      k2hpo4:    k2hpo4 > 0 ? r2(k2hpo4 * factor / S.k2hpo4.kMeqPerMl    ) : 0, // K₂HPO₄
++      k2hpo4:    k2hpo4 > 0 ? r1(r2(k2hpo4 * factor / S.k2hpo4.kMeqPerMl)) : 0, // K₂HPO₄, one decimal like the rest
+       ca:        caPerKg> 0 ? r1(caPerKg* factor / S.caGluconate.caMgPerMl) : 0,// 10% Ca gluconate
+       mg:        mgPerKg> 0 ? r2(mgPerKg* factor / mgStock.mgMeqPerMl    ) : 0, // MgSO₄ (chosen strength)
+       // Both Mg strengths, so the pharmacy label can show the alternative

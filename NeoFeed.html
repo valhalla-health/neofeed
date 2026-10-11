@@ -654,15 +654,28 @@
   .metric.s-crit  { border-color: var(--crit); background: linear-gradient(180deg, var(--crit-bg), var(--surface) 60%); }
   .metric.s-empty { opacity: .85; }
   .metric.s-brand { border-color: var(--brand); background: linear-gradient(180deg, var(--brand-bg), var(--surface) 60%); }
-  .metric.s-brand .stripe { background: var(--brand); }
 
-  .metric .stripe {
-    position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  /* A tile that is off its range says so in a word and a shape beside its
+     label, never the colour alone: the border, the tint and the meter's zones
+     keep their hues (the ward has learned them), and the 3px side stripe that
+     used to repeat them is gone (Hallmark audit 2026-10-11, C1; WCAG 1.4.1).
+     A tile that is fine carries no chip at all (Pp, 2026-10-11), so there is no
+     .s-ok rule here. The chip is a sibling of .lbl, not a child, so the label's
+     own text stays what the harnesses and a screen reader read as the tile's
+     name. Ink tiers are the *-ink cuts, 7.7:1 or better on white. */
+  .metric-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 2px 6px;
   }
-  .metric.s-ok    .stripe { background: var(--ok); }
-  .metric.s-warn  .stripe { background: var(--warn); }
-  .metric.s-crit  .stripe { background: var(--crit); }
-  .metric.s-empty .stripe { background: var(--line); }
+  .metric-top .lbl { flex: 1 1 auto; min-width: 0; }
+  .stat-chip {
+    display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto;
+    margin-left: auto; padding: 1px 8px 1px 5px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface);
+    font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap;
+  }
+  .stat-chip.s-warn { color: var(--warn-ink); border-color: var(--warn-line); }
+  .stat-chip.s-crit { color: var(--crit-ink); border-color: var(--crit-line); }
 
   /* range bar — one zone per status, laid out by calculator.jsx's
      meterZones from the tile's own grading function. The track clips the
@@ -1293,19 +1306,21 @@
   .reg-stats { display: flex; gap: 8px; margin-bottom: 16px; }
   .reg-stat {
     flex: 1; background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--r); padding: 10px 14px 10px 16px;
+    border-radius: var(--r); padding: 10px 14px;
     display: flex; flex-direction: row; align-items: center; gap: 12px;
-    box-shadow: var(--shadow-card); border-left: 3px solid var(--line);
+    box-shadow: var(--shadow-card);
   }
+  /* The severity shape in front of the number (registry.jsx RegStatMark), for
+     warn and crit only. It took over from the 3px left stripe these tiles used
+     to carry. */
+  .reg-stat-mark { display: inline-flex; flex: 0 0 auto; margin-right: -2px; }
+  .reg-stat.s-warn .reg-stat-mark { color: var(--warn-ink); }
+  .reg-stat.s-crit .reg-stat-mark { color: var(--crit); }
   .reg-stat-val {
     font-family: "IBM Plex Mono", monospace; font-size: 24px; font-weight: 600;
     letter-spacing: -0.03em; line-height: 1; color: var(--ink); flex-shrink: 0;
   }
   .reg-stat-lbl { font-size: 11px; color: var(--ink-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.3; }
-  .reg-stat.s-ok    { border-left-color: var(--ok); }
-  .reg-stat.s-warn  { border-left-color: var(--warn); }
-  .reg-stat.s-crit  { border-left-color: var(--crit); }
-  .reg-stat.s-brand { border-left-color: var(--brand); }
 
   /* Per-patient "has today's Daily_Log entry?" badge — registry cards + table.
      Same vocabulary as the Logged today / Needs entry tiles above the list, so
@@ -1898,7 +1913,7 @@
   /* Measured in test/verify-help-button-1009.cjs, where the test is that the
      NeoFeed wordmark keeps its full width: the word "ช่วยเหลือ" fits from
      357px and the icon alone from 307px. Below that (a folded Galaxy Z Fold
-     is 280px) the user menu's 💬 ขอความช่วยเหลือ is the way in. */
+     is 280px) the user menu's ขอความช่วยเหลือ is the way in. */
   @media (max-width: 359px) {
     .help-btn { width: 44px; padding: 0; justify-content: center; }
     .help-btn .hb-short { display: none; }
@@ -2047,13 +2062,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=11db106622"></script>
-  <script src="compiled/icons.js?v=c6019724e5"></script>
-  <script src="compiled/calculator.js?v=a766eb094b"></script>
+  <script src="data.js?v=421fbb1e16"></script>
+  <script src="compiled/icons.js?v=5b007bcbc0"></script>
+  <script src="compiled/calculator.js?v=252b7bd69b"></script>
   <script src="compiled/fenton.js?v=f9e6212215"></script>
-  <script src="compiled/registry.js?v=d106d9af15"></script>
+  <script src="compiled/registry.js?v=c5ab5fffce"></script>
   <script src="compiled/log.js?v=c159cd5a45"></script>
-  <script src="compiled/app.js?v=a6471bed22"></script>
+  <script src="compiled/app.js?v=c4e5e14cae"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

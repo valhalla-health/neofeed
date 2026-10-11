@@ -31,8 +31,10 @@ jobs:
     # day (oracle, clicks, fuzz) cost about two minutes per mode, and every
     # harness here runs twice — once against the sources, once against
     # compiled/. A deeper fuzz run is deliberately NOT the default: FUZZ_N=500
-    # is for a local session, not for every PR.
-    timeout-minutes: 30
+    # is for a local session, not for every PR. 45, not 30, since 2026-10-04: the
+    # browser sections now run here too, once, in the compiled pass (about ten
+    # minutes on a laptop; see the Playwright step below).
+    timeout-minutes: 45
     env:
       # The ward's timezone. The app pins Asia/Bangkok itself; running the
       # harnesses in it too matches how they are run locally.
@@ -75,13 +77,28 @@ jobs:
           DEAD=0 node test/verify-kcmh-factor.cjs
           echo "::endgroup::"
 
+      # Eight harnesses have browser sections (the phone sweep, mobile fit, the
+      # admin census, ...) that need Playwright and a Chromium and print SKIP
+      # without them. Until 2026-10-04 nothing here installed either, so those
+      # sections had only ever run on a laptop. They run once, in the compiled
+      # pass below, against the files that ship. Playwright lives in its own
+      # folder and is reached through NODE_PATH in that pass only: installing it
+      # into ./node_modules would prune the --no-save packages installed above,
+      # and the sources pass keeps its SKIP so the browser time is spent once.
+      - name: Install Playwright and Chromium (compiled pass only)
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" --no-save --no-package-lock playwright@1
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+
       # The same harnesses, with every .jsx module they mount replaced by the
       # compiled/*.js file the browser actually runs (test/compiled-loader.cjs).
       # A harness that mounts modules but swapped none fails here, so the preload
-      # cannot silently fall back to testing the sources.
-      - name: Run every verify-*.cjs harness (shipped compiled/*.js)
+      # cannot silently fall back to testing the sources. A browser SKIP fails
+      # here too, so a broken Playwright install cannot pass as green again.
+      - name: Run every verify-*.cjs harness (shipped compiled/*.js, with the browser sections)
         env:
           NODE_OPTIONS: --require ./test/compiled-loader.cjs
+          NODE_PATH: ${{ runner.temp }}/pw/node_modules
         run: |
           set -eo pipefail
           out="$RUNNER_TEMP/harness.out"
@@ -90,6 +107,10 @@ jobs:
             node "$f" | tee "$out"
             if grep -qE 'transformSync|review-0917-boot' "$f" && ! grep -q '\[compiled-loader\] swapped in' "$out"; then
               echo "::error file=$f::mounts .jsx modules, but none was replaced by compiled/ output"
+              exit 1
+            fi
+            if grep -qE 'SKIP +(playwright not installed|could not launch Chromium)' "$out"; then
+              echo "::error file=$f::skipped its browser sections: Playwright or Chromium is missing on the runner"
               exit 1
             fi
             echo "::endgroup::"

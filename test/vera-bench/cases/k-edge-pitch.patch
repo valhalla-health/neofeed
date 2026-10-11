@@ -1,0 +1,22 @@
+diff --git a/calculator.jsx b/calculator.jsx
+index 6f924c4..af8539c 100644
+--- a/calculator.jsx
++++ b/calculator.jsx
+@@ -1654,7 +1654,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry,
+   // Lipid g/kg/h against the ceiling (D.LIPID_GKGH; TPN team and Praew,
+   // 2026-09-28), graded on the 2-decimal figure the pump card shows.
+   const lipidGkgh = lipidPerKg > 0 && lipidDripHours > 0 ? Math.round(lipidPerKg / lipidDripHours * 100) / 100 : 0;
+-  const sLipidGkgh = lipidGkgh > D.LIPID_GKGH.max ? "crit" : lipidGkgh > D.LIPID_GKGH.warn ? "warn" : "ok";
++  const sLipidGkgh = D.LIPID_GKGH.max < lipidGkgh ? "crit" : D.LIPID_GKGH.warn < lipidGkgh ? "warn" : "ok";
+   // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
+   const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
+ 
+@@ -1709,7 +1709,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry,
+   // peripheral 60, Praew, 2026-10-08): like the no-volume bag, not a
+   // confirm-with-reason alert — Submit and Print refuse it. A draft may still
+   // be kept.
+-  const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;
++  const kOverMax = kLim.hardMax != null && kMeqPerLGraded >= kLim.hardMax;
+   const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
+   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
+   // The weight every dose is computed from (Pp, 2026-10-08; D.TPN_WT_*).
