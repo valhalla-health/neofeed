@@ -957,10 +957,10 @@ chula.ac.th temp password that the domain-keyed gate let skip the change.
 these three ask whether the arithmetic is right at all, and they are the reason a future change to
 `calc` cannot quietly move a dose.
 
-**`verify-calc-oracle.cjs`** — 12 orders typed into the real `<Calculator>`, saved through the real
+**`verify-calc-oracle.cjs`** — 13 orders typed into the real `<Calculator>`, saved through the real
 Save button, then every figure read back off four surfaces at once: the `Daily_Log` entry handed to
 `onLog`, the tiles and bedside readouts, the printed pharmacy form (front and back) and the copied
-order text — plus the Active-alerts panel, compared by level and title. 1,058 checks. The rule that
+order text — plus the Active-alerts panel, compared by level and title. 1,092 checks. The rule that
 makes it worth running is at the top of the file: **it must never import the app's own formulas.**
 Stock strengths, feed compositions, energy densities and the ESPGHAN bands are transcribed into it
 by hand, so a changed constant in `data.js` shows up as a disagreement instead of being copied into
@@ -968,7 +968,8 @@ the expectation. Change `data.js`, change this file too — from the source, not
 The scenarios cover a below-birth-weight ELBW day 3, a growing preterm on peripheral PN entered by
 pump rate with the 50% Mg vial and every oral supplement, a feeds-only day, a term infant on a manual
 dosing weight with a MEN feed and the Vitalipid cap, an alert-stress order, the 16 kg
-Soluvit/Peditrace ceilings, and every remaining feed in `EN_DB`.
+Soluvit/Peditrace ceilings, every remaining feed in `EN_DB`, and a prepared volume of 130.45 mL whose
+WFI must come from the printed 130.5 (NF-17).
 `NEGATIVE_CONTROL=1` perturbs one expected GIR by 0.4 mg/kg/min; the run must then fail on all four
 surfaces GIR appears on. **Trust a pass only after seeing that fail.**
 
@@ -1008,9 +1009,9 @@ form must be withdrawn, and the second save's reprint must carry the new figures
 in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
 from the delivered volume) and `=3` (`deadVol_mL` out of the memo's dependencies) patch the source in
 memory and must fail; the patched text is transformed under another name, so the compiled loader never
-stands in for it. On `677123d` it fails on one order, S7: a prepared volume of 130.45 mL prints as
-"87.5 + 42.9 = 130.5", 0.1 mL that does not add up. That is a finding for Pp, kept failing on purpose
-(`CHANGELOG.md`, 2026-10-11 (7)).
+stands in for it. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
+130.45 mL printed "87.5 + 42.9 = 130.5"; WFI now comes from the printed prepared volume, so it prints
+87.5 + 43 = 130.5 (`CHANGELOG.md`, 2026-10-11 (7)). The oracle's scenario H holds the same rule.
 
 All four mount the modules the same way the other jsdom harnesses do, so
 `NODE_OPTIONS=--require ./test/compiled-loader.cjs` runs them against the shipped `compiled/*.js`.

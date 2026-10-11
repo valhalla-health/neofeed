@@ -9,8 +9,10 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ## Session 2026-10-11 (7) — NF-17: the printed bag adds up, and a click moves the screen
 
-`test/verify-calc-sum.cjs` (new), `test/README.md`, `AGENTS.md`. Branch `claude/nf17-sum-check-1011`,
-not pushed. No app file changed; `CONSTANTS_VERSION` unchanged.
+`test/verify-calc-sum.cjs` (new), `calculator.jsx` (`wfiVol`), `compiled/calculator.js` and the shells'
+`?v=` token, `data.js` (`CONSTANTS_VERSION` 2026-10-08.1 → **2026-10-11.1**), `docs/CLINICAL_CONSTANTS.md`,
+`test/verify-calc-oracle.cjs` (WFI rule, scenario H), `test/README.md`, `AGENTS.md`. Branch
+`claude/nf17-sum-check-1011`, not pushed. Frontend only, no `clasp` step.
 
 ### Why
 
@@ -28,35 +30,51 @@ stock lines a pharmacist reads. The fuzz's I3 checks that the bag total equals t
   withdrawn print and the second save's reprint are checked again. It reads only the mounted component.
 - **Tolerance 0.05 mL**, from the rounding chain: each stock rounds once (0.1 mL, or 0.01 for K₂HPO₄, MgSO₄
   and heparin) and prints at that precision; `componentVol` rounds their sum to 0.1, so it is within 0.05 of
-  the printed parts; WFI = prepared − components, rounded to 0.1, closes components + WFI = prepared exactly
-  when the prepared volume has one decimal. When every part is a whole tenth the tolerance is 0.
-- **Negative controls**, source patched in memory: heparin out of `componentVol` (229 checks fail), WFI from
-  the delivered volume (166), `deadVol_mL` out of the memo's dependencies (89, all in the wired-in checks).
+  the printed parts; WFI = printed prepared − components, so components + WFI = prepared exactly. When every
+  part is a whole tenth the tolerance is 0.
+- **Negative controls**, source patched in memory: heparin out of `componentVol`, WFI from the delivered
+  volume, `deadVol_mL` out of the memo's dependencies (the last fails only the wired-in checks).
 - `test/README.md`: a paragraph for the harness; the fuzz sentence now says what I3 checks.
   `AGENTS.md`: a calculation change keeps the harness passing and adds a new figure to its on-screen check.
 
-### Finding for Pp
+### The S7 finding, and the fix (Pp)
 
-**The printed bag equation does not close when the prepared volume has a second decimal ending in 5.**
-Order S7: 1 kg, DOL 10, central, 80.45 mL/day typed (a rate such as 3.352 mL/hr gives the same, since
-rate × 24 is kept to 2 decimals), dead space 50, D10, AA 3, NaCl 2, KCl 1, Ca 40, Soluvit, Peditrace,
-heparin 0.5. Prepared 130.45 mL. The form and the copy print *components 87.5 + WFI 42.9 = 130.5 mL
-prepared*, which sums to 130.4; the screen shows Components 87.5 and Bag total 130.5. The prepared volume goes through `D.displayNum` (rounds 1304.5 up
-to 130.5), the WFI through `toFixed(1)` on 130.45 − 87.5 = 42.94999… (down to 42.9). A pharmacist who
-follows the WFI line makes a bag 0.1 mL short of the printed total. The harness keeps this failing; the app
-was not changed.
+**The printed bag equation did not close when the prepared volume had a hundredths 5.** Order S7: 1 kg,
+DOL 10, central, 80.45 mL/day typed (a rate such as 3.352 mL/hr gives the same, since rate × 24 is kept to
+2 decimals), dead space 50, D10, AA 3, NaCl 2, KCl 1, Ca 40, Soluvit, Peditrace, heparin 0.5. Prepared
+130.45 mL. The form and the copy printed *components 87.5 + WFI 42.9 = 130.5 mL prepared*, which sums to
+130.4. The prepared volume went through `D.displayNum` (1304.5 rounds up to 130.5) and the WFI through
+`toFixed(1)` on 130.45 − 87.5 = 42.94999… (down to 42.9). A pharmacist following the WFI line made a bag
+0.1 mL short of the printed total.
+
+Pp's decision: take the WFI from the prepared volume as it is printed. `wfiVol` = `D.displayNum(preparedVol,
+1)` − `componentVol`, so S7 now prints **87.5 + 43 = 130.5** (was 42.9). The bag holds the true parts,
+87.45 + 43 = 130.45 mL, the real prepared volume. The over-full alert reads the same `wfiVol`, so it
+still fires exactly when the components exceed the printed bag. Only a prepared volume with a hundredths 5
+moves; every other order prints the same WFI.
+
+**`CONSTANTS_VERSION` bumped to `2026-10-11.1`**, by the rule in `data.js` and `docs/CLINICAL_CONSTANTS.md`:
+calculator logic moved a printed figure. A row saved before the bump prints only after it is saved again
+(`calcMoved`), which covers any saved order whose WFI moved.
+
+The oracle states the rule on its own (`e.wfi = r1(r1(Vp) − components)`), and its new scenario H is the
+same 130.45 mL order: it failed on `4d92a76` (print and copy WFI 42.9 against 43) and passes now.
 
 ### Tests
 
-Sources: 2186 of 2188 checks pass, the 2 failures are S7. `compiled/` (via `compiled-loader.cjs`): the same
-2 of 2188, `[compiled-loader] swapped in compiled/{icons,calculator}.js`. Oracle 1000/1000, fuzz 1796/1796,
-clicks 242/242.
+Red first: on `4d92a76` (harness only, app unchanged) `verify-calc-sum.cjs` failed 2 of 2188, both S7, and
+the oracle's scenario H failed 2 (print and copy WFI 42.9 against 43). After the fix: sum 2188/2188 on the
+sources and on `compiled/` (`[compiled-loader] swapped in compiled/{icons,calculator}.js`); its negative
+controls fail 228, 166 and 85 checks; oracle 1092/1092, fuzz 1796/1796, clicks 242/242.
+
+**Second clinician: none.** The fix is Pp's decision (2026-10-11); no second clinician has reviewed it,
+as for every printed-figure change so far (`AI_SDLC.md` §7).
 
 ### Not done
 
-- The S7 fix (one rounding for both figures, or a prepared volume held to one decimal) is Pp's call.
 - ZnSO₄ is in the bag but has no mL and is not in the WFI ("หักตามที่ใส่จริง" on the form), so the
-  harness counts it as outside the sum, as the app does.
+  harness counts it as outside the sum, as the app does. BACKLOG's line on printing its mL stays open,
+  and so does the small-volume rounding item.
 
 ## Session 2026-10-11 (6) — Peripheral K⁺: the maximum alone
 

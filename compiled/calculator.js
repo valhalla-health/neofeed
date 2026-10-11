@@ -983,7 +983,7 @@ function Calculator({
       heparin_units: heparinUmL * preparedVol
     };
     const componentVol = parseFloat((d50wVol + solVol.aa + solVol.naCl + solVol.naAcet + solVol.glycophos + solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca + soluvitVol + peditrace_vol + solVol.heparin).toFixed(1));
-    const wfiVol = parseFloat((preparedVol - componentVol).toFixed(1));
+    const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));
     const dexGPerKg = dexG / wtKg;
     const kMeqPerL = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1e3) : 0;
     const osm = D.estimateOsmolarity({

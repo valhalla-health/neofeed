@@ -33,9 +33,10 @@
 //     MgSO₄ and heparin. The print shows it at that same precision, so the
 //     printed part p_i IS the value the app summed. S = Σ p_i is exact to 0.01.
 //   · componentVol C = toFixed(1)(S), so |S − C| ≤ 0.05.
-//   · wfiVol W = toFixed(1)(Vp − C) and the print shows P = Vp at 1 decimal.
-//     C is a multiple of 0.1, so W = round1(Vp) − C = P − C: C + W = P exactly
-//     whenever Vp itself has at most one decimal.
+//   · the print shows P = Vp at 1 decimal (D.displayNum), and since NF-17 the
+//     app takes wfiVol W = P − C from that same printed figure, so C + W = P
+//     exactly, for any Vp. (Before the fix W = toFixed(1)(Vp − C), which
+//     broke the equation by 0.1 mL when Vp ended in a hundredths 5: order S7.)
 //   ⇒ |S + W − P| = |S − C| ≤ 0.05 mL.
 //   TOL = 0.05 mL (+1e-9 for float noise) when any printed part has a non-zero
 //   hundredths digit; 0 (+1e-9) when every part is a whole tenth, since then
@@ -118,8 +119,8 @@ const PATCHES = {
   1: ['solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca +\n      soluvitVol + peditrace_vol + solVol.heparin\n',
       'solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca +\n      soluvitVol + peditrace_vol\n',
       'heparin dropped from componentVol'],
-  2: ['const wfiVol = parseFloat((preparedVol - componentVol).toFixed(1));',
-      'const wfiVol = parseFloat((totalTPN_mL - componentVol).toFixed(1));',
+  2: ['const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));',
+      'const wfiVol = parseFloat((Number(D.displayNum(totalTPN_mL, 1)) - componentVol).toFixed(1));',
       'WFI from the delivered volume, not the prepared one'],
   3: ['totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,',
       'totalTPN_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,',
@@ -191,8 +192,9 @@ const OWN = [
     expectRow: { 'K₂HPO₄': 0.01, 'MgSO₄ 10%': 0.01 } },
   { name: 'S6 hundredths carried across the sum', bw: 700, cur: 700, dol: 9, fluid: 150, ioOut: 30, tpn: 70, dead: 30,
     dex: 10, aa: 3, naCl: 2, k2: 0.07, mg: 0.05, ca: 30, hep: 0.7, weights: [{ dol: 1, w: 700 }] },
-  // S7 fails on 677123d, and is meant to until the app is fixed: 130.45 mL prepared prints as
-  // "87.5 + WFI 42.9 = 130.5" (displayNum rounds the tie up, toFixed rounds 42.94999… down).
+  // S7 is the regression case for the NF-17 WFI fix (Pp, 2026-10-11). Before it, 130.45 mL
+  // prepared printed "87.5 + WFI 42.9 = 130.5": displayNum rounded the tie up and toFixed
+  // rounded 42.94999… down. WFI now comes from the printed prepared volume (87.5 + 43 = 130.5).
   // CHANGELOG.md, 2026-10-11 (7). Do not loosen the tolerance to make it pass.
   { name: 'S7 prepared volume with a second decimal (80.45 + 50 mL)', bw: 1000, cur: 1000, dol: 10, fluid: 150, ioOut: 50,
     tpn: 80.45, dead: 50, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 40, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },

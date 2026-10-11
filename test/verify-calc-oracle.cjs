@@ -21,11 +21,12 @@
 // FEED / expectedAlerts here by hand, from the source, or the harness stops
 // being a second opinion.
 //
-// 12 scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
+// 13 scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
 // peripheral PN entered by pump rate (10% Mg — KCMH's only vial) and every oral
 // supplement, a feeds-only day with no bag, a term infant on a manual dosing
 // weight with a MEN feed and the Vitalipid cap, an alert-stress order, the
-// 16 kg Soluvit/Peditrace ceilings, and every remaining feed in EN_DB. Since
+// 16 kg Soluvit/Peditrace ceilings, every remaining feed in EN_DB, and a prepared
+// volume with a second decimal (130.45 mL, NF-17). Since
 // 2026-10-08 (Pp) a dosing weight above 8,000 g is no order at all, so the
 // 16 kg ceilings are checked on screen and the scenario must then refuse to
 // save, print or copy; under 8 kg neither ceiling binds.
@@ -155,7 +156,9 @@ function expected(sc) {
   e.hepMl = sc.hep > 0 ? r2(sc.hep * Vp / STOCK.hep) : 0;
   e.hepU = sc.hep * Vp;
   e.components = r1(e.d50 + e.aaMl + e.naClMl + e.naAcMl + e.glyMl + e.k2Ml + e.kClMl + e.mgMl + e.caMl + e.soluvit + e.pedi + e.hepMl);
-  e.wfi = r1(Vp - e.components);
+  // WFI q.s. = the prepared volume as printed (one decimal, half up) − the
+  // components, so the printed bag line closes exactly (NF-17, Pp 2026-10-11).
+  e.wfi = r1(r1(Vp) - e.components);
   e.bagNa = e.naKg * F; e.bagK = e.kKg * F;
   e.kPerL = Vp > 0 ? e.bagK / (Vp / 1000) : 0;
   // phosphorus from the bag, mg/day delivered
@@ -338,6 +341,10 @@ const SCEN = [
   ...['BM_PF_20', 'PRENAN_22', 'FBM_PF_24', 'FBM_INF_MIX', 'LF_20', 'LF_27'].map((k) => ({
     name: `G feed ${k} (feeds only)`, bw: 1200, cur: 1500, dol: 12, fluid: 160, ioOut: 70, tpn: 0,
     feed: k, enVol: 28, enFreq: 8, weights: [{ dol: 11, w: 1490 }] })),
+  // A prepared volume with a second decimal: 80.45 + 50 = 130.45 mL prints as
+  // 130.5, and the WFI must be taken from that (NF-17; it printed 42.9, now 43).
+  { name: 'H prepared 130.45 mL (second decimal), WFI from the printed volume', bw: 1000, cur: 1000, dol: 10, fluid: 150,
+    ioOut: 50, tpn: 80.45, dead: 50, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 40, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },
 ];
 
 // ── DOM helpers ─────────────────────────────────────────────────────────────
