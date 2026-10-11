@@ -11,7 +11,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 Docs only: `docs/product/product-decisions.md`, `docs/product/requests.md`, `docs/product/feedback.md`, one
 item in `AGENTS.md`. No served file, no harness and no `CONSTANTS_VERSION` change; both hosts skip `*.md`.
-Branch `claude/nf-20-22-product-docs`, not merged.
+Branch `claude/nf-20-22-product-docs`, PR #152, merged into `main` on Pp's instruction ("merge PR 152").
+Nothing to deploy: no `main` → `release` PR is needed for docs.
 
 ### Why
 
