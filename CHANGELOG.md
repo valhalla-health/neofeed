@@ -7,6 +7,92 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 (8) — NF-17: the printed bag adds up, and a click moves the screen
+
+`test/verify-calc-sum.cjs` (new), `calculator.jsx` (`wfiVol`), `compiled/calculator.js` and the shells'
+`?v=` token, `data.js` (`CONSTANTS_VERSION` 2026-10-08.1 → **2026-10-11.1**), `docs/CLINICAL_CONSTANTS.md`,
+`test/verify-calc-oracle.cjs` (WFI rule, scenario H), `test/README.md`, `AGENTS.md`. Branch
+`claude/nf17-sum-check-1011`, not pushed. Frontend only, no `clasp` step.
+
+### Why
+
+Mapping item NF-17: two tests for every calculation change, a sum check on synthetic orders and a check
+that the click-through shows the new value on screen, not only in the function. No harness added up the
+stock lines a pharmacist reads. The fuzz's I3 checks that the bag total equals the prepared volume, and
+`test/README.md` said it checked "components + WFI q.s. = the prepared volume", which it did not.
+
+### What changed
+
+- **`verify-calc-sum.cjs`**: 60 orders (the oracle's 12, eight of its own, 40 seeded random). Each is
+  saved through Submit; every stock mL on the back page's "Aqueous bag — stock" table is summed and checked
+  against the printed WFI and prepared volume, the on-screen Components and Bag total, and the copied BAG
+  MAKE-UP line. Then a dead-space chip or a typed TPN volume changes the order, and the screen, the
+  withdrawn print and the second save's reprint are checked again. It reads only the mounted component.
+- **Tolerance 0.05 mL**, from the rounding chain: each stock rounds once (0.1 mL, or 0.01 for K₂HPO₄, MgSO₄
+  and heparin) and prints at that precision; `componentVol` rounds their sum to 0.1, so it is within 0.05 of
+  the printed parts; WFI = printed prepared − components, so components + WFI = prepared exactly. When every
+  part is a whole tenth the tolerance is 0.
+- **Negative controls**, source patched in memory: heparin out of `componentVol`, WFI from the delivered
+  volume, `deadVol_mL` out of the memo's dependencies (the last fails only the wired-in checks).
+- `test/README.md`: a paragraph for the harness; the fuzz sentence now says what I3 checks.
+  `AGENTS.md`: a calculation change keeps the harness passing and adds a new figure to its on-screen check.
+
+### The S7 finding, and the fix (Pp)
+
+**The printed bag equation did not close when the prepared volume had a hundredths 5.** Order S7: 1 kg,
+DOL 10, central, 80.45 mL/day typed (a rate such as 3.352 mL/hr gives the same, since rate × 24 is kept to
+2 decimals), dead space 50, D10, AA 3, NaCl 2, KCl 1, Ca 40, Soluvit, Peditrace, heparin 0.5. Prepared
+130.45 mL. The form and the copy printed *components 87.5 + WFI 42.9 = 130.5 mL prepared*, which sums to
+130.4. The prepared volume went through `D.displayNum` (1304.5 rounds up to 130.5) and the WFI through
+`toFixed(1)` on 130.45 − 87.5 = 42.94999… (down to 42.9). A pharmacist following the WFI line made a bag
+0.1 mL short of the printed total.
+
+Pp's decision: take the WFI from the prepared volume as it is printed. `wfiVol` = `D.displayNum(preparedVol,
+1)` − `componentVol`, so S7 now prints **87.5 + 43 = 130.5** (was 42.9). The bag holds the true parts,
+87.45 + 43 = 130.45 mL, the real prepared volume. The over-full alert reads the same `wfiVol`, so it
+still fires exactly when the components exceed the printed bag. Only a prepared volume with a hundredths 5
+moves; every other order prints the same WFI.
+
+**`CONSTANTS_VERSION` bumped to `2026-10-11.1`**, by the rule in `data.js` and `docs/CLINICAL_CONSTANTS.md`:
+calculator logic moved a printed figure. A row saved before the bump prints only after it is saved again
+(`calcMoved`), which covers any saved order whose WFI moved.
+
+The oracle states the rule on its own (`e.wfi = r1(r1(Vp) − components)`), and its new scenario H is the
+same 130.45 mL order: it failed on `4d92a76` (print and copy WFI 42.9 against 43) and passes now.
+
+**The over-full alert moved at that tie, and S8 pins it** (Vera's 🟡). With 130.45 mL prepared and components
+of 130.48 mL (printed 130.5), the old WFI was 130.45 − 130.5 → −0.1, so the bag was called over-full by
+0.1 mL and the order needed a critical reason. Now WFI is 0 and no alert fires: the components fill the
+printed bag, and the real overrun is 0.03 mL. S8 asserts the printed line 130.5 + 0 = 130.5 and no alert on
+the screen, the form or the copy; it fails 5 checks on `4d92a76`.
+
+### Tests
+
+Red first: on `4d92a76` (harness only, app unchanged) `verify-calc-sum.cjs` failed 2 of 2188, both S7, and
+the oracle's scenario H failed 2 (print and copy WFI 42.9 against 43); S8, added after the review, fails 5
+there. After the fix: sum 2231/2231 on the sources and on `compiled/` (`[compiled-loader] swapped in
+compiled/{icons,calculator}.js`); its negative controls fail 235, 172 and 93 checks; oracle 1092/1092,
+fuzz 1796/1796, clicks 242/242.
+
+Every `test/verify-*.cjs` (85 harnesses) plus `DEAD=0 verify-kcmh-factor.cjs` passes on the sources and
+again on `compiled/`, every module-mounting harness reporting its swap; among them `verify-review-0917-calc`
+120/120, `verify-build-shells` 46/46 and `verify-provenance-stamp` 38/38. Ten harnesses skipped their
+browser sections locally (no Playwright); CI runs those. Center Point builds and its 5 client tests pass.
+`index.html` and `NeoFeed.html` are byte-identical after the rebuild.
+
+**Vera: NO BLOCK**, one 🟡 (the alert boundary above), fixed by S8. Her report is in the body of
+PR #153, merged into `main` on Pp's instruction ("merge ทั้งสอง PR"). Not live until a `main` →
+`release` PR is merged.
+
+**Second clinician: none.** The fix is Pp's decision (2026-10-11); no second clinician has reviewed it,
+as for every printed-figure change so far (`AI_SDLC.md` §7).
+
+### Not done
+
+- ZnSO₄ is in the bag but has no mL and is not in the WFI ("หักตามที่ใส่จริง" on the form), so the
+  harness counts it as outside the sum, as the app does. BACKLOG's line on printing its mL stays open,
+  and so does the small-volume rounding item.
+
 ## Session 2026-10-11 (7) — Product work moves out of the public repo
 
 Docs only: `docs/stakeholder/` removed, one item in `AGENTS.md`. No served file, no harness and no

@@ -1476,7 +1476,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca +
       soluvitVol + peditrace_vol + solVol.heparin
     ).toFixed(1));
-    const wfiVol = parseFloat((preparedVol - componentVol).toFixed(1));
+    // WFI from the prepared volume as it is printed (D.displayNum, 1 decimal),
+    // so the printed components + WFI = printed prepared exactly (NF-17, S7;
+    // Pp, 2026-10-11). 130.45 mL used to print 87.5 + 42.9 = 130.5.
+    const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));
 
     // ── Sheet safety ceilings ────────────────────────────────────────────────
     // The sheet tests bag amounts against factor-scaled limits (F10 vs F9 = 18×H9,

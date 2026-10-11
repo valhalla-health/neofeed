@@ -8,6 +8,8 @@ Read before you act:
 
 - **Opening or updating a PR** that touches a dose file, the printed order, auth or patient data:
   `REFERENCE.md` § Pre-PR review (Vera). Run her before the PR and paste her report into it.
+- **Changing a calculation**: keep `test/verify-calc-sum.cjs` passing. A PR that adds or changes a
+  figure adds it to that harness's on-screen check in the same PR (NF-17).
 - **Merging, releasing or deploying** anything: `REFERENCE.md` § Deploying, and rolling back.
   Merging into `main` deploys nothing; `release` deploys. An agent merges into `release`, or runs a
   backend `clasp deploy`, only on Praew's explicit go-ahead.
