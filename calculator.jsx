@@ -396,12 +396,42 @@ function Meter({ value, target, max, optimal, statusAt }) {
     </div>);
 }
 
+// A tile's severity as a word, so it reads without the colour: on a greyscale
+// print, on a colour-blind screen, on an iPad at the end of a night shift
+// (WCAG 1.4.1; Hallmark audit 2026-10-11, C1). The direction is the value
+// against the tile's own target, the same bounds the meter's zones are drawn
+// from. A tile with no target says plain "OK", and an amber value that is still
+// inside its target (a statusAt zone of its own) says "Caution": better a
+// word that claims nothing about direction than a guessed one.
+function statusWord(status, value, target) {
+  if (status === "ok") return target ? "In range" : "OK";
+  if (status !== "warn" && status !== "crit") return null; // brand, empty
+  const v = typeof value === "number" && !Number.isNaN(value) ? value : null;
+  const lo = target && Number.isFinite(target[0]) ? target[0] : null;
+  const hi = target && Number.isFinite(target[1]) ? target[1] : null;
+  const below = v !== null && lo !== null && v < lo;
+  const above = v !== null && hi !== null && v > hi;
+  if (status === "crit") return below ? "Critical low" : above ? "Critical high" : "Critical";
+  return below ? "Low" : above ? "High" : "Caution";
+}
+
 function Tile({ label, value, unit, decimals = 1, target, status, max, optimal, statusAt }) {
   const display = fmt(value, decimals); // fmt handles Infinity → "!!", null → "—"
+  const word = statusWord(status, value, target);
+  const shape = window.STATUS_ICON && window.STATUS_ICON[status];
   return (
     <div className={`metric s-${status}`}>
-      <div className="stripe" />
-      <div className="lbl">{label}</div>
+      {/* The chip sits beside .lbl, not in it: the label's own text is what
+          the harnesses (and a screen reader's name for the tile) look up. */}
+      <div className="metric-top">
+        <div className="lbl">{label}</div>
+        {word && (
+          <span className={`stat-chip s-${status}`}>
+            {shape && <span aria-hidden="true" style={{ display: "inline-flex" }}><Icon name={shape} size={13} stroke={2.2} /></span>}
+            {word}
+          </span>
+        )}
+      </div>
       <div className="val">{display}<span className="u">{unit}</span></div>
       {target && <Meter value={value || 0} target={target} max={max} optimal={optimal} statusAt={statusAt} />}
       {target && (
@@ -2395,8 +2425,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <div className="step-summary">
               <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
               {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
-              {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>LF ✅</span>}
-              {calc.useEnteralTargets && <span className="step-summary-chip" style={{ color:"var(--ok)" }}>Full EN ✅</span>}
+              {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>LF <Icon name="check" size={12} stroke={2.4} /></span>}
+              {calc.useEnteralTargets && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>Full EN <Icon name="check" size={12} stroke={2.4} /></span>}
             </div>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
@@ -2410,26 +2440,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="field">
                 <label>Feed type</label>
                 <select className="sel" value={enType} onChange={(e) => setEnType(e.target.value)}>
-                  <optgroup label="🤱 Breast Milk">
+                  <optgroup label="Breast Milk">
                     {["BM_20","BM_HMF_24"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
                   {/* Hi-Q LBW is a preterm formula and Pre Nan a post-discharge
                       one (TPN team, 2026-09-28); they shared one group with the
                       high-energy feeds. Same keys, same labels, only grouped. */}
-                  <optgroup label="👶 Preterm formula">
+                  <optgroup label="Preterm formula">
                     {["BM_PF_20","FBM_PF_22","FBM_PF_24"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
-                  <optgroup label="🏠 Post-discharge formula">
+                  <optgroup label="Post-discharge formula">
                     {["PRENAN_22"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
-                  <optgroup label="⚡ High-energy formula">
+                  <optgroup label="High-energy formula">
                     {["FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
-                  <optgroup label="🥛 Lactose-free">
+                  <optgroup label="Lactose-free">
                     {["LF_20","LF_24","LF_27"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
@@ -2450,8 +2480,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   shows exactly when they are (never for a MEN feed) */}
               {calc.useEnteralTargets && (
                 <div style={{ padding: "8px 10px", background: "var(--ok-bg)", border: "1px solid var(--ok-line)",
-                  borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600 }}>
-                  ✅ Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
+                  borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600,
+                  display: "flex", alignItems: "center", gap: 6 }}>
+                  <Icon name="check" size={14} stroke={2.4} />
+                  Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
                 </div>
               )}
 
@@ -2530,7 +2562,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                  that needs none. warn/crit keep their status colours. */
               background: sOsm==="crit" ? "var(--crit-bg)" : sOsm==="warn" ? "var(--warn-bg)" : "var(--bg-2)",
               color:       sOsm==="crit" ? "var(--crit)"   : sOsm==="warn" ? "var(--warn)"   : "var(--ink-2)" }}>
-              Osm {calc.osm.toFixed(0)} mOsm/L{route==="peripheral" && calc.osm > 900 ? " ⚠️" : ""}
+              Osm {calc.osm.toFixed(0)} mOsm/L{route==="peripheral" && calc.osm > 900 && (
+                <span title="Over 900 mOsm/L for a peripheral line"
+                  style={{ display:"inline-flex", verticalAlign:"-2px", marginLeft:4 }}>
+                  <Icon name="warn" size={13} stroke={2.2} />
+                </span>)}
             </span>
           </span>
           {!openSteps.has(2) && totalTPN_mL > 0 && (
@@ -2555,7 +2591,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           <div style={{ border:"1.5px solid var(--brand-line)", borderRadius:8, overflow:"hidden" }}>
             <div style={{ background:"var(--brand-bg)", padding:"6px 12px", fontSize:11, fontWeight:700,
               color:"var(--brand-2)", display:"flex", alignItems:"center", gap:6 }}>
-              💉 TPN Aqueous Pump
+              TPN Aqueous Pump
             </div>
             <div style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:10 }}>
 
@@ -2635,7 +2671,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {calc.d50wVol > 0 && (
                     <div style={{ marginTop:4, padding:"4px 8px", background:"var(--brand-bg)", borderRadius:4, fontSize:11 }}>
                       D50W: <span className="num" style={{ fontWeight:700, color:"var(--brand-2)" }}>{fmt(calc.d50wVol,1)} mL/d</span>
-                      {route==="peripheral" && dexPct > 12.5 && <span style={{ color:"var(--crit)", fontWeight:700, marginLeft:6 }}>⚠️ Central only!</span>}
+                      {route==="peripheral" && dexPct > 12.5 && <span style={{ color:"var(--crit)", fontWeight:700, marginLeft:6, display:"inline-flex", alignItems:"center", gap:4, verticalAlign:"bottom" }}><Icon name="warn" size={13} stroke={2.2} />Central only!</span>}
                     </div>
                   )}
                 </div>
@@ -2680,7 +2716,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     </div>
                   )}
                   {S[aaStockKey].caution && (
-                    <div style={{ fontSize:10.5, color:"var(--warn)", fontWeight:600, marginTop:2 }}>⚠ {S[aaStockKey].caution}</div>
+                    <div style={{ fontSize:10.5, color:"var(--warn)", fontWeight:600, marginTop:2, display:"flex", alignItems:"flex-start", gap:4 }}><span style={{ display:"inline-flex", marginTop:1 }}><Icon name="warn" size={12} stroke={2.2} /></span>{S[aaStockKey].caution}</div>
                   )}
                 </div>
                 <div style={{ fontSize:12, color:"var(--brand-2)", fontWeight:600 }}>
@@ -2712,8 +2748,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     <div className="num" style={{ fontWeight:600, fontSize:15 }}>{fmt(calc.preparedVol,1)} mL</div>
                   </div>
                   {calc.wfiVol < 0 && (
-                    <div style={{ gridColumn:"1 / -1", fontSize:11, color:"var(--crit)", fontWeight:600 }}>
-                      ⚠️ Components exceed the bag by {fmt(Math.abs(calc.wfiVol),1)} mL — cannot be compounded.
+                    <div style={{ gridColumn:"1 / -1", fontSize:11, color:"var(--crit)", fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
+                      <Icon name="warn" size={13} stroke={2.2} />
+                      Components exceed the bag by {fmt(Math.abs(calc.wfiVol),1)} mL — cannot be compounded.
                     </div>
                   )}
                 </div>
@@ -2726,7 +2763,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           <div style={{ border:"1.5px solid var(--warn-line)", borderRadius:8, overflow:"hidden" }}>
             <div style={{ background:"var(--warn-bg)", padding:"6px 12px", fontSize:11, fontWeight:700,
               color:"var(--warn-ink)", display:"flex", alignItems:"center", gap:6 }}>
-              🫙 Lipid Pump — separate pump
+              Lipid Pump — separate pump
             </div>
             <div style={{ padding:"12px 14px", display:"flex", flexDirection:"column", gap:10 }}>
 
@@ -3058,7 +3095,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <MiniReadout label={`Heparin ${S.heparin.unitsPerMl} U/mL — volume`} value={fmt(calc.solVol.heparin, 2)} unit="mL/day"
                 color="var(--brand-2)" />
               <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "var(--surface)", fontSize: 11, color: "var(--ink-3)", borderTop: "1px solid var(--line-2)" }}>
-                💡 Vitalipid → <strong>lipid bag</strong><br/>
+                Vitalipid → <strong>lipid bag</strong><br/>
                 Soluvit + Peditrace → <strong>aqueous PN bag</strong><br/>
                 Heparin 0.5–1 U/mL → <strong>aqueous PN bag</strong>
               </div>
@@ -3166,8 +3203,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {/* Nutrition Unit AUG2026 slide 8 — oral Ca and P bind each other in the
                   gut lumen, so the doses have to be separated in time, not just totalled. */}
               {suppCa > 0 && suppPO4 > 0 && (
-                <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3 }}>
-                  ⚠ ให้ทั้ง Ca และ P — บริหารยาคนละเวลา หรือห่างกันอย่างน้อย 1 ชั่วโมง
+                <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3, display: "flex", alignItems: "flex-start", gap: 4 }}>
+                  <span style={{ display: "inline-flex", marginTop: 1 }}><Icon name="warn" size={12} stroke={2.2} /></span>
+                  ให้ทั้ง Ca และ P — บริหารยาคนละเวลา หรือห่างกันอย่างน้อย 1 ชั่วโมง
                 </div>
               )}
 
@@ -3186,8 +3224,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   stop a vitamin D overdose. The printed form and the copied
                   order were always right; only this warning was wrong. */}
               {suppMTV && suppVitD > 0 && (
-                <div className="vitd-total" style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3 }}>
-                  ⚠ Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {Math.round(suppVitD * wtKg + 400)} IU/day
+                <div className="vitd-total" style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3, display: "flex", alignItems: "flex-start", gap: 4 }}>
+                  <span style={{ display: "inline-flex", marginTop: 1 }}><Icon name="warn" size={12} stroke={2.2} /></span>
+                  Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {Math.round(suppVitD * wtKg + 400)} IU/day
                 </div>
               )}
 
@@ -3279,8 +3318,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <Tile label="Ca:P ratio (total)" value={mineral.totCaP} unit=":1 (mass)" target={tCaP} status={sTotCaP} decimals={2} max={2.5} exact />
               </div>
               {mineral.oralCa > 0 && mineral.oralP === 0 && (
-                <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 8 }}>
-                  ⚠ ให้ Ca ทางปากโดยไม่มี PO₄ — ตรวจสอบ ratio รวมก่อนสั่ง
+                <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 8, display: "flex", alignItems: "flex-start", gap: 4 }}>
+                  <span style={{ display: "inline-flex", marginTop: 1 }}><Icon name="warn" size={12} stroke={2.2} /></span>
+                  ให้ Ca ทางปากโดยไม่มี PO₄ — ตรวจสอบ ratio รวมก่อนสั่ง
                 </div>
               )}
             </div>
@@ -3527,10 +3567,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               ].filter(l => l !== "").join("\n");
 
               navigator.clipboard.writeText(lines)
-                .then(() => showToast("📋 Order copied to clipboard"))
+                .then(() => showToast("Order copied to clipboard"))
                 .catch(() => showToast("Copy failed — try again"));
             }}>
-              📋 {scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"}
+              {scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"}
             </button>}
 
             {missingFields.length > 0 && (

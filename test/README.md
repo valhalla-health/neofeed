@@ -1441,6 +1441,8 @@ taken out, the 320 px wordmark is squeezed. 154 checks; against `main` (`d59e156
 `verify-ios-input-zoom-1009.cjs` clicked the first button reading ขอความช่วยเหลือ, which is now the topbar's;
 it names the menu item (`button:not(.help-btn)`) and is back to 123/123.
 
+**`verify-status-words-1011.cjs`** (jsdom, no browser; it also runs against `compiled/`) pins the 2026-10-11 Hallmark-audit fix. `statusWord()` gives a tile's severity a word, with the direction read from the value against the tile's own target. Every ok / warn / crit tile of the real calculator has a chip beside its `.lbl` (its own tone, a shape, one of the six words, the side of the range the number is on) and no `.stripe`. No colour emoji is on the calculator screen, in an `<optgroup>` label or in a feed note. `RegStatMark` draws a shape for ok / warn / crit and nothing otherwise. The layout cost of the chip is covered by the existing browser sections (`verify-mobile-fit`, `verify-phone-sweep`, `verify-help-button-1009`).
+
 **Running the browser sections on Pp's PC.** The global `playwright` (1.62.1) wants Chromium build 1234;
 `%LOCALAPPDATA%\ms-playwright` holds 1217 and 1248, so every harness's browser section prints SKIP. Rather
 than download a browser, preload a three-line shim that fills in `executablePath`:
