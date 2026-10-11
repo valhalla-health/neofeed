@@ -22,6 +22,8 @@ exclude:
   - tools/
   # Center Point staging entry (PR #57): served by CP, never by NeoFeed's host.
   - center-point/
+  # OpenSpec specs and change proposals (2026-10-11). .agents/ is a dotfile.
+  - openspec/
   - graphify-out/
   - NeoFeed.html
   - wrangler.jsonc

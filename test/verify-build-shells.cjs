@@ -20,7 +20,7 @@
 //   #3 vendor/ holds the exact React builds the old SRI hashes pinned
 //   #4 _headers: script-src has no 'unsafe-*' and no unpkg
 //   #5 .assetsignore / _config.yml publish boot.js, data.js, compiled/, vendor/
-//      and keep tools/ private
+//      and keep tools/, openspec/ and .agents/ private
 //   #6 the Google Fonts stylesheet comes after the last script
 //   #7 appVersion() still derives the provenance stamp from the loaded tokens
 const fs = require('fs');
@@ -109,7 +109,7 @@ console.log('\n── #4 _headers: script-src without unsafe-inline / unsafe-eva
   ok('4.4 no script-src-elem / script-src-attr loosening it again', !/script-src-(elem|attr)/.test(csp));
 }
 
-console.log('\n── #5 both hosts publish what the app loads, and not tools/ ──');
+console.log('\n── #5 both hosts publish what the app loads, and not tools/ or openspec/ ──');
 {
   // .assetsignore is gitignore syntax. Enough of it for the patterns used there.
   const globRe = (pat) => {
@@ -143,6 +143,10 @@ console.log('\n── #5 both hosts publish what the app loads, and not tools/ �
   ok('5.5 GitHub Pages does not publish tools/', jekyllDrops('tools/build.mjs'));
   // Old clients mid-deploy may still hold a cached shell that asks for .jsx.
   eq('5.6 the .jsx sources stay published for this release', MODULES.map(m => `${m}.jsx`).filter(f => ignored(f, assetsignore) || jekyllDrops(f)), []);
+  // OpenSpec (2026-10-11): `*.md` already hides the specs and skills, but not
+  // openspec/config.yaml or the .gitkeep / .openspec-target markers.
+  ok('5.7 Cloudflare does not publish openspec/ or .agents/', ignored('openspec/config.yaml', assetsignore) && ignored('.agents/skills/.openspec-target', assetsignore));
+  ok('5.8 GitHub Pages does not publish openspec/', jekyllDrops('openspec/config.yaml'));
 }
 
 console.log('\n── #6 fonts never hold back a script ──');

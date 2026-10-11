@@ -126,6 +126,11 @@
 
 **Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
 verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 asked.
+- ⏳ **PR #146, OpenSpec: merged into `main` on Pp's instruction ("merge PR146 เลย").** No served file
+  changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Pp, 2026-10-11:
+  "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md` 2026-10-11 (3)). Adds `openspec/` and the `/opsx:*` commands
+  and skills for Claude Code and Codex. `.assetsignore` and `_config.yml` keep `openspec/` and `.agents/`
+  off both hosts, and `verify-build-shells.cjs` 5.7–5.8 pin that. `CONSTANTS_VERSION` unchanged.
 - ⏳ **PR #149, a tile that is fine says nothing: merged into `main` on Pp's instruction ("merge แล้ว
   deploy", with "แก้ก่อนปล่อย" for this fix).** Frontend only. It goes out in the same release as #147:
   PR #148 (`main` → `release`) was open and absorbs it. Pp, 2026-10-11, once she saw where the words
@@ -157,6 +162,8 @@ verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 ask
     the picture before it goes; nothing enforces it. DPO note pending (`BACKLOG.md`).
   - ⚠️ An old frontend against `@64` is unchanged; this frontend against `@63` would mail the request
     without its picture, so the backend goes first.
+  - ⚠️ **Not checked yet:** a real request with a picture, sent from a phone, arriving at
+    praew.tvl@gmail.com; a real iPhone.
 - ✅ **PR #142 is live**, released by PR #143 on Pp's instruction ("deploy เลย") on 2026-10-09 at 18:01 ICT:
   `release` = `679e9db`, whose tree is `main` at `d59e156`. Shells only
   (CSS), no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-10-09). Pp, from an iPhone:
