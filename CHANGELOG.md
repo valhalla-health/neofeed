@@ -70,7 +70,8 @@ before the hook change. `verify-build-shells.cjs` 44/44.
 `.claude/agents/vera.md`, `.claude/hooks/vera-report.cjs`, `test/verify-vera-report.cjs`,
 `REFERENCE.md` § Pre-PR review (Vera), `AGENTS.md`, `AI_SDLC.md` § 7. No app file changed, so nothing
 to release. Added to this PR (#134, the agent's environment) on Pp's instruction, after `main` was
-merged in.
+merged in. #134 merged into `main` on Pp's instruction ("fix and merge"); `main` was merged in again
+for #146, and `AGENTS.md` gained its OpenSpec line.
 
 ### Why
 
@@ -177,6 +178,7 @@ agent, Claude Code or Codex, starts from the same written contract.
 
 - No spec yet. The first change through `/opsx:propose` writes the first one.
 - `AGENTS.md` (PR #134, open) does not mention OpenSpec; whichever of the two merges second adds a line.
+  #134 merged second and added it (2026-10-11 (4)).
 
 ## Session 2026-10-11 (2) — A tile that is fine says nothing
 

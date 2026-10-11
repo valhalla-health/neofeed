@@ -128,6 +128,10 @@
 
 **Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
 verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 asked.
+- ⏳ **PR #134, the agent's environment: merged into `main` on Pp's instruction ("fix and merge").** No
+  served file changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Merge
+  commits only, the browser sections in CI, LF checkouts, `AGENTS.md` and Vera, the pre-PR review
+  (`CHANGELOG.md` 2026-10-11 (4) and (5)). `AGENTS.md` now points at OpenSpec too (#146).
 - ⏳ **PR #146, OpenSpec: merged into `main` on Pp's instruction ("merge PR146 เลย").** No served file
   changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Pp, 2026-10-11:
   "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md` 2026-10-11 (3)). Adds `openspec/` and the `/opsx:*` commands
