@@ -7,6 +7,57 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 (7) — NF-17: the printed bag adds up, and a click moves the screen
+
+`test/verify-calc-sum.cjs` (new), `test/README.md`, `AGENTS.md`. Branch `claude/nf17-sum-check-1011`,
+not pushed. No app file changed; `CONSTANTS_VERSION` unchanged.
+
+### Why
+
+Mapping item NF-17: two tests for every calculation change, a sum check on synthetic orders and a check
+that the click-through shows the new value on screen, not only in the function. No harness added up the
+stock lines a pharmacist reads. The fuzz's I3 checks that the bag total equals the prepared volume, and
+`test/README.md` said it checked "components + WFI q.s. = the prepared volume", which it did not.
+
+### What changed
+
+- **`verify-calc-sum.cjs`**: 59 orders (the oracle's 12, seven of its own, 40 seeded random). Each is
+  saved through Submit; every stock mL on the back page's "Aqueous bag — stock" table is summed and checked
+  against the printed WFI and prepared volume, the on-screen Components and Bag total, and the copied BAG
+  MAKE-UP line. Then a dead-space chip or a typed TPN volume changes the order, and the screen, the
+  withdrawn print and the second save's reprint are checked again. It reads only the mounted component.
+- **Tolerance 0.05 mL**, from the rounding chain: each stock rounds once (0.1 mL, or 0.01 for K₂HPO₄, MgSO₄
+  and heparin) and prints at that precision; `componentVol` rounds their sum to 0.1, so it is within 0.05 of
+  the printed parts; WFI = prepared − components, rounded to 0.1, closes components + WFI = prepared exactly
+  when the prepared volume has one decimal. When every part is a whole tenth the tolerance is 0.
+- **Negative controls**, source patched in memory: heparin out of `componentVol` (229 checks fail), WFI from
+  the delivered volume (166), `deadVol_mL` out of the memo's dependencies (89, all in the wired-in checks).
+- `test/README.md`: a paragraph for the harness; the fuzz sentence now says what I3 checks.
+  `AGENTS.md`: a calculation change keeps the harness passing and adds a new figure to its on-screen check.
+
+### Finding for Pp
+
+**The printed bag equation does not close when the prepared volume has a second decimal ending in 5.**
+Order S7: 1 kg, DOL 10, central, 80.45 mL/day typed (a rate such as 3.352 mL/hr gives the same, since
+rate × 24 is kept to 2 decimals), dead space 50, D10, AA 3, NaCl 2, KCl 1, Ca 40, Soluvit, Peditrace,
+heparin 0.5. Prepared 130.45 mL. The form and the copy print *components 87.5 + WFI 42.9 = 130.5 mL
+prepared*, which sums to 130.4; the screen shows Components 87.5 and Bag total 130.5. The prepared volume goes through `D.displayNum` (rounds 1304.5 up
+to 130.5), the WFI through `toFixed(1)` on 130.45 − 87.5 = 42.94999… (down to 42.9). A pharmacist who
+follows the WFI line makes a bag 0.1 mL short of the printed total. The harness keeps this failing; the app
+was not changed.
+
+### Tests
+
+Sources: 2186 of 2188 checks pass, the 2 failures are S7. `compiled/` (via `compiled-loader.cjs`): the same
+2 of 2188, `[compiled-loader] swapped in compiled/{icons,calculator}.js`. Oracle 1000/1000, fuzz 1796/1796,
+clicks 242/242.
+
+### Not done
+
+- The S7 fix (one rounding for both figures, or a prepared volume held to one decimal) is Pp's call.
+- ZnSO₄ is in the bag but has no mL and is not in the WFI ("หักตามที่ใส่จริง" on the form), so the
+  harness counts it as outside the sum, as the app does.
+
 ## Session 2026-10-11 (6) — Peripheral K⁺: the maximum alone
 
 `calculator.jsx` (`kRedIsMax`, `kBagLimitParts`, five display sites), `compiled/calculator.js` and the

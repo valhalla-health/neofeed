@@ -986,12 +986,33 @@ draft banners, and the quick calc's narrower set.
 object print with any failure), each checked against a recomputation written separately from the
 oracle's — a third opinion, not a copy of the second. Five invariants hold for every order, however
 odd: the Factor round-trip (what reaches the infant per kg is what was ordered, to within the 0.05 mL
-a syringe can be drawn to); dead space moves no delivered figure; components + WFI q.s. = the prepared
-volume; no NaN, Infinity, float tail or trailing zero in any text node; and no critical tile without a
+a syringe can be drawn to); dead space moves no delivered figure; the on-screen bag total is the
+prepared volume, and "cannot be compounded" shows exactly when the components exceed it (whether the
+printed parts add up is `verify-calc-sum.cjs`'s check, below); no NaN, Infinity, float tail or trailing zero in any text node; and no critical tile without a
 critical alert. CI runs the default 80 orders (≈40 s, twice — sources and `compiled/`); a deep local
 run is `FUZZ_N=500`. The three harnesses together are why the job's timeout went from 20 to 30 minutes.
 
-All three mount the modules the same way the other jsdom harnesses do, so
+**`verify-calc-sum.cjs`** (2026-10-11, NF-17) — does the printed bag add up, and does a click move the
+figure on screen? 59 orders: the oracle's 12, seven of its own (a 900 g infant on day 3 of TPN, a term
+infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ at 0.01 mL, hundredths carried
+across the sum, a prepared volume typed with a second decimal) and 40 random from seed 20261011
+(`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
+stock" table is added up: Σ parts + printed WFI must equal the printed prepared volume within **0.05 mL**
+(0 when every part is a whole tenth), printed Components + WFI must equal it exactly, and the on-screen
+Components and Bag total and the copied BAG MAKE-UP line must carry the same figures. The tolerance is the
+rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
+components); the arithmetic is in the file's header. An over-full bag skips the sum and must say so on
+screen, on the form and in the copy. Then one input changes the way a person changes it (a dead-space chip,
+or a TPN volume typed a key at a time): the on-screen Bag total must move to delivered + dead, the stale
+form must be withdrawn, and the second save's reprint must carry the new figures and still add up. Nothing
+in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
+from the delivered volume) and `=3` (`deadVol_mL` out of the memo's dependencies) patch the source in
+memory and must fail; the patched text is transformed under another name, so the compiled loader never
+stands in for it. On `677123d` it fails on one order, S7: a prepared volume of 130.45 mL prints as
+"87.5 + 42.9 = 130.5", 0.1 mL that does not add up. That is a finding for Pp, kept failing on purpose
+(`CHANGELOG.md`, 2026-10-11 (7)).
+
+All four mount the modules the same way the other jsdom harnesses do, so
 `NODE_OPTIONS=--require ./test/compiled-loader.cjs` runs them against the shipped `compiled/*.js`.
 
 ## `verify-safety-fixes-0923.cjs` — the 2026-09-23 review's findings, fixed
