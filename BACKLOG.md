@@ -32,6 +32,36 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🩺 **safety · What the 2026-10-08 outside review left open** (`CHANGELOG.md` 2026-10-08 (2)). Its
+      advice: hold routine pharmacy use until these close. Fixed already: the peripheral K⁺ maximum (#137,
+      released by #138) and the dosing weight (that entry). The 0.1 mL rounding is the pharmacy item below.
+      - **Ward acceptance before the first routine order**, with synthetic infants on the ward's own phone,
+        workstation and printer: ELBW small-volume salts; dosing below birth weight; outborn admission and
+        DOL; peripheral K⁺ at and above 60, central at and above 200; lipid either side of the ceiling; MEN
+        and feeds-only days; mixed PN/EN; a revision of a published order. Pharmacy reconciles the printed
+        ingredients, prepared against delivered volume, Factor, WFI, the salt rounding and both sheets.
+        Also: a draft after a network failure, two people editing one order, logout and a shared device.
+        **Praew's to arrange.**
+      - **Lipid ceiling against the label.** The US SMOFlipid label caps pediatric infusion at 0.75 mL/kg/h
+        (0.15 g/kg/h); NeoFeed turns critical above 0.17 (TPN team, 2026-09-28). Ask the TPN team what the
+        Thai product label and local policy say. **Praew's to ask.**
+      - **The backend trusts the client's numbers.** It range-checks the totals but does not recompute
+        them from `calcInput`, check route concentration limits, or require an override reason before a
+        publish. A signed-in account with a modified client can store safe-looking totals beside
+        contradictory inputs. Separate hardening; size it after the ward acceptance.
+      - Decided, not to do (Pp, 2026-10-08): nurse order writes stay tied to `NURSING_LOG_ENABLED` (D5
+        holds once the nursing form is on); the lipid rate stays graded on the 2-decimal figure shown.
+- [ ] 💬 **ops · Send one real help request** (`CHANGELOG.md` 2026-10-05). Shipped on 2026-10-06 by #136
+      with backend `@62`. Left: send one from the app and check it reaches praew.tvl@gmail.com through the
+      valhalla.team.th filter. Once PR #144 is live (`@64` first), send it from the topbar button on a phone,
+      with a cropped picture, and check the forwarded copy still carries the attachment. As of 2026-10-09
+      the only "[NeoFeed help]" mail in praew.tvl@gmail.com is the 2026-10-05 filter test, which Gmail
+      showed in Sent alone, so the forward itself is unproven.
+- [ ] ⚖️ **PDPA · Tell the DPO a help request can carry a picture** (PR #144, `CHANGELOG.md` 2026-10-09
+      (2)). A screenshot of NeoFeed can show an infant's initials, bed and weights, and it leaves by email to
+      a Gmail account. The form asks for names, beds and HN to be cropped out and shows the picture before
+      it goes; nothing enforces it. The app strips EXIF. Goes in the same DPIA note as the four-letter name
+      (§ Next) and D7. **Praew / DPO.**
 - [ ] ⚖️ **PDPA · Check the live `Patient_Registry` for erased rows the refill already reached.**
       **Praew's to do** (Sheet access). Look for rows whose name (B) starts `[PDPA-erased` and whose dob (G)
       is not empty. A refill could only have run on 2026-09-24, from about 14:22 ICT to 21:17:37 ICT, when
@@ -49,6 +79,11 @@ clinical judgement. Everything else is engineering sequencing.
       - MgSO₄'s in-bag mL now names its vial (10%/50%).
       - **Answers for the team.** GIR uses the delivered rate: Volume ÷ 24 is the Rate box, and dead space
         is not in it. MEN was not reproduced; ask for a screenshot of the number they saw move.
+      - **K⁺ in the bag (2026-10-08).** The notice now says: **peripheral maximum 60 mEq/L** (it was 200;
+        Praew), central 200. Above 60 a peripheral order cannot be saved or printed, and the form reads "max
+        60". Orders saved before that release must be saved again before they print (`CONSTANTS_VERSION`
+        2026-10-08.1), and a peripheral order saved at 61–200 only once its K⁺ is 60 or below. **It goes out
+        after the release that carries it**, not before.
 - [ ] 🩺 **safety · Tell pharmacy: the pharmacy form changed on 2026-09-18 at 11:17 ICT** (PR #77,
       `STATUS.md`). Every new NICU/SCN TPN order starts with 30 mL dead space and prints PREPARED
       figures, and Soluvit and Peditrace are × Factor, so on an overfilled bag their printed mL (and the
@@ -112,7 +147,10 @@ clinical judgement. Everything else is engineering sequencing.
             2026-09-28: red above 120, and 200 as a maximum that cannot be ordered (`CHANGELOG.md` 2026-09-28 (3)).
           - [x] 🩺 **Peripheral K⁺ maximum.** The review of PR #129 found that switching a central bag above
             200 to Peripheral made it orderable with a reason. Praew: "max 200 ทั้งสองสาย" — built
-            (`CHANGELOG.md` 2026-09-28 (6)). Whether peripheral should stop lower than 200 is for the team.
+            (`CHANGELOG.md` 2026-09-28 (6)). ~~Whether peripheral should stop lower than 200 is for the team.~~
+            **Answered by Praew on 2026-10-08, in chat: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60"** — built
+            (`CHANGELOG.md` 2026-10-08). Above 60 a peripheral bag cannot be ordered; there is no confirm tier left
+            on that route.
         - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
           (split in two) or a stop.
         - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,
@@ -338,7 +376,8 @@ clinical judgement. Everything else is engineering sequencing.
       **To close:**
       1. Release the frontend and `clasp push` the backend, in either order. Both are inert while the
          switch is off, so they can ride any release.
-      2. D7: the DPO signs off spec § 6 (and the 26(5)(a) citation below).
+      2. D7: the DPO signs off spec § 6 (and the 26(5)(a) citation below). Praew, 2026-10-08: the
+         hospital's DPO role sits with IT; she is drafting the letter to IT.
       3. Set the Script Property `NURSING_LOG_ENABLED` = `true`. **Only after step 1's frontend is
          live**: an old frontend has no I/O card, and its nurses would be refused order saves with
          nowhere to record I/O. To switch it off, delete the property (it takes effect on the next
@@ -597,7 +636,10 @@ clinical judgement. Everything else is engineering sequencing.
       longer the required `release` approver — 0 approvals since 2026-09-18, see `REFERENCE.md`); **`tasamew` to delete the
       public fork `tasamew/neofeed`** (asked 2026-09-18) — a 2026-06-16 copy whose `main` holds 3 commits never merged here
       (the "DOL today" edit-form change, `f4c4708`, `c9e14fe`, `728158f`), so they check those first; confirm 2FA on both
-      GitHub admins and on the Cloudflare account; close/delete the stale branches and draft PR #56. **Not PR #57**
+      GitHub admins and on the Cloudflare account; close/delete the stale branches and draft PR #56.
+      The 2026-10-08 outside review adds two org settings: default repository permission is `admin`
+      and 2FA is not required. The org has one member (Praew), so today the default reaches only her;
+      set it to `read` and require 2FA before anyone else joins. **Not PR #57**
       (`codex/center-point-v2`): since 2026-09-15 it is active, paired with NICU-Center-Point PR #12, and the
       two must merge together (CP accepts only the `neofeed-tpn-v2` packet #57 builds).
 

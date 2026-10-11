@@ -1626,12 +1626,25 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
   // Praew, 2026-09-28): amber above `warn`, critical above `red`, and above
-  // `hardMax` (200 on both routes) not orderable at all — see kOverMax. It replaced
-  // the worksheet's single 40 mEq/L stop (G25) on both routes.
+  // `hardMax` (peripheral 60 since 2026-10-08, central 200) not orderable at
+  // all — see kOverMax. It replaced the worksheet's single 40 mEq/L stop (G25)
+  // on both routes.
   const kLim = D.kBagLimitsFor(route);
   const kRouteLabel = route === "central" ? "central" : "peripheral";
-  const kConcStatusAt = (v) => D.rangeStatus(v, [0, kLim.warn], { hardHi: kLim.red });
+  // Graded with float noise stripped (toPrecision(12), as describeOrderValue
+  // does). A bag that is 60 mEq/L on paper computes as 60.00000000000001 in
+  // about a quarter of weight/volume pairs (1 kg, 50 mL, KCl 3), and once 60
+  // became the peripheral maximum that refused an order at its own ceiling:
+  // "60 mEq/L เกินค่าสูงสุด 60". A real decimal stays: 60.4 is above 60.
+  const kGrade = (v) => isFinite(v) ? Number(v.toPrecision(12)) : v;
+  const kMeqPerLGraded = kGrade(calc.kMeqPerL);
+  const kConcStatusAt = (v) => D.rangeStatus(kGrade(v), [0, kLim.warn], { hardHi: kLim.red });
   const sKConc = kConcStatusAt(calc.kMeqPerL);
+  // The tile's bar ends at the maximum when that lies above red (central 200).
+  // Where the maximum IS red (peripheral 60 since 2026-10-08), ending there
+  // would leave no red on the bar and park an over-maximum needle on amber, so
+  // the bar runs to 1.5 × red, as it did before the maximum existed.
+  const kBarMax = kLim.hardMax > kLim.red ? kLim.hardMax : kLim.red * 1.5;
   // Peripheral: crit >900, warn >850 · Central: no upper limit (Praew,
   // 2026-09-28; it warned above 1800 until then)
   const osmStatusAt = (v) => route === "peripheral"
@@ -1692,14 +1705,29 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [znPerKg, "ZnSO₄"],
   ].filter(([v]) => v > 0).map(([, label]) => label);
   const zeroVolumeBag = bagIngredientsWithoutVolume.length > 0;
-  // K⁺ above the route's hard maximum (200 mEq/L on both; Praew, 2026-09-28):
-  // like the no-volume bag, not a confirm-with-reason alert — Submit and Print
-  // refuse it. A draft may still be kept.
-  const kOverMax = kLim.hardMax != null && calc.kMeqPerL > kLim.hardMax;
+  // K⁺ above the route's hard maximum (central 200 mEq/L, Praew, 2026-09-28;
+  // peripheral 60, Praew, 2026-10-08): like the no-volume bag, not a
+  // confirm-with-reason alert — Submit and Print refuse it. A draft may still
+  // be kept.
+  const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;
   const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
+  // The weight every dose is computed from (Pp, 2026-10-08; D.TPN_WT_*).
+  // Outside the range it is a typo, not a judgement: no order, no draft,
+  // the way gas-backend.gs refuses it. A typed weight far from the
+  // automatic one may be right (dry weight, oedema), so it is critical:
+  // ordered with a reason, which prints. Only a typed weight is judged
+  // against the automatic one; the birth-weight floor is the rule itself.
+  const [tpnWtLo, tpnWtHi] = D.TPN_WT_RANGE_G;
+  const tpnWtOutOfRange = wtG > 0 && (wtG < tpnWtLo || wtG > tpnWtHi);
+  const tpnWtOutOfRangeText = `TPN calc. weight ${fmt(wtG, 0)} g อยู่นอกช่วง ${tpnWtLo}–${tpnWtHi} g — ตรวจว่าพิมพ์ถูกหลัก`;
+  const tpnWtDiff = tpnWtManual && autoWtG > 0 ? Math.abs(wtG - autoWtG) / autoWtG : 0;
+  // Float noise stripped as for K⁺: 900 → 1080 g is 20 %, not above it.
+  const tpnWtFar = !tpnWtOutOfRange && Number(tpnWtDiff.toPrecision(12)) > D.TPN_WT_MANUAL_MAX_DIFF;
 
   const alerts = [];
+  if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
+  else if (tpnWtFar) alerts.push({ level: "crit", title: "TPN calc. weight far from automatic", body: `${fmt(wtG, 0)} g typed, automatic ${fmt(autoWtG, 0)} g (${wtG > autoWtG ? "+" : "−"}${fmt(tpnWtDiff * 100, 0)} %, more than ${fmt(D.TPN_WT_MANUAL_MAX_DIFF * 100, 0)} %). Every dose and mL on this order is computed from ${fmt(wtG, 0)} g — check the digits.`, ref: "Pp, 2026-10-08" });
   if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${fmt(calc.gir, 1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });else
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
   // Titles are unchanged from the total-based alerts they replace: a saved
@@ -1765,9 +1793,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // `hardMax` the order cannot be saved (kOverMax); above `red` it is critical,
   // so it is ordered only with a confirmed reason; above `warn` is a caution.
   // The critical title is unchanged: a saved critOverride names alerts by title.
-  if (kLim.hardMax != null && calc.kMeqPerL > kLim.hardMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
-  else if (calc.kMeqPerL > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
-  else if (calc.kMeqPerL > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (critical above ${kLim.red}).`, ref: "TPN team, 2026-09-28" });
+  if (kOverMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
+  else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
+  else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (critical above ${kLim.red}).`, ref: "TPN team, 2026-09-28" });
   // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
   if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
   else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
@@ -1811,7 +1839,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit")
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -1820,6 +1848,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
+    : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
     : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}`
@@ -1892,6 +1921,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (asDraft && (blankFields.has("curWtG") || !(curWtG > 0))) {
       setOpenSteps(prev => new Set(prev).add(1));
       showToast("บันทึกร่างต้องมีน้ำหนักปัจจุบัน (Current weight) อย่างน้อย", "error");
+      return;
+    }
+    // ── TPN calc. weight out of range (Pp, 2026-10-08) ───────────────
+    // Draft or not: gas-backend.gs refuses the row either way, and a
+    // reason cannot confirm a weight no infant here has.
+    if (tpnWtOutOfRange) {
+      setOpenSteps(prev => new Set(prev).add(1));
+      showToast(tpnWtOutOfRangeText, "error");
       return;
     }
     if (!asDraft && missingFields.length > 0) {
@@ -2274,7 +2311,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             </div>
           </div>
           {tpnWtManual && (
-            <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--warn)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div className="tpn-wt-manual" style={{ marginTop: 10, fontSize: 11.5, color: tpnWtFar || tpnWtOutOfRange ? "var(--crit)" : "var(--warn)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span>
                 TPN calc. weight ถูกแก้เป็น <span className="num" style={{ fontWeight: 600 }}>{fmt(wtG, 0)}</span> g —
                 ทุก dose/target ด้านล่างคิดจากค่านี้ (อัตโนมัติ = {fmt(autoWtG, 0)} g)
@@ -2929,7 +2966,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {/* K⁺ concentration of the finished bag, not a per-kg dose. A tile
                   since the TPN team missed it as a line of small text
                   (2026-09-22); graded by route since 2026-09-28. */}
-              <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, kLim.warn]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={kLim.hardMax || kLim.red * 1.5} />
+              <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, kLim.warn]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={kBarMax} />
               <div className="k-conc-ref" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}>
                 {kRouteLabel}: amber &gt; {kLim.warn} · red &gt; {kLim.red}{kLim.hardMax ? ` · max ${kLim.hardMax}` : ""} mEq/L
               </div>
@@ -3343,7 +3380,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3512,6 +3549,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {kOverMaxText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {tpnWtOutOfRange && (
+              <div className="tpn-wt-out-of-range" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {tpnWtOutOfRangeText} — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)
+              </div>
+            )}
             {isDraftSaved && !dirty && (
               <div className="draft-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit
@@ -3521,14 +3563,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 Center Point, which has its own review step. */}
             {!scratch && !centerPoint && !ordersReadOnly && (
               <button className="btn save-draft" style={{ width: "100%", marginBottom: 8 }}
-                disabled={saving || pendingSave || (savedStatus === "submitted" && !!savedEntryId)}
+                disabled={saving || pendingSave || tpnWtOutOfRange || (savedStatus === "submitted" && !!savedEntryId)}
                 title={savedStatus === "submitted" && savedEntryId ? "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง" : "บันทึกไว้ก่อน แม้ยังกรอกไม่ครบ — พิมพ์ไม่ได้จนกว่าจะ Submit"}
                 onClick={() => handleSave(true)}>
                 <Icon name="save" size={14} /> {saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"}
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || kOverMax || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || kOverMax || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

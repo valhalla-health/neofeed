@@ -173,6 +173,28 @@ doesNotThrow('a plausible daily entry still builds',
 doesNotThrow('optional supplement fields left empty do not block the entry',
   () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300 }, 'nurse@x'));
 
+// ── 3b. the dosing weight in calcInput (Pp, 2026-10-08) ────────────────────
+// The outside review's probe: measured 900 g, TPN calc. weight 8,500 g. Only
+// entry.weight (the measured one) was range-checked, so it was stored.
+console.log('\n── _buildLogRow() dosing weight in calcInput ──');
+{
+  const row = (ci) => sandbox._buildLogRow('FO-1', { dol: 5, weight: 900, calcInput: ci }, 'doc@x');
+  throws('the review probe: tpnWtG 8500 with an 8500 override', () => row({ curWtG: 900, tpnWtOverrideG: 8500, tpnWtG: 8500 }));
+  throws('tpnWtG 8001 alone', () => row({ curWtG: 900, tpnWtG: 8001 }));
+  throws('tpnWtG 199', () => row({ curWtG: 900, tpnWtG: 199 }));
+  throws('tpnWtG 0 (no infant is dosed at 0 g)', () => row({ curWtG: 900, tpnWtG: 0 }));
+  throws('tpnWtG "x"', () => row({ curWtG: 900, tpnWtG: 'x' }));
+  throws('an override of 9000 even when tpnWtG is in range', () => row({ curWtG: 900, tpnWtOverrideG: 9000, tpnWtG: 900 }));
+  throws('a negative override', () => row({ curWtG: 900, tpnWtOverrideG: -5, tpnWtG: 900 }));
+  const msg = throws('the message names the field', () => row({ curWtG: 900, tpnWtG: 8500 }));
+  ok('…as "TPN calc. weight (g)"', /TPN calc\. weight \(g\)/.test(msg || ''));
+  doesNotThrow('8000 and 200 are in range', () => { row({ curWtG: 7000, tpnWtOverrideG: 8000, tpnWtG: 8000 }); row({ curWtG: 210, tpnWtOverrideG: 200, tpnWtG: 200 }); });
+  doesNotThrow('1500 over 900 measured: the calculator asks a reason, the server does not', () => row({ curWtG: 900, tpnWtOverrideG: 1500, tpnWtG: 1500 }));
+  doesNotThrow('no override (0) with the automatic weight', () => row({ curWtG: 900, tpnWtOverrideG: 0, tpnWtG: 900 }));
+  doesNotThrow('a row from before UP-C2: no tpnWtG at all', () => row({ curWtG: 900 }));
+  doesNotThrow('no calcInput at all', () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 900 }, 'doc@x'));
+}
+
 // ── 4. logDailyNutrition end-to-end (the actual doPost call site) ──────────
 console.log('\n── logDailyNutrition() end-to-end ──');
 sheet = makeSheet(['ts','sessionId','dol','weight','fluid'], [], 31);

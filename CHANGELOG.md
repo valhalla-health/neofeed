@@ -7,6 +7,301 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-09 (2) — A help button beside the login name, and one cropped picture
+
+`app.jsx`, `icons.jsx`, both shells (CSS), `gas-backend.gs`; one new harness and two extended ones; docs. No
+clinical constant or calculation. **`CONSTANTS_VERSION` unchanged.** Backend first: `@64` takes the picture,
+with no new OAuth scope (MailApp attachments use `script.send_mail`, approved for `@62`). PR #144, merged into
+`main` on Pp's instruction ("merge แล้ว deploy"). Also catches `STATUS.md` up with releases #140 and #143.
+
+### Why
+
+PR #143 released #142 at 18:01 ICT, and Pp still could not see a button: the help request lived inside the
+avatar menu. Shown a rendered sheet of the real app with two mockups, she asked for it at the top right,
+beside the login name (*"ให้ปุ่ม help button อยู่บนขวา ใกล้ชื่อ login"*), picked the phone form with the short
+word over the icon alone, and then asked for a picture too (*"ให้แนบรูปที่ครอปไว้ ได้ด้วย"*).
+
+### What changed
+
+- **The topbar's help button** sits directly before the login name and opens the same form as the menu item,
+  which stays. It reads ขอความช่วยเหลือ from 768 px, ช่วยเหลือ on a phone, the icon alone (44 px square) from
+  310 to 359 px, and is hidden below 310 px, where the menu item is the way in.
+  - The breakpoints are measured, and the test that bit was the NeoFeed wordmark: it is `max-width: 100%`
+    inside a box that may shrink, so a crowded topbar squeezes the wordmark before anything overlaps. The
+    first cut shrank it from 119 to 104 px at 300 px and to 114 px at 360 px.
+  - Part of the cure: the sync pill's wrapper. On a phone its two children were hidden but the empty wrapper
+    still took a flex gap, 8 px the button needed at 360 px. It is `.topbar-sync` now, laid out in CSS rather
+    than inline (an inline `display: flex` beat the phone rule that hides it).
+- **One picture** in the help form, optional. The form asks for names, beds and HN to be cropped out, then
+  shows the picture that will go, with ลบรูป. The app redraws it on a canvas as a JPEG whose longer side is at
+  most 1600 px (quality 0.82, smaller again if it is still over 1.5 MB): a phone photo goes as a few hundred
+  KB, its EXIF (place, device) is gone, and a transparent PNG lands on white. A PDF, a picture the browser
+  cannot open and one that will not shrink each get a Thai sentence in the form, and the request still goes
+  without it.
+- **`sendHelpRequest`** takes `image: { mimeType: "image/jpeg", data }` (bare base64). Before the rate limit,
+  so a refusal costs nothing, it refuses anything that is not a JPEG by its first bytes (FF D8 FF), is not
+  bare base64, or decodes to more than 1.5 MB, checking the string's length before the regex reads it. The
+  picture goes as `neofeed-help-<YYYYMMDD-HHMM>.jpg`; the body says "รูปแนบ: 1 รูป (N KB)" or "ไม่มี", and its
+  closing reminder now covers the picture too.
+
+### Tests
+
+- **`verify-help-request-backend.cjs`** 64 → 94. § 11 the attachment, byte for byte, its name and the body
+  line; § 12 eleven refusals (PNG, a PNG or PDF claiming JPEG, a `data:` URL, over the cap by one byte, a
+  string four times the cap…), none mailed, none counted against the hour. On `main`'s backend: 25 fail.
+  `gas-vm-sandbox.cjs`'s `newBlob` now keeps the file name, as Apps Script's does.
+- **`verify-help-request-frontend.cjs`** 29 → 53. #5 the topbar button; #6–#8 the picture, with `Image`, the
+  canvas and object URLs stood in for. Two old checks would have passed by accident on the new button, which
+  carries the menu item's words and comes first in the document; they now name the menu item. On `main`'s
+  `app.jsx` and `icons.jsx`: 11 fail, all in #5–#8.
+- **`verify-help-button-1009.cjs`** (new, 154 checks, Chromium). The button at 14 sizes from 280 px to 1440 px
+  (inside the screen, clear of the search and the avatar, 44 px on touch, the right words, no sideways scroll,
+  the wordmark at full width) and a real 3000 × 2000 JPEG with an EXIF block in, a 1600 × 1067 JPEG without
+  EXIF out. Negative control: with the narrow-phone block taken out, the 320 px wordmark is squeezed. On
+  `main`: 80 fail.
+- **`verify-ios-input-zoom-1009.cjs`** (#142's) found the help item by its words and clicked the first
+  match, which is now the topbar button: 15 of its checks failed in Chromium. It names the menu item now
+  (`button:not(.help-btn)`) and passes 123/123. CI runs no browser, so only a local run could see this.
+- On this PC the global `playwright` 1.62.1 wants Chromium build 1234 and only 1217 and 1248 are installed,
+  so every browser section skips unless `chromium.launch` is pointed at 1248 (a preload shim outside the
+  repo, `test/README.md`).
+
+### Not checked
+
+- A real iPhone, and a real request with a picture arriving at praew.tvl@gmail.com through the team's filter.
+- ⚠️ A screenshot of NeoFeed can show a patient. The form asks, and shows the picture first; nothing enforces
+  it. A DPO note joins the one on the four-letter name (`BACKLOG.md`).
+
+## Session 2026-10-09 — The iPhone zoom that hid the help menu
+
+Both shells only (CSS); a new harness; docs. No `.jsx`, no `compiled/` change, no clinical constant or
+calculation. **`CONSTANTS_VERSION` unchanged.** Frontend only: no `clasp` step. PR #142, not merged, not
+deployed.
+
+### Why
+
+Pp, from an iPhone, with a screenshot of the topbar's patient search open: *"หน้าล้นใน iphone 18 และยังไม่เห็นปุ่ม
+ขอความช่วยเหลือที่ให้ส่ง email"*. In the screenshot the sheet's Close button and the weights were cut off at the
+right edge, and the bed chips were 1.16× the size they render at 402 px.
+
+Both complaints have one cause. iOS zooms the page in when a text field under 16 px takes focus, and it does
+not zoom back out when the field lets go. The phone block's 16 px rule was `.inp, .sel`, a class list, and the
+topbar's patient search (`registry.jsx`, `PatientPicker`) carries neither class: it was 14 px, so a tap on it
+zoomed the page by 16/14. The zoom outlived the sheet. With it, the avatar, the only way into the user menu and
+its 💬 ขอความช่วยเหลือ, sat past the right edge of the screen. The help item itself was there: release `62b6dec`
+has it, and at 402 px un-zoomed the menu opens fully on screen. The quick calc's DOL box (`className="num"`,
+15 px) zoomed the same way. Every phone sweep here runs in Chromium, which never zooms on focus, so none of them
+could see it.
+
+### What changed
+
+1. **Every text field is 16 px on a phone and on any touch screen.** One rule, keyed on the element:
+   `input` (not checkbox, radio or range), `textarea`, `select`, plus `.inp` and `.sel`, under
+   `@media (max-width: 767px), (hover: none) and (pointer: coarse)`. It replaces the phone block's class-list
+   rule. A field added without a class is covered, and so is a phone turned sideways: at 874 px it is wider
+   than 767, and every field there was 14 px. A workstation with a mouse keeps its 13–14 px fields.
+2. **The avatar is a 44 px target**: 44 × 44 on a phone (it was 34 px) and 44 px tall on a touch tablet or a
+   sideways phone (it was 42). It is the only way into the user menu.
+3. **A dialog is never taller than the screen.** Writing the harness found this one on the same path: on a
+   phone turned sideways (402 px tall), the help form is about 430 px tall, so its ส่ง and ยกเลิก sat below
+   the edge with nothing to scroll. It was already like that on `main`. `.modal-box` is now a column capped at
+   90 dvh (82 dvh on a phone, the picker sheet's figure), and `.modal-body` scrolls between a fixed head and
+   fixed buttons. Change password uses the same box.
+
+### What the ward sees
+
+- On a phone, the topbar's patient search and the quick calc's DOL box read slightly larger (16 px), and tapping
+  them no longer zooms the page.
+- On a sideways phone or a touch tablet, every text field reads 16 px.
+- The avatar's circle on a phone is a little larger.
+- Nothing changes on a desktop.
+
+### Tests
+
+`verify-ios-input-zoom-1009.cjs` (new): § 1, static, in both shells (the rule, the avatar, the dialog cap);
+§ 2 in Chromium at Pp's 402 px and five other phones plus a landscape iPhone: sign in, open the topbar search,
+the ward list, the help form, the register form, the quick calc and the calculator with every step open, then
+measure every visible text field (none under 16 px). It also checks that the avatar is 44 × 44 and on screen,
+that the help item is on screen, and that the help form's ส่ง is on screen. A desktop with a mouse keeps its
+14 px search. § 3 is the negative control: the shell with the old class-list rule shows the topbar search at
+14 px. 123 checks; **52 fail on `fbb19f4`**. CI installs no browser, so there only § 1 runs.
+
+### Not checked
+
+No WebKit in the cloud container: nobody has tapped the search on a real iPhone with this change yet. The zoom
+is iOS's documented behaviour below 16 px, and the harness measures the size iOS reads. Pp's phone may still be
+zoomed in from before. A pinch out, or reloading the page, resets it.
+
+## Session 2026-10-08 (2) — The dosing weight has bounds; the outside review, item by item
+
+`data.js`, `calculator.jsx`, `gas-backend.gs`, both shells and `compiled/`; tests; docs. **`CONSTANTS_VERSION`
+unchanged** (a stop and an alert move no dose). PR #139, merged into `main` on Pp's instruction ("merge แล้ว deploy"). **The backend half needs a `clasp`
+deploy** (`@63`); the two halves can go in either order.
+
+### Why
+
+Pp ran an outside review (GPT) of release `62b6dec` with backend `@62`, ahead of next week, when the ward
+starts saving and printing real TPN orders for pharmacy. Its report stays outside the repo
+(`~\repos\neofeed-audit-20261008\REVIEW.md`). It recommends holding routine pharmacy use until four P1
+findings close. Each one was checked against `main` at `453108a` before anything changed, and Pp decided the
+open ones in chat:
+
+| Finding | Against `main` | Outcome |
+|---|---|---|
+| P1 · live peripheral K⁺ maximum is 200 | True live; PR #137 (max 60) was merged into `main` but not released | Released by PR #138 on Pp's instruction |
+| P1 · 0.1 mL rounding of small stock volumes (NaCl 0.146 → 0.1 mL for 500 g, −32 %) | True; already `BACKLOG.md` § Now, blocked on pharmacy | Open. No code change until pharmacy says how they measure |
+| P1 · a nurse can save and Submit orders while `NURSING_LOG_ENABLED` is off | True, and by design: D5 holds once the nursing I/O form is on, because until then the Calculator's I/O card is the nurses' only way to record I/O | **Pp: keep as it is** |
+| P1 · the typed TPN calc. weight has no bound (900 g measured, 8,500 g dosing, accepted) | True: only `entry.weight`, the measured weight, was range-checked | **Fixed here** (Pp: critical beyond 20 %) |
+| Lipid rate graded on the 2-decimal figure (3.48 g/kg over 20 h = 0.174, shown and graded 0.17, amber) | True, and by design (2026-09-28: colour never disagrees with the number shown) | **Pp: keep as it is** |
+| GitHub org: default repository permission `admin`, 2FA not required | True. The org has one member, Pp; `tasamew` is an outside collaborator with admin on `neofeed` | Pp's settings; not changed |
+| Backend trusts client calculations (totals not recomputed, `calcInput` not cross-checked) | True; known architecture | Open, separate hardening |
+| US SMOFlipid label: pediatric max 0.15 g/kg/h, below the 0.17 ceiling | Not checked against the Thai label | Question for the TPN team |
+| 9 kcal/g IV lipid vs about 10 kcal/g for 20 % SMOFlipid | Intentional, the KCMH worksheet's figure | No change |
+| Privacy residuals (fail-open read audit, temp passwords in Staff H, DOB from date − DOL) | Known | Open, governance |
+
+### What changed
+
+1. **TPN calc. weight outside 200–8,000 g cannot be saved** (`D.TPN_WT_RANGE_G`, the bounds of a Daily_Log
+   weight). Submit and Save draft are disabled, a banner reads "TPN calc. weight N g อยู่นอกช่วง 200–8000 g —
+   ตรวจว่าพิมพ์ถูกหลัก — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)", and the critical alert "TPN calc. weight out of range"
+   explains it. Drafts too, because the backend refuses them. A measured weight above 8,000 g with no override
+   stops the same way, since it becomes the dosing weight.
+2. **A typed weight more than 20 % from the automatic one is critical** (`D.TPN_WT_MANUAL_MAX_DIFF`, Pp:
+   "ต่างเกิน 20%"). "TPN calc. weight far from automatic" names both weights and the difference
+   ("1090 g typed, automatic 900 g (+21 %, more than 20 %)"). Like every critical alert it is ordered only
+   with a typed reason, and the reason prints. The line under Step 1 turns red. Exactly 20 % is not above it
+   (float noise stripped, as for K⁺). Only a typed weight is judged: the birth-weight floor is the rule
+   itself, so 1,000 g dosing for a 750 g infant below birth weight raises nothing.
+3. **`gas-backend.gs` refuses `calcInput.tpnWtG` or a non-zero `tpnWtOverrideG` outside 200–8,000 g**
+   ("TPN calc. weight (g)"). A row from before UP-C2, with no `tpnWtG`, still saves. The 20 % rule stays in
+   the calculator: a reason is a clinical judgement, not a plausibility bound.
+
+An order saved before this release with a typed weight more than 20 % away now shows a critical alert its
+saved override does not name, so Print waits for a re-save with a reason (UP-C6, unchanged). #137's version
+bump already holds every older order for a re-save.
+
+### Tests
+
+- `verify-dosing-weight-1008.cjs` (new, jsdom): 48 checks over seven sections; **23 fail on `453108a`**.
+- `verify-input-validation.cjs` § 3b: 14 new checks; **9 fail on the old backend**.
+- `verify-calc-oracle.cjs` adjusted: its 16 kg scenario, the only one where the Soluvit and Peditrace ceilings
+  bind, is now refused, so those ceilings are checked on screen only. Under 8 kg neither binds. The backend
+  already refused a measured weight above 8,000 g, so only a typed dosing weight could reach them, and that
+  is refused now too.
+- Every harness in both modes from an LF export (`git -c core.autocrlf=false archive`): see the PR.
+
+## Session 2026-10-08 — The peripheral K⁺ maximum is 60 mEq/L
+
+`data.js`, `calculator.jsx`, both shells and `compiled/`; tests; docs. **`CONSTANTS_VERSION` 2026-09-28.1 →
+2026-10-08.1.** PR #137, not merged, not deployed.
+
+### Why
+
+Pp, in chat: *"เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60"*. Since the review of PR #129 the maximum was 200 on both
+routes, so a peripheral bag of 61–200 mEq/L was a critical alert that one typed reason cleared. 60 is the IWK
+Health NICU peripheral figure the 2026-09-28 source search found (`docs/CLINICAL_CONSTANTS.md`).
+
+### What changed
+
+1. **`K_BAG_MEQ_PER_L.peripheral.hardMax` 200 → 60.** Amber 40 and red 60 stay, and central stays 60 / 120 / 200.
+   Every path already reads the route's `hardMax`, so above 60 on a peripheral line Submit is disabled, Save
+   refuses, Print and Copy are held, and a draft can still be kept, as above 200 on a central line.
+2. **K⁺ is graded with float noise stripped** (`kGrade`, `toPrecision(12)`). A bag that is 60 mEq/L on paper
+   computes as 60.00000000000001 for about a quarter of weight and volume pairs (1 kg, 50 mL, KCl 3 mEq/kg/d is
+   one). With 60 as a maximum, that order was refused as "60 mEq/L เกินค่าสูงสุด 60". A real decimal still counts:
+   60.4 is above 60. The same rule now applies at every K⁺ threshold on both routes, so a bag exactly at 40, 120
+   or 200 is graded as that figure too.
+3. **The peripheral K⁺ bar runs to 90 again** (1.5 × red, as before the maximum existed), red from 60. Ending it
+   at the maximum, as central's does at 200, would leave no red on it and park an over-maximum needle on amber
+   under a red tile. Display only.
+4. **`CONSTANTS_VERSION` 2026-10-08.1.** `K_BAG_MEQ_PER_L` is on the bump list and the form prints the maximum
+   ("max 60" where it said "max 200"), so an order saved before this release prints again only after it is saved
+   again (`calcMoved`). No dose moves.
+
+### What the ward sees on a peripheral line
+
+- **Up to 40 mEq/L:** green, as before.
+- **Above 40, up to and including 60:** amber, the caution "K⁺ concentration high" ("… above 40 mEq/L for a
+  peripheral line (critical above 60)"); it saves with no reason and prints. Under the tile: "peripheral: amber
+  > 40 · red > 60 · max 60 mEq/L"; the form "K⁺ in bag: confirm > 60 · max 60 mEq/L (peripheral)"; the back
+  sheet "(confirm > 60, max 60, peripheral)"; the copied order "confirm above 60, max 60 on a peripheral line".
+- **Above 60:** red, and one critical alert, "K⁺ above the maximum": "… the most a peripheral line may carry is
+  60 mEq/L, so this order cannot be saved." By Submit: "K⁺ ในถุง N mEq/L เกินค่าสูงสุด 60 mEq/L ของสาย peripheral —
+  เพิ่มปริมาตรหรือลด K — บันทึก/พิมพ์ไม่ได้". "K⁺ concentration too high", the alert a reason confirms, can no
+  longer appear on a peripheral line. The quick calc's copy reads "!! K⁺ N mEq/L IS ABOVE THE 60 mEq/L MAXIMUM".
+
+### Orders saved before this release
+
+- **Any order dated by an earlier version** (`savedCalcVersionOf`: its stamp, or 2026-09-18.1 from its
+  `aaProduct` key) reopens with Print and Copy held: "NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก …". Saving it
+  again restamps it, and it prints.
+- **A peripheral order of 61–200 mEq/L**, saved then with a reason for "K⁺ concentration too high", reopens with
+  "K⁺ above the maximum", which that reason does not cover. The line by Submit says why, ahead of the re-save
+  message, and Submit stays disabled, so it prints only after K⁺ is brought to 60 or below and the order is
+  saved again. The row itself stays in `Daily_Log` unchanged; nothing re-grades it there.
+- **Center Point** keeps the gap the review of PR #129 named: it never re-checks the maximum on a revision saved
+  before the release. CP is synthetic-only.
+
+### Tests
+
+`verify-tpn-meeting-0928.cjs` § 14, new: peripheral 61, 65, 100, 150, 199 and 200 refused (red, the one alert,
+Submit disabled, a reason does not save it, a draft does); 60 allowed in five fixtures, three of which compute
+above 60 in floating point, and one saved with no reason asked and printed; central 65 amber, 200 a confirm, 201
+refused; a peripheral order saved at 100 with its reason now refused and printable once brought to 60 and saved;
+an order at 50 under 2026-09-28.1 held for re-save; one at 60 under the new version printing. § 10 follows the
+new maximum. 149 checks; 30 fail against `f055360`, and 5 (the floating-point 60s) fail with the maximum lowered
+but no float-noise grading. `verify-kcmh-constants` pins the peripheral maximum (fails against `f055360`).
+Adjusted: `verify-tpn-team-0922` § 7 (peripheral 70 is above the maximum; the critical tier is shown on a central
+130), `verify-status-zones` (peripheral red from 60 of 90) and `verify-calc-oracle` (its own rule carries the
+peripheral 60 and strips float noise; the copied-order wording).
+
+### Left as it is
+
+- The wording keeps the confirm threshold beside the maximum: "red > 60 · max 60", "confirm > 60 · max 60",
+  "(critical above 60)". On a peripheral line there is nothing left to confirm above 60. Whether to print only
+  "max 60" there is Pp's call; it is a wording change on the pharmacy form.
+
+## Session 2026-10-05 — Help requests from inside the app
+
+`app.jsx`, `gas-backend.gs`, both shells and `compiled/`; tests; docs. No clinical constant or
+calculation changed.
+
+### Why
+
+Pp wants staff to reach the Valhalla team from inside NeoFeed, by email, so that a daily Claude task
+can read the requests and summarise them, and fixes can be run from her desktop. The address is the
+team's Gmail, valhalla.team.th@gmail.com (already the contact in `SECURITY.md`). Its Gmail filter
+forwards any subject containing "NeoFeed help" to praew.tvl@gmail.com; Pp set the filter up the same day.
+
+### What changed
+
+1. **User menu → 💬 ขอความช่วยเหลือ**, for every role and both sign-in methods. It sits in the menu,
+   not on the login screen, whose contact button was removed on 2026-09-22.
+2. **The form** (`HelpRequestModal`): a category (ใช้งานไม่ได้, ตัวเลขดูแปลก, อยากได้ฟีเจอร์, อื่น ๆ),
+   the detail (up to 2000 characters), and a notice that asks for no HN, no patient name, nothing that
+   identifies an infant. The app attaches four things and says so: the page, the app version, the
+   browser and the device time. **It never attaches the patient on screen.** A refusal or a network
+   failure is shown in the form and the text is kept; a tap outside closes only an empty form.
+3. **`sendHelpRequest` in the backend.** Any signed-in session that is not on a temp password. It mails
+   the team with subject `[NeoFeed help] <ประเภท>`, sender name NeoFeed and replyTo the staff member, so
+   the team can answer them directly. Control characters are stripped and every context field is one
+   capped line. Five requests per person per rolling hour (CacheService; fails open). A MailApp failure
+   is a Thai "try again" (MailFailed). Every sent request is an Audit_Log row, `helpRequest`.
+4. **`gasPost` refusals carry `serverError`**, the server's sentence without the "บันทึกไม่สำเร็จ"
+   prefix, for a caller whose action is not a save.
+
+### Deploy
+
+The backend needs the `script.send_mail` scope, which no deploy has had: add it to the mirror's
+`appsscript.json`, push, run `authorizeHelpMail` once as the deploying account (Pp approves the
+consent), then update the deployment. REFERENCE.md § Backend has the steps. Ship the backend before the
+frontend; the other order only shows "ส่งเรื่องไม่สำเร็จ" until the backend is live.
+
+### Tests
+
+`verify-help-request-backend.cjs` (64 checks, 52 fail against `origin/main`) and
+`verify-help-request-frontend.cjs` (29 checks). `gas-vm-sandbox.cjs` gained a `MailApp` double.
+
 ## Session 2026-10-04 — The agent's environment: merge commits only, browser sections in CI, LF checkouts, AGENTS.md
 
 `AGENTS.md`, `CLAUDE.md`, `.gitattributes`, `.github/workflows/test.yml`, `tools/verify-release.mjs`,

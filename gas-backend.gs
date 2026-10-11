@@ -1323,6 +1323,13 @@ function doPost(e) {
       return syncOut;
     }
 
+    // Every signed-in role may ask the team for help (see sendHelpRequest).
+    if (action === "sendHelpRequest") {
+      var helpResult = sendHelpRequest(body, user);
+      if (helpResult.error) return jsonOut(_errorBody(helpResult));
+      return jsonOut({ ok: true });
+    }
+
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
     // TPN orders are written by prescribers (D5, Pp 2026-09-24: "พยาบาลบันทึกหรือ
     // submit ไม่ได้ ได้แค่ใช้ calculator"). A nurse still opens the Calculator and
@@ -2067,6 +2074,17 @@ function _validateLogEntry(entry) {
   _checkRange(entry.ioInput,      0,   3000, "I/O input (mL/d)");
   _checkRange(entry.ioOutput,     0,   3000, "I/O output (mL/d)");
   _checkRange(entry.drainContent, 0,   3000, "Drain content (mL/d)");
+  // The dosing weight. entry.weight is the measured weight; the TPN calc.
+  // weight typed over it, which every dose on the order follows, was never
+  // checked: an outside review (2026-10-08) saved a 900 g infant's order
+  // dosed at 8,500 g. Same bounds as entry.weight (data.js TPN_WT_RANGE_G).
+  // tpnWtOverrideG 0 means "no override"; a blank tpnWtG is a row from
+  // before UP-C2 recorded it, so neither is refused.
+  var ci = entry.calcInput;
+  if (ci && typeof ci === "object") {
+    _checkRange(ci.tpnWtG, 200, 8000, "TPN calc. weight (g)");
+    if (Number(ci.tpnWtOverrideG) !== 0) _checkRange(ci.tpnWtOverrideG, 200, 8000, "TPN calc. weight (g)");
+  }
 }
 
 // ── Growth measurement arrays: weights / lengths / hcs / bedHistory ─────────
@@ -3721,6 +3739,171 @@ function logAudit(action, sessionId, actorEmail) {
   try {
     _logAuditStrict(action, sessionId, actorEmail);
   } catch (e) { Logger.log("logAudit failed: " + e.message); }
+}
+
+// ── Help requests (Pp, 2026-10-05) ─────────────────────────────
+// Staff ask the Valhalla team for help from the user menu (ขอความช่วยเหลือ),
+// and this mails the request to the team. The team's Gmail forwards anything
+// whose subject carries HELP_SUBJECT_TAG to Praew's inbox, where a daily
+// Claude task reads and summarises it. The tag is load-bearing: change it only
+// together with that Gmail filter.
+//
+// The mail goes out as whoever cut the deployment (executeAs USER_DEPLOYING).
+// The manifest therefore needs the script.send_mail scope, and the first
+// deploy after this needs that account to approve it once. Until then MailApp
+// throws and staff see MailFailed ("try again"); nothing else is affected.
+//
+// No patient identifiers, by design: the form asks for none, and the client
+// attaches only the page, the app version, the browser and the time, never
+// the patient on screen. The detail is free text, so this is asked for, not
+// enforced. Pinned by test/verify-help-request-backend.cjs.
+//
+// One picture may come with it (Pp, 2026-10-09: "ให้แนบรูปที่ครอปไว้ ได้ด้วย"),
+// a screenshot the sender has cropped. The form asks them to cut out names,
+// beds and HN first, and shows what will go. Like the detail, that is asked
+// for, not enforced: the reminder at the foot of the mail covers the picture
+// too. The app re-encodes every picture as a JPEG of at most 1600 px, which
+// also drops its EXIF (location, device). Here it must still decode to a
+// JPEG, by its first bytes, and stay under HELP_IMAGE_MAX_BYTES.
+var HELP_REQUEST_TO_DEFAULT = "valhalla.team.th@gmail.com";
+var HELP_SUBJECT_TAG = "[NeoFeed help]";
+var HELP_CATEGORIES = { bug: "ใช้งานไม่ได้", numbers: "ตัวเลขดูแปลก", feature: "อยากได้ฟีเจอร์", other: "อื่น ๆ" };
+var HELP_DETAIL_MAX = 2000;
+var HELP_RATE_MAX = 5;              // requests per person …
+var HELP_RATE_WINDOW_MS = 3600000;  // … per rolling hour
+var HELP_IMAGE_MAX_BYTES = 1500000; // mirrors app.jsx HELP_IMAGE_MAX_BYTES
+
+// Script Property HELP_REQUEST_TO moves the recipient without a code change.
+function _helpRecipient() {
+  try {
+    var v = String(PropertiesService.getScriptProperties().getProperty("HELP_REQUEST_TO") || "").trim();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return v;
+  } catch (e) { /* unreadable: the default */ }
+  return HELP_REQUEST_TO_DEFAULT;
+}
+// One line of client-supplied context: no control characters at all, so it
+// cannot start a new line in the mail; capped; "-" when absent.
+function _helpLine(v, max) {
+  if (typeof v !== "string") return "-";
+  var s = v.replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+  return s ? s.slice(0, max) : "-";
+}
+function _helpRateKey(email) { return "helprl_" + String(email).toLowerCase(); }
+// Send times inside the window. A cache failure reads as none: the limit is
+// there to stop a stuck button flooding the team, not to stand between staff
+// and help, so it fails open.
+function _helpRecentSends(email, now) {
+  try {
+    var arr = _parseJson(CacheService.getScriptCache().get(_helpRateKey(email)), []);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(function (t) { return typeof t === "number" && now - t < HELP_RATE_WINDOW_MS; });
+  } catch (e) {
+    Logger.log("help rate limit read failed, allowing: " + e.message);
+    return [];
+  }
+}
+function _helpRecordSend(email, sends) {
+  try {
+    CacheService.getScriptCache().put(_helpRateKey(email), JSON.stringify(sends), Math.ceil(HELP_RATE_WINDOW_MS / 1000));
+  } catch (e) { Logger.log("help rate limit write failed: " + e.message); }
+}
+
+// The optional picture: { none: true }, { bytes } or a BadRequest.
+// Checked before the rate limit, so a refused picture costs nothing.
+function _helpImage(img) {
+  if (img === undefined || img === null) return { none: true };
+  var bad = { error: "รูปที่แนบใช้ไม่ได้ — ลบรูปแล้วแนบใหม่อีกครั้ง", code: "BadRequest" };
+  if (typeof img !== "object" || Array.isArray(img) || img.mimeType !== "image/jpeg") return bad;
+  var data = typeof img.data === "string" ? img.data : "";
+  // Length first, so an oversized string is refused before the regex reads it.
+  if (data.length > Math.ceil(HELP_IMAGE_MAX_BYTES / 3) * 4) {
+    return { error: "รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่", code: "BadRequest" };
+  }
+  if (!data || !/^[A-Za-z0-9+\/]+={0,2}$/.test(data)) return bad;
+  var bytes;
+  try { bytes = Utilities.base64Decode(data); } catch (e) { return bad; }
+  if (bytes.length > HELP_IMAGE_MAX_BYTES) {
+    return { error: "รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่", code: "BadRequest" };
+  }
+  // A JPEG starts FF D8 FF. Anything else is not mailed, whatever it claims.
+  if (bytes.length < 4 || (bytes[0] & 0xff) !== 0xff || (bytes[1] & 0xff) !== 0xd8 || (bytes[2] & 0xff) !== 0xff) return bad;
+  return { bytes: bytes };
+}
+
+function sendHelpRequest(body, user) {
+  var category = typeof body.category === "string" &&
+    Object.prototype.hasOwnProperty.call(HELP_CATEGORIES, body.category) ? body.category : "";
+  if (!category) return { error: "เลือกประเภทของเรื่องก่อนส่ง", code: "BadRequest" };
+  // The detail is the one multi-line field: newlines and tabs stay, every
+  // other control character goes.
+  var detail = typeof body.detail === "string"
+    ? body.detail.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").trim()
+    : "";
+  if (!detail) return { error: "เขียนรายละเอียดก่อนส่ง", code: "BadRequest" };
+  if (detail.length > HELP_DETAIL_MAX) {
+    return { error: "รายละเอียดยาวเกิน " + HELP_DETAIL_MAX + " ตัวอักษร — ตัดให้สั้นลงแล้วส่งอีกครั้ง", code: "BadRequest" };
+  }
+
+  var image = _helpImage(body.image);
+  if (image.error) return image;
+
+  var now = Date.now();
+  var sends = _helpRecentSends(user.email, now);
+  if (sends.length >= HELP_RATE_MAX) {
+    return { error: "ส่งไปแล้ว " + HELP_RATE_MAX + " เรื่องในชั่วโมงที่ผ่านมา — รอสักพักแล้วค่อยส่งเรื่องถัดไป", code: "RateLimited" };
+  }
+
+  var ctx = body.context && typeof body.context === "object" && !Array.isArray(body.context) ? body.context : {};
+  var label = HELP_CATEGORIES[category];
+  var text = [
+    "มีคำขอความช่วยเหลือจาก NeoFeed",
+    "",
+    "ประเภท: " + label,
+    "ผู้ส่ง: " + _helpLine(user.name, 100) + " <" + user.email + "> (" + user.role + ")",
+    "เวลา: " + new Date(now + WARD_UTC_OFFSET_MIN * 60000).toISOString().slice(0, 16).replace("T", " ") + " (Asia/Bangkok)",
+    "",
+    "รายละเอียด:",
+    detail,
+    "",
+    "แอปแนบมาให้",
+    "หน้า: " + _helpLine(ctx.view, 40),
+    "version: " + _helpLine(ctx.appVersion, 200),
+    "browser: " + _helpLine(ctx.userAgent, 300),
+    "เวลาในเครื่อง: " + _helpLine(ctx.clientTime, 40),
+    "รูปแนบ: " + (image.none ? "ไม่มี" : "1 รูป (" + Math.max(1, Math.round(image.bytes.length / 1024)) + " KB)"),
+    "",
+    "ฟอร์มนี้ขอไม่ให้ใส่ HN หรือชื่อผู้ป่วย ถ้าอีเมลนี้หรือรูปที่แนบมีข้อมูลที่ระบุตัวผู้ป่วย ให้ลบส่วนนั้นก่อน forward ต่อ",
+    "ตอบกลับอีเมลนี้ จะถึงผู้ส่งโดยตรง",
+  ].join("\n");
+
+  var mail = { to: _helpRecipient(), subject: HELP_SUBJECT_TAG + " " + label, body: text,
+    name: "NeoFeed", replyTo: user.email };
+  if (!image.none) {
+    var stamp = new Date(now + WARD_UTC_OFFSET_MIN * 60000).toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
+    mail.attachments = [Utilities.newBlob(image.bytes, "image/jpeg", "neofeed-help-" + stamp + ".jpg")];
+  }
+  try {
+    MailApp.sendEmail(mail);
+  } catch (e) {
+    // The raw message (a missing scope, a spent quota) is for the script log,
+    // not the ward.
+    Logger.log("sendHelpRequest: MailApp failed: " + e.message);
+    return { error: "ส่งเรื่องไม่สำเร็จ — ลองใหม่อีกครั้ง ถ้ายังไม่ได้ ให้อีเมลหาทีมที่ " + HELP_REQUEST_TO_DEFAULT,
+      code: "MailFailed", retryable: true };
+  }
+  sends.push(now);
+  _helpRecordSend(user.email, sends);
+  logAudit("helpRequest", "", user.email);
+  return { ok: true };
+}
+
+// Run once from the Apps Script editor, signed in as the deploying account,
+// after the deploy that adds the script.send_mail scope (REFERENCE.md §
+// Backend). Calling MailApp raises the consent screen; it sends nothing.
+function authorizeHelpMail() {
+  var left = MailApp.getRemainingDailyQuota();
+  Logger.log("MailApp authorised: " + left + " recipients left today");
+  return left;
 }
 
 // ── Product metric M1: weekly active users ─────────────────────

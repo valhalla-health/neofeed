@@ -228,7 +228,7 @@ neither collects anything (§ 5.4).
 | **D4** | Calculator link | "calculator ให้เติมเอง เพราะเหมือนมาใช้เครื่องคิดเลขเฉยๆ", then (asked to confirm) **"หมอพิมพ์เอง"** · "แต่ถ้าเข้าผ่าน ward หรือชื่อคนไข้ ให้ prefill น้ำหนัก" | **The prescriber types Intake/Output**; the nurses' record is a one-tap offer, never an auto-fill. **The weight is prefilled** from the latest measurement on or before the order's day (§ 5.3). |
 | **D5** | Narrow order writes to prescribers | "พยาบาลบันทึกหรือ submit ไม่ได้ ได้แค่ใช้ calculator" | now, not after 2 weeks: server-side refusal plus a compute-only Calculator, switched on together (§ 5.4) |
 | **D6** | Retention | "เก็บไว้ตลอดไปก่อน รอคุย" | indefinite for now; open with the DPO (§ 6) |
-| **D7** | DPO sign-off | "รอคุย" | **open. `NURSING_LOG_ENABLED` stays unset until it is given.** |
+| **D7** | DPO sign-off | "รอคุย" · Praew, 2026-10-08: the hospital's DPO role sits with IT; she is drafting the letter to IT. | **open. `NURSING_LOG_ENABLED` stays unset until it is given.** |
 
 ## 9 · Tests (Logic)
 

@@ -292,7 +292,8 @@ The two KCMH harnesses, `verify-registry-logged-today.cjs`,
 `verify-nutrition-unit-review.cjs`, `verify-review-0917-calc.cjs`,
 `verify-review-0917-drafts.cjs`, `verify-ward-requests-0918.cjs`,
 `verify-tpn-team-0922.cjs`, `verify-single-source-weight-dol.cjs`, `verify-pdpa-erased-dob-frontend.cjs`,
-`verify-ward-requests-0925.cjs`, `verify-name-id-0927.cjs`, `verify-ward-requests-1001.cjs` and
+`verify-ward-requests-0925.cjs`, `verify-name-id-0927.cjs`, `verify-ward-requests-1001.cjs`,
+`verify-help-request-frontend.cjs` and
 `verify-picker-print-identity.cjs` are the only things
 in this repo that need `npm` (they
 mount real components in jsdom); nothing else does. (The frontend build has its
@@ -1319,7 +1320,7 @@ The review of PR #129 added Praew's "max 200 ทั้งสองสาย": §
 peripheral limit on the form, back sheet and copied order, and a saved row above it reopening without Print
 even with every critical alert given a reason (and, as the control, printing at 50 mEq/L); § 10b, the quick
 calc's copied text flagging a bag above the maximum. Against `76db4d9`, 9 checks fail.
-113 checks in all.
+113 checks in all. Since 2026-10-08 the peripheral maximum is 60, and § 10 and the new § 14 pin it (below).
 
 ## The search wording and the All entries table, 2026-10-01 — one harness, seven adjusted
 
@@ -1339,6 +1340,126 @@ new one, pinning the same facts: `verify-tpn-team-0922` (cell indices; "3", not 
 `verify-review-0917-calc` (rows found by the weight cell), `verify-phone-sweep` (the table's class list),
 `verify-ward-requests-0925` (the placeholder wording) and `verify-review-0917-session` (the switcher found by
 its aria-label).
+
+## Help requests from inside the app, 2026-10-05 — two harnesses
+
+Pp's request: staff ask the Valhalla team for help from NeoFeed, by email (`CHANGELOG.md` 2026-10-05).
+`gas-vm-sandbox.cjs` gained a `MailApp` double that records every `sendEmail` and can be told to throw.
+
+**`verify-help-request-backend.cjs`** (64 assertions; no npm). § 1 only a signed-in session sends, and not
+on a temp password; § 2 the mail: to valhalla.team.th@gmail.com, subject `[NeoFeed help] <ประเภท>` (the
+team account's Gmail filter forwards on that tag), sender name NeoFeed, replyTo the staff member, the
+request and its context in a plain-text body, one `helpRequest` audit row; § 3 every role; § 4 the Script
+Property `HELP_REQUEST_TO`; § 5 validation in Thai (category from the list, non-blank detail, at most 2000
+characters); § 6 control characters out, so a crafted userAgent cannot start a line; § 7 five per person per
+rolling hour; § 8 a MailApp failure is MailFailed, retryable, unaudited, and does not use up the allowance;
+§ 9 a cache outage does not block a request; § 10 `authorizeHelpMail` sends nothing. Against `origin/main`
+before the change, 52 of the 64 fail.
+
+**`verify-help-request-frontend.cjs`** (29 assertions; the jsdom set). The user menu item and the form
+(four categories, the "no HN" notice); a blank detail refused in place; one request carrying the category,
+the detail and exactly four context fields, with no patient or session id; the toast; a refusal shown in the
+server's words and a network failure as "ไม่แน่ใจว่าส่งถึงทีมหรือยัง", the text kept both times; the item
+for a Google sign-in user. Against `origin/main` it reports 9 failures and 1 pass (the unchanged
+change-password check); three scenarios stop where the form should open.
+
+## The peripheral K⁺ maximum 60, 2026-10-08 — one harness extended, four adjusted
+
+Pp: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60" (it was 200; `CHANGELOG.md` 2026-10-08).
+**`verify-tpn-meeting-0928.cjs` § 14** (the jsdom set): the constant (peripheral 40 / 60 / 60, central
+60 / 120 / 200); peripheral 61, 65, 100, 150, 199 and 200 each red with "K⁺ above the maximum" alone, Submit
+disabled and the line by it naming the peripheral 60, a typed reason saving nothing and a draft still kept;
+peripheral 60 amber with Submit open in five fixtures, three of which land above 60 in floating point (the
+check says which), and one of them saved with no reason asked and printed; central 65 amber, 200 a confirm,
+201 refused; a peripheral order saved at 100 mEq/L under 2026-09-28.1 with its reason, refused on reopening and
+printable once brought to 60 and saved again; an order at 50 under 2026-09-28.1 held for re-save; one at 60
+under the new version printing. § 10 now pins the 60 maximum on a peripheral line (65 is above it; the switched
+213 bag names 60; the form, back sheet and copied order say "max 60"). 149 checks; against `f055360`, 30 fail.
+With the maximum lowered but K⁺ graded on the raw figure, 5 fail: the three floating-point 60s, the save and
+its print.
+
+Adjusted: `verify-kcmh-constants` pins `peripheral.hardMax` = 60; `verify-tpn-team-0922` § 7 (peripheral 70 is
+above the maximum, and the critical tier with a reason is shown at central 130); `verify-status-zones`
+(the peripheral bar is 90 long, red from 60); `verify-calc-oracle` (its own rule has the peripheral 60 and grades
+without float noise; the copied order's "max 60").
+
+## The dosing weight, 2026-10-08 — one harness, one extended, one adjusted
+
+Pp, after the outside review's 900 g infant dosed at 8,500 g (`CHANGELOG.md` 2026-10-08 (2)).
+**`verify-dosing-weight-1008.cjs`** (jsdom): a typed weight at exactly ±20 % (1,080 and 720 over 900 g) saves
+with no alert and no reason asked; +21 % and −21 % are critical, naming both weights; a cancelled reason saves
+nothing, a given one saves with the alert in `critOverride`, prints with the reason and leaves Print open;
+8,500 over 900 g is out of range alone (no "far" alert beside it), with its banner, both buttons disabled
+and nothing sent; 7,000 over 700 g is critical; 8,000 and 200 save, 8,001 and 199 do not; the birth-weight
+floor raises nothing, a weight typed over it is judged against it, and "ใช้ค่าอัตโนมัติ" clears the alert;
+a measured 9,000 g with no override stops the same way. 48 checks; against `453108a`, 23 fail.
+
+**`verify-input-validation.cjs` § 3b**: `_buildLogRow` refuses `calcInput.tpnWtG` 8,500 (the review's
+probe), 8,001, 199, 0 and "x", an override of 9,000 beside an in-range `tpnWtG`, and a negative override,
+naming "TPN calc. weight (g)"; it accepts 8,000 and 200, a far but in-range weight, override 0, a row with
+no `tpnWtG` and one with no `calcInput`. 14 checks; on the old backend, 9 fail.
+
+Adjusted: **`verify-calc-oracle.cjs`** models both alerts itself, and its 16 kg "F caps" scenario, the only
+weight at which the Soluvit and Peditrace ceilings bind, now expects Submit disabled and no save, print or
+copy; its ceilings are still checked on screen. 1,000 checks (1,053 before: F's print and copy are gone);
+against `453108a` it reports F's 5 surfaces, and `NEGATIVE_CONTROL=1` still fails 4.
+
+## The iPhone zoom, 2026-10-09 — one harness
+
+Pp, from an iPhone: the page ran off the right edge, and the help menu could not be found (`CHANGELOG.md`
+2026-10-09). **`verify-ios-input-zoom-1009.cjs`** (no npm dependencies for § 1, `playwright` for § 2–3, so CI
+runs § 1 only). iOS zooms in on a text field under 16 px and stays zoomed; Chromium never does, so this
+harness measures the font size, the figure iOS reads. § 1, in both shells: one rule keyed on the element
+(`input` but not checkbox, radio or range, `textarea`, `select`, `.inp`, `.sel`) at 16 px `!important`
+under `(max-width: 767px), (hover: none) and (pointer: coarse)`, and no class-list rule left in the phone
+block; the avatar 44 × 44 on a phone; `.modal-box` capped at 90 dvh (82 on a phone) as a column with a
+scrolling `.modal-body`. § 2 in Chromium at 402 px (Pp's iPhone), 375, 280, 360, 420 and 440 px, and a
+landscape iPhone at 874 × 402: it signs in and opens the topbar search, the ward list, the help form, the
+register form, the quick calc and the calculator with every step open, and fails on any visible text field
+under 16 px. It also checks that the avatar is 44 × 44 inside the screen, that the help item is inside it at
+44 px tall, and that the help form's ส่ง is inside it. A desktop with a mouse keeps its 14 px search. § 3 is
+the negative control: put the old `.inp, .sel` rule back and the topbar search reads 14 px. 123 checks;
+against `fbb19f4`, 52 fail.
+
+## The help button and a picture, 2026-10-09 (2) — one harness new, two extended
+
+Pp: the help button at the top right beside the login name, and a cropped picture with the request
+(`CHANGELOG.md` 2026-10-09 (2)). **`verify-help-request-backend.cjs`** 64 → 94: § 11 a JPEG goes as one
+attachment, byte for byte, named `neofeed-help-<YYYYMMDD-HHMM>.jpg`, and the body says so; § 12 a PNG, a PNG
+or PDF claiming JPEG, a `data:` URL, one byte over 1.5 MB and nine more are refused in Thai, nothing mailed,
+nothing counted against the hour. `gas-vm-sandbox.cjs`'s `newBlob` now keeps its third argument, the file
+name. Against `main`'s backend (`d59e156`), 25 of the 94 fail. **`verify-help-request-frontend.cjs`** 29 →
+53: #5 the topbar button opens the form directly and the menu item stays; #6–#8 the picture (preview, ลบรูป,
+the request's `image`, a PDF, a picture that will not open, one that will not shrink), with `Image`, the
+canvas and object URLs stood in for. `menuItem()` names the user menu's item; `t.btn(/ขอความช่วยเหลือ/)`
+now finds the topbar button first. Against `main`'s `app.jsx` and `icons.jsx`, 11 fail, all in #5–#8.
+
+**`verify-help-button-1009.cjs`** (no npm dependencies for § 1, `playwright` for § 2–4, so CI runs § 1
+only). § 1 both shells carry the same `.help-btn` lines, and the narrow-phone block sits after the phone
+block, which would otherwise undo it. § 2 in Chromium at 280, 300, 310, 320, 340, 359, 360, 375, 402 and 440
+px, a landscape iPhone, an iPad and two desktops: the button is inside the screen, clear of the search and
+the avatar, 44 px tall on touch, shows the right words for the width (or is hidden below 310 px, where the
+menu item must be on screen), opens the form with ส่ง on screen, leaves no sideways scroll, and the NeoFeed
+wordmark keeps its full 4.56em. The wordmark is the check that bites: it shrinks before anything overlaps.
+§ 3 a real 3000 × 2000 JPEG with an EXIF block goes in at 402 px and at 1440 px; the preview and the request
+hold a 1600 × 1067 JPEG with no EXIF, under 1.5 MB. § 4, the negative control: with the narrow-phone block
+taken out, the 320 px wordmark is squeezed. 154 checks; against `main` (`d59e156`), 80 fail.
+`verify-ios-input-zoom-1009.cjs` clicked the first button reading ขอความช่วยเหลือ, which is now the topbar's;
+it names the menu item (`button:not(.help-btn)`) and is back to 123/123.
+
+**Running the browser sections on Pp's PC.** The global `playwright` (1.62.1) wants Chromium build 1234;
+`%LOCALAPPDATA%\ms-playwright` holds 1217 and 1248, so every harness's browser section prints SKIP. Rather
+than download a browser, preload a three-line shim that fills in `executablePath`:
+
+```js
+// pw-launch-shim.cjs: node -r ./pw-launch-shim.cjs test/verify-help-button-1009.cjs
+const pw = require('playwright');
+const launch = pw.chromium.launch.bind(pw.chromium);
+pw.chromium.launch = (o = {}) => launch(Object.assign({}, o, { executablePath: o.executablePath || process.env.CHROME_EXE }));
+```
+
+with `CHROME_EXE` set to `…\ms-playwright\chromium-1248\chrome-win64\chrome.exe`. In Git Bash, give
+`NODE_OPTIONS` and `NODE_PATH` Windows paths (`cygpath -m`): Node does not read `/c/…` there.
 
 ## Note on the source workbook
 

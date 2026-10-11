@@ -1,19 +1,37 @@
 # NeoFeed — Status
 
-> ✅ **2026-10-01, 11:16–11:17 ICT — frontend `release` = `a127baf` on both hosts, with backend `@61`.**
-> PR #133 released #131: both search boxes read "เตียง / ชื่อ / นามสกุล", and All entries drops the Day
-> admit column and keeps each row on one line. Frontend only; `CONSTANTS_VERSION` stays `2026-09-28.1`.
-> `node tools/verify-release.mjs a127baf` passed on both hosts (0 failures, 61 passes), and the tag
-> `release-2026-10-01-pr133` is pushed (comment on #133). The first release PR for #131, #132, conflicted
-> because #130 had been squash-merged; it was closed, and #133 carries the same tree with `release` as a
-> second parent.
+> ✅ **2026-10-09, 18:01–18:03 ICT — frontend `release` = `679e9db` on both hosts, with backend `@63`.**
+> PR #143 released #142: on an iPhone every text field is 16 px, so a tap on the patient search no longer
+> zooms the page and pushes the avatar, and the help menu behind it, off screen. Shells only (CSS).
+> `node tools/verify-release.mjs 679e9db` passed on both hosts (0 failures, 61 passes). The tag
+> `release-2026-10-09-pr143` is pushed (comment on #143).
 >
-> ✅ **2026-09-28, 21:33 ICT — frontend `release` = `3ae2e18` on both hosts, with backend `@61`.**
-> PR #130 released #129, the TPN team's 2026-09-28 meeting: K⁺ by route with a 200 maximum, the lipid
-> rate ceiling. Frontend only; `CONSTANTS_VERSION` `2026-09-18.1` → `2026-09-28.1`.
-> `node tools/verify-release.mjs 3ae2e18` passed on both hosts (0 failures, 61 passes), and the tag
-> `release-2026-09-28-pr130` is pushed (comment on #130). #130 was the one squash merge on `release`;
-> squash and rebase merging are off since 2026-10-04 (`REFERENCE.md` § Frontend).
+> ✅ **2026-10-08, 21:38–22:42 ICT — backend `@63`, then frontend `release` = `6bb00d8` on both hosts.**
+> PR #140 released #139: the TPN calc. weight has bounds (200–8,000 g, critical beyond 20 %). `@63` is
+> `gas-backend.gs` at `fbb19f4`, byte for byte. `node tools/verify-release.mjs 6bb00d8` passed on both hosts
+> (0 failures, 61 passes). The tag `release-2026-10-08-pr140` is pushed (comment on #140).
+>
+> ✅ **2026-10-08, 20:45–20:47 ICT — frontend `release` = `ff5aa43` on both hosts, with backend `@62`.**
+> PR #138 released #137: the peripheral K⁺ maximum is 60 mEq/L, and `CONSTANTS_VERSION` is `2026-10-08.1`,
+> so every order saved before it is saved again before it prints. `node tools/verify-release.mjs ff5aa43`
+> passed on both hosts (0 failures, 61 passes). The tag `release-2026-10-08-pr138` is pushed (comment on #138).
+>
+> ✅ **2026-10-06, 15:49–16:02 ICT — backend `@62`, then frontend `release` = `62b6dec` on both hosts.**
+> PR #136 released #135: help requests from the user menu. `@62` is `gas-backend.gs` at `f055360`, byte for
+> byte. `node tools/verify-release.mjs 62b6dec` passed on both hosts (0 failures, 61 passes). The tag
+> `release-2026-10-06-pr136` is pushed (comment on #136).
+>
+> ✅ **2026-10-01, 11:17 ICT — frontend `release` = `a127baf` on both hosts, with backend `@61`.**
+> PR #133 released #131: the search reads "เตียง / ชื่อ / นามสกุล", and the All entries table is one line
+> per row. `node tools/verify-release.mjs a127baf` passed on both hosts (0 failures, 61 passes). The tag
+> `release-2026-10-01-pr133` is pushed (comment on #133).
+>
+> ✅ **2026-09-28, 21:33–21:38 ICT — frontend `release` = `3ae2e18` on both hosts, with backend `@61`.**
+> PR #130 released #129: the TPN team's meeting, K⁺ by route with a 200 maximum, the lipid rate ceiling,
+> `CONSTANTS_VERSION` `2026-09-28.1`. `node tools/verify-release.mjs 3ae2e18` passed on both hosts (0
+> failures, 61 passes). The tag `release-2026-09-28-pr130` is pushed (comment on #130). #130 was the one
+> squash merge on `release`; squash and rebase merging are off since 2026-10-04 (`REFERENCE.md` §
+> Deploying, and rolling back).
 >
 > ✅ **2026-09-27, 21:43–21:44 ICT — backend `@61`, then frontend `release` = `ec6ff6e` on both hosts.**
 > PR #128 released #127: Admit date corrections again, `NF-` ids, the look-alike question. `@61` is
@@ -103,19 +121,57 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-04** · ✅ **Backend `@61` and frontend `release` = `a127baf` are live, and both are
-verified.** Caught up with #130 and #133 in #134, the next PR on the repo.
-- ✅ **PR #131 is live**, released by PR #133 at 11:17 ICT on 2026-10-01 on Pp's instruction ("update
-  neofeed repo and deploy to live new version"): `release` = `a127baf`, whose tree is `main` at
-  `2c109ab`. Frontend only: no `clasp` step, and `CONSTANTS_VERSION` stays `2026-09-28.1`, so no order
-  needs saving again. Before the merge, all 76 harnesses passed locally on the release commit, including
-  the browser sections CI skipped then (comment on #133). ⚠️ **It changes what the ward sees:** both
-  search boxes read "เตียง / ชื่อ / นามสกุล"; All entries has no Day admit column, shows each unit once
-  under its column name, and keeps every cell on one line (`CHANGELOG.md` 2026-10-01).
-- ✅ **PR #129 is live**, released by PR #130 at 21:33 ICT on 2026-09-28: `release` = `3ae2e18`,
-  `verify-release.mjs 3ae2e18` 0 failures and 61 passes on both hosts, tag `release-2026-09-28-pr130`
-  (comment on #130). The KCMH TPN team's 2026-09-28 meeting, merged into `main` on Pp's instruction
-  ("เมื่อ review PR129 เสร็จ ให้ merge and deploy เลย"). Frontend only: no `clasp` step.
+**Updated 2026-10-09, 19:00 ICT** · ✅ **Backend `@63` and frontend `release` = `679e9db` are live, and
+both are verified.** Caught up with #140 and #143 in PR #144, the next PR on the repo, as both asked.
+- ⏳ **PR #144, a help button beside the login name and one cropped picture: merged into `main` on Pp's
+  instruction ("merge แล้ว deploy").** Backend `@64` (`clasp`, no new scope), then a `main` → `release`
+  PR, follow in the same session. Pp,
+  2026-10-09: "ให้ปุ่ม help button อยู่บนขวา ใกล้ชื่อ login" and "ให้แนบรูปที่ครอปไว้ ได้ด้วย"
+  (`CHANGELOG.md` 2026-10-09 (2)). `CONSTANTS_VERSION` unchanged.
+  - The topbar's help button opens the same form as the menu item: ขอความช่วยเหลือ on a wide screen,
+    ช่วยเหลือ on a phone, the icon alone from 310 to 359 px, the menu item only below that.
+  - One picture, redrawn by the app as a JPEG of at most 1600 px with no EXIF, mailed as an attachment.
+    The backend refuses anything that is not a JPEG by its first bytes, or is over 1.5 MB.
+  - ⚠️ A screenshot can show a patient. The form asks for names, beds and HN to be cropped out and shows
+    the picture before it goes; nothing enforces it. DPO note pending (`BACKLOG.md`).
+  - ⚠️ An old frontend against `@64` is unchanged; this frontend against `@63` would mail the request
+    without its picture, so the backend goes first.
+- ✅ **PR #142 is live**, released by PR #143 on Pp's instruction ("deploy เลย") on 2026-10-09 at 18:01 ICT:
+  `release` = `679e9db`, whose tree is `main` at `d59e156`. Shells only
+  (CSS), no `clasp` step, `CONSTANTS_VERSION` unchanged (`CHANGELOG.md` 2026-10-09). Pp, from an iPhone:
+  "หน้าล้นใน iphone 18 และยังไม่เห็นปุ่ม ขอความช่วยเหลือที่ให้ส่ง email".
+  - The topbar's patient search was 14 px, so iOS zoomed the page in on a tap and stayed zoomed. That cut the
+    sheet off at the right and left the avatar, and the help menu behind it, off screen. Now every text field
+    is 16 px on a phone and on any touch screen, and the avatar is a 44 px target.
+  - A dialog never runs past the screen: on a sideways phone, the help form's ส่ง was below the edge.
+  - ⚠️ Not checked on a real iPhone yet. A phone still zoomed in from before needs one pinch out.
+- ✅ **PR #139 is live**, released by PR #140 on Pp's instruction ("merge แล้ว deploy") on 2026-10-08:
+  backend `@63` at 21:38 ICT, then `release` = `6bb00d8` at 22:31 ICT. Frontend and backend, in either order
+  (`CHANGELOG.md` 2026-10-08 (2)). From an outside review of `62b6dec` that saved a 900 g infant's order
+  dosed at 8,500 g. Pp decided the threshold in chat.
+  - **TPN calc. weight outside 200–8,000 g:** no Submit, no draft, and the backend refuses it.
+  - **A typed weight more than 20 % from the automatic one** is a critical alert, ordered only with a typed
+    reason, which prints. `CONSTANTS_VERSION` stays `2026-10-08.1`: no dose moves.
+  - ⚠️ A saved order with a typed weight more than 20 % away and no reason on file needs a re-save with a
+    reason before it prints. #138's version bump already asks every older order for one re-save.
+- ✅ **PR #137 is live**, released by PR #138 on Pp's instruction on 2026-10-08 at 20:45 ICT: `release` =
+  `ff5aa43`, whose tree is `main` at `453108a`. The peripheral K⁺ maximum is 60 mEq/L; above it the order
+  cannot be saved or printed (a draft can). Central is unchanged. **`CONSTANTS_VERSION` `2026-09-28.1` →
+  `2026-10-08.1`**, so an order saved before 20:45 ICT prints again only after it is saved again.
+  `verify-release.mjs ff5aa43` passed on both hosts (comment on #138).
+  - ⚠️ Pharmacy and the TPN team hear about it now, after the release (`BACKLOG.md` § Now).
+- ✅ **PR #135 is live**, released by PR #136 on 2026-10-06: backend `@62` at 15:49 ICT, then `release` =
+  `62b6dec` at 16:01 ICT. User menu → 💬 ขอความช่วยเหลือ mails a category and a detail to
+  valhalla.team.th@gmail.com, which forwards it to praew.tvl@gmail.com. Never the patient.
+  - ⚠️ **Not checked yet:** a real request from the app arriving at praew.tvl@gmail.com.
+- ✅ **PR #131 is live**, released by PR #133 on 2026-10-01 at 11:17 ICT: `release` = `a127baf`, whose
+  tree is `main` at `2c109ab`, and `main` is an ancestor of `release` again. Frontend only: the search
+  wording and a one-line All entries table (`CHANGELOG.md` 2026-10-01). `verify-release.mjs a127baf`
+  passed on both hosts (comment on #133). ⚠️ Not checked yet: a real phone on this release.
+- ✅ **PR #129 is live**, released by PR #130 on Pp's instruction ("เมื่อ review PR129 เสร็จ ให้ merge and
+  deploy เลย") at 21:33 ICT: `release` = `3ae2e18`, a squash merge whose tree is `main` at `0fe760d`.
+  `verify-release.mjs 3ae2e18` passed on both hosts, and post-merge CI on `release` passed (run
+  36436856668; comment on #130). Frontend only: no `clasp` step.
   **`CONSTANTS_VERSION` `2026-09-18.1` → `2026-09-28.1`** (the K⁺ limit prints on the form), so an order
   saved before the release prints again only after it is saved again (`CHANGELOG.md` 2026-09-28).
   ⚠️ **It changes what the ward and pharmacy see:**
