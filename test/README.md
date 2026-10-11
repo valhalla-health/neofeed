@@ -1463,6 +1463,18 @@ pw.chromium.launch = (o = {}) => launch(Object.assign({}, o, { executablePath: o
 with `CHROME_EXE` set to `…\ms-playwright\chromium-1248\chrome-win64\chrome.exe`. In Git Bash, give
 `NODE_OPTIONS` and `NODE_PATH` Windows paths (`cygpath -m`): Node does not read `/c/…` there.
 
+## The peripheral K⁺ maximum alone, 2026-10-11 — one harness extended, three adjusted
+
+Pp, on PR #137: "ให้เหลือแค่ max 60", and on 2026-10-11: "> 60 peripheral จะสั่งไม่ได้" (`CHANGELOG.md`
+2026-10-11 (6)). **`verify-tpn-meeting-0928.cjs` § 15** (jsdom; also against `compiled/`): where red is the
+maximum, the line under the tile reads "peripheral: amber > 40 · max 60 mEq/L", the caution names the
+maximum and no critical tier, and the form, the back sheet and the copied order say "max 60" with no
+"confirm" and no "red > 60" on the screen, the form or the copy; central reads as before (red 120, max 200); and
+with the figures moved for the check alone, red 200 = max 200 on central writes the maximum alone and red 50 <
+max 60 on peripheral writes both. 162 checks; against `daaad66`, 11 fail. Adjusted: § 10 and § 14 in the same
+file, `verify-tpn-team-0922` § 7 (the peripheral line under the tile) and `verify-calc-oracle` (its regex for the
+copied order's "(N mEq/L; …)" matched only the old wording and read the new one as `null` in two scenarios).
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

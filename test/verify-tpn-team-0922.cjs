@@ -377,8 +377,9 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     const w = alertOf('K⁺ concentration high');
     ok('…a caution naming 55 against 40 for a peripheral line', !!w && w.level === 'warn' && /55 mEq\/L/.test(w.text) && /40 mEq\/L for a peripheral line/.test(w.text), w && w.text);
     // "· max 60" since 2026-10-08 (Praew: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60");
-    // it was "max 200" from the review of PR #129.
-    ok('under the tile: the peripheral thresholds', /peripheral: amber > 40 · red > 60 · max 60 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    // it was "max 200" from the review of PR #129. The red tier is not written
+    // where it IS the maximum (peripheral, since the §15 change of 2026-10-11).
+    ok('under the tile: the peripheral thresholds', /peripheral: amber > 40 · max 60 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
     setField('KCl', 3.5);   // 7 mEq in 100 mL = 70 mEq/L
     eq('KCl 3.5 in 100 mL on a peripheral line: 70 mEq/L, red', [tileVal('K⁺ in bag'), tileStatus('K⁺ in bag')], ['70 mEq/L', 'crit']);
     const m = alertOf('K⁺ above the maximum');
