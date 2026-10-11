@@ -7,6 +7,41 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 (6) — Peripheral K⁺: the maximum alone
+
+`calculator.jsx` (`kRedIsMax`, `kBagLimitParts`, five display sites), `compiled/calculator.js` and the
+shells' `?v=` token, `test/verify-tpn-meeting-0928.cjs` § 15, `verify-tpn-team-0922.cjs`,
+`verify-calc-oracle.cjs`, `test/README.md`. PR #150. Frontend only, no `clasp` step.
+**`CONSTANTS_VERSION` unchanged**: no limit moved, no saved order is reopened differently.
+
+### Why
+
+Above 60 mEq/L a peripheral bag cannot be ordered, so the surfaces that wrote *"red > 60"* and
+*"confirm > 60"* beside *"max 60"* named a confirmation that never happens. Pp, on PR #137 (2026-10-08):
+"ให้เหลือแค่ max 60"; asked on 2026-10-11 to put it in a PR, she put the rule in one line: "> 60 peripheral
+จะสั่งไม่ได้". The test for it (§ 15) sat uncommitted in the `k-peripheral-max-60` worktree with no code behind it.
+
+### What changed
+
+- **One rule, two helpers.** `kRedIsMax(lim)` is true where red is the maximum (peripheral 40 / 60 / 60);
+  `kBagLimitParts(lim, word)` returns `"<word> 120"` and `"max 200"`, or `"max 60"` alone. The tile line, the
+  caution, the form, the back sheet and Copy order all read from them, so they cannot disagree.
+- **Peripheral now reads:** line under the tile `peripheral: amber > 40 · max 60 mEq/L`; caution `above 40
+  mEq/L for a peripheral line (max 60)`; form `K⁺ in bag: max 60 mEq/L (peripheral)`; back sheet `(max 60,
+  peripheral)`; Copy order `(50 mEq/L; max 60 on a peripheral line)`. **Central is unchanged.**
+- **Nothing was reachable before that is unreachable now.** The "K⁺ concentration too high" alert (above red) is
+  still first behind `kOverMax`; at peripheral 60 it never fired, and it still does not.
+
+### Tests
+
+§ 15 passes 162/162 against the sources and against `compiled/`. The oracle's copy-text regex needed the new
+wording (1000/1000 again). Vera: NO BLOCK, with two findings, both fixed (this entry and the `README.md`
+section).
+
+### Not done
+
+- Printed forms already on the ward carry the old wording until reprinted; the numbers on them are the same.
+
 ## Session 2026-10-11 (5) — Vera's seeded-bug benchmark: 6/6 verdicts, 4/5 defects, 0/7 decoys
 
 `test/vera-bench/` (key, six cases, the first run's reports), `tools/vera-bench.mjs`,
