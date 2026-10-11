@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-11 (2) — Vera's seeded-bug benchmark: 6/6 verdicts, 4/5 defects, 0/7 decoys
+## Session 2026-10-11 (3) — Vera's seeded-bug benchmark: 6/6 verdicts, 4/5 defects, 0/7 decoys
 
 `test/vera-bench/` (key, six cases, the first run's reports), `tools/vera-bench.mjs`,
 `test/verify-vera-bench.cjs`, `.claude/hooks/vera-report.cjs`, `.claude/agents/vera.md`,
@@ -15,7 +15,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ### Why
 
-Pp, after the first entry today: "วัดผล Vera ด้วย bug ที่ฝังไว้ก่อน". A reviewer nobody has measured is
+Pp, after the 2026-10-11 (2) entry: "วัดผล Vera ด้วย bug ที่ฝังไว้ก่อน". A reviewer nobody has measured is
 an opinion. The method is from a talk in Pp's YouTube notes (AI LABS, 2026-09-11, at
 [13:15](https://www.youtube.com/watch?v=BwNNcob3-A0&t=795s)): seed known defects and decoys that look
 wrong but are right, then score what the reviewer catches and what it wrongly flags.
@@ -65,7 +65,7 @@ could not start. So her tool limit and her Stop hook were not in force. The six 
 `NODE_OPTIONS=--require ./test/compiled-loader.cjs`; 2.13 (a path that is not in the repo) failed
 before the hook change. `verify-build-shells.cjs` 44/44.
 
-## Session 2026-10-11 — Vera, an independent review before every risky PR
+## Session 2026-10-11 (2) — Vera, an independent review before every risky PR
 
 `.claude/agents/vera.md`, `.claude/hooks/vera-report.cjs`, `test/verify-vera-report.cjs`,
 `REFERENCE.md` § Pre-PR review (Vera), `AGENTS.md`, `AI_SDLC.md` § 7. No app file changed, so nothing
@@ -145,6 +145,61 @@ fixed in this PR.
   headless run in this worktree listed `vera` among its agents, so the frontmatter loads, but the
   CLI's login had expired before she started. Claude Code runs a project agent's hooks only in a
   trusted folder.
+
+## Session 2026-10-11 — Severity as a word and a shape, and no colour emoji on any screen
+
+`calculator.jsx`, `registry.jsx`, `app.jsx`, `icons.jsx`, `data.js`, both shells (CSS); one new harness and one
+edited. No clinical constant or calculation. **`CONSTANTS_VERSION` unchanged**: `data.js` lost a ✅ from two feed
+notes and nothing that prints a dose moved.
+
+### Why
+
+Pp asked for a Hallmark audit of the live app (*"Audit NeoFeed with Hallmark"*, 2026-10-11). Its one critical
+finding was real, not taste: a calculator tile said ok, warn or crit by colour alone (border, tint, a 3px side
+stripe, the meter's zones). On a greyscale print, for a colour-blind reader, or on a tablet at night, three tiles
+looked the same. The emoji were the second finding: `⚠️` is painted by the OS in its own colours, not `--warn` or
+`--crit`, and the app mixed it with `⚠`, `✅` and its own icon set. Pp saw a before-and-after mock-up and said to do
+all of it (*"แก้ตามภาพนี้ทั้งหมด"*), then to take the emoji out of every page (*"จัดการ emoji ในทุกหน้าเลย"*).
+
+### What changed
+
+- **Calculator tiles** carry a chip beside the label: a shape (tick, triangle, octagon) and a word. The hues, the
+  tint and the meter are untouched; the side stripe is gone. The word is read off the number against the tile's own
+  target: *In range*, *Low*, *High*, *Critical low*, *Critical high*; a tile with no target says *OK*, and an amber
+  value that is still inside its target says *Caution* (no direction is claimed). brand and empty tiles have none.
+  - The chip is a sibling of `.lbl`, in a new `.metric-top`, because the harnesses (and a screen reader) take the
+    label's own text as the tile's name.
+- **Registry stat strip**: *Logged today* and *Needs entry* get the same three shapes in front of the number
+  (`RegStatMark`), and the 3px left stripe on all four stats is gone.
+- **`icons.jsx`**: `warn` and `stop`, stroked like the rest; `window.STATUS_ICON` is the one ok/warn/crit → shape
+  mapping.
+- **No colour emoji on any screen.** Tabs, `<optgroup>` and feed-group labels, the pump headers, the user menu, the
+  attach button, the copy button and its toast are text. `⚠️` and `⚠` in the calculator became the `warn` icon,
+  `✅` the tick. Two feed notes in `data.js` lost a ✅.
+
+### Left alone, on purpose
+
+- The brand stripe on `.patient-strip .lead` (decoration, not status), and the inset stripe on Step 1's
+  *Remaining* box, which has its own words.
+- The `✓` / `⚠` prefix on toasts (here and on the Center Point page) and the ☐ ☑ ✔ on the printed order form: plain
+  text glyphs, not colour emoji, and the print form is meant to look like the paper one.
+- `--surface: #ffffff` and the white-fade card headers, which Pp chose on 2026-09-22.
+
+### Check before the release
+
+- **The words are inferred**, not taken from a clinician: the meter's own zones (green inside the target, yellow
+  outside, red past a hard limit) plus the side of the target the value is on. If the ward prefers other words, they
+  are the six strings in `statusWord` and nothing else.
+- The 17 `<Tile>` call sites were read, and the harness mounts the real calculator on its default path. The grading
+  functions behind each tile (`kcalStatusAt`, `kConcStatusAt` and the others) were not traced one by one; a tile
+  whose grade is its own and lands inside its target says *Caution* rather than a guessed direction.
+
+### Tests
+
+New `verify-status-words-1011.cjs` (34 checks, sources and `compiled/`): the word table, the real calculator's tiles
+(chip beside the label, own tone, a shape, a valid word, no stripe, direction matches the number), no colour emoji on
+the screen or in any `<optgroup>` or feed note, and `RegStatMark`. `verify-tpn-meeting-0928.cjs` finds the lipid
+card by `/^Lipid Pump/` now that the 🫙 is gone.
 
 ## Session 2026-10-09 (2) — A help button beside the login name, and one cropped picture
 
