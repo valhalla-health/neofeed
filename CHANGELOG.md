@@ -11,7 +11,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 `openspec/`, `.claude/commands/opsx/`, seven skills each in `.claude/skills/` and `.agents/skills/`,
 `.assetsignore`, `_config.yml`, `test/verify-build-shells.cjs`; docs. No served file, clinical constant or
-calculation. **`CONSTANTS_VERSION` unchanged.** No `clasp` step. PR #NNN. Also catches `STATUS.md` up with
+calculation. **`CONSTANTS_VERSION` unchanged.** No `clasp` step. PR #146. Also catches `STATUS.md` up with
 release #145.
 
 ### Why

@@ -125,8 +125,8 @@
 > (`BACKLOG.md` § Now).
 
 **Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
-verified.** Caught up with #145 in PR #NNN, the next PR on the repo, as #145 asked.
-- ⏳ **PR #NNN, OpenSpec: open.** Pp, 2026-10-11: "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md`
+verified.** Caught up with #145 in PR #146, the next PR on the repo, as #145 asked.
+- ⏳ **PR #146, OpenSpec: open.** Pp, 2026-10-11: "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md`
   2026-10-11). Adds `openspec/` and the `/opsx:*` commands and skills for Claude Code and Codex. No served
   file changes: `.assetsignore` and `_config.yml` now keep `openspec/` and `.agents/` off both hosts, and
   `verify-build-shells.cjs` 5.7–5.8 pin that. `CONSTANTS_VERSION` unchanged.
