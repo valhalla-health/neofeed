@@ -7,6 +7,72 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 — Vera, an independent review before every risky PR
+
+`.claude/agents/vera.md`, `.claude/hooks/vera-report.cjs`, `test/verify-vera-report.cjs`,
+`REFERENCE.md` § Pre-PR review (Vera), `AGENTS.md`, `AI_SDLC.md` § 7. No app file changed, so nothing
+to release. Added to this PR (#134, the agent's environment) on Pp's instruction, after `main` was
+merged in.
+
+### Why
+
+Pp asked how to improve the harness, and to study how large engineering teams run AI review. A kit
+drafted in a claude.ai chat proposed a `vera` and an `omen` subagent plus hooks, but it was written
+without this repo: its edit hook refused every `.jsx` file (it told the agent to rewrite `app.jsx` as
+`.js`), and it blocked `gh pr merge` outright, against Pp's merge-on-instruction rule. Its one sound
+idea was a reviewer that reads the diff in its own context. `AI_SDLC.md` § 7 names the gap it narrows:
+no change to a printed dose has ever had a second reviewer.
+
+### What changed
+
+1. **`vera` subagent.** Tools are Read, Grep and Glob only, so she cannot edit or run anything even
+   in bypassPermissions, where a subagent inherits the parent's mode and a "read-only" prompt binds
+   nothing. She gets one review file (Pp's request, commit messages, diff) and none of the author's
+   reasoning. She triages the diff into dose, patient data, access and printed order, checks each
+   against this repo's own rules (`docs/CLINICAL_CONSTANTS.md` change protocol, `REFERENCE.md` PDPA),
+   tries to refute each finding before keeping it, and reports at most five.
+2. **BLOCK or NO BLOCK, never PASS.** A 🔴 needs a quoted line and the input that fails. Her NO BLOCK
+   is not an approval and not the second clinician of the change protocol.
+3. **The report's shape is a hook, not a request.** `vera-report.cjs` runs when she stops and sends
+   her back once if the verdict, the five-finding cap, a `path:line`, an Evidence line or a
+   `Fails when:` line is missing, or if the verdict disagrees with the severities.
+4. **The main agent's side** is `REFERENCE.md` § Pre-PR review (Vera): split a dose diff over about
+   400 lines, write the review file, paste her report unedited into the PR, mark each finding `fixed`
+   or `disputed`, add a test she proposes only if it fails before the fix and passes after.
+
+### Why each rule (sources read 2026-10-11)
+
+- Read-only by tools; a fresh reviewer that sees the diff and the criteria, not the reasoning; a Stop
+  hook as a deterministic gate; a reviewer asked for gaps "will usually report some": Claude Code docs,
+  [best practices](https://code.claude.com/docs/en/best-practices) and
+  [subagents](https://code.claude.com/docs/en/sub-agents).
+- Draw the boundary "around access and actions, not around a model's instructions"; tier review by
+  risk; reviewers prove their findings: [Anthropic, 2026-07-21](https://claude.com/blog/how-anthropic-secures-its-ai-native-software-development-lifecycle).
+- Findings advise and never approve: [Claude Code Code Review](https://code.claude.com/docs/en/code-review).
+- Precision over volume, nits suppressed, 75% of comments rated useful, usefulness tracked per
+  category: [Uber uReview, 2025-08-12](https://www.uber.com/blog/ureview/); AutoCommenter held back
+  until its useful ratio reached 80%: [Google, AIware 2024](https://arxiv.org/abs/2405.13565).
+- A proposed test counts only once it runs and catches something: Meta,
+  [TestGen-LLM](https://arxiv.org/abs/2402.09171) and [ACH](https://arxiv.org/abs/2501.12862).
+- Repeat findings become checks whose error message teaches the fix:
+  [OpenAI, harness engineering, 2026-02-11](https://openai.com/index/harness-engineering/).
+- Small changes review better: [Google, ICSE-SEIP 2018](https://storage.googleapis.com/gweb-research2023-media/pubtools/4476.pdf),
+  [Google eng-practices](https://google.github.io/eng-practices/review/developer/small-cls.html).
+  The 400-line figure is a vendor's (SmartBear), not peer-reviewed.
+- Two humans for the top source level: [SLSA v1.2](https://slsa.dev/spec/v1.2/source-requirements),
+  which is why Vera does not count as the second clinician.
+
+### Tests
+
+`node test/verify-vera-report.cjs`: 20 pass. Before the checker existed it failed to load; with the
+five-finding cap raised to 10 and the 🔴-under-NO-BLOCK rule removed, 2.3 and 2.7 failed, so the
+harness catches a loosened rule. CI runs it with every other `verify-*.cjs`.
+
+### Not checked
+
+- Vera on a live PR in a NeoFeed session, and her Stop hook firing as SubagentStop there. Claude Code
+  runs a project agent's hooks only in a trusted folder.
+
 ## Session 2026-10-09 (2) — A help button beside the login name, and one cropped picture
 
 `app.jsx`, `icons.jsx`, both shells (CSS), `gas-backend.gs`; one new harness and two extended ones; docs. No

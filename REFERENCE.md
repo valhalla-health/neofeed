@@ -124,6 +124,42 @@ Two harness contracts: the patient table stays the form's first direct `<table>`
 
 The HMF threshold `patient.ga < 32` still works because all valid values stay under integer 32.
 
+## Pre-PR review (Vera)
+
+Before you open or update a PR whose diff touches a dose file (`data.js`, `calculator.jsx`,
+`gas-backend.gs`, `docs/CLINICAL_CONSTANTS.md`), the printed order, the auth boundary or patient
+data, run the `vera` subagent (`.claude/agents/vera.md`). She reads the diff in her own context with
+read-only tools and returns BLOCK or NO BLOCK. She is a second pair of eyes for what CI cannot see;
+the `harnesses` check stays the only machine gate, and Pp the only approver.
+
+1. **Keep the change small.** Split a dose-file diff of more than about 400 changed lines first;
+   review finds less as a change grows.
+2. **Write one review file outside the repo**: Pp's request as she wrote it, when there is one, then
+   the output of
+   ```
+   git fetch -q origin
+   git log --format='%h %s%n%n%b' origin/main..HEAD
+   git diff origin/main...HEAD
+   ```
+   Give Vera that path and nothing else. Your own summary and reasoning stay out, so she judges the
+   change and not your account of it.
+3. **Paste her report unedited** into the PR body under `## Vera`, and under each finding write
+   `fixed in <sha>` or `disputed: <why>`.
+4. **A BLOCK holds the PR** until the 🔴 is fixed and Vera has run again, or until Pp overrides it in
+   the PR with her reason.
+5. **A test Vera proposes goes in only if it fails on the code before the fix and passes after.**
+   Otherwise leave it out and say so under the finding.
+6. **An agent that cannot start a subagent** (Codex, a chat) writes `Vera: not run` under `## Vera`.
+
+Her report's shape is checked by `.claude/hooks/vera-report.cjs` when she stops, which sends her back
+once if it is off (`test/verify-vera-report.cjs`). It needs Node, and Claude Code runs a project
+agent's hooks only in a folder you have trusted.
+
+**Keeping her useful.** The `fixed` and `disputed` marks are her score. A class of finding that is
+useful less than three times in four, over about 20 findings, comes out of `vera.md`. A class she
+raises twice becomes a harness test whose failure message says how to fix it, and leaves her prompt.
+The reasons for each rule, with sources: `CHANGELOG.md` 2026-10-11.
+
 ## Deploying, and rolling back
 
 ### Frontend

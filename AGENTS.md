@@ -6,6 +6,8 @@ It prints pharmacy orders, so the tests and the release gate are strict on purpo
 
 Read before you act:
 
+- **Opening or updating a PR** that touches a dose file, the printed order, auth or patient data:
+  `REFERENCE.md` § Pre-PR review (Vera). Run her before the PR and paste her report into it.
 - **Merging, releasing or deploying** anything: `REFERENCE.md` § Deploying, and rolling back.
   Merging into `main` deploys nothing; `release` deploys. An agent merges into `release`, or runs a
   backend `clasp deploy`, only on Praew's explicit go-ahead.
