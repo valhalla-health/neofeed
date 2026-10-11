@@ -136,7 +136,7 @@ verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 ask
   follows in the same session. Pp, 2026-10-11, after a Hallmark audit of the live app: "แก้ตามภาพนี้ทั้งหมด"
   and "จัดการ emoji ในทุกหน้าเลย" (`CHANGELOG.md` 2026-10-11). `CONSTANTS_VERSION` unchanged.
   - A calculator tile that is off its range says so with a shape and a word beside its label (*Low*,
-    *High*, *Caution*, *Critical low*, *Critical high*); a tile that is fine says nothing (PR #149, below).
+    *High*, *Caution*, *Critical low*, *Critical high*); a tile that is fine says nothing (PR #149, above).
     The side stripe is gone; the hues and the meter are not. The registry's *Logged today* and *Needs
     entry* get a triangle or an octagon when they are off.
   - ⚠️ **The words are inferred from the meter's zones, not given by a clinician.** They are the strings in
