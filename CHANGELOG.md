@@ -80,7 +80,9 @@ again on `compiled/`, every module-mounting harness reporting its swap; among th
 browser sections locally (no Playwright); CI runs those. Center Point builds and its 5 client tests pass.
 `index.html` and `NeoFeed.html` are byte-identical after the rebuild.
 
-**Vera: NO BLOCK**, one 🟡 (the alert boundary above), fixed by S8. Her report goes in the PR body.
+**Vera: NO BLOCK**, one 🟡 (the alert boundary above), fixed by S8. Her report is in the body of
+PR #153, merged into `main` on Pp's instruction ("merge ทั้งสอง PR"). Not live until a `main` →
+`release` PR is merged.
 
 **Second clinician: none.** The fix is Pp's decision (2026-10-11); no second clinician has reviewed it,
 as for every printed-figure change so far (`AI_SDLC.md` §7).
