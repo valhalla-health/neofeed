@@ -27,7 +27,8 @@ product work out instead.
 
 - The three product pages never reached `main`; they and `docs/stakeholder/` (the stakeholder graph and
   its PNG/SVG map, added in `91057b0`) now live in Pp's private notes,
-  `Desktop\PraewPP\NeoFeed innovation\Product\`.
+  `Desktop\PraewPP\NeoFeed\Product\`. That folder was split out of `NeoFeed innovation\` the same day,
+  which now holds only the QI project and the competition entry.
 - `AGENTS.md` says product, meeting and stakeholder documents stay out of this repo, and where they are.
 - `docs/stakeholder/` stays readable in this repo's history; removing it from history would need a force
   push, which this repo does not allow.

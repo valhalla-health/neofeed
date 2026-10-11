@@ -19,7 +19,7 @@ Read before you act:
 - **What is live now, and rollback**: `STATUS.md`. **Open work**: `BACKLOG.md`.
 - **Product work stays out of this repo.** It is public. Product decisions and bets, ward requests, ward
   feedback (read it before any UI work) and the stakeholder map live in Pp's private notes,
-  `~\OneDrive\Desktop\PraewPP\NeoFeed innovation\Product\` (Pp, 2026-10-11). Never add product, meeting or
+  `~\OneDrive\Desktop\PraewPP\NeoFeed\Product\` (Pp, 2026-10-11). Never add product, meeting or
   stakeholder documents here; `PRD.md` is the one product page this repo keeps.
 - **Running the harnesses**: `test/README.md`.
 - **Why something is the way it is**: `CHANGELOG.md`, newest first. Add an entry for your session.
