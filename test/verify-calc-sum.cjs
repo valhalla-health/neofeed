@@ -51,11 +51,12 @@
 //     form is withdrawn while unsaved, and that after the second save the
 //     reprinted form carries the new figures and its parts still add up.
 //
-// Orders: the oracle's 12 scenarios (copied, not imported), seven written for
+// Orders: the oracle's 12 scenarios (copied, not imported), eight written for
 // this check — a 900 g infant on day 3 of TPN, a term infant, a bag a few mL
 // short of its prepared volume, one that overflows it, K₂HPO₄ and MgSO₄ at
-// 0.01 mL, hundredths that carry across the sum, and a prepared volume with a
-// second decimal (typed 80.45 mL) — and SUM_N seeded random orders (default 40,
+// 0.01 mL, hundredths that carry across the sum, a prepared volume with a
+// second decimal (typed 80.45 mL), and components that fill such a bag
+// exactly (WFI 0, no over-full alert) — and SUM_N seeded random orders (default 40,
 // seed SUM_SEED 20261011; the seed and the whole order print with a failure).
 //
 // NEGATIVE_CONTROL proves the harness bites. It patches calculator.jsx in
@@ -198,6 +199,12 @@ const OWN = [
   // CHANGELOG.md, 2026-10-11 (8). Do not loosen the tolerance to make it pass.
   { name: 'S7 prepared volume with a second decimal (80.45 + 50 mL)', bw: 1000, cur: 1000, dol: 10, fluid: 150, ioOut: 50,
     tpn: 80.45, dead: 50, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 40, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },
+  // S8: the over-full alert at the same tie (Vera, NF-17 review). 130.45 mL prepared prints 130.5;
+  // the components (130.48 → 130.5) fill it exactly. WFI is 0 and no alert fires. Before the fix the
+  // WFI was 130.45 − 130.5 → −0.1 and the bag was called over-full by 0.1 mL.
+  { name: 'S8 components fill the printed bag exactly at the tie (WFI 0)', bw: 2000, cur: 2000, dol: 10, fluid: 120,
+    ioOut: 80, tpn: 130.45, dead: 0, dex: 20, aa: 3.5, naCl: 2, kCl: 1, ca: 6, hep: 0.6, weights: [{ dol: 1, w: 2000 }],
+    expectMake: { components: 130.5, wfi: 0, prepared: 130.5 } },
 ];
 function randomOrder(i) {
   const bw = between(400, 4000, 10);
@@ -387,6 +394,12 @@ function sumCheck(sc, label, Vd) {
   const scr = screenFigures();
   const cp = readCopyBag();
   const detail = { parts: parts.map(p => `${p.name.slice(0, 22)}=${p.text}`), sumParts: sr, printed: make, screen: scr, copy: cp, TOL };
+  if (sc.expectMake && label === 'save 1') {
+    ok(sc, `${label}: printed bag line is ${JSON.stringify(sc.expectMake)}`, ['components', 'wfi', 'prepared'].every(k => make[k] === sc.expectMake[k]), make);
+    ok(sc, `${label}: no "Bag cannot be compounded" alert`,
+      ![...container.querySelectorAll('.calc-bottom .alert-row .title')].some(t => t.textContent === 'Bag cannot be compounded'));
+    ok(sc, `${label}: copy does not say cannot compound`, !!cp && !cp.cannot, cp);
+  }
   if (make.wfi < 0) {
     // Over-full bag: no sum to close; the three surfaces must each say so.
     ok(sc, `${label}: over-full bag → "Bag cannot be compounded" alert on screen`,

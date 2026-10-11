@@ -23,7 +23,7 @@ stock lines a pharmacist reads. The fuzz's I3 checks that the bag total equals t
 
 ### What changed
 
-- **`verify-calc-sum.cjs`**: 59 orders (the oracle's 12, seven of its own, 40 seeded random). Each is
+- **`verify-calc-sum.cjs`**: 60 orders (the oracle's 12, eight of its own, 40 seeded random). Each is
   saved through Submit; every stock mL on the back page's "Aqueous bag — stock" table is summed and checked
   against the printed WFI and prepared volume, the on-screen Components and Bag total, and the copied BAG
   MAKE-UP line. Then a dead-space chip or a typed TPN volume changes the order, and the screen, the
@@ -60,12 +60,27 @@ calculator logic moved a printed figure. A row saved before the bump prints only
 The oracle states the rule on its own (`e.wfi = r1(r1(Vp) − components)`), and its new scenario H is the
 same 130.45 mL order: it failed on `4d92a76` (print and copy WFI 42.9 against 43) and passes now.
 
+**The over-full alert moved at that tie, and S8 pins it** (Vera's 🟡). With 130.45 mL prepared and components
+of 130.48 mL (printed 130.5), the old WFI was 130.45 − 130.5 → −0.1, so the bag was called over-full by
+0.1 mL and the order needed a critical reason. Now WFI is 0 and no alert fires: the components fill the
+printed bag, and the real overrun is 0.03 mL. S8 asserts the printed line 130.5 + 0 = 130.5 and no alert on
+the screen, the form or the copy; it fails 5 checks on `4d92a76`.
+
 ### Tests
 
 Red first: on `4d92a76` (harness only, app unchanged) `verify-calc-sum.cjs` failed 2 of 2188, both S7, and
-the oracle's scenario H failed 2 (print and copy WFI 42.9 against 43). After the fix: sum 2188/2188 on the
-sources and on `compiled/` (`[compiled-loader] swapped in compiled/{icons,calculator}.js`); its negative
-controls fail 228, 166 and 85 checks; oracle 1092/1092, fuzz 1796/1796, clicks 242/242.
+the oracle's scenario H failed 2 (print and copy WFI 42.9 against 43); S8, added after the review, fails 5
+there. After the fix: sum 2231/2231 on the sources and on `compiled/` (`[compiled-loader] swapped in
+compiled/{icons,calculator}.js`); its negative controls fail 235, 172 and 93 checks; oracle 1092/1092,
+fuzz 1796/1796, clicks 242/242.
+
+Every `test/verify-*.cjs` (85 harnesses) plus `DEAD=0 verify-kcmh-factor.cjs` passes on the sources and
+again on `compiled/`, every module-mounting harness reporting its swap; among them `verify-review-0917-calc`
+120/120, `verify-build-shells` 46/46 and `verify-provenance-stamp` 38/38. Ten harnesses skipped their
+browser sections locally (no Playwright); CI runs those. Center Point builds and its 5 client tests pass.
+`index.html` and `NeoFeed.html` are byte-identical after the rebuild.
+
+**Vera: NO BLOCK**, one 🟡 (the alert boundary above), fixed by S8. Her report goes in the PR body.
 
 **Second clinician: none.** The fix is Pp's decision (2026-10-11); no second clinician has reviewed it,
 as for every printed-figure change so far (`AI_SDLC.md` §7).

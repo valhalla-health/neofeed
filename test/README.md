@@ -994,9 +994,10 @@ critical alert. CI runs the default 80 orders (≈40 s, twice — sources and `c
 run is `FUZZ_N=500`. The three harnesses together are why the job's timeout went from 20 to 30 minutes.
 
 **`verify-calc-sum.cjs`** (2026-10-11, NF-17) — does the printed bag add up, and does a click move the
-figure on screen? 59 orders: the oracle's 12, seven of its own (a 900 g infant on day 3 of TPN, a term
+figure on screen? 60 orders: the oracle's 12, eight of its own (a 900 g infant on day 3 of TPN, a term
 infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ at 0.01 mL, hundredths carried
-across the sum, a prepared volume typed with a second decimal) and 40 random from seed 20261011
+across the sum, a prepared volume typed with a second decimal, and components that fill such a bag
+exactly) and 40 random from seed 20261011
 (`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
 stock" table is added up: Σ parts + printed WFI must equal the printed prepared volume within **0.05 mL**
 (0 when every part is a whole tenth), printed Components + WFI must equal it exactly, and the on-screen
