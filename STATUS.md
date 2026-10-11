@@ -1,5 +1,12 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-11, 17:35 ICT — frontend `release` = `8fa5d2b` on both hosts, with backend `@64`.**
+> PR #148 released #147 and #149: severity as a word and a shape, no colour emoji, and no *In range* chip on
+> a tile that is fine. #146 and #134 rode along and changed no served file. `node tools/verify-release.mjs
+> 8fa5d2b` passed on both hosts (0 failures, 61 passes; comment on #148). The tag `release-2026-10-11-pr148`
+> is pushed. ⚠️ **No one has looked at the new tiles on a phone or a ward PC yet**, and `curl` runs no
+> JavaScript.
+>
 > ✅ **2026-10-09, 19:30–19:31 ICT — backend `@64`, then frontend `release` = `1fce931` on both hosts.**
 > PR #145 released #144: a help button beside the login name, and one cropped picture. `@64` is
 > `gas-backend.gs` at `c47d6ea`, byte for byte. `node tools/verify-release.mjs 1fce931` passed on both
@@ -126,25 +133,31 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
-verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 asked.
-- ⏳ **PR #134, the agent's environment: merged into `main` on Pp's instruction ("fix and merge").** No
-  served file changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Merge
+**Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `8fa5d2b` are live, and both are
+verified.** Caught up with #148 in PR #150, the next PR on the repo, as #148 asked.
+- ⏳ **PR #150, peripheral K⁺: the maximum alone: merged into `main` on Pp's instruction ("merge #150
+  แล้วลบ worktree เก่าเลย").** Not live: a `main` → `release` PR follows in the same session. Pp, on PR #137: "ให้เหลือแค่ max 60",
+  and 2026-10-11: "> 60 peripheral จะสั่งไม่ได้" (`CHANGELOG.md` 2026-10-11 (6)). Where red is the maximum
+  (peripheral), the tile line, the caution, the form, the back sheet and Copy order say "max 60" and nothing
+  about confirming above it; central is unchanged. Frontend only, no `clasp` step. `CONSTANTS_VERSION`
+  unchanged: no limit moved. ⚠️ **It changes what the printed form says**; forms already on the ward keep the
+  old wording until reprinted, with the same numbers.
+- ✅ **PR #134, the agent's environment: merged into `main` on Pp's instruction ("fix and merge"), and
+  released with #148.** No served file changes, so nothing was deployed by it. Merge
   commits only, the browser sections in CI, LF checkouts, `AGENTS.md` and Vera, the pre-PR review
   (`CHANGELOG.md` 2026-10-11 (4) and (5)). `AGENTS.md` now points at OpenSpec too (#146).
-- ⏳ **PR #146, OpenSpec: merged into `main` on Pp's instruction ("merge PR146 เลย").** No served file
-  changes, so nothing to deploy; PR #148 (`main` → `release`, open) carries it along. Pp, 2026-10-11:
+- ✅ **PR #146, OpenSpec: merged into `main` on Pp's instruction ("merge PR146 เลย"), and released with
+  #148.** No served file changes, so nothing was deployed by it. Pp, 2026-10-11:
   "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md` 2026-10-11 (3)). Adds `openspec/` and the `/opsx:*` commands
   and skills for Claude Code and Codex. `.assetsignore` and `_config.yml` keep `openspec/` and `.agents/`
   off both hosts, and `verify-build-shells.cjs` 5.7–5.8 pin that. `CONSTANTS_VERSION` unchanged.
-- ⏳ **PR #149, a tile that is fine says nothing: merged into `main` on Pp's instruction ("merge แล้ว
-  deploy", with "แก้ก่อนปล่อย" for this fix).** Frontend only. It goes out in the same release as #147:
-  PR #148 (`main` → `release`) was open and absorbs it. Pp, 2026-10-11, once she saw where the words
+- ✅ **PR #149, a tile that is fine says nothing: live, released by #148 with #147 on Pp's instruction ("merge
+  แล้ว deploy", with "แก้ก่อนปล่อย" for this fix).** Frontend only. Pp, 2026-10-11, once she saw where the words
   appear: "ไม่แสดง In range ตอนปกติ" (`CHANGELOG.md` 2026-10-11 (2)). `CONSTANTS_VERSION` unchanged.
   - *In range* and *OK* are gone: an ok tile has no chip, and an ok stat in the registry has no tick.
-- ⏳ **PR #147, severity as a word and a shape, and no colour emoji on any screen: merged into `main` on
-  Pp's instruction ("merge แล้ว deploy").** Frontend only, no `clasp` step; a `main` → `release` PR
-  follows in the same session. Pp, 2026-10-11, after a Hallmark audit of the live app: "แก้ตามภาพนี้ทั้งหมด"
+- ✅ **PR #147, severity as a word and a shape, and no colour emoji on any screen: live, released by #148
+  on Pp's instruction ("merge แล้ว deploy").** Frontend only, no `clasp` step. Pp, 2026-10-11, after a
+  Hallmark audit of the live app: "แก้ตามภาพนี้ทั้งหมด"
   and "จัดการ emoji ในทุกหน้าเลย" (`CHANGELOG.md` 2026-10-11). `CONSTANTS_VERSION` unchanged.
   - A calculator tile that is off its range says so with a shape and a word beside its label (*Low*,
     *High*, *Caution*, *Critical low*, *Critical high*); a tile that is fine says nothing (PR #149, above).
@@ -154,7 +167,8 @@ verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 ask
     `statusWord` (`calculator.jsx`): confirm them or change them there.
   - No colour emoji is drawn as an icon on any screen any more; ✓ / ⚠ prefixes on toasts and ☐ ☑ on the
     printed form are plain text and stay.
-  - ⚠️ Not checked yet: the chip on a real tablet and a phone at the bedside.
+  - ⚠️ Not checked yet: the chip on a real tablet and a phone at the bedside. `verify-release.mjs 8fa5d2b`
+    proves the served bytes, not how it looks (comment on #148).
 - ✅ **PR #144 is live**, released by PR #145 on Pp's instruction ("merge แล้ว deploy") on 2026-10-09 at
   19:30 ICT: `release` = `1fce931`, whose tree is `main` at `c47d6ea`, with backend `@64` (`clasp`, no new
   scope) first. `verify-release.mjs 1fce931` passed on both hosts (comment on #145). Pp,

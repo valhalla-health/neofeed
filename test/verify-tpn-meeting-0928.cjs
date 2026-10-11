@@ -30,6 +30,8 @@
 //   §14  peripheral 61–200 mEq/L cannot be ordered, 60 can (however the
 //        arithmetic lands on it), central is unchanged, and a peripheral order
 //        saved above 60 before the change no longer prints. §10 follows.
+//   §15  "ให้เหลือแค่ max 60" (on PR #137): where red is at or above the maximum,
+//        only the maximum is shown and printed; central reads as before.
 //
 // Mounts the real <Calculator> in jsdom (same dev-only deps as the other
 // calculator harnesses — see test/README.md). Fails against 6269b88; §10 and
@@ -386,7 +388,7 @@ function baseOrder({ tf = 120 } = {}) {
     eq('peripheral 50: amber, a caution', [tileStatus('K⁺ in bag'), kAlerts()], ['warn', ['warn:K⁺ concentration high']]);
     kAt(100, 3.25);   // 65
     eq('peripheral 65: red, above the 60 maximum; Submit disabled', [tileStatus('K⁺ in bag'), kAlerts(), !!saveBtn() && saveBtn().disabled], ['crit', ['crit:K⁺ above the maximum'], true]);
-    ok('the line under the tile gives the peripheral thresholds', /peripheral: amber > 40 · red > 60 · max 60 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
+    ok('the line under the tile gives the peripheral thresholds', /peripheral: amber > 40 · max 60 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
     click(button(/^Central$/));
     eq('the same 65 on a central line: amber', [tileStatus('K⁺ in bag'), kAlerts()], ['warn', ['warn:K⁺ concentration high']]);
     ok('…and the line under the tile gives the central ones', /central: amber > 60 · red > 120 · max 200 mEq\/L/.test(text(container.querySelector('.k-conc-ref'))), text(container.querySelector('.k-conc-ref')));
@@ -411,10 +413,11 @@ function baseOrder({ tf = 120 } = {}) {
     kAt(100, 2.5);    // 50, amber: saves with no reason
     await save();
     ok('submitted (an update of the draft): the form prints', !!printForm());
-    ok('the form gives the route’s limit', /K⁺ in bag: confirm > 60 · max 60 mEq\/L \(peripheral\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
-    ok('…and so does its back sheet', /K⁺ in bag 50 mEq\/L \(confirm > 60, max 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
+    // The maximum alone on a peripheral line since 2026-10-08 (§15).
+    ok('the form gives the route’s limit', /K⁺ in bag: max 60 mEq\/L \(peripheral\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
+    ok('…and so does its back sheet', /K⁺ in bag 50 mEq\/L \(max 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
     const copy = await copyOrder();
-    ok('…and the copied order', /\(50 mEq\/L; confirm above 60, max 60 on a peripheral line\)/.test(copy), copy.match(/Total K:[^\n]*/));
+    ok('…and the copied order', /\(50 mEq\/L; max 60 on a peripheral line\)/.test(copy), copy.match(/Total K:[^\n]*/));
     click(button(/^Central$/));
     await save();
     ok('on a central line the form gives both numbers', /K⁺ in bag: confirm > 120 · max 200 mEq\/L \(central\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
@@ -640,6 +643,58 @@ function baseOrder({ tf = 120 } = {}) {
       text(container.querySelector('.print-blocked')));
     reopen(savedRow('k-now-60', 3, { constantsVersion: D.CONSTANTS_VERSION }));
     ok('…while one saved at 60 under the new version prints', !!printForm());
+  });
+
+  // ═════════════════════ §15 only the maximum where it is red ═════════════════
+  // Praew, 2026-10-08, on PR #137: "ให้เหลือแค่ max 60". Where a route's red is
+  // at or above its maximum (peripheral 60 / 60), no bag can be confirmed with
+  // a reason, so the screen, the form and the copied order name the maximum
+  // alone. It follows the constants, not the route: central (red 120 < max 200)
+  // reads exactly as before, and either route flips when its numbers do.
+  await section('§15 only "max 60" on a peripheral line (Praew, 2026-10-08); central unchanged; derived from the constants', async () => {
+    const ref = () => text(container.querySelector('.k-conc-ref'));
+    const kWarn = () => alertRows().find(a => a.title === 'K⁺ concentration high')?.text || '';
+    // 2 kg, 100 mL, no dead space, KCl alone: mEq/L = KCl mEq/kg × 20.
+    const order = (sid, route, kCl) => {
+      mount({ patient: pt(sid, 2000), onLog: logger().onLog });
+      setField('Current weight', 2000); fillRequired(120);
+      setField('ปริมาตรคาสาย', 0); setField('Volume(mL/day)', 100);
+      click(button(new RegExp(`^${route}$`)));
+      setField('KCl', kCl);
+    };
+    const UNREACHABLE = /confirm (>|above) 60|red > 60|critical above 60/;
+
+    order('KW-P50', 'Peripheral', 2.5);   // 50, amber
+    eq('peripheral, under the tile', ref(), 'peripheral: amber > 40 · max 60 mEq/L');
+    ok('…the caution names the maximum, not a critical tier', /above 40 mEq\/L for a peripheral line \(max 60\)/.test(kWarn()) && !/critical above/.test(kWarn()), kWarn());
+    await save();
+    ok('…the form: "K⁺ in bag: max 60 mEq/L (peripheral)"', /K⁺ in bag: max 60 mEq\/L \(peripheral\)/.test(text(frontSheet())), text(frontSheet()).match(/K⁺ in bag: .{0,40}/));
+    ok('…the back sheet: "(max 60, peripheral)"', /K⁺ in bag 50 mEq\/L \(max 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
+    const pCopy = await copyOrder();
+    ok('…the copied order: "(50 mEq/L; max 60 on a peripheral line)"', /\(50 mEq\/L; max 60 on a peripheral line\)/.test(pCopy), pCopy.match(/Total K:[^\n]*/));
+    ok('…and no 60 to confirm anywhere: screen, form or copy', !UNREACHABLE.test(screenText()) && !UNREACHABLE.test(printText()) && !UNREACHABLE.test(pCopy),
+      [screenText(), printText(), pCopy].map(s => (s.match(UNREACHABLE) || [''])[0]));
+
+    order('KW-C70', 'Central', 3.5);      // 70, amber
+    eq('central, under the tile: unchanged', ref(), 'central: amber > 60 · red > 120 · max 200 mEq/L');
+    ok('…the caution: unchanged', /above 60 mEq\/L for a central line \(critical above 120\)/.test(kWarn()), kWarn());
+    await save();
+    ok('…the form: unchanged', /K⁺ in bag: confirm > 120 · max 200 mEq\/L \(central\)/.test(text(frontSheet())), text(frontSheet()).match(/K⁺ in bag: .{0,40}/));
+    ok('…the back sheet: unchanged', /K⁺ in bag 70 mEq\/L \(confirm > 120, max 200, central\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
+    const cCopy = await copyOrder();
+    ok('…the copied order: unchanged', /\(70 mEq\/L; confirm above 120, max 200 on a central line\)/.test(cCopy), cCopy.match(/Total K:[^\n]*/));
+
+    // Moved numbers, for this check only: each route reads from its own.
+    const P = D.K_BAG_MEQ_PER_L.peripheral, C = D.K_BAG_MEQ_PER_L.central;
+    const was = { pRed: P.red, cRed: C.red };
+    try {
+      C.red = 200;   // red = max on central → the maximum alone
+      order('KW-C200', 'Central', 3.5);
+      eq('central with red 200 = max 200: the maximum alone', ref(), 'central: amber > 60 · max 200 mEq/L');
+      P.red = 50;    // red below max on peripheral → both
+      order('KW-P50R', 'Peripheral', 2.25);   // 45, amber
+      eq('peripheral with red 50 < max 60: red and max', ref(), 'peripheral: amber > 40 · red > 50 · max 60 mEq/L');
+    } finally { P.red = was.pRed; C.red = was.cRed; }
   });
 
   console.log(`\nTPN MEETING 2026-09-28: ${fail ? fail + ' FAILED' : 'ALL PASSED'} (${pass} passed)`);
