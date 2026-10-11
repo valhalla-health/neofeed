@@ -91,6 +91,32 @@ as for every printed-figure change so far (`AI_SDLC.md` §7).
   harness counts it as outside the sum, as the app does. BACKLOG's line on printing its mL stays open,
   and so does the small-volume rounding item.
 
+## Session 2026-10-11 (7) — Product work moves out of the public repo
+
+Docs only: `docs/stakeholder/` removed, one item in `AGENTS.md`. No served file, no harness and no
+`CONSTANTS_VERSION` change; both hosts skip `*.md` and `docs/`. Branch `claude/nf-20-22-product-docs`,
+PR #152, merged into `main` on Pp's instruction ("merge ทั้งสาม PR"). Nothing to deploy: no `main` → `release` PR is needed for docs.
+
+### Why
+
+This PR first added three product pages (NF-20 product decisions, NF-21 ward requests, NF-22 ward
+feedback). Before it merged, Pp checked whether product-manager work and the live app were mixed in one
+repo. They were, and this repo is public: anyone could read the bets, the ward's requests and the
+stakeholder map. Making the repo private on the organisation's free plan would drop the `harnesses`
+requirement on `main` and `release`, cap Actions at 2,000 minutes a month (the last 30 days used about
+3,900) and take GitHub Pages' redirect page offline. Pp chose to keep the repo public and move the
+product work out instead.
+
+### What changed
+
+- The three product pages never reached `main`; they and `docs/stakeholder/` (the stakeholder graph and
+  its PNG/SVG map, added in `91057b0`) now live in Pp's private notes,
+  `Desktop\PraewPP\NeoFeed\Product\`. That folder was split out of `NeoFeed innovation\` the same day,
+  which now holds only the QI project and the competition entry.
+- `AGENTS.md` says product, meeting and stakeholder documents stay out of this repo, and where they are.
+- `docs/stakeholder/` stays readable in this repo's history; removing it from history would need a force
+  push, which this repo does not allow.
+
 ## Session 2026-10-11 (6) — Peripheral K⁺: the maximum alone
 
 `calculator.jsx` (`kRedIsMax`, `kBagLimitParts`, five display sites), `compiled/calculator.js` and the
