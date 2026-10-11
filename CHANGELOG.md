@@ -11,7 +11,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 `openspec/`, `.claude/commands/opsx/`, seven skills each in `.claude/skills/` and `.agents/skills/`,
 `.assetsignore`, `_config.yml`, `test/verify-build-shells.cjs`; docs. No served file, clinical constant or
-calculation. **`CONSTANTS_VERSION` unchanged.** No `clasp` step. PR #146.
+calculation. **`CONSTANTS_VERSION` unchanged.** No `clasp` step. PR #146, merged into `main` on Pp's
+instruction ("merge PR146 เลย").
 
 ### Why
 

@@ -126,8 +126,9 @@
 
 **Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `1fce931` are live, and both are
 verified.** Caught up with #145 in PR #147, the next PR on the repo, as #145 asked.
-- ⏳ **PR #146, OpenSpec: open.** Pp, 2026-10-11: "ลองติดตั้งใน NeoFeed เลย" (`CHANGELOG.md`
-  2026-10-11 (2)). Adds `openspec/` and the `/opsx:*` commands and skills for Claude Code and Codex. No served
+- ⏳ **PR #146, OpenSpec: merged into `main` on Pp's instruction ("merge PR146 เลย").** Nothing to deploy:
+  no served file changes, so it rides along with the next `main` → `release` PR. Pp, 2026-10-11: "ลองติดตั้งใน
+  NeoFeed เลย" (`CHANGELOG.md` 2026-10-11 (2)). Adds `openspec/` and the `/opsx:*` commands and skills for Claude Code and Codex. No served
   file changes: `.assetsignore` and `_config.yml` now keep `openspec/` and `.agents/` off both hosts, and
   `verify-build-shells.cjs` 5.7–5.8 pin that. `CONSTANTS_VERSION` unchanged.
 - ⏳ **PR #147, severity as a word and a shape, and no colour emoji on any screen: merged into `main` on
