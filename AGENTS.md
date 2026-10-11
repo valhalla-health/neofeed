@@ -17,8 +17,9 @@ Read before you act:
   `openspec/specs/`, this repo's rules in `openspec/config.yaml`. Neither host serves `openspec/` or `.agents/`.
 - **Clinical rules, GA/PMA, the printed order, PDPA**: the matching section of `REFERENCE.md`.
 - **What is live now, and rollback**: `STATUS.md`. **Open work**: `BACKLOG.md`.
-- **Who NeoFeed is for, the bets in flight and product decisions**: `docs/product/product-decisions.md`.
-  Ward requests and their options: `docs/product/requests.md`. Ward feedback, read before any UI work:
-  `docs/product/feedback.md`. No patient details or staff names in any of the three.
+- **Product work stays out of this repo.** It is public. Product decisions and bets, ward requests, ward
+  feedback (read it before any UI work) and the stakeholder map live in Pp's private notes,
+  `~\OneDrive\Desktop\PraewPP\NeoFeed innovation\Product\` (Pp, 2026-10-11). Never add product, meeting or
+  stakeholder documents here; `PRD.md` is the one product page this repo keeps.
 - **Running the harnesses**: `test/README.md`.
 - **Why something is the way it is**: `CHANGELOG.md`, newest first. Add an entry for your session.

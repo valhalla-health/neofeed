@@ -7,32 +7,30 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-11 (7) — Product pages: decisions, ward requests, feedback
+## Session 2026-10-11 (7) — Product work moves out of the public repo
 
-Docs only: `docs/product/product-decisions.md`, `docs/product/requests.md`, `docs/product/feedback.md`, one
-item in `AGENTS.md`. No served file, no harness and no `CONSTANTS_VERSION` change; both hosts skip `*.md`.
-Branch `claude/nf-20-22-product-docs`, PR #152, merged into `main` on Pp's instruction ("merge PR 152").
-Nothing to deploy: no `main` → `release` PR is needed for docs.
+Docs only: `docs/stakeholder/` removed, one item in `AGENTS.md`. No served file, no harness and no
+`CONSTANTS_VERSION` change; both hosts skip `*.md` and `docs/`. Branch `claude/nf-20-22-product-docs`,
+PR #152. Nothing to deploy: no `main` → `release` PR is needed for docs.
 
 ### Why
 
-Pp asked for NF-20, NF-21 and NF-22 from her YouTube-Knowledge mapping (Stanford PM talks by Jiaona Zhang
-and Anand Subramani): one page for who NeoFeed serves and the bets in flight, a table that turns each ward
-request back into its problem, and a weekly check-in with one ward user. `PRD.md` defines the product but
-changes rarely; nothing recorded a bet's predicted outcome, a decision's dropped options, or what the ward
-says week to week.
+This PR first added three product pages (NF-20 product decisions, NF-21 ward requests, NF-22 ward
+feedback). Before it merged, Pp checked whether product-manager work and the live app were mixed in one
+repo. They were, and this repo is public: anyone could read the bets, the ward's requests and the
+stakeholder map. Making the repo private on the organisation's free plan would drop the `harnesses`
+requirement on `main` and `release`, cap Actions at 2,000 minutes a month (the last 30 days used about
+3,900) and take GitHub Pages' redirect page offline. Pp chose to keep the repo public and move the
+product work out instead.
 
 ### What changed
 
-- **`product-decisions.md`:** the ward user, the problem and why it matters (from `PRD.md` §§ 1–2); five
-  bets from `BACKLOG.md` § Now and `STATUS.md`, each with a life-cycle stage and a success line written
-  before work. A bet with no success line stays at *problem*, so four of the five sit there. Five dated
-  decisions from `CHANGELOG.md` and `BACKLOG.md`, each with who decided and the options dropped.
-- **`requests.md`:** six real ward requests (2026-09-18 NICU team; 2026-09-22 and 2026-09-28 TPN team), each
-  with its source. Three are built; three wait for Pp's options and status.
-- **`feedback.md`:** the five-question check-in script (Thai, with English), an entry format that also takes
-  VH-52's forwarded comments, and an empty log.
-- Every predicted outcome, threshold and check date the repo does not give is `TODO(Pp)`.
+- The three product pages never reached `main`; they and `docs/stakeholder/` (the stakeholder graph and
+  its PNG/SVG map, added in `91057b0`) now live in Pp's private notes,
+  `Desktop\PraewPP\NeoFeed innovation\Product\`.
+- `AGENTS.md` says product, meeting and stakeholder documents stay out of this repo, and where they are.
+- `docs/stakeholder/` stays readable in this repo's history; removing it from history would need a force
+  push, which this repo does not allow.
 
 ## Session 2026-10-11 (6) — Peripheral K⁺: the maximum alone
 
