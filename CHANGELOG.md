@@ -11,7 +11,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 `calculator.jsx` (`kRedIsMax`, `kBagLimitParts`, five display sites), `compiled/calculator.js` and the
 shells' `?v=` token, `test/verify-tpn-meeting-0928.cjs` § 15, `verify-tpn-team-0922.cjs`,
-`verify-calc-oracle.cjs`, `test/README.md`. PR #150. Frontend only, no `clasp` step.
+`verify-calc-oracle.cjs`, `test/README.md`. PR #150, merged into `main` on Pp's instruction ("merge #150 แล้วลบ worktree
+เก่าเลย"). Frontend only, no `clasp` step.
 **`CONSTANTS_VERSION` unchanged**: no limit moved, no saved order is reopened differently.
 
 ### Why

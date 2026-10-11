@@ -135,7 +135,8 @@
 
 **Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `8fa5d2b` are live, and both are
 verified.** Caught up with #148 in PR #150, the next PR on the repo, as #148 asked.
-- ⏳ **PR #150, peripheral K⁺: the maximum alone: open, waiting for Pp.** Pp, on PR #137: "ให้เหลือแค่ max 60",
+- ⏳ **PR #150, peripheral K⁺: the maximum alone: merged into `main` on Pp's instruction ("merge #150
+  แล้วลบ worktree เก่าเลย").** Not live: a `main` → `release` PR follows in the same session. Pp, on PR #137: "ให้เหลือแค่ max 60",
   and 2026-10-11: "> 60 peripheral จะสั่งไม่ได้" (`CHANGELOG.md` 2026-10-11 (6)). Where red is the maximum
   (peripheral), the tile line, the caution, the form, the back sheet and Copy order say "max 60" and nothing
   about confirming above it; central is unchanged. Frontend only, no `clasp` step. `CONSTANTS_VERSION`
