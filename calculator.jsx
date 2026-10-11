@@ -396,16 +396,21 @@ function Meter({ value, target, max, optimal, statusAt }) {
     </div>);
 }
 
-// A tile's severity as a word, so it reads without the colour: on a greyscale
-// print, on a colour-blind screen, on an iPad at the end of a night shift
-// (WCAG 1.4.1; Hallmark audit 2026-10-11, C1). The direction is the value
-// against the tile's own target, the same bounds the meter's zones are drawn
-// from. A tile with no target says plain "OK", and an amber value that is still
-// inside its target (a statusAt zone of its own) says "Caution": better a
-// word that claims nothing about direction than a guessed one.
+// A tile that is off its range says so in a word, so it reads without the
+// colour: on a greyscale print, on a colour-blind screen, on an iPad at the end
+// of a night shift (WCAG 1.4.1; Hallmark audit 2026-10-11, C1). The direction
+// is the value against the tile's own target, the same bounds the meter's zones
+// are drawn from. An amber value that is still inside its target (a statusAt
+// zone of its own) says "Caution": better a word that claims nothing about
+// direction than a guessed one.
+//
+// A tile that is fine says nothing (Pp, 2026-10-11: "ไม่แสดง In range ตอนปกติ").
+// Seventeen "In range" chips would spend the ward's attention on the state that
+// needs none, the same call as the Osmolarity chip's in Step 3. The absence of a
+// chip is the signal, so nothing depends on the green: it can be dropped from a
+// print or a colour-blind screen without losing a reading.
 function statusWord(status, value, target) {
-  if (status === "ok") return target ? "In range" : "OK";
-  if (status !== "warn" && status !== "crit") return null; // brand, empty
+  if (status !== "warn" && status !== "crit") return null; // ok, brand, empty
   const v = typeof value === "number" && !Number.isNaN(value) ? value : null;
   const lo = target && Number.isFinite(target[0]) ? target[0] : null;
   const hi = target && Number.isFinite(target[1]) ? target[1] : null;

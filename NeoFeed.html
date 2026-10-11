@@ -655,13 +655,14 @@
   .metric.s-empty { opacity: .85; }
   .metric.s-brand { border-color: var(--brand); background: linear-gradient(180deg, var(--brand-bg), var(--surface) 60%); }
 
-  /* A tile's severity is a word and a shape beside its label, never the colour
-     alone: the border, the tint and the meter's zones keep their hues (the ward
-     has learned them), and the 3px side stripe that used to repeat them is gone
-     (Hallmark audit 2026-10-11, C1; WCAG 1.4.1). The chip is a sibling of .lbl,
-     not a child, so the label's own text stays what the harnesses and a screen
-     reader read as the tile's name. Ink tiers are the *-ink cuts, 7.7:1 or
-     better on white. */
+  /* A tile that is off its range says so in a word and a shape beside its
+     label, never the colour alone: the border, the tint and the meter's zones
+     keep their hues (the ward has learned them), and the 3px side stripe that
+     used to repeat them is gone (Hallmark audit 2026-10-11, C1; WCAG 1.4.1).
+     A tile that is fine carries no chip at all (Pp, 2026-10-11), so there is no
+     .s-ok rule here. The chip is a sibling of .lbl, not a child, so the label's
+     own text stays what the harnesses and a screen reader read as the tile's
+     name. Ink tiers are the *-ink cuts, 7.7:1 or better on white. */
   .metric-top {
     display: flex; align-items: flex-start; justify-content: space-between;
     flex-wrap: wrap; gap: 2px 6px;
@@ -673,7 +674,6 @@
     border: 1px solid var(--line); background: var(--surface);
     font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap;
   }
-  .stat-chip.s-ok   { color: var(--ok-ink);   border-color: var(--ok-line); }
   .stat-chip.s-warn { color: var(--warn-ink); border-color: var(--warn-line); }
   .stat-chip.s-crit { color: var(--crit-ink); border-color: var(--crit-line); }
 
@@ -1310,10 +1310,10 @@
     display: flex; flex-direction: row; align-items: center; gap: 12px;
     box-shadow: var(--shadow-card);
   }
-  /* The severity shape in front of the number (registry.jsx RegStatMark). It
-     took over from the 3px left stripe these tiles used to carry. */
+  /* The severity shape in front of the number (registry.jsx RegStatMark), for
+     warn and crit only. It took over from the 3px left stripe these tiles used
+     to carry. */
   .reg-stat-mark { display: inline-flex; flex: 0 0 auto; margin-right: -2px; }
-  .reg-stat.s-ok   .reg-stat-mark { color: var(--ok); }
   .reg-stat.s-warn .reg-stat-mark { color: var(--warn-ink); }
   .reg-stat.s-crit .reg-stat-mark { color: var(--crit); }
   .reg-stat-val {
@@ -2063,8 +2063,8 @@
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
   <script src="data.js?v=421fbb1e16"></script>
-  <script src="compiled/icons.js?v=1bf8eb1e07"></script>
-  <script src="compiled/calculator.js?v=d1f9dc1a6a"></script>
+  <script src="compiled/icons.js?v=5b007bcbc0"></script>
+  <script src="compiled/calculator.js?v=252b7bd69b"></script>
   <script src="compiled/fenton.js?v=f9e6212215"></script>
   <script src="compiled/registry.js?v=c5ab5fffce"></script>
   <script src="compiled/log.js?v=c159cd5a45"></script>

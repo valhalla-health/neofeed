@@ -2,18 +2,19 @@
 // emoji): a status is never carried by colour alone, and no colour emoji is
 // drawn as an icon on any screen.
 //
-//   §1  statusWord(): the word a tile's severity is read as, with its direction
-//       taken from the value against the tile's own target. A tile with no
-//       target says "OK"; an amber value still inside its target says "Caution",
-//       which claims no direction. brand and empty tiles carry no word.
-//   §2  The real <Calculator>: every ok / warn / crit tile has a chip beside its
+//   §1  statusWord(): the word an off-range tile is read as, with its direction
+//       taken from the value against the tile's own target. An amber value
+//       still inside its target says "Caution", which claims no direction. A
+//       tile that is fine says nothing (Pp, 2026-10-11: "ไม่แสดง In range
+//       ตอนปกติ"), and neither do brand and empty tiles.
+//   §2  The real <Calculator>: every warn / crit tile has a chip beside its
 //       label (not inside it: the label's own text is the tile's name), the
-//       chip's word is one of the six, the chip draws a shape, and the 3px side
-//       stripe is gone.
+//       chip's word is one of the five, the chip draws a shape, and the 3px
+//       side stripe is gone. An ok tile has no chip at all.
 //   §3  Nothing on the calculator screen is a colour emoji, and no <optgroup>
 //       label starts with one.
-//   §4  The registry's stat strip: RegStatMark draws a shape for ok / warn /
-//       crit and nothing for a stat with no severity.
+//   §4  The registry's stat strip: RegStatMark draws a shape for warn / crit
+//       and nothing for ok or for a stat with no severity.
 //
 // Mounts the real components in jsdom (same dev-only deps as the other
 // calculator harnesses — see test/README.md).
@@ -97,13 +98,13 @@ function mount(props) {
 const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed: 'NICU 5', diagnosis: '-',
   weights: [{ dol: 1, w: bw }], admissionDate: '2026-10-11' });
 
-const WORDS = ['In range', 'OK', 'Low', 'High', 'Caution', 'Critical low', 'Critical high', 'Critical'];
+const WORDS = ['Low', 'High', 'Caution', 'Critical low', 'Critical high', 'Critical'];
 
 (async () => {
   await section('§1 statusWord: the word, and the direction it is read from', async () => {
     const w = (s, v, t) => global.statusWord(s, v, t);
-    eq('ok inside a target', w('ok', 3.8, [3.5, 4.5]), 'In range');
-    eq('ok with no target says plain OK', w('ok', 512, null), 'OK');
+    eq('ok inside a target says nothing', w('ok', 3.8, [3.5, 4.5]), null);
+    eq('ok with no target says nothing', w('ok', 512, null), null);
     eq('warn below the target is Low', w('warn', 98, [110, 135]), 'Low');
     eq('warn above the target is High', w('warn', 140, [110, 135]), 'High');
     eq('warn still inside the target claims no direction', w('warn', 120, [110, 135]), 'Caution');
@@ -119,7 +120,7 @@ const WORDS = ['In range', 'OK', 'Low', 'High', 'Caution', 'Critical low', 'Crit
     eq('an empty tile carries no word', w('empty', null, [1, 9]), null);
   });
 
-  await section('§2 the calculator: every severity tile has a chip beside its label, and no stripe', async () => {
+  await section('§2 the calculator: a warn / crit tile has a chip beside its label, an ok tile has none, no stripe', async () => {
     mount({ patient: pt('SW-2000', 2000), onLog: BASE.onLog });
     const set = (l, v) => setField(l, v);
     ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']
@@ -131,20 +132,23 @@ const WORDS = ['In range', 'OK', 'Low', 'High', 'Caution', 'Critical low', 'Crit
     ok('no tile has the side stripe any more', tiles.every(t => !t.querySelector('.stripe')), tiles.length);
     const graded = tiles.filter(t => /\bs-(ok|warn|crit)\b/.test(t.className));
     ok('some tiles are graded ok / warn / crit', graded.length > 0, graded.map(t => t.className));
+    const okTiles = graded.filter(t => /\bs-ok\b/.test(t.className));
+    ok('some tiles are fine (ok), so the quiet state is on screen', okTiles.length > 0, graded.map(t => t.className));
+    ok('an ok tile has no chip at all', okTiles.every(t => !t.querySelector('.stat-chip')),
+      okTiles.filter(t => t.querySelector('.stat-chip')).map(t => text(t.querySelector('.lbl'))));
     const bad = [];
-    for (const t of graded) {
-      const tone = t.className.match(/\bs-(ok|warn|crit)\b/)[1];
+    for (const t of graded.filter(t => !/\bs-ok\b/.test(t.className))) {
+      const tone = t.className.match(/\bs-(warn|crit)\b/)[1];
       const chip = t.querySelector('.metric-top > .stat-chip');
       const label = t.querySelector('.metric-top > .lbl');
       if (!chip || !chip.classList.contains('s-' + tone)) { bad.push([text(label), tone, 'chip missing or wrong tone']); continue; }
       if (!chip.querySelector('svg')) bad.push([text(label), tone, 'no shape']);
       if (!WORDS.includes(text(chip))) bad.push([text(label), tone, 'word ' + text(chip)]);
       if (WORDS.some(x => text(label) === x || text(label).endsWith(x))) bad.push([text(label), tone, 'word inside the label']);
-      if (tone === 'ok' && !['In range', 'OK'].includes(text(chip))) bad.push([text(label), tone, 'ok word ' + text(chip)]);
       if (tone === 'warn' && !['Low', 'High', 'Caution'].includes(text(chip))) bad.push([text(label), tone, 'warn word ' + text(chip)]);
       if (tone === 'crit' && !/^Critical/.test(text(chip))) bad.push([text(label), tone, 'crit word ' + text(chip)]);
     }
-    ok('each one: chip in .metric-top with its own tone, a shape and a valid word', bad.length === 0, bad);
+    ok('each warn / crit tile: chip in .metric-top with its own tone, a shape and a valid word', bad.length === 0, bad);
     const plain = tiles.filter(t => !/\bs-(ok|warn|crit)\b/.test(t.className));
     ok('brand / empty tiles carry no chip', plain.every(t => !t.querySelector('.stat-chip')), plain.map(t => t.className));
 
@@ -192,7 +196,8 @@ const WORDS = ['In range', 'OK', 'Low', 'High', 'Caution', 'Critical low', 'Crit
       act(() => { r.unmount(); }); host.remove();
       return out;
     };
-    for (const tone of ['ok', 'warn', 'crit']) eq(`${tone} draws a shape, hidden from a screen reader`, render(tone), { svg: true, hidden: 'true' });
+    for (const tone of ['warn', 'crit']) eq(`${tone} draws a shape, hidden from a screen reader`, render(tone), { svg: true, hidden: 'true' });
+    eq('ok draws nothing: a stat that is fine is quiet', render('ok'), { svg: false, hidden: undefined });
     eq('no severity draws nothing', render(null), { svg: false, hidden: undefined });
     eq('an unknown tone draws nothing', render('brand'), { svg: false, hidden: undefined });
     const css = R('NeoFeed.html');
