@@ -7,6 +7,64 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-11 (2) — Vera's seeded-bug benchmark: 6/6 verdicts, 4/5 defects, 0/7 decoys
+
+`test/vera-bench/` (key, six cases, the first run's reports), `tools/vera-bench.mjs`,
+`test/verify-vera-bench.cjs`, `.claude/hooks/vera-report.cjs`, `.claude/agents/vera.md`,
+`REFERENCE.md` § Pre-PR review (Vera). No app file changed.
+
+### Why
+
+Pp, after the first entry today: "วัดผล Vera ด้วย bug ที่ฝังไว้ก่อน". A reviewer nobody has measured is
+an opinion. The method is from a talk in Pp's YouTube notes (AI LABS, 2026-09-11, at
+[13:15](https://www.youtube.com/watch?v=BwNNcob3-A0&t=795s)): seed known defects and decoys that look
+wrong but are right, then score what the reviewer catches and what it wrongly flags.
+
+### What changed
+
+1. **Six cases against `c47d6ea`**, each a diff with a request in Pp's words and commit messages
+   under `## Author's claims`. Five plant one defect: GIR from the bag's dextrose instead of the
+   delivered dose (1.5× at 60 mL/day plus 30 mL dead space), the K⁺ maximum turned from `>` to `>=`
+   under a commit message claiming 60 is still allowed, the erased name and DOB written to the log by
+   `pseudonymizePatient`, the nursing branches folded so a nurse can delete an entry, and K₂HPO₄
+   rounded with `r1(r2(…))`. The sixth holds three decoys and nothing else. Seven decoys in all.
+2. **`tools/vera-bench.mjs`** prepares one worktree per case at the base commit, writes the review
+   files, and scores the reports: a defect counts as caught at its minimum severity on the right
+   file, within five lines or by quoting the planted line; a 🔴 or 🟠 on a decoy is a false positive.
+3. **Building the cases found a gap in Vera's rubric.** Her 🔴 covered a wrong number or data leaving
+   its boundary, but not a role gaining an action it was never given, so the nursing case could not be
+   a BLOCK. 🔴 now covers it. She also reads committed files from a `Repo:` folder when the review
+   file names one.
+4. **The run found a gap in her report check.** Her phi-log finding was right, but it cited
+   `gas-backend.gas:3689`. `vera-report.cjs` now refuses a cited path that is not in the repo and
+   sends her back to fix it.
+
+### Score (first run, Opus)
+
+| Case | Verdict | Planted defect | Decoys flagged |
+|---|---|---|---|
+| gir-basis | BLOCK, right | caught, 🔴 at 1263 | 0/1 |
+| k-edge-pitch | BLOCK, right | caught, 🔴 at 1712; called the commit message's claim false | 0/1 |
+| phi-log | BLOCK, right | found, but cited `gas-backend.gas`: scored a miss | 0/1 |
+| nursing-delete-role | BLOCK, right | caught, 🔴 at 1491 | 0/1 |
+| clean-decoys | NO BLOCK, right | none planted | 0/3 |
+| k2hpo4-double-round | BLOCK, right | caught, two 🔴 at 1400 | none planted |
+
+Beyond the key she raised five more findings: three missing change-protocol steps, the pharmacy back
+sheet contradicting itself under the wrong GIR, and Audit_Log as the right place for the erasure
+record Pp asked for. The scorer lists six, the sixth being the misspelt phi-log finding. Her rounding example `r1(r2(0.447))` = 0.5 next to "0.4 mEq" was checked in Node and holds.
+
+How it ran: each case went to an Opus subagent of another session that read `vera.md` and was held to
+Read, Grep and Glob by its prompt, because the `claude` CLI's login had expired and `vera` itself
+could not start. So her tool limit and her Stop hook were not in force. The six reports are kept in
+`runs/2026-10-11-opus/`, and `verify-vera-bench.cjs` § 3 checks they still score 6/6, 4/5 and 0/7.
+
+### Tests
+
+`verify-vera-bench.cjs` 44/44 and `verify-vera-report.cjs` 22/22, also under CI's
+`NODE_OPTIONS=--require ./test/compiled-loader.cjs`; 2.13 (a path that is not in the repo) failed
+before the hook change. `verify-build-shells.cjs` 44/44.
+
 ## Session 2026-10-11 — Vera, an independent review before every risky PR
 
 `.claude/agents/vera.md`, `.claude/hooks/vera-report.cjs`, `test/verify-vera-report.cjs`,

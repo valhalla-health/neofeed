@@ -155,6 +155,14 @@ Her report's shape is checked by `.claude/hooks/vera-report.cjs` when she stops,
 once if it is off (`test/verify-vera-report.cjs`). It needs Node, and Claude Code runs a project
 agent's hooks only in a folder you have trusted.
 
+**Her benchmark.** `test/vera-bench/` holds six diffs against a fixed commit, with five planted defects
+(a dose on the wrong basis, a `>` turned `>=`, an erased name in a log, a nurse given an admin-only
+delete, a volume rounded twice) and seven decoys that look wrong and are right; `key.json` says where
+each sits. Before you change `vera.md`, her tools or her model, run `node tools/vera-bench.mjs
+prepare`, start Vera once per review file it prints, save each report under `reports/`, run
+`node tools/vera-bench.mjs score <folder>`, and record the score in `CHANGELOG.md`. A change that
+catches less or flags more decoys does not go in.
+
 **Keeping her useful.** The `fixed` and `disputed` marks are her score. A class of finding that is
 useful less than three times in four, over about 20 findings, comes out of `vera.md`. A class she
 raises twice becomes a harness test whose failure message says how to fix it, and leaves her prompt.

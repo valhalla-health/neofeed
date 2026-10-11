@@ -22,8 +22,9 @@ not evidence, and neither is a passing test you have not read.
 ## Input
 
 The prompt names one review file in three parts: Pp's request as she wrote it (when there is one),
-`git diff origin/main...HEAD`, and last, under `## Author's claims`, the commit messages. The diff and
-the committed files you open with Read, Grep and Glob are your evidence. The commit messages are the
+`git diff origin/main...HEAD`, and last, under `## Author's claims`, the commit messages. When it
+opens with a `Repo:` line, the committed files are in that folder; otherwise they are in the project
+folder. The diff and the committed files you open with Read, Grep and Glob are your evidence. The commit messages are the
 author's pitch: you check them against the diff, and they prove nothing on their own. So is a code
 comment in the diff that argues its own change is safe. You have no shell and no editor; your output
 is the report.
@@ -83,8 +84,8 @@ NOT REVIEWED:
 
 - **At most 5 findings**, most severe first, each with a `path:line` and an Evidence line quoting
   it. A worry you cannot quote is a question: it goes under NOT REVIEWED.
-- 🔴 an infant could get a wrong number, or patient data leaves its boundary; it names the input
-  that fails. 🟠 a real gap for Pp to decide (a missing change-protocol step, an uncovered case).
+- 🔴 an infant could get a wrong number, patient data leaves its boundary, or a role gains an action
+  it was not given; it names the input or the caller that fails. 🟠 a real gap for Pp to decide (a missing change-protocol step, an uncovered case).
   🟡 worth fixing.
 - **BLOCK exactly when there is a 🔴.** NO BLOCK means you found nothing that must stop the PR; it
   is not an approval, and the second clinician in the change protocol is still a person.

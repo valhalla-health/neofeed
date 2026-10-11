@@ -75,12 +75,19 @@ ok('2.8 no SCOPE line', has(checkReport(BLOCK.replace(/^SCOPE:[^\n]*\n/m, '')), 
 ok('2.9 no NOT REVIEWED section', has(checkReport(BLOCK.replace(/NOT REVIEWED:[\s\S]*$/, '')), /NOT REVIEWED/));
 ok('2.10 an empty report', checkReport('').length > 0);
 ok('2.11 a 🔴 without the input that fails', has(checkReport(BLOCK.replace(/\n {3}Fails when:[^\n]*/, '')), /Fails when/));
+// The benchmark's first run (2026-10-11) had Vera cite gas-backend.gas:3689 for
+// a gas-backend.gs line. Given the repo root, the check refuses a path that is
+// not there.
+const ROOT = path.join(__dirname, '..');
+eq('2.12 every cited path exists in the repo', checkReport(BLOCK, ROOT), []);
+ok('2.13 a cited path that is not in the repo', has(checkReport(BLOCK.replace('calculator.jsx:412', 'calculator.jsxx:412'), ROOT), /calculator\.jsxx.*not in the repo/));
 
 console.log('\n── #3 the SubagentStop hook ──');
 // Claude Code runs the hook as a plain node process. CI's compiled pass sets
 // NODE_OPTIONS=--require ./test/compiled-loader.cjs, which would also load into
-// this child and print its own line on the stdout the hook answers on.
-const HOOK_ENV = { ...process.env, NODE_OPTIONS: '' };
+// this child and print its own line on the stdout the hook answers on. The
+// hook checks cited paths under CLAUDE_PROJECT_DIR, pinned here to this repo.
+const HOOK_ENV = { ...process.env, NODE_OPTIONS: '', CLAUDE_PROJECT_DIR: ROOT };
 function runHook(input) {
   const r = spawnSync(process.execPath, [HOOK], { input: JSON.stringify(input), encoding: 'utf8', env: HOOK_ENV });
   let out = null;

@@ -6,11 +6,16 @@
 // because her report goes unedited into the PR body. test/verify-vera-report.cjs.
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+
 const MAX_FINDINGS = 5;
 const FINDING = /^\s*(\d+)\.\s*(🔴|🟠|🟡)\s*(.*)$/u;
 const PATH_LINE = /[\w./-]+\.[A-Za-z0-9]+:\d+/;
 
-function checkReport(text) {
+// With `root`, each cited path must exist under it: the benchmark's first run
+// (test/vera-bench/) had a real finding cite gas-backend.gas for gas-backend.gs.
+function checkReport(text, root) {
   const lines = String(text || '').split(/\r?\n/);
   const problems = [];
 
@@ -32,7 +37,11 @@ function checkReport(text) {
     problems.push(`Keep at most ${MAX_FINDINGS} findings, most severe first; you have ${findings.length}.`);
   }
   findings.forEach((f, k) => {
-    if (!PATH_LINE.test(f.head)) problems.push(`Finding ${f.n} needs a path:line from the diff.`);
+    const cited = f.head.match(PATH_LINE);
+    if (!cited) problems.push(`Finding ${f.n} needs a path:line from the diff.`);
+    else if (root && !fs.existsSync(path.join(root, cited[0].replace(/:\d+$/, '')))) {
+      problems.push(`Finding ${f.n} cites ${cited[0]}, which is not in the repo; give the real path.`);
+    }
     const end = k + 1 < findings.length ? findings[k + 1].index : lines.length;
     const body = lines.slice(f.index + 1, end);
     if (!body.some(l => /^\s*Evidence:\s*\S/.test(l))) {
@@ -51,9 +60,9 @@ function checkReport(text) {
 
 function main() {
   let input;
-  try { input = JSON.parse(require('fs').readFileSync(0, 'utf8')); } catch { return; }
+  try { input = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { return; }
   if (input.stop_hook_active) return;
-  const problems = checkReport(input.last_assistant_message);
+  const problems = checkReport(input.last_assistant_message, process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd());
   if (problems.length === 0) return;
   process.stdout.write(JSON.stringify({
     decision: 'block',
