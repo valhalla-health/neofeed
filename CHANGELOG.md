@@ -41,20 +41,34 @@ Pp, with two phone screenshots: "ให้ปุ่ม active, logged, need entr
   list guessing. Infants not yet submitted are counted under the list, one tap from Needs entry.
 - The print request is a token: one tap prints once; a re-render or a sync does not print again; leaving
   the calculator (rail, bottom bar, `goTo`, a patient switch) drops it.
+- **It waits for the edit lock's first answer, and does not print while a colleague has the order open**
+  (Vera's 🟠, below). `useDailyLogLock` now returns `{ holder, checked }`. With a holder, the preview is held
+  for good, even if the lock clears later; a toast says so, and the "… กำลังเปิดบันทึก" banner and the Print
+  order button are left for the user to decide.
 - Every role sees the button: admin, doctor and nurse can already open and print a saved order from the
   Dashboard, and this is the same path.
 
 ### Tests
 
-`verify-ward-print-1012.cjs` 43/43 on the sources and on `compiled/`; 13 fail against the code before it.
+`verify-ward-print-1012.cjs` 48/48 on the sources and on `compiled/`; against `main` (`4f30faf`) 14 fail, and
+its lock scenario fails 4 of 5 on this branch's first commit, before the lock wait.
 `verify-phone-sweep.cjs` 292/292 with the three new screens on all 24 profiles (Chromium, compiled).
 Every other `test/verify-*.cjs` passes on the sources, **except `verify-tpn-calc-weight.cjs`, which fails
 identically on an untouched `main` (`4f30faf`) in this session** ("print form did not render for
 curWtG=1750", its last check). `main`'s CI was green on 2026-10-11 15:58 UTC, so it looks date-dependent;
 not investigated further here.
 
+### Vera
+
+NO BLOCK. 🟠 an automatic print could go before the lock banner arrived: Pp's call between accepting it
+and waiting; taken the safer way (above), pinned by scenario #6. 🟡 check 4.0 read the whole page, so a
+wrong-patient print would pass: it now opens BB first and reads AA-1 off the printed sheet's patient table.
+She also lists the `verify-tpn-calc-weight` red on `main` (unexplained), real-device print behaviour, and
+that the list has no "already printed" mark, so two people can print the same order (a ward question).
+
 ### Not done
 
+- No "already printed" mark on the list (Vera): two staff can print the same order. Ask the ward.
 - No one has tapped it on a ward phone. Chrome on Android opens the print preview from the tap; if a
   browser refuses a print not started by its own button, the order is open with Print order one tap away.
 - Opening an order to print takes the same courtesy edit lock as opening it from the Dashboard.

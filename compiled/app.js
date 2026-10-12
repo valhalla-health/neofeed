@@ -1497,15 +1497,20 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 const LOG_LOCK_HEARTBEAT_MS = 45e3;
 function useDailyLogLock(sessionId, dateStr, token) {
   const [holder, setHolder] = React.useState(null);
+  const [checked, setChecked] = React.useState(false);
   React.useEffect(() => {
     if (!GAS_ON || !sessionId || !dateStr || !token) {
       setHolder(null);
+      setChecked(true);
       return;
     }
+    setChecked(false);
     let cancelled = false;
     const call = (action) => gasRequest({ action, sessionId, date: dateStr, token }).catch(() => null);
     const touch = () => call("acquireLogLock").then((data) => {
-      if (cancelled || !data) return;
+      if (cancelled) return;
+      setChecked(true);
+      if (!data) return;
       setHolder(data.locked ? data.holder || null : null);
     });
     touch();
@@ -1516,7 +1521,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
       call("releaseLogLock");
     };
   }, [sessionId, dateStr, token]);
-  return holder;
+  return { holder, checked };
 }
 function CalculatorView({
   active,
@@ -1546,11 +1551,23 @@ function CalculatorView({
   const lockDate = orderDate;
   const previousEntry = previousLogEntry(log[activeId] || [], lockDate);
   const baselineEntry = !editEntry ? previousEntry : null;
-  const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
+  const { holder, checked: lockChecked } = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
   const requestPrint = () => {
     document.querySelector(".work-inner")?.setAttribute("data-date", (/* @__PURE__ */ new Date()).toLocaleDateString("th-TH"));
     document.dispatchEvent(new CustomEvent("__neofeed_print"));
   };
+  const [autoPrintHeld, setAutoPrintHeld] = React.useState(null);
+  const autoPrintSent = React.useRef(null);
+  const autoRequestPrint = () => {
+    autoPrintSent.current = autoPrint;
+    requestPrint();
+  };
+  React.useEffect(() => {
+    if (!autoPrint || !holder || autoPrintHeld === autoPrint || autoPrintSent.current === autoPrint) return;
+    setAutoPrintHeld(autoPrint);
+    showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${holder.name || holder.email || "ผู้ใช้งานอื่น"} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
+  }, [autoPrint, holder]);
+  const autoPrintNow = editEntry && autoPrint && lockChecked && !holder && autoPrintHeld !== autoPrint ? autoPrint : null;
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && (onBackToPrintList ? /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBackToPrintList }, "← กลับไปรายการ Print order") : /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard")), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: requestPrint }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), holder && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--warn-bg)",
@@ -1568,8 +1585,8 @@ function CalculatorView({
       patient: active,
       entries: log[activeId] || [],
       dol: displayDol,
-      autoPrint: editEntry ? autoPrint : null,
-      requestPrint,
+      autoPrint: autoPrintNow,
+      requestPrint: autoRequestPrint,
       onOrderDate: setReportedOrderDate,
       editEntry,
       baselineEntry,

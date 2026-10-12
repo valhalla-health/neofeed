@@ -656,7 +656,9 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    `printJob` → the order opens in the Calculator with `autoPrint`, which
    asks once (per token) for the same `__neofeed_print` the Print order
    button sends — so the calculator's own `printable` gate decides, and a
-   held-back order shows the same toast instead of printing. The list never
+   held-back order shows the same toast instead of printing. It also waits
+   for the edit lock's first answer (`useDailyLogLock` → `{ holder,
+   checked }`) and never goes while a colleague holds the order. The list never
    decides what may print. A `tmp_` row is shown but not opened; two
    submitted orders on one day open the Dashboard to choose; those not yet
    submitted are counted under the list, one tap from Needs entry. The

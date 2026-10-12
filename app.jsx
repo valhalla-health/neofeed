@@ -2429,16 +2429,25 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 // action) is silently treated as "no lock info" — fails open, no toast,
 // never blocks clinical work over a courtesy feature.
 const LOG_LOCK_HEARTBEAT_MS = 45000;
+// Returns { holder, checked }: `checked` turns true once the first answer is
+// in (or there is no lock to ask about), so a caller that must not act before
+// knowing whether a colleague has this order open — the print list's
+// automatic print — can wait for it. A failed or timed-out call counts as
+// answered, with no holder, as it always has.
 function useDailyLogLock(sessionId, dateStr, token) {
   const [holder, setHolder] = React.useState(null);
+  const [checked, setChecked] = React.useState(false);
   React.useEffect(() => {
-    if (!GAS_ON || !sessionId || !dateStr || !token) { setHolder(null); return; }
+    if (!GAS_ON || !sessionId || !dateStr || !token) { setHolder(null); setChecked(true); return; }
+    setChecked(false);
     let cancelled = false;
     // Through gasRequest for its timeout (UP-S8); any failure is still "no
     // lock info", never an error the user sees.
     const call = (action) => gasRequest({ action, sessionId, date: dateStr, token }).catch(() => null);
     const touch = () => call("acquireLogLock").then(data => {
-      if (cancelled || !data) return;
+      if (cancelled) return;
+      setChecked(true);
+      if (!data) return;
       setHolder(data.locked ? (data.holder || null) : null);
     });
     touch();
@@ -2449,7 +2458,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
       call("releaseLogLock");
     };
   }, [sessionId, dateStr, token]);
-  return holder;
+  return { holder, checked };
 }
 
 // ── Calculator view — wraps <Calculator> with the duplicate-edit lock notice
@@ -2481,13 +2490,32 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   const baselineEntry = !editEntry ? previousEntry : null;
   // The courtesy lock announces "someone is editing this order" — which a nurse
   // computing without saving (D5) is not, so the nurse takes none.
-  const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
+  const { holder, checked: lockChecked } = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
   // The Print order button, and the print list's automatic request: the
   // Calculator's own handler decides whether this order may print.
   const requestPrint = () => {
     document.querySelector('.work-inner')?.setAttribute('data-date', new Date().toLocaleDateString('th-TH'));
     document.dispatchEvent(new CustomEvent('__neofeed_print'));
   };
+  // The print list's automatic print waits for the edit lock's first answer,
+  // and never goes while a colleague has this order open: the banner below
+  // is how the user learns someone may be amending it, and a preview opened
+  // before it arrived would send the sheet to pharmacy unseen (Vera,
+  // 2026-10-12). Once a holder is seen for a request, that request is off
+  // for good — the lock clearing later must not print out of nowhere. The
+  // Print order button stays for the user to decide.
+  const [autoPrintHeld, setAutoPrintHeld] = React.useState(null);
+  // The request the Calculator has already sent: a lock taken by a colleague
+  // AFTER it printed is the ordinary banner, not a held print.
+  const autoPrintSent = React.useRef(null);
+  const autoRequestPrint = () => { autoPrintSent.current = autoPrint; requestPrint(); };
+  React.useEffect(() => {
+    if (!autoPrint || !holder || autoPrintHeld === autoPrint || autoPrintSent.current === autoPrint) return;
+    setAutoPrintHeld(autoPrint);
+    showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${holder.name || holder.email || "ผู้ใช้งานอื่น"} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrint, holder]);
+  const autoPrintNow = editEntry && autoPrint && lockChecked && !holder && autoPrintHeld !== autoPrint ? autoPrint : null;
 
   return (
     <>
@@ -2534,7 +2562,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
       )}
 
       <Calculator patient={active} entries={log[activeId] || []} dol={displayDol}
-        autoPrint={editEntry ? autoPrint : null} requestPrint={requestPrint}
+        autoPrint={autoPrintNow} requestPrint={autoRequestPrint}
         onOrderDate={setReportedOrderDate}
         editEntry={editEntry} baselineEntry={baselineEntry} previousEntry={previousEntry}
         logDate={logDate} userLabel={userLabel}

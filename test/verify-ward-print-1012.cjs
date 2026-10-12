@@ -16,6 +16,8 @@
 //   #4 print   a tap opens the order and prints it once, through the
 //              calculator's own Print gate; the page leads back to the list
 //   #5 blocked an order the gate holds back does not print, and says why
+//   #6 locked  a colleague holding today's order stops the automatic print,
+//              even after the lock clears (Vera, 2026-10-12)
 //
 // Drives the real <App/> through review-0917-boot (dev-only deps as in
 // test/README.md).
@@ -61,6 +63,9 @@ const rowNames = () => [...document.querySelectorAll('.patient-table tbody tr')]
 const printRows = () => [...document.querySelectorAll('.print-row')];
 const printRow = (name) => printRows().find(r => r.querySelector('.pr-name')?.textContent === name);
 const printButtons = () => [...document.querySelectorAll('.ward-gate .ward-print')];
+// The printed sheet's patient table: the form's first direct <table> child
+// (REFERENCE.md § The printed order), which carries the NeoFeed ID.
+const sheetPatient = () => document.querySelector('#print-form > table')?.textContent || '';
 
 const scenarios = {
   async 'tiles'(A) {
@@ -151,12 +156,19 @@ const scenarios = {
     console.log('\n── #4 a tap opens the order and its print preview ──');
     const t = setup();
     await t.start();
+    // Another infant is the active one before the tap: the order opened must
+    // be the tapped infant's, not whoever was open.
+    await t.pickWard('NICU');
+    await t.openPatientRow(/BB/);
+    await t.rail(/Patients/);
+    await t.click(t.btn(/เปลี่ยน ward/));
     await t.click(printButtons()[0]);
     await t.click(printRow('AA'));
     await settle(t);
-    A.ok('4.0 the saved order is open in the calculator', /แก้ไขบันทึกโภชนาการ/.test(t.text()) && /AA/.test(document.querySelector('.topbar, .patient-strip, body').textContent));
+    A.ok('4.0 the saved order is open in the calculator', /แก้ไขบันทึกโภชนาการ/.test(t.text()));
     A.eq('4.1 …and the print preview opened once', t.printed, 1);
-    A.ok('4.2 …through the calculator\'s print form', !!document.querySelector('#print-form'));
+    A.ok('4.2 …and the printed sheet is the tapped infant\'s (AA-1, not BB-1)',
+      /NeoFeed ID:\s*AA-1/.test(sheetPatient()) && !/BB-1/.test(sheetPatient()));
     await settle(t);
     await t.tick();
     await settle(t);
@@ -191,6 +203,32 @@ const scenarios = {
     A.ok('5.2 …and says why, as Print order inside does',
       t.toasts().some(m => /มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผลก่อนพิมพ์/.test(m)));
   },
+};
+
+// ── #6 ──
+scenarios['locked'] = async (A) => {
+  console.log('\n── #6 a colleague has today\'s order open ──');
+  const t = setup();
+  let locked = true;
+  t.server.hooks.acquireLogLock = (b) => (locked && b.sessionId === 'AA-1'
+    ? { reply: { ok: true, locked: true, holder: { name: 'Dr B' } } } : undefined);
+  await t.start();
+  await t.click(printButtons()[0]);
+  await t.click(printRow('AA'));
+  await settle(t);
+  await t.flush(1700);
+  await settle(t);
+  A.eq('6.0 the automatic print does not go', t.printed, 0);
+  A.ok('6.1 …the page shows who has it open', /Dr B กำลังเปิดบันทึกวันที่/.test(t.text()));
+  A.ok('6.2 …and a toast says the preview was held', t.toasts().some(m => /ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — Dr B/.test(m)));
+  locked = false;
+  await t.tick();
+  await settle(t);
+  await t.flush(1700);
+  A.ok('6.3 the lock clearing later does not print out of nowhere', t.printed === 0 && !/Dr B กำลังเปิดบันทึก/.test(t.text()));
+  await t.click(t.btn(/^\s*Print order\s*$/));
+  await settle(t);
+  A.eq('6.4 Print order on the page still prints', t.printed, 1);
 };
 
 runScenarios(__filename, 'WARD PRINT ORDER + STATS FILTER', scenarios);
