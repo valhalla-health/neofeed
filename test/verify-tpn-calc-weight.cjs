@@ -86,7 +86,13 @@ function printTextAt(pt, curWtG) {
       onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
     }));
   });
-  const form = printContainer.querySelector('#print-form');
+  // By section #8 the primary root holds a saved, printable entry too, so the
+  // document has TWO #print-form elements (the app itself only ever mounts one
+  // Calculator). Match the id as an attribute: jsdom 29's selector engine
+  // (@asamuzakjp/dom-selector 7, what npm picks on Node < 22.22.2) resolves a
+  // scoped '#id' through the document's first element with that id and
+  // returns null when it lies outside this root (2026-10-12).
+  const form = printContainer.querySelector('[id="print-form"]');
   if (!form) throw new Error('print form did not render for curWtG=' + curWtG);
   return form.textContent.replace(/\s+/g, ' ');
 }

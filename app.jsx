@@ -108,6 +108,8 @@ function normalizeSex(v) {
 // minutes with no REAL input. Only a human counts — the poll, the edit-lock
 // heartbeat and every sync are deliberately invisible to this clock.
 const IDLE_LOGOUT_MS = 30 * 60 * 1000;
+// A second Back on the ward gate within this leaves the app (app.jsx goBack).
+const EXIT_WINDOW_MS = 2000;
 const IDLE_CHECK_MS  = 30000;
 const IDLE_INPUT_EVENTS = ["pointerdown", "keydown", "touchstart", "wheel"];
 // What the login screen says after a session ended without the user asking.
@@ -710,6 +712,17 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // the Dashboard and back doesn't drop the user at the gate again mid-round;
   // not persisted, so a fresh load always asks.
   const [ward, setWard] = React.useState(null);
+  // The ward whose Print order list the registry is showing (registry.jsx
+  // WardPrintList), or null. Kept here, beside `ward`, so the list is still
+  // there after an order opened from it has printed and the user comes back.
+  const [printWard, setPrintWard] = React.useState(null);
+  // An order picked on that list: { sessionId, entryId, token }. The effect
+  // below opens it once `activeId` points at its infant.
+  const [printJob, setPrintJob] = React.useState(null);
+  // Set while the Calculator holds an order opened from the print list: it
+  // asks for the print preview once (token-checked in calculator.jsx) and
+  // gives the page its way back to the list. Any navigation clears it.
+  const [autoPrint, setAutoPrint] = React.useState(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
   const [lastSync, setLastSync] = React.useState(null);
@@ -740,8 +753,27 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Back-date for a brand-new entry (YYYY-MM-DD, null = today) — set when the
   // user picks "เลือกวันที่ย้อนหลัง" on the Dashboard's log button.
   const [logDate, setLogDate] = React.useState(null);
-  React.useEffect(() => { setEditEntry(null); setLogDate(null); }, [activeId]);
-  const goTo = (v) => { setEditEntry(null); setLogDate(null); setView(v); };
+  React.useEffect(() => { setEditEntry(null); setLogDate(null); setAutoPrint(null); }, [activeId]);
+  const goTo = (v) => { setEditEntry(null); setLogDate(null); setAutoPrint(null); setPrintWard(null); setView(v); };
+  // Declared after the [activeId] reset above on purpose: effects run in
+  // order, so when picking an order also switched the patient, the reset's
+  // nulls land first and this effect's editEntry wins.
+  React.useEffect(() => {
+    if (!printJob || printJob.sessionId !== activeId) return;
+    setPrintJob(null);
+    const entry = (log[activeId] || []).find(e => e.entryId === printJob.entryId);
+    if (!entry) { showToast("ไม่พบใบสั่งนี้แล้ว — กด Sync แล้วลองใหม่", "error"); return; }
+    setEditEntry(entry); setLogDate(null); setAutoPrint(printJob.token); setView("calculator");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printJob, activeId]);
+  // Leaving the calculator ends the print request — including by the phone's
+  // bottom bar, which sets the view without goTo — so coming back to the
+  // calculator later never opens a print preview on its own.
+  React.useEffect(() => { if (view !== "calculator") setAutoPrint(null); }, [view]);
+  const openOrderToPrint = (sessionId, entryId) => {
+    setPrintJob({ sessionId, entryId, token: Date.now() });
+    setActiveId(sessionId);
+  };
 
   const active = patients.find((p) => p.sessionId === activeId);
   // Today's DOL, from the anchor (data.js liveDol → dolAtDate) — the one every
@@ -756,6 +788,115 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const alertBadge = React.useMemo(
     () => alertBadgeFor(active, (active && log[active.sessionId]) || []),
     [active, log, dol, ackVersion]);
+
+  // ── The phone's Back button moves back inside the app ─────────
+  // Pp, 2026-10-12: "ให้ปุ่ม back ย้อนกลับในแอป". The app is one page, so the
+  // first Back on Android left it, and with it the sign-in, which lives in
+  // sessionStorage. Now one history entry (the guard) sits on top of the
+  // page while someone is signed in; Back pops it and `goBack` takes one
+  // step: an open dialog closes, a patient screen returns to its Dashboard,
+  // the Dashboard to the ward list, the list (or the print list) to the ward
+  // gate.
+  // On the gate, Back asks for a second Back within EXIT_WINDOW_MS (Pp,
+  // 2026-10-12: leaving by accident costs a new login). A page cannot close
+  // itself, so an "ออกจากแอป?" dialog could not offer a working ออก button;
+  // instead the guard stays off for those 2 s, and a second Back leaves the
+  // app the browser's own way.
+  const dialogOpen = useDialogOpen();
+  const prevViewRef = React.useRef(null);
+  const viewRef = React.useRef(view);
+  if (viewRef.current !== view) { prevViewRef.current = viewRef.current; viewRef.current = view; }
+  // Whether the calculator, as last shown, held an edit or a back-fill. goTo
+  // clears both on the way to Reference values, so Back cannot reopen them;
+  // it goes to the Dashboard instead of a new order for today, which looks
+  // the same and would save on the wrong day (Vera, 2026-10-12).
+  const calcHeldOrderRef = React.useRef(false);
+  if (view === "calculator") calcHeldOrderRef.current = !!(editEntry || logDate);
+  const atRoot = view === "registry" && !ward && !printWard && !dialogOpen;
+  const goBack = () => {
+    // A dialog closes as a tap outside it would, so a dialog that refuses
+    // that (one with typed text, a forced password change) refuses Back too.
+    const backdrops = document.querySelectorAll(".picker-backdrop, .modal-backdrop");
+    if (backdrops.length) {
+      backdrops[backdrops.length - 1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      return;
+    }
+    if (view === "calculator") {
+      if (editEntry && autoPrint && printWard) setView("registry");   // back to the print list
+      else goTo(active ? "log" : "registry");
+    } else if (view === "fenton" || view === "alerts") {
+      goTo(active ? "log" : "registry");
+    } else if (view === "log") {
+      goTo("registry");
+    } else if (view !== "registry") {
+      // Reference, formulas, quick calc, admin: back to where they were opened from.
+      const prev = prevViewRef.current;
+      if (prev === "calculator") goTo(!active ? "registry" : calcHeldOrderRef.current ? "log" : "calculator");
+      else goTo(prev && prev !== view ? prev : "registry");
+    } else if (printWard) {
+      setPrintWard(null);
+    } else if (ward) {
+      setWard(null);
+    }
+  };
+  const goBackRef = React.useRef(goBack);
+  goBackRef.current = goBack;
+  const atRootRef = React.useRef(atRoot);
+  atRootRef.current = atRoot;
+  const guardRef = React.useRef(false);        // our entry is on top of the history
+  const [guardTick, setGuardTick] = React.useState(0);
+  const [exitWindow, setExitWindow] = React.useState(false);
+  const exitWindowRef = React.useRef(false);
+  exitWindowRef.current = exitWindow;
+  React.useEffect(() => {
+    // The 2 s after a Back on the gate: no guard, so a second Back leaves.
+    // Moving off the gate in that time ends it, so coming back to the gate
+    // later asks again (Vera, 2026-10-12).
+    if (exitWindow && !atRoot) setExitWindow(false);
+    if (!user || guardRef.current) return;
+    if (exitWindow && atRoot) return;
+    // Chrome skips, on Back, an entry pushed before the page had any user
+    // activation (its history-manipulation intervention), and the guard would
+    // do nothing. A session restored on reload has had no tap yet: wait for one.
+    // A touch grants activation on pointerup, not pointerdown; the effect
+    // re-checks after each and keeps waiting until it holds.
+    const ua = typeof navigator !== "undefined" && navigator.userActivation;
+    if (ua && !ua.hasBeenActive) {
+      const evs = ["pointerup", "keydown", "click"];
+      const arm = () => setGuardTick(t => t + 1);
+      evs.forEach(e => window.addEventListener(e, arm, { once: true, capture: true }));
+      return () => evs.forEach(e => window.removeEventListener(e, arm, { capture: true }));
+    }
+    try {
+      window.history.pushState({ neofeedBack: true }, "");
+      guardRef.current = true;
+    } catch {}
+  }, [atRoot, user, guardTick, exitWindow]);
+  React.useEffect(() => {
+    if (!exitWindow) return;
+    const t = setTimeout(() => setExitWindow(false), EXIT_WINDOW_MS);
+    return () => clearTimeout(t);
+  }, [exitWindow]);
+  React.useEffect(() => {
+    const onPop = () => {
+      // The second Back of an exit, landing on an older entry of this page
+      // (a guard left by an earlier sign-in at this tab): keep leaving.
+      if (exitWindowRef.current && !guardRef.current) { try { window.history.back(); } catch {} return; }
+      if (!guardRef.current || !userRef.current) return;   // not our entry
+      guardRef.current = false;
+      if (atRootRef.current) {
+        setExitWindow(true);
+        showToast("กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่", "info");
+        return;
+      }
+      goBackRef.current();
+      // Re-arm even when the step changed nothing (a dialog that kept itself
+      // open): the effect above pushes the guard back.
+      setGuardTick(t => t + 1);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // ── GAS fetch (initial + manual sync) ────────────────────────
   // Token is sent in POST body — never in URL (prevents token leakage in server logs)
@@ -2246,7 +2387,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             onSubmit={handleEditPatient} mergeBaseFor={mergeBaseFor}
             onDelete={role === "admin" ? handleDeletePatient : undefined} />}
 
-          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
+          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
+            printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint}
+            onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}
@@ -2271,6 +2414,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
               handlePublishToGAS={handlePublishToGAS}
               handleDeleteEntry={handleDeleteEntry}
+              autoPrint={autoPrint}
+              onBackToPrintList={autoPrint && printWard ? () => setView("registry") : null}
               goTo={goTo} />
           )}
           {view === "fenton" && active &&
@@ -2395,16 +2540,25 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 // action) is silently treated as "no lock info" — fails open, no toast,
 // never blocks clinical work over a courtesy feature.
 const LOG_LOCK_HEARTBEAT_MS = 45000;
+// Returns { holder, checked }: `checked` turns true once the first answer is
+// in (or there is no lock to ask about), so a caller that must not act before
+// knowing whether a colleague has this order open — the print list's
+// automatic print — can wait for it. A failed or timed-out call counts as
+// answered, with no holder, as it always has.
 function useDailyLogLock(sessionId, dateStr, token) {
   const [holder, setHolder] = React.useState(null);
+  const [checked, setChecked] = React.useState(false);
   React.useEffect(() => {
-    if (!GAS_ON || !sessionId || !dateStr || !token) { setHolder(null); return; }
+    if (!GAS_ON || !sessionId || !dateStr || !token) { setHolder(null); setChecked(true); return; }
+    setChecked(false);
     let cancelled = false;
     // Through gasRequest for its timeout (UP-S8); any failure is still "no
     // lock info", never an error the user sees.
     const call = (action) => gasRequest({ action, sessionId, date: dateStr, token }).catch(() => null);
     const touch = () => call("acquireLogLock").then(data => {
-      if (cancelled || !data) return;
+      if (cancelled) return;
+      setChecked(true);
+      if (!data) return;
       setHolder(data.locked ? (data.holder || null) : null);
     });
     touch();
@@ -2415,7 +2569,24 @@ function useDailyLogLock(sessionId, dateStr, token) {
       call("releaseLogLock");
     };
   }, [sessionId, dateStr, token]);
-  return holder;
+  return { holder, checked };
+}
+
+// Whether a dialog (.picker-backdrop / .modal-backdrop) is on screen. Dialogs
+// keep their open state in the component that owns them, so the Back guard
+// above reads the page rather than asking each of them.
+function useDialogOpen() {
+  const sel = ".picker-backdrop, .modal-backdrop";
+  const [open, setOpen] = React.useState(() => !!document.querySelector(sel));
+  React.useEffect(() => {
+    if (typeof MutationObserver === "undefined") return;
+    const check = () => setOpen(!!document.querySelector(sel));
+    const mo = new MutationObserver(check);
+    mo.observe(document.body, { childList: true, subtree: true });
+    check();
+    return () => mo.disconnect();
+  }, []);
+  return open;
 }
 
 // ── Calculator view — wraps <Calculator> with the duplicate-edit lock notice
@@ -2425,7 +2596,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel, userEmail,
   handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo,
-  nursing = [], ordersReadOnly = false }) {
+  nursing = [], ordersReadOnly = false, autoPrint = null, onBackToPrintList = null }) {
   // The day this order is for, as the Calculator reports it (onOrderDate): an
   // edit's own date, a back-fill's, or the day a new order was opened on —
   // which stays put if the form is left open past midnight. The header chip
@@ -2447,17 +2618,46 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   const baselineEntry = !editEntry ? previousEntry : null;
   // The courtesy lock announces "someone is editing this order" — which a nurse
   // computing without saving (D5) is not, so the nurse takes none.
-  const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
+  const { holder, checked: lockChecked } = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
+  // The Print order button, and the print list's automatic request: the
+  // Calculator's own handler decides whether this order may print.
+  const requestPrint = () => {
+    document.querySelector('.work-inner')?.setAttribute('data-date', new Date().toLocaleDateString('th-TH'));
+    document.dispatchEvent(new CustomEvent('__neofeed_print'));
+  };
+  // The print list's automatic print waits for the edit lock's first answer,
+  // and never goes while a colleague has this order open: the banner below
+  // is how the user learns someone may be amending it, and a preview opened
+  // before it arrived would send the sheet to pharmacy unseen (Vera,
+  // 2026-10-12). Once a holder is seen for a request, that request is off
+  // for good — the lock clearing later must not print out of nowhere. The
+  // Print order button stays for the user to decide.
+  const [autoPrintHeld, setAutoPrintHeld] = React.useState(null);
+  // The request the Calculator has already sent: a lock taken by a colleague
+  // AFTER it printed is the ordinary banner, not a held print.
+  const autoPrintSent = React.useRef(null);
+  const autoRequestPrint = () => { autoPrintSent.current = autoPrint; requestPrint(); };
+  React.useEffect(() => {
+    if (!autoPrint || !holder || autoPrintHeld === autoPrint || autoPrintSent.current === autoPrint) return;
+    setAutoPrintHeld(autoPrint);
+    showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${holder.name || holder.email || "ผู้ใช้งานอื่น"} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrint, holder]);
+  const autoPrintNow = editEntry && autoPrint && lockChecked && !holder && autoPrintHeld !== autoPrint ? autoPrint : null;
 
   return (
     <>
       <div className="page-head">
         <div>
-          {editEntry && (
+          {editEntry && (onBackToPrintList ? (
+            <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={onBackToPrintList}>
+              ← กลับไปรายการ Print order
+            </button>
+          ) : (
             <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={() => goTo("log")}>
               ← กลับไป Dashboard
             </button>
-          )}
+          ))}
           <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order"}
             {/* Today's order reads just its DOL, which the strip above also
@@ -2470,10 +2670,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
           <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => {
-            document.querySelector('.work-inner')?.setAttribute('data-date', new Date().toLocaleDateString('th-TH'));
-            document.dispatchEvent(new CustomEvent('__neofeed_print'));
-          }}>
+          <button className="btn" onClick={requestPrint}>
             <Icon name="pdf" size={14} /> Print order
           </button>
           <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
@@ -2493,6 +2690,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
       )}
 
       <Calculator patient={active} entries={log[activeId] || []} dol={displayDol}
+        autoPrint={autoPrintNow} requestPrint={autoRequestPrint}
         onOrderDate={setReportedOrderDate}
         editEntry={editEntry} baselineEntry={baselineEntry} previousEntry={previousEntry}
         logDate={logDate} userLabel={userLabel}
@@ -4222,8 +4420,10 @@ function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
   const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
-  const prefix = type === "error" ? "⚠ " : "✓ ";
-  const dur    = type === "error" ? 4200 : 2400;
+  // "info": a plain notice, no tick — "✓" read as "done" on the gate's
+  // exit prompt, and it stays only as long as that prompt's window.
+  const prefix = type === "error" ? "⚠ " : type === "info" ? "" : "✓ ";
+  const dur    = type === "error" ? 4200 : type === "info" ? 2000 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue('--toast-bottom').trim() || '24px';
   t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;

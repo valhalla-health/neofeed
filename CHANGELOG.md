@@ -7,6 +7,139 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-12 (2) — the phone's Back button steps back inside the app
+
+`app.jsx` (`goBack`, the history guard, `useDialogOpen`), `registry.jsx` (search and tile reset on the
+gate), `compiled/`, `test/verify-back-button-1012.cjs` (new), `test/README.md`, `app-walkthrough.md` §5.
+Same branch and PR as (1), on Pp's instruction to do it first. Frontend only, no `clasp` step.
+
+### Why
+
+Pp asked whether reopening the app within 30 seconds of pressing Back could skip the login. The login
+lives in `sessionStorage`, which Android drops when Back closes the app's window. Two options were put to
+her: a 30-second resume copy of the login on the phone (a change to the sign-in boundary, a 30-second
+window on a shared ward phone), or making Back move inside the app so the round stops leaving it by
+accident. Pp: "ทำ B ก่อน ให้ปุ่ม back ย้อนกลับในแอป". The resume option is not built.
+
+### What changed
+
+- While there is somewhere to go back to, one history entry sits on top of the page. Back pops it and
+  `goBack` takes one step: an open dialog closes (by a click on its backdrop, so a dialog that keeps
+  itself open on an outside tap keeps itself open on Back); Growth, Alerts and the Calculator go to the
+  Dashboard (an order opened from the print list goes to the print list); the Dashboard to the ward
+  list; the ward list or print list to the gate; Reference values, formulas, quick calc and admin to
+  where they were opened from, except that Reference values opened from an edit or a back-fill goes to
+  the Dashboard (Vera's 🟠: `goTo` had already dropped the edit, and Back reopened a new order for today
+  that looks the same).
+- **On the gate, Back asks for a second Back** (Pp: "ขึ้นมาว่า ออกจากแอป? … ถ้ากดออกจากแอปจริง ๆ ค่อยให้เขา
+  ล็อกอิน"). The first Back shows "กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่" and stays;
+  for 2 s (`EXIT_WINDOW_MS`) there is no entry of ours, so a second Back leaves the app the browser's own
+  way; after that, or as soon as the user moves off the gate, the entry is back. A dialog asking
+  "ออกจากแอป?" was not built: a page cannot close itself, so its ออก button could not work.
+- The entry is pushed only once the page has had a tap or key press (`navigator.userActivation`): Chrome
+  skips, on Back, an entry pushed before any user activation, which is the state after a reload.
+- `showToast` has an `"info"` type: no ✓, 2 s.
+- Reaching the gate any way clears the ward's search and tile filter (before, only `← เปลี่ยน ward` did).
+- The URL never changes; nothing is stored.
+
+### Tests
+
+`verify-back-button-1012.cjs` 31/31 on the sources; 12 fail against the code before it, the exit scenario
+fails 2 and Vera's edit/back-fill scenario fails before her fix. In real Chromium with the shipped bundle
+(ad-hoc, Pixel 7 size): gate → NICU → Dashboard → Growth, then Back gave the Dashboard, the ward list,
+closed the New session dialog, the gate, then the toast and still the gate; after 2.5 s Back asked again,
+and a second Back within 2 s left the page.
+
+**Vera: NO BLOCK** on the exit prompt too, one 🟡: Back on the gate, a ward within the 2 s, then Back,
+Back left with no prompt, because only the timer ended the window. Moving off the gate now ends it
+(check 7.6, which fails before). Her two tests are in (7.6; 8.4–8.5, the print list's edit → Reference
+values → Back → Dashboard). After her note that a touch grants activation on `pointerup`, the guard waits
+for `pointerup` / `keydown` / `click` instead of `pointerdown`. 34 checks.
+
+**Vera: NO BLOCK** on the first version, one 🟠 (Reference values from an edit, above), fixed. Her race
+note (a tap to the gate called `history.back()` and counted a pop to ignore) no longer applies: the guard
+now stays on the gate, and nothing calls `history.back()` except the second Back of an exit.
+
+### Not done
+
+- Not tried on a ward phone. Android's gesture Back and the installed PWA both send the browser's Back,
+  which is what this listens to; iOS has no Back button (Safari's swipe-back does the same).
+- The 30-second login resume (option A) is not built.
+- A dialog that closes on a tap outside it (Register, Edit, Transfer bed) also closes on Back and drops
+  what was typed, as an outside tap always did (Vera). No clinical value is lost; say if Back should keep
+  them open.
+
+## Session 2026-10-12 (1) — the stats tiles filter the list; Print order per ward on the gate
+
+`registry.jsx` (`statFilter`, `WardGateCell`, `WardPrintList`), `app.jsx` (`printWard`, `printJob`,
+`autoPrint`, `openOrderToPrint`, `CalculatorView` `requestPrint` and its back link), `calculator.jsx`
+(`autoPrint` / `requestPrint` props, one effect), both shells (CSS only), `compiled/`,
+`test/verify-ward-print-1012.cjs` (new), `test/verify-phone-sweep.cjs`, `test/README.md`,
+`app-walkthrough.md` §5. Branch `ccr-e1ae5b5d-3ybah8`. Frontend only, no `clasp` step.
+
+### Why
+
+Pp, with two phone screenshots: "ให้ปุ่ม active, logged, need entry กดแล้ว เลือกผู้ป่วยที่เข้ากับกลุ่มนั้นขึ้นมา
+เผื่อแยกผู้ป่วยว่าอันไหนยังไม่ได้ลงรายละเอียด หรืออันไหนล็อกเสร็จแล้วสำหรับวันนั้น จะได้นำไปปริ้นได้" and
+"หน้าแรกสุดของแต่ละวอร์ด อยากให้มีปุ่มพิมพ์ใบสั่ง ให้เป็นคำเดียวกับที่อยู่ด้านใน พอกดเข้าไป มีแค่แดชบอร์ด
+รายชื่อผู้ป่วย … ของแต่ละวอร์ดในวันนั้น เพื่อปริ้นอย่างเดียว เมื่อกดจะลิงก์เข้าไปที่หน้าโชว์พีดีเอฟก่อนกดปริ้นท์
+รีวิวเหมือนทางด้านใน".
+
+### What changed
+
+- **The ward list's Active, Logged today and Needs entry tiles are buttons.** A tap narrows the cards and
+  the table to that tile's infants; a second tap, or Active, shows everyone. A line above the list says
+  "แสดงเฉพาะ Needs entry · 2 จาก 5 ราย" with แสดงทั้งหมด, because a list missing infants with nothing saying
+  why reads as the whole ward. The discharged section hides while narrowed. Total sessions stays a figure.
+- **Each ward tile on the gate has a "Print order" button under it** (the calculator's own words), with
+  the ward's count of submitted orders. It opens **Print order · NICU**: the ward's active infants whose
+  order for today is Submitted, in bed order. A tap opens that order in the calculator and asks for the
+  print preview once, through the same `__neofeed_print` event the Print order button sends. **Nothing on
+  the list decides what may print**: the calculator's `printable` gate does, and an order it holds back
+  (edited, a critical value with no reason, a moved calculation) shows the same toast as the button and
+  does not print. The page then reads "← กลับไปรายการ Print order".
+- Drafts are not listed (they never print). A row still under its `tmp_` id is shown as saving and does
+  not open (UP-C9). Two submitted orders on one day open the infant's Dashboard to choose, rather than the
+  list guessing. Infants not yet submitted are counted under the list, one tap from Needs entry.
+- The print request is a token: one tap prints once; a re-render or a sync does not print again; leaving
+  the calculator (rail, bottom bar, `goTo`, a patient switch) drops it.
+- **It waits for the edit lock's first answer, and does not print while a colleague has the order open**
+  (Vera's 🟠, below). `useDailyLogLock` now returns `{ holder, checked }`. With a holder, the preview is held
+  for good, even if the lock clears later; a toast says so, and the "… กำลังเปิดบันทึก" banner and the Print
+  order button are left for the user to decide.
+- Every role sees the button: admin, doctor and nurse can already open and print a saved order from the
+  Dashboard, and this is the same path.
+
+### Tests
+
+`verify-ward-print-1012.cjs` 48/48 on the sources and on `compiled/`; against `main` (`4f30faf`) 14 fail, and
+its lock scenario fails 4 of 5 on this branch's first commit, before the lock wait.
+`verify-phone-sweep.cjs` 292/292 with the three new screens on all 24 profiles (Chromium, compiled).
+Every other `test/verify-*.cjs` passes on the sources. `verify-tpn-calc-weight.cjs` failed here as it did
+on an untouched `main` (`4f30faf`), "print form did not render for curWtG=1750". **Not the date and not the
+app:** this container's Node 22.22.0 is below jsdom 30's engine range, so npm installs jsdom 29.1.1, whose
+selector engine resolves a scoped `#print-form` through the document's FIRST element with that id. By the
+test's section #8 both of its roots hold a printable order, so there are two, and the lookup in the second
+root returned null. Proven both ways: the plain test fails under jsdom 29 at either clock (2026-10-11 and
+-12) and passes under jsdom 30.1.2 at either clock. The fix is in the test only: the lookup reads
+`[id="print-form"]`, which passes under both. The app mounts one Calculator, so the id is unique on the
+ward; the printing gate behaved correctly throughout.
+
+### Vera
+
+NO BLOCK. 🟠 an automatic print could go before the lock banner arrived: Pp's call between accepting it
+and waiting; taken the safer way (above), pinned by scenario #6. **Pp, 2026-10-12: "Safer option >> ok".** 🟡 check 4.0 read the whole page, so a
+wrong-patient print would pass: it now opens BB first and reads AA-1 off the printed sheet's patient table.
+She also lists the `verify-tpn-calc-weight` red on `main` (unexplained), real-device print behaviour, and
+that the list has no "already printed" mark, so two people can print the same order (a ward question).
+
+### Not done
+
+- No "already printed" mark on the list (Vera): two staff can print the same order. Ask the ward.
+- No one has tapped it on a ward phone. Chrome on Android opens the print preview from the tap; if a
+  browser refuses a print not started by its own button, the order is open with Print order one tap away.
+- Opening an order to print takes the same courtesy edit lock as opening it from the Dashboard.
+
 ## Session 2026-10-11 (8) — NF-17: the printed bag adds up, and a click moves the screen
 
 `test/verify-calc-sum.cjs` (new), `calculator.jsx` (`wfiVol`), `compiled/calculator.js` and the shells'
