@@ -109,10 +109,15 @@ Pp, with two phone screenshots: "ให้ปุ่ม active, logged, need entr
 `verify-ward-print-1012.cjs` 48/48 on the sources and on `compiled/`; against `main` (`4f30faf`) 14 fail, and
 its lock scenario fails 4 of 5 on this branch's first commit, before the lock wait.
 `verify-phone-sweep.cjs` 292/292 with the three new screens on all 24 profiles (Chromium, compiled).
-Every other `test/verify-*.cjs` passes on the sources, **except `verify-tpn-calc-weight.cjs`, which fails
-identically on an untouched `main` (`4f30faf`) in this session** ("print form did not render for
-curWtG=1750", its last check). `main`'s CI was green on 2026-10-11 15:58 UTC, so it looks date-dependent;
-not investigated further here.
+Every other `test/verify-*.cjs` passes on the sources. `verify-tpn-calc-weight.cjs` failed here as it did
+on an untouched `main` (`4f30faf`), "print form did not render for curWtG=1750". **Not the date and not the
+app:** this container's Node 22.22.0 is below jsdom 30's engine range, so npm installs jsdom 29.1.1, whose
+selector engine resolves a scoped `#print-form` through the document's FIRST element with that id. By the
+test's section #8 both of its roots hold a printable order, so there are two, and the lookup in the second
+root returned null. Proven both ways: the plain test fails under jsdom 29 at either clock (2026-10-11 and
+-12) and passes under jsdom 30.1.2 at either clock. The fix is in the test only: the lookup reads
+`[id="print-form"]`, which passes under both. The app mounts one Calculator, so the id is unique on the
+ward; the printing gate behaved correctly throughout.
 
 ### Vera
 
