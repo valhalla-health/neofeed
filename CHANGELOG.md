@@ -7,6 +7,45 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-12 (2) — the phone's Back button steps back inside the app
+
+`app.jsx` (`goBack`, the history guard, `useDialogOpen`), `registry.jsx` (search and tile reset on the
+gate), `compiled/`, `test/verify-back-button-1012.cjs` (new), `test/README.md`, `app-walkthrough.md` §5.
+Same branch and PR as (1), on Pp's instruction to do it first. Frontend only, no `clasp` step.
+
+### Why
+
+Pp asked whether reopening the app within 30 seconds of pressing Back could skip the login. The login
+lives in `sessionStorage`, which Android drops when Back closes the app's window. Two options were put to
+her: a 30-second resume copy of the login on the phone (a change to the sign-in boundary, a 30-second
+window on a shared ward phone), or making Back move inside the app so the round stops leaving it by
+accident. Pp: "ทำ B ก่อน ให้ปุ่ม back ย้อนกลับในแอป". The resume option is not built.
+
+### What changed
+
+- While there is somewhere to go back to, one history entry sits on top of the page. Back pops it and
+  `goBack` takes one step: an open dialog closes (by a click on its backdrop, so a dialog that keeps
+  itself open on an outside tap keeps itself open on Back); Growth, Alerts and the Calculator go to the
+  Dashboard (an order opened from the print list goes to the print list); the Dashboard to the ward
+  list; the ward list or print list to the gate; Reference values, formulas, quick calc and admin to
+  where they were opened from.
+- On the gate with no dialog open there is no entry, so Back leaves the app as it always did. Reaching the
+  gate by a tap removes the entry (one `history.back()` of our own, ignored).
+- Reaching the gate any way clears the ward's search and tile filter (before, only `← เปลี่ยน ward` did).
+- The URL never changes; nothing is stored.
+
+### Tests
+
+`verify-back-button-1012.cjs` 21/21 on the sources; 12 fail against the code before it. In real Chromium
+with the shipped bundle (ad-hoc, Pixel 7 size): gate → NICU → Dashboard → Growth, then Back gave the
+Dashboard, the ward list, closed the New session dialog, the gate, and then left the page.
+
+### Not done
+
+- Not tried on a ward phone. Android's gesture Back and the installed PWA both send the browser's Back,
+  which is what this listens to; iOS has no Back button (Safari's swipe-back does the same).
+- The 30-second login resume (option A) is not built.
+
 ## Session 2026-10-12 (1) — the stats tiles filter the list; Print order per ward on the gate
 
 `registry.jsx` (`statFilter`, `WardGateCell`, `WardPrintList`), `app.jsx` (`printWard`, `printJob`,

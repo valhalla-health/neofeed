@@ -1513,6 +1513,15 @@ print and shows the calculator's own toast; a colleague holding the edit lock st
 for good, the page's Print order still works. Against `main` before it, 14 fail. **`verify-phone-sweep.cjs`** now also sweeps the ward gate, the print list and the list
 narrowed to Needs entry on every device (234 screens), with one patient given today's submitted order.
 
+## The Back button inside the app, 2026-10-12 — one harness added
+
+Pp: "ให้ปุ่ม back ย้อนกลับในแอป" (`CHANGELOG.md` 2026-10-12 (2)). **`verify-back-button-1012.cjs`** drives
+the real `<App/>` through `review-0917-boot` (jsdom implements `pushState`, `back()` and `popstate`; also
+against `compiled/`), 21 checks in six scenarios: ward list → gate, with nothing of ours left on the history
+there; Growth → Dashboard → ward list → gate; Reference values → the calculator → its Dashboard; an order
+from the print list → the list → gate; Back closes a dialog and only the dialog; the gate reached by a tap
+drops our entry, and a search typed in a ward is gone after Back. Against the code before it, 12 fail.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

@@ -664,6 +664,17 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    submitted are counted under the list, one tap from Needs entry. The
    print list's ward (`printWard`) lives in `app.jsx` so "← กลับไปรายการ Print
    order" returns to it; `goTo` and leaving the Calculator clear the request.
+   **The phone's Back button steps back inside the app** (Pp, 2026-10-12;
+   `app.jsx` `goBack`). The app is one page, so Back used to leave it, and
+   the sign-in (in `sessionStorage`, §4) with it. While there is somewhere
+   to go back to, one history entry (`{ neofeedBack: true }`) sits on top;
+   Back pops it and takes one step: an open dialog closes (as a tap on its
+   backdrop, so a dialog that refuses that refuses Back), Growth / Alerts /
+   Calculator → the Dashboard (an order from the print list → the print
+   list), the Dashboard → the ward list, the list or print list → the gate,
+   reference screens → where they were opened from. On the gate with nothing
+   open the entry is removed, so Back leaves the app as before. Reaching the
+   gate any way clears the ward's search and tile filter.
    Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
    `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated,
    wording spells out that it's permanent and irreversible) calls

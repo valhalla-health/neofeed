@@ -160,6 +160,12 @@ function PatientRegistry({
   const [transferPatient, setTransferPatient] = React.useState(null);
   const [showArchived, setShowArchived] = React.useState(false);
   const today = D_R.useTodayLocal();
+  React.useEffect(() => {
+    if (!ward) {
+      setFilter("");
+      setStatFilter(null);
+    }
+  }, [ward]);
   if (printWard && onPrintOrder) return /* @__PURE__ */ React.createElement(
     WardPrintList,
     {

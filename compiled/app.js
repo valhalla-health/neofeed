@@ -442,6 +442,68 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     () => alertBadgeFor(active, active && log[active.sessionId] || []),
     [active, log, dol, ackVersion]
   );
+  const dialogOpen = useDialogOpen();
+  const prevViewRef = React.useRef(null);
+  const viewRef = React.useRef(view);
+  if (viewRef.current !== view) {
+    prevViewRef.current = viewRef.current;
+    viewRef.current = view;
+  }
+  const atRoot = view === "registry" && !ward && !printWard && !dialogOpen;
+  const goBack = () => {
+    const backdrops = document.querySelectorAll(".picker-backdrop, .modal-backdrop");
+    if (backdrops.length) {
+      backdrops[backdrops.length - 1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      return;
+    }
+    if (view === "calculator") {
+      if (editEntry && autoPrint && printWard) setView("registry");
+      else goTo(active ? "log" : "registry");
+    } else if (view === "fenton" || view === "alerts") {
+      goTo(active ? "log" : "registry");
+    } else if (view === "log") {
+      goTo("registry");
+    } else if (view !== "registry") {
+      const prev = prevViewRef.current;
+      goTo(prev && prev !== view && (prev !== "calculator" || active) ? prev : "registry");
+    } else if (printWard) {
+      setPrintWard(null);
+    } else if (ward) {
+      setWard(null);
+    }
+  };
+  const goBackRef = React.useRef(goBack);
+  goBackRef.current = goBack;
+  const guardRef = React.useRef(false);
+  const ownPopsRef = React.useRef(0);
+  const [guardTick, setGuardTick] = React.useState(0);
+  React.useEffect(() => {
+    if (!user) return;
+    try {
+      if (!atRoot && !guardRef.current) {
+        window.history.pushState({ neofeedBack: true }, "");
+        guardRef.current = true;
+      } else if (atRoot && guardRef.current) {
+        guardRef.current = false;
+        ownPopsRef.current++;
+        window.history.back();
+      }
+    } catch {
+    }
+  }, [atRoot, user, guardTick]);
+  React.useEffect(() => {
+    const onPop = () => {
+      if (ownPopsRef.current > 0) {
+        ownPopsRef.current--;
+        return;
+      }
+      guardRef.current = false;
+      goBackRef.current();
+      setGuardTick((t) => t + 1);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const flagPasswordChangeRequired = React.useCallback(() => {
     setUser((u) => {
       if (!u || u.mustChangePassword) return u;
@@ -1522,6 +1584,19 @@ function useDailyLogLock(sessionId, dateStr, token) {
     };
   }, [sessionId, dateStr, token]);
   return { holder, checked };
+}
+function useDialogOpen() {
+  const sel = ".picker-backdrop, .modal-backdrop";
+  const [open, setOpen] = React.useState(() => !!document.querySelector(sel));
+  React.useEffect(() => {
+    if (typeof MutationObserver === "undefined") return;
+    const check = () => setOpen(!!document.querySelector(sel));
+    const mo = new MutationObserver(check);
+    mo.observe(document.body, { childList: true, subtree: true });
+    check();
+    return () => mo.disconnect();
+  }, []);
+  return open;
 }
 function CalculatorView({
   active,

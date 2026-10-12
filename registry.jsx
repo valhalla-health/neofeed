@@ -328,11 +328,15 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   // discharged auto-hide all re-evaluate on their own at midnight instead of
   // holding yesterday's answer until someone reloads the tab.
   const today = D_R.useTodayLocal();
+  // Back to the gate by any route (← เปลี่ยน ward, or the phone's Back,
+  // app.jsx goBack): the search and the tile belong to the ward they were
+  // set in, and carried to the next ward they would narrow its list unseen.
+  React.useEffect(() => { if (!ward) { setFilter(""); setStatFilter(null); } }, [ward]);
 
   // The ward print list, or (no ward chosen yet) the gate, IS this view.
-  // Every hook this component calls is above these lines (six useStates and
-  // useTodayLocal), so the early returns can't change the hook call order
-  // between renders. The print list is offered only when App can open an
+  // Every hook this component calls is above these lines (six useStates,
+  // useTodayLocal and the ward-reset effect), so the early returns can't
+  // change the hook call order between renders. The print list is offered only when App can open an
   // order to print (onPrintOrder).
   if (printWard && onPrintOrder) return (
     <WardPrintList patients={patients} log={log} today={today} ward={printWard}
