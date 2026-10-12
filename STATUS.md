@@ -153,6 +153,9 @@
 **Updated 2026-10-12** · ✅ **Backend `@64` and frontend `release` = `266a08d` are live, and both are
 verified.** Caught up with #151 and #155 in the next PR on the repo, the Back confirm (`CHANGELOG.md`
 2026-10-12 (3)), as #155 asked.
+- ⏳ **PR #156, Back asks before it closes a form, Back after Back stays in the app, and dev local before
+  every release: merged into `main` on Pp's instruction ("merge แล้ว deploy").** Not live until its
+  `main → release` PR merges. Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged.
 - ✅ **PR #154, the stats tiles filter the list, Print order per ward on the gate, and Back inside the app:
   live, released by #155 on Pp's instruction ("merge ตอนนี้", after a local dev run).** Frontend only.
   `CHANGELOG.md` 2026-10-12 (1) and (2). ⚠️ In this release a second Back in a row, with no tap between,
