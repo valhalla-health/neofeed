@@ -7,6 +7,63 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-12 (3) — Back asks before it closes a form; Back after Back stays in the app
+
+`app.jsx` (`goBack`, the history guard), `registry.jsx` (`data-back-confirm` on three dialogs),
+`compiled/`, `test/verify-back-button-1012.cjs`, `test/README.md`, `app-walkthrough.md` §5, `STATUS.md`
+(catches up with #151 and #155). Frontend only, no `clasp` step.
+
+### Why
+
+Two things, found the same morning.
+
+1. Pp, after #154: "ถ้ากด Back ระหว่างเปิด Register new session, Edit session หรือ Transfer bed dialog
+   ให้ alert ขึ้นมาว่า ต้องการออกจากหน้า ... ? ข้อมูลที่พิมพ์ไว้จะหายไป". Back closed those dialogs as a tap
+   outside does, and what was typed went with them (Vera raised it on #154; it was left for Pp).
+2. Pp asked for a local dev run before release #155. Served on `127.0.0.1` with the real `gas-backend.gs`
+   in `test/gas-vm-sandbox.cjs`, in Chromium, the release's Back worked once after a tap, but a second
+   Back straight after it found no entry: on a phone that leaves NeoFeed, and the login with it, with no
+   "กด Back อีกครั้ง" prompt. After each Back the guard was pushed again from inside `popstate`, which is
+   not a user activation, and Chrome's history-manipulation intervention makes Back skip the entry a page
+   pushed from without one. One tap on the page cleared it. jsdom has no such intervention, and the
+   ad-hoc Chromium run on #154 most likely drove Back by script, which does not apply it the way the
+   browser's own Back does.
+
+### What changed
+
+- **Register new session, Edit session and Transfer bed ask on Back.** Their backdrops carry
+  `data-back-confirm`, and `goBack` asks `window.confirm("ต้องการออกจากหน้า <name> ?\nข้อมูลที่พิมพ์ไว้จะหายไป")`
+  before it closes one: Cancel keeps the dialog and what was typed, OK closes it. It asks whether or not
+  anything was typed, as Pp worded it. The native confirm is what NeoFeed already uses for deletes, and
+  on a phone, Back while it shows is Cancel. A tap outside these dialogs still closes them at once (Pp
+  asked about Back), and every other dialog still closes on Back without a question.
+- **The guard returns by moving forward, not by a new push.** After a Back, the guard is the next entry
+  forward, so `history.forward()` lands on it again and adds nothing, and nothing gets marked. `pushState`
+  is left for the first arming after a tap, and for a fallback if the forward entry is gone (600 ms with
+  no `popstate`, then push). The same applies when the 2 s exit window on the gate ends, or the user moves
+  off the gate inside it.
+
+### Tests
+
+`verify-back-button-1012.cjs` 49/49 on the sources (was 34). #5 now uses the new-order date dialog, which
+still closes on Back without asking. **#9** (11 checks): Back on each of the three dialogs asks in Pp's
+words; Cancel keeps Register new session open with the initials typed; OK closes each; a tap outside
+Edit session still closes it without asking. **#10** (5 checks): Growth → Dashboard → ward list → gate
+by three Backs in a row with no `pushState` on the way, then the exit prompt, then the guard back after
+2 s, still with no push. jsdom has no history intervention, so #10 checks its cause, a push after a
+Back. Against `main` the same file fails 7 checks (9.0, 9.1, 9.3, 9.4, then #9 stops; 10.1 with 3 pushes,
+10.4). Checks 7.3 and 10.4 flush once more after the 2 s wait: `forward()` lands a task later.
+
+In Chromium (the desktop app's Browser pane, 375 × 812, local dev server with the sandboxed backend,
+made-up infants): Growth, then four Backs with no tap between gave the Dashboard, NICU, the gate and the
+prompt; 2.5 s later the guard was back, and Back, Back left the page. On release #155 the second Back
+already found no entry. Register new session with "รย" typed: Back asked in Pp's words, Cancel kept "รย",
+the next Back with OK closed it and stayed on NICU.
+
+### Not done
+
+- No ward phone has tried either change, or #154's Back.
+
 ## Session 2026-10-12 (2) — the phone's Back button steps back inside the app
 
 `app.jsx` (`goBack`, the history guard, `useDialogOpen`), `registry.jsx` (search and tile reset on the

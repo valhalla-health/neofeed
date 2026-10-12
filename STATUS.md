@@ -1,5 +1,22 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-12, 11:27 ICT — frontend `release` = `266a08d` on both hosts, with backend `@64`.**
+> PR #155 released #154, #153 and #152: the Active, Logged today and Needs entry tiles filter the ward
+> list; each ward has a Print order button on the gate; the phone's Back steps back inside the app; NF-17,
+> the printed TPN bag adds up and WFI comes from the printed prepared volume. **`CONSTANTS_VERSION` is
+> `2026-10-11.1`**, so every order saved before it is saved again before it prints, including one opened
+> from the print list. Before the merge, Pp had the tree run on a local dev server with the real
+> `gas-backend.gs` in its sandbox. `node tools/verify-release.mjs 266a08d` passed on both hosts (0 failures,
+> 61 passes, and the previous release's `?v=` tokens are gone). The tag `release-2026-10-12-pr155` is
+> pushed (comment on #155). ⚠️ **In this release a second Back in a row, with no tap between, can leave
+> NeoFeed** without the "กด Back อีกครั้ง" prompt (Chromium, dev-local run; `CHANGELOG.md` 2026-10-12 (3)).
+> No one has tried the print list or Back on a ward phone yet.
+>
+> ✅ **2026-10-11, 19:38 ICT — frontend `release` = `ddadf79` on both hosts, with backend `@64`.**
+> PR #151 released #150: on a peripheral line the K⁺ limit is the maximum alone ("max 60"), not a red tier
+> that cannot be reached. `node tools/verify-release.mjs ddadf79` passed on both hosts (0 failures, 61
+> passes). The tag `release-2026-10-11-pr151` is pushed (comment on #151).
+>
 > ✅ **2026-10-11, 17:35 ICT — frontend `release` = `8fa5d2b` on both hosts, with backend `@64`.**
 > PR #148 released #147 and #149: severity as a word and a shape, no colour emoji, and no *In range* chip on
 > a tile that is fine. #146 and #134 rode along and changed no served file. `node tools/verify-release.mjs
@@ -133,10 +150,19 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-11** · ✅ **Backend `@64` and frontend `release` = `8fa5d2b` are live, and both are
-verified.** Caught up with #148 in PR #150, the next PR on the repo, as #148 asked.
-- ⏳ **PR #150, peripheral K⁺: the maximum alone: merged into `main` on Pp's instruction ("merge #150
-  แล้วลบ worktree เก่าเลย").** Not live: a `main` → `release` PR follows in the same session. Pp, on PR #137: "ให้เหลือแค่ max 60",
+**Updated 2026-10-12** · ✅ **Backend `@64` and frontend `release` = `266a08d` are live, and both are
+verified.** Caught up with #151 and #155 in the next PR on the repo, the Back confirm (`CHANGELOG.md`
+2026-10-12 (3)), as #155 asked.
+- ✅ **PR #154, the stats tiles filter the list, Print order per ward on the gate, and Back inside the app:
+  live, released by #155 on Pp's instruction ("merge ตอนนี้", after a local dev run).** Frontend only.
+  `CHANGELOG.md` 2026-10-12 (1) and (2). ⚠️ In this release a second Back in a row, with no tap between,
+  can leave the app (banner above).
+- ✅ **PR #153, NF-17: the printed bag adds up, and WFI comes from the printed prepared volume: live,
+  released by #155.** `CONSTANTS_VERSION` `2026-10-11.1`: orders saved before 11:27 ICT on 2026-10-12 are
+  saved again before they print (`CHANGELOG.md` 2026-10-11 (8)).
+- ✅ **PR #152, product documents out of the public repo: released by #155.** Docs only, no served file.
+- ✅ **PR #150, peripheral K⁺: the maximum alone: live, released by #151 on 2026-10-11 at 19:38 ICT.**
+  Merged into `main` on Pp's instruction ("merge #150 แล้วลบ worktree เก่าเลย"). Pp, on PR #137: "ให้เหลือแค่ max 60",
   and 2026-10-11: "> 60 peripheral จะสั่งไม่ได้" (`CHANGELOG.md` 2026-10-11 (6)). Where red is the maximum
   (peripheral), the tile line, the caution, the form, the back sheet and Copy order say "max 60" and nothing
   about confirming above it; central is unchanged. Frontend only, no `clasp` step. `CONSTANTS_VERSION`
