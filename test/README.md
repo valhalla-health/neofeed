@@ -1517,7 +1517,7 @@ narrowed to Needs entry on every device (234 screens), with one patient given to
 
 Pp: "ให้ปุ่ม back ย้อนกลับในแอป" (`CHANGELOG.md` 2026-10-12 (2)). **`verify-back-button-1012.cjs`** drives
 the real `<App/>` through `review-0917-boot` (jsdom implements `pushState`, `back()` and `popstate`; also
-against `compiled/`), 31 checks in eight scenarios: ward list → gate; Growth → Dashboard → ward list →
+against `compiled/`), 34 checks in eight scenarios: ward list → gate; Growth → Dashboard → ward list →
 gate; Reference values → the calculator → its Dashboard; an order from the print list → the list → gate;
 Back closes a dialog and only the dialog; a search typed in a ward is gone after Back; on the gate, the
 first Back stays with a toast and no entry of ours for 2 s, then the entry is back; Reference values from an

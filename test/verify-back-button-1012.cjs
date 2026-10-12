@@ -145,6 +145,7 @@ scenarios['exit'] = async (A) => {
   A.ok('7.4 moving off the gate inside the 2 s puts the entry back at once', ourEntryOnTop(t));
   await t.back();
   A.ok('7.5 …so Back from the ward is a step, not an exit', atGate());
+  A.ok('7.6 …and back on the gate the entry is there again: the next Back asks, not leaves', ourEntryOnTop(t));
 };
 
 scenarios['held'] = async (A) => {
@@ -169,6 +170,17 @@ scenarios['held'] = async (A) => {
   await t.click(t.btn(/Reference values/));
   await t.back();
   A.ok('8.3 Back goes to the Dashboard, not today\'s order', /Dashboard/.test(railActive()) && !/TPN \+ Enteral/.test(heading()));
+
+  // The third way an edit reaches the calculator: the ward's print list.
+  await t.rail(/Patients/);
+  await t.click(t.btn(/เปลี่ยน ward/));
+  await t.click(document.querySelector('.ward-print'));
+  await t.click([...document.querySelectorAll('.print-row')].find(r => /AA/.test(r.textContent)));
+  for (let i = 0; i < 4; i++) await t.flush();
+  A.ok('8.4 an order opened from the print list', /แก้ไขบันทึกโภชนาการ/.test(heading()));
+  await t.click(t.btn(/Reference values/));
+  await t.back();
+  A.ok('8.5 Back from Reference values: the Dashboard, not a new order', /Dashboard/.test(railActive()) && !/TPN \+ Enteral/.test(heading()));
 };
 
 runScenarios(__filename, 'BACK BUTTON INSIDE THE APP', scenarios);

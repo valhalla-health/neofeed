@@ -849,22 +849,23 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const exitWindowRef = React.useRef(false);
   exitWindowRef.current = exitWindow;
   React.useEffect(() => {
-    if (!user || guardRef.current) return;
     // The 2 s after a Back on the gate: no guard, so a second Back leaves.
-    // Moving off the gate in that time ends it.
+    // Moving off the gate in that time ends it, so coming back to the gate
+    // later asks again (Vera, 2026-10-12).
+    if (exitWindow && !atRoot) setExitWindow(false);
+    if (!user || guardRef.current) return;
     if (exitWindow && atRoot) return;
     // Chrome skips, on Back, an entry pushed before the page had any user
     // activation (its history-manipulation intervention), and the guard would
     // do nothing. A session restored on reload has had no tap yet: wait for one.
+    // A touch grants activation on pointerup, not pointerdown; the effect
+    // re-checks after each and keeps waiting until it holds.
     const ua = typeof navigator !== "undefined" && navigator.userActivation;
     if (ua && !ua.hasBeenActive) {
+      const evs = ["pointerup", "keydown", "click"];
       const arm = () => setGuardTick(t => t + 1);
-      window.addEventListener("pointerdown", arm, { once: true, capture: true });
-      window.addEventListener("keydown", arm, { once: true, capture: true });
-      return () => {
-        window.removeEventListener("pointerdown", arm, { capture: true });
-        window.removeEventListener("keydown", arm, { capture: true });
-      };
+      evs.forEach(e => window.addEventListener(e, arm, { once: true, capture: true }));
+      return () => evs.forEach(e => window.removeEventListener(e, arm, { capture: true }));
     }
     try {
       window.history.pushState({ neofeedBack: true }, "");

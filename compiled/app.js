@@ -486,17 +486,15 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const exitWindowRef = React.useRef(false);
   exitWindowRef.current = exitWindow;
   React.useEffect(() => {
+    if (exitWindow && !atRoot) setExitWindow(false);
     if (!user || guardRef.current) return;
     if (exitWindow && atRoot) return;
     const ua = typeof navigator !== "undefined" && navigator.userActivation;
     if (ua && !ua.hasBeenActive) {
+      const evs = ["pointerup", "keydown", "click"];
       const arm = () => setGuardTick((t) => t + 1);
-      window.addEventListener("pointerdown", arm, { once: true, capture: true });
-      window.addEventListener("keydown", arm, { once: true, capture: true });
-      return () => {
-        window.removeEventListener("pointerdown", arm, { capture: true });
-        window.removeEventListener("keydown", arm, { capture: true });
-      };
+      evs.forEach((e) => window.addEventListener(e, arm, { once: true, capture: true }));
+      return () => evs.forEach((e) => window.removeEventListener(e, arm, { capture: true }));
     }
     try {
       window.history.pushState({ neofeedBack: true }, "");

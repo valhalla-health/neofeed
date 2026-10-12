@@ -50,6 +50,12 @@ fails 2 and Vera's edit/back-fill scenario fails before her fix. In real Chromiu
 closed the New session dialog, the gate, then the toast and still the gate; after 2.5 s Back asked again,
 and a second Back within 2 s left the page.
 
+**Vera: NO BLOCK** on the exit prompt too, one 🟡: Back on the gate, a ward within the 2 s, then Back,
+Back left with no prompt, because only the timer ended the window. Moving off the gate now ends it
+(check 7.6, which fails before). Her two tests are in (7.6; 8.4–8.5, the print list's edit → Reference
+values → Back → Dashboard). After her note that a touch grants activation on `pointerup`, the guard waits
+for `pointerup` / `keydown` / `click` instead of `pointerdown`. 34 checks.
+
 **Vera: NO BLOCK** on the first version, one 🟠 (Reference values from an edit, above), fixed. Her race
 note (a tap to the gate called `history.back()` and counted a pop to ignore) no longer applies: the guard
 now stays on the gate, and nothing calls `history.back()` except the second Back of an exit.
