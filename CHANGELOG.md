@@ -10,8 +10,9 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-12 (3) — Back asks before it closes a form; Back after Back stays in the app
 
 `app.jsx` (`goBack`, the history guard), `registry.jsx` (`data-back-confirm` on three dialogs),
-`compiled/`, `test/verify-back-button-1012.cjs`, `test/README.md`, `app-walkthrough.md` §5, `STATUS.md`
-(catches up with #151 and #155). Frontend only, no `clasp` step.
+`compiled/`, `test/verify-back-button-1012.cjs`, `tools/dev-local.mjs` and `test/verify-dev-local.cjs`
+(new), `REFERENCE.md` § Frontend, `test/README.md`, `app-walkthrough.md` §5, `STATUS.md` (catches up
+with #151 and #155). Frontend only, no `clasp` step.
 
 ### Why
 
@@ -42,6 +43,12 @@ Two things, found the same morning.
   is left for the first arming after a tap, and for a fallback if the forward entry is gone (600 ms with
   no `popstate`, then push). The same applies when the 2 s exit window on the gate ends, or the user moves
   off the gate inside it.
+- **Dev local is a release step** (Pp, on this PR: "ข้อ 2 ทำเลย", making the run she asked for on #155 the
+  rule for every release). `tools/dev-local.mjs` serves a tree on `127.0.0.1` with `boot.js` pointed at
+  itself and `gas-backend.gs` behind it in `test/gas-vm-sandbox.cjs`, seeded with made-up infants for
+  every release-day case (printable, draft, saved under an older `CONSTANTS_VERSION`, nothing today) and
+  two accounts whose passwords are new each run. `REFERENCE.md` § Frontend puts the run between opening
+  the release PR and merging it; the project `CLAUDE.md` names the step too.
 
 ### Tests
 
@@ -59,6 +66,14 @@ made-up infants): Growth, then four Backs with no tap between gave the Dashboard
 prompt; 2.5 s later the guard was back, and Back, Back left the page. On release #155 the second Back
 already found no entry. Register new session with "รย" typed: Back asked in Pp's words, Cancel kept "รย",
 the next Back with OK closed it and stayed on NICU.
+
+`verify-dev-local.cjs` (new) 17/17: `boot.js` names the local server and never `script.google.com`; the
+shell and all its scripts load; `gas-backend.gs`, `STATUS.md`, the sandbox, the tool and a file beside the
+copy (`..%2f`) are not served; the seeded doctor signs in through the real login and a wrong password is
+refused; the six infants and today's four orders are there; a tree whose `boot.js` it cannot rewrite is
+refused; stop removes the copy. Each check was watched fail by breaking the tool one way at a time:
+serving `boot.js` unchanged (1.0, 1.1), dropping the out-of-copy guard (1.5), seeding CC under the current
+version (2.5), skipping the refusal (3.0).
 
 ### Not done
 
