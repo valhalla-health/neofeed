@@ -77,6 +77,7 @@ function normalizeSex(v) {
   return SEX_ALIASES[k] || (v == null ? "" : v);
 }
 const IDLE_LOGOUT_MS = 30 * 60 * 1e3;
+const EXIT_WINDOW_MS = 2e3;
 const IDLE_CHECK_MS = 3e4;
 const IDLE_INPUT_EVENTS = ["pointerdown", "keydown", "touchstart", "wheel"];
 const SESSION_NOTICES = {
@@ -449,6 +450,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     prevViewRef.current = viewRef.current;
     viewRef.current = view;
   }
+  const calcHeldOrderRef = React.useRef(false);
+  if (view === "calculator") calcHeldOrderRef.current = !!(editEntry || logDate);
   const atRoot = view === "registry" && !ward && !printWard && !dialogOpen;
   const goBack = () => {
     const backdrops = document.querySelectorAll(".picker-backdrop, .modal-backdrop");
@@ -465,7 +468,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       goTo("registry");
     } else if (view !== "registry") {
       const prev = prevViewRef.current;
-      goTo(prev && prev !== view && (prev !== "calculator" || active) ? prev : "registry");
+      if (prev === "calculator") goTo(!active ? "registry" : calcHeldOrderRef.current ? "log" : "calculator");
+      else goTo(prev && prev !== view ? prev : "registry");
     } else if (printWard) {
       setPrintWard(null);
     } else if (ward) {
@@ -474,30 +478,53 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   };
   const goBackRef = React.useRef(goBack);
   goBackRef.current = goBack;
+  const atRootRef = React.useRef(atRoot);
+  atRootRef.current = atRoot;
   const guardRef = React.useRef(false);
-  const ownPopsRef = React.useRef(0);
   const [guardTick, setGuardTick] = React.useState(0);
+  const [exitWindow, setExitWindow] = React.useState(false);
+  const exitWindowRef = React.useRef(false);
+  exitWindowRef.current = exitWindow;
   React.useEffect(() => {
-    if (!user) return;
+    if (!user || guardRef.current) return;
+    if (exitWindow && atRoot) return;
+    const ua = typeof navigator !== "undefined" && navigator.userActivation;
+    if (ua && !ua.hasBeenActive) {
+      const arm = () => setGuardTick((t) => t + 1);
+      window.addEventListener("pointerdown", arm, { once: true, capture: true });
+      window.addEventListener("keydown", arm, { once: true, capture: true });
+      return () => {
+        window.removeEventListener("pointerdown", arm, { capture: true });
+        window.removeEventListener("keydown", arm, { capture: true });
+      };
+    }
     try {
-      if (!atRoot && !guardRef.current) {
-        window.history.pushState({ neofeedBack: true }, "");
-        guardRef.current = true;
-      } else if (atRoot && guardRef.current) {
-        guardRef.current = false;
-        ownPopsRef.current++;
-        window.history.back();
-      }
+      window.history.pushState({ neofeedBack: true }, "");
+      guardRef.current = true;
     } catch {
     }
-  }, [atRoot, user, guardTick]);
+  }, [atRoot, user, guardTick, exitWindow]);
+  React.useEffect(() => {
+    if (!exitWindow) return;
+    const t = setTimeout(() => setExitWindow(false), EXIT_WINDOW_MS);
+    return () => clearTimeout(t);
+  }, [exitWindow]);
   React.useEffect(() => {
     const onPop = () => {
-      if (ownPopsRef.current > 0) {
-        ownPopsRef.current--;
+      if (exitWindowRef.current && !guardRef.current) {
+        try {
+          window.history.back();
+        } catch {
+        }
         return;
       }
+      if (!guardRef.current || !userRef.current) return;
       guardRef.current = false;
+      if (atRootRef.current) {
+        setExitWindow(true);
+        showToast("กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่", "info");
+        return;
+      }
       goBackRef.current();
       setGuardTick((t) => t + 1);
     };
@@ -2635,8 +2662,8 @@ function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
   const bg = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
-  const prefix = type === "error" ? "⚠ " : "✓ ";
-  const dur = type === "error" ? 4200 : 2400;
+  const prefix = type === "error" ? "⚠ " : type === "info" ? "" : "✓ ";
+  const dur = type === "error" ? 4200 : type === "info" ? 2e3 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue("--toast-bottom").trim() || "24px";
   t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;

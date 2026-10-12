@@ -5,14 +5,17 @@
 // sign-in with it (sessionStorage). app.jsx now keeps one history entry on top
 // of the page while there is somewhere to go back to, and Back takes one step:
 //
-//   #1 ward     ward list → gate; on the gate, nothing of ours is left on the
-//               history, so the next Back leaves the app as before
+//   #1 ward     ward list → gate
 //   #2 patient  Growth → Dashboard → ward list (the ward kept) → gate
 //   #3 calc     a new order → its Dashboard; Reference values → back where it was
 //   #4 print    an order opened from the print list → the list → gate
 //   #5 dialog   Back closes an open dialog and nothing else
-//   #6 tap      reaching the gate by a tap drops our entry too; a search typed
-//               in a ward is gone after Back to the gate
+//   #6 tap      a search typed in a ward is gone after Back to the gate
+//   #7 exit     on the gate, Back asks for a second Back within 2 s (Pp,
+//               2026-10-12: "ออกจากแอป?"): a toast, no entry of ours for
+//               those 2 s so the next Back leaves, then the entry is back
+//   #8 held     Reference values opened from an edit or a back-fill: Back
+//               goes to the Dashboard, never a new order for today (Vera)
 //
 // jsdom implements history.pushState / back() and fires popstate, which is all
 // the code uses. Drives the real <App/> through review-0917-boot.
@@ -47,12 +50,13 @@ const scenarios = {
   async 'ward'(A) {
     console.log('\n── #1 ward list → gate, then Back leaves ──');
     const t = await setup();
-    A.ok('1.0 the gate keeps nothing on the history', atGate() && !ourEntryOnTop(t));
+    A.ok('1.0 signed in, our entry is on the history', atGate() && ourEntryOnTop(t));
+    const len = t.window.history.length;
     await t.pickWard('NICU');
-    A.ok('1.1 a ward puts one entry on the history', ourEntryOnTop(t));
+    A.ok('1.1 picking a ward adds no second entry', ourEntryOnTop(t) && t.window.history.length === len);
     await t.back();
     A.ok('1.2 Back returns to the gate', atGate());
-    A.ok('1.3 …and leaves nothing of ours on top, so the next Back leaves the app', !ourEntryOnTop(t));
+    A.ok('1.3 …with the entry back on top', ourEntryOnTop(t));
   },
 
   async 'patient'(A) {
@@ -67,7 +71,7 @@ const scenarios = {
     await t.back();
     A.ok('2.2 Back: NICU\'s list, ward kept', /NICU/.test(heading()) && !!document.querySelector('.reg-stats'));
     await t.back();
-    A.ok('2.3 Back: the gate', atGate() && !ourEntryOnTop(t));
+    A.ok('2.3 Back: the gate', atGate());
   },
 
   async 'calc'(A) {
@@ -96,7 +100,7 @@ const scenarios = {
     await t.back();
     A.ok('4.1 Back: the print list', /Print order · NICU/.test(heading()));
     await t.back();
-    A.ok('4.2 Back: the gate', atGate() && !ourEntryOnTop(t));
+    A.ok('4.2 Back: the gate', atGate());
   },
 
   async 'dialog'(A) {
@@ -117,14 +121,54 @@ const scenarios = {
     await t.pickWard('NICU');
     await t.typeInto(document.querySelector('.reg-search input'), 'BB');
     await t.click(t.btn(/เปลี่ยน ward/));
-    for (let i = 0; i < 3; i++) await t.flush();
-    A.ok('6.0 the gate by a tap drops our entry, so Back leaves the app', atGate() && !ourEntryOnTop(t));
+    A.ok('6.0 the gate by a tap keeps the entry for Back', atGate() && ourEntryOnTop(t));
     await t.pickWard('NICU');
     await t.typeInto(document.querySelector('.reg-search input'), 'BB');
     await t.back();
     await t.pickWard('NICU');
     A.eq('6.1 a search typed in the ward is gone after Back', document.querySelector('.reg-search input').value, '');
   },
+};
+
+scenarios['exit'] = async (A) => {
+  console.log('\n── #7 on the gate, Back asks for a second Back ──');
+  const t = await setup();
+  await t.back();
+  A.ok('7.0 the first Back on the gate stays in the app', atGate());
+  A.ok('7.1 …and says a second Back leaves, and costs a login',
+    t.toasts().some(m => /กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่/.test(m)));
+  A.ok('7.2 …with no entry of ours on top, so the second Back leaves the app', !ourEntryOnTop(t));
+  await t.flush(2200);
+  A.ok('7.3 after 2 s the entry is back: a later Back asks again', ourEntryOnTop(t));
+  await t.back();
+  await t.pickWard('NICU');
+  A.ok('7.4 moving off the gate inside the 2 s puts the entry back at once', ourEntryOnTop(t));
+  await t.back();
+  A.ok('7.5 …so Back from the ward is a step, not an exit', atGate());
+};
+
+scenarios['held'] = async (A) => {
+  console.log('\n── #8 Reference values from an edit or a back-fill ──');
+  const t = await setup();
+  await t.pickWard('NICU');
+  await t.openPatientRow(/AA/);
+  await t.click([...document.querySelectorAll('tr')].find(r => /Submitted/.test(r.textContent)));
+  A.ok('8.0 editing AA\'s saved order', /แก้ไขบันทึกโภชนาการ/.test(heading()));
+  await t.click(t.btn(/Reference values/));
+  await t.back();
+  A.ok('8.1 Back goes to the Dashboard, not a new order for today',
+    /Dashboard/.test(railActive()) && !/TPN \+ Enteral nutrition order/.test(heading()));
+
+  await t.click(t.btn(/New log/));
+  const modes = [...document.querySelectorAll('input[name="logdate-mode"]')];
+  await t.click(modes[modes.length - 1]);
+  const past = new Date(Date.parse(TODAY + 'T00:00:00Z') - 2 * 864e5).toISOString().slice(0, 10);
+  await t.typeInto([...document.querySelectorAll('input[type="date"]')].pop(), past);
+  await t.click(t.btn(/ดำเนินการต่อ/));
+  A.ok('8.2 a back-filled order is open', /กำลังบันทึกย้อนหลัง/.test(t.text()));
+  await t.click(t.btn(/Reference values/));
+  await t.back();
+  A.ok('8.3 Back goes to the Dashboard, not today\'s order', /Dashboard/.test(railActive()) && !/TPN \+ Enteral/.test(heading()));
 };
 
 runScenarios(__filename, 'BACK BUTTON INSIDE THE APP', scenarios);

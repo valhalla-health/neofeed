@@ -108,6 +108,8 @@ function normalizeSex(v) {
 // minutes with no REAL input. Only a human counts — the poll, the edit-lock
 // heartbeat and every sync are deliberately invisible to this clock.
 const IDLE_LOGOUT_MS = 30 * 60 * 1000;
+// A second Back on the ward gate within this leaves the app (app.jsx goBack).
+const EXIT_WINDOW_MS = 2000;
 const IDLE_CHECK_MS  = 30000;
 const IDLE_INPUT_EVENTS = ["pointerdown", "keydown", "touchstart", "wheel"];
 // What the login screen says after a session ended without the user asking.
@@ -790,16 +792,26 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // ── The phone's Back button moves back inside the app ─────────
   // Pp, 2026-10-12: "ให้ปุ่ม back ย้อนกลับในแอป". The app is one page, so the
   // first Back on Android left it, and with it the sign-in, which lives in
-  // sessionStorage. Now, while there is somewhere to go back to, one history
-  // entry (the guard) sits on top of the page; Back pops it and `goBack`
-  // takes one step: an open dialog closes, a patient screen returns to its
-  // Dashboard, the Dashboard to the ward list, the list (or the print list)
-  // to the ward gate. On the gate with nothing open there is no guard, so
-  // Back leaves the app as it always did.
+  // sessionStorage. Now one history entry (the guard) sits on top of the
+  // page while someone is signed in; Back pops it and `goBack` takes one
+  // step: an open dialog closes, a patient screen returns to its Dashboard,
+  // the Dashboard to the ward list, the list (or the print list) to the ward
+  // gate.
+  // On the gate, Back asks for a second Back within EXIT_WINDOW_MS (Pp,
+  // 2026-10-12: leaving by accident costs a new login). A page cannot close
+  // itself, so an "ออกจากแอป?" dialog could not offer a working ออก button;
+  // instead the guard stays off for those 2 s, and a second Back leaves the
+  // app the browser's own way.
   const dialogOpen = useDialogOpen();
   const prevViewRef = React.useRef(null);
   const viewRef = React.useRef(view);
   if (viewRef.current !== view) { prevViewRef.current = viewRef.current; viewRef.current = view; }
+  // Whether the calculator, as last shown, held an edit or a back-fill. goTo
+  // clears both on the way to Reference values, so Back cannot reopen them;
+  // it goes to the Dashboard instead of a new order for today, which looks
+  // the same and would save on the wrong day (Vera, 2026-10-12).
+  const calcHeldOrderRef = React.useRef(false);
+  if (view === "calculator") calcHeldOrderRef.current = !!(editEntry || logDate);
   const atRoot = view === "registry" && !ward && !printWard && !dialogOpen;
   const goBack = () => {
     // A dialog closes as a tap outside it would, so a dialog that refuses
@@ -819,7 +831,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     } else if (view !== "registry") {
       // Reference, formulas, quick calc, admin: back to where they were opened from.
       const prev = prevViewRef.current;
-      goTo(prev && prev !== view && (prev !== "calculator" || active) ? prev : "registry");
+      if (prev === "calculator") goTo(!active ? "registry" : calcHeldOrderRef.current ? "log" : "calculator");
+      else goTo(prev && prev !== view ? prev : "registry");
     } else if (printWard) {
       setPrintWard(null);
     } else if (ward) {
@@ -828,31 +841,56 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   };
   const goBackRef = React.useRef(goBack);
   goBackRef.current = goBack;
+  const atRootRef = React.useRef(atRoot);
+  atRootRef.current = atRoot;
   const guardRef = React.useRef(false);        // our entry is on top of the history
-  const ownPopsRef = React.useRef(0);          // history.back() calls of our own, to ignore
   const [guardTick, setGuardTick] = React.useState(0);
+  const [exitWindow, setExitWindow] = React.useState(false);
+  const exitWindowRef = React.useRef(false);
+  exitWindowRef.current = exitWindow;
   React.useEffect(() => {
-    if (!user) return;
+    if (!user || guardRef.current) return;
+    // The 2 s after a Back on the gate: no guard, so a second Back leaves.
+    // Moving off the gate in that time ends it.
+    if (exitWindow && atRoot) return;
+    // Chrome skips, on Back, an entry pushed before the page had any user
+    // activation (its history-manipulation intervention), and the guard would
+    // do nothing. A session restored on reload has had no tap yet: wait for one.
+    const ua = typeof navigator !== "undefined" && navigator.userActivation;
+    if (ua && !ua.hasBeenActive) {
+      const arm = () => setGuardTick(t => t + 1);
+      window.addEventListener("pointerdown", arm, { once: true, capture: true });
+      window.addEventListener("keydown", arm, { once: true, capture: true });
+      return () => {
+        window.removeEventListener("pointerdown", arm, { capture: true });
+        window.removeEventListener("keydown", arm, { capture: true });
+      };
+    }
     try {
-      if (!atRoot && !guardRef.current) {
-        window.history.pushState({ neofeedBack: true }, "");
-        guardRef.current = true;
-      } else if (atRoot && guardRef.current) {
-        // Reached the gate by a tap, not by Back: drop the guard, so the next
-        // Back leaves the app instead of doing nothing.
-        guardRef.current = false;
-        ownPopsRef.current++;
-        window.history.back();
-      }
+      window.history.pushState({ neofeedBack: true }, "");
+      guardRef.current = true;
     } catch {}
-  }, [atRoot, user, guardTick]);
+  }, [atRoot, user, guardTick, exitWindow]);
+  React.useEffect(() => {
+    if (!exitWindow) return;
+    const t = setTimeout(() => setExitWindow(false), EXIT_WINDOW_MS);
+    return () => clearTimeout(t);
+  }, [exitWindow]);
   React.useEffect(() => {
     const onPop = () => {
-      if (ownPopsRef.current > 0) { ownPopsRef.current--; return; }
+      // The second Back of an exit, landing on an older entry of this page
+      // (a guard left by an earlier sign-in at this tab): keep leaving.
+      if (exitWindowRef.current && !guardRef.current) { try { window.history.back(); } catch {} return; }
+      if (!guardRef.current || !userRef.current) return;   // not our entry
       guardRef.current = false;
+      if (atRootRef.current) {
+        setExitWindow(true);
+        showToast("กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่", "info");
+        return;
+      }
       goBackRef.current();
       // Re-arm even when the step changed nothing (a dialog that kept itself
-      // open): the effect above pushes the guard back while not at the root.
+      // open): the effect above pushes the guard back.
       setGuardTick(t => t + 1);
     };
     window.addEventListener("popstate", onPop);
@@ -4381,8 +4419,10 @@ function showToast(msg, type = "ok") {
   const host = toastHost();
   const t = document.createElement("div");
   const bg     = type === "error" ? "oklch(38% 0.15 20)" : "oklch(26% 0.035 203)";
-  const prefix = type === "error" ? "⚠ " : "✓ ";
-  const dur    = type === "error" ? 4200 : 2400;
+  // "info": a plain notice, no tick — "✓" read as "done" on the gate's
+  // exit prompt, and it stays only as long as that prompt's window.
+  const prefix = type === "error" ? "⚠ " : type === "info" ? "" : "✓ ";
+  const dur    = type === "error" ? 4200 : type === "info" ? 2000 : 2400;
   const toastBottom = getComputedStyle(document.documentElement).getPropertyValue('--toast-bottom').trim() || '24px';
   t.style.cssText = `position:fixed;bottom:${toastBottom};left:50%;transform:translateX(-50%) translateY(10px);background:${bg};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 8px 28px oklch(25% 0.02 205 / .28);z-index:80;font-family:'IBM Plex Sans',sans-serif;opacity:0;transition:opacity .18s ease,transform .18s ease;max-width:90vw;text-align:center;`;
   t.textContent = prefix + msg;

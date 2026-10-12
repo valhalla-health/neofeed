@@ -28,23 +28,40 @@ accident. Pp: "ทำ B ก่อน ให้ปุ่ม back ย้อนก�
   itself open on an outside tap keeps itself open on Back); Growth, Alerts and the Calculator go to the
   Dashboard (an order opened from the print list goes to the print list); the Dashboard to the ward
   list; the ward list or print list to the gate; Reference values, formulas, quick calc and admin to
-  where they were opened from.
-- On the gate with no dialog open there is no entry, so Back leaves the app as it always did. Reaching the
-  gate by a tap removes the entry (one `history.back()` of our own, ignored).
+  where they were opened from, except that Reference values opened from an edit or a back-fill goes to
+  the Dashboard (Vera's 🟠: `goTo` had already dropped the edit, and Back reopened a new order for today
+  that looks the same).
+- **On the gate, Back asks for a second Back** (Pp: "ขึ้นมาว่า ออกจากแอป? … ถ้ากดออกจากแอปจริง ๆ ค่อยให้เขา
+  ล็อกอิน"). The first Back shows "กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่" and stays;
+  for 2 s (`EXIT_WINDOW_MS`) there is no entry of ours, so a second Back leaves the app the browser's own
+  way; after that, or as soon as the user moves off the gate, the entry is back. A dialog asking
+  "ออกจากแอป?" was not built: a page cannot close itself, so its ออก button could not work.
+- The entry is pushed only once the page has had a tap or key press (`navigator.userActivation`): Chrome
+  skips, on Back, an entry pushed before any user activation, which is the state after a reload.
+- `showToast` has an `"info"` type: no ✓, 2 s.
 - Reaching the gate any way clears the ward's search and tile filter (before, only `← เปลี่ยน ward` did).
 - The URL never changes; nothing is stored.
 
 ### Tests
 
-`verify-back-button-1012.cjs` 21/21 on the sources; 12 fail against the code before it. In real Chromium
-with the shipped bundle (ad-hoc, Pixel 7 size): gate → NICU → Dashboard → Growth, then Back gave the
-Dashboard, the ward list, closed the New session dialog, the gate, and then left the page.
+`verify-back-button-1012.cjs` 31/31 on the sources; 12 fail against the code before it, the exit scenario
+fails 2 and Vera's edit/back-fill scenario fails before her fix. In real Chromium with the shipped bundle
+(ad-hoc, Pixel 7 size): gate → NICU → Dashboard → Growth, then Back gave the Dashboard, the ward list,
+closed the New session dialog, the gate, then the toast and still the gate; after 2.5 s Back asked again,
+and a second Back within 2 s left the page.
+
+**Vera: NO BLOCK** on the first version, one 🟠 (Reference values from an edit, above), fixed. Her race
+note (a tap to the gate called `history.back()` and counted a pop to ignore) no longer applies: the guard
+now stays on the gate, and nothing calls `history.back()` except the second Back of an exit.
 
 ### Not done
 
 - Not tried on a ward phone. Android's gesture Back and the installed PWA both send the browser's Back,
   which is what this listens to; iOS has no Back button (Safari's swipe-back does the same).
 - The 30-second login resume (option A) is not built.
+- A dialog that closes on a tap outside it (Register, Edit, Transfer bed) also closes on Back and drops
+  what was typed, as an outside tap always did (Vera). No clinical value is lost; say if Back should keep
+  them open.
 
 ## Session 2026-10-12 (1) — the stats tiles filter the list; Print order per ward on the gate
 

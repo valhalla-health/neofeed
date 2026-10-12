@@ -672,9 +672,12 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    backdrop, so a dialog that refuses that refuses Back), Growth / Alerts /
    Calculator → the Dashboard (an order from the print list → the print
    list), the Dashboard → the ward list, the list or print list → the gate,
-   reference screens → where they were opened from. On the gate with nothing
-   open the entry is removed, so Back leaves the app as before. Reaching the
-   gate any way clears the ward's search and tile filter.
+   reference screens → where they were opened from (from an edit or a
+   back-fill: the Dashboard). On the gate, Back shows "กด Back อีกครั้งเพื่อ
+   ออก…" and drops the entry for `EXIT_WINDOW_MS` (2 s), so a second Back
+   leaves; a page cannot close itself, so there is no "ออก" button. The
+   entry is pushed only after a user activation (Chrome skips one pushed
+   before). Reaching the gate any way clears the ward's search and filter.
    Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
    `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated,
    wording spells out that it's permanent and irreversible) calls
