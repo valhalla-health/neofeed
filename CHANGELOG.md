@@ -7,6 +7,251 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-12 (2) — the phone's Back button steps back inside the app
+
+`app.jsx` (`goBack`, the history guard, `useDialogOpen`), `registry.jsx` (search and tile reset on the
+gate), `compiled/`, `test/verify-back-button-1012.cjs` (new), `test/README.md`, `app-walkthrough.md` §5.
+Same branch and PR as (1), on Pp's instruction to do it first. Frontend only, no `clasp` step.
+
+### Why
+
+Pp asked whether reopening the app within 30 seconds of pressing Back could skip the login. The login
+lives in `sessionStorage`, which Android drops when Back closes the app's window. Two options were put to
+her: a 30-second resume copy of the login on the phone (a change to the sign-in boundary, a 30-second
+window on a shared ward phone), or making Back move inside the app so the round stops leaving it by
+accident. Pp: "ทำ B ก่อน ให้ปุ่ม back ย้อนกลับในแอป". The resume option is not built.
+
+### What changed
+
+- While there is somewhere to go back to, one history entry sits on top of the page. Back pops it and
+  `goBack` takes one step: an open dialog closes (by a click on its backdrop, so a dialog that keeps
+  itself open on an outside tap keeps itself open on Back); Growth, Alerts and the Calculator go to the
+  Dashboard (an order opened from the print list goes to the print list); the Dashboard to the ward
+  list; the ward list or print list to the gate; Reference values, formulas, quick calc and admin to
+  where they were opened from, except that Reference values opened from an edit or a back-fill goes to
+  the Dashboard (Vera's 🟠: `goTo` had already dropped the edit, and Back reopened a new order for today
+  that looks the same).
+- **On the gate, Back asks for a second Back** (Pp: "ขึ้นมาว่า ออกจากแอป? … ถ้ากดออกจากแอปจริง ๆ ค่อยให้เขา
+  ล็อกอิน"). The first Back shows "กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่" and stays;
+  for 2 s (`EXIT_WINDOW_MS`) there is no entry of ours, so a second Back leaves the app the browser's own
+  way; after that, or as soon as the user moves off the gate, the entry is back. A dialog asking
+  "ออกจากแอป?" was not built: a page cannot close itself, so its ออก button could not work.
+- The entry is pushed only once the page has had a tap or key press (`navigator.userActivation`): Chrome
+  skips, on Back, an entry pushed before any user activation, which is the state after a reload.
+- `showToast` has an `"info"` type: no ✓, 2 s.
+- Reaching the gate any way clears the ward's search and tile filter (before, only `← เปลี่ยน ward` did).
+- The URL never changes; nothing is stored.
+
+### Tests
+
+`verify-back-button-1012.cjs` 31/31 on the sources; 12 fail against the code before it, the exit scenario
+fails 2 and Vera's edit/back-fill scenario fails before her fix. In real Chromium with the shipped bundle
+(ad-hoc, Pixel 7 size): gate → NICU → Dashboard → Growth, then Back gave the Dashboard, the ward list,
+closed the New session dialog, the gate, then the toast and still the gate; after 2.5 s Back asked again,
+and a second Back within 2 s left the page.
+
+**Vera: NO BLOCK** on the exit prompt too, one 🟡: Back on the gate, a ward within the 2 s, then Back,
+Back left with no prompt, because only the timer ended the window. Moving off the gate now ends it
+(check 7.6, which fails before). Her two tests are in (7.6; 8.4–8.5, the print list's edit → Reference
+values → Back → Dashboard). After her note that a touch grants activation on `pointerup`, the guard waits
+for `pointerup` / `keydown` / `click` instead of `pointerdown`. 34 checks.
+
+**Vera: NO BLOCK** on the first version, one 🟠 (Reference values from an edit, above), fixed. Her race
+note (a tap to the gate called `history.back()` and counted a pop to ignore) no longer applies: the guard
+now stays on the gate, and nothing calls `history.back()` except the second Back of an exit.
+
+### Not done
+
+- Not tried on a ward phone. Android's gesture Back and the installed PWA both send the browser's Back,
+  which is what this listens to; iOS has no Back button (Safari's swipe-back does the same).
+- The 30-second login resume (option A) is not built.
+- A dialog that closes on a tap outside it (Register, Edit, Transfer bed) also closes on Back and drops
+  what was typed, as an outside tap always did (Vera). No clinical value is lost; say if Back should keep
+  them open.
+
+## Session 2026-10-12 (1) — the stats tiles filter the list; Print order per ward on the gate
+
+`registry.jsx` (`statFilter`, `WardGateCell`, `WardPrintList`), `app.jsx` (`printWard`, `printJob`,
+`autoPrint`, `openOrderToPrint`, `CalculatorView` `requestPrint` and its back link), `calculator.jsx`
+(`autoPrint` / `requestPrint` props, one effect), both shells (CSS only), `compiled/`,
+`test/verify-ward-print-1012.cjs` (new), `test/verify-phone-sweep.cjs`, `test/README.md`,
+`app-walkthrough.md` §5. Branch `ccr-e1ae5b5d-3ybah8`. Frontend only, no `clasp` step.
+
+### Why
+
+Pp, with two phone screenshots: "ให้ปุ่ม active, logged, need entry กดแล้ว เลือกผู้ป่วยที่เข้ากับกลุ่มนั้นขึ้นมา
+เผื่อแยกผู้ป่วยว่าอันไหนยังไม่ได้ลงรายละเอียด หรืออันไหนล็อกเสร็จแล้วสำหรับวันนั้น จะได้นำไปปริ้นได้" and
+"หน้าแรกสุดของแต่ละวอร์ด อยากให้มีปุ่มพิมพ์ใบสั่ง ให้เป็นคำเดียวกับที่อยู่ด้านใน พอกดเข้าไป มีแค่แดชบอร์ด
+รายชื่อผู้ป่วย … ของแต่ละวอร์ดในวันนั้น เพื่อปริ้นอย่างเดียว เมื่อกดจะลิงก์เข้าไปที่หน้าโชว์พีดีเอฟก่อนกดปริ้นท์
+รีวิวเหมือนทางด้านใน".
+
+### What changed
+
+- **The ward list's Active, Logged today and Needs entry tiles are buttons.** A tap narrows the cards and
+  the table to that tile's infants; a second tap, or Active, shows everyone. A line above the list says
+  "แสดงเฉพาะ Needs entry · 2 จาก 5 ราย" with แสดงทั้งหมด, because a list missing infants with nothing saying
+  why reads as the whole ward. The discharged section hides while narrowed. Total sessions stays a figure.
+- **Each ward tile on the gate has a "Print order" button under it** (the calculator's own words), with
+  the ward's count of submitted orders. It opens **Print order · NICU**: the ward's active infants whose
+  order for today is Submitted, in bed order. A tap opens that order in the calculator and asks for the
+  print preview once, through the same `__neofeed_print` event the Print order button sends. **Nothing on
+  the list decides what may print**: the calculator's `printable` gate does, and an order it holds back
+  (edited, a critical value with no reason, a moved calculation) shows the same toast as the button and
+  does not print. The page then reads "← กลับไปรายการ Print order".
+- Drafts are not listed (they never print). A row still under its `tmp_` id is shown as saving and does
+  not open (UP-C9). Two submitted orders on one day open the infant's Dashboard to choose, rather than the
+  list guessing. Infants not yet submitted are counted under the list, one tap from Needs entry.
+- The print request is a token: one tap prints once; a re-render or a sync does not print again; leaving
+  the calculator (rail, bottom bar, `goTo`, a patient switch) drops it.
+- **It waits for the edit lock's first answer, and does not print while a colleague has the order open**
+  (Vera's 🟠, below). `useDailyLogLock` now returns `{ holder, checked }`. With a holder, the preview is held
+  for good, even if the lock clears later; a toast says so, and the "… กำลังเปิดบันทึก" banner and the Print
+  order button are left for the user to decide.
+- Every role sees the button: admin, doctor and nurse can already open and print a saved order from the
+  Dashboard, and this is the same path.
+
+### Tests
+
+`verify-ward-print-1012.cjs` 48/48 on the sources and on `compiled/`; against `main` (`4f30faf`) 14 fail, and
+its lock scenario fails 4 of 5 on this branch's first commit, before the lock wait.
+`verify-phone-sweep.cjs` 292/292 with the three new screens on all 24 profiles (Chromium, compiled).
+Every other `test/verify-*.cjs` passes on the sources. `verify-tpn-calc-weight.cjs` failed here as it did
+on an untouched `main` (`4f30faf`), "print form did not render for curWtG=1750". **Not the date and not the
+app:** this container's Node 22.22.0 is below jsdom 30's engine range, so npm installs jsdom 29.1.1, whose
+selector engine resolves a scoped `#print-form` through the document's FIRST element with that id. By the
+test's section #8 both of its roots hold a printable order, so there are two, and the lookup in the second
+root returned null. Proven both ways: the plain test fails under jsdom 29 at either clock (2026-10-11 and
+-12) and passes under jsdom 30.1.2 at either clock. The fix is in the test only: the lookup reads
+`[id="print-form"]`, which passes under both. The app mounts one Calculator, so the id is unique on the
+ward; the printing gate behaved correctly throughout.
+
+### Vera
+
+NO BLOCK. 🟠 an automatic print could go before the lock banner arrived: Pp's call between accepting it
+and waiting; taken the safer way (above), pinned by scenario #6. **Pp, 2026-10-12: "Safer option >> ok".** 🟡 check 4.0 read the whole page, so a
+wrong-patient print would pass: it now opens BB first and reads AA-1 off the printed sheet's patient table.
+She also lists the `verify-tpn-calc-weight` red on `main` (unexplained), real-device print behaviour, and
+that the list has no "already printed" mark, so two people can print the same order (a ward question).
+
+### Not done
+
+- No "already printed" mark on the list (Vera): two staff can print the same order. Ask the ward.
+- No one has tapped it on a ward phone. Chrome on Android opens the print preview from the tap; if a
+  browser refuses a print not started by its own button, the order is open with Print order one tap away.
+- Opening an order to print takes the same courtesy edit lock as opening it from the Dashboard.
+
+## Session 2026-10-11 (8) — NF-17: the printed bag adds up, and a click moves the screen
+
+`test/verify-calc-sum.cjs` (new), `calculator.jsx` (`wfiVol`), `compiled/calculator.js` and the shells'
+`?v=` token, `data.js` (`CONSTANTS_VERSION` 2026-10-08.1 → **2026-10-11.1**), `docs/CLINICAL_CONSTANTS.md`,
+`test/verify-calc-oracle.cjs` (WFI rule, scenario H), `test/README.md`, `AGENTS.md`. Branch
+`claude/nf17-sum-check-1011`, not pushed. Frontend only, no `clasp` step.
+
+### Why
+
+Mapping item NF-17: two tests for every calculation change, a sum check on synthetic orders and a check
+that the click-through shows the new value on screen, not only in the function. No harness added up the
+stock lines a pharmacist reads. The fuzz's I3 checks that the bag total equals the prepared volume, and
+`test/README.md` said it checked "components + WFI q.s. = the prepared volume", which it did not.
+
+### What changed
+
+- **`verify-calc-sum.cjs`**: 60 orders (the oracle's 12, eight of its own, 40 seeded random). Each is
+  saved through Submit; every stock mL on the back page's "Aqueous bag — stock" table is summed and checked
+  against the printed WFI and prepared volume, the on-screen Components and Bag total, and the copied BAG
+  MAKE-UP line. Then a dead-space chip or a typed TPN volume changes the order, and the screen, the
+  withdrawn print and the second save's reprint are checked again. It reads only the mounted component.
+- **Tolerance 0.05 mL**, from the rounding chain: each stock rounds once (0.1 mL, or 0.01 for K₂HPO₄, MgSO₄
+  and heparin) and prints at that precision; `componentVol` rounds their sum to 0.1, so it is within 0.05 of
+  the printed parts; WFI = printed prepared − components, so components + WFI = prepared exactly. When every
+  part is a whole tenth the tolerance is 0.
+- **Negative controls**, source patched in memory: heparin out of `componentVol`, WFI from the delivered
+  volume, `deadVol_mL` out of the memo's dependencies (the last fails only the wired-in checks).
+- `test/README.md`: a paragraph for the harness; the fuzz sentence now says what I3 checks.
+  `AGENTS.md`: a calculation change keeps the harness passing and adds a new figure to its on-screen check.
+
+### The S7 finding, and the fix (Pp)
+
+**The printed bag equation did not close when the prepared volume had a hundredths 5.** Order S7: 1 kg,
+DOL 10, central, 80.45 mL/day typed (a rate such as 3.352 mL/hr gives the same, since rate × 24 is kept to
+2 decimals), dead space 50, D10, AA 3, NaCl 2, KCl 1, Ca 40, Soluvit, Peditrace, heparin 0.5. Prepared
+130.45 mL. The form and the copy printed *components 87.5 + WFI 42.9 = 130.5 mL prepared*, which sums to
+130.4. The prepared volume went through `D.displayNum` (1304.5 rounds up to 130.5) and the WFI through
+`toFixed(1)` on 130.45 − 87.5 = 42.94999… (down to 42.9). A pharmacist following the WFI line made a bag
+0.1 mL short of the printed total.
+
+Pp's decision: take the WFI from the prepared volume as it is printed. `wfiVol` = `D.displayNum(preparedVol,
+1)` − `componentVol`, so S7 now prints **87.5 + 43 = 130.5** (was 42.9). The bag holds the true parts,
+87.45 + 43 = 130.45 mL, the real prepared volume. The over-full alert reads the same `wfiVol`, so it
+still fires exactly when the components exceed the printed bag. Only a prepared volume with a hundredths 5
+moves; every other order prints the same WFI.
+
+**`CONSTANTS_VERSION` bumped to `2026-10-11.1`**, by the rule in `data.js` and `docs/CLINICAL_CONSTANTS.md`:
+calculator logic moved a printed figure. A row saved before the bump prints only after it is saved again
+(`calcMoved`), which covers any saved order whose WFI moved.
+
+The oracle states the rule on its own (`e.wfi = r1(r1(Vp) − components)`), and its new scenario H is the
+same 130.45 mL order: it failed on `4d92a76` (print and copy WFI 42.9 against 43) and passes now.
+
+**The over-full alert moved at that tie, and S8 pins it** (Vera's 🟡). With 130.45 mL prepared and components
+of 130.48 mL (printed 130.5), the old WFI was 130.45 − 130.5 → −0.1, so the bag was called over-full by
+0.1 mL and the order needed a critical reason. Now WFI is 0 and no alert fires: the components fill the
+printed bag, and the real overrun is 0.03 mL. S8 asserts the printed line 130.5 + 0 = 130.5 and no alert on
+the screen, the form or the copy; it fails 5 checks on `4d92a76`.
+
+### Tests
+
+Red first: on `4d92a76` (harness only, app unchanged) `verify-calc-sum.cjs` failed 2 of 2188, both S7, and
+the oracle's scenario H failed 2 (print and copy WFI 42.9 against 43); S8, added after the review, fails 5
+there. After the fix: sum 2231/2231 on the sources and on `compiled/` (`[compiled-loader] swapped in
+compiled/{icons,calculator}.js`); its negative controls fail 235, 172 and 93 checks; oracle 1092/1092,
+fuzz 1796/1796, clicks 242/242.
+
+Every `test/verify-*.cjs` (85 harnesses) plus `DEAD=0 verify-kcmh-factor.cjs` passes on the sources and
+again on `compiled/`, every module-mounting harness reporting its swap; among them `verify-review-0917-calc`
+120/120, `verify-build-shells` 46/46 and `verify-provenance-stamp` 38/38. Ten harnesses skipped their
+browser sections locally (no Playwright); CI runs those. Center Point builds and its 5 client tests pass.
+`index.html` and `NeoFeed.html` are byte-identical after the rebuild.
+
+**Vera: NO BLOCK**, one 🟡 (the alert boundary above), fixed by S8. Her report is in the body of
+PR #153, merged into `main` on Pp's instruction ("merge ทั้งสอง PR"). Not live until a `main` →
+`release` PR is merged.
+
+**Second clinician: none.** The fix is Pp's decision (2026-10-11); no second clinician has reviewed it,
+as for every printed-figure change so far (`AI_SDLC.md` §7).
+
+### Not done
+
+- ZnSO₄ is in the bag but has no mL and is not in the WFI ("หักตามที่ใส่จริง" on the form), so the
+  harness counts it as outside the sum, as the app does. BACKLOG's line on printing its mL stays open,
+  and so does the small-volume rounding item.
+
+## Session 2026-10-11 (7) — Product work moves out of the public repo
+
+Docs only: `docs/stakeholder/` removed, one item in `AGENTS.md`. No served file, no harness and no
+`CONSTANTS_VERSION` change; both hosts skip `*.md` and `docs/`. Branch `claude/nf-20-22-product-docs`,
+PR #152, merged into `main` on Pp's instruction ("merge ทั้งสาม PR"). Nothing to deploy: no `main` → `release` PR is needed for docs.
+
+### Why
+
+This PR first added three product pages (NF-20 product decisions, NF-21 ward requests, NF-22 ward
+feedback). Before it merged, Pp checked whether product-manager work and the live app were mixed in one
+repo. They were, and this repo is public: anyone could read the bets, the ward's requests and the
+stakeholder map. Making the repo private on the organisation's free plan would drop the `harnesses`
+requirement on `main` and `release`, cap Actions at 2,000 minutes a month (the last 30 days used about
+3,900) and take GitHub Pages' redirect page offline. Pp chose to keep the repo public and move the
+product work out instead.
+
+### What changed
+
+- The three product pages never reached `main`; they and `docs/stakeholder/` (the stakeholder graph and
+  its PNG/SVG map, added in `91057b0`) now live in Pp's private notes,
+  `Desktop\PraewPP\NeoFeed\Product\`. That folder was split out of `NeoFeed innovation\` the same day,
+  which now holds only the QI project and the competition entry.
+- `AGENTS.md` says product, meeting and stakeholder documents stay out of this repo, and where they are.
+- `docs/stakeholder/` stays readable in this repo's history; removing it from history would need a force
+  push, which this repo does not allow.
+
 ## Session 2026-10-11 (6) — Peripheral K⁺: the maximum alone
 
 `calculator.jsx` (`kRedIsMax`, `kBagLimitParts`, five display sites), `compiled/calculator.js` and the

@@ -121,7 +121,10 @@ const entry = (ts, dol, w, i) => ({ ts, dol, weight: w, fluid: 140, gir: 6.2, pr
   enVolPerKg: 60, route: 'TPN central', status: 'submitted', submittedBy: 'doc@x', entryId: 'e' + i, lastModified: 'lm' + i,
   lastModifiedBy: 'doc@x', ioInput: 170, ioOutput: 120, drainContent: 0,
   calcInput: { curWtG: w, wtG: w, fluidTargetPerKg: 140, totalTPN_mL: 120, dexPct: 10, aaPerKg: 3, enVol: 8, enFreq: 8 } });
-const LOG = { 'รท-BW1180': [entry(add(today, -3), 18, 1210, 1), entry(add(today, -2), 19, 1230, 2), entry(add(today, -1), 20, 1250, 3)] };
+// สม จด has today's order Submitted, so the ward gate's Print order list
+// (2026-10-12) has a row to lay out.
+const LOG = { 'รท-BW1180': [entry(add(today, -3), 18, 1210, 1), entry(add(today, -2), 19, 1230, 2), entry(add(today, -1), 20, 1250, 3)],
+  'สจ-BW900': [entry(today, 12, 950, 4)] };
 function backend(b) {
   if (b.action === 'login') return { status: 'ok', token: 't', email: 'doc@x', role: 'doctor', name: 'Doc', authMethod: 'password' };
   if (b.action === 'getActivePatients') return { patients: PATIENTS, log: LOG, ts: new Date().toISOString() };
@@ -204,8 +207,20 @@ async function sweepDevice(browser, BASE, [name, W, H, largeText], extraCss) {
     await page.locator('form button[type="submit"]').last().click({ timeout: 5000 });
     await page.waitForSelector('.ward-tile', { timeout: 10000 });
     if (largeText) await page.addStyleTag({ content: '.work-inner { zoom: 1.3; }' });
+    // The gate with its Print order buttons, and the print list behind one
+    // (Pp, 2026-10-12).
+    await check('ward gate', '.work');
+    await page.locator('.ward-print').first().click({ timeout: 5000 });
+    await page.waitForSelector('.print-row', { timeout: 5000 });
+    await check('print list', '.work');
+    await page.locator('button', { hasText: '← กลับ' }).first().click({ timeout: 5000 });
     await page.locator('.ward-tile').first().click();
     await check('ward list', '.work');
+    // Narrowed by the Needs entry tile, with its "แสดงเฉพาะ" line.
+    await page.locator('.reg-stat', { hasText: 'Needs entry' }).click({ timeout: 5000 });
+    await page.waitForSelector('.reg-filter-note', { timeout: 5000 });
+    await check('ward list · Needs entry', '.work');
+    await page.locator('.reg-stat', { hasText: 'Needs entry' }).click({ timeout: 5000 });
     if (!largeText) {
       await page.locator('button', { hasText: 'New session' }).click({ timeout: 5000 });
       await check('register', '.picker');

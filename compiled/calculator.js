@@ -354,6 +354,8 @@ function Calculator({
   onDelete,
   centerPoint,
   scratch,
+  autoPrint = null,
+  requestPrint = null,
   nursing = [],
   ordersReadOnly = false
 }) {
@@ -983,7 +985,7 @@ function Calculator({
       heparin_units: heparinUmL * preparedVol
     };
     const componentVol = parseFloat((d50wVol + solVol.aa + solVol.naCl + solVol.naAcet + solVol.glycophos + solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca + soluvitVol + peditrace_vol + solVol.heparin).toFixed(1));
-    const wfiVol = parseFloat((preparedVol - componentVol).toFixed(1));
+    const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));
     const dexGPerKg = dexG / wtKg;
     const kMeqPerL = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1e3) : 0;
     const osm = D.estimateOsmolarity({
@@ -1337,6 +1339,20 @@ function Calculator({
     document.addEventListener("__neofeed_print", handler);
     return () => document.removeEventListener("__neofeed_print", handler);
   }, [savedEntryId, printable, printBlockToast]);
+  const autoPrintDone = React.useRef(null);
+  React.useEffect(() => {
+    if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
+    const go = () => {
+      autoPrintDone.current = autoPrint;
+      requestPrint();
+    };
+    if (printable) {
+      go();
+      return;
+    }
+    const t = setTimeout(go, 1500);
+    return () => clearTimeout(t);
+  }, [autoPrint, printable]);
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;

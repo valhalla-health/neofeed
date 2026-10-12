@@ -957,10 +957,10 @@ chula.ac.th temp password that the domain-keyed gate let skip the change.
 these three ask whether the arithmetic is right at all, and they are the reason a future change to
 `calc` cannot quietly move a dose.
 
-**`verify-calc-oracle.cjs`** — 12 orders typed into the real `<Calculator>`, saved through the real
+**`verify-calc-oracle.cjs`** — 13 orders typed into the real `<Calculator>`, saved through the real
 Save button, then every figure read back off four surfaces at once: the `Daily_Log` entry handed to
 `onLog`, the tiles and bedside readouts, the printed pharmacy form (front and back) and the copied
-order text — plus the Active-alerts panel, compared by level and title. 1,058 checks. The rule that
+order text — plus the Active-alerts panel, compared by level and title. 1,092 checks. The rule that
 makes it worth running is at the top of the file: **it must never import the app's own formulas.**
 Stock strengths, feed compositions, energy densities and the ESPGHAN bands are transcribed into it
 by hand, so a changed constant in `data.js` shows up as a disagreement instead of being copied into
@@ -968,7 +968,8 @@ the expectation. Change `data.js`, change this file too — from the source, not
 The scenarios cover a below-birth-weight ELBW day 3, a growing preterm on peripheral PN entered by
 pump rate with the 50% Mg vial and every oral supplement, a feeds-only day, a term infant on a manual
 dosing weight with a MEN feed and the Vitalipid cap, an alert-stress order, the 16 kg
-Soluvit/Peditrace ceilings, and every remaining feed in `EN_DB`.
+Soluvit/Peditrace ceilings, every remaining feed in `EN_DB`, and a prepared volume of 130.45 mL whose
+WFI must come from the printed 130.5 (NF-17).
 `NEGATIVE_CONTROL=1` perturbs one expected GIR by 0.4 mg/kg/min; the run must then fail on all four
 surfaces GIR appears on. **Trust a pass only after seeing that fail.**
 
@@ -986,12 +987,34 @@ draft banners, and the quick calc's narrower set.
 object print with any failure), each checked against a recomputation written separately from the
 oracle's — a third opinion, not a copy of the second. Five invariants hold for every order, however
 odd: the Factor round-trip (what reaches the infant per kg is what was ordered, to within the 0.05 mL
-a syringe can be drawn to); dead space moves no delivered figure; components + WFI q.s. = the prepared
-volume; no NaN, Infinity, float tail or trailing zero in any text node; and no critical tile without a
+a syringe can be drawn to); dead space moves no delivered figure; the on-screen bag total is the
+prepared volume, and "cannot be compounded" shows exactly when the components exceed it (whether the
+printed parts add up is `verify-calc-sum.cjs`'s check, below); no NaN, Infinity, float tail or trailing zero in any text node; and no critical tile without a
 critical alert. CI runs the default 80 orders (≈40 s, twice — sources and `compiled/`); a deep local
 run is `FUZZ_N=500`. The three harnesses together are why the job's timeout went from 20 to 30 minutes.
 
-All three mount the modules the same way the other jsdom harnesses do, so
+**`verify-calc-sum.cjs`** (2026-10-11, NF-17) — does the printed bag add up, and does a click move the
+figure on screen? 60 orders: the oracle's 12, eight of its own (a 900 g infant on day 3 of TPN, a term
+infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ at 0.01 mL, hundredths carried
+across the sum, a prepared volume typed with a second decimal, and components that fill such a bag
+exactly) and 40 random from seed 20261011
+(`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
+stock" table is added up: Σ parts + printed WFI must equal the printed prepared volume within **0.05 mL**
+(0 when every part is a whole tenth), printed Components + WFI must equal it exactly, and the on-screen
+Components and Bag total and the copied BAG MAKE-UP line must carry the same figures. The tolerance is the
+rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
+components); the arithmetic is in the file's header. An over-full bag skips the sum and must say so on
+screen, on the form and in the copy. Then one input changes the way a person changes it (a dead-space chip,
+or a TPN volume typed a key at a time): the on-screen Bag total must move to delivered + dead, the stale
+form must be withdrawn, and the second save's reprint must carry the new figures and still add up. Nothing
+in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
+from the delivered volume) and `=3` (`deadVol_mL` out of the memo's dependencies) patch the source in
+memory and must fail; the patched text is transformed under another name, so the compiled loader never
+stands in for it. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
+130.45 mL printed "87.5 + 42.9 = 130.5"; WFI now comes from the printed prepared volume, so it prints
+87.5 + 43 = 130.5 (`CHANGELOG.md`, 2026-10-11 (8)). The oracle's scenario H holds the same rule.
+
+All four mount the modules the same way the other jsdom harnesses do, so
 `NODE_OPTIONS=--require ./test/compiled-loader.cjs` runs them against the shipped `compiled/*.js`.
 
 ## `verify-safety-fixes-0923.cjs` — the 2026-09-23 review's findings, fixed
@@ -1474,6 +1497,31 @@ with the figures moved for the check alone, red 200 = max 200 on central writes 
 max 60 on peripheral writes both. 162 checks; against `daaad66`, 11 fail. Adjusted: § 10 and § 14 in the same
 file, `verify-tpn-team-0922` § 7 (the peripheral line under the tile) and `verify-calc-oracle` (its regex for the
 copied order's "(N mEq/L; …)" matched only the old wording and read the new one as `null` in two scenarios).
+
+## The ward Print order list and the stats tiles, 2026-10-12 — one harness added, one extended
+
+Pp: tap Active / Logged today / Needs entry to see that group, and a Print order button per ward on the
+first page that lists the day's submitted orders and opens the print preview as Print order inside does
+(`CHANGELOG.md` 2026-10-12 (1)). **`verify-ward-print-1012.cjs`** drives the real `<App/>` through
+`review-0917-boot` (jsdom; also against `compiled/`), 48 checks in six scenarios: the tiles narrow both
+layouts and say so; one Print order button per ward, outside its tile, counting its submitted orders; the
+list holds only today's Submitted orders of that ward (no draft, yesterday, discharged or other ward), a
+`tmp_` row cannot be opened, two orders on a day go to the Dashboard, the rest are counted; a tap prints
+once and the printed sheet is the tapped infant's even with another one open, a re-render or sync does
+not print again, the page leads back to the list; an order with an unreasoned critical value does not
+print and shows the calculator's own toast; a colleague holding the edit lock stops the automatic print
+for good, the page's Print order still works. Against `main` before it, 14 fail. **`verify-phone-sweep.cjs`** now also sweeps the ward gate, the print list and the list
+narrowed to Needs entry on every device (234 screens), with one patient given today's submitted order.
+
+## The Back button inside the app, 2026-10-12 — one harness added
+
+Pp: "ให้ปุ่ม back ย้อนกลับในแอป" (`CHANGELOG.md` 2026-10-12 (2)). **`verify-back-button-1012.cjs`** drives
+the real `<App/>` through `review-0917-boot` (jsdom implements `pushState`, `back()` and `popstate`; also
+against `compiled/`), 34 checks in eight scenarios: ward list → gate; Growth → Dashboard → ward list →
+gate; Reference values → the calculator → its Dashboard; an order from the print list → the list → gate;
+Back closes a dialog and only the dialog; a search typed in a ward is gone after Back; on the gate, the
+first Back stays with a toast and no entry of ours for 2 s, then the entry is back; Reference values from an
+edit or a back-fill → the Dashboard (Vera). Against the code before it, 12 fail.
 
 ## Note on the source workbook
 
