@@ -354,6 +354,8 @@ function Calculator({
   onDelete,
   centerPoint,
   scratch,
+  autoPrint = null,
+  requestPrint = null,
   nursing = [],
   ordersReadOnly = false
 }) {
@@ -1337,6 +1339,20 @@ function Calculator({
     document.addEventListener("__neofeed_print", handler);
     return () => document.removeEventListener("__neofeed_print", handler);
   }, [savedEntryId, printable, printBlockToast]);
+  const autoPrintDone = React.useRef(null);
+  React.useEffect(() => {
+    if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
+    const go = () => {
+      autoPrintDone.current = autoPrint;
+      requestPrint();
+    };
+    if (printable) {
+      go();
+      return;
+    }
+    const t = setTimeout(go, 1500);
+    return () => clearTimeout(t);
+  }, [autoPrint, printable]);
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;

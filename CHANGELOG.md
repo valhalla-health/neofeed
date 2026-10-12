@@ -7,6 +7,58 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-12 (1) — the stats tiles filter the list; Print order per ward on the gate
+
+`registry.jsx` (`statFilter`, `WardGateCell`, `WardPrintList`), `app.jsx` (`printWard`, `printJob`,
+`autoPrint`, `openOrderToPrint`, `CalculatorView` `requestPrint` and its back link), `calculator.jsx`
+(`autoPrint` / `requestPrint` props, one effect), both shells (CSS only), `compiled/`,
+`test/verify-ward-print-1012.cjs` (new), `test/verify-phone-sweep.cjs`, `test/README.md`,
+`app-walkthrough.md` §5. Branch `ccr-e1ae5b5d-3ybah8`. Frontend only, no `clasp` step.
+
+### Why
+
+Pp, with two phone screenshots: "ให้ปุ่ม active, logged, need entry กดแล้ว เลือกผู้ป่วยที่เข้ากับกลุ่มนั้นขึ้นมา
+เผื่อแยกผู้ป่วยว่าอันไหนยังไม่ได้ลงรายละเอียด หรืออันไหนล็อกเสร็จแล้วสำหรับวันนั้น จะได้นำไปปริ้นได้" and
+"หน้าแรกสุดของแต่ละวอร์ด อยากให้มีปุ่มพิมพ์ใบสั่ง ให้เป็นคำเดียวกับที่อยู่ด้านใน พอกดเข้าไป มีแค่แดชบอร์ด
+รายชื่อผู้ป่วย … ของแต่ละวอร์ดในวันนั้น เพื่อปริ้นอย่างเดียว เมื่อกดจะลิงก์เข้าไปที่หน้าโชว์พีดีเอฟก่อนกดปริ้นท์
+รีวิวเหมือนทางด้านใน".
+
+### What changed
+
+- **The ward list's Active, Logged today and Needs entry tiles are buttons.** A tap narrows the cards and
+  the table to that tile's infants; a second tap, or Active, shows everyone. A line above the list says
+  "แสดงเฉพาะ Needs entry · 2 จาก 5 ราย" with แสดงทั้งหมด, because a list missing infants with nothing saying
+  why reads as the whole ward. The discharged section hides while narrowed. Total sessions stays a figure.
+- **Each ward tile on the gate has a "Print order" button under it** (the calculator's own words), with
+  the ward's count of submitted orders. It opens **Print order · NICU**: the ward's active infants whose
+  order for today is Submitted, in bed order. A tap opens that order in the calculator and asks for the
+  print preview once, through the same `__neofeed_print` event the Print order button sends. **Nothing on
+  the list decides what may print**: the calculator's `printable` gate does, and an order it holds back
+  (edited, a critical value with no reason, a moved calculation) shows the same toast as the button and
+  does not print. The page then reads "← กลับไปรายการ Print order".
+- Drafts are not listed (they never print). A row still under its `tmp_` id is shown as saving and does
+  not open (UP-C9). Two submitted orders on one day open the infant's Dashboard to choose, rather than the
+  list guessing. Infants not yet submitted are counted under the list, one tap from Needs entry.
+- The print request is a token: one tap prints once; a re-render or a sync does not print again; leaving
+  the calculator (rail, bottom bar, `goTo`, a patient switch) drops it.
+- Every role sees the button: admin, doctor and nurse can already open and print a saved order from the
+  Dashboard, and this is the same path.
+
+### Tests
+
+`verify-ward-print-1012.cjs` 43/43 on the sources and on `compiled/`; 13 fail against the code before it.
+`verify-phone-sweep.cjs` 292/292 with the three new screens on all 24 profiles (Chromium, compiled).
+Every other `test/verify-*.cjs` passes on the sources, **except `verify-tpn-calc-weight.cjs`, which fails
+identically on an untouched `main` (`4f30faf`) in this session** ("print form did not render for
+curWtG=1750", its last check). `main`'s CI was green on 2026-10-11 15:58 UTC, so it looks date-dependent;
+not investigated further here.
+
+### Not done
+
+- No one has tapped it on a ward phone. Chrome on Android opens the print preview from the tap; if a
+  browser refuses a print not started by its own button, the order is open with Print order one tap away.
+- Opening an order to print takes the same courtesy edit lock as opening it from the Dashboard.
+
 ## Session 2026-10-11 (8) — NF-17: the printed bag adds up, and a click moves the screen
 
 `test/verify-calc-sum.cjs` (new), `calculator.jsx` (`wfiVol`), `compiled/calculator.js` and the shells'

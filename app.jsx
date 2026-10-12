@@ -710,6 +710,17 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // the Dashboard and back doesn't drop the user at the gate again mid-round;
   // not persisted, so a fresh load always asks.
   const [ward, setWard] = React.useState(null);
+  // The ward whose Print order list the registry is showing (registry.jsx
+  // WardPrintList), or null. Kept here, beside `ward`, so the list is still
+  // there after an order opened from it has printed and the user comes back.
+  const [printWard, setPrintWard] = React.useState(null);
+  // An order picked on that list: { sessionId, entryId, token }. The effect
+  // below opens it once `activeId` points at its infant.
+  const [printJob, setPrintJob] = React.useState(null);
+  // Set while the Calculator holds an order opened from the print list: it
+  // asks for the print preview once (token-checked in calculator.jsx) and
+  // gives the page its way back to the list. Any navigation clears it.
+  const [autoPrint, setAutoPrint] = React.useState(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
   const [lastSync, setLastSync] = React.useState(null);
@@ -740,8 +751,27 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Back-date for a brand-new entry (YYYY-MM-DD, null = today) — set when the
   // user picks "เลือกวันที่ย้อนหลัง" on the Dashboard's log button.
   const [logDate, setLogDate] = React.useState(null);
-  React.useEffect(() => { setEditEntry(null); setLogDate(null); }, [activeId]);
-  const goTo = (v) => { setEditEntry(null); setLogDate(null); setView(v); };
+  React.useEffect(() => { setEditEntry(null); setLogDate(null); setAutoPrint(null); }, [activeId]);
+  const goTo = (v) => { setEditEntry(null); setLogDate(null); setAutoPrint(null); setPrintWard(null); setView(v); };
+  // Declared after the [activeId] reset above on purpose: effects run in
+  // order, so when picking an order also switched the patient, the reset's
+  // nulls land first and this effect's editEntry wins.
+  React.useEffect(() => {
+    if (!printJob || printJob.sessionId !== activeId) return;
+    setPrintJob(null);
+    const entry = (log[activeId] || []).find(e => e.entryId === printJob.entryId);
+    if (!entry) { showToast("ไม่พบใบสั่งนี้แล้ว — กด Sync แล้วลองใหม่", "error"); return; }
+    setEditEntry(entry); setLogDate(null); setAutoPrint(printJob.token); setView("calculator");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printJob, activeId]);
+  // Leaving the calculator ends the print request — including by the phone's
+  // bottom bar, which sets the view without goTo — so coming back to the
+  // calculator later never opens a print preview on its own.
+  React.useEffect(() => { if (view !== "calculator") setAutoPrint(null); }, [view]);
+  const openOrderToPrint = (sessionId, entryId) => {
+    setPrintJob({ sessionId, entryId, token: Date.now() });
+    setActiveId(sessionId);
+  };
 
   const active = patients.find((p) => p.sessionId === activeId);
   // Today's DOL, from the anchor (data.js liveDol → dolAtDate) — the one every
@@ -2246,7 +2276,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             onSubmit={handleEditPatient} mergeBaseFor={mergeBaseFor}
             onDelete={role === "admin" ? handleDeletePatient : undefined} />}
 
-          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard} onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
+          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
+            printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint}
+            onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}
@@ -2271,6 +2303,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               handleLogToGAS={handleLogToGAS} handleUpdateToGAS={handleUpdateToGAS}
               handlePublishToGAS={handlePublishToGAS}
               handleDeleteEntry={handleDeleteEntry}
+              autoPrint={autoPrint}
+              onBackToPrintList={autoPrint && printWard ? () => setView("registry") : null}
               goTo={goTo} />
           )}
           {view === "fenton" && active &&
@@ -2425,7 +2459,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel, userEmail,
   handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo,
-  nursing = [], ordersReadOnly = false }) {
+  nursing = [], ordersReadOnly = false, autoPrint = null, onBackToPrintList = null }) {
   // The day this order is for, as the Calculator reports it (onOrderDate): an
   // edit's own date, a back-fill's, or the day a new order was opened on —
   // which stays put if the form is left open past midnight. The header chip
@@ -2448,16 +2482,26 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   // The courtesy lock announces "someone is editing this order" — which a nurse
   // computing without saving (D5) is not, so the nurse takes none.
   const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
+  // The Print order button, and the print list's automatic request: the
+  // Calculator's own handler decides whether this order may print.
+  const requestPrint = () => {
+    document.querySelector('.work-inner')?.setAttribute('data-date', new Date().toLocaleDateString('th-TH'));
+    document.dispatchEvent(new CustomEvent('__neofeed_print'));
+  };
 
   return (
     <>
       <div className="page-head">
         <div>
-          {editEntry && (
+          {editEntry && (onBackToPrintList ? (
+            <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={onBackToPrintList}>
+              ← กลับไปรายการ Print order
+            </button>
+          ) : (
             <button className="login-alt-link" style={{ padding: 0, marginBottom: 4 }} onClick={() => goTo("log")}>
               ← กลับไป Dashboard
             </button>
-          )}
+          ))}
           <h1 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order"}
             {/* Today's order reads just its DOL, which the strip above also
@@ -2470,10 +2514,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
           <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => {
-            document.querySelector('.work-inner')?.setAttribute('data-date', new Date().toLocaleDateString('th-TH'));
-            document.dispatchEvent(new CustomEvent('__neofeed_print'));
-          }}>
+          <button className="btn" onClick={requestPrint}>
             <Icon name="pdf" size={14} /> Print order
           </button>
           <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
@@ -2493,6 +2534,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
       )}
 
       <Calculator patient={active} entries={log[activeId] || []} dol={displayDol}
+        autoPrint={editEntry ? autoPrint : null} requestPrint={requestPrint}
         onOrderDate={setReportedOrderDate}
         editEntry={editEntry} baselineEntry={baselineEntry} previousEntry={previousEntry}
         logDate={logDate} userLabel={userLabel}

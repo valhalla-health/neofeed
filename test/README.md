@@ -1498,6 +1498,20 @@ max 60 on peripheral writes both. 162 checks; against `daaad66`, 11 fail. Adjust
 file, `verify-tpn-team-0922` § 7 (the peripheral line under the tile) and `verify-calc-oracle` (its regex for the
 copied order's "(N mEq/L; …)" matched only the old wording and read the new one as `null` in two scenarios).
 
+## The ward Print order list and the stats tiles, 2026-10-12 — one harness added, one extended
+
+Pp: tap Active / Logged today / Needs entry to see that group, and a Print order button per ward on the
+first page that lists the day's submitted orders and opens the print preview as Print order inside does
+(`CHANGELOG.md` 2026-10-12 (1)). **`verify-ward-print-1012.cjs`** drives the real `<App/>` through
+`review-0917-boot` (jsdom; also against `compiled/`), 43 checks in five scenarios: the tiles narrow both
+layouts and say so; one Print order button per ward, outside its tile, counting its submitted orders; the
+list holds only today's Submitted orders of that ward (no draft, yesterday, discharged or other ward), a
+`tmp_` row cannot be opened, two orders on a day go to the Dashboard, the rest are counted; a tap prints
+once, a re-render or sync does not print again, the page leads back to the list; an order with an
+unreasoned critical value does not print and shows the calculator's own toast. Against the code before
+it, 13 fail. **`verify-phone-sweep.cjs`** now also sweeps the ward gate, the print list and the list
+narrowed to Needs entry on every device (234 screens), with one patient given today's submitted order.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

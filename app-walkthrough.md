@@ -644,6 +644,24 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    list's own filter) — so `logged + needs entry === active` always holds;
    don't reintroduce a tile counted over `patients` as a whole. Both the
    badges and the strip read `D.hasLogOnDate` and `D.useTodayLocal` (§3).
+   **Active, Logged today and Needs entry are buttons** (Pp, 2026-10-12):
+   a tap narrows both layouts to that tile's infants (`statFilter`), a
+   "แสดงเฉพาะ … · N จาก M ราย" line says so with its way back, the
+   discharged section hides while narrowed, and `← เปลี่ยน ward` drops it.
+   The search applies first, then the tile. Total sessions stays a figure.
+   **Each ward on the gate has a Print order button** under its tile
+   (`WardGateCell` — a sibling, since the tile is itself a button). It opens
+   `WardPrintList`: that ward's active infants whose order for today is
+   Submitted, bed order. A tap goes through `app.jsx` `openOrderToPrint` →
+   `printJob` → the order opens in the Calculator with `autoPrint`, which
+   asks once (per token) for the same `__neofeed_print` the Print order
+   button sends — so the calculator's own `printable` gate decides, and a
+   held-back order shows the same toast instead of printing. The list never
+   decides what may print. A `tmp_` row is shown but not opened; two
+   submitted orders on one day open the Dashboard to choose; those not yet
+   submitted are counted under the list, one tap from Needs entry. The
+   print list's ward (`printWard`) lives in `app.jsx` so "← กลับไปรายการ Print
+   order" returns to it; `goTo` and leaving the Calculator clear the request.
    Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
    `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated,
    wording spells out that it's permanent and irreversible) calls

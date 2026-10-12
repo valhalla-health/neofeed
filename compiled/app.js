@@ -387,6 +387,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const [activeId, setActiveId] = React.useState(null);
   const [view, setView] = React.useState("registry");
   const [ward, setWard] = React.useState(null);
+  const [printWard, setPrintWard] = React.useState(null);
+  const [printJob, setPrintJob] = React.useState(null);
+  const [autoPrint, setAutoPrint] = React.useState(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local");
   const [lastSync, setLastSync] = React.useState(null);
@@ -403,11 +406,34 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   React.useEffect(() => {
     setEditEntry(null);
     setLogDate(null);
+    setAutoPrint(null);
   }, [activeId]);
   const goTo = (v) => {
     setEditEntry(null);
     setLogDate(null);
+    setAutoPrint(null);
+    setPrintWard(null);
     setView(v);
+  };
+  React.useEffect(() => {
+    if (!printJob || printJob.sessionId !== activeId) return;
+    setPrintJob(null);
+    const entry = (log[activeId] || []).find((e) => e.entryId === printJob.entryId);
+    if (!entry) {
+      showToast("ไม่พบใบสั่งนี้แล้ว — กด Sync แล้วลองใหม่", "error");
+      return;
+    }
+    setEditEntry(entry);
+    setLogDate(null);
+    setAutoPrint(printJob.token);
+    setView("calculator");
+  }, [printJob, activeId]);
+  React.useEffect(() => {
+    if (view !== "calculator") setAutoPrint(null);
+  }, [view]);
+  const openOrderToPrint = (sessionId, entryId) => {
+    setPrintJob({ sessionId, entryId, token: Date.now() });
+    setActiveId(sessionId);
   };
   const active = patients.find((p) => p.sessionId === activeId);
   const dol = D_A.liveDol(active);
@@ -1346,11 +1372,29 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       mergeBaseFor,
       onDelete: role === "admin" ? handleDeletePatient : void 0
     }
-  ), view === "registry" && /* @__PURE__ */ React.createElement(PatientRegistry, { patients, activeId, role, log, ward, onWardChange: setWard, onSelect: (id) => {
-    setEditEntry(null);
-    setActiveId(id);
-    setView("log");
-  }, onAdd: handleAddPatient, onEdit: handleEditPatient, mergeBaseFor, onDelete: role === "admin" ? handleDeletePatient : void 0 }), view === "admin" && role === "admin" && /* @__PURE__ */ React.createElement(
+  ), view === "registry" && /* @__PURE__ */ React.createElement(
+    PatientRegistry,
+    {
+      patients,
+      activeId,
+      role,
+      log,
+      ward,
+      onWardChange: setWard,
+      printWard,
+      onPrintWard: setPrintWard,
+      onPrintOrder: openOrderToPrint,
+      onSelect: (id) => {
+        setEditEntry(null);
+        setActiveId(id);
+        setView("log");
+      },
+      onAdd: handleAddPatient,
+      onEdit: handleEditPatient,
+      mergeBaseFor,
+      onDelete: role === "admin" ? handleDeletePatient : void 0
+    }
+  ), view === "admin" && role === "admin" && /* @__PURE__ */ React.createElement(
     AdminDashboard,
     {
       patients,
@@ -1383,6 +1427,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       handleUpdateToGAS,
       handlePublishToGAS,
       handleDeleteEntry,
+      autoPrint,
+      onBackToPrintList: autoPrint && printWard ? () => setView("registry") : null,
       goTo
     }
   ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, entries: log[activeId] || [], currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights) })), view === "log" && active && /* @__PURE__ */ React.createElement(
@@ -1489,7 +1535,9 @@ function CalculatorView({
   handleDeleteEntry,
   goTo,
   nursing = [],
-  ordersReadOnly = false
+  ordersReadOnly = false,
+  autoPrint = null,
+  onBackToPrintList = null
 }) {
   const today = D_A.todayLocal();
   const [reportedOrderDate, setReportedOrderDate] = React.useState(null);
@@ -1499,10 +1547,11 @@ function CalculatorView({
   const previousEntry = previousLogEntry(log[activeId] || [], lockDate);
   const baselineEntry = !editEntry ? previousEntry : null;
   const holder = useDailyLogLock(active.sessionId, lockDate, ordersReadOnly ? "" : token);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard"), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
+  const requestPrint = () => {
     document.querySelector(".work-inner")?.setAttribute("data-date", (/* @__PURE__ */ new Date()).toLocaleDateString("th-TH"));
     document.dispatchEvent(new CustomEvent("__neofeed_print"));
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), holder && /* @__PURE__ */ React.createElement("div", { style: {
+  };
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && (onBackToPrintList ? /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBackToPrintList }, "← กลับไปรายการ Print order") : /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard")), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: requestPrint }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), holder && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",
@@ -1519,6 +1568,8 @@ function CalculatorView({
       patient: active,
       entries: log[activeId] || [],
       dol: displayDol,
+      autoPrint: editEntry ? autoPrint : null,
+      requestPrint,
       onOrderDate: setReportedOrderDate,
       editEntry,
       baselineEntry,

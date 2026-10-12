@@ -537,6 +537,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // what stays is the arithmetic. Deliberately NOT folded into `centerPoint`:
 // that mode still saves, just somewhere else.
 function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onOrderDate, onDelete, centerPoint, scratch,
+  autoPrint = null, requestPrint = null,
   nursing = [], ordersReadOnly = false }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
@@ -1940,6 +1941,24 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
   }, [savedEntryId, printable, printBlockToast]);
+
+  // Opened from the ward's Print order list (registry.jsx WardPrintList): ask
+  // for the print preview once, exactly as the Print order button does, as
+  // soon as the saved order has loaded and `printable` holds. If it never
+  // does (edited since, a critical value without its reason…), the request
+  // still goes once after a short wait, so the handler above shows the same
+  // reason the button would, rather than the page waiting silently.
+  // One request per token: a re-render, or `printable` flipping, never prints
+  // twice; app.jsx drops the token as soon as the calculator is left.
+  const autoPrintDone = React.useRef(null);
+  React.useEffect(() => {
+    if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
+    const go = () => { autoPrintDone.current = autoPrint; requestPrint(); };
+    if (printable) { go(); return; }
+    const t = setTimeout(go, 1500);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrint, printable]);
 
   // TwoCol is defined at module level (below) — do NOT define inside Calculator
   // (inline component definitions cause React to unmount/remount on every render → focus lost)

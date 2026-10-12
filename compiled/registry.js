@@ -69,24 +69,128 @@ function WardTile({ label, sub, list, log, today, onPick }) {
     /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 8, fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontSize: 18, fontWeight: 600 } }, list.length), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)" } }, " active")), /* @__PURE__ */ React.createElement("span", { style: { color: needs === 0 ? "var(--ok)" : "var(--crit)" } }, /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontSize: 18, fontWeight: 600 } }, needs), /* @__PURE__ */ React.createElement("span", null, " needs entry")))
   );
 }
-function WardGate({ patients, log, today, onPick }) {
+function WardGateCell({ ward, label, sub, list, log, today, onPick, onPrintList }) {
+  const logged = list.filter((p) => D_R.hasLogOnDate(log[p.sessionId], today)).length;
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 } }, /* @__PURE__ */ React.createElement(WardTile, { label, sub, list, log, today, onPick }), onPrintList && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "btn ward-print",
+      onClick: () => onPrintList(ward),
+      "aria-label": `Print order ${label} — submit แล้ว ${logged} ราย`
+    },
+    /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }),
+    " Print order",
+    /* @__PURE__ */ React.createElement("span", { className: "ward-print-n" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, logged), " ราย")
+  ));
+}
+function WardGate({ patients, log, today, onPick, onPrintList }) {
   const groups = { NICU: [], SCN: [], other: [] };
   const active = patients.filter(isActivePatient);
   active.forEach((p) => groups[D_R.patientWard(p)].push(p));
-  const tile = (ward) => ({ list: groups[ward], log, today, onPick: () => onPick(ward) });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, /* @__PURE__ */ React.createElement(WardTile, { label: "NICU", sub: "NICU 1–12 · iso 1–3", ...tile("NICU") }), /* @__PURE__ */ React.createElement(WardTile, { label: "SCN", sub: "SCN 1–30", ...tile("SCN") }), groups.other.length > 0 && /* @__PURE__ */ React.createElement(WardTile, { label: "อื่นๆ", sub: "ยังไม่ระบุเตียง / เตียงนอกรายการ", ...tile("other") })));
+  const tile = (ward) => ({ ward, list: groups[ward], log, today, onPick: () => onPick(ward), onPrintList });
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, /* @__PURE__ */ React.createElement(WardGateCell, { label: "NICU", sub: "NICU 1–12 · iso 1–3", ...tile("NICU") }), /* @__PURE__ */ React.createElement(WardGateCell, { label: "SCN", sub: "SCN 1–30", ...tile("SCN") }), groups.other.length > 0 && /* @__PURE__ */ React.createElement(WardGateCell, { label: "อื่นๆ", sub: "ยังไม่ระบุเตียง / เตียงนอกรายการ", ...tile("other") })));
+}
+const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
+function todaysOrders(entries, today) {
+  return D_R.finalEntries(entries).filter((e) => D_R.normalizeDateStr(e.ts) === today);
+}
+function WardPrintList({ patients, log, today, ward, onBack, onPrint, onOpenPatient, onShowNeeds }) {
+  const wardName = ward === "other" ? "อื่นๆ" : ward;
+  const active = patients.filter((p) => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
+  const rows = active.map((p) => ({ p, orders: todaysOrders(log[p.sessionId], today) })).filter((r) => r.orders.length > 0);
+  const waiting = active.length - rows.length;
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Print order · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, window.NEOFEED_FMT_DATE?.(today) || today, " · Submit แล้ว", " ", /* @__PURE__ */ React.createElement("span", { className: "num" }, rows.length), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, active.length), " ราย")), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onBack, style: { fontSize: 12.5 } }, "← กลับ")), /* @__PURE__ */ React.createElement("div", { className: "print-list" }, rows.map(({ p, orders }) => {
+    const one = orders.length === 1 ? orders[0] : null;
+    const pending = !!one && isPendingRow(one);
+    const open = pending ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
+    const action = pending ? "กำลังบันทึก…" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
+    return /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        key: p.sessionId,
+        className: "print-row" + (pending ? " is-pending" : ""),
+        onClick: open || void 0,
+        ...open ? rowA11y(open) : {},
+        "aria-label": `${action} ${D_R.patientName(p) || ""}`.trim()
+      },
+      /* @__PURE__ */ React.createElement("div", { className: "pr-who" }, /* @__PURE__ */ React.createElement(BedChip, { p }), /* @__PURE__ */ React.createElement("span", { className: "pr-name" }, D_R.patientName(p) || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pr-dol" }, "DOL ", D_R.liveDol(p)), /* @__PURE__ */ React.createElement("span", { className: "log-badge is-logged" }, "✓ SUBMITTED")),
+      /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          type: "button",
+          className: "btn sm" + (one && !pending ? " primary" : ""),
+          disabled: pending,
+          tabIndex: -1,
+          onClick: (e) => {
+            e.stopPropagation();
+            open?.();
+          }
+        },
+        one && !pending && /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 12, color: "#fff" }),
+        " ",
+        action,
+        !pending && /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: one ? "#fff" : void 0 })
+      )
+    );
+  }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), waiting > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
 }
 function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
   return /* @__PURE__ */ React.createElement("div", { className: "search-miss" }, /* @__PURE__ */ React.createElement("div", null, "ไม่พบ “", query, "” ใน ", wardName), elsewhere.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } }, elsewhere.map((x) => /* @__PURE__ */ React.createElement("button", { key: x.ward, type: "button", className: "btn sm", onClick: () => onWardChange?.(x.ward) }, "พบใน ", x.ward === "other" ? "อื่นๆ" : x.ward, " ", x.n, " ราย · ไปดู →"))));
 }
-function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor }) {
+function PatientRegistry({
+  patients,
+  activeId,
+  log = {},
+  ward,
+  onWardChange,
+  onSelect,
+  onAdd,
+  onEdit,
+  onDelete,
+  mergeBaseFor,
+  printWard,
+  onPrintWard,
+  onPrintOrder
+}) {
   const [filter, setFilter] = React.useState("");
+  const [statFilter, setStatFilter] = React.useState(null);
   const [showAdd, setShowAdd] = React.useState(false);
   const [editPatient, setEditPatient] = React.useState(null);
   const [transferPatient, setTransferPatient] = React.useState(null);
   const [showArchived, setShowArchived] = React.useState(false);
   const today = D_R.useTodayLocal();
-  if (!ward) return /* @__PURE__ */ React.createElement(WardGate, { patients, log, today, onPick: onWardChange });
+  if (printWard && onPrintOrder) return /* @__PURE__ */ React.createElement(
+    WardPrintList,
+    {
+      patients,
+      log,
+      today,
+      ward: printWard,
+      onBack: () => onPrintWard?.(null),
+      onPrint: onPrintOrder,
+      onOpenPatient: onSelect,
+      onShowNeeds: () => {
+        setFilter("");
+        setStatFilter("needs");
+        onPrintWard?.(null);
+        onWardChange?.(printWard);
+      }
+    }
+  );
+  if (!ward) return /* @__PURE__ */ React.createElement(
+    WardGate,
+    {
+      patients,
+      log,
+      today,
+      onPick: (w) => {
+        setStatFilter(null);
+        onWardChange?.(w);
+      },
+      onPrintList: onPrintOrder ? onPrintWard : void 0
+    }
+  );
   const q = filter.trim();
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const wardPatients = patients.filter((p) => D_R.patientWard(p) === ward);
@@ -94,6 +198,11 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const search = q ? D_R.searchPatients(byBed, q) : null;
   const sorted = search ? search.hits : byBed;
   const activeSorted = sorted.filter(isActivePatient);
+  const loggedSet = new Set(
+    wardPatients.filter((p) => isActivePatient(p) && D_R.hasLogOnDate(log[p.sessionId], today)).map((p) => p.sessionId)
+  );
+  const shownActive = statFilter === "logged" ? activeSorted.filter((p) => loggedSet.has(p.sessionId)) : statFilter === "needs" ? activeSorted.filter((p) => !loggedSet.has(p.sessionId)) : activeSorted;
+  const STAT_FILTER_LABEL = { logged: "Logged today", needs: "Needs entry" };
   const ARCHIVE_VISIBLE_DAYS = 7;
   const daysSinceStatus = (p) => {
     if (!p.statusDate) return Infinity;
@@ -105,9 +214,6 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     (p) => !isActivePatient(p) && daysSinceStatus(p) <= ARCHIVE_VISIBLE_DAYS
   );
   const activePatients = wardPatients.filter(isActivePatient);
-  const loggedSet = new Set(
-    activePatients.filter((p) => D_R.hasLogOnDate(log[p.sessionId], today)).map((p) => p.sessionId)
-  );
   const totalActive = activePatients.length;
   const loggedToday = loggedSet.size;
   const needsLog = totalActive - loggedToday;
@@ -118,8 +224,41 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const miss = /* @__PURE__ */ React.createElement(SearchMiss, { query: q, wardName, elsewhere, onWardChange });
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, wardPatients.length, " sessions · ", totalActive, " active")), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
     setFilter("");
+    setStatFilter(null);
     onWardChange?.(null);
-  }, style: { fontSize: 12.5 } }, "← เปลี่ยน ward")), /* @__PURE__ */ React.createElement("div", { className: "reg-stats" }, /* @__PURE__ */ React.createElement("div", { className: "reg-stat s-brand" }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, totalActive), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Active")), /* @__PURE__ */ React.createElement("div", { className: "reg-stat" }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, wardPatients.length), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Total sessions")), /* @__PURE__ */ React.createElement("div", { className: `reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}` }, /* @__PURE__ */ React.createElement(RegStatMark, { tone: loggedToday === totalActive && totalActive > 0 ? "ok" : loggedToday > 0 ? "warn" : "crit" }), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, loggedToday), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Logged today")), /* @__PURE__ */ React.createElement("div", { className: `reg-stat ${needsLog === 0 ? "" : needsLog <= 1 ? "s-warn" : "s-crit"}` }, /* @__PURE__ */ React.createElement(RegStatMark, { tone: needsLog === 0 ? null : needsLog <= 1 ? "warn" : "crit" }), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, needsLog), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Needs entry"))), /* @__PURE__ */ React.createElement("div", { className: "reg-filter" }, /* @__PURE__ */ React.createElement("div", { className: "reg-search" }, /* @__PURE__ */ React.createElement("div", { className: "s-ico" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 14 })), /* @__PURE__ */ React.createElement(
+  }, style: { fontSize: 12.5 } }, "← เปลี่ยน ward")), /* @__PURE__ */ React.createElement("div", { className: "reg-stats", role: "group", "aria-label": "กรองรายชื่อ" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "reg-stat s-brand",
+      "aria-pressed": statFilter === null,
+      onClick: () => setStatFilter(null)
+    },
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, totalActive),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Active")
+  ), /* @__PURE__ */ React.createElement("div", { className: "reg-stat" }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, wardPatients.length), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Total sessions")), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: `reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}${statFilter === "logged" ? " is-on" : ""}`,
+      "aria-pressed": statFilter === "logged",
+      onClick: () => setStatFilter((f) => f === "logged" ? null : "logged")
+    },
+    /* @__PURE__ */ React.createElement(RegStatMark, { tone: loggedToday === totalActive && totalActive > 0 ? "ok" : loggedToday > 0 ? "warn" : "crit" }),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, loggedToday),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Logged today")
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: `reg-stat ${needsLog === 0 ? "" : needsLog <= 1 ? "s-warn" : "s-crit"}${statFilter === "needs" ? " is-on" : ""}`,
+      "aria-pressed": statFilter === "needs",
+      onClick: () => setStatFilter((f) => f === "needs" ? null : "needs")
+    },
+    /* @__PURE__ */ React.createElement(RegStatMark, { tone: needsLog === 0 ? null : needsLog <= 1 ? "warn" : "crit" }),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, needsLog),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Needs entry")
+  )), /* @__PURE__ */ React.createElement("div", { className: "reg-filter" }, /* @__PURE__ */ React.createElement("div", { className: "reg-search" }, /* @__PURE__ */ React.createElement("div", { className: "s-ico" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 14 })), /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "inp",
@@ -141,7 +280,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         }
       }
     }
-  ), filter && /* @__PURE__ */ React.createElement("button", { type: "button", className: "s-clear", "aria-label": "ล้างคำค้นหา", onClick: () => setFilter("") }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("button", { className: "btn primary", style: { whiteSpace: "nowrap" }, onClick: () => setShowAdd(true) }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 14, color: "#fff" }), " New session")), q && activeSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "reg-search-note" }, "พบ ", activeSorted.length, " รายใน ", wardName, search.thai && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ค้นเป็น “", search.thai, "” (แป้นพิมพ์ภาษาไทย)")), /* @__PURE__ */ React.createElement("div", { className: "patient-card-list" }, activeSorted.map((p) => {
+  ), filter && /* @__PURE__ */ React.createElement("button", { type: "button", className: "s-clear", "aria-label": "ล้างคำค้นหา", onClick: () => setFilter("") }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("button", { className: "btn primary", style: { whiteSpace: "nowrap" }, onClick: () => setShowAdd(true) }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 14, color: "#fff" }), " New session")), q && activeSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "reg-search-note" }, "พบ ", activeSorted.length, " รายใน ", wardName, search.thai && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ค้นเป็น “", search.thai, "” (แป้นพิมพ์ภาษาไทย)")), statFilter && /* @__PURE__ */ React.createElement("div", { className: "reg-filter-note", role: "status" }, /* @__PURE__ */ React.createElement("span", null, "แสดงเฉพาะ ", /* @__PURE__ */ React.createElement("strong", null, STAT_FILTER_LABEL[statFilter]), " · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, shownActive.length), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, activeSorted.length), " ราย"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: () => setStatFilter(null) }, "แสดงทั้งหมด")), /* @__PURE__ */ React.createElement("div", { className: "patient-card-list" }, shownActive.map((p) => {
     const last = D_R.currentWeight(p, log[p.sessionId]) || null;
     const dol = D_R.liveDol(p);
     const delta = last ? last.w - p.bw : 0;
@@ -191,7 +330,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         onSelect(p.sessionId);
       } }, "Open ", /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: "#fff" })))
     );
-  }), activeSorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`), archivedSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(
+  }), activeSorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`), activeSorted.length > 0 && shownActive.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่มีผู้ป่วย ", STAT_FILTER_LABEL[statFilter], q ? ` ที่ตรงกับ “${q}”` : "", " ใน ", wardName), !statFilter && archivedSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",
@@ -213,7 +352,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement(BedChip, { p })), /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), p.status)),
     /* @__PURE__ */ React.createElement("div", { className: "pmc-row" }, /* @__PURE__ */ React.createElement("span", { className: "pmc-meta" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, D_R.fmtGA(p.ga)), " wk · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, p.bw.toLocaleString()), " g")),
     p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis)
-  )))), /* @__PURE__ */ React.createElement("div", { className: "card patient-table" }, /* @__PURE__ */ React.createElement("table", { className: "tbl", style: { tableLayout: "fixed", width: "100%" } }, /* @__PURE__ */ React.createElement("colgroup", null, /* @__PURE__ */ React.createElement("col", { style: { width: 90 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 68 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 62 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 62 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 68 } }), /* @__PURE__ */ React.createElement("col", null), /* @__PURE__ */ React.createElement("col", { style: { width: 48 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 78 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 108 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 118 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 150 } })), /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Bed"), /* @__PURE__ */ React.createElement("th", null, "Name"), /* @__PURE__ */ React.createElement("th", null, "GA"), /* @__PURE__ */ React.createElement("th", null, "PCA"), /* @__PURE__ */ React.createElement("th", null, "BW (g)"), /* @__PURE__ */ React.createElement("th", null, "Diagnosis"), /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Wt now"), /* @__PURE__ */ React.createElement("th", null, "Δ birth"), /* @__PURE__ */ React.createElement("th", null, "Status"), /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, activeSorted.map((p) => {
+  )))), /* @__PURE__ */ React.createElement("div", { className: "card patient-table" }, /* @__PURE__ */ React.createElement("table", { className: "tbl", style: { tableLayout: "fixed", width: "100%" } }, /* @__PURE__ */ React.createElement("colgroup", null, /* @__PURE__ */ React.createElement("col", { style: { width: 90 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 68 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 62 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 62 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 68 } }), /* @__PURE__ */ React.createElement("col", null), /* @__PURE__ */ React.createElement("col", { style: { width: 48 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 78 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 108 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 118 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 150 } })), /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Bed"), /* @__PURE__ */ React.createElement("th", null, "Name"), /* @__PURE__ */ React.createElement("th", null, "GA"), /* @__PURE__ */ React.createElement("th", null, "PCA"), /* @__PURE__ */ React.createElement("th", null, "BW (g)"), /* @__PURE__ */ React.createElement("th", null, "Diagnosis"), /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Wt now"), /* @__PURE__ */ React.createElement("th", null, "Δ birth"), /* @__PURE__ */ React.createElement("th", null, "Status"), /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, shownActive.map((p) => {
     const last = D_R.currentWeight(p, log[p.sessionId]) || null;
     const dol = D_R.liveDol(p);
     const delta = last ? last.w - p.bw : 0;
@@ -297,7 +436,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: "#fff" })
       )))
     );
-  }), archivedSorted.length > 0 && /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { colSpan: 11, style: { padding: "6px 12px", background: "var(--bg-2)", borderTop: "2px solid var(--line)" } }, /* @__PURE__ */ React.createElement(
+  }), !statFilter && archivedSorted.length > 0 && /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { colSpan: 11, style: { padding: "6px 12px", background: "var(--bg-2)", borderTop: "2px solid var(--line)" } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn sm",
@@ -311,7 +450,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     " Discharged / Transferred / Expired (",
     archivedSorted.length,
     ")"
-  ))), showArchived && archivedSorted.map((p) => /* @__PURE__ */ React.createElement(
+  ))), !statFilter && showArchived && archivedSorted.map((p) => /* @__PURE__ */ React.createElement(
     "tr",
     {
       key: p.sessionId,
@@ -330,7 +469,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       e.stopPropagation();
       setEditPatient(p);
     } }, "Edit"))
-  )))), (q ? activeSorted.length === 0 : sorted.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`)), showAdd && /* @__PURE__ */ React.createElement(NewPatientModal, { patients, onClose: () => setShowAdd(false), onSubmit: (p) => onAdd(p) }), editPatient && /* @__PURE__ */ React.createElement(
+  )))), (q ? activeSorted.length === 0 : sorted.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`), activeSorted.length > 0 && shownActive.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่มีผู้ป่วย ", STAT_FILTER_LABEL[statFilter], q ? ` ที่ตรงกับ “${q}”` : "", " ใน ", wardName)), showAdd && /* @__PURE__ */ React.createElement(NewPatientModal, { patients, onClose: () => setShowAdd(false), onSubmit: (p) => onAdd(p) }), editPatient && /* @__PURE__ */ React.createElement(
     EditPatientModal,
     {
       patient: editPatient,

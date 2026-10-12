@@ -152,11 +152,32 @@ function WardTile({ label, sub, list, log, today, onPick }) {
   );
 }
 
-function WardGate({ patients, log, today, onPick }) {
+// One ward's tile with its Print order button under it (Pp, 2026-10-12: a
+// print button on the first page, for each ward, in the same words as the
+// calculator's). A sibling of the tile, not inside it: the tile is itself a
+// <button>, and a button inside a button is invalid HTML that browsers pull
+// apart. The count is the ward's Logged today — the orders it would list.
+function WardGateCell({ ward, label, sub, list, log, today, onPick, onPrintList }) {
+  const logged = list.filter(p => D_R.hasLogOnDate(log[p.sessionId], today)).length;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+      <WardTile label={label} sub={sub} list={list} log={log} today={today} onPick={onPick} />
+      {onPrintList && (
+        <button type="button" className="btn ward-print" onClick={() => onPrintList(ward)}
+          aria-label={`Print order ${label} — submit แล้ว ${logged} ราย`}>
+          <Icon name="pdf" size={14} /> Print order
+          <span className="ward-print-n"><span className="num">{logged}</span> ราย</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function WardGate({ patients, log, today, onPick, onPrintList }) {
   const groups = { NICU: [], SCN: [], other: [] };
   const active = patients.filter(isActivePatient);
   active.forEach(p => groups[D_R.patientWard(p)].push(p));
-  const tile = (ward) => ({ list: groups[ward], log, today, onPick: () => onPick(ward) });
+  const tile = (ward) => ({ ward, list: groups[ward], log, today, onPick: () => onPick(ward), onPrintList });
 
   return (
     <>
@@ -173,10 +194,96 @@ function WardGate({ patients, log, today, onPick }) {
         </div>
       </div>
       <div className="ward-gate" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 }}>
-        <WardTile label="NICU" sub="NICU 1–12 · iso 1–3" {...tile("NICU")} />
-        <WardTile label="SCN"  sub="SCN 1–30"            {...tile("SCN")} />
+        <WardGateCell label="NICU" sub="NICU 1–12 · iso 1–3" {...tile("NICU")} />
+        <WardGateCell label="SCN"  sub="SCN 1–30"            {...tile("SCN")} />
         {groups.other.length > 0 &&
-          <WardTile label="อื่นๆ" sub="ยังไม่ระบุเตียง / เตียงนอกรายการ" {...tile("other")} />}
+          <WardGateCell label="อื่นๆ" sub="ยังไม่ระบุเตียง / เตียงนอกรายการ" {...tile("other")} />}
+      </div>
+    </>
+  );
+}
+
+// Today's submitted orders for one ward, for printing only (Pp, 2026-10-12:
+// "มีแค่แดชบอร์ดรายชื่อผู้ป่วย … ของแต่ละวอร์ดในวันนั้น เพื่อปริ้นอย่างเดียว").
+// Reached from the ward gate's Print order button. A tap opens that order in
+// the calculator and goes straight to its print preview — the same path, the
+// same Print gate (calculator.jsx `printable`) and the same preview as
+// pressing Print order inside — so nothing here decides what may print.
+//
+// Listed: active infants of the ward whose order for `today` is Submitted
+// (the Logged today set). A draft never prints, so it is not listed. Those
+// not listed are counted under the list, one tap from the ward's own Needs
+// entry view, so a short list never reads as the whole ward.
+//
+// An order whose row still carries its optimistic tmp_ id is shown but not
+// opened (UP-C9, as log.jsx does). Two submitted orders on one day should not
+// exist (the duplicate-date guard); if they do, the row opens the patient's
+// Dashboard to choose, rather than this list guessing which one is the order.
+const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
+function todaysOrders(entries, today) {
+  return D_R.finalEntries(entries).filter(e => D_R.normalizeDateStr(e.ts) === today);
+}
+
+function WardPrintList({ patients, log, today, ward, onBack, onPrint, onOpenPatient, onShowNeeds }) {
+  const wardName = ward === "other" ? "อื่นๆ" : ward;
+  const active = patients.filter(p => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
+  const rows = active
+    .map(p => ({ p, orders: todaysOrders(log[p.sessionId], today) }))
+    .filter(r => r.orders.length > 0);
+  const waiting = active.length - rows.length;
+
+  return (
+    <>
+      <div className="page-head" style={{ marginBottom: 12 }}>
+        <div>
+          <h1>Print order · {wardName}</h1>
+          <div className="sub">
+            {window.NEOFEED_FMT_DATE?.(today) || today} · Submit แล้ว{" "}
+            <span className="num">{rows.length}</span> จาก <span className="num">{active.length}</span> ราย
+          </div>
+        </div>
+        <button className="btn" onClick={onBack} style={{ fontSize: 12.5 }}>← กลับ</button>
+      </div>
+
+      <div className="print-list">
+        {rows.map(({ p, orders }) => {
+          const one = orders.length === 1 ? orders[0] : null;
+          const pending = !!one && isPendingRow(one);
+          const open = pending ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
+          const action = pending ? "กำลังบันทึก…" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
+          return (
+            <div key={p.sessionId} className={"print-row" + (pending ? " is-pending" : "")}
+                 onClick={open || undefined}
+                 {...(open ? rowA11y(open) : {})}
+                 aria-label={`${action} ${D_R.patientName(p) || ""}`.trim()}>
+              <div className="pr-who">
+                <BedChip p={p} />
+                <span className="pr-name">{D_R.patientName(p) || "—"}</span>
+                {p.twinSuffix && <span className="chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
+                <span className="pr-dol">DOL {D_R.liveDol(p)}</span>
+                <span className="log-badge is-logged">✓ SUBMITTED</span>
+              </div>
+              <button type="button" className={"btn sm" + (one && !pending ? " primary" : "")} disabled={pending}
+                tabIndex={-1} onClick={e => { e.stopPropagation(); open?.(); }}>
+                {one && !pending && <Icon name="pdf" size={12} color="#fff" />} {action}
+                {!pending && <Icon name="arrow" size={11} color={one ? "#fff" : undefined} />}
+              </button>
+            </div>
+          );
+        })}
+
+        {rows.length === 0 && (
+          <div style={{ padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+            {active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`}
+          </div>
+        )}
+
+        {waiting > 0 && (
+          <div className="print-waiting">
+            <span>ยังไม่ Submit <span className="num">{waiting}</span> ราย — ไม่อยู่ในรายการพิมพ์</span>
+            <button type="button" className="btn sm" onClick={onShowNeeds}>ดูรายชื่อ Needs entry →</button>
+          </div>
+        )}
       </div>
     </>
   );
@@ -203,8 +310,14 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
   );
 }
 
-function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor }) {
+function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor,
+  printWard, onPrintWard, onPrintOrder }) {
   const [filter, setFilter]         = React.useState("");
+  // Which stats tile the list is narrowed to: null (every active infant),
+  // "logged" or "needs" (Pp, 2026-10-12: tap Active / Logged today / Needs
+  // entry to see who is in it — who still needs an entry, who is done and
+  // can be printed). Active is the "show all" tile.
+  const [statFilter, setStatFilter] = React.useState(null);
   const [showAdd, setShowAdd]       = React.useState(false);
   const [editPatient, setEditPatient]       = React.useState(null);
   const [transferPatient, setTransferPatient] = React.useState(null);
@@ -216,10 +329,21 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   // holding yesterday's answer until someone reloads the tab.
   const today = D_R.useTodayLocal();
 
-  // No ward chosen yet → the gate IS this view. Every hook this component
-  // calls is above this line (five useStates and useTodayLocal), so the early
-  // return can't change the hook call order between renders.
-  if (!ward) return <WardGate patients={patients} log={log} today={today} onPick={onWardChange} />;
+  // The ward print list, or (no ward chosen yet) the gate, IS this view.
+  // Every hook this component calls is above these lines (six useStates and
+  // useTodayLocal), so the early returns can't change the hook call order
+  // between renders. The print list is offered only when App can open an
+  // order to print (onPrintOrder).
+  if (printWard && onPrintOrder) return (
+    <WardPrintList patients={patients} log={log} today={today} ward={printWard}
+      onBack={() => onPrintWard?.(null)}
+      onPrint={onPrintOrder}
+      onOpenPatient={onSelect}
+      onShowNeeds={() => { setFilter(""); setStatFilter("needs"); onPrintWard?.(null); onWardChange?.(printWard); }} />
+  );
+  if (!ward) return <WardGate patients={patients} log={log} today={today}
+    onPick={(w) => { setStatFilter(null); onWardChange?.(w); }}
+    onPrintList={onPrintOrder ? onPrintWard : undefined} />;
 
   const q = filter.trim();
   const wardName = ward === "other" ? "อื่นๆ" : ward;
@@ -244,6 +368,17 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const search = q ? D_R.searchPatients(byBed, q) : null;
   const sorted = search ? search.hits : byBed;
   const activeSorted   = sorted.filter(isActivePatient);
+  // Today's Submitted orders in this ward — the Logged today tile, the badges
+  // and the stats filter all read this one set.
+  const loggedSet = new Set(
+    wardPatients.filter(p => isActivePatient(p) && D_R.hasLogOnDate(log[p.sessionId], today)).map(p => p.sessionId)
+  );
+  // The list as the tiles narrow it. The search applies first, then the tile:
+  // "Needs entry" with "สม" typed is the infants matching สม who need an entry.
+  const shownActive = statFilter === "logged" ? activeSorted.filter(p => loggedSet.has(p.sessionId))
+    : statFilter === "needs" ? activeSorted.filter(p => !loggedSet.has(p.sessionId))
+    : activeSorted;
+  const STAT_FILTER_LABEL = { logged: "Logged today", needs: "Needs entry" };
   // Discharged/Transferred/Expired patients drop off the registry 7 days
   // after their statusDate — the name shouldn't linger on the dashboard
   // once the case is old news.
@@ -275,9 +410,6 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   // already-logged patient read as "needs entry") and normalizes `ts` first
   // (the sheet can return it as a Date object, never equal to a date string).
   const activePatients = wardPatients.filter(isActivePatient);
-  const loggedSet    = new Set(
-    activePatients.filter(p => D_R.hasLogOnDate(log[p.sessionId], today)).map(p => p.sessionId)
-  );
   const totalActive  = activePatients.length;
   const loggedToday  = loggedSet.size;
   const needsLog     = totalActive - loggedToday;
@@ -302,17 +434,22 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         {/* Clears the search too: it belongs to the ward it was typed in, and
             carried to the next ward it would hide that ward's list behind a
             query nobody can see being applied. */}
-        <button className="btn" onClick={() => { setFilter(""); onWardChange?.(null); }} style={{ fontSize: 12.5 }}>
+        <button className="btn" onClick={() => { setFilter(""); setStatFilter(null); onWardChange?.(null); }} style={{ fontSize: 12.5 }}>
           ← เปลี่ยน ward
         </button>
       </div>
 
-      {/* ── Stats strip ── */}
-      <div className="reg-stats">
-        <div className="reg-stat s-brand">
+      {/* ── Stats strip ── Active, Logged today and Needs entry are buttons
+          that narrow the list below to their infants (Pp, 2026-10-12); a
+          second tap on the lit one, or a tap on Active, shows everyone again.
+          Total sessions stays a plain figure: it counts the discharged, who
+          are not on this list. */}
+      <div className="reg-stats" role="group" aria-label="กรองรายชื่อ">
+        <button type="button" className="reg-stat s-brand"
+          aria-pressed={statFilter === null} onClick={() => setStatFilter(null)}>
           <span className="reg-stat-val">{totalActive}</span>
           <span className="reg-stat-lbl">Active</span>
-        </div>
+        </button>
         {/* Ward-scoped like the other three: a strip that mixed one ward's
             active count with the whole unit's session count invited reading
             the difference as "13 discharged" when most of it is the other
@@ -326,16 +463,20 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
             only thing separating these four is gone (Hallmark audit
             2026-10-11, C1). A stat that is fine has none (Pp, 2026-10-11). The
             label under each already names the count. */}
-        <div className={`reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}`}>
+        <button type="button"
+          className={`reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}${statFilter === "logged" ? " is-on" : ""}`}
+          aria-pressed={statFilter === "logged"} onClick={() => setStatFilter(f => f === "logged" ? null : "logged")}>
           <RegStatMark tone={loggedToday === totalActive && totalActive > 0 ? "ok" : loggedToday > 0 ? "warn" : "crit"} />
           <span className="reg-stat-val">{loggedToday}</span>
           <span className="reg-stat-lbl">Logged today</span>
-        </div>
-        <div className={`reg-stat ${needsLog === 0 ? "" : needsLog <= 1 ? "s-warn" : "s-crit"}`}>
+        </button>
+        <button type="button"
+          className={`reg-stat ${needsLog === 0 ? "" : needsLog <= 1 ? "s-warn" : "s-crit"}${statFilter === "needs" ? " is-on" : ""}`}
+          aria-pressed={statFilter === "needs"} onClick={() => setStatFilter(f => f === "needs" ? null : "needs")}>
           <RegStatMark tone={needsLog === 0 ? null : needsLog <= 1 ? "warn" : "crit"} />
           <span className="reg-stat-val">{needsLog}</span>
           <span className="reg-stat-lbl">Needs entry</span>
-        </div>
+        </button>
       </div>
 
       {/* ── Filter bar ── */}
@@ -385,9 +526,18 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         </div>
       )}
 
+      {/* A narrowed list says so, with its way back, above the first card —
+          a list missing infants with nothing saying why reads as the ward. */}
+      {statFilter && (
+        <div className="reg-filter-note" role="status">
+          <span>แสดงเฉพาะ <strong>{STAT_FILTER_LABEL[statFilter]}</strong> · <span className="num">{shownActive.length}</span> จาก <span className="num">{activeSorted.length}</span> ราย</span>
+          <button type="button" className="btn sm" onClick={() => setStatFilter(null)}>แสดงทั้งหมด</button>
+        </div>
+      )}
+
       {/* ─── Mobile: card list ─── */}
       <div className="patient-card-list">
-        {activeSorted.map(p => {
+        {shownActive.map(p => {
           // No fallback to the raw last array element: that element can be a
           // length/HC-only row (`w: null`), which turns Δ into `null - bw`
           // — a bogus −100% — instead of the honest "—" a null `last` gives.
@@ -482,9 +632,15 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
             {q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`}
           </div>
         )}
+        {activeSorted.length > 0 && shownActive.length === 0 && (
+          <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+            ไม่มีผู้ป่วย {STAT_FILTER_LABEL[statFilter]}{q ? ` ที่ตรงกับ “${q}”` : ""} ใน {wardName}
+          </div>
+        )}
 
-        {/* Archived toggle */}
-        {archivedSorted.length > 0 && (
+        {/* Archived toggle — not while a tile narrows the list: a discharged
+            infant is in none of the three. */}
+        {!statFilter && archivedSorted.length > 0 && (
           <div style={{ marginTop: 8 }}>
             <button className="btn" style={{ width: "100%", justifyContent: "center", color: "var(--ink-3)", fontSize: 12 }}
               onClick={() => setShowArchived(s => !s)}>
@@ -558,7 +714,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
             </tr>
           </thead>
           <tbody>
-            {activeSorted.map(p => {
+            {shownActive.map(p => {
               // D_R.currentWeight with the log, not the raw last array element —
               // same as the mobile card above and every other screen. A length/HC-only measurement is stored with
               // `w: null` (see MeasurementLogger), so the newest entry is not
@@ -638,7 +794,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
             })}
 
             {/* Archived section */}
-            {archivedSorted.length > 0 && (
+            {!statFilter && archivedSorted.length > 0 && (
               <tr>
                 <td colSpan={11} style={{ padding: "6px 12px", background: "var(--bg-2)", borderTop: "2px solid var(--line)" }}>
                   <button className="btn sm" style={{ color: "var(--ink-3)", fontSize: 11 }}
@@ -648,7 +804,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                 </td>
               </tr>
             )}
-            {showArchived && archivedSorted.map(p => (
+            {!statFilter && showArchived && archivedSorted.map(p => (
               <tr key={p.sessionId} style={{ opacity: 0.5, cursor: "pointer" }}
                   onClick={() => onSelect(p.sessionId)}>
                 <td><BedChip p={p} stacked /></td>
@@ -677,6 +833,11 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         {(q ? activeSorted.length === 0 : sorted.length === 0) && (
           <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
             {q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`}
+          </div>
+        )}
+        {activeSorted.length > 0 && shownActive.length === 0 && (
+          <div style={{ padding: "32px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+            ไม่มีผู้ป่วย {STAT_FILTER_LABEL[statFilter]}{q ? ` ที่ตรงกับ “${q}”` : ""} ใน {wardName}
           </div>
         )}
       </div>
