@@ -117,7 +117,7 @@ not investigated further here.
 ### Vera
 
 NO BLOCK. 🟠 an automatic print could go before the lock banner arrived: Pp's call between accepting it
-and waiting; taken the safer way (above), pinned by scenario #6. 🟡 check 4.0 read the whole page, so a
+and waiting; taken the safer way (above), pinned by scenario #6. **Pp, 2026-10-12: "Safer option >> ok".** 🟡 check 4.0 read the whole page, so a
 wrong-patient print would pass: it now opens BB first and reads AA-1 off the printed sheet's patient table.
 She also lists the `verify-tpn-calc-weight` red on `main` (unexplained), real-device print behaviour, and
 that the list has no "already printed" mark, so two people can print the same order (a ward question).
