@@ -669,15 +669,20 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    the sign-in (in `sessionStorage`, §4) with it. While there is somewhere
    to go back to, one history entry (`{ neofeedBack: true }`) sits on top;
    Back pops it and takes one step: an open dialog closes (as a tap on its
-   backdrop, so a dialog that refuses that refuses Back), Growth / Alerts /
+   backdrop, so a dialog that refuses that refuses Back; Register new
+   session, Edit session and Transfer bed carry `data-back-confirm` and ask
+   "ต้องการออกจากหน้า … ? ข้อมูลที่พิมพ์ไว้จะหายไป" first), Growth / Alerts /
    Calculator → the Dashboard (an order from the print list → the print
    list), the Dashboard → the ward list, the list or print list → the gate,
    reference screens → where they were opened from (from an edit or a
    back-fill: the Dashboard). On the gate, Back shows "กด Back อีกครั้งเพื่อ
    ออก…" and drops the entry for `EXIT_WINDOW_MS` (2 s), so a second Back
    leaves; a page cannot close itself, so there is no "ออก" button. The
-   entry is pushed only after a user activation (Chrome skips one pushed
-   before). Reaching the gate any way clears the ward's search and filter.
+   entry is pushed once, after a user activation (Chrome skips one pushed
+   before); after each Back it returns by `history.forward()` onto the same
+   entry, never a new push, because Chrome makes Back skip the entry a
+   page pushed from without a tap. Reaching the gate any way clears the
+   ward's search and filter.
    Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
    `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated,
    wording spells out that it's permanent and irreversible) calls

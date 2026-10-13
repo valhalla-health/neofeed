@@ -1523,6 +1523,27 @@ Back closes a dialog and only the dialog; a search typed in a ward is gone after
 first Back stays with a toast and no entry of ours for 2 s, then the entry is back; Reference values from an
 edit or a back-fill → the Dashboard (Vera). Against the code before it, 12 fail.
 
+**Extended the same day** (`CHANGELOG.md` 2026-10-12 (3)), now 49 checks in ten scenarios. #5 uses the
+new-order date dialog, which still closes on Back without asking. **#9:** Back on Register new session,
+Edit session and Transfer bed asks "ต้องการออกจากหน้า … ? ข้อมูลที่พิมพ์ไว้จะหายไป" (Pp); Cancel keeps the
+dialog and what was typed, OK closes it, a tap outside still closes it without asking. **#10:** three Backs
+in a row reach the gate with no `pushState` after any of them, and the guard returns after the 2 s exit
+window still without a push. jsdom has no Chrome history intervention, so #10 checks the push that caused
+it; the behaviour itself was seen in Chromium (Browser pane, local dev server). Against `main` before it,
+7 fail. Checks 7.3 and 10.4 flush once more after the 2 s wait, because `history.forward()` lands a task
+later.
+
+## Dev local, 2026-10-12 — one harness added
+
+Pp: "ให้ dev local ก่อน deploy", then "ข้อ 2 ทำเลย" (`CHANGELOG.md` 2026-10-12 (3); `REFERENCE.md` §
+Frontend). **`verify-dev-local.cjs`** starts `tools/dev-local.mjs` on a free port and checks the one
+failure that matters most, a copy that still talks to production: `boot.js` names the local server and
+never `script.google.com`, every script the shell names loads, internal files and a file beside the copy
+(`..%2f`) are not served, the seeded doctor signs in through the real `gas-backend.gs` and a wrong
+password is refused, the seed is there (AA submitted, BB draft, CC under an older `CONSTANTS_VERSION`, DD
+nothing), a `boot.js` it cannot rewrite stops it, and stop removes the copy. 17 checks, each seen to fail
+on a tool broken for it.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

@@ -456,7 +456,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const goBack = () => {
     const backdrops = document.querySelectorAll(".picker-backdrop, .modal-backdrop");
     if (backdrops.length) {
-      backdrops[backdrops.length - 1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      const top = backdrops[backdrops.length - 1];
+      const page = top.getAttribute("data-back-confirm");
+      if (page && !window.confirm(`ต้องการออกจากหน้า ${page} ?
+ข้อมูลที่พิมพ์ไว้จะหายไป`)) return;
+      top.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       return;
     }
     if (view === "calculator") {
@@ -481,14 +485,28 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const atRootRef = React.useRef(atRoot);
   atRootRef.current = atRoot;
   const guardRef = React.useRef(false);
+  const fwdRef = React.useRef(false);
+  const rearmRef = React.useRef(null);
   const [guardTick, setGuardTick] = React.useState(0);
   const [exitWindow, setExitWindow] = React.useState(false);
   const exitWindowRef = React.useRef(false);
   exitWindowRef.current = exitWindow;
   React.useEffect(() => {
     if (exitWindow && !atRoot) setExitWindow(false);
-    if (!user || guardRef.current) return;
+    if (!user || guardRef.current || rearmRef.current) return;
     if (exitWindow && atRoot) return;
+    if (fwdRef.current) {
+      rearmRef.current = setTimeout(() => {
+        rearmRef.current = null;
+        fwdRef.current = false;
+        setGuardTick((t) => t + 1);
+      }, 600);
+      try {
+        window.history.forward();
+      } catch {
+      }
+      return;
+    }
     const ua = typeof navigator !== "undefined" && navigator.userActivation;
     if (ua && !ua.hasBeenActive) {
       const evs = ["pointerup", "keydown", "click"];
@@ -508,7 +526,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return () => clearTimeout(t);
   }, [exitWindow]);
   React.useEffect(() => {
-    const onPop = () => {
+    const onPop = (e) => {
+      if (rearmRef.current && e.state && e.state.neofeedBack) {
+        clearTimeout(rearmRef.current);
+        rearmRef.current = null;
+        fwdRef.current = false;
+        guardRef.current = true;
+        return;
+      }
       if (exitWindowRef.current && !guardRef.current) {
         try {
           window.history.back();
@@ -518,6 +543,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       if (!guardRef.current || !userRef.current) return;
       guardRef.current = false;
+      fwdRef.current = true;
       if (atRootRef.current) {
         setExitWindow(true);
         showToast("กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่", "info");
@@ -527,7 +553,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       setGuardTick((t) => t + 1);
     };
     window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      clearTimeout(rearmRef.current);
+    };
   }, []);
   const flagPasswordChangeRequired = React.useCallback(() => {
     setUser((u) => {
