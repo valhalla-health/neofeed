@@ -1182,7 +1182,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   }, [admitDate, admitDol]);
 
   return (
-    <div className="picker-backdrop" onClick={onClose}>
+    <div className="picker-backdrop" onClick={onClose} data-back-confirm="Register new session">
       <div className="picker" style={{ width: 560 }} onClick={e => e.stopPropagation()}>
         <div className="picker-h" style={{ display: "flex", justifyContent: "space-between" }}>
           <div style={{ fontWeight: 600, fontSize: 15 }}>Register new session</div>
@@ -1617,7 +1617,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   };
 
   return (
-    <div className="picker-backdrop" onClick={onClose}>
+    <div className="picker-backdrop" onClick={onClose} data-back-confirm="Edit session">
       <div className="picker" style={{ width: 560 }} onClick={e => e.stopPropagation()}>
         <div className="picker-h" style={{ justifyContent: "space-between" }}>
           <div style={{ fontWeight: 600, fontSize: 15 }}>Edit session · {patient.sessionId}</div>
@@ -1814,7 +1814,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
   };
 
   return (
-    <div className="picker-backdrop" onClick={onClose}>
+    <div className="picker-backdrop" onClick={onClose} data-back-confirm="Transfer bed">
       <div className="picker" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
         <div className="picker-h" style={{ justifyContent: "space-between" }}>
           <div style={{ fontWeight: 600, fontSize: 15 }}>Transfer bed · {D_R.patientName(patient)}</div>

@@ -236,8 +236,8 @@ asked why nothing had changed. So:
   The chat report names both halves, *"merged into `main` — ⏳ not live; release PR #N is green, say
   'release' to deploy"*, and never calls that merge done or live.
 - **"merge แล้ว deploy" (merge and release) means both steps in one instruction:** merge into `main`,
-  open the release PR, merge it once `harnesses` is green, run `node tools/verify-release.mjs --wait`,
-  and put its result in a comment on the release PR. A plain "merge" still stops at `main`: that is how
+  open the release PR, run it on dev local (below), merge it once `harnesses` is green, run
+  `node tools/verify-release.mjs --wait`, and put both results in a comment on the release PR. A plain "merge" still stops at `main`: that is how
   several PRs go out as one release (#85 took eight, so the ward was not recoloured twice in a row).
 - The gate itself is unchanged: an agent still merges into `release` only on Praew's explicit go-ahead.
 
@@ -307,7 +307,25 @@ asked why nothing had changed. So:
     stable origin, and it is faster than pushing (see below).
   - **Never** add a preview-only auth bypass to the code to work around this. A login that can be
     skipped is one merge away from production, in an app that writes pharmacy orders.
-- **Fast local loop:** `npx wrangler dev`. No deploy, instant reload, and quicker than pushing.
+- **Dev local before every release** (Pp, 2026-10-12: "ให้ dev local ก่อน deploy"). Before a
+  `main → release` PR merges, run its head on this machine and use what changed the way the ward will:
+
+  ```bash
+  node tools/dev-local.mjs --tree <checkout of the release PR's head>   # http://127.0.0.1:8155
+  ```
+
+  It serves the files the hosts publish, with `boot.js` pointed at itself and `gas-backend.gs` behind
+  it in `test/gas-vm-sandbox.cjs`: the real login and server checks, made-up infants (the file's header
+  lists them), nothing from production. Open `http://127.0.0.1:8155` in the Browser pane at phone
+  size (375 × 812), sign in with an account it prints, and walk every screen the release changes.
+  Press Back with the pane's own Back: it applies Chrome's history rules, and jsdom or a scripted
+  `history.back()` does not. On #155 this run found what 34 jsdom checks and three reviews had not:
+  a second Back in a row left the app (`CHANGELOG.md` 2026-10-12 (3)). Write what was tried and what
+  it showed in the release PR's comment, beside `verify-release`'s result.
+  `test/verify-dev-local.cjs` proves the tool never points at the production backend.
+- **Fast local loop:** `npx wrangler dev`. No deploy, instant reload, and quicker than pushing. It
+  talks to the production backend; to try a change past the login screen with made-up infants, use
+  `tools/dev-local.mjs`.
 - **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. GitHub Pages has no
   rollback — revert the commit. For a release that crosses the 2026-09-17 build step, revert the
   whole `main → release` merge rather than individual files: `_headers`, both shells, `boot.js`,

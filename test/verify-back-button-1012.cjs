@@ -16,9 +16,14 @@
 //               those 2 s so the next Back leaves, then the entry is back
 //   #8 held     Reference values opened from an edit or a back-fill: Back
 //               goes to the Dashboard, never a new order for today (Vera)
+//   #9 confirm  Back on Register new session, Edit session or Transfer bed
+//               asks before closing it (Pp, 2026-10-12: "ให้ alert ขึ้นมาว่า
+//               ต้องการออกจากหน้า ... ? ข้อมูลที่พิมพ์ไว้จะหายไป")
+//   #10 rearm   Back after Back with no tap between: the entry comes back by
+//               moving forward onto it, never by a new pushState
 //
-// jsdom implements history.pushState / back() and fires popstate, which is all
-// the code uses. Drives the real <App/> through review-0917-boot.
+// jsdom implements history.pushState / back() / forward() and fires popstate,
+// which is all the code uses. Drives the real <App/> through review-0917-boot.
 const { boot, runScenarios, mkPatient, TODAY } = require('./review-0917-boot.cjs');
 
 const CI = { curWtG: 900, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 130, ioOutput: 60, drainContent: 0,
@@ -45,6 +50,13 @@ const atGate = () => !!document.querySelector('.ward-gate');
 const ourEntryOnTop = (t) => !!(t.window.history.state && t.window.history.state.neofeedBack);
 const heading = () => document.querySelector('.page-head h1')?.textContent || '';
 const railActive = () => document.querySelector('.rail-item.active')?.textContent || '';
+const dialogTitle = () => document.querySelector('.picker-h > div')?.textContent || '';
+// window.confirm that records each question and answers `answer.ok`.
+const spyConfirm = (t, answer) => {
+  const asked = [];
+  t.window.confirm = (m) => { asked.push(m); return answer.ok; };
+  return asked;
+};
 
 const scenarios = {
   async 'ward'(A) {
@@ -107,11 +119,13 @@ const scenarios = {
     console.log('\n── #5 Back closes a dialog, and only the dialog ──');
     const t = await setup();
     await t.pickWard('NICU');
-    await t.click(t.btn(/New session/));
-    A.ok('5.0 the register dialog is open', !!document.querySelector('.picker-backdrop'));
+    await t.openPatientRow(/BB/);
+    await t.click(t.btn(/New log/));
+    A.ok('5.0 the new-order date dialog is open', /บันทึกข้อมูลโภชนาการ/.test(dialogTitle()));
+    const asked = spyConfirm(t, { ok: false });
     await t.back();
-    A.ok('5.1 Back closes it', !document.querySelector('.picker-backdrop'));
-    A.ok('5.2 …and stays on NICU\'s list', /NICU/.test(heading()) && !atGate());
+    A.ok('5.1 Back closes it, without asking', !document.querySelector('.picker-backdrop') && asked.length === 0);
+    A.ok('5.2 …and stays on BB\'s Dashboard', /Dashboard/.test(railActive()) && !atGate());
     A.ok('5.3 …with the entry back on top for the next Back', ourEntryOnTop(t));
   },
 
@@ -139,6 +153,7 @@ scenarios['exit'] = async (A) => {
     t.toasts().some(m => /กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่/.test(m)));
   A.ok('7.2 …with no entry of ours on top, so the second Back leaves the app', !ourEntryOnTop(t));
   await t.flush(2200);
+  await t.flush();   // the entry returns by history.forward(), which lands a task later
   A.ok('7.3 after 2 s the entry is back: a later Back asks again', ourEntryOnTop(t));
   await t.back();
   await t.pickWard('NICU');
@@ -181,6 +196,82 @@ scenarios['held'] = async (A) => {
   await t.click(t.btn(/Reference values/));
   await t.back();
   A.ok('8.5 Back from Reference values: the Dashboard, not a new order', /Dashboard/.test(railActive()) && !/TPN \+ Enteral/.test(heading()));
+};
+
+scenarios['confirm'] = async (A) => {
+  console.log('\n── #9 Back on Register new session, Edit session or Transfer bed asks first ──');
+  const t = await setup();
+  const answer = { ok: false };
+  const asked = spyConfirm(t, answer);
+  await t.pickWard('NICU');
+
+  await t.click(t.btn(/New session/));
+  const initials = [...document.querySelectorAll('.picker input')].find(i => i.type === 'text');   // Thai initials only
+  await t.typeInto(initials, 'รย');
+  await t.back();
+  A.eq('9.0 Back on Register new session asks, in Pp\'s words',
+    asked[0], 'ต้องการออกจากหน้า Register new session ?\nข้อมูลที่พิมพ์ไว้จะหายไป');
+  A.ok('9.1 …Cancel keeps it open, with what was typed', dialogTitle() === 'Register new session' && initials.value === 'รย');
+  A.ok('9.2 …and the entry is back on top, so the next Back asks again', ourEntryOnTop(t));
+  answer.ok = true;
+  await t.back();
+  A.ok('9.3 OK closes it', !document.querySelector('.picker-backdrop') && asked.length === 2);
+  A.ok('9.4 …and stays on NICU\'s list', /NICU/.test(heading()) && !atGate());
+
+  await t.click(document.querySelector('.pmc-bed'));
+  answer.ok = false;
+  await t.back();
+  A.ok('9.5 Back on Transfer bed asks', /^ต้องการออกจากหน้า Transfer bed \?\nข้อมูลที่พิมพ์ไว้จะหายไป$/.test(asked[2] || '')
+    && /^Transfer bed/.test(dialogTitle()));
+  answer.ok = true;
+  await t.back();
+  A.ok('9.6 …OK closes it', !document.querySelector('.picker-backdrop'));
+
+  await t.openPatientRow(/AA/);
+  await t.click(t.btn(/Edit session/));
+  answer.ok = false;
+  await t.back();
+  A.ok('9.7 Back on Edit session asks', /^ต้องการออกจากหน้า Edit session \?\nข้อมูลที่พิมพ์ไว้จะหายไป$/.test(asked[4] || '')
+    && /^Edit session/.test(dialogTitle()));
+  answer.ok = true;
+  await t.back();
+  A.ok('9.8 …OK closes it and leaves AA\'s Dashboard where it was',
+    !document.querySelector('.picker-backdrop') && /Dashboard/.test(railActive()));
+
+  // Pp asked about Back. A tap outside still closes the dialog as before.
+  const n = asked.length;
+  await t.click(t.btn(/Edit session/));
+  await t.click(document.querySelector('.picker-backdrop'));
+  A.ok('9.9 a tap outside still closes Edit session without asking', !document.querySelector('.picker-backdrop') && asked.length === n);
+};
+
+scenarios['rearm'] = async (A) => {
+  console.log('\n── #10 Back after Back, with no tap between ──');
+  // Chrome's history-manipulation intervention: when a page pushes an entry
+  // without a user activation, Back later skips the entry it was pushed from.
+  // popstate is not an activation, so re-pushing the guard after each Back made
+  // the second Back in a row leave NeoFeed (Chromium, dev-local run of #155).
+  // jsdom has no intervention, so this checks the cause: no push after a Back.
+  const t = await setup();
+  await t.pickWard('NICU');
+  await t.openPatientRow(/AA/);
+  await t.rail(/Growth/);
+  const pushes = [];
+  const realPush = t.window.history.pushState.bind(t.window.history);
+  t.window.history.pushState = (...args) => { pushes.push(args[0]); return realPush(...args); };
+  const len = t.window.history.length;
+  await t.back();
+  await t.back();
+  await t.back();
+  A.ok('10.0 three Backs in a row: Growth → Dashboard → ward list → gate', atGate());
+  A.eq('10.1 …with no entry pushed on the way', pushes.length, 0);
+  A.ok('10.2 …and the entry on top again each time, the history no longer', ourEntryOnTop(t) && t.window.history.length === len);
+  await t.back();
+  A.ok('10.3 a fourth Back, on the gate, asks for a second', !ourEntryOnTop(t)
+    && t.toasts().some(m => /กด Back อีกครั้งเพื่อออกจาก NeoFeed/.test(m)));
+  await t.flush(2200);
+  await t.flush();
+  A.ok('10.4 after 2 s the entry is back, still with no push', ourEntryOnTop(t) && pushes.length === 0);
 };
 
 runScenarios(__filename, 'BACK BUTTON INSIDE THE APP', scenarios);

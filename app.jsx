@@ -816,9 +816,15 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const goBack = () => {
     // A dialog closes as a tap outside it would, so a dialog that refuses
     // that (one with typed text, a forced password change) refuses Back too.
+    // A form dialog marked data-back-confirm asks first (Pp, 2026-10-12: "ให้
+    // alert ขึ้นมาว่า ต้องการออกจากหน้า ... ? ข้อมูลที่พิมพ์ไว้จะหายไป"). A tap
+    // outside it still closes it at once: she asked about Back.
     const backdrops = document.querySelectorAll(".picker-backdrop, .modal-backdrop");
     if (backdrops.length) {
-      backdrops[backdrops.length - 1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      const top = backdrops[backdrops.length - 1];
+      const page = top.getAttribute("data-back-confirm");
+      if (page && !window.confirm(`ต้องการออกจากหน้า ${page} ?\nข้อมูลที่พิมพ์ไว้จะหายไป`)) return;
+      top.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       return;
     }
     if (view === "calculator") {
@@ -844,6 +850,15 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const atRootRef = React.useRef(atRoot);
   atRootRef.current = atRoot;
   const guardRef = React.useRef(false);        // our entry is on top of the history
+  // After a Back, our entry is the next one forward, and the guard returns by
+  // history.forward() onto it rather than a new pushState. Chrome's
+  // history-manipulation intervention makes Back skip the entry a page was on
+  // when it pushed without a user activation, and popstate is not one: a
+  // re-push after each Back made the second Back in a row leave NeoFeed
+  // (Chromium, dev-local run of release #155). Moving forward adds no entry,
+  // so nothing is marked. A push is left for the first arming, after a tap.
+  const fwdRef = React.useRef(false);          // our entry is the one forward
+  const rearmRef = React.useRef(null);         // a forward() on its way: its fallback timer
   const [guardTick, setGuardTick] = React.useState(0);
   const [exitWindow, setExitWindow] = React.useState(false);
   const exitWindowRef = React.useRef(false);
@@ -853,8 +868,18 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     // Moving off the gate in that time ends it, so coming back to the gate
     // later asks again (Vera, 2026-10-12).
     if (exitWindow && !atRoot) setExitWindow(false);
-    if (!user || guardRef.current) return;
+    if (!user || guardRef.current || rearmRef.current) return;
     if (exitWindow && atRoot) return;
+    if (fwdRef.current) {
+      // If the entry is gone (something pushed over it), push after all.
+      rearmRef.current = setTimeout(() => {
+        rearmRef.current = null;
+        fwdRef.current = false;
+        setGuardTick(t => t + 1);
+      }, 600);
+      try { window.history.forward(); } catch {}
+      return;
+    }
     // Chrome skips, on Back, an entry pushed before the page had any user
     // activation (its history-manipulation intervention), and the guard would
     // do nothing. A session restored on reload has had no tap yet: wait for one.
@@ -878,12 +903,21 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return () => clearTimeout(t);
   }, [exitWindow]);
   React.useEffect(() => {
-    const onPop = () => {
+    const onPop = (e) => {
+      // Our own forward() landing back on the guard: armed again, no step.
+      if (rearmRef.current && e.state && e.state.neofeedBack) {
+        clearTimeout(rearmRef.current);
+        rearmRef.current = null;
+        fwdRef.current = false;
+        guardRef.current = true;
+        return;
+      }
       // The second Back of an exit, landing on an older entry of this page
       // (a guard left by an earlier sign-in at this tab): keep leaving.
       if (exitWindowRef.current && !guardRef.current) { try { window.history.back(); } catch {} return; }
       if (!guardRef.current || !userRef.current) return;   // not our entry
       guardRef.current = false;
+      fwdRef.current = true;
       if (atRootRef.current) {
         setExitWindow(true);
         showToast("กด Back อีกครั้งเพื่อออกจาก NeoFeed — ออกแล้วต้อง login ใหม่", "info");
@@ -891,11 +925,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       goBackRef.current();
       // Re-arm even when the step changed nothing (a dialog that kept itself
-      // open): the effect above pushes the guard back.
+      // open): the effect above moves forward onto the guard again.
       setGuardTick(t => t + 1);
     };
     window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    return () => { window.removeEventListener("popstate", onPop); clearTimeout(rearmRef.current); };
   }, []);
 
   // ── GAS fetch (initial + manual sync) ────────────────────────
