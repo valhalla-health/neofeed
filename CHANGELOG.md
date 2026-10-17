@@ -7,6 +7,68 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-17 — the Fenton rows drawn at exact age; Length and HC say they are not verified
+
+`fenton.jsx` (`FentonChart`: the reference rows, the readout, the Length/HC note), `compiled/`, both
+shells' `?v=` tokens, `data.js` (a header comment only), `test/verify-fenton-half-week-1017.cjs` (new),
+`test/README.md`, `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`. Frontend only, no `clasp` step. Draft PR,
+for Pp to review; nothing released.
+
+### Why
+
+Pp asked whether every NeoFeed number is truly calculated or sourced. The provenance audit that followed
+(2026-10-17, in Pp's private notes) found the `FENTON_WEIGHT` values genuine, within 4 g of ucalgary.ca's
+v2 cutoff table on all 168 p3/p10/p90/p97 cells, but drawn in the wrong place. Fenton 2025's data are
+completed weeks (25 weeks is 25+0 to 25+6, mean 25.5), and the official chart is shifted +0.5 week so an
+infant can be plotted at exact age (Methods, PMC12391854, doi 10.1111/ppe.70035). NeoFeed plots the
+infant at exact PMA, `pma0 + (DOL − 1)/7`, but drew row GA at x = GA and read the percentile there. Every
+curve sat half a week early: 33–144 g too heavy at 23–36 wk (median 76 g, 118 digitised cells). An infant
+on the official 10th read about the 5th–7th, on the 50th about the 33rd–42nd, on the 90th about the
+70th–81st. Length and HC carry the same shift (0.6–0.8 cm, 0.45–0.6 cm).
+
+### What changed
+
+- **Rows are drawn and read at GA + 0.5** (`REF_AGE_OFFSET` in `FentonChart`). The curves, the 10th–90th
+  band, the right-edge labels and the "Current trajectory" readout all use the shifted rows.
+- **The start.** The curves begin at 22.5, where the first row sits; nothing is extrapolated below it. A
+  measurement at PMA 22+0 to 22+3 now reads "—" with "เส้นอ้างอิงเริ่มที่ PMA 22+4" under it (it used to
+  read the 22–23 interpolation). The axis still starts at 22, and the point is still plotted.
+- **The end.** `GA_MAX` stays 42: the axis, the hidden-measurement banner, and `growthVelocity`'s
+  beyond-the-reference guard in `data.js` are unchanged. The curves end at 42.0, linearly between the
+  41 and 42 weight rows (38 and 42 for length and HC); the 42 row (42+0 to 42+6) is used only for that.
+- **Size at birth.** NeoFeed classifies no SGA/AGA/LGA anywhere (searched `*.jsx`, `data.js`,
+  `gas-backend.gs`), so nothing read by completed week changed. The chart's reading is a
+  growth-monitoring reading at exact age, as on the official chart, including for a weight on DOL 1.
+- **Length and HC tabs carry a note** (`role="note"`): the curve is not checked against a numeric source,
+  Fenton publishes length and HC only as charts, and the rows are 4 weeks apart, so the percentile is
+  approximate. The Length note adds that after 38 weeks the curve runs above the official chart, so a term
+  infant looks shorter than they are (`BACKLOG.md`, 2026-09-23 review). Weight has no note.
+- **`data.js`'s header** no longer calls column 0 `PMA_wk`: it is GA in completed weeks, drawn at GA + 0.5.
+- **`CONSTANTS_VERSION` stays `2026-10-11.1`.** No `FENTON_*` value changed, and no Fenton figure is
+  printed or saved.
+
+### Left as they were, for Pp
+
+Three findings from the same audit change clinical grading, so they are questions in the PR and an item
+in `BACKLOG.md` § Next, not code: the size-at-birth rows used for monitoring after 37 weeks, the 15 / 10
+g/kg/d velocity grading attributed to ESPGHAN 2022, and the unsourced length/HC cm/wk colours.
+
+### Tests
+
+`verify-fenton-half-week-1017.cjs` (new) 45/45. §1 uses the official chart's own p10 / p50 / p90 at exact
+26, 30, 34 and 36 weeks (digitised in the audit, independent of `data.js`): they now read 9–12th, 48–51st
+and 86–90th; on `main` they read 5–7th, 33–42nd and 69–81st. Against `main` the file fails 38 of 45; the 7
+that pass are controls.
+
+Before/after sheets of the real app (made-up boy born 26+0, weight on the official 10th every week to
+36+0, length and HC on the 50th; local fake backend): at 36+0 the readout goes ~7th → ~12th, length
+~42 → ~50, HC ~43 → ~51. They are with the audit in Pp's private notes, not in this public repo.
+
+### Not done
+
+- No second clinician has checked the placement; Pp reviews the PR.
+- The 42-week length row and the HC rows are unchanged; only the note says so.
+
 ## Session 2026-10-12 (3) — Back asks before it closes a form; Back after Back stays in the app
 
 `app.jsx` (`goBack`, the history guard), `registry.jsx` (`data-back-confirm` on three dialogs),

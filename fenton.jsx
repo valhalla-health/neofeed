@@ -82,11 +82,31 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // first. See HANDOFF.md 2026-08-10 (3)/(4).
   const GA_MAX = 42;
 
-  const dataset = (
-    metric === "weight" ? D_F.FENTON_WEIGHT[sex]
-  : metric === "length" ? D_F.FENTON_LENGTH[sex]
-  : D_F.FENTON_HC[sex]
-  ).filter(r => r[0] <= GA_MAX);
+  // The Fenton 2025 rows are COMPLETED weeks: the row for 25 holds infants of
+  // 25+0 to 25+6, whose mean age is 25.5. The official chart draws each row
+  // half a week later, at exact age GA + 0.5 (Fenton 2025 Methods,
+  // PMC12391854), and so does this one, because the infant is plotted at
+  // exact PMA (pma0 + (DOL − 1)/7, below). Drawing row GA at x = GA put every
+  // curve half a week early: 33–144 g too heavy at 23–36 wk, so an infant on
+  // the official 10th read about the 5th (provenance audit, 2026-10-17).
+  // Nothing is extrapolated: the curves start at 22.5, where the first row
+  // sits, and end at GA_MAX, between the last row inside it and the next.
+  // Size at birth (SGA/LGA) is read by completed week, from the rows as
+  // published; NeoFeed does not classify it.
+  const REF_AGE_OFFSET = 0.5;
+  const dataset = (() => {
+    const rows = (
+      metric === "weight" ? D_F.FENTON_WEIGHT[sex]
+    : metric === "length" ? D_F.FENTON_LENGTH[sex]
+    : D_F.FENTON_HC[sex]
+    ).map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
+    const inside = rows.filter(r => r[0] <= GA_MAX);
+    const last = inside[inside.length - 1];
+    const next = rows.find(r => r[0] > GA_MAX);
+    if (!last || !next || last[0] === GA_MAX) return inside;
+    const f = (GA_MAX - last[0]) / (next[0] - last[0]);
+    return [...inside, [GA_MAX, ...last.slice(1).map((v, i) => v + f * (next[i + 1] - v))]];
+  })();
 
   const yLabel =
     metric === "weight" ? "Weight (g)"
@@ -237,6 +257,11 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     }
     return null;
   })();
+  // The curves start half a week after the axis does, so a measurement in
+  // between has no reference to be read against. Say where it begins, rather
+  // than a bare "—" or a value extrapolated past the first row.
+  const referenceStart = dataset.length ? D_F.fmtGA(D_F.daysToGA(Math.ceil(dataset[0][0] * 7))) : null;
+  const beforeReference = points.length > 0 && dataset.length > 0 && points[points.length - 1].pma < dataset[0][0];
 
   // Right-edge percentile labels can sit closer together than the (now larger,
   // see px() above) label text is tall where curves converge — e.g. 10th/3rd
@@ -282,6 +307,26 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
             <span>
               มีค่าที่วัดหลัง PMA {GA_MAX} สัปดาห์ <strong>{hiddenPastMax}</strong> ค่า ไม่ได้แสดงบนกราฟ —
               Fenton 2025 มีข้อมูลอ้างอิงถึง {GA_MAX} สัปดาห์เท่านั้น
+            </span>
+          </div>
+        )}
+        {/* FENTON_LENGTH / FENTON_HC are unverified (docs/CLINICAL_CONSTANTS.md):
+            Fenton publishes them only as charts, and the rows sit 4 weeks
+            apart. Weight is checked against the official cutoff table, so its
+            tab carries no note. The 42-week length row is about 2–3 cm above
+            the official chart (BACKLOG.md), which makes a term infant look short. */}
+        {metric !== "weight" && (
+          <div role="note" style={{ padding: "10px 12px", background: "var(--warn-bg)",
+            border: "1px solid var(--warn-line)", borderRadius: 8, marginBottom: 10,
+            fontSize: 12.5, color: "var(--warn-ink)", lineHeight: 1.5, display: "flex", gap: 8 }}>
+            <span style={{ flexShrink: 0, marginTop: 2 }}><Icon name="info" size={13} color="var(--warn)" /></span>
+            <span>
+              <strong>เส้น {metric === "length" ? "Length" : "HC"} ยังไม่ได้ตรวจเทียบกับตัวเลขต้นฉบับ</strong>
+              <span style={{ display: "block", fontSize: 12 }}>
+                Fenton 2025 เผยแพร่ length และ HC เป็นกราฟเท่านั้น เส้นในแอปมีจุดทุก 4 สัปดาห์
+                จึงอ่าน percentile ได้แค่คร่าว ๆ
+                {metric === "length" && " · หลัง 38 สัปดาห์ เส้นนี้สูงกว่ากราฟต้นฉบับ ทารกครบกำหนดจึงดูตัวสั้นกว่าจริง"}
+              </span>
             </span>
           </div>
         )}
@@ -403,7 +448,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
               <div style={{ fontSize: 28, fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, letterSpacing: "-0.02em" }}>
                 {currentPercentile || "—"}
               </div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>percentile band</div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                {beforeReference ? `เส้นอ้างอิงเริ่มที่ PMA ${referenceStart}` : "percentile band"}
+              </div>
             </div>
 
             <div style={{ textAlign: "right" }}>
