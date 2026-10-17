@@ -124,6 +124,11 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const points = allPoints.filter((p) => p.pma >= xMin && p.pma <= xMax);
   const hiddenPastMax = allPoints.filter((p) => p.pma > xMax).length;
   const latestPoint = allPoints.length ? allPoints[allPoints.length - 1] : null;
+  const ordinal = (n) => {
+    const ones = n % 10, tens = n % 100;
+    const suffix = tens >= 11 && tens <= 13 ? "th" : ones === 1 ? "st" : ones === 2 ? "nd" : ones === 3 ? "rd" : "th";
+    return `${n}${suffix}`;
+  };
   const centileAmong = (vals, value) => {
     const refs = [3, 10, 50, 90, 97];
     if (value < vals[0]) return "<3rd";
@@ -132,7 +137,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
       if (value >= vals[i] && value < vals[i + 1]) {
         const ff = (value - vals[i]) / (vals[i + 1] - vals[i]);
         const p = refs[i] + ff * (refs[i + 1] - refs[i]);
-        return `~${p.toFixed(0)}th`;
+        return `~${ordinal(Math.round(p))}`;
       }
     }
     return null;

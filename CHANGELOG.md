@@ -7,6 +7,38 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-17 (4) — the Growth readout's ordinals: ~51st, not ~51th
+
+`fenton.jsx` (`FentonChart`'s `centileAmong`), `compiled/fenton.js`, both shells' `?v=` tokens,
+`test/verify-fenton-half-week-1017.cjs` (§ 6, and its parser), a comment in
+`test/verify-fenton-official-1017.cjs`, `test/README.md`. Frontend only, no `clasp` step. A commit on
+draft PR #158, which owns this readout; nothing released.
+
+### Why
+
+The fentongrowth.ca check (2026-10-17 (2)) found the "Current trajectory" readout printing
+"~51th", "~62th", "~3th" and "~21th": `centileAmong` appended "th" to every centile. Wording only: no
+saved, printed or dosed value reads it, but a doctor reads it on the Growth tab.
+
+### What was done
+
+- `centileAmong` now formats the rounded centile through a small `ordinal()`: 1st, 2nd, 3rd, 4th…,
+  11th–13th, 21st, 22nd, 23rd, 51st, 62nd, 93rd. The rounding is the same as before (`toFixed(0)` and
+  `Math.round` agree for a centile between 3 and 97). "<3rd" and ">97th" are unchanged.
+- **Searched for the same pattern elsewhere**: no other `.jsx` file, `data.js`, `boot.js` or
+  `gas-backend.gs` builds an ordinal. The chart's curve labels (3rd, 10th, 50th, 90th, 97th) are fixed
+  strings and already right.
+
+### Tests
+
+`verify-fenton-half-week-1017.cjs` § 6 (new, 12 checks): a boy at exact PMA 26+0 on DOL 15, weighed at
+chosen centiles, must read ~3rd, ~11th, ~12th, ~13th, ~21st, ~22nd, ~23rd, ~51st, ~62nd, ~93rd, "<3rd"
+and ">97th". It stays off DOL 1, which entry (3) just changed. It fails 7 of 12 on 92c2fcf ("~3th",
+"~21th", "~51th"); the 5 that pass are the teens and the tails. The harness's own parser took only "th"
+and now takes any ordinal suffix. 65/65 against the sources and with the compiled preload; against
+55d893d it fails 52. In the real app (`tools/dev-local.mjs`, a made-up boy, 2010 g on DOL 21 at PMA
+33+0) the readout says "~51st".
+
 ## Session 2026-10-17 (3) — DOL 1 is read at exact GA, as Fenton's own calculator reads it
 
 `fenton.jsx` (`FentonChart`: `birthRows`, `birthWeek` and the size-at-birth label removed), `compiled/`,

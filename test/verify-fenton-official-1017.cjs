@@ -164,8 +164,8 @@ const born = (p) => {
 };
 
 // The app's readout as a number, or the side of the range it names. Any
-// ordinal suffix: the app prints "~51th" today, and fixing that must not
-// break this harness.
+// ordinal suffix: the app printed "~51th" when this harness was written, and
+// "~51st" since; verify-fenton-half-week-1017.cjs § 6 pins the suffix.
 const parse = (s) => {
   if (s === '<3rd') return { below: 3 };
   if (s === '>97th') return { above: 97 };

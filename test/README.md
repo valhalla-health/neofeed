@@ -1579,6 +1579,15 @@ To extend it, send more made-up rows to fentongrowth.ca (only with Pp's approval
 an outside service), add the returned table under `raw` and the points to `points`, and keep §1 passing.
 When NeoFeed reads Fenton's LMS parameters, tighten §2 and turn §3's groups into assertions.
 
+## The readout's ordinals, 2026-10-17 — one harness extended
+
+The check above found the readout printing "~51th", "~62th", "~3th" (`CHANGELOG.md` 2026-10-17 (4)).
+**`verify-fenton-half-week-1017.cjs` § 6** reads a boy at exact PMA 26+0 on DOL 15 (halfway between rows
+25 and 26) at chosen centiles and asserts the exact text: ~3rd, ~11th, ~12th, ~13th, ~21st, ~22nd, ~23rd,
+~51st, ~62nd, ~93rd, and "<3rd" / ">97th" at the tails. It leaves DOL 1 alone. Its readout parser now
+takes any ordinal suffix. Now 65 checks in six sections. Against 92c2fcf, before the fix, § 6 fails 7 of
+12; against 55d893d the harness fails 52.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

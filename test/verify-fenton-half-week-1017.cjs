@@ -29,6 +29,9 @@
 //       Fenton's own Birth size evaluation does (fentongrowth.ca; Pp,
 //       2026-10-17). An earlier commit read it by completed week, which
 //       test/verify-fenton-official-1017.cjs found up to 21 points off.
+//   §6  The readout's English ordinal: ~3rd, ~11th–~13th, ~21st, ~22nd,
+//       ~23rd, ~51st, ~62nd, ~93rd, and "<3rd" / ">97th" at the tails. It
+//       used to append "th" to every centile ("~51th", "~3th").
 //
 // ── NEGATIVE CONTROL ───────────────────────────────────────────────────────
 // Run against the commit before the change; every section must go red:
@@ -37,8 +40,8 @@
 //   cp test/verify-fenton-half-week-1017.cjs "$d/test/"
 //   cp -r node_modules "$d/node_modules"
 //   ( cd "$d" && TZ=Asia/Bangkok node test/verify-fenton-half-week-1017.cjs )
-// Expected there: 41 FAILED (12 passed). §1 reads the official p10 / p50 /
-// p90 as about the 5th / 33rd–42nd / 70th–81st, §2 finds the 50th starting
+// Expected there: 52 FAILED (13 passed), 41 of them in §1–§5.
+// §1 reads the official p10 / p50 / p90 as about the 5th / 33rd–42nd / 70th–81st, §2 finds the 50th starting
 // at 22.0 and passing through row GA at GA.0, §3 finds 22+2 read as ~18th,
 // §4 finds no note on Length or HC, and §5 finds 740 g at 26+0 read as ~8th
 // (row 26 at x = 26.0) and 22+2 read as a number. Of the 12 that pass, 8 are
@@ -46,6 +49,10 @@
 // inside the 42-week edge, the tab guard) and 4 are §5's same-reading checks,
 // which hold on any placement as long as DOL 1 is read like any other day.
 // Against ea0abe0, which read DOL 1 by completed week, §5 fails 7 of its 8.
+// §6 fails 11 of 12 there (its weights sit on the curves at GA + 0.5, so the
+// old placement reads them 5–16 points low) and 7 of 12 on 92c2fcf, the
+// commit before the ordinal fix: "~3th", "~21th", "~51th". The 5 that pass on
+// 92c2fcf are 11th–13th and the two tails, whose wording did not change.
 //
 // Same dev-only dependencies as the other jsdom harnesses (test/README.md).
 const fs = require('fs');
@@ -132,7 +139,7 @@ const readout = () => {
   const box = probe().querySelector('.fenton-trajectory');
   return box ? box.children[1].textContent.trim() : null;
 };
-const centile = (s) => { const m = /^~(\d+)th$/.exec(s || ''); return m ? Number(m[1]) : null; };
+const centile = (s) => { const m = /^~(\d+)(?:st|nd|rd|th)$/.exec(s || ''); return m ? Number(m[1]) : null; };
 const readoutHint = () => {
   const box = probe().querySelector('.fenton-trajectory');
   return box ? box.children[2].textContent.trim() : null;
@@ -298,6 +305,39 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
     ok('(the chart is on the Weight tab)', probe().querySelector('.seg button.on')?.textContent.trim() === 'Weight', null);
     eq(`born 22+2 at ${G22[3]} g has no percentile`, readout(), '—');
     ok('…and the panel says the reference starts at 22+4', /22\+4/.test(readoutHint() || ''), readoutHint());
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
+  await section('§6 The readout\'s ordinal: 3rd, 11th–13th, 21st, 22nd, 23rd, 51st, 62nd, 93rd', async () => {
+    // Checking 75 points against fentongrowth.ca on this PR, the readout said
+    // "~51th", "~62th", "~3th" and "~21th": the suffix was always "th". Each
+    // weight here is a boy at exact PMA 26+0 on DOL 15, so the reading is
+    // halfway between rows 25 (drawn at 25.5) and 26 (at 26.5), away from
+    // DOL 1. The weight sits on the centile named, rounded to the gram,
+    // which moves it 0.13 points at most.
+    const B = D.FENTON_WEIGHT.boys, r25 = B.find(r => r[0] === 25), r26 = B.find(r => r[0] === 26);
+    const at26 = [1, 2, 3, 4, 5].map(i => (r25[i] + r26[i]) / 2);   // p3 p10 p50 p90 p97 at 26.0
+    const refs = [3, 10, 50, 90, 97];
+    const gramsAt = (c) => {
+      const i = refs.findIndex((r, k) => c >= r && c < refs[k + 1]);
+      return Math.round(at26[i] + (c - refs[i]) / (refs[i + 1] - refs[i]) * (at26[i + 1] - at26[i]));
+    };
+    const CASES = [
+      [3, '~3rd'], [11, '~11th'], [12, '~12th'], [13, '~13th'],
+      [21, '~21st'], [22, '~22nd'], [23, '~23rd'],
+      [51, '~51st'], [62, '~62nd'], [93, '~93rd'],
+    ];
+    for (const [c, want] of CASES) {
+      const w = gramsAt(c);
+      await chart(atPma('boys', 26, 0, { w }));
+      eq(`a boy at PMA 26+0 weighing ${w} g (centile ${c}) reads ${want}`, readout(), want);
+    }
+    // The tails keep their own wording.
+    const below = Math.floor(at26[0]) - 1, top = Math.ceil(at26[4]);
+    await chart(atPma('boys', 26, 0, { w: below }));
+    eq(`a boy at PMA 26+0 weighing ${below} g, under the 3rd, reads <3rd`, readout(), '<3rd');
+    await chart(atPma('boys', 26, 0, { w: top }));
+    eq(`a boy at PMA 26+0 weighing ${top} g, at the 97th, reads >97th`, readout(), '>97th');
   });
 
   await act(async () => { root.unmount(); });
