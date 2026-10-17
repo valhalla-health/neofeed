@@ -21,11 +21,14 @@
 //
 // Drives the real <App/> through review-0917-boot (dev-only deps as in
 // test/README.md).
-const { boot, runScenarios, mkPatient, TODAY, addDays } = require('./review-0917-boot.cjs');
+const { boot, runScenarios, mkPatient, TODAY, addDays, DIR } = require('./review-0917-boot.cjs');
 
-// A submitted order whose saved figures reproduce on reload — printable.
+// A submitted order whose saved figures reproduce on reload — printable. It
+// carries the current CONSTANTS_VERSION, as today's save would (an unstamped
+// row is held by calcMoved). data.js is not loaded until boot(), so read it.
+const CONSTANTS_VERSION = require('fs').readFileSync(DIR + 'data.js', 'utf8').match(/const CONSTANTS_VERSION = "([^"]+)"/)[1];
 const CI = { curWtG: 900, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 130, ioOutput: 60, drainContent: 0,
-  totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 1, caPerKg: 60, glycophosP: 1 };
+  totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 1, caPerKg: 60, glycophosP: 1, constantsVersion: CONSTANTS_VERSION };
 const order = (entryId, extra = {}, ci = {}) => ({ entryId, lastModified: TODAY + 'T02:00:00.000Z', ts: TODAY, dol: 5,
   weight: 900, ioInput: 130, ioOutput: 60, drainContent: 0, status: 'submitted', calcInput: { ...CI, ...ci }, ...extra });
 

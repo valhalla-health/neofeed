@@ -7,6 +7,65 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-17 (3) — an order saved before 2026-09-18 prints only after it is saved again
+
+`calculator.jsx` (`calcMoved`, comments on `savedCalcVersionOf`), `compiled/`,
+`test/verify-calcmoved-unstamped-1017.cjs` (new), fixtures in six harnesses (below), `test/README.md`,
+`docs/CLINICAL_CONSTANTS.md` § When to bump. Frontend only, no `clasp` step. `CONSTANTS_VERSION` stays `2026-10-11.1` (no printed figure
+moves; Pp to confirm in the PR).
+
+### Why
+
+Vera, reviewing draft PR #159 (finding 4): a saved order prints what the calculator computes now from its
+inputs, and `calcMoved` holds Print until it is saved again when its stamped `CONSTANTS_VERSION` is not
+the current one. A row saved before 2026-09-18 has no `calcInput.constantsVersion` and no `aaProduct`, and
+for those `calcMoved` checked only `2026-09-18.1`'s own changes: an overfilled bag with Soluvit or
+Peditrace, and a MEN feed. That was right while `2026-09-18.1` was current. Since `2026-09-28.1` every
+stamped row older than the current version is held, but an unstamped one still printed unless it hit one
+of those two cases. A feeds-only order from before the stamp, FBM_PF_24 30 mL × 8 at 1500 g with no TPN,
+reprinted under its old entry id with figures from today's constants; with #159's EN_DB rebuild every EN
+figure on it would move.
+
+### What changed
+
+- **An unstamped row is held like any older row.** `calcMoved` is now `savedCalcVersion !==
+  D.CONSTANTS_VERSION` for every saved row. An unstamped row's `savedCalcVersionOf` is `null`, which
+  matches no version, so Print and Copy refuse it with the usual reason ("NeoFeed ปรับการคำนวณหลังคำสั่งนี้
+  ถูกบันทึก …") until it is saved again, and the save stamps it. The two release-specific checks are gone:
+  they could only differ from this rule while `2026-09-18.1` was current.
+- **Rows dated by `aaProduct` are unchanged**: `savedCalcVersionOf` still dates them `2026-09-18.1`, and
+  they have been held since `2026-09-28.1`.
+- `docs/CLINICAL_CONSTANTS.md` § When to bump says unstamped rows are held whatever the day's route. The
+  no-TPN exception stays an exception to bumping (a change that moves only the lines of a bag that does
+  not exist), no longer something `calcMoved` does for older rows.
+
+### Tests
+
+- `verify-calcmoved-unstamped-1017.cjs` (new) 15/15. On `55d893d` it fails 6: the unstamped feeds-only
+  order (FBM_PF_24 30 mL × 8 at 1500 g, no TPN) rendered its print form, printed, and copied, and an
+  unstamped TPN order with no dead space rendered its print form. The same feeds-only order with the
+  current stamp prints on both trees, so the harness can see a printable order.
+- Six harnesses opened an unstamped row to test another rule, and the fix held each of them, which is the
+  fix working. Those rows stand for a current order, so they now carry the current stamp, as
+  `test/README.md` already asks: `verify-review-0911.cjs` (F2 reopen), `verify-review-0917-calc.cjs` §9
+  (dosing weight) and §10 (critical reason), `verify-picker-print-identity.cjs`,
+  `verify-tpn-calc-weight.cjs`, `verify-ward-print-1012.cjs`, and `verify-ward-requests-0918.cjs` §10
+  (dead space record).
+- `verify-ward-requests-0918.cjs` §8 and §12 had three assertions that an unstamped row prints as
+  before: a row with no `aaProduct`, a TPN row with no dead space, and a feeds-only row. Each now says it
+  is held, and the first and last are saved again and their reprints checked (10% Aminoven 60 mL; no
+  vitamin mL on a day with no bag). 194/194.
+- RESULTS
+
+### Not done
+
+- Whether this is a `CONSTANTS_VERSION` bump is Pp's call; the PR asks her. It moves no printed figure,
+  so under the 2026-09-18 rule it is not one, and a bump would also hold every order saved on
+  `2026-10-11.1` until it is saved again.
+- Not live: merging into `main` deploys nothing. The release PR that ships it updates `STATUS.md`, whose
+  top entry says every order saved before `2026-10-11.1` is re-saved before it prints; on the live release
+  that is not true of orders saved before 2026-09-18.
+
 ## Session 2026-10-12 (3) — Back asks before it closes a form; Back after Back stays in the app
 
 `app.jsx` (`goBack`, the history guard), `registry.jsx` (`data-back-confirm` on three dialogs),

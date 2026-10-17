@@ -1304,7 +1304,7 @@ function Calculator({
   if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
   if (calc.totalTPN_mL > 0 && caPerKg > 0 && k2hpo4 > 0) alerts.push({ level: "warn", title: "Calcium–phosphate compatibility not calculated", body: "This order combines calcium with inorganic phosphate. NeoFeed does not calculate formulation-specific precipitation risk; pharmacy must verify compatibility before compounding or administration.", ref: "ESPGHAN/ESPEN/ESPR/CSPEN 2018" });
   const dosingWeightChanged = !!savedDosingWt && wtG > 0 && (savedDosingWt.exact ? Math.abs(savedDosingWt.g - wtG) > 0.01 : Math.abs(savedDosingWt.g - wtG) > Math.max(1, wtG * 5e-3));
-  const calcMoved = !!savedEntryId && (savedCalcVersion ? savedCalcVersion !== D.CONSTANTS_VERSION : calc.overfill > 1.001 && (inclSoluvit || inclPeditrace) || isMEN && calc.enVolTotal > 0);
+  const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
   const uncoveredCritical = alerts.filter((a) => a.level === "crit").map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
   const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;

@@ -108,7 +108,7 @@ function printTextFor(patient) {
       key: 'print-' + patient.sessionId,
       patient, dol: 3,
       editEntry: { entryId: 'w-print-' + patient.sessionId, lastModified: 'lm-print', ts: '2026-09-10',
-                   dol: 3, weight: patient.bw, calcInput: { curWtG: patient.bw } },
+                   dol: 3, weight: patient.bw, calcInput: { curWtG: patient.bw, constantsVersion: window.NEOFEED_DATA.CONSTANTS_VERSION } },
       baselineEntry: null, logDate: null,
       onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
     }));

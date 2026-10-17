@@ -98,15 +98,23 @@ default's 0 into 30; a saved order reopens with its own; the 0 chip still overri
 prepares no bag. **Vitamins** (§11) — Soluvit and Peditrace scale with the overfill (2.5 mL in a 150 mL
 bag for a 2 kg infant on a 120 mL day, delivering 2 mL), the old info line is gone, the print, bag make-up
 and copied order agree, and the 10 / 15 mL caps apply to what the infant receives. **Reprints** (§12) — a
-save stamps `calcInput.constantsVersion`; a saved order stamped with another version, or an unstamped one
-whose printout this release changed (overfilled vitamins, a MEN feed), prints only after it is saved
-again, while other old orders print as before. A row saved on `fc2c35c` (live from 11:17 ICT on
-2026-09-18, before the stamp shipped) is dated by its `aaProduct` key and prints as-is. 193 assertions: it
+save stamps `calcInput.constantsVersion`, and a saved order computed under any other version prints only
+after it is saved again. A row saved on `fc2c35c` (live from 11:17 ICT on 2026-09-18, before the stamp
+shipped) is dated by its `aaProduct` key. A row from before that carries neither and matches no version,
+so since 2026-10-17 it is held too, a feeds-only day included (until then only 2026-09-18.1's own
+changes held it: overfilled vitamins, a MEN feed). 193 assertions when written: it
 fails 112 against `f0c172c`, 24 against `3f35ef8` (PR #75 merged) and 12 — the pre-deploy review's fixes —
 against `fc2c35c`. A harness row that stands for a current order carries the current stamp
 (`verify-kcmh-factor.cjs`).
 Since the dead-space change, a harness order that means "no dead space" types 0
 (`verify-review-0917-calc.cjs` §6, `verify-center-point-print-parity.cjs`).
+
+`verify-calcmoved-unstamped-1017.cjs` pins **Vera's finding 4 on PR #159**: an order saved before
+2026-09-18 has neither `calcInput.constantsVersion` nor `aaProduct`, and `calcMoved` checked it only
+against 2026-09-18.1's own changes, so after 2026-09-28.1 a feeds-only order reprinted under its old entry
+id with figures from today's constants. Its order is FBM_PF_24 30 mL × 8 at 1500 g with no TPN. Print and
+Copy now refuse it with the calcMoved reason until it is saved again, and the same order with the current
+stamp prints, so the refusal comes from the stamp alone. 15 assertions; 6 fail on `55d893d`.
 
 `verify-tpn-team-0922.cjs` pins **the KCMH TPN team's feedback and Praew's rules of 2026-09-22**.
 **Zinc** — a ZnSO₄ line in mg of elemental Zn/kg/d, a total with Peditrace's delivered mL × 0.25 mg,
