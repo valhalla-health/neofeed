@@ -1560,6 +1560,24 @@ as published (born 26+0 to 26+6 is row 26) and labelled so; from DOL 2 on, exact
 before it, 43 fail. Of the 10 that pass, 8 are controls and 2 are births at exactly GA+0, which `main`
 read at x = GA, the completed-week row by luck.
 
+## The Fenton readout against Fenton's own calculator, 2026-10-17 — one harness and its fixture
+
+**`verify-fenton-official-1017.cjs`** compares the real `FentonChart`'s "Current trajectory" with what
+fentongrowth.ca, Fenton's own plotter (API 2.1.3.0), returned for 75 made-up measurements, kept in
+**`fenton-official-1017.json`** with the source URL, version, date and the returned tables verbatim.
+81 checks. §1: the fixture is the calculator's answer (each whole percentile is Φ(z) rounded, each point
+is a cell of the returned table at the GA it was sent with, and a point carries only sex, age and size).
+§2 asserts weight under 37 weeks, growth monitoring, within ±5 points: linear reading between the p10,
+p50 and p90 curves strays at most 4.0 points from the normal curve, plus 0.5 for rounding. §3 records,
+without failing, the gaps where the app is known to be off: weight from 37 weeks, length, HC, and DOL 1,
+which the app reads by completed week and the official Birth size evaluation reads at exact GA (it also
+prints the app's exact-age reading of each DOL-1 point). §4 prints every point, worst gap first in each
+group; `--md` prints the same as Markdown tables. Against 55d893d, before the half-week fix, 42 fail.
+
+To extend it, send more made-up rows to fentongrowth.ca (only with Pp's approval for that round: it is
+an outside service), add the returned table under `raw` and the points to `points`, and keep §1 passing.
+When NeoFeed reads Fenton's LMS parameters, tighten §2 and turn §3's groups into assertions.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named
