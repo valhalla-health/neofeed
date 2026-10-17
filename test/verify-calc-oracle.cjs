@@ -21,7 +21,7 @@
 // FEED / expectedAlerts here by hand, from the source, or the harness stops
 // being a second opinion.
 //
-// 13 scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
+// 12 scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
 // peripheral PN entered by pump rate (10% Mg — KCMH's only vial) and every oral
 // supplement, a feeds-only day with no bag, a term infant on a manual dosing
 // weight with a MEN feed and the Vitalipid cap, an alert-stress order, the
@@ -94,19 +94,41 @@ const STOCK = {
   soluvitPerKg: 1, soluvitMax: 10, pediPerKg: 1, pediMax: 15, pediZn: 0.25, hep: 100,
 };
 const KCAL = { dex: 3.4, aa: 4, fat: 9 };
-// per 100 mL: kcal, pro g, fat g, cho g, Na mmol, K mmol, Ca mg, P mg
+// Feeds, from the printed sources (2026-10-17), not from data.js. The Chula
+// Pediatric Nutrition Handbook 3rd ed. prints formulas per 100 kcal, Na and K
+// in mg: [protein g, fat g, CHO g, Na mg, K mg, Ca mg, P mg].
+const PER_100_KCAL = {
+  enfalacPremature: [3, 5.1, 11, 58, 100, 120, 66],     // Table 5, p. 16
+  preNan:           [2.9, 5.2, 10.7, 43, 103, 130, 76], // Table 5, p. 16
+  hiQLbw:           [3.3, 4.8, 11.5, 86, 99, 123, 69],  // Table 5, p. 16
+  hiQLf:            [2.4, 5.2, 10.8, 34, 80, 64, 34],   // Table 7, p. 18
+  infatrini:        [2.6, 5.4, 10.3, 37, 100, 99, 54],  // Table 16, p. 29 (powder)
+};
+// per 100 mL at kcal/100 mL (1 oz = 30 mL: 20 → 67, 24 → 80, 27 → 90, 30 → 100):
+// [kcal, pro g, fat g, cho g, Na mmol, K mmol, Ca mg, P mg]
+const perMl = ([pro, fat, cho, na, k, ca, p], kcal) => {
+  const f = kcal / 100;
+  return [kcal, pro * f, fat * f, cho * f, na * f / 22.99, k * f / 39.10, ca * f, p * f];
+};
+// Term mature milk, WHO 2006 technical review Box 1.3.1, per litre: protein 12,
+// fat 34, CHO 67 g; Na 9.0, K 13.9, Ca 6.5, P 4.8 mmol. Energy is the label's
+// 20 kcal/oz. + Enfamil HMF 4 g (Box 1.3.3): 14 kcal, protein 1.1, fat 0.65,
+// CHO 1.1 g, Na 0.5, K 0.5 mmol, Ca 90, P 45 mg.
+const BM = [67, 1.2, 3.4, 6.7, 0.90, 1.39, 6.5 * 40.08 / 10, 4.8 * 30.97 / 10];
+const HMF = [14, 1.1, 0.65, 1.1, 0.5, 0.5, 90, 45];
+const BM_HMF = BM.map((v, i) => v + HMF[i]);
+const INFATRINI = perMl(PER_100_KCAL.infatrini, 100);
 const FEED = {
-  BM_20:        [67, 1.2, 3.4, 6.7, 0.90, 1.39, 26, 15],
-  BM_HMF_24:    [81, 2.6, 3.8, 8.2, 1.40, 1.89, 115, 59],
-  BM_PF_20:     [67, 1.5, 3.5, 7.4, 1.0, 1.7, 50, 28],
-  FBM_PF_22:    [74, 2.1, 4.0, 8.1, 1.87, 1.90, 102, 59],
-  PRENAN_22:    [74, 1.7, 4.3, 7.9, 1.30, 1.77, 74, 67],
-  FBM_PF_24:    [80, 2.1, 3.8, 10.9, 3.00, 2.56, 84, 55],
-  FBM_INF_MIX:  [90, 2.6, 4.75, 9.45, 1.55, 2.3, 100, 55],
-  INFATRINI_30: [100, 2.6, 5.4, 10.3, 1.80, 2.75, 124, 69],
-  LF_20:        [67, 1.41, 3.75, 6.90, 1.17, 1.72, 57, 40],
-  LF_24:        [80, 1.68, 4.48, 8.24, 1.39, 2.05, 68, 47],
-  LF_27:        [90, 1.89, 5.04, 9.27, 1.57, 2.31, 77, 53],
+  BM_20:        BM,
+  BM_HMF_24:    BM_HMF,
+  FBM_PF_22:    perMl(PER_100_KCAL.enfalacPremature, 80),
+  PRENAN_22:    perMl(PER_100_KCAL.preNan, 80),
+  FBM_PF_24:    perMl(PER_100_KCAL.hiQLbw, 80),
+  FBM_INF_MIX:  BM_HMF.map((v, i) => (v + INFATRINI[i]) / 2),   // alternating: the mean
+  INFATRINI_30: INFATRINI,
+  LF_20:        perMl(PER_100_KCAL.hiQLf, 67),
+  LF_24:        perMl(PER_100_KCAL.hiQLf, 80),
+  LF_27:        perMl(PER_100_KCAL.hiQLf, 90),
 };
 const SUPP = { FE_FERDEK: 25, FE_FERROKID: 5, CA_CACO3_350: 140, CA_CACO3_1000: 400, CA_CALCETATE: 253,
   PO4_PHOSPHATE: 53, PO4_NEUTRAL: 14.4 };
@@ -337,8 +359,9 @@ const SCEN = [
     naCl: 5, kCl: 4, ca: 100, zn: 6.5, hep: 1, feed: 'INFATRINI_30', enVol: 3, enFreq: 8, men: true },
   { name: 'F caps: 16 kg, Soluvit/Peditrace/Vitalipid ceilings', bw: 3000, cur: 16000, dol: 40, fluid: 100, tpn: 1000, dead: 30,
     dex: 10, aa: 2, lip: 2, naCl: 2, kCl: 1, soluvit: true, pedi: true, hep: 0.5, feed: 'BM_20', enVol: 0, enFreq: 0 },
-  // every remaining feed type, no TPN, full-ish feeds on 1.5 kg
-  ...['BM_PF_20', 'PRENAN_22', 'FBM_PF_24', 'FBM_INF_MIX', 'LF_20', 'LF_27'].map((k) => ({
+  // every remaining feed type, no TPN, full-ish feeds on 1.5 kg. BM_PF_20 has
+  // no source and a new order cannot pick it (verify-en-db-sources.cjs).
+  ...['PRENAN_22', 'FBM_PF_24', 'FBM_INF_MIX', 'LF_20', 'LF_27'].map((k) => ({
     name: `G feed ${k} (feeds only)`, bw: 1200, cur: 1500, dol: 12, fluid: 160, ioOut: 70, tpn: 0,
     feed: k, enVol: 28, enFreq: 8, weights: [{ dol: 11, w: 1490 }] })),
   // A prepared volume with a second decimal: 80.45 + 50 = 130.45 mL prints as

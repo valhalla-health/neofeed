@@ -7,6 +7,71 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-17 — EN_DB rebuilt from the handbook pages (draft, for Pp's sign-off)
+
+`data.js` (`EN_DB`, `CONSTANTS_VERSION` 2026-10-11.1 → **2026-10-17.1**), `calculator.jsx` (feed options,
+one warning), `app.jsx` (Formula reference page), `compiled/`, `docs/CLINICAL_CONSTANTS.md`,
+`test/verify-en-db-sources.cjs` (new), `test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`,
+`test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`. Frontend only, no `clasp` step.
+
+### Why
+
+Pp asked on 2026-10-17 whether every NeoFeed number is calculated or sourced rather than guessed by an
+AI. The provenance audit that day (outside this repo, in Pp's notes) found the arithmetic clean and the
+feed table not: commit `357d095` (2026-05-28) had copied most formula rows from
+`docs/Chula_Handbook_Ed3_Reference.md`, an AI extraction of the Chula Pediatric Nutrition Handbook whose
+tables do not match the scanned book. It cited sections ("§3", "§5") the book does not have.
+
+### What changed
+
+- **The source tables are in `data.js` as printed**, and every `EN_DB` row is computed from them:
+  Chula Handbook 3rd ed. Table 5 p. 16 (Enfalac Premature, Pre Nan, Hi-Q LBW), Table 7 p. 18 (Hi-Q LF,
+  Enfalac LF) and Table 16 p. 29 (Infatrini powder), all per 100 kcal with Na and K in mg; WHO 2006
+  technical review Box 1.3.1 (term mature milk, per litre) and Box 1.3.3 (Enfamil HMF, 4 g). Book page =
+  scanned PDF page − 8. Each row names its `source`.
+- **Printed EN figures move** for every feed except breast milk (Ca 26 → 26.05, P 15 → 14.87 from the
+  Box's mmol) and Infatrini's macronutrients. The largest: HiQ LF P −42% and Ca −25%; Infatrini Ca −20%
+  and P −22%; BM + HMF protein 2.6 → 2.3 g/100 mL; Hi-Q LBW protein +26% and K −21%; Pre Nan protein
+  +36% and Ca +41%. The PR body has the table per feed and the effect at 150 mL/kg/d.
+- **Enfalac Premature and Pre Nan are 24 kcal/oz** (80 kcal/100 mL, was 74). The book prints both at
+  24; the 22 came from the AI extraction. The keys `FBM_PF_22` and `PRENAN_22` stay, so saved orders
+  still open.
+- **`BM_PF_20` "Preterm Formula (20 kcal/oz)" has no source.** Per 100 kcal it is a term formula (2.2 g
+  protein, 75 mg Ca). It keeps its old numbers and `unsourced: true`; the Calculator no longer offers it
+  for a new order. An order saved with it still shows it, marked "no source, choose another", and warns
+  *Feed composition has no source*.
+- **`FBM_INF_MIX` is the mean of `BM_HMF_24` and `INFATRINI_30`**, computed. It was a mean of rows that
+  no longer exist.
+- **Osmolality the source does not give is blank**: breast milk, BM + HMF (the Box gives only the +63
+  rise), the alternating feed, and LF at 24 and 27 kcal/oz (the book gives 170 and 200 at 20 only). No
+  calculation reads EN osmolality.
+- **The Formula reference page** rounds every figure through `displayNum` and shows each row's source.
+
+### Tests
+
+- New `test/verify-en-db-sources.cjs`, with its own transcription of the pages: each column's energy
+  sum and printed Ca:P check the transcription; every row equals its source; every row names its
+  table and page or is the one unsourced row; the Calculator offers no unsourced feed and warns on an
+  old one; the Formula page shows sources. On the tree before this change it fails 61 of 139.
+- `verify-calc-oracle.cjs` and `verify-calc-fuzz.cjs` take their feeds from the pages by hand, not from
+  `data.js`. The oracle fails 187 of 1018 checks on the old `EN_DB`. `BM_PF_20` left the oracle, fuzz and
+  calc-sum scenarios, because a new order cannot pick it; `verify-tpn-meeting-0928.cjs` §9 expects it
+  gone from the list.
+- `verify-review-0917-calc.cjs` §6 recaptures two printed-figure fingerprints. BM + HMF order: 4 of 86
+  figures moved (EN Ca 67 → 68, EN PO₄ 34 → 35, total Ca 127 → 128, total PO₄ 65 → 66). Hi-Q LBW order:
+  Ca 134 → 157, printed twice, of 64.
+
+### Not done
+
+- **Second clinician's sign-off** (`docs/CLINICAL_CONSTANTS.md`, change protocol step 3): none yet. This
+  is a draft PR; Pp decides whether it ships.
+- **Not checked against today's pharmacy labels.** The book is from 2565 (2022); products change.
+- Mg per feed is in the same tables (BACKLOG "Feed magnesium") and was not added.
+- `center-point/tpn-document.mjs` still labels `FBM_PF_22` and `PRENAN_22` "(22 kcal/oz)". It is pinned
+  to Center Point's own copy (`verify-center-point-entry.cjs` §6), so it changes only with a Center Point
+  sync.
+- `STATUS.md` is untouched: nothing is merged or live.
+
 ## Session 2026-10-12 (3) — Back asks before it closes a form; Back after Back stays in the app
 
 `app.jsx` (`goBack`, the history guard), `registry.jsx` (`data-back-confirm` on three dialogs),
