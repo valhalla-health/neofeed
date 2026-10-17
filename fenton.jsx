@@ -273,6 +273,16 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     return rowAt(birthRows, wk) ? wk : null;
   })();
 
+  // Under the readout: which size-at-birth row it came from. Length and HC
+  // rows are 4 weeks apart, so a birth at 28 weeks is read between rows 26
+  // and 30, and the label says so rather than naming a row that is not there.
+  const birthLabel = (() => {
+    if (birthWeek == null) return null;
+    if (birthRows.some(r => r[0] === birthWeek)) return `DOL 1 อ่านจากตาราง size at birth แถว ${birthWeek} สัปดาห์`;
+    const lo = birthRows.filter(r => r[0] < birthWeek).pop(), hi = birthRows.find(r => r[0] > birthWeek);
+    return `DOL 1 อ่านจากตาราง size at birth ที่ ${birthWeek} สัปดาห์ ระหว่างแถว ${lo[0]} กับ ${hi[0]}`;
+  })();
+
   // current percentile estimate
   const currentPercentile = (() => {
     if (points.length === 0) return null;
@@ -473,7 +483,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
                 {currentPercentile || "—"}
               </div>
               <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
-                {birthWeek != null ? `DOL 1 อ่านจากตาราง size at birth แถว ${birthWeek} สัปดาห์`
+                {birthLabel ? birthLabel
                   : beforeReference ? `เส้นอ้างอิงเริ่มที่ PMA ${referenceStart}` : "percentile band"}
               </div>
             </div>

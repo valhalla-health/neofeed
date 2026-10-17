@@ -291,7 +291,10 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
     await chart(born('boys', 28.3, { w: 1100, l: +((L26[3] + L30[3]) / 2).toFixed(2) }));
     await tab('Length');
     eq('born 28+3 on the 26/30 midpoint 50th length reads ~50th', readout(), '~50th');
-    ok('…from the size-at-birth rows for 28 weeks', /size at birth/.test(readoutHint() || '') && /28/.test(readoutHint() || ''), readoutHint());
+    // There is no length row 28; the hint names the rows it was read between (Vera).
+    ok('…and the hint names rows 26 and 30, not a row 28',
+       /size at birth/.test(readoutHint() || '') && /26/.test(readoutHint() || '') && /30/.test(readoutHint() || '')
+       && !/แถว 28/.test(readoutHint() || ''), readoutHint());
     await tab('Weight');
 
     // Born 22+2: the exact-age curves start at 22.5, but row 22 is the size at birth.
