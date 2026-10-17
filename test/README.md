@@ -1548,15 +1548,17 @@ on a tool broken for it.
 
 The 2026-10-17 provenance audit found the Fenton 2025 rows, which are completed weeks, drawn at x = GA
 instead of GA + 0.5 (`CHANGELOG.md` 2026-10-17). **`verify-fenton-half-week-1017.cjs`** mounts the real
-`FentonChart` in jsdom (also against `compiled/`), 45 checks in four sections. §1: an infant on the
+`FentonChart` in jsdom (also against `compiled/`), 53 checks in five sections. §1: an infant on the
 **official chart's** p10 / p50 / p90 at exact 26, 30, 34 and 36 wk, both sexes, reads about the 10th /
 50th / 90th; the weights are the audit's digitised chart values, independent of `data.js`, and the
 tolerance (±2 / ±3 / ±4 points) is the digitiser's ±10–15 g. §2: the weight 50th passes through each
 row at GA + 0.5, starts at 22.5 and ends at the 42-week edge between the 41 and 42 rows, and nothing lies
 past it. §3: before PMA 22+4 the readout is "—" and says where the reference starts; at 42+0 it still
 reads. §4: the same placement for length and HC, and a not-verified note on both tabs and not on
-Weight. Against `main` before it, 38 fail; the 7 that pass are controls (the point is still plotted,
-Weight has no note, the curve stays inside the axis).
+Weight. §5 (Vera): a measurement on DOL 1 is size at birth, read by completed week against the rows
+as published (born 26+0 to 26+6 is row 26) and labelled so; from DOL 2 on, exact age. Against `main`
+before it, 43 fail. Of the 10 that pass, 8 are controls and 2 are births at exactly GA+0, which `main`
+read at x = GA, the completed-week row by luck.
 
 ## Note on the source workbook
 

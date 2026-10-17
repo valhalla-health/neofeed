@@ -20,7 +20,8 @@ Pp asked whether every NeoFeed number is truly calculated or sourced. The proven
 (2026-10-17, in Pp's private notes) found the `FENTON_WEIGHT` values genuine, within 4 g of ucalgary.ca's
 v2 cutoff table on all 168 p3/p10/p90/p97 cells, but drawn in the wrong place. Fenton 2025's data are
 completed weeks (25 weeks is 25+0 to 25+6, mean 25.5), and the official chart is shifted +0.5 week so an
-infant can be plotted at exact age (Methods, PMC12391854, doi 10.1111/ppe.70035). NeoFeed plots the
+infant can be plotted at exact age, "adding 0.5 weeks to the completed weeks age" (Fenton 2025, § 2.5
+Synthesis, paragraph 7; PMC12391854, doi 10.1111/ppe.70035). NeoFeed plots the
 infant at exact PMA, `pma0 + (DOL − 1)/7`, but drew row GA at x = GA and read the percentile there. Every
 curve sat half a week early: 33–144 g too heavy at 23–36 wk (median 76 g, 118 digitised cells). An infant
 on the official 10th read about the 5th–7th, on the 50th about the 33rd–42nd, on the 90th about the
@@ -29,16 +30,22 @@ on the official 10th read about the 5th–7th, on the 50th about the 33rd–42nd
 ### What changed
 
 - **Rows are drawn and read at GA + 0.5** (`REF_AGE_OFFSET` in `FentonChart`). The curves, the 10th–90th
-  band, the right-edge labels and the "Current trajectory" readout all use the shifted rows.
+  band, the right-edge labels and the "Current trajectory" readout all use the shifted rows (a
+  DOL-1 measurement excepted, below).
 - **The start.** The curves begin at 22.5, where the first row sits; nothing is extrapolated below it. A
   measurement at PMA 22+0 to 22+3 now reads "—" with "เส้นอ้างอิงเริ่มที่ PMA 22+4" under it (it used to
   read the 22–23 interpolation). The axis still starts at 22, and the point is still plotted.
 - **The end.** `GA_MAX` stays 42: the axis, the hidden-measurement banner, and `growthVelocity`'s
   beyond-the-reference guard in `data.js` are unchanged. The curves end at 42.0, linearly between the
   41 and 42 weight rows (38 and 42 for length and HC); the 42 row (42+0 to 42+6) is used only for that.
-- **Size at birth.** NeoFeed classifies no SGA/AGA/LGA anywhere (searched `*.jsx`, `data.js`,
-  `gas-backend.gs`), so nothing read by completed week changed. The chart's reading is a
-  growth-monitoring reading at exact age, as on the official chart, including for a weight on DOL 1.
+- **Size at birth stays on completed weeks.** NeoFeed classifies no SGA/AGA/LGA anywhere (searched
+  `*.jsx`, `data.js`, `gas-backend.gs`), but a lone DOL-1 measurement in "Current trajectory" is the
+  size at birth in all but name. It is read against the rows as published, by completed week (born
+  26+0 to 26+6 is row 26; for length and HC, linear between the 4-week rows), with "DOL 1 อ่านจากตาราง
+  size at birth แถว 26 สัปดาห์" under it; the point is still plotted at exact GA. Fenton 2025 Table 3
+  names the non-interpolated meta-analysis as the size-for-GA reference. Vera raised it on the first
+  version of this change, which read DOL 1 at exact age: a boy born 26+0 at 740 g, below row 26's p10
+  (767 g), showed "~16th". From DOL 2 on, every reading is at exact age.
 - **Length and HC tabs carry a note** (`role="note"`): the curve is not checked against a numeric source,
   Fenton publishes length and HC only as charts, and the rows are 4 weeks apart, so the percentile is
   approximate. The Length note adds that after 38 weeks the curve runs above the official chart, so a term
@@ -55,10 +62,12 @@ g/kg/d velocity grading attributed to ESPGHAN 2022, and the unsourced length/HC 
 
 ### Tests
 
-`verify-fenton-half-week-1017.cjs` (new) 45/45. §1 uses the official chart's own p10 / p50 / p90 at exact
+`verify-fenton-half-week-1017.cjs` (new) 53/53. §1 uses the official chart's own p10 / p50 / p90 at exact
 26, 30, 34 and 36 weeks (digitised in the audit, independent of `data.js`): they now read 9–12th, 48–51st
-and 86–90th; on `main` they read 5–7th, 33–42nd and 69–81st. Against `main` the file fails 38 of 45; the 7
-that pass are controls.
+and 86–90th; on `main` they read 5–7th, 33–42nd and 69–81st. §5 reads DOL 1 by completed week (born
+26+0 at 740 g ~8th, born 26+6 at 790 g ~15th, a birth length between the 4-week rows, a birth at 22+2).
+Against `main` the file fails 43 of 53. Of the 10 that pass, 8 are controls and 2 are births at exactly
+GA+0, which `main` read at x = GA, the completed-week row by luck.
 
 Before/after sheets of the real app (made-up boy born 26+0, weight on the official 10th every week to
 36+0, length and HC on the 50th; local fake backend): at 36+0 the readout goes ~7th → ~12th, length

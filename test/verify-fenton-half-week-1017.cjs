@@ -25,6 +25,9 @@
 //   §4  Length and HC: the same half-week placement, and a note on both tabs
 //       that those curves are not verified against a numeric source (none is
 //       public). The weight tab carries no such note.
+//   §5  A measurement on DOL 1 is size at birth, read by completed week
+//       against the rows as published (Vera, on this PR): born 26+0 to 26+6
+//       is row 26. From DOL 2 on, the reading is at exact age.
 //
 // ── NEGATIVE CONTROL ───────────────────────────────────────────────────────
 // Run against the commit before the change; every section must go red:
@@ -33,12 +36,14 @@
 //   cp test/verify-fenton-half-week-1017.cjs "$d/test/"
 //   cp -r node_modules "$d/node_modules"
 //   ( cd "$d" && TZ=Asia/Bangkok node test/verify-fenton-half-week-1017.cjs )
-// Expected there: 38 FAILED (7 passed). §1 reads the official p10 / p50 /
+// Expected there: 43 FAILED (10 passed). §1 reads the official p10 / p50 /
 // p90 as about the 5th / 33rd–42nd / 70th–81st, §2 finds the 50th starting
 // at 22.0 and passing through row GA at GA.0, §3 finds 22+2 read as ~18th,
-// and §4 finds no note on Length or HC. The 7 that pass are controls: the
-// point is still plotted, Weight has no note, and the curve stays inside the
-// 42-week edge.
+// §4 finds no note on Length or HC, and §5 reads a birth at 26+6 against the
+// 26/27 interpolation. Of the 10 that pass, 8 are controls (the point is
+// still plotted, Weight has no note, the curve stays inside the 42-week
+// edge, a DOL-2 weight is read at exact age), and 2 are births at exactly
+// GA+0, which the old code read at x = GA, the same row by luck.
 //
 // Same dev-only dependencies as the other jsdom harnesses (test/README.md).
 const fs = require('fs');
@@ -252,6 +257,52 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
 
     await tab('Weight');
     eq('back on Weight, the note is gone', noteText(), null);
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
+  await section('§5 A DOL-1 measurement is size at birth: read by completed week', async () => {
+    // Vera on this PR: read at exact age, a boy born 26+0 at 740 g (below
+    // row 26's p10, 767 g) showed "~16th", because the exact-age p10 at 26.0
+    // is 716 g. Size at birth is classified by completed week, against the
+    // row as published, so a measurement on DOL 1 is read that way.
+    const born = (sex, ga, m, more = []) => ({
+      sessionId: `B-${sex}-${ga}`, name: 'ทด', initials: 'ทด', sex, bw: m.w || 900, ga,
+      weights: [{ dol: 1, w: m.w ?? null, l: m.l ?? null, hc: m.hc ?? null }, ...more],
+      lengths: [], hcs: [],
+    });
+    const B = D.FENTON_WEIGHT.boys, r26 = B.find(r => r[0] === 26);
+    // Row 26: p3 684, p10 767, p50 938.
+    const cw = (v, lo, hi, plo, phi) => Math.round(plo + (v - lo) / (hi - lo) * (phi - plo));
+
+    await chart(born('boys', 26.0, { w: 740 }));
+    eq('born 26+0 at 740 g reads against row 26 (≈8th, below the 10th)', readout(), `~${cw(740, r26[1], r26[2], 3, 10)}th`);
+    ok('…and says it is read from the size-at-birth row for 26 weeks',
+       /size at birth/.test(readoutHint() || '') && /26/.test(readoutHint() || ''), readoutHint());
+
+    await chart(born('boys', 26.6, { w: 790 }));
+    eq('born 26+6 at 790 g reads against the same row 26 (≈15th)', readout(), `~${cw(790, r26[2], r26[3], 10, 50)}th`);
+
+    const L30 = D.FENTON_LENGTH.boys.find(r => r[0] === 30);
+    await chart(born('boys', 30.0, { w: 1300, l: L30[3] }));
+    await tab('Length');
+    eq(`born 30+0 at row 30's 50th length (${L30[3]} cm) reads ~50th`, readout(), '~50th');
+    // Length rows are 4 weeks apart: born 28+3 reads halfway between rows 26 and 30.
+    const L26 = D.FENTON_LENGTH.boys.find(r => r[0] === 26);
+    await chart(born('boys', 28.3, { w: 1100, l: +((L26[3] + L30[3]) / 2).toFixed(2) }));
+    await tab('Length');
+    eq('born 28+3 on the 26/30 midpoint 50th length reads ~50th', readout(), '~50th');
+    ok('…from the size-at-birth rows for 28 weeks', /size at birth/.test(readoutHint() || '') && /28/.test(readoutHint() || ''), readoutHint());
+    await tab('Weight');
+
+    // Born 22+2: the exact-age curves start at 22.5, but row 22 is the size at birth.
+    const G22 = D.FENTON_WEIGHT.girls.find(r => r[0] === 22);
+    await chart(born('girls', 22.2, { w: G22[3] }));
+    eq(`born 22+2 at row 22's 50th (${G22[3]} g) reads ~50th, not "—"`, readout(), '~50th');
+
+    // Control: from DOL 2 on, the reading is growth monitoring at exact age.
+    await chart(born('boys', 26.0, { w: 740 }, [{ dol: 2, w: 745 }]));
+    ok('a DOL-2 weight is read at exact age, not from the birth row',
+       !/size at birth/.test(readoutHint() || '') && centile(readout()) != null, { readout: readout(), hint: readoutHint() });
   });
 
   await act(async () => { root.unmount(); });

@@ -83,23 +83,25 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const GA_MAX = 42;
 
   // The Fenton 2025 rows are COMPLETED weeks: the row for 25 holds infants of
-  // 25+0 to 25+6, whose mean age is 25.5. The official chart draws each row
-  // half a week later, at exact age GA + 0.5 (Fenton 2025 Methods,
-  // PMC12391854), and so does this one, because the infant is plotted at
-  // exact PMA (pma0 + (DOL − 1)/7, below). Drawing row GA at x = GA put every
-  // curve half a week early: 33–144 g too heavy at 23–36 wk, so an infant on
-  // the official 10th read about the 5th (provenance audit, 2026-10-17).
-  // Nothing is extrapolated: the curves start at 22.5, where the first row
-  // sits, and end at GA_MAX, between the last row inside it and the next.
-  // Size at birth (SGA/LGA) is read by completed week, from the rows as
-  // published; NeoFeed does not classify it.
+  // 25+0 to 25+6, whose mean age is 25.5. The official chart is drawn by
+  // "adding 0.5 weeks to the completed weeks age" (Fenton 2025, § 2.5
+  // Synthesis, PMC12391854), and so is this one, because the infant is
+  // plotted at exact PMA (pma0 + (DOL − 1)/7, below). Drawing row GA at x = GA
+  // put every curve half a week early: 33–144 g too heavy at 23–36 wk, so an
+  // infant on the official 10th read about the 5th (provenance audit,
+  // 2026-10-17). Nothing is extrapolated: the curves start at 22.5, where the
+  // first row sits, and end at GA_MAX, between the last row inside it and the
+  // next. A measurement on DOL 1 is size at birth and is read against the
+  // unshifted row of its completed week instead (birthWeek, below).
   const REF_AGE_OFFSET = 0.5;
+  const table = (
+    metric === "weight" ? D_F.FENTON_WEIGHT[sex]
+  : metric === "length" ? D_F.FENTON_LENGTH[sex]
+  : D_F.FENTON_HC[sex]
+  );
+  const birthRows = table.filter(r => r[0] <= GA_MAX);
   const dataset = (() => {
-    const rows = (
-      metric === "weight" ? D_F.FENTON_WEIGHT[sex]
-    : metric === "length" ? D_F.FENTON_LENGTH[sex]
-    : D_F.FENTON_HC[sex]
-    ).map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
+    const rows = table.map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
     const inside = rows.filter(r => r[0] <= GA_MAX);
     const last = inside[inside.length - 1];
     const next = rows.find(r => r[0] > GA_MAX);
@@ -233,35 +235,57 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // to the reference; the readouts beside it are not (see GrowthVelocity).
   const latestPoint = allPoints.length ? allPoints[allPoints.length - 1] : null;
 
-  // current percentile estimate
-  const currentPercentile = (() => {
-    if (points.length === 0) return null;
-    const last = points[points.length - 1];
-    // find dataset row by linear interp
-    const t = last.pma;
-    const lo = dataset.find((r, i) => dataset[i+1] && r[0] <= t && dataset[i+1][0] >= t);
-    if (!lo) return null;
-    const hi = dataset[dataset.indexOf(lo) + 1];
-    const f = (t - lo[0]) / (hi[0] - lo[0]);
+  // The percentile of `value` among one row's five centile values [p3 … p97].
+  const centileAmong = (vals, value) => {
     const refs = [3, 10, 50, 90, 97];
-    const vals = [1,2,3,4,5].map(i => lo[i] + f * (hi[i] - lo[i]));
-    // interpolate percentile
-    if (last.value < vals[0]) return "<3rd";
-    if (last.value >= vals[4]) return ">97th";
+    if (value < vals[0]) return "<3rd";
+    if (value >= vals[4]) return ">97th";
     for (let i = 0; i < 4; i++) {
-      if (last.value >= vals[i] && last.value < vals[i+1]) {
-        const ff = (last.value - vals[i]) / (vals[i+1] - vals[i]);
+      if (value >= vals[i] && value < vals[i+1]) {
+        const ff = (value - vals[i]) / (vals[i+1] - vals[i]);
         const p = refs[i] + ff * (refs[i+1] - refs[i]);
         return `~${p.toFixed(0)}th`;
       }
     }
     return null;
+  };
+
+  // The five centile values of `rows` at x = t, linear between rows; null
+  // outside them.
+  const rowAt = (rows, t) => {
+    const lo = rows.find((r, i) => rows[i+1] ? r[0] <= t && rows[i+1][0] >= t : r[0] === t);
+    if (!lo) return null;
+    const hi = rows[rows.indexOf(lo) + 1] || lo;
+    const f = hi[0] === lo[0] ? 0 : (t - lo[0]) / (hi[0] - lo[0]);
+    return [1,2,3,4,5].map(i => lo[i] + f * (hi[i] - lo[i]));
+  };
+
+  // A measurement on DOL 1 is the size at birth, and size at birth is read by
+  // completed week against the rows as published: born 26+0 to 26+6 is row 26
+  // (for length and HC, 4 weeks apart, the rows either side of 26). Fenton
+  // 2025 Table 3 names the non-interpolated meta-analysis as the size-for-GA
+  // reference. Read at exact age instead, a boy born 26+0 at 740 g (below row
+  // 26's p10, 767 g) showed "~16th" (Vera, on this PR).
+  const birthWeek = (() => {
+    const last = points[points.length - 1];
+    if (!last || last.dol !== 1) return null;
+    const wk = Math.floor(last.pma + 1e-9);
+    return rowAt(birthRows, wk) ? wk : null;
+  })();
+
+  // current percentile estimate
+  const currentPercentile = (() => {
+    if (points.length === 0) return null;
+    const last = points[points.length - 1];
+    const vals = birthWeek != null ? rowAt(birthRows, birthWeek) : rowAt(dataset, last.pma);
+    return vals ? centileAmong(vals, last.value) : null;
   })();
   // The curves start half a week after the axis does, so a measurement in
   // between has no reference to be read against. Say where it begins, rather
   // than a bare "—" or a value extrapolated past the first row.
   const referenceStart = dataset.length ? D_F.fmtGA(D_F.daysToGA(Math.ceil(dataset[0][0] * 7))) : null;
-  const beforeReference = points.length > 0 && dataset.length > 0 && points[points.length - 1].pma < dataset[0][0];
+  const beforeReference = birthWeek == null && points.length > 0 && dataset.length > 0
+    && points[points.length - 1].pma < dataset[0][0];
 
   // Right-edge percentile labels can sit closer together than the (now larger,
   // see px() above) label text is tall where curves converge — e.g. 10th/3rd
@@ -449,7 +473,8 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
                 {currentPercentile || "—"}
               </div>
               <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
-                {beforeReference ? `เส้นอ้างอิงเริ่มที่ PMA ${referenceStart}` : "percentile band"}
+                {birthWeek != null ? `DOL 1 อ่านจากตาราง size at birth แถว ${birthWeek} สัปดาห์`
+                  : beforeReference ? `เส้นอ้างอิงเริ่มที่ PMA ${referenceStart}` : "percentile band"}
               </div>
             </div>
 

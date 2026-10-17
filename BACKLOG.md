@@ -292,9 +292,12 @@ clinical judgement. Everything else is engineering sequencing.
       were left as they are until Pp decides:
       1. **After 37 weeks the size-at-birth rows are not the growth chart.** `FENTON_WEIGHT` is the
          size-at-birth (completed-week) table. Fenton's growth-monitoring chart follows it to about 37 weeks,
-         then bends to meet WHO at 50. At 38–41 wk the app's lower centiles sit up to ~130 g above the
-         official chart and its upper ones up to ~300 g below, so the band is squeezed and an official-p97
-         girl reads ">97th". The fix needs the monitoring rows (Fenton's LMS, by email) or a decision.
+         then bends to meet WHO at 50 (Fenton 2025 Table 3: the curves match the data, and assign size
+         for GA, up to 37 weeks). With the rows at GA + 0.5 (2026-10-17), from 38.5 to 41.5 wk the app's
+         p90 / p97 sit up to ~310 / ~420 g below the official chart (girls, 41.5 wk), its p50 up to ~120 g
+         below, and p3 / p10 within about ±60 g (audit § 1d, digitised chart). A girl on the official 90th
+         at about 41½ weeks reads ">97th". The fix needs the monitoring rows (Fenton's LMS, by email) or a
+         decision.
       2. **Growth velocity's 15 / 10 g/kg/d grading is not from ESPGHAN 2022**, though the screen says
          so (`data.js` `GROWTH_VEL_TARGET` / `GROWTH_VEL_CRITICAL`). ESPGHAN gives a GA-specific fetal band
          (20–23 g/kg/d at 23–25 wk down to 10–13 at 35–37), so a median-tracking infant reads amber from
