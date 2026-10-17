@@ -1555,10 +1555,10 @@ tolerance (±2 / ±3 / ±4 points) is the digitiser's ±10–15 g. §2: the weig
 row at GA + 0.5, starts at 22.5 and ends at the 42-week edge between the 41 and 42 rows, and nothing lies
 past it. §3: before PMA 22+4 the readout is "—" and says where the reference starts; at 42+0 it still
 reads. §4: the same placement for length and HC, and a not-verified note on both tabs and not on
-Weight. §5 (Vera): a measurement on DOL 1 is size at birth, read by completed week against the rows
-as published (born 26+0 to 26+6 is row 26) and labelled so; from DOL 2 on, exact age. Against `main`
-before it, 43 fail. Of the 10 that pass, 8 are controls and 2 are births at exactly GA+0, which `main`
-read at x = GA, the completed-week row by luck.
+Weight. §5: a measurement on DOL 1 reads exactly as the same measurement at the same exact PMA on a
+later day, with no "size at birth" label, as Fenton's own calculator reads it (Pp, 2026-10-17); before
+22+4 it is "—" like any other day. Against `main` before it, 41 fail; against `ea0abe0`, which read DOL 1
+by completed week, §5 fails 7 of 8.
 
 ## The Fenton readout against Fenton's own calculator, 2026-10-17 — one harness and its fixture
 
@@ -1567,12 +1567,13 @@ fentongrowth.ca, Fenton's own plotter (API 2.1.3.0), returned for 75 made-up mea
 **`fenton-official-1017.json`** with the source URL, version, date and the returned tables verbatim.
 81 checks. §1: the fixture is the calculator's answer (each whole percentile is Φ(z) rounded, each point
 is a cell of the returned table at the GA it was sent with, and a point carries only sex, age and size).
-§2 asserts weight under 37 weeks, growth monitoring, within ±5 points: linear reading between the p10,
-p50 and p90 curves strays at most 4.0 points from the normal curve, plus 0.5 for rounding. §3 records,
-without failing, the gaps where the app is known to be off: weight from 37 weeks, length, HC, and DOL 1,
-which the app reads by completed week and the official Birth size evaluation reads at exact GA (it also
-prints the app's exact-age reading of each DOL-1 point). §4 prints every point, worst gap first in each
-group; `--md` prints the same as Markdown tables. Against 55d893d, before the half-week fix, 42 fail.
+§2 asserts weight under 37 weeks (growth monitoring) and every DOL-1 point (weight, length, HC) within
+±5 points: linear reading between the p10, p50 and p90 curves strays at most 4.0 points from the normal
+curve, plus 0.5 for rounding. DOL 1 is read at exact GA, as the official Birth size evaluation reads it
+(Pp, 2026-10-17). §3 records, without failing, the gaps where the app is known to be off: weight from 37
+weeks, length and HC. §4 prints every point, worst gap first in each group; `--md` prints the same as
+Markdown tables. Against 55d893d, before the half-week fix, 36 fail; against `ea0abe0`, which read DOL 1
+by completed week, the 18 DOL-1 points fail.
 
 To extend it, send more made-up rows to fentongrowth.ca (only with Pp's approval for that round: it is
 an outside service), add the returned table under `raw` and the points to `points`, and keep §1 passing.

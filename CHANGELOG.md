@@ -7,6 +7,42 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-17 (3) — DOL 1 is read at exact GA, as Fenton's own calculator reads it
+
+`fenton.jsx` (`FentonChart`: `birthRows`, `birthWeek` and the size-at-birth label removed), `compiled/`,
+both shells' `?v=` tokens, `test/verify-fenton-half-week-1017.cjs` § 5, `test/verify-fenton-official-1017.cjs`
+§ 2–4, `test/README.md`, `docs/CLINICAL_CONSTANTS.md`. Draft PR #158. This corrects the "Size at birth
+stays on completed weeks" bullet of the first entry below.
+
+### Why
+
+Entry (2) asked Fenton's own plotter, and its Birth size evaluation reads the exact GA (24 2/7 goes in as
+24.2857), not the completed week. Read by completed week, the 18 DOL-1 points were up to 21 centile
+points off it (a boy born 26+0 at 940 g read ~50th against row 26; the calculator says the 71st). Read at
+exact age, the same 18 are within 4.2. Pp, 2026-10-17: "ให้ DOL 1 อ่านที่ GA จริงเหมือนเครื่องคำนวณของ
+Fenton เอาป้าย size at birth ออก แล้วแก้ harness ให้ตรงกับชุดเทียบ".
+
+### What changed
+
+- **A DOL-1 measurement is read like any other day**, at exact GA against the rows at GA + 0.5, and the
+  "DOL 1 อ่านจากตาราง size at birth …" label is gone. Born 22+0 to 22+3, it reads "—" with "เส้นอ้างอิง
+  เริ่มที่ PMA 22+4", as on any other day before the first row's exact age.
+- **`verify-fenton-official-1017.cjs` § 2 now asserts the 18 DOL-1 points** within ±5, beside weight
+  under 37 weeks; § 3 records only weight from 37 weeks, length and HC.
+- **`verify-fenton-half-week-1017.cjs` § 5** checks that a DOL-1 measurement reads exactly as the same
+  measurement at the same PMA on a later day, with no size-at-birth label.
+
+### Tests
+
+`verify-fenton-half-week-1017.cjs` 53/53 and `verify-fenton-official-1017.cjs` 81/81, against the sources
+and with the compiled preload. The DOL-1 group: mean gap 2.1, worst +4.2 (girl born 27+3, length 33.3 cm,
+~27th vs 22.8). Against `ea0abe0` the official harness fails its 18 DOL-1 points and § 5 fails 7 of 8;
+against 55d893d they fail 36 and 41.
+
+### Not done
+
+- The ordinal suffix ("~51th") is a separate session's fix; neither harness depends on it.
+
 ## Session 2026-10-17 (2) — the Fenton readout against Fenton's own calculator, point by point
 
 `test/fenton-official-1017.json` and `test/verify-fenton-official-1017.cjs` (new), `test/README.md`. No

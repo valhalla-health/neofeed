@@ -91,15 +91,16 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // infant on the official 10th read about the 5th (provenance audit,
   // 2026-10-17). Nothing is extrapolated: the curves start at 22.5, where the
   // first row sits, and end at GA_MAX, between the last row inside it and the
-  // next. A measurement on DOL 1 is size at birth and is read against the
-  // unshifted row of its completed week instead (birthWeek, below).
+  // next. A measurement on DOL 1 is read the same way, at exact GA, as
+  // Fenton's own Birth size evaluation does (fentongrowth.ca 2.1.3.0: 18 DOL-1
+  // points within 4.2 centile points; a completed-week reading was up to 21
+  // off. Pp, 2026-10-17).
   const REF_AGE_OFFSET = 0.5;
   const table = (
     metric === "weight" ? D_F.FENTON_WEIGHT[sex]
   : metric === "length" ? D_F.FENTON_LENGTH[sex]
   : D_F.FENTON_HC[sex]
   );
-  const birthRows = table.filter(r => r[0] <= GA_MAX);
   const dataset = (() => {
     const rows = table.map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
     const inside = rows.filter(r => r[0] <= GA_MAX);
@@ -260,42 +261,18 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     return [1,2,3,4,5].map(i => lo[i] + f * (hi[i] - lo[i]));
   };
 
-  // A measurement on DOL 1 is the size at birth, and size at birth is read by
-  // completed week against the rows as published: born 26+0 to 26+6 is row 26
-  // (for length and HC, 4 weeks apart, the rows either side of 26). Fenton
-  // 2025 Table 3 names the non-interpolated meta-analysis as the size-for-GA
-  // reference. Read at exact age instead, a boy born 26+0 at 740 g (below row
-  // 26's p10, 767 g) showed "~16th" (Vera, on this PR).
-  const birthWeek = (() => {
-    const last = points[points.length - 1];
-    if (!last || last.dol !== 1) return null;
-    const wk = Math.floor(last.pma + 1e-9);
-    return rowAt(birthRows, wk) ? wk : null;
-  })();
-
-  // Under the readout: which size-at-birth row it came from. Length and HC
-  // rows are 4 weeks apart, so a birth at 28 weeks is read between rows 26
-  // and 30, and the label says so rather than naming a row that is not there.
-  const birthLabel = (() => {
-    if (birthWeek == null) return null;
-    if (birthRows.some(r => r[0] === birthWeek)) return `DOL 1 อ่านจากตาราง size at birth แถว ${birthWeek} สัปดาห์`;
-    const lo = birthRows.filter(r => r[0] < birthWeek).pop(), hi = birthRows.find(r => r[0] > birthWeek);
-    return `DOL 1 อ่านจากตาราง size at birth ที่ ${birthWeek} สัปดาห์ ระหว่างแถว ${lo[0]} กับ ${hi[0]}`;
-  })();
-
   // current percentile estimate
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
-    const vals = birthWeek != null ? rowAt(birthRows, birthWeek) : rowAt(dataset, last.pma);
+    const vals = rowAt(dataset, last.pma);
     return vals ? centileAmong(vals, last.value) : null;
   })();
   // The curves start half a week after the axis does, so a measurement in
   // between has no reference to be read against. Say where it begins, rather
   // than a bare "—" or a value extrapolated past the first row.
   const referenceStart = dataset.length ? D_F.fmtGA(D_F.daysToGA(Math.ceil(dataset[0][0] * 7))) : null;
-  const beforeReference = birthWeek == null && points.length > 0 && dataset.length > 0
-    && points[points.length - 1].pma < dataset[0][0];
+  const beforeReference = points.length > 0 && dataset.length > 0 && points[points.length - 1].pma < dataset[0][0];
 
   // Right-edge percentile labels can sit closer together than the (now larger,
   // see px() above) label text is tall where curves converge — e.g. 10th/3rd
@@ -483,8 +460,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
                 {currentPercentile || "—"}
               </div>
               <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
-                {birthLabel ? birthLabel
-                  : beforeReference ? `เส้นอ้างอิงเริ่มที่ PMA ${referenceStart}` : "percentile band"}
+                {beforeReference ? `เส้นอ้างอิงเริ่มที่ PMA ${referenceStart}` : "percentile band"}
               </div>
             </div>
 
