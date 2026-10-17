@@ -70,7 +70,7 @@ const MILK = [67, 1.2, 3.4, 6.7, 0.9, 1.39, 6.5 * 40.08 / 10, 4.8 * 30.97 / 10];
 const MILK_HMF = MILK.map((v, i) => v + [14, 1.1, 0.65, 1.1, 0.5, 0.5, 90, 45][i]);
 const FEED = { // per 100 mL: kcal, pro, fat, cho, Na mmol, K mmol, Ca mg, P mg
   BM_20: MILK, BM_HMF_24: MILK_HMF,
-  FBM_PF_22: at(80, T5_ENFALAC), PRENAN_22: at(80, T5_PRENAN), FBM_PF_24: at(80, T5_HIQ_LBW),
+  FBM_PF_22: at(73, T5_ENFALAC), PRENAN_22: at(73, T5_PRENAN), FBM_PF_24: at(80, T5_HIQ_LBW),
   FBM_INF_MIX: MILK_HMF.map((v, i) => (v + at(100, T16_INFATRINI)[i]) / 2), INFATRINI_30: at(100, T16_INFATRINI),
   LF_20: at(67, T7_HIQ_LF), LF_24: at(80, T7_HIQ_LF), LF_27: at(90, T7_HIQ_LF) };
 function recompute(s) {

@@ -537,9 +537,10 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // what stays is the arithmetic. Deliberately NOT folded into `centerPoint`:
 // that mode still saves, just somewhere else.
 // The Calculator's feed options. A row with no source (EN_DB `unsourced`) is
-// not offered for a new order. An order saved with one still lists it, marked,
-// so the select never shows a feed other than the one its numbers come from
-// (EN_DB rebuilt from the handbook, 2026-10-17).
+// not offered to pick. An order that already has one (reopened, or copied from
+// the day before) still lists it, marked, so the select never shows a feed
+// other than the one its numbers come from; a critical alert asks for a
+// sourced feed (EN_DB rebuilt from the handbook, 2026-10-17).
 function enFeedOptions(keys, current) {
   return keys.filter(k => D.EN_DB[k] && (!D.EN_DB[k].unsourced || k === current)).map(k =>
     <option key={k} value={k}>{D.EN_DB[k].label}{D.EN_DB[k].unsourced ? " — no source, choose another" : ""}</option>);
@@ -1844,9 +1845,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push({ level: "warn", title: "MEN ticked above trophic volume",
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d` });
-  // Only an order saved before 2026-10-17 can still carry a feed with no
-  // source, and every EN figure on it is computed from that row.
-  if (calc.enVolPerKg > 0 && D.EN_DB[enType]?.unsourced) alerts.push({ level: "warn", title: "Feed composition has no source",
+  // A feed with no source reaches an order only from one saved before
+  // 2026-10-17: reopened, or copied into the next day's order. Every counted EN
+  // figure on it comes from that row, so it is critical (a reason at Save) and
+  // asks again each day until a sourced feed is chosen.
+  if (calc.enCounted > 0 && D.EN_DB[enType]?.unsourced) alerts.push({ level: "crit", title: "Feed composition has no source",
     body: `${D.EN_DB[enType].label}: no handbook table or label gives these numbers, so every EN figure on this order is unverified. Choose the product the infant actually gets.`,
     ref: "EN_DB, 2026-10-17" });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — switch to central.`, ref: "Safety" });

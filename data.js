@@ -140,24 +140,24 @@ function syncFreshness(s) {
 
 // ── Enteral feed composition per 100 mL ─────────────────────
 // Units: kcal, pro/fat/cho in g, na/k in mmol, ca/p in mg, osm in mOsm/kg H₂O.
-// 1 oz = 30 mL: 20 kcal/oz = 67, 24 = 80, 27 = 90, 30 = 100 kcal/100 mL.
+// 1 oz = 30 mL: 20 kcal/oz = 67, 22 = 73, 24 = 80, 27 = 90, 30 = 100 kcal/100 mL.
 //
 // Rebuilt 2026-10-17 from the sources themselves (provenance audit, Pp). Until
 // then most formula rows came from docs/Chula_Handbook_Ed3_Reference.md, an AI
 // extraction whose tables do not match the scanned book (commit 357d095): HiQ
-// LF phosphorus was 76% high, Infatrini calcium 25% high, Enfalac Premature and
-// Pre Nan sat at an invented 22 kcal/oz. Never use that .md as a source.
+// LF phosphorus was 76% high, Infatrini calcium 25% high, BM + HMF protein 13%
+// high. Never use that .md as a source.
 //
 // So the source tables are copied below AS PRINTED, in the source's own units,
 // and EN_DB is computed from them: each literal can be checked against its
 // page, and a 24 or 27 kcal/oz row can never drift from its 20 kcal/oz row.
 // Every row names its `source`. A row with none carries `unsourced: true`; the
-// Calculator does not offer it for a new order and warns when an old order
-// still uses it (test/verify-en-db-sources.cjs, which holds its own copy of
+// Calculator's feed list does not offer it, and an order that still has one
+// raises a critical alert (test/verify-en-db-sources.cjs, which holds its own copy of
 // these tables). `osm` is shown on the Formula reference page only, and no
 // calculation reads it; null means the source gives none at that strength.
 const EN_MG_PER_MMOL = { na: 22.99, k: 39.10, ca: 40.08, p: 30.97 };
-const EN_KCAL_PER_100ML = { 20: 67, 24: 80, 27: 90, 30: 100 };
+const EN_KCAL_PER_100ML = { 20: 67, 22: 73, 24: 80, 27: 90, 30: 100 };
 
 // Chula Pediatric Nutrition Handbook, 3rd ed. (2565), docs/Nutrition PedCu Ed3.pdf.
 // The formula tables are per 100 kcal, Na and K in mg. `kcalOz` is the strength
@@ -179,6 +179,10 @@ const EN_SRC_CHULA_PER_100_KCAL = {
 // Box 1.3.1 (p. 16): term mature milk (> 30 days), per litre.
 const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };
 // Box 1.3.3 (p. 19): Enfamil human milk fortifier, one 4 g dose for 100 mL.
+// The source here is the WHO Box, as asked. Chula p. 10 prints Enfamil HMF per
+// 1 g protein with more Na and K (14.5 and 26.4 mg): at 1.1 g protein, Na 0.69
+// and K 0.74 mmol, so BM + HMF Na 1.59 and K 2.13 mmol/100 mL. Which HMF KCMH
+// stocks, and its label, is for Pp and pharmacy to confirm.
 const EN_SRC_WHO_ENFAMIL_HMF_4G = { kcal: 14, pro: 1.1, fat: 0.65, cho: 1.1, naMmol: 0.5, kMmol: 0.5, ca: 90, p: 45, osmRise: 63 };
 
 // A Chula per-100-kcal column at a ward strength, per 100 mL.
@@ -228,28 +232,31 @@ const EN_DB = {
   // ── Preterm formula ────────────────────────────────────────
   // No source: no product has this profile (per 100 kcal it is a term
   // formula: 2.2 g protein, 75 mg Ca). Kept only so an order saved with it
-  // still opens; the Calculator does not offer it for a new order.
+  // still opens; the Calculator's feed list does not offer it.
   BM_PF_20: {
     label: "Preterm Formula (20 kcal/oz)",
     kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4,
     na: 1.0, k: 1.7, ca: 50, p: 28,
     osm: null, lf: false,
     unsourced: true,
-    note: "No source — not offered for a new order. Choose the product the infant gets",
+    note: "No source — not offered in the Calculator. Choose the product the infant gets",
   },
-  // The key says 22 for orders saved before 2026-10-17; the book prints this
-  // product at 24 kcal/oz, and so does the label now.
+  // 22 kcal/oz is the ward's strength: "Preterm Formula (22 kcal/oz)" at 73
+  // kcal/100 mL from the first commit until 357d095 named it Enfalac Premature
+  // and set 74. The book prints the product at 24, so its osmolality (310)
+  // does not apply here.
   FBM_PF_22: {
-    label: "Enfalac Premature (24 kcal/oz)",
-    ..._enFromChula(_EN_CHULA.enfalacPremature, 24), lf: false,
+    label: "Enfalac Premature (22 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 22), lf: false,
     source: "Chula Handbook Table 5, p. 16 (per 100 kcal)",
     note: "Enfalac Premature (MJN) · Ca:P 1.8:1 · whey:casein 60:40",
   },
-  // Same key history as FBM_PF_22. The book lists Pre Nan with the preterm
-  // formulas (Table 5); the Calculator groups it as post-discharge (TPN team).
+  // Added by 357d095 at 22 kcal/oz; the book prints it at 24 (osmolality 263
+  // there). The book lists Pre Nan with the preterm formulas (Table 5); the
+  // Calculator groups it as post-discharge (TPN team, 2026-09-28).
   PRENAN_22: {
-    label: "Pre Nan (24 kcal/oz)",
-    ..._enFromChula(_EN_CHULA.preNan, 24), lf: false,
+    label: "Pre Nan (22 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.preNan, 22), lf: false,
     source: "Chula Handbook Table 5, p. 16 (per 100 kcal)",
     note: "Pre Nan (Nestlé) · Ca:P 1.7:1 · whey:casein 70:30",
   },

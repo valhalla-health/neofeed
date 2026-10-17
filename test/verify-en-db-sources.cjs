@@ -5,8 +5,7 @@
 // rows in EN_DB had been copied (commit 357d095) from
 // docs/Chula_Handbook_Ed3_Reference.md, an AI extraction whose tables do not
 // match the scanned handbook. HiQ LF phosphorus was 76% high, Infatrini
-// calcium 25% high, BM + HMF protein 13% high, and Enfalac Premature and
-// Pre Nan sat at a 22 kcal/oz the book never prints. Nothing could catch it,
+// calcium 25% high, BM + HMF protein 13% high. Nothing could catch it,
 // because no harness held the source.
 //
 // This one does. Below is its OWN transcription of the source tables, typed
@@ -20,8 +19,9 @@
 //   #2  every EN_DB row equals its source, field by field, at its strength
 //   #3  every row names its source (table and page), or is marked unsourced;
 //       the unsourced set is exactly the one below
-//   #4  the Calculator: a new order cannot pick an unsourced feed; an old
-//       order that still has one shows it, marked, and warns
+//   #4  the Calculator: an unsourced feed cannot be picked; an order that
+//       still has one (reopened, or copied from the day before) shows it,
+//       marked, and raises a critical alert
 //   #5  the Formula reference page: a source line on every row, rounded
 //       figures, "—" where the source gives no osmolality
 //
@@ -93,7 +93,9 @@ const BOX_131_TERM = { energyKcal: 640, proteinG: 12, fatG: 34, carbG: 67, caMmo
 const BOX_133_ENFAMIL = { energyKcal: 14, proteinG: 1.1, fatG: 0.65, carbG: 1.1, caMg: 90, pMg: 45, naMmol: 0.5, kMmol: 0.5 };
 
 // Conversions. 1 oz = 30 mL, rounded as the ward has always written it.
-const PER_100ML_AT_OZ = { 20: 67, 24: 80, 27: 90, 30: 100 };
+// 22 kcal/oz is the ward's strength for Enfalac Premature and Pre Nan; the
+// book prints both at 24, so their osmolality does not carry over.
+const PER_100ML_AT_OZ = { 20: 67, 22: 73, 24: 80, 27: 90, 30: 100 };
 const MG_PER_MMOL = { Na: 22.99, K: 39.10, Ca: 40.08, P: 30.97 };
 // Term mature milk is labelled 20 kcal/oz = 67 kcal/100 mL, inside Chula
 // p. 8's mature-milk range (65.2–70); the Box itself gives 64.
@@ -126,8 +128,8 @@ MIX.osm = null;
 const EXPECTED = {
   BM_20:        { want: BM, cites: ['Box 1.3.1'] },
   BM_HMF_24:    { want: BM_HMF, cites: ['Box 1.3.3'] },
-  FBM_PF_22:    { want: atStrength(column(T5, 'enfalacPremature'), 24), cites: ['Table 5', 'p. 16'] },
-  PRENAN_22:    { want: atStrength(column(T5, 'preNan'), 24), cites: ['Table 5', 'p. 16'] },
+  FBM_PF_22:    { want: atStrength(column(T5, 'enfalacPremature'), 22), cites: ['Table 5', 'p. 16'] },
+  PRENAN_22:    { want: atStrength(column(T5, 'preNan'), 22), cites: ['Table 5', 'p. 16'] },
   FBM_PF_24:    { want: atStrength(column(T5, 'hiQLbw'), 24), cites: ['Table 5', 'p. 16'] },
   LF_20:        { want: atStrength(column(T7, 'hiQLf'), 20), cites: ['Table 7', 'p. 18'] },
   LF_24:        { want: atStrength(column(T7, 'hiQLf'), 24), cites: ['Table 7', 'p. 18'] },
@@ -210,7 +212,7 @@ const scenarios = {
   },
 
   async 'calculator'(A) {
-    console.log('\n── #4 the Calculator offers no unsourced feed, and warns on an old one ──');
+    console.log('\n── #4 the Calculator offers no unsourced feed, and flags one an order still has ──');
     const babel = require('@babel/core');
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html><head></head><body><div id="root"></div></body></html>',
@@ -243,13 +245,13 @@ const scenarios = {
     const patient = { sessionId: 'EN-SRC', name: 'Source', initials: 'SR', bw: 1200, ga: 30, sex: 'boys',
       admissionDate: '2026-10-01', currentBed: 'NICU 1', diagnosis: '-', weights: [{ dol: 1, w: 1200 }], lengths: [], hcs: [] };
     let root = null;
-    const mount = (editEntry) => {
+    const mount = (editEntry, baselineEntry = null) => {
       if (root) act(() => { root.unmount(); });
       window.localStorage.clear();
       root = ReactDOM.createRoot(container);
       act(() => {
         root.render(React.createElement(window.Calculator, {
-          patient, dol: 12, editEntry, baselineEntry: null, previousEntry: null, logDate: null,
+          patient, dol: 12, editEntry, baselineEntry, previousEntry: null, logDate: null,
           userLabel: 'Dr Source (src@kcmh.test)', userEmail: 'src@kcmh.test',
           onLog: () => Promise.resolve({ ok: true, entryId: 'x', lastModified: 'x' }),
           onUpdate: () => Promise.resolve({ ok: true, lastModified: 'x' }), onSaved() {}, onWeightChange() {},
@@ -275,8 +277,8 @@ const scenarios = {
     A.eq('4.2 a new order offers exactly the sourced feeds', opts.map(o => o.value).sort(), [...CALC_OFFERS].sort());
     A.eq('4.3 none of them is disabled', opts.filter(o => o.disabled).map(o => o.value), []);
     A.eq('4.4 each option reads its EN_DB label', opts.filter(o => o.textContent !== DB[o.value]?.label).map(o => o.value), []);
-    A.ok('4.5 Enfalac Premature is offered at the book\'s 24 kcal/oz',
-      opts.some(o => o.value === 'FBM_PF_22' && o.textContent === 'Enfalac Premature (24 kcal/oz)'));
+    A.ok('4.5 Enfalac Premature keeps the ward\'s 22 kcal/oz',
+      opts.some(o => o.value === 'FBM_PF_22' && o.textContent === 'Enfalac Premature (22 kcal/oz)'));
 
     // An order saved with the unsourced row, reopened.
     const old = { entryId: 'e-old', ts: '2026-10-12', weight: 1500, lastModified: '2026-10-12T02:00:00.000Z',
@@ -286,7 +288,7 @@ const scenarios = {
     A.eq('4.6 the reopened order still shows its own feed', sel2?.value, 'BM_PF_20');
     const shown = sel2 ? [...sel2.options].find(o => o.value === 'BM_PF_20') : null;
     A.ok('4.7 …marked as having no source', !!shown && /no source, choose another/.test(shown.textContent));
-    A.eq('4.8 …and the order warns, once, at warn level', noSourceAlerts().map(a => a.classList.contains('warn')), [true]);
+    A.eq('4.8 …and raises one critical alert (a reason at Save)', noSourceAlerts().map(a => a.classList.contains('crit')), [true]);
     pick('LF_24');
     A.ok('4.9 choosing a sourced feed removes the unsourced option', ![...feedSelect().options].some(o => o.value === 'BM_PF_20'));
     A.eq('4.10 …and the warning', noSourceAlerts().length, 0);
@@ -294,6 +296,15 @@ const scenarios = {
     // A reopened order on a sourced feed never warns.
     mount({ ...old, entryId: 'e-lf', calcInput: { ...old.calcInput, enType: 'LF_24' } });
     A.eq('4.11 a sourced feed does not warn', noSourceAlerts().length, 0);
+
+    // The next day's new order, copied from an order on the unsourced feed
+    // (Vera, 2026-10-17): the feed carries over, and so does the alert.
+    mount(null, old);
+    A.eq('4.12 a copied new order keeps the feed it was copied from', feedSelect()?.value, 'BM_PF_20');
+    A.eq('4.13 …and raises the critical alert every day it stays', noSourceAlerts().map(a => a.classList.contains('crit')), [true]);
+    // A MEN feed counts toward no nutrient, so no figure comes from the row.
+    mount({ ...old, entryId: 'e-men', calcInput: { ...old.calcInput, isMEN: true, enVol: 2 } });
+    A.eq('4.14 an unsourced MEN feed raises nothing (no figure uses it)', noSourceAlerts().length, 0);
     act(() => { root.unmount(); });
   },
 

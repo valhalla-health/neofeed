@@ -104,7 +104,7 @@ const PER_100_KCAL = {
   hiQLf:            [2.4, 5.2, 10.8, 34, 80, 64, 34],   // Table 7, p. 18
   infatrini:        [2.6, 5.4, 10.3, 37, 100, 99, 54],  // Table 16, p. 29 (powder)
 };
-// per 100 mL at kcal/100 mL (1 oz = 30 mL: 20 → 67, 24 → 80, 27 → 90, 30 → 100):
+// per 100 mL at kcal/100 mL (1 oz = 30 mL: 20 → 67, 22 → 73, 24 → 80, 27 → 90, 30 → 100):
 // [kcal, pro g, fat g, cho g, Na mmol, K mmol, Ca mg, P mg]
 const perMl = ([pro, fat, cho, na, k, ca, p], kcal) => {
   const f = kcal / 100;
@@ -121,8 +121,8 @@ const INFATRINI = perMl(PER_100_KCAL.infatrini, 100);
 const FEED = {
   BM_20:        BM,
   BM_HMF_24:    BM_HMF,
-  FBM_PF_22:    perMl(PER_100_KCAL.enfalacPremature, 80),
-  PRENAN_22:    perMl(PER_100_KCAL.preNan, 80),
+  FBM_PF_22:    perMl(PER_100_KCAL.enfalacPremature, 73),   // the ward's 22 kcal/oz
+  PRENAN_22:    perMl(PER_100_KCAL.preNan, 73),
   FBM_PF_24:    perMl(PER_100_KCAL.hiQLbw, 80),
   FBM_INF_MIX:  BM_HMF.map((v, i) => (v + INFATRINI[i]) / 2),   // alternating: the mean
   INFATRINI_30: INFATRINI,

@@ -1294,8 +1294,8 @@ function Calculator({
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d`
   });
-  if (calc.enVolPerKg > 0 && D.EN_DB[enType]?.unsourced) alerts.push({
-    level: "warn",
+  if (calc.enCounted > 0 && D.EN_DB[enType]?.unsourced) alerts.push({
+    level: "crit",
     title: "Feed composition has no source",
     body: `${D.EN_DB[enType].label}: no handbook table or label gives these numbers, so every EN figure on this order is unverified. Choose the product the infant actually gets.`,
     ref: "EN_DB, 2026-10-17"
