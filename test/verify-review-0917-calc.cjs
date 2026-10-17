@@ -457,7 +457,15 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     ok('legacy row, BW corrected: the GIR shows the weight moved → withheld', !printForm());
     mount({ patient: P900, editEntry: row(inputs), logDate: null });
     render({ patient: { ...P900, bw: 1000 }, editEntry: row(inputs), logDate: null });
-    ok('legacy row with no recoverable evidence is not held back', !!printForm());
+    ok('no tpnWtG and no GIR: the dosing-weight rule does not hold it back', !!printForm());
+    // A real row that old has no CONSTANTS_VERSION stamp either: calcMoved holds
+    // it (Vera, this PR). On 55d893d this order printed.
+    const { constantsVersion, ...unstamped } = inputs;
+    mount({ patient: P900, editEntry: row(unstamped), logDate: null });
+    render({ patient: { ...P900, bw: 1000 }, editEntry: row(unstamped), logDate: null });
+    ok('…the same row unstamped is held until it is saved again', !printForm()
+      && /NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก/.test(container.querySelector('.print-blocked')?.textContent || ''),
+      container.querySelector('.print-blocked')?.textContent);
     const overridden = row({ ...inputs, tpnWtOverrideG: 950, tpnWtG: 950 });
     mount({ patient: P900, editEntry: overridden, logDate: null });
     render({ patient: { ...P900, bw: 1000 }, editEntry: overridden, logDate: null });

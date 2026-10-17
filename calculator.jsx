@@ -239,8 +239,9 @@ const isPendingEntryId = (id) => /^(local_)?tmp_/.test(String(id || ""));
 // calcInput.tpnWtG (exact). Older rows don't, so it is recovered only from
 // columns whose formula has not changed and depends on nothing but the dosing
 // weight: GIR (delivered dextrose g × 1000 ÷ 1440 ÷ kg) or EN mL/kg/d. No such
-// evidence → null → never blocks (a legacy row is only held back when the
-// record itself shows the weight moved).
+// evidence → null → this rule never blocks (it holds a row back only when the
+// record itself shows the weight moved). A row that old has no CONSTANTS_VERSION
+// stamp either, so calcMoved holds it until it is saved again.
 function savedDosingWeightOf(entry) {
   const ci = entry?.calcInput || {};
   const num = (v) => { const x = Number(v); return isFinite(x) ? x : 0; };

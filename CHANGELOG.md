@@ -55,7 +55,7 @@ figure on it would move.
   before: a row with no `aaProduct`, a TPN row with no dead space, and a feeds-only row. Each now says it
   is held, and the first and last are saved again and their reprints checked (10% Aminoven 60 mL; no
   vitamin mL on a day with no bag). 194/194.
-- RESULTS
+- Full run on this tree, sources and compiled: pending (the local run was stopped when the usage limit was reached; CI runs both on the PR). The first source pass after the fix: every harness passed except the six fixed above.
 
 ### Not done
 
