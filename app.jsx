@@ -4407,18 +4407,23 @@ function FormulasPanel() {
                           );
                         })()}
                       </td>
-                      {[f.kcal, f.pro, f.fat, f.na == null ? null : D_A.displayNum(f.na, 2), f.k == null ? null : D_A.displayNum(f.k, 2), f.ca, f.p].map((v, j) => (
+                      {/* EN_DB rows are computed from the handbook's per-100-kcal
+                          tables (2026-10-17), so every figure is rounded here. */}
+                      {[[f.kcal, 1], [f.pro, 2], [f.fat, 2], [f.na, 2], [f.k, 2], [f.ca, 1], [f.p, 1]].map(([v, d], j) => (
                         <td key={j} className="num" style={{ padding: "7px 10px", textAlign: "center",
-                          fontWeight: 500, fontSize: 12.5 }}>{v ?? "—"}</td>
+                          fontWeight: 500, fontSize: 12.5 }}>{D_A.displayNum(v, d)}</td>
                       ))}
-                      <td className="num" style={{ padding: "7px 10px", textAlign: "center", fontSize: 12 }}>{f.osm}</td>
+                      <td className="num" style={{ padding: "7px 10px", textAlign: "center", fontSize: 12 }}>{D_A.displayNum(f.osm, 0)}</td>
                       <td style={{ padding: "7px 10px", textAlign: "center", fontSize: 12 }}>
                         <span style={{ color: f.lf ? "var(--ok)" : "var(--ink-3)", display: "inline-flex" }}>
                           {f.lf ? <Icon name="check" size={15} stroke={2.2} /> : "—"}
                         </span>
                       </td>
                       <td style={{ padding: "7px 10px", fontSize: 11, color: "var(--ink-3)",
-                        maxWidth: 200, wordBreak: "break-word" }}>{f.note || ""}</td>
+                        maxWidth: 200, wordBreak: "break-word" }}>
+                        {f.note || ""}
+                        <div style={{ marginTop: f.note ? 3 : 0 }}>{f.unsourced ? "No source" : `Source: ${f.source}`}</div>
+                      </td>
                     </tr>
                   );
                 })}

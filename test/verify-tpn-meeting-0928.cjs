@@ -348,13 +348,15 @@ function baseOrder({ tf = 120 } = {}) {
     const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'BM_20'));
     const groups = [...sel.querySelectorAll('optgroup')].map(g => ({ label: g.label, keys: [...g.querySelectorAll('option')].map(o => o.value) }));
     const keysOf = (re) => (groups.find(g => re.test(g.label)) || {}).keys;
-    eq('preterm formula: PF 20, Enfalac Premature 22, Hi-Q LBW 24', keysOf(/Preterm formula$/), ['BM_PF_20', 'FBM_PF_22', 'FBM_PF_24']);
+    // BM_PF_20 has no source, so a new order is not offered it (EN_DB from the
+    // handbook, 2026-10-17; verify-en-db-sources.cjs). The page below still lists it.
+    eq('preterm formula: Enfalac Premature 22, Hi-Q LBW 24', keysOf(/Preterm formula$/), ['FBM_PF_22', 'FBM_PF_24']);
     eq('post-discharge formula: Pre Nan 22', keysOf(/Post-discharge formula$/), ['PRENAN_22']);
     eq('high-energy: FBM ↔ Infatrini, Infatrini 30', keysOf(/High-energy formula$/), ['FBM_INF_MIX', 'INFATRINI_30']);
     ok('no group lumps preterm with high-energy', !groups.some(g => /Preterm \/ High-energy/.test(g.label)), groups.map(g => g.label));
     const offered = groups.flatMap(g => g.keys).sort();
-    eq('every feed offered before is still offered, once',
-      offered, ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'FBM_INF_MIX', 'FBM_PF_22', 'FBM_PF_24', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'PRENAN_22']);
+    eq('every sourced feed offered before is still offered, once',
+      offered, ['BM_20', 'BM_HMF_24', 'FBM_INF_MIX', 'FBM_PF_22', 'FBM_PF_24', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'PRENAN_22']);
     // The Formula reference page (app.jsx, not mounted here): the same split, and Pre Nan at last.
     const src = R('app.jsx');
     const block = /function FormulasPanel\(\)[\s\S]*?const groups = \[([\s\S]*?)\];/.exec(src)?.[1] || '';
