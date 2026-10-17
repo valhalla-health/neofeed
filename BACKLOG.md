@@ -287,6 +287,24 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] 🩺 **safety · Three growth questions from the 2026-10-17 provenance audit, for Pp.** The same audit
+      found the Fenton rows drawn half a week early, fixed on 2026-10-17 (`CHANGELOG.md`). These three
+      were left as they are until Pp decides:
+      1. **After 37 weeks the size-at-birth rows are not the growth chart.** `FENTON_WEIGHT` is the
+         size-at-birth (completed-week) table. Fenton's growth-monitoring chart follows it to about 37 weeks,
+         then bends to meet WHO at 50 (Fenton 2025 Table 3: the curves match the data, and assign size
+         for GA, up to 37 weeks). With the rows at GA + 0.5 (2026-10-17), from 38.5 to 41.5 wk the app's
+         p90 / p97 sit up to ~310 / ~420 g below the official chart (girls, 41.5 wk), its p50 up to ~120 g
+         below, and p3 / p10 within about ±60 g (audit § 1d, digitised chart). A girl on the official 90th
+         at about 41½ weeks reads ">97th". The fix needs the monitoring rows (Fenton's LMS, by email) or a
+         decision.
+      2. **Growth velocity's 15 / 10 g/kg/d grading is not from ESPGHAN 2022**, though the screen says
+         so (`data.js` `GROWTH_VEL_TARGET` / `GROWTH_VEL_CRITICAL`). ESPGHAN gives a GA-specific fetal band
+         (20–23 g/kg/d at 23–25 wk down to 10–13 at 35–37), so a median-tracking infant reads amber from
+         about 33 wk and red from about 37.
+      3. **The length/HC cm/wk colours** (`fenton.jsx` `GrowthVelocity`: 0.5–1.0 green, red outside
+         0.3–1.3) have no source, and Fenton 2025 Table 2 puts the median length gain at 1.4–1.5 cm/wk
+         at 23–31 wk, which shows red.
 - [ ] **cleanup · `confirmOverwrite` is unused since 2026-09-27.** `registerPatient` still accepts it and
       writes a registration over the record that holds the id, which would file one infant's Daily_Log
       under another's name. No client sends it: a taken id is drawn again. Remove it, and the 2026-09-24
@@ -459,7 +477,9 @@ clinical judgement. Everything else is engineering sequencing.
       - **`FENTON_LENGTH`'s 42-week row is ~3 cm high** (`data.js:912-933`): the 50th steps
         +1.05 cm/wk to 38, +1.45 to 42, then +0.38 — so a 49.9 cm term boy plots near the 8th
         percentile. Already unverified in `docs/CLINICAL_CONSTANTS.md`; say so on the chart until the
-        LMS parameters arrive.
+        LMS parameters arrive. *(Said on the chart since 2026-10-17: the Length and HC tabs carry a
+        not-verified note, and the Length one says the curve runs high after 38 weeks. The row itself
+        is unchanged; with the rows at GA + 0.5 that boy reads about the 16th, still too low.)*
       - Smaller, batchable: "SCN 01" ≠ "SCN 1" in `normalizeBed`/`_normBed`; a measurement row cannot
         be cleared or deleted; with no admit date the logger caps DOL at the last stored one and
         overwrites it; the weight series is not sorted before plotting; a blank date in `LogDateModal`
@@ -648,7 +668,7 @@ clinical judgement. Everything else is engineering sequencing.
       2026-09-05 against the official ucalgary.ca v2 cutoff table (which caught and fixed GA
       36-41 boys / 36,40,41 girls drift — see `CHANGELOG.md`); the other two still have **no
       public numeric table to check against at all** (charts only). Praew is emailing
-      tfenton@ucalgary.ca for the LMS parameters.
+      tfenton@ucalgary.ca for the LMS parameters. Since 2026-10-17 the Length and HC tabs say so.
 - [ ] ⚖️ **PDPA · No self-service access/rectification path** for data-subject requests; handled
       manually by an admin editing the registry. Worth a real endpoint if volume grows.
 - [ ] ⚖️ **PDPA · Cross-border transfer (Sec 28) never evaluated** — data lives in Google
