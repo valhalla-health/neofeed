@@ -55,7 +55,14 @@ figure on it would move.
   before: a row with no `aaProduct`, a TPN row with no dead space, and a feeds-only row. Each now says it
   is held, and the first and last are saved again and their reprints checked (10% Aminoven 60 mL; no
   vitamin mL on a day with no bag). 194/194.
-- Full run on this tree, sources and compiled: pending (the local run was stopped when the usage limit was reached; CI runs both on the PR). The first source pass after the fix: every harness passed except the six fixed above.
+- Vera, on this PR: the §9 assertion for a row with no weight evidence now names the rule it tests, and
+  its unstamped twin is held. That twin is the one failure of 121 on `55d893d`; 121/121 here.
+- Full run on `82c4bd3`, as CI runs it: every `test/verify-*.cjs` plus `DEAD=0 verify-kcmh-factor.cjs`,
+  90/90 against the sources and 90/90 with `compiled-loader.cjs`, which swapped in `compiled/` everywhere it
+  mounts modules. `node tools/build.mjs` on that commit changes nothing. Ten harnesses skipped their
+  Playwright sections here (no browser shim); CI's compiled pass runs them. One earlier source pass lost a
+  scenario of `verify-help-request-frontend.cjs` to an out-of-memory abort (exit 134) while other sessions
+  ran their suites; alone it passed 53/53.
 
 ### Not done
 
