@@ -332,8 +332,12 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
         )}
         {/* FENTON_LENGTH / FENTON_HC are unverified (docs/CLINICAL_CONSTANTS.md):
             Fenton publishes them only as charts, and the rows sit 4 weeks
-            apart. Weight is checked against the official cutoff table, so its
-            tab carries no note. The 42-week length row is about 2–3 cm above
+            apart. Weight's rows are the size-at-birth table, checked against the
+            official cutoff table, and under 37 weeks they are also the
+            growth-monitoring curve, so its tab carries no note. From 37 weeks
+            they are not (up to 10 centile points off Fenton's calculator,
+            test/verify-fenton-official-1017.cjs); whether Weight gets a note
+            there waits for Pp (BACKLOG.md § Next). The 42-week length row is about 2–3 cm above
             the official chart (BACKLOG.md), which makes a term infant look short. */}
         {metric !== "weight" && (
           <div role="note" style={{ padding: "10px 12px", background: "var(--warn-bg)",

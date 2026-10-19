@@ -296,8 +296,11 @@ clinical judgement. Everything else is engineering sequencing.
          for GA, up to 37 weeks). With the rows at GA + 0.5 (2026-10-17), from 38.5 to 41.5 wk the app's
          p90 / p97 sit up to ~310 / ~420 g below the official chart (girls, 41.5 wk), its p50 up to ~120 g
          below, and p3 / p10 within about ±60 g (audit § 1d, digitised chart). A girl on the official 90th
-         at about 41½ weeks reads ">97th". The fix needs the monitoring rows (Fenton's LMS, by email) or a
-         decision.
+         at about 41½ weeks reads ">97th". Fenton's own calculator agrees (`test/verify-fenton-official-1017.cjs`,
+         10 points from 37 wk): mean gap 3.3 centile points, worst +10.2 (boy 41+4, 4325 g, ~90th against
+         the 80th). The half-week shift helps at 37–39 wk but moves the points from 40 wk a little further
+         off than on 55d893d (Vera, PR #158, fourth run). The Weight tab carries no note there; the Length
+         and HC tabs do. The fix needs the monitoring rows (Fenton's LMS, by email) or a decision.
       2. **Growth velocity's 15 / 10 g/kg/d grading is not from ESPGHAN 2022**, though the screen says
          so (`data.js` `GROWTH_VEL_TARGET` / `GROWTH_VEL_CRITICAL`). ESPGHAN gives a GA-specific fetal band
          (20–23 g/kg/d at 23–25 wk down to 10–13 at 35–37), so a median-tracking infant reads amber from

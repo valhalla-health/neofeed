@@ -9,9 +9,9 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ## Session 2026-10-19 — PR #158's last review fixes: DOL-1 length and HC recorded, the Length note narrowed
 
-`fenton.jsx` (the Length note), `compiled/fenton.js`, both shells' `?v=` tokens,
+`fenton.jsx` (the Length note, a comment), `compiled/fenton.js`, both shells' `?v=` tokens,
 `test/verify-fenton-official-1017.cjs` (§ 2–4), `test/README.md`, `docs/CLINICAL_CONSTANTS.md` (the
-`FENTON_WEIGHT` row). Frontend only, no `clasp` step. On draft PR #158; nothing released. It corrects
+`FENTON_WEIGHT` row), `BACKLOG.md` (§ Next, growth question 1). Frontend only, no `clasp` step. On draft PR #158; nothing released. It corrects
 entry (3) below, which this file's rule keeps as it was.
 
 ### Why
@@ -36,7 +36,12 @@ them on top of entry (4).
   official 84th: the app reads him longer there, not shorter.
 - **The register row** (`FENTON_WEIGHT`) records the official check: growth monitoring under 37 weeks
   within 4.5 centile points, DOL-1 weight within 4.1, and growth monitoring from 37 weeks up to 10.2 points
-  off, because the rows there are the size-at-birth rows.
+  off, because the rows there are the size-at-birth rows. Its status splits to match (Vera, fourth run,
+  🟡): 🟢 for size at birth and for growth monitoring under 37 weeks, 🟡 for growth monitoring from 37.
+- **Weight from 37 weeks has no note yet** (Vera, fourth run, 🟠). The comment above the Length/HC note
+  said Weight needs none; it now says why that holds only under 37 weeks. Whether the Weight tab gets a
+  note there is growth question 1 in `BACKLOG.md` § Next, which now carries the official check's figures.
+  No behaviour changed.
 - **Entry (3)'s "neither harness depends on" the ordinal fix was wrong** (Vera 🟡2): the half-week
   harness's parser read only "th". Entry (4) changed the parser.
 - `CONSTANTS_VERSION` stays `2026-10-11.1`: no `FENTON_*` value changed, and no Fenton figure is printed
