@@ -1,5 +1,12 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-13, 09:59 ICT — frontend `release` = `3249406` on both hosts, with backend `@64`.**
+> PR #157 released #156: Back asks before it closes Register new session, Edit session or Transfer bed, a
+> second Back in a row stays in the app, and `tools/dev-local.mjs` runs before every release. Frontend
+> only; `CONSTANTS_VERSION` unchanged. The tree was run on dev local before the merge. `node
+> tools/verify-release.mjs 3249406 --wait` passed on both hosts (0 failures, 61 passes). The tag
+> `release-2026-10-13-pr157` is pushed (comment on #157). ⚠️ **No ward phone has tried Back since #154.**
+>
 > ✅ **2026-10-12, 11:27 ICT — frontend `release` = `266a08d` on both hosts, with backend `@64`.**
 > PR #155 released #154, #153 and #152: the Active, Logged today and Needs entry tiles filter the ward
 > list; each ward has a Print order button on the gate; the phone's Back steps back inside the app; NF-17,
@@ -150,12 +157,16 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-12** · ✅ **Backend `@64` and frontend `release` = `266a08d` are live, and both are
-verified.** Caught up with #151 and #155 in the next PR on the repo, the Back confirm (`CHANGELOG.md`
-2026-10-12 (3)), as #155 asked.
-- ⏳ **PR #156, Back asks before it closes a form, Back after Back stays in the app, and dev local before
-  every release: merged into `main` on Pp's instruction ("merge แล้ว deploy").** Not live until its
-  `main → release` PR merges. Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged.
+**Updated 2026-10-19** · ✅ **Backend `@64` and frontend `release` = `3249406` are live, and both are
+verified.** Caught up with #156 and #157 in the next PR on the repo, NF-19 (`CHANGELOG.md` 2026-10-19),
+as #157 asked.
+- ✅ **PR #162, NF-19: `tools/ci_bans.js` fails CI on a raw `toFixed(n)` (the trailing-zero rule):
+  merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").** CI and docs only: neither host
+  serves `.github/`, `test/`, `tools/` or `*.md` (`.assetsignore`, `_config.yml`), so no served file changes
+  and no `main → release` PR is needed. The next release carries it.
+- ✅ **PR #156, Back asks before it closes a form, Back after Back stays in the app, and dev local before
+  every release: live, released by #157 on Pp's instruction ("merge แล้ว deploy").** Frontend only, no
+  `clasp` step. `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-12 (3).
 - ✅ **PR #154, the stats tiles filter the list, Print order per ward on the gate, and Back inside the app:
   live, released by #155 on Pp's instruction ("merge ตอนนี้", after a local dev run).** Frontend only.
   `CHANGELOG.md` 2026-10-12 (1) and (2). ⚠️ In this release a second Back in a row, with no tap between,

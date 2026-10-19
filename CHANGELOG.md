@@ -10,7 +10,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-19 — `tools/ci_bans.js`: a correction made twice becomes a failing build (NF-19)
 
 `tools/ci_bans.js`, `test/ci-bans-fixtures.json` (new), `.github/workflows/test.yml`, `AGENTS.md`,
-`test/README.md`. No app code changed; nothing to release.
+`test/README.md`, `STATUS.md` (catches up with #156 and #157). No app code changed; nothing to release.
+PR #162, merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").
 
 ### Why
 
