@@ -1,11 +1,11 @@
 # NeoFeed — Status
 
 > ✅ **2026-10-13, 09:59 ICT — frontend `release` = `3249406` on both hosts, with backend `@64`.**
-> PR #157 released #156: Back asks before it closes Register new session, Edit session or Transfer bed, a
-> second Back in a row stays in the app, and `tools/dev-local.mjs` runs before every release. Frontend
-> only; `CONSTANTS_VERSION` unchanged. The tree was run on dev local before the merge. `node
-> tools/verify-release.mjs 3249406 --wait` passed on both hosts (0 failures, 61 passes). The tag
-> `release-2026-10-13-pr157` is pushed (comment on #157). ⚠️ **No ward phone has tried Back since #154.**
+> PR #157 released #156: Back asks before it closes a form, and Back after Back stays in the app.
+> Before the merge the tree ran on dev local (`tools/dev-local.mjs`), the first release with that as a
+> set step. `node tools/verify-release.mjs 3249406 --wait` passed on both hosts (0 failures, 61 passes,
+> and both hosts serve the new `?v=` tokens). The tag `release-2026-10-13-pr157` is pushed (comment on
+> #157). No ward phone has tried Back since #154. Recorded here by PR #158, the next PR on the repo.
 >
 > ✅ **2026-10-12, 11:27 ICT — frontend `release` = `266a08d` on both hosts, with backend `@64`.**
 > PR #155 released #154, #153 and #152: the Active, Logged today and Needs entry tiles filter the ward
@@ -158,15 +158,20 @@
 > (`BACKLOG.md` § Now).
 
 **Updated 2026-10-19** · ✅ **Backend `@64` and frontend `release` = `3249406` are live, and both are
-verified.** Caught up with #156 and #157 in the next PR on the repo, NF-19 (`CHANGELOG.md` 2026-10-19),
-as #157 asked.
+verified.** Caught up with #156 and #157 in the next PR on the repo, the Fenton half-week fix, as #157
+asked.
 - ✅ **PR #162, NF-19: `tools/ci_bans.js` fails CI on a raw `toFixed(n)` (the trailing-zero rule):
   merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").** CI and docs only: neither host
   serves `.github/`, `test/`, `tools/` or `*.md` (`.assetsignore`, `_config.yml`), so no served file changes
   and no `main → release` PR is needed. The next release carries it.
+- ⏳ **PR #158, the Fenton rows drawn at GA + 0.5, DOL 1 read at exact GA, the readout's ordinals, and
+  Length and HC saying they are not verified: merged into `main` on Pp's instruction ("merge #158
+  แล้วตามด้วย #161 เข้า main ตามขั้นตอนของ repo ยังไม่ต้อง release").** Not live until its `main →
+  release` PR merges, which Pp has not asked for yet. Frontend only, no `clasp` step. `CONSTANTS_VERSION`
+  unchanged: no Fenton figure is printed or saved. `CHANGELOG.md` 2026-10-17 (1)–(4) and 2026-10-19.
 - ✅ **PR #156, Back asks before it closes a form, Back after Back stays in the app, and dev local before
   every release: live, released by #157 on Pp's instruction ("merge แล้ว deploy").** Frontend only, no
-  `clasp` step. `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-12 (3).
+  `clasp` step. `CONSTANTS_VERSION` unchanged.
 - ✅ **PR #154, the stats tiles filter the list, Print order per ward on the gate, and Back inside the app:
   live, released by #155 on Pp's instruction ("merge ตอนนี้", after a local dev run).** Frontend only.
   `CHANGELOG.md` 2026-10-12 (1) and (2). ⚠️ In this release a second Back in a row, with no tap between,

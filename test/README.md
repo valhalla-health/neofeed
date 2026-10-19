@@ -1544,6 +1544,52 @@ password is refused, the seed is there (AA submitted, BB draft, CC under an olde
 nothing), a `boot.js` it cannot rewrite stops it, and stop removes the copy. 17 checks, each seen to fail
 on a tool broken for it.
 
+## The Fenton rows at exact age, 2026-10-17 — one harness added
+
+The 2026-10-17 provenance audit found the Fenton 2025 rows, which are completed weeks, drawn at x = GA
+instead of GA + 0.5 (`CHANGELOG.md` 2026-10-17). **`verify-fenton-half-week-1017.cjs`** mounts the real
+`FentonChart` in jsdom (also against `compiled/`), 53 checks in five sections. §1: an infant on the
+**official chart's** p10 / p50 / p90 at exact 26, 30, 34 and 36 wk, both sexes, reads about the 10th /
+50th / 90th; the weights are the audit's digitised chart values, independent of `data.js`, and the
+tolerance (±2 / ±3 / ±4 points) is the digitiser's ±10–15 g. §2: the weight 50th passes through each
+row at GA + 0.5, starts at 22.5 and ends at the 42-week edge between the 41 and 42 rows, and nothing lies
+past it. §3: before PMA 22+4 the readout is "—" and says where the reference starts; at 42+0 it still
+reads. §4: the same placement for length and HC, and a not-verified note on both tabs and not on
+Weight. §5: a measurement on DOL 1 reads exactly as the same measurement at the same exact PMA on a
+later day, with no "size at birth" label, as Fenton's own calculator reads it (Pp, 2026-10-17); before
+22+4 it is "—" like any other day. Against `main` before it, 41 fail; against `ea0abe0`, which read DOL 1
+by completed week, §5 fails 7 of 8.
+
+## The Fenton readout against Fenton's own calculator, 2026-10-17 — one harness and its fixture
+
+**`verify-fenton-official-1017.cjs`** compares the real `FentonChart`'s "Current trajectory" with what
+fentongrowth.ca, Fenton's own plotter (API 2.1.3.0), returned for 75 made-up measurements, kept in
+**`fenton-official-1017.json`** with the source URL, version, date and the returned tables verbatim.
+81 checks. §1: the fixture is the calculator's answer (each whole percentile is Φ(z) rounded, each point
+is a cell of the returned table at the GA it was sent with, and a point carries only sex, age and size).
+§2 asserts weight within ±5 points under 37 weeks (growth monitoring, 31 points) and on DOL 1 at any GA
+(10 points): linear reading between the p10, p50 and p90 curves strays at most 4.0 points from the
+normal curve, plus 0.5 for rounding. DOL 1 is read at exact GA, as the official Birth size evaluation
+reads it (Pp, 2026-10-17). §3 records, without failing, the gaps where the app is known to be off: weight
+from 37 weeks, and length and HC, DOL 1 included, whose 4-weekly rows no numeric source verifies; a
+DOL-1 point there must still carry no size-at-birth label. §4 prints every point, worst gap first in
+each group; `--md` prints the same as Markdown tables. Against 55d893d, before the half-week fix, 30
+fail (24 weights under 37 weeks, 6 DOL-1 weights); against `ea0abe0`, which read DOL 1 by completed
+week, the 18 DOL-1 points fail (the 10 weights in §2, the 8 lengths and HCs in §3 on their label).
+
+To extend it, send more made-up rows to fentongrowth.ca (only with Pp's approval for that round: it is
+an outside service), add the returned table under `raw` and the points to `points`, and keep §1 passing.
+When NeoFeed reads Fenton's LMS parameters, tighten §2 and turn §3's groups into assertions.
+
+## The readout's ordinals, 2026-10-17 — one harness extended
+
+The check above found the readout printing "~51th", "~62th", "~3th" (`CHANGELOG.md` 2026-10-17 (4)).
+**`verify-fenton-half-week-1017.cjs` § 6** reads a boy at exact PMA 26+0 on DOL 15 (halfway between rows
+25 and 26) at chosen centiles and asserts the exact text: ~3rd, ~11th, ~12th, ~13th, ~21st, ~22nd, ~23rd,
+~51st, ~62nd, ~93rd, and "<3rd" / ">97th" at the tails. It leaves DOL 1 alone. Its readout parser now
+takes any ordinal suffix. Now 65 checks in six sections. Against 92c2fcf, before the fix, § 6 fails 7 of
+12; against 55d893d the harness fails 52.
+
 ## CI bans, 2026-10-19 — not a harness, a rule list
 
 NF-19. **`tools/ci_bans.js`** fails the build on a line that breaks a correction Pp has had to make more
