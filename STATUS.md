@@ -160,6 +160,10 @@
 **Updated 2026-10-19** · ✅ **Backend `@64` and frontend `release` = `3249406` are live, and both are
 verified.** Caught up with #156 and #157 in the next PR on the repo, the Fenton half-week fix, as #157
 asked.
+- ✅ **PR #162, NF-19: `tools/ci_bans.js` fails CI on a raw `toFixed(n)` (the trailing-zero rule):
+  merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").** CI and docs only: neither host
+  serves `.github/`, `test/`, `tools/` or `*.md` (`.assetsignore`, `_config.yml`), so no served file changes
+  and it needs no release of its own: release PR #163, open for #158 and #161, carries it.
 - ⏳ **PR #161, weight from 36.5 weeks drawn and read on Fenton's growth-monitoring curve
   (`FENTON_WEIGHT_GROWTH_LMS`, solved from fentongrowth.ca), a lone DOL-1 weight on the size-at-birth
   rows: merged into `main` on Pp's instruction (the same words as #158 below).** Not live until its

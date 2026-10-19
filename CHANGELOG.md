@@ -7,6 +7,30 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-19 (3) — `tools/ci_bans.js`: a correction made twice becomes a failing build (NF-19)
+
+`tools/ci_bans.js`, `test/ci-bans-fixtures.json` (new), `.github/workflows/test.yml`, `AGENTS.md`,
+`test/README.md`, `STATUS.md` (this PR's line; #158 had already caught up with #156 and #157). No app
+code changed; nothing to release.
+PR #162, merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").
+
+### Why
+
+The YouTube-Knowledge issue of 2026-10-14 recommended NF-19: a rules file or a skill can be forgotten by
+the next session, a failing build cannot. Pp's corrections are made in chat, not in PR review comments
+(the repo's PRs carry none from her), so the first rule comes from the one with a dated ruling and a fix
+commit behind it: no trailing zero in a number a person reads (Pp, 2026-09-22, "ห้ามมี .0 เช่น 18.0 คือ
+18"; `bc46d16`, which also took `keepZeros` out of `displayNum`).
+
+### What changed
+
+- **`raw-tofixed`:** a `toFixed(n)` with n > 0 that is not inside `parseFloat()` or `Number()` fails CI
+  and points at `D.displayNum`. `main` passes it today with one allow entry, the SVG path coordinates in
+  `log.jsx`; an allow entry that stops matching fails the run.
+- **CI** runs `node tools/ci_bans.js --self-test` (12 cases), then the check over the 17 tracked sources,
+  after the shell comparison and before the harnesses.
+- **AGENTS.md:** a correction Pp makes a second time becomes a rule here with a failing and a passing case.
+
 ## Session 2026-10-19 (2) — weight from 36.5 weeks on Fenton's growth-monitoring curve
 
 `data.js` (`FENTON_WEIGHT_GROWTH_LMS`, new), `fenton.jsx` (`FentonChart`: the weight curves and the
