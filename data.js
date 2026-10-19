@@ -876,7 +876,10 @@ const ESPGHAN_TARGETS = {
 //   normal distribution. Sources: iNeo International Consortium
 //   2025, Netherlands, Australia, US 2014-2022, Finland, Japan,
 //   China. Post-term (44-50 wk): WHO Growth Standard 2026.
-// Columns: [PMA_wk, 3rd, 10th, 50th, 90th, 97th]
+// Columns: [GA in completed weeks, 3rd, 10th, 50th, 90th, 97th]
+// A row covers GA+0 to GA+6, mean age GA + 0.5, which is where the
+// official chart and fenton.jsx draw it (2026-10-17). Column 0 is not
+// an exact PMA: reading a row at x = GA puts the curve half a week early.
 // ============================================================
 
 // Weight (g) — EVERY WEEK 22–42 (the reference's own resolution), then
