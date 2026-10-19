@@ -30,7 +30,10 @@
 //       printed and the run still passes; each point only has to produce a
 //       reading through the path it is meant to take:
 //         - weight at PMA 37 wk and later: FENTON_WEIGHT holds Fenton's
-//           size-at-birth rows there, and growth monitoring uses another curve;
+//           size-at-birth rows there, and growth monitoring uses another curve.
+//           Since 2026-10-19 the app reads that curve (FENTON_WEIGHT_GROWTH_LMS)
+//           and test/verify-fenton-monitor-1019.cjs asserts these 10 points
+//           within ±1; this group stays recorded so the counts below hold;
 //         - length and HC, on DOL 1 too: 4-weekly rows that no numeric
 //           source verifies, so a gap there is the rows', not the method's.
 //   §4  The report: every point, app against official, worst gap first in

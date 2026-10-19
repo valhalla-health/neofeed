@@ -163,7 +163,12 @@ asked.
 - ✅ **PR #162, NF-19: `tools/ci_bans.js` fails CI on a raw `toFixed(n)` (the trailing-zero rule):
   merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").** CI and docs only: neither host
   serves `.github/`, `test/`, `tools/` or `*.md` (`.assetsignore`, `_config.yml`), so no served file changes
-  and no `main → release` PR is needed. The next release carries it.
+  and it needs no release of its own: release PR #163, open for #158 and #161, carries it.
+- ⏳ **PR #161, weight from 36.5 weeks drawn and read on Fenton's growth-monitoring curve
+  (`FENTON_WEIGHT_GROWTH_LMS`, solved from fentongrowth.ca), a lone DOL-1 weight on the size-at-birth
+  rows: merged into `main` on Pp's instruction (the same words as #158 below).** Not live until its
+  `main → release` PR merges, which Pp has not asked for yet. Frontend only, no `clasp` step.
+  `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-19 (2).
 - ⏳ **PR #158, the Fenton rows drawn at GA + 0.5, DOL 1 read at exact GA, the readout's ordinals, and
   Length and HC saying they are not verified: merged into `main` on Pp's instruction ("merge #158
   แล้วตามด้วย #161 เข้า main ตามขั้นตอนของ repo ยังไม่ต้อง release").** Not live until its `main →

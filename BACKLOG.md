@@ -290,7 +290,11 @@ clinical judgement. Everything else is engineering sequencing.
 - [ ] 🩺 **safety · Three growth questions from the 2026-10-17 provenance audit, for Pp.** The same audit
       found the Fenton rows drawn half a week early, fixed on 2026-10-17 (`CHANGELOG.md`). These three
       were left as they are until Pp decides:
-      1. **After 37 weeks the size-at-birth rows are not the growth chart.** `FENTON_WEIGHT` is the
+      1. ✅ **Built 2026-10-19 for weight** (`CHANGELOG.md`): Pp asked for the closest match to Fenton, so
+         weight from 36.5 wk now reads `FENTON_WEIGHT_GROWTH_LMS`, solved from fentongrowth.ca (70 points
+         within 0.44 centile points). Length and HC past 37 weeks are not covered: their rows are still
+         unverified (`FENTON_LENGTH` / `FENTON_HC` in § Later). What follows is the finding as it stood.
+         ~~**After 37 weeks the size-at-birth rows are not the growth chart.**~~ `FENTON_WEIGHT` is the
          size-at-birth (completed-week) table. Fenton's growth-monitoring chart follows it to about 37 weeks,
          then bends to meet WHO at 50 (Fenton 2025 Table 3: the curves match the data, and assign size
          for GA, up to 37 weeks). With the rows at GA + 0.5 (2026-10-17), from 38.5 to 41.5 wk the app's
