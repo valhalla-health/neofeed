@@ -1544,6 +1544,16 @@ password is refused, the seed is there (AA submitted, BB draft, CC under an olde
 nothing), a `boot.js` it cannot rewrite stops it, and stop removes the copy. 17 checks, each seen to fail
 on a tool broken for it.
 
+## CI bans, 2026-10-19 — not a harness, a rule list
+
+NF-19. **`tools/ci_bans.js`** fails the build on a line that breaks a correction Pp has had to make more
+than once; `node tools/ci_bans.js --self-test` first runs each rule on **`ci-bans-fixtures.json`** (at
+least one case that must fail and one that must pass per rule). The first rule, `raw-tofixed`, is the
+trailing-zero rule of 2026-09-22: a `toFixed(n)` with n > 0 that is not inside `parseFloat()` or
+`Number()` prints "18.0", so it must go through `D.displayNum`. `toFixed(0)` and comment lines are left
+alone; the SVG path in `log.jsx` is on the allow list, and an allow entry that matches nothing fails the
+run. Seen to fail on a planted `{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

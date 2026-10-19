@@ -24,4 +24,6 @@ Read before you act:
   `~\OneDrive\Desktop\PraewPP\NeoFeed\Product\` (Pp, 2026-10-11). Never add product, meeting or
   stakeholder documents here; `PRD.md` is the one product page this repo keeps.
 - **Running the harnesses**: `test/README.md`.
+- **A correction Pp makes a second time** becomes a rule in `tools/ci_bans.js` with a failing and a
+  passing case in `test/ci-bans-fixtures.json` (NF-19), not a third review comment. CI runs it.
 - **Why something is the way it is**: `CHANGELOG.md`, newest first. Add an entry for your session.
