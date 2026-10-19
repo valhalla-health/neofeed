@@ -2928,9 +2928,13 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
   const displayDol = currentDol;
   const delta = currentW - patient.bw;
   const deltaPct = delta / patient.bw * 100;
-  const [wtLabel, wtColor] = patient.bw < 1000
-    ? ["ELBW", "var(--crit)"]
-    : patient.bw < 1500 ? ["VLBW", "var(--warn)"] : ["LBW", "var(--ink-3)"];
+  // ELBW < 1000 g, VLBW 1000–1499 g, LBW 1500–2499 g, and no label from
+  // 2500 g. LBW had no upper bound, so a 4,400 g term infant read "LBW"
+  // (2026-10-19, release #163's dev-local run).
+  const [wtLabel, wtColor] = patient.bw < 1000 ? ["ELBW", "var(--crit)"]
+    : patient.bw < 1500 ? ["VLBW", "var(--warn)"]
+    : patient.bw < 2500 ? ["LBW", "var(--ink-3)"]
+    : [null, null];
   const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
   return (
     <div className="patient-strip">
@@ -2983,7 +2987,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
           <div className="val num">
             {patient.bw.toLocaleString()}<span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:3 }}>g</span>
           </div>
-          <div className="sub" style={{ color:wtColor, fontWeight:600 }}>{wtLabel}</div>
+          {wtLabel && <div className="sub" style={{ color:wtColor, fontWeight:600 }}>{wtLabel}</div>}
         </div>
         {/* Current weight — wider half, val + delta on one line where it
             fits. It wraps the delta under the weight where it does not: on a
