@@ -38,7 +38,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const GA_MAX = 42;
   const REF_AGE_OFFSET = 0.5;
   const table = metric === "weight" ? D_F.FENTON_WEIGHT[sex] : metric === "length" ? D_F.FENTON_LENGTH[sex] : D_F.FENTON_HC[sex];
-  const dataset = (() => {
+  const birthDataset = (() => {
     const rows = table.map((r) => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
     const inside = rows.filter((r) => r[0] <= GA_MAX);
     const last = inside[inside.length - 1];
@@ -47,8 +47,45 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     const f = (GA_MAX - last[0]) / (next[0] - last[0]);
     return [...inside, [GA_MAX, ...last.slice(1).map((v, i) => v + f * (next[i + 1] - v))]];
   })();
-  const yLabel = metric === "weight" ? "Weight (g)" : metric === "length" ? "Length (cm)" : "Head Circumference (cm)";
+  const growthLms = metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex] : null;
+  const lmsStart = growthLms ? growthLms[0][0] : Infinity;
+  const lmsAt = (t) => {
+    if (!growthLms || t < lmsStart || t > growthLms[growthLms.length - 1][0]) return null;
+    const i = Math.max(0, growthLms.findIndex((r) => r[0] >= t) - 1);
+    const lo = growthLms[i], hi = growthLms[Math.min(i + 1, growthLms.length - 1)];
+    const f = hi[0] === lo[0] ? 0 : (t - lo[0]) / (hi[0] - lo[0]);
+    return [1, 2, 3].map((j) => lo[j] + f * (hi[j] - lo[j]));
+  };
+  const lmsZ = ([L, M, S], v) => Math.abs(L) < 1e-6 ? Math.log(v / M) / S : (Math.pow(v / M, L) - 1) / (L * S);
+  const lmsValue = ([L, M, S], z) => Math.abs(L) < 1e-6 ? M * Math.exp(S * z) : M * Math.pow(1 + L * S * z, 1 / L);
+  const CENTILE_Z = [-1.88079, -1.28155, 0, 1.28155, 1.88079];
+  const monitorDataset = growthLms ? [
+    ...birthDataset.filter((r) => r[0] < lmsStart),
+    ...growthLms.filter((r) => r[0] <= GA_MAX).map(([t, ...lms]) => [t, ...CENTILE_Z.map((z) => lmsValue(lms, z))])
+  ] : birthDataset;
   const xMin = 22, xMax = GA_MAX;
+  const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
+  const allPoints = (() => {
+    if (metric === "weight") {
+      return D_F.weightSeries(patient, entries).map((w) => ({
+        pma: pma0 + (w.dol - 1) / 7,
+        value: w.w,
+        dol: w.dol,
+        src: w.src
+      }));
+    }
+    const standalone = (metric === "length" ? patient?.lengths || [] : patient?.hcs || []).map((e) => ({ dol: e.dol, value: e.v }));
+    const inline = (patient?.weights || []).filter((w) => (metric === "length" ? w.l : w.hc) != null).map((w) => ({ dol: w.dol, value: metric === "length" ? w.l : w.hc }));
+    const byDol = new Map(standalone.map((e) => [e.dol, e.value]));
+    inline.forEach((e) => byDol.set(e.dol, e.value));
+    return [...byDol.entries()].map(([dol, value]) => ({ pma: pma0 + (dol - 1) / 7, value, dol })).sort((a, b) => a.dol - b.dol);
+  })().filter((p) => p.value != null);
+  const points = allPoints.filter((p) => p.pma >= xMin && p.pma <= xMax);
+  const hiddenPastMax = allPoints.filter((p) => p.pma > xMax).length;
+  const latestPoint = allPoints.length ? allPoints[allPoints.length - 1] : null;
+  const birthOnly = points.length > 0 && points[points.length - 1].dol === 1;
+  const dataset = birthOnly ? birthDataset : monitorDataset;
+  const yLabel = metric === "weight" ? "Weight (g)" : metric === "length" ? "Length (cm)" : "Head Circumference (cm)";
   const yVals = dataset.flatMap((r) => r.slice(1));
   const yMin = 0;
   const yMax = Math.max(...yVals) * 1.05;
@@ -105,25 +142,6 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const yTicks = [];
   const niceStep = metric === "weight" ? 1e3 : metric === "length" ? 10 : 5;
   for (let v = 0; v <= yMax; v += niceStep) yTicks.push(v);
-  const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
-  const allPoints = (() => {
-    if (metric === "weight") {
-      return D_F.weightSeries(patient, entries).map((w) => ({
-        pma: pma0 + (w.dol - 1) / 7,
-        value: w.w,
-        dol: w.dol,
-        src: w.src
-      }));
-    }
-    const standalone = (metric === "length" ? patient?.lengths || [] : patient?.hcs || []).map((e) => ({ dol: e.dol, value: e.v }));
-    const inline = (patient?.weights || []).filter((w) => (metric === "length" ? w.l : w.hc) != null).map((w) => ({ dol: w.dol, value: metric === "length" ? w.l : w.hc }));
-    const byDol = new Map(standalone.map((e) => [e.dol, e.value]));
-    inline.forEach((e) => byDol.set(e.dol, e.value));
-    return [...byDol.entries()].map(([dol, value]) => ({ pma: pma0 + (dol - 1) / 7, value, dol })).sort((a, b) => a.dol - b.dol);
-  })().filter((p) => p.value != null);
-  const points = allPoints.filter((p) => p.pma >= xMin && p.pma <= xMax);
-  const hiddenPastMax = allPoints.filter((p) => p.pma > xMax).length;
-  const latestPoint = allPoints.length ? allPoints[allPoints.length - 1] : null;
   const ordinal = (n) => {
     const ones = n % 10, tens = n % 100;
     const suffix = tens >= 11 && tens <= 13 ? "th" : ones === 1 ? "st" : ones === 2 ? "nd" : ones === 3 ? "rd" : "th";
@@ -149,9 +167,22 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     const f = hi[0] === lo[0] ? 0 : (t - lo[0]) / (hi[0] - lo[0]);
     return [1, 2, 3, 4, 5].map((i) => lo[i] + f * (hi[i] - lo[i]));
   };
+  const phi = (z) => {
+    const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
+    const e = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z / 2);
+    return z >= 0 ? (1 + e) / 2 : (1 - e) / 2;
+  };
+  const centileOfZ = (z) => {
+    const p = 100 * phi(z);
+    if (p < 3) return "<3rd";
+    if (p >= 97) return ">97th";
+    return `~${ordinal(Math.round(p))}`;
+  };
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
+    const lms = last.dol !== 1 ? lmsAt(last.pma) : null;
+    if (lms) return centileOfZ(lmsZ(lms, last.value));
     const vals = rowAt(dataset, last.pma);
     return vals ? centileAmong(vals, last.value) : null;
   })();

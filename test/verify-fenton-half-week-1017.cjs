@@ -18,16 +18,20 @@
 //       p10, ±3 at p50 and ±4 at p90 (the bands are 6, 6 and 4 g per point).
 //   §2  The weight curve: row GA is drawn at GA + 0.5. It starts at 22.5,
 //       where the first row sits (nothing is extrapolated), and ends at the
-//       42-week axis edge, between the 41 and 42 rows.
+//       42-week axis edge, on the growth-monitoring median there (from 36.5
+//       wk weight follows FENTON_WEIGHT_GROWTH_LMS; verify-fenton-monitor-1019).
 //   §3  The edges. Before PMA 22+4 there is no reference to read against, so
 //       the readout says so instead of extrapolating; a measurement exactly at
 //       42+0 is still read.
 //   §4  Length and HC: the same half-week placement, and a note on both tabs
 //       that those curves are not verified against a numeric source (none is
 //       public). The weight tab carries no such note.
-//   §5  A measurement on DOL 1 is read at exact GA, like any other day, as
-//       Fenton's own Birth size evaluation does (fentongrowth.ca; Pp,
-//       2026-10-17). An earlier commit read it by completed week, which
+//   §5  A measurement on DOL 1 is read at exact GA, as Fenton's own Birth size
+//       evaluation does (fentongrowth.ca; Pp, 2026-10-17). Under 36.5 weeks
+//       that is the same reading as any other day, which is what this section
+//       checks; from 36.5 weeks a later weight reads the growth-monitoring
+//       curve and DOL 1 keeps the size-at-birth rows (verify-fenton-monitor-
+//       1019.cjs § 4). An earlier commit read DOL 1 by completed week, which
 //       test/verify-fenton-official-1017.cjs found up to 21 points off.
 //   §6  The readout's English ordinal: ~3rd, ~11th–~13th, ~21st, ~22nd,
 //       ~23rd, ~51st, ~62nd, ~93rd, and "<3rd" / ">97th" at the tails. It
@@ -47,7 +51,8 @@
 // (row 26 at x = 26.0) and 22+2 read as a number. Of the 12 that pass, 8 are
 // controls (the point is still plotted, Weight has no note, the curve stays
 // inside the 42-week edge, the tab guard) and 4 are §5's same-reading checks,
-// which hold on any placement as long as DOL 1 is read like any other day.
+// which hold on any placement as long as DOL 1 is read like any other day
+// (all of them under 36.5 weeks).
 // Against ea0abe0, which read DOL 1 by completed week, §5 fails 7 of its 8.
 // §6 fails 11 of 12 there (its weights sit on the curves at GA + 0.5, so the
 // old placement reads them 5–16 points low) and 7 of 12 on 92c2fcf, the
@@ -210,9 +215,11 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
       ok(`…and nothing is drawn at ${ga}.0 wk`, !pts.some(p => near(p[0], s.x(ga))), null);
     }
     const [xe, ye] = pts[pts.length - 1];
-    const end = (row(41)[3] + row(42)[3]) / 2;
+    // From 36.5 wk weight follows the growth-monitoring curve
+    // (FENTON_WEIGHT_GROWTH_LMS, 2026-10-19), whose median at 42.0 is M.
+    const G = D.FENTON_WEIGHT_GROWTH_LMS.boys, end = G[G.length - 1][2];
     ok('the 50th ends at the 42-week axis edge', near(xe, s.x(42)), { xe, want: s.x(42) });
-    ok(`…halfway between the 41 and 42 rows (${end} g)`, near(ye, s.y(end)), { ye, want: s.y(end) });
+    ok(`…at the monitoring curve's median there (${end} g)`, near(ye, s.y(end)), { ye, want: s.y(end) });
     ok('no curve point lies past the 42-week edge', pts.every(p => p[0] <= s.x(42) + 0.01), null);
   });
 
@@ -226,10 +233,9 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
     await chart(atPma('girls', 22, 4, { w: 430 }));
     ok('at PMA 22+4 the same girl is read', centile(readout()) != null, readout());
 
-    const B = D.FENTON_WEIGHT.boys;
-    const mid50 = (B.find(r => r[0] === 41)[3] + B.find(r => r[0] === 42)[3]) / 2;
-    await chart(atPma('boys', 42, 0, { w: mid50 }));
-    eq(`a boy at PMA 42+0 on the 41/42-row midpoint 50th (${mid50} g) reads ~50th`, readout(), '~50th');
+    const G = D.FENTON_WEIGHT_GROWTH_LMS.boys, m42 = G[G.length - 1][2];
+    await chart(atPma('boys', 42, 0, { w: m42 }));
+    eq(`a boy at PMA 42+0 on the monitoring curve's median (${m42} g) reads ~50th`, readout(), '~50th');
   });
 
   // ══════════════════════════════════════════════════════════════════════

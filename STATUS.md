@@ -160,6 +160,11 @@
 **Updated 2026-10-19** · ✅ **Backend `@64` and frontend `release` = `3249406` are live, and both are
 verified.** Caught up with #156 and #157 in the next PR on the repo, the Fenton half-week fix, as #157
 asked.
+- ⏳ **PR #161, weight from 36.5 weeks drawn and read on Fenton's growth-monitoring curve
+  (`FENTON_WEIGHT_GROWTH_LMS`, solved from fentongrowth.ca), a lone DOL-1 weight on the size-at-birth
+  rows: merged into `main` on Pp's instruction (the same words as #158 below).** Not live until its
+  `main → release` PR merges, which Pp has not asked for yet. Frontend only, no `clasp` step.
+  `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-19 (2).
 - ⏳ **PR #158, the Fenton rows drawn at GA + 0.5, DOL 1 read at exact GA, the readout's ordinals, and
   Length and HC saying they are not verified: merged into `main` on Pp's instruction ("merge #158
   แล้วตามด้วย #161 เข้า main ตามขั้นตอนของ repo ยังไม่ต้อง release").** Not live until its `main →
