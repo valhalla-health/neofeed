@@ -7,6 +7,55 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-19 — PR #158's last review fixes: DOL-1 length and HC recorded, the Length note narrowed
+
+`fenton.jsx` (the Length note), `compiled/fenton.js`, both shells' `?v=` tokens,
+`test/verify-fenton-official-1017.cjs` (§ 2–4), `test/README.md`, `docs/CLINICAL_CONSTANTS.md` (the
+`FENTON_WEIGHT` row). Frontend only, no `clasp` step. On draft PR #158; nothing released. It corrects
+entry (3) below, which this file's rule keeps as it was.
+
+### Why
+
+Pp gave the DOL-1 decision of 2026-10-17 to two sessions. One pushed `92c2fcf` to this PR. The other,
+which ran the official check, made the same change as `cf14355` and `bf82014` on a local branch, did not
+push it, and sent four points the PR lacked. `fenton.jsx` behaves the same in `92c2fcf` and `cf14355`
+(their compiled output is identical), so the code stays `92c2fcf`'s. The PR's session took all four
+points and Vera's third review of `92c2fcf` (NO BLOCK, two 🟡), made part of the edits, and left them
+uncommitted while it waited for the ordinal commit, entry (4), which was never pushed. This entry lands
+them on top of entry (4).
+
+### What changed
+
+- **The official harness asserts DOL-1 weight only**: 10 points within ±5 (worst 4.1, mean 1.6). The 8
+  DOL-1 lengths and HCs join § 3 with the other length and HC points, because they read 4-weekly rows that
+  no numeric source verifies, so a gap there would be the rows', not the method's. They pass today (worst
+  4.2) and must still carry no size-at-birth label. Entry (3) said all 18 were asserted.
+- **The Length note says "ช่วงใกล้ 42 สัปดาห์"**, not "หลัง 38 สัปดาห์" (Vera 🟡1). The evidence is the
+  42-week row, about 3 cm high (`BACKLOG.md`, the 2026-09-23 review), which pulls the curve up toward 42
+  weeks. The one official point after 38 weeks, a boy at 38+3 and 51.9 cm, reads ~89th against an
+  official 84th: the app reads him longer there, not shorter.
+- **The register row** (`FENTON_WEIGHT`) records the official check: growth monitoring under 37 weeks
+  within 4.5 centile points, DOL-1 weight within 4.1, and growth monitoring from 37 weeks up to 10.2 points
+  off, because the rows there are the size-at-birth rows.
+- **Entry (3)'s "neither harness depends on" the ordinal fix was wrong** (Vera 🟡2): the half-week
+  harness's parser read only "th". Entry (4) changed the parser.
+- `CONSTANTS_VERSION` stays `2026-10-11.1`: no `FENTON_*` value changed, and no Fenton figure is printed
+  or saved.
+
+### Tests
+
+`verify-fenton-official-1017.cjs` 81/81 and `verify-fenton-half-week-1017.cjs` 65/65, against the sources
+and with the compiled preload. The official harness against 55d893d fails 30 (24 of the 31 weights under
+37 weeks, 6 of the 10 DOL-1 weights); against `ea0abe0`, which read DOL 1 by completed week, it fails the
+18 DOL-1 points (the 10 weights in § 2, the 8 lengths and HCs in § 3 on their label).
+
+### Not done
+
+- No second clinician has checked the DOL-1 reading at exact age; Pp reviews the PR.
+- A birth at 22+0 to 22+3 now reads "—" until 22+4, because NeoFeed draws no curve before 22.5; it used
+  to be read against row 22. No official point was taken that early, so what fentongrowth.ca gives there
+  is not known.
+
 ## Session 2026-10-17 (4) — the Growth readout's ordinals: ~51st, not ~51th
 
 `fenton.jsx` (`FentonChart`'s `centileAmong`), `compiled/fenton.js`, both shells' `?v=` tokens,

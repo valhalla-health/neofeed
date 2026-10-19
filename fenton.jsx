@@ -345,7 +345,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
               <span style={{ display: "block", fontSize: 12 }}>
                 Fenton 2025 เผยแพร่ length และ HC เป็นกราฟเท่านั้น เส้นในแอปมีจุดทุก 4 สัปดาห์
                 เลยอ่าน percentile ได้แค่คร่าว ๆ
-                {metric === "length" && " หลัง 38 สัปดาห์ เส้นนี้สูงกว่ากราฟต้นฉบับ ทารกครบกำหนดเลยดูตัวสั้นกว่าจริง"}
+                {metric === "length" && " ช่วงใกล้ 42 สัปดาห์ เส้นนี้สูงกว่ากราฟต้นฉบับ ทารกเลยดูตัวสั้นกว่าจริง"}
               </span>
             </span>
           </div>

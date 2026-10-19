@@ -1567,13 +1567,15 @@ fentongrowth.ca, Fenton's own plotter (API 2.1.3.0), returned for 75 made-up mea
 **`fenton-official-1017.json`** with the source URL, version, date and the returned tables verbatim.
 81 checks. §1: the fixture is the calculator's answer (each whole percentile is Φ(z) rounded, each point
 is a cell of the returned table at the GA it was sent with, and a point carries only sex, age and size).
-§2 asserts weight under 37 weeks (growth monitoring) and every DOL-1 point (weight, length, HC) within
-±5 points: linear reading between the p10, p50 and p90 curves strays at most 4.0 points from the normal
-curve, plus 0.5 for rounding. DOL 1 is read at exact GA, as the official Birth size evaluation reads it
-(Pp, 2026-10-17). §3 records, without failing, the gaps where the app is known to be off: weight from 37
-weeks, length and HC. §4 prints every point, worst gap first in each group; `--md` prints the same as
-Markdown tables. Against 55d893d, before the half-week fix, 36 fail; against `ea0abe0`, which read DOL 1
-by completed week, the 18 DOL-1 points fail.
+§2 asserts weight within ±5 points under 37 weeks (growth monitoring, 31 points) and on DOL 1 at any GA
+(10 points): linear reading between the p10, p50 and p90 curves strays at most 4.0 points from the
+normal curve, plus 0.5 for rounding. DOL 1 is read at exact GA, as the official Birth size evaluation
+reads it (Pp, 2026-10-17). §3 records, without failing, the gaps where the app is known to be off: weight
+from 37 weeks, and length and HC, DOL 1 included, whose 4-weekly rows no numeric source verifies; a
+DOL-1 point there must still carry no size-at-birth label. §4 prints every point, worst gap first in
+each group; `--md` prints the same as Markdown tables. Against 55d893d, before the half-week fix, 30
+fail (24 weights under 37 weeks, 6 DOL-1 weights); against `ea0abe0`, which read DOL 1 by completed
+week, the 18 DOL-1 points fail (the 10 weights in §2, the 8 lengths and HCs in §3 on their label).
 
 To extend it, send more made-up rows to fentongrowth.ca (only with Pp's approval for that round: it is
 an outside service), add the returned table under `raw` and the points to `points`, and keep §1 passing.

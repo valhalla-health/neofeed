@@ -13,8 +13,8 @@
 //   §1  The fixture is what the calculator returned: every whole percentile
 //       is Φ(z) rounded, each point is a cell of the returned table at the GA
 //       it was sent with, and a point holds nothing but sex, age and size.
-//   §2  ASSERTED. Weight, growth monitoring, PMA under 37 weeks, and every
-//       DOL-1 point (weight, length, HC): within ±5 points of the official
+//   §2  ASSERTED. Weight, growth monitoring, PMA under 37 weeks, and weight
+//       on DOL 1 at any GA: within ±5 points of the official
 //       percentile, and "<3rd" / ">97th" only when the official value is
 //       below 3 / above 97. Why ±5: the app reads linearly between its p10,
 //       p50 and p90 curves, and a straight line between z = −1.28 and 0
@@ -31,7 +31,8 @@
 //       reading through the path it is meant to take:
 //         - weight at PMA 37 wk and later: FENTON_WEIGHT holds Fenton's
 //           size-at-birth rows there, and growth monitoring uses another curve;
-//         - length and HC: 4-weekly rows that no numeric source verifies.
+//         - length and HC, on DOL 1 too: 4-weekly rows that no numeric
+//           source verifies, so a gap there is the rows', not the method's.
 //   §4  The report: every point, app against official, worst gap first in
 //       each group. `--md` also prints it as Markdown tables for a PR body.
 //
@@ -42,13 +43,15 @@
 //   git archive --format=tar 55d893d | tar -x -C "$d"
 //   cp test/verify-fenton-official-1017.cjs test/fenton-official-1017.json "$d/test/"
 //   ( cd "$d" && TZ=Asia/Bangkok node test/verify-fenton-official-1017.cjs )   # NODE_PATH = the jsdom set
-// Expected there: 36 FAILED (45 passed). §2 fails 24 of its 31 weight points
-// (the official 50th reads the 33rd–40th, the official 90th the 69th–80th;
-// the 7 that pass are tails, where half a week moves the centile by less
-// than 5 points) and 12 of its 18 DOL-1 points. §1 and §3 pass: they do not
-// depend on the placement. Against ea0abe0, which read DOL 1 by completed
-// week, §2 fails all 18 DOL-1 points (worst: a boy born 26+0 at 940 g read
-// ~50th against row 26; the official calculator says the 71st).
+// Expected there: 30 FAILED (51 passed). §2 fails 24 of its 31 PMA < 37 wk
+// weight points (the official 50th reads the 33rd–40th, the official 90th
+// the 69th–80th; the 7 that pass are tails, where half a week moves the
+// centile by less than 5 points) and 6 of its 10 DOL-1 weight points. §1 and
+// §3 pass: they do not depend on the placement. Against ea0abe0, which read
+// DOL 1 by completed week, all 18 DOL-1 points fail: the 10 weights in §2
+// (worst: a boy born 26+0 at 940 g read ~50th against row 26; the official
+// calculator says the 71st), and the 8 lengths and HCs in §3 on their
+// size-at-birth label.
 //
 // Same dev-only dependencies as the other jsdom harnesses (test/README.md).
 const fs = require('fs');
@@ -181,11 +184,11 @@ const gapOf = (app, off) => {
   return app.at - off;
 };
 const groupOf = (p) =>
-  p.mode === 'birth' ? 'DOL 1 (birth size, exact GA)'
+  p.mode === 'birth' ? (p.measure === 'weight' ? 'DOL 1 weight (exact GA)' : 'DOL 1 length / HC (exact GA)')
   : p.measure !== 'weight' ? (p.measure === 'hc' ? 'HC' : 'Length')
   : wk(p) >= 37 ? 'Weight, PMA 37+ wk' : 'Weight, PMA < 37 wk';
 
-const ASSERTED = ['Weight, PMA < 37 wk', 'DOL 1 (birth size, exact GA)'];
+const ASSERTED = ['Weight, PMA < 37 wk', 'DOL 1 weight (exact GA)'];
 const rows = [];
 const fmt = (v, d = 1) => v == null ? '—' : String(Math.round(v * 10 ** d) / 10 ** d);
 const signed = (v) => v == null ? '—' : (v > 0 ? '+' : '') + fmt(v);
@@ -216,7 +219,7 @@ const signed = (v) => v == null ? '—' : (v > 0 ? '+' : '') + fmt(v);
   });
 
   // ══════════════════════════════════════════════════════════════════════
-  await section('§2 Weight under 37 wk, and DOL 1: within ±5 points (asserted)', async () => {
+  await section('§2 Weight under 37 wk, and weight on DOL 1: within ±5 points (asserted)', async () => {
     for (const p of FIXTURE.points.filter(q => ASSERTED.includes(groupOf(q)))) {
       const unit = p.measure === 'weight' ? 'g' : 'cm';
       if (p.mode === 'birth') { await chart(born(p)); await tab(p.measure); } else await chart(atPma(p));
@@ -232,17 +235,18 @@ const signed = (v) => v == null ? '—' : (v > 0 ? '+' : '') + fmt(v);
     for (const p of FIXTURE.points.filter(q => !ASSERTED.includes(groupOf(q)))) {
       const unit = p.measure === 'weight' ? 'g' : 'cm';
       const off = officialPct(p);
-      await chart(atPma(p)); await tab(p.measure);
-      const s = readout(), gap = gapOf(parse(s), off);
+      await chart(p.mode === 'birth' ? born(p) : atPma(p)); await tab(p.measure);
+      const s = readout(), h = hint() || '', gap = gapOf(parse(s), off);
       rows.push({ p, s, off, gap });
-      ok(`${p.sex} ${p.ga} ${p.measure} ${p.value} ${unit}: app ${s}, official ${fmt(off)} (gap ${signed(gap)})`,
-         parse(s) != null, s);
+      ok(`${p.sex} ${p.mode === 'birth' ? 'born ' : ''}${p.ga} ${p.measure} ${p.value} ${unit}: app ${s}, official ${fmt(off)} (gap ${signed(gap)})`,
+         parse(s) != null && !/size at birth/.test(h), { s, h });
     }
   });
 
   // ══════════════════════════════════════════════════════════════════════
   await section('§4 Report: app against official, worst gap first in each group', async () => {
-    const GROUPS = ['Weight, PMA < 37 wk', 'DOL 1 (birth size, exact GA)', 'Weight, PMA 37+ wk', 'Length', 'HC'];
+    const GROUPS = ['Weight, PMA < 37 wk', 'DOL 1 weight (exact GA)', 'Weight, PMA 37+ wk', 'Length', 'HC',
+      'DOL 1 length / HC (exact GA)'];
     ok(`every point was read (${rows.length} of ${FIXTURE.points.length})`, rows.length === FIXTURE.points.length, rows.length);
     const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
     const cells = (r) => {
