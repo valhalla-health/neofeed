@@ -18,7 +18,8 @@
 //       p10, ±3 at p50 and ±4 at p90 (the bands are 6, 6 and 4 g per point).
 //   §2  The weight curve: row GA is drawn at GA + 0.5. It starts at 22.5,
 //       where the first row sits (nothing is extrapolated), and ends at the
-//       42-week axis edge, between the 41 and 42 rows.
+//       42-week axis edge, on the growth-monitoring median there (from 36.5
+//       wk weight follows FENTON_WEIGHT_GROWTH_LMS; verify-fenton-monitor-1019).
 //   §3  The edges. Before PMA 22+4 there is no reference to read against, so
 //       the readout says so instead of extrapolating; a measurement exactly at
 //       42+0 is still read.
@@ -210,9 +211,11 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
       ok(`…and nothing is drawn at ${ga}.0 wk`, !pts.some(p => near(p[0], s.x(ga))), null);
     }
     const [xe, ye] = pts[pts.length - 1];
-    const end = (row(41)[3] + row(42)[3]) / 2;
+    // From 36.5 wk weight follows the growth-monitoring curve
+    // (FENTON_WEIGHT_GROWTH_LMS, 2026-10-19), whose median at 42.0 is M.
+    const G = D.FENTON_WEIGHT_GROWTH_LMS.boys, end = G[G.length - 1][2];
     ok('the 50th ends at the 42-week axis edge', near(xe, s.x(42)), { xe, want: s.x(42) });
-    ok(`…halfway between the 41 and 42 rows (${end} g)`, near(ye, s.y(end)), { ye, want: s.y(end) });
+    ok(`…at the monitoring curve's median there (${end} g)`, near(ye, s.y(end)), { ye, want: s.y(end) });
     ok('no curve point lies past the 42-week edge', pts.every(p => p[0] <= s.x(42) + 0.01), null);
   });
 
@@ -226,10 +229,9 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
     await chart(atPma('girls', 22, 4, { w: 430 }));
     ok('at PMA 22+4 the same girl is read', centile(readout()) != null, readout());
 
-    const B = D.FENTON_WEIGHT.boys;
-    const mid50 = (B.find(r => r[0] === 41)[3] + B.find(r => r[0] === 42)[3]) / 2;
-    await chart(atPma('boys', 42, 0, { w: mid50 }));
-    eq(`a boy at PMA 42+0 on the 41/42-row midpoint 50th (${mid50} g) reads ~50th`, readout(), '~50th');
+    const G = D.FENTON_WEIGHT_GROWTH_LMS.boys, m42 = G[G.length - 1][2];
+    await chart(atPma('boys', 42, 0, { w: m42 }));
+    eq(`a boy at PMA 42+0 on the monitoring curve's median (${m42} g) reads ~50th`, readout(), '~50th');
   });
 
   // ══════════════════════════════════════════════════════════════════════

@@ -1581,6 +1581,21 @@ To extend it, send more made-up rows to fentongrowth.ca (only with Pp's approval
 an outside service), add the returned table under `raw` and the points to `points`, and keep §1 passing.
 When NeoFeed reads Fenton's LMS parameters, tighten §2 and turn §3's groups into assertions.
 
+## Weight from 36.5 weeks on Fenton's growth-monitoring curve, 2026-10-19 — one harness and its fixture
+
+**`verify-fenton-monitor-1019.cjs`**, 90 checks, with **`fenton-official-1019.json`**: fentongrowth.ca's
+answers (API 2.1.3.0, 2026-10-19) for 96 made-up weights, growth monitoring, both sexes. That is three per
+half week from 36 1/2 to 42 (near the 10th, 50th and 90th), from which `FENTON_WEIGHT_GROWTH_LMS` was
+solved, and 12 held-out points per sex on other days (near the 3rd, 25th, 75th and 97th). §1: the
+fixture is the calculator's answer, and only sex, GA and weight were sent. §2: at every knot the table's L,
+M and S give back the three official z within 0.005, and at 36.5, where it takes over, its centiles are
+size-at-birth row 36's within 15 g. §3, asserted: 70 monitoring weights from 37 weeks read within ±1
+centile point of the official one, in the real `FentonChart` (60 of this round that fall on a whole day,
+10 of 17 Oct; mean 0.08, worst 0.44). §4: a DOL-1 weight stays on the size-at-birth rows (girl born 40+5
+at 3450 g), and the same weight on DOL 15 reads the monitoring curve. §5: the drawn 50th passes through M
+at all 12 knots. Against `a04ba28`, the commit before the change, 44 fail (38 pass): § 3 fails 41 of its
+70 points, and §2, §4 and §5 stop at the missing table.
+
 ## The readout's ordinals, 2026-10-17 — one harness extended
 
 The check above found the readout printing "~51th", "~62th", "~3th" (`CHANGELOG.md` 2026-10-17 (4)).

@@ -7,6 +7,69 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-19 (2) — weight from 36.5 weeks on Fenton's growth-monitoring curve
+
+`data.js` (`FENTON_WEIGHT_GROWTH_LMS`, new), `fenton.jsx` (`FentonChart`: the weight curves and the
+readout from 36.5 weeks), `compiled/fenton.js`, both shells' `?v=` tokens,
+`test/verify-fenton-monitor-1019.cjs` and `test/fenton-official-1019.json` (new),
+`test/verify-fenton-half-week-1017.cjs` (§ 2–3: where the weight curve ends), a comment in
+`test/verify-fenton-official-1017.cjs`, `test/README.md`, `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`. Frontend
+only, no `clasp` step. Its own PR, built on draft PR #158. It answers that PR's question 1.
+
+### Why
+
+`FENTON_WEIGHT` is Fenton's size-at-birth table, and the app used it for growth monitoring too. Fenton's
+growth chart follows it to about 37 weeks and then bends towards WHO at 50, so from 37 weeks the app was up
+to 10.2 centile points off Fenton's own calculator (a boy at 41+4 weighing 4325 g read ~90th; the
+calculator says the 80th). Pp asked for the closest match to Fenton, compared two ways, without asking
+Fenton for the LMS by email (2026-10-19): "ทำข้อ 2 เทียบกับข้อ 3 แล้วเอาที่ตรงที่สุดมาใช้ ไม่ต้องส่ง email", then
+"แล้วแก้ไขส่วนที่แอปใช้ตารางผิด".
+
+### The two ways, and the one used
+
+- **From the printed chart.** The five weight curves of ucalgary.ca's 2025 chart PDFs, digitised from
+  their 600-dpi raster at 36–46 weeks (the trace matched the audit's earlier digitisation within about
+  ±12 g), with L, M and S fitted at each half week.
+- **From Fenton's calculator.** One round to fentongrowth.ca that Pp approved: two submissions, sex and data type
+  Growth, 48 made-up weights each, GA and weight only. Three weights at each half week from 36 1/2 to 42
+  give L, M and S exactly; 12 more per sex, on other days and near the 3rd, 25th, 75th and 97th, were
+  held out.
+- **Compared on the 34 points neither was built from** (the 24 held out and the 10 monitoring weights of
+  2026-10-17): the calculator's LMS within 0.02 centile points (mean 0.01), the chart's within 0.19 (mean
+  0.06). The calculator's is used. The two agree on M within 2 g at every week.
+
+### What changed
+
+- **`FENTON_WEIGHT_GROWTH_LMS`** in `data.js`: `[exact PMA, L, M, S]` every half week, 36.5–42.0, both
+  sexes, with its source. Column 0 is an exact age, unlike `FENTON_WEIGHT`'s completed weeks.
+- **The weight curves from 36.5 weeks** are drawn from it (3rd, 10th, 50th, 90th and 97th at each half
+  week). Before 36.5 they are the size-at-birth rows at GA + 0.5 as before; at 36.5 the two agree within
+  12 g.
+- **A weight from 36.5 weeks is read as an LMS z-score**, not by linear reading between curves, in the
+  same words: "<3rd", "~Nth", ">97th".
+- **A DOL-1 weight stays on the size-at-birth rows**, as Fenton's Birth size evaluation does: a girl born
+  40+5 at 3450 g reads ~48th on DOL 1 (official birth size 46.7) and ~41st on DOL 15 at the same PMA.
+- Length and HC are unchanged. `CONSTANTS_VERSION` stays `2026-10-11.1`: no Fenton figure is printed or
+  saved.
+
+### Tests
+
+`verify-fenton-monitor-1019.cjs` (new) 90/90, against the sources and with the compiled preload: 70
+monitoring weights from 37 weeks within ±1 centile point of the official one (mean 0.08, worst 0.44).
+Against `a04ba28`, the commit before the change, 44 fail. `verify-fenton-half-week-1017.cjs` 65/65 after its
+two checks of where the weight curve ends (now M at 42.0, not the midpoint of rows 41 and 42), and
+`verify-fenton-official-1017.cjs` 81/81, whose recorded 37+ group fell from mean 3.3 and worst 10.2 to mean
+0.2 and worst 0.4.
+
+### Not done
+
+- No second clinician has checked this; Pp reviews the PR.
+- The LMS are solved from Fenton's calculator, not received from Fenton. If the API changes version, run
+  the round again (`test/README.md`). The ucalgary.ca site states no licence for the charts or the
+  calculator, and Pp chose not to ask by email.
+- Under 36.5 weeks the readout still reads linearly between curves (up to about 4.5 points off).
+  Length and HC are unverified. The chart still stops at 42.
+
 ## Session 2026-10-19 — PR #158's last review fixes: DOL-1 length and HC recorded, the Length note narrowed
 
 `fenton.jsx` (the Length note, a comment), `compiled/fenton.js`, both shells' `?v=` tokens,
