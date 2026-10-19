@@ -26,9 +26,12 @@
 //   §4  Length and HC: the same half-week placement, and a note on both tabs
 //       that those curves are not verified against a numeric source (none is
 //       public). The weight tab carries no such note.
-//   §5  A measurement on DOL 1 is read at exact GA, like any other day, as
-//       Fenton's own Birth size evaluation does (fentongrowth.ca; Pp,
-//       2026-10-17). An earlier commit read it by completed week, which
+//   §5  A measurement on DOL 1 is read at exact GA, as Fenton's own Birth size
+//       evaluation does (fentongrowth.ca; Pp, 2026-10-17). Under 36.5 weeks
+//       that is the same reading as any other day, which is what this section
+//       checks; from 36.5 weeks a later weight reads the growth-monitoring
+//       curve and DOL 1 keeps the size-at-birth rows (verify-fenton-monitor-
+//       1019.cjs § 4). An earlier commit read DOL 1 by completed week, which
 //       test/verify-fenton-official-1017.cjs found up to 21 points off.
 //   §6  The readout's English ordinal: ~3rd, ~11th–~13th, ~21st, ~22nd,
 //       ~23rd, ~51st, ~62nd, ~93rd, and "<3rd" / ">97th" at the tails. It
@@ -48,7 +51,8 @@
 // (row 26 at x = 26.0) and 22+2 read as a number. Of the 12 that pass, 8 are
 // controls (the point is still plotted, Weight has no note, the curve stays
 // inside the 42-week edge, the tab guard) and 4 are §5's same-reading checks,
-// which hold on any placement as long as DOL 1 is read like any other day.
+// which hold on any placement as long as DOL 1 is read like any other day
+// (all of them under 36.5 weeks).
 // Against ea0abe0, which read DOL 1 by completed week, §5 fails 7 of its 8.
 // §6 fails 11 of 12 there (its weights sit on the curves at GA + 0.5, so the
 // old placement reads them 5–16 points low) and 7 of 12 on 92c2fcf, the

@@ -26,7 +26,10 @@
 //   §4  A DOL-1 weight is a size at birth and stays on the size-at-birth rows,
 //       as Fenton's Birth size evaluation does: a girl born 40+5 at 3450 g
 //       reads within ±5 of the official birth-size percentile on DOL 1, and the
-//       same weight at the same PMA on DOL 15 reads the monitoring curve.
+//       same weight at the same PMA on DOL 15 reads the monitoring curve. While
+//       the newest point is DOL 1 the chart draws the size-at-birth rows too,
+//       so the dot and the number agree; from DOL 2 it draws the monitoring
+//       curve.
 //   §5  The drawn 50th passes through M at every knot from 36.5 to 42.0 and
 //       still through the size-at-birth row 35 at 35.5.
 //
@@ -251,6 +254,21 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
     ok(`the same weight at 40+5 on DOL 15 reads the monitoring curve: ${dol15}, table ${mon.toFixed(1)} ±1`,
        g15 != null && Math.abs(g15) <= 1, { dol15, mon });
     ok('…which is not the DOL-1 reading (the two references differ here)', dol1 !== dol15, { dol1, dol15 });
+
+    // Vera, fifth run: while the newest point is DOL 1, the chart draws the
+    // size-at-birth rows it is read against, so the dot and the number agree.
+    // A boy born 41+4 whose only weight is 4400 g read ~92nd under a drawn
+    // monitoring 90th of about 4577 g.
+    await chart(born('boys', 41, 4, 4400));
+    const s = scales(1000), pts = p50Anchors();
+    const r41 = D.FENTON_WEIGHT.boys.find(r => r[0] === 41);
+    const m415 = D.FENTON_WEIGHT_GROWTH_LMS.boys.find(r => r[0] === 41.5)[2];
+    ok(`boy born 41+4, DOL 1 only: the 50th at 41.5 is size-at-birth row 41's (${r41[3]} g)`,
+       hasAnchor(pts, s.x(41.5), s.y(r41[3])), null);
+    ok(`…not the monitoring median there (${m415} g)`, !hasAnchor(pts, s.x(41.5), s.y(m415)), null);
+    await chart({ ...born('boys', 41, 4, 4400), weights: [{ dol: 1, w: 4400 }, { dol: 2, w: 4380 }] });
+    const pts2 = p50Anchors(), s2 = scales(1000);
+    ok('…and once a DOL-2 weight arrives, the monitoring curve is drawn', hasAnchor(pts2, s2.x(41.5), s2.y(m415)), null);
   });
 
   // ══════════════════════════════════════════════════════════════════════

@@ -57,8 +57,10 @@ key; this file is what the key points at. A bump with no row here is a bug in th
 ## When to bump `CONSTANTS_VERSION`
 
 **Bump** when a change here can move a printed dose: `KCMH_STOCK`, `MAX_DEXTROSE_G_KG`,
-`K_BAG_MEQ_PER_L`, `TPN_TARGETS`, `ENTERAL_TARGETS`, `EN_DB`, `FENTON_*` — **and, since 2026-09-18,
-when calculator logic can move a printed figure.** Every save stamps the version into `calcInput`, and a
+`K_BAG_MEQ_PER_L`, `TPN_TARGETS`, `ENTERAL_TARGETS`, `EN_DB` — **and, since 2026-09-18,
+when calculator logic can move a printed figure.** **Not for `FENTON_*`**: only `fenton.jsx` reads them,
+for the Growth tab, and nothing they give is printed, saved or dosed, so a bump would only make the ward
+re-save every order (2026-10-19; `2026-09-05.1` did bump for `FENTON_WEIGHT`). Every save stamps the version into `calcInput`, and a
 saved order stamped with another version prints only after it is saved again (`calculator.jsx`,
 `calcMoved`). A bump therefore also asks the ward to re-save any old order before reprinting it. Rows
 saved on the first `2026-09-18.1` frontend (live 11:17 ICT on 2026-09-18, before the stamp shipped) are

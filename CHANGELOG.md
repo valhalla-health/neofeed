@@ -49,14 +49,19 @@ Fenton for the LMS by email (2026-10-19): "ทำข้อ 2 เทียบก�
   same words: "<3rd", "~Nth", ">97th".
 - **A DOL-1 weight stays on the size-at-birth rows**, as Fenton's Birth size evaluation does: a girl born
   40+5 at 3450 g reads ~48th on DOL 1 (official birth size 46.7) and ~41st on DOL 15 at the same PMA.
+  While the newest point is DOL 1, the chart draws the size-at-birth rows too, so the dot and the number
+  agree (Vera, fifth run 🟠: a boy born 41+4 at 4400 g read ~92nd under a drawn 90th of about 4577 g).
+  From DOL 2 it draws the monitoring curve. A lone DOL-1 weight therefore looks as it did before.
 - Length and HC are unchanged. `CONSTANTS_VERSION` stays `2026-10-11.1`: no Fenton figure is printed or
-  saved.
+  saved. The bump rule in `data.js` and `docs/CLINICAL_CONSTANTS.md` no longer lists `FENTON_*` and says
+  why (Vera 🟡: it listed them while Fenton changes were not bumped).
 
 ### Tests
 
-`verify-fenton-monitor-1019.cjs` (new) 90/90, against the sources and with the compiled preload: 70
+`verify-fenton-monitor-1019.cjs` (new) 93/93, against the sources and with the compiled preload: 70
 monitoring weights from 37 weeks within ±1 centile point of the official one (mean 0.08, worst 0.44).
-Against `a04ba28`, the commit before the change, 44 fail. `verify-fenton-half-week-1017.cjs` 65/65 after its
+Against `a04ba28`, the commit before the change, 44 fail; against `f56cc36`, the two DOL-1 drawing
+checks. `verify-fenton-half-week-1017.cjs` 65/65 after its
 two checks of where the weight curve ends (now M at 42.0, not the midpoint of rows 41 and 42), and
 `verify-fenton-official-1017.cjs` 81/81, whose recorded 37+ group fell from mean 3.3 and worst 10.2 to mean
 0.2 and worst 0.4.

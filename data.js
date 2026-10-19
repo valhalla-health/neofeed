@@ -15,9 +15,11 @@
 // sheet knew WHO submitted an order and WHEN, never WHICH VALUES it used.
 //
 // 🔴 BUMP THIS whenever a change below can move a printed dose — KCMH_STOCK,
-// MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, TPN_TARGETS, ENTERAL_TARGETS, EN_DB,
-// FENTON_* — and, since 2026-09-18, whenever calculator.jsx logic can move a
-// printed figure. Not for comments, labels or UI. Every save stamps it into
+// MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, TPN_TARGETS, ENTERAL_TARGETS, EN_DB —
+// and, since 2026-09-18, whenever calculator.jsx logic can move a printed
+// figure. Not for comments, labels or UI. Not for FENTON_*: only fenton.jsx
+// reads them, for the Growth tab, and nothing they give is printed, saved or
+// dosed (2026-10-19; 2026-09-05.1 did bump for FENTON_WEIGHT). Every save stamps it into
 // calcInput, and a saved order stamped with another version prints only after
 // it is saved again (calculator.jsx, calcMoved). The register of what each
 // version contains is docs/CLINICAL_CONSTANTS.md.
