@@ -15,9 +15,11 @@
 // sheet knew WHO submitted an order and WHEN, never WHICH VALUES it used.
 //
 // 🔴 BUMP THIS whenever a change below can move a printed dose — KCMH_STOCK,
-// MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, TPN_TARGETS, ENTERAL_TARGETS, EN_DB,
-// FENTON_* — and, since 2026-09-18, whenever calculator.jsx logic can move a
-// printed figure. Not for comments, labels or UI. Every save stamps it into
+// MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, TPN_TARGETS, ENTERAL_TARGETS, EN_DB —
+// and, since 2026-09-18, whenever calculator.jsx logic can move a printed
+// figure. Not for comments, labels or UI. Not for FENTON_*: only fenton.jsx
+// reads them, for the Growth tab, and nothing they give is printed, saved or
+// dosed (2026-10-19; 2026-09-05.1 did bump for FENTON_WEIGHT). Every save stamps it into
 // calcInput, and a saved order stamped with another version prints only after
 // it is saved again (calculator.jsx, calcMoved). The register of what each
 // version contains is docs/CLINICAL_CONSTANTS.md.
@@ -876,7 +878,10 @@ const ESPGHAN_TARGETS = {
 //   normal distribution. Sources: iNeo International Consortium
 //   2025, Netherlands, Australia, US 2014-2022, Finland, Japan,
 //   China. Post-term (44-50 wk): WHO Growth Standard 2026.
-// Columns: [PMA_wk, 3rd, 10th, 50th, 90th, 97th]
+// Columns: [GA in completed weeks, 3rd, 10th, 50th, 90th, 97th]
+// A row covers GA+0 to GA+6, mean age GA + 0.5, which is where the
+// official chart and fenton.jsx draw it (2026-10-17). Column 0 is not
+// an exact PMA: reading a row at x = GA puts the curve half a week early.
 // ============================================================
 
 // Weight (g) — EVERY WEEK 22–42 (the reference's own resolution), then
@@ -960,6 +965,51 @@ const FENTON_WEIGHT = {
     [46, 3080, 3320, 3880, 4510, 4820],
     [48, 3180, 3430, 4000, 4640, 4970],
     [50, 3280, 3540, 4110, 4760, 5100],
+  ],
+};
+
+// Weight, growth monitoring, 36.5–42 wk: [exact PMA in weeks, L, M (g), S].
+// FENTON_WEIGHT above is Fenton's size-at-birth table. Fenton's growth chart
+// follows it to about 37 weeks, then bends towards WHO at 50 (Fenton 2025
+// Table 3), so from 37 weeks those rows are the wrong curve for monitoring:
+// up to 10.2 centile points off Fenton's own calculator (2026-10-17). These
+// rows are that calculator's monitoring curve. Fenton's LMS are not published;
+// L, M and S were solved at each half week from fentongrowth.ca's z-scores
+// (API 2.1.3.0, 2026-10-19) for three made-up weights per knot, near the
+// 10th, 50th and 90th (test/fenton-official-1019.json). 24 held-out points
+// and the 10 of 2026-10-17 read back within 0.02 centile points; an LMS fit
+// to the digitised printed chart agrees on M within 2 g. Unlike the rows
+// above, column 0 is an exact age, not completed weeks. fenton.jsx uses this
+// table for weight from 36.5 weeks, except a DOL-1 weight, which is a size at
+// birth and stays on FENTON_WEIGHT, as Fenton's Birth size evaluation does.
+const FENTON_WEIGHT_GROWTH_LMS = {
+  boys: [
+    [36.5, +0.060,  2782.1, 0.13630],
+    [37.0, +0.056,  2890.8, 0.13531],
+    [37.5, +0.052,  2999.1, 0.13434],
+    [38.0, +0.044,  3107.4, 0.13338],
+    [38.5, +0.048,  3216.2, 0.13249],
+    [39.0, +0.048,  3325.1, 0.13171],
+    [39.5, +0.052,  3434.1, 0.13096],
+    [40.0, +0.060,  3543.6, 0.13022],
+    [40.5, +0.064,  3653.0, 0.12951],
+    [41.0, +0.072,  3762.5, 0.12887],
+    [41.5, +0.080,  3872.0, 0.12825],
+    [42.0, +0.092,  3982.0, 0.12773],
+  ],
+  girls: [
+    [36.5, +0.260,  2687.9, 0.14198],
+    [37.0, +0.228,  2796.7, 0.14162],
+    [37.5, +0.180,  2904.0, 0.14166],
+    [38.0, +0.128,  3009.6, 0.14177],
+    [38.5, +0.076,  3113.6, 0.14195],
+    [39.0, +0.036,  3216.1, 0.14220],
+    [39.5, +0.000,  3317.0, 0.14227],
+    [40.0, -0.016,  3416.5, 0.14224],
+    [40.5, -0.016,  3515.0, 0.14198],
+    [41.0, -0.008,  3612.1, 0.14146],
+    [41.5, +0.000,  3708.0, 0.14073],
+    [42.0, +0.008,  3803.1, 0.13978],
   ],
 };
 
@@ -2415,7 +2465,7 @@ window.NEOFEED_DATA = {
   // Comprehensive ESPGHAN reference object (for display panels)
   ESPGHAN_TARGETS,
   // Growth charts
-  FENTON_WEIGHT, FENTON_LENGTH, FENTON_HC,
+  FENTON_WEIGHT, FENTON_WEIGHT_GROWTH_LMS, FENTON_LENGTH, FENTON_HC,
   // Patient data (mock — replace with GAS fetch)
   MOCK_PATIENTS, MOCK_DAILY_LOG,
   // Utility functions
