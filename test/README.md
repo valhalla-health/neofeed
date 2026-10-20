@@ -1617,6 +1617,18 @@ trailing-zero rule of 2026-09-22: a `toFixed(n)` with n > 0 that is not inside `
 alone; the SVG path in `log.jsx` is on the allow list, and an allow entry that matches nothing fails the
 run. Seen to fail on a planted `{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry.
 
+## The birth-weight label, 2026-10-19 — one harness
+
+The session header called a 4,400 g term infant "LBW" (`CHANGELOG.md` 2026-10-19 (4)).
+**`verify-bw-category-1019.cjs`** (jsdom; it also runs against `compiled/`). § 1 mounts the real
+`PatientStrip` from `app.jsx` at 999, 1000, 1499, 1500, 2499, 2500 and 4400 g and reads ELBW, VLBW, VLBW,
+LBW, LBW, then no line under the birth weight and no ELBW, VLBW or LBW anywhere in the strip. Each case
+first reads its own grams in the Birth weight cell, so a missing label cannot pass by finding the wrong
+cell. § 2: both shells hide `.patient-strip` in `@media print`, so the label never reaches the order. 32
+checks; against `main` (`9eb3335`), 4 fail, at 2500 and 4400 g. Its first draft searched the strip's
+`textContent`, which runs "4,400g" into "LBW" with no word boundary, so `\bLBW\b` passed on the bug; it now
+reads the strip text node by text node.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

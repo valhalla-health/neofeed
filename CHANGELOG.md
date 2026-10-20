@@ -7,6 +7,30 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-19 (4) — no "LBW" under a birth weight of 2500 g or more
+
+`app.jsx` (`PatientStrip`), `compiled/app.js`, both shells' `?v=` tokens, `test/verify-bw-category-1019.cjs`
+(new), `test/README.md`, `STATUS.md` (caught up with #163, as its release comment asked). Frontend only, no
+`clasp` step. Not a dose file and not on the order: both shells hide `.patient-strip` in `@media print`, so
+no Vera, and `CONSTANTS_VERSION` is unchanged.
+
+### Why
+
+On the dev-local run before release #163, a made-up 4,400 g term boy read "LBW" under BIRTH WEIGHT. The
+label was `bw < 1000 ? ELBW : bw < 1500 ? VLBW : LBW` with no upper bound, so every birth weight from
+1,500 g up was called low. The code is older than #163.
+
+### What changed
+
+- **The label:** ELBW < 1000 g, VLBW 1000–1499 g, LBW 1500–2499 g, and no line under the birth weight from
+  2500 g.
+- **Nothing for a large infant either.** Asked whether 4000 g and up should read HBW, Pp chose no label
+  (2026-10-19, "ไม่มีป้าย"): macrosomia cutoffs differ (4000 or 4500 g), and grams alone ignore GA.
+- **Only one copy.** Every `.jsx` file, `data.js`, both shells and `center-point/` were searched for the
+  same ELBW/VLBW/LBW pattern. `PatientStrip` is the one place a category comes from the birth weight; the
+  other matches are guideline text, the fluid table's rows (already four tiers, < 2500 g) and demo
+  diagnoses.
+
 ## Session 2026-10-19 (3) — `tools/ci_bans.js`: a correction made twice becomes a failing build (NF-19)
 
 `tools/ci_bans.js`, `test/ci-bans-fixtures.json` (new), `.github/workflows/test.yml`, `AGENTS.md`,
