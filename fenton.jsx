@@ -82,11 +82,107 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // first. See HANDOFF.md 2026-08-10 (3)/(4).
   const GA_MAX = 42;
 
-  const dataset = (
+  // The Fenton 2025 rows are COMPLETED weeks: the row for 25 holds infants of
+  // 25+0 to 25+6, whose mean age is 25.5. The official chart is drawn by
+  // "adding 0.5 weeks to the completed weeks age" (Fenton 2025, § 2.5
+  // Synthesis, PMC12391854), and so is this one, because the infant is
+  // plotted at exact PMA (pma0 + (DOL − 1)/7, below). Drawing row GA at x = GA
+  // put every curve half a week early: 33–144 g too heavy at 23–36 wk, so an
+  // infant on the official 10th read about the 5th (provenance audit,
+  // 2026-10-17). Nothing is extrapolated: the curves start at 22.5, where the
+  // first row sits, and end at GA_MAX, between the last row inside it and the
+  // next. A measurement on DOL 1 is read the same way, at exact GA, as
+  // Fenton's own Birth size evaluation does (fentongrowth.ca 2.1.3.0: 18 DOL-1
+  // points within 4.2 centile points; a completed-week reading was up to 21
+  // off. Pp, 2026-10-17).
+  const REF_AGE_OFFSET = 0.5;
+  const table = (
     metric === "weight" ? D_F.FENTON_WEIGHT[sex]
   : metric === "length" ? D_F.FENTON_LENGTH[sex]
   : D_F.FENTON_HC[sex]
-  ).filter(r => r[0] <= GA_MAX);
+  );
+  const birthDataset = (() => {
+    const rows = table.map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
+    const inside = rows.filter(r => r[0] <= GA_MAX);
+    const last = inside[inside.length - 1];
+    const next = rows.find(r => r[0] > GA_MAX);
+    if (!last || !next || last[0] === GA_MAX) return inside;
+    const f = (GA_MAX - last[0]) / (next[0] - last[0]);
+    return [...inside, [GA_MAX, ...last.slice(1).map((v, i) => v + f * (next[i + 1] - v))]];
+  })();
+
+  // Weight from 36.5 weeks: Fenton's growth-monitoring curve, not the
+  // size-at-birth rows. Fenton's chart leaves those rows at about 37 weeks and
+  // bends towards WHO at 50, and read against them the app was up to 10 centile
+  // points off Fenton's own calculator (2026-10-17). FENTON_WEIGHT_GROWTH_LMS
+  // (data.js) is that calculator's curve as L, M, S at each half week. The
+  // curves are drawn from it, and a weight there is read as an LMS z-score.
+  // A DOL-1 weight is a size at birth and stays on birthDataset, as Fenton's
+  // Birth size evaluation does. Before 36.5 the two are the same rows.
+  const growthLms = metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex] : null;
+  const lmsStart = growthLms ? growthLms[0][0] : Infinity;
+  const lmsAt = (t) => {
+    if (!growthLms || t < lmsStart || t > growthLms[growthLms.length - 1][0]) return null;
+    const i = Math.max(0, growthLms.findIndex(r => r[0] >= t) - 1);
+    const lo = growthLms[i], hi = growthLms[Math.min(i + 1, growthLms.length - 1)];
+    const f = hi[0] === lo[0] ? 0 : (t - lo[0]) / (hi[0] - lo[0]);
+    return [1, 2, 3].map(j => lo[j] + f * (hi[j] - lo[j]));
+  };
+  const lmsZ = ([L, M, S], v) => Math.abs(L) < 1e-6 ? Math.log(v / M) / S : (Math.pow(v / M, L) - 1) / (L * S);
+  const lmsValue = ([L, M, S], z) => Math.abs(L) < 1e-6 ? M * Math.exp(S * z) : M * Math.pow(1 + L * S * z, 1 / L);
+  const CENTILE_Z = [-1.88079, -1.28155, 0, 1.28155, 1.88079];   // 3rd, 10th, 50th, 90th, 97th
+  const monitorDataset = growthLms
+    ? [...birthDataset.filter(r => r[0] < lmsStart),
+       ...growthLms.filter(r => r[0] <= GA_MAX).map(([t, ...lms]) => [t, ...CENTILE_Z.map(z => lmsValue(lms, z))])]
+    : birthDataset;
+
+  const xMin = 22, xMax = GA_MAX;
+
+  // Patient plot
+  // Weight uses patient.weights[].w
+  // Length/HC: data lives in patient.lengths[]/patient.hcs[] (separate arrays),
+  //   OR inline as w.l/w.hc on weights entries (saved by MeasurementLogger) — merge both.
+  // True decimal-week PMA at birth (for x-axis plotting); ga is WW.D shorthand
+  const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
+  const allPoints = (() => {
+    if (metric === "weight") {
+      // D_F.weightSeries, not patient.weights[] alone: an order's dosing
+      // weight is a weight someone put on a scale, and a ward that records it
+      // only there used to get a single-point growth chart (2026-09-23). A
+      // deliberate measurement still wins on any day that has both.
+      return D_F.weightSeries(patient, entries).map(w => ({
+        pma: pma0 + (w.dol - 1) / 7, value: w.w, dol: w.dol, src: w.src,
+      }));
+    }
+    const standalone = (metric === "length" ? (patient?.lengths || []) : (patient?.hcs || []))
+      .map(e => ({ dol: e.dol, value: e.v }));
+    const inline = (patient?.weights || [])
+      .filter(w => (metric === "length" ? w.l : w.hc) != null)
+      .map(w => ({ dol: w.dol, value: metric === "length" ? w.l : w.hc }));
+    const byDol = new Map(standalone.map(e => [e.dol, e.value]));
+    inline.forEach(e => byDol.set(e.dol, e.value)); // inline (fresher) wins
+    return [...byDol.entries()]
+      .map(([dol, value]) => ({ pma: pma0 + (dol - 1) / 7, value, dol }))
+      .sort((a, b) => a.dol - b.dol);
+  })().filter(p => p.value != null);
+
+  // Now that the axis stops at GA_MAX, an infant past 42 weeks PMA has
+  // measurements that cannot be plotted. Dropping them silently would leave a
+  // chart that looks complete while hiding the most recent point — and the
+  // long-stay infants this affects are exactly the ones being watched most
+  // closely. Count them so the UI can say so out loud.
+  const points = allPoints.filter(p => p.pma >= xMin && p.pma <= xMax);
+  const hiddenPastMax = allPoints.filter(p => p.pma > xMax).length;
+  // The newest measurement there IS, plotted or not. Only the chart is clamped
+  // to the reference; the readouts beside it are not (see GrowthVelocity).
+  const latestPoint = allPoints.length ? allPoints[allPoints.length - 1] : null;
+
+  // While the newest point is DOL 1 (a size at birth, the only weight yet),
+  // draw the size-at-birth rows it is read against, so the dot and the number
+  // agree. From DOL 2 the chart is the growth-monitoring one (Vera, 2026-10-19:
+  // a boy born 41+4 at 4400 g read ~92nd under a drawn 90th of about 4577 g).
+  const birthOnly = points.length > 0 && points[points.length - 1].dol === 1;
+  const dataset = birthOnly ? birthDataset : monitorDataset;
 
   const yLabel =
     metric === "weight" ? "Weight (g)"
@@ -94,7 +190,6 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   : "Head Circumference (cm)";
 
   // domain
-  const xMin = 22, xMax = GA_MAX;
   const yVals = dataset.flatMap(r => r.slice(1));
   const yMin = 0;
   const yMax = Math.max(...yVals) * 1.05;
@@ -174,69 +269,68 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const niceStep = metric === "weight" ? 1000 : metric === "length" ? 10 : 5;
   for (let v = 0; v <= yMax; v += niceStep) yTicks.push(v);
 
-  // Patient plot
-  // Weight uses patient.weights[].w
-  // Length/HC: data lives in patient.lengths[]/patient.hcs[] (separate arrays),
-  //   OR inline as w.l/w.hc on weights entries (saved by MeasurementLogger) — merge both.
-  // True decimal-week PMA at birth (for x-axis plotting); ga is WW.D shorthand
-  const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
-  const allPoints = (() => {
-    if (metric === "weight") {
-      // D_F.weightSeries, not patient.weights[] alone: an order's dosing
-      // weight is a weight someone put on a scale, and a ward that records it
-      // only there used to get a single-point growth chart (2026-09-23). A
-      // deliberate measurement still wins on any day that has both.
-      return D_F.weightSeries(patient, entries).map(w => ({
-        pma: pma0 + (w.dol - 1) / 7, value: w.w, dol: w.dol, src: w.src,
-      }));
-    }
-    const standalone = (metric === "length" ? (patient?.lengths || []) : (patient?.hcs || []))
-      .map(e => ({ dol: e.dol, value: e.v }));
-    const inline = (patient?.weights || [])
-      .filter(w => (metric === "length" ? w.l : w.hc) != null)
-      .map(w => ({ dol: w.dol, value: metric === "length" ? w.l : w.hc }));
-    const byDol = new Map(standalone.map(e => [e.dol, e.value]));
-    inline.forEach(e => byDol.set(e.dol, e.value)); // inline (fresher) wins
-    return [...byDol.entries()]
-      .map(([dol, value]) => ({ pma: pma0 + (dol - 1) / 7, value, dol }))
-      .sort((a, b) => a.dol - b.dol);
-  })().filter(p => p.value != null);
+  // 3rd, 11th, 12th, 13th, 21st, 22nd, 51st: the readout used to append "th"
+  // to every centile ("~51th", "~3th"; fentongrowth.ca check, 2026-10-17).
+  const ordinal = (n) => {
+    const ones = n % 10, tens = n % 100;
+    const suffix = tens >= 11 && tens <= 13 ? "th"
+      : ones === 1 ? "st" : ones === 2 ? "nd" : ones === 3 ? "rd" : "th";
+    return `${n}${suffix}`;
+  };
 
-  // Now that the axis stops at GA_MAX, an infant past 42 weeks PMA has
-  // measurements that cannot be plotted. Dropping them silently would leave a
-  // chart that looks complete while hiding the most recent point — and the
-  // long-stay infants this affects are exactly the ones being watched most
-  // closely. Count them so the UI can say so out loud.
-  const points = allPoints.filter(p => p.pma >= xMin && p.pma <= xMax);
-  const hiddenPastMax = allPoints.filter(p => p.pma > xMax).length;
-  // The newest measurement there IS, plotted or not. Only the chart is clamped
-  // to the reference; the readouts beside it are not (see GrowthVelocity).
-  const latestPoint = allPoints.length ? allPoints[allPoints.length - 1] : null;
+  // The percentile of `value` among one row's five centile values [p3 … p97].
+  const centileAmong = (vals, value) => {
+    const refs = [3, 10, 50, 90, 97];
+    if (value < vals[0]) return "<3rd";
+    if (value >= vals[4]) return ">97th";
+    for (let i = 0; i < 4; i++) {
+      if (value >= vals[i] && value < vals[i+1]) {
+        const ff = (value - vals[i]) / (vals[i+1] - vals[i]);
+        const p = refs[i] + ff * (refs[i+1] - refs[i]);
+        return `~${ordinal(Math.round(p))}`;
+      }
+    }
+    return null;
+  };
+
+  // The five centile values of `rows` at x = t, linear between rows; null
+  // outside them.
+  const rowAt = (rows, t) => {
+    const lo = rows.find((r, i) => rows[i+1] ? r[0] <= t && rows[i+1][0] >= t : r[0] === t);
+    if (!lo) return null;
+    const hi = rows[rows.indexOf(lo) + 1] || lo;
+    const f = hi[0] === lo[0] ? 0 : (t - lo[0]) / (hi[0] - lo[0]);
+    return [1,2,3,4,5].map(i => lo[i] + f * (hi[i] - lo[i]));
+  };
+
+  // Φ, the standard normal CDF (Abramowitz & Stegun 7.1.26, error < 1.5e-7).
+  const phi = (z) => {
+    const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
+    const e = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z / 2);
+    return z >= 0 ? (1 + e) / 2 : (1 - e) / 2;
+  };
+  // The same words as centileAmong: below the 3rd, above the 97th, else ~Nth.
+  const centileOfZ = (z) => {
+    const p = 100 * phi(z);
+    if (p < 3) return "<3rd";
+    if (p >= 97) return ">97th";
+    return `~${ordinal(Math.round(p))}`;
+  };
 
   // current percentile estimate
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
-    // find dataset row by linear interp
-    const t = last.pma;
-    const lo = dataset.find((r, i) => dataset[i+1] && r[0] <= t && dataset[i+1][0] >= t);
-    if (!lo) return null;
-    const hi = dataset[dataset.indexOf(lo) + 1];
-    const f = (t - lo[0]) / (hi[0] - lo[0]);
-    const refs = [3, 10, 50, 90, 97];
-    const vals = [1,2,3,4,5].map(i => lo[i] + f * (hi[i] - lo[i]));
-    // interpolate percentile
-    if (last.value < vals[0]) return "<3rd";
-    if (last.value >= vals[4]) return ">97th";
-    for (let i = 0; i < 4; i++) {
-      if (last.value >= vals[i] && last.value < vals[i+1]) {
-        const ff = (last.value - vals[i]) / (vals[i+1] - vals[i]);
-        const p = refs[i] + ff * (refs[i+1] - refs[i]);
-        return `~${p.toFixed(0)}th`;
-      }
-    }
-    return null;
+    const lms = last.dol !== 1 ? lmsAt(last.pma) : null;
+    if (lms) return centileOfZ(lmsZ(lms, last.value));
+    const vals = rowAt(dataset, last.pma);
+    return vals ? centileAmong(vals, last.value) : null;
   })();
+  // The curves start half a week after the axis does, so a measurement in
+  // between has no reference to be read against. Say where it begins, rather
+  // than a bare "—" or a value extrapolated past the first row.
+  const referenceStart = dataset.length ? D_F.fmtGA(D_F.daysToGA(Math.ceil(dataset[0][0] * 7))) : null;
+  const beforeReference = points.length > 0 && dataset.length > 0 && points[points.length - 1].pma < dataset[0][0];
 
   // Right-edge percentile labels can sit closer together than the (now larger,
   // see px() above) label text is tall where curves converge — e.g. 10th/3rd
@@ -282,6 +376,29 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
             <span>
               มีค่าที่วัดหลัง PMA {GA_MAX} สัปดาห์ <strong>{hiddenPastMax}</strong> ค่า ไม่ได้แสดงบนกราฟ —
               Fenton 2025 มีข้อมูลอ้างอิงถึง {GA_MAX} สัปดาห์เท่านั้น
+            </span>
+          </div>
+        )}
+        {/* FENTON_LENGTH / FENTON_HC are unverified (docs/CLINICAL_CONSTANTS.md):
+            Fenton publishes them only as charts, and the rows sit 4 weeks
+            apart. Weight carries no note: under 36.5 weeks its rows are the
+            official cutoff table, which the growth chart follows there, and
+            from 36.5 weeks it is read on Fenton's own monitoring curve
+            (FENTON_WEIGHT_GROWTH_LMS; test/verify-fenton-monitor-1019.cjs).
+            The 42-week length row is about 2–3 cm above
+            the official chart (BACKLOG.md), which makes a term infant look short. */}
+        {metric !== "weight" && (
+          <div role="note" style={{ padding: "10px 12px", background: "var(--warn-bg)",
+            border: "1px solid var(--warn-line)", borderRadius: 8, marginBottom: 10,
+            fontSize: 12.5, color: "var(--warn-ink)", lineHeight: 1.5, display: "flex", gap: 8 }}>
+            <span style={{ flexShrink: 0, marginTop: 2 }}><Icon name="info" size={13} color="var(--warn)" /></span>
+            <span>
+              <strong>เส้น {metric === "length" ? "Length" : "HC"} ยังไม่ได้ตรวจเทียบกับตัวเลขต้นฉบับ</strong>
+              <span style={{ display: "block", fontSize: 12 }}>
+                Fenton 2025 เผยแพร่ length และ HC เป็นกราฟเท่านั้น เส้นในแอปมีจุดทุก 4 สัปดาห์
+                เลยอ่าน percentile ได้แค่คร่าว ๆ
+                {metric === "length" && " ช่วงใกล้ 42 สัปดาห์ เส้นนี้สูงกว่ากราฟต้นฉบับ ทารกเลยดูตัวสั้นกว่าจริง"}
+              </span>
             </span>
           </div>
         )}
@@ -403,7 +520,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
               <div style={{ fontSize: 28, fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, letterSpacing: "-0.02em" }}>
                 {currentPercentile || "—"}
               </div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>percentile band</div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                {beforeReference ? `เส้นอ้างอิงเริ่มที่ PMA ${referenceStart}` : "percentile band"}
+              </div>
             </div>
 
             <div style={{ textAlign: "right" }}>

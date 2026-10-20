@@ -1,5 +1,20 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-19, 21:46 ICT — frontend `release` = `456e467` on both hosts, with backend `@64`.**
+> PR #163 released #158 and #161: the Fenton rows drawn at GA + 0.5, DOL 1 read at exact GA, and weight from
+> 36.5 weeks on Fenton's growth-monitoring curve. #162 rode along and changed no served file. Before the
+> merge the tree ran on dev local (comment on #163). `node tools/verify-release.mjs 456e467 --wait` passed
+> on both hosts (0 failures, 61 passes) once the deploy landed. The tag `release-2026-10-19-pr163` is pushed.
+> `CONSTANTS_VERSION` unchanged, no backend change. ⚠️ No one has opened the Growth tab of a term-age infant
+> on a ward phone or PC yet. Recorded here by PR #164, the next PR on the repo.
+>
+> ✅ **2026-10-13, 09:59 ICT — frontend `release` = `3249406` on both hosts, with backend `@64`.**
+> PR #157 released #156: Back asks before it closes a form, and Back after Back stays in the app.
+> Before the merge the tree ran on dev local (`tools/dev-local.mjs`), the first release with that as a
+> set step. `node tools/verify-release.mjs 3249406 --wait` passed on both hosts (0 failures, 61 passes,
+> and both hosts serve the new `?v=` tokens). The tag `release-2026-10-13-pr157` is pushed (comment on
+> #157). No ward phone has tried Back since #154. Recorded here by PR #158, the next PR on the repo.
+>
 > ✅ **2026-10-12, 11:27 ICT — frontend `release` = `266a08d` on both hosts, with backend `@64`.**
 > PR #155 released #154, #153 and #152: the Active, Logged today and Needs entry tiles filter the ward
 > list; each ward has a Print order button on the gate; the phone's Back steps back inside the app; NF-17,
@@ -150,12 +165,27 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-12** · ✅ **Backend `@64` and frontend `release` = `266a08d` are live, and both are
-verified.** Caught up with #151 and #155 in the next PR on the repo, the Back confirm (`CHANGELOG.md`
-2026-10-12 (3)), as #155 asked.
-- ⏳ **PR #156, Back asks before it closes a form, Back after Back stays in the app, and dev local before
-  every release: merged into `main` on Pp's instruction ("merge แล้ว deploy").** Not live until its
-  `main → release` PR merges. Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged.
+**Updated 2026-10-20** · ✅ **Backend `@64` and frontend `release` = `456e467` are live, and both are
+verified.** Caught up with #163 by PR #164, the next PR on the repo, as #163 asked.
+- ⏳ **PR #164, no "LBW" under a birth weight of 2500 g or more: merged into `main` on Pp's instruction
+  ("cont to merge"); not live until a `main → release` PR.** Frontend only, no `clasp` step.
+  `CONSTANTS_VERSION` unchanged; the session header is hidden in print. `CHANGELOG.md` 2026-10-19 (4).
+- ✅ **PR #162, NF-19: `tools/ci_bans.js` fails CI on a raw `toFixed(n)` (the trailing-zero rule):
+  merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").** CI and docs only: neither host
+  serves `.github/`, `test/`, `tools/` or `*.md` (`.assetsignore`, `_config.yml`), so no served file changes;
+  release #163 carried it.
+- ✅ **PR #161, weight from 36.5 weeks drawn and read on Fenton's growth-monitoring curve
+  (`FENTON_WEIGHT_GROWTH_LMS`, solved from fentongrowth.ca), a lone DOL-1 weight on the size-at-birth
+  rows: live, released by #163 on Pp's instruction ("release #163 ตามขั้นตอน: dev local, รอ harnesses ผ่าน,
+  merge, verify-release ทั้งสอง host แล้ว tag").** Frontend only, no `clasp` step. `CONSTANTS_VERSION`
+  unchanged. `CHANGELOG.md` 2026-10-19 (2).
+- ✅ **PR #158, the Fenton rows drawn at GA + 0.5, DOL 1 read at exact GA, the readout's ordinals, and
+  Length and HC saying they are not verified: live, released by #163 (banner above).** Frontend only, no
+  `clasp` step. `CONSTANTS_VERSION` unchanged: no Fenton figure is printed or saved. `CHANGELOG.md`
+  2026-10-17 (1)–(4) and 2026-10-19.
+- ✅ **PR #156, Back asks before it closes a form, Back after Back stays in the app, and dev local before
+  every release: live, released by #157 on Pp's instruction ("merge แล้ว deploy").** Frontend only, no
+  `clasp` step. `CONSTANTS_VERSION` unchanged.
 - ✅ **PR #154, the stats tiles filter the list, Print order per ward on the gate, and Back inside the app:
   live, released by #155 on Pp's instruction ("merge ตอนนี้", after a local dev run).** Frontend only.
   `CHANGELOG.md` 2026-10-12 (1) and (2). ⚠️ In this release a second Back in a row, with no tap between,
