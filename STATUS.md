@@ -175,6 +175,12 @@
 
 **Updated 2026-10-20** · ✅ **Backend `@64` and frontend `release` = `b27de55` are live, and both are
 verified.** Caught up with #165 by PR #160, the next PR on the repo, as #165 asked.
+- ⏳ **PR #159, `EN_DB` from the Chula handbook pages, not the AI extraction: merged into `main` on Pp's
+  instruction ("merge เลย", after she chose the book as the source, Chula p. 10 for the HMF and PF 20 kept
+  as it was); not live until a `main → release` PR.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION`
+  `2026-10-11.1` → `2026-10-17.1`**: printed EN figures move for every formula feed and for BM + HMF, so
+  every saved order has to be saved again before it prints. No second clinician has signed off yet.
+  `CHANGELOG.md` 2026-10-17 (6), 2026-10-20 (2) and (3).
 - ⏳ **PR #160, an order saved before 2026-09-18 prints and copies only after it is saved again:
   merged into `main` on Pp's instruction ("#160 ไม่ bump แล้ว merge ก่อน"); not live until a
   `main → release` PR.** Frontend only, no `clasp` step. `CONSTANTS_VERSION` stays `2026-10-11.1`, Pp's
