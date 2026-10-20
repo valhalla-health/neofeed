@@ -21,7 +21,7 @@
 // FEED / expectedAlerts here by hand, from the source, or the harness stops
 // being a second opinion.
 //
-// 12 scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
+// 13 scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
 // peripheral PN entered by pump rate (10% Mg — KCMH's only vial) and every oral
 // supplement, a feeds-only day with no bag, a term infant on a manual dosing
 // weight with a MEN feed and the Vitalipid cap, an alert-stress order, the
@@ -121,6 +121,7 @@ const INFATRINI = perMl(PER_100_KCAL.infatrini, 100);
 const FEED = {
   BM_20:        BM,
   BM_HMF_24:    BM_HMF,
+  BM_PF_20:     [67, 1.5, 3.5, 7.4, 1.0, 1.7, 50, 28],     // no source; kept as it was (Pp, 2026-10-20)
   FBM_PF_22:    perMl(PER_100_KCAL.enfalacPremature, 73),   // the ward's 22 kcal/oz
   PRENAN_22:    perMl(PER_100_KCAL.preNan, 73),
   FBM_PF_24:    perMl(PER_100_KCAL.hiQLbw, 80),
@@ -359,9 +360,8 @@ const SCEN = [
     naCl: 5, kCl: 4, ca: 100, zn: 6.5, hep: 1, feed: 'INFATRINI_30', enVol: 3, enFreq: 8, men: true },
   { name: 'F caps: 16 kg, Soluvit/Peditrace/Vitalipid ceilings', bw: 3000, cur: 16000, dol: 40, fluid: 100, tpn: 1000, dead: 30,
     dex: 10, aa: 2, lip: 2, naCl: 2, kCl: 1, soluvit: true, pedi: true, hep: 0.5, feed: 'BM_20', enVol: 0, enFreq: 0 },
-  // every remaining feed type, no TPN, full-ish feeds on 1.5 kg. BM_PF_20 has
-  // no source and a new order cannot pick it (verify-en-db-sources.cjs).
-  ...['PRENAN_22', 'FBM_PF_24', 'FBM_INF_MIX', 'LF_20', 'LF_27'].map((k) => ({
+  // every remaining feed type, no TPN, full-ish feeds on 1.5 kg
+  ...['BM_PF_20', 'PRENAN_22', 'FBM_PF_24', 'FBM_INF_MIX', 'LF_20', 'LF_27'].map((k) => ({
     name: `G feed ${k} (feeds only)`, bw: 1200, cur: 1500, dol: 12, fluid: 160, ioOut: 70, tpn: 0,
     feed: k, enVol: 28, enFreq: 8, weights: [{ dol: 11, w: 1490 }] })),
   // A prepared volume with a second decimal: 80.45 + 50 = 130.45 mL prints as

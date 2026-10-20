@@ -151,10 +151,10 @@ function syncFreshness(s) {
 // So the source tables are copied below AS PRINTED, in the source's own units,
 // and EN_DB is computed from them: each literal can be checked against its
 // page, and a 24 or 27 kcal/oz row can never drift from its 20 kcal/oz row.
-// Every row names its `source`. A row with none carries `unsourced: true`; the
-// Calculator's feed list does not offer it, and an order that still has one
-// raises a critical alert (test/verify-en-db-sources.cjs, which holds its own copy of
-// these tables). `osm` is shown on the Formula reference page only, and no
+// Every row names its `source`. A row with none carries `unsourced: true`, and
+// the Formula reference page says "No source" for it; the Calculator still
+// offers it (Pp, 2026-10-20, until the feed formulas are revised). Checked by
+// test/verify-en-db-sources.cjs, which holds its own copy of these tables. `osm` is shown on the Formula reference page only, and no
 // calculation reads it; null means the source gives none at that strength.
 const EN_MG_PER_MMOL = { na: 22.99, k: 39.10, ca: 40.08, p: 30.97 };
 const EN_KCAL_PER_100ML = { 20: 67, 22: 73, 24: 80, 27: 90, 30: 100 };
@@ -231,15 +231,15 @@ const EN_DB = {
 
   // ── Preterm formula ────────────────────────────────────────
   // No source: no product has this profile (per 100 kcal it is a term
-  // formula: 2.2 g protein, 75 mg Ca). Kept only so an order saved with it
-  // still opens; the Calculator's feed list does not offer it.
+  // formula: 2.2 g protein, 75 mg Ca). Pp, 2026-10-20: keep it as it was,
+  // offered in the Calculator with its old numbers, until the feed formulas
+  // are revised. `unsourced` only makes the Formula page say "No source".
   BM_PF_20: {
     label: "Preterm Formula (20 kcal/oz)",
     kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4,
     na: 1.0, k: 1.7, ca: 50, p: 28,
-    osm: null, lf: false,
+    osm: 290, lf: false,
     unsourced: true,
-    note: "No source — not offered in the Calculator. Choose the product the infant gets",
   },
   // 22 kcal/oz is the ward's strength: "Preterm Formula (22 kcal/oz)" at 73
   // kcal/100 mL from the first commit until 357d095 named it Enfalac Premature

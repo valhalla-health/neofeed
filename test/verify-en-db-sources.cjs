@@ -1,5 +1,5 @@
 // verify-en-db-sources.cjs — every feed composition in EN_DB comes from its
-// printed source, and a feed with no source cannot be ordered (2026-10-17).
+// printed source, or is the one row kept as it was (2026-10-17, 2026-10-20).
 //
 // Why it exists: the provenance audit of 2026-10-17 found that most formula
 // rows in EN_DB had been copied (commit 357d095) from
@@ -16,12 +16,13 @@
 //   #1  the transcription checks itself: each per-100-kcal column adds up to
 //       about 100 kcal (4·protein + 9·fat + 4·carbohydrate), and its Ca and P
 //       give the Ca:P ratio printed on the same page
-//   #2  every EN_DB row equals its source, field by field, at its strength
+//   #2  every EN_DB row equals its source, field by field, at its strength;
+//       BM_PF_20 keeps the numbers it had before 2026-10-17
 //   #3  every row names its source (table and page), or is marked unsourced;
 //       the unsourced set is exactly the one below
-//   #4  the Calculator: an unsourced feed cannot be picked; an order that
-//       still has one (reopened, or copied from the day before) shows it,
-//       marked, and raises a critical alert
+//   #4  the Calculator still offers BM_PF_20 under its own label, and an
+//       order on it (new, reopened, or copied) raises no source alert
+//       (Pp, 2026-10-20: keep PF 20 as it was until the formulas are revised)
 //   #5  the Formula reference page: a source line on every row, rounded
 //       figures, "—" where the source gives no osmolality
 //
@@ -145,8 +146,11 @@ const EXPECTED = {
 };
 // Rows with no source. Adding one here is a decision for Pp, not a fix.
 const UNSOURCED = ['BM_PF_20'];
+// Pp, 2026-10-20: "PF 20 kcal/oz คงไว้อย่างเดิมก่อน". Its numbers as they were
+// on main before this PR (55d893d data.js), until the formulas are revised.
+const KEPT = { BM_PF_20: { kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4, na: 1.0, k: 1.7, ca: 50, p: 28, osm: 290 } };
 // The Calculator's feed list for a new order (calculator.jsx, Step 2).
-const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'FBM_PF_22', 'FBM_PF_24', 'PRENAN_22', 'FBM_INF_MIX', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27'];
+const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'FBM_PF_22', 'FBM_PF_24', 'PRENAN_22', 'FBM_INF_MIX', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27'];
 const FIELDS = ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p'];
 const close = (a, b) => typeof a === 'number' && Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
 
@@ -184,6 +188,11 @@ const scenarios = {
       A.eq(`2.${key} kcal, protein, fat, CHO, Na, K, Ca, P`, off, []);
       A.eq(`2.${key} osmolality (null = the source gives none at this strength)`, row.osm ?? null, want.osm);
     }
+    for (const [key, want] of Object.entries(KEPT)) {
+      const row = DB[key] || {};
+      A.eq(`2.${key} keeps its numbers from before 2026-10-17`,
+        [...FIELDS, 'osm'].filter(f => row[f] !== want[f]).map(f => `${f} ${row[f]} (was ${want[f]})`), []);
+    }
     // The label's strength and the row's energy agree (1 oz = 30 mL).
     for (const [key, row] of Object.entries(DB)) {
       const m = /^[^↔]*?\((\d+) kcal\/oz/.exec(row.label);
@@ -212,7 +221,7 @@ const scenarios = {
   },
 
   async 'calculator'(A) {
-    console.log('\n── #4 the Calculator offers no unsourced feed, and flags one an order still has ──');
+    console.log('\n── #4 the Calculator still offers PF 20, as it was, with no source alert ──');
     const babel = require('@babel/core');
     const { JSDOM } = require('jsdom');
     const dom = new JSDOM('<!doctype html><html><head></head><body><div id="root"></div></body></html>',
@@ -266,45 +275,41 @@ const scenarios = {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
       act(() => { setter.call(sel, value); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
     };
+    // 44f88e4 raised "Feed composition has no source" on a PF 20 order; any
+    // alert that names the source comes back here.
     const noSourceAlerts = () => [...container.querySelectorAll('.calc-bottom .alert-row')]
-      .filter(a => a.querySelector('.title')?.textContent === 'Feed composition has no source');
+      .filter(a => /no source/i.test(a.textContent));
 
     // A new order.
     mount(null);
     const sel = feedSelect();
     A.ok('4.1 the feed select is on screen', !!sel);
     const opts = sel ? [...sel.options] : [];
-    A.eq('4.2 a new order offers exactly the sourced feeds', opts.map(o => o.value).sort(), [...CALC_OFFERS].sort());
+    A.eq('4.2 a new order offers the sourced feeds and PF 20', opts.map(o => o.value).sort(), [...CALC_OFFERS].sort());
     A.eq('4.3 none of them is disabled', opts.filter(o => o.disabled).map(o => o.value), []);
     A.eq('4.4 each option reads its EN_DB label', opts.filter(o => o.textContent !== DB[o.value]?.label).map(o => o.value), []);
     A.ok('4.5 Enfalac Premature keeps the ward\'s 22 kcal/oz',
       opts.some(o => o.value === 'FBM_PF_22' && o.textContent === 'Enfalac Premature (22 kcal/oz)'));
 
-    // An order saved with the unsourced row, reopened.
+    pick('BM_PF_20');
+    A.eq('4.6 a new order can pick PF 20', feedSelect()?.value, 'BM_PF_20');
+    A.eq('4.7 …and raises no source alert', noSourceAlerts().length, 0);
+
+    // An order saved on PF 20, reopened.
     const old = { entryId: 'e-old', ts: '2026-10-12', weight: 1500, lastModified: '2026-10-12T02:00:00.000Z',
       calcInput: { curWtG: 1500, fluidTargetPerKg: 150, enType: 'BM_PF_20', enVol: 28, enFreq: 8 } };
     mount(old);
     const sel2 = feedSelect();
-    A.eq('4.6 the reopened order still shows its own feed', sel2?.value, 'BM_PF_20');
+    A.eq('4.8 a reopened PF 20 order shows its own feed', sel2?.value, 'BM_PF_20');
     const shown = sel2 ? [...sel2.options].find(o => o.value === 'BM_PF_20') : null;
-    A.ok('4.7 …marked as having no source', !!shown && /no source, choose another/.test(shown.textContent));
-    A.eq('4.8 …and raises one critical alert (a reason at Save)', noSourceAlerts().map(a => a.classList.contains('crit')), [true]);
-    pick('LF_24');
-    A.ok('4.9 choosing a sourced feed removes the unsourced option', ![...feedSelect().options].some(o => o.value === 'BM_PF_20'));
-    A.eq('4.10 …and the warning', noSourceAlerts().length, 0);
+    A.eq('4.9 …under its plain label', shown?.textContent, 'Preterm Formula (20 kcal/oz)');
+    A.eq('4.10 …with the same feed list as a new order', sel2 ? [...sel2.options].map(o => o.value).sort() : [], [...CALC_OFFERS].sort());
+    A.eq('4.11 …and raises no source alert', noSourceAlerts().length, 0);
 
-    // A reopened order on a sourced feed never warns.
-    mount({ ...old, entryId: 'e-lf', calcInput: { ...old.calcInput, enType: 'LF_24' } });
-    A.eq('4.11 a sourced feed does not warn', noSourceAlerts().length, 0);
-
-    // The next day's new order, copied from an order on the unsourced feed
-    // (Vera, 2026-10-17): the feed carries over, and so does the alert.
+    // The next day's new order, copied from a PF 20 order.
     mount(null, old);
-    A.eq('4.12 a copied new order keeps the feed it was copied from', feedSelect()?.value, 'BM_PF_20');
-    A.eq('4.13 …and raises the critical alert every day it stays', noSourceAlerts().map(a => a.classList.contains('crit')), [true]);
-    // A MEN feed counts toward no nutrient, so no figure comes from the row.
-    mount({ ...old, entryId: 'e-men', calcInput: { ...old.calcInput, isMEN: true, enVol: 2 } });
-    A.eq('4.14 an unsourced MEN feed raises nothing (no figure uses it)', noSourceAlerts().length, 0);
+    A.eq('4.12 a copied new order keeps PF 20', feedSelect()?.value, 'BM_PF_20');
+    A.eq('4.13 …and raises no source alert', noSourceAlerts().length, 0);
     act(() => { root.unmount(); });
   },
 

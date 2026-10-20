@@ -7,6 +7,44 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-20 — PR #159: Pp's answers; Preterm Formula 20 kept as it was
+
+`data.js` (`BM_PF_20`), `calculator.jsx` (feed list and alerts back to what `main` has), `compiled/`, both
+shells' `?v=` tokens, `docs/CLINICAL_CONSTANTS.md`, `test/verify-en-db-sources.cjs` §2 and §4,
+`test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`, `test/verify-calc-sum.cjs`,
+`test/verify-tpn-meeting-0928.cjs` §9. `CONSTANTS_VERSION` stays `2026-10-17.1`.
+
+### Pp's answers (2026-10-20)
+
+Pp: "ข้อ 159 ตัวเลขทำตาม แหล่งอ้างอิงคือหนังสือchula handbook แบบอ่านจริง ส่วน PF 20 kcal/oz คงไว้อย่างเดิมก่อน
+มี plan ปรับเรื่องสูตรนมอีกครั้ง".
+
+- **The numbers stand, sourced to the Chula handbook as read from its pages** (question 1: the book, not
+  today's pharmacy labels). This is Pp's sign-off of the figures in the 2026-10-17 entry.
+- **Preterm Formula (20 kcal/oz) stays as it was** (question 5). The Calculator offers it again, under its
+  plain label, in every new, reopened and copied order. There is no "no source" mark and no critical
+  alert. Its numbers are the ones it had on `main`, osmolality 290 included. It keeps `unsourced: true`,
+  so the Formula reference page still reads "No source" on its row.
+- Questions 2, 3, 4, 6 and 7 got no separate answer. The PR's choices stand until the formula revision
+  Pp plans: Enfalac Premature and Pre Nan at 22 kcal/oz (73 kcal/100 mL), Infatrini powder, Enfamil HMF
+  from WHO Box 1.3.3, breast milk at 67 kcal/100 mL, and FBM ↔ Infatrini as a 50:50 mean.
+
+### Tests
+
+- `verify-en-db-sources.cjs`: §2 checks `BM_PF_20` against its old numbers, typed in the harness. §4 now
+  says a new order can pick it, and a reopened or copied order on it shows its plain label and raises no
+  alert that mentions a source. On `44f88e4` it fails 6 of 144 (the old numbers' osmolality, the list,
+  picking it, the label, and the two alerts); here 144/144.
+- `verify-tpn-meeting-0928.cjs` §9 expects PF 20 in the Preterm formula group again (2 fail on `44f88e4`).
+- `verify-calc-oracle.cjs`, `verify-calc-fuzz.cjs` and `verify-calc-sum.cjs` take PF 20 back into their
+  scenarios, with its old numbers typed by hand in the oracle and the fuzz.
+
+### Not done
+
+- **Second clinician's sign-off** (change protocol step 3): still none.
+- PF 20 still has no source. The formula revision Pp plans decides its fate, with questions 2, 3, 4, 6
+  and 7.
+
 ## Session 2026-10-17 — EN_DB rebuilt from the handbook pages (draft, for Pp's sign-off)
 
 `data.js` (`EN_DB`, `CONSTANTS_VERSION` 2026-10-11.1 → **2026-10-17.1**), `calculator.jsx` (feed options,
