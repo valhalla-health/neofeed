@@ -7,6 +7,17 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-20 — PR #160: no bump, merged into `main` before #159
+
+`CHANGELOG.md`, `STATUS.md` (this PR's line, and caught up with release #165 as it asked). No code changed
+after `82c4bd3` except merging `main` in.
+
+- **Pp's answer** to the PR's question (2026-10-20): "#160 ไม่ bump แล้ว merge ก่อน". `CONSTANTS_VERSION`
+  stays `2026-10-11.1`, and this PR merges into `main` before #159, which bumps to `2026-10-17.1`.
+- **`main` merged in** (#158, #161, #162, #164). Both sides had a `2026-10-17 (3)` entry here; this PR's is
+  now `2026-10-17 (5)`, its text unchanged. The shells' tokens are the build's.
+- Merged into `main` on Pp's instruction. Not live until a `main → release` PR.
+
 ## Session 2026-10-19 (4) — no "LBW" under a birth weight of 2500 g or more
 
 `app.jsx` (`PatientStrip`), `compiled/app.js`, both shells' `?v=` tokens, `test/verify-bw-category-1019.cjs`
