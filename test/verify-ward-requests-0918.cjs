@@ -400,17 +400,20 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     eq('calcInput.aaProduct = aminoven10', log.entry && log.entry.calcInput.aaProduct, 'aminoven10');
     ok('print: "☑ 10% Aminoven infant = 2 g/kg/d = 4 g in bag = 40 mL"', /☑ 10% Aminoven infant = 2 g\/kg\/d = 4 g in bag = 40 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
 
-    // A row saved before this change has no aaProduct: it reopens as Aminoven,
-    // unchanged — still printable without a re-save. (D15 keeps its IV NPE:AA
-    // at 21 kcal/g: below 20 would be a critical stop of its own and hide
-    // what this checks.)
+    // A row saved before this change has no aaProduct: it reopens as Aminoven.
+    // It has no CONSTANTS_VERSION stamp either, so since 2026-10-17 it prints
+    // only after it is saved again (§12). (D15 keeps its IV NPE:AA at 21
+    // kcal/g: below 20 would be a critical stop of its own and hide what this
+    // checks.)
     const legacy = { entryId: 'e-leg', lastModified: 'lm-leg', ts: '2026-09-18', dol: 1, weight: 2000, ioInput: 200, ioOutput: 80, drainContent: 0,
       calcInput: { curWtG: 2000, fluidTargetPerKg: 120, otherIV_mL: 0, drug_mL: 0, ioInput: 200, ioOutput: 80, drainContent: 0,
         totalTPN_mL: 180, dexPct: 15, aaPerKg: 3, lipidPerKg: 2, naCl: 1, kCl: 1, enType: 'BM_20', enVol: 0, enFreq: 0 } };
     mount({ patient: pt('AL-2000', 2000), editEntry: legacy, onLog: logger().onLog });
     eq('fixture: the legacy order raises no critical alert', alertRows().filter(a => a.level === 'crit').map(a => a.title), []);
-    ok('a legacy row (no aaProduct) reopens printable', !!printForm());
-    ok('…as 10% Aminoven infant, 60 mL', /☑ 10% Aminoven infant = 3 g\/kg\/d = 6 g in bag = 60 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
+    near('a legacy row (no aaProduct) reopens as Aminoven: 6 g ÷ 0.10 = 60 mL', aaVolume(), 60, 1);
+    ok('…and, unstamped, waits for a save before it prints', !printForm());
+    await save();
+    ok('…saved again, it prints as 10% Aminoven infant, 60 mL', /☑ 10% Aminoven infant = 3 g\/kg\/d = 6 g in bag = 60 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
 
     // A row carrying Aminoplasmal (from a future ward) reopened on NICU cannot
     // be offered it: the order is recomputed as Aminoven, so it reads as edited
@@ -526,9 +529,10 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     }
 
     // A saved order is the record: it reopens with its own dead space and prints unchanged.
+    // It carries the current stamp, so calcMoved (§12) is not what is under test.
     const saved0 = { entryId: 'e-s0', lastModified: 'lm-s0', ts: '2026-09-18', dol: 1, weight: 2000, ioInput: 150, ioOutput: 60, drainContent: 0,
       calcInput: { curWtG: 2000, fluidTargetPerKg: 120, otherIV_mL: 0, drug_mL: 0, ioInput: 150, ioOutput: 60, drainContent: 0,
-        totalTPN_mL: 120, deadVol_mL: 0, dexPct: 15, aaPerKg: 2, lipidPerKg: 2 } };   // IV NPE:AA 24 — no critical stop
+        totalTPN_mL: 120, deadVol_mL: 0, dexPct: 15, aaPerKg: 2, lipidPerKg: 2, constantsVersion: D.CONSTANTS_VERSION } };   // IV NPE:AA 24 — no critical stop
     mount({ patient: pt('DR-2000', 2000), editEntry: saved0, onLog: logger().onLog });
     eq('fixture: no critical alert', alertRows().filter(a => a.level === 'crit').map(a => a.title), []);
     eq('a saved 0 mL order reopens at 0', deadVal(), 0);
@@ -661,10 +665,12 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     eq('saving it again restamps the row', got() && got().calcInput.constantsVersion, D.CONSTANTS_VERSION);
     ok('…after which it prints', !!printForm());
 
-    // Rows saved before this release carry no stamp. Only this release's own
-    // changes are checked for them — the reviewer's case first: 1.5 kg, TPN
-    // 100 mL, dead space 20, vitamins ticked. It printed Soluvit 1.5 mL; the
-    // calculator now says 1.8.
+    // Rows saved before this release carry no stamp. Until 2026-10-17 only this
+    // release's own changes held them (overfilled vitamins, a MEN feed); since
+    // then they match no version and are all held, a feeds-only day included
+    // (Vera, PR #159 finding 4; verify-calcmoved-unstamped-1017.cjs). The
+    // reviewer's case first: 1.5 kg, TPN 100 mL, dead space 20, vitamins
+    // ticked. It printed Soluvit 1.5 mL; the calculator now says 1.8.
     got = open(row('s-leg-overfill', {}));
     near('legacy overfilled row: Soluvit is now 1.5 × 1.2 = 1.8 mL', readout('Soluvit N (water-sol.)'), 1.8, 1);
     ok('…so Print is held', !printForm());
@@ -673,16 +679,18 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     ok('…until it is saved again', !!printForm() && /Soluvit N1\.8 mL\/day/.test(printText()), printText().match(/Soluvit N[\d.—]+ mL\/day/));
 
     open(row('s-leg-plain', { deadVol_mL: 0 }));
-    ok('legacy row with no dead space, no MEN, TPN given: prints as before', !!printForm());
+    ok('legacy row with no dead space, no MEN, TPN given: held too', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
 
     open(row('s-leg-men', { deadVol_mL: 0, enType: 'BM_20', enVol: 5, enFreq: 8, isMEN: true }));
     ok('legacy row with a MEN feed (totals now exclude it): held', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
 
-    // A day with no TPN has no bag, so nothing compoundable moved: its vitamin
-    // lines now read "—" instead of mL for a bag that never existed.
+    // A day with no TPN has no bag: its vitamin lines read "—" instead of mL
+    // for a bag that never existed. Its feed figures come from today's EN_DB,
+    // so it is held like the rest until it is saved again.
     open(row('s-leg-noTPN', { totalTPN_mL: 0, deadVol_mL: 0, dexPct: 0, aaPerKg: 0, lipidPerKg: 0, enType: 'BM_20', enVol: 30, enFreq: 8 }));
-    ok('legacy feeds-only row: not held (no bag)', !!printForm(), banner());
-    ok('…and it reprints with no vitamin mL', /☑ Soluvit N— mL\/day/.test(printText()), printText().match(/5\. Multivitamin.{0,40}/));
+    ok('legacy feeds-only row: held', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
+    await save();
+    ok('…and once saved again it prints with no vitamin mL', /☑ Soluvit N— mL\/day/.test(printText()), printText().match(/5\. Multivitamin.{0,40}/));
 
     // PR #77 put 2026-09-18.1 live at 11:17 ICT on 2026-09-18, before the
     // stamp shipped. Rows saved from then on carry no constantsVersion, yet

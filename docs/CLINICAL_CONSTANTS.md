@@ -64,11 +64,14 @@ re-save every order (2026-10-19; `2026-09-05.1` did bump for `FENTON_WEIGHT`). E
 saved order stamped with another version prints only after it is saved again (`calculator.jsx`,
 `calcMoved`). A bump therefore also asks the ward to re-save any old order before reprinting it. Rows
 saved on the first `2026-09-18.1` frontend (live 11:17 ICT on 2026-09-18, before the stamp shipped) are
-dated by their `calcInput.aaProduct` key (`savedCalcVersionOf`).
+dated by their `calcInput.aaProduct` key (`savedCalcVersionOf`). Rows saved before that carry neither,
+match no version, and are held whatever the day's route (since 2026-10-17, Vera on PR #159; until then
+`calcMoved` checked them only against `2026-09-18.1`'s own changes, so a feeds-only order from before the
+stamp reprinted with figures from later versions).
 
-One exception, the one `calcMoved` makes for older rows: a figure printed for a day with **no TPN
-volume**, where there is no bag to compound. The fix that zeroed a feeds-only day's vitamin lines
-therefore kept `2026-09-18.1`.
+One exception to bumping: a change whose only moved figures are the bag's lines on a day with **no TPN
+volume**, where there is no bag to compound. The fix that zeroed a feeds-only day's vitamin lines therefore kept
+`2026-09-18.1`.
 
 **Do not bump** for comments, labels, UI copy, or anything in `data.js` that is a helper rather than
 a value — `liveDol`, the GA/PMA helpers, `normalizeBed`, `syncFreshness`. Those are covered by
