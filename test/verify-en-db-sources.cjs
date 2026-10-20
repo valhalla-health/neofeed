@@ -30,8 +30,9 @@
 //   Chula Pediatric Nutrition Handbook 3rd ed. (2565), docs/Nutrition PedCu Ed3.pdf
 //     Table 5 p. 16 (preterm formula), Table 7 p. 18 (lactose-free formula),
 //     Table 16 p. 29 (balanced supplement formula); all per 100 kcal.
+//     p. 10 (human milk fortifiers, per 1 g protein).
 //   WHO 2006, Optimal feeding of low-birth-weight infants: technical review,
-//     Box 1.3.1 p. 16 (milk, per litre), Box 1.3.3 p. 19 (fortifiers, per dose).
+//     Box 1.3.1 p. 16 (milk, per litre), Box 1.3.3 p. 19 (the HMF dose's protein only).
 //
 // Watch it fail first: on the EN_DB before 2026-10-17, #2 fails on every
 // formula row and on BM_HMF_24, and #3 fails on every row.
@@ -90,8 +91,13 @@ const T16 = {
 };
 // WHO 2006 Box 1.3.1, term mature milk (> 30 days). Per litre.
 const BOX_131_TERM = { energyKcal: 640, proteinG: 12, fatG: 34, carbG: 67, caMmol: 6.5, pMmol: 4.8, naMmol: 9.0, kMmol: 13.9 };
-// WHO 2006 Box 1.3.3, Enfamil human milk fortifier, 4 g.
-const BOX_133_ENFAMIL = { energyKcal: 14, proteinG: 1.1, fatG: 0.65, carbG: 1.1, caMg: 90, pMg: 45, naMmol: 0.5, kMmol: 0.5 };
+// Chula p. 10 (PDF p. 18), "Human milk fortifier (per 4 packages)", Enfamil HMF
+// (Mead Johnson) powder. The protein row reads 1 in every column, so the column is
+// per 1 g protein. Typed from the page image on 2026-10-20 (Pp chose this page).
+const P10_ENFAMIL_HMF = { proteinG: 1, carbG: 0.4, fatG: 0.9, energyKcal: 13, caMg: 81.8, pMg: 40.9, naMg: 14.5, kMg: 26.4 };
+// The book gives no dose: one 4 g dose for 100 mL carries 1.1 g protein (WHO 2006
+// Box 1.3.3, the same product).
+const HMF_PROTEIN_G_PER_DOSE = 1.1;
 
 // Conversions. 1 oz = 30 mL, rounded as the ward has always written it.
 // 22 kcal/oz is the ward's strength for Enfalac Premature and Pre Nan; the
@@ -117,9 +123,11 @@ function atStrength(col, oz) {
 const BM = { kcal: BM_KCAL, pro: BOX_131_TERM.proteinG / 10, fat: BOX_131_TERM.fatG / 10, cho: BOX_131_TERM.carbG / 10,
   na: BOX_131_TERM.naMmol / 10, k: BOX_131_TERM.kMmol / 10,
   ca: BOX_131_TERM.caMmol * MG_PER_MMOL.Ca / 10, p: BOX_131_TERM.pMmol * MG_PER_MMOL.P / 10, osm: null };
-const BM_HMF = { kcal: BM.kcal + BOX_133_ENFAMIL.energyKcal, pro: BM.pro + BOX_133_ENFAMIL.proteinG,
-  fat: BM.fat + BOX_133_ENFAMIL.fatG, cho: BM.cho + BOX_133_ENFAMIL.carbG, na: BM.na + BOX_133_ENFAMIL.naMmol,
-  k: BM.k + BOX_133_ENFAMIL.kMmol, ca: BM.ca + BOX_133_ENFAMIL.caMg, p: BM.p + BOX_133_ENFAMIL.pMg, osm: null };
+const DOSE = HMF_PROTEIN_G_PER_DOSE / P10_ENFAMIL_HMF.proteinG;
+const BM_HMF = { kcal: BM.kcal + P10_ENFAMIL_HMF.energyKcal * DOSE, pro: BM.pro + P10_ENFAMIL_HMF.proteinG * DOSE,
+  fat: BM.fat + P10_ENFAMIL_HMF.fatG * DOSE, cho: BM.cho + P10_ENFAMIL_HMF.carbG * DOSE,
+  na: BM.na + P10_ENFAMIL_HMF.naMg * DOSE / MG_PER_MMOL.Na, k: BM.k + P10_ENFAMIL_HMF.kMg * DOSE / MG_PER_MMOL.K,
+  ca: BM.ca + P10_ENFAMIL_HMF.caMg * DOSE, p: BM.p + P10_ENFAMIL_HMF.pMg * DOSE, osm: null };
 const INFATRINI = atStrength(column(T16, 'infatriniPowder'), 30);
 const MIX = {};
 for (const f of ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p']) MIX[f] = (BM_HMF[f] + INFATRINI[f]) / 2;
@@ -128,7 +136,7 @@ MIX.osm = null;
 // What every EN_DB key must equal, and the words its `source` must contain.
 const EXPECTED = {
   BM_20:        { want: BM, cites: ['Box 1.3.1'] },
-  BM_HMF_24:    { want: BM_HMF, cites: ['Box 1.3.3'] },
+  BM_HMF_24:    { want: BM_HMF, cites: ['p. 10', 'Box 1.3.3'] },
   FBM_PF_22:    { want: atStrength(column(T5, 'enfalacPremature'), 22), cites: ['Table 5', 'p. 16'] },
   PRENAN_22:    { want: atStrength(column(T5, 'preNan'), 22), cites: ['Table 5', 'p. 16'] },
   FBM_PF_24:    { want: atStrength(column(T5, 'hiQLbw'), 24), cites: ['Table 5', 'p. 16'] },
@@ -175,6 +183,9 @@ const scenarios = {
     const b = BOX_131_TERM, atw = (4 * b.proteinG + 9 * b.fatG + 4 * b.carbG) / 10;
     A.ok(`1.Box 1.3.1 term milk: 4P+9F+4C = ${atw.toFixed(1)} kcal/100 mL, within 10% of the label's ${BM_KCAL}`,
       Math.abs(atw - BM_KCAL) / BM_KCAL <= 0.10);
+    const h = P10_ENFAMIL_HMF, hAtw = 4 * h.proteinG + 9 * h.fatG + 4 * h.carbG;
+    A.ok(`1.p. 10 Enfamil HMF: 4P+9F+4C = ${hAtw.toFixed(1)} kcal, within 10% of the printed ${h.energyKcal}`,
+      Math.abs(hAtw - h.energyKcal) / h.energyKcal <= 0.10);
   },
 
   async 'rows'(A) {

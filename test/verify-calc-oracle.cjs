@@ -112,10 +112,11 @@ const perMl = ([pro, fat, cho, na, k, ca, p], kcal) => {
 };
 // Term mature milk, WHO 2006 technical review Box 1.3.1, per litre: protein 12,
 // fat 34, CHO 67 g; Na 9.0, K 13.9, Ca 6.5, P 4.8 mmol. Energy is the label's
-// 20 kcal/oz. + Enfamil HMF 4 g (Box 1.3.3): 14 kcal, protein 1.1, fat 0.65,
-// CHO 1.1 g, Na 0.5, K 0.5 mmol, Ca 90, P 45 mg.
+// 20 kcal/oz. + Enfamil HMF, Chula p. 10 per 1 g protein: 13 kcal, fat 0.9,
+// CHO 0.4 g, Na 14.5, K 26.4, Ca 81.8, P 40.9 mg; × 1.1 g protein per 4 g dose
+// (WHO Box 1.3.3).
 const BM = [67, 1.2, 3.4, 6.7, 0.90, 1.39, 6.5 * 40.08 / 10, 4.8 * 30.97 / 10];
-const HMF = [14, 1.1, 0.65, 1.1, 0.5, 0.5, 90, 45];
+const HMF = [13, 1, 0.9, 0.4, 14.5 / 22.99, 26.4 / 39.10, 81.8, 40.9].map((v) => v * 1.1);
 const BM_HMF = BM.map((v, i) => v + HMF[i]);
 const INFATRINI = perMl(PER_100_KCAL.infatrini, 100);
 const FEED = {

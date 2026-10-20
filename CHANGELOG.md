@@ -7,6 +7,52 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-20 (2) — PR #159: BM + HMF from Chula p. 10; Vera on the update
+
+`data.js` (Enfamil HMF source, `BM_HMF_24`, and through it `FBM_INF_MIX`), both shells' `?v=` tokens,
+`docs/CLINICAL_CONSTANTS.md`, `test/verify-en-db-sources.cjs`, `test/verify-calc-oracle.cjs`,
+`test/verify-calc-fuzz.cjs`. `CONSTANTS_VERSION` stays `2026-10-17.1`.
+
+### Why
+
+Vera on `19ba38e`, finding 1: the entry above and the register called Pp's message a sign-off of every
+number, though questions 2 and 4 had no answer and both choices depart from the book she named. Asked
+the same day, Pp answered:
+
+- **Question 4, the HMF:** Chula p. 10, not WHO Box 1.3.3.
+- **Question 2, the strength:** the ward mixes Enfalac Premature and Pre Nan at both 22 and 24 kcal/oz.
+  Pp wants the feed input redesigned: pick the milk, the kcal it is mixed at, the volume and the feeds a
+  day, up to two milks a day. That is new work for its own PR. Until then the Calculator offers 22, as
+  it always has.
+- **Merge:** into `main` once this is fixed and CI passes.
+
+So the entry above's "Pp's sign-off of the figures" covers question 1 (the book, not today's labels),
+question 5 (PF 20 kept) and now questions 2 and 4 as answered here. Questions 3, 6 and 7 keep the PR's
+choices.
+
+### What changed
+
+- **Enfamil HMF from Chula p. 10** (PDF p. 18), read from the page image: the Enfamil HMF (Mead Johnson)
+  powder column, per 1 g protein (the protein row reads 1 in every column, whatever the "per 4 packages"
+  title says): 13 kcal, fat 0.9 g, CHO 0.4 g, Ca 81.8, P 40.9, Na 14.5, K 26.4 mg. The book gives no
+  dose, so one 4 g dose carries 1.1 g protein, from WHO Box 1.3.3 for the same product.
+- **BM + HMF per 100 mL:** kcal 81 → 81.3, fat 4.05 → 4.39, CHO 7.8 → 7.14, Na 1.4 → 1.59, K 1.89 →
+  2.13 mmol; protein 2.3, Ca 116 and P 59.9 unchanged. At 150 mL/kg/d, Na 2.1 → 2.39 and K 2.84 → 3.2
+  mmol/kg/d. `FBM_INF_MIX` follows as their mean: Na 1.5 → 1.6, K 2.22 → 2.35.
+- Osmolality stays blank: p. 10 gives osmolarity in mOsm/L (377 estimated, 401 from the literature),
+  not mOsm/kg. The row's note now quotes it in place of the WHO Box's +63.
+- **Vera, finding 2:** the register now calls the harness copy a second transcription by the same
+  reader, and says no person has checked the Na, K and osmolality cells against the page.
+
+### Tests
+
+- `verify-en-db-sources.cjs` types p. 10's column from the page and checks it adds up (4P + 9F + 4C =
+  13.7 against the printed 13). On `19ba38e` it fails 3 of 145 (BM + HMF, the mix, and the source
+  cite); here 145/145.
+- `verify-calc-oracle.cjs` and `verify-calc-fuzz.cjs` take the p. 10 column by hand. The oracle fails 24
+  of 1092 on `19ba38e`; here 1092/1092. `verify-review-0917-calc.cjs` §6's BM + HMF fingerprint passes
+  unchanged, so none of the printed figures it pins moved.
+
 ## Session 2026-10-20 — PR #159: Pp's answers; Preterm Formula 20 kept as it was
 
 `data.js` (`BM_PF_20`), `calculator.jsx` (feed list and alerts back to what `main` has), `compiled/`, both

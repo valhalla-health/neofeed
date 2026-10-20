@@ -178,12 +178,14 @@ const EN_SRC_CHULA_PER_100_KCAL = {
 // WHO 2006, Optimal feeding of low-birth-weight infants: technical review.
 // Box 1.3.1 (p. 16): term mature milk (> 30 days), per litre.
 const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };
-// Box 1.3.3 (p. 19): Enfamil human milk fortifier, one 4 g dose for 100 mL.
-// The source here is the WHO Box, as asked. Chula p. 10 prints Enfamil HMF per
-// 1 g protein with more Na and K (14.5 and 26.4 mg): at 1.1 g protein, Na 0.69
-// and K 0.74 mmol, so BM + HMF Na 1.59 and K 2.13 mmol/100 mL. Which HMF KCMH
-// stocks, and its label, is for Pp and pharmacy to confirm.
-const EN_SRC_WHO_ENFAMIL_HMF_4G = { kcal: 14, pro: 1.1, fat: 0.65, cho: 1.1, naMmol: 0.5, kMmol: 0.5, ca: 90, p: 45, osmRise: 63 };
+// Chula Handbook p. 10 (PDF p. 18), "Human milk fortifier (per 4 packages)",
+// Enfamil HMF (Mead Johnson) powder. The protein row reads 1 in every column,
+// so the table is per 1 g protein whatever its title says. Pp, 2026-10-20: BM +
+// HMF takes its fortifier from this page, not from WHO Box 1.3.3.
+const EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN = { kcal: 13, fat: 0.9, cho: 0.4, naMg: 14.5, kMg: 26.4, ca: 81.8, p: 40.9 };
+// The book gives no dose. One 4 g dose (4 packets) for 100 mL carries 1.1 g
+// protein: WHO 2006 Box 1.3.3 (p. 19), the same product.
+const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;
 
 // A Chula per-100-kcal column at a ward strength, per 100 mL.
 function _enFromChula(col, kcalOz) {
@@ -202,12 +204,14 @@ const _EN_BM = (() => {
     na: w.naMmol / 10, k: w.kMmol / 10,
     ca: w.caMmol * EN_MG_PER_MMOL.ca / 10, p: w.pMmol * EN_MG_PER_MMOL.p / 10, osm: null };
 })();
-// Mature milk + one 4 g Enfamil HMF dose (Box 1.3.3). Osmolality stays null:
-// the Box gives only the rise (+63), and neither source gives the milk's own.
+// Mature milk + one dose of Enfamil HMF: the p. 10 column × 1.1 g protein.
+// Osmolality stays null: p. 10 gives osmolarity in mOsm/L (377 estimated, 401
+// from the literature), not the mOsm/kg H2O this field holds.
 const _EN_BM_HMF = (() => {
-  const h = EN_SRC_WHO_ENFAMIL_HMF_4G, b = _EN_BM;
-  return { kcal: b.kcal + h.kcal, pro: b.pro + h.pro, fat: b.fat + h.fat, cho: b.cho + h.cho,
-    na: b.na + h.naMmol, k: b.k + h.kMmol, ca: b.ca + h.ca, p: b.p + h.p, osm: null };
+  const h = EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN, g = EN_HMF_PROTEIN_G_PER_DOSE, b = _EN_BM;
+  return { kcal: b.kcal + h.kcal * g, pro: b.pro + g, fat: b.fat + h.fat * g, cho: b.cho + h.cho * g,
+    na: b.na + h.naMg * g / EN_MG_PER_MMOL.na, k: b.k + h.kMg * g / EN_MG_PER_MMOL.k,
+    ca: b.ca + h.ca * g, p: b.p + h.p * g, osm: null };
 })();
 const _EN_INFATRINI = _enFromChula(EN_SRC_CHULA_PER_100_KCAL.infatriniPowder, 30);
 // Alternating feeds: the mean of the two rows, per nutrient. The feeds are
@@ -271,8 +275,8 @@ const EN_DB = {
   BM_HMF_24: {
     label: "FBM with HMF (24 kcal/oz)",
     ..._EN_BM_HMF, lf: false,
-    source: "BM_20 + Enfamil HMF 4 g, WHO 2006 technical review, Box 1.3.3",
-    note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · HMF raises osmolality by 63 mOsm (Box 1.3.3)",
+    source: "BM_20 + Enfamil HMF, Chula Handbook p. 10 (per 1 g protein) × 1.1 g protein per 4 g dose (WHO 2006 Box 1.3.3)",
+    note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · osmolarity 377 (estimated) to 401 mOsm/L (Chula p. 10)",
   },
 
   // ── Lactose-free — HiQ LF (the Calculator's LF rows) ──────
