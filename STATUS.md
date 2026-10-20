@@ -165,10 +165,11 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-19** · ✅ **Backend `@64` and frontend `release` = `456e467` are live, and both are
+**Updated 2026-10-20** · ✅ **Backend `@64` and frontend `release` = `456e467` are live, and both are
 verified.** Caught up with #163 by PR #164, the next PR on the repo, as #163 asked.
-- ⏳ **PR #164, no "LBW" under a birth weight of 2500 g or more: draft for Pp.** Frontend only, no `clasp`
-  step. `CONSTANTS_VERSION` unchanged; the session header is hidden in print. `CHANGELOG.md` 2026-10-19 (4).
+- ⏳ **PR #164, no "LBW" under a birth weight of 2500 g or more: merged into `main` on Pp's instruction
+  ("cont to merge"); not live until a `main → release` PR.** Frontend only, no `clasp` step.
+  `CONSTANTS_VERSION` unchanged; the session header is hidden in print. `CHANGELOG.md` 2026-10-19 (4).
 - ✅ **PR #162, NF-19: `tools/ci_bans.js` fails CI on a raw `toFixed(n)` (the trailing-zero rule):
   merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").** CI and docs only: neither host
   serves `.github/`, `test/`, `tools/` or `*.md` (`.assetsignore`, `_config.yml`), so no served file changes;
