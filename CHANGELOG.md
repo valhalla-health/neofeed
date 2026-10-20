@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-20 (2) — PR #159: BM + HMF from Chula p. 10; Vera on the update
+## Session 2026-10-20 (3) — PR #159: BM + HMF from Chula p. 10; Vera on the update
 
 `data.js` (Enfamil HMF source, `BM_HMF_24`, and through it `FBM_INF_MIX`), both shells' `?v=` tokens,
 `docs/CLINICAL_CONSTANTS.md`, `test/verify-en-db-sources.cjs`, `test/verify-calc-oracle.cjs`,
@@ -15,8 +15,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ### Why
 
-Vera on `19ba38e`, finding 1: the entry above and the register called Pp's message a sign-off of every
-number, though questions 2 and 4 had no answer and both choices depart from the book she named. Asked
+Vera on `19ba38e`, finding 1: the 2026-10-20 (2) entry below and the register called Pp's message a
+sign-off of every number, though questions 2 and 4 had no answer and both choices depart from the book she named. Asked
 the same day, Pp answered:
 
 - **Question 4, the HMF:** Chula p. 10, not WHO Box 1.3.3.
@@ -26,7 +26,7 @@ the same day, Pp answered:
   it always has.
 - **Merge:** into `main` once this is fixed and CI passes.
 
-So the entry above's "Pp's sign-off of the figures" covers question 1 (the book, not today's labels),
+So the (2) entry's "Pp's sign-off of the figures" covers question 1 (the book, not today's labels),
 question 5 (PF 20 kept) and now questions 2 and 4 as answered here. Questions 3, 6 and 7 keep the PR's
 choices.
 
@@ -44,6 +44,13 @@ choices.
 - **Vera, finding 2:** the register now calls the harness copy a second transcription by the same
   reader, and says no person has checked the Na, K and osmolality cells against the page.
 
+### Merged with `main`
+
+- `main` with #160 merged in. #160, merged first on Pp's instruction, holds rows saved before
+  2026-09-18 until they are saved again, which closes the fourth "Not done" item of the 2026-10-17 (6)
+  entry. This PR's entries were renumbered around `main`'s: 2026-10-17 → (6), 2026-10-20 → (2),
+  2026-10-20 (2) → (3). The shells' tokens are the build's.
+
 ### Tests
 
 - `verify-en-db-sources.cjs` types p. 10's column from the page and checks it adds up (4P + 9F + 4C =
@@ -53,7 +60,7 @@ choices.
   of 1092 on `19ba38e`; here 1092/1092. `verify-review-0917-calc.cjs` §6's BM + HMF fingerprint passes
   unchanged, so none of the printed figures it pins moved.
 
-## Session 2026-10-20 — PR #159: Pp's answers; Preterm Formula 20 kept as it was
+## Session 2026-10-20 (2) — PR #159: Pp's answers; Preterm Formula 20 kept as it was
 
 `data.js` (`BM_PF_20`), `calculator.jsx` (feed list and alerts back to what `main` has), `compiled/`, both
 shells' `?v=` tokens, `docs/CLINICAL_CONSTANTS.md`, `test/verify-en-db-sources.cjs` §2 and §4,
@@ -91,7 +98,188 @@ Pp: "ข้อ 159 ตัวเลขทำตาม แหล่งอ้าง
 - PF 20 still has no source. The formula revision Pp plans decides its fate, with questions 2, 3, 4, 6
   and 7.
 
-## Session 2026-10-17 — EN_DB rebuilt from the handbook pages (draft, for Pp's sign-off)
+## Session 2026-10-20 — PR #160: no bump, merged into `main` before #159
+
+`CHANGELOG.md`, `STATUS.md` (this PR's line, and caught up with release #165 as it asked). No code changed
+after `82c4bd3` except merging `main` in.
+
+- **Pp's answer** to the PR's question (2026-10-20): "#160 ไม่ bump แล้ว merge ก่อน". `CONSTANTS_VERSION`
+  stays `2026-10-11.1`, and this PR merges into `main` before #159, which bumps to `2026-10-17.1`.
+- **`main` merged in** (#158, #161, #162, #164). Both sides had a `2026-10-17 (3)` entry here; this PR's is
+  now `2026-10-17 (5)`, its text unchanged. The shells' tokens are the build's.
+- Merged into `main` on Pp's instruction. Not live until a `main → release` PR.
+
+## Session 2026-10-19 (4) — no "LBW" under a birth weight of 2500 g or more
+
+`app.jsx` (`PatientStrip`), `compiled/app.js`, both shells' `?v=` tokens, `test/verify-bw-category-1019.cjs`
+(new), `test/README.md`, `STATUS.md` (caught up with #163, as its release comment asked). Frontend only, no
+`clasp` step. Not a dose file and not on the order: both shells hide `.patient-strip` in `@media print`, so
+no Vera, and `CONSTANTS_VERSION` is unchanged.
+
+### Why
+
+On the dev-local run before release #163, a made-up 4,400 g term boy read "LBW" under BIRTH WEIGHT. The
+label was `bw < 1000 ? ELBW : bw < 1500 ? VLBW : LBW` with no upper bound, so every birth weight from
+1,500 g up was called low. The code is older than #163.
+
+### What changed
+
+- **The label:** ELBW < 1000 g, VLBW 1000–1499 g, LBW 1500–2499 g, and no line under the birth weight from
+  2500 g.
+- **Nothing for a large infant either.** Asked whether 4000 g and up should read HBW, Pp chose no label
+  (2026-10-19, "ไม่มีป้าย"): macrosomia cutoffs differ (4000 or 4500 g), and grams alone ignore GA.
+- **Only one copy.** Every `.jsx` file, `data.js`, both shells and `center-point/` were searched for the
+  same ELBW/VLBW/LBW pattern. `PatientStrip` is the one place a category comes from the birth weight; the
+  other matches are guideline text, the fluid table's rows (already four tiers, < 2500 g) and demo
+  diagnoses.
+
+## Session 2026-10-19 (3) — `tools/ci_bans.js`: a correction made twice becomes a failing build (NF-19)
+
+`tools/ci_bans.js`, `test/ci-bans-fixtures.json` (new), `.github/workflows/test.yml`, `AGENTS.md`,
+`test/README.md`, `STATUS.md` (this PR's line; #158 had already caught up with #156 and #157). No app
+code changed; nothing to release.
+PR #162, merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").
+
+### Why
+
+The YouTube-Knowledge issue of 2026-10-14 recommended NF-19: a rules file or a skill can be forgotten by
+the next session, a failing build cannot. Pp's corrections are made in chat, not in PR review comments
+(the repo's PRs carry none from her), so the first rule comes from the one with a dated ruling and a fix
+commit behind it: no trailing zero in a number a person reads (Pp, 2026-09-22, "ห้ามมี .0 เช่น 18.0 คือ
+18"; `bc46d16`, which also took `keepZeros` out of `displayNum`).
+
+### What changed
+
+- **`raw-tofixed`:** a `toFixed(n)` with n > 0 that is not inside `parseFloat()` or `Number()` fails CI
+  and points at `D.displayNum`. `main` passes it today with one allow entry, the SVG path coordinates in
+  `log.jsx`; an allow entry that stops matching fails the run.
+- **CI** runs `node tools/ci_bans.js --self-test` (12 cases), then the check over the 17 tracked sources,
+  after the shell comparison and before the harnesses.
+- **AGENTS.md:** a correction Pp makes a second time becomes a rule here with a failing and a passing case.
+
+## Session 2026-10-19 (2) — weight from 36.5 weeks on Fenton's growth-monitoring curve
+
+`data.js` (`FENTON_WEIGHT_GROWTH_LMS`, new), `fenton.jsx` (`FentonChart`: the weight curves and the
+readout from 36.5 weeks), `compiled/fenton.js`, both shells' `?v=` tokens,
+`test/verify-fenton-monitor-1019.cjs` and `test/fenton-official-1019.json` (new),
+`test/verify-fenton-half-week-1017.cjs` (§ 2–3: where the weight curve ends), a comment in
+`test/verify-fenton-official-1017.cjs`, `test/README.md`, `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`. Frontend
+only, no `clasp` step. Its own PR, built on draft PR #158. It answers that PR's question 1.
+
+### Why
+
+`FENTON_WEIGHT` is Fenton's size-at-birth table, and the app used it for growth monitoring too. Fenton's
+growth chart follows it to about 37 weeks and then bends towards WHO at 50, so from 37 weeks the app was up
+to 10.2 centile points off Fenton's own calculator (a boy at 41+4 weighing 4325 g read ~90th; the
+calculator says the 80th). Pp asked for the closest match to Fenton, compared two ways, without asking
+Fenton for the LMS by email (2026-10-19): "ทำข้อ 2 เทียบกับข้อ 3 แล้วเอาที่ตรงที่สุดมาใช้ ไม่ต้องส่ง email", then
+"แล้วแก้ไขส่วนที่แอปใช้ตารางผิด".
+
+### The two ways, and the one used
+
+- **From the printed chart.** The five weight curves of ucalgary.ca's 2025 chart PDFs, digitised from
+  their 600-dpi raster at 36–46 weeks (the trace matched the audit's earlier digitisation within about
+  ±12 g), with L, M and S fitted at each half week.
+- **From Fenton's calculator.** One round to fentongrowth.ca that Pp approved: two submissions, sex and data type
+  Growth, 48 made-up weights each, GA and weight only. Three weights at each half week from 36 1/2 to 42
+  give L, M and S exactly; 12 more per sex, on other days and near the 3rd, 25th, 75th and 97th, were
+  held out.
+- **Compared on the 34 points neither was built from** (the 24 held out and the 10 monitoring weights of
+  2026-10-17): the calculator's LMS within 0.02 centile points (mean 0.01), the chart's within 0.19 (mean
+  0.06). The calculator's is used. The two agree on M within 2 g at every week.
+
+### What changed
+
+- **`FENTON_WEIGHT_GROWTH_LMS`** in `data.js`: `[exact PMA, L, M, S]` every half week, 36.5–42.0, both
+  sexes, with its source. Column 0 is an exact age, unlike `FENTON_WEIGHT`'s completed weeks.
+- **The weight curves from 36.5 weeks** are drawn from it (3rd, 10th, 50th, 90th and 97th at each half
+  week). Before 36.5 they are the size-at-birth rows at GA + 0.5 as before; at 36.5 the two agree within
+  12 g.
+- **A weight from 36.5 weeks is read as an LMS z-score**, not by linear reading between curves, in the
+  same words: "<3rd", "~Nth", ">97th".
+- **A DOL-1 weight stays on the size-at-birth rows**, as Fenton's Birth size evaluation does: a girl born
+  40+5 at 3450 g reads ~48th on DOL 1 (official birth size 46.7) and ~41st on DOL 15 at the same PMA.
+  While the newest point is DOL 1, the chart draws the size-at-birth rows too, so the dot and the number
+  agree (Vera, fifth run 🟠: a boy born 41+4 at 4400 g read ~92nd under a drawn 90th of about 4577 g).
+  From DOL 2 it draws the monitoring curve. A lone DOL-1 weight therefore looks as it did before.
+- Length and HC are unchanged. `CONSTANTS_VERSION` stays `2026-10-11.1`: no Fenton figure is printed or
+  saved. The bump rule in `data.js` and `docs/CLINICAL_CONSTANTS.md` no longer lists `FENTON_*` and says
+  why (Vera 🟡: it listed them while Fenton changes were not bumped).
+
+### Tests
+
+`verify-fenton-monitor-1019.cjs` (new) 93/93, against the sources and with the compiled preload: 70
+monitoring weights from 37 weeks within ±1 centile point of the official one (mean 0.08, worst 0.44).
+Against `a04ba28`, the commit before the change, 44 fail; against `f56cc36`, the two DOL-1 drawing
+checks. `verify-fenton-half-week-1017.cjs` 65/65 after its
+two checks of where the weight curve ends (now M at 42.0, not the midpoint of rows 41 and 42), and
+`verify-fenton-official-1017.cjs` 81/81, whose recorded 37+ group fell from mean 3.3 and worst 10.2 to mean
+0.2 and worst 0.4.
+
+### Not done
+
+- No second clinician has checked this; Pp reviews the PR.
+- The LMS are solved from Fenton's calculator, not received from Fenton. If the API changes version, run
+  the round again (`test/README.md`). The ucalgary.ca site states no licence for the charts or the
+  calculator, and Pp chose not to ask by email.
+- Under 36.5 weeks the readout still reads linearly between curves (up to about 4.5 points off).
+  Length and HC are unverified. The chart still stops at 42.
+
+## Session 2026-10-19 — PR #158's last review fixes: DOL-1 length and HC recorded, the Length note narrowed
+
+`fenton.jsx` (the Length note, a comment), `compiled/fenton.js`, both shells' `?v=` tokens,
+`test/verify-fenton-official-1017.cjs` (§ 2–4), `test/README.md`, `docs/CLINICAL_CONSTANTS.md` (the
+`FENTON_WEIGHT` row), `BACKLOG.md` (§ Next, growth question 1). Frontend only, no `clasp` step. On draft PR #158; nothing released. It corrects
+entry (3) below, which this file's rule keeps as it was.
+
+### Why
+
+Pp gave the DOL-1 decision of 2026-10-17 to two sessions. One pushed `92c2fcf` to this PR. The other,
+which ran the official check, made the same change as `cf14355` and `bf82014` on a local branch, did not
+push it, and sent four points the PR lacked. `fenton.jsx` behaves the same in `92c2fcf` and `cf14355`
+(their compiled output is identical), so the code stays `92c2fcf`'s. The PR's session took all four
+points and Vera's third review of `92c2fcf` (NO BLOCK, two 🟡), made part of the edits, and left them
+uncommitted while it waited for the ordinal commit, entry (4), which was never pushed. This entry lands
+them on top of entry (4).
+
+### What changed
+
+- **The official harness asserts DOL-1 weight only**: 10 points within ±5 (worst 4.1, mean 1.6). The 8
+  DOL-1 lengths and HCs join § 3 with the other length and HC points, because they read 4-weekly rows that
+  no numeric source verifies, so a gap there would be the rows', not the method's. They pass today (worst
+  4.2) and must still carry no size-at-birth label. Entry (3) said all 18 were asserted.
+- **The Length note says "ช่วงใกล้ 42 สัปดาห์"**, not "หลัง 38 สัปดาห์" (Vera 🟡1). The evidence is the
+  42-week row, about 3 cm high (`BACKLOG.md`, the 2026-09-23 review), which pulls the curve up toward 42
+  weeks. The one official point after 38 weeks, a boy at 38+3 and 51.9 cm, reads ~89th against an
+  official 84th: the app reads him longer there, not shorter.
+- **The register row** (`FENTON_WEIGHT`) records the official check: growth monitoring under 37 weeks
+  within 4.5 centile points, DOL-1 weight within 4.1, and growth monitoring from 37 weeks up to 10.2 points
+  off, because the rows there are the size-at-birth rows. Its status splits to match (Vera, fourth run,
+  🟡): 🟢 for size at birth and for growth monitoring under 37 weeks, 🟡 for growth monitoring from 37.
+- **Weight from 37 weeks has no note yet** (Vera, fourth run, 🟠). The comment above the Length/HC note
+  said Weight needs none; it now says why that holds only under 37 weeks. Whether the Weight tab gets a
+  note there is growth question 1 in `BACKLOG.md` § Next, which now carries the official check's figures.
+  No behaviour changed.
+- **Entry (3)'s "neither harness depends on" the ordinal fix was wrong** (Vera 🟡2): the half-week
+  harness's parser read only "th". Entry (4) changed the parser.
+- `CONSTANTS_VERSION` stays `2026-10-11.1`: no `FENTON_*` value changed, and no Fenton figure is printed
+  or saved.
+
+### Tests
+
+`verify-fenton-official-1017.cjs` 81/81 and `verify-fenton-half-week-1017.cjs` 65/65, against the sources
+and with the compiled preload. The official harness against 55d893d fails 30 (24 of the 31 weights under
+37 weeks, 6 of the 10 DOL-1 weights); against `ea0abe0`, which read DOL 1 by completed week, it fails the
+18 DOL-1 points (the 10 weights in § 2, the 8 lengths and HCs in § 3 on their label).
+
+### Not done
+
+- No second clinician has checked the DOL-1 reading at exact age; Pp reviews the PR.
+- A birth at 22+0 to 22+3 now reads "—" until 22+4, because NeoFeed draws no curve before 22.5; it used
+  to be read against row 22. No official point was taken that early, so what fentongrowth.ca gives there
+  is not known.
+
+## Session 2026-10-17 (6) — EN_DB rebuilt from the handbook pages (draft, for Pp's sign-off)
 
 `data.js` (`EN_DB`, `CONSTANTS_VERSION` 2026-10-11.1 → **2026-10-17.1**), `calculator.jsx` (feed options,
 one critical alert), `app.jsx` (Formula reference page), `compiled/`, `docs/CLINICAL_CONSTANTS.md`,
@@ -161,6 +349,271 @@ tables do not match the scanned book. It cited sections ("§3", "§5") the book 
   this change; not fixed here.
 - Mg per feed is in the same tables (BACKLOG "Feed magnesium") and was not added.
 - `STATUS.md` is untouched: nothing is merged or live.
+
+## Session 2026-10-17 (5) — an order saved before 2026-09-18 prints only after it is saved again
+
+`calculator.jsx` (`calcMoved`, comments on `savedCalcVersionOf`), `compiled/`,
+`test/verify-calcmoved-unstamped-1017.cjs` (new), fixtures in six harnesses (below), `test/README.md`,
+`docs/CLINICAL_CONSTANTS.md` § When to bump. Frontend only, no `clasp` step. `CONSTANTS_VERSION` stays `2026-10-11.1` (no printed figure
+moves; Pp to confirm in the PR).
+
+### Why
+
+Vera, reviewing draft PR #159 (finding 4): a saved order prints what the calculator computes now from its
+inputs, and `calcMoved` holds Print until it is saved again when its stamped `CONSTANTS_VERSION` is not
+the current one. A row saved before 2026-09-18 has no `calcInput.constantsVersion` and no `aaProduct`, and
+for those `calcMoved` checked only `2026-09-18.1`'s own changes: an overfilled bag with Soluvit or
+Peditrace, and a MEN feed. That was right while `2026-09-18.1` was current. Since `2026-09-28.1` every
+stamped row older than the current version is held, but an unstamped one still printed unless it hit one
+of those two cases. A feeds-only order from before the stamp, FBM_PF_24 30 mL × 8 at 1500 g with no TPN,
+reprinted under its old entry id with figures from today's constants; with #159's EN_DB rebuild every EN
+figure on it would move.
+
+### What changed
+
+- **An unstamped row is held like any older row.** `calcMoved` is now `savedCalcVersion !==
+  D.CONSTANTS_VERSION` for every saved row. An unstamped row's `savedCalcVersionOf` is `null`, which
+  matches no version, so Print and Copy refuse it with the usual reason ("NeoFeed ปรับการคำนวณหลังคำสั่งนี้
+  ถูกบันทึก …") until it is saved again, and the save stamps it. The two release-specific checks are gone:
+  they could only differ from this rule while `2026-09-18.1` was current.
+- **Rows dated by `aaProduct` are unchanged**: `savedCalcVersionOf` still dates them `2026-09-18.1`, and
+  they have been held since `2026-09-28.1`.
+- `docs/CLINICAL_CONSTANTS.md` § When to bump says unstamped rows are held whatever the day's route. The
+  no-TPN exception stays an exception to bumping (a change that moves only the lines of a bag that does
+  not exist), no longer something `calcMoved` does for older rows.
+
+### Tests
+
+- `verify-calcmoved-unstamped-1017.cjs` (new) 15/15. On `55d893d` it fails 6: the unstamped feeds-only
+  order (FBM_PF_24 30 mL × 8 at 1500 g, no TPN) rendered its print form, printed, and copied, and an
+  unstamped TPN order with no dead space rendered its print form. The same feeds-only order with the
+  current stamp prints on both trees, so the harness can see a printable order.
+- Six harnesses opened an unstamped row to test another rule, and the fix held each of them, which is the
+  fix working. Those rows stand for a current order, so they now carry the current stamp, as
+  `test/README.md` already asks: `verify-review-0911.cjs` (F2 reopen), `verify-review-0917-calc.cjs` §9
+  (dosing weight) and §10 (critical reason), `verify-picker-print-identity.cjs`,
+  `verify-tpn-calc-weight.cjs`, `verify-ward-print-1012.cjs`, and `verify-ward-requests-0918.cjs` §10
+  (dead space record).
+- `verify-ward-requests-0918.cjs` §8 and §12 had three assertions that an unstamped row prints as
+  before: a row with no `aaProduct`, a TPN row with no dead space, and a feeds-only row. Each now says it
+  is held, and the first and last are saved again and their reprints checked (10% Aminoven 60 mL; no
+  vitamin mL on a day with no bag). 194/194.
+- Vera, on this PR: the §9 assertion for a row with no weight evidence now names the rule it tests, and
+  its unstamped twin is held. That twin is the one failure of 121 on `55d893d`; 121/121 here.
+- Full run on `82c4bd3`, as CI runs it: every `test/verify-*.cjs` plus `DEAD=0 verify-kcmh-factor.cjs`,
+  90/90 against the sources and 90/90 with `compiled-loader.cjs`, which swapped in `compiled/` everywhere it
+  mounts modules. `node tools/build.mjs` on that commit changes nothing. Ten harnesses skipped their
+  Playwright sections here (no browser shim); CI's compiled pass runs them. One earlier source pass lost a
+  scenario of `verify-help-request-frontend.cjs` to an out-of-memory abort (exit 134) while other sessions
+  ran their suites; alone it passed 53/53.
+
+### Not done
+
+- Whether this is a `CONSTANTS_VERSION` bump is Pp's call; the PR asks her. It moves no printed figure,
+  so under the 2026-09-18 rule it is not one, and a bump would also hold every order saved on
+  `2026-10-11.1` until it is saved again.
+- Not live: merging into `main` deploys nothing. The release PR that ships it updates `STATUS.md`, whose
+  top entry says every order saved before `2026-10-11.1` is re-saved before it prints; on the live release
+  that is not true of orders saved before 2026-09-18.
+
+## Session 2026-10-17 (4) — the Growth readout's ordinals: ~51st, not ~51th
+
+`fenton.jsx` (`FentonChart`'s `centileAmong`), `compiled/fenton.js`, both shells' `?v=` tokens,
+`test/verify-fenton-half-week-1017.cjs` (§ 6, and its parser), a comment in
+`test/verify-fenton-official-1017.cjs`, `test/README.md`. Frontend only, no `clasp` step. A commit on
+draft PR #158, which owns this readout; nothing released.
+
+### Why
+
+The fentongrowth.ca check (2026-10-17 (2)) found the "Current trajectory" readout printing
+"~51th", "~62th", "~3th" and "~21th": `centileAmong` appended "th" to every centile. Wording only: no
+saved, printed or dosed value reads it, but a doctor reads it on the Growth tab.
+
+### What was done
+
+- `centileAmong` now formats the rounded centile through a small `ordinal()`: 1st, 2nd, 3rd, 4th…,
+  11th–13th, 21st, 22nd, 23rd, 51st, 62nd, 93rd. The rounding is the same as before (`toFixed(0)` and
+  `Math.round` agree for a centile between 3 and 97). "<3rd" and ">97th" are unchanged.
+- **Searched for the same pattern elsewhere**: no other `.jsx` file, `data.js`, `boot.js` or
+  `gas-backend.gs` builds an ordinal. The chart's curve labels (3rd, 10th, 50th, 90th, 97th) are fixed
+  strings and already right.
+
+### Tests
+
+`verify-fenton-half-week-1017.cjs` § 6 (new, 12 checks): a boy at exact PMA 26+0 on DOL 15, weighed at
+chosen centiles, must read ~3rd, ~11th, ~12th, ~13th, ~21st, ~22nd, ~23rd, ~51st, ~62nd, ~93rd, "<3rd"
+and ">97th". It stays off DOL 1, which entry (3) just changed. It fails 7 of 12 on 92c2fcf ("~3th",
+"~21th", "~51th"); the 5 that pass are the teens and the tails. The harness's own parser took only "th"
+and now takes any ordinal suffix. 65/65 against the sources and with the compiled preload; against
+55d893d it fails 52. In the real app (`tools/dev-local.mjs`, a made-up boy, 2010 g on DOL 21 at PMA
+33+0) the readout says "~51st".
+
+## Session 2026-10-17 (3) — DOL 1 is read at exact GA, as Fenton's own calculator reads it
+
+`fenton.jsx` (`FentonChart`: `birthRows`, `birthWeek` and the size-at-birth label removed), `compiled/`,
+both shells' `?v=` tokens, `test/verify-fenton-half-week-1017.cjs` § 5, `test/verify-fenton-official-1017.cjs`
+§ 2–4, `test/README.md`, `docs/CLINICAL_CONSTANTS.md`. Draft PR #158. This corrects the "Size at birth
+stays on completed weeks" bullet of the first entry below.
+
+### Why
+
+Entry (2) asked Fenton's own plotter, and its Birth size evaluation reads the exact GA (24 2/7 goes in as
+24.2857), not the completed week. Read by completed week, the 18 DOL-1 points were up to 21 centile
+points off it (a boy born 26+0 at 940 g read ~50th against row 26; the calculator says the 71st). Read at
+exact age, the same 18 are within 4.2. Pp, 2026-10-17: "ให้ DOL 1 อ่านที่ GA จริงเหมือนเครื่องคำนวณของ
+Fenton เอาป้าย size at birth ออก แล้วแก้ harness ให้ตรงกับชุดเทียบ".
+
+### What changed
+
+- **A DOL-1 measurement is read like any other day**, at exact GA against the rows at GA + 0.5, and the
+  "DOL 1 อ่านจากตาราง size at birth …" label is gone. Born 22+0 to 22+3, it reads "—" with "เส้นอ้างอิง
+  เริ่มที่ PMA 22+4", as on any other day before the first row's exact age.
+- **`verify-fenton-official-1017.cjs` § 2 now asserts the 18 DOL-1 points** within ±5, beside weight
+  under 37 weeks; § 3 records only weight from 37 weeks, length and HC.
+- **`verify-fenton-half-week-1017.cjs` § 5** checks that a DOL-1 measurement reads exactly as the same
+  measurement at the same PMA on a later day, with no size-at-birth label.
+
+### Tests
+
+`verify-fenton-half-week-1017.cjs` 53/53 and `verify-fenton-official-1017.cjs` 81/81, against the sources
+and with the compiled preload. The DOL-1 group: mean gap 2.1, worst +4.2 (girl born 27+3, length 33.3 cm,
+~27th vs 22.8). Against `ea0abe0` the official harness fails its 18 DOL-1 points and § 5 fails 7 of 8;
+against 55d893d they fail 36 and 41.
+
+### Not done
+
+- The ordinal suffix ("~51th") is a separate session's fix; neither harness depends on it.
+
+## Session 2026-10-17 (2) — the Fenton readout against Fenton's own calculator, point by point
+
+`test/fenton-official-1017.json` and `test/verify-fenton-official-1017.cjs` (new), `test/README.md`. No
+app code and no `compiled/` change. Pushed to draft PR #158, whose half-week fix it measures.
+
+### Why
+
+The half-week fix above was checked against a digitised chart, good to ±10–15 g. Fenton's LMS parameters
+are not public (Pp has asked tfenton@ucalgary.ca), so nobody could say how far the app's percentile is
+from the official one at a given age and size. Fenton's own plotter, fentongrowth.ca (API 2.1.3.0),
+returns a z-score for any GA, weight, length and head circumference. Asking it is the interim yardstick,
+and the acceptance test for an LMS version later.
+
+### What was done
+
+- **75 made-up measurements in 51 rows**, both sexes: weight at exact PMA 23–41 wk (x+0 and x+3/x+4
+  days), length and HC at eight PMAs, and ten size-at-birth rows. Each value was picked to land near a
+  chosen centile; none belongs to an infant. Pp approved four submissions in chat; four were sent, one
+  per sex and data type (Growth Monitoring, Birth size evaluation), carrying sex, GA, weight, head and
+  length and nothing else.
+- **`test/fenton-official-1017.json`** keeps the source URL, the version, the date, the four returned
+  tables verbatim, and one line per point: sex, mode, GA, measure, value, z (3 decimals), whole percentile.
+- **`test/verify-fenton-official-1017.cjs`** mounts the real `FentonChart` for every point and compares
+  its readout with 100·Φ(z). It asserts only where the tables allow it: weight, growth monitoring, under
+  37 weeks, within ±5 points. Reading linearly between the p10, p50 and p90 curves strays at most 4.0
+  points from the normal curve (the 24th reads as the 28th), and rounding to a whole centile adds 0.5.
+  Everywhere else it records the gap and passes. `--md` prints the per-point tables for a PR.
+
+### What it found
+
+- **Weight under 37 weeks is right.** 31 points, mean gap 1.4 points, worst 4.5 (an official 69.5th
+  reads ~65th), which is the linear reading predicted above.
+- **Weight from 37 weeks is off where the audit said.** 10 points, mean 3.3, worst +10.2: a boy at 41+4
+  weighing 4325 g reads ~90th, official 80th; a girl at 41+0 weighing 3515 g reads ~50th, official 42nd.
+  The app's rows there are Fenton's size-at-birth rows, not the growth-monitoring curve.
+- **Length and HC are closer than their note says**, at these eight PMAs: mean 1.7 and 1.9 points,
+  worst +5.1 (boy 38+3, 51.9 cm, ~89th vs 84th) and +4.8 (boy 26+0, HC 22.5 cm, ~26th vs 21st). Eight
+  points each is too few to lift the note.
+- **DOL 1 disagrees with the official calculator by up to 21 points.** Its Birth size evaluation reads
+  the exact GA (24 2/7 went in as 24.2857), not the completed week this PR's §5 reads. A boy born 26+0 at
+  940 g reads ~50th against row 26 and is the 71st by the official calculator; a girl born 23+6 at 560 g
+  reads ~51st and is the 35th. Over the 18 DOL-1 points the mean gap is 7.1. Read at exact age instead,
+  the same 18 are off by at most 4.2 (mean 2.1), and after 37 weeks the size-at-birth rows match the
+  official Birth size mode (boy 39+2: +0.4; girl 40+5: +1.3). Which method DOL 1 follows is Pp's call; it
+  is a question in the PR, not a change here.
+- **The readout's ordinals are wrong** past the teens: "~51th", "~61th", "~3th" (`centileAmong` always
+  appends "th"). Not fixed here; the harness reads any suffix so the fix will not break it.
+
+### Tests
+
+`verify-fenton-official-1017.cjs` (new) 81/81, against the sources and with the compiled preload. Against
+55d893d, before the half-week fix, it fails 42: 24 of the 31 asserted weight points (the official 50th
+reads the 33rd–40th) and the 18 DOL-1 points, which had no size-at-birth path there.
+
+### Not done
+
+- DOL 1 still reads the completed-week row. Pp decides.
+- No point below PMA 23+0, and length and HC at eight PMAs only. More points means another approved
+  round of submissions.
+
+## Session 2026-10-17 — the Fenton rows drawn at exact age; Length and HC say they are not verified
+
+`fenton.jsx` (`FentonChart`: the reference rows, the readout, the Length/HC note), `compiled/`, both
+shells' `?v=` tokens, `data.js` (a header comment only), `test/verify-fenton-half-week-1017.cjs` (new),
+`test/README.md`, `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`. Frontend only, no `clasp` step. Draft PR,
+for Pp to review; nothing released.
+
+### Why
+
+Pp asked whether every NeoFeed number is truly calculated or sourced. The provenance audit that followed
+(2026-10-17, in Pp's private notes) found the `FENTON_WEIGHT` values genuine, within 4 g of ucalgary.ca's
+v2 cutoff table on all 168 p3/p10/p90/p97 cells, but drawn in the wrong place. Fenton 2025's data are
+completed weeks (25 weeks is 25+0 to 25+6, mean 25.5), and the official chart is shifted +0.5 week so an
+infant can be plotted at exact age, "adding 0.5 weeks to the completed weeks age" (Fenton 2025, § 2.5
+Synthesis, paragraph 7; PMC12391854, doi 10.1111/ppe.70035). NeoFeed plots the
+infant at exact PMA, `pma0 + (DOL − 1)/7`, but drew row GA at x = GA and read the percentile there. Every
+curve sat half a week early: 33–144 g too heavy at 23–36 wk (median 76 g, 118 digitised cells). An infant
+on the official 10th read about the 5th–7th, on the 50th about the 33rd–42nd, on the 90th about the
+70th–81st. Length and HC carry the same shift (0.6–0.8 cm, 0.45–0.6 cm).
+
+### What changed
+
+- **Rows are drawn and read at GA + 0.5** (`REF_AGE_OFFSET` in `FentonChart`). The curves, the 10th–90th
+  band, the right-edge labels and the "Current trajectory" readout all use the shifted rows (a
+  DOL-1 measurement excepted, below).
+- **The start.** The curves begin at 22.5, where the first row sits; nothing is extrapolated below it. A
+  measurement at PMA 22+0 to 22+3 now reads "—" with "เส้นอ้างอิงเริ่มที่ PMA 22+4" under it (it used to
+  read the 22–23 interpolation). The axis still starts at 22, and the point is still plotted.
+- **The end.** `GA_MAX` stays 42: the axis, the hidden-measurement banner, and `growthVelocity`'s
+  beyond-the-reference guard in `data.js` are unchanged. The curves end at 42.0, linearly between the
+  41 and 42 weight rows (38 and 42 for length and HC); the 42 row (42+0 to 42+6) is used only for that.
+- **Size at birth stays on completed weeks.** NeoFeed classifies no SGA/AGA/LGA anywhere (searched
+  `*.jsx`, `data.js`, `gas-backend.gs`), but a lone DOL-1 measurement in "Current trajectory" is the
+  size at birth in all but name. It is read against the rows as published, by completed week (born
+  26+0 to 26+6 is row 26; for length and HC, linear between the 4-week rows), with "DOL 1 อ่านจากตาราง
+  size at birth แถว 26 สัปดาห์" under it; the point is still plotted at exact GA. Fenton 2025 Table 3
+  names the non-interpolated meta-analysis as the size-for-GA reference. Vera raised it on the first
+  version of this change, which read DOL 1 at exact age: a boy born 26+0 at 740 g, below row 26's p10
+  (767 g), showed "~16th". From DOL 2 on, every reading is at exact age.
+- **Length and HC tabs carry a note** (`role="note"`): the curve is not checked against a numeric source,
+  Fenton publishes length and HC only as charts, and the rows are 4 weeks apart, so the percentile is
+  approximate. The Length note adds that after 38 weeks the curve runs above the official chart, so a term
+  infant looks shorter than they are (`BACKLOG.md`, 2026-09-23 review). Weight has no note.
+- **`data.js`'s header** no longer calls column 0 `PMA_wk`: it is GA in completed weeks, drawn at GA + 0.5.
+- **`CONSTANTS_VERSION` stays `2026-10-11.1`.** No `FENTON_*` value changed, and no Fenton figure is
+  printed or saved.
+
+### Left as they were, for Pp
+
+Three findings from the same audit change clinical grading, so they are questions in the PR and an item
+in `BACKLOG.md` § Next, not code: the size-at-birth rows used for monitoring after 37 weeks, the 15 / 10
+g/kg/d velocity grading attributed to ESPGHAN 2022, and the unsourced length/HC cm/wk colours.
+
+### Tests
+
+`verify-fenton-half-week-1017.cjs` (new) 53/53. §1 uses the official chart's own p10 / p50 / p90 at exact
+26, 30, 34 and 36 weeks (digitised in the audit, independent of `data.js`): they now read 9–12th, 48–51st
+and 86–90th; on `main` they read 5–7th, 33–42nd and 69–81st. §5 reads DOL 1 by completed week (born
+26+0 at 740 g ~8th, born 26+6 at 790 g ~15th, a birth length between the 4-week rows, a birth at 22+2).
+Against `main` the file fails 43 of 53. Of the 10 that pass, 8 are controls and 2 are births at exactly
+GA+0, which `main` read at x = GA, the completed-week row by luck.
+
+Before/after sheets of the real app (made-up boy born 26+0, weight on the official 10th every week to
+36+0, length and HC on the 50th; local fake backend): at 36+0 the readout goes ~7th → ~12th, length
+~42 → ~50, HC ~43 → ~51. They are with the audit in Pp's private notes, not in this public repo.
+
+### Not done
+
+- No second clinician has checked the placement; Pp reviews the PR.
+- The 42-week length row and the HC rows are unchanged; only the note says so.
 
 ## Session 2026-10-12 (3) — Back asks before it closes a form; Back after Back stays in the app
 

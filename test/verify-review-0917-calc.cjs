@@ -423,8 +423,10 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
   await section('§9 UP-C2 · a birth-weight edit that re-doses a saved order blocks Print', async () => {
     const P900 = pt('BW-900', 900, { admissionDate: '2026-09-08' });
     // Dextrose 12.5 % + lipid 3: no critical value, so only the weight is under test.
+    // The current stamp keeps calcMoved out of it: an unstamped row is held anyway.
     const inputs = { curWtG: 850, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 130, ioOutput: 60, drainContent: 0,
-      totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 1, caPerKg: 60, glycophosP: 1 };
+      totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 1, caPerKg: 60, glycophosP: 1,
+      constantsVersion: D.CONSTANTS_VERSION };
     const row = (ci, extra) => ({ entryId: 'e-bw', lastModified: '2026-09-15T02:00:00.000Z', ts: '2026-09-15', dol: 10, weight: 850,
       ioInput: 130, ioOutput: 60, drainContent: 0, calcInput: ci, ...extra });
 
@@ -462,7 +464,15 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     ok('legacy row, BW corrected: the GIR shows the weight moved → withheld', !printForm());
     mount({ patient: P900, editEntry: row(inputs), logDate: null });
     render({ patient: { ...P900, bw: 1000 }, editEntry: row(inputs), logDate: null });
-    ok('legacy row with no recoverable evidence is not held back', !!printForm());
+    ok('no tpnWtG and no GIR: the dosing-weight rule does not hold it back', !!printForm());
+    // A real row that old has no CONSTANTS_VERSION stamp either: calcMoved holds
+    // it (Vera, this PR). On 55d893d this order printed.
+    const { constantsVersion, ...unstamped } = inputs;
+    mount({ patient: P900, editEntry: row(unstamped), logDate: null });
+    render({ patient: { ...P900, bw: 1000 }, editEntry: row(unstamped), logDate: null });
+    ok('…the same row unstamped is held until it is saved again', !printForm()
+      && /NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก/.test(container.querySelector('.print-blocked')?.textContent || ''),
+      container.querySelector('.print-blocked')?.textContent);
     const overridden = row({ ...inputs, tpnWtOverrideG: 950, tpnWtG: 950 });
     mount({ patient: P900, editEntry: overridden, logDate: null });
     render({ patient: { ...P900, bw: 1000 }, editEntry: overridden, logDate: null });
@@ -472,8 +482,10 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
   // ═══════════════════════ UP-C6 · unacknowledged critical values ═══════════
   await section('§10 UP-C6 · Print/Copy need every critical alert named in the saved reason', async () => {
     const P = pt('K5-900', 900, { admissionDate: '2026-09-08' });
+    // Stamped, so only the critical-value rule holds it (calcMoved holds an unstamped row).
     const ci = { curWtG: 850, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 130, ioOutput: 60, drainContent: 0,
-      totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 5, caPerKg: 60, glycophosP: 1 };
+      totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 5, caPerKg: 60, glycophosP: 1,
+      constantsVersion: D.CONSTANTS_VERSION };
     const row = (extra) => ({ entryId: 'e-k5', lastModified: 'lm-k5', ts: '2026-09-15', dol: 10, weight: 850,
       ioInput: 130, ioOutput: 60, drainContent: 0, calcInput: { ...ci, ...extra } });
     mount({ patient: P, editEntry: row({}), logDate: null });
