@@ -655,7 +655,8 @@ function Calculator({
     } catch {
     }
     if (editEntry) {
-      const src = withEntryIO(editEntry);
+      const saved = withEntryIO(editEntry);
+      const src = { ...saved, route: bagRouteFrom(saved) };
       const n = applyCalcInput(src, editEntry.weight, true, fluidMidpoint(src.curWtG ?? src.wtG ?? editEntry.weight));
       setSavedKey(calcInputKey(n));
       setPrefilledFrom(null);

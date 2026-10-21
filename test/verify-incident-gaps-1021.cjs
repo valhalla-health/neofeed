@@ -23,15 +23,19 @@
 //       route null, prints neither box ticked, copies "Route: —", and the next
 //       order made from it asks for the route again — and so does one made from
 //       a no-bag row saved before this change as "central" (Pp's answer to
-//       Vera's finding 1, 2026-10-21: "ให้เลือกใหม่").
+//       Vera's finding 1, 2026-10-21: "ให้เลือกใหม่"), and so does a bag added
+//       by editing such a row (Vera, second review).
+//   §4b A first order seeded from this browser's last submission (no logDate)
+//       follows the same rule (Vera, second review).
 //   §5  A draft may be kept without a route. It logs "TPN", reopens without a
 //       route, and still cannot be submitted until one is chosen.
 //   §6  The quick calc keeps Central: it saves nothing, so there is no first order.
 //
-// 53 checks; against d9c815c 28 fail, and against 9d3fc21 (this PR before
-// Vera's review) the 5 checks of §3b and §4 she asked for fail. Those that pass
-// on d9c815c pin what already held: no caution without a bag, an old row
-// opening as Central, the quick calc.
+// 59 checks; against d9c815c 31 fail. Against 9d3fc21 (this PR before Vera's
+// first review) the 5 checks of §3b and §4 she asked for fail; against 8cf27fd
+// (before her second) the 2 edit checks of §4 fail. Those that pass on d9c815c
+// pin what already held: no caution without a bag, an old row opening as
+// Central, a last submission's bag route, the quick calc.
 // Mounts the real <Calculator> in jsdom — the deps in test/README.md.
 const fs = require('fs');
 const vm = require('vm');
@@ -280,6 +284,35 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     eq('a new order after an old no-bag row saved as "central": no route on', routeOn(), []);
     bagOrder();
     eq('…and its bag cannot be submitted until one is pressed', submitBtn()?.disabled, true);
+
+    // Vera, second review: the same row reopened as an edit, and a bag added.
+    const box2 = logger();
+    mount({ patient: pt('NPO-1500', 1500), onLog: box2.onLog, previousEntry: null,
+      editEntry: asSaved(box.entry, { ts: '2026-10-21', dol: 5, calcInput: { ...box.entry.calcInput, route: 'central' } }) });
+    eq('editing an old no-bag row saved as "central": no route on', routeOn(), []);
+    bagOrder();
+    eq('…a bag added to it cannot be submitted until a route is pressed', submitBtn()?.disabled, true);
+    click(routeBtn('Peripheral'));
+    eq('…Peripheral pressed: Submit enabled', submitBtn()?.disabled, false);
+  });
+
+  // ═════════════════════ §4b this browser's last submission ════════════════
+  await section('§4b a first order seeded from this browser\'s last submission follows the same rule', async () => {
+    // With no logDate and no earlier order, the form starts from the infant's
+    // last submission on this browser (neofeed_calc_<sid>), not from a row.
+    const seed = (sid, state) => {
+      act(() => { root.unmount(); });
+      root = ReactDOM.createRoot(container);
+      window.localStorage.clear();
+      window.localStorage.setItem(`neofeed_calc_${sid}`, JSON.stringify({ ...state, savedAt: new Date().toISOString() }));
+      act(() => { root.render(React.createElement(window.Calculator, { ...BASE, logDate: null, patient: pt(sid, 1500), onLog: logger().onLog })); });
+      act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
+    };
+    seed('LS-NOBAG', { curWtG: 1500, totalTPN_mL: 0, dexPct: 7.5, route: 'central' });
+    eq('the last submission was read (its dextrose 7.5 is in the form)', inputFor('Dextrose final')?.value, '7.5');
+    eq('…it had no bag and says "central": no route on', routeOn(), []);
+    seed('LS-BAG', { curWtG: 1500, totalTPN_mL: 150, dexPct: 7.5, route: 'peripheral' });
+    eq('a last submission with a 150 mL bag on Peripheral: Peripheral on', routeOn(), ['Peripheral']);
   });
 
   // ═════════════════════ §5 drafts ═════════════════════════════════════════

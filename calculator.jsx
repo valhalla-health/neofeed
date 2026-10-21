@@ -1092,7 +1092,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     } catch {}
 
     if (editEntry) {
-      const src = withEntryIO(editEntry);
+      // A saved row without a bag reopens with no route (bagRouteFrom), so a
+      // bag added to it by an edit asks for one, as a new order would (Vera,
+      // second review). Its route was never chosen for a bag: before 2026-10-21
+      // every such row saved the old default, "central". Reprinted, it ticks
+      // neither box, which is what a day without a bag has.
+      const saved = withEntryIO(editEntry);
+      const src = { ...saved, route: bagRouteFrom(saved) };
       const n = applyCalcInput(src, editEntry.weight, true, fluidMidpoint(src.curWtG ?? src.wtG ?? editEntry.weight));
       setSavedKey(calcInputKey(n));
       setPrefilledFrom(null);
