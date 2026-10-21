@@ -60,6 +60,13 @@ choices.
   of 1092 on `19ba38e`; here 1092/1092. `verify-review-0917-calc.cjs` §6's BM + HMF fingerprint passes
   unchanged, so none of the printed figures it pins moved.
 
+### Not done
+
+- **Second clinician's sign-off** (change protocol step 3): none for the p. 10 HMF figures (Vera's second
+  run, on `c9148df`).
+- Which Enfamil HMF KCMH stocks, the powder this row uses or the acidified liquid on the same page, is
+  for pharmacy to say.
+
 ## Session 2026-10-20 (2) — PR #159: Pp's answers; Preterm Formula 20 kept as it was
 
 `data.js` (`BM_PF_20`), `calculator.jsx` (feed list and alerts back to what `main` has), `compiled/`, both

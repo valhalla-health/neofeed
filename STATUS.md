@@ -1,5 +1,14 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-21, 08:52 ICT — frontend `release` = `4367e50` on both hosts, with backend `@64`.**
+> PR #166 released #160: an order saved before 2026-09-18 carries no `CONSTANTS_VERSION` stamp, and Print
+> and Copy now hold it until a doctor saves it again. Before the merge the tree ran on dev local with a
+> made-up unstamped order: held, then printed after Submit (comment on #166). `node tools/verify-release.mjs
+> 4367e50 --wait` passed on both hosts (0 failures, 61 passes); against the previous release it fails on
+> exactly the two files #160 changed. The tag `release-2026-10-21-pr166` is pushed. `CONSTANTS_VERSION`
+> unchanged at `2026-10-11.1`, no backend change. ⚠️ No one on the ward has reopened an order from before
+> 18 Sep yet. Recorded here by PR #159, the next PR on the repo.
+>
 > ✅ **2026-10-20, 16:30 ICT — frontend `release` = `b27de55` on both hosts, with backend `@64`.**
 > PR #165 released #164: no "LBW" under a birth weight of 2500 g or more. Before the merge the tree ran on
 > dev local (comment on #165). `node tools/verify-release.mjs b27de55 --wait` passed on both hosts
@@ -173,17 +182,16 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-20** · ✅ **Backend `@64` and frontend `release` = `b27de55` are live, and both are
-verified.** Caught up with #165 by PR #160, the next PR on the repo, as #165 asked.
+**Updated 2026-10-21** · ✅ **Backend `@64` and frontend `release` = `4367e50` are live, and both are
+verified.** Caught up with #166 by PR #159, the next PR on the repo, as #166 asked.
 - ⏳ **PR #159, `EN_DB` from the Chula handbook pages, not the AI extraction: merged into `main` on Pp's
   instruction ("merge เลย", after she chose the book as the source, Chula p. 10 for the HMF and PF 20 kept
   as it was); not live until a `main → release` PR.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION`
   `2026-10-11.1` → `2026-10-17.1`**: printed EN figures move for every formula feed and for BM + HMF, so
   every saved order has to be saved again before it prints. No second clinician has signed off yet.
   `CHANGELOG.md` 2026-10-17 (6), 2026-10-20 (2) and (3).
-- ⏳ **PR #160, an order saved before 2026-09-18 prints and copies only after it is saved again:
-  merged into `main` on Pp's instruction ("#160 ไม่ bump แล้ว merge ก่อน"); not live until a
-  `main → release` PR.** Frontend only, no `clasp` step. `CONSTANTS_VERSION` stays `2026-10-11.1`, Pp's
+- ✅ **PR #160, an order saved before 2026-09-18 prints and copies only after it is saved again:
+  live, released by #166 on Pp's instruction ("Release 160"; banner above).** Frontend only, no `clasp` step. `CONSTANTS_VERSION` stays `2026-10-11.1`, Pp's
   answer to the PR's question. `CHANGELOG.md` 2026-10-17 (5) and 2026-10-20.
 - ✅ **PR #164, no "LBW" under a birth weight of 2500 g or more: live, released by #165 on Pp's
   instruction (banner above).** Frontend only, no `clasp` step.
