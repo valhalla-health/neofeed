@@ -301,7 +301,11 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       // overfill (Praew). Exactly 4 of its 90 figures moved: Soluvit 1.2 → 1.3,
       // Peditrace 1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50 (was aa0510d437c34170).
       parity_dead: ['0db6f59f3b7827db', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
-      mixed_pn_en: ['981b3ea0856ce4b9', P, () => {
+      // Recaptured 2026-10-17, when EN_DB was rebuilt from the handbook pages
+      // (BM + HMF Ca 115 → 116.05, P 59 → 59.87 mg/100 mL). Exactly 4 of its 86
+      // figures moved: EN Ca 67 → 68, EN PO₄ 34 → 35, total Ca 127 → 128,
+      // total PO₄ 65 → 66 (was 981b3ea0856ce4b9).
+      mixed_pn_en: ['9039368c94184bc9', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
         setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('20% lipid', 3);
         setField('20% NaCl', 2); setField('KCl', 2); setField('10% Ca gluconate', 60); setField('Glycophos', 2); setField('MgSO₄', 0.3); }],
@@ -313,7 +317,10 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       // Peditrace are no longer printed as mL for it (review finding 4).
       // Exactly 4 of its 61 figures moved: Soluvit 1.5 → —, Peditrace 1.5 → —,
       // components 3 → —, WFI -3 → 0 (was c9690daa62ccf31f).
-      full_en: ['0b623805fb1acb17', P, () => {
+      // Recaptured 2026-10-17, EN_DB from the handbook (Hi-Q LBW Ca 84 → 98.4
+      // mg/100 mL, Table 5 p. 16). Exactly 2 of its 64 figures moved: Ca 134 →
+      // 157, printed twice; PO₄ stays 88 (was 0b623805fb1acb17).
+      full_en: ['0ff753505cdb5791', P, () => {
         setField('Current weight', 1500); fillRequired(160); selectFeed('FBM_PF_24'); setField('Volume(mL/feed)', 30); setField('Frequency', 8); }],
     };
     const PARITY = [['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],

@@ -2662,18 +2662,18 @@ function FormulasPanel() {
       const m = f.label.match(/^(.*?)\s*\((.+)\)$/);
       if (!m) return /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500 } }, f.label);
       return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, m[1]), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginTop: 1 } }, "(", m[2], ")"));
-    })()), [f.kcal, f.pro, f.fat, f.na == null ? null : D_A.displayNum(f.na, 2), f.k == null ? null : D_A.displayNum(f.k, 2), f.ca, f.p].map((v, j) => /* @__PURE__ */ React.createElement("td", { key: j, className: "num", style: {
+    })()), [[f.kcal, 1], [f.pro, 2], [f.fat, 2], [f.na, 2], [f.k, 2], [f.ca, 1], [f.p, 1]].map(([v, d], j) => /* @__PURE__ */ React.createElement("td", { key: j, className: "num", style: {
       padding: "7px 10px",
       textAlign: "center",
       fontWeight: 500,
       fontSize: 12.5
-    } }, v ?? "—")), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "7px 10px", textAlign: "center", fontSize: 12 } }, f.osm), /* @__PURE__ */ React.createElement("td", { style: { padding: "7px 10px", textAlign: "center", fontSize: 12 } }, /* @__PURE__ */ React.createElement("span", { style: { color: f.lf ? "var(--ok)" : "var(--ink-3)", display: "inline-flex" } }, f.lf ? /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 15, stroke: 2.2 }) : "—")), /* @__PURE__ */ React.createElement("td", { style: {
+    } }, D_A.displayNum(v, d))), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "7px 10px", textAlign: "center", fontSize: 12 } }, D_A.displayNum(f.osm, 0)), /* @__PURE__ */ React.createElement("td", { style: { padding: "7px 10px", textAlign: "center", fontSize: 12 } }, /* @__PURE__ */ React.createElement("span", { style: { color: f.lf ? "var(--ok)" : "var(--ink-3)", display: "inline-flex" } }, f.lf ? /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 15, stroke: 2.2 }) : "—")), /* @__PURE__ */ React.createElement("td", { style: {
       padding: "7px 10px",
       fontSize: 11,
       color: "var(--ink-3)",
       maxWidth: 200,
       wordBreak: "break-word"
-    } }, f.note || ""));
+    } }, f.note || "", /* @__PURE__ */ React.createElement("div", { style: { marginTop: f.note ? 3 : 0 } }, f.unsourced ? "No source" : `Source: ${f.source}`)));
   })))))));
 }
 function toastHost() {
