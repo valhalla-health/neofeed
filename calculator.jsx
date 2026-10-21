@@ -239,8 +239,9 @@ const isPendingEntryId = (id) => /^(local_)?tmp_/.test(String(id || ""));
 // calcInput.tpnWtG (exact). Older rows don't, so it is recovered only from
 // columns whose formula has not changed and depends on nothing but the dosing
 // weight: GIR (delivered dextrose g × 1000 ÷ 1440 ÷ kg) or EN mL/kg/d. No such
-// evidence → null → never blocks (a legacy row is only held back when the
-// record itself shows the weight moved).
+// evidence → null → this rule never blocks (it holds a row back only when the
+// record itself shows the weight moved). A row that old has no CONSTANTS_VERSION
+// stamp either, so calcMoved holds it until it is saved again.
 function savedDosingWeightOf(entry) {
   const ci = entry?.calcInput || {};
   const num = (v) => { const x = Number(v); return isFinite(x) ? x : 0; };
@@ -257,7 +258,7 @@ function savedDosingWeightOf(entry) {
 // frontend went live (PR #77, 11:17 ICT on 2026-09-18) before the stamp
 // shipped, so its rows carry none — but it was the first release to save
 // calcInput.aaProduct, and that key dates them. Neither → null: a row from
-// before 2026-09-18, which calcMoved checks against that release's changes.
+// before 2026-09-18, which matches no version, so calcMoved holds it.
 const FIRST_AA_PRODUCT_VERSION = "2026-09-18.1";
 function savedCalcVersionOf(entry) {
   const ci = entry?.calcInput;
@@ -859,7 +860,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [savedDosingWt, setSavedDosingWt] = useState(null); // { g, exact }
   // The CONSTANTS_VERSION the saved row was computed with — see
   // savedCalcVersionOf. null = nothing saved from this form, or a row saved
-  // before 2026-09-18.
+  // before 2026-09-18 (held by calcMoved until it is saved again).
   const [savedCalcVersion, setSavedCalcVersion] = useState(null);
 
   // Hydrates the full raw-input form from a saved entry's calcInput — shared
@@ -1876,17 +1877,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // a release that moves a printed figure would reprint an old order with new
   // numbers under its old entry id and revision — UP-C2's rule again. A row
   // knows the CONSTANTS_VERSION it was computed with (savedCalcVersionOf);
-  // any other version holds Print until the order is saved again. Rows saved
-  // before 2026-09-18 know none, so for them only that release's own changes
-  // are checked: an overfilled bag with Soluvit or Peditrace (their mL are now
-  // × Factor) and a MEN feed (no longer in the printed totals). A day with no
-  // TPN is not held: the only figures that moved there are vitamin mL for a
-  // bag that does not exist, now "—". A later release that moves a printed
-  // figure bumps CONSTANTS_VERSION and so holds every row dated before it.
-  const calcMoved = !!savedEntryId && (savedCalcVersion
-    ? savedCalcVersion !== D.CONSTANTS_VERSION
-    : (calc.overfill > 1.001 && (inclSoluvit || inclPeditrace))
-      || (isMEN && calc.enVolTotal > 0));
+  // any other version holds Print until the order is saved again. A row saved
+  // before 2026-09-18 knows none (null) and is older than every version, so it
+  // is held too. Until 2026-10-17 such a row was checked only against
+  // 2026-09-18.1's own changes (overfilled vitamins, a MEN feed). That was
+  // right while 2026-09-18.1 was current; once 2026-09-28.1 moved the version
+  // on, a feeds-only order from before the stamp reprinted figures computed
+  // from today's constants (Vera, PR #159 finding 4).
+  const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
   const uncoveredCritical = alerts.filter(a => a.level === "crit")
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";

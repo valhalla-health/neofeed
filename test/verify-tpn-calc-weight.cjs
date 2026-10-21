@@ -81,7 +81,7 @@ function printTextAt(pt, curWtG) {
       key: 'print-' + curWtG,
       patient: pt, dol: 3,
       editEntry: { entryId: 'w-print', lastModified: 'lm-print', ts: '2026-08-20',
-                   dol: 3, weight: curWtG, calcInput: { curWtG: curWtG } },
+                   dol: 3, weight: curWtG, calcInput: { curWtG: curWtG, constantsVersion: window.NEOFEED_DATA.CONSTANTS_VERSION } },
       baselineEntry: null, logDate: null,
       onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
     }));

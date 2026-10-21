@@ -1,5 +1,13 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-20, 16:30 ICT — frontend `release` = `b27de55` on both hosts, with backend `@64`.**
+> PR #165 released #164: no "LBW" under a birth weight of 2500 g or more. Before the merge the tree ran on
+> dev local (comment on #165). `node tools/verify-release.mjs b27de55 --wait` passed on both hosts
+> (0 failures, 61 passes), and both shells load the new `compiled/app.js` token. The tag
+> `release-2026-10-20-pr165` is pushed. `CONSTANTS_VERSION` unchanged, no backend change. ⚠️ No one has
+> looked at a term infant's header on a ward phone or PC yet. Recorded here by PR #160, the next PR on the
+> repo.
+>
 > ✅ **2026-10-19, 21:46 ICT — frontend `release` = `456e467` on both hosts, with backend `@64`.**
 > PR #163 released #158 and #161: the Fenton rows drawn at GA + 0.5, DOL 1 read at exact GA, and weight from
 > 36.5 weeks on Fenton's growth-monitoring curve. #162 rode along and changed no served file. Before the
@@ -165,10 +173,14 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-20** · ✅ **Backend `@64` and frontend `release` = `456e467` are live, and both are
-verified.** Caught up with #163 by PR #164, the next PR on the repo, as #163 asked.
-- ⏳ **PR #164, no "LBW" under a birth weight of 2500 g or more: merged into `main` on Pp's instruction
-  ("cont to merge"); not live until a `main → release` PR.** Frontend only, no `clasp` step.
+**Updated 2026-10-20** · ✅ **Backend `@64` and frontend `release` = `b27de55` are live, and both are
+verified.** Caught up with #165 by PR #160, the next PR on the repo, as #165 asked.
+- ⏳ **PR #160, an order saved before 2026-09-18 prints and copies only after it is saved again:
+  merged into `main` on Pp's instruction ("#160 ไม่ bump แล้ว merge ก่อน"); not live until a
+  `main → release` PR.** Frontend only, no `clasp` step. `CONSTANTS_VERSION` stays `2026-10-11.1`, Pp's
+  answer to the PR's question. `CHANGELOG.md` 2026-10-17 (5) and 2026-10-20.
+- ✅ **PR #164, no "LBW" under a birth weight of 2500 g or more: live, released by #165 on Pp's
+  instruction (banner above).** Frontend only, no `clasp` step.
   `CONSTANTS_VERSION` unchanged; the session header is hidden in print. `CHANGELOG.md` 2026-10-19 (4).
 - ✅ **PR #162, NF-19: `tools/ci_bans.js` fails CI on a raw `toFixed(n)` (the trailing-zero rule):
   merged into `main` on Pp's instruction ("merge PR #162 เข้า main ได้เลย").** CI and docs only: neither host
