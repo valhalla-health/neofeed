@@ -7,6 +7,104 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-20 (3) — PR #159: BM + HMF from Chula p. 10; Vera on the update
+
+`data.js` (Enfamil HMF source, `BM_HMF_24`, and through it `FBM_INF_MIX`), both shells' `?v=` tokens,
+`docs/CLINICAL_CONSTANTS.md`, `test/verify-en-db-sources.cjs`, `test/verify-calc-oracle.cjs`,
+`test/verify-calc-fuzz.cjs`. `CONSTANTS_VERSION` stays `2026-10-17.1`.
+
+### Why
+
+Vera on `19ba38e`, finding 1: the 2026-10-20 (2) entry below and the register called Pp's message a
+sign-off of every number, though questions 2 and 4 had no answer and both choices depart from the book she named. Asked
+the same day, Pp answered:
+
+- **Question 4, the HMF:** Chula p. 10, not WHO Box 1.3.3.
+- **Question 2, the strength:** the ward mixes Enfalac Premature and Pre Nan at both 22 and 24 kcal/oz.
+  Pp wants the feed input redesigned: pick the milk, the kcal it is mixed at, the volume and the feeds a
+  day, up to two milks a day. That is new work for its own PR. Until then the Calculator offers 22, as
+  it always has.
+- **Merge:** into `main` once this is fixed and CI passes.
+
+So the (2) entry's "Pp's sign-off of the figures" covers question 1 (the book, not today's labels),
+question 5 (PF 20 kept) and now questions 2 and 4 as answered here. Questions 3, 6 and 7 keep the PR's
+choices.
+
+### What changed
+
+- **Enfamil HMF from Chula p. 10** (PDF p. 18), read from the page image: the Enfamil HMF (Mead Johnson)
+  powder column, per 1 g protein (the protein row reads 1 in every column, whatever the "per 4 packages"
+  title says): 13 kcal, fat 0.9 g, CHO 0.4 g, Ca 81.8, P 40.9, Na 14.5, K 26.4 mg. The book gives no
+  dose, so one 4 g dose carries 1.1 g protein, from WHO Box 1.3.3 for the same product.
+- **BM + HMF per 100 mL:** kcal 81 → 81.3, fat 4.05 → 4.39, CHO 7.8 → 7.14, Na 1.4 → 1.59, K 1.89 →
+  2.13 mmol; protein 2.3, Ca 116 and P 59.9 unchanged. At 150 mL/kg/d, Na 2.1 → 2.39 and K 2.84 → 3.2
+  mmol/kg/d. `FBM_INF_MIX` follows as their mean: Na 1.5 → 1.6, K 2.22 → 2.35.
+- Osmolality stays blank: p. 10 gives osmolarity in mOsm/L (377 estimated, 401 from the literature),
+  not mOsm/kg. The row's note now quotes it in place of the WHO Box's +63.
+- **Vera, finding 2:** the register now calls the harness copy a second transcription by the same
+  reader, and says no person has checked the Na, K and osmolality cells against the page.
+
+### Merged with `main`
+
+- `main` with #160 merged in. #160, merged first on Pp's instruction, holds rows saved before
+  2026-09-18 until they are saved again, which closes the fourth "Not done" item of the 2026-10-17 (6)
+  entry. This PR's entries were renumbered around `main`'s: 2026-10-17 → (6), 2026-10-20 → (2),
+  2026-10-20 (2) → (3). The shells' tokens are the build's.
+
+### Tests
+
+- `verify-en-db-sources.cjs` types p. 10's column from the page and checks it adds up (4P + 9F + 4C =
+  13.7 against the printed 13). On `19ba38e` it fails 3 of 145 (BM + HMF, the mix, and the source
+  cite); here 145/145.
+- `verify-calc-oracle.cjs` and `verify-calc-fuzz.cjs` take the p. 10 column by hand. The oracle fails 24
+  of 1092 on `19ba38e`; here 1092/1092. `verify-review-0917-calc.cjs` §6's BM + HMF fingerprint passes
+  unchanged, so none of the printed figures it pins moved.
+
+### Not done
+
+- **Second clinician's sign-off** (change protocol step 3): none for the p. 10 HMF figures (Vera's second
+  run, on `c9148df`).
+- Which Enfamil HMF KCMH stocks, the powder this row uses or the acidified liquid on the same page, is
+  for pharmacy to say.
+
+## Session 2026-10-20 (2) — PR #159: Pp's answers; Preterm Formula 20 kept as it was
+
+`data.js` (`BM_PF_20`), `calculator.jsx` (feed list and alerts back to what `main` has), `compiled/`, both
+shells' `?v=` tokens, `docs/CLINICAL_CONSTANTS.md`, `test/verify-en-db-sources.cjs` §2 and §4,
+`test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`, `test/verify-calc-sum.cjs`,
+`test/verify-tpn-meeting-0928.cjs` §9. `CONSTANTS_VERSION` stays `2026-10-17.1`.
+
+### Pp's answers (2026-10-20)
+
+Pp: "ข้อ 159 ตัวเลขทำตาม แหล่งอ้างอิงคือหนังสือchula handbook แบบอ่านจริง ส่วน PF 20 kcal/oz คงไว้อย่างเดิมก่อน
+มี plan ปรับเรื่องสูตรนมอีกครั้ง".
+
+- **The numbers stand, sourced to the Chula handbook as read from its pages** (question 1: the book, not
+  today's pharmacy labels). This is Pp's sign-off of the figures in the 2026-10-17 entry.
+- **Preterm Formula (20 kcal/oz) stays as it was** (question 5). The Calculator offers it again, under its
+  plain label, in every new, reopened and copied order. There is no "no source" mark and no critical
+  alert. Its numbers are the ones it had on `main`, osmolality 290 included. It keeps `unsourced: true`,
+  so the Formula reference page still reads "No source" on its row.
+- Questions 2, 3, 4, 6 and 7 got no separate answer. The PR's choices stand until the formula revision
+  Pp plans: Enfalac Premature and Pre Nan at 22 kcal/oz (73 kcal/100 mL), Infatrini powder, Enfamil HMF
+  from WHO Box 1.3.3, breast milk at 67 kcal/100 mL, and FBM ↔ Infatrini as a 50:50 mean.
+
+### Tests
+
+- `verify-en-db-sources.cjs`: §2 checks `BM_PF_20` against its old numbers, typed in the harness. §4 now
+  says a new order can pick it, and a reopened or copied order on it shows its plain label and raises no
+  alert that mentions a source. On `44f88e4` it fails 6 of 144 (the old numbers' osmolality, the list,
+  picking it, the label, and the two alerts); here 144/144.
+- `verify-tpn-meeting-0928.cjs` §9 expects PF 20 in the Preterm formula group again (2 fail on `44f88e4`).
+- `verify-calc-oracle.cjs`, `verify-calc-fuzz.cjs` and `verify-calc-sum.cjs` take PF 20 back into their
+  scenarios, with its old numbers typed by hand in the oracle and the fuzz.
+
+### Not done
+
+- **Second clinician's sign-off** (change protocol step 3): still none.
+- PF 20 still has no source. The formula revision Pp plans decides its fate, with questions 2, 3, 4, 6
+  and 7.
+
 ## Session 2026-10-20 — PR #160: no bump, merged into `main` before #159
 
 `CHANGELOG.md`, `STATUS.md` (this PR's line, and caught up with release #165 as it asked). No code changed
@@ -187,6 +285,77 @@ and with the compiled preload. The official harness against 55d893d fails 30 (24
 - A birth at 22+0 to 22+3 now reads "—" until 22+4, because NeoFeed draws no curve before 22.5; it used
   to be read against row 22. No official point was taken that early, so what fentongrowth.ca gives there
   is not known.
+
+## Session 2026-10-17 (6) — EN_DB rebuilt from the handbook pages (draft, for Pp's sign-off)
+
+`data.js` (`EN_DB`, `CONSTANTS_VERSION` 2026-10-11.1 → **2026-10-17.1**), `calculator.jsx` (feed options,
+one critical alert), `app.jsx` (Formula reference page), `compiled/`, `docs/CLINICAL_CONSTANTS.md`,
+`test/verify-en-db-sources.cjs` (new), `test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`,
+`test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`, `test/verify-review-0917-calc.cjs`.
+Frontend only, no `clasp` step.
+
+### Why
+
+Pp asked on 2026-10-17 whether every NeoFeed number is calculated or sourced rather than guessed by an
+AI. The provenance audit that day (outside this repo, in Pp's notes) found the arithmetic clean and the
+feed table not: commit `357d095` (2026-05-28) had copied most formula rows from
+`docs/Chula_Handbook_Ed3_Reference.md`, an AI extraction of the Chula Pediatric Nutrition Handbook whose
+tables do not match the scanned book. It cited sections ("§3", "§5") the book does not have.
+
+### What changed
+
+- **The source tables are in `data.js` as printed**, and every `EN_DB` row is computed from them:
+  Chula Handbook 3rd ed. Table 5 p. 16 (Enfalac Premature, Pre Nan, Hi-Q LBW), Table 7 p. 18 (Hi-Q LF,
+  Enfalac LF) and Table 16 p. 29 (Infatrini powder), all per 100 kcal with Na and K in mg; WHO 2006
+  technical review Box 1.3.1 (term mature milk, per litre) and Box 1.3.3 (Enfamil HMF, 4 g). Book page =
+  scanned PDF page − 8. Each row names its `source`.
+- **Printed EN figures move** for every feed except breast milk (Ca 26 → 26.05, P 15 → 14.87 from the
+  Box's mmol) and Infatrini's macronutrients. The largest: HiQ LF P −42% and Ca −25%; Infatrini Ca −20%
+  and P −22%; BM + HMF protein 2.6 → 2.3 g/100 mL; Hi-Q LBW protein +26% and K −21%; Pre Nan protein
+  +25% and Ca +28%. The PR body has the table per feed and the effect at 150 mL/kg/d.
+- **Enfalac Premature and Pre Nan stay at 22 kcal/oz**, now 73 kcal/100 mL (1 oz = 30 mL, as for every
+  other strength; `357d095` had set 74). The book prints both at 24. 22 is the ward's: NeoFeed had
+  "Preterm Formula (22 kcal/oz)" at 73 from its first commit until `357d095` named it Enfalac Premature
+  (Vera, on this change). Which strength the ward mixes is a question for Pp.
+- **`BM_PF_20` "Preterm Formula (20 kcal/oz)" has no source.** Per 100 kcal it is a term formula (2.2 g
+  protein, 75 mg Ca). It keeps its old numbers and `unsourced: true`, and the feed list no longer offers
+  it. An order that still has it (reopened, or copied into the next day's order) lists it marked "no
+  source, choose another" and raises a **critical** alert, *Feed composition has no source*, so Save asks
+  for a reason each day until a sourced feed is chosen. A MEN feed counts toward no figure and raises none.
+- **`FBM_INF_MIX` is the mean of `BM_HMF_24` and `INFATRINI_30`**, computed. It was a mean of rows that
+  no longer exist.
+- **Osmolality the source does not give is blank**: breast milk, BM + HMF (the Box gives only the +63
+  rise), the alternating feed, Enfalac Premature and Pre Nan at 22 kcal/oz, and LF at 24 and 27 (the book
+  gives each product's osmolality at its printed strength only). No calculation reads EN osmolality.
+- **The Formula reference page** rounds every figure through `displayNum` and shows each row's source.
+
+### Tests
+
+- New `test/verify-en-db-sources.cjs`, with its own transcription of the pages: each column's energy
+  sum and printed Ca:P check the transcription; every row equals its source; every row names its
+  table and page or is the one unsourced row; the feed list offers no unsourced feed, and a reopened or
+  copied order on one raises the critical alert; the Formula page shows sources. On the tree before this
+  change it fails 61 of 144.
+- `verify-calc-oracle.cjs` and `verify-calc-fuzz.cjs` take their feeds from the pages by hand, not from
+  `data.js`. The oracle fails 182 of 1018 checks on the old `EN_DB`. `BM_PF_20` left the oracle, fuzz and
+  calc-sum scenarios, because it can no longer be picked; `verify-tpn-meeting-0928.cjs` §9 expects it
+  gone from the list.
+- `verify-review-0917-calc.cjs` §6 recaptures two printed-figure fingerprints. BM + HMF order: 4 of 86
+  figures moved (EN Ca 67 → 68, EN PO₄ 34 → 35, total Ca 127 → 128, total PO₄ 65 → 66). Hi-Q LBW order:
+  Ca 134 → 157, printed twice, of 64.
+
+### Not done
+
+- **Second clinician's sign-off** (`docs/CLINICAL_CONSTANTS.md`, change protocol step 3): none yet. This
+  is a draft PR; Pp decides whether it ships.
+- **Not checked against today's pharmacy labels.** The book is from 2565 (2022); products change.
+- **Which HMF KCMH stocks.** BM + HMF follows WHO Box 1.3.3, as asked. Chula p. 10 prints Enfamil HMF with
+  more Na and K, which would make BM + HMF Na 1.59 and K 2.13 mmol/100 mL (here 1.40 and 1.89).
+- An order saved before 2026-09-18 carries no `CONSTANTS_VERSION`, and `calcMoved` holds it only for
+  overfilled vitamins or MEN, so it can reprint with the new EN figures without a save (Vera). Older than
+  this change; not fixed here.
+- Mg per feed is in the same tables (BACKLOG "Feed magnesium") and was not added.
+- `STATUS.md` is untouched: nothing is merged or live.
 
 ## Session 2026-10-17 (5) — an order saved before 2026-09-18 prints only after it is saved again
 

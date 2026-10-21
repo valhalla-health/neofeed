@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-10-11.1";
+const CONSTANTS_VERSION = "2026-10-17.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -141,158 +141,218 @@ function syncFreshness(s) {
 }
 
 // ── Enteral feed composition per 100 mL ─────────────────────
-// Units: kcal, pro/fat/cho in g, na/k in mmol, ca/p in mg
-// 1 oz = 30 mL; 20 kcal/oz ≈ 67 kcal/100 mL
+// Units: kcal, pro/fat/cho in g, na/k in mmol, ca/p in mg, osm in mOsm/kg H₂O.
+// 1 oz = 30 mL: 20 kcal/oz = 67, 22 = 73, 24 = 80, 27 = 90, 30 = 100 kcal/100 mL.
+//
+// Rebuilt 2026-10-17 from the sources themselves (provenance audit, Pp). Until
+// then most formula rows came from docs/Chula_Handbook_Ed3_Reference.md, an AI
+// extraction whose tables do not match the scanned book (commit 357d095): HiQ
+// LF phosphorus was 76% high, Infatrini calcium 25% high, BM + HMF protein 13%
+// high. Never use that .md as a source.
+//
+// So the source tables are copied below AS PRINTED, in the source's own units,
+// and EN_DB is computed from them: each literal can be checked against its
+// page, and a 24 or 27 kcal/oz row can never drift from its 20 kcal/oz row.
+// Every row names its `source`. A row with none carries `unsourced: true`, and
+// the Formula reference page says "No source" for it; the Calculator still
+// offers it (Pp, 2026-10-20, until the feed formulas are revised). Checked by
+// test/verify-en-db-sources.cjs, which holds its own copy of these tables. `osm` is shown on the Formula reference page only, and no
+// calculation reads it; null means the source gives none at that strength.
+const EN_MG_PER_MMOL = { na: 22.99, k: 39.10, ca: 40.08, p: 30.97 };
+const EN_KCAL_PER_100ML = { 20: 67, 22: 73, 24: 80, 27: 90, 30: 100 };
+
+// Chula Pediatric Nutrition Handbook, 3rd ed. (2565), docs/Nutrition PedCu Ed3.pdf.
+// The formula tables are per 100 kcal, Na and K in mg. `kcalOz` is the strength
+// the book prints the product at, the only one its osmolality applies to.
+// p. = the book's printed page (the scanned PDF's page − 8).
+const EN_SRC_CHULA_PER_100_KCAL = {
+  // Table 5, p. 16 — preterm formula
+  enfalacPremature: { pro: 3,   fat: 5.1, cho: 11,   naMg: 58, kMg: 100, ca: 120, p: 66, osm: 310, kcalOz: 24 },
+  preNan:           { pro: 2.9, fat: 5.2, cho: 10.7, naMg: 43, kMg: 103, ca: 130, p: 76, osm: 263, kcalOz: 24 },
+  hiQLbw:           { pro: 3.3, fat: 4.8, cho: 11.5, naMg: 86, kMg: 99,  ca: 123, p: 69, osm: 360, kcalOz: 24 },
+  // Table 7, p. 18 — lactose-free formula
+  enfalacLf:        { pro: 2.1, fat: 5.4, cho: 10.6, naMg: 46, kMg: 115, ca: 115, p: 77, osm: 200, kcalOz: 20 },
+  hiQLf:            { pro: 2.4, fat: 5.2, cho: 10.8, naMg: 34, kMg: 80,  ca: 64,  p: 34, osm: 170, kcalOz: 20 },
+  // Table 16, p. 29 — Infatrini powder (4 scoops, 20 g, + water 90 mL = 100 mL)
+  infatriniPowder:  { pro: 2.6, fat: 5.4, cho: 10.3, naMg: 37, kMg: 100, ca: 99,  p: 54, osm: 345, kcalOz: 30 },
+};
+
+// WHO 2006, Optimal feeding of low-birth-weight infants: technical review.
+// Box 1.3.1 (p. 16): term mature milk (> 30 days), per litre.
+const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };
+// Chula Handbook p. 10 (PDF p. 18), "Human milk fortifier (per 4 packages)",
+// Enfamil HMF (Mead Johnson) powder. The protein row reads 1 in every column,
+// so the table is per 1 g protein whatever its title says. Pp, 2026-10-20: BM +
+// HMF takes its fortifier from this page, not from WHO Box 1.3.3.
+const EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN = { kcal: 13, fat: 0.9, cho: 0.4, naMg: 14.5, kMg: 26.4, ca: 81.8, p: 40.9 };
+// The book gives no dose. One 4 g dose (4 packets) for 100 mL carries 1.1 g
+// protein: WHO 2006 Box 1.3.3 (p. 19), the same product.
+const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;
+
+// A Chula per-100-kcal column at a ward strength, per 100 mL.
+function _enFromChula(col, kcalOz) {
+  const kcal = EN_KCAL_PER_100ML[kcalOz], s = kcal / 100;
+  return { kcal, pro: col.pro * s, fat: col.fat * s, cho: col.cho * s,
+    na: col.naMg * s / EN_MG_PER_MMOL.na, k: col.kMg * s / EN_MG_PER_MMOL.k,
+    ca: col.ca * s, p: col.p * s, osm: kcalOz === col.kcalOz ? col.osm : null };
+}
+
+// Term mature milk, Box 1.3.1 per litre → per 100 mL. Energy is the one
+// departure: 67 is the 20 kcal/oz the label promises, inside Chula p. 8's
+// mature-milk range (65.2–70 kcal/100 mL); the Box gives 64 ± 8.
+const _EN_BM = (() => {
+  const w = EN_SRC_WHO_TERM_MILK_PER_L;
+  return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,
+    na: w.naMmol / 10, k: w.kMmol / 10,
+    ca: w.caMmol * EN_MG_PER_MMOL.ca / 10, p: w.pMmol * EN_MG_PER_MMOL.p / 10, osm: null };
+})();
+// Mature milk + one dose of Enfamil HMF: the p. 10 column × 1.1 g protein.
+// Osmolality stays null: p. 10 gives osmolarity in mOsm/L (377 estimated, 401
+// from the literature), not the mOsm/kg H2O this field holds.
+const _EN_BM_HMF = (() => {
+  const h = EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN, g = EN_HMF_PROTEIN_G_PER_DOSE, b = _EN_BM;
+  return { kcal: b.kcal + h.kcal * g, pro: b.pro + g, fat: b.fat + h.fat * g, cho: b.cho + h.cho * g,
+    na: b.na + h.naMg * g / EN_MG_PER_MMOL.na, k: b.k + h.kMg * g / EN_MG_PER_MMOL.k,
+    ca: b.ca + h.ca * g, p: b.p + h.p * g, osm: null };
+})();
+const _EN_INFATRINI = _enFromChula(EN_SRC_CHULA_PER_100_KCAL.infatriniPowder, 30);
+// Alternating feeds: the mean of the two rows, per nutrient. The feeds are
+// never mixed in one bottle, so there is no osmolality to average.
+const _EN_FBM_INF_MIX = (() => {
+  const mean = {};
+  for (const f of ["kcal", "pro", "fat", "cho", "na", "k", "ca", "p"]) mean[f] = (_EN_BM_HMF[f] + _EN_INFATRINI[f]) / 2;
+  return { ...mean, osm: null };
+})();
+
+const _EN_CHULA = EN_SRC_CHULA_PER_100_KCAL;
 const EN_DB = {
   // ── Breast Milk ────────────────────────────────────────────
-  // Source: BOX 1.3.1 Term mature milk (>30 days) per L → /10 per 100 mL
-  // Na corrected: 9.0 mmol/L = 0.90 mmol/100mL (was 0.65 — underestimate)
-  // Fat corrected: 34 g/L = 3.4 g/100mL (was 3.8 — overestimate; note: fat highly variable ±4g/L)
-  // Composition varies widely — use measured values (indirect calorimetry/mid-IR) when available
+  // Composition varies widely — use measured values (mid-IR analyser) when available
   BM_20: {
     label: "Breast Milk (20 kcal/oz, mature)",
-    kcal: 67, pro: 1.2, fat: 3.4, cho: 6.7,
-    na: 0.90, k: 1.39, ca: 26, p: 15,
-    osm: 290, lf: false,
-    note: "Term mature MOM (BOX 1.3.1). Composition varies greatly — use measured values when available",
+    ..._EN_BM, lf: false,
+    source: "WHO 2006 technical review, Box 1.3.1 (term mature milk); kcal: Chula Handbook p. 8",
+    note: "Term mature milk. Composition varies greatly — use measured values when available",
   },
 
-  // ── Fortified Breast Milk / Preterm Formula ────────────────
-  // Generic reference values for EBM/donor milk fortified to target density
-  // Verify with actual product label at KCMH (HiQ/Enfalac preterm)
+  // ── Preterm formula ────────────────────────────────────────
+  // No source: no product has this profile (per 100 kcal it is a term
+  // formula: 2.2 g protein, 75 mg Ca). Pp, 2026-10-20: keep it as it was,
+  // offered in the Calculator with its old numbers, until the feed formulas
+  // are revised. `unsourced` only makes the Formula page say "No source".
   BM_PF_20: {
     label: "Preterm Formula (20 kcal/oz)",
     kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4,
     na: 1.0, k: 1.7, ca: 50, p: 28,
     osm: 290, lf: false,
+    unsourced: true,
   },
-  // Source: Chula Handbook §3, per-100mL conversion table (Corrected 2026-05-28)
+  // 22 kcal/oz is the ward's strength: "Preterm Formula (22 kcal/oz)" at 73
+  // kcal/100 mL from the first commit until 357d095 named it Enfalac Premature
+  // and set 74. The book prints the product at 24, so its osmolality (310)
+  // does not apply here.
   FBM_PF_22: {
     label: "Enfalac Premature (22 kcal/oz)",
-    kcal: 74, pro: 2.1, fat: 4.0, cho: 8.1,
-    na: 1.87, k: 1.90, ca: 102, p: 59,
-    osm: 270, lf: false,
-    note: "Enfalac Premature (MJN) · Ca:P 1.7:1 · Chula Handbook §3",
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 22), lf: false,
+    source: "Chula Handbook Table 5, p. 16 (per 100 kcal)",
+    note: "Enfalac Premature (MJN) · Ca:P 1.8:1 · whey:casein 60:40",
   },
+  // Added by 357d095 at 22 kcal/oz; the book prints it at 24 (osmolality 263
+  // there). The book lists Pre Nan with the preterm formulas (Table 5); the
+  // Calculator groups it as post-discharge (TPN team, 2026-09-28).
   PRENAN_22: {
     label: "Pre Nan (22 kcal/oz)",
-    kcal: 74, pro: 1.7, fat: 4.3, cho: 7.9,
-    na: 1.30, k: 1.77, ca: 74, p: 67,
-    osm: 260, lf: false,
-    note: "Pre Nan (Nestlé) · Ca:P 1.1:1 (casein-dominant 18:82 whey:casein) · Chula Handbook §3",
+    ..._enFromChula(_EN_CHULA.preNan, 22), lf: false,
+    source: "Chula Handbook Table 5, p. 16 (per 100 kcal)",
+    note: "Pre Nan (Nestlé) · Ca:P 1.7:1 · whey:casein 70:30",
   },
   FBM_PF_24: {
     label: "Hi-Q LBW (24 kcal/oz)",
-    kcal: 80, pro: 2.1, fat: 3.8, cho: 10.9,
-    na: 3.00, k: 2.56, ca: 84, p: 55,
-    osm: 360, lf: false,
-    note: "Hi-Q LBW (Dumex/Nutricia) · high osm (GOS/FOS 360) → watch feed tolerance · Chula Handbook §3",
+    ..._enFromChula(_EN_CHULA.hiQLbw, 24), lf: false,
+    source: "Chula Handbook Table 5, p. 16 (per 100 kcal)",
+    note: "Hi-Q LBW · Ca:P 1.8:1 · GOS/FOS, osmolality 360 → watch feed tolerance",
   },
 
   // ── BM + HMF ─────────────────────────────────────────────
-  // Source: BOX 1.3.3 Enfamil HMF 4g/100mL + mature BM (BOX 1.3.1)
-  //   Ca: 25+90=115 mg · P: 14+45=59 mg · Na: 0.90+0.5=1.40 mmol
-  //   K: 1.39+0.5=1.89 mmol · Osm: 290+63=353 mOsm
-  // Chula uses Enfamil HMF (Mead Johnson) — values from BOX 1.3.3
   BM_HMF_24: {
     label: "FBM with HMF (24 kcal/oz)",
-    kcal: 81, pro: 2.6, fat: 3.8, cho: 8.2,
-    na: 1.40, k: 1.89, ca: 115, p: 59,
-    osm: 353, lf: false,
-    // Chula Handbook §2: Enfamil HMF 4 pkt/100mL BM → pro 2.5–2.8 g (use 2.6), fat 3.5–4.0 (use 3.8), cho 8.2
-    note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · Enfamil HMF (Chula Handbook §2)",
+    ..._EN_BM_HMF, lf: false,
+    source: "BM_20 + Enfamil HMF, Chula Handbook p. 10 (per 1 g protein) × 1.1 g protein per 4 g dose (WHO 2006 Box 1.3.3)",
+    note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · osmolarity 377 (estimated) to 401 mOsm/L (Chula p. 10)",
   },
 
-
-  // ── Lactose-free — HiQ LF (Dumex/Nutricia) ────────────────
-  // Source: Chula Handbook §5 (per 100 mL conversion table)
-  // KCMH uses HiQ LF as primary LF brand (interchangeable with Enfalac LF)
+  // ── Lactose-free — HiQ LF (the Calculator's LF rows) ──────
   LF_20: {
     label: "LF — HiQ LF (20 kcal/oz)",
-    kcal: 67, pro: 1.41, fat: 3.75, cho: 6.90,
-    na: 1.17, k: 1.72, ca: 57, p: 40,
-    osm: 170, lf: true,
-    note: "HiQ LF 20 kcal/oz · Chula Handbook §5 · low osm (glucose polymer)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 20), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal)",
+    note: "HiQ LF 20 kcal/oz · Ca:P 1.9:1",
   },
   LF_24: {
     label: "LF — HiQ LF (24 kcal/oz)",
-    kcal: 80, pro: 1.68, fat: 4.48, cho: 8.24,
-    na: 1.39, k: 2.05, ca: 68, p: 47,
-    osm: 240, lf: true,
+    ..._enFromChula(_EN_CHULA.hiQLf, 24), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 24 kcal/oz",
   },
   LF_27: {
     label: "LF — HiQ LF (27 kcal/oz)",
-    kcal: 90, pro: 1.89, fat: 5.04, cho: 9.27,
-    na: 1.57, k: 2.31, ca: 77, p: 53,
-    osm: 280, lf: true,
-    note: "Ca still below ESPGHAN goal at 150 mL/kg → supplement oral Ca. Na may need supplement.",
+    ..._enFromChula(_EN_CHULA.hiQLf, 27), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 27 kcal/oz",
+    note: "Ca and P below the ESPGHAN goal at 150 mL/kg → supplement oral Ca and P. Na may need a supplement",
   },
 
-  // ── HiQ LF (Dumex/Nutricia) — Lactose-Free ─────────────────
-  // Source: Chula Handbook §5, per-100mL conversion (HiQ LF column)
-  // Corrected 2026-05-28 — previous values were significantly underestimated
+  // ── HiQ LF — the same rows, for the Formula reference page ─
   HIQLF_20: {
     label: "HiQ LF — 20 kcal/oz (67 kcal/100mL)",
-    kcal: 67, pro: 1.41, fat: 3.75, cho: 6.90,
-    na: 1.17, k: 1.72, ca: 57, p: 40,
-    osm: 170, lf: true,
-    note: "Low osm (glucose polymer) — safe to concentrate. Chula Handbook §5",
+    ..._enFromChula(_EN_CHULA.hiQLf, 20), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal)",
   },
   HIQLF_24: {
     label: "HiQ LF — 24 kcal/oz (80 kcal/100mL)",
-    kcal: 80, pro: 1.68, fat: 4.48, cho: 8.24,
-    na: 1.39, k: 2.05, ca: 68, p: 47,
-    osm: 240, lf: true,
+    ..._enFromChula(_EN_CHULA.hiQLf, 24), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 24 kcal/oz",
   },
   HIQLF_27: {
     label: "HiQ LF — 27 kcal/oz (90 kcal/100mL)",
-    kcal: 90, pro: 1.89, fat: 5.04, cho: 9.27,
-    na: 1.57, k: 2.31, ca: 77, p: 53,
-    osm: 280, lf: true,
-    note: "Ca below ESPGHAN goal at 150 mL/kg → supplement oral Ca",
+    ..._enFromChula(_EN_CHULA.hiQLf, 27), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 27 kcal/oz",
+    note: "Ca and P below the ESPGHAN goal at 150 mL/kg → supplement oral Ca and P",
   },
 
-  // ── Enfalac LF (Mead Johnson) — Lactose-Free ──────────────
-  // Higher Ca/P than HiQ — P goal met at 24 kcal/oz + 150 mL/kg
+  // ── Enfalac LF (Mead Johnson) — Formula reference page only ─
   ENFALAC_20: {
     label: "Enfalac LF — 20 kcal/oz (67 kcal/100mL)",
-    kcal: 67, pro: 1.53, fat: 3.6, cho: 7.3,
-    na: 0.93, k: 1.20, ca: 65, p: 43,
-    osm: 220, lf: true,
+    ..._enFromChula(_EN_CHULA.enfalacLf, 20), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal)",
   },
   ENFALAC_24: {
     label: "Enfalac LF — 24 kcal/oz (80 kcal/100mL)",
-    kcal: 80, pro: 1.80, fat: 4.3, cho: 8.7,
-    na: 1.13, k: 1.47, ca: 78, p: 51,
-    osm: 255, lf: true,
-    note: "P goal met at 150 mL/kg — still need Na supplement",
+    ..._enFromChula(_EN_CHULA.enfalacLf, 24), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 24 kcal/oz",
+    note: "P goal met at 150 mL/kg — Na still below goal",
   },
   ENFALAC_27: {
     label: "Enfalac LF — 27 kcal/oz (90 kcal/100mL)",
-    kcal: 90, pro: 2.00, fat: 4.8, cho: 9.8,
-    na: 1.27, k: 1.67, ca: 87, p: 58,
-    osm: 290, lf: true,
+    ..._enFromChula(_EN_CHULA.enfalacLf, 27), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 27 kcal/oz",
     note: "Ca goal met at 150 mL/kg",
   },
 
   // ── Infatrini (Nutricia) — 100 kcal/100 mL ────────────────
-  // Pre-concentrated, has lactose — complete nutrition at 150 mL/kg (if no LF req)
-  // Source: Chula Handbook §6 (Infatrini 100 kcal/100mL) — Corrected 2026-05-28
+  // Pre-concentrated, has lactose. The book's liquid column differs slightly
+  // (Ca 100, P 56, osmolality 360); the powder is the one this row has used.
   INFATRINI_30: {
     label: "Infatrini (30 kcal/oz)",
-    kcal: 100, pro: 2.6, fat: 5.4, cho: 10.3,
-    na: 1.80, k: 2.75, ca: 124, p: 69,
-    osm: 345, lf: false,
-    note: "Infatrini (Nutricia) · 100 kcal/100mL · na 1.74–1.87, ca 120–128, p 67–72 · Chula Handbook §6",
+    ..._EN_INFATRINI, lf: false,
+    source: "Chula Handbook Table 16, p. 29 (Infatrini powder, per 100 kcal = per 100 mL)",
+    note: "Infatrini powder (Nutricia) · 100 kcal/100mL · Ca:P 1.8:1",
   },
 
   // ── Mixed feeds ────────────────────────────────────────────
   FBM_INF_MIX: {
     label: "FBM 24 ↔ Infatrini 30 (alternating)",
-    kcal: 90, pro: 2.6, fat: 4.75, cho: 9.45,
-    na: 1.55, k: 2.3, ca: 100, p: 55,
-    osm: 375, lf: false,
-    note: "Half feeds FBM 24, half Infatrini — values are mean",
+    ..._EN_FBM_INF_MIX, lf: false,
+    source: "Mean of BM_HMF_24 and INFATRINI_30",
+    note: "Half feeds FBM 24, half Infatrini — values are the mean of the two rows",
   },
 };
 

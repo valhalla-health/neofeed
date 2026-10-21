@@ -94,19 +94,43 @@ const STOCK = {
   soluvitPerKg: 1, soluvitMax: 10, pediPerKg: 1, pediMax: 15, pediZn: 0.25, hep: 100,
 };
 const KCAL = { dex: 3.4, aa: 4, fat: 9 };
-// per 100 mL: kcal, pro g, fat g, cho g, Na mmol, K mmol, Ca mg, P mg
+// Feeds, from the printed sources (2026-10-17), not from data.js. The Chula
+// Pediatric Nutrition Handbook 3rd ed. prints formulas per 100 kcal, Na and K
+// in mg: [protein g, fat g, CHO g, Na mg, K mg, Ca mg, P mg].
+const PER_100_KCAL = {
+  enfalacPremature: [3, 5.1, 11, 58, 100, 120, 66],     // Table 5, p. 16
+  preNan:           [2.9, 5.2, 10.7, 43, 103, 130, 76], // Table 5, p. 16
+  hiQLbw:           [3.3, 4.8, 11.5, 86, 99, 123, 69],  // Table 5, p. 16
+  hiQLf:            [2.4, 5.2, 10.8, 34, 80, 64, 34],   // Table 7, p. 18
+  infatrini:        [2.6, 5.4, 10.3, 37, 100, 99, 54],  // Table 16, p. 29 (powder)
+};
+// per 100 mL at kcal/100 mL (1 oz = 30 mL: 20 → 67, 22 → 73, 24 → 80, 27 → 90, 30 → 100):
+// [kcal, pro g, fat g, cho g, Na mmol, K mmol, Ca mg, P mg]
+const perMl = ([pro, fat, cho, na, k, ca, p], kcal) => {
+  const f = kcal / 100;
+  return [kcal, pro * f, fat * f, cho * f, na * f / 22.99, k * f / 39.10, ca * f, p * f];
+};
+// Term mature milk, WHO 2006 technical review Box 1.3.1, per litre: protein 12,
+// fat 34, CHO 67 g; Na 9.0, K 13.9, Ca 6.5, P 4.8 mmol. Energy is the label's
+// 20 kcal/oz. + Enfamil HMF, Chula p. 10 per 1 g protein: 13 kcal, fat 0.9,
+// CHO 0.4 g, Na 14.5, K 26.4, Ca 81.8, P 40.9 mg; × 1.1 g protein per 4 g dose
+// (WHO Box 1.3.3).
+const BM = [67, 1.2, 3.4, 6.7, 0.90, 1.39, 6.5 * 40.08 / 10, 4.8 * 30.97 / 10];
+const HMF = [13, 1, 0.9, 0.4, 14.5 / 22.99, 26.4 / 39.10, 81.8, 40.9].map((v) => v * 1.1);
+const BM_HMF = BM.map((v, i) => v + HMF[i]);
+const INFATRINI = perMl(PER_100_KCAL.infatrini, 100);
 const FEED = {
-  BM_20:        [67, 1.2, 3.4, 6.7, 0.90, 1.39, 26, 15],
-  BM_HMF_24:    [81, 2.6, 3.8, 8.2, 1.40, 1.89, 115, 59],
-  BM_PF_20:     [67, 1.5, 3.5, 7.4, 1.0, 1.7, 50, 28],
-  FBM_PF_22:    [74, 2.1, 4.0, 8.1, 1.87, 1.90, 102, 59],
-  PRENAN_22:    [74, 1.7, 4.3, 7.9, 1.30, 1.77, 74, 67],
-  FBM_PF_24:    [80, 2.1, 3.8, 10.9, 3.00, 2.56, 84, 55],
-  FBM_INF_MIX:  [90, 2.6, 4.75, 9.45, 1.55, 2.3, 100, 55],
-  INFATRINI_30: [100, 2.6, 5.4, 10.3, 1.80, 2.75, 124, 69],
-  LF_20:        [67, 1.41, 3.75, 6.90, 1.17, 1.72, 57, 40],
-  LF_24:        [80, 1.68, 4.48, 8.24, 1.39, 2.05, 68, 47],
-  LF_27:        [90, 1.89, 5.04, 9.27, 1.57, 2.31, 77, 53],
+  BM_20:        BM,
+  BM_HMF_24:    BM_HMF,
+  BM_PF_20:     [67, 1.5, 3.5, 7.4, 1.0, 1.7, 50, 28],     // no source; kept as it was (Pp, 2026-10-20)
+  FBM_PF_22:    perMl(PER_100_KCAL.enfalacPremature, 73),   // the ward's 22 kcal/oz
+  PRENAN_22:    perMl(PER_100_KCAL.preNan, 73),
+  FBM_PF_24:    perMl(PER_100_KCAL.hiQLbw, 80),
+  FBM_INF_MIX:  BM_HMF.map((v, i) => (v + INFATRINI[i]) / 2),   // alternating: the mean
+  INFATRINI_30: INFATRINI,
+  LF_20:        perMl(PER_100_KCAL.hiQLf, 67),
+  LF_24:        perMl(PER_100_KCAL.hiQLf, 80),
+  LF_27:        perMl(PER_100_KCAL.hiQLf, 90),
 };
 const SUPP = { FE_FERDEK: 25, FE_FERROKID: 5, CA_CACO3_350: 140, CA_CACO3_1000: 400, CA_CALCETATE: 253,
   PO4_PHOSPHATE: 53, PO4_NEUTRAL: 14.4 };
