@@ -14,18 +14,24 @@
 //       button is on, the Step 3 header and the save panel say so, and Submit
 //       stays disabled until Peripheral or Central is pressed. The choice saves
 //       and prints.
-//   §3  A new order copies the route of the order before it, so only the first
-//       order asks; an edit keeps its own route; a row saved before this change
-//       with no route in calcInput still opens as Central.
+//   §3  A new order copies the route of an order before it that had a bag, so
+//       only the first bag asks; an edit keeps its own route; a row saved before
+//       this change with no route in calcInput still opens as Central.
+//   §3b Until a route is chosen the bag is graded as on a peripheral line: the
+//       osmolarity limit and the dextrose "Central only!" flag (Vera, finding 3).
 //   §4  An order with no bag (NPO) needs no route: it submits with none, saves
 //       route null, prints neither box ticked, copies "Route: —", and the next
-//       order made from it asks for the route again.
+//       order made from it asks for the route again — and so does one made from
+//       a no-bag row saved before this change as "central" (Pp's answer to
+//       Vera's finding 1, 2026-10-21: "ให้เลือกใหม่").
 //   §5  A draft may be kept without a route. It logs "TPN", reopens without a
 //       route, and still cannot be submitted until one is chosen.
 //   §6  The quick calc keeps Central: it saves nothing, so there is no first order.
 //
-// 45 checks; against d9c815c 23 fail. Those that pass there pin what already
-// held: no caution without a bag, an old row opening as Central, the quick calc.
+// 53 checks; against d9c815c 28 fail, and against 9d3fc21 (this PR before
+// Vera's review) the 5 checks of §3b and §4 she asked for fail. Those that pass
+// on d9c815c pin what already held: no caution without a bag, an old row
+// opening as Central, the quick calc.
 // Mounts the real <Calculator> in jsdom — the deps in test/README.md.
 const fs = require('fs');
 const vm = require('vm');
@@ -222,6 +228,21 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     delete legacyInput.route;
     mount({ patient: pt('RT-1500', 1500), onLog: box.onLog, editEntry: asSaved(peripheralEntry, { ts: '2026-10-21', dol: 5, calcInput: legacyInput }), previousEntry: null });
     eq('a row saved with no route in calcInput still opens as Central', routeOn(), ['Central']);
+    const legacyBag = asSaved(peripheralEntry, { calcInput: legacyInput });
+    mount({ patient: pt('RT-1500', 1500), onLog: box.onLog, baselineEntry: legacyBag, previousEntry: legacyBag });
+    eq('…and a new order copied from such a bag row starts on Central, as it printed', routeOn(), ['Central']);
+  });
+
+  // ═════════════════════ §3b grading before a route is chosen ══════════════
+  await section('§3b until a route is chosen, the bag is graded as on a peripheral line', async () => {
+    mount({ patient: pt('OSM-1500', 1500), onLog: logger().onLog });
+    bagOrder();
+    setField('Dextrose final', 15);
+    eq('no route, D15: "Osmolarity > peripheral limit" shows before a route is pressed', alertNamed('Osmolarity > peripheral limit')?.level, 'crit');
+    ok('…and so does the dextrose "Central only!" flag', /Central only!/.test(text(container)), '');
+    click(routeBtn('Central'));
+    ok('Central pressed: no osmolarity limit', !alertNamed('Osmolarity > peripheral limit') && !alertNamed('Osmolarity near peripheral limit'), alertRows());
+    ok('…and no "Central only!" flag', !/Central only!/.test(text(container)), '');
   });
 
   // ═════════════════════ §4 no bag, no route ═══════════════════════════════
@@ -240,6 +261,8 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
       printText().match(/Route of Delivery.{0,60}/));
     await clickAsync(button(/Copy Order to Clipboard/));
     ok('the copied order says "Route: —"', /Route: —/.test(copied || ''), (copied || '').match(/Route:.{0,30}/));
+    ok('the form\'s K⁺ line names no route, not "peripheral"', /\(no route\)/.test(printText()) && !/K⁺ in bag:[^)]*\(peripheral\)/.test(printText()),
+      printText().match(/K⁺ in bag:.{0,60}/));
     const prev = asSaved(box.entry);
     mount({ patient: pt('NPO-1500', 1500), onLog: logger().onLog, baselineEntry: prev, previousEntry: prev });
     eq('the next order, made from the NPO day: no route on', routeOn(), []);
@@ -249,6 +272,14 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     click(routeBtn('Central'));
     ok('the change list reads "Route —→central"', /Route —→central/.test(printText()) || /Route[^A-Za-z]{0,6}—[^A-Za-z]{0,6}central/.test(text(container)),
       text(container).match(/Route[^A-Za-z]{0,20}(central|peripheral)/));
+
+    // Pp, 2026-10-21: a bag after a day without one asks too. Every no-bag row
+    // saved before then holds the old default, "central".
+    const oldNoBag = asSaved(box.entry, { calcInput: { ...box.entry.calcInput, route: 'central' } });
+    mount({ patient: pt('NPO-1500', 1500), onLog: logger().onLog, baselineEntry: oldNoBag, previousEntry: oldNoBag });
+    eq('a new order after an old no-bag row saved as "central": no route on', routeOn(), []);
+    bagOrder();
+    eq('…and its bag cannot be submitted until one is pressed', submitBtn()?.disabled, true);
   });
 
   // ═════════════════════ §5 drafts ═════════════════════════════════════════

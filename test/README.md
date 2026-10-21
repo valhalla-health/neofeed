@@ -1647,8 +1647,12 @@ order. §§ 2–5: an infant's first order has no route (neither button on, a no
 in the save panel), and Submit stays disabled until one is pressed; the choice saves ("TPN peripheral")
 and prints. The next order copies it, an edit keeps it, and a row saved with no route key reopens as
 Central. An NPO first order submits with route null, prints neither box and copies "Route: —"; a draft
-keeps no route, logs "TPN" and still asks at Submit. § 6: the quick calc keeps Central. 45 checks; against
-`main` (`d9c815c`), 23 fail.
+keeps no route, logs "TPN" and still asks at Submit. A new order copies the route only from an order
+that had a bag, so a bag after a feeds-only or NPO day asks again, even when that row was saved as
+"central" (Pp, after Vera's review). § 3b: until a route is chosen, osmolarity and the dextrose flag
+grade as on a peripheral line. § 6: the quick calc keeps Central. 53 checks; against `main`
+(`d9c815c`), 28 fail. `verify-center-point-entry.cjs` § 7 adds that no Center Point order saves
+without a route, with a bag or without (8 checks, 6 fail on `main`).
 
 Twelve older harnesses typed a first order and saved it as Central without pressing a route. Each now
 presses Central: in `mount()` or the order helper, or just before the save in `verify-review-0911.cjs`

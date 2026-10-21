@@ -120,6 +120,15 @@ function newOrderDeadVol(src, patient) {
   return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);
 }
 
+// The route a NEW order copied from `src` starts on (Pp, 2026-10-21): the route
+// of a day that had a bag, and none (null) after a day without one, so the
+// prescriber presses it. A bag row with no route key (saved before calcInput
+// kept one) returns undefined, which normalizeCalcInput reads as "central", the
+// route it was printed with.
+function bagRouteFrom(src) {
+  return Number(src?.totalTPN_mL) > 0 ? src.route : null;
+}
+
 // What the "changes vs previous order" list compares — per-kg ORDER values,
 // so a weight change alone doesn't flag every electrolyte line.
 const ORDER_DIFF_FIELDS = [
@@ -1103,7 +1112,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
     if (baselineEntry) {
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
-      const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient) };
+      // The route carries over only from a day that had a bag (Pp, 2026-10-21).
+      // A day without one never had its route chosen for a bag: every such row
+      // saved before then holds the old default, "central", so an infant on
+      // feeds alone, or coming back to TPN, would start a bag on Central unasked.
+      const src = { ...base, deadVol_mL: newOrderDeadVol(base, patient),
+        route: bagRouteFrom(base) };
       // The plan carries over from the previous order; the WEIGHT is the one on
       // record for this order's day — D.currentWeight, the same answer the
       // patient strip gives (as of this order's DOL for a back-fill, so an
@@ -1151,8 +1165,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // The infant's first order: no route until the prescriber presses one (Pp,
     // 2026-10-21). It used to start on Central, so a peripheral line left
     // unpressed printed as Central with no peripheral limit checked. This
-    // browser's last submission for the infant keeps the route it was sent with.
-    applyCalcInput({ ...fresh, route: fresh.route ?? null, curWtG: wtDefault, deadVol_mL: newOrderDeadVol(fresh, patient) }, wtDefault, false, fluidMidpoint(wtDefault));
+    // browser's last submission for the infant keeps its route when it had a
+    // bag, as the baseline above does.
+    applyCalcInput({ ...fresh, route: bagRouteFrom(fresh), curWtG: wtDefault, deadVol_mL: newOrderDeadVol(fresh, patient) }, wtDefault, false, fluidMidpoint(wtDefault));
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt });
@@ -1690,8 +1705,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Praew, 2026-09-28): amber above `warn`, critical above `red`, and above
   // `hardMax` (peripheral 60 since 2026-10-08, central 200) not orderable at
   // all — see kOverMax. It replaced the worksheet's single 40 mEq/L stop (G25)
-  // on both routes. Before a first order's route is chosen (route null) the bag
-  // is graded on the stricter peripheral limits; Submit waits for the choice.
+  // on both routes. Until a route is chosen (route null) the bag is graded as
+  // on a peripheral line, the stricter one, here and for osmolarity and the
+  // dextrose flag below; Submit waits for the choice (Pp, 2026-10-21).
   const kLim = D.kBagLimitsFor(route);
   const kRouteLabel = route === "central" ? "central" : "peripheral";
   // Graded with float noise stripped (toPrecision(12), as describeOrderValue
@@ -1709,8 +1725,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // the bar runs to 1.5 × red, as it did before the maximum existed.
   const kBarMax = kLim.hardMax > kLim.red ? kLim.hardMax : kLim.red * 1.5;
   // Peripheral: crit >900, warn >850 · Central: no upper limit (Praew,
-  // 2026-09-28; it warned above 1800 until then)
-  const osmStatusAt = (v) => route === "peripheral"
+  // 2026-09-28; it warned above 1800 until then). No route yet: peripheral.
+  const osmStatusAt = (v) => route !== "central"
     ? (v > 900 ? "crit" : v > 850 ? "warn" : "ok")
     : "ok";
   const sOsm = osmStatusAt(calc.osm);
@@ -2638,7 +2654,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                  that needs none. warn/crit keep their status colours. */
               background: sOsm==="crit" ? "var(--crit-bg)" : sOsm==="warn" ? "var(--warn-bg)" : "var(--bg-2)",
               color:       sOsm==="crit" ? "var(--crit)"   : sOsm==="warn" ? "var(--warn)"   : "var(--ink-2)" }}>
-              Osm {calc.osm.toFixed(0)} mOsm/L{route==="peripheral" && calc.osm > 900 && (
+              Osm {calc.osm.toFixed(0)} mOsm/L{route!=="central" && calc.osm > 900 && (
                 <span title="Over 900 mOsm/L for a peripheral line"
                   style={{ display:"inline-flex", verticalAlign:"-2px", marginLeft:4 }}>
                   <Icon name="warn" size={13} stroke={2.2} />
@@ -2747,7 +2763,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {calc.d50wVol > 0 && (
                     <div style={{ marginTop:4, padding:"4px 8px", background:"var(--brand-bg)", borderRadius:4, fontSize:11 }}>
                       D50W: <span className="num" style={{ fontWeight:700, color:"var(--brand-2)" }}>{fmt(calc.d50wVol,1)} mL/d</span>
-                      {route==="peripheral" && dexPct > 12.5 && <span style={{ color:"var(--crit)", fontWeight:700, marginLeft:6, display:"inline-flex", alignItems:"center", gap:4, verticalAlign:"bottom" }}><Icon name="warn" size={13} stroke={2.2} />Central only!</span>}
+                      {route!=="central" && dexPct > 12.5 && <span style={{ color:"var(--crit)", fontWeight:700, marginLeft:6, display:"inline-flex", alignItems:"center", gap:4, verticalAlign:"bottom" }}><Icon name="warn" size={13} stroke={2.2} />Central only!</span>}
                     </div>
                   )}
                 </div>
@@ -2929,8 +2945,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <Tile label="NPC : Protein" value={calc.npeN} unit=" kcal/g AA" target={tNPE} status={sNPE} decimals={0} max={60} />
             {/* Peripheral range 0–900, the same threshold sOsm and the alert use
                 (UP-C12, Praew 2026-09-17). A central line has no upper limit
-                (Praew, 2026-09-28), so its tile shows the figure with no range. */}
-            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route==="peripheral" ? [0,900] : null} status={sOsm} statusAt={osmStatusAt} decimals={0} max={1100} />
+                (Praew, 2026-09-28), so its tile shows the figure with no range.
+                No route chosen yet grades as peripheral (see osmStatusAt). */}
+            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route!=="central" ? [0,900] : null} status={sOsm} statusAt={osmStatusAt} decimals={0} max={1100} />
           </div>
           {/* A MEN feed is in none of these totals (since 2026-09-18), and Step
               2 says so — but the TPN team read the totals here as still
@@ -3081,7 +3098,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   (2026-09-22); graded by route since 2026-09-28. */}
               <Tile label="K⁺ in bag" value={calc.kMeqPerL} unit=" mEq/L" target={[0, kLim.warn]} status={sKConc} statusAt={kConcStatusAt} decimals={0} max={kBarMax} />
               <div className="k-conc-ref" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}>
-                {kRouteLabel}: {[`amber > ${kLim.warn}`, ...kBagLimitParts(kLim, "red >")].join(" · ")} mEq/L
+                {route ? kRouteLabel : "peripheral (no route yet)"}: {[`amber > ${kLim.warn}`, ...kBagLimitParts(kLim, "red >")].join(" · ")} mEq/L
               </div>
               {/* Mg in the unit it is dosed in (tMg), plus mg/kg/d for the
                   guideline's mg columns. TPN only: EN_DB carries no Mg. */}
@@ -3478,7 +3495,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             )}
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 }}>
-              <span className="num">{scratch ? "ไม่ผูกกับผู้ป่วย" : (D.patientName(patient) || "—")}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>}{tpnWtManual && <> (calc. weight set manually to {wtG}g)</>} · {route === "central" ? "Central" : "Peripheral"}
+              <span className="num">{scratch ? "ไม่ผูกกับผู้ป่วย" : (D.patientName(patient) || "—")}</span> · DOL <span className="num">{dol}</span> · {curWtG}g{usingBirthWeight && <> (calc. at birth weight {wtG}g)</>}{tpnWtManual && <> (calc. weight set manually to {wtG}g)</>} · {route === "central" ? "Central" : route === "peripheral" ? "Peripheral" : "no route"}
             </div>
             {/* Whom to call about this order (TPN team, 2026-09-22) — the same
                 name the printed form carries (savedByOf). */}
@@ -3603,7 +3620,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `  Total Na:     ${fmt(calc.bag.na_mEq, 1)} mEq in bag = ${fmt(calc.naKg, 1)} mEq/kg/d delivered`,
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
-                `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L; ${kBagLimitParts(kLim, "confirm above").join(", ")} on a ${kRouteLabel} line)`,
+                `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L; ${kBagLimitParts(kLim, "confirm above").join(", ")} ${route ? `on a ${kRouteLabel} line` : "peripheral limits, no route chosen"})`,
                 // Only the quick calc reaches here with kOverMax (a patient's
                 // Copy waits for `printable`), so its text says so, as an
                 // over-full bag's does.
@@ -4075,7 +4092,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           {/* 2. K⁺ */}
           <tr>
             <td style={tdGroup} colSpan={3}>2. K⁺</td>
-            <td style={td} rowSpan={3}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>K⁺ in bag: {kBagLimitParts(D.kBagLimitsFor(route), "confirm >").join(" · ")} mEq/L ({route === "central" ? "central" : "peripheral"})</td>
+            <td style={td} rowSpan={3}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>K⁺ in bag: {kBagLimitParts(D.kBagLimitsFor(route), "confirm >").join(" · ")} mEq/L ({route === "central" ? "central" : route === "peripheral" ? "peripheral" : "no route"})</td>
           </tr>
           <tr>
             <td style={tdRx(k2hpo4 > 0)}>{chk(k2hpo4 > 0)} K₂HPO₄<br/><span style={plain}>(K {S.k2hpo4.kMeqPerMl} mEq/mL, P {S.k2hpo4.pMgPerKMeq} mg/mL)</span></td>
@@ -4258,7 +4275,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             </tr>
             <tr>
               <td style={td} colSpan={3}>
-                K⁺ in bag {fmt(calc.kMeqPerL, 0)} mEq/L ({kBagLimitParts(D.kBagLimitsFor(route), "confirm >").join(", ")}, {route === "central" ? "central" : "peripheral"}) · Osm {bag && calc.osm ? fmt(calc.osm, 0) : "—"} mOsm/L · Lipid + Vitalipid are a separate syringe, not in this bag
+                K⁺ in bag {fmt(calc.kMeqPerL, 0)} mEq/L ({kBagLimitParts(D.kBagLimitsFor(route), "confirm >").join(", ")}, {route === "central" ? "central" : route === "peripheral" ? "peripheral" : "no route"}) · Osm {bag && calc.osm ? fmt(calc.osm, 0) : "—"} mOsm/L · Lipid + Vitalipid are a separate syringe, not in this bag
               </td>
             </tr>
           </tbody>
