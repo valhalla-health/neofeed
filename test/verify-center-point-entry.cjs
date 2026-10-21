@@ -106,6 +106,12 @@ function mount(props) {
     container.querySelectorAll('.card-h.clickable').forEach((h) =>
       h.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
   });
+  // Every order here is the infant's first, which has no route until one is
+  // pressed (Pp, 2026-10-21); these orders were written for Central.
+  const routes = [...container.querySelectorAll('.step2-ctrl .seg button')];
+  if (routes.length && !routes.some((b) => b.classList.contains('on'))) {
+    act(() => { routes.find((b) => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+  }
 }
 
 (async () => {

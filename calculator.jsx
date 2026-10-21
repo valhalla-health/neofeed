@@ -60,7 +60,11 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     ioInput: src.ioInput ?? 0,
     ioOutput: src.ioOutput ?? 0,
     drainContent: src.drainContent ?? 0,
-    route: src.route ?? "central",
+    // null = no route chosen yet: an infant's first order starts that way and
+    // cannot be submitted with a bag until Peripheral or Central is pressed
+    // (Pp, 2026-10-21). Only a row saved before then has no route key at all,
+    // and it was ordered and printed as Central, so it reopens as Central.
+    route: src.route === null ? null : (src.route ?? "central"),
     totalTPN_mL: src.totalTPN_mL ?? 0,
     deadVol_mL: src.deadVol_mL ?? 0,
     dexPct: src.dexPct ?? 0,
@@ -161,6 +165,8 @@ function describeOrderValue(key, v) {
   // toPrecision(12) strips float noise without rounding away a real decimal
   // (a Glycophos 0.0625 mL/kg/d stays 0.0625).
   if (typeof v === "number" && isFinite(v)) return String(Number(v.toPrecision(12)));
+  // A route not yet chosen (null) reads "—", never "null".
+  if (v == null) return "—";
   return String(v);
 }
 // → [{ label, from, to, unit }] for every order field that differs.
@@ -1142,7 +1148,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     const wtDefault = recorded?.w ?? restored?.curWtG ?? restored?.wtG ?? patient.bw ?? 0;
     // Fresh entry — ioInput tracks the computed total until edited (ioTouched false).
     const fresh = restored ? { ...restored, ...NEW_DAY_IO } : {};
-    applyCalcInput({ ...fresh, curWtG: wtDefault, deadVol_mL: newOrderDeadVol(fresh, patient) }, wtDefault, false, fluidMidpoint(wtDefault));
+    // The infant's first order: no route until the prescriber presses one (Pp,
+    // 2026-10-21). It used to start on Central, so a peripheral line left
+    // unpressed printed as Central with no peripheral limit checked. This
+    // browser's last submission for the infant keeps the route it was sent with.
+    applyCalcInput({ ...fresh, route: fresh.route ?? null, curWtG: wtDefault, deadVol_mL: newOrderDeadVol(fresh, patient) }, wtDefault, false, fluidMidpoint(wtDefault));
 
     if (restored?.savedAt) {
       setPrefilledFrom({ savedAt: restored.savedAt });
@@ -1680,7 +1690,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Praew, 2026-09-28): amber above `warn`, critical above `red`, and above
   // `hardMax` (peripheral 60 since 2026-10-08, central 200) not orderable at
   // all — see kOverMax. It replaced the worksheet's single 40 mEq/L stop (G25)
-  // on both routes.
+  // on both routes. Before a first order's route is chosen (route null) the bag
+  // is graded on the stricter peripheral limits; Submit waits for the choice.
   const kLim = D.kBagLimitsFor(route);
   const kRouteLabel = route === "central" ? "central" : "peripheral";
   // Graded with float noise stripped (toPrecision(12), as describeOrderValue
@@ -1764,6 +1775,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;
   const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
+  // A bag needs a route before Submit (Pp, 2026-10-21); a draft may be kept
+  // without one. A day with no bag needs none. Center Point's packet always
+  // carries a route (tpn-document.mjs), so there it is needed on every order.
+  const routeMissing = route == null && (bagOrdered || !!centerPoint);
+  const routeMissingText = `ยังไม่ได้เลือก route ของ TPN — กด Peripheral หรือ Central ที่ Step 3 ก่อน${centerPoint ? "บันทึก" : " Submit"}`;
   // The weight every dose is computed from (Pp, 2026-10-08; D.TPN_WT_*).
   // Outside the range it is a typo, not a judgement: no order, no draft,
   // the way gas-backend.gs refuses it. A typed weight far from the
@@ -1813,6 +1829,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
   // Mg has only a parenteral reference, so its line never cites the enteral table.
   pushTile(sMg, "Magnesium", mgPerKg, 2, tMg, "mEq/kg/d", null, "ESPGHAN 2018 (parenteral)");
+  // A bag with no amino acid or no MgSO₄ in it (Pp, 2026-10-21). Their tiles
+  // read 0 as "empty", not off target, and the form prints "—", so an
+  // ingredient left out by mistake reached pharmacy as "not ordered" with
+  // nothing on screen. A caution, not a stop: a day without either can be meant.
+  if (calc.totalTPN_mL > 0 && !(aaPerKg > 0)) alerts.push({ level: "warn", title: "Amino acid not ordered",
+    body: `ถุง TPN ${fmt(calc.totalTPN_mL, 0)} mL/d แต่ amino acid 0 g/kg/d — ตั้งใจไม่ให้ใช่ไหม ถ้าไม่ใช่ ใส่ขนาดที่ Step 3`, ref: "Pp, 2026-10-21" });
+  if (calc.totalTPN_mL > 0 && !(mgPerKg > 0)) alerts.push({ level: "warn", title: "MgSO₄ not ordered",
+    body: `ถุง TPN ${fmt(calc.totalTPN_mL, 0)} mL/d แต่ MgSO₄ 0 mEq/kg/d — ตั้งใจไม่ให้ใช่ไหม ถ้าไม่ใช่ ใส่ขนาดที่ Step 4`, ref: "Pp, 2026-10-21" });
   // With an oral supplement the order is judged on the total (Step 6 tiles);
   // without one, on TPN + EN (Step 4 tiles) — never both, or they contradict.
   if (mineral.hasOral) {
@@ -2003,6 +2027,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       showToast(`ยังกรอกไม่ครบ — ต้องกรอก: ${missingFields.map(f => f.label).join(", ")}`, "error");
       return;
     }
+    // ── No route on a bag (Pp, 2026-10-21) — see routeMissing ─────────────
+    if (!asDraft && routeMissing) {
+      setOpenSteps(prev => new Set(prev).add(2));
+      showToast(routeMissingText, "error");
+      return;
+    }
     // A row still under its optimistic tmp_ id does not exist on the server
     // yet — an update would target an id no row has (UP-C9).
     if (pendingSave) {
@@ -2099,8 +2129,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       ioInput, ioOutput, drainContent,
       // Route reflects what was actually delivered, not just the IV-access toggle —
       // a fully-weaned-to-EN day (totalTPN_mL === 0) must not be logged as "TPN ...".
+      // A draft whose route is not chosen yet logs plain "TPN" (still parenteral
+      // to isParenteralEntry); a submitted bag always has a route (routeMissing).
       route: calc.totalTPN_mL > 0
-        ? (route === "central" ? "TPN central" : "TPN peripheral")
+        ? (route === "central" ? "TPN central" : route === "peripheral" ? "TPN peripheral" : "TPN")
         : (calc.enVolPerKg > 0 ? "Enteral only" : "NPO"),
       status: asDraft ? "draft" : "submitted", ..._suppPayload,
       // tpnWtG: the resolved dosing weight these numbers were computed with,
@@ -2591,6 +2623,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <button className={route === "peripheral" ? "on" : ""} onClick={() => setRoute("peripheral")}>Peripheral</button>
               <button className={route === "central"    ? "on" : ""} onClick={() => setRoute("central")}>Central</button>
             </div>
+            {/* An infant's first order has no route until one is pressed
+                (Pp, 2026-10-21) — see routeMissing. */}
+            {route == null && (
+              <span className="route-missing" style={{ fontSize:11, fontWeight:700, color:"var(--crit)" }}>
+                ยังไม่ได้เลือก route
+              </span>
+            )}
             <span style={{ padding:"2px 10px", borderRadius:999, fontFamily:"IBM Plex Mono,monospace",
               fontSize:11, fontWeight:600,
               /* ok is deliberately NOT green (Praew, 2026-09-23: "ปกติให้เป็นเทา
@@ -3536,7 +3575,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   : `Bed: ${patient?.currentBed||"—"} | NeoFeed ID: ${patient?.sessionId||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""}${tpnWtManual ? ` (calc. weight set manually to ${wtG}g; auto ${autoWtG}g)` : ""}`,
                 scratch ? `DOL: ${dol} | Wt: ${curWtG} g${tpnWtManual ? ` (calc. weight ${wtG}g)` : ""}` : "",
                 critOverride ? `⚠ CRITICAL OVERRIDE — แพทย์ยืนยันคำสั่ง: ${critOverride.alerts.join("; ")} — reason: ${critOverride.reason}` : "",
-                `Route: ${route === "central" ? "Central" : "Peripheral (<900 mOsm/L)"}`,
+                `Route: ${route === "central" ? "Central" : route === "peripheral" ? "Peripheral (<900 mOsm/L)" : "—"}`,
                 // Every figure below goes through fmt: at most the decimals
                 // shown, never a trailing zero (Praew, 2026-09-22). The stock
                 // mL in solVol/soluvitVol/peditrace_vol are already rounded
@@ -3616,6 +3655,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div style={{ fontWeight: 600 }}>{missingFields.map(f => f.label).join(" · ")}</div>
               </div>
             )}
+            {routeMissing && !ordersReadOnly && (
+              <div className="route-missing-save" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {routeMissingText}
+              </div>
+            )}
             {zeroVolumeBag && (
               <div className="zero-volume-bag" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {zeroVolumeText} — บันทึก/พิมพ์ไม่ได้
@@ -3647,7 +3691,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || zeroVolumeBag || kOverMax || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
@@ -3937,7 +3981,11 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           {/* The paper form's Nutritional Status row is left off (TPN team,
               2026-09-28). */}
           <tr>
-            <td>Route of Delivery: {route === "central" ? <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;<strong>☑ Central</strong></> : <><strong>☑ Peripheral</strong> (&lt;900 mOsm/L) &nbsp;☐ Central</>}</td>
+            {/* No route (null) is a day with no bag, or a draft (which cannot
+                print): neither box is ticked. */}
+            <td>Route of Delivery: {route === "central" ? <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;<strong>☑ Central</strong></>
+              : route === "peripheral" ? <><strong>☑ Peripheral</strong> (&lt;900 mOsm/L) &nbsp;☐ Central</>
+              : <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;☐ Central</>}</td>
             <td colSpan={2}>Weight for calculation: <strong>{f(wtKg, 2)}</strong> Kg
               {usingBirthWeight && <span style={{ fontSize:9, color:"#555" }}> (birth weight — current {curWtG}g not yet regained)</span>}
               {/* A dosing weight that is neither the scale reading nor the
