@@ -357,7 +357,19 @@ function PatientRegistry({
     },
     /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement(BedChip, { p })), /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), p.status)),
     /* @__PURE__ */ React.createElement("div", { className: "pmc-row" }, /* @__PURE__ */ React.createElement("span", { className: "pmc-meta" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, D_R.fmtGA(p.ga)), " wk · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, p.bw.toLocaleString()), " g")),
-    p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis)
+    p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis),
+    /* @__PURE__ */ React.createElement("div", { className: "pmc-actions" }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn sm",
+        style: { gridColumn: 2 },
+        onClick: (e) => {
+          e.stopPropagation();
+          setEditPatient(p);
+        }
+      },
+      "Edit"
+    ))
   )))), /* @__PURE__ */ React.createElement("div", { className: "card patient-table" }, /* @__PURE__ */ React.createElement("table", { className: "tbl", style: { tableLayout: "fixed", width: "100%" } }, /* @__PURE__ */ React.createElement("colgroup", null, /* @__PURE__ */ React.createElement("col", { style: { width: 90 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 68 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 62 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 62 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 68 } }), /* @__PURE__ */ React.createElement("col", null), /* @__PURE__ */ React.createElement("col", { style: { width: 48 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 78 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 108 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 118 } }), /* @__PURE__ */ React.createElement("col", { style: { width: 150 } })), /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Bed"), /* @__PURE__ */ React.createElement("th", null, "Name"), /* @__PURE__ */ React.createElement("th", null, "GA"), /* @__PURE__ */ React.createElement("th", null, "PCA"), /* @__PURE__ */ React.createElement("th", null, "BW (g)"), /* @__PURE__ */ React.createElement("th", null, "Diagnosis"), /* @__PURE__ */ React.createElement("th", null, "DOL"), /* @__PURE__ */ React.createElement("th", null, "Wt now"), /* @__PURE__ */ React.createElement("th", null, "Δ birth"), /* @__PURE__ */ React.createElement("th", null, "Status"), /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, shownActive.map((p) => {
     const last = D_R.currentWeight(p, log[p.sessionId]) || null;
     const dol = D_R.liveDol(p);

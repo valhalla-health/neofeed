@@ -1560,7 +1560,18 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onSaveNursing: handleNursingSave,
       onDeleteNursing: role === "admin" ? handleNursingDelete : void 0
     }
-  ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "quickcalc" && /* @__PURE__ */ React.createElement(QuickCalcView, { onBack: () => goTo("registry") }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(PatientPicker, { patients, activeId, onSelect: setActiveId, onClose: () => setPickerOpen(false) }), showChangePwd && /* @__PURE__ */ React.createElement(
+  ), view === "alerts" && active && /* @__PURE__ */ React.createElement(AlertCenter, { patient: active, log, onAckChange: () => setAckVersion((v) => v + 1) }), view === "quickcalc" && /* @__PURE__ */ React.createElement(QuickCalcView, { onBack: () => goTo("registry") }), view === "guidelines" && /* @__PURE__ */ React.createElement(GuidelinesPanel, null), view === "formulas" && /* @__PURE__ */ React.createElement(FormulasPanel, null)))), pickerOpen && /* @__PURE__ */ React.createElement(
+    PatientPicker,
+    {
+      patients,
+      activeId,
+      onSelect: (id) => {
+        setActiveId(id);
+        if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log");
+      },
+      onClose: () => setPickerOpen(false)
+    }
+  ), showChangePwd && /* @__PURE__ */ React.createElement(
     ChangePasswordModal,
     {
       onClose: () => setShowChangePwd(false),
