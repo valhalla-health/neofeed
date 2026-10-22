@@ -665,6 +665,17 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                   <span className="pmc-meta"><span className="num">{D_R.fmtGA(p.ga)}</span> wk · <span className="num">{p.bw.toLocaleString()}</span> g</span>
                 </div>
                 {p.diagnosis && <div className="pmc-diagnosis">{p.diagnosis}</div>}
+                {/* Edit, as the desktop archive row has: it is how an infant
+                    who has left comes back (Status → Active, a bed). A phone
+                    card had no Edit at all, and the ward could not find the
+                    way back (Pp, 2026-10-22). No ⇄: a bed is not moved for an
+                    infant who has left. Under the active cards' Edit. */}
+                <div className="pmc-actions">
+                  <button className="btn sm" style={{ gridColumn: 2 }}
+                    onClick={e => { e.stopPropagation(); setEditPatient(p); }}>
+                    Edit
+                  </button>
+                </div>
               </div>
             ))}
           </div>

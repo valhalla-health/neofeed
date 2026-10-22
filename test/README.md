@@ -1661,6 +1661,19 @@ and `verify-review-0917-drafts.cjs`, which check that merely opening a form writ
 an edit). A thirteenth, `verify-calc-oracle.cjs`, already pressed its route and now grades the two
 cautions itself.
 
+## Bringing a discharged infant back, 2026-10-22 — one harness
+
+Pp could not find a way, on her phone, to bring back a discharged infant who was on the unit again
+(`CHANGELOG.md` 2026-10-22). **`verify-readmit-1022.cjs`** drives the real `<App/>` in jsdom against the
+fake Apps Script in `review-0917-boot.cjs`, one scenario per process; it also runs against `compiled/`.
+#1: on the ward list, a pick in Switch patient opens that infant's Dashboard, and its Edit session saves
+the discharged infant as Active in NICU 9 under the same sessionId: an edit, not a new registration, with
+the discharge date cleared and the bed they left still in Previous beds. #2: a pick on a patient screen
+(Growth chart) stays on it. #3: a pick from the Admin dashboard opens the Dashboard. #4: the phone's archive
+card has Edit and no ⇄; Edit opens Edit session for that infant, not their Dashboard, and saves the same
+way. 28 checks; against `main` (`3172337`), #1, #3 and #4 fail (5 failures, two of them a scenario that
+cannot go on). Its fixture is made up: none of its values come from the ward.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

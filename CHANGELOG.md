@@ -7,7 +7,42 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-21 — PR #168: a caution for a bag without amino acid or MgSO₄; a bag's route is pressed, never assumed
+## Session 2026-10-22 — a discharged infant can be brought back from a phone
+
+`app.jsx`, `registry.jsx`, `compiled/app.js`, `compiled/registry.js`, both shells' `?v=` tokens,
+`test/verify-readmit-1022.cjs` (new), `test/README.md`. No figure, dose file, printed line or server code
+changes.
+
+### Why
+
+Pp, 2026-10-22, with a phone screenshot of Switch patient showing an infant as "Discharged · จาก iso …"
+while the infant was back on the unit: "ดึงคนนี้กลับขึ้นมาใหม่ได้มั้ยคะ … หาที่กดกลับมาไม่มี". The way
+back has always been Edit session (Status → Active, a bed), and the server keeps discharges in the ward
+sync for 30 days so that a readmission can be found "via the patient picker" (`ARCHIVE_SYNC_DAYS`). On a
+phone, though, both ways to that dialog were closed:
+
+- **Switch patient only set the active patient.** On the ward list, where she was, nothing on screen
+  changed: the sheet closed and the list stayed. Edit session lives on the patient strip, which only the
+  patient screens show, so it took a tap on Dashboard that nothing pointed to.
+- **The phone's archive card had no Edit.** The desktop archive row has had one all along.
+
+### What changed
+
+- **A pick in Switch patient opens the infant's Dashboard** when it is made anywhere but a patient
+  screen: the ward list, Admin, a reference page, the quick calc. That is what a tap on a ward-list row
+  already did. On a patient screen (Dashboard, Calculator, Growth chart, Alerts) it stays on that
+  screen, now about the new infant, as before.
+- **The phone's archive card has Edit**, in the middle column, under the active cards' Edit. It opens
+  Edit session and not the Dashboard. There is no ⇄, as before: a bed is not moved for an infant who has
+  left (`verify-mobile-bed-button.cjs` § 5).
+
+### Not done
+
+- Ward feedback lives in Pp's private notes, which this session could not read, so it was not checked
+  before this UI change.
+- The archive list on the ward page still shows only the last 7 days, while Switch patient finds a
+  discharge for 30. An infant discharged 8–30 days ago is brought back through Switch patient.
+: a caution for a bag without amino acid or MgSO₄; a bag's route is pressed, never assumed
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `test/verify-incident-gaps-1021.cjs`
 (new), `test/verify-center-point-entry.cjs` (§ 7), `test/verify-calc-oracle.cjs`, eleven other harnesses
