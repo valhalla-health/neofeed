@@ -1671,8 +1671,10 @@ the discharged infant as Active in NICU 9 under the same sessionId: an edit, not
 the discharge date cleared and the bed they left still in Previous beds. #2: a pick on a patient screen
 (Growth chart) stays on it. #3: a pick from the Admin dashboard opens the Dashboard. #4: the phone's archive
 card has Edit and no ⇄; Edit opens Edit session for that infant, not their Dashboard, and saves the same
-way. 28 checks; against `main` (`3172337`), #1, #3 and #4 fail (5 failures, two of them a scenario that
-cannot go on). Its fixture is made up: none of its values come from the ward.
+way. #5: a pick in the quick calc stays there and keeps the DOL typed into it, since that page holds its
+figures only in its own state (Vera). 31 checks; against `main` (`3172337`), #1, #3 and #4 fail (5
+failures, two of them a scenario that cannot go on), and against the branch's first commit (`4b60d76`), #5
+fails. Its fixture is made up: none of its values come from the ward.
 
 ## Note on the source workbook
 

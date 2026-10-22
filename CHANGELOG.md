@@ -28,10 +28,11 @@ phone, though, both ways to that dialog were closed:
 
 ### What changed
 
-- **A pick in Switch patient opens the infant's Dashboard** when it is made anywhere but a patient
-  screen: the ward list, Admin, a reference page, the quick calc. That is what a tap on a ward-list row
-  already did. On a patient screen (Dashboard, Calculator, Growth chart, Alerts) it stays on that
-  screen, now about the new infant, as before.
+- **A pick in Switch patient opens the infant's Dashboard** when it is made on the ward list, Admin or a
+  reference page. That is what a tap on a ward-list row already did. On a patient screen (Dashboard,
+  Calculator, Growth chart, Alerts) it stays on that screen, now about the new infant, as before. So does
+  a pick in the quick calc, whose typed figures live only on that page and would be lost on leaving it
+  (Vera).
 - **The phone's archive card has Edit**, in the middle column, under the active cards' Edit. It opens
   Edit session and not the Dashboard. There is no ⇄, as before: a bed is not moved for an infant who has
   left (`verify-mobile-bed-button.cjs` § 5).
@@ -42,7 +43,8 @@ phone, though, both ways to that dialog were closed:
   before this UI change.
 - The archive list on the ward page still shows only the last 7 days, while Switch patient finds a
   discharge for 30. An infant discharged 8–30 days ago is brought back through Switch patient.
-: a caution for a bag without amino acid or MgSO₄; a bag's route is pressed, never assumed
+
+## Session 2026-10-21 — PR #168: a caution for a bag without amino acid or MgSO₄; a bag's route is pressed, never assumed
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `test/verify-incident-gaps-1021.cjs`
 (new), `test/verify-center-point-entry.cjs` (§ 7), `test/verify-calc-oracle.cjs`, eleven other harnesses

@@ -19,6 +19,8 @@
 //   #3  Admin → Switch patient opens the Dashboard too
 //   #4  the phone's archive card has Edit (no ⇄); it opens Edit session for
 //       that infant, not their Dashboard, and saves them back to NICU 9
+//   #5  a pick in the quick calc stays there, and keeps what was typed (Vera:
+//       the page holds its figures in its own state, so leaving it loses them)
 //
 // ── NEGATIVE CONTROL ───────────────────────────────────────────────────────
 //   d=$(mktemp -d)
@@ -26,7 +28,8 @@
 //   cp test/verify-readmit-1022.cjs "$d/test/"
 //   cp -r node_modules "$d/node_modules"
 //   ( cd "$d" && TZ=Asia/Bangkok node test/verify-readmit-1022.cjs )
-// #1, #3 and #4 fail there; #2 passes on both, as it should.
+// #1, #3 and #4 fail there; #2 and #5 pass on both, as they should: both pin
+// what the fix must not change.
 const {
   boot, runScenarios, mkPatient, TODAY, DOCTOR, addDays,
 } = require('./review-0917-boot.cjs');
@@ -134,6 +137,22 @@ const scenarios = {
     await t.click(t.btn(/^\s*Edit\s*$/, card));
     A.ok('4.3 Edit opens Edit session, and not ZQ\'s Dashboard', !!editModal() && !strip());
     checkSaved(A, '4', await bringBack(t, A, '4'));
+  },
+
+  async 'picker-in-quick-calc'(A) {
+    console.log('\n── #5 A pick in the quick calc stays there ──');
+    const t = boot({ patients: [ACTIVE, LEFT] });
+    t.quiet();
+    await t.start();
+    await t.pickWard('NICU');
+    await t.click(document.querySelector('[aria-label="Calculator — ไม่บันทึก"]'));
+    const dol = () => document.getElementById('quick-dol-input');
+    A.ok('5.1 on the quick calc', !!dol());
+    await t.typeInto(dol(), 7);
+    await t.click(document.querySelector('.switch-patient'));
+    await t.click(pickerRow(/AA/));
+    A.ok('5.2 still the quick calc, no patient strip', !!dol() && !strip());
+    A.eq('5.3 …with the DOL that was typed', dol() && dol().value, '7');
   },
 };
 

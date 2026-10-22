@@ -2486,14 +2486,15 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       </main>
 
       {/* A pick on a patient screen stays on that screen, now about the new
-          infant. Anywhere else (the ward list, Admin, a reference page) it
-          opens their Dashboard, as a tap on a ward-list row does: the pick
-          used to change nothing on screen there, so an infant found in the
-          search could not be opened, nor a discharged one brought back
-          through Edit session (Pp, 2026-10-22). */}
+          infant. On the ward list, Admin or a reference page it opens their
+          Dashboard, as a tap on a ward-list row does: the pick used to change
+          nothing on screen there, so an infant found in the search could not
+          be opened, nor a discharged one brought back through Edit session
+          (Pp, 2026-10-22). The quick calc stays put: its typed figures live
+          only in that page, and leaving it would lose them (Vera). */}
       {pickerOpen &&
       <PatientPicker patients={patients} activeId={activeId}
-        onSelect={(id) => { setActiveId(id); if (!PATIENT_VIEWS.includes(view)) goTo("log"); }}
+        onSelect={(id) => { setActiveId(id); if (!PATIENT_VIEWS.includes(view) && view !== "quickcalc") goTo("log"); }}
         onClose={() => setPickerOpen(false)} />
       }
 
