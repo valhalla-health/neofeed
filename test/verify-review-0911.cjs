@@ -294,12 +294,21 @@ function mount(props) {
   });
   openAll();
 }
+// A first order has no route until one is pressed (Pp, 2026-10-21). These
+// orders were written when every new order started on Central. Pressed only
+// where an order is typed to be saved: a press is an edit, and this file checks
+// that merely opening a form writes no draft.
+function pressCentral() {
+  const r = [...container.querySelectorAll('.step2-ctrl .seg button')];
+  if (r.length && !r.some(b => b.classList.contains('on'))) act(() => { r.find(b => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+}
 const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2', diagnosis: '-', weights: [{ dol: 1, w: 900 }] };
 
 (async () => {
   console.log('\n── F1 · a critical tile is always a critical alert ──');
   let logged = null;
   mount({ patient, onLog: (e) => { logged = e; return Promise.resolve({ ok: true, entryId: 'e-cr', lastModified: 'lm-cr' }); } });
+  pressCentral();
   setField('Current weight', 858);
   setField('Volume(mL/day)', 110);
   setField('Dextrose final', 10);

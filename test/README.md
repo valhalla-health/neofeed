@@ -1637,6 +1637,30 @@ checks; against `main` (`9eb3335`), 4 fail, at 2500 and 4400 g. Its first draft 
 `textContent`, which runs "4,400g" into "LBW" with no word boundary, so `\bLBW\b` passed on the bug; it now
 reads the strip text node by text node.
 
+## Slips the pharmacy phones about, 2026-10-21 — one harness
+
+Pp checked the slips the TPN pharmacy phones doctors about on paper orders against NeoFeed
+(`CHANGELOG.md` 2026-10-21). **`verify-incident-gaps-1021.cjs`** (jsdom; it also runs against
+`compiled/`). § 1: a bag with volume and amino acid 0, or MgSO₄ 0, raises the caution "Amino acid not
+ordered" or "MgSO₄ not ordered"; no bag, no caution; a caution asks for no reason and Submit logs the
+order. §§ 2–5: an infant's first order has no route (neither button on, a notice in the Step 3 header and
+in the save panel), and Submit stays disabled until one is pressed; the choice saves ("TPN peripheral")
+and prints. The next order copies it, an edit keeps it, and a row saved with no route key reopens as
+Central. An NPO first order submits with route null, prints neither box and copies "Route: —"; a draft
+keeps no route, logs "TPN" and still asks at Submit. A route comes over only from an order that had a
+bag, so a bag after a feeds-only or NPO day asks again, even when that row was saved as "central" (Pp,
+after Vera's review), and so does a bag added by editing such a row; § 4b checks the same for a first
+order seeded from this browser's last submission. § 3b: until a route is chosen, osmolarity and the
+dextrose flag grade as on a peripheral line. § 6: the quick calc keeps Central. 59 checks; against
+`main` (`d9c815c`), 31 fail. `verify-center-point-entry.cjs` § 7 adds that no Center Point order saves
+without a route, with a bag or without (8 checks, 6 fail on `main`).
+
+Twelve older harnesses typed a first order and saved it as Central without pressing a route. Each now
+presses Central: in `mount()` or the order helper, or just before the save in `verify-review-0911.cjs`
+and `verify-review-0917-drafts.cjs`, which check that merely opening a form writes no draft (a press is
+an edit). A thirteenth, `verify-calc-oracle.cjs`, already pressed its route and now grades the two
+cautions itself.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

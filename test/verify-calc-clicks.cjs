@@ -277,6 +277,9 @@ const openAll = () => click(btnExact('Open all'));
   ok('Save disabled while Step 1 / I/O are blank', btnExact('Submit').disabled === true);
   for (const [l, v] of [['Current weight', 1200], ['Target fluid', 150], ['Other IV', 0], ['Drug volume', 0], ['Urine output', 60], ['Drain content', 0]]) setField(l, v);
   setField('Volume(mL/day)', 150); setField('Dextrose final', 10); setField('Amino acid', 3);
+  // An infant's first order has no route until one is pressed (Pp, 2026-10-21).
+  ok('Save disabled while the first order has no route', btnExact('Submit').disabled === true);
+  click([...container.querySelectorAll('.step2-ctrl .seg button')].find(b => b.textContent === 'Central'));
   ok('Save enabled once every required box is filled', btnExact('Submit').disabled === false, [...container.querySelectorAll('div')].map(d => d.textContent).filter(t => /^ยังกรอกไม่ครบ/.test(t)).pop());
   // zero-volume bag blocks Save
   setField('Volume(mL/day)', 0);

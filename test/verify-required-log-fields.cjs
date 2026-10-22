@@ -216,6 +216,10 @@ eq('…and nothing reaches Center Point', cpSaved, null);
 const CP_REQUIRED = REQUIRED.filter(l => !['Input', 'Urine output', 'Drain content'].includes(l));
 CP_REQUIRED.forEach(l => setField(l, l === 'Target fluid' ? 130 : l === 'Current weight' ? 1150 : 0));
 eq('Step 1 alone satisfies the CP gate', missingText(), '');
+// Center Point's packet always carries a route, and a first order has none
+// until one is pressed (Pp, 2026-10-21).
+act(() => { [...container.querySelectorAll('.step2-ctrl .seg button')].find(b => b.textContent.trim() === 'Central')
+  .dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 setField('Volume(mL/day)', 300);
 setField('Dextrose final', 25);
 const critAlerts = [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => a.textContent);

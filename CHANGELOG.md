@@ -7,6 +7,70 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-21 — PR #168: a caution for a bag without amino acid or MgSO₄; a bag's route is pressed, never assumed
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `test/verify-incident-gaps-1021.cjs`
+(new), `test/verify-center-point-entry.cjs` (§ 7), `test/verify-calc-oracle.cjs`, eleven other harnesses
+that press a route for their first orders, `test/README.md`. `CONSTANTS_VERSION` stays `2026-10-17.1`: no
+figure moves. One printed line does: a saved order with no bag, reprinted, now ticks neither route box
+where it ticked Central (below). No second clinician has reviewed this change.
+
+### Why
+
+Pp checked the slips the TPN pharmacy phones doctors about on paper orders against NeoFeed (her counts
+stay in her private product notes). On paper a blank box makes the pharmacist call. In NeoFeed no box is
+blank, so two of those slips would pass with nobody asking:
+
+- Amino acid or MgSO₄ left at 0. Their tiles read 0 as "empty" (`D.rangeStatus`), not off target, so no
+  alert fires, and the form prints "—", which pharmacy reads as "not ordered". A new order copies the
+  last one's values, which covers every order but the first and any box someone cleared.
+- The route. Every order without an earlier one started on Central, so a peripheral line left unpressed
+  printed as Central, and the peripheral osmolarity and dextrose checks never ran.
+
+Pp, 2026-10-21: "warn เมื่อมีถุง TPN แต่ amino acid หรือ MgSO4 เป็น 0 และให้ใบแรกของเด็กต้องเลือก route เอง".
+
+### What changed
+
+- **Two cautions** (level warn): "Amino acid not ordered" and "MgSO₄ not ordered", whenever the bag has
+  volume and that dose is 0. A caution asks for no reason and stops nothing. No bag, no caution. KCl is
+  left out: Pp named amino acid and MgSO₄.
+- **A bag's route is pressed.** An order starts with no route (`null`) when there is no earlier order,
+  when the order it copies had no bag, and when it reopens a saved order that had no bag. Neither button
+  is on, the Step 3 header says "ยังไม่ได้เลือก route", and Submit stays disabled while a bag is ordered,
+  with the reason in the save panel. An order made from, or reopening, a day with a bag keeps its route,
+  as before (`bagRouteFrom`). The no-bag rule is Pp's answer to Vera's first finding: every feeds-only or
+  NPO row saved before today holds the old default "central", so the first bag after one would have
+  opened on Central unasked ("ให้เลือกใหม่"). Vera's second review found the same gap on the edit path.
+- **A bag row saved with no `route` key** (before calcInput kept one) printed as Central and still
+  reopens as Central (`normalizeCalcInput`).
+- **No bag, no route needed.** An NPO or feeds-only order submits without one and saves `route: null`;
+  the form ticks neither box, its K⁺ lines say "no route", and the copied order says "Route: —". A no-bag
+  order saved before today, reprinted, now prints the same way instead of "☑ Central".
+- **IV lipid alone** needs no route either: Pp, on Vera's fourth finding, "ไม่ต้อง".
+- **A draft may be kept without a route.** Its Daily_Log route reads "TPN" (still parenteral to
+  `isParenteralEntry`), it reopens without a route, and Submit waits for one.
+- **Center Point** needs a route on every order: its packet validator accepts only central or peripheral
+  (`center-point/tpn-document.mjs`).
+- **Until a route is chosen** the bag is graded as on a peripheral line, the stricter one: K⁺, osmolarity
+  and the dextrose "Central only!" flag (Vera, third finding). Nothing reaches pharmacy that way, because
+  Submit waits for the choice.
+- The quick calc saves nothing and keeps Central.
+
+### Not done
+
+- Browser storage written before this release: an unsaved draft (`neofeed_draft_*`, kept 72 h) or the
+  last submission state (`neofeed_calc_*`, kept 7 days) with a bag holds "central" whether or not it was
+  pressed, and comes back on Central. It cannot be told apart from a pressed Central, and the window
+  closes a week after release (Vera, second review, not reviewed; Pp's call).
+
+### Tests
+
+`verify-incident-gaps-1021.cjs`, 59 checks: 31 fail on `d9c815c`; the 5 checks Vera's first review asked
+for fail on `9d3fc21`, and the 2 edit checks from her second fail on `8cf27fd`. `verify-center-point-entry.cjs`
+§ 7, 8 checks, 6 fail on `d9c815c`. Twelve harnesses that typed a first order and saved it as Central
+now press Central (two of them only just before saving, because they check that merely opening a form
+writes no draft), and `verify-calc-oracle.cjs` grades the two cautions itself. Locally every harness passed in both CI passes (96 of 96 each, on `b754bcf`); the browser sections of 10 harnesses skipped, because this PC's Playwright wants a Chromium build it does not have, so they run only in CI.
+
 ## Session 2026-10-20 (3) — PR #159: BM + HMF from Chula p. 10; Vera on the update
 
 `data.js` (Enfamil HMF source, `BM_HMF_24`, and through it `FBM_INF_MIX`), both shells' `?v=` tokens,

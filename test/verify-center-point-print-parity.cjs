@@ -117,6 +117,10 @@ async function saveOrder(props, extra) {
   root = ReactDOM.createRoot(container);
   act(() => { root.render(React.createElement(window.Calculator, { patient, dol: 10, logDate: '2026-09-15', ...props })); });
   act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
+  // A first order has no route until one is pressed (Pp, 2026-10-21). These
+  // orders were written when every new order started on Central.
+  { const r = [...container.querySelectorAll('.step2-ctrl .seg button')];
+    if (r.length && !r.some(b => b.classList.contains('on'))) act(() => { r.find(b => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); }
   ORDER.forEach(([l, v]) => setField(l, v));
   (extra || []).forEach(([l, v]) => setField(l, v));
   check('Munti-vim');

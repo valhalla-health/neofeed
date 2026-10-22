@@ -320,6 +320,9 @@ function expectedAlerts(sc, e) {
   if (sc.lip > 0) { const g = Math.round(sc.lip / sc.lipH * 100) / 100;
     if (g > 0.17) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
   if (e.znTot > 5) add('crit', 'Zinc total above 5 mg/day');
+  // A bag with volume and no amino acid, or no MgSO₄, is a caution (Pp, 2026-10-21).
+  if (e.Vd > 0 && !(sc.aa > 0)) add('warn', 'Amino acid not ordered');
+  if (e.Vd > 0 && !(sc.mg > 0)) add('warn', 'MgSO₄ not ordered');
   if (bagOrdered && e.wfi < 0) add('crit', 'Bag cannot be compounded');
   if (e.Vd > 0 && sc.ca > 0 && sc.k2 > 0) add('warn', 'Calcium–phosphate compatibility not calculated');
   return out.sort();
