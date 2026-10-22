@@ -2494,7 +2494,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           only in that page, and leaving it would lose them (Vera). */}
       {pickerOpen &&
       <PatientPicker patients={patients} activeId={activeId}
-        onSelect={(id) => { setActiveId(id); if (!PATIENT_VIEWS.includes(view) && view !== "quickcalc") goTo("log"); }}
+        onSelect={(id) => { setActiveId(id); if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log"); }}
         onClose={() => setPickerOpen(false)} />
       }
 

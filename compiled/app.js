@@ -1567,7 +1567,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       activeId,
       onSelect: (id) => {
         setActiveId(id);
-        if (!PATIENT_VIEWS.includes(view) && view !== "quickcalc") goTo("log");
+        if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log");
       },
       onClose: () => setPickerOpen(false)
     }
