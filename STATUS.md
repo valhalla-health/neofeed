@@ -195,9 +195,10 @@
 **Updated 2026-10-21** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
 - ⏳ **PR #168, a caution for a bag without amino acid or MgSO₄, and a bag's route is pressed, never
-  assumed: open, waiting for Pp's review.** Frontend only, no `clasp` step. `CONSTANTS_VERSION`
-  unchanged; a no-bag order, reprinted, ticks neither route box. Vera: NO BLOCK twice.
-  `CHANGELOG.md` 2026-10-21.
+  assumed: merged into `main` on Pp's instruction ("merge PR #168 เข้า main เมื่อ CI ผ่าน"); not live
+  until a `main → release` PR.** Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; a no-bag
+  order, reprinted, ticks neither route box. The ward should hear before the release that a bag's route
+  now has to be pressed. Vera: NO BLOCK twice. `CHANGELOG.md` 2026-10-21.
 - ✅ **PR #159, `EN_DB` from the Chula handbook pages, not the AI extraction: live, released by #167 on
   Pp's instruction ("Release 159 เลย"; banner above), after she chose the book as the source, Chula p. 10
   for the HMF and PF 20 kept as it was.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION`
