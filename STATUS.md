@@ -192,8 +192,17 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-21** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
+**Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
+- ⏳ **PR #170, the nutrition unit's and TPN team's answers of 2026-10-25: merged into `main` on Pp's
+  instruction ("merge PR #170 เข้า main ได้เลย ยังไม่ต้อง release"); not live until a `main → release`
+  PR.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION` is `2026-10-27.1`**, so every saved order
+  is saved again before it prints. Before its release: Center Point's copy of `tpn-document.mjs` gets the
+  two new feed labels, the ZnSO₄ stock label is photographed, and pharmacy hears that the back sheet
+  prints ZnSO₄ mL and the front sheet new Normal Requirement bands (`BACKLOG.md` § Now). Vera: NO BLOCK
+  twice. `CHANGELOG.md` 2026-10-27, (2) and (3).
+- ⏳ **PR #169, bringing a discharged infant back from a phone: merged into `main` on 2026-10-22; not
+  live until a `main → release` PR.** Recorded here by #170, the next PR on the repo.
 - ⏳ **PR #168, a caution for a bag without amino acid or MgSO₄, and a bag's route is pressed, never
   assumed: merged into `main` on Pp's instruction ("merge PR #168 เข้า main เมื่อ CI ผ่าน"); not live
   until a `main → release` PR.** Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; a no-bag
