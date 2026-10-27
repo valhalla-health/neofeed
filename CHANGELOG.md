@@ -36,14 +36,20 @@ heparin and ZnSO₄ the same way, and to stop an order when an ordered stock rou
   reads "1.1 mEq = 1.1 mL". `roundMl` is `displayNum` at one decimal. No figure in the 0917 parity
   orders moved with it. Center Point's snapshot formats through `displayNum` too (Vera's second run), so
   its sheet also reads "1.1 mEq = 1.1 mL"; `verify-center-point-print-parity.cjs` adds that order.
+- **An order still at 50% MgSO₄ cannot be submitted** (Pp, answering Vera's 🟠: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4").
+  An order saved at 50% before 2026-09-23 still carries over to the next day. It now gets a red line
+  and a save-panel line until Use 10% is pressed (`mgVial50`); a draft may be kept. That order was
+  Vera's worst case: 0.059 mL of 50% printed as 0.1, 0.68 mEq/kg against 0.4 ordered.
 
 No second clinician has reviewed this change. Vera: NO BLOCK twice (her reports and the answer to each
 finding are in the PR). Her 🟠 in both runs, a dose under 0.1 mL that rounds up to 0.1 with nothing
-red (worst with a legacy 50% MgSO₄ order), is Pp's call and stays open in `BACKLOG.md`.
+red, was worst with a legacy 50% MgSO₄ order. Pp's answer closed that case (the bullet above); whether
+the other stocks want a caution is still hers to decide (`BACKLOG.md`). Vera's third run, on the 50%
+stop: NO BLOCK, two 🟡, both fixed, and her reopen test is § 5b.
 
 ### Tests
 
-`verify-stock-ml-1027.cjs` (new): 43 checks; on `83aefe4` (`main` with #170) 17 fail, in every section. Six older
+`verify-stock-ml-1027.cjs` (new): 58 checks; on `83aefe4` (`main` with #170) 23 fail, in every section. Six older
 harnesses pinned two-decimal figures and now pin one decimal. The three printed-figure digests in
 `verify-review-0917-calc.cjs` were recaptured with each moved figure named (10 of 297, every one of them
 one of the four stocks). `verify-calc-sum.cjs`'s S5 (K₂HPO₄ and MgSO₄ at 0.01 mL) is now the

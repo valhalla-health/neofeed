@@ -810,7 +810,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [mgPerKg, setMgPerKg] = useState(0);
   // Which MgSO₄ vial the bag is compounded from. KCMH uses 10% only (Praew,
   // 2026-09-23), so a new order is always 10% and there is no 50% choice. The
-  // state stays so an order saved as 50% before then still reprints as saved.
+  // state stays so an order carried over at 50% is recognised: mgVial50 holds
+  // its Submit, Print and Copy until Use 10% is pressed (Pp, 2026-10-27).
   const [mgStrength, setMgStrength] = useState("10");   // "10" | legacy "50"
   const [caPerKg, setCaPerKg] = useState(0);
   const [extraP_mg_kg, setExtraP_mg_kg] = useState(0);
@@ -1845,6 +1846,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   ].filter(([ordered, ml]) => ordered && ml === 0).map(([, , label]) => label) : [];
   const stockAtZeroMl = stocksAtZeroMl.length > 0;
   const stockAtZeroMlText = `${stocksAtZeroMl.join(", ")} ปัดแล้วเหลือ 0 mL (น้อยกว่า 0.05 mL) ห้อง TPN ตวงไม่ได้ — ปรับขนาดยา หรือเอาออกจากถุง`;
+  // KCMH uses 10% MgSO₄ only (Pp, 2026-10-27: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น
+  // 10%MgSO4"). An order saved as 50% before 2026-09-23 still carries over to
+  // the next day; it cannot be submitted until "Use 10%" is pressed, so no
+  // 50% mL reaches pharmacy (Vera: 0.059 mL of 50% printed as 0.1).
+  const mgVial50 = mgPerKg > 0 && mgStrength === "50";
+  const mgVial50Text = `MgSO₄ ยังเป็นขวด 50% จากคำสั่งเก่า แต่ KCMH ใช้ 10% เท่านั้น — กด Use 10% ที่ช่อง MgSO₄`;
   // Oral vitamin D a day: Step 6's IU/kg/d × weight, plus Munti-vim's own.
   const vitDIuDay = (suppVitD > 0 && wtKg > 0 ? suppVitD * wtKg : 0)
     + (suppMTV ? D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml * D.SUPP_DB.MTV_MUNTIVIM.dose_default : 0);
@@ -1955,6 +1962,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
   if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
+  if (mgVial50) alerts.push({ level: "crit", title: "MgSO₄ 50% is not stocked", body: "This order still carries the 50% vial from an order saved before 2026-09-23. KCMH uses 10% MgSO₄ only, so it cannot be submitted until Use 10% is pressed.", ref: "Pp, 2026-10-27" });
   if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
   if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({ level: "warn", title: "Heparin above the usual dose",
@@ -1997,7 +2005,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !mgVial50 && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -2008,6 +2016,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
     : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}`
+    : mgVial50 ? `${mgVial50Text} แล้วบันทึก${before}`
     : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
@@ -2154,6 +2163,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!asDraft && stockAtZeroMl) {
       setOpenSteps(prev => new Set(prev).add(2).add(3));
       showToast(stockAtZeroMlText, "error");
+      return;
+    }
+    // ── A 50% MgSO₄ vial (Pp, 2026-10-27) — refused the same way ──
+    if (!asDraft && mgVial50) {
+      setOpenSteps(prev => new Set(prev).add(3));
+      showToast(mgVial50Text, "error");
       return;
     }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
@@ -3154,7 +3169,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </div>
               )}
               {/* KCMH compounds from 10% MgSO₄ only. An order saved as 50% before
-                  2026-09-23 keeps its strength until someone switches it here. */}
+                  2026-09-23 keeps its strength until someone switches it here,
+                  and cannot be submitted until then (mgVial50, 2026-10-27). */}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap" }}>
                 <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial {mgStrength}%</span>
                 {calc.solVol.mg > 0 && (
@@ -3595,7 +3611,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !mgVial50 && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3781,6 +3797,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {stockAtZeroMlText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {mgVial50 && (
+              <div className="mg-vial-50" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {mgVial50Text} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
             {tpnWtOutOfRange && (
               <div className="tpn-wt-out-of-range" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {tpnWtOutOfRangeText} — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)
@@ -3802,7 +3823,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || mgVial50 || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

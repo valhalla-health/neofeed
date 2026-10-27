@@ -1713,7 +1713,10 @@ at one decimal, including the x.x5 values `toFixed(1)` rounded down (0.35, 1.45,
 heparin at one decimal on both sheets. § 3: ZnSO₄ 0.05 mg/kg (0.035 mL) is a red line, Submit is
 disabled, the save panel says why and a draft may be kept; 0.1 mg/kg (0.1 mL) is orderable. § 4: no
 stock mL in `calculator.jsx` goes through `toFixed`. § 2b (Vera): K₂HPO₄ 1.5 mEq/kg at Factor 0.7 reads
-"1.1 mEq = 1.1 mL", not "1 mEq = 1.1 mL". 43 checks; on `83aefe4` (`main` with #170), 17 fail, in every section.
+"1.1 mEq = 1.1 mL", not "1 mEq = 1.1 mL". § 5: yesterday's order carried over at 50% MgSO₄ (600 g, Mg
+0.4) is a red line and cannot be submitted; after Use 10% it prints MgSO₄ 10% 0.3 mL (Pp: Chula uses
+10% only). § 5b (Vera): a submitted order reopened at 50% shows no print form and Copy says why.
+58 checks; on `83aefe4` (`main` with #170), 23 fail, in every section.
 
 Six harnesses pinned two-decimal figures and now pin one decimal. `verify-calc-oracle.cjs` restates the
 rule as its own `rMl` (`toPrecision(12)`, not the app's method); `verify-calc-sum.cjs` works out from the

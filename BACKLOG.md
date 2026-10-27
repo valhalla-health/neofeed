@@ -308,11 +308,18 @@ clinical judgement. Everything else is engineering sequencing.
       ZnSO₄ and heparin included, and an ordered stock that rounds to 0 mL cannot be ordered
       (CHANGELOG 2026-10-27 (4)). The ±30 % error of a 0.1 mL line in a 500 g infant stays: it is
       what the syringe measures.
-      - [ ] 🩺 **Pp: a dose under 0.1 mL that rounds up to 0.1 prints with nothing red** (Vera,
+      - [x] 🩺 **Pp: a dose under 0.1 mL that rounds up to 0.1 prints with nothing red** (Vera,
         2026-10-27, finding 2), up to twice the ordered amount. Worst with an order that still carries
         the legacy 50% MgSO₄: 600 g, 60 mL, no dead space, Mg 0.4 mEq/kg needs 0.059 mL and prints
         0.1, so 0.68 mEq/kg reaches the infant. Her options: refuse a 50% order at Submit (KCMH stocks
         10% only), or a caution when the printed mL is off the ordered amount by more than a set share.
+        ✅ 2026-10-27, Pp: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4". An order still at 50% cannot be submitted until Use 10%
+        is pressed (`mgVial50`, #171). Her answer covers the 50% vial only.
+      - [ ] 🩺 **Pp: a caution when rounding moves a small dose a long way?** For the stocks still in use,
+        a dose of 0.05–0.099 mL prints 0.1 with nothing red: 0.1 mEq of KCl prints 0.1 mL, which is
+        0.2 mEq; ZnSO₄ 0.07 mL prints 0.1 (+43%). In a 500 g infant this is common (NaCl 0.5 mEq/kg is
+        0.073 mL). Vera's second option, a caution when the printed mL is off the exact mL by more than a
+        set share, is still open (Vera, #171 third run).
       ✅ **2026-09-28 — Na acetate confirmed** (B · 20 above): Praew checked with the TPN team, and 1 mL
       carries Na 3 mEq, the value NeoFeed already uses. ✅ **2026-09-28 — KCl confirmed**: Praew, "KCl 2 mEq/mL
       ถูกต้อง", the value NeoFeed already uses. **Still open: the small-volume rounding above.**
