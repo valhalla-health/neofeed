@@ -1738,6 +1738,22 @@ case of a rule produced; `--fix-lines` rewrites the `where` line numbers once co
 line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks when written.
 
+## The reference tables, 2026-10-28 — one harness (NF-28)
+
+**`verify-reference-tabs.cjs`** (Node only, no jsdom) checks every cell of the tables the calculator
+reads clinical numbers from: `EN_DB`, `KCMH_STOCK`, `SUPP_DB`, the limit constants and the target bands
+in `data.js`. The check is `checkReferenceTabs` in `tools/reference-tabs.cjs`, a pure function, and
+`tools/reference-tabs.json` says what each table must hold: a unit for every column, and for every number
+its sign and range. A range is the value a CR- rule in the clinical-rules skill codes, a range a rule
+states, the backend's save bound for that field, or a `proposed` range waiting for Pp. Nothing is
+coerced: the string `"1.2"`, a comma decimal or a padded label fails with its cell named. The lookup keys
+are read from the code: the Calculator's feed dropdown and its defaults, the amino-acid choices, every
+`D.KCMH_STOCK.x.y`-style reference in the screens, and the nursing form's feed keys against the backend's
+`NURSING_FEED_KEY_RE`. Section 1 runs each kind of bad cell on synthetic tables, section 2 the readers on
+synthetic source, section 3 the real files. `NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` as the string
+`"1.2"`), `=2` (20% NaCl at 34.2 mEq/mL) and `=3` (the feed list asking for `"BM_20 "`) must each fail
+one check. 69 checks when written.
+
 
 ## Note on the source workbook
 

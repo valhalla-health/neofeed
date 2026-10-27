@@ -8,7 +8,8 @@ description: Use before changing, reviewing or explaining a NeoFeed calculation 
 Pp owns this file. It lists every limit, unit and rounding rule the calculator enforces, as the code
 does it on `main` after PR #171 (`CONSTANTS_VERSION` 2026-10-27.2). Each rule has a stable ID (`CR-…`)
 that other work cites: NF-12 shows the breast-milk assumption from `CR-U-BREASTMILK`, NF-28 checks the
-reference tabs against these values.
+reference tables against these values (`test/verify-reference-tabs.cjs`): a cell a rule codes must hold
+that value, and every value coded here needs its unit in `tools/reference-tabs.json`.
 
 The clinical numbers are Pp's. An agent documents and tests what the code does; where the code and its
 source disagree, or no source exists, the rule names a question under [Questions for Pp](#questions-for-pp)

@@ -261,6 +261,13 @@ asked why nothing had changed. So:
   ⚠️ **Since 2026-09-17 the CSP and the shells ship together**: `script-src` no longer allows
   inline script, eval or unpkg, so the pre-build shells render a blank page under it. Never revert
   one without the other; reverting the release merge reverts both.
+- **The reference tables are checked before a release (NF-28).** Every clinical number the calculator
+  reads is in `data.js` (`EN_DB`, `KCMH_STOCK`, `SUPP_DB`, the limits, the target bands), so it ships
+  with the frontend. `test/verify-reference-tabs.cjs` runs in `harnesses`, the check `release`
+  requires: a cell that is a string, blank, of the wrong sign, outside its range or without a unit, or a
+  dropdown key that matches no row, turns it red and is listed by name, and the `main → release` PR
+  cannot merge. To change a reference value, change it with its CR- rule in the clinical-rules skill;
+  a new column or table also needs its unit and range in `tools/reference-tabs.json`.
 - **Proving what a release serves.** Workers Builds and Pages build nothing, so the served bytes
   must equal the bytes in git. After a release:
 
@@ -372,6 +379,12 @@ Running a function from the Apps Script editor (e.g. the one-off `applyStaffHead
 consent — that is Praew's to approve, not something to click through on her behalf.
 
 Redeploys are live and NICU staff are on them: **always confirm before the redeploy step.**
+
+**The backend holds no reference table (NF-28).** The Sheet has no clinical reference tab, and the
+backend sends the frontend no clinical number, so a `clasp deploy` cannot change one. What the two share
+is a key rule: the nursing form saves an `EN_DB` key as `feedType`, and the backend refuses any key that
+fails `NURSING_FEED_KEY_RE`. `test/verify-reference-tabs.cjs` reads that rule from `gas-backend.gs` and
+checks every key against it, so deploy the backend only from a commit whose `harnesses` check is green.
 
 **The nursing I/O form (2026-09-24, `docs/NURSING_FORM_SPEC.md`) ships switched off.** Its backend
 code can go out with any `clasp` deploy, and its frontend with any release. Neither changes anything

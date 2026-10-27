@@ -7,6 +7,67 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 — NF-28: every reference cell is checked before a release
+
+`tools/reference-tabs.cjs` (new), `tools/reference-tabs.json` (new), `test/verify-reference-tabs.cjs`
+(new), the clinical-rules skill (one sentence), `REFERENCE.md`, `test/README.md`. No value, limit, unit or
+printed figure changed; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-28 in her apply list of 2026-10-27: one wrong cell in a reference table makes every TPN
+result that reads it wrong, so each numeric cell must be a number of the expected sign inside a stated
+range, each lookup key must match its list exactly, each column needs a unit, and a failure blocks the
+deploy and names the cells. Nothing is coerced or trimmed.
+
+### Where the tables are, and so where the check runs
+
+The item was written as `checkReferenceTabs()` in Apps Script over tabs in the Sheet. The Sheet has no
+such tab: `gas-backend.gs` reads Staff, Patient_Registry, Daily_Log, Nursing_Log and Audit_Log, and
+sends the frontend no clinical number. Every number the calculator reads is in `data.js` (`EN_DB`,
+`KCMH_STOCK`, `SUPP_DB`, the limit constants, `TPN_TARGETS`, `ENTERAL_TARGETS`, `TARGETS`), and it ships
+with the frontend on a merge into `release`. So `checkReferenceTabs` is a pure function in
+`tools/reference-tabs.cjs`, and `test/verify-reference-tabs.cjs` runs it in `harnesses`, the check
+`release` requires. A failing cell keeps the `main → release` PR from merging. The check needs no Sheet
+access and no CI secret, and the workflow file is unchanged: CI already runs every `test/verify-*.cjs`.
+
+### What it checks
+
+363 cells in three tables, 28 limits, 34 target bands called over DOL 0–60 and nine weights (9,106
+calls), 43 lookup keys and 84 references in the screens. Ranges: 49 come from CR- rules, 47 of them the
+values the skill codes (read from the skill at run time, so no number is copied) and 2 that a rule
+states; 23 band checks use the backend's save bound for the same field (`_validateLogEntry`); 38 are
+proposed (below). A value a rule codes with no unit in `tools/reference-tabs.json` fails, so a new limit
+cannot skip the check. Lookup keys come from the code:
+the Calculator's feed dropdown (its `.filter(k => D.EN_DB[k])` drops a key with no row without a word,
+so the check fails instead), the four `useState` defaults, both amino-acid lists, the supplement
+dropdown categories, every `D.KCMH_STOCK.x.y` and `S.x.y` reference, and every nursing feed key against
+the backend's `NURSING_FEED_KEY_RE`, which refuses a save with a key that fails it.
+
+### Found (nothing changed)
+
+- 14 band functions have no caller in the screens: `TARGETS.protein`, `kcal`, `lipid`, `na`, `k`, `ca`,
+  `p`, `girTarget`, `girPreterm`, `girTerm`; `TPN_TARGETS.mg`, `caP`; `ENTERAL_TARGETS.peRatio`,
+  `npePerG`. They are checked like the rest.
+- The PN lipid band's top (4.0) equals `LIPID_IV_HARD_HI`, and the PN K band's top (5) equals
+  `K_IV_HARD_HI`: a target can reach the critical line but not pass it, which the check now holds.
+
+### For Pp
+
+- 38 ranges no rule gives are proposed in `tools/reference-tabs.json`, all by one rule: half the lowest
+  to 1.5 times the highest value today. They catch a slipped decimal or mg typed as mmol, not a clinical
+  error. They cover the `EN_DB` nutrients and osmolality, every `SUPP_DB` strength, Aminoplasmal's
+  0.15 g/mL, `MG_MG_PER_MEQ`, and the Mg, Ca:P, enteral lipid, protein:energy and NPE bands.
+- Whether the live Sheet keeps any reference tab that no code reads; nothing here can see it.
+
+### Tests
+
+`test/verify-reference-tabs.cjs`: 69 checks. Section 1 runs 43 kinds of bad cell on synthetic tables,
+each failing alone at its cell, and shows the check changes no input; section 2 runs the source readers
+on synthetic code, including one that finds nothing and must say so; section 3 runs the real files.
+`NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` = `"1.2"`), `=2` (`KCMH_STOCK.naCl.naMeqPerMl` = 34.2) and `=3`
+(the feed list asking for `"BM_20 "`) each fail one check, naming the cell.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),
