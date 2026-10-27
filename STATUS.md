@@ -197,6 +197,12 @@ verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 ask
 - ⏳ **PR #174, NF-08: `tools/ci_bans.js` fails CI on a patient identifier, a raw sheet cell or a
   secret in a log: open, waiting for Pp.** CI and docs only: neither host serves `.github/`, `test/`,
   `tools/` or `*.md`, so no served file changes and nothing to release. `CHANGELOG.md` 2026-10-28.
+- ⏳ **PR #173, Pp's clinical-rules skill (NF-04): merged into `main` on Pp's instruction (she answered
+  "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
+  one harness and docs, and neither host serves `.claude/` or `test/`. `CONSTANTS_VERSION` unchanged.
+  Agents load `neofeed-clinical-rules` before touching calculation code, and
+  `test/verify-clinical-rules.cjs` (607 checks) runs its cases in CI. Its 17 clinical questions stay open
+  for Pp. Vera: NO BLOCK. `CHANGELOG.md` 2026-10-27 (5).
 - ⏳ **PR #171, every stock mL to one decimal and a stop at 0 mL: merged into `main` on Pp's instruction
   ("merge PR #171 เข้า main หลัง CI ผ่าน ยังไม่ต้อง release"); not live until a `main → release` PR.**
   Frontend only, no `clasp` step. **`CONSTANTS_VERSION` `2026-10-27.2`**; released with #170, one re-save covers both. Before its

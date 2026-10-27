@@ -8,6 +8,10 @@ Read before you act:
 
 - **Opening or updating a PR** that touches a dose file, the printed order, auth or patient data:
   `REFERENCE.md` § Pre-PR review (Vera). Run her before the PR and paste her report into it.
+- **Touching calculation code** (a limit, target band, unit, conversion or rounding in `calculator.jsx`
+  or `data.js`, or a figure on the printed order): load the `neofeed-clinical-rules` skill first. It is
+  Pp's list of every rule as coded, with its ID, source and cases; change a rule's block in the same
+  commit as its code, and `test/verify-clinical-rules.cjs` runs the cases (NF-04).
 - **Changing a calculation**: keep `test/verify-calc-sum.cjs` passing. A PR that adds or changes a
   figure adds it to that harness's on-screen check in the same PR (NF-17).
 - **Merging, releasing or deploying** anything: `REFERENCE.md` § Deploying, and rolling back.
