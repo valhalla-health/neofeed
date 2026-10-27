@@ -31,7 +31,8 @@ heparin and ZnSO₄ the same way, and to stop an order when an ordered stock rou
   "Stock rounds to 0 mL", and the save panel names the stock. A draft may be kept, as with the bottle.
   It happens in the smallest infants: ZnSO₄ 0.05 mg/kg or K₂HPO₄ 0.02 mEq/kg at 500–700 g.
 - **`displayNum` clears the float tail before it rounds** (Vera, finding 3). 1.5 mEq/kg of K₂HPO₄ at
-  Factor 0.7 is 1.0499999999999998 in JS: the line read "1 mEq = 1.1 mL" for a 1 mEq/mL stock. It now
+  Factor 0.7 is 1.0499999999999998 in JS, so with the mL at one decimal a 1 mEq/mL line read "1 mEq =
+  1.1 mL" (on `main`, "1 mEq = 1.05 mL"). It now
   reads "1.1 mEq = 1.1 mL". `roundMl` is `displayNum` at one decimal. No figure in the 0917 parity
   orders moved with it. Center Point's snapshot formats through `displayNum` too (Vera's second run), so
   its sheet also reads "1.1 mEq = 1.1 mL"; `verify-center-point-print-parity.cjs` adds that order.
