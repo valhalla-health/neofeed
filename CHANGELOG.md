@@ -11,7 +11,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),
 `AGENTS.md`, `test/README.md`. No calculation, limit, unit or printed figure changed, and
-`CONSTANTS_VERSION` stays `2026-10-27.1`. Numbered (5) because open PR #171 takes (4).
+`CONSTANTS_VERSION` stays `2026-10-27.2`. It documents `main` after PR #171 (entry (4)), which merged while
+this was written; the skill's rounding rules and its 0 mL stop follow #171.
 
 ### Why
 
@@ -22,7 +23,7 @@ test suite reads them from that file, so Pp adds a test by adding a line to the 
 
 ### What the skill holds
 
-55 rules, each with a stable ID (`CR-…`) that NF-12 and NF-28 will cite: 5 stops (Submit refused),
+56 rules, each with a stable ID (`CR-…`) that NF-12 and NF-28 will cite: 6 stops (Submit refused),
 13 critical (Submit asks for a reason), 1 red line that asks for none, 6 cautions, 3 caps that change
 the dose, 11 target bands, 13 units and conventions, 3 rounding rules. Each gives the value as coded,
 `where` anchors (file, line and a fragment of the code that enforces it), the source, and its cases.
@@ -50,7 +51,7 @@ Seventeen questions for Pp close the file, each naming its rule; they change not
 
 ### Tests
 
-`test/verify-clinical-rules.cjs`: 596 checks, every one read from the skill; `NEGATIVE_CONTROL=1`
+`test/verify-clinical-rules.cjs`: 607 checks, every one read from the skill; `NEGATIVE_CONTROL=1`
 (`GIR_HARD_HI` 12 → 13) fails 7 and `=2` (peripheral osmolarity graded `>` instead of `>=`) fails 4.
 It passes against the shipped `compiled/` too.
 
