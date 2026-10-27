@@ -414,6 +414,34 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
     ok('every number reads without a trailing zero or a float tail', bad.length === 0, bad.slice(0, 8));
   });
 
+  await section('§8 Vera on this PR: a value past its limit, a rounded factor, a MEN feed', async () => {
+    // GIR 12.007 grades critical; read at the tile's one decimal it is "12" beside
+    // "above 12". The panel reads it the way the alert does (vsLimit).
+    mount({ name: 'V1', g: 1000, route: 'Central', order: { 'Volume(mL/day)': 133, 'Dextrose final': 13, 'Amino acid': 3 } });
+    click(toggle('gir'));
+    const alert = [...container.querySelectorAll('.calc-bottom .alert-row')].find(a => a.querySelector('.title')?.textContent === 'GIR critically high');
+    ok('GIR 12.007: the alert reads 12.01 mg/kg/min', !!alert && text(alert).includes('12.01 mg/kg/min'), text(alert));
+    ok('GIR 12.007: the panel reads 12.01, not the limit itself', panel('gir')?.querySelector('[data-v="result"]')?.textContent === '12.01',
+      panel('gir')?.querySelector('[data-v="result"]')?.textContent);
+    mount({ name: 'V2', g: 1000, route: 'Central', order: { 'Volume(mL/day)': 100, 'Dextrose final': 12, 'Amino acid': 4.51, '20% lipid': 3 } });
+    click(toggle('protein'));
+    ok('protein 4.51 (critical above 4.5): the panel reads 4.51', panel('protein')?.querySelector('[data-v="result"]')?.textContent === '4.51',
+      panel('protein')?.querySelector('[data-v="result"]')?.textContent);
+    // FBM ↔ Infatrini is 90.65 kcal/100 mL; shown as 90.7 the arithmetic on screen
+    // gave 290.24 against the 290.08 it printed.
+    mount(E);
+    click(toggle('kcal'));
+    const pe = panel('kcal');
+    ok('FBM ↔ Infatrini: mL × kcal/100 mL ÷ 100 on screen is the kcal it shows', near(vOf(pe, 'enMl') * vOf(pe, 'enPer100') / 100, vOf(pe, 'enKcal'), 0.005),
+      { enMl: vOf(pe, 'enMl'), enPer100: vOf(pe, 'enPer100'), enKcal: vOf(pe, 'enKcal') });
+    // A MEN feed: the infant gets 3 mL × 8 = 24 mL; none of it counts.
+    mount(Dm);
+    click(toggle('kcal'));
+    const pm = panel('kcal');
+    ok('MEN: the panel names the 24 mL given', vOf(pm, 'enGiven') === 24, text(pm));
+    ok('MEN: …and counts 0 kcal of it', vOf(pm, 'enKcal') === 0, text(pm));
+  });
+
   act(() => { root.unmount(); });
   console.log(`\nSHOW WORKING (NF-12): ${fail === 0 ? 'ALL PASS' : `${fail} FAILED`} (${pass} passed)`);
   process.exit(fail === 0 ? 0 : 1);
