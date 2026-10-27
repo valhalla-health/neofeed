@@ -316,11 +316,12 @@ clinical judgement. Everything else is engineering sequencing.
         ✅ 2026-10-27, Pp: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4", and the orders saved as 50% were worked out on 10%
         too, so the 50% path is gone (#171): every order computes and prints MgSO₄ 10%. Her answer
         covers the 50% vial only.
-      - [ ] 🩺 **Pp: a caution when rounding moves a small dose a long way?** For the stocks still in use,
+      - [x] 🩺 **Pp: a caution when rounding moves a small dose a long way?** For the stocks still in use,
         a dose of 0.05–0.099 mL prints 0.1 with nothing red: 0.1 mEq of KCl prints 0.1 mL, which is
         0.2 mEq; ZnSO₄ 0.07 mL prints 0.1 (+43%). In a 500 g infant this is common (NaCl 0.5 mEq/kg is
         0.073 mL). Vera's second option, a caution when the printed mL is off the exact mL by more than a
-        set share, is still open (Vera, #171 third run).
+        set share (Vera, #171 third run).
+        ✅ 2026-10-27, Pp: "ไม่ต้องมีคำเตือน ยาตัวอื่นพิมพ์ 0.1 mL ตามที่ตวงได้จริง". No caution; closed.
       ✅ **2026-09-28 — Na acetate confirmed** (B · 20 above): Praew checked with the TPN team, and 1 mL
       carries Na 3 mEq, the value NeoFeed already uses. ✅ **2026-09-28 — KCl confirmed**: Praew, "KCl 2 mEq/mL
       ถูกต้อง", the value NeoFeed already uses. **Still open: the small-volume rounding above.**

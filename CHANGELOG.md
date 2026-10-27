@@ -47,8 +47,8 @@ heparin and ZnSO₄ the same way, and to stop an order when an ordered stock rou
 
 No second clinician has reviewed this change. Vera: NO BLOCK twice (her reports and the answer to each
 finding are in the PR). Her 🟠 in both runs, a dose under 0.1 mL that rounds up to 0.1 with nothing
-red, was worst with a legacy 50% MgSO₄ order. Pp's answer closed that case (the bullet above); whether
-the other stocks want a caution is still hers to decide (`BACKLOG.md`). Vera's third run reviewed a
+red, was worst with a legacy 50% MgSO₄ order. Pp's answer closed that case (the bullet above). For the
+other stocks she wants no caution: "ไม่ต้องมีคำเตือน ยาตัวอื่นพิมพ์ 0.1 mL ตามที่ตวงได้จริง". Vera's third run reviewed a
 stop for 50% orders (NO BLOCK, two 🟡); Pp then had the 50% path taken out instead. Vera's fourth run,
 on the removal: NO BLOCK, three 🟡 (two stale comments and a README line), all fixed, and her test is § 5c.
 
