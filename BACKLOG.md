@@ -313,8 +313,9 @@ clinical judgement. Everything else is engineering sequencing.
         the legacy 50% MgSO₄: 600 g, 60 mL, no dead space, Mg 0.4 mEq/kg needs 0.059 mL and prints
         0.1, so 0.68 mEq/kg reaches the infant. Her options: refuse a 50% order at Submit (KCMH stocks
         10% only), or a caution when the printed mL is off the ordered amount by more than a set share.
-        ✅ 2026-10-27, Pp: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4". An order still at 50% cannot be submitted until Use 10%
-        is pressed (`mgVial50`, #171). Her answer covers the 50% vial only.
+        ✅ 2026-10-27, Pp: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4", and the orders saved as 50% were worked out on 10%
+        too, so the 50% path is gone (#171): every order computes and prints MgSO₄ 10%. Her answer
+        covers the 50% vial only.
       - [ ] 🩺 **Pp: a caution when rounding moves a small dose a long way?** For the stocks still in use,
         a dose of 0.05–0.099 mL prints 0.1 with nothing red: 0.1 mEq of KCl prints 0.1 mL, which is
         0.2 mEq; ZnSO₄ 0.07 mL prints 0.1 (+43%). In a 500 g infant this is common (NaCl 0.5 mEq/kg is

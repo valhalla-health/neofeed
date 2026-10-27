@@ -9,11 +9,12 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ## Session 2026-10-27 (4) — every stock mL to one decimal, half up; a stock at 0 mL cannot be ordered
 
-`calculator.jsx`, `data.js` (`displayNum`), `compiled/calculator.js`, both shells' `?v=` tokens,
+`calculator.jsx`, `data.js` (`displayNum`, the 50% MgSO₄ rows), `compiled/calculator.js`, both shells' `?v=` tokens,
 `center-point/tpn-snapshot.mjs`, `docs/CLINICAL_CONSTANTS.md`, `STATUS.md`, `BACKLOG.md`, `test/README.md`,
 `test/verify-stock-ml-1027.cjs` (new), `test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`,
 `test/verify-calc-clicks.cjs`, `test/verify-nutrition-unit-review.cjs`, `test/verify-review-0917-calc.cjs`,
-`test/verify-tpn-team-0922.cjs`, `test/verify-tpn-answers-1027.cjs`, `test/verify-center-point-print-parity.cjs`.
+`test/verify-tpn-team-0922.cjs`, `test/verify-tpn-answers-1027.cjs`, `test/verify-center-point-print-parity.cjs`,
+`test/verify-kcmh-constants.cjs`, `test/verify-calc-fuzz.cjs`.
 **`CONSTANTS_VERSION` `2026-10-27.1` →
 `2026-10-27.2`**: #170 is in `main` but not released, and a release of #170 alone must not let these
 figures reprint under its version. Released together, the two bumps cost one re-save.
@@ -36,20 +37,24 @@ heparin and ZnSO₄ the same way, and to stop an order when an ordered stock rou
   reads "1.1 mEq = 1.1 mL". `roundMl` is `displayNum` at one decimal. No figure in the 0917 parity
   orders moved with it. Center Point's snapshot formats through `displayNum` too (Vera's second run), so
   its sheet also reads "1.1 mEq = 1.1 mL"; `verify-center-point-print-parity.cjs` adds that order.
-- **An order still at 50% MgSO₄ cannot be submitted** (Pp, answering Vera's 🟠: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4").
-  An order saved at 50% before 2026-09-23 still carries over to the next day. It now gets a red line
-  and a save-panel line until Use 10% is pressed (`mgVial50`); a draft may be kept. That order was
-  Vera's worst case: 0.059 mL of 50% printed as 0.1, 0.68 mEq/kg against 0.4 ordered.
+- **The 50% MgSO₄ path is gone; every order is 10%.** Pp, answering Vera's 🟠: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4"; then
+  "อันที่น้องกดไปก่อนหน้านี้ก็คิดตาม 10%MgSO4 ... เอาออกได้เลย": the orders saved as 50% were worked out on 10% too, so the 50% mL they printed was never
+  used. Gone: the `mgStrength` state and the "Use 10%" button, `KCMH_STOCK.mgso4_50` and the
+  reference row, the mg10/mg50 pair in `solVol`. A row that still says 50% reads, computes and prints
+  as 10%, and a new row saves no `mgStrength`. Center Point's sheet keeps its "MgSO4 strength" slot,
+  now always 10, so its own copy needs no schema change. That 50% order was Vera's worst case: 0.059 mL
+  of 50% printed as 0.1, 0.68 mEq/kg against 0.4 ordered.
 
 No second clinician has reviewed this change. Vera: NO BLOCK twice (her reports and the answer to each
 finding are in the PR). Her 🟠 in both runs, a dose under 0.1 mL that rounds up to 0.1 with nothing
 red, was worst with a legacy 50% MgSO₄ order. Pp's answer closed that case (the bullet above); whether
-the other stocks want a caution is still hers to decide (`BACKLOG.md`). Vera's third run, on the 50%
-stop: NO BLOCK, two 🟡, both fixed, and her reopen test is § 5b.
+the other stocks want a caution is still hers to decide (`BACKLOG.md`). Vera's third run reviewed a
+stop for 50% orders (NO BLOCK, two 🟡); Pp then had the 50% path taken out instead. Vera's fourth run,
+on the removal: NO BLOCK, three 🟡 (two stale comments and a README line), all fixed, and her test is § 5c.
 
 ### Tests
 
-`verify-stock-ml-1027.cjs` (new): 58 checks; on `83aefe4` (`main` with #170) 23 fail, in every section. Six older
+`verify-stock-ml-1027.cjs` (new): 54 checks; on `83aefe4` (`main` with #170) 26 fail, in every section. Six older
 harnesses pinned two-decimal figures and now pin one decimal. The three printed-figure digests in
 `verify-review-0917-calc.cjs` were recaptured with each moved figure named (10 of 297, every one of them
 one of the four stocks). `verify-calc-sum.cjs`'s S5 (K₂HPO₄ and MgSO₄ at 0.01 mL) is now the

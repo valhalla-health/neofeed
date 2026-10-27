@@ -14,11 +14,12 @@
 //       line, Submit disabled, the save panel says why, a draft may be kept;
 //       0.1 mg/kg (0.07 → 0.1 mL) is orderable;
 //   §4  no stock mL in calculator.jsx is rounded by toFixed any more;
-//   §5  an order carried over at the legacy 50% MgSO₄ cannot be submitted
-//       until "Use 10%" is pressed (Pp: Chula uses 10% only), then prints
-//       the 10% mL;
-//   §5b a submitted order reopened at 50% has no print form, and Copy
-//       says why instead of copying (Vera).
+//   §5  a row saved with mgStrength "50" carries over as 10%: no 50% on the
+//       card, Submit enabled, MgSO₄ 10% printed (Pp: every order was 10%,
+//       and the 50% path is gone);
+//   §5b a submitted row that says 50%, reopened, prints MgSO₄ 10% too;
+//   §5c the same row stamped 2026-10-27.1, as a production row is, is held
+//       from Print until saved again, then prints MgSO₄ 10% (Vera).
 //
 // Every section fails on 83aefe4 (main with PR #170). Mounts the real
 // <Calculator> in jsdom — the deps in test/README.md. Synthetic infants only.
@@ -222,43 +223,43 @@ function order700(box, zn, k2 = 0.5) {
     ok('compiled/calculator.js carries roundMl', /roundMl/.test(R('compiled/calculator.js')));
   });
 
-  await section('§5 an order carried over at 50% MgSO₄ cannot be submitted', async () => {
+  await section('§5 a row saved as 50% MgSO₄ computes and prints 10%', async () => {
     const box = logger();
-    // Yesterday's order, saved as 50% before 2026-09-23: 600 g, 60 mL, Mg 0.4.
-    // At 50% it needs 0.059 mL, which prints 0.1 (Vera).
+    // Yesterday's row still says 50% (saved before 2026-09-23). Pp, 2026-10-27:
+    // every order was worked out on 10%, so the 50% path is gone and the row reads
+    // as 10%: 600 g, 60 mL, Mg 0.4 → 0.24 mEq ÷ 0.812 = 0.296 → 0.3 mL.
     const base = { entryId: 'e-mg50', lastModified: 'lm-mg50', ts: '2026-10-26', dol: 9, weight: 600,
       calcInput: { curWtG: 600, fluidTargetPerKg: 150, totalTPN_mL: 60, deadVol_mL: 0, route: 'central',
         dexPct: 10, aaPerKg: 2.5, mgPerKg: 0.4, mgStrength: '50' } };
     mount({ patient: pt('MG-0600', 600), baselineEntry: base, onLog: box.onLog });
     if (!routeBtn('Central')?.classList.contains('on')) click(routeBtn('Central'));
     setField('Current weight', 600); fillRequired(150); setField('ปริมาตรคาสาย (dead space)', 0);
-    ok('the vial reads 50%, carried over', /Vial 50%/.test(text(container)), text(container).match(/Vial \d+%/));
-    const a = alertNamed('MgSO₄ 50% is not stocked');
-    eq('a red line', a && a.level, 'crit');
-    eq('Submit is disabled', submitBtn()?.disabled, true);
-    ok('the save panel says to press Use 10%', /Use 10%/.test(text(container.querySelector('.mg-vial-50'))),
-      text(container.querySelector('.mg-vial-50')));
-    eq('a draft may still be kept', draftBtn()?.disabled, false);
-    click([...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Use 10%'));
-    ok('after Use 10%: the vial reads 10%', /Vial 10%/.test(text(container)));
-    eq('…no red line', alertNamed('MgSO₄ 50% is not stocked'), null);
-    ok('…nothing in the save panel', !container.querySelector('.mg-vial-50'));
-    eq('…Submit is enabled', submitBtn()?.disabled, false);
+    ok('the vial reads 10%', /Vial 10%/.test(text(container)) && !/Vial 50%/.test(text(container)), text(container).match(/Vial \d+%/));
+    ok('no "Use 10%" button and no 50% MgSO₄ on the card',
+      ![...container.querySelectorAll('button')].some(b => b.textContent.trim() === 'Use 10%') && !/MgSO₄ 50%|Saved as 50%/.test(text(container)));
+    eq('Submit is enabled', submitBtn()?.disabled, false);
     await clickAsync(submitBtn());
     const ml = backSheetMl();
-    ok('…the order prints', !!ml, alertRows().filter(r => r.level === 'crit'));
-    eq('…MgSO₄ 10%: 0.24 mEq ÷ 0.812 = 0.296 mL prints 0.3', ml && ml['MgSO₄ 10%'], '0.3');
-    // §5b: the same order as saved, with its vial put back to 50%, reopened.
+    ok('the order prints', !!ml, alertRows().filter(r => r.level === 'crit'));
+    eq('MgSO₄ 10%: 0.24 mEq ÷ 0.812 = 0.296 mL prints 0.3 (at 50% it was 0.06)', ml && ml['MgSO₄ 10%'], '0.3');
+    eq('the saved row carries no mgStrength', box.entry?.calcInput?.mgStrength, undefined);
+    // §5b: the same order as saved, with mgStrength put back to "50", reopened.
     const saved = { entryId: 'e-mg50s', lastModified: 'lm-mg50s', ts: '2026-10-27', dol: 10, weight: 600,
       ioInput: box.entry?.ioInput, ioOutput: box.entry?.ioOutput, drainContent: box.entry?.drainContent,
       status: 'submitted', calcInput: { ...(box.entry?.calcInput || {}), mgStrength: '50' } };
     mount({ patient: pt('MG-0600', 600), editEntry: saved, logDate: null, onLog: logger().onLog });
-    ok('§5b reopened at 50%: the vial reads 50%', /Vial 50%/.test(text(container)), text(container).match(/Vial \d+%/));
-    ok('…no print form', !container.querySelector('#print-form'));
-    ok('…the save panel says to press Use 10%', !!container.querySelector('.mg-vial-50'));
-    toasts.length = 0;
-    await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent)));
-    ok('…Copy says why instead of copying', toasts.some(t => /MgSO₄ ยังเป็นขวด 50%/.test(t)), toasts);
+    ok('§5b reopened: the vial reads 10%', /Vial 10%/.test(text(container)), text(container).match(/Vial \d+%/));
+    const ml2 = backSheetMl();
+    eq('…it prints MgSO₄ 10% 0.3 mL', ml2 && ml2['MgSO₄ 10%'], '0.3');
+    ok('…and no MgSO₄ at 50% on the form', !/MgSO₄ 50%|mL \(50%\)/.test(text(container.querySelector('#print-form'))));
+    // §5c: a production row carries an older stamp, so calcMoved holds it.
+    const prod = { ...saved, entryId: 'e-mg50p', calcInput: { ...saved.calcInput, constantsVersion: '2026-10-27.1' } };
+    mount({ patient: pt('MG-0600', 600), editEntry: prod, logDate: null,
+      onUpdate() { return Promise.resolve({ ok: true, lastModified: 'lm-mg50p2' }); } });
+    ok('§5c a row stamped 2026-10-27.1 that says 50%: no print form until saved again', !container.querySelector('#print-form'));
+    await clickAsync(submitBtn());
+    const ml3 = backSheetMl();
+    eq('…saved again, it prints MgSO₄ 10% 0.3 mL', ml3 && ml3['MgSO₄ 10%'], '0.3');
   });
 
   act(() => { root.unmount(); });

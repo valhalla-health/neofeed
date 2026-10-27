@@ -974,7 +974,7 @@ Stock strengths, feed compositions, energy densities and the ESPGHAN bands are t
 by hand, so a changed constant in `data.js` shows up as a disagreement instead of being copied into
 the expectation. Change `data.js`, change this file too — from the source, not from `data.js`.
 The scenarios cover a below-birth-weight ELBW day 3, a growing preterm on peripheral PN entered by
-pump rate with the 50% Mg vial and every oral supplement, a feeds-only day, a term infant on a manual
+pump rate with the 10% Mg vial (the only one) and every oral supplement, a feeds-only day, a term infant on a manual
 dosing weight with a MEN feed and the Vitalipid cap, an alert-stress order, the 16 kg
 Soluvit/Peditrace ceilings, every remaining feed in `EN_DB`, and a prepared volume of 130.45 mL whose
 WFI must come from the printed 130.5 (NF-17).
@@ -982,7 +982,7 @@ WFI must come from the printed 130.5 (NF-17).
 surfaces GIR appears on. **Trust a pass only after seeing that fail.**
 
 **`verify-calc-clicks.cjs`** — 242 assertions that press things rather than type into them: all 16
-preset-chip groups, both routes, the three lipid durations, both Mg vials, every checkbox, every
+preset-chip groups, both routes, the three lipid durations, the 10% Mg vial (the only one, no toggle), every checkbox, every
 option of every select, volume↔rate typed a character at a time, the dosing-weight override and its
 reset. For each control: the value reaches the field it names, the control shows itself as chosen, and
 the figure that depends on it moves as the label promises. It also drives the gates around a printed
@@ -1713,10 +1713,13 @@ at one decimal, including the x.x5 values `toFixed(1)` rounded down (0.35, 1.45,
 heparin at one decimal on both sheets. § 3: ZnSO₄ 0.05 mg/kg (0.035 mL) is a red line, Submit is
 disabled, the save panel says why and a draft may be kept; 0.1 mg/kg (0.1 mL) is orderable. § 4: no
 stock mL in `calculator.jsx` goes through `toFixed`. § 2b (Vera): K₂HPO₄ 1.5 mEq/kg at Factor 0.7 reads
-"1.1 mEq = 1.1 mL", not "1 mEq = 1.1 mL". § 5: yesterday's order carried over at 50% MgSO₄ (600 g, Mg
-0.4) is a red line and cannot be submitted; after Use 10% it prints MgSO₄ 10% 0.3 mL (Pp: Chula uses
-10% only). § 5b (Vera): a submitted order reopened at 50% shows no print form and Copy says why.
-58 checks; on `83aefe4` (`main` with #170), 23 fail, in every section.
+"1.1 mEq = 1.1 mL", not "1 mEq = 1.1 mL". § 5: yesterday's row saved as 50% MgSO₄ (600 g, Mg 0.4)
+carries over as 10%, with no 50% on the card, and prints MgSO₄ 10% 0.3 mL; the new row saves no
+`mgStrength` (Pp: every order was 10%, the 50% path is gone). § 5b: a submitted row that says 50%,
+reopened, prints MgSO₄ 10% 0.3 mL too; § 5c (Vera): such a row stamped with an older
+`CONSTANTS_VERSION`, as every production row is, is held from Print until it is saved again, then
+prints MgSO₄ 10% 0.3 mL. 54 checks; on `83aefe4` (`main` with #170), 26 fail, in every
+section. `verify-kcmh-constants.cjs` checks that no 50% stock is left.
 
 Six harnesses pinned two-decimal figures and now pin one decimal. `verify-calc-oracle.cjs` restates the
 rule as its own `rMl` (`toPrecision(12)`, not the app's method); `verify-calc-sum.cjs` works out from the

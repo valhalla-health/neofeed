@@ -87,7 +87,6 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     kCl: src.kCl ?? 0,
     k2hpo4: src.k2hpo4 ?? 0,
     mgPerKg: src.mgPerKg ?? 0,
-    mgStrength: src.mgStrength ?? "10",
     caPerKg: src.caPerKg ?? 0,
     extraP_mg_kg: src.extraP_mg_kg ?? 0,
     enType: src.enType ?? "BM_20",
@@ -154,7 +153,6 @@ const ORDER_DIFF_FIELDS = [
   ["kCl", "KCl", "mEq/kg/d"],
   ["k2hpo4", "K₂HPO₄", "mEq/kg/d"],
   ["mgPerKg", "MgSO₄", "mEq/kg/d"],
-  ["mgStrength", "MgSO₄ vial", "%"],
   ["caPerKg", "Ca gluconate", "mg/kg/d"],
   ["heparinUmL", "Heparin", "U/mL"],
   ["inclSoluvit", "Soluvit", ""],
@@ -808,11 +806,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [kCl, setKCl] = useState(0);
   const [k2hpo4, setK2HPO4] = useState(0);
   const [mgPerKg, setMgPerKg] = useState(0);
-  // Which MgSO₄ vial the bag is compounded from. KCMH uses 10% only (Praew,
-  // 2026-09-23), so a new order is always 10% and there is no 50% choice. The
-  // state stays so an order carried over at 50% is recognised: mgVial50 holds
-  // its Submit, Print and Copy until Use 10% is pressed (Pp, 2026-10-27).
-  const [mgStrength, setMgStrength] = useState("10");   // "10" | legacy "50"
+  // MgSO₄ is always the 10% vial: KCMH uses no other (Praew, 2026-09-23), and the
+  // 50% path, which no order ever used, is gone (Pp, 2026-10-27: "อันที่น้องกดไปก่อนหน้านี้ก็คิดตาม 10%MgSO4 ... เอาออกได้เลย").
+  // A saved row's mgStrength is ignored.
   const [caPerKg, setCaPerKg] = useState(0);
   const [extraP_mg_kg, setExtraP_mg_kg] = useState(0);
 
@@ -925,7 +921,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setKCl(n.kCl);
     setK2HPO4(n.k2hpo4);
     setMgPerKg(n.mgPerKg);
-    setMgStrength(n.mgStrength);
     setCaPerKg(n.caPerKg);
     setExtraP_mg_kg(n.extraP_mg_kg);
     setEnType(n.enType);
@@ -1208,7 +1203,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     curWtG, tpnWtOverrideG, fluidTargetPerKg, otherIV_mL, drug_mL,
     ioInput, ioOutput, drainContent,
     route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaProduct: aaStockKey, lipidPerKg, lipidDripHours,
-    naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
+    naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
     enType, enVol, enFreq, isMEN,
     inclSoluvit, inclPeditrace, znPerKg, inclAddamel, heparinUmL,
     suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
@@ -1286,7 +1281,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!wtKg) {
       const en0 = D.EN_DB[enType];
       const sv0 = { naCl:0, naAcet:0, glycophos:0, kCl:0, k2hpo4:0, ca:0, mg:0,
-        mg10:0, mg50:0, heparin:0, znso4:0, aa:0, lipidSMOF:0 };
+        heparin:0, znso4:0, aa:0, lipidSMOF:0 };
       return { wtKg:0, totalTPN_mL, lipidVol:0, lipidBagVol:0, vitalipidVol:0,
         enVolTotal:0, enVolPerKg:0, enKcal:0, enCounted:0, en:en0, useEnteralTargets:false,
         enFeedKg:{ kcal:0, pro:0, na:0, k:0, ca:0, p:0 }, aaStockKey,
@@ -1299,7 +1294,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         npeN:0, peRatio:0, osm:300,
         pTotal_mg:0, p_glycophos:0, p_k2hpo4:0, na_glycophos:0, isMEN,
         d50wVol:0, soluvitVol:0, peditrace_vol:0, solVol:sv0,
-        componentVol:0, wfiVol:0, dexGPerKg:0, kMeqPerL:0, mgStrength,
+        componentVol:0, wfiVol:0, dexGPerKg:0, kMeqPerL:0,
         preparedVol: totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0, deadVol_mL, overfill:1, factor:0,
         deliveredFrac:1, dexG_bag:0, aaG_bag:0,
         bag:{ na_mEq:0, k_mEq:0, ca_mg:0, mg_mEq:0, p_mg:0, heparin_units:0 },
@@ -1480,7 +1475,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Every per-kg dose is multiplied by `factor` (H9), NOT wtKg, so the bag is
     // overfilled and the delivered dose lands on the ordered per-kg value.
     // Every stock mL is rounded once, by roundMl (one decimal, half up).
-    const mgStock = mgStrength === "50" ? S.mgso4_50 : S.mgso4_10;
     const solVol = {
       naCl:      naCl   > 0 ? roundMl(naCl   * factor / S.naCl.naMeqPerMl     ) : 0, // 20% NaCl
       naAcet:    naAcet > 0 ? roundMl(naAcet * factor / S.naAcetate.naMeqPerMl) : 0, // Na Acetate
@@ -1488,10 +1482,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       kCl:       kCl    > 0 ? roundMl(kCl    * factor / S.kCl.kMeqPerMl       ) : 0, // KCl
       k2hpo4:    k2hpo4 > 0 ? roundMl(k2hpo4 * factor / S.k2hpo4.kMeqPerMl    ) : 0, // K₂HPO₄
       ca:        caPerKg> 0 ? roundMl(caPerKg* factor / S.caGluconate.caMgPerMl) : 0,// 10% Ca gluconate
-      mg:        mgPerKg> 0 ? roundMl(mgPerKg* factor / mgStock.mgMeqPerMl    ) : 0, // MgSO₄ (chosen strength)
-      // Both Mg strengths, so the pharmacy label can show the alternative
-      mg10:      mgPerKg> 0 ? roundMl(mgPerKg* factor / S.mgso4_10.mgMeqPerMl ) : 0,
-      mg50:      mgPerKg> 0 ? roundMl(mgPerKg* factor / S.mgso4_50.mgMeqPerMl ) : 0,
+      mg:        mgPerKg> 0 ? roundMl(mgPerKg* factor / S.mgso4_10.mgMeqPerMl ) : 0, // 10% MgSO₄
       // Heparin is dosed per mL of bag (sheet G51 = F51 × G7), so prepared volume
       heparin:   heparinUmL > 0 ? roundMl(heparinUmL * preparedVol / S.heparin.unitsPerMl) : 0,
       znso4:     znPerKg > 0 ? roundMl(znSO4_bag_mg / S.znso4.znMgPerMl) : 0,     // ZnSO₄, mg elemental Zn ÷ mg/mL
@@ -1559,14 +1550,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       npeN, peRatio, osm,
       pTotal_mg, p_glycophos, p_k2hpo4, na_glycophos, isMEN,
       d50wVol, soluvitVol, peditrace_vol, solVol,
-      componentVol, wfiVol, dexGPerKg, kMeqPerL, mgStrength,
+      componentVol, wfiVol, dexGPerKg, kMeqPerL,
       // Prepared-vs-delivered (the Factor)
       preparedVol, deadVol_mL, overfill, factor, deliveredFrac, dexG_bag, aaG_bag, bag,
       znPeditrace_mg, znSO4_mg, znSO4_bag_mg, znTotal_mg,
     };
   }, [wtG, wtKg, fluidTargetPerKg, otherIV_mL, drug_mL,
   totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,
-  naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg, extraP_mg_kg,
+  naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
   enType, enVol, enFreq, isMEN,
   // `route` is deliberately NOT a dependency — the memo never reads it. It is
   // used afterwards for sOsm and the saved entry's route string. Listing it
@@ -1840,18 +1831,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [calc.dexG_bag > 0, calc.d50wVol, "D50W"], [aaPerKg > 0, calc.solVol.aa, "Amino acid"],
     [naCl > 0, calc.solVol.naCl, "20% NaCl"], [naAcet > 0, calc.solVol.naAcet, "Na acetate"],
     [glycophosP > 0, calc.solVol.glycophos, "Glycophos"], [kCl > 0, calc.solVol.kCl, "KCl"],
-    [k2hpo4 > 0, calc.solVol.k2hpo4, "K₂HPO₄"], [mgPerKg > 0, calc.solVol.mg, `MgSO₄ ${mgStrength}%`],
+    [k2hpo4 > 0, calc.solVol.k2hpo4, "K₂HPO₄"], [mgPerKg > 0, calc.solVol.mg, "MgSO₄ 10%"],
     [caPerKg > 0, calc.solVol.ca, "Ca gluconate"], [znPerKg > 0, calc.solVol.znso4, "ZnSO₄"],
     [heparinUmL > 0, calc.solVol.heparin, "Heparin"],
   ].filter(([ordered, ml]) => ordered && ml === 0).map(([, , label]) => label) : [];
   const stockAtZeroMl = stocksAtZeroMl.length > 0;
   const stockAtZeroMlText = `${stocksAtZeroMl.join(", ")} ปัดแล้วเหลือ 0 mL (น้อยกว่า 0.05 mL) ห้อง TPN ตวงไม่ได้ — ปรับขนาดยา หรือเอาออกจากถุง`;
-  // KCMH uses 10% MgSO₄ only (Pp, 2026-10-27: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น
-  // 10%MgSO4"). An order saved as 50% before 2026-09-23 still carries over to
-  // the next day; it cannot be submitted until "Use 10%" is pressed, so no
-  // 50% mL reaches pharmacy (Vera: 0.059 mL of 50% printed as 0.1).
-  const mgVial50 = mgPerKg > 0 && mgStrength === "50";
-  const mgVial50Text = `MgSO₄ ยังเป็นขวด 50% จากคำสั่งเก่า แต่ KCMH ใช้ 10% เท่านั้น — กด Use 10% ที่ช่อง MgSO₄`;
   // Oral vitamin D a day: Step 6's IU/kg/d × weight, plus Munti-vim's own.
   const vitDIuDay = (suppVitD > 0 && wtKg > 0 ? suppVitD * wtKg : 0)
     + (suppMTV ? D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml * D.SUPP_DB.MTV_MUNTIVIM.dose_default : 0);
@@ -1962,7 +1947,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
   if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
-  if (mgVial50) alerts.push({ level: "crit", title: "MgSO₄ 50% is not stocked", body: "This order still carries the 50% vial from an order saved before 2026-09-23. KCMH uses 10% MgSO₄ only, so it cannot be submitted until Use 10% is pressed.", ref: "Pp, 2026-10-27" });
   if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
   if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({ level: "warn", title: "Heparin above the usual dose",
@@ -2005,7 +1989,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !mgVial50 && !tpnWtOutOfRange
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -2016,7 +2000,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
     : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}`
-    : mgVial50 ? `${mgVial50Text} แล้วบันทึก${before}`
     : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
@@ -2165,12 +2148,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       showToast(stockAtZeroMlText, "error");
       return;
     }
-    // ── A 50% MgSO₄ vial (Pp, 2026-10-27) — refused the same way ──
-    if (!asDraft && mgVial50) {
-      setOpenSteps(prev => new Set(prev).add(3));
-      showToast(mgVial50Text, "error");
-      return;
-    }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
     // A critical value can still be ordered — the attending may have a
     // reason — but never silently: the reason is required, saved with the
@@ -2201,7 +2178,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       setSaving(true);
       try {
         const result=await centerPoint.save({dol,wtG,wtKg,curWtG,usingBirthWeight,route,orderDate:logDate,
-          dexPct,totalTPN_mL,aaPerKg,lipidPerKg,lipidDripHours,naCl,naAcet,glycophosP,kCl,k2hpo4,mgPerKg,mgStrength,caPerKg,
+          dexPct,totalTPN_mL,aaPerKg,lipidPerKg,lipidDripHours,naCl,naAcet,glycophosP,kCl,k2hpo4,mgPerKg,caPerKg,
           inclSoluvit,inclPeditrace,inclAddamel,heparinUmL,calc,suppVitD,suppCa,suppCaType,suppPO4,suppPO4Type,suppMTV,suppFerdek,suppFeType,mineral,enType,enVol,enFreq,
           critOverride:override});
         setSavedEntryId(result.sourceRecordId);setSavedLastModified(result.recordedAt);
@@ -3158,7 +3135,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
               {/* ── Mg · Ca ── */}
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "12px 0 4px" }}>Mg (mEq/kg + mg/kg) · Ca (mg/kg)</div>
-              <SaltRow label="MgSO₄" note={`${(mgStrength === "50" ? S.mgso4_50 : S.mgso4_10).mgMeqPerMl} mEq/mL`} perKg={mgPerKg} onChange={setMgPerKg} wtKg={wtKg} />
+              <SaltRow label="MgSO₄" note={`${S.mgso4_10.mgMeqPerMl} mEq/mL`} perKg={mgPerKg} onChange={setMgPerKg} wtKg={wtKg} />
               <PresetChips values={[0.2, 0.4, 0.6]} current={mgPerKg} onSelect={setMgPerKg} />
               {/* Dosed and compounded in mEq/kg/d (matches the stock's mEq/mL) —
                   this line only adds mg/kg/d for cross-checking a mg-based reference,
@@ -3168,19 +3145,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {fmt(mgPerKg, 2)} mEq Mg/kg/d = {fmt(mgPerKg * D.MG_MG_PER_MEQ, 1)} mg/kg/d
                 </div>
               )}
-              {/* KCMH compounds from 10% MgSO₄ only. An order saved as 50% before
-                  2026-09-23 keeps its strength until someone switches it here,
-                  and cannot be submitted until then (mgVial50, 2026-10-27). */}
+              {/* KCMH compounds from 10% MgSO₄ only (Pp, 2026-10-27). */}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap" }}>
-                <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial {mgStrength}%</span>
+                <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial 10%</span>
                 {calc.solVol.mg > 0 && (
                   <span style={{ fontSize:10.5, color:"var(--brand-2)", fontWeight:600 }}>→ {calc.solVol.mg} mL/d</span>
-                )}
-                {mgStrength !== "10" && (
-                  <span style={{ fontSize:10.5, color:"var(--warn-ink)", fontWeight:600 }}>
-                    Saved as {mgStrength}% — KCMH stocks 10% only{" "}
-                    <button type="button" className="preset-chip" onClick={() => setMgStrength("10")}>Use 10%</button>
-                  </span>
                 )}
               </div>
 
@@ -3611,7 +3580,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !mgVial50 && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3724,7 +3693,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 // over-full bag's does.
                 kOverMax ? `  !! K⁺ ${fmt(calc.kMeqPerL, 0)} mEq/L IS ABOVE THE ${kLim.hardMax} mEq/L MAXIMUM — cannot be ordered` : "",
                 caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${fmt(caPerKg*calc.factor, 0)} mg → ${calc.solVol.ca} mL` : "",
-                mgPerKg>0 ? `  MgSO4 ${mgStrength}%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg*calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
+                mgPerKg>0 ? `  MgSO4 10%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg*calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
                 calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? fmt(calc.caP, 2) : "!! (Ca ordered, P = 0)"}:1 (mass, TPN+EN)` : "",
                 `──────────────────────────────`,
                 inclSoluvit   ? `Soluvit N:      ${calc.soluvitVol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (× Factor — delivers ${fmt(calc.soluvitVol*calc.deliveredFrac, 2)} mL)` : ""}` : "",
@@ -3797,11 +3766,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {stockAtZeroMlText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
-            {mgVial50 && (
-              <div className="mg-vial-50" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
-                {mgVial50Text} — บันทึก/พิมพ์ไม่ได้
-              </div>
-            )}
             {tpnWtOutOfRange && (
               <div className="tpn-wt-out-of-range" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {tpnWtOutOfRangeText} — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)
@@ -3823,7 +3787,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || mgVial50 || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
@@ -3864,7 +3828,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         published={D.ENABLE_PUBLISH_GATE ? published : true}
         aaPerKg={aaPerKg} lipidPerKg={lipidPerKg} lipidDripHours={lipidDripHours}
         naCl={naCl} naAcet={naAcet} glycophosP={glycophosP}
-        kCl={kCl} k2hpo4={k2hpo4} mgPerKg={mgPerKg} mgStrength={mgStrength} caPerKg={caPerKg}
+        kCl={kCl} k2hpo4={k2hpo4} mgPerKg={mgPerKg} caPerKg={caPerKg}
         inclSoluvit={inclSoluvit} inclPeditrace={inclPeditrace} znPerKg={znPerKg}
         inclAddamel={inclAddamel} heparinUmL={heparinUmL} calc={calc}
         suppVitD={suppVitD} suppCa={suppCa} suppCaType={suppCaType}
@@ -4022,7 +3986,7 @@ function KcalLegend({ color, label, pct, target }) {
 // <table> child (the parity and §6 figure sweeps skip it), and the
 // provenance footer stays the form's last child.
 function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpnWtManual, autoWtG, route, orderDate, dexPct, totalTPN_mL, entryId,
-  aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, mgStrength, caPerKg,
+  aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg,
   inclSoluvit, inclPeditrace, znPerKg, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
   mineral, published, targets, savedMeta, critOverride, orderChanges, previousDol }) {
@@ -4223,7 +4187,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <tr>
             <td style={tdRx(mgPerKg > 0)}>3. Mg⁺⁺ &nbsp;{chk(mgPerKg > 0)} MgSO₄</td>
             <td style={tdr}>{mgPerKg > 0 ? <><strong>{mgPerKg}</strong> mEq<br/><span style={note}>= {f(mgPerKg*D.MG_MG_PER_MEQ,1)} mg/kg</span></> : "—"}</td>
-            <td style={tdr}>{mgPerKg > 0 ? <><strong>{f(mgPerKg*(calc.factor||0),2)}</strong> mEq = <strong>{f(calc.solVol?.mg,1)}</strong> mL ({mgStrength}%)</> : "—"}</td>
+            <td style={tdr}>{mgPerKg > 0 ? <><strong>{f(mgPerKg*(calc.factor||0),2)}</strong> mEq = <strong>{f(calc.solVol?.mg,1)}</strong> mL (10%)</> : "—"}</td>
             <td style={td}>Mg {rng(targets?.mg)} mEq/kg/day</td>
           </tr>
           <tr>
@@ -4371,7 +4335,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             {glycophosP > 0 && <tr><td style={td}>Disodium glycerophosphate</td><td style={tdr}>Na {f(glycophosP*S.glycophos.naMeqPerMl*(calc.factor||0),1)} mEq · P {f0(glycophosP*S.glycophos.pMgPerMl*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.glycophos,1)}</strong></td></tr>}
             {kCl > 0 && <tr><td style={td}>KCl</td><td style={tdr}>{f(kCl*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.kCl,1)}</strong></td></tr>}
             {k2hpo4 > 0 && <tr><td style={td}>K₂HPO₄</td><td style={tdr}>{f(k2hpo4*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.k2hpo4,1)}</strong></td></tr>}
-            {mgPerKg > 0 && <tr><td style={td}>MgSO₄ {mgStrength}%</td><td style={tdr}>{f(mgPerKg*(calc.factor||0),2)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.mg,1)}</strong></td></tr>}
+            {mgPerKg > 0 && <tr><td style={td}>MgSO₄ 10%</td><td style={tdr}>{f(mgPerKg*(calc.factor||0),2)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.mg,1)}</strong></td></tr>}
             {caPerKg > 0 && <tr><td style={td}>10% Ca Gluconate</td><td style={tdr}>{f0(caPerKg*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.ca,1)}</strong></td></tr>}
             {/* Soluvit and Peditrace are × Factor (Praew, 2026-09-18), so the
                 bag holds more than the order's 1 mL/kg; what reaches the infant

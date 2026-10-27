@@ -148,7 +148,7 @@ const BASE = {
   bw: 1000, cur: 1000, tpnWtOverride: 0, dol: 10, route: 'central', fluid: 150, otherIV: 0, drug: 0,
   ioOut: 0, drain: 0,
   tpn: 0, useRate: false, dead: 30, dex: 0, aa: 0, lip: 0, lipH: 24,
-  naCl: 0, naAc: 0, glyNa: 0, kCl: 0, k2: 0, mg: 0, mgVial: '10', ca: 0,
+  naCl: 0, naAc: 0, glyNa: 0, kCl: 0, k2: 0, mg: 0, ca: 0,
   soluvit: true, pedi: true, zn: 0, hep: 1,
   feed: 'BM_20', enVol: 0, enFreq: 0, men: false,
   weights: [],
@@ -161,7 +161,7 @@ const ORACLE = [
   { name: 'B growing preterm peripheral, rate entry, Zn', bw: 1100, cur: 1450, dol: 16,
     route: 'peripheral', fluid: 160, otherIV: 0, drug: 1.2, ioOut: 90, drain: 0,
     tpn: 80.4, useRate: 3.35, dead: 20, dex: 12.5, aa: 3.5, lip: 3, lipH: 20,
-    naCl: 3, glyNa: 2, kCl: 2, mg: 0.5, mgVial: '10', ca: 80, zn: 0.3, hep: 1,
+    naCl: 3, glyNa: 2, kCl: 2, mg: 0.5, ca: 80, zn: 0.3, hep: 1,
     feed: 'FBM_PF_22', enVol: 8, enFreq: 8,
     weights: [{ dol: 1, w: 1100 }, { dol: 14, w: 1400 }, { dol: 15, w: 1430 }] },
   { name: 'C full enteral HMF, no TPN (feeds-only day)', bw: 1300, cur: 1600, dol: 25, fluid: 150,
@@ -223,7 +223,7 @@ function randomOrder(i) {
     dead: pick([0, 10, 20, 30, 50, between(0, 40, 1)]),
     dex: pick([0, between(2.5, 15, 0.5)]), aa: pick([0, between(0.5, 4, 0.1)]), lip: pick([0, between(0.5, 4, 0.1)]), lipH: pick([16, 20, 24]),
     naCl: pick([0, between(0, 5, 0.5)]), naAc: pick([0, between(0, 3, 0.5)]), glyNa: pick([0, between(0, 4, 0.5)]),
-    kCl: pick([0, between(0, 2.5, 0.5)]), k2: pick([0, between(0, 1, 0.01)]), mg: pick([0, between(0, 0.8, 0.01)]), mgVial: '10',
+    kCl: pick([0, between(0, 2.5, 0.5)]), k2: pick([0, between(0, 1, 0.01)]), mg: pick([0, between(0, 0.8, 0.01)]), 
     ca: pick([0, between(0, 120, 5)]), soluvit: rnd() > 0.2, pedi: rnd() > 0.2, zn: pick([0, between(0, 1, 0.05)]),
     hep: pick([0, 0.5, 1]), feed: 'BM_20', enVol: pick([0, between(0, 20, 0.5)]), enFreq: 8,
     weights: [{ dol: 1, w: bw }],
@@ -345,9 +345,8 @@ const rMl = (x) => Math.round(+(x * 10).toPrecision(12)) / 10;
 function stocksAtZero(sc, dosingG, Vd, dead) {
   if (!(Vd > 0)) return [];
   const S = window.NEOFEED_DATA.KCMH_STOCK, Vp = Vd + dead, F = dosingG / 1000 * Vp / Vd;
-  const mg = sc.mgVial === '50' ? S.mgso4_50 : S.mgso4_10;
   return [['naCl', S.naCl.naMeqPerMl], ['naAc', S.naAcetate.naMeqPerMl], ['glyNa', S.glycophos.naMeqPerMl],
-    ['kCl', S.kCl.kMeqPerMl], ['k2', S.k2hpo4.kMeqPerMl], ['mg', mg.mgMeqPerMl], ['ca', S.caGluconate.caMgPerMl],
+    ['kCl', S.kCl.kMeqPerMl], ['k2', S.k2hpo4.kMeqPerMl], ['mg', S.mgso4_10.mgMeqPerMl], ['ca', S.caGluconate.caMgPerMl],
     ['zn', S.znso4.znMgPerMl]].filter(([k, perMl]) => sc[k] > 0 && rMl(sc[k] * F / perMl) === 0).map(([k]) => k)
     .concat(sc.hep > 0 && rMl(sc.hep * Vp / S.heparin.unitsPerMl) === 0 ? ['hep'] : []);
 }

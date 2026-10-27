@@ -500,9 +500,9 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
       rowOf(frontEl, 'K₂HPO₄')?.firstElementChild?.innerHTML);
     eq('3. MgSO₄: the name only', cells(frontEl, 'MgSO₄')?.[0], '3. Mg⁺⁺ ☑ MgSO₄');
     eq('4. Ca Gluconate: the name only', cells(frontEl, 'Ca Gluconate')?.[0], '4. Ca⁺⁺ ☑ Ca Gluconate');
-    // MgSO₄ comes as 10% and 50%, and the mL is the chosen vial's: with the
-    // strength off the label it goes beside the mL instead. 1.149 mL prints
-    // 1.1 since 2026-10-27 (one decimal; it printed 1.15).
+    // MgSO₄ is the 10% vial, the only one since 2026-10-27; with the strength
+    // off the label it goes beside the mL instead. 1.149 mL prints 1.1 since
+    // 2026-10-27 (one decimal; it printed 1.15).
     ok('…MgSO₄\'s in-bag mL names the vial it is for', /= 1\.1 mL \(10%\)/.test(cells(frontEl, 'MgSO₄')?.[2] || ''), cells(frontEl, 'MgSO₄'));
 
     // Every figure on its product's own line. Factor = 2 × 210/180.
