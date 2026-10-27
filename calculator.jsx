@@ -1779,10 +1779,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // amino acid goes to target on day 1 while dextrose and lipid climb over the
   // week. With AA 3.5 g/kg and lipid 3 g/kg the ratio only clears 20 at
   // GIR ≥ 8.8, so it is a caution (2026-09-23: as a critical alert it fired on
-  // fluid-restricted day-3 ELBW orders and was cleared by rote). Below 12 it is
-  // critical (TPN team, 2026-10-25). The > 32 critical (excess non-protein
-  // energy → fat deposition) is gone: ESPGHAN's 30–40 kcal/g is a minimum, so
-  // the old ceiling stopped orders the guideline asks for.
+  // fluid-restricted day-3 ELBW orders and was cleared by rote). Below 12 the
+  // line is red (TPN team, 2026-10-25: "เตือนสีแดง") but asks for no reason
+  // (Pp, 2026-10-27, after Vera: an early bag without lipid sits below 12, and
+  // a reason on every one is the rote override again) — `noReason` keeps it
+  // out of the Submit prompt and the Print gate. The > 32 critical (excess
+  // non-protein energy → fat deposition) is gone: ESPGHAN's 30–40 kcal/g is a
+  // minimum, so the old ceiling stopped orders the guideline asks for.
   const critLowNPE = ivNpeN !== null && ivNpeN < D.NPE_IV_CRIT_LO;
   const lowNPE  = ivNpeN !== null && !critLowNPE && ivNpeN < 20;
   // "· total incl. EN …" only when EN actually moves the figure.
@@ -1846,7 +1849,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
   // Titles are unchanged from the total-based alerts they replace: a saved
   // critOverride lists titles, and print checks the current ones against it.
-  if (critLowNPE) alerts.push({ level: "crit", title: "NPE:AA critically low", body: `NPE:AA IV ${vsLimit(ivNpeN, D.NPE_IV_CRIT_LO, 0)} kcal/g AA < ${D.NPE_IV_CRIT_LO} (TPN only) — พลังงานที่ไม่ใช่โปรตีนน้อยเกินไปเมื่อเทียบกับ amino acid ที่ให้${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `TPN team, 2026-10-25 · ${ivRef}` });else
+  if (critLowNPE) alerts.push({ level: "crit", noReason: true, title: "NPE:AA critically low", body: `NPE:AA IV ${vsLimit(ivNpeN, D.NPE_IV_CRIT_LO, 0)} kcal/g AA < ${D.NPE_IV_CRIT_LO} (TPN only) — พลังงานที่ไม่ใช่โปรตีนน้อยเกินไปเมื่อเทียบกับ amino acid ที่ให้ (สีแดง ไม่ต้องใส่เหตุผล)${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `TPN team, 2026-10-25 · ${ivRef}` });else
   if (lowNPE) alerts.push({ level: "warn", title: "NPE:AA off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 20, 0)} kcal/g AA < 20 — พลังงานที่ไม่ใช่โปรตีนยังน้อยเมื่อเทียบกับ amino acid ที่ให้ ปกติพบระหว่างค่อย ๆ เพิ่ม dextrose/lipid ในสัปดาห์แรก ตรวจว่าเป็นไปตามแผน${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: "NPC:N 150:1" });else
   if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${D.displayNum(calc.npeN, 0)} kcal/g protein — aim at least ${tNPE[0]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150:1" });
   // ── Every nutrient tile that is off target or critical is ALSO a line here ──
@@ -1964,7 +1967,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // on, a feeds-only order from before the stamp reprinted figures computed
   // from today's constants (Vera, PR #159 finding 4).
   const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
-  const uncoveredCritical = alerts.filter(a => a.level === "crit")
+  // A red line marked `noReason` (NPE:AA below 12) needs no reason to print.
+  const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
   const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !tpnWtOutOfRange
@@ -2123,7 +2127,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A critical value can still be ordered — the attending may have a
     // reason — but never silently: the reason is required, saved with the
     // order (calcInput.critOverride) and printed on the pharmacy form.
-    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit");
+    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
     let override = null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes

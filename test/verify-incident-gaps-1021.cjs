@@ -154,12 +154,10 @@ const noPrompt = () => { window.prompt = () => { throw new Error('a reason was a
 const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed: 'NICU 5', diagnosis: '-',
   weights: [{ dol: 1, w: bw }], admissionDate: '2026-10-16' });
 // A 1.5 kg infant, TPN 150 mL/d delivered, amino acid and MgSO₄ both ordered.
-// Lipid 1 g/kg keeps its IV NPE:AA near 14: without it, D10 and AA 3 give
-// about 11, critical (below 12) since 2026-10-27, and Submit would ask for a reason.
 function bagOrder() {
   setField('Current weight', 1500); fillRequired(150);
   setField('Volume(mL/day)', 150);
-  setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 1); setField('MgSO₄', 0.3);
+  setField('Dextrose final', 10); setField('Amino acid', 3); setField('MgSO₄', 0.3);
 }
 // Nothing in the bag and no volume: an NPO day.
 function npoOrder() {

@@ -1685,16 +1685,17 @@ The answers of 2026-10-25 to Pp's 2026-10-19 question sheet, with Pp's readings 
 osmolarity 900, GIR 12, dextrose 17.3), the 1,250 mL bottle, vitamin D 1,000 IU/day, heparin 1 U/mL, the
 ZnSO₄ stock and `CONSTANTS_VERSION`. § 2: fluid from DOL 6 is 140–160 on every preterm tier and VLBW
 DOL 5 160–180; Ca, P and Mg keep the first-days ranges to DOL 7. § 3: the NPC : Protein tile reads
-"≥ 24" and a ratio far above 32 is not off target. § 4: a bag above 1,250 mL cannot be submitted, says
-why, and may be kept as a draft; 1,250 itself is allowed. § 5: heparin above 1 U/mL is a caution. § 6: oral
-vitamin D above 1,000 IU/day is a caution, Munti-vim included. § 7: the Reference page and the trend bands
-read the new rows. 48 checks; against `main` (`2cf4277`), 34 fail, in every section.
+"≥ 24" and a ratio far above 32 is not off target. § 3b: IV NPE:AA below 12 is a red line, Submit asks
+no reason for it, and the order prints (Pp, after Vera). § 3c: protein above 4.5 on feeds alone (Hi-Q LBW
+24 at 176 mL/kg/d) is critical and asks for a reason, because the limit counts TPN + feeds (Pp, after
+Vera). § 4: a bag above 1,250 mL cannot be submitted, says why, and may be kept as a draft; 1,250 itself is
+allowed. § 5: heparin above 1 U/mL is a caution. § 6: oral vitamin D above 1,000 IU/day is a caution,
+Munti-vim included. § 7: the Reference page and the trend bands read the new rows. 58 checks; against
+`main` (`2cf4277`), 40 fail, in every section.
 
-Nineteen older harnesses pinned the limits that moved. Each now pins the new figure, and the cases built
-on an old limit were rebuilt on the new one: KCl 6 (or 5.5) where KCl 5 used to cross the IV K limit, GIR
-3.5 where 12.5 used to be the caution, the saved overrides that named "NPE:AA critically off target" now
-name "NPE:AA critically low", and `verify-incident-gaps-1021.cjs`'s standard bag carries lipid 1 g/kg so
-its IV NPE:AA stays above 12. `verify-calc-oracle.cjs` restates every new rule itself (not read from
+Eighteen older harnesses pinned the limits that moved. Each now pins the new figure, and the cases built
+on an old limit were rebuilt on the new one: KCl 6 (or 5.5) where KCl 5 used to cross the IV K limit, and
+GIR 3.5 where 12.5 used to be the caution. `verify-calc-oracle.cjs` restates every new rule itself (not read from
 `data.js`) and adds two orders: a VLBW day 3 with heparin 10, ZnSO₄ and GIR just above 12, and a bag
 above the bottle; its feed list covers the new 24 kcal/oz rows and Enfalac LF. `verify-calc-sum.cjs`
 counts the ZnSO₄ line in the bag. Both found one rounding point: a components sum of exactly 116.05 mL

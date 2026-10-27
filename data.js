@@ -827,12 +827,14 @@ const GIR_HARD_HI = 12;
 const KCAL_HARD_HI = 160;
 // Hard limits that had no source from the first commit until the TPN team set
 // them (2026-10-25, provenance audit of 2026-10-17 § 3.8). Each is critical
-// above (or, for NPE:AA, below) the figure, so it is ordered only with a reason.
+// above the figure, so it is ordered only with a reason; NPE:AA below 12 is a
+// red line that asks for none (Pp, 2026-10-27).
 //   protein, total TPN + EN, g/kg/d: 4.5 (was 4.8; ESPGHAN 2022's enteral ceiling)
 //   lipid, IV only, g/kg/d:          4.0 (was 4.5; ESPGHAN 2018, at most 4)
 //   K, IV only, mEq/kg/d:            5.0 at every weight (was 3.5; Jochum 2018
 //                                    Table 3 gives < 1500 g 2–5; Pp, 2026-10-27)
-//   NPE:AA, IV only, kcal/g AA:      critical below 12; the > 32 ceiling is gone
+//   NPE:AA, IV only, kcal/g AA:      red below 12, no reason asked; the > 32
+//                                    ceiling is gone
 //   osmolarity, peripheral, mOsm/L:  900, the KCMH form's figure; the 850
 //                                    caution had no source and is gone
 const PROTEIN_HARD_HI = 4.5;

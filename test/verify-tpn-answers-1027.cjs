@@ -8,6 +8,10 @@
 //   §2  fluid from DOL 6 is 140–160 on every preterm tier, VLBW DOL 5 160–180
 //       (Jochum Tables 1–3); Ca, P and Mg keep the first-days ranges to DOL 7;
 //   §3  the NPC : Protein tile has no upper end and reads "≥ 24";
+//   §3b IV NPE:AA below 12 is a red line, and Submit asks no reason for it
+//       (Pp, 2026-10-27, after Vera);
+//   §3c protein above 4.5 on feeds alone is critical: the limit counts
+//       TPN + feeds (Pp, 2026-10-27, after Vera);
 //   §4  a bag above the 1,250 mL bottle cannot be submitted, says why, and may
 //       still be kept as a draft; 1,250 itself is allowed;
 //   §5  heparin above 1 U/mL is a caution, 1 is not, and no bag means none;
@@ -164,6 +168,46 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     ok('the tile reads "Range ≥ 24"', /Range\s*≥ 24/.test(text(tile)), text(tile));
     ok('…never "Infinity" or "24–32"', !/Infinity|24–32/.test(text(tile)), text(tile));
     ok('a ratio far above 32 is not off target', !tile.classList.contains('s-warn') && !tile.classList.contains('s-crit'), tile.className);
+  });
+
+  // Pp, 2026-10-27, after Vera: red below 12, but no reason asked ("แดงแต่ไม่ต้องใส่เหตุผล").
+  await section('§3b NPE:AA below 12 is a red line that asks for no reason', async () => {
+    const box = logger();
+    mount({ patient: pt('NL-1000', 1000), onLog: box.onLog });
+    click(routeBtn('Central'));
+    setField('Current weight', 1000); fillRequired(150);
+    setField('Volume(mL/day)', 100); setField('Dextrose final', 10); setField('Amino acid', 3.5);
+    const a = alertNamed('NPE:AA critically low');
+    eq('dextrose alone with AA 3.5 (IV NPE:AA ≈ 10): a red line', a && a.level, 'crit');
+    ok('…that says no reason is needed', !!a && /ไม่ต้องใส่เหตุผล/.test(a.text), a && a.text);
+    let asked = false;
+    window.prompt = () => { asked = true; return null; };
+    await clickAsync(submitBtn());
+    eq('Submit asks for no reason', asked, false);
+    eq('…and the order is logged', box.calls, 1);
+    ok('…with no critical-value override', !box.entry?.calcInput?.critOverride, box.entry?.calcInput?.critOverride);
+    ok('the saved order prints', !!container.querySelector('#print-form'));
+    window.prompt = () => null;
+  });
+
+  // Vera, 2026-10-27: protein 4.5 counts TPN + feeds (Pp kept the total), so a
+  // feeds-only order can cross it. No other harness reaches one above 4.5.
+  await section('§3c protein above 4.5 on feeds alone is critical', async () => {
+    const box = logger();
+    mount({ patient: pt('PF-1000', 1000), onLog: box.onLog });
+    setField('Current weight', 1000); fillRequired(180);
+    const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'FBM_PF_24'));
+    const selSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+    act(() => { selSetter.call(sel, 'FBM_PF_24'); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    setField('Volume(mL/feed)', 22); setField('Frequency', 8);
+    const a = alertNamed('Protein critically out of range');
+    eq('Hi-Q LBW 24 at 176 mL/kg/d (protein ≈ 4.6): critical', a && a.level, 'crit');
+    ok('…naming the 4.5 limit', !!a && /above the 4\.5 g\/kg\/d hard limit/.test(a.text), a && a.text);
+    let asked = false;
+    window.prompt = () => { asked = true; return null; };
+    await clickAsync(submitBtn());
+    eq('Submit asks for a reason', asked, true);
+    eq('…and without one nothing is logged', box.calls, 0);
   });
 
   await section('§4 a bag above the 1,250 mL bottle cannot be ordered', async () => {

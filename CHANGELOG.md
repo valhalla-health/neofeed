@@ -7,6 +7,34 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-27 (2) — Vera's review: NPE:AA below 12 is red without a reason
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `data.js` (comments),
+`docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `test/verify-tpn-answers-1027.cjs` (§ 3b, § 3c),
+`test/README.md`. Corrects the entry below where it says NPE:AA below 12 is critical: it is red, and
+asks for no reason. `CONSTANTS_VERSION` stays `2026-10-27.1`: no printed figure moves.
+
+Vera ran on the change (NO BLOCK, four 🟠 and one 🟡; her report is in the PR). Pp decided the three
+clinical ones on 2026-10-27:
+
+- **NPE:AA below 12.** In NeoFeed a red line means a typed reason before Submit and Print, and an early
+  bag with amino acid 3 g/kg and no lipid sits below 12, as does the KCMH worksheet's own recipe (about
+  9): the rote override the 2026-09-23 change removed. Pp: "แดงแต่ไม่ต้องใส่เหตุผล". The alert keeps its
+  red level and is marked `noReason`, which keeps it out of the Submit prompt and the Print gate; its
+  text says no reason is needed.
+- **IV K 5.0 from DOL 1.** The band on DOL 1–3 is 0–3, and 5.0 comes from Jochum's stable phase. Pp:
+  "5.0 ทุกวัน". Unchanged.
+- **Protein 4.5 on TPN + feeds.** Feeds alone can cross it (Hi-Q LBW 24 at 175 mL/kg/d is 4.6). Pp
+  kept the total, ESPGHAN 2022's enteral ceiling. Unchanged; § 3c pins a feeds-only order above 4.5.
+
+Not code: the ZnSO₄ stock label is to be photographed before the release that prints its mL (Vera's
+🟡; `BACKLOG.md` § Now). The sources the commit messages did not name (her fourth 🟠) are in this
+entry's commit.
+
+Two harness edits of the first entry were taken back, since a red NPE:AA line no longer needs a reason:
+`verify-kcmh-factor.cjs` is `main`'s again, and `verify-review-0911.cjs` and
+`verify-incident-gaps-1021.cjs` keep their fixtures as on `main`.
+
 ## Session 2026-10-27 — the nutrition unit's and TPN team's answers of 2026-10-25
 
 `data.js`, `calculator.jsx`, `log.jsx`, `app.jsx`, `compiled/`, both shells' `?v=` tokens,

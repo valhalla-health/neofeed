@@ -38,6 +38,10 @@ clinical judgement. Everything else is engineering sequencing.
       - **Center Point must sync `center-point/tpn-document.mjs` before this release.** It gained two
         feed labels (Enfalac Premature and Pre Nan at 24 kcal/oz) and its digest was re-pinned. Until CP's
         copy has them, a CP order with either feed fails CP's packet check. A CP-repo PR.
+      - **Photograph the ZnSO₄ stock label before this release** (Vera, 2026-10-27). The printed ZnSO₄ mL
+        and the WFI now rest on pharmacy's written "1 mg/mL" of elemental Zn; a label reading 1 mg/mL of
+        zinc sulfate salt would make the printed mL about 4.4× too small. **Pp's to do**, with the notice
+        to pharmacy that this release prints ZnSO₄ mL.
       - **NPE:AA below 16 for more than 7 days on the Alerts page** (TPN team). Needs each saved row's IV
         NPE:AA, which no row stores; see the "persistent low NPE:AA" item below.
       - **Oral PO₄ stored in mg, not mmol** (nutrition unit, answering the September letter's item 2). The
@@ -470,8 +474,8 @@ clinical judgement. Everything else is engineering sequencing.
       nutrition question rather than an order-time interruption, and is the one case the downgrade
       gives up the ability to see. Wanted: a trend signal on the Alerts page computed from the saved
       rows — not a second order-time alert, and not a return of the stop. **The TPN team set it on
-      2026-10-25: below 16 kcal/g AA for more than 7 days.** (The order-time stop came back lower:
-      critical below 12, IV, since 2026-10-27.) No saved row holds IV NPE:AA today, so the rows need it
+      2026-10-25: below 16 kcal/g AA for more than 7 days.** (At order time, below 12 on the IV portion
+      is a red line since 2026-10-27 that asks for no reason.) No saved row holds IV NPE:AA today, so the rows need it
       first, or the Alerts page needs the calculation as a pure function (lessons: the calc is one
       `useMemo` inside `<Calculator>`). `D.girStatus` is the shape to copy: grade it once, in
       `data.js`, so the order screen and the Alerts page cannot drift apart again the way GIR did.

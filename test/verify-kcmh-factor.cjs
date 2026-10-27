@@ -101,9 +101,8 @@ act(() => {
     // harness then types through the real fields. Typing them back leaves the
     // form un-dirty, and the form below is the one pharmacy would print.
     // The worksheet recipe has no lipid, so its NPE:AA (≈ 9 kcal/g) is a
-    // critical value (below 12 since 2026-10-27, "NPE:AA critically low");
-    // since 2026-09-17 (UP-C6) a saved row prints only when its override names
-    // every critical alert, so the shell row carries one.
+    // critical value; since 2026-09-17 (UP-C6) a saved row prints only when its
+    // override names every critical alert, so the shell row carries one.
     // Since 2026-09-18 a saved row also carries the calculation version it was
     // computed with; an unstamped overfilled row with vitamins is held from
     // printing until it is saved again. This shell row stands for one saved
@@ -113,7 +112,7 @@ act(() => {
         curWtG: IN.wtKg * 1000, totalTPN_mL: IN.delivered, deadVol_mL: IN.dead, dexPct: IN.dexPct,
         aaPerKg: IN.aaPerKg, naCl: IN.naCl, naAcet: IN.naAcet, glycophosP: IN.glyco, kCl: IN.kCl,
         k2hpo4: IN.k2hpo4, mgPerKg: IN.mg, caPerKg: IN.ca, heparinUmL: IN.hepUmL,
-        critOverride: { reason: 'worksheet fixture', alerts: ['NPE:AA critically low'], at: '2026-08-06T01:00:00.000Z' } } },
+        critOverride: { reason: 'worksheet fixture', alerts: ['NPE:AA critically off target'], at: '2026-08-06T01:00:00.000Z' } } },
     baselineEntry: null, logDate: null,
     onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
   }));
