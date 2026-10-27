@@ -7,6 +7,46 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
+
+`.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),
+`AGENTS.md`, `test/README.md`. No calculation, limit, unit or printed figure changed, and
+`CONSTANTS_VERSION` stays `2026-10-27.1`. Numbered (5) because open PR #171 takes (4).
+
+### Why
+
+Pp ticked NF-04 in her apply list of 2026-10-27: one file she owns that lists every limit and unit
+convention the calculator enforces, each with its source, loaded by agents before they touch
+calculation code. Each rule carries synthetic orders just inside and just outside its limit, and the
+test suite reads them from that file, so Pp adds a test by adding a line to the skill.
+
+### What the skill holds
+
+55 rules, each with a stable ID (`CR-…`) that NF-12 and NF-28 will cite: 5 stops (Submit refused),
+13 critical (Submit asks for a reason), 1 red line that asks for none, 6 cautions, 3 caps that change
+the dose, 11 target bands, 13 units and conventions, 3 rounding rules. Each gives the value as coded,
+`where` anchors (file, line and a fragment of the code that enforces it), the source, and its cases.
+Eight questions for Pp close the file; they change nothing until she answers.
+
+### What writing it found (nothing changed)
+
+- A Ca:P that is exactly 1.7 on paper (Ca 52.7 with P 31 mg/kg/d) computes as 1.7000000000000002 and
+  grades High beside a printed "1.7:1" and a range "1–1.7". K⁺ in the bag and the typed-weight check
+  strip that float noise; Ca:P does not (Q7).
+- A bag whose stocks exceed its prepared volume is a critical alert, so a reason sends a negative WFI
+  to pharmacy; the 1,250 mL bottle, by contrast, is a stop (Q3).
+- The Soluvit 10 mL and Peditrace 15 mL caps need more than 10 and 15 kg, so no infant inside the
+  8,000 g weight limit reaches them.
+- Vitalipid's 4 mL/kg and 10 mL cap are literals in `calculator.jsx` with no source in the repo (Q5).
+- The total NPE:AA caution prints "24 kcal/g protein — aim at least 24" for 23.9: that line rounds with
+  `displayNum` rather than `vsLimit`, so a value just under 24 prints as 24.
+
+### Tests
+
+`test/verify-clinical-rules.cjs`: 596 checks, every one read from the skill; `NEGATIVE_CONTROL=1`
+(`GIR_HARD_HI` 12 → 13) fails 7 and `=2` (peripheral osmolarity graded `>` instead of `>=`) fails 4.
+It passes against the shipped `compiled/` too.
+
 ## Session 2026-10-27 (3) — Vera's second review: a printed 900 mOsm/L is over; alert text past a limit
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `data.js` (comments),

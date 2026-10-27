@@ -1703,6 +1703,19 @@ above the bottle; its feed list covers the new 24 kcal/oz rows and Enfalac LF. `
 counts the ZnSO₄ line in the bag. Both found one rounding point: a components sum of exactly 116.05 mL
 printed 116.0 under `toFixed`; the app now sums in whole hundredths and rounds half up.
 
+## The clinical-rules skill, 2026-10-27 — one harness (NF-04)
+
+**`verify-clinical-rules.cjs`** (jsdom; it also runs against `compiled/`) takes every expectation from
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, Pp's list of the 55 rules the calculator enforces.
+Each rule's ```` ```rule ```` block is JSON lines: the rule (its `coded` values in `data.js` and the
+`where` anchors its code must contain), then synthetic cases, each a `data.js` call or an order typed
+into the mounted `<Calculator>` with the alert, Submit state, screen text or printed text it must
+produce. A limit needs a case inside and one outside it. So Pp adds a test by adding a line to the
+skill, and an agent that moves a limit without its rule turns this red. `--show CR-ID` prints what each
+case of a rule produced; `--fix-lines` rewrites the `where` line numbers once code has moved (a moved
+line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
+osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 596 checks when written.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named
