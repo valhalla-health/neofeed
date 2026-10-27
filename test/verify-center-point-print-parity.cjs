@@ -192,6 +192,14 @@ async function compareOrder(label, extra) {
     overfilled.figures.filter(f => /ปริมาตรคาสาย/.test(f.where)));
   ok('…and a Factor that differs from the weight', Math.abs(overfilled.payload.calc.factor - overfilled.payload.wtKg) > 0.001,
     { factor: overfilled.payload.calc.factor, wtKg: overfilled.payload.wtKg });
+  // A float tie (Vera, 2026-10-27): K₂HPO₄ 0.7 mEq/kg × 1.5 kg is 1.0499999999999998
+  // in JS. CP's toFixed read it as 1.0 beside a mL of 1.1; both sheets now print
+  // 1.1 mEq = 1.1 mL.
+  const tie = await compareOrder('a float tie: K₂HPO₄ 0.7 mEq/kg at 1.5 kg, no dead space',
+    [['ปริมาตรคาสาย', 0], ['Current weight', 1500], ['KCl', 4.4], ['K₂HPO₄', 0.7]]);   // K 5.1: the reason path, as ORDER
+  const { buildTpn } = await import(pathToFileURL(DIR + 'center-point/tpn-snapshot.mjs').href);
+  const tv = buildTpn(tie.payload, window.NEOFEED_DATA, '2026-09-15T01:00:00.000Z', '2026-09-16T01:00:00.000Z').values;
+  ok('…CP prints K₂HPO₄ 1.1 mEq = 1.1 mL', tv.k2Bag === '1.1' && tv.k2Ml === '1.1', { k2Bag: tv.k2Bag, k2Ml: tv.k2Ml });
 
   act(() => { root.unmount(); });
   console.log(`\n${fail === 0 ? 'PRINT PARITY: ALL PASS' : `PRINT PARITY: ${fail} FAILED`} (${pass} passed)`);

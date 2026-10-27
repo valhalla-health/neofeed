@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-10-27.1";
+const CONSTANTS_VERSION = "2026-10-27.2";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -789,15 +789,18 @@ const MEN_MAX_ML_KG = 24;
 // Every figure on a screen, the pharmacy form or a copied order goes through
 // here: at most `maxDecimals`, and never a trailing zero — "18.0" can be read
 // as 180 (Praew, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; the ISMP rule). Display
-// only: saved rows keep full precision. Rounds half away from zero, as
-// toFixed does. Takes numbers or numeric strings (GAS returns both);
-// null, "", NaN and ±Infinity print "—".
+// only: saved rows keep full precision. Rounds half away from zero (Pp,
+// 2026-10-27: "1.25 > 1.3"), after clearing the float tail at 6 decimals of
+// the scaled value: 1.5 × 0.7 is 1.0499999999999998 in JS and printed "1"
+// beside a K₂HPO₄ mL of 1.1 (Vera, 2026-10-27). Takes numbers or numeric
+// strings (GAS returns both); null, "", NaN and ±Infinity print "—".
 function displayNum(value, maxDecimals = 2) {
   if (value === null || value === undefined || value === "") return "—";
   const x = Number(value);
   if (!isFinite(x)) return "—";
   const p = Math.pow(10, maxDecimals);
-  const r = Math.sign(x) * Math.round(Math.abs(x) * p) / p;
+  const scaled = Math.round(Math.abs(x) * p * 1e6) / 1e6;
+  const r = Math.sign(x) * Math.round(scaled) / p;
   return String(r === 0 ? 0 : r);   // never "-0"
 }
 

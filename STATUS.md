@@ -194,6 +194,12 @@
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
+- ⏳ **PR #171, every stock mL to one decimal and a stop at 0 mL: open.** Frontend only, no `clasp`
+  step. **`CONSTANTS_VERSION` `2026-10-27.2`**; released with #170, one re-save covers both. Before its
+  release, pharmacy hears that K₂HPO₄, MgSO₄, ZnSO₄ and heparin print to 0.1 mL (MgSO₄ 0.53 → 0.5), and
+  doctors that an additive under 0.05 mL now blocks Submit ("Stock rounds to 0 mL"). Vera: NO BLOCK
+  twice; her finding on doses that round up to 0.1 mL waits for Pp (`BACKLOG.md`). `CHANGELOG.md`
+  2026-10-27 (4).
 - ⏳ **PR #170, the nutrition unit's and TPN team's answers of 2026-10-25: merged into `main` on Pp's
   instruction ("merge PR #170 เข้า main ได้เลย ยังไม่ต้อง release"); not live until a `main → release`
   PR.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION` is `2026-10-27.1`**, so every saved order

@@ -1003,7 +1003,8 @@ run is `FUZZ_N=500`. The three harnesses together are why the job's timeout went
 
 **`verify-calc-sum.cjs`** (2026-10-11, NF-17) — does the printed bag add up, and does a click move the
 figure on screen? 60 orders: the oracle's 12, eight of its own (a 900 g infant on day 3 of TPN, a term
-infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ at 0.01 mL, hundredths carried
+infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ under 0.05 mL (0 mL, so not
+orderable since 2026-10-27), hundredths carried
 across the sum, a prepared volume typed with a second decimal, and components that fill such a bag
 exactly) and 40 random from seed 20261011
 (`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
@@ -1702,6 +1703,21 @@ GIR 3.5 where 12.5 used to be the caution. `verify-calc-oracle.cjs` restates eve
 above the bottle; its feed list covers the new 24 kcal/oz rows and Enfalac LF. `verify-calc-sum.cjs`
 counts the ZnSO₄ line in the bag. Both found one rounding point: a components sum of exactly 116.05 mL
 printed 116.0 under `toFixed`; the app now sums in whole hundredths and rounds half up.
+
+## Stock mL to one decimal, 2026-10-27 — one harness
+
+Pp: pharmacy measures to 0.1 mL, "1.25 > 1.3 ml" (`CHANGELOG.md` 2026-10-27 (4)).
+**`verify-stock-ml-1027.cjs`** (jsdom; it also runs against `compiled/`). § 1: `roundMl` rounds half up
+at one decimal, including the x.x5 values `toFixed(1)` rounded down (0.35, 1.45, 2.55, 87.25). § 2: a
+700 g order with no dead space (Factor 0.7) prints KCl 0.35 mL as 0.4, and K₂HPO₄, MgSO₄, ZnSO₄ and
+heparin at one decimal on both sheets. § 3: ZnSO₄ 0.05 mg/kg (0.035 mL) is a red line, Submit is
+disabled, the save panel says why and a draft may be kept; 0.1 mg/kg (0.1 mL) is orderable. § 4: no
+stock mL in `calculator.jsx` goes through `toFixed`. § 2b (Vera): K₂HPO₄ 1.5 mEq/kg at Factor 0.7 reads
+"1.1 mEq = 1.1 mL", not "1 mEq = 1.1 mL". 43 checks; on `83aefe4` (`main` with #170), 17 fail, in every section.
+
+Six harnesses pinned two-decimal figures and now pin one decimal. `verify-calc-oracle.cjs` restates the
+rule as its own `rMl` (`toPrecision(12)`, not the app's method); `verify-calc-sum.cjs` works out from the
+stock strengths which stocks reach 0 mL and expects Submit disabled for those orders.
 
 ## Note on the source workbook
 

@@ -57,7 +57,7 @@ clinical judgement. Everything else is engineering sequencing.
         Premature powder is for Pp to ask; `BM_HMF_24` is unchanged (Enfamil HMF, Chula p. 10).
       - **Unanswered or deferred** on the sheet: term rows for PN targets (§ 2.5 item 7), growth-velocity
         bands by GA (#158 item 2), the length/HC cm/wk colours (#158 item 3), HMF start at 40 mL/kg/d, the
-        trend colours' × 0.7 / × 1.3 rule, the stock rounding to 0.01 mL (pharmacy will confirm), the Na
+        trend colours' × 0.7 / × 1.3 rule, the Na
         acetate label, the Ca–P precipitation curve (next meeting), ward acceptance (next meeting), PN
         weaning, week-1 P and K checks, Se/Cu/Mn, feeds-only TPN forms, how often dead space is 0, and the
         group C design order. The Na band from DOL 8 stays 2–5: Jochum gives preterm 3–5 and term 2–3, so
@@ -160,6 +160,11 @@ clinical judgement. Everything else is engineering sequencing.
           `KCMH_STOCK.naAcetate.acetateMeqPerMl` is `null`.
           - [ ] 🩺 **Praew: photograph the Na acetate vial label; set `acetateMeqPerMl` from it (3 if the 6 is
             mOsm/mL) and add its row to `docs/CLINICAL_CONSTANTS.md`.**
+            2026-10-27: the photo is in Pp's private notes. The vial reads "24.6% Sodium Acetate (1 mL
+            มี Na⁺ 3 mEq, Acetate 6 mEq) (Osmolarity 12 mOsm/mL) 50 mL". So 6 is printed as acetate, and
+            the osmolarity is 12, not 6. 24.6 % sodium acetate is 3 mmol/mL (1 : 1, about 6 mOsm/mL), so
+            the label's acetate and osmolarity are both double the chemistry. Ask pharmacy before setting
+            either; `acetateMeqPerMl` stays `null`.
         - **21 · Ca–P precipitation.** Whose curve (manufacturer or pharmacy) for K₂HPO₄ with Aminoven
           Infant 10 %, at which AA and Ca concentrations and temperature, and where it warns or stops.
           Glycophos is an organic phosphate, outside such a curve. The team: not yet, wait for the next
@@ -298,6 +303,16 @@ clinical judgement. Everything else is engineering sequencing.
       0.34 mEq (−32 %), KCl/Na acetate +20 %. Praew (2026-09-17): the Na dose itself may still be
       wrong — confirm with pharmacy before changing either. `verify-review-0917-calc.cjs` § 6 pins
       today's printed figures so nothing drifts meanwhile.
+      ✅ **2026-10-27 — the rounding is settled** (the question sheet's item 4): pharmacy measures to
+      0.1 mL, so every stock mL prints one decimal, half up (Pp: "1.25 > 1.3 ml"), K₂HPO₄, MgSO₄,
+      ZnSO₄ and heparin included, and an ordered stock that rounds to 0 mL cannot be ordered
+      (CHANGELOG 2026-10-27 (4)). The ±30 % error of a 0.1 mL line in a 500 g infant stays: it is
+      what the syringe measures.
+      - [ ] 🩺 **Pp: a dose under 0.1 mL that rounds up to 0.1 prints with nothing red** (Vera,
+        2026-10-27, finding 2), up to twice the ordered amount. Worst with an order that still carries
+        the legacy 50% MgSO₄: 600 g, 60 mL, no dead space, Mg 0.4 mEq/kg needs 0.059 mL and prints
+        0.1, so 0.68 mEq/kg reaches the infant. Her options: refuse a 50% order at Submit (KCMH stocks
+        10% only), or a caution when the printed mL is off the ordered amount by more than a set share.
       ✅ **2026-09-28 — Na acetate confirmed** (B · 20 above): Praew checked with the TPN team, and 1 mL
       carries Na 3 mEq, the value NeoFeed already uses. ✅ **2026-09-28 — KCl confirmed**: Praew, "KCl 2 mEq/mL
       ถูกต้อง", the value NeoFeed already uses. **Still open: the small-volume rounding above.**
