@@ -1528,26 +1528,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     const dexGPerKg = dexG / wtKg;                                             // vs 18 g/kg/d
     const kMeqPerL  = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1000) : 0;  // vs 40 mEq/L
 
-    const osm = D.estimateOsmolarity({
+    const osmIn = {   // returned too: Step 3's osmolarity working shows these inputs (NF-12)
       dexPct,
       aaPct:      aaG > 0 && totalTPN_mL > 0 ? aaG / totalTPN_mL * 100 : 0,
       naMeqPerL:  totalTPN_mL > 0 ? naKg    * wtKg / (totalTPN_mL / 1000) : 0,
       kMeqPerL,
       caMgPerL:   totalTPN_mL > 0 ? caPerKg * wtKg / (totalTPN_mL / 1000) : 0, // elemental Ca mg/L
       mgMeqPerL:  totalTPN_mL > 0 ? mgPerKg * wtKg / (totalTPN_mL / 1000) : 0, // Mg mEq/L
-    });
+    }, osm = D.estimateOsmolarity(osmIn);
 
     return {
       wtKg, totalTPN_mL, lipidVol, lipidBagVol, vitalipidVol,
-      enVolTotal, enVolPerKg, enKcal, enCounted, en, useEnteralTargets, enFeedKg, aaStockKey,
+      enVolTotal, enVolPerKg, enKcal, enCounted, en, useEnteralTargets, enFeedKg, aaStockKey, enProteinG,
       prescribedFluid, totalFluidPerKg, remaining,
-      gir, dexG, aaG, lipidG,
+      gir, dexG, aaG, lipidG, dexKcal, aaKcal, lipidKcal,
       naKg, kKg, caKg: caPerKg + caFromEN, pKg: pKg_tpn + pFromEN, caP,
       caFromEN, pFromEN,
       naTotalDelivered: naKg + naFromEN, kTotalDelivered: kKg + kFromEN,
       proteinKg, lipidKgTotal, kcalKg, totalKcal, tpnKcal,
       kcalProtPct, kcalFatPct, kcalChoPct,
-      npeN, peRatio, osm,
+      npeN, peRatio, osm, osmIn,
       pTotal_mg, p_glycophos, p_k2hpo4, na_glycophos, isMEN,
       d50wVol, soluvitVol, peditrace_vol, solVol,
       componentVol, wfiVol, dexGPerKg, kMeqPerL,
@@ -2661,6 +2661,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     <span key={lab} style={{ whiteSpace: "nowrap" }}>{lab} <span className="num" style={{ fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" }}>{fmt(v, d)}</span></span>
                   ))}
                 </div>
+                {calc.enVolTotal > 0 && <MilkAssumption enType={enType} />}
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -3031,6 +3032,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               นม MEN (trophic) <span className="num">{fmt(calc.enVolPerKg, 0)}</span> mL/kg/d ไม่นับในค่ารวม — Energy, Protein, Lipid ด้านบน และ Na K Ca P ใน Step 4
             </div>
           )}
+          {calc.wtKg > 0 && <ShowWorking calc={calc} route={route} wtG={wtG} dol={dol} dexPct={dexPct} aaPerKg={aaPerKg}
+            enType={enType} tGir={tGir} tKcal={tKcal} tPro={tPro} useEN={useEN} />}
 
         </div></StepBody>
       </div>
@@ -3964,6 +3967,178 @@ function KcalLegend({ color, label, pct, target }) {
       <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{target}</div>
     </div>);
 
+}
+
+// ── Where the numbers come from (NF-12) ─────────────────────────
+// NOURISH (Belfort, Inder; JAMA Pediatrics) found a unit's standard
+// fortification enough for very preterm infants and did not support routine
+// milk analysis, so NeoFeed keeps an assumed breast milk, has no measured-milk
+// input, and says what it assumes (Pp's apply list, 2026-10-27). Each result
+// line in Step 3 can also show its working, collapsed until pressed.
+// Every figure is read from window.NEOFEED_DATA when it renders: the EN_DB
+// rows, the HMF dose and the limits the clinical-rules skill cites by CR- ID,
+// never a copy (test/verify-show-working-1028.cjs §3). The formulas are text:
+// that harness checks their terms add up to the tile beside them. Screen only;
+// the print form and the copied order read none of it.
+const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true };   // feed → carries HMF
+
+// One figure in the working, keyed for the harness.
+function WorkVal({ k, v, d = 2 }) {
+  return <span className="num" data-v={k}>{fmt(v, d)}</span>;
+}
+
+function MilkAssumption({ enType }) {
+  if (!(enType in BM_ASSUMED_FEEDS)) return null;
+  const bm = D.EN_DB.BM_20, bmh = D.EN_DB.BM_HMF_24;
+  const hmfG = D.EN_HMF_PROTEIN_G_PER_DOSE;
+  const hmfKcal = D.EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal * hmfG;
+  const quiet = { color: "var(--ink-3)" };
+  return (
+    <div className="en-milk-assumption" data-rule="CR-U-BREASTMILK" style={{ marginTop: 8, paddingTop: 6,
+      borderTop: "1px dashed var(--line-2)", fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5 }}>
+      <div>
+        นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein <WorkVal k="bm.pro" v={bm.pro} /> g · <WorkVal k="bm.kcal" v={bm.kcal} d={1} /> kcal
+        <span style={quiet}> · {bm.source}</span>
+      </div>
+      {BM_ASSUMED_FEEDS[enType] && (
+        <div>
+          HMF ที่เติมต่อ 100 mL: protein +<WorkVal k="hmf.pro" v={hmfG} /> g · +<WorkVal k="hmf.kcal" v={hmfKcal} d={1} /> kcal
+          รวมเป็น <WorkVal k="bmhmf.pro" v={bmh.pro} /> g · <WorkVal k="bmhmf.kcal" v={bmh.kcal} d={1} /> kcal
+          <span style={quiet}> · {bmh.source.replace(/^BM_20 \+ /, "")}</span>
+        </div>
+      )}
+      {enType === "FBM_INF_MIX" && <div style={quiet}>{D.EN_DB.FBM_INF_MIX.note}</div>}
+      <div style={{ fontWeight: 600 }}>นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมของแม่คนนี้</div>
+    </div>
+  );
+}
+
+const WORKING_LINES = [["gir", "GIR"], ["osm", "Osmolarity"], ["kcal", "Energy"], ["protein", "Protein"]];
+
+function ShowWorking(props) {
+  const [open, setOpen] = useState(() => new Set());
+  const flip = (id) => setOpen((s) => { const next = new Set(s); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  return (
+    <div className="calc-working" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 11, color: "var(--ink-3)" }}>ที่มาของตัวเลข</span>
+        {WORKING_LINES.map(([id, label]) => (
+          <button key={id} type="button" className={`btn sm working-toggle${open.has(id) ? " on" : ""}`} data-working={id}
+            aria-expanded={open.has(id)} onClick={() => flip(id)}>
+            {label} <span aria-hidden="true">{open.has(id) ? "▲" : "▼"}</span>
+          </button>
+        ))}
+      </div>
+      {WORKING_LINES.filter(([id]) => open.has(id)).map(([id]) => <WorkingPanel key={id} id={id} {...props} />)}
+    </div>
+  );
+}
+
+function WorkRow({ label, children }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "84px minmax(0, 1fr)", gap: 8 }}>
+      <span style={{ color: "var(--ink-3)" }}>{label}</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir, tKcal, tPro, useEN }) {
+  const en = calc.en;
+  const isBm = enType in BM_ASSUMED_FEEDS;
+  const noBag = !(calc.totalTPN_mL > 0);
+  const feedSource = en.unsourced ? "No source" : `Source: ${en.source}`;
+  const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
+  const feedRow = (per100, unit, total, k) => calc.isMEN
+    ? <>นม MEN (trophic) ไม่นับ: <WorkVal k="enMl" v={calc.enCounted} d={1} /> mL, <WorkVal k={k} v={total} /> {unit}</>
+    : <><WorkVal k="enMl" v={calc.enCounted} d={1} /> mL × <WorkVal k="enPer100" v={per100} d={per100 >= 10 ? 1 : 2} /> {unit}/100 mL ÷ 100
+        = <WorkVal k={k} v={total} /> {unit} · {en.label} · {feedSource}{isBm ? " (CR-U-BREASTMILK)" : ""}</>;
+  const box = { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 11.5,
+    color: "var(--ink-2)", display: "flex", flexDirection: "column", gap: 4, lineHeight: 1.45 };
+  const title = { fontWeight: 600, color: "var(--ink)" };
+
+  if (id === "gir") return (
+    <div className="working-panel" data-working="gir" style={box}>
+      <div style={title}>GIR = <WorkVal k="result" v={calc.gir} d={1} /> mg/kg/min</div>
+      <WorkRow label="สูตร">GIR (mg/kg/min) = dextrose (g/day) × 1,000 ÷ (1,440 × kg)</WorkRow>
+      <WorkRow label="ค่าที่ใช้">
+        dextrose = <WorkVal k="tpnMl" v={calc.totalTPN_mL} /> mL ที่ให้จริง × <WorkVal k="dexPct" v={dexPct} /> % ÷ 100
+        = <WorkVal k="dexG" v={calc.dexG} /> g/day · {kgRow}
+      </WorkRow>
+      <WorkRow label="แปลงหน่วย">g → mg × 1,000 · ต่อวัน → ต่อนาที ÷ 1,440 · ไม่นับ dead space เพราะไม่ถึงตัวเด็ก (CR-U-FACTOR)</WorkRow>
+      <WorkRow label="เกณฑ์">
+        ปกติ <WorkVal k="lim.lo" v={tGir[0]} />–<WorkVal k="lim.hi" v={tGir[1]} /> นอกช่วงเป็นสีเหลือง ·
+        เกิน <WorkVal k="lim.hard" v={D.GIR_HARD_HI} /> เป็น critical · CR-GIR-MAX · CR-U-GIR
+        {noBag && <> · ไม่มีถุง TPN วันนี้ เลยไม่ตรวจ GIR</>}
+      </WorkRow>
+    </div>
+  );
+
+  if (id === "osm") {
+    const o = calc.osmIn || {};
+    const caMeq = (o.caMgPerL || 0) / 20;
+    const peripheral = route !== "central";
+    return (
+      <div className="working-panel" data-working="osm" style={box}>
+        <div style={title}>Osmolarity = <WorkVal k="result" v={calc.osm} d={0} /> mOsm/L</div>
+        <WorkRow label="สูตร">mOsm/L = 50 × dextrose % + 100 × AA % + 2 × Na + 2 × K + 1.4 × Ca + 1 × Mg (Na K Ca Mg เป็น mEq/L)</WorkRow>
+        <WorkRow label="ค่าที่ใช้">
+          dextrose <WorkVal k="dexPct" v={o.dexPct} /> % → <WorkVal k="t.dex" v={50 * o.dexPct} d={1} /> ·
+          AA <WorkVal k="aaPct" v={o.aaPct} /> % → <WorkVal k="t.aa" v={100 * o.aaPct} d={1} /> ·
+          Na <WorkVal k="na" v={o.naMeqPerL} d={1} /> mEq/L → <WorkVal k="t.na" v={2 * o.naMeqPerL} d={1} /> ·
+          K <WorkVal k="k" v={o.kMeqPerL} d={1} /> mEq/L → <WorkVal k="t.k" v={2 * o.kMeqPerL} d={1} /> ·
+          Ca <WorkVal k="caMg" v={o.caMgPerL} d={0} /> mg/L = <WorkVal k="caMeq" v={caMeq} d={1} /> mEq/L → <WorkVal k="t.ca" v={1.4 * caMeq} d={1} /> ·
+          Mg <WorkVal k="mg" v={o.mgMeqPerL} /> mEq/L → <WorkVal k="t.mg" v={o.mgMeqPerL} d={1} />
+        </WorkRow>
+        <WorkRow label="แปลงหน่วย">
+          AA % = AA g ÷ mL ที่ให้จริง × 100 · Na Ca Mg ต่อลิตร = ต่อ kg × kg ÷ ลิตรที่ให้จริง (mL ÷ 1,000) ·
+          K = K ในถุง ÷ ลิตรของถุงที่เตรียม ได้ค่าเท่ากัน · Ca mg ÷ 20 = mEq
+        </WorkRow>
+        <WorkRow label="เกณฑ์">
+          {peripheral
+            ? <>{route === "peripheral" ? "peripheral" : "ยังไม่เลือก route เลยตรวจแบบ peripheral"}: ตั้งแต่ <WorkVal k="lim.hard" v={D.OSM_PERIPHERAL_MAX} d={0} /> mOsm/L
+                ขึ้นไปเป็น critical ตัดสินจากเลขจำนวนเต็มที่พิมพ์</>
+            : <>central: ไม่มีเพดาน</>}
+          {" "}· CR-OSM-PERIPH · CR-U-OSM{noBag && <> · ไม่มีถุง TPN วันนี้</>}
+        </WorkRow>
+      </div>
+    );
+  }
+
+  if (id === "kcal") return (
+    <div className="working-panel" data-working="kcal" style={box}>
+      <div style={title}>Energy = <WorkVal k="result" v={calc.kcalKg} d={0} /> kcal/kg/d</div>
+      <WorkRow label="สูตร">kcal/kg/d = (3.4 × dextrose g + 4 × AA g + 9 × lipid g + kcal จากนม) ÷ kg</WorkRow>
+      <WorkRow label="ค่าที่ใช้">
+        dextrose <WorkVal k="dexG" v={calc.dexG} /> g → <WorkVal k="dexKcal" v={calc.dexKcal} d={1} /> kcal ·
+        AA <WorkVal k="aaG" v={calc.aaG} /> g → <WorkVal k="aaKcal" v={calc.aaKcal} d={1} /> kcal ·
+        20% lipid <WorkVal k="lipidG" v={calc.lipidG} /> g → <WorkVal k="lipidKcal" v={calc.lipidKcal} d={1} /> kcal
+      </WorkRow>
+      <WorkRow label="นม">{feedRow(en.kcal, "kcal", calc.enKcal, "enKcal")}</WorkRow>
+      <WorkRow label="แปลงหน่วย">นมคิดต่อ 100 mL เลย ÷ 100 · {kgRow} · CR-U-ENERGY</WorkRow>
+      <WorkRow label="เกณฑ์">
+        <WorkVal k="lim.lo" v={tKcal[0]} />–<WorkVal k="lim.hi" v={tKcal[1]} /> kcal/kg/d, {band} ·
+        เกิน <WorkVal k="lim.hard" v={D.KCAL_HARD_HI} d={0} /> เป็น critical · CR-TGT-KCAL · CR-KCAL-MAX
+      </WorkRow>
+    </div>
+  );
+
+  return (
+    <div className="working-panel" data-working="protein" style={box}>
+      <div style={title}>Protein = <WorkVal k="result" v={calc.proteinKg} d={1} /> g/kg/d</div>
+      <WorkRow label="สูตร">g/kg/d = (AA g + protein จากนม g) ÷ kg</WorkRow>
+      <WorkRow label="ค่าที่ใช้">
+        AA <WorkVal k="aaPerKg" v={aaPerKg} /> g/kg/d × <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000 = <WorkVal k="aaG" v={calc.aaG} /> g
+      </WorkRow>
+      <WorkRow label="นม">{feedRow(en.pro, "g", calc.enProteinG, "enProG")}</WorkRow>
+      <WorkRow label="แปลงหน่วย">นมคิดต่อ 100 mL เลย ÷ 100 · {kgRow}</WorkRow>
+      <WorkRow label="เกณฑ์">
+        <WorkVal k="lim.lo" v={tPro[0]} />–<WorkVal k="lim.hi" v={tPro[1]} /> g/kg/d, {band} ·
+        เกิน <WorkVal k="lim.hard" v={D.PROTEIN_HARD_HI} /> เป็น critical นับ TPN กับนมรวมกัน · CR-TGT-PROTEIN · CR-PROTEIN-MAX
+      </WorkRow>
+    </div>
+  );
 }
 
 // ── KCMH Pediatric PN Order Form (print only) ───────────────────

@@ -1738,6 +1738,23 @@ case of a rule produced; `--fix-lines` rewrites the `where` line numbers once co
 line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks when written.
 
+## What the numbers rest on, 2026-10-28 — one harness (NF-12)
+
+**`verify-show-working-1028.cjs`** (jsdom; it also runs against `compiled/`). § 1: Step 3 has four closed
+"ที่มาของตัวเลข" buttons and no panel text in the page until one is pressed; opening every panel changes
+no tile, readout or alert. § 2: with breast milk, BM + HMF, FBM ↔ Infatrini or a MEN feed of breast milk,
+Step 2 names protein and kcal per 100 mL from `EN_DB.BM_20` with its source, HMF's addition from
+`EN_HMF_PROTEIN_G_PER_DOSE` and the Chula p. 10 column, and that real milk varies; a formula or no feed
+shows none of it. § 3: change a value in `window.NEOFEED_DATA` (BM protein, the HMF dose, each panel's
+limit) and the screen follows, so there is no copy in the JSX. § 4: each panel's formula, inputs, unit
+conversion and limit; its result equals the tile, its inputs recompute to it, and three inputs are checked
+by hand arithmetic (Na 30 mEq/L, AA 3 %, dextrose 10 g). § 5: every `CR-` ID a panel names is a heading
+in the clinical-rules skill. § 6: the print form and the copied order are identical with every panel open
+and carry none of the new text. § 7: no trailing zero or float tail in the new text. `NEGATIVE_CONTROL=1`
+(dextrose at 3.5 kcal/g in the memo, the panel still saying 3.4) and `=2` (BM protein typed into the JSX)
+must fail: 3 and 1 failures. 96 checks; on
+`326bcd9` 54 fail and 25 pass.
+
 
 ## Note on the source workbook
 

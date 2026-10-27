@@ -2590,8 +2590,9 @@ function searchPatients(patients, query) {
 // Export
 // ============================================================
 window.NEOFEED_DATA = {
-  // Enteral formula database
-  EN_DB,
+  // Enteral formula database, and the HMF dose and Chula p. 10 column BM + HMF
+  // is computed from (the Calculator names them in Step 2, NF-12)
+  EN_DB, EN_HMF_PROTEIN_G_PER_DOSE, EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN,
   // KCMH supplement formulary
   SUPP_DB,
   // Product reference

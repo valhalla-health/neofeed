@@ -194,6 +194,11 @@
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
+- ⏳ **NF-12, the breast milk the Calculator assumes and each result's working: open, waiting for Pp's
+  merge.** Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged; nothing printed or copied moves.
+  Step 2 names the breast milk assumed per 100 mL and what HMF adds, with their sources; Step 3 gets four
+  closed "ที่มาของตัวเลข" buttons (GIR, Osmolarity, Energy, Protein). Whether the print should carry the
+  assumption line is Pp's question. `CHANGELOG.md` 2026-10-28.
 - ⏳ **PR #173, Pp's clinical-rules skill (NF-04): merged into `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
   one harness and docs, and neither host serves `.claude/` or `test/`. `CONSTANTS_VERSION` unchanged.

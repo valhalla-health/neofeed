@@ -7,6 +7,62 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 — NF-12: the Calculator names the breast milk it assumes, and shows its working
+
+`calculator.jsx`, `data.js` (two exports), `compiled/calculator.js` and both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md` (`CR-U-BREASTMILK`, `CR-U-OSM`, one moved line),
+`test/verify-show-working-1028.cjs` (new), `test/README.md`. No computed, printed or copied figure moved,
+and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-12 in her apply list of 2026-10-27. NOURISH (Belfort, Inder; JAMA Pediatrics; the Incubator
+journal club of 2026-09-29) found a unit's standard fortification enough for very preterm infants and did
+not support routine point-of-care milk analysis. So NeoFeed keeps its assumed breast milk and gets no
+measured-milk input; what it lacked was saying what it assumes. The same item asks each result line to show
+where its number comes from, so a doctor can check it in seconds instead of working it out again.
+
+### What the ward sees
+
+- **Step 2**, under "Delivered per kg from EN", once a breast-milk feed has a volume (breast milk, BM + HMF,
+  FBM ↔ Infatrini, a MEN feed included): the breast milk assumed per 100 mL, protein 1.2 g and 67 kcal, with
+  `EN_DB.BM_20`'s source; for a feed with HMF, what Enfamil HMF adds (protein +1.1 g, +14.3 kcal; 2.3 g and
+  81.3 kcal in all) with `EN_DB.BM_HMF_24`'s source; and a line that real milk varies between mothers and
+  this value was not measured. A formula feed, or no feed, shows nothing new.
+- **Step 3**, under the tiles: "ที่มาของตัวเลข" and four buttons, GIR, Osmolarity, Energy and Protein, all
+  closed. Each opens a panel with the formula, the inputs this order used, the unit conversion, the result
+  (the tile's own figure) and the limit it was checked against, with the `CR-` IDs of the skill's rules.
+  Nothing of a panel is in the page until its button is pressed, so the other harnesses see the screen as
+  before.
+
+### Where the values come from
+
+Every value and limit is read from `window.NEOFEED_DATA` when it renders: the `EN_DB` rows,
+`EN_HMF_PROTEIN_G_PER_DOSE` and `EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN` (exported for this; values
+unchanged), `GIR_HARD_HI`, `KCAL_HARD_HI`, `PROTEIN_HARD_HI`, `OSM_PERIPHERAL_MAX` and the bands the tiles
+grade against. The osmolarity panel shows the very object the estimate is computed from (`calc.osmIn`), and
+the energy and protein panels read the memo's own `dexKcal`, `aaKcal`, `lipidKcal` and `enProteinG`. Both
+memo edits are line-neutral (the osmolarity inputs got a name; the return lists five more values), so only
+`CR-U-SALTS`'s line number moved. The formulas themselves are text: 3.4/4/9 kcal/g and the osmolarity
+factors are literals in the code, so the harness checks that each panel's terms add up to its tile.
+
+### Checked
+
+`verify-show-working-1028.cjs`, 96 checks; on `326bcd9` 54 fail and 25 pass (a section stops at its first
+missing element). `NEGATIVE_CONTROL=1` (dextrose at 3.5 kcal/g in the memo) and `=2` (BM protein typed
+into the JSX) fail 3 and 1. `verify-clinical-rules.cjs` runs the new
+`CR-U-BREASTMILK` cases, 617 checks. A one-off script (not committed) mounted `main`'s Calculator beside this
+one on eight synthetic orders: the same screen HTML once the two new elements are taken out, the same print
+form HTML and the same copied order.
+
+### Open
+
+- Whether the printed order should carry the assumption line: not done, Pp's question.
+- Which HMF the ward means by BM + HMF (`BACKLOG.md` § Now, HMF): the line names Enfamil HMF because
+  `BM_HMF_24` is computed from it; if the answer is Enfalac Premature powder, the row and the line change
+  together.
+- No second clinician has reviewed the wording.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),
