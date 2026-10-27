@@ -12,7 +12,8 @@ reference tabs against these values.
 
 The clinical numbers are Pp's. An agent documents and tests what the code does; where the code and its
 source disagree, or no source exists, the rule names a question under [Questions for Pp](#questions-for-pp)
-and the code stays as it is until she answers.
+and the code stays as it is until she answers. How sources are cited, and their PMIDs:
+[Sources](#sources).
 
 ## Before you change calculation code
 
@@ -113,8 +114,10 @@ No route yet counts as peripheral. The concentration is `bag K mEq ÷ prepared L
 so it equals K mEq/kg/d × kg × 1,000 ÷ TPN mL. Graded with float noise stripped (`toPrecision(12)`), so a
 bag that is 60 on paper is not refused as 60.00000000000001 (1 kg, 50 mL, KCl 3 is that case).
 Source: KCMH TPN team meeting 2026-09-28 and Pp ("max 200 ทั้งสองสาย", then peripheral 60 on
-2026-10-08). Peripheral 60 is IWK Health NICU's figure; ANMF 2020 gives peripheral ≤ 40. **Central 200
-is above every neonatal or paediatric source found** (ANMF central ≤ 80, IWK NICU central 120): Q1.
+2026-10-08). Fanaroff ch Therapeutic Agents p. 8 (KCl): "typical maximum concentrations are 40 mEq/L for
+peripheral and 120 mEq/L for central"; ANMF 2020 gives peripheral ≤ 40, central ≤ 80; IWK Health NICU
+peripheral 60, central 120. All are for KCl or maintenance fluid, none for a PN bag. **Central 200 is
+above every source found**: Q1.
 
 ```rule
 {"rule": "CR-K-BAG-MAX", "kind": "stop", "coded": {"K_BAG_MEQ_PER_L.peripheral.hardMax": 60, "K_BAG_MEQ_PER_L.central.hardMax": 200}, "where": [{"file": "data.js", "line": 755, "has": "peripheral: { warn: 40, red: 60,  hardMax: 60 },"}, {"file": "data.js", "line": 756, "has": "central:    { warn: 60, red: 120, hardMax: 200 },"}, {"file": "calculator.jsx", "line": 1530, "has": "const kMeqPerL  = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1000) : 0;"}, {"file": "calculator.jsx", "line": 1736, "has": "const kGrade = (v) => isFinite(v) ? Number(v.toPrecision(12)) : v;"}, {"file": "calculator.jsx", "line": 1818, "has": "const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;"}]}
@@ -144,9 +147,11 @@ Critical above 12 mg/kg/min, amber outside 4–12, graded only when the bag has 
 12 prints with enough decimals to read differently from the limit (12.01, not 12). The ward Alerts page
 grades a saved GIR with the same `girStatus`. The dextrose ceiling (`CR-DEX-MAX`) is the same limit in
 g/kg/d.
-Source: ESPGHAN/ESPEN/ESPR/CSPEN 2018, Mesotten et al. (carbohydrates) R 5.4: at most 12 mg/kg/min;
-preterm start 4–8, target 8–10 (`TARGETS.girPreterm`). The TPN team chose this source on 2026-10-25;
-until 2026-10-27 GIR turned red above 13.
+Source: ESPGHAN 2018, Mesotten R 5.4: at most 12 mg/kg/min (17.3 g/kg/d); preterm day 1 4–8, then
+target 8–10, minimum 4; term day 1 2.5–5, minimum 2.5. Avery ch 60 p. 4: "a reasonable maximum glucose
+infusion rate of 12 mg/kg/min"; Fanaroff ch 90 p. 22: 4–8 on day 1, 8–10 over 2–3 days. The TPN team chose
+this source on 2026-10-25; until 2026-10-27 GIR turned red above 13. The amber floor of 4 applies to term
+infants too, where R 5.4 sets 2.5: Q9.
 
 ```rule
 {"rule": "CR-GIR-MAX", "kind": "critical", "coded": {"GIR_HARD_HI": 12}, "where": [{"file": "data.js", "line": 826, "has": "const GIR_HARD_HI = 12;"}, {"file": "data.js", "line": 604, "has": "gir: () => [4, 12],"}, {"file": "calculator.jsx", "line": 1851, "has": "if (calc.totalTPN_mL > 0 && sGir === \"crit\") alerts.push"}]}
@@ -163,8 +168,8 @@ until 2026-10-27 GIR turned red above 13.
 Critical above 17.3 g/kg/d of dextrose delivered. 17.3 g/kg/d is GIR 12.01, so an order between 17.28
 and 17.3 g/kg/d is already GIR-critical without this alert. The title still says "KCMH max", which a
 saved reason names.
-Source: Mesotten R 5.4 (12 mg/kg/min = 17.3 g/kg/d); TPN team, 2026-10-25. Until 2026-10-27 it was the
-KCMH sheet's 18 (cell F9).
+Source: Mesotten R 5.4 (12 mg/kg/min = 17.3 g/kg/d); Thai CPG Table 4.1 (PDF p. 50) repeats it. TPN team,
+2026-10-25. Until 2026-10-27 it was the KCMH sheet's 18 (cell F9).
 
 ```rule
 {"rule": "CR-DEX-MAX", "kind": "critical", "coded": {"MAX_DEXTROSE_G_KG": 17.3}, "where": [{"file": "data.js", "line": 728, "has": "const MAX_DEXTROSE_G_KG = 17.3;"}, {"file": "calculator.jsx", "line": 1920, "has": "if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push"}]}
@@ -177,8 +182,11 @@ KCMH sheet's 18 (cell F9).
 On a peripheral line, or with no route yet, critical at 900 mOsm/L and above, graded on the whole
 number that prints: an estimate of 899.6 prints 900 and is critical, 899.4 prints 899 and is not.
 Central: no upper limit. The estimate is `CR-U-OSM`.
-Source: the KCMH TPN form, "Peripheral (<900 mOsm/L)"; Pp, 2026-10-27: 900 itself is over. The 850
-caution and the central 1,800 warning had no source and are gone (2026-10-27, 2026-09-28).
+Source: ESPGHAN 2018, Hartman R 14.22: peripheral PN osmolarity "should be kept less than 900"; the KCMH
+TPN form, "Peripheral (<900 mOsm/L)"; Pp, 2026-10-27: 900 itself is over. Thai CPG PDF p. 77 says "not
+exceeding" 900, which would allow 900. No guideline sets a central limit (Kolaček, venous access). Avery
+and Fanaroff give no mOsm figure, only dextrose above 12.5 % on a central line (Avery ch 60 p. 8, Fanaroff
+ch 42 p. 10). The 850 caution and the central 1,800 warning had no source and are gone.
 
 ```rule
 {"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900}, "where": [{"file": "data.js", "line": 848, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 1753, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 1915, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
@@ -194,8 +202,10 @@ Below the maximum (`CR-K-BAG-MAX`): amber above 40 mEq/L peripheral and 60 centr
 central. On a peripheral line red equals the maximum, so there is no confirm-with-a-reason tier there.
 Same concentration and float-noise grading as the maximum.
 Source: TPN team 2026-09-28 and Pp ("K ทาง central เริ่มสีเหลืองที่ 60", "ลดเป็น 120 ให้ขึ้นแดง"). Central
-red 120 is IWK Health NICU's figure. ESPGHAN 2018 sets no K⁺ concentration limit (Hartman R 14.13 asks
-only for the supplier's stability data).
+red 120 matches Fanaroff ch Therapeutic Agents p. 8 and IWK; peripheral amber 40 matches Fanaroff's and
+ANMF's peripheral maximum, so a peripheral bag of 40–60 is orderable where those call 40 the most (Q1).
+Central amber 60 has no source. ESPGHAN 2018 sets no K⁺ concentration limit (Hartman R 14.13 asks only for
+the supplier's stability data).
 
 ```rule
 {"rule": "CR-K-BAG-RED", "kind": "critical", "coded": {"K_BAG_MEQ_PER_L.peripheral.warn": 40, "K_BAG_MEQ_PER_L.peripheral.red": 60, "K_BAG_MEQ_PER_L.central.warn": 60, "K_BAG_MEQ_PER_L.central.red": 120}, "where": [{"file": "calculator.jsx", "line": 1926, "has": "else if (kMeqPerLGraded > kLim.red) alerts.push"}, {"file": "calculator.jsx", "line": 1927, "has": "else if (kMeqPerLGraded > kLim.warn) alerts.push"}]}
@@ -211,8 +221,10 @@ only for the supplier's stability data).
 
 Critical above 4.5 g/kg/d of protein, TPN amino acid and counted feed together, so feeds alone can
 cross it. The tile's amber band is `CR-TGT-PROTEIN`.
-Source: TPN team, 2026-10-25 (it was 4.8, unsourced, from the first commit); matches ESPGHAN 2022's
-enteral ceiling of 4.5 g/kg/d. Pp chose the TPN + feed total on 2026-10-27, after Vera.
+Source: TPN team, 2026-10-25 (it was 4.8, unsourced, from the first commit); ESPGHAN 2022, Embleton R1
+(p. 252): up to 4.5 g/kg/d where growth is slow; Fanaroff ch 42 p. 2: VLBW total 3.5–4.5, "with a maximum
+of 3.5 g/kg parenterally". Pp chose the TPN + feed total on 2026-10-27, after Vera. ESPGHAN 2018 R 3.3
+keeps PN amino acid above 3.5 to trials, so a PN-only 3.5–4.5 shows amber only: Q10.
 
 ```rule
 {"rule": "CR-PROTEIN-MAX", "kind": "critical", "coded": {"PROTEIN_HARD_HI": 4.5}, "where": [{"file": "data.js", "line": 844, "has": "const PROTEIN_HARD_HI = 4.5;"}, {"file": "calculator.jsx", "line": 1697, "has": "const PRO_HARD = { hardHi: D.PROTEIN_HARD_HI };"}]}
@@ -225,9 +237,10 @@ enteral ceiling of 4.5 g/kg/d. Pp chose the TPN + feed total on 2026-10-27, afte
 
 Critical above 4.0 g/kg/d of IV lipid (the syringe only; feed fat is not counted). The tile shows the
 total against `CR-TGT-LIPID`.
-Source: TPN team, 2026-10-25 (it was 4.5, unsourced); ESPGHAN 2018, Lapillonne et al. (lipids): at most
-4 g/kg/d in preterm and term infants. The IV-only basis is Pp's, 2026-09-17 (UP-C4): on full feeds the
-total sat inside the enteral band and fired on every infant.
+Source: TPN team, 2026-10-25 (it was 4.5, unsourced); ESPGHAN 2018, Lapillonne R 4.3: at most 4 g/kg/d
+in preterm and term infants; Thai CPG Table 3.2 (PDF p. 42–43) the same; Fanaroff ch 42 p. 10: not above
+3–4 g/kg/d. The IV-only basis is Pp's, 2026-09-17 (UP-C4): on full feeds the total sat inside the enteral
+band and fired on every infant.
 
 ```rule
 {"rule": "CR-LIPID-IV-MAX", "kind": "critical", "coded": {"LIPID_IV_HARD_HI": 4}, "where": [{"file": "data.js", "line": 845, "has": "const LIPID_IV_HARD_HI = 4.0;"}, {"file": "calculator.jsx", "line": 1778, "has": "const hardLip = D.rangeStatus(ivLipidKg, tLip, { hardHi: D.LIPID_IV_HARD_HI }) === \"crit\";"}]}
@@ -239,10 +252,10 @@ total sat inside the enteral band and fired on every infant.
 
 g/kg/h = IV lipid g/kg/d ÷ hours infused (16, 20 or 24), rounded to 2 decimals as the pump card shows it,
 then graded: amber above 0.13, critical above 0.17.
-Source: TPN team 2026-09-28, Pp: "lipid เพดาน 0.13-0.17 g/kg/h". The range is ESPGHAN/ESPEN 2005's infant
-maximum of 3–4 g/kg/d spread over 24 h (Koletzko et al., J Pediatr Gastroenterol Nutr 2005;41 Suppl 2,
-Lipids, p. S20; PMID 16254497).
-ESPGHAN 2018 gives no hourly limit and advises lipid over 24 h in newborns (Lapillonne R 4.10).
+Source: TPN team 2026-09-28, Pp: "lipid เพดาน 0.13-0.17 g/kg/h". Koletzko 2005 (p. S20): infants at most
+3–4 g/kg/d "(0.13–0.17 g/kg per hour)". ESPGHAN 2018 gives no hourly limit and advises lipid over 24 h in
+newborns (Lapillonne R 4.10). Thai CPG Table 3.2: 0.17 for preterm, term and infants, 0.13 only over
+1 year; so the amber at 0.13 fires from about 3.1 g/kg/d over 24 h, a dose R 4.3 allows: Q11.
 
 ```rule
 {"rule": "CR-LIPID-RATE", "kind": "critical", "coded": {"LIPID_GKGH": {"warn": 0.13, "max": 0.17}}, "where": [{"file": "data.js", "line": 762, "has": "const LIPID_GKGH = { warn: 0.13, max: 0.17 };"}, {"file": "calculator.jsx", "line": 1758, "has": "const lipidGkgh = lipidPerKg > 0 && lipidDripHours > 0 ? Math.round(lipidPerKg / lipidDripHours * 100) / 100 : 0;"}]}
@@ -256,8 +269,10 @@ ESPGHAN 2018 gives no hourly limit and advises lipid over 24 h in newborns (Lapi
 
 Critical above 5.0 mEq/kg/d of K⁺ in the bag (KCl + K₂HPO₄), at every weight and day. Feed K⁺ is not
 counted; the tile shows the total against `CR-TGT-K`.
-Source: TPN team, 2026-10-25 (it was 3.5, unsourced); 5 is Jochum 2018 Table 3's upper bound for preterm
-< 1,500 g in stable growth, applied to every weight by Pp (2026-10-27).
+Source: TPN team, 2026-10-25 (it was 3.5, unsourced); 5 is Jochum Table 3's upper bound for preterm
+< 1,500 g in stable growth, applied to every weight by Pp (2026-10-27). No source states a per-kg maximum
+(Jochum Tables 1–3; Avery ch 20 p. 12; Fanaroff ch 42 p. 13). Jochum tops out at 3 for term and ≥ 1,500 g
+infants, so 3–5 shows amber only there: Q12.
 
 ```rule
 {"rule": "CR-K-IV-MAX", "kind": "critical", "coded": {"K_IV_HARD_HI": 5}, "where": [{"file": "data.js", "line": 846, "has": "const K_IV_HARD_HI = 5.0;"}, {"file": "calculator.jsx", "line": 1779, "has": "const hardK   = D.rangeStatus(ivKKg, tK, { hardHi: D.K_IV_HARD_HI }) === \"crit\";"}]}
@@ -269,8 +284,9 @@ Source: TPN team, 2026-10-25 (it was 3.5, unsourced); 5 is Jochum 2018 Table 3's
 
 Critical above 160 kcal/kg/d, TPN and counted feed together; amber outside the phase band
 (`CR-TGT-KCAL`).
-Source: ESPGHAN 2022 (enteral preterm): 140–160 kcal/kg/d only for suboptimal growth once protein and
-other nutrients suffice, never above 160; cited from the CUPA 2023 lecture, slide 17.
+Source: ESPGHAN 2022, Embleton R2 (p. 251): above 140 only once protein and other nutrients suffice, and
+not above 160 (the code cites the CUPA 2023 lecture, slide 17). That is an enteral ceiling; no source gives
+one for PN, whose bands stop at 120 (`CR-TGT-KCAL`): Q13.
 
 ```rule
 {"rule": "CR-KCAL-MAX", "kind": "critical", "coded": {"KCAL_HARD_HI": 160}, "where": [{"file": "data.js", "line": 830, "has": "const KCAL_HARD_HI = 160;"}, {"file": "calculator.jsx", "line": 1704, "has": "const kcalStatusAt = (v) => D.rangeStatus(v, tKcal, { hardHi: D.KCAL_HARD_HI });"}]}
@@ -282,8 +298,9 @@ other nutrients suffice, never above 160; cited from the CUPA 2023 lecture, slid
 
 Critical above 5 mg/day of elemental zinc reaching the infant: Peditrace at the mL delivered (1 mL/kg,
 capped at 15 mL, × 0.25 mg/mL) plus ZnSO₄ (mg/kg/d × kg).
-Source: KCMH TPN team, 2026-09-22: "กำหนด Maximum Zinc 5 mg/day". Not yet checked against a published
-source: Q2.
+Source: KCMH TPN team, 2026-09-22: "กำหนด Maximum Zinc 5 mg/day". ESPGHAN 2018, Domellöf R 7.8: preterm
+400–500 µg/kg/d, "up to a maximum of 5 mg/d for routine supplementation"; Thai CPG PDF p. 68 the same.
+Peditrace SmPC §2: 250 µg Zn/mL.
 
 ```rule
 {"rule": "CR-ZN-MAX", "kind": "critical", "coded": {"MAX_ZN_MG_DAY": 5, "KCMH_STOCK.peditrace.znMgPerMl": 0.25, "KCMH_STOCK.znso4.znMgPerMl": 1}, "where": [{"file": "data.js", "line": 765, "has": "const MAX_ZN_MG_DAY = 5;"}, {"file": "calculator.jsx", "line": 1468, "has": "const znTotal_mg = znPeditrace_mg + znSO4_mg;"}, {"file": "calculator.jsx", "line": 1933, "has": "if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push"}]}
@@ -307,7 +324,8 @@ Source: Pp, 2026-10-08: "ต่างเกิน 20%". Not a clinical threshold
 
 Calcium ordered with zero phosphate from every source (bag, feed, and oral supplement when one is
 ordered) is critical: the ratio is Infinity.
-Source: ESPGHAN 2018, Mihatsch et al. (Ca, P, Mg); the code's alert cites metabolic bone disease.
+Source: Avery ch 83 p. 14 and Fanaroff ch 91 p. 21: calcium without enough phosphate gives hypercalcaemia
+with hypophosphataemia; ESPGHAN 2022 C4 (Embleton p. 255). No source sets the severity tier.
 
 ```rule
 {"rule": "CR-CAP-NO-P", "kind": "critical", "where": [{"file": "calculator.jsx", "line": 1904, "has": "if (caPStatus === \"crit\") alerts.push"}, {"file": "data.js", "line": 808, "has": "if (!isFinite(value)) return value > 0 ? \"crit\" : \"empty\";"}]}
@@ -319,7 +337,7 @@ Source: ESPGHAN 2018, Mihatsch et al. (Ca, P, Mg); the code's alert cites metabo
 
 When the stock volumes add up to more than the prepared volume, the WFI is negative and the order is
 critical. As coded it is a critical alert, so a reason lets it through and the form prints a negative
-WFI: Q3.
+WFI: Q2.
 Source: the KCMH worksheet's WFI q.s. (I53 = prepared − Σ components). Not a clinical threshold.
 
 ```rule
@@ -335,9 +353,12 @@ Source: the KCMH worksheet's WFI q.s. (I53 = prepared − Σ components). Not a 
 Two figures. The IV figure, (TPN kcal − 4 × AA g) ÷ AA g: red below 12 with no reason asked, amber
 below 20 (normal while dextrose and lipid ramp up in week 1). The total figure (TPN + feed): amber below
 24, no upper end. No amino acid in the bag, no IV figure.
-Source: 24 kcal/g AA is the classic NPC:N 150:1 ÷ 6.25 g AA per g N (clinical review 2026-08-11). Red
-below 12: TPN team, 2026-10-25; no reason: Pp, 2026-10-27, after Vera. The old > 32 ceiling is gone
-because ESPGHAN 2018's 30–40 kcal/g is a minimum. 20 and 12 are local numbers: Q4.
+Source: 24 kcal/g AA is the classic NPC:N 150:1 ÷ 6.25 g AA per g N (clinical review 2026-08-11), which
+neither textbook, no ESPGHAN 2018 chapter, Moltu 2021 nor the Thai CPG states. They give "a minimum of
+30–40 Kcal per 1 g amino acids" (van Goudoever, text; Avery ch 60 p. 2; Thai CPG PDF p. 28–29) and
+"> 25 kcal/g" parenterally (Moltu p. 279). Red below 12: TPN team, 2026-10-25, the bottom of the Thai
+CPG's 12–16 for critical illness; no reason: Pp, 2026-10-27, after Vera. The caution at 20 has no source.
+The old > 32 ceiling is gone because 30–40 is a minimum. Q3.
 
 ```rule
 {"rule": "CR-NPE-AA", "kind": "red", "coded": {"NPE_IV_CRIT_LO": 12}, "where": [{"file": "data.js", "line": 847, "has": "const NPE_IV_CRIT_LO = 12;"}, {"file": "data.js", "line": 667, "has": "npePerGAA: () => [24, Infinity],"}, {"file": "calculator.jsx", "line": 1777, "has": "const ivNpeN    = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;"}, {"file": "calculator.jsx", "line": 1792, "has": "const critLowNPE = ivNpeN !== null && ivNpeN < D.NPE_IV_CRIT_LO;"}, {"file": "calculator.jsx", "line": 1793, "has": "const lowNPE  = ivNpeN !== null && !critLowNPE && ivNpeN < 20;"}]}
@@ -355,7 +376,8 @@ because ESPGHAN 2018's 30–40 kcal/g is a minimum. 20 and 12 are local numbers:
 
 Amber above 1 U/mL of the aqueous bag (usual 0.5–1, KCMH default 1), so a tenfold 10 U/mL is seen. No
 bag, no caution.
-Source: KCMH TPN team, 2026-10-25.
+Source: KCMH TPN team, 2026-10-25. ESPGHAN 2018, Kolaček: 0.5–1.0 U/mL is unlikely to destabilise the
+lipid emulsion; Fanaroff ch Therapeutic Agents p. 8: 0.5–1 unit/mL for central-line patency.
 
 ```rule
 {"rule": "CR-HEPARIN", "kind": "caution", "coded": {"HEPARIN_USUAL_MAX_U_ML": 1, "KCMH_STOCK.heparin.unitsPerMl": 100}, "where": [{"file": "data.js", "line": 739, "has": "const HEPARIN_USUAL_MAX_U_ML = 1;"}, {"file": "calculator.jsx", "line": 1937, "has": "if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push"}]}
@@ -366,8 +388,9 @@ Source: KCMH TPN team, 2026-10-25.
 ### CR-VITD · oral vitamin D per day
 
 Amber above 1,000 IU/day: Step 6's IU/kg/d × weight, plus Munti-vim's 400 IU when ticked.
-Source: KCMH nutrition unit, 2026-10-25: "ตั้ง upper border ไว้ที่ 1,000 IU/day"; per-kg dosing 400–700
-IU/kg/d is ESPGHAN 2022.
+Source: KCMH nutrition unit, 2026-10-25: "ตั้ง upper border ไว้ที่ 1,000 IU/day". ESPGHAN 2022, Embleton
+R1 (p. 257): 400–700 IU/kg/d "with a maximum dose of 1000 IU/d"; Fanaroff ch 91 p. 12: 1,000 IU/day is the
+safe upper limit under 6 months.
 
 ```rule
 {"rule": "CR-VITD", "kind": "caution", "coded": {"VIT_D_MAX_IU_DAY": 1000}, "where": [{"file": "data.js", "line": 736, "has": "const VIT_D_MAX_IU_DAY = 1000;"}, {"file": "calculator.jsx", "line": 1941, "has": "if (vitDIuDay > D.VIT_D_MAX_IU_DAY) alerts.push"}]}
@@ -380,6 +403,8 @@ IU/kg/d is ESPGHAN 2022.
 A feed ticked MEN counts toward nothing (`CR-U-MEN`), and orders prefill from yesterday, so MEN ticked on
 a feed above 24 mL/kg/d is amber: the feed was probably advanced and the tick left on.
 Source: the app's own Feeding Advancement card, "MEF (trophic) 12–24 mL/kg/day"; Pp, 2026-09-18.
+ESPGHAN 2022 (Embleton p. 257): minimal enteral feeding "typically 12–24 mL/kg/d"; Fanaroff ch 42 p. 7:
+≤ 25 mL/kg/d.
 
 ```rule
 {"rule": "CR-MEN-MAX", "kind": "caution", "coded": {"MEN_MAX_ML_KG": 24}, "where": [{"file": "data.js", "line": 786, "has": "const MEN_MAX_ML_KG = 24;"}, {"file": "calculator.jsx", "line": 1912, "has": "if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push"}]}
@@ -430,8 +455,9 @@ Source: none needed; the 20 mL/kg/d margin is the code's own.
 1 mL/kg/d to the infant, at most 10 mL/day, then × the overfill so the infant receives it; rounded to
 1 decimal. With no TPN volume, 0. The 10 mL cap needs more than 10 kg, above the 8 kg weight limit, so
 no orderable infant reaches it.
-Source: the KCMH worksheet, row 43 (1 mL/kg, max 10). The overfill is Pp's, 2026-09-18 (the sheet uses
-actual weight).
+Source: the KCMH worksheet, row 43 (1 mL/kg, max 10); Soluvit N datasheet (Medsafe, 2021) §4.2: under
+10 kg 1 mL/kg, from 10 kg one 10 mL vial; Thai CPG PDF p. 116. The overfill is Pp's, 2026-09-18 (the sheet
+uses actual weight).
 
 ```rule
 {"rule": "CR-SOLUVIT-CAP", "kind": "cap", "coded": {"KCMH_STOCK.soluvit.mlPerKg": 1, "KCMH_STOCK.soluvit.maxMl": 10}, "where": [{"file": "data.js", "line": 715, "has": "mlPerKg: 1.0, maxMl: 10 },"}, {"file": "calculator.jsx", "line": 1453, "has": "Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ) * overfill"}]}
@@ -444,7 +470,8 @@ actual weight).
 
 1 mL/kg/d, at most 15 mL/day, × the overfill, 1 decimal; 0 with no TPN volume. Its zinc counts toward
 `CR-ZN-MAX` at the mL delivered. The 15 mL cap is out of reach of an orderable weight, as for Soluvit.
-Source: the KCMH worksheet, row 45 (1 mL/kg, max 15); Zn 250 µg/mL, pharmacy, 2026-10-25.
+Source: the KCMH worksheet, row 45 (1 mL/kg, max 15); Peditrace SmPC (HPRA, 2019) §4.2: 1 mL/kg/d "to a
+maximum daily dose of 15 ml"; Thai CPG PDF p. 116. Zn 250 µg/mL, pharmacy, 2026-10-25.
 
 ```rule
 {"rule": "CR-PEDITRACE-CAP", "kind": "cap", "coded": {"KCMH_STOCK.peditrace.mlPerKg": 1, "KCMH_STOCK.peditrace.maxMl": 15}, "where": [{"file": "data.js", "line": 717, "has": "mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },"}, {"file": "calculator.jsx", "line": 1454, "has": "Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * overfill"}]}
@@ -456,7 +483,9 @@ Source: the KCMH worksheet, row 45 (1 mL/kg, max 15); Zn 250 µg/mL, pharmacy, 2
 
 4 mL/kg/d, at most 10 mL/day, only when lipid is ordered (it rides in the lipid syringe; no overfill).
 It counts toward prescribed fluid. The 4 and the 10 are literals in `calculator.jsx`, not `data.js`.
-Source: not recorded in the repo: Q5.
+Source: Vitalipid N Infant SmPC (HPRA, 2022) §4.2: 4 mL/kg/d up to 2.5 kg, 10 mL/day above it; the
+Singapore label: "must not exceed 10 ml"; Thai CPG PDF p. 116. Both labels say to add it only to Intralipid
+10 % or 20 %, and KCMH gives SMOF 20 %: Q4.
 
 ```rule
 {"rule": "CR-VITALIPID-CAP", "kind": "cap", "where": [{"file": "calculator.jsx", "line": 1337, "has": "const vitalipidVol = lipidPerKg > 0 ? Math.min(4 * wtKg, 10) : 0;"}]}
@@ -476,8 +505,8 @@ of the next.
 
 mL/kg/d by DOL (DOL 7 rules from then on) and tier: < 1,000, < 1,500, < 2,500 g and term. From DOL 6
 every preterm tier is 140–160. The tier is held at birth weight while the infant is below it.
-Source: ESPGHAN 2018, Jochum et al. (fluid and electrolytes) Tables 1–3; the TPN team asked to follow
-the source on 2026-10-25. The birth-weight floor is Pp's, 2026-09-24.
+Source: ESPGHAN 2018, Jochum Tables 1–3; the TPN team asked to follow the source on 2026-10-25. The
+birth-weight floor is Pp's, 2026-09-24.
 
 ```rule
 {"rule": "CR-TGT-FLUID", "kind": "target", "where": [{"file": "data.js", "line": 577, "has": "fluid: (dol, wtG, bwG) => {"}, {"file": "calculator.jsx", "line": 1650, "has": "const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);"}]}
@@ -493,7 +522,10 @@ the source on 2026-10-25. The birth-weight floor is Pp's, 2026-09-24.
 ### CR-TGT-PROTEIN · protein band
 
 PN: DOL 1 1.5–2.5, DOL 2 on 2.5–3.5 g/kg/d. Enteral: 3.5–4.0. The ceiling is `CR-PROTEIN-MAX`.
-Source: ESPGHAN 2018, van Goudoever et al. (amino acids) R 3.1–3.2; ESPGHAN 2022 (enteral).
+Source: ESPGHAN 2018, van Goudoever R 3.1 (day 1 at least 1.5) and R 3.2 (from day 2 2.5–3.5); the DOL-1
+cap of 2.5 is the Thai CPG's Table 2.1 (PDF p. 32), not ESPGHAN's. Day-1 starts in Avery Table 60.1 (2–3,
+ch 60 p. 2) and Fanaroff ch 42 (2.5–3.0) show amber; term infants have their own cap, R 3.4: 3.0, not
+coded: Q14. Enteral: Embleton R1 and Table 1.
 
 ```rule
 {"rule": "CR-TGT-PROTEIN", "kind": "target", "where": [{"file": "data.js", "line": 455, "has": "if (dol <= 1) return [1.5, 2.5];   // Day 1: start ≥1.5"}, {"file": "data.js", "line": 539, "has": "protein: () => [3.5, 4.0],"}]}
@@ -505,9 +537,10 @@ Source: ESPGHAN 2018, van Goudoever et al. (amino acids) R 3.1–3.2; ESPGHAN 20
 ### CR-TGT-KCAL · energy band
 
 PN: DOL 1–2 45–55, DOL 3–7 70–100, DOL 8 on 90–120 kcal/kg/d. Enteral 115–140. Ceiling `CR-KCAL-MAX`.
-Source: PN DOL 1–2 and 8+ cite Moltu et al., JPGN 2021 (in the code). DOL 3–7 at 70–100 is the unit's own
-range: Moltu gives 60–80 for preterm PN in the late acute phase, and the TPN team kept 70–100 on
-2026-10-25. Enteral: ESPGHAN 2022.
+Source: ESPGHAN 2018, Joosten R 2.4 (day 1 at least 45–55, a floor for day 1 only) and R 2.6 (VLBW
+90–120); Moltu 2021 Table 2 (p. 283): preterm PN 40–55, 60–80, 90–120 by phase. DOL 3–7 at 70–100 is the
+unit's own: Moltu gives 60–80 and Avery Table 60.1 60–80 by weight (ch 60 p. 2–3); the TPN team kept 70–100
+on 2026-10-25. Term infants' own rows (Joosten Table 2) are not coded: Q13. Enteral: Embleton R1, 115–140.
 
 ```rule
 {"rule": "CR-TGT-KCAL", "kind": "target", "where": [{"file": "data.js", "line": 466, "has": "if (dol <= 7) return [70, 100];    // Intermediate"}, {"file": "data.js", "line": 542, "has": "kcal: () => [115, 140],"}]}
@@ -521,7 +554,9 @@ range: Moltu gives 60–80 for preterm PN in the late acute phase, and the TPN t
 ### CR-TGT-LIPID · lipid band
 
 PN: DOL 1 0.5–1.0, DOL 2 on 1.0–4.0 g/kg/d. Enteral fat 4.8–8.1. The IV ceiling is `CR-LIPID-IV-MAX`.
-Source: ESPGHAN 2018, Lapillonne et al. (lipids); ESPGHAN 2022 (enteral).
+Source: ESPGHAN 2018, Lapillonne R 4.2–4.3: start from birth, at most 4. No source gives 0.5–1.0 as a
+day-1 dose: Koletzko 2005's 0.5–1 is a daily step, Avery ch 60 p. 8 starts at 2 and Fanaroff ch 42 p. 10 at
+3: Q15. Enteral: Embleton Table 1.
 
 ```rule
 {"rule": "CR-TGT-LIPID", "kind": "target", "where": [{"file": "data.js", "line": 473, "has": "if (dol <= 1) return [0.5, 1.0];  // Day 1: start 0.5–1 g/kg"}, {"file": "data.js", "line": 545, "has": "lipid: () => [4.8, 8.1],"}]}
@@ -534,8 +569,9 @@ Source: ESPGHAN 2018, Lapillonne et al. (lipids); ESPGHAN 2022 (enteral).
 
 PN, mEq/kg/d: DOL 1–2 0–2; DOL 3 0–5 below 1,500 g, 0–3 at or above; DOL 4–7 2–5; DOL 8 on 2–5. The weight
 group uses the fluid tier's weight (held at birth weight). Enteral 3.0–5.0.
-Source: Jochum 2018 Tables 1–3, preterm rows (TPN team, 2026-10-25). From DOL 8 Jochum gives preterm 3–5
-and term 2–3; NeoFeed keeps 2–5 for everyone until the term rows are decided: Q6. Enteral: ESPGHAN 2022.
+Source: Jochum Tables 1–3, preterm rows (TPN team, 2026-10-25); Thai CPG PDF p. 56–57 repeats them. From
+DOL 8 Jochum gives preterm 3–5 and term 2–3; NeoFeed keeps 2–5 for everyone until the term rows are
+decided: Q5. Enteral: Embleton Table 1.
 
 ```rule
 {"rule": "CR-TGT-NA", "kind": "target", "where": [{"file": "data.js", "line": 484, "has": "na: (dol, wtG, bwG) => {"}, {"file": "data.js", "line": 548, "has": "na: () => [3.0, 5.0],"}]}
@@ -553,7 +589,7 @@ and term 2–3; NeoFeed keeps 2–5 for everyone until the term rows are decided
 PN, mEq/kg/d: DOL 1–3 0–3; DOL 4–5 2–3; DOL 6–7 1–3; DOL 8 on 2–5 below 1,500 g, 2–3 at or above.
 Enteral 2.3–4.6. The IV ceiling is `CR-K-IV-MAX`.
 Source: Jochum 2018 Tables 1–3, preterm rows (TPN team, 2026-10-25). At or above 1,500 g from DOL 8 Jochum
-gives preterm 1–3 and term 1.5–3; NeoFeed keeps 2–3, inside both, until the term rows are decided: Q6.
+gives preterm 1–3 and term 1.5–3; NeoFeed keeps 2–3, inside both, until the term rows are decided: Q5.
 
 ```rule
 {"rule": "CR-TGT-K", "kind": "target", "where": [{"file": "data.js", "line": 493, "has": "k: (dol, wtG, bwG) => {"}, {"file": "data.js", "line": 551, "has": "k: () => [2.3, 4.6],"}]}
@@ -568,7 +604,7 @@ gives preterm 1–3 and term 1.5–3; NeoFeed keeps 2–3, inside both, until th
 ### CR-TGT-CA · calcium band
 
 Elemental mg/kg/d. PN: DOL 1–7 32–80, DOL 8 on 64–140. Enteral 120–200.
-Source: ESPGHAN 2018, Mihatsch et al. (Ca, P, Mg): first days 0.8–2.0 mmol/kg, growing 1.6–3.5 mmol/kg,
+Source: ESPGHAN 2018, Mihatsch: first days 0.8–2.0 mmol/kg, growing 1.6–3.5 mmol/kg,
 × 40. Mihatsch does not say when "the first days" end; the TPN team set DOL 7 (2026-10-25). Enteral:
 ESPGHAN 2022, 3.0–5.0 mmol/kg.
 
@@ -608,10 +644,12 @@ Source: Mihatsch 2018: first days 0.1–0.2 mmol/kg, growing 0.2–0.3 mmol/kg, 
 
 Mass ratio 1.0–1.7 on bag + counted feed (with an oral supplement ordered, on the total with oral).
 Ca with no P is `CR-CAP-NO-P`. No float-noise strip: Ca 52.7 mg/kg with P 31 mg/kg is 1.7 on paper,
-computes as 1.7000000000000002 and grades High beside a printed "1.7:1" and a range "1–1.7": Q7.
-Source: the code says ESPGHAN 2018 molar 0.8–1.3, × 40/31 → mass 1.0–1.7, with the KCMH order form aiming
-at 1.7:1. The register notes Mihatsch R 8.12 gives molar 0.8–1.0 early; the team kept 1.0–1.7 as the unit's
-own (2026-10-25).
+computes as 1.7000000000000002 and grades High beside a printed "1.7:1" and a range "1–1.7": Q6.
+Source: the code's comment says ESPGHAN 2018 molar 0.8–1.3, × 40/31 → mass 1.0–1.7, with the KCMH order
+form aiming at 1.7:1. Mihatsch says otherwise: R 8.12 gives molar 0.8–1.0 in early PN, and 1.3 (1.7 by
+mass) is the optimum in stable growth, not the top of a range. Thai CPG PDF p. 61: early preterm PN 1–1.3
+by mass, 1.7 later; Avery ch 60 p. 6: 1.7:1 by weight likely optimal. The team kept 1.0–1.7 as the unit's
+own (2026-10-25): Q7.
 
 ```rule
 {"rule": "CR-TGT-CAP", "kind": "target", "where": [{"file": "data.js", "line": 660, "has": "caP: () => [1.0, 1.7],   // mass ratio; ESPGHAN molar"}, {"file": "calculator.jsx", "line": 1714, "has": "const sCaP = D.rangeStatus(calc.caP, tCaP);"}]}
@@ -626,7 +664,7 @@ own (2026-10-25).
 
 2.8–3.6 g protein per 100 kcal. The tile is always graded; its alert fires only when the feed is above
 100 mL/kg/d and not MEN.
-Source: ESPGHAN 2022 (enteral).
+Source: ESPGHAN 2022, Embleton Table 1.
 
 ```rule
 {"rule": "CR-TGT-PE", "kind": "target", "where": [{"file": "calculator.jsx", "line": 1907, "has": "if (!isMEN && calc.enVolPerKg > 100 && sPE === \"warn\") alerts.push"}, {"file": "calculator.jsx", "line": 1683, "has": "const tPE  = D.TARGETS.peRatio();"}]}
@@ -706,8 +744,9 @@ TPN: dextrose 3.4, amino acid 4, fat 9 kcal/g. Feed energy comes from `EN_DB` pe
 counts the feed's carbohydrate and protein at 4 and its fat at 9 kcal/g. The factors are literals in
 `calculator.jsx`.
 Source: the KCMH worksheet, E53 = 3.4 × dextrose + 4 × AA + 9 × fat, so the figure reconciles with the
-pharmacy printout. A 20 % emulsion with its glycerol and phospholipid gives about 10 kcal/g (2 kcal/mL),
-so the lipid share reads low: Q8.
+pharmacy printout. Joosten (ESPGHAN 2018, energy) names 4/4/9 the Atwater convention and puts a lipid
+emulsion at about 10 kcal/g with its glycerol; Lapillonne gives 2.0 kcal/mL for a 20 % emulsion (NeoFeed's
+9 gives 1.8); the Thai CPG (PDF p. 19) uses 3.4/4/10: Q8.
 
 ```rule
 {"rule": "CR-U-ENERGY", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1397, "has": "const dexKcal = dexG * 3.4;"}, {"file": "calculator.jsx", "line": 1398, "has": "const aaKcal = aaG * 4;"}, {"file": "calculator.jsx", "line": 1402, "has": "const lipidKcal = lipidG * 9;"}]}
@@ -719,7 +758,9 @@ so the lipid share reads low: Q8.
 mOsm/L = 50 × dextrose % + 100 × AA % + 2 × Na + 2 × K + 1.4 × Ca + 1 × Mg, each electrolyte in mEq/L of
 the delivered volume (Ca: elemental mg/L ÷ 20). Graded by `CR-OSM-PERIPH`.
 Source: the KCMH worksheet, cell E52, reproduced exactly (856 and 896 mOsm/L on its own sheets,
-2026-08-06).
+2026-08-06). No published source found: none in Avery, Fanaroff, the twelve ESPGHAN 2018 chapters or the
+Thai CPG, and the published neonatal equations use other terms (Pereira-da-Silva 2004, PMID 14763792).
+The 1.4 (Ca) and 1 (Mg) factors appear in no primary source: Q16.
 
 ```rule
 {"rule": "CR-U-OSM", "kind": "unit", "where": [{"file": "data.js", "line": 860, "has": "function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {"}, {"file": "calculator.jsx", "line": 1532, "has": "const osm = D.estimateOsmolarity({"}]}
@@ -758,8 +799,9 @@ also literals in the calculation.
 
 The tiles switch from `TPN_TARGETS` to `ENTERAL_TARGETS` when the counted feed reaches 100 mL/kg/d
 (at or above). A MEN feed never switches them.
-Source: NeoFeed's own convention (`app-walkthrough.md`, the `enVolPerKg` switch); no guideline in the repo
-sets the 100 mL/kg/d line.
+Source: NeoFeed's own convention (`app-walkthrough.md`, the `enVolPerKg` switch). No source gives it: Avery
+ch 60 p. 9 keeps PN to 120 mL/kg/d, Avery (p. 1) and the Thai CPG (PDF p. 93) until feeds give 75 % of
+needs, and WHO 2022's ≥ 100 mL/kg/d is when to start fortifier: Q17.
 
 ```rule
 {"rule": "CR-U-SWITCH", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1381, "has": "const useEnteralTargets = enCounted / wtKg >= 100;"}, {"file": "calculator.jsx", "line": 1649, "has": "const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;"}]}
@@ -799,7 +841,8 @@ kcal/oz, inside the Chula handbook's mature-milk range of 65.2–70; WHO gives 6
 Enfamil HMF dose: +1.1 g protein, and the rest per gram of that protein. Real milk varies; NeoFeed has no
 measured-milk input.
 Source: WHO 2006, *Optimal feeding of low-birth-weight infants: technical review*, Box 1.3.1 (p. 16)
-and Box 1.3.3 (p. 19); Chula handbook p. 8 (energy) and p. 10 (Enfamil HMF). NF-12 shows this on screen.
+and Box 1.3.3 (p. 19), every stored value re-read on 2026-10-27; Chula handbook p. 8 (energy) and p. 10
+(Enfamil HMF). NF-12 shows this on screen.
 
 ```rule
 {"rule": "CR-U-BREASTMILK", "kind": "unit", "where": [{"file": "data.js", "line": 190, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 182, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 205, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}]}
@@ -886,19 +929,69 @@ Source: NF-17, Pp, 2026-10-11 (130.45 mL used to print 87.5 + 42.9 = 130.5).
 
 ## Questions for Pp
 
-Each names the rule it belongs to. Nothing here has changed any code.
+Each names the rule it belongs to. Nothing here has changed any code; the answer is Pp's, and the TPN
+team's where the number is theirs.
 
-- **Q1 · `CR-K-BAG-MAX`:** central K⁺ maximum 200 mEq/L is above every neonatal or paediatric source
-  found (ANMF central ≤ 80, IWK NICU central 120). Keep 200?
-- **Q2 · `CR-ZN-MAX`:** the 5 mg/day zinc ceiling is the TPN team's number with no published source yet.
-- **Q3 · `CR-BAG-OVERFULL`:** a bag whose stocks exceed its volume is a critical alert, so a typed reason
+- **Q1 · `CR-K-BAG-MAX`, `CR-K-BAG-RED`:** central K⁺ maximum 200 and central amber 60 mEq/L have no
+  published source; Fanaroff (Therapeutic Agents p. 8) and IWK give 120 as the central maximum, ANMF 80.
+  On a peripheral line 40–60 is orderable with an amber line, where Fanaroff and ANMF call 40 the
+  maximum (IWK 60). Every source is for KCl or maintenance fluid; none is for a PN bag.
+- **Q2 · `CR-BAG-OVERFULL`:** a bag whose stocks exceed its volume is a critical alert, so a typed reason
   sends pharmacy a form with a negative WFI. Should it be a stop, like the 1,250 mL bottle?
-- **Q4 · `CR-NPE-AA`:** the red line at IV NPE:AA 12 and the caution at 20 are local numbers.
-- **Q5 · `CR-VITALIPID-CAP`:** Vitalipid N Infant 4 mL/kg/d, at most 10 mL, has no source recorded in the
-  repo and sits as literals in `calculator.jsx`.
-- **Q6 · `CR-TGT-NA`, `CR-TGT-K`:** from DOL 8 Jochum gives Na 3–5 (preterm) and 2–3 (term) and K by
-  weight; NeoFeed keeps Na 2–5 and K 2–3 at or above 1,500 g until the term rows are decided.
-- **Q7 · `CR-TGT-CAP`:** a Ca:P that is exactly 1.7 on paper (Ca 52.7 with P 31 mg/kg) grades High from
+- **Q3 · `CR-NPE-AA`:** the ≥ 24 kcal/g target sits below the 30–40 kcal/g minimum in ESPGHAN 2018,
+  Avery and the Thai CPG, and under Moltu's > 25; no source states NPC:N 150:1. The caution at 20 has no
+  source, and red at 12 matches only the bottom of the Thai CPG's 12–16 for critical illness. Should 12
+  apply to every infant?
+- **Q4 · `CR-VITALIPID-CAP`:** both Vitalipid N Infant labels read (HPRA, Singapore) say to add it only to
+  Intralipid 10 % or 20 %; KCMH gives SMOF 20 %. Pharmacy to check the Thai-registered label (not found
+  for any of the three vitamin and trace products).
+- **Q5 · `CR-TGT-NA`, `CR-TGT-K`:** from DOL 8 Jochum gives Na 3–5 (preterm) and 2–3 (term) and K by weight;
+  NeoFeed keeps Na 2–5 and K 2–3 at or above 1,500 g until the term rows are decided.
+- **Q6 · `CR-TGT-CAP`:** a Ca:P that is exactly 1.7 on paper (Ca 52.7 with P 31 mg/kg) grades High from
   float noise, beside a printed "1.7:1" and a range "1–1.7". K⁺ and the typed weight strip that noise.
-- **Q8 · `CR-U-ENERGY`:** lipid is counted at 9 kcal/g, the KCMH sheet's figure; a 20 % emulsion gives
-  about 10 kcal/g, so the lipid share and total energy read low by about 1 kcal per g of lipid.
+- **Q7 · `CR-TGT-CAP`:** Mihatsch R 8.12 gives molar 0.8–1.0 (about 1.0–1.3 by mass) in early PN, and the
+  Thai CPG the same; NeoFeed's band reaches 1.7 by mass from day 1, and its code comment cites "ESPGHAN
+  molar 0.8–1.3", which the guideline does not say.
+- **Q8 · `CR-U-ENERGY`:** lipid counts 9 kcal/g, the KCMH sheet's Atwater figure; ESPGHAN's lipid chapter
+  gives a 20 % emulsion 2.0 kcal/mL (10 kcal/g) and the Thai CPG 10 kcal/g, so total energy reads about
+  1 kcal low per g of lipid.
+- **Q9 · `CR-GIR-MAX`:** the amber floor of 4 mg/kg/min applies to term infants too; Mesotten R 5.4 and the
+  Thai CPG put the term minimum at 2.5, so a term infant at 2.5–4 shows amber.
+- **Q10 · `CR-PROTEIN-MAX`:** the 4.5 g/kg/d critical line counts TPN and feed together, so parenteral
+  amino acid of 3.5–4.5 shows amber only; van Goudoever R 3.3 keeps PN above 3.5 to trials, and
+  Fanaroff ch 42 caps parenteral protein at 3.5.
+- **Q11 · `CR-LIPID-RATE`:** the 0.13 g/kg/h amber is the Thai CPG's ceiling for children over 1 year
+  (infants 0.17); over 24 h it fires from about 3.1 g/kg/d, which Lapillonne R 4.3 allows.
+- **Q12 · `CR-K-IV-MAX`:** IV K⁺ is critical only above 5 mEq/kg/d at every weight; Jochum reaches 5 only for
+  preterm infants under 1,500 g, so term and ≥ 1,500 g infants can get 3–5 with an amber line only. No
+  source states a maximum.
+- **Q13 · `CR-TGT-KCAL`, `CR-KCAL-MAX`:** PN energy DOL 3–7 at 70–100 is above Moltu (60–80) and Avery
+  Table 60.1; DOL 1–2 at 45–55 is a day-1 floor in Joosten R 2.4, not a range; term rows are not coded;
+  and 160 is an enteral ceiling, so PN-only energy of 120–160 shows amber only.
+- **Q14 · `CR-TGT-PROTEIN`:** the DOL-1 band tops out at 2.5 (the Thai CPG's; ESPGHAN gives only a floor),
+  so Avery's 2–3 and Fanaroff's 2.5–3.0 day-1 starts show amber; term infants' own cap of 3.0 (R 3.4) is
+  not coded.
+- **Q15 · `CR-TGT-LIPID`:** DOL 1 at 0.5–1.0 g/kg/d has no source as a day-1 dose; ESPGHAN 2018 sets none,
+  Avery starts at 2 and Fanaroff at 3.
+- **Q16 · `CR-U-OSM`:** no published source found for the osmolarity formula, in particular its 1.4 (Ca)
+  and 1 (Mg) factors; its only known origin is the KCMH worksheet. Pharmacy to name its reference.
+- **Q17 · `CR-U-SWITCH`:** the switch to enteral targets at 100 mL/kg/d has no source; Avery keeps PN to
+  120 mL/kg/d or 75 % of needs, the Thai CPG 75 %, and WHO's 100 is when to start fortifier.
+
+## Sources
+
+Avery's *Diseases of the Newborn* 11th ed. and Fanaroff and Martin's *Neonatal-Perinatal Medicine* 12th
+ed. are cited by chapter and the page marker of the full-chapter text (the `neonatal-textbooks` skill).
+ESPGHAN/ESPEN/ESPR/CSPEN 2018 paediatric PN guidelines (Clin Nutr 2018) are cited by first author and
+recommendation number: Joosten, energy, PMID 30078715 · van Goudoever, amino acids, 30100107 ·
+Lapillonne, lipids, 30143306 · Mesotten, carbohydrates, 30037708 · Jochum, fluid and electrolytes,
+30064846 · Mihatsch, Ca, P, Mg, 30097365 · Domellöf, iron and trace minerals, 30078716 · Bronsky,
+vitamins, 30100105 · Kolaček, venous access, 30055869 · Hartman, complications, 30033173. Also:
+Koletzko 2005 (ESPGHAN/ESPEN lipids), 16254497 · Moltu 2021 (JPGN 2021;73:274–289), 33605663 ·
+Embleton 2023, ESPGHAN 2022 enteral preterm (JPGN 2023;76:248–268, journal pages), 36705703 · WHO 2022
+preterm feeding recommendations (GDG summary), 37753445 · WHO 2006, *Optimal feeding of low-birth-weight
+infants: technical review*. "Thai CPG" is the Thai paediatric PN guideline 2564 (Thai Pediatric Nutrition
+Society), a public-hearing draft, cited by PDF page. K⁺ concentration: ANMF neonatal KCl monograph (2020)
+and IWK Health NICU guideline (2026). Product labels: Peditrace SmPC (HPRA, 2019), Vitalipid N Infant SmPC
+(HPRA, 2022; Singapore SIN05207P), Soluvit N datasheet (Medsafe, 2021). Every citation was read on
+2026-10-27; `docs/CLINICAL_CONSTANTS.md` keeps who decided each constant and when.

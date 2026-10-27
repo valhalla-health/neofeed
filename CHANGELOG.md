@@ -26,18 +26,25 @@ test suite reads them from that file, so Pp adds a test by adding a line to the 
 13 critical (Submit asks for a reason), 1 red line that asks for none, 6 cautions, 3 caps that change
 the dose, 11 target bands, 13 units and conventions, 3 rounding rules. Each gives the value as coded,
 `where` anchors (file, line and a fragment of the code that enforces it), the source, and its cases.
-Eight questions for Pp close the file; they change nothing until she answers.
+Sources were read on 2026-10-27: Avery 11th and Fanaroff 12th ed. from the full chapter text (cited by
+page), the ESPGHAN/ESPEN/ESPR/CSPEN 2018 chapters by recommendation and PMID, ESPGHAN 2022 enteral,
+Moltu 2021, the Thai paediatric PN guideline 2564 (public-hearing draft) and the product labels. The
+zinc ceiling the team set on 2026-09-22 turned out to be Domellöf R 7.8's own "maximum of 5 mg/d".
+Seventeen questions for Pp close the file, each naming its rule; they change nothing until she answers.
 
 ### What writing it found (nothing changed)
 
 - A Ca:P that is exactly 1.7 on paper (Ca 52.7 with P 31 mg/kg/d) computes as 1.7000000000000002 and
   grades High beside a printed "1.7:1" and a range "1–1.7". K⁺ in the bag and the typed-weight check
-  strip that float noise; Ca:P does not (Q7).
+  strip that float noise; Ca:P does not (Q6).
 - A bag whose stocks exceed its prepared volume is a critical alert, so a reason sends a negative WFI
-  to pharmacy; the 1,250 mL bottle, by contrast, is a stop (Q3).
+  to pharmacy; the 1,250 mL bottle, by contrast, is a stop (Q2).
 - The Soluvit 10 mL and Peditrace 15 mL caps need more than 10 and 15 kg, so no infant inside the
   8,000 g weight limit reaches them.
-- Vitalipid's 4 mL/kg and 10 mL cap are literals in `calculator.jsx` with no source in the repo (Q5).
+- Vitalipid's 4 mL/kg and 10 mL cap are literals in `calculator.jsx`. The labels support both but say to
+  add it only to Intralipid, and KCMH gives SMOF 20 % (Q4).
+- Fanaroff's drug appendix (p. 8) gives KCl maxima of 40 mEq/L peripheral and 120 central; the K⁺ source
+  searches of 2026-09-28 and 2026-10-11 had not found it. NeoFeed orders up to 60 and 200 (Q1).
 - The total NPE:AA caution prints "24 kcal/g protein — aim at least 24" for 23.9: that line rounds with
   `displayNum` rather than `vsLimit`, so a value just under 24 prints as 24.
 
