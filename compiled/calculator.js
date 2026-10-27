@@ -1209,7 +1209,7 @@ function Calculator({
   const kConcStatusAt = (v) => D.rangeStatus(kGrade(v), [0, kLim.warn], { hardHi: kLim.red });
   const sKConc = kConcStatusAt(calc.kMeqPerL);
   const kBarMax = kLim.hardMax > kLim.red ? kLim.hardMax : kLim.red * 1.5;
-  const osmStatusAt = (v) => route !== "central" ? v > D.OSM_PERIPHERAL_MAX ? "crit" : "ok" : "ok";
+  const osmStatusAt = (v) => route !== "central" ? Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? "crit" : "ok" : "ok";
   const sOsm = osmStatusAt(calc.osm);
   const lipidGkgh = lipidPerKg > 0 && lipidDripHours > 0 ? Math.round(lipidPerKg / lipidDripHours * 100) / 100 : 0;
   const sLipidGkgh = lipidGkgh > D.LIPID_GKGH.max ? "crit" : lipidGkgh > D.LIPID_GKGH.warn ? "warn" : "ok";
@@ -1256,7 +1256,7 @@ function Calculator({
   const alerts = [];
   if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
   else if (tpnWtFar) alerts.push({ level: "crit", title: "TPN calc. weight far from automatic", body: `${fmt(wtG, 0)} g typed, automatic ${fmt(autoWtG, 0)} g (${wtG > autoWtG ? "+" : "−"}${fmt(tpnWtDiff * 100, 0)} %, more than ${fmt(D.TPN_WT_MANUAL_MAX_DIFF * 100, 0)} %). Every dose and mL on this order is computed from ${fmt(wtG, 0)} g — check the digits.`, ref: "Pp, 2026-10-08" });
-  if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${fmt(calc.gir, 1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });
+  if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${vsLimit(calc.gir, D.GIR_HARD_HI, 1)} mg/kg/min — above ${D.GIR_HARD_HI}; lower dextrose %.`, ref: "ESPGHAN 2018" });
   else if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
   if (critLowNPE) alerts.push({ level: "crit", noReason: true, title: "NPE:AA critically low", body: `NPE:AA IV ${vsLimit(ivNpeN, D.NPE_IV_CRIT_LO, 0)} kcal/g AA < ${D.NPE_IV_CRIT_LO} (TPN only) — พลังงานที่ไม่ใช่โปรตีนน้อยเกินไปเมื่อเทียบกับ amino acid ที่ให้ (สีแดง ไม่ต้องใส่เหตุผล)${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `TPN team, 2026-10-25 · ${ivRef}` });
   else if (lowNPE) alerts.push({ level: "warn", title: "NPE:AA off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 20, 0)} kcal/g AA < 20 — พลังงานที่ไม่ใช่โปรตีนยังน้อยเมื่อเทียบกับ amino acid ที่ให้ ปกติพบระหว่างค่อย ๆ เพิ่ม dextrose/lipid ในสัปดาห์แรก ตรวจว่าเป็นไปตามแผน${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: "NPC:N 150:1" });
@@ -1319,9 +1319,9 @@ function Calculator({
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d`
   });
-  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — peripheral limit ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
+  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
   if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
-  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${fmt(calc.dexGPerKg, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose 12 mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
+  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose 12 mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
   if (kOverMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (${kRedIsMax(kLim) ? `max ${kLim.hardMax}` : `critical above ${kLim.red}`}).`, ref: "TPN team, 2026-09-28" });
@@ -1965,10 +1965,10 @@ function Calculator({
        that needs none. warn/crit keep their status colours. */
     background: sOsm === "crit" ? "var(--crit-bg)" : sOsm === "warn" ? "var(--warn-bg)" : "var(--bg-2)",
     color: sOsm === "crit" ? "var(--crit)" : sOsm === "warn" ? "var(--warn)" : "var(--ink-2)"
-  } }, "Osm ", calc.osm.toFixed(0), " mOsm/L", route !== "central" && calc.osm > 900 && /* @__PURE__ */ React.createElement(
+  } }, "Osm ", calc.osm.toFixed(0), " mOsm/L", sOsm === "crit" && /* @__PURE__ */ React.createElement(
     "span",
     {
-      title: "Over 900 mOsm/L for a peripheral line",
+      title: `${D.OSM_PERIPHERAL_MAX} mOsm/L or more on a peripheral line`,
       style: { display: "inline-flex", verticalAlign: "-2px", marginLeft: 4 }
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "warn", size: 13, stroke: 2.2 })

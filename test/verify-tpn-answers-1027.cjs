@@ -12,6 +12,9 @@
 //       (Pp, 2026-10-27, after Vera);
 //   §3c protein above 4.5 on feeds alone is critical: the limit counts
 //       TPN + feeds (Pp, 2026-10-27, after Vera);
+//   §3d GIR 12.01 reads "12.01"; a peripheral bag that prints 900 mOsm/L is
+//       red, one that prints 899 is not (Pp: 900 is over; Vera's second review);
+//   §3e the front sheet's Normal Requirement prints the new Na, K, Ca, P bands;
 //   §4  a bag above the 1,250 mL bottle cannot be submitted, says why, and may
 //       still be kept as a draft; 1,250 itself is allowed;
 //   §5  heparin above 1 U/mL is a caution, 1 is not, and no bag means none;
@@ -208,6 +211,45 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     await clickAsync(submitBtn());
     eq('Submit asks for a reason', asked, true);
     eq('…and without one nothing is logged', box.calls, 0);
+  });
+
+  // Vera's second review: a value just past a limit must not print as the limit,
+  // and 900 mOsm/L on a peripheral line is over (Pp: "900 ถือว่าเกิน").
+  await section('§3d GIR just above 12 reads as such; a peripheral bag that prints 900 is red', async () => {
+    mount({ patient: pt('GR-1200', 1200), onLog: logger().onLog });
+    click(routeBtn('Central'));
+    setField('Current weight', 1200); fillRequired(150);
+    setField('Volume(mL/day)', 173); setField('Dextrose final', 12); setField('Amino acid', 3); setField('20% lipid', 2);
+    const g = alertNamed('GIR critically high');
+    eq('GIR 12.01: critical', g && g.level, 'crit');
+    ok('…and its text says 12.01, not 12', !!g && /12\.01 mg\/kg\/min/.test(g.text), g && g.text);
+    mount({ patient: pt('OS-1000', 1000), onLog: logger().onLog });
+    click(routeBtn('Peripheral'));
+    setField('Current weight', 1000); fillRequired(150);
+    setField('Volume(mL/day)', 100); setField('Dextrose final', 15); setField('Amino acid', 1.496);
+    const o = alertNamed('Osmolarity > peripheral limit');
+    eq('an estimate of 899.6 that prints 900: critical', o && o.level, 'crit');
+    ok('…its text: 900, and under 900 for a peripheral line', !!o && /900 mOsm\/L — a peripheral line takes under 900 mOsm\/L/.test(o.text), o && o.text);
+    setField('Amino acid', 1.49);
+    eq('an estimate that prints 899: no osmolarity alert', alertNamed('Osmolarity > peripheral limit'), null);
+  });
+
+  // Vera's second review: the front sheet's Normal Requirement prints the bands
+  // that moved; no other harness reads them.
+  await section('§3e the printed Normal Requirement follows the new bands', async () => {
+    const box = logger();
+    mount({ patient: pt('NR-1200', 1200), dol: 3, onLog: box.onLog });
+    click(routeBtn('Central'));
+    setField('Current weight', 1200); fillRequired(100);
+    setField('Volume(mL/day)', 100); setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 1);
+    window.prompt = () => null;
+    await clickAsync(submitBtn());
+    eq('the order is logged with no reason asked', box.calls, 1);
+    const form = text(container.querySelector('#print-form'));
+    ok('DOL 3, 1200 g: Na 0–5 (Jochum < 1500 g)', /Na 0–5 mEq\/kg\/day/.test(form), form.match(/Na [^ ]+ mEq\/kg\/day/));
+    ok('…K 0–3', /K⁺ 0–3 mEq\/kg\/day/.test(form), form.match(/K⁺ [^ ]+ mEq\/kg\/day/));
+    ok('…Ca 32–80 and P 31–62 (first days to DOL 7)', /Ca 32–80 mg\/kg\/day/.test(form) && /P 31–62 mg\/kg\/day/.test(form),
+      [form.match(/Ca [^ ]+ mg\/kg\/day/), form.match(/P [^ ]+ mg\/kg\/day/)]);
   });
 
   await section('§4 a bag above the 1,250 mL bottle cannot be ordered', async () => {

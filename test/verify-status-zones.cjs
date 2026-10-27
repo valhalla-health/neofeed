@@ -165,7 +165,8 @@ for (const { name, container } of mounted) {
     const red = r.zones.filter((z) => z.s === 'crit');
     const route = name === 'past the hard limits' ? 'peripheral' : 'central';
     let want = HARD[r.label];
-    if (r.label === 'Osmolarity' && route === 'peripheral') want = 900 / 1100 * 100;
+    // Red from 899.5: the whole number printed, and 900 itself is over (Pp, 2026-10-27).
+    if (r.label === 'Osmolarity' && route === 'peripheral') want = 899.5 / 1100 * 100;
     // Red above 60. The peripheral maximum is 60 too since 2026-10-08 (Praew),
     // so a bar ending at the maximum would have no red at all, and a bag above
     // it would park its needle on amber under a red tile. It is 1.5 × 60 long
@@ -189,9 +190,9 @@ for (const { name, container } of mounted) {
   // No yellow margin above 12 since 2026-10-27, and no 850 caution: 900 alone.
   ok('GIR reads yellow · green · red (4 | 12)', z === 'warn ok crit', z);
   const osm = readings(mounted[1].container).find((r) => r.label === 'Osmolarity');
-  ok('peripheral osmolarity: green to 900, red beyond',
+  ok('peripheral osmolarity: green below a printed 900, red from it',
     osm && osm.zones.map((x) => x.s).join(' ') === 'ok crit' &&
-    Math.abs(osm.zones[1].from - 900 / 1100 * 100) < 1e-3, osm && osm.zones);
+    Math.abs(osm.zones[1].from - 899.5 / 1100 * 100) < 1e-3, osm && osm.zones);
 }
 
 // The same claim at the source, so a tile added later cannot slip past the

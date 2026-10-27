@@ -41,7 +41,7 @@ clinical judgement. Everything else is engineering sequencing.
       - **Photograph the ZnSO₄ stock label before this release** (Vera, 2026-10-27). The printed ZnSO₄ mL
         and the WFI now rest on pharmacy's written "1 mg/mL" of elemental Zn; a label reading 1 mg/mL of
         zinc sulfate salt would make the printed mL about 4.4× too small. **Pp's to do**, with the notice
-        to pharmacy that this release prints ZnSO₄ mL.
+        to pharmacy that this release prints ZnSO₄ mL and new Normal Requirement bands (Na, K, Ca, P, Mg).
       - **NPE:AA below 16 for more than 7 days on the Alerts page** (TPN team). Needs each saved row's IV
         NPE:AA, which no row stores; see the "persistent low NPE:AA" item below.
       - **Oral PO₄ stored in mg, not mmol** (nutrition unit, answering the September letter's item 2). The

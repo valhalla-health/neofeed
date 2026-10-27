@@ -1688,10 +1688,12 @@ DOL 5 160–180; Ca, P and Mg keep the first-days ranges to DOL 7. § 3: the NPC
 "≥ 24" and a ratio far above 32 is not off target. § 3b: IV NPE:AA below 12 is a red line, Submit asks
 no reason for it, and the order prints (Pp, after Vera). § 3c: protein above 4.5 on feeds alone (Hi-Q LBW
 24 at 176 mL/kg/d) is critical and asks for a reason, because the limit counts TPN + feeds (Pp, after
-Vera). § 4: a bag above 1,250 mL cannot be submitted, says why, and may be kept as a draft; 1,250 itself is
-allowed. § 5: heparin above 1 U/mL is a caution. § 6: oral vitamin D above 1,000 IU/day is a caution,
-Munti-vim included. § 7: the Reference page and the trend bands read the new rows. 58 checks; against
-`main` (`2cf4277`), 40 fail, in every section.
+Vera). § 3d: GIR 12.01 reads "12.01", not "12"; a peripheral bag whose osmolarity prints 900 is red
+(Pp: 900 is over) and one that prints 899 is not. § 3e: the front sheet's Normal Requirement prints the
+new Na, K, Ca and P bands (DOL 3, 1,200 g). § 4: a bag above 1,250 mL cannot be submitted, says why,
+and may be kept as a draft; 1,250 itself is allowed. § 5: heparin above 1 U/mL is a caution. § 6: oral
+vitamin D above 1,000 IU/day is a caution, Munti-vim included. § 7: the Reference page and the trend
+bands read the new rows. 67 checks; against `main` (`2cf4277`), 46 fail, in every section.
 
 Eighteen older harnesses pinned the limits that moved. Each now pins the new figure, and the cases built
 on an old limit were rebuilt on the new one: KCl 6 (or 5.5) where KCl 5 used to cross the IV K limit, and

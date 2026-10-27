@@ -485,16 +485,19 @@ const TPN_TARGETS = {
     if (!dol || dol <= 2) return [0, 2];   // Table 1 D1–2: 0–2 (3)
     if (dol === 3) return _jochumUnder1500(wtG, bwG) ? [0, 5] : [0, 3];  // D3: < 1500 g 0–5 (7), > 1500 g 0–3
     if (dol <= 7) return [2, 5];           // D4–5 2–5 (7) · Table 2 preterm 2–5
-    // Stable: 2–5 as before. Table 3 gives preterm 3–5 and term 2–3; raising
-    // the floor to 3 by weight would push term infants off their own row, so
-    // it waits for the term question.
+    // Stable: 2–5 as before. Table 3 gives 3–5 for both preterm rows (< 1500
+    // and > 1500 g) and 2–3 for term; raising the floor to 3 by weight would
+    // push term infants off their own row, so it waits for the term question.
     return [2, 5];
   },
   k: (dol, wtG, bwG) => {
     if (!dol || dol <= 3) return [0, 3];   // Table 1 D1–3: 0–3
     if (dol <= 5) return [2, 3];           // Table 1 D4–5: 2–3
     if (dol <= 7) return [1, 3];           // Table 2 (intermediate): 1–3
-    return _jochumUnder1500(wtG, bwG) ? [2, 5] : [2, 3];  // Table 3: < 1500 g 2–5
+    // Table 3 splits K by weight as printed: preterm < 1500 g 2–5, preterm
+    // > 1500 g 1–3, term 1.5–3. At or above 1500 g NeoFeed keeps its old 2–3,
+    // inside both of those rows, until the term rows are decided.
+    return _jochumUnder1500(wtG, bwG) ? [2, 5] : [2, 3];
   },
 
   // Calcium mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
@@ -835,7 +838,8 @@ const KCAL_HARD_HI = 160;
 //                                    Table 3 gives < 1500 g 2–5; Pp, 2026-10-27)
 //   NPE:AA, IV only, kcal/g AA:      red below 12, no reason asked; the > 32
 //                                    ceiling is gone
-//   osmolarity, peripheral, mOsm/L:  900, the KCMH form's figure; the 850
+//   osmolarity, peripheral, mOsm/L:  900 and above as printed (the KCMH form
+//                                    says "<900"; Pp, 2026-10-27); the 850
 //                                    caution had no source and is gone
 const PROTEIN_HARD_HI = 4.5;
 const LIPID_IV_HARD_HI = 4.0;

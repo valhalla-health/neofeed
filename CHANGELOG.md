@@ -7,6 +7,30 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-27 (3) — Vera's second review: a printed 900 mOsm/L is over; alert text past a limit
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `data.js` (comments),
+`docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `test/verify-tpn-answers-1027.cjs` (§ 3d, § 3e),
+`test/verify-calc-oracle.cjs`, `test/verify-status-zones.cjs`, `test/README.md`. `CONSTANTS_VERSION`
+stays `2026-10-27.1`.
+
+Vera ran again on `52be38b`: NO BLOCK, four 🟡 (her report is in the PR).
+
+- **Peripheral osmolarity is graded on the whole number that prints, and 900 is over.** The form says
+  "Peripheral (<900 mOsm/L)"; graded on the raw estimate, 899.5–900 printed "900" with nothing red. Pp:
+  "900 ถือว่าเกิน". The Step 2 chip reads the same status instead of its own `> 900` copy.
+- **GIR and dextrose alerts print a value past the limit as such** (`vsLimit`, as the lipid, K and
+  NPE:AA lines do): GIR 12.01 read "12 mg/kg/min".
+- **The register named too few printed lines.** The front sheet's Normal Requirement prints the new Na,
+  K, Ca and P bands as well as Mg; the register row now says so, and § 3e reads them off the print.
+- **Jochum Table 3 and K**: the table splits K by weight as printed (preterm < 1500 g 2–5, > 1500 g 1–3,
+  term 1.5–3). The comment now quotes the rows; at or above 1500 g NeoFeed keeps its old 2–3.
+
+### Tests
+
+Every harness, both CI passes, on this commit (`test/README.md` for how): see the PR. Locally, before
+it, on `52be38b`: 98 of 98 in each pass. `verify-tpn-answers-1027.cjs`: 67 checks, 46 fail on `2cf4277`.
+
 ## Session 2026-10-27 (2) — Vera's review: NPE:AA below 12 is red without a reason
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `data.js` (comments),

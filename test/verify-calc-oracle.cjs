@@ -323,7 +323,8 @@ function expectedAlerts(sc, e) {
   if (sc.men && e.enPerKg > 24) add('warn', 'MEN ticked above trophic volume');
   if (bagOrdered) {
     // 900 alone since 2026-10-27 (the 850 caution had no source).
-    if (sc.route === 'peripheral') { if (e.osm > 900) add('crit', 'Osmolarity > peripheral limit'); }
+    // On the whole number printed, 900 included: the form says "<900" (Pp, 2026-10-27).
+    if (sc.route === 'peripheral') { if (Math.round(e.osm) >= 900) add('crit', 'Osmolarity > peripheral limit'); }
     // A central line has no upper osmolarity limit since 2026-09-28 (Praew).
   }
   if (e.Vd > 0 && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
