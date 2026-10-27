@@ -194,6 +194,11 @@
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
+- ⏳ **A bag whose stocks exceed its volume cannot be ordered (Q2 of the clinical-rules skill): open, waiting
+  for Pp's merge.** Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged. Before its release,
+  doctors hear that a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason),
+  and that a saved order with a negative WFI no longer prints until it is fixed and saved again.
+  `CHANGELOG.md` 2026-10-28.
 - ⏳ **PR #173, Pp's clinical-rules skill (NF-04): merged into `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
   one harness and docs, and neither host serves `.claude/` or `test/`. `CONSTANTS_VERSION` unchanged.

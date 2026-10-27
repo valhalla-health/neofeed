@@ -619,7 +619,8 @@ async function run(scIn) {
   // ─ Save ─
   const saveBtn = btnExact('Submit');
   // F, 16 kg: refused (Pp, 2026-10-08). J, a bag above the 1,250 mL bottle: refused (Pp, 2026-10-27).
-  const orderable = e.wG >= 200 && e.wG <= 8000 && !(e.Vd > 0 && r1(e.Vp) > 1250);
+  // B and E, stocks over the bag (WFI below 0): refused (Pp, 2026-10-28).
+  const orderable = e.wG >= 200 && e.wG <= 8000 && !(e.Vd > 0 && r1(e.Vp) > 1250) && !(e.Vd > 0 && e.wfi < 0);
   same(sc, 'Save button enabled', !!(saveBtn && !saveBtn.disabled), orderable);
   if (saveBtn && !saveBtn.disabled) await clickAsync(saveBtn);
   same(sc, 'onLog received an entry', !!saved, orderable);

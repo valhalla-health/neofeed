@@ -1012,8 +1012,9 @@ stock" table is added up: Σ parts + printed WFI must equal the printed prepared
 (0 when every part is a whole tenth), printed Components + WFI must equal it exactly, and the on-screen
 Components and Bag total and the copied BAG MAKE-UP line must carry the same figures. The tolerance is the
 rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
-components); the arithmetic is in the file's header. An over-full bag skips the sum and must say so on
-screen, on the form and in the copy. Then one input changes the way a person changes it (a dead-space chip,
+components); the arithmetic is in the file's header. An over-full bag (Components above Bag total on
+screen) cannot be submitted since 2026-10-28: the sum is skipped, the stop must show on screen, and an
+over-full bag that prints fails. Then one input changes the way a person changes it (a dead-space chip,
 or a TPN volume typed a key at a time): the on-screen Bag total must move to delivered + dead, the stale
 form must be withdrawn, and the second save's reprint must carry the new figures and still add up. Nothing
 in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
@@ -1738,6 +1739,17 @@ case of a rule produced; `--fix-lines` rewrites the `where` line numbers once co
 line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks when written.
 
+
+## A negative WFI cannot be ordered, 2026-10-28 — one harness
+
+Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
+2026-10-28). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
+`verify-calc-sum.cjs`'s S8 with Glycophos in place of its Ca gluconate (WFI 0) and the same order with
+KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
+save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
+change with a reason naming "Bag cannot be compounded" has no order form, and Print and Copy refuse with
+the same reason. § 3: Center Point's บันทึก is disabled and nothing reaches Center Point. 20 checks; 9 fail
+on `326bcd9`.
 
 ## Note on the source workbook
 

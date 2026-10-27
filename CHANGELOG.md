@@ -7,6 +7,44 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 — a bag whose stocks exceed its volume cannot be ordered (Q2)
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `test/verify-wfi-stop-1028.cjs` (new),
+`test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/README.md`, `STATUS.md`.
+
+### Why
+
+Pp answered three questions of the clinical-rules skill on 2026-10-28: "Q2 ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้
+/ Q1,3 คงไว้ อย่างเดิมก่อน". A bag whose stocks add up to more than its prepared volume was a critical
+alert, so a typed reason let it through, and the order form and the copied order asked pharmacy for a
+negative volume of water ("WFI q.s. -0.1 mL").
+
+### What changed
+
+- `bagOverfull` (WFI below 0 as printed) is a stop like the 1,250 mL bottle: Submit is disabled, the save
+  panel says why, `handleSave` refuses it (which covers Center Point's บันทึก), and `printable` is false,
+  so the order form does not render and Print and Copy refuse with the same reason. A draft may be kept.
+- A row saved before this change with a reason naming "Bag cannot be compounded" no longer prints or
+  copies; it is held until the bag is fixed and saved again. The alert keeps its title for that reason.
+- The skill: `CR-BAG-OVERFULL` is now a stop with cases at WFI 0 (saves) and −0.1 (refused); Q1 (central
+  K⁺ maximum 200 mEq/L) and Q3 (NPE:AA target 24 kcal/g) are marked answered, "keep as is for now", with
+  their evidence left in place. Q1 and Q3 change no code.
+
+`CONSTANTS_VERSION` stays `2026-10-27.2` and the constants register is unchanged: the change adds no
+constant and moves no printed figure (an order that prints prints the same), which is the register's own
+test for a bump. No second clinician has reviewed this change.
+
+### Tests
+
+`test/verify-wfi-stop-1028.cjs` (20 checks): WFI 0 saves with no reason asked; WFI −0.1 is a red line,
+Submit is disabled and a draft may be kept; a saved over-full row with a reason neither prints nor copies;
+Center Point's บันทึก refuses it. 9 fail on `326bcd9` (`main` before this change), among them a saved row
+printing and copying "WFI q.s. -0.1 mL". `verify-clinical-rules.cjs` reads the new `CR-BAG-OVERFULL` cases
+(611 checks). `verify-calc-sum.cjs` reads over-full off the screen (Components above Bag total) and expects
+the stop for S4 and its orders B and E instead of a printed form; an over-full bag that prints fails it.
+`verify-calc-oracle.cjs` restates the stop in its own orderable rule (orders B and E).
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),
