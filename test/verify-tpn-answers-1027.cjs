@@ -133,7 +133,8 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
 
 (async () => {
   await section('§1 the numbers from the answers of 2026-10-25', async () => {
-    eq('CONSTANTS_VERSION', D.CONSTANTS_VERSION, '2026-10-27.1');
+    // 2026-10-27.2 (stock mL to one decimal) came after; this harness needs .1 or later.
+    ok('CONSTANTS_VERSION 2026-10-27.1 or later', D.CONSTANTS_VERSION >= '2026-10-27.1', D.CONSTANTS_VERSION);
     eq('protein (TPN + EN) critical above 4.5', D.PROTEIN_HARD_HI, 4.5);
     eq('IV lipid critical above 4.0', D.LIPID_IV_HARD_HI, 4);
     eq('IV K critical above 5.0, every weight', D.K_IV_HARD_HI, 5);

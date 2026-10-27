@@ -277,8 +277,9 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
   // ═══════════════════════ UP-C1 · nothing printed moved ════════════════════
   await section('§6 UP-C1 · every printed figure is what 42ce553 printed', async () => {
     // Figures = every numeric <strong> on #print-form outside the patient table
-    // and the saved-by line, captured from 42ce553 for these orders. r1/r2 stay
-    // untouched until pharmacy confirms the Na dose (Praew, 2026-09-17).
+    // and the saved-by line, captured from 42ce553 for these orders. The stock
+    // rounding stayed untouched until Pp settled it on 2026-10-27: every stock
+    // mL at one decimal, half up ("1.25 > 1.3 ml").
     const figures = () => {
       const form = printForm(); if (!form) return null;
       const table = form.querySelector(':scope > table');
@@ -308,16 +309,24 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
         setField('Current weight', 500); fillRequired(150);
         setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 2);
         setField('20% NaCl', 1); setField('Na Acetate', 1); setField('KCl', 1); setField('Glycophos', 1); }],
-      parity_plain: ['28dee697feed160b', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
+      // Recaptured 2026-10-27, every stock mL at one decimal (Pp). Exactly 3 of
+      // its 105 figures moved: MgSO₄ 0.53 → 0.5 (front and back), heparin
+      // 0.69 → 0.7 (was 28dee697feed160b).
+      parity_plain: ['ba17666671df8c0d', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
       // Recaptured 2026-09-18 when Soluvit/Peditrace began scaling with the
       // overfill (Praew). Exactly 4 of its 90 figures moved: Soluvit 1.2 → 1.3,
       // Peditrace 1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50 (was aa0510d437c34170).
-      parity_dead: ['0db6f59f3b7827db', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
+      // Recaptured 2026-10-27, one decimal: exactly 5 of its 106 moved. K₂HPO₄
+      // 1.68 → 1.7 and MgSO₄ 0.56 → 0.6 (front and back), heparin 0.72 → 0.7
+      // (was 0db6f59f3b7827db).
+      parity_dead: ['30f76745ade230f1', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
       // Recaptured 2026-10-17, when EN_DB was rebuilt from the handbook pages
       // (BM + HMF Ca 115 → 116.05, P 59 → 59.87 mg/100 mL). Exactly 4 of its 86
       // figures moved: EN Ca 67 → 68, EN PO₄ 34 → 35, total Ca 127 → 128,
       // total PO₄ 65 → 66 (was 981b3ea0856ce4b9).
-      mixed_pn_en: ['9039368c94184bc9', P, () => {
+      // Recaptured 2026-10-27, one decimal: exactly 2 of its 86 moved, MgSO₄
+      // 0.41 → 0.4 front and back (was 9039368c94184bc9).
+      mixed_pn_en: ['09902c477aeb84a5', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
         setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('20% lipid', 3);
         setField('20% NaCl', 2); setField('KCl', 2); setField('10% Ca gluconate', 60); setField('Glycophos', 2); setField('MgSO₄', 0.3); }],

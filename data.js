@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-10-27.1";
+const CONSTANTS_VERSION = "2026-10-27.2";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -416,9 +416,8 @@ const SALT_SOURCES = {
   K2HPO4:      { label: "K₂HPO₄",                    ion: "KP", mEqKPerML: 1.0,  pMgPerMEqK: 15.5, group: "potassium", note: "K⁺ 1 mEq/mL · P 15.5 mg/mEq K" },
   // Calcium — order form: elemental Ca 9 mg/mL
   Ca_Gluconate:{ label: "Ca Gluconate 10%",            ion: "Ca", mgPerML: 9.01755, group: "calcium",  note: "KCMH TPN stock · elemental Ca 9.0 mg/mL (0.45 mEq/mL)" },
-  // Magnesium — the KCMH sheet compounds from 10% but prints both strengths
+  // Magnesium — KCMH uses 10% only; the 50% row is gone (Pp, 2026-10-27)
   MgSO4_10:    { label: "MgSO₄ 10%",                 ion: "Mg", mEqPerML: 0.812, group: "magnesium", note: "KCMH TPN stock · preterm: 0.4 mEq/kg/day" },
-  MgSO4_50:    { label: "MgSO₄ 50%",                 ion: "Mg", mEqPerML: 4.06,  group: "magnesium", note: "4.06 mEq/mL · preterm: 0.4 mEq/kg/day" },
 };
 
 // ── Vitamins / additives ──────────────────────────────────────
@@ -708,7 +707,6 @@ const KCMH_STOCK = {
   kCl:         { label: "KCl",                   kMeqPerMl: 2.0   },  // I29 = mEq ÷ 2
   // Mg — sheet row 32 offers both; the recipe line (J32) defaults to 10%
   mgso4_10:    { label: "10% MgSO₄",             mgMeqPerMl: 0.812 }, // I32 = mEq×2/8.12×5
-  mgso4_50:    { label: "50% MgSO₄",             mgMeqPerMl: 4.06  }, // I33 = mEq×2/8.12
   // Ca — sheet row 36: 0.45 mEq/mL × 20.039 = 9.01755 mg elemental Ca/mL
   caGluconate: { label: "10% Ca gluconate",      caMgPerMl: 9.01755, caMeqPerMl: 0.45 },
   // Additives — sheet rows 43/45/51
@@ -773,8 +771,8 @@ const MAX_ZN_MG_DAY = 5;
 // Alert thresholds: they move no dose, so CONSTANTS_VERSION stays.
 const TPN_WT_RANGE_G = [200, 8000];
 const TPN_WT_MANUAL_MAX_DIFF = 0.2;
-// Display-only conversion, not a compounding divisor (KCMH_STOCK's mgso4_10/50
-// stay the mL authority): elemental Mg, MW 24.305 g/mol ÷ valence 2 = mg per mEq.
+// Display-only conversion, not a compounding divisor (KCMH_STOCK.mgso4_10 stays
+// the mL authority): elemental Mg, MW 24.305 g/mol ÷ valence 2 = mg per mEq.
 // Lets the Mg input (dosed in mEq/kg/d, matching the stock's mEq/mL) also show
 // mg/kg/d for staff cross-checking against a mg-based reference.
 const MG_MG_PER_MEQ = 12.1525;
@@ -789,15 +787,18 @@ const MEN_MAX_ML_KG = 24;
 // Every figure on a screen, the pharmacy form or a copied order goes through
 // here: at most `maxDecimals`, and never a trailing zero — "18.0" can be read
 // as 180 (Praew, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; the ISMP rule). Display
-// only: saved rows keep full precision. Rounds half away from zero, as
-// toFixed does. Takes numbers or numeric strings (GAS returns both);
-// null, "", NaN and ±Infinity print "—".
+// only: saved rows keep full precision. Rounds half away from zero (Pp,
+// 2026-10-27: "1.25 > 1.3"), after clearing the float tail at 6 decimals of
+// the scaled value: 1.5 × 0.7 is 1.0499999999999998 in JS and printed "1"
+// beside a K₂HPO₄ mL of 1.1 (Vera, 2026-10-27). Takes numbers or numeric
+// strings (GAS returns both); null, "", NaN and ±Infinity print "—".
 function displayNum(value, maxDecimals = 2) {
   if (value === null || value === undefined || value === "") return "—";
   const x = Number(value);
   if (!isFinite(x)) return "—";
   const p = Math.pow(10, maxDecimals);
-  const r = Math.sign(x) * Math.round(Math.abs(x) * p) / p;
+  const scaled = Math.round(Math.abs(x) * p * 1e6) / 1e6;
+  const r = Math.sign(x) * Math.round(scaled) / p;
   return String(r === 0 ? 0 : r);   // never "-0"
 }
 

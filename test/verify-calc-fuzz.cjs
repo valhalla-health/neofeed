@@ -161,7 +161,7 @@ for (let i = 0; i < COUNT; i++) {
     tpn: pick([0, between(10, 400, 1), between(10, 400, 0.5)]), dead: pick([0, 10, 20, 30, between(0, 40, 1)]),
     dex: pick([0, between(2.5, 20, 0.5)]), aa: pick([0, between(0.5, 5, 0.1)]), lip: pick([0, between(0.5, 5, 0.1)]), lipH: pick([16, 20, 24]),
     naCl: pick([0, between(0, 6, 0.5)]), naAc: pick([0, between(0, 4, 0.5)]), glyNa: pick([0, between(0, 4, 0.5)]),
-    kCl: pick([0, between(0, 5, 0.5)]), k2: pick([0, between(0, 3, 0.5)]), mg: pick([0, between(0, 1, 0.1)]), mgVial: '10',
+    kCl: pick([0, between(0, 5, 0.5)]), k2: pick([0, between(0, 3, 0.5)]), mg: pick([0, between(0, 1, 0.1)]), 
     ca: pick([0, between(0, 150, 5)]), soluvit: rnd() > 0.2, pedi: rnd() > 0.2, zn: pick([0, between(0, 2, 0.05)]), hep: pick([0, 0.5, 1]),
     feed: pick(Object.keys(FEED)), enVol: pick([0, between(0, 60, 0.5)]), enFreq: pick([0, 6, 8, 12]), men: rnd() > 0.7,
   };
