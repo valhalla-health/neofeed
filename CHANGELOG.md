@@ -7,6 +7,73 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-27 — the nutrition unit's and TPN team's answers of 2026-10-25
+
+`data.js`, `calculator.jsx`, `log.jsx`, `app.jsx`, `compiled/`, both shells' `?v=` tokens,
+`center-point/tpn-document.mjs` (two labels; digest re-pinned), `docs/CLINICAL_CONSTANTS.md`,
+`BACKLOG.md`, harnesses (below). **`CONSTANTS_VERSION` 2026-10-17.1 → `2026-10-27.1`**: the ZnSO₄ mL
+now counts in the WFI, Mg's printed normal requirement moves with the first-days range, and the
+dextrose ceiling prints, so every saved order is saved again before it prints. No backend change. No
+second clinician has reviewed this change.
+
+### Why
+
+Pp's 2026-10-19 question sheet (16 questions for the nutrition unit, 49 for the TPN team) came back
+answered on 2026-10-25. Four answers could be read two ways; Pp settled them on 2026-10-27: "OK" in the
+targets table (§ 2.5 rows 3–6 and 9) means follow the source; the "MgSO₄ not ordered" caution goes, as
+the team said a bag without Ca, P or Mg needs no warning; K IV 5.0 applies at every weight; a bag above
+the largest bottle cannot be ordered ("ห้ามสั่ง").
+
+### What changed
+
+- **Hard limits that had no source** (provenance audit 2026-10-17 § 3.8), now named in `data.js`:
+  protein (TPN + EN) critical above 4.5 g/kg/d (was 4.8); IV lipid above 4.0 (was 4.5); IV K above 5.0
+  mEq/kg/d at every weight (was 3.5); peripheral osmolarity critical above 900 alone, the 850 caution
+  gone; NPE:AA has no ceiling (the > 32 critical is gone, since ESPGHAN's 30–40 kcal/g is a minimum) and
+  is **critical below 12 kcal/g AA** on the IV portion, a caution below 20 as before. The tile reads
+  "≥ 24".
+- **GIR and dextrose follow Mesotten R 5.4**: GIR critical above 12 (was 13, Praew's 2026-09-22 margin),
+  dextrose above 17.3 g/kg/d (was the KCMH sheet's 18). The Alerts page reads the same constant.
+- **Fluid, Jochum 2018 Tables 1–3**: from DOL 6 every preterm tier is 140–160 (ELBW stayed at 160–180);
+  VLBW DOL 5 is 160–180 (was 140–160).
+- **Na and K by day and weight group** (Jochum preterm rows; below 1500 g on the fluid tier's weight):
+  Na DOL 3 0–5 below 1500 g, 0–3 above; DOL 4–7 2–5 (was 0–3). K DOL 4–5 2–3, DOL 6–7 1–3 (was 0–3);
+  DOL 8+ 2–5 below 1500 g. Na from DOL 8 stays 2–5: Jochum gives preterm 3–5 and term 2–3, and raising
+  it by weight would push term infants off their own row, so it waits for the term question. The PN
+  tiles, the trend bands (`log.jsx`) and the Reference page read the same functions; the Reference
+  page's electrolyte table now prints the day columns the tiles use.
+- **"First days of life" end at DOL 7** for Ca, P and Mg (`FIRST_DAYS_LAST_DOL`; Ca and P switched
+  after DOL 1, Mg after DOL 2).
+- **Kept as the unit's own values**, labelled so in `data.js`: PN energy DOL 3–7 70–100 (Moltu gives
+  60–80) and Ca:P 1.0–1.7.
+- **ZnSO₄ has a mL**: elemental Zn (pharmacy confirmed the paper form means elemental too), stock 1 mg
+  Zn/mL (`KCMH_STOCK.znso4`). The back sheet and the copied order print its mL and the WFI counts it.
+- **A bag above 1,250 mL**, the TPN room's largest bottle, cannot be submitted or printed, as for K⁺
+  over the maximum; a draft may be kept.
+- **New cautions**: heparin above the usual 1 U/mL (so a typed 10 is seen); oral vitamin D above 1,000
+  IU/day, Munti-vim's 400 included (the nutrition unit's upper border).
+- **Removed**: the "MgSO₄ not ordered" caution from PR #168. "Amino acid not ordered" stays.
+- **Feeds**: Enfalac Premature and Pre Nan at 24 kcal/oz (the book's own strength, so its osmolality
+  applies); Pre Nan moves to the Preterm formula group; Enfalac LF 20/24/27 is orderable in the
+  Calculator. `center-point/tpn-document.mjs` gained the two new labels, so **Center Point's copy must be
+  synced before release** (`BACKLOG.md` § Now).
+- **Reference page**: Cu preterm 40 / term 20 µg/kg/d (was 40 for every age); vitamin D's 1,000 IU/day.
+
+### Answers that confirm what NeoFeed already does
+
+Infatrini is the powder; breast milk stays 67 kcal/100 mL; Preterm Formula 20 is still ordered; Neutral
+Phos and Phosphate Solution's PO₄ mg is elemental P; K₂HPO₄ is the pure salt (15.5 mg P per mEq K);
+Peditrace is Zn 250 µg/mL; D50W is dextrose monohydrate (3.4 kcal/g); Mg mg/kg/d means elemental Mg;
+Vitalipid N Infant only, none on a lipid-free day, its fat not counted; the lipid rate ceiling stays 0.17
+g/kg/h (written "g/kg/day" on the sheet, a slip for the hourly rate the question asked about); no alert
+for a bag without Ca, P or Mg, for Ca in the bag with oral P only, or for zinc per kg.
+
+### Not done
+
+Listed in `BACKLOG.md` § Now, "What the answers of 2026-10-25 left open": the NPE:AA below 16 for more
+than 7 days Alerts-page signal, oral PO₄ in mg, feed Mg, trade names, the HMF answer, and the questions
+left unanswered.
+
 ## Session 2026-10-22 — a discharged infant can be brought back from a phone
 
 `app.jsx`, `registry.jsx`, `compiled/app.js`, `compiled/registry.js`, both shells' `?v=` tokens,
