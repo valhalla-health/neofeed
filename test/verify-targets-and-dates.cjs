@@ -75,26 +75,41 @@ eq('dolAtDate before admission clamps to admit DOL', D.dolAtDate(pt, '2026-07-28
 // ─────────────────────────────────────────────────────────────────────────────
 // Issue #3 — potassium: intermediate phase runs through D7, not D3
 // ─────────────────────────────────────────────────────────────────────────────
+// Since 2026-10-27 the days follow Jochum 2018's own tables (TPN team, 2026-10-25):
+// Table 1 0–3 to DOL 3 and 2–3 on DOL 4–5, Table 2 1–3 on DOL 6–7, Table 3 from
+// DOL 8 (2–5 below 1500 g, 2–3 above). Until then DOL 1–7 were all 0–3.
 console.log('\n── #3 potassium phase boundary (ESPGHAN/Jochum 2018) ──');
-eq('TPN K, DOL 1  → transition',   D.TPN_TARGETS.k(1), [0, 3]);
-eq('TPN K, DOL 4  → intermediate', D.TPN_TARGETS.k(4), [0, 3]);   // regressed to [2,3] before the fix
-eq('TPN K, DOL 7  → intermediate', D.TPN_TARGETS.k(7), [0, 3]);   // regressed to [2,3] before the fix
-eq('TPN K, DOL 8  → stable',       D.TPN_TARGETS.k(8), [2, 3]);
-eq('TPN K, DOL 30 → stable',       D.TPN_TARGETS.k(30), [2, 3]);
+eq('TPN K, DOL 1  → Table 1 D1–3',  D.TPN_TARGETS.k(1), [0, 3]);
+eq('TPN K, DOL 3  → Table 1 D1–3',  D.TPN_TARGETS.k(3), [0, 3]);
+eq('TPN K, DOL 4  → Table 1 D4–5',  D.TPN_TARGETS.k(4), [2, 3]);
+eq('TPN K, DOL 7  → Table 2',       D.TPN_TARGETS.k(7), [1, 3]);
+eq('TPN K, DOL 8  → stable',        D.TPN_TARGETS.k(8), [2, 3]);
+eq('TPN K, DOL 30 → stable',        D.TPN_TARGETS.k(30), [2, 3]);
+eq('TPN K, DOL 8, 1200 g → stable < 1500 g', D.TPN_TARGETS.k(8, 1200), [2, 5]);
+eq('TPN K, DOL 8, 1400 g now, born 1600 g → the birth-weight tier', D.TPN_TARGETS.k(8, 1400, 1600), [2, 3]);
 // TPN_TARGETS.k and TARGETS.k must not diverge again — that divergence was the tell.
-for (const dol of [1, 2, 3, 4, 5, 6, 7, 8, 14, 30]) {
-  eq(`TPN K == TARGETS K at DOL ${dol}`, D.TPN_TARGETS.k(dol), D.TARGETS.k(dol));
+for (const dol of [1, 2, 3, 4, 5, 6, 7, 8, 14, 30]) for (const w of [undefined, 900, 2000]) {
+  eq(`TPN K == TARGETS K at DOL ${dol}${w ? `, ${w} g` : ''}`, D.TPN_TARGETS.k(dol, w), D.TARGETS.k(dol, w));
+  eq(`TPN Na == TARGETS Na at DOL ${dol}${w ? `, ${w} g` : ''}`, D.TPN_TARGETS.na(dol, w), D.TARGETS.na(dol, w));
 }
-// A normal intermediate-phase prescription must read "ok", not "off target".
-eq('K 1.0 mEq/kg/d on DOL 5 is on target', D.rangeStatus(1.0, D.TPN_TARGETS.k(5)), 'ok');
+// Na by Jochum 2018: DOL 3 0–5 below 1500 g, 0–3 above; DOL 4–7 2–5.
+eq('TPN Na, DOL 3, 1200 g → 0–5', D.TPN_TARGETS.na(3, 1200), [0, 5]);
+eq('TPN Na, DOL 3, 1800 g → 0–3', D.TPN_TARGETS.na(3, 1800), [0, 3]);
+eq('TPN Na, DOL 5 → 2–5', D.TPN_TARGETS.na(5, 1800), [2, 5]);
+eq('TPN Na, DOL 10 stays 2–5 (Table 3 preterm 3–5 waits for the term rows)', D.TPN_TARGETS.na(10, 1200), [2, 5]);
+// An intermediate-phase prescription of 1.0 reads "ok" on DOL 6, "off target" from DOL 8.
+eq('K 1.0 mEq/kg/d on DOL 6 is on target', D.rangeStatus(1.0, D.TPN_TARGETS.k(6)), 'ok');
+eq('K 1.0 mEq/kg/d on DOL 5 is off target (Table 1 D4–5 is 2–3)', D.rangeStatus(1.0, D.TPN_TARGETS.k(5)), 'warn');
 eq('K 1.0 mEq/kg/d on DOL 10 is off target', D.rangeStatus(1.0, D.TPN_TARGETS.k(10)), 'warn');
 
 // Growing-premature PN phosphorus is 1.6–3.5 mmol/kg/day. At 31 mg/mmol,
 // that is approximately 50–108 mg/kg/day; the previous [46,62] range was an
 // older/narrower band and could tell a clinician to reduce a recommended dose.
 console.log('\n── #3b growing-premature PN phosphorus target (Mihatsch 2018) ──');
+// "First days" end at DOL 7 since 2026-10-27 (TPN team); until then DOL 1.
 eq('TPN P, DOL 1 stays in the early-PN band', D.TPN_TARGETS.p(1), [31, 62]);
-eq('TPN P, growing premature is 1.6–3.5 mmol/kg/d', D.TPN_TARGETS.p(2), [50, 108]);
+eq('TPN P, DOL 7 is still the first days', D.TPN_TARGETS.p(7), [31, 62]);
+eq('TPN P, growing premature is 1.6–3.5 mmol/kg/d', D.TPN_TARGETS.p(8), [50, 108]);
 eq('TPN_TARGETS.p and TARGETS.p agree for PN', D.TPN_TARGETS.p(10), D.TARGETS.p(10, false));
 eq('80 mg/kg/d P is on target for growing PN', D.rangeStatus(80, D.TPN_TARGETS.p(10)), 'ok');
 

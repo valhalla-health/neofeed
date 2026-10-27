@@ -350,12 +350,20 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     eq('none ordered reads empty', tileStatus('Magnesium'), 'empty');
     ok('…and raises no Magnesium alert', !alertTitles().some(t => /^Magnesium/.test(t)), alertTitles());
 
-    mount({ patient: pt('MB-2000', 2000), dol: 5, onLog: logger().onLog });
+    // "First days" run to DOL 7 since 2026-10-27 (TPN team); the growing range from DOL 8.
+    mount({ patient: pt('MB-2000', 2000), dol: 7, onLog: logger().onLog });
     screenshotOrder({ men: true });
-    eq('DOL 5 range = TARGETS.mg(5) = 0.4–0.6', tileRange('Magnesium'), `${D.TARGETS.mg(5)[0]}–${D.TARGETS.mg(5)[1]}`);
+    eq('DOL 7 range = TARGETS.mg(7) = 0.2–0.4 (still the first days)', tileRange('Magnesium'), '0.2–0.4');
+    for (const [v, want] of [[0.3, 'ok'], [0.6, 'warn']]) {
+      setField('MgSO₄', v);
+      eq(`DOL 7 · ${v} mEq/kg/d reads ${want}`, tileStatus('Magnesium'), want);
+    }
+    mount({ patient: pt('MB-2001', 2000), dol: 8, onLog: logger().onLog });
+    screenshotOrder({ men: true });
+    eq('DOL 8 range = TARGETS.mg(8) = 0.4–0.6', tileRange('Magnesium'), `${D.TARGETS.mg(8)[0]}–${D.TARGETS.mg(8)[1]}`);
     for (const [v, want] of [[0.4, 'ok'], [0.6, 'ok'], [0.3, 'warn'], [0.8, 'warn']]) {
       setField('MgSO₄', v);
-      eq(`DOL 5 · ${v} mEq/kg/d reads ${want}`, tileStatus('Magnesium'), want);
+      eq(`DOL 8 · ${v} mEq/kg/d reads ${want}`, tileStatus('Magnesium'), want);
     }
   });
 

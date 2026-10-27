@@ -314,11 +314,11 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   setField('Dextrose final', 10);
   setField('Amino acid', 3);
   setField('20% lipid', 3.5);
-  setField('KCl', 5);
+  setField('KCl', 6);     // above the 5.0 IV hard limit (3.5 until 2026-10-27)
   setField('10% Ca gluconate', 60);
   fillRequired();
   const texts = alertTexts();
-  ok('K 5 mEq/kg/d raises a critical alert', texts.some(t => /Potassium critically/.test(t)), texts);
+  ok('K 6 mEq/kg/d raises a critical alert', texts.some(t => /Potassium critically/.test(t)), texts);
   ok('Ca with zero P raises a critical alert', texts.some(t => /Ca:P ratio — ไม่มี P/.test(t)), texts);
   const offTarget = [...container.querySelectorAll('.metric.s-crit, .metric.s-warn')]
     .map(m => m.querySelector('.lbl')?.textContent).filter(l => l !== 'EN volume');
@@ -351,19 +351,21 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   ok('typing the saved value back makes it printable again', !!printForm());
 
   console.log('\n── F2 · reopening a saved entry ──');
-  // AA 3.5 g/kg with dextrose alone is NPE:AA ≈ 11 — a critical value. Since
-  // the 2026-09-17 review (UP-C6) a saved row prints only when its override
-  // names every critical alert on screen, so the fixture carries the reason a
-  // real save of this order would have required.
+  // AA 3.5 g/kg with dextrose alone is NPE:AA ≈ 11 — a critical value (below
+  // 12 since 2026-10-27, "NPE:AA critically low"). Since the 2026-09-17 review
+  // (UP-C6) a saved row prints only when its override names every critical
+  // alert on screen, so the fixture carries the reason a real save of this
+  // order would have required.
   const saved = { entryId: 'e-7', lastModified: 'lm-7', ts: '2026-09-11', dol: 5, weight: 900,
     calcInput: { curWtG: 900, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3.5, constantsVersion: D.CONSTANTS_VERSION,
-      critOverride: { reason: 'fixture — attending aware', alerts: ['NPE:AA critically off target'], at: '2026-09-11T01:00:00.000Z' } } };
+      critOverride: { reason: 'fixture — attending aware', alerts: ['NPE:AA critically low'], at: '2026-09-11T01:00:00.000Z' } } };
   const prev = { entryId: 'e-6', lastModified: 'lm-6', ts: '2026-09-10', dol: 4, weight: 900,
     calcInput: { curWtG: 900, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3 } };
   mount({ patient, editEntry: saved, previousEntry: prev, onLog() {} });
   ok('an untouched saved entry is printable', !!printForm());
   const pf = printForm().textContent.replace(/\s+/g, ' ');
-  ok('print: normal requirement comes from the DOL targets (P 50–108)', /P 50–108 mg\/kg\/day/.test(pf), pf.match(/K⁺[^|]{0,80}/));
+  // DOL 5 is still the first days (to DOL 7 since 2026-10-27), so P 31–62.
+  ok('print: normal requirement comes from the DOL targets (P 31–62 on DOL 5)', /P 31–62 mg\/kg\/day/.test(pf), pf.match(/K⁺[^|]{0,80}/));
   ok('print: the old hard-coded "P preterm 30-70" is gone', !/30-70/.test(pf));
   ok('print: energy line is TPN-only with its own per-kg', /Energy \(TPN\)/.test(pf));
   ok('print: changes vs previous order are listed', /เปลี่ยนแปลงจากคำสั่ง[^:]*: .*Amino acid 3→3\.5/.test(pf), pf.match(/เปลี่ยนแปลง.{0,120}/));
@@ -416,11 +418,13 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   ok('tweaks-panel.jsx is gone from the shells and the repo', !/tweaks-panel/.test(shell) && !fs.existsSync(DIR + 'tweaks-panel.jsx'));
   ok('app.jsx no longer mounts the Tweaks panel', !/TweaksPanel|useTweaks/.test(app));
   ok('no hard-coded "just now" sync labels', !/Sync · just now|Synced just now/.test(app));
-  ok('Guidelines P row reads TPN_TARGETS, not "46–62"', !/46–62/.test(app) && /TPN_TARGETS\.p\(2\)/.test(app));
+  // The growing row starts the day after the first days (DOL 8 since 2026-10-27).
+  const GROW = D.FIRST_DAYS_LAST_DOL + 1;
+  ok('Guidelines P row reads TPN_TARGETS, not "46–62"', !/46–62/.test(app) && /TPN_TARGETS\.p\(D_A\.FIRST_DAYS_LAST_DOL \+ 1\)/.test(app));
   ok('WHO tab no longer says HMF starts at EN ≥100', !/Start when EN ≥100/.test(app));
   const g = D.ESPGHAN_TARGETS.pn.electrolytes.p.growing;
   ok('ESPGHAN reference P matches TPN_TARGETS.p (mmol ×31)',
-    Math.round(g[0] * 31) === D.TPN_TARGETS.p(2)[0] && Math.floor(g[1] * 31) === D.TPN_TARGETS.p(2)[1], { g, t: D.TPN_TARGETS.p(2) });
+    Math.round(g[0] * 31) === D.TPN_TARGETS.p(GROW)[0] && Math.floor(g[1] * 31) === D.TPN_TARGETS.p(GROW)[1], { g, t: D.TPN_TARGETS.p(GROW) });
   ok('copied order text carries no patient name', !/`Patient: \$\{patient\?\.name/.test(R('calculator.jsx')));
 
   console.log(`\nREVIEW 2026-09-11: ${fail === 0 ? 'ALL PASS' : `${fail} FAILED`} (${pass} passed)`);

@@ -139,6 +139,9 @@ const EXPECTED = {
   BM_HMF_24:    { want: BM_HMF, cites: ['p. 10', 'Box 1.3.3'] },
   FBM_PF_22:    { want: atStrength(column(T5, 'enfalacPremature'), 22), cites: ['Table 5', 'p. 16'] },
   PRENAN_22:    { want: atStrength(column(T5, 'preNan'), 22), cites: ['Table 5', 'p. 16'] },
+  // At 24 kcal/oz too (nutrition unit, 2026-10-25), the book's own strength.
+  ENFALAC_PREM_24: { want: atStrength(column(T5, 'enfalacPremature'), 24), cites: ['Table 5', 'p. 16'] },
+  PRENAN_24:    { want: atStrength(column(T5, 'preNan'), 24), cites: ['Table 5', 'p. 16'] },
   FBM_PF_24:    { want: atStrength(column(T5, 'hiQLbw'), 24), cites: ['Table 5', 'p. 16'] },
   LF_20:        { want: atStrength(column(T7, 'hiQLf'), 20), cites: ['Table 7', 'p. 18'] },
   LF_24:        { want: atStrength(column(T7, 'hiQLf'), 24), cites: ['Table 7', 'p. 18'] },
@@ -157,8 +160,10 @@ const UNSOURCED = ['BM_PF_20'];
 // Pp, 2026-10-20: "PF 20 kcal/oz คงไว้อย่างเดิมก่อน". Its numbers as they were
 // on main before this PR (55d893d data.js), until the formulas are revised.
 const KEPT = { BM_PF_20: { kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4, na: 1.0, k: 1.7, ca: 50, p: 28, osm: 290 } };
-// The Calculator's feed list for a new order (calculator.jsx, Step 2).
-const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'FBM_PF_22', 'FBM_PF_24', 'PRENAN_22', 'FBM_INF_MIX', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27'];
+// The Calculator's feed list for a new order (calculator.jsx, Step 2). The two
+// 24 kcal/oz rows and Enfalac LF joined on 2026-10-27 (nutrition unit).
+const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
+  'FBM_INF_MIX', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27'];
 const FIELDS = ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p'];
 const close = (a, b) => typeof a === 'number' && Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
 
@@ -333,7 +338,8 @@ const scenarios = {
     await t.rail(/Formulas/);
     const rows = [...document.querySelectorAll('table tbody tr')];
     const DB = t.D().EN_DB;
-    A.eq('5.1 the page lists its 14 formula rows', rows.length, 14);
+    // 16 since 2026-10-27: Enfalac Premature and Pre Nan at 24 kcal/oz.
+    A.eq('5.1 the page lists its 16 formula rows', rows.length, 16);
     const byLabel = (key) => rows.find(r => {
       const first = r.querySelector('td');
       return first && first.textContent.replace(/\s+/g, ' ').trim() === DB[key].label.replace(/\s+/g, ' ').trim()
@@ -341,7 +347,7 @@ const scenarios = {
     });
     const missing = [], unlabelled = [];
     for (const key of Object.keys(DB)) {
-      if (!['FBM_PF_22', 'BM_20', 'BM_PF_20', 'HIQLF_20', 'HIQLF_24', 'ENFALAC_27', 'INFATRINI_30', 'FBM_INF_MIX', 'BM_HMF_24'].includes(key)) continue;
+      if (!['FBM_PF_22', 'ENFALAC_PREM_24', 'PRENAN_24', 'BM_20', 'BM_PF_20', 'HIQLF_20', 'HIQLF_24', 'ENFALAC_27', 'INFATRINI_30', 'FBM_INF_MIX', 'BM_HMF_24'].includes(key)) continue;
       const r = byLabel(key);
       if (!r) { missing.push(key); continue; }
       const want = DB[key].unsourced ? 'No source' : `Source: ${DB[key].source}`;

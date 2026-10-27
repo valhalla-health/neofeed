@@ -286,7 +286,7 @@ const openAll = () => click(btnExact('Open all'));
   ok('ingredients with TPN volume 0 disable Save', btnExact('Submit').disabled === true && /ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง/.test(text()));
   setField('Volume(mL/day)', 150);
   // a critical alert: Save asks for a reason; cancelling does not save
-  setField('KCl', 5);   // IV K 5 mEq/kg/d > 3.5 hard limit
+  setField('KCl', 6);   // IV K 6 mEq/kg/d > 5.0 hard limit (3.5 until 2026-10-27)
   promptAnswer = null;
   await clickAsync(btnExact('Submit'));
   ok('cancelled critical reason → nothing saved', calls.onLog.length === 0 && toasts.some(t => /ต้องระบุเหตุผลก่อน/.test(t.msg)));

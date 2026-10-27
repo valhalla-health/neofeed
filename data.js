@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-10-17.1";
+const CONSTANTS_VERSION = "2026-10-27.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -258,11 +258,27 @@ const EN_DB = {
     note: "Enfalac Premature (MJN) · Ca:P 1.8:1 · whey:casein 60:40",
   },
   // Added by 357d095 at 22 kcal/oz; the book prints it at 24 (osmolality 263
-  // there). The book lists Pre Nan with the preterm formulas (Table 5); the
-  // Calculator groups it as post-discharge (TPN team, 2026-09-28).
+  // there). The book lists Pre Nan with the preterm formulas (Table 5), and so
+  // does the nutrition unit (2026-10-25); the Calculator grouped it as
+  // post-discharge from 2026-09-28 until then.
   PRENAN_22: {
     label: "Pre Nan (22 kcal/oz)",
     ..._enFromChula(_EN_CHULA.preNan, 22), lf: false,
+    source: "Chula Handbook Table 5, p. 16 (per 100 kcal)",
+    note: "Pre Nan (Nestlé) · Ca:P 1.7:1 · whey:casein 70:30",
+  },
+  // The ward mixes Enfalac Premature and Pre Nan at 22 and at 24 kcal/oz
+  // (nutrition unit, 2026-10-25). 24 is the strength the book prints them at,
+  // so here its osmolality applies.
+  ENFALAC_PREM_24: {
+    label: "Enfalac Premature (24 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 24), lf: false,
+    source: "Chula Handbook Table 5, p. 16 (per 100 kcal)",
+    note: "Enfalac Premature (MJN) · Ca:P 1.8:1 · whey:casein 60:40",
+  },
+  PRENAN_24: {
+    label: "Pre Nan (24 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.preNan, 24), lf: false,
     source: "Chula Handbook Table 5, p. 16 (per 100 kcal)",
     note: "Pre Nan (Nestlé) · Ca:P 1.7:1 · whey:casein 70:30",
   },
@@ -318,7 +334,8 @@ const EN_DB = {
     note: "Ca and P below the ESPGHAN goal at 150 mL/kg → supplement oral Ca and P",
   },
 
-  // ── Enfalac LF (Mead Johnson) — Formula reference page only ─
+  // ── Enfalac LF (Mead Johnson) — the Formula reference page, and since
+  // 2026-10-27 the Calculator's Lactose-free group (nutrition unit) ─
   ENFALAC_20: {
     label: "Enfalac LF — 20 kcal/oz (67 kcal/100mL)",
     ..._enFromChula(_EN_CHULA.enfalacLf, 20), lf: true,
@@ -415,6 +432,18 @@ const ADDITIVE_PRODUCTS = {
 // TARGET SYSTEMS
 // ============================================================
 
+// The last DOL of Mihatsch 2018's "first days of life" Ca, P and Mg ranges
+// (TPN team, 2026-10-25: "7 วัน").
+const FIRST_DAYS_LAST_DOL = 7;
+
+// Jochum 2018's "preterm neonate < 1500 g", on the weight the fluid tier uses
+// (TARGETS.fluid): the dosing weight, held at birth weight until it is
+// regained. With no weight known, the ≥ 1500 g row.
+function _jochumUnder1500(wtG, bwG) {
+  const w = (bwG && wtG < bwG) ? bwG : wtG;
+  return w > 0 && w < 1500;
+}
+
 // ── TPN_TARGETS — used when EN < 100 mL/kg/d ─────────────────
 // Source: ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Clin Nutr 2018)
 // ESPGHAN 2021 JPGN update for critically ill term infants
@@ -429,7 +458,9 @@ const TPN_TARGETS = {
 
   // Total PN energy kcal/kg/day — Moltu SJ et al. JPGN 2021
   // Early PN: non-protein energy goal 45–55 kcal/kg/day DOL 1–2
-  // Advancing: 70–100 kcal/kg/day DOL 3–7
+  // Advancing: 70–100 kcal/kg/day DOL 3–7. Not Moltu's figure (PN late acute,
+  // preterm, is 60–80): the TPN team kept 70–100 as the unit's own range
+  // (2026-10-25, targets audit of 2026-09-28 § 9).
   kcal: (dol) => {
     if (dol <= 2) return [45, 55];     // Transition: meet BMR + minimal synthesis
     if (dol <= 7) return [70, 100];    // Intermediate: increasing substrate delivery
@@ -443,45 +474,52 @@ const TPN_TARGETS = {
     return [1.0, 4.0];                 // Advance by 0.5–1 g/kg/day, max 4.0
   },
 
-  // Electrolytes mEq/kg/day — Jochum F et al. 2018 · order form units
-  // Transition phase D1–2: hold Na & K (diuretic phase, natriuresis)
-  na: (dol) => {
-    if (!dol || dol <= 2) return [0, 2];   // Transition: 0–2 mEq/kg/day (withhold in ELBW)
-    if (dol <= 7)         return [0, 3];   // Intermediate: 0–3 mEq/kg/day
-    return [2, 5];                          // Stable: 2–5 mEq/kg/day (form: 2–5 mEq/kg/d)
+  // Electrolytes mEq/kg/day — Jochum F et al. 2018, Tables 1–3, preterm rows
+  // (TPN team, 2026-10-25: "follow the source" for Na DOL 3–7 and K DOL ≤ 7).
+  // DOL 1–5 are Table 1's day columns, DOL 6–7 Table 2 (intermediate phase),
+  // DOL 8 on Table 3 (stable growth). The weight group is the fluid tier's
+  // weight (_jochumUnder1500 below). A bracketed upper value in the tables,
+  // "(7)", is for high urinary Na loss and is not the band. Term rows are not
+  // used: whether term infants get their own rows is still open (§ 2.5 item 7).
+  na: (dol, wtG, bwG) => {
+    if (!dol || dol <= 2) return [0, 2];   // Table 1 D1–2: 0–2 (3)
+    if (dol === 3) return _jochumUnder1500(wtG, bwG) ? [0, 5] : [0, 3];  // D3: < 1500 g 0–5 (7), > 1500 g 0–3
+    if (dol <= 7) return [2, 5];           // D4–5 2–5 (7) · Table 2 preterm 2–5
+    // Stable: 2–5 as before. Table 3 gives preterm 3–5 and term 2–3; raising
+    // the floor to 3 by weight would push term infants off their own row, so
+    // it waits for the term question.
+    return [2, 5];
   },
-  k: (dol) => {
-    // Transition (D1–2/3) + Intermediate (through D7): 0–3 mEq/kg — K is held or
-    // kept low until the diuretic phase completes and urine output is
-    // established. The stable-phase 2 mEq/kg floor must NOT apply before D8.
-    // This guard read `dol <= 3` while its own comment, TARGETS.k below and
-    // Jochum 2018 all say D8+, so a normal DOL 4–7 prescription of 0–2 mEq/kg/d
-    // rendered as "off target" in both the Step 4 tile and the TrendGraph band.
-    if (!dol || dol <= 7) return [0, 3];
-    return [2, 3];                          // Stable D8+: 2–3 mEq/kg (Jochum 2018)
+  k: (dol, wtG, bwG) => {
+    if (!dol || dol <= 3) return [0, 3];   // Table 1 D1–3: 0–3
+    if (dol <= 5) return [2, 3];           // Table 1 D4–5: 2–3
+    if (dol <= 7) return [1, 3];           // Table 2 (intermediate): 1–3
+    return _jochumUnder1500(wtG, bwG) ? [2, 5] : [2, 3];  // Table 3: < 1500 g 2–5
   },
 
   // Calcium mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
-  // DOL1: 0.8–2.0 mmol/kg × 40 = 32–80 mg/kg
+  // First days: 0.8–2.0 mmol/kg × 40 = 32–80 mg/kg
   // Growing (stable): 1.6–3.5 mmol/kg × 40 = 64–140 mg/kg
+  // Mihatsch never says when "the first days of life" end. The TPN team set
+  // DOL 7 (2026-10-25); until then Ca and P switched after DOL 1, Mg after DOL 2.
   ca: (dol) => {
-    if (!dol || dol <= 1) return [32, 80];   // DOL1: 0.8–2.0 mmol×40 = 32–80 mg/kg
+    if (!dol || dol <= FIRST_DAYS_LAST_DOL) return [32, 80];   // 0.8–2.0 mmol×40 = 32–80 mg/kg
     return [64, 140];                          // Growing: 1.6–3.5 mmol×40 = 64–140 mg/kg
   },
 
   // Phosphorus mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
-  // DOL1: 1.0–2.0 mmol/kg × 31 = 31–62 mg/kg
+  // First days: 1.0–2.0 mmol/kg × 31 = 31–62 mg/kg
   // Growing premature: 1.6–3.5 mmol/kg × 31 = 50–108 mg/kg
   p: (dol) => {
-    if (!dol || dol <= 1) return [31, 62];   // DOL1: 1.0–2.0 mmol×31 = 31–62 mg/kg
+    if (!dol || dol <= FIRST_DAYS_LAST_DOL) return [31, 62];   // 1.0–2.0 mmol×31 = 31–62 mg/kg
     return [50, 108];                          // Growing: 1.6–3.5 mmol×31 = 50–108 mg/kg
   },
 
   // Magnesium mEq/kg/day — Mihatsch 2018 (ESPGHAN 2018)
   // Mg²⁺ valence 2 → 1 mmol = 2 mEq
-  // DOL1: 0.1–0.2 mmol/kg = 0.2–0.4 mEq/kg · Growing: 0.2–0.3 mmol = 0.4–0.6 mEq/kg
+  // First days: 0.1–0.2 mmol/kg = 0.2–0.4 mEq/kg · Growing: 0.2–0.3 mmol = 0.4–0.6 mEq/kg
   mg: (dol) => {
-    if (!dol || dol <= 2) return [0.2, 0.4];  // Transition: 0.1–0.2 mmol×2
+    if (!dol || dol <= FIRST_DAYS_LAST_DOL) return [0.2, 0.4];  // 0.1–0.2 mmol×2
     return [0.4, 0.6];                          // Growing: 0.2–0.3 mmol×2
   },
 
@@ -534,14 +572,18 @@ const TARGETS = {
   // a lighter, higher-fluid tier off the nadir, and it tracks current weight
   // once regained. Called without bwG it floors nothing (legacy behaviour).
   fluid: (dol, wtG, bwG) => {
+    // From DOL 6 every preterm tier is Jochum's Tables 2–3: 140–160. Until
+    // 2026-10-27 ELBW stayed at 160–180 for the rest of the stay and VLBW had
+    // 140–160 on DOL 5, where Table 1 gives 160–180 (TPN team, 2026-10-25:
+    // follow the source).
     const w = (bwG && wtG < bwG) ? bwG : wtG;
     const d = Math.min(dol, 7);
     if (w < 1000) {           // ELBW <1000g — highest IWL, humidified incubator essential
-      const map = {1:[80,100], 2:[100,120], 3:[120,140], 4:[140,160], 5:[160,180], 6:[160,180], 7:[160,180]};
-      return map[d] || [160, 180];
+      const map = {1:[80,100], 2:[100,120], 3:[120,140], 4:[140,160], 5:[160,180], 6:[140,160], 7:[140,160]};
+      return map[d] || [140, 160];
     }
     if (w < 1500) {           // VLBW 1000–1500g
-      const map = {1:[70,90], 2:[90,110], 3:[110,130], 4:[130,150], 5:[140,160], 6:[140,160], 7:[140,160]};
+      const map = {1:[70,90], 2:[90,110], 3:[110,130], 4:[130,150], 5:[160,180], 6:[140,160], 7:[140,160]};
       return map[d] || [140, 160];
     }
     if (w < 2500) {           // Preterm >1500g
@@ -584,53 +626,42 @@ const TARGETS = {
     return [4.8, 8.1];   // Full enteral
   },
 
-  // Sodium mEq/kg/day — phase-specific (order form: 2–5 mEq/kg/day general)
-  na: (dol) => {
-    if (!dol || dol <= 2) return [0, 2];   // Transition: hold Na
-    if (dol <= 7)         return [0, 3];   // Intermediate
-    return [2, 5];                          // Stable: form normal requirement
-  },
-
-  // Potassium mEq/kg/day — Jochum 2018
-  // Transition D1–3: 0–3 · Intermediate D4–7: 0–3 · Stable D8+: 2–3 mEq/kg/day
-  k: (dol) => {
-    if (!dol || dol <= 7) return [0, 3];  // Transition + Intermediate
-    return [2, 3];                         // Stable D8+: Jochum 2–3 mEq/kg/day
-  },
+  // Sodium and potassium mEq/kg/day — the PN rows, TPN_TARGETS.na/k (Jochum
+  // 2018 Tables 1–3; TPN team, 2026-10-25). One copy, so the two cannot drift.
+  na: (dol, wtG, bwG) => TPN_TARGETS.na(dol, wtG, bwG),
+  k:  (dol, wtG, bwG) => TPN_TARGETS.k(dol, wtG, bwG),
 
   // Calcium mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
-  // DOL1: 0.8–2.0 mmol/kg × 40 = 32–80 mg/kg
+  // First days (DOL 1–7): 0.8–2.0 mmol/kg × 40 = 32–80 mg/kg
   // Growing (stable): 1.6–3.5 mmol/kg × 40 = 64–140 mg/kg
   ca: (dol, isEnteral) => {
     if (isEnteral) return [120, 200];       // ESPGHAN 2022 EN: 3.0–5.0 mmol×40
-    if (!dol || dol <= 1) return [32, 80];  // DOL1: 0.8–2.0 mmol×40 = 32–80 mg/kg
-    return [64, 140];                        // Growing: 1.6–3.5 mmol×40 = 64–140 mg/kg
+    return TPN_TARGETS.ca(dol);
   },
 
   // Phosphorus mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
-  // DOL1: 1.0–2.0 mmol/kg × 31 = 31–62 mg/kg
+  // First days (DOL 1–7): 1.0–2.0 mmol/kg × 31 = 31–62 mg/kg
   // Growing premature: 1.6–3.5 mmol/kg × 31 = 50–108 mg/kg
   p: (dol, isEnteral) => {
     if (isEnteral) return [70, 115];        // ESPGHAN 2022 EN: 2.2–3.7 mmol×31
-    if (!dol || dol <= 1) return [31, 62];  // DOL1: 1.0–2.0 mmol×31 = 31–62 mg/kg
-    return [50, 108];                        // Growing: 1.6–3.5 mmol×31 = 50–108 mg/kg
+    return TPN_TARGETS.p(dol);
   },
 
-  // Magnesium mEq/kg/day — Mihatsch 2018 (ESPGHAN 2018)
-  // DOL1: 0.1–0.2 mmol/kg = 0.2–0.4 mEq/kg (Mg²⁺ valence 2)
-  // Growing preterm: 0.2–0.3 mmol/kg = 0.4–0.6 mEq/kg
-  mg: (dol) => {
-    if (!dol || dol <= 2) return [0.2, 0.4]; // Transition: 0.1–0.2 mmol×2
-    return [0.4, 0.6];                         // Growing: 0.2–0.3 mmol×2 — matches Mg chips
-  },
+  // Magnesium mEq/kg/day — Mihatsch 2018 (ESPGHAN 2018), TPN_TARGETS.mg
+  // First days (DOL 1–7): 0.1–0.2 mmol/kg = 0.2–0.4 mEq/kg (Mg²⁺ valence 2)
+  // Growing preterm: 0.2–0.3 mmol/kg = 0.4–0.6 mEq/kg — matches the Mg chips
+  mg: (dol) => TPN_TARGETS.mg(dol),
 
   // Ca:P mass ratio — order form: Ca:P ~1.7:1 target
   // ESPGHAN 2018 molar 0.8–1.3:1 → mass 1.0–1.68 ≈ 1.7:1
   caP: () => [1.0, 1.7],   // mass ratio; ESPGHAN molar 0.8–1.3 → mass 1.0–1.7; KCMH aim 1.7:1
 
-  // Non-protein energy per gram amino acid (classic NPC:N 150–200:1 ÷ 6.25 g AA/g N)
-  // Normal 24–32 · soft-alert 20–<24 · hard alert <20 or >32
-  npePerGAA: () => [24, 32],
+  // Non-protein energy per gram amino acid (classic NPC:N 150 ÷ 6.25 g AA/g N
+  // = 24 kcal/g AA). No upper end: ESPGHAN's 30–40 kcal/g is a minimum, not a
+  // ceiling, and the TPN team removed the > 32 hard limit (2026-10-25).
+  // At least 24 · soft-alert 20–<24 · caution < 20 · critical < 12 (IV portion,
+  // calculator.jsx NPE_CRIT_LO).
+  npePerGAA: () => [24, Infinity],
 
   // Protein:Energy ratio — ESPGHAN 2022 EN
   // 2.8–3.6 g protein per 100 kcal → ensures lean mass accretion
@@ -679,12 +710,30 @@ const KCMH_STOCK = {
   caGluconate: { label: "10% Ca gluconate",      caMgPerMl: 9.01755, caMeqPerMl: 0.45 },
   // Additives — sheet rows 43/45/51
   soluvit:     { label: "Soluvit N®",            mlPerKg: 1.0, maxMl: 10 },
+  // Zn 250 µg/mL, the fluoride-containing Peditrace (pharmacy, 2026-10-25).
   peditrace:   { label: "Peditrace",             mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },
+  // Pharmacy's ZnSO₄ stock: 1 mg elemental Zn/mL, and the paper form's "ZnSO₄
+  // … mg" is elemental Zn too (pharmacy, 2026-10-25). Not on the KCMH sheet.
+  znso4:       { label: "ZnSO₄",                 znMgPerMl: 1 },
   heparin:     { label: "Heparin",               unitsPerMl: 100 },
 };
 
-// Max dextrose the KCMH sheet allows (F9 = 18 × weight) — g/kg/day
-const MAX_DEXTROSE_G_KG = 18;
+// Max dextrose, g/kg/day: Mesotten 2018 R 5.4, glucose at most 12 mg/kg/min
+// = 17.3 g/kg/d (TPN team, 2026-10-25: follow the source). The KCMH sheet's
+// own limit is 18 (F9 = 18 × weight), about 12.5 mg/kg/min, which this was
+// until 2026-10-27.
+const MAX_DEXTROSE_G_KG = 17.3;
+// The TPN room's largest bottle, mL (TPN team, 2026-10-25). A bag whose
+// prepared volume is above it cannot be ordered: Submit and Print refuse it,
+// as for K⁺ over the route's maximum (Pp, 2026-10-27: "ห้ามสั่ง").
+const TPN_BOTTLE_MAX_ML = 1250;
+// Oral vitamin D is dosed per kg (ESPGHAN 2022, 400–700 IU/kg/d) with an
+// upper border of 1,000 IU a day from the nutrition unit's range file
+// (2026-10-25). Above it is a caution.
+const VIT_D_MAX_IU_DAY = 1000;
+// Heparin in the aqueous bag, U/mL: the usual 0.5–1 (KCMH default 1). Above
+// it is a caution, so a tenfold 10 U/mL is caught (TPN team, 2026-10-25).
+const HEPARIN_USUAL_MAX_U_ML = 1;
 // K⁺ concentration in the finished bag, mEq/L, by route (TPN team meeting and
 // Praew, 2026-09-28): amber above `warn`; critical above `red`, ordered only
 // with a confirmed reason; and above `hardMax` not ordered at all — Save and
@@ -768,11 +817,29 @@ function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
 // (2026-09-23). The threshold was never in dispute — only that two screens
 // each carried their own copy of it. It now lives here, and both call this.
 //   4–12 mg/kg/min  ok   · outside that  warn  · above GIR_HARD_HI  crit
-const GIR_HARD_HI = 13;
+// 12 is Mesotten 2018 R 5.4's maximum (TPN team, 2026-10-25: follow the
+// source). From 2026-09-22 to 2026-10-27 it was 13, with 12–13 an amber
+// margin (Praew: "GIR bar turn red at >13").
+const GIR_HARD_HI = 12;
 // Energy ceiling — ESPGHAN 2022 EN: 140–160 kcal/kg/d only for suboptimal
 // growth, once protein and other nutrients are sufficient, and never above
 // 160 (CUPA 2023 lecture, slide 17). 140–160 grades amber, above 160 red.
 const KCAL_HARD_HI = 160;
+// Hard limits that had no source from the first commit until the TPN team set
+// them (2026-10-25, provenance audit of 2026-10-17 § 3.8). Each is critical
+// above (or, for NPE:AA, below) the figure, so it is ordered only with a reason.
+//   protein, total TPN + EN, g/kg/d: 4.5 (was 4.8; ESPGHAN 2022's enteral ceiling)
+//   lipid, IV only, g/kg/d:          4.0 (was 4.5; ESPGHAN 2018, at most 4)
+//   K, IV only, mEq/kg/d:            5.0 at every weight (was 3.5; Jochum 2018
+//                                    Table 3 gives < 1500 g 2–5; Pp, 2026-10-27)
+//   NPE:AA, IV only, kcal/g AA:      critical below 12; the > 32 ceiling is gone
+//   osmolarity, peripheral, mOsm/L:  900, the KCMH form's figure; the 850
+//                                    caution had no source and is gone
+const PROTEIN_HARD_HI = 4.5;
+const LIPID_IV_HARD_HI = 4.0;
+const K_IV_HARD_HI = 5.0;
+const NPE_IV_CRIT_LO = 12;
+const OSM_PERIPHERAL_MAX = 900;
 function girStatus(gir) {
   return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
 }
@@ -842,21 +909,26 @@ const ESPGHAN_TARGETS = {
     },
     fluid: {
       unit: "mL/kg/day",
-      elbw:   { d1:[80,100], d2:[100,120], d3:[120,140], d4:[140,160], d5plus:[160,180] },
-      vlbw:   { d1:[70,90],  d2:[90,110],  d3:[110,130], d4:[130,150], d5plus:[140,160] },
-      preterm:{ d1:[60,80],  d2:[80,100],  d3:[100,120], d4:[120,140], d5plus:[140,160] },
-      term:   { d1:[40,60],  d2:[50,70],   d3:[60,80],   d4:[60,100],  d5plus:[100,140] },
+      // TARGETS.fluid's tiers. Jochum Table 1 to DOL 5, Tables 2–3 after.
+      elbw:   { d1:[80,100], d2:[100,120], d3:[120,140], d4:[140,160], d5:[160,180], d6plus:[140,160] },
+      vlbw:   { d1:[70,90],  d2:[90,110],  d3:[110,130], d4:[130,150], d5:[160,180], d6plus:[140,160] },
+      preterm:{ d1:[60,80],  d2:[80,100],  d3:[100,120], d4:[120,140], d5:[140,160], d6plus:[140,160] },
+      term:   { d1:[40,60],  d2:[50,70],   d3:[60,80],   d4:[60,100],  d5:[100,140], d6plus:[140,160] },
       note: "ESPGHAN guideline ranges — no absolute max. Attending may use up to 200 mL/kg/day per clinical judgment. ELBW in humidified incubator: IWL ≈30 vs open warmer ≈120 mL/kg/day",
     },
     electrolytes: {
-      // Transition D1–2, Intermediate D3–7, Stable D8+
+      // TPN_TARGETS.na/k: Jochum Table 1 to DOL 5, Table 2 DOL 6–7, Table 3 DOL 8+.
       na: {
-        elbw:    { transition:[0,2], intermediate:[0,5], stable:[2,7]  },
-        preterm: { transition:[0,2], intermediate:[0,3], stable:[2,5]  },
-        term:    { transition:[0,2], intermediate:[0,2], stable:[1,3]  },
+        under1500: { d1to2:[0,2], d3:[0,5], d4to7:[2,5], stable:[2,5] },
+        over1500:  { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[2,5] },
         unit: "mmol/kg/day",
       },
-      k:  { transition:[0,3], intermediate:[0,3], stable:[2,3],  unit:"mmol/kg/day" },
+      k: {
+        under1500: { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[2,5] },
+        over1500:  { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[2,3] },
+        unit: "mmol/kg/day",
+      },
+      // First days = DOL 1–7 (FIRST_DAYS_LAST_DOL; TPN team, 2026-10-25).
       ca: { dol1:[0.8,2.0], growing:[1.6,3.5], unit:"mmol/kg/day" },  // × 40.08 = mg/kg
       // growing was [1.5, 2.0] until 2026-09-11 — the 2026-09-05 correction of
       // TPN_TARGETS.p (1.6–3.5 mmol = 50–108 mg/kg) never reached this display copy.
@@ -868,7 +940,9 @@ const ESPGHAN_TARGETS = {
     micronutrients: {
       zn: { preterm:[400,500], term:[250,250], unit:"µg/kg/day" },
       fe: { preterm:[200,250], term:[50,100],  unit:"µg/kg/day", note:"Prefer enteral Fe when possible" },
-      cu: 40,   // µg/kg/day all ages
+      // Domellöf 2018 R 7.10: preterm 40, term 20 (TPN team, 2026-10-25). It
+      // read 40 for every age until then.
+      cu: { preterm: 40, term: 20, unit: "µg/kg/day" },
       // Peditrace® 1 mL/kg/day (maximum 15 mL/day) covers Zn, Cu, Se, Mn, I
     },
     energy: {
@@ -876,7 +950,7 @@ const ESPGHAN_TARGETS = {
       kcalPerGAA: 4.0,
       kcalPerGLipid: 9.0,
       kcalPerMlILE20: 2.0,
-      npePerGAA: [24, 32],   // kcal non-protein per g amino acid — classic NPC:N 150–200:1
+      npePerGAA: [24, Infinity],   // kcal non-protein per g amino acid, at least 24 (TARGETS.npePerGAA)
     },
     additives: {
       vitalipid: "BW <2.5 kg: 4 mL/kg/day · BW ≥2.5 kg: 10 mL/day (add to lipid bag)",
@@ -896,7 +970,7 @@ const ESPGHAN_TARGETS = {
     k:       { range:[2.3,4.6],             unit:"mmol/kg/day", note:"↑ from 2010 range" },
     ca:      { range:[3.0,5.0], mgPerKg:[120,200], unit:"mmol/kg/day", note:"↑ upper limit" },
     p:       { range:[2.2,3.7], mgPerKg:[70,115],  unit:"mmol/kg/day", note:"↑ from 2010" },
-    vitD:    { range:[400,700],             unit:"IU/kg/day",  note:"Per kg (not per day) — changed in 2022!" },
+    vitD:    { range:[400,700], maxIuDay:1000, unit:"IU/kg/day", note:"Per kg (not per day) — changed in 2022! At most 1,000 IU/day (nutrition unit)" },
     fe:      { range:[2,3], max:6,          unit:"mg/kg/day",  note:"Start at 2 weeks" },
     zn:      { range:[2.0,3.0],             unit:"mg/kg/day",  note:"↑↑ from 2010: 1.1–2.0" },
     fluid:   { range:[150,200], target:165, unit:"mL/kg/day", note:"ESPGHAN 150–180; attending may use up to 200 mL/kg/day" },
@@ -2533,8 +2607,10 @@ window.NEOFEED_DATA = {
   // The ONE GIR grading — the Calculator and the Alerts page both call it, so
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
+  PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
+  TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
   // Provenance — which constants and which frontend produced a printed number.

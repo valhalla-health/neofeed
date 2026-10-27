@@ -315,7 +315,9 @@ function mount(props, { pressRoute = true } = {}) {
   // web/tpn-document.mjs, point CP's test/neofeed-commit at the new NeoFeed
   // commit, then record the new digest below.
   console.log('\n── §6 center-point/tpn-document.mjs matches the version CP was synced to ──');
-  const TPN_DOCUMENT_SHA256 = 'bcedde10311d5e82baef3e77cba452b69e233ffda980954220bf0a05360da504';
+  // 2026-10-27: two feed labels added (Enfalac Premature and Pre Nan at 24 kcal/oz).
+  // CP's own copy must be synced before the release that carries them (BACKLOG § Now).
+  const TPN_DOCUMENT_SHA256 = 'e1367c23bb05c8a641fb82c448b7b63ca477aee1d21460a3320d74d44364bc44';
   const digest = require('crypto').createHash('sha256')
     .update(fs.readFileSync(DIR + 'center-point/tpn-document.mjs', 'utf8').replace(/\r\n/g, '\n')).digest('hex');
   ok('tpn-document.mjs is the version CP is synced to (else: sync CP, re-pin, update this digest)', digest === TPN_DOCUMENT_SHA256, digest);

@@ -309,7 +309,7 @@ function readPrintBag() {
     const name = tds[0]?.textContent.trim();
     if (tds.length === 3) {
       const strong = tds[2].querySelector('strong');
-      if (!strong) { notCounted.push(name); continue; }      // ZnSO₄: its mL is not in the WFI, by design
+      if (!strong) { notCounted.push(name); continue; }      // a line with no mL (none today; ZnSO₄ had none until 2026-10-27)
       parts.push({ name, ml: numOrDash(strong.textContent), text: strong.textContent.trim() });
     } else if (/^Water for injection q\.s\./.test(name || '')) {
       const t = tds[1].textContent.replace(/\s+/g, ' ');
@@ -371,7 +371,8 @@ async function fill(sc) {
 // The stock lines the order must print: one per stock it uses.
 function expectedLines(sc, Vd) {
   let n = 3;                                       // D50W, amino acid and heparin are always listed
-  for (const k of ['naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca']) if (sc[k] > 0) n++;
+  // ZnSO₄ is a stock line counted in the WFI since 2026-10-27 (1 mg Zn/mL).
+  for (const k of ['naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn']) if (sc[k] > 0) n++;
   if (sc.soluvit && Vd > 0) n++;
   if (sc.pedi && Vd > 0) n++;
   return n;

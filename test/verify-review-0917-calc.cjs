@@ -175,22 +175,23 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     }
   });
 
-  await section('§2 UP-C4 · an IV breach is still a critical stop (lipid 4.8, K 4, pure PN)', async () => {
+  // The limits are lipid 4.0 and K 5.0 since 2026-10-27 (TPN team; 4.5 and 3.5 before).
+  await section('§2 UP-C4 · an IV breach is still a critical stop (lipid 4.8, K 5.5, pure PN)', async () => {
     const log = logger();
     mount({ patient: pt('IV-1000', 1000), onLog: log.onLog });
     setField('Current weight', 1000); fillRequired(160);
     setField('Volume(mL/day)', 110); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('20% lipid', 4.8);
-    setField('KCl', 4); setField('10% Ca gluconate', 80); setField('Glycophos', 3);
+    setField('KCl', 5.5); setField('10% Ca gluconate', 80); setField('Glycophos', 3);
     ok('lipid 4.8 raises "Lipid critically out of range"', critTitles().includes('Lipid critically out of range'), critTitles());
-    ok('…showing the IV value against the limit', /Lipid IV 4\.8 g\/kg\/d > 4\.5 g\/kg\/d hard limit/.test(alertText('Lipid critically out of range')), alertText('Lipid critically out of range'));
-    ok('K 4 raises "Potassium critically out of range"', critTitles().includes('Potassium critically out of range'), critTitles());
-    ok('…showing the IV value against the limit', /K IV 4 mEq\/kg\/d > 3\.5 mEq\/kg\/d hard limit/.test(alertText('Potassium critically out of range')), alertText('Potassium critically out of range'));
+    ok('…showing the IV value against the limit', /Lipid IV 4\.8 g\/kg\/d > 4 g\/kg\/d hard limit/.test(alertText('Lipid critically out of range')), alertText('Lipid critically out of range'));
+    ok('K 5.5 raises "Potassium critically out of range"', critTitles().includes('Potassium critically out of range'), critTitles());
+    ok('…showing the IV value against the limit', /K IV 5\.5 mEq\/kg\/d > 5 mEq\/kg\/d hard limit/.test(alertText('Potassium critically out of range')), alertText('Potassium critically out of range'));
     ok('pure PN: no "total incl. EN" (IV and total are the same)', !/total incl\. EN/.test(alertText('Lipid critically out of range') + alertText('Potassium critically out of range')));
     // "Lipid rate …" (2026-09-28) is the infusion-rate ceiling, a separate check — not a second dose line.
     eq('one line per nutrient (no extra Lipid/Potassium "off target")', alertRows().filter(a => /^(Lipid|Potassium)/.test(a.title) && !/^Lipid rate/.test(a.title)).length, 2);
     ok('the TOTAL tiles are not critical', ['ok', 'warn'].includes(tileStatus('Lipid (total)')) && ['ok', 'warn'].includes(tileStatus('Potassium')),
       [tileStatus('Lipid (total)'), tileStatus('Potassium')]);
-    f1('IV lipid 4.8 / K 4');
+    f1('IV lipid 4.8 / K 5.5');
     await save(null);
     eq('Save without a reason is refused', log.calls, 0);
     await save('attending aware — synthetic');
@@ -205,7 +206,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     setField('Current weight', 1000); fillRequired(160);
     setField('Volume(mL/day)', 110); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('20% lipid', 4.8);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 10); setField('Frequency', 8);
-    ok('still critical on the IV 4.8', /Lipid IV 4\.8 g\/kg\/d > 4\.5/.test(alertText('Lipid critically out of range')), alertText('Lipid critically out of range'));
+    ok('still critical on the IV 4.8', /Lipid IV 4\.8 g\/kg\/d > 4 g\/kg\/d/.test(alertText('Lipid critically out of range')), alertText('Lipid critically out of range'));
     ok('…with the TPN + EN total alongside', /total incl\. EN \d+(\.\d)? g\/kg\/d/.test(alertText('Lipid critically out of range')), alertText('Lipid critically out of range'));
     f1('IV lipid 4.8 + EN');
   });
@@ -241,13 +242,20 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 2);
     eq('pure PN: exactly one NPE:AA line, and it warns', alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['warn']);
     ok('a value just under 20 is not shown as "20"', /NPE:AA IV 19\.\d+ kcal\/g AA < 20/.test(alertText('NPE:AA off target')), alertText('NPE:AA off target'));
-    // The HIGH side is untouched: still critical, still stops the order.
+    // Since 2026-10-27 (TPN team) there is no high side: ESPGHAN's 30–40
+    // kcal/g is a minimum. The stop is on the low side instead, below 12.
     mount({ patient: pt('NP-HI', 1000), onLog: logger().onLog });
     setField('Current weight', 1000); fillRequired(150);
     setField('Volume(mL/day)', 150); setField('Dextrose final', 25); setField('Amino acid', 1); setField('20% lipid', 3);
-    eq('NPE:AA above 32 is still critical',
+    eq('NPE:AA far above 32 raises no NPE:AA line',
+       alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), []);
+    ok('…and no "> 32 hard limit" anywhere', !/> 32 hard limit/.test(alertRows().map(a => a.text).join(' ')));
+    mount({ patient: pt('NP-LO', 1000), onLog: logger().onLog });
+    setField('Current weight', 1000); fillRequired(150);
+    setField('Volume(mL/day)', 100); setField('Dextrose final', 10); setField('Amino acid', 3.5);
+    eq('NPE:AA below 12 (dextrose alone, AA 3.5) is critical',
        alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['crit']);
-    ok('…and names the 32 hard limit', /> 32 hard limit/.test(alertText('NPE:AA critically off target')), alertText('NPE:AA critically off target'));
+    ok('…and names the 12 floor', /kcal\/g AA < 12 \(TPN only\)/.test(alertText('NPE:AA critically low')), alertText('NPE:AA critically low'));
   });
 
   await section('§5 F1 · a critical tile is always a critical alert (more shapes)', async () => {
@@ -488,13 +496,14 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     const P = pt('K5-900', 900, { admissionDate: '2026-09-08' });
     // Stamped, so only the critical-value rule holds it (calcMoved holds an unstamped row).
     const ci = { curWtG: 850, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 130, ioOutput: 60, drainContent: 0,
-      totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 5, caPerKg: 60, glycophosP: 1,
+      // K 6: above the 5.0 IV hard limit (it was K 5 against 3.5 until 2026-10-27).
+      totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 6, caPerKg: 60, glycophosP: 1,
       constantsVersion: D.CONSTANTS_VERSION };
     const row = (extra) => ({ entryId: 'e-k5', lastModified: 'lm-k5', ts: '2026-09-15', dol: 10, weight: 850,
       ioInput: 130, ioOutput: 60, drainContent: 0, calcInput: { ...ci, ...extra } });
     mount({ patient: P, editEntry: row({}), logDate: null });
     const titles = critTitles();
-    ok('the legacy K 5 row shows critical alerts', titles.includes('Potassium critically out of range'), titles);
+    ok('the legacy K 6 row shows critical alerts', titles.includes('Potassium critically out of range'), titles);
     ok('…saved with no reason: no print form', !printForm());
     const p = await tryPrint();
     eq('Print order does not print', p.printed, 0);
@@ -583,7 +592,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
   await section('§14 SEC-F7 · the NeoFeed reason prompt keeps names and HNs out', async () => {
     mount({ patient: pt('F7-1000', 1000), onLog: logger().onLog });
     setField('Current weight', 1000); fillRequired(150);
-    setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('KCl', 5);
+    setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('KCl', 6);
     let promptText = '';
     window.prompt = (t) => { promptText = t; return null; };
     await clickAsync(saveBtn());
