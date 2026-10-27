@@ -255,7 +255,7 @@ installed) to get the real measurement.
 ## Running
 
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
-`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
+`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`, `verify-usage-log.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
 `verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
 `verify-publish-lock.cjs`, `verify-build-shells.cjs`, `verify-chula-google-signin.cjs` and
@@ -267,6 +267,7 @@ node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
 node test/verify-usage-metrics.cjs
+node test/verify-usage-log.cjs
 node test/verify-must-change-password.cjs
 node test/verify-input-validation.cjs
 node test/verify-provenance-stamp.cjs
@@ -1737,6 +1738,25 @@ skill, and an agent that moves a limit without its rule turns this red. `--show 
 case of a rule produced; `--fix-lines` rewrites the `where` line numbers once code has moved (a moved
 line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks when written.
+
+## The usage tab, 2026-10-28 — one harness (NF-02)
+
+**`verify-usage-log.cjs`** (114 assertions; no npm dependencies, through `gas-vm-sandbox.cjs`). Pins
+`Usage_Log`, one row per completed calculation, which is a TPN/EN order that reaches "submitted" for
+the first time. § 1 the tab is made by the first one, never by a sync, at exactly 4 columns
+(`ts | week | ward | type`), the week cut in ward time (Monday 06:00 in Bangkok is Monday's week), and
+the save's reply is unchanged. § 2 ward is the ward list the infant is on, and `_usageWardOf` agrees
+with `data.js` `patientWard` on 390 bed × history cases; type is the route family. § 3 what does not
+count: a draft, an edit of a submitted order, Submit, a revision, a refused or Busy save, a nurse's
+refused order, a nursing I/O entry, a sync, and the same create or promotion fired twice. § 4 no
+patient field: no sessionId, entryId, bed, name, initials, weight, sex or email anywhere in the tab,
+nothing a formula, and erasure leaves it as it was. § 5 the row is written after the script lock is
+released, and an append, tab-creation or registry-read failure still saves the order, with a note in
+the execution log. § 6 `usageWeekly()`: ISO weeks in ward time, every ward and type in every week,
+empty weeks filled with 0 up to this week (across a 53-week year), unknown values under `other`, a
+fifth column ignored (room for NF-31). § 7 `getUsageWeekly()` reads without creating the tab, logs a
+table with no identifier, and `doPost` does not answer it. Against the backend before NF-02
+(`326bcd9`) it fails 46 checks.
 
 
 ## Note on the source workbook

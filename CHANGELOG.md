@@ -7,6 +7,84 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (NF-02) — a usage tab: one row per completed calculation, counted per ward per week
+
+`gas-backend.gs`, `test/verify-usage-log.cjs` (new), `REFERENCE.md` § Backend (GAS), `PRD.md` § 6 (M4),
+`test/README.md`, `BACKLOG.md`, `STATUS.md`. Backend only: no `.jsx`, `data.js` or shell changed,
+`CONSTANTS_VERSION` stays `2026-10-27.2`, and nothing changes for the ward until a `clasp` deploy.
+
+### Why
+
+Pp ticked NF-02 in her apply list of 2026-10-27: a usage tab with one row per completed calculation
+(timestamp, ward, calculation type, no patient field), charted weekly per ward. A falling count means a
+ward went back to paper, and that gets looked into before more features.
+
+### What counts as one completed calculation
+
+A TPN/EN order that reaches "submitted" for the first time: a new order saved as submitted, or a draft
+saved again as submitted. The save is the one step every finished order goes through. Print comes only
+after it, can be repeated (a reprint, the ward's print list), and an order can go to HIS by Copy without
+a print, so counting prints as well would count one order twice. Drafts, edits of a submitted order,
+Submit (the publish lock), revisions, syncs and nursing I/O entries do not count. The rule is decided
+inside the save's script lock from what the save itself reads, so a request fired twice writes one row:
+the second create is DuplicateDate, the second promotion finds the order already submitted.
+
+### The row
+
+`Usage_Log`, 4 columns, created by the first completed calculation and trimmed like `Audit_Log`:
+
+- `ts`, the save's instant in ISO UTC, as `Audit_Log` writes it;
+- `week`, its ISO week in Bangkok time (`2026-W44`), as text, so the Sheet chart needs no date formula;
+- `ward`, NICU, SCN or other: the ward list the infant is on (`_usageWardOf`, a mirror of `data.js`
+  `patientWard`, so a parked infant counts on the ward of the bed they left). Never the bed;
+- `type`, TPN, EN, NPO or other, from the saved route.
+
+No sessionId, entryId, bed, name, weight, date of birth or staff email. No row points at an infant, so
+`pseudonymizePatient` and `deletePatient` have nothing to reach there.
+
+### Where it is written
+
+In `doPost`, after the save has returned and released its lock, so no other save queues behind it.
+The ward lookup reads `Patient_Registry` column A and six cells of the infant's row (K to P), then one
+append: on the first submit of a patient-day only, and not timed here (the sandbox has no Sheets
+latency). Any failure is swallowed and leaves `Usage_Log row not written (NF-02): …` in the execution
+log; the ward sees nothing.
+
+### The weekly view
+
+`usageWeekly(rows, now)` counts per ISO week (Bangkok time), per ward and type, with every ward and type
+present and every week from the first row to this one, so a week with no orders reads 0 instead of
+vanishing. `getUsageWeekly()` runs it from the editor and logs a table; like `getUsageMetrics()` it is
+not on `doPost`. For a chart Pp adds a tab with one `QUERY` formula (`REFERENCE.md`); that tab is hers to
+add, nothing here edits the live Sheet.
+
+### Not built
+
+- **The quick calc.** It sends nothing to the backend, which is the ward's own request for that mode.
+  Counting it needs a new signed-in action fired once per Copy there, a frontend release and Pp's word
+  to the ward (`BACKLOG.md`).
+- **A chart in the admin dashboard.** Possible with an admin-only action and a frontend release; the
+  Sheet chart costs neither.
+- **NF-31, per-user counts.** Room is left: the readers ignore any column past D. `PRD.md` § 6
+  constraint 2 (no per-staff figure) would have to change first.
+- **Center Point** saves go to Center Point, not this backend.
+
+### Found on the way
+
+- The ts parsing inside `_isoWeekKeyLocal_` moved into `_sheetInstant_`, shared with the new week-Monday
+  helper. M1's `verify-usage-metrics.cjs` passes unchanged (30).
+- Two known miscounts, both rare: an order saved as submitted, saved back to a draft and submitted again
+  counts twice; and an order an admin deletes as a mistake keeps its row, because nothing links the two.
+
+### Tests
+
+`test/verify-usage-log.cjs`, 114 checks, no npm dependencies; against `326bcd9` it fails 46. All 100
+`verify-*.cjs` harnesses and `DEAD=0 verify-kcmh-factor.cjs` exit 0 against the sources and again with
+the compiled preload, `verify-clinical-rules.cjs` included (607). The browser sections printed SKIP on
+this PC (Playwright not found), so they run in CI only. `tools/ci_bans.js` passes, and so do PR #174's
+three log rules run on this tree: they read `Usage_Log` as a log tab and pass its row, and a raw cell
+or a `patientName` planted in that append fails them.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),

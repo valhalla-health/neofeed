@@ -336,6 +336,20 @@ clinical judgement. Everything else is engineering sequencing.
       deliberately not wired to `doPost`**: it was kept off the auth deploy so that release carried
       nothing but the security fix. Wire it when a UI actually wants the number.
       Definition and the two hard constraints: `PRD.md` § 6.
+- [ ] 📈 **product · NF-02 (M4), completed calculations per ward per week — ⚙️ BUILT 2026-10-28, NOT
+      DEPLOYED.** `Usage_Log` (`ts | week | ward | type`, no patient field) gets one row per TPN/EN order
+      first saved as submitted; `usageWeekly()` and the editor-run `getUsageWeekly()` count it per ward
+      and type, pinned by `test/verify-usage-log.cjs`. To close: the backend deploy (`REFERENCE.md` §
+      Backend (GAS); no new scope, no frontend release), then Pp adds the chart tab from the formula
+      there. Left out on purpose:
+      - **The quick calc is not counted.** It sends nothing to the backend, by the ward's own request
+        ("ข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท"). Counting it takes a new signed-in action fired once per
+        Copy in quick-calc mode (the one moment a number leaves that page), a frontend release, and
+        Pp telling the ward first. Pp's call.
+      - **An admin-dashboard chart.** The Sheet chart costs no release; the app's admin page could show
+        the same counts through a new admin-only `doPost` action and a frontend release.
+      - **NF-31, per-user counts** (not chosen): a column E holding a salted SHA-256 of the signed-in
+        email. `PRD.md` § 6 constraint 2 forbids a per-staff figure, so that changes first.
 
 ## ⏭ Next
 

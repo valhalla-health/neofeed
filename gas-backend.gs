@@ -59,6 +59,10 @@
 //   entryId|enteredBy|lastModified|lastModifiedBy|appVersion
 //   (the nurses' daily Intake/Output totals, one row per patient per date —
 //   see NURSING_HEADERS and docs/NURSING_FORM_SPEC.md)
+// Usage_Log (A–D, NF-02; created on the first completed calculation):
+//   ts|week|ward|type
+//   (one row per TPN/EN order first saved as submitted, and no patient field —
+//   see "Product metric NF-02" near the end of this file)
 //
 // PDPA lawful basis: Section 26(6) medical necessity + professional confidentiality
 // ============================================================
@@ -1349,6 +1353,8 @@ function doPost(e) {
       // DuplicateDate carries the existing row's entryId, so a client can open
       // that entry instead of just reporting the refusal.
       if (logResult.error) return jsonOut(_errorBody(logResult));
+      // NF-02, after the save's lock is released; it never fails the save.
+      if (logResult.completed) _recordUsage(body.sessionId, (body.entry || {}).route);
       return jsonOut({ ok: true, entryId: logResult.entryId, lastModified: logResult.lastModified });
     }
     if (action === "updateDailyNutrition") {
@@ -1357,6 +1363,7 @@ function doPost(e) {
       var updResult = updateDailyNutrition(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email);
       if (updResult.error) return jsonOut(_errorBody(updResult));
       if (updResult.conflict) return jsonOut({ conflict: true, current: updResult.current });
+      if (updResult.completed) _recordUsage(body.sessionId, (body.entry || {}).route);   // NF-02, as above
       // An edit of a published row appends a NEW row (a revision). The client
       // branches on `revised` and needs the new entryId/revisionNumber to show
       // it; this branch used to forward only lastModified, so a revision
@@ -2365,7 +2372,9 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     }
     _ensureLogWidth(sheet, row.length);
     sheet.appendRow(row);
-    return { entryId: entryId, lastModified: lastModified };
+    // NF-02: a new order saved as submitted is a completed calculation; doPost
+    // writes its Usage_Log row once this lock is released. A draft is not one.
+    return { entryId: entryId, lastModified: lastModified, completed: entry.status !== "draft" };
   } finally {
     _bumpDataVersion();
     lock.releaseLock();
@@ -2493,7 +2502,11 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     _ensureLogWidth(sheet, row.length);
     _assertRowStillHolds(sheet, rowNum, 26, entryId);
     sheet.getRange(rowNum, 1, 1, row.length).setValues([row]);
-    return { ok: true, lastModified: newLastModified };
+    // NF-02: a draft saved as submitted is a completed calculation. An edit of
+    // an order already submitted is the same calculation again, and so is a
+    // second request for this promotion: it finds the row submitted.
+    var wasDraft = String(cur[14] == null ? "" : cur[14]).trim() === "draft";
+    return { ok: true, lastModified: newLastModified, completed: wasDraft && entry.status !== "draft" };
   } finally {
     _bumpDataVersion();
     lock.releaseLock();
@@ -3937,15 +3950,8 @@ var WARD_UTC_OFFSET_MIN = 7 * 60;
 // coerces a date-looking column and getValues() returns Date objects for some
 // rows and strings for others *in the same column*. Returns null if unparseable.
 function _isoWeekKeyLocal_(value) {
-  var d;
-  if (value instanceof Date) d = value;
-  else if (typeof value === "number") d = new Date(value);
-  else {
-    var s = String(value == null ? "" : value).trim();
-    if (!s) return null;
-    d = new Date(s);
-  }
-  if (!d || isNaN(d.getTime())) return null;
+  var d = _sheetInstant_(value);
+  if (!d) return null;
   var t = new Date(d.getTime() + WARD_UTC_OFFSET_MIN * 60000);
   var dt = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
   var dayNum = dt.getUTCDay() || 7;              // Mon = 1 … Sun = 7
@@ -3955,6 +3961,18 @@ function _isoWeekKeyLocal_(value) {
   // The year comes off the Thursday, not the original date — that is what makes
   // 29 Dec 2025 fall in 2026-W01 rather than a 2025 week.
   return dt.getUTCFullYear() + "-W" + (week < 10 ? "0" + week : String(week));
+}
+// A ts cell as a Date: a Date, an epoch number or a string. null if unparseable.
+function _sheetInstant_(value) {
+  var d;
+  if (value instanceof Date) d = value;
+  else if (typeof value === "number") d = new Date(value);
+  else {
+    var s = String(value == null ? "" : value).trim();
+    if (!s) return null;
+    d = new Date(s);
+  }
+  return d && !isNaN(d.getTime()) ? d : null;
 }
 
 // Pure: takes Audit_Log rows exactly as getDataRange().getValues() returns them
@@ -4006,6 +4024,203 @@ function usageMetrics(rows) {
 // one-off number — it needs no redeploy, because it is not on the doPost path.
 function getUsageMetrics() {
   return usageMetrics(getSheetAudit().getDataRange().getValues());
+}
+
+// ── Product metric NF-02: completed calculations per ward per week ──────────
+// One Usage_Log row per completed calculation, so Pp can see week by week
+// whether each ward still uses NeoFeed: a falling count means a ward went back
+// to paper (Pp's apply list, 2026-10-27). Pinned by test/verify-usage-log.cjs;
+// how to chart it: REFERENCE.md § Backend (GAS), Usage_Log.
+//
+// A completed calculation is a TPN/EN order that reaches "submitted" for the
+// first time: a new order saved as submitted (logDailyNutrition), or a draft
+// saved again as submitted (updateDailyNutrition). The save decides this under
+// the script lock from what it reads, so a request fired twice writes one row:
+// the second create is DuplicateDate, the second promotion finds the order
+// already submitted. Not counted: a draft, an edit of a submitted order, the
+// Submit lock, a revision, a print (it needs that saved order first, and a
+// reprint is not a new calculation), a sync, a nursing I/O entry, and the
+// quick calc, which sends nothing to this backend.
+//
+// Usage_Log (A–D): ts | week | ward | type
+//   ts    the save's instant, ISO UTC, as in Audit_Log;
+//   week  its ISO week cut in ward time ("2026-W44"), as text, so a Sheets
+//         pivot or QUERY groups by it with no date formula. Readers here
+//         recompute the week from ts and do not trust this column;
+//   ward  NICU | SCN | other: the ward list the infant is on at the save
+//         (patientWard in data.js), never the bed;
+//   type  TPN | EN | NPO | other: the order's route family.
+// 🔴 No patient field, ever: no sessionId, entryId, bed, name, weight or date
+// of birth, and not the saver's email. No row points at an infant, so erasure
+// (pseudonymizePatient, deletePatient) has nothing here to reach. NF-31 (per-
+// user counts, not built) would add a column E holding a salted SHA-256 of the
+// signed-in email, never the email itself, after widening the tab (it is
+// trimmed to 4 columns); the readers below already ignore any column past D.
+// PRD.md § 6 constraint 2 (no per-staff figure) would have to change first.
+//
+// Written after the save has released the script lock, so no other save waits
+// on it, and it never fails a save: any error is swallowed and noted in the
+// execution log.
+var USAGE_HEADERS = ["ts", "week", "ward", "type"];
+var USAGE_WIDTH = USAGE_HEADERS.length; // 4, A–D
+var USAGE_WARDS = ["NICU", "SCN", "other"];
+var USAGE_TYPES = ["TPN", "EN", "NPO", "other"];
+
+// Created on the first completed calculation, never by a read, and trimmed to
+// its 4 columns like Audit_Log and Nursing_Log (the 10 M-cell workbook cap).
+function getSheetUsage() {
+  var ss = _book();
+  var sh = ss.getSheetByName("Usage_Log");
+  if (!sh) {
+    sh = ss.insertSheet("Usage_Log");
+    sh.appendRow(USAGE_HEADERS.slice());
+    try {
+      var extra = sh.getMaxColumns() - USAGE_WIDTH;
+      if (extra > 0) sh.deleteColumns(USAGE_WIDTH + 1, extra);
+    } catch (e) { Logger.log("Usage_Log column trim skipped: " + e.message); }
+  }
+  return sh;
+}
+
+// Mirrors wardGroup() in data.js: the iso rooms are NICU's, and no bed or a
+// free-text bed is "other". _normBed mirrors normalizeBed().
+function _usageWardGroup(bed) {
+  var m = _normBed(bed).match(/^(NICU|SCN|iso)\b/i);
+  if (!m) return "other";
+  return m[1].toLowerCase() === "scn" ? "SCN" : "NICU";
+}
+// Mirrors patientWard() in data.js: the bed's ward or, while an infant is
+// parked mid-move, the ward of the last bed in bedHistory. A change to either
+// rule moves both; test/verify-usage-log.cjs § 2 compares them.
+function _usageWardOf(currentBed, bedHistory) {
+  if (_normBed(currentBed)) return _usageWardGroup(currentBed);
+  var h = Array.isArray(bedHistory) ? bedHistory : [];
+  for (var i = h.length - 1; i >= 0; i--) {
+    var b = _normBed(h[i] && h[i].bed);
+    if (b) return _usageWardGroup(b);
+  }
+  return "other";
+}
+// Column A finds the infant, then K (currentBed) to P (bedHistory) of that one
+// row. Only the ward leaves this function.
+function _usageWardFor(sessionId) {
+  var pat = getSheetPat();
+  var lastRow = pat.getLastRow();
+  if (lastRow < 2 || pat.getMaxColumns() < 16) return "other";
+  var ids = pat.getRange(2, 1, lastRow - 1, 1).getValues();
+  var sid = String(sessionId);
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) !== sid) continue;
+    var kToP = pat.getRange(i + 2, 11, 1, 6).getValues()[0];
+    return _usageWardOf(kToP[0], _parseJson(kToP[5], []));
+  }
+  return "other";
+}
+// The route calculator.jsx saves: "TPN central", "TPN peripheral" or "TPN"
+// for a bag, "Enteral only", "NPO". Anything else came from a direct POST.
+function _usageTypeOf(route) {
+  var r = String(route == null ? "" : route).trim();
+  if (/^TPN( |$)/.test(r)) return "TPN";
+  if (r === "Enteral only") return "EN";
+  if (r === "NPO") return "NPO";
+  return "other";
+}
+function _recordUsage(sessionId, route) {
+  try {
+    var now = new Date();
+    var ward = _usageWardFor(sessionId);
+    var type = _usageTypeOf(route);
+    getSheetUsage().appendRow([_sheetSafe(now.toISOString()), _sheetSafe(_isoWeekKeyLocal_(now)),
+      _sheetSafe(ward), _sheetSafe(type)]);
+  } catch (e) {
+    Logger.log("Usage_Log row not written (NF-02): " + e.message);
+  }
+}
+
+// Pure: Usage_Log rows exactly as getDataRange().getValues() returns them (row
+// 0 is the header) → completed calculations per ISO week in ward time, per
+// ward and type. Every ward and type is present in every week, and the weeks
+// run without a gap from the first row's week to the week of `now` (or the
+// last row's, if later): a week with no row reads 0. That zero is the signal,
+// a ward back on paper, so it must never be a missing point. A ward or type
+// not on the lists counts under "other"; a row with no usable ts is skipped
+// and counted in rowsSkipped.
+function usageWeekly(rows, now) {
+  var out = { weeks: [], wards: USAGE_WARDS.slice(), types: USAGE_TYPES.slice(), rowsScanned: 0, rowsSkipped: 0 };
+  var counts = {};   // Monday -> "ward|type" -> n
+  var first = null, last = null;
+  for (var i = 1; i < (rows ? rows.length : 0); i++) {
+    var r = rows[i] || [];
+    out.rowsScanned++;
+    var monday = _wardWeekMonday_(r[0]);
+    if (!monday) { out.rowsSkipped++; continue; }
+    var key = _usageListed(USAGE_WARDS, r[2]) + "|" + _usageListed(USAGE_TYPES, r[3]);
+    if (!counts[monday]) counts[monday] = {};
+    counts[monday][key] = (counts[monday][key] || 0) + 1;
+    if (!first || monday < first) first = monday;
+    if (!last || monday > last) last = monday;
+  }
+  if (!first) return out;
+  var nowMonday = now == null ? null : _wardWeekMonday_(now);
+  if (nowMonday && nowMonday > last) last = nowMonday;
+  for (var m = first; m <= last; m = _addDaysKey_(m, 7)) {
+    // Noon on that Monday in Bangkok is 05:00 UTC, well inside the week.
+    var week = { week: _isoWeekKeyLocal_(m + "T05:00:00Z"), weekStart: m, total: 0, byWard: {} };
+    for (var w = 0; w < USAGE_WARDS.length; w++) {
+      var cell = { total: 0 };
+      for (var t = 0; t < USAGE_TYPES.length; t++) {
+        var n = (counts[m] && counts[m][USAGE_WARDS[w] + "|" + USAGE_TYPES[t]]) || 0;
+        cell[USAGE_TYPES[t]] = n;
+        cell.total += n;
+      }
+      week.byWard[USAGE_WARDS[w]] = cell;
+      week.total += cell.total;
+    }
+    out.weeks.push(week);
+  }
+  return out;
+}
+function _usageListed(list, value) {
+  var v = String(value == null ? "" : value).trim();
+  return list.indexOf(v) >= 0 ? v : "other";
+}
+// The Monday (YYYY-MM-DD, ward time) of the week an instant falls in, or null.
+function _wardWeekMonday_(value) {
+  var d = _sheetInstant_(value);
+  if (!d) return null;
+  var t = new Date(d.getTime() + WARD_UTC_OFFSET_MIN * 60000);
+  var back = (t.getUTCDay() || 7) - 1;
+  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate() - back)).toISOString().slice(0, 10);
+}
+function _addDaysKey_(key, days) {
+  return new Date(Date.parse(key + "T00:00:00Z") + days * 86400000).toISOString().slice(0, 10);
+}
+
+// Run from the Apps Script editor (Run ▸ getUsageWeekly): returns the weekly
+// counts and writes them as a table to the execution log. Like getUsageMetrics
+// it is not on the doPost path, so no client can ask for it and running it
+// needs no redeploy. It only reads: before the first completed calculation
+// there is no tab, and this does not make one.
+function getUsageWeekly() {
+  var sh = _book().getSheetByName("Usage_Log");
+  var out = usageWeekly(sh ? sh.getDataRange().getValues() : [], new Date());
+  Logger.log(_usageWeeklyTable(out));
+  return out;
+}
+function _usageWeeklyTable(out) {
+  if (!out.weeks.length) return "NF-02: no completed calculation recorded yet (Usage_Log has no rows).";
+  var col = function (v, width) { v = String(v); while (v.length < width) v = " " + v; return v; };
+  var lines = ["NF-02 completed calculations per week (weeks start Monday, Bangkok time)",
+    "week      Monday       NICU   SCN other total    TPN    EN   NPO type?"];
+  out.weeks.forEach(function (wk) {
+    var byType = USAGE_TYPES.map(function (ty) {
+      return USAGE_WARDS.reduce(function (s, wd) { return s + wk.byWard[wd][ty]; }, 0);
+    });
+    lines.push(wk.week + "  " + wk.weekStart + col(wk.byWard.NICU.total, 7) + col(wk.byWard.SCN.total, 6) +
+      col(wk.byWard.other.total, 6) + col(wk.total, 6) + col(byType[0], 7) + col(byType[1], 6) +
+      col(byType[2], 6) + col(byType[3], 6));
+  });
+  return lines.join("\n");
 }
 
 // ── Utility ───────────────────────────────────────────────────
