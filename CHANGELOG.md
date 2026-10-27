@@ -7,6 +7,54 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
+
+`.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),
+`AGENTS.md`, `test/README.md`. No calculation, limit, unit or printed figure changed, and
+`CONSTANTS_VERSION` stays `2026-10-27.2`. It documents `main` after PR #171 (entry (4)), which merged while
+this was written; the skill's rounding rules and its 0 mL stop follow #171.
+
+### Why
+
+Pp ticked NF-04 in her apply list of 2026-10-27: one file she owns that lists every limit and unit
+convention the calculator enforces, each with its source, loaded by agents before they touch
+calculation code. Each rule carries synthetic orders just inside and just outside its limit, and the
+test suite reads them from that file, so Pp adds a test by adding a line to the skill.
+
+### What the skill holds
+
+56 rules, each with a stable ID (`CR-…`) that NF-12 and NF-28 will cite: 6 stops (Submit refused),
+13 critical (Submit asks for a reason), 1 red line that asks for none, 6 cautions, 3 caps that change
+the dose, 11 target bands, 13 units and conventions, 3 rounding rules. Each gives the value as coded,
+`where` anchors (file, line and a fragment of the code that enforces it), the source, and its cases.
+Sources were read on 2026-10-27: Avery 11th and Fanaroff 12th ed. from the full chapter text (cited by
+page), the ESPGHAN/ESPEN/ESPR/CSPEN 2018 chapters by recommendation and PMID, ESPGHAN 2022 enteral,
+Moltu 2021, the Thai paediatric PN guideline 2564 (public-hearing draft) and the product labels. The
+zinc ceiling the team set on 2026-09-22 turned out to be Domellöf R 7.8's own "maximum of 5 mg/d".
+Seventeen questions for Pp close the file, each naming its rule; they change nothing until she answers.
+
+### What writing it found (nothing changed)
+
+- A Ca:P that is exactly 1.7 on paper (Ca 52.7 with P 31 mg/kg/d) computes as 1.7000000000000002 and
+  grades High beside a printed "1.7:1" and a range "1–1.7". K⁺ in the bag and the typed-weight check
+  strip that float noise; Ca:P does not (Q6).
+- A bag whose stocks exceed its prepared volume is a critical alert, so a reason sends a negative WFI
+  to pharmacy; the 1,250 mL bottle, by contrast, is a stop (Q2).
+- The Soluvit 10 mL and Peditrace 15 mL caps need more than 10 and 15 kg, so no infant inside the
+  8,000 g weight limit reaches them.
+- Vitalipid's 4 mL/kg and 10 mL cap are literals in `calculator.jsx`. The labels support both but say to
+  add it only to Intralipid, and KCMH gives SMOF 20 % (Q4).
+- Fanaroff's drug appendix (p. 8) gives KCl maxima of 40 mEq/L peripheral and 120 central; the K⁺ source
+  searches of 2026-09-28 and 2026-10-11 had not found it. NeoFeed orders up to 60 and 200 (Q1).
+- The total NPE:AA caution prints "24 kcal/g protein — aim at least 24" for 23.9: that line rounds with
+  `displayNum` rather than `vsLimit`, so a value just under 24 prints as 24.
+
+### Tests
+
+`test/verify-clinical-rules.cjs`: 607 checks, every one read from the skill; `NEGATIVE_CONTROL=1`
+(`GIR_HARD_HI` 12 → 13) fails 7 and `=2` (peripheral osmolarity graded `>` instead of `>=`) fails 4.
+It passes against the shipped `compiled/` too.
+
 ## Session 2026-10-27 (4) — every stock mL to one decimal, half up; a stock at 0 mL cannot be ordered
 
 `calculator.jsx`, `data.js` (`displayNum`, the 50% MgSO₄ rows), `compiled/calculator.js`, both shells' `?v=` tokens,
@@ -60,6 +108,7 @@ harnesses pinned two-decimal figures and now pin one decimal. The three printed-
 one of the four stocks). `verify-calc-sum.cjs`'s S5 (K₂HPO₄ and MgSO₄ at 0.01 mL) is now the
 not-orderable case; two of its random orders (R13, and R21 after its volume change) reach the stop too.
 Every harness on this commit: 99 of 99 in each pass (98 harnesses plus `DEAD=0 verify-kcmh-factor`); browser sections SKIP on this PC and run in CI.
+
 
 ## Session 2026-10-27 (3) — Vera's second review: a printed 900 mOsm/L is over; alert text past a limit
 
