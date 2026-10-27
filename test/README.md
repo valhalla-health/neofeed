@@ -1642,7 +1642,8 @@ reads the strip text node by text node.
 Pp checked the slips the TPN pharmacy phones doctors about on paper orders against NeoFeed
 (`CHANGELOG.md` 2026-10-21). **`verify-incident-gaps-1021.cjs`** (jsdom; it also runs against
 `compiled/`). § 1: a bag with volume and amino acid 0, or MgSO₄ 0, raises the caution "Amino acid not
-ordered" or "MgSO₄ not ordered"; no bag, no caution; a caution asks for no reason and Submit logs the
+ordered" or "MgSO₄ not ordered" (the MgSO₄ one removed on 2026-10-27; the harness now checks it is
+gone); no bag, no caution; a caution asks for no reason and Submit logs the
 order. §§ 2–5: an infant's first order has no route (neither button on, a notice in the Step 3 header and
 in the save panel), and Submit stays disabled until one is pressed; the choice saves ("TPN peripheral")
 and prints. The next order copies it, an edit keeps it, and a row saved with no route key reopens as
@@ -1675,6 +1676,32 @@ way. #5: a pick in the quick calc stays there and keeps the DOL typed into it, s
 figures only in its own state (Vera). 31 checks; against `main` (`3172337`), #1, #3 and #4 fail (5
 failures, two of them a scenario that cannot go on), and against the branch's first commit (`4b60d76`), #5
 fails. Its fixture is made up: none of its values come from the ward.
+
+## The nutrition unit's and TPN team's answers, 2026-10-27 — one harness
+
+The answers of 2026-10-25 to Pp's 2026-10-19 question sheet, with Pp's readings of 2026-10-27
+(`CHANGELOG.md` 2026-10-27). **`verify-tpn-answers-1027.cjs`** (jsdom; it also runs against `compiled/`).
+§ 1: the named limits (protein 4.5, IV lipid 4.0, IV K 5.0, IV NPE:AA below 12 and no ceiling, peripheral
+osmolarity 900, GIR 12, dextrose 17.3), the 1,250 mL bottle, vitamin D 1,000 IU/day, heparin 1 U/mL, the
+ZnSO₄ stock and `CONSTANTS_VERSION`. § 2: fluid from DOL 6 is 140–160 on every preterm tier and VLBW
+DOL 5 160–180; Ca, P and Mg keep the first-days ranges to DOL 7. § 3: the NPC : Protein tile reads
+"≥ 24" and a ratio far above 32 is not off target. § 3b: IV NPE:AA below 12 is a red line, Submit asks
+no reason for it, and the order prints (Pp, after Vera). § 3c: protein above 4.5 on feeds alone (Hi-Q LBW
+24 at 176 mL/kg/d) is critical and asks for a reason, because the limit counts TPN + feeds (Pp, after
+Vera). § 3d: GIR 12.01 reads "12.01", not "12"; a peripheral bag whose osmolarity prints 900 is red
+(Pp: 900 is over) and one that prints 899 is not. § 3e: the front sheet's Normal Requirement prints the
+new Na, K, Ca and P bands (DOL 3, 1,200 g). § 4: a bag above 1,250 mL cannot be submitted, says why,
+and may be kept as a draft; 1,250 itself is allowed. § 5: heparin above 1 U/mL is a caution. § 6: oral
+vitamin D above 1,000 IU/day is a caution, Munti-vim included. § 7: the Reference page and the trend
+bands read the new rows. 67 checks; against `main` (`2cf4277`), 46 fail, in every section.
+
+Eighteen older harnesses pinned the limits that moved. Each now pins the new figure, and the cases built
+on an old limit were rebuilt on the new one: KCl 6 (or 5.5) where KCl 5 used to cross the IV K limit, and
+GIR 3.5 where 12.5 used to be the caution. `verify-calc-oracle.cjs` restates every new rule itself (not read from
+`data.js`) and adds two orders: a VLBW day 3 with heparin 10, ZnSO₄ and GIR just above 12, and a bag
+above the bottle; its feed list covers the new 24 kcal/oz rows and Enfalac LF. `verify-calc-sum.cjs`
+counts the ZnSO₄ line in the bag. Both found one rounding point: a components sum of exactly 116.05 mL
+printed 116.0 under `toFixed`; the app now sums in whole hundredths and rounds half up.
 
 ## Note on the source workbook
 

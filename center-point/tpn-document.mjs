@@ -12,6 +12,8 @@ export const TPN_PREPARATIONS = {
   "BM_PF_20": "Preterm Formula (20 kcal/oz)",
   "FBM_PF_22": "Enfalac Premature (22 kcal/oz)",
   "PRENAN_22": "Pre Nan (22 kcal/oz)",
+  "ENFALAC_PREM_24": "Enfalac Premature (24 kcal/oz)",
+  "PRENAN_24": "Pre Nan (24 kcal/oz)",
   "FBM_PF_24": "Hi-Q LBW (24 kcal/oz)",
   "BM_HMF_24": "FBM with HMF (24 kcal/oz)",
   "LF_20": "LF — HiQ LF (20 kcal/oz)",

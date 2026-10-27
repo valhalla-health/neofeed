@@ -470,7 +470,8 @@ function Tile({ label, value, unit, decimals = 1, target, status, max, optimal, 
       {target && (
         <div className="target">
           <span>Range</span>
-          <span className="range">{target[0]}–{target[1]}</span>
+          {/* An open upper end (NPE:AA since 2026-10-27) reads "≥ 24", never "24–Infinity". */}
+          <span className="range">{Number.isFinite(target[1]) ? `${target[0]}–${target[1]}` : `≥ ${target[0]}`}</span>
           {optimal && <span style={{ color:"var(--ok-ink)", marginLeft:8, fontSize:10 }}>▮ optimal {optimal[0]}–{optimal[1]}</span>}
         </div>
       )}
@@ -1277,7 +1278,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!wtKg) {
       const en0 = D.EN_DB[enType];
       const sv0 = { naCl:0, naAcet:0, glycophos:0, kCl:0, k2hpo4:0, ca:0, mg:0,
-        mg10:0, mg50:0, heparin:0, aa:0, lipidSMOF:0 };
+        mg10:0, mg50:0, heparin:0, znso4:0, aa:0, lipidSMOF:0 };
       return { wtKg:0, totalTPN_mL, lipidVol:0, lipidBagVol:0, vitalipidVol:0,
         enVolTotal:0, enVolPerKg:0, enKcal:0, enCounted:0, en:en0, useEnteralTargets:false,
         enFeedKg:{ kcal:0, pro:0, na:0, k:0, ca:0, p:0 }, aaStockKey,
@@ -1455,8 +1456,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // ── Zinc reaching the infant, mg elemental Zn/day (TPN team, 2026-09-22) ─
     // Peditrace at the mL the infant receives (1 mL/kg, the 15 mL cap is on
     // that), not the rounded bag mL, plus ZnSO₄. ZnSO₄ is dosed per kg like
-    // every additive, so the bag carries it × Factor. Pharmacy's ZnSO₄ stock
-    // is not in KCMH_STOCK, so it has no mL here and no share of the WFI.
+    // every additive, so the bag carries it × Factor. Its stock is 1 mg Zn/mL
+    // (S.znso4; pharmacy, 2026-10-25), so since 2026-10-27 it has a mL
+    // (solVol.znso4) and a share of the WFI; before that it had neither.
     // Counted even with no bag volume, like the salts: that order cannot be
     // saved (zeroVolumeBag).
     const znPeditrace_mg = inclPeditrace && totalTPN_mL > 0
@@ -1485,6 +1487,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       mg50:      mgPerKg> 0 ? r2(mgPerKg* factor / S.mgso4_50.mgMeqPerMl ) : 0,
       // Heparin is dosed per mL of bag (sheet G51 = F51 × G7), so prepared volume
       heparin:   heparinUmL > 0 ? r2(heparinUmL * preparedVol / S.heparin.unitsPerMl) : 0,
+      znso4:     znPerKg > 0 ? r2(znSO4_bag_mg / S.znso4.znMgPerMl) : 0,     // ZnSO₄, mg elemental Zn ÷ mg/mL
       aa:        r1(aaG_bag / S[aaStockKey].gPerMl),     // amino acid, chosen stock (aaStockKey)
       lipidSMOF: r1(lipidG / S.smof20.gPerMl),   // separate syringe — no overfill
     };
@@ -1504,11 +1507,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // ── Bag make-up: components vs water for injection ───────────────────────
     // Mirrors the sheet's J52 (Σ component mL) and I53 (WFI q.s. = G7 − Σ).
     // Lipid + Vitalipid are a separate syringe, so they are NOT in this sum.
-    const componentVol = parseFloat((
+    // Summed in whole hundredths (every term is printed at 1 or 2 decimals),
+    // then rounded half up to one decimal like D.displayNum. Straight
+    // toFixed(1) on the float sum read 116.05 as 116.0 when the float landed
+    // at 116.0499… (2026-10-27, once ZnSO₄ added a fifth 2-decimal term).
+    const componentHundredths = Math.round((
       d50wVol + solVol.aa + solVol.naCl + solVol.naAcet + solVol.glycophos +
       solVol.k2hpo4 + solVol.kCl + solVol.mg + solVol.ca +
-      soluvitVol + peditrace_vol + solVol.heparin
-    ).toFixed(1));
+      soluvitVol + peditrace_vol + solVol.znso4 + solVol.heparin
+    ) * 100);
+    const componentVol = Math.round(componentHundredths / 10) / 10;
     // WFI from the prepared volume as it is printed (D.displayNum, 1 decimal),
     // so the printed components + WFI = printed prepared exactly (NF-17, S7;
     // Pp, 2026-10-11). 130.45 mL used to print 87.5 + 42.9 = 130.5.
@@ -1644,16 +1652,19 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const tPro   = T.protein(dol);
   const tKcal  = T.kcal(dol);
   const tLip   = T.lipid(dol);
-  // Phase-aware electrolyte targets (updated ESPGHAN 2018 + 2022)
-  const tNa    = T.na(dol);                               // mmol/kg/day, DOL-specific
-  const tK     = T.k(dol);                               // mmol/kg/day, DOL-specific
+  // Phase-aware electrolyte targets (updated ESPGHAN 2018 + 2022). The PN rows
+  // also take the weight group (Jochum 2018 < 1500 g), on the fluid tier's
+  // weight; the enteral rows ignore it.
+  const tNa    = T.na(dol, wtG, patient?.bw);             // mmol/kg/day, DOL-specific
+  const tK     = T.k(dol, wtG, patient?.bw);              // mmol/kg/day, DOL-specific
   const tCa    = T.ca(dol, calc.useEnteralTargets);      // mg/kg/day, route-aware
   const tP     = T.p(dol, calc.useEnteralTargets);       // mg/kg/day, route-aware
   // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 × (40/31) → mass 1.0–1.7.
   // KCMH order form aims at the upper end (~1.7:1).
   const tCaP = D.TARGETS.caP();            // [1.0, 1.7] mass ratio
   // Mg mEq/kg/day — ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): 0.1–0.2 mmol/kg
-  // in the first days, 0.2–0.3 growing = 0.2–0.4 / 0.4–0.6 mEq. The tile, its
+  // in the first days (DOL 1–7, D.FIRST_DAYS_LAST_DOL), 0.2–0.3 growing =
+  // 0.2–0.4 / 0.4–0.6 mEq; mg/kg/d means elemental Mg (TPN team, 2026-10-25). The tile, its
   // alert and the printed "Normal Requirement" all read this one range, in
   // mEq because Mg is dosed in mEq: the guideline's mg figures are rounded
   // (0.1 mmol = 2.43 mg, printed 2.5), so comparing in mg would flag the 0.2
@@ -1661,10 +1672,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // enteral Mg target, and no Mg in EN_DB, so the tile is the TPN's Mg.
   const tMg = D.TARGETS.mg(dol);
 
-  // Non-protein energy per g amino acid — classic NPC:N 150–200:1 ÷ 6.25 g AA/g N = 24–32 kcal/g AA
+  // Non-protein energy per g amino acid — classic NPC:N 150:1 ÷ 6.25 g AA/g N = at least 24 kcal/g AA
   // (was briefly [30, 40] — that "correction" was unverified; reverted per clinical review 2026-08-11)
-  // Soft-alert 20–<24 (AA start being burned as fuel) · hard alert <20 or >32 (excess fat deposition)
-  const tNPE = D.TARGETS.npePerGAA();     // [24, 32]
+  // Soft-alert 20–<24 (AA start being burned as fuel) · caution IV < 20 ·
+  // critical IV < 12. No upper end since 2026-10-27 (TPN team: "เอาเพดานออก").
+  const tNPE = D.TARGETS.npePerGAA();     // [24, Infinity]
 
   // Protein:Energy ratio — ESPGHAN 2022: 2.8–3.6 g protein/100 kcal
   // (was [2.5, 3.5] — updated to 2022 lean mass accretion target)
@@ -1675,14 +1687,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const fluidTone = Math.abs(calc.remaining) < 1 ? "ok"
     : calc.remaining < -10 ? "crit" : calc.remaining <= -1 ? "warn" : "left";
   // A tile's hard limit is named once and read twice: by its status and by
-  // its range bar's red zone (Meter's statusAt). GIR's red starts above 13,
-  // not at the "max 12" printed under it — 12–13 is the yellow margin before
-  // the hard stop (Praew, 2026-09-22: "GIR bar turn red at >13").
+  // its range bar's red zone (Meter's statusAt). GIR's red starts above 12,
+  // the "max 12" printed under it (TPN team, 2026-10-25: follow Mesotten
+  // R 5.4); from 2026-09-22 to 2026-10-27 it started above 13.
   // The one GIR grading in the app (D.girStatus). The Alerts page graded the
   // same saved number itself and called anything over 12 critical, so a logged
   // 12.5 was amber here and red there (2026-09-23).
   const GIR_HARD = { hardHi: D.GIR_HARD_HI };
-  const PRO_HARD = { hardHi: 4.8 };
+  const PRO_HARD = { hardHi: D.PROTEIN_HARD_HI };
   const girStatusAt = (v) => D.rangeStatus(v, tGir, GIR_HARD);
   const proStatusAt = (v) => D.rangeStatus(v, tPro, PRO_HARD);
   const sGir = girStatusAt(calc.gir);
@@ -1730,10 +1742,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // would leave no red on the bar and park an over-maximum needle on amber, so
   // the bar runs to 1.5 × red, as it did before the maximum existed.
   const kBarMax = kLim.hardMax > kLim.red ? kLim.hardMax : kLim.red * 1.5;
-  // Peripheral: crit >900, warn >850 · Central: no upper limit (Praew,
-  // 2026-09-28; it warned above 1800 until then). No route yet: peripheral.
+  // Peripheral: crit at 900 and above (D.OSM_PERIPHERAL_MAX, the KCMH form's figure) ·
+  // Central: no upper limit (Praew, 2026-09-28; it warned above 1800 until
+  // then). No route yet: peripheral. The 850 caution below it had no source,
+  // and the TPN team kept 900 alone (2026-10-25).
+  // Graded on the whole number that prints, and 900 itself is over: the form
+  // says "Peripheral (<900 mOsm/L)" (Pp, 2026-10-27, after Vera). Graded on
+  // the raw estimate, 899.5–900 printed "900" beside "<900" with nothing red.
   const osmStatusAt = (v) => route !== "central"
-    ? (v > 900 ? "crit" : v > 850 ? "warn" : "ok")
+    ? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? "crit" : "ok")
     : "ok";
   const sOsm = osmStatusAt(calc.osm);
   // Lipid g/kg/h against the ceiling (D.LIPID_GKGH; TPN team and Praew,
@@ -1744,8 +1761,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
 
   // ── Hard limits on the IV (TPN) portion only — Praew, 2026-09-17 (UP-C4) ──
-  // Lipid 4.5 g/kg/d, K 3.5 mEq/kg/d and NPE:AA 20–32 kcal/g are limits on what
-  // is infused. Judged on TPN + EN they sat inside or below the ENTERAL target
+  // Lipid, K and NPE:AA are limits on what is infused; their figures are
+  // D.LIPID_IV_HARD_HI, D.K_IV_HARD_HI and D.NPE_IV_CRIT_LO (TPN team,
+  // 2026-10-25; until then lipid 4.5, K 3.5 and NPE:AA above 32). Judged on TPN + EN they sat inside or below the ENTERAL target
   // bands (lipid 4.8–8.1, K 2.3–4.6), so every infant on full feeds raised
   // critical alerts that could only be cleared by typing an override reason —
   // a stop that gets cleared by rote. What they read now: the lipid syringe
@@ -1753,23 +1771,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // kcal per g AA; with no AA in the bag there is no IV NPE:AA to judge. A
   // pure-PN order is unchanged — IV and total are the same numbers — and
   // D.rangeStatus is kept so its semantics (a 0 is "empty", not critical)
-  // carry over exactly. GIR is IV already; protein 4.8 is left on the total.
+  // carry over exactly. GIR is IV already; protein is left on the total.
   const ivLipidKg = wtKg > 0 ? calc.lipidG / wtKg : 0;
   const ivKKg     = calc.kKg;
   const ivNpeN    = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;
-  const hardLip = D.rangeStatus(ivLipidKg, tLip, { hardHi: 4.5 }) === "crit";
-  const hardK   = D.rangeStatus(ivKKg, tK, { hardHi: 3.5 }) === "crit";
-  // Only the HIGH side is a hard stop. NPE:AA < 20 kcal/g means amino acid is
-  // being oxidised for fuel rather than laid down — real, but it is the normal
-  // shape of a ramping PN order, where amino acid goes to target on day 1 while
-  // dextrose and lipid climb over the week. With AA 3.5 g/kg and lipid 3 g/kg
-  // the ratio only clears 20 at GIR ≥ 8.8, so a fluid-restricted day-3 ELBW
-  // tripped a CRITICAL alert that could only be cleared by typing an override
-  // reason — the rote-override problem UP-C4 fixed for lipid, K and osmolarity,
-  // reappearing here (2026-09-23). It is now the warning it always was
-  // clinically; > 32 (excess non-protein energy → fat deposition) still stops.
-  const hardNPE = ivNpeN !== null && D.rangeStatus(ivNpeN, tNPE, { hardHi: 32 }) === "crit";
-  const lowNPE  = ivNpeN !== null && !hardNPE && ivNpeN < 20;
+  const hardLip = D.rangeStatus(ivLipidKg, tLip, { hardHi: D.LIPID_IV_HARD_HI }) === "crit";
+  const hardK   = D.rangeStatus(ivKKg, tK, { hardHi: D.K_IV_HARD_HI }) === "crit";
+  // NPE:AA < 20 kcal/g means amino acid is being oxidised for fuel rather than
+  // laid down — real, but it is the normal shape of a ramping PN order, where
+  // amino acid goes to target on day 1 while dextrose and lipid climb over the
+  // week. With AA 3.5 g/kg and lipid 3 g/kg the ratio only clears 20 at
+  // GIR ≥ 8.8, so it is a caution (2026-09-23: as a critical alert it fired on
+  // fluid-restricted day-3 ELBW orders and was cleared by rote). Below 12 the
+  // line is red (TPN team, 2026-10-25: "เตือนสีแดง") but asks for no reason
+  // (Pp, 2026-10-27, after Vera: an early bag without lipid sits below 12, and
+  // a reason on every one is the rote override again) — `noReason` keeps it
+  // out of the Submit prompt and the Print gate. The > 32 critical (excess
+  // non-protein energy → fat deposition) is gone: ESPGHAN's 30–40 kcal/g is a
+  // minimum, so the old ceiling stopped orders the guideline asks for.
+  const critLowNPE = ivNpeN !== null && ivNpeN < D.NPE_IV_CRIT_LO;
+  const lowNPE  = ivNpeN !== null && !critLowNPE && ivNpeN < 20;
   // "· total incl. EN …" only when EN actually moves the figure.
   const withTotal = (iv, total, d, unit) => Math.abs(total - iv) >= 0.5 * Math.pow(10, -d)
     ? ` · total incl. EN ${fmt(total, d)} ${unit}` : "";
@@ -1796,6 +1817,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // be kept.
   const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;
   const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
+  // A bag bigger than the TPN room's largest bottle (D.TPN_BOTTLE_MAX_ML): no
+  // order, as for K⁺ over the maximum (Pp, 2026-10-27: "ห้ามสั่ง"). Graded on
+  // the prepared volume as printed (1 decimal), so the refusal never reads
+  // "1250 mL เกิน 1250 mL".
+  const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;
+  const bagOverBottleText = `ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL ของห้อง TPN — ลดปริมาตรหรือ dead space`;
+  // Oral vitamin D a day: Step 6's IU/kg/d × weight, plus Munti-vim's own.
+  const vitDIuDay = (suppVitD > 0 && wtKg > 0 ? suppVitD * wtKg : 0)
+    + (suppMTV ? D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml * D.SUPP_DB.MTV_MUNTIVIM.dose_default : 0);
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
   // A bag needs a route before Submit (Pp, 2026-10-21); a draft may be kept
   // without one. A day with no bag needs none. Center Point's packet always
@@ -1818,13 +1848,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const alerts = [];
   if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
   else if (tpnWtFar) alerts.push({ level: "crit", title: "TPN calc. weight far from automatic", body: `${fmt(wtG, 0)} g typed, automatic ${fmt(autoWtG, 0)} g (${wtG > autoWtG ? "+" : "−"}${fmt(tpnWtDiff * 100, 0)} %, more than ${fmt(D.TPN_WT_MANUAL_MAX_DIFF * 100, 0)} %). Every dose and mL on this order is computed from ${fmt(wtG, 0)} g — check the digits.`, ref: "Pp, 2026-10-08" });
-  if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${fmt(calc.gir, 1)} mg/kg/min — lower dextrose %.`, ref: "ESPGHAN 2018" });else
+  if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${vsLimit(calc.gir, D.GIR_HARD_HI, 1)} mg/kg/min — above ${D.GIR_HARD_HI}; lower dextrose %.`, ref: "ESPGHAN 2018" });else
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
   // Titles are unchanged from the total-based alerts they replace: a saved
   // critOverride lists titles, and print checks the current ones against it.
-  if (hardNPE) alerts.push({ level: "crit", title: "NPE:AA critically off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 32, 0)} kcal/g AA > 32 hard limit (TPN only) — risks excess fat deposition${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `NPC:N 150–200:1 · ${ivRef}` });else
-  if (lowNPE) alerts.push({ level: "warn", title: "NPE:AA off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 20, 0)} kcal/g AA < 20 — พลังงานที่ไม่ใช่โปรตีนยังน้อยเมื่อเทียบกับ amino acid ที่ให้ ปกติพบระหว่างค่อย ๆ เพิ่ม dextrose/lipid ในสัปดาห์แรก ตรวจว่าเป็นไปตามแผน${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: "NPC:N 150–200:1" });else
-  if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${D.displayNum(calc.npeN, 0)} kcal/g protein — aim ${tNPE[0]}–${tNPE[1]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150–200:1" });
+  if (critLowNPE) alerts.push({ level: "crit", noReason: true, title: "NPE:AA critically low", body: `NPE:AA IV ${vsLimit(ivNpeN, D.NPE_IV_CRIT_LO, 0)} kcal/g AA < ${D.NPE_IV_CRIT_LO} (TPN only) — พลังงานที่ไม่ใช่โปรตีนน้อยเกินไปเมื่อเทียบกับ amino acid ที่ให้ (สีแดง ไม่ต้องใส่เหตุผล)${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `TPN team, 2026-10-25 · ${ivRef}` });else
+  if (lowNPE) alerts.push({ level: "warn", title: "NPE:AA off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 20, 0)} kcal/g AA < 20 — พลังงานที่ไม่ใช่โปรตีนยังน้อยเมื่อเทียบกับ amino acid ที่ให้ ปกติพบระหว่างค่อย ๆ เพิ่ม dextrose/lipid ในสัปดาห์แรก ตรวจว่าเป็นไปตามแผน${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: "NPC:N 150:1" });else
+  if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${D.displayNum(calc.npeN, 0)} kcal/g protein — aim at least ${tNPE[0]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150:1" });
   // ── Every nutrient tile that is off target or critical is ALSO a line here ──
   // Until 2026-09-11 only GIR, NPE, Ca:P-warn and the worksheet ceilings were
   // pushed, so K 5 mEq/kg/d or Ca with zero P turned a tile red while this
@@ -1837,28 +1867,28 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     else if (status === "warn") alerts.push({ level: "warn", title: `${name} off target`,
       body: `${fmt(value, decimals)} ${unit} — target ${target[0]}–${target[1]} ${unit}.`, ref });
   };
-  pushTile(sPro,  "Protein",   calc.proteinKg,        1, tPro,  "g/kg/d",    "above the 4.8 g/kg/d hard limit");
+  pushTile(sPro,  "Protein",   calc.proteinKg,        1, tPro,  "g/kg/d",    `above the ${D.PROTEIN_HARD_HI} g/kg/d hard limit`);
   pushTile(sKcal, "Energy",    calc.kcalKg,           0, tKcal, "kcal/kg/d");
   // One line per nutrient: an IV hard-limit breach replaces the tile's own
   // off-target line (its body carries the total too), as the single critical
   // alert did before the split.
   if (hardLip) alerts.push({ level: "crit", title: "Lipid critically out of range",
-    body: `Lipid IV ${vsLimit(ivLipidKg, 4.5, 1)} g/kg/d > 4.5 g/kg/d hard limit (TPN lipid only)${withTotal(ivLipidKg, calc.lipidKgTotal, 1, "g/kg/d")}.`, ref: ivRef });
+    body: `Lipid IV ${vsLimit(ivLipidKg, D.LIPID_IV_HARD_HI, 1)} g/kg/d > ${D.LIPID_IV_HARD_HI} g/kg/d hard limit (TPN lipid only)${withTotal(ivLipidKg, calc.lipidKgTotal, 1, "g/kg/d")}.`, ref: ivRef });
   else pushTile(sLip, "Lipid", calc.lipidKgTotal, 1, tLip, "g/kg/d");
   pushTile(sNa,   "Sodium",    calc.naTotalDelivered, 1, tNa,   "mEq/kg/d");
   if (hardK) alerts.push({ level: "crit", title: "Potassium critically out of range",
-    body: `K IV ${vsLimit(ivKKg, 3.5, 1)} mEq/kg/d > 3.5 mEq/kg/d hard limit (TPN only)${withTotal(ivKKg, calc.kTotalDelivered, 1, "mEq/kg/d")}.`, ref: ivRef });
+    body: `K IV ${vsLimit(ivKKg, D.K_IV_HARD_HI, 1)} mEq/kg/d > ${D.K_IV_HARD_HI} mEq/kg/d hard limit (TPN only)${withTotal(ivKKg, calc.kTotalDelivered, 1, "mEq/kg/d")}.`, ref: ivRef });
   else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
   // Mg has only a parenteral reference, so its line never cites the enteral table.
   pushTile(sMg, "Magnesium", mgPerKg, 2, tMg, "mEq/kg/d", null, "ESPGHAN 2018 (parenteral)");
-  // A bag with no amino acid or no MgSO₄ in it (Pp, 2026-10-21). Their tiles
-  // read 0 as "empty", not off target, and the form prints "—", so an
-  // ingredient left out by mistake reached pharmacy as "not ordered" with
-  // nothing on screen. A caution, not a stop: a day without either can be meant.
+  // A bag with no amino acid in it (Pp, 2026-10-21). Its tile reads 0 as
+  // "empty", not off target, and the form prints "—", so amino acid left out
+  // by mistake reached pharmacy as "not ordered" with nothing on screen. A
+  // caution, not a stop: a day without it can be meant. A bag without MgSO₄
+  // was cautioned too until the TPN team answered that a bag without Ca, P or
+  // Mg needs no warning (2026-10-25; Pp, 2026-10-27: "เอาออก").
   if (calc.totalTPN_mL > 0 && !(aaPerKg > 0)) alerts.push({ level: "warn", title: "Amino acid not ordered",
     body: `ถุง TPN ${fmt(calc.totalTPN_mL, 0)} mL/d แต่ amino acid 0 g/kg/d — ตั้งใจไม่ให้ใช่ไหม ถ้าไม่ใช่ ใส่ขนาดที่ Step 3`, ref: "Pp, 2026-10-21" });
-  if (calc.totalTPN_mL > 0 && !(mgPerKg > 0)) alerts.push({ level: "warn", title: "MgSO₄ not ordered",
-    body: `ถุง TPN ${fmt(calc.totalTPN_mL, 0)} mL/d แต่ MgSO₄ 0 mEq/kg/d — ตั้งใจไม่ให้ใช่ไหม ถ้าไม่ใช่ ใส่ขนาดที่ Step 4`, ref: "Pp, 2026-10-21" });
   // With an oral supplement the order is judged on the total (Step 6 tiles);
   // without one, on TPN + EN (Step 4 tiles) — never both, or they contradict.
   if (mineral.hasOral) {
@@ -1882,11 +1912,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push({ level: "warn", title: "MEN ticked above trophic volume",
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d` });
-  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — switch to central.`, ref: "Safety" });
-  else if (bagOrdered && sOsm === "warn") alerts.push({ level: "warn", title: "Osmolarity near peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — peripheral limit 900 mOsm/L.`, ref: "Safety" });
+  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
   if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
-  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${fmt(calc.dexGPerKg, 1)} g/kg/d — sheet limit is ${D.MAX_DEXTROSE_G_KG} g/kg/d. Lower dextrose % or bag volume.`, ref: "KCMH TPN worksheet" });
+  // The title is unchanged so a saved critOverride still names it; the limit
+  // is ESPGHAN's 17.3 g/kg/d since 2026-10-27, no longer the sheet's 18.
+  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose 12 mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
   // By route since 2026-09-28 (D.K_BAG_MEQ_PER_L — TPN team and Praew): above
   // `hardMax` the order cannot be saved (kOverMax); above `red` it is critical,
   // so it is ordered only with a confirmed reason; above `warn` is a caution.
@@ -1901,6 +1932,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
+  if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
+  // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
+  if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({ level: "warn", title: "Heparin above the usual dose",
+    body: `Heparin ${fmt(heparinUmL, 2)} U/mL — ปกติ 0.5–${D.HEPARIN_USUAL_MAX_U_ML} U/mL ตรวจว่าพิมพ์ถูกหลัก`, ref: "TPN team, 2026-10-25" });
+  // Oral vitamin D per day, Munti-vim's 400 IU included (Step 6), above the
+  // nutrition unit's 1,000 IU/day border.
+  if (vitDIuDay > D.VIT_D_MAX_IU_DAY) alerts.push({ level: "warn", title: "Vitamin D above 1,000 IU/day",
+    body: `Vitamin D ${fmt(vitDIuDay, 0)} IU/day${suppMTV ? ` (รวม Munti-vim ${D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml} IU)` : ""} — เกินขอบบน ${D.VIT_D_MAX_IU_DAY} IU/day ของหน่วยโภชนาการ`, ref: "Nutrition unit, 2026-10-25" });
   if (calc.totalTPN_mL > 0 && caPerKg > 0 && k2hpo4 > 0) alerts.push({ level: "warn", title: "Calcium–phosphate compatibility not calculated", body: "This order combines calcium with inorganic phosphate. NeoFeed does not calculate formulation-specific precipitation risk; pharmacy must verify compatibility before compounding or administration.", ref: "ESPGHAN/ESPEN/ESPR/CSPEN 2018" });
 
   // ── May this order be printed / copied / submitted right now? ─────────────
@@ -1931,10 +1970,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // on, a feeds-only order from before the stamp reprinted figures computed
   // from today's constants (Vera, PR #159 finding 4).
   const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
-  const uncoveredCritical = alerts.filter(a => a.level === "crit")
+  // A red line marked `noReason` (NPE:AA below 12) needs no reason to print.
+  const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !tpnWtOutOfRange
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -1943,6 +1983,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
+    : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
     : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
@@ -2079,11 +2120,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       showToast(kOverMaxText, "error");
       return;
     }
+    // ── Over the largest bottle (Pp, 2026-10-27) — refused the same way ──
+    if (!asDraft && bagOverBottle) {
+      setOpenSteps(prev => new Set(prev).add(1).add(2));
+      showToast(bagOverBottleText, "error");
+      return;
+    }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
     // A critical value can still be ordered — the attending may have a
     // reason — but never silently: the reason is required, saved with the
     // order (calcInput.critOverride) and printed on the pharmacy form.
-    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit");
+    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
     let override = null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
@@ -2535,23 +2582,22 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     {["BM_20","BM_HMF_24"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
-                  {/* Hi-Q LBW is a preterm formula and Pre Nan a post-discharge
-                      one (TPN team, 2026-09-28); they shared one group with the
-                      high-energy feeds. Same keys, same labels, only grouped. */}
+                  {/* Hi-Q LBW and Pre Nan are preterm formulas (the book's Table 5;
+                      nutrition unit, 2026-10-25 — Pre Nan sat in a post-discharge
+                      group from 2026-09-28 until then). The ward mixes Enfalac
+                      Premature and Pre Nan at 22 and at 24 kcal/oz. */}
                   <optgroup label="Preterm formula">
-                    {["BM_PF_20","FBM_PF_22","FBM_PF_24"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  <optgroup label="Post-discharge formula">
-                    {["PRENAN_22"].filter(k => D.EN_DB[k]).map(k =>
+                    {["BM_PF_20","FBM_PF_22","ENFALAC_PREM_24","PRENAN_22","PRENAN_24","FBM_PF_24"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
                   <optgroup label="High-energy formula">
                     {["FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
+                  {/* Enfalac LF joined HiQ LF here on 2026-10-27 (nutrition unit:
+                      "ให้สั่งได้จะดี"); until then it was on the Formula page only. */}
                   <optgroup label="Lactose-free">
-                    {["LF_20","LF_24","LF_27"].filter(k => D.EN_DB[k]).map(k =>
+                    {["LF_20","LF_24","LF_27","ENFALAC_20","ENFALAC_24","ENFALAC_27"].filter(k => D.EN_DB[k]).map(k =>
                       <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
                   </optgroup>
                 </select>
@@ -2660,8 +2706,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                  that needs none. warn/crit keep their status colours. */
               background: sOsm==="crit" ? "var(--crit-bg)" : sOsm==="warn" ? "var(--warn-bg)" : "var(--bg-2)",
               color:       sOsm==="crit" ? "var(--crit)"   : sOsm==="warn" ? "var(--warn)"   : "var(--ink-2)" }}>
-              Osm {calc.osm.toFixed(0)} mOsm/L{route!=="central" && calc.osm > 900 && (
-                <span title="Over 900 mOsm/L for a peripheral line"
+              Osm {calc.osm.toFixed(0)} mOsm/L{sOsm === "crit" && (
+                <span title={`${D.OSM_PERIPHERAL_MAX} mOsm/L or more on a peripheral line`}
                   style={{ display:"inline-flex", verticalAlign:"-2px", marginLeft:4 }}>
                   <Icon name="warn" size={13} stroke={2.2} />
                 </span>)}
@@ -3159,7 +3205,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {!centerPoint && (
                   <NumField label="ZnSO₄ (เพิ่มจาก Peditrace)" unit="mg Zn/kg/d" value={znPerKg} onChange={setZnPerKg} step={0.05}
                     hint={znPerKg > 0
-                      ? `elemental Zn · = ${fmt(calc.znSO4_mg, 2)} mg/day ถึงผู้ป่วย${calc.overfill > 1.001 ? ` · ${fmt(calc.znSO4_bag_mg, 2)} mg ในถุง (× Factor)` : ""}`
+                      ? `elemental Zn · = ${fmt(calc.znSO4_mg, 2)} mg/day ถึงผู้ป่วย${calc.overfill > 1.001 ? ` · ${fmt(calc.znSO4_bag_mg, 2)} mg ในถุง (× Factor)` : ""} = ${fmt(calc.solVol.znso4, 2)} mL ของ ${S.znso4.znMgPerMl} mg/mL`
                       : "elemental Zn · ไม่ให้เพิ่ม = เว้นว่าง"} />
                 )}
                 {calc.znTotal_mg > 0 && (
@@ -3519,7 +3565,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3637,12 +3683,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `──────────────────────────────`,
                 inclSoluvit   ? `Soluvit N:      ${calc.soluvitVol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (× Factor — delivers ${fmt(calc.soluvitVol*calc.deliveredFrac, 2)} mL)` : ""}` : "",
                 inclPeditrace ? `Peditrace:      ${calc.peditrace_vol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (× Factor — delivers ${fmt(calc.peditrace_vol*calc.deliveredFrac, 2)} mL)` : ""}` : "",
-                znPerKg > 0 ? `ZnSO₄:          ${znPerKg} mg Zn/kg → ${fmt(calc.znSO4_bag_mg, 2)} mg Zn in bag → aqueous bag (elemental Zn; its mL is not in the WFI below)` : "",
+                znPerKg > 0 ? `ZnSO₄:          ${znPerKg} mg Zn/kg → ${fmt(calc.znSO4_bag_mg, 2)} mg Zn in bag → ${calc.solVol.znso4} mL of ${S.znso4.znMgPerMl} mg Zn/mL → aqueous bag (elemental Zn)` : "",
                 calc.znTotal_mg > 0 ? `  Zn total ${fmt(calc.znTotal_mg, 2)} mg/day delivered (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) · max ${D.MAX_ZN_MG_DAY} mg/day` : "",
                 `Heparin:        ${heparinUmL} U/mL = ${calc.solVol.heparin} mL of ${S.heparin.unitsPerMl} U/mL`,
                 `──────────────────────────────`,
                 `BAG MAKE-UP:  components ${fmt(calc.componentVol, 1)} mL + WFI q.s. ${fmt(calc.wfiVol, 1)} mL = ${fmt(calc.preparedVol, 1)} mL prepared`,
                 calc.wfiVol < 0 ? `  !! COMPONENTS EXCEED BAG VOLUME by ${fmt(Math.abs(calc.wfiVol), 1)} mL — cannot compound` : "",
+                bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
                 `──────────────────────────────`,
                 calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "EN: None",
                 `──────────────────────────────`,
@@ -3693,6 +3740,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {kOverMaxText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {bagOverBottle && (
+              <div className="bag-over-bottle" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {bagOverBottleText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
             {tpnWtOutOfRange && (
               <div className="tpn-wt-out-of-range" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {tpnWtOutOfRangeText} — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)
@@ -3714,7 +3766,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
@@ -4153,7 +4205,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           {/* The paper form's "ZnSO₄ (Additional to the above)" line: per kg
               as ordered, and the bag's amount × Factor. Elemental Zn, said
               outright — a ZnSO₄ salt figure would be ~4.4× higher (TPN team,
-              2026-09-22). Its stock and mL are pharmacy's: see the back. */}
+              2026-09-22; pharmacy confirmed elemental, 2026-10-25). Its mL, from
+              the 1 mg Zn/mL stock, is on the back. */}
           <tr>
             <td style={tdRx(znPerKg > 0)}>{chk(znPerKg > 0)} ZnSO₄ (Additional to the above) <span style={note}>elemental Zn</span></td>
             <td style={tdr}><strong>{znPerKg > 0 ? znPerKg : "—"}</strong> mg Zn/kg</td>
@@ -4268,8 +4321,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
                 is said here, for pharmacy, and not on the doctor's front. */}
             {inclSoluvit && bag && <tr><td style={td}>Soluvit N</td><td style={tdr}>{calc.overfill > 1.001 ? `× Factor → delivers ${f(calc.soluvitVol * calc.deliveredFrac, 2)} mL (KCMH sheet G43: × actual weight)` : "no overfill"}</td><td style={tdr}><strong>{f(calc.soluvitVol,1)}</strong></td></tr>}
             {inclPeditrace && bag && <tr><td style={td}>Peditrace</td><td style={tdr}>{calc.overfill > 1.001 ? `× Factor → delivers ${f(calc.peditrace_vol * calc.deliveredFrac, 2)} mL (KCMH sheet G45: × actual weight)` : "no overfill"}</td><td style={tdr}><strong>{f(calc.peditrace_vol,1)}</strong></td></tr>}
+            {znPerKg > 0 && <tr><td style={td}>ZnSO₄ (Zn {S.znso4.znMgPerMl} mg/mL)</td><td style={tdr}>{f(calc.znSO4_bag_mg, 2)} mg Zn</td><td style={tdr}><strong>{f(calc.solVol?.znso4,2)}</strong></td></tr>}
             <tr><td style={td}>Heparin {S.heparin.unitsPerMl} unit/mL</td><td style={tdr}>{bag ? `${fmt(heparinUmL * calc.preparedVol, 0)} unit` : "—"}</td><td style={tdr}><strong>{f(calc.solVol?.heparin,2)}</strong></td></tr>
-            {znPerKg > 0 && <tr><td style={td}>ZnSO₄ (elemental Zn)</td><td style={tdr}>{f(calc.znSO4_bag_mg, 2)} mg Zn</td><td style={tdr} title="stock not in KCMH_STOCK">ปริมาตร ZnSO₄ ไม่ได้รวมใน WFI — หักตามที่ใส่จริง</td></tr>}
             {/* Bag make-up — the sheet's J52 / I53 */}
             <tr>
               <td style={{ ...td, fontWeight:700 }}>Water for injection q.s.</td>

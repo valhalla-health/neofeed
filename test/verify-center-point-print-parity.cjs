@@ -97,13 +97,14 @@ const saveButton = () => [...container.querySelectorAll('button')]
 
 const patient = { sessionId: '2d0b8f3a-7c1e-4b5a-9f66-1a2b3c4d5e6f', name: 'PARITY', bw: 1200, ga: 29, currentBed: 'NICU 3', diagnosis: '-', weights: [] };
 // Deliberately un-round figures, so one dose is unlikely to match another by accident.
-// K 3.1 + 1.3 mEq/kg/d is over the 3.5 hard limit: the order carries a critical override.
+// K 4.1 + 1.3 mEq/kg/d is over the 5.0 hard limit (3.5 until 2026-10-27, when
+// this order had KCl 3.1): the order carries a critical override.
 const ORDER = [
   ['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],
   ['Volume(mL/feed)', 7], ['Frequency', 8],
   ['Volume(mL/day)', 137], ['Dextrose final', 12.5],
   ['Amino acid', 3.2], ['20% lipid', 2.6], ['Heparin', 0.5],
-  ['20% NaCl', 2.3], ['Na Acetate', 1.1], ['Glycophos', 0.7], ['KCl', 3.1], ['K₂HPO₄', 1.3],
+  ['20% NaCl', 2.3], ['Na Acetate', 1.1], ['Glycophos', 0.7], ['KCl', 4.1], ['K₂HPO₄', 1.3],
   ['MgSO₄', 0.35], ['10% Ca gluconate', 47],
   ['Iron', 2.5], ['ปริมาณ elem Ca', 60], ['ปริมาณ elem P', 35], ['Vitamin D', 450],
 ];

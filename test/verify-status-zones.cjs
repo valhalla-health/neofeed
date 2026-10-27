@@ -2,8 +2,8 @@
 //
 // Praew, 2026-09-22: "สีที่เคยกำหนด range เฝ้าระวัง หายไปหมด ให้เอากลับมา สีเขียว
 // OK, สีเหลืองระวัง สีแดง alert". Every tile's bar now draws zones: green in the
-// target, yellow outside it, red past a hard limit (GIR's red above 13 —
-// "GIR bar turn red at >13"). The claim that matters clinically is that a
+// target, yellow outside it, red past a hard limit (GIR's red above 12 since
+// 2026-10-27; from 2026-09-22 it was "GIR bar turn red at >13"). The claim that matters clinically is that a
 // bar can NEVER disagree with its own tile: a needle on green beside a red
 // border is worse than no bar at all. calculator.jsx makes that true by
 // construction (Meter samples the very function that grades the tile); this
@@ -12,7 +12,7 @@
 //   § 1  on three orders — mixed, past the hard limits, thin — every needle
 //        sits in the zone of its tile's own status, GIR's inline readout too;
 //   § 2  the zones tile each bar exactly, and red appears only where a tile
-//        has a hard limit (GIR 13, protein 4.8, peripheral osmolarity 900);
+//        has a hard limit (GIR 12, protein 4.5, peripheral osmolarity 900);
 //   § 3  no needle for a reading that is not a point on the scale (0, "!!");
 //   § 4  the shells style every zone, in both hand-synced copies.
 //
@@ -153,8 +153,8 @@ console.log(`    (${seen.ok} ok, ${seen.warn} warn, ${seen.crit} crit; ${onEdge}
 // ── § 2 · the zones themselves ─────────────────────────────────────────────
 console.log('\n── § 2 each bar is tiled exactly, and red means a hard limit ──');
 const HARD = {                                          // where red must start, as % of the bar
-  'GIR (readout)': 13 / 16 * 100,                       // Praew: red above 13
-  'Protein': 4.8 / 5.5 * 100,
+  'GIR (readout)': 12 / 16 * 100,                       // TPN team, 2026-10-25: red above 12 (it was 13, Praew 2026-09-22)
+  'Protein': 4.5 / 5.5 * 100,                           // TPN team, 2026-10-25 (it was 4.8)
   'Energy (total)': 160 / 180 * 100,                    // ESPGHAN 2022: never above 160 (D.KCAL_HARD_HI)
   'K⁺ in bag': 120 / 200 * 100,                         // central: red above 120 on a bar that ends at the 200 maximum (D.K_BAG_MEQ_PER_L, 2026-09-28)
 };
@@ -165,7 +165,8 @@ for (const { name, container } of mounted) {
     const red = r.zones.filter((z) => z.s === 'crit');
     const route = name === 'past the hard limits' ? 'peripheral' : 'central';
     let want = HARD[r.label];
-    if (r.label === 'Osmolarity' && route === 'peripheral') want = 900 / 1100 * 100;
+    // Red from 899.5: the whole number printed, and 900 itself is over (Pp, 2026-10-27).
+    if (r.label === 'Osmolarity' && route === 'peripheral') want = 899.5 / 1100 * 100;
     // Red above 60. The peripheral maximum is 60 too since 2026-10-08 (Praew),
     // so a bar ending at the maximum would have no red at all, and a bag above
     // it would park its needle on amber under a red tile. It is 1.5 × 60 long
@@ -186,11 +187,12 @@ for (const { name, container } of mounted) {
     Math.abs(pctOf(best, 'left') - 50) < 1e-6 && Math.abs(pctOf(best, 'width') - 12.5) < 1e-6,
     best && best.getAttribute('style'));
   const z = bar(gir).zones.map((x) => x.s).join(' ');
-  ok('GIR reads yellow · green · yellow · red (4 | 12 | 13)', z === 'warn ok warn crit', z);
+  // No yellow margin above 12 since 2026-10-27, and no 850 caution: 900 alone.
+  ok('GIR reads yellow · green · red (4 | 12)', z === 'warn ok crit', z);
   const osm = readings(mounted[1].container).find((r) => r.label === 'Osmolarity');
-  ok('peripheral osmolarity: green to 850, yellow to 900, red beyond',
-    osm && osm.zones.map((x) => x.s).join(' ') === 'ok warn crit' &&
-    Math.abs(osm.zones[1].from - 850 / 1100 * 100) < 1e-3, osm && osm.zones);
+  ok('peripheral osmolarity: green below a printed 900, red from it',
+    osm && osm.zones.map((x) => x.s).join(' ') === 'ok crit' &&
+    Math.abs(osm.zones[1].from - 899.5 / 1100 * 100) < 1e-3, osm && osm.zones);
 }
 
 // The same claim at the source, so a tile added later cannot slip past the

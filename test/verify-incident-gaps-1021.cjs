@@ -8,8 +8,10 @@
 // started as Central, so the same slip reached the bag with nobody asking.
 //
 //   §1  A bag with volume and amino acid 0 raises the caution "Amino acid not
-//       ordered"; MgSO₄ 0 raises "MgSO₄ not ordered". Neither appears without a
-//       bag, and neither stops Submit or asks for a reason (they are cautions).
+//       ordered"; MgSO₄ 0 raised "MgSO₄ not ordered" until 2026-10-27, when the
+//       TPN team said a bag without Ca, P or Mg needs no warning (Pp: "เอาออก").
+//       It does not appear without a bag, and it never stops Submit or asks
+//       for a reason (a caution).
 //   §2  An infant's first order (no earlier order) starts with no route: neither
 //       button is on, the Step 3 header and the save panel say so, and Submit
 //       stays disabled until Peripheral or Central is pressed. The choice saves
@@ -175,11 +177,13 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     ok('amino acid 3 and MgSO₄ 0.3: neither caution', !alertNamed(AA0) && !alertNamed(MG0), alertRows());
     setField('Amino acid', 0);
     eq('amino acid 0 with a 150 mL bag → "Amino acid not ordered"', alertNamed(AA0)?.level, 'warn');
+    // The MgSO₄ caution was removed on 2026-10-27: the TPN team answered that a
+    // bag without Ca, P or Mg needs no warning (Pp: "เอาออก").
     setField('Amino acid', 3); setField('MgSO₄', 0);
-    eq('MgSO₄ 0 with a 150 mL bag → "MgSO₄ not ordered"', alertNamed(MG0)?.level, 'warn');
+    eq('MgSO₄ 0 with a 150 mL bag → no caution (removed 2026-10-27)', alertNamed(MG0)?.level, undefined);
     ok('…and the amino acid caution has gone', !alertNamed(AA0), alertRows());
     setField('Amino acid', 0);
-    ok('both at 0 → both cautions', !!alertNamed(AA0) && !!alertNamed(MG0), alertRows());
+    ok('both at 0 → the amino acid caution only', !!alertNamed(AA0) && !alertNamed(MG0), alertRows());
     noPrompt();
     await clickAsync(submitBtn());
     eq('a caution does not stop Submit: the order is logged', box.calls, 1);

@@ -38,8 +38,10 @@ function pickTarget(metricKey, entry, patient) {
     if (metricKey === "pro")   return D_L.TPN_TARGETS.protein(dol);
     if (metricKey === "gir")   return [8, 10];
     if (metricKey === "fluid") return D_L.TARGETS.fluid(dol, wt, patient?.bw);
-    if (metricKey === "na")    return D_L.TPN_TARGETS.na(dol);
-    if (metricKey === "k")     return D_L.TPN_TARGETS.k(dol);
+    // Na and K also take the weight group (Jochum 2018 < 1500 g), on the
+    // fluid tier's weight, as the Calculator's tiles do.
+    if (metricKey === "na")    return D_L.TPN_TARGETS.na(dol, wt, patient?.bw);
+    if (metricKey === "k")     return D_L.TPN_TARGETS.k(dol, wt, patient?.bw);
     if (metricKey === "ca")    return D_L.TPN_TARGETS.ca(dol);
     if (metricKey === "p")     return D_L.TPN_TARGETS.p(dol);
   }

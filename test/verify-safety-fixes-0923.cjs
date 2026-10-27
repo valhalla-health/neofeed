@@ -332,10 +332,13 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
 
   // ══════════════════════════════════════════════════════════════════════
   await section('§5 GIR: one grading, and no raw floats in the alert body', async () => {
-    eq('12.5 is the yellow margin, not critical', D.girStatus(12.5), 'warn');
-    eq('above the hard limit is critical', D.girStatus(13.5), 'crit');
+    // 12 since 2026-10-27 (TPN team: follow Mesotten R 5.4); the 12–13 yellow
+    // margin is gone, so the caution case is below the band.
+    eq('12.5 is above the hard limit: critical', D.girStatus(12.5), 'crit');
+    eq('12 itself is in band', D.girStatus(12), 'ok');
+    eq('below the band is a caution', D.girStatus(3.5), 'warn');
     eq('in band is ok', D.girStatus(10), 'ok');
-    eq('the hard limit is the calculator\'s', D.GIR_HARD_HI, 13);
+    eq('the hard limit is the calculator\'s', D.GIR_HARD_HI, 12);
     ok('calculator.jsx grades GIR through it, not its own literal',
        /GIR_HARD = \{ hardHi: D\.GIR_HARD_HI \}/.test(fs.readFileSync(DIR + 'calculator.jsx', 'utf8')));
     ok('app.jsx grades GIR through it too', /D_A\.girStatus\(last\.gir\)/.test(appSrc));
@@ -344,10 +347,10 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
       weights: [{ dol: 1, w: 900 }, { dol: 10, w: 1000 }] };
     const row = (gir) => [{ ts: TODAY, dol: 11, weight: 1000, gir, pro: 3, kcal: 120, enVolPerKg: 0 }];
 
+    const at35 = global.computeAlerts(patient, row(3.5)).find(a => a.id.startsWith('gir'));
+    eq('a logged GIR of 3.5 is a WARNING on the alert page', at35 && at35.level, 'warn');
     const at125 = global.computeAlerts(patient, row(12.5)).find(a => a.id.startsWith('gir'));
-    eq('a logged GIR of 12.5 is a WARNING on the alert page', at125 && at125.level, 'warn');
-    const at135 = global.computeAlerts(patient, row(13.5)).find(a => a.id.startsWith('gir'));
-    eq('…and 13.5 is critical, on both screens', at135 && at135.level, 'crit');
+    eq('…and 12.5 is critical, on both screens', at125 && at125.level, 'crit');
     ok('a GIR inside the band raises no GIR alert',
        !global.computeAlerts(patient, row(9)).find(a => a.id.startsWith('gir')));
 
@@ -448,12 +451,16 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
   });
 
   // ══════════════════════════════════════════════════════════════════════
-  await section('§9 NPE:AA below 20 is a warning, not a save-blocking stop', async () => {
+  // Since 2026-10-27 (TPN team): no ceiling at all, critical only below 12, and
+  // 12–20 stays the caution this section was written for.
+  await section('§9 NPE:AA 12–20 is a warning, not a save-blocking stop', async () => {
     const calcSrc = fs.readFileSync(DIR + 'calculator.jsx', 'utf8');
-    ok('only the high side is a hard limit',
-       /hardNPE = ivNpeN !== null && D\.rangeStatus\(ivNpeN, tNPE, \{ hardHi: 32 \}\)/.test(calcSrc));
-    ok('…and the low side has its own warning',
-       /lowNPE {2}= ivNpeN !== null && !hardNPE && ivNpeN < 20/.test(calcSrc));
+    ok('the hard limit is the low one, below D.NPE_IV_CRIT_LO (12)',
+       /critLowNPE = ivNpeN !== null && ivNpeN < D\.NPE_IV_CRIT_LO/.test(calcSrc) && D.NPE_IV_CRIT_LO === 12);
+    ok('…no > 32 ceiling is left',
+       !/hardHi: 32/.test(calcSrc) && !Number.isFinite(D.TARGETS.npePerGAA()[1]));
+    ok('…and 12–20 has its own warning',
+       /lowNPE {2}= ivNpeN !== null && !critLowNPE && ivNpeN < 20/.test(calcSrc));
     ok('the low-side alert is pushed at level "warn"',
        /if \(lowNPE\) alerts\.push\(\{ level: "warn"/.test(calcSrc));
     ok('…and the critical body no longer claims a < 20 hard limit',

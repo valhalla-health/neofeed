@@ -92,6 +92,7 @@ const STOCK = {
   d50: 0.5, aa: 0.10, smof: 0.20, naCl: 3.42, naAc: 3.0, glyNa: 2, glyP: 31,
   k2K: 1, k2PperK: 15.5, kCl: 2.0, mg10: 0.812, mg50: 4.06, caMg: 9.01755,
   soluvitPerKg: 1, soluvitMax: 10, pediPerKg: 1, pediMax: 15, pediZn: 0.25, hep: 100,
+  znSO4: 1,   // mg elemental Zn per mL (pharmacy, 2026-10-25)
 };
 const KCAL = { dex: 3.4, aa: 4, fat: 9 };
 // Feeds, from the printed sources (2026-10-17), not from data.js. The Chula
@@ -102,6 +103,7 @@ const PER_100_KCAL = {
   preNan:           [2.9, 5.2, 10.7, 43, 103, 130, 76], // Table 5, p. 16
   hiQLbw:           [3.3, 4.8, 11.5, 86, 99, 123, 69],  // Table 5, p. 16
   hiQLf:            [2.4, 5.2, 10.8, 34, 80, 64, 34],   // Table 7, p. 18
+  enfalacLf:        [2.1, 5.4, 10.6, 46, 115, 115, 77], // Table 7, p. 18
   infatrini:        [2.6, 5.4, 10.3, 37, 100, 99, 54],  // Table 16, p. 29 (powder)
 };
 // per 100 mL at kcal/100 mL (1 oz = 30 mL: 20 → 67, 22 → 73, 24 → 80, 27 → 90, 30 → 100):
@@ -125,12 +127,19 @@ const FEED = {
   BM_PF_20:     [67, 1.5, 3.5, 7.4, 1.0, 1.7, 50, 28],     // no source; kept as it was (Pp, 2026-10-20)
   FBM_PF_22:    perMl(PER_100_KCAL.enfalacPremature, 73),   // the ward's 22 kcal/oz
   PRENAN_22:    perMl(PER_100_KCAL.preNan, 73),
+  // The ward mixes both at 24 too (nutrition unit, 2026-10-25).
+  ENFALAC_PREM_24: perMl(PER_100_KCAL.enfalacPremature, 80),
+  PRENAN_24:    perMl(PER_100_KCAL.preNan, 80),
   FBM_PF_24:    perMl(PER_100_KCAL.hiQLbw, 80),
   FBM_INF_MIX:  BM_HMF.map((v, i) => (v + INFATRINI[i]) / 2),   // alternating: the mean
   INFATRINI_30: INFATRINI,
   LF_20:        perMl(PER_100_KCAL.hiQLf, 67),
   LF_24:        perMl(PER_100_KCAL.hiQLf, 80),
   LF_27:        perMl(PER_100_KCAL.hiQLf, 90),
+  // Enfalac LF, orderable since 2026-10-27 (nutrition unit).
+  ENFALAC_20:   perMl(PER_100_KCAL.enfalacLf, 67),
+  ENFALAC_24:   perMl(PER_100_KCAL.enfalacLf, 80),
+  ENFALAC_27:   perMl(PER_100_KCAL.enfalacLf, 90),
 };
 const SUPP = { FE_FERDEK: 25, FE_FERROKID: 5, CA_CACO3_350: 140, CA_CACO3_1000: 400, CA_CALCETATE: 253,
   PO4_PHOSPHATE: 53, PO4_NEUTRAL: 14.4 };
@@ -179,7 +188,12 @@ function expected(sc) {
   e.pedi = sc.pedi && Vd > 0 ? r1(Math.min(STOCK.pediPerKg * W, STOCK.pediMax) * of) : 0;
   e.hepMl = sc.hep > 0 ? r2(sc.hep * Vp / STOCK.hep) : 0;
   e.hepU = sc.hep * Vp;
-  e.components = r1(e.d50 + e.aaMl + e.naClMl + e.naAcMl + e.glyMl + e.k2Ml + e.kClMl + e.mgMl + e.caMl + e.soluvit + e.pedi + e.hepMl);
+  // ZnSO₄ in the bag (× Factor, like every additive), as mL of the stock.
+  e.znMl = sc.zn > 0 ? r2(sc.zn * F / STOCK.znSO4) : 0;
+  // The printed terms carry at most 2 decimals, so their exact sum is a whole
+  // number of hundredths; round that half up to one decimal.
+  // Integer hundredths, halved to tenths: x.x5 is exact there, never 0.0499….
+  e.components = Math.round(Math.round((e.d50 + e.aaMl + e.naClMl + e.naAcMl + e.glyMl + e.k2Ml + e.kClMl + e.mgMl + e.caMl + e.soluvit + e.pedi + e.znMl + e.hepMl) * 100) / 10) / 10;
   // WFI q.s. = the prepared volume as printed (one decimal, half up) − the
   // components, so the printed bag line closes exactly (NF-17, Pp 2026-10-11).
   e.wfi = r1(r1(Vp) - e.components);
@@ -251,19 +265,25 @@ function expected(sc) {
 
 // ── The alerts an order should raise, from the ward's stated thresholds ─────
 // PN bands ESPGHAN 2018 by DOL, EN bands ESPGHAN 2022 once counted feeds reach
-// 100 mL/kg/d; hard stops GIR 13, protein 4.8 (total), lipid 4.5 and K 3.5 and
-// NPE:AA 20–32 on the IV portion, dextrose 18 g/kg/d, K 40 mEq/L, Zn 5 mg/day.
+// 100 mL/kg/d. Since the TPN team's answers of 2026-10-25: Na and K from Jochum
+// 2018 Tables 1–3 (preterm rows, < 1500 g on the fluid tier's weight), Ca/P/Mg
+// first days to DOL 7; hard stops GIR 12, protein 4.5 (total), lipid 4.0 and
+// K 5.0 on the IV portion, NPE:AA below 12 on the IV portion (no ceiling),
+// dextrose 17.3 g/kg/d, peripheral osmolarity 900, the bag above 1,250 mL;
+// cautions for heparin above 1 U/mL and oral vitamin D above 1,000 IU/day.
 function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
+  const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
+  const vlbw = tierG > 0 && tierG < 1500;
   const T = {
     pro: en ? [3.5, 4.0] : (d <= 1 ? [1.5, 2.5] : [2.5, 3.5]),
     kcal: en ? [115, 140] : (d <= 2 ? [45, 55] : d <= 7 ? [70, 100] : [90, 120]),
     lip: en ? [4.8, 8.1] : (d <= 1 ? [0.5, 1.0] : [1.0, 4.0]),
-    na: en ? [3, 5] : (d <= 2 ? [0, 2] : d <= 7 ? [0, 3] : [2, 5]),
-    k: en ? [2.3, 4.6] : (d <= 7 ? [0, 3] : [2, 3]),
-    ca: en ? [120, 200] : (d <= 1 ? [32, 80] : [64, 140]),
-    p: en ? [70, 115] : (d <= 1 ? [31, 62] : [50, 108]),
-    mg: d <= 2 ? [0.2, 0.4] : [0.4, 0.6],
+    na: en ? [3, 5] : (d <= 2 ? [0, 2] : d === 3 ? (vlbw ? [0, 5] : [0, 3]) : [2, 5]),
+    k: en ? [2.3, 4.6] : (d <= 3 ? [0, 3] : d <= 5 ? [2, 3] : d <= 7 ? [1, 3] : (vlbw ? [2, 5] : [2, 3])),
+    ca: en ? [120, 200] : (d <= 7 ? [32, 80] : [64, 140]),
+    p: en ? [70, 115] : (d <= 7 ? [31, 62] : [50, 108]),
+    mg: d <= 7 ? [0.2, 0.4] : [0.4, 0.6],
   };
   const st = (v, [lo, hi], hard = {}) => v === 0 ? 'empty' : !isFinite(v) ? (v > 0 ? 'crit' : 'empty')
     : ((hard.hi != null && v > hard.hi) || (hard.lo != null && v < hard.lo)) ? 'crit' : (v < lo || v > hi) ? 'warn' : 'ok';
@@ -279,22 +299,20 @@ function expectedAlerts(sc, e) {
   const bagIngr = [sc.aa, sc.dex, sc.naCl, sc.naAc, sc.glyNa, sc.kCl, sc.k2, sc.mg, sc.ca, sc.zn].some(v => v > 0);
   const zeroVolBag = e.Vd === 0 && bagIngr;
   const bagOrdered = e.Vd > 0 || zeroVolBag;
-  if (e.Vd > 0) { const s = st(e.gir, [4, 12], { hi: 13 }); if (s === 'crit') add('crit', 'GIR critically high'); else if (s === 'warn') add('warn', 'GIR off target'); }
+  if (e.Vd > 0) { const s = st(e.gir, [4, 12], { hi: 12 }); if (s === 'crit') add('crit', 'GIR critically high'); else if (s === 'warn') add('warn', 'GIR off target'); }
   const ivNpe = e.aaDel > 0 ? (e.tpnKcal - 4 * e.aaDel) / e.aaDel : null;
-  // Only the HIGH side stops (PR #96, signed off by Praew 2026-09-23): NPE:AA
-  // < 20 on the IV portion is the ordinary shape of a ramping PN order — amino
-  // acid at target on day 1 while dextrose and lipid climb — so it warns; > 32
-  // (excess non-protein energy, fat deposition) still stops the order.
-  // Keep all three branches: an IV ratio under 20 whose TOTAL (with EN) lands
-  // inside 24-32 still warns, which the third branch alone would miss.
-  if (ivNpe !== null && st(ivNpe, [24, 32], { hi: 32 }) === 'crit') add('crit', 'NPE:AA critically off target');
+  // NPE:AA on the IV portion: critical below 12 (TPN team, 2026-10-25), a
+  // caution below 20 (the ordinary shape of a ramping PN order), and no upper
+  // limit at all. Keep all three branches: an IV ratio under 20 whose TOTAL
+  // (with EN) is 24 or more still warns, which the third branch alone would miss.
+  if (ivNpe !== null && ivNpe < 12) add('crit', 'NPE:AA critically low');
   else if (ivNpe !== null && ivNpe < 20) add('warn', 'NPE:AA off target');
-  else if (e.totKcal > 0 && st(e.npe, [24, 32]) === 'warn') add('warn', 'NPE:AA off target');
-  tile(st(e.proKg, T.pro, { hi: 4.8 }), 'Protein');
+  else if (e.totKcal > 0 && e.npe !== 0 && e.npe < 24) add('warn', 'NPE:AA off target');
+  tile(st(e.proKg, T.pro, { hi: 4.5 }), 'Protein');
   tile(st(e.kcalKg, T.kcal), 'Energy');
-  if (st(e.lipG / e.W, T.lip, { hi: 4.5 }) === 'crit') add('crit', 'Lipid critically out of range'); else tile(st(e.lipKg, T.lip), 'Lipid');
+  if (st(e.lipG / e.W, T.lip, { hi: 4.0 }) === 'crit') add('crit', 'Lipid critically out of range'); else tile(st(e.lipKg, T.lip), 'Lipid');
   tile(st(e.naTot, T.na), 'Sodium');
-  if (st(e.kKg, T.k, { hi: 3.5 }) === 'crit') add('crit', 'Potassium critically out of range'); else tile(st(e.kTot, T.k), 'Potassium');
+  if (st(e.kKg, T.k, { hi: 5.0 }) === 'crit') add('crit', 'Potassium critically out of range'); else tile(st(e.kTot, T.k), 'Potassium');
   tile(st(sc.mg, T.mg), 'Magnesium');
   const oral = sc.oCa > 0 || sc.oP > 0;
   if (oral) { tile(st(e.totCa, T.ca), 'Calcium (total incl. oral)'); tile(st(e.totP, T.p), 'Phosphate (total incl. oral)'); }
@@ -304,11 +322,13 @@ function expectedAlerts(sc, e) {
   if (!sc.men && e.enPerKg > 100 && st(e.pe, [2.8, 3.6]) === 'warn') add('warn', 'Protein : Energy off target');
   if (sc.men && e.enPerKg > 24) add('warn', 'MEN ticked above trophic volume');
   if (bagOrdered) {
-    if (sc.route === 'peripheral') { if (e.osm > 900) add('crit', 'Osmolarity > peripheral limit'); else if (e.osm > 850) add('warn', 'Osmolarity near peripheral limit'); }
+    // 900 alone since 2026-10-27 (the 850 caution had no source).
+    // On the whole number printed, 900 included: the form says "<900" (Pp, 2026-10-27).
+    if (sc.route === 'peripheral') { if (Math.round(e.osm) >= 900) add('crit', 'Osmolarity > peripheral limit'); }
     // A central line has no upper osmolarity limit since 2026-09-28 (Praew).
   }
   if (e.Vd > 0 && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
-  if (e.dexGkg > 18) add('crit', 'Dextrose over KCMH max');
+  if (e.dexGkg > 17.3) add('crit', 'Dextrose over KCMH max');
   // K⁺ in the bag by route since 2026-09-28 (TPN team and Praew): peripheral amber > 40, not orderable
   // > 60 (Praew, 2026-10-08; it was 200); central amber > 60, critical > 120, not orderable > 200.
   // Graded without float noise, so a bag that is 60 on paper is 60. Written out here, not read from data.js.
@@ -320,10 +340,14 @@ function expectedAlerts(sc, e) {
   if (sc.lip > 0) { const g = Math.round(sc.lip / sc.lipH * 100) / 100;
     if (g > 0.17) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
   if (e.znTot > 5) add('crit', 'Zinc total above 5 mg/day');
-  // A bag with volume and no amino acid, or no MgSO₄, is a caution (Pp, 2026-10-21).
+  // A bag with volume and no amino acid is a caution (Pp, 2026-10-21); one
+  // without MgSO₄ is not, since 2026-10-27 (TPN team; Pp: "เอาออก").
   if (e.Vd > 0 && !(sc.aa > 0)) add('warn', 'Amino acid not ordered');
-  if (e.Vd > 0 && !(sc.mg > 0)) add('warn', 'MgSO₄ not ordered');
   if (bagOrdered && e.wfi < 0) add('crit', 'Bag cannot be compounded');
+  // The TPN room's largest bottle is 1,250 mL, on the prepared volume as printed.
+  if (e.Vd > 0 && r1(e.Vp) > 1250) add('crit', 'Bag larger than the largest bottle');
+  if (e.Vd > 0 && sc.hep > 1) add('warn', 'Heparin above the usual dose');
+  if (sc.vitD * e.W + (sc.mtv ? MUNTIVIM_D_IU_PER_DAY : 0) > 1000) add('warn', 'Vitamin D above 1,000 IU/day');
   if (e.Vd > 0 && sc.ca > 0 && sc.k2 > 0) add('warn', 'Calcium–phosphate compatibility not calculated');
   return out.sort();
 }
@@ -365,13 +389,22 @@ const SCEN = [
   { name: 'F caps: 16 kg, Soluvit/Peditrace/Vitalipid ceilings', bw: 3000, cur: 16000, dol: 40, fluid: 100, tpn: 1000, dead: 30,
     dex: 10, aa: 2, lip: 2, naCl: 2, kCl: 1, soluvit: true, pedi: true, hep: 0.5, feed: 'BM_20', enVol: 0, enFreq: 0 },
   // every remaining feed type, no TPN, full-ish feeds on 1.5 kg
-  ...['BM_PF_20', 'PRENAN_22', 'FBM_PF_24', 'FBM_INF_MIX', 'LF_20', 'LF_27'].map((k) => ({
+  ...['BM_PF_20', 'PRENAN_22', 'ENFALAC_PREM_24', 'PRENAN_24', 'FBM_PF_24', 'FBM_INF_MIX', 'LF_20', 'LF_27',
+    'ENFALAC_20', 'ENFALAC_27'].map((k) => ({
     name: `G feed ${k} (feeds only)`, bw: 1200, cur: 1500, dol: 12, fluid: 160, ioOut: 70, tpn: 0,
     feed: k, enVol: 28, enFreq: 8, weights: [{ dol: 11, w: 1490 }] })),
   // A prepared volume with a second decimal: 80.45 + 50 = 130.45 mL prints as
   // 130.5, and the WFI must be taken from that (NF-17; it printed 42.9, now 43).
   { name: 'H prepared 130.45 mL (second decimal), WFI from the printed volume', bw: 1000, cur: 1000, dol: 10, fluid: 150,
     ioOut: 50, tpn: 80.45, dead: 50, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 40, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },
+  // The answers of 2026-10-25: a VLBW DOL 3 (Na 0–5), heparin typed tenfold,
+  // ZnSO₄ in the WFI, IV K 4.5 (under 5.0), GIR just above 12, IV NPE:AA
+  // about 43 (no ceiling), and a bag above the 1,250 mL bottle.
+  { name: 'I VLBW DOL 3, heparin 10, ZnSO₄, K 4.5, GIR > 12', bw: 1200, cur: 1150, dol: 3, fluid: 120,
+    ioOut: 40, tpn: 130, dead: 30, dex: 16, aa: 2, lip: 3, lipH: 24, naCl: 4, kCl: 4.5, mg: 0.3, ca: 60,
+    zn: 0.4, hep: 10, weights: [{ dol: 1, w: 1200 }] },
+  { name: 'J bag above the 1,250 mL bottle cannot be ordered', bw: 7000, cur: 7500, dol: 60, fluid: 160,
+    ioOut: 300, tpn: 1240, dead: 30, dex: 10, aa: 2.5, naCl: 3, kCl: 2, mg: 0.4, ca: 60, hep: 1 },
 ];
 
 // ── DOM helpers ─────────────────────────────────────────────────────────────
@@ -581,7 +614,8 @@ async function run(scIn) {
 
   // ─ Save ─
   const saveBtn = btnExact('Submit');
-  const orderable = e.wG >= 200 && e.wG <= 8000;   // F, 16 kg: refused (Pp, 2026-10-08)
+  // F, 16 kg: refused (Pp, 2026-10-08). J, a bag above the 1,250 mL bottle: refused (Pp, 2026-10-27).
+  const orderable = e.wG >= 200 && e.wG <= 8000 && !(e.Vd > 0 && r1(e.Vp) > 1250);
   same(sc, 'Save button enabled', !!(saveBtn && !saveBtn.disabled), orderable);
   if (saveBtn && !saveBtn.disabled) await clickAsync(saveBtn);
   same(sc, 'onLog received an entry', !!saved, orderable);
@@ -650,6 +684,7 @@ async function run(scIn) {
         near(sc, 'print lipid rate mL/hr', g(rx('= Rate # mL/hr')), e.lipRate, 2);
       }
       if (e.znTot > 0) near(sc, 'print Zn total mg/day', g(rx('Zn รวม # mg/day')), e.znTot, 2);
+      if (sc.zn > 0) near(sc, 'print ZnSO₄ mL (back)', g(rx('ZnSO₄ \\(Zn 1 mg/mL\\)[\\d.]+ mg Zn#')), e.znMl, 2);
     }
     if (sc.vitD > 0) near(sc, 'print Vit D IU/day', g(/IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.fe > 0) near(sc, 'print Fe mL/day', g(/Fe oral \([^)]*\) [\d.]+ mg\/kg\/d = [\d.]+ mg → ([\d.]+) mL\/day/), e.fe_ml, 2);
@@ -672,6 +707,7 @@ async function run(scIn) {
     // since 2026-10-08 (Praew), written as the maximum alone there.
     near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L; (?:max 60 on a peripheral|confirm above 120, max 200 on a central) line\)/), e.kPerL, 0);
     near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
+    if (sc.zn > 0) near(sc, 'copy ZnSO₄ mL', g(/mg Zn in bag → ([\d.]+) mL of 1 mg Zn\/mL/), e.znMl, 2);
     if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.oCa > 0) near(sc, 'copy oral Ca tabs/day', g(/mg\/day → ([\d.]+) tab\/day/), e.oCa_tabs, 2);
   }

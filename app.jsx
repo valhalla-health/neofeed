@@ -4103,17 +4103,20 @@ function GuidelinesPanel() {
               <Badge>Mihatsch 2018</Badge>
             </div>
             <div className="card-b">
-              <SectionHead>Day 1</SectionHead>
+              {/* "First days" ends at DOL 7 (TPN team, 2026-10-25); it was DOL 1
+                  for Ca and P and DOL 2 for Mg. The heads read the same constant
+                  as the tiles. */}
+              <SectionHead>First days (DOL 1–{D_A.FIRST_DAYS_LAST_DOL})</SectionHead>
               <RangeRow label="Ca" min="0.8" max="2.0" unit="mmol/kg/day = 32–80 mg/kg" highlight />
               <RangeRow label="P" min="1.0" max="2.0" unit="mmol/kg/day = 31–62 mg/kg" highlight />
-              <RangeRow label="Mg" min="0.1" max="0.2" unit="mmol/kg/day" />
-              <SectionHead>Growing preterm (D2+)</SectionHead>
+              <RangeRow label="Mg" min="0.1" max="0.2" unit="mmol/kg/day = 2.5–5 mg elemental Mg/kg" />
+              <SectionHead>Growing preterm (DOL {D_A.FIRST_DAYS_LAST_DOL + 1}+)</SectionHead>
               <RangeRow label="Ca" min="1.6" max="3.5" unit="mmol/kg/day = 64–140 mg/kg" highlight />
               {/* Read from TPN_TARGETS so this page can't drift from the tiles
                   again — it kept the pre-correction 1.5–2.0 mmol range for two
                   weeks after the calculator moved to 50–108 (2026-09-11 review, F4). */}
-              <RangeRow label="P" min="1.6" max="3.5" unit={`mmol/kg/day = ${D_A.TPN_TARGETS.p(2)[0]}–${D_A.TPN_TARGETS.p(2)[1]} mg/kg`} highlight />
-              <RangeRow label="Mg" min="0.2" max="0.3" unit="mmol/kg/day" />
+              <RangeRow label="P" min="1.6" max="3.5" unit={`mmol/kg/day = ${D_A.TPN_TARGETS.p(D_A.FIRST_DAYS_LAST_DOL + 1)[0]}–${D_A.TPN_TARGETS.p(D_A.FIRST_DAYS_LAST_DOL + 1)[1]} mg/kg`} highlight />
+              <RangeRow label="Mg" min="0.2" max="0.3" unit="mmol/kg/day = 5–7.5 mg elemental Mg/kg" />
               <SectionHead>Ca:P ratio</SectionHead>
               <RangeRow label="Molar (PN)" min="0.8" max="1.3" unit=":1 — target 1.3:1 for stable growth" highlight />
               <RangeRow label="Mass ratio" min="1.0" max="1.7" unit=":1 (Ca g / P g)" />
@@ -4132,13 +4135,16 @@ function GuidelinesPanel() {
               <Badge>Jochum 2018</Badge>
             </div>
             <div className="card-b">
+              {/* TARGETS.fluid: Jochum Table 1 to DOL 5, Tables 2–3 from DOL 6
+                  (TPN team, 2026-10-25). Until then ELBW stayed at 160–180 and
+                  VLBW's DOL 5 read 140–160. */}
               <PhaseTable
-                cols={["BW category", "DOL 1", "DOL 2", "DOL 3", "DOL 4", "DOL 5+"]}
+                cols={["BW category", "DOL 1", "DOL 2", "DOL 3", "DOL 4", "DOL 5", "DOL 6+"]}
                 rows={[
-                  ["ELBW <1000g",   "80–100","100–120","120–140","140–160","160–180"],
-                  ["VLBW 1000–1500g","70–90", "90–110","110–130","130–150","140–160"],
-                  ["Preterm >1500g", "60–80", "80–100","100–120","120–140","140–160"],
-                  ["Term ≥2500g",    "40–60", "50–70", "60–80", "60–100","100–140"],
+                  ["ELBW <1000g",   "80–100","100–120","120–140","140–160","160–180","140–160"],
+                  ["VLBW 1000–1500g","70–90", "90–110","110–130","130–150","160–180","140–160"],
+                  ["Preterm >1500g", "60–80", "80–100","100–120","120–140","140–160","140–160"],
+                  ["Term ≥2500g",    "40–60", "50–70", "60–80", "60–100","100–140","140–160"],
                 ]}
               />
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
@@ -4156,21 +4162,26 @@ function GuidelinesPanel() {
               <Badge>Jochum 2018</Badge>
             </div>
             <div className="card-b">
+              {/* The tiles' bands, TPN_TARGETS.na/k: Jochum Table 1 to DOL 5,
+                  Table 2 for DOL 6–7, Table 3 from DOL 8 (TPN team, 2026-10-25).
+                  The old table's "ELBW" row was Jochum's < 1500 g row and its
+                  phase columns were Table 1's day columns (targets audit
+                  2026-09-28 § 3.7). Term rows wait for the term question. */}
               <PhaseTable
-                cols={["Electrolyte","Transition (D1–2)","Intermediate (D3–7)","Stable (D8+)","Notes"]}
+                cols={["Electrolyte","D1–2","D3","D4–5","D6–7","D8+","Notes"]}
                 rows={[
-                  ["Na — ELBW <1kg",  "0–2","0–5","2–7", "High Na loss possible; guided by serum Na"],
-                  ["Na — Preterm",    "0–2","0–3","2–5", "Withhold D1–2; add when UO established"],
-                  ["Na — Term",       "0–2","0–2","1–3", ""],
-                  ["K — All",         "0–3","0–3","2–3", "Avoid routine K in D1–2 ELBW (hyperkalemia risk)"],
-                  ["Cl — All",        "0–3","0–3","2–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"],
+                  ["Na — preterm <1500g", "0–2","0–5","2–5","2–5","2–5", "Up to 7 with high urinary Na loss"],
+                  ["Na — ≥1500g",         "0–2","0–3","2–5","2–5","2–5", "Jochum stable: preterm 3–5, term 2–3"],
+                  ["K — preterm <1500g",  "0–3","0–3","2–3","1–3","2–5", "Watch for non-oliguric hyperkalaemia in VLBW"],
+                  ["K — ≥1500g",          "0–3","0–3","2–3","1–3","2–3", ""],
+                  ["Cl — preterm",        "0–3","0–3","2–5","2–5","3–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"],
                 ]}
               />
               <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 {[
                   ["Zn (preterm)", "400–500 µg/kg/day"],
                   ["Fe (preterm)", "200–250 µg/kg/day"],
-                  ["Cu", "40 µg/kg/day"],
+                  ["Cu", `${D_A.ESPGHAN_TARGETS.pn.micronutrients.cu.preterm} preterm · ${D_A.ESPGHAN_TARGETS.pn.micronutrients.cu.term} term µg/kg/day`],
                 ].map(([l,v]) => (
                   <div key={l} style={{ background: "var(--bg-2)", borderRadius: 6, padding: "8px 10px" }}>
                     <div style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</div>
@@ -4225,7 +4236,7 @@ function GuidelinesPanel() {
               <RangeRow label="Ca" min="120" max="200" unit="mg/kg/day = 3.0–5.0 mmol/kg (↑)" highlight />
               <RangeRow label="P" min="70" max="115" unit="mg/kg/day = 2.2–3.7 mmol/kg (↑)" highlight />
               <SectionHead>Vitamins + trace (enteral)</SectionHead>
-              <RangeRow label="Vitamin D" min="400" max="700" unit="IU/kg/day (per kg, not per day!)" highlight />
+              <RangeRow label="Vitamin D" min="400" max="700" unit={`IU/kg/day (per kg, not per day!) · at most ${D_A.displayNum(D_A.VIT_D_MAX_IU_DAY, 0)} IU/day`} highlight />
               <RangeRow label="Iron" min="2" max="3" unit="mg/kg/day, start at 2 wks (up to 6)" />
               <RangeRow label="Zinc" min="2.0" max="3.0" unit="mg/kg/day (↑↑ from 1.1–2.0)" highlight />
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ok)", fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
@@ -4365,9 +4376,10 @@ function FormulasPanel() {
     { label: "Breast Milk", keys: ["BM_20","BM_HMF_24"] },
     { label: "HiQ LF (Dumex)", keys: ["HIQLF_20","HIQLF_24","HIQLF_27"] },
     { label: "Enfalac LF (MJN)", keys: ["ENFALAC_20","ENFALAC_24","ENFALAC_27"] },
-    // Grouped as the calculator's feed list (TPN team, 2026-09-28). Pre Nan was on no row here.
-    { label: "Preterm formula", keys: ["BM_PF_20","FBM_PF_22","FBM_PF_24"] },
-    { label: "Post-discharge formula", keys: ["PRENAN_22"] },
+    // Grouped as the calculator's feed list. Pre Nan is a preterm formula
+    // (nutrition unit, 2026-10-25); it had a post-discharge group of its own
+    // from 2026-09-28 until then.
+    { label: "Preterm formula", keys: ["BM_PF_20","FBM_PF_22","ENFALAC_PREM_24","PRENAN_22","PRENAN_24","FBM_PF_24"] },
     { label: "High-energy / Mixed", keys: ["FBM_INF_MIX","INFATRINI_30"] },
   ];
 
