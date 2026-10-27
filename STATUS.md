@@ -194,6 +194,9 @@
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
+- ⏳ **PR #174, NF-08: `tools/ci_bans.js` fails CI on a patient identifier, a raw sheet cell or a
+  secret in a log: open, waiting for Pp.** CI and docs only: neither host serves `.github/`, `test/`,
+  `tools/` or `*.md`, so no served file changes and nothing to release. `CHANGELOG.md` 2026-10-28.
 - ⏳ **PR #171, every stock mL to one decimal and a stop at 0 mL: merged into `main` on Pp's instruction
   ("merge PR #171 เข้า main หลัง CI ผ่าน ยังไม่ต้อง release"); not live until a `main → release` PR.**
   Frontend only, no `clasp` step. **`CONSTANTS_VERSION` `2026-10-27.2`**; released with #170, one re-save covers both. Before its
