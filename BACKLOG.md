@@ -677,6 +677,12 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🕓 Later
 
+- [ ] 🔒 **pdpa · A class for every Sheet column (NF-08, second half).** The log rules in
+      `tools/ci_bans.js` match a hand-kept list of identifier names. The stronger version gives each
+      column of `PAT_HEADERS`, `LOG_HEADERS`, `NURSING_HEADERS`, Staff and Audit_Log (18 + 38 + 13 + 8 + 4 = 81) a class
+      (identifier, clinical, operational) in one file; the rules read the identifier columns from it, and
+      a header array with a column that has no class fails CI. Classing the columns is Pp's call
+      (`diagnosis`, `currentBed`, `admissionDate`, `submittedBy`, `enteredBy`, staff `email`).
 - [ ] 🧱 **data · A date on every growth-chart row.** Rows in `weights`, `lengths` and `hcs` are keyed by
       DOL. Since 2026-09-24 an anchor correction moves them with it (`D.moveGrowthRows`); a stored date
       would make that unnecessary. It needs a migration of every record, and it must agree with PR #111's
