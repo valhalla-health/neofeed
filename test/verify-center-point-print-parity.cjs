@@ -97,13 +97,14 @@ const saveButton = () => [...container.querySelectorAll('button')]
 
 const patient = { sessionId: '2d0b8f3a-7c1e-4b5a-9f66-1a2b3c4d5e6f', name: 'PARITY', bw: 1200, ga: 29, currentBed: 'NICU 3', diagnosis: '-', weights: [] };
 // Deliberately un-round figures, so one dose is unlikely to match another by accident.
-// K 3.1 + 1.3 mEq/kg/d is over the 3.5 hard limit: the order carries a critical override.
+// K 4.1 + 1.3 mEq/kg/d is over the 5.0 hard limit (3.5 until 2026-10-27, when
+// this order had KCl 3.1): the order carries a critical override.
 const ORDER = [
   ['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],
   ['Volume(mL/feed)', 7], ['Frequency', 8],
   ['Volume(mL/day)', 137], ['Dextrose final', 12.5],
   ['Amino acid', 3.2], ['20% lipid', 2.6], ['Heparin', 0.5],
-  ['20% NaCl', 2.3], ['Na Acetate', 1.1], ['Glycophos', 0.7], ['KCl', 3.1], ['K₂HPO₄', 1.3],
+  ['20% NaCl', 2.3], ['Na Acetate', 1.1], ['Glycophos', 0.7], ['KCl', 4.1], ['K₂HPO₄', 1.3],
   ['MgSO₄', 0.35], ['10% Ca gluconate', 47],
   ['Iron', 2.5], ['ปริมาณ elem Ca', 60], ['ปริมาณ elem P', 35], ['Vitamin D', 450],
 ];
@@ -117,6 +118,10 @@ async function saveOrder(props, extra) {
   root = ReactDOM.createRoot(container);
   act(() => { root.render(React.createElement(window.Calculator, { patient, dol: 10, logDate: '2026-09-15', ...props })); });
   act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
+  // A first order has no route until one is pressed (Pp, 2026-10-21). These
+  // orders were written when every new order started on Central.
+  { const r = [...container.querySelectorAll('.step2-ctrl .seg button')];
+    if (r.length && !r.some(b => b.classList.contains('on'))) act(() => { r.find(b => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); }
   ORDER.forEach(([l, v]) => setField(l, v));
   (extra || []).forEach(([l, v]) => setField(l, v));
   check('Munti-vim');
@@ -187,6 +192,14 @@ async function compareOrder(label, extra) {
     overfilled.figures.filter(f => /ปริมาตรคาสาย/.test(f.where)));
   ok('…and a Factor that differs from the weight', Math.abs(overfilled.payload.calc.factor - overfilled.payload.wtKg) > 0.001,
     { factor: overfilled.payload.calc.factor, wtKg: overfilled.payload.wtKg });
+  // A float tie (Vera, 2026-10-27): K₂HPO₄ 0.7 mEq/kg × 1.5 kg is 1.0499999999999998
+  // in JS. CP's toFixed read it as 1.0 beside a mL of 1.1; both sheets now print
+  // 1.1 mEq = 1.1 mL.
+  const tie = await compareOrder('a float tie: K₂HPO₄ 0.7 mEq/kg at 1.5 kg, no dead space',
+    [['ปริมาตรคาสาย', 0], ['Current weight', 1500], ['KCl', 4.4], ['K₂HPO₄', 0.7]]);   // K 5.1: the reason path, as ORDER
+  const { buildTpn } = await import(pathToFileURL(DIR + 'center-point/tpn-snapshot.mjs').href);
+  const tv = buildTpn(tie.payload, window.NEOFEED_DATA, '2026-09-15T01:00:00.000Z', '2026-09-16T01:00:00.000Z').values;
+  ok('…CP prints K₂HPO₄ 1.1 mEq = 1.1 mL', tv.k2Bag === '1.1' && tv.k2Ml === '1.1', { k2Bag: tv.k2Bag, k2Ml: tv.k2Ml });
 
   act(() => { root.unmount(); });
   console.log(`\n${fail === 0 ? 'PRINT PARITY: ALL PASS' : `PRINT PARITY: ${fail} FAILED`} (${pass} passed)`);

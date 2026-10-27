@@ -48,7 +48,7 @@ const log = {
   'EE-1': [order('tmp_1726540000000_abc')],
   'FF-1': [order('e-ff1'), order('e-ff2', { lastModified: TODAY + 'T03:00:00.000Z' })],
   'GG-1': [order('e-gg')],
-  'SS-1': [order('e-ss', {}, { kCl: 5 })],
+  'SS-1': [order('e-ss', {}, { kCl: 6 })],   // above the 5.0 IV K hard limit (3.5 until 2026-10-27)
 };
 
 function setup() {

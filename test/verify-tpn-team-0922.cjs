@@ -145,6 +145,10 @@ function mount(props) {
   copied = null;
   act(() => { root.render(React.createElement(window.Calculator, { ...BASE, ...props })); });
   act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
+  // A first order has no route until one is pressed (Pp, 2026-10-21). These
+  // orders were written when every new order started on Central.
+  { const r = [...container.querySelectorAll('.step2-ctrl .seg button')];
+    if (r.length && !r.some(b => b.classList.contains('on'))) act(() => { r.find(b => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); }
 }
 function logger() {
   const box = { entry: null, calls: 0 };
@@ -496,9 +500,10 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
       rowOf(frontEl, 'K₂HPO₄')?.firstElementChild?.innerHTML);
     eq('3. MgSO₄: the name only', cells(frontEl, 'MgSO₄')?.[0], '3. Mg⁺⁺ ☑ MgSO₄');
     eq('4. Ca Gluconate: the name only', cells(frontEl, 'Ca Gluconate')?.[0], '4. Ca⁺⁺ ☑ Ca Gluconate');
-    // MgSO₄ comes as 10% and 50%, and the mL is the chosen vial's: with the
-    // strength off the label it goes beside the mL instead.
-    ok('…MgSO₄\'s in-bag mL names the vial it is for', /= 1\.15 mL \(10%\)/.test(cells(frontEl, 'MgSO₄')?.[2] || ''), cells(frontEl, 'MgSO₄'));
+    // MgSO₄ is the 10% vial, the only one since 2026-10-27; with the strength
+    // off the label it goes beside the mL instead. 1.149 mL prints 1.1 since
+    // 2026-10-27 (one decimal; it printed 1.15).
+    ok('…MgSO₄\'s in-bag mL names the vial it is for', /= 1\.1 mL \(10%\)/.test(cells(frontEl, 'MgSO₄')?.[2] || ''), cells(frontEl, 'MgSO₄'));
 
     // Every figure on its product's own line. Factor = 2 × 210/180.
     eq('NaCl: 2 mEq per kg · 4.7 mEq = 1.4 mL in the bag', cells(frontEl, 'NaCl')?.slice(1, 3), ['2 mEq', '4.7 mEq = 1.4 mL']);

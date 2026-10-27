@@ -70,11 +70,17 @@ near('Glycophos Na mEq/mL', S.glycophos.naMeqPerMl, 2,       0);
 near('Glycophos P mg/mL', S.glycophos.pMgPerMl,     31,      0);
 // sheet I32 = mEq × 2 / 8.12 × 5  →  1 mEq needs 2/8.12*5 mL  →  0.812 mEq/mL
 near('MgSO4 10% mEq/mL',  S.mgso4_10.mgMeqPerMl,    1 / (2 / 8.12 * 5), 0.0005);
-near('MgSO4 50% mEq/mL',  S.mgso4_50.mgMeqPerMl,    1 / (2 / 8.12),     0.0005);
+// The sheet's I33 row is 50% MgSO₄; KCMH uses 10% only, and NeoFeed has no 50%
+// stock since 2026-10-27 (Pp).
+near('no 50% MgSO4 stock (0 = absent)', S.mgso4_50 === undefined ? 0 : 1, 0, 0);
 near('Ca gluc mg/mL',     S.caGluconate.caMgPerMl,  9.01755, 0.00001);
 near('Peditrace mL/kg',   S.peditrace.mlPerKg,      1.0,     0);
 near('Soluvit mL/kg',     S.soluvit.mlPerKg,        1.0,     0);
-near('Max dextrose g/kg', D.MAX_DEXTROSE_G_KG,      18,      0);
+// The sheet's dextrose ceiling is 18 g/kg/d (F9 = 18 × weight). Since
+// 2026-10-27 NeoFeed's is ESPGHAN's 17.3 (12 mg/kg/min, Mesotten R 5.4; TPN
+// team, 2026-10-25), below the sheet's, so no order the sheet refuses passes.
+near('Max dextrose g/kg', D.MAX_DEXTROSE_G_KG,      17.3,    0);
+near('…12 mg/kg/min in g/kg/d, to 1 decimal', Math.round(12 * 1440 / 1000 * 10) / 10, D.MAX_DEXTROSE_G_KG, 0);
 // The sheet's 40 mEq/L K⁺ stop (G25) was cancelled at the TPN team meeting on
 // 2026-09-28; K⁺ in the bag is graded by route (D.K_BAG_MEQ_PER_L).
 near('K peripheral amber mEq/L', D.K_BAG_MEQ_PER_L.peripheral.warn, 40, 0);

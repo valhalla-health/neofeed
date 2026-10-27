@@ -1,5 +1,15 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-21, 10:03 ICT — frontend `release` = `08c298d` on both hosts, with backend `@64`.**
+> PR #167 released #159: `EN_DB` from the Chula Pediatric Nutrition Handbook pages (Tables 5, 7 and 16;
+> Enfamil HMF from p. 10) and WHO 2006 Box 1.3.1 for breast milk. **`CONSTANTS_VERSION` is `2026-10-17.1`**,
+> so every saved order is held from Print and Copy until a doctor saves it again. Before the merge the tree
+> ran on dev local (comment on #167). `node tools/verify-release.mjs 08c298d --wait` passed on both hosts
+> (0 failures, 61 passes) once they stopped serving the previous release. The tag
+> `release-2026-10-21-pr167` is pushed. No backend change. ⚠️ Still open on #167 at release: telling the
+> ward and pharmacy, a second clinician's sign-off of the new figures, and a doctor re-saving a BM + HMF
+> order on the ward. Recorded here by PR #168, the next PR on the repo.
+>
 > ✅ **2026-10-21, 08:52 ICT — frontend `release` = `4367e50` on both hosts, with backend `@64`.**
 > PR #166 released #160: an order saved before 2026-09-18 carries no `CONSTANTS_VERSION` stamp, and Print
 > and Copy now hold it until a doctor saves it again. Before the merge the tree ran on dev local with a
@@ -182,11 +192,32 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-21** · ✅ **Backend `@64` and frontend `release` = `4367e50` are live, and both are
-verified.** Caught up with #166 by PR #159, the next PR on the repo, as #166 asked.
-- ⏳ **PR #159, `EN_DB` from the Chula handbook pages, not the AI extraction: merged into `main` on Pp's
-  instruction ("merge เลย", after she chose the book as the source, Chula p. 10 for the HMF and PF 20 kept
-  as it was); not live until a `main → release` PR.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION`
+**Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
+verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
+- ⏳ **PR #171, every stock mL to one decimal and a stop at 0 mL: merged into `main` on Pp's instruction
+  ("merge PR #171 เข้า main หลัง CI ผ่าน ยังไม่ต้อง release"); not live until a `main → release` PR.**
+  Frontend only, no `clasp` step. **`CONSTANTS_VERSION` `2026-10-27.2`**; released with #170, one re-save covers both. Before its
+  release, pharmacy hears that K₂HPO₄, MgSO₄, ZnSO₄ and heparin print to 0.1 mL (MgSO₄ 0.53 → 0.5), and
+  doctors that an additive under 0.05 mL now blocks Submit ("Stock rounds to 0 mL"). MgSO₄ is always
+  10%: a row saved as 50% now prints the 10% mL. Vera: NO BLOCK four times. `CHANGELOG.md`
+  2026-10-27 (4).
+- ⏳ **PR #170, the nutrition unit's and TPN team's answers of 2026-10-25: merged into `main` on Pp's
+  instruction ("merge PR #170 เข้า main ได้เลย ยังไม่ต้อง release"); not live until a `main → release`
+  PR.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION` is `2026-10-27.1`**, so every saved order
+  is saved again before it prints. Before its release: Center Point's copy of `tpn-document.mjs` gets the
+  two new feed labels, the ZnSO₄ stock label is photographed, and pharmacy hears that the back sheet
+  prints ZnSO₄ mL and the front sheet new Normal Requirement bands (`BACKLOG.md` § Now). Vera: NO BLOCK
+  twice. `CHANGELOG.md` 2026-10-27, (2) and (3).
+- ⏳ **PR #169, bringing a discharged infant back from a phone: merged into `main` on 2026-10-22; not
+  live until a `main → release` PR.** Recorded here by #170, the next PR on the repo.
+- ⏳ **PR #168, a caution for a bag without amino acid or MgSO₄, and a bag's route is pressed, never
+  assumed: merged into `main` on Pp's instruction ("merge PR #168 เข้า main เมื่อ CI ผ่าน"); not live
+  until a `main → release` PR.** Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; a no-bag
+  order, reprinted, ticks neither route box. The ward should hear before the release that a bag's route
+  now has to be pressed. Vera: NO BLOCK twice. `CHANGELOG.md` 2026-10-21.
+- ✅ **PR #159, `EN_DB` from the Chula handbook pages, not the AI extraction: live, released by #167 on
+  Pp's instruction ("Release 159 เลย"; banner above), after she chose the book as the source, Chula p. 10
+  for the HMF and PF 20 kept as it was.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION`
   `2026-10-11.1` → `2026-10-17.1`**: printed EN figures move for every formula feed and for BM + HMF, so
   every saved order has to be saved again before it prints. No second clinician has signed off yet.
   `CHANGELOG.md` 2026-10-17 (6), 2026-10-20 (2) and (3).

@@ -97,6 +97,14 @@ function mount(props) {
   render(props);
   act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
 }
+// A first order has no route until one is pressed (Pp, 2026-10-21). These
+// orders were written when every new order started on Central. Pressed only
+// where an order is typed to be saved: a press is an edit, and this file checks
+// that merely opening a form writes no draft.
+function pressCentral() {
+  const r = [...container.querySelectorAll('.step2-ctrl .seg button')];
+  if (r.length && !r.some(b => b.classList.contains('on'))) act(() => { r.find(b => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+}
 const pt = (sid) => ({ sessionId: sid, name: sid.slice(0, 2), bw: 1000, currentBed: 'NICU 6', diagnosis: '-',
   weights: [{ dol: 1, w: 1000 }], admissionDate: '2026-09-07' });
 const HOUR = 3600e3;
@@ -220,6 +228,7 @@ const ago = (ms) => new Date(Date.now() - ms).toISOString();
       const onLog = (e) => { logged.push(e); return Promise.resolve({ ok: true, entryId: 'e-mn-' + logged.length, lastModified: 'lm' }); };
       // CalculatorView passes App's live DOL: 11 on 09-17 (admitted 09-07 at DOL 1).
       mount({ patient: P, dol: 11, logDate: null, onLog });
+      pressCentral();
       setField('Current weight', 1000); fillRequired();
       setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 3);
       eq('23:59 — Save is enabled', saveBtn()?.disabled, false);

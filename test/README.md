@@ -974,7 +974,7 @@ Stock strengths, feed compositions, energy densities and the ESPGHAN bands are t
 by hand, so a changed constant in `data.js` shows up as a disagreement instead of being copied into
 the expectation. Change `data.js`, change this file too — from the source, not from `data.js`.
 The scenarios cover a below-birth-weight ELBW day 3, a growing preterm on peripheral PN entered by
-pump rate with the 50% Mg vial and every oral supplement, a feeds-only day, a term infant on a manual
+pump rate with the 10% Mg vial (the only one) and every oral supplement, a feeds-only day, a term infant on a manual
 dosing weight with a MEN feed and the Vitalipid cap, an alert-stress order, the 16 kg
 Soluvit/Peditrace ceilings, every remaining feed in `EN_DB`, and a prepared volume of 130.45 mL whose
 WFI must come from the printed 130.5 (NF-17).
@@ -982,7 +982,7 @@ WFI must come from the printed 130.5 (NF-17).
 surfaces GIR appears on. **Trust a pass only after seeing that fail.**
 
 **`verify-calc-clicks.cjs`** — 242 assertions that press things rather than type into them: all 16
-preset-chip groups, both routes, the three lipid durations, both Mg vials, every checkbox, every
+preset-chip groups, both routes, the three lipid durations, the 10% Mg vial (the only one, no toggle), every checkbox, every
 option of every select, volume↔rate typed a character at a time, the dosing-weight override and its
 reset. For each control: the value reaches the field it names, the control shows itself as chosen, and
 the figure that depends on it moves as the label promises. It also drives the gates around a printed
@@ -1003,7 +1003,8 @@ run is `FUZZ_N=500`. The three harnesses together are why the job's timeout went
 
 **`verify-calc-sum.cjs`** (2026-10-11, NF-17) — does the printed bag add up, and does a click move the
 figure on screen? 60 orders: the oracle's 12, eight of its own (a 900 g infant on day 3 of TPN, a term
-infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ at 0.01 mL, hundredths carried
+infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ under 0.05 mL (0 mL, so not
+orderable since 2026-10-27), hundredths carried
 across the sum, a prepared volume typed with a second decimal, and components that fill such a bag
 exactly) and 40 random from seed 20261011
 (`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
@@ -1636,6 +1637,93 @@ cell. § 2: both shells hide `.patient-strip` in `@media print`, so the label ne
 checks; against `main` (`9eb3335`), 4 fail, at 2500 and 4400 g. Its first draft searched the strip's
 `textContent`, which runs "4,400g" into "LBW" with no word boundary, so `\bLBW\b` passed on the bug; it now
 reads the strip text node by text node.
+
+## Slips the pharmacy phones about, 2026-10-21 — one harness
+
+Pp checked the slips the TPN pharmacy phones doctors about on paper orders against NeoFeed
+(`CHANGELOG.md` 2026-10-21). **`verify-incident-gaps-1021.cjs`** (jsdom; it also runs against
+`compiled/`). § 1: a bag with volume and amino acid 0, or MgSO₄ 0, raises the caution "Amino acid not
+ordered" or "MgSO₄ not ordered" (the MgSO₄ one removed on 2026-10-27; the harness now checks it is
+gone); no bag, no caution; a caution asks for no reason and Submit logs the
+order. §§ 2–5: an infant's first order has no route (neither button on, a notice in the Step 3 header and
+in the save panel), and Submit stays disabled until one is pressed; the choice saves ("TPN peripheral")
+and prints. The next order copies it, an edit keeps it, and a row saved with no route key reopens as
+Central. An NPO first order submits with route null, prints neither box and copies "Route: —"; a draft
+keeps no route, logs "TPN" and still asks at Submit. A route comes over only from an order that had a
+bag, so a bag after a feeds-only or NPO day asks again, even when that row was saved as "central" (Pp,
+after Vera's review), and so does a bag added by editing such a row; § 4b checks the same for a first
+order seeded from this browser's last submission. § 3b: until a route is chosen, osmolarity and the
+dextrose flag grade as on a peripheral line. § 6: the quick calc keeps Central. 59 checks; against
+`main` (`d9c815c`), 31 fail. `verify-center-point-entry.cjs` § 7 adds that no Center Point order saves
+without a route, with a bag or without (8 checks, 6 fail on `main`).
+
+Twelve older harnesses typed a first order and saved it as Central without pressing a route. Each now
+presses Central: in `mount()` or the order helper, or just before the save in `verify-review-0911.cjs`
+and `verify-review-0917-drafts.cjs`, which check that merely opening a form writes no draft (a press is
+an edit). A thirteenth, `verify-calc-oracle.cjs`, already pressed its route and now grades the two
+cautions itself.
+
+## Bringing a discharged infant back, 2026-10-22 — one harness
+
+Pp could not find a way, on her phone, to bring back a discharged infant who was on the unit again
+(`CHANGELOG.md` 2026-10-22). **`verify-readmit-1022.cjs`** drives the real `<App/>` in jsdom against the
+fake Apps Script in `review-0917-boot.cjs`, one scenario per process; it also runs against `compiled/`.
+#1: on the ward list, a pick in Switch patient opens that infant's Dashboard, and its Edit session saves
+the discharged infant as Active in NICU 9 under the same sessionId: an edit, not a new registration, with
+the discharge date cleared and the bed they left still in Previous beds. #2: a pick on a patient screen
+(Growth chart) stays on it. #3: a pick from the Admin dashboard opens the Dashboard. #4: the phone's archive
+card has Edit and no ⇄; Edit opens Edit session for that infant, not their Dashboard, and saves the same
+way. #5: a pick in the quick calc stays there and keeps the DOL typed into it, since that page holds its
+figures only in its own state (Vera). 31 checks; against `main` (`3172337`), #1, #3 and #4 fail (5
+failures, two of them a scenario that cannot go on), and against the branch's first commit (`4b60d76`), #5
+fails. Its fixture is made up: none of its values come from the ward.
+
+## The nutrition unit's and TPN team's answers, 2026-10-27 — one harness
+
+The answers of 2026-10-25 to Pp's 2026-10-19 question sheet, with Pp's readings of 2026-10-27
+(`CHANGELOG.md` 2026-10-27). **`verify-tpn-answers-1027.cjs`** (jsdom; it also runs against `compiled/`).
+§ 1: the named limits (protein 4.5, IV lipid 4.0, IV K 5.0, IV NPE:AA below 12 and no ceiling, peripheral
+osmolarity 900, GIR 12, dextrose 17.3), the 1,250 mL bottle, vitamin D 1,000 IU/day, heparin 1 U/mL, the
+ZnSO₄ stock and `CONSTANTS_VERSION`. § 2: fluid from DOL 6 is 140–160 on every preterm tier and VLBW
+DOL 5 160–180; Ca, P and Mg keep the first-days ranges to DOL 7. § 3: the NPC : Protein tile reads
+"≥ 24" and a ratio far above 32 is not off target. § 3b: IV NPE:AA below 12 is a red line, Submit asks
+no reason for it, and the order prints (Pp, after Vera). § 3c: protein above 4.5 on feeds alone (Hi-Q LBW
+24 at 176 mL/kg/d) is critical and asks for a reason, because the limit counts TPN + feeds (Pp, after
+Vera). § 3d: GIR 12.01 reads "12.01", not "12"; a peripheral bag whose osmolarity prints 900 is red
+(Pp: 900 is over) and one that prints 899 is not. § 3e: the front sheet's Normal Requirement prints the
+new Na, K, Ca and P bands (DOL 3, 1,200 g). § 4: a bag above 1,250 mL cannot be submitted, says why,
+and may be kept as a draft; 1,250 itself is allowed. § 5: heparin above 1 U/mL is a caution. § 6: oral
+vitamin D above 1,000 IU/day is a caution, Munti-vim included. § 7: the Reference page and the trend
+bands read the new rows. 67 checks; against `main` (`2cf4277`), 46 fail, in every section.
+
+Eighteen older harnesses pinned the limits that moved. Each now pins the new figure, and the cases built
+on an old limit were rebuilt on the new one: KCl 6 (or 5.5) where KCl 5 used to cross the IV K limit, and
+GIR 3.5 where 12.5 used to be the caution. `verify-calc-oracle.cjs` restates every new rule itself (not read from
+`data.js`) and adds two orders: a VLBW day 3 with heparin 10, ZnSO₄ and GIR just above 12, and a bag
+above the bottle; its feed list covers the new 24 kcal/oz rows and Enfalac LF. `verify-calc-sum.cjs`
+counts the ZnSO₄ line in the bag. Both found one rounding point: a components sum of exactly 116.05 mL
+printed 116.0 under `toFixed`; the app now sums in whole hundredths and rounds half up.
+
+## Stock mL to one decimal, 2026-10-27 — one harness
+
+Pp: pharmacy measures to 0.1 mL, "1.25 > 1.3 ml" (`CHANGELOG.md` 2026-10-27 (4)).
+**`verify-stock-ml-1027.cjs`** (jsdom; it also runs against `compiled/`). § 1: `roundMl` rounds half up
+at one decimal, including the x.x5 values `toFixed(1)` rounded down (0.35, 1.45, 2.55, 87.25). § 2: a
+700 g order with no dead space (Factor 0.7) prints KCl 0.35 mL as 0.4, and K₂HPO₄, MgSO₄, ZnSO₄ and
+heparin at one decimal on both sheets. § 3: ZnSO₄ 0.05 mg/kg (0.035 mL) is a red line, Submit is
+disabled, the save panel says why and a draft may be kept; 0.1 mg/kg (0.1 mL) is orderable. § 4: no
+stock mL in `calculator.jsx` goes through `toFixed`. § 2b (Vera): K₂HPO₄ 1.5 mEq/kg at Factor 0.7 reads
+"1.1 mEq = 1.1 mL", not "1 mEq = 1.1 mL". § 5: yesterday's row saved as 50% MgSO₄ (600 g, Mg 0.4)
+carries over as 10%, with no 50% on the card, and prints MgSO₄ 10% 0.3 mL; the new row saves no
+`mgStrength` (Pp: every order was 10%, the 50% path is gone). § 5b: a submitted row that says 50%,
+reopened, prints MgSO₄ 10% 0.3 mL too; § 5c (Vera): such a row stamped with an older
+`CONSTANTS_VERSION`, as every production row is, is held from Print until it is saved again, then
+prints MgSO₄ 10% 0.3 mL. 54 checks; on `83aefe4` (`main` with #170), 26 fail, in every
+section. `verify-kcmh-constants.cjs` checks that no 50% stock is left.
+
+Six harnesses pinned two-decimal figures and now pin one decimal. `verify-calc-oracle.cjs` restates the
+rule as its own `rMl` (`toPrecision(12)`, not the app's method); `verify-calc-sum.cjs` works out from the
+stock strengths which stocks reach 0 mL and expects Submit disabled for those orders.
 
 ## Note on the source workbook
 

@@ -294,22 +294,31 @@ function mount(props) {
   });
   openAll();
 }
+// A first order has no route until one is pressed (Pp, 2026-10-21). These
+// orders were written when every new order started on Central. Pressed only
+// where an order is typed to be saved: a press is an edit, and this file checks
+// that merely opening a form writes no draft.
+function pressCentral() {
+  const r = [...container.querySelectorAll('.step2-ctrl .seg button')];
+  if (r.length && !r.some(b => b.classList.contains('on'))) act(() => { r.find(b => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+}
 const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2', diagnosis: '-', weights: [{ dol: 1, w: 900 }] };
 
 (async () => {
   console.log('\n── F1 · a critical tile is always a critical alert ──');
   let logged = null;
   mount({ patient, onLog: (e) => { logged = e; return Promise.resolve({ ok: true, entryId: 'e-cr', lastModified: 'lm-cr' }); } });
+  pressCentral();
   setField('Current weight', 858);
   setField('Volume(mL/day)', 110);
   setField('Dextrose final', 10);
   setField('Amino acid', 3);
   setField('20% lipid', 3.5);
-  setField('KCl', 5);
+  setField('KCl', 6);     // above the 5.0 IV hard limit (3.5 until 2026-10-27)
   setField('10% Ca gluconate', 60);
   fillRequired();
   const texts = alertTexts();
-  ok('K 5 mEq/kg/d raises a critical alert', texts.some(t => /Potassium critically/.test(t)), texts);
+  ok('K 6 mEq/kg/d raises a critical alert', texts.some(t => /Potassium critically/.test(t)), texts);
   ok('Ca with zero P raises a critical alert', texts.some(t => /Ca:P ratio — ไม่มี P/.test(t)), texts);
   const offTarget = [...container.querySelectorAll('.metric.s-crit, .metric.s-warn')]
     .map(m => m.querySelector('.lbl')?.textContent).filter(l => l !== 'EN volume');
@@ -354,7 +363,8 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   mount({ patient, editEntry: saved, previousEntry: prev, onLog() {} });
   ok('an untouched saved entry is printable', !!printForm());
   const pf = printForm().textContent.replace(/\s+/g, ' ');
-  ok('print: normal requirement comes from the DOL targets (P 50–108)', /P 50–108 mg\/kg\/day/.test(pf), pf.match(/K⁺[^|]{0,80}/));
+  // DOL 5 is still the first days (to DOL 7 since 2026-10-27), so P 31–62.
+  ok('print: normal requirement comes from the DOL targets (P 31–62 on DOL 5)', /P 31–62 mg\/kg\/day/.test(pf), pf.match(/K⁺[^|]{0,80}/));
   ok('print: the old hard-coded "P preterm 30-70" is gone', !/30-70/.test(pf));
   ok('print: energy line is TPN-only with its own per-kg', /Energy \(TPN\)/.test(pf));
   ok('print: changes vs previous order are listed', /เปลี่ยนแปลงจากคำสั่ง[^:]*: .*Amino acid 3→3\.5/.test(pf), pf.match(/เปลี่ยนแปลง.{0,120}/));
@@ -407,11 +417,13 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   ok('tweaks-panel.jsx is gone from the shells and the repo', !/tweaks-panel/.test(shell) && !fs.existsSync(DIR + 'tweaks-panel.jsx'));
   ok('app.jsx no longer mounts the Tweaks panel', !/TweaksPanel|useTweaks/.test(app));
   ok('no hard-coded "just now" sync labels', !/Sync · just now|Synced just now/.test(app));
-  ok('Guidelines P row reads TPN_TARGETS, not "46–62"', !/46–62/.test(app) && /TPN_TARGETS\.p\(2\)/.test(app));
+  // The growing row starts the day after the first days (DOL 8 since 2026-10-27).
+  const GROW = D.FIRST_DAYS_LAST_DOL + 1;
+  ok('Guidelines P row reads TPN_TARGETS, not "46–62"', !/46–62/.test(app) && /TPN_TARGETS\.p\(D_A\.FIRST_DAYS_LAST_DOL \+ 1\)/.test(app));
   ok('WHO tab no longer says HMF starts at EN ≥100', !/Start when EN ≥100/.test(app));
   const g = D.ESPGHAN_TARGETS.pn.electrolytes.p.growing;
   ok('ESPGHAN reference P matches TPN_TARGETS.p (mmol ×31)',
-    Math.round(g[0] * 31) === D.TPN_TARGETS.p(2)[0] && Math.floor(g[1] * 31) === D.TPN_TARGETS.p(2)[1], { g, t: D.TPN_TARGETS.p(2) });
+    Math.round(g[0] * 31) === D.TPN_TARGETS.p(GROW)[0] && Math.floor(g[1] * 31) === D.TPN_TARGETS.p(GROW)[1], { g, t: D.TPN_TARGETS.p(GROW) });
   ok('copied order text carries no patient name', !/`Patient: \$\{patient\?\.name/.test(R('calculator.jsx')));
 
   console.log(`\nREVIEW 2026-09-11: ${fail === 0 ? 'ALL PASS' : `${fail} FAILED`} (${pass} passed)`);

@@ -32,6 +32,40 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🩺 **safety/product · What the answers of 2026-10-25 left open** (the nutrition unit's and TPN
+      team's answers to the 2026-10-19 question sheet; what they settled was built on 2026-10-27,
+      `CHANGELOG.md` 2026-10-27). In order of reach:
+      - **Center Point must sync `center-point/tpn-document.mjs` before this release.** It gained two
+        feed labels (Enfalac Premature and Pre Nan at 24 kcal/oz) and its digest was re-pinned. Until CP's
+        copy has them, a CP order with either feed fails CP's packet check. A CP-repo PR.
+      - **Photograph the ZnSO₄ stock label before this release** (Vera, 2026-10-27). The printed ZnSO₄ mL
+        and the WFI now rest on pharmacy's written "1 mg/mL" of elemental Zn; a label reading 1 mg/mL of
+        zinc sulfate salt would make the printed mL about 4.4× too small. **Pp's to do**, with the notice
+        to pharmacy that this release prints ZnSO₄ mL and new Normal Requirement bands (Na, K, Ca, P, Mg).
+      - **NPE:AA below 16 for more than 7 days on the Alerts page** (TPN team). Needs each saved row's IV
+        NPE:AA, which no row stores; see the "persistent low NPE:AA" item below.
+      - **Oral PO₄ stored in mg, not mmol** (nutrition unit, answering the September letter's item 2). The
+        Daily_Log column holds mmol/d; changing it is a backend and data change (old rows are mmol).
+      - **Feed Mg.** The nutrition unit says the Mg values are in the feed tables; `EN_DB` carries none, so
+        the Magnesium tile is the TPN's only. Needs each feed's Mg from the book's pages, and an enteral Mg
+        target before the tile can count it.
+      - **Trade names** (meeting item 24, answered): Peditrace, Soluvit N, Vitalipid N infant and Glycophos
+        keep their trade names; every other product reads generic, then brand. Not built: it moves printed
+        labels and Center Point's copy, and the related "20% SMOF" questions go to the next meeting.
+      - **HMF.** Asked which HMF and how much per 100 mL; the answer reads "รพ.จุฬาฯ ใช้ Enfalac preterm
+        formula มาคำนวณตามสูตรที่ NICU ใช้". Whether BM + HMF means breast milk fortified with Enfalac
+        Premature powder is for Pp to ask; `BM_HMF_24` is unchanged (Enfamil HMF, Chula p. 10).
+      - **Unanswered or deferred** on the sheet: term rows for PN targets (§ 2.5 item 7), growth-velocity
+        bands by GA (#158 item 2), the length/HC cm/wk colours (#158 item 3), HMF start at 40 mL/kg/d, the
+        trend colours' × 0.7 / × 1.3 rule, the Na
+        acetate label, the Ca–P precipitation curve (next meeting), ward acceptance (next meeting), PN
+        weaning, week-1 P and K checks, Se/Cu/Mn, feeds-only TPN forms, how often dead space is 0, and the
+        group C design order. The Na band from DOL 8 stays 2–5: Jochum gives preterm 3–5 and term 2–3, so
+        it waits for the term rows. BM alternating with Infatrini: the nutrition unit asks the NICU team how
+        it is ordered. Hi-Q Pepti Gastro and Nutramigen: label photos to come; 24 kcal/oz is mixed by
+        proportion.
+      - **The older-children question** came back as "เด็กโตคือ อายุมากกว่า 1 ปี" (by age, not ward) and
+        "dead space คืออะไร": Pp to explain dead space to the team.
 - [ ] 🩺 **safety · What the 2026-10-08 outside review left open** (`CHANGELOG.md` 2026-10-08 (2)). Its
       advice: hold routine pharmacy use until these close. Fixed already: the peripheral K⁺ maximum (#137,
       released by #138) and the dosing weight (that entry). The 0.1 mL rounding is the pharmacy item below.
@@ -41,10 +75,8 @@ clinical judgement. Everything else is engineering sequencing.
         and feeds-only days; mixed PN/EN; a revision of a published order. Pharmacy reconciles the printed
         ingredients, prepared against delivered volume, Factor, WFI, the salt rounding and both sheets.
         Also: a draft after a network failure, two people editing one order, logout and a shared device.
-        **Praew's to arrange.**
-      - **Lipid ceiling against the label.** The US SMOFlipid label caps pediatric infusion at 0.75 mL/kg/h
-        (0.15 g/kg/h); NeoFeed turns critical above 0.17 (TPN team, 2026-09-28). Ask the TPN team what the
-        Thai product label and local policy say. **Praew's to ask.**
+        **Praew's to arrange.** The TPN team answered on 2026-10-25 that it will settle a date at its
+        next meeting.
       - **The backend trusts the client's numbers.** It range-checks the totals but does not recompute
         them from `calcInput`, check route concentration limits, or require an override reason before a
         publish. A signed-in account with a modified client can store safe-looking totals beside
@@ -73,9 +105,9 @@ clinical judgement. Everything else is engineering sequencing.
       changed** (`CHANGELOG.md` 2026-09-22, "The TPN team's feedback"). **Praew's to do.**
       - The printed order is now **two sheets, for double-sided printing**. The front is the KCMH paper
         form's layout, with one row per product. The back is the compounding detail: Factor, stock mL, WFI.
-      - The new **ZnSO₄ line is elemental zinc**, mg/kg/d. **Ask pharmacy whether the paper form's
-        "ZnSO₄ … mg" means elemental Zn too**: a salt figure is about 4.4× higher. Also ask which ZnSO₄
-        stock they add. With its mg Zn/mL, the form could print the mL and count it in the WFI.
+      - The new **ZnSO₄ line is elemental zinc**, mg/kg/d; pharmacy confirmed the paper form means
+        elemental Zn too, stock 1 mg/mL (2026-10-25). Since 2026-10-27 the back sheet prints its mL and
+        the WFI counts it: tell pharmacy with the release that carries it.
       - MgSO₄'s in-bag mL now names its vial (10%/50%).
       - **Answers for the team.** GIR uses the delivered rate: Volume ÷ 24 is the Rate box, and dead space
         is not in it. MEN was not reproduced; ask for a screenshot of the number they saw move.
@@ -102,20 +134,20 @@ clinical judgement. Everything else is engineering sequencing.
         18 and 19 that need the team are under B and C.
       - **B · Waiting for the team's numbers — Praew to ask.**
         - **6 · New feeds.** Hi-Q Pepti Gastro 20 and 24 kcal/oz, and Nutramigen: per 100 mL kcal, protein,
-          fat, CHO, Na, K, Ca, P and osmolality from the labels KCMH stocks, and how 24 kcal/oz is mixed.
-        - **12–13 · Phase.** Who sets acute / stable / recovery, on what criteria; for each phase the
-          glucose (mg/kg/min and g/kg/d), energy, amino acid and lipid ranges; which references follow the
-          phase and which stay on DOL. Today energy, lipid, Na and K switch by DOL (transition ≤ 2,
-          intermediate ≤ 7, then stable, as the Reference page's electrolyte table prints), so "stable"
-          would mean two things. Below 37 weeks PMA, what separates acute from recovery? The calculator
-          uses no PMA yet.
-        - **14 · Amino acid for older children.** Is "10% aminoparen" Amiparen 10% (`AA_PRODUCTS` lists it,
-          > 1 yr) and "15% aa" Aminoplasmal 15% (not under 2 yr)? Which beds count as an older-children
-          ward (`OLDER_CHILD_WARDS` is empty), and their dead space.
+          fat, CHO, Na, K, Ca, P and osmolality from the labels KCMH stocks. The nutrition unit will send
+          the label photos; 24 kcal/oz is mixed by proportion (2026-10-25).
+        - **12–13 · Phase.** The team chose Moltu 2021's three phases for "stable" (2026-10-25). Still
+          open: who sets acute / stable / recovery, on what criteria, and which references follow the
+          phase and which stay on DOL. Moltu's preterm table: energy 40–55 / 60–80 / 90–120, glucose
+          3.5–5.5 / 5–7 / 7.5–10 mg/kg/min, AA 1–2 / 2–3 / 2.5–3.5. Today energy, lipid, Na and K switch
+          by DOL, so "stable" would mean two things.
+        - **14 · Amino acid for older children.** The team: an older child is one over 1 year (by age, not
+          by ward), and asked what dead space means. Still open: Amiparen 10% and Aminoplasmal 15% by name.
         - ~~16 · Lipid~~ — **answered by Praew on 2026-09-28 and built** (`CHANGELOG.md` 2026-09-28 (2)): the
           pump rate stays at 2 decimals; ceiling amber above 0.13, critical above 0.17 g/kg/h; hours 1–24.
-        - **17 · Vitalipid.** Which products (N Infant, N Adult), each one's dose (today 4 mL/kg, max
-          10 mL) and who gets which.
+        - **17 · Vitalipid.** Answered 2026-10-25, and NeoFeed already does all three: Vitalipid N Infant
+          only, none on a day without lipid, its fat not counted in lipid g/kg/d. The dose (4 mL/kg, max
+          10 mL) was not asked back.
         - ~~20 · Na acetate~~ — **answered by Praew on 2026-09-28, after checking with the TPN team**:
           *"confirm with tpn team แล้ว 1 mL มี Na 3 กับ acetate 6 mEq"*. **Na 3 mEq/mL is
           `KCMH_STOCK.naAcetate`**, so every Na dose and printed mL stands; the Na half of "Confirm Na
@@ -128,13 +160,15 @@ clinical judgement. Everything else is engineering sequencing.
           `KCMH_STOCK.naAcetate.acetateMeqPerMl` is `null`.
           - [ ] 🩺 **Praew: photograph the Na acetate vial label; set `acetateMeqPerMl` from it (3 if the 6 is
             mOsm/mL) and add its row to `docs/CLINICAL_CONSTANTS.md`.**
+            2026-10-27: the photo is in Pp's private notes. The vial reads "24.6% Sodium Acetate (1 mL
+            มี Na⁺ 3 mEq, Acetate 6 mEq) (Osmolarity 12 mOsm/mL) 50 mL". So 6 is printed as acetate, and
+            the osmolarity is 12, not 6. 24.6 % sodium acetate is 3 mmol/mL (1 : 1, about 6 mOsm/mL), so
+            the label's acetate and osmolarity are both double the chemistry. Ask pharmacy before setting
+            either; `acetateMeqPerMl` stays `null`.
         - **21 · Ca–P precipitation.** Whose curve (manufacturer or pharmacy) for K₂HPO₄ with Aminoven
           Infant 10 %, at which AA and Ca concentrations and temperature, and where it warns or stops.
-          Glycophos is an organic phosphate, outside such a curve.
-        - **22 · Mg in mg/kg/d.** Milligrams of elemental Mg or of MgSO₄·7H₂O? They differ about 10×:
-          1 mEq = 12.2 mg Mg = 123 mg MgSO₄·7H₂O. The app's mg/kg/d line is elemental. Which range: the
-          one the Magnesium tile already cites (ESPGHAN 2018: preterm first days 0.1–0.2 mmol, 2.5–5 mg;
-          growing 0.2–0.3 mmol, 5–7.5 mg)?
+          Glycophos is an organic phosphate, outside such a curve. The team: not yet, wait for the next
+          meeting, add nothing (2026-10-25).
         - ~~23 · 26 · K⁺ and osmolarity by route~~ — **answered by Praew on 2026-09-28 and built**: central
           amber from 60; the KCMH 40 mEq/L stop is cancelled; no upper osmolarity limit on a central line.
           **Source search (2026-09-28):** peripheral 60 fits published neonatal practice, but central 200 is
@@ -151,11 +185,9 @@ clinical judgement. Everything else is engineering sequencing.
             **Answered by Praew on 2026-10-08, in chat: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60"** — built
             (`CHANGELOG.md` 2026-10-08). Above 60 a peripheral bag cannot be ordered; there is no confirm tier left
             on that route.
-        - **25 · 26 · Bottles.** The TPN room's bottle sizes, and whether over the largest one is a confirm
-          (split in two) or a stop.
-        - **24 · Trade names.** Which products are the only one of their kind (Peditrace, Soluvit N,
-          Vitalipid N, Glycophos?) and keep their name; the rest read generic (brand), as item 14 says.
-        - **The edges of what A built.** 18: the form still ticks "20% SMOF" on the KCMH paper form's own list,
+        - **24 · Trade names.** Answered 2026-10-25 (Peditrace, Soluvit N, Vitalipid N infant and Glycophos
+          are the only ones of their kind); the renaming is in the 2026-10-25 item at the top of § Now.
+        - **The edges of what A built.** The team will take these to its next meeting (answer of 2026-10-25). 18: the form still ticks "20% SMOF" on the KCMH paper form's own list,
           and the copied order names SMOF: change them too? 11 and 14: the form keeps "g in bag", as the paper
           form has it: fine? 6: built as groups, not as new names: the right reading? 25: "สารน้ำเกินแผน": the
           right words? (19 is answered: the split is removed from the screen and still calculated.)
@@ -174,7 +206,8 @@ clinical judgement. Everything else is engineering sequencing.
           may be waiting for labs, do not compound yet. The "ถึงผู้ป่วย + คาสาย" split left the doctor's
           screen on 2026-09-28 (Praew: calculated, not shown); a pharmacist view could show it again. Joins
           "Pharmacist role" in § Later.
-        - **26 · Alert tiers.** Confirm with a reason (osmolarity, K⁺, over the bottle) versus a hard stop.
+        - **26 · Alert tiers.** Confirm with a reason (osmolarity, K⁺) versus a hard stop. Over the
+          largest bottle (1,250 mL) is a stop since 2026-10-27 (Pp: "ห้ามสั่ง").
           **"Bag cannot be compounded"** (components over the prepared bag) is a critical alert today, so
           a typed reason saves and prints it; a bag that cannot be made should stop.
         - **12 · 13 · The phase field, and glucose g/kg/d as large as GIR**, once B has the ranges.
@@ -270,6 +303,25 @@ clinical judgement. Everything else is engineering sequencing.
       0.34 mEq (−32 %), KCl/Na acetate +20 %. Praew (2026-09-17): the Na dose itself may still be
       wrong — confirm with pharmacy before changing either. `verify-review-0917-calc.cjs` § 6 pins
       today's printed figures so nothing drifts meanwhile.
+      ✅ **2026-10-27 — the rounding is settled** (the question sheet's item 4): pharmacy measures to
+      0.1 mL, so every stock mL prints one decimal, half up (Pp: "1.25 > 1.3 ml"), K₂HPO₄, MgSO₄,
+      ZnSO₄ and heparin included, and an ordered stock that rounds to 0 mL cannot be ordered
+      (CHANGELOG 2026-10-27 (4)). The ±30 % error of a 0.1 mL line in a 500 g infant stays: it is
+      what the syringe measures.
+      - [x] 🩺 **Pp: a dose under 0.1 mL that rounds up to 0.1 prints with nothing red** (Vera,
+        2026-10-27, finding 2), up to twice the ordered amount. Worst with an order that still carries
+        the legacy 50% MgSO₄: 600 g, 60 mL, no dead space, Mg 0.4 mEq/kg needs 0.059 mL and prints
+        0.1, so 0.68 mEq/kg reaches the infant. Her options: refuse a 50% order at Submit (KCMH stocks
+        10% only), or a caution when the printed mL is off the ordered amount by more than a set share.
+        ✅ 2026-10-27, Pp: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4", and the orders saved as 50% were worked out on 10%
+        too, so the 50% path is gone (#171): every order computes and prints MgSO₄ 10%. Her answer
+        covers the 50% vial only.
+      - [x] 🩺 **Pp: a caution when rounding moves a small dose a long way?** For the stocks still in use,
+        a dose of 0.05–0.099 mL prints 0.1 with nothing red: 0.1 mEq of KCl prints 0.1 mL, which is
+        0.2 mEq; ZnSO₄ 0.07 mL prints 0.1 (+43%). In a 500 g infant this is common (NaCl 0.5 mEq/kg is
+        0.073 mL). Vera's second option, a caution when the printed mL is off the exact mL by more than a
+        set share (Vera, #171 third run).
+        ✅ 2026-10-27, Pp: "ไม่ต้องมีคำเตือน ยาตัวอื่นพิมพ์ 0.1 mL ตามที่ตวงได้จริง". No caution; closed.
       ✅ **2026-09-28 — Na acetate confirmed** (B · 20 above): Praew checked with the TPN team, and 1 mL
       carries Na 3 mEq, the value NeoFeed already uses. ✅ **2026-09-28 — KCl confirmed**: Praew, "KCl 2 mEq/mL
       ถูกต้อง", the value NeoFeed already uses. **Still open: the small-volume rounding above.**
@@ -445,8 +497,11 @@ clinical judgement. Everything else is engineering sequencing.
       trade for the same infant sitting below 20 for three or four consecutive days, which is a
       nutrition question rather than an order-time interruption, and is the one case the downgrade
       gives up the ability to see. Wanted: a trend signal on the Alerts page computed from the saved
-      rows — the infant has been below 20 kcal/g AA on N consecutive days — not a second order-time
-      alert, and not a return of the stop. `D.girStatus` is the shape to copy: grade it once, in
+      rows — not a second order-time alert, and not a return of the stop. **The TPN team set it on
+      2026-10-25: below 16 kcal/g AA for more than 7 days.** (At order time, below 12 on the IV portion
+      is a red line since 2026-10-27 that asks for no reason.) No saved row holds IV NPE:AA today, so the rows need it
+      first, or the Alerts page needs the calculation as a pure function (lessons: the calc is one
+      `useMemo` inside `<Calculator>`). `D.girStatus` is the shape to copy: grade it once, in
       `data.js`, so the order screen and the Alerts page cannot drift apart again the way GIR did.
 - [ ] 🎨 **ui · At 280px the calculator's `.two-col` rows are clipped, not scrolled.** ~20px wider than
       the accordion body's `overflow: hidden` allows, so the content is cut rather than draggable. The
@@ -546,12 +601,6 @@ clinical judgement. Everything else is engineering sequencing.
       work rather than a hypothetical.
 
 - [ ] 🩺 **safety · Clinical questions from the 2026-09-17 calculator review — Praew's decisions.**
-      - Ca in the bag with no IV phosphate while oral phosphate is ordered: the Step 4 Ca:P tile is
-        red but raises no critical alert (the one remaining red-tile-without-alert case).
-      - No sanity alert for a typed TPN calc. weight far from the current weight (8500 g vs 850 g
-        prints), or for heparin typed as 10 U/mL — thresholds needed.
-      - Protein's 4.8 g/kg/d hard limit still reads TPN + EN; the other hard limits now read the IV
-        portion only. Same rule for protein?
       - Consequence of IV-only NPE:AA: mixed TPN + feed days can now need a reason where the total
         did not (bag alone 17 kcal/g). Intended?
       - "Input" on a new day still defaults to the prescribed total and counts as filled; should it be
@@ -567,23 +616,16 @@ clinical judgement. Everything else is engineering sequencing.
         which holds the new "= X mL/d"; the line under the chips still gives mL/kg/d and the bag mL. PR #87
         is reworking the phone layout.
 - [ ] 🩺 **safety · Decisions from the 2026-09-18 ward requests — Praew's** (`CHANGELOG.md` 2026-09-18 (2)).
-      - **Which day ends "the first days of life"?** Step 4 switches Ca and P to the growing-preterm ranges
-        after DOL 1 (`TPN_TARGETS.ca/p`), but Mg (and Na) after DOL 2. On DOL 2 the new Magnesium tile
-        still reads the first-days range while Calcium and Phosphorus beside it read growing. Pre-existing,
-        now visible side by side; ESPGHAN 2018 gives no DOL cutoff.
       - **Term infants.** The Ca / P / Mg tiles use the preterm rows for every infant. ESPGHAN 2018's
         0–6 month row (the table the team sent) is lower: Ca 30–60, P 20–40 mg, Mg 0.1–0.2 mmol
-        (0.2–0.4 mEq). A term infant past DOL 2 reads "off target" low against the growing-preterm row.
+        (0.2–0.4 mEq). A term infant past DOL 7 reads "off target" low against the growing-preterm row.
+        Asked again on the 2026-10-19 sheet (§ 2.5 item 7); not answered on 2026-10-25.
       - **FYI for the team's table:** it prints growing-preterm Ca and P as 1.6–3.5 mmol **(100–140 /
         77–108 mg)**. Those mg figures are 2.5–3.5 mmol; 1.6 mmol is 64 mg Ca / 50 mg P. The published table
         disagrees with itself, and NeoFeed uses the mmol column (64–140 / 50–108 — `CONSTANTS_VERSION`
         2026-08-27.1). Worth saying before the team reads the Calcium tile against the mg column.
       - **Feed magnesium.** `EN_DB` has no Mg for any feed, so the Magnesium tile is the TPN's Mg only
         (it says so). Counting feeds needs a sourced Mg value per feed.
-      - **Should a TPN with no Ca (or no P, no Mg) be flagged?** A tile at 0 reads "empty" and raises no
-        line: the app treats 0 as "not ordered", not "low". The team will notice once MEN stops counting.
-        In their screenshot the MEN feed's 5 mg/kg of Ca produced "Calcium off target" on a TPN with no
-        calcium. That line is gone, the same as for any TPN-only order.
       - **Tell pharmacy before this release ships: Soluvit and Peditrace are now × Factor** (Praew decided
         2026-09-18; `CHANGELOG.md` 2026-09-18 (2) §5). On an overfilled bag the printed mL are higher than
         the KCMH worksheet's G43/G45 give — 2.5 vs 2.0 mL for a 2 kg infant on a 120 mL day — so that the

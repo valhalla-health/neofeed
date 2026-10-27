@@ -145,6 +145,10 @@ function mount(props) {
   copied = null;
   act(() => { root.render(React.createElement(window.Calculator, { ...BASE, ...props })); });
   act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
+  // A first order has no route until one is pressed (Pp, 2026-10-21). These
+  // orders were written when every new order started on Central.
+  { const r = [...container.querySelectorAll('.step2-ctrl .seg button')];
+    if (r.length && !r.some(b => b.classList.contains('on'))) act(() => { r.find(b => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); }
 }
 function logger() {
   const box = { entry: null, calls: 0 };
@@ -201,7 +205,8 @@ function baseOrder({ tf = 120 } = {}) {
     mount({ patient: pt('DX-2000', 2000), onLog: logger().onLog });
     baseOrder();   // 30 mL dead space: the bag is overfilled, so "g in bag" used to show
     const hint = text(fieldOf('Dextrose final')?.querySelector('.field-hint'));
-    ok('it gives g/kg/d with its ceiling', /^9 g\/kg\/d \(max 18\)$/.test(hint), hint);
+    // The ceiling is ESPGHAN's 17.3 since 2026-10-27 (TPN team); it was the sheet's 18.
+    ok('it gives g/kg/d with its ceiling', /^9 g\/kg\/d \(max 17\.3\)$/.test(hint), hint);
     ok('…and no "delivered"', !/delivered/.test(hint), hint);
     ok('…and no "g in bag"', !/in bag/.test(hint), hint);
   });
@@ -348,20 +353,24 @@ function baseOrder({ tf = 120 } = {}) {
     const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'BM_20'));
     const groups = [...sel.querySelectorAll('optgroup')].map(g => ({ label: g.label, keys: [...g.querySelectorAll('option')].map(o => o.value) }));
     const keysOf = (re) => (groups.find(g => re.test(g.label)) || {}).keys;
-    eq('preterm formula: PF 20, Enfalac Premature 22, Hi-Q LBW 24', keysOf(/Preterm formula$/), ['BM_PF_20', 'FBM_PF_22', 'FBM_PF_24']);
-    eq('post-discharge formula: Pre Nan 22', keysOf(/Post-discharge formula$/), ['PRENAN_22']);
+    // Since 2026-10-27 (nutrition unit, 2026-10-25) Pre Nan is a preterm formula,
+    // not a post-discharge one, and Enfalac Premature and Pre Nan also come at 24.
+    eq('preterm formula: PF 20, Enfalac Premature 22/24, Pre Nan 22/24, Hi-Q LBW 24', keysOf(/Preterm formula$/),
+      ['BM_PF_20', 'FBM_PF_22', 'ENFALAC_PREM_24', 'PRENAN_22', 'PRENAN_24', 'FBM_PF_24']);
+    eq('no post-discharge group any more', keysOf(/Post-discharge formula$/), undefined);
     eq('high-energy: FBM ↔ Infatrini, Infatrini 30', keysOf(/High-energy formula$/), ['FBM_INF_MIX', 'INFATRINI_30']);
     ok('no group lumps preterm with high-energy', !groups.some(g => /Preterm \/ High-energy/.test(g.label)), groups.map(g => g.label));
     const offered = groups.flatMap(g => g.keys).sort();
-    eq('every feed offered before is still offered, once',
-      offered, ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'FBM_INF_MIX', 'FBM_PF_22', 'FBM_PF_24', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'PRENAN_22']);
+    eq('every feed offered before is still offered, once, with the new ones',
+      offered, ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27', 'ENFALAC_PREM_24', 'FBM_INF_MIX',
+        'FBM_PF_22', 'FBM_PF_24', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'PRENAN_22', 'PRENAN_24']);
     // The Formula reference page (app.jsx, not mounted here): the same split, and Pre Nan at last.
     const src = R('app.jsx');
     const block = /function FormulasPanel\(\)[\s\S]*?const groups = \[([\s\S]*?)\];/.exec(src)?.[1] || '';
     const groupLines = block.split(/\r?\n/).filter(l => /label:/.test(l));
     const pageKeys = (re) => { const l = groupLines.find(x => re.test(x)) || ''; return [...l.matchAll(/"([A-Z0-9_]+)"/g)].map(m => m[1]); };
-    eq('Formula page · preterm formula', pageKeys(/Preterm formula/), ['BM_PF_20', 'FBM_PF_22', 'FBM_PF_24']);
-    eq('Formula page · post-discharge formula', pageKeys(/Post-discharge formula/), ['PRENAN_22']);
+    eq('Formula page · preterm formula', pageKeys(/Preterm formula/), ['BM_PF_20', 'FBM_PF_22', 'ENFALAC_PREM_24', 'PRENAN_22', 'PRENAN_24', 'FBM_PF_24']);
+    eq('Formula page · no post-discharge group', pageKeys(/Post-discharge formula/), []);
     eq('Formula page · high-energy', pageKeys(/High-energy/), ['FBM_INF_MIX', 'INFATRINI_30']);
     const all = [...block.matchAll(/"([A-Z0-9_]+)"/g)].map(m => m[1]);
     eq('Formula page · no key twice', all.length, new Set(all).size);

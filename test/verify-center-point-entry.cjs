@@ -16,6 +16,9 @@
 //      (finding 3).
 //   §5 Neither NeoFeed host publishes center-point/ (finding 5).
 //   §6 A tripwire on center-point/tpn-document.mjs, which CP keeps a copy of.
+//   §7 A CP order is not saved until a route is pressed (Pp, 2026-10-21; Vera
+//      on the PR): CP's packet takes only central or peripheral, and a first
+//      order has no route, so every CP order asks, with a bag or without.
 //
 // Same jsdom harness as verify-required-log-fields.cjs.
 const fs = require('fs');
@@ -94,7 +97,7 @@ const centerPoint = {
   save(p) { saved.push(p); return Promise.resolve({ sourceRecordId: patient.sessionId, recordedAt: '2026-09-15T08:00:00.000Z' }); },
   review() {}, failed() {},
 };
-function mount(props) {
+function mount(props, { pressRoute = true } = {}) {
   act(() => { root.unmount(); });
   root = ReactDOM.createRoot(container);
   act(() => {
@@ -106,6 +109,12 @@ function mount(props) {
     container.querySelectorAll('.card-h.clickable').forEach((h) =>
       h.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
   });
+  // Every order here is the infant's first, which has no route until one is
+  // pressed (Pp, 2026-10-21); these orders were written for Central.
+  const routes = [...container.querySelectorAll('.step2-ctrl .seg button')];
+  if (pressRoute && routes.length && !routes.some((b) => b.classList.contains('on'))) {
+    act(() => { routes.find((b) => b.textContent.trim() === 'Central').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+  }
 }
 
 (async () => {
@@ -306,7 +315,9 @@ function mount(props) {
   // web/tpn-document.mjs, point CP's test/neofeed-commit at the new NeoFeed
   // commit, then record the new digest below.
   console.log('\n── §6 center-point/tpn-document.mjs matches the version CP was synced to ──');
-  const TPN_DOCUMENT_SHA256 = 'bcedde10311d5e82baef3e77cba452b69e233ffda980954220bf0a05360da504';
+  // 2026-10-27: two feed labels added (Enfalac Premature and Pre Nan at 24 kcal/oz).
+  // CP's own copy must be synced before the release that carries them (BACKLOG § Now).
+  const TPN_DOCUMENT_SHA256 = 'e1367c23bb05c8a641fb82c448b7b63ca477aee1d21460a3320d74d44364bc44';
   const digest = require('crypto').createHash('sha256')
     .update(fs.readFileSync(DIR + 'center-point/tpn-document.mjs', 'utf8').replace(/\r\n/g, '\n')).digest('hex');
   ok('tpn-document.mjs is the version CP is synced to (else: sync CP, re-pin, update this digest)', digest === TPN_DOCUMENT_SHA256, digest);
@@ -319,6 +330,24 @@ function mount(props) {
   const lines = (f) => fs.readFileSync(DIR + f, 'utf8').split(/\r?\n/).map(l => l.trim());
   ok('.assetsignore (Cloudflare) lists center-point/', lines('.assetsignore').includes('center-point/'));
   ok('_config.yml (GitHub Pages) excludes center-point/', lines('_config.yml').includes('- center-point/'));
+
+  // ── §7 no CP order without a route ───────────────────────────────────────
+  console.log('\n── §7 a CP order is not saved until a route is pressed ──');
+  saved = [];
+  mount({ centerPoint }, { pressRoute: false });
+  const routeOn = () => [...container.querySelectorAll('.step2-ctrl .seg button')].filter((b) => b.classList.contains('on')).map((b) => b.textContent.trim());
+  eq('a new CP order: no route on', routeOn().length, 0);
+  setField('Current weight', 1200); setField('Target fluid', 150); setField('Other IV', 0); setField('Drug volume', 0);
+  eq('Step 1 filled, no bag (NPO)', missingText(), '');
+  eq('…บันทึก stays disabled', saveButton()?.disabled, true);
+  ok('…and the save panel says a route is needed', !!container.querySelector('.route-missing-save'), container.textContent.slice(-300));
+  await click(saveButton());
+  eq('…and a click sends nothing to Center Point', saved.length, 0);
+  act(() => { [...container.querySelectorAll('.step2-ctrl .seg button')].find((b) => b.textContent.trim() === 'Peripheral').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+  eq('Peripheral pressed: บันทึก is enabled', saveButton()?.disabled, false);
+  await click(saveButton());
+  eq('…the order reaches Center Point', saved.length, 1);
+  eq('…with route "peripheral"', saved[0]?.route, 'peripheral');
 
   act(() => { root.unmount(); });
   console.log(`\n${fail === 0 ? 'CENTER POINT ENTRY: ALL PASS' : `CENTER POINT ENTRY: ${fail} FAILED`} (${pass} passed)`);

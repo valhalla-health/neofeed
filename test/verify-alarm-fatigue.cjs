@@ -117,7 +117,8 @@ const LOG = {
   // Full feeds: the enteral targets apply (ESPGHAN 2022 — protein 3.5–4.0,
   // energy 115–140), so this order sits inside them too.
   'EN-BW1000': [order({ route: 'Enteral only', enVolPerKg: 150, gir: 0, pro: 3.6, kcal: 120 })],
-  'GW-BW1000': [order({ gir: 12.5 })],
+  // A caution GIR is below the 4–12 band: since 2026-10-27 anything above 12 is critical.
+  'GW-BW1000': [order({ gir: 3.5 })],
   'GC-BW1000': [order({ gir: 13.5 })],
   'DC-BW1000': [order({ gir: 13.5 })],
 };
@@ -173,7 +174,7 @@ const badge = (p, entries) => (typeof global.alertBadgeFor === 'function')
   await section('§2 The badge wears the worst thing it counts', async () => {
     localStorage.clear();
     const w = global.computeAlerts(P.girWarn, LOG['GW-BW1000']);
-    ok('fixture: GIR 12.5 is a caution', w.some(a => a.id === 'gir-off' && a.level === 'warn'), ids(w));
+    ok('fixture: GIR 3.5 is a caution', w.some(a => a.id === 'gir-off' && a.level === 'warn'), ids(w));
     const bw = badge(P.girWarn, LOG['GW-BW1000']);
     eq('a caution alone counts 1 …', bw.count, 1);
     eq('…and the badge is amber, not red', bw.level, 'warn');

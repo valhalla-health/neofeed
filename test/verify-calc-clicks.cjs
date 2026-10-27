@@ -198,8 +198,9 @@ const openAll = () => click(btnExact('Open all'));
   const vialLbl = [...container.querySelectorAll('span')].find(s => s.textContent === 'Vial 10%');
   ok('MgSO₄ vial reads 10%, with no strength toggle', !!vialLbl && !vialLbl.parentElement.querySelector('.seg'));
   ok('no 50% MgSO₄ figure anywhere on the card', !/50% =|MgSO₄ 50%/.test(text()));
-  // 0.4 × factor(1.2 × 130/100 = 1.56) = 0.624 mEq ÷ 0.812 = 0.768 → 0.77 mL
-  ok('Mg 10% vial → 0.77 mL', /→ 0\.77 mL\/d/.test(text()));
+  // 0.4 × factor(1.2 × 130/100 = 1.56) = 0.624 mEq ÷ 0.812 = 0.768 → 0.8 mL
+  // (one decimal since 2026-10-27; it printed 0.77)
+  ok('Mg 10% vial → 0.8 mL', /→ 0\.8 mL\/d/.test(text()));
 
   // ── 4 · checkboxes ────────────────────────────────────────────
   const chk = (start) => [...container.querySelectorAll('label.chk-label')].find(l => l.textContent.trim().startsWith(start)).querySelector('input');
@@ -277,13 +278,16 @@ const openAll = () => click(btnExact('Open all'));
   ok('Save disabled while Step 1 / I/O are blank', btnExact('Submit').disabled === true);
   for (const [l, v] of [['Current weight', 1200], ['Target fluid', 150], ['Other IV', 0], ['Drug volume', 0], ['Urine output', 60], ['Drain content', 0]]) setField(l, v);
   setField('Volume(mL/day)', 150); setField('Dextrose final', 10); setField('Amino acid', 3);
+  // An infant's first order has no route until one is pressed (Pp, 2026-10-21).
+  ok('Save disabled while the first order has no route', btnExact('Submit').disabled === true);
+  click([...container.querySelectorAll('.step2-ctrl .seg button')].find(b => b.textContent === 'Central'));
   ok('Save enabled once every required box is filled', btnExact('Submit').disabled === false, [...container.querySelectorAll('div')].map(d => d.textContent).filter(t => /^ยังกรอกไม่ครบ/.test(t)).pop());
   // zero-volume bag blocks Save
   setField('Volume(mL/day)', 0);
   ok('ingredients with TPN volume 0 disable Save', btnExact('Submit').disabled === true && /ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง/.test(text()));
   setField('Volume(mL/day)', 150);
   // a critical alert: Save asks for a reason; cancelling does not save
-  setField('KCl', 5);   // IV K 5 mEq/kg/d > 3.5 hard limit
+  setField('KCl', 6);   // IV K 6 mEq/kg/d > 5.0 hard limit (3.5 until 2026-10-27)
   promptAnswer = null;
   await clickAsync(btnExact('Submit'));
   ok('cancelled critical reason → nothing saved', calls.onLog.length === 0 && toasts.some(t => /ต้องระบุเหตุผลก่อน/.test(t.msg)));

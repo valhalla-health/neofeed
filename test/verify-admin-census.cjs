@@ -113,7 +113,7 @@ const PATIENTS = [
   rec('QXND', { currentBed: '', bedHistory: [{ bed: 'NICU 4', date: ago(1) }] }),   // parked, left NICU 4
   // SCN
   rec('QXSA', { currentBed: 'SCN 1' }),                                      // GIR 13.5 → critical
-  rec('QXSB', { currentBed: 'SCN 2', admissionDate: ago(6) }),               // GIR 12.5 → caution; window edge, inside
+  rec('QXSB', { currentBed: 'SCN 2', admissionDate: ago(6) }),               // GIR 3.5 → caution; window edge, inside
   rec('QXSC', { currentBed: 'SCN 5' }),                                      // two infants in SCN 5
   rec('QXSD', { currentBed: 'SCN 5' }),
   // other
@@ -128,7 +128,8 @@ const LOG = {
   'QXNA-BW1000': [order({})],
   'QXNB-BW1000': [order({ status: 'draft' })],
   'QXSA-BW1000': [order({ gir: 13.5 })],
-  'QXSB-BW1000': [order({ gir: 12.5 })],
+  // A caution GIR is below the 4–12 band: since 2026-10-27 anything above 12 is critical.
+  'QXSB-BW1000': [order({ gir: 3.5 })],
   'QXDA-BW1000': [order({ gir: 13.5 })],        // would be critical, had they stayed
 };
 D.MOCK_PATIENTS.splice(0, D.MOCK_PATIENTS.length, ...PATIENTS);
