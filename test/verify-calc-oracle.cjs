@@ -90,7 +90,7 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
 // ── Independent reference data (transcribed, not read from data.js) ─────────
 const STOCK = {
   d50: 0.5, aa: 0.10, smof: 0.20, naCl: 3.42, naAc: 3.0, glyNa: 2, glyP: 31,
-  k2K: 1, k2PperK: 15.5, kCl: 2.0, mg10: 0.812, mg50: 4.06, caMg: 9.01755,
+  k2K: 1, k2PperK: 15.5, kCl: 2.0, mg10: 0.812, caMg: 9.01755,
   soluvitPerKg: 1, soluvitMax: 10, pediPerKg: 1, pediMax: 15, pediZn: 0.25, hep: 100,
   znSO4: 1,   // mg elemental Zn per mL (pharmacy, 2026-10-25)
 };
@@ -147,6 +147,10 @@ const MUNTIVIM_D_IU_PER_DAY = 400;   // 1 mL/day, 400 IU per mL
 
 const r1 = (x) => Math.round(x * 10) / 10;
 const r2 = (x) => Math.round(x * 100) / 100;
+// A stock mL as pharmacy draws it up: one decimal, half up (Pp, 2026-10-27:
+// "1.25 > 1.3 ml"). toPrecision(12) drops the float tail first, so 21.75
+// (stored as 21.7499…) is 21.8 and 0.35 is 0.4.
+const rMl = (x) => Math.round(+(x * 10).toPrecision(12)) / 10;
 
 // ── The expected figures, from first principles ────────────────────────────
 function expected(sc) {
@@ -162,13 +166,13 @@ function expected(sc) {
 
   // dextrose
   e.dexDel = Vd * sc.dex / 100; e.dexBag = Vp * sc.dex / 100;
-  e.d50 = e.dexBag > 0 ? r1(e.dexBag / STOCK.d50) : 0;
+  e.d50 = e.dexBag > 0 ? rMl(e.dexBag / STOCK.d50) : 0;
   e.gir = W > 0 ? e.dexDel * 1000 / 1440 / W : 0;
   e.dexGkg = W > 0 ? e.dexDel / W : 0;
   // amino acid
-  e.aaDel = sc.aa * W; e.aaBag = sc.aa * F; e.aaMl = r1(e.aaBag / STOCK.aa);
+  e.aaDel = sc.aa * W; e.aaBag = sc.aa * F; e.aaMl = rMl(e.aaBag / STOCK.aa);
   // lipid
-  e.lipG = sc.lip * W; e.smof = r1(e.lipG / STOCK.smof);
+  e.lipG = sc.lip * W; e.smof = rMl(e.lipG / STOCK.smof);
   e.vitalipid = sc.lip > 0 ? Math.min(4 * W, 10) : 0;
   e.lipBag = e.lipG / STOCK.smof + e.vitalipid;
   e.lipRate = e.lipBag / sc.lipH;
@@ -176,22 +180,22 @@ function expected(sc) {
   // electrolytes (per kg delivered = as ordered)
   e.naKg = sc.naCl + sc.naAc + glyMl * STOCK.glyNa;
   e.kKg = sc.kCl + sc.k2;
-  e.naClMl = sc.naCl > 0 ? r1(sc.naCl * F / STOCK.naCl) : 0;
-  e.naAcMl = sc.naAc > 0 ? r1(sc.naAc * F / STOCK.naAc) : 0;
-  e.glyMl = r1(glyMl * F);
-  e.kClMl = sc.kCl > 0 ? r1(sc.kCl * F / STOCK.kCl) : 0;
-  e.k2Ml = sc.k2 > 0 ? r2(sc.k2 * F / STOCK.k2K) : 0;
-  const mgStock = sc.mgVial === '50' ? STOCK.mg50 : STOCK.mg10;
-  e.mgMl = sc.mg > 0 ? r2(sc.mg * F / mgStock) : 0;
-  e.caMl = sc.ca > 0 ? r1(sc.ca * F / STOCK.caMg) : 0;
-  e.soluvit = sc.soluvit && Vd > 0 ? r1(Math.min(STOCK.soluvitPerKg * W, STOCK.soluvitMax) * of) : 0;
-  e.pedi = sc.pedi && Vd > 0 ? r1(Math.min(STOCK.pediPerKg * W, STOCK.pediMax) * of) : 0;
-  e.hepMl = sc.hep > 0 ? r2(sc.hep * Vp / STOCK.hep) : 0;
+  e.naClMl = sc.naCl > 0 ? rMl(sc.naCl * F / STOCK.naCl) : 0;
+  e.naAcMl = sc.naAc > 0 ? rMl(sc.naAc * F / STOCK.naAc) : 0;
+  e.glyMl = rMl(glyMl * F);
+  e.kClMl = sc.kCl > 0 ? rMl(sc.kCl * F / STOCK.kCl) : 0;
+  e.k2Ml = sc.k2 > 0 ? rMl(sc.k2 * F / STOCK.k2K) : 0;
+  e.mgMl = sc.mg > 0 ? rMl(sc.mg * F / STOCK.mg10) : 0;   // 10% MgSO₄, the only vial
+  e.caMl = sc.ca > 0 ? rMl(sc.ca * F / STOCK.caMg) : 0;
+  e.soluvit = sc.soluvit && Vd > 0 ? rMl(Math.min(STOCK.soluvitPerKg * W, STOCK.soluvitMax) * of) : 0;
+  e.pedi = sc.pedi && Vd > 0 ? rMl(Math.min(STOCK.pediPerKg * W, STOCK.pediMax) * of) : 0;
+  e.hepMl = sc.hep > 0 ? rMl(sc.hep * Vp / STOCK.hep) : 0;
   e.hepU = sc.hep * Vp;
   // ZnSO₄ in the bag (× Factor, like every additive), as mL of the stock.
-  e.znMl = sc.zn > 0 ? r2(sc.zn * F / STOCK.znSO4) : 0;
-  // The printed terms carry at most 2 decimals, so their exact sum is a whole
-  // number of hundredths; round that half up to one decimal.
+  e.znMl = sc.zn > 0 ? rMl(sc.zn * F / STOCK.znSO4) : 0;
+  // The printed terms carry one decimal (two for K₂HPO₄, MgSO₄, ZnSO₄ and
+  // heparin until 2026-10-27), so their exact sum is a whole number of
+  // hundredths; round that half up to one decimal.
   // Integer hundredths, halved to tenths: x.x5 is exact there, never 0.0499….
   e.components = Math.round(Math.round((e.d50 + e.aaMl + e.naClMl + e.naAcMl + e.glyMl + e.k2Ml + e.kClMl + e.mgMl + e.caMl + e.soluvit + e.pedi + e.znMl + e.hepMl) * 100) / 10) / 10;
   // WFI q.s. = the prepared volume as printed (one decimal, half up) − the
@@ -357,7 +361,7 @@ const BASE = {
   bw: 1000, cur: 1000, tpnWtOverride: 0, dol: 10, route: 'central', fluid: 150, otherIV: 0, drug: 0,
   ioInput: null, ioOut: 0, drain: 0,
   tpn: 0, useRate: false, dead: 30, dex: 0, aa: 0, lip: 0, lipH: 24,
-  naCl: 0, naAc: 0, glyNa: 0, kCl: 0, k2: 0, mg: 0, mgVial: '10', ca: 0,
+  naCl: 0, naAc: 0, glyNa: 0, kCl: 0, k2: 0, mg: 0, ca: 0,
   soluvit: true, pedi: true, zn: 0, hep: 1,
   feed: 'BM_20', enVol: 0, enFreq: 0, men: false,
   mtv: false, vitD: 0, fe: 0, feType: 'FE_FERDEK', oCa: 0, caType: 'CA_CACO3_350', oP: 0, po4Type: 'PO4_PHOSPHATE',
@@ -371,7 +375,7 @@ const SCEN = [
   { name: 'B growing preterm peripheral, rate entry, Zn, all oral supplements', bw: 1100, cur: 1450, dol: 16,
     route: 'peripheral', fluid: 160, otherIV: 0, drug: 1.2, ioOut: 90, drain: 0, ioInput: 230,
     tpn: 80.4, useRate: 3.35, dead: 20, dex: 12.5, aa: 3.5, lip: 3, lipH: 20,
-    naCl: 3, glyNa: 2, kCl: 2, mg: 0.5, mgVial: '10', ca: 80, zn: 0.3, hep: 1,
+    naCl: 3, glyNa: 2, kCl: 2, mg: 0.5, ca: 80, zn: 0.3, hep: 1,
     feed: 'FBM_PF_22', enVol: 8, enFreq: 8,
     mtv: true, vitD: 400, fe: 2, feType: 'FE_FERROKID', oCa: 50, caType: 'CA_CACO3_1000', oP: 30, po4Type: 'PO4_NEUTRAL',
     weights: [{ dol: 1, w: 1100 }, { dol: 14, w: 1400 }, { dol: 15, w: 1430 }] },

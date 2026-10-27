@@ -109,7 +109,8 @@ function check(label, cond, detail) {
 // ── the worksheet's own rounding + the app's formatter, transcribed ─────────
 // fmt(n,d) = String(Math.round(n*10^d)/10^d) — strips trailing zeros (calculator.jsx:14)
 const fmt = (n, d) => String(Math.round(n * Math.pow(10, d)) / Math.pow(10, d));
-const r = (x, d) => parseFloat(x.toFixed(d));      // solVol's r1 / r2
+// solVol's roundMl: half up, after the float noise is gone (2026-10-27)
+const r = (x, d) => Math.round(+(x * Math.pow(10, d)).toPrecision(12)) / Math.pow(10, d);
 const TRIEM = 'เตรียม';                        // เตรียม
 const TUENG = 'ถึงผู้ป่วย'; // ถึงผู้ป่วย
 const KASAI = 'คาสาย';                              // คาสาย
@@ -126,7 +127,7 @@ const SALTS = [
   ['Na Acetate',         2, 3.0,  1, 'mEq Na/kg/d'],
   ['Glycophos',          3, 2.0,  1, 'mEq Na/kg/d'],   // 1 mL = 2 mEq Na = 1 mmol P
   ['KCl',                3, 2.0,  1, 'mEq K/kg/d'],
-  ['K₂HPO₄',   1, 1.0,  2, 'mEq K/kg/d'],
+  ['K₂HPO₄',   1, 1.0,  1, 'mEq K/kg/d'],   // two decimals until 2026-10-27
 ];
 
 setField('Current weight(g)', WT * 1000);

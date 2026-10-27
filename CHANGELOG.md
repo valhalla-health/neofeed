@@ -54,6 +54,61 @@ Seventeen questions for Pp close the file, each naming its rule; they change not
 (`GIR_HARD_HI` 12 → 13) fails 7 and `=2` (peripheral osmolarity graded `>` instead of `>=`) fails 4.
 It passes against the shipped `compiled/` too.
 
+## Session 2026-10-27 (4) — every stock mL to one decimal, half up; a stock at 0 mL cannot be ordered
+
+`calculator.jsx`, `data.js` (`displayNum`, the 50% MgSO₄ rows), `compiled/calculator.js`, both shells' `?v=` tokens,
+`center-point/tpn-snapshot.mjs`, `docs/CLINICAL_CONSTANTS.md`, `STATUS.md`, `BACKLOG.md`, `test/README.md`,
+`test/verify-stock-ml-1027.cjs` (new), `test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`,
+`test/verify-calc-clicks.cjs`, `test/verify-nutrition-unit-review.cjs`, `test/verify-review-0917-calc.cjs`,
+`test/verify-tpn-team-0922.cjs`, `test/verify-tpn-answers-1027.cjs`, `test/verify-center-point-print-parity.cjs`,
+`test/verify-kcmh-constants.cjs`, `test/verify-calc-fuzz.cjs`.
+**`CONSTANTS_VERSION` `2026-10-27.1` →
+`2026-10-27.2`**: #170 is in `main` but not released, and a release of #170 alone must not let these
+figures reprint under its version. Released together, the two bumps cost one re-save.
+
+The question sheet's item 4 asked whether pharmacy can measure stock to 0.01 mL. Pp, 2026-10-27: "ของจริง
+นับ ทศนิยม 1 ตำแหน่ง เช่น 1.25 > 1.3 ml". Asked in the same session, she chose to round MgSO₄, K₂HPO₄,
+heparin and ZnSO₄ the same way, and to stop an order when an ordered stock rounds to 0 mL.
+
+- **One rounding for every stock mL**, `roundMl`: one decimal, half up. `toFixed(1)` rounded a true x.x5
+  down whenever the float sat just below it. KCl 0.7 mEq at Factor 0.7 is 0.35 mL and printed 0.3; a
+  21.75 mL SMOF syringe printed 21.7. `roundMl` clears the float tail at 6 decimals first.
+- **K₂HPO₄, MgSO₄, ZnSO₄ and heparin print one decimal** (were two) on both sheets, on screen and in the
+  copied order: MgSO₄ 0.53 → 0.5, K₂HPO₄ 1.68 → 1.7, heparin 0.69 → 0.7.
+- **An ordered stock that rounds to 0 mL** (under 0.05 mL) cannot be submitted or printed: a red line,
+  "Stock rounds to 0 mL", and the save panel names the stock. A draft may be kept, as with the bottle.
+  It happens in the smallest infants: ZnSO₄ 0.05 mg/kg or K₂HPO₄ 0.02 mEq/kg at 500–700 g.
+- **`displayNum` clears the float tail before it rounds** (Vera, finding 3). 1.5 mEq/kg of K₂HPO₄ at
+  Factor 0.7 is 1.0499999999999998 in JS, so with the mL at one decimal a 1 mEq/mL line read "1 mEq =
+  1.1 mL" (on `main`, "1 mEq = 1.05 mL"). It now
+  reads "1.1 mEq = 1.1 mL". `roundMl` is `displayNum` at one decimal. No figure in the 0917 parity
+  orders moved with it. Center Point's snapshot formats through `displayNum` too (Vera's second run), so
+  its sheet also reads "1.1 mEq = 1.1 mL"; `verify-center-point-print-parity.cjs` adds that order.
+- **The 50% MgSO₄ path is gone; every order is 10%.** Pp, answering Vera's 🟠: "ไม่ได้ใช้ 50% MgSO4 ที่จุฬาเป็น 10%MgSO4"; then
+  "อันที่น้องกดไปก่อนหน้านี้ก็คิดตาม 10%MgSO4 ... เอาออกได้เลย": the orders saved as 50% were worked out on 10% too, so the 50% mL they printed was never
+  used. Gone: the `mgStrength` state and the "Use 10%" button, `KCMH_STOCK.mgso4_50` and the
+  reference row, the mg10/mg50 pair in `solVol`. A row that still says 50% reads, computes and prints
+  as 10%, and a new row saves no `mgStrength`. Center Point's sheet keeps its "MgSO4 strength" slot,
+  now always 10, so its own copy needs no schema change. That 50% order was Vera's worst case: 0.059 mL
+  of 50% printed as 0.1, 0.68 mEq/kg against 0.4 ordered.
+
+No second clinician has reviewed this change. Vera: NO BLOCK twice (her reports and the answer to each
+finding are in the PR). Her 🟠 in both runs, a dose under 0.1 mL that rounds up to 0.1 with nothing
+red, was worst with a legacy 50% MgSO₄ order. Pp's answer closed that case (the bullet above). For the
+other stocks she wants no caution: "ไม่ต้องมีคำเตือน ยาตัวอื่นพิมพ์ 0.1 mL ตามที่ตวงได้จริง". Vera's third run reviewed a
+stop for 50% orders (NO BLOCK, two 🟡); Pp then had the 50% path taken out instead. Vera's fourth run,
+on the removal: NO BLOCK, three 🟡 (two stale comments and a README line), all fixed, and her test is § 5c.
+
+### Tests
+
+`verify-stock-ml-1027.cjs` (new): 54 checks; on `83aefe4` (`main` with #170) 26 fail, in every section. Six older
+harnesses pinned two-decimal figures and now pin one decimal. The three printed-figure digests in
+`verify-review-0917-calc.cjs` were recaptured with each moved figure named (10 of 297, every one of them
+one of the four stocks). `verify-calc-sum.cjs`'s S5 (K₂HPO₄ and MgSO₄ at 0.01 mL) is now the
+not-orderable case; two of its random orders (R13, and R21 after its volume change) reach the stop too.
+Every harness on this commit: 99 of 99 in each pass (98 harnesses plus `DEAD=0 verify-kcmh-factor`); browser sections SKIP on this PC and run in CI.
+
+
 ## Session 2026-10-27 (3) — Vera's second review: a printed 900 mOsm/L is over; alert text past a limit
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `data.js` (comments),

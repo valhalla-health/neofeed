@@ -974,7 +974,7 @@ Stock strengths, feed compositions, energy densities and the ESPGHAN bands are t
 by hand, so a changed constant in `data.js` shows up as a disagreement instead of being copied into
 the expectation. Change `data.js`, change this file too — from the source, not from `data.js`.
 The scenarios cover a below-birth-weight ELBW day 3, a growing preterm on peripheral PN entered by
-pump rate with the 50% Mg vial and every oral supplement, a feeds-only day, a term infant on a manual
+pump rate with the 10% Mg vial (the only one) and every oral supplement, a feeds-only day, a term infant on a manual
 dosing weight with a MEN feed and the Vitalipid cap, an alert-stress order, the 16 kg
 Soluvit/Peditrace ceilings, every remaining feed in `EN_DB`, and a prepared volume of 130.45 mL whose
 WFI must come from the printed 130.5 (NF-17).
@@ -982,7 +982,7 @@ WFI must come from the printed 130.5 (NF-17).
 surfaces GIR appears on. **Trust a pass only after seeing that fail.**
 
 **`verify-calc-clicks.cjs`** — 242 assertions that press things rather than type into them: all 16
-preset-chip groups, both routes, the three lipid durations, both Mg vials, every checkbox, every
+preset-chip groups, both routes, the three lipid durations, the 10% Mg vial (the only one, no toggle), every checkbox, every
 option of every select, volume↔rate typed a character at a time, the dosing-weight override and its
 reset. For each control: the value reaches the field it names, the control shows itself as chosen, and
 the figure that depends on it moves as the label promises. It also drives the gates around a printed
@@ -1003,7 +1003,8 @@ run is `FUZZ_N=500`. The three harnesses together are why the job's timeout went
 
 **`verify-calc-sum.cjs`** (2026-10-11, NF-17) — does the printed bag add up, and does a click move the
 figure on screen? 60 orders: the oracle's 12, eight of its own (a 900 g infant on day 3 of TPN, a term
-infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ at 0.01 mL, hundredths carried
+infant, a bag 0.6 mL short of full, one that overflows, K₂HPO₄ and MgSO₄ under 0.05 mL (0 mL, so not
+orderable since 2026-10-27), hundredths carried
 across the sum, a prepared volume typed with a second decimal, and components that fill such a bag
 exactly) and 40 random from seed 20261011
 (`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
@@ -1703,6 +1704,27 @@ above the bottle; its feed list covers the new 24 kcal/oz rows and Enfalac LF. `
 counts the ZnSO₄ line in the bag. Both found one rounding point: a components sum of exactly 116.05 mL
 printed 116.0 under `toFixed`; the app now sums in whole hundredths and rounds half up.
 
+## Stock mL to one decimal, 2026-10-27 — one harness
+
+Pp: pharmacy measures to 0.1 mL, "1.25 > 1.3 ml" (`CHANGELOG.md` 2026-10-27 (4)).
+**`verify-stock-ml-1027.cjs`** (jsdom; it also runs against `compiled/`). § 1: `roundMl` rounds half up
+at one decimal, including the x.x5 values `toFixed(1)` rounded down (0.35, 1.45, 2.55, 87.25). § 2: a
+700 g order with no dead space (Factor 0.7) prints KCl 0.35 mL as 0.4, and K₂HPO₄, MgSO₄, ZnSO₄ and
+heparin at one decimal on both sheets. § 3: ZnSO₄ 0.05 mg/kg (0.035 mL) is a red line, Submit is
+disabled, the save panel says why and a draft may be kept; 0.1 mg/kg (0.1 mL) is orderable. § 4: no
+stock mL in `calculator.jsx` goes through `toFixed`. § 2b (Vera): K₂HPO₄ 1.5 mEq/kg at Factor 0.7 reads
+"1.1 mEq = 1.1 mL", not "1 mEq = 1.1 mL". § 5: yesterday's row saved as 50% MgSO₄ (600 g, Mg 0.4)
+carries over as 10%, with no 50% on the card, and prints MgSO₄ 10% 0.3 mL; the new row saves no
+`mgStrength` (Pp: every order was 10%, the 50% path is gone). § 5b: a submitted row that says 50%,
+reopened, prints MgSO₄ 10% 0.3 mL too; § 5c (Vera): such a row stamped with an older
+`CONSTANTS_VERSION`, as every production row is, is held from Print until it is saved again, then
+prints MgSO₄ 10% 0.3 mL. 54 checks; on `83aefe4` (`main` with #170), 26 fail, in every
+section. `verify-kcmh-constants.cjs` checks that no 50% stock is left.
+
+Six harnesses pinned two-decimal figures and now pin one decimal. `verify-calc-oracle.cjs` restates the
+rule as its own `rMl` (`toPrecision(12)`, not the app's method); `verify-calc-sum.cjs` works out from the
+stock strengths which stocks reach 0 mL and expects Submit disabled for those orders.
+
 ## The clinical-rules skill, 2026-10-27 — one harness (NF-04)
 
 **`verify-clinical-rules.cjs`** (jsdom; it also runs against `compiled/`) takes every expectation from
@@ -1715,6 +1737,7 @@ skill, and an agent that moves a limit without its rule turns this red. `--show 
 case of a rule produced; `--fix-lines` rewrites the `where` line numbers once code has moved (a moved
 line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 596 checks when written.
+
 
 ## Note on the source workbook
 

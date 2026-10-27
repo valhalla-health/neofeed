@@ -198,8 +198,9 @@ const openAll = () => click(btnExact('Open all'));
   const vialLbl = [...container.querySelectorAll('span')].find(s => s.textContent === 'Vial 10%');
   ok('MgSO₄ vial reads 10%, with no strength toggle', !!vialLbl && !vialLbl.parentElement.querySelector('.seg'));
   ok('no 50% MgSO₄ figure anywhere on the card', !/50% =|MgSO₄ 50%/.test(text()));
-  // 0.4 × factor(1.2 × 130/100 = 1.56) = 0.624 mEq ÷ 0.812 = 0.768 → 0.77 mL
-  ok('Mg 10% vial → 0.77 mL', /→ 0\.77 mL\/d/.test(text()));
+  // 0.4 × factor(1.2 × 130/100 = 1.56) = 0.624 mEq ÷ 0.812 = 0.768 → 0.8 mL
+  // (one decimal since 2026-10-27; it printed 0.77)
+  ok('Mg 10% vial → 0.8 mL', /→ 0\.8 mL\/d/.test(text()));
 
   // ── 4 · checkboxes ────────────────────────────────────────────
   const chk = (start) => [...container.querySelectorAll('label.chk-label')].find(l => l.textContent.trim().startsWith(start)).querySelector('input');

@@ -29,9 +29,10 @@
 //
 // THE TOLERANCE, from the app's rounding chain (calculator.jsx, solVol and the
 // bag make-up block):
-//   · each stock mL is rounded once: toFixed(1), or toFixed(2) for K₂HPO₄,
-//     MgSO₄ and heparin. The print shows it at that same precision, so the
-//     printed part p_i IS the value the app summed. S = Σ p_i is exact to 0.01.
+//   · each stock mL is rounded once, to one decimal, half up (roundMl, Pp
+//     2026-10-27; K₂HPO₄, MgSO₄, ZnSO₄ and heparin had two). The print shows
+//     it at that same precision, so the printed part p_i IS the value the app
+//     summed. S = Σ p_i is exact to 0.01.
 //   · componentVol C = toFixed(1)(S), so |S − C| ≤ 0.05.
 //   · the print shows P = Vp at 1 decimal (D.displayNum), and since NF-17 the
 //     app takes wfiVol W = P − C from that same printed figure, so C + W = P
@@ -53,8 +54,8 @@
 //
 // Orders: the oracle's 12 scenarios (copied, not imported), eight written for
 // this check — a 900 g infant on day 3 of TPN, a term infant, a bag a few mL
-// short of its prepared volume, one that overflows it, K₂HPO₄ and MgSO₄ at
-// 0.01 mL, hundredths that carry across the sum, a prepared volume with a
+// short of its prepared volume, one that overflows it, K₂HPO₄ and MgSO₄ under
+// 0.05 mL (0 mL, so not orderable since 2026-10-27), hundredths that carry across the sum, a prepared volume with a
 // second decimal (typed 80.45 mL), and components that fill such a bag
 // exactly (WFI 0, no over-full alert) — and SUM_N seeded random orders (default 40,
 // seed SUM_SEED 20261011; the seed and the whole order print with a failure).
@@ -147,7 +148,7 @@ const BASE = {
   bw: 1000, cur: 1000, tpnWtOverride: 0, dol: 10, route: 'central', fluid: 150, otherIV: 0, drug: 0,
   ioOut: 0, drain: 0,
   tpn: 0, useRate: false, dead: 30, dex: 0, aa: 0, lip: 0, lipH: 24,
-  naCl: 0, naAc: 0, glyNa: 0, kCl: 0, k2: 0, mg: 0, mgVial: '10', ca: 0,
+  naCl: 0, naAc: 0, glyNa: 0, kCl: 0, k2: 0, mg: 0, ca: 0,
   soluvit: true, pedi: true, zn: 0, hep: 1,
   feed: 'BM_20', enVol: 0, enFreq: 0, men: false,
   weights: [],
@@ -160,7 +161,7 @@ const ORACLE = [
   { name: 'B growing preterm peripheral, rate entry, Zn', bw: 1100, cur: 1450, dol: 16,
     route: 'peripheral', fluid: 160, otherIV: 0, drug: 1.2, ioOut: 90, drain: 0,
     tpn: 80.4, useRate: 3.35, dead: 20, dex: 12.5, aa: 3.5, lip: 3, lipH: 20,
-    naCl: 3, glyNa: 2, kCl: 2, mg: 0.5, mgVial: '10', ca: 80, zn: 0.3, hep: 1,
+    naCl: 3, glyNa: 2, kCl: 2, mg: 0.5, ca: 80, zn: 0.3, hep: 1,
     feed: 'FBM_PF_22', enVol: 8, enFreq: 8,
     weights: [{ dol: 1, w: 1100 }, { dol: 14, w: 1400 }, { dol: 15, w: 1430 }] },
   { name: 'C full enteral HMF, no TPN (feeds-only day)', bw: 1300, cur: 1600, dol: 25, fluid: 150,
@@ -188,9 +189,10 @@ const OWN = [
     tpn: 50, dead: 0, dex: 20, aa: 2.3, naCl: 3, kCl: 2, ca: 20, hep: 0.6, weights: [{ dol: 1, w: 1000 }] },
   { name: 'S4 over the bag volume limit (cannot be compounded)', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
     tpn: 50, dead: 0, dex: 20, aa: 2.6, naCl: 3, kCl: 2, ca: 20, hep: 0.6, weights: [{ dol: 1, w: 1000 }], overflow: true },
-  { name: 'S5 K2HPO4 and MgSO4 at 0.01 mL', bw: 500, cur: 500, dol: 8, fluid: 140, ioOut: 20, tpn: 40, dead: 0,
-    dex: 7.5, aa: 2, naCl: 1, k2: 0.02, mg: 0.02, hep: 0.5, weights: [{ dol: 1, w: 500 }],
-    expectRow: { 'K₂HPO₄': 0.01, 'MgSO₄ 10%': 0.01 } },
+  // S5 printed K₂HPO₄ and MgSO₄ as 0.01 mL until 2026-10-27; at one decimal
+  // they are 0 mL, which cannot be submitted (stocksAtZero).
+  { name: 'S5 K2HPO4 and MgSO4 under 0.05 mL (0 mL, not orderable)', bw: 500, cur: 500, dol: 8, fluid: 140, ioOut: 20, tpn: 40, dead: 0,
+    dex: 7.5, aa: 2, naCl: 1, k2: 0.02, mg: 0.02, hep: 0.5, weights: [{ dol: 1, w: 500 }], expectZero: ['k2', 'mg'] },
   { name: 'S6 hundredths carried across the sum', bw: 700, cur: 700, dol: 9, fluid: 150, ioOut: 30, tpn: 70, dead: 30,
     dex: 10, aa: 3, naCl: 2, k2: 0.07, mg: 0.05, ca: 30, hep: 0.7, weights: [{ dol: 1, w: 700 }] },
   // S7 is the regression case for the NF-17 WFI fix (Pp, 2026-10-11). Before it, 130.45 mL
@@ -221,7 +223,7 @@ function randomOrder(i) {
     dead: pick([0, 10, 20, 30, 50, between(0, 40, 1)]),
     dex: pick([0, between(2.5, 15, 0.5)]), aa: pick([0, between(0.5, 4, 0.1)]), lip: pick([0, between(0.5, 4, 0.1)]), lipH: pick([16, 20, 24]),
     naCl: pick([0, between(0, 5, 0.5)]), naAc: pick([0, between(0, 3, 0.5)]), glyNa: pick([0, between(0, 4, 0.5)]),
-    kCl: pick([0, between(0, 2.5, 0.5)]), k2: pick([0, between(0, 1, 0.01)]), mg: pick([0, between(0, 0.8, 0.01)]), mgVial: '10',
+    kCl: pick([0, between(0, 2.5, 0.5)]), k2: pick([0, between(0, 1, 0.01)]), mg: pick([0, between(0, 0.8, 0.01)]), 
     ca: pick([0, between(0, 120, 5)]), soluvit: rnd() > 0.2, pedi: rnd() > 0.2, zn: pick([0, between(0, 1, 0.05)]),
     hep: pick([0, 0.5, 1]), feed: 'BM_20', enVol: pick([0, between(0, 20, 0.5)]), enFreq: 8,
     weights: [{ dol: 1, w: bw }],
@@ -335,6 +337,20 @@ function ok(sc, what, cond, detail) {
 }
 const r1 = (x) => Math.round(x * 10) / 10;
 
+// The additive stocks whose mL rounds to 0 at one decimal, half up (Pp,
+// 2026-10-27): such an order cannot be submitted. Restated from the stock
+// strengths, not read off the app. Dextrose, amino acid, Soluvit and
+// Peditrace cannot get there at the doses these orders use.
+const rMl = (x) => Math.round(+(x * 10).toPrecision(12)) / 10;
+function stocksAtZero(sc, dosingG, Vd, dead) {
+  if (!(Vd > 0)) return [];
+  const S = window.NEOFEED_DATA.KCMH_STOCK, Vp = Vd + dead, F = dosingG / 1000 * Vp / Vd;
+  return [['naCl', S.naCl.naMeqPerMl], ['naAc', S.naAcetate.naMeqPerMl], ['glyNa', S.glycophos.naMeqPerMl],
+    ['kCl', S.kCl.kMeqPerMl], ['k2', S.k2hpo4.kMeqPerMl], ['mg', S.mgso4_10.mgMeqPerMl], ['ca', S.caGluconate.caMgPerMl],
+    ['zn', S.znso4.znMgPerMl]].filter(([k, perMl]) => sc[k] > 0 && rMl(sc[k] * F / perMl) === 0).map(([k]) => k)
+    .concat(sc.hep > 0 && rMl(sc.hep * Vp / S.heparin.unitsPerMl) === 0 ? ['hep'] : []);
+}
+
 // ── one order ───────────────────────────────────────────────────────────────
 async function fill(sc) {
   setField('Current weight', sc.cur);
@@ -427,10 +443,6 @@ function sumCheck(sc, label, Vd) {
     ok(sc, `${label}: copy components = print Components`, Math.abs(cp.components - make.components) <= EPS, detail);
     ok(sc, `${label}: copy prepared = print prepared`, Math.abs(cp.prepared - make.prepared) <= EPS, detail);
   }
-  if (sc.expectRow && label === 'save 1') for (const [name, ml] of Object.entries(sc.expectRow)) {
-    const row = parts.find(p => p.name === name);
-    ok(sc, `${label}: ${name} prints ${ml} mL`, !!row && row.ml === ml, row);
-  }
   return { make, S: sr, overflow: false };
 }
 
@@ -464,8 +476,16 @@ async function run(scIn, idx) {
   // ── save 1 ──
   const saveBtn = btnExact('Submit');
   const dosingG = sc.tpnWtOverride > 0 ? sc.tpnWtOverride : (sc.cur < sc.bw ? sc.bw : sc.cur);
-  const orderable = dosingG >= 200 && dosingG <= 8000;
-  ok(sc, 'Submit enabled exactly when the order can be saved', !!(saveBtn && !saveBtn.disabled) === orderable, { disabled: saveBtn?.disabled, dosingG });
+  const inRange = dosingG >= 200 && dosingG <= 8000;
+  const zeroed = inRange ? stocksAtZero(sc, dosingG, Vd, sc.dead || 0) : [];
+  const orderable = inRange && zeroed.length === 0;
+  if (sc.expectZero) ok(sc, `stocks at 0 mL are ${sc.expectZero}`, JSON.stringify(zeroed) === JSON.stringify(sc.expectZero), zeroed);
+  ok(sc, 'Submit enabled exactly when the order can be saved', !!(saveBtn && !saveBtn.disabled) === orderable, { disabled: saveBtn?.disabled, dosingG, zeroed });
+  if (zeroed.length) {
+    ok(sc, 'a stock at 0 mL: the save panel says so', !!container.querySelector('.stock-at-zero-ml'), zeroed);
+    ok(sc, 'a stock at 0 mL: no print form', !container.querySelector('#print-form'));
+    return `stock at 0 mL: ${zeroed.join(', ')}`;
+  }
   if (!orderable) {
     // No print, no copy: nothing to add up. The screen still shows the bag.
     ok(sc, 'not orderable → no print form', !container.querySelector('#print-form'));
@@ -505,6 +525,12 @@ async function run(scIn, idx) {
   ok(sc, `wired-in (${how}): the stale print form is withdrawn until saved`, !container.querySelector('#print-form'));
 
   // ── save 2: the reprint carries the new figures, and still adds up ──
+  // A bigger volume lowers the overfill, so a small stock can reach 0 mL.
+  const zeroed2 = stocksAtZero(sc, dosingG, newVd, newDead);
+  if (zeroed2.length) {
+    ok(sc, `wired-in (${how}): a stock now at 0 mL disables Submit`, btnExact('Submit')?.disabled === true, zeroed2);
+    return `after the change, stock at 0 mL: ${zeroed2.join(', ')}`;
+  }
   await clickAsync(btnExact('Submit'));
   ok(sc, 'save 2 updated the same row', calls.onLog === 1 && calls.onUpdate === 1, calls);
   await copyNow();
