@@ -3033,7 +3033,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             </div>
           )}
           {calc.wtKg > 0 && <ShowWorking calc={calc} route={route} wtG={wtG} dol={dol} dexPct={dexPct} aaPerKg={aaPerKg}
-            enType={enType} tGir={tGir} tKcal={tKcal} tPro={tPro} useEN={useEN} />}
+            enType={enType} tGir={tGir} tKcal={tKcal} tPro={tPro} useEN={useEN} vsLimit={vsLimit} />}
 
         </div></StepBody>
       </div>
@@ -3982,9 +3982,9 @@ function KcalLegend({ color, label, pct, target }) {
 // the print form and the copied order read none of it.
 const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true };   // feed → carries HMF
 
-// One figure in the working, keyed for the harness.
-function WorkVal({ k, v, d = 2 }) {
-  return <span className="num" data-v={k}>{fmt(v, d)}</span>;
+// One figure in the working, keyed for the harness; `t` is one already formatted.
+function WorkVal({ k, v, d = 2, t }) {
+  return <span className="num" data-v={k}>{t ?? fmt(v, d)}</span>;
 }
 
 function MilkAssumption({ enType }) {
@@ -4043,7 +4043,9 @@ function WorkRow({ label, children }) {
   );
 }
 
-function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir, tKcal, tPro, useEN }) {
+// A result just past its hard limit reads the way the alert reads it (the
+// Calculator's vsLimit: GIR 12.007 is "12.01", never "12" beside "above 12"; Vera).
+function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir, tKcal, tPro, useEN, vsLimit }) {
   const en = calc.en;
   const isBm = enType in BM_ASSUMED_FEEDS;
   const noBag = !(calc.totalTPN_mL > 0);
@@ -4051,8 +4053,8 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir
   const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
   const feedRow = (per100, unit, total, k) => calc.isMEN
-    ? <>นม MEN (trophic) ไม่นับ: <WorkVal k="enMl" v={calc.enCounted} d={1} /> mL, <WorkVal k={k} v={total} /> {unit}</>
-    : <><WorkVal k="enMl" v={calc.enCounted} d={1} /> mL × <WorkVal k="enPer100" v={per100} d={per100 >= 10 ? 1 : 2} /> {unit}/100 mL ÷ 100
+    ? <>นม MEN (trophic) <WorkVal k="enGiven" v={calc.enVolTotal} d={1} /> mL/day ไม่นับในค่ารวม: นับ <WorkVal k={k} v={total} /> {unit}</>
+    : <><WorkVal k="enMl" v={calc.enCounted} d={1} /> mL × <WorkVal k="enPer100" v={per100} /> {unit}/100 mL ÷ 100
         = <WorkVal k={k} v={total} /> {unit} · {en.label} · {feedSource}{isBm ? " (CR-U-BREASTMILK)" : ""}</>;
   const box = { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 11.5,
     color: "var(--ink-2)", display: "flex", flexDirection: "column", gap: 4, lineHeight: 1.45 };
@@ -4060,7 +4062,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir
 
   if (id === "gir") return (
     <div className="working-panel" data-working="gir" style={box}>
-      <div style={title}>GIR = <WorkVal k="result" v={calc.gir} d={1} /> mg/kg/min</div>
+      <div style={title}>GIR = <WorkVal k="result" t={vsLimit(calc.gir, D.GIR_HARD_HI, 1)} /> mg/kg/min</div>
       <WorkRow label="สูตร">GIR (mg/kg/min) = dextrose (g/day) × 1,000 ÷ (1,440 × kg)</WorkRow>
       <WorkRow label="ค่าที่ใช้">
         dextrose = <WorkVal k="tpnMl" v={calc.totalTPN_mL} /> mL ที่ให้จริง × <WorkVal k="dexPct" v={dexPct} /> % ÷ 100
@@ -4108,7 +4110,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir
 
   if (id === "kcal") return (
     <div className="working-panel" data-working="kcal" style={box}>
-      <div style={title}>Energy = <WorkVal k="result" v={calc.kcalKg} d={0} /> kcal/kg/d</div>
+      <div style={title}>Energy = <WorkVal k="result" t={vsLimit(calc.kcalKg, D.KCAL_HARD_HI, 0)} /> kcal/kg/d</div>
       <WorkRow label="สูตร">kcal/kg/d = (3.4 × dextrose g + 4 × AA g + 9 × lipid g + kcal จากนม) ÷ kg</WorkRow>
       <WorkRow label="ค่าที่ใช้">
         dextrose <WorkVal k="dexG" v={calc.dexG} /> g → <WorkVal k="dexKcal" v={calc.dexKcal} d={1} /> kcal ·
@@ -4126,7 +4128,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir
 
   return (
     <div className="working-panel" data-working="protein" style={box}>
-      <div style={title}>Protein = <WorkVal k="result" v={calc.proteinKg} d={1} /> g/kg/d</div>
+      <div style={title}>Protein = <WorkVal k="result" t={vsLimit(calc.proteinKg, D.PROTEIN_HARD_HI, 1)} /> g/kg/d</div>
       <WorkRow label="สูตร">g/kg/d = (AA g + protein จากนม g) ÷ kg</WorkRow>
       <WorkRow label="ค่าที่ใช้">
         AA <WorkVal k="aaPerKg" v={aaPerKg} /> g/kg/d × <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000 = <WorkVal k="aaG" v={calc.aaG} /> g

@@ -1752,8 +1752,10 @@ by hand arithmetic (Na 30 mEq/L, AA 3 %, dextrose 10 g). § 5: every `CR-` ID a 
 in the clinical-rules skill. § 6: the print form and the copied order are identical with every panel open
 and carry none of the new text. § 7: no trailing zero or float tail in the new text. `NEGATIVE_CONTROL=1`
 (dextrose at 3.5 kcal/g in the memo, the panel still saying 3.4) and `=2` (BM protein typed into the JSX)
-must fail: 3 and 1 failures. 96 checks; on
-`326bcd9` 54 fail and 25 pass.
+must fail: 3 and 1 failures. § 8 (Vera): a result just past its hard limit reads as the alert reads it (GIR
+12.007 is 12.01), a feed's value per 100 mL times its mL gives the kcal shown, and a MEN feed names the
+mL given (24) and counts 0. 102 checks; on
+`326bcd9` 55 fail and 25 pass (a section stops at its first missing element).
 
 
 ## Note on the source workbook

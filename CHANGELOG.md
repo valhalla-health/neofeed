@@ -7,6 +7,24 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 — NF-12 after Vera: a result past its limit, the feed factor, a MEN feed
+
+`calculator.jsx` (the working panels only), `compiled/calculator.js`, the shells' tokens,
+`test/verify-show-working-1028.cjs` § 8. Corrects the entry below in three places; no computed, printed or
+copied figure moves.
+
+- **A result just past its hard limit.** The entry below says each panel shows "the tile's own figure".
+  At GIR 12.007 that is "12", beside "เกิน 12 เป็น critical" on a red readout, while the alert reads
+  12.01. The GIR, energy and protein panels now print their result through the Calculator's `vsLimit`, as
+  the alerts do (GIR 12.01, protein 4.51); otherwise they keep the tile's decimals.
+- **The feed's value per 100 mL** showed one decimal from 10 up, so FBM ↔ Infatrini's 90.65 kcal read
+  90.7 and the line's own arithmetic gave 290.24 against the 290.08 it printed. Two decimals now.
+- **A MEN feed** showed the counted volume, always 0 mL; it now names the mL the infant gets (24 mL/day
+  for 3 mL × 8) and counts 0 of it.
+
+All three were Vera's (NO BLOCK, one 🟠 and two 🟡); her three tests fail 4 checks on `acb06f8` and pass
+after the fix. 102 checks in the harness.
+
 ## Session 2026-10-28 — NF-12: the Calculator names the breast milk it assumes, and shows its working
 
 `calculator.jsx`, `data.js` (two exports), `compiled/calculator.js` and both shells' `?v=` tokens,
