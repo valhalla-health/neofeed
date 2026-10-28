@@ -860,6 +860,8 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    older row normalises). `calc` sums the two through `D.enMixPer100mL`, one
    composition weighted by each feed's mL/day; a one-feed day gets that feed's
    own row, so its figures are unchanged. The one MEN tick covers both feeds.
+   The two share one schedule: with two feeds, more than
+   `D.EN_FEEDS_PER_DAY_MAX` (8, q3h) feeds a day between them is a stop.
    Center Point's TPN packet holds one feed, so a CP order is not offered a
    second. Step 4 also has a **Magnesium**
    tile: the TPN's Mg in mEq/kg/d against `TARGETS.mg` (`EN_DB` has no Mg).

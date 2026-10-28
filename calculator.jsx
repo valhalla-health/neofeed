@@ -1907,6 +1907,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "1250 mL เกิน 1250 mL".
   const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;
   const bagOverBottleText = `ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL ของห้อง TPN — ลดปริมาตรหรือ dead space`;
+  // Two feeds share one feeding schedule: together at most 8 a day (q3h; q4h
+  // is 6). Above it there is no schedule to give them on, so a two-feed order
+  // cannot be submitted (Pp, 2026-10-28). A feed with no volume is not given.
+  const feedsPerDay = (enFeeds[0].mlPerDay > 0 ? enFreq : 0) + (hasFeed2 ? enFreq2 : 0);
+  const feedsOverMax = hasFeed2 && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
+  const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
   // An ordered stock whose mL rounds to 0 at the 0.1 mL pharmacy measures
   // (roundMl): the back sheet would ask for 0 mL of a drug the order holds.
   // Refused like the bottle (Pp, 2026-10-27); a draft may be kept. Soluvit,
@@ -2032,6 +2038,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
   if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
+  if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`, ref: "Pp, 2026-10-28" });
   if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
   if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({ level: "warn", title: "Heparin above the usual dose",
@@ -2074,7 +2081,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -2085,6 +2092,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
     : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}`
+    : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}`
     : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
@@ -2231,6 +2239,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!asDraft && stockAtZeroMl) {
       setOpenSteps(prev => new Set(prev).add(2).add(3));
       showToast(stockAtZeroMlText, "error");
+      return;
+    }
+    // ── Two feeds above 8 a day (Pp, 2026-10-28) — refused the same way ──
+    if (!asDraft && feedsOverMax) {
+      setOpenSteps(prev => new Set(prev).add(5));
+      showToast(feedsOverMaxText, "error");
       return;
     }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
@@ -2720,6 +2734,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <button className="btn sm en-feed-add" style={{ marginTop: 8 }} onClick={() => setShowFeed2(true)}>
                   + Add a second feed (นมชนิดที่ 2)
                 </button>
+              )}
+              {/* The two feeds share one schedule: their total, and its interval. */}
+              {showFeed2Ui && (
+                <div className={`en-feeds-total${feedsOverMax ? " over" : ""}`} role={feedsOverMax ? "alert" : undefined}
+                  style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: feedsOverMax ? "var(--crit)" : "var(--ink-2)" }}>
+                  Feed 1 + 2 = <span className="num">{fmt(feedsPerDay, 1)}</span> feeds/d
+                  {feedsPerDay > 0 && <> · q{fmt(24 / feedsPerDay, 1)}h</>}
+                  {feedsOverMax ? ` — เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ/วัน (q3h) บันทึกไม่ได้` : ` (max ${D.EN_FEEDS_PER_DAY_MAX})`}
+                </div>
               )}
               {/* With two feeds the MEN tick leaves feed 1's row: it covers both. */}
               {showFeed2Ui && (
@@ -3677,7 +3700,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3870,6 +3893,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {stockAtZeroMlText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {feedsOverMax && (
+              <div className="feeds-over-max" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {feedsOverMaxText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
             {tpnWtOutOfRange && (
               <div className="tpn-wt-out-of-range" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {tpnWtOutOfRangeText} — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)
@@ -3891,7 +3919,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || feedsOverMax || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

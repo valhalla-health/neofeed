@@ -36,6 +36,11 @@ composition from the Chula handbook rows `EN_DB` already holds.
   the switch to enteral targets, every tile and alert and the Daily_Log columns read the sum. With one
   feed it returns that feed's own row object, so nothing moves for a one-feed order. The MEN tick covers
   both feeds and sits below them when there are two.
+- **At most 8 feeds a day between the two** (Pp, later the same day: "Feed 1+2 รวมกันมากสุดจะได้แค่ 8
+  มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้ 6 มื้อ"). The two feeds share one schedule, so with two feeds given,
+  Feed 1's and Feed 2's feeds a day above `EN_FEEDS_PER_DAY_MAX` (8, q3h) cannot be submitted (a stop,
+  like the 1,250 mL bottle: a draft can be kept). Step 2 shows "Feed 1 + 2 = 8 feeds/d · q3h". One feed
+  alone is not checked; whether a q2h feed (12) should be is Q18 in the skill.
 - **Saved, compared, copied.** `calcInput` gains `enType2`/`enVol2`/`enFreq2` (an older row normalises
   to none), the change list names them, the copied order prints one line per feed and the total, and
   `savedDosingWeightOf` counts both feeds.
@@ -48,7 +53,9 @@ composition from the Chula handbook rows `EN_DB` already holds.
   that reach 100 mL/kg/d only together), recomputed feed by feed rather than through the app's mix, on
   screen, in the saved row, on the form and in the copy. With feed 2 dropped from the app, both fail on
   45+ figures each (run once by hand, not kept as a switch).
-- `verify-clinical-rules.cjs`: `CR-U-EN-TWO-FEEDS` with five orders (fluid, the enteral switch from the
+- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-MAX` (stop) with 8 saving, 9 refused, q4h's 6 saving, a
+  feed with no volume not counted and one q2h feed not checked; with the limit set to 9 the refusal
+  fails (run once by hand). `CR-U-EN-TWO-FEEDS` with five orders (fluid, the enteral switch from the
   sum, MEN over both feeds and the MEN ceiling on the sum); the harness learned `feed2`/`order2`.
 - The harnesses that picked a feed by "the select with a BM_20 option" set the milk and then its
   kcal/oz; `verify-en-db-sources.cjs` §4 and `verify-tpn-meeting-0928.cjs` §9 walk both selects and still

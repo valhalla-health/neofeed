@@ -394,6 +394,11 @@ const EN_PRODUCTS = [
   { id: "hiQLf",       group: "Lactose-free",        label: "LF — HiQ LF",                   strengths: [[20, "LF_20"], [24, "LF_24"], [27, "LF_27"]] },
   { id: "enfalacLf",   group: "Lactose-free",        label: "Enfalac LF",                    strengths: [[20, "ENFALAC_20"], [24, "ENFALAC_24"], [27, "ENFALAC_27"]] },
 ];
+// Feed 1 + feed 2 together, at most 8 feeds a day (q3h); q4h is 6 (Pp,
+// 2026-10-28: "Feed 1+2 รวมกันมากสุดจะได้แค่ 8 มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้
+// 6 มื้อ"). Above it a two-feed order cannot be submitted.
+const EN_FEEDS_PER_DAY_MAX = 8;
+
 // The product and strength an EN_DB key is offered as, or null for a key the
 // Calculator does not offer (the Formula page's HIQLF_* copies).
 function enProductOf(key) {
@@ -2639,7 +2644,7 @@ window.NEOFEED_DATA = {
   // Enteral formula database
   EN_DB,
   // Step 2's feed and strength pickers, and the two-feed composition
-  EN_PRODUCTS, enProductOf, enMixPer100mL,
+  EN_PRODUCTS, enProductOf, enMixPer100mL, EN_FEEDS_PER_DAY_MAX,
   // KCMH supplement formulary
   SUPP_DB,
   // Product reference
