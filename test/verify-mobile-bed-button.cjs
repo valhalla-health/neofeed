@@ -192,8 +192,14 @@ const btn = (re, scope = probe) => [...scope.querySelectorAll('button')].find(b 
     ok('…with no ⇄ — a bed is not moved for an infant who has left', archived && !bedBtn(archived));
     const src = fs.readFileSync(DIR + 'registry.jsx', 'utf8');
     eq('there is still exactly one transfer modal', (src.match(/function TransferBedModal\b/g) || []).length, 1);
-    eq('…opened from two places: the desktop row and the phone card',
-       (src.match(/setTransferPatient\(p\)/g) || []).length, 2);
+    // Since 2026-10-28 every way in goes through one handler, openTransfer:
+    // the two ⇄ buttons (desktop row, phone card) and the two bed chips.
+    eq('…opened through one handler, openTransfer',
+       (src.match(/setTransferPatient\(p\)/g) || []).length, 1);
+    eq('…which the desktop row\'s ⇄ and the phone card\'s ⇄ call',
+       (src.match(/openTransfer\(p\)/g) || []).length, 2);
+    eq('…and the bed chips on the card and the table are handed',
+       (src.match(/onOpen=\{openTransfer\}/g) || []).length, 2);
   });
 
   // ══════════════════════════════════════════════════════════════════════
