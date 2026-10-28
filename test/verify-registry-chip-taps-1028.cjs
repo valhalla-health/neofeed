@@ -86,6 +86,15 @@ const scenarios = {
     A.eq('1.1 the status list, in picker order', D.PATIENT_STATUSES, ['Active', 'Discharged', 'Transferred', 'Expired']);
     A.eq('1.2 a blank status reads Active', ['', null, undefined].map(s => D.patientStatus({ status: s })), ['Active', 'Active', 'Active']);
     A.eq('1.3 any other reads as itself', D.patientStatus({ status: 'Expired' }), 'Expired');
+    // A cell typed into the sheet by hand (Vera, 2026-10-28): the server syncs
+    // "Active " as Active (_patientInSyncWindow trims), and the client dropped
+    // that infant off the ward list. An unknown word stays off the unit, as
+    // the server's sync window and bed guard read it.
+    A.eq('1.3a spaces and case read as the status they name',
+      ['Active ', 'active', ' Discharged', 'EXPIRED'].map(s => D.patientStatus({ status: s })),
+      ['Active', 'Active', 'Discharged', 'Expired']);
+    A.eq('1.3b …so "Active " and "active" are on the unit', [D.isOnUnit({ status: 'Active ' }), D.isOnUnit({ status: 'active' })], [true, true]);
+    A.eq('1.3c an unknown word stays as typed, and off the unit', [D.patientStatus({ status: 'Expird' }), D.isOnUnit({ status: 'Expird' })], ['Expird', false]);
     A.eq('1.4 isOnUnit is unchanged: blank and Active are on the unit, the rest are not',
       [{ status: '' }, { status: 'Active' }, { status: 'Discharged' }, { status: 'Transferred' }, { status: 'Expired' }, null].map(D.isOnUnit),
       [true, true, false, false, false, false]);
@@ -301,6 +310,31 @@ const scenarios = {
       if (W === 390 && process.env.SHOT) await tab.screenshot({ path: process.env.SHOT, fullPage: false });
       await tab.close();
     }
+    // A touch tablet shows the table (Vera, 2026-10-28): a chip's 44px tap
+    // area must stay inside its own row, or a tap near one infant's bed would
+    // open Transfer bed for the infant in the next row.
+    const tab = await browser.newPage({ viewport: { width: 1024, height: 900 }, hasTouch: true, isMobile: true });
+    await tab.setContent(html);
+    // Measured 2026-10-28: rows 66px tall, and the status chip 9.5px below its
+    // row's top, so its area reaches 0.5px onto the row's top border, where no
+    // control of the row above sits. Hence "within 1px", and the overlap test.
+    const r = await tab.evaluate(() => {
+      const rows = [...document.querySelectorAll('.patient-table tbody tr')].filter(tr => tr.querySelector('.chip-tap'));
+      const areas = rows.flatMap((tr, i) => [...tr.querySelectorAll('.chip-tap')].map(b => {
+        const rb = b.getBoundingClientRect(), rr = tr.getBoundingClientRect();
+        const y = rb.top + rb.height / 2;
+        return { i, top: y - 22, bottom: y + 22, rowTop: rr.top, rowBottom: rr.bottom,
+          hit: [y - 20, y + 20].every(yy => document.elementFromPoint(rb.left + rb.width / 2, yy)?.closest('.chip-tap') === b) };
+      }));
+      return areas.map(a => ({
+        inRow: a.top >= a.rowTop - 1 && a.bottom <= a.rowBottom + 1,
+        apart: areas.every(o => o.i === a.i || o.bottom <= a.top || o.top >= a.bottom),
+        hit: a.hit,
+      }));
+    });
+    A.eq(`7.1024 a touch tablet's table: ${r.length} chips, each tap area within its own row (to 1px)`, r.length === 6 && r.every(x => x.inRow && x.hit), true);
+    A.eq('7.1024 …and none overlaps a chip\'s in another row', r.length === 6 && r.every(x => x.apart), true);
+    await tab.close();
     await browser.close();
   },
 };

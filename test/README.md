@@ -1745,7 +1745,8 @@ Pp asked for the phone card's "Active" chip to change the status, saved where it
 for a tap on the bed to be the ⇄ button, both drawn from one place (`CHANGELOG.md` 2026-10-28).
 **`verify-registry-chip-taps-1028.cjs`** drives the real `<App/>` in jsdom against the fake Apps Script
 in `review-0917-boot.cjs`, one scenario per process; it also runs against `compiled/`. #1: `D.PATIENT_STATUSES`,
-`D.patientStatus` (blank reads Active) and `D.statusChange`'s statusDate rule, `D.isOnUnit` unchanged.
+`D.patientStatus` (blank reads Active; "Active " and "active" read Active, as the server's sync reads them,
+and an unknown word stays as typed and off the unit) and `D.statusChange`'s statusDate rule.
 #2: Active ▾ → Discharged → Save sends one `registerPatient` with only `status` and `statusDate`
 changed and the merge base it opened on; the card leaves the list, the Active tile drops, the archive
 lists it, its bed is offered as free and its Dashboard strip says Discharged. #3: the bed chip opens the
@@ -1755,8 +1756,9 @@ back to Active from the archive is refused on a bed given away since and saved, 
 free one. #5: the table's bed and status cells open the same dialogs. #6: a blank status reads Active on
 the card and on the Dashboard strip, which read blank; Edit session lists exactly `D.PATIENT_STATUSES`.
 #7, in real Chromium as a touch phone at 320–430px (skipped without playwright): every chip's tap area
-reaches 44px tall, the status chip stays on the name's line, the page does not scroll sideways. 76
-checks (60 without a browser); against `main` (`326bcd9`) every scenario fails (15 failures, six of them a
+reaches 44px tall, the status chip stays on the name's line, the page does not scroll sideways; and on a
+touch tablet at 1024px, which shows the table, each chip's area stays in its own row (to the 1px border:
+the status chip's reaches 0.5px onto it) and overlaps no other row's. 81 checks (63 without a browser); against `main` (`326bcd9`) every scenario fails (15 failures, six of them a
 scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `setTransferPatient(p)`,
 inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
 values come from the ward.

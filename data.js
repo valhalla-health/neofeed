@@ -2091,6 +2091,11 @@ function defaultDeadVolFor(patient) {
   return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
 }
 
+// The four statuses a session can carry, in the order every picker lists
+// them: Edit session's select and the ward list's status chip (Pp,
+// 2026-10-28). The server accepts exactly these (VALID_STATUS, gas-backend.gs).
+const PATIENT_STATUSES = ["Active", "Discharged", "Transferred", "Expired"];
+
 // Only a patient still on the unit occupies a bed — a discharged/transferred/
 // expired session keeps its `currentBed` in the record (that is where they
 // were), but the bed itself is free for the next admission. Same definition
@@ -2101,16 +2106,19 @@ function isOnUnit(p) {
   return !!p && patientStatus(p) === "Active";
 }
 
-// The four statuses a session can carry, in the order every picker lists
-// them: Edit session's select and the ward list's status chip (Pp,
-// 2026-10-28). The server accepts exactly these (VALID_STATUS, gas-backend.gs).
-const PATIENT_STATUSES = ["Active", "Discharged", "Transferred", "Expired"];
-
 // What a patient's status reads as, on every screen. A blank status is Active,
 // the rule isOnUnit applies, so no chip reads blank or "Active" while the
-// list it sits on says otherwise.
+// list it sits on says otherwise. A cell typed into the sheet by hand
+// ("Active ", "discharged") reads as the status it names, as the server reads
+// it when it syncs (_patientInSyncWindow trims) and writes it (_normStatus);
+// before, "Active " synced to the ward and then dropped off its list (Vera,
+// 2026-10-28). Anything else stays as typed and is not on the unit: the
+// server's sync window and bed guard read it that way too, and a mistyped
+// "Expird" must not come back as an Active infant holding a bed.
 function patientStatus(p) {
-  return (p && p.status) || "Active";
+  const s = String((p && p.status) ?? "").trim();
+  if (!s) return "Active";
+  return PATIENT_STATUSES.find(k => k.toLowerCase() === s.toLowerCase()) || s;
 }
 
 // The two fields a status change writes: `status`, and `statusDate`, the day

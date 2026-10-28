@@ -33,6 +33,11 @@ did nothing; a tap on either opened the patient.
   (blank reads Active, the rule `isOnUnit` already applied, and `isOnUnit` now reads through it) and
   `statusChange` (the statusDate rule, moved out of `EditPatientModal.save` unchanged). The Dashboard strip's
   status chip read `patient.status` raw, so a blank status showed an empty chip; it reads `patientStatus` now.
+- `patientStatus` also reads a hand-typed "Active " or "active" as Active (Vera, before the PR). The server
+  syncs such a row as Active (`_patientInSyncWindow` trims), and the client then dropped the infant off
+  the ward list, the alerts and the bed guard. An unknown word stays as typed and off the unit, as the
+  server's sync window and `_bedConflict` read it; `_normStatus` would write it as Active on the next save,
+  and a mistyped "Expird" must not come back as an infant holding a bed.
 - After a save, every screen follows from the one record in `App`'s `patients`: the list and its archive,
   the Active / Logged today / Needs entry tiles, the freed bed in the transfer dialog, the Dashboard strip,
   the admin census and the alerts (`isOnUnit`).
@@ -40,8 +45,8 @@ did nothing; a tap on either opened the patient.
 
 ### Checks
 
-`verify-registry-chip-taps-1028.cjs`, 76 checks (16 in real Chromium); on `main` (`326bcd9`) every scenario
-fails. `verify-mobile-bed-button.cjs` §5 counted two `setTransferPatient(p)` calls in the source; it now
+`verify-registry-chip-taps-1028.cjs`, 81 checks (18 in real Chromium, among them a touch tablet's table); on
+`main` (`326bcd9`) every scenario fails. `verify-mobile-bed-button.cjs` §5 counted two `setTransferPatient(p)` calls in the source; it now
 pins the one inside `openTransfer`, and the four places that call it. `tools/dev-local.mjs`, at 390px: DD
 set to Discharged from its chip left the list and was still Discharged after a reload, and set back to
 Active from the archive returned to NICU 4.
