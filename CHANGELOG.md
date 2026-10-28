@@ -7,6 +7,53 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (11) — Vera's review of (10): held orders resave, the front keeps the lipid rate and the critical box, Vitalipid at least 1 mL
+
+Vera's first review of (10) was NO BLOCK with four 🟠 and one 🟡. Two needed Pp, and she answered the
+same day.
+
+### What changed
+
+- **An order held from Print is saved again, not just locked.** (10) let Submit only lock an unchanged
+  submitted order, and then greyed Submit out. An order saved on an older calculation, with a changed
+  dosing weight or an unconfirmed critical value, could then be neither saved nor printed: every
+  order submitted before this release. Submit now only locks an unchanged order when it could print
+  as it is. Otherwise it locks it, saves a revision on today's numbers and locks that. A locked order
+  keeps its Submit while Print holds it.
+- **The lock state resets with the patient.** `published` was set only at mount; switching infant
+  with the Calculator open carried the last order's lock over, and greyed out the next infant's Submit.
+- **The lipid pump rate and the critical-value confirmation print on the front** (Pp: "ย้ายค่าวิกฤตกับ
+  lipid rate ขึ้นหน้า 1"). Hiding the pharmacy sheet in (10) took both off paper. The Save prompt's
+  promise that the reason prints on the order holds again. Pharmacy works out the stock mL, Factor and
+  WFI from the front, as the team asked. `REFERENCE.md` § The printed order says so.
+- **Vitalipid is at least 1 mL when lipid is ordered** (Pp: "ปัดลง แต่อย่างน้อย 1 mL"). Rounded down
+  alone, 240 g got none. 490 g still gets 1 mL, about half the label's 4 mL/kg; Q19 is closed.
+
+### Sources and review
+
+- Mg: Mihatsch W et al., ESPGHAN/ESPEN/ESPR/CSPEN guidelines on pediatric parenteral nutrition:
+  calcium, phosphorus and magnesium. Clin Nutr 2018;37(6 Pt B):2360–2365, PMID 30097365, the table of
+  suggested parenteral intakes in mmol (mg)/kg/d: preterm infants in the first days of life 0.1–0.2
+  (2.5–5.0), growing premature infants 0.2–0.3 (5.0–7.5). Checked against the photograph of that table
+  the TPN team sent on 2026-09-18 (in Pp's private notes), not against the full PDF.
+- Vitalipid: the TPN team's meeting of 2026-10-28 (Pp's notes) and Pp's 1 mL floor the same day.
+- No second clinician has reviewed (10) or this change. The TPN team asked for each item; Pp chose the
+  figures.
+
+### Tests
+
+Six checks added to `test/verify-nutrition-meeting-1028.cjs`, each failing on (10) and passing here:
+an unlocked order on an older calculation is locked, revised and locked again, and then prints; a
+locked one keeps its Submit; the lipid rate and the critical box sit outside `.print-back`; the next
+infant's Submit is offered after a switch. `CR-VITALIPID-CAP` gains a 490 g and a 240 g case. The
+oracles in `verify-calc-oracle` and `-fuzz` apply the 1 mL floor. The six digests of
+`verify-review-0917-calc.cjs` were recaptured: the same figures in a new order, the lipid rate's three
+now on the front.
+
+Not added: Vera's proposed `verify-clinical-rules.cjs` change reading `prints` without `.print-back`.
+The stock mL and WFI it would look for are not meant to be on paper now, so it would fail after this
+change too; `prints` still means the rendered order, both sheets.
+
 ## Session 2026-10-28 (10) — the nutrition team's meeting: Submit locks, Vitalipid rounds down, Mg in mg
 
 The nutrition and TPN team met Pp on 2026-10-28 ahead of the ward start on 16 Nov 2569. This session

@@ -198,6 +198,20 @@ function typeOrder(extra = {}) {
     mount({ ...l, editEntry: reopened() });
     eq('a locked, unchanged order offers no Submit', submitBtn()?.disabled, true);
     eq('…and sends nothing', shape(l.calls), []);
+
+    // Vera, 2026-10-28: an order Print is holding for a new save (here, saved
+    // on an older calculation) must still be saved again, as a revision.
+    const old = (over) => reopened({ calcInput: { ...saved.calcInput, constantsVersion: '2026-10-27.2' }, ...over });
+    const o = recorder({ update: { ok: true, revised: true, entryId: 'e2', lastModified: 'lm2', revisionNumber: 2 } });
+    mount({ ...o, editEntry: old({ published: '', publishedBy: '' }) });
+    ok('an unlocked order on an older calculation is not printable as it stands', !printForm());
+    await clickAsync(submitBtn());
+    eq('…Submit locks it, saves a revision on today\'s numbers, and locks that',
+      shape(o.calls), [['publish', 'e1', 'lm1'], ['update', 'e1', 'lm1'], ['publish', 'e2', 'lm2']]);
+    ok('…which then prints', !!printForm());
+
+    mount({ ...recorder(), editEntry: old() });
+    eq('a locked order on an older calculation keeps its Submit', submitBtn()?.disabled, false);
   });
 
   await section('§6 a revision prints "Revision" at the top right of the doctor\'s sheet', async () => {
@@ -239,6 +253,16 @@ function typeOrder(extra = {}) {
     const form = printForm();
     ok('the provenance footer stays outside the pharmacy sheet, so it still prints',
       !!form && !form.lastElementChild.closest('.print-back') && /NeoFeed · constants/.test(form.lastElementChild.textContent));
+
+    // Pp, 2026-10-28, after Vera: what the ward and pharmacy still need from
+    // the pharmacy sheet moves onto the doctor's sheet.
+    const rate = printForm()?.querySelector('.print-lipid-rate');
+    ok('the lipid pump rate is on the doctor\'s sheet', !!rate && !rate.closest('.print-back') && /Rate [\d.]+ mL\/hr/.test(squash(rate.textContent)), squash(rate?.textContent));
+    mount({ ...recorder(), editEntry: reopened({ calcInput: { ...saved.calcInput,
+      critOverride: { reason: 'harness reason', alerts: ['GIR critically high'], at: '2026-10-27T03:00:00Z' } } }) });
+    const crit = printForm()?.querySelector('.crit-confirmed');
+    ok('a confirmed critical value prints on the doctor\'s sheet, with its reason',
+      !!crit && !crit.closest('.print-back') && /เหตุผล: harness reason/.test(crit.parentElement.textContent));
   });
 
   await section('§9 Mg is typed in mg/kg/d', async () => {
@@ -266,6 +290,20 @@ function typeOrder(extra = {}) {
     mount({ ...recorder(), editEntry: reopened({ calcInput: { ...saved.calcInput, mgPerKg: 0.4 } }) });
     eq('an order saved as 0.4 mEq/kg/d reopens as 4.86 mg/kg/d', saltRow('MgSO₄')?.querySelector('input')?.value, '4.86');
     eq('DOL 1–7 reads 2.5–5, DOL 8 on 5–7.5 (mg/kg/d)', [D.TARGETS.mg(7), D.TARGETS.mg(8)], [[2.5, 5], [5, 7.5]]);
+  });
+
+  await section('§11 switching patient forgets the last order\'s lock (Vera)', async () => {
+    const r = recorder();
+    mount({ ...r, editEntry: reopened() });
+    act(() => { root.render(React.createElement(window.Calculator, {
+      patient: pt({ sessionId: 'NM-2', name: 'NB' }), dol: 10, editEntry: null, baselineEntry: null, previousEntry: null,
+      logDate: '2026-10-27', userLabel: 'Dr Meeting (meeting@kcmh.test)', onSaved() {}, onWeightChange() {}, ...r })); });
+    // Open only the steps the switch closed: a closed step renders no inputs.
+    act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => { if (!h.parentElement.querySelector('input')) h.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); });
+    typeOrder();
+    await clickAsync(draftBtn());
+    eq('the next infant\'s draft saves', shape(r.calls), [['log']]);
+    eq('…and its Submit is offered', submitBtn()?.disabled, false);
   });
 
   await section('§10 the amino-acid line names PED AMINE', async () => {

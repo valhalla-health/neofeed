@@ -1156,6 +1156,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
     setSavedStatus(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+    setPublished(!!editEntry?.published);   // it now decides Submit's lock (Vera, 2026-10-28)
     setConflict(null);
     setCritOverride(editEntry?.calcInput?.critOverride || null);
     setSavedMeta(editEntry ? {
@@ -1451,8 +1452,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // as "lipid is ordered" but could never be false once a weight was entered.
     // Rounded DOWN to a whole mL, as the ward gives it, so the order says what
     // the infant gets (TPN team, 2026-10-28: "ทำให้ในระบบและทำจริงเหมือนกัน >
-    // ปัดลง"). The 1e-9 keeps 4 × 0.75 kg = 3 from flooring to 2 on a float tail.
-    const vitalipidVol = lipidPerKg > 0 ? Math.floor(Math.min(4 * wtKg, 10) + 1e-9) : 0;
+    // ปัดลง"), and never below 1 mL when lipid is ordered (Pp, 2026-10-28, after
+    // Vera: under 500 g the floor alone gave 1 mL or none). The 1e-9 keeps
+    // 4 × 0.75 kg = 3 from flooring to 2 on a float tail.
+    const vitalipidVol = lipidPerKg > 0 ? Math.max(1, Math.floor(Math.min(4 * wtKg, 10) + 1e-9)) : 0;
     const lipidBagVol = lipidVol + vitalipidVol;
 
     // dexPct is the final concentration of the PREPARED bag (sheet D10), so the
@@ -2244,8 +2247,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
+    // Only when it could print as it is: an order held from Print (a calculation
+    // that moved since, a changed dosing weight, an unconfirmed critical value)
+    // takes the full save below, a revision on today's numbers (Vera, 2026-10-28).
     const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
-    if (lockFirst && !dirty) {
+    if (lockFirst && !dirty && printable) {
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -4025,9 +4031,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <Icon name="save" size={14} /> {saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"}
               </button>
             )}
-            {/* A locked order with nothing changed has nothing to submit. */}
+            {/* A locked order with nothing changed has nothing to submit, unless
+                Print is holding it for a new save. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
@@ -4501,6 +4508,28 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         </tbody>
       </table>
 
+      {/* The lipid pump rate and the doctor's critical-value confirmation sit
+          on the doctor's sheet since the pharmacy sheet stopped printing (Pp,
+          2026-10-28, after Vera): the ward sets the pump from the order, and
+          pharmacy must see that a critical value was confirmed, and why.
+          "แพทย์ยืนยันคำสั่ง" above the critical-value heading, whose own text
+          is unchanged: Center Point's sheet prints it too, and the parity
+          check reads the alerts after it. */}
+      <div className="print-lipid-rate" style={{ marginTop:6, fontSize:10.5 }}>
+        Lipid pump rate: bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL infused over <strong>{lipidDripHours || 24}</strong> h
+        = Rate <strong>{calc.lipidBagVol > 0 ? f(calc.lipidBagVol/(lipidDripHours||24),2) : "—"}</strong> mL/hr
+        {/* A conversion of two figures printed on this line, so plain
+            text like the Mg mEq beside its mg — not a dose of its own. */}
+        {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}
+      </div>
+      {critOverride && (
+        <div style={{ border:"2px solid #c00", color:"#c00", padding:"4px 8px", marginTop:6, fontSize:10.5, fontWeight:700 }}>
+          <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
+          ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
+          <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
+        </div>
+      )}
+
       {/* Who signs — the paper form's own line, with the saver's name printed
           so pharmacy knows whom to call (TPN team, 2026-09-22). The name only:
           no email on the doctor's sheet (2026-09-28); the back keeps it. */}
@@ -4523,18 +4552,6 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         <div className="print-saved-by" style={{ marginBottom:6, fontSize:10.5 }}>
           บันทึกโดย <strong>{savedMeta?.by || "—"}</strong> (ผู้สั่ง — ติดต่อ) · เวลา <strong>{savedAtLabel}</strong> · ฉบับที่ <strong>{savedMeta?.revision || 1}</strong>
         </div>
-
-        {/* The doctor confirmed a critical value in the app, with a reason.
-            "แพทย์ยืนยันคำสั่ง" above the critical-value heading, whose own text
-            is unchanged: Center Point's sheet prints it too, and the parity
-            check reads the alerts after it. */}
-        {critOverride && (
-          <div style={{ border:"2px solid #c00", color:"#c00", padding:"4px 8px", marginBottom:6, fontSize:10.5, fontWeight:700 }}>
-            <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
-            ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
-            <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
-          </div>
-        )}
 
         <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
           <tr>
@@ -4563,14 +4580,6 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td>Lipid</td>
             <td><strong>☑ 20% SMOF</strong> = <strong>{f(lipidPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL &nbsp;&nbsp;
               Vitalipid N infant = <strong>{f(calc.vitalipidVol,1)}</strong> mL</td>
-          </tr>
-          <tr>
-            <td>Lipid pump rate</td>
-            <td>Bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL infused over <strong>{lipidDripHours || 24}</strong> h
-              = Rate <strong>{calc.lipidBagVol > 0 ? f(calc.lipidBagVol/(lipidDripHours||24),2) : "—"}</strong> mL/hr
-              {/* A conversion of two figures printed on this line, so plain
-                  text like the Mg mg/kg one — not a dose of its own. */}
-              {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}</td>
           </tr>
         </tbody></table>
 

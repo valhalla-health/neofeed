@@ -100,12 +100,18 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
 - **Front: the doctor's order.** It is the KCMH paper form, in the paper's own layout and words, with
   one table row per product so that no figure can sit on another product's line. Ordered products are
   bold, and the paper's other choices print unticked. Oral orders go under "8. Other", and the saver's
-  name goes at "แพทย์". It carries **no alert text**: alerts are settled in the app, where a critical one
-  needs a confirmation with a reason at Save. The "Normal Requirement" column is NeoFeed's targets, not
+  name goes at "แพทย์". Alerts are settled in the app, where a critical one needs a confirmation with a
+  reason at Save; the only alert text on the front is that confirmation, since 2026-10-28. The "Normal Requirement" column is NeoFeed's targets, not
   the paper's printed ranges, which disagree with the app (review F4).
 - **Back: pharmacy.** The Factor, the aqueous bag stock by stock in mL with the WFI q.s., K⁺ in the bag,
-  Ca·PO₄, what reaches the infant, the critical-value confirmation, changes since the last order, and
-  who saved it.
+  Ca·PO₄, what reaches the infant, changes since the last order, and who saved it.
+
+**Since 2026-10-28 only the front prints** (the TPN team: "print เฉพาะแค่หน้าแรก หน้าสองเก็บไว้ก่อน"). Both
+shells hide `.print-back` in print; it still renders, for a later phase that prints it for a sticker.
+Pharmacy works out the stock mL, Factor and WFI from the front. Two things moved from the back to the
+front so they stay on paper (Pp, after Vera): the lipid pump rate, and, when a critical value was
+confirmed at Submit, "✔ แพทย์ยืนยันคำสั่ง" with the alerts and the reason. A revision prints
+"Revision · ฉบับที่ N" at the front's top right.
 
 Two harness contracts: the patient table stays the form's first direct `<table>` child (the parity and
 §6 figure sweeps skip it), and the provenance footer stays the form's last child.

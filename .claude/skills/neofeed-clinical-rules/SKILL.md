@@ -557,17 +557,21 @@ maximum daily dose of 15 ml"; Thai CPG PDF p. 116. Zn 250 µg/mL, pharmacy, 2026
 
 4 mL/kg/d, at most 10 mL/day, only when lipid is ordered (it rides in the lipid syringe; no overfill),
 rounded **down** to a whole mL, as the ward gives it (TPN team, 2026-10-28: "ทำให้ในระบบและทำจริงเหมือนกัน >
-ปัดลง"). It counts toward prescribed fluid. The 4 and the 10 are literals in `calculator.jsx`, not `data.js`.
-Below 250 g a lipid order gets 0 mL (4 × 0.24 = 0.96); the weight floor is 200 g (`CR-WT-RANGE`): Q19.
+ปัดลง"), and never below 1 mL when lipid is ordered (Pp, 2026-10-28, answering Q19 after Vera: under
+500 g the floor alone gave 1 mL or none). It counts toward prescribed fluid. The 4 and the 10 are literals
+in `calculator.jsx`, not `data.js`. Rounding down still gives the smallest infants well under the label's
+4 mL/kg: 490 g gets 1 mL (2 mL/kg), 740 g gets 2 mL (2.7 mL/kg).
 Source: Vitalipid N Infant SmPC (HPRA, 2022) §4.2: 4 mL/kg/d up to 2.5 kg, 10 mL/day above it; the
 Singapore label: "must not exceed 10 ml"; Thai CPG PDF p. 116. Both labels say to add it only to Intralipid
 10 % or 20 %, and KCMH gives SMOF 20 %: Q4.
 
 ```rule
-{"rule": "CR-VITALIPID-CAP", "kind": "cap", "where": [{"file": "calculator.jsx", "line": 1455, "has": "const vitalipidVol = lipidPerKg > 0 ? Math.floor(Math.min(4 * wtKg, 10) + 1e-9) : 0;"}]}
+{"rule": "CR-VITALIPID-CAP", "kind": "cap", "where": [{"file": "calculator.jsx", "line": 1455, "has": "const vitalipidVol = lipidPerKg > 0 ? Math.max(1, Math.floor(Math.min(4 * wtKg, 10) + 1e-9)) : 0;"}]}
 {"case": "2.4 kg: 9.6 mL rounds down to 9", "side": "inside", "infant": {"g": 2400}, "route": "Central", "order": {"Volume(mL/day)": 300, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)9mL/day"}}
 {"case": "850 g: 3.4 mL rounds down to 3, and prints 3", "side": "inside", "infant": {"g": 850}, "route": "Central", "order": {"Volume(mL/day)": 120, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)3mL/day", "prints": "Vitalipid N infant = 3 mL"}}
 {"case": "750 g: 4 × 0.75 is exactly 3, not 2", "side": "inside", "infant": {"g": 750}, "route": "Central", "order": {"Volume(mL/day)": 110, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)3mL/day"}}
+{"case": "490 g: 1.96 mL rounds down to 1", "side": "inside", "infant": {"g": 490}, "route": "Central", "order": {"Volume(mL/day)": 70, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)1mL/day"}}
+{"case": "240 g: 0.96 mL would round to none; at least 1 mL", "side": "outside", "infant": {"g": 240}, "route": "Central", "order": {"Volume(mL/day)": 35, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)1mL/day", "prints": "Vitalipid N infant = 1 mL"}}
 {"case": "3 kg: capped at 10 mL", "side": "outside", "infant": {"g": 3000}, "route": "Central", "order": {"Volume(mL/day)": 300, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)10mL/day"}}
 {"case": "no lipid: none", "side": "inside", "infant": {"g": 3000}, "route": "Central", "order": {"Volume(mL/day)": 300, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)0mL/day"}}
 ```
@@ -1087,8 +1091,8 @@ team's where the number is theirs.
   120 mL/kg/d or 75 % of needs, the Thai CPG 75 %, and WHO's 100 is when to start fortifier.
 - **Q18 · `CR-EN-FEEDS-MAX`:** the 8-a-day limit is checked only when there are two feeds. Should one
   feed above 8 a day (q2h, 12) be refused too, or is q2h still ordered on the ward?
-- **Q19 · `CR-VITALIPID-CAP`:** rounded down, a lipid order below 250 g gets 0 mL of Vitalipid. Is that
-  what the ward gives, or should it be at least 1 mL whenever lipid is ordered?
+- ~~**Q19 · `CR-VITALIPID-CAP`:** rounded down, a lipid order below 250 g gets 0 mL of Vitalipid.~~
+  Answered by Pp, 2026-10-28: at least 1 mL whenever lipid is ordered.
 
 ## Sources
 

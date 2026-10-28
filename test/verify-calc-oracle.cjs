@@ -176,8 +176,8 @@ function expected(sc) {
   e.aaDel = sc.aa * W; e.aaBag = sc.aa * F; e.aaMl = rMl(e.aaBag / STOCK.aa);
   // lipid
   e.lipG = sc.lip * W; e.smof = rMl(e.lipG / STOCK.smof);
-  // Vitalipid rounded down to a whole mL since 2026-10-28 (CR-VITALIPID-CAP).
-  e.vitalipid = sc.lip > 0 ? Math.floor(Math.min(4 * W, 10) + 1e-9) : 0;
+  // Vitalipid rounded down to a whole mL, at least 1, since 2026-10-28 (CR-VITALIPID-CAP).
+  e.vitalipid = sc.lip > 0 ? Math.max(1, Math.floor(Math.min(4 * W, 10) + 1e-9)) : 0;
   e.lipBag = e.lipG / STOCK.smof + e.vitalipid;
   e.lipRate = e.lipBag / sc.lipH;
   e.lipGkgh = sc.lip / sc.lipH;

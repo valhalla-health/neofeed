@@ -1870,8 +1870,11 @@ front sheet, above the patient table and outside `.print-back`. § 7: the Dashbo
 "Submitted · ฉบับแก้ไข". § 8: both shells hide `.print-back` in print, and the provenance footer stays
 outside it. § 9: the Mg row takes mg/kg/d, chips 2.5 / 5 / 7.5, stores mEq to 10 decimals, prints mg
 with mEq beside it and the Normal Requirement in mg/kg/day. § 10: the amino-acid line names PED AMINE.
-Vitalipid's rounding is in the clinical-rules skill's cases. Against `main` (`ee25e86`) 24 of its
-first 31 checks fail.
+§ 5 also: an unlocked order on an older calculation is locked, revised and locked again, then prints;
+a locked one keeps its Submit. § 8 also: the lipid pump rate and the critical-value box print on the
+front. § 11: switching infant clears the last order's lock. Vitalipid's rounding (down, at least
+1 mL) is in the clinical-rules skill's cases. Against `main` (`ee25e86`) 24 of its first 31 checks
+fail; the six added after Vera's review fail on the first commit of the PR.
 
 The twelve that typed Mg in mEq (`verify-calc-clicks`, `-fuzz`, `-oracle`, `-sum`,
 `verify-center-point-print-parity`, `verify-kcmh-factor`, `verify-review-0917-calc`,

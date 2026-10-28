@@ -80,8 +80,8 @@ function recompute(s) {
   const gly = s.glyNa / 2;                                   // mEq Na → mL (2 mEq Na per mL)
   const dexDel = Vd * s.dex / 100, dexBag = Vp * s.dex / 100;
   const aaDel = s.aa * kg, lipG = s.lip * kg;
-  // Vitalipid rounded down to a whole mL since 2026-10-28 (CR-VITALIPID-CAP).
-  const vitalipid = s.lip > 0 ? Math.floor(Math.min(4 * kg, 10) + 1e-9) : 0, lipBag = lipG / 0.2 + vitalipid;
+  // Vitalipid rounded down to a whole mL, at least 1, since 2026-10-28 (CR-VITALIPID-CAP).
+  const vitalipid = s.lip > 0 ? Math.max(1, Math.floor(Math.min(4 * kg, 10) + 1e-9)) : 0, lipBag = lipG / 0.2 + vitalipid;
   const f = FEED[s.feed], enTot = s.enVol * s.enFreq, enC = s.men ? 0 : enTot;
   const kcal = 3.4 * dexDel + 4 * aaDel + 9 * lipG + enC / 100 * f[0];
   const proG = aaDel + enC / 100 * f[1];
