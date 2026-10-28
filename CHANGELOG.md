@@ -18,6 +18,8 @@ limit or stock moves, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
 After #182 was merged into `main`, Pp: "ไม่ต้อง reject 6+2 ให้ทำได้". #182 read her "ต้องให้ทั้งสองตัว
 เป็นทุก ชม ที่เท่ากัน" as "both feeds equally often", which refused 6 + 2 though it makes 8 a day, a
 q3h schedule like 4 + 4. What 3 + 4 lacks is an interval: 7 feeds do not divide the day into whole hours.
+Asked (after Vera) whether that means any regular schedule or only totals of 8 or 6, Pp chose any regular
+schedule: totals 8, 6, 4, 3 or 2 a day, any whole split, 7 + 1 and 5 + 3 included.
 
 ### What changed
 

@@ -196,8 +196,10 @@ divided by their total is whole hours. 3 + 4 = 7 has no interval to give them on
 number (4.8 + 3.2 is refused), and beside the other each feed's hint shows its share of the one schedule
 ("6 of 8 feeds · q3h"), not an interval of its own. One feed given alone is not checked.
 Source: Pp, 2026-10-28: "ถ้าอันนึงกด 3 feed อันนึงกด 4 feed จะทำไม่ได้", then "ไม่ต้อง reject 6+2 ให้ทำได้"
-(between the two the rule was that both feeds be given equally often, `CR-EN-FEEDS-EQUAL`). Whole
-feeds and the shared hint: Vera on that change. Not a clinical threshold.
+(between the two the rule was that both feeds be given equally often, `CR-EN-FEEDS-EQUAL`). Asked
+whether that means any regular schedule (totals 8, 6, 4, 3, 2, any whole split, 7 + 1 and 5 + 3
+included) or only totals of 8 or 6, Pp chose any regular schedule (2026-10-28). Whole feeds and the
+shared hint: Vera on that change. Not a clinical threshold.
 
 ```rule
 {"rule": "CR-EN-FEEDS-SCHEDULE", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 1951, "has": "const feedsIrregular = twoFeeds && (!Number.isInteger(enFreq) || !Number.isInteger(enFreq2)"}]}
