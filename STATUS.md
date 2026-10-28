@@ -194,11 +194,16 @@
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
-- ⏳ **A bag whose stocks exceed its volume cannot be ordered (Q2 of the clinical-rules skill): open, waiting
-  for Pp's merge.** Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged. Before its release,
-  doctors hear that a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason),
-  and that a saved order with a negative WFI no longer prints until it is fixed and saved again.
-  `CHANGELOG.md` 2026-10-28.
+- ⏳ **A bag whose stocks exceed its volume cannot be ordered (Q2 of the clinical-rules skill), and the
+  backend and Center Point refuse a stopped order: open, waiting for Pp's merge.** Frontend and backend,
+  `CONSTANTS_VERSION` unchanged. **Release the frontend first, then `clasp deploy`:** the backend refuses a
+  submitted row that comes with no stop list, so deployed first it would refuse every Submit
+  (`REFERENCE.md` § Backend), and to roll the frontend back past it, roll the backend back first.
+  Once it is live, a tab opened before the release is refused once with
+  "แอปในแท็บนี้เป็นรุ่นเก่า รีเฟรชหน้าแล้วบันทึกใหม่"; a draft still saves. Before the release, doctors hear that
+  a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason), and that a saved
+  order with a negative WFI no longer prints until it is fixed and saved again. Center Point's half is on
+  NICU-Center-Point branch `claude/tpn-overfull-stop-1028`. `CHANGELOG.md` 2026-10-28 and 2026-10-28 (2).
 - ⏳ **PR #173, Pp's clinical-rules skill (NF-04): merged into `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
   one harness and docs, and neither host serves `.claude/` or `test/`. `CONSTANTS_VERSION` unchanged.

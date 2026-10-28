@@ -21,7 +21,7 @@ const P = (sid, extra) => Object.assign({
   statusDate: '', multiplesCount: 0,
 }, extra || {});
 const E = (extra) => Object.assign({ dol: 16, weight: 950, fluid: 150, gir: 6, pro: 3, kcal: 90,
-  na: 3, k: 2, ca: 60, p: 50, enVolPerKg: 20, route: 'PN', calcInput: { a: 1 } }, extra || {});
+  na: 3, k: 2, ca: 60, p: 50, enVolPerKg: 20, route: 'PN', calcInput: { a: 1, stops: [] } }, extra || {});
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const LOGIN_FAILED = 'email หรือรหัสผ่านไม่ถูกต้อง';
 const LOCKED = 'ลองใหม่ในอีก 15 นาที — login ผิดพลาดหลายครั้ง';

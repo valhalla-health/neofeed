@@ -37,7 +37,8 @@ clinical judgement. Everything else is engineering sequencing.
       `CHANGELOG.md` 2026-10-27). In order of reach:
       - **Center Point must sync `center-point/tpn-document.mjs` before this release.** It gained two
         feed labels (Enfalac Premature and Pre Nan at 24 kcal/oz) and its digest was re-pinned. Until CP's
-        copy has them, a CP order with either feed fails CP's packet check. A CP-repo PR.
+        copy has them, a CP order with either feed fails CP's packet check. A CP-repo PR. Synced, with
+        PR #175's `tpnBagOverfull`, on NICU-Center-Point branch `claude/tpn-overfull-stop-1028` (2026-10-28).
       - **Photograph the ZnSO₄ stock label before this release** (Vera, 2026-10-27). The printed ZnSO₄ mL
         and the WFI now rest on pharmacy's written "1 mg/mL" of elemental Zn; a label reading 1 mg/mL of
         zinc sulfate salt would make the printed mL about 4.4× too small. **Pp's to do**, with the notice

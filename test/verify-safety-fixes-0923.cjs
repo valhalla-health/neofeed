@@ -487,7 +487,8 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
     vm.createContext(sandbox);
     vm.runInContext(fs.readFileSync(DIR + 'gas-backend.gs', 'utf8'), sandbox);
 
-    const base = { dol: 5, weight: 1000, fluid: 150, gir: 8, pro: 3, kcal: 110, na: 3, k: 2, ca: 80, p: 50, enVolPerKg: 0 };
+    // calcInput.stops: what the app sends with every save since 2026-10-28 (none hold here).
+    const base = { dol: 5, weight: 1000, fluid: 150, gir: 8, pro: 3, kcal: 110, na: 3, k: 2, ca: 80, p: 50, enVolPerKg: 0, calcInput: { stops: [] } };
     const tryEntry = (over) => {
       try { sandbox._validateLogEntry({ ...base, ...over }); return null; }
       catch (e) { return e.message; }

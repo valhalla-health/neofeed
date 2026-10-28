@@ -1751,6 +1751,21 @@ change with a reason naming "Bag cannot be compounded" has no order form, and Pr
 the same reason. § 3: Center Point's บันทึก is disabled and nothing reaches Center Point. 20 checks; 9 fail
 on `326bcd9`.
 
+## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness
+
+Pp asked for the two gaps Vera named on PR #175 to be closed, and chose how the backend learns of a stop:
+the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (2)).
+**`verify-backend-stops-1028.cjs`** (real `gas-backend.gs` in `gas-vm-sandbox.cjs`): a submitted row with
+`calcInput.stops` `[]` saves; one with a stop, or with no list (a tab opened before the app sent one), is
+refused, and only rule IDs are echoed back; a draft is kept either way; an edit, a revision and
+`publishDailyLog` follow the same rule. 25 checks; 18 fail on `07f3403`. `verify-wfi-stop-1028.cjs` gains
+the payload (S8's Submit sends `stops []`, the over-full draft `["CR-BAG-OVERFULL"]`) and § 4,
+`center-point/tpn-document.mjs`'s `tpnBagOverfull` and the red line `renderTpn` draws, and § 5, a submitted
+row with no route, which printed "Route: —" until `printable` checked `routeMissing`: 33 checks.
+`verify-clinical-rules.cjs` checks that `calculator.jsx`'s `submitStops` names every `stop` rule, and only
+those, and each blocked stop case keeps a draft whose `calcInput.stops` names its rule (623 checks). Eleven backend harnesses whose fixtures sent submitted rows with no list, the contract before this
+change, now send `stops: []`.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

@@ -2085,6 +2085,31 @@ function _validateLogEntry(entry) {
     _checkRange(ci.tpnWtG, 200, 8000, "TPN calc. weight (g)");
     if (Number(ci.tpnWtOverrideG) !== 0) _checkRange(ci.tpnWtOverrideG, 200, 8000, "TPN calc. weight (g)");
   }
+  // The stops (Pp, 2026-10-28). A submitted row is refused when a stop holds,
+  // or when it comes with no list: see _stopRefusal. A draft is kept either way.
+  if (entry.status !== "draft") {
+    var refusal = _stopRefusal(ci, "แอปในแท็บนี้เป็นรุ่นเก่า รีเฟรชหน้าแล้วบันทึกใหม่");
+    if (refusal) throw new Error(refusal);
+  }
+}
+
+// The backend has no copy of the bag arithmetic, so the app sends the stops
+// that hold, by the neofeed-clinical-rules skill's IDs, as calcInput.stops on
+// every save (calculator.jsx submitStops). Returns "" when the list is there
+// and empty, `staleMsg` when there is no list (a tab opened before the app
+// sent one, still running the rules of its day), or the refusal naming the
+// stops. Only rule IDs are echoed back. A hand-made POST can still send an
+// empty list; no print path trusts it, each recomputes every stop from
+// calcInput (calculator.jsx printable). Unlike the provenance columns, which let a
+// cached bundle's save land, a submitted row from such a bundle is refused
+// (Pp, 2026-10-28), so this check deploys after the frontend that sends the
+// list (REFERENCE.md § Backend). Its draft still lands.
+function _stopRefusal(ci, staleMsg) {
+  var stops = ci && typeof ci === "object" ? ci.stops : undefined;
+  if (!Array.isArray(stops)) return staleMsg;
+  if (!stops.length) return "";
+  var ids = stops.filter(function (s) { return typeof s === "string" && /^CR-[A-Z0-9-]{1,40}$/.test(s); });
+  return "ใบสั่งนี้ติด stop" + (ids.length ? " (" + ids.join(", ") + ")" : "") + " ส่งไม่ได้ เก็บเป็น draft ได้";
 }
 
 // ── Growth measurement arrays: weights / lengths / hcs / bedHistory ─────────
@@ -2545,6 +2570,11 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
         lastModifiedBy: String(cur[27] || ""),
       } };
     }
+    // Submit signs the row as stored, so it reads the stops saved with it
+    // (_stopRefusal). A draft from before the list existed is opened and
+    // saved again first.
+    var refusal = _stopRefusal(_parseJson(cur[24], null), "บันทึกนี้มาจากแอปรุ่นเก่า เปิดรายการแล้วบันทึกใหม่ก่อนส่ง");
+    if (refusal) return { error: refusal };
     var publishedAt = new Date().toISOString();
     _ensureLogWidth(sheet, 38);
     _assertRowStillHolds(sheet, hit.row, 26, entryId);

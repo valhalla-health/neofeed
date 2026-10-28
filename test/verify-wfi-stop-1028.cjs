@@ -10,6 +10,11 @@
 //       (verify-backend-stops-1028.cjs)
 //   §2  a row saved before the change, with a reason naming the alert, neither prints nor copies
 //   §3  Center Point's save refuses it too
+//   §4  the Center Point packet module (center-point/tpn-document.mjs, which CP keeps an identical
+//       copy of) names an over-full packet, tpnBagOverfull, and renderTpn says so on the sheet. CP
+//       uses it to refuse to save, publish or print one, a revision confirmed before then included
+//   §5  a submitted row with no route does not print either (Vera on PR #175): the backend reads
+//       the app's stop list, so every print path must refuse each stop on its own, this one too
 // The orders are verify-calc-sum.cjs's S8 (components fill the bag exactly, WFI 0), with its
 // 1.3 mL of Ca gluconate swapped for 1.3 mL of Glycophos so no Ca-without-P alert asks for a
 // reason, and the same order with KCl 1.1 instead of 1, which adds 0.1 mL of stock. Mounts the real <Calculator> in jsdom: the
@@ -188,6 +193,48 @@ function fill(order, { io = true } = {}) {
     eq('…and nothing reaches Center Point', saved.length, 0);
     setField('KCl', 1);
     eq('back to WFI 0: บันทึก is enabled', buttonNamed('บันทึก')?.disabled, false);
+  });
+
+  await section('§4 the Center Point packet names an over-full bag', async () => {
+    const { TPN_FIELDS, validateTpn, renderTpn, tpnBagOverfull } =
+      await import(require('url').pathToFileURL(DIR + 'center-point/tpn-document.mjs').href);
+    const values = Object.fromEntries(TPN_FIELDS.map(f => [f[0], '1']));
+    Object.assign(values, { components: '130.6', prepared: '130.5', wfi: '-0.1' });
+    const over = { schema: 'neofeed-tpn-v2', templateVersion: 'cp-tpn-2', appVersion: '2026-test', constantsVersion: '2026-test',
+      orderDate: '2026-10-28', effectiveFrom: '2026-10-28T01:00:00.000Z', effectiveTo: '2026-10-29T01:00:00.000Z',
+      dosingWeightG: 2000, currentWeightG: 2000, usingBirthWeight: false, route: 'central', dol: 10, values,
+      preparations: { ca: 'none', phosphate: 'none', iron: 'none', enteral: 'BM_20' }, criticalOverride: null };
+    const withWfi = (wfi) => ({ ...over, values: { ...values, wfi } });
+    eq('tpnBagOverfull is exported', typeof tpnBagOverfull, 'function');
+    eq('WFI −0.1 → over-full', tpnBagOverfull(over), true);
+    eq('WFI 0, −0, 2.1 and — → not over-full', ['0', '-0', '2.1', '—'].map(w => tpnBagOverfull(withWfi(w))), [false, false, false, false]);
+    eq('the packet format still reads −0.1, so a revision saved before stays viewable', validateTpn(over).values.wfi, '-0.1');
+    const sheet = document.createElement('div');
+    renderTpn(sheet, over);
+    const banner = text(sheet.querySelector('.tpn-overfull'));
+    ok('renderTpn: a red line naming 130.6 mL in a 130.5 mL bag', /130\.6 mL/.test(banner) && /130\.5 mL/.test(banner) && /พิมพ์ไม่ได้/.test(banner), banner);
+    renderTpn(sheet, withWfi('0'));
+    ok('…and none at WFI 0', !sheet.querySelector('.tpn-overfull'));
+  });
+
+  await section('§5 a submitted row with no route is held like every other stop', async () => {
+    // What a hand-made POST could store: a bag with route null and an empty stop list. D7.5
+    // and amino acid 1.5, so no critical alert that asks a reason (a bag with no route is graded
+    // as peripheral) holds it for another reason. Before Vera's finding it printed "Route: —".
+    const ci = { curWtG: 2000, fluidTargetPerKg: 120, otherIV_mL: 0, drug_mL: 0, ioInput: 0, ioOutput: 0, drainContent: 0,
+      route: null, totalTPN_mL: 130.45, deadVol_mL: 0, dexPct: 7.5, aaPerKg: 1.5, lipidPerKg: 0, naCl: 2, kCl: 1,
+      glycophosP: 0.65, heparinUmL: 0.6, enType: 'BM_20', enVol: 0, enFreq: 0, constantsVersion: D.CONSTANTS_VERSION, stops: [] };
+    const entry = { entryId: 'e-noroute', lastModified: 'lm-noroute', ts: '2026-10-28', dol: 10, weight: 2000, status: 'submitted',
+      ioInput: 0, ioOutput: 0, drainContent: 0, enVolPerKg: 0, calcInput: ci };
+    mountNew({ editEntry: entry });
+    ok('the row reopens with no route', /ยังไม่ได้เลือก route ของ TPN/.test(text(container)), text(container.querySelector('.calc-bottom')).slice(0, 120));
+    ok('no order form', !printForm());
+    const p = await tryPrint();
+    eq('Print order does not print', p.printed, 0);
+    ok('…and says why', p.toasts.some(t => /route/.test(t) && /ก่อนพิมพ์/.test(t)), p.toasts);
+    copied = null;
+    await clickAsync(buttonNamed('Copy Order to Clipboard'));
+    eq('Copy is refused', copied, null);
   });
 
   act(() => { root.unmount(); });

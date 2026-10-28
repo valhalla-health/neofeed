@@ -155,6 +155,10 @@ throws('GA with more than one decimal place is rejected',
   () => sandbox.registerPatient({ ...patient, sessionId: 'X-6', ga: 27.25 }));
 
 // ── 3. _buildLogRow (shared by create + update) rejects implausible entries ─
+// What the app sends with every save since 2026-10-28: the stops that hold,
+// none here. A submitted row without the list is refused
+// (verify-backend-stops-1028.cjs).
+const CI = { stops: [] };
 console.log('\n── _buildLogRow() plausibility guard ──');
 throws('fluid=99999 mL/kg/d rejected',
   () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300, fluid: 99999 }, 'nurse@x'));
@@ -169,16 +173,16 @@ throws('missing weight is rejected',
 throws('a non-numeric nutrition value is rejected, not silently changed to zero',
   () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300, fluid: 'not-a-number' }, 'nurse@x'));
 doesNotThrow('a plausible daily entry still builds',
-  () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300, fluid: 150, gir: 8, na: 3 }, 'nurse@x'));
+  () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300, fluid: 150, gir: 8, na: 3, calcInput: CI }, 'nurse@x'));
 doesNotThrow('optional supplement fields left empty do not block the entry',
-  () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300 }, 'nurse@x'));
+  () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300, calcInput: CI }, 'nurse@x'));
 
 // ── 3b. the dosing weight in calcInput (Pp, 2026-10-08) ────────────────────
 // The outside review's probe: measured 900 g, TPN calc. weight 8,500 g. Only
 // entry.weight (the measured one) was range-checked, so it was stored.
 console.log('\n── _buildLogRow() dosing weight in calcInput ──');
 {
-  const row = (ci) => sandbox._buildLogRow('FO-1', { dol: 5, weight: 900, calcInput: ci }, 'doc@x');
+  const row = (ci) => sandbox._buildLogRow('FO-1', { dol: 5, weight: 900, calcInput: { ...CI, ...ci } }, 'doc@x');
   throws('the review probe: tpnWtG 8500 with an 8500 override', () => row({ curWtG: 900, tpnWtOverrideG: 8500, tpnWtG: 8500 }));
   throws('tpnWtG 8001 alone', () => row({ curWtG: 900, tpnWtG: 8001 }));
   throws('tpnWtG 199', () => row({ curWtG: 900, tpnWtG: 199 }));
@@ -192,7 +196,7 @@ console.log('\n── _buildLogRow() dosing weight in calcInput ──');
   doesNotThrow('1500 over 900 measured: the calculator asks a reason, the server does not', () => row({ curWtG: 900, tpnWtOverrideG: 1500, tpnWtG: 1500 }));
   doesNotThrow('no override (0) with the automatic weight', () => row({ curWtG: 900, tpnWtOverrideG: 0, tpnWtG: 900 }));
   doesNotThrow('a row from before UP-C2: no tpnWtG at all', () => row({ curWtG: 900 }));
-  doesNotThrow('no calcInput at all', () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 900 }, 'doc@x'));
+  doesNotThrow('no calcInput at all, on a draft', () => sandbox._buildLogRow('FO-1', { dol: 5, weight: 900, status: 'draft' }, 'doc@x'));
 }
 
 // ── 4. logDailyNutrition end-to-end (the actual doPost call site) ──────────
@@ -204,7 +208,7 @@ eq('nothing appended to Daily_Log', sheet.appended.length, 0);
 
 sheet = makeSheet(['ts','sessionId','dol','weight','fluid'], [], 31);
 doesNotThrow('plausible entry logs normally',
-  () => sandbox.logDailyNutrition('FO-1', { dol: 5, weight: 1300, fluid: 150 }, 'nurse@x'));
+  () => sandbox.logDailyNutrition('FO-1', { dol: 5, weight: 1300, fluid: 150, calcInput: CI }, 'nurse@x'));
 eq('plausible entry appended once', sheet.appended.length, 1);
 
 // ── 5. updateWeights rejects an implausible growth-chart point ─────────────
@@ -247,7 +251,7 @@ console.log('\n── logDailyNutrition() concurrency lock ──');
   sandbox.LockService = { getScriptLock: () => ({ waitLock() { waited++; }, releaseLock() { released++; } }) };
 
   sheet = makeSheet(['ts','sessionId','dol','weight','fluid'], [], 31);
-  sandbox.logDailyNutrition('FO-1', { dol: 5, weight: 1300, fluid: 150 }, 'nurse@x');
+  sandbox.logDailyNutrition('FO-1', { dol: 5, weight: 1300, fluid: 150, calcInput: CI }, 'nurse@x');
   eq('happy path takes the script lock once', waited, 1);
   eq('happy path releases the script lock', released, 1);
 
@@ -276,7 +280,7 @@ console.log('\n── _buildLogRow() night-shift date fallback ──');
   }
   sandbox.Date = FrozenDate;
   // 2026-08-08T19:00:00Z = 2026-08-09 02:00 ICT.
-  const row = sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300 }, 'nurse@x');
+  const row = sandbox._buildLogRow('FO-1', { dol: 5, weight: 1300, calcInput: CI }, 'nurse@x');
   eq('02:00 ICT falls back to the ward-local day, not the UTC day', row[0], '2026-08-09');
   sandbox.Date = RealDate;
 }

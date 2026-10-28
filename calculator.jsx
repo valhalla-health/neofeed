@@ -1864,6 +1864,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const tpnWtDiff = tpnWtManual && autoWtG > 0 ? Math.abs(wtG - autoWtG) / autoWtG : 0;
   // Float noise stripped as for K⁺: 900 → 1080 g is 20 %, not above it.
   const tpnWtFar = !tpnWtOutOfRange && Number(tpnWtDiff.toPrecision(12)) > D.TPN_WT_MANUAL_MAX_DIFF;
+  // The stops that hold, by the neofeed-clinical-rules skill's IDs, sent with
+  // every save as calcInput.stops. gas-backend.gs has no copy of the bag
+  // arithmetic, so it reads this list: it refuses a submitted row that carries
+  // a stop, and a submitted row with no list, from a tab opened before the app
+  // sent one (Pp, 2026-10-28). A new stop goes in here too, or the backend
+  // never hears of it (verify-clinical-rules.cjs checks the IDs).
+  const submitStops = [
+    [tpnWtOutOfRange, "CR-WT-RANGE"], [routeMissing, "CR-ROUTE-REQUIRED"],
+    [zeroVolumeBag, "CR-BAG-NO-VOLUME"], [kOverMax, "CR-K-BAG-MAX"],
+    [bagOverBottle, "CR-BOTTLE-MAX"], [stockAtZeroMl, "CR-STOCK-ZERO"],
+    [bagOverfull, "CR-BAG-OVERFULL"],
+  ].filter(([holds]) => holds).map(([, id]) => id);
 
   const alerts = [];
   if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
@@ -1996,13 +2008,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !tpnWtOutOfRange
+  // Every stop on its own, routeMissing too: the backend trusts the app's stop
+  // list (submitStops), so a row stored past it must still not print (Vera, 2026-10-28).
+  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
   const printBlockMessage = (before) =>
     pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`
     : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
+    : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
@@ -2247,7 +2262,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // release that moves a printed figure holds this row's reprint (calcMoved).
       // savedByLabel: the saver's "Name (email)", so the form can name whom
       // to call (savedByOf). Not an input — normalizeCalcInput ignores it.
+      // stops: the stops that hold (submitStops), read by gas-backend.gs.
+      // Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
+        stops: submitStops,
         ...(userLabel ? { savedByLabel: userLabel } : {}),
         ...(override ? { critOverride: override } : {}),
         // Which required boxes were blank — they reopen blank (seededZeros).
@@ -3594,7 +3612,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (

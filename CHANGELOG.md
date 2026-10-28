@@ -7,6 +7,55 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (2) — the backend and Center Point refuse a stopped order
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
+`center-point/tpn-document.mjs`, `.claude/skills/neofeed-clinical-rules/SKILL.md`,
+`test/verify-backend-stops-1028.cjs` (new), `test/verify-wfi-stop-1028.cjs`, `test/verify-clinical-rules.cjs`,
+eleven backend harnesses' fixtures, `test/README.md`, `REFERENCE.md`, `STATUS.md`. Center Point's half is
+NICU-Center-Point branch `claude/tpn-overfull-stop-1028`.
+
+### Why
+
+Vera's review of PR #175 named two gaps every stop shares: the backend checks none of the stops, and a
+Center Point revision confirmed before the change prints from its stored packet. Pp asked for both to be
+closed ("แก้ไข backemd และ revision ของ cp") and chose how the backend learns of a stop: the app sends its own
+check with each save ("แอปส่งผลเช็กไปด้วย"), not a second copy of the bag arithmetic in GAS.
+
+### What changed
+
+- `calculator.jsx` `submitStops`: the stops that hold, by the skill's rule IDs, sent with every save as
+  `calcInput.stops`. `normalizeCalcInput` ignores it, so a reopened row is unchanged.
+- `gas-backend.gs` `_stopRefusal`: a submitted Daily_Log row (a create, an edit or a revision) that carries a
+  stop is refused, and so is one with no list, from a tab opened before the app sent one: "แอปในแท็บนี้เป็นรุ่นเก่า
+  รีเฟรชหน้าแล้วบันทึกใหม่". A draft is kept either way. `publishDailyLog`, dormant while `ENABLE_PUBLISH_GATE`
+  is off, reads the list stored with the row. The backend trusts the list: a hand-made POST can send an
+  empty one, but every print path recomputes the stops from `calcInput` and refuses it.
+- `printable` refuses `routeMissing` too (Vera on this PR). It was the one stop a stored row could print
+  past: a submitted bag with `route: null` printed "Route: —". The print-block message names it.
+- `center-point/tpn-document.mjs` `tpnBagOverfull` (WFI below 0), and a red line on the sheet `renderTpn`
+  draws. CP keeps an identical copy and uses it to refuse to save, confirm or print an over-full packet, a
+  revision confirmed before then included. The format still reads one, so history stays viewable.
+- **Deploy order:** release the frontend first, then `clasp deploy`. Deployed first, the backend would
+  refuse every Submit from today's frontend, which sends no list (`REFERENCE.md` § Backend).
+
+`CONSTANTS_VERSION` unchanged: no printed figure moves.
+
+### Tests
+
+- `verify-backend-stops-1028.cjs` (new, 25 checks, real `gas-backend.gs` in `gas-vm-sandbox.cjs`): 18 fail
+  on `07f3403`.
+- `verify-wfi-stop-1028.cjs`, 20 → 33 checks: S8's Submit sends `stops []`, the over-full draft
+  `["CR-BAG-OVERFULL"]`; § 4 is the packet module; § 5 a submitted row with no route, which printed before.
+- `verify-clinical-rules.cjs` (623 checks): `submitStops` names every `stop` rule and only those, and each
+  blocked case of a stop rule keeps a draft whose `calcInput.stops` names that rule. Swapping two IDs in
+  `submitStops` fails 3.
+- Eleven backend harnesses sent submitted rows with no stop list, the contract before this change, and now
+  send `stops: []`: verify-backend-batch-0924, verify-input-validation, verify-log-create-guard,
+  verify-nursing-backend, verify-provenance-stamp, verify-publish-lock, verify-review-0911,
+  verify-review-0917-backend-security, -sync and -writes, verify-safety-fixes-0923.
+  verify-input-validation's "no calcInput at all" check is now made on a draft.
+
 ## Session 2026-10-28 — a bag whose stocks exceed its volume cannot be ordered (Q2)
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,

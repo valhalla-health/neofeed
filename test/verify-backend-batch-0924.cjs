@@ -27,7 +27,7 @@ const P = (sid, extra) => Object.assign({
 }, extra || {});
 const E = (extra) => Object.assign({ dol: 5, weight: 1250, fluid: 150, gir: 6, pro: 3, kcal: 90,
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20, route: 'TPN central', status: 'submitted',
-  calcInput: { wtG: 1250 } }, extra || {});
+  calcInput: { wtG: 1250, stops: [] } }, extra || {});
 
 function ward(opts) {
   const g = boot(opts);
