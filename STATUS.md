@@ -206,11 +206,12 @@ PR #182, the next PR on the repo.
 - ⏳ **PR #182, Step 2's two feeds: merged into `main` on Pp's instruction ("Merge and deploy",
   2026-10-28), and released by the `main → release` PR opened in the same session**, with #173 riding
   along (nothing of #173 is served). Each feed is a milk, then its kcal/oz, a volume and feeds a day;
-  two feeds are summed into every figure, must be given at the same interval and at most 8 a day
-  together. Frontend only, no `clasp` step. **`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's
+  two feeds are summed into every figure, and together must fill a regular schedule (8 = q3h, 6 = q4h)
+  of at most 8 a day; 6 + 2 is allowed (Pp, after the merge into `main`; follow-up PR from the same
+  branch, released with it; `CHANGELOG.md` 2026-10-28 (4)). Frontend only, no `clasp` step. **`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's
   decision**: after a revert, or on a ward tab loaded before the release, a two-feed order shows and
   prints feed 1 only, unheld. No second clinician has checked the two-feed figures. Open for Pp: Q18
-  (one feed above 8 a day), 6 + 2 refused, NF-17. Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28.
+  (one feed above 8 a day), NF-17. Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28.
 - ⏳ **PR #181, Print ทั้งหมด / Print ที่เลือก with a tick per infant on a ward's Print order list, and no
   Calculator button there: merged into `main` on Pp's instruction ("Merge and deploy", 2026-10-28), and
   released by the open `main → release` PR #184, which takes it in with #182.** Frontend only (`app.jsx`,

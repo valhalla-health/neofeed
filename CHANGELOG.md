@@ -7,6 +7,45 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (4) — Two feeds: 6 + 2 is a schedule too
+
+`calculator.jsx`, the clinical-rules skill (`CR-EN-FEEDS-EQUAL` becomes `CR-EN-FEEDS-SCHEDULE`;
+`CR-EN-FEEDS-MAX`'s refusal case), `data.js` (a comment), `app-walkthrough.md`, `STATUS.md`. No figure,
+limit or stock moves, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+After #182 was merged into `main`, Pp: "ไม่ต้อง reject 6+2 ให้ทำได้". #182 read her "ต้องให้ทั้งสองตัว
+เป็นทุก ชม ที่เท่ากัน" as "both feeds equally often", which refused 6 + 2 though it makes 8 a day, a
+q3h schedule like 4 + 4. What 3 + 4 lacks is an interval: 7 feeds do not divide the day into whole hours.
+Asked (after Vera) whether that means any regular schedule or only totals of 8 or 6, Pp chose any regular
+schedule: totals 8, 6, 4, 3 or 2 a day, any whole split, 7 + 1 and 5 + 3 included.
+
+### What changed
+
+- The second two-feed stop is now "together they fill a regular schedule": 24 h ÷ (Feed 1 + Feed 2)
+  must be whole hours. 6 + 2, 5 + 3, 4 + 4 (q3h), 4 + 2, 3 + 3 (q4h) save; 3 + 4 and 3 + 2 are refused.
+  With the 8-a-day stop the totals left are 8, 6, 4, 3 and 2. The alert is "Two feeds off a regular
+  schedule", and the Step 2 line reads "Feed 1 + 2 = 7 feeds/d — ไม่ลงตัวกับทุก ชม. เท่ากัน (8, 6, 4, 3
+  หรือ 2 มื้อ/วัน) บันทึกไม่ได้".
+- Vera on this change: each feed's feeds a day must be whole (4.8 + 3.2 and 7.5 + 0.5 add to 8 but no
+  ward can give them), and beside the other each feed's hint now reads its share of the one schedule,
+  "6 of 8 feeds · q3h", where 6 + 2 used to read q4h beside q12h, which meet at 0 h and 12 h. The copied
+  order's Total line names the shared interval.
+- Vera's second review of it: the quick calc copies without the Print gate, so 3 + 4 copied as "7 feeds/d
+  q3.4h". A refused two-feed day now copies with no interval and a "!! … cannot be ordered" line, as an
+  over-maximum K⁺ does. Whole-feed faults have their own words ("จำนวนมื้อต้องเป็นจำนวนเต็ม"; the alert
+  said "24 h ÷ 8 is not whole hours" for 4.8 + 3.2), and the Thai stop line lists every allowed total,
+  8, 6, 4, 3 or 2. `verify-quick-calc.cjs` § 4b and the 4.8 + 3.2 case fail on the code before.
+- `CR-EN-FEEDS-MAX`'s refusal case is 6 + 6 = 12 (q2h): the first total over 8 that is still a regular
+  schedule, so it is refused by that stop alone.
+
+### Checks
+
+- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-SCHEDULE` with seven cases; 6 + 2 and 4 + 2 fail on the code
+  before (it refused them), 3 + 4 and 3 + 2 fail with the check turned off, and 4.8 + 3.2 and 7.5 + 0.5
+  fail without the whole-feeds check.
+- **No second clinician has reviewed this change.**
 ## Session 2026-10-28 (3) — no Copy Order on a patient's order; the quick calc keeps its Copy
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, eleven harnesses,
