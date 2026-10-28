@@ -647,7 +647,10 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    Active on a bed another infant now holds is refused there as in Edit. A
    status reads through **`D.patientStatus`** everywhere (blank = Active, as
    `D.isOnUnit` says), so the card, the table, the archive and the Dashboard
-   strip cannot disagree. A change to Expired, there or in Edit session, asks
+   strip cannot disagree. `gas-backend.gs` reads it the same way since
+   2026-10-28 (`_readStatus`, `_onUnitStatus`: the sync window, the bed guard,
+   the merge), and refuses to store a status that is not one of the four, so
+   Edit session seeds Status blank for one and asks for it. A change to Expired, there or in Edit session, asks
    "are you sure?" first, naming the infant and the bed (`confirmStatusChange`).
    `test/verify-registry-chip-taps-1028.cjs` pins it. On a phone, opening the
    archive scrolls it to the top of the list, so its chips and Edit are not

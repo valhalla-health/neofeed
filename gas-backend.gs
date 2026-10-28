@@ -1565,8 +1565,7 @@ function doPost(e) {
 // admin archive (includeArchived), where a readmission can still be found.
 var ARCHIVE_SYNC_DAYS = 30;
 function _patientInSyncWindow(statusValue, statusDateValue, todayKey) {
-  var status = String(statusValue || "").trim();
-  if (!status || status === "Active") return true;
+  if (_onUnitStatus(statusValue)) return true;
   if (!statusDateValue) return false;
   var changed = _wardDateKey(statusDateValue instanceof Date ? statusDateValue
     : String(statusDateValue).slice(0, 10));
@@ -2029,15 +2028,45 @@ function _checkSex(incoming, storedOrNull) {
 // (a direct POST, or "Active" with a stray leading space) used to slip past the
 // exact-string bed check and stay in the sync window forever while being
 // invisible to every client "active" list — a permanent ghost (2026-09-24).
-// Canonicalise on write: a value that differs only by case/whitespace is
-// corrected, and anything truly unrecognised falls back to Active so the
-// patient surfaces rather than disappearing.
+//
+// How a status reads, on every server path: the same rule as patientStatus()
+// in data.js (Pp, 2026-10-28: "แก้ backend ให้อ่าน status แบบเดียวกับ client").
+// Blank is Active. One of the four, whatever its case or surrounding spaces,
+// is that status. Anything else stays as typed and is not on the unit. Until
+// then the sync window trimmed but matched case, the bed guard compared the
+// raw cell, and the write turned an unknown word into Active, so a row typed
+// "active" reached no ward device, "Active " held no bed, and "Expird" came
+// back onto every ward list at its next save.
 var VALID_STATUS = { Active: 1, Discharged: 1, Transferred: 1, Expired: 1 };
-function _normStatus(v) {
+// Own keys only: VALID_STATUS["toString"] is Object.prototype's, and truthy,
+// so a status of "toString" or "constructor" passed as one of the four and was
+// stored (Vera, 2026-10-28).
+function _isValidStatus(s) {
+  return Object.prototype.hasOwnProperty.call(VALID_STATUS, s);
+}
+function _readStatus(v) {
   var s = String(v == null ? "" : v).trim();
-  if (VALID_STATUS[s]) return s;
-  for (var k in VALID_STATUS) if (k.toLowerCase() === s.toLowerCase()) return k;
-  return "Active";
+  if (!s) return "Active";
+  if (_isValidStatus(s)) return s;
+  for (var k in VALID_STATUS) if (_isValidStatus(k) && k.toLowerCase() === s.toLowerCase()) return k;
+  return s;
+}
+// On the unit: holds a bed, is synced to every ward device. isOnUnit() in data.js.
+function _onUnitStatus(v) {
+  return _readStatus(v) === "Active";
+}
+// The status a save writes: canonical, or refused. An unknown word used to be
+// written as Active (2026-09-24, so the record surfaced rather than vanished);
+// that revived a mistyped "Expird" as an infant holding a bed. Refused now, a
+// direct POST cannot store one, and Edit session asks for a status when the
+// stored one is not of the four (registry.jsx), so the ward can always save.
+function _normStatus(v) {
+  var s = _readStatus(v);
+  if (!_isValidStatus(s)) {
+    throw new Error("Status ต้องเป็น Active, Discharged, Transferred หรือ Expired — " +
+      "เลือก status ใน Edit session ก่อนบันทึก");
+  }
+  return s;
 }
 
 function _validateLogEntry(entry) {
@@ -3160,15 +3189,21 @@ function sheetHealthReport() {
   var pat = patSheet.getLastRow() > 0 ? patSheet.getDataRange().getValues() : [[]];
   var r = { rows: Math.max(0, pat.length - 1), active: 0, archivedNoStatusDate: 0,
     archivedUnparseableStatusDate: 0, archivedWithin30d: 0, archivedOlder: 0, duplicateSessionIds: 0,
-    activeWithNoEntryIn30d: 0, measurementArraysFailingValidation: 0, sexNotBoysOrGirls: 0 };
+    activeWithNoEntryIn30d: 0, measurementArraysFailingValidation: 0, sexNotBoysOrGirls: 0,
+    statusNotCanonical: 0 };
   var seen = {}, activeIds = {};
   for (var i = 1; i < pat.length; i++) {
     var sid = String(pat[i][0] || "");
     if (!sid) continue;
     if (seen[sid]) r.duplicateSessionIds++;
     seen[sid] = true;
-    var st = String(pat[i][9] || "").trim();
-    if (!st || st === "Active") { r.active++; activeIds[sid] = true; }
+    // A status cell that is not blank and not exactly one of the four: "active",
+    // "Active ", "Expird". Since 2026-10-28 the first two are read as Active
+    // (synced, holding a bed) and the last refuses every save until a status
+    // is picked; worth finding before the deploy, and after.
+    var rawStatus = String(pat[i][9] == null ? "" : pat[i][9]);
+    if (rawStatus !== "" && !_isValidStatus(rawStatus)) r.statusNotCanonical++;
+    if (_onUnitStatus(pat[i][9])) { r.active++; activeIds[sid] = true; }
     else if (!pat[i][16]) r.archivedNoStatusDate++;
     else if (!_wardDateKey(pat[i][16] instanceof Date ? pat[i][16] : String(pat[i][16]).slice(0, 10))) r.archivedUnparseableStatusDate++;
     else if (_patientInSyncWindow(pat[i][9], pat[i][16], today)) r.archivedWithin30d++;
@@ -3284,7 +3319,7 @@ function _possibleDuplicate(data, p) {
     if (Number(r[3]) !== bw || _fmtDate(r[6]) !== dob) continue;
     var bed = _normBed(r[10]);
     return "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว: " +
-      String(r[1] || r[2] || "—") + " (" + String(r[9] || "Active") + " " +
+      String(r[1] || r[2] || "—") + " (" + _readStatus(r[9]) + " " +
       (bed ? "เตียง " + bed : "ยังไม่ระบุเตียง") + " ID " + String(r[0]) + ") " +
       "ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่";
   }
@@ -3313,17 +3348,16 @@ function _normBed(bed) {
 
 // Only a patient still on the unit holds a bed — a discharged/transferred/
 // expired row keeps the bed it was in, but the bed itself is free. Same rule
-// as isOnUnit() in data.js; a blank status means Active. It applies to the
+// as isOnUnit() in data.js, read through _onUnitStatus. It applies to the
 // record being saved too: correcting a discharged record whose old bed has
 // since been reused takes that bed from nobody. Mirrors bedBlocker() in data.js.
 function _bedConflict(data, p) {
-  if (String(p.status || "Active") !== "Active") return null;
+  if (!_onUnitStatus(p.status)) return null;
   var bed = _normBed(p.currentBed);
   if (!bed) return null;                       // unassigned is not an occupancy
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(p.sessionId)) continue;   // the patient's own row
-    var status = String(data[i][9] || "Active");
-    if (status !== "Active") continue;
+    if (!_onUnitStatus(data[i][9])) continue;  // "Active " and "active" hold their bed
     if (_normBed(data[i][10]) !== bed) continue;
     var who = String(data[i][1] || data[i][0]);
     return "เตียง " + bed + " มี " + who + " อยู่แล้ว — ต้องย้ายผู้ป่วยรายนั้นออกก่อน " +
@@ -3366,7 +3400,7 @@ function _patientFieldNorm(field, v) {
     case "dob": case "admissionDate": case "statusDate": return String(_fmtDate(v)).trim();
     case "currentBed": return _normBed(v);
     case "sex": return String(v == null ? "" : v).trim() || "boys";
-    case "status": return String(v == null ? "" : v).trim() || "Active";
+    case "status": return _readStatus(v);
     default: return String(v == null ? "" : v).trim();
   }
 }

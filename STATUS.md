@@ -251,6 +251,16 @@ both are verified.** #195 released #188 at 17:39 ICT; #194 released #191 at 17:0
 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at 13:58 ICT. All four `verify-release` runs
 and tags were done from Pp's PC (banners). Caught up with #184 by PR #183, with #186 by PR #176, and with
 #194 and #195 by PR #179.
+- ⏳ **The backend reads a patient status as the client does (the PR that adds
+  `test/verify-status-read-1028.cjs`), on Pp's instruction ("แก้ backend ให้อ่าน status แบบเดียวกับ client").**
+  Two halves, neither live yet: `gas-backend.gs` needs Pp's `clasp` deploy (`REFERENCE.md` § Backend), and
+  Edit session's "เลือก Status" for a status that is not one of the four needs a release. Either order is
+  safe. A save that keeps an unknown status ("Expird") is refused in Thai instead of written as Active.
+  ⚠️ After `clasp push` and before `clasp update-deployment`, run `sheetHealthReport` in the editor
+  (`statusNotCanonical` exists only in this code), or filter `Patient_Registry` first: the rows to find are a
+  case or space variant of Active in column J ("active", "ACTIVE ") with an empty column Q (statusDate). Such
+  a row reaches no ward device now, and once the deployment switches it syncs as Active and holds its bed.
+  `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-28 (10).
 - ✅ **PR #191, a help request can carry its picture on the Workers host: live, released by #194 (banner
   above) on Pp's instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28).** The form opened the picked file as a `blob:` URL, and
   `_headers`' `img-src` does not allow `blob:`. So no browser on the Workers host could attach a picture:

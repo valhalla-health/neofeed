@@ -7,6 +7,69 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (10) — The backend reads a patient status the way the client does
+
+`gas-backend.gs`, `registry.jsx`, `data.js` (a comment), `compiled/`, both shells' `?v=` tokens,
+`test/verify-status-read-1028.cjs` (new), `test/verify-backend-batch-0924.cjs`, `test/verify-bed-park.cjs`,
+`test/README.md`, `BACKLOG.md`, `STATUS.md`, `app-walkthrough.md`. No calculation, limit or printed figure
+changed; `CONSTANTS_VERSION` unchanged.
+
+### Why
+
+Pp: "แก้ backend ให้อ่าน status แบบเดียวกับ client". Since #183 the client reads a status through
+`D.patientStatus`: blank is Active, one of the four whatever its case or spaces is that status, anything
+else stays as typed and is off the unit. The server read the same `Patient_Registry` cell three ways
+(Vera's BACKLOG item from #183's review). The sync window trimmed but matched case, so a row typed
+"active" with no statusDate reached no ward device. The bed guard compared the raw cell, so "Active " held
+no bed on the server. And the write turned any unknown word into Active (BE-4, 2026-09-24), so a row typed
+"Expird" came back onto every ward list, holding a bed, at its next save.
+
+### What changed
+
+- **One reading on the server:** `_readStatus` (the rule of `D.patientStatus`) and `_onUnitStatus` (of
+  `D.isOnUnit`). The sync window, the bed guard (`_bedConflict`, both the record saved and every other
+  row), the three-way merge's comparison, the sheet health report and the duplicate question read through
+  them. The sync payload still sends the cell as stored; the client reads it through `patientStatus`, and
+  `verify-review-0917-backend-sync.cjs` proves that payload byte-equal to its reference.
+- **The write refuses a status that is not one of the four** (`_normStatus`), in Thai, instead of storing
+  Active. This reverses BE-4's fallback on purpose: Active is what revived "Expird". A case or space variant
+  is still stored canonical, and blank is still Active. A direct POST can no longer store a ghost status
+  either, which was BE-4's concern.
+- **Edit session asks for a status the server would refuse** (`registry.jsx`), as it already does for an
+  unknown sex: a stored "Expird" seeds the Status select blank ("— เลือก —"), a warning names it, and Save
+  stays off ("ต้องเลือก Status ก่อนบันทึก") until one of the four is picked. Without this, a diagnosis edit of
+  such a record would echo "Expird" back and be refused. The Status dialog already starts with none picked.
+- **Vera, before the PR:** status membership is an own-property check (`_isValidStatus`). `VALID_STATUS[s]`
+  also matched names every object inherits, so "toString" or "constructor" passed as one of the four and
+  was stored, a ghost the old fallback never caught either. And picking the status a typo meant keeps the
+  statusDate already recorded (`D.statusChange`): "Expird" dated 10-20, saved as Expired on 10-28, used to
+  record the death on 10-28 and restart the 7-day hide and the 30-day sync window.
+- **`sheetHealthReport` counts `statusNotCanonical`:** status cells that are neither blank nor exactly one of
+  the four ("active", "Active ", "Expird"). Counts only, no identifiers.
+
+### Checks
+
+`verify-status-read-1028.cjs`, 37 checks: §1 `_readStatus` and `_onUnitStatus` give exactly
+`D.patientStatus` and `D.isOnUnit` (from `data.js` itself) on 15 inputs plus "toString" and "constructor",
+and `D.statusChange` keeps a typo's date; §2 the sync; §3 the bed guard; §4 the write, including Vera's
+cases (a stored "Expird" with only the diagnosis edited is refused and unchanged, then saved once a status
+is picked; "toString" refused); §4b the health report's count; §5 Edit session, which also keeps the date.
+19 fail on `86bfc91`, in every section; Vera's five fail on the commit before their fixes.
+`verify-backend-batch-0924.cjs` BE-4 now expects "ZZZ" refused and nothing stored (it expected Active).
+`verify-bed-park.cjs` copies `_readStatus` and `_onUnitStatus` along with `_bedConflict`.
+
+### Deploy
+
+Two halves, both Pp's: the backend needs a `clasp` deploy (`REFERENCE.md` § Backend: reconcile the
+mirror, `clasp push`, `clasp update-deployment`), and the Edit session change needs a release. Either order
+is safe: an old Edit session sending an unknown status gets the new Thai refusal and can pick a status;
+a new Edit session on the old backend only asks for a status first. **Between `clasp push` and `clasp
+update-deployment`, find the rows that change** (Vera, twice): run `sheetHealthReport` in the editor (its
+`statusNotCanonical` exists only in this code, so not before the push), or filter `Patient_Registry`
+before. The rows that matter are a case or space variant of Active in column J ("active", "ACTIVE ") with
+an empty column Q (statusDate). Such a row reaches no ward device today; once the deployment switches it
+syncs as an Active infant holding its bed, so a stale one would appear on the ward list and block that bed.
+
 ## Session 2026-10-28 (NF-05, Pp drops the pilot) — before-and-after numbers and rollback steps instead
 
 Pp answered "ก" on 2026-10-28: no pilot. The two entries below describe a pilot ladder that this PR

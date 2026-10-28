@@ -1607,11 +1607,16 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const occupancy = React.useMemo(
     () => D_R.bedOccupancy(patients, patient.sessionId), [patients, patient.sessionId]);
   const [dx, setDx]             = React.useState(patient.diagnosis || "");
-  const [status, setStatus]     = React.useState(D_R.patientStatus(patient));
+  // A status that is not one of the four (a cell typed by hand, "Expird")
+  // seeds BLANK and must be picked before saving, as an unknown sex does: the
+  // server refuses to store one since 2026-10-28 (_normStatus), and it used to
+  // write it as Active, which brought the infant back onto the ward list.
+  const statusKnown             = D_R.PATIENT_STATUSES.includes(D_R.patientStatus(patient));
+  const [status, setStatus]     = React.useState(statusKnown ? D_R.patientStatus(patient) : "");
   // Asks about the record as it would be saved — with the status picked here,
   // not the stored one — so a discharged record can be corrected after its old
   // bed is reused, while setting it back to Active on that bed is still refused.
-  const bedTaken  = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
+  const bedTaken  = status ? D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed }) : null;
   // Seed the admission-DOL field from the anchor (D_R.admissionDol: the DOL
   // of the admission date, from dob), not from weights[0].dol. An outborn
   // infant's birth measurement becomes weights[0] with DOL 1, so seeding from
@@ -1670,7 +1675,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
   // Same gate as registration: a 0/blank BW or GA would corrupt every
   // subsequent dose for this patient, so it can be corrected but not cleared.
-  const canSave = bw > 0 && gaW !== "" && sex !== "" && !nameMissing && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && status !== "" && !nameMissing && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   // A bed changed or cleared here is a move, and records the bed left in
   // "Previous beds" exactly as ⇄ does (Pp, 2026-09-27). Without it, clearing
@@ -1792,6 +1797,12 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
               เลือก Male หรือ Female ก่อนจึงจะบันทึกได้ (ใช้เลือกกราฟ Fenton)
             </div>
           )}
+          {!statusKnown && (
+            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 }}>
+              Status ในทะเบียนของ session นี้ไม่ถูกต้อง (<strong>{D_R.patientStatus(patient)}</strong>) —
+              เลือก Status ก่อนจึงจะบันทึกได้
+            </div>
+          )}
           {gaTd > 0 && !gaInRange && (
             <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 }}>
               GA เดิมของ session นี้ (<strong>{D_R.fmtGA(patient.ga)} wk</strong>) อยู่นอกช่วง 22–43 wk ที่ระบบรองรับ —
@@ -1829,6 +1840,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
             <div className="field">
               <label>Status</label>
               <select className="sel" value={status} onChange={e => setStatus(e.target.value)}>
+                {status === "" && <option value="">— เลือก —</option>}
                 {D_R.PATIENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
@@ -1854,6 +1866,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
                 : dol1Missing ? "ต้องระบุ DOL แรกรับก่อนบันทึก"
                 : admitIssue ? "แก้วันที่รับเข้าก่อนบันทึก"
                 : sex === "" ? "ต้องระบุเพศก่อนบันทึก"
+                : status === "" ? "ต้องเลือก Status ก่อนบันทึก"
                 : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"}
             </div>
           )}
