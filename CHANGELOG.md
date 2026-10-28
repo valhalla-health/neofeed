@@ -32,6 +32,11 @@ schedule: totals 8, 6, 4, 3 or 2 a day, any whole split, 7 + 1 and 5 + 3 include
   ward can give them), and beside the other each feed's hint now reads its share of the one schedule,
   "6 of 8 feeds · q3h", where 6 + 2 used to read q4h beside q12h, which meet at 0 h and 12 h. The copied
   order's Total line names the shared interval.
+- Vera's second review of it: the quick calc copies without the Print gate, so 3 + 4 copied as "7 feeds/d
+  q3.4h". A refused two-feed day now copies with no interval and a "!! … cannot be ordered" line, as an
+  over-maximum K⁺ does. Whole-feed faults have their own words ("จำนวนมื้อต้องเป็นจำนวนเต็ม"; the alert
+  said "24 h ÷ 8 is not whole hours" for 4.8 + 3.2), and the Thai stop line lists every allowed total,
+  8, 6, 4, 3 or 2. `verify-quick-calc.cjs` § 4b and the 4.8 + 3.2 case fail on the code before.
 - `CR-EN-FEEDS-MAX`'s refusal case is 6 + 6 = 12 (q2h): the first total over 8 that is still a regular
   schedule, so it is refused by that stop alone.
 
