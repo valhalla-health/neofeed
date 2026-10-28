@@ -232,6 +232,13 @@
 both are verified.** #186 released #183 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at
 13:58 ICT. Both `verify-release` runs and both tags were done from Pp's PC (banners). Caught up with #184
 by PR #183 and with #186 by PR #176, the next PRs on the repo.
+- ⏳ **PR #191, a help request can carry its picture on the Workers host: merged into `main` on Pp's
+  instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28). It is not live until the
+  `main → release` PR this session opens next.** The form opened the picked file as a `blob:` URL, and
+  `_headers`' `img-src` does not allow `blob:`. So no browser on the Workers host could attach a picture:
+  Pp's iPhone, and Android and desktop the same. It now opens a `data:` URL. Frontend only (`app.jsx`),
+  no `clasp` step. `CONSTANTS_VERSION` and `_headers` are unchanged. Vera: NO BLOCK. ⚠️ Not yet tried
+  from a real iPhone or Android phone. `CHANGELOG.md` 2026-10-28.
 - ✅ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
   asks first: live, released by #186 (banner above) on Pp's instruction ("1+2": yes to the Expired
   question, and to merge and deploy).**
