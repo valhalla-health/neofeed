@@ -1626,6 +1626,30 @@ trailing-zero rule of 2026-09-22: a `toFixed(n)` with n > 0 that is not inside `
 alone; the SVG path in `log.jsx` is on the allow list, and an allow entry that matches nothing fails the
 run. Seen to fail on a planted `{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry.
 
+## Log rules, 2026-10-28 — three more ci_bans rules (NF-08)
+
+Three rules on what goes into a log, in the same file and fixtures, so the same CI step runs them.
+A log call is `Logger.log`, `console.*`, any other `x.log()` but `Math.log`, an `appendRow` onto a log
+tab (a tab named like `*Log*` or `*Audit*`, except `Daily_Log` and `Nursing_Log`, which are the record),
+and any `function` that hands one of its own parameters to one of those, which is how `logAudit` is found.
+Only what reaches the log counts, read as code by a small tokenizer: a word inside a string is text.
+
+- **`log-identifier`**: hn, an, name, dob, phone, citizen or initials as a variable, property or key
+  (`p.hn`, `motherPhone`, `{ name: x }`, `row["dob"]`, a `${...}` in a template). `name` counts alone,
+  first (`nameTh`) or after a person word (`patientName`); `sheetName` and an error's `e.name` pass.
+- **`log-raw-cell`**: in `.gs` files only, `row[1]` or `data[i][6]` in a log call. The backend reads
+  columns by index, so `cur[1]` (the name, in the vera-bench `phi-log` case) is caught only this way.
+- **`log-secret`**: a value read from `PropertiesService`, directly, through a variable (within its
+  function) or through a helper that returns it (`SPREADSHEET_ID_()` via `_cfg()`); or a name with token,
+  secret, password, salt, or a key after api/private/secret/access/auth/client (`cacheKey` passes). The
+  value follows `String()`, JSON and member calls, not another call's result: `openById(SPREADSHEET_ID_())`
+  is a Spreadsheet.
+
+27 fixture cases must fail and 25 must pass. `main` passes all three with no allow entry. The tokenizer
+sees every identifier Babel's parser sees in all 17 tracked sources. Seen to fail on eight leaks planted
+in copies of `gas-backend.gs` and `app.jsx`, among them the `phi-log` line and the session token, which
+it also flags at `verifyToken(body.token, …)` once `verifyToken` logs that parameter.
+
 ## The birth-weight label, 2026-10-19 — one harness
 
 The session header called a 4,400 g term infant "LBW" (`CHANGELOG.md` 2026-10-19 (4)).
