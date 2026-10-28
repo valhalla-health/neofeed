@@ -10,7 +10,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-28 — The ward list's status and bed chips are buttons
 
 `data.js`, `registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-registry-chip-taps-1028.cjs`
-(new), `test/verify-mobile-bed-button.cjs`, `test/README.md`, `app-walkthrough.md`. No calculation, limit or printed figure changed.
+(new), `test/verify-mobile-bed-button.cjs`, `test/README.md`, `app-walkthrough.md`, `STATUS.md` (catching up
+with release #172), `BACKLOG.md`. No calculation, limit or printed figure changed.
 
 ### Why
 
@@ -45,11 +46,16 @@ did nothing; a tap on either opened the patient.
   the Active / Logged today / Needs entry tiles, the freed bed in the transfer dialog, the Dashboard strip,
   the admin census and the alerts (`isOnUnit`).
 - On a touch screen each chip's tap area is 44px tall without making the card's row taller (`.chip-tap::after`).
+- **Expired asks first** (Pp, "1+2": yes to "should Expired ask 'are you sure?'"). A change to Expired, from
+  the Status dialog or Edit session, asks first, naming the infant and the bed (`ยืนยันบันทึก AA (เตียง
+  NICU 1) เป็น Expired (เสียชีวิต) ใช่หรือไม่?`): on a phone a slip of the finger would record a death
+  against the wrong baby. Cancel saves nothing and leaves the dialog open. A record already Expired, saved
+  again, is not asked about. One function, `confirmStatusChange`, asks for both.
 
 ### Checks
 
-`verify-registry-chip-taps-1028.cjs`, 81 checks (18 in real Chromium, among them a touch tablet's table); on
-`main` (`326bcd9`) every scenario fails. `verify-mobile-bed-button.cjs` §5 counted two `setTransferPatient(p)` calls in the source; it now
+`verify-registry-chip-taps-1028.cjs`, 88 checks (18 in real Chromium, among them a touch tablet's table); on
+`main` (`326bcd9`) every scenario fails, and #8 (Expired asks first) fails on `1b0866a`, the head before it. `verify-mobile-bed-button.cjs` §5 counted two `setTransferPatient(p)` calls in the source; it now
 pins the one inside `openTransfer`, and the four places that call it. `tools/dev-local.mjs`, at 390px: DD
 set to Discharged from its chip left the list and was still Discharged after a reload, and set back to
 Active from the archive returned to NICU 4.

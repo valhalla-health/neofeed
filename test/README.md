@@ -1758,7 +1758,10 @@ the card and on the Dashboard strip, which read blank; Edit session lists exactl
 #7, in real Chromium as a touch phone at 320–430px (skipped without playwright): every chip's tap area
 reaches 44px tall, the status chip stays on the name's line, the page does not scroll sideways; and on a
 touch tablet at 1024px, which shows the table, each chip's area stays in its own row (to the 1px border:
-the status chip's reaches 0.5px onto it) and overlaps no other row's. 81 checks (63 without a browser); against `main` (`326bcd9`) every scenario fails (15 failures, six of them a
+the status chip's reaches 0.5px onto it) and overlaps no other row's. #8: a change to Expired, from the
+Status dialog or Edit session, asks first, naming the infant and the bed; Cancel sends nothing and leaves the
+dialog open; Discharged and an Expired record saved again are not asked about (fails on `1b0866a`). 88 checks
+(70 without a browser); against `main` (`326bcd9`) every scenario fails (15 failures, six of them a
 scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `setTransferPatient(p)`,
 inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
 values come from the ward.

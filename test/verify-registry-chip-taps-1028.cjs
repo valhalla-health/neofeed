@@ -264,6 +264,60 @@ const scenarios = {
     A.eq('6.4 the Dashboard strip reads Active too (it read blank)', stripChip, 'Active');
   },
 
+  async 'expired-asks-first'(A) {
+    console.log('\n── #8 Expired asks "are you sure?" first, in the dialog and in Edit session ──');
+    const EX = mkPatient({ sessionId: 'NF-100007', name: 'EX', initials: 'EX', currentBed: 'NICU 8',
+      status: 'Expired', statusDate: addDays(TODAY, -1) });
+    const t = boot({ patients: [AA, CC, EX] });
+    t.quiet();
+    await t.start();
+    await t.pickWard('NICU');
+    const asked = [];
+    let answer = false;
+    t.window.confirm = (m) => { asked.push(m); return answer; };
+    const sent = () => t.callsOf('registerPatient').length;
+    const save = () => t.btn(/^\s*Save\s*$/, statusDialog());
+    // The Status dialog.
+    await t.click(statusChip(card('AA')));
+    await t.click(radio(statusDialog(), 'Discharged'));
+    await t.click(save());
+    await t.flush(); await t.flush();
+    A.eq('8.1 Discharged saves without asking', [asked.length, sent()], [0, 1]);
+    await t.click(statusChip(card('CC')));
+    await t.click(radio(statusDialog(), 'Expired'));
+    await t.click(save());
+    A.eq('8.2 Expired asks first, naming the infant and the bed',
+      asked[0], 'ยืนยันบันทึก CC (เตียง NICU 2) เป็น Expired (เสียชีวิต) ใช่หรือไม่?\nจะย้ายออกจากรายชื่อ ward');
+    A.ok('8.3 Cancel sends nothing and leaves the dialog open, Expired still picked',
+      sent() === 1 && !!statusDialog() && radio(statusDialog(), 'Expired').getAttribute('aria-checked') === 'true');
+    answer = true;
+    await t.click(save());
+    await t.flush(); await t.flush();
+    const last = t.callsOf('registerPatient').pop();
+    A.eq('8.4 OK saves CC Expired, dated today', last && [last.patient.sessionId, last.patient.status, last.patient.statusDate],
+      ['NF-100002', 'Expired', TODAY]);
+    // Edit session asks the same question.
+    answer = false; asked.length = 0;
+    await t.click(t.btn(/Discharged \/ Transferred \/ Expired/, list()));
+    await t.click(t.btn(/^\s*Edit\s*$/, card('AA')));
+    let edit = dialog(/^Edit session ·/);
+    await t.selectVal(t.fieldInput('Status', edit), 'Expired');
+    await t.click(t.btn(/Save changes/, edit));
+    A.eq('8.5 Edit session: Discharged → Expired asks the same question', asked[0],
+      'ยืนยันบันทึก AA (เตียง NICU 1) เป็น Expired (เสียชีวิต) ใช่หรือไม่?\nจะย้ายออกจากรายชื่อ ward');
+    A.ok('8.6 …and Cancel sends nothing, Edit session stays open', sent() === 2 && !!dialog(/^Edit session ·/));
+    await t.click(t.btn(/^Cancel$/, dialog(/^Edit session ·/)));
+    // A record already Expired, saved again, is not asked about.
+    asked.length = 0;
+    await t.click(t.btn(/^\s*Edit\s*$/, card('EX')));
+    edit = dialog(/^Edit session ·/);
+    await t.typeInto(t.fieldInput('Diagnosis', edit), 'RDS, PDA');
+    await t.click(t.btn(/Save changes/, edit));
+    await t.flush(); await t.flush();
+    A.eq('8.7 an Expired record saved again (a diagnosis) is not asked about, and saves',
+      [asked.length, sent(), t.callsOf('registerPatient').pop().patient.status], [0, 3, 'Expired']);
+  },
+
   async chromium(A) {
     console.log('\n── #7 Real Chromium, a touch phone 320–430px ──');
     let chromium;

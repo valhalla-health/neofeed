@@ -647,7 +647,9 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    Active on a bed another infant now holds is refused there as in Edit. A
    status reads through **`D.patientStatus`** everywhere (blank = Active, as
    `D.isOnUnit` says), so the card, the table, the archive and the Dashboard
-   strip cannot disagree. `test/verify-registry-chip-taps-1028.cjs` pins it.
+   strip cannot disagree. A change to Expired, there or in Edit session, asks
+   "are you sure?" first, naming the infant and the bed (`confirmStatusChange`).
+   `test/verify-registry-chip-taps-1028.cjs` pins it.
    Each active patient carries a `✓ LOGGED` / `NEEDS ENTRY` badge
    (`.log-badge`) for "does this patient have a Daily_Log entry dated
    today", on both layouts. The stats strip above the list (Active / Total

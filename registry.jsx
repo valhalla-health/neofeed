@@ -101,6 +101,19 @@ function StatusChipButton({ p, onOpen }) {
   );
 }
 
+// Expired asks once before it is saved (Pp, 2026-10-28: yes to "should Expired
+// ask 'are you sure?'"). It takes the infant off the ward list, and a slip of
+// the finger on a phone would record a death against the wrong baby, so the
+// question names the infant and their bed. Only on the change to Expired, not
+// when a record already Expired is saved again. The Status dialog and Edit
+// session both ask through this.
+function confirmStatusChange(patient, status) {
+  if (status !== "Expired" || D_R.patientStatus(patient) === "Expired") return true;
+  const who = D_R.patientName(patient) || patient.sessionId;
+  const bed = D_R.normalizeBed(patient.currentBed);
+  return window.confirm(`ยืนยันบันทึก ${who}${bed ? ` (เตียง ${bed})` : ""} เป็น Expired (เสียชีวิต) ใช่หรือไม่?\nจะย้ายออกจากรายชื่อ ward`);
+}
+
 // Switch patient's bed cell for an infant who has left the unit (Discharged,
 // Transferred, Expired): the status where the bed would be, and the bed they
 // left from under it. Their record keeps that bed's label, and the plain chip
@@ -1607,6 +1620,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   };
 
   const save = () => {
+    if (!confirmStatusChange(patient, status)) return;
     // status and statusDate as the ward list's status chip writes them
     // (D_R.statusChange): statusDate is the day the patient left Active, and
     // the list hides an archived name 7 days after it.
@@ -1947,6 +1961,7 @@ function StatusModal({ patient, patients, onClose, onSubmit, mergeBaseFor }) {
 
   const save = () => {
     if (!changed) { onClose(); return; }
+    if (!confirmStatusChange(patient, status)) return;
     submit({ ...patient, ...D_R.statusChange(patient, status, today) }, mergeBase);
   };
 

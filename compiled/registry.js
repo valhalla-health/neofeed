@@ -68,6 +68,13 @@ function StatusChipButton({ p, onOpen }) {
     /* @__PURE__ */ React.createElement("span", { className: "chip-caret", "aria-hidden": "true" }, "▾")
   );
 }
+function confirmStatusChange(patient, status) {
+  if (status !== "Expired" || D_R.patientStatus(patient) === "Expired") return true;
+  const who = D_R.patientName(patient) || patient.sessionId;
+  const bed = D_R.normalizeBed(patient.currentBed);
+  return window.confirm(`ยืนยันบันทึก ${who}${bed ? ` (เตียง ${bed})` : ""} เป็น Expired (เสียชีวิต) ใช่หรือไม่?
+จะย้ายออกจากรายชื่อ ward`);
+}
 function LeftUnitBed({ p, style }) {
   const from = p.currentBed || D_R.lastBed(p);
   return /* @__PURE__ */ React.createElement("span", { className: "bed-chip bed-wait bed-left", style, title: `${D_R.patientStatus(p)} — ออกจาก unit แล้ว` }, /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), D_R.patientStatus(p)), " ", from && /* @__PURE__ */ React.createElement("span", { className: "bed-wait-from" }, "จาก ", from));
@@ -898,6 +905,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     onClose();
   };
   const save = () => {
+    if (!confirmStatusChange(patient, status)) return;
     const statusFields = D_R.statusChange(patient, status, today);
     const bwChanged = Number(bw) !== Number(patient.bw);
     const seeded = (patient.weights || []).map((w, i) => i === 0 && w && bwChanged && Number(w.w) === Number(patient.bw) ? { ...w, w: Number(bw) } : w);
@@ -1059,6 +1067,7 @@ function StatusModal({ patient, patients, onClose, onSubmit, mergeBaseFor }) {
       onClose();
       return;
     }
+    if (!confirmStatusChange(patient, status)) return;
     submit({ ...patient, ...D_R.statusChange(patient, status, today) }, mergeBase);
   };
   return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose, "data-back-confirm": "Status" }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 400 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Status · ", D_R.patientName(patient) || patient.sessionId), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", "aria-label": "ปิด", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "status-pick", role: "radiogroup", "aria-label": "Status" }, D_R.PATIENT_STATUSES.map((s) => /* @__PURE__ */ React.createElement(
