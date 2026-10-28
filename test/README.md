@@ -1738,20 +1738,6 @@ case of a rule produced; `--fix-lines` rewrites the `where` line numbers once co
 line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks when written.
 
-## The pilot ladder, 2026-10-28 — one harness added, two extended (NF-05)
-
-A release now runs on the `pilot` branch's preview for 48 h before it reaches the ward (`REFERENCE.md`
-§ The pilot ladder). **`verify-pilot-ladder.cjs`** (plain Node, no jsdom) runs `boot.js` in a vm under
-each hostname: the ward host, a branch preview, 127.0.0.1 and lookalikes such as
-`pilot-neofeed.valhalla-health.workers.dev.evil.example` all get the ward deployment, and only the pilot
-host gets `NEOFEED_PILOT_GAS_URL`, and only once it is set. It then drives `tools/release-gate.mjs` with
-the release template filled in: it passes at 48 h and 49 h, and fails at 47 h 30 min, from `main`, on a
-head the pilot did not run, on a start in the future, on a rollback target with no tag, no commit or no
-`@N`, on a field left as `<fellow>`, and on one unticked box. Last, it reads `release-gate.yml`: the PR body reaches the script only through an
-environment variable. `verify-review-0917-shell.cjs` 2.4 now expects the pilot URL in connect-src once
-`boot.js` names it, and `verify-dev-local.cjs` #5 checks that a filled pilot URL is blanked in the local
-copy.
-
 
 ## Note on the source workbook
 

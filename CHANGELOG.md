@@ -7,6 +7,33 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (NF-05, Pp drops the pilot) — before-and-after numbers and rollback steps instead
+
+Pp answered "ก" on 2026-10-28: no pilot. The two entries below describe a pilot ladder that this PR
+no longer ships. What protects an infant is comparing the numbers before they reach pharmacy. The
+pilot users order for real infants anyway. The riskiest changes (backend, Sheet layout) could not be
+piloted, since every deployment shares the Sheet. And six setup steps, a second GAS deployment and
+48 h per release cost a one-person team more than they give, next to 100 harnesses, the
+clinical-rules check and NF-28.
+
+**Kept**, in `.github/PULL_REQUEST_TEMPLATE/release.md` (now `main → release`) and `REFERENCE.md`
+§ Before and after, and rolling back (it replaces § The pilot ladder):
+
+- A release that changes a calculation runs the release live now and the PR's head side by side in
+  dev local (`tools/dev-local.mjs --tree … --port 8155` and `8156`), at least three cases per changed
+  calculation, and records inputs, before, after and "intended?" in the release PR.
+- The rollback steps: `npx wrangler rollback` or the Worker's Deployments tab, GitHub Pages by
+  reverting the commit, the whole merge for a release across the 2026-09-17 build step, the backend
+  by `clasp update-deployment` to the previous version, and the release tags as targets.
+
+**Removed**, each file back to `main`: `boot.js` § 3 (`NEOFEED_PILOT_GAS_URL`) with the shells'
+`?v=` tokens, the `_headers` comment, `tools/dev-local.mjs` and `tools/verify-release.mjs` (`--pilot`),
+`test/verify-review-0917-shell.cjs` 2.4a, `test/verify-dev-local.cjs` #5 and the `test/README.md`
+section. Deleted: `.github/workflows/release-gate.yml`, `tools/release-gate.mjs`,
+`test/verify-pilot-ladder.cjs`. `AGENTS.md`, `STATUS.md` and BACKLOG § Now now point at the
+template; BACKLOG keeps the missing `release-2026-10-27-pr172` tag and the 25 older backend
+deployments for Pp.
+
 ## Session 2026-10-28 (NF-05, after Vera) — what two versions sharing one Sheet can still break
 
 Vera read the NF-05 diff (NO BLOCK, three 🟠 and two 🟡; her report is on the PR). Changed in answer:

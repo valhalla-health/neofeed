@@ -37,9 +37,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SERVED = ["index.html", "boot.js", "data.js", "manifest.json", "moved.html", "compiled", "vendor", "icons"];
 const GAS_URL_LINE = /window\.NEOFEED_GAS_URL\s*=\s*"https:\/\/script\.google\.com\/macros\/s\/[^"]+";/;
-// The pilot deployment (NF-05, boot.js § 3) is production too: blank it, so a
-// local copy can never reach it even on a host named like the pilot.
-const PILOT_URL_LINE = /window\.NEOFEED_PILOT_GAS_URL\s*=\s*"[^"]*";/;
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json",
   ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon",
@@ -60,8 +57,7 @@ function servedCopy(tree, gasUrl) {
   const boot = path.join(dir, "boot.js");
   const src = fs.readFileSync(boot, "utf8");
   if (!GAS_URL_LINE.test(src)) throw new Error("boot.js: the NEOFEED_GAS_URL line was not found");
-  const out = src.replace(GAS_URL_LINE, `window.NEOFEED_GAS_URL = "${gasUrl}";`)
-    .replace(PILOT_URL_LINE, `window.NEOFEED_PILOT_GAS_URL = "";`);
+  const out = src.replace(GAS_URL_LINE, `window.NEOFEED_GAS_URL = "${gasUrl}";`);
   if (/script\.google\.com\/macros/.test(out)) throw new Error("boot.js still names the production backend");
   fs.writeFileSync(boot, out);
   return dir;
