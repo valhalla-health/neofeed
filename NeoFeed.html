@@ -1358,6 +1358,30 @@
     margin-top: 8px; padding: 10px 12px; border-radius: var(--r);
     border: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-3);
   }
+  /* The print list's head keeps Print ทั้งหมด at its top right on a phone too,
+     where every other page head stacks (Pp, 2026-10-28). Two classes, so it
+     outranks the phone's `.page-head` rule wherever that sits. As wide as
+     .print-list, so on a workstation the button lines up with the rows. */
+  .page-head.print-head { flex-direction: row; align-items: flex-start; max-width: 760px; }
+  .print-head .print-all { flex-shrink: 0; min-height: 44px; white-space: nowrap; }
+  /* Ticking which orders Print sends (WardPrintList, Pp 2026-10-28). The tick
+     is a 44px column beside its card; เลือกทั้งหมด's box sits on that column. */
+  .print-item { display: flex; align-items: stretch; gap: 6px; }
+  .print-item > .print-row { flex: 1; min-width: 0; }
+  .print-pick { flex: 0 0 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .print-pick input, .print-pick-all input { width: 22px; height: 22px; margin: 0; accent-color: var(--brand); cursor: pointer; }
+  .print-pick-all {
+    display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; align-self: flex-start;
+    min-height: 44px; padding-left: 11px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+  }
+  .print-pick-all .print-pick-n { font-size: 12.5px; font-weight: 400; color: var(--ink-3); }
+  /* The calculator's bar during Print ทั้งหมด (app.jsx CalculatorView). */
+  .print-all-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap;
+    padding: 8px 12px; margin-bottom: 10px; border-radius: var(--r);
+    background: var(--brand-bg); border: 1px solid var(--brand-line); font-size: 13px; color: var(--brand-2);
+  }
+  .print-all-bar .btn { min-height: 44px; }
 
   /* Per-patient "has today's Daily_Log entry?" badge — registry cards + table.
      Same vocabulary as the Logged today / Needs entry tiles above the list, so
@@ -2103,9 +2127,9 @@
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
   <script src="compiled/calculator.js?v=a115b1bd4b"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
-  <script src="compiled/registry.js?v=f051167971"></script>
+  <script src="compiled/registry.js?v=5fdee44ae3"></script>
   <script src="compiled/log.js?v=cc9533c31e"></script>
-  <script src="compiled/app.js?v=e8f4cac46d"></script>
+  <script src="compiled/app.js?v=90d5f0989c"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

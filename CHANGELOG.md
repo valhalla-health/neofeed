@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-28 (2) — Two feeds: 6 + 2 is a schedule too
+## Session 2026-10-28 (3) — Two feeds: 6 + 2 is a schedule too
 
 `calculator.jsx`, the clinical-rules skill (`CR-EN-FEEDS-EQUAL` becomes `CR-EN-FEEDS-SCHEDULE`;
 `CR-EN-FEEDS-MAX`'s refusal case), `data.js` (a comment), `app-walkthrough.md`, `STATUS.md`. No figure,
@@ -39,6 +39,66 @@ q3h schedule like 4 + 4. What 3 + 4 lacks is an interval: 7 feeds do not divide 
   before (it refused them), 3 + 4 and 3 + 2 fail with the check turned off, and 4.8 + 3.2 and 7.5 + 0.5
   fail without the whole-feeds check.
 - **No second clinician has reviewed this change.**
+## Session 2026-10-28 (2) — Print ทั้งหมด and per-infant ticks on a ward's Print order list, no Calculator button there
+
+`registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs` (new),
+`test/verify-phone-sweep.cjs`, `test/verify-quick-calc.cjs`, `test/README.md`. No calculation, limit or
+printed figure changed; `calculator.jsx`, `data.js` and `gas-backend.gs` are untouched.
+
+### Why
+
+Pp, on a phone screenshot of "Print order · NICU": "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมี
+แคลคูเลเตอร์ด้านขวาล่าง", then, in the same session: "ให้สามารถมีปุ่มซีเล็กเป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้".
+
+### What changed
+
+- **Print ทั้งหมด**, top right of the list's head on every screen size (the phone's stacked page head
+  is overridden for this page only; ← กลับ moved under the title). It counts the rows a tap would print
+  and is off when there are none. A row still saving, or a day with two orders, is left out, as a tap
+  on it does not print either.
+- **A tick per infant, and เลือกทั้งหมด.** Each printable row has a tick beside its card (not inside it:
+  the card is itself a button), all ticked when the list opens. เลือกทั้งหมด ticks or clears them all and
+  shows part-ticked with "เลือกแล้ว 2 จาก 3 ใบ". The button reads Print ทั้งหมด (3) while all are ticked
+  and Print ที่เลือก (2) otherwise, and is off at 0. A tap on a row still prints that one order. The
+  ticks live in the list, so they reset to all when the list is opened again.
+- **One order at a time.** The run opens each order from the list exactly as a tap on its row does
+  (`openOrderToPrint`), so each still passes the calculator's Print gate and the edit lock, and gets
+  one print preview. A bar on the calculator reads "Print ทั้งหมด · ใบที่ 1 จาก 3" with
+  "ถัดไป: NICU 2 …"; the last reads "ใบสุดท้าย · กลับไปรายการ". An order held back (unsaved edit, a
+  critical value with no reason, a colleague's lock) shows the usual reason, and ถัดไป still goes on.
+  Leaving the calculator, or the list, ends the run.
+- **Each order is asked the list's rule again before it opens** (`registry.jsx` `wardPrintableOrder`,
+  shared by the list and the run). One a sync took off the list during the run (the infant discharged or
+  moved, a second order that day, the order deleted, the day rolled over) is skipped with a toast naming
+  it, and the run goes on.
+- **No Calculator button on the print list.** It stays on the ward gate and the ward's patient list.
+
+### Decisions
+
+- **The next order opens on a tap, never on afterprint.** A browser need not wait for its print dialog
+  before handing the page back, and moving the page on under an open dialog could put the next infant's
+  order on this one's sheet. One tap per order costs less than one wrong-patient sheet sent to pharmacy.
+- **Not one combined print job.** That needs every order's sheet rendered at once, and the sheet is
+  built inside `Calculator` from its own state. A print-only mode there is a change to a dose file, and
+  a second path that decides what may print. This one reuses the reviewed path untouched. If the ward
+  wants one dialog for the whole ward, that is the follow-up.
+
+### Vera
+
+NO BLOCK on the first commit, three findings, all fixed in the second: the last bar said "ครบ N ใบ" though
+the run cannot know a sheet printed (now "ใบสุดท้าย"); the queue was never re-checked, so a sync during the
+run could auto-print an order a tap on the list could no longer reach (now `wardPrintableOrder` is asked
+again before each order); a deleted entry ended the run silently (now skipped by name, the run goes on).
+Her three proposed tests went in (`verify-print-all-1028` 3.5, #8 `resync`, #8b `gone`); each fails on
+the first commit and passes on the second. Her second review: NO BLOCK, no findings, three tests proposed.
+Two went in, #8c `moved` (an infant moved to SCN during the run) and #8d `midnight` (the day rolls over);
+both fail on the first commit. The third (twins with one name) does not fail on either commit, so it is
+left out, by her rule 5.
+
+### Checked
+
+`verify-print-all-1028.cjs` 72/72 on the sources and on `compiled/`; against `main` (`326bcd9`), every one
+of its twelve scenarios fails.
 
 ## Session 2026-10-28 — Step 2: two feeds, each a milk and then its kcal/oz
 
