@@ -28,7 +28,9 @@
 //              prints: text on the order form once the order is saved
 //
 // Limit rules (stop, critical, red, caution, cap, target) need at least one
-// inside and one outside case.
+// inside and one outside case. The stop rules' IDs, and no others, must be in
+// calculator.jsx's submitStops: the list every save sends, which gas-backend.gs
+// checks (Pp, 2026-10-28).
 //
 //   node test/verify-clinical-rules.cjs                 every rule
 //   node test/verify-clinical-rules.cjs --show CR-GIR-MAX   what each case produced
@@ -273,6 +275,12 @@ async function runOrder(c, ruleId) {
     for (const m of moved) console.log(`        ${m}`);
     if (FIX) fs.writeFileSync(DIR + SKILL, fixed);
   }
+
+  console.log('\n── the stops the backend hears of ──');
+  const stopBlock = (R('calculator.jsx').match(/const submitStops = \[([\s\S]*?)\]\.filter/) || [])[1] || '';
+  const sent = [...stopBlock.matchAll(/"(CR-[A-Z0-9-]+)"/g)].map(m => m[1]).sort();
+  const stopRules = rules.filter(r => r.rule.kind === 'stop').map(r => r.rule.rule).sort();
+  ok('calculator.jsx submitStops names every stop rule, and only those', sent.length > 0 && deepEq(sent, stopRules), { sent, stopRules });
 
   console.log('\n── the cases ──');
   for (const r of rules) {

@@ -5,7 +5,9 @@
 // for a negative volume of water. It is now a stop like the 1,250 mL bottle, on every path that
 // reaches pharmacy:
 //   §1  the Calculator: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is
-//       disabled, the save panel says why, and a draft may still be kept
+//       disabled, the save panel says why, and a draft may still be kept. Each save sends
+//       the stops that hold as calcInput.stops, which gas-backend.gs checks
+//       (verify-backend-stops-1028.cjs)
 //   §2  a row saved before the change, with a reason naming the alert, neither prints nor copies
 //   §3  Center Point's save refuses it too
 // The orders are verify-calc-sum.cjs's S8 (components fill the bag exactly, WFI 0), with its
@@ -137,6 +139,7 @@ function fill(order, { io = true } = {}) {
     await clickAsync(buttonNamed('Submit'));
     eq('S8 is submitted', box.calls, 1);
     eq('…with no reason asked', asked, null);
+    eq('…and an empty stop list for the backend', box.entry?.calcInput?.stops, []);
 
     box = mountNew();
     fill(OVER);
@@ -150,6 +153,7 @@ function fill(order, { io = true } = {}) {
     eq('…the draft is logged', box.calls, 1);
     eq('…as a draft', box.entry?.status, 'draft');
     eq('…and no reason was asked', asked, null);
+    eq('…carrying the stop it holds, by its rule ID', box.entry?.calcInput?.stops, ['CR-BAG-OVERFULL']);
   });
 
   await section('§2 a row saved before the change, with a reason for the alert, is held', async () => {
