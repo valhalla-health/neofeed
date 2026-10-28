@@ -137,11 +137,11 @@ let root = ReactDOM.createRoot(container);
 const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
 const selectSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
 const text = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
-const fieldOf = (label) => [...container.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label)) || null;
+const fieldOf = (label, scope = container) => [...scope.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label)) || null;
 const saltRow = (label) => [...container.querySelectorAll('.salt-row-grid')]
   .find(d => d.firstElementChild?.firstElementChild?.textContent.startsWith(label)) || null;
-function setField(label, value) {
-  const input = fieldOf(label)?.querySelector('input') || saltRow(label)?.querySelector('input');
+function setField(label, value, scope = container) {
+  const input = fieldOf(label, scope)?.querySelector('input') || (scope === container ? saltRow(label)?.querySelector('input') : null);
   if (!input) throw new Error('no field labelled ' + JSON.stringify(label));
   act(() => { valueSetter.call(input, String(value)); input.dispatchEvent(new window.Event('input', { bubbles: true })); });
 }
@@ -154,10 +154,16 @@ function tick(label, want) {
   const box = lab.querySelector('input[type=checkbox]');
   if (box.checked !== want) act(() => { box.click(); });
 }
-function feed(key) {
-  const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === key));
-  if (!sel) throw new Error('no feed ' + JSON.stringify(key) + ' in any select');
-  act(() => { selectSetter.call(sel, key); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+// Step 2 picks the milk, then its kcal/oz (Pp, 2026-10-28): set both selects
+// of feed 1 (or 2) from one EN_DB key.
+function feed(key, feed = 1) {
+  const at = window.NEOFEED_DATA.enProductOf(key);
+  if (!at) throw new Error('Step 2 does not offer ' + key);
+  for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
+    const sel = container.querySelector(`.en-feed-${feed} .${cls}`);
+    if (!sel) throw new Error(`no .${cls} on feed ${feed}`);
+    act(() => { selectSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  }
 }
 const alertRows = () => [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => ({
   level: ['crit', 'warn', 'info'].find(c => a.classList.contains(c)),
@@ -185,6 +191,15 @@ function mount(c, log) {
   for (const l of ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']) setField(l, l === 'Target fluid' ? (c.fluid ?? 150) : 0);
   if (c.feed) feed(c.feed);
   for (const [label, v] of Object.entries(c.order || {})) setField(label, v);
+  // A second feed (2026-10-28): `feed2` is its EN_DB key, `order2` its fields,
+  // which repeat feed 1's labels inside the Feed 2 box.
+  if (c.feed2 || c.order2) {
+    const add = buttonNamed('button', '+ Add a second feed (นมชนิดที่ 2)');
+    if (!add) throw new Error('no button to add a second feed');
+    click(add);
+    if (c.feed2) feed(c.feed2, 2);
+    for (const [label, v] of Object.entries(c.order2 || {})) setField(label, v, container.querySelector('.en-feed-2'));
+  }
   for (const [label, v] of Object.entries(c.tick || {})) tick(label, v);
   if (c.hours) {
     const b = buttonNamed('button', `${c.hours}h`);

@@ -8,7 +8,6 @@
 //   · the Daily_Log entry handed to onLog (what reaches the Google Sheet)
 //   · every tile and bedside readout on screen
 //   · the printed pharmacy form, front and back
-//   · the copied order text
 //   · the Active-alerts panel, by level and title
 // — and compares each against a recomputation written here from the clinical
 // definitions and the KCMH worksheet.
@@ -21,11 +20,12 @@
 // FEED / expectedAlerts here by hand, from the source, or the harness stops
 // being a second opinion.
 //
-// 13 scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
+// The scenarios cover: a below-birth-weight ELBW day 3, a growing preterm on
 // peripheral PN entered by pump rate (10% Mg — KCMH's only vial) and every oral
 // supplement, a feeds-only day with no bag, a term infant on a manual dosing
 // weight with a MEN feed and the Vitalipid cap, an alert-stress order, the
-// 16 kg Soluvit/Peditrace ceilings, every remaining feed in EN_DB, and a prepared
+// 16 kg Soluvit/Peditrace ceilings, every remaining feed in EN_DB, two feeds on
+// one day (2026-10-28), and a prepared
 // volume with a second decimal (130.45 mL, NF-17). Since
 // 2026-10-08 (Pp) a dosing weight above 8,000 g is no order at all, so the
 // 16 kg ceilings are checked on screen and the scenario must then refuse to
@@ -62,14 +62,6 @@ global.showToast = (msg, type) => toasts.push({ msg, type });
 window.print = () => {};
 window.prompt = () => 'oracle reason';
 window.confirm = () => true;
-// Copy Order goes through navigator.clipboard. jsdom may or may not define it,
-// and Node ≥21 has a global `navigator` of its own — install the stub either
-// way rather than assuming one shape of either.
-let copied = null;
-const clipboardStub = { writeText: (t) => { copied = t; return Promise.resolve(); } };
-try { Object.defineProperty(window.navigator, 'clipboard', { value: clipboardStub, configurable: true }); }
-catch { try { window.navigator.clipboard.writeText = clipboardStub.writeText; } catch { /* left to fail loudly at the Copy assertion */ } }
-try { Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true, writable: true }); } catch {}
 const React = require('react');
 const ReactDOM = require('react-dom/client');
 const { act } = require('react');
@@ -208,15 +200,19 @@ function expected(sc) {
   // zinc
   e.znPedi = sc.pedi && Vd > 0 ? Math.min(STOCK.pediPerKg * W, STOCK.pediMax) * STOCK.pediZn : 0;
   e.znSO4 = (sc.zn || 0) * W; e.znBag = (sc.zn || 0) * F; e.znTot = e.znPedi + e.znSO4;
-  // enteral
-  const f = FEED[sc.feed];
-  e.enVol = sc.enVol * sc.enFreq; e.enPerKg = W > 0 ? e.enVol / W : 0;
+  // enteral: one feed, or two (2026-10-28), each its own mL/day of its own
+  // row, summed feed by feed (the app weights one composition by mL/day; this
+  // adds the feeds up instead, so the two can disagree).
+  const feeds = [[FEED[sc.feed], sc.enVol * sc.enFreq]].concat(sc.feed2 ? [[FEED[sc.feed2], sc.enVol2 * sc.enFreq2]] : []);
+  e.enDay = feeds.map(([, v]) => v);
+  const given = (i) => feeds.reduce((s, [f, v]) => s + v / 100 * f[i], 0);   // amount/day of nutrient i
+  e.enVol = feeds.reduce((s, [, v]) => s + v, 0); e.enPerKg = W > 0 ? e.enVol / W : 0;
   const cnt = sc.men ? 0 : e.enVol;
+  const counted = (i) => sc.men ? 0 : given(i);
   e.enCounted = cnt;
-  e.enKcal = cnt / 100 * f[0]; e.enPro = cnt / 100 * f[1]; e.enFat = cnt / 100 * f[2]; e.enCho = cnt / 100 * f[3];
-  e.enNaKg = cnt / 100 * f[4] / W; e.enKKg = cnt / 100 * f[5] / W; e.enCaKg = cnt / 100 * f[6] / W; e.enPKg = cnt / 100 * f[7] / W;
-  e.enFeed = { kcal: e.enVol / 100 * f[0] / W, pro: e.enVol / 100 * f[1] / W, na: e.enVol / 100 * f[4] / W,
-    k: e.enVol / 100 * f[5] / W, ca: e.enVol / 100 * f[6] / W, p: e.enVol / 100 * f[7] / W };
+  e.enKcal = counted(0); e.enPro = counted(1); e.enFat = counted(2); e.enCho = counted(3);
+  e.enNaKg = counted(4) / W; e.enKKg = counted(5) / W; e.enCaKg = counted(6) / W; e.enPKg = counted(7) / W;
+  e.enFeed = { kcal: given(0) / W, pro: given(1) / W, na: given(4) / W, k: given(5) / W, ca: given(6) / W, p: given(7) / W };
   e.useEN = W > 0 && cnt / W >= 100;
   // fluid
   e.prescribed = Vd + e.lipBag + sc.otherIV + sc.drug + cnt;
@@ -397,6 +393,16 @@ const SCEN = [
     'ENFALAC_20', 'ENFALAC_27'].map((k) => ({
     name: `G feed ${k} (feeds only)`, bw: 1200, cur: 1500, dol: 12, fluid: 160, ioOut: 70, tpn: 0,
     feed: k, enVol: 28, enFreq: 8, weights: [{ dol: 11, w: 1490 }] })),
+  // Two feeds (Pp, 2026-10-28). K1: alternating feeds beside a small bag.
+  // K2: neither feed alone reaches 100 mL/kg/d, together they do, so the
+  // enteral targets come on from the sum.
+  { name: 'K1 two feeds: FBM + HMF 20 mL × 4 and Infatrini 20 mL × 4, with TPN', bw: 1300, cur: 1450, dol: 18, fluid: 150,
+    ioOut: 80, tpn: 60, dead: 30, dex: 10, aa: 2, lip: 1, naCl: 1, kCl: 1, ca: 30, glyNa: 1, hep: 1,
+    feed: 'BM_HMF_24', enVol: 20, enFreq: 4, feed2: 'INFATRINI_30', enVol2: 20, enFreq2: 4,
+    weights: [{ dol: 1, w: 1300 }, { dol: 17, w: 1440 }] },
+  { name: 'K2 two feeds reach full EN only together: BM 22 mL × 4 and Enfalac Premature 24 at 6 mL × 4', bw: 1000, cur: 1000, dol: 14,
+    fluid: 160, ioOut: 60, tpn: 0, feed: 'BM_20', enVol: 22, enFreq: 4, feed2: 'ENFALAC_PREM_24', enVol2: 6, enFreq2: 4,
+    weights: [{ dol: 1, w: 1000 }] },
   // A prepared volume with a second decimal: 80.45 + 50 = 130.45 mL prints as
   // 130.5, and the WFI must be taken from that (NF-17; it printed 42.9, now 43).
   { name: 'H prepared 130.45 mL (second decimal), WFI from the printed volume', bw: 1000, cur: 1000, dol: 10, fluid: 150,
@@ -423,6 +429,17 @@ function inputFor(label) {
     .find(d => d.firstElementChild?.firstElementChild?.textContent.startsWith(label));
   return row ? row.querySelector('input') : null;
 }
+// A field inside one block of the form (feed 2 repeats feed 1's labels).
+function setFieldIn(scope, label, value) {
+  const field = [...scope.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label));
+  if (!field) throw new Error('field not found in block: ' + label);
+  const input = field.querySelector('input');
+  act(() => {
+    input.dispatchEvent(new window.FocusEvent('focusin', { bubbles: true }));
+    valueSetter.call(input, String(value)); input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+  act(() => { input.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true })); });
+}
 function setField(label, value) {
   const input = inputFor(label);
   if (!input) throw new Error('field not found: ' + label);
@@ -432,6 +449,17 @@ function setField(label, value) {
     valueSetter.call(input, String(value)); input.dispatchEvent(new window.Event('input', { bubbles: true }));
   });
   act(() => { input.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true })); });
+}
+// Step 2 picks the milk, then its kcal/oz (Pp, 2026-10-28): set both selects
+// of feed 1 (or 2) from one EN_DB key.
+function selectFeed(key, feed = 1) {
+  const at = window.NEOFEED_DATA.enProductOf(key);
+  if (!at) throw new Error('Step 2 does not offer ' + key);
+  for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
+    const sel = container.querySelector(`.en-feed-${feed} .${cls}`);
+    if (!sel) throw new Error(`no .${cls} on feed ${feed}`);
+    act(() => { selSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  }
 }
 function selectWith(optValue, value) {
   const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === optValue));
@@ -479,7 +507,7 @@ async function run(scIn) {
   let saved = null;
   act(() => { root.unmount(); });
   root = ReactDOM.createRoot(container);
-  window.localStorage.clear(); copied = null;
+  window.localStorage.clear();
   act(() => {
     root.render(React.createElement(window.Calculator, {
       patient, dol: sc.dol, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null,
@@ -497,9 +525,15 @@ async function run(scIn) {
   setField('Other IV', sc.otherIV);
   setField('Drug volume', sc.drug);
   // Step 2
-  selectWith('BM_20', sc.feed);
+  selectFeed(sc.feed);
   setField('Volume(mL/feed)', sc.enVol);
   setField('Frequency', sc.enFreq);
+  if (sc.feed2) {
+    click(btnExact('+ Add a second feed (นมชนิดที่ 2)'));
+    selectFeed(sc.feed2, 2);
+    setFieldIn(container.querySelector('.en-feed-2'), 'Volume(mL/feed)', sc.enVol2);
+    setFieldIn(container.querySelector('.en-feed-2'), 'Frequency', sc.enFreq2);
+  }
   setCheck('MEN (trophic)', sc.men);
   // Step 3
   click([...container.querySelectorAll('.step2-ctrl .seg button')].find(b => b.textContent === (sc.route === 'central' ? 'Central' : 'Peripheral')));
@@ -545,6 +579,14 @@ async function run(scIn) {
   near(sc, 'Step1 Remaining |mL|', grabT(/(?:Remaining|สารน้ำเกินแผน)\+?([\d.]+)mL\/d (?:left|over)/), Math.abs(e.remaining), 1);
   near(sc, 'TPN calc weight shown (g)', num(inputFor('TPN calc. weight').value), e.wG, 0);
   near(sc, 'EN volume tile mL/kg/d', tileVal('EN volume'), e.enPerKg, 0);
+  if (sc.feed2) {
+    const day = [...container.querySelectorAll('.en-feed-day')].map(d => d.textContent.replace(/\s+/g, ' '));
+    same(sc, 'one day line per feed', day.length, 2);
+    e.enDay.forEach((v, i) => {
+      near(sc, `feed ${i + 1} mL/day`, num((day[i] || '').match(/= ([\d.]+) mL\/day/)?.[1]), v, 1);
+      near(sc, `feed ${i + 1} mL/kg/d`, num((day[i] || '').match(/· ([\d.]+) mL\/kg\/d/)?.[1]), v / e.W, 0);
+    });
+  }
   if (e.availEN >= 0) near(sc, 'Remaining fluid for EN mL/d', grabT(/Remaining fluid for EN([\d.]+)mL\/day/), e.availEN, 0);
   if (sc.enVol * sc.enFreq > 0) {
     const row = [...container.querySelectorAll('.en-delivered span')].map(s => s.textContent);
@@ -634,6 +676,8 @@ async function run(scIn) {
     near(sc, 'saved ca', saved.ca, e.caKg, 6);
     near(sc, 'saved p', saved.p, e.pKg, 6);
     near(sc, 'saved enVolPerKg', saved.enVolPerKg, e.enPerKg, 6);
+    same(sc, 'saved feed 2 (type, mL/feed, feeds/d)', [saved.calcInput?.enType2, saved.calcInput?.enVol2, saved.calcInput?.enFreq2],
+      sc.feed2 ? [sc.feed2, sc.enVol2, sc.enFreq2] : ['BM_20', 0, 0]);
     near(sc, 'saved ioInput', saved.ioInput, e.ioInput);
     near(sc, 'saved ioOutput', saved.ioOutput, sc.ioOut);
     near(sc, 'saved drain', saved.drainContent, sc.drain);
@@ -692,28 +736,6 @@ async function run(scIn) {
     }
     if (sc.vitD > 0) near(sc, 'print Vit D IU/day', g(/IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.fe > 0) near(sc, 'print Fe mL/day', g(/Fe oral \([^)]*\) [\d.]+ mg\/kg\/d = [\d.]+ mg → ([\d.]+) mL\/day/), e.fe_ml, 2);
-  }
-
-  // ─ copied order text ─
-  const copyBtn = [...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent));
-  if (copyBtn) await clickAsync(copyBtn);
-  same(sc, 'copy produced text', typeof copied === 'string' && copied.length > 100, orderable);
-  if (copied) {
-    const c = copied;
-    const g = (re) => { const m = c.match(re); return m ? parseFloat(m[1]) : null; };
-    near(sc, 'copy GIR', g(/GIR: ([\d.]+) mg\/kg\/min/), e.gir, 1);
-    near(sc, 'copy Prescribed mL/day', g(/Prescribed: +([\d.]+) mL\/day/), e.prescribed, 0);
-    near(sc, 'copy Remaining mL', g(/Remaining: (-?[\d.]+) mL/), e.remaining, 1);
-    near(sc, 'copy summary protein', g(/SUMMARY: Protein ([\d.]+) g\/kg/), e.proKg, 1);
-    near(sc, 'copy summary energy', g(/Energy ([\d.]+) kcal\/kg \|/), e.kcalKg, 0);
-    near(sc, 'copy total Na delivered', g(/Total Na: +[\d.]+ mEq in bag = ([\d.]+) mEq\/kg\/d/), e.naKg, 1);
-    // Max 200 on a central line (confirm above 120); 60 on a peripheral one
-    // since 2026-10-08 (Praew), written as the maximum alone there.
-    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L; (?:max 60 on a peripheral|confirm above 120, max 200 on a central) line\)/), e.kPerL, 0);
-    near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
-    if (sc.zn > 0) near(sc, 'copy ZnSO₄ mL', g(/mg Zn in bag → ([\d.]+) mL of 1 mg Zn\/mL/), e.znMl, 2);
-    if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
-    if (sc.oCa > 0) near(sc, 'copy oral Ca tabs/day', g(/mg\/day → ([\d.]+) tab\/day/), e.oCa_tabs, 2);
   }
 }
 

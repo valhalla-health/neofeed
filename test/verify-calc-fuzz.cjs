@@ -14,7 +14,7 @@
 //   I3  the bag make-up adds up: its bag total is the prepared volume, and it
 //       says "cannot be compounded" exactly when the components exceed it
 //       (WFI q.s. < 0). WFI itself left the screen on 2026-09-28 (TPN team);
-//       verify-calc-oracle.cjs still checks it on the form and the copied order.
+//       verify-calc-oracle.cjs still checks it on the form.
 //   I4  no NaN, Infinity, undefined, float tail or trailing zero in any text
 //       node on screen (Praew's rule: "18.0" can be read as 180)
 //   I5  a critical tile always comes with a critical alert (the F1 rule)
@@ -114,6 +114,17 @@ const container = document.getElementById('root');
 let root = ReactDOM.createRoot(container);
 const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
 const selSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+// Step 2 picks the milk, then its kcal/oz (Pp, 2026-10-28): set both selects
+// of feed 1 (or 2) from one EN_DB key.
+function selectFeed(key, feed = 1) {
+  const at = window.NEOFEED_DATA.enProductOf(key);
+  if (!at) throw new Error('Step 2 does not offer ' + key);
+  for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
+    const sel = container.querySelector(`.en-feed-${feed} .${cls}`);
+    if (!sel) throw new Error(`no .${cls} on feed ${feed}`);
+    act(() => { selSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  }
+}
 const inputFor = (label) => {
   const fi = [...container.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label));
   if (fi) return fi.querySelector('input');
@@ -173,8 +184,7 @@ for (let i = 0; i < COUNT; i++) {
   mount({ sessionId: 'FZ' + i, name: 'F', bw, ga: 30, sex: 'boys', admissionDate: '2026-09-01', currentBed: 'NICU 1', diagnosis: '-', weights: [{ dol: 1, w: bw }], lengths: [], hcs: [] }, s.dol);
   setField('Current weight', s.cur);
   setField('Target fluid', s.fluid); setField('Other IV', s.otherIV); setField('Drug volume', s.drug);
-  const sel = [...container.querySelectorAll('select')].find(x => [...x.options].some(o => o.value === 'BM_20'));
-  act(() => { selSetter.call(sel, s.feed); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  selectFeed(s.feed);
   setField('Volume(mL/feed)', s.enVol); setField('Frequency', s.enFreq);
   const menBox = [...container.querySelectorAll('label.chk-label')].find(l => l.textContent.trim().startsWith('MEN')).querySelector('input');
   if (menBox.checked !== s.men) act(() => menBox.click());

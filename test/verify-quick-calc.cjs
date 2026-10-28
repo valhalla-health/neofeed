@@ -55,7 +55,7 @@ const ReactDOM = require('react-dom/client');
 const { act } = require('react');
 global.React = React; window.React = React;
 
-// Copy Order writes to the clipboard; jsdom has no implementation, and the
+// The quick calc's Copy writes to the clipboard; jsdom has no implementation, and the
 // copied TEXT is exactly what § 4 inspects.
 let copied = null;
 window.confirm = () => true;
@@ -237,6 +237,25 @@ ok('it carries no NeoFeed ID', !/NeoFeed ID/.test(copied || ''), copied);
 ok('it carries no bed', !/^Bed:/m.test(copied || ''), copied);
 ok('it still carries the arithmetic (GIR)', /GIR/.test(copied || ''), copied);
 
+// ── § 4b · two feeds off a schedule copy as refused, not with an interval ──
+// The quick calc copies without the Print gate, so a refused two-feed day
+// must say so in the text (Vera, 2026-10-28): 3 + 4 once read "q3.4h".
+console.log('\n── § 4b two feeds off a regular schedule copy as refused ──');
+setField(scratchBox, 'Volume', 'mL/feed', 15);
+setField(scratchBox, 'Frequency', 'feeds/d', 3);
+act(() => { buttonMatching(scratchBox, /Add a second feed/).dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+const feed2Box = scratchBox.querySelector('.en-feed-2');
+setField(feed2Box, 'Volume', 'mL/feed', 15);
+setField(feed2Box, 'Frequency', 'feeds/d', 4);
+copied = null;
+act(() => { buttonMatching(scratchBox, /คัดลอกผลคำนวณ/).dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+ok('3 + 4: no interval on the Total line', typeof copied === 'string' && /Total .* 7 feeds\/d(?! q)/.test(copied) && !/q3\.4h/.test(copied), copied);
+ok('3 + 4: a "!!" line says it cannot be ordered', /!! TWO FEEDS OFF A REGULAR SCHEDULE — cannot be ordered/.test(copied || ''), copied);
+setField(feed2Box, 'Frequency', 'feeds/d', 3);
+copied = null;
+act(() => { buttonMatching(scratchBox, /คัดลอกผลคำนวณ/).dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+ok('3 + 3: "6 feeds/d q4h" and no "!!" feeds line', /6 feeds\/d q4h/.test(copied || '') && !/!! TWO FEEDS/.test(copied || ''), copied);
+
 // ── § 5 · the wiring in app.jsx ────────────────────────────────────────────
 console.log('\n── § 5 app wiring ──');
 const scratchPatient = /const SCRATCH_PATIENT = Object\.freeze\(\{[\s\S]{0,600}?\}\);/.exec(appSrc)?.[0] || '';
@@ -282,8 +301,11 @@ ok('the view is headed Calculator', /<h1[^>]*>\s*\n?\s*Calculator\n/.test(quickV
 // ward's list, both view === "registry". Its ← lands back on the Ward page
 // rather than on whichever page the user happened to open it from. Both
 // halves are pinned, because either one alone is a door that only opens one way.
+// A ward's Print order list is the one registry page without it (Pp,
+// 2026-10-28: "ไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง"); verify-print-all-1028.cjs
+// drives that page.
 ok('the button is on the Ward page and nowhere else',
-  /const showQuickFab = view === "registry";/.test(appSrc) &&
+  /const showQuickFab = view === "registry" && !printWard;/.test(appSrc) &&
   /\{showQuickFab && <QuickCalcFab onClick=\{\(\) => goTo\("quickcalc"\)\} \/>\}/.test(appSrc),
   /.{0,160}<QuickCalcFab/.exec(appSrc)?.[0]);
 ok('…so it is not on the Dashboard, the growth chart, the alerts or either calculator',

@@ -223,36 +223,106 @@ const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter(e => D_R.normalizeDateStr(e.ts) === today);
 }
+// The one order a tap on this infant's row opens straight to print, or null:
+// an active infant of `ward` whose only Submitted order for `today` is saved
+// (no tmp_ id). Print ทั้งหมด builds its queue with it, and app.jsx asks it
+// again before opening each queued order: a run takes minutes, and a sync in
+// it can discharge or move the infant, or add a second order (Vera, 2026-10-28).
+function wardPrintableOrder(p, entries, ward, today) {
+  if (!p || !isActivePatient(p) || D_R.patientWard(p) !== ward) return null;
+  const orders = todaysOrders(entries, today);
+  return orders.length === 1 && !isPendingRow(orders[0]) ? orders[0] : null;
+}
 
-function WardPrintList({ patients, log, today, ward, onBack, onPrint, onOpenPatient, onShowNeeds }) {
+function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const active = patients.filter(p => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active
     .map(p => ({ p, orders: todaysOrders(log[p.sessionId], today) }))
     .filter(r => r.orders.length > 0);
   const waiting = active.length - rows.length;
+  // Print ทั้งหมด (Pp, 2026-10-28: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด"):
+  // every row a tap would open straight to print, in the list's bed order.
+  // App opens them one at a time, each as a tap on its row would (app.jsx
+  // printQueue), so each still passes the calculator's Print gate and the edit
+  // lock. A row still saving, or a day with two orders, is left out: a tap on
+  // it does not print either (wardPrintableOrder). The label names the next infant on the
+  // calculator's ถัดไป button as the row does: bed (รอเตียง when parked, as
+  // BedChip says), name and twin label.
+  const printable = rows.flatMap(({ p }) => {
+    const order = wardPrintableOrder(p, log[p.sessionId], ward, today);
+    return order ? [{ sessionId: p.sessionId, entryId: order.entryId,
+      label: [D_R.isParked(p) ? "รอเตียง" : (p.currentBed || D_R.lastBed(p)), D_R.patientName(p),
+        p.twinSuffix && multiplesLabel(p)].filter(Boolean).join(" ") }] : [];
+  });
+  // Which of them Print sends (Pp, 2026-10-28, second ask: "ให้สามารถมีปุ่ม
+  // ซีเล็กเป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้"): a tick per row, and เลือกทั้งหมด.
+  // null is every one, the state the list opens in and the one เลือกทั้งหมด
+  // returns to, so an order submitted while the list is open joins it. Once a
+  // row is ticked or unticked it is the set of entry ids chosen, and an order
+  // no longer printable drops out of it on its own. Kept here, not in App: the
+  // list unmounts while an order is open, and comes back with every one ticked.
+  const [picked, setPicked] = React.useState(null);
+  const isPicked = (item) => picked === null || picked.has(item.entryId);
+  const queue = printable.filter(isPicked);
+  const allPicked = queue.length === printable.length;
+  const togglePick = (item) => {
+    const next = new Set(picked === null ? printable.map(i => i.entryId) : picked);
+    if (next.has(item.entryId)) next.delete(item.entryId); else next.add(item.entryId);
+    setPicked(next);
+  };
+  const pickable = !!onPrintAll && printable.length > 0;
+  const itemFor = new Map(printable.map(i => [i.sessionId, i]));
+  const printWhat = allPicked ? "Print ทั้งหมด" : "Print ที่เลือก";
 
   return (
     <>
-      <div className="page-head" style={{ marginBottom: 12 }}>
-        <div>
+      <div className="page-head print-head" style={{ marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
           <h1>Print order · {wardName}</h1>
           <div className="sub">
             {window.NEOFEED_FMT_DATE?.(today) || today} · Submit แล้ว{" "}
             <span className="num">{rows.length}</span> จาก <span className="num">{active.length}</span> ราย
           </div>
+          <button className="btn" onClick={onBack} style={{ fontSize: 12.5, marginTop: 10 }}>← กลับ</button>
         </div>
-        <button className="btn" onClick={onBack} style={{ fontSize: 12.5 }}>← กลับ</button>
+        {onPrintAll && rows.length > 0 && (
+          <button type="button" className="btn primary print-all" disabled={queue.length === 0}
+            onClick={() => onPrintAll(queue)}
+            aria-label={`${printWhat} ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`}>
+            <Icon name="pdf" size={14} color="#fff" /> {printWhat} <span className="num">({queue.length})</span>
+          </button>
+        )}
       </div>
 
       <div className="print-list">
+        {pickable && (
+          <label className="print-pick-all">
+            <input type="checkbox" checked={allPicked}
+              ref={el => { if (el) el.indeterminate = queue.length > 0 && !allPicked; }}
+              onChange={() => setPicked(allPicked ? new Set() : null)} />
+            เลือกทั้งหมด
+            <span className="print-pick-n">เลือกแล้ว <span className="num">{queue.length}</span> จาก <span className="num">{printable.length}</span> ใบ</span>
+          </label>
+        )}
         {rows.map(({ p, orders }) => {
           const one = orders.length === 1 ? orders[0] : null;
           const pending = !!one && isPendingRow(one);
           const open = pending ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
           const action = pending ? "กำลังบันทึก…" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
+          const item = itemFor.get(p.sessionId);
+          // The tick sits beside the card, not in it: the card is itself a
+          // button (rowA11y), and a control inside a control is not reachable
+          // as one. A row that cannot print keeps the column, empty.
           return (
-            <div key={p.sessionId} className={"print-row" + (pending ? " is-pending" : "")}
+            <div key={p.sessionId} className="print-item">
+            {pickable && (item ? (
+              <label className="print-pick">
+                <input type="checkbox" checked={isPicked(item)} onChange={() => togglePick(item)}
+                  aria-label={`เลือก ${item.label}`} />
+              </label>
+            ) : <span className="print-pick" aria-hidden="true" />)}
+            <div className={"print-row" + (pending ? " is-pending" : "")}
                  onClick={open || undefined}
                  {...(open ? rowA11y(open) : {})}
                  aria-label={`${action} ${D_R.patientName(p) || ""}`.trim()}>
@@ -268,6 +338,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onOpenPati
                 {one && !pending && <Icon name="pdf" size={12} color="#fff" />} {action}
                 {!pending && <Icon name="arrow" size={11} color={one ? "#fff" : undefined} />}
               </button>
+            </div>
             </div>
           );
         })}
@@ -311,7 +382,7 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
 }
 
 function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor,
-  printWard, onPrintWard, onPrintOrder }) {
+  printWard, onPrintWard, onPrintOrder, onPrintAll }) {
   const [filter, setFilter]         = React.useState("");
   // Which stats tile the list is narrowed to: null (every active infant),
   // "logged" or "needs" (Pp, 2026-10-12: tap Active / Logged today / Needs
@@ -342,6 +413,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     <WardPrintList patients={patients} log={log} today={today} ward={printWard}
       onBack={() => onPrintWard?.(null)}
       onPrint={onPrintOrder}
+      onPrintAll={onPrintAll}
       onOpenPatient={onSelect}
       onShowNeeds={() => { setFilter(""); setStatFilter("needs"); onPrintWard?.(null); onWardChange?.(printWard); }} />
   );
