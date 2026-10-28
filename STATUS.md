@@ -5,9 +5,10 @@
 > brought back from a phone; the nutrition unit's and TPN team's answers of 2026-10-25; every stock mL to
 > one decimal, with a stop at 0 mL. **`CONSTANTS_VERSION` is `2026-10-27.2`**, so every saved order is
 > saved again before it prints. On `342123d` Cloudflare's Workers Builds and the GitHub Pages build and
-> deploy jobs all passed. ⚠️ Nothing on #172 records a dev-local run or `verify-release.mjs`, and it had no
-> tag: `release-2026-10-27-pr172` was pushed on 2026-10-28 by the session of PR #183, whose network reaches
-> neither host, so the served bytes are still unchecked. ⚠️ The pre-release asks below for #168, #170 and
+> deploy jobs all passed. ⚠️ Nothing on #172 records a dev-local run or `verify-release.mjs`, and it has no
+> tag. The session of PR #183 could do neither: its network reaches neither host, and GitHub refused it a
+> tag push (403). So the served bytes are still unchecked, and `release-2026-10-27-pr172` (at `342123d`) is
+> for Pp to push. ⚠️ The pre-release asks below for #168, #170 and
 > #171 (the ward told a route must be pressed, pharmacy told of one-decimal stock mL and the ZnSO₄ line,
 > Center Point's feed labels, the ZnSO₄ stock photo) are not recorded as done. Recorded here by PR #183,
 > the next PR on the repo.
