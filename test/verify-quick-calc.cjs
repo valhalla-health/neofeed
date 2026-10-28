@@ -237,6 +237,25 @@ ok('it carries no NeoFeed ID', !/NeoFeed ID/.test(copied || ''), copied);
 ok('it carries no bed', !/^Bed:/m.test(copied || ''), copied);
 ok('it still carries the arithmetic (GIR)', /GIR/.test(copied || ''), copied);
 
+// ── § 4b · two feeds off a schedule copy as refused, not with an interval ──
+// The quick calc copies without the Print gate, so a refused two-feed day
+// must say so in the text (Vera, 2026-10-28): 3 + 4 once read "q3.4h".
+console.log('\n── § 4b two feeds off a regular schedule copy as refused ──');
+setField(scratchBox, 'Volume', 'mL/feed', 15);
+setField(scratchBox, 'Frequency', 'feeds/d', 3);
+act(() => { buttonMatching(scratchBox, /Add a second feed/).dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+const feed2Box = scratchBox.querySelector('.en-feed-2');
+setField(feed2Box, 'Volume', 'mL/feed', 15);
+setField(feed2Box, 'Frequency', 'feeds/d', 4);
+copied = null;
+act(() => { buttonMatching(scratchBox, /คัดลอกผลคำนวณ/).dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+ok('3 + 4: no interval on the Total line', typeof copied === 'string' && /Total .* 7 feeds\/d(?! q)/.test(copied) && !/q3\.4h/.test(copied), copied);
+ok('3 + 4: a "!!" line says it cannot be ordered', /!! TWO FEEDS OFF A REGULAR SCHEDULE — cannot be ordered/.test(copied || ''), copied);
+setField(feed2Box, 'Frequency', 'feeds/d', 3);
+copied = null;
+act(() => { buttonMatching(scratchBox, /คัดลอกผลคำนวณ/).dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+ok('3 + 3: "6 feeds/d q4h" and no "!!" feeds line', /6 feeds\/d q4h/.test(copied || '') && !/!! TWO FEEDS/.test(copied || ''), copied);
+
 // ── § 5 · the wiring in app.jsx ────────────────────────────────────────────
 console.log('\n── § 5 app wiring ──');
 const scratchPatient = /const SCRATCH_PATIENT = Object\.freeze\(\{[\s\S]{0,600}?\}\);/.exec(appSrc)?.[0] || '';

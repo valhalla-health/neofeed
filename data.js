@@ -397,7 +397,7 @@ const EN_PRODUCTS = [
 // Feed 1 + feed 2 together, at most 8 feeds a day (q3h); q4h is 6 (Pp,
 // 2026-10-28: "Feed 1+2 รวมกันมากสุดจะได้แค่ 8 มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้
 // 6 มื้อ"). Above it a two-feed order cannot be submitted, and the two must be
-// given equally often (4 + 4, 3 + 3), so each is at most 4.
+// on one regular schedule (24 h ÷ their total is whole hours: 6 + 2, 4 + 4, 3 + 3).
 const EN_FEEDS_PER_DAY_MAX = 8;
 
 // The product and strength an EN_DB key is offered as, or null for a key the
