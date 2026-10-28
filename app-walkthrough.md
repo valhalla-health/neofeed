@@ -649,7 +649,9 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    `D.isOnUnit` says), so the card, the table, the archive and the Dashboard
    strip cannot disagree. A change to Expired, there or in Edit session, asks
    "are you sure?" first, naming the infant and the bed (`confirmStatusChange`).
-   `test/verify-registry-chip-taps-1028.cjs` pins it.
+   `test/verify-registry-chip-taps-1028.cjs` pins it. On a phone, opening the
+   archive scrolls it to the top of the list, so its chips and Edit are not
+   under the Calculator button or the bottom nav (`verify-archive-fab-1028.cjs`).
    Each active patient carries a `✓ LOGGED` / `NEEDS ENTRY` badge
    (`.log-badge`) for "does this patient have a Daily_Log entry dated
    today", on both layouts. The stats strip above the list (Active / Total
