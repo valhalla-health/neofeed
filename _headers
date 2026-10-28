@@ -45,7 +45,10 @@
 #     (2026-09-17 review, SEC-F4). A path source matches that one /exec only.
 #     If the deployment ID ever changes, this line and boot.js's
 #     `window.NEOFEED_GAS_URL` change together —
-#     test/verify-review-0917-shell.cjs fails when they disagree.
+#     test/verify-review-0917-shell.cjs fails when they disagree. The same
+#     goes for `window.NEOFEED_PILOT_GAS_URL` (NF-05, boot.js § 3): empty
+#     today, and once Pp creates the pilot deployment its full path is added
+#     here as the one other script.google.com source.
 #   - https://script.googleusercontent.com stays origin-wide: /exec answers
 #     with a 302 to a per-response URL there, and CSP ignores the path of a
 #     redirect target anyway.

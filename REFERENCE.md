@@ -170,6 +170,172 @@ The reasons for each rule, with sources: the two 2026-10-11 Vera entries in `CHA
 
 ## Deploying, and rolling back
 
+### The pilot ladder (NF-05, 2026-10-28)
+
+**A release reaches Pp and one fellow 48 hours before it reaches the ward.** Pp ticked NF-05 in her
+apply list of 2026-10-27. Until now a `main → release` merge put a new version in front of every ward
+at once, so a calculation that came out wrong reached the next order for every infant. Now a release
+first runs on the `pilot` branch while the ward stays on the previous release, and promotion is a
+separate merge that Pp makes once the release PR's checklist is ticked.
+
+**It is not running yet.** It starts once the one-time setup at the end of this section is done.
+Until then § Frontend and § Backend below stand as written, and the `promotion-checklist` check shows
+red on a release PR from `main`; that red is expected.
+
+```text
+before  PR → main ──(release PR main → release, Pp merges)──→ release → both hosts → every ward
+        backend: clasp update-deployment <ward id> -V n ────────────────────→ every ward
+
+after   PR → main ──(Pp: push a main commit to pilot)──→ pilot → pilot-neofeed… → Pp + one fellow, 48 h
+                    (release PR pilot → release, checklist ticked, Pp merges) → release → every ward
+        backend: clasp update-deployment <pilot id> -V n ··· 48 h ··· clasp update-deployment <ward id> -V n
+```
+
+**How the pilot and the ward stay apart**
+
+- **Frontend.** Workers Builds already builds a preview of every branch, and a branch's preview keeps
+  one address for the life of the branch. The `pilot` branch's is
+  `https://pilot-neofeed.valhalla-health.workers.dev`: the same Worker and the same bytes the ward will
+  get, since nothing is built at promotion. `node tools/verify-release.mjs --pilot` proves the pilot
+  host serves the `pilot` tip byte for byte. The pilot is its own origin, so its sign-in session, drafts
+  and calculator prefills are separate from the ward app's on the same device.
+- **Which backend.** `boot.js` § 3 sets `window.NEOFEED_GAS_URL`. On every host it is the ward
+  deployment (`AKfycbz8…`), except on `pilot-neofeed.valhalla-health.workers.dev`, where it is
+  `NEOFEED_PILOT_GAS_URL` once that is set. Every host gets the same `boot.js` and the hostname
+  decides; a lookalike hostname gets the ward (`test/verify-pilot-ladder.cjs` § 1). `_headers`
+  connect-src names both deployments by full path, and `tools/dev-local.mjs` blanks the pilot one.
+- **Backend.** The pilot deployment is a second web-app deployment of the same Apps Script project,
+  pinned to its own version: `clasp update-deployment <pilot id> -V <new>` while the ward deployment
+  stays where it is. Same manifest, same `executeAs`, deployed by the same account
+  (`peeraporn.po@chula.ac.th`).
+- **What the two share.** Both deployments run against one Sheet, one set of Script Properties and
+  one script cache. Pilot users enter real orders, so pilot rows are real rows the ward sees. A session
+  (`sess_…`) issued by one deployment is accepted by the other, and a sync payload (`sync2_…`) or header
+  check (`schema1_…`) cached by one is served by the other. `clasp push` changes HEAD, which `onEdit`
+  and every editor-run function use at once, for the ward too.
+
+**When a release cannot be piloted side by side**
+
+For 48 hours two versions write the same rows, so each must read whatever the other writes. The
+release PR's "Side by side" boxes ask this. These break it:
+
+- **A tab's columns renamed, moved, inserted or removed.** Daily_Log, Patient_Registry and Nursing_Log
+  are read by position, and `_assertSchema` refuses every save when a label it checks differs. A
+  column added at a tab's end passes the old version's check, which covers only its own width, as long
+  as both versions accept the new column blank.
+- **A cell that changes what it holds**: a unit (oral PO₄ in mg instead of mmol, BACKLOG § Now), the
+  shape of `calcInputJson`, a value in `status` or `route` the old version does not know.
+- **A cached value whose shape changes under the same key.** Give it a new key (`sync2_` → `sync3_`)
+  so neither version reads the other's.
+- **An editor-run migration that rewrites rows.** It acts on the ward at once.
+
+Such a release is split in two: first a version that reads both the old and the new form and still
+writes the old one, through the whole ladder; then the version that writes the new form, through the
+ladder again. If it cannot be split, it goes the old way: dev local, Pp's explicit OK for a direct
+release at a quiet hour, the rollback target named and the reason written in the release PR, which
+then shows `promotion-checklist` red while Pp merges it.
+
+**`CONSTANTS_VERSION` is not a schema change, but it shows.** A saved order whose stamp differs from
+the running version is held from Print and Copy until a doctor saves it again (`calcMoved` in
+`calculator.jsx`). During a pilot that bumps it, an order saved on the pilot is held on the ward app,
+and the reverse. Nothing wrong prints; the order waits. So the pilot users print their own pilot
+orders from the pilot, and tell the ward that an order they saved shows as held there.
+
+**Running a pilot**
+
+1. Pick the `main` commit to release (`harnesses` green on its push to `main`) and run it on dev local
+   (§ Frontend, "Dev local before every release").
+2. **Backend changed?** In the clasp mirror, after § Backend's diff-and-reconcile step: `clasp push`,
+   `clasp create-version "<what> (from main <sha>)"`, then
+   `clasp update-deployment <pilot id> -V <new> -d "pilot: <what>"`. The ward deployment is not touched.
+3. Pp, or an agent on her go-ahead: `git push origin <sha>:pilot`. It is always a fast-forward, and
+   `pilot` refuses a force-push once its protection is on.
+4. `node tools/verify-release.mjs --pilot --wait` until the pilot host serves `<sha>`.
+5. Open the release PR from its template:
+   `gh pr create --base release --head pilot --template release.md`. Fill in what ships, the
+   side-by-side boxes, the pilot commit, the start time and the rollback target.
+6. Tell the pilot fellow, and the ward if `CONSTANTS_VERSION` moved. The 48 hours start now.
+
+While it runs, the two pilot users order on `pilot-neofeed…` and everyone else on the ward app. For
+a release that moves a printed figure, each changed figure on a pilot order is checked against the
+ward app or a hand calculation before the order goes to pharmacy: the pilot users' infants are real.
+
+**Promoting**
+
+Tick the release PR's Promotion boxes. All the evidence is counts:
+
+- **48 hours** from the start time in the PR. A push to `pilot` restarts them.
+- **The error log** is Apps Script ▸ Executions for the project, Status = Failed, since the start
+  time, compared with the week before. It keeps 7 days, so read it before the pilot is a week old.
+- **Usage** is the NF-02 `Usage_Log` tab, per ward per week, once that is live. It cannot tell a pilot
+  row from a ward row, so pilot orders are counted from Daily_Log: column AG (`appVersion`) holds the
+  frontend build that last saved the row, the same stamp printed as "app …" at the foot of an order.
+  `=COUNTIFS(Daily_Log!AG:AG, "<pilot stamp>", Daily_Log!O:O, "<>draft")` counts them when the release
+  changed a served file.
+
+Then, in this order: the backend (`sheetHealthReport()` from the editor, every tab ok, then
+`clasp update-deployment <ward id> -V <new>`), then the release PR merge. After it, as before:
+`node tools/verify-release.mjs --wait`, the tag and a comment on the PR. Watch the week after: a ward
+whose `Usage_Log` count falls has gone back to paper for a reason.
+
+**A backend-only release** has nothing to merge into `release`: step 2, the 48 hours, then the ward
+deployment. Its checklist goes in a comment on the PR whose backend code it deploys.
+
+**Rolling back**
+
+- **Frontend:** Cloudflare dashboard → Workers & Pages → `neofeed` → Deployments → the version built
+  from the rollback-target commit → Rollback, or `npx wrangler rollback <version-id>`. Then revert the
+  release merge on `main` by PR, so the next pilot does not carry it.
+- **Backend:** `clasp update-deployment <ward id> -V <rollback version>`, and the pilot deployment to
+  the same version.
+- **A pilot that finds a wrong figure:** the pilot users switch to the ward app at once, Pp closes the
+  release PR, and the fix or a revert goes into `main`. `pilot` then moves forward to it and the 48
+  hours start again. `pilot` never moves backwards, so its preview serves the bad version until then:
+  nobody orders on it.
+
+**One-time setup (Pp)**
+
+All free. Workers Builds already builds every branch on the free plan (3,000 build minutes a month,
+and this repo has no build command, so each build is short); one more branch adds one build per push
+to it. A GAS deployment, an OAuth origin and branch protection on a public repo cost nothing.
+
+1. **The pilot deployment.** In `~/nicu-tools/neofeed`, signed in as `peeraporn.po@chula.ac.th`:
+   `clasp list-deployments` (the ward is `AKfycbz8…` at `@64` on 2026-10-28), then
+   `clasp create-deployment -V 64 -d "pilot (NF-05)"`. It prints the new deployment ID.
+2. **Point the pilot host at it.** A PR sets `window.NEOFEED_PILOT_GAS_URL` in `boot.js` to
+   `https://script.google.com/macros/s/<pilot id>/exec` and adds the same URL to `_headers`
+   connect-src; `test/verify-review-0917-shell.cjs` fails until both agree. That PR is the first
+   release through the ladder.
+3. **The `pilot` branch**, from `main`: `git push origin origin/main:refs/heads/pilot`. Workers Builds
+   builds its preview within a minute or two.
+4. **Sign-in on the pilot host.** Google Cloud Console → APIs & Services → Credentials → OAuth client
+   `750019806043-imunne8n…` → Authorized JavaScript origins → add
+   `https://pilot-neofeed.valhalla-health.workers.dev`. Without it Google sign-in there fails with
+   `origin_mismatch` (§ Frontend); the password login works either way.
+5. **Protect `pilot`**, so it moves only forward and only to commits that passed CI:
+   ```bash
+   gh api -X PUT repos/valhalla-health/neofeed/branches/pilot/protection --input - <<'EOF'
+   {"required_status_checks":{"strict":false,"contexts":["harnesses"]},"enforce_admins":true,
+    "required_pull_request_reviews":null,"restrictions":null,
+    "allow_force_pushes":false,"allow_deletions":false}
+   EOF
+   ```
+   A push is then accepted only for a commit whose `harnesses` already passed, which every `main`
+   commit has from its push to `main`. If GitHub refuses a push that should pass, set
+   `required_status_checks` to `null` and keep the rest.
+6. **Optional:** make `promotion-checklist` a required check on `release`. It can then no longer be
+   merged over, so a release that cannot be piloted needs the requirement lifted first.
+
+**What changes in the rules below once it runs**
+
+- The release PR comes from `pilot`: it opens when the pilot starts and merges after the checklist.
+  "merge แล้ว deploy" now ends at the pilot, and the merge into `release` waits for the 48 hours.
+- Dev local runs before the pilot starts.
+- An agent pushes `pilot`, as it merges into `release`, only on Pp's explicit go-ahead.
+- `tools/release-gate.mjs` reads the release PR (`release-gate.yml`, check `promotion-checklist`):
+  it comes from `pilot`, the pilot commit is its head, 48 hours have passed since the start, the
+  rollback target names a release tag and a backend `@N`, and no box is unticked. Not a required check.
+
 ### Frontend
 
 **`main` is a working branch, not a deploy trigger — `release` is.** Changed 2026-09-11

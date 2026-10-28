@@ -5,7 +5,8 @@
 //   #1  UP-S15  fmtDate formats a calendar date from its digits: the same day
 //               on a device west of UTC, east of it, and in Bangkok
 //   #2  SEC-F4  _headers connect-src names exactly the NEOFEED_GAS_URL both
-//               shells use — not every Apps Script deployment
+//               shells use — not every Apps Script deployment — plus the
+//               pilot deployment once boot.js names one (NF-05)
 //   #3  SEC-F5  the GitHub Pages guard clears neofeed_* storage before it
 //       SEC-F6  redirects, and a trailing-dot hostname no longer slips past
 //   (#2 and #3 read boot.js since the 2026-09-17 build step moved the shells'
@@ -97,7 +98,14 @@ const scenarios = {
       urls.length === 1 && loadsBoot(read('index.html')) && loadsBoot(read('NeoFeed.html')));
     A.ok('2.2 connect-src lists that exact URL, full path', connect.includes(gasIndex));
     A.ok('2.3 …and no bare script.google.com origin', !connect.some(s => /^https:\/\/script\.google\.com\/?$/.test(s) || /\*\.google\.com/.test(s)));
-    A.eq('2.4 the only script.google.com source is the deployment', connect.filter(s => s.includes('script.google.com')), [gasIndex]);
+    // NF-05: the pilot host may use a second deployment of the same project
+    // (boot.js § 3). Empty until Pp creates it; once set, it is the one other
+    // script.google.com source, by its full path too.
+    const pilot = [...read('boot.js').matchAll(/window\.NEOFEED_PILOT_GAS_URL\s*=\s*"([^"]*)"/g)].map(m => m[1]);
+    A.ok('2.4a boot.js names the pilot deployment once (empty or a full /exec path)', pilot.length === 1
+      && (pilot[0] === '' || (/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(pilot[0]) && pilot[0] !== gasIndex)), pilot);
+    A.eq('2.4 the only script.google.com sources are the deployment and, when set, the pilot',
+      connect.filter(s => s.includes('script.google.com')), [gasIndex, pilot[0]].filter(Boolean));
     A.ok('2.5 script.googleusercontent.com (the /exec redirect) is kept', connect.includes('https://script.googleusercontent.com'));
     A.ok('2.6 the comment no longer claims it pins every origin', !/It DOES pin every external origin/.test(headers));
   },

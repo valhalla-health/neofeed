@@ -48,3 +48,24 @@
 // test/verify-review-0917-shell.cjs fails when they disagree.
 window.NEOFEED_CLIENT_ID = "750019806043-imunne8ndetdesii70o3t1vnr0ta2br4.apps.googleusercontent.com";
 window.NEOFEED_GAS_URL   = "https://script.google.com/macros/s/AKfycbz8NtHuyTdo4EP-ZKb5n5LIRqVzGSY286MZRlXMniO51xjiuQO7eOLvltsrejkL4GgV/exec";
+
+// ── 3 · Pilot backend (NF-05) ─────────────────────────────────────────────
+// pilot-neofeed.valhalla-health.workers.dev is Cloudflare's preview of the
+// `pilot` branch: the release candidate that Pp and one fellow use for 48 h
+// before it is promoted to `release` (REFERENCE.md § The pilot ladder). On
+// that one host the app talks to the pilot deployment of the same Apps Script
+// project, so a new backend version can be piloted while the ward stays on the
+// old one. Every host gets these same bytes; the hostname decides.
+//
+// Empty until Pp creates the pilot deployment: the pilot host then uses the
+// ward's backend, which is right for a release that changes no backend code.
+// When it is set, the same URL goes into _headers' connect-src
+// (test/verify-review-0917-shell.cjs fails when they disagree), and
+// tools/dev-local.mjs blanks it in its local copy.
+window.NEOFEED_PILOT_GAS_URL = "";
+(function () {
+  var host = window.location.hostname.replace(/\.$/, "");
+  if (host === "pilot-neofeed.valhalla-health.workers.dev" && window.NEOFEED_PILOT_GAS_URL) {
+    window.NEOFEED_GAS_URL = window.NEOFEED_PILOT_GAS_URL;
+  }
+})();

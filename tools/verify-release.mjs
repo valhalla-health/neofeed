@@ -19,6 +19,12 @@
 //   node tools/verify-release.mjs --wait[=N]  # right after merging a release PR: check
 //                                             # again every 30 s until both hosts serve
 //                                             # the tip of `release`, for up to N min (10)
+//   node tools/verify-release.mjs --pilot     # the pilot host instead, against the tip of
+//                                             # `pilot` (NF-05); --wait works the same
+//
+// --pilot checks pilot-neofeed.valhalla-health.workers.dev, Cloudflare's preview
+// of the `pilot` branch, with the CSP check, and nothing else: GitHub Pages
+// never serves `pilot`. See REFERENCE.md § The pilot ladder.
 //
 // Exit 0 only if every check passes. Needs Node 18+ and the network, and no
 // npm install. Set GH_TOKEN to lift GitHub's anonymous API rate limit (two
@@ -31,14 +37,19 @@
 import { createHash, randomBytes } from "node:crypto";
 
 const REPO = "valhalla-health/neofeed";
-const HOSTS = [
-  { base: "https://neofeed.valhalla-health.workers.dev/", csp: true },
-  // Cannot set response headers, so no CSP here (REFERENCE.md § Frontend, `_headers`).
-  { base: "https://valhalla-health.github.io/neofeed/", csp: false },
-];
+const args = process.argv.slice(2);
+const PILOT = args.includes("--pilot");
+// The branch the hosts below deploy from.
+const BRANCH = PILOT ? "pilot" : "release";
+const HOSTS = PILOT
+  ? [{ base: "https://pilot-neofeed.valhalla-health.workers.dev/", csp: true }]
+  : [
+    { base: "https://neofeed.valhalla-health.workers.dev/", csp: true },
+    // Cannot set response headers, so no CSP here (REFERENCE.md § Frontend, `_headers`).
+    { base: "https://valhalla-health.github.io/neofeed/", csp: false },
+  ];
 const ALWAYS = ["manifest.json", "moved.html"]; // plus every file under icons/
 
-const args = process.argv.slice(2);
 const waitArg = args.find((a) => a === "--wait" || a.startsWith("--wait="));
 const WAIT_MIN = waitArg ? Number(waitArg.split("=")[1] ?? 10) : 0;
 const RETRY_MS = 30_000;
@@ -99,16 +110,24 @@ function fresh(url) {
 
 async function main() {
   if (waitArg && !(WAIT_MIN > 0)) throw new Error(`--wait takes minutes, as in --wait=15 (got ${waitArg})`);
-  const ref = args.find((a) => !a.startsWith("--")) || "release";
-  const sha = (await github(`commits/${encodeURIComponent(ref)}`)).sha;
-  const releaseTip = ref === "release" ? sha : (await github("commits/release")).sha;
-  console.log(`Checking both hosts against ${sha}${ref === sha ? "" : ` (${ref})`}`);
-  if (sha !== releaseTip) {
-    if (WAIT_MIN) {
-      throw new Error(`--wait waits for the hosts to serve ${ref}, but they deploy release ` +
-        `(${releaseTip.slice(0, 7)}), so it could never pass. Merge the release PR first, or drop --wait.`);
+  const ref = args.find((a) => !a.startsWith("--")) || BRANCH;
+  const tipOf = async (r) => {
+    try { return (await github(`commits/${encodeURIComponent(r)}`)).sha; }
+    catch (e) {
+      if (PILOT && r === BRANCH) throw new Error(`${e.message}: is there a pilot branch yet? (REFERENCE.md § The pilot ladder, one-time setup)`);
+      throw e;
     }
-    note(`not the tip of release (${releaseTip.slice(0, 7)}), which is what the hosts serve: expect failures`);
+  };
+  const sha = await tipOf(ref);
+  const branchTip = ref === BRANCH ? sha : await tipOf(BRANCH);
+  console.log(`Checking ${PILOT ? "the pilot host" : "both hosts"} against ${sha}${ref === sha ? "" : ` (${ref})`}`);
+  if (sha !== branchTip) {
+    if (WAIT_MIN) {
+      throw new Error(`--wait waits for the hosts to serve ${ref}, but they deploy ${BRANCH} ` +
+        `(${branchTip.slice(0, 7)}), so it could never pass. ` +
+        (PILOT ? "Push the commit to pilot first, or drop --wait." : "Merge the release PR first, or drop --wait."));
+    }
+    note(`not the tip of ${BRANCH} (${branchTip.slice(0, 7)}), which is what the hosts serve: expect failures`);
   }
 
   const tree = await github(`git/trees/${sha}?recursive=1`);

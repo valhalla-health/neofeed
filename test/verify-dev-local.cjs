@@ -13,6 +13,8 @@
 //   #3 refuses a tree whose boot.js has no NEOFEED_GAS_URL line it can
 //              rewrite, rather than serve it
 //   #4 stop    removes the copy
+//   #5 pilot   a boot.js that names the pilot deployment (NF-05) is served
+//              with it blanked, so no script.google.com URL is left in it
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -93,6 +95,28 @@ const post = async (url, body) => (await fetch(url, { method: 'POST', headers: {
     ok('3.0 it refuses to start', !!err && /NEOFEED_GAS_URL/.test(err.message), err && err.message);
   } finally {
     fs.rmSync(fake, { recursive: true, force: true });
+  }
+
+  console.log('\n── #5 a boot.js that names a pilot deployment (NF-05) ──');
+  const piloted = fs.mkdtempSync(path.join(os.tmpdir(), 'neofeed-devtest-'));
+  try {
+    for (const f of ['gas-backend.gs', 'data.js', 'index.html', path.join('test', 'gas-vm-sandbox.cjs')]) {
+      fs.mkdirSync(path.dirname(path.join(piloted, f)), { recursive: true });
+      fs.copyFileSync(path.join(ROOT, f), path.join(piloted, f));
+    }
+    const pilotUrl = 'https://script.google.com/macros/s/AKfycbPILOTdevlocaltest/exec';
+    const src = fs.readFileSync(path.join(ROOT, 'boot.js'), 'utf8');
+    const filled = src.replace(/window\.NEOFEED_PILOT_GAS_URL\s*=\s*"[^"]*";/, `window.NEOFEED_PILOT_GAS_URL = "${pilotUrl}";`);
+    ok('5.0 (the copy under test names a pilot deployment)', filled !== src && filled.includes(pilotUrl));
+    fs.writeFileSync(path.join(piloted, 'boot.js'), filled);
+    const d = await start({ tree: piloted, port: 0, quiet: true });
+    try {
+      const served = (await get(d.url + '/boot.js')).text;
+      ok('5.1 the served boot.js blanks the pilot deployment', served.includes('window.NEOFEED_PILOT_GAS_URL = "";'));
+      ok('5.2 …and names no script.google.com deployment at all', !/script\.google\.com\/macros/.test(served));
+    } finally { await d.stop(); }
+  } finally {
+    fs.rmSync(piloted, { recursive: true, force: true });
   }
 
   console.log('\n── #4 stop ──');

@@ -17,6 +17,10 @@ Read before you act:
 - **Merging, releasing or deploying** anything: `REFERENCE.md` § Deploying, and rolling back.
   Merging into `main` deploys nothing; `release` deploys. An agent merges into `release`, or runs a
   backend `clasp deploy`, only on Praew's explicit go-ahead.
+- **A release goes through the pilot first** (NF-05): a `main` commit runs on the `pilot` branch for
+  48 h with Pp and one fellow, then the release PR `pilot → release`, opened from
+  `.github/PULL_REQUEST_TEMPLATE/release.md`, promotes it. `REFERENCE.md` § The pilot ladder; it starts
+  once Pp's one-time setup there is done. An agent pushes `pilot` only on her go-ahead.
 - **Editing a `.jsx` file**: `REFERENCE.md` § The frontend build (rebuild, commit `compiled/` with it).
 - **Writing down agreed behaviour before building it**: `openspec/` (OpenSpec, PR #146). `/opsx:propose`
   starts a change; `explore`, `apply`, `verify`, `sync`, `update` and `archive` follow. Specs live in

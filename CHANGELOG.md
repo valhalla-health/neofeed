@@ -7,6 +7,57 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (NF-05) — the pilot ladder: 48 h on `pilot` before a release reaches the ward
+
+`REFERENCE.md` § The pilot ladder (new), `.github/PULL_REQUEST_TEMPLATE/release.md` (new),
+`.github/workflows/release-gate.yml` and `tools/release-gate.mjs` (new), `boot.js` § 3,
+`tools/verify-release.mjs` (`--pilot`), `tools/dev-local.mjs`, `_headers` (comment only),
+`test/verify-pilot-ladder.cjs` (new), `test/verify-review-0917-shell.cjs` 2.4,
+`test/verify-dev-local.cjs` #5, `AGENTS.md`, `STATUS.md`, `BACKLOG.md`, `test/README.md`. The shells
+and `boot.js`'s `?v=` token moved with the build. No calculation, printed figure or backend code
+changed, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-05 in her apply list of 2026-10-27: a release goes first to a pilot that she and one
+fellow use for 48 h, and reaches the ward only by a separate promotion once usage and the error log
+show nothing new. Until now a `main → release` merge reached every ward at once.
+
+### How deploys worked, checked first
+
+Workers Builds deploys `release` to `neofeed.valhalla-health.workers.dev` and builds a preview of
+every other branch at `<branch>-neofeed.valhalla-health.workers.dev` (the Cloudflare comment on PR
+#178 shows both URLs). GitHub Pages serves `release` as a redirect stub. `release` requires
+`harnesses`, 0 approvals, `enforce_admins` on (branch-protection API, 2026-10-28). The backend has 26
+deployments; the ward's is `AKfycbz8…` at `@64` (`clasp list-deployments`). The frontend picks its
+backend from one constant in `boot.js`.
+
+### What the ladder is
+
+The `pilot` branch's preview, `pilot-neofeed.valhalla-health.workers.dev`, is the pilot: no new
+Worker, the same bytes the ward gets later. `boot.js` § 3 sends that one host to a pilot deployment
+of the same Apps Script project (`NEOFEED_PILOT_GAS_URL`, empty until Pp creates it, so the pilot host
+uses the ward's backend meanwhile). The release PR comes from `pilot` and carries the template's
+checklist; `promotion-checklist` fails until the pilot commit is its head, 48 h have passed, the
+rollback target names a tag and a backend `@N`, and every box is ticked. It is not a required check.
+
+Both deployments share the Sheet, Script Properties and script cache, so the runbook lists what
+cannot be piloted side by side (column moves, a cell that changes meaning, a cache value whose shape
+changes under the same key, an editor-run migration) and how such a release is split. A
+`CONSTANTS_VERSION` bump can be piloted: an order saved on one version is held on the other until it
+is saved again, never printed wrong.
+
+### Not done here
+
+Pp's one-time setup: the pilot deployment, the PR that sets its URL, the `pilot` branch, the OAuth
+origin and the branch protection (`REFERENCE.md`, BACKLOG § Now). Until then releases go as before.
+
+### Found on the way
+
+Release #172 (`342123d`, merged 2026-10-27) is live and `node tools/verify-release.mjs` passes on both
+hosts against it, but its tag `release-2026-10-27-pr172` is not pushed and `STATUS.md` does not
+record it yet. Neither is fixed here.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),

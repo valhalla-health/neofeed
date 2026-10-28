@@ -32,6 +32,17 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🚦 **release · NF-05, the pilot ladder: Pp's one-time setup** (`REFERENCE.md` § The pilot ladder,
+      "One-time setup"). Until it is done every release still goes straight to every ward.
+      - [ ] The pilot deployment: `clasp create-deployment -V 64 -d "pilot (NF-05)"` as
+        `peeraporn.po@chula.ac.th`; its ID goes to the session that does the next step.
+      - [ ] A PR sets `NEOFEED_PILOT_GAS_URL` in `boot.js` and the same URL in `_headers` connect-src. It is
+        the first release through the ladder.
+      - [ ] The `pilot` branch from `main`, the OAuth origin `https://pilot-neofeed.valhalla-health.workers.dev`,
+        and protection on `pilot`.
+      - [ ] Pp names the fellow who pilots, how many orders a pilot needs, and whether every changed figure on
+        a pilot order is checked before it goes to pharmacy.
+
 - [ ] 🩺 **safety/product · What the answers of 2026-10-25 left open** (the nutrition unit's and TPN
       team's answers to the 2026-10-19 question sheet; what they settled was built on 2026-10-27,
       `CHANGELOG.md` 2026-10-27). In order of reach:
