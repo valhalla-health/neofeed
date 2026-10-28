@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-28 (7) — the quick calc's copied text is checked figure by figure
+## Session 2026-10-28 (8) — the quick calc's copied text is checked figure by figure
 
 `test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`,
 `test/README.md`. Tests and docs only: no served file, calculation, limit or printed figure changed.
@@ -42,6 +42,49 @@ Each check fails on a deliberately broken copy line and passes once it is restor
 - Acetate computed without the overfill: § 13, 6 mEq instead of 7.
 
 `test/README.md` drops the "copied order" checks #180 removed and describes the new ones.
+
+## Session 2026-10-28 (7) — a help request can carry its picture on the Workers host
+
+`app.jsx` (`helpImageFromFile`), `compiled/app.js` and both shells' `?v=` token (rebuilt),
+`test/verify-help-request-frontend.cjs`, `test/verify-help-button-1009.cjs`. No calculation,
+printed figure, backend or `_headers` line changed.
+
+### Why
+
+Pp, 2026-10-28, from an iPhone on `neofeed.valhalla-health.workers.dev`: attaching a picture to
+ขอความช่วยเหลือ said "เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG". The text still went, and
+the email read "รูปแนบ: ไม่มี". She asked for it to be checked on Android as well.
+
+It was not the iPhone. The form opened the picked file through `URL.createObjectURL`, a `blob:` URL.
+`_headers`' `img-src` is `'self' data: https://*.gstatic.com https://*.googleusercontent.com`, with no
+`blob:`, so the Workers host blocked the load and the form reported a picture it could not open. That
+happened on every browser on that host: Android, iPhone and desktop. GitHub Pages sends no CSP, so the
+picture worked there. `verify-help-button-1009.cjs` #3 passed because its server sent no headers.
+
+### What changed
+
+- `helpImageFromFile` reads the file with `FileReader.readAsDataURL` and opens that `data:` URL, which
+  `img-src` already allows. The CSP is unchanged: widening `img-src` to `blob:` would have fixed it
+  too, but it changes the policy both hosts' reviews rest on, for nothing a `data:` URL cannot do.
+  The redraw, the 1600 px edge, the 1.5 MB cap, the EXIF drop and the Thai errors are as they were.
+- `verify-help-button-1009.cjs` now serves every file with the headers `_headers`' `/*` block sets.
+  #3 runs at an Android width (360), an iPhone width (402) and a desktop, and fails on any CSP
+  violation. New #5 shows that under that policy a `blob:` picture does not open and a `data:` one
+  does.
+- `verify-help-request-frontend.cjs` 6.11: the picture is opened from a `data:` URL and
+  `URL.createObjectURL` is never called.
+
+### Tests
+
+The new checks fail on `86bfc91`, the code before this change. In `verify-help-button-1009.cjs` #3,
+21 checks fail across the three devices, each with the browser's `img-src` violation for the `blob:`
+URL, and the request goes out without `image`, as in Pp's email. In
+`verify-help-request-frontend.cjs`, 6.11 fails. Both pass on this change: 168/168 and 54/54, sources
+and compiled.
+
+Not covered: Chromium is the only engine available here, so iOS Safari itself (WebKit) was not run.
+WebKit enforces `img-src` against `blob:` the same way, which is what Pp saw. A HEIC original picked
+from an Android gallery still cannot be opened in Chrome, and the form says so in Thai, as before.
 
 ## Session 2026-10-28 (6) — NF-17 for two feeds: `verify-calc-sum.cjs` adds them up
 
