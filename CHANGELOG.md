@@ -51,6 +51,10 @@ composition from the Chula handbook rows `EN_DB` already holds.
   alone is not checked; whether a q2h feed (12) should be is Q18 in the skill. Feed 1 with no volume
   beside feed 2 is a day of one feed (Vera's second review): not checked, and copied as one line.
   `docs/CLINICAL_CONSTANTS.md` has its row.
+- **The two feeds at the same interval** (Pp, later still: "ถ้าอันนึงกด 3 feed อันนึงกด 4 feed จะทำไม่ได้
+  ต้องให้ทั้งสองตัว เป็นทุก ชม ที่เท่ากัน"). With two feeds given, Feed 1's and Feed 2's feeds a day must be
+  equal (`CR-EN-FEEDS-EQUAL`, a stop): 4 + 4 is q3h, 3 + 3 q4h; 3 + 4 is refused, and so is 6 + 2 though
+  it makes 8.
 - **A feed EN_DB does not hold stops the order** (Vera on this change). A saved feed whose key is not
   an `EN_DB` row (removed since, or written by a newer NeoFeed) was costed as the other feed once there
   could be two; `enMixPer100mL` now returns null for it, `enFeedsUnknown` names it, and the order cannot
