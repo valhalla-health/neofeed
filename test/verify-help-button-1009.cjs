@@ -20,10 +20,20 @@
 //      that, where the user menu's item stays. A tap opens the form with ส่ง
 //      on screen.
 //   3. A real 3000 × 2000 picture carrying an EXIF block goes through the
-//      form: the preview and the request hold a JPEG of 1600 × 1067 with no
-//      EXIF, under 1.5 MB.
+//      form on an Android width, an iPhone width and a desktop: the preview and
+//      the request hold a JPEG of 1600 × 1067 with no EXIF, under 1.5 MB, and
+//      the browser reports no CSP violation.
 //   4. Negative control: with the narrow-phone block taken out of the shell,
 //      the 320 px button squeezes the wordmark, and section 2 says so.
+//   5. Negative control: under the served CSP a blob: picture does not open
+//      and a data: one does, so a form that went back to
+//      URL.createObjectURL would fail section 3.
+//
+// Every file is served with the headers _headers' /* block sets, the ones the
+// Workers host sends. Until 2026-10-28 this server sent none, so section 3
+// passed while no phone on that host could attach a picture: img-src allows
+// data: and not blob:, and the form opened the picture from a blob: URL (Pp,
+// 2026-10-28, from an iPhone). Section 3 fails on 86bfc91, before that fix.
 // CI installs no browser, so there sections 2–4 are a notice, as in
 // verify-phone-sweep.cjs.
 //   node test/verify-help-button-1009.cjs
@@ -41,6 +51,20 @@ function ok(name, cond, detail) {
 }
 
 const NARROW_HEAD = '  /* ============ HELP BUTTON ON NARROW PHONES ============ */';
+
+// The headers the Workers host sends with every file: the indented
+// `Name: value` lines under `/*` in _headers.
+function workersHeaders() {
+  const lines = read('_headers').split('\n');
+  const out = {};
+  for (const l of lines.slice(lines.findIndex(x => x.trim() === '/*') + 1)) {
+    const m = l.match(/^\s+([A-Za-z-]+):\s*(.+)$/);
+    if (!m) break;
+    out[m[1]] = m[2].trim();
+  }
+  return out;
+}
+const HOST_HEADERS = workersHeaders();
 const PHONE_HEAD = '  /* ============ MOBILE: ≤767px ============ */';
 
 // ══ 1 · the rules, in both shells ═════════════════════════════════════════════
@@ -54,6 +78,8 @@ console.log('\n── #1 both shells: the .help-btn rules, the narrow-phone bloc
     const s = read(shell);
     ok(`${shell}: the narrow-phone block exists, after the phone block`, s.indexOf(NARROW_HEAD) > s.indexOf(PHONE_HEAD) && s.indexOf(PHONE_HEAD) > 0);
   }
+  const csp = HOST_HEADERS['Content-Security-Policy'] || '';
+  ok('_headers gives every file a CSP with an img-src, and this harness serves it', /(^|;)\s*img-src /.test(csp), HOST_HEADERS);
 }
 
 // ══ 2–4 · in Chromium ═════════════════════════════════════════════════════════
@@ -85,8 +111,9 @@ const PATIENTS = [mk('บศ-BW1180', 'บว ศว', 'NICU 1', 1180, 'RDS', 20
 
 async function signedIn(browser, BASE, file, [, W, H, touch], sent) {
   const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch && W < 768 });
-  const errors = [];
+  const errors = [], csp = [];
   page.on('pageerror', e => errors.push(String(e)));
+  page.on('console', m => { if (/Content Security Policy/i.test(m.text())) csp.push(m.text().slice(0, 200)); });
   await page.route('https://accounts.google.com/**', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
   await page.route('**://script.google.com/**', r => {
     let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch {}
@@ -104,7 +131,7 @@ async function signedIn(browser, BASE, file, [, W, H, touch], sent) {
   await page.waitForSelector('.ward-tile', { timeout: 10000 });
   await page.locator('.ward-tile').first().click();
   await page.waitForTimeout(300);
-  return { page, errors };
+  return { page, errors, csp };
 }
 
 // Where the topbar's pieces are, and which of the button's words show.
@@ -175,10 +202,10 @@ async function run() {
   const ROOT = path.join(DIR);
   const server = http.createServer((req, res) => {
     let p = decodeURIComponent(req.url.split('?')[0]); if (p === '/') p = '/index.html';
-    if (p === '/no-narrow.html') { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(NO_NARROW); return; }
+    if (p === '/no-narrow.html') { res.writeHead(200, { ...HOST_HEADERS, 'Content-Type': 'text/html' }); res.end(NO_NARROW); return; }
     const file = path.join(ROOT, p);
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'text/plain' }); res.end(fs.readFileSync(file));
+    res.writeHead(200, { ...HOST_HEADERS, 'Content-Type': MIME[path.extname(file)] || 'text/plain' }); res.end(fs.readFileSync(file));
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const BASE = `http://127.0.0.1:${server.address().port}`;
@@ -212,10 +239,10 @@ async function run() {
     await page.close();
   }
 
-  console.log('\n── #3 a real picture: 3000 × 2000 with EXIF in, 1600 × 1067 JPEG without EXIF out ──');
-  for (const d of [DEVICES[8], DEVICES[13]]) {
+  console.log('\n── #3 a real picture, under the Workers CSP: 3000 × 2000 with EXIF in, 1600 × 1067 JPEG without EXIF out ──');
+  for (const d of [DEVICES[6], DEVICES[8], DEVICES[13]]) {
     const sent = [];
-    const { page, errors } = await signedIn(browser, BASE, '', d, sent);
+    const { page, errors, csp } = await signedIn(browser, BASE, '', d, sent);
     // A JPEG drawn by the browser, with an EXIF block spliced in after SOI,
     // the way a phone camera writes one.
     const plain = Buffer.from(await page.evaluate(() => {
@@ -254,6 +281,7 @@ async function run() {
     ok(`${d[0]}: …with no EXIF left`, !!out && !out.exif, out);
     ok(`${d[0]}: …under 1.5 MB`, !!out && out.bytes <= 1500000, out && out.bytes);
     ok(`${d[0]}: no page errors`, errors.length === 0, errors);
+    ok(`${d[0]}: …and no CSP violation`, csp.length === 0, csp);
     await page.close();
   }
 
@@ -266,6 +294,22 @@ async function run() {
     const clear = !!m.help && !!m.search && m.help.l >= m.search.r + 4 && m.scrollW <= m.vw
       && !!m.word && m.word.w >= m.word.full - 0.5;
     ok(`without it, at ${d[1]} px the button squeezes the wordmark, and section 2 catches it`, !clear, m.word);
+    await page.close();
+  }
+
+  console.log('\n── #5 negative control: the served CSP blocks a blob: picture and opens a data: one ──');
+  {
+    const page = await browser.newPage();
+    await page.goto(BASE + '/', { waitUntil: 'load' });
+    const r = await page.evaluate(async () => {
+      const c = document.createElement('canvas'); c.width = 40; c.height = 30;
+      c.getContext('2d').fillRect(0, 0, 40, 30);
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      const opens = (src) => new Promise(res => { const i = new Image(); i.onload = () => res(true); i.onerror = () => res(false); i.src = src; });
+      return { blob: await opens(URL.createObjectURL(blob)), data: await opens(c.toDataURL('image/png')) };
+    });
+    ok('a blob: picture does not open under it, so URL.createObjectURL would fail section 3', r.blob === false, r);
+    ok('a data: picture does', r.data === true, r);
     await page.close();
   }
   await browser.close();

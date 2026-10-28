@@ -131,7 +131,7 @@ function refFor(g, opts) {
 const strip = (o) => JSON.stringify(Object.assign({}, o, { ts: 'X' }));
 const stripText = (s) => s.replace(/,"ts":"[^"]*"}$/, ',"ts":"X"}');
 const E = (extra) => Object.assign({ dol: 4, weight: 1260, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 3, k: 2, ca: 60, p: 40,
-  enVolPerKg: 20, route: 'TPN central', status: 'submitted', calcInput: { wtG: 1260 } }, extra || {});
+  enVolPerKg: 20, route: 'TPN central', status: 'submitted', calcInput: { wtG: 1260, stops: [] } }, extra || {});
 
 function setup(patRows, logRows, logOpts) {
   const g = boot();

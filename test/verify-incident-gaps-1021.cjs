@@ -22,7 +22,7 @@
 //   §3b Until a route is chosen the bag is graded as on a peripheral line: the
 //       osmolarity limit and the dextrose "Central only!" flag (Vera, finding 3).
 //   §4  An order with no bag (NPO) needs no route: it submits with none, saves
-//       route null, prints neither box ticked, copies "Route: —", and the next
+//       route null, prints neither box ticked, and the next
 //       order made from it asks for the route again — and so does one made from
 //       a no-bag row saved before this change as "central" (Pp's answer to
 //       Vera's finding 1, 2026-10-21: "ให้เลือกใหม่"), and so does a bag added
@@ -76,11 +76,6 @@ Object.assign(global, {
 global.showToast = () => {};
 window.print = () => {};
 window.confirm = () => true;
-let copied = null;
-for (const nav of new Set([window.navigator, globalThis.navigator].filter(Boolean))) {
-  Object.defineProperty(nav, 'clipboard', { configurable: true,
-    value: { writeText: (t) => { copied = t; return Promise.resolve(); } } });
-}
 const React = require('react');
 const ReactDOM = require('react-dom/client');
 const { act } = require('react');
@@ -139,7 +134,6 @@ function mount(props) {
   act(() => { root.unmount(); });
   root = ReactDOM.createRoot(container);
   window.localStorage.clear();
-  copied = null;
   act(() => { root.render(React.createElement(window.Calculator, { ...BASE, ...props })); });
   act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
 }
@@ -267,8 +261,6 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     eq('calcInput route: null — none was chosen', box.entry?.calcInput?.route, null);
     ok('the printed order ticks neither route', /☐ Peripheral/.test(printText()) && /☐ Central/.test(printText()) && !/☑ (Peripheral|Central)/.test(printText()),
       printText().match(/Route of Delivery.{0,60}/));
-    await clickAsync(button(/Copy Order to Clipboard/));
-    ok('the copied order says "Route: —"', /Route: —/.test(copied || ''), (copied || '').match(/Route:.{0,30}/));
     ok('the form\'s K⁺ line names no route, not "peripheral"', /\(no route\)/.test(printText()) && !/K⁺ in bag:[^)]*\(peripheral\)/.test(printText()),
       printText().match(/K⁺ in bag:.{0,60}/));
     const prev = asSaved(box.entry);

@@ -28,7 +28,10 @@
 //              prints: text on the order form once the order is saved
 //
 // Limit rules (stop, critical, red, caution, cap, target) need at least one
-// inside and one outside case.
+// inside and one outside case. The stop rules' IDs, and no others, must be in
+// calculator.jsx's submitStops: the list every save sends, which gas-backend.gs
+// checks (Pp, 2026-10-28). Each blocked case of a stop rule also saves a draft,
+// whose calcInput.stops must name that rule.
 //
 //   node test/verify-clinical-rules.cjs                 every rule
 //   node test/verify-clinical-rules.cjs --show CR-GIR-MAX   what each case produced
@@ -137,11 +140,11 @@ let root = ReactDOM.createRoot(container);
 const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
 const selectSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
 const text = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
-const fieldOf = (label) => [...container.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label)) || null;
+const fieldOf = (label, scope = container) => [...scope.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label)) || null;
 const saltRow = (label) => [...container.querySelectorAll('.salt-row-grid')]
   .find(d => d.firstElementChild?.firstElementChild?.textContent.startsWith(label)) || null;
-function setField(label, value) {
-  const input = fieldOf(label)?.querySelector('input') || saltRow(label)?.querySelector('input');
+function setField(label, value, scope = container) {
+  const input = fieldOf(label, scope)?.querySelector('input') || (scope === container ? saltRow(label)?.querySelector('input') : null);
   if (!input) throw new Error('no field labelled ' + JSON.stringify(label));
   act(() => { valueSetter.call(input, String(value)); input.dispatchEvent(new window.Event('input', { bubbles: true })); });
 }
@@ -154,10 +157,16 @@ function tick(label, want) {
   const box = lab.querySelector('input[type=checkbox]');
   if (box.checked !== want) act(() => { box.click(); });
 }
-function feed(key) {
-  const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === key));
-  if (!sel) throw new Error('no feed ' + JSON.stringify(key) + ' in any select');
-  act(() => { selectSetter.call(sel, key); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+// Step 2 picks the milk, then its kcal/oz (Pp, 2026-10-28): set both selects
+// of feed 1 (or 2) from one EN_DB key.
+function feed(key, feed = 1) {
+  const at = window.NEOFEED_DATA.enProductOf(key);
+  if (!at) throw new Error('Step 2 does not offer ' + key);
+  for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
+    const sel = container.querySelector(`.en-feed-${feed} .${cls}`);
+    if (!sel) throw new Error(`no .${cls} on feed ${feed}`);
+    act(() => { selectSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  }
 }
 const alertRows = () => [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => ({
   level: ['crit', 'warn', 'info'].find(c => a.classList.contains(c)),
@@ -185,6 +194,15 @@ function mount(c, log) {
   for (const l of ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']) setField(l, l === 'Target fluid' ? (c.fluid ?? 150) : 0);
   if (c.feed) feed(c.feed);
   for (const [label, v] of Object.entries(c.order || {})) setField(label, v);
+  // A second feed (2026-10-28): `feed2` is its EN_DB key, `order2` its fields,
+  // which repeat feed 1's labels inside the Feed 2 box.
+  if (c.feed2 || c.order2) {
+    const add = buttonNamed('button', '+ Add a second feed (นมชนิดที่ 2)');
+    if (!add) throw new Error('no button to add a second feed');
+    click(add);
+    if (c.feed2) feed(c.feed2, 2);
+    for (const [label, v] of Object.entries(c.order2 || {})) setField(label, v, container.querySelector('.en-feed-2'));
+  }
   for (const [label, v] of Object.entries(c.tick || {})) tick(label, v);
   if (c.hours) {
     const b = buttonNamed('button', `${c.hours}h`);
@@ -195,9 +213,9 @@ function mount(c, log) {
 
 const list = (v) => v == null ? [] : Array.isArray(v) ? v : [v];
 const deepEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-async function runOrder(c, ruleId) {
-  const box = { calls: 0 };
-  const log = () => { box.calls++; return Promise.resolve({ ok: true, entryId: 'e-' + box.calls, lastModified: 'lm-' + box.calls }); };
+async function runOrder(c, ruleId, kind) {
+  const box = { calls: 0, entry: null };
+  const log = (entry) => { box.calls++; box.entry = entry; return Promise.resolve({ ok: true, entryId: 'e-' + box.calls, lastModified: 'lm-' + box.calls }); };
   mount(c, log);
   const e = c.expect || {};
   const rows = alertRows();
@@ -212,8 +230,18 @@ async function runOrder(c, ruleId) {
   for (const t of list(e.hides)) ok(`${label}: does not show "${t}"`, !text(container).includes(t), 'on the Calculator');
   const submit = buttonNamed('button', 'Submit');
   got.submit = submit?.disabled ? 'blocked' : 'enabled';
-  if (e.submit === 'blocked') ok(`${label}: Submit is disabled`, !!submit && submit.disabled, got);
-  else if (e.submit || e.prints != null) {
+  if (e.submit === 'blocked') {
+    ok(`${label}: Submit is disabled`, !!submit && submit.disabled, got);
+    // The draft names this stop for the backend (calcInput.stops), so a wrong
+    // ID in submitStops fails here. Weight out of range keeps no draft at all.
+    if (kind === 'stop') {
+      const draft = container.querySelector('button.save-draft');
+      if (draft && !draft.disabled) await clickAsync(draft);
+      got.stops = box.entry?.calcInput?.stops ?? null;
+      ok(`${label}: the draft sends "${ruleId}" in calcInput.stops`,
+        box.calls ? (got.stops || []).includes(ruleId) : ruleId === 'CR-WT-RANGE', got);
+    }
+  } else if (e.submit || e.prints != null) {
     let asked = null;
     window.prompt = (msg) => { asked = String(msg); return e.prints != null ? 'rules check' : null; };
     if (!submit || submit.disabled) ok(`${label}: Submit is enabled`, false, got);
@@ -274,6 +302,12 @@ async function runOrder(c, ruleId) {
     if (FIX) fs.writeFileSync(DIR + SKILL, fixed);
   }
 
+  console.log('\n── the stops the backend hears of ──');
+  const stopBlock = (R('calculator.jsx').match(/const submitStops = \[([\s\S]*?)\]\.filter/) || [])[1] || '';
+  const sent = [...stopBlock.matchAll(/"(CR-[A-Z0-9-]+)"/g)].map(m => m[1]).sort();
+  const stopRules = rules.filter(r => r.rule.kind === 'stop').map(r => r.rule.rule).sort();
+  ok('calculator.jsx submitStops names every stop rule, and only those', sent.length > 0 && deepEq(sent, stopRules), { sent, stopRules });
+
   console.log('\n── the cases ──');
   for (const r of rules) {
     const id = r.rule.rule;
@@ -287,7 +321,7 @@ async function runOrder(c, ruleId) {
           const same = c.within != null ? Math.abs(got - c.want) <= c.within : deepEq(got, c.want);
           ok(`${id} · ${c.case}: ${c.fn}(${(c.args || []).map(a => JSON.stringify(a)).join(', ')})`, same, { got, want: c.want });
           if (SHOW) console.log(`      ${c.case}\n        ${JSON.stringify(got)}`);
-        } else await runOrder(c, id);
+        } else await runOrder(c, id, r.rule.kind);
       } catch (e) { ok(`${id} · ${c.case} (${SKILL}:${c._at}) ran`, false, e.message); }
     }
   }
