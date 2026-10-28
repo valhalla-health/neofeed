@@ -1763,7 +1763,7 @@ ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pin
 ## A negative WFI cannot be ordered, 2026-10-28 — one harness
 
 Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
-2026-10-28 (3)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
+2026-10-28 (4)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
 `verify-calc-sum.cjs`'s S8 with Glycophos in place of its Ca gluconate (WFI 0) and the same order with
 KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
 save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
@@ -1774,14 +1774,15 @@ on `326bcd9`.
 ## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness
 
 Pp asked for the two gaps Vera named on PR #175 to be closed, and chose how the backend learns of a stop:
-the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (4)).
+the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (5)).
 **`verify-backend-stops-1028.cjs`** (real `gas-backend.gs` in `gas-vm-sandbox.cjs`): a submitted row with
 `calcInput.stops` `[]` saves; one with a stop, or with no list (a tab opened before the app sent one), is
 refused, and only rule IDs are echoed back; a draft is kept either way; an edit, a revision and
 `publishDailyLog` follow the same rule. 25 checks; 18 fail on `07f3403`. `verify-wfi-stop-1028.cjs` gains
 the payload (S8's Submit sends `stops []`, the over-full draft `["CR-BAG-OVERFULL"]`) and § 4,
 `center-point/tpn-document.mjs`'s `tpnBagOverfull` and the red line `renderTpn` draws, and § 5, a submitted
-row with no route, which printed "Route: —" until `printable` checked `routeMissing`: 33 checks.
+row with no route, which printed "Route: —" until `printable` checked `routeMissing`. Since PR #180 a
+patient's order has no Copy Order button, so § 2 and § 5 check that it is absent: 32 checks.
 `verify-clinical-rules.cjs` checks that `calculator.jsx`'s `submitStops` names every `stop` rule, and only
 those, and each blocked stop case keeps a draft whose `calcInput.stops` names its rule (623 checks). Eleven backend harnesses whose fixtures sent submitted rows with no list, the contract before this
 change, now send `stops: []`.

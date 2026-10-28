@@ -218,6 +218,13 @@ PR #182, the next PR on the repo.
   the same: each ticked order opens one at a time through the existing Print gate, the next only on a tap
   of ถัดไป. Vera: NO BLOCK twice. ⚠️ Not yet tried on a ward phone or iPad: that ถัดไป cannot be reached
   while a print sheet is still open. `CHANGELOG.md` 2026-10-28 (2).
+- ⏳ **PR #180, no Copy Order on a patient's order: merged into `main` on Pp's instruction ("If CI passed,
+  merge and deploy", 2026-10-28); released by the open `main → release` PR #184 (opened for #182 and
+  #173), which absorbs it.** Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged. A patient's
+  order leaves NeoFeed only as the printed form; the quick calc keeps "คัดลอกผลคำนวณ" (Pp: "Quick calc
+  ให้ยังมีคัดลอกผล"). ⚠️ Open at release: whether anyone pastes orders into HIS or LINE (#178's Usage table
+  says Copy can reach HIS), and whether the Thai ward manual names Copy Order. Vera: NO BLOCK.
+  `CHANGELOG.md` 2026-10-28 (3).
 - ⏳ **PR #175, a bag whose stocks exceed its volume cannot be ordered (Q2 of the clinical-rules skill), and the
   backend and Center Point refuse a stopped order: open, waiting for Pp's merge.** Frontend and backend,
   `CONSTANTS_VERSION` unchanged. **Release the frontend first, then `clasp deploy`:** the backend refuses a
@@ -227,7 +234,7 @@ PR #182, the next PR on the repo.
   "แอปในแท็บนี้เป็นรุ่นเก่า รีเฟรชหน้าแล้วบันทึกใหม่"; a draft still saves. Before the release, doctors hear that
   a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason), and that a saved
   order with a negative WFI no longer prints until it is fixed and saved again. Center Point's half is
-  NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (3) and (4).
+  NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (4) and (5).
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below

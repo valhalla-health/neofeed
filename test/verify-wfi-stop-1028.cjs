@@ -8,7 +8,8 @@
 //       disabled, the save panel says why, and a draft may still be kept. Each save sends
 //       the stops that hold as calcInput.stops, which gas-backend.gs checks
 //       (verify-backend-stops-1028.cjs)
-//   §2  a row saved before the change, with a reason naming the alert, neither prints nor copies
+//   §2  a row saved before the change, with a reason naming the alert, does not print (and, since
+//       PR #180, a patient's order has no Copy Order button at all)
 //   §3  Center Point's save refuses it too
 //   §4  the Center Point packet module (center-point/tpn-document.mjs, which CP keeps an identical
 //       copy of) names an over-full packet, tpnBagOverfull, and renderTpn says so on the sheet. CP
@@ -60,10 +61,6 @@ window.print = () => { printed++; };
 window.confirm = () => true;
 let asked = null;
 window.prompt = (msg) => { asked = String(msg); return 'test reason'; };
-let copied = null;
-const clipboardStub = { writeText: (t) => { copied = t; return Promise.resolve(); } };
-try { Object.defineProperty(window.navigator, 'clipboard', { value: clipboardStub, configurable: true }); }
-catch { try { window.navigator.clipboard.writeText = clipboardStub.writeText; } catch {} }
 try { Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true, writable: true }); } catch {}
 const React = require('react');
 const ReactDOM = require('react-dom/client');
@@ -174,11 +171,7 @@ function fill(order, { io = true } = {}) {
     const p = await tryPrint();
     eq('Print order does not print', p.printed, 0);
     ok('…and says why', p.toasts.some(t => /130\.6 mL/.test(t) && /ก่อนพิมพ์/.test(t)), p.toasts);
-    copied = null;
-    const t0 = toasts.length;
-    await clickAsync(buttonNamed('Copy Order to Clipboard'));
-    eq('Copy is refused', copied, null);
-    ok('…with the same reason', toasts.slice(t0).some(t => /130\.6 mL/.test(t) && /ก่อนคัดลอก/.test(t)), toasts.slice(t0));
+    eq('no Copy Order either (a patient\'s order has none since PR #180)', buttonNamed('Copy Order to Clipboard'), null);
   });
 
   await section('§3 Center Point refuses it too', async () => {
@@ -232,9 +225,7 @@ function fill(order, { io = true } = {}) {
     const p = await tryPrint();
     eq('Print order does not print', p.printed, 0);
     ok('…and says why', p.toasts.some(t => /route/.test(t) && /ก่อนพิมพ์/.test(t)), p.toasts);
-    copied = null;
-    await clickAsync(buttonNamed('Copy Order to Clipboard'));
-    eq('Copy is refused', copied, null);
+    eq('no Copy Order either (since PR #180)', buttonNamed('Copy Order to Clipboard'), null);
   });
 
   act(() => { root.unmount(); });

@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-28 (4) — the backend and Center Point refuse a stopped order
+## Session 2026-10-28 (5) — the backend and Center Point refuse a stopped order
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
 `center-point/tpn-document.mjs`, `.claude/skills/neofeed-clinical-rules/SKILL.md`,
@@ -47,6 +47,8 @@ check with each save ("แอปส่งผลเช็กไปด้วย"),
   on `07f3403`.
 - `verify-wfi-stop-1028.cjs`, 20 → 33 checks: S8's Submit sends `stops []`, the over-full draft
   `["CR-BAG-OVERFULL"]`; § 4 is the packet module; § 5 a submitted row with no route, which printed before.
+  Merged with PR #180, which took Copy Order off a patient's order, § 2 and § 5 check that the button is
+  absent instead of that it refuses: 32 checks.
 - `verify-clinical-rules.cjs` (623 checks): `submitStops` names every `stop` rule and only those, and each
   blocked case of a stop rule keeps a draft whose `calcInput.stops` names that rule. Swapping two IDs in
   `submitStops` fails 3.
@@ -56,7 +58,7 @@ check with each save ("แอปส่งผลเช็กไปด้วย"),
   verify-review-0917-backend-security, -sync and -writes, verify-safety-fixes-0923.
   verify-input-validation's "no calcInput at all" check is now made on a draft.
 
-## Session 2026-10-28 (3) — a bag whose stocks exceed its volume cannot be ordered (Q2)
+## Session 2026-10-28 (4) — a bag whose stocks exceed its volume cannot be ordered (Q2)
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
 `.claude/skills/neofeed-clinical-rules/SKILL.md`, `test/verify-wfi-stop-1028.cjs` (new),
@@ -93,6 +95,46 @@ printing and copying "WFI q.s. -0.1 mL". `verify-clinical-rules.cjs` reads the n
 (611 checks). `verify-calc-sum.cjs` reads over-full off the screen (Components above Bag total) and expects
 the stop for S4 and its orders B and E instead of a printed form; an over-full bag that prints fails it.
 `verify-calc-oracle.cjs` restates the stop in its own orderable rule (orders B and E).
+
+## Session 2026-10-28 (3) — no Copy Order on a patient's order; the quick calc keeps its Copy
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, eleven harnesses,
+`app-walkthrough.md`, `BACKLOG.md`. No calculation, limit, unit or printed figure changed, and
+`CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp, 2026-10-28, looking at the Save + Copy Order card on a ward phone: "เอา copy order to clipboard ออกได้มั้ย".
+A patient's order now leaves NeoFeed only as the printed form (or, on Center Point, CP's reviewed revision,
+which never had Copy).
+
+### What changed
+
+- **"Copy Order to Clipboard" is gone from a patient's order**, for prescribers and nurses alike. The card is
+  "Save Order"; Save draft, Submit and Delete are unchanged.
+- **The quick calc keeps "คัดลอกผลคำนวณ"** (Pp, 2026-10-28: "Quick calc ให้ยังมีคัดลอกผล"): it has no Save and
+  no form, so Copy is all it has (2026-09-21).
+  Its text is byte-identical to before (checked by diffing three quick-calc orders' copies before and after).
+  The patient-only branches of the copy text are gone with the button: the Bed / NeoFeed ID line, the
+  critical-override line, and the `══ NeoFeed V2 — TPN Order ══` header and footer.
+- Wording that named Copy now names Print alone: "พิมพ์ได้หลังบันทึก", "…ก่อนพิมพ์" in the held-order line,
+  and the nurse's note "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว".
+- The quick calc's Copy no longer calls its text an order (Vera, PR #180): the toast is "คัดลอกผลคำนวณแล้ว"
+  (was "Order copied to clipboard") and the empty-step confirm asks "คัดลอกผลคำนวณต่อไปหรือไม่?" (was
+  "Copy order ต่อไปหรือไม่?"). `verify-calc-clicks` §10 checks both; both fail before the change.
+
+### Tests
+
+- Checks of a patient's copied text went with it: the oracle's copy figures, calc-sum's copy BAG MAKE-UP,
+  and the copy lines in the 0918, 0922, 0928, 1017, 1021 and 0917 harnesses. Every figure they read is
+  still checked on the screen or the printed form, except the acetate in the bag (0928 §13): only the
+  copy gave it, and only once `naAcetate.acetateMeqPerMl` is read off the label (it is `null`). The
+  screen's acetate per kg is still checked.
+- New: `verify-calc-clicks` asserts a patient's order has no Copy button, before saving and once printable;
+  `verify-nursing-frontend` 5.8 asserts the same for a nurse; `verify-safety-review` asserts the one
+  `navigator.clipboard` call sits in a `{scratch && <button …>}`. All three fail on `main`.
+- Moved, not dropped: the "no .0" rule (0922 §8) and the K⁺ route wording (0928 §15) now read the quick
+  calc's copy, the one copy left.
 
 ## Session 2026-10-28 (2) — Print ทั้งหมด and per-infant ticks on a ward's Print order list, no Calculator button there
 

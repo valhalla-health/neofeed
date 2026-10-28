@@ -658,9 +658,8 @@ const scenarios = {
     await t.typeInto(calcField(t, 'Target fluid'), '165');
     await t.typeInto(calcField(t, 'Other IV'), '2');
     A.eq('5.7 typing keeps no unsaved order in browser storage', draftKeys(), []);
-    const copy = $$('button').find(b => /Copy Order to Clipboard/.test(b.textContent));
-    await t.click(copy);
-    A.ok('5.8 Copy explains that only a saved order is copied', toasts.some(m => /คัดลอกได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว/.test(m)), toasts);
+    // A patient's order has no Copy since Pp, 2026-10-28; it leaves as the printed form.
+    A.ok('5.8 …and no Copy: a patient\'s order leaves only as the printed form', !$$('button').some(b => /Copy Order|คัดลอก/.test(b.textContent)));
   },
 
   // ═══════════════════════════════════════════════════════════════════════

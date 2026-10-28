@@ -8,7 +8,6 @@
 //   · the Daily_Log entry handed to onLog (what reaches the Google Sheet)
 //   · every tile and bedside readout on screen
 //   · the printed pharmacy form, front and back
-//   · the copied order text
 //   · the Active-alerts panel, by level and title
 // — and compares each against a recomputation written here from the clinical
 // definitions and the KCMH worksheet.
@@ -63,14 +62,6 @@ global.showToast = (msg, type) => toasts.push({ msg, type });
 window.print = () => {};
 window.prompt = () => 'oracle reason';
 window.confirm = () => true;
-// Copy Order goes through navigator.clipboard. jsdom may or may not define it,
-// and Node ≥21 has a global `navigator` of its own — install the stub either
-// way rather than assuming one shape of either.
-let copied = null;
-const clipboardStub = { writeText: (t) => { copied = t; return Promise.resolve(); } };
-try { Object.defineProperty(window.navigator, 'clipboard', { value: clipboardStub, configurable: true }); }
-catch { try { window.navigator.clipboard.writeText = clipboardStub.writeText; } catch { /* left to fail loudly at the Copy assertion */ } }
-try { Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true, writable: true }); } catch {}
 const React = require('react');
 const ReactDOM = require('react-dom/client');
 const { act } = require('react');
@@ -516,7 +507,7 @@ async function run(scIn) {
   let saved = null;
   act(() => { root.unmount(); });
   root = ReactDOM.createRoot(container);
-  window.localStorage.clear(); copied = null;
+  window.localStorage.clear();
   act(() => {
     root.render(React.createElement(window.Calculator, {
       patient, dol: sc.dol, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null,
@@ -746,34 +737,6 @@ async function run(scIn) {
     }
     if (sc.vitD > 0) near(sc, 'print Vit D IU/day', g(/IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.fe > 0) near(sc, 'print Fe mL/day', g(/Fe oral \([^)]*\) [\d.]+ mg\/kg\/d = [\d.]+ mg → ([\d.]+) mL\/day/), e.fe_ml, 2);
-  }
-
-  // ─ copied order text ─
-  const copyBtn = [...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent));
-  if (copyBtn) await clickAsync(copyBtn);
-  same(sc, 'copy produced text', typeof copied === 'string' && copied.length > 100, orderable);
-  if (copied) {
-    const c = copied;
-    const g = (re) => { const m = c.match(re); return m ? parseFloat(m[1]) : null; };
-    near(sc, 'copy GIR', g(/GIR: ([\d.]+) mg\/kg\/min/), e.gir, 1);
-    if (sc.feed2) {
-      near(sc, 'copy feed 1 mL/day', g(/EN: Feed 1 .*? = ([\d.]+) mL\/day/), e.enDay[0], 2);
-      near(sc, 'copy feed 2 mL/day', g(/\n {4}Feed 2 .*? = ([\d.]+) mL\/day/), e.enDay[1], 2);
-      near(sc, 'copy EN total mL/day', g(/\n {4}Total ([\d.]+) mL\/day/), e.enVol, 2);
-      near(sc, 'copy EN total mL/kg/d', g(/\n {4}Total [\d.]+ mL\/day \(([\d.]+) mL\/kg\/d\)/), e.enPerKg, 0);
-    }
-    near(sc, 'copy Prescribed mL/day', g(/Prescribed: +([\d.]+) mL\/day/), e.prescribed, 0);
-    near(sc, 'copy Remaining mL', g(/Remaining: (-?[\d.]+) mL/), e.remaining, 1);
-    near(sc, 'copy summary protein', g(/SUMMARY: Protein ([\d.]+) g\/kg/), e.proKg, 1);
-    near(sc, 'copy summary energy', g(/Energy ([\d.]+) kcal\/kg \|/), e.kcalKg, 0);
-    near(sc, 'copy total Na delivered', g(/Total Na: +[\d.]+ mEq in bag = ([\d.]+) mEq\/kg\/d/), e.naKg, 1);
-    // Max 200 on a central line (confirm above 120); 60 on a peripheral one
-    // since 2026-10-08 (Praew), written as the maximum alone there.
-    near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L; (?:max 60 on a peripheral|confirm above 120, max 200 on a central) line\)/), e.kPerL, 0);
-    near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
-    if (sc.zn > 0) near(sc, 'copy ZnSO₄ mL', g(/mg Zn in bag → ([\d.]+) mL of 1 mg Zn\/mL/), e.znMl, 2);
-    if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
-    if (sc.oCa > 0) near(sc, 'copy oral Ca tabs/day', g(/mg\/day → ([\d.]+) tab\/day/), e.oCa_tabs, 2);
   }
 }
 

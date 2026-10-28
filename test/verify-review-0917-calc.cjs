@@ -524,9 +524,6 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     eq('Print order does not print', p.printed, 0);
     ok('…toast: critical value without a reason', p.toasts.some(t => /มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผลก่อนพิมพ์/.test(t)), p.toasts);
     ok('…and the banner names the alerts', /Potassium critically out of range/.test(container.querySelector('.print-blocked')?.textContent || ''));
-    const t0 = toasts.length;
-    click(buttonText(/Copy Order/));
-    ok('Copy is refused the same way', toasts.slice(t0).some(t => /มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผลก่อนคัดลอก/.test(t.msg)), toasts.slice(t0));
     mount({ patient: P, editEntry: row({ critOverride: { reason: 'r', alerts: [titles[0]], at: 'x' } }), logDate: null });
     ok(`a reason naming only "${titles[0]}" of ${titles.length}: still withheld`, titles.length < 2 || !printForm(), titles);
     mount({ patient: P, editEntry: row({ critOverride: { reason: 'hyperkalaemia treated', alerts: titles, at: 'x' } }), logDate: null });

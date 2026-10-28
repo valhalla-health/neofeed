@@ -20,9 +20,7 @@
 //       c. Σ(printed stock mL) = printed Components and on-screen Components,
 //          within TOL; on-screen Components and Bag total (prepared) equal the
 //          printed ones
-//       d. the copied order's BAG MAKE-UP line carries the same components,
-//          WFI and prepared figures as the print form
-//       e. the table has one line per stock the order uses (a dropped line
+//       d. the table has one line per stock the order uses (a dropped line
 //          would otherwise make the sum easier to pass, not harder)
 //     When the WFI is negative the order cannot be submitted (Pp, 2026-10-28):
 //     over-full is read off the screen (Components above Bag total, both as
@@ -105,10 +103,6 @@ global.showToast = () => {};
 window.print = () => {};
 window.prompt = () => 'sum-check reason';
 window.confirm = () => true;
-let copied = null;
-const clipboardStub = { writeText: (t) => { copied = t; return Promise.resolve(); } };
-try { Object.defineProperty(window.navigator, 'clipboard', { value: clipboardStub, configurable: true }); }
-catch { try { window.navigator.clipboard.writeText = clipboardStub.writeText; } catch { /* left to fail loudly at the Copy assertion */ } }
 try { Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true, writable: true }); } catch {}
 const React = require('react');
 const ReactDOM = require('react-dom/client');
@@ -333,11 +327,6 @@ function readPrintBag() {
   }
   return { parts, notCounted, make };
 }
-function readCopyBag() {
-  if (typeof copied !== 'string') return null;
-  const m = copied.match(/BAG MAKE-UP: +components (-?[\d.]+) mL \+ WFI q\.s\. (-?[\d.]+) mL = (-?[\d.]+) mL prepared/);
-  return m ? { components: +m[1], wfi: +m[2], prepared: +m[3], cannot: /COMPONENTS EXCEED BAG VOLUME/.test(copied) } : { error: 'no BAG MAKE-UP line' };
-}
 const decimalsOf = (t) => { const m = String(t).match(/\.(\d+)/); return m ? m[1].length : 0; };
 
 // ── bookkeeping ─────────────────────────────────────────────────────────────
@@ -421,13 +410,11 @@ function sumCheck(sc, label, Vd) {
   const TOL = (hundredths ? 0.05 : 0) + EPS;
   const sr = Math.round(S * 100) / 100;           // S is exact to 0.01; drop the float tail before comparing
   const scr = screenFigures();
-  const cp = readCopyBag();
-  const detail = { parts: parts.map(p => `${p.name.slice(0, 22)}=${p.text}`), sumParts: sr, printed: make, screen: scr, copy: cp, TOL };
+  const detail = { parts: parts.map(p => `${p.name.slice(0, 22)}=${p.text}`), sumParts: sr, printed: make, screen: scr, TOL };
   if (sc.expectMake && label === 'save 1') {
     ok(sc, `${label}: printed bag line is ${JSON.stringify(sc.expectMake)}`, ['components', 'wfi', 'prepared'].every(k => make[k] === sc.expectMake[k]), make);
     ok(sc, `${label}: no "Bag cannot be compounded" alert`,
       ![...container.querySelectorAll('.calc-bottom .alert-row .title')].some(t => t.textContent === 'Bag cannot be compounded'));
-    ok(sc, `${label}: copy does not say cannot compound`, !!cp && !cp.cannot, cp);
   }
   // Over-full cannot be submitted since 2026-10-28, so it never reaches a print form.
   if (make.wfi < 0) {
@@ -444,19 +431,7 @@ function sumCheck(sc, label, Vd) {
     ok(sc, `${label}: on-screen Components = printed Components`, scr.components === make.components, detail);
     ok(sc, `${label}: on-screen Bag total = printed prepared`, scr.bagTotal === make.prepared, detail);
   }
-  ok(sc, `${label}: copy BAG MAKE-UP present`, !!cp && !cp.error, cp);
-  if (cp && !cp.error) {
-    ok(sc, `${label}: copy WFI = print WFI`, Math.abs(cp.wfi - make.wfi) <= EPS, detail);
-    ok(sc, `${label}: copy components = print Components`, Math.abs(cp.components - make.components) <= EPS, detail);
-    ok(sc, `${label}: copy prepared = print prepared`, Math.abs(cp.prepared - make.prepared) <= EPS, detail);
-  }
   return { make, S: sr, overflow: false };
-}
-
-async function copyNow() {
-  copied = null;
-  const btn = [...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent));
-  if (btn) await clickAsync(btn);
 }
 
 async function run(scIn, idx) {
@@ -464,7 +439,7 @@ async function run(scIn, idx) {
   const calls = { onLog: 0, onUpdate: 0 };
   act(() => { root.unmount(); });
   root = ReactDOM.createRoot(container);
-  window.localStorage.clear(); copied = null;
+  window.localStorage.clear();
   const patient = { sessionId: 'SUM-' + sc.name.slice(0, 3).trim(), name: 'Sum', initials: 'SM', bw: sc.bw, ga: 30, sex: 'boys',
     admissionDate: '2026-09-01', currentBed: 'NICU 1', diagnosis: '-', weights: sc.weights, lengths: [], hcs: [] };
   act(() => {
@@ -506,13 +481,12 @@ async function run(scIn, idx) {
     return 'over-full: not orderable';
   }
   if (!orderable) {
-    // No print, no copy: nothing to add up. The screen still shows the bag.
+    // No print: nothing to add up. The screen still shows the bag.
     ok(sc, 'not orderable → no print form', !container.querySelector('#print-form'));
     return 'screen only (not orderable)';
   }
   await clickAsync(saveBtn);
   ok(sc, 'save 1 reached onLog', calls.onLog === 1, calls);
-  await copyNow();
   const first = sumCheck(sc, 'save 1', Vd);
   if (!first) return 'no print';
 
@@ -555,7 +529,6 @@ async function run(scIn, idx) {
   }
   await clickAsync(btnExact('Submit'));
   ok(sc, 'save 2 updated the same row', calls.onLog === 1 && calls.onUpdate === 1, calls);
-  await copyNow();
   const second = sumCheck(sc, `save 2 (${how})`, newVd);
   if (second) {
     ok(sc, `wired-in (${how}): reprinted prepared = the new on-screen Bag total`, second.make.prepared === after.bagTotal, { second: second.make, after });

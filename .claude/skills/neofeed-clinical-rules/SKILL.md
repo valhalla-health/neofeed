@@ -159,7 +159,7 @@ Source: Pp, 2026-10-27 (PR #171): the back sheet must never ask for 0 mL of a dr
 ### CR-BAG-OVERFULL · components larger than the bag
 
 When the stock volumes add up to more than the prepared volume as printed (WFI below 0), the order
-cannot be submitted, printed or copied, on Center Point too, and no reason clears it; a draft can be
+cannot be submitted or printed, on Center Point too, and no reason clears it; a draft can be
 kept. A row saved before 2026-10-28 with a reason for it is held the same way. Center Point refuses to
 save, confirm or print such a packet, a revision confirmed before then included (`tpnBagOverfull`). WFI is graded as printed
 (`CR-R-BAG-SUM`), so a bag its components fill exactly (WFI 0) can be ordered. The alert keeps its title,
