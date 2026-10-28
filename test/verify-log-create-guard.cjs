@@ -77,6 +77,7 @@ const header = created.appended[0];
 const entry = {
   ts: '2026-08-27', dol: 5, weight: 1200, fluid: 150, gir: 7, pro: 3,
   kcal: 90, na: 3, k: 2, ca: 60, p: 40, route: 'TPN central', status: 'submitted',
+  calcInput: { stops: [] }, // calcInput.stops: what the app sends with every save since 2026-10-28 (none hold here).
 };
 
 console.log('\n── one entry per patient per ward date ──');
