@@ -300,6 +300,18 @@ and tags were done from Pp's PC (banners). Caught up with #184 by PR #183, with 
   ให้ยังมีคัดลอกผล"). Pp on HIS and LINE: "ไม่มีใครวาง order ลง HIS หรือ LINE". ⚠️ Still open: whether the
   Thai ward manual names Copy Order. Vera: NO BLOCK.
   `CHANGELOG.md` 2026-10-28 (3).
+- ⏳ **PR #175, a bag whose stocks exceed its volume cannot be ordered (Q2 of the clinical-rules skill), and the
+  backend and Center Point refuse a stopped order: merged into `main` on Pp's instruction ("merge and
+  deploy", 2026-10-28), released by the `main → release` PR opened in the same session, then the backend
+  `clasp deploy` (`@64` → `@65`).** Frontend and backend, `CONSTANTS_VERSION` unchanged, and #174 rides
+  along in the release (it serves no file). **Release the frontend first, then `clasp deploy`:** the backend refuses a
+  submitted row that comes with no stop list, so deployed first it would refuse every Submit
+  (`REFERENCE.md` § Backend), and to roll the frontend back past it, roll the backend back first.
+  Once it is live, a tab opened before the release is refused once with
+  "แอปในแท็บนี้เป็นรุ่นเก่า รีเฟรชหน้าแล้วบันทึกใหม่"; a draft still saves. Before the release, doctors hear that
+  a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason), and that a saved
+  order with a negative WFI no longer prints until it is fixed and saved again. Center Point's half is
+  NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (11) and (12).
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below
@@ -328,7 +340,7 @@ went live with #172 on 2026-10-27; #173 goes with #182.)*
 - ⏳ **PR #196, one piece of work, one PR: `AGENTS.md` states Pp's rule that no PR only records another
   PR (its merge, a release, a tag), and `REFERENCE.md` § Deploying extends its deploy rule to merges:
   open, waiting for Pp's merge.** Docs only, so nothing to release. It also carries #189's ✅ above, as the
-  rule asks. `CHANGELOG.md` 2026-10-28 (11).
+  rule asks. `CHANGELOG.md` 2026-10-28 (13).
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,

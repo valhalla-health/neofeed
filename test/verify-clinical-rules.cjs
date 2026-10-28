@@ -28,7 +28,10 @@
 //              prints: text on the order form once the order is saved
 //
 // Limit rules (stop, critical, red, caution, cap, target) need at least one
-// inside and one outside case.
+// inside and one outside case. The stop rules' IDs, and no others, must be in
+// calculator.jsx's submitStops: the list every save sends, which gas-backend.gs
+// checks (Pp, 2026-10-28). Each blocked case of a stop rule also saves a draft,
+// whose calcInput.stops must name that rule.
 //
 //   node test/verify-clinical-rules.cjs                 every rule
 //   node test/verify-clinical-rules.cjs --show CR-GIR-MAX   what each case produced
@@ -210,9 +213,9 @@ function mount(c, log) {
 
 const list = (v) => v == null ? [] : Array.isArray(v) ? v : [v];
 const deepEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-async function runOrder(c, ruleId) {
-  const box = { calls: 0 };
-  const log = () => { box.calls++; return Promise.resolve({ ok: true, entryId: 'e-' + box.calls, lastModified: 'lm-' + box.calls }); };
+async function runOrder(c, ruleId, kind) {
+  const box = { calls: 0, entry: null };
+  const log = (entry) => { box.calls++; box.entry = entry; return Promise.resolve({ ok: true, entryId: 'e-' + box.calls, lastModified: 'lm-' + box.calls }); };
   mount(c, log);
   const e = c.expect || {};
   const rows = alertRows();
@@ -227,8 +230,18 @@ async function runOrder(c, ruleId) {
   for (const t of list(e.hides)) ok(`${label}: does not show "${t}"`, !text(container).includes(t), 'on the Calculator');
   const submit = buttonNamed('button', 'Submit');
   got.submit = submit?.disabled ? 'blocked' : 'enabled';
-  if (e.submit === 'blocked') ok(`${label}: Submit is disabled`, !!submit && submit.disabled, got);
-  else if (e.submit || e.prints != null) {
+  if (e.submit === 'blocked') {
+    ok(`${label}: Submit is disabled`, !!submit && submit.disabled, got);
+    // The draft names this stop for the backend (calcInput.stops), so a wrong
+    // ID in submitStops fails here. Weight out of range keeps no draft at all.
+    if (kind === 'stop') {
+      const draft = container.querySelector('button.save-draft');
+      if (draft && !draft.disabled) await clickAsync(draft);
+      got.stops = box.entry?.calcInput?.stops ?? null;
+      ok(`${label}: the draft sends "${ruleId}" in calcInput.stops`,
+        box.calls ? (got.stops || []).includes(ruleId) : ruleId === 'CR-WT-RANGE', got);
+    }
+  } else if (e.submit || e.prints != null) {
     let asked = null;
     window.prompt = (msg) => { asked = String(msg); return e.prints != null ? 'rules check' : null; };
     if (!submit || submit.disabled) ok(`${label}: Submit is enabled`, false, got);
@@ -289,6 +302,12 @@ async function runOrder(c, ruleId) {
     if (FIX) fs.writeFileSync(DIR + SKILL, fixed);
   }
 
+  console.log('\n── the stops the backend hears of ──');
+  const stopBlock = (R('calculator.jsx').match(/const submitStops = \[([\s\S]*?)\]\.filter/) || [])[1] || '';
+  const sent = [...stopBlock.matchAll(/"(CR-[A-Z0-9-]+)"/g)].map(m => m[1]).sort();
+  const stopRules = rules.filter(r => r.rule.kind === 'stop').map(r => r.rule.rule).sort();
+  ok('calculator.jsx submitStops names every stop rule, and only those', sent.length > 0 && deepEq(sent, stopRules), { sent, stopRules });
+
   console.log('\n── the cases ──');
   for (const r of rules) {
     const id = r.rule.rule;
@@ -302,7 +321,7 @@ async function runOrder(c, ruleId) {
           const same = c.within != null ? Math.abs(got - c.want) <= c.within : deepEq(got, c.want);
           ok(`${id} · ${c.case}: ${c.fn}(${(c.args || []).map(a => JSON.stringify(a)).join(', ')})`, same, { got, want: c.want });
           if (SHOW) console.log(`      ${c.case}\n        ${JSON.stringify(got)}`);
-        } else await runOrder(c, id);
+        } else await runOrder(c, id, r.rule.kind);
       } catch (e) { ok(`${id} · ${c.case} (${SKILL}:${c._at}) ran`, false, e.message); }
     }
   }

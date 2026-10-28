@@ -381,7 +381,9 @@ asked why nothing had changed. So:
 - **Fast local loop:** `npx wrangler dev`. No deploy, instant reload, and quicker than pushing. It
   talks to the production backend; to try a change past the login screen with made-up infants, use
   `tools/dev-local.mjs`.
-- **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. GitHub Pages has no
+- **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. Past the release that
+  sends the stop list (2026-10-28), roll the backend back first, or every Submit is refused
+  (§ Backend). GitHub Pages has no
   rollback — revert the commit. For a release that crosses the 2026-09-17 build step, revert the
   whole `main → release` merge rather than individual files: `_headers`, both shells, `boot.js`,
   `compiled/` and `vendor/` only work as a set.
@@ -421,6 +423,12 @@ identity. None of it was true any more. The current procedure:
 6. **Update `STATUS.md` as part of the deploy.** This is part of the definition of done, not
    a follow-up task — but not a docs-only PR either: put the verification in a comment on the
    PR whose code you deployed, and bring `STATUS.md` up to date in the next PR on this repo.
+
+**A backend that checks the stop list goes out after the frontend that sends it (2026-10-28).**
+`_stopRefusal` refuses a submitted Daily_Log row whose `calcInput.stops` is missing, and every frontend
+built before then sends none. So release the frontend first, then `clasp deploy`; to roll the frontend
+back past that release, roll the backend back first. After the deploy, a tab opened before the release is
+refused once and asked to reload; its draft still saves.
 
 Running a function from the Apps Script editor (e.g. the one-off `applyStaffHeaderColumns`
 / `applyLogHeaderColumns` migrations) executes as the signed-in user and may raise an OAuth

@@ -1017,8 +1017,9 @@ until a patient's order lost its Copy, 2026-10-28). The same order typed into th
 BAG MAKE-UP line that carries the quick calc's own on-screen Components and Bag total, closes exactly, and
 says COMPONENTS EXCEED BAG VOLUME exactly when that screen says the bag cannot be compounded. The tolerance is the
 rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
-components); the arithmetic is in the file's header. An over-full bag skips the sum and must say so on
-screen and on the form. Then one input changes the way a person changes it (a dead-space chip,
+components); the arithmetic is in the file's header. An over-full bag (Components above Bag total on
+screen) cannot be submitted since 2026-10-28: the sum is skipped, the stop must show on screen, and an
+over-full bag that prints fails. Then one input changes the way a person changes it (a dead-space chip,
 or a TPN volume typed a key at a time): the on-screen Bag total must move to delivered + dead, the stale
 form must be withdrawn, and the second save's reprint must carry the new figures and still add up.
 **Two feeds** (§ 3, 2026-10-28, for #182 and #185): three orders (6 + 2 beside a bag, 4 + 4 feeds only,
@@ -1874,6 +1875,33 @@ Active → Save brings DD back to NICU 4. #2, a 1366×768 workstation: opening t
 page where it was, and the archived row's chip is not covered. 14 checks; against `main` (`294d00e`) #1
 fails at all three phones (9 failures: the Calculator button over the chip, the bottom nav over Edit, and
 the tap opening the quick calc).
+
+## A negative WFI cannot be ordered, 2026-10-28 — one harness
+
+Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
+2026-10-28 (11)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
+`verify-calc-sum.cjs`'s S8 with Glycophos in place of its Ca gluconate (WFI 0) and the same order with
+KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
+save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
+change with a reason naming "Bag cannot be compounded" has no order form, and Print and Copy refuse with
+the same reason. § 3: Center Point's บันทึก is disabled and nothing reaches Center Point. 20 checks; 9 fail
+on `326bcd9`.
+
+## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness
+
+Pp asked for the two gaps Vera named on PR #175 to be closed, and chose how the backend learns of a stop:
+the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (12)).
+**`verify-backend-stops-1028.cjs`** (real `gas-backend.gs` in `gas-vm-sandbox.cjs`): a submitted row with
+`calcInput.stops` `[]` saves; one with a stop, or with no list (a tab opened before the app sent one), is
+refused, and only rule IDs are echoed back; a draft is kept either way; an edit, a revision and
+`publishDailyLog` follow the same rule. 25 checks; 18 fail on `07f3403`. `verify-wfi-stop-1028.cjs` gains
+the payload (S8's Submit sends `stops []`, the over-full draft `["CR-BAG-OVERFULL"]`) and § 4,
+`center-point/tpn-document.mjs`'s `tpnBagOverfull` and the red line `renderTpn` draws, and § 5, a submitted
+row with no route, which printed "Route: —" until `printable` checked `routeMissing`. Since PR #180 a
+patient's order has no Copy Order button, so § 2 and § 5 check that it is absent: 32 checks.
+`verify-clinical-rules.cjs` checks that `calculator.jsx`'s `submitStops` names every `stop` rule, and only
+those, and each blocked stop case keeps a draft whose `calcInput.stops` names its rule (623 checks). Eleven backend harnesses whose fixtures sent submitted rows with no list, the contract before this
+change, now send `stops: []`.
 
 ## Note on the source workbook
 
