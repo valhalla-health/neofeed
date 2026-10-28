@@ -29,7 +29,8 @@
 //        peripheral 60 / central 200 for reference.
 //   §8   Praew: "ถ้ามีเลขใดๆ ที่เป็น user interface ห้ามมี .0 เช่น 18.0 คือ 18" — no
 //        trailing zero and no float noise anywhere a person reads a number: the
-//        calculator, the pharmacy form, the copied order, the daily log.
+//        calculator, the pharmacy form, the daily log, and the quick calc's
+//        copied text (a patient's order has had no Copy since Pp, 2026-10-28).
 //
 // Mounts the real <Calculator> and <DailyLog> in jsdom (same dev-only deps as
 // the other calculator harnesses — see test/README.md). Fails against 6ee2762.
@@ -162,9 +163,9 @@ async function save(reason = 'fixture — attending aware') {
   await clickAsync(saveBtn());
   return shown;
 }
-async function copyOrder() {
+async function copyCalc() {
   copied = null;
-  await clickAsync(button(/Copy Order to Clipboard/));
+  await clickAsync(button(/คัดลอกผลคำนวณ/));
   return copied || '';
 }
 // Synthetic infants only (no real identifiers); NICU bed → a new order starts at 30 mL dead space.
@@ -218,7 +219,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('…and the form prints the override', /Zinc total above 5 mg\/day/.test(printText()) && /แพทย์ยืนยันคำสั่ง/.test(printText()), printText().slice(0, 400));
   });
 
-  await section('§1b ZnSO₄ is saved, diffed, compounded × Factor, printed and copied', async () => {
+  await section('§1b ZnSO₄ is saved, diffed, compounded × Factor and printed', async () => {
     const log = logger();
     const previousEntry = { entryId: 'e-prev', ts: '2026-09-21', dol: 1, weight: 2000,
       calcInput: { curWtG: 2000, totalTPN_mL: 180, deadVol_mL: 30, dexPct: 10, aaPerKg: 2, lipidPerKg: 2 } };
@@ -235,9 +236,6 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('…per kg 0.15 mg Zn', /0\.15 mg Zn\/kg/.test(form), form.match(/ZnSO₄.{0,160}/));
     ok('…in the bag 0.35 mg Zn (× Factor)', /0\.35 mg Zn/.test(form), form.match(/ZnSO₄.{0,160}/));
     ok('…and the delivered total, 0.8 mg/day', /Zn รวม 0\.8 mg\/day/.test(form), form.match(/Zn รวม.{0,60}/));
-    const copy = await copyOrder();
-    ok('the copied order has the ZnSO₄ line', /ZnSO₄:\s+0\.15 mg Zn\/kg → 0\.35 mg Zn in bag/.test(copy), copy.match(/ZnSO₄[^\n]*/));
-    ok('…and the zinc total', /Zn total 0\.8 mg\/day/.test(copy), copy.match(/Zn total[^\n]*/));
 
     mount({ patient: pt('ZV-2000', 2000), onLog: logger().onLog });
     setField('Current weight', 2000); fillRequired(120);
@@ -263,8 +261,6 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     lipidHours(20);
     await save();
     ok('the form\'s lipid pump line has it', /Lipid pump rate.{0,120}0\.1 g\/kg\/h/.test(printText()), printText().match(/Lipid pump rate.{0,140}/));
-    const copy = await copyOrder();
-    ok('…and so does the copied order', /Lipid bag:[^\n]*0\.1 g\/kg\/h/.test(copy), copy.match(/Lipid bag:[^\n]*/));
     setField('20% lipid', 0);
     ok('no lipid: no rate', !container.querySelector('.lipid-gkgh'));
   });
@@ -433,10 +429,20 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     const form = printForm().cloneNode(true);
     form.lastElementChild?.remove();   // the provenance footer: version strings, not quantities
     eq('pharmacy order form', badNumbersIn(form), []);
-    const copy = await copyOrder();
-    ok('fixture: the order copied', copy.length > 200, copy.length);
-    eq('copied order', copy.split('\n').flatMap(l => badNumbers(l).map(b => `${b} in "${l.trim().slice(0, 60)}"`)), []);
     ok('the form prints the weight as 2, not 2.000', /Weight for calculation: 2 Kg/.test(printText()), printText().match(/Weight for calculation: \S+ Kg/));
+
+    // The quick calc's copied text, from the same order: it is the one copy left.
+    mount({ patient: { sessionId: null, name: null, initials: null, bw: 0, ga: 0, sex: '', currentBed: '', diagnosis: '', weights: [] }, scratch: true });
+    setField('Current weight', 2000); setField('Target fluid', 120);
+    setField('Volume(mL/day)', 180); setField('ปริมาตรคาสาย', 30);
+    setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
+    lipidHours(20);
+    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 0.4);
+    setField('10% Ca gluconate', 60); setField('ZnSO₄', 0.2);
+    selectFeed('BM_20'); setField('Volume(mL/feed)', 5); setField('Frequency', 8);
+    const copy = await copyCalc();
+    ok('fixture: the quick calc copied', copy.length > 200, copy.length);
+    eq('quick calc copied text', copy.split('\n').flatMap(l => badNumbers(l).map(b => `${b} in "${l.trim().slice(0, 60)}"`)), []);
 
     // The daily log, fed the float noise the live Sheet holds.
     act(() => { root.unmount(); }); root = ReactDOM.createRoot(container);

@@ -3538,7 +3538,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         </div>
 
         <div className="card">
-          <div className="card-h"><Icon name={scratch ? "calc" : "save"} size={14} color="var(--brand)" /> {scratch ? "ผลคำนวณ · คัดลอก" : "Save + Copy Order"}</div>
+          <div className="card-h"><Icon name={scratch ? "calc" : "save"} size={14} color="var(--brand)" /> {scratch ? "ผลคำนวณ · คัดลอก" : "Save Order"}</div>
           <div className="card-b">
             {scratch && (
               <div className="scratch-note" role="note" style={{ fontSize: 11.5, lineHeight: 1.55, marginBottom: 10,
@@ -3558,7 +3558,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 padding: "8px 10px", borderRadius: 6, background: "var(--bg-2)", color: "var(--ink-2)",
                 border: "1px solid var(--line)" }}>
                 <strong style={{ fontWeight: 700 }}>พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์</strong>
-                <div>บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · คัดลอก/พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว</div>
+                <div>บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว</div>
               </div>
             )}
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 }}>
@@ -3572,17 +3572,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             )}
 
-            {/* Saved-state indicator — Print/Copy/Submit need a saved, unchanged form */}
+            {/* Saved-state indicator — Print/Submit need a saved, unchanged form */}
             {savedEntryId && dirty && (
               <div style={{ fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 }}>
-                ● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์/คัดลอกได้หลังบันทึก
+                ● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์ได้หลังบันทึก
               </div>
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
             {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
-                ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
+                ● {printBlockMessage("ก่อนพิมพ์")}
                 {!pendingSave && dosingWeightChanged && (
                   <div style={{ fontWeight: 400 }}>
                     บันทึกไว้ที่ <span className="num">{fmt(savedDosingWt.g, 0)}</span> g · ตอนนี้ <span className="num">{fmt(wtG, 0)}</span> g
@@ -3613,25 +3613,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
             {/* Save bar — sticky on mobile */}
             <div className="calc-save-bar">
-            {/* Copy order text to clipboard. Not on the Center Point entry:
-                there the order leaves only as CP's reviewed revision, and a
-                CP save makes the form "printable", which would unlock Copy. */}
-            {!centerPoint && <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
-              // The save/printable gate exists so an edited form cannot be
-              // copied out under a saved row's entry id. The quick calc has no
-              // row and no id, so there is nothing to misattribute — and
-              // gating it would make the button permanently dead. What the
-              // copied text must not do is read like an order, which is what
-              // the scratch header below is for.
-              if (!scratch && !savedEntryId) {
-                showToast(ordersReadOnly ? "คัดลอกได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว" : "กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
-                return;
-              }
-              if (!scratch && !printable) {
-                showToast(printBlockMessage("ก่อนคัดลอก") || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนคัดลอก", "error");
-                return;
-              }
-              if (scratch && !(wtKg > 0)) {
+            {/* Copy the calculation to the clipboard — the quick calc only.
+                A patient's order has no Copy since Pp, 2026-10-28; it leaves
+                as the printed form (or, on Center Point, CP's reviewed
+                revision). The quick calc has no Save and no form, so Copy is
+                all it has, and its text says it is not an order and carries
+                no patient. */}
+            {scratch && <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
+              if (!(wtKg > 0)) {
                 showToast("ใส่น้ำหนักก่อน จึงจะคัดลอกผลคำนวณได้", "error");
                 return;
               }
@@ -3645,20 +3634,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               if (incomplete.length > 0 &&
                   !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nCopy order ต่อไปหรือไม่?`)) return;
               const lines = [
-                scratch ? `══ NeoFeed — Calculator (ไม่ใช่คำสั่งการรักษา) ══` : `══ NeoFeed V2 — TPN Order ══`,
-                // The quick calc's text carries no bed and no NeoFeed ID —
-                // there is no patient behind it — and says so on its own
-                // second line, because a paste into LINE arrives without the
-                // screen it came from.
-                scratch
-                  ? `⚠ คำนวณจากน้ำหนักที่พิมพ์เอง · ไม่ผูกกับผู้ป่วย · ไม่ได้บันทึกในระบบ — ตรวจกับผู้ป่วยจริงก่อนใช้`
-                  // No name in copied text: it tends to be pasted into chat
-                  // apps (LINE) outside the hospital's control — bed + NeoFeed
-                  // ID identify the order on the ward without being PHI on
-                  // their own (2026-09-11 review, PDPA).
-                  : `Bed: ${patient?.currentBed||"—"} | NeoFeed ID: ${patient?.sessionId||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""}${tpnWtManual ? ` (calc. weight set manually to ${wtG}g; auto ${autoWtG}g)` : ""}`,
-                scratch ? `DOL: ${dol} | Wt: ${curWtG} g${tpnWtManual ? ` (calc. weight ${wtG}g)` : ""}` : "",
-                critOverride ? `⚠ CRITICAL OVERRIDE — แพทย์ยืนยันคำสั่ง: ${critOverride.alerts.join("; ")} — reason: ${critOverride.reason}` : "",
+                `══ NeoFeed — Calculator (ไม่ใช่คำสั่งการรักษา) ══`,
+                // No bed and no NeoFeed ID — there is no patient behind it —
+                // and it says so on its own second line, because a paste into
+                // LINE arrives without the screen it came from.
+                `⚠ คำนวณจากน้ำหนักที่พิมพ์เอง · ไม่ผูกกับผู้ป่วย · ไม่ได้บันทึกในระบบ — ตรวจกับผู้ป่วยจริงก่อนใช้`,
+                `DOL: ${dol} | Wt: ${curWtG} g${tpnWtManual ? ` (calc. weight ${wtG}g)` : ""}`,
                 `Route: ${route === "central" ? "Central" : route === "peripheral" ? "Peripheral (<900 mOsm/L)" : "—"}`,
                 // Every figure below goes through fmt: at most the decimals
                 // shown, never a trailing zero (Praew, 2026-09-22). The stock
@@ -3688,9 +3669,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
                 `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L; ${kBagLimitParts(kLim, "confirm above").join(", ")} ${route ? `on a ${kRouteLabel} line` : "peripheral limits, no route chosen"})`,
-                // Only the quick calc reaches here with kOverMax (a patient's
-                // Copy waits for `printable`), so its text says so, as an
-                // over-full bag's does.
+                // The quick calc copies whatever is on screen, so its text says
+                // when K⁺ is over the maximum, as an over-full bag's does.
                 kOverMax ? `  !! K⁺ ${fmt(calc.kMeqPerL, 0)} mEq/L IS ABOVE THE ${kLim.hardMax} mEq/L MAXIMUM — cannot be ordered` : "",
                 caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${fmt(caPerKg*calc.factor, 0)} mg → ${calc.solVol.ca} mL` : "",
                 mgPerKg>0 ? `  MgSO4 10%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg*calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
@@ -3724,15 +3704,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `──────────────────────────────`,
                 `SUMMARY: Protein ${fmt(calc.proteinKg, 1)} g/kg | Energy ${fmt(calc.kcalKg, 0)} kcal/kg | GIR ${fmt(calc.gir, 1)} mg/kg/min`,
                 `Na ${fmt(calc.naTotalDelivered, 1)} mEq/kg | Ca ${fmt(calc.caKg, 0)} mg/kg | P ${fmt(calc.pKg, 0)} mg/kg  (TPN+EN — see Ca·PO₄ block above for total)`,
-                scratch ? `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`
-                        : `══ NeoFeed V2 · ESPGHAN 2018/2022 ══`,
+                `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`,
               ].filter(l => l !== "").join("\n");
 
               navigator.clipboard.writeText(lines)
                 .then(() => showToast("Order copied to clipboard"))
                 .catch(() => showToast("Copy failed — try again"));
             }}>
-              {scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"}
+              คัดลอกผลคำนวณ
             </button>}
 
             {missingFields.length > 0 && (
