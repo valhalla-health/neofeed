@@ -1922,7 +1922,12 @@ must fail: 3 and 1 failures. § 8 (Vera): a result just past its hard limit read
 12.007 is 12.01), a feed's value per 100 mL times its mL gives the kcal shown, and a MEN feed names the
 mL given (24) and counts 0. 102 checks; on
 `326bcd9` 55 fail and 25 pass (a section stops at its first missing element). 108 once `main` was merged in
-(2026-10-28): Step 2's feed picker became a milk and its kcal/oz, so the harness picks both.
+(2026-10-28): Step 2's feed picker became a milk and its kcal/oz, so the harness picks both. § 9: two feeds
+(`main`'s #182). Hi-Q LBW 24 as feed 1 and breast milk as feed 2 shows the milk line, and the energy and
+protein panels give each feed its own line (8 mL × its row per 100 mL, its source; `CR-U-BREASTMILK` on
+the breast-milk line only) adding up to the total, with no "undefined"; formula as feed 2 alone, feed 1 at
+0 mL, shows no milk line; BM + HMF as feed 2 adds the HMF line. 125 checks; on the merge commit `f643aac`,
+before the fix, 16 of § 9's 17 fail.
 
 ## Note on the source workbook
 

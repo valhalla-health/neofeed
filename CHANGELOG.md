@@ -7,6 +7,29 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 — NF-12 with `main` merged in: two feeds
+
+`calculator.jsx` (the milk line and the working panels only), `compiled/calculator.js`, the shells'
+tokens, `test/verify-show-working-1028.cjs` § 6 and § 9, `CR-U-BREASTMILK`'s anchor and two cases. No
+computed, printed or saved figure moves; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+`main` reached NF-12 with #182 (a day can have two feeds) and `14caa41` (a patient's order has no Copy).
+The git merge was clean in `calculator.jsx`, and the result was wrong in three places:
+
+- **Feed 1's picker, not the feeds given.** The milk line read feed 1's picker, which stays at breast milk
+  while feed 1 is 0 mL beside feed 2. Formula as feed 2 alone showed "นมแม่ที่ใช้คำนวณ", and breast milk
+  as feed 2 beside a formula showed nothing. It now reads every feed given.
+- **"Source: undefined".** With two feeds `calc.en` is their mix per 100 mL, which has no label and no
+  source, so the energy and protein panels read "· · Source: undefined" and one mixed figure per 100 mL.
+  They now give each feed its own line (its mL, its row per 100 mL, its label and source, and
+  `CR-U-BREASTMILK` on a breast-milk line only), then the total. The lines add up to the total the tiles
+  use.
+- **§ 6 checked a Copy that is gone.** A patient's order leaves only as the print form now; the harness
+  checks the print form, that no Copy is offered, and the quick calc's copied text instead.
+
+§ 9 (17 checks) fails 16 on the merge commit `f643aac` and passes after. 125 checks in the harness, 713
+in `verify-clinical-rules.cjs`.
+
 ## Session 2026-10-28 — NF-12 after Vera: a result past its limit, the feed factor, a MEN feed
 
 `calculator.jsx` (the working panels only), `compiled/calculator.js`, the shells' tokens,

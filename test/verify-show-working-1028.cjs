@@ -24,7 +24,11 @@
 //       every panel open as with none and carries none of the new text; a
 //       patient's order has no Copy (main, 2026-10-28), so the quick calc's
 //       copied text is checked the same way;
-//   §7  no trailing zero and no float tail in any of the new text.
+//   §7  no trailing zero and no float tail in any of the new text;
+//   §8  Vera's three cases on this PR;
+//   §9  two feeds (main's #182): the milk line follows the feeds given, not
+//       feed 1's picker, and the energy and protein panels give each feed its
+//       own line (its mL, its row per 100 mL, its source) adding up to the total.
 //
 // Fails on 326bcd9 (main before NF-12): there is no toggle, no panel and no
 // assumption line. NEGATIVE_CONTROL proves it bites; each must FAIL:
@@ -482,6 +486,47 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
     const pm = panel('kcal');
     ok('MEN: the panel names the 24 mL given', vOf(pm, 'enGiven') === 24, text(pm));
     ok('MEN: …and counts 0 kcal of it', vOf(pm, 'enKcal') === 0, text(pm));
+  });
+
+  // main's #182 lets a day have two feeds. Its `calc.en` is then their mix per
+  // 100 mL, with no label and no source, and feed 1 can be left at 0 mL beside
+  // feed 2. What the screen says the infant is fed must follow the feeds given.
+  await section('§9 two feeds: each feed its own line, and the milk line follows the feeds given', async () => {
+    const tpn = { 'Volume(mL/day)': 100, 'Dextrose final': 10, 'Amino acid': 3 };
+    const PF = D.EN_DB.FBM_PF_24;
+    // G: Hi-Q LBW 24 as feed 1, breast milk as feed 2, 2 mL × 4 each (q3h together).
+    const G = { name: 'G', g: 1000, route: 'Central', feed: 'FBM_PF_24', order: { ...tpn, 'Volume(mL/feed)': 2, 'Frequency': 4 },
+      feed2: 'BM_20', order2: { 'Volume': 2, 'Frequency': 4 } };
+    mount(G);
+    ok('G: breast milk as feed 2 shows the milk line', !!assumption() && text(assumption()).includes('นมแม่ที่ใช้คำนวณ'), text(assumption()));
+    for (const [id, n, k, unit] of [['kcal', 'kcal', 'enKcal', 'kcal'], ['protein', 'pro', 'enProG', 'g']]) {
+      click(toggle(id));
+      const p = panel(id), t = text(p);
+      ok(`G ${id}: no "undefined" in the panel`, !!p && !/undefined/.test(t), t);
+      ok(`G ${id}: feed 1 is 8 mL × Hi-Q LBW's ${n} per 100 mL`, vOf(p, 'enMl1') === 8 && near(vOf(p, 'enPer100_1'), PF[n], 0.005),
+        { ml: vOf(p, 'enMl1'), per100: vOf(p, 'enPer100_1') });
+      ok(`G ${id}: feed 2 is 8 mL × breast milk's ${n} per 100 mL`, vOf(p, 'enMl2') === 8 && near(vOf(p, 'enPer100_2'), BM[n], 0.005),
+        { ml: vOf(p, 'enMl2'), per100: vOf(p, 'enPer100_2') });
+      const hand = 8 * PF[n] / 100 + 8 * BM[n] / 100;
+      ok(`G ${id}: the two lines add up to the total, ${fmt(hand, 2)} ${unit}`,
+        near(vOf(p, k + '1') + vOf(p, k + '2'), vOf(p, k), 0.011) && near(vOf(p, k), hand, 0.005),
+        { one: vOf(p, k + '1'), two: vOf(p, k + '2'), total: vOf(p, k) });
+      ok(`G ${id}: each feed is named with its source`, t.includes(PF.label) && t.includes(BM.label) && t.includes(BM.source), t);
+      ok(`G ${id}: CR-U-BREASTMILK sits on the breast-milk line only`, (t.match(/CR-U-BREASTMILK/g) || []).length === 1, t);
+      click(toggle(id));
+    }
+    // H: feed 1 left at 0 mL, Hi-Q LBW 24 as feed 2 only.
+    const H = { name: 'H', g: 1000, route: 'Central', order: tpn, feed2: 'FBM_PF_24', order2: { 'Volume': 2, 'Frequency': 8 } };
+    mount(H);
+    ok('H: formula as feed 2 only shows no milk line', !assumption(), text(assumption()));
+    click(toggle('kcal'));
+    const ph = panel('kcal'), th = text(ph);
+    ok('H: the energy panel names Hi-Q LBW and not breast milk', th.includes(PF.label) && !th.includes(BM.label) && !th.includes('CR-U-BREASTMILK'), th);
+    ok('H: 16 mL × Hi-Q LBW per 100 mL is the kcal shown', vOf(ph, 'enMl') === 16 && near(vOf(ph, 'enMl') * vOf(ph, 'enPer100') / 100, vOf(ph, 'enKcal'), 0.005),
+      { ml: vOf(ph, 'enMl'), per100: vOf(ph, 'enPer100'), kcal: vOf(ph, 'enKcal') });
+    // I: breast milk and BM + HMF.
+    mount({ name: 'I', g: 1000, order: { 'Volume(mL/feed)': 2, 'Frequency': 4 }, feed2: 'BM_HMF_24', order2: { 'Volume': 2, 'Frequency': 4 } });
+    ok('I: BM + HMF as feed 2 adds the HMF line', !!assumption() && text(assumption()).includes('HMF ที่เติมต่อ 100 mL'), text(assumption()));
   });
 
   act(() => { root.unmount(); });

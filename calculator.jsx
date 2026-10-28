@@ -2886,7 +2886,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     <span key={lab} style={{ whiteSpace: "nowrap" }}>{lab} <span className="num" style={{ fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" }}>{fmt(v, d)}</span></span>
                   ))}
                 </div>
-                {calc.enVolTotal > 0 && <MilkAssumption enType={enType} />}
+                {calc.enVolTotal > 0 && <MilkAssumption keys={enFeeds.filter(f => f.mlPerDay > 0).map(f => f.key)} />}
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -3258,7 +3258,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             </div>
           )}
           {calc.wtKg > 0 && <ShowWorking calc={calc} route={route} wtG={wtG} dol={dol} dexPct={dexPct} aaPerKg={aaPerKg}
-            enType={enType} tGir={tGir} tKcal={tKcal} tPro={tPro} useEN={useEN} vsLimit={vsLimit} />}
+            feeds={enFeeds} tGir={tGir} tKcal={tKcal} tPro={tPro} useEN={useEN} vsLimit={vsLimit} />}
 
         </div></StepBody>
       </div>
@@ -4214,7 +4214,9 @@ function KcalLegend({ color, label, pct, target }) {
 // rows, the HMF dose and the limits the clinical-rules skill cites by CR- ID,
 // never a copy (test/verify-show-working-1028.cjs §3). The formulas are text:
 // that harness checks their terms add up to the tile beside them. Screen only;
-// the print form and the copied order read none of it.
+// the print form and the copied order read none of it. A day can have two
+// feeds (main's #182): both read the feeds given, never feed 1's picker alone,
+// which can sit at 0 mL beside feed 2.
 const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true };   // feed → carries HMF
 
 // One figure in the working, keyed for the harness; `t` is one already formatted.
@@ -4222,8 +4224,10 @@ function WorkVal({ k, v, d = 2, t }) {
   return <span className="num" data-v={k}>{t ?? fmt(v, d)}</span>;
 }
 
-function MilkAssumption({ enType }) {
-  if (!(enType in BM_ASSUMED_FEEDS)) return null;
+// `keys`: the EN_DB key of each feed given today.
+function MilkAssumption({ keys }) {
+  const bmKeys = keys.filter((k) => k in BM_ASSUMED_FEEDS);
+  if (bmKeys.length === 0) return null;
   const bm = D.EN_DB.BM_20, bmh = D.EN_DB.BM_HMF_24;
   const hmfG = D.EN_HMF_PROTEIN_G_PER_DOSE;
   const hmfKcal = D.EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal * hmfG;
@@ -4235,14 +4239,14 @@ function MilkAssumption({ enType }) {
         นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein <WorkVal k="bm.pro" v={bm.pro} /> g · <WorkVal k="bm.kcal" v={bm.kcal} d={1} /> kcal
         <span style={quiet}> · {bm.source}</span>
       </div>
-      {BM_ASSUMED_FEEDS[enType] && (
+      {bmKeys.some((k) => BM_ASSUMED_FEEDS[k]) && (
         <div>
           HMF ที่เติมต่อ 100 mL: protein +<WorkVal k="hmf.pro" v={hmfG} /> g · +<WorkVal k="hmf.kcal" v={hmfKcal} d={1} /> kcal
           รวมเป็น <WorkVal k="bmhmf.pro" v={bmh.pro} /> g · <WorkVal k="bmhmf.kcal" v={bmh.kcal} d={1} /> kcal
           <span style={quiet}> · {bmh.source.replace(/^BM_20 \+ /, "")}</span>
         </div>
       )}
-      {enType === "FBM_INF_MIX" && <div style={quiet}>{D.EN_DB.FBM_INF_MIX.note}</div>}
+      {bmKeys.includes("FBM_INF_MIX") && <div style={quiet}>{D.EN_DB.FBM_INF_MIX.note}</div>}
       <div style={{ fontWeight: 600 }}>นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมของแม่คนนี้</div>
     </div>
   );
@@ -4280,17 +4284,34 @@ function WorkRow({ label, children }) {
 
 // A result just past its hard limit reads the way the alert reads it (the
 // Calculator's vsLimit: GIR 12.007 is "12.01", never "12" beside "above 12"; Vera).
-function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir, tKcal, tPro, useEN, vsLimit }) {
+function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir, tKcal, tPro, useEN, vsLimit }) {
   const en = calc.en;
-  const isBm = enType in BM_ASSUMED_FEEDS;
+  // The feeds given; with none, feed 1, whose row calc.en then is (D.enMixPer100mL).
+  const given = feeds.filter((f) => f.mlPerDay > 0);
+  const shown = given.length > 0 ? given : feeds.slice(0, 1);
   const noBag = !(calc.totalTPN_mL > 0);
-  const feedSource = en.unsourced ? "No source" : `Source: ${en.source}`;
+  const aboutFeed = (key) => {
+    const row = D.EN_DB[key];
+    if (!row) return `${key}: not in the feed list`;
+    return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
+  };
   const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
-  const feedRow = (per100, unit, total, k) => calc.isMEN
-    ? <>นม MEN (trophic) <WorkVal k="enGiven" v={calc.enVolTotal} d={1} /> mL/day ไม่นับในค่ารวม: นับ <WorkVal k={k} v={total} /> {unit}</>
-    : <><WorkVal k="enMl" v={calc.enCounted} d={1} /> mL × <WorkVal k="enPer100" v={per100} /> {unit}/100 mL ÷ 100
-        = <WorkVal k={k} v={total} /> {unit} · {en.label} · {feedSource}{isBm ? " (CR-U-BREASTMILK)" : ""}</>;
+  // `n` is the EN_DB nutrient; with two feeds calc.en is their mix, so each
+  // feed's line reads its own row and the lines add up to calc's total.
+  const feedRow = (n, unit, total, k) => {
+    if (calc.isMEN) return <>นม MEN (trophic) <WorkVal k="enGiven" v={calc.enVolTotal} d={1} /> mL/day ไม่นับในค่ารวม: นับ <WorkVal k={k} v={total} /> {unit}</>;
+    if (shown.length === 1) return <><WorkVal k="enMl" v={calc.enCounted} d={1} /> mL × <WorkVal k="enPer100" v={en[n]} /> {unit}/100 mL ÷ 100
+        = <WorkVal k={k} v={total} /> {unit} · {aboutFeed(shown[0].key)}</>;
+    return <>
+      {shown.map((f, i) => {
+        const per100 = D.EN_DB[f.key]?.[n] ?? 0;
+        return <div key={i}>Feed {i + 1}: <WorkVal k={`enMl${i + 1}`} v={f.mlPerDay} d={1} /> mL × <WorkVal k={`enPer100_${i + 1}`} v={per100} /> {unit}/100 mL ÷ 100
+          = <WorkVal k={`${k}${i + 1}`} v={f.mlPerDay * per100 / 100} /> {unit} · {aboutFeed(f.key)}</div>;
+      })}
+      <div>รวม <WorkVal k={k} v={total} /> {unit}</div>
+    </>;
+  };
   const box = { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 11.5,
     color: "var(--ink-2)", display: "flex", flexDirection: "column", gap: 4, lineHeight: 1.45 };
   const title = { fontWeight: 600, color: "var(--ink)" };
@@ -4352,7 +4373,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir
         AA <WorkVal k="aaG" v={calc.aaG} /> g → <WorkVal k="aaKcal" v={calc.aaKcal} d={1} /> kcal ·
         20% lipid <WorkVal k="lipidG" v={calc.lipidG} /> g → <WorkVal k="lipidKcal" v={calc.lipidKcal} d={1} /> kcal
       </WorkRow>
-      <WorkRow label="นม">{feedRow(en.kcal, "kcal", calc.enKcal, "enKcal")}</WorkRow>
+      <WorkRow label="นม">{feedRow("kcal", "kcal", calc.enKcal, "enKcal")}</WorkRow>
       <WorkRow label="แปลงหน่วย">นมคิดต่อ 100 mL เลย ÷ 100 · {kgRow} · CR-U-ENERGY</WorkRow>
       <WorkRow label="เกณฑ์">
         <WorkVal k="lim.lo" v={tKcal[0]} />–<WorkVal k="lim.hi" v={tKcal[1]} /> kcal/kg/d, {band} ·
@@ -4368,7 +4389,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, enType, tGir
       <WorkRow label="ค่าที่ใช้">
         AA <WorkVal k="aaPerKg" v={aaPerKg} /> g/kg/d × <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000 = <WorkVal k="aaG" v={calc.aaG} /> g
       </WorkRow>
-      <WorkRow label="นม">{feedRow(en.pro, "g", calc.enProteinG, "enProG")}</WorkRow>
+      <WorkRow label="นม">{feedRow("pro", "g", calc.enProteinG, "enProG")}</WorkRow>
       <WorkRow label="แปลงหน่วย">นมคิดต่อ 100 mL เลย ÷ 100 · {kgRow}</WorkRow>
       <WorkRow label="เกณฑ์">
         <WorkVal k="lim.lo" v={tPro[0]} />–<WorkVal k="lim.hi" v={tPro[1]} /> g/kg/d, {band} ·

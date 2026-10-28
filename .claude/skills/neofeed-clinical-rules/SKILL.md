@@ -957,13 +957,14 @@ enough and did not support routine milk analysis.
 Source: WHO 2006, *Optimal feeding of low-birth-weight infants: technical review*, Box 1.3.1 (p. 16)
 and Box 1.3.3 (p. 19), every stored value re-read on 2026-10-27; Chula handbook p. 8 (energy) and p. 10
 (Enfamil HMF).
-On screen (NF-12): with a breast-milk feed (BM, BM + HMF, FBM ↔ Infatrini) Step 2 names the protein and
-kcal per 100 mL it assumes, with `EN_DB.BM_20.source`; what HMF adds, from `EN_HMF_PROTEIN_G_PER_DOSE` and
-the Chula p. 10 column, with `EN_DB.BM_HMF_24.source`; and one line that real milk varies. It reads these
-values when it renders, so they change here and nowhere else. Not printed, not in the copied order.
+On screen (NF-12): with a breast-milk feed (BM, BM + HMF, FBM ↔ Infatrini) given as feed 1 or feed 2,
+Step 2 names the protein and kcal per 100 mL it assumes, with `EN_DB.BM_20.source`; what HMF adds, from
+`EN_HMF_PROTEIN_G_PER_DOSE` and the Chula p. 10 column, with `EN_DB.BM_HMF_24.source`; and one line that
+real milk varies. It reads these values when it renders, so they change here and nowhere else. Not
+printed, and not in the quick calc's copied text.
 
 ```rule
-{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 190, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 182, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 205, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4225, "has": "function MilkAssumption({ enType }) {"}]}
+{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 190, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 182, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 205, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4228, "has": "function MilkAssumption({ keys }) {"}]}
 {"case": "breast milk: 67 kcal/100 mL", "fn": "EN_DB.BM_20.kcal", "want": 67}
 {"case": "breast milk: 1.2 g protein/100 mL", "fn": "EN_DB.BM_20.pro", "want": 1.2, "within": 1e-9}
 {"case": "BM + HMF: 2.3 g protein/100 mL", "fn": "EN_DB.BM_HMF_24.pro", "want": 2.3, "within": 1e-9}
@@ -971,6 +972,8 @@ values when it renders, so they change here and nowhere else. Not printed, not i
 {"case": "BM + HMF: HMF adds 1.1 g and 14.3 kcal per 100 mL, 2.3 g and 81.3 kcal in all", "infant": {"g": 1000}, "feed": "BM_HMF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 8}, "expect": {"shows": "HMF ที่เติมต่อ 100 mL: protein +1.1 g · +14.3 kcal รวมเป็น 2.3 g · 81.3 kcal · Enfamil HMF, Chula Handbook p. 10"}}
 {"case": "Hi-Q LBW 24: no breast-milk line", "infant": {"g": 1000}, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 8}, "expect": {"hides": "นมแม่ที่ใช้คำนวณ"}}
 {"case": "no feed volume: no breast-milk line", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"hides": "นมแม่ที่ใช้คำนวณ"}}
+{"case": "Hi-Q LBW 24 as feed 1 and breast milk as feed 2: the breast-milk line", "infant": {"g": 1000}, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 4}, "feed2": "BM_20", "order2": {"Volume": 2, "Frequency": 4}, "expect": {"shows": "นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein 1.2 g · 67 kcal"}}
+{"case": "feed 1 at 0 mL, Hi-Q LBW 24 as feed 2 only: no breast-milk line", "infant": {"g": 1000}, "feed2": "FBM_PF_24", "order2": {"Volume": 2, "Frequency": 8}, "expect": {"hides": "นมแม่ที่ใช้คำนวณ"}}
 ```
 
 ### CR-U-STATUS · how a tile is graded
