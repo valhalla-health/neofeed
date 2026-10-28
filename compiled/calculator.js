@@ -252,18 +252,16 @@ function Chk({ label, value, onChange, hint }) {
 function EnFeedPicker({ value, onChange }) {
   const at = D.enProductOf(value);
   const groups = [...new Set(D.EN_PRODUCTS.map((p) => p.group))];
+  const [dropped, setDropped] = React.useState(null);
   const pickProduct = (id) => {
     const p = D.EN_PRODUCTS.find((x) => x.id === id);
     if (!p) return;
     const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
-    onChange((same || p.strengths[0])[1]);
+    const next = same || p.strengths[0];
+    setDropped(at && !same ? { from: at.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
+    onChange(next[1]);
   };
-  return (
-    // The same three columns as the Volume / Frequency row below: the milk spans
-    // two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box
-    // beside a full-width milk box was out of proportion on desktop).
-    /* @__PURE__ */ React.createElement("div", { className: "en-picker", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { className: "field", style: { gridColumn: "span 2" } }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel en-product", value: at ? at.product.id : "", onChange: (e) => pickProduct(e.target.value) }, !at && /* @__PURE__ */ React.createElement("option", { value: "" }, D.EN_DB[value]?.label || value), groups.map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g, label: g }, D.EN_PRODUCTS.filter((p) => p.group === g).map((p) => /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, p.label)))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "kcal/oz"), /* @__PURE__ */ React.createElement("select", { className: "sel en-strength", value, onChange: (e) => onChange(e.target.value) }, (at ? at.product.strengths : [["—", value]]).map(([oz, k]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, oz))), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 } }, fmt(D.EN_DB[value]?.kcal, 0), " kcal/100 mL")))
-  );
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, "// The same three columns as the Volume / Frequency row below: the milk spans // two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box // beside a full-width milk box was out of proportion on desktop).", /* @__PURE__ */ React.createElement("div", { className: "en-picker", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { className: "field", style: { gridColumn: "span 2" } }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel en-product", value: at ? at.product.id : "", onChange: (e) => pickProduct(e.target.value) }, !at && /* @__PURE__ */ React.createElement("option", { value: "" }, D.EN_DB[value]?.label || value), groups.map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g, label: g }, D.EN_PRODUCTS.filter((p) => p.group === g).map((p) => /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, p.label)))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "kcal/oz"), /* @__PURE__ */ React.createElement("select", { className: "sel en-strength", value, onChange: (e) => onChange(e.target.value) }, (at ? at.product.strengths : [["—", value]]).map(([oz, k]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, oz))), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 } }, fmt(D.EN_DB[value]?.kcal, 0), " kcal/100 mL"))), dropped && dropped.key === value && /* @__PURE__ */ React.createElement("div", { className: "en-strength-changed", role: "status", style: { fontSize: 11.5, fontWeight: 600, color: "var(--warn-ink)", marginTop: 4 } }, "kcal/oz ", dropped.from, " → ", dropped.to, ": ", dropped.milk, " ไม่มี ", dropped.from, " kcal/oz — ตรวจ kcal/oz ก่อน Submit"));
 }
 const EN_NO_FEED = { kcal: 0, pro: 0, fat: 0, cho: 0, na: 0, k: 0, ca: 0, p: 0, osm: null, lf: false };
 const EN_FEED_BOX = { padding: 10, border: "1px solid var(--line)", borderRadius: 8 };

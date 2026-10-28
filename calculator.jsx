@@ -391,17 +391,24 @@ function Chk({ label, value, onChange, hint }) {
 // Pp, 2026-10-28: "เลือกชนิดนม ต่อมาเลือก kcal/oz" for each feed. Both selects
 // read D.EN_PRODUCTS; `value` and `onChange` carry the EN_DB key the order
 // saves. Changing the milk keeps the kcal/oz when the new milk comes in it,
-// else takes its first. A key the list does not offer is shown, never swapped.
+// else takes its first and says so beside the picker (Vera, 2026-10-28:
+// Infatrini 30 → Pre Nan became 22 with nothing to point it out). A key the
+// list does not offer is shown, never swapped.
 function EnFeedPicker({ value, onChange }) {
   const at = D.enProductOf(value);
   const groups = [...new Set(D.EN_PRODUCTS.map(p => p.group))];
+  // The kcal/oz the last change of milk could not keep. Shown only while the
+  // feed is still the one it switched to, so it never outlives that choice.
+  const [dropped, setDropped] = React.useState(null);
   const pickProduct = (id) => {
     const p = D.EN_PRODUCTS.find(x => x.id === id);
     if (!p) return;
     const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
-    onChange((same || p.strengths[0])[1]);
+    const next = same || p.strengths[0];
+    setDropped(at && !same ? { from: at.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
+    onChange(next[1]);
   };
-  return (
+  return (<>
     // The same three columns as the Volume / Frequency row below: the milk spans
     // two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box
     // beside a full-width milk box was out of proportion on desktop).
@@ -425,7 +432,12 @@ function EnFeedPicker({ value, onChange }) {
         <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{fmt(D.EN_DB[value]?.kcal, 0)} kcal/100 mL</div>
       </div>
     </div>
-  );
+    {dropped && dropped.key === value && (
+      <div className="en-strength-changed" role="status" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--warn-ink)", marginTop: 4 }}>
+        kcal/oz {dropped.from} → {dropped.to}: {dropped.milk} ไม่มี {dropped.from} kcal/oz — ตรวจ kcal/oz ก่อน Submit
+      </div>
+    )}
+  </>);
 }
 
 // What `calc` costs a day's feeds at when they have no composition: nothing

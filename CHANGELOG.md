@@ -37,7 +37,9 @@ composition from the Chula handbook rows `EN_DB` already holds.
   and Pre Nan 22/24, HiQ LF and Enfalac LF 20/24/27, the rest one each); adding one is a row plus a pair
   in `EN_PRODUCTS`, and is Pp's and the nutrition unit's call. The two selects share the three columns
   of the Volume / Frequency row below: the milk spans two, kcal/oz the third (Pp, from the desktop view:
-  a fixed 112 px kcal/oz box beside a full-width milk box was out of proportion).
+  a fixed 112 px kcal/oz box beside a full-width milk box was out of proportion). Changing the milk keeps
+  the kcal/oz when the new milk comes in it; otherwise it takes the new milk's first and says so beside
+  the picker, "kcal/oz 30 → 22: Pre Nan ไม่มี 30 kcal/oz" (Vera's third review; 4.20–4.22).
 - **A second feed.** "+ Add a second feed (นมชนิดที่ 2)" opens Feed 2 with its own milk, kcal/oz, volume
   and frequency; each feed shows its mL/day and mL/kg/d. The day's enteral volume and every nutrient are
   the sum of the two: `enMixPer100mL` weights one composition per 100 mL by each feed's mL/day, so fluid,

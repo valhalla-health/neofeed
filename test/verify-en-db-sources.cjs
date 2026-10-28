@@ -364,6 +364,17 @@ const scenarios = {
     for (const [cls, v] of [['en-product', 'preNan'], ['en-strength', 'PRENAN_22']]) set(container.querySelector(`.en-feed-2 .${cls}`), v);
     A.ok('4.19 a milk picked for feed 2 with no volume is not a change', !/Feed 2:/.test(changes()), changes());
 
+    // Changing the milk to one that does not come in the kcal/oz on screen says
+    // so (Vera, 2026-10-28): Infatrini 30 → Pre Nan is 22, never silently.
+    mount(null);
+    pick('INFATRINI_30');
+    set(productSelect(), 'preNan');
+    const notice = () => (container.querySelector('.en-feed-1 .en-strength-changed')?.textContent || '').replace(/\s+/g, ' ');
+    A.eq('4.20 Infatrini 30 → Pre Nan takes Pre Nan 22', feedKey(), 'PRENAN_22');
+    A.ok('4.21 …and says "kcal/oz 30 → 22"', notice().includes('kcal/oz 30 → 22: Pre Nan ไม่มี 30 kcal/oz'), notice());
+    set(productSelect(), 'enfalacPrem');
+    A.ok('4.22 a milk that keeps the 22 clears it', feedKey() === 'FBM_PF_22' && notice() === '', { key: feedKey(), notice: notice() });
+
     // The next day's new order, copied from a PF 20 order.
     mount(null, old);
     A.eq('4.12 a copied new order keeps PF 20', feedKey(), 'BM_PF_20');
