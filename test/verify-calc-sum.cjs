@@ -27,6 +27,13 @@
 //     order's BAG MAKE-UP line was a third surface until a patient's order lost
 //     its Copy button, Pp 2026-10-28.)
 //
+// 1b · THE QUICK CALC'S COPY. The same order is typed into the quick calc, the
+//     one place NeoFeed still copies from (Pp: "test quick calc copies text"),
+//     and its Copy's BAG MAKE-UP line must carry the quick calc's own on-screen
+//     Components and Bag total, close exactly (components + WFI = prepared),
+//     and say COMPONENTS EXCEED BAG VOLUME exactly when the screen says the bag
+//     cannot be compounded.
+//
 // THE TOLERANCE, from the app's rounding chain (calculator.jsx, solVol and the
 // bag make-up block):
 //   · each stock mL is rounded once, to one decimal, half up (roundMl, Pp
@@ -104,6 +111,11 @@ global.showToast = () => {};
 window.print = () => {};
 window.prompt = () => 'sum-check reason';
 window.confirm = () => true;
+// The quick calc's Copy writes here (section 1b).
+let copied = null;
+const clipboardStub = { writeText: (t) => { copied = t; return Promise.resolve(); } };
+try { Object.defineProperty(window.navigator, 'clipboard', { value: clipboardStub, configurable: true }); }
+catch { try { window.navigator.clipboard.writeText = clipboardStub.writeText; } catch { /* left to fail loudly at the copy assertion */ } }
 try { Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true, writable: true }); } catch {}
 const React = require('react');
 const ReactDOM = require('react-dom/client');
@@ -354,8 +366,11 @@ function stocksAtZero(sc, dosingG, Vd, dead) {
 }
 
 // ── one order ───────────────────────────────────────────────────────────────
-async function fill(sc) {
-  setField('Current weight', sc.cur);
+// `scratch`: the quick calc, which has no birth weight to floor at and no
+// Intake / Output card, so it is typed the dosing weight and no I/O.
+async function fill(sc, scratch = false) {
+  const floored = sc.cur < sc.bw ? sc.bw : sc.cur;
+  setField('Current weight', scratch && !sc.tpnWtOverride ? floored : sc.cur);
   if (sc.tpnWtOverride) setField('TPN calc. weight', sc.tpnWtOverride);
   setField('Target fluid', sc.fluid);
   setField('Other IV', sc.otherIV);
@@ -382,6 +397,7 @@ async function fill(sc) {
   setCheck('Peditrace', sc.pedi);
   setField('ZnSO₄', sc.zn);
   setField('Heparin(U/mL)', sc.hep);
+  if (scratch) return;
   setField('Urine output', sc.ioOut);
   setField('Drain content', sc.drain);
 }
@@ -526,6 +542,44 @@ async function run(scIn, idx) {
   return null;
 }
 
+// ── 1b · the same order in the quick calc: its Copy's bag line ──────────────
+async function quickCalcBag(scIn) {
+  const sc = { ...BASE, ...scIn };
+  act(() => { root.unmount(); });
+  root = ReactDOM.createRoot(container);
+  window.localStorage.clear();
+  act(() => {
+    root.render(React.createElement(window.Calculator, {
+      patient: { sessionId: null, name: null, initials: null, bw: 0, ga: 0, sex: '', currentBed: '', diagnosis: '',
+        weights: [], lengths: [], hcs: [] },
+      dol: sc.dol, scratch: true, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null,
+      userLabel: '', userEmail: '',
+    }));
+  });
+  click(btnExact('Open all'));
+  await fill(sc, true);
+  const Vd = sc.useRate ? Number((sc.useRate * 24).toFixed(2)) : sc.tpn;
+  copied = null;
+  const btn = [...container.querySelectorAll('button')].find(b => /คัดลอกผลคำนวณ/.test(b.textContent));
+  ok(sc, 'quick calc: คัดลอกผลคำนวณ is offered', !!btn);
+  if (btn) await clickAsync(btn);
+  const m = typeof copied === 'string'
+    && copied.match(/BAG MAKE-UP: +components (-?[\d.]+) mL \+ WFI q\.s\. (-?[\d.]+) mL = (-?[\d.]+) mL prepared/);
+  ok(sc, 'quick calc: the copy has a BAG MAKE-UP line', !!m, typeof copied === 'string' ? copied.slice(0, 200) : copied);
+  if (!m) return;
+  const cp = { components: +m[1], wfi: +m[2], prepared: +m[3], cannot: /COMPONENTS EXCEED BAG VOLUME/.test(copied) };
+  const scr = screenFigures();
+  const detail = { copy: cp, screen: scr };
+  ok(sc, 'quick calc copy: components + WFI = prepared, exactly', Math.abs(cp.components + cp.wfi - cp.prepared) <= EPS, detail);
+  if (Vd > 0) {
+    ok(sc, 'quick calc copy: components = on-screen Components', scr.components !== null && cp.components === scr.components, detail);
+    ok(sc, 'quick calc copy: prepared = on-screen Bag total', scr.bagTotal !== null && cp.prepared === scr.bagTotal, detail);
+  }
+  ok(sc, 'quick calc copy says COMPONENTS EXCEED exactly when WFI < 0', cp.cannot === (cp.wfi < 0), detail);
+  ok(sc, 'quick calc copy and screen agree on "cannot be compounded"', cp.cannot === scr.cannotOnScreen, detail);
+  if (sc.overflow) ok(sc, 'S4 in the quick calc: the copy says COMPONENTS EXCEED BAG VOLUME', cp.cannot, detail);
+}
+
 (async () => {
   const ORDERS = [...ORACLE, ...OWN];
   for (let i = 0; i < COUNT; i++) ORDERS.push(randomOrder(i));
@@ -535,6 +589,8 @@ async function run(scIn, idx) {
     let note = null;
     try { note = await run(sc, idx); }
     catch (err) { failures.push({ sc: sc.name, what: 'order threw', detail: String(err && err.stack || err).split('\n').slice(0, 3).join(' | ') }); }
+    try { await quickCalcBag(sc); }
+    catch (err) { failures.push({ sc: sc.name, what: 'quick calc threw', detail: String(err && err.stack || err).split('\n').slice(0, 3).join(' | ') }); }
     const bad = failures.length - f0;
     console.log(`  ${bad ? 'FAIL' : 'PASS'}  ${sc.name.slice(0, 64).padEnd(64)} ${String(checks - c0).padStart(3)} checks${note ? `  (${note})` : ''}${bad ? `  ${bad} failed` : ''}`);
   }

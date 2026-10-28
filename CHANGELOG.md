@@ -7,6 +7,42 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (6) — the quick calc's copied text is checked figure by figure
+
+`test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`,
+`test/README.md`. Tests and docs only: no served file, calculation, limit or printed figure changed.
+
+### Why
+
+PR #180 (session (3)) took Copy Order off a patient's order and, with it, every harness check that read the
+copied text's figures. The quick calc's Copy draws the same lines and stays (Pp: "Quick calc
+ให้ยังมีคัดลอกผล"), so after #180 nothing compared a figure in that text with a recomputed value (Vera,
+#180 findings 1 and 2). `REFERENCE.md` § Pre-PR review rule 5 kept Vera's proposed tests out, because they
+do not fail on today's code. Pp overrode it here: "test quick calc copies text".
+
+### What the harnesses now check
+
+- **`verify-calc-oracle.cjs`**: each of the 21 orders is typed a second time into the quick calc
+  (`scratch`, birth weight 0, so the dosing weight is typed as the current weight). Its copied text must
+  say it is not an order and carry no bed or NeoFeed ID. GIR, both feeds and their total, Prescribed,
+  Remaining, protein, energy, total Na, K⁺ mEq/L with its route wording, the bag's components, WFI and
+  prepared volume, ZnSO₄ mL, vitamin D and oral Ca tablets must equal the oracle's own recomputation. 1,827
+  checks. Steps 1–6 are now typed by one `fillForm()` for both mounts.
+- **`verify-calc-sum.cjs`** § 1b: all 60 orders again in the quick calc. The copied BAG MAKE-UP line must
+  carry the quick calc's own on-screen Components and Bag total, close exactly, and say COMPONENTS EXCEED BAG
+  VOLUME exactly when the screen says the bag cannot be compounded, including S4.
+- **`verify-tpn-meeting-0928.cjs`** § 13: the quick calc's Na Acetate line gives no acetate while
+  `naAcetate.acetateMeqPerMl` is unset, and "(acetate 7 mEq)" once it is 3 (2 kg, 180 + 30 mL).
+
+### Seen to fail
+
+Each check fails on a deliberately broken copy line and passes once it is restored:
+- GIR + 0.3, Prescribed + 2 and components + 0.2: oracle, 51 mismatches.
+- Components + 0.2, and COMPONENTS EXCEED never written: calc-sum, 117 failed.
+- Acetate computed without the overfill: § 13, 6 mEq instead of 7.
+
+`test/README.md` drops the "copied order" checks #180 removed and describes the new ones.
+
 ## Session 2026-10-28 — NF-28 meets #182's Step 2
 
 `tools/reference-tabs.cjs`, `tools/reference-tabs.json`, `test/verify-reference-tabs.cjs`,
