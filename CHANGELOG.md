@@ -97,6 +97,36 @@ on synthetic code, including one that finds nothing and must say so; section 3 r
 `NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` = `"1.2"`), `=2` (`KCMH_STOCK.naCl.naMeqPerMl` = 34.2) and `=3`
 (the feed list asking for `"BM_20 "`) each fail one check, naming the cell.
 
+## Session 2026-10-28 — NF-08: a patient identifier, a raw sheet cell or a secret in a log fails CI
+
+`tools/ci_bans.js`, `test/ci-bans-fixtures.json`, `.github/workflows/test.yml` (a comment), `AGENTS.md`,
+`test/README.md`, `BACKLOG.md`, `STATUS.md` (this PR's line). No app code changed; nothing to release.
+
+### Why
+
+NF-08 on Pp's apply list of 2026-10-27, ticked ทำ: a PR fails when a line that writes a log names a
+patient identifier, or hands a log a Script Property or a token. `pseudonymizePatient()` clears name,
+initials and dob from Patient_Registry, but nothing clears them from the Apps Script execution log, a ward
+PC's console or an Audit_Log row. Until now only Vera stood in the way; her benchmark plants exactly this
+(`test/vera-bench/cases/phi-log.patch`: the erased infant's name and dob in the erasure's own log line).
+
+### What changed
+
+- **Three rules in `tools/ci_bans.js`**, run by NF-19's existing CI step: `log-identifier` (hn, an, name,
+  dob, phone, citizen, initials as a variable, property or key), `log-raw-cell` (`row[1]`, `data[i][6]` in
+  a backend log) and `log-secret` (a `PropertiesService` value, directly or through a variable or helper,
+  or a name like token, secret, password or apiKey). `test/README.md` § Log rules has the matching rules.
+- **`log-raw-cell` goes past the NF-08 row.** The backend reads every column by index, so the name list
+  alone passes the vera-bench line (`cur[1]`, `cur[6]`). This rule is what fails it.
+- **`initials` is on the list** though NF-08 did not name it: `pseudonymizePatient()` erases it with name
+  and dob. Staff `email` is not: Audit_Log records `actorEmail` by design (PDPA Sec 39), and the
+  editor-run account functions log the address they changed.
+- **No `schema.json`**, so the list is kept by hand; the class-per-column version is in `BACKLOG.md` §
+  Later.
+- **`main` passes all three with no allow entry.** The rules check every tracked source, not only a PR's
+  changed lines, so an old line cannot hide behind the diff.
+- **`check()` passes the file name to a rule's `find`**, so `log-raw-cell` can keep to `.gs` files.
+
 ## Session 2026-10-28 (5) — The ward list's status and bed chips are buttons
 
 `data.js`, `registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-registry-chip-taps-1028.cjs`

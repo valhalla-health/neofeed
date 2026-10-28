@@ -30,4 +30,7 @@ Read before you act:
 - **Running the harnesses**: `test/README.md`.
 - **A correction Pp makes a second time** becomes a rule in `tools/ci_bans.js` with a failing and a
   passing case in `test/ci-bans-fixtures.json` (NF-19), not a third review comment. CI runs it.
+- **Writing a log line** (`Logger.log`, `console.*`, an `Audit_Log` row, or a function that logs its
+  argument): no patient identifier, no raw sheet cell such as `row[1]`, and no Script Property, token
+  or key. Log the `sessionId` or a count. `tools/ci_bans.js` fails the PR otherwise (NF-08).
 - **Why something is the way it is**: `CHANGELOG.md`, newest first. Add an entry for your session.
