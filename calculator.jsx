@@ -1943,11 +1943,23 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const feedsPerDay = enFreq + enFreq2;
   const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
   const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
-  // ...and both at the same interval: one feed at 3 a day beside one at 4
-  // cannot be given (Pp, 2026-10-28: "ต้องให้ทั้งสองตัว เป็นทุก ชม ที่เท่ากัน").
-  // So 4 + 4 is q3h and 3 + 3 q4h; 6 + 2 is refused too.
-  const feedsUnequal = twoFeeds && Math.abs(enFreq - enFreq2) > 1e-9;
-  const feedsUnequalText = `Feed 1 ${fmt(enFreq, 1)} มื้อ/วัน กับ Feed 2 ${fmt(enFreq2, 1)} มื้อ/วัน ไม่เท่ากัน — นมสองชนิดต้องให้ทุก ชม. เท่ากัน (4 + 4 = q3h, 3 + 3 = q4h)`;
+  // ...and together they fill a regular schedule, 24 h ÷ the feeds a day being
+  // whole hours: 3 + 4 = 7 has no interval to give them on (Pp, 2026-10-28:
+  // "ถ้าอันนึงกด 3 feed อันนึงกด 4 feed จะทำไม่ได้"), while 6 + 2 = 8 is q3h like
+  // 4 + 4 ("ไม่ต้อง reject 6+2 ให้ทำได้"). Until then the two had to be equal.
+  // Whole feeds only, so 4.8 + 3.2 is no q3h (Vera, 2026-10-28); each fault
+  // says what it is.
+  const feedsNotWhole = twoFeeds && (!Number.isInteger(enFreq) || !Number.isInteger(enFreq2));
+  const feedsIrregular = feedsNotWhole
+    || (twoFeeds && !Number.isInteger(Number((24 / feedsPerDay).toPrecision(12))));
+  const feedsIrregularText = feedsNotWhole
+    ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} มื้อ/วัน — จำนวนมื้อต้องเป็นจำนวนเต็ม`
+    : `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน ไม่ลงตัวกับทุก ชม. เท่ากัน — รวมได้ 8 (q3h), 6 (q4h), 4 (q6h), 3 (q8h) หรือ 2 (q12h) มื้อ เช่น 4 + 4, 6 + 2, 3 + 3`;
+  // Each feed's own hint: alone, its interval; beside another, its share of
+  // the one schedule, since 6 + 2 is not q4h beside q12h (they would meet at
+  // 0 h and 12 h) but 6 and 2 of eight q3h feeds (Vera, 2026-10-28).
+  const feedFreqHint = (n) => !twoFeeds ? `q${Math.round(24 / Math.max(n, 1))}h`
+    : feedsIrregular || feedsOverMax ? "" : `${fmt(n, 1)} of ${fmt(feedsPerDay, 1)} feeds · q${fmt(24 / feedsPerDay, 1)}h`;
   // A feed given from a key EN_DB does not hold has no composition, so the
   // order cannot be submitted or printed until another milk is picked.
   const feedsUnknown = D.enFeedsUnknown(enFeeds);
@@ -2006,7 +2018,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [zeroVolumeBag, "CR-BAG-NO-VOLUME"], [kOverMax, "CR-K-BAG-MAX"],
     [bagOverBottle, "CR-BOTTLE-MAX"], [stockAtZeroMl, "CR-STOCK-ZERO"],
     [bagOverfull, "CR-BAG-OVERFULL"],
-    [feedsOverMax, "CR-EN-FEEDS-MAX"], [feedsUnequal, "CR-EN-FEEDS-EQUAL"],
+    [feedsOverMax, "CR-EN-FEEDS-MAX"], [feedsIrregular, "CR-EN-FEEDS-SCHEDULE"],
     [feedUnknown, "CR-EN-FEED-UNKNOWN"],
   ].filter(([holds]) => holds).map(([, id]) => id);
 
@@ -2100,7 +2112,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (bagOverfull) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL, so this order cannot be submitted. Raise the volume or lower a dose.`, ref: "Pp, 2026-10-28 · WFI q.s." });
   if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
   if (feedUnknown) alerts.push({ level: "crit", title: "Feed not in the formulary", body: `${feedsUnknown.join(", ")}: no composition in EN_DB, so its energy, protein and minerals cannot be counted — this order cannot be submitted.`, ref: "PR review (Vera), 2026-10-28" });
-  if (feedsUnequal) alerts.push({ level: "crit", title: "Two feeds at different intervals", body: `Feed 1 ${fmt(enFreq, 1)} and Feed 2 ${fmt(enFreq2, 1)} feeds a day — two feeds share one schedule, so each must be given as often as the other (4 + 4 is q3h, 3 + 3 q4h). This order cannot be submitted.`, ref: "Pp, 2026-10-28" });
+  if (feedsIrregular) alerts.push({ level: "crit", title: "Two feeds off a regular schedule", body: feedsNotWhole
+    ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} feeds a day — each feed's feeds a day must be a whole number. This order cannot be submitted.`
+    : `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, and 24 h ÷ ${fmt(feedsPerDay, 1)} is not whole hours (8 is q3h, 6 q4h, 4 q6h, 3 q8h, 2 q12h). This order cannot be submitted.`, ref: "Pp, 2026-10-28" });
   if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`, ref: "Pp, 2026-10-28" });
   if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
@@ -2146,7 +2160,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
   // Every stop on its own, routeMissing too: the backend trusts the app's stop
   // list (submitStops), so a row stored past it must still not print (Vera, 2026-10-28).
-  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsUnequal && !feedUnknown && !tpnWtOutOfRange
+  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -2159,7 +2173,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
     : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}`
     : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}`
-    : feedsUnequal ? `${feedsUnequalText} แล้วบันทึก${before}`
+    : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}`
     : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}`
     : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}`
     : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
@@ -2317,9 +2331,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       return;
     }
     // ── Two feeds above 8 a day (Pp, 2026-10-28) — refused the same way ──
-    if (!asDraft && feedsUnequal) {
+    if (!asDraft && feedsIrregular) {
       setOpenSteps(prev => new Set(prev).add(5));
-      showToast(feedsUnequalText, "error");
+      showToast(feedsIrregularText, "error");
       return;
     }
     if (!asDraft && feedsOverMax) {
@@ -2794,7 +2808,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
                   <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
                   <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
-                    hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
+                    hint={feedFreqHint(enFreq)} />
                   {!showFeed2Ui && (
                     <div className="field en-men-col">
                       <label style={{ visibility: "hidden" }}>MEN</label>
@@ -2815,7 +2829,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
                     <NumField label="Volume" unit="mL/feed" value={enVol2} onChange={setEnVol2} step={0.5} />
                     <NumField label="Frequency" unit="feeds/d" value={enFreq2} onChange={setEnFreq2} step={1}
-                      hint={`q${Math.round(24 / Math.max(enFreq2, 1))}h`} />
+                      hint={feedFreqHint(enFreq2)} />
                   </div>
                   <EnFeedDay mlPerDay={enFeeds[1].mlPerDay} wtKg={wtKg} />
                 </div>
@@ -2825,12 +2839,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </button>
               )}
               {/* The two feeds share one schedule: their total, and its interval;
-                  red when they are not as often as each other, or above 8 a day. */}
+                  red when that is not whole hours, or above 8 a day. */}
               {showFeed2Ui && twoFeeds && (
-                <div className={`en-feeds-total${feedsOverMax || feedsUnequal ? " over" : ""}`} role={feedsOverMax || feedsUnequal ? "alert" : undefined}
-                  style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: feedsOverMax || feedsUnequal ? "var(--crit)" : "var(--ink-2)" }}>
+                <div className={`en-feeds-total${feedsOverMax || feedsIrregular ? " over" : ""}`} role={feedsOverMax || feedsIrregular ? "alert" : undefined}
+                  style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: feedsOverMax || feedsIrregular ? "var(--crit)" : "var(--ink-2)" }}>
                   Feed 1 + 2 = <span className="num">{fmt(feedsPerDay, 1)}</span> feeds/d
-                  {feedsUnequal ? " — Feed 1 กับ Feed 2 ต้องจำนวนมื้อเท่ากัน บันทึกไม่ได้"
+                  {feedsIrregular ? (feedsNotWhole ? " — จำนวนมื้อต้องเป็นจำนวนเต็ม บันทึกไม่ได้" : " — ไม่ลงตัวกับทุก ชม. เท่ากัน (8, 6, 4, 3 หรือ 2 มื้อ/วัน) บันทึกไม่ได้")
                     : <>{feedsPerDay > 0 && <> · q{fmt(24 / feedsPerDay, 1)}h</>}
                       {feedsOverMax ? ` — เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ/วัน (q3h) บันทึกไม่ได้` : ` (max ${D.EN_FEEDS_PER_DAY_MAX})`}</>}
                 </div>
@@ -3791,7 +3805,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsUnequal && !feedUnknown && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3904,8 +3918,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 twoFeeds ? [
                   `EN: Feed 1 ${enCopyLine(enType, enVol, enFreq, enFeeds[0].mlPerDay)}`,
                   `    Feed 2 ${enCopyLine(enType2, enVol2, enFreq2, enFeeds[1].mlPerDay)}`,
-                  `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`,
+                  // Only the quick calc copies a refused schedule (a patient's
+                  // Copy waits for `printable`): no interval, and a "!!" line.
+                  `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d) · ${fmt(feedsPerDay, 1)} feeds/d${feedsIrregular || feedsOverMax ? "" : ` q${fmt(24 / feedsPerDay, 1)}h`}${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`,
                 ].join("\n") : "",
+                feedsIrregular || feedsOverMax ? `  !! ${feedsIrregular ? "TWO FEEDS OFF A REGULAR SCHEDULE" : `TWO FEEDS ABOVE ${D.EN_FEEDS_PER_DAY_MAX} A DAY`} — cannot be ordered` : "",
                 calc.enVolPerKg > 0 ? "" : "EN: None",
                 `──────────────────────────────`,
                 (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
@@ -3969,9 +3986,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {stockAtZeroMlText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
-            {feedsUnequal && (
-              <div className="feeds-unequal" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
-                {feedsUnequalText} — บันทึก/พิมพ์ไม่ได้
+            {feedsIrregular && (
+              <div className="feeds-irregular" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {feedsIrregularText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
             {feedsOverMax && (
@@ -4005,7 +4022,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsUnequal || feedUnknown || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
