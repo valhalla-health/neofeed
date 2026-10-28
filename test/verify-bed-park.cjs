@@ -161,7 +161,10 @@ const grab = (name) => {
   return gs.slice(at, at + end.index + end[0].length) + '\n';
 };
 const ctx = {};
-vm.runInNewContext(grab('_normBed') + grab('_bedConflict') + ';this._bedConflict=_bedConflict;', ctx);
+// _bedConflict reads each status through _onUnitStatus since 2026-10-28.
+const statusVar = (gs.match(/^var VALID_STATUS = [^\n]*$/m) || [''])[0] + '\n';
+vm.runInNewContext(statusVar + grab('_readStatus') + grab('_onUnitStatus') + grab('_normBed') + grab('_bedConflict') +
+  ';this._bedConflict=_bedConflict;', ctx);
 // Sheet rows: [sessionId, name, …, status (9), currentBed (10)]
 const row = (id, name, bed) => { const r = new Array(18).fill(''); r[0] = id; r[1] = name; r[9] = 'Active'; r[10] = bed; return r; };
 const sheet = [['header'], row('A', 'Baby A', 'NICU 1'), row('B', 'Baby B', 'NICU 2')];

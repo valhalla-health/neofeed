@@ -1827,6 +1827,23 @@ scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `
 inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
 values come from the ward.
 
+## The backend reads a status as the client does, 2026-10-28 — one harness added, two adjusted
+
+Pp asked for the backend to read a patient status the way the client does (`CHANGELOG.md` 2026-10-28 (6)).
+**`verify-status-read-1028.cjs`** runs `gas-backend.gs` in `gas-vm-sandbox.cjs` and, for §5, mounts
+`EditPatientModal` in jsdom (it also runs against `compiled/`). §1: `_readStatus` and `_onUnitStatus` give
+exactly `D.patientStatus` and `D.isOnUnit`, read from `data.js` itself, on 15 inputs (blank, spaces, case,
+unknown words). §2: `getActivePatients` sends "active" and "Active " with no statusDate, a recent
+" discharged " and a recent "Expird", not an undated "Expird". §3: "Active " and "active" hold their bed
+in `registerPatient`'s bed guard; "Expird" does not. §4: a new "ZZZ" is refused in Thai and nothing is
+stored; " discharged " is stored as "Discharged", blank as "Active"; a stored "Expird" edited with only the
+diagnosis is refused and the row unchanged, then saved as Discharged once picked; a stored "active " is
+written back as "Active". §5: Edit session seeds the Status select blank for a stored "Expird", names it,
+keeps Save off until a status is picked, then sends it. 26 checks; with `NEOFEED_GAS_SRC` and the tree of
+`86bfc91`, 14 fail, in every section. `verify-backend-batch-0924.cjs` BE-4 now expects an unrecognised
+status refused rather than stored as Active, and `verify-bed-park.cjs` copies `VALID_STATUS`,
+`_readStatus` and `_onUnitStatus` along with `_bedConflict`.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

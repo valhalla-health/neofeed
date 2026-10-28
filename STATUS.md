@@ -232,6 +232,12 @@
 both are verified.** #186 released #183 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at
 13:58 ICT. Both `verify-release` runs and both tags were done from Pp's PC (banners). Caught up with #184
 by PR #183 and with #186 by PR #176, the next PRs on the repo.
+- ⏳ **The backend reads a patient status as the client does (the PR that adds
+  `test/verify-status-read-1028.cjs`), on Pp's instruction ("แก้ backend ให้อ่าน status แบบเดียวกับ client").**
+  Two halves, neither live yet: `gas-backend.gs` needs Pp's `clasp` deploy (`REFERENCE.md` § Backend), and
+  Edit session's "เลือก Status" for a status that is not one of the four needs a release. Either order is
+  safe. A save that keeps an unknown status ("Expird") is refused in Thai instead of written as Active.
+  `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-28 (6).
 - ✅ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
   asks first: live, released by #186 (banner above) on Pp's instruction ("1+2": yes to the Expired
   question, and to merge and deploy).**
