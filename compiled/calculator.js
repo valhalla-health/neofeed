@@ -57,6 +57,11 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     enType: src.enType ?? "BM_20",
     enVol: src.enVol ?? 0,
     enFreq: src.enFreq ?? 0,
+    // A second feed (Pp, 2026-10-28). Absent from every entry saved before
+    // then: there was one feed, so feed 2 is none.
+    enType2: src.enType2 ?? "BM_20",
+    enVol2: src.enVol2 ?? 0,
+    enFreq2: src.enFreq2 ?? 0,
     isMEN: src.isMEN ?? false,
     inclSoluvit: src.inclSoluvit ?? true,
     inclPeditrace: src.inclPeditrace ?? true,
@@ -111,6 +116,9 @@ const ORDER_DIFF_FIELDS = [
   ["enType", "Feed", ""],
   ["enVol", "Feed volume", "mL/feed"],
   ["enFreq", "Feeds", "/d"],
+  ["enType2", "Feed 2", ""],
+  ["enVol2", "Feed 2 volume", "mL/feed"],
+  ["enFreq2", "Feed 2 feeds", "/d"],
   ["isMEN", "MEN", ""],
   ["suppVitD", "Vit D", "IU/kg/d"],
   ["suppCa", "Oral Ca", "mg/kg/d"],
@@ -120,16 +128,22 @@ const ORDER_DIFF_FIELDS = [
 ];
 function describeOrderValue(key, v) {
   if (typeof v === "boolean") return v ? "yes" : "no";
-  if (key === "enType") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
+  if (key === "enType2" && v == null) return "none";
+  if (key === "enType" || key === "enType2") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   if (typeof v === "number" && isFinite(v)) return String(Number(v.toPrecision(12)));
   if (v == null) return "—";
   return String(v);
 }
+const feed2Given = (o) => Number(o.enVol2) * Number(o.enFreq2) > 0;
 function diffOrderInputs(prev, cur) {
   const out = [];
   for (const [key, label, unit] of ORDER_DIFF_FIELDS) {
-    const a = prev[key], b = cur[key];
+    let a = prev[key], b = cur[key];
+    if (key === "enType2") {
+      a = feed2Given(prev) ? a : null;
+      b = feed2Given(cur) ? b : null;
+    }
     if (a === b) continue;
     if (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 1e-9) continue;
     out.push({ label, from: describeOrderValue(key, a), to: describeOrderValue(key, b), unit });
@@ -165,7 +179,7 @@ function savedDosingWeightOf(entry) {
   if (num(ci.tpnWtG) > 0) return { g: num(ci.tpnWtG), exact: true };
   const dexG = num(ci.totalTPN_mL) * num(ci.dexPct) / 100, gir = num(entry?.gir);
   if (dexG > 0 && gir > 0) return { g: dexG * 1e3 / (1440 * gir) * 1e3, exact: false };
-  const enTotal = num(ci.enVol) * num(ci.enFreq), enPerKg = num(entry?.enVolPerKg);
+  const enTotal = num(ci.enVol) * num(ci.enFreq) + num(ci.enVol2) * num(ci.enFreq2), enPerKg = num(entry?.enVolPerKg);
   if (enTotal > 0 && enPerKg > 0) return { g: enTotal / enPerKg * 1e3, exact: false };
   return null;
 }
@@ -234,6 +248,26 @@ function NumField({
 }
 function Chk({ label, value, onChange, hint }) {
   return /* @__PURE__ */ React.createElement("label", { className: "chk-label", style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 6, background: value ? "var(--brand-bg)" : "var(--bg-2)", border: `1px solid ${value ? "var(--brand-line)" : "var(--line-2)"}`, cursor: "pointer", fontSize: 13 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: value, onChange: (e) => onChange(e.target.checked), style: { marginTop: 2, width: 18, height: 18, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500, color: value ? "var(--brand-2)" : "var(--ink)" } }, label), hint && /* @__PURE__ */ React.createElement("span", { className: "chk-hint", style: { display: "block", color: "var(--ink-3)", marginTop: 2, fontSize: 11 } }, hint)));
+}
+function EnFeedPicker({ value, onChange }) {
+  const at = D.enProductOf(value);
+  const groups = [...new Set(D.EN_PRODUCTS.map((p) => p.group))];
+  const [dropped, setDropped] = React.useState(null);
+  const pickProduct = (id) => {
+    const p = D.EN_PRODUCTS.find((x) => x.id === id);
+    if (!p) return;
+    const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
+    const next = same || p.strengths[0];
+    setDropped(at && !same ? { from: at.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
+    onChange(next[1]);
+  };
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, "// The same three columns as the Volume / Frequency row below: the milk spans // two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box // beside a full-width milk box was out of proportion on desktop).", /* @__PURE__ */ React.createElement("div", { className: "en-picker", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { className: "field", style: { gridColumn: "span 2" } }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel en-product", value: at ? at.product.id : "", onChange: (e) => pickProduct(e.target.value) }, !at && /* @__PURE__ */ React.createElement("option", { value: "" }, D.EN_DB[value]?.label || value), groups.map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g, label: g }, D.EN_PRODUCTS.filter((p) => p.group === g).map((p) => /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, p.label)))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "kcal/oz"), /* @__PURE__ */ React.createElement("select", { className: "sel en-strength", value, onChange: (e) => onChange(e.target.value) }, (at ? at.product.strengths : [["—", value]]).map(([oz, k]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, oz))), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 } }, fmt(D.EN_DB[value]?.kcal, 0), " kcal/100 mL"))), dropped && dropped.key === value && /* @__PURE__ */ React.createElement("div", { className: "en-strength-changed", role: "status", style: { fontSize: 11.5, fontWeight: 600, color: "var(--warn-ink)", marginTop: 4 } }, "kcal/oz ", dropped.from, " → ", dropped.to, ": ", dropped.milk, " ไม่มี ", dropped.from, " kcal/oz — ตรวจ kcal/oz ก่อน Submit"));
+}
+const EN_NO_FEED = { kcal: 0, pro: 0, fat: 0, cho: 0, na: 0, k: 0, ca: 0, p: 0, osm: null, lf: false };
+const EN_FEED_BOX = { padding: 10, border: "1px solid var(--line)", borderRadius: 8 };
+const EN_FEED_TITLE = { fontSize: 11, fontWeight: 700, color: "var(--brand-2)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 };
+function EnFeedDay({ mlPerDay, wtKg }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "en-feed-day", style: { fontSize: 11, color: "var(--ink-3)", marginTop: 4 } }, "= ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(mlPerDay, 1)), " mL/day · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, wtKg > 0 ? fmt(mlPerDay / wtKg, 0) : "—"), " mL/kg/d");
 }
 const ZONE_SAMPLES = 120;
 function meterZones(statusAt, m) {
@@ -477,6 +511,10 @@ function Calculator({
   const [enType, setEnType] = useState("BM_20");
   const [enVol, setEnVol] = useState(0);
   const [enFreq, setEnFreq] = useState(0);
+  const [enType2, setEnType2] = useState("BM_20");
+  const [enVol2, setEnVol2] = useState(0);
+  const [enFreq2, setEnFreq2] = useState(0);
+  const [showFeed2, setShowFeed2] = useState(false);
   const [isMEN, setIsMEN] = useState(false);
   const [inclSoluvit, setInclSoluvit] = useState(true);
   const [inclPeditrace, setInclPeditrace] = useState(true);
@@ -541,6 +579,10 @@ function Calculator({
     setEnType(n.enType);
     setEnVol(n.enVol);
     setEnFreq(n.enFreq);
+    setEnType2(n.enType2);
+    setEnVol2(n.enVol2);
+    setEnFreq2(n.enFreq2);
+    setShowFeed2(n.enVol2 > 0 || n.enFreq2 > 0);
     setIsMEN(n.isMEN);
     setInclSoluvit(n.inclSoluvit);
     setInclPeditrace(n.inclPeditrace);
@@ -732,6 +774,9 @@ function Calculator({
     enType,
     enVol,
     enFreq,
+    enType2,
+    enVol2,
+    enFreq2,
     isMEN,
     inclSoluvit,
     inclPeditrace,
@@ -798,9 +843,23 @@ function Calculator({
     next.has(n) ? next.delete(n) : next.add(n);
     return next;
   });
+  const enFeeds = useMemo(() => [
+    { key: enType, mlPerDay: enVol * enFreq },
+    { key: enType2, mlPerDay: centerPoint ? 0 : enVol2 * enFreq2 }
+  ], [enType, enVol, enFreq, enType2, enVol2, enFreq2, !centerPoint]);
+  const hasFeed2 = enFeeds[1].mlPerDay > 0;
+  const twoFeeds = hasFeed2 && enFeeds[0].mlPerDay > 0;
+  const enCopyLine = (k, v, n, ml) => `${D.EN_DB[k]?.label} | ${v} mL × ${n} feeds = ${fmt(ml, 2)} mL/day`;
+  const showFeed2Ui = showFeed2 && !centerPoint;
+  const removeFeed2 = () => {
+    setShowFeed2(false);
+    setEnType2("BM_20");
+    setEnVol2(0);
+    setEnFreq2(0);
+  };
   const calc = useMemo(() => {
     if (!wtKg) {
-      const en0 = D.EN_DB[enType];
+      const en0 = D.enMixPer100mL(enFeeds) || EN_NO_FEED;
       const sv0 = {
         naCl: 0,
         naAcet: 0,
@@ -902,8 +961,8 @@ function Calculator({
     const naKg = naCl + naAcet + na_glycophos;
     const kKg = kCl + k2hpo4;
     const pKg_tpn = pTotal_mg / wtKg;
-    const en = D.EN_DB[enType];
-    const enVolTotal = enVol * enFreq;
+    const en = D.enMixPer100mL(enFeeds) || EN_NO_FEED;
+    const enVolTotal = enFeeds.reduce((s, f) => s + f.mlPerDay, 0);
     const enVolPerKg = enVolTotal / wtKg;
     const enCounted = isMEN ? 0 : enVolTotal;
     const enKcal = enCounted / 100 * en.kcal;
@@ -1090,9 +1149,7 @@ function Calculator({
     mgPerKg,
     caPerKg,
     extraP_mg_kg,
-    enType,
-    enVol,
-    enFreq,
+    enFeeds,
     isMEN,
     // `route` is deliberately NOT a dependency — the memo never reads it. It is
     // used afterwards for sOsm and the saved entry's route string. Listing it
@@ -1229,6 +1286,14 @@ function Calculator({
   const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
   const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;
   const bagOverBottleText = `ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL ของห้อง TPN — ลดปริมาตรหรือ dead space`;
+  const feedsPerDay = enFreq + enFreq2;
+  const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
+  const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
+  const feedsUnequal = twoFeeds && Math.abs(enFreq - enFreq2) > 1e-9;
+  const feedsUnequalText = `Feed 1 ${fmt(enFreq, 1)} มื้อ/วัน กับ Feed 2 ${fmt(enFreq2, 1)} มื้อ/วัน ไม่เท่ากัน — นมสองชนิดต้องให้ทุก ชม. เท่ากัน (4 + 4 = q3h, 3 + 3 = q4h)`;
+  const feedsUnknown = D.enFeedsUnknown(enFeeds);
+  const feedUnknown = feedsUnknown.length > 0;
+  const feedUnknownText = `นม ${feedsUnknown.join(", ")} ไม่อยู่ในรายการนมของ NeoFeed — เลือกชนิดนมใหม่ที่ Step 2`;
   const stocksAtZeroMl = calc.totalTPN_mL > 0 ? [
     [calc.dexG_bag > 0, calc.d50wVol, "D50W"],
     [aaPerKg > 0, calc.solVol.aa, "Amino acid"],
@@ -1330,6 +1395,9 @@ function Calculator({
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
   if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
+  if (feedUnknown) alerts.push({ level: "crit", title: "Feed not in the formulary", body: `${feedsUnknown.join(", ")}: no composition in EN_DB, so its energy, protein and minerals cannot be counted — this order cannot be submitted.`, ref: "PR review (Vera), 2026-10-28" });
+  if (feedsUnequal) alerts.push({ level: "crit", title: "Two feeds at different intervals", body: `Feed 1 ${fmt(enFreq, 1)} and Feed 2 ${fmt(enFreq2, 1)} feeds a day — two feeds share one schedule, so each must be given as often as the other (4 + 4 is q3h, 3 + 3 q4h). This order cannot be submitted.`, ref: "Pp, 2026-10-28" });
+  if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`, ref: "Pp, 2026-10-28" });
   if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({
     level: "warn",
@@ -1348,9 +1416,9 @@ function Calculator({
   const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
   const uncoveredCritical = alerts.filter((a) => a.level === "crit" && !a.noReason).map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !feedsUnequal && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
-  const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
+  const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsUnequal ? `${feedsUnequalText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
   React.useEffect(() => {
     const ALL = /* @__PURE__ */ new Set([1, 2, 3, 4, 5, 6]);
@@ -1441,6 +1509,21 @@ function Calculator({
     if (!asDraft && stockAtZeroMl) {
       setOpenSteps((prev) => new Set(prev).add(2).add(3));
       showToast(stockAtZeroMlText, "error");
+      return;
+    }
+    if (!asDraft && feedsUnequal) {
+      setOpenSteps((prev) => new Set(prev).add(5));
+      showToast(feedsUnequalText, "error");
+      return;
+    }
+    if (!asDraft && feedsOverMax) {
+      setOpenSteps((prev) => new Set(prev).add(5));
+      showToast(feedsOverMaxText, "error");
+      return;
+    }
+    if (!asDraft && feedUnknown) {
+      setOpenSteps((prev) => new Set(prev).add(5));
+      showToast(feedUnknownText, "error");
       return;
     }
     const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
@@ -1890,7 +1973,7 @@ function Calculator({
     "ใช้ยอด I/O จากบันทึกพยาบาล (ปิดยอดเช้า ",
     window.NEOFEED_FMT_DATE?.(orderDateKey) || orderDateKey,
     ")"
-  ))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(5) }, /* @__PURE__ */ React.createElement(Icon, { name: "milk", size: 14, color: "var(--brand)" }), "Step 2 · Enteral feeding", !openSteps.has(5) && calc.enVolPerKg > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, calc.enVolPerKg.toFixed(0), " mL/kg/d"), calc.enVolPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, D.EN_DB[enType]?.label?.split(" — ")[0]), D.EN_DB[enType]?.lf && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip", style: { color: "var(--ok)", display: "inline-flex", alignItems: "center", gap: 3 } }, "LF ", /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 2.4 })), calc.useEnteralTargets && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip", style: { color: "var(--ok)", display: "inline-flex", alignItems: "center", gap: 3 } }, "Full EN ", /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 2.4 }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[5]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(5) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(5) }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TwoCol, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: enType, onChange: (e) => setEnType(e.target.value) }, /* @__PURE__ */ React.createElement("optgroup", { label: "Breast Milk" }, ["BM_20", "BM_HMF_24"].filter((k) => D.EN_DB[k]).map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, D.EN_DB[k].label))), /* @__PURE__ */ React.createElement("optgroup", { label: "Preterm formula" }, ["BM_PF_20", "FBM_PF_22", "ENFALAC_PREM_24", "PRENAN_22", "PRENAN_24", "FBM_PF_24"].filter((k) => D.EN_DB[k]).map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, D.EN_DB[k].label))), /* @__PURE__ */ React.createElement("optgroup", { label: "High-energy formula" }, ["FBM_INF_MIX", "INFATRINI_30"].filter((k) => D.EN_DB[k]).map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, D.EN_DB[k].label))), /* @__PURE__ */ React.createElement("optgroup", { label: "Lactose-free" }, ["LF_20", "LF_24", "LF_27", "ENFALAC_20", "ENFALAC_24", "ENFALAC_27"].filter((k) => D.EN_DB[k]).map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, D.EN_DB[k].label))))), /* @__PURE__ */ React.createElement("div", { className: "en-fields-row", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 } }, /* @__PURE__ */ React.createElement(NumField, { label: "Volume", unit: "mL/feed", value: enVol, onChange: setEnVol, step: 0.5 }), /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(5) }, /* @__PURE__ */ React.createElement(Icon, { name: "milk", size: 14, color: "var(--brand)" }), "Step 2 · Enteral feeding", !openSteps.has(5) && calc.enVolPerKg > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, calc.enVolPerKg.toFixed(0), " mL/kg/d"), enFeeds.filter((f) => f.mlPerDay > 0).map((f, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "step-summary-chip" }, D.EN_DB[f.key]?.label?.split(" — ")[0])), calc.en?.lf && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip", style: { color: "var(--ok)", display: "inline-flex", alignItems: "center", gap: 3 } }, "LF ", /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 2.4 })), calc.useEnteralTargets && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip", style: { color: "var(--ok)", display: "inline-flex", alignItems: "center", gap: 3 } }, "Full EN ", /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 2.4 }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[5]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(5) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(5) }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TwoCol, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "en-feed en-feed-1", style: showFeed2Ui ? EN_FEED_BOX : void 0 }, showFeed2Ui && /* @__PURE__ */ React.createElement("div", { className: "en-feed-title", style: EN_FEED_TITLE }, "Feed 1"), /* @__PURE__ */ React.createElement(EnFeedPicker, { value: enType, onChange: setEnType }), /* @__PURE__ */ React.createElement("div", { className: "en-fields-row", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 } }, /* @__PURE__ */ React.createElement(NumField, { label: "Volume", unit: "mL/feed", value: enVol, onChange: setEnVol, step: 0.5 }), /* @__PURE__ */ React.createElement(
     NumField,
     {
       label: "Frequency",
@@ -1900,7 +1983,7 @@ function Calculator({
       step: 1,
       hint: `q${Math.round(24 / Math.max(enFreq, 1))}h`
     }
-  ), /* @__PURE__ */ React.createElement("div", { className: "field en-men-col" }, /* @__PURE__ */ React.createElement("label", { style: { visibility: "hidden" } }, "MEN"), /* @__PURE__ */ React.createElement(
+  ), !showFeed2Ui && /* @__PURE__ */ React.createElement("div", { className: "field en-men-col" }, /* @__PURE__ */ React.createElement("label", { style: { visibility: "hidden" } }, "MEN"), /* @__PURE__ */ React.createElement(
     Chk,
     {
       label: "MEN (trophic)",
@@ -1908,7 +1991,36 @@ function Calculator({
       onChange: setIsMEN,
       hint: "Not counted in fluid or nutrient totals"
     }
-  ))), calc.useEnteralTargets && /* @__PURE__ */ React.createElement("div", { style: {
+  ))), showFeed2Ui && /* @__PURE__ */ React.createElement(EnFeedDay, { mlPerDay: enFeeds[0].mlPerDay, wtKg })), showFeed2Ui ? /* @__PURE__ */ React.createElement("div", { className: "en-feed en-feed-2", style: { ...EN_FEED_BOX, marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "en-feed-title", style: EN_FEED_TITLE }, "Feed 2"), /* @__PURE__ */ React.createElement("button", { className: "btn sm en-feed-remove", style: { marginLeft: "auto" }, onClick: removeFeed2 }, "Remove feed 2")), /* @__PURE__ */ React.createElement(EnFeedPicker, { value: enType2, onChange: setEnType2 }), /* @__PURE__ */ React.createElement("div", { className: "en-fields-row", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 } }, /* @__PURE__ */ React.createElement(NumField, { label: "Volume", unit: "mL/feed", value: enVol2, onChange: setEnVol2, step: 0.5 }), /* @__PURE__ */ React.createElement(
+    NumField,
+    {
+      label: "Frequency",
+      unit: "feeds/d",
+      value: enFreq2,
+      onChange: setEnFreq2,
+      step: 1,
+      hint: `q${Math.round(24 / Math.max(enFreq2, 1))}h`
+    }
+  )), /* @__PURE__ */ React.createElement(EnFeedDay, { mlPerDay: enFeeds[1].mlPerDay, wtKg })) : !centerPoint && /* @__PURE__ */ React.createElement("button", { className: "btn sm en-feed-add", style: { marginTop: 8 }, onClick: () => setShowFeed2(true) }, "+ Add a second feed (นมชนิดที่ 2)"), showFeed2Ui && twoFeeds && /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      className: `en-feeds-total${feedsOverMax || feedsUnequal ? " over" : ""}`,
+      role: feedsOverMax || feedsUnequal ? "alert" : void 0,
+      style: { marginTop: 8, fontSize: 12, fontWeight: 600, color: feedsOverMax || feedsUnequal ? "var(--crit)" : "var(--ink-2)" }
+    },
+    "Feed 1 + 2 = ",
+    /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(feedsPerDay, 1)),
+    " feeds/d",
+    feedsUnequal ? " — Feed 1 กับ Feed 2 ต้องจำนวนมื้อเท่ากัน บันทึกไม่ได้" : /* @__PURE__ */ React.createElement(React.Fragment, null, feedsPerDay > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · q", fmt(24 / feedsPerDay, 1), "h"), feedsOverMax ? ` — เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ/วัน (q3h) บันทึกไม่ได้` : ` (max ${D.EN_FEEDS_PER_DAY_MAX})`)
+  ), showFeed2Ui && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(
+    Chk,
+    {
+      label: "MEN (trophic)",
+      value: isMEN,
+      onChange: setIsMEN,
+      hint: "Both feeds — not counted in fluid or nutrient totals"
+    }
+  )), calc.useEnteralTargets && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "8px 10px",
     background: "var(--ok-bg)",
     border: "1px solid var(--ok-line)",
@@ -1920,7 +2032,7 @@ function Calculator({
     display: "flex",
     alignItems: "center",
     gap: 6
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), twoFeeds && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" } }, "feeds 1 + 2"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
     ["kcal", calc.enFeedKg.kcal, 0],
     ["pro", calc.enFeedKg.pro, 1],
     ["Na", calc.enFeedKg.na, 1],
@@ -2359,7 +2471,7 @@ function Calculator({
     background: "var(--bg-2)",
     color: "var(--ink-2)",
     border: "1px solid var(--line)"
-  } }, /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 700 } }, "พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์"), /* @__PURE__ */ React.createElement("div", null, "บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · คัดลอก/พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "num" }, scratch ? "ไม่ผูกกับผู้ป่วย" : D.patientName(patient) || "—"), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num" }, dol), " · ", curWtG, "g", usingBirthWeight && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. at birth weight ", wtG, "g)"), tpnWtManual && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. weight set manually to ", wtG, "g)"), " · ", route === "central" ? "Central" : route === "peripheral" ? "Peripheral" : "no route"), !centerPoint && !scratch && savedEntryId && savedMeta?.by && /* @__PURE__ */ React.createElement("div", { className: "saved-by", style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, "บันทึกโดย ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)", fontWeight: 600 } }, savedMeta.by), " · ", savedAtLabelOf(savedMeta.at)), savedEntryId && dirty && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 } }, "● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์/คัดลอกได้หลังบันทึก"), !centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "print-blocked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "● ", printBlockMessage("ก่อนพิมพ์/คัดลอก"), !pendingSave && dosingWeightChanged && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, "บันทึกไว้ที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(savedDosingWt.g, 0)), " g · ตอนนี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g"), !pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, uncoveredCritical.join(" · "))), previousEntry && /* @__PURE__ */ React.createElement("div", { className: "order-changes", style: { fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 } }, "เปลี่ยนแปลงจากคำสั่งก่อนหน้า (DOL ", D.entryDol(patient, previousEntry), ")"), !orderChanges ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "คำสั่งก่อนหน้าไม่มีข้อมูลละเอียดให้เปรียบเทียบ") : orderChanges.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "ไม่มีการเปลี่ยนแปลง") : orderChanges.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.label, className: "num", style: { color: "var(--ink)" } }, c.label, ": ", c.from, " → ", /* @__PURE__ */ React.createElement("strong", null, c.to), " ", c.unit))), /* @__PURE__ */ React.createElement("div", { className: "calc-save-bar" }, !centerPoint && /* @__PURE__ */ React.createElement("button", { className: "btn", style: { width: "100%", marginBottom: 8 }, onClick: () => {
+  } }, /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 700 } }, "พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์"), /* @__PURE__ */ React.createElement("div", null, "บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · คัดลอก/พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "num" }, scratch ? "ไม่ผูกกับผู้ป่วย" : D.patientName(patient) || "—"), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num" }, dol), " · ", curWtG, "g", usingBirthWeight && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. at birth weight ", wtG, "g)"), tpnWtManual && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. weight set manually to ", wtG, "g)"), " · ", route === "central" ? "Central" : route === "peripheral" ? "Peripheral" : "no route"), !centerPoint && !scratch && savedEntryId && savedMeta?.by && /* @__PURE__ */ React.createElement("div", { className: "saved-by", style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, "บันทึกโดย ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)", fontWeight: 600 } }, savedMeta.by), " · ", savedAtLabelOf(savedMeta.at)), savedEntryId && dirty && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 } }, "● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์/คัดลอกได้หลังบันทึก"), !centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !feedsUnequal && !feedUnknown && !tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "print-blocked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "● ", printBlockMessage("ก่อนพิมพ์/คัดลอก"), !pendingSave && dosingWeightChanged && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, "บันทึกไว้ที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(savedDosingWt.g, 0)), " g · ตอนนี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g"), !pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, uncoveredCritical.join(" · "))), previousEntry && /* @__PURE__ */ React.createElement("div", { className: "order-changes", style: { fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 } }, "เปลี่ยนแปลงจากคำสั่งก่อนหน้า (DOL ", D.entryDol(patient, previousEntry), ")"), !orderChanges ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "คำสั่งก่อนหน้าไม่มีข้อมูลละเอียดให้เปรียบเทียบ") : orderChanges.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "ไม่มีการเปลี่ยนแปลง") : orderChanges.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.label, className: "num", style: { color: "var(--ink)" } }, c.label, ": ", c.from, " → ", /* @__PURE__ */ React.createElement("strong", null, c.to), " ", c.unit))), /* @__PURE__ */ React.createElement("div", { className: "calc-save-bar" }, !centerPoint && /* @__PURE__ */ React.createElement("button", { className: "btn", style: { width: "100%", marginBottom: 8 }, onClick: () => {
     if (!scratch && !savedEntryId) {
       showToast(ordersReadOnly ? "คัดลอกได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว" : "กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
       return;
@@ -2431,7 +2543,15 @@ Copy order ต่อไปหรือไม่?`)) return;
       bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
       stockAtZeroMl ? `  !! ${stocksAtZeroMl.join(", ")} ROUNDS TO 0 mL — cannot be measured` : "",
       `──────────────────────────────`,
-      calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "EN: None",
+      // One feed given (feed 1, or feed 2 alone): the one line it always had.
+      calc.enVolPerKg > 0 && !twoFeeds ? `EN: ${hasFeed2 ? enCopyLine(enType2, enVol2, enFreq2, calc.enVolTotal) : enCopyLine(enType, enVol, enFreq, calc.enVolTotal)} (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "",
+      // Two feeds (Pp, 2026-10-28): one line each, then the day's total.
+      twoFeeds ? [
+        `EN: Feed 1 ${enCopyLine(enType, enVol, enFreq, enFeeds[0].mlPerDay)}`,
+        `    Feed 2 ${enCopyLine(enType2, enVol2, enFreq2, enFeeds[1].mlPerDay)}`,
+        `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`
+      ].join("\n") : "",
+      calc.enVolPerKg > 0 ? "" : "EN: None",
       `──────────────────────────────`,
       suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0 ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
       suppMTV ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",
@@ -2451,7 +2571,7 @@ Copy order ต่อไปหรือไม่?`)) return;
       scratch ? `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══` : `══ NeoFeed V2 · ESPGHAN 2018/2022 ══`
     ].filter((l) => l !== "").join("\n");
     navigator.clipboard.writeText(lines).then(() => showToast("Order copied to clipboard")).catch(() => showToast("Copy failed — try again"));
-  } }, scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อน", centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)", ":", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), routeMissing && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "route-missing-save", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, routeMissingText), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), kOverMax && /* @__PURE__ */ React.createElement("div", { className: "k-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, kOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), bagOverBottle && /* @__PURE__ */ React.createElement("div", { className: "bag-over-bottle", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagOverBottleText, " — บันทึก/พิมพ์ไม่ได้"), stockAtZeroMl && /* @__PURE__ */ React.createElement("div", { className: "stock-at-zero-ml", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, stockAtZeroMlText, " — บันทึก/พิมพ์ไม่ได้"), tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "tpn-wt-out-of-range", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, tpnWtOutOfRangeText, " — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)"), isDraftSaved && !dirty && /* @__PURE__ */ React.createElement("div", { className: "draft-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit"), !scratch && !centerPoint && !ordersReadOnly && /* @__PURE__ */ React.createElement(
+  } }, scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อน", centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)", ":", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), routeMissing && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "route-missing-save", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, routeMissingText), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), kOverMax && /* @__PURE__ */ React.createElement("div", { className: "k-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, kOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), bagOverBottle && /* @__PURE__ */ React.createElement("div", { className: "bag-over-bottle", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagOverBottleText, " — บันทึก/พิมพ์ไม่ได้"), stockAtZeroMl && /* @__PURE__ */ React.createElement("div", { className: "stock-at-zero-ml", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, stockAtZeroMlText, " — บันทึก/พิมพ์ไม่ได้"), feedsUnequal && /* @__PURE__ */ React.createElement("div", { className: "feeds-unequal", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsUnequalText, " — บันทึก/พิมพ์ไม่ได้"), feedsOverMax && /* @__PURE__ */ React.createElement("div", { className: "feeds-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), feedUnknown && /* @__PURE__ */ React.createElement("div", { className: "feed-unknown", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedUnknownText, " — บันทึก/พิมพ์ไม่ได้"), tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "tpn-wt-out-of-range", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, tpnWtOutOfRangeText, " — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)"), isDraftSaved && !dirty && /* @__PURE__ */ React.createElement("div", { className: "draft-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit"), !scratch && !centerPoint && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn save-draft",
@@ -2468,7 +2588,7 @@ Copy order ต่อไปหรือไม่?`)) return;
     {
       className: "btn primary",
       style: { width: "100%" },
-      disabled: saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || tpnWtOutOfRange || pendingSave,
+      disabled: saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || feedsOverMax || feedsUnequal || feedUnknown || tpnWtOutOfRange || pendingSave,
       onClick: () => handleSave(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),

@@ -1,12 +1,12 @@
 # NeoFeed — Status
 
-> ⚠️ **2026-10-27, 22:37 ICT — frontend `release` = `342123d` (PR #172), with backend `@64`: merged, not
-> verified.** #172 released #168, #169, #170 and #171 (route pressed, readmit from a phone, the TPN team's
-> answers, stock mL to one decimal). **`CONSTANTS_VERSION` is `2026-10-27.2`**, so every saved order is held
-> from Print and Copy until a doctor saves it again. Its after-merge steps are not recorded: no
-> `verify-release` result, no `release-2026-10-27-pr172` tag and no dev-local comment on #172, and its
-> before-merge list (pharmacy and doctors told, Center Point's labels, the ZnSO₄ label photo) is unticked.
-> Recorded here by PR #181, the next PR on the repo.
+> ✅ **2026-10-27, 22:37 ICT — frontend `release` = `342123d` (PR #172), with backend `@64`.**
+> PR #172 released #168, #169, #170 and #171: a bag's route is pressed, a discharged infant comes back
+> from a phone, the TPN team's and nutrition unit's answers of 2026-10-25, every stock mL to one decimal.
+> **`CONSTANTS_VERSION` is `2026-10-27.2`**, so every order saved before it is held from Print and Copy
+> until a doctor saves it again. ⚠️ #172 left no post-release record: no `verify-release` result, no
+> dev-local note and no tag on the PR. Recorded here by PR #182, the next PR on the repo, from the merge
+> commit alone.
 >
 > ✅ **2026-10-21, 10:03 ICT — frontend `release` = `08c298d` on both hosts, with backend `@64`.**
 > PR #167 released #159: `EN_DB` from the Chula Pediatric Nutrition Handbook pages (Tables 5, 7 and 16;
@@ -200,41 +200,53 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-28** · **Backend `@64`; frontend `release` = `342123d` (PR #172), merged but not
-verified** (banner above). Caught up with #172 by PR #181.
+**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `342123d` (PR #172) are live.**
+#172 released #168–#171 on 2026-10-27 without a recorded `verify-release` run (banner). Caught up by
+PR #182, the next PR on the repo.
+- ⏳ **PR #182, Step 2's two feeds: merged into `main` on Pp's instruction ("Merge and deploy",
+  2026-10-28), and released by the `main → release` PR opened in the same session**, with #173 riding
+  along (nothing of #173 is served). Each feed is a milk, then its kcal/oz, a volume and feeds a day;
+  two feeds are summed into every figure, must be given at the same interval and at most 8 a day
+  together. Frontend only, no `clasp` step. **`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's
+  decision**: after a revert, or on a ward tab loaded before the release, a two-feed order shows and
+  prints feed 1 only, unheld. No second clinician has checked the two-feed figures. Open for Pp: Q18
+  (one feed above 8 a day), 6 + 2 refused, NF-17. Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28.
 - ⏳ **PR #181, Print ทั้งหมด / Print ที่เลือก with a tick per infant on a ward's Print order list, and no
-  Calculator button there: merged into `main` on Pp's instruction ("Merge and deploy"), released by the
-  `main → release` PR opened in the same session.** Frontend only (`app.jsx`, `registry.jsx`, both shells),
-  no `clasp` step, `CONSTANTS_VERSION` unchanged, and the printed sheet is the same: each ticked order
-  opens one at a time through the existing Print gate, the next only on a tap of ถัดไป. Vera: NO BLOCK
-  twice. ⚠️ Not yet tried on a ward phone or iPad: that ถัดไป cannot be reached while a print sheet is
-  still open. The release PR's comment holds its dev-local run and `verify-release` result.
-  `CHANGELOG.md` 2026-10-28 (1).
+  Calculator button there: merged into `main` on Pp's instruction ("Merge and deploy", 2026-10-28), and
+  released by the open `main → release` PR #184, which takes it in with #182.** Frontend only (`app.jsx`,
+  `registry.jsx`, both shells), no `clasp` step, `CONSTANTS_VERSION` unchanged, and the printed sheet is
+  the same: each ticked order opens one at a time through the existing Print gate, the next only on a tap
+  of ถัดไป. Vera: NO BLOCK twice. ⚠️ Not yet tried on a ward phone or iPad: that ถัดไป cannot be reached
+  while a print sheet is still open. `CHANGELOG.md` 2026-10-28 (2).
+
+**Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
+verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below
+went live with #172 on 2026-10-27; #173 goes with #182.)*
 - ⏳ **PR #173, Pp's clinical-rules skill (NF-04): merged into `main` on Pp's instruction (she answered
-  "ก" to "merge #173 เมื่อ CI ผ่าน"); goes to `release` with #181.** Nothing in it reaches the ward: a skill under `.claude/skills/`,
+  "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
   one harness and docs, and neither host serves `.claude/` or `test/`. `CONSTANTS_VERSION` unchanged.
   Agents load `neofeed-clinical-rules` before touching calculation code, and
   `test/verify-clinical-rules.cjs` (607 checks) runs its cases in CI. Its 17 clinical questions stay open
   for Pp. Vera: NO BLOCK. `CHANGELOG.md` 2026-10-27 (5).
-- ✅ **PR #171, every stock mL to one decimal and a stop at 0 mL: merged into `main` on Pp's instruction
-  ("merge PR #171 เข้า main หลัง CI ผ่าน ยังไม่ต้อง release"); released by #172 (not verified, banner).**
+- ✅ (live since #172) **PR #171, every stock mL to one decimal and a stop at 0 mL: merged into `main` on Pp's instruction
+  ("merge PR #171 เข้า main หลัง CI ผ่าน ยังไม่ต้อง release"); not live until a `main → release` PR.**
   Frontend only, no `clasp` step. **`CONSTANTS_VERSION` `2026-10-27.2`**; released with #170, one re-save covers both. Before its
   release, pharmacy hears that K₂HPO₄, MgSO₄, ZnSO₄ and heparin print to 0.1 mL (MgSO₄ 0.53 → 0.5), and
   doctors that an additive under 0.05 mL now blocks Submit ("Stock rounds to 0 mL"). MgSO₄ is always
   10%: a row saved as 50% now prints the 10% mL. Vera: NO BLOCK four times. `CHANGELOG.md`
   2026-10-27 (4).
-- ✅ **PR #170, the nutrition unit's and TPN team's answers of 2026-10-25: merged into `main` on Pp's
-  instruction ("merge PR #170 เข้า main ได้เลย ยังไม่ต้อง release"); released by #172 (not verified,
-  banner).** Frontend only, no `clasp` step. **`CONSTANTS_VERSION` is `2026-10-27.1`**, so every saved order
+- ✅ (live since #172) **PR #170, the nutrition unit's and TPN team's answers of 2026-10-25: merged into `main` on Pp's
+  instruction ("merge PR #170 เข้า main ได้เลย ยังไม่ต้อง release"); not live until a `main → release`
+  PR.** Frontend only, no `clasp` step. **`CONSTANTS_VERSION` is `2026-10-27.1`**, so every saved order
   is saved again before it prints. Before its release: Center Point's copy of `tpn-document.mjs` gets the
   two new feed labels, the ZnSO₄ stock label is photographed, and pharmacy hears that the back sheet
   prints ZnSO₄ mL and the front sheet new Normal Requirement bands (`BACKLOG.md` § Now). Vera: NO BLOCK
   twice. `CHANGELOG.md` 2026-10-27, (2) and (3).
-- ✅ **PR #169, bringing a discharged infant back from a phone: merged into `main` on 2026-10-22;
-  released by #172 (not verified, banner).** Recorded here by #170, the next PR on the repo.
-- ✅ **PR #168, a caution for a bag without amino acid or MgSO₄, and a bag's route is pressed, never
-  assumed: merged into `main` on Pp's instruction ("merge PR #168 เข้า main เมื่อ CI ผ่าน"); released
-  by #172 (not verified, banner).** Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; a no-bag
+- ✅ (live since #172) **PR #169, bringing a discharged infant back from a phone: merged into `main` on 2026-10-22; not
+  live until a `main → release` PR.** Recorded here by #170, the next PR on the repo.
+- ✅ (live since #172) **PR #168, a caution for a bag without amino acid or MgSO₄, and a bag's route is pressed, never
+  assumed: merged into `main` on Pp's instruction ("merge PR #168 เข้า main เมื่อ CI ผ่าน"); not live
+  until a `main → release` PR.** Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; a no-bag
   order, reprinted, ticks neither route box. The ward should hear before the release that a bag's route
   now has to be pressed. Vera: NO BLOCK twice. `CHANGELOG.md` 2026-10-21.
 - ✅ **PR #159, `EN_DB` from the Chula handbook pages, not the AI extraction: live, released by #167 on
