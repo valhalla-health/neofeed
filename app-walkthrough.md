@@ -444,7 +444,8 @@ in place, not just its display.
   `multiplesLabel()` renders "Twin A"/"Triplet A"/etc. from the pair, and
   falls back to a letter-only guess (A/B→Twin, C→Triplet, D→Quadruplet) for
   patients registered before this field existed. `statusDate` is stamped
-  by `EditPatientModal` (`registry.jsx`) the moment `status` changes away
+  by `D.statusChange` (`data.js`; Edit session and the ward list's status
+  chip both save through it) the moment `status` changes away
   from `Active` (cleared if it's changed back); `registry.jsx` uses it to
   auto-hide a Discharged/Transferred/Expired patient from the registry list
   7 days after that date. Patients with no `statusDate` (archived before
@@ -636,6 +637,19 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    `⇄ เลือกเตียง`, and their bed cell in the table and Switch patient reads
    "รอเตียง" with "จาก <bed>" under it. `test/verify-mobile-bed-button.cjs`
    and `test/verify-bed-transfer-0927.cjs` pin it.
+   **The bed chip and the status chip are buttons too** (Pp, 2026-10-28), on
+   the phone card and in the table. The bed chip calls the same `openTransfer`
+   as ⇄, so the two cannot open different things; an archived infant's bed is
+   not a button. The status chip ("Active ▾", archived ones included) opens
+   `StatusModal`: the four `D.PATIENT_STATUSES`, saved through the same
+   `onEdit` → `handleEditPatient` → `registerPatient` as Edit session, with
+   `D.statusChange` writing `status` + `statusDate` and nothing else. Back to
+   Active on a bed another infant now holds is refused there as in Edit. A
+   status reads through **`D.patientStatus`** everywhere (blank = Active, as
+   `D.isOnUnit` says), so the card, the table, the archive and the Dashboard
+   strip cannot disagree. A change to Expired, there or in Edit session, asks
+   "are you sure?" first, naming the infant and the bed (`confirmStatusChange`).
+   `test/verify-registry-chip-taps-1028.cjs` pins it.
    Each active patient carries a `✓ LOGGED` / `NEEDS ENTRY` badge
    (`.log-badge`) for "does this patient have a Daily_Log entry dated
    today", on both layouts. The stats strip above the list (Active / Total
