@@ -63,11 +63,12 @@ is picked; "toString" refused); §4b the health report's count; §5 Edit session
 Two halves, both Pp's: the backend needs a `clasp` deploy (`REFERENCE.md` § Backend: reconcile the
 mirror, `clasp push`, `clasp update-deployment`), and the Edit session change needs a release. Either order
 is safe: an old Edit session sending an unknown status gets the new Thai refusal and can pick a status;
-a new Edit session on the old backend only asks for a status first. **Before the `clasp` deploy, find the
-non-canonical status cells** (Vera): run `sheetHealthReport` (its `statusNotCanonical`) or filter
-`Patient_Registry` column J. A row typed "active" or "Active " with no statusDate reaches no ward device
-today; after the deploy it syncs as an Active infant holding its bed, so a stale one would appear on the
-ward list and block that bed.
+a new Edit session on the old backend only asks for a status first. **Between `clasp push` and `clasp
+update-deployment`, find the rows that change** (Vera, twice): run `sheetHealthReport` in the editor (its
+`statusNotCanonical` exists only in this code, so not before the push), or filter `Patient_Registry`
+before. The rows that matter are a case or space variant of Active in column J ("active", "ACTIVE ") with
+an empty column Q (statusDate). Such a row reaches no ward device today; once the deployment switches it
+syncs as an Active infant holding its bed, so a stale one would appear on the ward list and block that bed.
 
 ## Session 2026-10-28 — NF-28 meets #182's Step 2
 
