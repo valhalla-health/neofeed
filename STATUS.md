@@ -992,7 +992,7 @@ added case in `verify-gas-registry-upsert.cjs`; all 22 `verify-*.cjs` harnesses 
 to be an unreviewed production deploy on both hosts, backwards from the backend's explicit-
 confirmation-before-`clasp deploy` model, and the frontend is where the printed dose is drawn.
 
-🟡 **2026-10-28 — the pilot ladder (NF-05) is written down, not running.** A release is to run on the
+🟡 **2026-10-28 — the pilot ladder (NF-05, PR #179) is written down, not running.** A release is to run on the
 `pilot` branch's preview for 48 h with Pp and one fellow before the release PR `pilot → release`
 promotes it (`REFERENCE.md` § The pilot ladder). Nothing about how the ward is served changed: no
 pilot deployment, no `pilot` branch and no OAuth origin exist yet, and `boot.js`'s
