@@ -10,7 +10,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-28 (14) — Step 2 stops showing a developer comment
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `tools/ci_bans.js`,
-`test/ci-bans-fixtures.json`, `test/verify-en-db-sources.cjs`, `test/README.md`.
+`test/ci-bans-fixtures.json`, `test/verify-en-db-sources.cjs`, `test/README.md`, `STATUS.md` (this PR's
+line, and #196 marked merged, as #196's own rule asks of the next PR).
 
 ### Why
 

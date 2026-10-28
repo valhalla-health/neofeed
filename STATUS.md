@@ -312,6 +312,12 @@ and tags were done from Pp's PC (banners). Caught up with #184 by PR #183, with 
   a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason), and that a saved
   order with a negative WFI no longer prints until it is fixed and saved again. Center Point's half is
   NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (11) and (12).
+- ⏳ **PR #199, Step 2 no longer shows a developer comment as text: open, waiting for Pp's merge.** Since
+  release #184 every ward device has shown "// The same three columns as the Volume / Frequency row
+  below…" under "Step 2 · Enteral feeding", once per feed picker: #182 wrote a `//` comment between JSX
+  children. It is a `{/* … */}` comment now. Frontend only, so it reaches the ward with the next `main →
+  release` PR; no `clasp` step, no figure moves, `CONSTANTS_VERSION` unchanged. `tools/ci_bans.js`
+  `jsx-comment-text` fails CI on the next one. Vera: NO BLOCK. `CHANGELOG.md` 2026-10-28 (14).
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below
@@ -337,10 +343,11 @@ went live with #172 on 2026-10-27; #173 goes with #182.)*
   answer as #174). Docs and a PR template only, so nothing to release. The next release PR is opened with
   `--template release.md`. Its question on the 25 old backend deployments waits for Pp (`BACKLOG.md` §
   Now). `CHANGELOG.md` 2026-10-28.
-- ⏳ **PR #196, one piece of work, one PR: `AGENTS.md` states Pp's rule that no PR only records another
+- ✅ **PR #196, one piece of work, one PR: `AGENTS.md` states Pp's rule that no PR only records another
   PR (its merge, a release, a tag), and `REFERENCE.md` § Deploying extends its deploy rule to merges:
-  open, waiting for Pp's merge.** Docs only, so nothing to release. It also carries #189's ✅ above, as the
-  rule asks. `CHANGELOG.md` 2026-10-28 (13).
+  merged into `main` by Pp on 2026-10-29 at 06:36 ICT (`432a603`).** Docs only, so nothing to release. It
+  also carries #189's ✅ above, as the rule asks. `CHANGELOG.md` 2026-10-28 (13). Recorded here by PR #199,
+  the next PR on the repo.
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
