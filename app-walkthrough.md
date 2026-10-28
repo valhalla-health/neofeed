@@ -852,7 +852,19 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    `enVolTotal`/`enVolPerKg` stay the feed actually given (the EN volume
    tile, the route, the `enVolPerKg` column), and Step 2 still lists what the
    feed provides, marked not counted. MEN above `D.MEN_MAX_ML_KG`
-   (24 mL/kg/d) is a warning, never a stop. Step 4 also has a **Magnesium**
+   (24 mL/kg/d) is a warning, never a stop.
+   **Step 2 takes up to two feeds** (2026-10-28, Pp): each is a milk, then its
+   kcal/oz (`D.EN_PRODUCTS`, one `EN_DB` row per strength), a volume and a
+   frequency. `calcInput` keeps feed 1 as `enType`/`enVol`/`enFreq` and feed 2
+   as `enType2`/`enVol2`/`enFreq2` (none = `BM_20`, 0, 0, which is how every
+   older row normalises). `calc` sums the two through `D.enMixPer100mL`, one
+   composition weighted by each feed's mL/day; a one-feed day gets that feed's
+   own row, so its figures are unchanged. The one MEN tick covers both feeds.
+   The two share one schedule: with two feeds, more than
+   `D.EN_FEEDS_PER_DAY_MAX` (8, q3h) feeds a day between them is a stop, and
+   so is giving them at different frequencies (4 + 4 or 3 + 3, never 3 + 4).
+   Center Point's TPN packet holds one feed, so a CP order is not offered a
+   second. Step 4 also has a **Magnesium**
    tile: the TPN's Mg in mEq/kg/d against `TARGETS.mg` (`EN_DB` has no Mg).
    The amino-acid stock comes from `D.aaProductsFor(patient)` — Aminoven on
    every ward today; Aminoplasmal 15% (contraindicated under 2 years) waits
