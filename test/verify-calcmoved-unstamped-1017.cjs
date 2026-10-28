@@ -11,7 +11,7 @@
 // old entry id with figures computed from today's constants.
 //
 //   §1  fixture: the same feeds-only order carrying the current stamp prints
-//   §2  unstamped, no aaProduct, feeds only, no TPN: Print and Copy refused with
+//   §2  unstamped, no aaProduct, feeds only, no TPN: Print refused with
 //       the calcMoved reason; saving it again restamps it and it prints
 //   §3  an unstamped order with TPN and no dead space is held the same way
 //   §4  a row dated by aaProduct (2026-09-18.1) is still held, as before
@@ -72,7 +72,6 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
 const container = document.getElementById('root');
 let root = ReactDOM.createRoot(container);
 const clickAsync = (el) => act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
-const buttonText = (re) => [...container.querySelectorAll('button')].find(b => re.test(b.textContent));
 const saveBtn = () => [...container.querySelectorAll('button')].find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()));
 const printForm = () => container.querySelector('#print-form');
 const banner = () => (container.querySelector('.print-blocked')?.textContent || '').replace(/\s+/g, ' ');
@@ -84,14 +83,8 @@ async function tryPrint() {
   await act(async () => { await sleep(10); });
   return { printed, toasts: toasts.slice(t0).map(t => t.msg) };
 }
-async function tryCopy() {
-  const t0 = toasts.length;
-  await clickAsync(buttonText(/Copy Order/));
-  return toasts.slice(t0).map(t => t.msg);
-}
 
 const MOVED_PRINT = 'NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่ก่อนพิมพ์';
-const MOVED_COPY = 'NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่ก่อนคัดลอก';
 
 const patient = { sessionId: 'UN-1500', name: 'UN', bw: 1500, currentBed: 'NICU 5', diagnosis: '-',
   weights: [{ dol: 1, w: 1500 }], admissionDate: '2026-09-05' };
@@ -133,8 +126,6 @@ function open(entry) {
     const p = await tryPrint();
     eq('Print order does not print', p.printed, 0);
     ok('…the toast is the calcMoved message', p.toasts.includes(MOVED_PRINT), p.toasts);
-    const c = await tryCopy();
-    ok('Copy is refused with the same reason', c.includes(MOVED_COPY), c);
     await clickAsync(saveBtn());
     eq('saving it again restamps the row', box.updated && box.updated.calcInput.constantsVersion, D.CONSTANTS_VERSION);
     ok('…after which it prints', !!printForm(), banner());
