@@ -1782,6 +1782,23 @@ that one by name and goes on (Vera's five tests, each failing on the first commi
 button on every device profile (at the head's right edge, level with its top, beside the title), the
 ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
 `showQuickFab = view === "registry" && !printWard`.
+## The reference tables, 2026-10-28 — one harness (NF-28)
+
+**`verify-reference-tabs.cjs`** (Node only, no jsdom) checks every cell of the tables the calculator
+reads clinical numbers from: `EN_DB`, `KCMH_STOCK`, `SUPP_DB`, the limit constants and the target bands
+in `data.js`. The check is `checkReferenceTabs` in `tools/reference-tabs.cjs`, a pure function, and
+`tools/reference-tabs.json` says what each table must hold: a unit for every column, and for every number
+its sign and range. A range is the value a CR- rule in the clinical-rules skill codes, a range a rule
+states, the backend's save bound for that field, or a `proposed` range waiting for Pp. Nothing is
+coerced: the string `"1.2"`, a comma decimal or a padded label fails with its cell named. The lookup keys
+are read from the code: the Calculator's feed dropdown and its defaults, the amino-acid choices, every
+`D.KCMH_STOCK.x.y`-style reference in the screens, and the nursing form's feed keys against the backend's
+`NURSING_FEED_KEY_RE`. Section 1 runs each kind of bad cell on synthetic tables, section 2 the readers on
+synthetic source, section 3 the real files. `NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` as the string
+`"1.2"`), `=2` (20% NaCl at 34.2 mEq/mL) and `=3` (the feed list asking for `"BM_20 "`) must each fail
+one check. 69 checks when written; 71 since the merge with #182, whose feed dropdown reads `D.EN_PRODUCTS`
+(#2.13, #2.14).
+
 
 ## The ward list's status and bed chips, 2026-10-28 — one harness
 
