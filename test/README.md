@@ -1739,6 +1739,28 @@ line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) a
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks when written.
 
 
+## The ward list's status and bed chips, 2026-10-28 — one harness
+
+Pp asked for the phone card's "Active" chip to change the status, saved where it was always saved, and
+for a tap on the bed to be the ⇄ button, both drawn from one place (`CHANGELOG.md` 2026-10-28).
+**`verify-registry-chip-taps-1028.cjs`** drives the real `<App/>` in jsdom against the fake Apps Script
+in `review-0917-boot.cjs`, one scenario per process; it also runs against `compiled/`. #1: `D.PATIENT_STATUSES`,
+`D.patientStatus` (blank reads Active) and `D.statusChange`'s statusDate rule, `D.isOnUnit` unchanged.
+#2: Active ▾ → Discharged → Save sends one `registerPatient` with only `status` and `statusDate`
+changed and the merge base it opened on; the card leaves the list, the Active tile drops, the archive
+lists it, its bed is offered as free and its Dashboard strip says Discharged. #3: the bed chip opens the
+same Transfer bed as ⇄, showing the same, without opening the patient; a move from it saves the bed and
+the Previous-beds hop; a parked infant's reads เลือกเตียง; an archived infant's bed is not a button. #4:
+back to Active from the archive is refused on a bed given away since and saved, statusDate cleared, on a
+free one. #5: the table's bed and status cells open the same dialogs. #6: a blank status reads Active on
+the card and on the Dashboard strip, which read blank; Edit session lists exactly `D.PATIENT_STATUSES`.
+#7, in real Chromium as a touch phone at 320–430px (skipped without playwright): every chip's tap area
+reaches 44px tall, the status chip stays on the name's line, the page does not scroll sideways. 76
+checks (60 without a browser); against `main` (`326bcd9`) every scenario fails (15 failures, six of them a
+scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `setTransferPatient(p)`,
+inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
+values come from the ward.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

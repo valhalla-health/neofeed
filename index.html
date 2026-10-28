@@ -852,6 +852,25 @@
      status chip, and the bed left from in grey, not the warn colour. */
   .bed-left .bed-wait-from { color: var(--ink-3); }
 
+  /* The ward list's bed and status chips are buttons too (registry.jsx
+     BedChipButton / StatusChipButton, 2026-10-28): the bed opens Transfer bed,
+     as ⇄ does, and the status opens the Status dialog. Drawn as the chips they
+     were; on a touch screen the tap area reaches 44px tall around the chip
+     without making the card's row any taller. */
+  .chip-tap { position: relative; cursor: pointer; font-family: inherit; line-height: inherit; }
+  .chip-tap-bed {
+    display: inline-flex; max-width: 100%; padding: 0; margin: 0;
+    border: 0; background: none; text-align: left;
+  }
+  .chip.chip-tap:hover, .chip-tap-bed:hover .chip { border-color: var(--brand); }
+  .chip-caret { font-size: 9px; margin-left: 1px; opacity: .75; }
+  @media (pointer: coarse) {
+    .chip-tap::after { content: ""; position: absolute; top: 50%; left: -4px; right: -4px; height: 44px; transform: translateY(-50%); }
+  }
+  /* The Status dialog's four choices, two by two. */
+  .status-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .status-pick .btn { justify-content: center; min-height: 44px; }
+
   /* ============ PATIENT PICKER (modal-style) ============ */
   .picker-backdrop {
     position: fixed; inset: 0; background: oklch(24% 0.022 205 / .38);
@@ -2099,13 +2118,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=7de84f94c3"></script>
+  <script src="data.js?v=7f3a13e0a0"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
   <script src="compiled/calculator.js?v=f557ba65fa"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
-  <script src="compiled/registry.js?v=f051167971"></script>
+  <script src="compiled/registry.js?v=4e665460d1"></script>
   <script src="compiled/log.js?v=cc9533c31e"></script>
-  <script src="compiled/app.js?v=e8f4cac46d"></script>
+  <script src="compiled/app.js?v=959e2e7e43"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

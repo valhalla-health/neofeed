@@ -7,6 +7,45 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 — The ward list's status and bed chips are buttons
+
+`data.js`, `registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-registry-chip-taps-1028.cjs`
+(new), `test/verify-mobile-bed-button.cjs`, `test/README.md`, `app-walkthrough.md`. No calculation, limit or printed figure changed.
+
+### Why
+
+Pp, from a phone screenshot of the SCN list: "กดปุ่ม active ก็จะสามารถเปลี่ยนตัวเลือก status ได้ และให้ save
+ที่เดิมที่เคย save หลัง save จะเปลี่ยนทุกที่ที่เกี่ยวข้อง กดตรงเตียง ก็จะเท่ากับปุ่มย้ายเตียง
+ให้เช็คว่าทุกอย่างดึงมาจากจุดเดียวกัน". The card's "Active" chip and its bed chip looked like buttons and
+did nothing; a tap on either opened the patient.
+
+### What changed
+
+- **Status chip → Status dialog** (`StatusModal`), on the phone card, the table, and the archive (an
+  infant who has left can be set back to Active from it). It saves where Edit session saves a status:
+  `onEdit` → `handleEditPatient` → `registerPatient`, with the merge base frozen at open. It changes
+  `status` and `statusDate` and nothing else. Back to Active on a bed another infant has since been given
+  is refused there, as Edit refuses it. The chip reads "Active ▾".
+- **Bed chip → the ⇄ dialog.** The chip and the ⇄ button call the same `openTransfer`, so they open the
+  one `TransferBedModal`. An archived infant's bed is not a button: a bed is not moved for an infant who
+  has left.
+- **One source for a status** (`data.js`): `PATIENT_STATUSES` (Edit's select and the dialog), `patientStatus`
+  (blank reads Active, the rule `isOnUnit` already applied, and `isOnUnit` now reads through it) and
+  `statusChange` (the statusDate rule, moved out of `EditPatientModal.save` unchanged). The Dashboard strip's
+  status chip read `patient.status` raw, so a blank status showed an empty chip; it reads `patientStatus` now.
+- After a save, every screen follows from the one record in `App`'s `patients`: the list and its archive,
+  the Active / Logged today / Needs entry tiles, the freed bed in the transfer dialog, the Dashboard strip,
+  the admin census and the alerts (`isOnUnit`).
+- On a touch screen each chip's tap area is 44px tall without making the card's row taller (`.chip-tap::after`).
+
+### Checks
+
+`verify-registry-chip-taps-1028.cjs`, 76 checks (16 in real Chromium); on `main` (`326bcd9`) every scenario
+fails. `verify-mobile-bed-button.cjs` §5 counted two `setTransferPatient(p)` calls in the source; it now
+pins the one inside `openTransfer`, and the four places that call it. `tools/dev-local.mjs`, at 390px: DD
+set to Discharged from its chip left the list and was still Discharged after a reload, and set back to
+Active from the archive returned to NICU 4.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),

@@ -2098,7 +2098,36 @@ function defaultDeadVolFor(patient) {
 // two ever disagree, a bed reads as occupied by someone the registry no
 // longer lists, and nothing on screen explains why it can't be picked.
 function isOnUnit(p) {
-  return !!p && (!p.status || p.status === "Active");
+  return !!p && patientStatus(p) === "Active";
+}
+
+// The four statuses a session can carry, in the order every picker lists
+// them: Edit session's select and the ward list's status chip (Pp,
+// 2026-10-28). The server accepts exactly these (VALID_STATUS, gas-backend.gs).
+const PATIENT_STATUSES = ["Active", "Discharged", "Transferred", "Expired"];
+
+// What a patient's status reads as, on every screen. A blank status is Active,
+// the rule isOnUnit applies, so no chip reads blank or "Active" while the
+// list it sits on says otherwise.
+function patientStatus(p) {
+  return (p && p.status) || "Active";
+}
+
+// The two fields a status change writes: `status`, and `statusDate`, the day
+// the patient left Active, from which the ward list hides an archived name
+// after 7 days. Re-stamped only when the status actually changes, so saving
+// the same archived status again does not restart those 7 days. An Active
+// record that had no statusDate keeps the exact empty value it came with (""
+// from the sheet), not null: under the three-way merge (app.jsx
+// handleEditPatient, UP-S1) a phantom "" → null change would blank the
+// statusDate another device had just stamped on a discharge. Edit session and
+// the status chip both save through this.
+function statusChange(patient, status, today) {
+  const prev = patientStatus(patient);
+  const statusDate = status === "Active"
+    ? (prev === "Active" && !patient.statusDate ? (patient.statusDate ?? null) : null)
+    : (status !== prev || !patient.statusDate) ? today : patient.statusDate;
+  return { status, statusDate };
 }
 
 // Map of bed label → the patient holding it. `excludeSessionId` drops one
@@ -2652,6 +2681,9 @@ window.NEOFEED_DATA = {
   // and the admin census all read, so a discharged infant cannot hold a bed on
   // one screen, raise an alarm on a second and count as a census on a third.
   isOnUnit,
+  // The status list, how a status reads, and what changing it writes — the
+  // one source for Edit session, the ward list's status chip and the strip
+  PATIENT_STATUSES, patientStatus, statusChange,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,
