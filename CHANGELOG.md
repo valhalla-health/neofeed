@@ -48,7 +48,9 @@ composition from the Chula handbook rows `EN_DB` already holds.
   มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้ 6 มื้อ"). The two feeds share one schedule, so with two feeds given,
   Feed 1's and Feed 2's feeds a day above `EN_FEEDS_PER_DAY_MAX` (8, q3h) cannot be submitted (a stop,
   like the 1,250 mL bottle: a draft can be kept). Step 2 shows "Feed 1 + 2 = 8 feeds/d · q3h". One feed
-  alone is not checked; whether a q2h feed (12) should be is Q18 in the skill.
+  alone is not checked; whether a q2h feed (12) should be is Q18 in the skill. Feed 1 with no volume
+  beside feed 2 is a day of one feed (Vera's second review): not checked, and copied as one line.
+  `docs/CLINICAL_CONSTANTS.md` has its row.
 - **A feed EN_DB does not hold stops the order** (Vera on this change). A saved feed whose key is not
   an `EN_DB` row (removed since, or written by a newer NeoFeed) was costed as the other feed once there
   could be two; `enMixPer100mL` now returns null for it, `enFeedsUnknown` names it, and the order cannot
@@ -56,7 +58,9 @@ composition from the Chula handbook rows `EN_DB` already holds.
   key stopped the Calculator with an error.
 - **Saved, compared, copied.** `calcInput` gains `enType2`/`enVol2`/`enFreq2` (an older row normalises
   to none), the change list names them, the copied order prints one line per feed and the total, and
-  `savedDosingWeightOf` counts both feeds.
+  `savedDosingWeightOf` counts both feeds. The change list names feed 2's milk only where feed 2 is
+  given (Vera's second review): removing it reads "Feed 2: Pre Nan → none", not "→ Breast Milk", and a
+  milk picked for a feed 2 with no volume is no change.
 - **Center Point** prints one feed (`neofeed-tpn-v2`), so a CP order is not offered a second, and feed 2
   counts for nothing there.
 
@@ -72,6 +76,8 @@ composition from the Chula handbook rows `EN_DB` already holds.
   feed with no volume not counted and one q2h feed not checked; with the limit set to 9 the refusal
   fails (run once by hand). `CR-U-EN-TWO-FEEDS` with five orders (fluid, the enteral switch from the
   sum, MEN over both feeds and the MEN ceiling on the sum); the harness learned `feed2`/`order2`.
+- `verify-en-db-sources.cjs` 4.14–4.19: reopened orders with a feed not in `EN_DB`, and the change
+  list with feed 2 removed or empty; each fails on the code before its fix.
 - The harnesses that picked a feed by "the select with a BM_20 option" set the milk and then its
   kcal/oz; `verify-en-db-sources.cjs` §4 and `verify-tpn-meeting-0928.cjs` §9 walk both selects and still
   require exactly the sixteen feeds offered before.
