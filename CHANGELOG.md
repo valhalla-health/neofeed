@@ -7,6 +7,31 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (11) — One piece of work, one PR
+
+`AGENTS.md`, `REFERENCE.md` § Deploying, `STATUS.md`. No code changed; nothing to release.
+
+### Why
+
+#193 existed only to mark #189 merged in `STATUS.md`. Pp had it closed unmerged ("ปิด #193"): a PR that
+only records another PR is two merges for her to approve for one piece of work. Then: "เพิ่มกฎ one piece of
+work, one PR ใน AGENTS.md". The rule was already hers for deploys (`REFERENCE.md`, 2026-09-18, after PRs
+#62, #68 and #72 each recorded only a deploy), but it was not in `AGENTS.md`, and it named deploys only,
+so a merge record slipped past it.
+
+### What changed
+
+- `AGENTS.md`: **One piece of work, one PR.** A PR carries one piece of work and everything that records
+  it: its CHANGELOG entry, its own STATUS line and its review fixes. No PR only records another PR's
+  merge, a release, a tag or a `verify-release` result: that goes in a comment on that PR, and
+  `STATUS.md` catches up in the next PR on the repo, beside its own work.
+- `REFERENCE.md` § Deploying: "Recording a deploy never takes its own PR" now covers recording a merge,
+  with #193 beside #62, #68 and #72.
+- `STATUS.md`: #189 ⏳ → ✅ (merged by Pp on 2026-10-28 at 16:15 ICT, `edf2a92`), carried here under the new
+  rule; this PR's own line.
+- This is Pp's first correction of a merge-record PR. #187 was closed because #176 had superseded it, not
+  on her say. So NF-19 does not yet call for a `tools/ci_bans.js` rule; a second one would.
+
 ## Session 2026-10-28 (10) — The backend reads a patient status the way the client does
 
 `gas-backend.gs`, `registry.jsx`, `data.js` (a comment), `compiled/`, both shells' `?v=` tokens,
