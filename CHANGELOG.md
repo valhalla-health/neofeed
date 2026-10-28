@@ -7,6 +7,32 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (6) — On a phone, the archive opens out from under the Calculator button
+
+`registry.jsx`, `compiled/registry.js`, both shells' `?v=` tokens, `test/verify-archive-fab-1028.cjs`
+(new), `test/README.md`. No figure, dose file, printed line or server code changes.
+
+### Why
+
+Pp, after bringing บก back to NICU 9 from a PC: "ให้แก้ใน mobile ได้ด้วย เพราะตอนนี้แก้ในคอมได้ แต่กดใน
+mobile ไม่ได้". In real Chromium as a touch phone, on the dev-local seed: scroll the ward list to its foot
+and tap ▼ Discharged / Transferred / Expired, and the first archived card opens at the foot of the
+screen. Its status chip (the way back to Active since #183) was under the floating Calculator button and
+its Edit under the bottom nav, at 375, 360 and 390px wide. A tap on the chip opened the quick calc. The
+desktop table has nothing over its archive. The rest of the way back works on a phone: the chip and Edit
+once scrolled clear, and Switch patient → Dashboard → Edit session → Active, NICU 9 → Save.
+
+### What changed
+
+- **Opening the phone list's archive scrolls its toggle to the top of the list** (`phoneArchiveRef`, an
+  effect on `showArchived`). With few archived infants the list stops at its foot, and the 136px the
+  list already keeps below its last card for the Calculator button leaves every archived card above it.
+  The jump is immediate, not smooth, so reduced-motion phones are not animated.
+- The ref is on the phone list's archive only. From 768px up that list is `display:none`, where
+  `scrollIntoView` does nothing, so opening the table's archive leaves the page where it was.
+- Not changed: a card's chip still passes under the Calculator button while the list is scrolled, as
+  every card's right side always has; the list's 136px foot lets any card be scrolled clear of it.
+
 ## Session 2026-10-28 — NF-08: a patient identifier, a raw sheet cell or a secret in a log fails CI
 
 `tools/ci_bans.js`, `test/ci-bans-fixtures.json`, `.github/workflows/test.yml` (a comment), `AGENTS.md`,
