@@ -14,6 +14,12 @@ Read before you act:
   commit as its code, and `test/verify-clinical-rules.cjs` runs the cases (NF-04).
 - **Changing a calculation**: keep `test/verify-calc-sum.cjs` passing. A PR that adds or changes a
   figure adds it to that harness's on-screen check in the same PR (NF-17).
+- **One piece of work, one PR** (Pp's PR rule: 2026-09-18 for deploys, 2026-10-28 for any record). A PR
+  carries one piece of work and everything that records it: its `CHANGELOG.md` entry, its own `STATUS.md`
+  line and its review fixes. Never open a PR that only records another PR (its merge, a release, a tag
+  or a `verify-release` result): say it in a comment on that PR, and `STATUS.md` catches up in the next
+  PR on the repo, beside that PR's own work. Pp approves one merge per piece of work, not two (#62, #68,
+  #72, #193).
 - **Merging, releasing or deploying** anything: `REFERENCE.md` § Deploying, and rolling back.
   Merging into `main` deploys nothing; `release` deploys. An agent merges into `release`, or runs a
   backend `clasp deploy`, only on Praew's explicit go-ahead. A release PR starts from
