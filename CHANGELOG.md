@@ -7,6 +7,204 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (10) — The backend reads a patient status the way the client does
+
+`gas-backend.gs`, `registry.jsx`, `data.js` (a comment), `compiled/`, both shells' `?v=` tokens,
+`test/verify-status-read-1028.cjs` (new), `test/verify-backend-batch-0924.cjs`, `test/verify-bed-park.cjs`,
+`test/README.md`, `BACKLOG.md`, `STATUS.md`, `app-walkthrough.md`. No calculation, limit or printed figure
+changed; `CONSTANTS_VERSION` unchanged.
+
+### Why
+
+Pp: "แก้ backend ให้อ่าน status แบบเดียวกับ client". Since #183 the client reads a status through
+`D.patientStatus`: blank is Active, one of the four whatever its case or spaces is that status, anything
+else stays as typed and is off the unit. The server read the same `Patient_Registry` cell three ways
+(Vera's BACKLOG item from #183's review). The sync window trimmed but matched case, so a row typed
+"active" with no statusDate reached no ward device. The bed guard compared the raw cell, so "Active " held
+no bed on the server. And the write turned any unknown word into Active (BE-4, 2026-09-24), so a row typed
+"Expird" came back onto every ward list, holding a bed, at its next save.
+
+### What changed
+
+- **One reading on the server:** `_readStatus` (the rule of `D.patientStatus`) and `_onUnitStatus` (of
+  `D.isOnUnit`). The sync window, the bed guard (`_bedConflict`, both the record saved and every other
+  row), the three-way merge's comparison, the sheet health report and the duplicate question read through
+  them. The sync payload still sends the cell as stored; the client reads it through `patientStatus`, and
+  `verify-review-0917-backend-sync.cjs` proves that payload byte-equal to its reference.
+- **The write refuses a status that is not one of the four** (`_normStatus`), in Thai, instead of storing
+  Active. This reverses BE-4's fallback on purpose: Active is what revived "Expird". A case or space variant
+  is still stored canonical, and blank is still Active. A direct POST can no longer store a ghost status
+  either, which was BE-4's concern.
+- **Edit session asks for a status the server would refuse** (`registry.jsx`), as it already does for an
+  unknown sex: a stored "Expird" seeds the Status select blank ("— เลือก —"), a warning names it, and Save
+  stays off ("ต้องเลือก Status ก่อนบันทึก") until one of the four is picked. Without this, a diagnosis edit of
+  such a record would echo "Expird" back and be refused. The Status dialog already starts with none picked.
+- **Vera, before the PR:** status membership is an own-property check (`_isValidStatus`). `VALID_STATUS[s]`
+  also matched names every object inherits, so "toString" or "constructor" passed as one of the four and
+  was stored, a ghost the old fallback never caught either. And picking the status a typo meant keeps the
+  statusDate already recorded (`D.statusChange`): "Expird" dated 10-20, saved as Expired on 10-28, used to
+  record the death on 10-28 and restart the 7-day hide and the 30-day sync window.
+- **`sheetHealthReport` counts `statusNotCanonical`:** status cells that are neither blank nor exactly one of
+  the four ("active", "Active ", "Expird"). Counts only, no identifiers.
+
+### Checks
+
+`verify-status-read-1028.cjs`, 37 checks: §1 `_readStatus` and `_onUnitStatus` give exactly
+`D.patientStatus` and `D.isOnUnit` (from `data.js` itself) on 15 inputs plus "toString" and "constructor",
+and `D.statusChange` keeps a typo's date; §2 the sync; §3 the bed guard; §4 the write, including Vera's
+cases (a stored "Expird" with only the diagnosis edited is refused and unchanged, then saved once a status
+is picked; "toString" refused); §4b the health report's count; §5 Edit session, which also keeps the date.
+19 fail on `86bfc91`, in every section; Vera's five fail on the commit before their fixes.
+`verify-backend-batch-0924.cjs` BE-4 now expects "ZZZ" refused and nothing stored (it expected Active).
+`verify-bed-park.cjs` copies `_readStatus` and `_onUnitStatus` along with `_bedConflict`.
+
+### Deploy
+
+Two halves, both Pp's: the backend needs a `clasp` deploy (`REFERENCE.md` § Backend: reconcile the
+mirror, `clasp push`, `clasp update-deployment`), and the Edit session change needs a release. Either order
+is safe: an old Edit session sending an unknown status gets the new Thai refusal and can pick a status;
+a new Edit session on the old backend only asks for a status first. **Between `clasp push` and `clasp
+update-deployment`, find the rows that change** (Vera, twice): run `sheetHealthReport` in the editor (its
+`statusNotCanonical` exists only in this code, so not before the push), or filter `Patient_Registry`
+before. The rows that matter are a case or space variant of Active in column J ("active", "ACTIVE ") with
+an empty column Q (statusDate). Such a row reaches no ward device today; once the deployment switches it
+syncs as an Active infant holding its bed, so a stale one would appear on the ward list and block that bed.
+
+## Session 2026-10-28 (NF-05, Pp drops the pilot) — before-and-after numbers and rollback steps instead
+
+Pp answered "ก" on 2026-10-28: no pilot. The two entries below describe a pilot ladder that this PR
+no longer ships. What protects an infant is comparing the numbers before they reach pharmacy. The
+pilot users order for real infants anyway. The riskiest changes (backend, Sheet layout) could not be
+piloted, since every deployment shares the Sheet. And six setup steps, a second GAS deployment and
+48 h per release cost a one-person team more than they give, next to 100 harnesses, the
+clinical-rules check and NF-28.
+
+**Kept**, in `.github/PULL_REQUEST_TEMPLATE/release.md` (now `main → release`) and `REFERENCE.md`
+§ Before and after, and rolling back (it replaces § The pilot ladder):
+
+- A release that changes a calculation runs the release live now and the PR's head side by side in
+  dev local (`tools/dev-local.mjs --tree … --port 8155` and `8156`), at least three cases per changed
+  calculation, and records inputs, before, after and "intended?" in the release PR.
+- The rollback steps: `npx wrangler rollback` or the Worker's Deployments tab, GitHub Pages by
+  reverting the commit, the whole merge for a release across the 2026-09-17 build step, the backend
+  by `clasp update-deployment` to the previous version, and the release tags as targets.
+
+**Removed**, each file back to `main`: `boot.js` § 3 (`NEOFEED_PILOT_GAS_URL`) with the shells'
+`?v=` tokens, the `_headers` comment, `tools/dev-local.mjs` and `tools/verify-release.mjs` (`--pilot`),
+`test/verify-review-0917-shell.cjs` 2.4a, `test/verify-dev-local.cjs` #5 and the `test/README.md`
+section. Deleted: `.github/workflows/release-gate.yml`, `tools/release-gate.mjs`,
+`test/verify-pilot-ladder.cjs`. `AGENTS.md`, `STATUS.md` and BACKLOG § Now now point at the
+template; BACKLOG keeps the missing `release-2026-10-27-pr172` tag and the 25 older backend
+deployments for Pp.
+
+## Session 2026-10-28 (NF-05, after Vera) — what two versions sharing one Sheet can still break
+
+Vera read the NF-05 diff (NO BLOCK, three 🟠 and two 🟡; her report is on the PR). Changed in answer:
+
+- **A column added at a tab's end is not enough.** The ward version rewrites a patient or draft row
+  over its own width only, so the new column keeps the pilot's earlier value. The first "Side by side"
+  box and `REFERENCE.md` now ask that the new version still reads such a row right.
+- **Script Properties** got their own box and bullet: no key or meaning change (the revocation epochs),
+  and no switch flipped while a pilot runs (`NURSING_LOG_ENABLED` must never meet an old frontend).
+- **A backend deploy outside the ladder moves the pilot deployment too**, and an abandoned pilot puts
+  it back on the ward's version, so the public pilot URL never runs code the ward has left.
+- **The gate** now also wants the rollback commit beside the tag, and fails on any `<…>` field left
+  unfilled. The backend Promotion box was reworded so its own text holds none. A new Promotion box
+  re-runs `verify-release.mjs --pilot`, since a branch whose name Cloudflare turns into `pilot` could
+  take the address.
+- Not changed, for Pp: a pilot banner and a mark on the printed order (the pilot looks like the ward
+  app), and the 25 older backend deployments that still answer.
+
+`test/verify-pilot-ladder.cjs` 2.14, 2.15 and 3.7 fail against the first commit's gate and template
+and pass now (39 checks).
+
+## Session 2026-10-28 (NF-05) — the pilot ladder: 48 h on `pilot` before a release reaches the ward
+
+`REFERENCE.md` § The pilot ladder (new), `.github/PULL_REQUEST_TEMPLATE/release.md` (new),
+`.github/workflows/release-gate.yml` and `tools/release-gate.mjs` (new), `boot.js` § 3,
+`tools/verify-release.mjs` (`--pilot`), `tools/dev-local.mjs`, `_headers` (comment only),
+`test/verify-pilot-ladder.cjs` (new), `test/verify-review-0917-shell.cjs` 2.4,
+`test/verify-dev-local.cjs` #5, `AGENTS.md`, `STATUS.md`, `BACKLOG.md`, `test/README.md`. The shells
+and `boot.js`'s `?v=` token moved with the build. No calculation, printed figure or backend code
+changed, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-05 in her apply list of 2026-10-27: a release goes first to a pilot that she and one
+fellow use for 48 h, and reaches the ward only by a separate promotion once usage and the error log
+show nothing new. Until now a `main → release` merge reached every ward at once.
+
+### How deploys worked, checked first
+
+Workers Builds deploys `release` to `neofeed.valhalla-health.workers.dev` and builds a preview of
+every other branch at `<branch>-neofeed.valhalla-health.workers.dev` (the Cloudflare comment on PR
+#178 shows both URLs). GitHub Pages serves `release` as a redirect stub. `release` requires
+`harnesses`, 0 approvals, `enforce_admins` on (branch-protection API, 2026-10-28). The backend has 26
+deployments; the ward's is `AKfycbz8…` at `@64` (`clasp list-deployments`). The frontend picks its
+backend from one constant in `boot.js`.
+
+### What the ladder is
+
+The `pilot` branch's preview, `pilot-neofeed.valhalla-health.workers.dev`, is the pilot: no new
+Worker, the same bytes the ward gets later. `boot.js` § 3 sends that one host to a pilot deployment
+of the same Apps Script project (`NEOFEED_PILOT_GAS_URL`, empty until Pp creates it, so the pilot host
+uses the ward's backend meanwhile). The release PR comes from `pilot` and carries the template's
+checklist; `promotion-checklist` fails until the pilot commit is its head, 48 h have passed, the
+rollback target names a tag and a backend `@N`, and every box is ticked. It is not a required check.
+
+Both deployments share the Sheet, Script Properties and script cache, so the runbook lists what
+cannot be piloted side by side (column moves, a cell that changes meaning, a cache value whose shape
+changes under the same key, an editor-run migration) and how such a release is split. A
+`CONSTANTS_VERSION` bump can be piloted: an order saved on one version is held on the other until it
+is saved again, never printed wrong.
+
+### Not done here
+
+Pp's one-time setup: the pilot deployment, the PR that sets its URL, the `pilot` branch, the OAuth
+origin and the branch protection (`REFERENCE.md`, BACKLOG § Now). Until then releases go as before.
+
+### Found on the way
+
+Release #172 (`342123d`, merged 2026-10-27) is live and `node tools/verify-release.mjs` passes on both
+hosts against it, but its tag `release-2026-10-27-pr172` is not pushed and `STATUS.md` does not
+record it yet. Neither is fixed here.
+
+## Session 2026-10-28 (9) — the quick calc's copied text is checked figure by figure
+
+`test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`,
+`test/README.md`. Tests and docs only: no served file, calculation, limit or printed figure changed.
+
+### Why
+
+PR #180 (session (3)) took Copy Order off a patient's order and, with it, every harness check that read the
+copied text's figures. The quick calc's Copy draws the same lines and stays (Pp: "Quick calc
+ให้ยังมีคัดลอกผล"), so after #180 nothing compared a figure in that text with a recomputed value (Vera,
+#180 findings 1 and 2). `REFERENCE.md` § Pre-PR review rule 5 kept Vera's proposed tests out, because they
+do not fail on today's code. Pp overrode it here: "test quick calc copies text".
+
+### What the harnesses now check
+
+- **`verify-calc-oracle.cjs`**: each of the 21 orders is typed a second time into the quick calc
+  (`scratch`, birth weight 0, so the dosing weight is typed as the current weight). Its copied text must
+  say it is not an order and carry no bed or NeoFeed ID. GIR, both feeds and their total, Prescribed,
+  Remaining, protein, energy, total Na, K⁺ mEq/L with its route wording, the bag's components, WFI and
+  prepared volume, ZnSO₄ mL, vitamin D and oral Ca tablets must equal the oracle's own recomputation. 1,827
+  checks. Steps 1–6 are now typed by one `fillForm()` for both mounts.
+- **`verify-calc-sum.cjs`** § 1b: all 60 orders again in the quick calc. The copied BAG MAKE-UP line must
+  carry the quick calc's own on-screen Components and Bag total, close exactly, and say COMPONENTS EXCEED BAG
+  VOLUME exactly when the screen says the bag cannot be compounded, including S4.
+- **`verify-tpn-meeting-0928.cjs`** § 13: the quick calc's Na Acetate line gives no acetate while
+  `naAcetate.acetateMeqPerMl` is unset, and "(acetate 7 mEq)" once it is 3 (2 kg, 180 + 30 mL).
+
+### Seen to fail
+
+Each check fails on a deliberately broken copy line and passes once it is restored:
+- GIR + 0.3, Prescribed + 2 and components + 0.2: oracle, 51 mismatches.
+- Components + 0.2, and COMPONENTS EXCEED never written: calc-sum, 117 failed.
+- Acetate computed without the overfill: § 13, 6 mEq instead of 7.
+
+`test/README.md` drops the "copied order" checks #180 removed and describes the new ones.
+
 ## Session 2026-10-28 (8) — On a phone, the archive opens out from under the Calculator button
 
 `registry.jsx`, `compiled/registry.js`, both shells' `?v=` tokens, `test/verify-archive-fab-1028.cjs`

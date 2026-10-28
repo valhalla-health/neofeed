@@ -83,7 +83,7 @@ midnight keeps its date, DOL, typed zeros and draft key. Both fail against `42ce
 
 `verify-ward-requests-0918.cjs` pins **three requests from the NICU team (2026-09-18)**, with the
 screenshot's own order as its fixture. **MEN** — a trophic feed ticked MEN counts toward no nutrient total
-(tiles, Step 6 EN row, alerts, saved `Daily_Log` figures, printed totals, copied order) while Step 2 still
+(tiles, Step 6 EN row, alerts, saved `Daily_Log` figures, printed totals) while Step 2 still
 shows what the feed provides; an unticked control proves the harness can see EN at all; a Ca-with-no-IV-P
 order whose only P was the MEN feed now raises the no-P stop; and Praew's guard warns (never stops) when
 MEN is ticked above `MEN_MAX_ML_KG`. **Magnesium** — a Step 4 tile against `TARGETS.mg`, in mEq so the
@@ -91,13 +91,13 @@ ESPGHAN bounds 0.2 / 0.4 read in range, with its own alert line citing the paren
 full feeds. **Aminoplasmal 15%** — contraindicated under 2 years, so `aaProductsFor` offers it on no ward
 today (NICU, iso, SCN, blank and free-text beds all get Aminoven); a saved Aminoplasmal order reopened on
 NICU recomputes as Aminoven and cannot print until saved again; and, with the ward gate stubbed, the
-future-ward path (product buttons, 0.15 g/mL, print, copy, saved choice, "changes vs previous order") works
+future-ward path (product buttons, 0.15 g/mL, print, saved choice, "changes vs previous order") works
 end to end while the Center Point entry stays Aminoven only. **Dead space** (§10) — a new NICU/SCN order
 starts at 30 mL and the Factor follows; a new day keeps a dead space somebody set and turns the old
 default's 0 into 30; a saved order reopens with its own; the 0 chip still overrides; a feeds-only day
 prepares no bag. **Vitamins** (§11) — Soluvit and Peditrace scale with the overfill (2.5 mL in a 150 mL
-bag for a 2 kg infant on a 120 mL day, delivering 2 mL), the old info line is gone, the print, bag make-up
-and copied order agree, and the 10 / 15 mL caps apply to what the infant receives. **Reprints** (§12) — a
+bag for a 2 kg infant on a 120 mL day, delivering 2 mL), the old info line is gone, the print and bag
+make-up agree, and the 10 / 15 mL caps apply to what the infant receives. **Reprints** (§12) — a
 save stamps `calcInput.constantsVersion`, and a saved order computed under any other version prints only
 after it is saved again. A row saved on `fc2c35c` (live from 11:17 ICT on 2026-09-18, before the stamp
 shipped) is dated by its `aaProduct` key. A row from before that carries neither and matches no version,
@@ -112,14 +112,14 @@ Since the dead-space change, a harness order that means "no dead space" types 0
 `verify-calcmoved-unstamped-1017.cjs` pins **Vera's finding 4 on PR #159**: an order saved before
 2026-09-18 has neither `calcInput.constantsVersion` nor `aaProduct`, and `calcMoved` checked it only
 against 2026-09-18.1's own changes, so after 2026-09-28.1 a feeds-only order reprinted under its old entry
-id with figures from today's constants. Its order is FBM_PF_24 30 mL × 8 at 1500 g with no TPN. Print and
-Copy now refuse it with the calcMoved reason until it is saved again, and the same order with the current
+id with figures from today's constants. Its order is FBM_PF_24 30 mL × 8 at 1500 g with no TPN. Print
+now refuses it with the calcMoved reason until it is saved again, and the same order with the current
 stamp prints, so the refusal comes from the stamp alone. 15 assertions; 6 fail on `55d893d`.
 
 `verify-tpn-team-0922.cjs` pins **the KCMH TPN team's feedback and Praew's rules of 2026-09-22**.
 **Zinc** — a ZnSO₄ line in mg of elemental Zn/kg/d, a total with Peditrace's delivered mL × 0.25 mg,
 exactly 5 mg/day passing and 5.1 stopping at Save (confirm + reason), saved as `calcInput.znPerKg`,
-diffed, compounded × Factor, printed as typed, copied, part of the no-volume stop, and absent on Center
+diffed, compounded × Factor, printed as typed, part of the no-volume stop, and absent on Center
 Point. **Lipid** in g/kg/h beside the pump rate. **MEN** named beside the Step 3 totals it is left out of.
 **Glycophos** mL/day beside its mEq Na/day. **The Save stop** asks "ยืนยันการสั่งหรือไม่?" and the back
 sheet says "แพทย์ยืนยันคำสั่ง". **The saver's name** is saved with the order and shown only while it
@@ -127,7 +127,7 @@ belongs to the row's server-stamped email. **K⁺ in bag** has its own tile; the
 **The two-sheet order** (§10): one row per product so no figure sits on another product's line, ordered
 products bold, the paper form's own choices printed unticked, no alert text on the doctor's front, and
 the Factor, bag recipe and confirmation on the back. **No trailing zero or float noise** (§8) in any text
-node of the calculator, the form or the copied order, or in the daily log fed the live Sheet's float
+node of the calculator, the form or the quick calc's copied text, or in the daily log fed the live Sheet's float
 noise; `D.displayNum` is pinned case by case (§9), and a 1234 g infant is computed from its grams while
 its kg shows to 2 decimals (§11). It fails 33 against `6ee2762`.
 
@@ -968,8 +968,9 @@ these three ask whether the arithmetic is right at all, and they are the reason 
 
 **`verify-calc-oracle.cjs`** — 13 orders typed into the real `<Calculator>`, saved through the real
 Save button, then every figure read back off four surfaces at once: the `Daily_Log` entry handed to
-`onLog`, the tiles and bedside readouts, the printed pharmacy form (front and back) and the copied
-order text — plus the Active-alerts panel, compared by level and title. 1,092 checks. The rule that
+`onLog`, the tiles and bedside readouts, the printed pharmacy form (front and back) and, from the same
+order typed into the quick calc, its copied text (a patient's order has had no Copy since 2026-10-28) —
+plus the Active-alerts panel, compared by level and title. 1,827 checks (2026-10-28). The rule that
 makes it worth running is at the top of the file: **it must never import the app's own formulas.**
 Stock strengths, feed compositions, energy densities and the ESPGHAN bands are transcribed into it
 by hand, so a changed constant in `data.js` shows up as a disagreement instead of being copied into
@@ -987,7 +988,7 @@ preset-chip groups, both routes, the three lipid durations, the 10% Mg vial (the
 option of every select, volume↔rate typed a character at a time, the dosing-weight override and its
 reset. For each control: the value reaches the field it names, the control shows itself as chosen, and
 the figure that depends on it moves as the label promises. It also drives the gates around a printed
-order — Print and Copy refused before a save, Save disabled until Step 1 and Intake/Output are filled,
+order — Print refused before a save, no Copy on a patient's order, Save disabled until Step 1 and Intake/Output are filled,
 a zero-volume bag refused, a critical value demanding a typed reason (cancelled, blank, then given),
 the second save updating the same row instead of appending, Delete behind its confirm, the prefill and
 draft banners, and the quick calc's narrower set.
@@ -1012,7 +1013,9 @@ exactly) and 40 random from seed 20261011
 stock" table is added up: Σ parts + printed WFI must equal the printed prepared volume within **0.05 mL**
 (0 when every part is a whole tenth), printed Components + WFI must equal it exactly, and the on-screen
 Components and Bag total must carry the same figures (the copied BAG MAKE-UP line was a third surface
-until a patient's order lost its Copy, 2026-10-28). The tolerance is the
+until a patient's order lost its Copy, 2026-10-28). The same order typed into the quick calc must copy a
+BAG MAKE-UP line that carries the quick calc's own on-screen Components and Bag total, closes exactly, and
+says COMPONENTS EXCEED BAG VOLUME exactly when that screen says the bag cannot be compounded. The tolerance is the
 rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
 components); the arithmetic is in the file's header. An over-full bag skips the sum and must say so on
 screen and on the form. Then one input changes the way a person changes it (a dead-space chip,
@@ -1837,6 +1840,25 @@ dialog open; Discharged and an Expired record saved again are not asked about (f
 scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `setTransferPatient(p)`,
 inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
 values come from the ward.
+
+## The backend reads a status as the client does, 2026-10-28 — one harness added, two adjusted
+
+Pp asked for the backend to read a patient status the way the client does (`CHANGELOG.md` 2026-10-28 (10)).
+**`verify-status-read-1028.cjs`** runs `gas-backend.gs` in `gas-vm-sandbox.cjs` and, for §5, mounts
+`EditPatientModal` in jsdom (it also runs against `compiled/`). §1: `_readStatus` and `_onUnitStatus` give
+exactly `D.patientStatus` and `D.isOnUnit`, read from `data.js` itself, on 15 inputs (blank, spaces, case,
+unknown words). §2: `getActivePatients` sends "active" and "Active " with no statusDate, a recent
+" discharged " and a recent "Expird", not an undated "Expird". §3: "Active " and "active" hold their bed
+in `registerPatient`'s bed guard; "Expird" does not. §4: a new "ZZZ" is refused in Thai and nothing is
+stored; " discharged " is stored as "Discharged", blank as "Active"; a stored "Expird" edited with only the
+diagnosis is refused and the row unchanged, then saved as Discharged once picked; a stored "active " is
+written back as "Active"; "toString" and "constructor" are refused (Vera: `VALID_STATUS["toString"]` was
+truthy). §4b: `sheetHealthReport` counts `statusNotCanonical`. §5: Edit session seeds the Status select blank
+for a stored "Expird", names it, keeps Save off until a status is picked, then sends it with the statusDate
+already recorded (§1 checks `D.statusChange` for the same). 37 checks; with `NEOFEED_GAS_SRC` and the tree
+of `86bfc91`, 19 fail, in every section, and Vera's five fail on the commit before their fixes. `verify-backend-batch-0924.cjs` BE-4 now expects an unrecognised
+status refused rather than stored as Active, and `verify-bed-park.cjs` copies `VALID_STATUS`,
+`_readStatus` and `_onUnitStatus` along with `_bedConflict`.
 
 ## The archive out from under the Calculator button, 2026-10-28 — one harness
 

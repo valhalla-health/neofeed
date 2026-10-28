@@ -510,7 +510,9 @@ function baseOrder({ tf = 120 } = {}) {
   // ═══════════════════════════ §13 acetate, prepared ═══════════════════════
   // Praew: "แสดง acetate ด้วย", then "รอดูฉลากก่อน" — the display is built but
   // waits for S.naAcetate.acetateMeqPerMl, which stays null until the vial
-  // label is read. Checked both ways: as shipped (null), and with a value.
+  // label is read. Checked both ways: as shipped (null), and with a value, on
+  // the screen and in the quick calc's copied text (Pp: "test quick calc
+  // copies text"; Vera, PR #180, finding 2).
   await section('§13 acetate from Na acetate: hidden while the label is unread, shown once a value is set', async () => {
     const naAcRow = () => saltRow('Na Acetate');
     const caption = () => text(naAcRow()?.nextElementSibling?.nextElementSibling);
@@ -520,6 +522,16 @@ function baseOrder({ tf = 120 } = {}) {
     setField('Na Acetate', 3);   // 1 mL/kg
     ok('the caption gives Na and mL only', /3 mEq Na\/kg\/d = 1 mL\/kg\/d/.test(caption()) && !/acetate/.test(caption()), caption());
     ok('…and the note names no acetate', !/acetate/.test(text(naAcRow()?.querySelector('.salt-note'))), text(naAcRow()?.querySelector('.salt-note')));
+    const quickNaAcetate = async () => {
+      mount({ patient: { sessionId: null, name: null, initials: null, bw: 0, ga: 0, sex: '', currentBed: '',
+        diagnosis: '', weights: [], lengths: [], hcs: [] }, scratch: true, logDate: null, userLabel: '' });
+      setField('Current weight', 2000); setField('Target fluid', 120);
+      setField('Volume(mL/day)', 180); setField('ปริมาตรคาสาย', 30);
+      setField('Dextrose final', 10); setField('Na Acetate', 3);
+      return (await copyCalc()).match(/Na Acetate:[^\n]*/)?.[0] || '';
+    };
+    const shipped = await quickNaAcetate();
+    ok('the quick calc\'s copy: a Na Acetate line with no acetate', /^Na Acetate: +3 mEq\/kg → 7 mEq → /.test(shipped.trim()) && !/acetate \d/.test(shipped), shipped);
     const was = D.KCMH_STOCK.naAcetate.acetateMeqPerMl;
     D.KCMH_STOCK.naAcetate.acetateMeqPerMl = 3;   // a label value, for this check only
     try {
@@ -528,6 +540,9 @@ function baseOrder({ tf = 120 } = {}) {
       setField('Na Acetate', 3);
       ok('with 3 mEq/mL set: "· acetate 3 mEq/kg/d" in the caption', /1 mL\/kg\/d · acetate 3 mEq\/kg\/d/.test(caption()), caption());
       ok('…"acetate 3 mEq/mL" in the note', /acetate 3 mEq\/mL/.test(text(naAcRow()?.querySelector('.salt-note'))), text(naAcRow()?.querySelector('.salt-note')));
+      // 3 mEq/kg × 2 kg × 210/180 overfill = 7 mEq Na in the bag → 7 mEq acetate
+      const labelled = await quickNaAcetate();
+      ok('…and the quick calc\'s copy gives the bag\'s acetate, 7 mEq', /\(acetate 7 mEq\)/.test(labelled), labelled);
     } finally { D.KCMH_STOCK.naAcetate.acetateMeqPerMl = was; }
   });
 
