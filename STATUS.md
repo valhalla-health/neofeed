@@ -250,8 +250,10 @@
   Thai ward manual names Copy Order. Vera: NO BLOCK.
   `CHANGELOG.md` 2026-10-28 (3).
 - ⏳ **PR #175, a bag whose stocks exceed its volume cannot be ordered (Q2 of the clinical-rules skill), and the
-  backend and Center Point refuse a stopped order: open, waiting for Pp's merge.** Frontend and backend,
-  `CONSTANTS_VERSION` unchanged. **Release the frontend first, then `clasp deploy`:** the backend refuses a
+  backend and Center Point refuse a stopped order: merged into `main` on Pp's instruction ("merge and
+  deploy", 2026-10-28), released by the `main → release` PR opened in the same session, then the backend
+  `clasp deploy` (`@64` → `@65`).** Frontend and backend, `CONSTANTS_VERSION` unchanged, and #174 rides
+  along in the release (it serves no file). **Release the frontend first, then `clasp deploy`:** the backend refuses a
   submitted row that comes with no stop list, so deployed first it would refuse every Submit
   (`REFERENCE.md` § Backend), and to roll the frontend back past it, roll the backend back first.
   Once it is live, a tab opened before the release is refused once with
