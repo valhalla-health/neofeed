@@ -19,12 +19,16 @@
 //       The user menu keeps its item.
 //   #6  One cropped picture (Pp, 2026-10-09): the form asks for names, beds
 //       and HN to be cut out, shows a preview, and sends the picture redrawn
-//       as a JPEG no wider than 1600 px, as bare base64.
+//       as a JPEG no wider than 1600 px, as bare base64. The picture is
+//       opened from a data: URL, never a blob: one: _headers' img-src has no
+//       blob:, and on the Workers host no phone could attach (Pp, 2026-10-28).
+//       verify-help-button-1009.cjs #3 proves it under the real CSP.
 //   #7  ลบรูป removes it: the request goes with no image key.
 //   #8  A PDF, a picture that will not open, and one that stays over 1.5 MB
 //       are each refused in Thai in the form; the request still goes without.
 //
-// NEGATIVE CONTROL — #5 to #8 fail on main before this change (d59e156):
+// NEGATIVE CONTROL — 6.11 fails on 86bfc91, before the 2026-10-28 fix.
+// #5 to #8 fail on main before the 2026-10-09 change (d59e156):
 //   git -c core.autocrlf=false archive d59e156 app.jsx icons.jsx | tar -x -C <dir>, then
 //   run this harness from a copy whose app.jsx and icons.jsx are main's.
 //
@@ -181,6 +185,8 @@ const scenarios = {
     A.eq('6.8 the request carries the picture: a JPEG, bare base64', c.image, { mimeType: 'image/jpeg', data: pic.dataUrl.split(',')[1] });
     A.eq('6.9 …and nothing else new', Object.keys(c).sort(), ['action', 'category', 'context', 'detail', 'image', 'token']);
     A.ok('6.10 the form closes', !modal());
+    A.ok('6.11 the picture was opened from a data: URL, never a blob: one (the Workers CSP has no blob:)',
+      pic.srcs.length === 1 && /^data:image\/png;base64,/.test(pic.srcs[0]) && pic.objectUrls === 0, { srcs: pic.srcs.map(x => x.slice(0, 40)), objectUrls: pic.objectUrls });
   },
 
   async 'picture-remove'(A) {
@@ -228,16 +234,19 @@ const scenarios = {
 };
 
 // jsdom draws nothing: Image, object URLs and the canvas are stood in for, and
-// record what the app asked them to do. The app code runs in this process's
-// global scope (review-0917-boot.cjs), so Image and URL are the globals.
+// record what the app asked them to do. The file is read by jsdom's own
+// FileReader. The app code runs in this process's global scope
+// (review-0917-boot.cjs), so Image, URL and FileReader are the globals.
 function stubPictures(t) {
-  const pic = { drawn: [], filled: [], types: [], failDecode: false, huge: false,
+  const pic = { drawn: [], filled: [], types: [], srcs: [], objectUrls: 0, failDecode: false, huge: false,
     dataUrl: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD' + 'A'.repeat(400) + '==' };
-  global.URL.createObjectURL = () => 'blob:harness';
+  global.FileReader = t.window.FileReader;
+  global.URL.createObjectURL = () => { pic.objectUrls++; return 'blob:harness'; };
   global.URL.revokeObjectURL = () => {};
   global.Image = class {
     set src(v) {
       this._src = v;
+      pic.srcs.push(v);
       setTimeout(() => {
         if (pic.failDecode) { if (this.onerror) this.onerror(); return; }
         this.naturalWidth = 3000; this.naturalHeight = 2000;

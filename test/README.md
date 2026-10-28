@@ -1010,16 +1010,26 @@ exactly) and 40 random from seed 20261011
 (`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
 stock" table is added up: Σ parts + printed WFI must equal the printed prepared volume within **0.05 mL**
 (0 when every part is a whole tenth), printed Components + WFI must equal it exactly, and the on-screen
-Components and Bag total and the copied BAG MAKE-UP line must carry the same figures. The tolerance is the
+Components and Bag total must carry the same figures (the copied BAG MAKE-UP line was a third surface
+until a patient's order lost its Copy, 2026-10-28). The tolerance is the
 rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
 components); the arithmetic is in the file's header. An over-full bag skips the sum and must say so on
-screen, on the form and in the copy. Then one input changes the way a person changes it (a dead-space chip,
+screen and on the form. Then one input changes the way a person changes it (a dead-space chip,
 or a TPN volume typed a key at a time): the on-screen Bag total must move to delivered + dead, the stale
-form must be withdrawn, and the second save's reprint must carry the new figures and still add up. Nothing
-in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
-from the delivered volume) and `=3` (`deadVol_mL` out of the memo's dependencies) patch the source in
-memory and must fail; the patched text is transformed under another name, so the compiled loader never
-stands in for it. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
+form must be withdrawn, and the second save's reprint must carry the new figures and still add up.
+**Two feeds** (§ 3, 2026-10-28, for #182 and #185): three orders (6 + 2 beside a bag, 4 + 4 feeds only,
+5 + 3 on a peripheral line) each run four times on the same infant and bag: no feed, feed 1 alone, feed 2
+alone, both. Both feeds must equal feed 1 + feed 2 in the saved Daily_Log row (fluid, kcal, protein, Na,
+K, Ca, P, EN mL/kg/d, within 1e-9), in Step 2's "Delivered per kg from EN" (one unit of the digit shown)
+and on the printed form (energy from EN within 2 kcal/kg, protein from EN within 0.01 g/kg). Each feed's
+mL/day, the EN volume tile, the total line's interval and Prescribed must follow from the inputs, and the
+feeds must move no printed bag line. Then feed 2's volume is typed, its kcal/oz picked, or the
+frequencies typed through a refused 7 a day, and the screen, the withdrawn form and the reprint follow.
+Nothing in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
+from the delivered volume), `=3` (`deadVol_mL` out of the memo's dependencies), `=4` (feed 2 left out of
+the EN volume), `=5` (both feeds costed as feed 1's milk) and `=6` (`enVol2` out of the feeds' memo
+dependencies) patch the source in memory and must fail; the patched text is transformed under another
+name, so the compiled loader never stands in for it. `SUM_N=0` runs the fixed orders only. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
 130.45 mL printed "87.5 + 42.9 = 130.5"; WFI now comes from the printed prepared volume, so it prints
 87.5 + 43 = 130.5 (`CHANGELOG.md`, 2026-10-11 (8)). The oracle's scenario H holds the same rule.
 
@@ -1626,6 +1636,30 @@ trailing-zero rule of 2026-09-22: a `toFixed(n)` with n > 0 that is not inside `
 alone; the SVG path in `log.jsx` is on the allow list, and an allow entry that matches nothing fails the
 run. Seen to fail on a planted `{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry.
 
+## Log rules, 2026-10-28 — three more ci_bans rules (NF-08)
+
+Three rules on what goes into a log, in the same file and fixtures, so the same CI step runs them.
+A log call is `Logger.log`, `console.*`, any other `x.log()` but `Math.log`, an `appendRow` onto a log
+tab (a tab named like `*Log*` or `*Audit*`, except `Daily_Log` and `Nursing_Log`, which are the record),
+and any `function` that hands one of its own parameters to one of those, which is how `logAudit` is found.
+Only what reaches the log counts, read as code by a small tokenizer: a word inside a string is text.
+
+- **`log-identifier`**: hn, an, name, dob, phone, citizen or initials as a variable, property or key
+  (`p.hn`, `motherPhone`, `{ name: x }`, `row["dob"]`, a `${...}` in a template). `name` counts alone,
+  first (`nameTh`) or after a person word (`patientName`); `sheetName` and an error's `e.name` pass.
+- **`log-raw-cell`**: in `.gs` files only, `row[1]` or `data[i][6]` in a log call. The backend reads
+  columns by index, so `cur[1]` (the name, in the vera-bench `phi-log` case) is caught only this way.
+- **`log-secret`**: a value read from `PropertiesService`, directly, through a variable (within its
+  function) or through a helper that returns it (`SPREADSHEET_ID_()` via `_cfg()`); or a name with token,
+  secret, password, salt, or a key after api/private/secret/access/auth/client (`cacheKey` passes). The
+  value follows `String()`, JSON and member calls, not another call's result: `openById(SPREADSHEET_ID_())`
+  is a Spreadsheet.
+
+27 fixture cases must fail and 25 must pass. `main` passes all three with no allow entry. The tokenizer
+sees every identifier Babel's parser sees in all 17 tracked sources. Seen to fail on eight leaks planted
+in copies of `gas-backend.gs` and `app.jsx`, among them the `phi-log` line and the session token, which
+it also flags at `verifyToken(body.token, …)` once `verifyToken` logs that parameter.
+
 ## The birth-weight label, 2026-10-19 — one harness
 
 The session header called a 4,400 g term infant "LBW" (`CHANGELOG.md` 2026-10-19 (4)).
@@ -1758,6 +1792,23 @@ that one by name and goes on (Vera's five tests, each failing on the first commi
 button on every device profile (at the head's right edge, level with its top, beside the title), the
 ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
 `showQuickFab = view === "registry" && !printWard`.
+## The reference tables, 2026-10-28 — one harness (NF-28)
+
+**`verify-reference-tabs.cjs`** (Node only, no jsdom) checks every cell of the tables the calculator
+reads clinical numbers from: `EN_DB`, `KCMH_STOCK`, `SUPP_DB`, the limit constants and the target bands
+in `data.js`. The check is `checkReferenceTabs` in `tools/reference-tabs.cjs`, a pure function, and
+`tools/reference-tabs.json` says what each table must hold: a unit for every column, and for every number
+its sign and range. A range is the value a CR- rule in the clinical-rules skill codes, a range a rule
+states, the backend's save bound for that field, or a `proposed` range waiting for Pp. Nothing is
+coerced: the string `"1.2"`, a comma decimal or a padded label fails with its cell named. The lookup keys
+are read from the code: the Calculator's feed dropdown and its defaults, the amino-acid choices, every
+`D.KCMH_STOCK.x.y`-style reference in the screens, and the nursing form's feed keys against the backend's
+`NURSING_FEED_KEY_RE`. Section 1 runs each kind of bad cell on synthetic tables, section 2 the readers on
+synthetic source, section 3 the real files. `NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` as the string
+`"1.2"`), `=2` (20% NaCl at 34.2 mEq/mL) and `=3` (the feed list asking for `"BM_20 "`) must each fail
+one check. 69 checks when written; 71 since the merge with #182, whose feed dropdown reads `D.EN_PRODUCTS`
+(#2.13, #2.14).
+
 
 ## The ward list's status and bed chips, 2026-10-28 — one harness
 
