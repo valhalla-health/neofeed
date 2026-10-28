@@ -194,6 +194,16 @@
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
+- ⏳ **PR #180, no Copy Order on a patient's order: merged into `main` on Pp's instruction ("If CI passed,
+  merge and deploy", 2026-10-28), and released by the `main → release` PR that follows it, which also
+  carries #173.** Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged. A patient's order leaves
+  NeoFeed only as the printed form; the quick calc keeps "คัดลอกผลคำนวณ" (Pp: "Quick calc ให้ยังมีคัดลอกผล").
+  ⚠️ Open at release: whether anyone pastes orders into HIS or LINE (#178's Usage table says Copy can reach
+  HIS), and whether the Thai ward manual names Copy Order. Vera: NO BLOCK. `CHANGELOG.md` 2026-10-28 (1).
+- ⚠️ **PR #172 merged into `release` on 2026-10-27 (`342123d`), but nothing here records it**: no
+  `release-2026-10-27-pr172` tag, no `verify-release` result, and the line above still reads `08c298d`.
+  This cloud session could not check it: its network policy refuses both hosts (`*.workers.dev`,
+  `valhalla-health.github.io`), so `tools/verify-release.mjs` has to run where they are reachable.
 - ⏳ **PR #173, Pp's clinical-rules skill (NF-04): merged into `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
   one harness and docs, and neither host serves `.claude/` or `test/`. `CONSTANTS_VERSION` unchanged.
