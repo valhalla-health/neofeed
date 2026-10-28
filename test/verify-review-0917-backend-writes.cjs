@@ -19,7 +19,7 @@ const TODAY = wardToday();
 const BUSY = { error: 'มีผู้ใช้อื่นกำลังบันทึก — ลองใหม่อีกครั้ง', code: 'Busy', retryable: true };
 const MOVED = { error: 'แถวข้อมูลถูกย้ายระหว่างบันทึก (มีการแก้ไขชีตโดยตรง) — ไม่ได้บันทึก กรุณาซิงก์แล้วลองใหม่', retryable: true };
 const E = (extra) => Object.assign({ dol: 5, weight: 1250, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 3, k: 2, ca: 60, p: 40,
-  enVolPerKg: 20, route: 'TPN central', status: 'submitted', calcInput: { wtG: 1250 } }, extra || {});
+  enVolPerKg: 20, route: 'TPN central', status: 'submitted', calcInput: { wtG: 1250, stops: [] } }, extra || {});
 const P = (sid, extra) => Object.assign({
   sessionId: sid, name: 'ทารก ' + sid, initials: sid.slice(0, 2), bw: 900, ga: 28.1, sex: 'boys',
   dob: '2026-09-01', admissionDate: '2026-09-01', twinSuffix: '', status: 'Active',

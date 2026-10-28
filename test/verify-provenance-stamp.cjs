@@ -129,6 +129,7 @@ const ENTRY = {
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20,
   ioInput: 180, ioOutput: 120, drainContent: 0,
   route: 'TPN central', status: 'submitted',
+  calcInput: { stops: [] }, // calcInput.stops: what the app sends with every save since 2026-10-28 (none hold here).
   constantsVersion: '2026-08-26.1', appVersion: 'test-app-version',
 };
 

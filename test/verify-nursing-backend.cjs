@@ -46,7 +46,7 @@ const NURSING_HEADERS = ['ts', 'sessionId', 'ivInMl', 'enInMl', 'feedType', 'uri
   'entryId', 'enteredBy', 'lastModified', 'lastModifiedBy', 'appVersion'];
 const E = (extra) => Object.assign({ dol: 5, weight: 1250, fluid: 150, gir: 6, pro: 3, kcal: 90,
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20, route: 'TPN central', status: 'submitted',
-  calcInput: { wtG: 1250 } }, extra || {});
+  calcInput: { wtG: 1250, stops: [] } }, extra || {});
 const N = (extra) => Object.assign({ ts: TODAY, ivInMl: 120, enInMl: 40, feedType: 'BM_20',
   urineMl: 80, drainMl: 0, stoolCount: 2, appVersion: 'test' }, extra || {});
 const isThai = (s) => /[฀-๿]/.test(String(s || ''));

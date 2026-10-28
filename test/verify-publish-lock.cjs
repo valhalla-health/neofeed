@@ -116,6 +116,7 @@ const ENTRY = {
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20,
   ioInput: 180, ioOutput: 120, drainContent: 0,
   route: 'TPN central', status: 'submitted',
+  calcInput: { stops: [] }, // calcInput.stops: what the app sends with every save since 2026-10-28 (none hold here).
   constantsVersion: '2026-09-05.1', appVersion: 'test-app-version',
 };
 
@@ -144,6 +145,8 @@ console.log('\n── publishDailyLog: submit locks the row ──');
 {
   const existing = new Array(ROW_WIDTH).fill('');
   existing[1] = 'AB-1200'; existing[25] = 'entry-1'; existing[26] = 'stamp-1'; existing[35] = 1;
+  // Submit reads the stops stored with the row (Pp, 2026-10-28): none hold.
+  existing[24] = JSON.stringify({ stops: [] });
   sheet = makeSheet(40, [existing]);
   // expectedLastModified is required since the 2026-09-11 review (B2) —
   // Submit is optimistic-locked like an edit. verify-review-0911.cjs pins it.
@@ -249,6 +252,7 @@ console.log('\n── a Daily_Log tab that predates AH–AL is widened, not brok
 
   const oldPublished = new Array(33).fill('');
   oldPublished[1] = 'AB-1200'; oldPublished[25] = 'entry-1'; oldPublished[26] = 'stamp-1';
+  oldPublished[24] = JSON.stringify({ stops: [] });
   // A row from before AH existed has no way to BE published yet, but a
   // migrated-in-place value must still not crash the revision path.
   sheet = makeSheet(33, [oldPublished]);
@@ -300,6 +304,7 @@ console.log('\n── doPost: publishLog action ──');
   }
   const published = new Array(ROW_WIDTH).fill('');
   published[1] = 'AB-1200'; published[25] = 'entry-1'; published[26] = 'stamp-1'; published[35] = 1;
+  published[24] = JSON.stringify({ stops: [] });
   sheet = makeSheet(40, [published]);
 
   const forbidden = callDoPost({ action: 'publishLog', token: 't', sessionId: 'AB-1200', entryId: 'entry-1' },
