@@ -249,6 +249,16 @@ console.log('\n── #2 the readers find the dropdown lists and the backend key
   const ra = RT.fromSources({ ...src, 'calculator.jsx': `${src['calculator.jsx']}\nconst S = D.KCMH_STOCK;\nconst g = S.d50w.gPerMl * 2; const o = obj.S.x;` }, spec, { EN_DB: {} });
   ok('#2.12 a reference through an alias (const S = D.KCMH_STOCK) is read, obj.S.x is not',
     ra.refs.some(x => x.table === 'KCMH_STOCK' && x.row === 'd50w' && x.column === 'gPerMl') && !ra.refs.some(x => x.row === 'x'), ra.refs);
+  const calcLines = src['calculator.jsx'].split('\n');
+  const productsSrc = { ...src, 'calculator.jsx': [calcLines[0], '{D.EN_PRODUCTS.map(p => <option/>)}', ...calcLines.slice(3)].join('\n') };
+  const rp = RT.fromSources(productsSrc, spec, { EN_DB: { BM: {}, PF: {}, LF_20: {} },
+    EN_PRODUCTS: [{ id: 'bm', strengths: [[20, 'BM']] }, { id: 'lf', strengths: [[20, 'PF'], [24, 'LF_20']] }] });
+  const pf = rp.lists.find(l => /feed dropdown/.test(l.name));
+  ok('#2.13 a dropdown that reads D.EN_PRODUCTS (#182) is every strength key, in order, where it is read',
+    pf && JSON.stringify(pf.keys) === '["BM","PF","LF_20"]' && pf.at === 'calculator.jsx:2', rp.lists);
+  const rp2 = RT.fromSources(productsSrc, spec, { EN_DB: { BM: {} } });
+  ok('#2.14 a dropdown that reads D.EN_PRODUCTS with no EN_PRODUCTS in data.js says so',
+    rp2.notFound.some(x => x.problem.includes('EN_PRODUCTS')) && !rp2.lists.some(l => /feed dropdown/.test(l.name)), rp2.notFound);
   const r2 = RT.fromSources({ ...src, 'calculator.jsx': 'nothing here', 'gas-backend.gs': '' }, spec, { EN_DB: {} });
   ok('#2.11 a reader that finds nothing says so, it does not pass quietly',
     ['feed dropdown', 'enType', 'NURSING_FEED_KEY_RE', 'aaChoices', 'category'].every(w => r2.notFound.some(x => x.problem.includes(w))), r2.notFound);

@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 — NF-28 meets #182's Step 2
+
+`tools/reference-tabs.cjs`, `tools/reference-tabs.json`, `test/verify-reference-tabs.cjs`,
+`test/README.md`. No value, limit, unit or printed figure changed; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp, 2026-10-28, merging NF-28 into `main` after release #184. With `main` merged in, the check failed on
+two things #182 brought, both as it was built to:
+
+- `EN_FEEDS_PER_DAY_MAX` (8, `CR-EN-FEEDS-MAX`) had no unit in `tools/reference-tabs.json`, so the new
+  limit could not skip the check.
+- The feed dropdown no longer lists EN_DB keys as `["…"].filter(k => D.EN_DB[k])`. `EnFeedPicker` reads
+  `D.EN_PRODUCTS`, a milk and then its kcal/oz, so the reader found no list and said so.
+
+### What changed
+
+- `EN_FEEDS_PER_DAY_MAX` has its unit, "feeds/day, Feed 1 + Feed 2". Its range still comes from the rule.
+- When `calculator.jsx` reads `D.EN_PRODUCTS`, the dropdown's keys are every strength key in `data.js`'s
+  `EN_PRODUCTS`, each checked against `EN_DB` with unique labels as before. Source that reads
+  `D.EN_PRODUCTS` while `data.js` gives none is reported, not passed. The old reader stays for the old
+  shape.
+
+### Tests
+
+`verify-reference-tabs.cjs`: 71 checks, all passing on the merged tree. #2.13 and #2.14 are new; both fail
+on the reader before this change, with #3.2 and #3.4. Each `NEGATIVE_CONTROL` still fails one check;
+`=3` now fails on `calculator.jsx:392`, `EnFeedPicker`'s `D.EN_PRODUCTS`.
+
 ## Session 2026-10-28 — NF-28: every reference cell is checked before a release
 
 `tools/reference-tabs.cjs` (new), `tools/reference-tabs.json` (new), `test/verify-reference-tabs.cjs`

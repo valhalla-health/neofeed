@@ -136,6 +136,7 @@
     "GIR_HARD_HI": { "unit": "mg/kg/min", "sign": "positive" },
     "MAX_DEXTROSE_G_KG": { "unit": "g/kg/d", "sign": "positive" },
     "OSM_PERIPHERAL_MAX": { "unit": "mOsm/L", "sign": "positive" },
+    "EN_FEEDS_PER_DAY_MAX": { "unit": "feeds/day, Feed 1 + Feed 2", "sign": "positive" },
     "PROTEIN_HARD_HI": { "unit": "g/kg/d", "sign": "positive" },
     "LIPID_IV_HARD_HI": { "unit": "g/kg/d", "sign": "positive" },
     "LIPID_GKGH.warn": { "unit": "g/kg/h", "sign": "positive" },

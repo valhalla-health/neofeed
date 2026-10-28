@@ -411,13 +411,21 @@ function fromSources(src, spec, data) {
   const quoted = (s) => [...s.matchAll(/"([^"]*)"/g)].map(m => m[1]);
   const calc = text('calculator.jsx');
 
-  // The Calculator's feed dropdown (Step 2): groups of EN_DB keys, each
-  // `.filter(k => D.EN_DB[k])`, which drops an unknown key without a word.
+  // The Calculator's feed dropdown (Step 2). Since #182 it reads D.EN_PRODUCTS,
+  // a milk and then its kcal/oz, each strength an EN_DB key. Before that it was
+  // groups of EN_DB keys, each `.filter(k => D.EN_DB[k])`, which drops an
+  // unknown key without a word.
   const groups = [...calc.matchAll(/\[((?:\s*"[^"]*"\s*,?)+)\]\s*\.filter\(\s*k\s*=>\s*D\.EN_DB\[k\]\s*\)/g)];
-  if (groups.length) {
+  const products = /\bD\.EN_PRODUCTS\b/.exec(calc);
+  if (products && !Array.isArray(data.EN_PRODUCTS)) {
+    notFound.push({ where: 'calculator.jsx', problem: 'the feed dropdown reads D.EN_PRODUCTS, but data.js gives no EN_PRODUCTS list' });
+  } else if (products) {
+    lists.push({ name: 'Calculator feed dropdown', at: `calculator.jsx:${lineAt(calc, products.index)}`, table: 'EN_DB',
+      keys: data.EN_PRODUCTS.flatMap(p => (p.strengths || []).map(s => s[1])), uniqueLabels: true });
+  } else if (groups.length) {
     lists.push({ name: 'Calculator feed dropdown', at: `calculator.jsx:${lineAt(calc, groups[0].index)}`, table: 'EN_DB',
       keys: groups.flatMap(g => quoted(g[1])), uniqueLabels: true });
-  } else notFound.push({ where: 'calculator.jsx', problem: 'no feed dropdown list found (`["…"].filter(k => D.EN_DB[k])`); update fromSources with the new code' });
+  } else notFound.push({ where: 'calculator.jsx', problem: 'no feed dropdown list found (D.EN_PRODUCTS, or `["…"].filter(k => D.EN_DB[k])`); update fromSources with the new code' });
 
   // Defaults: useState("…") of each named state.
   for (const [name, d] of Object.entries(spec.defaults || {})) {
