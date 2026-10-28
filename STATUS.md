@@ -241,7 +241,7 @@ by PR #183 and with #186 by PR #176, the next PRs on the repo.
   (`statusNotCanonical` exists only in this code), or filter `Patient_Registry` first: the rows to find are a
   case or space variant of Active in column J ("active", "ACTIVE ") with an empty column Q (statusDate). Such
   a row reaches no ward device now, and once the deployment switches it syncs as Active and holds its bed.
-  `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-28 (9).
+  `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-28 (10).
 - ⏳ **PR #191, a help request can carry its picture on the Workers host: merged into `main` on Pp's
   instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28). It is not live until the
   `main → release` PR this session opens next.** The form opened the picked file as a `blob:` URL, and
