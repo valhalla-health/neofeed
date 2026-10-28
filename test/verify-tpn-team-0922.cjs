@@ -424,7 +424,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     // lipid bag over 20 h (1.40 mL/hr), Ca gluconate 9.0 mg/mL on the form.
     baseOrder({ dead: 30 });
     lipidHours(20);
-    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 0.4);
+    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 4.861);
     setField('10% Ca gluconate', 60); setField('ZnSO₄', 0.2);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 5); setField('Frequency', 8);
     await save();
@@ -443,7 +443,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     setField('Volume(mL/day)', 180); setField('ปริมาตรคาสาย', 30);
     setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
     lipidHours(20);
-    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 0.4);
+    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 4.861);
     setField('10% Ca gluconate', 60); setField('ZnSO₄', 0.2);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 5); setField('Frequency', 8);
     const copy = await copyCalc();
@@ -481,7 +481,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     mount({ patient: pt('PF-2000', 2000), onLog: log.onLog });
     baseOrder({ dead: 30 });
     lipidHours(20);
-    setField('20% NaCl', 2); setField('Glycophos', 3); setField('KCl', 2); setField('MgSO₄', 0.4);
+    setField('20% NaCl', 2); setField('Glycophos', 3); setField('KCl', 2); setField('MgSO₄', 4.861);
     setField('10% Ca gluconate', 60); setField('ZnSO₄', 0.15); setField('Vitamin D', 400);
     await save();
     const form = printForm();

@@ -1721,7 +1721,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // in-place edits (gas-backend.gs publishDailyLog; further edits go through
   // handleUpdateToGAS's res.revised branch above instead). One-directional:
   // there is no unpublish.
-  const handlePublishToGAS = (entryId, expectedLastModified) => {
+  // `quiet`: the lock Submit takes after its own save, which has already said
+  // what happened (2026-10-28).
+  const handlePublishToGAS = (entryId, expectedLastModified, { quiet = false } = {}) => {
     const id = active.sessionId;
     const who = user?.email || "";
     const blocked = blockedByUnknownWrite();
@@ -1729,11 +1731,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 
     const apply = (res) => {
       if (res.ok && res.alreadyPublished) {
-        showToast("รายการนี้ส่งไปแล้วก่อนหน้านี้");
+        if (!quiet) showToast("รายการนี้ส่งไปแล้วก่อนหน้านี้");
       } else if (res.ok) {
         setLog(prev => ({ ...prev, [id]: (prev[id] || []).map(e =>
           e.entryId === entryId ? { ...e, published: res.publishedAt, publishedBy: who } : e) }));
-        showToast(`ส่งรายการเพื่อตรวจทานแล้ว`);
+        if (!quiet) showToast(`ส่งรายการเพื่อตรวจทานแล้ว`);
       }
       return res;
     };

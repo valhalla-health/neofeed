@@ -474,7 +474,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
           /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.na, 1), " / ", n(e.k, 1)),
           /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.ca, 0), " / ", n(e.p, 0)),
           /* @__PURE__ */ React.createElement("td", { style: { color: "var(--ink-2)" } }, e.route),
-          /* @__PURE__ */ React.createElement("td", null, pending ? /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "กำลังบันทึก…") : /* @__PURE__ */ React.createElement("span", { className: `chip${D_L.isDraftEntry(e) ? " warn" : " ok"}` }, /* @__PURE__ */ React.createElement("span", { className: "d" }), D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit" : "Submitted")),
+          /* @__PURE__ */ React.createElement("td", null, pending ? /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "กำลังบันทึก…") : /* @__PURE__ */ React.createElement("span", { className: `chip${D_L.isDraftEntry(e) ? " warn" : " ok"}` }, /* @__PURE__ */ React.createElement("span", { className: "d" }), D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit" : Number(e.revisionNumber) > 1 ? "Submitted · ฉบับแก้ไข" : "Submitted")),
           onDeleteEntry && /* @__PURE__ */ React.createElement("td", { onClick: (e2) => e2.stopPropagation() }, e.entryId && !pending && /* @__PURE__ */ React.createElement("button", { className: "icon-btn", title: "ลบบันทึกนี้", onClick: (ev) => handleDelete(ev, e) }, /* @__PURE__ */ React.createElement(Icon, { name: "trash", size: 14, color: "var(--crit)" })))
         );
       });

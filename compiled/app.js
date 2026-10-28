@@ -1034,17 +1034,17 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (!GAS_ON) return Promise.resolve(apply({ ok: true, lastModified: (/* @__PURE__ */ new Date()).toISOString() }));
     return writeGAS({ action: "updateDailyNutrition", sessionId: id, entryId, expectedLastModified, entry: { ...entry, ts } }).then(apply);
   };
-  const handlePublishToGAS = (entryId, expectedLastModified) => {
+  const handlePublishToGAS = (entryId, expectedLastModified, { quiet = false } = {}) => {
     const id = active.sessionId;
     const who = user?.email || "";
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
     const apply = (res) => {
       if (res.ok && res.alreadyPublished) {
-        showToast("รายการนี้ส่งไปแล้วก่อนหน้านี้");
+        if (!quiet) showToast("รายการนี้ส่งไปแล้วก่อนหน้านี้");
       } else if (res.ok) {
         setLog((prev) => ({ ...prev, [id]: (prev[id] || []).map((e) => e.entryId === entryId ? { ...e, published: res.publishedAt, publishedBy: who } : e) }));
-        showToast(`ส่งรายการเพื่อตรวจทานแล้ว`);
+        if (!quiet) showToast(`ส่งรายการเพื่อตรวจทานแล้ว`);
       }
       return res;
     };

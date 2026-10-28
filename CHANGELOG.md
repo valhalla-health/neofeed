@@ -7,6 +7,58 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (10) — the nutrition team's meeting: Submit locks, Vitalipid rounds down, Mg in mg
+
+The nutrition and TPN team met Pp on 2026-10-28 ahead of the ward start on 16 Nov 2569. This session
+builds what had to be ready for that date. `CONSTANTS_VERSION` 2026-10-28.1.
+
+### What changed
+
+- **Submit locks the order.** "Submit แล้วไม่ให้แก้แล้ว". The backend has locked a published row since
+  2026-09-10 (an edit becomes a new revision beside it), but the button that published was behind
+  `ENABLE_PUBLISH_GATE`, which stayed off, so an edit after Submit overwrote the order in place. Now
+  the one Submit button saves and then publishes (`handleSave`). An order submitted before this
+  release is published first when it is next edited, so the edit lands as a revision too; reopened
+  unchanged, Submit only locks it. A locked order with nothing changed offers no Submit. Save draft
+  locks nothing. No backend change: `publishLog` and the revision branch are as they were.
+- **A revision says so.** The doctor's sheet prints "Revision · ฉบับที่ N" at the top right, and the
+  Dashboard chip reads "Submitted · ฉบับแก้ไข".
+- **Only the doctor's sheet prints** ("print เฉพาะแค่หน้าแรก หน้าสองเก็บไว้ก่อน"). Both shells hide
+  `.print-back` in print. It still renders, for the next phase's sticker.
+- **Vitalipid N Infant is rounded down to a whole mL** ("ทำให้ในระบบและทำจริงเหมือนกัน > ปัดลง").
+  850 g now prints 3 mL (was 3.4). The lipid bag total, its pump rate and the prescribed fluid move
+  with it. Below 250 g a lipid order gets 0 mL: Q19 in the clinical-rules skill.
+- **Mg is typed in elemental mg/kg/d** (Pp chose mg entry and ESPGHAN's mg figures). Chips 2.5 / 5 /
+  7.5; the tile and the printed Normal Requirement are 2.5–5 (DOL 1–7) and 5–7.5 mg/kg/day; the
+  form prints mg with its mEq in brackets. The stored dose stays mEq (`calcInput.mgPerKg` = mg ÷
+  12.1525, to 10 decimals so that 4.861 mg is 0.4 mEq and not 0.4000000000000001, which would mark a
+  retyped order as edited), so saved orders, their MgSO₄ mL and Center Point's packet are unchanged.
+  An order of 0.2 mEq (2.43 mg) now reads just under the first-days band. The Step 4 tile, the
+  changes-since-last-order line, the back sheet and the quick calc's copied text read mg too; the
+  copied text used to print the stored mEq raw, which after the division showed a float tail.
+- **PED AMINE** is named beside 10% Aminoven infant on both sheets (both 10 %, Pp). No volume moves.
+
+### Tests
+
+New `test/verify-nutrition-meeting-1028.cjs` (24 of its first 31 checks failed before the change). The
+clinical-rules skill's `CR-VITALIPID-CAP`, `CR-TGT-MG`, `CR-U-SALTS` and the two stock-rounding cases
+that type Mg (now 4.861 mg, the old 0.4 mEq) changed with the code. `tools/reference-tabs.json` holds
+Mg in mg/kg/d.
+
+Twelve existing harnesses typed Mg in mEq or expected the old Vitalipid, label or Mg band. Each now
+types the same dose in mg (× 12.1525), so its other figures did not move, and the three oracles
+(`verify-calc-oracle`, `-sum`, `-fuzz`) round Vitalipid down and grade Mg in mg. The six printed-figure
+digests of `verify-review-0917-calc.cjs` were recaptured after a figure-by-figure diff with `main`:
+only the amino-acid label, Vitalipid, the lipid bag total and rate, and the Mg lines moved (the
+comment above `ORDERS` lists each). `verify-center-point-print-parity.cjs` excuses the Mg-in-mg
+figures, and only those, until Center Point's form is synced; the mEq and mL on those lines are
+still checked.
+
+### Not done here
+
+The meeting's other items and the gaps found in the 2026-09-28 list are in `BACKLOG.md` § Now.
+Center Point's own form still prints Mg in mEq first and the old amino-acid label.
+
 ## Session 2026-10-28 (9) — the quick calc's copied text is checked figure by figure
 
 `test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`,

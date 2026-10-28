@@ -1856,6 +1856,29 @@ page where it was, and the archived row's chip is not covered. 14 checks; agains
 fails at all three phones (9 failures: the Calculator button over the chip, the bottom nav over Edit, and
 the tap opening the quick calc).
 
+## The nutrition team's meeting, 2026-10-28 — one harness added, twelve adjusted
+
+Submit locks, Vitalipid rounded down, Mg typed in mg, the doctor's sheet only (`CHANGELOG.md`
+2026-10-28 (10)). **`verify-nutrition-meeting-1028.cjs`** (jsdom; it also runs against `compiled/`)
+mounts the Calculator with fake `onLog` / `onUpdate` / `onPublish` and records the calls in order. § 1:
+Submit saves, then publishes that row. § 2: Save draft publishes nothing. § 3: an edit of a published
+order goes to the server and the revision it returns is published. § 4: an order submitted before the
+lock is published first, then edited; a conflict on that first publish sends no edit; a draft is
+saved in place, then published. § 5: an unchanged unpublished order is only published; a published
+unchanged one offers no Submit. § 6: a revision prints "Revision · ฉบับที่ 2" at the top right of the
+front sheet, above the patient table and outside `.print-back`. § 7: the Dashboard chip reads
+"Submitted · ฉบับแก้ไข". § 8: both shells hide `.print-back` in print, and the provenance footer stays
+outside it. § 9: the Mg row takes mg/kg/d, chips 2.5 / 5 / 7.5, stores mEq to 10 decimals, prints mg
+with mEq beside it and the Normal Requirement in mg/kg/day. § 10: the amino-acid line names PED AMINE.
+Vitalipid's rounding is in the clinical-rules skill's cases. Against `main` (`ee25e86`) 24 of its
+first 31 checks fail.
+
+The twelve that typed Mg in mEq (`verify-calc-clicks`, `-fuzz`, `-oracle`, `-sum`,
+`verify-center-point-print-parity`, `verify-kcmh-factor`, `verify-review-0917-calc`,
+`verify-stock-ml-1027`, `verify-tpn-answers-1027`, `verify-tpn-team-0922`, `verify-ward-requests-0918`)
+type the same dose × 12.1525 or read the new label and band; `verify-status-zones` needed nothing once the
+tile read mg.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named
