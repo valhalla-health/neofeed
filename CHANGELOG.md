@@ -7,6 +7,64 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (NF-02, Admin chart) — the usage counts on the Admin page
+
+`gas-backend.gs`, `app.jsx`, `compiled/app.js`, both shells' `?v=` tokens, `test/verify-usage-log.cjs`,
+`test/verify-admin-census.cjs`, `test/verify-admin-usage-1028.cjs` (new), `REFERENCE.md`, `PRD.md`,
+`BACKLOG.md`, `STATUS.md`, `test/README.md`. Same PR (#178) as the entry below, which this one corrects
+in two places: the PR is no longer backend only, and the admin-dashboard chart listed there as not built
+is built. `CONSTANTS_VERSION` stays `2026-10-27.2`; no calculation or printed figure moves.
+
+### Why
+
+Pp answered the PR's six questions the same day. Count at the first submitted save: ได้. Keep the week
+column: เก็บ. Quick calc: ไม่นับ. A chart in the Admin dashboard: ได้, build it now. Deploy the backend right
+after the merge.
+
+### The action
+
+`doPost` `getUsageWeekly`, admin only: `{ error: "Forbidden" }` for a doctor or nurse, the same reply the
+other admin-only actions give, before the tab is read. It returns `{ ok, weeks, wards, types }` for the
+last 12 ISO weeks. `usageWeekly(rows, now, span)` gained the span: the window ends at this week, starts at
+the first row's week when that is later (so the weeks before the deploy are not drawn as zeros), and is 12
+weeks of 0 when every row is older, which is what a ward that stopped looks like. The editor's
+`getUsageWeekly()` and the action read the tab through one function, `_usageWeeklyFromTab`. The reply holds
+counts and week labels only, so the read is not audited.
+
+### The card
+
+On the Admin page, after Census: one chart per ward (NICU, SCN, and อื่นๆ once it has an order), twelve
+columns, one per week, with the types stacked (TPN at the bottom, then EN, NPO, อื่นๆ) on one scale for every
+ward. Each ward's header gives this week's count and the 12-week total; each column's title gives its week
+and counts. The card asks once each time the page opens, not on every sync. A backend from before this
+action answers "Unknown action", and that, or no row yet, reads ยังไม่มีข้อมูล. A failed request says so,
+with a retry button. None of these raises a toast. No chart library: flex columns with inline styles, and
+the census's own classes for the ward cards, so the shells' CSS did not change.
+
+### Deploy order after merge
+
+The backend first (`clasp`), then the `main → release` frontend release. Released the other way round, the
+card reads ยังไม่มีข้อมูล until the backend lands.
+
+### Found on the way
+
+`verify-usage-log.cjs` § 3's stale-retry check failed 2 runs in 25: two saves in one millisecond share a
+`lastModified`, so the "stale" stamp was current. Each save there now runs on its own clock second; 30 runs
+clean.
+
+### Tests
+
+`verify-usage-log.cjs` 133 checks (§ 6 the 12-week span, § 7 the action: refusals, payload shape, counts
+only, no write). `verify-admin-census.cjs` § 5, 27 checks on the card's states, scale, stacking, legend and
+no-toast rule, and § 4 now measures the chart at every width from 280px. `verify-admin-usage-1028.cjs`, 19
+checks through the real `<App/>`: the request carries only the action and the token, an old backend and a
+network failure stay quiet, a doctor never asks. `node tools/build.mjs` rebuilt `compiled/app.js` and moved
+its `?v=` token in both shells; a second build changes nothing. All 101 `verify-*.cjs` harnesses and
+`DEAD=0 verify-kcmh-factor.cjs` exit 0 against the sources and again with the compiled preload, which
+swapped the new `app.js` into both admin harnesses. The browser sections printed SKIP on this PC (its
+Playwright wants a Chromium build that is not installed), so the 280px chart check runs in CI only.
+`tools/ci_bans.js` and #174's three log rules pass.
+
 ## Session 2026-10-28 (NF-02) — a usage tab: one row per completed calculation, counted per ward per week
 
 `gas-backend.gs`, `test/verify-usage-log.cjs` (new), `REFERENCE.md` § Backend (GAS), `PRD.md` § 6 (M4),

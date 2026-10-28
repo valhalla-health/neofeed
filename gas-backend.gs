@@ -1334,6 +1334,17 @@ function doPost(e) {
       return jsonOut({ ok: true });
     }
 
+    // NF-02 on the Admin page (Pp, 2026-10-28): the last USAGE_ADMIN_WEEKS
+    // weeks of completed calculations per ward and type. Admin only, refused
+    // the way the other admin-only actions are, before the tab is read. The
+    // reply is counts and week labels only, so it is not audited: Audit_Log
+    // records reads of personal data, and nothing here is one.
+    if (action === "getUsageWeekly") {
+      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      var usage = _usageWeeklyFromTab(new Date(), USAGE_ADMIN_WEEKS);
+      return jsonOut({ ok: true, weeks: usage.weeks, wards: usage.wards, types: usage.types });
+    }
+
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
     // TPN orders are written by prescribers (D5, Pp 2026-09-24: "พยาบาลบันทึกหรือ
     // submit ไม่ได้ ได้แค่ใช้ calculator"). A nurse still opens the Calculator and
@@ -4029,8 +4040,9 @@ function getUsageMetrics() {
 // ── Product metric NF-02: completed calculations per ward per week ──────────
 // One Usage_Log row per completed calculation, so Pp can see week by week
 // whether each ward still uses NeoFeed: a falling count means a ward went back
-// to paper (Pp's apply list, 2026-10-27). Pinned by test/verify-usage-log.cjs;
-// how to chart it: REFERENCE.md § Backend (GAS), Usage_Log.
+// to paper (Pp's apply list, 2026-10-27). Pinned by test/verify-usage-log.cjs.
+// The Admin page charts the last 12 weeks through the admin-only doPost action
+// getUsageWeekly (Pp, 2026-10-28); a Sheet chart: REFERENCE.md § Backend (GAS).
 //
 // A completed calculation is a TPN/EN order that reaches "submitted" for the
 // first time: a new order saved as submitted (logDailyNutrition), or a draft
@@ -4145,7 +4157,12 @@ function _recordUsage(sessionId, route) {
 // a ward back on paper, so it must never be a missing point. A ward or type
 // not on the lists counts under "other"; a row with no usable ts is skipped
 // and counted in rowsSkipped.
-function usageWeekly(rows, now) {
+// `span` (the Admin page asks for USAGE_ADMIN_WEEKS) keeps only the last
+// `span` weeks, ending at the week of `now`: they start at the first row's
+// week when that is later, so the weeks before the deploy are not drawn as
+// zeros, and they are all 0 when every row is older, which is a ward that
+// stopped. A row after `now` is then left out.
+function usageWeekly(rows, now, span) {
   var out = { weeks: [], wards: USAGE_WARDS.slice(), types: USAGE_TYPES.slice(), rowsScanned: 0, rowsSkipped: 0 };
   var counts = {};   // Monday -> "ward|type" -> n
   var first = null, last = null;
@@ -4162,7 +4179,13 @@ function usageWeekly(rows, now) {
   }
   if (!first) return out;
   var nowMonday = now == null ? null : _wardWeekMonday_(now);
-  if (nowMonday && nowMonday > last) last = nowMonday;
+  if (span > 0 && nowMonday) {
+    last = nowMonday;
+    var floor = _addDaysKey_(nowMonday, -7 * (span - 1));
+    if (first < floor) first = floor;
+  } else if (nowMonday && nowMonday > last) {
+    last = nowMonday;
+  }
   for (var m = first; m <= last; m = _addDaysKey_(m, 7)) {
     // Noon on that Monday in Bangkok is 05:00 UTC, well inside the week.
     var week = { week: _isoWeekKeyLocal_(m + "T05:00:00Z"), weekStart: m, total: 0, byWard: {} };
@@ -4196,14 +4219,20 @@ function _addDaysKey_(key, days) {
   return new Date(Date.parse(key + "T00:00:00Z") + days * 86400000).toISOString().slice(0, 10);
 }
 
-// Run from the Apps Script editor (Run ▸ getUsageWeekly): returns the weekly
-// counts and writes them as a table to the execution log. Like getUsageMetrics
-// it is not on the doPost path, so no client can ask for it and running it
-// needs no redeploy. It only reads: before the first completed calculation
-// there is no tab, and this does not make one.
-function getUsageWeekly() {
+// The one reader of the tab, for the editor and for the Admin page. It only
+// reads: before the first completed calculation there is no tab, and this
+// does not make one.
+var USAGE_ADMIN_WEEKS = 12;
+function _usageWeeklyFromTab(now, span) {
   var sh = _book().getSheetByName("Usage_Log");
-  var out = usageWeekly(sh ? sh.getDataRange().getValues() : [], new Date());
+  return usageWeekly(sh ? sh.getDataRange().getValues() : [], now, span);
+}
+// Run from the Apps Script editor (Run ▸ getUsageWeekly): every week since the
+// first row, as an object and as a table in the execution log. The doPost
+// action of the same name (admin only) serves the Admin page's last
+// USAGE_ADMIN_WEEKS weeks from the same reader.
+function getUsageWeekly() {
+  var out = _usageWeeklyFromTab(new Date());
   Logger.log(_usageWeeklyTable(out));
   return out;
 }

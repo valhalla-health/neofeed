@@ -1739,9 +1739,10 @@ case of a rule produced; `--fix-lines` rewrites the `where` line numbers once co
 line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks when written.
 
-## The usage tab, 2026-10-28 — one harness (NF-02)
+## The usage tab, 2026-10-28 — three harnesses (NF-02)
 
-**`verify-usage-log.cjs`** (114 assertions; no npm dependencies, through `gas-vm-sandbox.cjs`). Pins
+**`verify-usage-log.cjs`** (133 assertions since the Admin chart; no npm dependencies, through
+`gas-vm-sandbox.cjs`). Pins
 `Usage_Log`, one row per completed calculation, which is a TPN/EN order that reaches "submitted" for
 the first time. § 1 the tab is made by the first one, never by a sync, at exactly 4 columns
 (`ts | week | ward | type`), the week cut in ward time (Monday 06:00 in Bangkok is Monday's week), and
@@ -1754,9 +1755,21 @@ nothing a formula, and erasure leaves it as it was. § 5 the row is written afte
 released, and an append, tab-creation or registry-read failure still saves the order, with a note in
 the execution log. § 6 `usageWeekly()`: ISO weeks in ward time, every ward and type in every week,
 empty weeks filled with 0 up to this week (across a 53-week year), unknown values under `other`, a
-fifth column ignored (room for NF-31). § 7 `getUsageWeekly()` reads without creating the tab, logs a
-table with no identifier, and `doPost` does not answer it. Against the backend before NF-02
-(`326bcd9`) it fails 46 checks.
+fifth column ignored (room for NF-31), and the Admin page's 12-week span. § 7 the `doPost` action
+`getUsageWeekly`: Unauthorized without a token, the same `Forbidden` as the other admin-only actions
+for a doctor or nurse before the tab is read, then `{ ok, weeks, wards, types }`, 12 weeks, counts only,
+nothing written. § 8 the editor's `getUsageWeekly()` reads without creating the tab and logs a table
+with no identifier. Against the backend before NF-02 (`326bcd9`) it fails 46 checks of the first 114.
+
+**`verify-admin-census.cjs` § 5** (the jsdom set) mounts `AdminDashboard` with a stub `loadUsage`: no
+loader, no card; a 12-week reply draws one chart per ward with orders, one column per week, the types
+stacked on one scale; an "Unknown action" reply or no weeks reads ยังไม่มีข้อมูล; a failed request offers
+a retry; a re-render does not ask again; nothing raises a toast. § 4 measures the loaded chart in
+Chromium from 280px up.
+
+**`verify-admin-usage-1028.cjs`** (19 assertions; the jsdom set, through `review-0917-boot.cjs`) drives the
+real `<App/>`: opening Admin dashboard sends one `getUsageWeekly` with only the action and the token, a
+sync does not resend it, an old backend and a network failure stay quiet, and a doctor never sends it.
 
 
 ## Note on the source workbook

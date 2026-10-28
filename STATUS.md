@@ -194,10 +194,11 @@
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked.
-- ⏳ **PR #178, NF-02: a `Usage_Log` tab, one row per completed calculation, counted per ward per week:
-  open, waiting for Pp.** Backend only: merging deploys nothing, and the tab appears only after Pp's
-  `clasp` deploy (no new scope, no Script Property, no frontend release; `REFERENCE.md` § Backend (GAS)).
-  No patient field in the row. Vera: NO BLOCK. `CHANGELOG.md` 2026-10-28 (NF-02).
+- ⏳ **PR #178, NF-02: a `Usage_Log` tab, one row per completed calculation, counted per ward per week,
+  and a Usage chart on the Admin page: open, waiting for Pp.** Merging deploys nothing. After merge, in
+  this order: the backend `clasp` deploy (no new scope, no Script Property), then a `main → release`
+  frontend release (`REFERENCE.md` § Backend (GAS)). No patient field in the row or the chart's reply.
+  `CHANGELOG.md` 2026-10-28 (NF-02) and (NF-02, Admin chart).
 - ⏳ **PR #173, Pp's clinical-rules skill (NF-04): merged into `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
   one harness and docs, and neither host serves `.claude/` or `test/`. `CONSTANTS_VERSION` unchanged.

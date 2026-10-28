@@ -25,9 +25,12 @@
 //       released, and any failure is swallowed and noted in the execution log.
 //   §6  usageWeekly(): ISO weeks cut in ward time, every ward and type present,
 //       empty weeks filled with 0 up to this week, extra columns ignored (room
-//       for NF-31).
-//   §7  getUsageWeekly() is editor-only: it reads, never creates the tab, logs
-//       a table with no identifier, and doPost does not answer it.
+//       for NF-31); with a span of 12, the Admin page's last 12 weeks.
+//   §7  doPost getUsageWeekly (2026-10-28, Pp: "ได้" to the Admin chart): admin
+//       only, refused like the other admin-only actions before the tab is
+//       read; counts only; the last 12 weeks; writes nothing.
+//   §8  getUsageWeekly() from the editor: it reads, never creates the tab, and
+//       logs a table with no identifier.
 //
 // Synthetic patients only. No npm dependencies (gas-vm-sandbox.cjs).
 //
@@ -154,19 +157,23 @@ T.section('§2 ward = the ward list the infant is on, type = the order\'s route 
 // ════════════════════════════════════════════════════════════════════════
 T.section('§3 Not a completed calculation, and a request fired twice', () => {
   const g = ward({}, { nursing: true });
-  const d = g.save('NF-100001', { status: 'draft' });
+  // One clock second per save: two saves in the same millisecond share a
+  // lastModified, and the stale retry below would then not be stale.
+  let clock = Date.now();
+  const step = (fn) => withNow(clock += 1000, fn);
+  const d = step(() => g.save('NF-100001', { status: 'draft' }));
   T.ok('a draft saved', !!d.entryId, d);
   T.eq('a draft writes no row (it can neither print nor count)', usage(g).length, 0);
-  const d2 = g.update('NF-100001', d, { status: 'draft', fluid: 140 });
+  const d2 = step(() => g.update('NF-100001', d, { status: 'draft', fluid: 140 }));
   T.eq('a draft edited and kept a draft: still no row', [d2.ok, usage(g).length], [true, 0]);
-  const s = g.update('NF-100001', { entryId: d.entryId, lastModified: d2.lastModified }, { status: 'submitted' });
+  const s = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: d2.lastModified }, { status: 'submitted' }));
   T.eq('the draft saved as submitted: one row', [s.ok, usage(g).length], [true, 1]);
   T.eq('the promotion\'s reply to the ward is unchanged', Object.keys(s).sort(), ['lastModified', 'ok']);
-  const again = g.update('NF-100001', { entryId: d.entryId, lastModified: s.lastModified }, { status: 'submitted' });
+  const again = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: s.lastModified }, { status: 'submitted' }));
   T.eq('the same promotion fired twice: the second finds it submitted, no second row', [again.ok, usage(g).length], [true, 1]);
-  const stale = g.update('NF-100001', { entryId: d.entryId, lastModified: d2.lastModified }, { status: 'submitted' });
+  const stale = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: d2.lastModified }, { status: 'submitted' }));
   T.eq('a stale retry is a conflict and writes nothing', [stale.conflict, usage(g).length], [true, 1]);
-  const edit = g.update('NF-100001', { entryId: d.entryId, lastModified: again.lastModified }, { status: 'submitted', fluid: 160 });
+  const edit = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: again.lastModified }, { status: 'submitted', fluid: 160 }));
   T.eq('an edit of a submitted order is the same calculation: no row', [edit.ok, usage(g).length], [true, 1]);
 
   const c = g.save('NF-100002');
@@ -326,10 +333,68 @@ T.section('§6 usageWeekly(): weekly counts per ward and type', () => {
     Date.parse('2027-01-05T04:00:00.000Z'));
   T.eq('the fill crosses the year: W52, W53, then 2027-W01', yr.weeks.map(w => [w.week, w.weekStart, w.total]),
     [['2026-W52', '2026-12-21', 1], ['2026-W53', '2026-12-28', 0], ['2027-W01', '2027-01-04', 1]]);
+
+  // The Admin page's window: usageWeekly(rows, now, 12).
+  const now44 = Date.parse('2026-10-28T02:00:00.000Z');           // W44
+  const weekly = [H];
+  for (let k = 0; k < 20; k++) weekly.push(row(new Date(now44 - k * 7 * 86400000).toISOString(), 'NICU', 'TPN'));
+  const last12 = uw(weekly, now44, 12);
+  T.eq('span 12: exactly the 12 weeks ending this week', [last12.weeks.length, last12.weeks[0].week, last12.weeks[11].week],
+    [12, '2026-W33', '2026-W44']);
+  T.eq('span 12: each of those weeks keeps its own count, older rows are left out', last12.weeks.map(w => w.total), Array(12).fill(1));
+  T.eq('span 12 since a recent first row: from that row\'s week, no zeros before it',
+    uw([H, row('2026-10-07T02:00:00.000Z', 'SCN', 'EN')], now44, 12).weeks.map(w => [w.week, w.total]),
+    [['2026-W41', 1], ['2026-W42', 0], ['2026-W43', 0], ['2026-W44', 0]]);
+  T.eq('span 12 when the only rows are older: 12 weeks of 0 (a ward that stopped), not an empty chart',
+    uw([H, row('2026-05-20T02:00:00.000Z', 'NICU', 'TPN')], now44, 12).weeks.map(w => w.total), Array(12).fill(0));
+  T.eq('span 12: a row after this week (a skewed clock) is left out, the window still ends now',
+    uw([H, row('2026-10-27T02:00:00.000Z', 'NICU', 'TPN'), row('2026-11-20T02:00:00.000Z', 'NICU', 'TPN')], now44, 12)
+      .weeks.map(w => [w.week, w.total]), [['2026-W44', 1]]);
+  T.eq('span 12 with no rows: no weeks', uw([H], now44, 12).weeks, []);
 });
 
 // ════════════════════════════════════════════════════════════════════════
-T.section('§7 getUsageWeekly() is for the editor: reads only, logs a table, not on doPost', () => {
+T.section('§7 doPost getUsageWeekly: admin only, counts only, the last 12 weeks', () => {
+  const g = ward();
+  const usageReads = () => (g.sheet('Usage_Log') ? g.sheet('Usage_Log').stats.rangeReads : 0);
+  const none = g.post({ action: 'getUsageWeekly' });
+  T.eq('no token: Unauthorized, like every signed-in action', none.error, 'Unauthorized');
+  const forbidden = g.as(g.dt, { action: 'pseudonymizePatient', sessionId: 'NF-100001' });
+  for (const [who, tok] of [['a doctor', g.dt], ['a nurse', g.nt]]) {
+    const r = g.as(tok, { action: 'getUsageWeekly' });
+    T.eq(`${who} gets the same refusal as the other admin-only actions`, r, forbidden);
+  }
+  T.eq('…and the refusal happens before the tab is read', usageReads(), 0);
+  const empty = g.as(g.at, { action: 'getUsageWeekly' });
+  T.eq('an admin before the first completed calculation: no weeks', [empty.ok, empty.weeks], [true, []]);
+  T.ok('…and asking did not create the tab', !g.sheet('Usage_Log'));
+
+  // Twenty weeks of synthetic rows, one a week, the newest this week.
+  g.env.sheets.Usage_Log = g.makeSheet('Usage_Log', [USAGE_HEADER], { maxColumns: 4 });
+  const now = Date.now();
+  for (let k = 0; k < 20; k++) g.sheet('Usage_Log').data.push([new Date(now - k * 7 * 86400000).toISOString(), '', k % 2 ? 'SCN' : 'NICU', 'TPN']);
+  g.save('NF-100001');
+  g.save('NF-100002', { route: 'Enteral only' });
+  const before = JSON.stringify([g.sheet('Usage_Log').data, g.sheet('Audit_Log').data]);
+  const r = g.as(g.at, { action: 'getUsageWeekly' });
+  T.eq('the reply carries ok, weeks, wards and types, nothing else', Object.keys(r).sort(), ['ok', 'types', 'wards', 'weeks']);
+  T.eq('12 weeks, ending this week', [r.weeks.length, r.weeks[11] && r.weeks[11].week],
+    [12, g.sb._isoWeekKeyLocal_(now)]);
+  T.eq('each week: week, weekStart, total, byWard', [...new Set(r.weeks.map(w => Object.keys(w).sort().join()))],
+    ['byWard,total,week,weekStart']);
+  T.eq('the same counts as usageWeekly(tab, now, 12)', JSON.stringify(r.weeks),
+    JSON.stringify(g.sb.usageWeekly(g.sheet('Usage_Log').data.map(x => x.slice()), now, 12).weeks));
+  T.eq('this week: the two orders saved here plus the synthetic row', r.weeks[11].byWard.NICU.TPN + r.weeks[11].byWard.SCN.EN, 3);
+  T.ok('every count is a whole number', r.weeks.every(w => Number.isInteger(w.total) &&
+    Object.values(w.byWard).every(c => Object.values(c).every(Number.isInteger))));
+  const text = JSON.stringify(r);
+  T.eq('no email, sessionId, entryId, bed or name in the reply',
+    ['@', ...Object.keys(PATIENTS), ...g.rows('Daily_Log').map(x => x[25]), 'NICU 3', 'SCN 12', 'สมมุติ'].filter(s => text.includes(s)), []);
+  T.eq('reading writes nothing: Usage_Log and Audit_Log as they were', JSON.stringify([g.sheet('Usage_Log').data, g.sheet('Audit_Log').data]), before);
+});
+
+// ════════════════════════════════════════════════════════════════════════
+T.section('§8 getUsageWeekly() from the editor: reads only, logs a table', () => {
   const g = ward();
   T.ok('getUsageWeekly is defined', typeof g.sb.getUsageWeekly === 'function');
   if (typeof g.sb.getUsageWeekly !== 'function') return;
@@ -347,8 +412,6 @@ T.section('§7 getUsageWeekly() is for the editor: reads only, logs a table, not
   const table = g.env.logs.join('\n');
   T.ok('a weekly table is written to the execution log', /NICU/.test(table) && /SCN/.test(table) && table.includes(thisWeek.week), g.env.logs);
   T.ok('…with no sessionId or email in it', !/NF-1000|@/.test(table), table);
-  const r = g.as(g.at, { action: 'getUsageWeekly' });
-  T.eq('doPost does not answer it, even for an admin', r.error, 'Unknown action: getUsageWeekly');
 });
 
 T.done();
