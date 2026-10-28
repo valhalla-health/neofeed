@@ -210,8 +210,9 @@ after   PR → main ──(Pp: push a main commit to pilot)──→ pilot → p
 - **Which backend.** `boot.js` § 3 sets `window.NEOFEED_GAS_URL`. On every host it is the ward
   deployment (`AKfycbz8…`), except on `pilot-neofeed.valhalla-health.workers.dev`, where it is
   `NEOFEED_PILOT_GAS_URL` once that is set. Every host gets the same `boot.js` and the hostname
-  decides; a lookalike hostname gets the ward (`test/verify-pilot-ladder.cjs` § 1). `_headers`
-  connect-src names both deployments by full path, and `tools/dev-local.mjs` blanks the pilot one.
+  decides; a lookalike hostname gets the ward (`test/verify-pilot-ladder.cjs` § 1). Once the pilot
+  URL is set, `_headers` connect-src names both deployments by full path, and `tools/dev-local.mjs`
+  blanks the pilot one in its local copy.
 - **Backend.** The pilot deployment is a second web-app deployment of the same Apps Script project,
   pinned to its own version: `clasp update-deployment <pilot id> -V <new>` while the ward deployment
   stays where it is. Same manifest, same `executeAs`, deployed by the same account
@@ -240,8 +241,9 @@ release PR's "Side by side" boxes ask this. These break it:
   so neither version reads the other's.
 - **A Script Property whose key or meaning changes**, such as the session-revocation epochs
   (`epoch_` became `epoch2_`, and `bumpUserEpoch` still writes both): with one key per version, a
-  password change on one deployment would not revoke the user's sessions on the other. And no switch (`NURSING_LOG_ENABLED`, `HELP_REQUEST_TO`) changes while a
-  pilot runs: the ward app is the "old frontend" `NURSING_LOG_ENABLED` must never meet.
+  password change on one deployment would not revoke the user's sessions on the other. And no switch
+  (`NURSING_LOG_ENABLED`, `HELP_REQUEST_TO`) changes while a pilot runs: the ward app is the "old
+  frontend" `NURSING_LOG_ENABLED` must never meet.
 - **An editor-run migration that rewrites rows.** It acts on the ward at once.
 
 Such a release is split in two: first a version that reads both the old and the new form and still
@@ -318,14 +320,16 @@ and this repo has no build command, so each build is short); one more branch add
 to it. A GAS deployment, an OAuth origin and branch protection on a public repo cost nothing.
 
 1. **The pilot deployment.** In `~/nicu-tools/neofeed`, signed in as `peeraporn.po@chula.ac.th`:
-   `clasp list-deployments` (the ward is `AKfycbz8…` at `@64` on 2026-10-28), then
-   `clasp create-deployment -V 64 -d "pilot (NF-05)"`. It prints the new deployment ID.
+   `clasp list-deployments` to read the ward deployment's version (`AKfycbz8…` was at `@64` on
+   2026-10-28), then `clasp create-deployment -V <that version> -d "pilot (NF-05)"`. It prints the new
+   deployment ID.
 2. **Point the pilot host at it.** A PR sets `window.NEOFEED_PILOT_GAS_URL` in `boot.js` to
    `https://script.google.com/macros/s/<pilot id>/exec` and adds the same URL to `_headers`
    connect-src; `test/verify-review-0917-shell.cjs` fails until both agree. That PR is the first
    release through the ladder.
-3. **The `pilot` branch**, from `main`: `git push origin origin/main:refs/heads/pilot`. Workers Builds
-   builds its preview within a minute or two.
+3. **The `pilot` branch**, from `main` once that PR is merged into it:
+   `git push origin origin/main:refs/heads/pilot`. Workers Builds builds its preview within a minute
+   or two.
 4. **Sign-in on the pilot host.** Google Cloud Console → APIs & Services → Credentials → OAuth client
    `750019806043-imunne8n…` → Authorized JavaScript origins → add
    `https://pilot-neofeed.valhalla-health.workers.dev`. Without it Google sign-in there fails with

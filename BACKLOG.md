@@ -36,8 +36,8 @@ clinical judgement. Everything else is engineering sequencing.
       "One-time setup"). Until it is done every release still goes straight to every ward.
       - [ ] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`: it is the first
         pilot's rollback target, and on 2026-10-28 it was not pushed.
-      - [ ] The pilot deployment: `clasp create-deployment -V 64 -d "pilot (NF-05)"` as
-        `peeraporn.po@chula.ac.th`; its ID goes to the session that does the next step.
+      - [ ] The pilot deployment: `clasp create-deployment -V <the ward's version> -d "pilot (NF-05)"` as
+        `peeraporn.po@chula.ac.th` (`@64` on 2026-10-28); its ID goes to the session that does the next step.
       - [ ] A PR sets `NEOFEED_PILOT_GAS_URL` in `boot.js` and the same URL in `_headers` connect-src. It is
         the first release through the ladder.
       - [ ] The `pilot` branch from `main`, the OAuth origin `https://pilot-neofeed.valhalla-health.workers.dev`,
