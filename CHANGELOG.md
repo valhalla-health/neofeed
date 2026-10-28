@@ -35,7 +35,9 @@ composition from the Chula handbook rows `EN_DB` already holds.
   strength. Each strength is an existing `EN_DB` row, so the order still saves one key per feed and every
   figure keeps its source. Only the strengths the formulary already had are offered (Enfalac Premature
   and Pre Nan 22/24, HiQ LF and Enfalac LF 20/24/27, the rest one each); adding one is a row plus a pair
-  in `EN_PRODUCTS`, and is Pp's and the nutrition unit's call.
+  in `EN_PRODUCTS`, and is Pp's and the nutrition unit's call. The two selects share the three columns
+  of the Volume / Frequency row below: the milk spans two, kcal/oz the third (Pp, from the desktop view:
+  a fixed 112 px kcal/oz box beside a full-width milk box was out of proportion).
 - **A second feed.** "+ Add a second feed (นมชนิดที่ 2)" opens Feed 2 with its own milk, kcal/oz, volume
   and frequency; each feed shows its mL/day and mL/kg/d. The day's enteral volume and every nutrient are
   the sum of the two: `enMixPer100mL` weights one composition per 100 mL by each feed's mL/day, so fluid,

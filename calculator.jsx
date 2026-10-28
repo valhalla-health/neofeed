@@ -396,8 +396,11 @@ function EnFeedPicker({ value, onChange }) {
     onChange((same || p.strengths[0])[1]);
   };
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 112px", gap: 10 }}>
-      <div className="field">
+    // The same three columns as the Volume / Frequency row below: the milk spans
+    // two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box
+    // beside a full-width milk box was out of proportion on desktop).
+    <div className="en-picker" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+      <div className="field" style={{ gridColumn: "span 2" }}>
         <label>Feed type</label>
         <select className="sel en-product" value={at ? at.product.id : ""} onChange={(e) => pickProduct(e.target.value)}>
           {!at && <option value="">{D.EN_DB[value]?.label || value}</option>}
