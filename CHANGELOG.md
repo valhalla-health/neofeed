@@ -7,6 +7,32 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (2) — Two feeds: 6 + 2 is a schedule too
+
+`calculator.jsx`, the clinical-rules skill (`CR-EN-FEEDS-EQUAL` becomes `CR-EN-FEEDS-SCHEDULE`;
+`CR-EN-FEEDS-MAX`'s refusal case), `data.js` (a comment), `app-walkthrough.md`, `STATUS.md`. No figure,
+limit or stock moves, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+After #182 was merged into `main`, Pp: "ไม่ต้อง reject 6+2 ให้ทำได้". #182 read her "ต้องให้ทั้งสองตัว
+เป็นทุก ชม ที่เท่ากัน" as "both feeds equally often", which refused 6 + 2 though it makes 8 a day, a
+q3h schedule like 4 + 4. What 3 + 4 lacks is an interval: 7 feeds do not divide the day into whole hours.
+
+### What changed
+
+- The second two-feed stop is now "together they fill a regular schedule": 24 h ÷ (Feed 1 + Feed 2)
+  must be whole hours. 6 + 2, 5 + 3, 4 + 4 (q3h), 4 + 2, 3 + 3 (q4h) save; 3 + 4 and 3 + 2 are refused.
+  With the 8-a-day stop the totals left are 8, 6, 4, 3 and 2. The alert is "Two feeds off a regular
+  schedule", and the Step 2 line reads "… ไม่ลงตัวกับทุก ชม. เท่ากัน (8 = q3h, 6 = q4h) บันทึกไม่ได้".
+- `CR-EN-FEEDS-MAX`'s refusal case is 6 + 6 = 12 (q2h): the first total over 8 that is still a regular
+  schedule, so it is refused by that stop alone.
+
+### Checks
+
+- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-SCHEDULE` with five cases; 6 + 2 and 4 + 2 fail on the code
+  before (it refused them), and 3 + 4 and 3 + 2 fail with the check turned off.
+
 ## Session 2026-10-28 — Step 2: two feeds, each a milk and then its kcal/oz
 
 `data.js` (`EN_PRODUCTS`, `enProductOf`, `enMixPer100mL`), `calculator.jsx` (Step 2, the EN terms of
