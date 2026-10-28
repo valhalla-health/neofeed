@@ -369,7 +369,12 @@ clinical judgement. Everything else is engineering sequencing.
       row reading "active" with no statusDate reaches no ward device; `_bedConflict` compares the raw cell,
       so "Active " holds no bed there. The client reads all of them as `D.patientStatus` does (trimmed,
       case ignored) since 2026-10-28. Make both server reads do the same, with a case in the sync-window
-      harness: `_patientInSyncWindow("active", "", today)` → true (false today). Needs a `clasp` deploy.
+      harness: `_patientInSyncWindow("active", "", today)` → true (false today). **And the write:**
+      `_normStatus` returns "Active" for any unknown word, and `registerPatient` runs it on the merged
+      record, so a row typed "Expird" comes back onto every ward list at its next save (a diagnosis edit, a
+      bed move). Have it keep the unknown word or refuse the save instead, with a `registerPatient` case: a
+      stored "Expird" edited with only the diagnosis changed keeps "Expird" or is refused (it turns Active
+      today). Needs a `clasp` deploy.
 - [ ] **cleanup · `confirmOverwrite` is unused since 2026-09-27.** `registerPatient` still accepts it and
       writes a registration over the record that holds the id, which would file one infant's Daily_Log
       under another's name. No client sends it: a taken id is drawn again. Remove it, and the 2026-09-24

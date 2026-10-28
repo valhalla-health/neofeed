@@ -2116,8 +2116,10 @@ function isOnUnit(p) {
 // raw cell (BACKLOG). Before, "Active " synced and then dropped off the ward's
 // list (Vera, 2026-10-28). Here the client is the stricter side: it counts
 // that infant's bed as taken. Anything else stays as typed and is not on the
-// unit, as both server reads treat it: a mistyped "Expird" must not come back
-// as an Active infant holding a bed.
+// unit, as both server reads treat it: the client does not turn a mistyped
+// "Expird" into an Active infant holding a bed. The server still does, on
+// that record's next save (_normStatus writes an unknown word as Active;
+// BACKLOG), so this holds on the device, not end to end.
 function patientStatus(p) {
   const s = String((p && p.status) ?? "").trim();
   if (!s) return "Active";
