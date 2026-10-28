@@ -8,7 +8,10 @@
 > the GitHub Pages build and deploy of `a6b5edd` succeeded. `CONSTANTS_VERSION` stays `2026-10-27.2`, by
 > Pp's decision. ⚠️ Left for Pp on her PC: `node tools/verify-release.mjs --wait` (this session's network
 > reaches neither host) and the tag `release-2026-10-28-pr184` (tag push refused); the commands are in
-> #184's record comment. Recorded here by PR #183, the next PR on the repo.
+> #184's record comment. Recorded here by PR #183, the next PR on the repo. **Both done from Pp's PC at
+> 14:01 ICT** (comment on #184): `verify-release --wait` passed on both hosts (0 failures, 61 passes), both
+> serve the new `?v=` tokens of `app.js`, `calculator.js` and `registry.js`, and the tag is pushed.
+> Recorded here by PR #174.
 >
 > ✅ **2026-10-27, 22:37 ICT — frontend `release` = `342123d` (PR #172), with backend `@64`.**
 > PR #172 released #168, #169, #170 and #171: a bag's route is pressed, a discharged infant comes back
@@ -18,7 +21,10 @@
 > dev-local note and no tag on the PR. Recorded here by PR #182, the next PR on the repo, from the merge
 > commit alone. On `342123d`, Cloudflare's Workers Builds and the GitHub Pages build and deploy jobs all
 > passed (read from the GitHub API on 2026-10-28 by PR #183's session). The tag `release-2026-10-27-pr172`
-> is pushed (seen 2026-10-28, 07:00 UTC); the served bytes are still unchecked.
+> is pushed (seen 2026-10-28, 07:00 UTC); the served bytes are still unchecked. **Checked 2026-10-28,
+> 12:30 ICT**, while `release` was still `342123d`: `verify-release` passed on both hosts (0 failures,
+> 61 passes; comment on #172). The tag was pushed from Pp's PC by the same session. Recorded here by
+> PR #174.
 >
 > ✅ **2026-10-21, 10:03 ICT — frontend `release` = `08c298d` on both hosts, with backend `@64`.**
 > PR #167 released #159: `EN_DB` from the Chula Pediatric Nutrition Handbook pages (Tables 5, 7 and 16;
@@ -248,8 +254,10 @@
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below
 went live with #172 on 2026-10-27; #173 goes with #182.)*
 - ⏳ **PR #174, NF-08: `tools/ci_bans.js` fails CI on a patient identifier, a raw sheet cell or a
-  secret in a log: open, waiting for Pp.** CI and docs only: neither host serves `.github/`, `test/`,
-  `tools/` or `*.md`, so no served file changes and nothing to release. `CHANGELOG.md` 2026-10-28.
+  secret in a log: merged into `main` on Pp's instruction** (2026-10-28: #174, #176 and #179 into `main`
+  after release #184, no release of their own). CI and docs only: neither host serves `.github/`,
+  `test/`, `tools/` or `*.md`, so no served file changes and nothing to release. Its three log rules pass
+  on `main` with #180–#185 merged in. `CHANGELOG.md` 2026-10-28.
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
