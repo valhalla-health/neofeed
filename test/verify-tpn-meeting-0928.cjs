@@ -349,8 +349,11 @@ function baseOrder({ tf = 120 } = {}) {
   // ═══════════════════════════ §9 feed groups ══════════════════════════════
   await section('§9 item 6: preterm and post-discharge formulas are grouped apart', async () => {
     mount({ patient: pt('FG-2000', 2000), onLog: logger().onLog });
-    const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'BM_20'));
-    const groups = [...sel.querySelectorAll('optgroup')].map(g => ({ label: g.label, keys: [...g.querySelectorAll('option')].map(o => o.value) }));
+    // Since 2026-10-28 Step 2 picks the milk (grouped), then its kcal/oz: a
+    // group's feeds are its milks' strengths, each an EN_DB key.
+    const sel = container.querySelector('.en-feed-1 .en-product');
+    const keysOfProduct = (id) => D.EN_PRODUCTS.find(p => p.id === id).strengths.map(([, k]) => k);
+    const groups = [...sel.querySelectorAll('optgroup')].map(g => ({ label: g.label, keys: [...g.querySelectorAll('option')].flatMap(o => keysOfProduct(o.value)) }));
     const keysOf = (re) => (groups.find(g => re.test(g.label)) || {}).keys;
     // Since 2026-10-27 (nutrition unit, 2026-10-25) Pre Nan is a preterm formula,
     // not a post-discharge one, and Enfalac Premature and Pre Nan also come at 24.

@@ -88,10 +88,16 @@ function setField(label, value) {
   if (!input) throw new Error('field not found: ' + label);
   act(() => { valueSetter.call(input, String(value)); input.dispatchEvent(new window.Event('input', { bubbles: true })); });
 }
-function selectFeed(key) {
-  const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'BM_20'));
-  const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-  act(() => { setter.call(sel, key); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+// Step 2 picks the milk, then its kcal/oz (Pp, 2026-10-28): set both selects
+// of feed 1 (or 2) from one EN_DB key.
+function selectFeed(key, feed = 1) {
+  const at = window.NEOFEED_DATA.enProductOf(key);
+  if (!at) throw new Error('Step 2 does not offer ' + key);
+  for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
+    const sel = container.querySelector(`.en-feed-${feed} .${cls}`);
+    if (!sel) throw new Error(`no .${cls} on feed ${feed}`);
+    act(() => { Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  }
 }
 const click = (el) => act(() => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 const clickAsync = (el) => act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
