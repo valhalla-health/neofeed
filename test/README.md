@@ -1743,7 +1743,7 @@ osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks w
 ## A negative WFI cannot be ordered, 2026-10-28 — one harness
 
 Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
-2026-10-28). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
+2026-10-28 (2)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
 `verify-calc-sum.cjs`'s S8 with Glycophos in place of its Ca gluconate (WFI 0) and the same order with
 KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
 save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
@@ -1754,7 +1754,7 @@ on `326bcd9`.
 ## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness
 
 Pp asked for the two gaps Vera named on PR #175 to be closed, and chose how the backend learns of a stop:
-the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (2)).
+the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (3)).
 **`verify-backend-stops-1028.cjs`** (real `gas-backend.gs` in `gas-vm-sandbox.cjs`): a submitted row with
 `calcInput.stops` `[]` saves; one with a stop, or with no list (a tab opened before the app sent one), is
 refused, and only rule IDs are echoed back; a draft is kept either way; an edit, a revision and

@@ -275,6 +275,17 @@ function chipsAfter(label) {
   while (sib && !sib.classList.contains('preset-chips')) sib = sib.nextElementSibling;
   return sib ? [...sib.querySelectorAll('button')] : [];
 }
+// Step 2 picks the milk, then its kcal/oz (Pp, 2026-10-28): set both selects
+// of feed 1 (or 2) from one EN_DB key.
+function selectFeed(key, feed = 1) {
+  const at = window.NEOFEED_DATA.enProductOf(key);
+  if (!at) throw new Error('Step 2 does not offer ' + key);
+  for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
+    const sel = container.querySelector(`.en-feed-${feed} .${cls}`);
+    if (!sel) throw new Error(`no .${cls} on feed ${feed}`);
+    act(() => { selSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  }
+}
 function selectWith(optValue, value) {
   const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === optValue));
   if (!sel) throw new Error('select not found for ' + optValue);
@@ -359,7 +370,7 @@ async function fill(sc) {
   setField('Target fluid', sc.fluid);
   setField('Other IV', sc.otherIV);
   setField('Drug volume', sc.drug);
-  selectWith('BM_20', sc.feed);
+  selectFeed(sc.feed);
   setField('Volume(mL/feed)', sc.enVol);
   setField('Frequency', sc.enFreq);
   setCheck('MEN (trophic)', sc.men);
