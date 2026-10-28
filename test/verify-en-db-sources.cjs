@@ -270,13 +270,13 @@ const scenarios = {
     const patient = { sessionId: 'EN-SRC', name: 'Source', initials: 'SR', bw: 1200, ga: 30, sex: 'boys',
       admissionDate: '2026-10-01', currentBed: 'NICU 1', diagnosis: '-', weights: [{ dol: 1, w: 1200 }], lengths: [], hcs: [] };
     let root = null;
-    const mount = (editEntry, baselineEntry = null) => {
+    const mount = (editEntry, baselineEntry = null, previousEntry = null) => {
       if (root) act(() => { root.unmount(); });
       window.localStorage.clear();
       root = ReactDOM.createRoot(container);
       act(() => {
         root.render(React.createElement(window.Calculator, {
-          patient, dol: 12, editEntry, baselineEntry, previousEntry: null, logDate: null,
+          patient, dol: 12, editEntry, baselineEntry, previousEntry, logDate: null,
           userLabel: 'Dr Source (src@kcmh.test)', userEmail: 'src@kcmh.test',
           onLog: () => Promise.resolve({ ok: true, entryId: 'x', lastModified: 'x' }),
           onUpdate: () => Promise.resolve({ ok: true, lastModified: 'x' }), onSaved() {}, onWeightChange() {},
@@ -348,6 +348,21 @@ const scenarios = {
       A.ok(`4.15 …and the save panel refuses it`, /บันทึก\/พิมพ์ไม่ได้/.test(container.querySelector('.feed-unknown')?.textContent || '') && !!submitBtn() && submitBtn().disabled);
       A.ok(`4.16 …and the feed shows as saved, not swapped`, [...container.querySelectorAll('.en-product option')].some(o => o.selected && o.textContent === 'NOT_A_FEED'));
     }
+
+    // The change list names feed 2's milk only where feed 2 is given (Vera,
+    // 2026-10-28): removing it reads "none", never a switch to breast milk, and
+    // a milk picked for a feed 2 with no volume is not a change.
+    const changes = () => (container.querySelector('.order-changes')?.textContent || '').replace(/\s+/g, ' ');
+    const twoFeedPrev = { ...old, entryId: 'e-two', calcInput: { curWtG: 1500, fluidTargetPerKg: 150,
+      enType: 'BM_20', enVol: 20, enFreq: 4, enType2: 'PRENAN_22', enVol2: 10, enFreq2: 4 } };
+    mount(null, null, twoFeedPrev);
+    A.ok('4.17 feed 2 not given today: "Feed 2: Pre Nan → none"', changes().includes('Feed 2: Pre Nan → none'), changes());
+    A.ok('4.18 …never "Pre Nan → Breast Milk"', !changes().includes('Pre Nan → Breast Milk'), changes());
+    mount(null, null, { ...old, entryId: 'e-one', calcInput: { curWtG: 1500, fluidTargetPerKg: 150, enType: 'BM_20', enVol: 20, enFreq: 8 } });
+    const add = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === '+ Add a second feed (นมชนิดที่ 2)');
+    act(() => { add.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+    for (const [cls, v] of [['en-product', 'preNan'], ['en-strength', 'PRENAN_22']]) set(container.querySelector(`.en-feed-2 .${cls}`), v);
+    A.ok('4.19 a milk picked for feed 2 with no volume is not a change', !/Feed 2:/.test(changes()), changes());
 
     // The next day's new order, copied from a PF 20 order.
     mount(null, old);

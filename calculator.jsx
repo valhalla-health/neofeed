@@ -180,6 +180,7 @@ const ORDER_DIFF_FIELDS = [
 ];
 function describeOrderValue(key, v) {
   if (typeof v === "boolean") return v ? "yes" : "no";
+  if (key === "enType2" && v == null) return "none";
   if (key === "enType" || key === "enType2") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   // A volume derived from Rate × 24 used to reach this list — and the printed
@@ -191,11 +192,16 @@ function describeOrderValue(key, v) {
   if (v == null) return "—";
   return String(v);
 }
+// Feed 2's milk means nothing on an order that gives no feed 2 (2026-10-28,
+// Vera): it reads "none" there, and is left out when neither order gives one,
+// so removing feed 2 never reads as a switch to the default milk.
+const feed2Given = (o) => Number(o.enVol2) * Number(o.enFreq2) > 0;
 // → [{ label, from, to, unit }] for every order field that differs.
 function diffOrderInputs(prev, cur) {
   const out = [];
   for (const [key, label, unit] of ORDER_DIFF_FIELDS) {
-    const a = prev[key], b = cur[key];
+    let a = prev[key], b = cur[key];
+    if (key === "enType2") { a = feed2Given(prev) ? a : null; b = feed2Given(cur) ? b : null; }
     if (a === b) continue;
     if (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 1e-9) continue;
     out.push({ label, from: describeOrderValue(key, a), to: describeOrderValue(key, b), unit });
@@ -1359,6 +1365,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     { key: enType2, mlPerDay: centerPoint ? 0 : enVol2 * enFreq2 },
   ], [enType, enVol, enFreq, enType2, enVol2, enFreq2, !centerPoint]);
   const hasFeed2 = enFeeds[1].mlPerDay > 0;
+  // Two feeds given, not just a second one entered: feed 1 with no volume
+  // beside feed 2 is a day of one feed (Vera, 2026-10-28).
+  const twoFeeds = hasFeed2 && enFeeds[0].mlPerDay > 0;
+  const enCopyLine = (k, v, n, ml) => `${D.EN_DB[k]?.label} | ${v} mL × ${n} feeds = ${fmt(ml, 2)} mL/day`;
   const showFeed2Ui = showFeed2 && !centerPoint;
   // Removing feed 2 puts it back to none, the way an order with one feed is
   // saved, so the change list does not report a feed nobody gives.
@@ -1916,9 +1926,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const bagOverBottleText = `ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL ของห้อง TPN — ลดปริมาตรหรือ dead space`;
   // Two feeds share one feeding schedule: together at most 8 a day (q3h; q4h
   // is 6). Above it there is no schedule to give them on, so a two-feed order
-  // cannot be submitted (Pp, 2026-10-28). A feed with no volume is not given.
-  const feedsPerDay = (enFeeds[0].mlPerDay > 0 ? enFreq : 0) + (hasFeed2 ? enFreq2 : 0);
-  const feedsOverMax = hasFeed2 && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
+  // cannot be submitted (Pp, 2026-10-28). Only when both are given (twoFeeds):
+  // one feed alone is not checked (Q18 in the clinical-rules skill).
+  const feedsPerDay = enFreq + enFreq2;
+  const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
   const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
   // A feed given from a key EN_DB does not hold has no composition, so the
   // order cannot be submitted or printed until another milk is picked.
@@ -2756,7 +2767,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </button>
               )}
               {/* The two feeds share one schedule: their total, and its interval. */}
-              {showFeed2Ui && (
+              {showFeed2Ui && twoFeeds && (
                 <div className={`en-feeds-total${feedsOverMax ? " over" : ""}`} role={feedsOverMax ? "alert" : undefined}
                   style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: feedsOverMax ? "var(--crit)" : "var(--ink-2)" }}>
                   Feed 1 + 2 = <span className="num">{fmt(feedsPerDay, 1)}</span> feeds/d
@@ -2788,7 +2799,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="en-delivered" style={{ marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 }}>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
                   <span style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 }}>Delivered per kg from EN</span>
-                  {hasFeed2 && enFeeds[0].mlPerDay > 0 && (
+                  {twoFeeds && (
                     <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" }}>feeds 1 + 2</span>
                   )}
                   {isMEN && calc.enVolTotal > 0 && (
@@ -3847,11 +3858,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
                 stockAtZeroMl ? `  !! ${stocksAtZeroMl.join(", ")} ROUNDS TO 0 mL — cannot be measured` : "",
                 `──────────────────────────────`,
-                calc.enVolPerKg > 0 && !hasFeed2 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "",
+                // One feed given (feed 1, or feed 2 alone): the one line it always had.
+                calc.enVolPerKg > 0 && !twoFeeds ? `EN: ${hasFeed2 ? enCopyLine(enType2, enVol2, enFreq2, calc.enVolTotal) : enCopyLine(enType, enVol, enFreq, calc.enVolTotal)} (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "",
                 // Two feeds (Pp, 2026-10-28): one line each, then the day's total.
-                hasFeed2 ? [
-                  `EN: Feed 1 ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(enFeeds[0].mlPerDay, 2)} mL/day`,
-                  `    Feed 2 ${D.EN_DB[enType2]?.label} | ${enVol2} mL × ${enFreq2} feeds = ${fmt(enFeeds[1].mlPerDay, 2)} mL/day`,
+                twoFeeds ? [
+                  `EN: Feed 1 ${enCopyLine(enType, enVol, enFreq, enFeeds[0].mlPerDay)}`,
+                  `    Feed 2 ${enCopyLine(enType2, enVol2, enFreq2, enFeeds[1].mlPerDay)}`,
                   `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`,
                 ].join("\n") : "",
                 calc.enVolPerKg > 0 ? "" : "EN: None",

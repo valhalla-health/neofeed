@@ -409,8 +409,8 @@ const SCEN = [
     ioOut: 80, tpn: 60, dead: 30, dex: 10, aa: 2, lip: 1, naCl: 1, kCl: 1, ca: 30, glyNa: 1, hep: 1,
     feed: 'BM_HMF_24', enVol: 20, enFreq: 4, feed2: 'INFATRINI_30', enVol2: 20, enFreq2: 4,
     weights: [{ dol: 1, w: 1300 }, { dol: 17, w: 1440 }] },
-  { name: 'K2 two feeds reach full EN only together: BM 11 mL × 8 and Enfalac Premature 24 at 3 mL × 8', bw: 1000, cur: 1000, dol: 14,
-    fluid: 160, ioOut: 60, tpn: 0, feed: 'BM_20', enVol: 11, enFreq: 8, feed2: 'ENFALAC_PREM_24', enVol2: 3, enFreq2: 8,
+  { name: 'K2 two feeds reach full EN only together: BM 22 mL × 4 and Enfalac Premature 24 at 6 mL × 4', bw: 1000, cur: 1000, dol: 14,
+    fluid: 160, ioOut: 60, tpn: 0, feed: 'BM_20', enVol: 22, enFreq: 4, feed2: 'ENFALAC_PREM_24', enVol2: 6, enFreq2: 4,
     weights: [{ dol: 1, w: 1000 }] },
   // A prepared volume with a second decimal: 80.45 + 50 = 130.45 mL prints as
   // 130.5, and the WFI must be taken from that (NF-17; it printed 42.9, now 43).

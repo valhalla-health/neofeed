@@ -200,9 +200,12 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     const box = logger();
     mount({ patient: pt('PF-1000', 1000), onLog: box.onLog });
     setField('Current weight', 1000); fillRequired(180);
-    const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'FBM_PF_24'));
+    // Step 2 picks the milk, then its kcal/oz (2026-10-28): Hi-Q LBW at 24.
     const selSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-    act(() => { selSetter.call(sel, 'FBM_PF_24'); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    for (const [cls, v] of [['en-product', 'hiQLbw'], ['en-strength', 'FBM_PF_24']]) {
+      const sel = container.querySelector(`.en-feed-1 .${cls}`);
+      act(() => { selSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    }
     setField('Volume(mL/feed)', 22); setField('Frequency', 8);
     const a = alertNamed('Protein critically out of range');
     eq('Hi-Q LBW 24 at 176 mL/kg/d (protein ≈ 4.6): critical', a && a.level, 'crit');

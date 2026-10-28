@@ -128,16 +128,22 @@ const ORDER_DIFF_FIELDS = [
 ];
 function describeOrderValue(key, v) {
   if (typeof v === "boolean") return v ? "yes" : "no";
+  if (key === "enType2" && v == null) return "none";
   if (key === "enType" || key === "enType2") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   if (typeof v === "number" && isFinite(v)) return String(Number(v.toPrecision(12)));
   if (v == null) return "—";
   return String(v);
 }
+const feed2Given = (o) => Number(o.enVol2) * Number(o.enFreq2) > 0;
 function diffOrderInputs(prev, cur) {
   const out = [];
   for (const [key, label, unit] of ORDER_DIFF_FIELDS) {
-    const a = prev[key], b = cur[key];
+    let a = prev[key], b = cur[key];
+    if (key === "enType2") {
+      a = feed2Given(prev) ? a : null;
+      b = feed2Given(cur) ? b : null;
+    }
     if (a === b) continue;
     if (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 1e-9) continue;
     out.push({ label, from: describeOrderValue(key, a), to: describeOrderValue(key, b), unit });
@@ -844,6 +850,8 @@ function Calculator({
     { key: enType2, mlPerDay: centerPoint ? 0 : enVol2 * enFreq2 }
   ], [enType, enVol, enFreq, enType2, enVol2, enFreq2, !centerPoint]);
   const hasFeed2 = enFeeds[1].mlPerDay > 0;
+  const twoFeeds = hasFeed2 && enFeeds[0].mlPerDay > 0;
+  const enCopyLine = (k, v, n, ml) => `${D.EN_DB[k]?.label} | ${v} mL × ${n} feeds = ${fmt(ml, 2)} mL/day`;
   const showFeed2Ui = showFeed2 && !centerPoint;
   const removeFeed2 = () => {
     setShowFeed2(false);
@@ -1280,8 +1288,8 @@ function Calculator({
   const kOverMaxText = `K⁺ ในถุง ${fmt(calc.kMeqPerL, 0)} mEq/L เกินค่าสูงสุด ${kLim.hardMax} mEq/L ของสาย ${kRouteLabel} — เพิ่มปริมาตรหรือลด K`;
   const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;
   const bagOverBottleText = `ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL ของห้อง TPN — ลดปริมาตรหรือ dead space`;
-  const feedsPerDay = (enFeeds[0].mlPerDay > 0 ? enFreq : 0) + (hasFeed2 ? enFreq2 : 0);
-  const feedsOverMax = hasFeed2 && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
+  const feedsPerDay = enFreq + enFreq2;
+  const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
   const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
   const feedsUnknown = D.enFeedsUnknown(enFeeds);
   const feedUnknown = feedsUnknown.length > 0;
@@ -1987,7 +1995,7 @@ function Calculator({
       step: 1,
       hint: `q${Math.round(24 / Math.max(enFreq2, 1))}h`
     }
-  )), /* @__PURE__ */ React.createElement(EnFeedDay, { mlPerDay: enFeeds[1].mlPerDay, wtKg })) : !centerPoint && /* @__PURE__ */ React.createElement("button", { className: "btn sm en-feed-add", style: { marginTop: 8 }, onClick: () => setShowFeed2(true) }, "+ Add a second feed (นมชนิดที่ 2)"), showFeed2Ui && /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement(EnFeedDay, { mlPerDay: enFeeds[1].mlPerDay, wtKg })) : !centerPoint && /* @__PURE__ */ React.createElement("button", { className: "btn sm en-feed-add", style: { marginTop: 8 }, onClick: () => setShowFeed2(true) }, "+ Add a second feed (นมชนิดที่ 2)"), showFeed2Ui && twoFeeds && /* @__PURE__ */ React.createElement(
     "div",
     {
       className: `en-feeds-total${feedsOverMax ? " over" : ""}`,
@@ -2019,7 +2027,7 @@ function Calculator({
     display: "flex",
     alignItems: "center",
     gap: 6
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), hasFeed2 && enFeeds[0].mlPerDay > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" } }, "feeds 1 + 2"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), twoFeeds && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" } }, "feeds 1 + 2"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
     ["kcal", calc.enFeedKg.kcal, 0],
     ["pro", calc.enFeedKg.pro, 1],
     ["Na", calc.enFeedKg.na, 1],
@@ -2530,11 +2538,12 @@ Copy order ต่อไปหรือไม่?`)) return;
       bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
       stockAtZeroMl ? `  !! ${stocksAtZeroMl.join(", ")} ROUNDS TO 0 mL — cannot be measured` : "",
       `──────────────────────────────`,
-      calc.enVolPerKg > 0 && !hasFeed2 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "",
+      // One feed given (feed 1, or feed 2 alone): the one line it always had.
+      calc.enVolPerKg > 0 && !twoFeeds ? `EN: ${hasFeed2 ? enCopyLine(enType2, enVol2, enFreq2, calc.enVolTotal) : enCopyLine(enType, enVol, enFreq, calc.enVolTotal)} (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "",
       // Two feeds (Pp, 2026-10-28): one line each, then the day's total.
-      hasFeed2 ? [
-        `EN: Feed 1 ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(enFeeds[0].mlPerDay, 2)} mL/day`,
-        `    Feed 2 ${D.EN_DB[enType2]?.label} | ${enVol2} mL × ${enFreq2} feeds = ${fmt(enFeeds[1].mlPerDay, 2)} mL/day`,
+      twoFeeds ? [
+        `EN: Feed 1 ${enCopyLine(enType, enVol, enFreq, enFeeds[0].mlPerDay)}`,
+        `    Feed 2 ${enCopyLine(enType2, enVol2, enFreq2, enFeeds[1].mlPerDay)}`,
         `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`
       ].join("\n") : "",
       calc.enVolPerKg > 0 ? "" : "EN: None",
