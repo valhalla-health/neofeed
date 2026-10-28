@@ -1,5 +1,15 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-28, 14:43 ICT — frontend `release` = `c251bc5` (PR #186), with backend `@64`.** PR #186
+> released #183: the ward list's status chip changes the status, the bed chip is the ⇄ button, and Expired
+> asks first, naming the infant and the bed. `release`'s tree is `main` `17ed80c`'s, the tree that ran on
+> dev local (#186's description); `harnesses` was green on it twice before the merge. `node
+> tools/verify-release.mjs --wait`, run from Pp's PC at 14:45 ICT, passed on both hosts (0 failures, 61
+> passes), and both serve #183's new `?v=` tokens for `app.js` and `registry.js`. The tag
+> `release-2026-10-28-pr186` is pushed (comment on #186). `CONSTANTS_VERSION` unchanged, no backend
+> change. ⚠️ No one has changed a status from the chip on a ward phone yet. Recorded here by PR #176, the
+> next PR on the repo.
+>
 > ✅ **2026-10-28, 13:58 ICT — frontend `release` = `a6b5edd` (PR #184), with backend `@64`.** PR #184
 > released #182 and #185 (two feeds in Step 2; 6 + 2 and any other regular schedule allowed), #181 (Print
 > ทั้งหมด / Print ที่เลือก on a ward's print list), #180 (no Copy Order on a patient's order) and #173 (nothing
@@ -8,7 +18,10 @@
 > the GitHub Pages build and deploy of `a6b5edd` succeeded. `CONSTANTS_VERSION` stays `2026-10-27.2`, by
 > Pp's decision. ⚠️ Left for Pp on her PC: `node tools/verify-release.mjs --wait` (this session's network
 > reaches neither host) and the tag `release-2026-10-28-pr184` (tag push refused); the commands are in
-> #184's record comment. Recorded here by PR #183, the next PR on the repo.
+> #184's record comment. Recorded here by PR #183, the next PR on the repo. **Both done from Pp's PC at
+> 14:01 ICT** (comment on #184): `verify-release --wait` passed on both hosts (0 failures, 61 passes), both
+> serve the new `?v=` tokens of `app.js`, `calculator.js` and `registry.js`, and the tag is pushed.
+> Recorded here by PR #174.
 >
 > ✅ **2026-10-27, 22:37 ICT — frontend `release` = `342123d` (PR #172), with backend `@64`.**
 > PR #172 released #168, #169, #170 and #171: a bag's route is pressed, a discharged infant comes back
@@ -18,7 +31,10 @@
 > dev-local note and no tag on the PR. Recorded here by PR #182, the next PR on the repo, from the merge
 > commit alone. On `342123d`, Cloudflare's Workers Builds and the GitHub Pages build and deploy jobs all
 > passed (read from the GitHub API on 2026-10-28 by PR #183's session). The tag `release-2026-10-27-pr172`
-> is pushed (seen 2026-10-28, 07:00 UTC); the served bytes are still unchecked.
+> is pushed (seen 2026-10-28, 07:00 UTC); the served bytes are still unchecked. **Checked 2026-10-28,
+> 12:30 ICT**, while `release` was still `342123d`: `verify-release` passed on both hosts (0 failures,
+> 61 passes; comment on #172). The tag was pushed from Pp's PC by the same session. Recorded here by
+> PR #174.
 >
 > ✅ **2026-10-21, 10:03 ICT — frontend `release` = `08c298d` on both hosts, with backend `@64`.**
 > PR #167 released #159: `EN_DB` from the Chula Pediatric Nutrition Handbook pages (Tables 5, 7 and 16;
@@ -212,13 +228,13 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `a6b5edd` (PR #184) are live.**
-#184 released #182, #185, #181, #180 and #173 at 13:58 ICT; its `verify-release` run and tag are Pp's
-(banner). Caught up with #184 by PR #183, the next PR on the repo.
-- ⏳ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
-  asks first: merged into `main` on Pp's instruction ("1+2": yes to the Expired question, and to merge and
-  deploy); not live until the `main → release` PR after #184, which this session opens once #183 is in
-  `main`.**
+**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `c251bc5` (PR #186) are live, and
+both are verified.** #186 released #183 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at
+13:58 ICT. Both `verify-release` runs and both tags were done from Pp's PC (banners). Caught up with #184
+by PR #183 and with #186 by PR #176, the next PRs on the repo.
+- ✅ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
+  asks first: live, released by #186 (banner above) on Pp's instruction ("1+2": yes to the Expired
+  question, and to merge and deploy).**
   Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; no calculation or printed figure changes.
   A status change saves where Edit session saves it (`registerPatient`, `status` + `statusDate` only).
   Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28 (5).
@@ -247,6 +263,16 @@
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below
 went live with #172 on 2026-10-27; #173 goes with #182.)*
+- ⏳ **PR #174, NF-08: `tools/ci_bans.js` fails CI on a patient identifier, a raw sheet cell or a
+  secret in a log: merged into `main` on Pp's instruction** (2026-10-28: #174, #176 and #179 into `main`
+  after release #184, no release of their own). CI and docs only: neither host serves `.github/`,
+  `test/`, `tools/` or `*.md`, so no served file changes and nothing to release. Its three log rules pass
+  on `main` with #180–#185 merged in. `CHANGELOG.md` 2026-10-28.
+- ⏳ **PR #176, NF-28: every reference cell in `data.js` is checked in `harnesses` before a release:
+  merged into `main` on Pp's instruction** (the same answer as #174). Tools, tests and docs only, so no
+  served file changes and nothing to release. With #182 merged in, the check failed on #182's new
+  `EN_FEEDS_PER_DAY_MAX` (no unit) and its `D.EN_PRODUCTS` dropdown, as built to; both are fixed in the
+  PR. Its 38 proposed ranges in `tools/reference-tabs.json` wait for Pp. `CHANGELOG.md` 2026-10-28.
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,

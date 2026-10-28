@@ -65,7 +65,8 @@ jobs:
       # NF-19: corrections Pp has had to make more than once, as rules a PR
       # cannot break. Each rule in tools/ci_bans.js names where she made it.
       # The self-test runs first, so a rule that has stopped catching its own
-      # failing case cannot pass as green.
+      # failing case cannot pass as green. NF-08 added three rules on what goes
+      # into a log: no patient identifier, raw sheet cell or secret.
       - name: CI bans (tools/ci_bans.js)
         run: |
           node tools/ci_bans.js --self-test

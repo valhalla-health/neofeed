@@ -106,6 +106,126 @@ Release #172 (`342123d`, merged 2026-10-27) is live and `node tools/verify-relea
 hosts against it, but its tag `release-2026-10-27-pr172` is not pushed and `STATUS.md` does not
 record it yet. Neither is fixed here.
 
+## Session 2026-10-28 — NF-28 meets #182's Step 2
+
+`tools/reference-tabs.cjs`, `tools/reference-tabs.json`, `test/verify-reference-tabs.cjs`,
+`test/README.md`. No value, limit, unit or printed figure changed; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp, 2026-10-28, merging NF-28 into `main` after release #184. With `main` merged in, the check failed on
+two things #182 brought, both as it was built to:
+
+- `EN_FEEDS_PER_DAY_MAX` (8, `CR-EN-FEEDS-MAX`) had no unit in `tools/reference-tabs.json`, so the new
+  limit could not skip the check.
+- The feed dropdown no longer lists EN_DB keys as `["…"].filter(k => D.EN_DB[k])`. `EnFeedPicker` reads
+  `D.EN_PRODUCTS`, a milk and then its kcal/oz, so the reader found no list and said so.
+
+### What changed
+
+- `EN_FEEDS_PER_DAY_MAX` has its unit, "feeds/day, Feed 1 + Feed 2". Its range still comes from the rule.
+- When `calculator.jsx` reads `D.EN_PRODUCTS`, the dropdown's keys are every strength key in `data.js`'s
+  `EN_PRODUCTS`, each checked against `EN_DB` with unique labels as before. Source that reads
+  `D.EN_PRODUCTS` while `data.js` gives none is reported, not passed. The old reader stays for the old
+  shape.
+
+### Tests
+
+`verify-reference-tabs.cjs`: 71 checks, all passing on the merged tree. #2.13 and #2.14 are new; both fail
+on the reader before this change, with #3.2 and #3.4. Each `NEGATIVE_CONTROL` still fails one check;
+`=3` now fails on `calculator.jsx:392`, `EnFeedPicker`'s `D.EN_PRODUCTS`.
+
+## Session 2026-10-28 — NF-28: every reference cell is checked before a release
+
+`tools/reference-tabs.cjs` (new), `tools/reference-tabs.json` (new), `test/verify-reference-tabs.cjs`
+(new), the clinical-rules skill (one sentence), `REFERENCE.md`, `test/README.md`. No value, limit, unit or
+printed figure changed; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-28 in her apply list of 2026-10-27: one wrong cell in a reference table makes every TPN
+result that reads it wrong, so each numeric cell must be a number of the expected sign inside a stated
+range, each lookup key must match its list exactly, each column needs a unit, and a failure blocks the
+deploy and names the cells. Nothing is coerced or trimmed.
+
+### Where the tables are, and so where the check runs
+
+The item was written as `checkReferenceTabs()` in Apps Script over tabs in the Sheet. The Sheet has no
+such tab: `gas-backend.gs` reads Staff, Patient_Registry, Daily_Log, Nursing_Log and Audit_Log, and
+sends the frontend no clinical number. Every number the calculator reads is in `data.js` (`EN_DB`,
+`KCMH_STOCK`, `SUPP_DB`, the limit constants, `TPN_TARGETS`, `ENTERAL_TARGETS`, `TARGETS`), and it ships
+with the frontend on a merge into `release`. So `checkReferenceTabs` is a pure function in
+`tools/reference-tabs.cjs`, and `test/verify-reference-tabs.cjs` runs it in `harnesses`, the check
+`release` requires. A failing cell keeps the `main → release` PR from merging. The check needs no Sheet
+access and no CI secret, and the workflow file is unchanged: CI already runs every `test/verify-*.cjs`.
+
+### What it checks
+
+363 cells in three tables, 28 limits, 34 target bands called over DOL 0–60 and nine weights (9,106
+calls), 43 lookup keys and 84 references in the screens. Ranges: 49 come from CR- rules, 47 of them the
+values the skill codes (read from the skill at run time, so no number is copied) and 2 that a rule
+states; 23 band checks use the backend's save bound for the same field (`_validateLogEntry`); 38 are
+proposed (below). A value a rule codes with no unit in `tools/reference-tabs.json` fails, so a new limit
+cannot skip the check. Lookup keys come from the code:
+the Calculator's feed dropdown (its `.filter(k => D.EN_DB[k])` drops a key with no row without a word,
+so the check fails instead), the four `useState` defaults, both amino-acid lists, the supplement
+dropdown categories, every `D.KCMH_STOCK.x.y` and `S.x.y` reference, and every nursing feed key against
+the backend's `NURSING_FEED_KEY_RE`, which refuses a save with a key that fails it.
+
+### Found (nothing changed)
+
+- 14 band functions have no caller in the screens: `TARGETS.protein`, `kcal`, `lipid`, `na`, `k`, `ca`,
+  `p`, `girTarget`, `girPreterm`, `girTerm`; `TPN_TARGETS.mg`, `caP`; `ENTERAL_TARGETS.peRatio`,
+  `npePerG`. They are checked like the rest.
+- The PN lipid band's top (4.0) equals `LIPID_IV_HARD_HI`, and the PN K band's top (5) equals
+  `K_IV_HARD_HI`: a target can reach the critical line but not pass it, which the check now holds.
+
+### For Pp
+
+- 38 ranges no rule gives are proposed in `tools/reference-tabs.json`, all by one rule: half the lowest
+  to 1.5 times the highest value today. They catch a slipped decimal or mg typed as mmol, not a clinical
+  error. They cover the `EN_DB` nutrients and osmolality, every `SUPP_DB` strength, Aminoplasmal's
+  0.15 g/mL, `MG_MG_PER_MEQ`, and the Mg, Ca:P, enteral lipid, protein:energy and NPE bands.
+- Whether the live Sheet keeps any reference tab that no code reads; nothing here can see it.
+
+### Tests
+
+`test/verify-reference-tabs.cjs`: 69 checks. Section 1 runs 43 kinds of bad cell on synthetic tables,
+each failing alone at its cell, and shows the check changes no input; section 2 runs the source readers
+on synthetic code, including one that finds nothing and must say so; section 3 runs the real files.
+`NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` = `"1.2"`), `=2` (`KCMH_STOCK.naCl.naMeqPerMl` = 34.2) and `=3`
+(the feed list asking for `"BM_20 "`) each fail one check, naming the cell.
+
+## Session 2026-10-28 — NF-08: a patient identifier, a raw sheet cell or a secret in a log fails CI
+
+`tools/ci_bans.js`, `test/ci-bans-fixtures.json`, `.github/workflows/test.yml` (a comment), `AGENTS.md`,
+`test/README.md`, `BACKLOG.md`, `STATUS.md` (this PR's line). No app code changed; nothing to release.
+
+### Why
+
+NF-08 on Pp's apply list of 2026-10-27, ticked ทำ: a PR fails when a line that writes a log names a
+patient identifier, or hands a log a Script Property or a token. `pseudonymizePatient()` clears name,
+initials and dob from Patient_Registry, but nothing clears them from the Apps Script execution log, a ward
+PC's console or an Audit_Log row. Until now only Vera stood in the way; her benchmark plants exactly this
+(`test/vera-bench/cases/phi-log.patch`: the erased infant's name and dob in the erasure's own log line).
+
+### What changed
+
+- **Three rules in `tools/ci_bans.js`**, run by NF-19's existing CI step: `log-identifier` (hn, an, name,
+  dob, phone, citizen, initials as a variable, property or key), `log-raw-cell` (`row[1]`, `data[i][6]` in
+  a backend log) and `log-secret` (a `PropertiesService` value, directly or through a variable or helper,
+  or a name like token, secret, password or apiKey). `test/README.md` § Log rules has the matching rules.
+- **`log-raw-cell` goes past the NF-08 row.** The backend reads every column by index, so the name list
+  alone passes the vera-bench line (`cur[1]`, `cur[6]`). This rule is what fails it.
+- **`initials` is on the list** though NF-08 did not name it: `pseudonymizePatient()` erases it with name
+  and dob. Staff `email` is not: Audit_Log records `actorEmail` by design (PDPA Sec 39), and the
+  editor-run account functions log the address they changed.
+- **No `schema.json`**, so the list is kept by hand; the class-per-column version is in `BACKLOG.md` §
+  Later.
+- **`main` passes all three with no allow entry.** The rules check every tracked source, not only a PR's
+  changed lines, so an old line cannot hide behind the diff.
+- **`check()` passes the file name to a rule's `find`**, so `log-raw-cell` can keep to `.gs` files.
+
 ## Session 2026-10-28 (5) — The ward list's status and bed chips are buttons
 
 `data.js`, `registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-registry-chip-taps-1028.cjs`

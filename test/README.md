@@ -1626,6 +1626,30 @@ trailing-zero rule of 2026-09-22: a `toFixed(n)` with n > 0 that is not inside `
 alone; the SVG path in `log.jsx` is on the allow list, and an allow entry that matches nothing fails the
 run. Seen to fail on a planted `{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry.
 
+## Log rules, 2026-10-28 — three more ci_bans rules (NF-08)
+
+Three rules on what goes into a log, in the same file and fixtures, so the same CI step runs them.
+A log call is `Logger.log`, `console.*`, any other `x.log()` but `Math.log`, an `appendRow` onto a log
+tab (a tab named like `*Log*` or `*Audit*`, except `Daily_Log` and `Nursing_Log`, which are the record),
+and any `function` that hands one of its own parameters to one of those, which is how `logAudit` is found.
+Only what reaches the log counts, read as code by a small tokenizer: a word inside a string is text.
+
+- **`log-identifier`**: hn, an, name, dob, phone, citizen or initials as a variable, property or key
+  (`p.hn`, `motherPhone`, `{ name: x }`, `row["dob"]`, a `${...}` in a template). `name` counts alone,
+  first (`nameTh`) or after a person word (`patientName`); `sheetName` and an error's `e.name` pass.
+- **`log-raw-cell`**: in `.gs` files only, `row[1]` or `data[i][6]` in a log call. The backend reads
+  columns by index, so `cur[1]` (the name, in the vera-bench `phi-log` case) is caught only this way.
+- **`log-secret`**: a value read from `PropertiesService`, directly, through a variable (within its
+  function) or through a helper that returns it (`SPREADSHEET_ID_()` via `_cfg()`); or a name with token,
+  secret, password, salt, or a key after api/private/secret/access/auth/client (`cacheKey` passes). The
+  value follows `String()`, JSON and member calls, not another call's result: `openById(SPREADSHEET_ID_())`
+  is a Spreadsheet.
+
+27 fixture cases must fail and 25 must pass. `main` passes all three with no allow entry. The tokenizer
+sees every identifier Babel's parser sees in all 17 tracked sources. Seen to fail on eight leaks planted
+in copies of `gas-backend.gs` and `app.jsx`, among them the `phi-log` line and the session token, which
+it also flags at `verifyToken(body.token, …)` once `verifyToken` logs that parameter.
+
 ## The birth-weight label, 2026-10-19 — one harness
 
 The session header called a 4,400 g term infant "LBW" (`CHANGELOG.md` 2026-10-19 (4)).
@@ -1758,6 +1782,23 @@ that one by name and goes on (Vera's five tests, each failing on the first commi
 button on every device profile (at the head's right edge, level with its top, beside the title), the
 ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
 `showQuickFab = view === "registry" && !printWard`.
+## The reference tables, 2026-10-28 — one harness (NF-28)
+
+**`verify-reference-tabs.cjs`** (Node only, no jsdom) checks every cell of the tables the calculator
+reads clinical numbers from: `EN_DB`, `KCMH_STOCK`, `SUPP_DB`, the limit constants and the target bands
+in `data.js`. The check is `checkReferenceTabs` in `tools/reference-tabs.cjs`, a pure function, and
+`tools/reference-tabs.json` says what each table must hold: a unit for every column, and for every number
+its sign and range. A range is the value a CR- rule in the clinical-rules skill codes, a range a rule
+states, the backend's save bound for that field, or a `proposed` range waiting for Pp. Nothing is
+coerced: the string `"1.2"`, a comma decimal or a padded label fails with its cell named. The lookup keys
+are read from the code: the Calculator's feed dropdown and its defaults, the amino-acid choices, every
+`D.KCMH_STOCK.x.y`-style reference in the screens, and the nursing form's feed keys against the backend's
+`NURSING_FEED_KEY_RE`. Section 1 runs each kind of bad cell on synthetic tables, section 2 the readers on
+synthetic source, section 3 the real files. `NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` as the string
+`"1.2"`), `=2` (20% NaCl at 34.2 mEq/mL) and `=3` (the feed list asking for `"BM_20 "`) must each fail
+one check. 69 checks when written; 71 since the merge with #182, whose feed dropdown reads `D.EN_PRODUCTS`
+(#2.13, #2.14).
+
 
 ## The ward list's status and bed chips, 2026-10-28 — one harness
 
