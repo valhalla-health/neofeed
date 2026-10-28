@@ -7,6 +7,48 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (6) — NF-17 for two feeds: `verify-calc-sum.cjs` adds them up
+
+`test/verify-calc-sum.cjs` (§ 3, three negative controls, control 1 repointed), `test/README.md`,
+`STATUS.md`. No app code changed; nothing is served, so nothing to release.
+
+### Why
+
+Pp: "เพิ่ม two-feed order ใน verify-calc-sum (NF-17)". NF-17 asks every calculation change for a sum check
+on synthetic orders and a click-through check that the screen shows the new value. #182 (two feeds in
+Step 2) and #185 (any regular schedule) shipped without one: the harness had no two-feed order, and the
+oracle only 4 + 4. Vera listed it as open on #185, and `STATUS.md` kept it open for Pp.
+
+### What changed
+
+- **§ 3, two feeds.** Three orders: 6 + 2 beside a bag (Pre Nan 22 + BM with HMF 24), 4 + 4 feeds only
+  (breast milk + Enfalac Premature 24) and 5 + 3 on a peripheral line (Hi-Q LBW 24 + Pre Nan 22). Each runs
+  four times on the same infant and bag: no feed, feed 1 alone, feed 2 alone, both. Both feeds must equal
+  feed 1 + feed 2:
+  - in the saved Daily_Log row (fluid, kcal, protein, Na, K, Ca, P, EN mL/kg/d), within 1e-9;
+  - in Step 2's "Delivered per kg from EN", within one unit of the digit shown;
+  - on the printed form: energy from EN within 2 kcal/kg, protein from EN within 0.01 g/kg (the header
+    gives the rounding arithmetic).
+  Each feed's "= X mL/day", the EN volume tile, the total line's interval, each feed's share hint and
+  Prescribed must follow from the inputs, and the feeds must move no printed bag line, TPN energy or
+  amino acid.
+- **Wired-in.** On the two-feed order, feed 2's volume is typed a key at a time, its kcal/oz picked, or
+  the frequencies typed through a refused 5 + 2 to 6 + 2. The feed lines, the EN tile and the delivered
+  kcal follow, the stale form is withdrawn, and the reprint carries the new energy with the bag unchanged.
+- **Negative controls 4–6** patch `calculator.jsx` in memory and must fail: feed 2 left out of the EN
+  volume (63 checks fail), both feeds costed as feed 1's milk (39), `enVol2` out of the feeds' memo
+  dependencies (5). **Control 1 was broken on `main`:** its patch text had gone when the bag sum moved to
+  whole hundredths (2026-10-27), so it stopped with "update PATCHES[1]" instead of failing. It now patches
+  the current sum, and fails 85 checks.
+- A feeds-only order with its feeds taken away is an empty day, which cannot be submitted; its baseline is
+  zeros, and the harness asserts the refusal.
+
+### Checks
+
+- `verify-calc-sum.cjs`: 60 orders and 3 two-feed orders, 1,889 checks, on the sources and on `compiled/`
+  through the compiled loader. Controls 1–6 each fail (`SUM_N=0`).
+- Nothing in it recomputes the app's formulas: the sums compare the app with itself, one feed against two.
+
 ## Session 2026-10-28 — NF-28 meets #182's Step 2
 
 `tools/reference-tabs.cjs`, `tools/reference-tabs.json`, `test/verify-reference-tabs.cjs`,
