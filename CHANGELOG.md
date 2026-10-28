@@ -23,7 +23,8 @@ which never had Copy).
 
 - **"Copy Order to Clipboard" is gone from a patient's order**, for prescribers and nurses alike. The card is
   "Save Order"; Save draft, Submit and Delete are unchanged.
-- **The quick calc keeps "คัดลอกผลคำนวณ"**: it has no Save and no form, so Copy is all it has (2026-09-21).
+- **The quick calc keeps "คัดลอกผลคำนวณ"** (Pp, 2026-10-28: "Quick calc ให้ยังมีคัดลอกผล"): it has no Save and
+  no form, so Copy is all it has (2026-09-21).
   Its text is byte-identical to before (checked by diffing three quick-calc orders' copies before and after).
   The patient-only branches of the copy text are gone with the button: the Bed / NeoFeed ID line, the
   critical-override line, and the `══ NeoFeed V2 — TPN Order ══` header and footer.
