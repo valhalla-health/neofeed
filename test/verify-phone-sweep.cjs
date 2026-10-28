@@ -213,6 +213,22 @@ async function sweepDevice(browser, BASE, [name, W, H, largeText], extraCss) {
     await page.locator('.ward-print').first().click({ timeout: 5000 });
     await page.waitForSelector('.print-row', { timeout: 5000 });
     await check('print list', '.work');
+    // Print ทั้งหมด at the head's top right on every device, beside the title
+    // rather than stacked under it, and no Calculator button (Pp, 2026-10-28).
+    const head = await page.evaluate(() => {
+      const h = document.querySelector('.page-head.print-head');
+      const b = h && h.querySelector(':scope > .print-all'), t = h && h.querySelector('h1');
+      if (!b || !t) return ['Print ทั้งหมด or the title is missing'];
+      const hb = h.getBoundingClientRect(), bb = b.getBoundingClientRect(), tb = t.getBoundingClientRect();
+      const fab = document.querySelector('.quick-fab');
+      return [
+        ...(hb.right - bb.right > 1.5 ? [`not at the right: ${Math.round(hb.right - bb.right)}px short`] : []),
+        ...(Math.abs(bb.top - hb.top) > 1.5 || bb.top >= tb.bottom ? [`not at the top: ${Math.round(bb.top - hb.top)}px down`] : []),
+        ...(bb.left < tb.left + 1 ? ['stacked under the title'] : []),
+        ...(fab && fab.getBoundingClientRect().width > 0 ? ['the Calculator button shows'] : []),
+      ];
+    });
+    results.push({ screen: 'print list · Print ทั้งหมด top right, no Calculator', clipped: [], sideways: 0, reach: { ok: true }, problems: head });
     await page.locator('button', { hasText: '← กลับ' }).first().click({ timeout: 5000 });
     await page.locator('.ward-tile').first().click();
     await check('ward list', '.work');
@@ -285,6 +301,7 @@ async function sweep() {
         ...x.clipped.map(c => 'clipped ' + c),
         ...(x.sideways > 0.5 ? [`sideways +${x.sideways}px`] : []),
         ...(x.reach.ok ? [] : [`end out of reach ${JSON.stringify(x.reach)}`]),
+        ...(x.problems || []),
       ];
       ok(`${tag} · ${x.screen}`, problems.length === 0, problems.slice(0, 3));
     }

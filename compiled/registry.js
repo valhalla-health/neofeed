@@ -95,12 +95,33 @@ const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter((e) => D_R.normalizeDateStr(e.ts) === today);
 }
-function WardPrintList({ patients, log, today, ward, onBack, onPrint, onOpenPatient, onShowNeeds }) {
+function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const active = patients.filter((p) => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active.map((p) => ({ p, orders: todaysOrders(log[p.sessionId], today) })).filter((r) => r.orders.length > 0);
   const waiting = active.length - rows.length;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Print order · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, window.NEOFEED_FMT_DATE?.(today) || today, " · Submit แล้ว", " ", /* @__PURE__ */ React.createElement("span", { className: "num" }, rows.length), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, active.length), " ราย")), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onBack, style: { fontSize: 12.5 } }, "← กลับ")), /* @__PURE__ */ React.createElement("div", { className: "print-list" }, rows.map(({ p, orders }) => {
+  const queue = rows.flatMap(({ p, orders }) => orders.length === 1 && !isPendingRow(orders[0]) ? [{
+    sessionId: p.sessionId,
+    entryId: orders[0].entryId,
+    label: [
+      D_R.isParked(p) ? "รอเตียง" : p.currentBed || D_R.lastBed(p),
+      D_R.patientName(p),
+      p.twinSuffix && multiplesLabel(p)
+    ].filter(Boolean).join(" ")
+  }] : []);
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head print-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("h1", null, "Print order · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, window.NEOFEED_FMT_DATE?.(today) || today, " · Submit แล้ว", " ", /* @__PURE__ */ React.createElement("span", { className: "num" }, rows.length), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, active.length), " ราย"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onBack, style: { fontSize: 12.5, marginTop: 10 } }, "← กลับ")), onPrintAll && rows.length > 0 && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "btn primary print-all",
+      disabled: queue.length === 0,
+      onClick: () => onPrintAll(queue),
+      "aria-label": `Print ทั้งหมด ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`
+    },
+    /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14, color: "#fff" }),
+    " Print ทั้งหมด ",
+    /* @__PURE__ */ React.createElement("span", { className: "num" }, "(", queue.length, ")")
+  )), /* @__PURE__ */ React.createElement("div", { className: "print-list" }, rows.map(({ p, orders }) => {
     const one = orders.length === 1 ? orders[0] : null;
     const pending = !!one && isPendingRow(one);
     const open = pending ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
@@ -151,7 +172,8 @@ function PatientRegistry({
   mergeBaseFor,
   printWard,
   onPrintWard,
-  onPrintOrder
+  onPrintOrder,
+  onPrintAll
 }) {
   const [filter, setFilter] = React.useState("");
   const [statFilter, setStatFilter] = React.useState(null);
@@ -175,6 +197,7 @@ function PatientRegistry({
       ward: printWard,
       onBack: () => onPrintWard?.(null),
       onPrint: onPrintOrder,
+      onPrintAll,
       onOpenPatient: onSelect,
       onShowNeeds: () => {
         setFilter("");

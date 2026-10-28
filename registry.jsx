@@ -224,25 +224,45 @@ function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter(e => D_R.normalizeDateStr(e.ts) === today);
 }
 
-function WardPrintList({ patients, log, today, ward, onBack, onPrint, onOpenPatient, onShowNeeds }) {
+function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const active = patients.filter(p => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active
     .map(p => ({ p, orders: todaysOrders(log[p.sessionId], today) }))
     .filter(r => r.orders.length > 0);
   const waiting = active.length - rows.length;
+  // Print ทั้งหมด (Pp, 2026-10-28: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด"):
+  // every row a tap would open straight to print, in the list's bed order.
+  // App opens them one at a time, each as a tap on its row would (app.jsx
+  // printQueue), so each still passes the calculator's Print gate and the edit
+  // lock. A row still saving, or a day with two orders, is left out: a tap on
+  // it does not print either. The label names the next infant on the
+  // calculator's ถัดไป button as the row does: bed (รอเตียง when parked, as
+  // BedChip says), name and twin label.
+  const queue = rows.flatMap(({ p, orders }) => orders.length === 1 && !isPendingRow(orders[0])
+    ? [{ sessionId: p.sessionId, entryId: orders[0].entryId,
+         label: [D_R.isParked(p) ? "รอเตียง" : (p.currentBed || D_R.lastBed(p)), D_R.patientName(p),
+           p.twinSuffix && multiplesLabel(p)].filter(Boolean).join(" ") }]
+    : []);
 
   return (
     <>
-      <div className="page-head" style={{ marginBottom: 12 }}>
-        <div>
+      <div className="page-head print-head" style={{ marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
           <h1>Print order · {wardName}</h1>
           <div className="sub">
             {window.NEOFEED_FMT_DATE?.(today) || today} · Submit แล้ว{" "}
             <span className="num">{rows.length}</span> จาก <span className="num">{active.length}</span> ราย
           </div>
+          <button className="btn" onClick={onBack} style={{ fontSize: 12.5, marginTop: 10 }}>← กลับ</button>
         </div>
-        <button className="btn" onClick={onBack} style={{ fontSize: 12.5 }}>← กลับ</button>
+        {onPrintAll && rows.length > 0 && (
+          <button type="button" className="btn primary print-all" disabled={queue.length === 0}
+            onClick={() => onPrintAll(queue)}
+            aria-label={`Print ทั้งหมด ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`}>
+            <Icon name="pdf" size={14} color="#fff" /> Print ทั้งหมด <span className="num">({queue.length})</span>
+          </button>
+        )}
       </div>
 
       <div className="print-list">
@@ -311,7 +331,7 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
 }
 
 function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor,
-  printWard, onPrintWard, onPrintOrder }) {
+  printWard, onPrintWard, onPrintOrder, onPrintAll }) {
   const [filter, setFilter]         = React.useState("");
   // Which stats tile the list is narrowed to: null (every active infant),
   // "logged" or "needs" (Pp, 2026-10-12: tap Active / Logged today / Needs
@@ -342,6 +362,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     <WardPrintList patients={patients} log={log} today={today} ward={printWard}
       onBack={() => onPrintWard?.(null)}
       onPrint={onPrintOrder}
+      onPrintAll={onPrintAll}
       onOpenPatient={onSelect}
       onShowNeeds={() => { setFilter(""); setStatFilter("needs"); onPrintWard?.(null); onWardChange?.(printWard); }} />
   );

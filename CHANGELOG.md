@@ -7,6 +7,45 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (1) — Print ทั้งหมด on a ward's Print order list, and no Calculator button there
+
+`registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs` (new),
+`test/verify-phone-sweep.cjs`, `test/verify-quick-calc.cjs`, `test/README.md`. No calculation, limit or
+printed figure changed; `calculator.jsx`, `data.js` and `gas-backend.gs` are untouched.
+
+### Why
+
+Pp, on a phone screenshot of "Print order · NICU": "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมี
+แคลคูเลเตอร์ด้านขวาล่าง".
+
+### What changed
+
+- **Print ทั้งหมด**, top right of the list's head on every screen size (the phone's stacked page head
+  is overridden for this page only; ← กลับ moved under the title). It counts the rows a tap would print
+  and is off when there are none. A row still saving, or a day with two orders, is left out, as a tap
+  on it does not print either.
+- **One order at a time.** The run opens each order from the list exactly as a tap on its row does
+  (`openOrderToPrint`), so each still passes the calculator's Print gate and the edit lock, and gets
+  one print preview. A bar on the calculator reads "Print ทั้งหมด · ใบที่ 1 จาก 3" with
+  "ถัดไป: NICU 2 …"; the last reads "ครบ 3 ใบ · กลับไปรายการ". An order held back (unsaved edit, a
+  critical value with no reason, a colleague's lock) shows the usual reason, and ถัดไป still goes on.
+  Leaving the calculator, or the list, ends the run.
+- **No Calculator button on the print list.** It stays on the ward gate and the ward's patient list.
+
+### Decisions
+
+- **The next order opens on a tap, never on afterprint.** A browser need not wait for its print dialog
+  before handing the page back, and moving the page on under an open dialog could put the next infant's
+  order on this one's sheet. One tap per order costs less than one wrong-patient sheet sent to pharmacy.
+- **Not one combined print job.** That needs every order's sheet rendered at once, and the sheet is
+  built inside `Calculator` from its own state. A print-only mode there is a change to a dose file, and
+  a second path that decides what may print. This one reuses the reviewed path untouched. If the ward
+  wants one dialog for the whole ward, that is the follow-up.
+
+### Checked
+
+`verify-print-all-1028.cjs` 43/43 on the sources and on `compiled/`; against `main` (`326bcd9`), 13 fail.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),

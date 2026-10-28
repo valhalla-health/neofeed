@@ -1358,6 +1358,19 @@
     margin-top: 8px; padding: 10px 12px; border-radius: var(--r);
     border: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-3);
   }
+  /* The print list's head keeps Print ทั้งหมด at its top right on a phone too,
+     where every other page head stacks (Pp, 2026-10-28). Two classes, so it
+     outranks the phone's `.page-head` rule wherever that sits. As wide as
+     .print-list, so on a workstation the button lines up with the rows. */
+  .page-head.print-head { flex-direction: row; align-items: flex-start; max-width: 760px; }
+  .print-head .print-all { flex-shrink: 0; min-height: 44px; white-space: nowrap; }
+  /* The calculator's bar during Print ทั้งหมด (app.jsx CalculatorView). */
+  .print-all-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap;
+    padding: 8px 12px; margin-bottom: 10px; border-radius: var(--r);
+    background: var(--brand-bg); border: 1px solid var(--brand-line); font-size: 13px; color: var(--brand-2);
+  }
+  .print-all-bar .btn { min-height: 44px; }
 
   /* Per-patient "has today's Daily_Log entry?" badge — registry cards + table.
      Same vocabulary as the Logged today / Needs entry tiles above the list, so
@@ -2103,9 +2116,9 @@
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
   <script src="compiled/calculator.js?v=f557ba65fa"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
-  <script src="compiled/registry.js?v=f051167971"></script>
+  <script src="compiled/registry.js?v=2e911a5c51"></script>
   <script src="compiled/log.js?v=cc9533c31e"></script>
-  <script src="compiled/app.js?v=e8f4cac46d"></script>
+  <script src="compiled/app.js?v=150ba6eeda"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only
