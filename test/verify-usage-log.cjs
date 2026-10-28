@@ -359,12 +359,6 @@ T.section('§7 doPost getUsageWeekly: admin only, counts only, the last 12 weeks
   const usageReads = () => (g.sheet('Usage_Log') ? g.sheet('Usage_Log').stats.rangeReads : 0);
   const none = g.post({ action: 'getUsageWeekly' });
   T.eq('no token: Unauthorized, like every signed-in action', none.error, 'Unauthorized');
-  const forbidden = g.as(g.dt, { action: 'pseudonymizePatient', sessionId: 'NF-100001' });
-  for (const [who, tok] of [['a doctor', g.dt], ['a nurse', g.nt]]) {
-    const r = g.as(tok, { action: 'getUsageWeekly' });
-    T.eq(`${who} gets the same refusal as the other admin-only actions`, r, forbidden);
-  }
-  T.eq('…and the refusal happens before the tab is read', usageReads(), 0);
   const empty = g.as(g.at, { action: 'getUsageWeekly' });
   T.eq('an admin before the first completed calculation: no weeks', [empty.ok, empty.weeks], [true, []]);
   T.ok('…and asking did not create the tab', !g.sheet('Usage_Log'));
@@ -375,6 +369,15 @@ T.section('§7 doPost getUsageWeekly: admin only, counts only, the last 12 weeks
   for (let k = 0; k < 20; k++) g.sheet('Usage_Log').data.push([new Date(now - k * 7 * 86400000).toISOString(), '', k % 2 ? 'SCN' : 'NICU', 'TPN']);
   g.save('NF-100001');
   g.save('NF-100002', { route: 'Enteral only' });
+
+  // With rows in the tab, so a read before the role check would show (Vera, PR #178).
+  const forbidden = g.as(g.dt, { action: 'pseudonymizePatient', sessionId: 'NF-100001' });
+  const readsBefore = usageReads();
+  for (const [who, tok] of [['a doctor', g.dt], ['a nurse', g.nt]]) {
+    const r = g.as(tok, { action: 'getUsageWeekly' });
+    T.eq(`${who} gets the same refusal as the other admin-only actions`, r, forbidden);
+  }
+  T.eq('…and the refusal happens before the tab is read', usageReads() - readsBefore, 0);
   const before = JSON.stringify([g.sheet('Usage_Log').data, g.sheet('Audit_Log').data]);
   const r = g.as(g.at, { action: 'getUsageWeekly' });
   T.eq('the reply carries ok, weeks, wards and types, nothing else', Object.keys(r).sort(), ['ok', 'types', 'wards', 'weeks']);
