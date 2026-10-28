@@ -9,6 +9,9 @@
 //   · every tile and bedside readout on screen
 //   · the printed pharmacy form, front and back
 //   · the Active-alerts panel, by level and title
+//   · the quick calc's copied text, the same order typed into the quick calc
+//     (a patient's order has had no Copy since 2026-10-28; Pp asked for this
+//     text to be checked: "test quick calc copies text")
 // — and compares each against a recomputation written here from the clinical
 // definitions and the KCMH worksheet.
 //
@@ -62,6 +65,14 @@ global.showToast = (msg, type) => toasts.push({ msg, type });
 window.print = () => {};
 window.prompt = () => 'oracle reason';
 window.confirm = () => true;
+// The quick calc's Copy goes through navigator.clipboard. jsdom may or may not
+// define it, and Node ≥21 has a global `navigator` of its own — install the
+// stub either way rather than assuming one shape of either.
+let copied = null;
+const clipboardStub = { writeText: (t) => { copied = t; return Promise.resolve(); } };
+try { Object.defineProperty(window.navigator, 'clipboard', { value: clipboardStub, configurable: true }); }
+catch { try { window.navigator.clipboard.writeText = clipboardStub.writeText; } catch { /* left to fail loudly at the copy assertion */ } }
+try { Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true, writable: true }); } catch {}
 const React = require('react');
 const ReactDOM = require('react-dom/client');
 const { act } = require('react');
@@ -497,29 +508,13 @@ function same(sc, what, got, want) {
 }
 function has(sc, what, cond) { checks++; if (!cond) mismatches.push({ sc: sc.name, what, got: false, want: true }); }
 
-// ── run one scenario ────────────────────────────────────────────────────────
-async function run(scIn) {
-  const sc = { ...BASE, ...scIn };
-  const e = expected(sc);
-  if (NEG && sc.name.startsWith('A')) e.gir += 0.4;      // negative control: must be caught
-  const patient = { sessionId: 'OR-' + sc.name.slice(0, 1), name: 'Oracle', initials: 'OR', bw: sc.bw, ga: 30, sex: 'boys',
-    admissionDate: '2026-09-01', currentBed: 'NICU 1', diagnosis: '-', weights: sc.weights, lengths: [], hcs: [] };
-  let saved = null;
-  act(() => { root.unmount(); });
-  root = ReactDOM.createRoot(container);
-  window.localStorage.clear();
-  act(() => {
-    root.render(React.createElement(window.Calculator, {
-      patient, dol: sc.dol, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null,
-      userLabel: 'Dr Oracle (oracle@kcmh.test)', userEmail: 'oracle@kcmh.test',
-      onLog: (entry) => { saved = entry; return Promise.resolve({ ok: true, entryId: 'srv-1', lastModified: '2026-09-23T01:00:00.000Z' }); },
-      onUpdate: () => Promise.resolve({ ok: true, lastModified: 'x' }), onSaved() {}, onWeightChange() {},
-    }));
-  });
-  click(btnExact('Open all'));
-
-  // Step 1 + I/O
-  setField('Current weight', sc.cur);
+// Steps 1–6, typed the same way into the patient's form and the quick calc.
+// The Intake / Output card is the patient's alone and is filled in run().
+function fillForm(sc, e, scratch) {
+  // Step 1. The quick calc has no birth weight (SCRATCH_PATIENT's bw is 0),
+  // so it is given the dosing weight itself: the floor the patient's form
+  // applies is typed in by hand.
+  setField('Current weight', scratch && !sc.tpnWtOverride ? e.wG : sc.cur);
   if (sc.tpnWtOverride) setField('TPN calc. weight', sc.tpnWtOverride);
   setField('Target fluid', sc.fluid);
   setField('Other IV', sc.otherIV);
@@ -565,6 +560,31 @@ async function run(scIn) {
   selectWith('PO4_PHOSPHATE', sc.po4Type);
   setField('ปริมาณ elem P', sc.oP);
   setField('Vitamin D', sc.vitD);
+}
+
+// ── run one scenario ────────────────────────────────────────────────────────
+async function run(scIn) {
+  const sc = { ...BASE, ...scIn };
+  const e = expected(sc);
+  if (NEG && sc.name.startsWith('A')) e.gir += 0.4;      // negative control: must be caught
+  const patient = { sessionId: 'OR-' + sc.name.slice(0, 1), name: 'Oracle', initials: 'OR', bw: sc.bw, ga: 30, sex: 'boys',
+    admissionDate: '2026-09-01', currentBed: 'NICU 1', diagnosis: '-', weights: sc.weights, lengths: [], hcs: [] };
+  let saved = null;
+  act(() => { root.unmount(); });
+  root = ReactDOM.createRoot(container);
+  window.localStorage.clear();
+  act(() => {
+    root.render(React.createElement(window.Calculator, {
+      patient, dol: sc.dol, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null,
+      userLabel: 'Dr Oracle (oracle@kcmh.test)', userEmail: 'oracle@kcmh.test',
+      onLog: (entry) => { saved = entry; return Promise.resolve({ ok: true, entryId: 'srv-1', lastModified: '2026-09-23T01:00:00.000Z' }); },
+      onUpdate: () => Promise.resolve({ ok: true, lastModified: 'x' }), onSaved() {}, onWeightChange() {},
+    }));
+  });
+  click(btnExact('Open all'));
+
+  fillForm(sc, e, false);
+
   // I/O last: Input tracks the prescribed total until typed (left untyped
   // unless the scenario gives one — the auto figure is part of what is checked)
   if (sc.ioInput != null) setField('Input', sc.ioInput);
@@ -738,6 +758,64 @@ async function run(scIn) {
     if (sc.vitD > 0) near(sc, 'print Vit D IU/day', g(/IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
     if (sc.fe > 0) near(sc, 'print Fe mL/day', g(/Fe oral \([^)]*\) [\d.]+ mg\/kg\/d = [\d.]+ mg → ([\d.]+) mL\/day/), e.fe_ml, 2);
   }
+
+  await quickCalcCopy(sc, e);
+}
+
+// ── the same order in the quick calc, and the text its Copy writes ──────────
+// The one text NeoFeed still copies (Pp, 2026-10-28: "Quick calc ให้ยังมีคัดลอกผล";
+// "test quick calc copies text"). It is pasted into LINE without the screen it
+// came from, so every figure in it is held to the same recomputation as the
+// screen and the printed form. Until 2026-10-28 these checks read a patient's
+// copied order, which drew the same lines.
+async function quickCalcCopy(sc, e) {
+  act(() => { root.unmount(); });
+  root = ReactDOM.createRoot(container);
+  window.localStorage.clear();
+  act(() => {
+    root.render(React.createElement(window.Calculator, {
+      // app.jsx's SCRATCH_PATIENT: no id, no name, birth weight 0
+      patient: { sessionId: null, name: null, initials: null, bw: 0, ga: 0, sex: '', currentBed: '', diagnosis: '',
+        weights: [], lengths: [], hcs: [] },
+      dol: sc.dol, scratch: true, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null,
+      userLabel: '', userEmail: '',
+    }));
+  });
+  click(btnExact('Open all'));
+  fillForm(sc, e, true);
+  copied = null;
+  const btn = [...container.querySelectorAll('button')].find(b => /คัดลอกผลคำนวณ/.test(b.textContent));
+  has(sc, 'quick calc offers คัดลอกผลคำนวณ', !!btn);
+  if (btn) await clickAsync(btn);
+  has(sc, 'quick calc copy produced text', typeof copied === 'string' && copied.length > 100);
+  if (typeof copied !== 'string') return;
+  const c = copied;
+  const g = (re) => { const m = c.match(re); return m ? parseFloat(m[1]) : null; };
+  has(sc, 'quick calc copy says it is not an order and names no patient',
+    /ไม่ใช่คำสั่งการรักษา/.test(c) && !/NeoFeed ID/.test(c) && !/^Bed:/m.test(c));
+  near(sc, 'copy GIR', g(/GIR: ([\d.]+) mg\/kg\/min/), e.gir, 1);
+  if (sc.feed2) {
+    near(sc, 'copy feed 1 mL/day', g(/EN: Feed 1 .*? = ([\d.]+) mL\/day/), e.enDay[0], 2);
+    near(sc, 'copy feed 2 mL/day', g(/\n {4}Feed 2 .*? = ([\d.]+) mL\/day/), e.enDay[1], 2);
+    near(sc, 'copy EN total mL/day', g(/\n {4}Total ([\d.]+) mL\/day/), e.enVol, 2);
+    near(sc, 'copy EN total mL/kg/d', g(/\n {4}Total [\d.]+ mL\/day \(([\d.]+) mL\/kg\/d\)/), e.enPerKg, 0);
+  }
+  near(sc, 'copy Prescribed mL/day', g(/Prescribed: +([\d.]+) mL\/day/), e.prescribed, 0);
+  near(sc, 'copy Remaining mL', g(/Remaining: (-?[\d.]+) mL/), e.remaining, 1);
+  near(sc, 'copy summary protein', g(/SUMMARY: Protein ([\d.]+) g\/kg/), e.proKg, 1);
+  near(sc, 'copy summary energy', g(/Energy ([\d.]+) kcal\/kg \|/), e.kcalKg, 0);
+  near(sc, 'copy total Na delivered', g(/Total Na: +[\d.]+ mEq in bag = ([\d.]+) mEq\/kg\/d/), e.naKg, 1);
+  // Max 200 on a central line (confirm above 120); 60 on a peripheral one
+  // since 2026-10-08 (Praew), written as the maximum alone there.
+  near(sc, 'copy total K mEq/L', g(/delivered \(([\d.]+) mEq\/L; (?:max 60 on a peripheral|confirm above 120, max 200 on a central) line\)/), e.kPerL, 0);
+  near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
+  if (e.Vd > 0) {
+    near(sc, 'copy BAG components', g(/BAG MAKE-UP: +components (-?[\d.]+) mL/), e.components, 1);
+    near(sc, 'copy BAG prepared', g(/= (-?[\d.]+) mL prepared/), r1(e.Vp), 1);
+  }
+  if (sc.zn > 0) near(sc, 'copy ZnSO₄ mL', g(/mg Zn in bag → ([\d.]+) mL of 1 mg Zn\/mL/), e.znMl, 2);
+  if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);
+  if (sc.oCa > 0) near(sc, 'copy oral Ca tabs/day', g(/mg\/day → ([\d.]+) tab\/day/), e.oCa_tabs, 2);
 }
 
 (async () => {

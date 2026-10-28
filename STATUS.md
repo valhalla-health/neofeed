@@ -284,7 +284,7 @@ by PR #183 and with #186 by PR #176, the next PRs on the repo.
   "แอปในแท็บนี้เป็นรุ่นเก่า รีเฟรชหน้าแล้วบันทึกใหม่"; a draft still saves. Before the release, doctors hear that
   a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason), and that a saved
   order with a negative WFI no longer prints until it is fixed and saved again. Center Point's half is
-  NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (9) and (10).
+  NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (10) and (11).
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below

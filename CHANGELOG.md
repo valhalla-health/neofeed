@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-28 (10) — the backend and Center Point refuse a stopped order
+## Session 2026-10-28 (11) — the backend and Center Point refuse a stopped order
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
 `center-point/tpn-document.mjs`, `.claude/skills/neofeed-clinical-rules/SKILL.md`,
@@ -58,7 +58,7 @@ check with each save ("แอปส่งผลเช็กไปด้วย"),
   verify-review-0917-backend-security, -sync and -writes, verify-safety-fixes-0923.
   verify-input-validation's "no calcInput at all" check is now made on a draft.
 
-## Session 2026-10-28 (9) — a bag whose stocks exceed its volume cannot be ordered (Q2)
+## Session 2026-10-28 (10) — a bag whose stocks exceed its volume cannot be ordered (Q2)
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
 `.claude/skills/neofeed-clinical-rules/SKILL.md`, `test/verify-wfi-stop-1028.cjs` (new),
@@ -95,6 +95,42 @@ printing and copying "WFI q.s. -0.1 mL". `verify-clinical-rules.cjs` reads the n
 (611 checks). `verify-calc-sum.cjs` reads over-full off the screen (Components above Bag total) and expects
 the stop for S4 and its orders B and E instead of a printed form; an over-full bag that prints fails it.
 `verify-calc-oracle.cjs` restates the stop in its own orderable rule (orders B and E).
+
+## Session 2026-10-28 (9) — the quick calc's copied text is checked figure by figure
+
+`test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`,
+`test/README.md`. Tests and docs only: no served file, calculation, limit or printed figure changed.
+
+### Why
+
+PR #180 (session (3)) took Copy Order off a patient's order and, with it, every harness check that read the
+copied text's figures. The quick calc's Copy draws the same lines and stays (Pp: "Quick calc
+ให้ยังมีคัดลอกผล"), so after #180 nothing compared a figure in that text with a recomputed value (Vera,
+#180 findings 1 and 2). `REFERENCE.md` § Pre-PR review rule 5 kept Vera's proposed tests out, because they
+do not fail on today's code. Pp overrode it here: "test quick calc copies text".
+
+### What the harnesses now check
+
+- **`verify-calc-oracle.cjs`**: each of the 21 orders is typed a second time into the quick calc
+  (`scratch`, birth weight 0, so the dosing weight is typed as the current weight). Its copied text must
+  say it is not an order and carry no bed or NeoFeed ID. GIR, both feeds and their total, Prescribed,
+  Remaining, protein, energy, total Na, K⁺ mEq/L with its route wording, the bag's components, WFI and
+  prepared volume, ZnSO₄ mL, vitamin D and oral Ca tablets must equal the oracle's own recomputation. 1,827
+  checks. Steps 1–6 are now typed by one `fillForm()` for both mounts.
+- **`verify-calc-sum.cjs`** § 1b: all 60 orders again in the quick calc. The copied BAG MAKE-UP line must
+  carry the quick calc's own on-screen Components and Bag total, close exactly, and say COMPONENTS EXCEED BAG
+  VOLUME exactly when the screen says the bag cannot be compounded, including S4.
+- **`verify-tpn-meeting-0928.cjs`** § 13: the quick calc's Na Acetate line gives no acetate while
+  `naAcetate.acetateMeqPerMl` is unset, and "(acetate 7 mEq)" once it is 3 (2 kg, 180 + 30 mL).
+
+### Seen to fail
+
+Each check fails on a deliberately broken copy line and passes once it is restored:
+- GIR + 0.3, Prescribed + 2 and components + 0.2: oracle, 51 mismatches.
+- Components + 0.2, and COMPONENTS EXCEED never written: calc-sum, 117 failed.
+- Acetate computed without the overfill: § 13, 6 mEq instead of 7.
+
+`test/README.md` drops the "copied order" checks #180 removed and describes the new ones.
 
 ## Session 2026-10-28 (8) — On a phone, the archive opens out from under the Calculator button
 
