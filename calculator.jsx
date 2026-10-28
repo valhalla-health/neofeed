@@ -1947,8 +1947,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // whole hours: 3 + 4 = 7 has no interval to give them on (Pp, 2026-10-28:
   // "ถ้าอันนึงกด 3 feed อันนึงกด 4 feed จะทำไม่ได้"), while 6 + 2 = 8 is q3h like
   // 4 + 4 ("ไม่ต้อง reject 6+2 ให้ทำได้"). Until then the two had to be equal.
-  const feedsIrregular = twoFeeds && feedsPerDay > 0 && !Number.isInteger(Number((24 / feedsPerDay).toPrecision(12)));
-  const feedsIrregularText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน ไม่ลงตัวกับทุก ชม. เท่ากัน — รวมได้ 8 (q3h) หรือ 6 (q4h) เช่น 4 + 4, 6 + 2, 3 + 3`;
+  // Whole feeds only, so 4.8 + 3.2 is no q3h (Vera, 2026-10-28).
+  const feedsIrregular = twoFeeds && (!Number.isInteger(enFreq) || !Number.isInteger(enFreq2)
+    || !Number.isInteger(Number((24 / feedsPerDay).toPrecision(12))));
+  const feedsIrregularText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน ไม่ลงตัวกับทุก ชม. เท่ากัน — มื้อต้องเป็นจำนวนเต็ม รวมได้ 8 (q3h) หรือ 6 (q4h) เช่น 4 + 4, 6 + 2, 3 + 3`;
+  // Each feed's own hint: alone, its interval; beside another, its share of
+  // the one schedule, since 6 + 2 is not q4h beside q12h (they would meet at
+  // 0 h and 12 h) but 6 and 2 of eight q3h feeds (Vera, 2026-10-28).
+  const feedFreqHint = (n) => !twoFeeds ? `q${Math.round(24 / Math.max(n, 1))}h`
+    : feedsIrregular || feedsOverMax ? "" : `${fmt(n, 1)} of ${fmt(feedsPerDay, 1)} feeds · q${fmt(24 / feedsPerDay, 1)}h`;
   // A feed given from a key EN_DB does not hold has no composition, so the
   // order cannot be submitted or printed until another milk is picked.
   const feedsUnknown = D.enFeedsUnknown(enFeeds);
@@ -2761,7 +2768,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
                   <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
                   <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
-                    hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
+                    hint={feedFreqHint(enFreq)} />
                   {!showFeed2Ui && (
                     <div className="field en-men-col">
                       <label style={{ visibility: "hidden" }}>MEN</label>
@@ -2782,7 +2789,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
                     <NumField label="Volume" unit="mL/feed" value={enVol2} onChange={setEnVol2} step={0.5} />
                     <NumField label="Frequency" unit="feeds/d" value={enFreq2} onChange={setEnFreq2} step={1}
-                      hint={`q${Math.round(24 / Math.max(enFreq2, 1))}h`} />
+                      hint={feedFreqHint(enFreq2)} />
                   </div>
                   <EnFeedDay mlPerDay={enFeeds[1].mlPerDay} wtKg={wtKg} />
                 </div>
@@ -2797,7 +2804,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div className={`en-feeds-total${feedsOverMax || feedsIrregular ? " over" : ""}`} role={feedsOverMax || feedsIrregular ? "alert" : undefined}
                   style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: feedsOverMax || feedsIrregular ? "var(--crit)" : "var(--ink-2)" }}>
                   Feed 1 + 2 = <span className="num">{fmt(feedsPerDay, 1)}</span> feeds/d
-                  {feedsIrregular ? " — ไม่ลงตัวกับทุก ชม. เท่ากัน (8 = q3h, 6 = q4h) บันทึกไม่ได้"
+                  {feedsIrregular ? " — ต้องเป็นมื้อเต็มที่ลงตัวกับทุก ชม. เท่ากัน (8 = q3h, 6 = q4h) บันทึกไม่ได้"
                     : <>{feedsPerDay > 0 && <> · q{fmt(24 / feedsPerDay, 1)}h</>}
                       {feedsOverMax ? ` — เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ/วัน (q3h) บันทึกไม่ได้` : ` (max ${D.EN_FEEDS_PER_DAY_MAX})`}</>}
                 </div>
@@ -3891,7 +3898,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 twoFeeds ? [
                   `EN: Feed 1 ${enCopyLine(enType, enVol, enFreq, enFeeds[0].mlPerDay)}`,
                   `    Feed 2 ${enCopyLine(enType2, enVol2, enFreq2, enFeeds[1].mlPerDay)}`,
-                  `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`,
+                  `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d) · ${fmt(feedsPerDay, 1)} feeds/d q${fmt(24 / feedsPerDay, 1)}h${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`,
                 ].join("\n") : "",
                 calc.enVolPerKg > 0 ? "" : "EN: None",
                 `──────────────────────────────`,

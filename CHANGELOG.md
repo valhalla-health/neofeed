@@ -24,14 +24,21 @@ q3h schedule like 4 + 4. What 3 + 4 lacks is an interval: 7 feeds do not divide 
 - The second two-feed stop is now "together they fill a regular schedule": 24 h ÷ (Feed 1 + Feed 2)
   must be whole hours. 6 + 2, 5 + 3, 4 + 4 (q3h), 4 + 2, 3 + 3 (q4h) save; 3 + 4 and 3 + 2 are refused.
   With the 8-a-day stop the totals left are 8, 6, 4, 3 and 2. The alert is "Two feeds off a regular
-  schedule", and the Step 2 line reads "… ไม่ลงตัวกับทุก ชม. เท่ากัน (8 = q3h, 6 = q4h) บันทึกไม่ได้".
+  schedule", and the Step 2 line reads "… ต้องเป็นมื้อเต็มที่ลงตัวกับทุก ชม. เท่ากัน (8 = q3h, 6 = q4h)
+  บันทึกไม่ได้".
+- Vera on this change: each feed's feeds a day must be whole (4.8 + 3.2 and 7.5 + 0.5 add to 8 but no
+  ward can give them), and beside the other each feed's hint now reads its share of the one schedule,
+  "6 of 8 feeds · q3h", where 6 + 2 used to read q4h beside q12h, which meet at 0 h and 12 h. The copied
+  order's Total line names the shared interval.
 - `CR-EN-FEEDS-MAX`'s refusal case is 6 + 6 = 12 (q2h): the first total over 8 that is still a regular
   schedule, so it is refused by that stop alone.
 
 ### Checks
 
-- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-SCHEDULE` with five cases; 6 + 2 and 4 + 2 fail on the code
-  before (it refused them), and 3 + 4 and 3 + 2 fail with the check turned off.
+- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-SCHEDULE` with seven cases; 6 + 2 and 4 + 2 fail on the code
+  before (it refused them), 3 + 4 and 3 + 2 fail with the check turned off, and 4.8 + 3.2 and 7.5 + 0.5
+  fail without the whole-feeds check.
+- **No second clinician has reviewed this change.**
 
 ## Session 2026-10-28 — Step 2: two feeds, each a milk and then its kcal/oz
 

@@ -1289,8 +1289,9 @@ function Calculator({
   const feedsPerDay = enFreq + enFreq2;
   const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
   const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
-  const feedsIrregular = twoFeeds && feedsPerDay > 0 && !Number.isInteger(Number((24 / feedsPerDay).toPrecision(12)));
-  const feedsIrregularText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน ไม่ลงตัวกับทุก ชม. เท่ากัน — รวมได้ 8 (q3h) หรือ 6 (q4h) เช่น 4 + 4, 6 + 2, 3 + 3`;
+  const feedsIrregular = twoFeeds && (!Number.isInteger(enFreq) || !Number.isInteger(enFreq2) || !Number.isInteger(Number((24 / feedsPerDay).toPrecision(12))));
+  const feedsIrregularText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน ไม่ลงตัวกับทุก ชม. เท่ากัน — มื้อต้องเป็นจำนวนเต็ม รวมได้ 8 (q3h) หรือ 6 (q4h) เช่น 4 + 4, 6 + 2, 3 + 3`;
+  const feedFreqHint = (n) => !twoFeeds ? `q${Math.round(24 / Math.max(n, 1))}h` : feedsIrregular || feedsOverMax ? "" : `${fmt(n, 1)} of ${fmt(feedsPerDay, 1)} feeds · q${fmt(24 / feedsPerDay, 1)}h`;
   const feedsUnknown = D.enFeedsUnknown(enFeeds);
   const feedUnknown = feedsUnknown.length > 0;
   const feedUnknownText = `นม ${feedsUnknown.join(", ")} ไม่อยู่ในรายการนมของ NeoFeed — เลือกชนิดนมใหม่ที่ Step 2`;
@@ -1981,7 +1982,7 @@ function Calculator({
       value: enFreq,
       onChange: setEnFreq,
       step: 1,
-      hint: `q${Math.round(24 / Math.max(enFreq, 1))}h`
+      hint: feedFreqHint(enFreq)
     }
   ), !showFeed2Ui && /* @__PURE__ */ React.createElement("div", { className: "field en-men-col" }, /* @__PURE__ */ React.createElement("label", { style: { visibility: "hidden" } }, "MEN"), /* @__PURE__ */ React.createElement(
     Chk,
@@ -1999,7 +2000,7 @@ function Calculator({
       value: enFreq2,
       onChange: setEnFreq2,
       step: 1,
-      hint: `q${Math.round(24 / Math.max(enFreq2, 1))}h`
+      hint: feedFreqHint(enFreq2)
     }
   )), /* @__PURE__ */ React.createElement(EnFeedDay, { mlPerDay: enFeeds[1].mlPerDay, wtKg })) : !centerPoint && /* @__PURE__ */ React.createElement("button", { className: "btn sm en-feed-add", style: { marginTop: 8 }, onClick: () => setShowFeed2(true) }, "+ Add a second feed (นมชนิดที่ 2)"), showFeed2Ui && twoFeeds && /* @__PURE__ */ React.createElement(
     "div",
@@ -2011,7 +2012,7 @@ function Calculator({
     "Feed 1 + 2 = ",
     /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(feedsPerDay, 1)),
     " feeds/d",
-    feedsIrregular ? " — ไม่ลงตัวกับทุก ชม. เท่ากัน (8 = q3h, 6 = q4h) บันทึกไม่ได้" : /* @__PURE__ */ React.createElement(React.Fragment, null, feedsPerDay > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · q", fmt(24 / feedsPerDay, 1), "h"), feedsOverMax ? ` — เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ/วัน (q3h) บันทึกไม่ได้` : ` (max ${D.EN_FEEDS_PER_DAY_MAX})`)
+    feedsIrregular ? " — ต้องเป็นมื้อเต็มที่ลงตัวกับทุก ชม. เท่ากัน (8 = q3h, 6 = q4h) บันทึกไม่ได้" : /* @__PURE__ */ React.createElement(React.Fragment, null, feedsPerDay > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · q", fmt(24 / feedsPerDay, 1), "h"), feedsOverMax ? ` — เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ/วัน (q3h) บันทึกไม่ได้` : ` (max ${D.EN_FEEDS_PER_DAY_MAX})`)
   ), showFeed2Ui && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(
     Chk,
     {
@@ -2549,7 +2550,7 @@ Copy order ต่อไปหรือไม่?`)) return;
       twoFeeds ? [
         `EN: Feed 1 ${enCopyLine(enType, enVol, enFreq, enFeeds[0].mlPerDay)}`,
         `    Feed 2 ${enCopyLine(enType2, enVol2, enFreq2, enFeeds[1].mlPerDay)}`,
-        `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`
+        `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d) · ${fmt(feedsPerDay, 1)} feeds/d q${fmt(24 / feedsPerDay, 1)}h${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`
       ].join("\n") : "",
       calc.enVolPerKg > 0 ? "" : "EN: None",
       `──────────────────────────────`,
