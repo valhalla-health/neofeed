@@ -287,7 +287,8 @@ node test/verify-sync-gate-and-poll.cjs
 
 The same holds for the other harnesses with browser sections (`verify-phone-sweep.cjs`,
 `verify-mobile-fit.cjs`, `verify-admin-census.cjs`, `verify-mobile-bed-button.cjs`,
-`verify-nursing-frontend.cjs`, `verify-bed-transfer-0927.cjs`, `verify-ward-requests-0925.cjs`).
+`verify-nursing-frontend.cjs`, `verify-bed-transfer-0927.cjs`, `verify-ward-requests-0925.cjs`,
+`verify-archive-fab-1028.cjs`, which is a browser section and nothing else).
 **CI runs those sections since 2026-10-04**, once, in its compiled pass, and there a SKIP fails the
 job. Locally a SKIP still only means Playwright is not installed.
 
@@ -1836,6 +1837,21 @@ dialog open; Discharged and an Expired record saved again are not asked about (f
 scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `setTransferPatient(p)`,
 inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
 values come from the ward.
+
+## The archive out from under the Calculator button, 2026-10-28 — one harness
+
+On a phone the archived card's status chip and Edit were under the Calculator button and the bottom nav
+once the archive was opened, so Pp could bring an infant back from a PC and not from a phone
+(`CHANGELOG.md` 2026-10-28 (8)). **`verify-archive-fab-1028.cjs`** runs the real app in real Chromium,
+served by `tools/dev-local.mjs` with `gas-backend.gs` in the sandbox and its made-up infants, and is
+skipped without playwright (CI runs it in the compiled pass). #1, as a touch phone at 375×667, 360×740
+and 390×844: DD, set Discharged from its chip, is in the archive; the list is scrolled to its foot and the
+archive opened, and with nothing else scrolled the archived card's status chip and Edit are each the
+element under their own centre; a finger's tap on the chip opens the Status dialog, not the quick calc;
+Active → Save brings DD back to NICU 4. #2, a 1366×768 workstation: opening the table's archive leaves the
+page where it was, and the archived row's chip is not covered. 14 checks; against `main` (`294d00e`) #1
+fails at all three phones (9 failures: the Calculator button over the chip, the bottom nav over Edit, and
+the tap opening the quick calc).
 
 ## Note on the source workbook
 
