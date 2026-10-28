@@ -24,10 +24,13 @@ The git merge was clean in `calculator.jsx`, and the result was wrong in three p
   They now give each feed its own line (its mL, its row per 100 mL, its label and source, and
   `CR-U-BREASTMILK` on a breast-milk line only), then the total. The lines add up to the total the tiles
   use.
+- **No feed at all** (Vera, NO BLOCK, one 🟡, on this commit's first version): the panels fell back to
+  feed 1's picker, so a TPN-only day read "0 mL × 67 kcal/100 mL · Breast Milk … (CR-U-BREASTMILK)". It
+  now reads ไม่มีนม and 0. NF-12 did the same before the merge; the figure was always 0.
 - **§ 6 checked a Copy that is gone.** A patient's order leaves only as the print form now; the harness
   checks the print form, that no Copy is offered, and the quick calc's copied text instead.
 
-§ 9 (17 checks) fails 16 on the merge commit `f643aac` and passes after. 125 checks in the harness, 713
+§ 9 (19 checks) fails 18 on the merge commit `f643aac` and passes after. 127 checks in the harness, 713
 in `verify-clinical-rules.cjs`.
 
 ## Session 2026-10-28 — NF-12 after Vera: a result past its limit, the feed factor, a MEN feed

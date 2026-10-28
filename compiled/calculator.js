@@ -2815,7 +2815,6 @@ function WorkRow({ label, children }) {
 function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir, tKcal, tPro, useEN, vsLimit }) {
   const en = calc.en;
   const given = feeds.filter((f) => f.mlPerDay > 0);
-  const shown = given.length > 0 ? given : feeds.slice(0, 1);
   const noBag = !(calc.totalTPN_mL > 0);
   const aboutFeed = (key) => {
     const row = D.EN_DB[key];
@@ -2825,9 +2824,10 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
   const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = /* @__PURE__ */ React.createElement(React.Fragment, null, "kg = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "wtG", v: wtG, d: 0 }), " g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)");
   const feedRow = (n, unit, total, k) => {
+    if (given.length === 0) return /* @__PURE__ */ React.createElement(React.Fragment, null, "ไม่มีนม: ", /* @__PURE__ */ React.createElement(WorkVal, { k, v: total }), " ", unit);
     if (calc.isMEN) return /* @__PURE__ */ React.createElement(React.Fragment, null, "นม MEN (trophic) ", /* @__PURE__ */ React.createElement(WorkVal, { k: "enGiven", v: calc.enVolTotal, d: 1 }), " mL/day ไม่นับในค่ารวม: นับ ", /* @__PURE__ */ React.createElement(WorkVal, { k, v: total }), " ", unit);
-    if (shown.length === 1) return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(WorkVal, { k: "enMl", v: calc.enCounted, d: 1 }), " mL × ", /* @__PURE__ */ React.createElement(WorkVal, { k: "enPer100", v: en[n] }), " ", unit, "/100 mL ÷ 100 = ", /* @__PURE__ */ React.createElement(WorkVal, { k, v: total }), " ", unit, " · ", aboutFeed(shown[0].key));
-    return /* @__PURE__ */ React.createElement(React.Fragment, null, shown.map((f, i) => {
+    if (given.length === 1) return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(WorkVal, { k: "enMl", v: calc.enCounted, d: 1 }), " mL × ", /* @__PURE__ */ React.createElement(WorkVal, { k: "enPer100", v: en[n] }), " ", unit, "/100 mL ÷ 100 = ", /* @__PURE__ */ React.createElement(WorkVal, { k, v: total }), " ", unit, " · ", aboutFeed(given[0].key));
+    return /* @__PURE__ */ React.createElement(React.Fragment, null, given.map((f, i) => {
       const per100 = D.EN_DB[f.key]?.[n] ?? 0;
       return /* @__PURE__ */ React.createElement("div", { key: i }, "Feed ", i + 1, ": ", /* @__PURE__ */ React.createElement(WorkVal, { k: `enMl${i + 1}`, v: f.mlPerDay, d: 1 }), " mL × ", /* @__PURE__ */ React.createElement(WorkVal, { k: `enPer100_${i + 1}`, v: per100 }), " ", unit, "/100 mL ÷ 100 = ", /* @__PURE__ */ React.createElement(WorkVal, { k: `${k}${i + 1}`, v: f.mlPerDay * per100 / 100 }), " ", unit, " · ", aboutFeed(f.key));
     }), /* @__PURE__ */ React.createElement("div", null, "รวม ", /* @__PURE__ */ React.createElement(WorkVal, { k, v: total }), " ", unit));

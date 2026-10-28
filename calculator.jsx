@@ -4286,9 +4286,9 @@ function WorkRow({ label, children }) {
 // Calculator's vsLimit: GIR 12.007 is "12.01", never "12" beside "above 12"; Vera).
 function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir, tKcal, tPro, useEN, vsLimit }) {
   const en = calc.en;
-  // The feeds given; with none, feed 1, whose row calc.en then is (D.enMixPer100mL).
+  // The feeds given. With none, feed 1's picker still holds a milk (breast milk
+  // by default), so the row names no milk at all (Vera, on the merge).
   const given = feeds.filter((f) => f.mlPerDay > 0);
-  const shown = given.length > 0 ? given : feeds.slice(0, 1);
   const noBag = !(calc.totalTPN_mL > 0);
   const aboutFeed = (key) => {
     const row = D.EN_DB[key];
@@ -4300,11 +4300,12 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
   // `n` is the EN_DB nutrient; with two feeds calc.en is their mix, so each
   // feed's line reads its own row and the lines add up to calc's total.
   const feedRow = (n, unit, total, k) => {
+    if (given.length === 0) return <>ไม่มีนม: <WorkVal k={k} v={total} /> {unit}</>;
     if (calc.isMEN) return <>นม MEN (trophic) <WorkVal k="enGiven" v={calc.enVolTotal} d={1} /> mL/day ไม่นับในค่ารวม: นับ <WorkVal k={k} v={total} /> {unit}</>;
-    if (shown.length === 1) return <><WorkVal k="enMl" v={calc.enCounted} d={1} /> mL × <WorkVal k="enPer100" v={en[n]} /> {unit}/100 mL ÷ 100
-        = <WorkVal k={k} v={total} /> {unit} · {aboutFeed(shown[0].key)}</>;
+    if (given.length === 1) return <><WorkVal k="enMl" v={calc.enCounted} d={1} /> mL × <WorkVal k="enPer100" v={en[n]} /> {unit}/100 mL ÷ 100
+        = <WorkVal k={k} v={total} /> {unit} · {aboutFeed(given[0].key)}</>;
     return <>
-      {shown.map((f, i) => {
+      {given.map((f, i) => {
         const per100 = D.EN_DB[f.key]?.[n] ?? 0;
         return <div key={i}>Feed {i + 1}: <WorkVal k={`enMl${i + 1}`} v={f.mlPerDay} d={1} /> mL × <WorkVal k={`enPer100_${i + 1}`} v={per100} /> {unit}/100 mL ÷ 100
           = <WorkVal k={`${k}${i + 1}`} v={f.mlPerDay * per100 / 100} /> {unit} · {aboutFeed(f.key)}</div>;

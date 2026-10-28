@@ -28,7 +28,8 @@
 //   §8  Vera's three cases on this PR;
 //   §9  two feeds (main's #182): the milk line follows the feeds given, not
 //       feed 1's picker, and the energy and protein panels give each feed its
-//       own line (its mL, its row per 100 mL, its source) adding up to the total.
+//       own line (its mL, its row per 100 mL, its source) adding up to the total;
+//       a day with no feed names no milk there (Vera, on the merge).
 //
 // Fails on 326bcd9 (main before NF-12): there is no toggle, no panel and no
 // assumption line. NEGATIVE_CONTROL proves it bites; each must FAIL:
@@ -527,6 +528,15 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
     // I: breast milk and BM + HMF.
     mount({ name: 'I', g: 1000, order: { 'Volume(mL/feed)': 2, 'Frequency': 4 }, feed2: 'BM_HMF_24', order2: { 'Volume': 2, 'Frequency': 4 } });
     ok('I: BM + HMF as feed 2 adds the HMF line', !!assumption() && text(assumption()).includes('HMF ที่เติมต่อ 100 mL'), text(assumption()));
+    // Vera on the merge: F gives no feed, and feed 1's picker still reads breast milk.
+    mount(F);
+    for (const [id, k] of [['kcal', 'enKcal'], ['protein', 'enProG']]) {
+      click(toggle(id));
+      const p = panel(id), t = text(p);
+      ok(`F ${id}: no feed given, so no milk is named and 0 counted`, !!p && !t.includes(BM.label) && !t.includes('CR-U-BREASTMILK')
+        && t.includes('ไม่มีนม') && vOf(p, k) === 0, t);
+      click(toggle(id));
+    }
   });
 
   act(() => { root.unmount(); });
