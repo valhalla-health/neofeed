@@ -238,8 +238,9 @@ by PR #183 and with #186 by PR #176, the next PRs on the repo.
   Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; no calculation or printed figure changes.
   A status change saves where Edit session saves it (`registerPatient`, `status` + `statusDate` only).
   Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28 (5).
-- ⏳ **PR #188, on a phone the archive opens out from under the Calculator button: open, not in `main`,
-  not live.** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
+- ⏳ **PR #188, on a phone the archive opens out from under the Calculator button: merged into `main` on
+  Pp's instruction ("Merge and deploy", 2026-10-28) and released by the `main → release` PR opened in the
+  same session, whose comment holds the dev-local run and `verify-release`.** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
   first archived card's status chip was under the Calculator button and its Edit under the bottom nav, and
   a tap on the chip opened the quick calc. Opening the archive now scrolls it to the top of the list.
   Frontend only, no `clasp` step, no figure. `CHANGELOG.md` 2026-10-28 (6).
