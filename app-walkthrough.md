@@ -796,11 +796,11 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    *clears* the override instead of freezing the field at a value that merely
    matched it once (there is also a `ใช้ค่าอัตโนมัติ` button). An override is
    never silent: the field hints `⚠ แก้เอง · อัตโนมัติ = N g`, a banner under
-   Step 1 says every dose below is computed from it, and both the clipboard
-   order and the printed pharmacy form carry the manual weight *and* what the
-   rule would have given. `usingBirthWeight` is false whenever the override is
-   in play — an override that happens to equal the birth weight is still an
-   override, and the order form must not claim the floor rule produced it.
+   Step 1 says every dose below is computed from it, and the printed pharmacy
+   form carries the manual weight *and* what the rule would have given.
+   `usingBirthWeight` is false whenever the override is in play — an override
+   that happens to equal the birth weight is still an override, and the order
+   form must not claim the floor rule produced it.
    `tpnWtOverrideG` rides in `calcInput` (absent on every pre-2026-09-15 row,
    which `?? 0` restores as the automatic behaviour those orders were
    calculated with); the Daily_Log `weight` column stays the **measured**
@@ -852,7 +852,20 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    `enVolTotal`/`enVolPerKg` stay the feed actually given (the EN volume
    tile, the route, the `enVolPerKg` column), and Step 2 still lists what the
    feed provides, marked not counted. MEN above `D.MEN_MAX_ML_KG`
-   (24 mL/kg/d) is a warning, never a stop. Step 4 also has a **Magnesium**
+   (24 mL/kg/d) is a warning, never a stop.
+   **Step 2 takes up to two feeds** (2026-10-28, Pp): each is a milk, then its
+   kcal/oz (`D.EN_PRODUCTS`, one `EN_DB` row per strength), a volume and a
+   frequency. `calcInput` keeps feed 1 as `enType`/`enVol`/`enFreq` and feed 2
+   as `enType2`/`enVol2`/`enFreq2` (none = `BM_20`, 0, 0, which is how every
+   older row normalises). `calc` sums the two through `D.enMixPer100mL`, one
+   composition weighted by each feed's mL/day; a one-feed day gets that feed's
+   own row, so its figures are unchanged. The one MEN tick covers both feeds.
+   The two share one schedule: with two feeds, more than
+   `D.EN_FEEDS_PER_DAY_MAX` (8, q3h) feeds a day between them is a stop, and
+   so is a total that is no regular schedule (24 h ÷ total not whole hours:
+   6 + 2 and 4 + 4 are q3h, 3 + 3 q4h, never 3 + 4).
+   Center Point's TPN packet holds one feed, so a CP order is not offered a
+   second. Step 4 also has a **Magnesium**
    tile: the TPN's Mg in mEq/kg/d against `TARGETS.mg` (`EN_DB` has no Mg).
    The amino-acid stock comes from `D.aaProductsFor(patient)` — Aminoven on
    every ward today; Aminoplasmal 15% (contraindicated under 2 years) waits
@@ -867,7 +880,7 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    on patient switch with a "Prefilled from previous submission (DOL X)"
    banner. Submitting writes one row to `Daily_Log`.
    **Delete** (added 2026-08-10 (3)): a "ลบบันทึกนี้" button appears in the
-   Save + Copy Order card once the open entry actually exists on the server
+   Save Order card once the open entry actually exists on the server
    (`savedEntryId` — covers both "editing an old entry" and "just saved a new
    one this visit"), gated to `role === "admin"` the same way as the
    Dashboard's per-row trash icon (`CalculatorView`'s `onDelete` prop in
@@ -961,13 +974,14 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    is a number somebody picked, so `orderDayRolledOver` is forced false in
    scratch mode — `dolAtDate` on a patient-less record returns 1, which would
    snap a DOL 14 calc back to day-1 bands on a page left open past midnight.
-   **Copy Order stays, deliberately, and is the one thing that leaves the
-   page.** Its usual gate (saved, unchanged, `printable`) can never pass here
-   and is not the gate this mode needs — there is no entry id to misattribute
-   — so it is scoped to a real order, and the compensating control is the
-   copied text itself: it opens `คำนวณเร็ว (ไม่ใช่คำสั่งการรักษา)`, says it
-   was not saved, and carries neither bed nor NeoFeed ID. A paste into LINE
-   arrives without the screen it came from.
+   **Copy (`คัดลอกผลคำนวณ`) stays, deliberately, and is the one thing that
+   leaves the page.** Since 2026-10-28 it is the quick calc's alone: Pp took
+   Copy Order off a patient's order, which leaves only as the printed form.
+   There is no entry id here to misattribute, so the copy needs no save; the
+   compensating control is the copied text itself: it opens
+   `NeoFeed — Calculator (ไม่ใช่คำสั่งการรักษา)`, says it was not saved, and
+   carries neither bed nor NeoFeed ID. A paste into LINE arrives without the
+   screen it came from.
    The view carries **no banner between the page head and Step 1** (Praew,
    2026-09-21: "ไม่ต้องขึ้นกรอบสีเหลืองกลาง"). The `ไม่บันทึก` chip and the
    subtitle say it on arrival; the footer card says it again next to Copy,
@@ -1004,7 +1018,9 @@ under PDPA Sec 26. Current posture (see `HANDOFF.md` for the full writeup):
   kept (it was one letter of each) — Pp's call, for finding and identifying an
   infant on the ward; still not a full name. `BACKLOG.md` carries telling the DPO.
   **The id** carries nothing since 2026-09-27 (`NF-` and six random digits), so
-  Copy Order's LINE text holds no initials for a new infant. Residual risk: an
+  Copy Order's LINE text held no initials for a new infant; since 2026-10-28 a
+  patient's order has no Copy at all, so NeoFeed puts no id into copied text.
+  Residual risk: an
   id issued before that is initials+BW+twinSuffix, a pseudonym staff can
   reverse-map on a small census — erasure can't scrub that pattern without
   breaking every Daily_Log join. **There is no client entry point** — nothing in any `.jsx`

@@ -5,8 +5,9 @@
 //          was already left out of the fluid total, but it still counted toward
 //          energy, protein, lipid, Na, K, Ca, P and Ca:P. Now it counts toward
 //          no total at all: not the Step 3/4 tiles, the Step 6 EN row, the
-//          alerts, the saved Daily_Log figures, the printed totals or the copied
-//          order. Step 2 still shows what the feed itself provides, marked as
+//          alerts, the saved Daily_Log figures or the printed totals (the copied
+//          order too, until a patient's order lost its Copy, Pp 2026-10-28).
+//          Step 2 still shows what the feed itself provides, marked as
 //          not counted. The screenshot's own order is the fixture: its tiles read
 //          Na 4.2 · K 3.3 · Ca 5 · P 50 · Ca:P 0.11 with MEN ticked.
 //   §4     Praew's guard for that change: orders prefill from yesterday, so a
@@ -86,14 +87,6 @@ const toasts = [];
 global.showToast = (msg, type) => toasts.push({ msg, type });
 window.print = () => {};
 window.confirm = () => true;
-let copied = null;
-// The calculator runs in Node's own global scope (vm.runInThisContext), and
-// Node ≥ 21 has a global `navigator` of its own — so jsdom's is not the one
-// Copy Order reaches. Stub both.
-for (const nav of new Set([window.navigator, globalThis.navigator].filter(Boolean))) {
-  Object.defineProperty(nav, 'clipboard', { configurable: true,
-    value: { writeText: (t) => { copied = t; return Promise.resolve(); } } });
-}
 const React = require('react');
 const ReactDOM = require('react-dom/client');
 const { act } = require('react');
@@ -122,10 +115,16 @@ function setField(label, value) {
   if (!input) throw new Error('field not found: ' + label);
   act(() => { valueSetter.call(input, String(value)); input.dispatchEvent(new window.Event('input', { bubbles: true })); });
 }
-function selectFeed(key) {
-  const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'BM_20'));
-  const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-  act(() => { setter.call(sel, key); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+// Step 2 picks the milk, then its kcal/oz (Pp, 2026-10-28): set both selects
+// of feed 1 (or 2) from one EN_DB key.
+function selectFeed(key, feed = 1) {
+  const at = window.NEOFEED_DATA.enProductOf(key);
+  if (!at) throw new Error('Step 2 does not offer ' + key);
+  for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
+    const sel = container.querySelector(`.en-feed-${feed} .${cls}`);
+    if (!sel) throw new Error(`no .${cls} on feed ${feed}`);
+    act(() => { Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  }
 }
 function setChk(labelStart, want) {
   const box = [...container.querySelectorAll('input[type=checkbox]')]
@@ -255,7 +254,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     ok('Step 2 box no longer says "not counted"', !/not counted/i.test(text(enBox())), text(enBox()));
   });
 
-  await section('§3 MEN: what is saved, printed and copied', async () => {
+  await section('§3 MEN: what is saved and printed', async () => {
     const log = logger();
     mount({ patient: pt('MS-2000', 2000), onLog: log.onLog });
     screenshotOrder({ men: true });
@@ -275,10 +274,6 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     ok('printed energy has no "total incl. EN"', !/total incl\. EN/.test(t), t.match(/Energy \(TPN\)[^·]*·?[^·]*/));
     ok('printed summary: Energy is the TPN figure', t.includes(`Energy ${Math.round(TPN.kcal)} kcal/kg/d`), t.match(/Energy \d+ kcal\/kg\/d/));
     ok('printed Ca·PO₄ block has no EN (นม) row', !/EN \(นม\)/.test(t));
-    copied = null;
-    const copyBtn = [...container.querySelectorAll('button')].find(b => /Copy Order/.test(b.textContent));
-    await clickAsync(copyBtn);
-    ok('copied order says MEN is not counted in fluid or nutrition', /\[MEN — not counted in fluid or nutrition\]/.test(copied || ''), (copied || '').match(/EN: [^\n]*/));
   });
 
   await section('§3b a MEN order whose only phosphate was the feed now raises the no-P stop', async () => {
@@ -467,10 +462,6 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       ok('print: "☑ 15% Aminoplasmal = 2 g/kg/d = 4 g in bag = 26.7 mL"', /☑ 15% Aminoplasmal = 2 g\/kg\/d = 4 g in bag = 26\.7 mL/.test(t), t.match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
       ok('…and the prescription line is not Aminoven', !/☑ 10% Aminoven/.test(t), t.match(/☑ [^=]+=/g));
       ok('print lists the product change vs the previous order', /Amino acid product Aminoven 10%→Aminoplasmal 15%/.test(t), t.match(/เปลี่ยนแปลงจากคำสั่ง[^บ]*/));
-      copied = null;
-      await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order/.test(b.textContent)));
-      // "4 g", not "4.0 g": no trailing zeros since 2026-09-22 (Praew).
-      ok('copied order: "AA (Aminoplasmal 15%): … = 26.7 mL/day"', /AA \(Aminoplasmal 15%\): 2 g\/kg\/d → 4 g in bag = 26\.7 mL\/day/.test(copied || ''), (copied || '').match(/AA [^\n]*/));
 
       // Reopening the saved row restores the product and prints as saved.
       mount({ patient: pt('FW-2000', 2000, { currentBed: 'future ward' }), editEntry: { entryId: 'e-1', lastModified: 'lm-1', ts: '2026-09-18', dol: 1, weight: 2000,
@@ -620,10 +611,6 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     // D50W 30 + AA 50 + heparin 1.5 + Soluvit 2.5 + Peditrace 2.5 = 86.5 mL; WFI 150 − 86.5 = 63.5
     ok('the bag make-up counts the scaled amounts: components 86.5 + WFI 63.5 = 150 mL',
       /Components 86\.5 mL \+ WFI 63\.5 mL = 150 mL prepared/.test(t), t.match(/Components [^=]*= [\d.]+ mL prepared/));
-    copied = null;
-    await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order/.test(b.textContent)));
-    ok('copied order: "Soluvit N: 2.5 mL/day → aqueous bag (× Factor — delivers 2 mL)"',
-      /Soluvit N:\s+2\.5 mL\/day → aqueous bag \(× Factor — delivers 2 mL\)/.test(copied || ''), (copied || '').match(/Soluvit N:[^\n]*/));
 
     // No overfill, nothing to scale: 1 mL/kg as before.
     mount({ patient: pt('VN-2000', 2000), onLog: logger().onLog });

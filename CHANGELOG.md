@@ -37,6 +37,227 @@ PC's console or an Audit_Log row. Until now only Vera stood in the way; her benc
   changed lines, so an old line cannot hide behind the diff.
 - **`check()` passes the file name to a rule's `find`**, so `log-raw-cell` can keep to `.gs` files.
 
+## Session 2026-10-28 (4) — Two feeds: 6 + 2 is a schedule too
+
+`calculator.jsx`, the clinical-rules skill (`CR-EN-FEEDS-EQUAL` becomes `CR-EN-FEEDS-SCHEDULE`;
+`CR-EN-FEEDS-MAX`'s refusal case), `data.js` (a comment), `app-walkthrough.md`, `STATUS.md`. No figure,
+limit or stock moves, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+After #182 was merged into `main`, Pp: "ไม่ต้อง reject 6+2 ให้ทำได้". #182 read her "ต้องให้ทั้งสองตัว
+เป็นทุก ชม ที่เท่ากัน" as "both feeds equally often", which refused 6 + 2 though it makes 8 a day, a
+q3h schedule like 4 + 4. What 3 + 4 lacks is an interval: 7 feeds do not divide the day into whole hours.
+Asked (after Vera) whether that means any regular schedule or only totals of 8 or 6, Pp chose any regular
+schedule: totals 8, 6, 4, 3 or 2 a day, any whole split, 7 + 1 and 5 + 3 included.
+
+### What changed
+
+- The second two-feed stop is now "together they fill a regular schedule": 24 h ÷ (Feed 1 + Feed 2)
+  must be whole hours. 6 + 2, 5 + 3, 4 + 4 (q3h), 4 + 2, 3 + 3 (q4h) save; 3 + 4 and 3 + 2 are refused.
+  With the 8-a-day stop the totals left are 8, 6, 4, 3 and 2. The alert is "Two feeds off a regular
+  schedule", and the Step 2 line reads "Feed 1 + 2 = 7 feeds/d — ไม่ลงตัวกับทุก ชม. เท่ากัน (8, 6, 4, 3
+  หรือ 2 มื้อ/วัน) บันทึกไม่ได้".
+- Vera on this change: each feed's feeds a day must be whole (4.8 + 3.2 and 7.5 + 0.5 add to 8 but no
+  ward can give them), and beside the other each feed's hint now reads its share of the one schedule,
+  "6 of 8 feeds · q3h", where 6 + 2 used to read q4h beside q12h, which meet at 0 h and 12 h. The copied
+  order's Total line names the shared interval.
+- Vera's second review of it: the quick calc copies without the Print gate, so 3 + 4 copied as "7 feeds/d
+  q3.4h". A refused two-feed day now copies with no interval and a "!! … cannot be ordered" line, as an
+  over-maximum K⁺ does. Whole-feed faults have their own words ("จำนวนมื้อต้องเป็นจำนวนเต็ม"; the alert
+  said "24 h ÷ 8 is not whole hours" for 4.8 + 3.2), and the Thai stop line lists every allowed total,
+  8, 6, 4, 3 or 2. `verify-quick-calc.cjs` § 4b and the 4.8 + 3.2 case fail on the code before.
+- `CR-EN-FEEDS-MAX`'s refusal case is 6 + 6 = 12 (q2h): the first total over 8 that is still a regular
+  schedule, so it is refused by that stop alone.
+
+### Checks
+
+- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-SCHEDULE` with seven cases; 6 + 2 and 4 + 2 fail on the code
+  before (it refused them), 3 + 4 and 3 + 2 fail with the check turned off, and 4.8 + 3.2 and 7.5 + 0.5
+  fail without the whole-feeds check.
+- **No second clinician has reviewed this change.**
+## Session 2026-10-28 (3) — no Copy Order on a patient's order; the quick calc keeps its Copy
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, eleven harnesses,
+`app-walkthrough.md`, `BACKLOG.md`. No calculation, limit, unit or printed figure changed, and
+`CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp, 2026-10-28, looking at the Save + Copy Order card on a ward phone: "เอา copy order to clipboard ออกได้มั้ย".
+A patient's order now leaves NeoFeed only as the printed form (or, on Center Point, CP's reviewed revision,
+which never had Copy).
+
+### What changed
+
+- **"Copy Order to Clipboard" is gone from a patient's order**, for prescribers and nurses alike. The card is
+  "Save Order"; Save draft, Submit and Delete are unchanged.
+- **The quick calc keeps "คัดลอกผลคำนวณ"** (Pp, 2026-10-28: "Quick calc ให้ยังมีคัดลอกผล"): it has no Save and
+  no form, so Copy is all it has (2026-09-21).
+  Its text is byte-identical to before (checked by diffing three quick-calc orders' copies before and after).
+  The patient-only branches of the copy text are gone with the button: the Bed / NeoFeed ID line, the
+  critical-override line, and the `══ NeoFeed V2 — TPN Order ══` header and footer.
+- Wording that named Copy now names Print alone: "พิมพ์ได้หลังบันทึก", "…ก่อนพิมพ์" in the held-order line,
+  and the nurse's note "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว".
+- The quick calc's Copy no longer calls its text an order (Vera, PR #180): the toast is "คัดลอกผลคำนวณแล้ว"
+  (was "Order copied to clipboard") and the empty-step confirm asks "คัดลอกผลคำนวณต่อไปหรือไม่?" (was
+  "Copy order ต่อไปหรือไม่?"). `verify-calc-clicks` §10 checks both; both fail before the change.
+
+### Tests
+
+- Checks of a patient's copied text went with it: the oracle's copy figures, calc-sum's copy BAG MAKE-UP,
+  and the copy lines in the 0918, 0922, 0928, 1017, 1021 and 0917 harnesses. Every figure they read is
+  still checked on the screen or the printed form, except the acetate in the bag (0928 §13): only the
+  copy gave it, and only once `naAcetate.acetateMeqPerMl` is read off the label (it is `null`). The
+  screen's acetate per kg is still checked.
+- New: `verify-calc-clicks` asserts a patient's order has no Copy button, before saving and once printable;
+  `verify-nursing-frontend` 5.8 asserts the same for a nurse; `verify-safety-review` asserts the one
+  `navigator.clipboard` call sits in a `{scratch && <button …>}`. All three fail on `main`.
+- Moved, not dropped: the "no .0" rule (0922 §8) and the K⁺ route wording (0928 §15) now read the quick
+  calc's copy, the one copy left.
+
+## Session 2026-10-28 (2) — Print ทั้งหมด and per-infant ticks on a ward's Print order list, no Calculator button there
+
+`registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs` (new),
+`test/verify-phone-sweep.cjs`, `test/verify-quick-calc.cjs`, `test/README.md`. No calculation, limit or
+printed figure changed; `calculator.jsx`, `data.js` and `gas-backend.gs` are untouched.
+
+### Why
+
+Pp, on a phone screenshot of "Print order · NICU": "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมี
+แคลคูเลเตอร์ด้านขวาล่าง", then, in the same session: "ให้สามารถมีปุ่มซีเล็กเป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้".
+
+### What changed
+
+- **Print ทั้งหมด**, top right of the list's head on every screen size (the phone's stacked page head
+  is overridden for this page only; ← กลับ moved under the title). It counts the rows a tap would print
+  and is off when there are none. A row still saving, or a day with two orders, is left out, as a tap
+  on it does not print either.
+- **A tick per infant, and เลือกทั้งหมด.** Each printable row has a tick beside its card (not inside it:
+  the card is itself a button), all ticked when the list opens. เลือกทั้งหมด ticks or clears them all and
+  shows part-ticked with "เลือกแล้ว 2 จาก 3 ใบ". The button reads Print ทั้งหมด (3) while all are ticked
+  and Print ที่เลือก (2) otherwise, and is off at 0. A tap on a row still prints that one order. The
+  ticks live in the list, so they reset to all when the list is opened again.
+- **One order at a time.** The run opens each order from the list exactly as a tap on its row does
+  (`openOrderToPrint`), so each still passes the calculator's Print gate and the edit lock, and gets
+  one print preview. A bar on the calculator reads "Print ทั้งหมด · ใบที่ 1 จาก 3" with
+  "ถัดไป: NICU 2 …"; the last reads "ใบสุดท้าย · กลับไปรายการ". An order held back (unsaved edit, a
+  critical value with no reason, a colleague's lock) shows the usual reason, and ถัดไป still goes on.
+  Leaving the calculator, or the list, ends the run.
+- **Each order is asked the list's rule again before it opens** (`registry.jsx` `wardPrintableOrder`,
+  shared by the list and the run). One a sync took off the list during the run (the infant discharged or
+  moved, a second order that day, the order deleted, the day rolled over) is skipped with a toast naming
+  it, and the run goes on.
+- **No Calculator button on the print list.** It stays on the ward gate and the ward's patient list.
+
+### Decisions
+
+- **The next order opens on a tap, never on afterprint.** A browser need not wait for its print dialog
+  before handing the page back, and moving the page on under an open dialog could put the next infant's
+  order on this one's sheet. One tap per order costs less than one wrong-patient sheet sent to pharmacy.
+- **Not one combined print job.** That needs every order's sheet rendered at once, and the sheet is
+  built inside `Calculator` from its own state. A print-only mode there is a change to a dose file, and
+  a second path that decides what may print. This one reuses the reviewed path untouched. If the ward
+  wants one dialog for the whole ward, that is the follow-up.
+
+### Vera
+
+NO BLOCK on the first commit, three findings, all fixed in the second: the last bar said "ครบ N ใบ" though
+the run cannot know a sheet printed (now "ใบสุดท้าย"); the queue was never re-checked, so a sync during the
+run could auto-print an order a tap on the list could no longer reach (now `wardPrintableOrder` is asked
+again before each order); a deleted entry ended the run silently (now skipped by name, the run goes on).
+Her three proposed tests went in (`verify-print-all-1028` 3.5, #8 `resync`, #8b `gone`); each fails on
+the first commit and passes on the second. Her second review: NO BLOCK, no findings, three tests proposed.
+Two went in, #8c `moved` (an infant moved to SCN during the run) and #8d `midnight` (the day rolls over);
+both fail on the first commit. The third (twins with one name) does not fail on either commit, so it is
+left out, by her rule 5.
+
+### Checked
+
+`verify-print-all-1028.cjs` 72/72 on the sources and on `compiled/`; against `main` (`326bcd9`), every one
+of its twelve scenarios fails.
+
+## Session 2026-10-28 — Step 2: two feeds, each a milk and then its kcal/oz
+
+`data.js` (`EN_PRODUCTS`, `enProductOf`, `enMixPer100mL`), `calculator.jsx` (Step 2, the EN terms of
+`calc`, the saved inputs, the change list, the copied order), the clinical-rules skill (rules
+`CR-U-EN-TWO-FEEDS`, `CR-EN-FEEDS-MAX`, `CR-EN-FEED-UNKNOWN`, and `CR-U-EN-KCAL`), `app-walkthrough.md`,
+and the harnesses that pick a feed. No `EN_DB` row, limit or stock changed, and an order with one feed
+computes exactly as before. No backend change: `calcInputJson` already stores the inputs as they are.
+
+**`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's decision (2026-10-28).** Vera pointed out that a
+frontend without feed 2 (a ward tab loaded before the release, or `release` after a revert) opens a
+two-feed order as feed 1 only and prints it unheld, since `calcMoved` only holds a different stamp; a
+bump would hold it there, at the price of every older order being saved again before it reprints. Pp
+chose no bump. So after a revert of this change, a two-feed order prints feed 1's figures alone until it
+is re-entered, and a re-save from such a tab drops feed 2.
+
+### Why
+
+Pp, 2026-10-28, from a ward phone screenshot of Step 2: "ให้สามารถมีตัวเลือกสองอันสำหรับชนิดของนม
+ต่อมามีให้เลือกเป็น kcal/oz, volume และจำนวนมื้อของนมชนิดนั้นๆ ... โดยไปดึงข้อมูลมาจาก Chula nutrition
+book" — two feeds, each chosen as a milk and then its kcal/oz, with its own volume and feeds a day,
+composition from the Chula handbook rows `EN_DB` already holds.
+
+### What changed
+
+- **Milk, then kcal/oz.** The one long feed list became two selects: the milk (grouped as before) and its
+  strength. Each strength is an existing `EN_DB` row, so the order still saves one key per feed and every
+  figure keeps its source. Only the strengths the formulary already had are offered (Enfalac Premature
+  and Pre Nan 22/24, HiQ LF and Enfalac LF 20/24/27, the rest one each); adding one is a row plus a pair
+  in `EN_PRODUCTS`, and is Pp's and the nutrition unit's call. The two selects share the three columns
+  of the Volume / Frequency row below: the milk spans two, kcal/oz the third (Pp, from the desktop view:
+  a fixed 112 px kcal/oz box beside a full-width milk box was out of proportion). Changing the milk keeps
+  the kcal/oz when the new milk comes in it; otherwise it takes the new milk's first and says so beside
+  the picker, "kcal/oz 30 → 22: Pre Nan ไม่มี 30 kcal/oz" (Vera's third review; 4.20–4.22).
+- **A second feed.** "+ Add a second feed (นมชนิดที่ 2)" opens Feed 2 with its own milk, kcal/oz, volume
+  and frequency; each feed shows its mL/day and mL/kg/d. The day's enteral volume and every nutrient are
+  the sum of the two: `enMixPer100mL` weights one composition per 100 mL by each feed's mL/day, so fluid,
+  the switch to enteral targets, every tile and alert and the Daily_Log columns read the sum. With one
+  feed it returns that feed's own row object, so nothing moves for a one-feed order. The MEN tick covers
+  both feeds and sits below them when there are two (Pp, after Vera asked: one tick, not one per feed).
+- **At most 8 feeds a day between the two** (Pp, later the same day: "Feed 1+2 รวมกันมากสุดจะได้แค่ 8
+  มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้ 6 มื้อ"). The two feeds share one schedule, so with two feeds given,
+  Feed 1's and Feed 2's feeds a day above `EN_FEEDS_PER_DAY_MAX` (8, q3h) cannot be submitted (a stop,
+  like the 1,250 mL bottle: a draft can be kept). Step 2 shows "Feed 1 + 2 = 8 feeds/d · q3h". One feed
+  alone is not checked; whether a q2h feed (12) should be is Q18 in the skill. Feed 1 with no volume
+  beside feed 2 is a day of one feed (Vera's second review): not checked, and copied as one line.
+  `docs/CLINICAL_CONSTANTS.md` has its row.
+- **The two feeds at the same interval** (Pp, later still: "ถ้าอันนึงกด 3 feed อันนึงกด 4 feed จะทำไม่ได้
+  ต้องให้ทั้งสองตัว เป็นทุก ชม ที่เท่ากัน"). With two feeds given, Feed 1's and Feed 2's feeds a day must be
+  equal (`CR-EN-FEEDS-EQUAL`, a stop): 4 + 4 is q3h, 3 + 3 q4h; 3 + 4 is refused, and so is 6 + 2 though
+  it makes 8.
+- **A feed EN_DB does not hold stops the order** (Vera on this change). A saved feed whose key is not
+  an `EN_DB` row (removed since, or written by a newer NeoFeed) was costed as the other feed once there
+  could be two; `enMixPer100mL` now returns null for it, `enFeedsUnknown` names it, and the order cannot
+  be submitted or printed until another milk is picked (`CR-EN-FEED-UNKNOWN`). Before two feeds such a
+  key stopped the Calculator with an error.
+- **Saved, compared, copied.** `calcInput` gains `enType2`/`enVol2`/`enFreq2` (an older row normalises
+  to none), the change list names them, the copied order prints one line per feed and the total, and
+  `savedDosingWeightOf` counts both feeds. The change list names feed 2's milk only where feed 2 is
+  given (Vera's second review): removing it reads "Feed 2: Pre Nan → none", not "→ Breast Milk", and a
+  milk picked for a feed 2 with no volume is no change.
+- **Center Point** prints one feed (`neofeed-tpn-v2`), so a CP order is not offered a second, and feed 2
+  counts for nothing there.
+
+### Checks
+
+- **No second clinician has checked the two-feed sum** or the figures a two-feed order prints (change
+  protocol step 3). The harnesses below are the only check so far.
+- `verify-calc-oracle.cjs`: two orders with two feeds (K1 alternating feeds beside a bag; K2 two feeds
+  that reach 100 mL/kg/d only together), recomputed feed by feed rather than through the app's mix, on
+  screen, in the saved row, on the form and in the copy. With feed 2 dropped from the app, both fail on
+  45+ figures each (run once by hand, not kept as a switch).
+- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-MAX` (stop) with 8 saving, 9 refused, q4h's 6 saving, a
+  feed with no volume not counted and one q2h feed not checked; with the limit set to 9 the refusal
+  fails (run once by hand). `CR-U-EN-TWO-FEEDS` with five orders (fluid, the enteral switch from the
+  sum, MEN over both feeds and the MEN ceiling on the sum); the harness learned `feed2`/`order2`.
+- `verify-en-db-sources.cjs` 4.14–4.19: reopened orders with a feed not in `EN_DB`, and the change
+  list with feed 2 removed or empty; each fails on the code before its fix.
+- The harnesses that picked a feed by "the select with a BM_20 option" set the milk and then its
+  kcal/oz; `verify-en-db-sources.cjs` §4 and `verify-tpn-meeting-0928.cjs` §9 walk both selects and still
+  require exactly the sixteen feeds offered before.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),
