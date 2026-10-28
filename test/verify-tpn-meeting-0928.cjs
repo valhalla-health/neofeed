@@ -159,9 +159,10 @@ async function save(reason = 'fixture — attending aware') {
   window.prompt = () => reason;
   await clickAsync(saveBtn());
 }
-async function copyOrder() {
+// A patient's order has no Copy since Pp, 2026-10-28; the quick calc's is the one left.
+async function copyCalc() {
   copied = null;
-  await clickAsync(button(/Copy Order to Clipboard/));
+  await clickAsync(button(/คัดลอกผลคำนวณ/));
   return copied || '';
 }
 // The dose field is found by its unit, not its name, so this helper works on
@@ -289,8 +290,6 @@ function baseOrder({ tf = 120 } = {}) {
       printText().match(/Lipid pump rate.{0,140}/));
     ok('the form\'s front still ticks the paper form\'s own lipid list (scope: screen only)',
       /☑ 20% SMOF/.test(text(frontSheet())), text(frontSheet()).match(/Lipid.{0,80}/));
-    const copy = await copyOrder();
-    ok('the copied order: over 18h, 0.11 g/kg/h', /Lipid bag:[^\n]*over 18h[^\n]*\(0\.11 g\/kg\/h\)/.test(copy), copy.match(/Lipid bag:[^\n]*/));
   });
 
   // ═══════════════════════════ §6 phosphate per mL ═════════════════════════
@@ -350,8 +349,11 @@ function baseOrder({ tf = 120 } = {}) {
   // ═══════════════════════════ §9 feed groups ══════════════════════════════
   await section('§9 item 6: preterm and post-discharge formulas are grouped apart', async () => {
     mount({ patient: pt('FG-2000', 2000), onLog: logger().onLog });
-    const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'BM_20'));
-    const groups = [...sel.querySelectorAll('optgroup')].map(g => ({ label: g.label, keys: [...g.querySelectorAll('option')].map(o => o.value) }));
+    // Since 2026-10-28 Step 2 picks the milk (grouped), then its kcal/oz: a
+    // group's feeds are its milks' strengths, each an EN_DB key.
+    const sel = container.querySelector('.en-feed-1 .en-product');
+    const keysOfProduct = (id) => D.EN_PRODUCTS.find(p => p.id === id).strengths.map(([, k]) => k);
+    const groups = [...sel.querySelectorAll('optgroup')].map(g => ({ label: g.label, keys: [...g.querySelectorAll('option')].flatMap(o => keysOfProduct(o.value)) }));
     const keysOf = (re) => (groups.find(g => re.test(g.label)) || {}).keys;
     // Since 2026-10-27 (nutrition unit, 2026-10-25) Pre Nan is a preterm formula,
     // not a post-discharge one, and Enfalac Premature and Pre Nan also come at 24.
@@ -425,12 +427,9 @@ function baseOrder({ tf = 120 } = {}) {
     // The maximum alone on a peripheral line since 2026-10-08 (§15).
     ok('the form gives the route’s limit', /K⁺ in bag: max 60 mEq\/L \(peripheral\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
     ok('…and so does its back sheet', /K⁺ in bag 50 mEq\/L \(max 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
-    const copy = await copyOrder();
-    ok('…and the copied order', /\(50 mEq\/L; max 60 on a peripheral line\)/.test(copy), copy.match(/Total K:[^\n]*/));
     click(button(/^Central$/));
     await save();
     ok('on a central line the form gives both numbers', /K⁺ in bag: confirm > 120 · max 200 mEq\/L \(central\)/.test(printText()), printText().match(/K⁺ in bag: .{0,40}/));
-    ok('…and so does the copied order', /\(50 mEq\/L; confirm above 120, max 200 on a central line\)/.test(await copyOrder()));
 
     // A saved row above the maximum reopens without Print. No save can make
     // one now, but a row saved before the maximum, or edited in the Sheet, can.
@@ -529,10 +528,6 @@ function baseOrder({ tf = 120 } = {}) {
       setField('Na Acetate', 3);
       ok('with 3 mEq/mL set: "· acetate 3 mEq/kg/d" in the caption', /1 mL\/kg\/d · acetate 3 mEq\/kg\/d/.test(caption()), caption());
       ok('…"acetate 3 mEq/mL" in the note', /acetate 3 mEq\/mL/.test(text(naAcRow()?.querySelector('.salt-note'))), text(naAcRow()?.querySelector('.salt-note')));
-      await save();   // the copy button works on a saved order
-      const copy = await copyOrder();
-      // 3 mEq/kg × 2 kg × 210/180 overfill = 7 mEq Na in the bag → 7 mEq acetate
-      ok('…and the copied order gives the bag\'s acetate', /Na Acetate:[^\n]*\(acetate 7 mEq\)/.test(copy), copy.match(/Na Acetate:[^\n]*/));
     } finally { D.KCMH_STOCK.naAcetate.acetateMeqPerMl = was; }
   });
 
@@ -657,8 +652,8 @@ function baseOrder({ tf = 120 } = {}) {
   // ═════════════════════ §15 only the maximum where it is red ═════════════════
   // Praew, 2026-10-08, on PR #137: "ให้เหลือแค่ max 60". Where a route's red is
   // at or above its maximum (peripheral 60 / 60), no bag can be confirmed with
-  // a reason, so the screen, the form and the copied order name the maximum
-  // alone. It follows the constants, not the route: central (red 120 < max 200)
+  // a reason, so the screen, the form and the quick calc's copied text name
+  // the maximum alone. It follows the constants, not the route: central (red 120 < max 200)
   // reads exactly as before, and either route flips when its numbers do.
   await section('§15 only "max 60" on a peripheral line (Praew, 2026-10-08); central unchanged; derived from the constants', async () => {
     const ref = () => text(container.querySelector('.k-conc-ref'));
@@ -679,10 +674,8 @@ function baseOrder({ tf = 120 } = {}) {
     await save();
     ok('…the form: "K⁺ in bag: max 60 mEq/L (peripheral)"', /K⁺ in bag: max 60 mEq\/L \(peripheral\)/.test(text(frontSheet())), text(frontSheet()).match(/K⁺ in bag: .{0,40}/));
     ok('…the back sheet: "(max 60, peripheral)"', /K⁺ in bag 50 mEq\/L \(max 60, peripheral\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
-    const pCopy = await copyOrder();
-    ok('…the copied order: "(50 mEq/L; max 60 on a peripheral line)"', /\(50 mEq\/L; max 60 on a peripheral line\)/.test(pCopy), pCopy.match(/Total K:[^\n]*/));
-    ok('…and no 60 to confirm anywhere: screen, form or copy', !UNREACHABLE.test(screenText()) && !UNREACHABLE.test(printText()) && !UNREACHABLE.test(pCopy),
-      [screenText(), printText(), pCopy].map(s => (s.match(UNREACHABLE) || [''])[0]));
+    ok('…and no 60 to confirm on the screen or the form', !UNREACHABLE.test(screenText()) && !UNREACHABLE.test(printText()),
+      [screenText(), printText()].map(s => (s.match(UNREACHABLE) || [''])[0]));
 
     order('KW-C70', 'Central', 3.5);      // 70, amber
     eq('central, under the tile: unchanged', ref(), 'central: amber > 60 · red > 120 · max 200 mEq/L');
@@ -690,8 +683,21 @@ function baseOrder({ tf = 120 } = {}) {
     await save();
     ok('…the form: unchanged', /K⁺ in bag: confirm > 120 · max 200 mEq\/L \(central\)/.test(text(frontSheet())), text(frontSheet()).match(/K⁺ in bag: .{0,40}/));
     ok('…the back sheet: unchanged', /K⁺ in bag 70 mEq\/L \(confirm > 120, max 200, central\)/.test(printText()), printText().match(/K⁺ in bag \d[^·]*/));
-    const cCopy = await copyOrder();
-    ok('…the copied order: unchanged', /\(70 mEq\/L; confirm above 120, max 200 on a central line\)/.test(cCopy), cCopy.match(/Total K:[^\n]*/));
+
+    // The same two bags in the quick calc, whose copy is the one copy left.
+    const quickCopy = async (route, kCl) => {
+      mount({ patient: { sessionId: null, name: null, initials: null, bw: 0, ga: 0, sex: '', currentBed: '',
+        diagnosis: '', weights: [], lengths: [], hcs: [] }, scratch: true, logDate: null, userLabel: '' });
+      setField('Current weight', 2000); setField('ปริมาตรคาสาย', 0); setField('Volume(mL/day)', 100);
+      click(button(new RegExp(`^${route}$`)));
+      setField('KCl', kCl);
+      return copyCalc();
+    };
+    const pCopy = await quickCopy('Peripheral', 2.5);
+    ok('…the quick calc copy: "(50 mEq/L; max 60 on a peripheral line)"', /\(50 mEq\/L; max 60 on a peripheral line\)/.test(pCopy), pCopy.match(/Total K:[^\n]*/));
+    ok('…and no 60 to confirm in it', !UNREACHABLE.test(pCopy), (pCopy.match(UNREACHABLE) || [''])[0]);
+    const cCopy = await quickCopy('Central', 3.5);
+    ok('…the quick calc copy on central: unchanged', /\(70 mEq\/L; confirm above 120, max 200 on a central line\)/.test(cCopy), cCopy.match(/Total K:[^\n]*/));
 
     // Moved numbers, for this check only: each route reads from its own.
     const P = D.K_BAG_MEQ_PER_L.peripheral, C = D.K_BAG_MEQ_PER_L.central;
