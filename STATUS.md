@@ -1,5 +1,18 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-28, 14:43 ICT — frontend `release` = `c251bc5` (PR #186) on both hosts, with backend `@64`.**
+> PR #186 released #183: the ward list's status chip ("Active ▾") changes the status, saved where Edit
+> session saves it; the bed chip is the ⇄ button; a change to Expired asks first, naming the infant and the
+> bed; a blank or hand-typed status reads Active everywhere. `release`'s tree is `main` `17ed80c`'s,
+> the tree walked on dev local (table in #186's description). `harnesses` was green on it before the merge
+> and on the `release` push. Cloudflare's production build and the GitHub Pages build and deploy of
+> `c251bc5` succeeded. From Pp's PC at 14:45 ICT, `node tools/verify-release.mjs --wait` passed on both
+> hosts on its first attempt (0 failures, 61 passes), and both serve the new `?v=` tokens of
+> `compiled/app.js` (`379127e809`) and `compiled/registry.js` (`c4030c2613`). The tag
+> `release-2026-10-28-pr186` is pushed (comment on #186). `CONSTANTS_VERSION` unchanged at `2026-10-27.2`,
+> no backend change. ⚠️ No one has changed a status from the chip on a ward phone yet, nor seen whether the
+> Expired question shows in the home-screen app on iOS (if it is suppressed there, Expired cannot be saved).
+>
 > ✅ **2026-10-28, 13:58 ICT — frontend `release` = `a6b5edd` (PR #184), with backend `@64`.** PR #184
 > released #182 and #185 (two feeds in Step 2; 6 + 2 and any other regular schedule allowed), #181 (Print
 > ทั้งหมด / Print ที่เลือก on a ward's print list), #180 (no Copy Order on a patient's order) and #173 (nothing
@@ -218,13 +231,13 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `a6b5edd` (PR #184) are live.**
-#184 released #182, #185, #181, #180 and #173 at 13:58 ICT; its `verify-release` run and tag are Pp's
-(banner). Caught up with #184 by PR #183, the next PR on the repo.
-- ⏳ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
-  asks first: merged into `main` on Pp's instruction ("1+2": yes to the Expired question, and to merge and
-  deploy); not live until the `main → release` PR after #184, which this session opens once #183 is in
-  `main`.**
+**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `c251bc5` (PR #186) are live, and
+both are verified.** #186 released #183 at 14:43 ICT, after #184 (#182, #185, #181, #180, #173) at 13:58.
+Both releases passed `verify-release` on both hosts and are tagged (banners above). Caught up with #186 on
+Pp's instruction ("ทำ STATUS ให้ตรงกับ release #186").
+- ✅ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
+  asks first: live, released by #186 (banner above), on Pp's instruction ("1+2": yes to the Expired
+  question, and to merge and deploy).**
   Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; no calculation or printed figure changes.
   A status change saves where Edit session saves it (`registerPatient`, `status` + `statusDate` only).
   Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28 (5).
