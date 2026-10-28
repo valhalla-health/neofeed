@@ -391,6 +391,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const [printWard, setPrintWard] = React.useState(null);
   const [printJob, setPrintJob] = React.useState(null);
   const [autoPrint, setAutoPrint] = React.useState(null);
+  const [printQueue, setPrintQueue] = React.useState(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local");
   const [lastSync, setLastSync] = React.useState(null);
@@ -414,6 +415,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setLogDate(null);
     setAutoPrint(null);
     setPrintWard(null);
+    setPrintQueue(null);
     setView(v);
   };
   React.useEffect(() => {
@@ -436,6 +438,44 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setPrintJob({ sessionId, entryId, token: Date.now() });
     setActiveId(sessionId);
   };
+  React.useEffect(() => {
+    if (view !== "registry" || !printWard || !printQueue?.opening) return;
+    const item = printQueue.items[printQueue.index];
+    if (!item) {
+      setPrintQueue(null);
+      return;
+    }
+    const p = patients.find((x) => x.sessionId === item.sessionId);
+    const order = wardPrintableOrder(p, log[item.sessionId], printWard, D_A.todayLocal());
+    if (!order || order.entryId !== item.entryId) {
+      showToast(`ข้าม ${item.label || "ใบสั่งนี้"} — ไม่อยู่ในรายการ Print order แล้ว`, "error");
+      setPrintQueue({ ...printQueue, index: printQueue.index + 1 });
+      return;
+    }
+    setPrintQueue({ ...printQueue, opening: false });
+    openOrderToPrint(item.sessionId, item.entryId);
+  }, [view, printWard, printQueue]);
+  React.useEffect(() => {
+    if (!printWard) setPrintQueue(null);
+  }, [printWard]);
+  const startPrintAll = (items) => {
+    if (items?.length) setPrintQueue({ items, index: 0, opening: true });
+  };
+  const printNextInQueue = () => {
+    if (printQueue) setPrintQueue({ ...printQueue, index: printQueue.index + 1, opening: true });
+    setView("registry");
+  };
+  const backToPrintList = () => {
+    setPrintQueue(null);
+    setView("registry");
+  };
+  const queuedOrder = printQueue && !printQueue.opening ? printQueue.items[printQueue.index] : null;
+  const printAllStep = queuedOrder && view === "calculator" && autoPrint && printWard && editEntry && editEntry.entryId === queuedOrder.entryId && activeId === queuedOrder.sessionId ? {
+    position: printQueue.index + 1,
+    total: printQueue.items.length,
+    hasNext: printQueue.index + 1 < printQueue.items.length,
+    next: printQueue.items[printQueue.index + 1]?.label || ""
+  } : null;
   const active = patients.find((p) => p.sessionId === activeId);
   const dol = D_A.liveDol(active);
   const [ackVersion, setAckVersion] = React.useState(0);
@@ -464,7 +504,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return;
     }
     if (view === "calculator") {
-      if (editEntry && autoPrint && printWard) setView("registry");
+      if (editEntry && autoPrint && printWard) backToPrintList();
       else goTo(active ? "log" : "registry");
     } else if (view === "fenton" || view === "alerts") {
       goTo(active ? "log" : "registry");
@@ -1333,7 +1373,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return /* @__PURE__ */ React.createElement(SyncGate, { online, failed: syncState === "error", detail: syncError, onRetry: () => syncFromGAS() });
   }
   shellReadyRef.current = true;
-  const showQuickFab = view === "registry";
+  const showQuickFab = view === "registry" && !printWard;
   return /* @__PURE__ */ React.createElement("div", { className: showQuickFab ? "app has-quick-fab" : "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, null)), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -1500,6 +1540,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       printWard,
       onPrintWard: setPrintWard,
       onPrintOrder: openOrderToPrint,
+      onPrintAll: startPrintAll,
       onSelect: (id) => {
         setEditEntry(null);
         setActiveId(id);
@@ -1544,7 +1585,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       handlePublishToGAS,
       handleDeleteEntry,
       autoPrint,
-      onBackToPrintList: autoPrint && printWard ? () => setView("registry") : null,
+      onBackToPrintList: autoPrint && printWard ? backToPrintList : null,
+      printAll: printAllStep,
+      onPrintAllNext: printNextInQueue,
       goTo
     }
   ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, entries: log[activeId] || [], currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights) })), view === "log" && active && /* @__PURE__ */ React.createElement(
@@ -1682,7 +1725,9 @@ function CalculatorView({
   nursing = [],
   ordersReadOnly = false,
   autoPrint = null,
-  onBackToPrintList = null
+  onBackToPrintList = null,
+  printAll = null,
+  onPrintAllNext = null
 }) {
   const today = D_A.todayLocal();
   const [reportedOrderDate, setReportedOrderDate] = React.useState(null);
@@ -1708,7 +1753,11 @@ function CalculatorView({
     showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${holder.name || holder.email || "ผู้ใช้งานอื่น"} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
   }, [autoPrint, holder]);
   const autoPrintNow = editEntry && autoPrint && lockChecked && !holder && autoPrintHeld !== autoPrint ? autoPrint : null;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && (onBackToPrintList ? /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBackToPrintList }, "← กลับไปรายการ Print order") : /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard")), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: requestPrint }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), holder && /* @__PURE__ */ React.createElement("div", { style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && (onBackToPrintList ? /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBackToPrintList }, "← กลับไปรายการ Print order") : /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard")), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: requestPrint }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), printAll && /* @__PURE__ */ React.createElement("div", { className: "print-all-bar", role: "status" }, /* @__PURE__ */ React.createElement("span", null, "Print ทั้งหมด · ใบที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.position), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.total)), printAll.hasNext ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn primary", onClick: onPrintAllNext }, "ถัดไป: ", printAll.next, " ", /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: "#fff" })) : (
+    // "ใบสุดท้าย", not "ครบ N ใบ": the run cannot know a sheet printed —
+    // a held order or a cancelled dialog looks the same from here (Vera).
+    /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: onBackToPrintList }, "ใบสุดท้าย · กลับไปรายการ")
+  )), holder && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",
@@ -1876,7 +1925,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
     const caDays = D_A.correctedAge(patient.ga, displayDol);
     const caLabel = caDays >= 0 ? `CA ${Math.floor(caDays / 7)}+${caDays % 7} wk` : null;
     return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "PMA"), /* @__PURE__ */ React.createElement("div", { className: "val num", style: { color: "var(--brand-2)" } }, fmtGA(D_A.pmaShort(patient.ga, displayDol)), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4 } }, "wk")), caLabel && /* @__PURE__ */ React.createElement("div", { className: "sub", style: { color: "var(--ok)", fontWeight: 600 } }, caLabel));
-  })(), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Diagnosis"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { className: "val", style: { fontSize: 13, lineHeight: 1.3, fontWeight: 700, minWidth: 0, overflowWrap: "anywhere" } }, patient.diagnosis), /* @__PURE__ */ React.createElement("span", { className: "chip" + (D_A.isOnUnit(patient) ? " ok" : ""), style: { fontSize: 11 } }, /* @__PURE__ */ React.createElement("span", { className: "d" }), patient.status))));
+  })(), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Diagnosis"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { className: "val", style: { fontSize: 13, lineHeight: 1.3, fontWeight: 700, minWidth: 0, overflowWrap: "anywhere" } }, patient.diagnosis), /* @__PURE__ */ React.createElement("span", { className: "chip" + (D_A.isOnUnit(patient) ? " ok" : ""), style: { fontSize: 11 } }, /* @__PURE__ */ React.createElement("span", { className: "d" }), D_A.patientStatus(patient)))));
 }
 function AlertCenter({ patient, log, onAckChange }) {
   const entries = log[patient.sessionId] || [];
@@ -1949,16 +1998,12 @@ const HELP_IMAGE_MAX_EDGE = 1600;
 function helpImageFromFile(file) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type || "")) return reject(new Error("แนบได้เฉพาะรูปภาพ"));
-    const url = URL.createObjectURL(file);
+    const cannotOpen = () => reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
     const img = new Image();
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
-    };
+    img.onerror = cannotOpen;
     img.onload = () => {
-      URL.revokeObjectURL(url);
       const w = img.naturalWidth, h = img.naturalHeight;
-      if (!w || !h) return reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
+      if (!w || !h) return cannotOpen();
       let edge = Math.min(HELP_IMAGE_MAX_EDGE, Math.max(w, h));
       for (let pass = 0; pass < 4; pass++) {
         const s = edge / Math.max(w, h);
@@ -1980,7 +2025,13 @@ function helpImageFromFile(file) {
       }
       reject(new Error("รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่"));
     };
-    img.src = url;
+    const reader = new FileReader();
+    reader.onerror = cannotOpen;
+    reader.onload = () => {
+      if (typeof reader.result !== "string" || !/^data:/.test(reader.result)) return cannotOpen();
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
 function HelpRequestModal({ onClose, onSend }) {

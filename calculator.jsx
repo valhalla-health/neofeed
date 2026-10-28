@@ -92,6 +92,11 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     enType: src.enType ?? "BM_20",
     enVol: src.enVol ?? 0,
     enFreq: src.enFreq ?? 0,
+    // A second feed (Pp, 2026-10-28). Absent from every entry saved before
+    // then: there was one feed, so feed 2 is none.
+    enType2: src.enType2 ?? "BM_20",
+    enVol2: src.enVol2 ?? 0,
+    enFreq2: src.enFreq2 ?? 0,
     isMEN: src.isMEN ?? false,
     inclSoluvit: src.inclSoluvit ?? true,
     inclPeditrace: src.inclPeditrace ?? true,
@@ -163,6 +168,9 @@ const ORDER_DIFF_FIELDS = [
   ["enType", "Feed", ""],
   ["enVol", "Feed volume", "mL/feed"],
   ["enFreq", "Feeds", "/d"],
+  ["enType2", "Feed 2", ""],
+  ["enVol2", "Feed 2 volume", "mL/feed"],
+  ["enFreq2", "Feed 2 feeds", "/d"],
   ["isMEN", "MEN", ""],
   ["suppVitD", "Vit D", "IU/kg/d"],
   ["suppCa", "Oral Ca", "mg/kg/d"],
@@ -172,7 +180,8 @@ const ORDER_DIFF_FIELDS = [
 ];
 function describeOrderValue(key, v) {
   if (typeof v === "boolean") return v ? "yes" : "no";
-  if (key === "enType") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
+  if (key === "enType2" && v == null) return "none";
+  if (key === "enType" || key === "enType2") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   // A volume derived from Rate × 24 used to reach this list — and the printed
   // pharmacy form — as "98.39999999999999" (review 2026-09-17, UP-C13).
@@ -183,11 +192,16 @@ function describeOrderValue(key, v) {
   if (v == null) return "—";
   return String(v);
 }
+// Feed 2's milk means nothing on an order that gives no feed 2 (2026-10-28,
+// Vera): it reads "none" there, and is left out when neither order gives one,
+// so removing feed 2 never reads as a switch to the default milk.
+const feed2Given = (o) => Number(o.enVol2) * Number(o.enFreq2) > 0;
 // → [{ label, from, to, unit }] for every order field that differs.
 function diffOrderInputs(prev, cur) {
   const out = [];
   for (const [key, label, unit] of ORDER_DIFF_FIELDS) {
-    const a = prev[key], b = cur[key];
+    let a = prev[key], b = cur[key];
+    if (key === "enType2") { a = feed2Given(prev) ? a : null; b = feed2Given(cur) ? b : null; }
     if (a === b) continue;
     if (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 1e-9) continue;
     out.push({ label, from: describeOrderValue(key, a), to: describeOrderValue(key, b), unit });
@@ -268,7 +282,7 @@ function savedDosingWeightOf(entry) {
   if (num(ci.tpnWtG) > 0) return { g: num(ci.tpnWtG), exact: true };
   const dexG = num(ci.totalTPN_mL) * num(ci.dexPct) / 100, gir = num(entry?.gir);
   if (dexG > 0 && gir > 0) return { g: dexG * 1000 / (1440 * gir) * 1000, exact: false };
-  const enTotal = num(ci.enVol) * num(ci.enFreq), enPerKg = num(entry?.enVolPerKg);
+  const enTotal = num(ci.enVol) * num(ci.enFreq) + num(ci.enVol2) * num(ci.enFreq2), enPerKg = num(entry?.enVolPerKg);
   if (enTotal > 0 && enPerKg > 0) return { g: enTotal / enPerKg * 1000, exact: false };
   return null;
 }
@@ -371,6 +385,75 @@ function Chk({ label, value, onChange, hint }) {
       </span>
     </label>);
 
+}
+
+// ── Step 2: one feed's milk, then its kcal/oz ───────────────
+// Pp, 2026-10-28: "เลือกชนิดนม ต่อมาเลือก kcal/oz" for each feed. Both selects
+// read D.EN_PRODUCTS; `value` and `onChange` carry the EN_DB key the order
+// saves. Changing the milk keeps the kcal/oz when the new milk comes in it,
+// else takes its first and says so beside the picker (Vera, 2026-10-28:
+// Infatrini 30 → Pre Nan became 22 with nothing to point it out). A key the
+// list does not offer is shown, never swapped.
+function EnFeedPicker({ value, onChange }) {
+  const at = D.enProductOf(value);
+  const groups = [...new Set(D.EN_PRODUCTS.map(p => p.group))];
+  // The kcal/oz the last change of milk could not keep. Shown only while the
+  // feed is still the one it switched to, so it never outlives that choice.
+  const [dropped, setDropped] = React.useState(null);
+  const pickProduct = (id) => {
+    const p = D.EN_PRODUCTS.find(x => x.id === id);
+    if (!p) return;
+    const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
+    const next = same || p.strengths[0];
+    setDropped(at && !same ? { from: at.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
+    onChange(next[1]);
+  };
+  return (<>
+    // The same three columns as the Volume / Frequency row below: the milk spans
+    // two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box
+    // beside a full-width milk box was out of proportion on desktop).
+    <div className="en-picker" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+      <div className="field" style={{ gridColumn: "span 2" }}>
+        <label>Feed type</label>
+        <select className="sel en-product" value={at ? at.product.id : ""} onChange={(e) => pickProduct(e.target.value)}>
+          {!at && <option value="">{D.EN_DB[value]?.label || value}</option>}
+          {groups.map(g => (
+            <optgroup key={g} label={g}>
+              {D.EN_PRODUCTS.filter(p => p.group === g).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label>kcal/oz</label>
+        <select className="sel en-strength" value={value} onChange={(e) => onChange(e.target.value)}>
+          {(at ? at.product.strengths : [["—", value]]).map(([oz, k]) => <option key={k} value={k}>{oz}</option>)}
+        </select>
+        <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{fmt(D.EN_DB[value]?.kcal, 0)} kcal/100 mL</div>
+      </div>
+    </div>
+    {dropped && dropped.key === value && (
+      <div className="en-strength-changed" role="status" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--warn-ink)", marginTop: 4 }}>
+        kcal/oz {dropped.from} → {dropped.to}: {dropped.milk} ไม่มี {dropped.from} kcal/oz — ตรวจ kcal/oz ก่อน Submit
+      </div>
+    )}
+  </>);
+}
+
+// What `calc` costs a day's feeds at when they have no composition: nothing
+// is fed, or a feed's key is not in EN_DB, which refuses the order (feedUnknown).
+const EN_NO_FEED = { kcal: 0, pro: 0, fat: 0, cho: 0, na: 0, k: 0, ca: 0, p: 0, osm: null, lf: false };
+
+// With two feeds, each sits in its own box under its own title, and says what
+// it gives over the day.
+const EN_FEED_BOX = { padding: 10, border: "1px solid var(--line)", borderRadius: 8 };
+const EN_FEED_TITLE = { fontSize: 11, fontWeight: 700, color: "var(--brand-2)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 };
+function EnFeedDay({ mlPerDay, wtKg }) {
+  return (
+    <div className="en-feed-day" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
+      = <span className="num">{fmt(mlPerDay, 1)}</span> mL/day · <span className="num">{wtKg > 0 ? fmt(mlPerDay / wtKg, 0) : "—"}</span> mL/kg/d
+    </div>
+  );
 }
 
 // ── Range bar: green / yellow / red zones ────────────────────
@@ -816,6 +899,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [enType, setEnType] = useState("BM_20");
   const [enVol, setEnVol] = useState(0);
   const [enFreq, setEnFreq] = useState(0);
+  // Feed 2 (Pp, 2026-10-28). It counts only while its volume × frequency is
+  // above 0; showFeed2 is whether its fields are on screen.
+  const [enType2, setEnType2] = useState("BM_20");
+  const [enVol2, setEnVol2] = useState(0);
+  const [enFreq2, setEnFreq2] = useState(0);
+  const [showFeed2, setShowFeed2] = useState(false);
   const [isMEN, setIsMEN] = useState(false);
 
   // Card key 4 — Vitamins, Trace Elements, Heparin (displayed as Step 5)
@@ -926,6 +1015,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setEnType(n.enType);
     setEnVol(n.enVol);
     setEnFreq(n.enFreq);
+    setEnType2(n.enType2);
+    setEnVol2(n.enVol2);
+    setEnFreq2(n.enFreq2);
+    setShowFeed2(n.enVol2 > 0 || n.enFreq2 > 0);
     setIsMEN(n.isMEN);
     setInclSoluvit(n.inclSoluvit);
     setInclPeditrace(n.inclPeditrace);
@@ -1204,7 +1297,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     ioInput, ioOutput, drainContent,
     route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaProduct: aaStockKey, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
-    enType, enVol, enFreq, isMEN,
+    enType, enVol, enFreq, enType2, enVol2, enFreq2, isMEN,
     inclSoluvit, inclPeditrace, znPerKg, inclAddamel, heparinUmL,
     suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
   });
@@ -1276,10 +1369,27 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     return next;
   });
 
+  // The day's feeds, feed 1 first, each with the mL/day it is given (Pp,
+  // 2026-10-28: up to two). Center Point's TPN packet holds one feed, so a
+  // Center Point order has no feed 2 (its button is not offered either).
+  const enFeeds = useMemo(() => [
+    { key: enType, mlPerDay: enVol * enFreq },
+    { key: enType2, mlPerDay: centerPoint ? 0 : enVol2 * enFreq2 },
+  ], [enType, enVol, enFreq, enType2, enVol2, enFreq2, !centerPoint]);
+  const hasFeed2 = enFeeds[1].mlPerDay > 0;
+  // Two feeds given, not just a second one entered: feed 1 with no volume
+  // beside feed 2 is a day of one feed (Vera, 2026-10-28).
+  const twoFeeds = hasFeed2 && enFeeds[0].mlPerDay > 0;
+  const enCopyLine = (k, v, n, ml) => `${D.EN_DB[k]?.label} | ${v} mL × ${n} feeds = ${fmt(ml, 2)} mL/day`;
+  const showFeed2Ui = showFeed2 && !centerPoint;
+  // Removing feed 2 puts it back to none, the way an order with one feed is
+  // saved, so the change list does not report a feed nobody gives.
+  const removeFeed2 = () => { setShowFeed2(false); setEnType2("BM_20"); setEnVol2(0); setEnFreq2(0); };
+
   // ===== compute =====
   const calc = useMemo(() => {
     if (!wtKg) {
-      const en0 = D.EN_DB[enType];
+      const en0 = D.enMixPer100mL(enFeeds) || EN_NO_FEED;
       const sv0 = { naCl:0, naAcet:0, glycophos:0, kCl:0, k2hpo4:0, ca:0, mg:0,
         heparin:0, znso4:0, aa:0, lipidSMOF:0 };
       return { wtKg:0, totalTPN_mL, lipidVol:0, lipidBagVol:0, vitalipidVol:0,
@@ -1365,9 +1475,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // in the app.
     const pKg_tpn = pTotal_mg / wtKg;
 
-    // EN — computed before caP so EN minerals can be included in the ratio
-    const en = D.EN_DB[enType];
-    const enVolTotal = enVol * enFreq;
+    // EN — computed before caP so EN minerals can be included in the ratio.
+    // Up to two feeds (Pp, 2026-10-28): `en` is what they provide together per
+    // 100 mL, weighted by each feed's mL/day, so every term below that reads
+    // enVolTotal or enCounted × en is the sum over the feeds. With one feed it
+    // is that feed's EN_DB row, exactly as before.
+    const en = D.enMixPer100mL(enFeeds) || EN_NO_FEED;
+    const enVolTotal = enFeeds.reduce((s, f) => s + f.mlPerDay, 0);
     const enVolPerKg = enVolTotal / wtKg;
     // The feed volume that COUNTS. A MEN (trophic) feed counts toward neither
     // the fluid total nor any nutrient total — energy, protein, lipid, Na, K,
@@ -1558,7 +1672,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   }, [wtG, wtKg, fluidTargetPerKg, otherIV_mL, drug_mL,
   totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,
   naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
-  enType, enVol, enFreq, isMEN,
+  enFeeds, isMEN,
   // `route` is deliberately NOT a dependency — the memo never reads it. It is
   // used afterwards for sOsm and the saved entry's route string. Listing it
   // recomputed the whole memo on every central/peripheral toggle.
@@ -1822,6 +1936,35 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "1250 mL เกิน 1250 mL".
   const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;
   const bagOverBottleText = `ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL ของห้อง TPN — ลดปริมาตรหรือ dead space`;
+  // Two feeds share one feeding schedule: together at most 8 a day (q3h; q4h
+  // is 6). Above it there is no schedule to give them on, so a two-feed order
+  // cannot be submitted (Pp, 2026-10-28). Only when both are given (twoFeeds):
+  // one feed alone is not checked (Q18 in the clinical-rules skill).
+  const feedsPerDay = enFreq + enFreq2;
+  const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
+  const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
+  // ...and together they fill a regular schedule, 24 h ÷ the feeds a day being
+  // whole hours: 3 + 4 = 7 has no interval to give them on (Pp, 2026-10-28:
+  // "ถ้าอันนึงกด 3 feed อันนึงกด 4 feed จะทำไม่ได้"), while 6 + 2 = 8 is q3h like
+  // 4 + 4 ("ไม่ต้อง reject 6+2 ให้ทำได้"). Until then the two had to be equal.
+  // Whole feeds only, so 4.8 + 3.2 is no q3h (Vera, 2026-10-28); each fault
+  // says what it is.
+  const feedsNotWhole = twoFeeds && (!Number.isInteger(enFreq) || !Number.isInteger(enFreq2));
+  const feedsIrregular = feedsNotWhole
+    || (twoFeeds && !Number.isInteger(Number((24 / feedsPerDay).toPrecision(12))));
+  const feedsIrregularText = feedsNotWhole
+    ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} มื้อ/วัน — จำนวนมื้อต้องเป็นจำนวนเต็ม`
+    : `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน ไม่ลงตัวกับทุก ชม. เท่ากัน — รวมได้ 8 (q3h), 6 (q4h), 4 (q6h), 3 (q8h) หรือ 2 (q12h) มื้อ เช่น 4 + 4, 6 + 2, 3 + 3`;
+  // Each feed's own hint: alone, its interval; beside another, its share of
+  // the one schedule, since 6 + 2 is not q4h beside q12h (they would meet at
+  // 0 h and 12 h) but 6 and 2 of eight q3h feeds (Vera, 2026-10-28).
+  const feedFreqHint = (n) => !twoFeeds ? `q${Math.round(24 / Math.max(n, 1))}h`
+    : feedsIrregular || feedsOverMax ? "" : `${fmt(n, 1)} of ${fmt(feedsPerDay, 1)} feeds · q${fmt(24 / feedsPerDay, 1)}h`;
+  // A feed given from a key EN_DB does not hold has no composition, so the
+  // order cannot be submitted or printed until another milk is picked.
+  const feedsUnknown = D.enFeedsUnknown(enFeeds);
+  const feedUnknown = feedsUnknown.length > 0;
+  const feedUnknownText = `นม ${feedsUnknown.join(", ")} ไม่อยู่ในรายการนมของ NeoFeed — เลือกชนิดนมใหม่ที่ Step 2`;
   // An ordered stock whose mL rounds to 0 at the 0.1 mL pharmacy measures
   // (roundMl): the back sheet would ask for 0 mL of a drug the order holds.
   // Refused like the bottle (Pp, 2026-10-27); a draft may be kept. Soluvit,
@@ -1841,6 +1984,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const vitDIuDay = (suppVitD > 0 && wtKg > 0 ? suppVitD * wtKg : 0)
     + (suppMTV ? D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml * D.SUPP_DB.MTV_MUNTIVIM.dose_default : 0);
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
+  // Stocks that add up to more than the bag as printed (WFI below 0): no
+  // order, as for the bottle (Pp, 2026-10-28: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้").
+  // Until then it was a critical alert, so a typed reason sent pharmacy a form
+  // asking for a negative volume of water. A draft may be kept.
+  const bagOverfull = bagOrdered && calc.wfiVol < 0;
+  const bagOverfullText = `ส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุง ${fmt(calc.preparedVol, 1)} mL ไป ${fmt(Math.abs(calc.wfiVol), 1)} mL ห้อง TPN ผสมไม่ได้ — เพิ่มปริมาตร TPN หรือลดขนาดยา`;
   // A bag needs a route before Submit (Pp, 2026-10-21); a draft may be kept
   // without one. A day with no bag needs none. Center Point's packet always
   // carries a route (tpn-document.mjs), so there it is needed on every order.
@@ -1858,6 +2007,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const tpnWtDiff = tpnWtManual && autoWtG > 0 ? Math.abs(wtG - autoWtG) / autoWtG : 0;
   // Float noise stripped as for K⁺: 900 → 1080 g is 20 %, not above it.
   const tpnWtFar = !tpnWtOutOfRange && Number(tpnWtDiff.toPrecision(12)) > D.TPN_WT_MANUAL_MAX_DIFF;
+  // The stops that hold, by the neofeed-clinical-rules skill's IDs, sent with
+  // every save as calcInput.stops. gas-backend.gs has no copy of the bag
+  // arithmetic, so it reads this list: it refuses a submitted row that carries
+  // a stop, and a submitted row with no list, from a tab opened before the app
+  // sent one (Pp, 2026-10-28). A new stop goes in here too, or the backend
+  // never hears of it (verify-clinical-rules.cjs checks the IDs).
+  const submitStops = [
+    [tpnWtOutOfRange, "CR-WT-RANGE"], [routeMissing, "CR-ROUTE-REQUIRED"],
+    [zeroVolumeBag, "CR-BAG-NO-VOLUME"], [kOverMax, "CR-K-BAG-MAX"],
+    [bagOverBottle, "CR-BOTTLE-MAX"], [stockAtZeroMl, "CR-STOCK-ZERO"],
+    [bagOverfull, "CR-BAG-OVERFULL"],
+    [feedsOverMax, "CR-EN-FEEDS-MAX"], [feedsIrregular, "CR-EN-FEEDS-SCHEDULE"],
+    [feedUnknown, "CR-EN-FEED-UNKNOWN"],
+  ].filter(([holds]) => holds).map(([, id]) => id);
 
   const alerts = [];
   if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
@@ -1945,8 +2108,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
-  if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
+  // The title is unchanged: a row saved before 2026-10-28 names it in its reason.
+  if (bagOverfull) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL, so this order cannot be submitted. Raise the volume or lower a dose.`, ref: "Pp, 2026-10-28 · WFI q.s." });
   if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
+  if (feedUnknown) alerts.push({ level: "crit", title: "Feed not in the formulary", body: `${feedsUnknown.join(", ")}: no composition in EN_DB, so its energy, protein and minerals cannot be counted — this order cannot be submitted.`, ref: "PR review (Vera), 2026-10-28" });
+  if (feedsIrregular) alerts.push({ level: "crit", title: "Two feeds off a regular schedule", body: feedsNotWhole
+    ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} feeds a day — each feed's feeds a day must be a whole number. This order cannot be submitted.`
+    : `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, and 24 h ÷ ${fmt(feedsPerDay, 1)} is not whole hours (8 is q3h, 6 q4h, 4 q6h, 3 q8h, 2 q12h). This order cannot be submitted.`, ref: "Pp, 2026-10-28" });
+  if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`, ref: "Pp, 2026-10-28" });
   if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
   if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({ level: "warn", title: "Heparin above the usual dose",
@@ -1989,17 +2158,24 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange
+  // Every stop on its own, routeMissing too: the backend trusts the app's stop
+  // list (submitStops), so a row stored past it must still not print (Vera, 2026-10-28).
+  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
   const printBlockMessage = (before) =>
     pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`
     : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
+    : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
+    : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}`
     : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}`
+    : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}`
+    : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}`
+    : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}`
     : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
@@ -2142,10 +2318,33 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       showToast(bagOverBottleText, "error");
       return;
     }
+    // ── Stocks over the bag's volume (Pp, 2026-10-28) — refused the same way ──
+    if (!asDraft && bagOverfull) {
+      setOpenSteps(prev => new Set(prev).add(2).add(3));
+      showToast(bagOverfullText, "error");
+      return;
+    }
     // ── An ordered stock at 0 mL (Pp, 2026-10-27) — refused the same way ──
     if (!asDraft && stockAtZeroMl) {
       setOpenSteps(prev => new Set(prev).add(2).add(3));
       showToast(stockAtZeroMlText, "error");
+      return;
+    }
+    // ── Two feeds above 8 a day (Pp, 2026-10-28) — refused the same way ──
+    if (!asDraft && feedsIrregular) {
+      setOpenSteps(prev => new Set(prev).add(5));
+      showToast(feedsIrregularText, "error");
+      return;
+    }
+    if (!asDraft && feedsOverMax) {
+      setOpenSteps(prev => new Set(prev).add(5));
+      showToast(feedsOverMaxText, "error");
+      return;
+    }
+    // ── A feed EN_DB does not hold — refused the same way ──────────────
+    if (!asDraft && feedUnknown) {
+      setOpenSteps(prev => new Set(prev).add(5));
+      showToast(feedUnknownText, "error");
       return;
     }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
@@ -2233,7 +2432,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // release that moves a printed figure holds this row's reprint (calcMoved).
       // savedByLabel: the saver's "Name (email)", so the form can name whom
       // to call (savedByOf). Not an input — normalizeCalcInput ignores it.
+      // stops: the stops that hold (submitStops), read by gas-backend.gs.
+      // Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
+        stops: submitStops,
         ...(userLabel ? { savedByLabel: userLabel } : {}),
         ...(override ? { critOverride: override } : {}),
         // Which required boxes were blank — they reopen blank (seededZeros).
@@ -2584,8 +2786,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           {!openSteps.has(5) && calc.enVolPerKg > 0 && (
             <div className="step-summary">
               <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
-              {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
-              {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>LF <Icon name="check" size={12} stroke={2.4} /></span>}
+              {enFeeds.filter(f => f.mlPerDay > 0).map((f, i) => <span key={i} className="step-summary-chip">{D.EN_DB[f.key]?.label?.split(" — ")[0]}</span>)}
+              {calc.en?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>LF <Icon name="check" size={12} stroke={2.4} /></span>}
               {calc.useEnteralTargets && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>Full EN <Icon name="check" size={12} stroke={2.4} /></span>}
             </div>
           )}
@@ -2597,43 +2799,63 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         <StepBody open={openSteps.has(5)}><div className="card-b">
           <TwoCol>
             <div>
-              <div className="field">
-                <label>Feed type</label>
-                <select className="sel" value={enType} onChange={(e) => setEnType(e.target.value)}>
-                  <optgroup label="Breast Milk">
-                    {["BM_20","BM_HMF_24"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  {/* Hi-Q LBW and Pre Nan are preterm formulas (the book's Table 5;
-                      nutrition unit, 2026-10-25 — Pre Nan sat in a post-discharge
-                      group from 2026-09-28 until then). The ward mixes Enfalac
-                      Premature and Pre Nan at 22 and at 24 kcal/oz. */}
-                  <optgroup label="Preterm formula">
-                    {["BM_PF_20","FBM_PF_22","ENFALAC_PREM_24","PRENAN_22","PRENAN_24","FBM_PF_24"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  <optgroup label="High-energy formula">
-                    {["FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  {/* Enfalac LF joined HiQ LF here on 2026-10-27 (nutrition unit:
-                      "ให้สั่งได้จะดี"); until then it was on the Formula page only. */}
-                  <optgroup label="Lactose-free">
-                    {["LF_20","LF_24","LF_27","ENFALAC_20","ENFALAC_24","ENFALAC_27"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                </select>
-              </div>
-              <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
-                <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
-                <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
-                  hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
-                <div className="field en-men-col">
-                  <label style={{ visibility: "hidden" }}>MEN</label>
-                  <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
-                    hint="Not counted in fluid or nutrient totals" />
+              {/* One or two feeds (Pp, 2026-10-28), each a milk, its kcal/oz, a
+                  volume and a frequency. MEN applies to every feed. Center Point's
+                  TPN packet holds one feed, so it is not offered a second. */}
+              <div className="en-feed en-feed-1" style={showFeed2Ui ? EN_FEED_BOX : undefined}>
+                {showFeed2Ui && <div className="en-feed-title" style={EN_FEED_TITLE}>Feed 1</div>}
+                <EnFeedPicker value={enType} onChange={setEnType} />
+                <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
+                  <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
+                  <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
+                    hint={feedFreqHint(enFreq)} />
+                  {!showFeed2Ui && (
+                    <div className="field en-men-col">
+                      <label style={{ visibility: "hidden" }}>MEN</label>
+                      <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
+                        hint="Not counted in fluid or nutrient totals" />
+                    </div>
+                  )}
                 </div>
+                {showFeed2Ui && <EnFeedDay mlPerDay={enFeeds[0].mlPerDay} wtKg={wtKg} />}
               </div>
+              {showFeed2Ui ? (
+                <div className="en-feed en-feed-2" style={{ ...EN_FEED_BOX, marginTop: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="en-feed-title" style={EN_FEED_TITLE}>Feed 2</div>
+                    <button className="btn sm en-feed-remove" style={{ marginLeft: "auto" }} onClick={removeFeed2}>Remove feed 2</button>
+                  </div>
+                  <EnFeedPicker value={enType2} onChange={setEnType2} />
+                  <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
+                    <NumField label="Volume" unit="mL/feed" value={enVol2} onChange={setEnVol2} step={0.5} />
+                    <NumField label="Frequency" unit="feeds/d" value={enFreq2} onChange={setEnFreq2} step={1}
+                      hint={feedFreqHint(enFreq2)} />
+                  </div>
+                  <EnFeedDay mlPerDay={enFeeds[1].mlPerDay} wtKg={wtKg} />
+                </div>
+              ) : !centerPoint && (
+                <button className="btn sm en-feed-add" style={{ marginTop: 8 }} onClick={() => setShowFeed2(true)}>
+                  + Add a second feed (นมชนิดที่ 2)
+                </button>
+              )}
+              {/* The two feeds share one schedule: their total, and its interval;
+                  red when that is not whole hours, or above 8 a day. */}
+              {showFeed2Ui && twoFeeds && (
+                <div className={`en-feeds-total${feedsOverMax || feedsIrregular ? " over" : ""}`} role={feedsOverMax || feedsIrregular ? "alert" : undefined}
+                  style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: feedsOverMax || feedsIrregular ? "var(--crit)" : "var(--ink-2)" }}>
+                  Feed 1 + 2 = <span className="num">{fmt(feedsPerDay, 1)}</span> feeds/d
+                  {feedsIrregular ? (feedsNotWhole ? " — จำนวนมื้อต้องเป็นจำนวนเต็ม บันทึกไม่ได้" : " — ไม่ลงตัวกับทุก ชม. เท่ากัน (8, 6, 4, 3 หรือ 2 มื้อ/วัน) บันทึกไม่ได้")
+                    : <>{feedsPerDay > 0 && <> · q{fmt(24 / feedsPerDay, 1)}h</>}
+                      {feedsOverMax ? ` — เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ/วัน (q3h) บันทึกไม่ได้` : ` (max ${D.EN_FEEDS_PER_DAY_MAX})`}</>}
+                </div>
+              )}
+              {/* With two feeds the MEN tick leaves feed 1's row: it covers both. */}
+              {showFeed2Ui && (
+                <div style={{ marginTop: 10 }}>
+                  <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
+                    hint="Both feeds — not counted in fluid or nutrient totals" />
+                </div>
+              )}
 
               {/* Full feeds status — says the enteral targets are active, so it
                   shows exactly when they are (never for a MEN feed) */}
@@ -2651,6 +2873,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="en-delivered" style={{ marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 }}>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
                   <span style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 }}>Delivered per kg from EN</span>
+                  {twoFeeds && (
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" }}>feeds 1 + 2</span>
+                  )}
                   {isMEN && calc.enVolTotal > 0 && (
                     <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" }}>MEN — not counted in totals</span>
                   )}
@@ -3541,7 +3766,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         </div>
 
         <div className="card">
-          <div className="card-h"><Icon name={scratch ? "calc" : "save"} size={14} color="var(--brand)" /> {scratch ? "ผลคำนวณ · คัดลอก" : "Save + Copy Order"}</div>
+          <div className="card-h"><Icon name={scratch ? "calc" : "save"} size={14} color="var(--brand)" /> {scratch ? "ผลคำนวณ · คัดลอก" : "Save Order"}</div>
           <div className="card-b">
             {scratch && (
               <div className="scratch-note" role="note" style={{ fontSize: 11.5, lineHeight: 1.55, marginBottom: 10,
@@ -3561,7 +3786,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 padding: "8px 10px", borderRadius: 6, background: "var(--bg-2)", color: "var(--ink-2)",
                 border: "1px solid var(--line)" }}>
                 <strong style={{ fontWeight: 700 }}>พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์</strong>
-                <div>บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · คัดลอก/พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว</div>
+                <div>บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว</div>
               </div>
             )}
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 }}>
@@ -3575,17 +3800,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             )}
 
-            {/* Saved-state indicator — Print/Copy/Submit need a saved, unchanged form */}
+            {/* Saved-state indicator — Print/Submit need a saved, unchanged form */}
             {savedEntryId && dirty && (
               <div style={{ fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 }}>
-                ● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์/คัดลอกได้หลังบันทึก
+                ● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์ได้หลังบันทึก
               </div>
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
-                ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
+                ● {printBlockMessage("ก่อนพิมพ์")}
                 {!pendingSave && dosingWeightChanged && (
                   <div style={{ fontWeight: 400 }}>
                     บันทึกไว้ที่ <span className="num">{fmt(savedDosingWt.g, 0)}</span> g · ตอนนี้ <span className="num">{fmt(wtG, 0)}</span> g
@@ -3616,25 +3841,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
             {/* Save bar — sticky on mobile */}
             <div className="calc-save-bar">
-            {/* Copy order text to clipboard. Not on the Center Point entry:
-                there the order leaves only as CP's reviewed revision, and a
-                CP save makes the form "printable", which would unlock Copy. */}
-            {!centerPoint && <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
-              // The save/printable gate exists so an edited form cannot be
-              // copied out under a saved row's entry id. The quick calc has no
-              // row and no id, so there is nothing to misattribute — and
-              // gating it would make the button permanently dead. What the
-              // copied text must not do is read like an order, which is what
-              // the scratch header below is for.
-              if (!scratch && !savedEntryId) {
-                showToast(ordersReadOnly ? "คัดลอกได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว" : "กรุณาบันทึกคำสั่งให้สำเร็จก่อนคัดลอก", "error");
-                return;
-              }
-              if (!scratch && !printable) {
-                showToast(printBlockMessage("ก่อนคัดลอก") || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนคัดลอก", "error");
-                return;
-              }
-              if (scratch && !(wtKg > 0)) {
+            {/* Copy the calculation to the clipboard — the quick calc only.
+                A patient's order has no Copy since Pp, 2026-10-28; it leaves
+                as the printed form (or, on Center Point, CP's reviewed
+                revision). The quick calc has no Save and no form, so Copy is
+                all it has, and its text says it is not an order and carries
+                no patient. */}
+            {scratch && <button className="btn" style={{ width: "100%", marginBottom: 8 }} onClick={() => {
+              if (!(wtKg > 0)) {
                 showToast("ใส่น้ำหนักก่อน จึงจะคัดลอกผลคำนวณได้", "error");
                 return;
               }
@@ -3646,22 +3860,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 .filter(([n, s]) => s === "empty" && ["1","2","3"].includes(n))
                 .map(([n]) => `Step ${stepDisplayNumber[n]}`);
               if (incomplete.length > 0 &&
-                  !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nCopy order ต่อไปหรือไม่?`)) return;
+                  !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nคัดลอกผลคำนวณต่อไปหรือไม่?`)) return;
               const lines = [
-                scratch ? `══ NeoFeed — Calculator (ไม่ใช่คำสั่งการรักษา) ══` : `══ NeoFeed V2 — TPN Order ══`,
-                // The quick calc's text carries no bed and no NeoFeed ID —
-                // there is no patient behind it — and says so on its own
-                // second line, because a paste into LINE arrives without the
-                // screen it came from.
-                scratch
-                  ? `⚠ คำนวณจากน้ำหนักที่พิมพ์เอง · ไม่ผูกกับผู้ป่วย · ไม่ได้บันทึกในระบบ — ตรวจกับผู้ป่วยจริงก่อนใช้`
-                  // No name in copied text: it tends to be pasted into chat
-                  // apps (LINE) outside the hospital's control — bed + NeoFeed
-                  // ID identify the order on the ward without being PHI on
-                  // their own (2026-09-11 review, PDPA).
-                  : `Bed: ${patient?.currentBed||"—"} | NeoFeed ID: ${patient?.sessionId||"—"} | DOL: ${dol} | Wt: ${curWtG}g${usingBirthWeight ? ` (calc. at birth weight ${wtG}g)` : ""}${tpnWtManual ? ` (calc. weight set manually to ${wtG}g; auto ${autoWtG}g)` : ""}`,
-                scratch ? `DOL: ${dol} | Wt: ${curWtG} g${tpnWtManual ? ` (calc. weight ${wtG}g)` : ""}` : "",
-                critOverride ? `⚠ CRITICAL OVERRIDE — แพทย์ยืนยันคำสั่ง: ${critOverride.alerts.join("; ")} — reason: ${critOverride.reason}` : "",
+                `══ NeoFeed — Calculator (ไม่ใช่คำสั่งการรักษา) ══`,
+                // No bed and no NeoFeed ID — there is no patient behind it —
+                // and it says so on its own second line, because a paste into
+                // LINE arrives without the screen it came from.
+                `⚠ คำนวณจากน้ำหนักที่พิมพ์เอง · ไม่ผูกกับผู้ป่วย · ไม่ได้บันทึกในระบบ — ตรวจกับผู้ป่วยจริงก่อนใช้`,
+                `DOL: ${dol} | Wt: ${curWtG} g${tpnWtManual ? ` (calc. weight ${wtG}g)` : ""}`,
                 `Route: ${route === "central" ? "Central" : route === "peripheral" ? "Peripheral (<900 mOsm/L)" : "—"}`,
                 // Every figure below goes through fmt: at most the decimals
                 // shown, never a trailing zero (Praew, 2026-09-22). The stock
@@ -3691,9 +3897,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
                 `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L; ${kBagLimitParts(kLim, "confirm above").join(", ")} ${route ? `on a ${kRouteLabel} line` : "peripheral limits, no route chosen"})`,
-                // Only the quick calc reaches here with kOverMax (a patient's
-                // Copy waits for `printable`), so its text says so, as an
-                // over-full bag's does.
+                // The quick calc copies whatever is on screen, so its text says
+                // when K⁺ is over the maximum, as an over-full bag's does.
                 kOverMax ? `  !! K⁺ ${fmt(calc.kMeqPerL, 0)} mEq/L IS ABOVE THE ${kLim.hardMax} mEq/L MAXIMUM — cannot be ordered` : "",
                 caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${fmt(caPerKg*calc.factor, 0)} mg → ${calc.solVol.ca} mL` : "",
                 mgPerKg>0 ? `  MgSO4 10%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg*calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
@@ -3710,7 +3915,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
                 stockAtZeroMl ? `  !! ${stocksAtZeroMl.join(", ")} ROUNDS TO 0 mL — cannot be measured` : "",
                 `──────────────────────────────`,
-                calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "EN: None",
+                // One feed given (feed 1, or feed 2 alone): the one line it always had.
+                calc.enVolPerKg > 0 && !twoFeeds ? `EN: ${hasFeed2 ? enCopyLine(enType2, enVol2, enFreq2, calc.enVolTotal) : enCopyLine(enType, enVol, enFreq, calc.enVolTotal)} (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "",
+                // Two feeds (Pp, 2026-10-28): one line each, then the day's total.
+                twoFeeds ? [
+                  `EN: Feed 1 ${enCopyLine(enType, enVol, enFreq, enFeeds[0].mlPerDay)}`,
+                  `    Feed 2 ${enCopyLine(enType2, enVol2, enFreq2, enFeeds[1].mlPerDay)}`,
+                  // Only the quick calc copies a refused schedule (a patient's
+                  // Copy waits for `printable`): no interval, and a "!!" line.
+                  `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d) · ${fmt(feedsPerDay, 1)} feeds/d${feedsIrregular || feedsOverMax ? "" : ` q${fmt(24 / feedsPerDay, 1)}h`}${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`,
+                ].join("\n") : "",
+                feedsIrregular || feedsOverMax ? `  !! ${feedsIrregular ? "TWO FEEDS OFF A REGULAR SCHEDULE" : `TWO FEEDS ABOVE ${D.EN_FEEDS_PER_DAY_MAX} A DAY`} — cannot be ordered` : "",
+                calc.enVolPerKg > 0 ? "" : "EN: None",
                 `──────────────────────────────`,
                 (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
                 suppMTV    ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",
@@ -3727,15 +3943,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `──────────────────────────────`,
                 `SUMMARY: Protein ${fmt(calc.proteinKg, 1)} g/kg | Energy ${fmt(calc.kcalKg, 0)} kcal/kg | GIR ${fmt(calc.gir, 1)} mg/kg/min`,
                 `Na ${fmt(calc.naTotalDelivered, 1)} mEq/kg | Ca ${fmt(calc.caKg, 0)} mg/kg | P ${fmt(calc.pKg, 0)} mg/kg  (TPN+EN — see Ca·PO₄ block above for total)`,
-                scratch ? `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`
-                        : `══ NeoFeed V2 · ESPGHAN 2018/2022 ══`,
+                `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`,
               ].filter(l => l !== "").join("\n");
 
               navigator.clipboard.writeText(lines)
-                .then(() => showToast("Order copied to clipboard"))
+                .then(() => showToast("คัดลอกผลคำนวณแล้ว"))
                 .catch(() => showToast("Copy failed — try again"));
             }}>
-              {scratch ? "คัดลอกผลคำนวณ" : "Copy Order to Clipboard"}
+              คัดลอกผลคำนวณ
             </button>}
 
             {missingFields.length > 0 && (
@@ -3764,9 +3979,29 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {bagOverBottleText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {bagOverfull && (
+              <div className="bag-overfull" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {bagOverfullText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
             {stockAtZeroMl && (
               <div className="stock-at-zero-ml" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {stockAtZeroMlText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
+            {feedsIrregular && (
+              <div className="feeds-irregular" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {feedsIrregularText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
+            {feedsOverMax && (
+              <div className="feeds-over-max" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {feedsOverMaxText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
+            {feedUnknown && (
+              <div className="feed-unknown" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {feedUnknownText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
             {tpnWtOutOfRange && (
@@ -3790,7 +4025,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

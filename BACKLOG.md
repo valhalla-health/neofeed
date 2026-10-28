@@ -32,12 +32,23 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
+      rolling back).
+      - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
+        release's rollback target, and on 2026-10-28 it was not pushed. **Done 2026-10-28, 12:30 ICT**,
+        from Pp's PC; #184 and #186 are tagged too (`release-2026-10-28-pr184`, `-pr186`).
+      - [ ] Undeploy the backend deployments nobody uses. `clasp list-deployments` showed 26 on 2026-10-28,
+        the ward's `AKfycbz8…` at `@64` among them. Every one shares the live Sheet, Script Properties and
+        cache, so an old one that still answers runs its old code against them, as NeoRef's version 1 did
+        until 2026-09-24. Not yet checked one by one.
+
 - [ ] 🩺 **safety/product · What the answers of 2026-10-25 left open** (the nutrition unit's and TPN
       team's answers to the 2026-10-19 question sheet; what they settled was built on 2026-10-27,
       `CHANGELOG.md` 2026-10-27). In order of reach:
       - **Center Point must sync `center-point/tpn-document.mjs` before this release.** It gained two
         feed labels (Enfalac Premature and Pre Nan at 24 kcal/oz) and its digest was re-pinned. Until CP's
-        copy has them, a CP order with either feed fails CP's packet check. A CP-repo PR.
+        copy has them, a CP order with either feed fails CP's packet check. A CP-repo PR. Synced, with
+        PR #175's `tpnBagOverfull`, on NICU-Center-Point branch `claude/tpn-overfull-stop-1028` (2026-10-28).
       - **Photograph the ZnSO₄ stock label before this release** (Vera, 2026-10-27). The printed ZnSO₄ mL
         and the WFI now rest on pharmacy's written "1 mg/mL" of elemental Zn; a label reading 1 mg/mL of
         zinc sulfate salt would make the printed mL about 4.4× too small. **Pp's to do**, with the notice
@@ -398,8 +409,8 @@ clinical judgement. Everything else is engineering sequencing.
       2. ⚖️ **Tell the DPO the name holds four letters now.** It held two (one letter of each name), and
          now holds two letters of each, with no vowels or tone marks, or two English letters of each for a
          foreign infant. It is Pp's decision, for finding and identifying an infant. A new infant's id
-         carries nothing since 2026-09-27 (`NF-` and six random digits), so Copy Order carries no initials;
-         no full name is stored. It belongs in the next DPIA note, beside D7.
+         carries nothing since 2026-09-27 (`NF-` and six random digits), and a patient's order has had no
+         Copy since 2026-10-28; no full name is stored. It belongs in the next DPIA note, beside D7.
          **Pp: later.**
       3. **One look on a real iPhone (Safari).** `test/verify-phone-sweep.cjs` checks 24 device sizes, but
          only in Chromium; the cloud container has no WebKit. Check two things there:
@@ -677,6 +688,12 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🕓 Later
 
+- [ ] 🔒 **pdpa · A class for every Sheet column (NF-08, second half).** The log rules in
+      `tools/ci_bans.js` match a hand-kept list of identifier names. The stronger version gives each
+      column of `PAT_HEADERS`, `LOG_HEADERS`, `NURSING_HEADERS`, Staff and Audit_Log (18 + 38 + 13 + 8 + 4 = 81) a class
+      (identifier, clinical, operational) in one file; the rules read the identifier columns from it, and
+      a header array with a column that has no class fails CI. Classing the columns is Pp's call
+      (`diagnosis`, `currentBed`, `admissionDate`, `submittedBy`, `enteredBy`, staff `email`).
 - [ ] 🧱 **data · A date on every growth-chart row.** Rows in `weights`, `lengths` and `hcs` are keyed by
       DOL. Since 2026-09-24 an anchor correction moves them with it (`D.moveGrowthRows`); a stored date
       would make that unnecessary. It needs a migration of every record, and it must agree with PR #111's

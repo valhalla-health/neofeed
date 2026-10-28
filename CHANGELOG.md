@@ -81,6 +81,798 @@ form HTML and the same copied order.
   together.
 - No second clinician has reviewed the wording.
 
+## Session 2026-10-28 (12) — the backend and Center Point refuse a stopped order
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
+`center-point/tpn-document.mjs`, `.claude/skills/neofeed-clinical-rules/SKILL.md`,
+`test/verify-backend-stops-1028.cjs` (new), `test/verify-wfi-stop-1028.cjs`, `test/verify-clinical-rules.cjs`,
+eleven backend harnesses' fixtures, `test/README.md`, `REFERENCE.md`, `STATUS.md`. Center Point's half is
+NICU-Center-Point PR #39.
+
+### Why
+
+Vera's review of PR #175 named two gaps every stop shares: the backend checks none of the stops, and a
+Center Point revision confirmed before the change prints from its stored packet. Pp asked for both to be
+closed ("แก้ไข backemd และ revision ของ cp") and chose how the backend learns of a stop: the app sends its own
+check with each save ("แอปส่งผลเช็กไปด้วย"), not a second copy of the bag arithmetic in GAS.
+
+### What changed
+
+- `calculator.jsx` `submitStops`: the stops that hold, by the skill's rule IDs, sent with every save as
+  `calcInput.stops`. `normalizeCalcInput` ignores it, so a reopened row is unchanged.
+- `gas-backend.gs` `_stopRefusal`: a submitted Daily_Log row (a create, an edit or a revision) that carries a
+  stop is refused, and so is one with no list, from a tab opened before the app sent one: "แอปในแท็บนี้เป็นรุ่นเก่า
+  รีเฟรชหน้าแล้วบันทึกใหม่". A draft is kept either way. `publishDailyLog`, dormant while `ENABLE_PUBLISH_GATE`
+  is off, reads the list stored with the row. The backend trusts the list: a hand-made POST can send an
+  empty one, but every print path recomputes the stops from `calcInput` and refuses it.
+- `printable` refuses `routeMissing` too (Vera on this PR). It was the one stop a stored row could print
+  past: a submitted bag with `route: null` printed "Route: —". The print-block message names it.
+- `center-point/tpn-document.mjs` `tpnBagOverfull` (WFI below 0), and a red line on the sheet `renderTpn`
+  draws. CP keeps an identical copy and uses it to refuse to save, confirm or print an over-full packet, a
+  revision confirmed before then included. The format still reads one, so history stays viewable.
+- **Deploy order:** release the frontend first, then `clasp deploy`. Deployed first, the backend would
+  refuse every Submit from today's frontend, which sends no list (`REFERENCE.md` § Backend).
+
+`CONSTANTS_VERSION` unchanged: no printed figure moves.
+
+### Tests
+
+- `verify-backend-stops-1028.cjs` (new, 25 checks, real `gas-backend.gs` in `gas-vm-sandbox.cjs`): 18 fail
+  on `07f3403`.
+- `verify-wfi-stop-1028.cjs`, 20 → 33 checks: S8's Submit sends `stops []`, the over-full draft
+  `["CR-BAG-OVERFULL"]`; § 4 is the packet module; § 5 a submitted row with no route, which printed before.
+  Merged with PR #180, which took Copy Order off a patient's order, § 2 and § 5 check that the button is
+  absent instead of that it refuses: 32 checks.
+- `verify-clinical-rules.cjs` (623 checks): `submitStops` names every `stop` rule and only those, and each
+  blocked case of a stop rule keeps a draft whose `calcInput.stops` names that rule. Swapping two IDs in
+  `submitStops` fails 3.
+- Eleven backend harnesses sent submitted rows with no stop list, the contract before this change, and now
+  send `stops: []`: verify-backend-batch-0924, verify-input-validation, verify-log-create-guard,
+  verify-nursing-backend, verify-provenance-stamp, verify-publish-lock, verify-review-0911,
+  verify-review-0917-backend-security, -sync and -writes, verify-safety-fixes-0923.
+  verify-input-validation's "no calcInput at all" check is now made on a draft.
+
+## Session 2026-10-28 (11) — a bag whose stocks exceed its volume cannot be ordered (Q2)
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `test/verify-wfi-stop-1028.cjs` (new),
+`test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/README.md`, `STATUS.md`.
+
+### Why
+
+Pp answered three questions of the clinical-rules skill on 2026-10-28: "Q2 ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้
+/ Q1,3 คงไว้ อย่างเดิมก่อน". A bag whose stocks add up to more than its prepared volume was a critical
+alert, so a typed reason let it through, and the order form and the copied order asked pharmacy for a
+negative volume of water ("WFI q.s. -0.1 mL").
+
+### What changed
+
+- `bagOverfull` (WFI below 0 as printed) is a stop like the 1,250 mL bottle: Submit is disabled, the save
+  panel says why, `handleSave` refuses it (which covers Center Point's บันทึก), and `printable` is false,
+  so the order form does not render and Print and Copy refuse with the same reason. A draft may be kept.
+- A row saved before this change with a reason naming "Bag cannot be compounded" no longer prints or
+  copies; it is held until the bag is fixed and saved again. The alert keeps its title for that reason.
+- The skill: `CR-BAG-OVERFULL` is now a stop with cases at WFI 0 (saves) and −0.1 (refused); Q1 (central
+  K⁺ maximum 200 mEq/L) and Q3 (NPE:AA target 24 kcal/g) are marked answered, "keep as is for now", with
+  their evidence left in place. Q1 and Q3 change no code.
+
+`CONSTANTS_VERSION` stays `2026-10-27.2` and the constants register is unchanged: the change adds no
+constant and moves no printed figure (an order that prints prints the same), which is the register's own
+test for a bump. No second clinician has reviewed this change.
+
+### Tests
+
+`test/verify-wfi-stop-1028.cjs` (20 checks): WFI 0 saves with no reason asked; WFI −0.1 is a red line,
+Submit is disabled and a draft may be kept; a saved over-full row with a reason neither prints nor copies;
+Center Point's บันทึก refuses it. 9 fail on `326bcd9` (`main` before this change), among them a saved row
+printing and copying "WFI q.s. -0.1 mL". `verify-clinical-rules.cjs` reads the new `CR-BAG-OVERFULL` cases
+(611 checks). `verify-calc-sum.cjs` reads over-full off the screen (Components above Bag total) and expects
+the stop for S4 and its orders B and E instead of a printed form; an over-full bag that prints fails it.
+`verify-calc-oracle.cjs` restates the stop in its own orderable rule (orders B and E).
+
+## Session 2026-10-28 (10) — The backend reads a patient status the way the client does
+
+`gas-backend.gs`, `registry.jsx`, `data.js` (a comment), `compiled/`, both shells' `?v=` tokens,
+`test/verify-status-read-1028.cjs` (new), `test/verify-backend-batch-0924.cjs`, `test/verify-bed-park.cjs`,
+`test/README.md`, `BACKLOG.md`, `STATUS.md`, `app-walkthrough.md`. No calculation, limit or printed figure
+changed; `CONSTANTS_VERSION` unchanged.
+
+### Why
+
+Pp: "แก้ backend ให้อ่าน status แบบเดียวกับ client". Since #183 the client reads a status through
+`D.patientStatus`: blank is Active, one of the four whatever its case or spaces is that status, anything
+else stays as typed and is off the unit. The server read the same `Patient_Registry` cell three ways
+(Vera's BACKLOG item from #183's review). The sync window trimmed but matched case, so a row typed
+"active" with no statusDate reached no ward device. The bed guard compared the raw cell, so "Active " held
+no bed on the server. And the write turned any unknown word into Active (BE-4, 2026-09-24), so a row typed
+"Expird" came back onto every ward list, holding a bed, at its next save.
+
+### What changed
+
+- **One reading on the server:** `_readStatus` (the rule of `D.patientStatus`) and `_onUnitStatus` (of
+  `D.isOnUnit`). The sync window, the bed guard (`_bedConflict`, both the record saved and every other
+  row), the three-way merge's comparison, the sheet health report and the duplicate question read through
+  them. The sync payload still sends the cell as stored; the client reads it through `patientStatus`, and
+  `verify-review-0917-backend-sync.cjs` proves that payload byte-equal to its reference.
+- **The write refuses a status that is not one of the four** (`_normStatus`), in Thai, instead of storing
+  Active. This reverses BE-4's fallback on purpose: Active is what revived "Expird". A case or space variant
+  is still stored canonical, and blank is still Active. A direct POST can no longer store a ghost status
+  either, which was BE-4's concern.
+- **Edit session asks for a status the server would refuse** (`registry.jsx`), as it already does for an
+  unknown sex: a stored "Expird" seeds the Status select blank ("— เลือก —"), a warning names it, and Save
+  stays off ("ต้องเลือก Status ก่อนบันทึก") until one of the four is picked. Without this, a diagnosis edit of
+  such a record would echo "Expird" back and be refused. The Status dialog already starts with none picked.
+- **Vera, before the PR:** status membership is an own-property check (`_isValidStatus`). `VALID_STATUS[s]`
+  also matched names every object inherits, so "toString" or "constructor" passed as one of the four and
+  was stored, a ghost the old fallback never caught either. And picking the status a typo meant keeps the
+  statusDate already recorded (`D.statusChange`): "Expird" dated 10-20, saved as Expired on 10-28, used to
+  record the death on 10-28 and restart the 7-day hide and the 30-day sync window.
+- **`sheetHealthReport` counts `statusNotCanonical`:** status cells that are neither blank nor exactly one of
+  the four ("active", "Active ", "Expird"). Counts only, no identifiers.
+
+### Checks
+
+`verify-status-read-1028.cjs`, 37 checks: §1 `_readStatus` and `_onUnitStatus` give exactly
+`D.patientStatus` and `D.isOnUnit` (from `data.js` itself) on 15 inputs plus "toString" and "constructor",
+and `D.statusChange` keeps a typo's date; §2 the sync; §3 the bed guard; §4 the write, including Vera's
+cases (a stored "Expird" with only the diagnosis edited is refused and unchanged, then saved once a status
+is picked; "toString" refused); §4b the health report's count; §5 Edit session, which also keeps the date.
+19 fail on `86bfc91`, in every section; Vera's five fail on the commit before their fixes.
+`verify-backend-batch-0924.cjs` BE-4 now expects "ZZZ" refused and nothing stored (it expected Active).
+`verify-bed-park.cjs` copies `_readStatus` and `_onUnitStatus` along with `_bedConflict`.
+
+### Deploy
+
+Two halves, both Pp's: the backend needs a `clasp` deploy (`REFERENCE.md` § Backend: reconcile the
+mirror, `clasp push`, `clasp update-deployment`), and the Edit session change needs a release. Either order
+is safe: an old Edit session sending an unknown status gets the new Thai refusal and can pick a status;
+a new Edit session on the old backend only asks for a status first. **Between `clasp push` and `clasp
+update-deployment`, find the rows that change** (Vera, twice): run `sheetHealthReport` in the editor (its
+`statusNotCanonical` exists only in this code, so not before the push), or filter `Patient_Registry`
+before. The rows that matter are a case or space variant of Active in column J ("active", "ACTIVE ") with
+an empty column Q (statusDate). Such a row reaches no ward device today; once the deployment switches it
+syncs as an Active infant holding its bed, so a stale one would appear on the ward list and block that bed.
+
+## Session 2026-10-28 (NF-05, Pp drops the pilot) — before-and-after numbers and rollback steps instead
+
+Pp answered "ก" on 2026-10-28: no pilot. The two entries below describe a pilot ladder that this PR
+no longer ships. What protects an infant is comparing the numbers before they reach pharmacy. The
+pilot users order for real infants anyway. The riskiest changes (backend, Sheet layout) could not be
+piloted, since every deployment shares the Sheet. And six setup steps, a second GAS deployment and
+48 h per release cost a one-person team more than they give, next to 100 harnesses, the
+clinical-rules check and NF-28.
+
+**Kept**, in `.github/PULL_REQUEST_TEMPLATE/release.md` (now `main → release`) and `REFERENCE.md`
+§ Before and after, and rolling back (it replaces § The pilot ladder):
+
+- A release that changes a calculation runs the release live now and the PR's head side by side in
+  dev local (`tools/dev-local.mjs --tree … --port 8155` and `8156`), at least three cases per changed
+  calculation, and records inputs, before, after and "intended?" in the release PR.
+- The rollback steps: `npx wrangler rollback` or the Worker's Deployments tab, GitHub Pages by
+  reverting the commit, the whole merge for a release across the 2026-09-17 build step, the backend
+  by `clasp update-deployment` to the previous version, and the release tags as targets.
+
+**Removed**, each file back to `main`: `boot.js` § 3 (`NEOFEED_PILOT_GAS_URL`) with the shells'
+`?v=` tokens, the `_headers` comment, `tools/dev-local.mjs` and `tools/verify-release.mjs` (`--pilot`),
+`test/verify-review-0917-shell.cjs` 2.4a, `test/verify-dev-local.cjs` #5 and the `test/README.md`
+section. Deleted: `.github/workflows/release-gate.yml`, `tools/release-gate.mjs`,
+`test/verify-pilot-ladder.cjs`. `AGENTS.md`, `STATUS.md` and BACKLOG § Now now point at the
+template; BACKLOG keeps the missing `release-2026-10-27-pr172` tag and the 25 older backend
+deployments for Pp.
+
+## Session 2026-10-28 (NF-05, after Vera) — what two versions sharing one Sheet can still break
+
+Vera read the NF-05 diff (NO BLOCK, three 🟠 and two 🟡; her report is on the PR). Changed in answer:
+
+- **A column added at a tab's end is not enough.** The ward version rewrites a patient or draft row
+  over its own width only, so the new column keeps the pilot's earlier value. The first "Side by side"
+  box and `REFERENCE.md` now ask that the new version still reads such a row right.
+- **Script Properties** got their own box and bullet: no key or meaning change (the revocation epochs),
+  and no switch flipped while a pilot runs (`NURSING_LOG_ENABLED` must never meet an old frontend).
+- **A backend deploy outside the ladder moves the pilot deployment too**, and an abandoned pilot puts
+  it back on the ward's version, so the public pilot URL never runs code the ward has left.
+- **The gate** now also wants the rollback commit beside the tag, and fails on any `<…>` field left
+  unfilled. The backend Promotion box was reworded so its own text holds none. A new Promotion box
+  re-runs `verify-release.mjs --pilot`, since a branch whose name Cloudflare turns into `pilot` could
+  take the address.
+- Not changed, for Pp: a pilot banner and a mark on the printed order (the pilot looks like the ward
+  app), and the 25 older backend deployments that still answer.
+
+`test/verify-pilot-ladder.cjs` 2.14, 2.15 and 3.7 fail against the first commit's gate and template
+and pass now (39 checks).
+
+## Session 2026-10-28 (NF-05) — the pilot ladder: 48 h on `pilot` before a release reaches the ward
+
+`REFERENCE.md` § The pilot ladder (new), `.github/PULL_REQUEST_TEMPLATE/release.md` (new),
+`.github/workflows/release-gate.yml` and `tools/release-gate.mjs` (new), `boot.js` § 3,
+`tools/verify-release.mjs` (`--pilot`), `tools/dev-local.mjs`, `_headers` (comment only),
+`test/verify-pilot-ladder.cjs` (new), `test/verify-review-0917-shell.cjs` 2.4,
+`test/verify-dev-local.cjs` #5, `AGENTS.md`, `STATUS.md`, `BACKLOG.md`, `test/README.md`. The shells
+and `boot.js`'s `?v=` token moved with the build. No calculation, printed figure or backend code
+changed, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-05 in her apply list of 2026-10-27: a release goes first to a pilot that she and one
+fellow use for 48 h, and reaches the ward only by a separate promotion once usage and the error log
+show nothing new. Until now a `main → release` merge reached every ward at once.
+
+### How deploys worked, checked first
+
+Workers Builds deploys `release` to `neofeed.valhalla-health.workers.dev` and builds a preview of
+every other branch at `<branch>-neofeed.valhalla-health.workers.dev` (the Cloudflare comment on PR
+#178 shows both URLs). GitHub Pages serves `release` as a redirect stub. `release` requires
+`harnesses`, 0 approvals, `enforce_admins` on (branch-protection API, 2026-10-28). The backend has 26
+deployments; the ward's is `AKfycbz8…` at `@64` (`clasp list-deployments`). The frontend picks its
+backend from one constant in `boot.js`.
+
+### What the ladder is
+
+The `pilot` branch's preview, `pilot-neofeed.valhalla-health.workers.dev`, is the pilot: no new
+Worker, the same bytes the ward gets later. `boot.js` § 3 sends that one host to a pilot deployment
+of the same Apps Script project (`NEOFEED_PILOT_GAS_URL`, empty until Pp creates it, so the pilot host
+uses the ward's backend meanwhile). The release PR comes from `pilot` and carries the template's
+checklist; `promotion-checklist` fails until the pilot commit is its head, 48 h have passed, the
+rollback target names a tag and a backend `@N`, and every box is ticked. It is not a required check.
+
+Both deployments share the Sheet, Script Properties and script cache, so the runbook lists what
+cannot be piloted side by side (column moves, a cell that changes meaning, a cache value whose shape
+changes under the same key, an editor-run migration) and how such a release is split. A
+`CONSTANTS_VERSION` bump can be piloted: an order saved on one version is held on the other until it
+is saved again, never printed wrong.
+
+### Not done here
+
+Pp's one-time setup: the pilot deployment, the PR that sets its URL, the `pilot` branch, the OAuth
+origin and the branch protection (`REFERENCE.md`, BACKLOG § Now). Until then releases go as before.
+
+### Found on the way
+
+Release #172 (`342123d`, merged 2026-10-27) is live and `node tools/verify-release.mjs` passes on both
+hosts against it, but its tag `release-2026-10-27-pr172` is not pushed and `STATUS.md` does not
+record it yet. Neither is fixed here.
+
+## Session 2026-10-28 (9) — the quick calc's copied text is checked figure by figure
+
+`test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`,
+`test/README.md`. Tests and docs only: no served file, calculation, limit or printed figure changed.
+
+### Why
+
+PR #180 (session (3)) took Copy Order off a patient's order and, with it, every harness check that read the
+copied text's figures. The quick calc's Copy draws the same lines and stays (Pp: "Quick calc
+ให้ยังมีคัดลอกผล"), so after #180 nothing compared a figure in that text with a recomputed value (Vera,
+#180 findings 1 and 2). `REFERENCE.md` § Pre-PR review rule 5 kept Vera's proposed tests out, because they
+do not fail on today's code. Pp overrode it here: "test quick calc copies text".
+
+### What the harnesses now check
+
+- **`verify-calc-oracle.cjs`**: each of the 21 orders is typed a second time into the quick calc
+  (`scratch`, birth weight 0, so the dosing weight is typed as the current weight). Its copied text must
+  say it is not an order and carry no bed or NeoFeed ID. GIR, both feeds and their total, Prescribed,
+  Remaining, protein, energy, total Na, K⁺ mEq/L with its route wording, the bag's components, WFI and
+  prepared volume, ZnSO₄ mL, vitamin D and oral Ca tablets must equal the oracle's own recomputation. 1,827
+  checks. Steps 1–6 are now typed by one `fillForm()` for both mounts.
+- **`verify-calc-sum.cjs`** § 1b: all 60 orders again in the quick calc. The copied BAG MAKE-UP line must
+  carry the quick calc's own on-screen Components and Bag total, close exactly, and say COMPONENTS EXCEED BAG
+  VOLUME exactly when the screen says the bag cannot be compounded, including S4.
+- **`verify-tpn-meeting-0928.cjs`** § 13: the quick calc's Na Acetate line gives no acetate while
+  `naAcetate.acetateMeqPerMl` is unset, and "(acetate 7 mEq)" once it is 3 (2 kg, 180 + 30 mL).
+
+### Seen to fail
+
+Each check fails on a deliberately broken copy line and passes once it is restored:
+- GIR + 0.3, Prescribed + 2 and components + 0.2: oracle, 51 mismatches.
+- Components + 0.2, and COMPONENTS EXCEED never written: calc-sum, 117 failed.
+- Acetate computed without the overfill: § 13, 6 mEq instead of 7.
+
+`test/README.md` drops the "copied order" checks #180 removed and describes the new ones.
+
+## Session 2026-10-28 (8) — On a phone, the archive opens out from under the Calculator button
+
+`registry.jsx`, `compiled/registry.js`, both shells' `?v=` tokens, `test/verify-archive-fab-1028.cjs`
+(new), `test/README.md`. No figure, dose file, printed line or server code changes.
+
+### Why
+
+Pp, after bringing บก back to NICU 9 from a PC: "ให้แก้ใน mobile ได้ด้วย เพราะตอนนี้แก้ในคอมได้ แต่กดใน
+mobile ไม่ได้". In real Chromium as a touch phone, on the dev-local seed: scroll the ward list to its foot
+and tap ▼ Discharged / Transferred / Expired, and the first archived card opens at the foot of the
+screen. Its status chip (the way back to Active since #183) was under the floating Calculator button and
+its Edit under the bottom nav, at 375, 360 and 390px wide. A tap on the chip opened the quick calc. The
+desktop table has nothing over its archive. The rest of the way back works on a phone: the chip and Edit
+once scrolled clear, and Switch patient → Dashboard → Edit session → Active, NICU 9 → Save.
+
+### What changed
+
+- **Opening the phone list's archive scrolls its toggle to the top of the list** (`phoneArchiveRef`, an
+  effect on `showArchived`). With few archived infants the list stops at its foot, and the 136px the
+  list already keeps below its last card for the Calculator button leaves every archived card above it.
+  The jump is immediate, not smooth, so reduced-motion phones are not animated.
+- The ref is on the phone list's archive only. From 768px up that list is `display:none`, where
+  `scrollIntoView` does nothing, so opening the table's archive leaves the page where it was.
+- Not changed: a card's chip still passes under the Calculator button while the list is scrolled, as
+  every card's right side always has; the list's 136px foot lets any card be scrolled clear of it.
+
+## Session 2026-10-28 (7) — a help request can carry its picture on the Workers host
+
+`app.jsx` (`helpImageFromFile`), `compiled/app.js` and both shells' `?v=` token (rebuilt),
+`test/verify-help-request-frontend.cjs`, `test/verify-help-button-1009.cjs`. No calculation,
+printed figure, backend or `_headers` line changed.
+
+### Why
+
+Pp, 2026-10-28, from an iPhone on `neofeed.valhalla-health.workers.dev`: attaching a picture to
+ขอความช่วยเหลือ said "เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG". The text still went, and
+the email read "รูปแนบ: ไม่มี". She asked for it to be checked on Android as well.
+
+It was not the iPhone. The form opened the picked file through `URL.createObjectURL`, a `blob:` URL.
+`_headers`' `img-src` is `'self' data: https://*.gstatic.com https://*.googleusercontent.com`, with no
+`blob:`, so the Workers host blocked the load and the form reported a picture it could not open. That
+happened on every browser on that host: Android, iPhone and desktop. GitHub Pages sends no CSP, so the
+picture worked there. `verify-help-button-1009.cjs` #3 passed because its server sent no headers.
+
+### What changed
+
+- `helpImageFromFile` reads the file with `FileReader.readAsDataURL` and opens that `data:` URL, which
+  `img-src` already allows. The CSP is unchanged: widening `img-src` to `blob:` would have fixed it
+  too, but it changes the policy both hosts' reviews rest on, for nothing a `data:` URL cannot do.
+  The redraw, the 1600 px edge, the 1.5 MB cap, the EXIF drop and the Thai errors are as they were.
+- `verify-help-button-1009.cjs` now serves every file with the headers `_headers`' `/*` block sets.
+  #3 runs at an Android width (360), an iPhone width (402) and a desktop, and fails on any CSP
+  violation. New #5 shows that under that policy a `blob:` picture does not open and a `data:` one
+  does.
+- `verify-help-request-frontend.cjs` 6.11: the picture is opened from a `data:` URL and
+  `URL.createObjectURL` is never called.
+
+### Tests
+
+The new checks fail on `86bfc91`, the code before this change. In `verify-help-button-1009.cjs` #3,
+21 checks fail across the three devices, each with the browser's `img-src` violation for the `blob:`
+URL, and the request goes out without `image`, as in Pp's email. In
+`verify-help-request-frontend.cjs`, 6.11 fails. Both pass on this change: 168/168 and 54/54, sources
+and compiled.
+
+Not covered: Chromium is the only engine available here, so iOS Safari itself (WebKit) was not run.
+WebKit enforces `img-src` against `blob:` the same way, which is what Pp saw. A HEIC original picked
+from an Android gallery still cannot be opened in Chrome, and the form says so in Thai, as before.
+
+## Session 2026-10-28 (6) — NF-17 for two feeds: `verify-calc-sum.cjs` adds them up
+
+`test/verify-calc-sum.cjs` (§ 3, three negative controls, control 1 repointed), `test/README.md`,
+`STATUS.md`. No app code changed; nothing is served, so nothing to release.
+
+### Why
+
+Pp: "เพิ่ม two-feed order ใน verify-calc-sum (NF-17)". NF-17 asks every calculation change for a sum check
+on synthetic orders and a click-through check that the screen shows the new value. #182 (two feeds in
+Step 2) and #185 (any regular schedule) shipped without one: the harness had no two-feed order, and the
+oracle only 4 + 4. Vera listed it as open on #185, and `STATUS.md` kept it open for Pp.
+
+### What changed
+
+- **§ 3, two feeds.** Three orders: 6 + 2 beside a bag (Pre Nan 22 + BM with HMF 24), 4 + 4 feeds only
+  (breast milk + Enfalac Premature 24) and 5 + 3 on a peripheral line (Hi-Q LBW 24 + Pre Nan 22). Each runs
+  four times on the same infant and bag: no feed, feed 1 alone, feed 2 alone, both. Both feeds must equal
+  feed 1 + feed 2:
+  - in the saved Daily_Log row (fluid, kcal, protein, Na, K, Ca, P, EN mL/kg/d), within 1e-9;
+  - in Step 2's "Delivered per kg from EN", within one unit of the digit shown;
+  - on the printed form: energy from EN within 2 kcal/kg, protein from EN within 0.01 g/kg (the header
+    gives the rounding arithmetic).
+  Each feed's "= X mL/day", the EN volume tile, the total line's interval, each feed's share hint and
+  Prescribed must follow from the inputs, and the feeds must move no printed bag line, TPN energy or
+  amino acid.
+- **Wired-in.** On the two-feed order, feed 2's volume is typed a key at a time, its kcal/oz picked, or
+  the frequencies typed through a refused 5 + 2 to 6 + 2. The feed lines, the EN tile and the delivered
+  kcal follow, the stale form is withdrawn, and the reprint carries the new energy with the bag unchanged.
+- **Negative controls 4–6** patch `calculator.jsx` in memory and must fail: feed 2 left out of the EN
+  volume (63 checks fail), both feeds costed as feed 1's milk (39), `enVol2` out of the feeds' memo
+  dependencies (5). **Control 1 was broken on `main`:** its patch text had gone when the bag sum moved to
+  whole hundredths (2026-10-27), so it stopped with "update PATCHES[1]" instead of failing. It now patches
+  the current sum, and fails 85 checks.
+- A feeds-only order with its feeds taken away is an empty day, which cannot be submitted; its baseline is
+  zeros, and the harness asserts the refusal.
+
+### Checks
+
+- `verify-calc-sum.cjs`: 60 orders and 3 two-feed orders, 1,889 checks, on the sources and on `compiled/`
+  through the compiled loader. Controls 1–6 each fail (`SUM_N=0`).
+- Nothing in it recomputes the app's formulas: the sums compare the app with itself, one feed against two.
+
+## Session 2026-10-28 — NF-28 meets #182's Step 2
+
+`tools/reference-tabs.cjs`, `tools/reference-tabs.json`, `test/verify-reference-tabs.cjs`,
+`test/README.md`. No value, limit, unit or printed figure changed; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp, 2026-10-28, merging NF-28 into `main` after release #184. With `main` merged in, the check failed on
+two things #182 brought, both as it was built to:
+
+- `EN_FEEDS_PER_DAY_MAX` (8, `CR-EN-FEEDS-MAX`) had no unit in `tools/reference-tabs.json`, so the new
+  limit could not skip the check.
+- The feed dropdown no longer lists EN_DB keys as `["…"].filter(k => D.EN_DB[k])`. `EnFeedPicker` reads
+  `D.EN_PRODUCTS`, a milk and then its kcal/oz, so the reader found no list and said so.
+
+### What changed
+
+- `EN_FEEDS_PER_DAY_MAX` has its unit, "feeds/day, Feed 1 + Feed 2". Its range still comes from the rule.
+- When `calculator.jsx` reads `D.EN_PRODUCTS`, the dropdown's keys are every strength key in `data.js`'s
+  `EN_PRODUCTS`, each checked against `EN_DB` with unique labels as before. Source that reads
+  `D.EN_PRODUCTS` while `data.js` gives none is reported, not passed. The old reader stays for the old
+  shape.
+
+### Tests
+
+`verify-reference-tabs.cjs`: 71 checks, all passing on the merged tree. #2.13 and #2.14 are new; both fail
+on the reader before this change, with #3.2 and #3.4. Each `NEGATIVE_CONTROL` still fails one check;
+`=3` now fails on `calculator.jsx:392`, `EnFeedPicker`'s `D.EN_PRODUCTS`.
+
+## Session 2026-10-28 — NF-28: every reference cell is checked before a release
+
+`tools/reference-tabs.cjs` (new), `tools/reference-tabs.json` (new), `test/verify-reference-tabs.cjs`
+(new), the clinical-rules skill (one sentence), `REFERENCE.md`, `test/README.md`. No value, limit, unit or
+printed figure changed; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-28 in her apply list of 2026-10-27: one wrong cell in a reference table makes every TPN
+result that reads it wrong, so each numeric cell must be a number of the expected sign inside a stated
+range, each lookup key must match its list exactly, each column needs a unit, and a failure blocks the
+deploy and names the cells. Nothing is coerced or trimmed.
+
+### Where the tables are, and so where the check runs
+
+The item was written as `checkReferenceTabs()` in Apps Script over tabs in the Sheet. The Sheet has no
+such tab: `gas-backend.gs` reads Staff, Patient_Registry, Daily_Log, Nursing_Log and Audit_Log, and
+sends the frontend no clinical number. Every number the calculator reads is in `data.js` (`EN_DB`,
+`KCMH_STOCK`, `SUPP_DB`, the limit constants, `TPN_TARGETS`, `ENTERAL_TARGETS`, `TARGETS`), and it ships
+with the frontend on a merge into `release`. So `checkReferenceTabs` is a pure function in
+`tools/reference-tabs.cjs`, and `test/verify-reference-tabs.cjs` runs it in `harnesses`, the check
+`release` requires. A failing cell keeps the `main → release` PR from merging. The check needs no Sheet
+access and no CI secret, and the workflow file is unchanged: CI already runs every `test/verify-*.cjs`.
+
+### What it checks
+
+363 cells in three tables, 28 limits, 34 target bands called over DOL 0–60 and nine weights (9,106
+calls), 43 lookup keys and 84 references in the screens. Ranges: 49 come from CR- rules, 47 of them the
+values the skill codes (read from the skill at run time, so no number is copied) and 2 that a rule
+states; 23 band checks use the backend's save bound for the same field (`_validateLogEntry`); 38 are
+proposed (below). A value a rule codes with no unit in `tools/reference-tabs.json` fails, so a new limit
+cannot skip the check. Lookup keys come from the code:
+the Calculator's feed dropdown (its `.filter(k => D.EN_DB[k])` drops a key with no row without a word,
+so the check fails instead), the four `useState` defaults, both amino-acid lists, the supplement
+dropdown categories, every `D.KCMH_STOCK.x.y` and `S.x.y` reference, and every nursing feed key against
+the backend's `NURSING_FEED_KEY_RE`, which refuses a save with a key that fails it.
+
+### Found (nothing changed)
+
+- 14 band functions have no caller in the screens: `TARGETS.protein`, `kcal`, `lipid`, `na`, `k`, `ca`,
+  `p`, `girTarget`, `girPreterm`, `girTerm`; `TPN_TARGETS.mg`, `caP`; `ENTERAL_TARGETS.peRatio`,
+  `npePerG`. They are checked like the rest.
+- The PN lipid band's top (4.0) equals `LIPID_IV_HARD_HI`, and the PN K band's top (5) equals
+  `K_IV_HARD_HI`: a target can reach the critical line but not pass it, which the check now holds.
+
+### For Pp
+
+- 38 ranges no rule gives are proposed in `tools/reference-tabs.json`, all by one rule: half the lowest
+  to 1.5 times the highest value today. They catch a slipped decimal or mg typed as mmol, not a clinical
+  error. They cover the `EN_DB` nutrients and osmolality, every `SUPP_DB` strength, Aminoplasmal's
+  0.15 g/mL, `MG_MG_PER_MEQ`, and the Mg, Ca:P, enteral lipid, protein:energy and NPE bands.
+- Whether the live Sheet keeps any reference tab that no code reads; nothing here can see it.
+
+### Tests
+
+`test/verify-reference-tabs.cjs`: 69 checks. Section 1 runs 43 kinds of bad cell on synthetic tables,
+each failing alone at its cell, and shows the check changes no input; section 2 runs the source readers
+on synthetic code, including one that finds nothing and must say so; section 3 runs the real files.
+`NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` = `"1.2"`), `=2` (`KCMH_STOCK.naCl.naMeqPerMl` = 34.2) and `=3`
+(the feed list asking for `"BM_20 "`) each fail one check, naming the cell.
+
+## Session 2026-10-28 — NF-08: a patient identifier, a raw sheet cell or a secret in a log fails CI
+
+`tools/ci_bans.js`, `test/ci-bans-fixtures.json`, `.github/workflows/test.yml` (a comment), `AGENTS.md`,
+`test/README.md`, `BACKLOG.md`, `STATUS.md` (this PR's line). No app code changed; nothing to release.
+
+### Why
+
+NF-08 on Pp's apply list of 2026-10-27, ticked ทำ: a PR fails when a line that writes a log names a
+patient identifier, or hands a log a Script Property or a token. `pseudonymizePatient()` clears name,
+initials and dob from Patient_Registry, but nothing clears them from the Apps Script execution log, a ward
+PC's console or an Audit_Log row. Until now only Vera stood in the way; her benchmark plants exactly this
+(`test/vera-bench/cases/phi-log.patch`: the erased infant's name and dob in the erasure's own log line).
+
+### What changed
+
+- **Three rules in `tools/ci_bans.js`**, run by NF-19's existing CI step: `log-identifier` (hn, an, name,
+  dob, phone, citizen, initials as a variable, property or key), `log-raw-cell` (`row[1]`, `data[i][6]` in
+  a backend log) and `log-secret` (a `PropertiesService` value, directly or through a variable or helper,
+  or a name like token, secret, password or apiKey). `test/README.md` § Log rules has the matching rules.
+- **`log-raw-cell` goes past the NF-08 row.** The backend reads every column by index, so the name list
+  alone passes the vera-bench line (`cur[1]`, `cur[6]`). This rule is what fails it.
+- **`initials` is on the list** though NF-08 did not name it: `pseudonymizePatient()` erases it with name
+  and dob. Staff `email` is not: Audit_Log records `actorEmail` by design (PDPA Sec 39), and the
+  editor-run account functions log the address they changed.
+- **No `schema.json`**, so the list is kept by hand; the class-per-column version is in `BACKLOG.md` §
+  Later.
+- **`main` passes all three with no allow entry.** The rules check every tracked source, not only a PR's
+  changed lines, so an old line cannot hide behind the diff.
+- **`check()` passes the file name to a rule's `find`**, so `log-raw-cell` can keep to `.gs` files.
+
+## Session 2026-10-28 (5) — The ward list's status and bed chips are buttons
+
+`data.js`, `registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-registry-chip-taps-1028.cjs`
+(new), `test/verify-mobile-bed-button.cjs`, `test/README.md`, `app-walkthrough.md`, `STATUS.md` (catching up
+with release #172), `BACKLOG.md`. No calculation, limit or printed figure changed.
+
+### Why
+
+Pp, from a phone screenshot of the SCN list: "กดปุ่ม active ก็จะสามารถเปลี่ยนตัวเลือก status ได้ และให้ save
+ที่เดิมที่เคย save หลัง save จะเปลี่ยนทุกที่ที่เกี่ยวข้อง กดตรงเตียง ก็จะเท่ากับปุ่มย้ายเตียง
+ให้เช็คว่าทุกอย่างดึงมาจากจุดเดียวกัน". The card's "Active" chip and its bed chip looked like buttons and
+did nothing; a tap on either opened the patient.
+
+### What changed
+
+- **Status chip → Status dialog** (`StatusModal`), on the phone card, the table, and the archive (an
+  infant who has left can be set back to Active from it). It saves where Edit session saves a status:
+  `onEdit` → `handleEditPatient` → `registerPatient`, with the merge base frozen at open. It changes
+  `status` and `statusDate` and nothing else. Back to Active on a bed another infant has since been given
+  is refused there, as Edit refuses it. The chip reads "Active ▾".
+- **Bed chip → the ⇄ dialog.** The chip and the ⇄ button call the same `openTransfer`, so they open the
+  one `TransferBedModal`. An archived infant's bed is not a button: a bed is not moved for an infant who
+  has left.
+- **One source for a status** (`data.js`): `PATIENT_STATUSES` (Edit's select and the dialog), `patientStatus`
+  (blank reads Active, the rule `isOnUnit` already applied, and `isOnUnit` now reads through it) and
+  `statusChange` (the statusDate rule, moved out of `EditPatientModal.save` unchanged). The Dashboard strip's
+  status chip read `patient.status` raw, so a blank status showed an empty chip; it reads `patientStatus` now.
+- `patientStatus` also reads a hand-typed "Active " or "active" as Active (Vera, before the PR). The server
+  syncs "Active " as Active (`_patientInSyncWindow` trims), and the client then dropped that infant off the
+  ward list, the alerts and the bed guard. The server's reads are not uniform: the sync window matches case,
+  so "active" with no statusDate reaches no ward device, and `_bedConflict` compares the raw cell, so "Active "
+  holds no bed on the server while the client now counts it as taken (the stricter side). The server half is
+  in `BACKLOG.md`. An unknown word stays as typed and off the unit, as both server reads treat it;
+  `_normStatus` would write it as Active on the next save, and a mistyped "Expird" must not come back as an
+  infant holding a bed.
+- After a save, every screen follows from the one record in `App`'s `patients`: the list and its archive,
+  the Active / Logged today / Needs entry tiles, the freed bed in the transfer dialog, the Dashboard strip,
+  the admin census and the alerts (`isOnUnit`).
+- On a touch screen each chip's tap area is 44px tall without making the card's row taller (`.chip-tap::after`).
+- **Expired asks first** (Pp, "1+2": yes to "should Expired ask 'are you sure?'"). A change to Expired, from
+  the Status dialog or Edit session, asks first, naming the infant and the bed (`ยืนยันบันทึก AA (เตียง
+  NICU 1) เป็น Expired (เสียชีวิต) ใช่หรือไม่?`): on a phone a slip of the finger would record a death
+  against the wrong baby. Cancel saves nothing and leaves the dialog open. A record already Expired, saved
+  again, is not asked about. One function, `confirmStatusChange`, asks for both.
+
+### Checks
+
+`verify-registry-chip-taps-1028.cjs`, 88 checks (18 in real Chromium, among them a touch tablet's table); on
+`main` (`326bcd9`) every scenario fails, and #8 (Expired asks first) fails on `1b0866a`, the head before it. `verify-mobile-bed-button.cjs` §5 counted two `setTransferPatient(p)` calls in the source; it now
+pins the one inside `openTransfer`, and the four places that call it. `tools/dev-local.mjs`, at 390px: DD
+set to Discharged from its chip left the list and was still Discharged after a reload, and set back to
+Active from the archive returned to NICU 4.
+
+## Session 2026-10-28 (4) — Two feeds: 6 + 2 is a schedule too
+
+`calculator.jsx`, the clinical-rules skill (`CR-EN-FEEDS-EQUAL` becomes `CR-EN-FEEDS-SCHEDULE`;
+`CR-EN-FEEDS-MAX`'s refusal case), `data.js` (a comment), `app-walkthrough.md`, `STATUS.md`. No figure,
+limit or stock moves, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+After #182 was merged into `main`, Pp: "ไม่ต้อง reject 6+2 ให้ทำได้". #182 read her "ต้องให้ทั้งสองตัว
+เป็นทุก ชม ที่เท่ากัน" as "both feeds equally often", which refused 6 + 2 though it makes 8 a day, a
+q3h schedule like 4 + 4. What 3 + 4 lacks is an interval: 7 feeds do not divide the day into whole hours.
+Asked (after Vera) whether that means any regular schedule or only totals of 8 or 6, Pp chose any regular
+schedule: totals 8, 6, 4, 3 or 2 a day, any whole split, 7 + 1 and 5 + 3 included.
+
+### What changed
+
+- The second two-feed stop is now "together they fill a regular schedule": 24 h ÷ (Feed 1 + Feed 2)
+  must be whole hours. 6 + 2, 5 + 3, 4 + 4 (q3h), 4 + 2, 3 + 3 (q4h) save; 3 + 4 and 3 + 2 are refused.
+  With the 8-a-day stop the totals left are 8, 6, 4, 3 and 2. The alert is "Two feeds off a regular
+  schedule", and the Step 2 line reads "Feed 1 + 2 = 7 feeds/d — ไม่ลงตัวกับทุก ชม. เท่ากัน (8, 6, 4, 3
+  หรือ 2 มื้อ/วัน) บันทึกไม่ได้".
+- Vera on this change: each feed's feeds a day must be whole (4.8 + 3.2 and 7.5 + 0.5 add to 8 but no
+  ward can give them), and beside the other each feed's hint now reads its share of the one schedule,
+  "6 of 8 feeds · q3h", where 6 + 2 used to read q4h beside q12h, which meet at 0 h and 12 h. The copied
+  order's Total line names the shared interval.
+- Vera's second review of it: the quick calc copies without the Print gate, so 3 + 4 copied as "7 feeds/d
+  q3.4h". A refused two-feed day now copies with no interval and a "!! … cannot be ordered" line, as an
+  over-maximum K⁺ does. Whole-feed faults have their own words ("จำนวนมื้อต้องเป็นจำนวนเต็ม"; the alert
+  said "24 h ÷ 8 is not whole hours" for 4.8 + 3.2), and the Thai stop line lists every allowed total,
+  8, 6, 4, 3 or 2. `verify-quick-calc.cjs` § 4b and the 4.8 + 3.2 case fail on the code before.
+- `CR-EN-FEEDS-MAX`'s refusal case is 6 + 6 = 12 (q2h): the first total over 8 that is still a regular
+  schedule, so it is refused by that stop alone.
+
+### Checks
+
+- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-SCHEDULE` with seven cases; 6 + 2 and 4 + 2 fail on the code
+  before (it refused them), 3 + 4 and 3 + 2 fail with the check turned off, and 4.8 + 3.2 and 7.5 + 0.5
+  fail without the whole-feeds check.
+- **No second clinician has reviewed this change.**
+## Session 2026-10-28 (3) — no Copy Order on a patient's order; the quick calc keeps its Copy
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, eleven harnesses,
+`app-walkthrough.md`, `BACKLOG.md`. No calculation, limit, unit or printed figure changed, and
+`CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp, 2026-10-28, looking at the Save + Copy Order card on a ward phone: "เอา copy order to clipboard ออกได้มั้ย".
+A patient's order now leaves NeoFeed only as the printed form (or, on Center Point, CP's reviewed revision,
+which never had Copy).
+
+### What changed
+
+- **"Copy Order to Clipboard" is gone from a patient's order**, for prescribers and nurses alike. The card is
+  "Save Order"; Save draft, Submit and Delete are unchanged.
+- **The quick calc keeps "คัดลอกผลคำนวณ"** (Pp, 2026-10-28: "Quick calc ให้ยังมีคัดลอกผล"): it has no Save and
+  no form, so Copy is all it has (2026-09-21).
+  Its text is byte-identical to before (checked by diffing three quick-calc orders' copies before and after).
+  The patient-only branches of the copy text are gone with the button: the Bed / NeoFeed ID line, the
+  critical-override line, and the `══ NeoFeed V2 — TPN Order ══` header and footer.
+- Wording that named Copy now names Print alone: "พิมพ์ได้หลังบันทึก", "…ก่อนพิมพ์" in the held-order line,
+  and the nurse's note "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว".
+- The quick calc's Copy no longer calls its text an order (Vera, PR #180): the toast is "คัดลอกผลคำนวณแล้ว"
+  (was "Order copied to clipboard") and the empty-step confirm asks "คัดลอกผลคำนวณต่อไปหรือไม่?" (was
+  "Copy order ต่อไปหรือไม่?"). `verify-calc-clicks` §10 checks both; both fail before the change.
+
+### Tests
+
+- Checks of a patient's copied text went with it: the oracle's copy figures, calc-sum's copy BAG MAKE-UP,
+  and the copy lines in the 0918, 0922, 0928, 1017, 1021 and 0917 harnesses. Every figure they read is
+  still checked on the screen or the printed form, except the acetate in the bag (0928 §13): only the
+  copy gave it, and only once `naAcetate.acetateMeqPerMl` is read off the label (it is `null`). The
+  screen's acetate per kg is still checked.
+- New: `verify-calc-clicks` asserts a patient's order has no Copy button, before saving and once printable;
+  `verify-nursing-frontend` 5.8 asserts the same for a nurse; `verify-safety-review` asserts the one
+  `navigator.clipboard` call sits in a `{scratch && <button …>}`. All three fail on `main`.
+- Moved, not dropped: the "no .0" rule (0922 §8) and the K⁺ route wording (0928 §15) now read the quick
+  calc's copy, the one copy left.
+
+## Session 2026-10-28 (2) — Print ทั้งหมด and per-infant ticks on a ward's Print order list, no Calculator button there
+
+`registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs` (new),
+`test/verify-phone-sweep.cjs`, `test/verify-quick-calc.cjs`, `test/README.md`. No calculation, limit or
+printed figure changed; `calculator.jsx`, `data.js` and `gas-backend.gs` are untouched.
+
+### Why
+
+Pp, on a phone screenshot of "Print order · NICU": "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมี
+แคลคูเลเตอร์ด้านขวาล่าง", then, in the same session: "ให้สามารถมีปุ่มซีเล็กเป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้".
+
+### What changed
+
+- **Print ทั้งหมด**, top right of the list's head on every screen size (the phone's stacked page head
+  is overridden for this page only; ← กลับ moved under the title). It counts the rows a tap would print
+  and is off when there are none. A row still saving, or a day with two orders, is left out, as a tap
+  on it does not print either.
+- **A tick per infant, and เลือกทั้งหมด.** Each printable row has a tick beside its card (not inside it:
+  the card is itself a button), all ticked when the list opens. เลือกทั้งหมด ticks or clears them all and
+  shows part-ticked with "เลือกแล้ว 2 จาก 3 ใบ". The button reads Print ทั้งหมด (3) while all are ticked
+  and Print ที่เลือก (2) otherwise, and is off at 0. A tap on a row still prints that one order. The
+  ticks live in the list, so they reset to all when the list is opened again.
+- **One order at a time.** The run opens each order from the list exactly as a tap on its row does
+  (`openOrderToPrint`), so each still passes the calculator's Print gate and the edit lock, and gets
+  one print preview. A bar on the calculator reads "Print ทั้งหมด · ใบที่ 1 จาก 3" with
+  "ถัดไป: NICU 2 …"; the last reads "ใบสุดท้าย · กลับไปรายการ". An order held back (unsaved edit, a
+  critical value with no reason, a colleague's lock) shows the usual reason, and ถัดไป still goes on.
+  Leaving the calculator, or the list, ends the run.
+- **Each order is asked the list's rule again before it opens** (`registry.jsx` `wardPrintableOrder`,
+  shared by the list and the run). One a sync took off the list during the run (the infant discharged or
+  moved, a second order that day, the order deleted, the day rolled over) is skipped with a toast naming
+  it, and the run goes on.
+- **No Calculator button on the print list.** It stays on the ward gate and the ward's patient list.
+
+### Decisions
+
+- **The next order opens on a tap, never on afterprint.** A browser need not wait for its print dialog
+  before handing the page back, and moving the page on under an open dialog could put the next infant's
+  order on this one's sheet. One tap per order costs less than one wrong-patient sheet sent to pharmacy.
+- **Not one combined print job.** That needs every order's sheet rendered at once, and the sheet is
+  built inside `Calculator` from its own state. A print-only mode there is a change to a dose file, and
+  a second path that decides what may print. This one reuses the reviewed path untouched. If the ward
+  wants one dialog for the whole ward, that is the follow-up.
+
+### Vera
+
+NO BLOCK on the first commit, three findings, all fixed in the second: the last bar said "ครบ N ใบ" though
+the run cannot know a sheet printed (now "ใบสุดท้าย"); the queue was never re-checked, so a sync during the
+run could auto-print an order a tap on the list could no longer reach (now `wardPrintableOrder` is asked
+again before each order); a deleted entry ended the run silently (now skipped by name, the run goes on).
+Her three proposed tests went in (`verify-print-all-1028` 3.5, #8 `resync`, #8b `gone`); each fails on
+the first commit and passes on the second. Her second review: NO BLOCK, no findings, three tests proposed.
+Two went in, #8c `moved` (an infant moved to SCN during the run) and #8d `midnight` (the day rolls over);
+both fail on the first commit. The third (twins with one name) does not fail on either commit, so it is
+left out, by her rule 5.
+
+### Checked
+
+`verify-print-all-1028.cjs` 72/72 on the sources and on `compiled/`; against `main` (`326bcd9`), every one
+of its twelve scenarios fails.
+
+## Session 2026-10-28 — Step 2: two feeds, each a milk and then its kcal/oz
+
+`data.js` (`EN_PRODUCTS`, `enProductOf`, `enMixPer100mL`), `calculator.jsx` (Step 2, the EN terms of
+`calc`, the saved inputs, the change list, the copied order), the clinical-rules skill (rules
+`CR-U-EN-TWO-FEEDS`, `CR-EN-FEEDS-MAX`, `CR-EN-FEED-UNKNOWN`, and `CR-U-EN-KCAL`), `app-walkthrough.md`,
+and the harnesses that pick a feed. No `EN_DB` row, limit or stock changed, and an order with one feed
+computes exactly as before. No backend change: `calcInputJson` already stores the inputs as they are.
+
+**`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's decision (2026-10-28).** Vera pointed out that a
+frontend without feed 2 (a ward tab loaded before the release, or `release` after a revert) opens a
+two-feed order as feed 1 only and prints it unheld, since `calcMoved` only holds a different stamp; a
+bump would hold it there, at the price of every older order being saved again before it reprints. Pp
+chose no bump. So after a revert of this change, a two-feed order prints feed 1's figures alone until it
+is re-entered, and a re-save from such a tab drops feed 2.
+
+### Why
+
+Pp, 2026-10-28, from a ward phone screenshot of Step 2: "ให้สามารถมีตัวเลือกสองอันสำหรับชนิดของนม
+ต่อมามีให้เลือกเป็น kcal/oz, volume และจำนวนมื้อของนมชนิดนั้นๆ ... โดยไปดึงข้อมูลมาจาก Chula nutrition
+book" — two feeds, each chosen as a milk and then its kcal/oz, with its own volume and feeds a day,
+composition from the Chula handbook rows `EN_DB` already holds.
+
+### What changed
+
+- **Milk, then kcal/oz.** The one long feed list became two selects: the milk (grouped as before) and its
+  strength. Each strength is an existing `EN_DB` row, so the order still saves one key per feed and every
+  figure keeps its source. Only the strengths the formulary already had are offered (Enfalac Premature
+  and Pre Nan 22/24, HiQ LF and Enfalac LF 20/24/27, the rest one each); adding one is a row plus a pair
+  in `EN_PRODUCTS`, and is Pp's and the nutrition unit's call. The two selects share the three columns
+  of the Volume / Frequency row below: the milk spans two, kcal/oz the third (Pp, from the desktop view:
+  a fixed 112 px kcal/oz box beside a full-width milk box was out of proportion). Changing the milk keeps
+  the kcal/oz when the new milk comes in it; otherwise it takes the new milk's first and says so beside
+  the picker, "kcal/oz 30 → 22: Pre Nan ไม่มี 30 kcal/oz" (Vera's third review; 4.20–4.22).
+- **A second feed.** "+ Add a second feed (นมชนิดที่ 2)" opens Feed 2 with its own milk, kcal/oz, volume
+  and frequency; each feed shows its mL/day and mL/kg/d. The day's enteral volume and every nutrient are
+  the sum of the two: `enMixPer100mL` weights one composition per 100 mL by each feed's mL/day, so fluid,
+  the switch to enteral targets, every tile and alert and the Daily_Log columns read the sum. With one
+  feed it returns that feed's own row object, so nothing moves for a one-feed order. The MEN tick covers
+  both feeds and sits below them when there are two (Pp, after Vera asked: one tick, not one per feed).
+- **At most 8 feeds a day between the two** (Pp, later the same day: "Feed 1+2 รวมกันมากสุดจะได้แค่ 8
+  มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้ 6 มื้อ"). The two feeds share one schedule, so with two feeds given,
+  Feed 1's and Feed 2's feeds a day above `EN_FEEDS_PER_DAY_MAX` (8, q3h) cannot be submitted (a stop,
+  like the 1,250 mL bottle: a draft can be kept). Step 2 shows "Feed 1 + 2 = 8 feeds/d · q3h". One feed
+  alone is not checked; whether a q2h feed (12) should be is Q18 in the skill. Feed 1 with no volume
+  beside feed 2 is a day of one feed (Vera's second review): not checked, and copied as one line.
+  `docs/CLINICAL_CONSTANTS.md` has its row.
+- **The two feeds at the same interval** (Pp, later still: "ถ้าอันนึงกด 3 feed อันนึงกด 4 feed จะทำไม่ได้
+  ต้องให้ทั้งสองตัว เป็นทุก ชม ที่เท่ากัน"). With two feeds given, Feed 1's and Feed 2's feeds a day must be
+  equal (`CR-EN-FEEDS-EQUAL`, a stop): 4 + 4 is q3h, 3 + 3 q4h; 3 + 4 is refused, and so is 6 + 2 though
+  it makes 8.
+- **A feed EN_DB does not hold stops the order** (Vera on this change). A saved feed whose key is not
+  an `EN_DB` row (removed since, or written by a newer NeoFeed) was costed as the other feed once there
+  could be two; `enMixPer100mL` now returns null for it, `enFeedsUnknown` names it, and the order cannot
+  be submitted or printed until another milk is picked (`CR-EN-FEED-UNKNOWN`). Before two feeds such a
+  key stopped the Calculator with an error.
+- **Saved, compared, copied.** `calcInput` gains `enType2`/`enVol2`/`enFreq2` (an older row normalises
+  to none), the change list names them, the copied order prints one line per feed and the total, and
+  `savedDosingWeightOf` counts both feeds. The change list names feed 2's milk only where feed 2 is
+  given (Vera's second review): removing it reads "Feed 2: Pre Nan → none", not "→ Breast Milk", and a
+  milk picked for a feed 2 with no volume is no change.
+- **Center Point** prints one feed (`neofeed-tpn-v2`), so a CP order is not offered a second, and feed 2
+  counts for nothing there.
+
+### Checks
+
+- **No second clinician has checked the two-feed sum** or the figures a two-feed order prints (change
+  protocol step 3). The harnesses below are the only check so far.
+- `verify-calc-oracle.cjs`: two orders with two feeds (K1 alternating feeds beside a bag; K2 two feeds
+  that reach 100 mL/kg/d only together), recomputed feed by feed rather than through the app's mix, on
+  screen, in the saved row, on the form and in the copy. With feed 2 dropped from the app, both fail on
+  45+ figures each (run once by hand, not kept as a switch).
+- `verify-clinical-rules.cjs`: `CR-EN-FEEDS-MAX` (stop) with 8 saving, 9 refused, q4h's 6 saving, a
+  feed with no volume not counted and one q2h feed not checked; with the limit set to 9 the refusal
+  fails (run once by hand). `CR-U-EN-TWO-FEEDS` with five orders (fluid, the enteral switch from the
+  sum, MEN over both feeds and the MEN ceiling on the sum); the harness learned `feed2`/`order2`.
+- `verify-en-db-sources.cjs` 4.14–4.19: reopened orders with a feed not in `EN_DB`, and the change
+  list with feed 2 removed or empty; each fails on the code before its fix.
+- The harnesses that picked a feed by "the select with a BM_20 option" set the milk and then its
+  kcal/oz; `verify-en-db-sources.cjs` §4 and `verify-tpn-meeting-0928.cjs` §9 walk both selects and still
+  require exactly the sixteen feeds offered before.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),

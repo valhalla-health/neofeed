@@ -74,6 +74,46 @@ function BedChip({ p, style, stacked }) {
   return <span className="bed-chip chip" style={style}><span className="d" />{p.currentBed || D_R.lastBed(p)}</span>;
 }
 
+// The two chips on the ward list that are also controls (Pp, 2026-10-28). A
+// tap on the bed is the ⇄ ย้ายเตียง button: the same handler, so the same
+// TransferBedModal. A tap on the status opens StatusModal. Each stops the
+// tap there, so the card or row under it does not also open the patient. The
+// bed chip is the plain BedChip inside a bare button; the status chip is the
+// chip itself, with ▾ to say it opens a choice.
+function BedChipButton({ p, stacked, onOpen }) {
+  const action = D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง";
+  return (
+    <button type="button" className="chip-tap chip-tap-bed" aria-haspopup="dialog"
+      aria-label={`${action} ${D_R.patientName(p)}`.trim()}
+      onClick={e => { e.stopPropagation(); onOpen(p); }}>
+      <BedChip p={p} stacked={stacked} />
+    </button>
+  );
+}
+function StatusChipButton({ p, onOpen }) {
+  const status = D_R.patientStatus(p);
+  return (
+    <button type="button" className={"chip chip-tap" + (D_R.isOnUnit(p) ? " ok" : "")} aria-haspopup="dialog"
+      aria-label={`Status ${status} — เปลี่ยนสถานะ ${D_R.patientName(p)}`.trim()}
+      onClick={e => { e.stopPropagation(); onOpen(p); }}>
+      <span className="d" />{status}<span className="chip-caret" aria-hidden="true">▾</span>
+    </button>
+  );
+}
+
+// Expired asks once before it is saved (Pp, 2026-10-28: yes to "should Expired
+// ask 'are you sure?'"). It takes the infant off the ward list, and a slip of
+// the finger on a phone would record a death against the wrong baby, so the
+// question names the infant and their bed. Only on the change to Expired, not
+// when a record already Expired is saved again. The Status dialog and Edit
+// session both ask through this.
+function confirmStatusChange(patient, status) {
+  if (status !== "Expired" || D_R.patientStatus(patient) === "Expired") return true;
+  const who = D_R.patientName(patient) || patient.sessionId;
+  const bed = D_R.normalizeBed(patient.currentBed);
+  return window.confirm(`ยืนยันบันทึก ${who}${bed ? ` (เตียง ${bed})` : ""} เป็น Expired (เสียชีวิต) ใช่หรือไม่?\nจะย้ายออกจากรายชื่อ ward`);
+}
+
 // Switch patient's bed cell for an infant who has left the unit (Discharged,
 // Transferred, Expired): the status where the bed would be, and the bed they
 // left from under it. Their record keeps that bed's label, and the plain chip
@@ -82,8 +122,8 @@ function BedChip({ p, style, stacked }) {
 function LeftUnitBed({ p, style }) {
   const from = p.currentBed || D_R.lastBed(p);
   return (
-    <span className="bed-chip bed-wait bed-left" style={style} title={`${p.status} — ออกจาก unit แล้ว`}>
-      <span className="chip"><span className="d" />{p.status}</span>{" "}
+    <span className="bed-chip bed-wait bed-left" style={style} title={`${D_R.patientStatus(p)} — ออกจาก unit แล้ว`}>
+      <span className="chip"><span className="d" />{D_R.patientStatus(p)}</span>{" "}
       {from && <span className="bed-wait-from">จาก {from}</span>}
     </span>
   );
@@ -223,36 +263,106 @@ const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter(e => D_R.normalizeDateStr(e.ts) === today);
 }
+// The one order a tap on this infant's row opens straight to print, or null:
+// an active infant of `ward` whose only Submitted order for `today` is saved
+// (no tmp_ id). Print ทั้งหมด builds its queue with it, and app.jsx asks it
+// again before opening each queued order: a run takes minutes, and a sync in
+// it can discharge or move the infant, or add a second order (Vera, 2026-10-28).
+function wardPrintableOrder(p, entries, ward, today) {
+  if (!p || !isActivePatient(p) || D_R.patientWard(p) !== ward) return null;
+  const orders = todaysOrders(entries, today);
+  return orders.length === 1 && !isPendingRow(orders[0]) ? orders[0] : null;
+}
 
-function WardPrintList({ patients, log, today, ward, onBack, onPrint, onOpenPatient, onShowNeeds }) {
+function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const active = patients.filter(p => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active
     .map(p => ({ p, orders: todaysOrders(log[p.sessionId], today) }))
     .filter(r => r.orders.length > 0);
   const waiting = active.length - rows.length;
+  // Print ทั้งหมด (Pp, 2026-10-28: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด"):
+  // every row a tap would open straight to print, in the list's bed order.
+  // App opens them one at a time, each as a tap on its row would (app.jsx
+  // printQueue), so each still passes the calculator's Print gate and the edit
+  // lock. A row still saving, or a day with two orders, is left out: a tap on
+  // it does not print either (wardPrintableOrder). The label names the next infant on the
+  // calculator's ถัดไป button as the row does: bed (รอเตียง when parked, as
+  // BedChip says), name and twin label.
+  const printable = rows.flatMap(({ p }) => {
+    const order = wardPrintableOrder(p, log[p.sessionId], ward, today);
+    return order ? [{ sessionId: p.sessionId, entryId: order.entryId,
+      label: [D_R.isParked(p) ? "รอเตียง" : (p.currentBed || D_R.lastBed(p)), D_R.patientName(p),
+        p.twinSuffix && multiplesLabel(p)].filter(Boolean).join(" ") }] : [];
+  });
+  // Which of them Print sends (Pp, 2026-10-28, second ask: "ให้สามารถมีปุ่ม
+  // ซีเล็กเป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้"): a tick per row, and เลือกทั้งหมด.
+  // null is every one, the state the list opens in and the one เลือกทั้งหมด
+  // returns to, so an order submitted while the list is open joins it. Once a
+  // row is ticked or unticked it is the set of entry ids chosen, and an order
+  // no longer printable drops out of it on its own. Kept here, not in App: the
+  // list unmounts while an order is open, and comes back with every one ticked.
+  const [picked, setPicked] = React.useState(null);
+  const isPicked = (item) => picked === null || picked.has(item.entryId);
+  const queue = printable.filter(isPicked);
+  const allPicked = queue.length === printable.length;
+  const togglePick = (item) => {
+    const next = new Set(picked === null ? printable.map(i => i.entryId) : picked);
+    if (next.has(item.entryId)) next.delete(item.entryId); else next.add(item.entryId);
+    setPicked(next);
+  };
+  const pickable = !!onPrintAll && printable.length > 0;
+  const itemFor = new Map(printable.map(i => [i.sessionId, i]));
+  const printWhat = allPicked ? "Print ทั้งหมด" : "Print ที่เลือก";
 
   return (
     <>
-      <div className="page-head" style={{ marginBottom: 12 }}>
-        <div>
+      <div className="page-head print-head" style={{ marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
           <h1>Print order · {wardName}</h1>
           <div className="sub">
             {window.NEOFEED_FMT_DATE?.(today) || today} · Submit แล้ว{" "}
             <span className="num">{rows.length}</span> จาก <span className="num">{active.length}</span> ราย
           </div>
+          <button className="btn" onClick={onBack} style={{ fontSize: 12.5, marginTop: 10 }}>← กลับ</button>
         </div>
-        <button className="btn" onClick={onBack} style={{ fontSize: 12.5 }}>← กลับ</button>
+        {onPrintAll && rows.length > 0 && (
+          <button type="button" className="btn primary print-all" disabled={queue.length === 0}
+            onClick={() => onPrintAll(queue)}
+            aria-label={`${printWhat} ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`}>
+            <Icon name="pdf" size={14} color="#fff" /> {printWhat} <span className="num">({queue.length})</span>
+          </button>
+        )}
       </div>
 
       <div className="print-list">
+        {pickable && (
+          <label className="print-pick-all">
+            <input type="checkbox" checked={allPicked}
+              ref={el => { if (el) el.indeterminate = queue.length > 0 && !allPicked; }}
+              onChange={() => setPicked(allPicked ? new Set() : null)} />
+            เลือกทั้งหมด
+            <span className="print-pick-n">เลือกแล้ว <span className="num">{queue.length}</span> จาก <span className="num">{printable.length}</span> ใบ</span>
+          </label>
+        )}
         {rows.map(({ p, orders }) => {
           const one = orders.length === 1 ? orders[0] : null;
           const pending = !!one && isPendingRow(one);
           const open = pending ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
           const action = pending ? "กำลังบันทึก…" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
+          const item = itemFor.get(p.sessionId);
+          // The tick sits beside the card, not in it: the card is itself a
+          // button (rowA11y), and a control inside a control is not reachable
+          // as one. A row that cannot print keeps the column, empty.
           return (
-            <div key={p.sessionId} className={"print-row" + (pending ? " is-pending" : "")}
+            <div key={p.sessionId} className="print-item">
+            {pickable && (item ? (
+              <label className="print-pick">
+                <input type="checkbox" checked={isPicked(item)} onChange={() => togglePick(item)}
+                  aria-label={`เลือก ${item.label}`} />
+              </label>
+            ) : <span className="print-pick" aria-hidden="true" />)}
+            <div className={"print-row" + (pending ? " is-pending" : "")}
                  onClick={open || undefined}
                  {...(open ? rowA11y(open) : {})}
                  aria-label={`${action} ${D_R.patientName(p) || ""}`.trim()}>
@@ -268,6 +378,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onOpenPati
                 {one && !pending && <Icon name="pdf" size={12} color="#fff" />} {action}
                 {!pending && <Icon name="arrow" size={11} color={one ? "#fff" : undefined} />}
               </button>
+            </div>
             </div>
           );
         })}
@@ -311,7 +422,7 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
 }
 
 function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor,
-  printWard, onPrintWard, onPrintOrder }) {
+  printWard, onPrintWard, onPrintOrder, onPrintAll }) {
   const [filter, setFilter]         = React.useState("");
   // Which stats tile the list is narrowed to: null (every active infant),
   // "logged" or "needs" (Pp, 2026-10-12: tap Active / Logged today / Needs
@@ -321,7 +432,26 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const [showAdd, setShowAdd]       = React.useState(false);
   const [editPatient, setEditPatient]       = React.useState(null);
   const [transferPatient, setTransferPatient] = React.useState(null);
+  const [statusPatient, setStatusPatient]     = React.useState(null);
   const [showArchived, setShowArchived]     = React.useState(false);
+  // On a phone the archive opens at the foot of the screen, where the
+  // Calculator button floats, and the first archived card's status chip came
+  // up under it (its Edit under the bottom nav): a tap there opened the quick
+  // calc instead of the Status dialog (Pp, 2026-10-28: "แก้ในคอมได้ แต่กดใน
+  // mobile ไม่ได้"). Opening it scrolls its toggle to the top of the list, so
+  // the cards are in the open. The ref is on the phone list's archive, which
+  // is display:none from tablet width up, where scrollIntoView does nothing;
+  // the table needs no help. jsdom, which most harnesses mount, has none.
+  const phoneArchiveRef = React.useRef(null);
+  React.useEffect(() => {
+    const el = phoneArchiveRef.current;
+    if (showArchived && el && el.scrollIntoView) el.scrollIntoView({ block: "start" });
+  }, [showArchived]);
+  // The one way into each dialog from the list. The bed chip and the ⇄
+  // button both call openTransfer, so the two can never open different
+  // things (Pp, 2026-10-28: "ให้เช็คว่าทุกอย่างดึงมาจากจุดเดียวกัน").
+  const openTransfer = (p) => setTransferPatient(p);
+  const openStatus   = (p) => setStatusPatient(p);
 
   // Live local date: re-renders this view when the day rolls over, so the
   // stats strip, the per-patient LOGGED / NEEDS ENTRY badges and the 7-day
@@ -342,6 +472,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
     <WardPrintList patients={patients} log={log} today={today} ward={printWard}
       onBack={() => onPrintWard?.(null)}
       onPrint={onPrintOrder}
+      onPrintAll={onPrintAll}
       onOpenPatient={onSelect}
       onShowNeeds={() => { setFilter(""); setStatFilter("needs"); onPrintWard?.(null); onWardChange?.(printWard); }} />
   );
@@ -572,12 +703,12 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                   {p.twinSuffix && <span className="pmc-twin chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                   <span className="pmc-dol">DOL {dol}</span>
                 </div>
-                <span className="chip ok"><span className="d" />Active</span>
+                <StatusChipButton p={p} onOpen={openStatus} />
               </div>
 
-              {/* Row 2: bed + GA · BW */}
+              {/* Row 2: bed + GA · BW. The bed is the ⇄ button too. */}
               <div className="pmc-row">
-                <BedChip p={p} />
+                <BedChipButton p={p} onOpen={openTransfer} />
                 <span className="pmc-meta">
                   <span className="num">{D_R.fmtGA(p.ga)}</span> wk ·{" "}
                   <span className="num">{p.bw.toLocaleString()}</span> g
@@ -616,7 +747,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                   lives nowhere else. The modal's own swap hint says "เปิด ⇄
                   ของ …", which was an instruction no phone could follow. */}
               <div className="pmc-actions">
-                <button className="btn sm pmc-bed" onClick={e => { e.stopPropagation(); setTransferPatient(p); }}
+                <button className="btn sm pmc-bed" onClick={e => { e.stopPropagation(); openTransfer(p); }}
                   aria-label={`${D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"} ${D_R.patientName(p)}`.trim()}>
                   ⇄ {D_R.isParked(p) ? "เลือกเตียง" : "ย้ายเตียง"}
                 </button>
@@ -645,7 +776,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         {/* Archived toggle — not while a tile narrows the list: a discharged
             infant is in none of the three. */}
         {!statFilter && archivedSorted.length > 0 && (
-          <div style={{ marginTop: 8 }}>
+          <div ref={phoneArchiveRef} style={{ marginTop: 8 }}>
             <button className="btn" style={{ width: "100%", justifyContent: "center", color: "var(--ink-3)", fontSize: 12 }}
               onClick={() => setShowArchived(s => !s)}>
               {showArchived ? "▲" : "▼"} Discharged / Transferred / Expired ({archivedSorted.length})
@@ -659,7 +790,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     {p.twinSuffix && <span className="pmc-twin chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                     <BedChip p={p} />
                   </div>
-                  <span className="chip"><span className="d" />{p.status}</span>
+                  <StatusChipButton p={p} onOpen={openStatus} />
                 </div>
                 <div className="pmc-row">
                   <span className="pmc-meta"><span className="num">{D_R.fmtGA(p.ga)}</span> wk · <span className="num">{p.bw.toLocaleString()}</span> g</span>
@@ -668,8 +799,10 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                 {/* Edit, as the desktop archive row has: it is how an infant
                     who has left comes back (Status → Active, a bed). A phone
                     card had no Edit at all, and the ward could not find the
-                    way back (Pp, 2026-10-22). No ⇄: a bed is not moved for an
-                    infant who has left. Under the active cards' Edit. */}
+                    way back (Pp, 2026-10-22). The status chip above does the
+                    status alone (2026-10-28). No ⇄, and the bed chip is not a
+                    button: a bed is not moved for an infant who has left.
+                    Under the active cards' Edit. */}
                 <div className="pmc-actions">
                   <button className="btn sm" style={{ gridColumn: 2 }}
                     onClick={e => { e.stopPropagation(); setEditPatient(p); }}>
@@ -753,7 +886,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     onClick={() => onSelect(p.sessionId)}
                     tabIndex={0}
                     onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.sessionId); } }}>
-                  <td><BedChip p={p} stacked /></td>
+                  <td><BedChipButton p={p} stacked onOpen={openTransfer} /></td>
                   <td>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{D_R.patientName(p) || "—"}</div>
                     {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{multiplesLabel(p)}</div>}
@@ -775,10 +908,8 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     </> : "—"}
                   </td>
                   <td>
-                    <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"var(--ok)", fontWeight:600 }}>
-                      <span style={{ width:7, height:7, borderRadius:"50%", background:"var(--ok)", flexShrink:0 }} />
-                      Active
-                    </span>
+                    {/* The phone card's status chip, and the same dialog. */}
+                    <StatusChipButton p={p} onOpen={openStatus} />
                     {/* Same today's-entry state as the mobile card — the table
                         computed it already but never showed it. */}
                     <div style={{ marginTop: 3 }}>
@@ -793,7 +924,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                   <td>
                     <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
                       <button className="btn sm" title="ย้ายเตียง"
-                        onClick={e => { e.stopPropagation(); setTransferPatient(p); }}
+                        onClick={e => { e.stopPropagation(); openTransfer(p); }}
                         style={{ padding: "0 8px", fontSize: 13 }}>⇄</button>
                       <button className="btn sm" style={{ padding: "0 8px" }}
                         onClick={e => { e.stopPropagation(); setEditPatient(p); }}>Edit</button>
@@ -833,7 +964,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                     column past the header, so every archived row's status chip
                     sat under the wrong heading. */}
                 <td colSpan={3} />
-                <td><span className="chip"><span className="d" />{p.status}</span></td>
+                <td><StatusChipButton p={p} onOpen={openStatus} /></td>
                 <td style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                   <button className="btn sm" onClick={e => { e.stopPropagation(); setEditPatient(p); }}>Edit</button>
                 </td>
@@ -865,6 +996,8 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       {editPatient      && <EditPatientModal patient={editPatient} patients={patients} onClose={() => setEditPatient(null)}
         onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} onDelete={onDelete} />}
       {transferPatient  && <TransferBedModal patient={transferPatient} patients={patients} onClose={() => setTransferPatient(null)}
+        onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} />}
+      {statusPatient    && <StatusModal patient={statusPatient} patients={patients} onClose={() => setStatusPatient(null)}
         onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} />}
     </>
   );
@@ -1474,11 +1607,16 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const occupancy = React.useMemo(
     () => D_R.bedOccupancy(patients, patient.sessionId), [patients, patient.sessionId]);
   const [dx, setDx]             = React.useState(patient.diagnosis || "");
-  const [status, setStatus]     = React.useState(patient.status || "Active");
+  // A status that is not one of the four (a cell typed by hand, "Expird")
+  // seeds BLANK and must be picked before saving, as an unknown sex does: the
+  // server refuses to store one since 2026-10-28 (_normStatus), and it used to
+  // write it as Active, which brought the infant back onto the ward list.
+  const statusKnown             = D_R.PATIENT_STATUSES.includes(D_R.patientStatus(patient));
+  const [status, setStatus]     = React.useState(statusKnown ? D_R.patientStatus(patient) : "");
   // Asks about the record as it would be saved — with the status picked here,
   // not the stored one — so a discharged record can be corrected after its old
   // bed is reused, while setting it back to Active on that bed is still refused.
-  const bedTaken  = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
+  const bedTaken  = status ? D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed }) : null;
   // Seed the admission-DOL field from the anchor (D_R.admissionDol: the DOL
   // of the admission date, from dob), not from weights[0].dol. An outborn
   // infant's birth measurement becomes weights[0] with DOL 1, so seeding from
@@ -1537,7 +1675,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const ga = gaW !== "" ? parseInt(gaW, 10) + parseInt(gaD || 0, 10) / 10 : 0;
   // Same gate as registration: a 0/blank BW or GA would corrupt every
   // subsequent dose for this patient, so it can be corrected but not cleared.
-  const canSave = bw > 0 && gaW !== "" && sex !== "" && !nameMissing && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
+  const canSave = bw > 0 && gaW !== "" && sex !== "" && status !== "" && !nameMissing && !bedTaken && !admitIssue && !dol1Missing && !growth.conflict;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   // A bed changed or cleared here is a move, and records the bed left in
   // "Previous beds" exactly as ⇄ does (Pp, 2026-09-27). Without it, clearing
@@ -1571,21 +1709,12 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
     onClose();
   };
 
-  // statusDate marks when the patient left Active (Discharged/Transferred/
-  // Expired) — the registry list uses it to auto-hide the name after 7 days.
-  // Re-stamped only when the status actually changes so re-saving the same
-  // archived status doesn't keep resetting the 7-day clock.
   const save = () => {
-    const prevStatus = patient.status || "Active";
-    // An Active record that had no statusDate keeps the exact empty value it
-    // came with ("" from the sheet), rather than turning it into null. Under
-    // the three-way merge (app.jsx handleEditPatient, UP-S1) a field that
-    // differs from `base` counts as changed — and a phantom "" → null change
-    // would blank the statusDate another device had just stamped on a
-    // discharge.
-    const statusDate = status === "Active"
-      ? (prevStatus === "Active" && !patient.statusDate ? (patient.statusDate ?? null) : null)
-      : (status !== prevStatus || !patient.statusDate) ? today : patient.statusDate;
+    if (!confirmStatusChange(patient, status)) return;
+    // status and statusDate as the ward list's status chip writes them
+    // (D_R.statusChange): statusDate is the day the patient left Active, and
+    // the list hides an archived name 7 days after it.
+    const statusFields = D_R.statusChange(patient, status, today);
     // weights[0] is the measurement NewPatientModal seeds from the birth
     // weight, so a corrected BW has to carry into it or the Fenton chart and
     // the registry's "Δ birth" keep plotting the typo. Only when it still
@@ -1617,8 +1746,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       bw: Number(bw), ga, sex,
       currentBed: nextBed,
       diagnosis: dx,
-      status,
-      statusDate,
+      ...statusFields,
       admissionDate: admitDate,
       dob,
       weights,
@@ -1669,6 +1797,12 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
               เลือก Male หรือ Female ก่อนจึงจะบันทึกได้ (ใช้เลือกกราฟ Fenton)
             </div>
           )}
+          {!statusKnown && (
+            <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 }}>
+              Status ในทะเบียนของ session นี้ไม่ถูกต้อง (<strong>{D_R.patientStatus(patient)}</strong>) —
+              เลือก Status ก่อนจึงจะบันทึกได้
+            </div>
+          )}
           {gaTd > 0 && !gaInRange && (
             <div style={{ padding: "8px 12px", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 8, fontSize: 11.5, color: "var(--warn-ink)", lineHeight: 1.5 }}>
               GA เดิมของ session นี้ (<strong>{D_R.fmtGA(patient.ga)} wk</strong>) อยู่นอกช่วง 22–43 wk ที่ระบบรองรับ —
@@ -1706,10 +1840,8 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
             <div className="field">
               <label>Status</label>
               <select className="sel" value={status} onChange={e => setStatus(e.target.value)}>
-                <option value="Active">Active</option>
-                <option value="Discharged">Discharged</option>
-                <option value="Transferred">Transferred</option>
-                <option value="Expired">Expired</option>
+                {status === "" && <option value="">— เลือก —</option>}
+                {D_R.PATIENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
@@ -1734,6 +1866,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
                 : dol1Missing ? "ต้องระบุ DOL แรกรับก่อนบันทึก"
                 : admitIssue ? "แก้วันที่รับเข้าก่อนบันทึก"
                 : sex === "" ? "ต้องระบุเพศก่อนบันทึก"
+                : status === "" ? "ต้องเลือก Status ก่อนบันทึก"
                 : "ต้องระบุน้ำหนักแรกเกิด · GA ก่อนบันทึก"}
             </div>
           )}
@@ -1893,6 +2026,82 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
             <button className="btn primary" onClick={save}
               disabled={!bed || D_R.normalizeBed(bed) === currentBed || !!bedTaken || busy}>
               <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "Confirm transfer"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Status modal ─────────────────────────────────────────────
+// Opened by the status chip on the ward list (Pp, 2026-10-28: "กดปุ่ม active
+// ก็จะสามารถเปลี่ยนตัวเลือก status ได้ และให้ save ที่เดิมที่เคย save"). It
+// saves where Edit session saves a status: onEdit → app.jsx
+// handleEditPatient → registerPatient, with the merge base frozen at open and
+// the statusDate rule in D_R.statusChange. Nothing else on the record changes.
+// Every screen that shows a status or depends on one (the list and its
+// archive, the Active / Logged today / Needs entry tiles, the Dashboard
+// strip, the admin census, the alerts, the bed guard) reads it from that one
+// saved record through D_R.patientStatus and D_R.isOnUnit, so they all follow.
+function StatusModal({ patient, patients, onClose, onSubmit, mergeBaseFor }) {
+  const today   = D_R.todayLocal();   // local date, not UTC
+  const current = D_R.patientStatus(patient);
+  const [status, setStatus] = React.useState(current);
+  const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
+  // Frozen at open (see useMergeBase), as in Edit session.
+  const mergeBase = useMergeBase(mergeBaseFor, patient.sessionId);
+  const bed = D_R.normalizeBed(patient.currentBed);
+  // Back to Active on a bed another infant has been given since is refused,
+  // as Edit session refuses it: asked of the record as it would be saved.
+  const bedTaken = D_R.bedBlocker(patients, { sessionId: patient.sessionId, status, currentBed: bed });
+  const changed  = status !== current;
+
+  const save = () => {
+    if (!changed) { onClose(); return; }
+    if (!confirmStatusChange(patient, status)) return;
+    submit({ ...patient, ...D_R.statusChange(patient, status, today) }, mergeBase);
+  };
+
+  return (
+    <div className="picker-backdrop" onClick={onClose} data-back-confirm="Status">
+      <div className="picker" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
+        <div className="picker-h" style={{ justifyContent: "space-between" }}>
+          <div style={{ fontWeight: 600, fontSize: 15 }}>Status · {D_R.patientName(patient) || patient.sessionId}</div>
+          <button className="icon-btn" aria-label="ปิด" onClick={onClose}><Icon name="x" size={14} /></button>
+        </div>
+        <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="status-pick" role="radiogroup" aria-label="Status">
+            {D_R.PATIENT_STATUSES.map(s => (
+              <button key={s} type="button" role="radio" aria-checked={status === s}
+                className={"btn" + (status === s ? " primary" : "")} onClick={() => setStatus(s)}>
+                {s}
+              </button>
+            ))}
+          </div>
+
+          {changed && !bedTaken && (
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 }}>
+              {status === "Active"
+                ? <>กลับเข้ารายชื่อ ward{bed ? <> ที่เตียง <strong>{bed}</strong></>
+                    : D_R.lastBed(patient) ? <> · รอเตียง (จาก {D_R.lastBed(patient)}) เลือกเตียงด้วย ⇄</> : null}</>
+                : current === "Active"
+                  ? <>ย้ายไปอยู่ในรายการ Discharged / Transferred / Expired{bed ? <> · เตียง <strong>{bed}</strong> จะว่าง</> : null}</>
+                  : <>เปลี่ยนจาก {current} เป็น {status}</>}
+            </div>
+          )}
+          {bedTaken && (
+            <div style={{ fontSize: 11.5, color: "var(--crit)", lineHeight: 1.5 }}>
+              {D_R.bedTakenMsg(bed, bedTaken)}
+              <div style={{ color: "var(--ink-3)", marginTop: 4 }}>หรือกด Edit เพื่อเลือกเตียงอื่นพร้อมกับเปลี่ยน status</div>
+            </div>
+          )}
+
+          <SubmitError error={submitError} />
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button className="btn" onClick={onClose}>Cancel</button>
+            <button className="btn primary" onClick={save} disabled={!changed || !!bedTaken || busy}>
+              <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "Save"}
             </button>
           </div>
         </div>

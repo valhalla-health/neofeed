@@ -170,6 +170,52 @@ The reasons for each rule, with sources: the two 2026-10-11 Vera entries in `CHA
 
 ## Deploying, and rolling back
 
+### Before and after, and rolling back (NF-05, 2026-10-28)
+
+**A release that changes a calculation shows its numbers before it merges.** Pp's decision of
+2026-10-28: what protects an infant is comparing the figures before they reach pharmacy, so every
+`main → release` PR that changes a calculation carries a before-and-after table, and every release PR
+names what it rolls back to. The release PR starts from `.github/PULL_REQUEST_TEMPLATE/release.md`:
+
+```bash
+gh pr create --base release --head main --template release.md
+```
+
+**Before and after, in dev local.** Serve the release live now and the PR's head side by side, each
+with its own made-up infants (§ Frontend, "Dev local before every release"):
+
+```bash
+git worktree add <scratch>/nf-before origin/release                     # what the ward runs now
+node tools/dev-local.mjs --tree <scratch>/nf-before --port 8155         # before
+node tools/dev-local.mjs --tree <checkout of the PR's head> --port 8156  # after
+```
+
+For each calculation the release changes, enter **at least three cases** in both: the same made-up
+infant and the same inputs, then every figure the change could move, on screen and on the printed
+order. Pick the cases to cover the change, one inside the usual range and one at each edge it
+touches. Write each in the release PR's table: inputs, figure before, figure after, and whether the
+difference is the intended one. A difference nobody intended stops the merge.
+
+**Rolling back.** The rollback targets are the release tags, `release-YYYY-MM-DD-prNN`, one per release
+merge since PR #60 (§ Frontend; #172's was never pushed). List them with `git tag -l 'release-*'` or on
+the repo's Tags page. Every release PR names the tag and commit live before it, and the ward
+deployment's version.
+
+- **Cloudflare:** `npx wrangler rollback`, signed in as `praew.tvl@gmail.com`, or the Worker's
+  *Deployments* tab → the version built from the rollback-target commit → *Rollback*. It acts in
+  seconds and changes nothing in git, so revert the change on `main` next and release the revert,
+  or the following release ships the bad change again. `node tools/verify-release.mjs <rollback
+  commit>` then passes on Cloudflare, and GitHub Pages differs until the revert reaches `release`.
+- **GitHub Pages:** it has no rollback of its own; it changes only when that revert reaches `release`.
+- **The build step:** for a release that crosses the 2026-09-17 build step, revert the whole
+  `main → release` merge rather than single files: `_headers`, both shells, `boot.js`, `compiled/` and
+  `vendor/` only work as a set.
+- **Backend:** in `~/nicu-tools/neofeed`, as `peeraporn.po@chula.ac.th`,
+  `clasp update-deployment <ward deployment id> -V <previous version>` (`clasp list-deployments` shows
+  the version live now: `AKfycbz8…` at `@64` on 2026-10-28). It is a live redeploy, so it still waits
+  for Pp's go-ahead. Rows the newer version wrote stay in the Sheet, since every deployment of one Apps
+  Script project shares its Sheet, Script Properties and cache: the older version must read them.
+
 ### Frontend
 
 **`main` is a working branch, not a deploy trigger — `release` is.** Changed 2026-09-11
@@ -261,6 +307,13 @@ asked why nothing had changed. So:
   ⚠️ **Since 2026-09-17 the CSP and the shells ship together**: `script-src` no longer allows
   inline script, eval or unpkg, so the pre-build shells render a blank page under it. Never revert
   one without the other; reverting the release merge reverts both.
+- **The reference tables are checked before a release (NF-28).** Every clinical number the calculator
+  reads is in `data.js` (`EN_DB`, `KCMH_STOCK`, `SUPP_DB`, the limits, the target bands), so it ships
+  with the frontend. `test/verify-reference-tabs.cjs` runs in `harnesses`, the check `release`
+  requires: a cell that is a string, blank, of the wrong sign, outside its range or without a unit, or a
+  dropdown key that matches no row, turns it red and is listed by name, and the `main → release` PR
+  cannot merge. To change a reference value, change it with its CR- rule in the clinical-rules skill;
+  a new column or table also needs its unit and range in `tools/reference-tabs.json`.
 - **Proving what a release serves.** Workers Builds and Pages build nothing, so the served bytes
   must equal the bytes in git. After a release:
 
@@ -326,7 +379,9 @@ asked why nothing had changed. So:
 - **Fast local loop:** `npx wrangler dev`. No deploy, instant reload, and quicker than pushing. It
   talks to the production backend; to try a change past the login screen with made-up infants, use
   `tools/dev-local.mjs`.
-- **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. GitHub Pages has no
+- **Rollback:** `npx wrangler rollback`, or the Worker's *Deployments* tab. Past the release that
+  sends the stop list (2026-10-28), roll the backend back first, or every Submit is refused
+  (§ Backend). GitHub Pages has no
   rollback — revert the commit. For a release that crosses the 2026-09-17 build step, revert the
   whole `main → release` merge rather than individual files: `_headers`, both shells, `boot.js`,
   `compiled/` and `vendor/` only work as a set.
@@ -367,11 +422,23 @@ identity. None of it was true any more. The current procedure:
    a follow-up task — but not a docs-only PR either: put the verification in a comment on the
    PR whose code you deployed, and bring `STATUS.md` up to date in the next PR on this repo.
 
+**A backend that checks the stop list goes out after the frontend that sends it (2026-10-28).**
+`_stopRefusal` refuses a submitted Daily_Log row whose `calcInput.stops` is missing, and every frontend
+built before then sends none. So release the frontend first, then `clasp deploy`; to roll the frontend
+back past that release, roll the backend back first. After the deploy, a tab opened before the release is
+refused once and asked to reload; its draft still saves.
+
 Running a function from the Apps Script editor (e.g. the one-off `applyStaffHeaderColumns`
 / `applyLogHeaderColumns` migrations) executes as the signed-in user and may raise an OAuth
 consent — that is Praew's to approve, not something to click through on her behalf.
 
 Redeploys are live and NICU staff are on them: **always confirm before the redeploy step.**
+
+**The backend holds no reference table (NF-28).** The Sheet has no clinical reference tab, and the
+backend sends the frontend no clinical number, so a `clasp deploy` cannot change one. What the two share
+is a key rule: the nursing form saves an `EN_DB` key as `feedType`, and the backend refuses any key that
+fails `NURSING_FEED_KEY_RE`. `test/verify-reference-tabs.cjs` reads that rule from `gas-backend.gs` and
+checks every key against it, so deploy the backend only from a commit whose `harnesses` check is green.
 
 **The nursing I/O form (2026-09-24, `docs/NURSING_FORM_SPEC.md`) ships switched off.** Its backend
 code can go out with any `clasp` deploy, and its frontend with any release. Neither changes anything

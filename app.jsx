@@ -723,6 +723,15 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // asks for the print preview once (token-checked in calculator.jsx) and
   // gives the page its way back to the list. Any navigation clears it.
   const [autoPrint, setAutoPrint] = React.useState(null);
+  // Print ทั้งหมด on that list (Pp, 2026-10-28): { items, index, opening },
+  // items being the orders ticked on the list, in bed order ({ sessionId,
+  // entryId, label }). Each is opened from the list exactly as a tap on its
+  // row opens it (openOrderToPrint), so each passes the calculator's Print
+  // gate and the edit lock on its own. The next one opens only when the user
+  // taps ถัดไป, never on afterprint: a browser need not wait for its print
+  // dialog before handing the page back, and moving the page on under an open
+  // dialog could put the next infant's order on this one's sheet.
+  const [printQueue, setPrintQueue] = React.useState(null);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
   const [lastSync, setLastSync] = React.useState(null);
@@ -754,7 +763,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // user picks "เลือกวันที่ย้อนหลัง" on the Dashboard's log button.
   const [logDate, setLogDate] = React.useState(null);
   React.useEffect(() => { setEditEntry(null); setLogDate(null); setAutoPrint(null); }, [activeId]);
-  const goTo = (v) => { setEditEntry(null); setLogDate(null); setAutoPrint(null); setPrintWard(null); setView(v); };
+  const goTo = (v) => { setEditEntry(null); setLogDate(null); setAutoPrint(null); setPrintWard(null); setPrintQueue(null); setView(v); };
   // Declared after the [activeId] reset above on purpose: effects run in
   // order, so when picking an order also switched the patient, the reset's
   // nulls land first and this effect's editEntry wins.
@@ -774,6 +783,47 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setPrintJob({ sessionId, entryId, token: Date.now() });
     setActiveId(sessionId);
   };
+  // Print ทั้งหมด: the queue's current order is opened from the list, and
+  // only from the list, so the calculator that held the previous one has
+  // unmounted and the next mounts fresh, as after a tap on its row. Each is
+  // first asked the list's own rule again (registry.jsx wardPrintableOrder)
+  // against the data as it is now: an order a tap on the list could no longer
+  // reach — the infant discharged or moved, a second order that day, the
+  // order deleted, the day rolled over — is skipped, by name, and the run
+  // goes on (Vera, 2026-10-28).
+  React.useEffect(() => {
+    if (view !== "registry" || !printWard || !printQueue?.opening) return;
+    const item = printQueue.items[printQueue.index];
+    if (!item) { setPrintQueue(null); return; }
+    const p = patients.find(x => x.sessionId === item.sessionId);
+    const order = wardPrintableOrder(p, log[item.sessionId], printWard, D_A.todayLocal());
+    if (!order || order.entryId !== item.entryId) {
+      showToast(`ข้าม ${item.label || "ใบสั่งนี้"} — ไม่อยู่ในรายการ Print order แล้ว`, "error");
+      setPrintQueue({ ...printQueue, index: printQueue.index + 1 });
+      return;
+    }
+    setPrintQueue({ ...printQueue, opening: false });
+    openOrderToPrint(item.sessionId, item.entryId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, printWard, printQueue]);
+  // Back at the ward gate by any route, the queue is over.
+  React.useEffect(() => { if (!printWard) setPrintQueue(null); }, [printWard]);
+  const startPrintAll = (items) => { if (items?.length) setPrintQueue({ items, index: 0, opening: true }); };
+  const printNextInQueue = () => {
+    if (printQueue) setPrintQueue({ ...printQueue, index: printQueue.index + 1, opening: true });
+    setView("registry");
+  };
+  const backToPrintList = () => { setPrintQueue(null); setView("registry"); };
+  // The calculator's Print ทั้งหมด bar: shown only while it holds the queue's
+  // current order, opened from the list, so a stale queue can never offer
+  // "next" over some other order.
+  const queuedOrder = printQueue && !printQueue.opening ? printQueue.items[printQueue.index] : null;
+  const printAllStep = queuedOrder && view === "calculator" && autoPrint && printWard && editEntry
+    && editEntry.entryId === queuedOrder.entryId && activeId === queuedOrder.sessionId
+    ? { position: printQueue.index + 1, total: printQueue.items.length,
+        hasNext: printQueue.index + 1 < printQueue.items.length,
+        next: printQueue.items[printQueue.index + 1]?.label || "" }
+    : null;
 
   const active = patients.find((p) => p.sessionId === activeId);
   // Today's DOL, from the anchor (data.js liveDol → dolAtDate) — the one every
@@ -828,7 +878,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return;
     }
     if (view === "calculator") {
-      if (editEntry && autoPrint && printWard) setView("registry");   // back to the print list
+      if (editEntry && autoPrint && printWard) backToPrintList();
       else goTo(active ? "log" : "registry");
     } else if (view === "fenton" || view === "alerts") {
       goTo(active ? "log" : "registry");
@@ -2181,8 +2231,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   shellReadyRef.current = true;
   // The quick-calc button's one page — see QuickCalcFab. Also read by the
   // root's class, which pads the workspace so the button never sits over the
-  // last rows of the list it floats above.
-  const showQuickFab = view === "registry";
+  // last rows of the list it floats above. Not on a ward's Print order list
+  // (Pp, 2026-10-28: "ไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง"): that page is for
+  // printing only.
+  const showQuickFab = view === "registry" && !printWard;
   return (
     <div className={showQuickFab ? "app has-quick-fab" : "app"}>
       {/* Top bar */}
@@ -2422,7 +2474,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             onDelete={role === "admin" ? handleDeletePatient : undefined} />}
 
           {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
-            printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint}
+            printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint} onPrintAll={startPrintAll}
             onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
@@ -2449,7 +2501,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               handlePublishToGAS={handlePublishToGAS}
               handleDeleteEntry={handleDeleteEntry}
               autoPrint={autoPrint}
-              onBackToPrintList={autoPrint && printWard ? () => setView("registry") : null}
+              onBackToPrintList={autoPrint && printWard ? backToPrintList : null}
+              printAll={printAllStep} onPrintAllNext={printNextInQueue}
               goTo={goTo} />
           )}
           {view === "fenton" && active &&
@@ -2639,7 +2692,8 @@ function useDialogOpen() {
 // across its own renders, independent of App's much larger render.
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel, userEmail,
   handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo,
-  nursing = [], ordersReadOnly = false, autoPrint = null, onBackToPrintList = null }) {
+  nursing = [], ordersReadOnly = false, autoPrint = null, onBackToPrintList = null,
+  printAll = null, onPrintAllNext = null }) {
   // The day this order is for, as the Calculator reports it (onOrderDate): an
   // edit's own date, a back-fill's, or the day a new order was opened on —
   // which stays put if the form is left open past midnight. The header chip
@@ -2719,6 +2773,26 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
           <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
         </div>
       </div>
+
+      {/* Print ทั้งหมด from the ward's list (app.jsx printQueue): which order
+          of the run this is, and the next one a tap away. Never printed: it is
+          a .work-inner child other than #print-form. */}
+      {printAll && (
+        <div className="print-all-bar" role="status">
+          <span>Print ทั้งหมด · ใบที่ <span className="num">{printAll.position}</span> จาก <span className="num">{printAll.total}</span></span>
+          {printAll.hasNext ? (
+            <button type="button" className="btn primary" onClick={onPrintAllNext}>
+              ถัดไป: {printAll.next} <Icon name="arrow" size={11} color="#fff" />
+            </button>
+          ) : (
+            // "ใบสุดท้าย", not "ครบ N ใบ": the run cannot know a sheet printed —
+            // a held order or a cancelled dialog looks the same from here (Vera).
+            <button type="button" className="btn" onClick={onBackToPrintList}>
+              ใบสุดท้าย · กลับไปรายการ
+            </button>
+          )}
+        </div>
+      )}
 
       {holder && (
         <div style={{ padding: "10px 12px", background: "var(--warn-bg)",
@@ -2843,7 +2917,8 @@ function QuickCalcView({ onBack }) {
 // ── Quick-calc floating button ───────────────────────────────
 // Bottom-right, and on the WARD PAGE ONLY — the ward gate and the ward's
 // patient list, both `view === "registry"` (Praew, 2026-09-22, second round:
-// "ให้ calculator มาอยู่หน้า patient ward แทน"). Earlier that day it had gone
+// "ให้ calculator มาอยู่หน้า patient ward แทน"), but not a ward's Print order
+// list, which is for printing only (Pp, 2026-10-28). Earlier that day it had gone
 // to the Dashboard alone ("calculator ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard
 // เท่านั้น"); before that it rode every view except the two calculators, which
 // put a second, unsaveable calculator in the corner of the growth chart and
@@ -3041,7 +3116,9 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
           {/* A long word ("hyperbilirubinemia") breaks rather than running
               past the strip's clipped edge in a narrow column (tablet). */}
           <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700, minWidth:0, overflowWrap:"anywhere" }}>{patient.diagnosis}</div>
-          <span className={"chip" + (D_A.isOnUnit(patient) ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{patient.status}</span>
+          {/* D_A.patientStatus, as the ward list's chip: a blank status is
+              Active there, and this chip read blank. */}
+          <span className={"chip" + (D_A.isOnUnit(patient) ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{D_A.patientStatus(patient)}</span>
         </div>
       </div>
 
@@ -3260,19 +3337,20 @@ const HELP_IMAGE_MAX_EDGE = 1600;
 // several MB. A transparent PNG is laid on white, not black. Resolves to
 // { data (bare base64), dataUrl, bytes, width, height }; rejects with a Thai
 // sentence.
+//
+// The picture is read as a data: URL, never URL.createObjectURL's blob: one.
+// _headers' img-src allows data: and not blob:, so on the Workers host a blob:
+// picture never opened, on an iPhone or an Android phone alike (Pp,
+// 2026-10-28). GitHub Pages sends no CSP, which is why it worked there.
 function helpImageFromFile(file) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type || "")) return reject(new Error("แนบได้เฉพาะรูปภาพ"));
-    const url = URL.createObjectURL(file);
+    const cannotOpen = () => reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
     const img = new Image();
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
-    };
+    img.onerror = cannotOpen;
     img.onload = () => {
-      URL.revokeObjectURL(url);
       const w = img.naturalWidth, h = img.naturalHeight;
-      if (!w || !h) return reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
+      if (!w || !h) return cannotOpen();
       // Almost every picture fits on the first pass; a huge, noisy one is
       // drawn smaller until it does.
       let edge = Math.min(HELP_IMAGE_MAX_EDGE, Math.max(w, h));
@@ -3295,7 +3373,13 @@ function helpImageFromFile(file) {
       }
       reject(new Error("รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่"));
     };
-    img.src = url;
+    const reader = new FileReader();
+    reader.onerror = cannotOpen;
+    reader.onload = () => {
+      if (typeof reader.result !== "string" || !/^data:/.test(reader.result)) return cannotOpen();
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
 function HelpRequestModal({ onClose, onSend }) {

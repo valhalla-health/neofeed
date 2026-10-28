@@ -100,7 +100,7 @@ const patRow = (sid, status, statusDate) => {
   return r;
 };
 const ENTRY = { dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 3, k: 2, ca: 60, p: 40,
-  enVolPerKg: 20, route: 'TPN central', status: 'submitted' };
+  enVolPerKg: 20, route: 'TPN central', status: 'submitted', calcInput: { stops: [] } };
 const todayKey = sandbox._wardDateKey();
 const daysAgo = (n) => new Date(Date.parse(todayKey + 'T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
 function freshLog() { sheets.Daily_Log = makeSheet(LOG_HEADER); return sheets.Daily_Log; }

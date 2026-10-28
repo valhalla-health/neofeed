@@ -20,9 +20,10 @@
 //       inputs recompute to that figure; three inputs are checked by hand
 //       arithmetic, not the app's formula;
 //   §5  every CR- ID a panel names is a rule heading in the clinical-rules skill;
-//   §6  the pharmacy gets the same thing: the print form and the copied order
-//       are identical with every panel open as with none, and carry none of
-//       the new text;
+//   §6  the pharmacy gets the same thing: the print form is identical with
+//       every panel open as with none and carries none of the new text; a
+//       patient's order has no Copy (main, 2026-10-28), so the quick calc's
+//       copied text is checked the same way;
 //   §7  no trailing zero and no float tail in any of the new text.
 //
 // Fails on 326bcd9 (main before NF-12): there is no toggle, no panel and no
@@ -106,11 +107,11 @@ let root = ReactDOM.createRoot(container);
 const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
 const selectSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
 const text = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
-const fieldOf = (label) => [...container.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label)) || null;
+const fieldOf = (label, scope = container) => [...scope.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label)) || null;
 const saltRow = (label) => [...container.querySelectorAll('.salt-row-grid')]
   .find(d => d.firstElementChild?.firstElementChild?.textContent.startsWith(label)) || null;
-function setField(label, value) {
-  const input = fieldOf(label)?.querySelector('input') || saltRow(label)?.querySelector('input');
+function setField(label, value, scope = container) {
+  const input = fieldOf(label, scope)?.querySelector('input') || (scope === container ? saltRow(label)?.querySelector('input') : null);
   if (!input) throw new Error('no field labelled ' + JSON.stringify(label));
   act(() => { valueSetter.call(input, String(value)); input.dispatchEvent(new window.Event('input', { bubbles: true })); });
 }
@@ -123,22 +124,32 @@ function tick(label, want) {
   const box = lab.querySelector('input[type=checkbox]');
   if (box.checked !== want) act(() => { box.click(); });
 }
-function feed(key) {
-  const sel = [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === key));
-  if (!sel) throw new Error('no feed ' + JSON.stringify(key));
-  act(() => { selectSetter.call(sel, key); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+// Step 2 picks a milk and then its kcal/oz (main's #182), on feed 1 or feed 2.
+function feed(key, which = 1) {
+  const at = D.enProductOf(key);
+  if (!at) throw new Error('Step 2 does not offer ' + key);
+  for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
+    const sel = container.querySelector(`.en-feed-${which} .${cls}`);
+    if (!sel) throw new Error(`no .${cls} on feed ${which}`);
+    act(() => { selectSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  }
 }
 
 // An order typed into the real Calculator, the way verify-clinical-rules.cjs types one.
+// `scratch` mounts the quick calc: since main's 14caa41 (Pp, 2026-10-28) it is the
+// one Calculator with a Copy, as a patient's order leaves only as the print form.
 function mount(c) {
   act(() => { root.unmount(); });
   root = ReactDOM.createRoot(container);
   window.localStorage.clear();
   copied = null;
-  const patient = { sessionId: 'NF12-' + c.name, name: 'NF', bw: c.g, currentBed: 'NICU 5', diagnosis: '-',
-    weights: [{ dol: 1, w: c.g }], admissionDate: '2026-10-18' };
+  const patient = c.scratch
+    ? { sessionId: null, name: null, initials: null, bw: 0, ga: 0, sex: '', currentBed: '', diagnosis: '', weights: [], lengths: [], hcs: [] }
+    : { sessionId: 'NF12-' + c.name, name: 'NF', bw: c.g, currentBed: 'NICU 5', diagnosis: '-',
+      weights: [{ dol: 1, w: c.g }], admissionDate: '2026-10-18' };
   act(() => { root.render(React.createElement(window.Calculator, {
-    patient, dol: c.dol ?? 10, editEntry: null, baselineEntry: null, previousEntry: null, logDate: '2026-10-28',
+    patient, scratch: !!c.scratch, dol: c.dol ?? 10, editEntry: null, baselineEntry: null, previousEntry: null,
+    logDate: c.scratch ? null : '2026-10-28',
     userLabel: 'Dr Working (working@kcmh.test)', userEmail: 'working@kcmh.test',
     onLog: () => Promise.resolve({ ok: true, entryId: 'e-nf12', lastModified: 'lm-1' }),
     onUpdate: () => Promise.resolve({ ok: true, lastModified: 'lm-u' }),
@@ -146,9 +157,21 @@ function mount(c) {
   act(() => { container.querySelectorAll('.card-h.clickable').forEach(h => h.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
   if (c.route) click(buttonNamed('.step2-ctrl .seg button', c.route));
   setField('Current weight', c.g);
-  for (const l of ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']) setField(l, l === 'Target fluid' ? (c.fluid ?? 150) : 0);
+  // The quick calc has no intake/output fields; it skips the ones it does not show.
+  for (const l of ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']) {
+    if (c.scratch && !fieldOf(l)) continue;
+    setField(l, l === 'Target fluid' ? (c.fluid ?? 150) : 0);
+  }
   if (c.feed) feed(c.feed);
   for (const [label, v] of Object.entries(c.order || {})) setField(label, v);
+  // A second feed: `feed2` is its EN_DB key, `order2` its fields inside the Feed 2 box.
+  if (c.feed2 || c.order2) {
+    const add = buttonNamed('button', '+ Add a second feed (นมชนิดที่ 2)');
+    if (!add) throw new Error('no button to add a second feed');
+    click(add);
+    if (c.feed2) feed(c.feed2, 2);
+    for (const [label, v] of Object.entries(c.order2 || {})) setField(label, v, container.querySelector('.en-feed-2'));
+  }
   for (const [label, v] of Object.entries(c.tick || {})) tick(label, v);
 }
 
@@ -374,7 +397,11 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
     ok('each is a ### heading in the skill', missing.length === 0, missing);
   });
 
-  await section('§6 the pharmacy gets the same print form and copied order', async () => {
+  // A patient's order has had no Copy since main's 14caa41 (Pp, 2026-10-28): it
+  // leaves as the print form. The quick calc keeps its Copy, so its copied text
+  // is the one checked here.
+  const copyButton = () => [...container.querySelectorAll('button')].find(b => /Copy Order|คัดลอกผลคำนวณ/.test(b.textContent)) || null;
+  await section('§6 the pharmacy gets the same print form; the quick calc copies the same text', async () => {
     async function saveAndRead(c, open) {
       mount(c);
       if (open) openAll();
@@ -382,19 +409,34 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
       if (!submit || submit.disabled) return { error: 'Submit not available' };
       await clickAsync(submit);
       const form = container.querySelector('#print-form');
-      const btn = [...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent));
-      copied = null;
-      if (btn) await clickAsync(btn);
-      return { form: form ? form.innerHTML : null, formText: text(form), copy: copied };
+      return { form: form ? form.innerHTML : null, formText: text(form), copyButton: !!copyButton() };
     }
     for (const c of [A, B]) {
       const shut = await saveAndRead(c, false), open = await saveAndRead(c, true);
-      ok(`${c.name}: there is a print form and a copied order`, !!shut.form && typeof shut.copy === 'string', { error: shut.error, copy: typeof shut.copy });
+      ok(`${c.name}: there is a print form, and no Copy on a patient's order`, !!shut.form && !shut.copyButton && !open.copyButton,
+        { error: shut.error, copy: shut.copyButton });
       ok(`${c.name}: the print form is the same with every panel open`, !!shut.form && shut.form === open.form);
-      ok(`${c.name}: the copied order is the same with every panel open`, typeof shut.copy === 'string' && shut.copy === open.copy);
       for (const s of ['นมแม่จริง', 'นมแม่ที่ใช้คำนวณ', 'CR-', 'แปลงหน่วย', 'ที่มาของตัวเลข']) {
-        ok(`${c.name}: "${s}" is not on the print form or in the copied order`, !open.formText.includes(s) && !(open.copy || '').includes(s));
+        ok(`${c.name}: "${s}" is not on the print form`, !open.formText.includes(s));
       }
+    }
+    async function quickCopy(open) {
+      mount({ ...A, name: 'Q', scratch: true });
+      if (open) openAll();
+      const btn = copyButton();
+      if (!btn) return { error: 'no Copy on the quick calc' };
+      copied = null;
+      await clickAsync(btn);
+      return { copy: copied, panels: container.querySelectorAll('.working-panel').length, milk: !!assumption() };
+    }
+    const qShut = await quickCopy(false), qOpen = await quickCopy(true);
+    ok('quick calc: Copy gives text with every panel open and with none', typeof qShut.copy === 'string' && typeof qOpen.copy === 'string',
+      { shut: qShut.error || typeof qShut.copy, open: qOpen.error || typeof qOpen.copy });
+    ok('quick calc: its four panels and the milk line were on screen when copied', qOpen.panels === 4 && qOpen.milk === true,
+      { panels: qOpen.panels, milk: qOpen.milk });
+    ok('quick calc: the copied text is the same with every panel open', typeof qShut.copy === 'string' && qShut.copy === qOpen.copy);
+    for (const s of ['นมแม่จริง', 'นมแม่ที่ใช้คำนวณ', 'CR-', 'แปลงหน่วย', 'ที่มาของตัวเลข']) {
+      ok(`quick calc: "${s}" is not in the copied text`, !(qOpen.copy || '').includes(s));
     }
   });
 

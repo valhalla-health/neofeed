@@ -9,6 +9,9 @@
 //   BE-3 validation refusals reach the bedside in Thai, not raw English.
 //   BE-4 patient status is canonicalised on write, so a stray-space " Active"
 //        can no longer skip the one-infant-per-bed check or become a ghost.
+//        An unrecognised status was written as Active; since 2026-10-28 it is
+//        refused (Pp: the backend reads status as the client does), because
+//        Active brought a mistyped "Expird" back onto the ward list.
 //   (BE-2, the two Staff-sheet row-move guards, is an additive assert matching
 //   the proven registerPatient pattern; it needs a mid-call row shift to
 //   exercise and is verified by inspection, not here.)
@@ -27,7 +30,7 @@ const P = (sid, extra) => Object.assign({
 }, extra || {});
 const E = (extra) => Object.assign({ dol: 5, weight: 1250, fluid: 150, gir: 6, pro: 3, kcal: 90,
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20, route: 'TPN central', status: 'submitted',
-  calcInput: { wtG: 1250 } }, extra || {});
+  calcInput: { wtG: 1250, stops: [] } }, extra || {});
 
 function ward(opts) {
   const g = boot(opts);
@@ -63,8 +66,8 @@ T.section('BE-4 · status is canonicalised — no bed-skip, no ghost record', ()
   // server first asks whether it is the same infant (PossibleDuplicate);
   // confirmDuplicate is the ward's "no, another baby".
   const weird = g.as({ action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('AC-900', { status: 'ZZZ', currentBed: 'NICU 2' }) });
-  T.ok('an unrecognised status is accepted', weird.ok === true, weird);
-  T.eq('…and stored as Active, never a ghost', patRowOf(g, 'AC-900')[9], 'Active');
+  T.ok('an unrecognised status is refused, in Thai (2026-10-28; it was stored as Active)', !!weird.error && isThai(weird.error), weird);
+  T.eq('…and nothing is stored, so there is no ghost either', patRowOf(g, 'AC-900').length, 0);
 });
 
 // ── F2 ──────────────────────────────────────────────────────────────────
