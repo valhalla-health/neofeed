@@ -1627,6 +1627,30 @@ trailing-zero rule of 2026-09-22: a `toFixed(n)` with n > 0 that is not inside `
 alone; the SVG path in `log.jsx` is on the allow list, and an allow entry that matches nothing fails the
 run. Seen to fail on a planted `{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry.
 
+## Log rules, 2026-10-28 — three more ci_bans rules (NF-08)
+
+Three rules on what goes into a log, in the same file and fixtures, so the same CI step runs them.
+A log call is `Logger.log`, `console.*`, any other `x.log()` but `Math.log`, an `appendRow` onto a log
+tab (a tab named like `*Log*` or `*Audit*`, except `Daily_Log` and `Nursing_Log`, which are the record),
+and any `function` that hands one of its own parameters to one of those, which is how `logAudit` is found.
+Only what reaches the log counts, read as code by a small tokenizer: a word inside a string is text.
+
+- **`log-identifier`**: hn, an, name, dob, phone, citizen or initials as a variable, property or key
+  (`p.hn`, `motherPhone`, `{ name: x }`, `row["dob"]`, a `${...}` in a template). `name` counts alone,
+  first (`nameTh`) or after a person word (`patientName`); `sheetName` and an error's `e.name` pass.
+- **`log-raw-cell`**: in `.gs` files only, `row[1]` or `data[i][6]` in a log call. The backend reads
+  columns by index, so `cur[1]` (the name, in the vera-bench `phi-log` case) is caught only this way.
+- **`log-secret`**: a value read from `PropertiesService`, directly, through a variable (within its
+  function) or through a helper that returns it (`SPREADSHEET_ID_()` via `_cfg()`); or a name with token,
+  secret, password, salt, or a key after api/private/secret/access/auth/client (`cacheKey` passes). The
+  value follows `String()`, JSON and member calls, not another call's result: `openById(SPREADSHEET_ID_())`
+  is a Spreadsheet.
+
+27 fixture cases must fail and 25 must pass. `main` passes all three with no allow entry. The tokenizer
+sees every identifier Babel's parser sees in all 17 tracked sources. Seen to fail on eight leaks planted
+in copies of `gas-backend.gs` and `app.jsx`, among them the `phi-log` line and the session token, which
+it also flags at `verifyToken(body.token, …)` once `verifyToken` logs that parameter.
+
 ## The birth-weight label, 2026-10-19 — one harness
 
 The session header called a 4,400 g term infant "LBW" (`CHANGELOG.md` 2026-10-19 (4)).
@@ -1760,10 +1784,37 @@ button on every device profile (at the head's right edge, level with its top, be
 ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
 `showQuickFab = view === "registry" && !printWard`.
 
+## The ward list's status and bed chips, 2026-10-28 — one harness
+
+Pp asked for the phone card's "Active" chip to change the status, saved where it was always saved, and
+for a tap on the bed to be the ⇄ button, both drawn from one place (`CHANGELOG.md` 2026-10-28).
+**`verify-registry-chip-taps-1028.cjs`** drives the real `<App/>` in jsdom against the fake Apps Script
+in `review-0917-boot.cjs`, one scenario per process; it also runs against `compiled/`. #1: `D.PATIENT_STATUSES`,
+`D.patientStatus` (blank reads Active; "Active " and "active" read Active, as the server's sync reads them,
+and an unknown word stays as typed and off the unit) and `D.statusChange`'s statusDate rule.
+#2: Active ▾ → Discharged → Save sends one `registerPatient` with only `status` and `statusDate`
+changed and the merge base it opened on; the card leaves the list, the Active tile drops, the archive
+lists it, its bed is offered as free and its Dashboard strip says Discharged. #3: the bed chip opens the
+same Transfer bed as ⇄, showing the same, without opening the patient; a move from it saves the bed and
+the Previous-beds hop; a parked infant's reads เลือกเตียง; an archived infant's bed is not a button. #4:
+back to Active from the archive is refused on a bed given away since and saved, statusDate cleared, on a
+free one. #5: the table's bed and status cells open the same dialogs. #6: a blank status reads Active on
+the card and on the Dashboard strip, which read blank; Edit session lists exactly `D.PATIENT_STATUSES`.
+#7, in real Chromium as a touch phone at 320–430px (skipped without playwright): every chip's tap area
+reaches 44px tall, the status chip stays on the name's line, the page does not scroll sideways; and on a
+touch tablet at 1024px, which shows the table, each chip's area stays in its own row (to the 1px border:
+the status chip's reaches 0.5px onto it) and overlaps no other row's. #8: a change to Expired, from the
+Status dialog or Edit session, asks first, naming the infant and the bed; Cancel sends nothing and leaves the
+dialog open; Discharged and an Expired record saved again are not asked about (fails on `1b0866a`). 88 checks
+(70 without a browser); against `main` (`326bcd9`) every scenario fails (15 failures, six of them a
+scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `setTransferPatient(p)`,
+inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
+values come from the ward.
+
 ## A negative WFI cannot be ordered, 2026-10-28 — one harness
 
 Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
-2026-10-28 (5)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
+2026-10-28 (6)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
 `verify-calc-sum.cjs`'s S8 with Glycophos in place of its Ca gluconate (WFI 0) and the same order with
 KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
 save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
@@ -1774,7 +1825,7 @@ on `326bcd9`.
 ## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness
 
 Pp asked for the two gaps Vera named on PR #175 to be closed, and chose how the backend learns of a stop:
-the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (6)).
+the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (7)).
 **`verify-backend-stops-1028.cjs`** (real `gas-backend.gs` in `gas-vm-sandbox.cjs`): a submitted row with
 `calcInput.stops` `[]` saves; one with a stop, or with no list (a tab opened before the app sent one), is
 refused, and only rule IDs are echoed back; a draft is kept either way; an edit, a revision and
