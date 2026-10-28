@@ -97,6 +97,59 @@ on synthetic code, including one that finds nothing and must say so; section 3 r
 `NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` = `"1.2"`), `=2` (`KCMH_STOCK.naCl.naMeqPerMl` = 34.2) and `=3`
 (the feed list asking for `"BM_20 "`) each fail one check, naming the cell.
 
+## Session 2026-10-28 (5) — The ward list's status and bed chips are buttons
+
+`data.js`, `registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-registry-chip-taps-1028.cjs`
+(new), `test/verify-mobile-bed-button.cjs`, `test/README.md`, `app-walkthrough.md`, `STATUS.md` (catching up
+with release #172), `BACKLOG.md`. No calculation, limit or printed figure changed.
+
+### Why
+
+Pp, from a phone screenshot of the SCN list: "กดปุ่ม active ก็จะสามารถเปลี่ยนตัวเลือก status ได้ และให้ save
+ที่เดิมที่เคย save หลัง save จะเปลี่ยนทุกที่ที่เกี่ยวข้อง กดตรงเตียง ก็จะเท่ากับปุ่มย้ายเตียง
+ให้เช็คว่าทุกอย่างดึงมาจากจุดเดียวกัน". The card's "Active" chip and its bed chip looked like buttons and
+did nothing; a tap on either opened the patient.
+
+### What changed
+
+- **Status chip → Status dialog** (`StatusModal`), on the phone card, the table, and the archive (an
+  infant who has left can be set back to Active from it). It saves where Edit session saves a status:
+  `onEdit` → `handleEditPatient` → `registerPatient`, with the merge base frozen at open. It changes
+  `status` and `statusDate` and nothing else. Back to Active on a bed another infant has since been given
+  is refused there, as Edit refuses it. The chip reads "Active ▾".
+- **Bed chip → the ⇄ dialog.** The chip and the ⇄ button call the same `openTransfer`, so they open the
+  one `TransferBedModal`. An archived infant's bed is not a button: a bed is not moved for an infant who
+  has left.
+- **One source for a status** (`data.js`): `PATIENT_STATUSES` (Edit's select and the dialog), `patientStatus`
+  (blank reads Active, the rule `isOnUnit` already applied, and `isOnUnit` now reads through it) and
+  `statusChange` (the statusDate rule, moved out of `EditPatientModal.save` unchanged). The Dashboard strip's
+  status chip read `patient.status` raw, so a blank status showed an empty chip; it reads `patientStatus` now.
+- `patientStatus` also reads a hand-typed "Active " or "active" as Active (Vera, before the PR). The server
+  syncs "Active " as Active (`_patientInSyncWindow` trims), and the client then dropped that infant off the
+  ward list, the alerts and the bed guard. The server's reads are not uniform: the sync window matches case,
+  so "active" with no statusDate reaches no ward device, and `_bedConflict` compares the raw cell, so "Active "
+  holds no bed on the server while the client now counts it as taken (the stricter side). The server half is
+  in `BACKLOG.md`. An unknown word stays as typed and off the unit, as both server reads treat it;
+  `_normStatus` would write it as Active on the next save, and a mistyped "Expird" must not come back as an
+  infant holding a bed.
+- After a save, every screen follows from the one record in `App`'s `patients`: the list and its archive,
+  the Active / Logged today / Needs entry tiles, the freed bed in the transfer dialog, the Dashboard strip,
+  the admin census and the alerts (`isOnUnit`).
+- On a touch screen each chip's tap area is 44px tall without making the card's row taller (`.chip-tap::after`).
+- **Expired asks first** (Pp, "1+2": yes to "should Expired ask 'are you sure?'"). A change to Expired, from
+  the Status dialog or Edit session, asks first, naming the infant and the bed (`ยืนยันบันทึก AA (เตียง
+  NICU 1) เป็น Expired (เสียชีวิต) ใช่หรือไม่?`): on a phone a slip of the finger would record a death
+  against the wrong baby. Cancel saves nothing and leaves the dialog open. A record already Expired, saved
+  again, is not asked about. One function, `confirmStatusChange`, asks for both.
+
+### Checks
+
+`verify-registry-chip-taps-1028.cjs`, 88 checks (18 in real Chromium, among them a touch tablet's table); on
+`main` (`326bcd9`) every scenario fails, and #8 (Expired asks first) fails on `1b0866a`, the head before it. `verify-mobile-bed-button.cjs` §5 counted two `setTransferPatient(p)` calls in the source; it now
+pins the one inside `openTransfer`, and the four places that call it. `tools/dev-local.mjs`, at 390px: DD
+set to Discharged from its chip left the list and was still Discharged after a reload, and set back to
+Active from the archive returned to NICU 4.
+
 ## Session 2026-10-28 (4) — Two feeds: 6 + 2 is a schedule too
 
 `calculator.jsx`, the clinical-rules skill (`CR-EN-FEEDS-EQUAL` becomes `CR-EN-FEEDS-SCHEDULE`;
