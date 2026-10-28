@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-28 (3) — Two feeds: 6 + 2 is a schedule too
+## Session 2026-10-28 (4) — Two feeds: 6 + 2 is a schedule too
 
 `calculator.jsx`, the clinical-rules skill (`CR-EN-FEEDS-EQUAL` becomes `CR-EN-FEEDS-SCHEDULE`;
 `CR-EN-FEEDS-MAX`'s refusal case), `data.js` (a comment), `app-walkthrough.md`, `STATUS.md`. No figure,
@@ -46,6 +46,46 @@ schedule: totals 8, 6, 4, 3 or 2 a day, any whole split, 7 + 1 and 5 + 3 include
   before (it refused them), 3 + 4 and 3 + 2 fail with the check turned off, and 4.8 + 3.2 and 7.5 + 0.5
   fail without the whole-feeds check.
 - **No second clinician has reviewed this change.**
+## Session 2026-10-28 (3) — no Copy Order on a patient's order; the quick calc keeps its Copy
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, eleven harnesses,
+`app-walkthrough.md`, `BACKLOG.md`. No calculation, limit, unit or printed figure changed, and
+`CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp, 2026-10-28, looking at the Save + Copy Order card on a ward phone: "เอา copy order to clipboard ออกได้มั้ย".
+A patient's order now leaves NeoFeed only as the printed form (or, on Center Point, CP's reviewed revision,
+which never had Copy).
+
+### What changed
+
+- **"Copy Order to Clipboard" is gone from a patient's order**, for prescribers and nurses alike. The card is
+  "Save Order"; Save draft, Submit and Delete are unchanged.
+- **The quick calc keeps "คัดลอกผลคำนวณ"** (Pp, 2026-10-28: "Quick calc ให้ยังมีคัดลอกผล"): it has no Save and
+  no form, so Copy is all it has (2026-09-21).
+  Its text is byte-identical to before (checked by diffing three quick-calc orders' copies before and after).
+  The patient-only branches of the copy text are gone with the button: the Bed / NeoFeed ID line, the
+  critical-override line, and the `══ NeoFeed V2 — TPN Order ══` header and footer.
+- Wording that named Copy now names Print alone: "พิมพ์ได้หลังบันทึก", "…ก่อนพิมพ์" in the held-order line,
+  and the nurse's note "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว".
+- The quick calc's Copy no longer calls its text an order (Vera, PR #180): the toast is "คัดลอกผลคำนวณแล้ว"
+  (was "Order copied to clipboard") and the empty-step confirm asks "คัดลอกผลคำนวณต่อไปหรือไม่?" (was
+  "Copy order ต่อไปหรือไม่?"). `verify-calc-clicks` §10 checks both; both fail before the change.
+
+### Tests
+
+- Checks of a patient's copied text went with it: the oracle's copy figures, calc-sum's copy BAG MAKE-UP,
+  and the copy lines in the 0918, 0922, 0928, 1017, 1021 and 0917 harnesses. Every figure they read is
+  still checked on the screen or the printed form, except the acetate in the bag (0928 §13): only the
+  copy gave it, and only once `naAcetate.acetateMeqPerMl` is read off the label (it is `null`). The
+  screen's acetate per kg is still checked.
+- New: `verify-calc-clicks` asserts a patient's order has no Copy button, before saving and once printable;
+  `verify-nursing-frontend` 5.8 asserts the same for a nurse; `verify-safety-review` asserts the one
+  `navigator.clipboard` call sits in a `{scratch && <button …>}`. All three fail on `main`.
+- Moved, not dropped: the "no .0" rule (0922 §8) and the K⁺ route wording (0928 §15) now read the quick
+  calc's copy, the one copy left.
+
 ## Session 2026-10-28 (2) — Print ทั้งหมด and per-infant ticks on a ward's Print order list, no Calculator button there
 
 `registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs` (new),

@@ -7,7 +7,7 @@
 // label promises — a Mg vial switch has to change the mL, not just the button.
 //
 // Also the gates around a printed order, because they are clicks too: Print
-// and Copy refused before a save, Save disabled until Step 1 and Intake /
+// refused before a save, no Copy on a patient's order, Save disabled until Step 1 and Intake /
 // Output are filled, a zero-volume bag refused, a critical value demanding a
 // typed reason (cancelled, blank, then given), the second save updating the
 // same row rather than appending, Delete behind its confirm, the prefill and
@@ -37,7 +37,7 @@ const toasts = [];
 global.showToast = (msg, type) => toasts.push({ msg, type });
 let printed = 0; window.print = () => { printed++; };
 let promptAnswer = 'sweep reason'; window.prompt = () => promptAnswer;
-let confirmAnswer = true; window.confirm = () => confirmAnswer;
+let confirmAnswer = true; const confirms = []; window.confirm = (m) => { confirms.push(m); return confirmAnswer; };
 // See verify-calc-oracle.cjs: install the clipboard stub whichever shape
 // jsdom and Node give us.
 let copied = null;
@@ -266,15 +266,16 @@ const openAll = () => click(btnExact('Open all'));
   setField('Current weight', 1200);
   ok('above BW, dosing weight follows current weight', inputFor('TPN calc. weight').value === '1200');
 
-  // ── 8 · Save / Print / Copy / Delete gates ────────────────────
+  // ── 8 · Save / Print / Delete gates ──────────────────────────
   const calls = mount();
   openAll();
   printed = 0; toasts.length = 0;
   act(() => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); });
   await act(async () => { await new Promise(r => setTimeout(r, 10)); });
   ok('Print before saving is refused with a toast', printed === 0 && toasts.some(t => /บันทึกคำสั่งให้สำเร็จก่อนพิมพ์/.test(t.msg)), toasts);
-  click([...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent)));
-  ok('Copy before saving is refused', copied === null && toasts.some(t => /ก่อนคัดลอก/.test(t.msg)));
+  // A patient's order leaves only as the printed form (Pp, 2026-10-28).
+  const copyBtn = () => [...container.querySelectorAll('button')].find(b => /Copy Order|คัดลอก/.test(b.textContent));
+  ok('a patient\'s order has no Copy button', !copyBtn(), copyBtn()?.textContent);
   ok('Save disabled while Step 1 / I/O are blank', btnExact('Submit').disabled === true);
   for (const [l, v] of [['Current weight', 1200], ['Target fluid', 150], ['Other IV', 0], ['Drug volume', 0], ['Urine output', 60], ['Drain content', 0]]) setField(l, v);
   setField('Volume(mL/day)', 150); setField('Dextrose final', 10); setField('Amino acid', 3);
@@ -304,10 +305,8 @@ const openAll = () => click(btnExact('Open all'));
   await act(async () => { await new Promise(r => setTimeout(r, 30)); });
   ok('Print after saving prints', printed === 1);
   ok('print form carries the override', /สั่งทั้งที่มีค่าวิกฤต: .*Potassium critically out of range/.test(container.querySelector('#print-form')?.textContent || ''));
-  copied = null;
-  await clickAsync([...container.querySelectorAll('button')].find(b => /Copy Order to Clipboard/.test(b.textContent)));
-  ok('Copy after saving copies the order', typeof copied === 'string' && /TPN Order/.test(copied) && /CRITICAL OVERRIDE/.test(copied));
-  // edit after save → dirty → print/copy refused, second save updates the same row
+  ok('…nor once it is saved and printable', !copyBtn(), copyBtn()?.textContent);
+  // edit after save → dirty → print refused, second save updates the same row
   setField('KCl', 4);
   ok('an edit after saving marks the form unsaved', /มีการแก้ไขที่ยังไม่ได้บันทึก/.test(text()));
   ok('the print form is withdrawn while unsaved', !container.querySelector('#print-form'));
@@ -361,9 +360,12 @@ const openAll = () => click(btnExact('Open all'));
   ok('quick calc has no Intake/Output card', !inputFor('Urine output'));
   click(btnExact('Open all'));
   setField('Current weight', 2000); setField('Volume(mL/day)', 200); setField('Dextrose final', 10);
-  copied = null;
+  copied = null; toasts.length = 0; confirms.length = 0;
   await clickAsync([...container.querySelectorAll('button')].find(b => /คัดลอกผลคำนวณ/.test(b.textContent)));
   ok('quick calc copies a non-order text', typeof copied === 'string' && /ไม่ใช่คำสั่งการรักษา/.test(copied) && !/NeoFeed ID/.test(copied));
+  // The text says it is not an order, so neither do its prompts (Vera, PR #180).
+  ok('…its toast says คัดลอกผลคำนวณแล้ว, not "Order copied"', toasts.some(t => t.msg === 'คัดลอกผลคำนวณแล้ว') && !toasts.some(t => /order/i.test(t.msg)), toasts);
+  ok('…and the empty-step confirm asks คัดลอกผลคำนวณต่อไปหรือไม่?', confirms.length > 0 && confirms.every(m => /คัดลอกผลคำนวณต่อไปหรือไม่\?/.test(m) && !/order/i.test(m)), confirms);
   printed = 0; toasts.length = 0;
   act(() => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); });
   await act(async () => { await new Promise(r => setTimeout(r, 10)); });

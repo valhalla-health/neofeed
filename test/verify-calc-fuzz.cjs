@@ -14,7 +14,7 @@
 //   I3  the bag make-up adds up: its bag total is the prepared volume, and it
 //       says "cannot be compounded" exactly when the components exceed it
 //       (WFI q.s. < 0). WFI itself left the screen on 2026-09-28 (TPN team);
-//       verify-calc-oracle.cjs still checks it on the form and the copied order.
+//       verify-calc-oracle.cjs still checks it on the form.
 //   I4  no NaN, Infinity, undefined, float tail or trailing zero in any text
 //       node on screen (Praew's rule: "18.0" can be read as 180)
 //   I5  a critical tile always comes with a critical alert (the F1 rule)

@@ -55,7 +55,7 @@ const ReactDOM = require('react-dom/client');
 const { act } = require('react');
 global.React = React; window.React = React;
 
-// Copy Order writes to the clipboard; jsdom has no implementation, and the
+// The quick calc's Copy writes to the clipboard; jsdom has no implementation, and the
 // copied TEXT is exactly what § 4 inspects.
 let copied = null;
 window.confirm = () => true;
