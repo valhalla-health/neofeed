@@ -18,8 +18,10 @@
 //       a case/space variant is stored canonical; a stored "Expird" edited
 //       with only the diagnosis changed is refused, and saved once a status is
 //       picked (Vera's case); a stored "active " is written back as "Active"
+//   §4b sheetHealthReport counts the status cells that are not canonical
 //   §5  Edit session: a stored "Expird" seeds the Status select blank, says
-//       why, and Save stays off until a status is picked
+//       why, and Save stays off until a status is picked; the pick keeps the
+//       statusDate already recorded (Vera)
 //
 // ── NEGATIVE CONTROL ───────────────────────────────────────────────────────
 //   NEOFEED_GAS_SRC=<86bfc91's gas-backend.gs> node test/verify-status-read-1028.cjs
@@ -66,6 +68,20 @@ T.section('§1 The backend reads a status exactly as the client does', () => {
     'Discharged', 'Discharged', 'Transferred', 'Expired', 'Expird', 'ZZZ', 'Disch']);
   T.eq('_onUnitStatus = D.isOnUnit on every case',
     CASES.map(v => g.sb._onUnitStatus(v)), CASES.map(v => D.isOnUnit({ status: v })));
+  // A name every object inherits is not a status (Vera, 2026-10-28).
+  T.eq('"toString" and "constructor" read as typed, off the unit, on both sides',
+    ['toString', 'constructor'].map(v => [g.sb._readStatus(v), g.sb._onUnitStatus(v), D.patientStatus({ status: v })]),
+    [['toString', false, 'toString'], ['constructor', false, 'constructor']]);
+  // Correcting a typo keeps the date already recorded (Vera, 2026-10-28).
+  const X = addDays(TODAY, -8);
+  T.eq('D.statusChange: "Expird" dated 8 days ago → Expired keeps that date (it stamped today)',
+    D.statusChange({ status: 'Expird', statusDate: X }, 'Expired', TODAY), { status: 'Expired', statusDate: X });
+  T.eq('…with no date recorded, today', D.statusChange({ status: 'Expird', statusDate: '' }, 'Discharged', TODAY),
+    { status: 'Discharged', statusDate: TODAY });
+  T.eq('…→ Active clears it, as any return to Active does', D.statusChange({ status: 'Expird', statusDate: X }, 'Active', TODAY),
+    { status: 'Active', statusDate: null });
+  T.eq('…a real change of status still stamps today', D.statusChange({ status: 'Discharged', statusDate: X }, 'Expired', TODAY),
+    { status: 'Expired', statusDate: TODAY });
 });
 
 T.section('§2 The sync window reads it the same way', () => {
@@ -109,6 +125,11 @@ T.section('§4 The write: one of the four, or refused', () => {
   const zzz = g.as({ action: 'registerPatient', isNew: true, patient: P('ZZ-1', { status: 'ZZZ' }) });
   T.ok('a new record with status "ZZZ" is refused, in Thai (it was stored as Active)', !!zzz.error && isThai(zzz.error), zzz);
   T.ok('…and nothing is stored', !rowOf(g, 'ZZ-1'));
+  // Vera's case: names every object inherits passed as one of the four.
+  const proto = ['toString', 'constructor'].map((st, i) =>
+    g.as({ action: 'registerPatient', isNew: true, patient: P('PR-' + i, { bw: 980 + i, status: st }) }));
+  T.ok('"toString" and "constructor" are refused, in Thai (they were stored)', proto.every(r => !!r.error && isThai(r.error)), proto);
+  T.ok('…and nothing is stored', !rowOf(g, 'PR-0') && !rowOf(g, 'PR-1'));
   const dis = g.as({ action: 'registerPatient', isNew: true, patient: P('DS-1', { bw: 960, status: ' discharged ', statusDate: TODAY }) });
   T.ok('" discharged " is accepted', dis.ok === true, dis);
   T.eq('…and stored canonical', rowOf(g, 'DS-1') && rowOf(g, 'DS-1')[9], 'Discharged');
@@ -134,6 +155,17 @@ T.section('§4 The write: one of the four, or refused', () => {
     patient: Object.assign({}, lcBase, { status: D.patientStatus(lcBase), diagnosis: 'TTN' }) });
   T.ok('a diagnosis edit of an "active " row saves', lc.ok === true, lc);
   T.eq('…and writes the status back as "Active"', rowOf(g, 'LC-1')[9], 'Active');
+});
+
+T.section('§4b The sheet health report counts status cells that are not canonical', () => {
+  const g = ward();
+  const pat = g.sheet('Patient_Registry').data;
+  [['A1', 'Active'], ['A2', ''], ['A3', 'active'], ['A4', 'Active '], ['A5', 'Discharged'], ['A6', 'Expird']]
+    .forEach(([sid, st]) => pat.push(g.patRow(sid, { 9: st, 16: st === 'Discharged' ? TODAY : '' })));
+  const out = g.sb.sheetHealthReport();
+  T.eq('statusNotCanonical counts "active", "Active " and "Expird"', out.registry.statusNotCanonical, 3);
+  T.eq('active counts blank, "Active", "active" and "Active "', out.registry.active, 4);
+  T.ok('…and the report names no infant', !/A[1-6]|ทารก/.test(JSON.stringify(out.registry)));
 });
 
 T.section('§5 Edit session asks for a status the server would refuse', () => {
@@ -174,6 +206,7 @@ T.section('§5 Edit session asks for a status the server would refuse', () => {
   T.ok('picking Discharged turns Save on', !save().disabled);
   act(() => { save().dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
   T.eq('…and Discharged is what is sent', sent[0] && sent[0].status, 'Discharged');
+  T.eq('…keeping the date already recorded, not today', sent[0] && sent[0].statusDate, rec.statusDate);
   act(() => root.unmount());
   console.error = quiet;
 });

@@ -2191,11 +2191,18 @@ function patientStatus(p) {
 // handleEditPatient, UP-S1) a phantom "" → null change would blank the
 // statusDate another device had just stamped on a discharge. Edit session and
 // the status chip both save through this.
+//
+// A stored status that is not one of the four ("Expird", typed by hand) is a
+// typo of a status, not a status of its own: picking the one it meant keeps
+// the date already recorded rather than stamping today (Vera, 2026-10-28). For
+// Expired that date is the day of death, and today would also restart the
+// 7-day archive hide and the server's 30-day sync window.
 function statusChange(patient, status, today) {
   const prev = patientStatus(patient);
+  const prevKnown = PATIENT_STATUSES.includes(prev);
   const statusDate = status === "Active"
     ? (prev === "Active" && !patient.statusDate ? (patient.statusDate ?? null) : null)
-    : (status !== prev || !patient.statusDate) ? today : patient.statusDate;
+    : ((status !== prev && prevKnown) || !patient.statusDate) ? today : patient.statusDate;
   return { status, statusDate };
 }
 

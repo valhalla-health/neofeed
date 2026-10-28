@@ -39,13 +39,22 @@ no bed on the server. And the write turned any unknown word into Active (BE-4, 2
   unknown sex: a stored "Expird" seeds the Status select blank ("— เลือก —"), a warning names it, and Save
   stays off ("ต้องเลือก Status ก่อนบันทึก") until one of the four is picked. Without this, a diagnosis edit of
   such a record would echo "Expird" back and be refused. The Status dialog already starts with none picked.
+- **Vera, before the PR:** status membership is an own-property check (`_isValidStatus`). `VALID_STATUS[s]`
+  also matched names every object inherits, so "toString" or "constructor" passed as one of the four and
+  was stored, a ghost the old fallback never caught either. And picking the status a typo meant keeps the
+  statusDate already recorded (`D.statusChange`): "Expird" dated 10-20, saved as Expired on 10-28, used to
+  record the death on 10-28 and restart the 7-day hide and the 30-day sync window.
+- **`sheetHealthReport` counts `statusNotCanonical`:** status cells that are neither blank nor exactly one of
+  the four ("active", "Active ", "Expird"). Counts only, no identifiers.
 
 ### Checks
 
-`verify-status-read-1028.cjs`, 26 checks: §1 `_readStatus` and `_onUnitStatus` give exactly
-`D.patientStatus` and `D.isOnUnit` (from `data.js` itself) on 15 inputs; §2 the sync; §3 the bed guard;
-§4 the write, including Vera's case (a stored "Expird" with only the diagnosis edited is refused and
-unchanged, then saved once a status is picked); §5 Edit session. 14 fail on `86bfc91`, in every section.
+`verify-status-read-1028.cjs`, 37 checks: §1 `_readStatus` and `_onUnitStatus` give exactly
+`D.patientStatus` and `D.isOnUnit` (from `data.js` itself) on 15 inputs plus "toString" and "constructor",
+and `D.statusChange` keeps a typo's date; §2 the sync; §3 the bed guard; §4 the write, including Vera's
+cases (a stored "Expird" with only the diagnosis edited is refused and unchanged, then saved once a status
+is picked; "toString" refused); §4b the health report's count; §5 Edit session, which also keeps the date.
+19 fail on `86bfc91`, in every section; Vera's five fail on the commit before their fixes.
 `verify-backend-batch-0924.cjs` BE-4 now expects "ZZZ" refused and nothing stored (it expected Active).
 `verify-bed-park.cjs` copies `_readStatus` and `_onUnitStatus` along with `_bedConflict`.
 
@@ -54,7 +63,11 @@ unchanged, then saved once a status is picked); §5 Edit session. 14 fail on `86
 Two halves, both Pp's: the backend needs a `clasp` deploy (`REFERENCE.md` § Backend: reconcile the
 mirror, `clasp push`, `clasp update-deployment`), and the Edit session change needs a release. Either order
 is safe: an old Edit session sending an unknown status gets the new Thai refusal and can pick a status;
-a new Edit session on the old backend only asks for a status first.
+a new Edit session on the old backend only asks for a status first. **Before the `clasp` deploy, find the
+non-canonical status cells** (Vera): run `sheetHealthReport` (its `statusNotCanonical`) or filter
+`Patient_Registry` column J. A row typed "active" or "Active " with no statusDate reaches no ward device
+today; after the deploy it syncs as an Active infant holding its bed, so a stale one would appear on the
+ward list and block that bed.
 
 ## Session 2026-10-28 — NF-28 meets #182's Step 2
 

@@ -1838,9 +1838,11 @@ unknown words). §2: `getActivePatients` sends "active" and "Active " with no st
 in `registerPatient`'s bed guard; "Expird" does not. §4: a new "ZZZ" is refused in Thai and nothing is
 stored; " discharged " is stored as "Discharged", blank as "Active"; a stored "Expird" edited with only the
 diagnosis is refused and the row unchanged, then saved as Discharged once picked; a stored "active " is
-written back as "Active". §5: Edit session seeds the Status select blank for a stored "Expird", names it,
-keeps Save off until a status is picked, then sends it. 26 checks; with `NEOFEED_GAS_SRC` and the tree of
-`86bfc91`, 14 fail, in every section. `verify-backend-batch-0924.cjs` BE-4 now expects an unrecognised
+written back as "Active"; "toString" and "constructor" are refused (Vera: `VALID_STATUS["toString"]` was
+truthy). §4b: `sheetHealthReport` counts `statusNotCanonical`. §5: Edit session seeds the Status select blank
+for a stored "Expird", names it, keeps Save off until a status is picked, then sends it with the statusDate
+already recorded (§1 checks `D.statusChange` for the same). 37 checks; with `NEOFEED_GAS_SRC` and the tree
+of `86bfc91`, 19 fail, in every section, and Vera's five fail on the commit before their fixes. `verify-backend-batch-0924.cjs` BE-4 now expects an unrecognised
 status refused rather than stored as Active, and `verify-bed-park.cjs` copies `VALID_STATUS`,
 `_readStatus` and `_onUnitStatus` along with `_bedConflict`.
 

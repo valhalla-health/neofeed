@@ -2038,11 +2038,17 @@ function _checkSex(incoming, storedOrNull) {
 // "active" reached no ward device, "Active " held no bed, and "Expird" came
 // back onto every ward list at its next save.
 var VALID_STATUS = { Active: 1, Discharged: 1, Transferred: 1, Expired: 1 };
+// Own keys only: VALID_STATUS["toString"] is Object.prototype's, and truthy,
+// so a status of "toString" or "constructor" passed as one of the four and was
+// stored (Vera, 2026-10-28).
+function _isValidStatus(s) {
+  return Object.prototype.hasOwnProperty.call(VALID_STATUS, s);
+}
 function _readStatus(v) {
   var s = String(v == null ? "" : v).trim();
   if (!s) return "Active";
-  if (VALID_STATUS[s]) return s;
-  for (var k in VALID_STATUS) if (k.toLowerCase() === s.toLowerCase()) return k;
+  if (_isValidStatus(s)) return s;
+  for (var k in VALID_STATUS) if (_isValidStatus(k) && k.toLowerCase() === s.toLowerCase()) return k;
   return s;
 }
 // On the unit: holds a bed, is synced to every ward device. isOnUnit() in data.js.
@@ -2056,7 +2062,7 @@ function _onUnitStatus(v) {
 // stored one is not of the four (registry.jsx), so the ward can always save.
 function _normStatus(v) {
   var s = _readStatus(v);
-  if (!VALID_STATUS[s]) {
+  if (!_isValidStatus(s)) {
     throw new Error("Status ต้องเป็น Active, Discharged, Transferred หรือ Expired — " +
       "เลือก status ใน Edit session ก่อนบันทึก");
   }
@@ -3183,13 +3189,20 @@ function sheetHealthReport() {
   var pat = patSheet.getLastRow() > 0 ? patSheet.getDataRange().getValues() : [[]];
   var r = { rows: Math.max(0, pat.length - 1), active: 0, archivedNoStatusDate: 0,
     archivedUnparseableStatusDate: 0, archivedWithin30d: 0, archivedOlder: 0, duplicateSessionIds: 0,
-    activeWithNoEntryIn30d: 0, measurementArraysFailingValidation: 0, sexNotBoysOrGirls: 0 };
+    activeWithNoEntryIn30d: 0, measurementArraysFailingValidation: 0, sexNotBoysOrGirls: 0,
+    statusNotCanonical: 0 };
   var seen = {}, activeIds = {};
   for (var i = 1; i < pat.length; i++) {
     var sid = String(pat[i][0] || "");
     if (!sid) continue;
     if (seen[sid]) r.duplicateSessionIds++;
     seen[sid] = true;
+    // A status cell that is not blank and not exactly one of the four: "active",
+    // "Active ", "Expird". Since 2026-10-28 the first two are read as Active
+    // (synced, holding a bed) and the last refuses every save until a status
+    // is picked; worth finding before the deploy, and after.
+    var rawStatus = String(pat[i][9] == null ? "" : pat[i][9]);
+    if (rawStatus !== "" && !_isValidStatus(rawStatus)) r.statusNotCanonical++;
     if (_onUnitStatus(pat[i][9])) { r.active++; activeIds[sid] = true; }
     else if (!pat[i][16]) r.archivedNoStatusDate++;
     else if (!_wardDateKey(pat[i][16] instanceof Date ? pat[i][16] : String(pat[i][16]).slice(0, 10))) r.archivedUnparseableStatusDate++;

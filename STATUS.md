@@ -237,7 +237,10 @@ by PR #183 and with #186 by PR #176, the next PRs on the repo.
   Two halves, neither live yet: `gas-backend.gs` needs Pp's `clasp` deploy (`REFERENCE.md` § Backend), and
   Edit session's "เลือก Status" for a status that is not one of the four needs a release. Either order is
   safe. A save that keeps an unknown status ("Expird") is refused in Thai instead of written as Active.
-  `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-28 (6).
+  ⚠️ Before the `clasp` deploy, find the non-canonical status cells (`sheetHealthReport`'s
+  `statusNotCanonical`, or filter column J): a row typed "active" with no statusDate reaches no ward device
+  now, and after the deploy syncs as Active and holds its bed. `CONSTANTS_VERSION` unchanged.
+  `CHANGELOG.md` 2026-10-28 (6).
 - ✅ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
   asks first: live, released by #186 (banner above) on Pp's instruction ("1+2": yes to the Expired
   question, and to merge and deploy).**
