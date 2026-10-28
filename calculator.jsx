@@ -3632,7 +3632,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 .filter(([n, s]) => s === "empty" && ["1","2","3"].includes(n))
                 .map(([n]) => `Step ${stepDisplayNumber[n]}`);
               if (incomplete.length > 0 &&
-                  !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nCopy order ต่อไปหรือไม่?`)) return;
+                  !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก\nคัดลอกผลคำนวณต่อไปหรือไม่?`)) return;
               const lines = [
                 `══ NeoFeed — Calculator (ไม่ใช่คำสั่งการรักษา) ══`,
                 // No bed and no NeoFeed ID — there is no patient behind it —
@@ -3708,7 +3708,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               ].filter(l => l !== "").join("\n");
 
               navigator.clipboard.writeText(lines)
-                .then(() => showToast("Order copied to clipboard"))
+                .then(() => showToast("คัดลอกผลคำนวณแล้ว"))
                 .catch(() => showToast("Copy failed — try again"));
             }}>
               คัดลอกผลคำนวณ

@@ -29,6 +29,9 @@ which never had Copy).
   critical-override line, and the `══ NeoFeed V2 — TPN Order ══` header and footer.
 - Wording that named Copy now names Print alone: "พิมพ์ได้หลังบันทึก", "…ก่อนพิมพ์" in the held-order line,
   and the nurse's note "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว".
+- The quick calc's Copy no longer calls its text an order (Vera, PR #180): the toast is "คัดลอกผลคำนวณแล้ว"
+  (was "Order copied to clipboard") and the empty-step confirm asks "คัดลอกผลคำนวณต่อไปหรือไม่?" (was
+  "Copy order ต่อไปหรือไม่?"). `verify-calc-clicks` §10 checks both; both fail before the change.
 
 ### Tests
 

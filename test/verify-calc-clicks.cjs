@@ -37,7 +37,7 @@ const toasts = [];
 global.showToast = (msg, type) => toasts.push({ msg, type });
 let printed = 0; window.print = () => { printed++; };
 let promptAnswer = 'sweep reason'; window.prompt = () => promptAnswer;
-let confirmAnswer = true; window.confirm = () => confirmAnswer;
+let confirmAnswer = true; const confirms = []; window.confirm = (m) => { confirms.push(m); return confirmAnswer; };
 // See verify-calc-oracle.cjs: install the clipboard stub whichever shape
 // jsdom and Node give us.
 let copied = null;
@@ -360,9 +360,12 @@ const openAll = () => click(btnExact('Open all'));
   ok('quick calc has no Intake/Output card', !inputFor('Urine output'));
   click(btnExact('Open all'));
   setField('Current weight', 2000); setField('Volume(mL/day)', 200); setField('Dextrose final', 10);
-  copied = null;
+  copied = null; toasts.length = 0; confirms.length = 0;
   await clickAsync([...container.querySelectorAll('button')].find(b => /คัดลอกผลคำนวณ/.test(b.textContent)));
   ok('quick calc copies a non-order text', typeof copied === 'string' && /ไม่ใช่คำสั่งการรักษา/.test(copied) && !/NeoFeed ID/.test(copied));
+  // The text says it is not an order, so neither do its prompts (Vera, PR #180).
+  ok('…its toast says คัดลอกผลคำนวณแล้ว, not "Order copied"', toasts.some(t => t.msg === 'คัดลอกผลคำนวณแล้ว') && !toasts.some(t => /order/i.test(t.msg)), toasts);
+  ok('…and the empty-step confirm asks คัดลอกผลคำนวณต่อไปหรือไม่?', confirms.length > 0 && confirms.every(m => /คัดลอกผลคำนวณต่อไปหรือไม่\?/.test(m) && !/order/i.test(m)), confirms);
   printed = 0; toasts.length = 0;
   act(() => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); });
   await act(async () => { await new Promise(r => setTimeout(r, 10)); });

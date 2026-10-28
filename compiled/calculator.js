@@ -2367,7 +2367,7 @@ function Calculator({
     const stepDisplayNumber = { 1: 1, 2: 3, 3: 4 };
     const incomplete = Object.entries(stepStatus).filter(([n, s]) => s === "empty" && ["1", "2", "3"].includes(n)).map(([n]) => `Step ${stepDisplayNumber[n]}`);
     if (incomplete.length > 0 && !window.confirm(`${incomplete.join(", ")} ยังไม่ได้กรอก
-Copy order ต่อไปหรือไม่?`)) return;
+คัดลอกผลคำนวณต่อไปหรือไม่?`)) return;
     const lines = [
       `══ NeoFeed — Calculator (ไม่ใช่คำสั่งการรักษา) ══`,
       // No bed and no NeoFeed ID — there is no patient behind it —
@@ -2439,7 +2439,7 @@ Copy order ต่อไปหรือไม่?`)) return;
       `Na ${fmt(calc.naTotalDelivered, 1)} mEq/kg | Ca ${fmt(calc.caKg, 0)} mg/kg | P ${fmt(calc.pKg, 0)} mg/kg  (TPN+EN — see Ca·PO₄ block above for total)`,
       `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`
     ].filter((l) => l !== "").join("\n");
-    navigator.clipboard.writeText(lines).then(() => showToast("Order copied to clipboard")).catch(() => showToast("Copy failed — try again"));
+    navigator.clipboard.writeText(lines).then(() => showToast("คัดลอกผลคำนวณแล้ว")).catch(() => showToast("Copy failed — try again"));
   } }, "คัดลอกผลคำนวณ"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อน", centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)", ":", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), routeMissing && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "route-missing-save", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, routeMissingText), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), kOverMax && /* @__PURE__ */ React.createElement("div", { className: "k-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, kOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), bagOverBottle && /* @__PURE__ */ React.createElement("div", { className: "bag-over-bottle", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagOverBottleText, " — บันทึก/พิมพ์ไม่ได้"), stockAtZeroMl && /* @__PURE__ */ React.createElement("div", { className: "stock-at-zero-ml", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, stockAtZeroMlText, " — บันทึก/พิมพ์ไม่ได้"), tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "tpn-wt-out-of-range", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, tpnWtOutOfRangeText, " — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)"), isDraftSaved && !dirty && /* @__PURE__ */ React.createElement("div", { className: "draft-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit"), !scratch && !centerPoint && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
