@@ -34,10 +34,13 @@ did nothing; a tap on either opened the patient.
   `statusChange` (the statusDate rule, moved out of `EditPatientModal.save` unchanged). The Dashboard strip's
   status chip read `patient.status` raw, so a blank status showed an empty chip; it reads `patientStatus` now.
 - `patientStatus` also reads a hand-typed "Active " or "active" as Active (Vera, before the PR). The server
-  syncs such a row as Active (`_patientInSyncWindow` trims), and the client then dropped the infant off
-  the ward list, the alerts and the bed guard. An unknown word stays as typed and off the unit, as the
-  server's sync window and `_bedConflict` read it; `_normStatus` would write it as Active on the next save,
-  and a mistyped "Expird" must not come back as an infant holding a bed.
+  syncs "Active " as Active (`_patientInSyncWindow` trims), and the client then dropped that infant off the
+  ward list, the alerts and the bed guard. The server's reads are not uniform: the sync window matches case,
+  so "active" with no statusDate reaches no ward device, and `_bedConflict` compares the raw cell, so "Active "
+  holds no bed on the server while the client now counts it as taken (the stricter side). The server half is
+  in `BACKLOG.md`. An unknown word stays as typed and off the unit, as both server reads treat it;
+  `_normStatus` would write it as Active on the next save, and a mistyped "Expird" must not come back as an
+  infant holding a bed.
 - After a save, every screen follows from the one record in `App`'s `patients`: the list and its archive,
   the Active / Logged today / Needs entry tiles, the freed bed in the transfer dialog, the Dashboard strip,
   the admin census and the alerts (`isOnUnit`).

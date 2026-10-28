@@ -364,6 +364,12 @@ clinical judgement. Everything else is engineering sequencing.
       3. **The length/HC cm/wk colours** (`fenton.jsx` `GrowthVelocity`: 0.5–1.0 green, red outside
          0.3–1.3) have no source, and Fenton 2025 Table 2 puts the median length gain at 1.4–1.5 cm/wk
          at 23–31 wk, which shows red.
+- [ ] **backend · a hand-typed status cell is read three ways on the server** (Vera, 2026-10-28).
+      `_normStatus` trims and ignores case on write; `_patientInSyncWindow` trims but matches case, so a
+      row reading "active" with no statusDate reaches no ward device; `_bedConflict` compares the raw cell,
+      so "Active " holds no bed there. The client reads all of them as `D.patientStatus` does (trimmed,
+      case ignored) since 2026-10-28. Make both server reads do the same, with a case in the sync-window
+      harness: `_patientInSyncWindow("active", "", today)` → true (false today). Needs a `clasp` deploy.
 - [ ] **cleanup · `confirmOverwrite` is unused since 2026-09-27.** `registerPatient` still accepts it and
       writes a registration over the record that holds the id, which would file one infant's Daily_Log
       under another's name. No client sends it: a taken id is drawn again. Remove it, and the 2026-09-24

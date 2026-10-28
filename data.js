@@ -2109,12 +2109,15 @@ function isOnUnit(p) {
 // What a patient's status reads as, on every screen. A blank status is Active,
 // the rule isOnUnit applies, so no chip reads blank or "Active" while the
 // list it sits on says otherwise. A cell typed into the sheet by hand
-// ("Active ", "discharged") reads as the status it names, as the server reads
-// it when it syncs (_patientInSyncWindow trims) and writes it (_normStatus);
-// before, "Active " synced to the ward and then dropped off its list (Vera,
-// 2026-10-28). Anything else stays as typed and is not on the unit: the
-// server's sync window and bed guard read it that way too, and a mistyped
-// "Expird" must not come back as an Active infant holding a bed.
+// ("Active ", "discharged") reads as the status it names, as the server
+// writes it (_normStatus). The server's reads do not all agree yet: the sync
+// window trims but matches case, so "Active " reaches the ward and "active"
+// with no statusDate does not, and the bed guard (_bedConflict) compares the
+// raw cell (BACKLOG). Before, "Active " synced and then dropped off the ward's
+// list (Vera, 2026-10-28). Here the client is the stricter side: it counts
+// that infant's bed as taken. Anything else stays as typed and is not on the
+// unit, as both server reads treat it: a mistyped "Expird" must not come back
+// as an Active infant holding a bed.
 function patientStatus(p) {
   const s = String((p && p.status) ?? "").trim();
   if (!s) return "Active";
