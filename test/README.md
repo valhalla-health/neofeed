@@ -1011,16 +1011,26 @@ exactly) and 40 random from seed 20261011
 (`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
 stock" table is added up: Σ parts + printed WFI must equal the printed prepared volume within **0.05 mL**
 (0 when every part is a whole tenth), printed Components + WFI must equal it exactly, and the on-screen
-Components and Bag total and the copied BAG MAKE-UP line must carry the same figures. The tolerance is the
+Components and Bag total must carry the same figures (the copied BAG MAKE-UP line was a third surface
+until a patient's order lost its Copy, 2026-10-28). The tolerance is the
 rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
 components); the arithmetic is in the file's header. An over-full bag skips the sum and must say so on
-screen, on the form and in the copy. Then one input changes the way a person changes it (a dead-space chip,
+screen and on the form. Then one input changes the way a person changes it (a dead-space chip,
 or a TPN volume typed a key at a time): the on-screen Bag total must move to delivered + dead, the stale
-form must be withdrawn, and the second save's reprint must carry the new figures and still add up. Nothing
-in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
-from the delivered volume) and `=3` (`deadVol_mL` out of the memo's dependencies) patch the source in
-memory and must fail; the patched text is transformed under another name, so the compiled loader never
-stands in for it. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
+form must be withdrawn, and the second save's reprint must carry the new figures and still add up.
+**Two feeds** (§ 3, 2026-10-28, for #182 and #185): three orders (6 + 2 beside a bag, 4 + 4 feeds only,
+5 + 3 on a peripheral line) each run four times on the same infant and bag: no feed, feed 1 alone, feed 2
+alone, both. Both feeds must equal feed 1 + feed 2 in the saved Daily_Log row (fluid, kcal, protein, Na,
+K, Ca, P, EN mL/kg/d, within 1e-9), in Step 2's "Delivered per kg from EN" (one unit of the digit shown)
+and on the printed form (energy from EN within 2 kcal/kg, protein from EN within 0.01 g/kg). Each feed's
+mL/day, the EN volume tile, the total line's interval and Prescribed must follow from the inputs, and the
+feeds must move no printed bag line. Then feed 2's volume is typed, its kcal/oz picked, or the
+frequencies typed through a refused 7 a day, and the screen, the withdrawn form and the reprint follow.
+Nothing in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
+from the delivered volume), `=3` (`deadVol_mL` out of the memo's dependencies), `=4` (feed 2 left out of
+the EN volume), `=5` (both feeds costed as feed 1's milk) and `=6` (`enVol2` out of the feeds' memo
+dependencies) patch the source in memory and must fail; the patched text is transformed under another
+name, so the compiled loader never stands in for it. `SUM_N=0` runs the fixed orders only. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
 130.45 mL printed "87.5 + 42.9 = 130.5"; WFI now comes from the printed prepared volume, so it prints
 87.5 + 43 = 130.5 (`CHANGELOG.md`, 2026-10-11 (8)). The oracle's scenario H holds the same rule.
 
@@ -1832,7 +1842,7 @@ values come from the ward.
 
 On a phone the archived card's status chip and Edit were under the Calculator button and the bottom nav
 once the archive was opened, so Pp could bring an infant back from a PC and not from a phone
-(`CHANGELOG.md` 2026-10-28 (6)). **`verify-archive-fab-1028.cjs`** runs the real app in real Chromium,
+(`CHANGELOG.md` 2026-10-28 (7)). **`verify-archive-fab-1028.cjs`** runs the real app in real Chromium,
 served by `tools/dev-local.mjs` with `gas-backend.gs` in the sandbox and its made-up infants, and is
 skipped without playwright (CI runs it in the compiled pass). #1, as a touch phone at 375×667, 360×740
 and 390×844: DD, set Discharged from its chip, is in the archive; the list is scrolled to its foot and the
