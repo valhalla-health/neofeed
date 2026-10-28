@@ -1,5 +1,14 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-28, 17:39 ICT — frontend `release` = `56dd063` (PR #195), with backend `@64`.** PR #195
+> released #188: on a phone, opening the ward list's archive scrolls it to the top of the list, so an
+> archived card's status chip and Edit are no longer under the Calculator button and the bottom nav.
+> `release`'s tree is `main` `01dbefb`'s, the tree walked on dev local (comment on #195). `node
+> tools/verify-release.mjs --wait`, run from Pp's PC at 17:50 ICT, passed on both hosts (0 failures, 61
+> passes), and both serve #188's new `compiled/registry.js` token. The tag `release-2026-10-28-pr195` is
+> pushed (comment on #195). `CONSTANTS_VERSION` unchanged, no backend change. ⚠️ No one has brought an
+> infant back from the archive on a ward phone yet. Recorded here by PR #179, the next PR on the repo.
+>
 > ✅ **2026-10-28, 17:09 ICT — frontend `release` = `4f29242` (PR #194), with backend `@64`.** PR #194
 > released #191: a help request can carry its picture on the Workers host (a `data:` URL, which `_headers`
 > allows, where the `blob:` URL was refused). `release`'s tree is `main` `da53afa`'s, the tree that ran on
@@ -237,10 +246,11 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `4f29242` (PR #194) are live, and
-both are verified.** #194 released #191 at 17:09 ICT; #186 released #183 at 14:43 ICT; #184 released #182,
-#185, #181, #180 and #173 at 13:58 ICT. All three `verify-release` runs and tags were done from Pp's PC
-(banners). Caught up with #184 by PR #183, with #186 by PR #176 and with #194 by PR #179.
+**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `56dd063` (PR #195) are live, and
+both are verified.** #195 released #188 at 17:39 ICT; #194 released #191 at 17:09 ICT; #186 released #183
+at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at 13:58 ICT. All four `verify-release` runs
+and tags were done from Pp's PC (banners). Caught up with #184 by PR #183, with #186 by PR #176, and with
+#194 and #195 by PR #179.
 - ✅ **PR #191, a help request can carry its picture on the Workers host: live, released by #194 (banner
   above) on Pp's instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28).** The form opened the picked file as a `blob:` URL, and
   `_headers`' `img-src` does not allow `blob:`. So no browser on the Workers host could attach a picture:
@@ -253,9 +263,8 @@ both are verified.** #194 released #191 at 17:09 ICT; #186 released #183 at 14:4
   Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; no calculation or printed figure changes.
   A status change saves where Edit session saves it (`registerPatient`, `status` + `statusDate` only).
   Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28 (5).
-- ⏳ **PR #188, on a phone the archive opens out from under the Calculator button: merged into `main` on
-  Pp's instruction ("Merge and deploy", 2026-10-28); live once the `main → release` PR that carries it
-  merges, whose comment holds the dev-local run and `verify-release`.** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
+- ✅ **PR #188, on a phone the archive opens out from under the Calculator button: live, released by #195
+  (banner above) on Pp's instruction ("Merge and deploy", 2026-10-28).** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
   first archived card's status chip was under the Calculator button and its Edit under the bottom nav, and
   a tap on the chip opened the quick calc. Opening the archive now scrolls it to the top of the list.
   Frontend only, no `clasp` step, no figure. `CHANGELOG.md` 2026-10-28 (8).
