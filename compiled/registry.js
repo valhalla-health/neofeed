@@ -266,6 +266,11 @@ function PatientRegistry({
   const [transferPatient, setTransferPatient] = React.useState(null);
   const [statusPatient, setStatusPatient] = React.useState(null);
   const [showArchived, setShowArchived] = React.useState(false);
+  const phoneArchiveRef = React.useRef(null);
+  React.useEffect(() => {
+    const el = phoneArchiveRef.current;
+    if (showArchived && el && el.scrollIntoView) el.scrollIntoView({ block: "start" });
+  }, [showArchived]);
   const openTransfer = (p) => setTransferPatient(p);
   const openStatus = (p) => setStatusPatient(p);
   const today = D_R.useTodayLocal();
@@ -446,7 +451,7 @@ function PatientRegistry({
         onSelect(p.sessionId);
       } }, "Open ", /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: "#fff" })))
     );
-  }), activeSorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`), activeSorted.length > 0 && shownActive.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่มีผู้ป่วย ", STAT_FILTER_LABEL[statFilter], q ? ` ที่ตรงกับ “${q}”` : "", " ใน ", wardName), !statFilter && archivedSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(
+  }), activeSorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward}`), activeSorted.length > 0 && shownActive.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่มีผู้ป่วย ", STAT_FILTER_LABEL[statFilter], q ? ` ที่ตรงกับ “${q}”` : "", " ใน ", wardName), !statFilter && archivedSorted.length > 0 && /* @__PURE__ */ React.createElement("div", { ref: phoneArchiveRef, style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",
