@@ -1995,6 +1995,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const vitDIuDay = (suppVitD > 0 && wtKg > 0 ? suppVitD * wtKg : 0)
     + (suppMTV ? D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml * D.SUPP_DB.MTV_MUNTIVIM.dose_default : 0);
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
+  // Stocks that add up to more than the bag as printed (WFI below 0): no
+  // order, as for the bottle (Pp, 2026-10-28: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้").
+  // Until then it was a critical alert, so a typed reason sent pharmacy a form
+  // asking for a negative volume of water. A draft may be kept.
+  const bagOverfull = bagOrdered && calc.wfiVol < 0;
+  const bagOverfullText = `ส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุง ${fmt(calc.preparedVol, 1)} mL ไป ${fmt(Math.abs(calc.wfiVol), 1)} mL ห้อง TPN ผสมไม่ได้ — เพิ่มปริมาตร TPN หรือลดขนาดยา`;
   // A bag needs a route before Submit (Pp, 2026-10-21); a draft may be kept
   // without one. A day with no bag needs none. Center Point's packet always
   // carries a route (tpn-document.mjs), so there it is needed on every order.
@@ -2012,6 +2018,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const tpnWtDiff = tpnWtManual && autoWtG > 0 ? Math.abs(wtG - autoWtG) / autoWtG : 0;
   // Float noise stripped as for K⁺: 900 → 1080 g is 20 %, not above it.
   const tpnWtFar = !tpnWtOutOfRange && Number(tpnWtDiff.toPrecision(12)) > D.TPN_WT_MANUAL_MAX_DIFF;
+  // The stops that hold, by the neofeed-clinical-rules skill's IDs, sent with
+  // every save as calcInput.stops. gas-backend.gs has no copy of the bag
+  // arithmetic, so it reads this list: it refuses a submitted row that carries
+  // a stop, and a submitted row with no list, from a tab opened before the app
+  // sent one (Pp, 2026-10-28). A new stop goes in here too, or the backend
+  // never hears of it (verify-clinical-rules.cjs checks the IDs).
+  const submitStops = [
+    [tpnWtOutOfRange, "CR-WT-RANGE"], [routeMissing, "CR-ROUTE-REQUIRED"],
+    [zeroVolumeBag, "CR-BAG-NO-VOLUME"], [kOverMax, "CR-K-BAG-MAX"],
+    [bagOverBottle, "CR-BOTTLE-MAX"], [stockAtZeroMl, "CR-STOCK-ZERO"],
+    [bagOverfull, "CR-BAG-OVERFULL"],
+    [feedsOverMax, "CR-EN-FEEDS-MAX"], [feedsIrregular, "CR-EN-FEEDS-SCHEDULE"],
+    [feedUnknown, "CR-EN-FEED-UNKNOWN"],
+  ].filter(([holds]) => holds).map(([, id]) => id);
 
   const alerts = [];
   if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
@@ -2099,7 +2119,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
-  if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
+  // The title is unchanged: a row saved before 2026-10-28 names it in its reason.
+  if (bagOverfull) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL, so this order cannot be submitted. Raise the volume or lower a dose.`, ref: "Pp, 2026-10-28 · WFI q.s." });
   if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
   if (feedUnknown) alerts.push({ level: "crit", title: "Feed not in the formulary", body: `${feedsUnknown.join(", ")}: no composition in EN_DB, so its energy, protein and minerals cannot be counted — this order cannot be submitted.`, ref: "PR review (Vera), 2026-10-28" });
   if (feedsIrregular) alerts.push({ level: "crit", title: "Two feeds off a regular schedule", body: feedsNotWhole
@@ -2148,16 +2169,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
+  // Every stop on its own, routeMissing too: the backend trusts the app's stop
+  // list (submitStops), so a row stored past it must still not print (Vera, 2026-10-28).
+  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
   const printBlockMessage = (before) =>
     pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`
     : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
+    : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
+    : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}`
     : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}`
     : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}`
     : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}`
@@ -2321,6 +2346,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       showToast(bagOverBottleText, "error");
       return;
     }
+    // ── Stocks over the bag's volume (Pp, 2026-10-28) — refused the same way ──
+    if (!asDraft && bagOverfull) {
+      setOpenSteps(prev => new Set(prev).add(2).add(3));
+      showToast(bagOverfullText, "error");
+      return;
+    }
     // ── An ordered stock at 0 mL (Pp, 2026-10-27) — refused the same way ──
     if (!asDraft && stockAtZeroMl) {
       setOpenSteps(prev => new Set(prev).add(2).add(3));
@@ -2429,7 +2460,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // release that moves a printed figure holds this row's reprint (calcMoved).
       // savedByLabel: the saver's "Name (email)", so the form can name whom
       // to call (savedByOf). Not an input — normalizeCalcInput ignores it.
+      // stops: the stops that hold (submitStops), read by gas-backend.gs.
+      // Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
+        stops: submitStops,
         ...(userLabel ? { savedByLabel: userLabel } : {}),
         ...(override ? { critOverride: override } : {}),
         // Which required boxes were blank — they reopen blank (seededZeros).
@@ -3820,7 +3854,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3991,6 +4025,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {bagOverBottleText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {bagOverfull && (
+              <div className="bag-overfull" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {bagOverfullText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
             {stockAtZeroMl && (
               <div className="stock-at-zero-ml" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {stockAtZeroMlText} — บันทึก/พิมพ์ไม่ได้
@@ -4034,7 +4073,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             {/* A locked order with nothing changed has nothing to submit, unless
                 Print is holding it for a new save. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

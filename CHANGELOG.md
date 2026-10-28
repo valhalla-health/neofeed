@@ -7,14 +7,14 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-28 (11) — Vera's review of (10): held orders resave, the front keeps the lipid rate and the critical box, Vitalipid at least 1 mL
+## Session 2026-10-28 (14) — Vera's review of (13): held orders resave, the front keeps the lipid rate and the critical box, Vitalipid at least 1 mL
 
-Vera's first review of (10) was NO BLOCK with four 🟠 and one 🟡. Two needed Pp, and she answered the
+Vera's first review of (13) was NO BLOCK with four 🟠 and one 🟡. Two needed Pp, and she answered the
 same day.
 
 ### What changed
 
-- **An order held from Print is saved again, not just locked.** (10) let Submit only lock an unchanged
+- **An order held from Print is saved again, not just locked.** (13) let Submit only lock an unchanged
   submitted order, and then greyed Submit out. An order saved on an older calculation, with a changed
   dosing weight or an unconfirmed critical value, could then be neither saved nor printed: every
   order submitted before this release. Submit now only locks an unchanged order when it could print
@@ -23,7 +23,7 @@ same day.
 - **The lock state resets with the patient.** `published` was set only at mount; switching infant
   with the Calculator open carried the last order's lock over, and greyed out the next infant's Submit.
 - **The lipid pump rate and the critical-value confirmation print on the front** (Pp: "ย้ายค่าวิกฤตกับ
-  lipid rate ขึ้นหน้า 1"). Hiding the pharmacy sheet in (10) took both off paper. The Save prompt's
+  lipid rate ขึ้นหน้า 1"). Hiding the pharmacy sheet in (13) took both off paper. The Save prompt's
   promise that the reason prints on the order holds again. Pharmacy works out the stock mL, Factor and
   WFI from the front, as the team asked. `REFERENCE.md` § The printed order says so.
 - **Vitalipid is at least 1 mL when lipid is ordered** (Pp: "ปัดลง แต่อย่างน้อย 1 mL"). Rounded down
@@ -37,12 +37,12 @@ same day.
   (2.5–5.0), growing premature infants 0.2–0.3 (5.0–7.5). Checked against the photograph of that table
   the TPN team sent on 2026-09-18 (in Pp's private notes), not against the full PDF.
 - Vitalipid: the TPN team's meeting of 2026-10-28 (Pp's notes) and Pp's 1 mL floor the same day.
-- No second clinician has reviewed (10) or this change. The TPN team asked for each item; Pp chose the
+- No second clinician has reviewed (13) or this change. The TPN team asked for each item; Pp chose the
   figures.
 
 ### Tests
 
-Six checks added to `test/verify-nutrition-meeting-1028.cjs`, each failing on (10) and passing here:
+Six checks added to `test/verify-nutrition-meeting-1028.cjs`, each failing on (13) and passing here:
 an unlocked order on an older calculation is locked, revised and locked again, and then prints; a
 locked one keeps its Submit; the lipid rate and the critical box sit outside `.print-back`; the next
 infant's Submit is offered after a switch. `CR-VITALIPID-CAP` gains a 490 g and a 240 g case. The
@@ -54,7 +54,7 @@ Not added: Vera's proposed `verify-clinical-rules.cjs` change reading `prints` w
 The stock mL and WFI it would look for are not meant to be on paper now, so it would fail after this
 change too; `prints` still means the rendered order, both sheets.
 
-## Session 2026-10-28 (10) — the nutrition team's meeting: Submit locks, Vitalipid rounds down, Mg in mg
+## Session 2026-10-28 (13) — the nutrition team's meeting: Submit locks, Vitalipid rounds down, Mg in mg
 
 The nutrition and TPN team met Pp on 2026-10-28 ahead of the ward start on 16 Nov 2569. This session
 builds what had to be ready for that date. `CONSTANTS_VERSION` 2026-10-28.1.
@@ -105,6 +105,256 @@ still checked.
 
 The meeting's other items and the gaps found in the 2026-09-28 list are in `BACKLOG.md` § Now.
 Center Point's own form still prints Mg in mEq first and the old amino-acid label.
+## Session 2026-10-28 (12) — the backend and Center Point refuse a stopped order
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
+`center-point/tpn-document.mjs`, `.claude/skills/neofeed-clinical-rules/SKILL.md`,
+`test/verify-backend-stops-1028.cjs` (new), `test/verify-wfi-stop-1028.cjs`, `test/verify-clinical-rules.cjs`,
+eleven backend harnesses' fixtures, `test/README.md`, `REFERENCE.md`, `STATUS.md`. Center Point's half is
+NICU-Center-Point PR #39.
+
+### Why
+
+Vera's review of PR #175 named two gaps every stop shares: the backend checks none of the stops, and a
+Center Point revision confirmed before the change prints from its stored packet. Pp asked for both to be
+closed ("แก้ไข backemd และ revision ของ cp") and chose how the backend learns of a stop: the app sends its own
+check with each save ("แอปส่งผลเช็กไปด้วย"), not a second copy of the bag arithmetic in GAS.
+
+### What changed
+
+- `calculator.jsx` `submitStops`: the stops that hold, by the skill's rule IDs, sent with every save as
+  `calcInput.stops`. `normalizeCalcInput` ignores it, so a reopened row is unchanged.
+- `gas-backend.gs` `_stopRefusal`: a submitted Daily_Log row (a create, an edit or a revision) that carries a
+  stop is refused, and so is one with no list, from a tab opened before the app sent one: "แอปในแท็บนี้เป็นรุ่นเก่า
+  รีเฟรชหน้าแล้วบันทึกใหม่". A draft is kept either way. `publishDailyLog`, dormant while `ENABLE_PUBLISH_GATE`
+  is off, reads the list stored with the row. The backend trusts the list: a hand-made POST can send an
+  empty one, but every print path recomputes the stops from `calcInput` and refuses it.
+- `printable` refuses `routeMissing` too (Vera on this PR). It was the one stop a stored row could print
+  past: a submitted bag with `route: null` printed "Route: —". The print-block message names it.
+- `center-point/tpn-document.mjs` `tpnBagOverfull` (WFI below 0), and a red line on the sheet `renderTpn`
+  draws. CP keeps an identical copy and uses it to refuse to save, confirm or print an over-full packet, a
+  revision confirmed before then included. The format still reads one, so history stays viewable.
+- **Deploy order:** release the frontend first, then `clasp deploy`. Deployed first, the backend would
+  refuse every Submit from today's frontend, which sends no list (`REFERENCE.md` § Backend).
+
+`CONSTANTS_VERSION` unchanged: no printed figure moves.
+
+### Tests
+
+- `verify-backend-stops-1028.cjs` (new, 25 checks, real `gas-backend.gs` in `gas-vm-sandbox.cjs`): 18 fail
+  on `07f3403`.
+- `verify-wfi-stop-1028.cjs`, 20 → 33 checks: S8's Submit sends `stops []`, the over-full draft
+  `["CR-BAG-OVERFULL"]`; § 4 is the packet module; § 5 a submitted row with no route, which printed before.
+  Merged with PR #180, which took Copy Order off a patient's order, § 2 and § 5 check that the button is
+  absent instead of that it refuses: 32 checks.
+- `verify-clinical-rules.cjs` (623 checks): `submitStops` names every `stop` rule and only those, and each
+  blocked case of a stop rule keeps a draft whose `calcInput.stops` names that rule. Swapping two IDs in
+  `submitStops` fails 3.
+- Eleven backend harnesses sent submitted rows with no stop list, the contract before this change, and now
+  send `stops: []`: verify-backend-batch-0924, verify-input-validation, verify-log-create-guard,
+  verify-nursing-backend, verify-provenance-stamp, verify-publish-lock, verify-review-0911,
+  verify-review-0917-backend-security, -sync and -writes, verify-safety-fixes-0923.
+  verify-input-validation's "no calcInput at all" check is now made on a draft.
+
+## Session 2026-10-28 (11) — a bag whose stocks exceed its volume cannot be ordered (Q2)
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `test/verify-wfi-stop-1028.cjs` (new),
+`test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/README.md`, `STATUS.md`.
+
+### Why
+
+Pp answered three questions of the clinical-rules skill on 2026-10-28: "Q2 ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้
+/ Q1,3 คงไว้ อย่างเดิมก่อน". A bag whose stocks add up to more than its prepared volume was a critical
+alert, so a typed reason let it through, and the order form and the copied order asked pharmacy for a
+negative volume of water ("WFI q.s. -0.1 mL").
+
+### What changed
+
+- `bagOverfull` (WFI below 0 as printed) is a stop like the 1,250 mL bottle: Submit is disabled, the save
+  panel says why, `handleSave` refuses it (which covers Center Point's บันทึก), and `printable` is false,
+  so the order form does not render and Print and Copy refuse with the same reason. A draft may be kept.
+- A row saved before this change with a reason naming "Bag cannot be compounded" no longer prints or
+  copies; it is held until the bag is fixed and saved again. The alert keeps its title for that reason.
+- The skill: `CR-BAG-OVERFULL` is now a stop with cases at WFI 0 (saves) and −0.1 (refused); Q1 (central
+  K⁺ maximum 200 mEq/L) and Q3 (NPE:AA target 24 kcal/g) are marked answered, "keep as is for now", with
+  their evidence left in place. Q1 and Q3 change no code.
+
+`CONSTANTS_VERSION` stays `2026-10-27.2` and the constants register is unchanged: the change adds no
+constant and moves no printed figure (an order that prints prints the same), which is the register's own
+test for a bump. No second clinician has reviewed this change.
+
+### Tests
+
+`test/verify-wfi-stop-1028.cjs` (20 checks): WFI 0 saves with no reason asked; WFI −0.1 is a red line,
+Submit is disabled and a draft may be kept; a saved over-full row with a reason neither prints nor copies;
+Center Point's บันทึก refuses it. 9 fail on `326bcd9` (`main` before this change), among them a saved row
+printing and copying "WFI q.s. -0.1 mL". `verify-clinical-rules.cjs` reads the new `CR-BAG-OVERFULL` cases
+(611 checks). `verify-calc-sum.cjs` reads over-full off the screen (Components above Bag total) and expects
+the stop for S4 and its orders B and E instead of a printed form; an over-full bag that prints fails it.
+`verify-calc-oracle.cjs` restates the stop in its own orderable rule (orders B and E).
+
+## Session 2026-10-28 (10) — The backend reads a patient status the way the client does
+
+`gas-backend.gs`, `registry.jsx`, `data.js` (a comment), `compiled/`, both shells' `?v=` tokens,
+`test/verify-status-read-1028.cjs` (new), `test/verify-backend-batch-0924.cjs`, `test/verify-bed-park.cjs`,
+`test/README.md`, `BACKLOG.md`, `STATUS.md`, `app-walkthrough.md`. No calculation, limit or printed figure
+changed; `CONSTANTS_VERSION` unchanged.
+
+### Why
+
+Pp: "แก้ backend ให้อ่าน status แบบเดียวกับ client". Since #183 the client reads a status through
+`D.patientStatus`: blank is Active, one of the four whatever its case or spaces is that status, anything
+else stays as typed and is off the unit. The server read the same `Patient_Registry` cell three ways
+(Vera's BACKLOG item from #183's review). The sync window trimmed but matched case, so a row typed
+"active" with no statusDate reached no ward device. The bed guard compared the raw cell, so "Active " held
+no bed on the server. And the write turned any unknown word into Active (BE-4, 2026-09-24), so a row typed
+"Expird" came back onto every ward list, holding a bed, at its next save.
+
+### What changed
+
+- **One reading on the server:** `_readStatus` (the rule of `D.patientStatus`) and `_onUnitStatus` (of
+  `D.isOnUnit`). The sync window, the bed guard (`_bedConflict`, both the record saved and every other
+  row), the three-way merge's comparison, the sheet health report and the duplicate question read through
+  them. The sync payload still sends the cell as stored; the client reads it through `patientStatus`, and
+  `verify-review-0917-backend-sync.cjs` proves that payload byte-equal to its reference.
+- **The write refuses a status that is not one of the four** (`_normStatus`), in Thai, instead of storing
+  Active. This reverses BE-4's fallback on purpose: Active is what revived "Expird". A case or space variant
+  is still stored canonical, and blank is still Active. A direct POST can no longer store a ghost status
+  either, which was BE-4's concern.
+- **Edit session asks for a status the server would refuse** (`registry.jsx`), as it already does for an
+  unknown sex: a stored "Expird" seeds the Status select blank ("— เลือก —"), a warning names it, and Save
+  stays off ("ต้องเลือก Status ก่อนบันทึก") until one of the four is picked. Without this, a diagnosis edit of
+  such a record would echo "Expird" back and be refused. The Status dialog already starts with none picked.
+- **Vera, before the PR:** status membership is an own-property check (`_isValidStatus`). `VALID_STATUS[s]`
+  also matched names every object inherits, so "toString" or "constructor" passed as one of the four and
+  was stored, a ghost the old fallback never caught either. And picking the status a typo meant keeps the
+  statusDate already recorded (`D.statusChange`): "Expird" dated 10-20, saved as Expired on 10-28, used to
+  record the death on 10-28 and restart the 7-day hide and the 30-day sync window.
+- **`sheetHealthReport` counts `statusNotCanonical`:** status cells that are neither blank nor exactly one of
+  the four ("active", "Active ", "Expird"). Counts only, no identifiers.
+
+### Checks
+
+`verify-status-read-1028.cjs`, 37 checks: §1 `_readStatus` and `_onUnitStatus` give exactly
+`D.patientStatus` and `D.isOnUnit` (from `data.js` itself) on 15 inputs plus "toString" and "constructor",
+and `D.statusChange` keeps a typo's date; §2 the sync; §3 the bed guard; §4 the write, including Vera's
+cases (a stored "Expird" with only the diagnosis edited is refused and unchanged, then saved once a status
+is picked; "toString" refused); §4b the health report's count; §5 Edit session, which also keeps the date.
+19 fail on `86bfc91`, in every section; Vera's five fail on the commit before their fixes.
+`verify-backend-batch-0924.cjs` BE-4 now expects "ZZZ" refused and nothing stored (it expected Active).
+`verify-bed-park.cjs` copies `_readStatus` and `_onUnitStatus` along with `_bedConflict`.
+
+### Deploy
+
+Two halves, both Pp's: the backend needs a `clasp` deploy (`REFERENCE.md` § Backend: reconcile the
+mirror, `clasp push`, `clasp update-deployment`), and the Edit session change needs a release. Either order
+is safe: an old Edit session sending an unknown status gets the new Thai refusal and can pick a status;
+a new Edit session on the old backend only asks for a status first. **Between `clasp push` and `clasp
+update-deployment`, find the rows that change** (Vera, twice): run `sheetHealthReport` in the editor (its
+`statusNotCanonical` exists only in this code, so not before the push), or filter `Patient_Registry`
+before. The rows that matter are a case or space variant of Active in column J ("active", "ACTIVE ") with
+an empty column Q (statusDate). Such a row reaches no ward device today; once the deployment switches it
+syncs as an Active infant holding its bed, so a stale one would appear on the ward list and block that bed.
+
+## Session 2026-10-28 (NF-05, Pp drops the pilot) — before-and-after numbers and rollback steps instead
+
+Pp answered "ก" on 2026-10-28: no pilot. The two entries below describe a pilot ladder that this PR
+no longer ships. What protects an infant is comparing the numbers before they reach pharmacy. The
+pilot users order for real infants anyway. The riskiest changes (backend, Sheet layout) could not be
+piloted, since every deployment shares the Sheet. And six setup steps, a second GAS deployment and
+48 h per release cost a one-person team more than they give, next to 100 harnesses, the
+clinical-rules check and NF-28.
+
+**Kept**, in `.github/PULL_REQUEST_TEMPLATE/release.md` (now `main → release`) and `REFERENCE.md`
+§ Before and after, and rolling back (it replaces § The pilot ladder):
+
+- A release that changes a calculation runs the release live now and the PR's head side by side in
+  dev local (`tools/dev-local.mjs --tree … --port 8155` and `8156`), at least three cases per changed
+  calculation, and records inputs, before, after and "intended?" in the release PR.
+- The rollback steps: `npx wrangler rollback` or the Worker's Deployments tab, GitHub Pages by
+  reverting the commit, the whole merge for a release across the 2026-09-17 build step, the backend
+  by `clasp update-deployment` to the previous version, and the release tags as targets.
+
+**Removed**, each file back to `main`: `boot.js` § 3 (`NEOFEED_PILOT_GAS_URL`) with the shells'
+`?v=` tokens, the `_headers` comment, `tools/dev-local.mjs` and `tools/verify-release.mjs` (`--pilot`),
+`test/verify-review-0917-shell.cjs` 2.4a, `test/verify-dev-local.cjs` #5 and the `test/README.md`
+section. Deleted: `.github/workflows/release-gate.yml`, `tools/release-gate.mjs`,
+`test/verify-pilot-ladder.cjs`. `AGENTS.md`, `STATUS.md` and BACKLOG § Now now point at the
+template; BACKLOG keeps the missing `release-2026-10-27-pr172` tag and the 25 older backend
+deployments for Pp.
+
+## Session 2026-10-28 (NF-05, after Vera) — what two versions sharing one Sheet can still break
+
+Vera read the NF-05 diff (NO BLOCK, three 🟠 and two 🟡; her report is on the PR). Changed in answer:
+
+- **A column added at a tab's end is not enough.** The ward version rewrites a patient or draft row
+  over its own width only, so the new column keeps the pilot's earlier value. The first "Side by side"
+  box and `REFERENCE.md` now ask that the new version still reads such a row right.
+- **Script Properties** got their own box and bullet: no key or meaning change (the revocation epochs),
+  and no switch flipped while a pilot runs (`NURSING_LOG_ENABLED` must never meet an old frontend).
+- **A backend deploy outside the ladder moves the pilot deployment too**, and an abandoned pilot puts
+  it back on the ward's version, so the public pilot URL never runs code the ward has left.
+- **The gate** now also wants the rollback commit beside the tag, and fails on any `<…>` field left
+  unfilled. The backend Promotion box was reworded so its own text holds none. A new Promotion box
+  re-runs `verify-release.mjs --pilot`, since a branch whose name Cloudflare turns into `pilot` could
+  take the address.
+- Not changed, for Pp: a pilot banner and a mark on the printed order (the pilot looks like the ward
+  app), and the 25 older backend deployments that still answer.
+
+`test/verify-pilot-ladder.cjs` 2.14, 2.15 and 3.7 fail against the first commit's gate and template
+and pass now (39 checks).
+
+## Session 2026-10-28 (NF-05) — the pilot ladder: 48 h on `pilot` before a release reaches the ward
+
+`REFERENCE.md` § The pilot ladder (new), `.github/PULL_REQUEST_TEMPLATE/release.md` (new),
+`.github/workflows/release-gate.yml` and `tools/release-gate.mjs` (new), `boot.js` § 3,
+`tools/verify-release.mjs` (`--pilot`), `tools/dev-local.mjs`, `_headers` (comment only),
+`test/verify-pilot-ladder.cjs` (new), `test/verify-review-0917-shell.cjs` 2.4,
+`test/verify-dev-local.cjs` #5, `AGENTS.md`, `STATUS.md`, `BACKLOG.md`, `test/README.md`. The shells
+and `boot.js`'s `?v=` token moved with the build. No calculation, printed figure or backend code
+changed, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-05 in her apply list of 2026-10-27: a release goes first to a pilot that she and one
+fellow use for 48 h, and reaches the ward only by a separate promotion once usage and the error log
+show nothing new. Until now a `main → release` merge reached every ward at once.
+
+### How deploys worked, checked first
+
+Workers Builds deploys `release` to `neofeed.valhalla-health.workers.dev` and builds a preview of
+every other branch at `<branch>-neofeed.valhalla-health.workers.dev` (the Cloudflare comment on PR
+#178 shows both URLs). GitHub Pages serves `release` as a redirect stub. `release` requires
+`harnesses`, 0 approvals, `enforce_admins` on (branch-protection API, 2026-10-28). The backend has 26
+deployments; the ward's is `AKfycbz8…` at `@64` (`clasp list-deployments`). The frontend picks its
+backend from one constant in `boot.js`.
+
+### What the ladder is
+
+The `pilot` branch's preview, `pilot-neofeed.valhalla-health.workers.dev`, is the pilot: no new
+Worker, the same bytes the ward gets later. `boot.js` § 3 sends that one host to a pilot deployment
+of the same Apps Script project (`NEOFEED_PILOT_GAS_URL`, empty until Pp creates it, so the pilot host
+uses the ward's backend meanwhile). The release PR comes from `pilot` and carries the template's
+checklist; `promotion-checklist` fails until the pilot commit is its head, 48 h have passed, the
+rollback target names a tag and a backend `@N`, and every box is ticked. It is not a required check.
+
+Both deployments share the Sheet, Script Properties and script cache, so the runbook lists what
+cannot be piloted side by side (column moves, a cell that changes meaning, a cache value whose shape
+changes under the same key, an editor-run migration) and how such a release is split. A
+`CONSTANTS_VERSION` bump can be piloted: an order saved on one version is held on the other until it
+is saved again, never printed wrong.
+
+### Not done here
+
+Pp's one-time setup: the pilot deployment, the PR that sets its URL, the `pilot` branch, the OAuth
+origin and the branch protection (`REFERENCE.md`, BACKLOG § Now). Until then releases go as before.
+
+### Found on the way
+
+Release #172 (`342123d`, merged 2026-10-27) is live and `node tools/verify-release.mjs` passes on both
+hosts against it, but its tag `release-2026-10-27-pr172` is not pushed and `STATUS.md` does not
+record it yet. Neither is fixed here.
 
 ## Session 2026-10-28 (9) — the quick calc's copied text is checked figure by figure
 

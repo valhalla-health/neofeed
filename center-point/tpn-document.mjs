@@ -107,6 +107,11 @@ export function validateTpn(value) {
  }
  return structuredClone(value);
 }
+// A bag whose stocks add up to more than its prepared volume: WFI below 0.
+// NeoFeed refuses to order one since 2026-10-28 (Pp), and CP refuses to save,
+// publish or print one, a revision confirmed before then included. The format
+// above still reads it, so such a revision stays viewable and comparable.
+export function tpnBagOverfull(value) { return Number(value.values.wfi) < 0; }
 // What a prescriber orders, read from the packet, in the terms of NeoFeed's own
 // "changes vs previous order" (calculator.jsx ORDER_DIFF_FIELDS) plus the dosing
 // weight and each preparation. Never amounts that follow the weight (bag
@@ -146,6 +151,10 @@ export function renderTpn(container, value, previous) {
   const box=doc.createElement('div'),head=doc.createElement('strong'),why=doc.createElement('p');box.className='tpn-critical';box.setAttribute('role','note');
   head.textContent=`⚠ สั่งทั้งที่มีค่าวิกฤต: ${t.criticalOverride.alerts.join('; ')}`;why.textContent=`เหตุผล: ${t.criticalOverride.reason}`;
   box.append(head,why);container.append(box);
+ }
+ if(tpnBagOverfull(t)){
+  const box=doc.createElement('div');box.className='tpn-overfull';box.setAttribute('role','alert');
+  box.textContent=`⚠ ส่วนประกอบ ${t.values.components} mL เกินถุง ${t.values.prepared} mL ห้อง TPN ผสมไม่ได้ ฉบับนี้ยืนยันและพิมพ์ไม่ได้`;container.append(box);
  }
  if(before!==undefined){
   const box=doc.createElement('div'),head=doc.createElement('h3');box.className='tpn-changes';

@@ -33,7 +33,7 @@ clinical judgement. Everything else is engineering sequencing.
 ## 🔥 Now — this cycle
 
 - [ ] 🩺 **safety/product · What the nutrition team's meeting of 2026-10-28 left open.** Built for the
-      16 Nov ward start (`CHANGELOG.md` 2026-10-28 (10)): Submit locks, the revision mark and ฉบับแก้ไข,
+      16 Nov ward start (`CHANGELOG.md` 2026-10-28 (13)): Submit locks, the revision mark and ฉบับแก้ไข,
       the doctor's sheet only, Vitalipid rounded down, Mg in mg/kg/d, PED AMINE. Open:
       - **Indication for PN** at the first entry, a dropdown: short bowel syndrome, motility disorder,
         mucosal disease, preterm infant, NEC, post-surgery, feeding intolerance, for supplementation
@@ -51,12 +51,23 @@ clinical judgement. Everything else is engineering sequencing.
         sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
       - **Next phase:** print the pharmacy sheet again, for a sticker (`.print-back` is hidden in print,
         not removed).
+- [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
+      rolling back).
+      - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
+        release's rollback target, and on 2026-10-28 it was not pushed. **Done 2026-10-28, 12:30 ICT**,
+        from Pp's PC; #184 and #186 are tagged too (`release-2026-10-28-pr184`, `-pr186`).
+      - [ ] Undeploy the backend deployments nobody uses. `clasp list-deployments` showed 26 on 2026-10-28,
+        the ward's `AKfycbz8…` at `@64` among them. Every one shares the live Sheet, Script Properties and
+        cache, so an old one that still answers runs its old code against them, as NeoRef's version 1 did
+        until 2026-09-24. Not yet checked one by one.
+
 - [ ] 🩺 **safety/product · What the answers of 2026-10-25 left open** (the nutrition unit's and TPN
       team's answers to the 2026-10-19 question sheet; what they settled was built on 2026-10-27,
       `CHANGELOG.md` 2026-10-27). In order of reach:
       - **Center Point must sync `center-point/tpn-document.mjs` before this release.** It gained two
         feed labels (Enfalac Premature and Pre Nan at 24 kcal/oz) and its digest was re-pinned. Until CP's
-        copy has them, a CP order with either feed fails CP's packet check. A CP-repo PR.
+        copy has them, a CP order with either feed fails CP's packet check. A CP-repo PR. Synced, with
+        PR #175's `tpnBagOverfull`, on NICU-Center-Point branch `claude/tpn-overfull-stop-1028` (2026-10-28).
       - **Photograph the ZnSO₄ stock label before this release** (Vera, 2026-10-27). The printed ZnSO₄ mL
         and the WFI now rest on pharmacy's written "1 mg/mL" of elemental Zn; a label reading 1 mg/mL of
         zinc sulfate salt would make the printed mL about 4.4× too small. **Pp's to do**, with the notice
@@ -383,17 +394,6 @@ clinical judgement. Everything else is engineering sequencing.
       3. **The length/HC cm/wk colours** (`fenton.jsx` `GrowthVelocity`: 0.5–1.0 green, red outside
          0.3–1.3) have no source, and Fenton 2025 Table 2 puts the median length gain at 1.4–1.5 cm/wk
          at 23–31 wk, which shows red.
-- [ ] **backend · a hand-typed status cell is read three ways on the server** (Vera, 2026-10-28).
-      `_normStatus` trims and ignores case on write; `_patientInSyncWindow` trims but matches case, so a
-      row reading "active" with no statusDate reaches no ward device; `_bedConflict` compares the raw cell,
-      so "Active " holds no bed there. The client reads all of them as `D.patientStatus` does (trimmed,
-      case ignored) since 2026-10-28. Make both server reads do the same, with a case in the sync-window
-      harness: `_patientInSyncWindow("active", "", today)` → true (false today). **And the write:**
-      `_normStatus` returns "Active" for any unknown word, and `registerPatient` runs it on the merged
-      record, so a row typed "Expird" comes back onto every ward list at its next save (a diagnosis edit, a
-      bed move). Have it keep the unknown word or refuse the save instead, with a `registerPatient` case: a
-      stored "Expird" edited with only the diagnosis changed keeps "Expird" or is refused (it turns Active
-      today). Needs a `clasp` deploy.
 - [ ] **cleanup · `confirmOverwrite` is unused since 2026-09-27.** `registerPatient` still accepts it and
       writes a registration over the record that holds the id, which would file one infant's Daily_Log
       under another's name. No client sends it: a taken id is drawn again. Remove it, and the 2026-09-24

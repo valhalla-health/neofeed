@@ -1017,8 +1017,9 @@ until a patient's order lost its Copy, 2026-10-28). The same order typed into th
 BAG MAKE-UP line that carries the quick calc's own on-screen Components and Bag total, closes exactly, and
 says COMPONENTS EXCEED BAG VOLUME exactly when that screen says the bag cannot be compounded. The tolerance is the
 rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
-components); the arithmetic is in the file's header. An over-full bag skips the sum and must say so on
-screen and on the form. Then one input changes the way a person changes it (a dead-space chip,
+components); the arithmetic is in the file's header. An over-full bag (Components above Bag total on
+screen) cannot be submitted since 2026-10-28: the sum is skipped, the stop must show on screen, and an
+over-full bag that prints fails. Then one input changes the way a person changes it (a dead-space chip,
 or a TPN volume typed a key at a time): the on-screen Bag total must move to delivered + dead, the stale
 form must be withdrawn, and the second save's reprint must carry the new figures and still add up.
 **Two feeds** (§ 3, 2026-10-28, for #182 and #185): three orders (6 + 2 beside a bag, 4 + 4 feeds only,
@@ -1841,6 +1842,25 @@ scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `
 inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
 values come from the ward.
 
+## The backend reads a status as the client does, 2026-10-28 — one harness added, two adjusted
+
+Pp asked for the backend to read a patient status the way the client does (`CHANGELOG.md` 2026-10-28 (10)).
+**`verify-status-read-1028.cjs`** runs `gas-backend.gs` in `gas-vm-sandbox.cjs` and, for §5, mounts
+`EditPatientModal` in jsdom (it also runs against `compiled/`). §1: `_readStatus` and `_onUnitStatus` give
+exactly `D.patientStatus` and `D.isOnUnit`, read from `data.js` itself, on 15 inputs (blank, spaces, case,
+unknown words). §2: `getActivePatients` sends "active" and "Active " with no statusDate, a recent
+" discharged " and a recent "Expird", not an undated "Expird". §3: "Active " and "active" hold their bed
+in `registerPatient`'s bed guard; "Expird" does not. §4: a new "ZZZ" is refused in Thai and nothing is
+stored; " discharged " is stored as "Discharged", blank as "Active"; a stored "Expird" edited with only the
+diagnosis is refused and the row unchanged, then saved as Discharged once picked; a stored "active " is
+written back as "Active"; "toString" and "constructor" are refused (Vera: `VALID_STATUS["toString"]` was
+truthy). §4b: `sheetHealthReport` counts `statusNotCanonical`. §5: Edit session seeds the Status select blank
+for a stored "Expird", names it, keeps Save off until a status is picked, then sends it with the statusDate
+already recorded (§1 checks `D.statusChange` for the same). 37 checks; with `NEOFEED_GAS_SRC` and the tree
+of `86bfc91`, 19 fail, in every section, and Vera's five fail on the commit before their fixes. `verify-backend-batch-0924.cjs` BE-4 now expects an unrecognised
+status refused rather than stored as Active, and `verify-bed-park.cjs` copies `VALID_STATUS`,
+`_readStatus` and `_onUnitStatus` along with `_bedConflict`.
+
 ## The archive out from under the Calculator button, 2026-10-28 — one harness
 
 On a phone the archived card's status chip and Edit were under the Calculator button and the bottom nav
@@ -1859,7 +1879,7 @@ the tap opening the quick calc).
 ## The nutrition team's meeting, 2026-10-28 — one harness added, twelve adjusted
 
 Submit locks, Vitalipid rounded down, Mg typed in mg, the doctor's sheet only (`CHANGELOG.md`
-2026-10-28 (10)). **`verify-nutrition-meeting-1028.cjs`** (jsdom; it also runs against `compiled/`)
+2026-10-28 (13)). **`verify-nutrition-meeting-1028.cjs`** (jsdom; it also runs against `compiled/`)
 mounts the Calculator with fake `onLog` / `onUpdate` / `onPublish` and records the calls in order. § 1:
 Submit saves, then publishes that row. § 2: Save draft publishes nothing. § 3: an edit of a published
 order goes to the server and the revision it returns is published. § 4: an order submitted before the
@@ -1881,6 +1901,32 @@ The twelve that typed Mg in mEq (`verify-calc-clicks`, `-fuzz`, `-oracle`, `-sum
 `verify-stock-ml-1027`, `verify-tpn-answers-1027`, `verify-tpn-team-0922`, `verify-ward-requests-0918`)
 type the same dose × 12.1525 or read the new label and band; `verify-status-zones` needed nothing once the
 tile read mg.
+## A negative WFI cannot be ordered, 2026-10-28 — one harness
+
+Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
+2026-10-28 (11)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
+`verify-calc-sum.cjs`'s S8 with Glycophos in place of its Ca gluconate (WFI 0) and the same order with
+KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
+save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
+change with a reason naming "Bag cannot be compounded" has no order form, and Print and Copy refuse with
+the same reason. § 3: Center Point's บันทึก is disabled and nothing reaches Center Point. 20 checks; 9 fail
+on `326bcd9`.
+
+## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness
+
+Pp asked for the two gaps Vera named on PR #175 to be closed, and chose how the backend learns of a stop:
+the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (12)).
+**`verify-backend-stops-1028.cjs`** (real `gas-backend.gs` in `gas-vm-sandbox.cjs`): a submitted row with
+`calcInput.stops` `[]` saves; one with a stop, or with no list (a tab opened before the app sent one), is
+refused, and only rule IDs are echoed back; a draft is kept either way; an edit, a revision and
+`publishDailyLog` follow the same rule. 25 checks; 18 fail on `07f3403`. `verify-wfi-stop-1028.cjs` gains
+the payload (S8's Submit sends `stops []`, the over-full draft `["CR-BAG-OVERFULL"]`) and § 4,
+`center-point/tpn-document.mjs`'s `tpnBagOverfull` and the red line `renderTpn` draws, and § 5, a submitted
+row with no route, which printed "Route: —" until `printable` checked `routeMissing`. Since PR #180 a
+patient's order has no Copy Order button, so § 2 and § 5 check that it is absent: 32 checks.
+`verify-clinical-rules.cjs` checks that `calculator.jsx`'s `submitStops` names every `stop` rule, and only
+those, and each blocked stop case keeps a draft whose `calcInput.stops` names its rule (623 checks). Eleven backend harnesses whose fixtures sent submitted rows with no list, the contract before this
+change, now send `stops: []`.
 
 ## Note on the source workbook
 

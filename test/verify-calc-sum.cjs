@@ -22,10 +22,9 @@
 //          printed ones
 //       d. the table has one line per stock the order uses (a dropped line
 //          would otherwise make the sum easier to pass, not harder)
-//     When the WFI is negative the bag cannot be compounded: the sum is skipped
-//     and the alert is asserted on screen and on the print form. (The copied
-//     order's BAG MAKE-UP line was a third surface until a patient's order lost
-//     its Copy button, Pp 2026-10-28.)
+//     When the WFI is negative the order cannot be submitted (Pp, 2026-10-28):
+//     over-full is read off the screen (Components above Bag total, both as
+//     shown), the stop is asserted there, and an over-full bag that prints fails.
 //
 // 1b · THE QUICK CALC'S COPY. The same order is typed into the quick calc, the
 //     one place NeoFeed still copies from (Pp: "test quick calc copies text"),
@@ -483,13 +482,10 @@ function sumCheck(sc, label, Vd) {
     ok(sc, `${label}: no "Bag cannot be compounded" alert`,
       ![...container.querySelectorAll('.calc-bottom .alert-row .title')].some(t => t.textContent === 'Bag cannot be compounded'));
   }
+  // Over-full cannot be submitted since 2026-10-28, so it never reaches a print form.
   if (make.wfi < 0) {
-    // Over-full bag: no sum to close; the screen and the form must each say so.
-    ok(sc, `${label}: over-full bag → "Bag cannot be compounded" alert on screen`,
-      [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].some(t => t.textContent === 'Bag cannot be compounded'), detail);
-    ok(sc, `${label}: over-full bag → screen says cannot be compounded`, scr.cannotOnScreen, detail);
-    ok(sc, `${label}: over-full bag → print form says เกินปริมาตรถุง`, make.overflowNote, detail);
-    return { make, S: sr, overflow: true };
+    ok(sc, `${label}: an over-full bag (WFI ${make.wfi} mL) must not print`, false, detail);
+    return null;
   }
   ok(sc, `${label}: no "cannot be compounded" on a bag with WFI ≥ 0`, !scr.cannotOnScreen && !make.overflowNote, detail);
   ok(sc, `${label}: Σ(printed stock mL) + printed WFI = printed prepared (±${TOL > EPS ? '0.05' : '0'})`,
@@ -537,13 +533,25 @@ async function run(scIn, idx) {
   const dosingG = sc.tpnWtOverride > 0 ? sc.tpnWtOverride : (sc.cur < sc.bw ? sc.bw : sc.cur);
   const inRange = dosingG >= 200 && dosingG <= 8000;
   const zeroed = inRange ? stocksAtZero(sc, dosingG, Vd, sc.dead || 0) : [];
-  const orderable = inRange && zeroed.length === 0;
+  // Stocks over the bag, read off the screen: Components above Bag total as shown
+  // is the app's own WFI below 0 (Pp, 2026-10-28: not orderable).
+  const scr0 = screenFigures();
+  const overfull = scr0.components !== null && scr0.bagTotal !== null && scr0.components > scr0.bagTotal + EPS;
+  if (sc.overflow) ok(sc, 'S4 is over-full, as built', overfull, scr0);
+  const orderable = inRange && zeroed.length === 0 && !overfull;
   if (sc.expectZero) ok(sc, `stocks at 0 mL are ${sc.expectZero}`, JSON.stringify(zeroed) === JSON.stringify(sc.expectZero), zeroed);
   ok(sc, 'Submit enabled exactly when the order can be saved', !!(saveBtn && !saveBtn.disabled) === orderable, { disabled: saveBtn?.disabled, dosingG, zeroed });
   if (zeroed.length) {
     ok(sc, 'a stock at 0 mL: the save panel says so', !!container.querySelector('.stock-at-zero-ml'), zeroed);
     ok(sc, 'a stock at 0 mL: no print form', !container.querySelector('#print-form'));
     return `stock at 0 mL: ${zeroed.join(', ')}`;
+  }
+  if (overfull) {
+    ok(sc, 'over-full bag: "Bag cannot be compounded" on screen',
+      [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].some(t => t.textContent === 'Bag cannot be compounded'), scr0);
+    ok(sc, 'over-full bag: the save panel says so', !!container.querySelector('.bag-overfull'));
+    ok(sc, 'over-full bag: no print form', !container.querySelector('#print-form'));
+    return 'over-full: not orderable';
   }
   if (!orderable) {
     // No print: nothing to add up. The screen still shows the bag.
@@ -553,7 +561,6 @@ async function run(scIn, idx) {
   await clickAsync(saveBtn);
   ok(sc, 'save 1 reached onLog', calls.onLog === 1, calls);
   const first = sumCheck(sc, 'save 1', Vd);
-  if (sc.overflow) ok(sc, 'S4 is over-full, as built', !!first && first.overflow, first);
   if (!first) return 'no print';
 
   // ── wired-in: change one input the way a person does ──
@@ -588,6 +595,10 @@ async function run(scIn, idx) {
   if (zeroed2.length) {
     ok(sc, `wired-in (${how}): a stock now at 0 mL disables Submit`, btnExact('Submit')?.disabled === true, zeroed2);
     return `after the change, stock at 0 mL: ${zeroed2.join(', ')}`;
+  }
+  if (after.components !== null && after.bagTotal !== null && after.components > after.bagTotal + EPS) {
+    ok(sc, `wired-in (${how}): now over-full, Submit is disabled`, btnExact('Submit')?.disabled === true, after);
+    return 'after the change, over-full';
   }
   await clickAsync(btnExact('Submit'));
   ok(sc, 'save 2 updated the same row', calls.onLog === 1 && calls.onUpdate === 1, calls);

@@ -2173,17 +2173,14 @@ function isOnUnit(p) {
 // What a patient's status reads as, on every screen. A blank status is Active,
 // the rule isOnUnit applies, so no chip reads blank or "Active" while the
 // list it sits on says otherwise. A cell typed into the sheet by hand
-// ("Active ", "discharged") reads as the status it names, as the server
-// writes it (_normStatus). The server's reads do not all agree yet: the sync
-// window trims but matches case, so "Active " reaches the ward and "active"
-// with no statusDate does not, and the bed guard (_bedConflict) compares the
-// raw cell (BACKLOG). Before, "Active " synced and then dropped off the ward's
-// list (Vera, 2026-10-28). Here the client is the stricter side: it counts
-// that infant's bed as taken. Anything else stays as typed and is not on the
-// unit, as both server reads treat it: the client does not turn a mistyped
-// "Expird" into an Active infant holding a bed. The server still does, on
-// that record's next save (_normStatus writes an unknown word as Active;
-// BACKLOG), so this holds on the device, not end to end.
+// ("Active ", "discharged") reads as the status it names. Anything else stays
+// as typed and is not on the unit: a mistyped "Expird" is not an Active infant
+// holding a bed. gas-backend.gs reads a status the same way (_readStatus,
+// 2026-10-28) in its sync window, its bed guard and its merge, and refuses to
+// store a status that is not one of the four (_normStatus), so Edit session
+// asks for one when the stored status is not (registry.jsx). Until then
+// "Active " synced and dropped off the ward's list here (Vera, 2026-10-28),
+// "active" reached no ward device, and "Expird" came back as Active on save.
 function patientStatus(p) {
   const s = String((p && p.status) ?? "").trim();
   if (!s) return "Active";
@@ -2199,11 +2196,18 @@ function patientStatus(p) {
 // handleEditPatient, UP-S1) a phantom "" → null change would blank the
 // statusDate another device had just stamped on a discharge. Edit session and
 // the status chip both save through this.
+//
+// A stored status that is not one of the four ("Expird", typed by hand) is a
+// typo of a status, not a status of its own: picking the one it meant keeps
+// the date already recorded rather than stamping today (Vera, 2026-10-28). For
+// Expired that date is the day of death, and today would also restart the
+// 7-day archive hide and the server's 30-day sync window.
 function statusChange(patient, status, today) {
   const prev = patientStatus(patient);
+  const prevKnown = PATIENT_STATUSES.includes(prev);
   const statusDate = status === "Active"
     ? (prev === "Active" && !patient.statusDate ? (patient.statusDate ?? null) : null)
-    : (status !== prev || !patient.statusDate) ? today : patient.statusDate;
+    : ((status !== prev && prevKnown) || !patient.statusDate) ? today : patient.statusDate;
   return { status, statusDate };
 }
 
