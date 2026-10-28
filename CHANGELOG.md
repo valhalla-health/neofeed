@@ -10,11 +10,13 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-28 — NF-12 with `main` merged in: two feeds
 
 `calculator.jsx` (the milk line and the working panels only), `compiled/calculator.js`, the shells'
-tokens, `test/verify-show-working-1028.cjs` § 6 and § 9, `CR-U-BREASTMILK`'s anchor and two cases. No
-computed, printed or saved figure moves; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+tokens, `test/verify-show-working-1028.cjs` § 6 and § 9, `CR-U-BREASTMILK`'s anchor and two cases, two units
+in `tools/reference-tabs.json`. No computed, printed or saved figure moves; `CONSTANTS_VERSION` stays
+`2026-10-27.2`.
 
 `main` reached NF-12 with #182 (a day can have two feeds) and `14caa41` (a patient's order has no Copy).
-The git merge was clean in `calculator.jsx`, and the result was wrong in three places:
+The git merge was clean in `calculator.jsx`, and the result was wrong in three places, and one check
+failed:
 
 - **Feed 1's picker, not the feeds given.** The milk line read feed 1's picker, which stays at breast milk
   while feed 1 is 0 mL beside feed 2. Formula as feed 2 alone showed "นมแม่ที่ใช้คำนวณ", and breast milk
@@ -27,6 +29,10 @@ The git merge was clean in `calculator.jsx`, and the result was wrong in three p
 - **No feed at all** (Vera, NO BLOCK, one 🟡, on this commit's first version): the panels fell back to
   feed 1's picker, so a TPN-only day read "0 mL × 67 kcal/100 mL · Breast Milk … (CR-U-BREASTMILK)". It
   now reads ไม่มีนม and 0. NF-12 did the same before the merge; the figure was always 0.
+- **NF-28's check (#176) wanted units for NF-12's two new `coded` keys.** `verify-reference-tabs.cjs`
+  failed on `EN_HMF_PROTEIN_G_PER_DOSE` and `EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal`: `CR-U-BREASTMILK`
+  codes them, and `tools/reference-tabs.json` had no unit for either. Both are now under `limits` (g protein
+  per 4 g dose, kcal per g of HMF protein), ranged by the rule itself.
 - **§ 6 checked a Copy that is gone.** A patient's order leaves only as the print form now; the harness
   checks the print form, that no Copy is offered, and the quick calc's copied text instead.
 
