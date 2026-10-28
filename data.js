@@ -2150,6 +2150,11 @@ function defaultDeadVolFor(patient) {
   return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
 }
 
+// The four statuses a session can carry, in the order every picker lists
+// them: Edit session's select and the ward list's status chip (Pp,
+// 2026-10-28). The server accepts exactly these (VALID_STATUS, gas-backend.gs).
+const PATIENT_STATUSES = ["Active", "Discharged", "Transferred", "Expired"];
+
 // Only a patient still on the unit occupies a bed — a discharged/transferred/
 // expired session keeps its `currentBed` in the record (that is where they
 // were), but the bed itself is free for the next admission. Same definition
@@ -2157,7 +2162,44 @@ function defaultDeadVolFor(patient) {
 // two ever disagree, a bed reads as occupied by someone the registry no
 // longer lists, and nothing on screen explains why it can't be picked.
 function isOnUnit(p) {
-  return !!p && (!p.status || p.status === "Active");
+  return !!p && patientStatus(p) === "Active";
+}
+
+// What a patient's status reads as, on every screen. A blank status is Active,
+// the rule isOnUnit applies, so no chip reads blank or "Active" while the
+// list it sits on says otherwise. A cell typed into the sheet by hand
+// ("Active ", "discharged") reads as the status it names, as the server
+// writes it (_normStatus). The server's reads do not all agree yet: the sync
+// window trims but matches case, so "Active " reaches the ward and "active"
+// with no statusDate does not, and the bed guard (_bedConflict) compares the
+// raw cell (BACKLOG). Before, "Active " synced and then dropped off the ward's
+// list (Vera, 2026-10-28). Here the client is the stricter side: it counts
+// that infant's bed as taken. Anything else stays as typed and is not on the
+// unit, as both server reads treat it: the client does not turn a mistyped
+// "Expird" into an Active infant holding a bed. The server still does, on
+// that record's next save (_normStatus writes an unknown word as Active;
+// BACKLOG), so this holds on the device, not end to end.
+function patientStatus(p) {
+  const s = String((p && p.status) ?? "").trim();
+  if (!s) return "Active";
+  return PATIENT_STATUSES.find(k => k.toLowerCase() === s.toLowerCase()) || s;
+}
+
+// The two fields a status change writes: `status`, and `statusDate`, the day
+// the patient left Active, from which the ward list hides an archived name
+// after 7 days. Re-stamped only when the status actually changes, so saving
+// the same archived status again does not restart those 7 days. An Active
+// record that had no statusDate keeps the exact empty value it came with (""
+// from the sheet), not null: under the three-way merge (app.jsx
+// handleEditPatient, UP-S1) a phantom "" → null change would blank the
+// statusDate another device had just stamped on a discharge. Edit session and
+// the status chip both save through this.
+function statusChange(patient, status, today) {
+  const prev = patientStatus(patient);
+  const statusDate = status === "Active"
+    ? (prev === "Active" && !patient.statusDate ? (patient.statusDate ?? null) : null)
+    : (status !== prev || !patient.statusDate) ? today : patient.statusDate;
+  return { status, statusDate };
 }
 
 // Map of bed label → the patient holding it. `excludeSessionId` drops one
@@ -2713,6 +2755,9 @@ window.NEOFEED_DATA = {
   // and the admin census all read, so a discharged infant cannot hold a bed on
   // one screen, raise an alarm on a second and count as a census on a third.
   isOnUnit,
+  // The status list, how a status reads, and what changing it writes — the
+  // one source for Edit session, the ward list's status chip and the strip
+  PATIENT_STATUSES, patientStatus, statusChange,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,
