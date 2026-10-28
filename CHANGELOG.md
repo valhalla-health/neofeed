@@ -26,8 +26,8 @@ schedule: totals 8, 6, 4, 3 or 2 a day, any whole split, 7 + 1 and 5 + 3 include
 - The second two-feed stop is now "together they fill a regular schedule": 24 h ÷ (Feed 1 + Feed 2)
   must be whole hours. 6 + 2, 5 + 3, 4 + 4 (q3h), 4 + 2, 3 + 3 (q4h) save; 3 + 4 and 3 + 2 are refused.
   With the 8-a-day stop the totals left are 8, 6, 4, 3 and 2. The alert is "Two feeds off a regular
-  schedule", and the Step 2 line reads "… ต้องเป็นมื้อเต็มที่ลงตัวกับทุก ชม. เท่ากัน (8 = q3h, 6 = q4h)
-  บันทึกไม่ได้".
+  schedule", and the Step 2 line reads "Feed 1 + 2 = 7 feeds/d — ไม่ลงตัวกับทุก ชม. เท่ากัน (8, 6, 4, 3
+  หรือ 2 มื้อ/วัน) บันทึกไม่ได้".
 - Vera on this change: each feed's feeds a day must be whole (4.8 + 3.2 and 7.5 + 0.5 add to 8 but no
   ward can give them), and beside the other each feed's hint now reads its share of the one schedule,
   "6 of 8 feeds · q3h", where 6 + 2 used to read q4h beside q12h, which meet at 0 h and 12 h. The copied
