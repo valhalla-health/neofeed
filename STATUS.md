@@ -245,7 +245,8 @@ by PR #183 and with #186 by PR #176, the next PRs on the repo.
   branch, released with it; `CHANGELOG.md` 2026-10-28 (4)). Frontend only, no `clasp` step. **`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's
   decision**: after a revert, or on a ward tab loaded before the release, a two-feed order shows and
   prints feed 1 only, unheld. No second clinician has checked the two-feed figures. Open for Pp: Q18
-  (one feed above 8 a day), NF-17. Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28.
+  (one feed above 8 a day). NF-17's two-feed check: PR #189 (below). Vera: NO BLOCK three times.
+  `CHANGELOG.md` 2026-10-28.
 - ✅ **PR #181, Print ทั้งหมด / Print ที่เลือก with a tick per infant on a ward's Print order list, and no
   Calculator button there: live, released by #184 with #182 (banner above), on Pp's instruction ("Merge
   and deploy", 2026-10-28).** Frontend only (`app.jsx`,
@@ -273,6 +274,10 @@ went live with #172 on 2026-10-27; #173 goes with #182.)*
   served file changes and nothing to release. With #182 merged in, the check failed on #182's new
   `EN_FEEDS_PER_DAY_MAX` (no unit) and its `D.EN_PRODUCTS` dropdown, as built to; both are fixed in the
   PR. Its 38 proposed ranges in `tools/reference-tabs.json` wait for Pp. `CHANGELOG.md` 2026-10-28.
+- ⏳ **PR #189, NF-17 for two feeds: `verify-calc-sum.cjs` § 3 checks that two feeds add up from each
+  alone, saved, shown and printed, and follow a typed change: open, waiting for Pp's merge.** Test and docs
+  only, so nothing to release. It also repairs negative control 1, which `main` had broken.
+  `CHANGELOG.md` 2026-10-28 (6).
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
