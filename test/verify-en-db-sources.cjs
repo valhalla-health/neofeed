@@ -335,6 +335,20 @@ const scenarios = {
     mount(old);
     A.eq('4.11 …and raises no source alert', noSourceAlerts().length, 0);
 
+    // A saved order whose feed is not an EN_DB row (removed since, or written by
+    // a newer NeoFeed) is refused, never costed as the other feed (Vera, 2026-10-28).
+    const critTitles = () => [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].map(t => t.textContent);
+    const submitBtn = () => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Submit');
+    for (const [label, ci] of [
+      ['feed 2', { enType: 'BM_20', enVol: 10, enFreq: 8, enType2: 'NOT_A_FEED', enVol2: 10, enFreq2: 8 }],
+      ['feed 1', { enType: 'NOT_A_FEED', enVol: 10, enFreq: 8 }],
+    ]) {
+      mount({ ...old, entryId: 'e-unknown', calcInput: { curWtG: 1500, fluidTargetPerKg: 150, ...ci } });
+      A.ok(`4.14 a saved ${label} not in EN_DB raises "Feed not in the formulary"`, critTitles().includes('Feed not in the formulary'), critTitles());
+      A.ok(`4.15 …and the save panel refuses it`, /บันทึก\/พิมพ์ไม่ได้/.test(container.querySelector('.feed-unknown')?.textContent || '') && !!submitBtn() && submitBtn().disabled);
+      A.ok(`4.16 …and the feed shows as saved, not swapped`, [...container.querySelectorAll('.en-product option')].some(o => o.selected && o.textContent === 'NOT_A_FEED'));
+    }
+
     // The next day's new order, copied from a PF 20 order.
     mount(null, old);
     A.eq('4.12 a copied new order keeps PF 20', feedKey(), 'BM_PF_20');

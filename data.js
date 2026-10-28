@@ -414,10 +414,17 @@ function enProductOf(key) {
 // figure is mL/day ÷ 100 × this, so it is the sum over the feeds. A day with
 // one feed returns that feed's own row, so its figures are exactly what they
 // were before there could be two. `feeds` is [{ key, mlPerDay }], feed 1 first.
+// A feed given from a key EN_DB does not hold (a row removed since the order
+// was saved, or written by a newer NeoFeed) has no composition: null, never
+// the other feed's, and the Calculator refuses the order (enFeedsUnknown).
 const EN_NUTRIENTS = ["kcal", "pro", "fat", "cho", "na", "k", "ca", "p"];
+function enFeedsUnknown(feeds) {
+  return feeds.filter(f => f.mlPerDay > 0 && !EN_DB[f.key]).map(f => f.key);
+}
 function enMixPer100mL(feeds) {
-  const given = feeds.filter(f => EN_DB[f.key] && f.mlPerDay > 0);
-  if (given.length < 2) return EN_DB[(given[0] || feeds[0]).key];
+  if (enFeedsUnknown(feeds).length > 0) return null;
+  const given = feeds.filter(f => f.mlPerDay > 0);
+  if (given.length < 2) return EN_DB[(given[0] || feeds[0]).key] || null;
   const total = given.reduce((s, f) => s + f.mlPerDay, 0);
   const mix = { osm: null, lf: given.every(f => EN_DB[f.key].lf) };
   for (const n of EN_NUTRIENTS) mix[n] = given.reduce((s, f) => s + EN_DB[f.key][n] * f.mlPerDay, 0) / total;
@@ -2644,7 +2651,7 @@ window.NEOFEED_DATA = {
   // Enteral formula database
   EN_DB,
   // Step 2's feed and strength pickers, and the two-feed composition
-  EN_PRODUCTS, enProductOf, enMixPer100mL, EN_FEEDS_PER_DAY_MAX,
+  EN_PRODUCTS, enProductOf, enMixPer100mL, enFeedsUnknown, EN_FEEDS_PER_DAY_MAX,
   // KCMH supplement formulary
   SUPP_DB,
   // Product reference

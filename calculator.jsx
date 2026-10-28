@@ -419,6 +419,10 @@ function EnFeedPicker({ value, onChange }) {
   );
 }
 
+// What `calc` costs a day's feeds at when they have no composition: nothing
+// is fed, or a feed's key is not in EN_DB, which refuses the order (feedUnknown).
+const EN_NO_FEED = { kcal: 0, pro: 0, fat: 0, cho: 0, na: 0, k: 0, ca: 0, p: 0, osm: null, lf: false };
+
 // With two feeds, each sits in its own box under its own title, and says what
 // it gives over the day.
 const EN_FEED_BOX = { padding: 10, border: "1px solid var(--line)", borderRadius: 8 };
@@ -1360,7 +1364,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // ===== compute =====
   const calc = useMemo(() => {
     if (!wtKg) {
-      const en0 = D.enMixPer100mL(enFeeds);
+      const en0 = D.enMixPer100mL(enFeeds) || EN_NO_FEED;
       const sv0 = { naCl:0, naAcet:0, glycophos:0, kCl:0, k2hpo4:0, ca:0, mg:0,
         heparin:0, znso4:0, aa:0, lipidSMOF:0 };
       return { wtKg:0, totalTPN_mL, lipidVol:0, lipidBagVol:0, vitalipidVol:0,
@@ -1451,7 +1455,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // 100 mL, weighted by each feed's mL/day, so every term below that reads
     // enVolTotal or enCounted × en is the sum over the feeds. With one feed it
     // is that feed's EN_DB row, exactly as before.
-    const en = D.enMixPer100mL(enFeeds);
+    const en = D.enMixPer100mL(enFeeds) || EN_NO_FEED;
     const enVolTotal = enFeeds.reduce((s, f) => s + f.mlPerDay, 0);
     const enVolPerKg = enVolTotal / wtKg;
     // The feed volume that COUNTS. A MEN (trophic) feed counts toward neither
@@ -1913,6 +1917,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const feedsPerDay = (enFeeds[0].mlPerDay > 0 ? enFreq : 0) + (hasFeed2 ? enFreq2 : 0);
   const feedsOverMax = hasFeed2 && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
   const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
+  // A feed given from a key EN_DB does not hold has no composition, so the
+  // order cannot be submitted or printed until another milk is picked.
+  const feedsUnknown = D.enFeedsUnknown(enFeeds);
+  const feedUnknown = feedsUnknown.length > 0;
+  const feedUnknownText = `นม ${feedsUnknown.join(", ")} ไม่อยู่ในรายการนมของ NeoFeed — เลือกชนิดนมใหม่ที่ Step 2`;
   // An ordered stock whose mL rounds to 0 at the 0.1 mL pharmacy measures
   // (roundMl): the back sheet would ask for 0 mL of a drug the order holds.
   // Refused like the bottle (Pp, 2026-10-27); a draft may be kept. Soluvit,
@@ -2038,6 +2047,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   if (bagOrdered && calc.wfiVol < 0) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL.`, ref: "WFI q.s." });
   if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
+  if (feedUnknown) alerts.push({ level: "crit", title: "Feed not in the formulary", body: `${feedsUnknown.join(", ")}: no composition in EN_DB, so its energy, protein and minerals cannot be counted — this order cannot be submitted.`, ref: "PR review (Vera), 2026-10-28" });
   if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`, ref: "Pp, 2026-10-28" });
   if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
@@ -2081,7 +2091,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !tpnWtOutOfRange
+  const printable = !!savedEntryId && !dirty && !pendingSave && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
@@ -2093,6 +2103,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
     : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}`
     : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}`
+    : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}`
     : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}`
     : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}`
     : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}`
@@ -2245,6 +2256,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!asDraft && feedsOverMax) {
       setOpenSteps(prev => new Set(prev).add(5));
       showToast(feedsOverMaxText, "error");
+      return;
+    }
+    // ── A feed EN_DB does not hold — refused the same way ──────────────
+    if (!asDraft && feedUnknown) {
+      setOpenSteps(prev => new Set(prev).add(5));
+      showToast(feedUnknownText, "error");
       return;
     }
     // ── Critical-alert hard stop (2026-09-11 review, F1) ──────────────
@@ -3700,7 +3717,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !zeroVolumeBag && !kOverMax && !bagOverBottle && !stockAtZeroMl && !feedsOverMax && !feedUnknown && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์/คัดลอก")}
                 {!pendingSave && dosingWeightChanged && (
@@ -3898,6 +3915,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {feedsOverMaxText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
+            {feedUnknown && (
+              <div className="feed-unknown" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {feedUnknownText} — บันทึก/พิมพ์ไม่ได้
+              </div>
+            )}
             {tpnWtOutOfRange && (
               <div className="tpn-wt-out-of-range" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {tpnWtOutOfRangeText} — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)
@@ -3919,7 +3941,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || feedsOverMax || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || stockAtZeroMl || feedsOverMax || feedUnknown || tpnWtOutOfRange || pendingSave}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

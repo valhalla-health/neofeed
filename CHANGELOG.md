@@ -10,11 +10,17 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-28 — Step 2: two feeds, each a milk and then its kcal/oz
 
 `data.js` (`EN_PRODUCTS`, `enProductOf`, `enMixPer100mL`), `calculator.jsx` (Step 2, the EN terms of
-`calc`, the saved inputs, the change list, the copied order), the clinical-rules skill (new rule
-`CR-U-EN-TWO-FEEDS`, `CR-U-EN-KCAL`), `app-walkthrough.md`, and the harnesses that pick a feed. No
-`EN_DB` row, limit or stock changed, and an order with one feed computes exactly as before, so
-`CONSTANTS_VERSION` stays `2026-10-27.2`. No backend change: `calcInputJson` already stores the inputs
-as they are.
+`calc`, the saved inputs, the change list, the copied order), the clinical-rules skill (rules
+`CR-U-EN-TWO-FEEDS`, `CR-EN-FEEDS-MAX`, `CR-EN-FEED-UNKNOWN`, and `CR-U-EN-KCAL`), `app-walkthrough.md`,
+and the harnesses that pick a feed. No `EN_DB` row, limit or stock changed, and an order with one feed
+computes exactly as before. No backend change: `calcInputJson` already stores the inputs as they are.
+
+**`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's decision (2026-10-28).** Vera pointed out that a
+frontend without feed 2 (a ward tab loaded before the release, or `release` after a revert) opens a
+two-feed order as feed 1 only and prints it unheld, since `calcMoved` only holds a different stamp; a
+bump would hold it there, at the price of every older order being saved again before it reprints. Pp
+chose no bump. So after a revert of this change, a two-feed order prints feed 1's figures alone until it
+is re-entered, and a re-save from such a tab drops feed 2.
 
 ### Why
 
@@ -35,12 +41,17 @@ composition from the Chula handbook rows `EN_DB` already holds.
   the sum of the two: `enMixPer100mL` weights one composition per 100 mL by each feed's mL/day, so fluid,
   the switch to enteral targets, every tile and alert and the Daily_Log columns read the sum. With one
   feed it returns that feed's own row object, so nothing moves for a one-feed order. The MEN tick covers
-  both feeds and sits below them when there are two.
+  both feeds and sits below them when there are two (Pp, after Vera asked: one tick, not one per feed).
 - **At most 8 feeds a day between the two** (Pp, later the same day: "Feed 1+2 รวมกันมากสุดจะได้แค่ 8
   มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้ 6 มื้อ"). The two feeds share one schedule, so with two feeds given,
   Feed 1's and Feed 2's feeds a day above `EN_FEEDS_PER_DAY_MAX` (8, q3h) cannot be submitted (a stop,
   like the 1,250 mL bottle: a draft can be kept). Step 2 shows "Feed 1 + 2 = 8 feeds/d · q3h". One feed
   alone is not checked; whether a q2h feed (12) should be is Q18 in the skill.
+- **A feed EN_DB does not hold stops the order** (Vera on this change). A saved feed whose key is not
+  an `EN_DB` row (removed since, or written by a newer NeoFeed) was costed as the other feed once there
+  could be two; `enMixPer100mL` now returns null for it, `enFeedsUnknown` names it, and the order cannot
+  be submitted or printed until another milk is picked (`CR-EN-FEED-UNKNOWN`). Before two feeds such a
+  key stopped the Calculator with an error.
 - **Saved, compared, copied.** `calcInput` gains `enType2`/`enVol2`/`enFreq2` (an older row normalises
   to none), the change list names them, the copied order prints one line per feed and the total, and
   `savedDosingWeightOf` counts both feeds.
@@ -49,6 +60,8 @@ composition from the Chula handbook rows `EN_DB` already holds.
 
 ### Checks
 
+- **No second clinician has checked the two-feed sum** or the figures a two-feed order prints (change
+  protocol step 3). The harnesses below are the only check so far.
 - `verify-calc-oracle.cjs`: two orders with two feeds (K1 alternating feeds beside a bag; K2 two feeds
   that reach 100 mL/kg/d only together), recomputed feed by feed rather than through the app's mix, on
   screen, in the saved row, on the form and in the copy. With feed 2 dropped from the app, both fail on
