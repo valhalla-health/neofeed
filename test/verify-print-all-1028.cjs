@@ -28,7 +28,8 @@
 //               the run is the ticked orders only
 //   #8 resync   Vera, 2026-10-28: each queued order is asked the list's rule
 //               again before it opens; one a sync took off the list (a second
-//               order that day, discharged, deleted) is skipped by name
+//               order that day, discharged, deleted, moved ward, the day
+//               rolled over) is skipped by name
 //
 // The last bar reads "ใบสุดท้าย", never "ครบ N ใบ": the run cannot know a
 // sheet printed (Vera, 2026-10-28).
@@ -339,6 +340,44 @@ scenarios['gone'] = async (A) => {
   await t.click(printRow('AA'));
   await settle(t);
   A.ok('8.6 …and the run is over: a tap on AA is a single order', openedIs('AA-1') && !bar() && t.printed === 2);
+};
+
+// Vera's second review (2026-10-28): the two remaining claims of the re-check,
+// a move to another ward and the day rolling over. Each fails on the first
+// commit, which opened the queued order whatever had happened since.
+scenarios['moved'] = async (A) => {
+  console.log('\n── #8c an infant moved to another ward during the run ──');
+  const t = setup();
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await settle(t);
+  t.server.patients.find(p => p.sessionId === 'BB-1').currentBed = 'SCN 3';
+  await t.click(t.syncButton());
+  await settle(t);
+  await t.click(t.btn(/ถัดไป: NICU 2 BB/));
+  await settle(t);
+  A.ok('8.7 BB, now in SCN, is skipped by name and not printed',
+    t.toasts().some(m => /ข้าม NICU 2 BB — ไม่อยู่ในรายการ Print order แล้ว/.test(m)) && !sheetIs('BB-1'));
+  A.ok('8.8 …and DD opens and prints as the last', openedIs('DD-1') && t.printed === 2
+    && /ใบที่ 3 จาก 3/.test(bar()?.textContent || ''));
+};
+
+scenarios['midnight'] = async (A) => {
+  console.log('\n── #8d the day rolls over during the run ──');
+  const t = setup();
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await settle(t);
+  A.ok('8.9 AA opens and prints', openedIs('AA-1') && t.printed === 1);
+  t.clock.advance(24 * 3600e3);
+  await t.click(t.btn(/ถัดไป: NICU 2 BB/));
+  await settle(t);
+  A.ok('8.10 yesterday\'s BB and DD are each skipped by name',
+    t.toasts().some(m => /ข้าม NICU 2 BB/.test(m)) && t.toasts().some(m => /ข้าม NICU 4 DD/.test(m)));
+  A.ok('8.11 …nothing more prints, and the user is on the list with no bar',
+    t.printed === 1 && /Print order · NICU/.test(t.text()) && !bar());
 };
 
 // A ward with no order today shows no button at all: SCN once its two infants

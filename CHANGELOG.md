@@ -58,12 +58,15 @@ the run cannot know a sheet printed (now "ใบสุดท้าย"); the que
 run could auto-print an order a tap on the list could no longer reach (now `wardPrintableOrder` is asked
 again before each order); a deleted entry ended the run silently (now skipped by name, the run goes on).
 Her three proposed tests went in (`verify-print-all-1028` 3.5, #8 `resync`, #8b `gone`); each fails on
-the first commit and passes on the second.
+the first commit and passes on the second. Her second review: NO BLOCK, no findings, three tests proposed.
+Two went in, #8c `moved` (an infant moved to SCN during the run) and #8d `midnight` (the day rolls over);
+both fail on the first commit. The third (twins with one name) does not fail on either commit, so it is
+left out, by her rule 5.
 
 ### Checked
 
-`verify-print-all-1028.cjs` 67/67 on the sources and on `compiled/`; against `main` (`326bcd9`), 17 fail,
-in every one of its ten scenarios.
+`verify-print-all-1028.cjs` 72/72 on the sources and on `compiled/`; against `main` (`326bcd9`), every one
+of its twelve scenarios fails.
 
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 

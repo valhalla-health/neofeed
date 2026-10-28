@@ -1742,7 +1742,7 @@ osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks w
 
 Pp: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง", then "ให้สามารถมีปุ่มซีเล็ก
 เป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้" (`CHANGELOG.md` 2026-10-28 (1)). **`verify-print-all-1028.cjs`** drives the
-real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 67 checks in ten scenarios: the
+real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 72 checks in twelve scenarios: the
 button sits after the title block and counts only what a tap would print (no `tmp_` row, no two-orders
 day); no Calculator button on the print list, still one on the gate and the ward list; a run opens the
 orders in bed order, each printed once on its own infant's sheet with another infant active first,
@@ -1752,8 +1752,9 @@ an order the Print gate holds back says why and ถัดไป still goes on; l
 nothing printable leaves the button off, no order leaves no button; a tick per printable row beside its
 card, เลือกทั้งหมด ticks, clears and shows part-ticked, the button reads Print ทั้งหมด or Print ที่เลือก with
 the count, the run is the ticked orders only, a tap on a row still prints one; a sync during the run that
-gives an infant a second order, deletes an order or discharges an infant skips that one by name and goes
-on (Vera's three tests, each failing on the first commit). Against `main` (`326bcd9`), 17 fail, in all ten. **`verify-phone-sweep.cjs`** measures the
+gives an infant a second order, deletes an order, discharges or moves an infant, or crosses midnight skips
+that one by name and goes on (Vera's five tests, each failing on the first commit). Against `main`
+(`326bcd9`), every scenario fails. **`verify-phone-sweep.cjs`** measures the
 button on every device profile (at the head's right edge, level with its top, beside the title), the
 ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
 `showQuickFab = view === "registry" && !printWard`.
