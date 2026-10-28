@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-28 (7) — the backend and Center Point refuse a stopped order
+## Session 2026-10-28 (10) — the backend and Center Point refuse a stopped order
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
 `center-point/tpn-document.mjs`, `.claude/skills/neofeed-clinical-rules/SKILL.md`,
@@ -58,7 +58,7 @@ check with each save ("แอปส่งผลเช็กไปด้วย"),
   verify-review-0917-backend-security, -sync and -writes, verify-safety-fixes-0923.
   verify-input-validation's "no calcInput at all" check is now made on a draft.
 
-## Session 2026-10-28 (6) — a bag whose stocks exceed its volume cannot be ordered (Q2)
+## Session 2026-10-28 (9) — a bag whose stocks exceed its volume cannot be ordered (Q2)
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
 `.claude/skills/neofeed-clinical-rules/SKILL.md`, `test/verify-wfi-stop-1028.cjs` (new),
@@ -95,6 +95,207 @@ printing and copying "WFI q.s. -0.1 mL". `verify-clinical-rules.cjs` reads the n
 (611 checks). `verify-calc-sum.cjs` reads over-full off the screen (Components above Bag total) and expects
 the stop for S4 and its orders B and E instead of a printed form; an over-full bag that prints fails it.
 `verify-calc-oracle.cjs` restates the stop in its own orderable rule (orders B and E).
+
+## Session 2026-10-28 (8) — On a phone, the archive opens out from under the Calculator button
+
+`registry.jsx`, `compiled/registry.js`, both shells' `?v=` tokens, `test/verify-archive-fab-1028.cjs`
+(new), `test/README.md`. No figure, dose file, printed line or server code changes.
+
+### Why
+
+Pp, after bringing บก back to NICU 9 from a PC: "ให้แก้ใน mobile ได้ด้วย เพราะตอนนี้แก้ในคอมได้ แต่กดใน
+mobile ไม่ได้". In real Chromium as a touch phone, on the dev-local seed: scroll the ward list to its foot
+and tap ▼ Discharged / Transferred / Expired, and the first archived card opens at the foot of the
+screen. Its status chip (the way back to Active since #183) was under the floating Calculator button and
+its Edit under the bottom nav, at 375, 360 and 390px wide. A tap on the chip opened the quick calc. The
+desktop table has nothing over its archive. The rest of the way back works on a phone: the chip and Edit
+once scrolled clear, and Switch patient → Dashboard → Edit session → Active, NICU 9 → Save.
+
+### What changed
+
+- **Opening the phone list's archive scrolls its toggle to the top of the list** (`phoneArchiveRef`, an
+  effect on `showArchived`). With few archived infants the list stops at its foot, and the 136px the
+  list already keeps below its last card for the Calculator button leaves every archived card above it.
+  The jump is immediate, not smooth, so reduced-motion phones are not animated.
+- The ref is on the phone list's archive only. From 768px up that list is `display:none`, where
+  `scrollIntoView` does nothing, so opening the table's archive leaves the page where it was.
+- Not changed: a card's chip still passes under the Calculator button while the list is scrolled, as
+  every card's right side always has; the list's 136px foot lets any card be scrolled clear of it.
+
+## Session 2026-10-28 (7) — a help request can carry its picture on the Workers host
+
+`app.jsx` (`helpImageFromFile`), `compiled/app.js` and both shells' `?v=` token (rebuilt),
+`test/verify-help-request-frontend.cjs`, `test/verify-help-button-1009.cjs`. No calculation,
+printed figure, backend or `_headers` line changed.
+
+### Why
+
+Pp, 2026-10-28, from an iPhone on `neofeed.valhalla-health.workers.dev`: attaching a picture to
+ขอความช่วยเหลือ said "เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG". The text still went, and
+the email read "รูปแนบ: ไม่มี". She asked for it to be checked on Android as well.
+
+It was not the iPhone. The form opened the picked file through `URL.createObjectURL`, a `blob:` URL.
+`_headers`' `img-src` is `'self' data: https://*.gstatic.com https://*.googleusercontent.com`, with no
+`blob:`, so the Workers host blocked the load and the form reported a picture it could not open. That
+happened on every browser on that host: Android, iPhone and desktop. GitHub Pages sends no CSP, so the
+picture worked there. `verify-help-button-1009.cjs` #3 passed because its server sent no headers.
+
+### What changed
+
+- `helpImageFromFile` reads the file with `FileReader.readAsDataURL` and opens that `data:` URL, which
+  `img-src` already allows. The CSP is unchanged: widening `img-src` to `blob:` would have fixed it
+  too, but it changes the policy both hosts' reviews rest on, for nothing a `data:` URL cannot do.
+  The redraw, the 1600 px edge, the 1.5 MB cap, the EXIF drop and the Thai errors are as they were.
+- `verify-help-button-1009.cjs` now serves every file with the headers `_headers`' `/*` block sets.
+  #3 runs at an Android width (360), an iPhone width (402) and a desktop, and fails on any CSP
+  violation. New #5 shows that under that policy a `blob:` picture does not open and a `data:` one
+  does.
+- `verify-help-request-frontend.cjs` 6.11: the picture is opened from a `data:` URL and
+  `URL.createObjectURL` is never called.
+
+### Tests
+
+The new checks fail on `86bfc91`, the code before this change. In `verify-help-button-1009.cjs` #3,
+21 checks fail across the three devices, each with the browser's `img-src` violation for the `blob:`
+URL, and the request goes out without `image`, as in Pp's email. In
+`verify-help-request-frontend.cjs`, 6.11 fails. Both pass on this change: 168/168 and 54/54, sources
+and compiled.
+
+Not covered: Chromium is the only engine available here, so iOS Safari itself (WebKit) was not run.
+WebKit enforces `img-src` against `blob:` the same way, which is what Pp saw. A HEIC original picked
+from an Android gallery still cannot be opened in Chrome, and the form says so in Thai, as before.
+
+## Session 2026-10-28 (6) — NF-17 for two feeds: `verify-calc-sum.cjs` adds them up
+
+`test/verify-calc-sum.cjs` (§ 3, three negative controls, control 1 repointed), `test/README.md`,
+`STATUS.md`. No app code changed; nothing is served, so nothing to release.
+
+### Why
+
+Pp: "เพิ่ม two-feed order ใน verify-calc-sum (NF-17)". NF-17 asks every calculation change for a sum check
+on synthetic orders and a click-through check that the screen shows the new value. #182 (two feeds in
+Step 2) and #185 (any regular schedule) shipped without one: the harness had no two-feed order, and the
+oracle only 4 + 4. Vera listed it as open on #185, and `STATUS.md` kept it open for Pp.
+
+### What changed
+
+- **§ 3, two feeds.** Three orders: 6 + 2 beside a bag (Pre Nan 22 + BM with HMF 24), 4 + 4 feeds only
+  (breast milk + Enfalac Premature 24) and 5 + 3 on a peripheral line (Hi-Q LBW 24 + Pre Nan 22). Each runs
+  four times on the same infant and bag: no feed, feed 1 alone, feed 2 alone, both. Both feeds must equal
+  feed 1 + feed 2:
+  - in the saved Daily_Log row (fluid, kcal, protein, Na, K, Ca, P, EN mL/kg/d), within 1e-9;
+  - in Step 2's "Delivered per kg from EN", within one unit of the digit shown;
+  - on the printed form: energy from EN within 2 kcal/kg, protein from EN within 0.01 g/kg (the header
+    gives the rounding arithmetic).
+  Each feed's "= X mL/day", the EN volume tile, the total line's interval, each feed's share hint and
+  Prescribed must follow from the inputs, and the feeds must move no printed bag line, TPN energy or
+  amino acid.
+- **Wired-in.** On the two-feed order, feed 2's volume is typed a key at a time, its kcal/oz picked, or
+  the frequencies typed through a refused 5 + 2 to 6 + 2. The feed lines, the EN tile and the delivered
+  kcal follow, the stale form is withdrawn, and the reprint carries the new energy with the bag unchanged.
+- **Negative controls 4–6** patch `calculator.jsx` in memory and must fail: feed 2 left out of the EN
+  volume (63 checks fail), both feeds costed as feed 1's milk (39), `enVol2` out of the feeds' memo
+  dependencies (5). **Control 1 was broken on `main`:** its patch text had gone when the bag sum moved to
+  whole hundredths (2026-10-27), so it stopped with "update PATCHES[1]" instead of failing. It now patches
+  the current sum, and fails 85 checks.
+- A feeds-only order with its feeds taken away is an empty day, which cannot be submitted; its baseline is
+  zeros, and the harness asserts the refusal.
+
+### Checks
+
+- `verify-calc-sum.cjs`: 60 orders and 3 two-feed orders, 1,889 checks, on the sources and on `compiled/`
+  through the compiled loader. Controls 1–6 each fail (`SUM_N=0`).
+- Nothing in it recomputes the app's formulas: the sums compare the app with itself, one feed against two.
+
+## Session 2026-10-28 — NF-28 meets #182's Step 2
+
+`tools/reference-tabs.cjs`, `tools/reference-tabs.json`, `test/verify-reference-tabs.cjs`,
+`test/README.md`. No value, limit, unit or printed figure changed; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp, 2026-10-28, merging NF-28 into `main` after release #184. With `main` merged in, the check failed on
+two things #182 brought, both as it was built to:
+
+- `EN_FEEDS_PER_DAY_MAX` (8, `CR-EN-FEEDS-MAX`) had no unit in `tools/reference-tabs.json`, so the new
+  limit could not skip the check.
+- The feed dropdown no longer lists EN_DB keys as `["…"].filter(k => D.EN_DB[k])`. `EnFeedPicker` reads
+  `D.EN_PRODUCTS`, a milk and then its kcal/oz, so the reader found no list and said so.
+
+### What changed
+
+- `EN_FEEDS_PER_DAY_MAX` has its unit, "feeds/day, Feed 1 + Feed 2". Its range still comes from the rule.
+- When `calculator.jsx` reads `D.EN_PRODUCTS`, the dropdown's keys are every strength key in `data.js`'s
+  `EN_PRODUCTS`, each checked against `EN_DB` with unique labels as before. Source that reads
+  `D.EN_PRODUCTS` while `data.js` gives none is reported, not passed. The old reader stays for the old
+  shape.
+
+### Tests
+
+`verify-reference-tabs.cjs`: 71 checks, all passing on the merged tree. #2.13 and #2.14 are new; both fail
+on the reader before this change, with #3.2 and #3.4. Each `NEGATIVE_CONTROL` still fails one check;
+`=3` now fails on `calculator.jsx:392`, `EnFeedPicker`'s `D.EN_PRODUCTS`.
+
+## Session 2026-10-28 — NF-28: every reference cell is checked before a release
+
+`tools/reference-tabs.cjs` (new), `tools/reference-tabs.json` (new), `test/verify-reference-tabs.cjs`
+(new), the clinical-rules skill (one sentence), `REFERENCE.md`, `test/README.md`. No value, limit, unit or
+printed figure changed; `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-28 in her apply list of 2026-10-27: one wrong cell in a reference table makes every TPN
+result that reads it wrong, so each numeric cell must be a number of the expected sign inside a stated
+range, each lookup key must match its list exactly, each column needs a unit, and a failure blocks the
+deploy and names the cells. Nothing is coerced or trimmed.
+
+### Where the tables are, and so where the check runs
+
+The item was written as `checkReferenceTabs()` in Apps Script over tabs in the Sheet. The Sheet has no
+such tab: `gas-backend.gs` reads Staff, Patient_Registry, Daily_Log, Nursing_Log and Audit_Log, and
+sends the frontend no clinical number. Every number the calculator reads is in `data.js` (`EN_DB`,
+`KCMH_STOCK`, `SUPP_DB`, the limit constants, `TPN_TARGETS`, `ENTERAL_TARGETS`, `TARGETS`), and it ships
+with the frontend on a merge into `release`. So `checkReferenceTabs` is a pure function in
+`tools/reference-tabs.cjs`, and `test/verify-reference-tabs.cjs` runs it in `harnesses`, the check
+`release` requires. A failing cell keeps the `main → release` PR from merging. The check needs no Sheet
+access and no CI secret, and the workflow file is unchanged: CI already runs every `test/verify-*.cjs`.
+
+### What it checks
+
+363 cells in three tables, 28 limits, 34 target bands called over DOL 0–60 and nine weights (9,106
+calls), 43 lookup keys and 84 references in the screens. Ranges: 49 come from CR- rules, 47 of them the
+values the skill codes (read from the skill at run time, so no number is copied) and 2 that a rule
+states; 23 band checks use the backend's save bound for the same field (`_validateLogEntry`); 38 are
+proposed (below). A value a rule codes with no unit in `tools/reference-tabs.json` fails, so a new limit
+cannot skip the check. Lookup keys come from the code:
+the Calculator's feed dropdown (its `.filter(k => D.EN_DB[k])` drops a key with no row without a word,
+so the check fails instead), the four `useState` defaults, both amino-acid lists, the supplement
+dropdown categories, every `D.KCMH_STOCK.x.y` and `S.x.y` reference, and every nursing feed key against
+the backend's `NURSING_FEED_KEY_RE`, which refuses a save with a key that fails it.
+
+### Found (nothing changed)
+
+- 14 band functions have no caller in the screens: `TARGETS.protein`, `kcal`, `lipid`, `na`, `k`, `ca`,
+  `p`, `girTarget`, `girPreterm`, `girTerm`; `TPN_TARGETS.mg`, `caP`; `ENTERAL_TARGETS.peRatio`,
+  `npePerG`. They are checked like the rest.
+- The PN lipid band's top (4.0) equals `LIPID_IV_HARD_HI`, and the PN K band's top (5) equals
+  `K_IV_HARD_HI`: a target can reach the critical line but not pass it, which the check now holds.
+
+### For Pp
+
+- 38 ranges no rule gives are proposed in `tools/reference-tabs.json`, all by one rule: half the lowest
+  to 1.5 times the highest value today. They catch a slipped decimal or mg typed as mmol, not a clinical
+  error. They cover the `EN_DB` nutrients and osmolality, every `SUPP_DB` strength, Aminoplasmal's
+  0.15 g/mL, `MG_MG_PER_MEQ`, and the Mg, Ca:P, enteral lipid, protein:energy and NPE bands.
+- Whether the live Sheet keeps any reference tab that no code reads; nothing here can see it.
+
+### Tests
+
+`test/verify-reference-tabs.cjs`: 69 checks. Section 1 runs 43 kinds of bad cell on synthetic tables,
+each failing alone at its cell, and shows the check changes no input; section 2 runs the source readers
+on synthetic code, including one that finds nothing and must say so; section 3 runs the real files.
+`NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` = `"1.2"`), `=2` (`KCMH_STOCK.naCl.naMeqPerMl` = 34.2) and `=3`
+(the feed list asking for `"BM_20 "`) each fail one check, naming the cell.
 
 ## Session 2026-10-28 — NF-08: a patient identifier, a raw sheet cell or a secret in a log fails CI
 

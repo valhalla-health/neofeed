@@ -434,6 +434,19 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
   const [transferPatient, setTransferPatient] = React.useState(null);
   const [statusPatient, setStatusPatient]     = React.useState(null);
   const [showArchived, setShowArchived]     = React.useState(false);
+  // On a phone the archive opens at the foot of the screen, where the
+  // Calculator button floats, and the first archived card's status chip came
+  // up under it (its Edit under the bottom nav): a tap there opened the quick
+  // calc instead of the Status dialog (Pp, 2026-10-28: "แก้ในคอมได้ แต่กดใน
+  // mobile ไม่ได้"). Opening it scrolls its toggle to the top of the list, so
+  // the cards are in the open. The ref is on the phone list's archive, which
+  // is display:none from tablet width up, where scrollIntoView does nothing;
+  // the table needs no help. jsdom, which most harnesses mount, has none.
+  const phoneArchiveRef = React.useRef(null);
+  React.useEffect(() => {
+    const el = phoneArchiveRef.current;
+    if (showArchived && el && el.scrollIntoView) el.scrollIntoView({ block: "start" });
+  }, [showArchived]);
   // The one way into each dialog from the list. The bed chip and the ⇄
   // button both call openTransfer, so the two can never open different
   // things (Pp, 2026-10-28: "ให้เช็คว่าทุกอย่างดึงมาจากจุดเดียวกัน").
@@ -763,7 +776,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
         {/* Archived toggle — not while a tile narrows the list: a discharged
             infant is in none of the three. */}
         {!statFilter && archivedSorted.length > 0 && (
-          <div style={{ marginTop: 8 }}>
+          <div ref={phoneArchiveRef} style={{ marginTop: 8 }}>
             <button className="btn" style={{ width: "100%", justifyContent: "center", color: "var(--ink-3)", fontSize: 12 }}
               onClick={() => setShowArchived(s => !s)}>
               {showArchived ? "▲" : "▼"} Discharged / Transferred / Expired ({archivedSorted.length})

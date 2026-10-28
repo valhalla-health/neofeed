@@ -1,5 +1,15 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-28, 14:43 ICT — frontend `release` = `c251bc5` (PR #186), with backend `@64`.** PR #186
+> released #183: the ward list's status chip changes the status, the bed chip is the ⇄ button, and Expired
+> asks first, naming the infant and the bed. `release`'s tree is `main` `17ed80c`'s, the tree that ran on
+> dev local (#186's description); `harnesses` was green on it twice before the merge. `node
+> tools/verify-release.mjs --wait`, run from Pp's PC at 14:45 ICT, passed on both hosts (0 failures, 61
+> passes), and both serve #183's new `?v=` tokens for `app.js` and `registry.js`. The tag
+> `release-2026-10-28-pr186` is pushed (comment on #186). `CONSTANTS_VERSION` unchanged, no backend
+> change. ⚠️ No one has changed a status from the chip on a ward phone yet. Recorded here by PR #176, the
+> next PR on the repo.
+>
 > ✅ **2026-10-28, 13:58 ICT — frontend `release` = `a6b5edd` (PR #184), with backend `@64`.** PR #184
 > released #182 and #185 (two feeds in Step 2; 6 + 2 and any other regular schedule allowed), #181 (Print
 > ทั้งหมด / Print ที่เลือก on a ward's print list), #180 (no Copy Order on a patient's order) and #173 (nothing
@@ -218,16 +228,29 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `a6b5edd` (PR #184) are live.**
-#184 released #182, #185, #181, #180 and #173 at 13:58 ICT; its `verify-release` run and tag are Pp's
-(banner). Caught up with #184 by PR #183, the next PR on the repo.
-- ⏳ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
-  asks first: merged into `main` on Pp's instruction ("1+2": yes to the Expired question, and to merge and
-  deploy); not live until the `main → release` PR after #184, which this session opens once #183 is in
-  `main`.**
+**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `c251bc5` (PR #186) are live, and
+both are verified.** #186 released #183 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at
+13:58 ICT. Both `verify-release` runs and both tags were done from Pp's PC (banners). Caught up with #184
+by PR #183 and with #186 by PR #176, the next PRs on the repo.
+- ⏳ **PR #191, a help request can carry its picture on the Workers host: merged into `main` on Pp's
+  instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28). It is not live until the
+  `main → release` PR this session opens next.** The form opened the picked file as a `blob:` URL, and
+  `_headers`' `img-src` does not allow `blob:`. So no browser on the Workers host could attach a picture:
+  Pp's iPhone, and Android and desktop the same. It now opens a `data:` URL. Frontend only (`app.jsx`),
+  no `clasp` step. `CONSTANTS_VERSION` and `_headers` are unchanged. Vera: NO BLOCK. ⚠️ Not yet tried
+  from a real iPhone or Android phone. `CHANGELOG.md` 2026-10-28 (7).
+- ✅ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
+  asks first: live, released by #186 (banner above) on Pp's instruction ("1+2": yes to the Expired
+  question, and to merge and deploy).**
   Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; no calculation or printed figure changes.
   A status change saves where Edit session saves it (`registerPatient`, `status` + `statusDate` only).
   Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28 (5).
+- ⏳ **PR #188, on a phone the archive opens out from under the Calculator button: merged into `main` on
+  Pp's instruction ("Merge and deploy", 2026-10-28); live once the `main → release` PR that carries it
+  merges, whose comment holds the dev-local run and `verify-release`.** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
+  first archived card's status chip was under the Calculator button and its Edit under the bottom nav, and
+  a tap on the chip opened the quick calc. Opening the archive now scrolls it to the top of the list.
+  Frontend only, no `clasp` step, no figure. `CHANGELOG.md` 2026-10-28 (8).
 - ✅ **PR #182, Step 2's two feeds: live, released by #184 (banner above) on Pp's instruction ("Merge and
   deploy", 2026-10-28)**, with #173 riding along (nothing of #173 is served). Each feed is a milk, then its kcal/oz, a volume and feeds a day;
   two feeds are summed into every figure, and together must fill a regular schedule (8 = q3h, 6 = q4h)
@@ -235,7 +258,8 @@
   branch, released with it; `CHANGELOG.md` 2026-10-28 (4)). Frontend only, no `clasp` step. **`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's
   decision**: after a revert, or on a ward tab loaded before the release, a two-feed order shows and
   prints feed 1 only, unheld. No second clinician has checked the two-feed figures. Open for Pp: Q18
-  (one feed above 8 a day), NF-17. Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28.
+  (one feed above 8 a day). NF-17's two-feed check: PR #189 (below). Vera: NO BLOCK three times.
+  `CHANGELOG.md` 2026-10-28.
 - ✅ **PR #181, Print ทั้งหมด / Print ที่เลือก with a tick per infant on a ward's Print order list, and no
   Calculator button there: live, released by #184 with #182 (banner above), on Pp's instruction ("Merge
   and deploy", 2026-10-28).** Frontend only (`app.jsx`,
@@ -260,7 +284,7 @@
   "แอปในแท็บนี้เป็นรุ่นเก่า รีเฟรชหน้าแล้วบันทึกใหม่"; a draft still saves. Before the release, doctors hear that
   a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason), and that a saved
   order with a negative WFI no longer prints until it is fixed and saved again. Center Point's half is
-  NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (6) and (7).
+  NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (9) and (10).
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below
@@ -270,6 +294,15 @@ went live with #172 on 2026-10-27; #173 goes with #182.)*
   after release #184, no release of their own). CI and docs only: neither host serves `.github/`,
   `test/`, `tools/` or `*.md`, so no served file changes and nothing to release. Its three log rules pass
   on `main` with #180–#185 merged in. `CHANGELOG.md` 2026-10-28.
+- ⏳ **PR #176, NF-28: every reference cell in `data.js` is checked in `harnesses` before a release:
+  merged into `main` on Pp's instruction** (the same answer as #174). Tools, tests and docs only, so no
+  served file changes and nothing to release. With #182 merged in, the check failed on #182's new
+  `EN_FEEDS_PER_DAY_MAX` (no unit) and its `D.EN_PRODUCTS` dropdown, as built to; both are fixed in the
+  PR. Its 38 proposed ranges in `tools/reference-tabs.json` wait for Pp. `CHANGELOG.md` 2026-10-28.
+- ⏳ **PR #189, NF-17 for two feeds: `verify-calc-sum.cjs` § 3 checks that two feeds add up from each
+  alone, saved, shown and printed, and follow a typed change: open, waiting for Pp's merge.** Test and docs
+  only, so nothing to release. It also repairs negative control 1, which `main` had broken.
+  `CHANGELOG.md` 2026-10-28 (6).
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,

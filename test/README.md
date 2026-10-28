@@ -287,7 +287,8 @@ node test/verify-sync-gate-and-poll.cjs
 
 The same holds for the other harnesses with browser sections (`verify-phone-sweep.cjs`,
 `verify-mobile-fit.cjs`, `verify-admin-census.cjs`, `verify-mobile-bed-button.cjs`,
-`verify-nursing-frontend.cjs`, `verify-bed-transfer-0927.cjs`, `verify-ward-requests-0925.cjs`).
+`verify-nursing-frontend.cjs`, `verify-bed-transfer-0927.cjs`, `verify-ward-requests-0925.cjs`,
+`verify-archive-fab-1028.cjs`, which is a browser section and nothing else).
 **CI runs those sections since 2026-10-04**, once, in its compiled pass, and there a SKIP fails the
 job. Locally a SKIP still only means Playwright is not installed.
 
@@ -1010,17 +1011,27 @@ exactly) and 40 random from seed 20261011
 (`SUM_N`, `SUM_SEED`). Each is saved through Submit, and every stock mL in the back page's "Aqueous bag —
 stock" table is added up: Σ parts + printed WFI must equal the printed prepared volume within **0.05 mL**
 (0 when every part is a whole tenth), printed Components + WFI must equal it exactly, and the on-screen
-Components and Bag total and the copied BAG MAKE-UP line must carry the same figures. The tolerance is the
+Components and Bag total must carry the same figures (the copied BAG MAKE-UP line was a third surface
+until a patient's order lost its Copy, 2026-10-28). The tolerance is the
 rounding chain's own (per-stock rounding, then one rounding of the sum to 0.1, then WFI = prepared −
 components); the arithmetic is in the file's header. An over-full bag (Components above Bag total on
 screen) cannot be submitted since 2026-10-28: the sum is skipped, the stop must show on screen, and an
 over-full bag that prints fails. Then one input changes the way a person changes it (a dead-space chip,
 or a TPN volume typed a key at a time): the on-screen Bag total must move to delivered + dead, the stale
-form must be withdrawn, and the second save's reprint must carry the new figures and still add up. Nothing
-in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
-from the delivered volume) and `=3` (`deadVol_mL` out of the memo's dependencies) patch the source in
-memory and must fail; the patched text is transformed under another name, so the compiled loader never
-stands in for it. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
+form must be withdrawn, and the second save's reprint must carry the new figures and still add up.
+**Two feeds** (§ 3, 2026-10-28, for #182 and #185): three orders (6 + 2 beside a bag, 4 + 4 feeds only,
+5 + 3 on a peripheral line) each run four times on the same infant and bag: no feed, feed 1 alone, feed 2
+alone, both. Both feeds must equal feed 1 + feed 2 in the saved Daily_Log row (fluid, kcal, protein, Na,
+K, Ca, P, EN mL/kg/d, within 1e-9), in Step 2's "Delivered per kg from EN" (one unit of the digit shown)
+and on the printed form (energy from EN within 2 kcal/kg, protein from EN within 0.01 g/kg). Each feed's
+mL/day, the EN volume tile, the total line's interval and Prescribed must follow from the inputs, and the
+feeds must move no printed bag line. Then feed 2's volume is typed, its kcal/oz picked, or the
+frequencies typed through a refused 7 a day, and the screen, the withdrawn form and the reprint follow.
+Nothing in it recomputes the app's formulas. `NEGATIVE_CONTROL=1` (heparin dropped from `componentVol`), `=2` (WFI
+from the delivered volume), `=3` (`deadVol_mL` out of the memo's dependencies), `=4` (feed 2 left out of
+the EN volume), `=5` (both feeds costed as feed 1's milk) and `=6` (`enVol2` out of the feeds' memo
+dependencies) patch the source in memory and must fail; the patched text is transformed under another
+name, so the compiled loader never stands in for it. `SUM_N=0` runs the fixed orders only. Order S7 is the regression case for the WFI fix: on `677123d` a prepared volume of
 130.45 mL printed "87.5 + 42.9 = 130.5"; WFI now comes from the printed prepared volume, so it prints
 87.5 + 43 = 130.5 (`CHANGELOG.md`, 2026-10-11 (8)). The oracle's scenario H holds the same rule.
 
@@ -1783,6 +1794,23 @@ that one by name and goes on (Vera's five tests, each failing on the first commi
 button on every device profile (at the head's right edge, level with its top, beside the title), the
 ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
 `showQuickFab = view === "registry" && !printWard`.
+## The reference tables, 2026-10-28 — one harness (NF-28)
+
+**`verify-reference-tabs.cjs`** (Node only, no jsdom) checks every cell of the tables the calculator
+reads clinical numbers from: `EN_DB`, `KCMH_STOCK`, `SUPP_DB`, the limit constants and the target bands
+in `data.js`. The check is `checkReferenceTabs` in `tools/reference-tabs.cjs`, a pure function, and
+`tools/reference-tabs.json` says what each table must hold: a unit for every column, and for every number
+its sign and range. A range is the value a CR- rule in the clinical-rules skill codes, a range a rule
+states, the backend's save bound for that field, or a `proposed` range waiting for Pp. Nothing is
+coerced: the string `"1.2"`, a comma decimal or a padded label fails with its cell named. The lookup keys
+are read from the code: the Calculator's feed dropdown and its defaults, the amino-acid choices, every
+`D.KCMH_STOCK.x.y`-style reference in the screens, and the nursing form's feed keys against the backend's
+`NURSING_FEED_KEY_RE`. Section 1 runs each kind of bad cell on synthetic tables, section 2 the readers on
+synthetic source, section 3 the real files. `NEGATIVE_CONTROL=1` (`EN_DB.BM_20.pro` as the string
+`"1.2"`), `=2` (20% NaCl at 34.2 mEq/mL) and `=3` (the feed list asking for `"BM_20 "`) must each fail
+one check. 69 checks when written; 71 since the merge with #182, whose feed dropdown reads `D.EN_PRODUCTS`
+(#2.13, #2.14).
+
 
 ## The ward list's status and bed chips, 2026-10-28 — one harness
 
@@ -1811,10 +1839,25 @@ scenario that cannot go on). `verify-mobile-bed-button.cjs` §5 now counts one `
 inside `openTransfer`, which both ⇄ buttons and both bed chips call. Its fixture is made up: none of its
 values come from the ward.
 
+## The archive out from under the Calculator button, 2026-10-28 — one harness
+
+On a phone the archived card's status chip and Edit were under the Calculator button and the bottom nav
+once the archive was opened, so Pp could bring an infant back from a PC and not from a phone
+(`CHANGELOG.md` 2026-10-28 (8)). **`verify-archive-fab-1028.cjs`** runs the real app in real Chromium,
+served by `tools/dev-local.mjs` with `gas-backend.gs` in the sandbox and its made-up infants, and is
+skipped without playwright (CI runs it in the compiled pass). #1, as a touch phone at 375×667, 360×740
+and 390×844: DD, set Discharged from its chip, is in the archive; the list is scrolled to its foot and the
+archive opened, and with nothing else scrolled the archived card's status chip and Edit are each the
+element under their own centre; a finger's tap on the chip opens the Status dialog, not the quick calc;
+Active → Save brings DD back to NICU 4. #2, a 1366×768 workstation: opening the table's archive leaves the
+page where it was, and the archived row's chip is not covered. 14 checks; against `main` (`294d00e`) #1
+fails at all three phones (9 failures: the Calculator button over the chip, the bottom nav over Edit, and
+the tap opening the quick calc).
+
 ## A negative WFI cannot be ordered, 2026-10-28 — one harness
 
 Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
-2026-10-28 (6)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
+2026-10-28 (9)). **`verify-wfi-stop-1028.cjs`** (jsdom; it also runs against `compiled/`), on
 `verify-calc-sum.cjs`'s S8 with Glycophos in place of its Ca gluconate (WFI 0) and the same order with
 KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
 save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
@@ -1825,7 +1868,7 @@ on `326bcd9`.
 ## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness
 
 Pp asked for the two gaps Vera named on PR #175 to be closed, and chose how the backend learns of a stop:
-the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (7)).
+the app sends its own check ("แอปส่งผลเช็กไปด้วย", `CHANGELOG.md` 2026-10-28 (10)).
 **`verify-backend-stops-1028.cjs`** (real `gas-backend.gs` in `gas-vm-sandbox.cjs`): a submitted row with
 `calcInput.stops` `[]` saves; one with a stop, or with no list (a tab opened before the app sent one), is
 refused, and only rule IDs are echoed back; a draft is kept either way; an edit, a revision and
