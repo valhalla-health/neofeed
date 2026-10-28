@@ -270,13 +270,13 @@ const scenarios = {
     const patient = { sessionId: 'EN-SRC', name: 'Source', initials: 'SR', bw: 1200, ga: 30, sex: 'boys',
       admissionDate: '2026-10-01', currentBed: 'NICU 1', diagnosis: '-', weights: [{ dol: 1, w: 1200 }], lengths: [], hcs: [] };
     let root = null;
-    const mount = (editEntry, baselineEntry = null) => {
+    const mount = (editEntry, baselineEntry = null, previousEntry = null) => {
       if (root) act(() => { root.unmount(); });
       window.localStorage.clear();
       root = ReactDOM.createRoot(container);
       act(() => {
         root.render(React.createElement(window.Calculator, {
-          patient, dol: 12, editEntry, baselineEntry, previousEntry: null, logDate: null,
+          patient, dol: 12, editEntry, baselineEntry, previousEntry, logDate: null,
           userLabel: 'Dr Source (src@kcmh.test)', userEmail: 'src@kcmh.test',
           onLog: () => Promise.resolve({ ok: true, entryId: 'x', lastModified: 'x' }),
           onUpdate: () => Promise.resolve({ ok: true, lastModified: 'x' }), onSaved() {}, onWeightChange() {},
@@ -285,11 +285,22 @@ const scenarios = {
       const open = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Open all');
       if (open) act(() => { open.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
     };
-    const feedSelect = () => [...container.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'BM_20'));
-    const pick = (value) => {
-      const sel = feedSelect();
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-      act(() => { setter.call(sel, value); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    // Step 2 picks the milk, then its kcal/oz (Pp, 2026-10-28). The order
+    // still saves one EN_DB key, the kcal/oz select's value.
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+    const set = (sel, value) => act(() => { setter.call(sel, value); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    const productSelect = () => container.querySelector('.en-feed-1 .en-product');
+    const strengthSelect = () => container.querySelector('.en-feed-1 .en-strength');
+    const feedKey = () => strengthSelect()?.value;
+    const pick = (key) => { set(productSelect(), window.NEOFEED_DATA.enProductOf(key).product.id); set(strengthSelect(), key); };
+    // Every milk the first select offers, and every kcal/oz the second then offers.
+    const offered = () => {
+      const out = [];
+      for (const o of [...productSelect().options]) {
+        set(productSelect(), o.value);
+        for (const st of [...strengthSelect().options]) out.push({ product: o, strength: st });
+      }
+      return out;
     };
     // 44f88e4 raised "Feed composition has no source" on a PF 20 order; any
     // alert that names the source comes back here.
@@ -298,33 +309,75 @@ const scenarios = {
 
     // A new order.
     mount(null);
-    const sel = feedSelect();
-    A.ok('4.1 the feed select is on screen', !!sel);
-    const opts = sel ? [...sel.options] : [];
-    A.eq('4.2 a new order offers the sourced feeds and PF 20', opts.map(o => o.value).sort(), [...CALC_OFFERS].sort());
-    A.eq('4.3 none of them is disabled', opts.filter(o => o.disabled).map(o => o.value), []);
-    A.eq('4.4 each option reads its EN_DB label', opts.filter(o => o.textContent !== DB[o.value]?.label).map(o => o.value), []);
+    A.ok('4.1 the milk and kcal/oz selects are on screen', !!productSelect() && !!strengthSelect());
+    const opts = productSelect() ? offered() : [];
+    A.eq('4.2 a new order offers the sourced feeds and PF 20', opts.map(o => o.strength.value).sort(), [...CALC_OFFERS].sort());
+    A.eq('4.3 none of them is disabled', opts.filter(o => o.product.disabled || o.strength.disabled).map(o => o.strength.value), []);
+    A.eq('4.4 each kcal/oz option is the strength its EN_DB row is labelled with',
+      opts.filter(o => !/^\d+$/.test(o.strength.textContent) ? o.strength.textContent !== '24 ↔ 30'
+        : !DB[o.strength.value]?.label.includes(`${o.strength.textContent} kcal/oz`)).map(o => o.strength.value), []);
     A.ok('4.5 Enfalac Premature keeps the ward\'s 22 kcal/oz',
-      opts.some(o => o.value === 'FBM_PF_22' && o.textContent === 'Enfalac Premature (22 kcal/oz)'));
+      opts.some(o => o.strength.value === 'FBM_PF_22' && o.product.textContent === 'Enfalac Premature' && o.strength.textContent === '22'));
 
+    mount(null);
     pick('BM_PF_20');
-    A.eq('4.6 a new order can pick PF 20', feedSelect()?.value, 'BM_PF_20');
+    A.eq('4.6 a new order can pick PF 20', feedKey(), 'BM_PF_20');
     A.eq('4.7 …and raises no source alert', noSourceAlerts().length, 0);
 
     // An order saved on PF 20, reopened.
     const old = { entryId: 'e-old', ts: '2026-10-12', weight: 1500, lastModified: '2026-10-12T02:00:00.000Z',
       calcInput: { curWtG: 1500, fluidTargetPerKg: 150, enType: 'BM_PF_20', enVol: 28, enFreq: 8 } };
     mount(old);
-    const sel2 = feedSelect();
-    A.eq('4.8 a reopened PF 20 order shows its own feed', sel2?.value, 'BM_PF_20');
-    const shown = sel2 ? [...sel2.options].find(o => o.value === 'BM_PF_20') : null;
-    A.eq('4.9 …under its plain label', shown?.textContent, 'Preterm Formula (20 kcal/oz)');
-    A.eq('4.10 …with the same feed list as a new order', sel2 ? [...sel2.options].map(o => o.value).sort() : [], [...CALC_OFFERS].sort());
+    A.eq('4.8 a reopened PF 20 order shows its own feed', feedKey(), 'BM_PF_20');
+    A.eq('4.9 …as Preterm Formula at 20 kcal/oz',
+      [productSelect()?.selectedOptions[0]?.textContent, strengthSelect()?.selectedOptions[0]?.textContent], ['Preterm Formula', '20']);
+    A.eq('4.10 …with the same feed list as a new order', productSelect() ? offered().map(o => o.strength.value).sort() : [], [...CALC_OFFERS].sort());
+    mount(old);
     A.eq('4.11 …and raises no source alert', noSourceAlerts().length, 0);
+
+    // A saved order whose feed is not an EN_DB row (removed since, or written by
+    // a newer NeoFeed) is refused, never costed as the other feed (Vera, 2026-10-28).
+    const critTitles = () => [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].map(t => t.textContent);
+    const submitBtn = () => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Submit');
+    for (const [label, ci] of [
+      ['feed 2', { enType: 'BM_20', enVol: 10, enFreq: 8, enType2: 'NOT_A_FEED', enVol2: 10, enFreq2: 8 }],
+      ['feed 1', { enType: 'NOT_A_FEED', enVol: 10, enFreq: 8 }],
+    ]) {
+      mount({ ...old, entryId: 'e-unknown', calcInput: { curWtG: 1500, fluidTargetPerKg: 150, ...ci } });
+      A.ok(`4.14 a saved ${label} not in EN_DB raises "Feed not in the formulary"`, critTitles().includes('Feed not in the formulary'), critTitles());
+      A.ok(`4.15 …and the save panel refuses it`, /บันทึก\/พิมพ์ไม่ได้/.test(container.querySelector('.feed-unknown')?.textContent || '') && !!submitBtn() && submitBtn().disabled);
+      A.ok(`4.16 …and the feed shows as saved, not swapped`, [...container.querySelectorAll('.en-product option')].some(o => o.selected && o.textContent === 'NOT_A_FEED'));
+    }
+
+    // The change list names feed 2's milk only where feed 2 is given (Vera,
+    // 2026-10-28): removing it reads "none", never a switch to breast milk, and
+    // a milk picked for a feed 2 with no volume is not a change.
+    const changes = () => (container.querySelector('.order-changes')?.textContent || '').replace(/\s+/g, ' ');
+    const twoFeedPrev = { ...old, entryId: 'e-two', calcInput: { curWtG: 1500, fluidTargetPerKg: 150,
+      enType: 'BM_20', enVol: 20, enFreq: 4, enType2: 'PRENAN_22', enVol2: 10, enFreq2: 4 } };
+    mount(null, null, twoFeedPrev);
+    A.ok('4.17 feed 2 not given today: "Feed 2: Pre Nan → none"', changes().includes('Feed 2: Pre Nan → none'), changes());
+    A.ok('4.18 …never "Pre Nan → Breast Milk"', !changes().includes('Pre Nan → Breast Milk'), changes());
+    mount(null, null, { ...old, entryId: 'e-one', calcInput: { curWtG: 1500, fluidTargetPerKg: 150, enType: 'BM_20', enVol: 20, enFreq: 8 } });
+    const add = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === '+ Add a second feed (นมชนิดที่ 2)');
+    act(() => { add.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+    for (const [cls, v] of [['en-product', 'preNan'], ['en-strength', 'PRENAN_22']]) set(container.querySelector(`.en-feed-2 .${cls}`), v);
+    A.ok('4.19 a milk picked for feed 2 with no volume is not a change', !/Feed 2:/.test(changes()), changes());
+
+    // Changing the milk to one that does not come in the kcal/oz on screen says
+    // so (Vera, 2026-10-28): Infatrini 30 → Pre Nan is 22, never silently.
+    mount(null);
+    pick('INFATRINI_30');
+    set(productSelect(), 'preNan');
+    const notice = () => (container.querySelector('.en-feed-1 .en-strength-changed')?.textContent || '').replace(/\s+/g, ' ');
+    A.eq('4.20 Infatrini 30 → Pre Nan takes Pre Nan 22', feedKey(), 'PRENAN_22');
+    A.ok('4.21 …and says "kcal/oz 30 → 22"', notice().includes('kcal/oz 30 → 22: Pre Nan ไม่มี 30 kcal/oz'), notice());
+    set(productSelect(), 'enfalacPrem');
+    A.ok('4.22 a milk that keeps the 22 clears it', feedKey() === 'FBM_PF_22' && notice() === '', { key: feedKey(), notice: notice() });
 
     // The next day's new order, copied from a PF 20 order.
     mount(null, old);
-    A.eq('4.12 a copied new order keeps PF 20', feedSelect()?.value, 'BM_PF_20');
+    A.eq('4.12 a copied new order keeps PF 20', feedKey(), 'BM_PF_20');
     A.eq('4.13 …and raises no source alert', noSourceAlerts().length, 0);
     act(() => { root.unmount(); });
   },

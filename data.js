@@ -373,6 +373,65 @@ const EN_DB = {
   },
 };
 
+// ── What the Calculator's Step 2 offers: a feed, then its strength ─────────
+// Pp, 2026-10-28: pick the milk, then its kcal/oz, for each of up to two
+// feeds. Every strength is an EN_DB row above, so a saved order still holds
+// one EN_DB key per feed (calcInput.enType / enType2) and every row keeps its
+// source. The strengths are the ones the formulary already had (nutrition
+// unit, 2026-10-25 and 2026-10-27); offering another one is a decision for Pp
+// and the nutrition unit: add its EN_DB row from the book's per-100-kcal
+// column (_enFromChula), then its [kcalOz, key] pair here. Product ids are
+// lower case so they can never be read as an EN_DB key.
+const EN_PRODUCTS = [
+  { id: "bm",          group: "Breast Milk",         label: "Breast Milk (mature)",          strengths: [[20, "BM_20"]] },
+  { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]] },
+  { id: "pf",          group: "Preterm formula",     label: "Preterm Formula",               strengths: [[20, "BM_PF_20"]] },
+  { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"]] },
+  { id: "preNan",      group: "Preterm formula",     label: "Pre Nan",                       strengths: [[22, "PRENAN_22"], [24, "PRENAN_24"]] },
+  { id: "hiQLbw",      group: "Preterm formula",     label: "Hi-Q LBW",                      strengths: [[24, "FBM_PF_24"]] },
+  { id: "fbmInfMix",   group: "High-energy formula", label: "FBM 24 ↔ Infatrini 30 (alternating)", strengths: [["24 ↔ 30", "FBM_INF_MIX"]] },
+  { id: "infatrini",   group: "High-energy formula", label: "Infatrini",                     strengths: [[30, "INFATRINI_30"]] },
+  { id: "hiQLf",       group: "Lactose-free",        label: "LF — HiQ LF",                   strengths: [[20, "LF_20"], [24, "LF_24"], [27, "LF_27"]] },
+  { id: "enfalacLf",   group: "Lactose-free",        label: "Enfalac LF",                    strengths: [[20, "ENFALAC_20"], [24, "ENFALAC_24"], [27, "ENFALAC_27"]] },
+];
+// Feed 1 + feed 2 together, at most 8 feeds a day (q3h); q4h is 6 (Pp,
+// 2026-10-28: "Feed 1+2 รวมกันมากสุดจะได้แค่ 8 มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้
+// 6 มื้อ"). Above it a two-feed order cannot be submitted, and the two must be
+// given equally often (4 + 4, 3 + 3), so each is at most 4.
+const EN_FEEDS_PER_DAY_MAX = 8;
+
+// The product and strength an EN_DB key is offered as, or null for a key the
+// Calculator does not offer (the Formula page's HIQLF_* copies).
+function enProductOf(key) {
+  for (const product of EN_PRODUCTS) {
+    const s = product.strengths.find(([, k]) => k === key);
+    if (s) return { product, kcalOz: s[0] };
+  }
+  return null;
+}
+
+// Per 100 mL, what the day's feeds provide together: each feed's EN_DB row
+// weighted by the mL/day it is given (Pp, 2026-10-28: two feeds). Every enteral
+// figure is mL/day ÷ 100 × this, so it is the sum over the feeds. A day with
+// one feed returns that feed's own row, so its figures are exactly what they
+// were before there could be two. `feeds` is [{ key, mlPerDay }], feed 1 first.
+// A feed given from a key EN_DB does not hold (a row removed since the order
+// was saved, or written by a newer NeoFeed) has no composition: null, never
+// the other feed's, and the Calculator refuses the order (enFeedsUnknown).
+const EN_NUTRIENTS = ["kcal", "pro", "fat", "cho", "na", "k", "ca", "p"];
+function enFeedsUnknown(feeds) {
+  return feeds.filter(f => f.mlPerDay > 0 && !EN_DB[f.key]).map(f => f.key);
+}
+function enMixPer100mL(feeds) {
+  if (enFeedsUnknown(feeds).length > 0) return null;
+  const given = feeds.filter(f => f.mlPerDay > 0);
+  if (given.length < 2) return EN_DB[(given[0] || feeds[0]).key] || null;
+  const total = given.reduce((s, f) => s + f.mlPerDay, 0);
+  const mix = { osm: null, lf: given.every(f => EN_DB[f.key].lf) };
+  for (const n of EN_NUTRIENTS) mix[n] = given.reduce((s, f) => s + EN_DB[f.key][n] * f.mlPerDay, 0) / total;
+  return mix;
+}
+
 // ── Amino acid product densities (g protein / 100 mL) ────────
 const AA_PRODUCTS = {
   AMINOVEN_10:     { label: "Aminoven Infant 10% (0–1 yr)",  conc: 10 },
@@ -2634,6 +2693,8 @@ function searchPatients(patients, query) {
 window.NEOFEED_DATA = {
   // Enteral formula database
   EN_DB,
+  // Step 2's feed and strength pickers, and the two-feed composition
+  EN_PRODUCTS, enProductOf, enMixPer100mL, enFeedsUnknown, EN_FEEDS_PER_DAY_MAX,
   // KCMH supplement formulary
   SUPP_DB,
   // Product reference
