@@ -1,5 +1,14 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-28, 17:09 ICT — frontend `release` = `4f29242` (PR #194), with backend `@64`.** PR #194
+> released #191: a help request can carry its picture on the Workers host (a `data:` URL, which `_headers`
+> allows, where the `blob:` URL was refused). `release`'s tree is `main` `da53afa`'s, the tree that ran on
+> dev local (#194's description). `node tools/verify-release.mjs --wait`, run from Pp's PC at 17:34 ICT,
+> passed on both hosts (0 failures, 61 passes), and both serve #191's new `compiled/app.js` token. The tag
+> `release-2026-10-28-pr194` was pushed at 17:34 ICT: an earlier push from Pp's PC had not reached GitHub
+> (comments on #194). `CONSTANTS_VERSION` and `_headers` unchanged, no backend change. ⚠️ No picture has
+> been sent from a real iPhone or Android phone yet. Recorded here by PR #179, the next PR on the repo.
+>
 > ✅ **2026-10-28, 14:43 ICT — frontend `release` = `c251bc5` (PR #186), with backend `@64`.** PR #186
 > released #183: the ward list's status chip changes the status, the bed chip is the ⇄ button, and Expired
 > asks first, naming the infant and the bed. `release`'s tree is `main` `17ed80c`'s, the tree that ran on
@@ -228,13 +237,12 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `c251bc5` (PR #186) are live, and
-both are verified.** #186 released #183 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at
-13:58 ICT. Both `verify-release` runs and both tags were done from Pp's PC (banners). Caught up with #184
-by PR #183 and with #186 by PR #176, the next PRs on the repo.
-- ⏳ **PR #191, a help request can carry its picture on the Workers host: merged into `main` on Pp's
-  instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28). It is not live until the
-  `main → release` PR this session opens next.** The form opened the picked file as a `blob:` URL, and
+**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `4f29242` (PR #194) are live, and
+both are verified.** #194 released #191 at 17:09 ICT; #186 released #183 at 14:43 ICT; #184 released #182,
+#185, #181, #180 and #173 at 13:58 ICT. All three `verify-release` runs and tags were done from Pp's PC
+(banners). Caught up with #184 by PR #183, with #186 by PR #176 and with #194 by PR #179.
+- ✅ **PR #191, a help request can carry its picture on the Workers host: live, released by #194 (banner
+  above) on Pp's instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28).** The form opened the picked file as a `blob:` URL, and
   `_headers`' `img-src` does not allow `blob:`. So no browser on the Workers host could attach a picture:
   Pp's iPhone, and Android and desktop the same. It now opens a `data:` URL. Frontend only (`app.jsx`),
   no `clasp` step. `CONSTANTS_VERSION` and `_headers` are unchanged. Vera: NO BLOCK. ⚠️ Not yet tried
