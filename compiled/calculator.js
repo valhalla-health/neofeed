@@ -57,6 +57,11 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     enType: src.enType ?? "BM_20",
     enVol: src.enVol ?? 0,
     enFreq: src.enFreq ?? 0,
+    // A second feed (Pp, 2026-10-28). Absent from every entry saved before
+    // then: there was one feed, so feed 2 is none.
+    enType2: src.enType2 ?? "BM_20",
+    enVol2: src.enVol2 ?? 0,
+    enFreq2: src.enFreq2 ?? 0,
     isMEN: src.isMEN ?? false,
     inclSoluvit: src.inclSoluvit ?? true,
     inclPeditrace: src.inclPeditrace ?? true,
@@ -111,6 +116,9 @@ const ORDER_DIFF_FIELDS = [
   ["enType", "Feed", ""],
   ["enVol", "Feed volume", "mL/feed"],
   ["enFreq", "Feeds", "/d"],
+  ["enType2", "Feed 2", ""],
+  ["enVol2", "Feed 2 volume", "mL/feed"],
+  ["enFreq2", "Feed 2 feeds", "/d"],
   ["isMEN", "MEN", ""],
   ["suppVitD", "Vit D", "IU/kg/d"],
   ["suppCa", "Oral Ca", "mg/kg/d"],
@@ -120,7 +128,7 @@ const ORDER_DIFF_FIELDS = [
 ];
 function describeOrderValue(key, v) {
   if (typeof v === "boolean") return v ? "yes" : "no";
-  if (key === "enType") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
+  if (key === "enType" || key === "enType2") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   if (typeof v === "number" && isFinite(v)) return String(Number(v.toPrecision(12)));
   if (v == null) return "—";
@@ -165,7 +173,7 @@ function savedDosingWeightOf(entry) {
   if (num(ci.tpnWtG) > 0) return { g: num(ci.tpnWtG), exact: true };
   const dexG = num(ci.totalTPN_mL) * num(ci.dexPct) / 100, gir = num(entry?.gir);
   if (dexG > 0 && gir > 0) return { g: dexG * 1e3 / (1440 * gir) * 1e3, exact: false };
-  const enTotal = num(ci.enVol) * num(ci.enFreq), enPerKg = num(entry?.enVolPerKg);
+  const enTotal = num(ci.enVol) * num(ci.enFreq) + num(ci.enVol2) * num(ci.enFreq2), enPerKg = num(entry?.enVolPerKg);
   if (enTotal > 0 && enPerKg > 0) return { g: enTotal / enPerKg * 1e3, exact: false };
   return null;
 }
@@ -234,6 +242,22 @@ function NumField({
 }
 function Chk({ label, value, onChange, hint }) {
   return /* @__PURE__ */ React.createElement("label", { className: "chk-label", style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 6, background: value ? "var(--brand-bg)" : "var(--bg-2)", border: `1px solid ${value ? "var(--brand-line)" : "var(--line-2)"}`, cursor: "pointer", fontSize: 13 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: value, onChange: (e) => onChange(e.target.checked), style: { marginTop: 2, width: 18, height: 18, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500, color: value ? "var(--brand-2)" : "var(--ink)" } }, label), hint && /* @__PURE__ */ React.createElement("span", { className: "chk-hint", style: { display: "block", color: "var(--ink-3)", marginTop: 2, fontSize: 11 } }, hint)));
+}
+function EnFeedPicker({ value, onChange }) {
+  const at = D.enProductOf(value);
+  const groups = [...new Set(D.EN_PRODUCTS.map((p) => p.group))];
+  const pickProduct = (id) => {
+    const p = D.EN_PRODUCTS.find((x) => x.id === id);
+    if (!p) return;
+    const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
+    onChange((same || p.strengths[0])[1]);
+  };
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 112px", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel en-product", value: at ? at.product.id : "", onChange: (e) => pickProduct(e.target.value) }, !at && /* @__PURE__ */ React.createElement("option", { value: "" }, D.EN_DB[value]?.label || value), groups.map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g, label: g }, D.EN_PRODUCTS.filter((p) => p.group === g).map((p) => /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, p.label)))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "kcal/oz"), /* @__PURE__ */ React.createElement("select", { className: "sel en-strength", value, onChange: (e) => onChange(e.target.value) }, (at ? at.product.strengths : [["—", value]]).map(([oz, k]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, oz))), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 } }, fmt(D.EN_DB[value]?.kcal, 0), " kcal/100 mL")));
+}
+const EN_FEED_BOX = { padding: 10, border: "1px solid var(--line)", borderRadius: 8 };
+const EN_FEED_TITLE = { fontSize: 11, fontWeight: 700, color: "var(--brand-2)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 };
+function EnFeedDay({ mlPerDay, wtKg }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "en-feed-day", style: { fontSize: 11, color: "var(--ink-3)", marginTop: 4 } }, "= ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(mlPerDay, 1)), " mL/day · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, wtKg > 0 ? fmt(mlPerDay / wtKg, 0) : "—"), " mL/kg/d");
 }
 const ZONE_SAMPLES = 120;
 function meterZones(statusAt, m) {
@@ -477,6 +501,10 @@ function Calculator({
   const [enType, setEnType] = useState("BM_20");
   const [enVol, setEnVol] = useState(0);
   const [enFreq, setEnFreq] = useState(0);
+  const [enType2, setEnType2] = useState("BM_20");
+  const [enVol2, setEnVol2] = useState(0);
+  const [enFreq2, setEnFreq2] = useState(0);
+  const [showFeed2, setShowFeed2] = useState(false);
   const [isMEN, setIsMEN] = useState(false);
   const [inclSoluvit, setInclSoluvit] = useState(true);
   const [inclPeditrace, setInclPeditrace] = useState(true);
@@ -541,6 +569,10 @@ function Calculator({
     setEnType(n.enType);
     setEnVol(n.enVol);
     setEnFreq(n.enFreq);
+    setEnType2(n.enType2);
+    setEnVol2(n.enVol2);
+    setEnFreq2(n.enFreq2);
+    setShowFeed2(n.enVol2 > 0 || n.enFreq2 > 0);
     setIsMEN(n.isMEN);
     setInclSoluvit(n.inclSoluvit);
     setInclPeditrace(n.inclPeditrace);
@@ -732,6 +764,9 @@ function Calculator({
     enType,
     enVol,
     enFreq,
+    enType2,
+    enVol2,
+    enFreq2,
     isMEN,
     inclSoluvit,
     inclPeditrace,
@@ -798,9 +833,21 @@ function Calculator({
     next.has(n) ? next.delete(n) : next.add(n);
     return next;
   });
+  const enFeeds = useMemo(() => [
+    { key: enType, mlPerDay: enVol * enFreq },
+    { key: enType2, mlPerDay: centerPoint ? 0 : enVol2 * enFreq2 }
+  ], [enType, enVol, enFreq, enType2, enVol2, enFreq2, !centerPoint]);
+  const hasFeed2 = enFeeds[1].mlPerDay > 0;
+  const showFeed2Ui = showFeed2 && !centerPoint;
+  const removeFeed2 = () => {
+    setShowFeed2(false);
+    setEnType2("BM_20");
+    setEnVol2(0);
+    setEnFreq2(0);
+  };
   const calc = useMemo(() => {
     if (!wtKg) {
-      const en0 = D.EN_DB[enType];
+      const en0 = D.enMixPer100mL(enFeeds);
       const sv0 = {
         naCl: 0,
         naAcet: 0,
@@ -902,8 +949,8 @@ function Calculator({
     const naKg = naCl + naAcet + na_glycophos;
     const kKg = kCl + k2hpo4;
     const pKg_tpn = pTotal_mg / wtKg;
-    const en = D.EN_DB[enType];
-    const enVolTotal = enVol * enFreq;
+    const en = D.enMixPer100mL(enFeeds);
+    const enVolTotal = enFeeds.reduce((s, f) => s + f.mlPerDay, 0);
     const enVolPerKg = enVolTotal / wtKg;
     const enCounted = isMEN ? 0 : enVolTotal;
     const enKcal = enCounted / 100 * en.kcal;
@@ -1090,9 +1137,7 @@ function Calculator({
     mgPerKg,
     caPerKg,
     extraP_mg_kg,
-    enType,
-    enVol,
-    enFreq,
+    enFeeds,
     isMEN,
     // `route` is deliberately NOT a dependency — the memo never reads it. It is
     // used afterwards for sOsm and the saved entry's route string. Listing it
@@ -1890,7 +1935,7 @@ function Calculator({
     "ใช้ยอด I/O จากบันทึกพยาบาล (ปิดยอดเช้า ",
     window.NEOFEED_FMT_DATE?.(orderDateKey) || orderDateKey,
     ")"
-  ))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(5) }, /* @__PURE__ */ React.createElement(Icon, { name: "milk", size: 14, color: "var(--brand)" }), "Step 2 · Enteral feeding", !openSteps.has(5) && calc.enVolPerKg > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, calc.enVolPerKg.toFixed(0), " mL/kg/d"), calc.enVolPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, D.EN_DB[enType]?.label?.split(" — ")[0]), D.EN_DB[enType]?.lf && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip", style: { color: "var(--ok)", display: "inline-flex", alignItems: "center", gap: 3 } }, "LF ", /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 2.4 })), calc.useEnteralTargets && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip", style: { color: "var(--ok)", display: "inline-flex", alignItems: "center", gap: 3 } }, "Full EN ", /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 2.4 }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[5]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(5) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(5) }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TwoCol, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: enType, onChange: (e) => setEnType(e.target.value) }, /* @__PURE__ */ React.createElement("optgroup", { label: "Breast Milk" }, ["BM_20", "BM_HMF_24"].filter((k) => D.EN_DB[k]).map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, D.EN_DB[k].label))), /* @__PURE__ */ React.createElement("optgroup", { label: "Preterm formula" }, ["BM_PF_20", "FBM_PF_22", "ENFALAC_PREM_24", "PRENAN_22", "PRENAN_24", "FBM_PF_24"].filter((k) => D.EN_DB[k]).map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, D.EN_DB[k].label))), /* @__PURE__ */ React.createElement("optgroup", { label: "High-energy formula" }, ["FBM_INF_MIX", "INFATRINI_30"].filter((k) => D.EN_DB[k]).map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, D.EN_DB[k].label))), /* @__PURE__ */ React.createElement("optgroup", { label: "Lactose-free" }, ["LF_20", "LF_24", "LF_27", "ENFALAC_20", "ENFALAC_24", "ENFALAC_27"].filter((k) => D.EN_DB[k]).map((k) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, D.EN_DB[k].label))))), /* @__PURE__ */ React.createElement("div", { className: "en-fields-row", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 } }, /* @__PURE__ */ React.createElement(NumField, { label: "Volume", unit: "mL/feed", value: enVol, onChange: setEnVol, step: 0.5 }), /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(5) }, /* @__PURE__ */ React.createElement(Icon, { name: "milk", size: 14, color: "var(--brand)" }), "Step 2 · Enteral feeding", !openSteps.has(5) && calc.enVolPerKg > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, calc.enVolPerKg.toFixed(0), " mL/kg/d"), enFeeds.filter((f) => f.mlPerDay > 0).map((f, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "step-summary-chip" }, D.EN_DB[f.key]?.label?.split(" — ")[0])), calc.en?.lf && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip", style: { color: "var(--ok)", display: "inline-flex", alignItems: "center", gap: 3 } }, "LF ", /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 2.4 })), calc.useEnteralTargets && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip", style: { color: "var(--ok)", display: "inline-flex", alignItems: "center", gap: 3 } }, "Full EN ", /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 2.4 }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[5]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(5) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(5) }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TwoCol, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "en-feed en-feed-1", style: showFeed2Ui ? EN_FEED_BOX : void 0 }, showFeed2Ui && /* @__PURE__ */ React.createElement("div", { className: "en-feed-title", style: EN_FEED_TITLE }, "Feed 1"), /* @__PURE__ */ React.createElement(EnFeedPicker, { value: enType, onChange: setEnType }), /* @__PURE__ */ React.createElement("div", { className: "en-fields-row", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 } }, /* @__PURE__ */ React.createElement(NumField, { label: "Volume", unit: "mL/feed", value: enVol, onChange: setEnVol, step: 0.5 }), /* @__PURE__ */ React.createElement(
     NumField,
     {
       label: "Frequency",
@@ -1900,7 +1945,7 @@ function Calculator({
       step: 1,
       hint: `q${Math.round(24 / Math.max(enFreq, 1))}h`
     }
-  ), /* @__PURE__ */ React.createElement("div", { className: "field en-men-col" }, /* @__PURE__ */ React.createElement("label", { style: { visibility: "hidden" } }, "MEN"), /* @__PURE__ */ React.createElement(
+  ), !showFeed2Ui && /* @__PURE__ */ React.createElement("div", { className: "field en-men-col" }, /* @__PURE__ */ React.createElement("label", { style: { visibility: "hidden" } }, "MEN"), /* @__PURE__ */ React.createElement(
     Chk,
     {
       label: "MEN (trophic)",
@@ -1908,7 +1953,25 @@ function Calculator({
       onChange: setIsMEN,
       hint: "Not counted in fluid or nutrient totals"
     }
-  ))), calc.useEnteralTargets && /* @__PURE__ */ React.createElement("div", { style: {
+  ))), showFeed2Ui && /* @__PURE__ */ React.createElement(EnFeedDay, { mlPerDay: enFeeds[0].mlPerDay, wtKg })), showFeed2Ui ? /* @__PURE__ */ React.createElement("div", { className: "en-feed en-feed-2", style: { ...EN_FEED_BOX, marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "en-feed-title", style: EN_FEED_TITLE }, "Feed 2"), /* @__PURE__ */ React.createElement("button", { className: "btn sm en-feed-remove", style: { marginLeft: "auto" }, onClick: removeFeed2 }, "Remove feed 2")), /* @__PURE__ */ React.createElement(EnFeedPicker, { value: enType2, onChange: setEnType2 }), /* @__PURE__ */ React.createElement("div", { className: "en-fields-row", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 } }, /* @__PURE__ */ React.createElement(NumField, { label: "Volume", unit: "mL/feed", value: enVol2, onChange: setEnVol2, step: 0.5 }), /* @__PURE__ */ React.createElement(
+    NumField,
+    {
+      label: "Frequency",
+      unit: "feeds/d",
+      value: enFreq2,
+      onChange: setEnFreq2,
+      step: 1,
+      hint: `q${Math.round(24 / Math.max(enFreq2, 1))}h`
+    }
+  )), /* @__PURE__ */ React.createElement(EnFeedDay, { mlPerDay: enFeeds[1].mlPerDay, wtKg })) : !centerPoint && /* @__PURE__ */ React.createElement("button", { className: "btn sm en-feed-add", style: { marginTop: 8 }, onClick: () => setShowFeed2(true) }, "+ Add a second feed (นมชนิดที่ 2)"), showFeed2Ui && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(
+    Chk,
+    {
+      label: "MEN (trophic)",
+      value: isMEN,
+      onChange: setIsMEN,
+      hint: "Both feeds — not counted in fluid or nutrient totals"
+    }
+  )), calc.useEnteralTargets && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "8px 10px",
     background: "var(--ok-bg)",
     border: "1px solid var(--ok-line)",
@@ -1920,7 +1983,7 @@ function Calculator({
     display: "flex",
     alignItems: "center",
     gap: 6
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), hasFeed2 && enFeeds[0].mlPerDay > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" } }, "feeds 1 + 2"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
     ["kcal", calc.enFeedKg.kcal, 0],
     ["pro", calc.enFeedKg.pro, 1],
     ["Na", calc.enFeedKg.na, 1],
@@ -2431,7 +2494,14 @@ Copy order ต่อไปหรือไม่?`)) return;
       bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
       stockAtZeroMl ? `  !! ${stocksAtZeroMl.join(", ")} ROUNDS TO 0 mL — cannot be measured` : "",
       `──────────────────────────────`,
-      calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "EN: None",
+      calc.enVolPerKg > 0 && !hasFeed2 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "",
+      // Two feeds (Pp, 2026-10-28): one line each, then the day's total.
+      hasFeed2 ? [
+        `EN: Feed 1 ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(enFeeds[0].mlPerDay, 2)} mL/day`,
+        `    Feed 2 ${D.EN_DB[enType2]?.label} | ${enVol2} mL × ${enFreq2} feeds = ${fmt(enFeeds[1].mlPerDay, 2)} mL/day`,
+        `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`
+      ].join("\n") : "",
+      calc.enVolPerKg > 0 ? "" : "EN: None",
       `──────────────────────────────`,
       suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0 ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
       suppMTV ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",

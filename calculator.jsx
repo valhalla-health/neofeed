@@ -92,6 +92,11 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     enType: src.enType ?? "BM_20",
     enVol: src.enVol ?? 0,
     enFreq: src.enFreq ?? 0,
+    // A second feed (Pp, 2026-10-28). Absent from every entry saved before
+    // then: there was one feed, so feed 2 is none.
+    enType2: src.enType2 ?? "BM_20",
+    enVol2: src.enVol2 ?? 0,
+    enFreq2: src.enFreq2 ?? 0,
     isMEN: src.isMEN ?? false,
     inclSoluvit: src.inclSoluvit ?? true,
     inclPeditrace: src.inclPeditrace ?? true,
@@ -163,6 +168,9 @@ const ORDER_DIFF_FIELDS = [
   ["enType", "Feed", ""],
   ["enVol", "Feed volume", "mL/feed"],
   ["enFreq", "Feeds", "/d"],
+  ["enType2", "Feed 2", ""],
+  ["enVol2", "Feed 2 volume", "mL/feed"],
+  ["enFreq2", "Feed 2 feeds", "/d"],
   ["isMEN", "MEN", ""],
   ["suppVitD", "Vit D", "IU/kg/d"],
   ["suppCa", "Oral Ca", "mg/kg/d"],
@@ -172,7 +180,7 @@ const ORDER_DIFF_FIELDS = [
 ];
 function describeOrderValue(key, v) {
   if (typeof v === "boolean") return v ? "yes" : "no";
-  if (key === "enType") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
+  if (key === "enType" || key === "enType2") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   // A volume derived from Rate × 24 used to reach this list — and the printed
   // pharmacy form — as "98.39999999999999" (review 2026-09-17, UP-C13).
@@ -268,7 +276,7 @@ function savedDosingWeightOf(entry) {
   if (num(ci.tpnWtG) > 0) return { g: num(ci.tpnWtG), exact: true };
   const dexG = num(ci.totalTPN_mL) * num(ci.dexPct) / 100, gir = num(entry?.gir);
   if (dexG > 0 && gir > 0) return { g: dexG * 1000 / (1440 * gir) * 1000, exact: false };
-  const enTotal = num(ci.enVol) * num(ci.enFreq), enPerKg = num(entry?.enVolPerKg);
+  const enTotal = num(ci.enVol) * num(ci.enFreq) + num(ci.enVol2) * num(ci.enFreq2), enPerKg = num(entry?.enVolPerKg);
   if (enTotal > 0 && enPerKg > 0) return { g: enTotal / enPerKg * 1000, exact: false };
   return null;
 }
@@ -371,6 +379,56 @@ function Chk({ label, value, onChange, hint }) {
       </span>
     </label>);
 
+}
+
+// ── Step 2: one feed's milk, then its kcal/oz ───────────────
+// Pp, 2026-10-28: "เลือกชนิดนม ต่อมาเลือก kcal/oz" for each feed. Both selects
+// read D.EN_PRODUCTS; `value` and `onChange` carry the EN_DB key the order
+// saves. Changing the milk keeps the kcal/oz when the new milk comes in it,
+// else takes its first. A key the list does not offer is shown, never swapped.
+function EnFeedPicker({ value, onChange }) {
+  const at = D.enProductOf(value);
+  const groups = [...new Set(D.EN_PRODUCTS.map(p => p.group))];
+  const pickProduct = (id) => {
+    const p = D.EN_PRODUCTS.find(x => x.id === id);
+    if (!p) return;
+    const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
+    onChange((same || p.strengths[0])[1]);
+  };
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 112px", gap: 10 }}>
+      <div className="field">
+        <label>Feed type</label>
+        <select className="sel en-product" value={at ? at.product.id : ""} onChange={(e) => pickProduct(e.target.value)}>
+          {!at && <option value="">{D.EN_DB[value]?.label || value}</option>}
+          {groups.map(g => (
+            <optgroup key={g} label={g}>
+              {D.EN_PRODUCTS.filter(p => p.group === g).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label>kcal/oz</label>
+        <select className="sel en-strength" value={value} onChange={(e) => onChange(e.target.value)}>
+          {(at ? at.product.strengths : [["—", value]]).map(([oz, k]) => <option key={k} value={k}>{oz}</option>)}
+        </select>
+        <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{fmt(D.EN_DB[value]?.kcal, 0)} kcal/100 mL</div>
+      </div>
+    </div>
+  );
+}
+
+// With two feeds, each sits in its own box under its own title, and says what
+// it gives over the day.
+const EN_FEED_BOX = { padding: 10, border: "1px solid var(--line)", borderRadius: 8 };
+const EN_FEED_TITLE = { fontSize: 11, fontWeight: 700, color: "var(--brand-2)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 };
+function EnFeedDay({ mlPerDay, wtKg }) {
+  return (
+    <div className="en-feed-day" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>
+      = <span className="num">{fmt(mlPerDay, 1)}</span> mL/day · <span className="num">{wtKg > 0 ? fmt(mlPerDay / wtKg, 0) : "—"}</span> mL/kg/d
+    </div>
+  );
 }
 
 // ── Range bar: green / yellow / red zones ────────────────────
@@ -816,6 +874,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [enType, setEnType] = useState("BM_20");
   const [enVol, setEnVol] = useState(0);
   const [enFreq, setEnFreq] = useState(0);
+  // Feed 2 (Pp, 2026-10-28). It counts only while its volume × frequency is
+  // above 0; showFeed2 is whether its fields are on screen.
+  const [enType2, setEnType2] = useState("BM_20");
+  const [enVol2, setEnVol2] = useState(0);
+  const [enFreq2, setEnFreq2] = useState(0);
+  const [showFeed2, setShowFeed2] = useState(false);
   const [isMEN, setIsMEN] = useState(false);
 
   // Card key 4 — Vitamins, Trace Elements, Heparin (displayed as Step 5)
@@ -926,6 +990,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setEnType(n.enType);
     setEnVol(n.enVol);
     setEnFreq(n.enFreq);
+    setEnType2(n.enType2);
+    setEnVol2(n.enVol2);
+    setEnFreq2(n.enFreq2);
+    setShowFeed2(n.enVol2 > 0 || n.enFreq2 > 0);
     setIsMEN(n.isMEN);
     setInclSoluvit(n.inclSoluvit);
     setInclPeditrace(n.inclPeditrace);
@@ -1204,7 +1272,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     ioInput, ioOutput, drainContent,
     route, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaProduct: aaStockKey, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
-    enType, enVol, enFreq, isMEN,
+    enType, enVol, enFreq, enType2, enVol2, enFreq2, isMEN,
     inclSoluvit, inclPeditrace, znPerKg, inclAddamel, heparinUmL,
     suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
   });
@@ -1276,10 +1344,23 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     return next;
   });
 
+  // The day's feeds, feed 1 first, each with the mL/day it is given (Pp,
+  // 2026-10-28: up to two). Center Point's TPN packet holds one feed, so a
+  // Center Point order has no feed 2 (its button is not offered either).
+  const enFeeds = useMemo(() => [
+    { key: enType, mlPerDay: enVol * enFreq },
+    { key: enType2, mlPerDay: centerPoint ? 0 : enVol2 * enFreq2 },
+  ], [enType, enVol, enFreq, enType2, enVol2, enFreq2, !centerPoint]);
+  const hasFeed2 = enFeeds[1].mlPerDay > 0;
+  const showFeed2Ui = showFeed2 && !centerPoint;
+  // Removing feed 2 puts it back to none, the way an order with one feed is
+  // saved, so the change list does not report a feed nobody gives.
+  const removeFeed2 = () => { setShowFeed2(false); setEnType2("BM_20"); setEnVol2(0); setEnFreq2(0); };
+
   // ===== compute =====
   const calc = useMemo(() => {
     if (!wtKg) {
-      const en0 = D.EN_DB[enType];
+      const en0 = D.enMixPer100mL(enFeeds);
       const sv0 = { naCl:0, naAcet:0, glycophos:0, kCl:0, k2hpo4:0, ca:0, mg:0,
         heparin:0, znso4:0, aa:0, lipidSMOF:0 };
       return { wtKg:0, totalTPN_mL, lipidVol:0, lipidBagVol:0, vitalipidVol:0,
@@ -1365,9 +1446,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // in the app.
     const pKg_tpn = pTotal_mg / wtKg;
 
-    // EN — computed before caP so EN minerals can be included in the ratio
-    const en = D.EN_DB[enType];
-    const enVolTotal = enVol * enFreq;
+    // EN — computed before caP so EN minerals can be included in the ratio.
+    // Up to two feeds (Pp, 2026-10-28): `en` is what they provide together per
+    // 100 mL, weighted by each feed's mL/day, so every term below that reads
+    // enVolTotal or enCounted × en is the sum over the feeds. With one feed it
+    // is that feed's EN_DB row, exactly as before.
+    const en = D.enMixPer100mL(enFeeds);
+    const enVolTotal = enFeeds.reduce((s, f) => s + f.mlPerDay, 0);
     const enVolPerKg = enVolTotal / wtKg;
     // The feed volume that COUNTS. A MEN (trophic) feed counts toward neither
     // the fluid total nor any nutrient total — energy, protein, lipid, Na, K,
@@ -1558,7 +1643,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   }, [wtG, wtKg, fluidTargetPerKg, otherIV_mL, drug_mL,
   totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,
   naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
-  enType, enVol, enFreq, isMEN,
+  enFeeds, isMEN,
   // `route` is deliberately NOT a dependency — the memo never reads it. It is
   // used afterwards for sOsm and the saved entry's route string. Listing it
   // recomputed the whole memo on every central/peripheral toggle.
@@ -2584,8 +2669,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           {!openSteps.has(5) && calc.enVolPerKg > 0 && (
             <div className="step-summary">
               <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
-              {calc.enVolPerKg > 0 && <span className="step-summary-chip">{D.EN_DB[enType]?.label?.split(" — ")[0]}</span>}
-              {D.EN_DB[enType]?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>LF <Icon name="check" size={12} stroke={2.4} /></span>}
+              {enFeeds.filter(f => f.mlPerDay > 0).map((f, i) => <span key={i} className="step-summary-chip">{D.EN_DB[f.key]?.label?.split(" — ")[0]}</span>)}
+              {calc.en?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>LF <Icon name="check" size={12} stroke={2.4} /></span>}
               {calc.useEnteralTargets && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>Full EN <Icon name="check" size={12} stroke={2.4} /></span>}
             </div>
           )}
@@ -2597,43 +2682,52 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         <StepBody open={openSteps.has(5)}><div className="card-b">
           <TwoCol>
             <div>
-              <div className="field">
-                <label>Feed type</label>
-                <select className="sel" value={enType} onChange={(e) => setEnType(e.target.value)}>
-                  <optgroup label="Breast Milk">
-                    {["BM_20","BM_HMF_24"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  {/* Hi-Q LBW and Pre Nan are preterm formulas (the book's Table 5;
-                      nutrition unit, 2026-10-25 — Pre Nan sat in a post-discharge
-                      group from 2026-09-28 until then). The ward mixes Enfalac
-                      Premature and Pre Nan at 22 and at 24 kcal/oz. */}
-                  <optgroup label="Preterm formula">
-                    {["BM_PF_20","FBM_PF_22","ENFALAC_PREM_24","PRENAN_22","PRENAN_24","FBM_PF_24"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  <optgroup label="High-energy formula">
-                    {["FBM_INF_MIX","INFATRINI_30"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                  {/* Enfalac LF joined HiQ LF here on 2026-10-27 (nutrition unit:
-                      "ให้สั่งได้จะดี"); until then it was on the Formula page only. */}
-                  <optgroup label="Lactose-free">
-                    {["LF_20","LF_24","LF_27","ENFALAC_20","ENFALAC_24","ENFALAC_27"].filter(k => D.EN_DB[k]).map(k =>
-                      <option key={k} value={k}>{D.EN_DB[k].label}</option>)}
-                  </optgroup>
-                </select>
-              </div>
-              <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
-                <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
-                <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
-                  hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
-                <div className="field en-men-col">
-                  <label style={{ visibility: "hidden" }}>MEN</label>
-                  <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
-                    hint="Not counted in fluid or nutrient totals" />
+              {/* One or two feeds (Pp, 2026-10-28), each a milk, its kcal/oz, a
+                  volume and a frequency. MEN applies to every feed. Center Point's
+                  TPN packet holds one feed, so it is not offered a second. */}
+              <div className="en-feed en-feed-1" style={showFeed2Ui ? EN_FEED_BOX : undefined}>
+                {showFeed2Ui && <div className="en-feed-title" style={EN_FEED_TITLE}>Feed 1</div>}
+                <EnFeedPicker value={enType} onChange={setEnType} />
+                <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
+                  <NumField label="Volume" unit="mL/feed" value={enVol} onChange={setEnVol} step={0.5} />
+                  <NumField label="Frequency" unit="feeds/d" value={enFreq} onChange={setEnFreq} step={1}
+                    hint={`q${Math.round(24 / Math.max(enFreq, 1))}h`} />
+                  {!showFeed2Ui && (
+                    <div className="field en-men-col">
+                      <label style={{ visibility: "hidden" }}>MEN</label>
+                      <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
+                        hint="Not counted in fluid or nutrient totals" />
+                    </div>
+                  )}
                 </div>
+                {showFeed2Ui && <EnFeedDay mlPerDay={enFeeds[0].mlPerDay} wtKg={wtKg} />}
               </div>
+              {showFeed2Ui ? (
+                <div className="en-feed en-feed-2" style={{ ...EN_FEED_BOX, marginTop: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="en-feed-title" style={EN_FEED_TITLE}>Feed 2</div>
+                    <button className="btn sm en-feed-remove" style={{ marginLeft: "auto" }} onClick={removeFeed2}>Remove feed 2</button>
+                  </div>
+                  <EnFeedPicker value={enType2} onChange={setEnType2} />
+                  <div className="en-fields-row" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
+                    <NumField label="Volume" unit="mL/feed" value={enVol2} onChange={setEnVol2} step={0.5} />
+                    <NumField label="Frequency" unit="feeds/d" value={enFreq2} onChange={setEnFreq2} step={1}
+                      hint={`q${Math.round(24 / Math.max(enFreq2, 1))}h`} />
+                  </div>
+                  <EnFeedDay mlPerDay={enFeeds[1].mlPerDay} wtKg={wtKg} />
+                </div>
+              ) : !centerPoint && (
+                <button className="btn sm en-feed-add" style={{ marginTop: 8 }} onClick={() => setShowFeed2(true)}>
+                  + Add a second feed (นมชนิดที่ 2)
+                </button>
+              )}
+              {/* With two feeds the MEN tick leaves feed 1's row: it covers both. */}
+              {showFeed2Ui && (
+                <div style={{ marginTop: 10 }}>
+                  <Chk label="MEN (trophic)" value={isMEN} onChange={setIsMEN}
+                    hint="Both feeds — not counted in fluid or nutrient totals" />
+                </div>
+              )}
 
               {/* Full feeds status — says the enteral targets are active, so it
                   shows exactly when they are (never for a MEN feed) */}
@@ -2651,6 +2745,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="en-delivered" style={{ marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 }}>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
                   <span style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 }}>Delivered per kg from EN</span>
+                  {hasFeed2 && enFeeds[0].mlPerDay > 0 && (
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" }}>feeds 1 + 2</span>
+                  )}
                   {isMEN && calc.enVolTotal > 0 && (
                     <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" }}>MEN — not counted in totals</span>
                   )}
@@ -3707,7 +3804,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
                 stockAtZeroMl ? `  !! ${stocksAtZeroMl.join(", ")} ROUNDS TO 0 mL — cannot be measured` : "",
                 `──────────────────────────────`,
-                calc.enVolPerKg > 0 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "EN: None",
+                calc.enVolPerKg > 0 && !hasFeed2 ? `EN: ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}` : "",
+                // Two feeds (Pp, 2026-10-28): one line each, then the day's total.
+                hasFeed2 ? [
+                  `EN: Feed 1 ${D.EN_DB[enType]?.label} | ${enVol} mL × ${enFreq} feeds = ${fmt(enFeeds[0].mlPerDay, 2)} mL/day`,
+                  `    Feed 2 ${D.EN_DB[enType2]?.label} | ${enVol2} mL × ${enFreq2} feeds = ${fmt(enFeeds[1].mlPerDay, 2)} mL/day`,
+                  `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d)${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`,
+                ].join("\n") : "",
+                calc.enVolPerKg > 0 ? "" : "EN: None",
                 `──────────────────────────────`,
                 (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
                 suppMTV    ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",

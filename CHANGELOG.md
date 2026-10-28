@@ -7,6 +7,53 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 — Step 2: two feeds, each a milk and then its kcal/oz
+
+`data.js` (`EN_PRODUCTS`, `enProductOf`, `enMixPer100mL`), `calculator.jsx` (Step 2, the EN terms of
+`calc`, the saved inputs, the change list, the copied order), the clinical-rules skill (new rule
+`CR-U-EN-TWO-FEEDS`, `CR-U-EN-KCAL`), `app-walkthrough.md`, and the harnesses that pick a feed. No
+`EN_DB` row, limit or stock changed, and an order with one feed computes exactly as before, so
+`CONSTANTS_VERSION` stays `2026-10-27.2`. No backend change: `calcInputJson` already stores the inputs
+as they are.
+
+### Why
+
+Pp, 2026-10-28, from a ward phone screenshot of Step 2: "ให้สามารถมีตัวเลือกสองอันสำหรับชนิดของนม
+ต่อมามีให้เลือกเป็น kcal/oz, volume และจำนวนมื้อของนมชนิดนั้นๆ ... โดยไปดึงข้อมูลมาจาก Chula nutrition
+book" — two feeds, each chosen as a milk and then its kcal/oz, with its own volume and feeds a day,
+composition from the Chula handbook rows `EN_DB` already holds.
+
+### What changed
+
+- **Milk, then kcal/oz.** The one long feed list became two selects: the milk (grouped as before) and its
+  strength. Each strength is an existing `EN_DB` row, so the order still saves one key per feed and every
+  figure keeps its source. Only the strengths the formulary already had are offered (Enfalac Premature
+  and Pre Nan 22/24, HiQ LF and Enfalac LF 20/24/27, the rest one each); adding one is a row plus a pair
+  in `EN_PRODUCTS`, and is Pp's and the nutrition unit's call.
+- **A second feed.** "+ Add a second feed (นมชนิดที่ 2)" opens Feed 2 with its own milk, kcal/oz, volume
+  and frequency; each feed shows its mL/day and mL/kg/d. The day's enteral volume and every nutrient are
+  the sum of the two: `enMixPer100mL` weights one composition per 100 mL by each feed's mL/day, so fluid,
+  the switch to enteral targets, every tile and alert and the Daily_Log columns read the sum. With one
+  feed it returns that feed's own row object, so nothing moves for a one-feed order. The MEN tick covers
+  both feeds and sits below them when there are two.
+- **Saved, compared, copied.** `calcInput` gains `enType2`/`enVol2`/`enFreq2` (an older row normalises
+  to none), the change list names them, the copied order prints one line per feed and the total, and
+  `savedDosingWeightOf` counts both feeds.
+- **Center Point** prints one feed (`neofeed-tpn-v2`), so a CP order is not offered a second, and feed 2
+  counts for nothing there.
+
+### Checks
+
+- `verify-calc-oracle.cjs`: two orders with two feeds (K1 alternating feeds beside a bag; K2 two feeds
+  that reach 100 mL/kg/d only together), recomputed feed by feed rather than through the app's mix, on
+  screen, in the saved row, on the form and in the copy. With feed 2 dropped from the app, both fail on
+  45+ figures each (run once by hand, not kept as a switch).
+- `verify-clinical-rules.cjs`: `CR-U-EN-TWO-FEEDS` with five orders (fluid, the enteral switch from the
+  sum, MEN over both feeds and the MEN ceiling on the sum); the harness learned `feed2`/`order2`.
+- The harnesses that picked a feed by "the select with a BM_20 option" set the milk and then its
+  kcal/oz; `verify-en-db-sources.cjs` §4 and `verify-tpn-meeting-0928.cjs` §9 walk both selects and still
+  require exactly the sixteen feeds offered before.
+
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (new), `test/verify-clinical-rules.cjs` (new),
