@@ -409,9 +409,9 @@ function EnFeedPicker({ value, onChange }) {
     onChange(next[1]);
   };
   return (<>
-    // The same three columns as the Volume / Frequency row below: the milk spans
-    // two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box
-    // beside a full-width milk box was out of proportion on desktop).
+    {/* The same three columns as the Volume / Frequency row below: the milk spans
+        two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box
+        beside a full-width milk box was out of proportion on desktop). */}
     <div className="en-picker" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
       <div className="field" style={{ gridColumn: "span 2" }}>
         <label>Feed type</label>

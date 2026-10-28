@@ -7,6 +7,36 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (14) — Step 2 stops showing a developer comment
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `tools/ci_bans.js`,
+`test/ci-bans-fixtures.json`, `test/verify-en-db-sources.cjs`, `test/README.md`.
+
+### Why
+
+PR #182 (commit `97227e7`) put a three-line `//` comment at the top of `EnFeedPicker`'s fragment. Between
+JSX children `//` is text, so the ward has seen "// The same three columns as the Volume / Frequency row
+below: the milk spans // two, kcal/oz takes the third (Pp, 2026-10-28: …)" under "Step 2 · Enteral feeding"
+on every device since release #184, once per feed picker. The PR #175 release session saw it on dev local
+at 375 px.
+
+### What changed
+
+- `calculator.jsx`: the same words in a `{/* … */}` comment. The rebuild drops that string child from
+  `compiled/calculator.js` and nothing else; both shells take the new `?v=` token. No figure, label or
+  layout moves, and `CONSTANTS_VERSION` is unchanged.
+- `tools/ci_bans.js`: rule `jsx-comment-text`, a run of `//` lines between two lines of JSX children. Its
+  hits are comment lines, so `check()` reports comment lines for a rule marked `comments: true`.
+  12 fixture cases; over the `.jsx` sources of all 294 first-parent commits of `main` it flags only #182's
+  line.
+
+### Tests
+
+- `verify-en-db-sources.cjs` § 4.23–4.25: with both feed pickers open, Step 2 has no "// The same three
+  columns" and no text node on the Calculator starts with "//". 4.24 and 4.25 fail on `3359a58` in both
+  passes; 174/174 with the fix.
+- `node tools/ci_bans.js` exits 1 on `3359a58`'s `calculator.jsx` (line 412) and 0 with the fix.
+
 ## Session 2026-10-28 (12) — the backend and Center Point refuse a stopped order
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
