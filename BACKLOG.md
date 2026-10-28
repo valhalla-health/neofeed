@@ -409,8 +409,8 @@ clinical judgement. Everything else is engineering sequencing.
       2. ⚖️ **Tell the DPO the name holds four letters now.** It held two (one letter of each name), and
          now holds two letters of each, with no vowels or tone marks, or two English letters of each for a
          foreign infant. It is Pp's decision, for finding and identifying an infant. A new infant's id
-         carries nothing since 2026-09-27 (`NF-` and six random digits), so Copy Order carries no initials;
-         no full name is stored. It belongs in the next DPIA note, beside D7.
+         carries nothing since 2026-09-27 (`NF-` and six random digits), and a patient's order has had no
+         Copy since 2026-10-28; no full name is stored. It belongs in the next DPIA note, beside D7.
          **Pp: later.**
       3. **One look on a real iPhone (Safari).** `test/verify-phone-sweep.cjs` checks 24 device sizes, but
          only in Chromium; the cloud container has no WebKit. Check two things there:
