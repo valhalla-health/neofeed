@@ -96,6 +96,105 @@ printing and copying "WFI q.s. -0.1 mL". `verify-clinical-rules.cjs` reads the n
 the stop for S4 and its orders B and E instead of a printed form; an over-full bag that prints fails it.
 `verify-calc-oracle.cjs` restates the stop in its own orderable rule (orders B and E).
 
+## Session 2026-10-28 (NF-05, Pp drops the pilot) — before-and-after numbers and rollback steps instead
+
+Pp answered "ก" on 2026-10-28: no pilot. The two entries below describe a pilot ladder that this PR
+no longer ships. What protects an infant is comparing the numbers before they reach pharmacy. The
+pilot users order for real infants anyway. The riskiest changes (backend, Sheet layout) could not be
+piloted, since every deployment shares the Sheet. And six setup steps, a second GAS deployment and
+48 h per release cost a one-person team more than they give, next to 100 harnesses, the
+clinical-rules check and NF-28.
+
+**Kept**, in `.github/PULL_REQUEST_TEMPLATE/release.md` (now `main → release`) and `REFERENCE.md`
+§ Before and after, and rolling back (it replaces § The pilot ladder):
+
+- A release that changes a calculation runs the release live now and the PR's head side by side in
+  dev local (`tools/dev-local.mjs --tree … --port 8155` and `8156`), at least three cases per changed
+  calculation, and records inputs, before, after and "intended?" in the release PR.
+- The rollback steps: `npx wrangler rollback` or the Worker's Deployments tab, GitHub Pages by
+  reverting the commit, the whole merge for a release across the 2026-09-17 build step, the backend
+  by `clasp update-deployment` to the previous version, and the release tags as targets.
+
+**Removed**, each file back to `main`: `boot.js` § 3 (`NEOFEED_PILOT_GAS_URL`) with the shells'
+`?v=` tokens, the `_headers` comment, `tools/dev-local.mjs` and `tools/verify-release.mjs` (`--pilot`),
+`test/verify-review-0917-shell.cjs` 2.4a, `test/verify-dev-local.cjs` #5 and the `test/README.md`
+section. Deleted: `.github/workflows/release-gate.yml`, `tools/release-gate.mjs`,
+`test/verify-pilot-ladder.cjs`. `AGENTS.md`, `STATUS.md` and BACKLOG § Now now point at the
+template; BACKLOG keeps the missing `release-2026-10-27-pr172` tag and the 25 older backend
+deployments for Pp.
+
+## Session 2026-10-28 (NF-05, after Vera) — what two versions sharing one Sheet can still break
+
+Vera read the NF-05 diff (NO BLOCK, three 🟠 and two 🟡; her report is on the PR). Changed in answer:
+
+- **A column added at a tab's end is not enough.** The ward version rewrites a patient or draft row
+  over its own width only, so the new column keeps the pilot's earlier value. The first "Side by side"
+  box and `REFERENCE.md` now ask that the new version still reads such a row right.
+- **Script Properties** got their own box and bullet: no key or meaning change (the revocation epochs),
+  and no switch flipped while a pilot runs (`NURSING_LOG_ENABLED` must never meet an old frontend).
+- **A backend deploy outside the ladder moves the pilot deployment too**, and an abandoned pilot puts
+  it back on the ward's version, so the public pilot URL never runs code the ward has left.
+- **The gate** now also wants the rollback commit beside the tag, and fails on any `<…>` field left
+  unfilled. The backend Promotion box was reworded so its own text holds none. A new Promotion box
+  re-runs `verify-release.mjs --pilot`, since a branch whose name Cloudflare turns into `pilot` could
+  take the address.
+- Not changed, for Pp: a pilot banner and a mark on the printed order (the pilot looks like the ward
+  app), and the 25 older backend deployments that still answer.
+
+`test/verify-pilot-ladder.cjs` 2.14, 2.15 and 3.7 fail against the first commit's gate and template
+and pass now (39 checks).
+
+## Session 2026-10-28 (NF-05) — the pilot ladder: 48 h on `pilot` before a release reaches the ward
+
+`REFERENCE.md` § The pilot ladder (new), `.github/PULL_REQUEST_TEMPLATE/release.md` (new),
+`.github/workflows/release-gate.yml` and `tools/release-gate.mjs` (new), `boot.js` § 3,
+`tools/verify-release.mjs` (`--pilot`), `tools/dev-local.mjs`, `_headers` (comment only),
+`test/verify-pilot-ladder.cjs` (new), `test/verify-review-0917-shell.cjs` 2.4,
+`test/verify-dev-local.cjs` #5, `AGENTS.md`, `STATUS.md`, `BACKLOG.md`, `test/README.md`. The shells
+and `boot.js`'s `?v=` token moved with the build. No calculation, printed figure or backend code
+changed, and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-05 in her apply list of 2026-10-27: a release goes first to a pilot that she and one
+fellow use for 48 h, and reaches the ward only by a separate promotion once usage and the error log
+show nothing new. Until now a `main → release` merge reached every ward at once.
+
+### How deploys worked, checked first
+
+Workers Builds deploys `release` to `neofeed.valhalla-health.workers.dev` and builds a preview of
+every other branch at `<branch>-neofeed.valhalla-health.workers.dev` (the Cloudflare comment on PR
+#178 shows both URLs). GitHub Pages serves `release` as a redirect stub. `release` requires
+`harnesses`, 0 approvals, `enforce_admins` on (branch-protection API, 2026-10-28). The backend has 26
+deployments; the ward's is `AKfycbz8…` at `@64` (`clasp list-deployments`). The frontend picks its
+backend from one constant in `boot.js`.
+
+### What the ladder is
+
+The `pilot` branch's preview, `pilot-neofeed.valhalla-health.workers.dev`, is the pilot: no new
+Worker, the same bytes the ward gets later. `boot.js` § 3 sends that one host to a pilot deployment
+of the same Apps Script project (`NEOFEED_PILOT_GAS_URL`, empty until Pp creates it, so the pilot host
+uses the ward's backend meanwhile). The release PR comes from `pilot` and carries the template's
+checklist; `promotion-checklist` fails until the pilot commit is its head, 48 h have passed, the
+rollback target names a tag and a backend `@N`, and every box is ticked. It is not a required check.
+
+Both deployments share the Sheet, Script Properties and script cache, so the runbook lists what
+cannot be piloted side by side (column moves, a cell that changes meaning, a cache value whose shape
+changes under the same key, an editor-run migration) and how such a release is split. A
+`CONSTANTS_VERSION` bump can be piloted: an order saved on one version is held on the other until it
+is saved again, never printed wrong.
+
+### Not done here
+
+Pp's one-time setup: the pilot deployment, the PR that sets its URL, the `pilot` branch, the OAuth
+origin and the branch protection (`REFERENCE.md`, BACKLOG § Now). Until then releases go as before.
+
+### Found on the way
+
+Release #172 (`342123d`, merged 2026-10-27) is live and `node tools/verify-release.mjs` passes on both
+hosts against it, but its tag `release-2026-10-27-pr172` is not pushed and `STATUS.md` does not
+record it yet. Neither is fixed here.
+
 ## Session 2026-10-28 (9) — the quick calc's copied text is checked figure by figure
 
 `test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-tpn-meeting-0928.cjs`,

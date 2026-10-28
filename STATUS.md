@@ -1,5 +1,23 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-28, 17:39 ICT — frontend `release` = `56dd063` (PR #195), with backend `@64`.** PR #195
+> released #188: on a phone, opening the ward list's archive scrolls it to the top of the list, so an
+> archived card's status chip and Edit are no longer under the Calculator button and the bottom nav.
+> `release`'s tree is `main` `01dbefb`'s, the tree walked on dev local (comment on #195). `node
+> tools/verify-release.mjs --wait`, run from Pp's PC at 17:50 ICT, passed on both hosts (0 failures, 61
+> passes), and both serve #188's new `compiled/registry.js` token. The tag `release-2026-10-28-pr195` is
+> pushed (comment on #195). `CONSTANTS_VERSION` unchanged, no backend change. ⚠️ No one has brought an
+> infant back from the archive on a ward phone yet. Recorded here by PR #179, the next PR on the repo.
+>
+> ✅ **2026-10-28, 17:09 ICT — frontend `release` = `4f29242` (PR #194), with backend `@64`.** PR #194
+> released #191: a help request can carry its picture on the Workers host (a `data:` URL, which `_headers`
+> allows, where the `blob:` URL was refused). `release`'s tree is `main` `da53afa`'s, the tree that ran on
+> dev local (#194's description). `node tools/verify-release.mjs --wait`, run from Pp's PC at 17:34 ICT,
+> passed on both hosts (0 failures, 61 passes), and both serve #191's new `compiled/app.js` token. The tag
+> `release-2026-10-28-pr194` was pushed at 17:34 ICT: an earlier push from Pp's PC had not reached GitHub
+> (comments on #194). `CONSTANTS_VERSION` and `_headers` unchanged, no backend change. ⚠️ No picture has
+> been sent from a real iPhone or Android phone yet. Recorded here by PR #179, the next PR on the repo.
+>
 > ✅ **2026-10-28, 14:43 ICT — frontend `release` = `c251bc5` (PR #186), with backend `@64`.** PR #186
 > released #183: the ward list's status chip changes the status, the bed chip is the ⇄ button, and Expired
 > asks first, naming the infant and the bed. `release`'s tree is `main` `17ed80c`'s, the tree that ran on
@@ -228,13 +246,13 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `c251bc5` (PR #186) are live, and
-both are verified.** #186 released #183 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at
-13:58 ICT. Both `verify-release` runs and both tags were done from Pp's PC (banners). Caught up with #184
-by PR #183 and with #186 by PR #176, the next PRs on the repo.
-- ⏳ **PR #191, a help request can carry its picture on the Workers host: merged into `main` on Pp's
-  instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28). It is not live until the
-  `main → release` PR this session opens next.** The form opened the picked file as a `blob:` URL, and
+**Updated 2026-10-28** · ✅ **Backend `@64` and frontend `release` = `56dd063` (PR #195) are live, and
+both are verified.** #195 released #188 at 17:39 ICT; #194 released #191 at 17:09 ICT; #186 released #183
+at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at 13:58 ICT. All four `verify-release` runs
+and tags were done from Pp's PC (banners). Caught up with #184 by PR #183, with #186 by PR #176, and with
+#194 and #195 by PR #179.
+- ✅ **PR #191, a help request can carry its picture on the Workers host: live, released by #194 (banner
+  above) on Pp's instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28).** The form opened the picked file as a `blob:` URL, and
   `_headers`' `img-src` does not allow `blob:`. So no browser on the Workers host could attach a picture:
   Pp's iPhone, and Android and desktop the same. It now opens a `data:` URL. Frontend only (`app.jsx`),
   no `clasp` step. `CONSTANTS_VERSION` and `_headers` are unchanged. Vera: NO BLOCK. ⚠️ Not yet tried
@@ -245,9 +263,8 @@ by PR #183 and with #186 by PR #176, the next PRs on the repo.
   Frontend only, no `clasp` step. `CONSTANTS_VERSION` unchanged; no calculation or printed figure changes.
   A status change saves where Edit session saves it (`registerPatient`, `status` + `statusDate` only).
   Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28 (5).
-- ⏳ **PR #188, on a phone the archive opens out from under the Calculator button: merged into `main` on
-  Pp's instruction ("Merge and deploy", 2026-10-28); live once the `main → release` PR that carries it
-  merges, whose comment holds the dev-local run and `verify-release`.** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
+- ✅ **PR #188, on a phone the archive opens out from under the Calculator button: live, released by #195
+  (banner above) on Pp's instruction ("Merge and deploy", 2026-10-28).** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
   first archived card's status chip was under the Calculator button and its Edit under the bottom nav, and
   a tap on the chip opened the quick calc. Opening the archive now scrolls it to the top of the list.
   Frontend only, no `clasp` step, no figure. `CHANGELOG.md` 2026-10-28 (8).
@@ -303,6 +320,11 @@ went live with #172 on 2026-10-27; #173 goes with #182.)*
   alone, saved, shown and printed, and follow a typed change: open, waiting for Pp's merge.** Test and docs
   only, so nothing to release. It also repairs negative control 1, which `main` had broken.
   `CHANGELOG.md` 2026-10-28 (6).
+- ⏳ **PR #179, NF-05: a release PR starts from `.github/PULL_REQUEST_TEMPLATE/release.md`, with
+  before-and-after numbers and the rollback steps: merged into `main` on Pp's instruction** (the same
+  answer as #174). Docs and a PR template only, so nothing to release. The next release PR is opened with
+  `--template release.md`. Its question on the 25 old backend deployments waits for Pp (`BACKLOG.md` §
+  Now). `CHANGELOG.md` 2026-10-28.
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
@@ -1101,6 +1123,14 @@ added case in `verify-gas-registry-upsert.cjs`; all 22 `verify-*.cjs` harnesses 
 🟢 **CLOSED 2026-09-12 — both hosts.** Closes the exact gap `AI_SDLC.md` § 5 named — a push to `main` used
 to be an unreviewed production deploy on both hosts, backwards from the backend's explicit-
 confirmation-before-`clasp deploy` model, and the frontend is where the printed dose is drawn.
+
+🟢 **2026-10-28 — a release PR carries its numbers and its rollback target (NF-05, PR #179).** A
+`main → release` PR starts from `.github/PULL_REQUEST_TEMPLATE/release.md`: a release that changes a
+calculation shows at least three dev-local cases per changed calculation, before and after, and every
+release names the tag and backend version it rolls back to (`REFERENCE.md` § Before and after, and
+rolling back). Pp dropped the 48 h pilot the same day, so there is no `pilot` branch, pilot deployment
+or extra check. The gate itself is unchanged. Merged into `main` on Pp's instruction, 2026-10-28, with
+#174 and #176.
 
 **Done:**
 - `release` branch created from `main`'s tip (`89f9ce2`).
