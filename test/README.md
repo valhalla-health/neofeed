@@ -1738,22 +1738,25 @@ case of a rule produced; `--fix-lines` rewrites the `where` line numbers once co
 line is a note, not a failure). `NEGATIVE_CONTROL=1` (`GIR_HARD_HI` 12 → 13) and `=2` (peripheral
 osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks when written.
 
-## Print ทั้งหมด, and no Calculator button on the print list, 2026-10-28 — one harness added, two adjusted
+## Print ทั้งหมด, ticks, and no Calculator button on the print list, 2026-10-28 — one harness added, two adjusted
 
-Pp: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง" (`CHANGELOG.md`
-2026-10-28 (1)). **`verify-print-all-1028.cjs`** drives the real `<App/>` through `review-0917-boot`
-(jsdom; also against `compiled/`), 43 checks in seven scenarios: the button sits after the title block
-in the head and counts only what a tap would print (no `tmp_` row, no two-orders day); no Calculator
-button on the print list, still one on the gate and the ward list; a run opens the orders in bed order,
-each printed once on its own infant's sheet with another infant active first, afterprint moves nothing
-on, ถัดไป opens the next (today's order, not yesterday's), the last leads back to the list, and a second
-Print ทั้งหมด starts over; a colleague's edit lock holds that order's print and ถัดไป still goes on; an
-order the Print gate holds back says why and ถัดไป still goes on; leaving the run by ← or the rail ends
-it; nothing printable leaves the button off, no order leaves no button. Against `main` (`326bcd9`), 13
-fail. **`verify-phone-sweep.cjs`** measures the button on every device profile: at the head's right edge,
-level with its top, beside the title rather than under it, and no Calculator button. **`verify-quick-calc.cjs`**
-pins `showQuickFab = view === "registry" && !printWard`.
-
+Pp: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง", then "ให้สามารถมีปุ่มซีเล็ก
+เป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้" (`CHANGELOG.md` 2026-10-28 (1)). **`verify-print-all-1028.cjs`** drives the
+real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 67 checks in ten scenarios: the
+button sits after the title block and counts only what a tap would print (no `tmp_` row, no two-orders
+day); no Calculator button on the print list, still one on the gate and the ward list; a run opens the
+orders in bed order, each printed once on its own infant's sheet with another infant active first,
+afterprint moves nothing on, ถัดไป opens the next, the last reads "ใบสุดท้าย" and claims no count, a second
+Print ทั้งหมด starts over; a colleague's lock holds that order (the last one too) and ถัดไป still goes on;
+an order the Print gate holds back says why and ถัดไป still goes on; leaving by ← or the rail ends the run;
+nothing printable leaves the button off, no order leaves no button; a tick per printable row beside its
+card, เลือกทั้งหมด ticks, clears and shows part-ticked, the button reads Print ทั้งหมด or Print ที่เลือก with
+the count, the run is the ticked orders only, a tap on a row still prints one; a sync during the run that
+gives an infant a second order, deletes an order or discharges an infant skips that one by name and goes
+on (Vera's three tests, each failing on the first commit). Against `main` (`326bcd9`), 17 fail, in all ten. **`verify-phone-sweep.cjs`** measures the
+button on every device profile (at the head's right edge, level with its top, beside the title), the
+ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
+`showQuickFab = view === "registry" && !printWard`.
 
 ## Note on the source workbook
 

@@ -226,9 +226,14 @@ async function sweepDevice(browser, BASE, [name, W, H, largeText], extraCss) {
         ...(Math.abs(bb.top - hb.top) > 1.5 || bb.top >= tb.bottom ? [`not at the top: ${Math.round(bb.top - hb.top)}px down`] : []),
         ...(bb.left < tb.left + 1 ? ['stacked under the title'] : []),
         ...(fab && fab.getBoundingClientRect().width > 0 ? ['the Calculator button shows'] : []),
+        // The ticks (Pp's second ask that day) stay a finger wide.
+        ...[...document.querySelectorAll('.print-pick')].filter(el => el.getBoundingClientRect().width < 44)
+          .map(() => 'a row tick narrower than 44px'),
+        ...(!document.querySelector('.print-pick-all') || document.querySelector('.print-pick-all').getBoundingClientRect().height < 44
+          ? ['เลือกทั้งหมด missing or under 44px'] : []),
       ];
     });
-    results.push({ screen: 'print list · Print ทั้งหมด top right, no Calculator', clipped: [], sideways: 0, reach: { ok: true }, problems: head });
+    results.push({ screen: 'print list · Print ทั้งหมด top right, ticks, no Calculator', clipped: [], sideways: 0, reach: { ok: true }, problems: head });
     await page.locator('button', { hasText: '← กลับ' }).first().click({ timeout: 5000 });
     await page.locator('.ward-tile').first().click();
     await check('ward list', '.work');

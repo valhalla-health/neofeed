@@ -95,20 +95,41 @@ const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter((e) => D_R.normalizeDateStr(e.ts) === today);
 }
+function wardPrintableOrder(p, entries, ward, today) {
+  if (!p || !isActivePatient(p) || D_R.patientWard(p) !== ward) return null;
+  const orders = todaysOrders(entries, today);
+  return orders.length === 1 && !isPendingRow(orders[0]) ? orders[0] : null;
+}
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const active = patients.filter((p) => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active.map((p) => ({ p, orders: todaysOrders(log[p.sessionId], today) })).filter((r) => r.orders.length > 0);
   const waiting = active.length - rows.length;
-  const queue = rows.flatMap(({ p, orders }) => orders.length === 1 && !isPendingRow(orders[0]) ? [{
-    sessionId: p.sessionId,
-    entryId: orders[0].entryId,
-    label: [
-      D_R.isParked(p) ? "รอเตียง" : p.currentBed || D_R.lastBed(p),
-      D_R.patientName(p),
-      p.twinSuffix && multiplesLabel(p)
-    ].filter(Boolean).join(" ")
-  }] : []);
+  const printable = rows.flatMap(({ p }) => {
+    const order = wardPrintableOrder(p, log[p.sessionId], ward, today);
+    return order ? [{
+      sessionId: p.sessionId,
+      entryId: order.entryId,
+      label: [
+        D_R.isParked(p) ? "รอเตียง" : p.currentBed || D_R.lastBed(p),
+        D_R.patientName(p),
+        p.twinSuffix && multiplesLabel(p)
+      ].filter(Boolean).join(" ")
+    }] : [];
+  });
+  const [picked, setPicked] = React.useState(null);
+  const isPicked = (item) => picked === null || picked.has(item.entryId);
+  const queue = printable.filter(isPicked);
+  const allPicked = queue.length === printable.length;
+  const togglePick = (item) => {
+    const next = new Set(picked === null ? printable.map((i) => i.entryId) : picked);
+    if (next.has(item.entryId)) next.delete(item.entryId);
+    else next.add(item.entryId);
+    setPicked(next);
+  };
+  const pickable = !!onPrintAll && printable.length > 0;
+  const itemFor = new Map(printable.map((i) => [i.sessionId, i]));
+  const printWhat = allPicked ? "Print ทั้งหมด" : "Print ที่เลือก";
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head print-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("h1", null, "Print order · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, window.NEOFEED_FMT_DATE?.(today) || today, " · Submit แล้ว", " ", /* @__PURE__ */ React.createElement("span", { className: "num" }, rows.length), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, active.length), " ราย"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onBack, style: { fontSize: 12.5, marginTop: 10 } }, "← กลับ")), onPrintAll && rows.length > 0 && /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -116,20 +137,40 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
       className: "btn primary print-all",
       disabled: queue.length === 0,
       onClick: () => onPrintAll(queue),
-      "aria-label": `Print ทั้งหมด ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`
+      "aria-label": `${printWhat} ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14, color: "#fff" }),
-    " Print ทั้งหมด ",
+    " ",
+    printWhat,
+    " ",
     /* @__PURE__ */ React.createElement("span", { className: "num" }, "(", queue.length, ")")
-  )), /* @__PURE__ */ React.createElement("div", { className: "print-list" }, rows.map(({ p, orders }) => {
+  )), /* @__PURE__ */ React.createElement("div", { className: "print-list" }, pickable && /* @__PURE__ */ React.createElement("label", { className: "print-pick-all" }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "checkbox",
+      checked: allPicked,
+      ref: (el) => {
+        if (el) el.indeterminate = queue.length > 0 && !allPicked;
+      },
+      onChange: () => setPicked(allPicked ? /* @__PURE__ */ new Set() : null)
+    }
+  ), "เลือกทั้งหมด", /* @__PURE__ */ React.createElement("span", { className: "print-pick-n" }, "เลือกแล้ว ", /* @__PURE__ */ React.createElement("span", { className: "num" }, queue.length), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printable.length), " ใบ")), rows.map(({ p, orders }) => {
     const one = orders.length === 1 ? orders[0] : null;
     const pending = !!one && isPendingRow(one);
     const open = pending ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
     const action = pending ? "กำลังบันทึก…" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
-    return /* @__PURE__ */ React.createElement(
+    const item = itemFor.get(p.sessionId);
+    return /* @__PURE__ */ React.createElement("div", { key: p.sessionId, className: "print-item" }, pickable && (item ? /* @__PURE__ */ React.createElement("label", { className: "print-pick" }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: isPicked(item),
+        onChange: () => togglePick(item),
+        "aria-label": `เลือก ${item.label}`
+      }
+    )) : /* @__PURE__ */ React.createElement("span", { className: "print-pick", "aria-hidden": "true" })), /* @__PURE__ */ React.createElement(
       "div",
       {
-        key: p.sessionId,
         className: "print-row" + (pending ? " is-pending" : ""),
         onClick: open || void 0,
         ...open ? rowA11y(open) : {},
@@ -153,7 +194,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         action,
         !pending && /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: one ? "#fff" : void 0 })
       )
-    );
+    ));
   }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), waiting > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
 }
 function SearchMiss({ query, wardName, elsewhere, onWardChange }) {

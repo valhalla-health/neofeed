@@ -23,6 +23,15 @@
 //               and ถัดไป still goes on
 //   #5 leave    leaving the run ends it: a later tap on a row shows no bar
 //   #6 none     nothing printable: the button is off; no orders: no button
+//   #7 pick     Pp's second ask, "ให้สามารถมีปุ่มซีเล็กเป็น คน ๆ ไปได้หรือ
+//               ซีเล็กออลก็ได้": a tick per printable row, เลือกทั้งหมด, and
+//               the run is the ticked orders only
+//   #8 resync   Vera, 2026-10-28: each queued order is asked the list's rule
+//               again before it opens; one a sync took off the list (a second
+//               order that day, discharged, deleted) is skipped by name
+//
+// The last bar reads "ใบสุดท้าย", never "ครบ N ใบ": the run cannot know a
+// sheet printed (Vera, 2026-10-28).
 //
 // Drives the real <App/> through review-0917-boot (dev-only deps as in
 // test/README.md).
@@ -78,6 +87,8 @@ const fab = () => document.querySelector('.quick-fab');
 const sheetPatient = () => document.querySelector('#print-form > table')?.textContent || '';
 const sheetIs = (id) => new RegExp(`NeoFeed ID:\\s*${id}\\b`).test(sheetPatient());
 const openedIs = (id) => /แก้ไขบันทึกโภชนาการ/.test(document.body.textContent) && sheetIs(id);
+const pick = (name) => printRow(name)?.parentElement.querySelector('.print-pick input') || null;
+const pickAll = () => document.querySelector('.print-pick-all input');
 
 const scenarios = {
   async 'list'(A) {
@@ -141,8 +152,9 @@ const scenarios = {
     A.ok('2.9 DD\'s order for today, not yesterday\'s', openedIs('DD-1')
       && !/DOL \d+ · /.test(document.querySelector('.page-head h1')?.textContent || ''));
     A.eq('2.10 …printed once', t.printed, 3);
-    const done = t.btn(/ครบ 3 ใบ · กลับไปรายการ/);
+    const done = t.btn(/ใบสุดท้าย · กลับไปรายการ/);
     A.ok('2.11 the last offers the way back, not a next', /ใบที่ 3 จาก 3/.test(bar()?.textContent || '') && !!done && !t.btn(/ถัดไป:/));
+    A.ok('2.11b …and claims no count of sheets printed', !/ครบ/.test(bar()?.textContent || ''));
     await t.click(done);
     await settle(t);
     A.ok('2.12 …which is NICU\'s list again', /Print order · NICU/.test(t.text()) && printRows().length === 5);
@@ -157,7 +169,7 @@ const scenarios = {
   async 'held'(A) {
     console.log('\n── #3 a colleague has one of the orders open ──');
     const t = setup();
-    t.server.hooks.acquireLogLock = (b) => (b.sessionId === 'AA-1'
+    t.server.hooks.acquireLogLock = (b) => (b.sessionId === 'AA-1' || b.sessionId === 'DD-1'
       ? { reply: { ok: true, locked: true, holder: { name: 'Dr B' } } } : undefined);
     await t.start();
     await t.click(wardPrint('NICU'));
@@ -172,6 +184,13 @@ const scenarios = {
     await t.click(t.btn(/ถัดไป: NICU 2 BB/));
     await settle(t);
     A.ok('3.3 …which opens and prints BB\'s', openedIs('BB-1') && t.printed === 1);
+    await t.click(t.btn(/ถัดไป: NICU 4 DD/));
+    await settle(t);
+    await t.flush(1700);
+    await settle(t);
+    A.ok('3.4 the last order (DD) is held too', t.printed === 1 && /Dr B กำลังเปิดบันทึกวันที่/.test(t.text()));
+    A.ok('3.5 …and the last bar does not say all 3 printed (Vera)',
+      /ใบที่ 3 จาก 3/.test(bar()?.textContent || '') && !/ครบ/.test(bar().textContent) && !!t.btn(/ใบสุดท้าย · กลับไปรายการ/));
   },
 
   async 'blocked'(A) {
@@ -230,6 +249,96 @@ const scenarios = {
     await settle(t);
     A.ok('6.2 …and a tap on it does nothing', /Print order · อื่นๆ/.test(t.text()) && t.printed === 0);
   },
+};
+
+scenarios['pick'] = async (A) => {
+  console.log('\n── #7 tick one by one, or เลือกทั้งหมด ──');
+  const t = setup();
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  A.ok('7.0 each printable row has a tick, ticked; the saving and two-orders rows have none',
+    ['AA', 'BB', 'DD'].every(n => pick(n)?.checked) && !pick('EE') && !pick('FF'));
+  A.ok('7.1 …each named for its infant', pick('BB').getAttribute('aria-label') === 'เลือก NICU 2 BB');
+  A.ok('7.2 เลือกทั้งหมด is ticked, and the button reads Print ทั้งหมด (3)',
+    pickAll()?.checked && /Print ทั้งหมด \(3\)/.test(printAll().textContent));
+  A.ok('7.3 the tick is beside the card, not inside the card\'s button', !printRow('BB').querySelector('input'));
+  await t.click(pick('BB'));
+  A.ok('7.4 unticking BB opens and prints nothing', t.printed === 0 && /Print order · NICU/.test(t.text()) && !pick('BB').checked);
+  A.ok('7.5 …the button reads Print ที่เลือก (2)', /Print ที่เลือก \(2\)/.test(printAll().textContent) && !printAll().disabled);
+  A.ok('7.6 …and เลือกทั้งหมด is part-ticked, counting 2 of 3',
+    !pickAll().checked && pickAll().indeterminate
+    && /เลือกแล้ว 2 จาก 3 ใบ/.test(document.querySelector('.print-pick-all').textContent));
+  await t.click(pickAll());
+  A.ok('7.7 เลือกทั้งหมด ticks every one again', ['AA', 'BB', 'DD'].every(n => pick(n).checked)
+    && pickAll().checked && !pickAll().indeterminate && /Print ทั้งหมด \(3\)/.test(printAll().textContent));
+  await t.click(pickAll());
+  A.ok('7.8 …a second tap clears them all, and Print is off', ['AA', 'BB', 'DD'].every(n => !pick(n).checked)
+    && printAll().disabled && /\(0\)/.test(printAll().textContent));
+  await t.click(pick('DD'));
+  await t.click(pick('AA'));
+  A.ok('7.9 ticked one by one: Print ที่เลือก (2)', /Print ที่เลือก \(2\)/.test(printAll().textContent) && !pick('BB').checked);
+  await t.click(printAll());
+  await settle(t);
+  A.ok('7.10 the run is the ticked ones, in bed order: AA first, DD next',
+    openedIs('AA-1') && t.printed === 1 && /ใบที่ 1 จาก 2/.test(bar()?.textContent || '') && !!t.btn(/ถัดไป: NICU 4 DD/));
+  await t.click(t.btn(/ถัดไป: NICU 4 DD/));
+  await settle(t);
+  A.ok('7.11 …then DD, never the unticked BB', openedIs('DD-1') && t.printed === 2
+    && /ใบที่ 2 จาก 2/.test(bar()?.textContent || '') && !!t.btn(/ใบสุดท้าย/));
+  await t.click(t.btn(/ใบสุดท้าย/));
+  await settle(t);
+  A.ok('7.12 back on the list, every order is ticked again', ['AA', 'BB', 'DD'].every(n => pick(n)?.checked)
+    && /Print ทั้งหมด \(3\)/.test(printAll().textContent));
+  await t.click(printRow('BB'));
+  await settle(t);
+  A.ok('7.13 a tap on a row still prints that one order', openedIs('BB-1') && t.printed === 3 && !bar());
+};
+
+scenarios['resync'] = async (A) => {
+  console.log('\n── #8 a sync during the run takes an order off the list ──');
+  const t = setup();
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await settle(t);
+  A.ok('8.0 AA opens and prints', openedIs('AA-1') && t.printed === 1);
+  // BB gains a second Submitted order today: the list leaves that day for a
+  // person to choose, so the run must not print e-bb on its own.
+  t.server.log['BB-1'].push(order('e-bb2', { lastModified: TODAY + 'T04:00:00.000Z' }));
+  const before = t.syncCalls().length;
+  await t.click(t.syncButton());
+  await settle(t);
+  A.ok('8.1 (a sync brought it in)', t.syncCalls().length > before);
+  await t.click(t.btn(/ถัดไป: NICU 2 BB/));
+  await settle(t);
+  A.ok('8.2 BB is skipped, by name, and nothing prints for it',
+    t.toasts().some(m => /ข้าม NICU 2 BB — ไม่อยู่ในรายการ Print order แล้ว/.test(m)) && !sheetIs('BB-1'));
+  A.ok('8.3 …the run goes on to DD, which prints', openedIs('DD-1') && t.printed === 2
+    && /ใบที่ 3 จาก 3/.test(bar()?.textContent || ''));
+};
+
+scenarios['gone'] = async (A) => {
+  console.log('\n── #8b the rest of the run is gone by the time it is reached ──');
+  const t = setup();
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await settle(t);
+  // BB's order deleted, DD discharged.
+  t.server.log['BB-1'] = [];
+  t.server.patients.find(p => p.sessionId === 'DD-1').status = 'Discharged';
+  t.server.patients.find(p => p.sessionId === 'DD-1').statusDate = TODAY;
+  await t.click(t.syncButton());
+  await settle(t);
+  await t.click(t.btn(/ถัดไป: NICU 2 BB/));
+  await settle(t);
+  A.ok('8.4 both are skipped, each by name', t.toasts().some(m => /ข้าม NICU 2 BB/.test(m))
+    && t.toasts().some(m => /ข้าม NICU 4 DD/.test(m)));
+  A.ok('8.5 …nothing more prints, and the user is on the list with no bar',
+    t.printed === 1 && /Print order · NICU/.test(t.text()) && !bar());
+  await t.click(printRow('AA'));
+  await settle(t);
+  A.ok('8.6 …and the run is over: a tap on AA is a single order', openedIs('AA-1') && !bar() && t.printed === 2);
 };
 
 // A ward with no order today shows no button at all: SCN once its two infants

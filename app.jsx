@@ -724,7 +724,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // gives the page its way back to the list. Any navigation clears it.
   const [autoPrint, setAutoPrint] = React.useState(null);
   // Print ทั้งหมด on that list (Pp, 2026-10-28): { items, index, opening },
-  // items being the list's printable orders in bed order ({ sessionId,
+  // items being the orders ticked on the list, in bed order ({ sessionId,
   // entryId, label }). Each is opened from the list exactly as a tap on its
   // row opens it (openOrderToPrint), so each passes the calculator's Print
   // gate and the edit lock on its own. The next one opens only when the user
@@ -785,12 +785,25 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   };
   // Print ทั้งหมด: the queue's current order is opened from the list, and
   // only from the list, so the calculator that held the previous one has
-  // unmounted and the next mounts fresh, as after a tap on its row.
+  // unmounted and the next mounts fresh, as after a tap on its row. Each is
+  // first asked the list's own rule again (registry.jsx wardPrintableOrder)
+  // against the data as it is now: an order a tap on the list could no longer
+  // reach — the infant discharged or moved, a second order that day, the
+  // order deleted, the day rolled over — is skipped, by name, and the run
+  // goes on (Vera, 2026-10-28).
   React.useEffect(() => {
     if (view !== "registry" || !printWard || !printQueue?.opening) return;
     const item = printQueue.items[printQueue.index];
+    if (!item) { setPrintQueue(null); return; }
+    const p = patients.find(x => x.sessionId === item.sessionId);
+    const order = wardPrintableOrder(p, log[item.sessionId], printWard, D_A.todayLocal());
+    if (!order || order.entryId !== item.entryId) {
+      showToast(`ข้าม ${item.label || "ใบสั่งนี้"} — ไม่อยู่ในรายการ Print order แล้ว`, "error");
+      setPrintQueue({ ...printQueue, index: printQueue.index + 1 });
+      return;
+    }
     setPrintQueue({ ...printQueue, opening: false });
-    if (item) openOrderToPrint(item.sessionId, item.entryId);
+    openOrderToPrint(item.sessionId, item.entryId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, printWard, printQueue]);
   // Back at the ward gate by any route, the queue is over.
@@ -2772,8 +2785,10 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
               ถัดไป: {printAll.next} <Icon name="arrow" size={11} color="#fff" />
             </button>
           ) : (
+            // "ใบสุดท้าย", not "ครบ N ใบ": the run cannot know a sheet printed —
+            // a held order or a cancelled dialog looks the same from here (Vera).
             <button type="button" className="btn" onClick={onBackToPrintList}>
-              ครบ <span className="num">{printAll.total}</span> ใบ · กลับไปรายการ
+              ใบสุดท้าย · กลับไปรายการ
             </button>
           )}
         </div>

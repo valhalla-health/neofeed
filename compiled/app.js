@@ -441,8 +441,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   React.useEffect(() => {
     if (view !== "registry" || !printWard || !printQueue?.opening) return;
     const item = printQueue.items[printQueue.index];
+    if (!item) {
+      setPrintQueue(null);
+      return;
+    }
+    const p = patients.find((x) => x.sessionId === item.sessionId);
+    const order = wardPrintableOrder(p, log[item.sessionId], printWard, D_A.todayLocal());
+    if (!order || order.entryId !== item.entryId) {
+      showToast(`ข้าม ${item.label || "ใบสั่งนี้"} — ไม่อยู่ในรายการ Print order แล้ว`, "error");
+      setPrintQueue({ ...printQueue, index: printQueue.index + 1 });
+      return;
+    }
     setPrintQueue({ ...printQueue, opening: false });
-    if (item) openOrderToPrint(item.sessionId, item.entryId);
+    openOrderToPrint(item.sessionId, item.entryId);
   }, [view, printWard, printQueue]);
   React.useEffect(() => {
     if (!printWard) setPrintQueue(null);
@@ -1742,7 +1753,11 @@ function CalculatorView({
     showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${holder.name || holder.email || "ผู้ใช้งานอื่น"} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
   }, [autoPrint, holder]);
   const autoPrintNow = editEntry && autoPrint && lockChecked && !holder && autoPrintHeld !== autoPrint ? autoPrint : null;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && (onBackToPrintList ? /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBackToPrintList }, "← กลับไปรายการ Print order") : /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard")), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: requestPrint }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), printAll && /* @__PURE__ */ React.createElement("div", { className: "print-all-bar", role: "status" }, /* @__PURE__ */ React.createElement("span", null, "Print ทั้งหมด · ใบที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.position), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.total)), printAll.hasNext ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn primary", onClick: onPrintAllNext }, "ถัดไป: ", printAll.next, " ", /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: "#fff" })) : /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: onBackToPrintList }, "ครบ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.total), " ใบ · กลับไปรายการ")), holder && /* @__PURE__ */ React.createElement("div", { style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && (onBackToPrintList ? /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBackToPrintList }, "← กลับไปรายการ Print order") : /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard")), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: requestPrint }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), printAll && /* @__PURE__ */ React.createElement("div", { className: "print-all-bar", role: "status" }, /* @__PURE__ */ React.createElement("span", null, "Print ทั้งหมด · ใบที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.position), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.total)), printAll.hasNext ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn primary", onClick: onPrintAllNext }, "ถัดไป: ", printAll.next, " ", /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: "#fff" })) : (
+    // "ใบสุดท้าย", not "ครบ N ใบ": the run cannot know a sheet printed —
+    // a held order or a cancelled dialog looks the same from here (Vera).
+    /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: onBackToPrintList }, "ใบสุดท้าย · กลับไปรายการ")
+  )), holder && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",

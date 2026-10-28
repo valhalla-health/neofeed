@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-10-28 (1) — Print ทั้งหมด on a ward's Print order list, and no Calculator button there
+## Session 2026-10-28 (1) — Print ทั้งหมด and per-infant ticks on a ward's Print order list, no Calculator button there
 
 `registry.jsx`, `app.jsx`, both shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs` (new),
 `test/verify-phone-sweep.cjs`, `test/verify-quick-calc.cjs`, `test/README.md`. No calculation, limit or
@@ -16,7 +16,7 @@ printed figure changed; `calculator.jsx`, `data.js` and `gas-backend.gs` are unt
 ### Why
 
 Pp, on a phone screenshot of "Print order · NICU": "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมี
-แคลคูเลเตอร์ด้านขวาล่าง".
+แคลคูเลเตอร์ด้านขวาล่าง", then, in the same session: "ให้สามารถมีปุ่มซีเล็กเป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้".
 
 ### What changed
 
@@ -24,12 +24,21 @@ Pp, on a phone screenshot of "Print order · NICU": "ให้หน้านี
   is overridden for this page only; ← กลับ moved under the title). It counts the rows a tap would print
   and is off when there are none. A row still saving, or a day with two orders, is left out, as a tap
   on it does not print either.
+- **A tick per infant, and เลือกทั้งหมด.** Each printable row has a tick beside its card (not inside it:
+  the card is itself a button), all ticked when the list opens. เลือกทั้งหมด ticks or clears them all and
+  shows part-ticked with "เลือกแล้ว 2 จาก 3 ใบ". The button reads Print ทั้งหมด (3) while all are ticked
+  and Print ที่เลือก (2) otherwise, and is off at 0. A tap on a row still prints that one order. The
+  ticks live in the list, so they reset to all when the list is opened again.
 - **One order at a time.** The run opens each order from the list exactly as a tap on its row does
   (`openOrderToPrint`), so each still passes the calculator's Print gate and the edit lock, and gets
   one print preview. A bar on the calculator reads "Print ทั้งหมด · ใบที่ 1 จาก 3" with
-  "ถัดไป: NICU 2 …"; the last reads "ครบ 3 ใบ · กลับไปรายการ". An order held back (unsaved edit, a
+  "ถัดไป: NICU 2 …"; the last reads "ใบสุดท้าย · กลับไปรายการ". An order held back (unsaved edit, a
   critical value with no reason, a colleague's lock) shows the usual reason, and ถัดไป still goes on.
   Leaving the calculator, or the list, ends the run.
+- **Each order is asked the list's rule again before it opens** (`registry.jsx` `wardPrintableOrder`,
+  shared by the list and the run). One a sync took off the list during the run (the infant discharged or
+  moved, a second order that day, the order deleted, the day rolled over) is skipped with a toast naming
+  it, and the run goes on.
 - **No Calculator button on the print list.** It stays on the ward gate and the ward's patient list.
 
 ### Decisions
@@ -42,9 +51,19 @@ Pp, on a phone screenshot of "Print order · NICU": "ให้หน้านี
   a second path that decides what may print. This one reuses the reviewed path untouched. If the ward
   wants one dialog for the whole ward, that is the follow-up.
 
+### Vera
+
+NO BLOCK on the first commit, three findings, all fixed in the second: the last bar said "ครบ N ใบ" though
+the run cannot know a sheet printed (now "ใบสุดท้าย"); the queue was never re-checked, so a sync during the
+run could auto-print an order a tap on the list could no longer reach (now `wardPrintableOrder` is asked
+again before each order); a deleted entry ended the run silently (now skipped by name, the run goes on).
+Her three proposed tests went in (`verify-print-all-1028` 3.5, #8 `resync`, #8b `gone`); each fails on
+the first commit and passes on the second.
+
 ### Checked
 
-`verify-print-all-1028.cjs` 43/43 on the sources and on `compiled/`; against `main` (`326bcd9`), 13 fail.
+`verify-print-all-1028.cjs` 67/67 on the sources and on `compiled/`; against `main` (`326bcd9`), 17 fail,
+in every one of its ten scenarios.
 
 ## Session 2026-10-27 (5) — NF-04: Pp's clinical-rules skill, and a harness that reads its cases
 
