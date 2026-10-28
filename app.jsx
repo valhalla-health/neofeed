@@ -3337,19 +3337,20 @@ const HELP_IMAGE_MAX_EDGE = 1600;
 // several MB. A transparent PNG is laid on white, not black. Resolves to
 // { data (bare base64), dataUrl, bytes, width, height }; rejects with a Thai
 // sentence.
+//
+// The picture is read as a data: URL, never URL.createObjectURL's blob: one.
+// _headers' img-src allows data: and not blob:, so on the Workers host a blob:
+// picture never opened, on an iPhone or an Android phone alike (Pp,
+// 2026-10-28). GitHub Pages sends no CSP, which is why it worked there.
 function helpImageFromFile(file) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type || "")) return reject(new Error("แนบได้เฉพาะรูปภาพ"));
-    const url = URL.createObjectURL(file);
+    const cannotOpen = () => reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
     const img = new Image();
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
-    };
+    img.onerror = cannotOpen;
     img.onload = () => {
-      URL.revokeObjectURL(url);
       const w = img.naturalWidth, h = img.naturalHeight;
-      if (!w || !h) return reject(new Error("เปิดรูปนี้ไม่ได้ — ลองแนบเป็น screenshot หรือรูป JPEG"));
+      if (!w || !h) return cannotOpen();
       // Almost every picture fits on the first pass; a huge, noisy one is
       // drawn smaller until it does.
       let edge = Math.min(HELP_IMAGE_MAX_EDGE, Math.max(w, h));
@@ -3372,7 +3373,13 @@ function helpImageFromFile(file) {
       }
       reject(new Error("รูปใหญ่เกินไป — ครอปให้เล็กลงแล้วแนบใหม่"));
     };
-    img.src = url;
+    const reader = new FileReader();
+    reader.onerror = cannotOpen;
+    reader.onload = () => {
+      if (typeof reader.result !== "string" || !/^data:/.test(reader.result)) return cannotOpen();
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
 function HelpRequestModal({ onClose, onSend }) {

@@ -232,6 +232,13 @@
 both are verified.** #186 released #183 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at
 13:58 ICT. Both `verify-release` runs and both tags were done from Pp's PC (banners). Caught up with #184
 by PR #183 and with #186 by PR #176, the next PRs on the repo.
+- ⏳ **PR #191, a help request can carry its picture on the Workers host: merged into `main` on Pp's
+  instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28). It is not live until the
+  `main → release` PR this session opens next.** The form opened the picked file as a `blob:` URL, and
+  `_headers`' `img-src` does not allow `blob:`. So no browser on the Workers host could attach a picture:
+  Pp's iPhone, and Android and desktop the same. It now opens a `data:` URL. Frontend only (`app.jsx`),
+  no `clasp` step. `CONSTANTS_VERSION` and `_headers` are unchanged. Vera: NO BLOCK. ⚠️ Not yet tried
+  from a real iPhone or Android phone. `CHANGELOG.md` 2026-10-28 (7).
 - ✅ **PR #183, the ward list's status chip changes the status and its bed chip is the ⇄ button; Expired
   asks first: live, released by #186 (banner above) on Pp's instruction ("1+2": yes to the Expired
   question, and to merge and deploy).**
@@ -239,11 +246,11 @@ by PR #183 and with #186 by PR #176, the next PRs on the repo.
   A status change saves where Edit session saves it (`registerPatient`, `status` + `statusDate` only).
   Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28 (5).
 - ⏳ **PR #188, on a phone the archive opens out from under the Calculator button: merged into `main` on
-  Pp's instruction ("Merge and deploy", 2026-10-28) and released by the `main → release` PR opened in the
-  same session, whose comment holds the dev-local run and `verify-release`.** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
+  Pp's instruction ("Merge and deploy", 2026-10-28); live once the `main → release` PR that carries it
+  merges, whose comment holds the dev-local run and `verify-release`.** Pp could bring an infant back from a PC and not from a phone: once the archive was opened, the
   first archived card's status chip was under the Calculator button and its Edit under the bottom nav, and
   a tap on the chip opened the quick calc. Opening the archive now scrolls it to the top of the list.
-  Frontend only, no `clasp` step, no figure. `CHANGELOG.md` 2026-10-28 (7).
+  Frontend only, no `clasp` step, no figure. `CHANGELOG.md` 2026-10-28 (8).
 - ✅ **PR #182, Step 2's two feeds: live, released by #184 (banner above) on Pp's instruction ("Merge and
   deploy", 2026-10-28)**, with #173 riding along (nothing of #173 is served). Each feed is a milk, then its kcal/oz, a volume and feeds a day;
   two feeds are summed into every figure, and together must fill a regular schedule (8 = q3h, 6 = q4h)
