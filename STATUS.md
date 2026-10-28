@@ -211,17 +211,24 @@ PR #182, the next PR on the repo.
   decision**: after a revert, or on a ward tab loaded before the release, a two-feed order shows and
   prints feed 1 only, unheld. No second clinician has checked the two-feed figures. Open for Pp: Q18
   (one feed above 8 a day), 6 + 2 refused, NF-17. Vera: NO BLOCK three times. `CHANGELOG.md` 2026-10-28.
-
-**Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
-verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below
-went live with #172 on 2026-10-27; #173 goes with #182.)*
+- ⏳ **PR #181, Print ทั้งหมด / Print ที่เลือก with a tick per infant on a ward's Print order list, and no
+  Calculator button there: merged into `main` on Pp's instruction ("Merge and deploy", 2026-10-28), and
+  released by the open `main → release` PR #184, which takes it in with #182.** Frontend only (`app.jsx`,
+  `registry.jsx`, both shells), no `clasp` step, `CONSTANTS_VERSION` unchanged, and the printed sheet is
+  the same: each ticked order opens one at a time through the existing Print gate, the next only on a tap
+  of ถัดไป. Vera: NO BLOCK twice. ⚠️ Not yet tried on a ward phone or iPad: that ถัดไป cannot be reached
+  while a print sheet is still open. `CHANGELOG.md` 2026-10-28 (2).
 - ⏳ **PR #180, no Copy Order on a patient's order: merged into `main` on Pp's instruction ("If CI passed,
   merge and deploy", 2026-10-28); released by the open `main → release` PR #184 (opened for #182 and
   #173), which absorbs it.** Frontend only, no `clasp` step, `CONSTANTS_VERSION` unchanged. A patient's
   order leaves NeoFeed only as the printed form; the quick calc keeps "คัดลอกผลคำนวณ" (Pp: "Quick calc
   ให้ยังมีคัดลอกผล"). ⚠️ Open at release: whether anyone pastes orders into HIS or LINE (#178's Usage table
   says Copy can reach HIS), and whether the Thai ward manual names Copy Order. Vera: NO BLOCK.
-  `CHANGELOG.md` 2026-10-28 (2).
+  `CHANGELOG.md` 2026-10-28 (3).
+
+**Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
+verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below
+went live with #172 on 2026-10-27; #173 goes with #182.)*
 - ⏳ **PR #173, Pp's clinical-rules skill (NF-04): merged into `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
   one harness and docs, and neither host serves `.claude/` or `test/`. `CONSTANTS_VERSION` unchanged.

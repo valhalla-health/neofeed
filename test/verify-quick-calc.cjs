@@ -282,8 +282,11 @@ ok('the view is headed Calculator', /<h1[^>]*>\s*\n?\s*Calculator\n/.test(quickV
 // ward's list, both view === "registry". Its ← lands back on the Ward page
 // rather than on whichever page the user happened to open it from. Both
 // halves are pinned, because either one alone is a door that only opens one way.
+// A ward's Print order list is the one registry page without it (Pp,
+// 2026-10-28: "ไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง"); verify-print-all-1028.cjs
+// drives that page.
 ok('the button is on the Ward page and nowhere else',
-  /const showQuickFab = view === "registry";/.test(appSrc) &&
+  /const showQuickFab = view === "registry" && !printWard;/.test(appSrc) &&
   /\{showQuickFab && <QuickCalcFab onClick=\{\(\) => goTo\("quickcalc"\)\} \/>\}/.test(appSrc),
   /.{0,160}<QuickCalcFab/.exec(appSrc)?.[0]);
 ok('…so it is not on the Dashboard, the growth chart, the alerts or either calculator',
