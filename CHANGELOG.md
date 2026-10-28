@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-28 (NF-05, after Vera) — what two versions sharing one Sheet can still break
+
+Vera read the NF-05 diff (NO BLOCK, three 🟠 and two 🟡; her report is on the PR). Changed in answer:
+
+- **A column added at a tab's end is not enough.** The ward version rewrites a patient or draft row
+  over its own width only, so the new column keeps the pilot's earlier value. The first "Side by side"
+  box and `REFERENCE.md` now ask that the new version still reads such a row right.
+- **Script Properties** got their own box and bullet: no key or meaning change (the revocation epochs),
+  and no switch flipped while a pilot runs (`NURSING_LOG_ENABLED` must never meet an old frontend).
+- **A backend deploy outside the ladder moves the pilot deployment too**, and an abandoned pilot puts
+  it back on the ward's version, so the public pilot URL never runs code the ward has left.
+- **The gate** now also wants the rollback commit beside the tag, and fails on any `<…>` field left
+  unfilled. The backend Promotion box was reworded so its own text holds none. A new Promotion box
+  re-runs `verify-release.mjs --pilot`, since a branch whose name Cloudflare turns into `pilot` could
+  take the address.
+- Not changed, for Pp: a pilot banner and a mark on the printed order (the pilot looks like the ward
+  app), and the 25 older backend deployments that still answer.
+
+`test/verify-pilot-ladder.cjs` 2.14, 2.15 and 3.7 fail against the first commit's gate and template
+and pass now (39 checks).
+
 ## Session 2026-10-28 (NF-05) — the pilot ladder: 48 h on `pilot` before a release reaches the ward
 
 `REFERENCE.md` § The pilot ladder (new), `.github/PULL_REQUEST_TEMPLATE/release.md` (new),

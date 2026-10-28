@@ -8,8 +8,8 @@
 //   2. "Pilot commit:" names the commit the pilot ran, and that is the PR's head
 //      (a push to `pilot` during the pilot restarts the 48 h)
 //   3. "Pilot started:" is at least 48 h ago, read as Bangkok time
-//   4. "## Rollback target" names a release tag and the ward backend's version (@N)
-//   5. no checkbox in the body is left unticked
+//   4. "## Rollback target" names a release tag, its commit and the ward backend's version (@N)
+//   5. no checkbox in the body is left unticked, and no <…> field left unfilled
 // The body comes from .github/PULL_REQUEST_TEMPLATE/release.md.
 //
 // It is a check, not a lock: it is not a required status, and Pp merges. A release
@@ -71,8 +71,15 @@ export function checkReleasePr({ base, head, headSha, body, now = new Date() }) 
     if (!/release-\d{4}-\d{2}-\d{2}-pr\d+/.test(rollback)) {
       problems.push("the rollback target names no release tag (release-YYYY-MM-DD-prNN)");
     }
+    // Cloudflare's Deployments tab lists versions by commit, so the tag alone is not enough.
+    const frontend = rollback.split(/\r?\n/).find((l) => /Frontend:/i.test(l)) || "";
+    if (!/\b[0-9a-f]{7,40}\b/.test(frontend)) problems.push("the rollback target's Frontend line names no commit");
     if (!/@\d+/.test(rollback)) problems.push("the rollback target names no backend version (@N)");
   }
+
+  // The template's <…> fields. A link in angle brackets is not one.
+  const left = [...new Set(text.match(/<(?!https?:)[^<>\r\n]{1,40}>/g) || [])];
+  if (left.length) problems.push(`placeholder left: ${left.slice(0, 6).join(" ").replace(/::/g, ": :")}`);
 
   const open = text.split(/\r?\n/).filter((l) => /^\s*[-*+]\s+\[ \]/.test(l));
   // "::" taken out: the line is echoed after "::error::", and body text must not

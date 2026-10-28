@@ -75,6 +75,13 @@ function runBoot(src, hostname) {
       .replace('YYYY-MM-DD HH:MM ICT', `${at.slice(0, 10)} ${at.slice(11, 16)} ICT`)
       .replace('`release-YYYY-MM-DD-prNN` (`<sha>`)', '`release-2026-10-21-pr167` (`08c298d`)')
       .replace('`AKfycbz8…` at `@<n>`', '`AKfycbz8…` at `@64`')
+      .replace('#<N>: <what the ward sees>', '#170: the route is pressed, never assumed')
+      .replace('unchanged / `<old>` → `<new>`', 'unchanged')
+      .replace('unchanged / ward `@<old>` → `@<new>`', 'unchanged')
+      .replace('Pp, <fellow>', 'Pp, the pilot fellow')
+      .replace('pilot deployment at `@<n>`', 'pilot deployment at `@64`')
+      .replace('(what was tried: <…>)', '(what was tried: a TPN order for NICU 1)')
+      .replace('at least <N> orders', 'at least 5 orders')
       .replace(/- \[ \]/g, '- [x]');
   };
   const good = { base: 'release', head: 'pilot', headSha: SHA, now };
@@ -94,7 +101,7 @@ function runBoot(src, hostname) {
   ok('2.6 a start time in the future fails', !future.ok && /in the future/.test(future.problems.join('\n')), future.problems);
   const noTag = checkReleasePr({ ...good, body: fill(49).replace('release-2026-10-21-pr167', 'the last release') });
   ok('2.7 a rollback target with no release tag fails', !noTag.ok && /no release tag/.test(noTag.problems.join('\n')), noTag.problems);
-  const noVer = checkReleasePr({ ...good, body: fill(49).replace('at `@64`', 'at the current version') });
+  const noVer = checkReleasePr({ ...good, body: fill(49).replace('`AKfycbz8…` at `@64`', '`AKfycbz8…` at the current version') });
   ok('2.8 a rollback target with no backend version fails', !noVer.ok && /no backend version/.test(noVer.problems.join('\n')), noVer.problems);
   const oneOpen = fill(49).replace('- [x] No help request', '- [ ] No help request');
   const open = checkReleasePr({ ...good, body: oneOpen });
@@ -108,6 +115,16 @@ function runBoot(src, hostname) {
     !sneaky.ok && sneaky.problems.every(p => !p.includes('::')), sneaky.problems);
   const wrongBase = checkReleasePr({ ...good, base: 'main', body: fill(49) });
   ok('2.13 a PR into another branch is not a release PR', !wrongBase.ok && /not release/.test(wrongBase.problems[0]), wrongBase.problems);
+  // Vera, 2026-10-28: the Cloudflare rollback picks a version by its commit, and a
+  // body with a field left as <…> had passed.
+  const noCommit = checkReleasePr({ ...good, body: fill(49).replace('(`08c298d`)', '(the one before)') });
+  ok('2.14 a rollback target with a tag but no commit fails', !noCommit.ok
+    && noCommit.problems.some(p => /Frontend line names no commit/.test(p)), noCommit.problems);
+  const fellow = checkReleasePr({ ...good, body: fill(49).replace('Pp, the pilot fellow', 'Pp, <fellow>') });
+  ok('2.15 a field left as <fellow> fails, naming it', !fellow.ok && fellow.problems.length === 1
+    && /placeholder left: <fellow>/.test(fellow.problems[0]), fellow.problems);
+  const linked = checkReleasePr({ ...good, body: fill(49) + '\nSee <https://github.com/valhalla-health/neofeed/pull/172>.\n' });
+  ok('2.16 a link in angle brackets is not a placeholder', linked.ok, linked.problems);
 
   console.log('\n── #3 the workflow, and the template unfilled ──');
   const wf = read('.github/workflows/release-gate.yml');
@@ -118,11 +135,14 @@ function runBoot(src, hostname) {
   ok('3.3 it is not pull_request_target, so a PR\'s code runs with no secrets', !/pull_request_target/.test(wf));
   const blank = checkReleasePr({ ...good, body: template });
   const said = blank.problems.join('\n');
-  ok('3.4 the unfilled template fails on the commit, the start, the tag, the version and the boxes',
+  ok('3.4 the unfilled template fails on the commit, the start, the tag, the version, the boxes and the <…> fields',
     !blank.ok && /Pilot commit/.test(said) && /Pilot started/.test(said) && /no release tag/.test(said)
-    && /no backend version/.test(said) && /not ticked:/.test(said), blank.problems);
+    && /no backend version/.test(said) && /not ticked:/.test(said) && /placeholder left/.test(said), blank.problems);
   const boxes = (template.match(/^- \[ \]/gm) || []).length;
-  ok('3.5 the template has its checklist (side by side, pilot, promotion)', boxes >= 14, boxes);
+  ok('3.5 the template has its checklist (side by side, pilot, promotion)', boxes >= 16, boxes);
+  const sideBySide = (template.split(/^## Side by side/m)[1] || '').split(/^## /m)[0];
+  ok('3.7 "Side by side" asks about Script Properties and the stale value a rewritten row leaves (Vera, 2026-10-28)',
+    /^- \[ \].*Script Propert/m.test(sideBySide) && /^- \[ \].*rewrites the row/m.test(sideBySide), sideBySide.slice(0, 300));
   ok('3.6 REFERENCE.md has the runbook the template points at', /^### The pilot ladder/m.test(read('REFERENCE.md')));
 
   console.log(`\n${fail === 0 ? 'PILOT LADDER (NF-05): ALL PASS' : `PILOT LADDER (NF-05): ${fail} FAILED`} (${pass} passed, ${fail} failed)`);

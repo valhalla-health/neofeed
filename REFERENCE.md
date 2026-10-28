@@ -199,6 +199,14 @@ after   PR → main ──(Pp: push a main commit to pilot)──→ pilot → p
   get, since nothing is built at promotion. `node tools/verify-release.mjs --pilot` proves the pilot
   host serves the `pilot` tip byte for byte. The pilot is its own origin, so its sign-in session, drafts
   and calculator prefills are separate from the ward app's on the same device.
+  - Cloudflare makes the address from the branch name (`claude/wfi-stop-1028` became
+    `claude-wfi-stop-1028-neofeed…`), so another branch whose name turns into `pilot` could take the
+    address past `pilot`'s protection. Never create one; the Promotion box that re-runs
+    `verify-release.mjs --pilot` catches it.
+  - Nothing on screen or on the printed order says "pilot" yet: only the address and the "app …" stamp
+    in the order's footer differ, and any staff account can sign in there. Keep the address between
+    the two pilot users. A pilot banner and a mark on the printed order would change the order, so
+    they wait for Pp.
 - **Which backend.** `boot.js` § 3 sets `window.NEOFEED_GAS_URL`. On every host it is the ward
   deployment (`AKfycbz8…`), except on `pilot-neofeed.valhalla-health.workers.dev`, where it is
   `NEOFEED_PILOT_GAS_URL` once that is set. Every host gets the same `boot.js` and the hostname
@@ -222,18 +230,28 @@ release PR's "Side by side" boxes ask this. These break it:
 - **A tab's columns renamed, moved, inserted or removed.** Daily_Log, Patient_Registry and Nursing_Log
   are read by position, and `_assertSchema` refuses every save when a label it checks differs. A
   column added at a tab's end passes the old version's check, which covers only its own width, as long
-  as both versions accept the new column blank.
+  as both versions accept the new column blank. One more condition (Vera, 2026-10-28): the ward version
+  rewrites a patient or a draft row over its own width only (`gas-backend.gs` `setValues` on
+  `row.length`), so the new column keeps the pilot's earlier value beside the ward's fresh fields. The
+  new version must still read that row right.
 - **A cell that changes what it holds**: a unit (oral PO₄ in mg instead of mmol, BACKLOG § Now), the
   shape of `calcInputJson`, a value in `status` or `route` the old version does not know.
 - **A cached value whose shape changes under the same key.** Give it a new key (`sync2_` → `sync3_`)
   so neither version reads the other's.
+- **A Script Property whose key or meaning changes**, such as the session-revocation epochs
+  (`epoch_` became `epoch2_`, and `bumpUserEpoch` still writes both): with one key per version, a
+  password change on one deployment would not revoke the user's sessions on the other. And no switch (`NURSING_LOG_ENABLED`, `HELP_REQUEST_TO`) changes while a
+  pilot runs: the ward app is the "old frontend" `NURSING_LOG_ENABLED` must never meet.
 - **An editor-run migration that rewrites rows.** It acts on the ward at once.
 
 Such a release is split in two: first a version that reads both the old and the new form and still
 writes the old one, through the whole ladder; then the version that writes the new form, through the
 ladder again. If it cannot be split, it goes the old way: dev local, Pp's explicit OK for a direct
 release at a quiet hour, the rollback target named and the reason written in the release PR, which
-then shows `promotion-checklist` red while Pp merges it.
+then shows `promotion-checklist` red while Pp merges it. **A backend deploy that skips the ladder
+moves the pilot deployment to the same version** in the same sitting (Vera, 2026-10-28). Otherwise the
+pilot URL, public in `boot.js`, keeps serving code the ward has left, against the live Sheet, and any
+staff session works there because sessions are shared.
 
 **`CONSTANTS_VERSION` is not a schema change, but it shows.** A saved order whose stamp differs from
 the running version is held from Print and Copy until a doctor saves it again (`calcMoved` in
@@ -289,9 +307,9 @@ deployment. Its checklist goes in a comment on the PR whose backend code it depl
 - **Backend:** `clasp update-deployment <ward id> -V <rollback version>`, and the pilot deployment to
   the same version.
 - **A pilot that finds a wrong figure:** the pilot users switch to the ward app at once, Pp closes the
-  release PR, and the fix or a revert goes into `main`. `pilot` then moves forward to it and the 48
-  hours start again. `pilot` never moves backwards, so its preview serves the bad version until then:
-  nobody orders on it.
+  release PR, puts the pilot deployment back on the ward's version, and the fix or a revert goes into
+  `main`. `pilot` then moves forward to it and the 48 hours start again. `pilot` never moves
+  backwards, so its preview serves the bad frontend until then: nobody orders on it.
 
 **One-time setup (Pp)**
 
@@ -332,9 +350,12 @@ to it. A GAS deployment, an OAuth origin and branch protection on a public repo 
   "merge แล้ว deploy" now ends at the pilot, and the merge into `release` waits for the 48 hours.
 - Dev local runs before the pilot starts.
 - An agent pushes `pilot`, as it merges into `release`, only on Pp's explicit go-ahead.
+- § Backend's `clasp update-deployment` on the ward deployment, outside a promotion, is followed by
+  the same command on the pilot deployment, so the two never drift apart unseen.
 - `tools/release-gate.mjs` reads the release PR (`release-gate.yml`, check `promotion-checklist`):
   it comes from `pilot`, the pilot commit is its head, 48 hours have passed since the start, the
-  rollback target names a release tag and a backend `@N`, and no box is unticked. Not a required check.
+  rollback target names a release tag, its commit and a backend `@N`, no box is unticked and no `<…>`
+  field is left. Not a required check.
 
 ### Frontend
 

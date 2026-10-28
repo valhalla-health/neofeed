@@ -4,7 +4,8 @@
   Merging it is the promotion to the ward, so it waits for the checklist.
   REFERENCE.md § The pilot ladder says what each line means, and
   tools/release-gate.mjs (the promotion-checklist check) reads the lines
-  marked "gate". Fill every <…>. Comments like this one are ignored.
+  marked "gate", and fails while any <…> is left unfilled. Comments like
+  this one are ignored.
 -->
 
 ## What ships
@@ -22,9 +23,10 @@ For 48 h the pilot and the ward write to one Sheet and share its Script Properti
 If a box cannot be ticked, this release is not piloted side by side: say why here and follow
 REFERENCE.md § The pilot ladder, "When a release cannot be piloted".
 
-- [ ] No column in any tab is renamed, moved, inserted or removed; a new column goes at a tab's end, and both versions accept it blank
+- [ ] No column in any tab is renamed, moved, inserted or removed. A new column goes at a tab's end, both versions accept it blank, and the new version still reads right after the ward version rewrites the row and leaves that column's old value in place
 - [ ] No stored cell changes what it holds (unit, JSON shape, an allowed value) in a way the ward version would misread
 - [ ] A cached value whose shape changed has a new key (`sync2_…`, `sess_…`, `schema1_…`)
+- [ ] No Script Property changes its key or its meaning, and no switch (`NURSING_LOG_ENABLED`, `HELP_REQUEST_TO`) is changed while the pilot runs
 - [ ] No editor-run migration rewrites rows while the pilot runs
 - [ ] The ward's frontend, unchanged, works with the new backend (it runs on it between the backend promotion and this merge)
 
@@ -43,7 +45,7 @@ REFERENCE.md § The pilot ladder, "When a release cannot be piloted".
 
 The release live now, and where each half goes back to if the promotion goes wrong.
 
-- **Frontend:** `release-YYYY-MM-DD-prNN` (`<sha>`) <!-- gate: a release tag -->
+- **Frontend:** `release-YYYY-MM-DD-prNN` (`<sha>`) <!-- gate: a release tag and its commit -->
 - **Backend:** ward deployment `AKfycbz8…` at `@<n>` <!-- gate: @N -->
 
 ## Promotion
@@ -56,7 +58,8 @@ Tick after 48 h.
 - [ ] Apps Script ▸ Executions since the pilot started: no failed run of a kind the week before did not have
 - [ ] No help request or ward report traced to the pilot
 - [ ] Usage_Log (NF-02): no ward's count over the pilot days fell below the same days the week before (or write "Usage_Log not live yet")
-- [ ] Backend unchanged, or promoted first: `sheetHealthReport()` all ok, then `clasp update-deployment <ward id> -V <n>`, then this merge
+- [ ] `node tools/verify-release.mjs --pilot` still passes: the pilot host served the pilot commit to the end
+- [ ] Backend unchanged, or promoted first: `sheetHealthReport()` all ok, then `clasp update-deployment` moved the ward deployment to the pilot's version, then this merge
 
 ## After the merge
 
