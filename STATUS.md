@@ -273,6 +273,11 @@ went live with #172 on 2026-10-27; #173 goes with #182.)*
   served file changes and nothing to release. With #182 merged in, the check failed on #182's new
   `EN_FEEDS_PER_DAY_MAX` (no unit) and its `D.EN_PRODUCTS` dropdown, as built to; both are fixed in the
   PR. Its 38 proposed ranges in `tools/reference-tabs.json` wait for Pp. `CHANGELOG.md` 2026-10-28.
+- ⏳ **PR #179, NF-05: a release PR starts from `.github/PULL_REQUEST_TEMPLATE/release.md`, with
+  before-and-after numbers and the rollback steps: merged into `main` on Pp's instruction** (the same
+  answer as #174). Docs and a PR template only, so nothing to release. The next release PR is opened with
+  `--template release.md`. Its question on the 25 old backend deployments waits for Pp (`BACKLOG.md` §
+  Now). `CHANGELOG.md` 2026-10-28.
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
@@ -1077,7 +1082,8 @@ confirmation-before-`clasp deploy` model, and the frontend is where the printed 
 calculation shows at least three dev-local cases per changed calculation, before and after, and every
 release names the tag and backend version it rolls back to (`REFERENCE.md` § Before and after, and
 rolling back). Pp dropped the 48 h pilot the same day, so there is no `pilot` branch, pilot deployment
-or extra check. The gate itself is unchanged.
+or extra check. The gate itself is unchanged. Merged into `main` on Pp's instruction, 2026-10-28, with
+#174 and #176.
 
 **Done:**
 - `release` branch created from `main`'s tip (`89f9ce2`).

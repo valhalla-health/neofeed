@@ -34,8 +34,9 @@ clinical judgement. Everything else is engineering sequencing.
 
 - [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
       rolling back).
-      - [ ] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
-        release's rollback target, and on 2026-10-28 it was not pushed.
+      - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
+        release's rollback target, and on 2026-10-28 it was not pushed. **Done 2026-10-28, 12:30 ICT**,
+        from Pp's PC; #184 and #186 are tagged too (`release-2026-10-28-pr184`, `-pr186`).
       - [ ] Undeploy the backend deployments nobody uses. `clasp list-deployments` showed 26 on 2026-10-28,
         the ward's `AKfycbz8…` at `@64` among them. Every one shares the live Sheet, Script Properties and
         cache, so an old one that still answers runs its old code against them, as NeoRef's version 1 did
