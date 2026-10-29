@@ -6,7 +6,8 @@
 // a failing build cannot. So when the same correction comes up a second time,
 // it becomes a rule here instead of a third comment. The three log rules
 // (NF-08: no patient identifier, raw sheet cell or secret in a log) came from
-// Pp's apply list instead, and use the same fixtures and allow list.
+// Pp's apply list instead, and use the same fixtures and allow list. So did
+// jsx-comment-text, from a developer comment #182 put on every ward device.
 //
 //   node tools/ci_bans.js              # check every tracked source file
 //   node tools/ci_bans.js --self-test  # run each rule on test/ci-bans-fixtures.json
@@ -78,6 +79,18 @@ const RULES = [
     source: "NF-08 (Secrets leak through agents, 2026-10-17); gas-backend.gs § Config",
     allow: [],
     find: findLogSecrets,
+  },
+  {
+    id: "jsx-comment-text",
+    why:
+      "Between two JSX children a // line is text, not a comment, and React prints it. #182 put " +
+      'one in Step 2\'s feed picker and every ward device showed it under "Step 2 · Enteral feeding". ' +
+      "Write {/* … */} there, or move the comment above the return.",
+    source: "PR #182 (commit 97227e7); seen on dev local in the PR #175 release, 2026-10-28",
+    // Its hits are comment lines, which every other rule leaves out.
+    comments: true,
+    allow: [],
+    find: findJsxCommentText,
   },
 ];
 
@@ -610,6 +623,45 @@ function findLogSecrets(text) {
   return hits;
 }
 
+// ── A // line inside JSX children ───────────────────────────────────────────
+//
+// Without a JSX parser (this file needs no npm install) the rule reads the lines
+// around a run of // lines. The line before ends a tag (`>`, not an arrow's `=>`)
+// or an expression container (`}`); the line after starts an element (`<`) or,
+// after a tag, an expression container (`{`). In plain JS no such pair can
+// stand side by side, so the run sits between two children. A run after `(` or
+// before `:` is JS and passes: calculator.jsx's prefill notice has one between
+// a ternary's two fragments. A run before a text child is missed. Over all 294
+// first-parent trees of main (2026-10-28) it finds only #182's line.
+function findJsxCommentText(text, file = "") {
+  if (!file.endsWith(".jsx")) return [];
+  const lines = text.split("\n");
+  const offsets = [];
+  for (let i = 0, at = 0; i < lines.length; at += lines[i].length + 1, i++) offsets.push(at);
+  const code = (i) => {
+    const t = lines[i].trim();
+    return t !== "" && !t.startsWith("//");
+  };
+  const hits = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim().startsWith("//")) continue;
+    let before = i - 1;
+    while (before >= 0 && lines[before].trim() === "") before--;
+    if (before < 0 || !code(before)) continue; // a run is reported once, at its first line
+    if (isComment(lines[before])) continue; // after a /* */ block, not after a tag
+    let after = i + 1;
+    while (after < lines.length && !code(after)) after++;
+    if (after >= lines.length) continue;
+    const prev = lines[before].trim();
+    const next = lines[after].trim();
+    const afterTag = prev.endsWith(">") && !prev.endsWith("=>");
+    if ((afterTag && /^[<{]/.test(next)) || (prev.endsWith("}") && next.startsWith("<"))) {
+      hits.push(offsets[i] + lines[i].indexOf("//"));
+    }
+  }
+  return hits;
+}
+
 function lineOf(text, index) {
   return text.slice(0, index).split("\n").length;
 }
@@ -619,8 +671,9 @@ function isComment(line) {
   return t.startsWith("//") || t.startsWith("*") || t.startsWith("/*");
 }
 
-// Hits in one file, as { rule, file, line, text }, with comment lines and
-// allowed lines left out. `used` records which allow entries matched.
+// Hits in one file, as { rule, file, line, text }, with comment lines (unless
+// the rule is about comments) and allowed lines left out. `used` records which
+// allow entries matched.
 function check(rule, file, text, used) {
   const lines = text.split("\n");
   const out = [];
@@ -628,7 +681,7 @@ function check(rule, file, text, used) {
   for (const index of rule.find(text, file)) {
     const line = lineOf(text, index);
     const src = lines[line - 1];
-    if (seen.has(line) || isComment(src)) continue;
+    if (seen.has(line) || (!rule.comments && isComment(src))) continue;
     seen.add(line);
     const allowed = (rule.allow || []).find((a) => a.file === file && src.includes(a.contains));
     if (allowed) {
