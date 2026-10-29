@@ -27,6 +27,9 @@ and the code stays as it is until she answers. How sources are cited, and their 
    and `gas-backend.gs` checks; the harness fails until the list and the stop rules match.
 3. Run `node test/verify-clinical-rules.cjs`. Red means the code and this file disagree: find which one is
    wrong. A case is edited to match the code only when Pp has agreed the new behaviour.
+4. Step 3's "ที่มาของตัวเลข" panels (NF-12) show the GIR, osmolarity, energy and protein formulas as text
+   and read every limit from `data.js`. A changed factor in `CR-U-GIR`, `CR-U-OSM` or `CR-U-ENERGY` needs
+   the panel text changed too: `test/verify-show-working-1028.cjs` fails until the terms add up again.
 
 ## Adding a case
 
@@ -877,7 +880,7 @@ Thai CPG, and the published neonatal equations use other terms (Pereira-da-Silva
 The 1.4 (Ca) and 1 (Mg) factors appear in no primary source: Q16.
 
 ```rule
-{"rule": "CR-U-OSM", "kind": "unit", "where": [{"file": "data.js", "line": 929, "has": "function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {"}, {"file": "calculator.jsx", "line": 1653, "has": "const osm = D.estimateOsmolarity({"}]}
+{"rule": "CR-U-OSM", "kind": "unit", "where": [{"file": "data.js", "line": 929, "has": "function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {"}, {"file": "calculator.jsx", "line": 1660, "has": "}, osm = D.estimateOsmolarity(osmIn);"}]}
 {"case": "D10, AA 2 %, Na 30, K 20, Ca 400 mg/L, Mg 3: 831", "fn": "estimateOsmolarity", "args": [{"dexPct": 10, "aaPct": 2, "naMeqPerL": 30, "kMeqPerL": 20, "caMgPerL": 400, "mgMeqPerL": 3}], "want": 831, "within": 1e-9}
 {"case": "1 kg, 100 mL of D10 with AA 3: 800", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Osm 800 mOsm/L"}}
 ```
@@ -905,7 +908,7 @@ holds an independent transcription); Na acetate 3 and KCl 2 confirmed by the TPN
 also literals in the calculation.
 
 ```rule
-{"rule": "CR-U-SALTS", "kind": "unit", "coded": {"KCMH_STOCK.naCl.naMeqPerMl": 3.42, "KCMH_STOCK.naAcetate.naMeqPerMl": 3, "KCMH_STOCK.naAcetate.acetateMeqPerMl": null, "KCMH_STOCK.glycophos.naMeqPerMl": 2, "KCMH_STOCK.glycophos.pMgPerMl": 31, "KCMH_STOCK.kCl.kMeqPerMl": 2, "KCMH_STOCK.k2hpo4.kMeqPerMl": 1, "KCMH_STOCK.k2hpo4.pMgPerKMeq": 15.5, "KCMH_STOCK.mgso4_10.mgMeqPerMl": 0.812, "KCMH_STOCK.caGluconate.caMgPerMl": 9.01755, "KCMH_STOCK.aminoven10.gPerMl": 0.1}, "where": [{"file": "calculator.jsx", "line": 3383, "has": "perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)}"}, {"file": "calculator.jsx", "line": 1473, "has": "const p_glycophos  = glycophosP * wtKg * 31;"}, {"file": "calculator.jsx", "line": 1475, "has": "const p_k2hpo4 = k2hpo4 * wtKg * 15.5;"}]}
+{"rule": "CR-U-SALTS", "kind": "unit", "coded": {"KCMH_STOCK.naCl.naMeqPerMl": 3.42, "KCMH_STOCK.naAcetate.naMeqPerMl": 3, "KCMH_STOCK.naAcetate.acetateMeqPerMl": null, "KCMH_STOCK.glycophos.naMeqPerMl": 2, "KCMH_STOCK.glycophos.pMgPerMl": 31, "KCMH_STOCK.kCl.kMeqPerMl": 2, "KCMH_STOCK.k2hpo4.kMeqPerMl": 1, "KCMH_STOCK.k2hpo4.pMgPerKMeq": 15.5, "KCMH_STOCK.mgso4_10.mgMeqPerMl": 0.812, "KCMH_STOCK.caGluconate.caMgPerMl": 9.01755, "KCMH_STOCK.aminoven10.gPerMl": 0.1}, "where": [{"file": "calculator.jsx", "line": 3386, "has": "perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)}"}, {"file": "calculator.jsx", "line": 1473, "has": "const p_glycophos  = glycophosP * wtKg * 31;"}, {"file": "calculator.jsx", "line": 1475, "has": "const p_k2hpo4 = k2hpo4 * wtKg * 15.5;"}]}
 {"case": "1 kg, no dead space: 1 mL of each stock", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "20% NaCl": 3.42, "Glycophos": 2, "KCl": 2, "K₂HPO₄": 1, "10% Ca gluconate": 45.08775}, "expect": {"prints": ["3.4 mEq = 1 mL", "1 mLNa 2 mEq · P 31 mg", "K 1 mEqP 15.5 mg1 mEq = 1 mL", "2 mEq2 mEq = 1 mL", "45 mg = 5 mL"]}}
 ```
 
@@ -978,17 +981,29 @@ feed: Pp, 2026-10-28, after Vera raised that case. Not a clinical threshold.
 Breast milk is WHO 2006's term mature milk per litre, ÷ 10 per 100 mL: protein 1.2 g, fat 3.4 g, CHO
 6.7 g, Na 0.9 and K 1.39 mmol, Ca 26 and P 14.9 mg. Energy is the one departure: 67 kcal/100 mL (20
 kcal/oz, inside the Chula handbook's mature-milk range of 65.2–70; WHO gives 64). BM + HMF adds one 4 g
-Enfamil HMF dose: +1.1 g protein, and the rest per gram of that protein. Real milk varies; NeoFeed has no
-measured-milk input.
+Enfamil HMF dose: +1.1 g protein, and the rest per gram of that protein (+14.3 kcal). Real milk varies;
+NeoFeed has no measured-milk input: NOURISH (Belfort, JAMA Pediatrics) found standard fortification
+enough and did not support routine milk analysis.
 Source: WHO 2006, *Optimal feeding of low-birth-weight infants: technical review*, Box 1.3.1 (p. 16)
 and Box 1.3.3 (p. 19), every stored value re-read on 2026-10-27; Chula handbook p. 8 (energy) and p. 10
-(Enfamil HMF). NF-12 shows this on screen.
+(Enfamil HMF).
+On screen (NF-12): with a breast-milk feed (BM, BM + HMF, FBM ↔ Infatrini) given as feed 1 or feed 2,
+Step 2 names the protein and kcal per 100 mL it assumes, with `EN_DB.BM_20.source`; what HMF adds, from
+`EN_HMF_PROTEIN_G_PER_DOSE` and the Chula p. 10 column, with `EN_DB.BM_HMF_24.source`; and one line that
+real milk varies. It reads these values when it renders, so they change here and nowhere else. Not
+printed, and not in the quick calc's copied text.
 
 ```rule
-{"rule": "CR-U-BREASTMILK", "kind": "unit", "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}]}
+{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4293, "has": "function MilkAssumption({ keys }) {"}]}
 {"case": "breast milk: 67 kcal/100 mL", "fn": "EN_DB.BM_20.kcal", "want": 67}
 {"case": "breast milk: 1.2 g protein/100 mL", "fn": "EN_DB.BM_20.pro", "want": 1.2, "within": 1e-9}
 {"case": "BM + HMF: 2.3 g protein/100 mL", "fn": "EN_DB.BM_HMF_24.pro", "want": 2.3, "within": 1e-9}
+{"case": "breast milk 2 mL × 8: Step 2 names 1.2 g and 67 kcal per 100 mL, the source, and that milk varies", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 2, "Frequency": 8}, "expect": {"shows": ["นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein 1.2 g · 67 kcal · WHO 2006 technical review, Box 1.3.1 (term mature milk); kcal: Chula Handbook p. 8", "นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน"]}}
+{"case": "BM + HMF: HMF adds 1.1 g and 14.3 kcal per 100 mL, 2.3 g and 81.3 kcal in all", "infant": {"g": 1000}, "feed": "BM_HMF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 8}, "expect": {"shows": "HMF ที่เติมต่อ 100 mL: protein +1.1 g · +14.3 kcal รวมเป็น 2.3 g · 81.3 kcal · Enfamil HMF, Chula Handbook p. 10"}}
+{"case": "Hi-Q LBW 24: no breast-milk line", "infant": {"g": 1000}, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 8}, "expect": {"hides": "นมแม่ที่ใช้คำนวณ"}}
+{"case": "no feed volume: no breast-milk line", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"hides": "นมแม่ที่ใช้คำนวณ"}}
+{"case": "Hi-Q LBW 24 as feed 1 and breast milk as feed 2: the breast-milk line", "infant": {"g": 1000}, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 4}, "feed2": "BM_20", "order2": {"Volume": 2, "Frequency": 4}, "expect": {"shows": "นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein 1.2 g · 67 kcal"}}
+{"case": "feed 1 at 0 mL, Hi-Q LBW 24 as feed 2 only: no breast-milk line", "infant": {"g": 1000}, "feed2": "FBM_PF_24", "order2": {"Volume": 2, "Frequency": 8}, "expect": {"hides": "นมแม่ที่ใช้คำนวณ"}}
 ```
 
 ### CR-U-STATUS · how a tile is graded
