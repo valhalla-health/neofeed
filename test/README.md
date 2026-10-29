@@ -1920,6 +1920,33 @@ attributes is JS and passes. Without a parser it misses a run followed by a text
 fail and 8 must pass. Over the `.jsx` sources of all 294 first-parent commits of `main` it finds one line,
 #182's, so it needs no allow entry.
 
+## What the numbers rest on, 2026-10-28 — one harness (NF-12)
+
+**`verify-show-working-1028.cjs`** (jsdom; it also runs against `compiled/`). § 1: Step 3 has four closed
+"ที่มาของตัวเลข" buttons and no panel text in the page until one is pressed; opening every panel changes
+no tile, readout or alert. § 2: with breast milk, BM + HMF, FBM ↔ Infatrini or a MEN feed of breast milk,
+Step 2 names protein and kcal per 100 mL from `EN_DB.BM_20` with its source, HMF's addition from
+`EN_HMF_PROTEIN_G_PER_DOSE` and the Chula p. 10 column, and that real milk varies; a formula or no feed
+shows none of it. § 3: change a value in `window.NEOFEED_DATA` (BM protein, the HMF dose, each panel's
+limit) and the screen follows, so there is no copy in the JSX. § 4: each panel's formula, inputs, unit
+conversion and limit; its result equals the tile, its inputs recompute to it, and three inputs are checked
+by hand arithmetic (Na 30 mEq/L, AA 3 %, dextrose 10 g). § 5: every `CR-` ID a panel names is a heading
+in the clinical-rules skill. § 6: the print form is identical with every panel open and carries none of the
+new text; a patient's order has no Copy since `main`'s `14caa41`, so the quick calc's copied text is checked
+the same way. § 7: no trailing zero or float tail in the new text. `NEGATIVE_CONTROL=1`
+(dextrose at 3.5 kcal/g in the memo, the panel still saying 3.4) and `=2` (BM protein typed into the JSX)
+must fail: 3 and 1 failures. § 8 (Vera): a result just past its hard limit reads as the alert reads it (GIR
+12.007 is 12.01), a feed's value per 100 mL times its mL gives the kcal shown, and a MEN feed names the
+mL given (24) and counts 0. 102 checks; on
+`326bcd9` 55 fail and 25 pass (a section stops at its first missing element). 108 once `main` was merged in
+(2026-10-28): Step 2's feed picker became a milk and its kcal/oz, so the harness picks both. § 9: two feeds
+(`main`'s #182). Hi-Q LBW 24 as feed 1 and breast milk as feed 2 shows the milk line, and the energy and
+protein panels give each feed its own line (8 mL × its row per 100 mL, its source; `CR-U-BREASTMILK` on
+the breast-milk line only) adding up to the total, with no "undefined"; formula as feed 2 alone, feed 1 at
+0 mL, shows no milk line; BM + HMF as feed 2 adds the HMF line; a day with no feed reads ไม่มีนม in both
+panels, not feed 1's default breast milk (Vera). 127 checks; on the merge commit `f643aac`, before the
+fix, 18 of § 9's 19 fail.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named
