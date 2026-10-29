@@ -366,9 +366,10 @@ went live with #172 on 2026-10-27; #173 goes with #182.)*
   answer as #174). Docs and a PR template only, so nothing to release. The next release PR is opened with
   `--template release.md`. Its question on the 25 old backend deployments waits for Pp (`BACKLOG.md` §
   Now). `CHANGELOG.md` 2026-10-28.
-- ⏳ **PR #196, one piece of work, one PR: `AGENTS.md` states Pp's rule that no PR only records another
+- ✅ **PR #196, one piece of work, one PR: `AGENTS.md` states Pp's rule that no PR only records another
   PR (its merge, a release, a tag), and `REFERENCE.md` § Deploying extends its deploy rule to merges:
-  open, waiting for Pp's merge.** Docs only, so nothing to release. It also carries #189's ✅ above, as the
+  merged into `main` on 2026-10-29 at 06:36 ICT (`432a603`).** Docs only, so nothing to release; recorded
+  here by PR #177, the next PR on the repo. It also carries #189's ✅ above, as the
   rule asks. `CHANGELOG.md` 2026-10-28 (13).
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
