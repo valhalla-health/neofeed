@@ -2483,7 +2483,12 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // marks this one superseded. This is the only branch in the function;
     // everything below it is the pre-existing overwrite-in-place path,
     // unchanged, for a row that is still a draft.
-    if (cur[33]) {
+    // A row stored as submitted is revised too, locked or not (Pp,
+    // 2026-10-29): pharmacy may hold it either way. The client used to lock
+    // such a row before editing it, and publishDailyLog refuses one saved
+    // before calcInput.stops existed, so those orders could never be edited.
+    // A blank status reads as submitted, as the read path has it.
+    if (cur[33] || String(cur[14] || "").trim() !== "draft") {
       var newEntryId = Utilities.getUuid();
       var nextRevisionNumber = _numSafe(cur[35], 1) + 1;
       var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)
@@ -2626,6 +2631,12 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
 // The audit row is written FIRST and the delete is abandoned if it cannot be
 // (2026-09-17 review, SEC-B15): a destructive action must never happen
 // unrecorded. doPost adds the "deleteDailyLog" row once it has succeeded.
+// A submitted (published) order can be deleted too (Pp, 2026-10-29: an order
+// saved on the wrong infant). Since every Submit locks the order, refusing a
+// published row left no way to take one off. The delete removes the whole
+// order: this row and every revision before it (revisionOf, AK). A
+// superseded row left behind would stay on this infant's record unseen and
+// hold the date against a new order (_findLogEntryOnDate).
 function deleteDailyNutrition(sessionId, entryId, actorEmail) {
   if (!_requiredString(entryId)) return { error: "entryId is required" };
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
@@ -2638,19 +2649,44 @@ function deleteDailyNutrition(sessionId, entryId, actorEmail) {
     if (hit && hit.shifted) throw _codedError(ROW_MOVED_MSG, "", true);
     if (!hit) return { error: "ไม่พบข้อมูลที่ต้องการลบ — อาจถูกลบไปแล้ว" };
     if (String(hit.data[1]) !== String(sessionId)) return { error: "Entry does not belong to this patient" };
-    // A submitted (published) row is part of the permanent record — "there
-    // is no unpublish" — so it can't be hard-deleted either. Corrections go
-    // through an edit, which appends a revision. Dormant while
-    // ENABLE_PUBLISH_GATE is off: nothing is published yet.
-    if (hit.data[33]) return { error: "รายการนี้ส่ง (Submit) แล้ว ลบไม่ได้ — ให้แก้ไขเป็นฉบับใหม่แทน" };
+    // History under a newer revision is deleted with that revision, never alone.
+    if (hit.data[37]) return { error: "รายการนี้มีฉบับแก้ไขใหม่แล้ว — ลบจากฉบับล่าสุด" };
+    var rows = _revisionChainRows(sheet, hit.row, entryId, String(hit.data[36] || ""), sessionId);
     _logAuditStrict("deleteDailyLog:start", sessionId, actorEmail || "");
-    _assertRowStillHolds(sheet, hit.row, 26, entryId);
-    sheet.deleteRow(hit.row);
+    // Bottom row first, so the row numbers above it still hold.
+    for (var i = 0; i < rows.length; i++) {
+      _assertRowStillHolds(sheet, rows[i].row, 26, rows[i].entryId);
+      sheet.deleteRow(rows[i].row);
+    }
     return { ok: true };
   } finally {
     _bumpDataVersion();
     lock.releaseLock();
   }
+}
+// The row to delete and each row it revised, following revisionOf (AK) back
+// to revision 1, for this patient only, sorted bottom row first.
+function _revisionChainRows(sheet, row, entryId, revisionOf, sessionId) {
+  var rows = [{ row: row, entryId: entryId }];
+  if (!revisionOf) return rows;
+  var lastRow = sheet.getLastRow();
+  var width = Math.min(sheet.getMaxColumns(), 37);
+  var all = lastRow >= 2 && width >= 26 ? sheet.getRange(2, 1, lastRow - 1, width).getValues() : [];
+  var seen = {};
+  seen[entryId] = true;
+  var next = revisionOf;
+  while (next && !seen[next]) {
+    seen[next] = true;
+    var found = null;
+    for (var i = 0; i < all.length; i++) {
+      if (String(all[i][25]) === next && String(all[i][1]) === String(sessionId)) { found = i; break; }
+    }
+    if (found === null) break;
+    rows.push({ row: found + 2, entryId: next });
+    next = String(all[found][36] || "");
+  }
+  rows.sort(function (a, b) { return b.row - a.row; });
+  return rows;
 }
 
 // ── Nursing_Log: the nurses' daily Intake/Output (UX roadmap #4) ─────────────

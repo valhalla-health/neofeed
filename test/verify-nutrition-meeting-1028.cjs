@@ -4,7 +4,8 @@
 //   §1 Submit locks the order: it is saved, then published, in one press
 //   §2 Save draft locks nothing
 //   §3 an edit of a locked order is a new revision, and that revision is locked
-//   §4 an order submitted before the lock existed is locked before it is edited
+//   §4 an order submitted before the lock existed is revised when it is edited
+//      (since 2026-10-29; until then it was locked first)
 //   §5 resubmitting an unchanged order writes no revision
 //   §6 a revision prints "Revision" at the top right of the doctor's sheet
 //   §7 the Dashboard marks a revision ฉบับแก้ไข
@@ -12,6 +13,7 @@
 //   §9 Mg is typed in mg/kg/d, chips 2.5 / 5 / 7.5, printed in mg with mEq
 //      beside it, Normal Requirement in mg/kg/day (ESPGHAN 2018's mg figures)
 //   §10 the amino-acid line names PED AMINE beside 10% Aminoven infant
+//   §12 an admin can delete a submitted order, after a confirm that says so
 //
 // Vitalipid rounded down to whole mL is in the clinical-rules skill
 // (CR-VITALIPID-CAP), whose cases test/verify-clinical-rules.cjs runs.
@@ -166,19 +168,32 @@ function typeOrder(extra = {}) {
       shape(r.calls), [['update', 'e1', 'lm1'], ['publish', 'e2', 'lm2']]);
   });
 
-  await section('§4 an order submitted before the lock is locked before it is edited', async () => {
+  // Pp, 2026-10-29 (Vera's second review): the backend revises any submitted
+  // row, so an unlocked one is edited as it stands. Locking it first failed
+  // for every order saved before calcInput.stops: publishDailyLog refuses a
+  // row with no list, and the edit was never sent.
+  const STALE_LIST = { error: 'บันทึกนี้มาจากแอปรุ่นเก่า เปิดรายการแล้วบันทึกใหม่ก่อนส่ง' };
+  await section('§4 an order submitted before the lock is revised when it is edited', async () => {
     const r = recorder({ update: { ok: true, revised: true, entryId: 'e2', lastModified: 'lm2', revisionNumber: 2 } });
     mount({ ...r, editEntry: reopened({ published: '', publishedBy: '' }) });
     setField('Amino acid', 3.5);
     await clickAsync(submitBtn());
-    eq('lock the old copy, save the edit as a revision, lock the revision',
-      shape(r.calls), [['publish', 'e1', 'lm1'], ['update', 'e1', 'lm1'], ['publish', 'e2', 'lm2']]);
+    eq('save the edit as a revision, then lock the revision',
+      shape(r.calls), [['update', 'e1', 'lm1'], ['publish', 'e2', 'lm2']]);
 
-    const c = recorder({ publish: (id) => id === 'e1' ? { conflict: true, current: { lastModified: 'lm9', lastModifiedBy: 'other@kcmh.test' } } : null });
+    const s = recorder({ publish: (id) => id === 'e1' ? STALE_LIST : null,
+      update: { ok: true, revised: true, entryId: 'e2', lastModified: 'lm2', revisionNumber: 2 } });
+    mount({ ...s, editEntry: reopened({ published: '', publishedBy: '', calcInput: { ...saved.calcInput, stops: undefined } }) });
+    setField('Amino acid', 3.5);
+    await clickAsync(submitBtn());
+    eq('an order saved with no stop list still reaches the server as a revision',
+      shape(s.calls), [['update', 'e1', 'lm1'], ['publish', 'e2', 'lm2']]);
+
+    const c = recorder({ update: { conflict: true, current: { lastModified: 'lm9', lastModifiedBy: 'other@kcmh.test' } } });
     mount({ ...c, editEntry: reopened({ published: '', publishedBy: '' }) });
     setField('Amino acid', 3.5);
     await clickAsync(submitBtn());
-    eq('someone saved it meanwhile: the edit is not sent', shape(c.calls), [['publish', 'e1', 'lm1']]);
+    eq('someone saved it meanwhile: nothing is locked', shape(c.calls), [['update', 'e1', 'lm1']]);
 
     const d = recorder();
     mount({ ...d, editEntry: reopened({ published: '', publishedBy: '', status: 'draft' }) });
@@ -206,9 +221,19 @@ function typeOrder(extra = {}) {
     mount({ ...o, editEntry: old({ published: '', publishedBy: '' }) });
     ok('an unlocked order on an older calculation is not printable as it stands', !printForm());
     await clickAsync(submitBtn());
-    eq('…Submit locks it, saves a revision on today\'s numbers, and locks that',
-      shape(o.calls), [['publish', 'e1', 'lm1'], ['update', 'e1', 'lm1'], ['publish', 'e2', 'lm2']]);
+    eq('…Submit saves a revision on today\'s numbers, and locks that',
+      shape(o.calls), [['update', 'e1', 'lm1'], ['publish', 'e2', 'lm2']]);
     ok('…which then prints', !!printForm());
+
+    // Vera's second review, finding 1: the live release saved no stop list,
+    // and publishDailyLog refuses such a row.
+    const v = recorder({ publish: (id) => id === 'e1' ? STALE_LIST : null,
+      update: { ok: true, revised: true, entryId: 'e2', lastModified: 'lm2', revisionNumber: 2 } });
+    mount({ ...v, editEntry: old({ published: '', publishedBy: '', calcInput: { ...saved.calcInput, constantsVersion: '2026-10-27.2', stops: undefined } }) });
+    await clickAsync(submitBtn());
+    eq('…the same when that older order has no stop list',
+      shape(v.calls), [['update', 'e1', 'lm1'], ['publish', 'e2', 'lm2']]);
+    ok('…and it prints', !!printForm());
 
     mount({ ...recorder(), editEntry: old() });
     eq('a locked order on an older calculation keeps its Submit', submitBtn()?.disabled, false);
@@ -312,6 +337,32 @@ function typeOrder(extra = {}) {
     ok('the doctor\'s sheet offers 10% Aminoven infant / PED AMINE', pr.includes('10% Aminoven infant / PED AMINE'));
     const back = squash(printForm()?.querySelector('.print-back')?.textContent);
     ok('…and the pharmacy sheet names both', back.includes('10% Aminoven infant / PED AMINE'));
+  });
+
+  await section('§12 an admin can delete a submitted order, every version of it (Pp, 2026-10-29)', async () => {
+    const deleted = [];
+    const asked = [];
+    window.confirm = (msg) => { asked.push(msg); return true; };
+    try {
+      mount({ ...recorder(), editEntry: reopened({ revisionNumber: 2 }), onDelete: (e) => { deleted.push(e.entryId); } });
+      const del = button('ลบบันทึกนี้');
+      ok('a submitted order still offers ลบบันทึกนี้ to an admin', !!del);
+      if (del) click(del);
+      eq('…which deletes it', deleted, ['e1']);
+      ok('…after a confirm that says it was submitted and every version goes',
+        /Submit แล้ว/.test(asked[0] || '') && /ทุกฉบับ/.test(asked[0] || ''), asked[0]);
+
+      asked.length = 0;
+      window.confirm = (msg) => { asked.push(msg); return false; };
+      mount({ ...recorder(), editEntry: reopened(), onDelete: (e) => { deleted.push(e.entryId); } });
+      click(button('ลบบันทึกนี้'));
+      eq('Cancel deletes nothing', deleted, ['e1']);
+
+      mount({ ...recorder(), editEntry: reopened() });
+      ok('no ลบบันทึกนี้ without the admin\'s onDelete', !button('ลบบันทึกนี้'));
+    } finally {
+      window.confirm = () => true;
+    }
   });
 
   console.log(`\nNUTRITION MEETING 2026-10-28: ${fail === 0 ? 'ALL PASS' : `${fail} FAILED`} (${pass} passed, ${fail} failed)`);

@@ -1836,7 +1836,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
   const sCaP = D.rangeStatus(calc.caP, tCaP);
-  const sMg = D.rangeStatus(mgMgPerKg, tMg);
+  // Below D.MG_MEQ_HABIT_MG the dose was most likely typed in mEq, the unit
+  // this box took until 2026-10-28: critical, so Submit asks (Pp, 2026-10-29).
+  const sMg = D.rangeStatus(mgMgPerKg, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
   // Step 6 total-intake statuses — same targets as Step 4, applied to IV + feed + oral
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
@@ -2068,7 +2070,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     body: `K IV ${vsLimit(ivKKg, D.K_IV_HARD_HI, 1)} mEq/kg/d > ${D.K_IV_HARD_HI} mEq/kg/d hard limit (TPN only)${withTotal(ivKKg, calc.kTotalDelivered, 1, "mEq/kg/d")}.`, ref: ivRef });
   else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
   // Mg has only a parenteral reference, so its line never cites the enteral table.
-  pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d", null, "ESPGHAN 2018 (parenteral)");
+  pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d",
+    `ต่ำกว่า ${D.MG_MEQ_HABIT_MG} mg/kg/d พิมพ์เป็น mEq หรือเปล่า ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d`,
+    "ESPGHAN 2018 (parenteral)");
   // A bag with no amino acid in it (Pp, 2026-10-21). Its tile reads 0 as
   // "empty", not off target, and the form prints "—", so amino acid left out
   // by mistake reached pharmacy as "not ordered" with nothing on screen. A
@@ -2483,15 +2487,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     });
 
     setSaving(true);
-    // Lock the submitted copy before editing it, so the edit lands as a
-    // revision beside it (gas-backend.gs updateDailyNutrition) instead of
-    // overwriting an order pharmacy may already have mixed.
-    if (lockFirst) {
-      const pre = await onPublish(savedEntryId, savedLastModified, { quiet: true });
-      if (pre.conflict) { setSaving(false); if (dirty) writeDraft(currentInputs()); setConflict(pre.current); return; }
-      if (!pre.ok) { setSaving(false); return; }
-      setPublished(true);
-    }
+    // An edit of a submitted order lands as a revision beside it, locked or
+    // not: gas-backend.gs updateDailyNutrition revises any row stored as
+    // submitted (Pp, 2026-10-29). Locking it here first, as this did from
+    // 2026-10-28, failed for every order saved before calcInput.stops, since
+    // publishDailyLog refuses a row with no stop list (Vera, second review).
     const res = savedEntryId
       ? await onUpdate(savedEntryId, savedLastModified, entry)
       : await onLog(entry);
@@ -2532,7 +2532,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
     // Then lock what was just submitted: the new row, the row edited in place,
     // or the revision the server appended. If the lock fails the order is
-    // still saved and submitted; the next edit locks it first (lockFirst).
+    // still saved and submitted; Submit again locks it (lockFirst), and an
+    // edit is a revision all the same.
     if (!asDraft && onPublish) {
       const lockId = res.revised ? res.entryId : (savedEntryId || res.entryId);
       const pub = await onPublish(lockId, res.lastModified, { quiet: true });
@@ -2570,11 +2571,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // to admin same as the Dashboard's trash icon). Native confirm() so the
   // action can't fire on a stray click — matches the confirmation already
   // used for the Dashboard's per-row delete.
+  // A submitted order can be deleted too (Pp, 2026-10-29: one saved on the
+  // wrong infant), and the server then removes every version of it, so the
+  // prompt says so and reminds whoever deletes it that pharmacy may hold it.
   const handleDelete = () => {
     if (!savedEntryId || pendingSave || !onDelete) return;
     const ts = editEntry?.ts || logDate;
     const label = `DOL ${dol}${ts ? ` (${window.NEOFEED_FMT_DATE?.(ts) || ts})` : ""}`;
-    if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+    const submitted = published || (savedStatus === "submitted" && !!editEntry);
+    const ask = submitted
+      ? `ลบคำสั่ง ${label} ใช่หรือไม่? คำสั่งนี้ Submit แล้ว จะลบทุกฉบับของคำสั่งนี้ รวมฉบับแก้ไขก่อนหน้า ถ้าเภสัชได้ใบสั่งไปแล้ว ต้องแจ้งเภสัชเอง การลบนี้ไม่สามารถย้อนกลับได้`
+      : `ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`;
+    if (!window.confirm(ask)) return;
     onDelete({ entryId: savedEntryId, dol, ts });
   };
 

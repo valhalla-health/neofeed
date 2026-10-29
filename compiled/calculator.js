@@ -1242,7 +1242,7 @@ function Calculator({
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
   const sCaP = D.rangeStatus(calc.caP, tCaP);
-  const sMg = D.rangeStatus(mgMgPerKg, tMg);
+  const sMg = D.rangeStatus(mgMgPerKg, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
   const sTotCa = D.rangeStatus(mineral.totCa, tCa);
   const sTotP = D.rangeStatus(mineral.totP, tP);
   const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
@@ -1378,7 +1378,16 @@ function Calculator({
     ref: ivRef
   });
   else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
-  pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d", null, "ESPGHAN 2018 (parenteral)");
+  pushTile(
+    sMg,
+    "Magnesium",
+    mgMgPerKg,
+    2,
+    tMg,
+    "mg/kg/d",
+    `ต่ำกว่า ${D.MG_MEQ_HABIT_MG} mg/kg/d พิมพ์เป็น mEq หรือเปล่า ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d`,
+    "ESPGHAN 2018 (parenteral)"
+  );
   if (calc.totalTPN_mL > 0 && !(aaPerKg > 0)) alerts.push({
     level: "warn",
     title: "Amino acid not ordered",
@@ -1712,20 +1721,6 @@ function Calculator({
       ts: editEntry ? editEntry.ts : logDate || newOrderDate
     };
     setSaving(true);
-    if (lockFirst) {
-      const pre = await onPublish(savedEntryId, savedLastModified, { quiet: true });
-      if (pre.conflict) {
-        setSaving(false);
-        if (dirty) writeDraft(currentInputs());
-        setConflict(pre.current);
-        return;
-      }
-      if (!pre.ok) {
-        setSaving(false);
-        return;
-      }
-      setPublished(true);
-    }
     const res = savedEntryId ? await onUpdate(savedEntryId, savedLastModified, entry) : await onLog(entry);
     setSaving(false);
     if (res.conflict) {
@@ -1782,7 +1777,9 @@ function Calculator({
     if (!savedEntryId || pendingSave || !onDelete) return;
     const ts = editEntry?.ts || logDate;
     const label = `DOL ${dol}${ts ? ` (${window.NEOFEED_FMT_DATE?.(ts) || ts})` : ""}`;
-    if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+    const submitted = published || savedStatus === "submitted" && !!editEntry;
+    const ask = submitted ? `ลบคำสั่ง ${label} ใช่หรือไม่? คำสั่งนี้ Submit แล้ว จะลบทุกฉบับของคำสั่งนี้ รวมฉบับแก้ไขก่อนหน้า ถ้าเภสัชได้ใบสั่งไปแล้ว ต้องแจ้งเภสัชเอง การลบนี้ไม่สามารถย้อนกลับได้` : `ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`;
+    if (!window.confirm(ask)) return;
     onDelete({ entryId: savedEntryId, dol, ts });
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, conflict && /* @__PURE__ */ React.createElement("div", { style: {

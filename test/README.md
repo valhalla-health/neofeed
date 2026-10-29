@@ -1928,6 +1928,21 @@ patient's order has no Copy Order button, so § 2 and § 5 check that it is abse
 those, and each blocked stop case keeps a draft whose `calcInput.stops` names its rule (623 checks). Eleven backend harnesses whose fixtures sent submitted rows with no list, the contract before this
 change, now send `stops: []`.
 
+## Vera's second review of the meeting branch, 2026-10-29 — one new harness, three adjusted
+
+Old submitted orders are revised, an admin can delete a submitted order, and Mg below 1 mg/kg/d asks
+(`CHANGELOG.md` 2026-10-29 (1)). **`verify-delete-order-1029.cjs`** (real `gas-backend.gs` in
+`gas-vm-sandbox.cjs`): an admin deletes a published order and Audit_Log has a row before and after; three
+revisions of one order go together, the other infant's row stays, and the date takes a new order; a
+superseded revision alone, a doctor, and the wrong patient's id are refused; a draft deletes as before.
+16 checks; 4 fail on `4a49e9b`. `verify-backend-stops-1028.cjs` gains a section: a submitted, unpublished
+row with no stop list, and one with a blank status, are revised (the old row superseded and unchanged, the
+revision publishable), and a draft is saved in place (34 checks; 7 fail on `4a49e9b`).
+`verify-nutrition-meeting-1028.cjs` § 4 and § 5 now expect the edit of an unlocked submitted order to go
+straight to `onUpdate`, also when `onPublish` refuses that row for its missing list; § 12 checks the delete
+prompt on a submitted order. `verify-review-0911.cjs` B4 reads the current rows and B7 checks the whole-order
+delete. `CR-MG-MEQ-HABIT` and a 200 g `CR-VITALIPID-CAP` case run in `verify-clinical-rules.cjs`.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

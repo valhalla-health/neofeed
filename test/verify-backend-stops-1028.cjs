@@ -87,6 +87,7 @@ T.section('update · the same rule on an edit and on a revision', () => {
   T.ok('draft → submitted with no list → refused as stale', !r2.ok && STALE.test(r2.error || ''), r2);
   const r3 = up(E({}, { stops: [] }), d);
   T.ok('draft → submitted with stops [] → saved', r3.ok === true, r3);
+  T.ok('…in place: a draft is not revised', !r3.revised && g.rows() === 1, r3);
 
   // A published row is edited by appending a revision (updateDailyNutrition).
   const s = g.log('2026-10-02', E({ status: 'draft' }, { stops: [] }));
@@ -96,6 +97,44 @@ T.section('update · the same rule on an edit and on a revision', () => {
   const rev = up(E({}, { stops: ['CR-STOCK-ZERO'] }), { entryId: s.entryId, lastModified: lm });
   T.ok('a revision with a stop → refused', !rev.ok && STOPPED.test(rev.error || ''), rev);
   T.eq('…and no revision row was appended', g.rows(), 2);
+});
+
+// Pp, 2026-10-29 (Vera's second review, finding 1): every order submitted
+// before this release has no stop list, so publishDailyLog refuses it, and a
+// client that locked it before editing could never edit or reprint it. The
+// backend now revises any row stored as submitted, published or not; a blank
+// status reads as submitted, as the read path has it.
+T.section('update · an order submitted before the list is revised, never overwritten', () => {
+  const g = ward();
+  const up = (entry, id) => {
+    const lm = g.sheet('Daily_Log').data.find(r => r[25] === id)[26];
+    return g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'ST-1', entryId: id, expectedLastModified: lm, entry });
+  };
+  const old = (ts, status) => {
+    const d = g.log(ts, E({ status: 'draft' }));
+    g.sheet('Daily_Log').data.find(r => r[25] === d.entryId)[14] = status;
+    return d.entryId;
+  };
+  const id = old('2026-10-01', 'submitted');
+  const before = JSON.stringify(g.sheet('Daily_Log').data.find(r => r[25] === id).slice(0, 26));
+  const rev = up(E({ pro: 3.5 }, { stops: [] }), id);
+  T.ok('a submitted, unpublished row with no list → a revision', rev.ok === true && rev.revised === true && rev.revisionNumber === 2, rev);
+  const oldRow = g.sheet('Daily_Log').data.find(r => r[25] === id);
+  T.ok('…the old row is superseded', !!oldRow[37], oldRow[37]);
+  T.eq('…its order is left as it was', JSON.stringify(oldRow.slice(0, 25)), JSON.stringify(JSON.parse(before).slice(0, 25)));
+  const newRow = g.sheet('Daily_Log').data.find(r => r[25] === rev.entryId);
+  T.ok('…the revision names the row it replaces', newRow && newRow[36] === id, newRow && newRow[36]);
+  const pub = g.as(g.dt, { action: 'publishLog', sessionId: 'ST-1', entryId: rev.entryId, expectedLastModified: rev.lastModified });
+  T.ok('…and the revision publishes', pub.ok === true && !!pub.publishedAt, pub);
+
+  const blank = old('2026-10-02', '');
+  const r2 = up(E({ pro: 3.5 }, { stops: [] }), blank);
+  T.ok('a row with a blank status (read as submitted) → a revision', r2.ok === true && r2.revised === true, r2);
+
+  const draft = old('2026-10-03', 'draft');
+  const r3 = up(E({ pro: 3.5 }, { stops: [] }), draft);
+  T.ok('a draft is still saved in place', r3.ok === true && !r3.revised, r3);
+  T.eq('three days, two of them revised: five rows', g.rows(), 5);
 });
 
 T.section('publishDailyLog · reads the list stored with the row', () => {

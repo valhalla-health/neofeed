@@ -119,7 +119,9 @@ console.log('\n── B4 · an edit cannot move an entry onto another date ─�
 const d2 = sandbox.logDailyNutrition('AB-1200', { ...ENTRY, ts: '2026-09-11' }, 'a@x');
 const moved = sandbox.updateDailyNutrition('AB-1200', d2.entryId, d2.lastModified, { ...ENTRY, ts: '2026-09-10', pro: 3.2 }, 'a@x');
 ok('update succeeds', moved.ok, moved);
-eq('…but the row keeps its own date', logRows().map(x => String(x[0]).slice(0, 10)).sort(), ['2026-09-10', '2026-09-11']);
+// Since 2026-10-29 the edit of a submitted row is a revision (Pp): the
+// current rows are the ones to read, and the revision keeps the date too.
+eq('…but the row keeps its own date', logRows().filter(x => !x[37]).map(x => String(x[0]).slice(0, 10)).sort(), ['2026-09-10', '2026-09-11']);
 
 console.log('\n── B1 · two editors of one PUBLISHED row cannot fork it ──');
 freshLog();
@@ -157,11 +159,15 @@ ok('a superseded row cannot be published', !!supPub.error, supPub);
 const pubConflict = post({ action: 'publishLog', token: 'x'.repeat(12), sessionId: 'AB-1200', entryId: 'uuid-x' });
 ok('(doPost still requires a session for publishLog)', pubConflict.error === 'Unauthorized');
 
-console.log('\n── B7 · a published row cannot be hard-deleted ──');
+// Since 2026-10-29 an admin may delete a published order, with every revision
+// of it (Pp; test/verify-delete-order-1029.cjs). What stays from B7: a row
+// that is history under a newer revision is not deleted on its own.
+console.log('\n── B7 · a superseded published row cannot be hard-deleted on its own ──');
 const pubRowId = logRows()[0][25];
-ok('delete of a published row is refused', !!sandbox.deleteDailyNutrition('AB-1200', pubRowId).error);
+ok('delete of a superseded published row is refused', !!sandbox.deleteDailyNutrition('AB-1200', pubRowId).error);
 const draftId = logRows().find(x => !x[33])[25];
-ok('a draft row can still be deleted by an admin', sandbox.deleteDailyNutrition('AB-1200', draftId).ok === true);
+ok('the current revision can be deleted by an admin', sandbox.deleteDailyNutrition('AB-1200', draftId).ok === true);
+eq('…and the published row it replaced goes with it', logRows().length, 0);
 
 console.log('\n── B3 · login: no stored record for unknown emails, one message ──');
 const salt = 'salt-1';

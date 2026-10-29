@@ -152,7 +152,8 @@
     "FIRST_DAYS_LAST_DOL": { "unit": "day of life", "sign": "positive" },
     "OLDER_CHILD_WARDS": { "type": "list", "unit": "ward names" },
     "MG_MG_PER_MEQ": { "unit": "mg Mg/mEq", "sign": "positive",
-      "range": { "lo": 12.1525, "hi": 12.1525, "proposed": "Mg 24.305 g/mol / valence 2 (data.js); display only, no rule codes it" } }
+      "range": { "lo": 12.1525, "hi": 12.1525, "proposed": "Mg 24.305 g/mol / valence 2 (data.js); display only, no rule codes it" } },
+    "MG_MEQ_HABIT_MG": { "unit": "mg Mg/kg/d", "sign": "positive" }
   },
   "bands": {
     "TPN_TARGETS": {

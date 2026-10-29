@@ -7,6 +7,63 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-29 (1) — Vera's second review of the meeting branch: old orders are revised, a submitted order can be deleted, Mg under 1 mg asks
+
+`gas-backend.gs`, `calculator.jsx`, `log.jsx`, `data.js`, `compiled/`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `tools/reference-tabs.json`, tests. Corrects 2026-10-28
+(13) and (14) of the nutrition-meeting branch. Two entries on 2026-10-28 carry the number (13): that
+branch's meeting entry, and #196's "One piece of work, one PR", merged into `main` while the branch was
+open. Both are left as they were written.
+
+Vera's second review of (13) and (14) was NO BLOCK, with one 🟠 and three 🟡. Pp answered the three that
+needed her on 2026-10-29, each with the recommended option.
+
+### What changed
+
+- **An order submitted before this release can be edited and reprinted.** (13) and (14) said such an
+  order "is published first when it is next edited". That was false against the real backend. Since
+  (12), `publishDailyLog` refuses a row with no `calcInput.stops`, which is every order saved before
+  then. The client's pre-lock failed and the edit was never sent. A version bump also holds those
+  orders from Print, so they could be neither corrected nor reprinted. Pp chose the backend fix:
+  `updateDailyNutrition` now revises any row stored as submitted, locked or not; a blank status counts
+  as submitted, as the read path has it. A draft is still saved in place. The client no longer locks
+  before an edit, so an old order's edit lands as revision 2 and prints with the Revision mark.
+- **An admin can delete a submitted order** (Pp: a wrong-infant order). Since (13) every Submit locks the
+  order, so `deleteDailyNutrition`'s refusal of a published row, which its comment still called dormant,
+  had left no way to take one off. The delete now removes the order and every revision before it
+  (`revisionOf`). A superseded row left behind would stay on that infant's record unseen and hold the
+  date against a new order. A superseded row is not deleted on its own. The Calculator and the
+  Dashboard ask first with a stronger prompt: the order was submitted, every version goes, and if
+  pharmacy has the sheet, the person deleting tells them. Audit_Log gets `deleteDailyLog:start` before
+  and `deleteDailyLog` after, as before.
+- **Mg below 1 mg/kg/d is critical and asks whether it was typed in mEq** (Pp; new rule
+  `CR-MG-MEQ-HABIT`, `D.MG_MEQ_HABIT_MG`). A dose typed from mEq habit (0.2–0.6) read as mg, a twelfth of
+  what was meant, with only an amber tile. Now its line is red, says "พิมพ์เป็น mEq หรือเปล่า", and Submit
+  asks for a reason. An alert threshold that moves no dose, so `CONSTANTS_VERSION` stays 2026-10-28.1.
+- **`CR-VITALIPID-CAP` says what the 1 mL floor does below 250 g.** It said rounding down keeps the
+  smallest infants well under the label's 4 mL/kg. Below 250 g the floor goes over it, by Pp's choice:
+  240 g gets 4.2 and 200 g 5 mL/kg/d. A 200 g case is added. No code change.
+
+### Deploying
+
+The backend change goes out as `@66`, together with #190 (the backend reads a status as the client
+does), on Pp's go-ahead. Until `@66` is live, the new frontend against `@65` behaves safely. An edit of
+a submitted, unlocked order is saved in place and then locked, with no Revision mark. A submitted
+order cannot be deleted. A row saved by this frontend carries its stop list, so `@65`'s
+`publishDailyLog` accepts it. Deploying the backend first would turn every edit made on the live
+frontend (which never locks) into a new revision, so the frontend goes first.
+
+### Tests
+
+New `test/verify-delete-order-1029.cjs` (real backend: 4 of its 16 checks failed before the change).
+`verify-backend-stops-1028.cjs` gains the old-order revision section (7 failed before).
+`verify-nutrition-meeting-1028.cjs` §4 and §5 expect no pre-lock, with an `onPublish` that refuses a row
+with no list, as the backend does; §12 checks the delete prompt (7 failed before). `CR-MG-MEQ-HABIT`'s
+cases (1 mg amber, 0.99 and a mEq-habit 0.4 critical, none when no Mg) failed before. In
+`verify-review-0911.cjs`, B4 reads the current rows, since the edit of a submitted row is now a revision,
+and B7 checks the superseded-row refusal and the whole-order delete. The line anchors of 50 rules moved
+(`--fix-lines`).
+
 ## Session 2026-10-28 (14) — Vera's review of (13): held orders resave, the front keeps the lipid rate and the critical box, Vitalipid at least 1 mL
 
 Vera's first review of (13) was NO BLOCK with four 🟠 and one 🟡. Two needed Pp, and she answered the

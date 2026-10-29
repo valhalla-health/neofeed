@@ -840,6 +840,10 @@ const TPN_WT_MANUAL_MAX_DIFF = 0.2;
 // Mg box takes mg/kg/d and divides by this to store mEq (calcInput.mgPerKg);
 // KCMH_STOCK.mgso4_10's mEq/mL stays the mL authority.
 const MG_MG_PER_MEQ = 12.1525;
+// A Mg dose above 0 and below this many mg/kg/d is critical: typed from mEq
+// habit, it is a twelfth of the dose meant (Pp, 2026-10-29). An alert
+// threshold: it moves no dose, so CONSTANTS_VERSION stays.
+const MG_MEQ_HABIT_MG = 1;
 // Ceiling of minimal enteral / trophic feeding, mL/kg/day — the "MEF (trophic)
 // 12–24 mL/kg/day" step of the app's own Feeding Advancement card. A feed
 // ticked MEN counts toward neither fluid nor nutrition, and orders prefill
@@ -2728,7 +2732,7 @@ window.NEOFEED_DATA = {
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,

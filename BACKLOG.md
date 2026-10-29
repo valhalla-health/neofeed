@@ -51,6 +51,11 @@ clinical judgement. Everything else is engineering sequencing.
         sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
       - **Next phase:** print the pharmacy sheet again, for a sticker (`.print-back` is hidden in print,
         not removed).
+      - **Backend `@66`** carries the 2026-10-29 (1) changes: an old submitted order is revised, and an
+        admin can delete a submitted order. Until it is live, an edit of an unlocked submitted order is
+        saved in place, and a submitted order cannot be deleted.
+      - **Tell pharmacy with the release:** Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the
+        front prints, and a revision is marked.
 - [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
       rolling back).
       - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
