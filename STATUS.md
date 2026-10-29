@@ -307,7 +307,7 @@ ICT (banners). Caught up with #184 by PR #183, with #186 by PR #176, with #194 a
   branch, released with it; `CHANGELOG.md` 2026-10-28 (4)). Frontend only, no `clasp` step. **`CONSTANTS_VERSION` stays `2026-10-27.2`, by Pp's
   decision**: after a revert, or on a ward tab loaded before the release, a two-feed order shows and
   prints feed 1 only, unheld. No second clinician has checked the two-feed figures. Open for Pp: Q18
-  (one feed above 8 a day). NF-17's two-feed check: PR #189 (below). Vera: NO BLOCK three times.
+  (one feed above 8 a day). NF-17's two-feed check: PR #189, merged (below). Vera: NO BLOCK three times.
   `CHANGELOG.md` 2026-10-28.
 - ✅ **PR #181, Print ทั้งหมด / Print ที่เลือก with a tick per infant on a ward's Print order list, and no
   Calculator button there: live, released by #184 with #182 (banner above), on Pp's instruction ("Merge
@@ -355,15 +355,21 @@ went live with #172 on 2026-10-27; #173 goes with #182.)*
   served file changes and nothing to release. With #182 merged in, the check failed on #182's new
   `EN_FEEDS_PER_DAY_MAX` (no unit) and its `D.EN_PRODUCTS` dropdown, as built to; both are fixed in the
   PR. Its 38 proposed ranges in `tools/reference-tabs.json` wait for Pp. `CHANGELOG.md` 2026-10-28.
-- ⏳ **PR #189, NF-17 for two feeds: `verify-calc-sum.cjs` § 3 checks that two feeds add up from each
-  alone, saved, shown and printed, and follow a typed change: open, waiting for Pp's merge.** Test and docs
-  only, so nothing to release. It also repairs negative control 1, which `main` had broken.
-  `CHANGELOG.md` 2026-10-28 (6).
+- ✅ **PR #189, NF-17 for two feeds: `verify-calc-sum.cjs` § 3 checks that two feeds add up from each
+  alone, saved, shown and printed, and follow a typed change: merged into `main` by Pp on 2026-10-28 at
+  16:15 ICT (`edf2a92`).** Test and docs only: neither host serves `test/` or `*.md`, so nothing to
+  release, and `harnesses` runs it on every PR from now on. It also repairs negative control 1, which
+  `main` had broken. `CHANGELOG.md` 2026-10-28 (6). Recorded here by the next PR on the repo, not by its
+  own: #193, which only recorded this merge, was closed unmerged on Pp's instruction.
 - ⏳ **PR #179, NF-05: a release PR starts from `.github/PULL_REQUEST_TEMPLATE/release.md`, with
   before-and-after numbers and the rollback steps: merged into `main` on Pp's instruction** (the same
   answer as #174). Docs and a PR template only, so nothing to release. The next release PR is opened with
   `--template release.md`. Its question on the 25 old backend deployments waits for Pp (`BACKLOG.md` §
   Now). `CHANGELOG.md` 2026-10-28.
+- ⏳ **PR #196, one piece of work, one PR: `AGENTS.md` states Pp's rule that no PR only records another
+  PR (its merge, a release, a tag), and `REFERENCE.md` § Deploying extends its deploy rule to merges:
+  open, waiting for Pp's merge.** Docs only, so nothing to release. It also carries #189's ✅ above, as the
+  rule asks. `CHANGELOG.md` 2026-10-28 (13).
 - ✅ **PR #173, Pp's clinical-rules skill (NF-04): released by #184 (nothing of it is served); merged into
   `main` on Pp's instruction (she answered
   "ก" to "merge #173 เมื่อ CI ผ่าน").** Nothing in it reaches the ward: a skill under `.claude/skills/`,
