@@ -157,7 +157,7 @@ const ORDER_DIFF_FIELDS = [
   ["glycophosP", "Glycophos", "mL/kg/d"],
   ["kCl", "KCl", "mEq/kg/d"],
   ["k2hpo4", "K₂HPO₄", "mEq/kg/d"],
-  ["mgPerKg", "MgSO₄", "mEq/kg/d"],
+  ["mgPerKg", "MgSO₄", "mg/kg/d"],
   ["caPerKg", "Ca gluconate", "mg/kg/d"],
   ["heparinUmL", "Heparin", "U/mL"],
   ["inclSoluvit", "Soluvit", ""],
@@ -183,6 +183,8 @@ function describeOrderValue(key, v) {
   if (key === "enType2" && v == null) return "none";
   if (key === "enType" || key === "enType2") return (window.NEOFEED_DATA.EN_DB[v]?.label || v).split(" (")[0];
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
+  // Stored in mEq, read in mg (Pp, 2026-10-28).
+  if (key === "mgPerKg" && typeof v === "number") return window.NEOFEED_DATA.displayNum(v * window.NEOFEED_DATA.MG_MG_PER_MEQ, 2);
   // A volume derived from Rate × 24 used to reach this list — and the printed
   // pharmacy form — as "98.39999999999999" (review 2026-09-17, UP-C13).
   // toPrecision(12) strips float noise without rounding away a real decimal
@@ -409,9 +411,9 @@ function EnFeedPicker({ value, onChange }) {
     onChange(next[1]);
   };
   return (<>
-    // The same three columns as the Volume / Frequency row below: the milk spans
-    // two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box
-    // beside a full-width milk box was out of proportion on desktop).
+    {/* The same three columns as the Volume / Frequency row below: the milk spans
+        two, kcal/oz takes the third (Pp, 2026-10-28: a fixed 112 px kcal/oz box
+        beside a full-width milk box was out of proportion on desktop). */}
     <div className="en-picker" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
       <div className="field" style={{ gridColumn: "span 2" }}>
         <label>Feed type</label>
@@ -1154,6 +1156,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
     setSavedStatus(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+    setPublished(!!editEntry?.published);   // it now decides Submit's lock (Vera, 2026-10-28)
     setConflict(null);
     setCritOverride(editEntry?.calcInput?.critOverride || null);
     setSavedMeta(editEntry ? {
@@ -1447,7 +1450,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // order form, for patients with no lipid bag at all. It also silently
     // defeated the `calc.lipidBagVol > 0` guard below, which is meant to read
     // as "lipid is ordered" but could never be false once a weight was entered.
-    const vitalipidVol = lipidPerKg > 0 ? Math.min(4 * wtKg, 10) : 0;
+    // Rounded DOWN to a whole mL, as the ward gives it, so the order says what
+    // the infant gets (TPN team, 2026-10-28: "ทำให้ในระบบและทำจริงเหมือนกัน >
+    // ปัดลง"), and never below 1 mL when lipid is ordered (Pp, 2026-10-28, after
+    // Vera: under 500 g the floor alone gave 1 mL or none). The 1e-9 keeps
+    // 4 × 0.75 kg = 3 from flooring to 2 on a float tail.
+    const vitalipidVol = lipidPerKg > 0 ? Math.max(1, Math.floor(Math.min(4 * wtKg, 10) + 1e-9)) : 0;
     const lipidBagVol = lipidVol + vitalipidVol;
 
     // dexPct is the final concentration of the PREPARED bag (sheet D10), so the
@@ -1642,26 +1650,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     const dexGPerKg = dexG / wtKg;                                             // vs 18 g/kg/d
     const kMeqPerL  = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1000) : 0;  // vs 40 mEq/L
 
-    const osm = D.estimateOsmolarity({
+    const osmIn = {   // returned too: Step 3's osmolarity working shows these inputs (NF-12)
       dexPct,
       aaPct:      aaG > 0 && totalTPN_mL > 0 ? aaG / totalTPN_mL * 100 : 0,
       naMeqPerL:  totalTPN_mL > 0 ? naKg    * wtKg / (totalTPN_mL / 1000) : 0,
       kMeqPerL,
       caMgPerL:   totalTPN_mL > 0 ? caPerKg * wtKg / (totalTPN_mL / 1000) : 0, // elemental Ca mg/L
       mgMeqPerL:  totalTPN_mL > 0 ? mgPerKg * wtKg / (totalTPN_mL / 1000) : 0, // Mg mEq/L
-    });
+    }, osm = D.estimateOsmolarity(osmIn);
 
     return {
       wtKg, totalTPN_mL, lipidVol, lipidBagVol, vitalipidVol,
-      enVolTotal, enVolPerKg, enKcal, enCounted, en, useEnteralTargets, enFeedKg, aaStockKey,
+      enVolTotal, enVolPerKg, enKcal, enCounted, en, useEnteralTargets, enFeedKg, aaStockKey, enProteinG,
       prescribedFluid, totalFluidPerKg, remaining,
-      gir, dexG, aaG, lipidG,
+      gir, dexG, aaG, lipidG, dexKcal, aaKcal, lipidKcal,
       naKg, kKg, caKg: caPerKg + caFromEN, pKg: pKg_tpn + pFromEN, caP,
       caFromEN, pFromEN,
       naTotalDelivered: naKg + naFromEN, kTotalDelivered: kKg + kFromEN,
       proteinKg, lipidKgTotal, kcalKg, totalKcal, tpnKcal,
       kcalProtPct, kcalFatPct, kcalChoPct,
-      npeN, peRatio, osm,
+      npeN, peRatio, osm, osmIn,
       pTotal_mg, p_glycophos, p_k2hpo4, na_glycophos, isMEN,
       d50wVol, soluvitVol, peditrace_vol, solVol,
       componentVol, wfiVol, dexGPerKg, kMeqPerL,
@@ -1775,14 +1783,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 × (40/31) → mass 1.0–1.7.
   // KCMH order form aims at the upper end (~1.7:1).
   const tCaP = D.TARGETS.caP();            // [1.0, 1.7] mass ratio
-  // Mg mEq/kg/day — ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): 0.1–0.2 mmol/kg
-  // in the first days (DOL 1–7, D.FIRST_DAYS_LAST_DOL), 0.2–0.3 growing =
-  // 0.2–0.4 / 0.4–0.6 mEq; mg/kg/d means elemental Mg (TPN team, 2026-10-25). The tile, its
-  // alert and the printed "Normal Requirement" all read this one range, in
-  // mEq because Mg is dosed in mEq: the guideline's mg figures are rounded
-  // (0.1 mmol = 2.43 mg, printed 2.5), so comparing in mg would flag the 0.2
-  // and 0.4 presets — the exact bounds — as off target. Parenteral only: no
-  // enteral Mg target, and no Mg in EN_DB, so the tile is the TPN's Mg.
+  // Mg is typed, graded and printed in elemental mg/kg/d (TPN team, 2026-09-28
+  // and 2026-10-28; Pp chose mg entry and ESPGHAN's mg figures on 2026-10-28):
+  // 2.5–5 in the first days (DOL 1–7, D.FIRST_DAYS_LAST_DOL), 5–7.5 growing.
+  // The order still stores mEq (calcInput.mgPerKg), so compounding, saved rows
+  // and Center Point's packet are unchanged; mgMgPerKg is that dose in mg, to 2
+  // decimals, which is what the box shows and what the tile grades.
+  // Parenteral only: no enteral Mg target, and no Mg in EN_DB.
+  const mgMgPerKg = mgPerKg > 0 ? Number(D.displayNum(mgPerKg * D.MG_MG_PER_MEQ, 2)) : 0;
+  // Typed mg → stored mEq, to 10 decimals: 4.861 mg is 0.4 mEq, not
+  // 0.4000000000000001, so retyping a saved dose leaves the order unchanged.
+  const setMgFromMg = (mg) => setMgPerKg(Number((mg / D.MG_MG_PER_MEQ).toFixed(10)));
   const tMg = D.TARGETS.mg(dol);
 
   // Non-protein energy per g amino acid — classic NPC:N 150:1 ÷ 6.25 g AA/g N = at least 24 kcal/g AA
@@ -1825,7 +1836,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
   const sCaP = D.rangeStatus(calc.caP, tCaP);
-  const sMg = D.rangeStatus(mgPerKg, tMg);
+  // Below D.MG_MEQ_HABIT_MG the dose was most likely typed in mEq, the unit
+  // this box took until 2026-10-28: critical, so Submit asks (Pp, 2026-10-29).
+  // The tile's bar draws it red through statusAt, as GIR's does.
+  const mgStatusAt = (v) => D.rangeStatus(v, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
+  const sMg = mgStatusAt(mgMgPerKg);
   // Step 6 total-intake statuses — same targets as Step 4, applied to IV + feed + oral
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
@@ -2057,7 +2072,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     body: `K IV ${vsLimit(ivKKg, D.K_IV_HARD_HI, 1)} mEq/kg/d > ${D.K_IV_HARD_HI} mEq/kg/d hard limit (TPN only)${withTotal(ivKKg, calc.kTotalDelivered, 1, "mEq/kg/d")}.`, ref: ivRef });
   else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
   // Mg has only a parenteral reference, so its line never cites the enteral table.
-  pushTile(sMg, "Magnesium", mgPerKg, 2, tMg, "mEq/kg/d", null, "ESPGHAN 2018 (parenteral)");
+  // Its critical line (below D.MG_MEQ_HABIT_MG) asks about mEq in the title:
+  // the Submit prompt lists titles only, and the title prints in the critical
+  // box (Vera, 2026-10-29).
+  if (sMg === "crit") alerts.push({ level: "crit", title: `Magnesium below ${D.MG_MEQ_HABIT_MG} mg/kg/d: พิมพ์เป็น mEq หรือเปล่า`,
+    body: `${fmt(mgMgPerKg, 2)} mg/kg/d — ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d.`,
+    ref: "Pp, 2026-10-29 · ESPGHAN 2018 (parenteral)" });
+  else pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d", null, "ESPGHAN 2018 (parenteral)");
   // A bag with no amino acid in it (Pp, 2026-10-21). Its tile reads 0 as
   // "empty", not off target, and the form prints "—", so amino acid left out
   // by mistake reached pharmacy as "not ordered" with nothing on screen. A
@@ -2258,6 +2279,23 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // …and nor does a nurse's form once the backend refuses a nurse's order
     // write (D5): no Save button is rendered either — this is the belt.
     if (ordersReadOnly) return;
+    // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
+    // An order submitted before the lock existed and reopened unchanged is only
+    // locked: a revision of identical numbers would tell pharmacy nothing.
+    // Only when it could print as it is: an order held from Print (a calculation
+    // that moved since, a changed dosing weight, an unconfirmed critical value)
+    // takes the full save below, a revision on today's numbers (Vera, 2026-10-28).
+    const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
+    if (lockFirst && !dirty && printable) {
+      setSaving(true);
+      const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
+      setSaving(false);
+      if (res.conflict) { setConflict(res.current); return; }
+      if (!res.ok) return;
+      setPublished(true);
+      onSaved && onSaved();
+      return;
+    }
     // ── Required-field gate (2026-09-15) ──────────────────────────────
     // Blocks the save outright rather than warning: an order row whose fluid
     // plan or urine output was never entered is not a partial record, it is a
@@ -2455,6 +2493,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     });
 
     setSaving(true);
+    // An edit of a submitted order lands as a revision beside it, locked or
+    // not: gas-backend.gs updateDailyNutrition revises any row stored as
+    // submitted (Pp, 2026-10-29). Locking it here first, as this did from
+    // 2026-10-28, failed for every order saved before calcInput.stops, since
+    // publishDailyLog refuses a row with no stop list (Vera, second review).
     const res = savedEntryId
       ? await onUpdate(savedEntryId, savedLastModified, entry)
       : await onLog(entry);
@@ -2493,6 +2536,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     clearDraft();
     setDraftOffer(null);
 
+    // Then lock what was just submitted: the new row, the row edited in place,
+    // or the revision the server appended. If the lock fails the order is
+    // still saved and submitted; Submit again locks it (lockFirst), and an
+    // edit is a revision all the same.
+    if (!asDraft && onPublish) {
+      const lockId = res.revised ? res.entryId : (savedEntryId || res.entryId);
+      const pub = await onPublish(lockId, res.lastModified, { quiet: true });
+      if (pub.ok) setPublished(true);
+      else if (!pub.conflict) showToast("บันทึกแล้ว แต่ล็อกคำสั่งไม่สำเร็จ ลองกด Submit อีกครั้ง", "error");
+    }
+
     // With the publish gate on, Save deliberately stays on this screen so
     // Submit and Print are reachable without reopening the entry. With the
     // gate off — today's behaviour, unchanged — Save still navigates away
@@ -2523,11 +2577,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // to admin same as the Dashboard's trash icon). Native confirm() so the
   // action can't fire on a stray click — matches the confirmation already
   // used for the Dashboard's per-row delete.
+  // A submitted order can be deleted too (Pp, 2026-10-29: one saved on the
+  // wrong infant), and the server then removes every version of it, so the
+  // prompt says so and reminds whoever deletes it that pharmacy may hold it.
   const handleDelete = () => {
     if (!savedEntryId || pendingSave || !onDelete) return;
     const ts = editEntry?.ts || logDate;
     const label = `DOL ${dol}${ts ? ` (${window.NEOFEED_FMT_DATE?.(ts) || ts})` : ""}`;
-    if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+    const submitted = published || (savedStatus === "submitted" && !!editEntry);
+    const ask = submitted
+      ? `ลบคำสั่ง ${label} ใช่หรือไม่? คำสั่งนี้ Submit แล้ว จะลบทุกฉบับของคำสั่งนี้ รวมฉบับแก้ไขก่อนหน้า ถ้าเภสัชได้ใบสั่งไปแล้ว ต้องแจ้งเภสัชเอง การลบนี้ไม่สามารถย้อนกลับได้`
+      : `ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`;
+    if (!window.confirm(ask)) return;
     onDelete({ entryId: savedEntryId, dol, ts });
   };
 
@@ -2886,6 +2947,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     <span key={lab} style={{ whiteSpace: "nowrap" }}>{lab} <span className="num" style={{ fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" }}>{fmt(v, d)}</span></span>
                   ))}
                 </div>
+                {calc.enVolTotal > 0 && <MilkAssumption keys={enFeeds.filter(f => f.mlPerDay > 0).map(f => f.key)} />}
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -3256,6 +3318,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               นม MEN (trophic) <span className="num">{fmt(calc.enVolPerKg, 0)}</span> mL/kg/d ไม่นับในค่ารวม — Energy, Protein, Lipid ด้านบน และ Na K Ca P ใน Step 4
             </div>
           )}
+          {calc.wtKg > 0 && <ShowWorking calc={calc} route={route} wtG={wtG} dol={dol} dexPct={dexPct} aaPerKg={aaPerKg}
+            feeds={enFeeds} tGir={tGir} tKcal={tKcal} tPro={tPro} useEN={useEN} vsLimit={vsLimit} />}
 
         </div></StepBody>
       </div>
@@ -3359,15 +3423,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               )}
 
               {/* ── Mg · Ca ── */}
-              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "12px 0 4px" }}>Mg (mEq/kg + mg/kg) · Ca (mg/kg)</div>
-              <SaltRow label="MgSO₄" note={`${S.mgso4_10.mgMeqPerMl} mEq/mL`} perKg={mgPerKg} onChange={setMgPerKg} wtKg={wtKg} />
-              <PresetChips values={[0.2, 0.4, 0.6]} current={mgPerKg} onSelect={setMgPerKg} />
-              {/* Dosed and compounded in mEq/kg/d (matches the stock's mEq/mL) —
-                  this line only adds mg/kg/d for cross-checking a mg-based reference,
-                  it does not change what is compounded. */}
+              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, margin: "12px 0 4px" }}>Mg (mg/kg) · Ca (mg/kg)</div>
+              {/* Typed in elemental mg/kg/d (Pp, 2026-10-28) and kept as mEq, the
+                  unit the stock's mL is computed from (see mgMgPerKg). The chips
+                  are ESPGHAN's mg bounds, close to the old 0.2 / 0.4 / 0.6 mEq. */}
+              <SaltRow label="MgSO₄" unit="mg/kg/d"
+                note={`${fmt(S.mgso4_10.mgMeqPerMl * D.MG_MG_PER_MEQ, 2)} mg Mg/mL (${S.mgso4_10.mgMeqPerMl} mEq/mL)`}
+                perKg={mgMgPerKg} onChange={setMgFromMg} wtKg={wtKg} />
+              <PresetChips values={[2.5, 5, 7.5]} current={mgMgPerKg} onSelect={setMgFromMg} />
               {mgPerKg > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
-                  {fmt(mgPerKg, 2)} mEq Mg/kg/d = {fmt(mgPerKg * D.MG_MG_PER_MEQ, 1)} mg/kg/d
+                  {fmt(mgMgPerKg, 2)} mg Mg/kg/d = {fmt(mgPerKg, 2)} mEq/kg/d
                 </div>
               )}
               {/* KCMH compounds from 10% MgSO₄ only (Pp, 2026-10-27). */}
@@ -3392,13 +3458,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="k-conc-ref" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}>
                 {route ? kRouteLabel : "peripheral (no route yet)"}: {[`amber > ${kLim.warn}`, ...kBagLimitParts(kLim, "red >")].join(" · ")} mEq/L
               </div>
-              {/* Mg in the unit it is dosed in (tMg), plus mg/kg/d for the
-                  guideline's mg columns. TPN only: EN_DB carries no Mg. */}
-              <Tile label="Magnesium" value={mgPerKg} unit=" mEq/kg/d" target={tMg} status={sMg} decimals={2} max={1} />
+              {/* Mg in mg/kg/d, the unit it is typed and graded in (tMg), with
+                  its mEq beside it. TPN only: EN_DB carries no Mg. */}
+              <Tile label="Magnesium" value={mgMgPerKg} unit=" mg/kg/d" target={tMg} status={sMg} statusAt={mgStatusAt} decimals={2} max={12} />
               {mgPerKg > 0 && (
                 <div className="mg-mgkg" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}
                   title="ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): preterm, first days 0.1–0.2 mmol (2.5–5.0 mg)/kg/d; growing 0.2–0.3 mmol (5.0–7.5 mg)/kg/d · 1 mmol Mg = 2 mEq">
-                  = {fmt(mgPerKg * D.MG_MG_PER_MEQ, 1)} mg/kg/d · TPN only
+                  = {fmt(mgPerKg, 2)} mEq/kg/d · TPN only
                 </div>
               )}
               <Tile label="Calcium" value={calc.caKg} unit=" mg/kg/d" target={tCa} status={sCa} decimals={0} max={140} />
@@ -3898,7 +3964,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 // when K⁺ is over the maximum, as an over-full bag's does.
                 kOverMax ? `  !! K⁺ ${fmt(calc.kMeqPerL, 0)} mEq/L IS ABOVE THE ${kLim.hardMax} mEq/L MAXIMUM — cannot be ordered` : "",
                 caPerKg>0 ? `  Ca-gluconate: ${caPerKg} mg/kg → ${fmt(caPerKg*calc.factor, 0)} mg → ${calc.solVol.ca} mL` : "",
-                mgPerKg>0 ? `  MgSO4 10%:    ${mgPerKg} mEq/kg → ${fmt(mgPerKg*calc.factor, 2)} mEq → ${calc.solVol.mg} mL` : "",
+                mgPerKg>0 ? `  MgSO4 10%:    ${fmt(mgMgPerKg, 2)} mg/kg (${fmt(mgPerKg, 2)} mEq) → ${fmt(mgPerKg*D.MG_MG_PER_MEQ*calc.factor, 1)} mg (${fmt(mgPerKg*calc.factor, 2)} mEq) → ${calc.solVol.mg} mL` : "",
                 calc.caP > 0 ? `  Ca:P ratio:   ${isFinite(calc.caP) ? fmt(calc.caP, 2) : "!! (Ca ordered, P = 0)"}:1 (mass, TPN+EN)` : "",
                 `──────────────────────────────`,
                 inclSoluvit   ? `Soluvit N:      ${calc.soluvitVol} mL/day → aqueous bag${calc.overfill > 1.001 ? ` (× Factor — delivers ${fmt(calc.soluvitVol*calc.deliveredFrac, 2)} mL)` : ""}` : "",
@@ -4021,8 +4087,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <Icon name="save" size={14} /> {saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"}
               </button>
             )}
+            {/* A locked order with nothing changed has nothing to submit, unless
+                Print is holding it for a new save. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
@@ -4201,6 +4269,204 @@ function KcalLegend({ color, label, pct, target }) {
 
 }
 
+// ── Where the numbers come from (NF-12) ─────────────────────────
+// NOURISH (Belfort, Inder; JAMA Pediatrics) found a unit's standard
+// fortification enough for very preterm infants and did not support routine
+// milk analysis, so NeoFeed keeps an assumed breast milk, has no measured-milk
+// input, and says what it assumes (Pp's apply list, 2026-10-27). Each result
+// line in Step 3 can also show its working, collapsed until pressed.
+// Every figure is read from window.NEOFEED_DATA when it renders: the EN_DB
+// rows, the HMF dose and the limits the clinical-rules skill cites by CR- ID,
+// never a copy (test/verify-show-working-1028.cjs §3). The formulas are text:
+// that harness checks their terms add up to the tile beside them. Screen only;
+// the print form and the copied order read none of it. A day can have two
+// feeds (main's #182): both read the feeds given, never feed 1's picker alone,
+// which can sit at 0 mL beside feed 2.
+const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true };   // feed → carries HMF
+
+// One figure in the working, keyed for the harness; `t` is one already formatted.
+function WorkVal({ k, v, d = 2, t }) {
+  return <span className="num" data-v={k}>{t ?? fmt(v, d)}</span>;
+}
+
+// `keys`: the EN_DB key of each feed given today.
+function MilkAssumption({ keys }) {
+  const bmKeys = keys.filter((k) => k in BM_ASSUMED_FEEDS);
+  if (bmKeys.length === 0) return null;
+  const bm = D.EN_DB.BM_20, bmh = D.EN_DB.BM_HMF_24;
+  const hmfG = D.EN_HMF_PROTEIN_G_PER_DOSE;
+  const hmfKcal = D.EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal * hmfG;
+  const quiet = { color: "var(--ink-3)" };
+  return (
+    <div className="en-milk-assumption" data-rule="CR-U-BREASTMILK" style={{ marginTop: 8, paddingTop: 6,
+      borderTop: "1px dashed var(--line-2)", fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5 }}>
+      <div>
+        นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein <WorkVal k="bm.pro" v={bm.pro} /> g · <WorkVal k="bm.kcal" v={bm.kcal} d={1} /> kcal
+        <span style={quiet}> · {bm.source}</span>
+      </div>
+      {bmKeys.some((k) => BM_ASSUMED_FEEDS[k]) && (
+        <div>
+          HMF ที่เติมต่อ 100 mL: protein +<WorkVal k="hmf.pro" v={hmfG} /> g · +<WorkVal k="hmf.kcal" v={hmfKcal} d={1} /> kcal
+          รวมเป็น <WorkVal k="bmhmf.pro" v={bmh.pro} /> g · <WorkVal k="bmhmf.kcal" v={bmh.kcal} d={1} /> kcal
+          <span style={quiet}> · {bmh.source.replace(/^BM_20 \+ /, "")}</span>
+        </div>
+      )}
+      {bmKeys.includes("FBM_INF_MIX") && <div style={quiet}>{D.EN_DB.FBM_INF_MIX.note}</div>}
+      <div style={{ fontWeight: 600 }}>นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมของแม่คนนี้</div>
+    </div>
+  );
+}
+
+const WORKING_LINES = [["gir", "GIR"], ["osm", "Osmolarity"], ["kcal", "Energy"], ["protein", "Protein"]];
+
+function ShowWorking(props) {
+  const [open, setOpen] = useState(() => new Set());
+  const flip = (id) => setOpen((s) => { const next = new Set(s); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  return (
+    <div className="calc-working" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 11, color: "var(--ink-3)" }}>ที่มาของตัวเลข</span>
+        {WORKING_LINES.map(([id, label]) => (
+          <button key={id} type="button" className={`btn sm working-toggle${open.has(id) ? " on" : ""}`} data-working={id}
+            aria-expanded={open.has(id)} onClick={() => flip(id)}>
+            {label} <span aria-hidden="true">{open.has(id) ? "▲" : "▼"}</span>
+          </button>
+        ))}
+      </div>
+      {WORKING_LINES.filter(([id]) => open.has(id)).map(([id]) => <WorkingPanel key={id} id={id} {...props} />)}
+    </div>
+  );
+}
+
+function WorkRow({ label, children }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "84px minmax(0, 1fr)", gap: 8 }}>
+      <span style={{ color: "var(--ink-3)" }}>{label}</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
+// A result just past its hard limit reads the way the alert reads it (the
+// Calculator's vsLimit: GIR 12.007 is "12.01", never "12" beside "above 12"; Vera).
+function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir, tKcal, tPro, useEN, vsLimit }) {
+  const en = calc.en;
+  // The feeds given. With none, feed 1's picker still holds a milk (breast milk
+  // by default), so the row names no milk at all (Vera, on the merge).
+  const given = feeds.filter((f) => f.mlPerDay > 0);
+  const noBag = !(calc.totalTPN_mL > 0);
+  const aboutFeed = (key) => {
+    const row = D.EN_DB[key];
+    if (!row) return `${key}: not in the feed list`;
+    return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
+  };
+  const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
+  // `n` is the EN_DB nutrient; with two feeds calc.en is their mix, so each
+  // feed's line reads its own row and the lines add up to calc's total.
+  const feedRow = (n, unit, total, k) => {
+    if (given.length === 0) return <>ไม่มีนม: <WorkVal k={k} v={total} /> {unit}</>;
+    if (calc.isMEN) return <>นม MEN (trophic) <WorkVal k="enGiven" v={calc.enVolTotal} d={1} /> mL/day ไม่นับในค่ารวม: นับ <WorkVal k={k} v={total} /> {unit}</>;
+    if (given.length === 1) return <><WorkVal k="enMl" v={calc.enCounted} d={1} /> mL × <WorkVal k="enPer100" v={en[n]} /> {unit}/100 mL ÷ 100
+        = <WorkVal k={k} v={total} /> {unit} · {aboutFeed(given[0].key)}</>;
+    return <>
+      {given.map((f, i) => {
+        const per100 = D.EN_DB[f.key]?.[n] ?? 0;
+        return <div key={i}>Feed {i + 1}: <WorkVal k={`enMl${i + 1}`} v={f.mlPerDay} d={1} /> mL × <WorkVal k={`enPer100_${i + 1}`} v={per100} /> {unit}/100 mL ÷ 100
+          = <WorkVal k={`${k}${i + 1}`} v={f.mlPerDay * per100 / 100} /> {unit} · {aboutFeed(f.key)}</div>;
+      })}
+      <div>รวม <WorkVal k={k} v={total} /> {unit}</div>
+    </>;
+  };
+  const box = { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 11.5,
+    color: "var(--ink-2)", display: "flex", flexDirection: "column", gap: 4, lineHeight: 1.45 };
+  const title = { fontWeight: 600, color: "var(--ink)" };
+
+  if (id === "gir") return (
+    <div className="working-panel" data-working="gir" style={box}>
+      <div style={title}>GIR = <WorkVal k="result" t={vsLimit(calc.gir, D.GIR_HARD_HI, 1)} /> mg/kg/min</div>
+      <WorkRow label="สูตร">GIR (mg/kg/min) = dextrose (g/day) × 1,000 ÷ (1,440 × kg)</WorkRow>
+      <WorkRow label="ค่าที่ใช้">
+        dextrose = <WorkVal k="tpnMl" v={calc.totalTPN_mL} /> mL ที่ให้จริง × <WorkVal k="dexPct" v={dexPct} /> % ÷ 100
+        = <WorkVal k="dexG" v={calc.dexG} /> g/day · {kgRow}
+      </WorkRow>
+      <WorkRow label="แปลงหน่วย">g → mg × 1,000 · ต่อวัน → ต่อนาที ÷ 1,440 · ไม่นับ dead space เพราะไม่ถึงตัวเด็ก (CR-U-FACTOR)</WorkRow>
+      <WorkRow label="เกณฑ์">
+        ปกติ <WorkVal k="lim.lo" v={tGir[0]} />–<WorkVal k="lim.hi" v={tGir[1]} /> นอกช่วงเป็นสีเหลือง ·
+        เกิน <WorkVal k="lim.hard" v={D.GIR_HARD_HI} /> เป็น critical · CR-GIR-MAX · CR-U-GIR
+        {noBag && <> · ไม่มีถุง TPN วันนี้ เลยไม่ตรวจ GIR</>}
+      </WorkRow>
+    </div>
+  );
+
+  if (id === "osm") {
+    const o = calc.osmIn || {};
+    const caMeq = (o.caMgPerL || 0) / 20;
+    const peripheral = route !== "central";
+    return (
+      <div className="working-panel" data-working="osm" style={box}>
+        <div style={title}>Osmolarity = <WorkVal k="result" v={calc.osm} d={0} /> mOsm/L</div>
+        <WorkRow label="สูตร">mOsm/L = 50 × dextrose % + 100 × AA % + 2 × Na + 2 × K + 1.4 × Ca + 1 × Mg (Na K Ca Mg เป็น mEq/L)</WorkRow>
+        <WorkRow label="ค่าที่ใช้">
+          dextrose <WorkVal k="dexPct" v={o.dexPct} /> % → <WorkVal k="t.dex" v={50 * o.dexPct} d={1} /> ·
+          AA <WorkVal k="aaPct" v={o.aaPct} /> % → <WorkVal k="t.aa" v={100 * o.aaPct} d={1} /> ·
+          Na <WorkVal k="na" v={o.naMeqPerL} d={1} /> mEq/L → <WorkVal k="t.na" v={2 * o.naMeqPerL} d={1} /> ·
+          K <WorkVal k="k" v={o.kMeqPerL} d={1} /> mEq/L → <WorkVal k="t.k" v={2 * o.kMeqPerL} d={1} /> ·
+          Ca <WorkVal k="caMg" v={o.caMgPerL} d={0} /> mg/L = <WorkVal k="caMeq" v={caMeq} d={1} /> mEq/L → <WorkVal k="t.ca" v={1.4 * caMeq} d={1} /> ·
+          Mg <WorkVal k="mgMg" v={(o.mgMeqPerL || 0) * D.MG_MG_PER_MEQ} d={1} /> mg/L = <WorkVal k="mg" v={o.mgMeqPerL} /> mEq/L → <WorkVal k="t.mg" v={o.mgMeqPerL} d={1} />
+        </WorkRow>
+        {/* Mg is typed in mg/kg/d since 2026-10-28, so its step from mg to mEq is
+            shown as Ca's is (Vera, 2026-10-29). */}
+        <WorkRow label="แปลงหน่วย">
+          AA % = AA g ÷ mL ที่ให้จริง × 100 · Na Ca Mg ต่อลิตร = ต่อ kg × kg ÷ ลิตรที่ให้จริง (mL ÷ 1,000) ·
+          K = K ในถุง ÷ ลิตรของถุงที่เตรียม ได้ค่าเท่ากัน · Ca mg ÷ 20 = mEq · Mg mg ÷ {fmt(D.MG_MG_PER_MEQ, 2)} = mEq
+        </WorkRow>
+        <WorkRow label="เกณฑ์">
+          {peripheral
+            ? <>{route === "peripheral" ? "peripheral" : "ยังไม่เลือก route เลยตรวจแบบ peripheral"}: ตั้งแต่ <WorkVal k="lim.hard" v={D.OSM_PERIPHERAL_MAX} d={0} /> mOsm/L
+                ขึ้นไปเป็น critical ตัดสินจากเลขจำนวนเต็มที่พิมพ์</>
+            : <>central: ไม่มีเพดาน</>}
+          {" "}· CR-OSM-PERIPH · CR-U-OSM{noBag && <> · ไม่มีถุง TPN วันนี้</>}
+        </WorkRow>
+      </div>
+    );
+  }
+
+  if (id === "kcal") return (
+    <div className="working-panel" data-working="kcal" style={box}>
+      <div style={title}>Energy = <WorkVal k="result" t={vsLimit(calc.kcalKg, D.KCAL_HARD_HI, 0)} /> kcal/kg/d</div>
+      <WorkRow label="สูตร">kcal/kg/d = (3.4 × dextrose g + 4 × AA g + 9 × lipid g + kcal จากนม) ÷ kg</WorkRow>
+      <WorkRow label="ค่าที่ใช้">
+        dextrose <WorkVal k="dexG" v={calc.dexG} /> g → <WorkVal k="dexKcal" v={calc.dexKcal} d={1} /> kcal ·
+        AA <WorkVal k="aaG" v={calc.aaG} /> g → <WorkVal k="aaKcal" v={calc.aaKcal} d={1} /> kcal ·
+        20% lipid <WorkVal k="lipidG" v={calc.lipidG} /> g → <WorkVal k="lipidKcal" v={calc.lipidKcal} d={1} /> kcal
+      </WorkRow>
+      <WorkRow label="นม">{feedRow("kcal", "kcal", calc.enKcal, "enKcal")}</WorkRow>
+      <WorkRow label="แปลงหน่วย">นมคิดต่อ 100 mL เลย ÷ 100 · {kgRow} · CR-U-ENERGY</WorkRow>
+      <WorkRow label="เกณฑ์">
+        <WorkVal k="lim.lo" v={tKcal[0]} />–<WorkVal k="lim.hi" v={tKcal[1]} /> kcal/kg/d, {band} ·
+        เกิน <WorkVal k="lim.hard" v={D.KCAL_HARD_HI} d={0} /> เป็น critical · CR-TGT-KCAL · CR-KCAL-MAX
+      </WorkRow>
+    </div>
+  );
+
+  return (
+    <div className="working-panel" data-working="protein" style={box}>
+      <div style={title}>Protein = <WorkVal k="result" t={vsLimit(calc.proteinKg, D.PROTEIN_HARD_HI, 1)} /> g/kg/d</div>
+      <WorkRow label="สูตร">g/kg/d = (AA g + protein จากนม g) ÷ kg</WorkRow>
+      <WorkRow label="ค่าที่ใช้">
+        AA <WorkVal k="aaPerKg" v={aaPerKg} /> g/kg/d × <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000 = <WorkVal k="aaG" v={calc.aaG} /> g
+      </WorkRow>
+      <WorkRow label="นม">{feedRow("pro", "g", calc.enProteinG, "enProG")}</WorkRow>
+      <WorkRow label="แปลงหน่วย">นมคิดต่อ 100 mL เลย ÷ 100 · {kgRow}</WorkRow>
+      <WorkRow label="เกณฑ์">
+        <WorkVal k="lim.lo" v={tPro[0]} />–<WorkVal k="lim.hi" v={tPro[1]} /> g/kg/d, {band} ·
+        เกิน <WorkVal k="lim.hard" v={D.PROTEIN_HARD_HI} /> เป็น critical นับ TPN กับนมรวมกัน · CR-TGT-PROTEIN · CR-PROTEIN-MAX
+      </WorkRow>
+    </div>
+  );
+}
+
 // ── KCMH Pediatric PN Order Form (print only) ───────────────────
 // Two sheets, printed back to back (Praew, 2026-09-22).
 //
@@ -4260,7 +4526,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
     suppFerdek > 0 && <span key="fe">{chk(true)} Fe oral ({D.SUPP_DB[suppFeType]?.label}) <strong>{suppFerdek}</strong> mg/kg/d = <strong>{f(suppFerdek*(wtKg||0),1)}</strong> mg → {f(suppFerdek*(wtKg||0)/(D.SUPP_DB[suppFeType]?.fe_mg_per_ml||1),2)} mL/day</span>,
   ].filter(Boolean);
   // The paper form's amino-acid list, ours ticked.
-  const AA_CHOICES = [["aminoven10", "10% Aminoven infant (0-1 yr.)"], [null, "10% Amiparen (>1 Yr.)"], [null, "8% Aminoleban"],
+  // PED AMINE is the same 10% product line for pharmacy (TPN team and Pp, 2026-10-28).
+  const AA_CHOICES = [["aminoven10", "10% Aminoven infant / PED AMINE (0-1 yr.)"], [null, "10% Amiparen (>1 Yr.)"], [null, "8% Aminoleban"],
     [null, "7% Nephrosteril"], ["aminoplasmal15", "15% Aminoplasmal"]];
 
   return (
@@ -4277,6 +4544,16 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           fontSize:44, fontWeight:800, color:"rgba(200,0,0,0.28)",
           letterSpacing:4, whiteSpace:"nowrap", pointerEvents:"none", zIndex:10,
         }}>รอผลแลป</div>
+      )}
+
+      {/* A revision says so at the top right of the doctor's sheet, where
+          pharmacy looks first: the order it replaces may already be mixed
+          (TPN team, 2026-10-28). */}
+      {(savedMeta?.revision || 1) > 1 && (
+        <div className="print-revision" style={{ position:"absolute", top:"4mm", right:"6mm",
+          border:"1.5px solid #000", padding:"1px 6px", fontWeight:700, fontSize:11 }}>
+          Revision · ฉบับที่ {savedMeta.revision}
+        </div>
       )}
 
       {/* ════════════ FRONT — the doctor's order ════════════ */}
@@ -4421,9 +4698,10 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           {/* 3. Mg⁺⁺ and 4. Ca⁺⁺ — one product each */}
           <tr>
             <td style={tdRx(mgPerKg > 0)}>3. Mg⁺⁺ &nbsp;{chk(mgPerKg > 0)} MgSO₄</td>
-            <td style={tdr}>{mgPerKg > 0 ? <><strong>{mgPerKg}</strong> mEq<br/><span style={note}>= {f(mgPerKg*D.MG_MG_PER_MEQ,1)} mg/kg</span></> : "—"}</td>
-            <td style={tdr}>{mgPerKg > 0 ? <><strong>{f(mgPerKg*(calc.factor||0),2)}</strong> mEq = <strong>{f(calc.solVol?.mg,1)}</strong> mL (10%)</> : "—"}</td>
-            <td style={td}>Mg {rng(targets?.mg)} mEq/kg/day</td>
+            {/* Mg in elemental mg first, its mEq beside it (TPN team, 2026-10-28). */}
+            <td style={tdr}>{mgPerKg > 0 ? <><strong>{f(mgPerKg*D.MG_MG_PER_MEQ,2)}</strong> mg<br/><span style={note}>({f(mgPerKg,2)} mEq)</span></> : "—"}</td>
+            <td style={tdr}>{mgPerKg > 0 ? <><strong>{f(mgPerKg*D.MG_MG_PER_MEQ*(calc.factor||0),1)}</strong> mg ({f(mgPerKg*(calc.factor||0),2)} mEq) = <strong>{f(calc.solVol?.mg,1)}</strong> mL (10%)</> : "—"}</td>
+            <td style={td}>Mg {rng(targets?.mg)} mg/kg/day</td>
           </tr>
           <tr>
             <td style={tdRx(caPerKg > 0)}>4. Ca⁺⁺ &nbsp;{chk(caPerKg > 0)} Ca Gluconate</td>
@@ -4484,6 +4762,28 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         </tbody>
       </table>
 
+      {/* The lipid pump rate and the doctor's critical-value confirmation sit
+          on the doctor's sheet since the pharmacy sheet stopped printing (Pp,
+          2026-10-28, after Vera): the ward sets the pump from the order, and
+          pharmacy must see that a critical value was confirmed, and why.
+          "แพทย์ยืนยันคำสั่ง" above the critical-value heading, whose own text
+          is unchanged: Center Point's sheet prints it too, and the parity
+          check reads the alerts after it. */}
+      <div className="print-lipid-rate" style={{ marginTop:6, fontSize:10.5 }}>
+        Lipid pump rate: bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL infused over <strong>{lipidDripHours || 24}</strong> h
+        = Rate <strong>{calc.lipidBagVol > 0 ? f(calc.lipidBagVol/(lipidDripHours||24),2) : "—"}</strong> mL/hr
+        {/* A conversion of two figures printed on this line, so plain
+            text like the Mg mEq beside its mg — not a dose of its own. */}
+        {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}
+      </div>
+      {critOverride && (
+        <div style={{ border:"2px solid #c00", color:"#c00", padding:"4px 8px", marginTop:6, fontSize:10.5, fontWeight:700 }}>
+          <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
+          ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
+          <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
+        </div>
+      )}
+
       {/* Who signs — the paper form's own line, with the saver's name printed
           so pharmacy knows whom to call (TPN team, 2026-09-22). The name only:
           no email on the doctor's sheet (2026-09-28); the back keeps it. */}
@@ -4506,18 +4806,6 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         <div className="print-saved-by" style={{ marginBottom:6, fontSize:10.5 }}>
           บันทึกโดย <strong>{savedMeta?.by || "—"}</strong> (ผู้สั่ง — ติดต่อ) · เวลา <strong>{savedAtLabel}</strong> · ฉบับที่ <strong>{savedMeta?.revision || 1}</strong>
         </div>
-
-        {/* The doctor confirmed a critical value in the app, with a reason.
-            "แพทย์ยืนยันคำสั่ง" above the critical-value heading, whose own text
-            is unchanged: Center Point's sheet prints it too, and the parity
-            check reads the alerts after it. */}
-        {critOverride && (
-          <div style={{ border:"2px solid #c00", color:"#c00", padding:"4px 8px", marginBottom:6, fontSize:10.5, fontWeight:700 }}>
-            <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
-            ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
-            <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
-          </div>
-        )}
 
         <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
           <tr>
@@ -4547,14 +4835,6 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td><strong>☑ 20% SMOF</strong> = <strong>{f(lipidPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL &nbsp;&nbsp;
               Vitalipid N infant = <strong>{f(calc.vitalipidVol,1)}</strong> mL</td>
           </tr>
-          <tr>
-            <td>Lipid pump rate</td>
-            <td>Bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL infused over <strong>{lipidDripHours || 24}</strong> h
-              = Rate <strong>{calc.lipidBagVol > 0 ? f(calc.lipidBagVol/(lipidDripHours||24),2) : "—"}</strong> mL/hr
-              {/* A conversion of two figures printed on this line, so plain
-                  text like the Mg mg/kg one — not a dose of its own. */}
-              {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}</td>
-          </tr>
         </tbody></table>
 
         {/* The aqueous bag, stock by stock — the KCMH worksheet's J column */}
@@ -4570,7 +4850,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             {glycophosP > 0 && <tr><td style={td}>Disodium glycerophosphate</td><td style={tdr}>Na {f(glycophosP*S.glycophos.naMeqPerMl*(calc.factor||0),1)} mEq · P {f0(glycophosP*S.glycophos.pMgPerMl*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.glycophos,1)}</strong></td></tr>}
             {kCl > 0 && <tr><td style={td}>KCl</td><td style={tdr}>{f(kCl*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.kCl,1)}</strong></td></tr>}
             {k2hpo4 > 0 && <tr><td style={td}>K₂HPO₄</td><td style={tdr}>{f(k2hpo4*(calc.factor||0),1)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.k2hpo4,1)}</strong></td></tr>}
-            {mgPerKg > 0 && <tr><td style={td}>MgSO₄ 10%</td><td style={tdr}>{f(mgPerKg*(calc.factor||0),2)} mEq</td><td style={tdr}><strong>{f(calc.solVol?.mg,1)}</strong></td></tr>}
+            {mgPerKg > 0 && <tr><td style={td}>MgSO₄ 10%</td><td style={tdr}>{f(mgPerKg*D.MG_MG_PER_MEQ*(calc.factor||0),1)} mg ({f(mgPerKg*(calc.factor||0),2)} mEq)</td><td style={tdr}><strong>{f(calc.solVol?.mg,1)}</strong></td></tr>}
             {caPerKg > 0 && <tr><td style={td}>10% Ca Gluconate</td><td style={tdr}>{f0(caPerKg*(calc.factor||0))} mg</td><td style={tdr}><strong>{f(calc.solVol?.ca,1)}</strong></td></tr>}
             {/* Soluvit and Peditrace are × Factor (Praew, 2026-09-18), so the
                 bag holds more than the order's 1 mL/kg; what reaches the infant
@@ -4648,8 +4928,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <tr>
             <td style={td}>Na⁺ <strong>{f(calc.naKg*(wtKg||0),2)}</strong> mEq = <strong>{f(calc.naKg,2)}</strong> mEq/kg</td>
             <td style={td}>K⁺ <strong>{f(calc.kKg*(wtKg||0),2)}</strong> mEq = <strong>{f(calc.kKg,2)}</strong> mEq/kg</td>
-            <td style={td}>Mg²⁺ <strong>{f(mgPerKg*(wtKg||0),2)}</strong> mEq = <strong>{f(mgPerKg,2)}</strong> mEq/kg
-              {mgPerKg > 0 && <> (<strong>{f(mgPerKg*D.MG_MG_PER_MEQ,1)}</strong> mg/kg)</>}</td>
+            <td style={td}>Mg²⁺ <strong>{f(mgPerKg*D.MG_MG_PER_MEQ*(wtKg||0),1)}</strong> mg = <strong>{f(mgPerKg*D.MG_MG_PER_MEQ,2)}</strong> mg/kg
+              {mgPerKg > 0 && <> ({f(mgPerKg,2)} mEq/kg)</>}</td>
           </tr>
           <tr>
             <td style={td}>Ca²⁺ <strong>{f0(caPerKg*(wtKg||0))}</strong> mg = <strong>{f0(caPerKg)}</strong> mg/kg</td>

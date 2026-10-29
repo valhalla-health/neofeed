@@ -316,15 +316,17 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('the Save stop asks "ยืนยันการสั่งหรือไม่?"', /ยืนยันการสั่งหรือไม่\?/.test(shown || ''), shown);
     ok('…still says the reason prints on the TPN form, with no name or HN', /พิมพ์ลงใบสั่ง TPN/.test(shown || '') && /ห้ามใส่ชื่อหรือ HN/.test(shown || ''), shown);
     eq('saved', log.calls, 1);
-    // Settled in the app, recorded for pharmacy on the back (Praew: "อะไรจะ
-    // alert ให้คุยให้เสร็จใน app"); the doctor's page carries no alert text.
-    const form = text(printForm()?.querySelector('.print-back'));
-    ok('the back page says "แพทย์ยืนยันคำสั่ง"', /แพทย์ยืนยันคำสั่ง/.test(form), form.slice(0, 500));
-    ok('…above the critical-value heading, which is unchanged', form.indexOf('แพทย์ยืนยันคำสั่ง') >= 0 && form.indexOf('แพทย์ยืนยันคำสั่ง') < form.indexOf('สั่งทั้งที่มีค่าวิกฤต: Osmolarity > peripheral limit'), form.slice(0, 500));
-    ok('…with the reason', form.includes('เหตุผล: fixture — central line tomorrow'), form.slice(0, 500));
+    // Settled in the app (Praew: "อะไรจะ alert ให้คุยให้เสร็จใน app"). It was
+    // recorded on the back; since 2026-10-28 the back does not print, so the
+    // confirmation is on the doctor's sheet (Pp, after Vera).
     const frontEl = printForm()?.cloneNode(true);
     frontEl?.querySelector('.print-back')?.remove();
-    ok('the front page does not repeat it', !!frontEl && !/สั่งทั้งที่มีค่าวิกฤต|แพทย์ยืนยันคำสั่ง/.test(text(frontEl)), text(frontEl).slice(0, 300));
+    const form = text(frontEl);
+    ok('the front page says "แพทย์ยืนยันคำสั่ง"', /แพทย์ยืนยันคำสั่ง/.test(form), form.slice(0, 500));
+    ok('…above the critical-value heading, which is unchanged', form.indexOf('แพทย์ยืนยันคำสั่ง') >= 0 && form.indexOf('แพทย์ยืนยันคำสั่ง') < form.indexOf('สั่งทั้งที่มีค่าวิกฤต: Osmolarity > peripheral limit'), form.slice(0, 500));
+    ok('…with the reason', form.includes('เหตุผล: fixture — central line tomorrow'), form.slice(0, 500));
+    const backEl = printForm()?.querySelector('.print-back');
+    ok('the pharmacy sheet does not repeat it', !!backEl && !/สั่งทั้งที่มีค่าวิกฤต|แพทย์ยืนยันคำสั่ง/.test(text(backEl)), text(backEl).slice(0, 300));
   });
 
   // ═══════════════════════════ §6 Who saved it ═════════════════════════════
@@ -424,7 +426,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     // lipid bag over 20 h (1.40 mL/hr), Ca gluconate 9.0 mg/mL on the form.
     baseOrder({ dead: 30 });
     lipidHours(20);
-    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 0.4);
+    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 4.861);
     setField('10% Ca gluconate', 60); setField('ZnSO₄', 0.2);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 5); setField('Frequency', 8);
     await save();
@@ -443,7 +445,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     setField('Volume(mL/day)', 180); setField('ปริมาตรคาสาย', 30);
     setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
     lipidHours(20);
-    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 0.4);
+    setField('20% NaCl', 2); setField('Glycophos', 2); setField('KCl', 2); setField('MgSO₄', 4.861);
     setField('10% Ca gluconate', 60); setField('ZnSO₄', 0.2);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 5); setField('Frequency', 8);
     const copy = await copyCalc();
@@ -481,7 +483,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     mount({ patient: pt('PF-2000', 2000), onLog: log.onLog });
     baseOrder({ dead: 30 });
     lipidHours(20);
-    setField('20% NaCl', 2); setField('Glycophos', 3); setField('KCl', 2); setField('MgSO₄', 0.4);
+    setField('20% NaCl', 2); setField('Glycophos', 3); setField('KCl', 2); setField('MgSO₄', 4.861);
     setField('10% Ca gluconate', 60); setField('ZnSO₄', 0.15); setField('Vitamin D', 400);
     await save();
     const form = printForm();
@@ -534,8 +536,10 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
       ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].filter(s => !front.includes(s)));
     ok('the oral orders are under 8. Other', /8\. Other.*Vitamin D/.test(front), front.match(/8\. Other.{0,120}/));
     eq('the doctor\'s name is at "แพทย์", as on the paper form (no email since 2026-09-28)', text(frontEl.querySelector('.print-doctor')), 'Dr Test');
+    // The lipid pump rate moved to the front on 2026-10-28 (the back no longer prints).
     ok('the front carries no pharmacy working and no alert text',
-      !/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/.test(front), front.match(/Factor:|WFI|Components|Lipid pump rate|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/g));
+      !/Factor:|WFI|Components|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/.test(front), front.match(/Factor:|WFI|Components|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/g));
+    ok('…and carries the lipid pump rate', /Lipid pump rate/.test(front) && !/Lipid pump rate/.test(backText));
     // Praew: "factor ตรงนี้ ไม่ต้องโชว์ · สูตรตรงนี้ก็ไม่ต้องโชว์" — the vitamins'
     // "× Factor → delivers" notes and the osmolarity formula leave the front.
     ok('no "× Factor → delivers" note on the front', !/× Factor → delivers/.test(front), front.match(/.{30}× Factor → delivers.{20}/));
@@ -546,7 +550,6 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('…and so does Peditrace\'s', /× Factor → delivers 1\.97 mL \(KCMH sheet G45/.test(text(backRow('Peditrace'))), text(backRow('Peditrace')));
 
     ok('the back has the Factor and the bag make-up', /Factor:/.test(backText) && /Components [\d.]+ mL \+ WFI [\d.]+ mL = 210 mL prepared/.test(backText), backText.slice(0, 300));
-    ok('…the lipid pump rate', /Lipid pump rate/.test(backText));
     ok('…the K⁺ concentration of the bag', /K⁺ in bag 22 mEq\/L/.test(backText), backText.match(/K⁺ in bag.{0,30}/));
     ok('…who saved it, when, and the revision', /บันทึกโดย Dr Test \(doc@kcmh\.test\)/.test(text(back.querySelector('.print-saved-by'))), text(back.querySelector('.print-saved-by')));
     ok('…and names the infant, in case the sheets part', backText.includes('PF-2000'), backText.slice(0, 200));

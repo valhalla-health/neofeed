@@ -158,7 +158,7 @@ const openAll = () => click(btnExact('Open all'));
     ['Glycophos', [1, 2, 3, 4]],
     ['KCl', [1, 2, 3, 4]],
     ['K₂HPO₄', [1, 2, 3, 4]],
-    ['MgSO₄', [0.2, 0.4, 0.6]],
+    ['MgSO₄', [2.5, 5, 7.5]],   // mg/kg/d since 2026-10-28 (were 0.2 / 0.4 / 0.6 mEq)
     ['10% Ca gluconate', [32, 60, 80, 100]],
     ['Iron', [2, 3, 4]],
     ['ปริมาณ elem Ca', [50, 80, 100, 120]],
@@ -188,12 +188,12 @@ const openAll = () => click(btnExact('Open all'));
   setField('20% lipid', 2);
   for (const h of [16, 20, 24]) {
     click([...container.querySelectorAll('button')].find(b => b.textContent === `${h}h`));
-    // 2 g/kg × 1.2 kg = 2.4 g = 12 mL SMOF + Vitalipid 4.8 mL = 16.8 mL
+    // 2 g/kg × 1.2 kg = 2.4 g = 12 mL SMOF + Vitalipid 4.8 mL, rounded down to 4 since 2026-10-28 = 16 mL
     const rate = num(text().match(/PUMP RATE([\d.]+)mL\/hr/)?.[1]);
-    ok(`lipid over ${h}h → rate ${(16.8 / h).toFixed(2)}`, Math.abs(rate - 16.8 / h) <= 0.005, rate);
+    ok(`lipid over ${h}h → rate ${(16 / h).toFixed(2)}`, Math.abs(rate - 16 / h) <= 0.005, rate);
     ok(`lipid over ${h}h → g/kg/h`, Math.abs(num(container.querySelector('.lipid-gkgh').textContent) - 2 / h) <= 0.005 + 1e-9);   // 2 decimals since 2026-09-28 (0.125 shows 0.13)
   }
-  setField('MgSO₄', 0.4);
+  setField('MgSO₄', 4.861);   // 0.4 mEq/kg/d, typed in mg since 2026-10-28
   // KCMH stocks 10% MgSO₄ only (Praew, 2026-09-23): no vial choice, no 50% mL.
   const vialLbl = [...container.querySelectorAll('span')].find(s => s.textContent === 'Vial 10%');
   ok('MgSO₄ vial reads 10%, with no strength toggle', !!vialLbl && !vialLbl.parentElement.querySelector('.seg'));

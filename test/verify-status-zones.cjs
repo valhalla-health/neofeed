@@ -172,6 +172,13 @@ for (const { name, container } of mounted) {
     // it would park its needle on amber under a red tile. It is 1.5 × 60 long
     // again, as before the review of PR #129 (which made it end at 200).
     if (r.label === 'K⁺ in bag' && route === 'peripheral') want = 60 / 90 * 100;
+    // Mg's red is at the low end: from the start of the bar up to 1 mg/kg/d on a
+    // bar of 12, a dose typed in mEq (D.MG_MEQ_HABIT_MG; Pp, 2026-10-29).
+    if (r.label === 'Magnesium') {
+      ok(`${name} · ${r.label}: red from 0 to 1 mg/kg/d only`,
+        red.length === 1 && Math.abs(red[0].from) < 1e-6 && Math.abs(red[0].w - 1 / 12 * 100) < 1e-3, red);
+      continue;
+    }
     if (want === undefined) {
       ok(`${name} · ${r.label}: no red — it has no hard limit of its own`, red.length === 0, red);
     } else {

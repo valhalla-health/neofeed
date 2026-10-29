@@ -510,10 +510,15 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
   const finalLog = D_L.finalEntries(entries);
   const [showDateModal, setShowDateModal] = React.useState(false);
 
+  // Same prompt as the Calculator's delete: a submitted order goes with
+  // every version of it (Pp, 2026-10-29).
   const handleDelete = (e, entry) => {
     e.stopPropagation();
     const label = `DOL ${D_L.entryDol(patient, entry)} (${window.NEOFEED_FMT_DATE?.(entry.ts) || entry.ts})`;
-    if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+    const ask = D_L.isDraftEntry(entry)
+      ? `ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`
+      : `ลบคำสั่ง ${label} ใช่หรือไม่? คำสั่งนี้ Submit แล้ว จะลบทุกฉบับของคำสั่งนี้ รวมฉบับแก้ไขก่อนหน้า ถ้าเภสัชได้ใบสั่งไปแล้ว ต้องแจ้งเภสัชเอง การลบนี้ไม่สามารถย้อนกลับได้`;
+    if (!window.confirm(ask)) return;
     onDeleteEntry(entry);
   };
 
@@ -637,7 +642,8 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
                         {pending
                           ? <span className="chip"><span className="d" />กำลังบันทึก…</span>
                           : <span className={`chip${D_L.isDraftEntry(e) ? " warn" : " ok"}`}>
-                              <span className="d" />{D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit" : "Submitted"}
+                              <span className="d" />{D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit"
+                                : Number(e.revisionNumber) > 1 ? "Submitted · ฉบับแก้ไข" : "Submitted"}
                             </span>}
                       </td>
                       {onDeleteEntry && (

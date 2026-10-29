@@ -202,7 +202,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
   // order starts at 30 mL on the newborn wards since §10's change.
   setField('Volume(mL/day)', tpnMl); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10);
   setField('Amino acid', 2); setField('20% lipid', 2);
-  setField('20% NaCl', 1); setField('Glycophos', 3); setField('KCl', 3); setField('MgSO₄', 0.6);
+  setField('20% NaCl', 1); setField('Glycophos', 3); setField('KCl', 3); setField('MgSO₄', 7.2915);   // 0.6 mEq, typed in mg since 2026-10-28
 }
 
 (async () => {
@@ -325,21 +325,22 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
   });
 
   // ═══════════════════════ Magnesium tile ═══════════════════════════════════
-  await section('§5 Step 4 has a Magnesium tile against ESPGHAN 2018, in mEq/kg/d', async () => {
+  // In mg/kg/d since 2026-10-28 (TPN team; Pp chose mg entry and ESPGHAN's mg figures).
+  await section('§5 Step 4 has a Magnesium tile against ESPGHAN 2018, in mg/kg/d', async () => {
     mount({ patient: pt('MA-2000', 2000), onLog: logger().onLog });
-    screenshotOrder({ men: true });                                        // MgSO₄ 0.6 at DOL 1
+    screenshotOrder({ men: true });                                        // MgSO₄ 7.29 mg at DOL 1
     ok('a Magnesium tile exists', !!tileEl('Magnesium'));
     ok('…in the Step 4 tile column, beside Sodium', !!tileEl('Magnesium') && tileEl('Magnesium').parentElement === tileEl('Sodium').parentElement);
-    ok('…in mEq/kg/d', /mEq\/kg\/d/.test(text(tileEl('Magnesium')?.querySelector('.val'))), text(tileEl('Magnesium')));
-    near('…reading the MgSO₄ ordered', tileVal('Magnesium'), 0.6, 2);
-    eq('DOL 1 range = TARGETS.mg(1) = 0.2–0.4', tileRange('Magnesium'), `${D.TARGETS.mg(1)[0]}–${D.TARGETS.mg(1)[1]}`);
-    eq('0.6 at DOL 1 is off target', tileStatus('Magnesium'), 'warn');
+    ok('…in mg/kg/d', /mg\/kg\/d/.test(text(tileEl('Magnesium')?.querySelector('.val'))), text(tileEl('Magnesium')));
+    near('…reading the MgSO₄ ordered', tileVal('Magnesium'), 7.29, 2);
+    eq('DOL 1 range = TARGETS.mg(1) = 2.5–5', tileRange('Magnesium'), `${D.TARGETS.mg(1)[0]}–${D.TARGETS.mg(1)[1]}`);
+    eq('7.29 at DOL 1 is off target', tileStatus('Magnesium'), 'warn');
     const mgNote = container.querySelector('.mg-mgkg');
-    ok('the tile carries mg/kg/d for the mg-based table: 0.6 mEq = 7.3 mg', /= 7\.3 mg\/kg\/d/.test(text(mgNote)), text(mgNote));
+    ok('the tile carries the mEq beside it: 7.29 mg = 0.6 mEq', /= 0\.6 mEq\/kg\/d/.test(text(mgNote)), text(mgNote));
     ok('…and says it is TPN only (no Mg data for feeds)', /TPN only/.test(text(mgNote)), text(mgNote));
-    for (const [v, want] of [[0.2, 'ok'], [0.3, 'ok'], [0.4, 'ok'], [0.1, 'warn'], [0.5, 'warn']]) {
+    for (const [v, want] of [[2.5, 'ok'], [3.6, 'ok'], [5, 'ok'], [2.43, 'warn'], [5.1, 'warn']]) {
       setField('MgSO₄', v);
-      eq(`DOL 1 · ${v} mEq/kg/d reads ${want}${v === 0.2 || v === 0.4 ? ' (an ESPGHAN bound — 2.43 / 4.86 mg)' : ''}`, tileStatus('Magnesium'), want);
+      eq(`DOL 1 · ${v} mg/kg/d reads ${want}${v === 2.5 || v === 5 ? ' (an ESPGHAN bound)' : v === 2.43 ? ' (the old 0.2 mEq chip)' : ''}`, tileStatus('Magnesium'), want);
     }
     setField('MgSO₄', 0);
     eq('none ordered reads empty', tileStatus('Magnesium'), 'empty');
@@ -348,17 +349,17 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     // "First days" run to DOL 7 since 2026-10-27 (TPN team); the growing range from DOL 8.
     mount({ patient: pt('MB-2000', 2000), dol: 7, onLog: logger().onLog });
     screenshotOrder({ men: true });
-    eq('DOL 7 range = TARGETS.mg(7) = 0.2–0.4 (still the first days)', tileRange('Magnesium'), '0.2–0.4');
-    for (const [v, want] of [[0.3, 'ok'], [0.6, 'warn']]) {
+    eq('DOL 7 range = TARGETS.mg(7) = 2.5–5 (still the first days)', tileRange('Magnesium'), '2.5–5');
+    for (const [v, want] of [[3.6, 'ok'], [7.3, 'warn']]) {
       setField('MgSO₄', v);
-      eq(`DOL 7 · ${v} mEq/kg/d reads ${want}`, tileStatus('Magnesium'), want);
+      eq(`DOL 7 · ${v} mg/kg/d reads ${want}`, tileStatus('Magnesium'), want);
     }
     mount({ patient: pt('MB-2001', 2000), dol: 8, onLog: logger().onLog });
     screenshotOrder({ men: true });
-    eq('DOL 8 range = TARGETS.mg(8) = 0.4–0.6', tileRange('Magnesium'), `${D.TARGETS.mg(8)[0]}–${D.TARGETS.mg(8)[1]}`);
-    for (const [v, want] of [[0.4, 'ok'], [0.6, 'ok'], [0.3, 'warn'], [0.8, 'warn']]) {
+    eq('DOL 8 range = TARGETS.mg(8) = 5–7.5', tileRange('Magnesium'), `${D.TARGETS.mg(8)[0]}–${D.TARGETS.mg(8)[1]}`);
+    for (const [v, want] of [[5, 'ok'], [7.5, 'ok'], [4.9, 'warn'], [7.6, 'warn']]) {
       setField('MgSO₄', v);
-      eq(`DOL 8 · ${v} mEq/kg/d reads ${want}`, tileStatus('Magnesium'), want);
+      eq(`DOL 8 · ${v} mg/kg/d reads ${want}`, tileStatus('Magnesium'), want);
     }
   });
 
@@ -366,19 +367,19 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     mount({ patient: pt('MC-2000', 2000), onLog: logger().onLog });
     screenshotOrder({ men: true });
     const a = alertOf('Magnesium off target');
-    ok('0.6 at DOL 1: "Magnesium off target" warning', !!a && a.level === 'warn', alertRows());
-    ok('…with value and range in mEq/kg/d', !!a && /0\.6 mEq\/kg\/d — target 0\.2–0\.4 mEq\/kg\/d/.test(a.text), a && a.text);
+    ok('7.29 at DOL 1: "Magnesium off target" warning', !!a && a.level === 'warn', alertRows());
+    ok('…with value and range in mg/kg/d', !!a && /7\.29 mg\/kg\/d — target 2\.5–5 mg\/kg\/d/.test(a.text), a && a.text);
     ok('…citing ESPGHAN 2018 parenteral', !!a && /ESPGHAN 2018/.test(a.text), a && a.text);
     const offTiles = [...container.querySelectorAll('.metric.s-warn, .metric.s-crit')].map(m => m.querySelector('.lbl')?.textContent);
     ok('every off-target tile has its alert line (Magnesium included)', offTiles.includes('Magnesium') && !alertTitles().includes('No safety flags'), { offTiles });
-    setField('MgSO₄', 0.3);
-    ok('0.3 at DOL 1: no Magnesium alert', !alertTitles().some(t => /^Magnesium/.test(t)), alertTitles());
+    setField('MgSO₄', 3.6);
+    ok('3.6 at DOL 1: no Magnesium alert', !alertTitles().some(t => /^Magnesium/.test(t)), alertTitles());
 
     // Full feeds switch Na/K/Ca/P to the enteral table; Mg has only a
     // parenteral reference, and its line must still say so.
     mount({ patient: pt('MD-2000', 2000), dol: 10, onLog: logger().onLog });
-    screenshotOrder({ men: false, vol: 30, freq: 8 });                   // 120 mL/kg/d, MgSO₄ 0.6
-    setField('MgSO₄', 0.3);                                               // DOL 10 range 0.4–0.6
+    screenshotOrder({ men: false, vol: 30, freq: 8 });                   // 120 mL/kg/d, MgSO₄ 7.29 mg
+    setField('MgSO₄', 3.6);                                               // DOL 10 range 5–7.5 mg
     const b = alertOf('Magnesium off target');
     ok('on full feeds the Magnesium line still cites ESPGHAN 2018, not 2022 enteral', !!b && /ESPGHAN 2018/.test(b.text) && !/2022/.test(b.text), b && b.text);
   });
@@ -388,7 +389,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     const S = D.KCMH_STOCK;
     eq('KCMH_STOCK.aminoplasmal15 is 0.15 g/mL (150 g/L)', S.aminoplasmal15 && S.aminoplasmal15.gPerMl, 0.15);
     eq('KCMH_STOCK.aminoven10 is unchanged, 0.10 g/mL', S.aminoven10.gPerMl, 0.10);
-    eq('its printed label stays "10% Aminoven infant"', S.aminoven10.label, '10% Aminoven infant');
+    eq('its printed label is "10% Aminoven infant / PED AMINE" (PED AMINE added 2026-10-28)', S.aminoven10.label, '10% Aminoven infant / PED AMINE');
     ok('Aminoplasmal carries its label caution (< 2 years)', /2 ปี|2 years/.test(S.aminoplasmal15 && S.aminoplasmal15.caution || ''), S.aminoplasmal15);
     ok('D.aaProductsFor exists', typeof D.aaProductsFor === 'function');
     for (const bed of ['NICU 5', 'NICU-3', 'iso 3-2', 'SCN 12', 'SCN 30', '', 'Ward X (free text)']) {
@@ -407,7 +408,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     near('volume = 4 g ÷ 0.10 = 40 mL/day', aaVolume(), 40, 1);
     await save();
     eq('calcInput.aaProduct = aminoven10', log.entry && log.entry.calcInput.aaProduct, 'aminoven10');
-    ok('print: "☑ 10% Aminoven infant = 2 g/kg/d = 4 g in bag = 40 mL"', /☑ 10% Aminoven infant = 2 g\/kg\/d = 4 g in bag = 40 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
+    ok('print: "☑ 10% Aminoven infant / PED AMINE = 2 g/kg/d = 4 g in bag = 40 mL"', /☑ 10% Aminoven infant \/ PED AMINE = 2 g\/kg\/d = 4 g in bag = 40 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
 
     // A row saved before this change has no aaProduct: it reopens as Aminoven.
     // It has no CONSTANTS_VERSION stamp either, so since 2026-10-17 it prints
@@ -422,7 +423,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     near('a legacy row (no aaProduct) reopens as Aminoven: 6 g ÷ 0.10 = 60 mL', aaVolume(), 60, 1);
     ok('…and, unstamped, waits for a save before it prints', !printForm());
     await save();
-    ok('…saved again, it prints as 10% Aminoven infant, 60 mL', /☑ 10% Aminoven infant = 3 g\/kg\/d = 6 g in bag = 60 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
+    ok('…saved again, it prints as 10% Aminoven infant / PED AMINE, 60 mL', /☑ 10% Aminoven infant \/ PED AMINE = 3 g\/kg\/d = 6 g in bag = 60 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
 
     // A row carrying Aminoplasmal (from a future ward) reopened on NICU cannot
     // be offered it: the order is recomputed as Aminoven, so it reads as edited
@@ -436,7 +437,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     ok('…so the order reads as changed and does not print', !printForm());
     await save();
     eq('saving it records aminoven10', updated && updated.calcInput.aaProduct, 'aminoven10');
-    ok('…after which it prints, as 10% Aminoven infant', !!printForm() && /☑ 10% Aminoven infant = 3 g\/kg\/d = 6 g in bag = 60 mL/.test(printText()));
+    ok('…after which it prints, as 10% Aminoven infant / PED AMINE', !!printForm() && /☑ 10% Aminoven infant \/ PED AMINE = 3 g\/kg\/d = 6 g in bag = 60 mL/.test(printText()));
   });
 
   await section('§9 a future older-children ward (gate stubbed): the choice works end to end; CP never offers it', async () => {

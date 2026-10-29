@@ -32,6 +32,30 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🩺 **safety/product · What the nutrition team's meeting of 2026-10-28 left open.** Built for the
+      16 Nov ward start (`CHANGELOG.md` 2026-10-28 (13)): Submit locks, the revision mark and ฉบับแก้ไข,
+      the doctor's sheet only, Vitalipid rounded down, Mg in mg/kg/d, PED AMINE. Open:
+      - **Indication for PN** at the first entry, a dropdown: short bowel syndrome, motility disorder,
+        mucosal disease, preterm infant, NEC, post-surgery, feeding intolerance, for supplementation
+        (Pp, 2026-10-28). With it, **liver disease and renal disease tick boxes** (also 2026-09-28 item
+        5, under C below), saved with the order and printed ticked.
+      - **"ไม่มี PN แล้ว"**: one button that fills an enteral-only order, and a TPN / no-TPN tag on the
+        ward list. Full-feed infants are entered every 3 days or at each step-up.
+      - **The Dashboard counts pending TPN orders** (joins 19 · 27, the pharmacist view, under C below).
+      - **Center Point** prints its own copy of the form: Mg in mEq first, "10% Aminoven infant" alone.
+        A CP-repo sync.
+      - **Pp to say what each means:** "แก้ไขช่อง prescribe ให้มาอยู่ในหน้าแรก" (the Prescribed column is
+        on the front already); "ลบผู้ป่วย ward อื่นๆ" (a Sheet clean-up, or hide the "other" ward group?).
+      - **From the 2026-09-28 notes, missing from the list below:** "add Addamel" (the form prints
+        "☐ Addamel N", never offered); heparin "0–1 u/mL" against the caution's "usual 0.5–1"; "check
+        sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
+      - **Next phase:** print the pharmacy sheet again, for a sticker (`.print-back` is hidden in print,
+        not removed).
+      - **Backend `@66`** carries the 2026-10-29 (1) changes: an old submitted order is revised, and an
+        admin can delete a submitted order. Until it is live, an edit of an unlocked submitted order is
+        saved in place, and a submitted order cannot be deleted.
+      - **Tell pharmacy with the release:** Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the
+        front prints, and a revision is marked.
 - [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
       rolling back).
       - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
@@ -203,7 +227,7 @@ clinical judgement. Everything else is engineering sequencing.
           form has it: fine? 6: built as groups, not as new names: the right reading? 25: "สารน้ำเกินแผน": the
           right words? (19 is answered: the split is removed from the screen and still calculated.)
       - **C · New design work** (each needs a design Praew signs off; some also need B's numbers).
-        - **7 · 8 · Feeds.** Brand and concentration chosen separately; a second feed with its own volume
+        - ~~**7 · 8 · Feeds.**~~ Built 2026-10-28 (#182: each feed a milk, then its kcal/oz). Brand and concentration chosen separately; a second feed with its own volume
           and feeds a day (BM alternating with PF, unequal counts) in place of the fixed 50 : 50
           "FBM 24 ↔ Infatrini 30". Touches `calcInput`, `Daily_Log`, the form and Center Point's packet.
         - **2 · Phosphate typed directly**, in which unit and landing in which salt. Today P follows the
@@ -347,6 +371,24 @@ clinical judgement. Everything else is engineering sequencing.
       deliberately not wired to `doPost`**: it was kept off the auth deploy so that release carried
       nothing but the security fix. Wire it when a UI actually wants the number.
       Definition and the two hard constraints: `PRD.md` § 6.
+- [ ] 📈 **product · NF-02 (M4), completed calculations per ward per week — ⚙️ BUILT 2026-10-28, NOT
+      DEPLOYED (PR #178).** `Usage_Log` (`ts | week | ward | type`, no patient field) gets one row per TPN/EN order
+      first saved as submitted; `usageWeekly()` and the editor-run `getUsageWeekly()` count it per ward
+      and type, pinned by `test/verify-usage-log.cjs`. **The Admin page draws it** (Pp, 2026-10-28: "ได้"):
+      the admin-only `getUsageWeekly` action returns the last 12 weeks, and a Usage card shows one
+      stacked bar chart per ward (`test/verify-admin-census.cjs` § 5, `verify-admin-usage-1028.cjs`). To
+      close, in this order, both Pp's steps: the backend deploy (`REFERENCE.md` § Backend (GAS); no new
+      scope), then a `main → release` frontend release. A frontend released first shows ยังไม่มีข้อมูล
+      on the card until the backend lands. The Sheet formula in `REFERENCE.md` still works without either
+      release. Left out on purpose:
+      - **The quick calc is not counted** (Pp, 2026-10-28: "ไม่นับ"). It sends nothing to the backend, by
+        the ward's own request ("ข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท"). Counting it would take a new signed-in
+        action fired once per Copy in quick-calc mode (the one moment a number leaves that page), a
+        frontend release, and Pp telling the ward first.
+      - **NF-31, per-user counts: not built** (Pp, 2026-10-28, answer 5 on #178: "ก"). M1's
+        `getUsageMetrics()` (above) already gives weekly users as an aggregate, distinct `actorEmail` per ISO
+        week, so no column E. Were it ever wanted: a salted SHA-256 of the signed-in email, and `PRD.md` § 6
+        constraint 2 (no per-staff figure) changes first.
 
 ## ⏭ Next
 

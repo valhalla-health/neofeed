@@ -255,7 +255,7 @@ installed) to get the real measurement.
 ## Running
 
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
-`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
+`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`, `verify-usage-log.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
 `verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
 `verify-publish-lock.cjs`, `verify-build-shells.cjs`, `verify-chula-google-signin.cjs` and
@@ -267,6 +267,7 @@ node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
 node test/verify-usage-metrics.cjs
+node test/verify-usage-log.cjs
 node test/verify-must-change-password.cjs
 node test/verify-input-validation.cjs
 node test/verify-provenance-stamp.cjs
@@ -1876,6 +1877,31 @@ page where it was, and the archived row's chip is not covered. 14 checks; agains
 fails at all three phones (9 failures: the Calculator button over the chip, the bottom nav over Edit, and
 the tap opening the quick calc).
 
+## The nutrition team's meeting, 2026-10-28 — one harness added, twelve adjusted
+
+Submit locks, Vitalipid rounded down, Mg typed in mg, the doctor's sheet only (`CHANGELOG.md`
+2026-10-28 (13)). **`verify-nutrition-meeting-1028.cjs`** (jsdom; it also runs against `compiled/`)
+mounts the Calculator with fake `onLog` / `onUpdate` / `onPublish` and records the calls in order. § 1:
+Submit saves, then publishes that row. § 2: Save draft publishes nothing. § 3: an edit of a published
+order goes to the server and the revision it returns is published. § 4: an order submitted before the
+lock is published first, then edited; a conflict on that first publish sends no edit; a draft is
+saved in place, then published. § 5: an unchanged unpublished order is only published; a published
+unchanged one offers no Submit. § 6: a revision prints "Revision · ฉบับที่ 2" at the top right of the
+front sheet, above the patient table and outside `.print-back`. § 7: the Dashboard chip reads
+"Submitted · ฉบับแก้ไข". § 8: both shells hide `.print-back` in print, and the provenance footer stays
+outside it. § 9: the Mg row takes mg/kg/d, chips 2.5 / 5 / 7.5, stores mEq to 10 decimals, prints mg
+with mEq beside it and the Normal Requirement in mg/kg/day. § 10: the amino-acid line names PED AMINE.
+§ 5 also: an unlocked order on an older calculation is locked, revised and locked again, then prints;
+a locked one keeps its Submit. § 8 also: the lipid pump rate and the critical-value box print on the
+front. § 11: switching infant clears the last order's lock. Vitalipid's rounding (down, at least
+1 mL) is in the clinical-rules skill's cases. Against `main` (`ee25e86`) 24 of its first 31 checks
+fail; the six added after Vera's review fail on the first commit of the PR.
+
+The twelve that typed Mg in mEq (`verify-calc-clicks`, `-fuzz`, `-oracle`, `-sum`,
+`verify-center-point-print-parity`, `verify-kcmh-factor`, `verify-review-0917-calc`,
+`verify-stock-ml-1027`, `verify-tpn-answers-1027`, `verify-tpn-team-0922`, `verify-ward-requests-0918`)
+type the same dose × 12.1525 or read the new label and band; `verify-status-zones` needed nothing once the
+tile read mg.
 ## A negative WFI cannot be ordered, 2026-10-28 — one harness
 
 Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
@@ -1902,6 +1928,97 @@ patient's order has no Copy Order button, so § 2 and § 5 check that it is abse
 `verify-clinical-rules.cjs` checks that `calculator.jsx`'s `submitStops` names every `stop` rule, and only
 those, and each blocked stop case keeps a draft whose `calcInput.stops` names its rule (623 checks). Eleven backend harnesses whose fixtures sent submitted rows with no list, the contract before this
 change, now send `stops: []`.
+
+## Vera's second review of the meeting branch, 2026-10-29 — one new harness, three adjusted
+
+Old submitted orders are revised, an admin can delete a submitted order, and Mg below 1 mg/kg/d asks
+(`CHANGELOG.md` 2026-10-29 (1)). **`verify-delete-order-1029.cjs`** (real `gas-backend.gs` in
+`gas-vm-sandbox.cjs`): an admin deletes a published order and Audit_Log has a row before and after; three
+revisions of one order go together, the other infant's row stays, and the date takes a new order; a
+superseded revision alone, a doctor, and the wrong patient's id are refused; a draft deletes as before.
+16 checks; 4 fail on `4a49e9b`. `verify-backend-stops-1028.cjs` gains a section: a submitted, unpublished
+row with no stop list, and one with a blank status, are revised (the old row superseded and unchanged, the
+revision publishable), and a draft is saved in place (34 checks; 7 fail on `4a49e9b`).
+`verify-nutrition-meeting-1028.cjs` § 4 and § 5 now expect the edit of an unlocked submitted order to go
+straight to `onUpdate`, also when `onPublish` refuses that row for its missing list; § 12 checks the delete
+prompt on a submitted order. `verify-review-0911.cjs` B4 reads the current rows and B7 checks the whole-order
+delete. `CR-MG-MEQ-HABIT` and a 200 g `CR-VITALIPID-CAP` case run in `verify-clinical-rules.cjs`.
+
+## Step 2's developer comment, 2026-10-28 — one harness extended, one ci_bans rule
+
+PR #182 wrote a three-line `//` comment at the top of the feed picker's fragment. Between JSX children `//`
+is text, so every ward device showed "// The same three columns as the Volume / Frequency row below…" under
+"Step 2 · Enteral feeding" (seen on dev local at 375 px in the PR #175 release; live since release #184). It
+is a `{/* … */}` comment now. **`verify-en-db-sources.cjs` § 4.23–4.25** (jsdom; also against `compiled/`)
+opens Step 2 with both feed pickers and checks that its text has no "// The same three columns" and that no
+text node on the Calculator starts with "//". 4.24 and 4.25 fail on `3359a58`, in both passes.
+
+**`jsx-comment-text`** in `tools/ci_bans.js` catches the next one before it ships: a run of `//` lines whose
+line before ends a tag (`>`, not `=>`) or an expression container (`}`), and whose line after starts an
+element (`<`) or, after a tag, an expression container (`{`). Plain JS never puts those side by side, so the
+run sits between two children. A run after `(`, before a ternary's `:`, in an arrow's body or between a tag's
+attributes is JS and passes. Without a parser it misses a run followed by a text child. 4 fixture cases must
+fail and 8 must pass. Over the `.jsx` sources of all 294 first-parent commits of `main` it finds one line,
+#182's, so it needs no allow entry.
+
+## What the numbers rest on, 2026-10-28 — one harness (NF-12)
+
+**`verify-show-working-1028.cjs`** (jsdom; it also runs against `compiled/`). § 1: Step 3 has four closed
+"ที่มาของตัวเลข" buttons and no panel text in the page until one is pressed; opening every panel changes
+no tile, readout or alert. § 2: with breast milk, BM + HMF, FBM ↔ Infatrini or a MEN feed of breast milk,
+Step 2 names protein and kcal per 100 mL from `EN_DB.BM_20` with its source, HMF's addition from
+`EN_HMF_PROTEIN_G_PER_DOSE` and the Chula p. 10 column, and that real milk varies; a formula or no feed
+shows none of it. § 3: change a value in `window.NEOFEED_DATA` (BM protein, the HMF dose, each panel's
+limit) and the screen follows, so there is no copy in the JSX. § 4: each panel's formula, inputs, unit
+conversion and limit; its result equals the tile, its inputs recompute to it, and three inputs are checked
+by hand arithmetic (Na 30 mEq/L, AA 3 %, dextrose 10 g). § 5: every `CR-` ID a panel names is a heading
+in the clinical-rules skill. § 6: the print form is identical with every panel open and carries none of the
+new text; a patient's order has no Copy since `main`'s `14caa41`, so the quick calc's copied text is checked
+the same way. § 7: no trailing zero or float tail in the new text. `NEGATIVE_CONTROL=1`
+(dextrose at 3.5 kcal/g in the memo, the panel still saying 3.4) and `=2` (BM protein typed into the JSX)
+must fail: 3 and 1 failures. § 8 (Vera): a result just past its hard limit reads as the alert reads it (GIR
+12.007 is 12.01), a feed's value per 100 mL times its mL gives the kcal shown, and a MEN feed names the
+mL given (24) and counts 0. 102 checks; on
+`326bcd9` 55 fail and 25 pass (a section stops at its first missing element). 108 once `main` was merged in
+(2026-10-28): Step 2's feed picker became a milk and its kcal/oz, so the harness picks both. § 9: two feeds
+(`main`'s #182). Hi-Q LBW 24 as feed 1 and breast milk as feed 2 shows the milk line, and the energy and
+protein panels give each feed its own line (8 mL × its row per 100 mL, its source; `CR-U-BREASTMILK` on
+the breast-milk line only) adding up to the total, with no "undefined"; formula as feed 2 alone, feed 1 at
+0 mL, shows no milk line; BM + HMF as feed 2 adds the HMF line; a day with no feed reads ไม่มีนม in both
+panels, not feed 1's default breast milk (Vera). 127 checks; on the merge commit `f643aac`, before the
+fix, 18 of § 9's 19 fail.
+
+## The usage tab, 2026-10-28 — three harnesses (NF-02)
+
+**`verify-usage-log.cjs`** (133 assertions since the Admin chart; no npm dependencies, through
+`gas-vm-sandbox.cjs`). Pins
+`Usage_Log`, one row per completed calculation, which is a TPN/EN order that reaches "submitted" for
+the first time. § 1 the tab is made by the first one, never by a sync, at exactly 4 columns
+(`ts | week | ward | type`), the week cut in ward time (Monday 06:00 in Bangkok is Monday's week), and
+the save's reply is unchanged. § 2 ward is the ward list the infant is on, and `_usageWardOf` agrees
+with `data.js` `patientWard` on 390 bed × history cases; type is the route family. § 3 what does not
+count: a draft, an edit of a submitted order, Submit, a revision, a refused or Busy save, a nurse's
+refused order, a nursing I/O entry, a sync, and the same create or promotion fired twice. § 4 no
+patient field: no sessionId, entryId, bed, name, initials, weight, sex or email anywhere in the tab,
+nothing a formula, and erasure leaves it as it was. § 5 the row is written after the script lock is
+released, and an append, tab-creation or registry-read failure still saves the order, with a note in
+the execution log. § 6 `usageWeekly()`: ISO weeks in ward time, every ward and type in every week,
+empty weeks filled with 0 up to this week (across a 53-week year), unknown values under `other`, a
+fifth column ignored (room for NF-31), and the Admin page's 12-week span. § 7 the `doPost` action
+`getUsageWeekly`: Unauthorized without a token, the same `Forbidden` as the other admin-only actions
+for a doctor or nurse before the tab is read, then `{ ok, weeks, wards, types }`, 12 weeks, counts only,
+nothing written. § 8 the editor's `getUsageWeekly()` reads without creating the tab and logs a table
+with no identifier. Against the backend before NF-02 (`326bcd9`) it fails 46 checks of the first 114.
+
+**`verify-admin-census.cjs` § 5** (the jsdom set) mounts `AdminDashboard` with a stub `loadUsage`: no
+loader, no card; a 12-week reply draws one chart per ward with orders, one column per week, the types
+stacked on one scale; an "Unknown action" reply or no weeks reads ยังไม่มีข้อมูล; a failed request offers
+a retry; a re-render does not ask again; nothing raises a toast. § 4 measures the loaded chart in
+Chromium from 280px up.
+
+**`verify-admin-usage-1028.cjs`** (19 assertions; the jsdom set, through `review-0917-boot.cjs`) drives the
+real `<App/>`: opening Admin dashboard sends one `getUsageWeekly` with only the action and the token, a
+sync does not resend it, an old backend and a network failure stay quiet, and a doctor never sends it.
 
 ## Note on the source workbook
 

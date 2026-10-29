@@ -22,7 +22,9 @@
 //       the unsourced set is exactly the one below
 //   #4  the Calculator still offers BM_PF_20 under its own label, and an
 //       order on it (new, reopened, or copied) raises no source alert
-//       (Pp, 2026-10-20: keep PF 20 as it was until the formulas are revised)
+//       (Pp, 2026-10-20: keep PF 20 as it was until the formulas are revised);
+//       and no text on the Calculator starts with "//", the comment #182 put
+//       under "Step 2 · Enteral feeding" (4.23–4.25, 2026-10-28)
 //   #5  the Formula reference page: a source line on every row, rounded
 //       figures, "—" where the source gives no osmolality
 //
@@ -374,6 +376,23 @@ const scenarios = {
     A.ok('4.21 …and says "kcal/oz 30 → 22"', notice().includes('kcal/oz 30 → 22: Pre Nan ไม่มี 30 kcal/oz'), notice());
     set(productSelect(), 'enfalacPrem');
     A.ok('4.22 a milk that keeps the 22 clears it', feedKey() === 'FBM_PF_22' && notice() === '', { key: feedKey(), notice: notice() });
+
+    // A `//` comment inside JSX children is text, not a comment: #182 put one
+    // in the feed picker's fragment and every ward device showed it under
+    // "Step 2 · Enteral feeding" (2026-10-28). Both pickers are on screen here.
+    mount(null);
+    const addFeed2 = [...container.querySelectorAll('button')].find(b => b.textContent.trim() === '+ Add a second feed (นมชนิดที่ 2)');
+    act(() => { addFeed2.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+    const step2 = [...container.querySelectorAll('.card')].find(c => /Step 2 · Enteral feeding/.test(c.querySelector('.card-h')?.textContent || ''));
+    const slashText = (el) => {
+      const out = [];
+      const walk = document.createTreeWalker(el, window.NodeFilter.SHOW_TEXT);
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.textContent.trim().startsWith('//')) out.push(n.textContent.trim().slice(0, 60));
+      return out;
+    };
+    A.ok('4.23 Step 2 is open with both feed pickers', !!step2 && !!step2.querySelector('.en-feed-1 .en-picker') && !!step2.querySelector('.en-feed-2 .en-picker'));
+    A.ok('4.24 Step 2 does not show "// The same three columns"', !!step2 && !step2.textContent.includes('// The same three columns'));
+    A.eq('4.25 no text on the Calculator starts with "//"', slashText(container), []);
 
     // The next day's new order, copied from a PF 20 order.
     mount(null, old);

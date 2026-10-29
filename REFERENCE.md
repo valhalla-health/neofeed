@@ -100,12 +100,18 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
 - **Front: the doctor's order.** It is the KCMH paper form, in the paper's own layout and words, with
   one table row per product so that no figure can sit on another product's line. Ordered products are
   bold, and the paper's other choices print unticked. Oral orders go under "8. Other", and the saver's
-  name goes at "แพทย์". It carries **no alert text**: alerts are settled in the app, where a critical one
-  needs a confirmation with a reason at Save. The "Normal Requirement" column is NeoFeed's targets, not
+  name goes at "แพทย์". Alerts are settled in the app, where a critical one needs a confirmation with a
+  reason at Save; the only alert text on the front is that confirmation, since 2026-10-28. The "Normal Requirement" column is NeoFeed's targets, not
   the paper's printed ranges, which disagree with the app (review F4).
 - **Back: pharmacy.** The Factor, the aqueous bag stock by stock in mL with the WFI q.s., K⁺ in the bag,
-  Ca·PO₄, what reaches the infant, the critical-value confirmation, changes since the last order, and
-  who saved it.
+  Ca·PO₄, what reaches the infant, changes since the last order, and who saved it.
+
+**Since 2026-10-28 only the front prints** (the TPN team: "print เฉพาะแค่หน้าแรก หน้าสองเก็บไว้ก่อน"). Both
+shells hide `.print-back` in print; it still renders, for a later phase that prints it for a sticker.
+Pharmacy works out the stock mL, Factor and WFI from the front. Two things moved from the back to the
+front so they stay on paper (Pp, after Vera): the lipid pump rate, and, when a critical value was
+confirmed at Submit, "✔ แพทย์ยืนยันคำสั่ง" with the alerts and the reason. A revision prints
+"Revision · ฉบับที่ N" at the front's top right.
 
 Two harness contracts: the patient table stays the form's first direct `<table>` child (the parity and
 §6 figure sweeps skip it), and the provenance footer stays the form's last child.
@@ -268,10 +274,12 @@ git tag -a release-$(date +%F)-pr<N> <merge sha> -m "Release $(date +%F) — PR 
 git push origin release-$(date +%F)-pr<N>
 ```
 
-**Recording a deploy never takes its own PR** (Praew's global PR rule, 2026-09-18). Write the
+**Recording a deploy never takes its own PR** (Praew's global PR rule, 2026-09-18), and nor does
+recording a merge (2026-10-28: one piece of work, one PR, `AGENTS.md`). Write the
 planned `STATUS.md` change in the PR that ships the code. The post-release checks below exist only
 after the merge, so they go in a comment on the `main → release` PR, and `STATUS.md` catches up in
-the next PR on this repo. PRs #62, #68 and #72 each existed only to record a deploy.
+the next PR on this repo. PRs #62, #68 and #72 each existed only to record a deploy; #193, closed
+unmerged, only to record #189's merge.
 
 **A merge into `main` always comes with its release PR** (Praew, 2026-09-22). `main` deploys
 nothing, so a merged PR is not live until a `main → release` PR merges, and nothing said so outside
@@ -428,6 +436,13 @@ built before then sends none. So release the frontend first, then `clasp deploy`
 back past that release, roll the backend back first. After the deploy, a tab opened before the release is
 refused once and asked to reload; its draft still saves.
 
+**So does a backend that raises `MIN_SUBMIT_CONSTANTS_VERSION` (2026-10-29).** The stop list alone does not
+catch a tab opened on a release that already sent one. `_validateLogEntry` also refuses a submitted row
+whose `constantsVersion` is older than `MIN_SUBMIT_CONSTANTS_VERSION` in `gas-backend.gs`, so an old tab
+cannot go on printing the old sheet after a release that moved printed figures. Raise it with such a
+release, release the frontend, then deploy the backend in the same sitting. The backend refuses every
+frontend still on the older version, so roll the backend back first.
+
 Running a function from the Apps Script editor (e.g. the one-off `applyStaffHeaderColumns`
 / `applyLogHeaderColumns` migrations) executes as the signed-in user and may raise an OAuth
 consent — that is Praew's to approve, not something to click through on her behalf.
@@ -476,6 +491,41 @@ subject tag is load-bearing: change `HELP_SUBJECT_TAG` only together with that G
 **A picture with the request (2026-10-09, `@64`) needs no new scope:** a `MailApp` attachment goes under
 `script.send_mail`. Deploy the backend before the frontend. An older backend ignores `image`, so the
 request would arrive without the picture and nobody would see why.
+
+**The usage tab (NF-02, 2026-10-28) needs no new scope and no Script Property. Deploy the backend first,
+then release the frontend** that draws it on the Admin page. After the `clasp` deploy, the first order saved as submitted creates `Usage_Log`, 4 columns:
+`ts | week | ward | type`. Each row is one completed calculation, a TPN/EN order that reaches
+"submitted" for the first time; a draft, an edit, Submit, a revision, a print and the quick calc do
+not count (`gas-backend.gs` § Product metric NF-02). No row carries a patient field, so erasure has
+nothing to reach there. The row is written after the save's lock is released, and a failed write
+only leaves a `Usage_Log row not written (NF-02)` line in the execution log.
+
+To chart it, add a tab to the Sheet (say `Usage_Chart`) and put one formula in A1:
+
+```
+=QUERY(Usage_Log!B:D, "select B, count(D) where B is not null group by B pivot C", 1)
+```
+
+That gives one row per week and one column per ward (NICU, SCN, other). Select `A1:D200`, then
+Insert ▸ Chart ▸ column chart; it grows as rows arrive. For one ward by calculation type, use
+`=QUERY(Usage_Log!B:D, "select B, count(C) where C = 'NICU' group by B pivot D", 1)`. Weeks are ISO
+weeks in Bangkok time (`2026-W44` starts Monday 26 October). A blank cell is 0, and a week in which no
+ward saved anything has no row at all, so read the week labels. `getUsageWeekly()`, run from the
+editor, prints every week with its zeros, per ward and type, and returns the same as an object.
+
+**The Admin page's Usage card** (Pp, 2026-10-28) asks the `doPost` action `getUsageWeekly` each time
+the page opens. It is admin only (`Forbidden` for anyone else, before the tab is read) and returns the
+last 12 weeks as counts: `weeks` (each with `week`, `weekStart`, `total` and `byWard`, ward by type),
+`wards` and `types`. Nothing about an infant or a staff member, so the read is not audited. The order
+after merge:
+
+1. **Backend:** the `clasp` steps above (diff the mirror, `sheetHealthReport()`, `clasp push`,
+   `clasp update-deployment`).
+2. **Frontend:** the `main → release` PR, as in § Frontend.
+
+Released the other way round, an admin sees ยังไม่มีข้อมูล on the card (the old backend answers
+"Unknown action") and nothing else changes. Before the first completed calculation the card says the
+same.
 
 **Apps Script project timezone must be `Asia/Bangkok`.** Several date paths read Sheets' own date
 values through `Session.getScriptTimeZone()` (`_fmtDate`) or assume a Sheets date sits at Bangkok

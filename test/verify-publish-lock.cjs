@@ -111,13 +111,15 @@ vm.runInContext(R('gas-backend.gs'), sandbox);
 // the real _patientExists against a real registry stub.
 sandbox._patientExists = () => true;
 
+// 2026-10-28.1, the backend's MIN_SUBMIT_CONSTANTS_VERSION: since 2026-10-29 a
+// submitted save on an older calculation is refused as a stale tab (Pp).
 const ENTRY = {
   dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90,
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20,
   ioInput: 180, ioOutput: 120, drainContent: 0,
   route: 'TPN central', status: 'submitted',
   calcInput: { stops: [] }, // calcInput.stops: what the app sends with every save since 2026-10-28 (none hold here).
-  constantsVersion: '2026-09-05.1', appVersion: 'test-app-version',
+  constantsVersion: '2026-10-28.1', appVersion: 'test-app-version',
 };
 
 console.log('\n── a new Daily_Log sheet has the publish/revision columns ──');
@@ -170,6 +172,10 @@ console.log('\n── updateDailyNutrition on a DRAFT row: overwrites in place (
   draft[1] = 'AB-1200'; draft[15] = 'orig@kcmh';
   draft[25] = 'entry-1'; draft[26] = 'stamp-1'; draft[27] = 'orig@kcmh';
   draft[33] = ''; draft[35] = 1; // unpublished, revision 1
+  // Status draft: since 2026-10-29 a row stored as submitted (or with a blank
+  // status, read as submitted) is revised even when unpublished (Pp), and
+  // test/verify-backend-stops-1028.cjs covers that branch.
+  draft[14] = 'draft';
   sheet = makeSheet(40, [draft]);
   const res = sandbox.updateDailyNutrition('AB-1200', 'entry-1', 'stamp-1', ENTRY, 'editor@kcmh');
   ok('update succeeds', res.ok);

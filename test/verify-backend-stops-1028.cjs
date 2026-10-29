@@ -87,6 +87,7 @@ T.section('update · the same rule on an edit and on a revision', () => {
   T.ok('draft → submitted with no list → refused as stale', !r2.ok && STALE.test(r2.error || ''), r2);
   const r3 = up(E({}, { stops: [] }), d);
   T.ok('draft → submitted with stops [] → saved', r3.ok === true, r3);
+  T.ok('…in place: a draft is not revised', !r3.revised && g.rows() === 1, r3);
 
   // A published row is edited by appending a revision (updateDailyNutrition).
   const s = g.log('2026-10-02', E({ status: 'draft' }, { stops: [] }));
@@ -96,6 +97,84 @@ T.section('update · the same rule on an edit and on a revision', () => {
   const rev = up(E({}, { stops: ['CR-STOCK-ZERO'] }), { entryId: s.entryId, lastModified: lm });
   T.ok('a revision with a stop → refused', !rev.ok && STOPPED.test(rev.error || ''), rev);
   T.eq('…and no revision row was appended', g.rows(), 2);
+});
+
+// Pp, 2026-10-29 (Vera's second review, finding 1): every order submitted
+// before this release has no stop list, so publishDailyLog refuses it, and a
+// client that locked it before editing could never edit or reprint it. The
+// backend now revises any row stored as submitted, published or not; a blank
+// status reads as submitted, as the read path has it.
+T.section('update · an order submitted before the list is revised, never overwritten', () => {
+  const g = ward();
+  const up = (entry, id) => {
+    const lm = g.sheet('Daily_Log').data.find(r => r[25] === id)[26];
+    return g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'ST-1', entryId: id, expectedLastModified: lm, entry });
+  };
+  const old = (ts, status) => {
+    const d = g.log(ts, E({ status: 'draft' }));
+    g.sheet('Daily_Log').data.find(r => r[25] === d.entryId)[14] = status;
+    return d.entryId;
+  };
+  const id = old('2026-10-01', 'submitted');
+  const before = JSON.stringify(g.sheet('Daily_Log').data.find(r => r[25] === id).slice(0, 26));
+  const rev = up(E({ pro: 3.5 }, { stops: [] }), id);
+  T.ok('a submitted, unpublished row with no list → a revision', rev.ok === true && rev.revised === true && rev.revisionNumber === 2, rev);
+  const oldRow = g.sheet('Daily_Log').data.find(r => r[25] === id);
+  T.ok('…the old row is superseded', !!oldRow[37], oldRow[37]);
+  T.eq('…its order is left as it was', JSON.stringify(oldRow.slice(0, 25)), JSON.stringify(JSON.parse(before).slice(0, 25)));
+  const newRow = g.sheet('Daily_Log').data.find(r => r[25] === rev.entryId);
+  T.ok('…the revision names the row it replaces', newRow && newRow[36] === id, newRow && newRow[36]);
+  const pub = g.as(g.dt, { action: 'publishLog', sessionId: 'ST-1', entryId: rev.entryId, expectedLastModified: rev.lastModified });
+  T.ok('…and the revision publishes', pub.ok === true && !!pub.publishedAt, pub);
+
+  const blank = old('2026-10-02', '');
+  const r2 = up(E({ pro: 3.5 }, { stops: [] }), blank);
+  T.ok('a row with a blank status (read as submitted) → a revision', r2.ok === true && r2.revised === true, r2);
+
+  const draft = old('2026-10-03', 'draft');
+  const r3 = up(E({ pro: 3.5 }, { stops: [] }), draft);
+  T.ok('a draft is still saved in place', r3.ok === true && !r3.revised, r3);
+  T.eq('three days, two of them revised: five rows', g.rows(), 5);
+});
+
+// Pp, 2026-10-29 (Vera's third review, finding 1): a tab opened on the release
+// before the meeting change sends a stop list, so the check above lets it
+// through, and it would go on printing the old sheet (Vitalipid not rounded
+// down, Mg in mEq). A submitted save computed on a CONSTANTS_VERSION older
+// than the backend's minimum is refused and the tab asked to reload; a draft
+// still saves. A save with no version, or one the backend cannot read, is let
+// through: no live client sends either.
+T.section('a submitted save computed on an older calculation is refused', () => {
+  const g = ward();
+  const OLD = { constantsVersion: '2026-10-27.2' };
+  const old = g.log('2026-10-01', E(OLD, { stops: [] }));
+  T.ok('submitted, version 2026-10-27.2 → refused, reload asked', !old.entryId && STALE.test(old.error || ''), old);
+  const draft = g.log('2026-10-01', E(Object.assign({ status: 'draft' }, OLD), { stops: [] }));
+  T.ok('…the same as a draft → saved', !!draft.entryId, draft);
+  const up = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'ST-1', entryId: draft.entryId, expectedLastModified: draft.lastModified, entry: E(OLD, { stops: [] }) });
+  T.ok('…and submitting that draft from the old tab → refused', !up.ok && STALE.test(up.error || ''), up);
+  const cur = g.log('2026-10-02', E({ constantsVersion: '2026-10-28.1' }, { stops: [] }));
+  T.ok('submitted, version 2026-10-28.1 → saved', !!cur.entryId, cur);
+  const later = g.log('2026-10-03', E({ constantsVersion: '2026-11-02.1' }, { stops: [] }));
+  T.ok('a later version → saved', !!later.entryId, later);
+  const none = g.log('2026-10-04', E({}, { stops: [] }));
+  T.ok('no version at all → saved', !!none.entryId, none);
+  const before = g.sb._constantsVersionBefore;
+  T.ok('2026-10-28.9 is before 2026-10-28.10 (numbers, not text)', typeof before === 'function' && before('2026-10-28.9', '2026-10-28.10') === true);
+  T.ok('2026-10-28.1 is not before itself', typeof before === 'function' && before('2026-10-28.1', '2026-10-28.1') === false);
+  T.ok('an unreadable version is not "before"', typeof before === 'function' && before('2026-test', '2026-10-28.1') === false);
+
+  // Vera, fourth review: raise the minimum past data.js's CONSTANTS_VERSION, or
+  // revert data.js below it, and every ward Submit is refused while the cases
+  // above still pass. So the app's own version must clear the backend's minimum.
+  const fs = require('fs');
+  const appVersion = (fs.readFileSync(require('path').join(__dirname, '..', 'data.js'), 'utf8')
+    .match(/const CONSTANTS_VERSION = "([^"]+)";/) || [])[1];
+  T.ok('data.js CONSTANTS_VERSION is not before MIN_SUBMIT_CONSTANTS_VERSION',
+    !!appVersion && typeof before === 'function' && before(appVersion, g.sb.MIN_SUBMIT_CONSTANTS_VERSION) === false,
+    { appVersion, min: g.sb.MIN_SUBMIT_CONSTANTS_VERSION });
+  const app = g.log('2026-10-05', E({ constantsVersion: appVersion }, { stops: [] }));
+  T.ok('…and a submitted save stamped with it is saved', !!app.entryId, app);
 });
 
 T.section('publishDailyLog · reads the list stored with the row', () => {

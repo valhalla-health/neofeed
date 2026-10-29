@@ -7,6 +7,574 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-29 (4) — `main` merged in (#178, NF-02): one backend `@66` carries all three
+
+`test/verify-usage-log.cjs`, both shells' `?v=` tokens, `compiled/`. #178 was merged into `main` at 12:59
+ICT; Pp chose to release it with this one (2026-10-29: "ขึ้นไปด้วย"). `gas-backend.gs` merged without a
+conflict.
+
+- **`verify-usage-log.cjs` follows the revision.** Its second promotion of a submitted row now appends a
+  revision (2026-10-29 (1)), so its next edit failed as a conflict on the superseded row. The edit now goes
+  to the revision, and the check adds that both were revisions. Still one usage row: a revision is the
+  same calculation. 134 checks pass.
+- **One `@66`.** #178's STATUS line has its backend going out as `@67`, after #190 alone as `@66`. With
+  Pp's answers of today, `@66` carries `main`'s whole `gas-backend.gs`: #190's status reading, #178's
+  `Usage_Log`, and this PR's revision, delete and stale-tab rules. The order of (3) holds: frontend
+  first, so for a few minutes the Admin usage card reads ยังไม่มีข้อมูล.
+
+## Session 2026-10-29 (3) — Vera's fourth review: the osmolarity working reads Mg in mg, the version floor is tied to data.js, the deploy gate
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, two tests. After `main` (#177) was
+merged in. Vera's fourth review was NO BLOCK, with one 🟠 and two 🟡.
+
+### What changed
+
+- **The osmolarity working shows Mg's mg/L and its step to mEq** ("Mg mg ÷ 12.15 = mEq"), as it does Ca's.
+  #177 (NF-12) wrote that panel while the Mg box took mEq. Merged here, its fixture's MgSO₄ 0.4 read as
+  0.4 mg, and two checks of `verify-show-working-1028.cjs` failed (Mg 0.33 mEq/L, term 0.3), in CI as well.
+  The fixture now types 4.861 mg, the 0.4 mEq it meant. Screen only: the tile, the bag and the print were
+  right.
+- **`verify-backend-stops-1028.cjs` reads `data.js`'s `CONSTANTS_VERSION`** and checks that it is not
+  before `MIN_SUBMIT_CONSTANTS_VERSION`, and that a submitted save stamped with it is saved. Raise one
+  without the other and every ward Submit would be refused while every other case still passed.
+
+### The sitting, in order (Pp, 2026-10-29: today, without waiting)
+
+Pp's "วันนี้เลยไม่ต้องรอ" also lifts #190's condition that its backend half wait until `@65` had run a day.
+
+1. #199 and this PR merge into `main`; `main`'s `harnesses` is green.
+2. The `main → release` PR (`release.md`): the before-and-after table from dev local and the walk at
+   375 × 812; Pp's go-ahead; merge; tag.
+3. `node tools/verify-release.mjs --wait` passes on both hosts, so both serve `data.js` at 2026-10-28.1.
+   **Until then the backend must not change:** `@66` refuses every Submit from a frontend on 2026-10-27.2.
+4. Backend `@66`: diff the mirror, `clasp push`, Pp runs `sheetHealthReport` in the editor (#190's step),
+   `clasp create-version`, `clasp update-deployment` on the ward deployment, the checks of `REFERENCE.md`
+   § Backend, then commit and push the mirror.
+
+Rollback: the backend first (`-V 65`), then the frontend to `release-2026-10-28-pr198` (`ac1b15b`). A ward
+tab opened before the release can still print an order saved before it, on the old sheet: printing is
+decided in the tab. Tell the ward to reload open NeoFeed tabs.
+
+## Session 2026-10-29 (2) — Vera's third review: a stale tab cannot submit, the delete checks every row first, the Mg question in the title
+
+`gas-backend.gs`, `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `docs/CLINICAL_CONSTANTS.md`, `REFERENCE.md`, tests.
+Corrects 2026-10-29 (1) § Deploying.
+
+Vera's third review was NO BLOCK, with one 🟠 and four 🟡. Pp answered the 🟠 the same day and chose
+to release today, both halves in one sitting.
+
+### What changed
+
+- **A tab opened before this release cannot submit** (Pp: "ให้ backend ไม่รับ"). The live release already
+  sends a stop list, so (12)'s refusal let its saves through, and such a tab would go on printing the old
+  sheet: Vitalipid not rounded down, Mg in mEq, both sheets, no lock. `_validateLogEntry` now refuses a
+  submitted row whose `constantsVersion` is older than `MIN_SUBMIT_CONSTANTS_VERSION` (2026-10-28.1) with
+  the reload message; its draft still saves. A save with no version, or one the backend cannot read, is let
+  through: no live client sends either. `REFERENCE.md` § Backend says when to raise it and that the backend
+  then goes out after the frontend.
+- **The whole-order delete checks every row before deleting any.** It checked each row just before deleting
+  it, bottom first, so a row moved by a hand edit of the Sheet stopped it after the current revision was
+  gone. The older versions then stayed hidden and held the date.
+- **The Mg question is in the alert's title**, "Magnesium below 1 mg/kg/d: พิมพ์เป็น mEq หรือเปล่า". The
+  Submit prompt lists titles only, and the title prints in the critical box. The tile's bar draws the red
+  below 1 too (`statusAt`).
+- `docs/CLINICAL_CONSTANTS.md` has a row for `MG_MEQ_HABIT_MG`. The backend reads a status typed into the
+  Sheet as "Draft" as a draft, as the client does. `deletePatient`'s comment no longer says
+  `deleteDailyNutrition` refuses a published row.
+
+### § Deploying of (1), corrected
+
+(1) said the frontend goes first because a backend-first deploy would turn every edit on the live frontend
+into a new revision. That is what Pp asked for, and the live frontend already handles a revision, so the
+reason does not hold. The order now follows from the stale-tab refusal: the backend refuses the live
+release's saves, so release the frontend first, then deploy `@66` in the same sitting. (1) also said a
+submitted order "cannot be deleted" under `@65`. `@65` refuses only a locked row, so an unlocked order
+submitted before the release is deleted there as a single row.
+
+### Tests
+
+`verify-backend-stops-1028.cjs` gains a section: a submitted save on 2026-10-27.2 is refused, the same as a
+draft saves, the current and a later version save, no version saves, and the version compare reads
+2026-10-28.9 before 2026-10-28.10 (5 of its 9 checks failed before). `verify-delete-order-1029.cjs`: a row
+that moves while the chain is checked leaves all three versions in place and writes no audit row (3 of its
+3 checks failed before). `CR-MG-MEQ-HABIT`'s cases read the new title, and the Submit prompt must name it.
+`verify-status-zones.cjs` expects Mg's red from 0 to 1 mg/kg/d. Six harnesses needed their fixtures
+changed by (1), as the full suite showed: `verify-incident-gaps-1021` typed MgSO₄ 0.3 (now the 0.3 mEq,
+3.646 mg); `verify-provenance-stamp`, `verify-publish-lock` and three `verify-review-0917-backend-*`
+harnesses edited an unlocked row as a draft but stored it as submitted (now a draft);
+`verify-provenance-stamp` and `verify-publish-lock` also send 2026-10-28.1 as their version.
+
+## Session 2026-10-29 (1) — Vera's second review of the meeting branch: old orders are revised, a submitted order can be deleted, Mg under 1 mg asks
+
+`gas-backend.gs`, `calculator.jsx`, `log.jsx`, `data.js`, `compiled/`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `tools/reference-tabs.json`, tests. Corrects 2026-10-28
+(13) and (14) of the nutrition-meeting branch. Two entries on 2026-10-28 carry the number (13): that
+branch's meeting entry, and #196's "One piece of work, one PR", merged into `main` while the branch was
+open. Both are left as they were written.
+
+Vera's second review of (13) and (14) was NO BLOCK, with one 🟠 and three 🟡. Pp answered the three that
+needed her on 2026-10-29, each with the recommended option.
+
+### What changed
+
+- **An order submitted before this release can be edited and reprinted.** (13) and (14) said such an
+  order "is published first when it is next edited". That was false against the real backend. Since
+  (12), `publishDailyLog` refuses a row with no `calcInput.stops`, which is every order saved before
+  then. The client's pre-lock failed and the edit was never sent. A version bump also holds those
+  orders from Print, so they could be neither corrected nor reprinted. Pp chose the backend fix:
+  `updateDailyNutrition` now revises any row stored as submitted, locked or not; a blank status counts
+  as submitted, as the read path has it. A draft is still saved in place. The client no longer locks
+  before an edit, so an old order's edit lands as revision 2 and prints with the Revision mark.
+- **An admin can delete a submitted order** (Pp: a wrong-infant order). Since (13) every Submit locks the
+  order, so `deleteDailyNutrition`'s refusal of a published row, which its comment still called dormant,
+  had left no way to take one off. The delete now removes the order and every revision before it
+  (`revisionOf`). A superseded row left behind would stay on that infant's record unseen and hold the
+  date against a new order. A superseded row is not deleted on its own. The Calculator and the
+  Dashboard ask first with a stronger prompt: the order was submitted, every version goes, and if
+  pharmacy has the sheet, the person deleting tells them. Audit_Log gets `deleteDailyLog:start` before
+  and `deleteDailyLog` after, as before.
+- **Mg below 1 mg/kg/d is critical and asks whether it was typed in mEq** (Pp; new rule
+  `CR-MG-MEQ-HABIT`, `D.MG_MEQ_HABIT_MG`). A dose typed from mEq habit (0.2–0.6) read as mg, a twelfth of
+  what was meant, with only an amber tile. Now its line is red, says "พิมพ์เป็น mEq หรือเปล่า", and Submit
+  asks for a reason. An alert threshold that moves no dose, so `CONSTANTS_VERSION` stays 2026-10-28.1.
+- **`CR-VITALIPID-CAP` says what the 1 mL floor does below 250 g.** It said rounding down keeps the
+  smallest infants well under the label's 4 mL/kg. Below 250 g the floor goes over it, by Pp's choice:
+  240 g gets 4.2 and 200 g 5 mL/kg/d. A 200 g case is added. No code change.
+
+### Deploying
+
+The backend change goes out as `@66`, together with #190 (the backend reads a status as the client
+does), on Pp's go-ahead. Until `@66` is live, the new frontend against `@65` behaves safely. An edit of
+a submitted, unlocked order is saved in place and then locked, with no Revision mark. A submitted
+order cannot be deleted. A row saved by this frontend carries its stop list, so `@65`'s
+`publishDailyLog` accepts it. Deploying the backend first would turn every edit made on the live
+frontend (which never locks) into a new revision, so the frontend goes first.
+
+### Tests
+
+New `test/verify-delete-order-1029.cjs` (real backend: 4 of its 16 checks failed before the change).
+`verify-backend-stops-1028.cjs` gains the old-order revision section (7 failed before).
+`verify-nutrition-meeting-1028.cjs` §4 and §5 expect no pre-lock, with an `onPublish` that refuses a row
+with no list, as the backend does; §12 checks the delete prompt (7 failed before). `CR-MG-MEQ-HABIT`'s
+cases (1 mg amber, 0.99 and a mEq-habit 0.4 critical, none when no Mg) failed before. In
+`verify-review-0911.cjs`, B4 reads the current rows, since the edit of a submitted row is now a revision,
+and B7 checks the superseded-row refusal and the whole-order delete. The line anchors of 50 rules moved
+(`--fix-lines`).
+
+## Session 2026-10-28 (14) — Vera's review of (13): held orders resave, the front keeps the lipid rate and the critical box, Vitalipid at least 1 mL
+
+Vera's first review of (13) was NO BLOCK with four 🟠 and one 🟡. Two needed Pp, and she answered the
+same day.
+
+### What changed
+
+- **An order held from Print is saved again, not just locked.** (13) let Submit only lock an unchanged
+  submitted order, and then greyed Submit out. An order saved on an older calculation, with a changed
+  dosing weight or an unconfirmed critical value, could then be neither saved nor printed: every
+  order submitted before this release. Submit now only locks an unchanged order when it could print
+  as it is. Otherwise it locks it, saves a revision on today's numbers and locks that. A locked order
+  keeps its Submit while Print holds it.
+- **The lock state resets with the patient.** `published` was set only at mount; switching infant
+  with the Calculator open carried the last order's lock over, and greyed out the next infant's Submit.
+- **The lipid pump rate and the critical-value confirmation print on the front** (Pp: "ย้ายค่าวิกฤตกับ
+  lipid rate ขึ้นหน้า 1"). Hiding the pharmacy sheet in (13) took both off paper. The Save prompt's
+  promise that the reason prints on the order holds again. Pharmacy works out the stock mL, Factor and
+  WFI from the front, as the team asked. `REFERENCE.md` § The printed order says so.
+- **Vitalipid is at least 1 mL when lipid is ordered** (Pp: "ปัดลง แต่อย่างน้อย 1 mL"). Rounded down
+  alone, 240 g got none. 490 g still gets 1 mL, about half the label's 4 mL/kg; Q19 is closed.
+
+### Sources and review
+
+- Mg: Mihatsch W et al., ESPGHAN/ESPEN/ESPR/CSPEN guidelines on pediatric parenteral nutrition:
+  calcium, phosphorus and magnesium. Clin Nutr 2018;37(6 Pt B):2360–2365, PMID 30097365, the table of
+  suggested parenteral intakes in mmol (mg)/kg/d: preterm infants in the first days of life 0.1–0.2
+  (2.5–5.0), growing premature infants 0.2–0.3 (5.0–7.5). Checked against the photograph of that table
+  the TPN team sent on 2026-09-18 (in Pp's private notes), not against the full PDF.
+- Vitalipid: the TPN team's meeting of 2026-10-28 (Pp's notes) and Pp's 1 mL floor the same day.
+- No second clinician has reviewed (13) or this change. The TPN team asked for each item; Pp chose the
+  figures.
+
+### Tests
+
+Six checks added to `test/verify-nutrition-meeting-1028.cjs`, each failing on (13) and passing here:
+an unlocked order on an older calculation is locked, revised and locked again, and then prints; a
+locked one keeps its Submit; the lipid rate and the critical box sit outside `.print-back`; the next
+infant's Submit is offered after a switch. `CR-VITALIPID-CAP` gains a 490 g and a 240 g case. The
+oracles in `verify-calc-oracle` and `-fuzz` apply the 1 mL floor. The six digests of
+`verify-review-0917-calc.cjs` were recaptured: the same figures in a new order, the lipid rate's three
+now on the front.
+
+Not added: Vera's proposed `verify-clinical-rules.cjs` change reading `prints` without `.print-back`.
+The stock mL and WFI it would look for are not meant to be on paper now, so it would fail after this
+change too; `prints` still means the rendered order, both sheets.
+
+## Session 2026-10-28 (13) — the nutrition team's meeting: Submit locks, Vitalipid rounds down, Mg in mg
+
+The nutrition and TPN team met Pp on 2026-10-28 ahead of the ward start on 16 Nov 2569. This session
+builds what had to be ready for that date. `CONSTANTS_VERSION` 2026-10-28.1.
+
+### What changed
+
+- **Submit locks the order.** "Submit แล้วไม่ให้แก้แล้ว". The backend has locked a published row since
+  2026-09-10 (an edit becomes a new revision beside it), but the button that published was behind
+  `ENABLE_PUBLISH_GATE`, which stayed off, so an edit after Submit overwrote the order in place. Now
+  the one Submit button saves and then publishes (`handleSave`). An order submitted before this
+  release is published first when it is next edited, so the edit lands as a revision too; reopened
+  unchanged, Submit only locks it. A locked order with nothing changed offers no Submit. Save draft
+  locks nothing. No backend change: `publishLog` and the revision branch are as they were.
+- **A revision says so.** The doctor's sheet prints "Revision · ฉบับที่ N" at the top right, and the
+  Dashboard chip reads "Submitted · ฉบับแก้ไข".
+- **Only the doctor's sheet prints** ("print เฉพาะแค่หน้าแรก หน้าสองเก็บไว้ก่อน"). Both shells hide
+  `.print-back` in print. It still renders, for the next phase's sticker.
+- **Vitalipid N Infant is rounded down to a whole mL** ("ทำให้ในระบบและทำจริงเหมือนกัน > ปัดลง").
+  850 g now prints 3 mL (was 3.4). The lipid bag total, its pump rate and the prescribed fluid move
+  with it. Below 250 g a lipid order gets 0 mL: Q19 in the clinical-rules skill.
+- **Mg is typed in elemental mg/kg/d** (Pp chose mg entry and ESPGHAN's mg figures). Chips 2.5 / 5 /
+  7.5; the tile and the printed Normal Requirement are 2.5–5 (DOL 1–7) and 5–7.5 mg/kg/day; the
+  form prints mg with its mEq in brackets. The stored dose stays mEq (`calcInput.mgPerKg` = mg ÷
+  12.1525, to 10 decimals so that 4.861 mg is 0.4 mEq and not 0.4000000000000001, which would mark a
+  retyped order as edited), so saved orders, their MgSO₄ mL and Center Point's packet are unchanged.
+  An order of 0.2 mEq (2.43 mg) now reads just under the first-days band. The Step 4 tile, the
+  changes-since-last-order line, the back sheet and the quick calc's copied text read mg too; the
+  copied text used to print the stored mEq raw, which after the division showed a float tail.
+- **PED AMINE** is named beside 10% Aminoven infant on both sheets (both 10 %, Pp). No volume moves.
+
+### Tests
+
+New `test/verify-nutrition-meeting-1028.cjs` (24 of its first 31 checks failed before the change). The
+clinical-rules skill's `CR-VITALIPID-CAP`, `CR-TGT-MG`, `CR-U-SALTS` and the two stock-rounding cases
+that type Mg (now 4.861 mg, the old 0.4 mEq) changed with the code. `tools/reference-tabs.json` holds
+Mg in mg/kg/d.
+
+Twelve existing harnesses typed Mg in mEq or expected the old Vitalipid, label or Mg band. Each now
+types the same dose in mg (× 12.1525), so its other figures did not move, and the three oracles
+(`verify-calc-oracle`, `-sum`, `-fuzz`) round Vitalipid down and grade Mg in mg. The six printed-figure
+digests of `verify-review-0917-calc.cjs` were recaptured after a figure-by-figure diff with `main`:
+only the amino-acid label, Vitalipid, the lipid bag total and rate, and the Mg lines moved (the
+comment above `ORDERS` lists each). `verify-center-point-print-parity.cjs` excuses the Mg-in-mg
+figures, and only those, until Center Point's form is synced; the mEq and mL on those lines are
+still checked.
+
+### Not done here
+
+The meeting's other items and the gaps found in the 2026-09-28 list are in `BACKLOG.md` § Now.
+Center Point's own form still prints Mg in mEq first and the old amino-acid label.
+
+## Session 2026-10-28 (14) — Step 2 stops showing a developer comment
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `tools/ci_bans.js`,
+`test/ci-bans-fixtures.json`, `test/verify-en-db-sources.cjs`, `test/README.md`, `STATUS.md` (this PR's
+line, and #196 marked merged, as #196's own rule asks of the next PR).
+
+### Why
+
+PR #182 (commit `97227e7`) put a three-line `//` comment at the top of `EnFeedPicker`'s fragment. Between
+JSX children `//` is text, so the ward has seen "// The same three columns as the Volume / Frequency row
+below: the milk spans // two, kcal/oz takes the third (Pp, 2026-10-28: …)" under "Step 2 · Enteral feeding"
+on every device since release #184, once per feed picker. The PR #175 release session saw it on dev local
+at 375 px.
+
+### What changed
+
+- `calculator.jsx`: the same words in a `{/* … */}` comment. The rebuild drops that string child from
+  `compiled/calculator.js` and nothing else; both shells take the new `?v=` token. No figure, label or
+  layout moves, and `CONSTANTS_VERSION` is unchanged.
+- `tools/ci_bans.js`: rule `jsx-comment-text`, a run of `//` lines between two lines of JSX children. Its
+  hits are comment lines, so `check()` reports comment lines for a rule marked `comments: true`.
+  12 fixture cases; over the `.jsx` sources of all 294 first-parent commits of `main` it flags only #182's
+  line.
+
+### Tests
+
+- `verify-en-db-sources.cjs` § 4.23–4.25: with both feed pickers open, Step 2 has no "// The same three
+  columns" and no text node on the Calculator starts with "//". 4.24 and 4.25 fail on `3359a58` in both
+  passes; 174/174 with the fix.
+- `node tools/ci_bans.js` exits 1 on `3359a58`'s `calculator.jsx` (line 412) and 0 with the fix.
+
+## Session 2026-10-29 (NF-02) — `main` merged in: the usage harness sends the stop list
+
+`test/verify-usage-log.cjs` (its fixture only), `BACKLOG.md`, `STATUS.md`. Same PR (#178) as the two
+entries below, which this one corrects in two places. No served file changes.
+
+- **The harness, after #175.** With `main` merged in (#175: the backend refuses a submitted row whose
+  `calcInput` carries no `stops` list), every submitted save in `verify-usage-log.cjs` came back
+  "แอปในแท็บนี้เป็นรุ่นเก่า" and 67 of its checks failed. The git merge had no conflict in either file. Its
+  fixture now sends `stops: []`, what the app sends with every save, as #175 did for eleven backend
+  harnesses: 133 passed. A refused save still writes no usage row (§ 3).
+- **The backend deploy waits.** The entry below says Pp chose to deploy the backend right after the
+  merge. Since 2026-10-28 it goes out as `@67`, after #190's backend ships alone as `@66` (Pp, "ก. แยกเป็น
+  @66"; comment on #198).
+- **NF-31, per-user counts: not built** (Pp, answer 5 on #178). M1's `getUsageMetrics()` already gives
+  weekly users as an aggregate.
+
+## Session 2026-10-28 (NF-02, Admin chart) — the usage counts on the Admin page
+
+`gas-backend.gs`, `app.jsx`, `compiled/app.js`, both shells' `?v=` tokens, `test/verify-usage-log.cjs`,
+`test/verify-admin-census.cjs`, `test/verify-admin-usage-1028.cjs` (new), `REFERENCE.md`, `PRD.md`,
+`BACKLOG.md`, `STATUS.md`, `test/README.md`. Same PR (#178) as the entry below, which this one corrects
+in two places: the PR is no longer backend only, and the admin-dashboard chart listed there as not built
+is built. `CONSTANTS_VERSION` stays `2026-10-27.2`; no calculation or printed figure moves.
+
+### Why
+
+Pp answered the PR's six questions the same day. Count at the first submitted save: ได้. Keep the week
+column: เก็บ. Quick calc: ไม่นับ. A chart in the Admin dashboard: ได้, build it now. Deploy the backend right
+after the merge.
+
+### The action
+
+`doPost` `getUsageWeekly`, admin only: `{ error: "Forbidden" }` for a doctor or nurse, the same reply the
+other admin-only actions give, before the tab is read. It returns `{ ok, weeks, wards, types }` for the
+last 12 ISO weeks. `usageWeekly(rows, now, span)` gained the span: the window ends at this week, starts at
+the first row's week when that is later (so the weeks before the deploy are not drawn as zeros), and is 12
+weeks of 0 when every row is older, which is what a ward that stopped looks like. The editor's
+`getUsageWeekly()` and the action read the tab through one function, `_usageWeeklyFromTab`. The reply holds
+counts and week labels only, so the read is not audited.
+
+### The card
+
+On the Admin page, after Census: one chart per ward (NICU, SCN, and อื่นๆ once it has an order), twelve
+columns, one per week, with the types stacked (TPN at the bottom, then EN, NPO, อื่นๆ) on one scale for every
+ward. Each ward's header gives this week's count and the 12-week total; each column's title gives its week
+and counts. The card asks once each time the page opens, not on every sync. A backend from before this
+action answers "Unknown action", and that, or no row yet, reads ยังไม่มีข้อมูล. A failed request says so,
+with a retry button. None of these raises a toast. No chart library: flex columns with inline styles, and
+the census's own classes for the ward cards, so the shells' CSS did not change.
+
+### Deploy order after merge
+
+The backend first (`clasp`), then the `main → release` frontend release. Released the other way round, the
+card reads ยังไม่มีข้อมูล until the backend lands.
+
+### Found on the way
+
+`verify-usage-log.cjs` § 3's stale-retry check failed 2 runs in 25: two saves in one millisecond share a
+`lastModified`, so the "stale" stamp was current. Each save there now runs on its own clock second; 30 runs
+clean.
+
+### Tests
+
+`verify-usage-log.cjs` 133 checks (§ 6 the 12-week span, § 7 the action: refusals, payload shape, counts
+only, no write). `verify-admin-census.cjs` § 5, 27 checks on the card's states, scale, stacking, legend and
+no-toast rule, and § 4 now measures the chart at every width from 280px. `verify-admin-usage-1028.cjs`, 19
+checks through the real `<App/>`: the request carries only the action and the token, an old backend and a
+network failure stay quiet, a doctor never asks. `node tools/build.mjs` rebuilt `compiled/app.js` and moved
+its `?v=` token in both shells; a second build changes nothing. All 101 `verify-*.cjs` harnesses and
+`DEAD=0 verify-kcmh-factor.cjs` exit 0 against the sources and again with the compiled preload, which
+swapped the new `app.js` into both admin harnesses. The browser sections printed SKIP on this PC (its
+Playwright wants a Chromium build that is not installed), so the 280px chart check runs in CI only.
+`tools/ci_bans.js` and #174's three log rules pass.
+
+## Session 2026-10-28 (NF-02) — a usage tab: one row per completed calculation, counted per ward per week
+
+`gas-backend.gs`, `test/verify-usage-log.cjs` (new), `REFERENCE.md` § Backend (GAS), `PRD.md` § 6 (M4),
+`test/README.md`, `BACKLOG.md`, `STATUS.md`. Backend only: no `.jsx`, `data.js` or shell changed,
+`CONSTANTS_VERSION` stays `2026-10-27.2`, and nothing changes for the ward until a `clasp` deploy.
+
+### Why
+
+Pp ticked NF-02 in her apply list of 2026-10-27: a usage tab with one row per completed calculation
+(timestamp, ward, calculation type, no patient field), charted weekly per ward. A falling count means a
+ward went back to paper, and that gets looked into before more features.
+
+### What counts as one completed calculation
+
+A TPN/EN order that reaches "submitted" for the first time: a new order saved as submitted, or a draft
+saved again as submitted. The save is the one step every finished order goes through. Print comes only
+after it, can be repeated (a reprint, the ward's print list), and an order can go to HIS by Copy without
+a print, so counting prints as well would count one order twice. Drafts, edits of a submitted order,
+Submit (the publish lock), revisions, syncs and nursing I/O entries do not count. The rule is decided
+inside the save's script lock from what the save itself reads, so a request fired twice writes one row:
+the second create is DuplicateDate, the second promotion finds the order already submitted.
+
+### The row
+
+`Usage_Log`, 4 columns, created by the first completed calculation and trimmed like `Audit_Log`:
+
+- `ts`, the save's instant in ISO UTC, as `Audit_Log` writes it;
+- `week`, its ISO week in Bangkok time (`2026-W44`), as text, so the Sheet chart needs no date formula;
+- `ward`, NICU, SCN or other: the ward list the infant is on (`_usageWardOf`, a mirror of `data.js`
+  `patientWard`, so a parked infant counts on the ward of the bed they left). Never the bed;
+- `type`, TPN, EN, NPO or other, from the saved route.
+
+No sessionId, entryId, bed, name, weight, date of birth or staff email. No row points at an infant, so
+`pseudonymizePatient` and `deletePatient` have nothing to reach there.
+
+### Where it is written
+
+In `doPost`, after the save has returned and released its lock, so no other save queues behind it.
+The ward lookup reads `Patient_Registry` column A and six cells of the infant's row (K to P), then one
+append: on the first submit of a patient-day only, and not timed here (the sandbox has no Sheets
+latency). Any failure is swallowed and leaves `Usage_Log row not written (NF-02): …` in the execution
+log; the ward sees nothing.
+
+### The weekly view
+
+`usageWeekly(rows, now)` counts per ISO week (Bangkok time), per ward and type, with every ward and type
+present and every week from the first row to this one, so a week with no orders reads 0 instead of
+vanishing. `getUsageWeekly()` runs it from the editor and logs a table; like `getUsageMetrics()` it is
+not on `doPost`. For a chart Pp adds a tab with one `QUERY` formula (`REFERENCE.md`); that tab is hers to
+add, nothing here edits the live Sheet.
+
+### Not built
+
+- **The quick calc.** It sends nothing to the backend, which is the ward's own request for that mode.
+  Counting it needs a new signed-in action fired once per Copy there, a frontend release and Pp's word
+  to the ward (`BACKLOG.md`).
+- **A chart in the admin dashboard.** Possible with an admin-only action and a frontend release; the
+  Sheet chart costs neither.
+- **NF-31, per-user counts.** Room is left: the readers ignore any column past D. `PRD.md` § 6
+  constraint 2 (no per-staff figure) would have to change first.
+- **Center Point** saves go to Center Point, not this backend.
+
+### Found on the way
+
+- The ts parsing inside `_isoWeekKeyLocal_` moved into `_sheetInstant_`, shared with the new week-Monday
+  helper. M1's `verify-usage-metrics.cjs` passes unchanged (30).
+- Two known miscounts, both rare: an order saved as submitted, saved back to a draft and submitted again
+  counts twice; and an order an admin deletes as a mistake keeps its row, because nothing links the two.
+
+### Tests
+
+`test/verify-usage-log.cjs`, 114 checks, no npm dependencies; against `326bcd9` it fails 46. All 100
+`verify-*.cjs` harnesses and `DEAD=0 verify-kcmh-factor.cjs` exit 0 against the sources and again with
+the compiled preload, `verify-clinical-rules.cjs` included (607). The browser sections printed SKIP on
+this PC (Playwright not found), so they run in CI only. `tools/ci_bans.js` passes, and so do PR #174's
+three log rules run on this tree: they read `Usage_Log` as a log tab and pass its row, and a raw cell
+or a `patientName` planted in that append fails them.
+
+## Session 2026-10-28 — NF-12 with `main` merged in: two feeds
+
+`calculator.jsx` (the milk line and the working panels only), `compiled/calculator.js`, the shells'
+tokens, `test/verify-show-working-1028.cjs` § 6 and § 9, `CR-U-BREASTMILK`'s anchor and two cases, two units
+in `tools/reference-tabs.json`. No computed, printed or saved figure moves; `CONSTANTS_VERSION` stays
+`2026-10-27.2`.
+
+`main` reached NF-12 with #182 (a day can have two feeds) and `14caa41` (a patient's order has no Copy).
+The git merge was clean in `calculator.jsx`, and the result was wrong in three places, and one check
+failed:
+
+- **Feed 1's picker, not the feeds given.** The milk line read feed 1's picker, which stays at breast milk
+  while feed 1 is 0 mL beside feed 2. Formula as feed 2 alone showed "นมแม่ที่ใช้คำนวณ", and breast milk
+  as feed 2 beside a formula showed nothing. It now reads every feed given.
+- **"Source: undefined".** With two feeds `calc.en` is their mix per 100 mL, which has no label and no
+  source, so the energy and protein panels read "· · Source: undefined" and one mixed figure per 100 mL.
+  They now give each feed its own line (its mL, its row per 100 mL, its label and source, and
+  `CR-U-BREASTMILK` on a breast-milk line only), then the total. The lines add up to the total the tiles
+  use.
+- **No feed at all** (Vera, NO BLOCK, one 🟡, on this commit's first version): the panels fell back to
+  feed 1's picker, so a TPN-only day read "0 mL × 67 kcal/100 mL · Breast Milk … (CR-U-BREASTMILK)". It
+  now reads ไม่มีนม and 0. NF-12 did the same before the merge; the figure was always 0.
+- **NF-28's check (#176) wanted units for NF-12's two new `coded` keys.** `verify-reference-tabs.cjs`
+  failed on `EN_HMF_PROTEIN_G_PER_DOSE` and `EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal`: `CR-U-BREASTMILK`
+  codes them, and `tools/reference-tabs.json` had no unit for either. Both are now under `limits` (g protein
+  per 4 g dose, kcal per g of HMF protein), ranged by the rule itself.
+- **§ 6 checked a Copy that is gone.** A patient's order leaves only as the print form now; the harness
+  checks the print form, that no Copy is offered, and the quick calc's copied text instead.
+
+§ 9 (19 checks) fails 18 on the merge commit `f643aac` and passes after. 127 checks in the harness, 713
+in `verify-clinical-rules.cjs`.
+
+## Session 2026-10-28 — NF-12 after Vera: a result past its limit, the feed factor, a MEN feed
+
+`calculator.jsx` (the working panels only), `compiled/calculator.js`, the shells' tokens,
+`test/verify-show-working-1028.cjs` § 8. Corrects the entry below in three places; no computed, printed or
+copied figure moves.
+
+- **A result just past its hard limit.** The entry below says each panel shows "the tile's own figure".
+  At GIR 12.007 that is "12", beside "เกิน 12 เป็น critical" on a red readout, while the alert reads
+  12.01. The GIR, energy and protein panels now print their result through the Calculator's `vsLimit`, as
+  the alerts do (GIR 12.01, protein 4.51); otherwise they keep the tile's decimals.
+- **The feed's value per 100 mL** showed one decimal from 10 up, so FBM ↔ Infatrini's 90.65 kcal read
+  90.7 and the line's own arithmetic gave 290.24 against the 290.08 it printed. Two decimals now.
+- **A MEN feed** showed the counted volume, always 0 mL; it now names the mL the infant gets (24 mL/day
+  for 3 mL × 8) and counts 0 of it.
+
+All three were Vera's (NO BLOCK, one 🟠 and two 🟡); her three tests fail 4 checks on `acb06f8` and pass
+after the fix. 102 checks in the harness.
+
+## Session 2026-10-28 — NF-12: the Calculator names the breast milk it assumes, and shows its working
+
+`calculator.jsx`, `data.js` (two exports), `compiled/calculator.js` and both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md` (`CR-U-BREASTMILK`, `CR-U-OSM`, one moved line),
+`test/verify-show-working-1028.cjs` (new), `test/README.md`. No computed, printed or copied figure moved,
+and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-12 in her apply list of 2026-10-27. NOURISH (Belfort, Inder; JAMA Pediatrics; the Incubator
+journal club of 2026-09-29) found a unit's standard fortification enough for very preterm infants and did
+not support routine point-of-care milk analysis. So NeoFeed keeps its assumed breast milk and gets no
+measured-milk input; what it lacked was saying what it assumes. The same item asks each result line to show
+where its number comes from, so a doctor can check it in seconds instead of working it out again.
+
+### What the ward sees
+
+- **Step 2**, under "Delivered per kg from EN", once a breast-milk feed has a volume (breast milk, BM + HMF,
+  FBM ↔ Infatrini, a MEN feed included): the breast milk assumed per 100 mL, protein 1.2 g and 67 kcal, with
+  `EN_DB.BM_20`'s source; for a feed with HMF, what Enfamil HMF adds (protein +1.1 g, +14.3 kcal; 2.3 g and
+  81.3 kcal in all) with `EN_DB.BM_HMF_24`'s source; and a line that real milk varies between mothers and
+  this value was not measured. A formula feed, or no feed, shows nothing new.
+- **Step 3**, under the tiles: "ที่มาของตัวเลข" and four buttons, GIR, Osmolarity, Energy and Protein, all
+  closed. Each opens a panel with the formula, the inputs this order used, the unit conversion, the result
+  (the tile's own figure) and the limit it was checked against, with the `CR-` IDs of the skill's rules.
+  Nothing of a panel is in the page until its button is pressed, so the other harnesses see the screen as
+  before.
+
+### Where the values come from
+
+Every value and limit is read from `window.NEOFEED_DATA` when it renders: the `EN_DB` rows,
+`EN_HMF_PROTEIN_G_PER_DOSE` and `EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN` (exported for this; values
+unchanged), `GIR_HARD_HI`, `KCAL_HARD_HI`, `PROTEIN_HARD_HI`, `OSM_PERIPHERAL_MAX` and the bands the tiles
+grade against. The osmolarity panel shows the very object the estimate is computed from (`calc.osmIn`), and
+the energy and protein panels read the memo's own `dexKcal`, `aaKcal`, `lipidKcal` and `enProteinG`. Both
+memo edits are line-neutral (the osmolarity inputs got a name; the return lists five more values), so only
+`CR-U-SALTS`'s line number moved. The formulas themselves are text: 3.4/4/9 kcal/g and the osmolarity
+factors are literals in the code, so the harness checks that each panel's terms add up to its tile.
+
+### Checked
+
+`verify-show-working-1028.cjs`, 96 checks; on `326bcd9` 54 fail and 25 pass (a section stops at its first
+missing element). `NEGATIVE_CONTROL=1` (dextrose at 3.5 kcal/g in the memo) and `=2` (BM protein typed
+into the JSX) fail 3 and 1. `verify-clinical-rules.cjs` runs the new
+`CR-U-BREASTMILK` cases, 617 checks. A one-off script (not committed) mounted `main`'s Calculator beside this
+one on eight synthetic orders: the same screen HTML once the two new elements are taken out, the same print
+form HTML and the same copied order.
+
+### Open
+
+- Whether the printed order should carry the assumption line: not done, Pp's question.
+- Which HMF the ward means by BM + HMF (`BACKLOG.md` § Now, HMF): the line names Enfamil HMF because
+  `BM_HMF_24` is computed from it; if the answer is Enfalac Premature powder, the row and the line change
+  together.
+- No second clinician has reviewed the wording.
+
+## Session 2026-10-28 (13) — One piece of work, one PR
+
+`AGENTS.md`, `REFERENCE.md` § Deploying, `STATUS.md`. No code changed; nothing to release.
+
+### Why
+
+#193 existed only to mark #189 merged in `STATUS.md`. Pp had it closed unmerged ("ปิด #193"): a PR that
+only records another PR is two merges for her to approve for one piece of work. Then: "เพิ่มกฎ one piece of
+work, one PR ใน AGENTS.md". The rule was already hers for deploys (`REFERENCE.md`, 2026-09-18, after PRs
+#62, #68 and #72 each recorded only a deploy), but it was not in `AGENTS.md`, and it named deploys only,
+so a merge record slipped past it.
+
+### What changed
+
+- `AGENTS.md`: **One piece of work, one PR.** A PR carries one piece of work and everything that records
+  it: its CHANGELOG entry, its own STATUS line and its review fixes. No PR only records another PR's
+  merge, a release, a tag or a `verify-release` result: that goes in a comment on that PR, and
+  `STATUS.md` catches up in the next PR on the repo, beside its own work.
+- `REFERENCE.md` § Deploying: "Recording a deploy never takes its own PR" now covers recording a merge,
+  with #193 beside #62, #68 and #72.
+- `STATUS.md`: #189 ⏳ → ✅ (merged by Pp on 2026-10-28 at 16:15 ICT, `edf2a92`), carried here under the new
+  rule; this PR's own line.
+- This is Pp's first correction of a merge-record PR. #187 was closed because #176 had superseded it, not
+  on her say. So NF-19 does not yet call for a `tools/ci_bans.js` rule; a second one would.
+
 ## Session 2026-10-28 (12) — the backend and Center Point refuse a stopped order
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
