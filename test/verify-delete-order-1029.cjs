@@ -83,6 +83,31 @@ T.section('every revision of the order goes with it', () => {
   T.ok('…and a new order can be saved on that date', !!again.entryId, again);
 });
 
+// Vera, third review: rows were checked one at a time, bottom first, so a row
+// that had moved (a hand sort of the Sheet) stopped the delete after the
+// current revision was gone, leaving the older ones hidden and holding the date.
+T.section('a row that moved stops the delete before anything goes', () => {
+  const g = ward();
+  const a = g.log('DL-1', '2026-10-01');
+  g.publish('DL-1', a.entryId);
+  const r2 = g.edit('DL-1', a.entryId, { pro: 3.5 });
+  g.publish('DL-1', r2.entryId);
+  const r3 = g.edit('DL-1', r2.entryId, { pro: 3.8 });
+  const real = g.sb._assertRowStillHolds;
+  let n = 0;
+  g.sb._assertRowStillHolds = function (...args) {
+    if (++n === 2) throw new Error('row moved (harness)');
+    return real.apply(this, args);
+  };
+  let threw = null;
+  try { g.del(g.at, 'DL-1', r3.entryId); } catch (e) { threw = e.message; }
+  g.sb._assertRowStillHolds = real;
+  T.eq('the second row\'s check fails: all three versions are still there', g.ids().length, 3);
+  T.ok('…and no "deleteDailyLog:start" was written', !g.audit().some(x => x.action === 'deleteDailyLog:start'), g.audit());
+  const res = g.del(g.at, 'DL-1', r3.entryId);
+  T.ok('a retry deletes the whole order', res.ok === true && g.ids().length === 0, { res, left: g.ids().length, threw });
+});
+
 T.section('the guards that stay', () => {
   const g = ward();
   const a = g.log('DL-1', '2026-10-01');

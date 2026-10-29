@@ -2119,7 +2119,28 @@ function _validateLogEntry(entry) {
   if (entry.status !== "draft") {
     var refusal = _stopRefusal(ci, "แอปในแท็บนี้เป็นรุ่นเก่า รีเฟรชหน้าแล้วบันทึกใหม่");
     if (refusal) throw new Error(refusal);
+    // A tab opened before the release that moved the printed figures (Pp,
+    // 2026-10-29, after Vera): it sends a stop list, so the check above lets
+    // it through, and it would go on printing the old sheet. Its draft lands.
+    if (_constantsVersionBefore(entry.constantsVersion, MIN_SUBMIT_CONSTANTS_VERSION)) {
+      throw new Error("แอปในแท็บนี้เป็นรุ่นเก่า รีเฟรชหน้าแล้วบันทึกใหม่");
+    }
   }
+}
+
+// The oldest CONSTANTS_VERSION (data.js) a submitted order may be computed on.
+// Raise it with a release whose old sheet must not print any more, and deploy
+// the backend after that frontend, as with the stop list.
+var MIN_SUBMIT_CONSTANTS_VERSION = "2026-10-28.1";
+// "YYYY-MM-DD.N" before "YYYY-MM-DD.N", the number compared as a number. A
+// blank or unreadable version is never "before": no live client sends one,
+// and this guards against stale tabs, not against a hand-made POST.
+function _constantsVersionBefore(v, min) {
+  var re = /^(\d{4}-\d{2}-\d{2})\.(\d+)$/;
+  var a = re.exec(String(v == null ? "" : v)), b = re.exec(String(min));
+  if (!a || !b) return false;
+  if (a[1] !== b[1]) return a[1] < b[1];
+  return Number(a[2]) < Number(b[2]);
 }
 
 // The backend has no copy of the bag arithmetic, so the app sends the stops
@@ -2487,8 +2508,10 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // 2026-10-29): pharmacy may hold it either way. The client used to lock
     // such a row before editing it, and publishDailyLog refuses one saved
     // before calcInput.stops existed, so those orders could never be edited.
-    // A blank status reads as submitted, as the read path has it.
-    if (cur[33] || String(cur[14] || "").trim() !== "draft") {
+    // A blank status reads as submitted, as the read path has it; "Draft" or
+    // " draft" typed into the Sheet by hand reads as a draft, as the client
+    // reads it (data.js isDraftEntry).
+    if (cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft") {
       var newEntryId = Utilities.getUuid();
       var nextRevisionNumber = _numSafe(cur[35], 1) + 1;
       var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)
@@ -2652,12 +2675,12 @@ function deleteDailyNutrition(sessionId, entryId, actorEmail) {
     // History under a newer revision is deleted with that revision, never alone.
     if (hit.data[37]) return { error: "รายการนี้มีฉบับแก้ไขใหม่แล้ว — ลบจากฉบับล่าสุด" };
     var rows = _revisionChainRows(sheet, hit.row, entryId, String(hit.data[36] || ""), sessionId);
+    // Every row is checked before any goes (Vera, 2026-10-29): a row that moved
+    // halfway through would leave the older versions hidden, holding the date.
+    for (var c = 0; c < rows.length; c++) _assertRowStillHolds(sheet, rows[c].row, 26, rows[c].entryId);
     _logAuditStrict("deleteDailyLog:start", sessionId, actorEmail || "");
     // Bottom row first, so the row numbers above it still hold.
-    for (var i = 0; i < rows.length; i++) {
-      _assertRowStillHolds(sheet, rows[i].row, 26, rows[i].entryId);
-      sheet.deleteRow(rows[i].row);
-    }
+    for (var i = 0; i < rows.length; i++) sheet.deleteRow(rows[i].row);
     return { ok: true };
   } finally {
     _bumpDataVersion();
@@ -2869,8 +2892,10 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
 //
 // Since 2026-09-17 (review UP-B6, SEC-B14, SEC-B15), in this order:
 //   1. refuse if ANY of the patient's Daily_Log rows is published — a
-//      submitted order is part of the permanent record, the same rule
-//      deleteDailyNutrition already applied to a single row;
+//      submitted order is part of the permanent record. deleteDailyNutrition
+//      applied the same rule to a single row until 2026-10-29, when Pp let an
+//      admin delete a submitted order (one saved on the wrong infant); this
+//      whole-patient delete still refuses;
 //   2. write the "deletePatient:start" audit row, and stop if that fails;
 //   3. delete the Daily_Log rows, bottom-up, re-checking each row first;
 //   4. delete the registry row LAST;

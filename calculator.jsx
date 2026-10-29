@@ -1838,7 +1838,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sCaP = D.rangeStatus(calc.caP, tCaP);
   // Below D.MG_MEQ_HABIT_MG the dose was most likely typed in mEq, the unit
   // this box took until 2026-10-28: critical, so Submit asks (Pp, 2026-10-29).
-  const sMg = D.rangeStatus(mgMgPerKg, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
+  // The tile's bar draws it red through statusAt, as GIR's does.
+  const mgStatusAt = (v) => D.rangeStatus(v, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
+  const sMg = mgStatusAt(mgMgPerKg);
   // Step 6 total-intake statuses — same targets as Step 4, applied to IV + feed + oral
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
@@ -2070,9 +2072,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     body: `K IV ${vsLimit(ivKKg, D.K_IV_HARD_HI, 1)} mEq/kg/d > ${D.K_IV_HARD_HI} mEq/kg/d hard limit (TPN only)${withTotal(ivKKg, calc.kTotalDelivered, 1, "mEq/kg/d")}.`, ref: ivRef });
   else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
   // Mg has only a parenteral reference, so its line never cites the enteral table.
-  pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d",
-    `ต่ำกว่า ${D.MG_MEQ_HABIT_MG} mg/kg/d พิมพ์เป็น mEq หรือเปล่า ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d`,
-    "ESPGHAN 2018 (parenteral)");
+  // Its critical line (below D.MG_MEQ_HABIT_MG) asks about mEq in the title:
+  // the Submit prompt lists titles only, and the title prints in the critical
+  // box (Vera, 2026-10-29).
+  if (sMg === "crit") alerts.push({ level: "crit", title: `Magnesium below ${D.MG_MEQ_HABIT_MG} mg/kg/d: พิมพ์เป็น mEq หรือเปล่า`,
+    body: `${fmt(mgMgPerKg, 2)} mg/kg/d — ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d.`,
+    ref: "Pp, 2026-10-29 · ESPGHAN 2018 (parenteral)" });
+  else pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d", null, "ESPGHAN 2018 (parenteral)");
   // A bag with no amino acid in it (Pp, 2026-10-21). Its tile reads 0 as
   // "empty", not off target, and the form prints "—", so amino acid left out
   // by mistake reached pharmacy as "not ordered" with nothing on screen. A
@@ -3451,7 +3457,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
               {/* Mg in mg/kg/d, the unit it is typed and graded in (tMg), with
                   its mEq beside it. TPN only: EN_DB carries no Mg. */}
-              <Tile label="Magnesium" value={mgMgPerKg} unit=" mg/kg/d" target={tMg} status={sMg} decimals={2} max={12} />
+              <Tile label="Magnesium" value={mgMgPerKg} unit=" mg/kg/d" target={tMg} status={sMg} statusAt={mgStatusAt} decimals={2} max={12} />
               {mgPerKg > 0 && (
                 <div className="mg-mgkg" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}
                   title="ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): preterm, first days 0.1–0.2 mmol (2.5–5.0 mg)/kg/d; growing 0.2–0.3 mmol (5.0–7.5 mg)/kg/d · 1 mmol Mg = 2 mEq">

@@ -151,7 +151,10 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
 function bagOrder() {
   setField('Current weight', 1500); fillRequired(150);
   setField('Volume(mL/day)', 150);
-  setField('Dextrose final', 10); setField('Amino acid', 3); setField('MgSO₄', 0.3);
+  // MgSO₄ 3.646 mg/kg/d is the 0.3 mEq this typed before the box took mg
+  // (2026-10-28); 0.3 itself now reads as a dose typed in mEq and asks for a
+  // reason at Submit (CR-MG-MEQ-HABIT, 2026-10-29).
+  setField('Dextrose final', 10); setField('Amino acid', 3); setField('MgSO₄', 3.646);
 }
 // Nothing in the bag and no volume: an NPO day.
 function npoOrder() {

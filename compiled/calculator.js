@@ -1242,7 +1242,8 @@ function Calculator({
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
   const sCaP = D.rangeStatus(calc.caP, tCaP);
-  const sMg = D.rangeStatus(mgMgPerKg, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
+  const mgStatusAt = (v) => D.rangeStatus(v, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
+  const sMg = mgStatusAt(mgMgPerKg);
   const sTotCa = D.rangeStatus(mineral.totCa, tCa);
   const sTotP = D.rangeStatus(mineral.totP, tP);
   const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
@@ -1378,16 +1379,13 @@ function Calculator({
     ref: ivRef
   });
   else pushTile(sK, "Potassium", calc.kTotalDelivered, 1, tK, "mEq/kg/d");
-  pushTile(
-    sMg,
-    "Magnesium",
-    mgMgPerKg,
-    2,
-    tMg,
-    "mg/kg/d",
-    `ต่ำกว่า ${D.MG_MEQ_HABIT_MG} mg/kg/d พิมพ์เป็น mEq หรือเปล่า ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d`,
-    "ESPGHAN 2018 (parenteral)"
-  );
+  if (sMg === "crit") alerts.push({
+    level: "crit",
+    title: `Magnesium below ${D.MG_MEQ_HABIT_MG} mg/kg/d: พิมพ์เป็น mEq หรือเปล่า`,
+    body: `${fmt(mgMgPerKg, 2)} mg/kg/d — ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d.`,
+    ref: "Pp, 2026-10-29 · ESPGHAN 2018 (parenteral)"
+  });
+  else pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d", null, "ESPGHAN 2018 (parenteral)");
   if (calc.totalTPN_mL > 0 && !(aaPerKg > 0)) alerts.push({
     level: "warn",
     title: "Amino acid not ordered",
@@ -2308,7 +2306,7 @@ function Calculator({
       onChange: setMgFromMg,
       wtKg
     }
-  ), /* @__PURE__ */ React.createElement(PresetChips, { values: [2.5, 5, 7.5], current: mgMgPerKg, onSelect: setMgFromMg }), mgPerKg > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--brand-2)", paddingLeft: 2, marginTop: 1, marginBottom: 3 } }, fmt(mgMgPerKg, 2), " mg Mg/kg/d = ", fmt(mgPerKg, 2), " mEq/kg/d"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, "Vial 10%"), calc.solVol.mg > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--brand-2)", fontWeight: 600 } }, "→ ", calc.solVol.mg, " mL/d")), /* @__PURE__ */ React.createElement(SaltRow, { label: S.caGluconate.label, note: `Elemental Ca ${fmt(S.caGluconate.caMgPerMl, 1)} mg/mL · Ca:P ~1.7:1`, perKg: caPerKg, onChange: setCaPerKg, wtKg, unit: "mg/kg/d" }), /* @__PURE__ */ React.createElement(PresetChips, { values: [32, 60, 80, 100], current: caPerKg, onSelect: setCaPerKg }), calc.solVol.ca > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--brand-2)", paddingLeft: 2, marginTop: 1, marginBottom: 3 } }, "→ ", calc.solVol.ca, " mL/d")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "Sodium", value: calc.naTotalDelivered, unit: " mEq/kg/d", target: tNa, status: sNa, decimals: 1, max: 7 }), /* @__PURE__ */ React.createElement(Tile, { label: "Potassium", value: calc.kTotalDelivered, unit: " mEq/kg/d", target: tK, status: sK, decimals: 1, max: 4 }), /* @__PURE__ */ React.createElement(Tile, { label: "K⁺ in bag", value: calc.kMeqPerL, unit: " mEq/L", target: [0, kLim.warn], status: sKConc, statusAt: kConcStatusAt, decimals: 0, max: kBarMax }), /* @__PURE__ */ React.createElement("div", { className: "k-conc-ref", style: { marginTop: -4, fontSize: 10.5, textAlign: "right", color: "var(--ink-3)" } }, route ? kRouteLabel : "peripheral (no route yet)", ": ", [`amber > ${kLim.warn}`, ...kBagLimitParts(kLim, "red >")].join(" · "), " mEq/L"), /* @__PURE__ */ React.createElement(Tile, { label: "Magnesium", value: mgMgPerKg, unit: " mg/kg/d", target: tMg, status: sMg, decimals: 2, max: 12 }), mgPerKg > 0 && /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement(PresetChips, { values: [2.5, 5, 7.5], current: mgMgPerKg, onSelect: setMgFromMg }), mgPerKg > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--brand-2)", paddingLeft: 2, marginTop: 1, marginBottom: 3 } }, fmt(mgMgPerKg, 2), " mg Mg/kg/d = ", fmt(mgPerKg, 2), " mEq/kg/d"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, "Vial 10%"), calc.solVol.mg > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--brand-2)", fontWeight: 600 } }, "→ ", calc.solVol.mg, " mL/d")), /* @__PURE__ */ React.createElement(SaltRow, { label: S.caGluconate.label, note: `Elemental Ca ${fmt(S.caGluconate.caMgPerMl, 1)} mg/mL · Ca:P ~1.7:1`, perKg: caPerKg, onChange: setCaPerKg, wtKg, unit: "mg/kg/d" }), /* @__PURE__ */ React.createElement(PresetChips, { values: [32, 60, 80, 100], current: caPerKg, onSelect: setCaPerKg }), calc.solVol.ca > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--brand-2)", paddingLeft: 2, marginTop: 1, marginBottom: 3 } }, "→ ", calc.solVol.ca, " mL/d")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "Sodium", value: calc.naTotalDelivered, unit: " mEq/kg/d", target: tNa, status: sNa, decimals: 1, max: 7 }), /* @__PURE__ */ React.createElement(Tile, { label: "Potassium", value: calc.kTotalDelivered, unit: " mEq/kg/d", target: tK, status: sK, decimals: 1, max: 4 }), /* @__PURE__ */ React.createElement(Tile, { label: "K⁺ in bag", value: calc.kMeqPerL, unit: " mEq/L", target: [0, kLim.warn], status: sKConc, statusAt: kConcStatusAt, decimals: 0, max: kBarMax }), /* @__PURE__ */ React.createElement("div", { className: "k-conc-ref", style: { marginTop: -4, fontSize: 10.5, textAlign: "right", color: "var(--ink-3)" } }, route ? kRouteLabel : "peripheral (no route yet)", ": ", [`amber > ${kLim.warn}`, ...kBagLimitParts(kLim, "red >")].join(" · "), " mEq/L"), /* @__PURE__ */ React.createElement(Tile, { label: "Magnesium", value: mgMgPerKg, unit: " mg/kg/d", target: tMg, status: sMg, statusAt: mgStatusAt, decimals: 2, max: 12 }), mgPerKg > 0 && /* @__PURE__ */ React.createElement(
     "div",
     {
       className: "mg-mgkg",

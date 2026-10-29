@@ -436,6 +436,13 @@ built before then sends none. So release the frontend first, then `clasp deploy`
 back past that release, roll the backend back first. After the deploy, a tab opened before the release is
 refused once and asked to reload; its draft still saves.
 
+**So does a backend that raises `MIN_SUBMIT_CONSTANTS_VERSION` (2026-10-29).** The stop list alone does not
+catch a tab opened on a release that already sent one. `_validateLogEntry` also refuses a submitted row
+whose `constantsVersion` is older than `MIN_SUBMIT_CONSTANTS_VERSION` in `gas-backend.gs`, so an old tab
+cannot go on printing the old sheet after a release that moved printed figures. Raise it with such a
+release, release the frontend, then deploy the backend in the same sitting. The backend refuses every
+frontend still on the older version, so roll the backend back first.
+
 Running a function from the Apps Script editor (e.g. the one-off `applyStaffHeaderColumns`
 / `applyLogHeaderColumns` migrations) executes as the signed-in user and may raise an OAuth
 consent — that is Praew's to approve, not something to click through on her behalf.

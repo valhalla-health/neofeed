@@ -137,6 +137,34 @@ T.section('update · an order submitted before the list is revised, never overwr
   T.eq('three days, two of them revised: five rows', g.rows(), 5);
 });
 
+// Pp, 2026-10-29 (Vera's third review, finding 1): a tab opened on the release
+// before the meeting change sends a stop list, so the check above lets it
+// through, and it would go on printing the old sheet (Vitalipid not rounded
+// down, Mg in mEq). A submitted save computed on a CONSTANTS_VERSION older
+// than the backend's minimum is refused and the tab asked to reload; a draft
+// still saves. A save with no version, or one the backend cannot read, is let
+// through: no live client sends either.
+T.section('a submitted save computed on an older calculation is refused', () => {
+  const g = ward();
+  const OLD = { constantsVersion: '2026-10-27.2' };
+  const old = g.log('2026-10-01', E(OLD, { stops: [] }));
+  T.ok('submitted, version 2026-10-27.2 → refused, reload asked', !old.entryId && STALE.test(old.error || ''), old);
+  const draft = g.log('2026-10-01', E(Object.assign({ status: 'draft' }, OLD), { stops: [] }));
+  T.ok('…the same as a draft → saved', !!draft.entryId, draft);
+  const up = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'ST-1', entryId: draft.entryId, expectedLastModified: draft.lastModified, entry: E(OLD, { stops: [] }) });
+  T.ok('…and submitting that draft from the old tab → refused', !up.ok && STALE.test(up.error || ''), up);
+  const cur = g.log('2026-10-02', E({ constantsVersion: '2026-10-28.1' }, { stops: [] }));
+  T.ok('submitted, version 2026-10-28.1 → saved', !!cur.entryId, cur);
+  const later = g.log('2026-10-03', E({ constantsVersion: '2026-11-02.1' }, { stops: [] }));
+  T.ok('a later version → saved', !!later.entryId, later);
+  const none = g.log('2026-10-04', E({}, { stops: [] }));
+  T.ok('no version at all → saved', !!none.entryId, none);
+  const before = g.sb._constantsVersionBefore;
+  T.ok('2026-10-28.9 is before 2026-10-28.10 (numbers, not text)', typeof before === 'function' && before('2026-10-28.9', '2026-10-28.10') === true);
+  T.ok('2026-10-28.1 is not before itself', typeof before === 'function' && before('2026-10-28.1', '2026-10-28.1') === false);
+  T.ok('an unreadable version is not "before"', typeof before === 'function' && before('2026-test', '2026-10-28.1') === false);
+});
+
 T.section('publishDailyLog · reads the list stored with the row', () => {
   const g = ward();
   const pub = (c) => g.as(g.dt, { action: 'publishLog', sessionId: 'ST-1', entryId: c.entryId, expectedLastModified: c.lastModified });

@@ -7,6 +7,56 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-29 (2) — Vera's third review: a stale tab cannot submit, the delete checks every row first, the Mg question in the title
+
+`gas-backend.gs`, `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `docs/CLINICAL_CONSTANTS.md`, `REFERENCE.md`, tests.
+Corrects 2026-10-29 (1) § Deploying.
+
+Vera's third review was NO BLOCK, with one 🟠 and four 🟡. Pp answered the 🟠 the same day and chose
+to release today, both halves in one sitting.
+
+### What changed
+
+- **A tab opened before this release cannot submit** (Pp: "ให้ backend ไม่รับ"). The live release already
+  sends a stop list, so (12)'s refusal let its saves through, and such a tab would go on printing the old
+  sheet: Vitalipid not rounded down, Mg in mEq, both sheets, no lock. `_validateLogEntry` now refuses a
+  submitted row whose `constantsVersion` is older than `MIN_SUBMIT_CONSTANTS_VERSION` (2026-10-28.1) with
+  the reload message; its draft still saves. A save with no version, or one the backend cannot read, is let
+  through: no live client sends either. `REFERENCE.md` § Backend says when to raise it and that the backend
+  then goes out after the frontend.
+- **The whole-order delete checks every row before deleting any.** It checked each row just before deleting
+  it, bottom first, so a row moved by a hand edit of the Sheet stopped it after the current revision was
+  gone. The older versions then stayed hidden and held the date.
+- **The Mg question is in the alert's title**, "Magnesium below 1 mg/kg/d: พิมพ์เป็น mEq หรือเปล่า". The
+  Submit prompt lists titles only, and the title prints in the critical box. The tile's bar draws the red
+  below 1 too (`statusAt`).
+- `docs/CLINICAL_CONSTANTS.md` has a row for `MG_MEQ_HABIT_MG`. The backend reads a status typed into the
+  Sheet as "Draft" as a draft, as the client does. `deletePatient`'s comment no longer says
+  `deleteDailyNutrition` refuses a published row.
+
+### § Deploying of (1), corrected
+
+(1) said the frontend goes first because a backend-first deploy would turn every edit on the live frontend
+into a new revision. That is what Pp asked for, and the live frontend already handles a revision, so the
+reason does not hold. The order now follows from the stale-tab refusal: the backend refuses the live
+release's saves, so release the frontend first, then deploy `@66` in the same sitting. (1) also said a
+submitted order "cannot be deleted" under `@65`. `@65` refuses only a locked row, so an unlocked order
+submitted before the release is deleted there as a single row.
+
+### Tests
+
+`verify-backend-stops-1028.cjs` gains a section: a submitted save on 2026-10-27.2 is refused, the same as a
+draft saves, the current and a later version save, no version saves, and the version compare reads
+2026-10-28.9 before 2026-10-28.10 (5 of its 9 checks failed before). `verify-delete-order-1029.cjs`: a row
+that moves while the chain is checked leaves all three versions in place and writes no audit row (3 of its
+3 checks failed before). `CR-MG-MEQ-HABIT`'s cases read the new title, and the Submit prompt must name it.
+`verify-status-zones.cjs` expects Mg's red from 0 to 1 mg/kg/d. Six harnesses needed their fixtures
+changed by (1), as the full suite showed: `verify-incident-gaps-1021` typed MgSO₄ 0.3 (now the 0.3 mEq,
+3.646 mg); `verify-provenance-stamp`, `verify-publish-lock` and three `verify-review-0917-backend-*`
+harnesses edited an unlocked row as a draft but stored it as submitted (now a draft);
+`verify-provenance-stamp` and `verify-publish-lock` also send 2026-10-28.1 as their version.
+
 ## Session 2026-10-29 (1) — Vera's second review of the meeting branch: old orders are revised, a submitted order can be deleted, Mg under 1 mg asks
 
 `gas-backend.gs`, `calculator.jsx`, `log.jsx`, `data.js`, `compiled/`, both shells' `?v=` tokens,
