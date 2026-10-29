@@ -4413,11 +4413,13 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
           Na <WorkVal k="na" v={o.naMeqPerL} d={1} /> mEq/L → <WorkVal k="t.na" v={2 * o.naMeqPerL} d={1} /> ·
           K <WorkVal k="k" v={o.kMeqPerL} d={1} /> mEq/L → <WorkVal k="t.k" v={2 * o.kMeqPerL} d={1} /> ·
           Ca <WorkVal k="caMg" v={o.caMgPerL} d={0} /> mg/L = <WorkVal k="caMeq" v={caMeq} d={1} /> mEq/L → <WorkVal k="t.ca" v={1.4 * caMeq} d={1} /> ·
-          Mg <WorkVal k="mg" v={o.mgMeqPerL} /> mEq/L → <WorkVal k="t.mg" v={o.mgMeqPerL} d={1} />
+          Mg <WorkVal k="mgMg" v={(o.mgMeqPerL || 0) * D.MG_MG_PER_MEQ} d={1} /> mg/L = <WorkVal k="mg" v={o.mgMeqPerL} /> mEq/L → <WorkVal k="t.mg" v={o.mgMeqPerL} d={1} />
         </WorkRow>
+        {/* Mg is typed in mg/kg/d since 2026-10-28, so its step from mg to mEq is
+            shown as Ca's is (Vera, 2026-10-29). */}
         <WorkRow label="แปลงหน่วย">
           AA % = AA g ÷ mL ที่ให้จริง × 100 · Na Ca Mg ต่อลิตร = ต่อ kg × kg ÷ ลิตรที่ให้จริง (mL ÷ 1,000) ·
-          K = K ในถุง ÷ ลิตรของถุงที่เตรียม ได้ค่าเท่ากัน · Ca mg ÷ 20 = mEq
+          K = K ในถุง ÷ ลิตรของถุงที่เตรียม ได้ค่าเท่ากัน · Ca mg ÷ 20 = mEq · Mg mg ÷ {fmt(D.MG_MG_PER_MEQ, 2)} = mEq
         </WorkRow>
         <WorkRow label="เกณฑ์">
           {peripheral

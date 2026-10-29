@@ -7,6 +7,39 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-29 (3) — Vera's fourth review: the osmolarity working reads Mg in mg, the version floor is tied to data.js, the deploy gate
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, two tests. After `main` (#177) was
+merged in. Vera's fourth review was NO BLOCK, with one 🟠 and two 🟡.
+
+### What changed
+
+- **The osmolarity working shows Mg's mg/L and its step to mEq** ("Mg mg ÷ 12.15 = mEq"), as it does Ca's.
+  #177 (NF-12) wrote that panel while the Mg box took mEq. Merged here, its fixture's MgSO₄ 0.4 read as
+  0.4 mg, and two checks of `verify-show-working-1028.cjs` failed (Mg 0.33 mEq/L, term 0.3), in CI as well.
+  The fixture now types 4.861 mg, the 0.4 mEq it meant. Screen only: the tile, the bag and the print were
+  right.
+- **`verify-backend-stops-1028.cjs` reads `data.js`'s `CONSTANTS_VERSION`** and checks that it is not
+  before `MIN_SUBMIT_CONSTANTS_VERSION`, and that a submitted save stamped with it is saved. Raise one
+  without the other and every ward Submit would be refused while every other case still passed.
+
+### The sitting, in order (Pp, 2026-10-29: today, without waiting)
+
+Pp's "วันนี้เลยไม่ต้องรอ" also lifts #190's condition that its backend half wait until `@65` had run a day.
+
+1. #199 and this PR merge into `main`; `main`'s `harnesses` is green.
+2. The `main → release` PR (`release.md`): the before-and-after table from dev local and the walk at
+   375 × 812; Pp's go-ahead; merge; tag.
+3. `node tools/verify-release.mjs --wait` passes on both hosts, so both serve `data.js` at 2026-10-28.1.
+   **Until then the backend must not change:** `@66` refuses every Submit from a frontend on 2026-10-27.2.
+4. Backend `@66`: diff the mirror, `clasp push`, Pp runs `sheetHealthReport` in the editor (#190's step),
+   `clasp create-version`, `clasp update-deployment` on the ward deployment, the checks of `REFERENCE.md`
+   § Backend, then commit and push the mirror.
+
+Rollback: the backend first (`-V 65`), then the frontend to `release-2026-10-28-pr198` (`ac1b15b`). A ward
+tab opened before the release can still print an order saved before it, on the old sheet: printing is
+decided in the tab. Tell the ward to reload open NeoFeed tabs.
+
 ## Session 2026-10-29 (2) — Vera's third review: a stale tab cannot submit, the delete checks every row first, the Mg question in the title
 
 `gas-backend.gs`, `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,

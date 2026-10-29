@@ -163,6 +163,18 @@ T.section('a submitted save computed on an older calculation is refused', () => 
   T.ok('2026-10-28.9 is before 2026-10-28.10 (numbers, not text)', typeof before === 'function' && before('2026-10-28.9', '2026-10-28.10') === true);
   T.ok('2026-10-28.1 is not before itself', typeof before === 'function' && before('2026-10-28.1', '2026-10-28.1') === false);
   T.ok('an unreadable version is not "before"', typeof before === 'function' && before('2026-test', '2026-10-28.1') === false);
+
+  // Vera, fourth review: raise the minimum past data.js's CONSTANTS_VERSION, or
+  // revert data.js below it, and every ward Submit is refused while the cases
+  // above still pass. So the app's own version must clear the backend's minimum.
+  const fs = require('fs');
+  const appVersion = (fs.readFileSync(require('path').join(__dirname, '..', 'data.js'), 'utf8')
+    .match(/const CONSTANTS_VERSION = "([^"]+)";/) || [])[1];
+  T.ok('data.js CONSTANTS_VERSION is not before MIN_SUBMIT_CONSTANTS_VERSION',
+    !!appVersion && typeof before === 'function' && before(appVersion, g.sb.MIN_SUBMIT_CONSTANTS_VERSION) === false,
+    { appVersion, min: g.sb.MIN_SUBMIT_CONSTANTS_VERSION });
+  const app = g.log('2026-10-05', E({ constantsVersion: appVersion }, { stops: [] }));
+  T.ok('…and a submitted save stamped with it is saved', !!app.entryId, app);
 });
 
 T.section('publishDailyLog · reads the list stored with the row', () => {

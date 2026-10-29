@@ -202,7 +202,9 @@ const badNumbers = (s) => [...(s.match(TRAILING_ZERO) || []), ...(s.match(FLOAT_
 // F: TPN only, no feed.
 const A = { name: 'A', g: 1000, route: 'Central', feed: 'BM_20',
   order: { 'Volume(mL/day)': 100, 'Dextrose final': 10, 'Amino acid': 3, '20% lipid': 2, '20% NaCl': 3, 'KCl': 2,
-    '10% Ca gluconate': 40, 'MgSO₄': 0.4, 'Volume(mL/feed)': 2, 'Frequency': 8 } };
+    '10% Ca gluconate': 40, 'MgSO₄': 4.861, 'Volume(mL/feed)': 2, 'Frequency': 8 } };
+// MgSO₄ 4.861 mg/kg/d is the 0.4 mEq this fixture was written with: the box takes mg since
+// 2026-10-28 (the nutrition meeting PR), and 0.4 would now read as a dose typed in mEq.
 const B = { name: 'B', g: 1500, route: 'Peripheral', feed: 'BM_HMF_24',
   order: { 'Volume(mL/day)': 120, 'Dextrose final': 10, 'Amino acid': 2, 'Volume(mL/feed)': 5, 'Frequency': 8 } };
 const C = { name: 'C', g: 1000, fluid: 160, feed: 'FBM_PF_24', order: { 'Volume(mL/feed)': 19, 'Frequency': 8 } };
@@ -329,6 +331,7 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
     ok('Osm: the inputs give the same figure through D.estimateOsmolarity', near(D.estimateOsmolarity({ dexPct: vOf(po, 'dexPct'), aaPct: vOf(po, 'aaPct'),
       naMeqPerL: vOf(po, 'na'), kMeqPerL: vOf(po, 'k'), caMgPerL: vOf(po, 'caMg'), mgMeqPerL: vOf(po, 'mg') }), tileVal('Osmolarity'), 0.5));
     ok('Osm: the unit conversion (per L of the delivered volume; Ca mg ÷ 20)', to.includes('÷ 20') && to.includes('mL ÷ 1,000'), to);
+    ok('Osm: Mg shows its typed mg/L and its step to mEq (mg ÷ 12.15)', vOf(po, 'mgMg') === 48.6 && to.includes('Mg mg ÷ 12.15 = mEq'), to);
     ok('Osm, central: no upper limit, CR-OSM-PERIPH and CR-U-OSM', to.includes('central') && to.includes('ไม่มีเพดาน') && to.includes('CR-OSM-PERIPH') && to.includes('CR-U-OSM')
       && !po.querySelector('[data-v="lim.hard"]'), to);
     // ── Energy ──
