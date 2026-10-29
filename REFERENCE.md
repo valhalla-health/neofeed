@@ -274,10 +274,12 @@ git tag -a release-$(date +%F)-pr<N> <merge sha> -m "Release $(date +%F) — PR 
 git push origin release-$(date +%F)-pr<N>
 ```
 
-**Recording a deploy never takes its own PR** (Praew's global PR rule, 2026-09-18). Write the
+**Recording a deploy never takes its own PR** (Praew's global PR rule, 2026-09-18), and nor does
+recording a merge (2026-10-28: one piece of work, one PR, `AGENTS.md`). Write the
 planned `STATUS.md` change in the PR that ships the code. The post-release checks below exist only
 after the merge, so they go in a comment on the `main → release` PR, and `STATUS.md` catches up in
-the next PR on this repo. PRs #62, #68 and #72 each existed only to record a deploy.
+the next PR on this repo. PRs #62, #68 and #72 each existed only to record a deploy; #193, closed
+unmerged, only to record #189's merge.
 
 **A merge into `main` always comes with its release PR** (Praew, 2026-09-22). `main` deploys
 nothing, so a merged PR is not live until a `main → release` PR merges, and nothing said so outside
