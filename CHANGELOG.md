@@ -7,6 +7,22 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-29 (NF-02) — `main` merged in: the usage harness sends the stop list
+
+`test/verify-usage-log.cjs` (its fixture only), `BACKLOG.md`, `STATUS.md`. Same PR (#178) as the two
+entries below, which this one corrects in two places. No served file changes.
+
+- **The harness, after #175.** With `main` merged in (#175: the backend refuses a submitted row whose
+  `calcInput` carries no `stops` list), every submitted save in `verify-usage-log.cjs` came back
+  "แอปในแท็บนี้เป็นรุ่นเก่า" and 67 of its checks failed. The git merge had no conflict in either file. Its
+  fixture now sends `stops: []`, what the app sends with every save, as #175 did for eleven backend
+  harnesses: 133 passed. A refused save still writes no usage row (§ 3).
+- **The backend deploy waits.** The entry below says Pp chose to deploy the backend right after the
+  merge. Since 2026-10-28 it goes out as `@67`, after #190's backend ships alone as `@66` (Pp, "ก. แยกเป็น
+  @66"; comment on #198).
+- **NF-31, per-user counts: not built** (Pp, answer 5 on #178). M1's `getUsageMetrics()` already gives
+  weekly users as an aggregate.
+
 ## Session 2026-10-28 (NF-02, Admin chart) — the usage counts on the Admin page
 
 `gas-backend.gs`, `app.jsx`, `compiled/app.js`, both shells' `?v=` tokens, `test/verify-usage-log.cjs`,
