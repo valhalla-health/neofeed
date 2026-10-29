@@ -7,6 +7,21 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-29 (4) — `main` merged in (#178, NF-02): one backend `@66` carries all three
+
+`test/verify-usage-log.cjs`, both shells' `?v=` tokens, `compiled/`. #178 was merged into `main` at 12:59
+ICT; Pp chose to release it with this one (2026-10-29: "ขึ้นไปด้วย"). `gas-backend.gs` merged without a
+conflict.
+
+- **`verify-usage-log.cjs` follows the revision.** Its second promotion of a submitted row now appends a
+  revision (2026-10-29 (1)), so its next edit failed as a conflict on the superseded row. The edit now goes
+  to the revision, and the check adds that both were revisions. Still one usage row: a revision is the
+  same calculation. 134 checks pass.
+- **One `@66`.** #178's STATUS line has its backend going out as `@67`, after #190 alone as `@66`. With
+  Pp's answers of today, `@66` carries `main`'s whole `gas-backend.gs`: #190's status reading, #178's
+  `Usage_Log`, and this PR's revision, delete and stale-tab rules. The order of (3) holds: frontend
+  first, so for a few minutes the Admin usage card reads ยังไม่มีข้อมูล.
+
 ## Session 2026-10-29 (3) — Vera's fourth review: the osmolarity working reads Mg in mg, the version floor is tied to data.js, the deploy gate
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, two tests. After `main` (#177) was
@@ -245,6 +260,158 @@ still checked.
 
 The meeting's other items and the gaps found in the 2026-09-28 list are in `BACKLOG.md` § Now.
 Center Point's own form still prints Mg in mEq first and the old amino-acid label.
+
+## Session 2026-10-29 (NF-02) — `main` merged in: the usage harness sends the stop list
+
+`test/verify-usage-log.cjs` (its fixture only), `BACKLOG.md`, `STATUS.md`. Same PR (#178) as the two
+entries below, which this one corrects in two places. No served file changes.
+
+- **The harness, after #175.** With `main` merged in (#175: the backend refuses a submitted row whose
+  `calcInput` carries no `stops` list), every submitted save in `verify-usage-log.cjs` came back
+  "แอปในแท็บนี้เป็นรุ่นเก่า" and 67 of its checks failed. The git merge had no conflict in either file. Its
+  fixture now sends `stops: []`, what the app sends with every save, as #175 did for eleven backend
+  harnesses: 133 passed. A refused save still writes no usage row (§ 3).
+- **The backend deploy waits.** The entry below says Pp chose to deploy the backend right after the
+  merge. Since 2026-10-28 it goes out as `@67`, after #190's backend ships alone as `@66` (Pp, "ก. แยกเป็น
+  @66"; comment on #198).
+- **NF-31, per-user counts: not built** (Pp, answer 5 on #178). M1's `getUsageMetrics()` already gives
+  weekly users as an aggregate.
+
+## Session 2026-10-28 (NF-02, Admin chart) — the usage counts on the Admin page
+
+`gas-backend.gs`, `app.jsx`, `compiled/app.js`, both shells' `?v=` tokens, `test/verify-usage-log.cjs`,
+`test/verify-admin-census.cjs`, `test/verify-admin-usage-1028.cjs` (new), `REFERENCE.md`, `PRD.md`,
+`BACKLOG.md`, `STATUS.md`, `test/README.md`. Same PR (#178) as the entry below, which this one corrects
+in two places: the PR is no longer backend only, and the admin-dashboard chart listed there as not built
+is built. `CONSTANTS_VERSION` stays `2026-10-27.2`; no calculation or printed figure moves.
+
+### Why
+
+Pp answered the PR's six questions the same day. Count at the first submitted save: ได้. Keep the week
+column: เก็บ. Quick calc: ไม่นับ. A chart in the Admin dashboard: ได้, build it now. Deploy the backend right
+after the merge.
+
+### The action
+
+`doPost` `getUsageWeekly`, admin only: `{ error: "Forbidden" }` for a doctor or nurse, the same reply the
+other admin-only actions give, before the tab is read. It returns `{ ok, weeks, wards, types }` for the
+last 12 ISO weeks. `usageWeekly(rows, now, span)` gained the span: the window ends at this week, starts at
+the first row's week when that is later (so the weeks before the deploy are not drawn as zeros), and is 12
+weeks of 0 when every row is older, which is what a ward that stopped looks like. The editor's
+`getUsageWeekly()` and the action read the tab through one function, `_usageWeeklyFromTab`. The reply holds
+counts and week labels only, so the read is not audited.
+
+### The card
+
+On the Admin page, after Census: one chart per ward (NICU, SCN, and อื่นๆ once it has an order), twelve
+columns, one per week, with the types stacked (TPN at the bottom, then EN, NPO, อื่นๆ) on one scale for every
+ward. Each ward's header gives this week's count and the 12-week total; each column's title gives its week
+and counts. The card asks once each time the page opens, not on every sync. A backend from before this
+action answers "Unknown action", and that, or no row yet, reads ยังไม่มีข้อมูล. A failed request says so,
+with a retry button. None of these raises a toast. No chart library: flex columns with inline styles, and
+the census's own classes for the ward cards, so the shells' CSS did not change.
+
+### Deploy order after merge
+
+The backend first (`clasp`), then the `main → release` frontend release. Released the other way round, the
+card reads ยังไม่มีข้อมูล until the backend lands.
+
+### Found on the way
+
+`verify-usage-log.cjs` § 3's stale-retry check failed 2 runs in 25: two saves in one millisecond share a
+`lastModified`, so the "stale" stamp was current. Each save there now runs on its own clock second; 30 runs
+clean.
+
+### Tests
+
+`verify-usage-log.cjs` 133 checks (§ 6 the 12-week span, § 7 the action: refusals, payload shape, counts
+only, no write). `verify-admin-census.cjs` § 5, 27 checks on the card's states, scale, stacking, legend and
+no-toast rule, and § 4 now measures the chart at every width from 280px. `verify-admin-usage-1028.cjs`, 19
+checks through the real `<App/>`: the request carries only the action and the token, an old backend and a
+network failure stay quiet, a doctor never asks. `node tools/build.mjs` rebuilt `compiled/app.js` and moved
+its `?v=` token in both shells; a second build changes nothing. All 101 `verify-*.cjs` harnesses and
+`DEAD=0 verify-kcmh-factor.cjs` exit 0 against the sources and again with the compiled preload, which
+swapped the new `app.js` into both admin harnesses. The browser sections printed SKIP on this PC (its
+Playwright wants a Chromium build that is not installed), so the 280px chart check runs in CI only.
+`tools/ci_bans.js` and #174's three log rules pass.
+
+## Session 2026-10-28 (NF-02) — a usage tab: one row per completed calculation, counted per ward per week
+
+`gas-backend.gs`, `test/verify-usage-log.cjs` (new), `REFERENCE.md` § Backend (GAS), `PRD.md` § 6 (M4),
+`test/README.md`, `BACKLOG.md`, `STATUS.md`. Backend only: no `.jsx`, `data.js` or shell changed,
+`CONSTANTS_VERSION` stays `2026-10-27.2`, and nothing changes for the ward until a `clasp` deploy.
+
+### Why
+
+Pp ticked NF-02 in her apply list of 2026-10-27: a usage tab with one row per completed calculation
+(timestamp, ward, calculation type, no patient field), charted weekly per ward. A falling count means a
+ward went back to paper, and that gets looked into before more features.
+
+### What counts as one completed calculation
+
+A TPN/EN order that reaches "submitted" for the first time: a new order saved as submitted, or a draft
+saved again as submitted. The save is the one step every finished order goes through. Print comes only
+after it, can be repeated (a reprint, the ward's print list), and an order can go to HIS by Copy without
+a print, so counting prints as well would count one order twice. Drafts, edits of a submitted order,
+Submit (the publish lock), revisions, syncs and nursing I/O entries do not count. The rule is decided
+inside the save's script lock from what the save itself reads, so a request fired twice writes one row:
+the second create is DuplicateDate, the second promotion finds the order already submitted.
+
+### The row
+
+`Usage_Log`, 4 columns, created by the first completed calculation and trimmed like `Audit_Log`:
+
+- `ts`, the save's instant in ISO UTC, as `Audit_Log` writes it;
+- `week`, its ISO week in Bangkok time (`2026-W44`), as text, so the Sheet chart needs no date formula;
+- `ward`, NICU, SCN or other: the ward list the infant is on (`_usageWardOf`, a mirror of `data.js`
+  `patientWard`, so a parked infant counts on the ward of the bed they left). Never the bed;
+- `type`, TPN, EN, NPO or other, from the saved route.
+
+No sessionId, entryId, bed, name, weight, date of birth or staff email. No row points at an infant, so
+`pseudonymizePatient` and `deletePatient` have nothing to reach there.
+
+### Where it is written
+
+In `doPost`, after the save has returned and released its lock, so no other save queues behind it.
+The ward lookup reads `Patient_Registry` column A and six cells of the infant's row (K to P), then one
+append: on the first submit of a patient-day only, and not timed here (the sandbox has no Sheets
+latency). Any failure is swallowed and leaves `Usage_Log row not written (NF-02): …` in the execution
+log; the ward sees nothing.
+
+### The weekly view
+
+`usageWeekly(rows, now)` counts per ISO week (Bangkok time), per ward and type, with every ward and type
+present and every week from the first row to this one, so a week with no orders reads 0 instead of
+vanishing. `getUsageWeekly()` runs it from the editor and logs a table; like `getUsageMetrics()` it is
+not on `doPost`. For a chart Pp adds a tab with one `QUERY` formula (`REFERENCE.md`); that tab is hers to
+add, nothing here edits the live Sheet.
+
+### Not built
+
+- **The quick calc.** It sends nothing to the backend, which is the ward's own request for that mode.
+  Counting it needs a new signed-in action fired once per Copy there, a frontend release and Pp's word
+  to the ward (`BACKLOG.md`).
+- **A chart in the admin dashboard.** Possible with an admin-only action and a frontend release; the
+  Sheet chart costs neither.
+- **NF-31, per-user counts.** Room is left: the readers ignore any column past D. `PRD.md` § 6
+  constraint 2 (no per-staff figure) would have to change first.
+- **Center Point** saves go to Center Point, not this backend.
+
+### Found on the way
+
+- The ts parsing inside `_isoWeekKeyLocal_` moved into `_sheetInstant_`, shared with the new week-Monday
+  helper. M1's `verify-usage-metrics.cjs` passes unchanged (30).
+- Two known miscounts, both rare: an order saved as submitted, saved back to a draft and submitted again
+  counts twice; and an order an admin deletes as a mistake keeps its row, because nothing links the two.
+
+### Tests
+
+`test/verify-usage-log.cjs`, 114 checks, no npm dependencies; against `326bcd9` it fails 46. All 100
+`verify-*.cjs` harnesses and `DEAD=0 verify-kcmh-factor.cjs` exit 0 against the sources and again with
+the compiled preload, `verify-clinical-rules.cjs` included (607). The browser sections printed SKIP on
+this PC (Playwright not found), so they run in CI only. `tools/ci_bans.js` passes, and so do PR #174's
+three log rules run on this tree: they read `Usage_Log` as a log tab and pass its row, and a raw cell
+or a `patientName` planted in that append fails them.
 
 ## Session 2026-10-28 — NF-12 with `main` merged in: two feeds
 

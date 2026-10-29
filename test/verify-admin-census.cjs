@@ -19,7 +19,12 @@
 //       scrolls sideways, from a 280px Galaxy Fold cover screen to a desktop.
 //       Recent log entries may scroll inside its own card, never the page.
 //       (Run with NODE_PATH="$(npm root -g)" to use a global playwright; CI
-//       installs no browser, so there it degrades to a notice.)
+//       installs no browser, so there it degrades to a notice.) Since NF-02
+//       the loaded Usage chart is on the page too, and must fit its card.
+//   §5  NF-02's Usage card (Pp, 2026-10-28), from a stub loader: one chart per
+//       ward with orders, one column per week, types stacked on one scale;
+//       ยังไม่มีข้อมูล for an old backend or no rows; a retry after a failure;
+//       one request per visit; never a toast.
 //
 // ── NEGATIVE CONTROL ───────────────────────────────────────────────────────
 //   d=$(mktemp -d)
@@ -131,6 +136,24 @@ const LOG = {
   // A caution GIR is below the 4–12 band: since 2026-10-27 anything above 12 is critical.
   'QXSB-BW1000': [order({ gir: 3.5 })],
   'QXDA-BW1000': [order({ gir: 13.5 })],        // would be critical, had they stayed
+};
+// §5: the backend's getUsageWeekly reply, 12 weeks (Mondays 10 Aug → 26 Oct
+// 2026). NICU is busiest in week 5 (8 orders: TPN 6, EN 2), SCN orders only
+// EN, อื่นๆ none. Counts only, as the backend sends them.
+const NICU_TOTALS = [5, 6, 4, 7, 8, 6, 5, 7, 6, 4, 3, 2];
+const SCN_TOTALS = [2, 3, 2, 2, 4, 3, 3, 2, 2, 1, 1, 0];
+const zeroCell = () => ({ total: 0, TPN: 0, EN: 0, NPO: 0, other: 0 });
+const USAGE = {
+  ok: true, wards: ['NICU', 'SCN', 'other'], types: ['TPN', 'EN', 'NPO', 'other'],
+  weeks: NICU_TOTALS.map((n, i) => {
+    const monday = new Date(Date.UTC(2026, 7, 10 + 7 * i)).toISOString().slice(0, 10);
+    const en = i === 4 ? 2 : 1;
+    return {
+      week: '2026-W' + (33 + i), weekStart: monday, total: n + SCN_TOTALS[i],
+      byWard: { NICU: { ...zeroCell(), total: n, TPN: n - en, EN: en },
+                SCN: { ...zeroCell(), total: SCN_TOTALS[i], EN: SCN_TOTALS[i] }, other: zeroCell() },
+    };
+  }),
 };
 D.MOCK_PATIENTS.splice(0, D.MOCK_PATIENTS.length, ...PATIENTS);
 Object.keys(D.MOCK_DAILY_LOG).forEach(k => delete D.MOCK_DAILY_LOG[k]);
@@ -287,9 +310,13 @@ const pick = (w) => w && { capacity: w.capacity, occupied: w.occupied, active: w
     const css = fs.readFileSync(DIR + 'NeoFeed.html', 'utf8').match(/<style>([\s\S]*?)<\/style>/)[1];
     const page = ReactDOMServer.renderToStaticMarkup(
       React.createElement(global.AdminDashboard, { patients: PATIENTS, log: LOG, lastSync: null }));
+    // The usage card as it looks once loaded (static markup cannot wait for
+    // the request), so its twelve columns are measured at 280px too.
+    const usage = ReactDOMServer.renderToStaticMarkup(React.createElement('div', { className: 'card usage-card' },
+      React.createElement('div', { className: 'card-b' }, React.createElement(global.UsageChart, { weeks: USAGE.weeks }))));
     const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>
       <div class="app"><div class="topbar"><div class="spacer"></div></div><nav class="rail"></nav>
-      <main class="work"><div class="work-inner">${page}</div></main>
+      <main class="work"><div class="work-inner">${page}${usage}</div></main>
       <nav class="bottom-nav">${['Patients', 'Dashboard', 'Growth', 'Alerts', 'Admin']
         .map(t => `<button class="bnav-item"><span>${t}</span></button>`).join('')}</nav></div></body></html>`;
     for (const W of [280, 320, 360, 390, 430, 768, 1280]) {
@@ -307,13 +334,98 @@ const pick = (w) => w && { capacity: w.capacity, occupied: w.occupied, active: w
         const grid = document.querySelector('.census-grid').getBoundingClientRect();
         const spill = [...document.querySelectorAll('.census-ward, .census-stat')]
           .filter(el => el.getBoundingClientRect().right > grid.right + 0.5).length;
-        return { drags, spill, cols: getComputedStyle(document.querySelector('.census-grid')).gridTemplateColumns.split(' ').length };
+        const usageCard = document.querySelector('.usage-card').getBoundingClientRect();
+        const usageSpill = [...document.querySelectorAll('.usage-ward, .usage-col, .usage-axis, .usage-legend')]
+          .filter(el => el.getBoundingClientRect().right > usageCard.right + 0.5).length;
+        const col = document.querySelector('.usage-col').getBoundingClientRect().width;
+        return { drags, spill, usageSpill, col, cols: getComputedStyle(document.querySelector('.census-grid')).gridTemplateColumns.split(' ').length };
       });
       ok(`${W}px: nothing but Recent log entries scrolls sideways`, r.drags.length === 0, r.drags);
       ok(`${W}px: no ward card or figure spills out of the grid (${r.cols} column${r.cols > 1 ? 's' : ''})`, r.spill === 0, r);
+      ok(`${W}px: the usage chart stays inside its card, every week column at least 6px wide`, r.usageSpill === 0 && r.col >= 6, r);
       await tab.close();
     }
     await browser.close();
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
+  await section('§5 The usage card (NF-02): completed calculations per ward per week', async () => {
+    await render(null);
+    const host = document.getElementById('probe');
+    const toasts = [];
+    const realToast = global.showToast;
+    global.showToast = (msg, kind) => toasts.push([msg, kind]);
+    try {
+      await render(React.createElement(global.AdminDashboard, { patients: PATIENTS, log: LOG, lastSync: null }));
+      ok('no loader (local mode): no usage card', !host.querySelector('.usage-card'));
+
+      let calls = 0;
+      const answer = (res) => () => { calls++; return Promise.resolve(res); };
+      await render(React.createElement(global.AdminDashboard, { patients: PATIENTS, log: LOG, lastSync: null, loadUsage: answer(USAGE) }));
+      const card = host.querySelector('.usage-card');
+      ok('with a loader: a usage card, after the Census card', !!card &&
+        !!(host.querySelector('.census-card').compareDocumentPosition(card) & window.Node.DOCUMENT_POSITION_FOLLOWING), text(host).slice(0, 120));
+      eq('it asked once', calls, 1);
+      eq('one chart per ward with orders: NICU and SCN (อื่นๆ had none)',
+        [...host.querySelectorAll('.usage-ward')].map(w => w.getAttribute('data-ward')), ['NICU', 'SCN']);
+      const ward = (w) => host.querySelector(`.usage-ward[data-ward="${w}"]`);
+      eq('NICU: one column per week, each holding that week\'s total',
+        [...ward('NICU').querySelectorAll('.usage-col')].map(c => Number(c.getAttribute('data-total'))), NICU_TOTALS);
+      ok('NICU header: this week 2, 12 weeks 63', /สัปดาห์นี้ 2 · รวม 63/.test(text(ward('NICU'))), text(ward('NICU')));
+      ok('SCN header: this week 0, 12 weeks 25', /สัปดาห์นี้ 0 · รวม 25/.test(text(ward('SCN'))), text(ward('SCN')));
+      // One scale for every ward (the busiest week is 8), types stacked TPN first.
+      const seg = (w, i) => [...ward(w).querySelectorAll('.usage-col')[i].children]
+        .map(s => [s.getAttribute('data-type'), s.style.height]);
+      eq('NICU week 5 (8 orders: TPN 6, EN 2) fills the column, TPN at the bottom', seg('NICU', 4), [['TPN', '75%'], ['EN', '25%']]);
+      eq('SCN week 5 (4 orders, all EN) is half as tall on the same scale', seg('SCN', 4), [['EN', '50%']]);
+      eq('a week with no order is an empty column, not a missing one', seg('SCN', 11), []);
+      ok('each column says its week and counts on hover',
+        ward('NICU').querySelectorAll('.usage-col')[4].getAttribute('title') === 'สัปดาห์ 7 ก.ย.: TPN 6 · EN 2');
+      eq('the axis names the first and last week', text(ward('NICU').querySelector('.usage-axis')), '10 ส.ค.26 ต.ค.');
+      eq('the legend lists the types that occur', text(card.querySelector('.usage-legend')), 'TPNEN');
+      ok('the note says what one count is', /Submit ครั้งแรก/.test(text(card)) && /quick calc/.test(text(card)), text(card));
+      const leaks = PATIENTS.flatMap(p => [p.name, p.sessionId]).filter(s => text(card).includes(s));
+      eq('no patient name or NeoFeed ID in the card', leaks, []);
+      await render(React.createElement(global.AdminDashboard, { patients: PATIENTS, log: LOG, lastSync: new Date(), loadUsage: answer(USAGE) }));
+      eq('a re-render (a sync) does not ask again', calls, 1);
+
+      const withOther = JSON.parse(JSON.stringify(USAGE));
+      withOther.weeks[11].byWard.other = { total: 1, TPN: 0, EN: 0, NPO: 1, other: 0 };
+      await render(null);
+      await render(React.createElement(global.AdminDashboard, { patients: PATIENTS, log: LOG, lastSync: null, loadUsage: answer(withOther) }));
+      eq('อื่นๆ gets a chart once it has an order', [...host.querySelectorAll('.usage-ward')].map(w => w.getAttribute('data-ward')),
+        ['NICU', 'SCN', 'other']);
+      eq('…and NPO joins the legend', text(host.querySelector('.usage-legend')), 'TPNENNPO');
+
+      for (const [label, res] of [
+        ['a backend from before this action (Unknown action)', { ok: false, refused: true, error: 'บันทึกไม่สำเร็จ: Unknown action: getUsageWeekly', serverError: 'Unknown action: getUsageWeekly' }],
+        ['no completed calculation yet (no weeks)', { ok: true, weeks: [], wards: ['NICU', 'SCN', 'other'], types: ['TPN', 'EN', 'NPO', 'other'] }],
+      ]) {
+        await render(null);
+        await render(React.createElement(global.AdminDashboard, { patients: PATIENTS, log: LOG, lastSync: null, loadUsage: answer(res) }));
+        ok(`${label}: "ยังไม่มีข้อมูล"`, text(host.querySelector('.usage-card .card-b')) === 'ยังไม่มีข้อมูล', text(host.querySelector('.usage-card')));
+        ok(`${label}: no chart and no retry button`, !host.querySelector('.usage-ward') && !host.querySelector('.usage-card button'));
+      }
+
+      let failNext = true;
+      const flaky = () => { calls++; if (failNext) { failNext = false; return Promise.resolve({ ok: false, unknown: true, timeout: true, error: 'x' }); } return Promise.resolve(USAGE); };
+      calls = 0;
+      await render(null);
+      await render(React.createElement(global.AdminDashboard, { patients: PATIENTS, log: LOG, lastSync: null, loadUsage: flaky }));
+      const retry = host.querySelector('.usage-card button');
+      ok('a failed request: says so, with a retry button', /ไม่สำเร็จ/.test(text(host.querySelector('.usage-card'))) && !!retry && /ลองใหม่/.test(text(retry)),
+        text(host.querySelector('.usage-card')));
+      if (retry) await click(retry);
+      eq('…the retry asks again and draws the chart', [calls, host.querySelectorAll('.usage-ward').length], [2, 2]);
+      await render(null);
+      await render(React.createElement(global.AdminDashboard, { patients: PATIENTS, log: LOG, lastSync: null,
+        loadUsage: () => Promise.reject(new Error('boom')) }));
+      ok('a loader that throws: the same failed state', /ไม่สำเร็จ/.test(text(host.querySelector('.usage-card'))));
+      eq('none of this raised a toast', toasts, []);
+    } finally {
+      global.showToast = realToast;
+      await render(null);
+    }
   });
 
   console.log(`\nADMIN CENSUS: ${fail === 0 ? 'ALL PASS' : fail + ' FAILED'} (${pass} passed)`);

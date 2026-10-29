@@ -492,6 +492,41 @@ subject tag is load-bearing: change `HELP_SUBJECT_TAG` only together with that G
 `script.send_mail`. Deploy the backend before the frontend. An older backend ignores `image`, so the
 request would arrive without the picture and nobody would see why.
 
+**The usage tab (NF-02, 2026-10-28) needs no new scope and no Script Property. Deploy the backend first,
+then release the frontend** that draws it on the Admin page. After the `clasp` deploy, the first order saved as submitted creates `Usage_Log`, 4 columns:
+`ts | week | ward | type`. Each row is one completed calculation, a TPN/EN order that reaches
+"submitted" for the first time; a draft, an edit, Submit, a revision, a print and the quick calc do
+not count (`gas-backend.gs` § Product metric NF-02). No row carries a patient field, so erasure has
+nothing to reach there. The row is written after the save's lock is released, and a failed write
+only leaves a `Usage_Log row not written (NF-02)` line in the execution log.
+
+To chart it, add a tab to the Sheet (say `Usage_Chart`) and put one formula in A1:
+
+```
+=QUERY(Usage_Log!B:D, "select B, count(D) where B is not null group by B pivot C", 1)
+```
+
+That gives one row per week and one column per ward (NICU, SCN, other). Select `A1:D200`, then
+Insert ▸ Chart ▸ column chart; it grows as rows arrive. For one ward by calculation type, use
+`=QUERY(Usage_Log!B:D, "select B, count(C) where C = 'NICU' group by B pivot D", 1)`. Weeks are ISO
+weeks in Bangkok time (`2026-W44` starts Monday 26 October). A blank cell is 0, and a week in which no
+ward saved anything has no row at all, so read the week labels. `getUsageWeekly()`, run from the
+editor, prints every week with its zeros, per ward and type, and returns the same as an object.
+
+**The Admin page's Usage card** (Pp, 2026-10-28) asks the `doPost` action `getUsageWeekly` each time
+the page opens. It is admin only (`Forbidden` for anyone else, before the tab is read) and returns the
+last 12 weeks as counts: `weeks` (each with `week`, `weekStart`, `total` and `byWard`, ward by type),
+`wards` and `types`. Nothing about an infant or a staff member, so the read is not audited. The order
+after merge:
+
+1. **Backend:** the `clasp` steps above (diff the mirror, `sheetHealthReport()`, `clasp push`,
+   `clasp update-deployment`).
+2. **Frontend:** the `main → release` PR, as in § Frontend.
+
+Released the other way round, an admin sees ยังไม่มีข้อมูล on the card (the old backend answers
+"Unknown action") and nothing else changes. Before the first completed calculation the card says the
+same.
+
 **Apps Script project timezone must be `Asia/Bangkok`.** Several date paths read Sheets' own date
 values through `Session.getScriptTimeZone()` (`_fmtDate`) or assume a Sheets date sits at Bangkok
 midnight (`_wardDateKey` in the one-entry-per-date guard, the 2026-09-11 edit-keeps-its-date rule,

@@ -371,6 +371,24 @@ clinical judgement. Everything else is engineering sequencing.
       deliberately not wired to `doPost`**: it was kept off the auth deploy so that release carried
       nothing but the security fix. Wire it when a UI actually wants the number.
       Definition and the two hard constraints: `PRD.md` § 6.
+- [ ] 📈 **product · NF-02 (M4), completed calculations per ward per week — ⚙️ BUILT 2026-10-28, NOT
+      DEPLOYED (PR #178).** `Usage_Log` (`ts | week | ward | type`, no patient field) gets one row per TPN/EN order
+      first saved as submitted; `usageWeekly()` and the editor-run `getUsageWeekly()` count it per ward
+      and type, pinned by `test/verify-usage-log.cjs`. **The Admin page draws it** (Pp, 2026-10-28: "ได้"):
+      the admin-only `getUsageWeekly` action returns the last 12 weeks, and a Usage card shows one
+      stacked bar chart per ward (`test/verify-admin-census.cjs` § 5, `verify-admin-usage-1028.cjs`). To
+      close, in this order, both Pp's steps: the backend deploy (`REFERENCE.md` § Backend (GAS); no new
+      scope), then a `main → release` frontend release. A frontend released first shows ยังไม่มีข้อมูล
+      on the card until the backend lands. The Sheet formula in `REFERENCE.md` still works without either
+      release. Left out on purpose:
+      - **The quick calc is not counted** (Pp, 2026-10-28: "ไม่นับ"). It sends nothing to the backend, by
+        the ward's own request ("ข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท"). Counting it would take a new signed-in
+        action fired once per Copy in quick-calc mode (the one moment a number leaves that page), a
+        frontend release, and Pp telling the ward first.
+      - **NF-31, per-user counts: not built** (Pp, 2026-10-28, answer 5 on #178: "ก"). M1's
+        `getUsageMetrics()` (above) already gives weekly users as an aggregate, distinct `actorEmail` per ISO
+        week, so no column E. Were it ever wanted: a salted SHA-256 of the signed-in email, and `PRD.md` § 6
+        constraint 2 (no per-staff figure) changes first.
 
 ## ⏭ Next
 
