@@ -143,6 +143,137 @@ this PC (Playwright not found), so they run in CI only. `tools/ci_bans.js` passe
 three log rules run on this tree: they read `Usage_Log` as a log tab and pass its row, and a raw cell
 or a `patientName` planted in that append fails them.
 
+## Session 2026-10-28 — NF-12 with `main` merged in: two feeds
+
+`calculator.jsx` (the milk line and the working panels only), `compiled/calculator.js`, the shells'
+tokens, `test/verify-show-working-1028.cjs` § 6 and § 9, `CR-U-BREASTMILK`'s anchor and two cases, two units
+in `tools/reference-tabs.json`. No computed, printed or saved figure moves; `CONSTANTS_VERSION` stays
+`2026-10-27.2`.
+
+`main` reached NF-12 with #182 (a day can have two feeds) and `14caa41` (a patient's order has no Copy).
+The git merge was clean in `calculator.jsx`, and the result was wrong in three places, and one check
+failed:
+
+- **Feed 1's picker, not the feeds given.** The milk line read feed 1's picker, which stays at breast milk
+  while feed 1 is 0 mL beside feed 2. Formula as feed 2 alone showed "นมแม่ที่ใช้คำนวณ", and breast milk
+  as feed 2 beside a formula showed nothing. It now reads every feed given.
+- **"Source: undefined".** With two feeds `calc.en` is their mix per 100 mL, which has no label and no
+  source, so the energy and protein panels read "· · Source: undefined" and one mixed figure per 100 mL.
+  They now give each feed its own line (its mL, its row per 100 mL, its label and source, and
+  `CR-U-BREASTMILK` on a breast-milk line only), then the total. The lines add up to the total the tiles
+  use.
+- **No feed at all** (Vera, NO BLOCK, one 🟡, on this commit's first version): the panels fell back to
+  feed 1's picker, so a TPN-only day read "0 mL × 67 kcal/100 mL · Breast Milk … (CR-U-BREASTMILK)". It
+  now reads ไม่มีนม and 0. NF-12 did the same before the merge; the figure was always 0.
+- **NF-28's check (#176) wanted units for NF-12's two new `coded` keys.** `verify-reference-tabs.cjs`
+  failed on `EN_HMF_PROTEIN_G_PER_DOSE` and `EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal`: `CR-U-BREASTMILK`
+  codes them, and `tools/reference-tabs.json` had no unit for either. Both are now under `limits` (g protein
+  per 4 g dose, kcal per g of HMF protein), ranged by the rule itself.
+- **§ 6 checked a Copy that is gone.** A patient's order leaves only as the print form now; the harness
+  checks the print form, that no Copy is offered, and the quick calc's copied text instead.
+
+§ 9 (19 checks) fails 18 on the merge commit `f643aac` and passes after. 127 checks in the harness, 713
+in `verify-clinical-rules.cjs`.
+
+## Session 2026-10-28 — NF-12 after Vera: a result past its limit, the feed factor, a MEN feed
+
+`calculator.jsx` (the working panels only), `compiled/calculator.js`, the shells' tokens,
+`test/verify-show-working-1028.cjs` § 8. Corrects the entry below in three places; no computed, printed or
+copied figure moves.
+
+- **A result just past its hard limit.** The entry below says each panel shows "the tile's own figure".
+  At GIR 12.007 that is "12", beside "เกิน 12 เป็น critical" on a red readout, while the alert reads
+  12.01. The GIR, energy and protein panels now print their result through the Calculator's `vsLimit`, as
+  the alerts do (GIR 12.01, protein 4.51); otherwise they keep the tile's decimals.
+- **The feed's value per 100 mL** showed one decimal from 10 up, so FBM ↔ Infatrini's 90.65 kcal read
+  90.7 and the line's own arithmetic gave 290.24 against the 290.08 it printed. Two decimals now.
+- **A MEN feed** showed the counted volume, always 0 mL; it now names the mL the infant gets (24 mL/day
+  for 3 mL × 8) and counts 0 of it.
+
+All three were Vera's (NO BLOCK, one 🟠 and two 🟡); her three tests fail 4 checks on `acb06f8` and pass
+after the fix. 102 checks in the harness.
+
+## Session 2026-10-28 — NF-12: the Calculator names the breast milk it assumes, and shows its working
+
+`calculator.jsx`, `data.js` (two exports), `compiled/calculator.js` and both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md` (`CR-U-BREASTMILK`, `CR-U-OSM`, one moved line),
+`test/verify-show-working-1028.cjs` (new), `test/README.md`. No computed, printed or copied figure moved,
+and `CONSTANTS_VERSION` stays `2026-10-27.2`.
+
+### Why
+
+Pp ticked NF-12 in her apply list of 2026-10-27. NOURISH (Belfort, Inder; JAMA Pediatrics; the Incubator
+journal club of 2026-09-29) found a unit's standard fortification enough for very preterm infants and did
+not support routine point-of-care milk analysis. So NeoFeed keeps its assumed breast milk and gets no
+measured-milk input; what it lacked was saying what it assumes. The same item asks each result line to show
+where its number comes from, so a doctor can check it in seconds instead of working it out again.
+
+### What the ward sees
+
+- **Step 2**, under "Delivered per kg from EN", once a breast-milk feed has a volume (breast milk, BM + HMF,
+  FBM ↔ Infatrini, a MEN feed included): the breast milk assumed per 100 mL, protein 1.2 g and 67 kcal, with
+  `EN_DB.BM_20`'s source; for a feed with HMF, what Enfamil HMF adds (protein +1.1 g, +14.3 kcal; 2.3 g and
+  81.3 kcal in all) with `EN_DB.BM_HMF_24`'s source; and a line that real milk varies between mothers and
+  this value was not measured. A formula feed, or no feed, shows nothing new.
+- **Step 3**, under the tiles: "ที่มาของตัวเลข" and four buttons, GIR, Osmolarity, Energy and Protein, all
+  closed. Each opens a panel with the formula, the inputs this order used, the unit conversion, the result
+  (the tile's own figure) and the limit it was checked against, with the `CR-` IDs of the skill's rules.
+  Nothing of a panel is in the page until its button is pressed, so the other harnesses see the screen as
+  before.
+
+### Where the values come from
+
+Every value and limit is read from `window.NEOFEED_DATA` when it renders: the `EN_DB` rows,
+`EN_HMF_PROTEIN_G_PER_DOSE` and `EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN` (exported for this; values
+unchanged), `GIR_HARD_HI`, `KCAL_HARD_HI`, `PROTEIN_HARD_HI`, `OSM_PERIPHERAL_MAX` and the bands the tiles
+grade against. The osmolarity panel shows the very object the estimate is computed from (`calc.osmIn`), and
+the energy and protein panels read the memo's own `dexKcal`, `aaKcal`, `lipidKcal` and `enProteinG`. Both
+memo edits are line-neutral (the osmolarity inputs got a name; the return lists five more values), so only
+`CR-U-SALTS`'s line number moved. The formulas themselves are text: 3.4/4/9 kcal/g and the osmolarity
+factors are literals in the code, so the harness checks that each panel's terms add up to its tile.
+
+### Checked
+
+`verify-show-working-1028.cjs`, 96 checks; on `326bcd9` 54 fail and 25 pass (a section stops at its first
+missing element). `NEGATIVE_CONTROL=1` (dextrose at 3.5 kcal/g in the memo) and `=2` (BM protein typed
+into the JSX) fail 3 and 1. `verify-clinical-rules.cjs` runs the new
+`CR-U-BREASTMILK` cases, 617 checks. A one-off script (not committed) mounted `main`'s Calculator beside this
+one on eight synthetic orders: the same screen HTML once the two new elements are taken out, the same print
+form HTML and the same copied order.
+
+### Open
+
+- Whether the printed order should carry the assumption line: not done, Pp's question.
+- Which HMF the ward means by BM + HMF (`BACKLOG.md` § Now, HMF): the line names Enfamil HMF because
+  `BM_HMF_24` is computed from it; if the answer is Enfalac Premature powder, the row and the line change
+  together.
+- No second clinician has reviewed the wording.
+
+## Session 2026-10-28 (13) — One piece of work, one PR
+
+`AGENTS.md`, `REFERENCE.md` § Deploying, `STATUS.md`. No code changed; nothing to release.
+
+### Why
+
+#193 existed only to mark #189 merged in `STATUS.md`. Pp had it closed unmerged ("ปิด #193"): a PR that
+only records another PR is two merges for her to approve for one piece of work. Then: "เพิ่มกฎ one piece of
+work, one PR ใน AGENTS.md". The rule was already hers for deploys (`REFERENCE.md`, 2026-09-18, after PRs
+#62, #68 and #72 each recorded only a deploy), but it was not in `AGENTS.md`, and it named deploys only,
+so a merge record slipped past it.
+
+### What changed
+
+- `AGENTS.md`: **One piece of work, one PR.** A PR carries one piece of work and everything that records
+  it: its CHANGELOG entry, its own STATUS line and its review fixes. No PR only records another PR's
+  merge, a release, a tag or a `verify-release` result: that goes in a comment on that PR, and
+  `STATUS.md` catches up in the next PR on the repo, beside its own work.
+- `REFERENCE.md` § Deploying: "Recording a deploy never takes its own PR" now covers recording a merge,
+  with #193 beside #62, #68 and #72.
+- `STATUS.md`: #189 ⏳ → ✅ (merged by Pp on 2026-10-28 at 16:15 ICT, `edf2a92`), carried here under the new
+  rule; this PR's own line.
+- This is Pp's first correction of a merge-record PR. #187 was closed because #176 had superseded it, not
+  on her say. So NF-19 does not yet call for a `tools/ci_bans.js` rule; a second one would.
+
 ## Session 2026-10-28 (12) — the backend and Center Point refuse a stopped order
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `gas-backend.gs`,
