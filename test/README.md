@@ -255,7 +255,7 @@ installed) to get the real measurement.
 ## Running
 
 `verify-targets-and-dates.cjs`, `verify-gas-registry-upsert.cjs`,
-`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`,
+`verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`, `verify-usage-log.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
 `verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
 `verify-publish-lock.cjs`, `verify-build-shells.cjs`, `verify-chula-google-signin.cjs` and
@@ -267,6 +267,7 @@ node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
 node test/verify-usage-metrics.cjs
+node test/verify-usage-log.cjs
 node test/verify-must-change-password.cjs
 node test/verify-input-validation.cjs
 node test/verify-provenance-stamp.cjs
@@ -1929,6 +1930,38 @@ the breast-milk line only) adding up to the total, with no "undefined"; formula 
 0 mL, shows no milk line; BM + HMF as feed 2 adds the HMF line; a day with no feed reads ไม่มีนม in both
 panels, not feed 1's default breast milk (Vera). 127 checks; on the merge commit `f643aac`, before the
 fix, 18 of § 9's 19 fail.
+
+## The usage tab, 2026-10-28 — three harnesses (NF-02)
+
+**`verify-usage-log.cjs`** (133 assertions since the Admin chart; no npm dependencies, through
+`gas-vm-sandbox.cjs`). Pins
+`Usage_Log`, one row per completed calculation, which is a TPN/EN order that reaches "submitted" for
+the first time. § 1 the tab is made by the first one, never by a sync, at exactly 4 columns
+(`ts | week | ward | type`), the week cut in ward time (Monday 06:00 in Bangkok is Monday's week), and
+the save's reply is unchanged. § 2 ward is the ward list the infant is on, and `_usageWardOf` agrees
+with `data.js` `patientWard` on 390 bed × history cases; type is the route family. § 3 what does not
+count: a draft, an edit of a submitted order, Submit, a revision, a refused or Busy save, a nurse's
+refused order, a nursing I/O entry, a sync, and the same create or promotion fired twice. § 4 no
+patient field: no sessionId, entryId, bed, name, initials, weight, sex or email anywhere in the tab,
+nothing a formula, and erasure leaves it as it was. § 5 the row is written after the script lock is
+released, and an append, tab-creation or registry-read failure still saves the order, with a note in
+the execution log. § 6 `usageWeekly()`: ISO weeks in ward time, every ward and type in every week,
+empty weeks filled with 0 up to this week (across a 53-week year), unknown values under `other`, a
+fifth column ignored (room for NF-31), and the Admin page's 12-week span. § 7 the `doPost` action
+`getUsageWeekly`: Unauthorized without a token, the same `Forbidden` as the other admin-only actions
+for a doctor or nurse before the tab is read, then `{ ok, weeks, wards, types }`, 12 weeks, counts only,
+nothing written. § 8 the editor's `getUsageWeekly()` reads without creating the tab and logs a table
+with no identifier. Against the backend before NF-02 (`326bcd9`) it fails 46 checks of the first 114.
+
+**`verify-admin-census.cjs` § 5** (the jsdom set) mounts `AdminDashboard` with a stub `loadUsage`: no
+loader, no card; a 12-week reply draws one chart per ward with orders, one column per week, the types
+stacked on one scale; an "Unknown action" reply or no weeks reads ยังไม่มีข้อมูล; a failed request offers
+a retry; a re-render does not ask again; nothing raises a toast. § 4 measures the loaded chart in
+Chromium from 280px up.
+
+**`verify-admin-usage-1028.cjs`** (19 assertions; the jsdom set, through `review-0917-boot.cjs`) drives the
+real `<App/>`: opening Admin dashboard sends one `getUsageWeekly` with only the action and the token, a
+sync does not resend it, an old backend and a network failure stay quiet, and a doctor never sends it.
 
 ## Note on the source workbook
 
