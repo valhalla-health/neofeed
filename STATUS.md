@@ -341,6 +341,23 @@ ICT (banners). Caught up with #184 by PR #183, with #186 by PR #176, with #194 a
   Energy, Protein). With `main` merged in, both read the feeds given, one line per feed (#182's two feeds),
   and a day with no feed names no milk. Vera: NO BLOCK before and after the merge. Open for Pp: whether the print carries
   the assumption line, which HMF the ward uses, and the warning's wording. `CHANGELOG.md` 2026-10-28.
+- ⏳ **PR #199, Step 2 no longer shows a developer comment as text: merged into `main` on Pp's instruction
+  (she chose it for the release of 2026-10-29); not live until a `main → release` PR.** Since
+  release #184 every ward device has shown "// The same three columns as the Volume / Frequency row
+  below…" under "Step 2 · Enteral feeding", once per feed picker: #182 wrote a `//` comment between JSX
+  children. It is a `{/* … */}` comment now. Frontend only, so it reaches the ward with the next `main →
+  release` PR; no `clasp` step, no figure moves, `CONSTANTS_VERSION` unchanged. `tools/ci_bans.js`
+  `jsx-comment-text` fails CI on the next one. Vera: NO BLOCK. `CHANGELOG.md` 2026-10-28 (14).
+- ⏳ **PR #200, the nutrition team's meeting of 2026-10-28, after Vera's four reviews: merged into `main` on
+  Pp's instruction (she chose it for the release of 2026-10-29); not live until a `main → release` PR and
+  backend `@66`.** `CONSTANTS_VERSION` 2026-10-28.1. Submit saves and locks the order, an edit is a revision
+  printed "Revision · ฉบับที่ N", only the doctor's sheet prints, Vitalipid is rounded down with a 1 mL floor,
+  Mg is typed in mg/kg/d (below 1 is critical), PED AMINE is named, an old submitted order is revised and an
+  admin can delete a submitted order. **The backend goes out after the frontend, in the same sitting:** `@66`
+  refuses a Submit computed on a version older than 2026-10-28.1 (`MIN_SUBMIT_CONSTANTS_VERSION`). Tell
+  pharmacy and the ward with the release: Mg in mg, Vitalipid whole mL, only the front prints, a revision is
+  marked, reload open NeoFeed tabs. No second clinician has reviewed it. `CHANGELOG.md` 2026-10-28 (13), (14)
+  and 2026-10-29 (1)–(4).
 - ⏳ **PR #178, NF-02: a `Usage_Log` tab, one row per completed calculation, counted per ward per week,
   and a Usage chart on the Admin page: merged into `main` on Pp's instruction (she answered "ก" to "merge
   NF-12 (#177) and NF-02 (#178)?", 2026-10-28, after release #198); not live until its backend deploy and

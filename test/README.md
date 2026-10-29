@@ -1944,6 +1944,23 @@ straight to `onUpdate`, also when `onPublish` refuses that row for its missing l
 prompt on a submitted order. `verify-review-0911.cjs` B4 reads the current rows and B7 checks the whole-order
 delete. `CR-MG-MEQ-HABIT` and a 200 g `CR-VITALIPID-CAP` case run in `verify-clinical-rules.cjs`.
 
+## Step 2's developer comment, 2026-10-28 — one harness extended, one ci_bans rule
+
+PR #182 wrote a three-line `//` comment at the top of the feed picker's fragment. Between JSX children `//`
+is text, so every ward device showed "// The same three columns as the Volume / Frequency row below…" under
+"Step 2 · Enteral feeding" (seen on dev local at 375 px in the PR #175 release; live since release #184). It
+is a `{/* … */}` comment now. **`verify-en-db-sources.cjs` § 4.23–4.25** (jsdom; also against `compiled/`)
+opens Step 2 with both feed pickers and checks that its text has no "// The same three columns" and that no
+text node on the Calculator starts with "//". 4.24 and 4.25 fail on `3359a58`, in both passes.
+
+**`jsx-comment-text`** in `tools/ci_bans.js` catches the next one before it ships: a run of `//` lines whose
+line before ends a tag (`>`, not `=>`) or an expression container (`}`), and whose line after starts an
+element (`<`) or, after a tag, an expression container (`{`). Plain JS never puts those side by side, so the
+run sits between two children. A run after `(`, before a ternary's `:`, in an arrow's body or between a tag's
+attributes is JS and passes. Without a parser it misses a run followed by a text child. 4 fixture cases must
+fail and 8 must pass. Over the `.jsx` sources of all 294 first-parent commits of `main` it finds one line,
+#182's, so it needs no allow entry.
+
 ## What the numbers rest on, 2026-10-28 — one harness (NF-12)
 
 **`verify-show-working-1028.cjs`** (jsdom; it also runs against `compiled/`). § 1: Step 3 has four closed
