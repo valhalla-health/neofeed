@@ -361,8 +361,10 @@ clinical judgement. Everything else is engineering sequencing.
         the ward's own request ("ข้อมูลในนี้จะไม่เซฟลงกูเกิลชีท"). Counting it would take a new signed-in
         action fired once per Copy in quick-calc mode (the one moment a number leaves that page), a
         frontend release, and Pp telling the ward first.
-      - **NF-31, per-user counts** (not chosen): a column E holding a salted SHA-256 of the signed-in
-        email. `PRD.md` § 6 constraint 2 forbids a per-staff figure, so that changes first.
+      - **NF-31, per-user counts: not built** (Pp, 2026-10-28, answer 5 on #178: "ก"). M1's
+        `getUsageMetrics()` (above) already gives weekly users as an aggregate, distinct `actorEmail` per ISO
+        week, so no column E. Were it ever wanted: a salted SHA-256 of the signed-in email, and `PRD.md` § 6
+        constraint 2 (no per-staff figure) changes first.
 
 ## ⏭ Next
 
