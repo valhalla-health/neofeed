@@ -154,7 +154,8 @@
     "EN_HMF_PROTEIN_G_PER_DOSE": { "unit": "g protein per 4 g HMF dose (one dose per 100 mL)", "sign": "positive" },
     "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": { "unit": "kcal per g of HMF protein", "sign": "positive" },
     "MG_MG_PER_MEQ": { "unit": "mg Mg/mEq", "sign": "positive",
-      "range": { "lo": 12.1525, "hi": 12.1525, "proposed": "Mg 24.305 g/mol / valence 2 (data.js); display only, no rule codes it" } }
+      "range": { "lo": 12.1525, "hi": 12.1525, "proposed": "Mg 24.305 g/mol / valence 2 (data.js); display only, no rule codes it" } },
+    "MG_MEQ_HABIT_MG": { "unit": "mg Mg/kg/d", "sign": "positive" }
   },
   "bands": {
     "TPN_TARGETS": {
@@ -165,8 +166,8 @@
       "k": { "args": "dol,wtG,bwG", "unit": "mEq/kg/d", "within": { "backend": "k" }, "hiAtMost": "K_IV_HARD_HI" },
       "ca": { "args": "dol", "unit": "mg/kg/d", "within": { "backend": "ca" } },
       "p": { "args": "dol", "unit": "mg/kg/d", "within": { "backend": "p" } },
-      "mg": { "args": "dol", "unit": "mEq/kg/d",
-        "within": { "lo": 0.1, "hi": 0.9, "proposed": "0.5x to 1.5x today's 0.2-0.6 (Mihatsch 2018, data.js)" } },
+      "mg": { "args": "dol", "unit": "mg/kg/d",
+        "within": { "lo": 1.25, "hi": 11.25, "proposed": "0.5x to 1.5x today's 2.5-7.5 mg (Mihatsch 2018, data.js; in mg since 2026-10-28)" } },
       "caP": { "args": "none", "unit": "Ca:P mass ratio",
         "within": { "lo": 0.5, "hi": 2.6, "proposed": "0.5x to 1.5x today's 1.0-1.7 (data.js)" } }
     },
@@ -198,8 +199,8 @@
       "k": { "args": "dol,wtG,bwG", "unit": "mEq/kg/d", "within": { "backend": "k" }, "hiAtMost": "K_IV_HARD_HI" },
       "ca": { "args": "dol,isEnteral", "unit": "mg/kg/d", "within": { "backend": "ca" } },
       "p": { "args": "dol,isEnteral", "unit": "mg/kg/d", "within": { "backend": "p" } },
-      "mg": { "args": "dol", "unit": "mEq/kg/d",
-        "within": { "lo": 0.1, "hi": 0.9, "proposed": "0.5x to 1.5x today's 0.2-0.6 (Mihatsch 2018, data.js)" } },
+      "mg": { "args": "dol", "unit": "mg/kg/d",
+        "within": { "lo": 1.25, "hi": 11.25, "proposed": "0.5x to 1.5x today's 2.5-7.5 mg (Mihatsch 2018, data.js; in mg since 2026-10-28)" } },
       "caP": { "args": "none", "unit": "Ca:P mass ratio",
         "within": { "lo": 0.5, "hi": 2.6, "proposed": "0.5x to 1.5x today's 1.0-1.7 (data.js)" } },
       "npePerGAA": { "args": "none", "unit": "kcal non-protein/g amino acid", "loAtLeast": "NPE_IV_CRIT_LO", "hiMayBeInfinite": true },

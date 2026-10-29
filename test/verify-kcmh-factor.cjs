@@ -155,7 +155,7 @@ setField('Na Acetate', IN.naAcet);
 setField('Glycophos', IN.glyco * 2);          // UI takes mEq Na/kg = mL/kg x 2
 setField('KCl', IN.kCl);
 setField('K₂HPO₄', IN.k2hpo4);
-setField('MgSO₄', IN.mg);
+setField('MgSO₄', IN.mg * 12.1525);   // typed in mg since 2026-10-28; IN.mg stays mEq
 setField('10% Ca gluconate', IN.ca);
 setField('Heparin(U/mL)', IN.hepUmL);
 
@@ -188,7 +188,7 @@ near('Factor',                 grab(/Factor:([\d.]+)/),                      wan
 near('Prepared volume mL',     grab(/([\d.]+) mL \(Prepared Vol\.\)/),        want.prepared,     0.05);
 near('D50W mL',                grab(/([\d.]+) mL \(D50W\)/),                  want.d50w,         0.05);
 // anchor to the Aminoven row: the dextrose row also reads "g in bag = ... mL"
-near('AA g in bag',            grab(/Aminoven infant = [\d.]+ g\/kg\/d = ([\d.]+) g in bag/), want.aaBag, 0.05);
+near('AA g in bag',            grab(/Aminoven infant \/ PED AMINE = [\d.]+ g\/kg\/d = ([\d.]+) g in bag/), want.aaBag, 0.05);   // PED AMINE named since 2026-10-28
 near('Aminoven mL',            grab(/g\/kg\/d = [\d.]+ g in bag = ([\d.]+) mL/),  want.aaMl,   0.05);
 near('20% NaCl mL',            grab(/mEq = ([\d.]+) mL/),                     want.naClMl,       0.05);
 near('Components mL (+vitExtra)', grab(/Components ([\d.]+) mL/),             want.componentVol + vitExtra, 0.15);

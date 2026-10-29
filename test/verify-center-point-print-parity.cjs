@@ -105,13 +105,23 @@ const ORDER = [
   ['Volume(mL/day)', 137], ['Dextrose final', 12.5],
   ['Amino acid', 3.2], ['20% lipid', 2.6], ['Heparin', 0.5],
   ['20% NaCl', 2.3], ['Na Acetate', 1.1], ['Glycophos', 0.7], ['KCl', 4.1], ['K₂HPO₄', 1.3],
-  ['MgSO₄', 0.35], ['10% Ca gluconate', 47],
+  ['MgSO₄', 4.253375],   // 0.35 mEq, typed in mg since 2026-10-28
+  ['10% Ca gluconate', 47],
   ['Iron', 2.5], ['ปริมาณ elem Ca', 60], ['ปริมาณ elem P', 35], ['Vitamin D', 450],
 ];
 const REASON = 'synthetic parity — attending aware';
 
 // A figure NeoFeed prints that CP deliberately does not. Keep each with its reason.
-const NOT_ON_CP = [];
+// An entry names one `figure` in one `where`, or gives a `test(fig, where)`.
+const NOT_ON_CP = [
+  // NeoFeed prints Mg in mg since 2026-10-28 (the nutrition team; BACKLOG.md
+  // § Now). CP's form, digest-pinned to the CP repo, still prints mg/kg to 1
+  // decimal and the day's Mg in mEq only, until that repo's sync. Only the mg
+  // figures of the Mg lines are excused; their mEq and mL are still checked.
+  { reason: 'Mg in mg: CP sync pending (2026-10-28)',
+    test: (fig, where) => /^Mg²⁺|mg ?\([\d.]+ mEq/.test(where)
+      && new RegExp(`(^|[^\\d.])${fig.replace('.', '\\.')} mg`).test(where) },
+];
 
 async function saveOrder(props, extra) {
   act(() => { root.unmount(); });
@@ -171,7 +181,7 @@ async function compareOrder(label, extra) {
   const missing = [];
   for (const { fig, where } of figures) {
     const n = Number(fig), tol = 0.5 * 10 ** -decimals(fig) + 1e-9;
-    if (NOT_ON_CP.some(x => x.figure === fig && where.includes(x.where))) continue;
+    if (NOT_ON_CP.some(x => x.test ? x.test(fig, where) : x.figure === fig && where.includes(x.where))) continue;
     if (!cpValues.some(c => Math.abs(c - n) <= tol)) missing.push(`${fig} in "${where}"`);
   }
   ok(`all ${figures.length} figures found on CP's sheet`, missing.length === 0,

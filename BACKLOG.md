@@ -32,6 +32,30 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🩺 **safety/product · What the nutrition team's meeting of 2026-10-28 left open.** Built for the
+      16 Nov ward start (`CHANGELOG.md` 2026-10-28 (13)): Submit locks, the revision mark and ฉบับแก้ไข,
+      the doctor's sheet only, Vitalipid rounded down, Mg in mg/kg/d, PED AMINE. Open:
+      - **Indication for PN** at the first entry, a dropdown: short bowel syndrome, motility disorder,
+        mucosal disease, preterm infant, NEC, post-surgery, feeding intolerance, for supplementation
+        (Pp, 2026-10-28). With it, **liver disease and renal disease tick boxes** (also 2026-09-28 item
+        5, under C below), saved with the order and printed ticked.
+      - **"ไม่มี PN แล้ว"**: one button that fills an enteral-only order, and a TPN / no-TPN tag on the
+        ward list. Full-feed infants are entered every 3 days or at each step-up.
+      - **The Dashboard counts pending TPN orders** (joins 19 · 27, the pharmacist view, under C below).
+      - **Center Point** prints its own copy of the form: Mg in mEq first, "10% Aminoven infant" alone.
+        A CP-repo sync.
+      - **Pp to say what each means:** "แก้ไขช่อง prescribe ให้มาอยู่ในหน้าแรก" (the Prescribed column is
+        on the front already); "ลบผู้ป่วย ward อื่นๆ" (a Sheet clean-up, or hide the "other" ward group?).
+      - **From the 2026-09-28 notes, missing from the list below:** "add Addamel" (the form prints
+        "☐ Addamel N", never offered); heparin "0–1 u/mL" against the caution's "usual 0.5–1"; "check
+        sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
+      - **Next phase:** print the pharmacy sheet again, for a sticker (`.print-back` is hidden in print,
+        not removed).
+      - **Backend `@66`** carries the 2026-10-29 (1) changes: an old submitted order is revised, and an
+        admin can delete a submitted order. Until it is live, an edit of an unlocked submitted order is
+        saved in place, and a submitted order cannot be deleted.
+      - **Tell pharmacy with the release:** Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the
+        front prints, and a revision is marked.
 - [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
       rolling back).
       - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
@@ -203,7 +227,7 @@ clinical judgement. Everything else is engineering sequencing.
           form has it: fine? 6: built as groups, not as new names: the right reading? 25: "สารน้ำเกินแผน": the
           right words? (19 is answered: the split is removed from the screen and still calculated.)
       - **C · New design work** (each needs a design Praew signs off; some also need B's numbers).
-        - **7 · 8 · Feeds.** Brand and concentration chosen separately; a second feed with its own volume
+        - ~~**7 · 8 · Feeds.**~~ Built 2026-10-28 (#182: each feed a milk, then its kcal/oz). Brand and concentration chosen separately; a second feed with its own volume
           and feeds a day (BM alternating with PF, unequal counts) in place of the fixed 50 : 50
           "FBM 24 ↔ Infatrini 30". Touches `calcInput`, `Daily_Log`, the form and Center Point's packet.
         - **2 · Phosphate typed directly**, in which unit and landing in which salt. Today P follows the

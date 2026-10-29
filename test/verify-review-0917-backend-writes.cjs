@@ -267,7 +267,9 @@ T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
   T.ok('publish ok', p.ok === true, p);
   T.eq('the response carries the revision fields the client branches on', Object.keys(rev).sort(), ['entryId', 'lastModified', 'ok', 'revised', 'revisionNumber']);
   T.ok('…with the NEW entryId and revision 2', rev.revised === true && rev.entryId !== c.entryId && rev.revisionNumber === 2 && rev.entryId === g.rows('Daily_Log')[1][25], rev);
-  const draft = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-11' }) });
+  // Stored as a draft: since 2026-10-29 a submitted row is revised even when
+  // unpublished (Pp), so only a draft is edited in place.
+  const draft = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-11', status: 'draft' }) });
   const upd = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'AB-900', entryId: draft.entryId, expectedLastModified: draft.lastModified, entry: E({ pro: 3.1 }) });
   T.eq('a draft edit still answers { ok, lastModified } only', Object.keys(upd).sort(), ['lastModified', 'ok']);
 });

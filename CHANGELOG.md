@@ -7,6 +7,260 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-29 (4) — `main` merged in (#178, NF-02): one backend `@66` carries all three
+
+`test/verify-usage-log.cjs`, both shells' `?v=` tokens, `compiled/`. #178 was merged into `main` at 12:59
+ICT; Pp chose to release it with this one (2026-10-29: "ขึ้นไปด้วย"). `gas-backend.gs` merged without a
+conflict.
+
+- **`verify-usage-log.cjs` follows the revision.** Its second promotion of a submitted row now appends a
+  revision (2026-10-29 (1)), so its next edit failed as a conflict on the superseded row. The edit now goes
+  to the revision, and the check adds that both were revisions. Still one usage row: a revision is the
+  same calculation. 134 checks pass.
+- **One `@66`.** #178's STATUS line has its backend going out as `@67`, after #190 alone as `@66`. With
+  Pp's answers of today, `@66` carries `main`'s whole `gas-backend.gs`: #190's status reading, #178's
+  `Usage_Log`, and this PR's revision, delete and stale-tab rules. The order of (3) holds: frontend
+  first, so for a few minutes the Admin usage card reads ยังไม่มีข้อมูล.
+
+## Session 2026-10-29 (3) — Vera's fourth review: the osmolarity working reads Mg in mg, the version floor is tied to data.js, the deploy gate
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, two tests. After `main` (#177) was
+merged in. Vera's fourth review was NO BLOCK, with one 🟠 and two 🟡.
+
+### What changed
+
+- **The osmolarity working shows Mg's mg/L and its step to mEq** ("Mg mg ÷ 12.15 = mEq"), as it does Ca's.
+  #177 (NF-12) wrote that panel while the Mg box took mEq. Merged here, its fixture's MgSO₄ 0.4 read as
+  0.4 mg, and two checks of `verify-show-working-1028.cjs` failed (Mg 0.33 mEq/L, term 0.3), in CI as well.
+  The fixture now types 4.861 mg, the 0.4 mEq it meant. Screen only: the tile, the bag and the print were
+  right.
+- **`verify-backend-stops-1028.cjs` reads `data.js`'s `CONSTANTS_VERSION`** and checks that it is not
+  before `MIN_SUBMIT_CONSTANTS_VERSION`, and that a submitted save stamped with it is saved. Raise one
+  without the other and every ward Submit would be refused while every other case still passed.
+
+### The sitting, in order (Pp, 2026-10-29: today, without waiting)
+
+Pp's "วันนี้เลยไม่ต้องรอ" also lifts #190's condition that its backend half wait until `@65` had run a day.
+
+1. #199 and this PR merge into `main`; `main`'s `harnesses` is green.
+2. The `main → release` PR (`release.md`): the before-and-after table from dev local and the walk at
+   375 × 812; Pp's go-ahead; merge; tag.
+3. `node tools/verify-release.mjs --wait` passes on both hosts, so both serve `data.js` at 2026-10-28.1.
+   **Until then the backend must not change:** `@66` refuses every Submit from a frontend on 2026-10-27.2.
+4. Backend `@66`: diff the mirror, `clasp push`, Pp runs `sheetHealthReport` in the editor (#190's step),
+   `clasp create-version`, `clasp update-deployment` on the ward deployment, the checks of `REFERENCE.md`
+   § Backend, then commit and push the mirror.
+
+Rollback: the backend first (`-V 65`), then the frontend to `release-2026-10-28-pr198` (`ac1b15b`). A ward
+tab opened before the release can still print an order saved before it, on the old sheet: printing is
+decided in the tab. Tell the ward to reload open NeoFeed tabs.
+
+## Session 2026-10-29 (2) — Vera's third review: a stale tab cannot submit, the delete checks every row first, the Mg question in the title
+
+`gas-backend.gs`, `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `docs/CLINICAL_CONSTANTS.md`, `REFERENCE.md`, tests.
+Corrects 2026-10-29 (1) § Deploying.
+
+Vera's third review was NO BLOCK, with one 🟠 and four 🟡. Pp answered the 🟠 the same day and chose
+to release today, both halves in one sitting.
+
+### What changed
+
+- **A tab opened before this release cannot submit** (Pp: "ให้ backend ไม่รับ"). The live release already
+  sends a stop list, so (12)'s refusal let its saves through, and such a tab would go on printing the old
+  sheet: Vitalipid not rounded down, Mg in mEq, both sheets, no lock. `_validateLogEntry` now refuses a
+  submitted row whose `constantsVersion` is older than `MIN_SUBMIT_CONSTANTS_VERSION` (2026-10-28.1) with
+  the reload message; its draft still saves. A save with no version, or one the backend cannot read, is let
+  through: no live client sends either. `REFERENCE.md` § Backend says when to raise it and that the backend
+  then goes out after the frontend.
+- **The whole-order delete checks every row before deleting any.** It checked each row just before deleting
+  it, bottom first, so a row moved by a hand edit of the Sheet stopped it after the current revision was
+  gone. The older versions then stayed hidden and held the date.
+- **The Mg question is in the alert's title**, "Magnesium below 1 mg/kg/d: พิมพ์เป็น mEq หรือเปล่า". The
+  Submit prompt lists titles only, and the title prints in the critical box. The tile's bar draws the red
+  below 1 too (`statusAt`).
+- `docs/CLINICAL_CONSTANTS.md` has a row for `MG_MEQ_HABIT_MG`. The backend reads a status typed into the
+  Sheet as "Draft" as a draft, as the client does. `deletePatient`'s comment no longer says
+  `deleteDailyNutrition` refuses a published row.
+
+### § Deploying of (1), corrected
+
+(1) said the frontend goes first because a backend-first deploy would turn every edit on the live frontend
+into a new revision. That is what Pp asked for, and the live frontend already handles a revision, so the
+reason does not hold. The order now follows from the stale-tab refusal: the backend refuses the live
+release's saves, so release the frontend first, then deploy `@66` in the same sitting. (1) also said a
+submitted order "cannot be deleted" under `@65`. `@65` refuses only a locked row, so an unlocked order
+submitted before the release is deleted there as a single row.
+
+### Tests
+
+`verify-backend-stops-1028.cjs` gains a section: a submitted save on 2026-10-27.2 is refused, the same as a
+draft saves, the current and a later version save, no version saves, and the version compare reads
+2026-10-28.9 before 2026-10-28.10 (5 of its 9 checks failed before). `verify-delete-order-1029.cjs`: a row
+that moves while the chain is checked leaves all three versions in place and writes no audit row (3 of its
+3 checks failed before). `CR-MG-MEQ-HABIT`'s cases read the new title, and the Submit prompt must name it.
+`verify-status-zones.cjs` expects Mg's red from 0 to 1 mg/kg/d. Six harnesses needed their fixtures
+changed by (1), as the full suite showed: `verify-incident-gaps-1021` typed MgSO₄ 0.3 (now the 0.3 mEq,
+3.646 mg); `verify-provenance-stamp`, `verify-publish-lock` and three `verify-review-0917-backend-*`
+harnesses edited an unlocked row as a draft but stored it as submitted (now a draft);
+`verify-provenance-stamp` and `verify-publish-lock` also send 2026-10-28.1 as their version.
+
+## Session 2026-10-29 (1) — Vera's second review of the meeting branch: old orders are revised, a submitted order can be deleted, Mg under 1 mg asks
+
+`gas-backend.gs`, `calculator.jsx`, `log.jsx`, `data.js`, `compiled/`, both shells' `?v=` tokens,
+`.claude/skills/neofeed-clinical-rules/SKILL.md`, `tools/reference-tabs.json`, tests. Corrects 2026-10-28
+(13) and (14) of the nutrition-meeting branch. Two entries on 2026-10-28 carry the number (13): that
+branch's meeting entry, and #196's "One piece of work, one PR", merged into `main` while the branch was
+open. Both are left as they were written.
+
+Vera's second review of (13) and (14) was NO BLOCK, with one 🟠 and three 🟡. Pp answered the three that
+needed her on 2026-10-29, each with the recommended option.
+
+### What changed
+
+- **An order submitted before this release can be edited and reprinted.** (13) and (14) said such an
+  order "is published first when it is next edited". That was false against the real backend. Since
+  (12), `publishDailyLog` refuses a row with no `calcInput.stops`, which is every order saved before
+  then. The client's pre-lock failed and the edit was never sent. A version bump also holds those
+  orders from Print, so they could be neither corrected nor reprinted. Pp chose the backend fix:
+  `updateDailyNutrition` now revises any row stored as submitted, locked or not; a blank status counts
+  as submitted, as the read path has it. A draft is still saved in place. The client no longer locks
+  before an edit, so an old order's edit lands as revision 2 and prints with the Revision mark.
+- **An admin can delete a submitted order** (Pp: a wrong-infant order). Since (13) every Submit locks the
+  order, so `deleteDailyNutrition`'s refusal of a published row, which its comment still called dormant,
+  had left no way to take one off. The delete now removes the order and every revision before it
+  (`revisionOf`). A superseded row left behind would stay on that infant's record unseen and hold the
+  date against a new order. A superseded row is not deleted on its own. The Calculator and the
+  Dashboard ask first with a stronger prompt: the order was submitted, every version goes, and if
+  pharmacy has the sheet, the person deleting tells them. Audit_Log gets `deleteDailyLog:start` before
+  and `deleteDailyLog` after, as before.
+- **Mg below 1 mg/kg/d is critical and asks whether it was typed in mEq** (Pp; new rule
+  `CR-MG-MEQ-HABIT`, `D.MG_MEQ_HABIT_MG`). A dose typed from mEq habit (0.2–0.6) read as mg, a twelfth of
+  what was meant, with only an amber tile. Now its line is red, says "พิมพ์เป็น mEq หรือเปล่า", and Submit
+  asks for a reason. An alert threshold that moves no dose, so `CONSTANTS_VERSION` stays 2026-10-28.1.
+- **`CR-VITALIPID-CAP` says what the 1 mL floor does below 250 g.** It said rounding down keeps the
+  smallest infants well under the label's 4 mL/kg. Below 250 g the floor goes over it, by Pp's choice:
+  240 g gets 4.2 and 200 g 5 mL/kg/d. A 200 g case is added. No code change.
+
+### Deploying
+
+The backend change goes out as `@66`, together with #190 (the backend reads a status as the client
+does), on Pp's go-ahead. Until `@66` is live, the new frontend against `@65` behaves safely. An edit of
+a submitted, unlocked order is saved in place and then locked, with no Revision mark. A submitted
+order cannot be deleted. A row saved by this frontend carries its stop list, so `@65`'s
+`publishDailyLog` accepts it. Deploying the backend first would turn every edit made on the live
+frontend (which never locks) into a new revision, so the frontend goes first.
+
+### Tests
+
+New `test/verify-delete-order-1029.cjs` (real backend: 4 of its 16 checks failed before the change).
+`verify-backend-stops-1028.cjs` gains the old-order revision section (7 failed before).
+`verify-nutrition-meeting-1028.cjs` §4 and §5 expect no pre-lock, with an `onPublish` that refuses a row
+with no list, as the backend does; §12 checks the delete prompt (7 failed before). `CR-MG-MEQ-HABIT`'s
+cases (1 mg amber, 0.99 and a mEq-habit 0.4 critical, none when no Mg) failed before. In
+`verify-review-0911.cjs`, B4 reads the current rows, since the edit of a submitted row is now a revision,
+and B7 checks the superseded-row refusal and the whole-order delete. The line anchors of 50 rules moved
+(`--fix-lines`).
+
+## Session 2026-10-28 (14) — Vera's review of (13): held orders resave, the front keeps the lipid rate and the critical box, Vitalipid at least 1 mL
+
+Vera's first review of (13) was NO BLOCK with four 🟠 and one 🟡. Two needed Pp, and she answered the
+same day.
+
+### What changed
+
+- **An order held from Print is saved again, not just locked.** (13) let Submit only lock an unchanged
+  submitted order, and then greyed Submit out. An order saved on an older calculation, with a changed
+  dosing weight or an unconfirmed critical value, could then be neither saved nor printed: every
+  order submitted before this release. Submit now only locks an unchanged order when it could print
+  as it is. Otherwise it locks it, saves a revision on today's numbers and locks that. A locked order
+  keeps its Submit while Print holds it.
+- **The lock state resets with the patient.** `published` was set only at mount; switching infant
+  with the Calculator open carried the last order's lock over, and greyed out the next infant's Submit.
+- **The lipid pump rate and the critical-value confirmation print on the front** (Pp: "ย้ายค่าวิกฤตกับ
+  lipid rate ขึ้นหน้า 1"). Hiding the pharmacy sheet in (13) took both off paper. The Save prompt's
+  promise that the reason prints on the order holds again. Pharmacy works out the stock mL, Factor and
+  WFI from the front, as the team asked. `REFERENCE.md` § The printed order says so.
+- **Vitalipid is at least 1 mL when lipid is ordered** (Pp: "ปัดลง แต่อย่างน้อย 1 mL"). Rounded down
+  alone, 240 g got none. 490 g still gets 1 mL, about half the label's 4 mL/kg; Q19 is closed.
+
+### Sources and review
+
+- Mg: Mihatsch W et al., ESPGHAN/ESPEN/ESPR/CSPEN guidelines on pediatric parenteral nutrition:
+  calcium, phosphorus and magnesium. Clin Nutr 2018;37(6 Pt B):2360–2365, PMID 30097365, the table of
+  suggested parenteral intakes in mmol (mg)/kg/d: preterm infants in the first days of life 0.1–0.2
+  (2.5–5.0), growing premature infants 0.2–0.3 (5.0–7.5). Checked against the photograph of that table
+  the TPN team sent on 2026-09-18 (in Pp's private notes), not against the full PDF.
+- Vitalipid: the TPN team's meeting of 2026-10-28 (Pp's notes) and Pp's 1 mL floor the same day.
+- No second clinician has reviewed (13) or this change. The TPN team asked for each item; Pp chose the
+  figures.
+
+### Tests
+
+Six checks added to `test/verify-nutrition-meeting-1028.cjs`, each failing on (13) and passing here:
+an unlocked order on an older calculation is locked, revised and locked again, and then prints; a
+locked one keeps its Submit; the lipid rate and the critical box sit outside `.print-back`; the next
+infant's Submit is offered after a switch. `CR-VITALIPID-CAP` gains a 490 g and a 240 g case. The
+oracles in `verify-calc-oracle` and `-fuzz` apply the 1 mL floor. The six digests of
+`verify-review-0917-calc.cjs` were recaptured: the same figures in a new order, the lipid rate's three
+now on the front.
+
+Not added: Vera's proposed `verify-clinical-rules.cjs` change reading `prints` without `.print-back`.
+The stock mL and WFI it would look for are not meant to be on paper now, so it would fail after this
+change too; `prints` still means the rendered order, both sheets.
+
+## Session 2026-10-28 (13) — the nutrition team's meeting: Submit locks, Vitalipid rounds down, Mg in mg
+
+The nutrition and TPN team met Pp on 2026-10-28 ahead of the ward start on 16 Nov 2569. This session
+builds what had to be ready for that date. `CONSTANTS_VERSION` 2026-10-28.1.
+
+### What changed
+
+- **Submit locks the order.** "Submit แล้วไม่ให้แก้แล้ว". The backend has locked a published row since
+  2026-09-10 (an edit becomes a new revision beside it), but the button that published was behind
+  `ENABLE_PUBLISH_GATE`, which stayed off, so an edit after Submit overwrote the order in place. Now
+  the one Submit button saves and then publishes (`handleSave`). An order submitted before this
+  release is published first when it is next edited, so the edit lands as a revision too; reopened
+  unchanged, Submit only locks it. A locked order with nothing changed offers no Submit. Save draft
+  locks nothing. No backend change: `publishLog` and the revision branch are as they were.
+- **A revision says so.** The doctor's sheet prints "Revision · ฉบับที่ N" at the top right, and the
+  Dashboard chip reads "Submitted · ฉบับแก้ไข".
+- **Only the doctor's sheet prints** ("print เฉพาะแค่หน้าแรก หน้าสองเก็บไว้ก่อน"). Both shells hide
+  `.print-back` in print. It still renders, for the next phase's sticker.
+- **Vitalipid N Infant is rounded down to a whole mL** ("ทำให้ในระบบและทำจริงเหมือนกัน > ปัดลง").
+  850 g now prints 3 mL (was 3.4). The lipid bag total, its pump rate and the prescribed fluid move
+  with it. Below 250 g a lipid order gets 0 mL: Q19 in the clinical-rules skill.
+- **Mg is typed in elemental mg/kg/d** (Pp chose mg entry and ESPGHAN's mg figures). Chips 2.5 / 5 /
+  7.5; the tile and the printed Normal Requirement are 2.5–5 (DOL 1–7) and 5–7.5 mg/kg/day; the
+  form prints mg with its mEq in brackets. The stored dose stays mEq (`calcInput.mgPerKg` = mg ÷
+  12.1525, to 10 decimals so that 4.861 mg is 0.4 mEq and not 0.4000000000000001, which would mark a
+  retyped order as edited), so saved orders, their MgSO₄ mL and Center Point's packet are unchanged.
+  An order of 0.2 mEq (2.43 mg) now reads just under the first-days band. The Step 4 tile, the
+  changes-since-last-order line, the back sheet and the quick calc's copied text read mg too; the
+  copied text used to print the stored mEq raw, which after the division showed a float tail.
+- **PED AMINE** is named beside 10% Aminoven infant on both sheets (both 10 %, Pp). No volume moves.
+
+### Tests
+
+New `test/verify-nutrition-meeting-1028.cjs` (24 of its first 31 checks failed before the change). The
+clinical-rules skill's `CR-VITALIPID-CAP`, `CR-TGT-MG`, `CR-U-SALTS` and the two stock-rounding cases
+that type Mg (now 4.861 mg, the old 0.4 mEq) changed with the code. `tools/reference-tabs.json` holds
+Mg in mg/kg/d.
+
+Twelve existing harnesses typed Mg in mEq or expected the old Vitalipid, label or Mg band. Each now
+types the same dose in mg (× 12.1525), so its other figures did not move, and the three oracles
+(`verify-calc-oracle`, `-sum`, `-fuzz`) round Vitalipid down and grade Mg in mg. The six printed-figure
+digests of `verify-review-0917-calc.cjs` were recaptured after a figure-by-figure diff with `main`:
+only the amino-acid label, Vitalipid, the lipid bag total and rate, and the Mg lines moved (the
+comment above `ORDERS` lists each). `verify-center-point-print-parity.cjs` excuses the Mg-in-mg
+figures, and only those, until Center Point's form is synced; the mEq and mL on those lines are
+still checked.
+
+### Not done here
+
+The meeting's other items and the gaps found in the 2026-09-28 list are in `BACKLOG.md` § Now.
+Center Point's own form still prints Mg in mEq first and the old amino-acid label.
+
 ## Session 2026-10-28 (14) — Step 2 stops showing a developer comment
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `tools/ci_bans.js`,

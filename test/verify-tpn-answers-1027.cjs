@@ -158,7 +158,7 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     eq('VLBW 1200 g, DOL 6: 140–160', D.TARGETS.fluid(6, 1200), [140, 160]);
     eq('below birth weight the tier holds at birth weight: 1100 g now, born 1600 g, DOL 5',
       D.TARGETS.fluid(5, 1100, 1600), [140, 160]);
-    for (const [dol, ca, p, mg] of [[7, [32, 80], [31, 62], [0.2, 0.4]], [8, [64, 140], [50, 108], [0.4, 0.6]]]) {
+    for (const [dol, ca, p, mg] of [[7, [32, 80], [31, 62], [2.5, 5]], [8, [64, 140], [50, 108], [5, 7.5]]]) {
       eq(`DOL ${dol}: Ca, P, Mg`, [D.TPN_TARGETS.ca(dol), D.TPN_TARGETS.p(dol), D.TPN_TARGETS.mg(dol)], [ca, p, mg]);
     }
   });
@@ -263,7 +263,8 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     setField('Current weight', 7500); fillRequired(160);
     setField('Volume(mL/day)', 1240); setField('ปริมาตรคาสาย (dead space)', 30);
     setField('Dextrose final', 10); setField('Amino acid', 2.5); setField('20% NaCl', 3); setField('KCl', 2);
-    setField('MgSO₄', 0.4); setField('10% Ca gluconate', 60); setField('Glycophos', 2);
+    setField('MgSO₄', 4.861);   // 0.4 mEq, typed in mg since 2026-10-28
+    setField('10% Ca gluconate', 60); setField('Glycophos', 2);
     const a = alertNamed('Bag larger than the largest bottle');
     eq('1,270 mL to prepare: a critical alert', a && a.level, 'crit');
     ok('…naming the 1,250 mL bottle', !!a && /1250 mL/.test(a.text), a && a.text);

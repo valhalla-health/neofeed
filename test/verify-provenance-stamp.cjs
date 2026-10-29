@@ -124,13 +124,15 @@ vm.runInContext(R('gas-backend.gs'), sandbox);
 // the real _patientExists against a real registry stub.
 sandbox._patientExists = () => true;
 
+// 2026-10-28.1, the backend's MIN_SUBMIT_CONSTANTS_VERSION: since 2026-10-29 a
+// submitted save on an older calculation is refused as a stale tab (Pp).
 const ENTRY = {
   dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90,
   na: 3, k: 2, ca: 60, p: 40, enVolPerKg: 20,
   ioInput: 180, ioOutput: 120, drainContent: 0,
   route: 'TPN central', status: 'submitted',
   calcInput: { stops: [] }, // calcInput.stops: what the app sends with every save since 2026-10-28 (none hold here).
-  constantsVersion: '2026-08-26.1', appVersion: 'test-app-version',
+  constantsVersion: '2026-10-28.1', appVersion: 'test-app-version',
 };
 
 console.log('\n── create path: logDailyNutrition ──');
@@ -138,7 +140,7 @@ sheet = makeSheet(40);
 sandbox.logDailyNutrition('AB-1200', ENTRY, 'doc@kcmh');
 const created = sheet.appended[0] || [];
 eq('row is 38 columns wide',                    created.length, ROW_WIDTH);
-eq('constantsVersion lands in AF (index 31)',   created[COL_CONSTANTS_VERSION], '2026-08-26.1');
+eq('constantsVersion lands in AF (index 31)',   created[COL_CONSTANTS_VERSION], '2026-10-28.1');
 eq('appVersion lands in AG (index 32)',         created[COL_APP_VERSION], 'test-app-version');
 
 console.log('\n── the existing columns did not move ──');
@@ -156,11 +158,14 @@ console.log('\n── update path: updateDailyNutrition ──');
 const existing = new Array(ROW_WIDTH).fill('');
 existing[1] = 'AB-1200'; existing[15] = 'orig@kcmh';
 existing[25] = 'uuid-1'; existing[26] = 'stamp-1'; existing[27] = 'orig@kcmh';
+// A draft, so the edit overwrites in place: since 2026-10-29 a row stored as
+// submitted (a blank status reads as one) is revised instead (Pp).
+existing[14] = 'draft';
 sheet = makeSheet(40, [existing]);
 sandbox.updateDailyNutrition('AB-1200', 'uuid-1', 'stamp-1', ENTRY, 'editor@kcmh');
 const updated = (sheet.writes[0] && sheet.writes[0].values[0]) || [];
 eq('update writes 38 columns',                  sheet.writes[0] && sheet.writes[0].numCols, ROW_WIDTH);
-eq('constantsVersion lands in AF on update',    updated[COL_CONSTANTS_VERSION], '2026-08-26.1');
+eq('constantsVersion lands in AF on update',    updated[COL_CONSTANTS_VERSION], '2026-10-28.1');
 eq('appVersion lands in AG on update',          updated[COL_APP_VERSION], 'test-app-version');
 eq('original submittedBy still preserved',      updated[15], 'orig@kcmh');
 eq('editor recorded as lastModifiedBy',         updated[27], 'editor@kcmh');

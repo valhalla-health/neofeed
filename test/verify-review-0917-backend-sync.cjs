@@ -282,7 +282,9 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   T.ok('after 300 s it reads the sheet again', expired);
 
   const post = (body, tok) => g.post(Object.assign({ token: tok || g.dt }, body));
-  const created = post({ action: 'logDailyNutrition', sessionId: 'AA-1', entry: E({ ts: TODAY }) });
+  // A draft, so the update below is in place: since 2026-10-29 a row stored as
+  // submitted is revised even when unpublished (Pp).
+  const created = post({ action: 'logDailyNutrition', sessionId: 'AA-1', entry: E({ ts: TODAY, status: 'draft' }) });
   T.ok('create ok', !!created.entryId, created); matches('after create');
   const upd = post({ action: 'updateDailyNutrition', sessionId: 'AA-1', entryId: created.entryId, expectedLastModified: created.lastModified, entry: E({ ts: TODAY, pro: 3.4 }) });
   T.ok('draft update ok', upd.ok, upd); matches('after draft update');

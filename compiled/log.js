@@ -407,7 +407,8 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
   const handleDelete = (e, entry) => {
     e.stopPropagation();
     const label = `DOL ${D_L.entryDol(patient, entry)} (${window.NEOFEED_FMT_DATE?.(entry.ts) || entry.ts})`;
-    if (!window.confirm(`ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+    const ask = D_L.isDraftEntry(entry) ? `ลบบันทึก ${label} ใช่หรือไม่? การลบนี้ไม่สามารถย้อนกลับได้` : `ลบคำสั่ง ${label} ใช่หรือไม่? คำสั่งนี้ Submit แล้ว จะลบทุกฉบับของคำสั่งนี้ รวมฉบับแก้ไขก่อนหน้า ถ้าเภสัชได้ใบสั่งไปแล้ว ต้องแจ้งเภสัชเอง การลบนี้ไม่สามารถย้อนกลับได้`;
+    if (!window.confirm(ask)) return;
     onDeleteEntry(entry);
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Daily nutritional log")), onAddToday && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: () => setShowDateModal(true) }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 14, color: "#fff" }), " New log"))), showDateModal && /* @__PURE__ */ React.createElement(
@@ -474,7 +475,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
           /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.na, 1), " / ", n(e.k, 1)),
           /* @__PURE__ */ React.createElement("td", { className: "num" }, n(e.ca, 0), " / ", n(e.p, 0)),
           /* @__PURE__ */ React.createElement("td", { style: { color: "var(--ink-2)" } }, e.route),
-          /* @__PURE__ */ React.createElement("td", null, pending ? /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "กำลังบันทึก…") : /* @__PURE__ */ React.createElement("span", { className: `chip${D_L.isDraftEntry(e) ? " warn" : " ok"}` }, /* @__PURE__ */ React.createElement("span", { className: "d" }), D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit" : "Submitted")),
+          /* @__PURE__ */ React.createElement("td", null, pending ? /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), "กำลังบันทึก…") : /* @__PURE__ */ React.createElement("span", { className: `chip${D_L.isDraftEntry(e) ? " warn" : " ok"}` }, /* @__PURE__ */ React.createElement("span", { className: "d" }), D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit" : Number(e.revisionNumber) > 1 ? "Submitted · ฉบับแก้ไข" : "Submitted")),
           onDeleteEntry && /* @__PURE__ */ React.createElement("td", { onClick: (e2) => e2.stopPropagation() }, e.entryId && !pending && /* @__PURE__ */ React.createElement("button", { className: "icon-btn", title: "ลบบันทึกนี้", onClick: (ev) => handleDelete(ev, e) }, /* @__PURE__ */ React.createElement(Icon, { name: "trash", size: 14, color: "var(--crit)" })))
         );
       });

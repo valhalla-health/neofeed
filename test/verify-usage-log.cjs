@@ -173,8 +173,12 @@ T.section('§3 Not a completed calculation, and a request fired twice', () => {
   T.eq('the same promotion fired twice: the second finds it submitted, no second row', [again.ok, usage(g).length], [true, 1]);
   const stale = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: d2.lastModified }, { status: 'submitted' }));
   T.eq('a stale retry is a conflict and writes nothing', [stale.conflict, usage(g).length], [true, 1]);
-  const edit = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: again.lastModified }, { status: 'submitted', fluid: 160 }));
+  // Since 2026-10-29 the second promotion found the row submitted and appended
+  // a revision (Pp: a submitted order is revised, never overwritten), so the
+  // edit goes to that revision. Still the same calculation: no usage row.
+  const edit = step(() => g.update('NF-100001', { entryId: again.entryId || d.entryId, lastModified: again.lastModified }, { status: 'submitted', fluid: 160 }));
   T.eq('an edit of a submitted order is the same calculation: no row', [edit.ok, usage(g).length], [true, 1]);
+  T.ok('…each edit of a submitted order was a revision', again.revised === true && edit.revised === true, { again, edit });
 
   const c = g.save('NF-100002');
   T.eq('a new order saved as submitted: one row', [!!c.entryId, usage(g).length], [true, 2]);

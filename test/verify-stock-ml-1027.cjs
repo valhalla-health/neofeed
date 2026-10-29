@@ -144,7 +144,7 @@ function order700(box, zn, k2 = 0.5) {
   setField('Current weight', 700); fillRequired(150);
   setField('Volume(mL/day)', 70); setField('ปริมาตรคาสาย (dead space)', 0);
   setField('Dextrose final', 10); setField('Amino acid', 2.5);
-  setField('KCl', 1); setField('K₂HPO₄', k2); setField('MgSO₄', 0.4);
+  setField('KCl', 1); setField('K₂HPO₄', k2); setField('MgSO₄', 4.861);   // 0.4 mEq, typed in mg since 2026-10-28
   setField('10% Ca gluconate', 40); setField('Glycophos', 1);
   setField('ZnSO₄', zn); setField('Heparin', 0.5);
 }
@@ -157,7 +157,7 @@ function order700(box, zn, k2 = 0.5) {
       eq(`roundMl(${v})`, roundMl(v), want);
     }
     ok('…where toFixed(1) read 0.35 as 0.3', (0.35).toFixed(1) === '0.3');
-    eq('CONSTANTS_VERSION', window.NEOFEED_DATA.CONSTANTS_VERSION, '2026-10-27.2');
+    eq('CONSTANTS_VERSION (2026-10-27.2 here; moved on by the 2026-10-28 meeting change)', window.NEOFEED_DATA.CONSTANTS_VERSION, '2026-10-28.1');
     const D = window.NEOFEED_DATA;
     eq('displayNum(1.5 × 0.7, 1): the float tie 1.0499999999999998 is 1.1', D.displayNum(1.5 * 0.7, 1), '1.1');
     eq('displayNum(1.005, 2)', D.displayNum(1.005, 2), '1.01');

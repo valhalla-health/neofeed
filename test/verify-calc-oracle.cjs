@@ -176,7 +176,8 @@ function expected(sc) {
   e.aaDel = sc.aa * W; e.aaBag = sc.aa * F; e.aaMl = rMl(e.aaBag / STOCK.aa);
   // lipid
   e.lipG = sc.lip * W; e.smof = rMl(e.lipG / STOCK.smof);
-  e.vitalipid = sc.lip > 0 ? Math.min(4 * W, 10) : 0;
+  // Vitalipid rounded down to a whole mL, at least 1, since 2026-10-28 (CR-VITALIPID-CAP).
+  e.vitalipid = sc.lip > 0 ? Math.max(1, Math.floor(Math.min(4 * W, 10) + 1e-9)) : 0;
   e.lipBag = e.lipG / STOCK.smof + e.vitalipid;
   e.lipRate = e.lipBag / sc.lipH;
   e.lipGkgh = sc.lip / sc.lipH;
@@ -294,7 +295,7 @@ function expectedAlerts(sc, e) {
     k: en ? [2.3, 4.6] : (d <= 3 ? [0, 3] : d <= 5 ? [2, 3] : d <= 7 ? [1, 3] : (vlbw ? [2, 5] : [2, 3])),
     ca: en ? [120, 200] : (d <= 7 ? [32, 80] : [64, 140]),
     p: en ? [70, 115] : (d <= 7 ? [31, 62] : [50, 108]),
-    mg: d <= 7 ? [0.2, 0.4] : [0.4, 0.6],
+    mg: d <= 7 ? [2.5, 5] : [5, 7.5],   // elemental mg/kg/d since 2026-10-28 (was 0.2-0.4 / 0.4-0.6 mEq)
   };
   const st = (v, [lo, hi], hard = {}) => v === 0 ? 'empty' : !isFinite(v) ? (v > 0 ? 'crit' : 'empty')
     : ((hard.hi != null && v > hard.hi) || (hard.lo != null && v < hard.lo)) ? 'crit' : (v < lo || v > hi) ? 'warn' : 'ok';
@@ -324,7 +325,8 @@ function expectedAlerts(sc, e) {
   if (st(e.lipG / e.W, T.lip, { hi: 4.0 }) === 'crit') add('crit', 'Lipid critically out of range'); else tile(st(e.lipKg, T.lip), 'Lipid');
   tile(st(e.naTot, T.na), 'Sodium');
   if (st(e.kKg, T.k, { hi: 5.0 }) === 'crit') add('crit', 'Potassium critically out of range'); else tile(st(e.kTot, T.k), 'Potassium');
-  tile(st(sc.mg, T.mg), 'Magnesium');
+  // Graded on the dose in mg to 2 decimals, the figure the tile shows (2026-10-28).
+  tile(st(Math.round(sc.mg * 12.1525 * 100 + 1e-9) / 100, T.mg), 'Magnesium');
   const oral = sc.oCa > 0 || sc.oP > 0;
   if (oral) { tile(st(e.totCa, T.ca), 'Calcium (total incl. oral)'); tile(st(e.totP, T.p), 'Phosphate (total incl. oral)'); }
   else { tile(st(e.caKg, T.ca), 'Calcium'); tile(st(e.pKg, T.p), 'Phosphorus'); }
@@ -544,7 +546,7 @@ function fillForm(sc, e, scratch) {
   setField('Glycophos', sc.glyNa);
   setField('KCl', sc.kCl);
   setField('K₂HPO₄', sc.k2);
-  setField('MgSO₄', sc.mg);
+  setField('MgSO₄', sc.mg * 12.1525);   // typed in mg since 2026-10-28; sc.mg stays mEq
   setField('10% Ca gluconate', sc.ca);
   // Step 5
   setCheck('Soluvit N', sc.soluvit);
@@ -642,7 +644,7 @@ async function run(scIn) {
   near(sc, 'tile Sodium', tileVal('Sodium'), e.naTot, 1);
   near(sc, 'tile Potassium', tileVal('Potassium'), e.kTot, 1);
   near(sc, 'tile K+ in bag mEq/L', tileVal('K⁺ in bag'), e.kPerL, 0);
-  near(sc, 'tile Magnesium', tileVal('Magnesium'), sc.mg, 2);
+  near(sc, 'tile Magnesium', tileVal('Magnesium'), sc.mg * 12.1525, 2);   // mg/kg/d since 2026-10-28
   near(sc, 'tile Calcium', tileVal('Calcium'), e.caKg, 0);
   near(sc, 'tile Phosphorus', tileVal('Phosphorus'), e.pKg, 0);
   near(sc, 'tile Ca:P', tileVal('Ca:P ratio'), e.caP, 2);
@@ -727,7 +729,7 @@ async function run(scIn) {
       near(sc, 'print Factor', g(rx('Factor: ?#')), e.F, 3);
       near(sc, 'print D50W mL', g(rx('# mL \\(D50W\\)')), e.d50, 1);
       near(sc, 'print dextrose g/kg/d', g(rx('g\\. \\(ในถุง\\) = # g/kg/d')), e.dexGkg, 2);
-      near(sc, 'print AA mL', g(rx('infant \\(0-1 yr\\.\\).*?= [\\d.—]+ g/kg/d = # mL')), e.aaMl, 1);
+      near(sc, 'print AA mL', g(rx('PED AMINE \\(0-1 yr\\.\\).*?= [\\d.—]+ g/kg/d = # mL')), e.aaMl, 1);
       near(sc, 'print WFI mL', g(/WFI (-?[\d.]+) mL/), e.wfi, 1);
       near(sc, 'print Components mL', g(rx('Components # mL')), e.components, 1);
       near(sc, 'print K+ in bag mEq/L', g(rx('K⁺ in bag # mEq/L')), e.kPerL, 0);
@@ -745,7 +747,7 @@ async function run(scIn) {
       if (sc.glyNa > 0) near(sc, 'print Glycophos mL (bag)', g(rx('P = 31 mg/mL\\)[\\d.]+ mLNa [\\d.—]+ mEq · P [\\d.—]+ mg# mL')), e.glyMl, 1);
       if (sc.kCl > 0) near(sc, 'print KCl mL', g(rx('KCl \\(2 mEq/mL\\)[\\d.]+ mEq[\\d.—]+ mEq = # mL')), e.kClMl, 1);
       if (sc.k2 > 0) near(sc, 'print K2HPO4 mL', g(rx('P 15\\.5 mg/mL\\)K [\\d.]+ mEqP [\\d.—]+ mg[\\d.—]+ mEq = # mL')), e.k2Ml, 2);
-      if (sc.mg > 0) near(sc, 'print MgSO4 mL', g(rx('mEq = # mL \\((?:10|50)%\\)')), e.mgMl, 2);
+      if (sc.mg > 0) near(sc, 'print MgSO4 mL', g(rx('mEq\\) = # mL \\(10%\\)')), e.mgMl, 2);
       if (sc.ca > 0) near(sc, 'print Ca gluconate mL', g(rx('Ca Gluconate[\\d.]+ mg[\\d.—]+ mg = # mL')), e.caMl, 1);
       if (sc.lip > 0) {
         near(sc, 'print SMOF mL', g(rx('20% SMOF = [\\d.]+ g/kg/d = # mL')), e.smof, 1);

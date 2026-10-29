@@ -440,7 +440,7 @@ async function fill(sc, scratch = false) {
   setField('Glycophos', sc.glyNa);
   setField('KCl', sc.kCl);
   setField('K₂HPO₄', sc.k2);
-  setField('MgSO₄', sc.mg);
+  setField('MgSO₄', sc.mg * 12.1525);   // typed in mg since 2026-10-28; sc.mg stays mEq
   setField('10% Ca gluconate', sc.ca);
   setCheck('Soluvit N', sc.soluvit);
   setCheck('Peditrace', sc.pedi);

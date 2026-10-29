@@ -1877,6 +1877,31 @@ page where it was, and the archived row's chip is not covered. 14 checks; agains
 fails at all three phones (9 failures: the Calculator button over the chip, the bottom nav over Edit, and
 the tap opening the quick calc).
 
+## The nutrition team's meeting, 2026-10-28 — one harness added, twelve adjusted
+
+Submit locks, Vitalipid rounded down, Mg typed in mg, the doctor's sheet only (`CHANGELOG.md`
+2026-10-28 (13)). **`verify-nutrition-meeting-1028.cjs`** (jsdom; it also runs against `compiled/`)
+mounts the Calculator with fake `onLog` / `onUpdate` / `onPublish` and records the calls in order. § 1:
+Submit saves, then publishes that row. § 2: Save draft publishes nothing. § 3: an edit of a published
+order goes to the server and the revision it returns is published. § 4: an order submitted before the
+lock is published first, then edited; a conflict on that first publish sends no edit; a draft is
+saved in place, then published. § 5: an unchanged unpublished order is only published; a published
+unchanged one offers no Submit. § 6: a revision prints "Revision · ฉบับที่ 2" at the top right of the
+front sheet, above the patient table and outside `.print-back`. § 7: the Dashboard chip reads
+"Submitted · ฉบับแก้ไข". § 8: both shells hide `.print-back` in print, and the provenance footer stays
+outside it. § 9: the Mg row takes mg/kg/d, chips 2.5 / 5 / 7.5, stores mEq to 10 decimals, prints mg
+with mEq beside it and the Normal Requirement in mg/kg/day. § 10: the amino-acid line names PED AMINE.
+§ 5 also: an unlocked order on an older calculation is locked, revised and locked again, then prints;
+a locked one keeps its Submit. § 8 also: the lipid pump rate and the critical-value box print on the
+front. § 11: switching infant clears the last order's lock. Vitalipid's rounding (down, at least
+1 mL) is in the clinical-rules skill's cases. Against `main` (`ee25e86`) 24 of its first 31 checks
+fail; the six added after Vera's review fail on the first commit of the PR.
+
+The twelve that typed Mg in mEq (`verify-calc-clicks`, `-fuzz`, `-oracle`, `-sum`,
+`verify-center-point-print-parity`, `verify-kcmh-factor`, `verify-review-0917-calc`,
+`verify-stock-ml-1027`, `verify-tpn-answers-1027`, `verify-tpn-team-0922`, `verify-ward-requests-0918`)
+type the same dose × 12.1525 or read the new label and band; `verify-status-zones` needed nothing once the
+tile read mg.
 ## A negative WFI cannot be ordered, 2026-10-28 — one harness
 
 Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ให้ ไม่สามารถสั่งได้" (`CHANGELOG.md`
@@ -1903,6 +1928,21 @@ patient's order has no Copy Order button, so § 2 and § 5 check that it is abse
 `verify-clinical-rules.cjs` checks that `calculator.jsx`'s `submitStops` names every `stop` rule, and only
 those, and each blocked stop case keeps a draft whose `calcInput.stops` names its rule (623 checks). Eleven backend harnesses whose fixtures sent submitted rows with no list, the contract before this
 change, now send `stops: []`.
+
+## Vera's second review of the meeting branch, 2026-10-29 — one new harness, three adjusted
+
+Old submitted orders are revised, an admin can delete a submitted order, and Mg below 1 mg/kg/d asks
+(`CHANGELOG.md` 2026-10-29 (1)). **`verify-delete-order-1029.cjs`** (real `gas-backend.gs` in
+`gas-vm-sandbox.cjs`): an admin deletes a published order and Audit_Log has a row before and after; three
+revisions of one order go together, the other infant's row stays, and the date takes a new order; a
+superseded revision alone, a doctor, and the wrong patient's id are refused; a draft deletes as before.
+16 checks; 4 fail on `4a49e9b`. `verify-backend-stops-1028.cjs` gains a section: a submitted, unpublished
+row with no stop list, and one with a blank status, are revised (the old row superseded and unchanged, the
+revision publishable), and a draft is saved in place (34 checks; 7 fail on `4a49e9b`).
+`verify-nutrition-meeting-1028.cjs` § 4 and § 5 now expect the edit of an unlocked submitted order to go
+straight to `onUpdate`, also when `onPublish` refuses that row for its missing list; § 12 checks the delete
+prompt on a submitted order. `verify-review-0911.cjs` B4 reads the current rows and B7 checks the whole-order
+delete. `CR-MG-MEQ-HABIT` and a 200 g `CR-VITALIPID-CAP` case run in `verify-clinical-rules.cjs`.
 
 ## Step 2's developer comment, 2026-10-28 — one harness extended, one ci_bans rule
 

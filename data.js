@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-10-27.2";
+const CONSTANTS_VERSION = "2026-10-28.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -73,6 +73,11 @@ function appVersion() {
 // minutes, so a UI-visible behaviour change like this ships dark first and is
 // flipped on deliberately once the backend has been exercised against a real
 // login, not just the harnesses in test/.
+//
+// Since 2026-10-28 the lock does not wait for this flag: the one Submit button
+// (Save draft beside it) saves and then locks the row (calculator.jsx
+// handleSave; TPN team, "Submit แล้วไม่ให้แก้แล้ว"). The flag now governs only
+// the older second Submit step and its watermark, and stays off.
 const ENABLE_PUBLISH_GATE = false;
 
 // ── Sync freshness — the staleness banner's decision ────────
@@ -576,12 +581,13 @@ const TPN_TARGETS = {
     return [50, 108];                          // Growing: 1.6–3.5 mmol×31 = 50–108 mg/kg
   },
 
-  // Magnesium mEq/kg/day — Mihatsch 2018 (ESPGHAN 2018)
-  // Mg²⁺ valence 2 → 1 mmol = 2 mEq
-  // First days: 0.1–0.2 mmol/kg = 0.2–0.4 mEq/kg · Growing: 0.2–0.3 mmol = 0.4–0.6 mEq/kg
+  // Magnesium, elemental mg/kg/day — Mihatsch 2018 (ESPGHAN 2018), the mg column:
+  // first days 0.1–0.2 mmol/kg = 2.5–5 mg/kg · growing 0.2–0.3 mmol = 5–7.5 mg/kg.
+  // In mg since 2026-10-28 (TPN team; Pp chose the guideline's round mg figures
+  // over the exact 2.43 mg per 0.1 mmol). It was 0.2–0.4 / 0.4–0.6 mEq/kg.
   mg: (dol) => {
-    if (!dol || dol <= FIRST_DAYS_LAST_DOL) return [0.2, 0.4];  // 0.1–0.2 mmol×2
-    return [0.4, 0.6];                          // Growing: 0.2–0.3 mmol×2
+    if (!dol || dol <= FIRST_DAYS_LAST_DOL) return [2.5, 5];
+    return [5, 7.5];
   },
 
   // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 → mass 1.0–1.7 (×40/31=1.29)
@@ -708,9 +714,8 @@ const TARGETS = {
     return TPN_TARGETS.p(dol);
   },
 
-  // Magnesium mEq/kg/day — Mihatsch 2018 (ESPGHAN 2018), TPN_TARGETS.mg
-  // First days (DOL 1–7): 0.1–0.2 mmol/kg = 0.2–0.4 mEq/kg (Mg²⁺ valence 2)
-  // Growing preterm: 0.2–0.3 mmol/kg = 0.4–0.6 mEq/kg — matches the Mg chips
+  // Magnesium, elemental mg/kg/day — TPN_TARGETS.mg: DOL 1–7 2.5–5, then 5–7.5,
+  // the bounds the Mg chips sit on
   mg: (dol) => TPN_TARGETS.mg(dol),
 
   // Ca:P mass ratio — order form: Ca:P ~1.7:1 target
@@ -744,7 +749,8 @@ const KCMH_STOCK = {
   // Amino acid — `label` is what the pharmacy form prints, `short` what the
   // screen and the copied order say. Which one a patient may be ordered is
   // aaProductsFor() below, not this table.
-  aminoven10:  { label: "10% Aminoven infant",   short: "Aminoven 10%",     gPerMl: 0.10 },
+  // PED AMINE is 10 % too, so the same mL (Pp, 2026-10-28); the form names both.
+  aminoven10:  { label: "10% Aminoven infant / PED AMINE", short: "Aminoven 10%", gPerMl: 0.10 },
   // B. Braun Aminoplasmal 15%: 150 g amino acids/L (UK SmPC; Na 5.3 mmol/L,
   // theoretical osmolarity 1290 mOsm/L — neither modelled, as for Aminoven).
   // Its label contraindicates it in newborn infants, infants and toddlers
@@ -830,11 +836,14 @@ const MAX_ZN_MG_DAY = 5;
 // Alert thresholds: they move no dose, so CONSTANTS_VERSION stays.
 const TPN_WT_RANGE_G = [200, 8000];
 const TPN_WT_MANUAL_MAX_DIFF = 0.2;
-// Display-only conversion, not a compounding divisor (KCMH_STOCK.mgso4_10 stays
-// the mL authority): elemental Mg, MW 24.305 g/mol ÷ valence 2 = mg per mEq.
-// Lets the Mg input (dosed in mEq/kg/d, matching the stock's mEq/mL) also show
-// mg/kg/d for staff cross-checking against a mg-based reference.
+// Elemental Mg, MW 24.305 g/mol ÷ valence 2 = mg per mEq. Since 2026-10-28 the
+// Mg box takes mg/kg/d and divides by this to store mEq (calcInput.mgPerKg);
+// KCMH_STOCK.mgso4_10's mEq/mL stays the mL authority.
 const MG_MG_PER_MEQ = 12.1525;
+// A Mg dose above 0 and below this many mg/kg/d is critical: typed from mEq
+// habit, it is a twelfth of the dose meant (Pp, 2026-10-29). An alert
+// threshold: it moves no dose, so CONSTANTS_VERSION stays.
+const MG_MEQ_HABIT_MG = 1;
 // Ceiling of minimal enteral / trophic feeding, mL/kg/day — the "MEF (trophic)
 // 12–24 mL/kg/day" step of the app's own Feeding Advancement card. A feed
 // ticked MEN counts toward neither fluid nor nutrition, and orders prefill
@@ -2724,7 +2733,7 @@ window.NEOFEED_DATA = {
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MEN_MAX_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,

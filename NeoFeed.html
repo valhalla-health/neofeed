@@ -2123,6 +2123,10 @@
 
     /* Show the print form */
     #print-form { display: block !important; }
+    /* The doctor's sheet only, for now (TPN team, 2026-10-28: "print เฉพาะแค่หน้าแรก
+       หน้าสองเก็บไว้ก่อน"). The pharmacy sheet still renders, for a later
+       phase that prints it for a sticker. */
+    .print-back { display: none !important; }
 
     @page { size: A4 portrait; margin: 8mm 10mm; }
   }
@@ -2142,13 +2146,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=2c13c3d62e"></script>
+  <script src="data.js?v=e3c60deab0"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=f3de76ca7f"></script>
+  <script src="compiled/calculator.js?v=62d673b133"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
   <script src="compiled/registry.js?v=81cd6e79ff"></script>
-  <script src="compiled/log.js?v=cc9533c31e"></script>
-  <script src="compiled/app.js?v=52331d3374"></script>
+  <script src="compiled/log.js?v=eae0757598"></script>
+  <script src="compiled/app.js?v=c86bc0d185"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only
