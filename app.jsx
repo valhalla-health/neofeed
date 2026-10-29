@@ -1616,6 +1616,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const end = beginWrite();
     return gasPost(payload, opts).then(res => { end(res); return res; });
   };
+  // NF-02's weekly counts for the Admin page: a read, so not a writeGAS, and
+  // quiet, because the card shows its own state (UsageCard).
+  const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
 
   // While an earlier write's result is unknown, a new write may be that same
   // order or registration a second time — refuse it, and make sure the sync
@@ -2480,7 +2483,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}
           {view === "admin" && role === "admin" && <AdminDashboard patients={patients} log={log} lastSync={lastSync}
-            signInTiming={signInTiming}
+            signInTiming={signInTiming} loadUsage={GAS_ON ? loadUsage : null}
             includeArchived={includeArchived}
             onToggleArchived={() => {
               includeArchivedRef.current = !includeArchived;
@@ -3817,9 +3820,133 @@ function CensusWard({ w }) {
 }
 
 // ============================================================
+// Usage per ward per week (NF-02; Pp, 2026-10-28)
+// ============================================================
+// Completed calculations per week, ward by ward, as gas-backend.gs counts them
+// in Usage_Log: a TPN/EN order counts once, when it is first submitted. A ward
+// whose bars fall has gone back to paper. The reply (getUsageWeekly, admin
+// only) is counts and week labels, nothing about an infant or a staff member.
+// One scale for every ward, so the wards can be compared; types are stacked,
+// TPN at the bottom. A week with no order is an empty column, never a gap.
+const USAGE_WEEKS_SHOWN = 12;   // gas-backend.gs USAGE_ADMIN_WEEKS
+const USAGE_TYPE_STYLE = [
+  { type: "TPN",   label: "TPN",   color: "var(--brand)" },
+  { type: "EN",    label: "EN",    color: "var(--brand-3)" },
+  { type: "NPO",   label: "NPO",   color: "var(--ink-4)" },
+  { type: "other", label: "อื่นๆ", color: "var(--sand)" },
+];
+function usageDay(weekStart) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(weekStart || ""));
+  return m ? `${Number(m[3])} ${THAI_MONTHS_SHORT[Number(m[2]) - 1]}` : String(weekStart || "");
+}
+function UsageChart({ weeks }) {
+  const cellOf = (w, ward) => (w && w.byWard && w.byWard[ward]) || {};
+  const n = (c, k) => Number(c[k]) || 0;
+  // อื่นๆ only once it has an order, the census's rule; the legend lists the
+  // types that occur (TPN always).
+  const wards = CENSUS_WARDS.filter(({ ward }) => ward !== "other" || weeks.some(w => n(cellOf(w, "other"), "total") > 0));
+  const types = USAGE_TYPE_STYLE.filter(t => t.type === "TPN" ||
+    weeks.some(w => wards.some(({ ward }) => n(cellOf(w, ward), t.type) > 0)));
+  const max = Math.max(1, ...weeks.flatMap(w => wards.map(({ ward }) => n(cellOf(w, ward), "total"))));
+  const last = weeks[weeks.length - 1];
+  return (
+    <>
+      <div className="census-grid">
+        {wards.map(({ ward, label }) => {
+          const sum = weeks.reduce((s, w) => s + n(cellOf(w, ward), "total"), 0);
+          return (
+            <div key={ward} className="census-ward usage-ward" data-ward={ward}>
+              <div className="census-ward-h">
+                <span className="census-ward-name">{label}</span>
+                <span className="census-beds">สัปดาห์นี้ <span className="num">{n(cellOf(last, ward), "total")}</span> · รวม <span className="num">{sum}</span></span>
+              </div>
+              <div className="usage-bars" role="img"
+                aria-label={`${label} คำสั่งต่อสัปดาห์: ${weeks.map(w => `${usageDay(w.weekStart)} ${n(cellOf(w, ward), "total")}`).join(", ")}`}
+                style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 64, margin: "10px 0 4px", borderBottom: "1px solid var(--line)" }}>
+                {weeks.map(w => {
+                  const c = cellOf(w, ward);
+                  return (
+                    <div key={w.week} className="usage-col" data-week={w.week} data-total={n(c, "total")}
+                      title={`สัปดาห์ ${usageDay(w.weekStart)}: ${types.map(t => `${t.label} ${n(c, t.type)}`).join(" · ")}`}
+                      style={{ flex: "1 1 0", minWidth: 0, height: "100%", display: "flex", flexDirection: "column-reverse" }}>
+                      {types.filter(t => n(c, t.type) > 0).map(t =>
+                        <span key={t.type} data-type={t.type}
+                          style={{ display: "block", height: `${n(c, t.type) / max * 100}%`, background: t.color }} />)}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="usage-axis" style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--ink-3)" }}>
+                <span>{usageDay(weeks[0].weekStart)}</span><span>{usageDay(last.weekStart)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="census-note usage-legend" style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+        {types.map(t => (
+          <span key={t.type}><span aria-hidden="true" style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2,
+            background: t.color, marginRight: 5, verticalAlign: "-1px" }} />{t.label}</span>
+        ))}
+      </div>
+    </>
+  );
+}
+// Asks once each time the page opens (a sync re-renders it and does not ask
+// again). A backend from before this action answers "Unknown action": that,
+// and no completed calculation yet, read ยังไม่มีข้อมูล. `load` is quiet, so
+// no reply here ever raises a toast.
+function UsageCard({ load }) {
+  const [state, setState] = React.useState({ status: "loading" });
+  const loadRef = React.useRef(load);
+  loadRef.current = load;
+  const alive = React.useRef(false);
+  const fetchUsage = React.useCallback(() => {
+    setState({ status: "loading" });
+    Promise.resolve().then(() => loadRef.current()).then((res) => {
+      if (!alive.current) return;
+      if (res && res.ok) {
+        setState(Array.isArray(res.weeks) && res.weeks.length ? { status: "ready", weeks: res.weeks } : { status: "none" });
+      } else if (res && /^Unknown action/.test(String(res.serverError || ""))) {
+        setState({ status: "none" });
+      } else {
+        setState({ status: "error" });
+      }
+    }, () => { if (alive.current) setState({ status: "error" }); });
+  }, []);
+  React.useEffect(() => {
+    alive.current = true;
+    fetchUsage();
+    return () => { alive.current = false; };
+  }, [fetchUsage]);
+  return (
+    <div className="card usage-card" style={{ marginBottom: 14 }}>
+      <div className="card-h"><Icon name="chart" size={14} color="var(--brand)" /> Usage
+        <span className="h-meta">คำสั่งที่ Submit ต่อสัปดาห์ · {USAGE_WEEKS_SHOWN} สัปดาห์ล่าสุด</span></div>
+      <div className="card-b">
+        {state.status === "loading" && <div className="census-note" style={{ marginTop: 0 }}>กำลังโหลด…</div>}
+        {state.status === "none" && <div className="census-note usage-empty" style={{ marginTop: 0 }}>ยังไม่มีข้อมูล</div>}
+        {state.status === "error" && (
+          <div className="census-note usage-error" style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            โหลดข้อมูลการใช้งานไม่สำเร็จ
+            <button className="btn sm" onClick={fetchUsage}>ลองใหม่</button>
+          </div>
+        )}
+        {state.status === "ready" && <>
+          <UsageChart weeks={state.weeks} />
+          <div className="census-note">
+            นับหนึ่งครั้งต่อคำสั่ง TPN/EN ที่ Submit ครั้งแรก ไม่นับร่าง การแก้ไข การพิมพ์ และ quick calc · สัปดาห์เริ่มวันจันทร์
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Admin dashboard — read-only oversight, syncs from GAS
 // ============================================================
-function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived }) {
+function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived, loadUsage = null }) {
   // Re-renders at midnight, so a workstation left on this page rolls the
   // census over to the new day's "Logged today" on its own.
   const today = D_A.useTodayLocal();
@@ -3937,6 +4064,7 @@ function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeA
           </div>
         </div>
       </div>
+      {loadUsage && <UsageCard load={loadUsage} />}
       <div className="card">
         <div className="card-h"><Icon name="log" size={14} color="var(--brand)" /> Recent log entries<span className="h-meta">{allEntries.length} total</span></div>
         {/* Scrolls inside its card on a phone rather than widening the page

@@ -348,6 +348,15 @@ ICT (banners). Caught up with #184 by PR #183, with #186 by PR #176, with #194 a
   children. It is a `{/* … */}` comment now. Frontend only, so it reaches the ward with the next `main →
   release` PR; no `clasp` step, no figure moves, `CONSTANTS_VERSION` unchanged. `tools/ci_bans.js`
   `jsx-comment-text` fails CI on the next one. Vera: NO BLOCK. `CHANGELOG.md` 2026-10-28 (14).
+- ⏳ **PR #178, NF-02: a `Usage_Log` tab, one row per completed calculation, counted per ward per week,
+  and a Usage chart on the Admin page: merged into `main` on Pp's instruction (she answered "ก" to "merge
+  NF-12 (#177) and NF-02 (#178)?", 2026-10-28, after release #198); not live until its backend deploy and
+  a `main → release` PR.** `CONSTANTS_VERSION` unchanged. **Its backend is not deployed yet: it goes out
+  as `@67`, after #190's backend ships alone as `@66`** (Pp, 2026-10-28, "ก. แยกเป็น @66"; comment on
+  #198), then the frontend release (`REFERENCE.md` § Backend (GAS)); no new scope, no Script Property.
+  Released the other way round, the card reads ยังไม่มีข้อมูล until the backend lands. No patient field in
+  the row or the chart's reply. NF-31, per-user counts: not built; M1's `getUsageMetrics()` gives weekly
+  users instead (Pp, 2026-10-28, `BACKLOG.md`). `CHANGELOG.md` 2026-10-28 (NF-02) and (NF-02, Admin chart).
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are
 verified.** Caught up with #167 by PR #168, the next PR on the repo, as #167 asked. *(#168–#171 below

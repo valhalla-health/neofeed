@@ -961,6 +961,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return res;
     });
   };
+  const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
   const blockedByUnknownWrite = (quiet = false) => {
     if (!GAS_ON || !unknownWriteRef.current) return null;
     const error = "ยังไม่ทราบผลการบันทึกครั้งก่อน — กำลังซิงก์ตรวจสอบกับเซิร์ฟเวอร์ รอสักครู่แล้วลองใหม่";
@@ -1558,6 +1559,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       log,
       lastSync,
       signInTiming,
+      loadUsage: GAS_ON ? loadUsage : null,
       includeArchived,
       onToggleArchived: () => {
         includeArchivedRef.current = !includeArchived;
@@ -2403,7 +2405,97 @@ function CensusWard({ w }) {
   const stat = (label, value, tone, sub) => /* @__PURE__ */ React.createElement("div", { className: `census-stat${tone ? " " + tone : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "v num" }, value), /* @__PURE__ */ React.createElement("div", { className: "l" }, label, sub ? /* @__PURE__ */ React.createElement("span", { className: "s" }, " · ", sub) : null));
   return /* @__PURE__ */ React.createElement("div", { className: `census-ward${w.ward === "total" ? " total" : ""}`, "data-ward": w.ward }, /* @__PURE__ */ React.createElement("div", { className: "census-ward-h" }, /* @__PURE__ */ React.createElement("span", { className: "census-ward-name" }, w.label), w.capacity != null ? /* @__PURE__ */ React.createElement("span", { className: "census-beds" }, "เตียง ", /* @__PURE__ */ React.createElement("span", { className: "num" }, w.occupied, "/", w.capacity), " · ว่าง ", /* @__PURE__ */ React.createElement("span", { className: "num" }, w.capacity - w.occupied)) : /* @__PURE__ */ React.createElement("span", { className: "census-beds" }, "ไม่มีเตียงในรายการ")), pct != null && /* @__PURE__ */ React.createElement("div", { className: "census-bar", role: "img", "aria-label": `ครองเตียง ${pct}%` }, /* @__PURE__ */ React.createElement("span", { style: { width: `${pct}%` } })), /* @__PURE__ */ React.createElement("div", { className: "census-stats" }, stat("Active", w.active), stat("Logged today", w.logged, w.active > 0 && w.logged === w.active ? "ok" : ""), stat("Needs entry", w.needs, w.needs ? "warn" : "", w.draft ? `draft ${w.draft}` : null), stat("รอเตียง", w.parked, w.parked ? "warn" : ""), stat("Critical", w.crit, w.crit ? "crit" : ""), stat("Caution", w.warn, w.warn ? "warn" : "")));
 }
-function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived }) {
+const USAGE_WEEKS_SHOWN = 12;
+const USAGE_TYPE_STYLE = [
+  { type: "TPN", label: "TPN", color: "var(--brand)" },
+  { type: "EN", label: "EN", color: "var(--brand-3)" },
+  { type: "NPO", label: "NPO", color: "var(--ink-4)" },
+  { type: "other", label: "อื่นๆ", color: "var(--sand)" }
+];
+function usageDay(weekStart) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(weekStart || ""));
+  return m ? `${Number(m[3])} ${THAI_MONTHS_SHORT[Number(m[2]) - 1]}` : String(weekStart || "");
+}
+function UsageChart({ weeks }) {
+  const cellOf = (w, ward) => w && w.byWard && w.byWard[ward] || {};
+  const n = (c, k) => Number(c[k]) || 0;
+  const wards = CENSUS_WARDS.filter(({ ward }) => ward !== "other" || weeks.some((w) => n(cellOf(w, "other"), "total") > 0));
+  const types = USAGE_TYPE_STYLE.filter((t) => t.type === "TPN" || weeks.some((w) => wards.some(({ ward }) => n(cellOf(w, ward), t.type) > 0)));
+  const max = Math.max(1, ...weeks.flatMap((w) => wards.map(({ ward }) => n(cellOf(w, ward), "total"))));
+  const last = weeks[weeks.length - 1];
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "census-grid" }, wards.map(({ ward, label }) => {
+    const sum = weeks.reduce((s, w) => s + n(cellOf(w, ward), "total"), 0);
+    return /* @__PURE__ */ React.createElement("div", { key: ward, className: "census-ward usage-ward", "data-ward": ward }, /* @__PURE__ */ React.createElement("div", { className: "census-ward-h" }, /* @__PURE__ */ React.createElement("span", { className: "census-ward-name" }, label), /* @__PURE__ */ React.createElement("span", { className: "census-beds" }, "สัปดาห์นี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, n(cellOf(last, ward), "total")), " · รวม ", /* @__PURE__ */ React.createElement("span", { className: "num" }, sum))), /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        className: "usage-bars",
+        role: "img",
+        "aria-label": `${label} คำสั่งต่อสัปดาห์: ${weeks.map((w) => `${usageDay(w.weekStart)} ${n(cellOf(w, ward), "total")}`).join(", ")}`,
+        style: { display: "flex", alignItems: "flex-end", gap: 3, height: 64, margin: "10px 0 4px", borderBottom: "1px solid var(--line)" }
+      },
+      weeks.map((w) => {
+        const c = cellOf(w, ward);
+        return /* @__PURE__ */ React.createElement(
+          "div",
+          {
+            key: w.week,
+            className: "usage-col",
+            "data-week": w.week,
+            "data-total": n(c, "total"),
+            title: `สัปดาห์ ${usageDay(w.weekStart)}: ${types.map((t) => `${t.label} ${n(c, t.type)}`).join(" · ")}`,
+            style: { flex: "1 1 0", minWidth: 0, height: "100%", display: "flex", flexDirection: "column-reverse" }
+          },
+          types.filter((t) => n(c, t.type) > 0).map((t) => /* @__PURE__ */ React.createElement(
+            "span",
+            {
+              key: t.type,
+              "data-type": t.type,
+              style: { display: "block", height: `${n(c, t.type) / max * 100}%`, background: t.color }
+            }
+          ))
+        );
+      })
+    ), /* @__PURE__ */ React.createElement("div", { className: "usage-axis", style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("span", null, usageDay(weeks[0].weekStart)), /* @__PURE__ */ React.createElement("span", null, usageDay(last.weekStart))));
+  })), /* @__PURE__ */ React.createElement("div", { className: "census-note usage-legend", style: { display: "flex", flexWrap: "wrap", gap: "4px 14px" } }, types.map((t) => /* @__PURE__ */ React.createElement("span", { key: t.type }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: {
+    display: "inline-block",
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    background: t.color,
+    marginRight: 5,
+    verticalAlign: "-1px"
+  } }), t.label))));
+}
+function UsageCard({ load }) {
+  const [state, setState] = React.useState({ status: "loading" });
+  const loadRef = React.useRef(load);
+  loadRef.current = load;
+  const alive = React.useRef(false);
+  const fetchUsage = React.useCallback(() => {
+    setState({ status: "loading" });
+    Promise.resolve().then(() => loadRef.current()).then((res) => {
+      if (!alive.current) return;
+      if (res && res.ok) {
+        setState(Array.isArray(res.weeks) && res.weeks.length ? { status: "ready", weeks: res.weeks } : { status: "none" });
+      } else if (res && /^Unknown action/.test(String(res.serverError || ""))) {
+        setState({ status: "none" });
+      } else {
+        setState({ status: "error" });
+      }
+    }, () => {
+      if (alive.current) setState({ status: "error" });
+    });
+  }, []);
+  React.useEffect(() => {
+    alive.current = true;
+    fetchUsage();
+    return () => {
+      alive.current = false;
+    };
+  }, [fetchUsage]);
+  return /* @__PURE__ */ React.createElement("div", { className: "card usage-card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "chart", size: 14, color: "var(--brand)" }), " Usage", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, "คำสั่งที่ Submit ต่อสัปดาห์ · ", USAGE_WEEKS_SHOWN, " สัปดาห์ล่าสุด")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, state.status === "loading" && /* @__PURE__ */ React.createElement("div", { className: "census-note", style: { marginTop: 0 } }, "กำลังโหลด…"), state.status === "none" && /* @__PURE__ */ React.createElement("div", { className: "census-note usage-empty", style: { marginTop: 0 } }, "ยังไม่มีข้อมูล"), state.status === "error" && /* @__PURE__ */ React.createElement("div", { className: "census-note usage-error", style: { marginTop: 0, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, "โหลดข้อมูลการใช้งานไม่สำเร็จ", /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: fetchUsage }, "ลองใหม่")), state.status === "ready" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(UsageChart, { weeks: state.weeks }), /* @__PURE__ */ React.createElement("div", { className: "census-note" }, "นับหนึ่งครั้งต่อคำสั่ง TPN/EN ที่ Submit ครั้งแรก ไม่นับร่าง การแก้ไข การพิมพ์ และ quick calc · สัปดาห์เริ่มวันจันทร์"))));
+}
+function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived, loadUsage = null }) {
   const today = D_A.useTodayLocal();
   const census = buildCensus(patients, log, today);
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
@@ -2435,7 +2527,7 @@ function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeA
     ["Infants with alerts", withAlerts, census.total.crit ? "var(--crit-ink)" : withAlerts ? "var(--warn-ink)" : "var(--ink)"]
   ].map(
     ([l, v, c]) => /* @__PURE__ */ React.createElement("div", { key: l, className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, l), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 30, fontWeight: 500, color: c } }, v))
-  )), /* @__PURE__ */ React.createElement("div", { className: "card census-card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "dashboard", size: 14, color: "var(--brand)" }), " Census", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, fmtDate(today), " · เฉพาะผู้ป่วยที่ยังอยู่ใน unit")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement("div", { className: "census-grid" }, census.wards.map((w) => /* @__PURE__ */ React.createElement(CensusWard, { key: w.ward, w })), /* @__PURE__ */ React.createElement(CensusWard, { w: census.total })), /* @__PURE__ */ React.createElement("div", { className: "census-note census-movement" }, "ความเคลื่อนไหว ", census.windowDays, " วัน · รับใหม่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.admitted), " · ", "Discharged ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Discharged), " · ", "Transferred ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Transferred), " · ", "Expired ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Expired)), flags.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "census-flags", role: "note" }, /* @__PURE__ */ React.createElement("strong", null, "ต้องตรวจสอบ"), " · ", flags.join(" · "), " — ค้นหาเลขเตียงในหน้า Patients เพื่อแก้"), /* @__PURE__ */ React.createElement("div", { className: "census-note" }, "Critical / Caution นับเป็นจำนวนทารก ตามระดับที่รุนแรงที่สุดของแต่ละราย และไม่หักการ Acknowledge ของเครื่องใด"))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "log", size: 14, color: "var(--brand)" }), " Recent log entries", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, allEntries.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b admin-recent", style: { padding: 0 } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { background: "var(--bg-2)", textAlign: "left" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Session"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Bed"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "DOL"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Wt (g)"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "kcal"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Protein"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Route"))), /* @__PURE__ */ React.createElement("tbody", null, allEntries.slice(-20).reverse().map(
+  )), /* @__PURE__ */ React.createElement("div", { className: "card census-card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "dashboard", size: 14, color: "var(--brand)" }), " Census", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, fmtDate(today), " · เฉพาะผู้ป่วยที่ยังอยู่ใน unit")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement("div", { className: "census-grid" }, census.wards.map((w) => /* @__PURE__ */ React.createElement(CensusWard, { key: w.ward, w })), /* @__PURE__ */ React.createElement(CensusWard, { w: census.total })), /* @__PURE__ */ React.createElement("div", { className: "census-note census-movement" }, "ความเคลื่อนไหว ", census.windowDays, " วัน · รับใหม่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.admitted), " · ", "Discharged ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Discharged), " · ", "Transferred ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Transferred), " · ", "Expired ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Expired)), flags.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "census-flags", role: "note" }, /* @__PURE__ */ React.createElement("strong", null, "ต้องตรวจสอบ"), " · ", flags.join(" · "), " — ค้นหาเลขเตียงในหน้า Patients เพื่อแก้"), /* @__PURE__ */ React.createElement("div", { className: "census-note" }, "Critical / Caution นับเป็นจำนวนทารก ตามระดับที่รุนแรงที่สุดของแต่ละราย และไม่หักการ Acknowledge ของเครื่องใด"))), loadUsage && /* @__PURE__ */ React.createElement(UsageCard, { load: loadUsage }), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "log", size: 14, color: "var(--brand)" }), " Recent log entries", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, allEntries.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b admin-recent", style: { padding: 0 } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { background: "var(--bg-2)", textAlign: "left" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Session"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Bed"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "DOL"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Wt (g)"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "kcal"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Protein"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Route"))), /* @__PURE__ */ React.createElement("tbody", null, allEntries.slice(-20).reverse().map(
     (e, i) => /* @__PURE__ */ React.createElement("tr", { key: i, style: { borderTop: "1px solid var(--line-2)" } }, /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.sid), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.bed), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.showDol), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.weight, 2)), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.kcal, 2)), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.pro, 2)), /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 12px", color: "var(--ink-2)" } }, e.route))
   ))))));
 }
