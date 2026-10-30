@@ -18,8 +18,9 @@ the sticker number format below, with the `CONSTANTS_VERSION` that produced them
 ### Requirement: Sticker number format
 
 `printJson` SHALL format each figure with at most the decimals the TPN unit's sample sticker of
-2026-10-30 shows, and never a trailing zero (Pp, 2026-10-30, the ISMP rule): whole mL for D50W, the amino
-acid stocks, WFI and the prepared and delivered volumes; at most one decimal for every other stock row;
+2026-10-30 shows, and never a trailing zero (Pp, 2026-10-30, the ISMP rule): at most one decimal for D50W,
+the amino acid stocks, WFI and the prepared and delivered volumes, as the doctor's form shows them (Pp,
+2026-10-30), and for every other stock row;
 at most two for dead space and Factor; and the sample's
 units on the PN label (Ca²⁺, phosphate and Zn²⁺ in mg), except Mg²⁺, which SHALL print in mg in the
 same mg the order uses (Pp, 2026-10-30), where the sample shows mEq. Formatting SHALL NOT change the
@@ -33,7 +34,8 @@ calculation, and no figure SHALL be computed from another formatted figure.
 #### Scenario: Large and small volumes
 
 - **WHEN** the calculator gives D50W 53.6 mL and KCl 3 mL
-- **THEN** `printJson` holds `54` for D50W and `3` for KCl, never `3.0`
+- **THEN** `printJson` holds `53.6` for D50W, the same string the doctor's form prints, and `3` for KCl,
+  never `3.0`
 
 #### Scenario: A stock NeoFeed cannot order
 

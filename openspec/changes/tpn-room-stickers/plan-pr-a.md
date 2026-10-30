@@ -25,7 +25,7 @@
 - Every clinical behaviour added gets a case in a `test/verify-*.cjs` harness. CI runs every `test/verify-*.cjs` twice, against the sources and against `compiled/`.
 - After a `.jsx` edit: `npm ci --prefix tools && node tools/build.mjs`, and commit `compiled/` and both HTML shells with the edit.
 - `tools/ci_bans.js` must pass: no raw `.toFixed(n)` with n > 0 in shipped sources; no patient identifier or raw sheet cell in a log.
-- Sticker figures: the sample's rows and units, at most the sample's decimals, no trailing zero; Soluvit and Peditrace × Factor; Mg²⁺ in mg (Pp, 2026-10-30).
+- Sticker figures: the sample's rows and units, at most the sample's decimals except the volume rows at one decimal, no trailing zero; Soluvit and Peditrace × Factor; Mg²⁺ in mg (Pp, 2026-10-30).
 - `pharmacyOrders` replies carry no name, initials or date of birth.
 - Merging into `main` deploys nothing. Merging into `release` and `clasp deploy` happen only on Pp's word.
 - Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
@@ -39,13 +39,18 @@ Every figure on the sample stickers, where NeoFeed gets it, and its maximum deci
 | `dosingWeightKg` | bw | `wtKg` | 2 |
 | `dol` | อายุ | `dol` | 0 |
 | `factor` | factor | `calc.factor` | 2 |
-| `deliveredMl` / `deadMl` / `preparedMl` | ปริมาตรที่ให้ / ค้างสาย / เตรียมจริง | `calc.totalTPN_mL` / `calc.deadVol_mL` / `calc.preparedVol` | 0 / 2 / 0 |
-| `stockMl.d50w` | D50W | `calc.d50wVol` | 0 |
-| `stockMl.aminoven10`, `aminoplasmal15` | amino acid stock | `calc.solVol.aa` under the chosen `aaStockKey`, else 0 | 0 |
+| `deliveredMl` / `deadMl` / `preparedMl` | ปริมาตรที่ให้ / ค้างสาย / เตรียมจริง | `calc.totalTPN_mL` / `calc.deadVol_mL` / `calc.preparedVol` | 1 / 2 / 1 |
+| `stockMl.d50w` | D50W | `calc.d50wVol` | 1 |
+| `stockMl.aminoven10`, `aminoplasmal15` | amino acid stock | `calc.solVol.aa` under the chosen `aaStockKey`, else 0 | 1 |
 | `stockMl.amiparen10` | 10% Amiparen | NeoFeed cannot order it: `0` | 0 |
 | `stockMl.nacl20`, `glycophos`, `k2hpo4`, `naAcetate`, `kcl`, `mgso4_10`, `caGluconate`, `heparin`, `znso4` | the salt and additive rows | `calc.solVol.*` | 1 |
 | `stockMl.soluvit`, `peditrace` | Soluvit N, Peditrace (bag) | `calc.soluvitVol`, `calc.peditrace_vol` (× Factor) | 1 |
-| `stockMl.wfi` | WFI | `calc.wfiVol` | 0 |
+| `stockMl.wfi` | WFI | `calc.wfiVol` | 1 |
+
+The volume rows (D50W, amino acid, WFI, delivered, prepared) print one decimal, as the doctor's form does
+(Pp, 2026-10-30). The sample's whole mL rounded NeoFeed's 0.1 mL value a second time: an independent check
+of 170 orders found D50W, amino acid and WFI 1 mL off in 4–8 % of them, and the worksheet adding up to the
+prepared volume in 7 %.
 | `stockMl.aminoleban8`, `nephrosteril7`, `mgso4_50` | right-hand rows | NeoFeed cannot order them: `0` | 1 |
 | `stockMl.addamel` | Addamel N | `0`: NeoFeed offers no Addamel yet. Its field comes in its own PR, with the older-children ward (Pp, 2026-10-30). Null if a saved row has `inclAddamel` on | 1 |
 | `delivered.dextrosePct` / `dextroseG` | Dextrose % = g | `dexPct` / `calc.dexG` | 1 / 1 |
@@ -196,9 +201,9 @@ const strings = (o) => typeof o === 'string' ? [o] : o && typeof o === 'object' 
     eq('order date, dol, weight, factor', [f.orderDate, f.dol, f.dosingWeightKg, f.factor], ['2026-11-16', '7', '1.8', '2.07']);
     eq('volumes: delivered, dead, prepared', [f.deliveredMl, f.deadMl, f.preparedMl], ['200', '30', '230']);
     eq('worksheet rows', f.stockMl, {
-      d50w: '58', aminoven10: '62', amiparen10: '0', aminoplasmal15: '0',
+      d50w: '57.5', aminoven10: '62.1', amiparen10: '0', aminoplasmal15: '0',
       nacl20: '1.2', glycophos: '2.1', k2hpo4: '0', naAcetate: '0', kcl: '1.6', mgso4_10: '0.8',
-      caGluconate: '9.2', soluvit: '2.1', peditrace: '2.1', heparin: '1.2', wfi: '90',
+      caGluconate: '9.2', soluvit: '2.1', peditrace: '2.1', heparin: '1.2', wfi: '90.1',
       aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0',
     });
     eq('PN label', f.delivered, {
@@ -217,7 +222,7 @@ const strings = (o) => typeof o === 'string' ? [o] : o && typeof o === 'object' 
     eq('no TPN volume → null', D.stickerFigures(O({ calc: C({ totalTPN_mL: 0 }) })), null);
     eq('no weight → null', D.stickerFigures(O({ wtKg: 0 })), null);
     const ap = D.stickerFigures(O({ aaStockKey: 'aminoplasmal15' }));
-    eq('Aminoplasmal: its rows, not Aminoven', [ap.stockMl.aminoven10, ap.stockMl.aminoplasmal15, ap.delivered.aminoAcidG.aminoplasmal15], ['0', '62', '5.4']);
+    eq('Aminoplasmal: its rows, not Aminoven', [ap.stockMl.aminoven10, ap.stockMl.aminoplasmal15, ap.delivered.aminoAcidG.aminoplasmal15], ['0', '62.1', '5.4']);
     eq('Na acetate 1 mEq/kg → acetate 1.8 mEq, 1 : 1', D.stickerFigures(O({ naAcet: 1 })).delivered.acetateMeq, '1.8');
     const ad = D.stickerFigures(O({ inclAddamel: true }));
     eq('Addamel ticked → no figure on either sticker', [ad.stockMl.addamel, ad.delivered.addamelMl], [null, null]);
@@ -271,14 +276,17 @@ function stickerFigures(o) {
     dol: n(o.dol, 0),
     dosingWeightKg: n(wt, 2),
     factor: n(c.factor, 2),
-    deliveredMl: n(c.totalTPN_mL, 0),
+    // Volumes at one decimal, as the doctor's form (Pp, 2026-10-30): whole mL
+    // rounded the calc's 0.1 mL value a second time and was 1 mL off in 4–8 %
+    // of orders.
+    deliveredMl: n(c.totalTPN_mL, 1),
     deadMl: n(c.deadVol_mL, 2),
-    preparedMl: n(c.preparedVol, 0),
+    preparedMl: n(c.preparedVol, 1),
     stockMl: {
-      d50w: n(c.d50wVol, 0),
-      aminoven10: n(aa("aminoven10", c.solVol.aa), 0),
+      d50w: n(c.d50wVol, 1),
+      aminoven10: n(aa("aminoven10", c.solVol.aa), 1),
       amiparen10: "0",
-      aminoplasmal15: n(aa("aminoplasmal15", c.solVol.aa), 0),
+      aminoplasmal15: n(aa("aminoplasmal15", c.solVol.aa), 1),
       nacl20: n(c.solVol.naCl, 1),
       glycophos: n(c.solVol.glycophos, 1),
       k2hpo4: n(c.solVol.k2hpo4, 1),
@@ -289,7 +297,7 @@ function stickerFigures(o) {
       soluvit: n(c.soluvitVol, 1),
       peditrace: n(c.peditrace_vol, 1),
       heparin: n(c.solVol.heparin, 1),
-      wfi: n(c.wfiVol, 0),
+      wfi: n(c.wfiVol, 1),
       aminoleban8: "0",
       nephrosteril7: "0",
       znso4: n(c.solVol.znso4, 1),
@@ -414,7 +422,7 @@ Add to `test/verify-sticker-figures-1030.cjs`, before the `console.log(\`\n${fai
   }
   const WANT_STOCK = { d50w: '38', aminoven10: '38', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.1', glycophos: '0',
     k2hpo4: '0', naAcetate: '0', kcl: '2.4', mgso4_10: '0.9', caGluconate: '0', soluvit: '1.9', peditrace: '1.9',
-    heparin: '1.9', wfi: '104', aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0' };
+    heparin: '1.9', wfi: '103.9', aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0' };
 
   await section('§2 Submit saves printJson from the calc it saved', async () => {
     const box = logger();
