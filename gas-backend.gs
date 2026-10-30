@@ -36,10 +36,13 @@
 //   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory|statusDate|
 //   multiplesCount (R, added 2026-08-14 — 2/3/4, disambiguates twinSuffix's
 //   A–D: "A" alone doesn't say whether the set is twins or triplets)
-// Daily_Log (A–AG): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
+// Daily_Log (A–AM): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
 //   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType|
 //   calcInputJson|entryId|lastModified|lastModifiedBy|ioInput|ioOutput|drainContent|
 //   constantsVersion|appVersion
+//   |published|publishedBy|revisionNumber|revisionOf|supersededAt|printJson
+//   (printJson, AM since 2026-10-30: the TPN room's sticker figures, as
+//   calculator.jsx computed them — see _printJsonField.)
 //   (calcInputJson = raw Calculator inputs, JSON — lets an entry be reopened
 //   and edited exactly as entered, from any device, not just the one that
 //   created it. entryId is the stable key updateDailyNutrition() matches on;
@@ -884,9 +887,12 @@ var LOG_HEADERS = [
   "suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType",
   "calcInputJson","entryId","lastModified","lastModifiedBy",
   "ioInput","ioOutput","drainContent","constantsVersion","appVersion",
-  "published","publishedBy","revisionNumber","revisionOf","supersededAt"
+  "published","publishedBy","revisionNumber","revisionOf","supersededAt","printJson"
 ];
-var LOG_WIDTH = LOG_HEADERS.length; // 38, A–AL
+var LOG_WIDTH = LOG_HEADERS.length; // 39, A–AM
+// The ward sync reads A–AL only: printJson (AM) is for the TPN room, about
+// 1–2 KB a row, and no ward screen reads it (login speed, 2026-09-24).
+var LOG_SYNC_WIDTH = 38;
 // Nursing_Log (A–M) — the nurses' daily Intake/Output totals (UX roadmap #4,
 // docs/NURSING_FORM_SPEC.md; Pp's decisions 2026-09-24). ONE row per patient
 // per date, daily totals only (D1). `ts` is the date the 24-hour total CLOSED —
@@ -1643,7 +1649,7 @@ function _readLogRowsFor(sheet, inWindow) {
   }
   if (!hits.length) return [];
   var blocks = _planLogBlocks(hits);
-  var width = Math.min(LOG_WIDTH, sheet.getMaxColumns());
+  var width = Math.min(LOG_SYNC_WIDTH, sheet.getMaxColumns());
   var out = [];
   for (var b = 0; b < blocks.length; b++) {
     var start = blocks[b][0], end = blocks[b][1];
@@ -1657,7 +1663,9 @@ function _readLogRowsFor(sheet, inWindow) {
   return out;
 }
 function _fullLogRows(sheet) {
-  return sheet.getLastRow() > 0 ? sheet.getDataRange().getValues().slice(1) : [];
+  return sheet.getLastRow() > 0
+    ? sheet.getDataRange().getValues().slice(1).map(function (r) { return r.slice(0, LOG_SYNC_WIDTH); })
+    : [];
 }
 
 function getActivePatients(opts) {
@@ -2343,6 +2351,22 @@ function _revisionFields(entry) {
   ];
 }
 
+// Sticker figures, AM (TPN room, Pp 2026-10-30). What calculator.jsx computed
+// for the TPN unit's three stickers, stored as sent after a shape and size
+// check. Nothing here recomputes them: the backend has no copy of the bag
+// arithmetic, as with the stop list. "" for a bag-less order, and for a tab
+// from before the release, which sends none (the TPN-room page will not print
+// such an order and says to save it again).
+var PRINT_JSON_MAX_CHARS = 8000;
+function _printJsonField(entry) {
+  var pj = entry ? entry.printJson : null;
+  if (pj === null || pj === undefined || pj === "") return [""];
+  if (typeof pj !== "object" || Array.isArray(pj) || pj.v !== 1) throw new Error("printJson: unknown shape");
+  var text = JSON.stringify(pj);
+  if (text.length > PRINT_JSON_MAX_CHARS) throw new Error("printJson: longer than " + PRINT_JSON_MAX_CHARS + " characters");
+  return [_sheetSafe(text)];
+}
+
 // Widen the grid on demand before any write that could exceed it.
 // getRange() past the grid edge throws, and appendRow() rejects a row wider
 // than the sheet — both surface at the bedside as a failed save. This is the
@@ -2376,7 +2400,7 @@ function _patientExists(sessionId) {
 }
 
 // First Daily_Log row whose entryId (col Z) matches, as { row, data } with
-// data = that row A..AL (narrower if the grid is); null when absent.
+// data = that row A..AM (narrower if the grid is); null when absent.
 // { shifted: true } when the row moved between the two reads (a hand edit in
 // the Sheets UI — the lock does not cover humans), so the caller refuses
 // instead of acting on a different row.
@@ -2448,7 +2472,8 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
       .concat([_sheetSafe(JSON.stringify(entry.calcInput || {})), entryId, lastModified, _sheetSafe(submittedBy || "")])
       .concat(_ioLogFields(entry))
       .concat(_provenanceFields(entry))
-      .concat(_revisionFields(entry));
+      .concat(_revisionFields(entry))
+      .concat(_printJsonField(entry));
     // A row for an unregistered sessionId used to be accepted (2026-09-11
     // review, B5). Real path: a registration that failed on the network was
     // kept on screen as "local only", an order was saved against it, and the
@@ -2551,7 +2576,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
         .concat([_sheetSafe(JSON.stringify(entry.calcInput || {})), newEntryId, newLastModified, _sheetSafe(editedBy || "")])
         .concat(_ioLogFields(entry))
         .concat(_provenanceFields(entry))
-        .concat(["", "", nextRevisionNumber, _sheetSafe(entryId), ""]);
+        .concat(["", "", nextRevisionNumber, _sheetSafe(entryId), ""])
+        .concat(_printJsonField(entry));
       _ensureLogWidth(sheet, revisionRow.length);
       sheet.appendRow(revisionRow);
       // Mark the row being replaced as superseded — AL — and advance its
@@ -2598,7 +2624,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       .concat([
         _sheetSafeRoundTrip(cur[33]), _sheetSafeRoundTrip(cur[34]),
         _numSafe(cur[35], 1), _sheetSafeRoundTrip(cur[36]), _sheetSafeRoundTrip(cur[37]),
-      ]);
+      ])
+      .concat(_printJsonField(entry));
     // A Daily_Log tab created before the Intake/Output columns is only 28
     // columns wide (and one predating AF–AG only 31), and getRange() past
     // the grid edge throws — which would surface at the bedside as a failed
