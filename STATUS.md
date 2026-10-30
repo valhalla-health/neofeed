@@ -288,9 +288,10 @@
 both are verified** (banner). #201 released #200, #177, #178 and #199, and `@66` carries #190's backend half
 with them (marked below). Caught up with #201 by PR #202.
 - ⏳ **PR #202, `sheetHealthReport` names each measurement cell to fix, by row and column, and counts the
-  cells of M–P that are not JSON: not merged.** Only the Apps Script editor runs that function, so there is
-  nothing to release and no `clasp update-deployment` to make: once it is on `main`, `clasp push` puts it in
-  the script's HEAD, where Pp runs the report. No value, name or sessionId in its output. `CHANGELOG.md`
+  cells of M–P that are not JSON: merged into `main` on Pp's instruction ("merge ตอน CI ผ่าน"); not in the
+  script's HEAD until `clasp push`.** Only the Apps Script editor runs that function, so there is nothing
+  to release and no `clasp update-deployment` to make: `clasp push` puts it in the script's HEAD, where Pp
+  runs the report. No value, name or sessionId in its output. `CHANGELOG.md`
   2026-10-30.
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
