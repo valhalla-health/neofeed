@@ -2229,6 +2229,19 @@ function _validateMeasureArray(arr, kind, allowMissing) {
     }
   }
 }
+// _validateMeasureArray's message as sheetHealthReport lists it: English, and
+// without the stored value or a bedHistory key, either of which a hand-typed
+// cell could fill with a name. "ค่า weights[1].w (g) = 12345 อยู่นอกช่วง…
+// (200–8000) — …" reads "weights[1].w (g) is outside 200–8000".
+function _measureProblem(msg) {
+  return String(msg)
+    .replace(/^ค่า /, "")
+    .replace(/^(bedHistory\[\d+\])\.[\s\S]* must be text$/, "$1 has a value that is not text")
+    .replace(/^(bedHistory\[\d+\])\.[\s\S]* is too long$/, "$1 has a value longer than 100 characters")
+    .replace(/ = [\s\S]*?\(([^)]*)\)[\s\S]*$/, " is outside $1")
+    .replace(/ ต้องเป็นตัวเลข[\s\S]*$/, " is not a number")
+    .replace(/: [\s\S]*$/, "");
+}
 // Kept by name for anything still calling it; it is now the full validator.
 function _validateWeightsArray(weights) {
   _validateMeasureArray(weights, "weights", false);
@@ -3248,9 +3261,11 @@ function applyPatHeaderColumns() {
 }
 
 // ── sheetHealthReport — run from the Apps Script editor (2026-09-17) ─────────
-// COUNTS ONLY: no email, name, initials, sessionId, bed or date of any patient
-// or staff member is ever in the result (pinned by
-// test/verify-review-0917-backend-writes.cjs, which fails on any of them).
+// COUNTS, plus the sheet row and column of each measurement cell to fix: no
+// email, name, initials, sessionId, bed or date of any patient or staff member,
+// and no stored value, is ever in the result (pinned by
+// test/verify-review-0917-backend-writes.cjs and verify-health-report-1030.cjs,
+// which fail on any of them).
 //
 // Run it BEFORE switching the deployment to a version with the column-drift
 // guard, and read `schema` first: any tab with ok:false would refuse EVERY
@@ -3266,7 +3281,15 @@ function applyPatHeaderColumns() {
 //     archived patients with no usable statusDate (they leave the ward sync),
 //     duplicate sessionIds, Active patients with no Daily_Log row in 30 days
 //     ("forgotten Active"), records whose stored measurement arrays or sex a
-//     client edit could no longer send back unchanged (SEC-B3 / sex rule).
+//     client edit could no longer send back unchanged (SEC-B3 / sex rule);
+//   • registry.measurementCellsToFix — where those arrays are (2026-10-30):
+//     each cell of M–P that fails, by row and column, with the rule it breaks
+//     and whether the record is on ward devices, so it can be fixed by hand.
+//     It also lists M–P cells that are not JSON at all (curly quotes from a hand
+//     edit): _parseJson reads such a cell as empty (M: the birth weight in D
+//     only) without a word, the record passes the check, and the next ward edit
+//     can save that reading over the history. They are counted in
+//     measurementCellsNotJson, not as failing.
 // Nothing is written except the schema-cache removal and the execution log.
 function sheetHealthReport() {
   var ss = _book();
@@ -3304,8 +3327,8 @@ function sheetHealthReport() {
   var pat = patSheet.getLastRow() > 0 ? patSheet.getDataRange().getValues() : [[]];
   var r = { rows: Math.max(0, pat.length - 1), active: 0, archivedNoStatusDate: 0,
     archivedUnparseableStatusDate: 0, archivedWithin30d: 0, archivedOlder: 0, duplicateSessionIds: 0,
-    activeWithNoEntryIn30d: 0, measurementArraysFailingValidation: 0, sexNotBoysOrGirls: 0,
-    statusNotCanonical: 0 };
+    activeWithNoEntryIn30d: 0, measurementArraysFailingValidation: 0, measurementCellsNotJson: 0,
+    sexNotBoysOrGirls: 0, statusNotCanonical: 0, measurementCellsToFix: [] };
   var seen = {}, activeIds = {};
   for (var i = 1; i < pat.length; i++) {
     var sid = String(pat[i][0] || "");
@@ -3323,13 +3346,29 @@ function sheetHealthReport() {
     else if (!_wardDateKey(pat[i][16] instanceof Date ? pat[i][16] : String(pat[i][16]).slice(0, 10))) r.archivedUnparseableStatusDate++;
     else if (_patientInSyncWindow(pat[i][9], pat[i][16], today)) r.archivedWithin30d++;
     else r.archivedOlder++;
-    var sp = _storedPatient(pat[i]);
-    try {
-      ["weights", "lengths", "hcs", "bedHistory"].forEach(function (f, idx) {
-        var parsed = _parseJson(pat[i][12 + idx], f === "weights" ? sp.weights : []);
-        _validateMeasureArray(parsed, f, false);
-      });
-    } catch (e) { r.measurementArraysFailingValidation++; }
+    var sp = _storedPatient(pat[i]), failed = false;
+    var record = _onUnitStatus(pat[i][9]) ? "on the unit"
+      : _patientInSyncWindow(pat[i][9], pat[i][16], today) ? "archived, still on ward devices" : "archived, not on ward devices";
+    ["weights", "lengths", "hcs", "bedHistory"].forEach(function (f, idx) {
+      var cell = pat[i][12 + idx];
+      if (cell !== "" && cell != null) {
+        try { JSON.parse(String(cell)); } catch (_) {
+          r.measurementCellsNotJson++;
+          r.measurementCellsToFix.push({ row: i + 1, column: _colLetter(13 + idx), field: f,
+            problem: f === "weights" ? "not valid JSON, the app reads it as the birth weight (D) only"
+              : "not valid JSON, the app reads it as empty", record: record });
+        }
+      }
+      try {
+        _validateMeasureArray(_parseJson(cell, f === "weights" ? sp.weights : []), f, false);
+      } catch (e) {
+        failed = true;
+        var bwFallback = f === "weights" && !cell;
+        r.measurementCellsToFix.push({ row: i + 1, column: bwFallback ? "D" : _colLetter(13 + idx),
+          field: bwFallback ? "bw (M is blank)" : f, problem: _measureProblem(e.message), record: record });
+      }
+    });
+    if (failed) r.measurementArraysFailingValidation++;
     if (VALID_SEX[String(pat[i][5] || "").trim()] !== true) r.sexNotBoysOrGirls++;
   }
   var lastRow = logSheet.getLastRow();

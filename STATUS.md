@@ -1,5 +1,22 @@
 # NeoFeed — Status
 
+> ✅ **2026-10-29, 18:34 ICT — frontend `release` = `8181b7e` (PR #201), with backend `@66`.** PR #201
+> released #200 (the nutrition team's meeting of 2026-10-28), #177 (NF-12), #178 (NF-02) and #199, merged at
+> 15:24 ICT. **`CONSTANTS_VERSION` is `2026-10-28.1`.** The tag `release-2026-10-29-pr201` is pushed. GitHub
+> Pages served it at once; Cloudflare refused every deploy with code 10013 during its partial outage (three
+> tries, the last on #198's tree too), and at 17:07 ICT `npx wrangler@4 deploy` of `8181b7e` went through.
+> `node tools/verify-release.mjs --wait` then passed on both hosts (0 failures, 61 passes). Then the backend,
+> `@65` → `@66`, carrying `8181b7e`'s whole `gas-backend.gs`: #190's status reading, #178's `Usage_Log`, and
+> #200's revision, delete and stale-tab rules. Pp ran `sheetHealthReport` on the script's HEAD at 18:27
+> (`statusNotCanonical: 0`, Patient_Registry schema ok, 2.1 % of the cell limit); `clasp pull
+> --versionNumber 66` is byte-identical to `8181b7e`'s `gas-backend.gs`, and the three no-credential probes
+> answered as they should. Mirror commit `b08e4cd`. Rollback: `clasp update-deployment AKfycbz8Nt… -V 65`
+> first, then the frontend to `release-2026-10-28-pr198` (`ac1b15b`). ⚠️ The same report found **one
+> Patient_Registry record that fails `_validateMeasureArray`**, so a ward edit of that infant may be refused
+> (`BACKLOG.md` § What `sheetHealthReport()` found). ⚠️ Pharmacy and the ward have not been told: Mg in mg,
+> Vitalipid whole mL, only the front prints, a revision is marked, reload every open NeoFeed tab. All from
+> the comments on #201. Recorded here by PR #202, the next PR on the repo.
+>
 > ✅ **2026-10-28, 20:35 ICT — frontend `release` = `ac1b15b` (PR #198), with backend `@65`.** PR #198
 > released #175: a TPN bag whose stocks exceed its volume cannot be ordered, and the backend and Center
 > Point refuse a stopped order. `release`'s tree is `main` `3359a58`'s, the tree walked on dev local (comment
@@ -267,22 +284,29 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
+**Updated 2026-10-29** · ✅ **Backend `@66` and frontend `release` = `8181b7e` (PR #201) are live, and
+both are verified** (banner). #201 released #200, #177, #178 and #199, and `@66` carries #190's backend half
+with them (marked below). Caught up with #201 by PR #202.
+- ⏳ **PR #202, `sheetHealthReport` names each measurement cell to fix, by row and column, and counts the
+  cells of M–P that are not JSON: merged into `main` on Pp's instruction ("merge ตอน CI ผ่าน"); not in the
+  script's HEAD until `clasp push`.** Only the Apps Script editor runs that function, so there is nothing
+  to release and no `clasp update-deployment` to make: `clasp push` puts it in the script's HEAD, where Pp
+  runs the report. No value, name or sessionId in its output. `CHANGELOG.md`
+  2026-10-30.
+
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197
 released #190's frontend half, #192 and #179 at 19:21 ICT; #195 released #188 at 17:39 ICT; #194 released
 #191 at 17:09 ICT; #186 released #183 at 14:43 ICT; #184 released #182, #185, #181, #180 and #173 at 13:58
 ICT (banners). Caught up with #184 by PR #183, with #186 by PR #176, with #194 and #195 by PR #179, and with
 #197 and #198 by PR #177.
-- ⏳ **PR #190, the backend reads a patient status as the client does (the PR that adds
-  `test/verify-status-read-1028.cjs`), on Pp's instruction ("แก้ backend ให้อ่าน status แบบเดียวกับ client").**
-  Edit session's "เลือก Status" half is live, released by #197 (banner above). The `gas-backend.gs` half is
-  on `main` and not in `@65`: Pp, 2026-10-28, "ก. แยกเป็น @66", deployed on its own once `@65` has run
-  normally for one day (comment on #198). Either order is safe. A save that keeps an unknown status ("Expird") is refused in Thai instead of written as Active.
-  ⚠️ After `clasp push` and before `clasp update-deployment`, run `sheetHealthReport` in the editor
-  (`statusNotCanonical` exists only in this code), or filter `Patient_Registry` first: the rows to find are a
-  case or space variant of Active in column J ("active", "ACTIVE ") with an empty column Q (statusDate). Such
-  a row reaches no ward device now, and once the deployment switches it syncs as Active and holds its bed.
-  `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-28 (10).
+- ✅ **PR #190, the backend reads a patient status as the client does (the PR that adds
+  `test/verify-status-read-1028.cjs`), on Pp's instruction ("แก้ backend ให้อ่าน status แบบเดียวกับ client"):
+  live.** Edit session's "เลือก Status" half was released by #197; the `gas-backend.gs` half went out in `@66`
+  on 2026-10-29 (top banner), not on its own as first planned: Pp lifted the one-day wait on 2026-10-29
+  (`CHANGELOG.md` 2026-10-29 (3)). `sheetHealthReport` showed `statusNotCanonical: 0` before the switch, so
+  no row changed what the ward sees. A save that keeps an unknown status ("Expird") is refused in Thai
+  instead of written as Active. `CONSTANTS_VERSION` unchanged. `CHANGELOG.md` 2026-10-28 (10).
 - ✅ **PR #191, a help request can carry its picture on the Workers host: live, released by #194 (banner
   above) on Pp's instruction ("merge เข้า release ได้เลย after CI passed", 2026-10-28).** The form opened the picked file as a `blob:` URL, and
   `_headers`' `img-src` does not allow `blob:`. So no browser on the Workers host could attach a picture:
@@ -333,39 +357,37 @@ ICT (banners). Caught up with #184 by PR #183, with #186 by PR #176, with #194 a
   a negative WFI now blocks Submit ("Bag cannot be compounded" no longer takes a reason), and that a saved
   order with a negative WFI no longer prints until it is fixed and saved again. Center Point's half is
   NICU-Center-Point PR #39. `CHANGELOG.md` 2026-10-28 (11) and (12).
-- ⏳ **PR #177, NF-12, the breast milk the Calculator assumes and each result's working: merged into `main`
+- ✅ **PR #177, NF-12, the breast milk the Calculator assumes and each result's working: merged into `main`
   on Pp's instruction (she answered "ก" to "merge NF-12 (#177) and NF-02 (#178)?", 2026-10-28, after
-  release #198); not live until a `main → release` PR.** Frontend only, no `clasp` step,
+  release #198); live, released by #201 (top banner).** Frontend only, no `clasp` step,
   `CONSTANTS_VERSION` unchanged; nothing printed moves. Step 2 names the breast milk assumed per 100 mL and
   what HMF adds, with their sources; Step 3 gets four closed "ที่มาของตัวเลข" buttons (GIR, Osmolarity,
   Energy, Protein). With `main` merged in, both read the feeds given, one line per feed (#182's two feeds),
   and a day with no feed names no milk. Vera: NO BLOCK before and after the merge. Open for Pp: whether the print carries
   the assumption line, which HMF the ward uses, and the warning's wording. `CHANGELOG.md` 2026-10-28.
-- ⏳ **PR #199, Step 2 no longer shows a developer comment as text: merged into `main` on Pp's instruction
-  (she chose it for the release of 2026-10-29); not live until a `main → release` PR.** Since
-  release #184 every ward device has shown "// The same three columns as the Volume / Frequency row
+- ✅ **PR #199, Step 2 no longer shows a developer comment as text: merged into `main` on Pp's instruction
+  (she chose it for the release of 2026-10-29); live, released by #201 (top banner).** From
+  release #184 to #201 every ward device showed "// The same three columns as the Volume / Frequency row
   below…" under "Step 2 · Enteral feeding", once per feed picker: #182 wrote a `//` comment between JSX
-  children. It is a `{/* … */}` comment now. Frontend only, so it reaches the ward with the next `main →
-  release` PR; no `clasp` step, no figure moves, `CONSTANTS_VERSION` unchanged. `tools/ci_bans.js`
+  children. It is a `{/* … */}` comment now. Frontend only; no `clasp` step, no figure moves,
+  `CONSTANTS_VERSION` unchanged. `tools/ci_bans.js`
   `jsx-comment-text` fails CI on the next one. Vera: NO BLOCK. `CHANGELOG.md` 2026-10-28 (14).
-- ⏳ **PR #200, the nutrition team's meeting of 2026-10-28, after Vera's four reviews: merged into `main` on
-  Pp's instruction (she chose it for the release of 2026-10-29); not live until a `main → release` PR and
-  backend `@66`.** `CONSTANTS_VERSION` 2026-10-28.1. Submit saves and locks the order, an edit is a revision
-  printed "Revision · ฉบับที่ N", only the doctor's sheet prints, Vitalipid is rounded down with a 1 mL floor,
-  Mg is typed in mg/kg/d (below 1 is critical), PED AMINE is named, an old submitted order is revised and an
-  admin can delete a submitted order. **The backend goes out after the frontend, in the same sitting:** `@66`
-  refuses a Submit computed on a version older than 2026-10-28.1 (`MIN_SUBMIT_CONSTANTS_VERSION`). Tell
-  pharmacy and the ward with the release: Mg in mg, Vitalipid whole mL, only the front prints, a revision is
-  marked, reload open NeoFeed tabs. No second clinician has reviewed it. `CHANGELOG.md` 2026-10-28 (13), (14)
-  and 2026-10-29 (1)–(4).
-- ⏳ **PR #178, NF-02: a `Usage_Log` tab, one row per completed calculation, counted per ward per week,
+- ✅ **PR #200, the nutrition team's meeting of 2026-10-28, after Vera's four reviews: merged into `main` on
+  Pp's instruction (she chose it for the release of 2026-10-29); live, released by #201 and then backend
+  `@66` in the same sitting (top banner).** `CONSTANTS_VERSION` 2026-10-28.1. Submit saves and locks the
+  order, an edit is a revision printed "Revision · ฉบับที่ N", only the doctor's sheet prints, Vitalipid is
+  rounded down with a 1 mL floor, Mg is typed in mg/kg/d (below 1 is critical), PED AMINE is named, an old
+  submitted order is revised and an admin can delete a submitted order. `@66` refuses a Submit computed on a
+  version older than 2026-10-28.1 (`MIN_SUBMIT_CONSTANTS_VERSION`), so a tab opened before the release must
+  be reloaded. ⚠️ Pharmacy and the ward have not been told yet (`BACKLOG.md` § Now). ⚠️ No second clinician
+  has reviewed it; the ward starts on 16 Nov. `CHANGELOG.md` 2026-10-28 (13), (14) and 2026-10-29 (1)–(4).
+- ✅ **PR #178, NF-02: a `Usage_Log` tab, one row per completed calculation, counted per ward per week,
   and a Usage chart on the Admin page: merged into `main` on Pp's instruction (she answered "ก" to "merge
-  NF-12 (#177) and NF-02 (#178)?", 2026-10-28, after release #198); not live until its backend deploy and
-  a `main → release` PR.** `CONSTANTS_VERSION` unchanged. **Its backend is not deployed yet: it goes out
-  as `@67`, after #190's backend ships alone as `@66`** (Pp, 2026-10-28, "ก. แยกเป็น @66"; comment on
-  #198), then the frontend release (`REFERENCE.md` § Backend (GAS)); no new scope, no Script Property.
-  Released the other way round, the card reads ยังไม่มีข้อมูล until the backend lands. No patient field in
-  the row or the chart's reply. NF-31, per-user counts: not built; M1's `getUsageMetrics()` gives weekly
+  NF-12 (#177) and NF-02 (#178)?", 2026-10-28, after release #198); live, released by #201 and then
+  backend `@66` (top banner).** `CONSTANTS_VERSION` unchanged. Its backend went out in `@66` with #190's
+  and #200's, not as a later `@67` as first planned (`CHANGELOG.md` 2026-10-29 (4)); no new scope, no
+  Script Property. `getSheetUsage` makes the `Usage_Log` tab on the first completed calculation, and until
+  then the card reads ยังไม่มีข้อมูล. No patient field in the row or the chart's reply. NF-31, per-user counts: not built; M1's `getUsageMetrics()` gives weekly
   users instead (Pp, 2026-10-28, `BACKLOG.md`). `CHANGELOG.md` 2026-10-28 (NF-02) and (NF-02, Admin chart).
 
 **Updated 2026-10-27** · ✅ **Backend `@64` and frontend `release` = `08c298d` are live, and both are

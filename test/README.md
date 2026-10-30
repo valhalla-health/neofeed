@@ -2020,6 +2020,20 @@ Chromium from 280px up.
 real `<App/>`: opening Admin dashboard sends one `getUsageWeekly` with only the action and the token, a
 sync does not resend it, an old backend and a network failure stay quiet, and a doctor never sends it.
 
+## The cells to fix in the health report, 2026-10-30 — one harness
+
+`sheetHealthReport` names each measurement cell it counts (`CHANGELOG.md` 2026-10-30).
+**`verify-health-report-1030.cjs`** runs the real `gas-backend.gs` in `gas-vm-sandbox.cjs` on eight
+registry rows. §1: `measurementCellsToFix` lists each failing cell of M–P by row and column, with the rule
+and the record's place (on the unit, archived and still synced, archived and not), in sheet order; a blank
+M is listed at D; a row with two bad cells is listed twice and counted once. §2: two cells with curly quotes
+are counted in `measurementCellsNotJson` and listed, and not counted as failing; the one in M names the
+birth-weight fallback, the one in N reads as empty (Vera, PR #202). §3: no sessionId or name in the
+report, and no stored value (12345, 99999, "x3") or bedHistory key ("NICU 7 ward") in its registry part.
+§4: a clean sheet gives an empty list and zero counts. 11 checks; with `NEOFEED_GAS_SRC` and `8644e78`'s
+`gas-backend.gs`, 6 fail. Three mutants each fail their own check: the raw validator message (§1 and §3),
+counting per cell (§1's row count) and no fallback to D (§1's list).
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named
