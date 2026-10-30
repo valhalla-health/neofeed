@@ -81,9 +81,12 @@
       - Served by the Workers host only. On `*.github.io`, which every Pages site in the org shares, the page
         redirects before it touches any storage, as `boot.js` does; Pages sends no CSP.
       - Its own session key, never `neofeed_session`. Sign-in by email and password only (no Google script on
-        a page that holds names), and a forced change-password screen on `mustChangePassword` that keeps the
-        rotated token. Pharmacy accounts get a password: `setInitialPassword(email, password, "pharmacy")`,
-        Google-domain addresses included.
+        a page that holds names). A forced change-password screen on `mustChangePassword` that keeps the
+        rotated token: it applies to a pharmacy row typed into the Staff tab with a non-Google address,
+        which the onEdit trigger gives a temporary password. A Google-domain address gets no password from
+        the trigger and is never forced to change one: give it a password with
+        `setInitialPassword(email, password, "pharmacy")` (checked in the sandbox: it signs in by password,
+        with no registry), and offer a change-password button on the page.
       - Every string from the reply rendered as text. The saver labelled "บันทึกโดย": a nurse can save an
         order while the nursing switch is off.
       - The status line shows the name file's folder. A "start a new file" flow for a lost passphrase warns

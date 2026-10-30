@@ -1020,12 +1020,13 @@ function _assertSchema(sheet, tab) {
     try { if (cache) cache.put(_schemaCacheKey(tab), JSON.stringify(result), SCHEMA_CACHE_TTL_SECONDS); }
     catch (e) { /* uncached: checked again next write */ }
   }
-  if (result.ok !== true) {
-    throw _codedError(
-      "โครงสร้างคอลัมน์ใน Google Sheet ไม่ตรงกับที่ระบบคาด (" + tab + "!" + result.col + ": พบ '" + result.label +
-      "') — หยุดบันทึกเพื่อป้องกันข้อมูลลงผิดช่อง แจ้ง admin",
-      "SchemaMismatch", false);
-  }
+  if (result.ok !== true) throw _schemaError(tab, result);
+}
+function _schemaError(tab, bad) {
+  return _codedError(
+    "โครงสร้างคอลัมน์ใน Google Sheet ไม่ตรงกับที่ระบบคาด (" + tab + "!" + bad.col + ": พบ '" + bad.label +
+    "') — หยุดบันทึกเพื่อป้องกันข้อมูลลงผิดช่อง แจ้ง admin",
+    "SchemaMismatch", false);
 }
 function _forgetSchemaCheck(tab) {
   try { CacheService.getScriptCache().remove(_schemaCacheKey(tab)); } catch (e) { /* TTL covers it */ }
@@ -2786,33 +2787,49 @@ function _pharmacyDateRefusal(dateKey) {
   return "";
 }
 //
-// Read by column index, so both tabs' headers are checked first: a column
-// deleted by hand shifted staff emails into savedAt and submittedAt (attack
-// pass, 2026-10-30). The check is cached for 10 minutes like the write guard,
-// so the fields themselves are held to shape too: a time only when it is an
-// ISO timestamp; the prescriber is the Staff name of the account the server
-// stamped as the saver (AB), never what a client wrote into calcInput; a bed
-// only when it is a ward bed (a free-text bed may hold anything, and the
-// TPN-room page refuses a blank or free-text bed either way).
+// Read by column index, so both tabs' headers are checked first, uncached:
+// a column deleted by hand shifted staff emails into savedAt and submittedAt,
+// and one inserted before Z put calcInputJson (an email and client text) into
+// entryId (attack pass and task review, 2026-10-30). The write guard's
+// 10-minute cached verdict does not see a column moved since, and this read
+// ends up on a bag label; about 57 header cells per call. The fields are held
+// to shape as well, for a cell edited by hand: a time only as an ISO
+// timestamp; entryId only as a UUID (Utilities.getUuid, every writer); the
+// prescriber is the Staff name of the account the server stamped as the saver
+// (AB), never what a client wrote into calcInput; a bed only when it is a
+// ward bed (a free-text bed may hold anything, and the TPN-room page refuses a
+// blank or free-text bed either way).
 var PHARMACY_ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+var PHARMACY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var PHARMACY_WARD_BED = /^(NICU \d+|SCN \d+|iso \d+(-\d+)?)$/;
 function _pharmacyTime(v) {
   var s = String(v == null ? "" : v);
   return PHARMACY_ISO_TS.test(s) ? s : "";
 }
+function _pharmacySchemaNow(sheet, tab) {
+  var bad = _schemaMismatch(sheet, tab);
+  if (bad) throw _schemaError(tab, bad);
+}
 // The Daily_Log rows dated `dateKey` (ward time), at full width (AM included):
-// column A first, then only the blocks that hold that date, planned as the
-// ward sync plans its own (_planLogBlocks). Reading the whole tab at 39 columns
-// on every call grew with the tab (walkthrough, 2026-10-30: 228,684 cells at
-// 6,018 rows). A row that moved between the two reads, or a row added, means a
-// hand edit: read the whole tab instead, as _readLogRowsFor does. The caller
-// filters by date again, so the rows between two hits do no harm.
+// columns A (ts) and Z (entryId) first, then only the blocks that hold that
+// date, planned as the ward sync plans its own (_planLogBlocks). Reading the
+// whole tab at 39 columns on every call grew with the tab (walkthrough,
+// 2026-10-30: 228,684 cells at 6,018 rows). Each block row is matched to the
+// first read by its entryId, which is unique; a mismatch, or a row count that
+// changed, means an edit landed between the reads: read the whole tab again
+// at its current length instead. The caller filters by date again, so the
+// rows between two hits do no harm.
 function _pharmacyLogRows(sheet, dateKey) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   var n = lastRow - 1;
   var width = Math.min(LOG_WIDTH, sheet.getMaxColumns());
+  var whole = function () {
+    var last = sheet.getLastRow();
+    return last < 2 ? [] : sheet.getRange(2, 1, last - 1, width).getValues();
+  };
   var tsCol = sheet.getRange(2, 1, n, 1).getValues();
+  var idCol = sheet.getRange(2, 26, n, 1).getValues();
   var hits = [];
   for (var r = 0; r < n; r++) {
     if (_wardDateKey(tsCol[r][0]) === dateKey) hits.push(r);
@@ -2824,18 +2841,18 @@ function _pharmacyLogRows(sheet, dateKey) {
     var start = blocks[b][0], end = blocks[b][1];
     var vals = sheet.getRange(2 + start, 1, end - start + 1, width).getValues();
     for (var k = 0; k < vals.length; k++) {
-      if (String(vals[k][0]) !== String(tsCol[start + k][0])) return sheet.getRange(2, 1, n, width).getValues();
+      if (String(vals[k][25]) !== String(idCol[start + k][0])) return whole();
       out.push(vals[k]);
     }
   }
-  if (sheet.getLastRow() !== lastRow) return sheet.getRange(2, 1, sheet.getLastRow() - 1, width).getValues();
+  if (sheet.getLastRow() !== lastRow) return whole();
   return out;
 }
 function pharmacyOrders(dateKey) {
   var ss = _book();
   var patSheet = getSheetPat(ss), sheet = getSheetLog(ss);
-  _assertSchema(patSheet, "Patient_Registry");
-  _assertSchema(sheet, "Daily_Log");
+  _pharmacySchemaNow(patSheet, "Patient_Registry");
+  _pharmacySchemaNow(sheet, "Daily_Log");
   var pat = patSheet.getDataRange().getValues();
   var bedOf = {}, bwOf = {}, twinOf = {}, setOf = {}, active = 0;
   for (var i = 1; i < pat.length; i++) {
@@ -2871,7 +2888,7 @@ function pharmacyOrders(dateKey) {
       var rowSid = String(row[1] || "");
       orders.push({
         sessionId: rowSid,
-        entryId: String(row[25] || ""),
+        entryId: PHARMACY_UUID.test(String(row[25] || "")) ? String(row[25]) : "",
         bed: bedOf[rowSid] || "",
         bw: bwOf[rowSid] || 0,
         twinSuffix: twinOf[rowSid] || "",

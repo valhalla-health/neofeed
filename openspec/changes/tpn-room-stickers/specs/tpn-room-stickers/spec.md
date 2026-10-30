@@ -47,7 +47,9 @@ SHALL NOT put a name or an AN in any request.
 
 The page SHALL let the pharmacist enter the name to print and the AN for a NeoFeed ID, showing BW, bed and
 DOL beside it, the order's weight for calculation (`printJson.dosingWeightKg`, the weight the paper order
-prints), and for twins the letter and set size in large type ("Twin A of 2"). It SHALL check the AN against the `nnnnn/yy` pattern, warn when that AN is already mapped
+prints), and for twins the letter and set size in large type ("Twin A of 2", "Triplet C of 3",
+"Quadruplet D of 4"; with no set size, an infant registered before 2026-08-14, "Twin A", as the
+registry does). It SHALL check the AN against the `nnnnn/yy` pattern, warn when that AN is already mapped
 to another NeoFeed ID, and record who mapped or edited the entry and when.
 
 #### Scenario: An AN already in use
@@ -73,8 +75,10 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 
 #### Scenario: The order was deleted after printing
 
-- **WHEN** an order printed for the chosen date is no longer in the reply
-- **THEN** the page lists it as "พิมพ์แล้ว แต่ถูกลบใน NeoFeed — อย่าใช้ถุงนี้"
+- **WHEN** the page printed an order for a NeoFeed ID and the chosen date, and the reply holds no order
+  for that ID and date
+- **THEN** the page lists it as "พิมพ์แล้ว แต่ถูกลบใน NeoFeed — อย่าใช้ถุงนี้" (a revision is not a
+  deletion: it shows as changed, above)
 
 #### Scenario: Checked again just before printing
 

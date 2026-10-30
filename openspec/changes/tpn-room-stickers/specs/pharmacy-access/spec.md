@@ -25,11 +25,14 @@ NeoFeed ID, the row's `entryId`, bed, BW, the twin letter and set size, DOL, sta
 revision number, the prescriber's name, the saved and submitted times, and `printJson` for submitted
 orders only. The reply SHALL contain no name, initials or date of birth.
 
-Every field comes from what the server wrote, held to its shape (cold readers, 2026-10-30): the
-prescriber is the Staff name of the account the server stamped as the row's saver, never text a client
-wrote, and blank when that name is an email; the bed is a ward bed (`NICU n`, `SCN n`, `iso n[-m]`) or
-blank; a time is an ISO timestamp or blank. The server SHALL check both tabs' headers first and refuse
-with `SchemaMismatch` when a column has moved.
+The fields are held to their shape (cold readers and task review, 2026-10-30): the prescriber is the
+Staff name of the account the server stamped as the row's saver, never text a client wrote, and blank
+when that name is an email; the bed is a ward bed (`NICU n`, `SCN n`, `iso n[-m]`) or blank; the twin
+letter is A–D or blank; `entryId` is a UUID or blank; a time is an ISO timestamp or blank. The server
+SHALL check both tabs' headers on every call, not through the write guard's cached verdict, and refuse
+with `SchemaMismatch` when a column has moved. Two fields are still as written: `printJson`, until
+Tasks 1–2 hold it to the final key set (plan-pr-a.md), and the NeoFeed ID, which for an infant
+registered before 2026-09-27 carries initials (accepted by Pp, 2026-10-30, D5).
 
 #### Scenario: A day with submitted orders and a draft
 
@@ -65,3 +68,10 @@ with `SchemaMismatch` when a column has moved.
 
 - **WHEN** a pharmacy account signs in to `NeoFeed.html` or `index.html`
 - **THEN** it sees only a line saying that the account works with the TPN-room page
+
+#### Scenario: A signed-in ward account becomes pharmacy
+
+- **WHEN** an admin changes a signed-in account's role to pharmacy, or a pharmacy session is found in the
+  browser's storage at load
+- **THEN** the next sync answers `Forbidden`, and the app logs the token out, clears the calculator
+  caches, and shows the sign-in screen with the same line

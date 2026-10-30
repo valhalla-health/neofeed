@@ -99,10 +99,11 @@ const SESSION_NOTICES = {
     body: "งานที่ยังไม่บันทึกถูกเก็บเป็นร่าง"
   },
   // The sync answered Forbidden: only a pharmacy role gets that from
-  // getActivePatients, so an admin changed this account to pharmacy.
+  // getActivePatients (an admin changed the role, or a pharmacy session was
+  // restored). The words the sign-in refusal uses.
   pharmacy: {
     kind: "expired",
-    title: "บัญชีนี้เปลี่ยนเป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น",
+    title: "บัญชีนี้เป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น",
     body: "ออกจากระบบแล้ว"
   }
 };
@@ -618,12 +619,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (endedRef.current) return;
     endedRef.current = true;
     const tok = userRef.current?.token || "";
-    if (GAS_ON && tok && (reason === "manual" || reason === "idle")) {
+    if (GAS_ON && tok && (reason === "manual" || reason === "idle" || reason === "pharmacy")) {
       gasRequest({ action: "logout", token: tok }, { timeoutMs: 1e4 }).catch(() => {
       });
     }
     clearSession();
-    if (reason === "manual" || reason === "idle") {
+    if (reason === "manual" || reason === "idle" || reason === "pharmacy") {
       const prefixes = reason === "manual" ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_"] : ["neofeed_calc_", "neofeed_acked_"];
       try {
         Object.keys(localStorage).filter((k) => prefixes.some((p) => k.startsWith(p))).forEach((k) => localStorage.removeItem(k));

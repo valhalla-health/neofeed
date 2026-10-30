@@ -29,6 +29,8 @@ these for the client half; each needs its own failing test first.
    short number string (`^-?\d+(\.\d+)?$`) or `null` where the spec allows; a length cap on any text (the
    critical alert's reason); and a refusal when `printJson.dol`, `dosingWeightKg` or `constantsVersion`
    differs from the same request's `entry.dol`, `calcInput.tpnWtG / 1000` and `entry.constantsVersion`.
+   Compare the weight after the sticker's own formatting (at most two decimals, no trailing zero): 1625 g
+   is 1.625 kg raw and `1.63` on the sticker, so a raw comparison would refuse a valid order.
 2. **An order without figures can be saved again, and the doctor can see it** (walkthrough, finding 2). A
    locked order on the current `CONSTANTS_VERSION` has Submit and Save draft disabled, and an unlocked
    submitted order's Submit only locks it, so "open and save again" saves nothing. The ward sync does not
@@ -787,6 +789,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ---
 
 ### Task 5: `pharmacyOrders`
+
+> Built as planned below, then changed by the cold-reader fixes (a57595c and the review round after it):
+> the prescriber comes from Staff, not `savedByLabel`; the reply adds `entryId`, `twinSuffix` and
+> `multiplesCount`; the headers are checked uncached; only the date's rows are read. The code below is
+> the original plan. Read `gas-backend.gs` for the current one.
 
 **Files:**
 - Modify: `gas-backend.gs`: a `doPost` branch after `getUsageWeekly` (line 1346); the function itself after `publishDailyLog`

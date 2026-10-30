@@ -79,6 +79,8 @@ const scenarios = {
     A.eq('…nothing of the ward list remains', /Total sessions/.test(t.text()), false);
     A.eq('…the session is gone from sessionStorage', t.window.sessionStorage.getItem('neofeed_session'), null);
     A.eq('…and the notice says why', /หน้าห้อง TPN/.test((document.querySelector('.login-notice') || {}).textContent || ''), true);
+    A.eq('…and its token is logged out (it still opens the TPN room\'s actions)',
+      t.callsOf('logout').map(c => c.token), ['tok-doctor-123456']);
   },
 
   // A pharmacy session found in sessionStorage at load (a page on the same origin that stored it under the
@@ -93,7 +95,9 @@ const scenarios = {
     A.eq('the first sync ends the session: the login screen', !!document.querySelector('.login-wrap'), true);
     A.eq('…no retry loop on screen', /ลองใหม่/.test(t.text()) && /Forbidden/.test(t.text()), false);
     A.eq('…the session is gone from sessionStorage', t.window.sessionStorage.getItem('neofeed_session'), null);
-    A.eq('…and the notice says why', /หน้าห้อง TPN/.test((document.querySelector('.login-notice') || {}).textContent || ''), true);
+    A.eq('…the notice gives the sign-in refusal\'s words', /บัญชีนี้เป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น/
+      .test((document.querySelector('.login-notice') || {}).textContent || ''), true);
+    A.eq('…and the token is logged out', t.callsOf('logout').map(c => c.token), ['tok-rx-restored-1']);
   },
 };
 
