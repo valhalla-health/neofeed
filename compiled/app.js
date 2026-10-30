@@ -97,6 +97,13 @@ const SESSION_NOTICES = {
     kind: "maxAge",
     title: "เซสชันครบ 12 ชั่วโมง — กรุณาเข้าสู่ระบบใหม่",
     body: "งานที่ยังไม่บันทึกถูกเก็บเป็นร่าง"
+  },
+  // The sync answered Forbidden: only a pharmacy role gets that from
+  // getActivePatients, so an admin changed this account to pharmacy.
+  pharmacy: {
+    kind: "expired",
+    title: "บัญชีนี้เปลี่ยนเป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น",
+    body: "ออกจากระบบแล้ว"
   }
 };
 const unauthorizedReason = (data) => data && data.reason === "SessionMaxAge" ? "maxAge" : "expired";
@@ -782,6 +789,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       settle();
       if (data.error === "Unauthorized") {
         endSessionRef.current(unauthorizedReason(data));
+        return;
+      }
+      if (data.error === "Forbidden") {
+        endSessionRef.current("pharmacy");
         return;
       }
       if (data.error === "PasswordChangeRequired") {

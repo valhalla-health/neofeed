@@ -13,7 +13,7 @@
 // Real gas-backend.gs in gas-vm-sandbox.cjs. Synthetic infants only.
 process.env.TZ = process.env.TZ || 'Asia/Bangkok';
 const fs = require('fs');
-const { boot, recorder, withNow, wardToday, addDays, SRC_PATH } = require('./gas-vm-sandbox.cjs');
+const { boot, recorder, withNow, wardToday, addDays, bkkMidnight, SRC_PATH } = require('./gas-vm-sandbox.cjs');
 const T = recorder('PHARMACY BACKEND 2026-10-30');
 
 const PJ = (extra) => Object.assign({ v: 1, constantsVersion: '2026-10-28.1', orderDate: '2026-10-20', dol: '10',
@@ -207,7 +207,8 @@ T.section('§6 pharmacyOrders · one date, counts, and no identifying field', ()
   T.eq('four orders', res.orders.length, 4);
   const one = res.orders.find(o => o.sessionId === 'NF-100001');
   T.eq('the fields, and only those', Object.keys(one).sort(),
-    ['bed', 'bw', 'dol', 'prescriber', 'printJson', 'revision', 'savedAt', 'sessionId', 'status', 'submittedAt']);
+    ['bed', 'bw', 'dol', 'entryId', 'multiplesCount', 'prescriber', 'printJson', 'revision', 'savedAt', 'sessionId', 'status',
+      'submittedAt', 'twinSuffix']);
   T.eq('bed, BW, DOL, status, revision', [one.bed, one.bw, one.dol, one.status, one.revision], ['NICU 3', 1600, 10, 'submitted', 1]);
   T.eq('the prescriber by name, without the email', one.prescriber, 'Dr Test');
   T.eq('figures on a submitted order', one.printJson.factor, '1.9');
@@ -272,10 +273,10 @@ T.section('§7 pharmacyOrders · revisions, who may ask, and the date window', (
     T.eq('…and audited once', g.audit().length, a + 1);
   }
 
-  // An account with no name saves a label that is only its email: nothing to show, and no email in the reply.
+  // The label a client writes is not read: the prescriber is the saver's Staff name (§9), and no email reaches the reply.
   g.log('NF-100002', yesterday, E({}, { savedByLabel: 'admin@kcmh.test' }));
   const bare = ask(g.rt, yesterday);
-  T.eq('a label that is only an email → a blank prescriber, no email in the reply', [bare.orders.length, bare.orders[0].prescriber, /@/.test(JSON.stringify(bare))], [1, '', false]);
+  T.eq('a label that is only an email is ignored: the saver\'s Staff name, no email in the reply', [bare.orders.length, bare.orders[0].prescriber, /@/.test(JSON.stringify(bare))], [1, 'Dr Test', false]);
 
   // The calendar check on its own. With the ward's clock at 1 March, "30 February" parses to 2 March:
   // tomorrow, inside the window. Only the real-date round trip refuses it. Last in the section,
@@ -295,7 +296,8 @@ T.section('§8 header migration · ensureLogHeaderColumns labels AM and widens t
   const sh = g.sheet('Daily_Log');
   T.eq('before: 38 wide, 38 headers', [sh.getMaxColumns(), sh.data[0].length], [38, 38]);
   const dry = g.sb.ensureLogHeaderColumns();
-  T.eq('a dry run reports the widening', dry.changes, ['grid: 38 -> 39 columns (+1)']);
+  T.eq('a dry run reports the widening and the label it brings', dry.changes,
+    ['grid: 38 -> 39 columns (+1)', "col 39: '' -> 'printJson' (after the widening)"]);
   T.eq('…and writes nothing', [sh.getMaxColumns(), sh.data[0].length], [38, 38]);
   const done = g.sb.applyLogHeaderColumns();
   T.eq('applyLogHeaderColumns widens the grid to 39', sh.getMaxColumns(), 39);
@@ -317,7 +319,137 @@ T.section('§8 header migration · ensureLogHeaderColumns labels AM and widens t
   ns.maxColumns = 31; ns.data[0].length = 31;
   let narrow = null;
   try { narrow = n.sb.ensureLogHeaderColumns(); } catch (e) { narrow = { threw: e.message }; }
-  T.eq('a dry run on a 31-column tab does not throw, and reports the widening', narrow.changes, ['grid: 31 -> 39 columns (+8)']);
+  T.eq('a dry run on a 31-column tab does not throw, and reports the widening', narrow.changes[0], 'grid: 31 -> 39 columns (+8)');
+  T.eq('…with the eight labels past the grid', narrow.changes.slice(1).map(c => /^col (\d+): .* \(after the widening\)$/.exec(c)[1]),
+    ['32', '33', '34', '35', '36', '37', '38', '39']);
+
+  // The tab the walkthrough found: 38 wide with AC–AL blank. The dry run used to list one change and the apply twelve.
+  const b = boot();
+  const bs = b.sheet('Daily_Log');
+  for (let c = 28; c < 38; c++) bs.data[0][c] = '';
+  const bdry = b.sb.ensureLogHeaderColumns();
+  const bdone = b.sb.applyLogHeaderColumns();
+  T.eq('on a 38-wide tab with AC–AL blank, the dry run lists what the apply then does', bdry.changes.length, bdone.changes.length);
+  T.eq('…twelve: the grid, AC–AL and AM', bdone.changes.length, 12);
+});
+
+// The attack pass on e1a7e87 (2026-10-30) found these; each case failed before its fix.
+T.section('§9 pharmacyOrders · prescriber and bed come from the server, not from what a client wrote', () => {
+  const g = ward();
+  const today = wardToday();
+  g.addStaff('doc2@kcmh.test', 'doctor', 'Doctor-Password-2', { name: 'doc2@kcmh.test' });
+  const d2 = g.session('doc2@kcmh.test', 'doctor');
+  g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100006', 'SENTINEL-BED TEST0001') });
+  g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100007', 'NICU 5') });
+  g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100008', 'NICU 6') });
+  g.log('NF-100001', today, E({}, { savedByLabel: 'Prof Synthetic Boss (boss@kcmh.test)' }));
+  g.log('NF-100002', today, E({}, { savedByLabel: 'SENTINEL-LABEL <img src=x onerror=alert(1)>' }));
+  g.log('NF-100006', today, E());
+  const ns = g.as(g.nt, { action: 'logDailyNutrition', sessionId: 'NF-100007',
+    entry: E({ ts: today }, { savedByLabel: 'Dr Test (doc@kcmh.test)' }) });
+  T.ok('a nurse save lands while the nursing switch is off', !!ns.entryId, ns);
+  g.as(d2, { action: 'logDailyNutrition', sessionId: 'NF-100008', entry: E({ ts: today }) });
+  const res = g.as(g.rt, { action: 'pharmacyOrders', date: today });
+  const of = (sid) => res.orders.find(o => o.sessionId === sid);
+  T.eq('the saver\'s Staff name, not the label the client sent',
+    [of('NF-100001').prescriber, of('NF-100002').prescriber], ['Dr Test', 'Dr Test']);
+  T.eq('a nurse\'s save names the nurse', of('NF-100007').prescriber, 'Nurse Test');
+  T.eq('a Staff name that is an email gives a blank prescriber', of('NF-100008').prescriber, '');
+  T.eq('a free-text bed comes back blank; a ward bed as it is',
+    [of('NF-100006').bed, of('NF-100001').bed, of('NF-100002').bed], ['', 'NICU 3', 'SCN 12']);
+  const text = JSON.stringify(res);
+  T.ok('no client text, markup or email in the reply', !/SENTINEL|<img|Boss|@/.test(text), text.slice(0, 400));
+});
+
+T.section('§10 pharmacyOrders · a Daily_Log with a column deleted by hand', () => {
+  const g = ward();
+  const today = wardToday();
+  // No figures: a row whose AM is blank stays listed once the columns shift, so its other cells are read.
+  const s = g.log('NF-100001', today, E({ printJson: undefined }));
+  g.as(g.dt, { action: 'publishLog', sessionId: 'NF-100001', entryId: s.entryId, expectedLastModified: s.lastModified });
+  T.ok('the sheet holds staff emails in AB and AI, so the checks below can fail',
+    g.cell(1, 27) === 'doc@kcmh.test' && g.cell(1, 34) === 'doc@kcmh.test');
+  g.sheet('Daily_Log').deleteColumns(17, 1);   // column Q, as a hand edit in the Sheets UI would
+  // The save above cached a passing schema check (10 minutes). Inside that window the read goes ahead:
+  const cached = g.as(g.rt, { action: 'pharmacyOrders', date: today });
+  T.eq('inside the cached window the order is still listed', cached.orders && cached.orders.length, 1);
+  T.eq('…its times blank, since the shifted cells are not timestamps',
+    [cached.orders[0].savedAt, cached.orders[0].submittedAt], ['', '']);
+  T.ok('…and no email anywhere in it', !/@/.test(JSON.stringify(cached)), JSON.stringify(cached));
+  g.cacheStore.delete('schema1_Daily_Log');
+  const auditBefore = g.audit().length;
+  const fresh = g.as(g.rt, { action: 'pharmacyOrders', date: today });
+  T.eq('once the check runs, the read is refused', fresh.code, 'SchemaMismatch');
+  T.ok('…with no orders in the reply', !('orders' in fresh), fresh);
+  T.eq('…and it is still audited (the ask came in)', g.audit().length, auditBefore + 1);
+});
+
+T.section('§11 Staff roles fail closed, and setInitialPassword never invents one', () => {
+  for (const role of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+    const g = boot();
+    g.addStaff('odd@kcmh.test', role, 'Odd-Password-1', { name: 'Odd' });
+    const li = g.post({ action: 'login', email: 'odd@kcmh.test', password: 'Odd-Password-1', wantSync: true });
+    T.ok(`a Staff role "${role}" cannot sign in`, li.status !== 'ok' && !li.sync, li);
+    const tok = g.session('odd@kcmh.test', 'doctor');
+    T.eq(`…and a session for it is refused`, g.post({ action: 'getActivePatients', token: tok }), { error: 'Unauthorized' });
+  }
+
+  const g = boot();
+  const has = (email) => g.sheet('Staff').data.find(r => r[0] === email);
+  g.sb.setInitialPassword('new.rx@kcmh.test', 'Initial-Password-1');
+  T.eq('a new email with no role adds no Staff row', !!has('new.rx@kcmh.test'), false);
+  g.sb.setInitialPassword('new.rx@kcmh.test', 'Initial-Password-1', 'boss');
+  T.eq('…nor with a role that does not exist', !!has('new.rx@kcmh.test'), false);
+  g.sb.setInitialPassword('new.rx@kcmh.test', 'Initial-Password-1', 'Pharmacy');
+  T.eq('with a role, the new row carries it, active', [has('new.rx@kcmh.test')[1], has('new.rx@kcmh.test')[3]], ['pharmacy', true]);
+  const li = g.post({ action: 'login', email: 'new.rx@kcmh.test', password: 'Initial-Password-1', wantSync: true });
+  T.eq('…and signs in as that role, with no registry', [li.status, li.role, 'sync' in li], ['ok', 'pharmacy', false]);
+  g.addStaff('nurse2@kcmh.test', 'nurse', 'Old-Password-1');
+  g.sb.setInitialPassword('nurse2@kcmh.test', 'New-Password-1', 'admin');
+  T.eq('an existing row keeps its role (the Staff tab changes roles)', has('nurse2@kcmh.test')[1], 'nurse');
+  const n2 = g.post({ action: 'login', email: 'nurse2@kcmh.test', password: 'New-Password-1' });
+  T.eq('…and takes the new password', [n2.status, n2.role], ['ok', 'nurse']);
+});
+
+// The stakeholder walkthrough on e1a7e87 (2026-10-30) found these.
+T.section('§12 pharmacyOrders · entryId and the twin letter tell orders and infants apart; one date is read, not the tab', () => {
+  const g = ward();
+  const today = wardToday();
+  const ask = () => g.as(g.rt, { action: 'pharmacyOrders', date: today });
+  const of = (res, sid) => res.orders.find(o => o.sessionId === sid);
+
+  const first = g.log('NF-100001', today, E());
+  const before = of(ask(), 'NF-100001');
+  T.eq('each order carries its row\'s entryId', before.entryId, first.entryId);
+  const del = g.as(g.at, { action: 'deleteDailyNutrition', sessionId: 'NF-100001', entryId: first.entryId });
+  T.ok('an admin deletes the order (written on the wrong infant)', del.ok === true, del);
+  g.log('NF-100001', today, E());
+  const after = of(ask(), 'NF-100001');
+  T.eq('the order written again is revision 1 as well', [before.revision, after.revision], [1, 1]);
+  T.ok('…but a different entryId, so the room can tell a new order from the one it printed',
+    !!after.entryId && after.entryId !== before.entryId, [before.entryId, after.entryId]);
+
+  for (const [sid, bed, letter] of [['NF-200001', 'NICU 7', 'A'], ['NF-200002', 'NICU 8', 'B']]) {
+    g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true,
+      patient: Object.assign(P(sid, bed), { twinSuffix: letter, multiplesCount: 2 }) });
+    g.log(sid, today, E());
+  }
+  const res = ask();
+  T.eq('twins carry their letter and the set size (same BW and DOL otherwise)',
+    ['NF-200001', 'NF-200002'].map(s => [of(res, s).twinSuffix, of(res, s).multiplesCount]), [['A', 2], ['B', 2]]);
+  T.eq('a singleton carries none', [of(res, 'NF-100001').twinSuffix, of(res, 'NF-100001').multiplesCount], ['', 0]);
+
+  // 2,000 rows on older dates above today's: the read is the date column and today's rows, not the tab.
+  const L = g.sheet('Daily_Log');
+  const old = [];
+  for (let i = 0; i < 2000; i++) old.push(g.logRow('NF-100002', bkkMidnight(addDays(today, -30 - (i % 200))), {}));
+  L.data.splice(1, 0, ...old);
+  L.stats.cellsRead = 0;
+  const big = ask();
+  const n = L.data.length - 1;
+  T.eq('the same orders come back', big.orders.length, res.orders.length);
+  T.ok('cells read: the date column plus a few rows, not 39 per row',
+    L.stats.cellsRead <= n + 10 * 39 && L.stats.cellsRead < n * 2, { cellsRead: L.stats.cellsRead, rows: n });
 });
 
 T.done();

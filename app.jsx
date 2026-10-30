@@ -124,6 +124,10 @@ const SESSION_NOTICES = {
   // reason "SessionMaxAge" — same logout, but "expired" would read as a fault.
   maxAge:  { kind: "maxAge",  title: "เซสชันครบ 12 ชั่วโมง — กรุณาเข้าสู่ระบบใหม่",
              body: "งานที่ยังไม่บันทึกถูกเก็บเป็นร่าง" },
+  // The sync answered Forbidden: only a pharmacy role gets that from
+  // getActivePatients, so an admin changed this account to pharmacy.
+  pharmacy: { kind: "expired", title: "บัญชีนี้เปลี่ยนเป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น",
+              body: "ออกจากระบบแล้ว" },
 };
 const unauthorizedReason = (data) => (data && data.reason === "SessionMaxAge") ? "maxAge" : "expired";
 
@@ -1320,6 +1324,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         // why (UP-S7).
         if (data.error === "Unauthorized") {
           endSessionRef.current(unauthorizedReason(data));
+          return;
+        }
+        // The pharmacy allow-list is the one thing that answers this action
+        // Forbidden: the account's role became pharmacy mid-session. It used
+        // to leave the registry, names included, on screen until the idle
+        // logout (attack pass, 2026-10-30).
+        if (data.error === "Forbidden") {
+          endSessionRef.current("pharmacy");
           return;
         }
         // This path, not gasPost, is where a mid-session col G flag actually

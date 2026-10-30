@@ -502,10 +502,12 @@ function _primeStaffRow(email, found) {
 // Authorization values fail closed. A blank/misspelled Staff role used to be
 // promoted to `doctor` (blank) or preserved as an unknown role that could still
 // call getActivePatients. Only these four roles exist in the product model.
+// hasOwnProperty, not a plain lookup: a role cell reading "constructor" or
+// "__proto__" signed in and read the registry (attack pass, 2026-10-30).
 var VALID_STAFF_ROLES = { admin: true, doctor: true, nurse: true, pharmacy: true };
 function _staffRole(value) {
   var role = String(value == null ? "" : value).trim().toLowerCase();
-  return VALID_STAFF_ROLES[role] ? role : null;
+  return Object.prototype.hasOwnProperty.call(VALID_STAFF_ROLES, role) ? role : null;
 }
 
 function createSession(email, role, name, mustChangePassword, authMethod) {
@@ -622,10 +624,24 @@ function getStaffRow(email) {
 
 // ── setInitialPassword — run from Apps Script editor ─────────
 // Usage: setInitialPassword("user@redcross.or.th", "MyP@ssw0rd")
-function setInitialPassword(email, password) {
-  if (!email || !password) { Logger.log("Usage: setInitialPassword('email@domain', 'password')"); return; }
+//        setInitialPassword("new.rx@kcmh.go.th", "MyP@ssw0rd", "pharmacy")
+// The role names a NEW account's role and is required for one: a new row used
+// to be created as an active doctor, so a pharmacist provisioned this way read
+// the registry (attack pass, 2026-10-30). An existing row keeps its role; the
+// Staff tab is where a role changes.
+function setInitialPassword(email, password, role) {
+  if (!email || !password) { Logger.log("Usage: setInitialPassword('email@domain', 'password'[, 'role'])"); return; }
   var sh = getSheetStaff();
   var found = getStaffRow(email);
+  var newRole = found ? null : _staffRole(role);
+  if (!found && !newRole) {
+    Logger.log("No Staff row for " + email + ": nothing written. Name its role: setInitialPassword('" + email +
+      "', 'password', 'doctor' | 'nurse' | 'admin' | 'pharmacy')");
+    return;
+  }
+  if (found && role && _staffRole(role) !== _staffRole(found.data[1])) {
+    Logger.log("Role unchanged for " + email + ": change it in the Staff tab.");
+  }
   var salt = Utilities.getUuid();
   var hash = hashPwdV2(password, salt);
   // Cols G/H (must_change_password/temp_password) cleared here too: an admin
@@ -636,7 +652,7 @@ function setInitialPassword(email, password) {
     sh.getRange(found.row, 5, 1, 4).setValues([[hash, salt, false, ""]]);
     Logger.log("Password updated for: " + email);
   } else {
-    sh.appendRow([_sheetSafe(email), "doctor", _sheetSafe(email.split("@")[0]), true, hash, salt, false, ""]);
+    sh.appendRow([_sheetSafe(email), newRole, _sheetSafe(email.split("@")[0]), true, hash, salt, false, ""]);
     Logger.log("Staff added with password: " + email);
   }
   // Both branches: the cached copy may hold the old col G, or "not found".
@@ -2749,10 +2765,15 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
 // the times and, for a submitted order, the sticker figures (AM). No name,
 // initials or date of birth: the TPN room links an ID to an infant from the
 // paper order, on its own PC (openspec tpn-room-stickers, D5).
+// Also the row's entryId and the infant's twin letter and set size
+// (walkthrough, 2026-10-30): an order deleted after printing and written again
+// is revision 1 again, so only its entryId tells the room it is a new order;
+// twins share BW and DOL, and the paper order prints "(Twin A)".
 //
 // The date window (ruling for this change, 2026-10-30): from the ward's today
-// minus 7 days to today plus 1. The TPN room needs today, tomorrow's orders
-// written the day before, and a week back for a reprint; a pharmacy account
+// minus 7 days to today plus 1. The TPN room needs today and a week back for a
+// reprint; +1 is headroom for an order dated ahead (the ward app's New log
+// offers today and earlier days only, so today it holds none); a pharmacy account
 // must not read any older day's orders. A real calendar date by the same
 // Date.parse round trip as _normaliseEntryDate (so 2026-13-45 and 2026-02-30
 // are refused), with a past limit as well as a future one. "" when it passes.
@@ -2764,22 +2785,79 @@ function _pharmacyDateRefusal(dateKey) {
   if (at < today - 7 * 86400000 || at > today + 86400000) return PHARMACY_DATE_MSG;
   return "";
 }
+//
+// Read by column index, so both tabs' headers are checked first: a column
+// deleted by hand shifted staff emails into savedAt and submittedAt (attack
+// pass, 2026-10-30). The check is cached for 10 minutes like the write guard,
+// so the fields themselves are held to shape too: a time only when it is an
+// ISO timestamp; the prescriber is the Staff name of the account the server
+// stamped as the saver (AB), never what a client wrote into calcInput; a bed
+// only when it is a ward bed (a free-text bed may hold anything, and the
+// TPN-room page refuses a blank or free-text bed either way).
+var PHARMACY_ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+var PHARMACY_WARD_BED = /^(NICU \d+|SCN \d+|iso \d+(-\d+)?)$/;
+function _pharmacyTime(v) {
+  var s = String(v == null ? "" : v);
+  return PHARMACY_ISO_TS.test(s) ? s : "";
+}
+// The Daily_Log rows dated `dateKey` (ward time), at full width (AM included):
+// column A first, then only the blocks that hold that date, planned as the
+// ward sync plans its own (_planLogBlocks). Reading the whole tab at 39 columns
+// on every call grew with the tab (walkthrough, 2026-10-30: 228,684 cells at
+// 6,018 rows). A row that moved between the two reads, or a row added, means a
+// hand edit: read the whole tab instead, as _readLogRowsFor does. The caller
+// filters by date again, so the rows between two hits do no harm.
+function _pharmacyLogRows(sheet, dateKey) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var n = lastRow - 1;
+  var width = Math.min(LOG_WIDTH, sheet.getMaxColumns());
+  var tsCol = sheet.getRange(2, 1, n, 1).getValues();
+  var hits = [];
+  for (var r = 0; r < n; r++) {
+    if (_wardDateKey(tsCol[r][0]) === dateKey) hits.push(r);
+  }
+  if (!hits.length) return [];
+  var blocks = _planLogBlocks(hits);
+  var out = [];
+  for (var b = 0; b < blocks.length; b++) {
+    var start = blocks[b][0], end = blocks[b][1];
+    var vals = sheet.getRange(2 + start, 1, end - start + 1, width).getValues();
+    for (var k = 0; k < vals.length; k++) {
+      if (String(vals[k][0]) !== String(tsCol[start + k][0])) return sheet.getRange(2, 1, n, width).getValues();
+      out.push(vals[k]);
+    }
+  }
+  if (sheet.getLastRow() !== lastRow) return sheet.getRange(2, 1, sheet.getLastRow() - 1, width).getValues();
+  return out;
+}
 function pharmacyOrders(dateKey) {
   var ss = _book();
-  var pat = getSheetPat(ss).getDataRange().getValues();
-  var bedOf = {}, bwOf = {}, active = 0;
+  var patSheet = getSheetPat(ss), sheet = getSheetLog(ss);
+  _assertSchema(patSheet, "Patient_Registry");
+  _assertSchema(sheet, "Daily_Log");
+  var pat = patSheet.getDataRange().getValues();
+  var bedOf = {}, bwOf = {}, twinOf = {}, setOf = {}, active = 0;
   for (var i = 1; i < pat.length; i++) {
     var sid = String(pat[i][0] || "");
     if (!sid) continue;
-    bedOf[sid] = _normBed(pat[i][10]);
+    var bed = _normBed(pat[i][10]);
+    bedOf[sid] = PHARMACY_WARD_BED.test(bed) ? bed : "";
     bwOf[sid] = _numSafe(pat[i][3], 0);
+    var twin = String(pat[i][8] || "").trim().toUpperCase();
+    twinOf[sid] = /^[A-D]$/.test(twin) ? twin : "";
+    setOf[sid] = _numSafe(pat[i][17], 0);
     if (_onUnitStatus(pat[i][9])) active++;
   }
-  var sheet = getSheetLog(ss);
-  var lastRow = sheet.getLastRow();
+  var staff = getSheetStaff().getDataRange().getValues();
+  var staffName = {};
+  for (var s = 1; s < staff.length; s++) {
+    var name = String(staff[s][2] || "").trim();
+    if (name && name.indexOf("@") === -1) staffName[String(staff[s][0] || "").trim().toLowerCase()] = name;
+  }
   var orders = [], submitted = 0, drafts = 0;
-  if (lastRow >= 2) {
-    var rows = sheet.getRange(2, 1, lastRow - 1, Math.min(LOG_WIDTH, sheet.getMaxColumns())).getValues();
+  var rows = _pharmacyLogRows(sheet, dateKey);
+  if (rows.length) {
     for (var r = 0; r < rows.length; r++) {
       var row = rows[r];
       if (_wardDateKey(row[0]) !== dateKey) continue;
@@ -2787,23 +2865,23 @@ function pharmacyOrders(dateKey) {
       if (row[37]) continue;   // superseded by a later revision
       var isDraft = String(row[14] || "").trim().toLowerCase() === "draft";
       if (isDraft) drafts++; else submitted++;
-      var ci = _parseJson(row[24], {});
-      var label = ci && typeof ci.savedByLabel === "string" ? ci.savedByLabel : "";
-      // "Name (email)" → "Name". A label that is only an email (an account
-      // with no name) has nothing to show, and must not reach the reply.
-      var prescriber = label.replace(/\s*\([^()]*@[^()]*\)\s*$/, "").trim();
-      if (prescriber.indexOf("@") !== -1) prescriber = "";
+      // AB (lastModifiedBy), else P (submittedBy) for a row from before AB.
+      var saver = String(row[27] || row[15] || "").trim().toLowerCase();
+      var prescriber = Object.prototype.hasOwnProperty.call(staffName, saver) ? staffName[saver] : "";
       var rowSid = String(row[1] || "");
       orders.push({
         sessionId: rowSid,
+        entryId: String(row[25] || ""),
         bed: bedOf[rowSid] || "",
         bw: bwOf[rowSid] || 0,
+        twinSuffix: twinOf[rowSid] || "",
+        multiplesCount: setOf[rowSid] || 0,
         dol: _numSafe(row[2], 0),
         status: isDraft ? "draft" : "submitted",
         revision: _numSafe(row[35], 1),
         prescriber: prescriber,
-        savedAt: String(row[26] || ""),
-        submittedAt: row[33] ? String(row[33]) : "",
+        savedAt: _pharmacyTime(row[26]),
+        submittedAt: _pharmacyTime(row[33]),
         printJson: isDraft ? null : _parseJson(row[38], null),
       });
     }
@@ -3303,25 +3381,29 @@ function ensureLogHeaderColumns(apply) {
     out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
   }
 
-  // 2. Label the headers (only if we actually have the columns to label).
-  if (apply === true || need <= 0) {
-    Object.keys(WANT).forEach(function (colStr) {
-      var col     = Number(colStr);
-      var cell    = sh.getRange(1, col);
-      var current = String(cell.getValue() || "").trim();
-      if (current === WANT[col]) {
-        out.skipped.push("col " + col + ": already '" + current + "'");
-      } else if (current !== "") {
-        // Someone put something else here — do not clobber it.
-        out.skipped.push("col " + col + ": OCCUPIED by '" + current + "' — left alone");
-      } else {
-        out.changes.push("col " + col + ": '' -> '" + WANT[col] + "'");
-        if (apply === true) cell.setValue(WANT[col]);
-      }
-    });
-  } else {
-    out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
-  }
+  // 2. Label the headers. A dry run on a grid still too narrow checks the
+  // columns that exist and lists those past the grid as labels the apply would
+  // add (walkthrough, 2026-10-30: it used to list the grid alone, while the
+  // apply on a 38-wide tab with blank AC–AL made twelve changes).
+  var gridCols = sh.getMaxColumns();
+  Object.keys(WANT).forEach(function (colStr) {
+    var col = Number(colStr);
+    if (col > gridCols) {
+      out.changes.push("col " + col + ": '' -> '" + WANT[col] + "' (after the widening)");
+      return;
+    }
+    var cell    = sh.getRange(1, col);
+    var current = String(cell.getValue() || "").trim();
+    if (current === WANT[col]) {
+      out.skipped.push("col " + col + ": already '" + current + "'");
+    } else if (current !== "") {
+      // Someone put something else here — do not clobber it.
+      out.skipped.push("col " + col + ": OCCUPIED by '" + current + "' — left alone");
+    } else {
+      out.changes.push("col " + col + ": '' -> '" + WANT[col] + "'");
+      if (apply === true) cell.setValue(WANT[col]);
+    }
+  });
 
   // Capped at the grid: a dry run on a tab still 38 wide must not read AM.
   out.headerRowAfter = sh.getRange(1, 1, 1, Math.min(Math.max(39, sh.getLastColumn()), sh.getMaxColumns())).getValues()[0];
