@@ -7,6 +7,14 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-30 (2) — Vera's review: a non-JSON weights cell names the birth-weight fallback
+
+`gas-backend.gs`, `test/verify-health-report-1030.cjs`, `test/README.md`. Vera's review of (1) was NO
+BLOCK, with one 🟡: every not-JSON cell was listed as "the app reads it as empty", but a bad M falls back
+to the birth weight in D, as the ward sync does (`_parseJson(p[12], [{ dol: 1, w: … }])`), so the infant
+shows that one weight. Column M now reads "not valid JSON, the app reads it as the birth weight (D) only".
+Her test, curly quotes in M of an Active row, failed before the fix and passes after.
+
 ## Session 2026-10-30 — `sheetHealthReport` names the cells to fix; STATUS catches up with #201 and `@66`
 
 `gas-backend.gs` (`sheetHealthReport` and a new `_measureProblem`), `test/verify-health-report-1030.cjs`,

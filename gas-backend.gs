@@ -3286,9 +3286,10 @@ function applyPatHeaderColumns() {
 //     each cell of M–P that fails, by row and column, with the rule it breaks
 //     and whether the record is on ward devices, so it can be fixed by hand.
 //     It also lists M–P cells that are not JSON at all (curly quotes from a hand
-//     edit): _parseJson reads such a cell as empty without a word, the record
-//     passes the check, and the next ward edit can save that empty reading over
-//     the history. They are counted in measurementCellsNotJson, not as failing.
+//     edit): _parseJson reads such a cell as empty (M: the birth weight in D
+//     only) without a word, the record passes the check, and the next ward edit
+//     can save that reading over the history. They are counted in
+//     measurementCellsNotJson, not as failing.
 // Nothing is written except the schema-cache removal and the execution log.
 function sheetHealthReport() {
   var ss = _book();
@@ -3354,7 +3355,8 @@ function sheetHealthReport() {
         try { JSON.parse(String(cell)); } catch (_) {
           r.measurementCellsNotJson++;
           r.measurementCellsToFix.push({ row: i + 1, column: _colLetter(13 + idx), field: f,
-            problem: "not valid JSON, the app reads it as empty", record: record });
+            problem: f === "weights" ? "not valid JSON, the app reads it as the birth weight (D) only"
+              : "not valid JSON, the app reads it as empty", record: record });
         }
       }
       try {

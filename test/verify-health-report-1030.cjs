@@ -39,6 +39,7 @@ function seeded() {
     bed: add('BD-1200', { 15: JSON.stringify([{ 'NICU 7 ward': { a: 1 } }]) }),
     two: add('TW-1200', { 12: JSON.stringify([{ dol: 1, w: 50 }]), 14: JSON.stringify([{ dol: 2, v: 99 }]) }),
     curly: add('CQ-1200', { 13: '[{“dol”:3,“v”:41}]' }),
+    curlyM: add('CM-1200', { 12: '[{“dol”:1,“w”:1200}]' }),
   };
   return { g, rows, out: g.sb.sheetHealthReport() };
 }
@@ -66,10 +67,14 @@ T.section('§1 Each failing cell is named by row and column, with the rule it br
 
 T.section('§2 A cell that is not JSON is counted and listed, not counted as failing', () => {
   const { rows, out } = seeded();
-  T.eq('measurementCellsNotJson', out.registry.measurementCellsNotJson, 1);
-  T.eq('…listed at its row and column',
-    (out.registry.measurementCellsToFix || []).filter(c => /not valid JSON/.test(c.problem)),
-    [{ row: rows.curly, column: 'N', field: 'lengths', problem: 'not valid JSON, the app reads it as empty', record: 'on the unit' }]);
+  T.eq('measurementCellsNotJson', out.registry.measurementCellsNotJson, 2);
+  // M falls back to the birth weight in D, as the ward sync does (Vera, PR #202).
+  T.eq('…listed at its row and column, M naming the birth-weight fallback',
+    (out.registry.measurementCellsToFix || []).filter(c => /not valid JSON/.test(c.problem)), [
+      { row: rows.curly, column: 'N', field: 'lengths', problem: 'not valid JSON, the app reads it as empty', record: 'on the unit' },
+      { row: rows.curlyM, column: 'M', field: 'weights', problem: 'not valid JSON, the app reads it as the birth weight (D) only',
+        record: 'on the unit' },
+    ]);
 });
 
 T.section('§3 Nothing in the report names an infant or repeats a stored value', () => {
