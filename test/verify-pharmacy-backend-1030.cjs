@@ -94,4 +94,32 @@ T.section('§3 AM · edits: a revision has its own figures, a draft moves in pla
   T.eq('…and the sync does not even read AM (A–AL only)', widest, 38);
 });
 
+T.section('§4 pharmacy · every action but five is refused, and nothing changes', () => {
+  const g = ward();
+  g.log('NF-100001', '2026-10-20', E());
+  const src = fs.readFileSync(SRC_PATH, 'utf8');
+  const actions = [...new Set([...src.matchAll(/action === "([A-Za-z]+)"/g)].map(m => m[1]))];
+  const allowed = new Set(['ping', 'login', 'logout', 'changePassword', 'pharmacyOrders']);
+  T.ok('the backend names at least 20 actions', actions.length >= 20, actions);
+  const snap = () => JSON.stringify(['Daily_Log', 'Patient_Registry', 'Staff'].map(t => g.rows(t)));
+  const before = snap(), auditBefore = g.audit().length;
+  for (const a of actions.filter(x => !allowed.has(x))) {
+    const res = g.as(g.rt, { action: a, sessionId: 'NF-100001', entryId: g.cell(1, 25), expectedLastModified: g.cell(1, 26),
+      entry: E(), patient: P('NF-100009', 'NICU 9'), isNew: true });
+    T.eq(`${a} → Forbidden`, res.error, 'Forbidden');
+  }
+  T.eq('no sheet changed', snap(), before);
+  T.eq('no audit row was written (the registry was never read)', g.audit().length, auditBefore);
+});
+
+T.section('§5 pharmacy · the login reply carries no registry', () => {
+  const g = ward();
+  const rx = g.post({ action: 'login', email: 'rx@kcmh.test', password: 'Pharmacy-Password-1', wantSync: true });
+  T.eq('signed in as pharmacy', [rx.status, rx.role], ['ok', 'pharmacy']);
+  T.ok('no sync in the reply', !('sync' in rx), Object.keys(rx));
+  T.ok('no infant name anywhere in it', !/ทารกทดสอบ/.test(JSON.stringify(rx)));
+  const doc = g.post({ action: 'login', email: 'doc@kcmh.test', password: 'Doctor-Password-1', wantSync: true });
+  T.ok('a doctor still gets the first snapshot', !!doc.sync && Array.isArray(doc.sync.patients), Object.keys(doc));
+});
+
 T.done();

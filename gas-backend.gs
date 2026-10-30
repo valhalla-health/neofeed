@@ -501,8 +501,8 @@ function _primeStaffRow(email, found) {
 
 // Authorization values fail closed. A blank/misspelled Staff role used to be
 // promoted to `doctor` (blank) or preserved as an unknown role that could still
-// call getActivePatients. Only these three roles exist in the product model.
-var VALID_STAFF_ROLES = { admin: true, doctor: true, nurse: true };
+// call getActivePatients. Only these four roles exist in the product model.
+var VALID_STAFF_ROLES = { admin: true, doctor: true, nurse: true, pharmacy: true };
 function _staffRole(value) {
   var role = String(value == null ? "" : value).trim().toLowerCase();
   return VALID_STAFF_ROLES[role] ? role : null;
@@ -1092,7 +1092,9 @@ function _auditLoginFailure(email, failsIncludingThis) {
 function _loginReply(resp, body, tm) {
   var sync = null, stats = {};
   if (body.wantSync === true) {
-    if (!resp.mustChangePassword) {
+    // A pharmacy account never gets the registry: it carries every infant's
+    // name, and the TPN room reads only pharmacyOrders (Pp, 2026-10-30).
+    if (!resp.mustChangePassword && resp.role !== "pharmacy") {
       try {
         logAudit("readRegistry", "", resp.email);
         sync = getActivePatientsJson({ includeArchived: false }, stats);
@@ -1312,6 +1314,15 @@ function doPost(e) {
     if (user.mustChangePassword && action !== "changePassword") {
       return jsonOut({ error: "PasswordChangeRequired", mustChangePassword: true });
     }
+
+    // ── a pharmacy account reads one list, and changes nothing ──
+    // TPN room, Pp 2026-10-30: pharmacy staff, weekend cover from other units
+    // included, must not be able to change anything in NeoFeed. An allow-list,
+    // before every other action, so an action added later is refused to
+    // pharmacy until it is named here. ping, login and logout are answered
+    // above, before the token is checked.
+    var PHARMACY_ACTIONS = { changePassword: true, pharmacyOrders: true };
+    if (user.role === "pharmacy" && !PHARMACY_ACTIONS[action]) return jsonOut({ error: "Forbidden" });
 
     if (action === "getActivePatients") {
       // Only an admin may ask for the full archive (data-subject requests,
