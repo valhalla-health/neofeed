@@ -10,8 +10,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-10-30 (3) — The Trend graph joins its days with straight lines
 
 `log.jsx` (`TrendGraph`), `compiled/log.js`, both shells' `?v=` tokens, `test/verify-trend-line-1030.cjs`,
-`test/README.md`, `STATUS.md`. Pp, with two Dashboard screenshots (Protein and Energy, admission day 70):
-"ทําไมกราฟมันถึงโค้งไปโค้งมา ไม่เหมือนกับกราฟปกติที่ดูแนวโน้มการเจริญเติบโต ลองเช็คเรื่องกราฟใหม่ทั้งหมดและแก้ไข".
+`tools/ci_bans.js`, `test/ci-bans-fixtures.json`, `test/README.md`, `STATUS.md`. Pp, with two Dashboard
+screenshots (Protein and Energy, admission day 70): "ทําไมกราฟมันถึงโค้งไปโค้งมา ไม่เหมือนกับกราฟปกติที่ดูแนวโน้มการเจริญเติบโต ลองเช็คเรื่องกราฟใหม่ทั้งหมดและแก้ไข".
 
 - **Why it curved.** The line was a Catmull-Rom curve: its bend at each point comes from the points either
   side, which works only when the points are evenly spaced. Orders are not: days 1–4 and 16–19, nothing for
@@ -30,6 +30,10 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   segments. Its centile curves are smooth through the reference rows, which are evenly spaced (half a week,
   a week, four weeks for length and HC): no curve passes its next row, and none is further than 10 g or
   0.2 cm from a straight line between two rows, at most about 1.5 px on the chart.
+
+- **`tools/ci_bans.js` loses its one allow entry.** `raw-tofixed` let the curve's `cp1x.toFixed(1)` through
+  (SVG coordinates, never shown as text). With the curve gone the entry matched nothing and failed CI, as a
+  stale entry should, so it came out with its two fixtures in `test/ci-bans-fixtures.json`.
 
 Not changed, for Pp to decide: a gap of many days (19 → 69 here) is still one solid line, and a target
 step changes at the last day of the old band, so the new band is drawn back across the gap.

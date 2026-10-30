@@ -1639,8 +1639,9 @@ than once; `node tools/ci_bans.js --self-test` first runs each rule on **`ci-ban
 least one case that must fail and one that must pass per rule). The first rule, `raw-tofixed`, is the
 trailing-zero rule of 2026-09-22: a `toFixed(n)` with n > 0 that is not inside `parseFloat()` or
 `Number()` prints "18.0", so it must go through `D.displayNum`. `toFixed(0)` and comment lines are left
-alone; the SVG path in `log.jsx` is on the allow list, and an allow entry that matches nothing fails the
-run. Seen to fail on a planted `{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry.
+alone; an allow entry that matches nothing fails the run. Seen to fail on a planted
+`{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry. Its one allow entry, the Trend
+graph's curved SVG path in `log.jsx`, came out with that curve (2026-10-30 (3)), and its two fixtures with it.
 
 ## Log rules, 2026-10-28 — three more ci_bans rules (NF-08)
 
