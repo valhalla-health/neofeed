@@ -138,4 +138,58 @@ T.section('§5 pharmacy · the login reply carries no registry', () => {
   T.ok('a doctor still gets the first snapshot', !!doc.sync && Array.isArray(doc.sync.patients), Object.keys(doc));
 });
 
+T.section('§6 pharmacyOrders · one date, counts, and no identifying field', () => {
+  const g = ward();
+  // Same BW and dob as the two infants ward() registers, so each needs confirmDuplicate.
+  g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100003', 'iso 2-1') });
+  g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100004', 'SCN 1') });
+  g.log('NF-100001', '2026-10-20', E({}, { savedByLabel: 'Dr Test (doc@kcmh.test)' }));
+  g.log('NF-100002', '2026-10-20', E());
+  g.log('NF-100003', '2026-10-20', E());
+  g.log('NF-100004', '2026-10-20', E({ status: 'draft' }));
+  g.log('NF-100001', '2026-10-21', E());
+  g.log('NF-100002', '2026-10-21', E({ route: 'Enteral only', printJson: null }));
+  const auditBefore = g.audit().length;
+  // The audit row must exist before the log is read: note the row count at the first read.
+  let auditAtFirstRead = null;
+  g.sheet('Daily_Log').hooks.beforeRead = () => { if (auditAtFirstRead === null) auditAtFirstRead = g.audit().length; };
+  const res = g.as(g.rt, { action: 'pharmacyOrders', date: '2026-10-20' });
+  g.sheet('Daily_Log').hooks.beforeRead = null;
+  T.ok('ok', res.ok === true, res);
+  T.eq('the audit row was written before Daily_Log was read', auditAtFirstRead, auditBefore + 1);
+  T.eq('counts for that date', res.counts, { submitted: 3, drafts: 1, active: 4 });
+  T.eq('four orders', res.orders.length, 4);
+  const one = res.orders.find(o => o.sessionId === 'NF-100001');
+  T.eq('the fields, and only those', Object.keys(one).sort(),
+    ['bed', 'bw', 'dol', 'prescriber', 'printJson', 'revision', 'savedAt', 'sessionId', 'status', 'submittedAt']);
+  T.eq('bed, BW, DOL, status, revision', [one.bed, one.bw, one.dol, one.status, one.revision], ['NICU 3', 1600, 10, 'submitted', 1]);
+  T.eq('the prescriber by name, without the email', one.prescriber, 'Dr Test');
+  T.eq('figures on a submitted order', one.printJson.factor, '1.9');
+  T.eq('none on the draft', res.orders.find(o => o.sessionId === 'NF-100004').printJson, null);
+  const text = JSON.stringify(res);
+  T.ok('no name or initials in the reply', !/ทารกทดสอบ|ทท/.test(text));
+  T.ok('no date of birth', !/2026-10-01/.test(text));
+  T.ok('no email', !/@/.test(text));
+  T.eq('one audit row', g.audit().slice(auditBefore), [{ action: 'readPharmacyOrders', sessionId: '', actor: 'rx@kcmh.test' }]);
+  const other = g.as(g.rt, { action: 'pharmacyOrders', date: '2026-10-21' });
+  T.eq('the next date: the enteral-only order is not a TPN order', [other.counts.submitted, other.orders.length], [1, 1]);
+});
+
+T.section('§7 pharmacyOrders · revisions, who may ask, and the date', () => {
+  const g = ward();
+  const r1 = g.log('NF-100001', '2026-10-20', E());
+  g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-100001', entryId: r1.entryId,
+    expectedLastModified: g.cell(1, 26), entry: E({ printJson: PJ({ factor: '2' }) }) });
+  const res = g.as(g.rt, { action: 'pharmacyOrders', date: '2026-10-20' });
+  T.eq('only the revision is listed', res.orders.map(o => [o.revision, o.printJson.factor]), [[2, '2']]);
+  T.eq('a doctor is refused', g.as(g.dt, { action: 'pharmacyOrders', date: '2026-10-20' }).error, 'Forbidden');
+  T.eq('an admin is served', g.as(g.at, { action: 'pharmacyOrders', date: '2026-10-20' }).ok, true);
+  T.ok('no date → refused', /date/.test(g.as(g.rt, { action: 'pharmacyOrders' }).error || ''));
+  T.ok('a malformed date → refused', /date/.test(g.as(g.rt, { action: 'pharmacyOrders', date: '20/10/2026' }).error || ''));
+  // An account with no name saves a label that is only its email: nothing to show, and no email in the reply.
+  g.log('NF-100002', '2026-10-22', E({}, { savedByLabel: 'admin@kcmh.test' }));
+  const bare = g.as(g.rt, { action: 'pharmacyOrders', date: '2026-10-22' });
+  T.eq('a label that is only an email → a blank prescriber, no email in the reply', [bare.orders.length, bare.orders[0].prescriber, /@/.test(JSON.stringify(bare))], [1, '', false]);
+});
+
 T.done();

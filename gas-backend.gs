@@ -1366,6 +1366,17 @@ function doPost(e) {
       return jsonOut({ ok: true, weeks: usage.weeks, wards: usage.wards, types: usage.types });
     }
 
+    // The TPN room's order list (Pp, 2026-10-30). Pharmacy, and admin so the
+    // list can be checked without a pharmacy account. Audited before it is
+    // read, like a registry read.
+    if (action === "pharmacyOrders") {
+      if (user.role !== "pharmacy" && user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      var pharmacyDate = typeof body.date === "string" ? body.date : "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(pharmacyDate)) return jsonOut({ error: "date is required, as YYYY-MM-DD" });
+      logAudit("readPharmacyOrders", "", user.email);
+      return jsonOut(pharmacyOrders(pharmacyDate));
+    }
+
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
     // TPN orders are written by prescribers (D5, Pp 2026-09-24: "พยาบาลบันทึกหรือ
     // submit ไม่ได้ ได้แค่ใช้ calculator"). A nurse still opens the Calculator and
@@ -2724,6 +2735,59 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     _bumpDataVersion();
     lock.releaseLock();
   }
+}
+
+// ── pharmacyOrders (TPN room, Pp 2026-10-30) ──────────────────────────────────
+// One ward date's TPN orders, current revisions only: counts, and per order the
+// NeoFeed ID, bed, birth weight, DOL, status, revision, the prescriber's name,
+// the times and, for a submitted order, the sticker figures (AM). No name,
+// initials or date of birth: the TPN room links an ID to an infant from the
+// paper order, on its own PC (openspec tpn-room-stickers, D5).
+function pharmacyOrders(dateKey) {
+  var ss = _book();
+  var pat = getSheetPat(ss).getDataRange().getValues();
+  var bedOf = {}, bwOf = {}, active = 0;
+  for (var i = 1; i < pat.length; i++) {
+    var sid = String(pat[i][0] || "");
+    if (!sid) continue;
+    bedOf[sid] = _normBed(pat[i][10]);
+    bwOf[sid] = _numSafe(pat[i][3], 0);
+    if (_onUnitStatus(pat[i][9])) active++;
+  }
+  var sheet = getSheetLog(ss);
+  var lastRow = sheet.getLastRow();
+  var orders = [], submitted = 0, drafts = 0;
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, Math.min(LOG_WIDTH, sheet.getMaxColumns())).getValues();
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (_wardDateKey(row[0]) !== dateKey) continue;
+      if (!/^TPN/.test(String(row[13] || ""))) continue;
+      if (row[37]) continue;   // superseded by a later revision
+      var isDraft = String(row[14] || "").trim().toLowerCase() === "draft";
+      if (isDraft) drafts++; else submitted++;
+      var ci = _parseJson(row[24], {});
+      var label = ci && typeof ci.savedByLabel === "string" ? ci.savedByLabel : "";
+      // "Name (email)" → "Name". A label that is only an email (an account
+      // with no name) has nothing to show, and must not reach the reply.
+      var prescriber = label.replace(/\s*\([^()]*@[^()]*\)\s*$/, "").trim();
+      if (prescriber.indexOf("@") !== -1) prescriber = "";
+      var rowSid = String(row[1] || "");
+      orders.push({
+        sessionId: rowSid,
+        bed: bedOf[rowSid] || "",
+        bw: bwOf[rowSid] || 0,
+        dol: _numSafe(row[2], 0),
+        status: isDraft ? "draft" : "submitted",
+        revision: _numSafe(row[35], 1),
+        prescriber: prescriber,
+        savedAt: String(row[26] || ""),
+        submittedAt: row[33] ? String(row[33]) : "",
+        printJson: isDraft ? null : _parseJson(row[38], null),
+      });
+    }
+  }
+  return { ok: true, date: dateKey, counts: { submitted: submitted, drafts: drafts, active: active }, orders: orders };
 }
 
 // ── deleteDailyNutrition (admin-only, permanent) ────────────────
