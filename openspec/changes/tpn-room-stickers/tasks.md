@@ -29,6 +29,13 @@
          printed.
       i. The printer model, whether the A4 sheet is cut by hand, and the PN label's fixed lines (heading,
          storage line, extension).
+      j. Twins share BW and DOL: print the twin letter (A, B) on all three stickers, or does the name the
+         room maps already carry it?
+      k. An order written in the evening for the next bag carries that day's date in NeoFeed (the ward app
+         dates an order today or earlier), and so does the doctor's sheet. Is that the date the sticker
+         should show?
+      l. Who holds the room's passphrase, and is the Excel routine the fallback on a day the page cannot open
+         the name file?
       Tell them: Soluvit and Peditrace are × Factor (2.5 mL where their Excel gives 2.2), and Mg on the
       label is in mg.
 
@@ -70,6 +77,19 @@
       against a real sticker sheet.
 - [ ] 2.7 The sentinel-name test: no request URL, header or body contains the mapped name.
 - [ ] 2.8 Vera's report in the PR; `CHANGELOG.md`; `STATUS.md`.
+- [ ] 2.9 From the cold readers (2026-10-30), each with a test where it can have one:
+      - Served by the Workers host only. On `*.github.io`, which every Pages site in the org shares, the page
+        redirects before it touches any storage, as `boot.js` does; Pages sends no CSP.
+      - Its own session key, never `neofeed_session`. Sign-in by email and password only (no Google script on
+        a page that holds names), and a forced change-password screen on `mustChangePassword` that keeps the
+        rotated token. Pharmacy accounts get a password: `setInitialPassword(email, password, "pharmacy")`,
+        Google-domain addresses included.
+      - Every string from the reply rendered as text. The saver labelled "บันทึกโดย": a nurse can save an
+        order while the nursing switch is off.
+      - The status line shows the name file's folder. A "start a new file" flow for a lost passphrase warns
+        that the print log is gone and marks every order in the window "check against the paper first".
+      - A fixed contact line: who to call about NeoFeed, the passphrase, a wrong order.
+      - The ward app's refusal line for a pharmacy account links to the page.
 
 ## 3. Pilot and go-live
 

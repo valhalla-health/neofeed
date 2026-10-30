@@ -21,9 +21,15 @@ action before any sheet is read or written.
 `pharmacyOrders` SHALL take a date and return, for the TPN orders whose TPN date (the date the printed
 form shows as วันที่ให้ TPN) is that date: the counts
 of submitted orders and drafts, the count of active patients on the unit, and one entry per order with the
-NeoFeed ID, bed, BW, DOL, status (submitted or draft), revision number, the prescriber's name, the saved
-and submitted times, and `printJson` for submitted orders only. The reply SHALL contain no name, initials
-or date of birth.
+NeoFeed ID, the row's `entryId`, bed, BW, the twin letter and set size, DOL, status (submitted or draft),
+revision number, the prescriber's name, the saved and submitted times, and `printJson` for submitted
+orders only. The reply SHALL contain no name, initials or date of birth.
+
+Every field comes from what the server wrote, held to its shape (cold readers, 2026-10-30): the
+prescriber is the Staff name of the account the server stamped as the row's saver, never text a client
+wrote, and blank when that name is an email; the bed is a ward bed (`NICU n`, `SCN n`, `iso n[-m]`) or
+blank; a time is an ISO timestamp or blank. The server SHALL check both tabs' headers first and refuse
+with `SchemaMismatch` when a column has moved.
 
 #### Scenario: A day with submitted orders and a draft
 
@@ -37,6 +43,16 @@ or date of birth.
 
 - **WHEN** an order has a superseded row and a revision row
 - **THEN** only the revision row is listed, with its revision number
+
+#### Scenario: An order deleted and written again
+
+- **WHEN** an admin deletes a submitted order and the doctor writes a new one for that infant and date
+- **THEN** the new order is revision 1 again, with a different `entryId`
+
+#### Scenario: Text a client wrote never reaches the reply
+
+- **WHEN** a save carries a `savedByLabel` naming someone else, or a registry bed holds free text
+- **THEN** the reply names the saver from Staff and leaves that bed blank
 
 #### Scenario: Every call is audited
 

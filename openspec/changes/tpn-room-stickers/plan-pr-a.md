@@ -18,6 +18,24 @@
 4. **Found while planning: the login reply must never carry the registry for a pharmacy account.** `_loginReply` attaches the first registry snapshot (names included) to any successful login that asks for it, before the allow-list could run. Task 4 closes that.
 5. **`pharmacyOrders` also answers an admin**, so Pp can check it without a pharmacy account.
 
+## Added after the cold-reader passes (2026-10-30), for Tasks 1–2
+
+Tasks 3–6 are built. Two cold readers (an attack on the whole app, and a walk through it by role) found
+these for the client half; each needs its own failing test first.
+
+1. **`_printJsonField` holds the figures to the final key set** (attack, finding 1). Today any object with
+   `v: 1` up to 8,000 characters is stored, and the TPN-room page is the first print path that does not
+   recompute from `calcInput`. Once the TPN unit's answers fix the keys: known keys only; each value a
+   short number string (`^-?\d+(\.\d+)?$`) or `null` where the spec allows; a length cap on any text (the
+   critical alert's reason); and a refusal when `printJson.dol`, `dosingWeightKg` or `constantsVersion`
+   differs from the same request's `entry.dol`, `calcInput.tpnWtG / 1000` and `entry.constantsVersion`.
+2. **An order without figures can be saved again, and the doctor can see it** (walkthrough, finding 2). A
+   locked order on the current `CONSTANTS_VERSION` has Submit and Save draft disabled, and an unlocked
+   submitted order's Submit only locks it, so "open and save again" saves nothing. The ward sync does not
+   read AM, so the client writes a marker it can read, `calcInput.printJsonV = 1`, with the figures. A
+   saved TPN order without the marker shows "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง" with Submit
+   enabled, and that save writes a revision with figures.
+
 ## Global Constraints
 
 - Specs, tests and examples use synthetic infants only: never a real name, HN, AN or bed history (`openspec/config.yaml`).

@@ -45,7 +45,9 @@ Two things leave the PC: the sign-in, and `{action: "pharmacyOrders", token, dat
 - **Writes:** every change rewrites the whole file through `createWritable()`. The swap file commits on
   `close()`, so a crash leaves the previous version.
 - **Contents:** per infant: NeoFeed ID, the name to print, AN, who mapped it and when, and the edit
-  history. A print log: NeoFeed ID, order date, revision, who printed and when.
+  history. A print log: NeoFeed ID, order date, `entryId`, revision, who printed and when. The log is
+  keyed by `entryId`: an order deleted and written again starts at revision 1 again (cold readers,
+  2026-10-30).
 - **Purge:** an infant not seen in any order for 30 days is removed. If that infant comes back on TPN,
   the pharmacist maps the infant again from the paper order.
 - **Status line:** the number of infants in the table, whether the file is open, and who is signed in.

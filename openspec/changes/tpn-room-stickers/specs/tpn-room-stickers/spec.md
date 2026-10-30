@@ -2,7 +2,7 @@
 
 ### Requirement: Orders and counts for a chosen date
 
-`tpn-room.html` SHALL show, for the date chosen (today by default), the submitted, draft and active counts
+`tpn-room.html` SHALL show, for the date chosen (today by default: the ward date, UTC+7), the submitted, draft and active counts
 and the list of TPN orders. It SHALL load them when the page opens and when the pharmacist presses
 refresh, and never on a timer.
 
@@ -46,7 +46,8 @@ SHALL NOT put a name or an AN in any request.
 ### Requirement: Mapping an infant
 
 The page SHALL let the pharmacist enter the name to print and the AN for a NeoFeed ID, showing BW, bed and
-DOL beside it. It SHALL check the AN against the `nnnnn/yy` pattern, warn when that AN is already mapped
+DOL beside it, the order's weight for calculation (`printJson.dosingWeightKg`, the weight the paper order
+prints), and for twins the letter and set size in large type ("Twin A of 2"). It SHALL check the AN against the `nnnnn/yy` pattern, warn when that AN is already mapped
 to another NeoFeed ID, and record who mapped or edited the entry and when.
 
 #### Scenario: An AN already in use
@@ -66,8 +67,20 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 
 #### Scenario: The order changed after printing
 
-- **WHEN** NeoFeed's revision number for an order is higher than the one last printed for it
-- **THEN** the row shows "หมอแก้ order หลังพิมพ์ → ฉบับ N" and offers printing the new revision
+- **WHEN** the order for a NeoFeed ID and date has an `entryId` other than the one last printed for it
+  (a revision, or an order deleted and written again, which starts at revision 1 again)
+- **THEN** the row shows "หมอแก้ order หลังพิมพ์ → ฉบับ N" and offers printing the new order
+
+#### Scenario: The order was deleted after printing
+
+- **WHEN** an order printed for the chosen date is no longer in the reply
+- **THEN** the page lists it as "พิมพ์แล้ว แต่ถูกลบใน NeoFeed — อย่าใช้ถุงนี้"
+
+#### Scenario: Checked again just before printing
+
+- **WHEN** the pharmacist presses print
+- **THEN** the page calls `pharmacyOrders` for that date once more and refuses to print an order whose
+  `entryId` changed since the list was loaded; the counts show when the list was loaded ("โหลดเมื่อ HH:MM")
 
 #### Scenario: A doctor-confirmed critical value
 
