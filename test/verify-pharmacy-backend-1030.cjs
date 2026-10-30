@@ -16,6 +16,12 @@ const fs = require('fs');
 const { boot, recorder, withNow, wardToday, addDays, bkkMidnight, SRC_PATH } = require('./gas-vm-sandbox.cjs');
 const T = recorder('PHARMACY BACKEND 2026-10-30');
 
+// The sections that ask pharmacyOrders about "today" run at noon, ward time, of the day the run starts:
+// the test's `today` and the server's then read the same pinned clock, so a run that crosses midnight
+// ICT (17:00 UTC) cannot flip the date-window cases.
+const NOON = Date.parse(wardToday() + 'T05:00:00Z');
+const atNoon = (fn) => () => withNow(NOON, fn);
+
 const PJ = (extra) => Object.assign({ v: 1, constantsVersion: '2026-10-28.1', orderDate: '2026-10-20', dol: '10',
   dosingWeightKg: '1.6', factor: '1.9', deliveredMl: '160', deadMl: '30', preparedMl: '190',
   stockMl: { d50w: '38', wfi: '104' }, delivered: { kcal: '67' }, critical: null }, extra);
@@ -178,7 +184,7 @@ T.section('§5 pharmacy · the login reply carries no registry', () => {
   T.ok('a doctor still gets the first snapshot', !!doc.sync && Array.isArray(doc.sync.patients), Object.keys(doc));
 });
 
-T.section('§6 pharmacyOrders · one date, counts, and no identifying field', () => {
+T.section('§6 pharmacyOrders · one date, counts, and no identifying field', atNoon(() => {
   const g = ward();
   // Dates are the ward's today and tomorrow, so they stay inside the date window whenever CI runs.
   const today = wardToday(), tomorrow = addDays(today, 1);
@@ -232,9 +238,9 @@ T.section('§6 pharmacyOrders · one date, counts, and no identifying field', ()
   T.eq('savedAt is the row\'s lastModified', pubd.savedAt, g.cell(1, 26));
   T.eq('a draft has no submittedAt', after.orders.find(o => o.sessionId === 'NF-100004').submittedAt, '');
   T.ok('still no @ anywhere in the reply', !/@/.test(JSON.stringify(after)));
-});
+}));
 
-T.section('§7 pharmacyOrders · revisions, who may ask, and the date window', () => {
+T.section('§7 pharmacyOrders · revisions, who may ask, and the date window', atNoon(() => {
   const g = ward();
   const today = wardToday(), yesterday = addDays(today, -1);
   const r1 = g.log('NF-100001', today, E());
@@ -288,7 +294,7 @@ T.section('§7 pharmacyOrders · revisions, who may ask, and the date window', (
     T.eq('…while 2 March, asked for as itself, is served', ask(g.rt, '2026-03-02').ok, true);
   });
   T.eq('…one audit row, for the date that was real', g.audit().length, a + 1);
-});
+}));
 
 T.section('§8 header migration · ensureLogHeaderColumns labels AM and widens to 39', () => {
   // A deploy runs applyLogHeaderColumns (the editor's Run button cannot pass an argument).
@@ -335,7 +341,7 @@ T.section('§8 header migration · ensureLogHeaderColumns labels AM and widens t
 
 // The attack pass and the stakeholder walkthrough on e1a7e87, and the task review of their fixes
 // (2026-10-30), found these; each case fails with its fix taken out.
-T.section('§9 pharmacyOrders · prescriber and bed come from the server, not from what a client wrote', () => {
+T.section('§9 pharmacyOrders · prescriber and bed come from the server, not from what a client wrote', atNoon(() => {
   const g = ward();
   const today = wardToday();
   g.addStaff('doc2@kcmh.test', 'doctor', 'Doctor-Password-2', { name: 'doc2@kcmh.test' });
@@ -374,9 +380,9 @@ T.section('§9 pharmacyOrders · prescriber and bed come from the server, not fr
     [of('NF-100006').bed, of('NF-100001').bed, of('NF-100002').bed], ['', 'NICU 3', 'SCN 12']);
   const text = JSON.stringify(res);
   T.ok('no client text, markup or email in the reply', !/SENTINEL|<img|Boss|@/.test(text), text.slice(0, 400));
-});
+}));
 
-T.section('§10 pharmacyOrders · a column moved by hand is refused at once; a cell edited by hand is held to shape', () => {
+T.section('§10 pharmacyOrders · a column moved by hand is refused at once; a cell edited by hand is held to shape', atNoon(() => {
   const today = wardToday();
   // No figures: a row whose AM is blank would stay listed once columns shift, so its other cells get read.
   const setup = () => {
@@ -420,7 +426,7 @@ T.section('§10 pharmacyOrders · a column moved by hand is refused at once; a c
   T.eq('a hand-typed entryId, savedAt and submittedAt come back blank',
     [hand.orders[0].entryId, hand.orders[0].savedAt, hand.orders[0].submittedAt], ['', '', '']);
   T.ok('…and nothing of what was typed is in the reply', !/SENTINEL|@/.test(JSON.stringify(hand)), JSON.stringify(hand));
-});
+}));
 
 T.section('§11 Staff roles fail closed, and setInitialPassword never invents one', () => {
   for (const role of ['constructor', '__proto__']) {
@@ -449,7 +455,7 @@ T.section('§11 Staff roles fail closed, and setInitialPassword never invents on
   T.eq('…and takes the new password', [n2.status, n2.role], ['ok', 'nurse']);
 });
 
-T.section('§12 pharmacyOrders · entryId and the twin letter tell orders and infants apart; one date is read, not the tab', () => {
+T.section('§12 pharmacyOrders · entryId and the twin letter tell orders and infants apart; one date is read, not the tab', atNoon(() => {
   const g = ward();
   const today = wardToday();
   const ask = () => g.as(g.rt, { action: 'pharmacyOrders', date: today });
@@ -511,6 +517,6 @@ T.section('§12 pharmacyOrders · entryId and the twin letter tell orders and in
   T.eq('a row deleted above and one appended, same row count: every order of the day still comes back', moved[0], moved[1]);
   const grew = race((sh, h) => sh.data.push(h.logRow('NF-T9', bkkMidnight(today), { 25: 'e-today-9' })));
   T.eq('a ward save appended during the read is in the result', grew[0], grew[1]);
-});
+}));
 
 T.done();
