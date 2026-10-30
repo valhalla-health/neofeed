@@ -9,8 +9,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ## Session 2026-10-30 (2) — Vera's review: a non-JSON weights cell names the birth-weight fallback
 
-`gas-backend.gs`, `test/verify-health-report-1030.cjs`, `test/README.md`. Vera's review of (1) was NO
-BLOCK, with one 🟡: every not-JSON cell was listed as "the app reads it as empty", but a bad M falls back
+`gas-backend.gs`, `test/verify-health-report-1030.cjs`, `test/README.md`. Vera's review of the entry below
+was NO BLOCK, with one 🟡: every not-JSON cell was listed as "the app reads it as empty", but a bad M falls back
 to the birth weight in D, as the ward sync does (`_parseJson(p[12], [{ dol: 1, w: … }])`), so the infant
 shows that one weight. Column M now reads "not valid JSON, the app reads it as the birth weight (D) only".
 Her test, curly quotes in M of an Active row, failed before the fix and passes after.
