@@ -2811,7 +2811,7 @@ function _pharmacySchemaNow(sheet, tab) {
   if (bad) throw _schemaError(tab, bad);
 }
 // The Daily_Log rows dated `dateKey` (ward time), at full width (AM included):
-// columns A (ts) and Z (entryId) first, then only the blocks that hold that
+// columns Z (entryId) and A (ts) first, then only the blocks that hold that
 // date, planned as the ward sync plans its own (_planLogBlocks). Reading the
 // whole tab at 39 columns on every call grew with the tab (walkthrough,
 // 2026-10-30: 228,684 cells at 6,018 rows). Each block row is matched to the
@@ -2828,8 +2828,9 @@ function _pharmacyLogRows(sheet, dateKey) {
     var last = sheet.getLastRow();
     return last < 2 ? [] : sheet.getRange(2, 1, last - 1, width).getValues();
   };
-  var tsCol = sheet.getRange(2, 1, n, 1).getValues();
+  // Z before A: the entryId check then covers every read after the first.
   var idCol = sheet.getRange(2, 26, n, 1).getValues();
+  var tsCol = sheet.getRange(2, 1, n, 1).getValues();
   var hits = [];
   for (var r = 0; r < n; r++) {
     if (_wardDateKey(tsCol[r][0]) === dateKey) hits.push(r);

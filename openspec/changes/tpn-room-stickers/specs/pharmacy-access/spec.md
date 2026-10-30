@@ -23,7 +23,8 @@ form shows as วันที่ให้ TPN) is that date: the counts
 of submitted orders and drafts, the count of active patients on the unit, and one entry per order with the
 NeoFeed ID, the row's `entryId`, bed, BW, the twin letter and set size, DOL, status (submitted or draft),
 revision number, the prescriber's name, the saved and submitted times, and `printJson` for submitted
-orders only. The reply SHALL contain no name, initials or date of birth.
+orders only. The reply SHALL contain no name, initials or date of birth, except the initials inside a
+NeoFeed ID issued before 2026-09-27.
 
 The fields are held to their shape (cold readers and task review, 2026-10-30): the prescriber is the
 Staff name of the account the server stamped as the row's saver, never text a client wrote, and blank
@@ -32,7 +33,8 @@ letter is A–D or blank; `entryId` is a UUID or blank; a time is an ISO timesta
 SHALL check both tabs' headers on every call, not through the write guard's cached verdict, and refuse
 with `SchemaMismatch` when a column has moved. Two fields are still as written: `printJson`, until
 Tasks 1–2 hold it to the final key set (plan-pr-a.md), and the NeoFeed ID, which for an infant
-registered before 2026-09-27 carries initials (accepted by Pp, 2026-10-30, D5).
+registered before 2026-09-27 carries initials (Pp accepted this as a residual risk on 2026-10-30;
+re-keying those IDs is out of scope in proposal.md; design D5 gains the exception in Task 7).
 
 #### Scenario: A day with submitted orders and a draft
 

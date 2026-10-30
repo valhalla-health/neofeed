@@ -497,25 +497,33 @@ T.section('§12 pharmacyOrders · entryId and the twin letter tell orders and in
   T.ok('cells read: columns A and Z plus a few rows, not 39 per row',
     L.stats.cellsRead <= 2 * n + 10 * 39 && L.stats.cellsRead < n * 3, { cellsRead: L.stats.cellsRead, rows: n });
 
-  // An edit lands between the first read and the block read. The reader must notice and read the tab again.
-  const race = (mutate) => {
+  // An edit lands after the first read: before the second column read, or before the block read. The
+  // reader must notice and read the tab again.
+  const race = (mutate, at) => {
     const h = boot();
     const R = h.sheet('Daily_Log');
     for (let i = 0; i < 300; i++) R.data.push(h.logRow('NF-OLD' + i, bkkMidnight(addDays(today, -20)), {}));
     for (let i = 0; i < 5; i++) R.data.push(h.logRow('NF-T' + i, bkkMidnight(today), { 25: 'e-today-' + i }));
-    let done = false;
-    R.hooks.beforeRead = (sh, r, c, nr, nc) => { if (!done && nc > 1) { done = true; mutate(sh, h); } };
+    let done = false, narrow = 0;
+    R.hooks.beforeRead = (sh, r, c, nr, nc) => {
+      if (done) return;
+      if (nc === 1) narrow++;
+      if (at === 'block' ? nc > 1 : nc === 1 && narrow === 2) { done = true; mutate(sh, h); }
+    };
     const got = h.sb._pharmacyLogRows(R, today).filter(x => h.sb._wardDateKey(x[0]) === today).map(x => x[25]).sort();
     R.hooks.beforeRead = null;
     const truth = R.data.slice(1).filter(x => h.sb._wardDateKey(x[0]) === today).map(x => x[25]).sort();
     return [got, truth];
   };
-  const moved = race((sh, h) => {
+  const deleteAboveAndAppend = (sh, h) => {
     sh.data.splice(5, 1);                                                          // an old row deleted above the block
     sh.data.push(h.logRow('NF-T9', bkkMidnight(today), { 25: 'e-today-9' }));      // a ward save for today, same row count
-  });
-  T.eq('a row deleted above and one appended, same row count: every order of the day still comes back', moved[0], moved[1]);
-  const grew = race((sh, h) => sh.data.push(h.logRow('NF-T9', bkkMidnight(today), { 25: 'e-today-9' })));
+  };
+  const moved = race(deleteAboveAndAppend, 'block');
+  T.eq('a row deleted above and one appended before the block read: every order of the day still comes back', moved[0], moved[1]);
+  const early = race(deleteAboveAndAppend, 'second column');
+  T.eq('…and the same edit between the two column reads', early[0], early[1]);
+  const grew = race((sh, h) => sh.data.push(h.logRow('NF-T9', bkkMidnight(today), { 25: 'e-today-9' })), 'block');
   T.eq('a ward save appended during the read is in the result', grew[0], grew[1]);
 }));
 

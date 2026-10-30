@@ -72,6 +72,10 @@ const scenarios = {
     await t.start();
     await t.pickWard('NICU');
     A.eq('the ward list is on screen first', /Total sessions/.test(t.text()), true);
+    const ls = t.window.localStorage;
+    ls.setItem('neofeed_calc_SYNTH-1', '{}');
+    ls.setItem('neofeed_acked_SYNTH-1', '{}');
+    ls.setItem('neofeed_draft_SYNTH-1', '{}');
     t.server.hooks.getActivePatients = () => ({ reply: { error: 'Forbidden' } });
     await t.click(t.syncButton());
     await t.flush();
@@ -81,6 +85,8 @@ const scenarios = {
     A.eq('…and the notice says why', /หน้าห้อง TPN/.test((document.querySelector('.login-notice') || {}).textContent || ''), true);
     A.eq('…and its token is logged out (it still opens the TPN room\'s actions)',
       t.callsOf('logout').map(c => c.token), ['tok-doctor-123456']);
+    A.eq('…the calculator caches are cleared and the draft is kept, as on an idle logout',
+      ['neofeed_calc_SYNTH-1', 'neofeed_acked_SYNTH-1', 'neofeed_draft_SYNTH-1'].map(k => ls.getItem(k) !== null), [false, false, true]);
   },
 
   // A pharmacy session found in sessionStorage at load (a page on the same origin that stored it under the
