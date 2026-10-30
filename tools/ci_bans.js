@@ -44,9 +44,7 @@ const RULES = [
     // bc46d16 removed the trailing zeros after the TPN team's feedback, and
     // displayNum lost its keepZeros option the same day, on Pp's ruling.
     source: "commit bc46d16; data.js displayNum",
-    allow: [
-      { file: "log.jsx", contains: "cp1x.toFixed(1)", why: "SVG path coordinates, never shown as text" },
-    ],
+    allow: [],
     find: findRawToFixed,
   },
   {

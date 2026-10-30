@@ -293,6 +293,12 @@ with them (marked below). Caught up with #201 by PR #202.
   to release and no `clasp update-deployment` to make: `clasp push` puts it in the script's HEAD, where Pp
   runs the report. No value, name or sessionId in its output. `CHANGELOG.md`
   2026-10-30.
+- ⏳ **PR #203, the Dashboard's Trend graph joins its days with straight lines, and an order dated before
+  the admission day is drawn on the chart: in review (draft), on Pp's report of 2026-10-30
+  ("ทําไมกราฟมันถึงโค้งไปโค้งมา").** The line was a Catmull-Rom curve that, with days unevenly spaced, ran
+  past the newest dot, off the axis, and looped back. Frontend only (`log.jsx`), no `clasp` step, no
+  calculation or printed figure. The Fenton chart was checked and is unchanged. Vera: NO BLOCK (outside
+  her scope). `CHANGELOG.md` 2026-10-30 (3).
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197
