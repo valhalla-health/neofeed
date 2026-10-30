@@ -3509,6 +3509,13 @@ async function loginRequest(body, clickAt) {
   try { data = await gasRequest({ action: "login", wantSync: true, ...body }); }
   catch (e) { throw new Error(`เข้าสู่ระบบไม่สำเร็จ — ${e && e.kind ? e.message : gasErrorText("network")}`); }
   if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
+  // A pharmacy account works with the TPN-room page only (Pp, 2026-10-30).
+  // The server refuses it everything else; here the ward app says so, closes
+  // the session it just opened, and never stores it.
+  if (data.role === "pharmacy") {
+    gasRequest({ action: "logout", token: data.token }).catch(() => {});
+    throw new Error("บัญชีนี้เป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น");
+  }
   const user = { name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword };
   const s = data.sync;
   const sync = s && typeof s === "object" && !Array.isArray(s) && Array.isArray(s.patients) ? s : null;

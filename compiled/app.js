@@ -2130,6 +2130,11 @@ async function loginRequest(body, clickAt) {
     throw new Error(`เข้าสู่ระบบไม่สำเร็จ — ${e && e.kind ? e.message : gasErrorText("network")}`);
   }
   if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
+  if (data.role === "pharmacy") {
+    gasRequest({ action: "logout", token: data.token }).catch(() => {
+    });
+    throw new Error("บัญชีนี้เป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น");
+  }
   const user = { name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword };
   const s = data.sync;
   const sync = s && typeof s === "object" && !Array.isArray(s) && Array.isArray(s.patients) ? s : null;
