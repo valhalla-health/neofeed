@@ -334,7 +334,8 @@ console.log('\n── ensureLogHeaderColumns knows about the new columns ──'
   ok('WANT map labels column 36 revisionNumber',   /36:\s*["']revisionNumber["']/.test(gas));
   ok('WANT map labels column 37 revisionOf',       /37:\s*["']revisionOf["']/.test(gas));
   ok('WANT map labels column 38 supersededAt',     /38:\s*["']supersededAt["']/.test(gas));
-  ok('widens to 38, not 33',                       /\b38 - sh\.getMaxColumns\(\)/.test(gas));
+  // 39 since 2026-10-30: AM (printJson) joined the migration, so it widens past supersededAt (AL).
+  ok('widens to 39 (A–AM), not 33',                /\b39 - sh\.getMaxColumns\(\)/.test(gas));
 }
 
 // ══ frontend wiring — regex checks on source, same pattern as

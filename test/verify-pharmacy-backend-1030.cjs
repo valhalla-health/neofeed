@@ -3,14 +3,17 @@
 //
 //   §1–§3  Daily_Log AM holds printJson: stored, checked, kept per revision,
 //          and never sent to the ward;
-//   §4     a pharmacy account reaches five actions and nothing else;
+//   §4     a signed-in pharmacy account reaches changePassword and pharmacyOrders and nothing else
+//          (doGet answers ping; login and logout are answered before the token is checked);
 //   §5     its login reply carries no registry;
-//   §6–§7  pharmacyOrders: one date, counts, no name, initials or dob, audited.
+//   §6–§7  pharmacyOrders: one date inside the ward window (7 days back to tomorrow), counts,
+//          no name, initials or date of birth, audited;
+//   §8     the header migration labels AM and widens the tab to 39 columns.
 //
 // Real gas-backend.gs in gas-vm-sandbox.cjs. Synthetic infants only.
 process.env.TZ = process.env.TZ || 'Asia/Bangkok';
 const fs = require('fs');
-const { boot, recorder, SRC_PATH } = require('./gas-vm-sandbox.cjs');
+const { boot, recorder, withNow, wardToday, addDays, SRC_PATH } = require('./gas-vm-sandbox.cjs');
 const T = recorder('PHARMACY BACKEND 2026-10-30');
 
 const PJ = (extra) => Object.assign({ v: 1, constantsVersion: '2026-10-28.1', orderDate: '2026-10-20', dol: '10',
@@ -29,7 +32,9 @@ function ward() {
   g.addStaff('doc@kcmh.test', 'doctor', 'Doctor-Password-1', { name: 'Dr Test' });
   g.addStaff('rx@kcmh.test', 'pharmacy', 'Pharmacy-Password-1', { name: 'Rx Test' });
   g.addStaff('admin@kcmh.test', 'admin', 'Admin-Password-1');
+  g.addStaff('nurse@kcmh.test', 'nurse', 'Nurse-Password-1', { name: 'Nurse Test' });
   g.dt = g.session('doc@kcmh.test', 'doctor');
+  g.nt = g.session('nurse@kcmh.test', 'nurse');
   g.rt = g.session('rx@kcmh.test', 'pharmacy');
   g.at = g.session('admin@kcmh.test', 'admin');
   g.as = (tok, body) => g.post(Object.assign({ token: tok }, body));
@@ -53,6 +58,13 @@ T.section('§1 AM · every save stores the figures it carries', () => {
   const none = g.log('NF-100001', '2026-10-21', E({ printJson: undefined }));
   T.ok('a save without figures still lands (a tab from before the release)', !!none.entryId, none);
   T.eq('…with AM blank', g.cell(3, 38), '');
+  // Explicit nulls and blanks mean "no figures", the same as leaving the field out.
+  const nul = g.log('NF-100001', '2026-10-22', E({ printJson: null }));
+  T.ok('printJson: null still lands', !!nul.entryId, nul);
+  T.eq('…with AM blank', g.cell(4, 38), '');
+  const emp = g.log('NF-100002', '2026-10-22', E({ printJson: '' }));
+  T.ok('printJson: "" still lands', !!emp.entryId, emp);
+  T.eq('…with AM blank', g.cell(5, 38), '');
   T.eq('no formula injection recorded', g.env.injections, []);
 });
 
@@ -92,14 +104,42 @@ T.section('§3 AM · edits: a revision has its own figures, a draft moves in pla
   T.ok('the ward payload carries the order', text.includes(r2.entryId), text.slice(0, 160));
   T.ok('…and none of its sticker figures', !/deliveredMl|stockMl/.test(text));
   T.eq('…and the sync does not even read AM (A–AL only)', widest, 38);
+
+  // An edit that carries no figures stores none. The row is replaced, not merged with the old
+  // one: a revision must not inherit the figures of the order it supersedes, nor a draft keep them.
+  const r3 = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-100001', entryId: r2.entryId,
+    expectedLastModified: g.cell(2, 26), entry: E({ printJson: undefined }) });
+  T.ok('a revision sent without figures is still a revision', r3.revised === true, r3);
+  T.eq('…the new row (row 4) has AM blank', g.cell(4, 38), '');
+  T.eq('…the row it superseded keeps its own figures', g.am(2).factor, '2');
+  T.eq('…and so does the first revision', g.am(1).factor, '1.9');
+  const up2 = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-100002', entryId: d1.entryId,
+    expectedLastModified: g.cell(3, 26), entry: E({ status: 'draft', printJson: undefined }) });
+  T.ok('a draft edited in place without figures', up2.ok === true && !up2.revised, up2);
+  T.eq('…has AM blank', g.cell(3, 38), '');
+
+  // A bad shape on an edit is refused as on a create, and nothing is written.
+  const snap = () => JSON.stringify(g.rows('Daily_Log'));
+  const before = snap();
+  const badRev = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-100001', entryId: r3.entryId,
+    expectedLastModified: g.cell(4, 26), entry: E({ printJson: { v: 2 } }) });
+  T.ok('a revision with an unknown version → refused, naming printJson', !badRev.revised && /printJson/.test(badRev.error || ''), badRev);
+  T.eq('…no row added, none changed', snap(), before);
+  const badDraft = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-100002', entryId: d1.entryId,
+    expectedLastModified: g.cell(3, 26), entry: E({ status: 'draft', printJson: { v: 2 } }) });
+  T.ok('a draft edit with an unknown version → refused, naming printJson', !badDraft.ok && /printJson/.test(badDraft.error || ''), badDraft);
+  T.eq('…the draft row is unchanged', snap(), before);
+  T.eq('no formula injection recorded', g.env.injections, []);
 });
 
-T.section('§4 pharmacy · every action but five is refused, and nothing changes', () => {
+T.section('§4 pharmacy · every action but changePassword and pharmacyOrders is refused, and nothing changes', () => {
   const g = ward();
   g.log('NF-100001', '2026-10-20', E());
   const src = fs.readFileSync(SRC_PATH, 'utf8');
   // `(?<![\w.])` skips `typeof body.action === "string"`, which is a type check, not an action.
   const actions = [...new Set([...src.matchAll(/(?<![\w.])action === "([A-Za-z]+)"/g)].map(m => m[1]))];
+  // Not refused by the allow-list: ping is answered by doGet, login and logout before the token is
+  // checked. The allow-list itself names two actions, changePassword and pharmacyOrders.
   const allowed = new Set(['ping', 'login', 'logout', 'changePassword', 'pharmacyOrders']);
   T.ok('the backend names at least 20 actions', actions.length >= 20, actions);
   T.ok('…and the list holds real actions only (no `string` from the typeof check)', !actions.includes('string'), actions);
@@ -140,24 +180,30 @@ T.section('§5 pharmacy · the login reply carries no registry', () => {
 
 T.section('§6 pharmacyOrders · one date, counts, and no identifying field', () => {
   const g = ward();
+  // Dates are the ward's today and tomorrow, so they stay inside the date window whenever CI runs.
+  const today = wardToday(), tomorrow = addDays(today, 1);
   // Same BW and dob as the two infants ward() registers, so each needs confirmDuplicate.
   g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100003', 'iso 2-1') });
   g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100004', 'SCN 1') });
-  g.log('NF-100001', '2026-10-20', E({}, { savedByLabel: 'Dr Test (doc@kcmh.test)' }));
-  g.log('NF-100002', '2026-10-20', E());
-  g.log('NF-100003', '2026-10-20', E());
-  g.log('NF-100004', '2026-10-20', E({ status: 'draft' }));
-  g.log('NF-100001', '2026-10-21', E());
-  g.log('NF-100002', '2026-10-21', E({ route: 'Enteral only', printJson: null }));
+  // A fifth infant who has left the unit: the registry takes the status, and `active` must not count it.
+  const gone = g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true,
+    patient: Object.assign(P('NF-100005', 'SCN 2'), { status: 'Discharged', statusDate: today }) });
+  T.ok('a discharged infant is registered', !gone.error, gone);
+  const first = g.log('NF-100001', today, E({}, { savedByLabel: 'Dr Test (doc@kcmh.test)' }));
+  g.log('NF-100002', today, E());
+  g.log('NF-100003', today, E());
+  g.log('NF-100004', today, E({ status: 'draft' }));
+  g.log('NF-100001', tomorrow, E());
+  g.log('NF-100002', tomorrow, E({ route: 'Enteral only', printJson: null }));
   const auditBefore = g.audit().length;
   // The audit row must exist before the log is read: note the row count at the first read.
   let auditAtFirstRead = null;
   g.sheet('Daily_Log').hooks.beforeRead = () => { if (auditAtFirstRead === null) auditAtFirstRead = g.audit().length; };
-  const res = g.as(g.rt, { action: 'pharmacyOrders', date: '2026-10-20' });
+  const res = g.as(g.rt, { action: 'pharmacyOrders', date: today });
   g.sheet('Daily_Log').hooks.beforeRead = null;
   T.ok('ok', res.ok === true, res);
   T.eq('the audit row was written before Daily_Log was read', auditAtFirstRead, auditBefore + 1);
-  T.eq('counts for that date', res.counts, { submitted: 3, drafts: 1, active: 4 });
+  T.eq('counts for that date (the discharged infant is not active)', res.counts, { submitted: 3, drafts: 1, active: 4 });
   T.eq('four orders', res.orders.length, 4);
   const one = res.orders.find(o => o.sessionId === 'NF-100001');
   T.eq('the fields, and only those', Object.keys(one).sort(),
@@ -171,25 +217,107 @@ T.section('§6 pharmacyOrders · one date, counts, and no identifying field', ()
   T.ok('no date of birth', !/2026-10-01/.test(text));
   T.ok('no email', !/@/.test(text));
   T.eq('one audit row', g.audit().slice(auditBefore), [{ action: 'readPharmacyOrders', sessionId: '', actor: 'rx@kcmh.test' }]);
-  const other = g.as(g.rt, { action: 'pharmacyOrders', date: '2026-10-21' });
+  const other = g.as(g.rt, { action: 'pharmacyOrders', date: tomorrow });
   T.eq('the next date: the enteral-only order is not a TPN order', [other.counts.submitted, other.orders.length], [1, 1]);
+
+  // Submit is the action the app calls after a submitted save. It writes AH (the time) and, next to it,
+  // AI: publishedBy, an email. The list shows the time and nothing of the email.
+  const pub = g.as(g.dt, { action: 'publishLog', sessionId: 'NF-100001', entryId: first.entryId, expectedLastModified: g.cell(1, 26) });
+  T.ok('the order is published', pub.ok === true && !!pub.publishedAt, pub);
+  T.eq('the email is in AI of the sheet, so the no-@ check below can fail', g.cell(1, 34), 'doc@kcmh.test');
+  const after = g.as(g.rt, { action: 'pharmacyOrders', date: today });
+  const pubd = after.orders.find(o => o.sessionId === 'NF-100001');
+  T.eq('submittedAt is the publishedAt that publish returned', pubd.submittedAt, pub.publishedAt);
+  T.eq('savedAt is the row\'s lastModified', pubd.savedAt, g.cell(1, 26));
+  T.eq('a draft has no submittedAt', after.orders.find(o => o.sessionId === 'NF-100004').submittedAt, '');
+  T.ok('still no @ anywhere in the reply', !/@/.test(JSON.stringify(after)));
 });
 
-T.section('§7 pharmacyOrders · revisions, who may ask, and the date', () => {
+T.section('§7 pharmacyOrders · revisions, who may ask, and the date window', () => {
   const g = ward();
-  const r1 = g.log('NF-100001', '2026-10-20', E());
+  const today = wardToday(), yesterday = addDays(today, -1);
+  const r1 = g.log('NF-100001', today, E());
   g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-100001', entryId: r1.entryId,
     expectedLastModified: g.cell(1, 26), entry: E({ printJson: PJ({ factor: '2' }) }) });
-  const res = g.as(g.rt, { action: 'pharmacyOrders', date: '2026-10-20' });
+  const ask = (tok, date) => g.as(tok, { action: 'pharmacyOrders', date });
+  const res = ask(g.rt, today);
   T.eq('only the revision is listed', res.orders.map(o => [o.revision, o.printJson.factor]), [[2, '2']]);
-  T.eq('a doctor is refused', g.as(g.dt, { action: 'pharmacyOrders', date: '2026-10-20' }).error, 'Forbidden');
-  T.eq('an admin is served', g.as(g.at, { action: 'pharmacyOrders', date: '2026-10-20' }).ok, true);
-  T.ok('no date → refused', /date/.test(g.as(g.rt, { action: 'pharmacyOrders' }).error || ''));
-  T.ok('a malformed date → refused', /date/.test(g.as(g.rt, { action: 'pharmacyOrders', date: '20/10/2026' }).error || ''));
+
+  // Who may ask. A refusal reads nothing and writes no audit row.
+  let a = g.audit().length;
+  T.eq('a doctor is refused', ask(g.dt, today).error, 'Forbidden');
+  T.eq('a nurse is refused', ask(g.nt, today).error, 'Forbidden');
+  T.eq('…and neither wrote an audit row', g.audit().length, a);
+  T.eq('an admin is served', ask(g.at, today).ok, true);
+
+  // The date: a real calendar date from 7 days ago to tomorrow, by the ward's clock.
+  const refused = [
+    ['no date', undefined, /date/],
+    ['a malformed date', '20/10/2026', /date/],
+    ['an impossible date (month 13)', '2026-13-45', /real date.*7 days ago to tomorrow/],
+    ['an impossible date (30 February)', '2026-02-30', /real date.*7 days ago to tomorrow/],
+    ['8 days ago', addDays(today, -8), /real date.*7 days ago to tomorrow/],
+    ['2 days ahead', addDays(today, 2), /real date.*7 days ago to tomorrow/],
+  ];
+  for (const [label, date, why] of refused) {
+    a = g.audit().length;
+    const bad = ask(g.rt, date);
+    T.ok(`${label} → refused`, !bad.ok && why.test(bad.error || ''), bad);
+    T.eq('…no audit row', g.audit().length, a);
+  }
+  for (const [label, date] of [['7 days ago', addDays(today, -7)], ['tomorrow', addDays(today, 1)], ['yesterday', yesterday]]) {
+    a = g.audit().length;
+    const okRes = ask(g.rt, date);
+    T.ok(`${label} → served`, okRes.ok === true && okRes.date === date, okRes);
+    T.eq('…and audited once', g.audit().length, a + 1);
+  }
+
   // An account with no name saves a label that is only its email: nothing to show, and no email in the reply.
-  g.log('NF-100002', '2026-10-22', E({}, { savedByLabel: 'admin@kcmh.test' }));
-  const bare = g.as(g.rt, { action: 'pharmacyOrders', date: '2026-10-22' });
+  g.log('NF-100002', yesterday, E({}, { savedByLabel: 'admin@kcmh.test' }));
+  const bare = ask(g.rt, yesterday);
   T.eq('a label that is only an email → a blank prescriber, no email in the reply', [bare.orders.length, bare.orders[0].prescriber, /@/.test(JSON.stringify(bare))], [1, '', false]);
+
+  // The calendar check on its own. With the ward's clock at 1 March, "30 February" parses to 2 March:
+  // tomorrow, inside the window. Only the real-date round trip refuses it. Last in the section,
+  // because the pinned clock leaves the cached pharmacy session expired once the real clock is back.
+  a = g.audit().length;
+  withNow(Date.parse('2026-03-01T05:00:00Z'), () => {
+    const feb30 = ask(g.rt, '2026-02-30');
+    T.ok('30 February is refused even when the day it parses to is tomorrow', !feb30.ok && /real date/.test(feb30.error || ''), feb30);
+    T.eq('…while 2 March, asked for as itself, is served', ask(g.rt, '2026-03-02').ok, true);
+  });
+  T.eq('…one audit row, for the date that was real', g.audit().length, a + 1);
+});
+
+T.section('§8 header migration · ensureLogHeaderColumns labels AM and widens to 39', () => {
+  // A deploy runs applyLogHeaderColumns (the editor's Run button cannot pass an argument).
+  const g = boot();   // Daily_Log as the live tab is today: A–AL, 38 wide, no AM
+  const sh = g.sheet('Daily_Log');
+  T.eq('before: 38 wide, 38 headers', [sh.getMaxColumns(), sh.data[0].length], [38, 38]);
+  const dry = g.sb.ensureLogHeaderColumns();
+  T.eq('a dry run reports the widening', dry.changes, ['grid: 38 -> 39 columns (+1)']);
+  T.eq('…and writes nothing', [sh.getMaxColumns(), sh.data[0].length], [38, 38]);
+  const done = g.sb.applyLogHeaderColumns();
+  T.eq('applyLogHeaderColumns widens the grid to 39', sh.getMaxColumns(), 39);
+  T.eq('…and labels AM printJson', sh.data[0][38], 'printJson');
+  T.eq('…reporting both', done.changes, ['grid: 38 -> 39 columns (+1)', "col 39: '' -> 'printJson'"]);
+  T.eq('…and the header row it returns runs to AM', [done.headerRowAfter.length, done.headerRowAfter[38]], [39, 'printJson']);
+  T.eq('a second run changes nothing', g.sb.applyLogHeaderColumns().changes, []);
+
+  // Someone else's label in AM is left alone, as for every other column.
+  const h = boot();
+  const hs = h.sheet('Daily_Log');
+  hs.maxColumns = 39; hs.data[0][38] = 'notes';
+  const kept = h.sb.applyLogHeaderColumns();
+  T.eq('an occupied AM1 is not overwritten', [hs.data[0][38], kept.changes], ['notes', []]);
+
+  // A dry run on a tab still short of the grid reads only what exists (it used to ask for 38 columns regardless).
+  const n = boot();
+  const ns = n.sheet('Daily_Log');
+  ns.maxColumns = 31; ns.data[0].length = 31;
+  let narrow = null;
+  try { narrow = n.sb.ensureLogHeaderColumns(); } catch (e) { narrow = { threw: e.message }; }
+  T.eq('a dry run on a 31-column tab does not throw, and reports the widening', narrow.changes, ['grid: 31 -> 39 columns (+8)']);
 });
 
 T.done();

@@ -1367,12 +1367,16 @@ function doPost(e) {
     }
 
     // The TPN room's order list (Pp, 2026-10-30). Pharmacy, and admin so the
-    // list can be checked without a pharmacy account. Audited before it is
-    // read, like a registry read.
+    // list can be checked without a pharmacy account. The date is checked
+    // first (a real date, from 7 days ago to tomorrow: _pharmacyDateRefusal),
+    // so a refused ask leaves no audit row. Audited before the log is read,
+    // like a registry read.
     if (action === "pharmacyOrders") {
       if (user.role !== "pharmacy" && user.role !== "admin") return jsonOut({ error: "Forbidden" });
       var pharmacyDate = typeof body.date === "string" ? body.date : "";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(pharmacyDate)) return jsonOut({ error: "date is required, as YYYY-MM-DD" });
+      var pharmacyDateRefusal = _pharmacyDateRefusal(pharmacyDate);
+      if (pharmacyDateRefusal) return jsonOut({ error: pharmacyDateRefusal });
       logAudit("readPharmacyOrders", "", user.email);
       return jsonOut(pharmacyOrders(pharmacyDate));
     }
@@ -2723,6 +2727,8 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     var refusal = _stopRefusal(_parseJson(cur[24], null), "บันทึกนี้มาจากแอปรุ่นเก่า เปิดรายการแล้วบันทึกใหม่ก่อนส่ง");
     if (refusal) return { error: refusal };
     var publishedAt = new Date().toISOString();
+    // Publish writes AH:AI only (columns 34–35), so a 38-column tab (A–AL) is
+    // wide enough. It does not need AM (printJson), which a save widens for.
     _ensureLogWidth(sheet, 38);
     _assertRowStillHolds(sheet, hit.row, 26, entryId);
     // AH and AI in ONE write (2026-09-17 review, UP-B9). As two setValue
@@ -2743,6 +2749,21 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
 // the times and, for a submitted order, the sticker figures (AM). No name,
 // initials or date of birth: the TPN room links an ID to an infant from the
 // paper order, on its own PC (openspec tpn-room-stickers, D5).
+//
+// The date window (ruling for this change, 2026-10-30): from the ward's today
+// minus 7 days to today plus 1. The TPN room needs today, tomorrow's orders
+// written the day before, and a week back for a reprint; a pharmacy account
+// must not read any older day's orders. A real calendar date by the same
+// Date.parse round trip as _normaliseEntryDate (so 2026-13-45 and 2026-02-30
+// are refused), with a past limit as well as a future one. "" when it passes.
+var PHARMACY_DATE_MSG = "date must be a real date from 7 days ago to tomorrow";
+function _pharmacyDateRefusal(dateKey) {
+  var at = Date.parse(dateKey + "T00:00:00Z");
+  if (!isFinite(at) || new Date(at).toISOString().slice(0, 10) !== dateKey) return PHARMACY_DATE_MSG;
+  var today = Date.parse(_wardDateKey() + "T00:00:00Z");
+  if (at < today - 7 * 86400000 || at > today + 86400000) return PHARMACY_DATE_MSG;
+  return "";
+}
 function pharmacyOrders(dateKey) {
   var ss = _book();
   var pat = getSheetPat(ss).getDataRange().getValues();
@@ -3251,6 +3272,9 @@ function applyStaffHeaderColumns() {
 // true to actually write. Only ever fills a BLANK header cell — if AC1/AD1/
 // AE1 already contain anything it reports and changes nothing, so it is safe
 // to re-run.
+//
+// It labels AC–AM now and widens the grid to 39 columns (AM, printJson, joined
+// on 2026-10-30). To migrate the live tab, run applyLogHeaderColumns below.
 function ensureLogHeaderColumns(apply) {
   var WANT = {
     29: "ioInput", 30: "ioOutput", 31: "drainContent",
@@ -3259,6 +3283,8 @@ function ensureLogHeaderColumns(apply) {
     // AH–AL, added 2026-09-10 — see _revisionFields / the publish-lock design
     34: "published", 35: "publishedBy", 36: "revisionNumber",
     37: "revisionOf", 38: "supersededAt",
+    // AM, added 2026-10-30 — the TPN room's sticker figures, see _printJsonField
+    39: "printJson",
   };
   var sh   = getSheetLog();
   var out  = {
@@ -3268,10 +3294,10 @@ function ensureLogHeaderColumns(apply) {
     changes: [], skipped: []
   };
 
-  // 1. Widen the grid if needed — must happen before any getRange(.., 38).
-  var need = 38 - sh.getMaxColumns();
+  // 1. Widen the grid if needed — must happen before any getRange(.., 39).
+  var need = 39 - sh.getMaxColumns();
   if (need > 0) {
-    out.changes.push("grid: " + sh.getMaxColumns() + " -> 38 columns (+" + need + ")");
+    out.changes.push("grid: " + sh.getMaxColumns() + " -> 39 columns (+" + need + ")");
     if (apply === true) sh.insertColumnsAfter(sh.getMaxColumns(), need);
   } else {
     out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
@@ -3297,7 +3323,8 @@ function ensureLogHeaderColumns(apply) {
     out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
   }
 
-  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(38, sh.getLastColumn())).getValues()[0];
+  // Capped at the grid: a dry run on a tab still 38 wide must not read AM.
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.min(Math.max(39, sh.getLastColumn()), sh.getMaxColumns())).getValues()[0];
   Logger.log(JSON.stringify(out, null, 2));
   return out;
 }

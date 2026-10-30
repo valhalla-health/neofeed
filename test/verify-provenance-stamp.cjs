@@ -204,7 +204,9 @@ console.log('\n── header migration knows about the new columns ──');
 const gas = R('gas-backend.gs');
 ok('ensureLogHeaderColumns labels column 32', /32:\s*["']constantsVersion["']/.test(gas));
 ok('ensureLogHeaderColumns labels column 33', /33:\s*["']appVersion["']/.test(gas));
-ok('ensureLogHeaderColumns widens to 38',     /\b38 - sh\.getMaxColumns\(\)/.test(gas));
+// 39 since 2026-10-30: the migration also labels and widens to AM (printJson, the TPN room's
+// sticker figures). It was 38, A–AL.
+ok('ensureLogHeaderColumns widens to 39 (A–AM)', /\b39 - sh\.getMaxColumns\(\)/.test(gas));
 
 // ══ 3 · the frontend actually sends them, and prints them ═════════════════
 console.log('\n── calculator.jsx wires the stamp through ──');
