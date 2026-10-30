@@ -7,6 +7,34 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-30 — `sheetHealthReport` names the cells to fix; STATUS catches up with #201 and `@66`
+
+`gas-backend.gs` (`sheetHealthReport` and a new `_measureProblem`), `test/verify-health-report-1030.cjs`,
+`test/README.md`, `STATUS.md`, `BACKLOG.md`. From the hand-off of the 2026-10-30 cloud session, on Pp's
+instruction ("แก้ไขตาม handoff in inbox").
+
+- **The report says where.** At the `@66` gate on 2026-10-29 it gave `measurementArraysFailingValidation:
+  1` and nothing more, so finding the record meant pasting a one-off locator into the editor. Now
+  `registry.measurementCellsToFix` lists each failing cell of M–P as `{ row, column, field, problem,
+  record }`: the sheet row and column, the rule it breaks ("weights[1].w (g) is outside 200–8000"), and
+  whether the record is on the unit, archived but still on ward devices, or off them. A blank M is reported
+  at D, the birth weight the app falls back to. The row count is unchanged: a row with two bad cells is
+  listed twice and counted once.
+- **No value leaves the sheet.** `_measureProblem` drops the stored value from the validator's message,
+  and a bedHistory key too, since a hand-typed cell could put a name in either. Row and column only, as the
+  hand-off proposed; the report still carries no name, sessionId, bed or date.
+- **A cell that is not JSON is counted** (`measurementCellsNotJson`) and listed ("not valid JSON, the app
+  reads it as empty"). `_parseJson` reads such a cell, curly quotes from a hand edit for instance, as empty
+  without a word: the record passes the check, the app shows birth weight only, and the next ward edit can
+  save that empty reading over the history. Before this the report could not see one at all.
+- **STATUS caught up with #201 and `@66`** (the comments on #201): a new top banner, #177, #178, #190, #199
+  and #200 marked live, and #178's planned `@67` replaced by the one `@66` that carried all three backends.
+  `BACKLOG.md` drops the shipped `@66` line, keeps telling pharmacy and the ward open with the release date,
+  and adds the failing record to "What `sheetHealthReport()` found".
+
+Nothing to release: only the Apps Script editor runs `sheetHealthReport`. After the merge, `clasp push` puts
+it in the script's HEAD (no `update-deployment`), and Pp's next run names the record `@66`'s gate counted.
+
 ## Session 2026-10-29 (4) — `main` merged in (#178, NF-02): one backend `@66` carries all three
 
 `test/verify-usage-log.cjs`, both shells' `?v=` tokens, `compiled/`. #178 was merged into `main` at 12:59

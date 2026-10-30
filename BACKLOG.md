@@ -51,11 +51,10 @@ clinical judgement. Everything else is engineering sequencing.
         sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
       - **Next phase:** print the pharmacy sheet again, for a sticker (`.print-back` is hidden in print,
         not removed).
-      - **Backend `@66`** carries the 2026-10-29 (1) changes: an old submitted order is revised, and an
-        admin can delete a submitted order. Until it is live, an edit of an unlocked submitted order is
-        saved in place, and a submitted order cannot be deleted.
-      - **Tell pharmacy with the release:** Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the
-        front prints, and a revision is marked.
+      - **Tell pharmacy and the ward:** released on 2026-10-29 (#201, backend `@66`) and not yet told.
+        Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the front prints, a revision is
+        marked, and every open NeoFeed tab needs a reload (a stale tab's Submit is refused).
+      - **A second clinician has not reviewed #200's calculations** (Mg in mg, Vitalipid rounded down).
 - [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
       rolling back).
       - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
@@ -263,6 +262,12 @@ clinical judgement. Everything else is engineering sequencing.
       - **7 Active records have no `Daily_Log` entry in 30 days.** Check whether those infants are still
         on the unit; each Active record stays on every ward device and in every sync;
       - **3 `Daily_Log` rows have a blank sessionId**, so no infant owns them.
+      - **2026-10-29, at the `@66` gate: one record fails `_validateMeasureArray`**
+        (`measurementArraysFailingValidation: 1`), so a ward edit of that infant may be refused. Since
+        PR #202 the report names its row and column in `measurementCellsToFix`, once that code is in the
+        script's HEAD (`clasp push`; no new deployment is needed to run it from the editor). Name a Sheet
+        version, fix the cell by hand, run the report again. A corrected weight becomes the starting
+        weight of the infant's next order (`calculator.jsx:721`).
 - [ ] 🔒 **security · Flip `GOOGLE_HD_ENFORCE` after one normal week on the new backend** (`@55` live
       since 2026-09-18, so on or after 2026-09-25). Check the
       Script Property `hd_seen_chula.ac.th`: `"yes"` → set the flag to `true` and redeploy; `"no"` →
