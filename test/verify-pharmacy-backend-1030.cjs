@@ -98,18 +98,34 @@ T.section('§4 pharmacy · every action but five is refused, and nothing changes
   const g = ward();
   g.log('NF-100001', '2026-10-20', E());
   const src = fs.readFileSync(SRC_PATH, 'utf8');
-  const actions = [...new Set([...src.matchAll(/action === "([A-Za-z]+)"/g)].map(m => m[1]))];
+  // `(?<![\w.])` skips `typeof body.action === "string"`, which is a type check, not an action.
+  const actions = [...new Set([...src.matchAll(/(?<![\w.])action === "([A-Za-z]+)"/g)].map(m => m[1]))];
   const allowed = new Set(['ping', 'login', 'logout', 'changePassword', 'pharmacyOrders']);
   T.ok('the backend names at least 20 actions', actions.length >= 20, actions);
+  T.ok('…and the list holds real actions only (no `string` from the typeof check)', !actions.includes('string'), actions);
+  // Names an object literal answers for without having set them. A truthiness lookup lets them through.
+  const protoKeys = ['toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf'];
   const snap = () => JSON.stringify(['Daily_Log', 'Patient_Registry', 'Staff'].map(t => g.rows(t)));
   const before = snap(), auditBefore = g.audit().length;
-  for (const a of actions.filter(x => !allowed.has(x))) {
+  let reads = 0;
+  const count = () => { reads++; };
+  g.sheet('Daily_Log').hooks.beforeRead = count;
+  g.sheet('Patient_Registry').hooks.beforeRead = count;
+  for (const a of actions.filter(x => !allowed.has(x)).concat(protoKeys)) {
     const res = g.as(g.rt, { action: a, sessionId: 'NF-100001', entryId: g.cell(1, 25), expectedLastModified: g.cell(1, 26),
       entry: E(), patient: P('NF-100009', 'NICU 9'), isNew: true });
     T.eq(`${a} → Forbidden`, res.error, 'Forbidden');
   }
-  T.eq('no sheet changed', snap(), before);
-  T.eq('no audit row was written (the registry was never read)', g.audit().length, auditBefore);
+  const pharmacyReads = reads, after = snap(), auditAfter = g.audit().length;
+  // Not vacuous: the same counter sees a doctor read the registry.
+  g.as(g.dt, { action: 'getActivePatients' });
+  const doctorReads = reads - pharmacyReads;
+  g.sheet('Daily_Log').hooks.beforeRead = null;
+  g.sheet('Patient_Registry').hooks.beforeRead = null;
+  T.eq('Daily_Log and Patient_Registry were never read for pharmacy', pharmacyReads, 0);
+  T.ok('…and the counter does see a doctor read them', doctorReads > 0, doctorReads);
+  T.eq('no sheet changed', after, before);
+  T.eq('no audit row was written (the registry was never read)', auditAfter, auditBefore);
 });
 
 T.section('§5 pharmacy · the login reply carries no registry', () => {

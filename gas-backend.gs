@@ -1319,10 +1319,13 @@ function doPost(e) {
     // TPN room, Pp 2026-10-30: pharmacy staff, weekend cover from other units
     // included, must not be able to change anything in NeoFeed. An allow-list,
     // before every other action, so an action added later is refused to
-    // pharmacy until it is named here. ping, login and logout are answered
-    // above, before the token is checked.
+    // pharmacy until it is named here. doGet answers ping; login and logout
+    // are answered above, before the token is checked. hasOwnProperty, not a
+    // plain lookup: toString, constructor and __proto__ must not pass as actions.
     var PHARMACY_ACTIONS = { changePassword: true, pharmacyOrders: true };
-    if (user.role === "pharmacy" && !PHARMACY_ACTIONS[action]) return jsonOut({ error: "Forbidden" });
+    if (user.role === "pharmacy" && !Object.prototype.hasOwnProperty.call(PHARMACY_ACTIONS, action)) {
+      return jsonOut({ error: "Forbidden" });
+    }
 
     if (action === "getActivePatients") {
       // Only an admin may ask for the full archive (data-subject requests,
@@ -1344,7 +1347,8 @@ function doPost(e) {
       return syncOut;
     }
 
-    // Every signed-in role may ask the team for help (see sendHelpRequest).
+    // Every signed-in role but pharmacy may ask the team for help (see
+    // sendHelpRequest; pharmacy is refused by the allow-list above).
     if (action === "sendHelpRequest") {
       var helpResult = sendHelpRequest(body, user);
       if (helpResult.error) return jsonOut(_errorBody(helpResult));
