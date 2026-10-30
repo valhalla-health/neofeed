@@ -2034,6 +2034,17 @@ report, and no stored value (12345, 99999, "x3") or bedHistory key ("NICU 7 ward
 `gas-backend.gs`, 6 fail. Three mutants each fail their own check: the raw validator message (§1 and §3),
 counting per cell (§1's row count) and no fallback to D (§1's list).
 
+## The Trend graph's line, 2026-10-30 — one harness
+
+The Dashboard's Trend graph joins its days with straight lines (`CHANGELOG.md` 2026-10-30 (3)).
+**`verify-trend-line-1030.cjs`** (59 checks; the jsdom set) mounts the real `TrendGraph` on the screenshots'
+days (admission days 1–4 and 16–19, then 69 and 70). §1: on all nine metrics and both x-axes no point of the
+line leaves the plot box, and on Weight, Energy and Protein the line is `M` then `L` only, with the dots as
+its corners in day order. §2: between two equal days the line stays at their height. §3: an order dated
+three days before the admission day is drawn on the plot's left edge, with the axis labelled from that day,
+and a log without one still starts at 0. On `07abbe9`, 36 fail: the line reaches x ≈ 808 on a plot that
+ends at 736, and the early dot is at x = −46.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

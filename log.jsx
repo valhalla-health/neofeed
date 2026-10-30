@@ -134,7 +134,11 @@ function TrendGraph({ entries, patient }) {
   // ── domain & geometry ─────────────────────────────────────
   const W = 760, H = 280, pad = { l: 52, r: 24, t: 16, b: 36 };
 
-  const xMin = 0;
+  // From 0, or from the earliest point if that is earlier: an order dated
+  // before the admission day (the admission date was corrected after it was
+  // written) is on a negative admission day, and with the axis fixed at 0 it
+  // was drawn off the left of the chart, where nobody could see it.
+  const xMin = Math.min(0, ...points.map(p => p.x));
   const xMaxRaw = Math.max(...points.map(p => p.x), xMode === "dayAdmit" ? 7 : (admitDol + 7));
   const xMax = Math.max(xMaxRaw, xMin + 1);
 
@@ -158,9 +162,10 @@ function TrendGraph({ entries, patient }) {
   const yScale = y => H - pad.b - ((y - yMin) / (yMax - yMin)) * (H - pad.t - pad.b);
 
   // ticks
-  const xTickStep = xMax <= 10 ? 1 : xMax <= 20 ? 2 : xMax <= 40 ? 5 : 10;
+  const xSpan = xMax - xMin;
+  const xTickStep = xSpan <= 10 ? 1 : xSpan <= 20 ? 2 : xSpan <= 40 ? 5 : 10;
   const xTicks = [];
-  for (let t = 0; t <= xMax; t += xTickStep) xTicks.push(t);
+  for (let t = Math.ceil(xMin / xTickStep) * xTickStep; t <= xMax; t += xTickStep) xTicks.push(t);
 
   const yTicks = metric.ticks || (() => {
     // weight: 6 ticks
@@ -168,25 +173,17 @@ function TrendGraph({ entries, patient }) {
     return Array.from({ length: 6 }, (_, i) => yMin + step * i);
   })();
 
-  // ── path: smooth via Catmull-Rom → cubic Bezier ───────────
-  const linePath = () => {
-    if (points.length === 0) return "";
-    if (points.length === 1) return `M ${xScale(points[0].x)} ${yScale(points[0].y)}`;
-    const pts = points.map(p => [xScale(p.x), yScale(p.y)]);
-    let d = `M ${pts[0][0]} ${pts[0][1]}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
-      const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
-      const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
-      const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
-      const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
-      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2[0]} ${p2[1]}`;
-    }
-    return d;
-  };
+  // ── path: a straight line from each recorded day to the next ──
+  // It was a Catmull-Rom curve, whose bend at each point comes from the points
+  // either side. Days are not evenly spaced (a week of orders, fifty days with
+  // none, then two more), and there the curve ran past the newest point, off
+  // the right of the axis, and looped back to it; between two equal days it
+  // dipped below both. A curve also draws values between orders that nobody
+  // recorded. Straight lines, as a growth chart joins its measurements
+  // (Pp, 2026-10-30: "ทําไมกราฟมันถึงโค้งไปโค้งมา").
+  const linePath = () => points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.x)} ${yScale(p.y)}`)
+    .join(" ");
 
   // ── hover handling ────────────────────────────────────────
   const handleMove = e => {
