@@ -303,6 +303,17 @@ function savedCalcVersionOf(entry) {
   return Object.prototype.hasOwnProperty.call(ci, "aaProduct") ? FIRST_AA_PRODUCT_VERSION : null;
 }
 
+// The version of the sticker figures a saved row carries (D.STICKER_SCHEMA_VERSION),
+// from the marker handleSave puts in calcInput.printJsonV. null = none: a row
+// saved before 2026-10-31, or one with no TPN bag. The figures themselves live
+// in Daily_Log AM, which the ward sync does not read, so the marker is the only
+// way this form can tell (tpn-room-stickers, 2026-10-31). Not an input:
+// normalizeCalcInput ignores it, so it never makes a row look edited.
+function savedFiguresVOf(entry) {
+  const v = Number(entry?.calcInput?.printJsonV);
+  return v > 0 ? v : null;
+}
+
 // `name` + `required` + `onBlankChange` implement the "every field must be
 // filled in before this order can be saved" rule (2026-09-15). What counts as
 // filled is deliberately **the box is not empty**, not "the value is > 0":
@@ -973,6 +984,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // savedCalcVersionOf. null = nothing saved from this form, or a row saved
   // before 2026-09-18 (held by calcMoved until it is saved again).
   const [savedCalcVersion, setSavedCalcVersion] = useState(null);
+  // The sticker-figures version the saved row carries — see savedFiguresVOf.
+  // null = none, or nothing saved from this form yet. Set again on every save.
+  const [savedFiguresV, setSavedFiguresV] = useState(() => savedFiguresVOf(editEntry));
 
   // Hydrates the full raw-input form from a saved entry's calcInput — shared
   // by "editing an entry" and "starting today from the latest entry" below,
@@ -1166,6 +1180,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
     setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
+    setSavedFiguresV(savedFiguresVOf(editEntry));
 
     // An unsaved draft for this patient + order date is offered back rather
     // than silently overwritten — but only to the user who typed it (SEC-F3):
@@ -2179,6 +2194,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const uncoveredCritical = alerts.filter(a => a.level === "crit" && !a.noReason)
     .map(a => a.title).filter(t => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
+  // A saved bag the TPN room cannot print stickers for: it was saved before
+  // 2026-10-31, so it carries no sticker figures (savedFiguresVOf), and the
+  // TPN-room page tells the pharmacist "save again". Submit is offered, and
+  // takes the full save below rather than only locking the order. Print is NOT
+  // held: the doctor's sheet uses no sticker figure, so it stays `printable`.
+  // Not a draft (it cannot be sent to the TPN room anyway) and not a day without
+  // a bag (printJson null is right for it). tpn-room-stickers, controller
+  // ruling 2026-10-31.
+  const figuresMissing = !centerPoint && !!savedEntryId && !isDraftSaved && calc.totalTPN_mL > 0
+    && savedFiguresV !== D.STICKER_SCHEMA_VERSION;
   // Every stop on its own, routeMissing too: the backend trusts the app's stop
   // list (submitStops), so a row stored past it must still not print (Vera, 2026-10-28).
   const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
@@ -2285,8 +2310,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Only when it could print as it is: an order held from Print (a calculation
     // that moved since, a changed dosing weight, an unconfirmed critical value)
     // takes the full save below, a revision on today's numbers (Vera, 2026-10-28).
+    // So does an order with no sticker figures (figuresMissing): locking it
+    // would leave it without them.
     const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
-    if (lockFirst && !dirty && printable) {
+    if (lockFirst && !dirty && printable && !figuresMissing) {
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -2436,6 +2463,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       suppFe_mg:     suppFerdek > 0 && wtKg > 0 ? parseFloat((suppFerdek * wtKg).toFixed(1)) : 0,
       suppFeType:    suppFerdek > 0 ? suppFeType  : "",
     };
+    // The TPN room's sticker figures (Daily_Log AM; openspec tpn-room-stickers,
+    // D1), computed once from this same calc at the moment the order is saved,
+    // so a sticker cannot show a figure the saved order does not have. Dated by
+    // orderDateKey, the date the doctor's sheet prints. null for an order with
+    // no bag. The doctor's sheet does not change.
+    const figures = D.stickerFigures({ calc, dol, orderDate: orderDateKey, dexPct,
+      naCl, naAcet, kCl, mgPerKg, caPerKg, heparinUmL, inclAddamel, critOverride: override });
     // NOT rounded here, deliberately. The two defects that looked like they
     // wanted rounding at this point — the Alerts page printing
     // "GIR 7.206498951781971", and the backend refusing an order reading
@@ -2472,12 +2506,19 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // to call (savedByOf). Not an input — normalizeCalcInput ignores it.
       // stops: the stops that hold (submitStops), read by gas-backend.gs.
       // Not an input either.
+      // printJsonV: the version of the sticker figures saved beside it (below),
+      // the one trace of them the ward sync carries back (it does not read
+      // Daily_Log AM). Absent for an order with no bag. Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
         stops: submitStops,
+        ...(figures ? { printJsonV: figures.v } : {}),
         ...(userLabel ? { savedByLabel: userLabel } : {}),
         ...(override ? { critOverride: override } : {}),
         // Which required boxes were blank — they reopen blank (seededZeros).
         ...(asDraft ? { blankFields: missingFields.map(f => f.key) } : {}) },
+      // The sticker figures — kept out of calcInput on purpose: the doctor's
+      // order carries no copy of what the TPN room prints.
+      printJson: figures,
       // Provenance — which constants and which frontend computed these
       // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
       // constant that later turns out wrong can be traced to the exact rows
@@ -2528,6 +2569,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setCritOverride(override);
     setSavedDosingWt({ g: dosingWtAtSave, exact: true });
     setSavedCalcVersion(D.CONSTANTS_VERSION);
+    setSavedFiguresV(figures ? figures.v : null);
     setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
@@ -4087,10 +4129,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <Icon name="save" size={14} /> {saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"}
               </button>
             )}
+            {/* A locked order saved before the sticker figures existed: say why
+                Submit is offered again (figuresMissing). */}
+            {figuresMissing && !scratch && !ordersReadOnly && (
+              <div className="sticker-figures-missing" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
+                ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง
+              </div>
+            )}
             {/* A locked order with nothing changed has nothing to submit, unless
-                Print is holding it for a new save. */}
+                Print is holding it for a new save, or it has no sticker figures
+                yet (figuresMissing). */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable && !figuresMissing)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

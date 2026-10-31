@@ -191,6 +191,10 @@ function savedCalcVersionOf(entry) {
   if (ci.constantsVersion) return String(ci.constantsVersion);
   return Object.prototype.hasOwnProperty.call(ci, "aaProduct") ? FIRST_AA_PRODUCT_VERSION : null;
 }
+function savedFiguresVOf(entry) {
+  const v = Number(entry?.calcInput?.printJsonV);
+  return v > 0 ? v : null;
+}
 function NumField({
   label,
   unit,
@@ -546,6 +550,7 @@ function Calculator({
   const [draftOffer, setDraftOffer] = useState(null);
   const [savedDosingWt, setSavedDosingWt] = useState(null);
   const [savedCalcVersion, setSavedCalcVersion] = useState(null);
+  const [savedFiguresV, setSavedFiguresV] = useState(() => savedFiguresVOf(editEntry));
   const fluidMidpoint = (weightG) => {
     const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1e3, patient?.bw);
     return Math.round((r[0] + r[1]) / 2);
@@ -682,6 +687,7 @@ function Calculator({
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
     setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
+    setSavedFiguresV(savedFiguresVOf(editEntry));
     setDraftOffer(null);
     if (!centerPoint) try {
       const dk = draftStorageKey(patient.sessionId, dateKey);
@@ -1449,6 +1455,7 @@ function Calculator({
   const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
   const uncoveredCritical = alerts.filter((a) => a.level === "crit" && !a.noReason).map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
+  const figuresMissing = !centerPoint && !!savedEntryId && !isDraftSaved && calc.totalTPN_mL > 0 && savedFiguresV !== D.STICKER_SCHEMA_VERSION;
   const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
   const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}` : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
@@ -1501,7 +1508,7 @@ function Calculator({
     if (scratch) return;
     if (ordersReadOnly) return;
     const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
-    if (lockFirst && !dirty && printable) {
+    if (lockFirst && !dirty && printable && !figuresMissing) {
       setSaving(true);
       const res2 = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -1666,6 +1673,20 @@ function Calculator({
       suppFe_mg: suppFerdek > 0 && wtKg > 0 ? parseFloat((suppFerdek * wtKg).toFixed(1)) : 0,
       suppFeType: suppFerdek > 0 ? suppFeType : ""
     };
+    const figures = D.stickerFigures({
+      calc,
+      dol,
+      orderDate: orderDateKey,
+      dexPct,
+      naCl,
+      naAcet,
+      kCl,
+      mgPerKg,
+      caPerKg,
+      heparinUmL,
+      inclAddamel,
+      critOverride: override
+    });
     const entry = {
       dol,
       weight: curWtG,
@@ -1701,16 +1722,23 @@ function Calculator({
       // to call (savedByOf). Not an input — normalizeCalcInput ignores it.
       // stops: the stops that hold (submitStops), read by gas-backend.gs.
       // Not an input either.
+      // printJsonV: the version of the sticker figures saved beside it (below),
+      // the one trace of them the ward sync carries back (it does not read
+      // Daily_Log AM). Absent for an order with no bag. Not an input either.
       calcInput: {
         ...captureState(),
         tpnWtG: dosingWtAtSave,
         constantsVersion: D.CONSTANTS_VERSION,
         stops: submitStops,
+        ...figures ? { printJsonV: figures.v } : {},
         ...userLabel ? { savedByLabel: userLabel } : {},
         ...override ? { critOverride: override } : {},
         // Which required boxes were blank — they reopen blank (seededZeros).
         ...asDraft ? { blankFields: missingFields.map((f) => f.key) } : {}
       },
+      // The sticker figures — kept out of calcInput on purpose: the doctor's
+      // order carries no copy of what the TPN room prints.
+      printJson: figures,
       // Provenance — which constants and which frontend computed these
       // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
       // constant that later turns out wrong can be traced to the exact rows
@@ -1745,6 +1773,7 @@ function Calculator({
     setCritOverride(override);
     setSavedDosingWt({ g: dosingWtAtSave, exact: true });
     setSavedCalcVersion(D.CONSTANTS_VERSION);
+    setSavedFiguresV(figures ? figures.v : null);
     setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || (/* @__PURE__ */ new Date()).toISOString(),
@@ -2664,12 +2693,12 @@ function Calculator({
     /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
     " ",
     saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"
-  ), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
+  ), figuresMissing && !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn primary",
       style: { width: "100%" },
-      disabled: saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && printable,
+      disabled: saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && printable && !figuresMissing,
       onClick: () => handleSave(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),
