@@ -7,6 +7,73 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-10-30 (3) — The Trend graph joins its days with straight lines
+
+`log.jsx` (`TrendGraph`), `compiled/log.js`, both shells' `?v=` tokens, `test/verify-trend-line-1030.cjs`,
+`tools/ci_bans.js`, `test/ci-bans-fixtures.json`, `test/README.md`, `STATUS.md`. Pp, with two Dashboard
+screenshots (Protein and Energy, admission day 70): "ทําไมกราฟมันถึงโค้งไปโค้งมา ไม่เหมือนกับกราฟปกติที่ดูแนวโน้มการเจริญเติบโต ลองเช็คเรื่องกราฟใหม่ทั้งหมดและแก้ไข".
+
+- **Why it curved.** The line was a Catmull-Rom curve: its bend at each point comes from the points either
+  side, which works only when the points are evenly spaced. Orders are not: days 1–4 and 16–19, nothing for
+  fifty days, then 69 and 70. From day 69 the curve's pull came from day 19, so it ran right, past day 70 and
+  off the axis (to x ≈ 808 on a plot that ends at 736), and looped back to the day-70 dot. Between two
+  equal days (30 kcal/kg/d on days 1 and 3) it dipped below both. It also drew values between orders that
+  nobody recorded. Every metric and both x-axes did this.
+- **Now straight lines**, from each dot to the next in day order, as a growth chart joins its
+  measurements. Nothing else of the chart changes: the dots, the per-day target steps, Latest, Target and
+  Δ vs prev are as they were.
+- **An order dated before the admission day is shown.** When the admission date is corrected after an
+  order was written, that order is on a negative admission day. The axis started at 0, so its dot was
+  drawn at x = −46, outside the chart, and the line came in from off-screen. The axis now starts at the
+  earliest day when that is before 0, and its ticks with it. A log without one still starts at 0.
+- **The Growth tab's Fenton chart was checked and is unchanged.** Its infant line was already straight
+  segments. Its centile curves are smooth through the reference rows, which are evenly spaced (half a week,
+  a week, four weeks for length and HC): no curve passes its next row, and none is further than 10 g or
+  0.2 cm from a straight line between two rows, at most about 1.5 px on the chart.
+
+- **`tools/ci_bans.js` loses its one allow entry.** `raw-tofixed` let the curve's `cp1x.toFixed(1)` through
+  (SVG coordinates, never shown as text). With the curve gone the entry matched nothing and failed CI, as a
+  stale entry should, so it came out with its two fixtures in `test/ci-bans-fixtures.json`.
+
+Not changed, for Pp to decide: a gap of many days (19 → 69 here) is still one solid line, and a target
+step changes at the last day of the old band, so the new band is drawn back across the gap.
+
+## Session 2026-10-30 (2) — Vera's review: a non-JSON weights cell names the birth-weight fallback
+
+`gas-backend.gs`, `test/verify-health-report-1030.cjs`, `test/README.md`. Vera's review of the entry below
+was NO BLOCK, with one 🟡: every not-JSON cell was listed as "the app reads it as empty", but a bad M falls back
+to the birth weight in D, as the ward sync does (`_parseJson(p[12], [{ dol: 1, w: … }])`), so the infant
+shows that one weight. Column M now reads "not valid JSON, the app reads it as the birth weight (D) only".
+Her test, curly quotes in M of an Active row, failed before the fix and passes after.
+
+## Session 2026-10-30 — `sheetHealthReport` names the cells to fix; STATUS catches up with #201 and `@66`
+
+`gas-backend.gs` (`sheetHealthReport` and a new `_measureProblem`), `test/verify-health-report-1030.cjs`,
+`test/README.md`, `STATUS.md`, `BACKLOG.md`. From the hand-off of the 2026-10-30 cloud session, on Pp's
+instruction ("แก้ไขตาม handoff in inbox").
+
+- **The report says where.** At the `@66` gate on 2026-10-29 it gave `measurementArraysFailingValidation:
+  1` and nothing more, so finding the record meant pasting a one-off locator into the editor. Now
+  `registry.measurementCellsToFix` lists each failing cell of M–P as `{ row, column, field, problem,
+  record }`: the sheet row and column, the rule it breaks ("weights[1].w (g) is outside 200–8000"), and
+  whether the record is on the unit, archived but still on ward devices, or off them. A blank M is reported
+  at D, the birth weight the app falls back to. The row count is unchanged: a row with two bad cells is
+  listed twice and counted once.
+- **No value leaves the sheet.** `_measureProblem` drops the stored value from the validator's message,
+  and a bedHistory key too, since a hand-typed cell could put a name in either. Row and column only, as the
+  hand-off proposed; the report still carries no name, sessionId, bed or date.
+- **A cell that is not JSON is counted** (`measurementCellsNotJson`) and listed ("not valid JSON, the app
+  reads it as empty"). `_parseJson` reads such a cell, curly quotes from a hand edit for instance, as empty
+  without a word: the record passes the check, the app shows birth weight only, and the next ward edit can
+  save that empty reading over the history. Before this the report could not see one at all.
+- **STATUS caught up with #201 and `@66`** (the comments on #201): a new top banner, #177, #178, #190, #199
+  and #200 marked live, and #178's planned `@67` replaced by the one `@66` that carried all three backends.
+  `BACKLOG.md` drops the shipped `@66` line, keeps telling pharmacy and the ward open with the release date,
+  and adds the failing record to "What `sheetHealthReport()` found".
+
+Nothing to release: only the Apps Script editor runs `sheetHealthReport`. After the merge, `clasp push` puts
+it in the script's HEAD (no `update-deployment`), and Pp's next run names the record `@66`'s gate counted.
+
 ## Session 2026-10-29 (4) — `main` merged in (#178, NF-02): one backend `@66` carries all three
 
 `test/verify-usage-log.cjs`, both shells' `?v=` tokens, `compiled/`. #178 was merged into `main` at 12:59
