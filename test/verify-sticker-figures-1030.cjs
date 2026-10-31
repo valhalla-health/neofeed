@@ -62,8 +62,11 @@ const D = window.NEOFEED_DATA;
 
 // A synthetic 1.8 kg order, 200 mL delivered + 30 mL dead space = 230 mL,
 // Factor 1.8 × 230/200 = 2.07. The calc values are what calculator.jsx's calc
-// returns for it, written out, so §1 needs no React.
+// returns for it, written out, so §1 needs no React. The calc carries the
+// weight and the amino-acid product its rows were built on; stickerFigures
+// reads both from it, so they cannot disagree with the rows.
 const C = (extra) => Object.assign({
+  wtKg: 1.8, aaStockKey: 'aminoven10',
   totalTPN_mL: 200, deadVol_mL: 30, preparedVol: 230, factor: 2.07,
   d50wVol: 57.5,
   solVol: { aa: 62.1, naCl: 1.2, naAcet: 0, glycophos: 2.1, kCl: 1.6, k2hpo4: 0, mg: 0.8, ca: 9.2, heparin: 1.2, znso4: 0 },
@@ -72,11 +75,12 @@ const C = (extra) => Object.assign({
   znTotal_mg: 0.45, osm: 1012.6, dexKcal: 85, aaKcal: 21.6,
 }, extra);
 const O = (extra) => Object.assign({
-  calc: C(), wtKg: 1.8, dol: 7, orderDate: '2026-11-16', dexPct: 12.5, aaStockKey: 'aminoven10',
+  calc: C(), dol: 7, orderDate: '2026-11-16', dexPct: 12.5,
   naCl: 2, naAcet: 0, kCl: 1.5, mgPerKg: 0.3, caPerKg: 40, heparinUmL: 0.5,
-  inclSoluvit: true, inclPeditrace: true, inclAddamel: false, critOverride: null,
+  inclAddamel: false, critOverride: null,
 }, extra);
 const strings = (o) => typeof o === 'string' ? [o] : o && typeof o === 'object' ? Object.values(o).flatMap(strings) : [];
+const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return 'threw: ' + e.message; } };
 
 (async () => {
   await section('§1 stickerFigures: the sample sticker, from the calc', async () => {
@@ -100,23 +104,36 @@ const strings = (o) => typeof o === 'string' ? [o] : o && typeof o === 'object' 
     });
     eq('no critical value', f.critical, null);
     eq('no string ends in a trailing zero after a decimal point', strings(f).filter(s => /\.\d*0$/.test(s)), []);
+    eq('no figure is a dash', strings(f).filter(s => s === '—'), []);
     ok('fits a Sheets cell with room to spare (< 8,000 characters)', JSON.stringify(f).length < 8000, JSON.stringify(f).length);
   });
 
   await section('§1b the rules around it', async () => {
     eq('no TPN volume → null', D.stickerFigures(O({ calc: C({ totalTPN_mL: 0 }) })), null);
-    eq('no weight → null', D.stickerFigures(O({ wtKg: 0 })), null);
-    const ap = D.stickerFigures(O({ aaStockKey: 'aminoplasmal15' }));
+    eq('no weight in the calc → null', D.stickerFigures(O({ calc: C({ wtKg: 0 }) })), null);
+    const ap = D.stickerFigures(O({ calc: C({ aaStockKey: 'aminoplasmal15' }) }));
     eq('Aminoplasmal: its rows, not Aminoven', [ap.stockMl.aminoven10, ap.stockMl.aminoplasmal15, ap.delivered.aminoAcidG.aminoplasmal15], ['0', '62.1', '5.4']);
     eq('Na acetate 1 mEq/kg → acetate 1.8 mEq, 1 : 1', D.stickerFigures(O({ naAcet: 1 })).delivered.acetateMeq, '1.8');
     const ad = D.stickerFigures(O({ inclAddamel: true }));
     eq('Addamel ticked → no figure on either sticker', [ad.stockMl.addamel, ad.delivered.addamelMl], [null, null]);
-    eq('Soluvit unticked → 0 delivered', D.stickerFigures(O({ inclSoluvit: false })).delivered.soluvitMl, '0');
+    const nsv = D.stickerFigures(O({ calc: C({ soluvitVol: 0 }) }));
+    eq('no Soluvit in the bag → 0 on both stickers', [nsv.stockMl.soluvit, nsv.delivered.soluvitMl], ['0', '0']);
+    const npd = D.stickerFigures(O({ calc: C({ peditrace_vol: 0 }) }));
+    eq('no Peditrace in the bag → 0 on both stickers', [npd.stockMl.peditrace, npd.delivered.peditraceMl], ['0', '0']);
+    const w1625 = D.stickerFigures(O({ calc: C({ wtKg: 1.625 }) }));
+    eq('1.625 kg: weight 1.63, vitamins from the raw weight, 1.6', [w1625.dosingWeightKg, w1625.delivered.soluvitMl, w1625.delivered.peditraceMl], ['1.63', '1.6', '1.6']);
+    eq('an amino-acid volume of an unknown product → null', D.stickerFigures(O({ calc: C({ aaStockKey: 'smof20' }) })), null);
+    eq('...but no amino-acid volume, no product to check', D.stickerFigures(O({ calc: C({ aaStockKey: 'smof20', solVol: Object.assign({}, C().solVol, { aa: 0 }) }) })) !== null, true);
+    eq('a negative WFI → null', D.stickerFigures(O({ calc: C({ wfiVol: -3 }) })), null);
+    eq('an undefined Ca dose would print a dash → null', D.stickerFigures(O({ caPerKg: undefined })), null);
+    eq('an undefined DOL would print a dash → null', D.stickerFigures(O({ dol: undefined })), null);
+    eq('a calc without solVol → null, no throw', tryFig(O({ calc: C({ solVol: undefined }) })), null);
     eq('chloride counts NaCl and KCl, 1 : 1', D.stickerFigures(O({ naCl: 3, kCl: 2 })).delivered.clMeq, '9');
     const crit = D.stickerFigures(O({ critOverride: { reason: 'synthetic reason', alerts: ['K⁺ above max'], at: '2026-11-16T03:00:00Z' } }));
     eq('a confirmed critical value is copied, without its time', crit.critical, { alerts: ['K⁺ above max'], reason: 'synthetic reason' });
     eq('an ISO timestamp is cut to the date', D.stickerFigures(O({ orderDate: '2026-11-16T00:00:00.000Z' })).orderDate, '2026-11-16');
-    eq('anything else is no date', D.stickerFigures(O({ orderDate: 'Mon Nov 16 2026' })).orderDate, '');
+    eq('not a date → no date', D.stickerFigures(O({ orderDate: 'not a date' })).orderDate, '');
+    eq('a Date is read as the app reads it: the Bangkok day', D.stickerFigures(O({ orderDate: new Date('2026-11-16T18:00:00Z') })).orderDate, '2026-11-17');
   });
 
   console.log(`\n${fail === 0 ? 'STICKER FIGURES 1030: ALL PASS' : `STICKER FIGURES 1030: ${fail} FAILED`} (${pass} passed, ${fail} failed)`);

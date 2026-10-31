@@ -878,22 +878,30 @@ function displayNum(value, maxDecimals = 2) {
 // goes through displayNum with the sample's decimals as the maximum, so there
 // is no trailing zero (Pp, 2026-10-30: the ISMP rule holds on a sticker too).
 // A stock NeoFeed cannot order prints 0. null means NeoFeed has no figure for
-// it, and the page will not print that order.
+// it, and the page will not print that order. That is also the answer when the
+// inputs cannot make a whole sticker: no volume or weight, a calc without its
+// solVol, a negative WFI, an amino-acid volume of a product the stickers have
+// no row for, or any figure that would print "—". Weight, amino-acid product
+// and the vitamins in the bag are read from the calc, not from the form, so
+// the figures cannot disagree with the rows they sit beside. Addamel is the
+// one tick read from the form: the calc has no volume for it.
 const STICKER_SCHEMA_VERSION = 1;
 function stickerFigures(o) {
   const c = o && o.calc;
-  if (!c || !(c.totalTPN_mL > 0) || !(o.wtKg > 0)) return null;
+  if (!c || !c.solVol || !(c.totalTPN_mL > 0) || !(c.wtKg > 0) || c.wfiVol < 0) return null;
+  const aaKey = c.aaStockKey;
+  if (c.solVol.aa > 0 && aaKey !== "aminoven10" && aaKey !== "aminoplasmal15") return null;
   const n = displayNum;
-  const wt = o.wtKg;
-  const aa = (key, v) => (o.aaStockKey === key ? v : 0);
-  // What reaches the infant: 1 mL/kg, capped, when ticked. The bag holds this
-  // × Factor (calc.soluvitVol), which is the worksheet's row.
-  const vit = (stock, on) => (on ? Math.min(stock.mlPerKg * wt, stock.maxMl) : 0);
-  const date = String(o.orderDate || "");
-  return {
+  const wt = c.wtKg;
+  const aa = (key, v) => (aaKey === key ? v : 0);
+  // What reaches the infant: 1 mL/kg, capped, when the bag holds it. The bag
+  // holds this × Factor (calc.soluvitVol), which is the worksheet's row.
+  const vit = (stock, inBag) => (inBag ? Math.min(stock.mlPerKg * wt, stock.maxMl) : 0);
+  const date = normalizeDateStr(o.orderDate);
+  const figures = {
     v: STICKER_SCHEMA_VERSION,
     constantsVersion: CONSTANTS_VERSION,
-    orderDate: /^\d{4}-\d{2}-\d{2}/.test(date) ? date.slice(0, 10) : "",
+    orderDate: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
     dol: n(o.dol, 0),
     dosingWeightKg: n(wt, 2),
     factor: n(c.factor, 2),
@@ -953,8 +961,8 @@ function stickerFigures(o) {
       // PROVISIONAL until the TPN unit answers tasks.md 0.3 a: what reaches the
       // infant, min(1 mL/kg × weight, cap). A different answer is a change to
       // these two lines plus their §1 cases.
-      soluvitMl: n(vit(KCMH_STOCK.soluvit, o.inclSoluvit), 1),
-      peditraceMl: n(vit(KCMH_STOCK.peditrace, o.inclPeditrace), 1),
+      soluvitMl: n(vit(KCMH_STOCK.soluvit, c.soluvitVol > 0), 1),
+      peditraceMl: n(vit(KCMH_STOCK.peditrace, c.peditrace_vol > 0), 1),
       addamelMl: o.inclAddamel ? null : "0",
       // PROVISIONAL until the TPN unit answers tasks.md 0.3 d: heparin U/mL ×
       // delivered mL. A different answer is a change to this line plus its §1
@@ -967,6 +975,13 @@ function stickerFigures(o) {
       // this line plus its §1 case.
       kcal: n(c.dexKcal + c.aaKcal, 0),
     },
+  };
+  // displayNum prints "—" for a missing or non-numeric input. The sticker must
+  // never carry one, so the order has no figures and the page says "save again".
+  const dash = (x) => x === "—" || (x !== null && typeof x === "object" && Object.values(x).some(dash));
+  if (dash(figures)) return null;
+  return {
+    ...figures,
     critical: o.critOverride
       ? { alerts: (o.critOverride.alerts || []).map(String), reason: String(o.critOverride.reason || "") }
       : null,
