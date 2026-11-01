@@ -66,7 +66,9 @@ tpn เราก็จะไม่ปริ้นท order", and, asked, "App ne
   way to stop TPN on a prefilled order; and the skill said an old order's reprint is not held, when below
   the bar it is. Its first finding, the printed form of a No TPN order, became Pp's rule above: such an order
   is not printed. What it found outside this change was put to Pp, who chose to leave it as it is ("Older
-  version ปล่อยไว้อย่างงั้น").
+  version ปล่อยไว้อย่างงั้น"). Pp then set the rule for the pharmacist view still to come: a No TPN order
+  never counts there as waiting for TPN, so pharmacy can count drafts and submitted orders to plan the
+  day's bags; asked, she chose to record it for later (`BACKLOG.md`, 19 · 27).
 - **Review.** No second clinician has reviewed this change; the thresholds (80 mL/kg/d, 20 mL/kg/d below
   the plan) and their tiers are Pp's, from her answers of 2026-11-01. Vera reviewed it twice before the PR.
 - **Q20, answered by Pp the same day:** the bar is the lower of 80 and the day's requirement, and 80 itself
