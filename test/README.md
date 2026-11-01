@@ -2048,7 +2048,7 @@ ends at 736, and the early dot is at x = −46.
 
 ## The "No TPN" tick, 2026-11-01 — one harness
 
-Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (44 checks; the jsdom
+Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (47 checks; the jsdom
 set) mounts the real Calculator. §1: the tick, labelled "No TPN", sits in Step 3's header, and ticking it
 clears a bag with lipid, KCl and ZnSO₄, names what it cleared, hides the pumps (no note in their place) and
 the route, and turns Steps 3 and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value
@@ -2057,7 +2057,9 @@ submitted (`CR-NO-TPN-TICK`), the save panel says why, and the draft names the s
 Submit saves `calcInput.noTpn: true` with every bag ingredient 0 and no stop. §5: the saved order reopens
 ticked and a new day copied from it starts ticked; a submitted feeds-only row saved before the tick existed
 reopens ticked and prints, the same row as a draft unticked, a row with a bag unticked, and a row with an empty `calcInput` unticked. §6: the changes
-list names "No TPN: no → yes". §7: Center Point offers no tick and holds no such stop. What the feeds must
+list names "No TPN: no → yes". §7: with the tick on and no route chosen, a salt typed into Step 4 raises no
+route stop (the tick hides those buttons); the no-volume stop points at the tick. §8: Center Point offers
+no tick and holds no such stop. What the feeds must
 reach (`CR-NO-TPN-EN`, `CR-NO-TPN-PLAN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at
 once: there is no tick.
 

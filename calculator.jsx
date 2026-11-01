@@ -2076,7 +2076,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // A bag needs a route before Submit (Pp, 2026-10-21); a draft may be kept
   // without one. A day with no bag needs none. Center Point's packet always
   // carries a route (tpn-document.mjs), so there it is needed on every order.
-  const routeMissing = route == null && (bagOrdered || !!centerPoint);
+  // Not while "No TPN" is ticked: its route buttons are hidden, and a salt typed
+  // into Step 4 then is CR-BAG-NO-VOLUME, whose line points at the tick (review
+  // of 2026-11-01).
+  const routeMissing = route == null && !noTpnOn && (bagOrdered || !!centerPoint);
   const routeMissingText = `ยังไม่ได้เลือก route ของ TPN — กด Peripheral หรือ Central ที่ Step 3 ก่อน${centerPoint ? "บันทึก" : " Submit"}`;
   // An order with no TPN, neither a bag nor lipid, is submitted only with "No
   // TPN" ticked, so its feeds are always cross-checked (CR-NO-TPN-EN; Pp,
@@ -2195,7 +2198,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG
     ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;
-  if (noTpnEnLow) alerts.push({ level: "crit", title: "No TPN: feeds below the fluid requirement",
+  if (noTpnEnLow) alerts.push({ level: "crit", title: "No TPN: feeds below 80 mL/kg/d or the day's minimum",
     body: `No TPN แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})`
       + `${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""}`
       + ` — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
@@ -2288,7 +2291,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
-  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? "เอาติ๊ก \"No TPN\" ออกแล้ว" : ""}ใส่ปริมาตร`;
+  // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01).
+  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? "เอาติ๊ก \"No TPN\" ออกแล้วใส่ปริมาตร" : "ใส่ปริมาตร หรือถ้าวันนี้ไม่มี TPN ติ๊ก \"No TPN\" ที่ Step 3"}`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
   const printBlockMessage = (before) =>
     pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`

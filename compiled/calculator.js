@@ -1390,7 +1390,7 @@ function Calculator({
   const bagOrdered = calc.totalTPN_mL > 0 || zeroVolumeBag;
   const bagOverfull = bagOrdered && calc.wfiVol < 0;
   const bagOverfullText = `ส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุง ${fmt(calc.preparedVol, 1)} mL ไป ${fmt(Math.abs(calc.wfiVol), 1)} mL ห้อง TPN ผสมไม่ได้ — เพิ่มปริมาตร TPN หรือลดขนาดยา`;
-  const routeMissing = route == null && (bagOrdered || !!centerPoint);
+  const routeMissing = route == null && !noTpnOn && (bagOrdered || !!centerPoint);
   const routeMissingText = `ยังไม่ได้เลือก route ของ TPN — กด Peripheral หรือ Central ที่ Step 3 ก่อน${centerPoint ? "บันทึก" : " Submit"}`;
   const noTpnUnticked = !noTpnOn && !centerPoint && !scratch && !bagOrdered && !(lipidPerKg > 0);
   const noTpnUntickedText = `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 ก่อน Submit`;
@@ -1490,7 +1490,7 @@ function Calculator({
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;
   if (noTpnEnLow) alerts.push({
     level: "crit",
-    title: "No TPN: feeds below the fluid requirement",
+    title: "No TPN: feeds below 80 mL/kg/d or the day's minimum",
     body: `No TPN แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""} — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
     ref: "Pp, 2026-11-01"
   });
@@ -1535,7 +1535,7 @@ function Calculator({
   const uncoveredCritical = alerts.filter((a) => a.level === "crit" && !a.noReason).map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
   const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
-  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? 'เอาติ๊ก "No TPN" ออกแล้ว' : ""}ใส่ปริมาตร`;
+  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? 'เอาติ๊ก "No TPN" ออกแล้วใส่ปริมาตร' : 'ใส่ปริมาตร หรือถ้าวันนี้ไม่มี TPN ติ๊ก "No TPN" ที่ Step 3'}`;
   const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : noTpnUnticked ? `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}` : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
   React.useEffect(() => {

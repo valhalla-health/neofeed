@@ -268,7 +268,7 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     let asked = null;
     window.prompt = (m) => { asked = String(m); return 'NPO, on IV fluid'; };
     await clickAsync(submitBtn());
-    ok('…Submit asks a reason, naming the feeds below the bar', !!asked && asked.includes('No TPN: feeds below the fluid requirement'), asked);
+    ok('…Submit asks a reason, naming the feeds below the bar', !!asked && asked.includes("No TPN: feeds below 80 mL/kg/d or the day's minimum"), asked);
     noPrompt();
     eq('the order is logged', box.calls, 1);
     eq('Daily_Log route: "NPO"', box.entry?.route, 'NPO');

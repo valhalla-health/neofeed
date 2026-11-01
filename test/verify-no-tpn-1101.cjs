@@ -139,7 +139,7 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('the toast names what it cleared', toast === 'No TPN: ล้าง TPN volume, Dextrose, Amino acid, 20% lipid, KCl, ZnSO₄', toast);
   ok('Step 4\'s KCl box is empty', ['', '0'].includes(inputOf('KCl')?.value), inputOf('KCl')?.value);
   ok('the bag left the fluid: Prescribed is the feed alone', text(container).includes('Plan 150 · Prescribed 96 mL/d'));
-  ok('the feeds (96 mL/kg/d) reach 80: no critical line', !text(container).includes('No TPN: feeds below the fluid requirement'));
+  ok('the feeds (96 mL/kg/d) reach 80: no critical line', !text(container).includes("No TPN: feeds below 80 mL/kg/d or the day's minimum"));
 
   section('2 · unticking it in the same visit puts the bag back');
   toast = null;
@@ -221,7 +221,18 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('"No TPN: no → yes"', changes.includes('No TPN: no → yes'), changes);
   ok('…beside "TPN volume: 100 → 0"', changes.includes('TPN volume: 100 → 0 mL/d'), changes);
 
-  section('7 · Center Point offers no tick');
+  section('7 · a salt typed with the tick on, on a first order with no route');
+  // Review of 2026-11-01: the route stop pointed at buttons the tick hides.
+  mount(); fillRequired();
+  setField('Volume(mL/feed)', 12); setField('Frequency', 8);
+  setNoTpn(true);
+  setField('KCl', 2);
+  ok('no route stop: the tick hides the route buttons', !container.querySelector('.route-missing-save'), text(container.querySelector('.route-missing-save')));
+  ok('…the no-volume stop holds, and points at the tick', /เอาติ๊ก "No TPN" ออกแล้วใส่ปริมาตร/.test(text(container.querySelector('.zero-volume-bag'))),
+    text(container.querySelector('.zero-volume-bag')));
+  ok('…and Submit is disabled', button('Submit')?.disabled === true);
+
+  section('8 · Center Point offers no tick');
   const centerPoint = { save: () => Promise.resolve({ sourceRecordId: 'x', recordedAt: '2026-11-01T08:00:00.000Z' }), review() {}, failed() {} };
   mount({ centerPoint, patient: { sessionId: '6f1c2f4e-2b7a-4c1e-9d55-0c8f0e6b1a11', bw: 1200, ga: 28, weights: [] } });
   ok('no "ไม่มี TPN" tick', !noTpnBox());

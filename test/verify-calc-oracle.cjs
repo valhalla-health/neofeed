@@ -354,7 +354,7 @@ function expectedAlerts(sc, e) {
       : tierG < 2500 ? [60, 80, 100, 120, 140, 140, 140] : [40, 50, 60, 60, 100, 140, 140];
     const bar = Math.min(80, lo[Math.min(d, 7) - 1]);
     const enKg = Number((e.enCounted / e.W).toPrecision(12));
-    if (enKg < bar) { add('crit', 'No TPN: feeds below the fluid requirement'); noTpnShort = true; }
+    if (enKg < bar) { add('crit', "No TPN: feeds below 80 mL/kg/d or the day's minimum"); noTpnShort = true; }
     else if (sc.fluid > 0 && Number((sc.fluid - e.enCounted / e.W).toPrecision(12)) > 20) { add('warn', 'No TPN: feeds well below the fluid plan'); noTpnShort = true; }
   }
   if ((e.Vd > 0 || (noTpn && !noTpnShort)) && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');

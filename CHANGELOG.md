@@ -34,7 +34,7 @@ no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, 
 - **The cross-check (`CR-NO-TPN-EN`, critical).** With the tick on, the counted feed must reach 80 mL/kg/d,
   or the day's fluid requirement where that is lower (the lower bound of `TARGETS.fluid` on the same
   weight tier: DOL 1 at 1,000–1,499 g 70 and 1,500–2,499 g 60; term DOL 1–4 40, 50, 60, 60). Below it,
-  "No TPN: feeds below the fluid requirement" is critical: Submit asks for a reason, and the reason prints
+  "No TPN: feeds below 80 mL/kg/d or the day's minimum" is critical: Submit asks for a reason, and the reason prints
   on the order. Pp chose this over a stop, so a day on IV fluid alone can still be ordered. The line names
   the feed, the bar and any Other IV. A MEN feed counts for nothing, so MEN alone is always below it.
 - **Feeds far below the plan (`CR-NO-TPN-PLAN`, amber).** With the tick on, a counted feed more than
@@ -50,6 +50,14 @@ no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, 
   old day on low feeds with Other IV, cannot be reprinted until a prescriber submits it again with a
   reason** (Vera, second review); a nurse's read-only screen cannot do that.
 - **Unchanged:** every calculation, printed figure and `CONSTANTS_VERSION`.
+- **A fresh review of the whole Submit workflow** (Pp asked for one, 2026-11-01) found four things in this
+  change, fixed here: the critical line's title read "below the fluid requirement" while its bar is 80 on
+  most days, and it is the title a signed order prints, so it is now "No TPN: feeds below 80 mL/kg/d or the
+  day's minimum"; with "No TPN" ticked, a salt typed into Step 4 on a first order asked for a route whose
+  buttons the tick hides, so the route stop now yields to the tick and the no-volume line points at it;
+  with the tick off, that line offers the tick ("หรือถ้าวันนี้ไม่มี TPN ติ๊ก "No TPN" ที่ Step 3"), the one-step
+  way to stop TPN on a prefilled order; and the skill said an old order's reprint is not held, when below
+  the bar it is. What it found outside this change is listed for Pp on the PR.
 - **Review.** No second clinician has reviewed this change; the thresholds (80 mL/kg/d, 20 mL/kg/d below
   the plan) and their tiers are Pp's, from her answers of 2026-11-01. Vera reviewed it twice before the PR.
 - **Q20, answered by Pp the same day:** the bar is the lower of 80 and the day's requirement, and 80 itself
@@ -57,7 +65,7 @@ no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, 
 - **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
   (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
   TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
-  `verify-no-tpn-1101.cjs`, 44 checks. Nine harnesses built orders with no TPN and no tick, or saved an NPO
+  `verify-no-tpn-1101.cjs`, 47 checks. Eleven harnesses built orders with no TPN and no tick, or saved an NPO
   day with no reason; each now ticks "No TPN" (and feeds or a reason) where it builds such an order:
   `calc-sum` and `calc-oracle` (whose own alert model gains the two No-TPN rules, written out),
   `incident-gaps-1021` (the NPO day now asks a reason, and the next day starts ticked),
