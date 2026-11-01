@@ -374,7 +374,18 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   ok('print: the old hard-coded "P preterm 30-70" is gone', !/30-70/.test(pf));
   ok('print: energy line is TPN-only with its own per-kg', /Energy \(TPN\)/.test(pf));
   ok('print: changes vs previous order are listed', /เปลี่ยนแปลงจากคำสั่ง[^:]*: .*Amino acid 3→3\.5/.test(pf), pf.match(/เปลี่ยนแปลง.{0,120}/));
-  ok('screen: changes vs previous order are listed', /Amino acid: 3 → 3\.5/.test(container.querySelector('.order-changes')?.textContent.replace(/\s+/g, ' ') || ''));
+  // A table since Pp, 2026-11-01: each row's name, old, new and unit cells,
+  // read back as "name: old → new unit".
+  const changeRows = [...container.querySelectorAll('.order-changes tbody tr')].map(tr => [...tr.cells].map(td => td.textContent.trim()));
+  const changeLines = changeRows.map(([name, from, , to, unit]) => `${name}: ${from} → ${to}${unit ? ' ' + unit : ''}`).join(' · ');
+  ok('screen: changes vs previous order are listed', /Amino acid: 3 → 3\.5 g\/kg\/d/.test(changeLines), changeLines);
+  eq('screen: the changes are a table headed รายการ · เดิม · ใหม่ · หน่วย',
+    [...container.querySelectorAll('.order-changes thead th')].map(th => th.textContent.trim()), ['รายการ', 'เดิม', '', 'ใหม่', 'หน่วย']);
+  eq('screen: the Amino acid row is name, old, arrow, new, unit', changeRows.find(r => r[0] === 'Amino acid'), ['Amino acid', '3', '→', '3.5', 'g/kg/d']);
+  ok('screen: the new value is bold, the arrow hidden from a screen reader', (() => {
+    const tr = [...container.querySelectorAll('.order-changes tbody tr')].find(r => r.cells[0].textContent.trim() === 'Amino acid');
+    return !!tr && tr.cells[3].style.fontWeight === '700' && tr.cells[2].getAttribute('aria-hidden') === 'true';
+  })());
 
   console.log('\n── F3 · unsaved work survives a forced logout ──');
   localStorage.clear();
