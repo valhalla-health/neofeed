@@ -2050,7 +2050,7 @@ ends at 736, and the early dot is at x = −46.
 
 ## The "No TPN" tick, 2026-11-01 — one harness
 
-Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (67 checks; the jsdom
+Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (68 checks; the jsdom
 set) mounts the real Calculator. §1: the tick, labelled "No TPN", sits in Step 3's header, and ticking it
 clears a bag with lipid, KCl and ZnSO₄, names what it cleared, hides the pumps (no note in their place) and
 the route, and turns Steps 3 and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value

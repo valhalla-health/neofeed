@@ -119,7 +119,7 @@ that replaces a TPN order submitted the same day (`calcInput.replacesTpn`, `D.or
 titled "NO TPN — ORAL / STOP ORDER" and keeps the header's pharmacy line, the patient table (dated "วันที่สั่ง",
 route "— (No TPN)"), a box with one of two lines, as short as Pp asked: "TPN stopped today" on those two
 days, else "No TPN today", "8. Other", the confirmation box when a reason was given, the signature and the
-footer; no TPN lines and no back. With neither, nothing prints, and Print says so. The Calculator and the
+footer; no TPN lines and no back. With none of the three, nothing prints, and Print says so. The Calculator and the
 ward's Print order list both read `D.orderPrints`.
 
 Two harness contracts: the patient table stays the form's first direct `<table>` child (the parity and

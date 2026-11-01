@@ -269,6 +269,14 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   f = text(sheet());
   ok('the first No TPN day after a TPN day, no orals: the short sheet says only "TPN stopped today"', !!sheet() && text(sheet()?.querySelector('.print-no-tpn')) === 'TPN stopped today', f.slice(0, 160));
   ok('…and Print prints it', (await printNow()) === 1);
+  // Vera, seventh review: with oral orders too, "TPN stopped today" is the line
+  // (Pp: "instead"), and the orals still print under "8. Other".
+  mount({ previousEntry: tpnDay }); feedsTicked(); setField('Vitamin D', 400);
+  await clickAsync(button('Submit'));
+  f = text(sheet());
+  ok('the day TPN stopped with vitamin D: "TPN stopped today", and the oral order under "8. Other"', !!sheet()
+    && text(sheet().querySelector('.print-no-tpn')) === 'TPN stopped today' && /8\. Other.*Vitamin D drops 400 IU\/kg\/d/.test(f),
+    [text(sheet()?.querySelector('.print-no-tpn')), f.match(/8\. Other.{0,60}/)]);
   const noTpnDay = savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, totalTPN_mL: 0, noTpn: true, enVol: 12, enFreq: 8 });
   mount({ previousEntry: noTpnDay }); feedsTicked();
   await clickAsync(button('Submit'));

@@ -59,6 +59,8 @@ tpn เราก็จะไม่ปริ้นท order", and, asked, "App ne
   "— (No TPN)", one line in a box, "8. Other", the reason box when one was given, the signature and the footer,
   and no back. The line is one of two (Pp: "เอาแค่สองแบบ พิมพ์ให้สั้นที่สุด ให้คนเข้าใจ เพราะคนขี้เกียจอ่าน"): **"TPN
   stopped today"** on the first No TPN day after a TPN day or on such a revision, else **"No TPN today"**.
+  Asked whether a same-day revision needs a clearer warning that the morning's TPN sheet is void (Vera,
+  seventh review), Pp chose "TPN stopped today", with the "Revision · ฉบับที่ N" box beside it.
   With none of the three, nothing prints: Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and
   the save panel shows no red "held from Print" line. The ward's Print order list prints the same orders:
   the rest are listed as submitted, "No TPN — ไม่ต้องพิมพ์", with no Print button, and left out of Print
@@ -90,8 +92,8 @@ tpn เราก็จะไม่ปริ้นท order", and, asked, "App ne
 - **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
   (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
   TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
-  `verify-no-tpn-1101.cjs`, 67 checks (§8, the short sheet: oral orders ("No TPN today"), the day TPN stopped
-  and a same-day TPN order revised to No TPN ("TPN stopped today"), a draft that cancels nothing, neither; its
+  `verify-no-tpn-1101.cjs`, 68 checks (§8, the short sheet: oral orders ("No TPN today"), the day TPN stopped,
+  with and without oral orders, and a same-day TPN order revised to No TPN ("TPN stopped today"), a draft that cancels nothing, neither; its
   title and date);
   `verify-print-all-1028.cjs` #9, the ward's Print order list with No TPN orders (ticked, from before the
   tick, with oral orders, the day TPN stopped, and a revision cancelling the day's TPN). Since a No TPN order is not printed, the harnesses that
