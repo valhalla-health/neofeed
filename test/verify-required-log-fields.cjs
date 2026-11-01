@@ -160,19 +160,30 @@ ok_('…and it counts as missing again', /Other IV/.test(missingText()), missing
 console.log('\n── #3 Save unlocks once every field is entered ──');
 REQUIRED.forEach(l => setField(l, l === 'Target fluid' ? 130 : l === 'Current weight' ? 1150 : 0));
 eq('nothing left missing', missingText(), '');
+// An order with no TPN is submitted with Step 3's "No TPN" ticked
+// (CR-NO-TPN-TICK, Pp 2026-11-01): a rule of its own, not this gate.
+const tickNoTpn = () => act(() => { container.querySelector('label.no-tpn-chk input').click(); });
+ok_('…but an order with no TPN waits for "No TPN"', saveButton()?.disabled === true, { disabled: saveButton()?.disabled });
+tickNoTpn();
 ok_('Save is enabled', saveButton()?.disabled === false, { disabled: saveButton()?.disabled });
 
 let logged = null;
 mount({ onLog(e) { logged = e; return Promise.resolve({ ok: true, entryId: 'e-2', lastModified: 'lm-2' }); } });
 REQUIRED.forEach(l => setField(l, l === 'Target fluid' ? 130 : l === 'Current weight' ? 1150 : 0));
+tickNoTpn();
+// No feed with no TPN is below CR-NO-TPN-EN's bar, so Submit asks a reason.
+window.prompt = () => 'NPO, on IV fluid';
 act(() => { saveButton()?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
+window.prompt = () => null;
 ok_('a fully-entered order saves', !!logged, logged);
 eq('…carrying the entered zeros, not nulls', logged && logged.ioOutput, 0);
 
 // ── #4 the gate does not reach into Steps 2-6 ─────────────────────────────
 console.log('\n── #4 Steps 2-6 are outside the gate ──');
 // Nothing above touched the enteral feed, the TPN bag, the electrolytes or a
-// single supplement, and the order still saved — that is the assertion.
+// single supplement, and the order still saved — that is the assertion. (Since
+// 2026-11-01 it carries the "No TPN" tick and a reason: CR-NO-TPN-TICK and
+// CR-NO-TPN-EN, rules of their own, not the required-field gate.)
 ok_('an order with no enteral feed and no TPN still saved', !!logged, logged);
 eq('…and records the NPO day as such', logged && logged.route, 'NPO');
 

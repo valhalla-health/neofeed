@@ -446,6 +446,9 @@ async function fill(sc, scratch = false) {
   setCheck('Peditrace', sc.pedi);
   setField('ZnSO₄', sc.zn);
   setField('Heparin(U/mL)', sc.hep);
+  // An order with no bag and no lipid is submitted with "No TPN" ticked
+  // (CR-NO-TPN-TICK, Pp 2026-11-01). It holds nothing to clear here.
+  if (!['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0)) setCheck('No TPN', true);
   if (scratch) return;
   setField('Urine output', sc.ioOut);
   setField('Drain content', sc.drain);
@@ -560,8 +563,15 @@ async function run(scIn, idx) {
   }
   await clickAsync(saveBtn);
   ok(sc, 'save 1 reached onLog', calls.onLog === 1, calls);
-  const first = sumCheck(sc, 'save 1', Vd);
-  if (!first) return 'no print';
+  // A No TPN order saves but is never printed (Pp, 2026-11-01): nothing to add
+  // up on save 1. The change below gives it a bag, and that one prints.
+  const noTpnOrder = !!container.querySelector('label.no-tpn-chk input')?.checked;
+  let first = null;
+  if (noTpnOrder) ok(sc, 'No TPN: saved, and no print form (it is never printed)', !container.querySelector('#print-form'));
+  else {
+    first = sumCheck(sc, 'save 1', Vd);
+    if (!first) return 'no print';
+  }
 
   // ── wired-in: change one input the way a person does ──
   const before = screenFigures();
@@ -577,6 +587,8 @@ async function run(scIn, idx) {
     how = `dead-space chip ${sc.dead} → ${newDead} mL`;
   } else {
     newVd = Vd > 0 ? Vd + 12.5 : 60;
+    // A day without a bag was ticked "No TPN"; a bag starts by taking it off.
+    if (!(Vd > 0)) setCheck('No TPN', false);
     typeChars('Volume(mL/day)', String(newVd));
     how = `TPN volume typed ${Vd} → ${newVd} mL/day`;
   }
@@ -605,7 +617,7 @@ async function run(scIn, idx) {
   const second = sumCheck(sc, `save 2 (${how})`, newVd);
   if (second) {
     ok(sc, `wired-in (${how}): reprinted prepared = the new on-screen Bag total`, second.make.prepared === after.bagTotal, { second: second.make, after });
-    ok(sc, `wired-in (${how}): reprinted prepared differs from the first print`, second.make.prepared !== first.make.prepared, { first: first.make, second: second.make });
+    if (first) ok(sc, `wired-in (${how}): reprinted prepared differs from the first print`, second.make.prepared !== first.make.prepared, { first: first.make, second: second.make });
   }
   return null;
 }
@@ -657,8 +669,10 @@ const TWO = [
     fluid: 150, ioOut: 60, tpn: 60, dead: 30, dex: 10, aa: 1.5, lip: 1, naCl: 1, glyNa: 1, kCl: 1, ca: 30, hep: 0.5,
     feed: 'PRENAN_22', enVol: 15, enFreq: 6, feed2: 'BM_HMF_24', enVol2: 15, enFreq2: 2,
     change: { how: 'volume', to: 20 }, weights: [{ dol: 1, w: 1200 }] },
-  { name: 'T2 4 + 4 feeds only: breast milk + Enfalac Premature 24, feed 2 kcal/oz changed', bw: 1000, cur: 1000, dol: 9,
-    fluid: 150, ioOut: 40, tpn: 0,
+  // Feeds only until 2026-11-01; a No TPN order is never printed now (Pp), so
+  // its two-feed print is checked beside a small bag.
+  { name: 'T2 4 + 4 with a 40 mL bag: breast milk + Enfalac Premature 24, feed 2 kcal/oz changed', bw: 1000, cur: 1000, dol: 9,
+    route: 'central', fluid: 150, ioOut: 40, tpn: 40, dead: 0, dex: 10, aa: 2,
     feed: 'BM_20', enVol: 12, enFreq: 4, feed2: 'ENFALAC_PREM_24', enVol2: 12, enFreq2: 4,
     change: { how: 'strength', to: 'FBM_PF_22' }, weights: [{ dol: 1, w: 1000 }] },
   { name: 'T3 5 + 3 peripheral: Hi-Q LBW 24 + Pre Nan 22, frequencies typed through 7 a day', bw: 1600, cur: 1650, dol: 15,

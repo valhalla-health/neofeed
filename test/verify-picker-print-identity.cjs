@@ -108,7 +108,10 @@ function printTextFor(patient) {
       key: 'print-' + patient.sessionId,
       patient, dol: 3,
       editEntry: { entryId: 'w-print-' + patient.sessionId, lastModified: 'lm-print', ts: '2026-09-10',
-                   dol: 3, weight: patient.bw, calcInput: { curWtG: patient.bw, constantsVersion: window.NEOFEED_DATA.CONSTANTS_VERSION } },
+                   dol: 3, weight: patient.bw, calcInput: { curWtG: patient.bw, constantsVersion: window.NEOFEED_DATA.CONSTANTS_VERSION,
+                     // A No TPN order is never printed (Pp, 2026-11-01), so the
+                     // fixture is a small TPN order: 100 mL/kg of D12, AA 2.
+                     route: 'central', totalTPN_mL: Math.round(patient.bw / 10), deadVol_mL: 0, dexPct: 12, aaPerKg: 2 } },
       baselineEntry: null, logDate: null,
       onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
     }));

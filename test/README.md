@@ -114,7 +114,9 @@ Since the dead-space change, a harness order that means "no dead space" types 0
 against 2026-09-18.1's own changes, so after 2026-09-28.1 a feeds-only order reprinted under its old entry
 id with figures from today's constants. Its order is FBM_PF_24 30 mL × 8 at 1500 g with no TPN. Print
 now refuses it with the calcMoved reason until it is saved again, and the same order with the current
-stamp prints, so the refusal comes from the stamp alone. 15 assertions; 6 fail on `55d893d`.
+stamp prints, so the refusal comes from the stamp alone. 15 assertions; 6 fail on `55d893d`. Since
+2026-11-01 a feeds-only order is "No TPN" and never printed (Pp), so §1, §2 and §4 use the same order with a
+small bag, and §5 checks that the feeds-only order, stamped or not, prints nothing and Print says so.
 
 `verify-tpn-team-0922.cjs` pins **the KCMH TPN team's feedback and Praew's rules of 2026-09-22**.
 **Zinc** — a ZnSO₄ line in mg of elemental Zn/kg/d, a total with Peditrace's delivered mL × 0.25 mg,
@@ -1783,7 +1785,7 @@ osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks w
 
 Pp: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง", then "ให้สามารถมีปุ่มซีเล็ก
 เป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้" (`CHANGELOG.md` 2026-10-28 (2)). **`verify-print-all-1028.cjs`** drives the
-real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 72 checks in twelve scenarios: the
+real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 83 checks in thirteen scenarios: the
 button sits after the title block and counts only what a tap would print (no `tmp_` row, no two-orders
 day); no Calculator button on the print list, still one on the gate and the ward list; a run opens the
 orders in bed order, each printed once on its own infant's sheet with another infant active first,
@@ -2045,6 +2047,27 @@ its corners in day order. §2: between two equal days the line stays at their he
 three days before the admission day is drawn on the plot's left edge, with the axis labelled from that day,
 and a log without one still starts at 0. On `07abbe9`, 36 fail: the line reaches x ≈ 808 on a plot that
 ends at 736, and the early dot is at x = −46.
+
+## The "No TPN" tick, 2026-11-01 — one harness
+
+Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (68 checks; the jsdom
+set) mounts the real Calculator. §1: the tick, labelled "No TPN", sits in Step 3's header, and ticking it
+clears a bag with lipid, KCl and ZnSO₄, names what it cleared, hides the pumps (no note in their place) and
+the route, and turns Steps 3 and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value
+back and says so, but a KCl typed after the tick stays as typed. §3: feeds with the tick off cannot be
+submitted (`CR-NO-TPN-TICK`), the save panel says why, and the draft names the stop for the backend. §4:
+Submit saves `calcInput.noTpn: true` with every bag ingredient 0 and no stop; the saved order has no print form
+and no red "held" line, and Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์" and prints nothing. §5: the saved order reopens
+ticked and a new day copied from it starts ticked; a submitted feeds-only row saved before the tick existed
+reopens ticked and is not printed, the same row as a draft unticked, a row with a bag unticked, and a row with an empty `calcInput` unticked. §6: the changes
+list names "No TPN: no → yes". §7: with the tick on and no route chosen, a salt typed into Step 4 raises no
+route stop (the tick hides those buttons); the no-volume stop points at the tick. §8: the short sheet, titled
+"NO TPN — ORAL / STOP ORDER" and dated "วันที่สั่ง", prints for oral orders, on the first No TPN day after a TPN
+day and for a same-day revision of a submitted TPN order (both "TPN stopped today"; `calcInput.replacesTpn`,
+also when reopened), else "No TPN today"; a draft TPN order ticked and submitted, or a No TPN day after one, prints nothing. §9: Center Point offers
+no tick, holds no such stop, and its no-volume line offers no tick. What the feeds must
+reach (`CR-NO-TPN-EN`, `CR-NO-TPN-PLAN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at
+once: there is no tick.
 
 ## Note on the source workbook
 

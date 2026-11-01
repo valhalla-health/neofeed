@@ -40,8 +40,14 @@ clinical judgement. Everything else is engineering sequencing.
         (Pp, 2026-10-28). With it, **liver disease and renal disease tick boxes** (also 2026-09-28 item
         5, under C below), saved with the order and printed ticked.
       - **"ไม่มี PN แล้ว"**: one button that fills an enteral-only order, and a TPN / no-TPN tag on the
-        ward list. Full-feed infants are entered every 3 days or at each step-up.
+        ward list. Full-feed infants are entered every 3 days or at each step-up. ⏳ **PR #206** builds the
+        button as Step 3's "No TPN" tick (it clears the bag and the order saves as `calcInput.noTpn`); a No
+        TPN order is never printed, and the ward's Print order list tags it "No TPN — ไม่ต้องพิมพ์". Still
+        open: the tag on the ward list itself.
       - **The Dashboard counts pending TPN orders** (joins 19 · 27, the pharmacist view, under C below).
+        Pp, 2026-11-01: a No TPN order never counts as waiting for TPN, so pharmacy sees in real time how
+        many TPN orders are drafts and how many are submitted, to estimate the day's compounding. Asked
+        whether to build it now, she chose to record it for later.
       - **Center Point** prints its own copy of the form: Mg in mEq first, "10% Aminoven infant" alone.
         A CP-repo sync.
       - **Pp to say what each means:** "แก้ไขช่อง prescribe ให้มาอยู่ในหน้าแรก" (the Prescribed column is
@@ -239,7 +245,11 @@ clinical judgement. Everything else is engineering sequencing.
         - **19 · 27 · A pharmacist view.** How many TPN orders there are; Submit = compound, Save draft =
           may be waiting for labs, do not compound yet. The "ถึงผู้ป่วย + คาสาย" split left the doctor's
           screen on 2026-09-28 (Praew: calculated, not shown); a pharmacist view could show it again. Joins
-          "Pharmacist role" in § Later.
+          "Pharmacist role" in § Later. **Pp, 2026-11-01:** an order with no TPN never shows there as waiting
+          for TPN, so pharmacy can count drafts and submitted orders in real time and estimate how many
+          bags to make that day ("ถ้าอันไหนไม่มี TPN ก็จะไม่ไปขึ้นในหน้าจอของเภสัช"). `D.orderIsNoTpn` (PR
+          #206) is the rule to count by: the tick, or a submitted order from before it with no TPN. A
+          draft is never read as No TPN, since its TPN may not be filled in yet.
         - **26 · Alert tiers.** Confirm with a reason (osmolarity, K⁺) versus a hard stop. Over the
           largest bottle (1,250 mL) is a stop since 2026-10-27 (Pp: "ห้ามสั่ง").
           **"Bag cannot be compounded"** (components over the prepared bag) is a critical alert today, so

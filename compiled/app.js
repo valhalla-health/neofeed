@@ -116,12 +116,7 @@ const isParenteralEntry = (e) => {
   return !route || /\bT?PN\b/i.test(route);
 };
 function previousLogEntry(entries, targetDate) {
-  const target = D_A.normalizeDateStr(targetDate);
-  if (!target) return null;
-  return D_A.finalEntries(entries).filter((entry) => {
-    const entryDate = D_A.normalizeDateStr(entry?.ts);
-    return entryDate && entryDate < target;
-  }).slice().sort((a, b) => D_A.normalizeDateStr(a.ts).localeCompare(D_A.normalizeDateStr(b.ts))).slice(-1)[0] || null;
+  return D_A.previousFinalEntry(entries, targetDate);
 }
 function computeAlerts(patient, allEntries) {
   if (!D_A.isOnUnit(patient)) return [];

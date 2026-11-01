@@ -319,6 +319,19 @@ with #204 by PR #205.
   value, new value and unit each in a column. The printed form's one-line list is unchanged. No calculation,
   figure or saved field, no `clasp` step. Vera: NO BLOCK twice (one 🟡 on the first run, this line).
   `CHANGELOG.md` 2026-11-01.
+- ⏳ **PR #206, Step 3's "No TPN" tick and the check that the feeds alone are enough: in review (draft),
+  on Pp's request of 2026-11-01 ("มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn").** The tick clears the bag and skips
+  Step 3, and saves as `calcInput.noTpn`. An order with no TPN cannot be submitted until it is ticked
+  (`CR-NO-TPN-TICK`), so every feeds-only order needs the tick. With it on, a counted feed below 80 mL/kg/d,
+  or below the day's fluid requirement where that is lower, is critical and asks a reason that prints
+  (`CR-NO-TPN-EN`); more than 20 below the fluid plan is amber (`CR-NO-TPN-PLAN`). An NPO day now needs
+  the tick and a reason. **A No TPN order prints no TPN order** (Pp): only a short sheet, for its oral orders
+  on the day TPN stopped, or as a same-day revision of a TPN order; it says only "No TPN today" or, those
+  two days, "TPN stopped today"; otherwise nothing, and the ward's Print order list marks it "No
+  TPN — ไม่ต้องพิมพ์" and leaves it out of Print ทั้งหมด. This changes the printed order. No calculation, figure on a printed TPN
+  order, or `CONSTANTS_VERSION` moves; no `clasp` step. ⚠️ The ward should hear of the new tick before
+  release, and pharmacy that a No TPN day prints at most a short sheet. Q20 answered by Pp: the lower of 80 and the day's
+  requirement, 80 itself enough. `CHANGELOG.md` 2026-11-01 (2).
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197
