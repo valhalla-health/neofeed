@@ -152,15 +152,11 @@ function bagRouteFrom(src) {
 // yet. A row whose calcInput already carries the key is read as saved. Only a
 // row that recorded its TPN volume counts: an empty or unparsed calcInput is
 // missing data, not a day without TPN.
-const NO_TPN_BAG_KEYS = ["totalTPN_mL", "dexPct", "aaPerKg", "lipidPerKg", "naCl", "naAcet", "glycophosP",
-  "kCl", "k2hpo4", "mgPerKg", "caPerKg", "znPerKg"];
+// The rule is D.orderIsNoTpn, which the ward's print list reads too.
 function withLegacyNoTpn(entry, src) {
   const ci = entry?.calcInput;
-  const has = (k) => !!ci && typeof ci === "object" && Object.prototype.hasOwnProperty.call(ci, k);
-  if (!src || has("noTpn") || !has("totalTPN_mL")) return src;
-  if (window.NEOFEED_DATA.isDraftEntry(entry)) return src;
-  if (NO_TPN_BAG_KEYS.some(k => Number(src[k]) > 0)) return src;
-  return { ...src, noTpn: true };
+  if (!src || !ci || typeof ci !== "object" || Object.prototype.hasOwnProperty.call(ci, "noTpn")) return src;
+  return window.NEOFEED_DATA.orderIsNoTpn(entry) ? { ...src, noTpn: true } : src;
 }
 
 // What the "changes vs previous order" list compares — per-kg ORDER values,
@@ -2288,7 +2284,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
   // Every stop on its own, routeMissing too: the backend trusts the app's stop
   // list (submitStops), so a row stored past it must still not print (Vera, 2026-10-28).
-  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
+  // A No TPN order is never printed (Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท
+  // order"): there is no TPN order for pharmacy, and the form would tick a route,
+  // Soluvit, Peditrace and heparin for a bag nobody makes. It is still saved.
+  const noTpnNoPrintText = "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์";
+  const printable = !noTpnOn && !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
@@ -2330,6 +2330,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         showToast("Calculator นี้ไม่ได้ผูกกับผู้ป่วย จึงพิมพ์ใบสั่ง TPN ไม่ได้ — เปิดจากผู้ป่วยเพื่อบันทึกและพิมพ์", "error");
         return;
       }
+      if (noTpnOn) { showToast(noTpnNoPrintText, "info"); return; }
       if (!savedEntryId) {
         showToast(ordersReadOnly ? "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว" : "กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
         return;
@@ -2349,7 +2350,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
-  }, [savedEntryId, printable, printBlockToast]);
+  }, [savedEntryId, printable, printBlockToast, noTpnOn]);
 
   // Opened from the ward's Print order list (registry.jsx WardPrintList): ask
   // for the print preview once, exactly as the Print order button does, as
@@ -4008,7 +4009,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
+            {!centerPoint && !noTpnOn && savedEntryId && !dirty && !printable && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์")}
                 {!pendingSave && dosingWeightChanged && (

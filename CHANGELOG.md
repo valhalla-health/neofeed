@@ -10,15 +10,17 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-11-01 (2) — Step 3's "No TPN" tick, and the check that the feeds are enough
 
 `calculator.jsx` (Step 3's header and body, `normalizeCalcInput`, the changes list, a stop, a critical
-alert, `CR-FLUID-PLAN`), `data.js` (`NO_TPN_EN_MIN_ML_KG`, `noTpnEnMinPerKg`), both shells (a phone layout
-rule and the `?v=` tokens), `compiled/calculator.js`, `.claude/skills/neofeed-clinical-rules/SKILL.md`
+alert, `CR-FLUID-PLAN`, Print), `registry.jsx` (the ward's Print order list), `data.js`
+(`NO_TPN_EN_MIN_ML_KG`, `noTpnEnMinPerKg`, `orderIsNoTpn`), both shells (a phone layout rule and the `?v=`
+tokens), `compiled/calculator.js`, `compiled/registry.js`, `.claude/skills/neofeed-clinical-rules/SKILL.md`
 (`CR-NO-TPN-EN`, `CR-NO-TPN-TICK`, `CR-U-NO-TPN`, Q20, and older cases given the tick),
 `test/verify-clinical-rules.cjs` (a `then` key), `test/verify-no-tpn-1101.cjs`, other harnesses whose
 orders had no TPN, `tools/reference-tabs.json`, `docs/CLINICAL_CONSTANTS.md`, `app-walkthrough.md`,
 `test/README.md`, `STATUS.md`. Pp, with a phone screenshot of Steps 3–6: "มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn
 เพื่อให้ข้ามช่องนี้ได้ และไป cross check ว่าคนไข้เป็นเป็น enteral fluid ล้วน มากกว่า 80ml/kg/day หรือตาม fluid
 requirement ตามวัน"; then "ถ้าติ๊กช่องนี้และผ่าน cross check จะสามารถ submit ได้โดยไม่ต้องมี TPN / ขอเป็นภาษาอังกฤษ
-no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, "Block until ticked" and "Submit with a reason".
+no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, "Block until ticked" and "Submit with a reason"; then "ถ้า ไม่มี
+tpn เราก็จะไม่ปริ้นท order", and, asked, "App never prints it".
 
 - **The tick, "No TPN"**, at the top right of Step 3's header (on a phone, on the title's row, above the
   chips and the route). Ticking it clears everything that would make a bag: TPN volume, dextrose, amino
@@ -34,22 +36,27 @@ no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, 
 - **The cross-check (`CR-NO-TPN-EN`, critical).** With the tick on, the counted feed must reach 80 mL/kg/d,
   or the day's fluid requirement where that is lower (the lower bound of `TARGETS.fluid` on the same
   weight tier: DOL 1 at 1,000–1,499 g 70 and 1,500–2,499 g 60; term DOL 1–4 40, 50, 60, 60). Below it,
-  "No TPN: feeds below 80 mL/kg/d or the day's minimum" is critical: Submit asks for a reason, and the reason prints
-  on the order. Pp chose this over a stop, so a day on IV fluid alone can still be ordered. The line names
+  "No TPN: feeds below 80 mL/kg/d or the day's minimum" is critical: Submit asks for a reason, saved with
+  the order (a No TPN order is not printed, below). Pp chose this over a stop, so a day on IV fluid alone can still be ordered. The line names
   the feed, the bar and any Other IV. A MEN feed counts for nothing, so MEN alone is always below it.
 - **Feeds far below the plan (`CR-NO-TPN-PLAN`, amber).** With the tick on, a counted feed more than
   20 mL/kg/d below Step 1's fluid plan is amber, "No TPN: feeds well below the fluid plan … ลืมสั่ง TPN
   หรือเปล่า?", in case the TPN was forgotten (Pp: "ถ้ามีฟูอิดแพลน แล้ว มากกว่าเอนเทอรัลเยอะๆ ให้alarmด้วย";
   asked, she chose 20 and amber). It stays quiet while the red line above holds, so one shortfall is said
   once. `CR-FLUID-PLAN`'s info line also runs on a ticked day (Vera), but only for feeds above the plan.
+- **A No TPN order is never printed** (Pp: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"; asked, "App never prints
+  it"). There is no TPN order for pharmacy, and the form would have ticked a route, Soluvit, Peditrace and
+  heparin for a bag nobody makes (the fresh review below found it). Print on such an order says "No TPN —
+  ไม่มีใบสั่ง TPN ให้พิมพ์" and no order form renders; the save panel shows no red "held from Print" line for it.
+  The ward's Print order list shows the infant as submitted, "No TPN — ไม่ต้องพิมพ์", with no Print button,
+  and Print ทั้งหมด leaves it out. One rule decides it for both, `D.orderIsNoTpn`.
 - **Saved with the order** as `calcInput.noTpn`. A new day copied from a ticked order starts ticked, and
-  the changes list (on screen and on the printed form) says "No TPN: no → yes". **A submitted order saved
-  before today** with neither a bag nor lipid reads as ticked when reopened, reprinted, copied or compared,
-  so its reprint is not held by the new stop; a draft does not, nor does a row whose `calcInput` never
-  recorded a TPN volume (empty or unparsed). Its feeds are checked as today's, so **an old NPO day, or an
-  old day on low feeds with Other IV, cannot be reprinted until a prescriber submits it again with a
-  reason** (Vera, second review); a nurse's read-only screen cannot do that.
-- **Unchanged:** every calculation, printed figure and `CONSTANTS_VERSION`.
+  the changes list says "No TPN: no → yes". **A submitted order saved before today** with neither a bag nor
+  lipid reads as ticked when reopened, copied or compared, and so is not printed either; a draft does not,
+  nor does a row whose `calcInput` never recorded a TPN volume (empty or unparsed: missing data). Its feeds
+  are checked as today's, so an old NPO day reopened shows the red line until it is submitted again with a
+  reason.
+- **Unchanged:** every calculation, every figure on a printed TPN order, and `CONSTANTS_VERSION`.
 - **A fresh review of the whole Submit workflow** (Pp asked for one, 2026-11-01) found four things in this
   change, fixed here: the critical line's title read "below the fluid requirement" while its bar is 80 on
   most days, and it is the title a signed order prints, so it is now "No TPN: feeds below 80 mL/kg/d or the
@@ -57,7 +64,9 @@ no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, 
   buttons the tick hides, so the route stop now yields to the tick and the no-volume line points at it;
   with the tick off, that line offers the tick ("หรือถ้าวันนี้ไม่มี TPN ติ๊ก "No TPN" ที่ Step 3"), the one-step
   way to stop TPN on a prefilled order; and the skill said an old order's reprint is not held, when below
-  the bar it is. What it found outside this change is listed for Pp on the PR.
+  the bar it is. Its first finding, the printed form of a No TPN order, became Pp's rule above: such an order
+  is not printed. What it found outside this change was put to Pp, who chose to leave it as it is ("Older
+  version ปล่อยไว้อย่างงั้น").
 - **Review.** No second clinician has reviewed this change; the thresholds (80 mL/kg/d, 20 mL/kg/d below
   the plan) and their tiers are Pp's, from her answers of 2026-11-01. Vera reviewed it twice before the PR.
 - **Q20, answered by Pp the same day:** the bar is the lower of 80 and the day's requirement, and 80 itself

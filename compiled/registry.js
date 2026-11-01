@@ -141,7 +141,7 @@ function todaysOrders(entries, today) {
 function wardPrintableOrder(p, entries, ward, today) {
   if (!p || !isActivePatient(p) || D_R.patientWard(p) !== ward) return null;
   const orders = todaysOrders(entries, today);
-  return orders.length === 1 && !isPendingRow(orders[0]) ? orders[0] : null;
+  return orders.length === 1 && !isPendingRow(orders[0]) && !D_R.orderIsNoTpn(orders[0]) ? orders[0] : null;
 }
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
@@ -200,8 +200,9 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   ), "เลือกทั้งหมด", /* @__PURE__ */ React.createElement("span", { className: "print-pick-n" }, "เลือกแล้ว ", /* @__PURE__ */ React.createElement("span", { className: "num" }, queue.length), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printable.length), " ใบ")), rows.map(({ p, orders }) => {
     const one = orders.length === 1 ? orders[0] : null;
     const pending = !!one && isPendingRow(one);
-    const open = pending ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
-    const action = pending ? "กำลังบันทึก…" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
+    const noTpn = !!one && !pending && D_R.orderIsNoTpn(one);
+    const open = pending || noTpn ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
+    const action = pending ? "กำลังบันทึก…" : noTpn ? "No TPN — ไม่ต้องพิมพ์" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
     const item = itemFor.get(p.sessionId);
     return /* @__PURE__ */ React.createElement("div", { key: p.sessionId, className: "print-item" }, pickable && (item ? /* @__PURE__ */ React.createElement("label", { className: "print-pick" }, /* @__PURE__ */ React.createElement(
       "input",
@@ -224,18 +225,18 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         "button",
         {
           type: "button",
-          className: "btn sm" + (one && !pending ? " primary" : ""),
-          disabled: pending,
+          className: "btn sm" + (one && !pending && !noTpn ? " primary" : ""),
+          disabled: pending || noTpn,
           tabIndex: -1,
           onClick: (e) => {
             e.stopPropagation();
             open?.();
           }
         },
-        one && !pending && /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 12, color: "#fff" }),
+        one && !pending && !noTpn && /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 12, color: "#fff" }),
         " ",
         action,
-        !pending && /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: one ? "#fff" : void 0 })
+        !pending && !noTpn && /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: one ? "#fff" : void 0 })
       )
     ));
   }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), waiting > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));

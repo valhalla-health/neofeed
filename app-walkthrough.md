@@ -893,8 +893,10 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    counted feed must reach `D.noTpnEnMinPerKg` (80 mL/kg/d, or the day's
    lower fluid bound if less), else a critical line that asks a reason
    (`CR-NO-TPN-EN`); more than 20 below Step 1's plan is amber
-   (`CR-NO-TPN-PLAN`). A submitted row saved before 2026-11-01 with no
-   bag and no lipid reads as ticked (`withLegacyNoTpn`); a draft does not.
+   (`CR-NO-TPN-PLAN`). A No TPN order is never printed: the Calculator's
+   Print and the ward's Print ทั้งหมด both read `D.orderIsNoTpn`, which also
+   reads a submitted row saved before 2026-11-01 with no bag and no lipid
+   as ticked; a draft, or a row that never recorded a TPN volume, it does not.
    Not offered on Center Point.
    Step 4 also has a **Magnesium**
    tile: the TPN's Mg in mEq/kg/d against `TARGETS.mg` (`EN_DB` has no Mg).

@@ -1525,6 +1525,23 @@ function hasDraftOnDate(entries, date) {
 // completed and Submitted (status "submitted"). Every row saved before drafts
 // existed carries "submitted" (the calculator always wrote it; the backend
 // defaults a blank to it), so old orders count as submitted.
+// A saved order with no TPN (Pp, 2026-11-01): its calcInput carries the "No TPN"
+// tick, or it is a SUBMITTED order saved before the tick existed that recorded
+// its TPN volume and has neither a bag nor lipid. A draft is not read that way
+// (its TPN may only not have been filled in yet), nor is a row whose calcInput
+// never recorded a TPN volume (missing data). Such an order is never printed
+// (Pp: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"): the Calculator's Print and the
+// ward's Print ทั้งหมด both read this rule.
+const NO_TPN_BAG_KEYS = ["totalTPN_mL", "dexPct", "aaPerKg", "lipidPerKg", "naCl", "naAcet", "glycophosP",
+  "kCl", "k2hpo4", "mgPerKg", "caPerKg", "znPerKg"];
+function orderIsNoTpn(entry) {
+  const ci = entry && entry.calcInput;
+  if (!ci || typeof ci !== "object") return false;
+  const has = (k) => Object.prototype.hasOwnProperty.call(ci, k);
+  if (has("noTpn")) return ci.noTpn === true;
+  if (isDraftEntry(entry) || !has("totalTPN_mL")) return false;
+  return !NO_TPN_BAG_KEYS.some(k => Number(ci[k]) > 0);
+}
 function isDraftEntry(e) {
   return !!e && String(e.status || "").toLowerCase() === "draft";
 }
@@ -2798,7 +2815,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, finalEntries,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,
