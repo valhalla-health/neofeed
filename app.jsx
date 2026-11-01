@@ -167,18 +167,11 @@ const isParenteralEntry = (e) => {
 // Return only an entry strictly earlier than the intended order date. This is
 // important for back-filling: the most recent row overall may be from the
 // future relative to the clinical day being documented.
+// A draft is not yesterday's order: never prefill from it or diff against it.
+// The rule lives in data.js since 2026-11-01, so the ward's Print order list
+// reads the same previous order (D.orderPrints).
 function previousLogEntry(entries, targetDate) {
-  const target = D_A.normalizeDateStr(targetDate);
-  if (!target) return null;
-  // A draft is not yesterday's order: never prefill from it or diff against it.
-  return D_A.finalEntries(entries)
-    .filter(entry => {
-      const entryDate = D_A.normalizeDateStr(entry?.ts);
-      return entryDate && entryDate < target;
-    })
-    .slice()
-    .sort((a, b) => D_A.normalizeDateStr(a.ts).localeCompare(D_A.normalizeDateStr(b.ts)))
-    .slice(-1)[0] || null;
+  return D_A.previousFinalEntry(entries, targetDate);
 }
 
 // Single source of truth for "what alerts does this patient currently have" —

@@ -207,6 +207,8 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
       act(() => { selSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
     }
     setField('Volume(mL/feed)', 22); setField('Frequency', 8);
+    // An order with no TPN is submitted with "No TPN" ticked (CR-NO-TPN-TICK, 2026-11-01).
+    act(() => { container.querySelector('label.no-tpn-chk input').click(); });
     const a = alertNamed('Protein critically out of range');
     eq('Hi-Q LBW 24 at 176 mL/kg/d (protein ≈ 4.6): critical', a && a.level, 'crit');
     ok('…naming the 4.5 limit', !!a && /above the 4\.5 g\/kg\/d hard limit/.test(a.text), a && a.text);
@@ -265,18 +267,18 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     setField('Dextrose final', 10); setField('Amino acid', 2.5); setField('20% NaCl', 3); setField('KCl', 2);
     setField('MgSO₄', 4.861);   // 0.4 mEq, typed in mg since 2026-10-28
     setField('10% Ca gluconate', 60); setField('Glycophos', 2);
-    const a = alertNamed('Bag larger than the largest bottle');
+    const a = alertNamed('Bag cannot be made (ใส่ถุงไม่ได้)');
     eq('1,270 mL to prepare: a critical alert', a && a.level, 'crit');
     ok('…naming the 1,250 mL bottle', !!a && /1250 mL/.test(a.text), a && a.text);
     eq('Submit is disabled', submitBtn()?.disabled, true);
-    ok('the save panel says why', /เกินขวดใหญ่สุด 1250 mL/.test(text(container.querySelector('.bag-over-bottle'))), text(container.querySelector('.bag-over-bottle')));
+    ok('the save panel says why', /เกินขวดใหญ่สุด 1250 mL/.test(text(container.querySelector('.bag-cannot-be-made'))), text(container.querySelector('.bag-cannot-be-made')));
     eq('a draft may still be kept', draftBtn()?.disabled, false);
     await clickAsync(draftBtn());
     eq('…and the draft is logged', box.calls, 1);
     eq('…as a draft', box.entry?.status, 'draft');
     setField('Volume(mL/day)', 1220);
-    eq('1,220 + 30 = 1,250 mL is not above the bottle: no alert', alertNamed('Bag larger than the largest bottle'), null);
-    ok('…and nothing in the save panel', !container.querySelector('.bag-over-bottle'));
+    eq('1,220 + 30 = 1,250 mL is not above the bottle: no alert', alertNamed('Bag cannot be made (ใส่ถุงไม่ได้)'), null);
+    ok('…and nothing in the save panel', !container.querySelector('.bag-cannot-be-made'));
   });
 
   await section('§5 heparin above the usual 1 U/mL is a caution', async () => {

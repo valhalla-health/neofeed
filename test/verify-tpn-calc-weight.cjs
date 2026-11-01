@@ -81,7 +81,10 @@ function printTextAt(pt, curWtG) {
       key: 'print-' + curWtG,
       patient: pt, dol: 3,
       editEntry: { entryId: 'w-print', lastModified: 'lm-print', ts: '2026-08-20',
-                   dol: 3, weight: curWtG, calcInput: { curWtG: curWtG, constantsVersion: window.NEOFEED_DATA.CONSTANTS_VERSION } },
+                   dol: 3, weight: curWtG, calcInput: { curWtG: curWtG, constantsVersion: window.NEOFEED_DATA.CONSTANTS_VERSION,
+                     // A No TPN order is never printed (Pp, 2026-11-01), so the
+                     // fixture is a small TPN order: 100 mL/kg of D12, AA 2.
+                     route: 'central', totalTPN_mL: Math.round(Math.max(curWtG, pt.bw || 0) / 10), deadVol_mL: 0, dexPct: 12, aaPerKg: 2 } },
       baselineEntry: null, logDate: null,
       onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
     }));
@@ -127,6 +130,12 @@ const readOnlyValue = fieldValue;
 const REQUIRED_LABELS = ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content'];
 function fillRequired(values = {}) {
   REQUIRED_LABELS.forEach(l => setField(l, values[l] !== undefined ? values[l] : 0));
+  // These orders have no TPN, so they are ticked "No TPN" and fed at least
+  // 80 mL/kg/d (CR-NO-TPN-TICK, CR-NO-TPN-EN, Pp 2026-11-01): 30 mL × 8 is
+  // 137-174 mL/kg/d at the weights used here.
+  setField('Volume(mL/feed)', 30); setField('Frequency', 8);
+  const box = container.querySelector('label.no-tpn-chk input');
+  if (box && !box.checked) act(() => { box.click(); });
 }
 function saveButton() {
   return [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Submit');

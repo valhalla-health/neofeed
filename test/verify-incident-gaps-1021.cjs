@@ -123,6 +123,9 @@ const routeOn = () => routeButtons().filter(b => b.classList.contains('on')).map
 const routeBtn = (name) => routeButtons().find(b => b.textContent.trim() === name);
 const routeNotice = () => container.querySelector('.route-missing');
 const routeSaveNote = () => container.querySelector('.route-missing-save');
+// Step 3's "No TPN" tick (Pp, 2026-11-01): an order with no TPN carries it.
+const noTpnTick = () => container.querySelector('label.no-tpn-chk input');
+const setNoTpn = (want) => { if (noTpnTick().checked !== want) act(() => { noTpnTick().click(); }); };
 
 const AA0 = 'Amino acid not ordered';
 const MG0 = 'MgSO₄ not ordered';
@@ -255,20 +258,29 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     const box = logger();
     mount({ patient: pt('NPO-1500', 1500), onLog: box.onLog });
     npoOrder();
-    eq('NPO, no route chosen: Submit is enabled', submitBtn()?.disabled, false);
+    // Pp, 2026-11-01: an order with no TPN is submitted only with "No TPN"
+    // ticked (CR-NO-TPN-TICK), and an NPO day's feeds, 0, are below the bar,
+    // so Submit asks a reason (CR-NO-TPN-EN) and the day can still be ordered.
+    eq('NPO, "No TPN" not ticked: Submit is disabled', submitBtn()?.disabled, true);
+    setNoTpn(true);
+    eq('NPO, "No TPN" ticked, no route chosen: Submit is enabled', submitBtn()?.disabled, false);
     ok('…and the save panel asks for nothing about the route', !routeSaveNote(), text(routeSaveNote()));
-    noPrompt();
+    let asked = null;
+    window.prompt = (m) => { asked = String(m); return 'NPO, on IV fluid'; };
     await clickAsync(submitBtn());
+    ok('…Submit asks a reason, naming the feeds below the bar', !!asked && asked.includes("No TPN: feeds below 80 mL/kg/d or the day's minimum"), asked);
+    noPrompt();
     eq('the order is logged', box.calls, 1);
     eq('Daily_Log route: "NPO"', box.entry?.route, 'NPO');
     eq('calcInput route: null — none was chosen', box.entry?.calcInput?.route, null);
-    ok('the printed order ticks neither route', /☐ Peripheral/.test(printText()) && /☐ Central/.test(printText()) && !/☑ (Peripheral|Central)/.test(printText()),
-      printText().match(/Route of Delivery.{0,60}/));
-    ok('the form\'s K⁺ line names no route, not "peripheral"', /\(no route\)/.test(printText()) && !/K⁺ in bag:[^)]*\(peripheral\)/.test(printText()),
-      printText().match(/K⁺ in bag:.{0,60}/));
+    // Until 2026-11-01 the NPO day printed, ticking neither route. A No TPN order
+    // is never printed now (Pp), so there is no form to tick a route on.
+    ok('the NPO day (No TPN) is not printed', !printText(), printText().slice(0, 80));
     const prev = asSaved(box.entry);
     mount({ patient: pt('NPO-1500', 1500), onLog: logger().onLog, baselineEntry: prev, previousEntry: prev });
-    eq('the next order, made from the NPO day: no route on', routeOn(), []);
+    eq('the next order, made from the NPO day, starts ticked "No TPN"', noTpnTick()?.checked, true);
+    setNoTpn(false);
+    eq('…unticked: no route on', routeOn(), []);
     ok('…and the header asks for one', !!routeNotice(), container.querySelector('.step2-ctrl')?.textContent);
     bagOrder();
     eq('…so a bag on it cannot be submitted until one is chosen', submitBtn()?.disabled, true);
@@ -280,6 +292,7 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     // saved before then holds the old default, "central".
     const oldNoBag = asSaved(box.entry, { calcInput: { ...box.entry.calcInput, route: 'central' } });
     mount({ patient: pt('NPO-1500', 1500), onLog: logger().onLog, baselineEntry: oldNoBag, previousEntry: oldNoBag });
+    setNoTpn(false);
     eq('a new order after an old no-bag row saved as "central": no route on', routeOn(), []);
     bagOrder();
     eq('…and its bag cannot be submitted until one is pressed', submitBtn()?.disabled, true);
@@ -288,6 +301,7 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     const box2 = logger();
     mount({ patient: pt('NPO-1500', 1500), onLog: box2.onLog, previousEntry: null,
       editEntry: asSaved(box.entry, { ts: '2026-10-21', dol: 5, calcInput: { ...box.entry.calcInput, route: 'central' } }) });
+    setNoTpn(false);
     eq('editing an old no-bag row saved as "central": no route on', routeOn(), []);
     bagOrder();
     eq('…a bag added to it cannot be submitted until a route is pressed', submitBtn()?.disabled, true);

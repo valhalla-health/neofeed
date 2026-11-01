@@ -7,6 +7,138 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
+
+`calculator.jsx` (the Alerts panel, the save panel, Submit's refusal), `compiled/calculator.js`, both shells'
+`?v=` tokens, `.claude/skills/neofeed-clinical-rules/SKILL.md` (`CR-BOTTLE-MAX`, `CR-BAG-OVERFULL`),
+`test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/verify-wfi-stop-1028.cjs`,
+`test/verify-review-0917-calc.cjs`, `test/verify-tpn-answers-1027.cjs`, `test/README.md`, `STATUS.md`. Pp,
+reading the list of stops: "Hard stop เอาแค่ข้อ 3,4 ใส่ถุงไม่ได้ คือรวม Bag over the 1,250 mL bottle, WFI
+negative"; asked, she chose to merge the two and keep every other stop, in a PR of its own, titled "Bag
+cannot be made (ใส่ถุงไม่ได้)".
+
+- **Before:** two red alerts, "Bag larger than the largest bottle" and "Bag cannot be compounded", and two
+  red lines under Submit, for two ways a bag cannot be made.
+- **Now one,** "Bag cannot be made (ใส่ถุงไม่ได้)", in the Alerts panel, in the save panel ("ใส่ถุงไม่ได้: …
+  — บันทึก/พิมพ์ไม่ได้") and in Submit's and Print's refusal. Underneath it names whichever limit holds,
+  each with its own fix: "ถุง TPN ต้องเตรียม … mL เกินขวดใหญ่สุด 1250 mL … — ลดปริมาตรหรือ dead space" and/or
+  "ส่วนประกอบรวม … mL เกินถุง … mL ไป … mL … — เพิ่มปริมาตร TPN หรือลดขนาดยา". Both at once read as one line
+  naming both steps, "ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน 1250 mL": the two single fixes side by side
+  contradicted each other (a fresh review of the Submit workflow, 2026-11-01), and a lower dose alone clears
+  the WFI but not the bottle, since the prepared volume does not depend on any dose (Vera, second review).
+- **Unchanged:** both rules (`CR-BOTTLE-MAX`, `CR-BAG-OVERFULL`), what blocks Submit and Print, the stop
+  IDs the backend hears, Center Point's own refusal, the quick calc's copied text, and every other stop.
+  A reason saved before 2026-10-28 still names "Bag cannot be compounded", and such a row is held as before.
+  No calculation, figure or `CONSTANTS_VERSION` change.
+- **Tests.** The clinical-rules cases expect the new title, and a new case has both limits at once: one
+  alert naming both. (It checks that `CR-BOTTLE-MAX` reaches the backend; `submitStops` still lists both IDs
+  apart, unchanged.) Five harnesses that named the old titles or classes
+  (`.bag-over-bottle`, `.bag-overfull`) read the new ones; `verify-calc-oracle.cjs`'s alert model adds the
+  one title when either limit holds, and `verify-wfi-stop-1028.cjs` keeps the old title for the reason
+  saved before 2026-10-28.
+
+## Session 2026-11-01 (2) — Step 3's "No TPN" tick, and the check that the feeds are enough
+
+`calculator.jsx` (Step 3's header and body, `normalizeCalcInput`, the changes list, a stop, a critical
+alert, `CR-FLUID-PLAN`, Print and the printed form), `registry.jsx` (the ward's Print order list), `app.jsx`
+(`previousLogEntry` reads `data.js`), `data.js` (`NO_TPN_EN_MIN_ML_KG`, `noTpnEnMinPerKg`, `orderIsNoTpn`,
+`orderPrints`, `previousFinalEntry`), `REFERENCE.md` (§ The printed order), both shells (a phone layout rule and the `?v=`
+tokens), `compiled/calculator.js`, `compiled/registry.js`, `.claude/skills/neofeed-clinical-rules/SKILL.md`
+(`CR-NO-TPN-EN`, `CR-NO-TPN-TICK`, `CR-U-NO-TPN`, Q20, and older cases given the tick),
+`test/verify-clinical-rules.cjs` (a `then` key), `test/verify-no-tpn-1101.cjs`, other harnesses whose
+orders had no TPN, `tools/reference-tabs.json`, `docs/CLINICAL_CONSTANTS.md`, `app-walkthrough.md`,
+`test/README.md`, `STATUS.md`. Pp, with a phone screenshot of Steps 3–6: "มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn
+เพื่อให้ข้ามช่องนี้ได้ และไป cross check ว่าคนไข้เป็นเป็น enteral fluid ล้วน มากกว่า 80ml/kg/day หรือตาม fluid
+requirement ตามวัน"; then "ถ้าติ๊กช่องนี้และผ่าน cross check จะสามารถ submit ได้โดยไม่ต้องมี TPN / ขอเป็นภาษาอังกฤษ
+no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, "Block until ticked" and "Submit with a reason"; then "ถ้า ไม่มี
+tpn เราก็จะไม่ปริ้นท order", and, asked, "App never prints it".
+
+- **The tick, "No TPN"**, at the top right of Step 3's header (on a phone, on the title's row, above the
+  chips and the route). Ticking it clears everything that would make a bag: TPN volume, dextrose, amino
+  acid, 20 % lipid, every Step 4 salt and ZnSO₄, and a toast names what it cleared. Orders prefill from
+  yesterday, so stopping TPN used to mean emptying each box by hand. Unticking it in the same visit puts
+  each value back into a box still empty, and keeps a dose typed since (Vera). While it is ticked, Step 3
+  shows no pumps and no route or Osm chip, with no note in their place, and Steps 3 and 4 read done.
+- **An order with no TPN must carry the tick (`CR-NO-TPN-TICK`, a stop).** No bag and no lipid, and the
+  tick off: Submit is refused and the save panel says "คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 ก่อน
+  Submit". A draft can be kept, and it names the stop for the backend, which refuses a submitted row
+  carrying any stop (no backend change). A lipid-only order is TPN. Center Point offers no tick and is
+  not checked. **Every feeds-only order on the ward now needs this one tick.**
+- **The cross-check (`CR-NO-TPN-EN`, critical).** With the tick on, the counted feed must reach 80 mL/kg/d,
+  or the day's fluid requirement where that is lower (the lower bound of `TARGETS.fluid` on the same
+  weight tier: DOL 1 at 1,000–1,499 g 70 and 1,500–2,499 g 60; term DOL 1–4 40, 50, 60, 60). Below it,
+  "No TPN: feeds below 80 mL/kg/d or the day's minimum" is critical: Submit asks for a reason, saved with
+  the order (a No TPN order is not printed, below). Pp chose this over a stop, so a day on IV fluid alone can still be ordered. The line names
+  the feed, the bar and any Other IV. A MEN feed counts for nothing, so MEN alone is always below it.
+- **Feeds far below the plan (`CR-NO-TPN-PLAN`, amber).** With the tick on, a counted feed more than
+  20 mL/kg/d below Step 1's fluid plan is amber, "No TPN: feeds well below the fluid plan … ลืมสั่ง TPN
+  หรือเปล่า?", in case the TPN was forgotten (Pp: "ถ้ามีฟูอิดแพลน แล้ว มากกว่าเอนเทอรัลเยอะๆ ให้alarmด้วย";
+  asked, she chose 20 and amber). It stays quiet while the red line above holds, so one shortfall is said
+  once. `CR-FLUID-PLAN`'s info line also runs on a ticked day (Vera), but only for feeds above the plan.
+- **A No TPN order prints no TPN order** (Pp: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"; asked, "App never prints
+  it"). The form would have ticked a route, Soluvit, Peditrace and heparin for a bag nobody makes (the fresh
+  review below found it). Vera then found that the oral orders (Step 6) print on that same front sheet, under
+  "8. Other", so they would reach no paper; asked, Pp chose **a short sheet for them** ("Print orals only"),
+  and **a "TPN stopped" line** on the first No TPN day after a day with TPN. Vera's fifth review found that a
+  TPN order revised the same day to No TPN, with no orals and no TPN the day before (DOL 0, say), printed
+  nothing, so pharmacy held only that morning's TPN sheet; asked, Pp chose **"Yes, print it"**. The Calculator records it on the revision as
+  `calcInput.replacesTpn` (saved over a submitted order that had TPN, and on each later revision of the day;
+  a draft is saved over in place, so a draft TPN order pharmacy never had cancels nothing), read by
+  `D.orderCancelsTpn`. So a No TPN order prints a short sheet only then: titled "NO TPN — ORAL / STOP ORDER"
+  (Pp: "Retitle it", so it is not filed as a PN order), the patient table dated "วันที่สั่ง" with the route as
+  "— (No TPN)", one line in a box, "8. Other", the reason box when one was given, the signature and the footer,
+  and no back. The line is one of two (Pp: "เอาแค่สองแบบ พิมพ์ให้สั้นที่สุด ให้คนเข้าใจ เพราะคนขี้เกียจอ่าน"): **"TPN
+  stopped today"** on the first No TPN day after a TPN day or on such a revision, else **"No TPN today"**.
+  Asked whether a same-day revision needs a clearer warning that the morning's TPN sheet is void (Vera,
+  seventh review), Pp chose "TPN stopped today", with the "Revision · ฉบับที่ N" box beside it.
+  With none of the three, nothing prints: Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and
+  the save panel shows no red "held from Print" line. The ward's Print order list prints the same orders:
+  the rest are listed as submitted, "No TPN — ไม่ต้องพิมพ์", with no Print button, and left out of Print
+  ทั้งหมด. One rule for both, `D.orderPrints` (with `D.orderIsNoTpn`, and `D.previousFinalEntry`, the previous
+  order, which `app.jsx` now reads from `data.js` too).
+- **Saved with the order** as `calcInput.noTpn`. A new day copied from a ticked order starts ticked, and
+  the changes list says "No TPN: no → yes". **A submitted order saved before today** with neither a bag nor
+  lipid reads as ticked when reopened, copied or compared, and prints as a No TPN order; a draft does not,
+  nor does a row whose `calcInput` never recorded a TPN volume (empty or unparsed: missing data). Its feeds
+  are checked as today's, so an old NPO day reopened shows the red line until it is submitted again with a
+  reason.
+- **Unchanged:** every calculation, every figure on a printed TPN order, and `CONSTANTS_VERSION`.
+- **A fresh review of the whole Submit workflow** (Pp asked for one, 2026-11-01) found four things in this
+  change, fixed here: the critical line's title read "below the fluid requirement" while its bar is 80 on
+  most days, and it is the title a signed order prints, so it is now "No TPN: feeds below 80 mL/kg/d or the
+  day's minimum"; with "No TPN" ticked, a salt typed into Step 4 on a first order asked for a route whose
+  buttons the tick hides, so the route stop now yields to the tick and the no-volume line points at it;
+  with the tick off, that line offers the tick ("หรือถ้าวันนี้ไม่มี TPN ติ๊ก "No TPN" ที่ Step 3"), the one-step
+  way to stop TPN on a prefilled order; and the skill said an old order's reprint is not held, when below
+  the bar it is. Its first finding, the printed form of a No TPN order, became Pp's rule above: such an order
+  is not printed. What it found outside this change was put to Pp, who chose to leave it as it is ("Older
+  version ปล่อยไว้อย่างงั้น"). Pp then set the rule for the pharmacist view still to come: a No TPN order
+  never counts there as waiting for TPN, so pharmacy can count drafts and submitted orders to plan the
+  day's bags; asked, she chose to record it for later (`BACKLOG.md`, 19 · 27).
+- **Review.** No second clinician has reviewed this change; the thresholds (80 mL/kg/d, 20 mL/kg/d below
+  the plan) and their tiers are Pp's, from her answers of 2026-11-01. Vera reviewed it twice before the PR.
+- **Q20, answered by Pp the same day:** the bar is the lower of 80 and the day's requirement, and 80 itself
+  is enough. A preterm on DOL 6 on clears the red line at 80; the amber line names the gap to the plan.
+- **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
+  (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
+  TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
+  `verify-no-tpn-1101.cjs`, 68 checks (§8, the short sheet: oral orders ("No TPN today"), the day TPN stopped,
+  with and without oral orders, and a same-day TPN order revised to No TPN ("TPN stopped today"), a draft that cancels nothing, neither; its
+  title and date);
+  `verify-print-all-1028.cjs` #9, the ward's Print order list with No TPN orders (ticked, from before the
+  tick, with oral orders, the day TPN stopped, and a revision cancelling the day's TPN). Since a No TPN order is not printed, the harnesses that
+  printed a feeds-only order now check that it is not printed, or print the same order with a small bag
+  where printing is what they test: `calcmoved-unstamped-1017` (§5 new), `calc-sum` (T2), `calc-oracle`,
+  `review-0917-calc` (`full_en` prints nothing), `ward-requests-0918`, `incident-gaps-1021` (the NPO day),
+  `picker-print-identity` and `tpn-calc-weight`. Eleven harnesses built orders with no TPN and no tick, or
+  saved an NPO day with no reason; each now ticks "No TPN" (and feeds or a reason) where it builds one:
+  `calc-sum` and `calc-oracle` (whose own alert model gains the two No-TPN rules, written out),
+  `incident-gaps-1021` (the NPO day now asks a reason, and the next day starts ticked),
+  `required-log-fields`, `review-0917-calc`, `review-0917-drafts`,
+  `review-0917-sync`, `tpn-answers-1027`, `tpn-calc-weight`, `ward-requests-0918` and
+  `picker-print-identity`. Checked in Chromium at 390 and 1280 px: the tick at the top right, no sideways
+  scroll.
+
 ## Session 2026-11-01 — The Save card's "changes from the previous order" is a table
 
 `calculator.jsx` (the Save Order card), `compiled/calculator.js`, both shells' `?v=` tokens,

@@ -296,10 +296,11 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-11-01** · ⚠️ **Frontend `release` = `caecf04` (PR #204) is live but not verified, with
-backend `@66` unchanged** (banner). #204 released #203 and #202. Before it, #201 released #200, #177, #178 and
-#199, and `@66` carries #190's backend half with them (marked below). Caught up with #201 by PR #202, and
-with #204 by PR #205.
+**Updated 2026-11-01** · ⚠️ **Frontend `release` = `ecf3343` (PR #208, 2026-11-01), with backend `@66`
+unchanged; #208's verification is not recorded here yet, and the banner above still describes #204.** #208
+released #205; #204 released #203 and #202. Before it, #201 released #200, #177, #178 and
+#199, and `@66` carries #190's backend half with them (marked below). Caught up with #201 by PR #202,
+with #204 by PR #205, and with #206's merge and #208's release by PR #207.
 - ⏳ **PR #202, `sheetHealthReport` names each measurement cell to fix, by row and column, and counts the
   cells of M–P that are not JSON: merged into `main` on Pp's instruction ("merge ตอน CI ผ่าน"), and in
   `release` since #204; not in the script's HEAD until `clasp push`.** Only the Apps Script editor runs that function, so there is nothing
@@ -314,11 +315,33 @@ with #204 by PR #205.
   her scope). `CHANGELOG.md` 2026-10-30 (3).
 - ⏳ **PR #205, the Save card's "changes from the previous order" is a table (รายการ · เดิม · ใหม่ · หน่วย),
   with room either side of the arrow: merged into `main` on Pp's instruction ("merge แล้ว ทำ release PR
-  ได้เลย"); not released until its `main → release` PR merges.** On Pp's request of 2026-11-01 ("ทำเป็นตาราง
+  ได้เลย"), and in `release` since PR #208 (`ecf3343`, 2026-11-01); ⚠️ its verification is not recorded
+  here yet.** On Pp's request of 2026-11-01 ("ทำเป็นตาราง
   ให้อ่านง่ายขึ้น"). On screen only (`calculator.jsx`): the same changes, written the same way, with the old
   value, new value and unit each in a column. The printed form's one-line list is unchanged. No calculation,
   figure or saved field, no `clasp` step. Vera: NO BLOCK twice (one 🟡 on the first run, this line).
   `CHANGELOG.md` 2026-11-01.
+- ⏳ **PR #206, Step 3's "No TPN" tick and the check that the feeds alone are enough: merged into `main`
+  on Pp's instruction ("merge #206 กับ #207 เข้า main ได้เลย"); not released until its `main → release` PR
+  merges.** On Pp's request of 2026-11-01 ("มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn"). The tick clears the bag and skips
+  Step 3, and saves as `calcInput.noTpn`. An order with no TPN cannot be submitted until it is ticked
+  (`CR-NO-TPN-TICK`), so every feeds-only order needs the tick. With it on, a counted feed below 80 mL/kg/d,
+  or below the day's fluid requirement where that is lower, is critical and asks a reason that prints
+  (`CR-NO-TPN-EN`); more than 20 below the fluid plan is amber (`CR-NO-TPN-PLAN`). An NPO day now needs
+  the tick and a reason. **A No TPN order prints no TPN order** (Pp): only a short sheet, for its oral orders,
+  on the day TPN stopped, or as a same-day revision of a TPN order; it says only "No TPN today" or, those
+  two days, "TPN stopped today"; otherwise nothing, and the ward's Print order list marks it "No
+  TPN — ไม่ต้องพิมพ์" and leaves it out of Print ทั้งหมด. This changes the printed order. No calculation, figure on a printed TPN
+  order, or `CONSTANTS_VERSION` moves; no `clasp` step. ⚠️ The ward should hear of the new tick before
+  release, and pharmacy that a No TPN day prints at most a short sheet. Q20 answered by Pp: the lower of 80 and the day's
+  requirement, 80 itself enough. `CHANGELOG.md` 2026-11-01 (2).
+- ⏳ **PR #207, the 1,250 mL bottle and the over-full bag are one stop on screen, "Bag cannot be made
+  (ใส่ถุงไม่ได้)": in review (draft), on Pp's request of 2026-11-01.** One alert and one red line under Submit,
+  naming whichever limit holds. Both rules, what blocks, and the stop IDs are unchanged; every other stop
+  is as it was. No calculation, printed figure or `CONSTANTS_VERSION`; no `clasp` step. ⚠️ When it is
+  released, the ward hears the new name: "Bag cannot be compounded" (still owed to them, banner of
+  2026-10-28) is shown as "Bag cannot be made (ใส่ถุงไม่ได้)" and covers the 1,250 mL bottle too (Vera).
+  `CHANGELOG.md` 2026-11-01 (3).
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197
