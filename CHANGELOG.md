@@ -23,7 +23,8 @@ cannot be made (ใส่ถุงไม่ได้)".
   — บันทึก/พิมพ์ไม่ได้") and in Submit's and Print's refusal. Underneath it names whichever limit holds,
   each with its own fix: "ถุง TPN ต้องเตรียม … mL เกินขวดใหญ่สุด 1250 mL … — ลดปริมาตรหรือ dead space" and/or
   "ส่วนประกอบรวม … mL เกินถุง … mL ไป … mL … — เพิ่มปริมาตร TPN หรือลดขนาดยา". Both at once read as one line
-  joined by "และ".
+  with one fix, "ลดขนาดยา": a bigger bag clears the WFI but not the bottle, a smaller one the reverse (a fresh
+  review of the Submit workflow, 2026-11-01, found the two fixes side by side contradicting each other).
 - **Unchanged:** both rules (`CR-BOTTLE-MAX`, `CR-BAG-OVERFULL`), what blocks Submit and Print, the stop
   IDs the backend hears, Center Point's own refusal, the quick calc's copied text, and every other stop.
   A reason saved before 2026-10-28 still names "Bag cannot be compounded", and such a row is held as before.

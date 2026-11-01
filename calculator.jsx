@@ -2011,7 +2011,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // the 1,250 mL bottle, WFI negative"). The two rules, and the IDs the backend
   // hears, are unchanged.
   const bagCannotBeMade = bagOverBottle || bagOverfull;
-  const bagCannotBeMadeText = `ใส่ถุงไม่ได้: ${[bagOverBottle && bagOverBottleText, bagOverfull && bagOverfullText].filter(Boolean).join(" และ ")}`;
+  // Both at once: raising the volume clears the WFI but not the bottle, and
+  // lowering it the reverse, so the one fix that clears both is a lower dose
+  // (review of 2026-11-01: the two fixes, side by side, contradicted each other).
+  const bagCannotBeMadeText = bagOverBottle && bagOverfull
+    ? `ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL และส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุงไป ${fmt(Math.abs(calc.wfiVol), 1)} mL — ลดขนาดยา`
+    : `ใส่ถุงไม่ได้: ${bagOverBottle ? bagOverBottleText : bagOverfullText}`;
   // A bag needs a route before Submit (Pp, 2026-10-21); a draft may be kept
   // without one. A day with no bag needs none. Center Point's packet always
   // carries a route (tpn-document.mjs), so there it is needed on every order.
@@ -2136,11 +2141,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
-  // The title is unchanged: a row saved before 2026-10-28 names it in its reason.
+  // One title for both limits since 2026-11-01 (Pp). It was "Bag cannot be
+  // compounded" (and "Bag larger than the largest bottle"): a reason saved
+  // before 2026-10-28 names the old one, and such a row is held all the same,
+  // since the WFI is worked out again. Both at once: one fix, a lower dose.
   if (bagCannotBeMade) alerts.push({ level: "crit", title: "Bag cannot be made (ใส่ถุงไม่ได้)",
-    body: [bagOverBottle && `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL. Lower the volume or the dead space.`,
-      bagOverfull && `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Raise the volume or lower a dose.`,
-    ].filter(Boolean).join(" ") + " This order cannot be submitted.",
+    body: (bagOverBottle && bagOverfull
+      ? `${fmt(calc.preparedVol, 1)} mL to prepare is above the TPN room's largest bottle, ${D.TPN_BOTTLE_MAX_ML} mL, and its components total ${fmt(calc.componentVol, 1)} mL, over the bag by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Lower a dose.`
+      : bagOverBottle ? `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL. Lower the volume or the dead space.`
+      : `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Raise the volume or lower a dose.`)
+      + " This order cannot be submitted.",
     ref: [bagOverBottle && "TPN team, 2026-10-25", bagOverfull && "Pp, 2026-10-28 · WFI q.s."].filter(Boolean).join(" · ") });
   if (feedUnknown) alerts.push({ level: "crit", title: "Feed not in the formulary", body: `${feedsUnknown.join(", ")}: no composition in EN_DB, so its energy, protein and minerals cannot be counted — this order cannot be submitted.`, ref: "PR review (Vera), 2026-10-28" });
   if (feedsIrregular) alerts.push({ level: "crit", title: "Two feeds off a regular schedule", body: feedsNotWhole
