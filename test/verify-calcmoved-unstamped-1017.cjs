@@ -10,11 +10,13 @@
 // 2026-10-08.1, 2026-10-11.1, the EN_DB rebuild in #159) it reprinted under its
 // old entry id with figures computed from today's constants.
 //
-//   §1  fixture: the same feeds-only order carrying the current stamp prints
-//   §2  unstamped, no aaProduct, feeds only, no TPN: Print refused with
-//       the calcMoved reason; saving it again restamps it and it prints
+//   §1  fixture: the same TPN order carrying the current stamp prints
+//   §2  unstamped, no aaProduct, with TPN: Print refused with the calcMoved
+//       reason; saving it again restamps it and it prints
 //   §3  an unstamped order with TPN and no dead space is held the same way
 //   §4  a row dated by aaProduct (2026-09-18.1) is still held, as before
+//   §5  a feeds-only order (No TPN) never prints, stamped or not (Pp,
+//       2026-11-01). §1, §2 and §4 used it until then; they use a TPN order.
 //
 // Mounts the real <Calculator> in jsdom (dev-only deps, see test/README.md).
 const fs = require('fs');
@@ -91,6 +93,9 @@ const patient = { sessionId: 'UN-1500', name: 'UN', bw: 1500, currentBed: 'NICU 
 // Feeds only: FBM_PF_24 30 mL × 8 at 1500 g = 160 mL/kg/d, no TPN.
 const feedsOnly = { curWtG: 1500, fluidTargetPerKg: 160, otherIV_mL: 0, drug_mL: 0, ioInput: 240, ioOutput: 90, drainContent: 0,
   totalTPN_mL: 0, deadVol_mL: 0, dexPct: 0, aaPerKg: 0, lipidPerKg: 0, enType: 'FBM_PF_24', enVol: 30, enFreq: 8 };
+// A No TPN order is never printed (Pp, 2026-11-01), so what Print does is tested
+// on an order with TPN.
+const tpnOrder = { ...feedsOnly, enVol: 10, totalTPN_mL: 100, dexPct: 10, aaPerKg: 2, lipidPerKg: 1 };
 // enVolPerKg is the row's own evidence of its dosing weight (savedDosingWeightOf),
 // so it must agree with 1500 g or the dosing-weight rule holds the row instead.
 const row = (id, ci) => ({ entryId: id, lastModified: 'lm-' + id, ts: '2026-09-10', dol: 6, weight: 1500, status: 'submitted',
@@ -109,17 +114,17 @@ function open(entry) {
 }
 
 (async () => {
-  await section('§1 fixture: the feeds-only order with the current stamp prints', async () => {
-    open(row('e-now', { ...feedsOnly, constantsVersion: D.CONSTANTS_VERSION }));
+  await section('§1 fixture: the TPN order with the current stamp prints', async () => {
+    open(row('e-now', { ...tpnOrder, constantsVersion: D.CONSTANTS_VERSION }));
     eq('no critical alert on the fixture', critTitles(), []);
     ok('the print form renders', !!printForm(), banner());
     const p = await tryPrint();
     eq('Print order prints', p.printed, 1);
   });
 
-  await section('§2 unstamped (no constantsVersion, no aaProduct), feeds only, no TPN: held', async () => {
+  await section('§2 unstamped (no constantsVersion, no aaProduct), with TPN: held', async () => {
     ok(`CONSTANTS_VERSION ${D.CONSTANTS_VERSION} is newer than 2026-09-18.1`, D.CONSTANTS_VERSION > '2026-09-18.1', D.CONSTANTS_VERSION);
-    const box = open(row('e-old', { ...feedsOnly }));
+    const box = open(row('e-old', { ...tpnOrder }));
     eq('no critical alert, so only the stamp is under test', critTitles(), []);
     ok('no print form', !printForm());
     ok('…the banner says the calculation changed', /NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก/.test(banner()), banner());
@@ -138,8 +143,18 @@ function open(entry) {
   });
 
   await section('§4 a row dated by aaProduct (2026-09-18.1) is held as before', async () => {
-    open(row('e-win', { ...feedsOnly, aaProduct: 'aminoven10' }));
+    open(row('e-win', { ...tpnOrder, aaProduct: 'aminoven10' }));
     ok('no print form, with the calcMoved reason', !printForm() && /NeoFeed ปรับการคำนวณ/.test(banner()), banner());
+  });
+
+  await section('§5 a feeds-only order (No TPN) never prints, stamped or not', async () => {
+    for (const [id, ci] of [['e-fo-now', { ...feedsOnly, constantsVersion: D.CONSTANTS_VERSION }], ['e-fo-old', { ...feedsOnly }]]) {
+      open(row(id, ci));
+      ok(`${id}: no print form, and no "held from Print" banner`, !printForm() && !banner(), banner());
+      const p = await tryPrint();
+      eq(`${id}: Print order does not print`, p.printed, 0);
+      ok(`${id}: …it says there is no TPN order to print`, p.toasts.includes('No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์'), p.toasts);
+    }
   });
 
   act(() => { root.unmount(); });

@@ -284,6 +284,9 @@ function expected(sc) {
 // K 5.0 on the IV portion, NPE:AA below 12 on the IV portion (no ceiling),
 // dextrose 17.3 g/kg/d, peripheral osmolarity 900, the bag above 1,250 mL;
 // cautions for heparin above 1 U/mL and oral vitamin D above 1,000 IU/day.
+// An order with no bag and no lipid is ticked "No TPN" (CR-NO-TPN-TICK) and is
+// never printed (Pp, 2026-11-01).
+const noTpnScenario = (sc) => !['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0);
 function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
   const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
@@ -347,7 +350,7 @@ function expectedAlerts(sc, e) {
   // below the plan is amber, and the info line below is left out for both.
   // The bands' lower bounds are Jochum 2018 Tables 1-3 as the app codes them,
   // written out here, on the tier held at birth weight.
-  const noTpn = !['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0);
+  const noTpn = noTpnScenario(sc);
   let noTpnShort = false;
   if (noTpn && e.W > 0) {
     const lo = tierG < 1000 ? [80, 100, 120, 140, 160, 140, 140] : tierG < 1500 ? [70, 90, 110, 130, 160, 140, 140]
@@ -581,7 +584,7 @@ function fillForm(sc, e, scratch) {
   setField('Vitamin D', sc.vitD);
   // An order with no bag and no lipid is submitted with "No TPN" ticked
   // (CR-NO-TPN-TICK, Pp 2026-11-01). It holds nothing to clear here.
-  if (!['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0)) setCheck('No TPN', true);
+  if (noTpnScenario(sc)) setCheck('No TPN', true);
 }
 
 // ── run one scenario ────────────────────────────────────────────────────────
@@ -744,7 +747,8 @@ async function run(scIn) {
 
   // ─ printed pharmacy form ─
   const form = container.querySelector('#print-form');
-  same(sc, 'print form rendered after save', !!form, orderable);
+  // A No TPN order saves but never prints (Pp, 2026-11-01).
+  same(sc, 'print form rendered after save', !!form, orderable && !noTpnScenario(sc));
   if (form) {
     const p = form.textContent.replace(/\s+/g, ' ');
     // the form prints "—" for a zero figure (f/f0), so "—" reads as 0 here

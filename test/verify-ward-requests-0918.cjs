@@ -556,18 +556,10 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     // An order with no TPN is submitted with "No TPN" ticked (CR-NO-TPN-TICK, 2026-11-01).
     act(() => { container.querySelector('label.no-tpn-chk input').click(); });
     await save();
-    ok('…and the printed form asks for no bag', !!printForm() && /— mL \(Prepared Vol\.\)/.test(printText()) && !/ปริมาตรคาสาย 30/.test(printText()),
-      printText().match(/Total Volume:[^F]*/));
-    // Since 2026-09-22 the heparin mL is on the pharmacy (back) page's bag
-    // recipe; the doctor's front page prints only the unit/mL ordered.
-    const hepRow = [...(printForm()?.querySelectorAll('.print-back tr') || [])].find(tr => /^Heparin/.test(text(tr.firstElementChild)));
-    ok('…no heparin volume either', !!hepRow && text(hepRow.lastElementChild) === '—' && text(hepRow.children[1]) === '—'
-      && /7\. Heparin \(100 unit\/mL\)1 unit\/mL(?! =)/.test(printText()), [hepRow && text(hepRow), printText().match(/7\. Heparin.{0,40}/)]);
-    // …nor vitamins (they go into the aqueous bag there is none of), so no
-    // "components exceed the bag" line either (review 2026-09-18, finding 4).
-    ok('…no Soluvit or Peditrace mL', /☑ Soluvit N— mL\/day/.test(printText()) && /\(Zn 250 µg\/mL\)— mL\/day/.test(printText()),
-      printText().match(/5\. Multivitamin.{0,60}|6\. Trace Element.{0,60}/g));
-    ok('…and no over-full bag line', !/เกินปริมาตรถุง/.test(printText()) && !/WFI -/.test(printText()), printText().match(/Components[^=]*=[^p]*prepared/));
+    // Until 2026-11-01 this order printed a form asking for no bag, no heparin
+    // volume and no vitamin mL. A No TPN order is never printed now (Pp), so no
+    // 30 mL bag of water can reach pharmacy at all.
+    ok('…saved, and not printed (No TPN)', logF.calls === 1 && !printForm(), { calls: logF.calls, form: !!printForm() });
 
     // Center Point's entry is a newborn-ward order too.
     mount({ patient: pt('DC-2000', 2000, { currentBed: '' }),
@@ -688,13 +680,13 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     open(row('s-leg-men', { deadVol_mL: 0, enType: 'BM_20', enVol: 5, enFreq: 8, isMEN: true }));
     ok('legacy row with a MEN feed (totals now exclude it): held', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
 
-    // A day with no TPN has no bag: its vitamin lines read "—" instead of mL
-    // for a bag that never existed. Its feed figures come from today's EN_DB,
-    // so it is held like the rest until it is saved again.
+    // A day with no TPN: until 2026-11-01 it was held like the rest, then printed
+    // with "—" for the vitamin mL. A submitted feeds-only row now reads as "No
+    // TPN" (D.orderIsNoTpn) and is never printed (Pp), saved again or not.
     open(row('s-leg-noTPN', { totalTPN_mL: 0, deadVol_mL: 0, dexPct: 0, aaPerKg: 0, lipidPerKg: 0, enType: 'BM_20', enVol: 30, enFreq: 8 }));
-    ok('legacy feeds-only row: held', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
+    ok('legacy feeds-only row: read as No TPN, not printed, no "held" banner', !printForm() && !banner(), banner());
     await save();
-    ok('…and once saved again it prints with no vitamin mL', /☑ Soluvit N— mL\/day/.test(printText()), printText().match(/5\. Multivitamin.{0,40}/));
+    ok('…and saved again, still not printed', !printForm());
 
     // PR #77 put 2026-09-18.1 live at 11:17 ICT on 2026-09-18, before the
     // stamp shipped. Rows saved from then on carry no constantsVersion, yet

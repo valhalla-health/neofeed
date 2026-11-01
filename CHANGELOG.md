@@ -74,11 +74,16 @@ tpn เราก็จะไม่ปริ้นท order", and, asked, "App ne
 - **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
   (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
   TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
-  `verify-no-tpn-1101.cjs`, 48 checks. Eleven harnesses built orders with no TPN and no tick, or saved an NPO
-  day with no reason; each now ticks "No TPN" (and feeds or a reason) where it builds such an order:
+  `verify-no-tpn-1101.cjs`, 51 checks; `verify-print-all-1028.cjs` #9, the ward's Print order list with a No
+  TPN order (ticked, and one from before the tick). Since a No TPN order is not printed, the harnesses that
+  printed a feeds-only order now check that it is not printed, or print the same order with a small bag
+  where printing is what they test: `calcmoved-unstamped-1017` (§5 new), `calc-sum` (T2), `calc-oracle`,
+  `review-0917-calc` (`full_en` prints nothing), `ward-requests-0918`, `incident-gaps-1021` (the NPO day),
+  `picker-print-identity` and `tpn-calc-weight`. Eleven harnesses built orders with no TPN and no tick, or
+  saved an NPO day with no reason; each now ticks "No TPN" (and feeds or a reason) where it builds one:
   `calc-sum` and `calc-oracle` (whose own alert model gains the two No-TPN rules, written out),
   `incident-gaps-1021` (the NPO day now asks a reason, and the next day starts ticked),
-  `required-log-fields`, `review-0917-calc` (its full-feeds print digest is unchanged), `review-0917-drafts`,
+  `required-log-fields`, `review-0917-calc`, `review-0917-drafts`,
   `review-0917-sync`, `tpn-answers-1027`, `tpn-calc-weight`, `ward-requests-0918` and
   `picker-print-identity`. Checked in Chromium at 390 and 1280 px: the tick at the top right, no sideways
   scroll.

@@ -188,6 +188,14 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('…and every bag ingredient is 0', [ci.totalTPN_mL, ci.dexPct, ci.aaPerKg, ci.lipidPerKg, ci.kCl, ci.znPerKg].every(v => v === 0),
     [ci.totalTPN_mL, ci.dexPct, ci.aaPerKg, ci.lipidPerKg, ci.kCl, ci.znPerKg]);
   ok('…and no stop went with it', Array.isArray(ci.stops) && ci.stops.length === 0, ci.stops);
+  // Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order" — and the app never prints one.
+  ok('the saved No TPN order has no print form', !container.querySelector('#print-form'));
+  ok('…and no red "held from Print" line', !container.querySelector('.print-blocked'));
+  toast = null;
+  let printed = 0; window.print = () => { printed++; };
+  act(() => { document.dispatchEvent(new window.Event('__neofeed_print')); });
+  ok('Print says there is no TPN order to print, and prints nothing', toast === 'No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์' && printed === 0, { toast, printed });
+  window.print = () => {};
 
   section('5 · it reopens ticked, and a new day copied from it starts ticked');
   const ticked = savedRow({ ...ci });
@@ -199,7 +207,7 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   const legacyFeeds = { curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, totalTPN_mL: 0, enType: 'BM_20', enVol: 12, enFreq: 8 };
   mount({ editEntry: savedRow(legacyFeeds) });
   ok('a submitted feeds-only row saved before the tick existed reopens ticked', noTpnBox()?.checked === true);
-  ok('…so nothing holds its reprint', !!container.querySelector('#print-form') && !container.querySelector('.no-tpn-unticked'));
+  ok('…so no stop holds it, and as a No TPN order it is not printed', !container.querySelector('.no-tpn-unticked') && !container.querySelector('#print-form'));
   mount({ editEntry: { ...savedRow(legacyFeeds), status: 'draft' } });
   ok('the same row as a draft reopens unticked (its TPN may not be filled in yet)', noTpnBox()?.checked === false);
   mount({ editEntry: savedRow({ ...legacyFeeds, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, route: 'central' }) });

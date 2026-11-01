@@ -371,7 +371,9 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       // Recaptured 2026-10-17, EN_DB from the handbook (Hi-Q LBW Ca 84 → 98.4
       // mg/100 mL, Table 5 p. 16). Exactly 2 of its 64 figures moved: Ca 134 →
       // 157, printed twice; PO₄ stays 88 (was 0b623805fb1acb17).
-      full_en: ['96c0d8047fc2076a', P, () => {
+      // A full-feeds order is ticked "No TPN" and, since 2026-11-01, is never
+      // printed (Pp): no figures (its digest was 96c0d8047fc2076a).
+      full_en: [null, P, () => {
         setField('Current weight', 1500); fillRequired(160); selectFeed('FBM_PF_24'); setField('Volume(mL/feed)', 30); setField('Frequency', 8); tickNoTpn(); }],
     };
     const PARITY = [['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],
@@ -386,6 +388,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       fill();
       await save('capture reason');
       const figs = figures();
+      if (digest === null) { ok(`${name}: a No TPN order prints nothing`, !figs, figs && figs.length); continue; }
       const got = figs && crypto.createHash('sha256').update(JSON.stringify(figs)).digest('hex').slice(0, 16);
       eq(`${name}: the ${figs ? figs.length : 0} printed figures are unchanged`, got, digest);
       if (name === 'S5_elbw') {

@@ -26,6 +26,10 @@
 //   #7 pick     Pp's second ask, "ให้สามารถมีปุ่มซีเล็กเป็น คน ๆ ไปได้หรือ
 //               ซีเล็กออลก็ได้": a tick per printable row, เลือกทั้งหมด, and
 //               the run is the ticked orders only
+//   #9 no TPN   Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order". An order
+//               ticked "No TPN", or a submitted one from before the tick with
+//               no TPN, is marked "No TPN — ไม่ต้องพิมพ์" with no Print button,
+//               a tap does nothing, and Print ทั้งหมด leaves it out
 //   #8 resync   Vera, 2026-10-28: each queued order is asked the list's rule
 //               again before it opens; one a sync took off the list (a second
 //               order that day, discharged, deleted, moved ward, the day
@@ -390,6 +394,40 @@ scenarios['empty'] = async (A) => {
   await t.click(wardPrint('NICU'));
   A.ok('6.3 the list says there is nothing submitted', /ยังไม่มีใบสั่งที่ Submit วันนี้ใน NICU/.test(t.text()));
   A.ok('6.4 …with no Print ทั้งหมด and no Calculator button', !printAll() && !fab());
+};
+
+// #9 on a ward of its own, so the counts above stay as they are.
+scenarios['notpn'] = async (A) => {
+  console.log('\n── #9 a No TPN order is not printed ──');
+  const feeds = { totalTPN_mL: 0, dexPct: 0, aaPerKg: 0, lipidPerKg: 0, naCl: 0, kCl: 0, caPerKg: 0, glycophosP: 0,
+    enType: 'BM_20', enVol: 12, enFreq: 8 };
+  const t = boot({
+    patients: [
+      mkPatient({ sessionId: 'NA-1', name: 'NA', initials: 'NA', currentBed: 'NICU 1' }),   // TPN
+      mkPatient({ sessionId: 'NB-1', name: 'NB', initials: 'NB', currentBed: 'NICU 2' }),   // ticked No TPN
+      mkPatient({ sessionId: 'NC-1', name: 'NC', initials: 'NC', currentBed: 'NICU 3' }),   // feeds only, before the tick
+    ],
+    log: { 'NA-1': [order('e-na')], 'NB-1': [order('e-nb', {}, { ...feeds, noTpn: true })], 'NC-1': [order('e-nc', {}, feeds)] },
+  });
+  t.quiet();
+  t.printed = 0;
+  t.window.print = () => { t.printed++; };
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  A.eq('9.0 all three are listed as submitted', printRows().length, 3);
+  A.eq('9.1 Print ทั้งหมด counts only the TPN order', printAll() && printAll().querySelector('.num').textContent, '(1)');
+  for (const name of ['NB', 'NC']) {
+    const row = printRow(name);
+    const b = row && row.querySelector('button');
+    A.ok(`9.2 ${name}: "No TPN — ไม่ต้องพิมพ์", its button off`, !!b && /No TPN — ไม่ต้องพิมพ์/.test(b.textContent) && b.disabled, b && b.textContent);
+    A.ok(`9.3 ${name}: …and no tick to pick it`, !pick(name));
+    await t.click(row);
+    await settle(t);
+    A.ok(`9.4 ${name}: a tap on the row opens nothing and prints nothing`, /Print order · NICU/.test(t.text()) && t.printed === 0);
+  }
+  await t.click(printAll());
+  await settle(t);
+  A.ok('9.5 Print ทั้งหมด opens the TPN order first and only', openedIs('NA-1'));
 };
 
 runScenarios(__filename, 'PRINT ALL + NO CALCULATOR ON THE PRINT LIST', scenarios);

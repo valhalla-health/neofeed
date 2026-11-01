@@ -82,9 +82,9 @@ function printTextAt(pt, curWtG) {
       patient: pt, dol: 3,
       editEntry: { entryId: 'w-print', lastModified: 'lm-print', ts: '2026-08-20',
                    dol: 3, weight: curWtG, calcInput: { curWtG: curWtG, constantsVersion: window.NEOFEED_DATA.CONSTANTS_VERSION,
-                     // A day with no TPN is ticked "No TPN" and fed at least 80 mL/kg/d of
-                     // the dosing weight (CR-NO-TPN-TICK, CR-NO-TPN-EN, 2026-11-01).
-                     noTpn: true, enType: 'BM_20', enVol: Math.ceil(Math.max(curWtG, pt.bw || 0) * 0.015), enFreq: 8 } },
+                     // A No TPN order is never printed (Pp, 2026-11-01), so the
+                     // fixture is a small TPN order: 100 mL/kg of D12, AA 2.
+                     route: 'central', totalTPN_mL: Math.round(Math.max(curWtG, pt.bw || 0) / 10), deadVol_mL: 0, dexPct: 12, aaPerKg: 2 } },
       baselineEntry: null, logDate: null,
       onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
     }));

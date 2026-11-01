@@ -273,10 +273,9 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
     eq('the order is logged', box.calls, 1);
     eq('Daily_Log route: "NPO"', box.entry?.route, 'NPO');
     eq('calcInput route: null — none was chosen', box.entry?.calcInput?.route, null);
-    ok('the printed order ticks neither route', /☐ Peripheral/.test(printText()) && /☐ Central/.test(printText()) && !/☑ (Peripheral|Central)/.test(printText()),
-      printText().match(/Route of Delivery.{0,60}/));
-    ok('the form\'s K⁺ line names no route, not "peripheral"', /\(no route\)/.test(printText()) && !/K⁺ in bag:[^)]*\(peripheral\)/.test(printText()),
-      printText().match(/K⁺ in bag:.{0,60}/));
+    // Until 2026-11-01 the NPO day printed, ticking neither route. A No TPN order
+    // is never printed now (Pp), so there is no form to tick a route on.
+    ok('the NPO day (No TPN) is not printed', !printText(), printText().slice(0, 80));
     const prev = asSaved(box.entry);
     mount({ patient: pt('NPO-1500', 1500), onLog: logger().onLog, baselineEntry: prev, previousEntry: prev });
     eq('the next order, made from the NPO day, starts ticked "No TPN"', noTpnTick()?.checked, true);
