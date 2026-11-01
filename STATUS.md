@@ -306,8 +306,9 @@ with them (marked below). Caught up with #201 by PR #202.
   or below the day's fluid requirement where that is lower, is critical and asks a reason that prints
   (`CR-NO-TPN-EN`); more than 20 below the fluid plan is amber (`CR-NO-TPN-PLAN`). An NPO day now needs
   the tick and a reason. No calculation, printed figure or `CONSTANTS_VERSION` moves; no `clasp` step. ⚠️ The
-  ward should hear of the new tick before release. Open for Pp: Q20 (the bar when the day's band is above
-  80). `CHANGELOG.md` 2026-11-01 (2).
+  ward should hear of the new tick before release, and that an old NPO day (or low feeds with Other IV)
+  reprints only after it is submitted again with a reason. Q20 answered by Pp: the lower of 80 and the day's
+  requirement, 80 itself enough. `CHANGELOG.md` 2026-11-01 (2).
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197

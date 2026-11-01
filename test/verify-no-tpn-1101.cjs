@@ -204,6 +204,8 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('the same row as a draft reopens unticked (its TPN may not be filled in yet)', noTpnBox()?.checked === false);
   mount({ editEntry: savedRow({ ...legacyFeeds, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, route: 'central' }) });
   ok('a submitted row with a bag reopens unticked', noTpnBox()?.checked === false);
+  mount({ editEntry: { ...savedRow({}), calcInput: {} } });
+  ok('a row whose calcInput is empty (missing data, not a day without TPN) reopens unticked', noTpnBox()?.checked === false);
 
   section('6 · the changes list names it');
   const before = savedRow({ curWtG: 1000, fluidTargetPerKg: 150, route: 'central', totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, enType: 'BM_20', enVol: 12, enFreq: 8 });

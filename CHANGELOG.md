@@ -45,16 +45,19 @@ no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, 
 - **Saved with the order** as `calcInput.noTpn`. A new day copied from a ticked order starts ticked, and
   the changes list (on screen and on the printed form) says "No TPN: no → yes". **A submitted order saved
   before today** with neither a bag nor lipid reads as ticked when reopened, reprinted, copied or compared,
-  so its reprint is not held by the new stop; a draft does not. Its feeds are checked as today's, so an old
-  NPO day's reprint asks a reason, as a new one would.
+  so its reprint is not held by the new stop; a draft does not, nor does a row whose `calcInput` never
+  recorded a TPN volume (empty or unparsed). Its feeds are checked as today's, so **an old NPO day, or an
+  old day on low feeds with Other IV, cannot be reprinted until a prescriber submits it again with a
+  reason** (Vera, second review); a nurse's read-only screen cannot do that.
 - **Unchanged:** every calculation, printed figure and `CONSTANTS_VERSION`.
-- **Open for Pp (Q20):** "80 หรือ fluid requirement" is read as whichever is lower, so after the days above
-  a feed of 80 is enough although the band is 100–160; whether the bar should be the day's requirement
-  when higher (DOL 6 on: 140) is hers.
+- **Review.** No second clinician has reviewed this change; the thresholds (80 mL/kg/d, 20 mL/kg/d below
+  the plan) and their tiers are Pp's, from her answers of 2026-11-01. Vera reviewed it twice before the PR.
+- **Q20, answered by Pp the same day:** the bar is the lower of 80 and the day's requirement, and 80 itself
+  is enough. A preterm on DOL 6 on clears the red line at 80; the amber line names the gap to the plan.
 - **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
   (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
   TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
-  `verify-no-tpn-1101.cjs`, 43 checks. Nine harnesses built orders with no TPN and no tick, or saved an NPO
+  `verify-no-tpn-1101.cjs`, 44 checks. Nine harnesses built orders with no TPN and no tick, or saved an NPO
   day with no reason; each now ticks "No TPN" (and feeds or a reason) where it builds such an order:
   `calc-sum` and `calc-oracle` (whose own alert model gains the two No-TPN rules, written out),
   `incident-gaps-1021` (the NPO day now asks a reason, and the next day starts ticked),

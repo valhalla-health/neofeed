@@ -38,8 +38,8 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     // and it was ordered and printed as Central, so it reopens as Central.
     route: src.route === null ? null : src.route ?? "central",
     // "No TPN" ticked in Step 3 (Pp, 2026-11-01): the day has no bag and no
-    // lipid. Absent from every entry saved before then, none of which was
-    // ticked, so a feeds-only day saved earlier reopens unticked.
+    // lipid. An absent key reads as unticked here; for a submitted row saved
+    // before then with no bag and no lipid, withLegacyNoTpn sets it first.
     noTpn: src.noTpn === true,
     totalTPN_mL: src.totalTPN_mL ?? 0,
     deadVol_mL: src.deadVol_mL ?? 0,
@@ -110,7 +110,8 @@ const NO_TPN_BAG_KEYS = [
 ];
 function withLegacyNoTpn(entry, src) {
   const ci = entry?.calcInput;
-  if (!src || !ci || typeof ci !== "object" || Object.prototype.hasOwnProperty.call(ci, "noTpn")) return src;
+  const has = (k) => !!ci && typeof ci === "object" && Object.prototype.hasOwnProperty.call(ci, k);
+  if (!src || has("noTpn") || !has("totalTPN_mL")) return src;
   if (window.NEOFEED_DATA.isDraftEntry(entry)) return src;
   if (NO_TPN_BAG_KEYS.some((k) => Number(src[k]) > 0)) return src;
   return { ...src, noTpn: true };
@@ -1499,7 +1500,7 @@ function Calculator({
   if (noTpnPlanLow) alerts.push({
     level: "warn",
     title: "No TPN: feeds well below the fluid plan",
-    body: `No TPN · plan ${fmt(fluidTargetPerKg, 0)} mL/kg/d แต่นมที่นับได้ ${vsLimit(enCountedPerKg, fluidTargetPerKg - D.NO_TPN_PLAN_GAP_ML_KG, 0)} mL/kg/d (ขาด ${fmt(noTpnPlanGap, 0)} mL/kg/d)${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""} — ลืมสั่ง TPN หรือเปล่า?`,
+    body: `No TPN · plan ${fmt(fluidTargetPerKg, 0)} mL/kg/d แต่นมที่นับได้ ${vsLimit(enCountedPerKg, fluidTargetPerKg - D.NO_TPN_PLAN_GAP_ML_KG, 0)} mL/kg/d (ขาด ${vsLimit(noTpnPlanGap, D.NO_TPN_PLAN_GAP_ML_KG, 0)} mL/kg/d)${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""} — ลืมสั่ง TPN หรือเปล่า?`,
     ref: "Pp, 2026-11-01"
   });
   if ((calc.totalTPN_mL > 0 || noTpnOn && !noTpnEnLow && !noTpnPlanLow) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
