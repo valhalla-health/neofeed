@@ -10,8 +10,9 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-11-01 (2) — Step 3's "No TPN" tick, and the check that the feeds are enough
 
 `calculator.jsx` (Step 3's header and body, `normalizeCalcInput`, the changes list, a stop, a critical
-alert, `CR-FLUID-PLAN`, Print), `registry.jsx` (the ward's Print order list), `data.js`
-(`NO_TPN_EN_MIN_ML_KG`, `noTpnEnMinPerKg`, `orderIsNoTpn`), both shells (a phone layout rule and the `?v=`
+alert, `CR-FLUID-PLAN`, Print and the printed form), `registry.jsx` (the ward's Print order list), `app.jsx`
+(`previousLogEntry` reads `data.js`), `data.js` (`NO_TPN_EN_MIN_ML_KG`, `noTpnEnMinPerKg`, `orderIsNoTpn`,
+`orderPrints`, `previousFinalEntry`), `REFERENCE.md` (§ The printed order), both shells (a phone layout rule and the `?v=`
 tokens), `compiled/calculator.js`, `compiled/registry.js`, `.claude/skills/neofeed-clinical-rules/SKILL.md`
 (`CR-NO-TPN-EN`, `CR-NO-TPN-TICK`, `CR-U-NO-TPN`, Q20, and older cases given the tick),
 `test/verify-clinical-rules.cjs` (a `then` key), `test/verify-no-tpn-1101.cjs`, other harnesses whose
@@ -44,15 +45,21 @@ tpn เราก็จะไม่ปริ้นท order", and, asked, "App ne
   หรือเปล่า?", in case the TPN was forgotten (Pp: "ถ้ามีฟูอิดแพลน แล้ว มากกว่าเอนเทอรัลเยอะๆ ให้alarmด้วย";
   asked, she chose 20 and amber). It stays quiet while the red line above holds, so one shortfall is said
   once. `CR-FLUID-PLAN`'s info line also runs on a ticked day (Vera), but only for feeds above the plan.
-- **A No TPN order is never printed** (Pp: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"; asked, "App never prints
-  it"). There is no TPN order for pharmacy, and the form would have ticked a route, Soluvit, Peditrace and
-  heparin for a bag nobody makes (the fresh review below found it). Print on such an order says "No TPN —
-  ไม่มีใบสั่ง TPN ให้พิมพ์" and no order form renders; the save panel shows no red "held from Print" line for it.
-  The ward's Print order list shows the infant as submitted, "No TPN — ไม่ต้องพิมพ์", with no Print button,
-  and Print ทั้งหมด leaves it out. One rule decides it for both, `D.orderIsNoTpn`.
+- **A No TPN order prints no TPN order** (Pp: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"; asked, "App never prints
+  it"). The form would have ticked a route, Soluvit, Peditrace and heparin for a bag nobody makes (the fresh
+  review below found it). Vera then found that the oral orders (Step 6) print on that same front sheet, under
+  "8. Other", so they would reach no paper; asked, Pp chose **a short sheet for them** ("Print orals only"),
+  and **a "TPN stopped" line** on the first No TPN day after a day with TPN. So a No TPN order prints a short
+  sheet only then: the header, the patient table with the route as "— (No TPN)", a "No TPN" box ("หยุด TPN
+  ตั้งแต่วันนี้ (TPN stopped)" on that first day), "8. Other", the reason box when one was given, the signature
+  and the footer, and no back. With neither, nothing prints: Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and
+  the save panel shows no red "held from Print" line. The ward's Print order list prints the same orders:
+  the rest are listed as submitted, "No TPN — ไม่ต้องพิมพ์", with no Print button, and left out of Print
+  ทั้งหมด. One rule for both, `D.orderPrints` (with `D.orderIsNoTpn`, and `D.previousFinalEntry`, the previous
+  order, which `app.jsx` now reads from `data.js` too).
 - **Saved with the order** as `calcInput.noTpn`. A new day copied from a ticked order starts ticked, and
   the changes list says "No TPN: no → yes". **A submitted order saved before today** with neither a bag nor
-  lipid reads as ticked when reopened, copied or compared, and so is not printed either; a draft does not,
+  lipid reads as ticked when reopened, copied or compared, and prints as a No TPN order; a draft does not,
   nor does a row whose `calcInput` never recorded a TPN volume (empty or unparsed: missing data). Its feeds
   are checked as today's, so an old NPO day reopened shows the red line until it is submitted again with a
   reason.
@@ -76,8 +83,9 @@ tpn เราก็จะไม่ปริ้นท order", and, asked, "App ne
 - **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
   (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
   TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
-  `verify-no-tpn-1101.cjs`, 51 checks; `verify-print-all-1028.cjs` #9, the ward's Print order list with a No
-  TPN order (ticked, and one from before the tick). Since a No TPN order is not printed, the harnesses that
+  `verify-no-tpn-1101.cjs`, 60 checks (§8, the short sheet: oral orders, TPN stopped, and neither);
+  `verify-print-all-1028.cjs` #9, the ward's Print order list with No TPN orders (ticked, from before the
+  tick, with oral orders, and the day TPN stopped). Since a No TPN order is not printed, the harnesses that
   printed a feeds-only order now check that it is not printed, or print the same order with a small bag
   where printing is what they test: `calcmoved-unstamped-1017` (§5 new), `calc-sum` (T2), `calc-oracle`,
   `review-0917-calc` (`full_en` prints nothing), `ward-requests-0918`, `incident-gaps-1021` (the NPO day),

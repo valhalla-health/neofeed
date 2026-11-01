@@ -287,6 +287,8 @@ function expected(sc) {
 // An order with no bag and no lipid is ticked "No TPN" (CR-NO-TPN-TICK) and is
 // never printed (Pp, 2026-11-01).
 const noTpnScenario = (sc) => !['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0);
+// …except a short sheet for its oral orders (Pp, 2026-11-01: "Print orals only").
+const oralScenario = (sc) => !!sc.mtv || ['vitD', 'oCa', 'oP', 'fe'].some(k => sc[k] > 0);
 function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
   const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
@@ -747,8 +749,11 @@ async function run(scIn) {
 
   // ─ printed pharmacy form ─
   const form = container.querySelector('#print-form');
-  // A No TPN order saves but never prints (Pp, 2026-11-01).
-  same(sc, 'print form rendered after save', !!form, orderable && !noTpnScenario(sc));
+  // A No TPN order prints only a short sheet for its oral orders (Pp, 2026-11-01).
+  same(sc, 'print form rendered after save', !!form, orderable && (!noTpnScenario(sc) || oralScenario(sc)));
+  if (form && noTpnScenario(sc)) {
+    same(sc, 'No TPN: the short sheet, with no TPN lines', !!form.querySelector('.print-no-tpn') && !/PARENTERAL NUTRITION FLUID/.test(form.textContent), true);
+  }
   if (form) {
     const p = form.textContent.replace(/\s+/g, ' ');
     // the form prints "—" for a zero figure (f/f0), so "—" reads as 0 here

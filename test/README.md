@@ -1785,7 +1785,7 @@ osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks w
 
 Pp: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง", then "ให้สามารถมีปุ่มซีเล็ก
 เป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้" (`CHANGELOG.md` 2026-10-28 (2)). **`verify-print-all-1028.cjs`** drives the
-real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 81 checks in thirteen scenarios: the
+real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 83 checks in thirteen scenarios: the
 button sits after the title block and counts only what a tap would print (no `tmp_` row, no two-orders
 day); no Calculator button on the print list, still one on the gate and the ward list; a run opens the
 orders in bed order, each printed once on its own infant's sheet with another infant active first,
@@ -2050,7 +2050,7 @@ ends at 736, and the early dot is at x = −46.
 
 ## The "No TPN" tick, 2026-11-01 — one harness
 
-Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (51 checks; the jsdom
+Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (60 checks; the jsdom
 set) mounts the real Calculator. §1: the tick, labelled "No TPN", sits in Step 3's header, and ticking it
 clears a bag with lipid, KCl and ZnSO₄, names what it cleared, hides the pumps (no note in their place) and
 the route, and turns Steps 3 and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value

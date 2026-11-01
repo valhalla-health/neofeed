@@ -240,7 +240,37 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
     text(container.querySelector('.zero-volume-bag')));
   ok('…and Submit is disabled', button('Submit')?.disabled === true);
 
-  section('8 · Center Point offers no tick');
+  section('8 · the short sheet: oral orders, and the day TPN stopped');
+  // Pp, 2026-11-01: a No TPN order prints a short sheet for its oral orders, and
+  // on the first No TPN day after a day with TPN; otherwise nothing prints.
+  const sheet = () => container.querySelector('#print-form');
+  // Print waits two animation frames before window.print (calculator.jsx).
+  const printNow = async () => { let n = 0; window.print = () => { n++; }; toast = null;
+    await act(async () => { document.dispatchEvent(new window.Event('__neofeed_print')); await new Promise(r => setTimeout(r, 30)); });
+    window.print = () => {}; return n; };
+  const feedsTicked = () => { fillRequired(); setField('Volume(mL/feed)', 12); setField('Frequency', 8); setNoTpn(true); };
+  mount(); feedsTicked(); setField('Vitamin D', 400);
+  await clickAsync(button('Submit'));
+  let f = text(sheet());
+  ok('No TPN with vitamin D: a short sheet prints', !!sheet() && /No TPN — ไม่มี TPN วันนี้/.test(f), f.slice(0, 120));
+  ok('…with the oral order under "8. Other"', /8\. Other.*Vitamin D drops 400 IU\/kg\/d = 400 IU\/day/.test(f), f.match(/8\. Other.{0,80}/));
+  ok('…the patient first (its first table names the NeoFeed ID)', /NeoFeed ID:\s*NT-1101/.test(text(sheet().querySelector(':scope > table'))));
+  ok('…and no TPN lines, vitamins, heparin or pharmacy back; the route reads "— (No TPN)"',
+    !/PARENTERAL NUTRITION FLUID|Soluvit|Heparin|☑ (Central|Peripheral)/.test(f) && /Route of Delivery: — \(No TPN\)/.test(f) && !sheet().querySelector('.print-back'), f.slice(0, 260));
+  ok('…no "TPN stopped" (no TPN day before it)', !/TPN stopped/.test(f));
+  ok('…and Print prints it', (await printNow()) === 1);
+  const tpnDay = savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, route: 'central', totalTPN_mL: 100, dexPct: 10, aaPerKg: 3 });
+  mount({ previousEntry: tpnDay }); feedsTicked();
+  await clickAsync(button('Submit'));
+  f = text(sheet());
+  ok('the first No TPN day after a TPN day, no orals: the short sheet says TPN stopped', !!sheet() && /หยุด TPN ตั้งแต่วันนี้ \(TPN stopped\)/.test(f), f.slice(0, 160));
+  ok('…and Print prints it', (await printNow()) === 1);
+  const noTpnDay = savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, totalTPN_mL: 0, noTpn: true, enVol: 12, enFreq: 8 });
+  mount({ previousEntry: noTpnDay }); feedsTicked();
+  await clickAsync(button('Submit'));
+  ok('a No TPN day after a No TPN day, no orals: nothing prints', !sheet() && (await printNow()) === 0 && toast === 'No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์', { sheet: !!sheet(), toast });
+
+  section('9 · Center Point offers no tick');
   const centerPoint = { save: () => Promise.resolve({ sourceRecordId: 'x', recordedAt: '2026-11-01T08:00:00.000Z' }), review() {}, failed() {} };
   mount({ centerPoint, patient: { sessionId: '6f1c2f4e-2b7a-4c1e-9d55-0c8f0e6b1a11', bw: 1200, ga: 28, weights: [] } });
   ok('no "ไม่มี TPN" tick', !noTpnBox());

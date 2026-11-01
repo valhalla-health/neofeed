@@ -174,7 +174,7 @@ worksheet's I53 (prepared − Σ components). Until 2026-10-28 it was a critical
 so pharmacy could receive a form with a negative WFI.
 
 ```rule
-{"rule": "CR-BAG-OVERFULL", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2070, "has": "const bagOverfull = bagOrdered && calc.wfiVol < 0;"}, {"file": "calculator.jsx", "line": 2478, "has": "if (!asDraft && bagOverfull) {"}, {"file": "center-point/tpn-document.mjs", "line": 114, "has": "export function tpnBagOverfull(value) { return Number(value.values.wfi) < 0; }"}]}
+{"rule": "CR-BAG-OVERFULL", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2070, "has": "const bagOverfull = bagOrdered && calc.wfiVol < 0;"}, {"file": "calculator.jsx", "line": 2484, "has": "if (!asDraft && bagOverfull) {"}, {"file": "center-point/tpn-document.mjs", "line": 114, "has": "export function tpnBagOverfull(value) { return Number(value.values.wfi) < 0; }"}]}
 {"case": "2 kg, 130.45 mL: 130.5 mL of stock fills the bag (WFI 0) and saves", "side": "inside", "infant": {"g": 2000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 130.45, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 20, "Amino acid": 3.5, "20% NaCl": 2, "KCl": 1, "Glycophos": 1.3, "Heparin": 0.6}, "expect": {"no_alert": "Bag cannot be compounded", "submit": "no_reason"}}
 {"case": "KCl 1.1 adds 0.1 mL: WFI −0.1 is refused", "side": "outside", "infant": {"g": 2000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 130.45, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 20, "Amino acid": 3.5, "20% NaCl": 2, "KCl": 1.1, "Glycophos": 1.3, "Heparin": 0.6}, "expect": {"alert": "Bag cannot be compounded", "level": "crit", "submit": "blocked", "shows": "ส่วนประกอบรวม 130.6 mL เกินถุง 130.5 mL ไป 0.1 mL"}}
 {"case": "10 mL of D25 with amino acid 3 and no dead space: refused", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 10, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 25, "Amino acid": 3}, "expect": {"alert": "Bag cannot be compounded", "submit": "blocked"}}
@@ -562,7 +562,7 @@ With "No TPN" ticked (`CR-U-NO-TPN`), the counted feed must reach 80 mL/kg/d, or
 requirement where that is lower: the lower bound of `CR-TGT-FLUID`, on the same tier (held at birth
 weight). So DOL 1 at 1,000–1,499 g needs 70 and at 1,500–2,499 g 60, a term infant 40, 50, 60 and 60 on
 DOL 1–4, and every other day and tier 80. Below it, critical: Submit asks for a reason, saved with the
-order (a No TPN order is never printed, `CR-U-NO-TPN`), so a day on IV fluid alone can still be ordered; the line names any Other IV. A MEN feed counts for nothing
+order (a No TPN order prints only a short sheet, for its oral orders or the day TPN stopped, with the reason box; `CR-U-NO-TPN`), so a day on IV fluid alone can still be ordered; the line names any Other IV. A MEN feed counts for nothing
 (`CR-U-MEN`), so MEN feeds alone are always below it. 80 itself is enough (bounds inclusive, as
 `CR-U-STATUS`); float noise stripped. Not checked while the tick is off (`CR-NO-TPN-TICK` holds then).
 Source: Pp, 2026-11-01: "cross check ว่าคนไข้เป็น enteral fluid ล้วน มากกว่า 80ml/kg/day หรือตาม fluid
@@ -915,7 +915,7 @@ newborn ward today (`OLDER_CHILD_WARDS` is empty).
 Source: Pp, 2026-09-18: "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย".
 
 ```rule
-{"rule": "CR-U-DEAD-SPACE", "kind": "unit", "coded": {"NEWBORN_DEAD_VOL_ML": 30, "OLDER_CHILD_WARDS": []}, "where": [{"file": "data.js", "line": 2193, "has": "const NEWBORN_DEAD_VOL_ML = 30;"}, {"file": "calculator.jsx", "line": 135, "has": "return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);"}]}
+{"rule": "CR-U-DEAD-SPACE", "kind": "unit", "coded": {"NEWBORN_DEAD_VOL_ML": 30, "OLDER_CHILD_WARDS": []}, "where": [{"file": "data.js", "line": 2228, "has": "const NEWBORN_DEAD_VOL_ML = 30;"}, {"file": "calculator.jsx", "line": 135, "has": "return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);"}]}
 {"case": "a NICU bed starts at 30 mL", "fn": "defaultDeadVolFor", "args": [{"currentBed": "NICU 5"}], "want": 30}
 ```
 
@@ -986,7 +986,7 @@ holds an independent transcription); Na acetate 3 and KCl 2 confirmed by the TPN
 also literals in the calculation.
 
 ```rule
-{"rule": "CR-U-SALTS", "kind": "unit", "coded": {"KCMH_STOCK.naCl.naMeqPerMl": 3.42, "KCMH_STOCK.naAcetate.naMeqPerMl": 3, "KCMH_STOCK.naAcetate.acetateMeqPerMl": null, "KCMH_STOCK.glycophos.naMeqPerMl": 2, "KCMH_STOCK.glycophos.pMgPerMl": 31, "KCMH_STOCK.kCl.kMeqPerMl": 2, "KCMH_STOCK.k2hpo4.kMeqPerMl": 1, "KCMH_STOCK.k2hpo4.pMgPerKMeq": 15.5, "KCMH_STOCK.mgso4_10.mgMeqPerMl": 0.812, "KCMH_STOCK.caGluconate.caMgPerMl": 9.01755, "KCMH_STOCK.aminoven10.gPerMl": 0.1}, "where": [{"file": "calculator.jsx", "line": 3524, "has": "perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)}"}, {"file": "calculator.jsx", "line": 1535, "has": "const p_glycophos  = glycophosP * wtKg * 31;"}, {"file": "calculator.jsx", "line": 1537, "has": "const p_k2hpo4 = k2hpo4 * wtKg * 15.5;"}]}
+{"rule": "CR-U-SALTS", "kind": "unit", "coded": {"KCMH_STOCK.naCl.naMeqPerMl": 3.42, "KCMH_STOCK.naAcetate.naMeqPerMl": 3, "KCMH_STOCK.naAcetate.acetateMeqPerMl": null, "KCMH_STOCK.glycophos.naMeqPerMl": 2, "KCMH_STOCK.glycophos.pMgPerMl": 31, "KCMH_STOCK.kCl.kMeqPerMl": 2, "KCMH_STOCK.k2hpo4.kMeqPerMl": 1, "KCMH_STOCK.k2hpo4.pMgPerKMeq": 15.5, "KCMH_STOCK.mgso4_10.mgMeqPerMl": 0.812, "KCMH_STOCK.caGluconate.caMgPerMl": 9.01755, "KCMH_STOCK.aminoven10.gPerMl": 0.1}, "where": [{"file": "calculator.jsx", "line": 3530, "has": "perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)}"}, {"file": "calculator.jsx", "line": 1535, "has": "const p_glycophos  = glycophosP * wtKg * 31;"}, {"file": "calculator.jsx", "line": 1537, "has": "const p_k2hpo4 = k2hpo4 * wtKg * 15.5;"}]}
 {"case": "1 kg, no dead space: 1 mL of each stock", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "20% NaCl": 3.42, "Glycophos": 2, "KCl": 2, "K₂HPO₄": 1, "10% Ca gluconate": 45.08775}, "expect": {"prints": ["3.4 mEq = 1 mL", "1 mLNa 2 mEq · P 31 mg", "K 1 mEqP 15.5 mg1 mEq = 1 mL", "2 mEq2 mEq = 1 mL", "45 mg = 5 mL"]}}
 ```
 
@@ -1025,9 +1025,11 @@ dose typed since being kept (Vera, 2026-11-01), and names what it put back. Whil
 shows no pumps and no route or osmolarity, with no note in their place (Pp: "คำอธิบาย ไม่ต้องใส่"), its
 dot and Step 4's read done, and the order needs no route (`CR-ROUTE-REQUIRED`: no bag). It is saved with
 the order (`calcInput.noTpn`), a new order copied from a ticked one starts ticked, and the changes list
-names it. **A No TPN order is never printed** (Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"; asked,
-"App never prints it"): Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and the ward's Print order list marks the
-infant "No TPN — ไม่ต้องพิมพ์" and leaves it out of Print ทั้งหมด. Both read `D.orderIsNoTpn`. A salt typed into Step 4 while it is ticked is still `CR-BAG-NO-VOLUME`, whose line then points
+names it. **A No TPN order prints no TPN order** (Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"): only a
+short sheet, for its oral orders ("Print orals only") or on the first No TPN day after a day with TPN
+("หยุด TPN ตั้งแต่วันนี้ (TPN stopped)"); otherwise Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and the ward's
+Print order list marks the infant "No TPN — ไม่ต้องพิมพ์" and leaves it out of Print ทั้งหมด. Both read
+`D.orderPrints`. A salt typed into Step 4 while it is ticked is still `CR-BAG-NO-VOLUME`, whose line then points
 at the tick. Center Point offers no tick: its packet is a TPN order. An order with no TPN must carry it:
 `CR-NO-TPN-TICK`. What the feeds must reach: `CR-NO-TPN-EN`; far below the plan: `CR-NO-TPN-PLAN`.
 A submitted order saved before the tick existed, with neither a bag nor lipid, reads as ticked when it is
@@ -1100,7 +1102,7 @@ real milk varies. It reads these values when it renders, so they change here and
 printed, and not in the quick calc's copied text.
 
 ```rule
-{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4462, "has": "function MilkAssumption({ keys }) {"}]}
+{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4469, "has": "function MilkAssumption({ keys }) {"}]}
 {"case": "breast milk: 67 kcal/100 mL", "fn": "EN_DB.BM_20.kcal", "want": 67}
 {"case": "breast milk: 1.2 g protein/100 mL", "fn": "EN_DB.BM_20.pro", "want": 1.2, "within": 1e-9}
 {"case": "BM + HMF: 2.3 g protein/100 mL", "fn": "EN_DB.BM_HMF_24.pro", "want": 2.3, "within": 1e-9}

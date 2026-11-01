@@ -406,16 +406,26 @@ scenarios['notpn'] = async (A) => {
       mkPatient({ sessionId: 'NA-1', name: 'NA', initials: 'NA', currentBed: 'NICU 1' }),   // TPN
       mkPatient({ sessionId: 'NB-1', name: 'NB', initials: 'NB', currentBed: 'NICU 2' }),   // ticked No TPN
       mkPatient({ sessionId: 'NC-1', name: 'NC', initials: 'NC', currentBed: 'NICU 3' }),   // feeds only, before the tick
+      mkPatient({ sessionId: 'ND-1', name: 'ND', initials: 'ND', currentBed: 'NICU 4' }),   // No TPN, with vitamin D
+      mkPatient({ sessionId: 'NE-1', name: 'NE', initials: 'NE', currentBed: 'NICU 5' }),   // No TPN, TPN yesterday
     ],
-    log: { 'NA-1': [order('e-na')], 'NB-1': [order('e-nb', {}, { ...feeds, noTpn: true })], 'NC-1': [order('e-nc', {}, feeds)] },
+    log: { 'NA-1': [order('e-na')], 'NB-1': [order('e-nb', {}, { ...feeds, noTpn: true })], 'NC-1': [order('e-nc', {}, feeds)],
+      'ND-1': [order('e-nd', {}, { ...feeds, noTpn: true, suppVitD: 400 })],
+      'NE-1': [order('e-ne0', { ts: addDays(TODAY, -1) }), order('e-ne', {}, { ...feeds, noTpn: true })] },
   });
   t.quiet();
   t.printed = 0;
   t.window.print = () => { t.printed++; };
   await t.start();
   await t.click(wardPrint('NICU'));
-  A.eq('9.0 all three are listed as submitted', printRows().length, 3);
-  A.eq('9.1 Print ทั้งหมด counts only the TPN order', printAll() && printAll().querySelector('.num').textContent, '(1)');
+  A.eq('9.0 all five are listed as submitted', printRows().length, 5);
+  // Pp, 2026-11-01: a No TPN order prints a short sheet for its oral orders, or
+  // on the day its TPN stopped; otherwise it is not printed.
+  A.eq('9.1 Print ทั้งหมด counts the TPN order, the oral orders and the day TPN stopped', printAll() && printAll().querySelector('.num').textContent, '(3)');
+  for (const name of ['ND', 'NE']) {
+    const b = printRow(name)?.querySelector('button');
+    A.ok(`9.1 ${name}: a Print order button`, !!b && /Print order/.test(b.textContent) && !b.disabled, b && b.textContent);
+  }
   for (const name of ['NB', 'NC']) {
     const row = printRow(name);
     const b = row && row.querySelector('button');

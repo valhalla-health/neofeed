@@ -248,7 +248,9 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
 // Reached from the ward gate's Print order button. A tap opens that order in
 // the calculator and goes straight to its print preview — the same path, the
 // same Print gate (calculator.jsx `printable`) and the same preview as
-// pressing Print order inside — so nothing here decides what may print.
+// pressing Print order inside — so the Calculator decides what may print. The
+// list decides one thing itself: a No TPN order with nothing to print (no oral
+// orders, not the day its TPN stopped; D.orderPrints) is listed but not opened.
 //
 // Listed: active infants of the ward whose order for `today` is Submitted
 // (the Logged today set). A draft never prints, so it is not listed. Those
@@ -271,8 +273,10 @@ function todaysOrders(entries, today) {
 function wardPrintableOrder(p, entries, ward, today) {
   if (!p || !isActivePatient(p) || D_R.patientWard(p) !== ward) return null;
   const orders = todaysOrders(entries, today);
-  // A No TPN order is never printed (Pp, 2026-11-01; D.orderIsNoTpn).
-  return orders.length === 1 && !isPendingRow(orders[0]) && !D_R.orderIsNoTpn(orders[0]) ? orders[0] : null;
+  // A No TPN order prints only for its oral orders or the day its TPN stopped
+  // (Pp, 2026-11-01; D.orderPrints).
+  return orders.length === 1 && !isPendingRow(orders[0])
+    && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
 }
 
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
@@ -349,8 +353,9 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         {rows.map(({ p, orders }) => {
           const one = orders.length === 1 ? orders[0] : null;
           const pending = !!one && isPendingRow(one);
-          // Submitted with "No TPN": nothing to print (Pp, 2026-11-01).
-          const noTpn = !!one && !pending && D_R.orderIsNoTpn(one);
+          // Submitted with "No TPN" and nothing to print: no oral orders, and not
+          // the day its TPN stopped (Pp, 2026-11-01; D.orderPrints).
+          const noTpn = !!one && !pending && !D_R.orderPrints(one, D_R.previousFinalEntry(log[p.sessionId], today));
           const open = pending || noTpn ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
           const action = pending ? "กำลังบันทึก…" : noTpn ? "No TPN — ไม่ต้องพิมพ์" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
           const item = itemFor.get(p.sessionId);

@@ -1542,6 +1542,41 @@ function orderIsNoTpn(entry) {
   if (isDraftEntry(entry) || !has("totalTPN_mL")) return false;
   return !NO_TPN_BAG_KEYS.some(k => Number(ci[k]) > 0);
 }
+// Oral orders (Step 6), which print under "8. Other" on the order's front sheet.
+const ORAL_ORDER_KEYS = ["suppVitD", "suppCa", "suppPO4", "suppFerdek"];
+function orderHasOralOrders(ci) {
+  return !!ci && typeof ci === "object" && (ORAL_ORDER_KEYS.some(k => Number(ci[k]) > 0) || ci.suppMTV === true || Number(ci.suppMTV) > 0);
+}
+// A saved order that had TPN: a bag or lipid, and not read as No TPN.
+function orderHadTpn(entry) {
+  const ci = entry && entry.calcInput;
+  if (!ci || typeof ci !== "object" || orderIsNoTpn(entry)) return false;
+  return NO_TPN_BAG_KEYS.some(k => Number(ci[k]) > 0);
+}
+// Whether a saved order prints (Pp, 2026-11-01). An order with TPN does. A No
+// TPN order prints a short sheet only for its oral orders ("Print orals only"),
+// or on the first No TPN day after a day with TPN, to tell pharmacy the TPN has
+// stopped ("Yes, a 'TPN stopped' line"); otherwise it does not print at all.
+// `previousEntry` is the order before it (previousFinalEntry).
+function orderPrints(entry, previousEntry) {
+  if (!orderIsNoTpn(entry)) return true;
+  return orderHasOralOrders(entry.calcInput) || orderHadTpn(previousEntry);
+}
+// The last submitted order strictly before `targetDate`: the order a new one is
+// copied from and compared with. A draft is not yesterday's order. One rule for
+// app.jsx (previousLogEntry) and the ward's Print order list.
+function previousFinalEntry(entries, targetDate) {
+  const target = normalizeDateStr(targetDate);
+  if (!target) return null;
+  return finalEntries(entries)
+    .filter(entry => {
+      const entryDate = normalizeDateStr(entry && entry.ts);
+      return entryDate && entryDate < target;
+    })
+    .slice()
+    .sort((a, b) => normalizeDateStr(a.ts).localeCompare(normalizeDateStr(b.ts)))
+    .slice(-1)[0] || null;
+}
 function isDraftEntry(e) {
   return !!e && String(e.status || "").toLowerCase() === "draft";
 }
@@ -2815,7 +2850,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, finalEntries,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, orderHasOralOrders, orderHadTpn, orderPrints, previousFinalEntry, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

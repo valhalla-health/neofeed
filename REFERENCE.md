@@ -113,6 +113,13 @@ front so they stay on paper (Pp, after Vera): the lipid pump rate, and, when a c
 confirmed at Submit, "✔ แพทย์ยืนยันคำสั่ง" with the alerts and the reason. A revision prints
 "Revision · ฉบับที่ N" at the front's top right.
 
+**A No TPN order** (Step 3's tick, 2026-11-01, Pp) prints only a short sheet, and only when it has something
+for paper: its oral orders (Step 6, "8. Other"), or the first No TPN day after a day with TPN, which says
+"หยุด TPN ตั้งแต่วันนี้ (TPN stopped)" for pharmacy. The sheet keeps the header, the patient table (route "—
+(No TPN)"), a "No TPN" box, "8. Other", the confirmation box when a reason was given, the signature and the
+footer; no TPN lines and no back. With neither, nothing prints, and Print says so. The Calculator and the
+ward's Print order list both read `D.orderPrints`.
+
 Two harness contracts: the patient table stays the form's first direct `<table>` child (the parity and
 §6 figure sweeps skip it), and the provenance footer stays the form's last child.
 

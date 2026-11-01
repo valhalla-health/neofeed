@@ -141,7 +141,7 @@ function todaysOrders(entries, today) {
 function wardPrintableOrder(p, entries, ward, today) {
   if (!p || !isActivePatient(p) || D_R.patientWard(p) !== ward) return null;
   const orders = todaysOrders(entries, today);
-  return orders.length === 1 && !isPendingRow(orders[0]) && !D_R.orderIsNoTpn(orders[0]) ? orders[0] : null;
+  return orders.length === 1 && !isPendingRow(orders[0]) && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
 }
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
@@ -200,7 +200,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   ), "เลือกทั้งหมด", /* @__PURE__ */ React.createElement("span", { className: "print-pick-n" }, "เลือกแล้ว ", /* @__PURE__ */ React.createElement("span", { className: "num" }, queue.length), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printable.length), " ใบ")), rows.map(({ p, orders }) => {
     const one = orders.length === 1 ? orders[0] : null;
     const pending = !!one && isPendingRow(one);
-    const noTpn = !!one && !pending && D_R.orderIsNoTpn(one);
+    const noTpn = !!one && !pending && !D_R.orderPrints(one, D_R.previousFinalEntry(log[p.sessionId], today));
     const open = pending || noTpn ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
     const action = pending ? "กำลังบันทึก…" : noTpn ? "No TPN — ไม่ต้องพิมพ์" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
     const item = itemFor.get(p.sessionId);

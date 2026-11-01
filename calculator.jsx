@@ -2287,8 +2287,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // A No TPN order is never printed (Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท
   // order"): there is no TPN order for pharmacy, and the form would tick a route,
   // Soluvit, Peditrace and heparin for a bag nobody makes. It is still saved.
+  // Two answers of Pp's the same day: a No TPN order with oral orders prints a
+  // short sheet for them ("Print orals only"), and so does the first No TPN day
+  // after a day with TPN, to tell pharmacy it has stopped ("TPN stopped"). The
+  // ward's Print order list reads the same rule, D.orderPrints.
   const noTpnNoPrintText = "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์";
-  const printable = !!savedEntryId && !dirty && !noTpnOn && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
+  const tpnStoppedToday = noTpnOn && D.orderHadTpn(previousEntry);
+  const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday);
+  const printable = !!savedEntryId && !dirty && (!noTpnOn || noTpnSheet) && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
@@ -2330,7 +2336,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         showToast("Calculator นี้ไม่ได้ผูกกับผู้ป่วย จึงพิมพ์ใบสั่ง TPN ไม่ได้ — เปิดจากผู้ป่วยเพื่อบันทึกและพิมพ์", "error");
         return;
       }
-      if (noTpnOn) { showToast(noTpnNoPrintText, "info"); return; }
+      if (noTpnOn && !noTpnSheet) { showToast(noTpnNoPrintText, "info"); return; }
       if (!savedEntryId) {
         showToast(ordersReadOnly ? "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว" : "กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
         return;
@@ -2350,7 +2356,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
-  }, [savedEntryId, printable, printBlockToast, noTpnOn]);
+  }, [savedEntryId, printable, printBlockToast, noTpnOn, noTpnSheet]);
 
   // Opened from the ward's Print order list (registry.jsx WardPrintList): ask
   // for the print preview once, exactly as the Print order button does, as
@@ -4009,7 +4015,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && !noTpnOn && savedEntryId && !dirty && !printable && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
+            {!centerPoint && (!noTpnOn || noTpnSheet) && savedEntryId && !dirty && !printable && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์")}
                 {!pendingSave && dosingWeightChanged && (
@@ -4293,6 +4299,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: tMg, source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}
+        noTpnSheet={noTpnOn ? { tpnStopped: tpnStoppedToday } : null}
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight}
         tpnWtManual={tpnWtManual} autoWtG={autoWtG} route={route}
         orderDate={editEntry?.ts || logDate || newOrderDate}
@@ -4659,7 +4666,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg,
   inclSoluvit, inclPeditrace, znPerKg, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
-  mineral, published, targets, savedMeta, critOverride, orderChanges, previousDol }) {
+  mineral, published, targets, savedMeta, critOverride, orderChanges, previousDol, noTpnSheet }) {
   // "Normal requirement" comes from the same targets the tiles use — it used
   // to be hard-coded form text (P 30-70, Ca 50-120, K 1-3) that contradicted
   // the calculator after the 2026-09-05 phosphorus correction (review F4).
@@ -4759,8 +4766,10 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               2026-09-28). */}
           <tr>
             {/* No route (null) is a day with no bag, or a draft (which cannot
-                print): neither box is ticked. */}
-            <td>Route of Delivery: {route === "central" ? <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;<strong>☑ Central</strong></>
+                print): neither box is ticked. A No TPN sheet has no route at
+                all, whatever route the order last held. */}
+            <td>Route of Delivery: {noTpnSheet ? <>— (No TPN)</>
+              : route === "central" ? <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;<strong>☑ Central</strong></>
               : route === "peripheral" ? <><strong>☑ Peripheral</strong> (&lt;900 mOsm/L) &nbsp;☐ Central</>
               : <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;☐ Central</>}</td>
             <td colSpan={2}>Weight for calculation: <strong>{f(wtKg, 2)}</strong> Kg
@@ -4774,6 +4783,23 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         </tbody>
       </table>
 
+      {/* A No TPN order's short sheet (Pp, 2026-11-01): no TPN lines, route,
+          vitamins or heparin, only that there is no TPN, that it stopped today
+          when it did, and the oral orders, which ride on this sheet. */}
+      {noTpnSheet ? (<>
+      <div className="print-no-tpn" style={{ fontWeight:700, border:"1.5px solid #000", padding:"4px 8px", margin:"4px 0", fontSize:11 }}>
+        No TPN — ไม่มี TPN วันนี้
+        {noTpnSheet.tpnStopped && <span className="print-tpn-stopped"> · หยุด TPN ตั้งแต่วันนี้ (TPN stopped)</span>}
+      </div>
+      <table style={{ width:"100%", borderCollapse:"collapse", marginTop:4, fontSize:10 }}>
+        <tbody>
+          <tr>
+            <td style={{ ...td, fontWeight:700 }}>8. Other</td>
+            <td style={td}>{orals.length === 0 ? "—" : orals.map((o, i) => <div key={i} style={plain}>{o}</div>)}</td>
+          </tr>
+        </tbody>
+      </table>
+      </>) : (<>
       <div style={{ fontWeight:700, borderBottom:"1px solid #000", marginBottom:4 }}>PARENTERAL NUTRITION FLUID:</div>
       <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
         <tr>
@@ -4945,6 +4971,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             text like the Mg mEq beside its mg — not a dose of its own. */}
         {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}
       </div>
+      </>)}
       {critOverride && (
         <div style={{ border:"2px solid #c00", color:"#c00", padding:"4px 8px", marginTop:6, fontSize:10.5, fontWeight:700 }}>
           <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
@@ -4961,6 +4988,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         <div>รหัส ................................</div>
       </div>
 
+      {!noTpnSheet && (<>
       {/* ════════════ BACK — pharmacy (print double-sided) ════════════ */}
       <div className="print-back" style={{ breakBefore:"page", pageBreakBefore:"always", paddingTop:4 }}>
         <div style={{ textAlign:"center", borderBottom:"2px solid #000", paddingBottom:4, marginBottom:6 }}>
@@ -5122,6 +5150,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </div>
         )}
       </div>
+      </>)}
 
       {/* Provenance footer — which values produced the figures above, and
           which Daily_Log row they came from. Deliberately small and last:

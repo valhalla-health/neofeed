@@ -325,10 +325,11 @@ with #204 by PR #205.
   (`CR-NO-TPN-TICK`), so every feeds-only order needs the tick. With it on, a counted feed below 80 mL/kg/d,
   or below the day's fluid requirement where that is lower, is critical and asks a reason that prints
   (`CR-NO-TPN-EN`); more than 20 below the fluid plan is amber (`CR-NO-TPN-PLAN`). An NPO day now needs
-  the tick and a reason. **A No TPN order is never printed** (Pp): Print says so, and the ward's Print order
-  list marks it "No TPN — ไม่ต้องพิมพ์" and leaves it out of Print ทั้งหมด. No calculation, figure on a printed TPN
+  the tick and a reason. **A No TPN order prints no TPN order** (Pp): only a short sheet, for its oral orders
+  or on the day TPN stopped ("TPN stopped"); otherwise nothing, and the ward's Print order list marks it "No
+  TPN — ไม่ต้องพิมพ์" and leaves it out of Print ทั้งหมด. This changes the printed order. No calculation, figure on a printed TPN
   order, or `CONSTANTS_VERSION` moves; no `clasp` step. ⚠️ The ward should hear of the new tick before
-  release, and that a feeds-only or NPO order no longer prints. Q20 answered by Pp: the lower of 80 and the day's
+  release, and pharmacy that a No TPN day prints at most a short sheet. Q20 answered by Pp: the lower of 80 and the day's
   requirement, 80 itself enough. `CHANGELOG.md` 2026-11-01 (2).
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
