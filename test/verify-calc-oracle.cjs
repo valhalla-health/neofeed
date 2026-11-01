@@ -356,9 +356,9 @@ function expectedAlerts(sc, e) {
   // A bag with volume and no amino acid is a caution (Pp, 2026-10-21); one
   // without MgSO₄ is not, since 2026-10-27 (TPN team; Pp: "เอาออก").
   if (e.Vd > 0 && !(sc.aa > 0)) add('warn', 'Amino acid not ordered');
-  if (bagOrdered && e.wfi < 0) add('crit', 'Bag cannot be compounded');
-  // The TPN room's largest bottle is 1,250 mL, on the prepared volume as printed.
-  if (e.Vd > 0 && r1(e.Vp) > 1250) add('crit', 'Bag larger than the largest bottle');
+  // A negative WFI, or a prepared volume above the TPN room's largest bottle
+  // (1,250 mL, as printed): one stop on screen since 2026-11-01 (Pp).
+  if ((bagOrdered && e.wfi < 0) || (e.Vd > 0 && r1(e.Vp) > 1250)) add('crit', 'Bag cannot be made (ใส่ถุงไม่ได้)');
   if (e.Vd > 0 && sc.hep > 1) add('warn', 'Heparin above the usual dose');
   if (sc.vitD * e.W + (sc.mtv ? MUNTIVIM_D_IU_PER_DAY : 0) > 1000) add('warn', 'Vitamin D above 1,000 IU/day');
   if (e.Vd > 0 && sc.ca > 0 && sc.k2 > 0) add('warn', 'Calcium–phosphate compatibility not calculated');

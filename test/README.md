@@ -1911,7 +1911,8 @@ Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ใ
 KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
 save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
 change with a reason naming "Bag cannot be compounded" has no order form, and Print and Copy refuse with
-the same reason. § 3: Center Point's บันทึก is disabled and nothing reaches Center Point. 20 checks; 9 fail
+the same reason. Since 2026-11-01 the screen shows it, with the 1,250 mL bottle, as one stop, "Bag cannot
+be made (ใส่ถุงไม่ได้)"; the saved reason still names the old title. § 3: Center Point's บันทึก is disabled and nothing reaches Center Point. 20 checks; 9 fail
 on `326bcd9`.
 
 ## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness

@@ -479,8 +479,8 @@ function sumCheck(sc, label, Vd) {
   const detail = { parts: parts.map(p => `${p.name.slice(0, 22)}=${p.text}`), sumParts: sr, printed: make, screen: scr, TOL };
   if (sc.expectMake && label === 'save 1') {
     ok(sc, `${label}: printed bag line is ${JSON.stringify(sc.expectMake)}`, ['components', 'wfi', 'prepared'].every(k => make[k] === sc.expectMake[k]), make);
-    ok(sc, `${label}: no "Bag cannot be compounded" alert`,
-      ![...container.querySelectorAll('.calc-bottom .alert-row .title')].some(t => t.textContent === 'Bag cannot be compounded'));
+    ok(sc, `${label}: no "Bag cannot be made (ใส่ถุงไม่ได้)" alert`,
+      ![...container.querySelectorAll('.calc-bottom .alert-row .title')].some(t => t.textContent === 'Bag cannot be made (ใส่ถุงไม่ได้)'));
   }
   // Over-full cannot be submitted since 2026-10-28, so it never reaches a print form.
   if (make.wfi < 0) {
@@ -547,9 +547,9 @@ async function run(scIn, idx) {
     return `stock at 0 mL: ${zeroed.join(', ')}`;
   }
   if (overfull) {
-    ok(sc, 'over-full bag: "Bag cannot be compounded" on screen',
-      [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].some(t => t.textContent === 'Bag cannot be compounded'), scr0);
-    ok(sc, 'over-full bag: the save panel says so', !!container.querySelector('.bag-overfull'));
+    ok(sc, 'over-full bag: "Bag cannot be made (ใส่ถุงไม่ได้)" on screen',
+      [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].some(t => t.textContent === 'Bag cannot be made (ใส่ถุงไม่ได้)'), scr0);
+    ok(sc, 'over-full bag: the save panel says so', !!container.querySelector('.bag-cannot-be-made'));
     ok(sc, 'over-full bag: no print form', !container.querySelector('#print-form'));
     return 'over-full: not orderable';
   }

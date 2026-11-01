@@ -404,7 +404,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     eq('Save is disabled', saveBtn()?.disabled, true);
     await save('x');
     eq('…and nothing is saved', log.calls, 0);
-    ok('the over-full bag is a critical alert on screen (it needed volume > 0)', critTitles().includes('Bag cannot be compounded'), critTitles());
+    ok('the over-full bag is a critical alert on screen (it needed volume > 0)', critTitles().includes('Bag cannot be made (ใส่ถุงไม่ได้)'), critTitles());
     ok('…and the bag make-up panel is shown', /WFI q\.s\./.test(container.textContent));
     for (const l of ['Amino acid', 'Dextrose final', '20% NaCl', 'KCl', 'Glycophos', '10% Ca gluconate']) setField(l, 0);
     ok('removing the ingredients lifts the block', !container.querySelector('.zero-volume-bag') && saveBtn()?.disabled === false);

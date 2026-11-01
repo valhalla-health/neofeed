@@ -299,6 +299,11 @@ with them (marked below). Caught up with #201 by PR #202.
   past the newest dot, off the axis, and looped back. Frontend only (`log.jsx`), no `clasp` step, no
   calculation or printed figure. The Fenton chart was checked and is unchanged. Vera: NO BLOCK (outside
   her scope). `CHANGELOG.md` 2026-10-30 (3).
+- ⏳ **PR #207, the 1,250 mL bottle and the over-full bag are one stop on screen, "Bag cannot be made
+  (ใส่ถุงไม่ได้)": in review (draft), on Pp's request of 2026-11-01.** One alert and one red line under Submit,
+  naming whichever limit holds. Both rules, what blocks, and the stop IDs are unchanged; every other stop
+  is as it was. No calculation, printed figure or `CONSTANTS_VERSION`; no `clasp` step. `CHANGELOG.md`
+  2026-11-01 (3).
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197
