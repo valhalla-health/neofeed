@@ -240,6 +240,11 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   mount({ centerPoint, editEntry: ticked });
   ok('a row carrying the tick is read there as unticked: the pumps stay', text(container).includes('TPN Aqueous Pump'));
   ok('…and no No-TPN stop holds there', !container.querySelector('.no-tpn-unticked'));
+  // Vera, third review: the no-volume line must not offer a tick Center Point has not got.
+  mount({ centerPoint, patient: { sessionId: '6f1c2f4e-2b7a-4c1e-9d55-0c8f0e6b1a11', bw: 1200, ga: 28, weights: [] } });
+  setField('Current weight', 1200); setField('KCl', 2);
+  const cpZero = text(container.querySelector('.zero-volume-bag'));
+  ok('no TPN volume with KCl: the no-volume line, with no tick to offer', cpZero.includes('ปริมาตร TPN = 0') && !cpZero.includes('ติ๊ก "No TPN"'), cpZero);
 
   act(() => { root.unmount(); });
   console.log(`\nNO TPN TICK (2026-11-01): ${fail ? `${fail} FAILED` : 'ALL PASS'} (${pass} passed)`);

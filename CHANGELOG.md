@@ -65,7 +65,7 @@ no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, 
 - **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
   (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
   TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
-  `verify-no-tpn-1101.cjs`, 47 checks. Eleven harnesses built orders with no TPN and no tick, or saved an NPO
+  `verify-no-tpn-1101.cjs`, 48 checks. Eleven harnesses built orders with no TPN and no tick, or saved an NPO
   day with no reason; each now ticks "No TPN" (and feeds or a reason) where it builds such an order:
   `calc-sum` and `calc-oracle` (whose own alert model gains the two No-TPN rules, written out),
   `incident-gaps-1021` (the NPO day now asks a reason, and the next day starts ticked),

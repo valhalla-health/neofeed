@@ -2291,8 +2291,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
-  // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01).
-  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? "เอาติ๊ก \"No TPN\" ออกแล้วใส่ปริมาตร" : "ใส่ปริมาตร หรือถ้าวันนี้ไม่มี TPN ติ๊ก \"No TPN\" ที่ Step 3"}`;
+  // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
+  // Center Point offers no tick, so it is not offered there (Vera, 2026-11-01).
+  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? "เอาติ๊ก \"No TPN\" ออกแล้วใส่ปริมาตร" : centerPoint ? "ใส่ปริมาตร" : "ใส่ปริมาตร หรือถ้าวันนี้ไม่มี TPN ติ๊ก \"No TPN\" ที่ Step 3"}`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
   const printBlockMessage = (before) =>
     pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`
