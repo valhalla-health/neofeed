@@ -19,8 +19,9 @@ changes from DOL 1): "ทำเป็นตารางให้อ่านง�
 - **Now a table with four columns, รายการ · เดิม · ใหม่ · หน่วย.** The name is in the body font. The old
   value is right-aligned against the arrow, and the new value is bold and left-aligned against it, so each
   row still reads `80 → 90`. When a change of feed puts a long milk name in a value column, the numbers
-  stay next to the arrow. The unit sits grey in its own column. The table is only as wide as its content,
-  with a line between rows. The arrow is hidden from a screen reader, which reads the two values under
+  stay next to the arrow. The arrow has 10 px of room on each side, so the old and new values never read
+  as one number (Pp, the same day, on the first version: "ให้ช่องว่างเดิมกับใหม่ห่างกันอีกเล็กน้อย"). The
+  unit sits grey in its own column. The table is only as wide as its content, with a line between rows. The arrow is hidden from a screen reader, which reads the two values under
   their headings. Checked in Chromium at 390 and 320 px wide: no sideways scroll; at 320 px a long name
   or milk wraps inside its cell.
 - **Unchanged:** which changes are listed and how each value is written (`diffOrderInputs`,

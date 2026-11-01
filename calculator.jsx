@@ -3890,7 +3890,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 old value, new value and unit each in their own column. The old
                 value is right-aligned and the new one left-aligned, both against
                 the arrow, so a row reads "80 → 90" even when a feed's name
-                widens the columns. The table is only as wide as its content.
+                widens the columns. The arrow has room on each side (Pp,
+                2026-11-01: "ให้ช่องว่างเดิมกับใหม่ห่างกันอีกเล็กน้อย"), so the old
+                and new values never read as one. The table is only as wide as
+                its content.
                 On screen only: the printed form keeps its one line. */}
             {previousEntry && (
               <div className="order-changes" style={{ fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 }}>
@@ -3916,7 +3919,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                             <tr key={c.label} style={{ borderTop: "1px solid var(--line)" }}>
                               <td style={{ padding: "4px 10px 4px 0", color: "var(--ink)" }}>{c.label}</td>
                               <td className="num" style={{ padding: "4px", textAlign: "right", color: "var(--ink-2)" }}>{c.from}</td>
-                              <td aria-hidden="true" style={{ padding: "4px 2px", color: "var(--ink-3)" }}>→</td>
+                              <td aria-hidden="true" style={{ padding: "4px 10px", color: "var(--ink-3)" }}>→</td>
                               <td className="num" style={{ padding: "4px", textAlign: "left", color: "var(--ink)", fontWeight: 700 }}>{c.to}</td>
                               <td style={{ padding: "4px 0 4px 6px", color: "var(--ink-3)", whiteSpace: "nowrap" }}>{c.unit}</td>
                             </tr>))}
