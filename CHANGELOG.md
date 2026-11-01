@@ -29,7 +29,8 @@ cannot be made (ใส่ถุงไม่ได้)".
   A reason saved before 2026-10-28 still names "Bag cannot be compounded", and such a row is held as before.
   No calculation, figure or `CONSTANTS_VERSION` change.
 - **Tests.** The clinical-rules cases expect the new title, and a new case has both limits at once: one
-  alert naming both, with both IDs sent. Five harnesses that named the old titles or classes
+  alert naming both. (It checks that `CR-BOTTLE-MAX` reaches the backend; `submitStops` still lists both IDs
+  apart, unchanged.) Five harnesses that named the old titles or classes
   (`.bag-over-bottle`, `.bag-overfull`) read the new ones; `verify-calc-oracle.cjs`'s alert model adds the
   one title when either limit holds, and `verify-wfi-stop-1028.cjs` keeps the old title for the reason
   saved before 2026-10-28.
