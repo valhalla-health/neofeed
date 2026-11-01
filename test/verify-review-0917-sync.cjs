@@ -28,7 +28,15 @@ const {
 // The seven boxes the Calculator requires before Save (verify-required-log-fields.cjs).
 const REQUIRED = [['Current weight', 950], ['Target fluid', 120], ['Other IV', 0], ['Drug volume', 0],
   ['Input', 110], ['Urine output', 30], ['Drain content', 0]];
-const fillRequired = async (t) => { for (const [l, v] of REQUIRED) await t.typeInto(t.fieldInput(l), v); };
+const fillRequired = async (t) => {
+  for (const [l, v] of REQUIRED) await t.typeInto(t.fieldInput(l), v);
+  // These orders have no TPN, so they are ticked "No TPN" and fed at least
+  // 80 mL/kg/d (CR-NO-TPN-TICK, CR-NO-TPN-EN, Pp 2026-11-01): 12 mL × 8 at 950 g.
+  await t.typeInto(t.fieldInput('Volume(mL/feed)'), 12);
+  await t.typeInto(t.fieldInput('Frequency'), 8);
+  const box = document.querySelector('label.no-tpn-chk input');
+  if (box && !box.checked) await t.click(box);
+};
 const saveButton = () => [...document.querySelectorAll('button')].find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()));
 const hasLoginScreen = () => !!document.querySelector('.login-wrap');
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);

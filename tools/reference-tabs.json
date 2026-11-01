@@ -148,6 +148,8 @@
     "HEPARIN_USUAL_MAX_U_ML": { "unit": "U/mL of the prepared bag", "sign": "positive" },
     "VIT_D_MAX_IU_DAY": { "unit": "IU/d", "sign": "positive" },
     "MEN_MAX_ML_KG": { "unit": "mL/kg/d", "sign": "positive" },
+    "NO_TPN_EN_MIN_ML_KG": { "unit": "mL/kg/d", "sign": "positive" },
+    "NO_TPN_PLAN_GAP_ML_KG": { "unit": "mL/kg/d below the fluid plan", "sign": "positive" },
     "NEWBORN_DEAD_VOL_ML": { "unit": "mL/d", "sign": "positive" },
     "FIRST_DAYS_LAST_DOL": { "unit": "day of life", "sign": "positive" },
     "OLDER_CHILD_WARDS": { "type": "list", "unit": "ward names" },

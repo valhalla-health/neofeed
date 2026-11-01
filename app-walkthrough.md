@@ -884,7 +884,24 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    so is a total that is no regular schedule (24 h ÷ total not whole hours:
    6 + 2 and 4 + 4 are q3h, 3 + 3 q4h, never 3 + 4).
    Center Point's TPN packet holds one feed, so a CP order is not offered a
-   second. Step 4 also has a **Magnesium**
+   second. **"No TPN"** (2026-11-01, Pp) is a tick at the top right of
+   Step 3: ticking it clears every bag ingredient (volume, dextrose, amino
+   acid, lipid, Step 4's salts, ZnSO₄; unticking in the same visit puts back
+   what is still empty), hides the two pumps, and is saved as
+   `calcInput.noTpn` (absent = false). An order with no bag and no lipid
+   cannot be submitted without it (`CR-NO-TPN-TICK`). With it ticked the
+   counted feed must reach `D.noTpnEnMinPerKg` (80 mL/kg/d, or the day's
+   lower fluid bound if less), else a critical line that asks a reason
+   (`CR-NO-TPN-EN`); more than 20 below Step 1's plan is amber
+   (`CR-NO-TPN-PLAN`). A No TPN order prints only a short sheet, for its
+   oral orders, on the day TPN stopped, or as a same-day revision that
+   cancels a submitted TPN order (`calcInput.replacesTpn`,
+   `D.orderCancelsTpn`; `D.orderPrints`, read by the
+   Calculator's Print and the ward's Print ทั้งหมด); `D.orderIsNoTpn` also
+   reads a submitted row saved before 2026-11-01 with no bag and no lipid
+   as ticked; a draft, or a row that never recorded a TPN volume, it does not.
+   Not offered on Center Point.
+   Step 4 also has a **Magnesium**
    tile: the TPN's Mg in mEq/kg/d against `TARGETS.mg` (`EN_DB` has no Mg).
    The amino-acid stock comes from `D.aaProductsFor(patient)` — Aminoven on
    every ward today; Aminoplasmal 15% (contraindicated under 2 years) waits

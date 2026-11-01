@@ -850,6 +850,25 @@ const MG_MEQ_HABIT_MG = 1;
 // from yesterday, so MEN still ticked above this is a warning (never a stop):
 // the feed was probably advanced and the tick left on (Praew, 2026-09-18).
 const MEN_MAX_ML_KG = 24;
+// A day ticked "No TPN" in Step 3: the counted feed must reach this many
+// mL/kg/day, or the day's fluid requirement where that is lower (TARGETS.fluid's
+// lower bound: DOL 1 at 1,000–1,499 g 70 and 1,500–2,499 g 60; term DOL 1–4 40,
+// 50, 60, 60). Below it, a critical line whose reason prints (Pp, 2026-11-01:
+// "cross check ว่าคนไข้เป็น enteral fluid ล้วน มากกว่า 80ml/kg/day หรือตาม fluid
+// requirement ตามวัน", then "Submit with a reason"). It moves no dose, so
+// CONSTANTS_VERSION stays.
+const NO_TPN_EN_MIN_ML_KG = 80;
+// The feed a no-TPN day needs, mL/kg/day: 80, or the day's fluid requirement
+// (the lower bound of TARGETS.fluid, on the same weight tier) if that is less.
+function noTpnEnMinPerKg(dol, wtG, bwG) {
+  return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG)[0]);
+}
+// A day ticked "No TPN" whose counted feed is more than this many mL/kg/day
+// below Step 1's fluid plan: an amber line, in case the TPN was forgotten (Pp,
+// 2026-11-01: "ถ้ามีฟูอิดแพลน แล้ว มากกว่าเอนเทอรัลเยอะๆ ให้alarmด้วย อ่า
+// เผื่อลืมสั่ง ทีพีเอ็น"; she chose 20, the margin "Fluid: prescribed ≠ target"
+// already uses, and amber). A caution only, so CONSTANTS_VERSION stays.
+const NO_TPN_PLAN_GAP_ML_KG = 20;
 
 // ── Numbers a person reads ────────────────────────────────────
 // Every figure on a screen, the pharmacy form or a copied order goes through
@@ -1506,6 +1525,68 @@ function hasDraftOnDate(entries, date) {
 // completed and Submitted (status "submitted"). Every row saved before drafts
 // existed carries "submitted" (the calculator always wrote it; the backend
 // defaults a blank to it), so old orders count as submitted.
+// A saved order with no TPN (Pp, 2026-11-01): its calcInput carries the "No TPN"
+// tick, or it is a SUBMITTED order saved before the tick existed that recorded
+// its TPN volume and has neither a bag nor lipid. A draft is not read that way
+// (its TPN may only not have been filled in yet), nor is a row whose calcInput
+// never recorded a TPN volume (missing data). Such an order is never printed
+// (Pp: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"): the Calculator's Print and the
+// ward's Print ทั้งหมด both read this rule.
+const NO_TPN_BAG_KEYS = ["totalTPN_mL", "dexPct", "aaPerKg", "lipidPerKg", "naCl", "naAcet", "glycophosP",
+  "kCl", "k2hpo4", "mgPerKg", "caPerKg", "znPerKg"];
+function orderIsNoTpn(entry) {
+  const ci = entry && entry.calcInput;
+  if (!ci || typeof ci !== "object") return false;
+  const has = (k) => Object.prototype.hasOwnProperty.call(ci, k);
+  if (has("noTpn")) return ci.noTpn === true;
+  if (isDraftEntry(entry) || !has("totalTPN_mL")) return false;
+  return !NO_TPN_BAG_KEYS.some(k => Number(ci[k]) > 0);
+}
+// Oral orders (Step 6), which print under "8. Other" on the order's front sheet.
+const ORAL_ORDER_KEYS = ["suppVitD", "suppCa", "suppPO4", "suppFerdek"];
+function orderHasOralOrders(ci) {
+  return !!ci && typeof ci === "object" && (ORAL_ORDER_KEYS.some(k => Number(ci[k]) > 0) || ci.suppMTV === true || Number(ci.suppMTV) > 0);
+}
+// A saved order that had TPN: a bag or lipid, and not read as No TPN.
+function orderHadTpn(entry) {
+  const ci = entry && entry.calcInput;
+  if (!ci || typeof ci !== "object" || orderIsNoTpn(entry)) return false;
+  return NO_TPN_BAG_KEYS.some(k => Number(ci[k]) > 0);
+}
+// A No TPN order that replaces a submitted order of the same day that had TPN
+// (Vera, fifth review; Pp, 2026-11-01: "Yes, print it"). Pharmacy may already
+// hold that day's TPN sheet, so this order's short sheet tells it "TPN stopped
+// today". The Calculator records calcInput.replacesTpn when it saves a
+// revision of such an order, and carries it to each later revision of the day.
+function orderCancelsTpn(entry) {
+  return orderIsNoTpn(entry) && entry.calcInput.replacesTpn === true;
+}
+// Whether a saved order prints (Pp, 2026-11-01). An order with TPN does. A No
+// TPN order prints a short sheet only for its oral orders ("Print orals only"),
+// on the first No TPN day after a day with TPN, to tell pharmacy the TPN has
+// stopped ("Yes, a 'TPN stopped' line"), or when it cancels a TPN order
+// submitted the same day (orderCancelsTpn); both say "TPN stopped today", the
+// rest "No TPN today". Otherwise it does not print at all.
+// `previousEntry` is the order before it (previousFinalEntry).
+function orderPrints(entry, previousEntry) {
+  if (!orderIsNoTpn(entry)) return true;
+  return orderHasOralOrders(entry.calcInput) || orderHadTpn(previousEntry) || orderCancelsTpn(entry);
+}
+// The last submitted order strictly before `targetDate`: the order a new one is
+// copied from and compared with. A draft is not yesterday's order. One rule for
+// app.jsx (previousLogEntry) and the ward's Print order list.
+function previousFinalEntry(entries, targetDate) {
+  const target = normalizeDateStr(targetDate);
+  if (!target) return null;
+  return finalEntries(entries)
+    .filter(entry => {
+      const entryDate = normalizeDateStr(entry && entry.ts);
+      return entryDate && entryDate < target;
+    })
+    .slice()
+    .sort((a, b) => normalizeDateStr(a.ts).localeCompare(normalizeDateStr(b.ts)))
+    .slice(-1)[0] || null;
+}
 function isDraftEntry(e) {
   return !!e && String(e.status || "").toLowerCase() === "draft";
 }
@@ -2733,7 +2814,7 @@ window.NEOFEED_DATA = {
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
@@ -2779,7 +2860,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, finalEntries,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

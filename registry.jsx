@@ -248,7 +248,10 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
 // Reached from the ward gate's Print order button. A tap opens that order in
 // the calculator and goes straight to its print preview — the same path, the
 // same Print gate (calculator.jsx `printable`) and the same preview as
-// pressing Print order inside — so nothing here decides what may print.
+// pressing Print order inside — so the Calculator decides what may print. The
+// list decides one thing itself: a No TPN order with nothing to print (no oral
+// orders, not the day its TPN stopped, not cancelling a TPN order of the same
+// day; D.orderPrints) is listed but not opened.
 //
 // Listed: active infants of the ward whose order for `today` is Submitted
 // (the Logged today set). A draft never prints, so it is not listed. Those
@@ -271,7 +274,10 @@ function todaysOrders(entries, today) {
 function wardPrintableOrder(p, entries, ward, today) {
   if (!p || !isActivePatient(p) || D_R.patientWard(p) !== ward) return null;
   const orders = todaysOrders(entries, today);
-  return orders.length === 1 && !isPendingRow(orders[0]) ? orders[0] : null;
+  // A No TPN order prints only for its oral orders, the day its TPN stopped, or
+  // when it cancels a TPN order of the same day (Pp, 2026-11-01; D.orderPrints).
+  return orders.length === 1 && !isPendingRow(orders[0])
+    && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
 }
 
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
@@ -348,8 +354,12 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         {rows.map(({ p, orders }) => {
           const one = orders.length === 1 ? orders[0] : null;
           const pending = !!one && isPendingRow(one);
-          const open = pending ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
-          const action = pending ? "กำลังบันทึก…" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
+          // Submitted with "No TPN" and nothing to print: no oral orders, not the
+          // day its TPN stopped, and no TPN order of the day to cancel (Pp,
+          // 2026-11-01; D.orderPrints).
+          const noTpn = !!one && !pending && !D_R.orderPrints(one, D_R.previousFinalEntry(log[p.sessionId], today));
+          const open = pending || noTpn ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
+          const action = pending ? "กำลังบันทึก…" : noTpn ? "No TPN — ไม่ต้องพิมพ์" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
           const item = itemFor.get(p.sessionId);
           // The tick sits beside the card, not in it: the card is itself a
           // button (rowA11y), and a control inside a control is not reachable
@@ -373,10 +383,10 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
                 <span className="pr-dol">DOL {D_R.liveDol(p)}</span>
                 <span className="log-badge is-logged">✓ SUBMITTED</span>
               </div>
-              <button type="button" className={"btn sm" + (one && !pending ? " primary" : "")} disabled={pending}
+              <button type="button" className={"btn sm" + (one && !pending && !noTpn ? " primary" : "")} disabled={pending || noTpn}
                 tabIndex={-1} onClick={e => { e.stopPropagation(); open?.(); }}>
-                {one && !pending && <Icon name="pdf" size={12} color="#fff" />} {action}
-                {!pending && <Icon name="arrow" size={11} color={one ? "#fff" : undefined} />}
+                {one && !pending && !noTpn && <Icon name="pdf" size={12} color="#fff" />} {action}
+                {!pending && !noTpn && <Icon name="arrow" size={11} color={one ? "#fff" : undefined} />}
               </button>
             </div>
             </div>
