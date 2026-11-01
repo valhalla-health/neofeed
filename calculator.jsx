@@ -1002,6 +1002,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "draft" | "submitted" | null (nothing saved yet). A draft cannot print or
   // copy until it is completed and Submitted (D.isDraftEntry — Praew, 2026-09-23).
   const [savedStatus, setSavedStatus] = useState(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+  // The saved row's TPN, for a same-day TPN order cancelled by a No TPN revision
+  // (D.orderCancelsTpn; Vera, fifth review; Pp, 2026-11-01): whether it had TPN,
+  // and whether it already replaced a submitted order that did
+  // (calcInput.replacesTpn). See replacesTpn below.
+  const [savedHadTpn, setSavedHadTpn] = useState(() => !!editEntry && D.orderHadTpn(editEntry));
+  const [savedReplacesTpn, setSavedReplacesTpn] = useState(() => editEntry?.calcInput?.replacesTpn === true);
   const [saving, setSaving] = useState(false);
   // Publish-lock state — only meaningful behind D.ENABLE_PUBLISH_GATE. A row
   // opened for edit carries its own published flag; a brand-new entry always
@@ -1218,6 +1224,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
     setSavedStatus(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+    setSavedHadTpn(!!editEntry && D.orderHadTpn(editEntry));
+    setSavedReplacesTpn(editEntry?.calcInput?.replacesTpn === true);
     setPublished(!!editEntry?.published);   // it now decides Submit's lock (Vera, 2026-10-28)
     setConflict(null);
     setCritOverride(editEntry?.calcInput?.critOverride || null);
@@ -2293,7 +2301,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // ward's Print order list reads the same rule, D.orderPrints.
   const noTpnNoPrintText = "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์";
   const tpnStoppedToday = noTpnOn && D.orderHadTpn(previousEntry);
-  const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday);
+  // Saving over a submitted order appends a revision of it (gas-backend.gs
+  // updateDailyNutrition), so pharmacy may hold the order it replaces. Saved
+  // over a submitted order with TPN, this order replaces a TPN order of its day;
+  // a draft is saved over in place and keeps what it recorded. Saved as
+  // calcInput.replacesTpn, on each later revision of the day too. With the tick
+  // on, the short sheet says that TPN is cancelled (D.orderCancelsTpn).
+  const replacesTpn = savedReplacesTpn || (savedStatus === "submitted" && !!savedEntryId && savedHadTpn);
+  const tpnCancelledToday = noTpnOn && replacesTpn;
+  const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
   const printable = !!savedEntryId && !dirty && (!noTpnOn || noTpnSheet) && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
@@ -2598,6 +2614,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
         stops: submitStops,
+        // replacesTpn: this row replaces a submitted order of its day that had
+        // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
+        ...(replacesTpn ? { replacesTpn: true } : {}),
         ...(userLabel ? { savedByLabel: userLabel } : {}),
         ...(override ? { critOverride: override } : {}),
         // Which required boxes were blank — they reopen blank (seededZeros).
@@ -2646,6 +2665,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     }
     setSavedLastModified(res.lastModified);
     setSavedStatus(asDraft ? "draft" : "submitted");
+    setSavedHadTpn(D.orderHadTpn(entry));
+    setSavedReplacesTpn(replacesTpn);
     // What was just saved is what may now be printed — the inputs as they
     // were when Save was pressed, not whatever was typed while it ran.
     setSavedKey(keyAtSave);
@@ -4299,7 +4320,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: tMg, source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}
-        noTpnSheet={noTpnOn ? { tpnStopped: tpnStoppedToday } : null}
+        noTpnSheet={noTpnOn ? { tpnStopped: tpnStoppedToday, tpnCancelled: tpnCancelledToday } : null}
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight}
         tpnWtManual={tpnWtManual} autoWtG={autoWtG} route={route}
         orderDate={editEntry?.ts || logDate || newOrderDate}
@@ -4734,7 +4755,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
 
       {/* ════════════ FRONT — the doctor's order ════════════ */}
       <div style={{ textAlign:"center", borderBottom:"2px solid #000", paddingBottom:4, marginBottom:6 }}>
-        <div style={{ fontWeight:700, fontSize:13 }}>PEDIATRIC PARENTERAL NUTRITION ORDER FORM</div>
+        {/* The short sheet is not a PN order (Vera, fifth review; Pp, 2026-11-01: "Retitle it"). */}
+        <div style={{ fontWeight:700, fontSize:13 }}>{noTpnSheet ? "NO TPN — ORAL / STOP ORDER" : "PEDIATRIC PARENTERAL NUTRITION ORDER FORM"}</div>
         <div style={{ fontSize:11 }}>กลุ่มงานเภสัชกรรม ร.พ.จุฬาลงกรณ์</div>
       </div>
 
@@ -4749,7 +4771,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
                 initials+BW+twinSuffix before. Mislabeling it as AN gives a pharmacist a false
                 cross-check against the chart. */}
             <td style={{ width:"30%" }}>NeoFeed ID: <strong>{patient?.sessionId || "—"}</strong></td>
-            <td>วันที่ให้ TPN: <strong>{orderDateLabel}</strong></td>
+            <td>{noTpnSheet ? <>วันที่สั่ง: <strong>{orderDateLabel}</strong></>
+              : <>วันที่ให้ TPN: <strong>{orderDateLabel}</strong></>}</td>
           </tr>
           {/* NeoFeed deliberately stores no HN/AN (PDPA minimisation), but
               pharmacy needs a chart identifier to dispense against — so the
@@ -4790,6 +4813,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
       <div className="print-no-tpn" style={{ fontWeight:700, border:"1.5px solid #000", padding:"4px 8px", margin:"4px 0", fontSize:11 }}>
         No TPN — ไม่มี TPN วันนี้
         {noTpnSheet.tpnStopped && <span className="print-tpn-stopped"> · หยุด TPN ตั้งแต่วันนี้ (TPN stopped)</span>}
+        {noTpnSheet.tpnCancelled && <span className="print-tpn-cancelled"> · ยกเลิก TPN ฉบับก่อน (TPN cancelled)</span>}
       </div>
       <table style={{ width:"100%", borderCollapse:"collapse", marginTop:4, fontSize:10 }}>
         <tbody>

@@ -114,9 +114,11 @@ confirmed at Submit, "✔ แพทย์ยืนยันคำสั่ง" w
 "Revision · ฉบับที่ N" at the front's top right.
 
 **A No TPN order** (Step 3's tick, 2026-11-01, Pp) prints only a short sheet, and only when it has something
-for paper: its oral orders (Step 6, "8. Other"), or the first No TPN day after a day with TPN, which says
-"หยุด TPN ตั้งแต่วันนี้ (TPN stopped)" for pharmacy. The sheet keeps the header, the patient table (route "—
-(No TPN)"), a "No TPN" box, "8. Other", the confirmation box when a reason was given, the signature and the
+for paper: its oral orders (Step 6, "8. Other"), the first No TPN day after a day with TPN, which says
+"หยุด TPN ตั้งแต่วันนี้ (TPN stopped)" for pharmacy, or a revision that replaces a TPN order submitted the same
+day, which says "ยกเลิก TPN ฉบับก่อน (TPN cancelled)" (`calcInput.replacesTpn`, `D.orderCancelsTpn`). The sheet is
+titled "NO TPN — ORAL / STOP ORDER" and keeps the header's pharmacy line, the patient table (dated "วันที่สั่ง",
+route "— (No TPN)"), a "No TPN" box, "8. Other", the confirmation box when a reason was given, the signature and the
 footer; no TPN lines and no back. With neither, nothing prints, and Print says so. The Calculator and the
 ward's Print order list both read `D.orderPrints`.
 

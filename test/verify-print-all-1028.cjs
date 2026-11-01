@@ -29,7 +29,10 @@
 //   #9 no TPN   Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order". An order
 //               ticked "No TPN", or a submitted one from before the tick with
 //               no TPN, is marked "No TPN — ไม่ต้องพิมพ์" with no Print button,
-//               a tap does nothing, and Print ทั้งหมด leaves it out
+//               a tap does nothing, and Print ทั้งหมด leaves it out. One with
+//               oral orders, on the day TPN stopped, or cancelling a TPN order
+//               of the same day (a No TPN revision, calcInput.replacesTpn)
+//               prints its short sheet
 //   #8 resync   Vera, 2026-10-28: each queued order is asked the list's rule
 //               again before it opens; one a sync took off the list (a second
 //               order that day, discharged, deleted, moved ward, the day
@@ -408,21 +411,26 @@ scenarios['notpn'] = async (A) => {
       mkPatient({ sessionId: 'NC-1', name: 'NC', initials: 'NC', currentBed: 'NICU 3' }),   // feeds only, before the tick
       mkPatient({ sessionId: 'ND-1', name: 'ND', initials: 'ND', currentBed: 'NICU 4' }),   // No TPN, with vitamin D
       mkPatient({ sessionId: 'NE-1', name: 'NE', initials: 'NE', currentBed: 'NICU 5' }),   // No TPN, TPN yesterday
+      mkPatient({ sessionId: 'NF-1', name: 'NF', initials: 'NF', currentBed: 'NICU 6' }),   // No TPN revision of today's TPN order
     ],
     log: { 'NA-1': [order('e-na')], 'NB-1': [order('e-nb', {}, { ...feeds, noTpn: true })], 'NC-1': [order('e-nc', {}, feeds)],
       'ND-1': [order('e-nd', {}, { ...feeds, noTpn: true, suppVitD: 400 })],
-      'NE-1': [order('e-ne0', { ts: addDays(TODAY, -1) }), order('e-ne', {}, { ...feeds, noTpn: true })] },
+      'NE-1': [order('e-ne0', { ts: addDays(TODAY, -1) }), order('e-ne', {}, { ...feeds, noTpn: true })],
+      // Vera, fifth review: no order before today, and today's TPN order revised
+      // to No TPN with no oral orders. Pp: "Yes, print it".
+      'NF-1': [order('e-nf2', { revisionNumber: 2, revisionOf: 'e-nf1' }, { ...feeds, noTpn: true, replacesTpn: true })] },
   });
   t.quiet();
   t.printed = 0;
   t.window.print = () => { t.printed++; };
   await t.start();
   await t.click(wardPrint('NICU'));
-  A.eq('9.0 all five are listed as submitted', printRows().length, 5);
-  // Pp, 2026-11-01: a No TPN order prints a short sheet for its oral orders, or
-  // on the day its TPN stopped; otherwise it is not printed.
-  A.eq('9.1 Print ทั้งหมด counts the TPN order, the oral orders and the day TPN stopped', printAll() && printAll().querySelector('.num').textContent, '(3)');
-  for (const name of ['ND', 'NE']) {
+  A.eq('9.0 all six are listed as submitted', printRows().length, 6);
+  // Pp, 2026-11-01: a No TPN order prints a short sheet for its oral orders, on
+  // the day its TPN stopped, or when it cancels a TPN order of the same day;
+  // otherwise it is not printed.
+  A.eq('9.1 Print ทั้งหมด counts the TPN order, the oral orders, the day TPN stopped and the cancelled TPN', printAll() && printAll().querySelector('.num').textContent, '(4)');
+  for (const name of ['ND', 'NE', 'NF']) {
     const b = printRow(name)?.querySelector('button');
     A.ok(`9.1 ${name}: a Print order button`, !!b && /Print order/.test(b.textContent) && !b.disabled, b && b.textContent);
   }

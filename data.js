@@ -1553,14 +1553,23 @@ function orderHadTpn(entry) {
   if (!ci || typeof ci !== "object" || orderIsNoTpn(entry)) return false;
   return NO_TPN_BAG_KEYS.some(k => Number(ci[k]) > 0);
 }
+// A No TPN order that replaces a submitted order of the same day that had TPN
+// (Vera, fifth review; Pp, 2026-11-01: "Yes, print it"). Pharmacy may already
+// hold that day's TPN sheet, so this order's short sheet tells it the TPN is
+// cancelled. The Calculator records calcInput.replacesTpn when it saves a
+// revision of such an order, and carries it to each later revision of the day.
+function orderCancelsTpn(entry) {
+  return orderIsNoTpn(entry) && entry.calcInput.replacesTpn === true;
+}
 // Whether a saved order prints (Pp, 2026-11-01). An order with TPN does. A No
 // TPN order prints a short sheet only for its oral orders ("Print orals only"),
-// or on the first No TPN day after a day with TPN, to tell pharmacy the TPN has
-// stopped ("Yes, a 'TPN stopped' line"); otherwise it does not print at all.
+// on the first No TPN day after a day with TPN, to tell pharmacy the TPN has
+// stopped ("Yes, a 'TPN stopped' line"), or when it cancels a TPN order
+// submitted the same day (orderCancelsTpn); otherwise it does not print at all.
 // `previousEntry` is the order before it (previousFinalEntry).
 function orderPrints(entry, previousEntry) {
   if (!orderIsNoTpn(entry)) return true;
-  return orderHasOralOrders(entry.calcInput) || orderHadTpn(previousEntry);
+  return orderHasOralOrders(entry.calcInput) || orderHadTpn(previousEntry) || orderCancelsTpn(entry);
 }
 // The last submitted order strictly before `targetDate`: the order a new one is
 // copied from and compared with. A draft is not yesterday's order. One rule for
@@ -2850,7 +2859,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, orderHasOralOrders, orderHadTpn, orderPrints, previousFinalEntry, finalEntries,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

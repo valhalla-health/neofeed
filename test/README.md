@@ -2050,7 +2050,7 @@ ends at 736, and the early dot is at x = −46.
 
 ## The "No TPN" tick, 2026-11-01 — one harness
 
-Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (60 checks; the jsdom
+Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (67 checks; the jsdom
 set) mounts the real Calculator. §1: the tick, labelled "No TPN", sits in Step 3's header, and ticking it
 clears a bag with lipid, KCl and ZnSO₄, names what it cleared, hides the pumps (no note in their place) and
 the route, and turns Steps 3 and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value
@@ -2061,7 +2061,10 @@ and no red "held" line, and Print says "No TPN — ไม่มีใบสั�
 ticked and a new day copied from it starts ticked; a submitted feeds-only row saved before the tick existed
 reopens ticked and is not printed, the same row as a draft unticked, a row with a bag unticked, and a row with an empty `calcInput` unticked. §6: the changes
 list names "No TPN: no → yes". §7: with the tick on and no route chosen, a salt typed into Step 4 raises no
-route stop (the tick hides those buttons); the no-volume stop points at the tick. §8: Center Point offers
+route stop (the tick hides those buttons); the no-volume stop points at the tick. §8: the short sheet, titled
+"NO TPN — ORAL / STOP ORDER" and dated "วันที่สั่ง", prints for oral orders, on the first No TPN day after a TPN
+day ("TPN stopped"), and for a same-day revision of a submitted TPN order ("TPN cancelled", `calcInput.replacesTpn`,
+also when reopened); a draft TPN order ticked and submitted, or a No TPN day after one, prints nothing. §9: Center Point offers
 no tick, holds no such stop, and its no-volume line offers no tick. What the feeds must
 reach (`CR-NO-TPN-EN`, `CR-NO-TPN-PLAN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at
 once: there is no tick.

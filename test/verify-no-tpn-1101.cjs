@@ -258,6 +258,10 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('…and no TPN lines, vitamins, heparin or pharmacy back; the route reads "— (No TPN)"',
     !/PARENTERAL NUTRITION FLUID|Soluvit|Heparin|☑ (Central|Peripheral)/.test(f) && /Route of Delivery: — \(No TPN\)/.test(f) && !sheet().querySelector('.print-back'), f.slice(0, 260));
   ok('…no "TPN stopped" (no TPN day before it)', !/TPN stopped/.test(f));
+  // Vera, fifth review; Pp, 2026-11-01: "Retitle it", and the date is the order's.
+  ok('…titled "NO TPN — ORAL / STOP ORDER", not the PN order form', /NO TPN — ORAL \/ STOP ORDER/.test(f) && !/PARENTERAL NUTRITION ORDER FORM/.test(f), f.slice(0, 80));
+  ok('…dated "วันที่สั่ง" in the patient table, never "วันที่ให้ TPN"',
+    /วันที่สั่ง: 01\/11\/2569/.test(text(sheet().querySelector(':scope > table'))) && !/วันที่ให้ TPN/.test(f), text(sheet().querySelector(':scope > table')));
   ok('…and Print prints it', (await printNow()) === 1);
   const tpnDay = savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, route: 'central', totalTPN_mL: 100, dexPct: 10, aaPerKg: 3 });
   mount({ previousEntry: tpnDay }); feedsTicked();
@@ -269,6 +273,33 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   mount({ previousEntry: noTpnDay }); feedsTicked();
   await clickAsync(button('Submit'));
   ok('a No TPN day after a No TPN day, no orals: nothing prints', !sheet() && (await printNow()) === 0 && toast === 'No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์', { sheet: !!sheet(), toast });
+  // Vera, fifth review; Pp, 2026-11-01: "Yes, print it". Today's TPN order, then
+  // revised the same day to No TPN, with no order before today and no orals:
+  // pharmacy may hold the TPN sheet, so the revision prints a short sheet saying
+  // it is cancelled. Saving over a submitted row appends a revision of it
+  // (gas-backend.gs); saving over a draft overwrites it in place.
+  const tpnToday = { ...savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, route: 'central',
+    totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, enType: 'BM_20', enVol: 12, enFreq: 8 }), entryId: 'e-today', ts: '2026-11-01', dol: 10 };
+  let revs = [];
+  const revising = (id, lm, e) => { revs.push({ id, e });
+    return Promise.resolve(id === 'e-today'
+      ? { ok: true, revised: true, entryId: 'e-rev2', lastModified: 'lm-r' + revs.length, revisionNumber: 2 }
+      : { ok: true, lastModified: 'lm-r' + revs.length }); };
+  mount({ editEntry: tpnToday, onUpdate: revising }); feedsTicked();
+  await clickAsync(button('Submit'));
+  f = text(sheet());
+  ok('today\'s TPN order revised to No TPN, no orals, no order before: it saves as a revision', revs.length === 1 && revs[0].id === 'e-today'
+    && revs[0].e.calcInput.replacesTpn === true, revs.map(r => [r.id, r.e.calcInput.replacesTpn]));
+  ok('…and its short sheet says the TPN is cancelled, as revision 2', !!sheet() && /ยกเลิก TPN ฉบับก่อน \(TPN cancelled\)/.test(f)
+    && /Revision · ฉบับที่ 2/.test(f) && !/TPN stopped/.test(f), f.slice(0, 200));
+  ok('…and Print prints it', (await printNow()) === 1);
+  mount({ editEntry: { ...tpnToday, entryId: 'e-rev2', revisionNumber: 2, revisionOf: 'e-today', calcInput: { ...revs[0].e.calcInput } } });
+  ok('reopened later, the revision still prints "TPN cancelled"', !!sheet() && /TPN cancelled/.test(text(sheet())));
+  revs = [];
+  mount({ editEntry: { ...tpnToday, entryId: 'e-draft', status: 'draft' }, onUpdate: revising }); feedsTicked();
+  await clickAsync(button('Submit'));
+  ok('the same order as a draft (pharmacy never had it), ticked and submitted: nothing prints', revs.length === 1 && revs[0].id === 'e-draft'
+    && revs[0].e.calcInput.replacesTpn === undefined && !sheet() && (await printNow()) === 0, { n: revs.length, flag: revs[0]?.e.calcInput.replacesTpn, sheet: !!sheet() });
 
   section('9 · Center Point offers no tick');
   const centerPoint = { save: () => Promise.resolve({ sourceRecordId: 'x', recordedAt: '2026-11-01T08:00:00.000Z' }), review() {}, failed() {} };

@@ -49,10 +49,17 @@ tpn เราก็จะไม่ปริ้นท order", and, asked, "App ne
   it"). The form would have ticked a route, Soluvit, Peditrace and heparin for a bag nobody makes (the fresh
   review below found it). Vera then found that the oral orders (Step 6) print on that same front sheet, under
   "8. Other", so they would reach no paper; asked, Pp chose **a short sheet for them** ("Print orals only"),
-  and **a "TPN stopped" line** on the first No TPN day after a day with TPN. So a No TPN order prints a short
-  sheet only then: the header, the patient table with the route as "— (No TPN)", a "No TPN" box ("หยุด TPN
-  ตั้งแต่วันนี้ (TPN stopped)" on that first day), "8. Other", the reason box when one was given, the signature
-  and the footer, and no back. With neither, nothing prints: Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and
+  and **a "TPN stopped" line** on the first No TPN day after a day with TPN. Vera's fifth review found that a
+  TPN order revised the same day to No TPN, with no orals and no TPN the day before (DOL 0, say), printed
+  nothing, so pharmacy held only that morning's TPN sheet; asked, Pp chose **"Yes, print it"**: such a
+  revision says "ยกเลิก TPN ฉบับก่อน (TPN cancelled)". The Calculator records it on the revision as
+  `calcInput.replacesTpn` (saved over a submitted order that had TPN, and on each later revision of the day;
+  a draft is saved over in place, so a draft TPN order pharmacy never had cancels nothing), read by
+  `D.orderCancelsTpn`. So a No TPN order prints a short sheet only then: titled "NO TPN — ORAL / STOP ORDER"
+  (Pp: "Retitle it", so it is not filed as a PN order), the patient table dated "วันที่สั่ง" with the route as
+  "— (No TPN)", a "No TPN" box ("หยุด TPN ตั้งแต่วันนี้ (TPN stopped)" on that first day, "ยกเลิก TPN ฉบับก่อน (TPN
+  cancelled)" on a revision), "8. Other", the reason box when one was given, the signature and the footer,
+  and no back. With neither, nothing prints: Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and
   the save panel shows no red "held from Print" line. The ward's Print order list prints the same orders:
   the rest are listed as submitted, "No TPN — ไม่ต้องพิมพ์", with no Print button, and left out of Print
   ทั้งหมด. One rule for both, `D.orderPrints` (with `D.orderIsNoTpn`, and `D.previousFinalEntry`, the previous
@@ -83,9 +90,10 @@ tpn เราก็จะไม่ปริ้นท order", and, asked, "App ne
 - **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
   (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
   TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
-  `verify-no-tpn-1101.cjs`, 60 checks (§8, the short sheet: oral orders, TPN stopped, and neither);
+  `verify-no-tpn-1101.cjs`, 67 checks (§8, the short sheet: oral orders, TPN stopped, a same-day TPN order
+  cancelled, a draft that cancels nothing, neither; its title and date);
   `verify-print-all-1028.cjs` #9, the ward's Print order list with No TPN orders (ticked, from before the
-  tick, with oral orders, and the day TPN stopped). Since a No TPN order is not printed, the harnesses that
+  tick, with oral orders, the day TPN stopped, and a revision cancelling the day's TPN). Since a No TPN order is not printed, the harnesses that
   printed a feeds-only order now check that it is not printed, or print the same order with a small bag
   where printing is what they test: `calcmoved-unstamped-1017` (§5 new), `calc-sum` (T2), `calc-oracle`,
   `review-0917-calc` (`full_en` prints nothing), `ward-requests-0918`, `incident-gaps-1021` (the NPO day),

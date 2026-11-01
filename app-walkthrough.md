@@ -894,7 +894,9 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    lower fluid bound if less), else a critical line that asks a reason
    (`CR-NO-TPN-EN`); more than 20 below Step 1's plan is amber
    (`CR-NO-TPN-PLAN`). A No TPN order prints only a short sheet, for its
-   oral orders or on the day TPN stopped (`D.orderPrints`, read by the
+   oral orders, on the day TPN stopped, or as a same-day revision that
+   cancels a submitted TPN order (`calcInput.replacesTpn`,
+   `D.orderCancelsTpn`; `D.orderPrints`, read by the
    Calculator's Print and the ward's Print ทั้งหมด); `D.orderIsNoTpn` also
    reads a submitted row saved before 2026-11-01 with no bag and no lipid
    as ticked; a draft, or a row that never recorded a TPN volume, it does not.
