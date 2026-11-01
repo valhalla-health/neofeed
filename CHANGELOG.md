@@ -7,6 +7,44 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-01 (2) — Step 3's "ไม่มี TPN" tick, and the check that the feeds are enough
+
+`calculator.jsx` (Step 3's header and body, `normalizeCalcInput`, the changes list, a caution), `data.js`
+(`NO_TPN_EN_MIN_ML_KG`, `noTpnEnMinPerKg`), both shells (a phone layout rule and the `?v=` tokens),
+`compiled/calculator.js`, `.claude/skills/neofeed-clinical-rules/SKILL.md` (`CR-NO-TPN-EN`, `CR-U-NO-TPN`,
+Q20), `test/verify-clinical-rules.cjs` (a `then` key), `test/verify-no-tpn-1101.cjs`,
+`tools/reference-tabs.json`, `docs/CLINICAL_CONSTANTS.md`, `app-walkthrough.md`, `test/README.md`,
+`STATUS.md`. Pp, with a phone screenshot of Steps 3–6: "มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn
+เพื่อให้ข้ามช่องนี้ได้ และไป cross check ว่าคนไข้เป็นเป็น enteral fluid ล้วน มากกว่า 80ml/kg/day หรือตาม fluid
+requirement ตามวัน".
+
+- **The tick.** "ไม่มี TPN" sits at the top right of Step 3's header (on a phone, on the title's row, above
+  the chips and the route). Ticking it says the day has no TPN, so it clears everything that would make a
+  bag: TPN volume, dextrose, amino acid, 20 % lipid, every Step 4 salt and ZnSO₄, and a toast names what it
+  cleared. That matters because orders prefill from yesterday: stopping TPN used to mean emptying each box
+  by hand, and one left behind was `CR-BAG-NO-VOLUME`. Unticking it in the same visit puts every value
+  back. While it is ticked, Step 3 shows a note in place of the two pumps, the route and Osm chip are
+  hidden (no bag needs no route), and Steps 3 and 4 read done. A salt typed into Step 4 afterwards is
+  still refused, and the refusal now points at the tick.
+- **Saved with the order** as `calcInput.noTpn`. A row without the key (every row before today) reads as
+  unticked, so no saved order changes. A new day copied from a ticked order starts ticked, and the changes
+  list (on screen and on the printed form) says "No TPN: no → yes". The backend stores `calcInput` as it
+  comes and needs no change. Center Point offers no tick: its packet is a TPN order.
+- **The cross-check, `CR-NO-TPN-EN`.** With the tick on, the counted feed must reach 80 mL/kg/d, or the
+  day's fluid requirement where that is lower (the lower bound of `TARGETS.fluid` on the same weight tier:
+  DOL 1 term 40, DOL 1 above 1,500 g 60, DOL 1 1,000–1,499 g 70). Below it, an amber line, "No TPN: feeds
+  below the fluid requirement", names the feed, the bar and any Other IV, and the order still saves. A MEN
+  feed counts for nothing, so MEN alone is always below it. Step 3's note shows the same figure, grey when
+  it is reached. **Open for Pp (Q20):** this reads "80 หรือ fluid requirement" as "whichever is lower", so
+  from DOL 3 a feed of 80 is enough though the day's band is 100–160; whether it should be the day's
+  requirement when that is higher (DOL 6 on: 140), and whether amber is right, are hers.
+- **Unchanged:** every calculation, printed figure and `CONSTANTS_VERSION`. A feeds-only day without the
+  tick behaves as before.
+- **Tests.** 15 new cases in the clinical-rules skill (both sides of 80, the term DOL 1 bar, MEN, Other IV,
+  the clearing). Its harness gains `then`, fields typed after the ticks. `verify-no-tpn-1101.cjs`, 31
+  checks: clear and restore, save, reopen, copy to a new day, the changes list, Center Point. Checked in
+  Chromium at 390 and 1280 px: the tick at the top right, no sideways scroll.
+
 ## Session 2026-10-30 (3) — The Trend graph joins its days with straight lines
 
 `log.jsx` (`TrendGraph`), `compiled/log.js`, both shells' `?v=` tokens, `test/verify-trend-line-1030.cjs`,

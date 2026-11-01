@@ -850,6 +850,19 @@ const MG_MEQ_HABIT_MG = 1;
 // from yesterday, so MEN still ticked above this is a warning (never a stop):
 // the feed was probably advanced and the tick left on (Praew, 2026-09-18).
 const MEN_MAX_ML_KG = 24;
+// A day ticked "ไม่มี TPN" (no TPN) in Step 3: the counted feed must reach this
+// many mL/kg/day, or the day's fluid requirement where that is lower (DOL 1–2
+// on the heavier tiers, TARGETS.fluid's lower bound). Below it, an amber line
+// asks whether TPN or IV fluid is still needed (Pp, 2026-11-01: "cross check
+// ว่าคนไข้เป็น enteral fluid ล้วน มากกว่า 80ml/kg/day หรือตาม fluid
+// requirement ตามวัน"). A caution only: it moves no dose, so CONSTANTS_VERSION
+// stays.
+const NO_TPN_EN_MIN_ML_KG = 80;
+// The feed a no-TPN day needs, mL/kg/day: 80, or the day's fluid requirement
+// (the lower bound of TARGETS.fluid, on the same weight tier) if that is less.
+function noTpnEnMinPerKg(dol, wtG, bwG) {
+  return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG)[0]);
+}
 
 // ── Numbers a person reads ────────────────────────────────────
 // Every figure on a screen, the pharmacy form or a copied order goes through
@@ -2733,7 +2746,7 @@ window.NEOFEED_DATA = {
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,

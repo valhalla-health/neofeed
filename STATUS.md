@@ -299,6 +299,13 @@ with them (marked below). Caught up with #201 by PR #202.
   past the newest dot, off the axis, and looped back. Frontend only (`log.jsx`), no `clasp` step, no
   calculation or printed figure. The Fenton chart was checked and is unchanged. Vera: NO BLOCK (outside
   her scope). `CHANGELOG.md` 2026-10-30 (3).
+- ⏳ **PR #206, Step 3's "ไม่มี TPN" tick and the check that the feeds alone are enough: in review (draft),
+  on Pp's request of 2026-11-01 ("มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn").** The tick clears the bag (and
+  restores it when taken off), skips Step 3, and saves as `calcInput.noTpn`. With it on, a counted feed
+  below 80 mL/kg/d, or below the day's fluid requirement where that is lower, is an amber line
+  (`CR-NO-TPN-EN`). No calculation, printed figure or `CONSTANTS_VERSION` moves; the printed changes list
+  can say "No TPN: no → yes". No `clasp` step. Open for Pp: Q20 (the bar after DOL 2, and amber or
+  critical). `CHANGELOG.md` 2026-11-01 (2).
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197

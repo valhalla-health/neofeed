@@ -37,6 +37,10 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     // (Pp, 2026-10-21). Only a row saved before then has no route key at all,
     // and it was ordered and printed as Central, so it reopens as Central.
     route: src.route === null ? null : src.route ?? "central",
+    // "ไม่มี TPN" ticked in Step 3 (Pp, 2026-11-01): the day has no bag and no
+    // lipid. Absent from every entry saved before then, none of which was
+    // ticked, so a feeds-only day saved earlier reopens unticked.
+    noTpn: src.noTpn === true,
     totalTPN_mL: src.totalTPN_mL ?? 0,
     deadVol_mL: src.deadVol_mL ?? 0,
     dexPct: src.dexPct ?? 0,
@@ -92,6 +96,7 @@ function bagRouteFrom(src) {
 }
 const ORDER_DIFF_FIELDS = [
   ["route", "Route", ""],
+  ["noTpn", "No TPN", ""],
   ["fluidTargetPerKg", "Target fluid", "mL/kg/d"],
   ["totalTPN_mL", "TPN volume", "mL/d"],
   ["deadVol_mL", "Dead space", "mL"],
@@ -490,6 +495,9 @@ function Calculator({
   const [ioOutput, setIoOutput] = useState(0);
   const [drainContent, setDrainContent] = useState(0);
   const [route, setRoute] = useState("central");
+  const [noTpn, setNoTpn] = useState(false);
+  const noTpnStash = React.useRef(null);
+  const noTpnOn = noTpn && !centerPoint;
   const [totalTPN_mL, setTotalTPN_mL] = useState(0);
   const [deadVol_mL, setDeadVol_mL] = useState(0);
   const [dexPct, setDexPct] = useState(0);
@@ -531,6 +539,32 @@ function Calculator({
   const [suppFerdek, setSuppFerdek] = useState(0);
   const [suppFeType, setSuppFeType] = useState("FE_FERDEK");
   const [openSteps, setOpenSteps] = useState(/* @__PURE__ */ new Set([1]));
+  const tickNoTpn = (on) => {
+    if (!on) {
+      setNoTpn(false);
+      (noTpnStash.current || []).forEach(([v, set]) => set(v));
+      noTpnStash.current = null;
+      return;
+    }
+    const held = [
+      ["TPN volume", totalTPN_mL, setTotalTPN_mL],
+      ["Dextrose", dexPct, setDexPct],
+      ["Amino acid", aaPerKg, setAaPerKg],
+      ["20% lipid", lipidPerKg, setLipidPerKg],
+      ["20% NaCl", naCl, setNaCl],
+      ["Na acetate", naAcet, setNaAcet],
+      ["Glycophos", glycophosP, setGlycophosP],
+      ["KCl", kCl, setKCl],
+      ["K₂HPO₄", k2hpo4, setK2HPO4],
+      ["MgSO₄", mgPerKg, setMgPerKg],
+      ["Ca gluconate", caPerKg, setCaPerKg],
+      ["ZnSO₄", znPerKg, setZnPerKg]
+    ].filter(([, v]) => v > 0);
+    noTpnStash.current = held.map(([, v, set]) => [v, set]);
+    held.forEach(([, , set]) => set(0));
+    setNoTpn(true);
+    if (held.length) showToast(`ไม่มี TPN — ล้าง ${held.map(([label]) => label).join(", ")} แล้ว (เอาติ๊กออกเพื่อคืนค่า)`, "info");
+  };
   const [prefilledFrom, setPrefilledFrom] = useState(null);
   const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
   const [savedLastModified, setSavedLastModified] = useState(editEntry?.lastModified || null);
@@ -562,6 +596,8 @@ function Calculator({
     setIoOutput(n.ioOutput);
     setDrainContent(n.drainContent);
     setRoute(n.route);
+    setNoTpn(n.noTpn);
+    noTpnStash.current = null;
     setTotalTPN_mL(n.totalTPN_mL);
     setDeadVol_mL(n.deadVol_mL);
     setDexPct(n.dexPct);
@@ -758,6 +794,7 @@ function Calculator({
     ioOutput,
     drainContent,
     route,
+    noTpn: noTpnOn,
     totalTPN_mL,
     deadVol_mL,
     dexPct,
@@ -1209,8 +1246,9 @@ function Calculator({
   }, [caPerKg, suppCa, suppPO4, wtKg, calc.pTotal_mg, calc.caFromEN, calc.pFromEN]);
   const stepStatus = {
     1: fluidTargetPerKg > 0 && Math.abs(calc.remaining) < 20 ? "done" : "partial",
-    2: totalTPN_mL > 0 && dexPct > 0 && aaPerKg > 0 ? "done" : totalTPN_mL > 0 || dexPct > 0 || aaPerKg > 0 ? "partial" : "empty",
-    3: naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg > 0 ? "done" : "empty",
+    // "ไม่มี TPN" ticked: Step 3 is answered, and Step 4 has no bag to fill.
+    2: noTpnOn ? "done" : totalTPN_mL > 0 && dexPct > 0 && aaPerKg > 0 ? "done" : totalTPN_mL > 0 || dexPct > 0 || aaPerKg > 0 ? "partial" : "empty",
+    3: naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg > 0 || noTpnOn ? "done" : "empty",
     4: "done",
     // vitamins/TE always defaulted
     5: calc.enVolPerKg >= 100 ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty"
@@ -1417,6 +1455,16 @@ function Calculator({
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d`
   });
+  const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
+  const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
+  const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
+  const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;
+  if (noTpnEnLow) alerts.push({
+    level: "warn",
+    title: "No TPN: feeds below the fluid requirement",
+    body: `ติ๊ก "ไม่มี TPN" แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""} — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
+    ref: "Pp, 2026-11-01"
+  });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
   if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose 12 mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
@@ -1450,7 +1498,7 @@ function Calculator({
   const uncoveredCritical = alerts.filter((a) => a.level === "crit" && !a.noReason).map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
   const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
-  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือใส่ปริมาตร`;
+  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? 'เอาติ๊ก "ไม่มี TPN" ออกแล้ว' : ""}ใส่ปริมาตร`;
   const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}` : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
   React.useEffect(() => {
@@ -2133,7 +2181,7 @@ function Calculator({
       lineHeight: 1.1,
       color: over ? "var(--crit)" : "var(--brand-2)"
     } }, over ? "0" : fmt(avail, 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4, fontWeight: 400 } }, "mL/day")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 } }, over ? /* @__PURE__ */ React.createElement("span", { style: { color: "var(--crit)", fontWeight: 600 } }, "IV เกินแผนสารน้ำ ", fmt(Math.abs(avail), 0), " mL") : /* @__PURE__ */ React.createElement("span", null, "= ", fmt(availKg, 0), " mL/kg/d")));
-  })(), !isMEN && calc.enVolPerKg > 100 && /* @__PURE__ */ React.createElement(Tile, { label: "Protein : Energy", value: calc.peRatio, unit: " g/100kcal", target: tPE, status: sPE, decimals: 1, max: 5 })))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable step2-card-h", onClick: () => toggleStep(2) }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "Step 3 · TPN macronutrients", /* @__PURE__ */ React.createElement("span", { className: "step2-ctrl", style: { display: "flex", alignItems: "center", gap: 8, marginLeft: 10 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, /* @__PURE__ */ React.createElement("button", { className: route === "peripheral" ? "on" : "", onClick: () => setRoute("peripheral") }, "Peripheral"), /* @__PURE__ */ React.createElement("button", { className: route === "central" ? "on" : "", onClick: () => setRoute("central") }, "Central")), route == null && /* @__PURE__ */ React.createElement("span", { className: "route-missing", style: { fontSize: 11, fontWeight: 700, color: "var(--crit)" } }, "ยังไม่ได้เลือก route"), /* @__PURE__ */ React.createElement("span", { style: {
+  })(), !isMEN && calc.enVolPerKg > 100 && /* @__PURE__ */ React.createElement(Tile, { label: "Protein : Energy", value: calc.peRatio, unit: " g/100kcal", target: tPE, status: sPE, decimals: 1, max: 5 })))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable step2-card-h", onClick: () => toggleStep(2) }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "Step 3 · TPN macronutrients", !noTpnOn && /* @__PURE__ */ React.createElement("span", { className: "step2-ctrl", style: { display: "flex", alignItems: "center", gap: 8, marginLeft: 10 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, /* @__PURE__ */ React.createElement("button", { className: route === "peripheral" ? "on" : "", onClick: () => setRoute("peripheral") }, "Peripheral"), /* @__PURE__ */ React.createElement("button", { className: route === "central" ? "on" : "", onClick: () => setRoute("central") }, "Central")), route == null && /* @__PURE__ */ React.createElement("span", { className: "route-missing", style: { fontSize: 11, fontWeight: 700, color: "var(--crit)" } }, "ยังไม่ได้เลือก route"), /* @__PURE__ */ React.createElement("span", { style: {
     padding: "2px 10px",
     borderRadius: 999,
     fontFamily: "IBM Plex Mono,monospace",
@@ -2152,7 +2200,47 @@ function Calculator({
       style: { display: "inline-flex", verticalAlign: "-2px", marginLeft: 4 }
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "warn", size: 13, stroke: 2.2 })
-  ))), !openSteps.has(2) && totalTPN_mL > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, fmt(totalTPN_mL, 0), " mL/d"), calc.overfill > 1.001 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "prep ", fmt(calc.preparedVol, 0), " mL · ×", fmt(calc.overfill, 2)), /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, fmt(totalTPN_mL / 24, 2), " mL/hr"), calc.gir > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "GIR ", fmt(calc.gir, 1)), aaPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "AA ", aaPerKg), lipidPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Lip ", fmt(calc.lipidBagVol / lipidDripHours, 2), " mL/hr")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[2]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(2) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(2) }, /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { border: "1.5px solid var(--brand-line)", borderRadius: 8, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+  ))), !openSteps.has(2) && totalTPN_mL > 0 && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, fmt(totalTPN_mL, 0), " mL/d"), calc.overfill > 1.001 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "prep ", fmt(calc.preparedVol, 0), " mL · ×", fmt(calc.overfill, 2)), /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, fmt(totalTPN_mL / 24, 2), " mL/hr"), calc.gir > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "GIR ", fmt(calc.gir, 1)), aaPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "AA ", aaPerKg), lipidPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Lip ", fmt(calc.lipidBagVol / lipidDripHours, 2), " mL/hr")), /* @__PURE__ */ React.createElement("div", { className: "step3-right", style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, !centerPoint && /* @__PURE__ */ React.createElement(
+    "label",
+    {
+      className: "chk-label no-tpn-chk",
+      onClick: (e) => e.stopPropagation(),
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 5,
+        padding: "5px 9px",
+        borderRadius: 6,
+        cursor: "pointer",
+        fontSize: 12,
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+        background: noTpnOn ? "var(--brand-bg)" : "var(--surface)",
+        border: `1px solid ${noTpnOn ? "var(--brand-line)" : "var(--line-2)"}`,
+        color: noTpnOn ? "var(--brand-2)" : "var(--ink-2)"
+      }
+    },
+    /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: noTpnOn,
+        onChange: (e) => tickNoTpn(e.target.checked),
+        style: { width: 16, height: 16, margin: 0 }
+      }
+    ),
+    "ไม่มี TPN"
+  ), /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[2]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(2) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(2) }, /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 12 } }, noTpnOn ? /* @__PURE__ */ React.createElement("div", { className: "no-tpn-note", style: {
+    border: "1.5px solid var(--line-2)",
+    borderRadius: 8,
+    padding: "10px 12px",
+    background: "var(--bg-2)",
+    fontSize: 12.5,
+    lineHeight: 1.6,
+    display: "flex",
+    flexDirection: "column",
+    gap: 2
+  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, color: "var(--ink)" } }, "ไม่มี TPN วันนี้ — ไม่มีถุง TPN และ lipid"), calc.wtKg > 0 ? /* @__PURE__ */ React.createElement("div", { className: "no-tpn-check", style: { color: noTpnEnLow ? "var(--warn)" : "var(--ink-2)", fontWeight: noTpnEnLow ? 600 : 400 } }, "นมที่นับได้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, vsLimit(enCountedPerKg, noTpnEnMin, 0)), " mL/kg/d", isMEN && calc.enVolTotal > 0 ? " (นม MEN ไม่นับ)" : "", " · ", "ต้องได้อย่างน้อย ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(noTpnEnMin, 0)), " mL/kg/d (", noTpnEnBasis, ")", noTpnEnLow ? " — ยังไม่ถึง" : " — ถึงแล้ว") : /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "ใส่น้ำหนักก่อน จึงจะตรวจปริมาณนมได้"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 11.5 } }, 'จะสั่ง TPN: เอาติ๊ก "ไม่มี TPN" ที่มุมขวาบนของ Step 3 ออก')) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { border: "1.5px solid var(--brand-line)", borderRadius: 8, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
     background: "var(--brand-bg)",
     padding: "6px 12px",
     fontSize: 11,
@@ -2291,7 +2379,7 @@ function Calculator({
     justifyContent: "space-between",
     alignItems: "center",
     fontSize: 12
-  } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)" } }, "Lipid bag total (20% lipid + Vitalipid)"), /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 700, color: "var(--ink)" } }, fmt(calc.lipidBagVol, 1), " mL/day")))), /* @__PURE__ */ React.createElement("div", { className: "metric-tiles-4", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "Energy (total)", value: calc.kcalKg, unit: " kcal/kg/d", target: tKcal, status: sKcal, statusAt: kcalStatusAt, decimals: 0, max: 180 }), /* @__PURE__ */ React.createElement(Tile, { label: "Protein", value: calc.proteinKg, unit: " g/kg/d", target: tPro, status: sPro, statusAt: proStatusAt, decimals: 1, max: 5.5 }), /* @__PURE__ */ React.createElement(Tile, { label: "Lipid (total)", value: calc.lipidKgTotal, unit: " g/kg/d", target: tLip, status: sLip, decimals: 1, max: 7 }), /* @__PURE__ */ React.createElement(Tile, { label: "NPC : Protein", value: calc.npeN, unit: " kcal/g AA", target: tNPE, status: sNPE, decimals: 0, max: 60 }), /* @__PURE__ */ React.createElement(Tile, { label: "Osmolarity", value: calc.osm, unit: " mOsm/L", target: route !== "central" ? [0, 900] : null, status: sOsm, statusAt: osmStatusAt, decimals: 0, max: 1100 })), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("div", { className: "men-note", style: { fontSize: 11.5, color: "var(--ink-2)", padding: "6px 10px", background: "var(--bg-2)", borderRadius: 6 } }, "นม MEN (trophic) ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(calc.enVolPerKg, 0)), " mL/kg/d ไม่นับในค่ารวม — Energy, Protein, Lipid ด้านบน และ Na K Ca P ใน Step 4"), calc.wtKg > 0 && /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)" } }, "Lipid bag total (20% lipid + Vitalipid)"), /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 700, color: "var(--ink)" } }, fmt(calc.lipidBagVol, 1), " mL/day"))))), /* @__PURE__ */ React.createElement("div", { className: "metric-tiles-4", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "Energy (total)", value: calc.kcalKg, unit: " kcal/kg/d", target: tKcal, status: sKcal, statusAt: kcalStatusAt, decimals: 0, max: 180 }), /* @__PURE__ */ React.createElement(Tile, { label: "Protein", value: calc.proteinKg, unit: " g/kg/d", target: tPro, status: sPro, statusAt: proStatusAt, decimals: 1, max: 5.5 }), /* @__PURE__ */ React.createElement(Tile, { label: "Lipid (total)", value: calc.lipidKgTotal, unit: " g/kg/d", target: tLip, status: sLip, decimals: 1, max: 7 }), /* @__PURE__ */ React.createElement(Tile, { label: "NPC : Protein", value: calc.npeN, unit: " kcal/g AA", target: tNPE, status: sNPE, decimals: 0, max: 60 }), /* @__PURE__ */ React.createElement(Tile, { label: "Osmolarity", value: calc.osm, unit: " mOsm/L", target: route !== "central" ? [0, 900] : null, status: sOsm, statusAt: osmStatusAt, decimals: 0, max: 1100 })), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("div", { className: "men-note", style: { fontSize: 11.5, color: "var(--ink-2)", padding: "6px 10px", background: "var(--bg-2)", borderRadius: 6 } }, "นม MEN (trophic) ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(calc.enVolPerKg, 0)), " mL/kg/d ไม่นับในค่ารวม — Energy, Protein, Lipid ด้านบน และ Na K Ca P ใน Step 4"), calc.wtKg > 0 && /* @__PURE__ */ React.createElement(
     ShowWorking,
     {
       calc,

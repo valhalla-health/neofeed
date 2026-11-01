@@ -2046,6 +2046,17 @@ three days before the admission day is drawn on the plot's left edge, with the a
 and a log without one still starts at 0. On `07abbe9`, 36 fail: the line reaches x ≈ 808 on a plot that
 ends at 736, and the early dot is at x = −46.
 
+## The "ไม่มี TPN" tick, 2026-11-01 — one harness
+
+Step 3's "ไม่มี TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (31 checks; the jsdom
+set) mounts the real Calculator. §1: the tick sits in Step 3's header, and ticking it clears a bag with lipid,
+KCl and ZnSO₄, names what it cleared, shows the note in place of the pumps, hides the route, and turns Steps 3
+and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value back. §3: Submit saves
+`calcInput.noTpn: true` with every bag ingredient 0 and no stop. §4: the saved order reopens ticked, a new day
+copied from it starts ticked, and a feeds-only row saved before the tick existed reopens unticked. §5: the
+changes list names "No TPN: no → yes". §6: Center Point offers no tick. What the feeds must reach
+(`CR-NO-TPN-EN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at once: there is no tick.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

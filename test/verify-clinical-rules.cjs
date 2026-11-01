@@ -19,7 +19,8 @@
 //       infant {g, bw?, dol?, bed?} · route "Central" | "Peripheral" (none if
 //       left out) · fluid (target, default 150) · feed (an EN_DB key) ·
 //       order {on-screen field label: value, typed in that order} ·
-//       tick {checkbox label: true | false} · hours (lipid infused over)
+//       tick {checkbox label: true | false} · then {field label: value, typed
+//       after the ticks} · hours (lipid infused over)
 //     expect   alert / no_alert: an alert title (or a list) on the Calculator,
 //              with `level` crit | warn | info for `alert`;
 //              submit: "blocked" (Submit disabled), "asks_reason" (Submit asks
@@ -204,6 +205,9 @@ function mount(c, log) {
     for (const [label, v] of Object.entries(c.order2 || {})) setField(label, v, container.querySelector('.en-feed-2'));
   }
   for (const [label, v] of Object.entries(c.tick || {})) tick(label, v);
+  // `then`: fields typed after the ticks, as a person types into a step a tick
+  // has just changed ("ไม่มี TPN" clears the bag; a salt typed after it).
+  for (const [label, v] of Object.entries(c.then || {})) setField(label, v);
   if (c.hours) {
     const b = buttonNamed('button', `${c.hours}h`);
     if (!b) throw new Error(`no ${c.hours}h button`);
