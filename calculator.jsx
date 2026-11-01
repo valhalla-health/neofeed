@@ -144,6 +144,22 @@ function bagRouteFrom(src) {
   return Number(src?.totalTPN_mL) > 0 ? src.route : null;
 }
 
+// "No TPN" on a row saved before the tick existed (2026-11-01). A SUBMITTED
+// order with neither a bag nor lipid was a day without TPN, so it reads as
+// ticked: it reopens, reprints and is copied to a new day without
+// CR-NO-TPN-TICK holding it, and CR-NO-TPN-EN checks its feeds as it would
+// today's. A draft stays unticked: its TPN may only not have been filled in
+// yet. A row whose calcInput already carries the key is read as saved.
+const NO_TPN_BAG_KEYS = ["totalTPN_mL", "dexPct", "aaPerKg", "lipidPerKg", "naCl", "naAcet", "glycophosP",
+  "kCl", "k2hpo4", "mgPerKg", "caPerKg", "znPerKg"];
+function withLegacyNoTpn(entry, src) {
+  const ci = entry?.calcInput;
+  if (!src || !ci || typeof ci !== "object" || Object.prototype.hasOwnProperty.call(ci, "noTpn")) return src;
+  if (window.NEOFEED_DATA.isDraftEntry(entry)) return src;
+  if (NO_TPN_BAG_KEYS.some(k => Number(src[k]) > 0)) return src;
+  return { ...src, noTpn: true };
+}
+
 // What the "changes vs previous order" list compares — per-kg ORDER values,
 // so a weight change alone doesn't flag every electrolyte line.
 const ORDER_DIFF_FIELDS = [
@@ -1098,7 +1114,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (entry?.ioInput      != null) src.ioInput      = entry.ioInput;
     if (entry?.ioOutput     != null) src.ioOutput     = entry.ioOutput;
     if (entry?.drainContent != null) src.drainContent = entry.drainContent;
-    return src;
+    return withLegacyNoTpn(entry, src);
   };
 
   // D4 (Pp, 2026-09-24): "หมอพิมพ์เอง" — the prescriber types a new order's
@@ -1410,7 +1426,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Changes vs the previous day's order (for the prescriber and pharmacy).
   const orderChanges = useMemo(() => {
     if (!previousEntry?.calcInput) return null;
-    return diffOrderInputs(normalizeCalcInput(previousEntry.calcInput, previousEntry.weight, 0), liveInputs);
+    return diffOrderInputs(normalizeCalcInput(withLegacyNoTpn(previousEntry, previousEntry.calcInput), previousEntry.weight, 0), liveInputs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previousEntry, formKey]);
   const toggleStep = (n) => setOpenSteps(prev => {
@@ -2182,9 +2198,21 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       + ` — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
     ref: "Pp, 2026-11-01" });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
+  // CR-NO-TPN-PLAN (Pp, 2026-11-01): a day ticked "No TPN" whose counted feed is
+  // more than 20 mL/kg/d below Step 1's plan is amber, in case the TPN was
+  // forgotten ("เผื่อลืมสั่ง TPN"). Quiet when CR-NO-TPN-EN's red line already
+  // holds, so one shortfall is not said twice; float noise stripped.
+  const noTpnPlanGap = fluidTargetPerKg - enCountedPerKg;
+  const noTpnPlanLow = noTpnOn && calc.wtKg > 0 && fluidTargetPerKg > 0 && !noTpnEnLow
+    && Number(noTpnPlanGap.toPrecision(12)) > D.NO_TPN_PLAN_GAP_ML_KG;
+  if (noTpnPlanLow) alerts.push({ level: "warn", title: "No TPN: feeds well below the fluid plan",
+    body: `No TPN · plan ${fmt(fluidTargetPerKg, 0)} mL/kg/d แต่นมที่นับได้ ${vsLimit(enCountedPerKg, fluidTargetPerKg - D.NO_TPN_PLAN_GAP_ML_KG, 0)} mL/kg/d`
+      + ` (ขาด ${fmt(noTpnPlanGap, 0)} mL/kg/d)${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""} — ลืมสั่ง TPN หรือเปล่า?`,
+    ref: "Pp, 2026-11-01" });
   // Also on a day ticked "No TPN", whose feeds may reach CR-NO-TPN-EN's bar
-  // and still be far from the day's plan (Vera, 2026-11-01).
-  if ((calc.totalTPN_mL > 0 || noTpnOn) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  // and still be far from the day's plan (Vera, 2026-11-01); there, a shortfall
+  // already said in red or amber above is not said again.
+  if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   // The title is unchanged so a saved critOverride still names it; the limit
   // is ESPGHAN's 17.3 g/kg/d since 2026-10-27, no longer the sheet's 18.

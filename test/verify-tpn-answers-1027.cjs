@@ -207,6 +207,8 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
       act(() => { selSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
     }
     setField('Volume(mL/feed)', 22); setField('Frequency', 8);
+    // An order with no TPN is submitted with "No TPN" ticked (CR-NO-TPN-TICK, 2026-11-01).
+    act(() => { container.querySelector('label.no-tpn-chk input').click(); });
     const a = alertNamed('Protein critically out of range');
     eq('Hi-Q LBW 24 at 176 mL/kg/d (protein ≈ 4.6): critical', a && a.level, 'crit');
     ok('…naming the 4.5 limit', !!a && /above the 4\.5 g\/kg\/d hard limit/.test(a.text), a && a.text);

@@ -553,6 +553,8 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     selectFeed('BM_20'); setField('Volume(mL/feed)', 30); setField('Frequency', 8);
     eq('feeds only: the field still shows the ward default', deadVal(), 30);
     near('…but nothing is prepared: 0 mL/day', prepared(), 0, 1);
+    // An order with no TPN is submitted with "No TPN" ticked (CR-NO-TPN-TICK, 2026-11-01).
+    act(() => { container.querySelector('label.no-tpn-chk input').click(); });
     await save();
     ok('…and the printed form asks for no bag', !!printForm() && /— mL \(Prepared Vol\.\)/.test(printText()) && !/ปริมาตรคาสาย 30/.test(printText()),
       printText().match(/Total Volume:[^F]*/));

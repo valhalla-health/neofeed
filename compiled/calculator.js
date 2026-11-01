@@ -94,6 +94,27 @@ function newOrderDeadVol(src, patient) {
 function bagRouteFrom(src) {
   return Number(src?.totalTPN_mL) > 0 ? src.route : null;
 }
+const NO_TPN_BAG_KEYS = [
+  "totalTPN_mL",
+  "dexPct",
+  "aaPerKg",
+  "lipidPerKg",
+  "naCl",
+  "naAcet",
+  "glycophosP",
+  "kCl",
+  "k2hpo4",
+  "mgPerKg",
+  "caPerKg",
+  "znPerKg"
+];
+function withLegacyNoTpn(entry, src) {
+  const ci = entry?.calcInput;
+  if (!src || !ci || typeof ci !== "object" || Object.prototype.hasOwnProperty.call(ci, "noTpn")) return src;
+  if (window.NEOFEED_DATA.isDraftEntry(entry)) return src;
+  if (NO_TPN_BAG_KEYS.some((k) => Number(src[k]) > 0)) return src;
+  return { ...src, noTpn: true };
+}
 const ORDER_DIFF_FIELDS = [
   ["route", "Route", ""],
   ["noTpn", "No TPN", ""],
@@ -646,7 +667,7 @@ function Calculator({
     if (entry?.ioInput != null) src.ioInput = entry.ioInput;
     if (entry?.ioOutput != null) src.ioOutput = entry.ioOutput;
     if (entry?.drainContent != null) src.drainContent = entry.drainContent;
-    return src;
+    return withLegacyNoTpn(entry, src);
   };
   const applyNursingIO = (dateKey) => {
     if (!nursingServed) return false;
@@ -879,7 +900,7 @@ function Calculator({
   };
   const orderChanges = useMemo(() => {
     if (!previousEntry?.calcInput) return null;
-    return diffOrderInputs(normalizeCalcInput(previousEntry.calcInput, previousEntry.weight, 0), liveInputs);
+    return diffOrderInputs(normalizeCalcInput(withLegacyNoTpn(previousEntry, previousEntry.calcInput), previousEntry.weight, 0), liveInputs);
   }, [previousEntry, formKey]);
   const toggleStep = (n) => setOpenSteps((prev) => {
     const next = new Set(prev);
@@ -1473,7 +1494,15 @@ function Calculator({
     ref: "Pp, 2026-11-01"
   });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
-  if ((calc.totalTPN_mL > 0 || noTpnOn) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  const noTpnPlanGap = fluidTargetPerKg - enCountedPerKg;
+  const noTpnPlanLow = noTpnOn && calc.wtKg > 0 && fluidTargetPerKg > 0 && !noTpnEnLow && Number(noTpnPlanGap.toPrecision(12)) > D.NO_TPN_PLAN_GAP_ML_KG;
+  if (noTpnPlanLow) alerts.push({
+    level: "warn",
+    title: "No TPN: feeds well below the fluid plan",
+    body: `No TPN · plan ${fmt(fluidTargetPerKg, 0)} mL/kg/d แต่นมที่นับได้ ${vsLimit(enCountedPerKg, fluidTargetPerKg - D.NO_TPN_PLAN_GAP_ML_KG, 0)} mL/kg/d (ขาด ${fmt(noTpnPlanGap, 0)} mL/kg/d)${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""} — ลืมสั่ง TPN หรือเปล่า?`,
+    ref: "Pp, 2026-11-01"
+  });
+  if ((calc.totalTPN_mL > 0 || noTpnOn && !noTpnEnLow && !noTpnPlanLow) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose 12 mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
   if (kOverMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });

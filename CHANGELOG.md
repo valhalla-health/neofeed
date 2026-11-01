@@ -37,20 +37,31 @@ no TPN / คำอธิบาย ไม่ต้องใส่"; then, asked, 
   "No TPN: feeds below the fluid requirement" is critical: Submit asks for a reason, and the reason prints
   on the order. Pp chose this over a stop, so a day on IV fluid alone can still be ordered. The line names
   the feed, the bar and any Other IV. A MEN feed counts for nothing, so MEN alone is always below it.
-- **`CR-FLUID-PLAN` also runs on a ticked day** (Vera): feeds of 80 reach the bar but can be far from a
-  plan of 150, and it ran only with a bag. An info line, as before.
-- **Saved with the order** as `calcInput.noTpn`. A row without the key (every row before today) reads as
-  unticked. A new day copied from a ticked order starts ticked, and the changes list (on screen and on the
-  printed form) says "No TPN: no → yes".
+- **Feeds far below the plan (`CR-NO-TPN-PLAN`, amber).** With the tick on, a counted feed more than
+  20 mL/kg/d below Step 1's fluid plan is amber, "No TPN: feeds well below the fluid plan … ลืมสั่ง TPN
+  หรือเปล่า?", in case the TPN was forgotten (Pp: "ถ้ามีฟูอิดแพลน แล้ว มากกว่าเอนเทอรัลเยอะๆ ให้alarmด้วย";
+  asked, she chose 20 and amber). It stays quiet while the red line above holds, so one shortfall is said
+  once. `CR-FLUID-PLAN`'s info line also runs on a ticked day (Vera), but only for feeds above the plan.
+- **Saved with the order** as `calcInput.noTpn`. A new day copied from a ticked order starts ticked, and
+  the changes list (on screen and on the printed form) says "No TPN: no → yes". **A submitted order saved
+  before today** with neither a bag nor lipid reads as ticked when reopened, reprinted, copied or compared,
+  so its reprint is not held by the new stop; a draft does not. Its feeds are checked as today's, so an old
+  NPO day's reprint asks a reason, as a new one would.
 - **Unchanged:** every calculation, printed figure and `CONSTANTS_VERSION`.
 - **Open for Pp (Q20):** "80 หรือ fluid requirement" is read as whichever is lower, so after the days above
   a feed of 80 is enough although the band is 100–160; whether the bar should be the day's requirement
   when higher (DOL 6 on: 140) is hers.
-- **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-U-NO-TPN` (2),
-  two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No TPN" with enough feed,
-  their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
-  `verify-no-tpn-1101.cjs`, 40 checks. Checked in Chromium at 390 and 1280 px: the tick at the top right,
-  no sideways scroll.
+- **Tests.** The clinical-rules skill: `CR-NO-TPN-EN` (18 cases), `CR-NO-TPN-TICK` (5), `CR-NO-TPN-PLAN`
+  (6), `CR-U-NO-TPN` (2), two for `CR-FLUID-PLAN`; twelve older cases whose orders had no TPN now tick "No
+  TPN" with enough feed, their own rule unchanged. Its harness gains `then`, fields typed after the ticks.
+  `verify-no-tpn-1101.cjs`, 43 checks. Nine harnesses built orders with no TPN and no tick, or saved an NPO
+  day with no reason; each now ticks "No TPN" (and feeds or a reason) where it builds such an order:
+  `calc-sum` and `calc-oracle` (whose own alert model gains the two No-TPN rules, written out),
+  `incident-gaps-1021` (the NPO day now asks a reason, and the next day starts ticked),
+  `required-log-fields`, `review-0917-calc` (its full-feeds print digest is unchanged), `review-0917-drafts`,
+  `review-0917-sync`, `tpn-answers-1027`, `tpn-calc-weight`, `ward-requests-0918` and
+  `picker-print-identity`. Checked in Chromium at 390 and 1280 px: the tick at the top right, no sideways
+  scroll.
 
 ## Session 2026-10-30 (3) — The Trend graph joins its days with straight lines
 

@@ -8,8 +8,8 @@
 // an order with no TPN cannot be submitted until it is ticked
 // (CR-NO-TPN-TICK); the order saves with calcInput.noTpn and reopens ticked; a
 // new day copied from a ticked order starts ticked; the changes list names it;
-// a row saved before the tick existed reopens unticked; Center Point offers no
-// tick. What the feeds must reach is CR-NO-TPN-EN, and its cases run in
+// a submitted row saved before the tick existed with no TPN reopens ticked, a
+// draft unticked; Center Point offers no tick. What the feeds must reach is CR-NO-TPN-EN, and its cases run in
 // test/verify-clinical-rules.cjs.
 //
 // Mounts the real <Calculator> in jsdom: the deps in test/README.md. Synthetic
@@ -195,8 +195,15 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('the saved order reopens ticked, with no pumps', noTpnBox()?.checked === true && !text(container).includes('TPN Aqueous Pump'));
   mount({ baselineEntry: ticked });
   ok('a new day copied from it starts ticked', noTpnBox()?.checked === true);
-  mount({ editEntry: savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, totalTPN_mL: 0, enType: 'BM_20', enVol: 12, enFreq: 8 }) });
-  ok('a feeds-only row saved before the tick existed reopens unticked', noTpnBox()?.checked === false);
+  // A row saved before the tick existed has no noTpn key (withLegacyNoTpn).
+  const legacyFeeds = { curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, totalTPN_mL: 0, enType: 'BM_20', enVol: 12, enFreq: 8 };
+  mount({ editEntry: savedRow(legacyFeeds) });
+  ok('a submitted feeds-only row saved before the tick existed reopens ticked', noTpnBox()?.checked === true);
+  ok('…so nothing holds its reprint', !!container.querySelector('#print-form') && !container.querySelector('.no-tpn-unticked'));
+  mount({ editEntry: { ...savedRow(legacyFeeds), status: 'draft' } });
+  ok('the same row as a draft reopens unticked (its TPN may not be filled in yet)', noTpnBox()?.checked === false);
+  mount({ editEntry: savedRow({ ...legacyFeeds, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, route: 'central' }) });
+  ok('a submitted row with a bag reopens unticked', noTpnBox()?.checked === false);
 
   section('6 · the changes list names it');
   const before = savedRow({ curWtG: 1000, fluidTargetPerKg: 150, route: 'central', totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, enType: 'BM_20', enVol: 12, enFreq: 8 });

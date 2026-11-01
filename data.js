@@ -863,6 +863,12 @@ const NO_TPN_EN_MIN_ML_KG = 80;
 function noTpnEnMinPerKg(dol, wtG, bwG) {
   return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG)[0]);
 }
+// A day ticked "No TPN" whose counted feed is more than this many mL/kg/day
+// below Step 1's fluid plan: an amber line, in case the TPN was forgotten (Pp,
+// 2026-11-01: "ถ้ามีฟูอิดแพลน แล้ว มากกว่าเอนเทอรัลเยอะๆ ให้alarmด้วย อ่า
+// เผื่อลืมสั่ง ทีพีเอ็น"; she chose 20, the margin "Fluid: prescribed ≠ target"
+// already uses, and amber). A caution only, so CONSTANTS_VERSION stays.
+const NO_TPN_PLAN_GAP_ML_KG = 20;
 
 // ── Numbers a person reads ────────────────────────────────────
 // Every figure on a screen, the pharmacy form or a copied order goes through
@@ -2746,7 +2752,7 @@ window.NEOFEED_DATA = {
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,

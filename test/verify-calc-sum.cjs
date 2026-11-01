@@ -446,6 +446,9 @@ async function fill(sc, scratch = false) {
   setCheck('Peditrace', sc.pedi);
   setField('ZnSO₄', sc.zn);
   setField('Heparin(U/mL)', sc.hep);
+  // An order with no bag and no lipid is submitted with "No TPN" ticked
+  // (CR-NO-TPN-TICK, Pp 2026-11-01). It holds nothing to clear here.
+  if (!['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0)) setCheck('No TPN', true);
   if (scratch) return;
   setField('Urine output', sc.ioOut);
   setField('Drain content', sc.drain);
@@ -577,6 +580,8 @@ async function run(scIn, idx) {
     how = `dead-space chip ${sc.dead} → ${newDead} mL`;
   } else {
     newVd = Vd > 0 ? Vd + 12.5 : 60;
+    // A day without a bag was ticked "No TPN"; a bag starts by taking it off.
+    if (!(Vd > 0)) setCheck('No TPN', false);
     typeChars('Volume(mL/day)', String(newVd));
     how = `TPN volume typed ${Vd} → ${newVd} mL/day`;
   }

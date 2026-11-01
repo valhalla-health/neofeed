@@ -118,6 +118,8 @@ const tileStatus = (label) => {
 const tileRange = (label) => [...container.querySelectorAll('.metric')]
   .find(x => x.querySelector('.lbl')?.textContent === label)?.querySelector('.range')?.textContent;
 const printForm = () => container.querySelector('#print-form');
+// An order with no TPN is submitted with Step 3's "No TPN" ticked (CR-NO-TPN-TICK, Pp 2026-11-01).
+const tickNoTpn = () => { const b = container.querySelector('label.no-tpn-chk input'); if (b && !b.checked) act(() => { b.click(); }); };
 const printText = () => (printForm()?.textContent || '').replace(/\s+/g, ' ');
 const missingText = () => [...container.querySelectorAll('div')].map(d => d.textContent).filter(t => /^ยังกรอกไม่ครบ/.test(t)).pop() || '';
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -171,6 +173,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       mount({ patient: pt('EN-1300', 1300), dol: 28, onLog: log.onLog });
       setField('Current weight', 1500); fillRequired(160);
       selectFeed(feed); setField('Volume(mL/feed)', vol); setField('Frequency', freq);
+      tickNoTpn();
       eq(`${feed} ${vol}×${freq}: no critical alert`, critTitles(), []);
       ok(`${feed}: Lipid (total) tile is not critical`, !['crit', null].includes(tileStatus('Lipid (total)')), tileStatus('Lipid (total)'));
       ok(`${feed}: Potassium tile is not critical`, !['crit', null].includes(tileStatus('Potassium')), tileStatus('Potassium'));
@@ -363,7 +366,7 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
       // mg/100 mL, Table 5 p. 16). Exactly 2 of its 64 figures moved: Ca 134 →
       // 157, printed twice; PO₄ stays 88 (was 0b623805fb1acb17).
       full_en: ['96c0d8047fc2076a', P, () => {
-        setField('Current weight', 1500); fillRequired(160); selectFeed('FBM_PF_24'); setField('Volume(mL/feed)', 30); setField('Frequency', 8); }],
+        setField('Current weight', 1500); fillRequired(160); selectFeed('FBM_PF_24'); setField('Volume(mL/feed)', 30); setField('Frequency', 8); tickNoTpn(); }],
     };
     const PARITY = [['Current weight', 1234], ['Target fluid', 150], ['Other IV', 3], ['Drug volume', 2],
       ['Volume(mL/feed)', 7], ['Frequency', 8], ['Volume(mL/day)', 137], ['ปริมาตรคาสาย', 0], ['Dextrose final', 12.5],
@@ -407,7 +410,10 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     ok('the over-full bag is a critical alert on screen (it needed volume > 0)', critTitles().includes('Bag cannot be compounded'), critTitles());
     ok('…and the bag make-up panel is shown', /WFI q\.s\./.test(container.textContent));
     for (const l of ['Amino acid', 'Dextrose final', '20% NaCl', 'KCl', 'Glycophos', '10% Ca gluconate']) setField(l, 0);
-    ok('removing the ingredients lifts the block', !container.querySelector('.zero-volume-bag') && saveBtn()?.disabled === false);
+    ok('removing the ingredients lifts the zero-volume block', !container.querySelector('.zero-volume-bag'));
+    ok('…and the order, now without TPN, waits for "No TPN" (CR-NO-TPN-TICK)', !!container.querySelector('.no-tpn-unticked') && saveBtn()?.disabled === true);
+    tickNoTpn();
+    ok('ticked: Submit is enabled', saveBtn()?.disabled === false);
     // Every fresh form ticks Soluvit/Peditrace and sets heparin 1 U/mL; counting
     // those would block every feeds-only and NPO day.
     const soluvit = [...container.querySelectorAll('input[type=checkbox]')].find(i => /Soluvit/.test(i.closest('label')?.textContent || ''));

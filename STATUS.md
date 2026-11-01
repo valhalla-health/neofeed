@@ -304,7 +304,8 @@ with them (marked below). Caught up with #201 by PR #202.
   Step 3, and saves as `calcInput.noTpn`. An order with no TPN cannot be submitted until it is ticked
   (`CR-NO-TPN-TICK`), so every feeds-only order needs the tick. With it on, a counted feed below 80 mL/kg/d,
   or below the day's fluid requirement where that is lower, is critical and asks a reason that prints
-  (`CR-NO-TPN-EN`). No calculation, printed figure or `CONSTANTS_VERSION` moves; no `clasp` step. ⚠️ The
+  (`CR-NO-TPN-EN`); more than 20 below the fluid plan is amber (`CR-NO-TPN-PLAN`). An NPO day now needs
+  the tick and a reason. No calculation, printed figure or `CONSTANTS_VERSION` moves; no `clasp` step. ⚠️ The
   ward should hear of the new tick before release. Open for Pp: Q20 (the bar when the day's band is above
   80). `CHANGELOG.md` 2026-11-01 (2).
 

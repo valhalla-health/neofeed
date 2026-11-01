@@ -892,7 +892,10 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    cannot be submitted without it (`CR-NO-TPN-TICK`). With it ticked the
    counted feed must reach `D.noTpnEnMinPerKg` (80 mL/kg/d, or the day's
    lower fluid bound if less), else a critical line that asks a reason
-   (`CR-NO-TPN-EN`). Not offered on Center Point.
+   (`CR-NO-TPN-EN`); more than 20 below Step 1's plan is amber
+   (`CR-NO-TPN-PLAN`). A submitted row saved before 2026-11-01 with no
+   bag and no lipid reads as ticked (`withLegacyNoTpn`); a draft does not.
+   Not offered on Center Point.
    Step 4 also has a **Magnesium**
    tile: the TPN's Mg in mEq/kg/d against `TARGETS.mg` (`EN_DB` has no Mg).
    The amino-acid stock comes from `D.aaProductsFor(patient)` — Aminoven on
