@@ -7,6 +7,32 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-01 — The Save card's "changes from the previous order" is a table
+
+`calculator.jsx` (the Save Order card), `compiled/calculator.js`, both shells' `?v=` tokens,
+`test/verify-review-0911.cjs`, `test/verify-review-0917-calc.cjs`, `test/verify-tpn-team-0922.cjs`,
+`test/verify-en-db-sources.cjs`, `STATUS.md`. Pp, with a phone screenshot of the Save card (DOL 2, nine
+changes from DOL 1): "ทำเป็นตารางให้อ่านง่ายขึ้น".
+
+- **Before:** one monospace line per change, `Target fluid: 80 → 90 mL/kg/d`. Names, values and
+  units were different lengths, so nothing lined up and the eye had to read each line from the start.
+- **Now a table with four columns, รายการ · เดิม · ใหม่ · หน่วย.** The name is in the body font. The old
+  value is right-aligned against the arrow, and the new value is bold and left-aligned against it, so each
+  row still reads `80 → 90`. When a change of feed puts a long milk name in a value column, the numbers
+  stay next to the arrow. The unit sits grey in its own column. The table is only as wide as its content,
+  with a line between rows. The arrow is hidden from a screen reader, which reads the two values under
+  their headings. Checked in Chromium at 390 and 320 px wide: no sideways scroll; at 320 px a long name
+  or milk wraps inside its cell.
+- **Unchanged:** which changes are listed and how each value is written (`diffOrderInputs`,
+  `describeOrderValue`), the heading with the previous order's DOL, the "no detailed data" and "no
+  changes" lines, and the **printed form's** one-line list of changes. No calculation, figure or saved
+  field changes.
+- **Tests.** Four harnesses read the list's text as `name: old → new unit`. They now read each table row
+  by its cells and rebuild that line, so their checks are unchanged (ZnSO₄ 0 → 0.15, TPN volume
+  100 → 98.4, Amino acid 3 → 3.5, Feed 2: Pre Nan → none). `verify-review-0911.cjs` adds three checks:
+  the headings, the cells of the Amino acid row in order, and that the new value is bold and the arrow
+  hidden from a screen reader.
+
 ## Session 2026-10-30 (3) — The Trend graph joins its days with straight lines
 
 `log.jsx` (`TrendGraph`), `compiled/log.js`, both shells' `?v=` tokens, `test/verify-trend-line-1030.cjs`,
