@@ -1327,7 +1327,7 @@ function Calculator({
   const bagOverfull = bagOrdered && calc.wfiVol < 0;
   const bagOverfullText = `ส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุง ${fmt(calc.preparedVol, 1)} mL ไป ${fmt(Math.abs(calc.wfiVol), 1)} mL ห้อง TPN ผสมไม่ได้ — เพิ่มปริมาตร TPN หรือลดขนาดยา`;
   const bagCannotBeMade = bagOverBottle || bagOverfull;
-  const bagCannotBeMadeText = bagOverBottle && bagOverfull ? `ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL และส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุงไป ${fmt(Math.abs(calc.wfiVol), 1)} mL — ลดขนาดยา` : `ใส่ถุงไม่ได้: ${bagOverBottle ? bagOverBottleText : bagOverfullText}`;
+  const bagCannotBeMadeText = bagOverBottle && bagOverfull ? `ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL และส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุงไป ${fmt(Math.abs(calc.wfiVol), 1)} mL — ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน ${D.TPN_BOTTLE_MAX_ML} mL` : `ใส่ถุงไม่ได้: ${bagOverBottle ? bagOverBottleText : bagOverfullText}`;
   const routeMissing = route == null && (bagOrdered || !!centerPoint);
   const routeMissingText = `ยังไม่ได้เลือก route ของ TPN — กด Peripheral หรือ Central ที่ Step 3 ก่อน${centerPoint ? "บันทึก" : " Submit"}`;
   const [tpnWtLo, tpnWtHi] = D.TPN_WT_RANGE_G;
@@ -1431,7 +1431,7 @@ function Calculator({
   if (bagCannotBeMade) alerts.push({
     level: "crit",
     title: "Bag cannot be made (ใส่ถุงไม่ได้)",
-    body: (bagOverBottle && bagOverfull ? `${fmt(calc.preparedVol, 1)} mL to prepare is above the TPN room's largest bottle, ${D.TPN_BOTTLE_MAX_ML} mL, and its components total ${fmt(calc.componentVol, 1)} mL, over the bag by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Lower a dose.` : bagOverBottle ? `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL. Lower the volume or the dead space.` : `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Raise the volume or lower a dose.`) + " This order cannot be submitted.",
+    body: (bagOverBottle && bagOverfull ? `${fmt(calc.preparedVol, 1)} mL to prepare is above the TPN room's largest bottle, ${D.TPN_BOTTLE_MAX_ML} mL, and its components total ${fmt(calc.componentVol, 1)} mL, over the bag by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Lower a dose, and lower the dead space or the volume until the bag is ${D.TPN_BOTTLE_MAX_ML} mL or less.` : bagOverBottle ? `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL. Lower the volume or the dead space.` : `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Raise the volume or lower a dose.`) + " This order cannot be submitted.",
     ref: [bagOverBottle && "TPN team, 2026-10-25", bagOverfull && "Pp, 2026-10-28 · WFI q.s."].filter(Boolean).join(" · ")
   });
   if (feedUnknown) alerts.push({ level: "crit", title: "Feed not in the formulary", body: `${feedsUnknown.join(", ")}: no composition in EN_DB, so its energy, protein and minerals cannot be counted — this order cannot be submitted.`, ref: "PR review (Vera), 2026-10-28" });

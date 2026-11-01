@@ -140,7 +140,7 @@ above every source found**: Q1, which Pp answered on 2026-10-28: keep as is for 
 A prepared volume (delivered + dead space) above 1,250 mL cannot be ordered; 1,250 itself can. Graded
 on the prepared volume as printed (1 decimal), so 1,250.04 mL passes. On screen it is one stop with
 `CR-BAG-OVERFULL`, "Bag cannot be made (ใส่ถุงไม่ได้)", which names whichever limit holds, each with its own
-fix, or, when both hold, the one fix that clears both, a lower dose; the two rules and their IDs are unchanged.
+fix, or, when both hold, both steps (a lower dose, and the bag down to 1,250 mL); the two rules and their IDs are unchanged.
 Source: KCMH TPN team, 2026-10-25 (the TPN room's largest bottle); Pp, 2026-10-27: "ห้ามสั่ง". One stop on
 screen: Pp, 2026-11-01: "ใส่ถุงไม่ได้ คือรวม Bag over the 1,250 mL bottle, WFI negative"; she chose the title.
 
@@ -148,7 +148,7 @@ screen: Pp, 2026-11-01: "ใส่ถุงไม่ได้ คือรวม
 {"rule": "CR-BOTTLE-MAX", "kind": "stop", "coded": {"TPN_BOTTLE_MAX_ML": 1250}, "where": [{"file": "data.js", "line": 795, "has": "const TPN_BOTTLE_MAX_ML = 1250;"}, {"file": "calculator.jsx", "line": 1952, "has": "const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;"}]}
 {"case": "1,220.04 + 30 = 1,250.04 mL prints 1,250 and saves", "side": "inside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1220.04, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"no_alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "no_reason"}}
 {"case": "1,221 + 30 = 1,251 mL is refused", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1221, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": "ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1251 mL เกินขวดใหญ่สุด 1250 mL ของห้อง TPN — ลดปริมาตรหรือ dead space — บันทึก/พิมพ์ไม่ได้", "hides": "ส่วนประกอบรวม"}}
-{"case": "1,251 mL of D45 with amino acid 3.5: over the bottle and over-full, one stop naming both, and one fix, a lower dose", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1221, "Dextrose final": 45, "Amino acid": 3.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": ["ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1251 mL เกินขวดใหญ่สุด 1250 mL และส่วนประกอบรวม", "เกินถุงไป", "mL — ลดขนาดยา — บันทึก/พิมพ์ไม่ได้", "Lower a dose. This order cannot be submitted."], "hides": ["เพิ่มปริมาตร TPN", "Raise the volume"]}}
+{"case": "1,251 mL of D45 with amino acid 3.5: over the bottle and over-full, one stop naming both, and both steps", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1221, "Dextrose final": 45, "Amino acid": 3.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": ["ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1251 mL เกินขวดใหญ่สุด 1250 mL และส่วนประกอบรวม", "เกินถุงไป", "mL — ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน 1250 mL — บันทึก/พิมพ์ไม่ได้", "Lower a dose, and lower the dead space or the volume until the bag is 1250 mL or less. This order cannot be submitted."], "hides": ["เพิ่มปริมาตร TPN", "Raise the volume"]}}
 ```
 
 ### CR-STOCK-ZERO · an ordered stock that rounds to 0 mL

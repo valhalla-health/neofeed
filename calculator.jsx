@@ -2011,11 +2011,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // the 1,250 mL bottle, WFI negative"). The two rules, and the IDs the backend
   // hears, are unchanged.
   const bagCannotBeMade = bagOverBottle || bagOverfull;
-  // Both at once: raising the volume clears the WFI but not the bottle, and
-  // lowering it the reverse, so the one fix that clears both is a lower dose
-  // (review of 2026-11-01: the two fixes, side by side, contradicted each other).
+  // Both at once: the two single fixes contradict each other (raise the volume,
+  // lower the volume; review of 2026-11-01), and no one step clears both. A lower
+  // dose clears the WFI but not the bottle, since the prepared volume is the
+  // delivered volume plus dead space whatever the doses; the bag must also come
+  // down to the bottle (Vera, second review of #207). So both steps are named.
   const bagCannotBeMadeText = bagOverBottle && bagOverfull
-    ? `ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL และส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุงไป ${fmt(Math.abs(calc.wfiVol), 1)} mL — ลดขนาดยา`
+    ? `ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL และส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุงไป ${fmt(Math.abs(calc.wfiVol), 1)} mL — ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน ${D.TPN_BOTTLE_MAX_ML} mL`
     : `ใส่ถุงไม่ได้: ${bagOverBottle ? bagOverBottleText : bagOverfullText}`;
   // A bag needs a route before Submit (Pp, 2026-10-21); a draft may be kept
   // without one. A day with no bag needs none. Center Point's packet always
@@ -2144,10 +2146,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // One title for both limits since 2026-11-01 (Pp). It was "Bag cannot be
   // compounded" (and "Bag larger than the largest bottle"): a reason saved
   // before 2026-10-28 names the old one, and such a row is held all the same,
-  // since the WFI is worked out again. Both at once: one fix, a lower dose.
+  // since the WFI is worked out again. Both at once: both steps are named.
   if (bagCannotBeMade) alerts.push({ level: "crit", title: "Bag cannot be made (ใส่ถุงไม่ได้)",
     body: (bagOverBottle && bagOverfull
-      ? `${fmt(calc.preparedVol, 1)} mL to prepare is above the TPN room's largest bottle, ${D.TPN_BOTTLE_MAX_ML} mL, and its components total ${fmt(calc.componentVol, 1)} mL, over the bag by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Lower a dose.`
+      ? `${fmt(calc.preparedVol, 1)} mL to prepare is above the TPN room's largest bottle, ${D.TPN_BOTTLE_MAX_ML} mL, and its components total ${fmt(calc.componentVol, 1)} mL, over the bag by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Lower a dose, and lower the dead space or the volume until the bag is ${D.TPN_BOTTLE_MAX_ML} mL or less.`
       : bagOverBottle ? `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL. Lower the volume or the dead space.`
       : `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Raise the volume or lower a dose.`)
       + " This order cannot be submitted.",
