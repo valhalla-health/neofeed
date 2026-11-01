@@ -102,7 +102,10 @@ async function tryPrint() {
   await act(async () => { await sleep(10); });
   return { printed, toasts: toasts.slice(t0) };
 }
-const TITLE = 'Bag cannot be compounded';
+// One stop on screen with the bottle since 2026-11-01 (Pp); a reason saved before
+// 2026-10-28 names the old title, OLD_TITLE.
+const TITLE = 'Bag cannot be made (ใส่ถุงไม่ได้)';
+const OLD_TITLE = 'Bag cannot be compounded';
 
 // verify-calc-sum.cjs S8: 2,000 g, 130.45 mL with no dead space, components 130.5 = prepared 130.5.
 const S8 = { 'Volume(mL/day)': 130.45, 'ปริมาตรคาสาย (dead space)': 0, 'Dextrose final': 20, 'Amino acid': 3.5,
@@ -147,7 +150,7 @@ function fill(order, { io = true } = {}) {
     fill(OVER);
     ok(`KCl 1.1: "${TITLE}" is a red line`, critTitles().includes(TITLE), critTitles());
     eq('Submit is disabled', buttonNamed('Submit')?.disabled, true);
-    const panel = text(container.querySelector('.bag-overfull'));
+    const panel = text(container.querySelector('.bag-cannot-be-made'));
     ok('the save panel says why: 130.6 mL of stock in a 130.5 mL bag', /130\.6 mL/.test(panel) && /130\.5 mL/.test(panel) && /บันทึก\/พิมพ์ไม่ได้/.test(panel), panel);
     eq('a draft may still be kept', draftBtn()?.disabled, false);
     asked = null;
@@ -162,7 +165,7 @@ function fill(order, { io = true } = {}) {
     const ci = { curWtG: 2000, fluidTargetPerKg: 120, otherIV_mL: 0, drug_mL: 0, ioInput: 0, ioOutput: 0, drainContent: 0,
       route: 'central', totalTPN_mL: 130.45, deadVol_mL: 0, dexPct: 20, aaPerKg: 3.5, lipidPerKg: 0, naCl: 2, kCl: 1.1,
       glycophosP: 0.65, heparinUmL: 0.6, enType: 'BM_20', enVol: 0, enFreq: 0, constantsVersion: D.CONSTANTS_VERSION,
-      critOverride: { reason: 'saved before 2026-10-28', alerts: [TITLE], at: '2026-10-27T10:00:00.000Z' } };
+      critOverride: { reason: 'saved before 2026-10-28', alerts: [OLD_TITLE], at: '2026-10-27T10:00:00.000Z' } };
     const entry = { entryId: 'e-old', lastModified: 'lm-old', ts: '2026-10-27', dol: 10, weight: 2000, status: 'submitted',
       ioInput: 0, ioOutput: 0, drainContent: 0, enVolPerKg: 0, calcInput: ci };
     mountNew({ editEntry: entry });

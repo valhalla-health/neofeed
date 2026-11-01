@@ -2077,6 +2077,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // asking for a negative volume of water. A draft may be kept.
   const bagOverfull = bagOrdered && calc.wfiVol < 0;
   const bagOverfullText = `ส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุง ${fmt(calc.preparedVol, 1)} mL ไป ${fmt(Math.abs(calc.wfiVol), 1)} mL ห้อง TPN ผสมไม่ได้ — เพิ่มปริมาตร TPN หรือลดขนาดยา`;
+  // The bottle (CR-BOTTLE-MAX) and the over-full bag (CR-BAG-OVERFULL) are one
+  // stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)", naming whichever limit
+  // holds, each with its own fix (Pp, 2026-11-01: "ใส่ถุงไม่ได้ คือรวม Bag over
+  // the 1,250 mL bottle, WFI negative"). The two rules, and the IDs the backend
+  // hears, are unchanged.
+  const bagCannotBeMade = bagOverBottle || bagOverfull;
+  // Both at once: the two single fixes contradict each other (raise the volume,
+  // lower the volume; review of 2026-11-01), and no one step clears both. A lower
+  // dose clears the WFI but not the bottle, since the prepared volume is the
+  // delivered volume plus dead space whatever the doses; the bag must also come
+  // down to the bottle (Vera, second review of #207). So both steps are named.
+  const bagCannotBeMadeText = bagOverBottle && bagOverfull
+    ? `ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL และส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุงไป ${fmt(Math.abs(calc.wfiVol), 1)} mL — ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน ${D.TPN_BOTTLE_MAX_ML} mL`
+    : `ใส่ถุงไม่ได้: ${bagOverBottle ? bagOverBottleText : bagOverfullText}`;
   // A bag needs a route before Submit (Pp, 2026-10-21); a draft may be kept
   // without one. A day with no bag needs none. Center Point's packet always
   // carries a route (tpn-document.mjs), so there it is needed on every order.
@@ -2240,9 +2254,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
-  // The title is unchanged: a row saved before 2026-10-28 names it in its reason.
-  if (bagOverfull) alerts.push({ level: "crit", title: "Bag cannot be compounded", body: `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL, so this order cannot be submitted. Raise the volume or lower a dose.`, ref: "Pp, 2026-10-28 · WFI q.s." });
-  if (bagOverBottle) alerts.push({ level: "crit", title: "Bag larger than the largest bottle", body: `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL, so this order cannot be submitted. Lower the volume or the dead space.`, ref: "TPN team, 2026-10-25" });
+  // One title for both limits since 2026-11-01 (Pp). It was "Bag cannot be
+  // compounded" (and "Bag larger than the largest bottle"): a reason saved
+  // before 2026-10-28 names the old one, and such a row is held all the same,
+  // since the WFI is worked out again. Both at once: both steps are named.
+  if (bagCannotBeMade) alerts.push({ level: "crit", title: "Bag cannot be made (ใส่ถุงไม่ได้)",
+    body: (bagOverBottle && bagOverfull
+      ? `${fmt(calc.preparedVol, 1)} mL to prepare is above the TPN room's largest bottle, ${D.TPN_BOTTLE_MAX_ML} mL, and its components total ${fmt(calc.componentVol, 1)} mL, over the bag by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Lower a dose, and lower the dead space or the volume until the bag is ${D.TPN_BOTTLE_MAX_ML} mL or less.`
+      : bagOverBottle ? `${fmt(calc.preparedVol, 1)} mL to prepare — the TPN room's largest bottle is ${D.TPN_BOTTLE_MAX_ML} mL. Lower the volume or the dead space.`
+      : `Components total ${fmt(calc.componentVol, 1)} mL but the prepared bag is only ${fmt(calc.preparedVol, 1)} mL — over by ${fmt(Math.abs(calc.wfiVol), 1)} mL (WFI below 0). Raise the volume or lower a dose.`)
+      + " This order cannot be submitted.",
+    ref: [bagOverBottle && "TPN team, 2026-10-25", bagOverfull && "Pp, 2026-10-28 · WFI q.s."].filter(Boolean).join(" · ") });
   if (feedUnknown) alerts.push({ level: "crit", title: "Feed not in the formulary", body: `${feedsUnknown.join(", ")}: no composition in EN_DB, so its energy, protein and minerals cannot be counted — this order cannot be submitted.`, ref: "PR review (Vera), 2026-10-28" });
   if (feedsIrregular) alerts.push({ level: "crit", title: "Two feeds off a regular schedule", body: feedsNotWhole
     ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} feeds a day — each feed's feeds a day must be a whole number. This order cannot be submitted.`
@@ -2324,8 +2346,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : noTpnUnticked ? `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 แล้วบันทึก${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
-    : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
-    : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}`
+    : bagCannotBeMade ? `${bagCannotBeMadeText} แล้วบันทึก${before}`
     : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}`
     : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}`
     : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}`
@@ -2490,16 +2511,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       showToast(kOverMaxText, "error");
       return;
     }
-    // ── Over the largest bottle (Pp, 2026-10-27) — refused the same way ──
-    if (!asDraft && bagOverBottle) {
-      setOpenSteps(prev => new Set(prev).add(1).add(2));
-      showToast(bagOverBottleText, "error");
-      return;
-    }
-    // ── Stocks over the bag's volume (Pp, 2026-10-28) — refused the same way ──
-    if (!asDraft && bagOverfull) {
-      setOpenSteps(prev => new Set(prev).add(2).add(3));
-      showToast(bagOverfullText, "error");
+    // ── The bag cannot be made (Pp, 2026-11-01): over the largest bottle
+    // (2026-10-27) or stocks over the bag's volume (2026-10-28) — refused the
+    // same way, as one stop ──
+    if (!asDraft && bagCannotBeMade) {
+      setOpenSteps(prev => { const next = new Set(prev).add(2); if (bagOverBottle) next.add(1); if (bagOverfull) next.add(3); return next; });
+      showToast(bagCannotBeMadeText, "error");
       return;
     }
     // ── An ordered stock at 0 mL (Pp, 2026-10-27) — refused the same way ──
@@ -4233,14 +4250,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {kOverMaxText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
-            {bagOverBottle && (
-              <div className="bag-over-bottle" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
-                {bagOverBottleText} — บันทึก/พิมพ์ไม่ได้
-              </div>
-            )}
-            {bagOverfull && (
-              <div className="bag-overfull" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
-                {bagOverfullText} — บันทึก/พิมพ์ไม่ได้
+            {bagCannotBeMade && (
+              <div className="bag-cannot-be-made" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {bagCannotBeMadeText} — บันทึก/พิมพ์ไม่ได้
               </div>
             )}
             {stockAtZeroMl && (

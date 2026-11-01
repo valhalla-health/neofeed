@@ -7,6 +7,36 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
+
+`calculator.jsx` (the Alerts panel, the save panel, Submit's refusal), `compiled/calculator.js`, both shells'
+`?v=` tokens, `.claude/skills/neofeed-clinical-rules/SKILL.md` (`CR-BOTTLE-MAX`, `CR-BAG-OVERFULL`),
+`test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/verify-wfi-stop-1028.cjs`,
+`test/verify-review-0917-calc.cjs`, `test/verify-tpn-answers-1027.cjs`, `test/README.md`, `STATUS.md`. Pp,
+reading the list of stops: "Hard stop เอาแค่ข้อ 3,4 ใส่ถุงไม่ได้ คือรวม Bag over the 1,250 mL bottle, WFI
+negative"; asked, she chose to merge the two and keep every other stop, in a PR of its own, titled "Bag
+cannot be made (ใส่ถุงไม่ได้)".
+
+- **Before:** two red alerts, "Bag larger than the largest bottle" and "Bag cannot be compounded", and two
+  red lines under Submit, for two ways a bag cannot be made.
+- **Now one,** "Bag cannot be made (ใส่ถุงไม่ได้)", in the Alerts panel, in the save panel ("ใส่ถุงไม่ได้: …
+  — บันทึก/พิมพ์ไม่ได้") and in Submit's and Print's refusal. Underneath it names whichever limit holds,
+  each with its own fix: "ถุง TPN ต้องเตรียม … mL เกินขวดใหญ่สุด 1250 mL … — ลดปริมาตรหรือ dead space" and/or
+  "ส่วนประกอบรวม … mL เกินถุง … mL ไป … mL … — เพิ่มปริมาตร TPN หรือลดขนาดยา". Both at once read as one line
+  naming both steps, "ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน 1250 mL": the two single fixes side by side
+  contradicted each other (a fresh review of the Submit workflow, 2026-11-01), and a lower dose alone clears
+  the WFI but not the bottle, since the prepared volume does not depend on any dose (Vera, second review).
+- **Unchanged:** both rules (`CR-BOTTLE-MAX`, `CR-BAG-OVERFULL`), what blocks Submit and Print, the stop
+  IDs the backend hears, Center Point's own refusal, the quick calc's copied text, and every other stop.
+  A reason saved before 2026-10-28 still names "Bag cannot be compounded", and such a row is held as before.
+  No calculation, figure or `CONSTANTS_VERSION` change.
+- **Tests.** The clinical-rules cases expect the new title, and a new case has both limits at once: one
+  alert naming both. (It checks that `CR-BOTTLE-MAX` reaches the backend; `submitStops` still lists both IDs
+  apart, unchanged.) Five harnesses that named the old titles or classes
+  (`.bag-over-bottle`, `.bag-overfull`) read the new ones; `verify-calc-oracle.cjs`'s alert model adds the
+  one title when either limit holds, and `verify-wfi-stop-1028.cjs` keeps the old title for the reason
+  saved before 2026-10-28.
+
 ## Session 2026-11-01 (2) — Step 3's "No TPN" tick, and the check that the feeds are enough
 
 `calculator.jsx` (Step 3's header and body, `normalizeCalcInput`, the changes list, a stop, a critical
