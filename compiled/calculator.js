@@ -37,7 +37,7 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     // (Pp, 2026-10-21). Only a row saved before then has no route key at all,
     // and it was ordered and printed as Central, so it reopens as Central.
     route: src.route === null ? null : src.route ?? "central",
-    // "ไม่มี TPN" ticked in Step 3 (Pp, 2026-11-01): the day has no bag and no
+    // "No TPN" ticked in Step 3 (Pp, 2026-11-01): the day has no bag and no
     // lipid. Absent from every entry saved before then, none of which was
     // ticked, so a feeds-only day saved earlier reopens unticked.
     noTpn: src.noTpn === true,
@@ -540,13 +540,7 @@ function Calculator({
   const [suppFeType, setSuppFeType] = useState("FE_FERDEK");
   const [openSteps, setOpenSteps] = useState(/* @__PURE__ */ new Set([1]));
   const tickNoTpn = (on) => {
-    if (!on) {
-      setNoTpn(false);
-      (noTpnStash.current || []).forEach(([v, set]) => set(v));
-      noTpnStash.current = null;
-      return;
-    }
-    const held = [
+    const fields = [
       ["TPN volume", totalTPN_mL, setTotalTPN_mL],
       ["Dextrose", dexPct, setDexPct],
       ["Amino acid", aaPerKg, setAaPerKg],
@@ -559,11 +553,21 @@ function Calculator({
       ["MgSO₄", mgPerKg, setMgPerKg],
       ["Ca gluconate", caPerKg, setCaPerKg],
       ["ZnSO₄", znPerKg, setZnPerKg]
-    ].filter(([, v]) => v > 0);
-    noTpnStash.current = held.map(([, v, set]) => [v, set]);
+    ];
+    if (!on) {
+      const stash = noTpnStash.current || {};
+      const back = fields.filter(([label, v]) => stash[label] > 0 && !(v > 0));
+      back.forEach(([label, , set]) => set(stash[label]));
+      noTpnStash.current = null;
+      setNoTpn(false);
+      if (back.length) showToast(`คืนค่า ${back.map(([label]) => label).join(", ")}`, "info");
+      return;
+    }
+    const held = fields.filter(([, v]) => v > 0);
+    noTpnStash.current = Object.fromEntries(held.map(([label, v]) => [label, v]));
     held.forEach(([, , set]) => set(0));
     setNoTpn(true);
-    if (held.length) showToast(`ไม่มี TPN — ล้าง ${held.map(([label]) => label).join(", ")} แล้ว (เอาติ๊กออกเพื่อคืนค่า)`, "info");
+    if (held.length) showToast(`No TPN: ล้าง ${held.map(([label]) => label).join(", ")}`, "info");
   };
   const [prefilledFrom, setPrefilledFrom] = useState(null);
   const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
@@ -1246,7 +1250,7 @@ function Calculator({
   }, [caPerKg, suppCa, suppPO4, wtKg, calc.pTotal_mg, calc.caFromEN, calc.pFromEN]);
   const stepStatus = {
     1: fluidTargetPerKg > 0 && Math.abs(calc.remaining) < 20 ? "done" : "partial",
-    // "ไม่มี TPN" ticked: Step 3 is answered, and Step 4 has no bag to fill.
+    // "No TPN" ticked: Step 3 is answered, and Step 4 has no bag to fill.
     2: noTpnOn ? "done" : totalTPN_mL > 0 && dexPct > 0 && aaPerKg > 0 ? "done" : totalTPN_mL > 0 || dexPct > 0 || aaPerKg > 0 ? "partial" : "empty",
     3: naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg > 0 || noTpnOn ? "done" : "empty",
     4: "done",
@@ -1366,6 +1370,8 @@ function Calculator({
   const bagOverfullText = `ส่วนประกอบรวม ${fmt(calc.componentVol, 1)} mL เกินถุง ${fmt(calc.preparedVol, 1)} mL ไป ${fmt(Math.abs(calc.wfiVol), 1)} mL ห้อง TPN ผสมไม่ได้ — เพิ่มปริมาตร TPN หรือลดขนาดยา`;
   const routeMissing = route == null && (bagOrdered || !!centerPoint);
   const routeMissingText = `ยังไม่ได้เลือก route ของ TPN — กด Peripheral หรือ Central ที่ Step 3 ก่อน${centerPoint ? "บันทึก" : " Submit"}`;
+  const noTpnUnticked = !noTpnOn && !centerPoint && !scratch && !bagOrdered && !(lipidPerKg > 0);
+  const noTpnUntickedText = `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 ก่อน Submit`;
   const [tpnWtLo, tpnWtHi] = D.TPN_WT_RANGE_G;
   const tpnWtOutOfRange = wtG > 0 && (wtG < tpnWtLo || wtG > tpnWtHi);
   const tpnWtOutOfRangeText = `TPN calc. weight ${fmt(wtG, 0)} g อยู่นอกช่วง ${tpnWtLo}–${tpnWtHi} g — ตรวจว่าพิมพ์ถูกหลัก`;
@@ -1374,6 +1380,7 @@ function Calculator({
   const submitStops = [
     [tpnWtOutOfRange, "CR-WT-RANGE"],
     [routeMissing, "CR-ROUTE-REQUIRED"],
+    [noTpnUnticked, "CR-NO-TPN-TICK"],
     [zeroVolumeBag, "CR-BAG-NO-VOLUME"],
     [kOverMax, "CR-K-BAG-MAX"],
     [bagOverBottle, "CR-BOTTLE-MAX"],
@@ -1460,13 +1467,13 @@ function Calculator({
   const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;
   if (noTpnEnLow) alerts.push({
-    level: "warn",
+    level: "crit",
     title: "No TPN: feeds below the fluid requirement",
-    body: `ติ๊ก "ไม่มี TPN" แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""} — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
+    body: `No TPN แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""} — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
     ref: "Pp, 2026-11-01"
   });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
-  if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  if ((calc.totalTPN_mL > 0 || noTpnOn) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose 12 mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
   if (kOverMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
@@ -1497,9 +1504,9 @@ function Calculator({
   const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
   const uncoveredCritical = alerts.filter((a) => a.level === "crit" && !a.noReason).map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
-  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? 'เอาติ๊ก "ไม่มี TPN" ออกแล้ว' : ""}ใส่ปริมาตร`;
-  const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}` : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
+  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
+  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? 'เอาติ๊ก "No TPN" ออกแล้ว' : ""}ใส่ปริมาตร`;
+  const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : noTpnUnticked ? `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}` : bagOverfull ? `${bagOverfullText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
   React.useEffect(() => {
     const ALL = /* @__PURE__ */ new Set([1, 2, 3, 4, 5, 6]);
@@ -1580,6 +1587,11 @@ function Calculator({
     if (!asDraft && routeMissing) {
       setOpenSteps((prev) => new Set(prev).add(2));
       showToast(routeMissingText, "error");
+      return;
+    }
+    if (!asDraft && noTpnUnticked) {
+      setOpenSteps((prev) => new Set(prev).add(2));
+      showToast(noTpnUntickedText, "error");
       return;
     }
     if (pendingSave) {
@@ -2229,18 +2241,8 @@ function Calculator({
         style: { width: 16, height: 16, margin: 0 }
       }
     ),
-    "ไม่มี TPN"
-  ), /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[2]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(2) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(2) }, /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 12 } }, noTpnOn ? /* @__PURE__ */ React.createElement("div", { className: "no-tpn-note", style: {
-    border: "1.5px solid var(--line-2)",
-    borderRadius: 8,
-    padding: "10px 12px",
-    background: "var(--bg-2)",
-    fontSize: 12.5,
-    lineHeight: 1.6,
-    display: "flex",
-    flexDirection: "column",
-    gap: 2
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, color: "var(--ink)" } }, "ไม่มี TPN วันนี้ — ไม่มีถุง TPN และ lipid"), calc.wtKg > 0 ? /* @__PURE__ */ React.createElement("div", { className: "no-tpn-check", style: { color: noTpnEnLow ? "var(--warn)" : "var(--ink-2)", fontWeight: noTpnEnLow ? 600 : 400 } }, "นมที่นับได้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, vsLimit(enCountedPerKg, noTpnEnMin, 0)), " mL/kg/d", isMEN && calc.enVolTotal > 0 ? " (นม MEN ไม่นับ)" : "", " · ", "ต้องได้อย่างน้อย ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(noTpnEnMin, 0)), " mL/kg/d (", noTpnEnBasis, ")", noTpnEnLow ? " — ยังไม่ถึง" : " — ถึงแล้ว") : /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "ใส่น้ำหนักก่อน จึงจะตรวจปริมาณนมได้"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 11.5 } }, 'จะสั่ง TPN: เอาติ๊ก "ไม่มี TPN" ที่มุมขวาบนของ Step 3 ออก')) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { border: "1.5px solid var(--brand-line)", borderRadius: 8, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+    "No TPN"
+  ), /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[2]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(2) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(2) }, /* @__PURE__ */ React.createElement("div", { className: "card-b", style: { display: "flex", flexDirection: "column", gap: 12 } }, noTpnOn ? null : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { border: "1.5px solid var(--brand-line)", borderRadius: 8, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
     background: "var(--brand-bg)",
     padding: "6px 12px",
     fontSize: 11,
@@ -2648,7 +2650,7 @@ function Calculator({
     background: "var(--bg-2)",
     color: "var(--ink-2)",
     border: "1px solid var(--line)"
-  } }, /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 700 } }, "พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์"), /* @__PURE__ */ React.createElement("div", null, "บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "num" }, scratch ? "ไม่ผูกกับผู้ป่วย" : D.patientName(patient) || "—"), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num" }, dol), " · ", curWtG, "g", usingBirthWeight && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. at birth weight ", wtG, "g)"), tpnWtManual && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. weight set manually to ", wtG, "g)"), " · ", route === "central" ? "Central" : route === "peripheral" ? "Peripheral" : "no route"), !centerPoint && !scratch && savedEntryId && savedMeta?.by && /* @__PURE__ */ React.createElement("div", { className: "saved-by", style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, "บันทึกโดย ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)", fontWeight: 600 } }, savedMeta.by), " · ", savedAtLabelOf(savedMeta.at)), savedEntryId && dirty && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 } }, "● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์ได้หลังบันทึก"), !centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "print-blocked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "● ", printBlockMessage("ก่อนพิมพ์"), !pendingSave && dosingWeightChanged && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, "บันทึกไว้ที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(savedDosingWt.g, 0)), " g · ตอนนี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g"), !pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, uncoveredCritical.join(" · "))), previousEntry && /* @__PURE__ */ React.createElement("div", { className: "order-changes", style: { fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 } }, "เปลี่ยนแปลงจากคำสั่งก่อนหน้า (DOL ", D.entryDol(patient, previousEntry), ")"), !orderChanges ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "คำสั่งก่อนหน้าไม่มีข้อมูลละเอียดให้เปรียบเทียบ") : orderChanges.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "ไม่มีการเปลี่ยนแปลง") : orderChanges.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.label, className: "num", style: { color: "var(--ink)" } }, c.label, ": ", c.from, " → ", /* @__PURE__ */ React.createElement("strong", null, c.to), " ", c.unit))), /* @__PURE__ */ React.createElement("div", { className: "calc-save-bar" }, scratch && /* @__PURE__ */ React.createElement("button", { className: "btn", style: { width: "100%", marginBottom: 8 }, onClick: () => {
+  } }, /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 700 } }, "พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์"), /* @__PURE__ */ React.createElement("div", null, "บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "num" }, scratch ? "ไม่ผูกกับผู้ป่วย" : D.patientName(patient) || "—"), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num" }, dol), " · ", curWtG, "g", usingBirthWeight && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. at birth weight ", wtG, "g)"), tpnWtManual && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. weight set manually to ", wtG, "g)"), " · ", route === "central" ? "Central" : route === "peripheral" ? "Peripheral" : "no route"), !centerPoint && !scratch && savedEntryId && savedMeta?.by && /* @__PURE__ */ React.createElement("div", { className: "saved-by", style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, "บันทึกโดย ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)", fontWeight: 600 } }, savedMeta.by), " · ", savedAtLabelOf(savedMeta.at)), savedEntryId && dirty && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 } }, "● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์ได้หลังบันทึก"), !centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "print-blocked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "● ", printBlockMessage("ก่อนพิมพ์"), !pendingSave && dosingWeightChanged && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, "บันทึกไว้ที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(savedDosingWt.g, 0)), " g · ตอนนี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g"), !pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, uncoveredCritical.join(" · "))), previousEntry && /* @__PURE__ */ React.createElement("div", { className: "order-changes", style: { fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 } }, "เปลี่ยนแปลงจากคำสั่งก่อนหน้า (DOL ", D.entryDol(patient, previousEntry), ")"), !orderChanges ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "คำสั่งก่อนหน้าไม่มีข้อมูลละเอียดให้เปรียบเทียบ") : orderChanges.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "ไม่มีการเปลี่ยนแปลง") : orderChanges.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.label, className: "num", style: { color: "var(--ink)" } }, c.label, ": ", c.from, " → ", /* @__PURE__ */ React.createElement("strong", null, c.to), " ", c.unit))), /* @__PURE__ */ React.createElement("div", { className: "calc-save-bar" }, scratch && /* @__PURE__ */ React.createElement("button", { className: "btn", style: { width: "100%", marginBottom: 8 }, onClick: () => {
     if (!(wtKg > 0)) {
       showToast("ใส่น้ำหนักก่อน จึงจะคัดลอกผลคำนวณได้", "error");
       return;
@@ -2740,7 +2742,7 @@ function Calculator({
       `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`
     ].filter((l) => l !== "").join("\n");
     navigator.clipboard.writeText(lines).then(() => showToast("คัดลอกผลคำนวณแล้ว")).catch(() => showToast("Copy failed — try again"));
-  } }, "คัดลอกผลคำนวณ"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อน", centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)", ":", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), routeMissing && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "route-missing-save", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, routeMissingText), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), kOverMax && /* @__PURE__ */ React.createElement("div", { className: "k-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, kOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), bagOverBottle && /* @__PURE__ */ React.createElement("div", { className: "bag-over-bottle", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagOverBottleText, " — บันทึก/พิมพ์ไม่ได้"), bagOverfull && /* @__PURE__ */ React.createElement("div", { className: "bag-overfull", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagOverfullText, " — บันทึก/พิมพ์ไม่ได้"), stockAtZeroMl && /* @__PURE__ */ React.createElement("div", { className: "stock-at-zero-ml", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, stockAtZeroMlText, " — บันทึก/พิมพ์ไม่ได้"), feedsIrregular && /* @__PURE__ */ React.createElement("div", { className: "feeds-irregular", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsIrregularText, " — บันทึก/พิมพ์ไม่ได้"), feedsOverMax && /* @__PURE__ */ React.createElement("div", { className: "feeds-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), feedUnknown && /* @__PURE__ */ React.createElement("div", { className: "feed-unknown", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedUnknownText, " — บันทึก/พิมพ์ไม่ได้"), tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "tpn-wt-out-of-range", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, tpnWtOutOfRangeText, " — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)"), isDraftSaved && !dirty && /* @__PURE__ */ React.createElement("div", { className: "draft-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit"), !scratch && !centerPoint && !ordersReadOnly && /* @__PURE__ */ React.createElement(
+  } }, "คัดลอกผลคำนวณ"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อน", centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)", ":", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), routeMissing && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "route-missing-save", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, routeMissingText), noTpnUnticked && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "no-tpn-unticked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, noTpnUntickedText), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), kOverMax && /* @__PURE__ */ React.createElement("div", { className: "k-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, kOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), bagOverBottle && /* @__PURE__ */ React.createElement("div", { className: "bag-over-bottle", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagOverBottleText, " — บันทึก/พิมพ์ไม่ได้"), bagOverfull && /* @__PURE__ */ React.createElement("div", { className: "bag-overfull", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagOverfullText, " — บันทึก/พิมพ์ไม่ได้"), stockAtZeroMl && /* @__PURE__ */ React.createElement("div", { className: "stock-at-zero-ml", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, stockAtZeroMlText, " — บันทึก/พิมพ์ไม่ได้"), feedsIrregular && /* @__PURE__ */ React.createElement("div", { className: "feeds-irregular", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsIrregularText, " — บันทึก/พิมพ์ไม่ได้"), feedsOverMax && /* @__PURE__ */ React.createElement("div", { className: "feeds-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), feedUnknown && /* @__PURE__ */ React.createElement("div", { className: "feed-unknown", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedUnknownText, " — บันทึก/พิมพ์ไม่ได้"), tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "tpn-wt-out-of-range", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, tpnWtOutOfRangeText, " — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)"), isDraftSaved && !dirty && /* @__PURE__ */ React.createElement("div", { className: "draft-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit"), !scratch && !centerPoint && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn save-draft",
@@ -2757,7 +2759,7 @@ function Calculator({
     {
       className: "btn primary",
       style: { width: "100%" },
-      disabled: saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && printable,
+      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && printable,
       onClick: () => handleSave(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),

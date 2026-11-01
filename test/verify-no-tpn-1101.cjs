@@ -1,12 +1,15 @@
-// verify-no-tpn-1101.cjs — the "ไม่มี TPN" tick at the top right of Step 3
-// (Pp, 2026-11-01: "มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn เพื่อให้ข้ามช่องนี้ได้").
+// verify-no-tpn-1101.cjs — the "No TPN" tick at the top right of Step 3
+// (Pp, 2026-11-01: "มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn เพื่อให้ข้ามช่องนี้ได้",
+// then "ขอเป็นภาษาอังกฤษ no TPN", "คำอธิบาย ไม่ต้องใส่").
 //
 // What the clinical-rules skill's cases cannot reach, because they mount one
-// fresh order each: the tick clears the bag and unticking it in the same visit
-// puts the bag back; the order saves with calcInput.noTpn and reopens ticked;
-// a new day copied from a ticked order starts ticked; the changes list names
-// it; a row saved before the tick existed reopens unticked; Center Point offers
-// no tick. What the feeds must reach is CR-NO-TPN-EN, and its cases run in
+// fresh order each: the tick clears the bag, and unticking it in the same visit
+// puts back what is still empty (a dose typed since is kept, Vera 2026-11-01);
+// an order with no TPN cannot be submitted until it is ticked
+// (CR-NO-TPN-TICK); the order saves with calcInput.noTpn and reopens ticked; a
+// new day copied from a ticked order starts ticked; the changes list names it;
+// a row saved before the tick existed reopens unticked; Center Point offers no
+// tick. What the feeds must reach is CR-NO-TPN-EN, and its cases run in
 // test/verify-clinical-rules.cjs.
 //
 // Mounts the real <Calculator> in jsdom: the deps in test/README.md. Synthetic
@@ -121,23 +124,27 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
 (async () => {
   section('1 · the tick sits in Step 3\'s header and skips the step');
   mount(); fillRequired(); fillBag();
-  ok('Step 3 has a "ไม่มี TPN" tick, unticked', !!noTpnBox() && noTpnBox().checked === false);
+  ok('Step 3 has a tick labelled "No TPN", unticked', !!noTpnBox() && noTpnBox().checked === false
+    && noTpnBox().closest('label').textContent.trim() === 'No TPN');
   ok('…inside the header\'s right-hand group (top right)', !!step3Head()?.querySelector('.step3-right label.no-tpn-chk'));
   ok('the bag is on screen: TPN Aqueous Pump and the route', text(container).includes('TPN Aqueous Pump') && !!container.querySelector('.step2-ctrl'));
   setNoTpn(true);
   ok('ticked', noTpnBox().checked === true);
-  ok('pressing it did not fold Step 3 (the click stays in the tick)', text(container).includes('ไม่มี TPN วันนี้'));
-  ok('the two pumps are gone, the note stands in', !text(container).includes('TPN Aqueous Pump') && !text(container).includes('Lipid Pump'));
+  ok('pressing it did not fold Step 3 (the click stays in the tick)', !!container.querySelector('.accordion-body.open .metric-tiles-4'));
+  ok('the two pumps are gone, and no note stands in', !text(container).includes('TPN Aqueous Pump') && !text(container).includes('Lipid Pump')
+    && !container.querySelector('.no-tpn-note'));
   ok('no route and no Osm chip in the header', !container.querySelector('.step2-ctrl'));
   ok('Step 3\'s dot reads done', dotOf(step3Head()) === 'done', dotOf(step3Head()));
   ok('Step 4\'s dot reads done (no bag to fill)', dotOf(step4Head()) === 'done', dotOf(step4Head()));
-  ok('the toast names what it cleared', toast === 'ไม่มี TPN — ล้าง TPN volume, Dextrose, Amino acid, 20% lipid, KCl, ZnSO₄ แล้ว (เอาติ๊กออกเพื่อคืนค่า)', toast);
+  ok('the toast names what it cleared', toast === 'No TPN: ล้าง TPN volume, Dextrose, Amino acid, 20% lipid, KCl, ZnSO₄', toast);
   ok('Step 4\'s KCl box is empty', ['', '0'].includes(inputOf('KCl')?.value), inputOf('KCl')?.value);
   ok('the bag left the fluid: Prescribed is the feed alone', text(container).includes('Plan 150 · Prescribed 96 mL/d'));
-  ok('the feeds reach 80: the note says so', text(container).includes('นมที่นับได้ 96 mL/kg/d · ต้องได้อย่างน้อย 80 mL/kg/d (เกณฑ์ 80 mL/kg/d) — ถึงแล้ว'));
+  ok('the feeds (96 mL/kg/d) reach 80: no critical line', !text(container).includes('No TPN: feeds below the fluid requirement'));
 
   section('2 · unticking it in the same visit puts the bag back');
+  toast = null;
   setNoTpn(false);
+  ok('the toast names what it put back', toast === 'คืนค่า TPN volume, Dextrose, Amino acid, 20% lipid, KCl, ZnSO₄', toast);
   ok('unticked; the pumps are back', noTpnBox().checked === false && text(container).includes('TPN Aqueous Pump'));
   ok('Volume 100, Dextrose 10, Amino acid 3, 20% lipid 2',
     ['Volume(mL/day)', 'Dextrose final', 'Amino acid', '20% lipid'].map(l => inputOf(l)?.value).join() === '100,10,3,2',
@@ -146,28 +153,52 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('Prescribed counts the bag again', !text(container).includes('Prescribed 96 mL/d'));
   setNoTpn(true); setNoTpn(false); setNoTpn(true);
   ok('tick, untick, tick: the bag is cleared again', !text(container).includes('TPN Aqueous Pump') && ['', '0'].includes(inputOf('KCl')?.value));
+  // Vera, 2026-11-01: a dose typed after the tick is the prescriber's, and
+  // unticking must not put yesterday's back over it.
+  setField('KCl', 3);
+  toast = null;
+  setNoTpn(false);
+  ok('KCl typed as 3 after the tick stays 3 when the tick comes off', inputOf('KCl')?.value === '3', inputOf('KCl')?.value);
+  ok('…the rest comes back, and the toast leaves KCl out', inputOf('Volume(mL/day)')?.value === '100'
+    && toast === 'คืนค่า TPN volume, Dextrose, Amino acid, 20% lipid, ZnSO₄', toast);
+  setField('KCl', 2);
+  setNoTpn(true);
 
-  section('3 · the order saves with the tick');
+  section('3 · an order with no TPN needs the tick (CR-NO-TPN-TICK)');
+  setNoTpn(false);
+  for (const l of ['Volume(mL/day)', 'Dextrose final', 'Amino acid', '20% lipid', 'KCl', 'ZnSO₄']) setField(l, 0);
   let submit = button('Submit');
+  ok('feeds only, the tick off: Submit is disabled', !!submit && submit.disabled);
+  ok('…and the save panel says why', text(container.querySelector('.no-tpn-unticked')) === 'คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 ก่อน Submit',
+    text(container.querySelector('.no-tpn-unticked')));
+  const draft = container.querySelector('button.save-draft');
+  ok('a draft can still be kept', !!draft && !draft.disabled);
+  if (draft && !draft.disabled) await clickAsync(draft);
+  ok('…and it names CR-NO-TPN-TICK for the backend', (logged[0]?.calcInput?.stops || []).includes('CR-NO-TPN-TICK'), logged[0]?.calcInput?.stops);
+  setNoTpn(true);
+  ok('ticked: the line is gone', !container.querySelector('.no-tpn-unticked'));
+
+  section('4 · the order saves with the tick');
+  submit = button('Submit');
   ok('Submit is enabled (no bag, so no route is needed)', !!submit && !submit.disabled);
   if (submit && !submit.disabled) await clickAsync(submit);
-  const ci = logged[0]?.calcInput || {};
-  ok('saved once', logged.length === 1, logged.length);
+  const ci = (updated[0] || logged[1])?.calcInput || {};
+  ok('saved: the draft, then the order', logged.length + updated.length === 2, [logged.length, updated.length]);
   ok('calcInput.noTpn is true', ci.noTpn === true, ci.noTpn);
   ok('…and every bag ingredient is 0', [ci.totalTPN_mL, ci.dexPct, ci.aaPerKg, ci.lipidPerKg, ci.kCl, ci.znPerKg].every(v => v === 0),
     [ci.totalTPN_mL, ci.dexPct, ci.aaPerKg, ci.lipidPerKg, ci.kCl, ci.znPerKg]);
   ok('…and no stop went with it', Array.isArray(ci.stops) && ci.stops.length === 0, ci.stops);
 
-  section('4 · it reopens ticked, and a new day copied from it starts ticked');
+  section('5 · it reopens ticked, and a new day copied from it starts ticked');
   const ticked = savedRow({ ...ci });
   mount({ editEntry: ticked });
-  ok('the saved order reopens ticked, with the note', noTpnBox()?.checked === true && text(container).includes('ไม่มี TPN วันนี้'));
+  ok('the saved order reopens ticked, with no pumps', noTpnBox()?.checked === true && !text(container).includes('TPN Aqueous Pump'));
   mount({ baselineEntry: ticked });
   ok('a new day copied from it starts ticked', noTpnBox()?.checked === true);
   mount({ editEntry: savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, totalTPN_mL: 0, enType: 'BM_20', enVol: 12, enFreq: 8 }) });
   ok('a feeds-only row saved before the tick existed reopens unticked', noTpnBox()?.checked === false);
 
-  section('5 · the changes list names it');
+  section('6 · the changes list names it');
   const before = savedRow({ curWtG: 1000, fluidTargetPerKg: 150, route: 'central', totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, enType: 'BM_20', enVol: 12, enFreq: 8 });
   mount({ baselineEntry: before, previousEntry: before });
   setNoTpn(true);
@@ -181,13 +212,14 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('"No TPN: no → yes"', changes.includes('No TPN: no → yes'), changes);
   ok('…beside "TPN volume: 100 → 0"', changes.includes('TPN volume: 100 → 0 mL/d'), changes);
 
-  section('6 · Center Point offers no tick');
+  section('7 · Center Point offers no tick');
   const centerPoint = { save: () => Promise.resolve({ sourceRecordId: 'x', recordedAt: '2026-11-01T08:00:00.000Z' }), review() {}, failed() {} };
   mount({ centerPoint, patient: { sessionId: '6f1c2f4e-2b7a-4c1e-9d55-0c8f0e6b1a11', bw: 1200, ga: 28, weights: [] } });
   ok('no "ไม่มี TPN" tick', !noTpnBox());
   ok('the pumps are on screen', text(container).includes('TPN Aqueous Pump'));
   mount({ centerPoint, editEntry: ticked });
-  ok('a row carrying the tick is read there as unticked: the pumps stay', text(container).includes('TPN Aqueous Pump') && !text(container).includes('ไม่มี TPN วันนี้'));
+  ok('a row carrying the tick is read there as unticked: the pumps stay', text(container).includes('TPN Aqueous Pump'));
+  ok('…and no No-TPN stop holds there', !container.querySelector('.no-tpn-unticked'));
 
   act(() => { root.unmount(); });
   console.log(`\nNO TPN TICK (2026-11-01): ${fail ? `${fail} FAILED` : 'ALL PASS'} (${pass} passed)`);

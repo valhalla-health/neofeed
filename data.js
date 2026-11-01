@@ -850,13 +850,13 @@ const MG_MEQ_HABIT_MG = 1;
 // from yesterday, so MEN still ticked above this is a warning (never a stop):
 // the feed was probably advanced and the tick left on (Praew, 2026-09-18).
 const MEN_MAX_ML_KG = 24;
-// A day ticked "ไม่มี TPN" (no TPN) in Step 3: the counted feed must reach this
-// many mL/kg/day, or the day's fluid requirement where that is lower (DOL 1–2
-// on the heavier tiers, TARGETS.fluid's lower bound). Below it, an amber line
-// asks whether TPN or IV fluid is still needed (Pp, 2026-11-01: "cross check
-// ว่าคนไข้เป็น enteral fluid ล้วน มากกว่า 80ml/kg/day หรือตาม fluid
-// requirement ตามวัน"). A caution only: it moves no dose, so CONSTANTS_VERSION
-// stays.
+// A day ticked "No TPN" in Step 3: the counted feed must reach this many
+// mL/kg/day, or the day's fluid requirement where that is lower (TARGETS.fluid's
+// lower bound: DOL 1 at 1,000–1,499 g 70 and 1,500–2,499 g 60; term DOL 1–4 40,
+// 50, 60, 60). Below it, a critical line whose reason prints (Pp, 2026-11-01:
+// "cross check ว่าคนไข้เป็น enteral fluid ล้วน มากกว่า 80ml/kg/day หรือตาม fluid
+// requirement ตามวัน", then "Submit with a reason"). It moves no dose, so
+// CONSTANTS_VERSION stays.
 const NO_TPN_EN_MIN_ML_KG = 80;
 // The feed a no-TPN day needs, mL/kg/day: 80, or the day's fluid requirement
 // (the lower bound of TARGETS.fluid, on the same weight tier) if that is less.

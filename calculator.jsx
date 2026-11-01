@@ -72,7 +72,7 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     // (Pp, 2026-10-21). Only a row saved before then has no route key at all,
     // and it was ordered and printed as Central, so it reopens as Central.
     route: src.route === null ? null : (src.route ?? "central"),
-    // "ไม่มี TPN" ticked in Step 3 (Pp, 2026-11-01): the day has no bag and no
+    // "No TPN" ticked in Step 3 (Pp, 2026-11-01): the day has no bag and no
     // lipid. Absent from every entry saved before then, none of which was
     // ticked, so a feeds-only day saved earlier reopens unticked.
     noTpn: src.noTpn === true,
@@ -867,12 +867,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
   // Card key 2 — TPN main bag (displayed as Step 3)
   const [route, setRoute] = useState("central");
-  // "ไม่มี TPN" (Pp, 2026-11-01): the tick at the top right of Step 3 that
+  // "No TPN" (Pp, 2026-11-01): the tick at the top right of Step 3 that
   // skips it. See tickNoTpn for what it clears, and noTpnOn for where it holds.
   const [noTpn, setNoTpn] = useState(false);
   // What the tick cleared, so unticking it in the same visit puts it back.
   const noTpnStash = React.useRef(null);
-  // Center Point's packet is a TPN order, so it offers no "ไม่มี TPN": a row
+  // Center Point's packet is a TPN order, so it offers no "No TPN": a row
   // that somehow carries the tick is read there as unticked.
   const noTpnOn = noTpn && !centerPoint;
   const [totalTPN_mL, setTotalTPN_mL] = useState(0); // mL/day DELIVERED to the infant (sheet C7)
@@ -943,31 +943,36 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Only Step 1 open by default; others collapsed until user opens them
   const [openSteps, setOpenSteps] = useState(new Set([1]));
 
-  // ── "ไม่มี TPN" (Pp, 2026-11-01) ───────────────────────────────────
+  // ── "No TPN" (Pp, 2026-11-01) ─────────────────────────────────────
   // Ticking it says the day has no TPN: no aqueous bag and no lipid. It clears
   // everything that would make one (Step 3's volume, dextrose, amino acid and
-  // lipid, Step 4's electrolytes, Step 5's ZnSO₄), so a TPN order prefilled
-  // from yesterday does not stay in it, and Step 3 shows a note instead of its
-  // two pumps. What it cleared comes back if the tick comes off in the same
-  // visit. Whether the feeds alone are enough is CR-NO-TPN-EN, below.
+  // lipid, Step 4's salts, Step 5's ZnSO₄), so a TPN order prefilled from
+  // yesterday does not stay in it, and Step 3 shows no pumps. Taking it off in
+  // the same visit puts back what it cleared, but only into a box still empty:
+  // a dose typed since is kept (Vera, 2026-11-01). Whether the feeds alone are
+  // enough is CR-NO-TPN-EN; an order with no TPN and no tick is CR-NO-TPN-TICK.
   const tickNoTpn = (on) => {
-    if (!on) {
-      setNoTpn(false);
-      (noTpnStash.current || []).forEach(([v, set]) => set(v));
-      noTpnStash.current = null;
-      return;
-    }
-    const held = [
+    const fields = [
       ["TPN volume", totalTPN_mL, setTotalTPN_mL], ["Dextrose", dexPct, setDexPct],
       ["Amino acid", aaPerKg, setAaPerKg], ["20% lipid", lipidPerKg, setLipidPerKg],
       ["20% NaCl", naCl, setNaCl], ["Na acetate", naAcet, setNaAcet], ["Glycophos", glycophosP, setGlycophosP],
       ["KCl", kCl, setKCl], ["K₂HPO₄", k2hpo4, setK2HPO4], ["MgSO₄", mgPerKg, setMgPerKg],
       ["Ca gluconate", caPerKg, setCaPerKg], ["ZnSO₄", znPerKg, setZnPerKg],
-    ].filter(([, v]) => v > 0);
-    noTpnStash.current = held.map(([, v, set]) => [v, set]);
+    ];
+    if (!on) {
+      const stash = noTpnStash.current || {};
+      const back = fields.filter(([label, v]) => stash[label] > 0 && !(v > 0));
+      back.forEach(([label, , set]) => set(stash[label]));
+      noTpnStash.current = null;
+      setNoTpn(false);
+      if (back.length) showToast(`คืนค่า ${back.map(([label]) => label).join(", ")}`, "info");
+      return;
+    }
+    const held = fields.filter(([, v]) => v > 0);
+    noTpnStash.current = Object.fromEntries(held.map(([label, v]) => [label, v]));
     held.forEach(([, , set]) => set(0));
     setNoTpn(true);
-    if (held.length) showToast(`ไม่มี TPN — ล้าง ${held.map(([label]) => label).join(", ")} แล้ว (เอาติ๊กออกเพื่อคืนค่า)`, "info");
+    if (held.length) showToast(`No TPN: ล้าง ${held.map(([label]) => label).join(", ")}`, "info");
   };
 
   // ── Restored-from-previous indicator (shown briefly on prefill) ─
@@ -1798,7 +1803,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // (Step 3), 3 electrolytes (Step 4), 4 vitamins (Step 5), 5 enteral (Step 2)
   const stepStatus = {
     1: fluidTargetPerKg > 0 && Math.abs(calc.remaining) < 20 ? "done" : "partial",
-    // "ไม่มี TPN" ticked: Step 3 is answered, and Step 4 has no bag to fill.
+    // "No TPN" ticked: Step 3 is answered, and Step 4 has no bag to fill.
     2: noTpnOn ? "done"
        : totalTPN_mL > 0 && dexPct > 0 && aaPerKg > 0 ? "done"
        : (totalTPN_mL > 0 || dexPct > 0 || aaPerKg > 0) ? "partial" : "empty",
@@ -2054,6 +2059,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // carries a route (tpn-document.mjs), so there it is needed on every order.
   const routeMissing = route == null && (bagOrdered || !!centerPoint);
   const routeMissingText = `ยังไม่ได้เลือก route ของ TPN — กด Peripheral หรือ Central ที่ Step 3 ก่อน${centerPoint ? "บันทึก" : " Submit"}`;
+  // An order with no TPN, neither a bag nor lipid, is submitted only with "No
+  // TPN" ticked, so its feeds are always cross-checked (CR-NO-TPN-EN; Pp,
+  // 2026-11-01: block until ticked). A draft may be kept. Center Point's packet
+  // is a TPN order and offers no tick; the quick calc submits nothing.
+  const noTpnUnticked = !noTpnOn && !centerPoint && !scratch && !bagOrdered && !(lipidPerKg > 0);
+  const noTpnUntickedText = `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 ก่อน Submit`;
   // The weight every dose is computed from (Pp, 2026-10-08; D.TPN_WT_*).
   // Outside the range it is a typo, not a judgement: no order, no draft,
   // the way gas-backend.gs refuses it. A typed weight far from the
@@ -2073,7 +2084,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // sent one (Pp, 2026-10-28). A new stop goes in here too, or the backend
   // never hears of it (verify-clinical-rules.cjs checks the IDs).
   const submitStops = [
-    [tpnWtOutOfRange, "CR-WT-RANGE"], [routeMissing, "CR-ROUTE-REQUIRED"],
+    [tpnWtOutOfRange, "CR-WT-RANGE"], [routeMissing, "CR-ROUTE-REQUIRED"], [noTpnUnticked, "CR-NO-TPN-TICK"],
     [zeroVolumeBag, "CR-BAG-NO-VOLUME"], [kOverMax, "CR-K-BAG-MAX"],
     [bagOverBottle, "CR-BOTTLE-MAX"], [stockAtZeroMl, "CR-STOCK-ZERO"],
     [bagOverfull, "CR-BAG-OVERFULL"],
@@ -2154,23 +2165,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push({ level: "warn", title: "MEN ticked above trophic volume",
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d` });
-  // CR-NO-TPN-EN (Pp, 2026-11-01): a day ticked "ไม่มี TPN" lives on its feeds,
+  // CR-NO-TPN-EN (Pp, 2026-11-01): a day ticked "No TPN" lives on its feeds,
   // so the counted feed (a MEN feed counts for nothing) must reach 80 mL/kg/d,
   // or the day's fluid requirement where that is lower (D.noTpnEnMinPerKg, on
-  // the tier tFluid reads). Amber, not a stop: Other IV may be meant, and the
-  // attending decides. Float noise stripped, as for K⁺, so 80 is not 79.99….
+  // the tier tFluid reads). Critical: Submit asks for a reason, which prints
+  // (Pp chose it over a stop, so a day on IV fluid alone can still be ordered).
+  // Float noise stripped, as for K⁺, so 80 is not 79.99….
   const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
   const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
   const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG
     ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;
-  if (noTpnEnLow) alerts.push({ level: "warn", title: "No TPN: feeds below the fluid requirement",
-    body: `ติ๊ก "ไม่มี TPN" แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})`
+  if (noTpnEnLow) alerts.push({ level: "crit", title: "No TPN: feeds below the fluid requirement",
+    body: `No TPN แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})`
       + `${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""}`
       + ` — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
     ref: "Pp, 2026-11-01" });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
-  if (calc.totalTPN_mL > 0 && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  // Also on a day ticked "No TPN", whose feeds may reach CR-NO-TPN-EN's bar
+  // and still be far from the day's plan (Vera, 2026-11-01).
+  if ((calc.totalTPN_mL > 0 || noTpnOn) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   // The title is unchanged so a saved critOverride still names it; the limit
   // is ESPGHAN's 17.3 g/kg/d since 2026-10-27, no longer the sheet's 18.
@@ -2240,15 +2254,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
   // Every stop on its own, routeMissing too: the backend trusts the app's stop
   // list (submitStops), so a row stored past it must still not print (Vera, 2026-10-28).
-  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
+  const printable = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
-  // With "ไม่มี TPN" ticked there is no Volume box to fill: the way out is the tick.
-  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? "เอาติ๊ก \"ไม่มี TPN\" ออกแล้ว" : ""}ใส่ปริมาตร`;
+  // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
+  const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? "เอาติ๊ก \"No TPN\" ออกแล้ว" : ""}ใส่ปริมาตร`;
   // Why not, most actionable first. `before` is the verb phrase ("ก่อนพิมพ์").
   const printBlockMessage = (before) =>
     pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}`
     : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}`
     : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}`
+    : noTpnUnticked ? `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 แล้วบันทึก${before}`
     : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}`
     : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}`
     : bagOverBottle ? `${bagOverBottleText} แล้วบันทึก${before}`
@@ -2384,6 +2399,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!asDraft && routeMissing) {
       setOpenSteps(prev => new Set(prev).add(2));
       showToast(routeMissingText, "error");
+      return;
+    }
+    // ── No TPN, and "No TPN" not ticked (Pp, 2026-11-01) — see noTpnUnticked ──
+    if (!asDraft && noTpnUnticked) {
+      setOpenSteps(prev => new Set(prev).add(2));
+      showToast(noTpnUntickedText, "error");
       return;
     }
     // A row still under its optimistic tmp_ id does not exist on the server
@@ -3092,7 +3113,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {lipidPerKg > 0 && <span className="step-summary-chip">Lip {fmt(calc.lipidBagVol/lipidDripHours, 2)} mL/hr</span>}
             </div>
           )}
-          {/* "ไม่มี TPN" at the top right (Pp, 2026-11-01): skips Step 3. On a
+          {/* "No TPN" at the top right (Pp, 2026-11-01): skips Step 3. On a
               phone the shells' .step3-right rule lifts this group onto the
               title's row, above the chips and the route. Center Point's
               packet is a TPN order, so it has none. */}
@@ -3106,7 +3127,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   color: noTpnOn ? "var(--brand-2)" : "var(--ink-2)" }}>
                 <input type="checkbox" checked={noTpnOn} onChange={(e) => tickNoTpn(e.target.checked)}
                   style={{ width:16, height:16, margin:0 }} />
-                ไม่มี TPN
+                No TPN
               </label>
             )}
             <div className={`step-dot ${stepStatus[2]}`} />
@@ -3116,26 +3137,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
         <StepBody open={openSteps.has(2)}><div className="card-b" style={{ display:"flex", flexDirection:"column", gap:12 }}>
 
-          {/* ══ No TPN today: the note stands in for both pumps ══════════ */}
-          {noTpnOn ? (
-            <div className="no-tpn-note" style={{ border:"1.5px solid var(--line-2)", borderRadius:8, padding:"10px 12px",
-              background:"var(--bg-2)", fontSize:12.5, lineHeight:1.6, display:"flex", flexDirection:"column", gap:2 }}>
-              <div style={{ fontWeight:700, color:"var(--ink)" }}>ไม่มี TPN วันนี้ — ไม่มีถุง TPN และ lipid</div>
-              {/* Grey when the feeds are enough, amber when not (Praew,
-                  2026-09-23: colour only what is off). CR-NO-TPN-EN. */}
-              {calc.wtKg > 0 ? (
-                <div className="no-tpn-check" style={{ color: noTpnEnLow ? "var(--warn)" : "var(--ink-2)", fontWeight: noTpnEnLow ? 600 : 400 }}>
-                  นมที่นับได้ <span className="num">{vsLimit(enCountedPerKg, noTpnEnMin, 0)}</span> mL/kg/d
-                  {isMEN && calc.enVolTotal > 0 ? " (นม MEN ไม่นับ)" : ""}
-                  {" · "}ต้องได้อย่างน้อย <span className="num">{fmt(noTpnEnMin, 0)}</span> mL/kg/d ({noTpnEnBasis})
-                  {noTpnEnLow ? " — ยังไม่ถึง" : " — ถึงแล้ว"}
-                </div>
-              ) : (
-                <div style={{ color:"var(--ink-3)" }}>ใส่น้ำหนักก่อน จึงจะตรวจปริมาณนมได้</div>
-              )}
-              <div style={{ color:"var(--ink-3)", fontSize:11.5 }}>จะสั่ง TPN: เอาติ๊ก "ไม่มี TPN" ที่มุมขวาบนของ Step 3 ออก</div>
-            </div>
-          ) : (<>
+          {/* ══ No TPN ticked: no pumps, and no note (Pp, 2026-11-01:
+              "คำอธิบาย ไม่ต้องใส่") ═══════════════════════════════════════ */}
+          {noTpnOn ? null : (<>
           {/* ══ PUMP 1: TPN Aqueous ══════════════════════════════════════ */}
           <div style={{ border:"1.5px solid var(--brand-line)", borderRadius:8, overflow:"hidden" }}>
             <div style={{ background:"var(--brand-bg)", padding:"6px 12px", fontSize:11, fontWeight:700,
@@ -3968,7 +3972,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* Saved and unchanged, but still held back (see printable). The
                 no-volume case has its own line by the Save button. */}
-            {!centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
+            {!centerPoint && savedEntryId && !dirty && !printable && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && (
               <div className="print-blocked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 ● {printBlockMessage("ก่อนพิมพ์")}
                 {!pendingSave && dosingWeightChanged && (
@@ -4124,6 +4128,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {routeMissingText}
               </div>
             )}
+            {noTpnUnticked && !ordersReadOnly && (
+              <div className="no-tpn-unticked" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {noTpnUntickedText}
+              </div>
+            )}
             {zeroVolumeBag && (
               <div className="zero-volume-bag" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {zeroVolumeText} — บันทึก/พิมพ์ไม่ได้
@@ -4187,7 +4196,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             {/* A locked order with nothing changed has nothing to submit, unless
                 Print is holding it for a new save. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
