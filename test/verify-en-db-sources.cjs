@@ -354,7 +354,11 @@ const scenarios = {
     // The change list names feed 2's milk only where feed 2 is given (Vera,
     // 2026-10-28): removing it reads "none", never a switch to breast milk, and
     // a milk picked for a feed 2 with no volume is not a change.
-    const changes = () => (container.querySelector('.order-changes')?.textContent || '').replace(/\s+/g, ' ');
+    // A table since 2026-11-01: each row read back as "name: old → new unit".
+    const changes = () => [...container.querySelectorAll('.order-changes tbody tr')].map(tr => {
+      const [name, from, , to, unit] = [...tr.cells].map(td => td.textContent.replace(/\s+/g, ' ').trim());
+      return `${name}: ${from} → ${to}${unit ? ' ' + unit : ''}`;
+    }).join(' · ');
     const twoFeedPrev = { ...old, entryId: 'e-two', calcInput: { curWtG: 1500, fluidTargetPerKg: 150,
       enType: 'BM_20', enVol: 20, enFreq: 4, enType2: 'PRENAN_22', enVol2: 10, enFreq2: 4 } };
     mount(null, null, twoFeedPrev);
