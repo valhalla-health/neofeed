@@ -326,8 +326,8 @@ with #204 by PR #205.
   or below the day's fluid requirement where that is lower, is critical and asks a reason that prints
   (`CR-NO-TPN-EN`); more than 20 below the fluid plan is amber (`CR-NO-TPN-PLAN`). An NPO day now needs
   the tick and a reason. **A No TPN order prints no TPN order** (Pp): only a short sheet, for its oral orders
-  on the day TPN stopped ("TPN stopped"), or as a same-day revision of a TPN order ("TPN cancelled");
-  otherwise nothing, and the ward's Print order list marks it "No
+  on the day TPN stopped, or as a same-day revision of a TPN order; it says only "No TPN today" or, those
+  two days, "TPN stopped today"; otherwise nothing, and the ward's Print order list marks it "No
   TPN — ไม่ต้องพิมพ์" and leaves it out of Print ทั้งหมด. This changes the printed order. No calculation, figure on a printed TPN
   order, or `CONSTANTS_VERSION` moves; no `clasp` step. ⚠️ The ward should hear of the new tick before
   release, and pharmacy that a No TPN day prints at most a short sheet. Q20 answered by Pp: the lower of 80 and the day's

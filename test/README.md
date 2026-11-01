@@ -2063,8 +2063,8 @@ reopens ticked and is not printed, the same row as a draft unticked, a row with 
 list names "No TPN: no → yes". §7: with the tick on and no route chosen, a salt typed into Step 4 raises no
 route stop (the tick hides those buttons); the no-volume stop points at the tick. §8: the short sheet, titled
 "NO TPN — ORAL / STOP ORDER" and dated "วันที่สั่ง", prints for oral orders, on the first No TPN day after a TPN
-day ("TPN stopped"), and for a same-day revision of a submitted TPN order ("TPN cancelled", `calcInput.replacesTpn`,
-also when reopened); a draft TPN order ticked and submitted, or a No TPN day after one, prints nothing. §9: Center Point offers
+day and for a same-day revision of a submitted TPN order (both "TPN stopped today"; `calcInput.replacesTpn`,
+also when reopened), else "No TPN today"; a draft TPN order ticked and submitted, or a No TPN day after one, prints nothing. §9: Center Point offers
 no tick, holds no such stop, and its no-volume line offers no tick. What the feeds must
 reach (`CR-NO-TPN-EN`, `CR-NO-TPN-PLAN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at
 once: there is no tick.

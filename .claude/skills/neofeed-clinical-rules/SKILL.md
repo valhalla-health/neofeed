@@ -915,7 +915,7 @@ newborn ward today (`OLDER_CHILD_WARDS` is empty).
 Source: Pp, 2026-09-18: "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย".
 
 ```rule
-{"rule": "CR-U-DEAD-SPACE", "kind": "unit", "coded": {"NEWBORN_DEAD_VOL_ML": 30, "OLDER_CHILD_WARDS": []}, "where": [{"file": "data.js", "line": 2237, "has": "const NEWBORN_DEAD_VOL_ML = 30;"}, {"file": "calculator.jsx", "line": 135, "has": "return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);"}]}
+{"rule": "CR-U-DEAD-SPACE", "kind": "unit", "coded": {"NEWBORN_DEAD_VOL_ML": 30, "OLDER_CHILD_WARDS": []}, "where": [{"file": "data.js", "line": 2238, "has": "const NEWBORN_DEAD_VOL_ML = 30;"}, {"file": "calculator.jsx", "line": 135, "has": "return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);"}]}
 {"case": "a NICU bed starts at 30 mL", "fn": "defaultDeadVolFor", "args": [{"currentBed": "NICU 5"}], "want": 30}
 ```
 
@@ -1027,9 +1027,9 @@ dot and Step 4's read done, and the order needs no route (`CR-ROUTE-REQUIRED`: n
 the order (`calcInput.noTpn`), a new order copied from a ticked one starts ticked, and the changes list
 names it. **A No TPN order prints no TPN order** (Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order"): only a
 short sheet, titled "NO TPN — ORAL / STOP ORDER", for its oral orders ("Print orals only"), on the first No
-TPN day after a day with TPN ("หยุด TPN ตั้งแต่วันนี้ (TPN stopped)"), or as a revision that replaces a TPN order
-submitted the same day ("ยกเลิก TPN ฉบับก่อน (TPN cancelled)"; `calcInput.replacesTpn`, Vera's fifth review; Pp:
-"Yes, print it"); otherwise Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and the ward's
+TPN day after a day with TPN, or as a revision that replaces a TPN order submitted the same day
+(`calcInput.replacesTpn`, Vera's fifth review; Pp: "Yes, print it"). Its one line says "TPN stopped today" on
+those two, else "No TPN today" (Pp: "เอาแค่สองแบบ พิมพ์ให้สั้นที่สุด"); otherwise Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์", and the ward's
 Print order list marks the infant "No TPN — ไม่ต้องพิมพ์" and leaves it out of Print ทั้งหมด. Both read
 `D.orderPrints`. A salt typed into Step 4 while it is ticked is still `CR-BAG-NO-VOLUME`, whose line then points
 at the tick. Center Point offers no tick: its packet is a TPN order. An order with no TPN must carry it:
@@ -1042,7 +1042,7 @@ Source: Pp, 2026-11-01: "มุมติ๊กขวาบน ช่อง tpn �
 no TPN". Not a clinical threshold.
 
 ```rule
-{"rule": "CR-U-NO-TPN", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 156, "has": "function withLegacyNoTpn(entry, src) {"}, {"file": "data.js", "line": 1537, "has": "function orderIsNoTpn(entry) {"}, {"file": "registry.jsx", "line": 280, "has": "&& D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;"}, {"file": "data.js", "line": 1570, "has": "function orderPrints(entry, previousEntry) {"}, {"file": "calculator.jsx", "line": 78, "has": "noTpn: src.noTpn === true,"}, {"file": "calculator.jsx", "line": 969, "has": "const tickNoTpn = (on) => {"}]}
+{"rule": "CR-U-NO-TPN", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 156, "has": "function withLegacyNoTpn(entry, src) {"}, {"file": "data.js", "line": 1537, "has": "function orderIsNoTpn(entry) {"}, {"file": "registry.jsx", "line": 280, "has": "&& D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;"}, {"file": "data.js", "line": 1571, "has": "function orderPrints(entry, previousEntry) {"}, {"file": "calculator.jsx", "line": 78, "has": "noTpn: src.noTpn === true,"}, {"file": "calculator.jsx", "line": 969, "has": "const tickNoTpn = (on) => {"}]}
 {"case": "1 kg: a bag of 100 mL, lipid and KCl, then the tick: cleared, feeds 10 mL × 8 alone, saves", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2, "KCl": 2, "Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"submit": "no_reason", "no_alert": "Amino acid not ordered", "shows": "Plan 150 · Prescribed 80 mL/d", "hides": ["TPN Aqueous Pump", "Lipid Pump", "ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง"]}}
 {"case": "the tick on, then KCl typed into Step 4: refused, and the line points at the tick", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "then": {"KCl": 2}, "expect": {"submit": "blocked", "shows": "ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: KCl — ลบส่วนประกอบ หรือเอาติ๊ก \"No TPN\" ออกแล้วใส่ปริมาตร"}}
 ```

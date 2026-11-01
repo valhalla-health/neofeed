@@ -2306,7 +2306,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // over a submitted order with TPN, this order replaces a TPN order of its day;
   // a draft is saved over in place and keeps what it recorded. Saved as
   // calcInput.replacesTpn, on each later revision of the day too. With the tick
-  // on, the short sheet says that TPN is cancelled (D.orderCancelsTpn).
+  // on, its short sheet says "TPN stopped today" too (D.orderCancelsTpn).
   const replacesTpn = savedReplacesTpn || (savedStatus === "submitted" && !!savedEntryId && savedHadTpn);
   const tpnCancelledToday = noTpnOn && replacesTpn;
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
@@ -4320,7 +4320,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: tMg, source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}
-        noTpnSheet={noTpnOn ? { tpnStopped: tpnStoppedToday, tpnCancelled: tpnCancelledToday } : null}
+        noTpnSheet={noTpnOn ? { tpnStopped: tpnStoppedToday || tpnCancelledToday } : null}
         patient={patient} dol={dol} wtG={wtG} wtKg={wtKg} curWtG={curWtG} usingBirthWeight={usingBirthWeight}
         tpnWtManual={tpnWtManual} autoWtG={autoWtG} route={route}
         orderDate={editEntry?.ts || logDate || newOrderDate}
@@ -4807,13 +4807,14 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
       </table>
 
       {/* A No TPN order's short sheet (Pp, 2026-11-01): no TPN lines, route,
-          vitamins or heparin, only that there is no TPN, that it stopped today
-          when it did, and the oral orders, which ride on this sheet. */}
+          vitamins or heparin, only one of two lines and the oral orders, which
+          ride on this sheet. "Just these two, as short as possible, because
+          people don't bother to read" (Pp): "TPN stopped today" on the first
+          No TPN day after a TPN day or when it cancels the day's TPN order,
+          else "No TPN today". */}
       {noTpnSheet ? (<>
-      <div className="print-no-tpn" style={{ fontWeight:700, border:"1.5px solid #000", padding:"4px 8px", margin:"4px 0", fontSize:11 }}>
-        No TPN — ไม่มี TPN วันนี้
-        {noTpnSheet.tpnStopped && <span className="print-tpn-stopped"> · หยุด TPN ตั้งแต่วันนี้ (TPN stopped)</span>}
-        {noTpnSheet.tpnCancelled && <span className="print-tpn-cancelled"> · ยกเลิก TPN ฉบับก่อน (TPN cancelled)</span>}
+      <div className={noTpnSheet.tpnStopped ? "print-no-tpn print-tpn-stopped" : "print-no-tpn"} style={{ fontWeight:700, border:"1.5px solid #000", padding:"4px 8px", margin:"4px 0", fontSize:11 }}>
+        {noTpnSheet.tpnStopped ? "TPN stopped today" : "No TPN today"}
       </div>
       <table style={{ width:"100%", borderCollapse:"collapse", marginTop:4, fontSize:10 }}>
         <tbody>

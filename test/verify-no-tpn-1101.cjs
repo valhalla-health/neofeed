@@ -240,7 +240,7 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
     text(container.querySelector('.zero-volume-bag')));
   ok('…and Submit is disabled', button('Submit')?.disabled === true);
 
-  section('8 · the short sheet: oral orders, and the day TPN stopped');
+  section('8 · the short sheet: oral orders, and the day TPN stopped ("No TPN today" or "TPN stopped today")');
   // Pp, 2026-11-01: a No TPN order prints a short sheet for its oral orders, and
   // on the first No TPN day after a day with TPN; otherwise nothing prints.
   const sheet = () => container.querySelector('#print-form');
@@ -252,12 +252,12 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   mount(); feedsTicked(); setField('Vitamin D', 400);
   await clickAsync(button('Submit'));
   let f = text(sheet());
-  ok('No TPN with vitamin D: a short sheet prints', !!sheet() && /No TPN — ไม่มี TPN วันนี้/.test(f), f.slice(0, 120));
+  ok('No TPN with vitamin D: a short sheet prints', !!sheet() && /No TPN today/.test(f), f.slice(0, 120));
   ok('…with the oral order under "8. Other"', /8\. Other.*Vitamin D drops 400 IU\/kg\/d = 400 IU\/day/.test(f), f.match(/8\. Other.{0,80}/));
   ok('…the patient first (its first table names the NeoFeed ID)', /NeoFeed ID:\s*NT-1101/.test(text(sheet().querySelector(':scope > table'))));
   ok('…and no TPN lines, vitamins, heparin or pharmacy back; the route reads "— (No TPN)"',
     !/PARENTERAL NUTRITION FLUID|Soluvit|Heparin|☑ (Central|Peripheral)/.test(f) && /Route of Delivery: — \(No TPN\)/.test(f) && !sheet().querySelector('.print-back'), f.slice(0, 260));
-  ok('…no "TPN stopped" (no TPN day before it)', !/TPN stopped/.test(f));
+  ok('…and nothing else in its box: not "TPN stopped today" (no TPN day before it)', text(sheet().querySelector('.print-no-tpn')) === 'No TPN today', text(sheet().querySelector('.print-no-tpn')));
   // Vera, fifth review; Pp, 2026-11-01: "Retitle it", and the date is the order's.
   ok('…titled "NO TPN — ORAL / STOP ORDER", not the PN order form', /NO TPN — ORAL \/ STOP ORDER/.test(f) && !/PARENTERAL NUTRITION ORDER FORM/.test(f), f.slice(0, 80));
   ok('…dated "วันที่สั่ง" in the patient table, never "วันที่ให้ TPN"',
@@ -267,7 +267,7 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   mount({ previousEntry: tpnDay }); feedsTicked();
   await clickAsync(button('Submit'));
   f = text(sheet());
-  ok('the first No TPN day after a TPN day, no orals: the short sheet says TPN stopped', !!sheet() && /หยุด TPN ตั้งแต่วันนี้ \(TPN stopped\)/.test(f), f.slice(0, 160));
+  ok('the first No TPN day after a TPN day, no orals: the short sheet says only "TPN stopped today"', !!sheet() && text(sheet()?.querySelector('.print-no-tpn')) === 'TPN stopped today', f.slice(0, 160));
   ok('…and Print prints it', (await printNow()) === 1);
   const noTpnDay = savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, totalTPN_mL: 0, noTpn: true, enVol: 12, enFreq: 8 });
   mount({ previousEntry: noTpnDay }); feedsTicked();
@@ -276,7 +276,7 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   // Vera, fifth review; Pp, 2026-11-01: "Yes, print it". Today's TPN order, then
   // revised the same day to No TPN, with no order before today and no orals:
   // pharmacy may hold the TPN sheet, so the revision prints a short sheet saying
-  // it is cancelled. Saving over a submitted row appends a revision of it
+  // "TPN stopped today" (Pp: two wordings only). Saving over a submitted row appends a revision of it
   // (gas-backend.gs); saving over a draft overwrites it in place.
   const tpnToday = { ...savedRow({ curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, route: 'central',
     totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, enType: 'BM_20', enVol: 12, enFreq: 8 }), entryId: 'e-today', ts: '2026-11-01', dol: 10 };
@@ -290,11 +290,11 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   f = text(sheet());
   ok('today\'s TPN order revised to No TPN, no orals, no order before: it saves as a revision', revs.length === 1 && revs[0].id === 'e-today'
     && revs[0].e.calcInput.replacesTpn === true, revs.map(r => [r.id, r.e.calcInput.replacesTpn]));
-  ok('…and its short sheet says the TPN is cancelled, as revision 2', !!sheet() && /ยกเลิก TPN ฉบับก่อน \(TPN cancelled\)/.test(f)
-    && /Revision · ฉบับที่ 2/.test(f) && !/TPN stopped/.test(f), f.slice(0, 200));
+  ok('…and its short sheet says only "TPN stopped today", as revision 2', !!sheet() && text(sheet()?.querySelector('.print-no-tpn')) === 'TPN stopped today'
+    && /Revision · ฉบับที่ 2/.test(f), f.slice(0, 200));
   ok('…and Print prints it', (await printNow()) === 1);
   mount({ editEntry: { ...tpnToday, entryId: 'e-rev2', revisionNumber: 2, revisionOf: 'e-today', calcInput: { ...revs[0].e.calcInput } } });
-  ok('reopened later, the revision still prints "TPN cancelled"', !!sheet() && /TPN cancelled/.test(text(sheet())));
+  ok('reopened later, the revision still prints "TPN stopped today"', !!sheet() && text(sheet()?.querySelector('.print-no-tpn')) === 'TPN stopped today');
   revs = [];
   mount({ editEntry: { ...tpnToday, entryId: 'e-draft', status: 'draft' }, onUpdate: revising }); feedsTicked();
   await clickAsync(button('Submit'));

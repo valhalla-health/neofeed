@@ -1555,8 +1555,8 @@ function orderHadTpn(entry) {
 }
 // A No TPN order that replaces a submitted order of the same day that had TPN
 // (Vera, fifth review; Pp, 2026-11-01: "Yes, print it"). Pharmacy may already
-// hold that day's TPN sheet, so this order's short sheet tells it the TPN is
-// cancelled. The Calculator records calcInput.replacesTpn when it saves a
+// hold that day's TPN sheet, so this order's short sheet tells it "TPN stopped
+// today". The Calculator records calcInput.replacesTpn when it saves a
 // revision of such an order, and carries it to each later revision of the day.
 function orderCancelsTpn(entry) {
   return orderIsNoTpn(entry) && entry.calcInput.replacesTpn === true;
@@ -1565,7 +1565,8 @@ function orderCancelsTpn(entry) {
 // TPN order prints a short sheet only for its oral orders ("Print orals only"),
 // on the first No TPN day after a day with TPN, to tell pharmacy the TPN has
 // stopped ("Yes, a 'TPN stopped' line"), or when it cancels a TPN order
-// submitted the same day (orderCancelsTpn); otherwise it does not print at all.
+// submitted the same day (orderCancelsTpn); both say "TPN stopped today", the
+// rest "No TPN today". Otherwise it does not print at all.
 // `previousEntry` is the order before it (previousFinalEntry).
 function orderPrints(entry, previousEntry) {
   if (!orderIsNoTpn(entry)) return true;
