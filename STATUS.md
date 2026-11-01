@@ -299,6 +299,11 @@ with them (marked below). Caught up with #201 by PR #202.
   past the newest dot, off the axis, and looped back. Frontend only (`log.jsx`), no `clasp` step, no
   calculation or printed figure. The Fenton chart was checked and is unchanged. Vera: NO BLOCK (outside
   her scope). `CHANGELOG.md` 2026-10-30 (3).
+- ⏳ **PR #205, the Save card's "changes from the previous order" is a table (รายการ · เดิม · ใหม่ · หน่วย):
+  in review (draft), on Pp's request of 2026-11-01 ("ทำเป็นตารางให้อ่านง่ายขึ้น").** On screen only
+  (`calculator.jsx`): the same changes, written the same way, with the old value, new value and unit each in
+  a column. The printed form's one-line list is unchanged. No calculation, figure or saved field, no `clasp`
+  step. Vera: NO BLOCK (one 🟡, this line). `CHANGELOG.md` 2026-11-01.
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197
