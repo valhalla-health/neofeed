@@ -4022,7 +4022,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             )}
 
-            {/* Changes vs the previous order — the cross-check for rounds and pharmacy */}
+            {/* Changes vs the previous order — the cross-check for rounds and pharmacy.
+                A table since Pp, 2026-11-01 ("ทำเป็นตารางให้อ่านง่ายขึ้น"): name,
+                old value, new value and unit each in their own column. The old
+                value is right-aligned and the new one left-aligned, both against
+                the arrow, so a row reads "80 → 90" even when a feed's name
+                widens the columns. The arrow has room on each side (Pp,
+                2026-11-01: "ให้ช่องว่างเดิมกับใหม่ห่างกันอีกเล็กน้อย"), so the old
+                and new values never read as one. The table is only as wide as
+                its content.
+                On screen only: the printed form keeps its one line. */}
             {previousEntry && (
               <div className="order-changes" style={{ fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 }}>
                 <div style={{ fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 }}>
@@ -4032,10 +4041,27 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   ? <div style={{ color: "var(--ink-3)" }}>คำสั่งก่อนหน้าไม่มีข้อมูลละเอียดให้เปรียบเทียบ</div>
                   : orderChanges.length === 0
                     ? <div style={{ color: "var(--ink-3)" }}>ไม่มีการเปลี่ยนแปลง</div>
-                    : orderChanges.map(c => (
-                        <div key={c.label} className="num" style={{ color: "var(--ink)" }}>
-                          {c.label}: {c.from} → <strong>{c.to}</strong> {c.unit}
-                        </div>))}
+                    : <table className="order-changes-table" style={{ borderCollapse: "collapse", maxWidth: "100%" }}>
+                        <thead>
+                          <tr style={{ fontSize: 10.5, color: "var(--ink-3)" }}>
+                            <th scope="col" style={{ textAlign: "left", fontWeight: 600, padding: "2px 10px 4px 0" }}>รายการ</th>
+                            <th scope="col" style={{ textAlign: "right", fontWeight: 600, padding: "2px 4px 4px" }}>เดิม</th>
+                            <th aria-hidden="true" style={{ padding: 0 }}></th>
+                            <th scope="col" style={{ textAlign: "left", fontWeight: 600, padding: "2px 4px 4px" }}>ใหม่</th>
+                            <th scope="col" style={{ textAlign: "left", fontWeight: 600, padding: "2px 0 4px 6px" }}>หน่วย</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orderChanges.map(c => (
+                            <tr key={c.label} style={{ borderTop: "1px solid var(--line)" }}>
+                              <td style={{ padding: "4px 10px 4px 0", color: "var(--ink)" }}>{c.label}</td>
+                              <td className="num" style={{ padding: "4px", textAlign: "right", color: "var(--ink-2)" }}>{c.from}</td>
+                              <td aria-hidden="true" style={{ padding: "4px 10px", color: "var(--ink-3)" }}>→</td>
+                              <td className="num" style={{ padding: "4px", textAlign: "left", color: "var(--ink)", fontWeight: 700 }}>{c.to}</td>
+                              <td style={{ padding: "4px 0 4px 6px", color: "var(--ink-3)", whiteSpace: "nowrap" }}>{c.unit}</td>
+                            </tr>))}
+                        </tbody>
+                      </table>}
               </div>
             )}
 

@@ -120,6 +120,12 @@ const tileRange = (label) => [...container.querySelectorAll('.metric')]
 const printForm = () => container.querySelector('#print-form');
 // An order with no TPN is submitted with Step 3's "No TPN" ticked (CR-NO-TPN-TICK, Pp 2026-11-01).
 const tickNoTpn = () => { const b = container.querySelector('label.no-tpn-chk input'); if (b && !b.checked) act(() => { b.click(); }); };
+// The on-screen change list is a table since 2026-11-01: each row's name, old,
+// new and unit cells, read back as "name: old → new unit".
+const changeLines = () => [...container.querySelectorAll('.order-changes tbody tr')].map(tr => {
+  const [name, from, , to, unit] = [...tr.cells].map(td => td.textContent.trim());
+  return `${name}: ${from} → ${to}${unit ? ' ' + unit : ''}`;
+}).join(' · ');
 const printText = () => (printForm()?.textContent || '').replace(/\s+/g, ' ');
 const missingText = () => [...container.querySelectorAll('div')].map(d => d.textContent).filter(t => /^ยังกรอกไม่ครบ/.test(t)).pop() || '';
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -612,12 +618,10 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     setField('Current weight', 1000); fillRequired(150);
     setField('Rate', 4.1);
     eq('Rate 4.1 mL/hr → Volume box "98.4"', inputFor('Volume(mL/day)').value, '98.4');
-    ok('changes list reads 100 → 98.4', /TPN volume: 100 → 98\.4 mL\/d/.test(container.querySelector('.order-changes')?.textContent.replace(/\s+/g, ' ') || ''),
-      container.querySelector('.order-changes')?.textContent);
+    ok('changes list reads 100 → 98.4', /TPN volume: 100 → 98\.4 mL\/d/.test(changeLines()), changeLines());
     mount({ patient: pt('RT-1000', 1000), previousEntry: { ...prev, calcInput: { ...prev.calcInput, totalTPN_mL: 98.39999999999999 } }, onLog: logger().onLog });
     setField('Current weight', 1000); setField('Volume(mL/day)', 100);
-    ok('a stored 98.39999999999999 is described as 98.4', /TPN volume: 98\.4 → 100 mL\/d/.test(container.querySelector('.order-changes')?.textContent.replace(/\s+/g, ' ') || ''),
-      container.querySelector('.order-changes')?.textContent);
+    ok('a stored 98.39999999999999 is described as 98.4', /TPN volume: 98\.4 → 100 mL\/d/.test(changeLines()), changeLines());
     setField('ปริมาตรคาสาย', 20); setField('Heparin', 1);
     const hint = inputFor('Heparin').closest('.field').querySelector('.field-hint')?.textContent || '';
     ok('heparin hint: units from the prepared 120 mL, matching its mL', /total 120 U\/day → 1\.2 mL of 100 U\/mL/.test(hint), hint);

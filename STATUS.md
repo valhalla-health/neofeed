@@ -1,5 +1,17 @@
 # NeoFeed — Status
 
+> ⚠️ **2026-10-31, 07:00 ICT — frontend `release` = `caecf04` (PR #204), with backend `@66`: merged, not
+> yet verified.** PR #204 released #203 (the Dashboard's Trend graph joins its days with straight lines) and
+> #202 (`sheetHealthReport` in `gas-backend.gs`, which the ward deployment does not run), merged on Pp's
+> go-ahead ("Release"). `release`'s tree (`207d4f9`) is byte-identical to `main` `5a8bfe1`'s, the tree CI ran
+> and dev local walked (comment on #204). GitHub Pages built `caecf04` (#250, success). ⚠️ **`node
+> tools/verify-release.mjs --wait` has not run:** the cloud sessions' network policy refuses both hosts
+> (2026-10-31, and again 2026-11-01), so nothing yet proves what either host serves, and no one has seen
+> Cloudflare's production build. ⚠️ **The tag `release-2026-10-31-pr204` is not pushed:** the cloud git proxy
+> refused it, and it is not on GitHub (checked 2026-11-01). Both are for Pp's PC; the commands are in the
+> comment on #204. `CONSTANTS_VERSION` unchanged (`2026-10-28.1`), no backend change. Rollback: the frontend
+> to `release-2026-10-29-pr201` (`8181b7e`). Recorded here by PR #205, the next PR on the repo.
+>
 > ✅ **2026-10-29, 18:34 ICT — frontend `release` = `8181b7e` (PR #201), with backend `@66`.** PR #201
 > released #200 (the nutrition team's meeting of 2026-10-28), #177 (NF-12), #178 (NF-02) and #199, merged at
 > 15:24 ICT. **`CONSTANTS_VERSION` is `2026-10-28.1`.** The tag `release-2026-10-29-pr201` is pushed. GitHub
@@ -284,21 +296,29 @@
 > using either frontend yet**, and `curl` runs no JavaScript. Next: pharmacy, then the bedside session
 > (`BACKLOG.md` § Now).
 
-**Updated 2026-10-29** · ✅ **Backend `@66` and frontend `release` = `8181b7e` (PR #201) are live, and
-both are verified** (banner). #201 released #200, #177, #178 and #199, and `@66` carries #190's backend half
-with them (marked below). Caught up with #201 by PR #202.
+**Updated 2026-11-01** · ⚠️ **Frontend `release` = `caecf04` (PR #204) is live but not verified, with
+backend `@66` unchanged** (banner). #204 released #203 and #202. Before it, #201 released #200, #177, #178 and
+#199, and `@66` carries #190's backend half with them (marked below). Caught up with #201 by PR #202, and
+with #204 by PR #205.
 - ⏳ **PR #202, `sheetHealthReport` names each measurement cell to fix, by row and column, and counts the
-  cells of M–P that are not JSON: merged into `main` on Pp's instruction ("merge ตอน CI ผ่าน"); not in the
-  script's HEAD until `clasp push`.** Only the Apps Script editor runs that function, so there is nothing
+  cells of M–P that are not JSON: merged into `main` on Pp's instruction ("merge ตอน CI ผ่าน"), and in
+  `release` since #204; not in the script's HEAD until `clasp push`.** Only the Apps Script editor runs that function, so there is nothing
   to release and no `clasp update-deployment` to make: `clasp push` puts it in the script's HEAD, where Pp
   runs the report. No value, name or sessionId in its output. `CHANGELOG.md`
   2026-10-30.
-- ⏳ **PR #203, the Dashboard's Trend graph joins its days with straight lines, and an order dated before
-  the admission day is drawn on the chart: in review (draft), on Pp's report of 2026-10-30
-  ("ทําไมกราฟมันถึงโค้งไปโค้งมา").** The line was a Catmull-Rom curve that, with days unevenly spaced, ran
+- ✅ **PR #203, the Dashboard's Trend graph joins its days with straight lines, and an order dated before
+  the admission day is drawn on the chart: released by PR #204 (`caecf04`, 2026-10-31), ⚠️ not yet verified
+  on either host (banner). On Pp's report of 2026-10-30 ("ทําไมกราฟมันถึงโค้งไปโค้งมา").** The line was a Catmull-Rom curve that, with days unevenly spaced, ran
   past the newest dot, off the axis, and looped back. Frontend only (`log.jsx`), no `clasp` step, no
   calculation or printed figure. The Fenton chart was checked and is unchanged. Vera: NO BLOCK (outside
   her scope). `CHANGELOG.md` 2026-10-30 (3).
+- ⏳ **PR #205, the Save card's "changes from the previous order" is a table (รายการ · เดิม · ใหม่ · หน่วย),
+  with room either side of the arrow: merged into `main` on Pp's instruction ("merge แล้ว ทำ release PR
+  ได้เลย"); not released until its `main → release` PR merges.** On Pp's request of 2026-11-01 ("ทำเป็นตาราง
+  ให้อ่านง่ายขึ้น"). On screen only (`calculator.jsx`): the same changes, written the same way, with the old
+  value, new value and unit each in a column. The printed form's one-line list is unchanged. No calculation,
+  figure or saved field, no `clasp` step. Vera: NO BLOCK twice (one 🟡 on the first run, this line).
+  `CHANGELOG.md` 2026-11-01.
 - ⏳ **PR #206, Step 3's "No TPN" tick and the check that the feeds alone are enough: in review (draft),
   on Pp's request of 2026-11-01 ("มุมติ๊กขวาบน ช่อง tpn ว่า ไม่มี tpn").** The tick clears the bag and skips
   Step 3, and saves as `calcInput.noTpn`. An order with no TPN cannot be submitted until it is ticked
