@@ -91,6 +91,12 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 - **WHEN** the order's `printJson` carries a confirmed critical alert
 - **THEN** the row shows the alert and the reason before the pharmacist prints
 
+#### Scenario: A cancelled order
+
+- **WHEN** a doctor ticks No TPN over a submitted order the same day
+- **THEN** the order leaves the list with no cancelled mark, and the doctor phones the TPN room to confirm
+  (Pp, 2026-11-02, design D16)
+
 ### Requirement: Stickers print `printJson` strings, unchanged
 
 The page SHALL print the three parts on one A4 sheet. Every figure on them SHALL be a string from

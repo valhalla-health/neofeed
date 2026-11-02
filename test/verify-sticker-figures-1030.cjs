@@ -195,6 +195,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     setField('Dextrose final', 10); setField('Amino acid', 2);
     setField('20% NaCl', 2); setField('KCl', 2.5); setField('MgSO₄', 4.861);
   }
+  const BAG_FIELDS = ['Volume(mL/day)', 'Dextrose final', 'Amino acid', '20% NaCl', 'KCl', 'MgSO₄'];
   // The "No TPN" tick (PR #206) clears the bag, and an order with no bag cannot be submitted until it is
   // ticked (CR-NO-TPN-TICK). 160 mL of feeds is 100 mL/kg/d, past the 80 the tick asks for, so no reason is asked.
   const tickNoTpn = () => {
@@ -394,6 +395,43 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     await settle(submitBtn());
     const again = upd(unlocked);
     eq('…and pressing Submit on it makes no figures and no marker', again && [again.printJson, 'printJsonV' in again.calcInput], [null, false]);
+  });
+
+  // A No TPN order that prints a short sheet for an oral order is a saved order with nothing to re-save.
+  await section('§2c6 a No TPN order with an oral order: no notice, and Submit as for any saved order', async () => {
+    const box = logger();
+    order1600(box);
+    tickNoTpn();
+    setField('Vitamin D', 400);
+    await clickAsync(submitBtn());
+    const saved = box.entry;
+    ok('it was saved, with no figures', !!saved && saved.printJson === null, saved && saved.printJson);
+    if (!saved) return;
+    const asSaved = (over) => ({ ...saved, entryId: 'e1', lastModified: 'lm1', ts: '2026-11-16', revisionNumber: 1, ...over });
+    const locked = rec();
+    mount({ patient: PT1600, editEntry: asSaved({ published: '2026-11-16T03:00:00Z' }), ...locked });
+    ok('locked: no notice', !noticeShown());
+    eq('…Submit is disabled', submitBtn() && submitBtn().disabled, true);
+    const unlocked = rec();
+    mount({ patient: PT1600, editEntry: asSaved({ published: '' }), ...unlocked });
+    ok('unlocked: no notice', !noticeShown());
+    await settle(submitBtn());
+    eq('…Submit only locks it', shape(unlocked.calls), [['publish', 'e1', 'lm1']]);
+  });
+
+  // Lipid with no aqueous bag: the one order with no bag that needs no tick, since it is not No TPN. It has no
+  // figures, because the unit does not compound lipid.
+  await section('§2c7 a lipid-only order has no figures and no notice', async () => {
+    const box = logger();
+    order1600(box);
+    BAG_FIELDS.forEach(l => setField(l, 0));
+    setField('20% lipid', 2);
+    await clickAsync(submitBtn());
+    const saved = box.entry;
+    eq('it is saved with no figures and no marker', saved && [saved.printJson, 'printJsonV' in saved.calcInput], [null, false]);
+    if (!saved) return;
+    mount({ patient: PT1600, editEntry: { ...saved, entryId: 'e1', lastModified: 'lm1', ts: '2026-11-16', revisionNumber: 1, published: '2026-11-16T03:00:00Z' }, ...rec() });
+    ok('reopened: no notice', !noticeShown());
   });
 
   // ── §2d the real server takes what the real Calculator sends ──

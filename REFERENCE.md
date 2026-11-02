@@ -545,6 +545,45 @@ and the sync window). `appsscript.json` lives only in the clasp mirror, not in t
 **Password floor is 10 characters** for any new password (`MIN_PASSWORD_LENGTH`, server and
 client, since 2026-09-11). Existing shorter passwords keep working until next changed.
 
+### The TPN room: `pharmacy`, column AM, `pharmacyOrders` (not live)
+
+PR A of `openspec/changes/tpn-room-stickers`. The page that reads all this, PR B, is not built.
+
+- **`Daily_Log` AM, `printJson`.** The figures for the TPN unit's three stickers, as `D.stickerFigures` made
+  them at the save, drafts too. A save with none (no bag, a No TPN order, a tab from before the release) lands
+  with AM blank. The ward sync does not read AM, so the calculator also writes `calcInput.printJsonV`; a saved
+  bag without it shows "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง". Print is not held for it.
+- **`_printJsonField` refuses** a sticker off the schema or off its order (design D14), and a refusal stops a
+  doctor's save. Its key lists mirror `stickerFigures` by hand, and `test/verify-pharmacy-backend-1030.cjs` §13
+  compares them. `stickerFigures` returns null rather than send what the server would refuse, so the order
+  saves with no sticker. **Compare the weight after rounding:** raw, |sticker − kg| > 0.005 refuses 220 of the
+  whole-gram weights from 200 to 8000 g, such as 1005 g printing 1.01.
+- **The `pharmacy` role.** `login` and `logout` are answered before the token check, GET `ping` is open, and
+  `PHARMACY_ACTIONS` lets a signed-in session reach `changePassword` and `pharmacyOrders` only. The login reply
+  carries no registry. The ward app turns the account away with one line.
+- **`pharmacyOrders`.** One real date from the ward's today −7 to +1, for an admin too. Audited before the log
+  is read. It checks both tabs' headers uncached on every call and reads the whole column, so call it on demand,
+  not on a short timer. No name, initials or date of birth, except the initials inside an ID issued before
+  2026-09-27 (Pp accepted that on 2026-10-30, design D5). A lipid-only order is not on it: its route is not
+  `TPN…`, and the unit does not compound lipid.
+- **A cancelled order** leaves the list without a mark, and the doctor phones the room (Pp, 2026-11-02, D16).
+
+**Deploy: the backend first, and this is required** (D15), the opposite of the usual order. All of it on Pp's
+go-ahead:
+
+1. Pp runs `sheetHealthReport` from the editor.
+2. `clasp push`, then `clasp deploy --deploymentId` as above.
+3. From the editor: `ensureLogHeaderColumns()` as a dry run, which reports grid 38 -> 39, then
+   `applyLogHeaderColumns()`. Check that a save lands 39 columns wide.
+4. Then the `main → release` PR, as § Frontend says.
+5. Make no pharmacy account until PR B. For one, type the Staff row as `pharmacy` first, or name the role:
+   `setInitialPassword(email, password, "pharmacy")`. Without a row and a role it writes nothing.
+
+**A later schema change** goes the same way: a backend on `v: 1` refuses a client on a new key or version.
+
+**Rollback:** an older backend rewrites a draft 38 columns wide and leaves that row's AM stale. Nothing reads AM
+until PR B, so check for it before PR B goes live after any rollback.
+
 ## Thai PDPA compliance posture
 
 This app processes infant health data — "sensitive personal data" under PDPA

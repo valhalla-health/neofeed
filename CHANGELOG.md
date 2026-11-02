@@ -7,6 +7,33 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-02 — TPN-room stickers, PR A: figures saved with each order, a read-only pharmacy role
+
+Not live. `data.js` (`stickerFigures`), `calculator.jsx`, `app.jsx`, `gas-backend.gs`, `compiled/`, both shells' `?v=`
+tokens, `test/verify-sticker-figures-1030.cjs`, `test/verify-pharmacy-backend-1030.cjs`, `REFERENCE.md`, `STATUS.md`,
+`BACKLOG.md`, `openspec/changes/tpn-room-stickers/`. Pp, 2026-10-30: the TPN room should print its three stickers
+from NeoFeed's figures instead of retyping each paper order into Excel. Her go-ahead for the figures before the
+TPN unit answered, 2026-10-31: "ทำ นำไปก่อนได้? เพราะ tpn ว่างตอบอีกสามวันเลย".
+
+- **Before:** the room typed every component from the paper order into its Excel, and no server path gave a
+  pharmacy account anything.
+- **Now:** every save of a bag writes `printJson` to `Daily_Log` AM, computed from the same calc as the order. A
+  `pharmacy` account reaches only `changePassword` and `pharmacyOrders`, with no name, initials or date of birth.
+  The page itself is PR B.
+- **Four figures are PROVISIONAL** in `data.js` until `tasks.md` 0.3 a–d is answered: the vitamins on the PN label,
+  Cl⁻, kcal and heparin. Each reproduces the unit's sample sticker. `CONSTANTS_VERSION` stays, since no dose moves.
+- **The server holds the figures to the schema and to their order** (design D14), after an attack pass stored
+  contradictory figures and a patient name. Three things the tests found on the way:
+  - the plan's weight check, compared raw, refuses 220 whole-gram weights such as 1005 g, and its own 1625 g
+    example happens to pass, so only a mutation run and a sweep of every gram showed it;
+  - the plan's figure form kept a minus sign, which let the attack's D50W -5 through. It is gone, and
+    `stickerFigures` returns null on a negative so a damaged row saves with no sticker instead of being refused;
+  - main's "No TPN" tick (#206) saves `printJson` null, so it is outside the rule. §2d sends the tick's real saves
+    through the real backend.
+- **Deploy order is now required: backend first** (D15). `plan-pr-a.md` said either order was safe, which Task 2's
+  marker made false.
+- **A cancelled order is confirmed by phone** (Pp, 2026-11-02, D16), so the page needs no cancelled mark.
+
 ## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
 
 `calculator.jsx` (the Alerts panel, the save panel, Submit's refusal), `compiled/calculator.js`, both shells'

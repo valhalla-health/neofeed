@@ -7,7 +7,7 @@
 //          (doGet answers ping; login and logout are answered before the token is checked);
 //   §5     its login reply carries no registry;
 //   §6–§7  pharmacyOrders: one date inside the ward window (7 days back to tomorrow), counts,
-//          no name, initials or date of birth, audited;
+//          no name, initials or date of birth, audited; §6b, the old IDs Pp accepted;
 //   §8     the header migration labels AM and widens the tab to 39 columns;
 //   §9–§12 what the attack pass and the stakeholder walkthrough found: prescriber and bed from the server,
 //          a moved column, Staff roles, entryId and the twin letter, one date read;
@@ -262,6 +262,21 @@ T.section('§6 pharmacyOrders · one date, counts, and no identifying field', at
   T.eq('savedAt is the row\'s lastModified', pubd.savedAt, g.cell(1, 26));
   T.eq('a draft has no submittedAt', after.orders.find(o => o.sessionId === 'NF-100004').submittedAt, '');
   T.ok('still no @ anywhere in the reply', !/@/.test(JSON.stringify(after)));
+}));
+
+// Pp, 2026-10-30: an ID issued before 2026-09-27 is made from initials and BW, and she accepted it in this
+// reply as a residual risk (design D5). The rows are seeded, because registerPatient may not take such an ID
+// any more. If this fails, someone has re-keyed those IDs or hidden them: tell Pp, the room maps by this ID.
+T.section('§6b pharmacyOrders · an ID from before 2026-09-27 is sent as it is, and only the ID', atNoon(() => {
+  const g = ward();
+  const today = wardToday();
+  const OLD = 'ทท1600A';
+  g.sheet('Patient_Registry').data.push(g.patRow(OLD, { 1: 'ทารกรุ่นเก่า', 2: 'ทท', 3: 1600 }));
+  g.sheet('Daily_Log').data.push(g.logRow(OLD, bkkMidnight(today), { 38: JSON.stringify(PJ({ orderDate: today })) }));
+  const res = g.as(g.rt, { action: 'pharmacyOrders', date: today });
+  T.ok('ok', res.ok === true, res);
+  T.eq('the entry carries the old ID', res.orders.map(o => o.sessionId), [OLD]);
+  T.ok('…and the reply holds no name', !JSON.stringify(res).includes('ทารกรุ่นเก่า'), res);
 }));
 
 T.section('§7 pharmacyOrders · revisions, who may ask, and the date window', atNoon(() => {

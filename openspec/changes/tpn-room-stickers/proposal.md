@@ -16,8 +16,10 @@ units included, to be unable to change anything in NeoFeed.
 
 - **Sticker figures saved with the order.** Every save of a TPN order writes `printJson` (`Daily_Log`
   column AM): the figures the three stickers need, computed by NeoFeed and formatted the way the TPN
-  unit's sample sticker shows them. Submit refuses a row without it.
-- **A `pharmacy` role.** The server answers a pharmacy session for an allow-list of five actions and
+  unit's sample sticker shows them. A save without it still lands: a tab from before the release sends
+  none, and a marker lets the doctor save such an order again. The server holds what it stores to the
+  sticker schema, for the order it came with.
+- **A `pharmacy` role.** The server answers a pharmacy session for a short allow-list of actions (design D4) and
   refuses everything else, before any other handler runs.
 - **`pharmacyOrders`.** A read action that returns one date's counts and TPN orders with no name,
   initials or date of birth. Each call is audited.
@@ -27,8 +29,8 @@ units included, to be unable to change anything in NeoFeed.
 
 ## Impact
 
-- `gas-backend.gs`: the role, the allow-list, `pharmacyOrders`, column AM, the Submit check. Needs a
-  backend deploy (Pp's go-ahead) before the frontend release.
+- `gas-backend.gs`: the role, the allow-list, `pharmacyOrders`, column AM, the sticker schema check. Needs
+  a backend deploy (Pp's go-ahead) before the frontend release, and that order is required (design D15).
 - `calculator.jsx` and the save path: build `printJson` from the calculator's own values.
 - New `tpn-room.html` and its script, served by both hosts from `release`.
 - The doctor's printed sheet does not change: it is already the only page that prints (since

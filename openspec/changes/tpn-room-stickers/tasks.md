@@ -44,20 +44,22 @@
 - [ ] 1.1 Map every figure on the unit's sample stickers to a calculator value. List the ones the
       calculator does not produce yet (for example amino acid %, Mg²⁺ in mg in the delivered volume, kcal
       of the delivered aqueous volume) with the formula each would use, and get Pp's sign-off on that
-      table before coding.
-- [ ] 1.2 Build `printJson` from the calculator's values with the sticker number format. Add a harness
+      table before coding. Pp went ahead on 2026-10-31 with figures a–d marked PROVISIONAL in `data.js`;
+      her sign-off waits on 0.3.
+- [x] 1.2 Build `printJson` from the calculator's values with the sticker number format. Add a harness
       that, for a matrix of synthetic orders (the KCMH-worksheet cases included), asserts each `printJson`
       string equals the calculator's value rounded half up to its decimals, and covers the three
       scenarios in `specs/order-print-figures`.
-- [ ] 1.3 Write `printJson` on `logDailyNutrition` and `updateDailyNutrition`: `LOG_HEADERS` gains
+- [x] 1.3 Write `printJson` on `logDailyNutrition` and `updateDailyNutrition`: `LOG_HEADERS` gains
       `printJson` (AM), `_ensureLogWidth` 39, `_assertSchema`; run `applyLogHeaderColumns` after the deploy.
-- [ ] 1.4 Refuse Submit for a TPN row without `printJson`, with the existing older-app message.
-- [ ] 1.5 Add `pharmacy` to `VALID_STAFF_ROLES` and the allow-list right after the password-change gate.
+- [x] 1.4 Dropped (plan for PR A, change 1; design D3). A saved bag without figures gets a notice and can be
+      saved again, and the server holds the figures it stores to the schema (design D14).
+- [x] 1.5 Add `pharmacy` to `VALID_STAFF_ROLES` and the allow-list right after the password-change gate.
       In `test/gas-vm-sandbox.cjs`, call every handled action as a pharmacy session and assert `Forbidden`
       and an unchanged sheet.
-- [ ] 1.6 Add `pharmacyOrders` with its `readPharmacyOrders` audit row. Assert that the reply holds no
+- [x] 1.6 Add `pharmacyOrders` with its `readPharmacyOrders` audit row. Assert that the reply holds no
       name, initials or date of birth, and that drafts carry no `printJson`.
-- [ ] 1.7 Turn a pharmacy account away in the NeoFeed app with one line of text.
+- [x] 1.7 Turn a pharmacy account away in the NeoFeed app with one line of text.
 - [ ] 1.7a Check that the doctor's sheet of the fullest synthetic order (every stock, a critical-value box,
       changes from the previous day) still prints on one A4 page, with a headless Chrome PDF.
 - [ ] 1.8 Vera's report in the PR; `CHANGELOG.md` entry; `STATUS.md` in the same PR. Backend deploy before
@@ -93,6 +95,15 @@
         that the print log is gone and marks every order in the window "check against the paper first".
       - A fixed contact line: who to call about NeoFeed, the passphrase, a wrong order.
       - The ward app's refusal line for a pharmacy account links to the page.
+
+- [ ] 2.10 From PR A's reviews:
+      - Keep the highest revision per NeoFeed ID and date, and read twice before any polling: the server's
+        read is uncached and whole-column, fine on demand, not on a short timer.
+      - The date picker stays inside the server's window, today −7 to +1.
+      - The sandbox's `logRow` seeds `entryId` as `e-<uuid>`, which `pharmacyOrders` blanks, so dev-local
+        orders show no `entryId` until that fixture is a plain UUID.
+      - A cancelled order leaves the list, and the doctor phones (design D16). Whether a revised order is
+        phoned too is still Pp's question.
 
 ## 3. Pilot and go-live
 

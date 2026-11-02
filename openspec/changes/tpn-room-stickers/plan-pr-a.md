@@ -4,7 +4,7 @@
 
 **Goal:** Every TPN save carries the figures the TPN unit's three stickers print, and a `pharmacy` account can read one date's orders and nothing else.
 
-**Architecture:** `data.js` gains one pure function, `stickerFigures`, that turns the calculator's own values into strings in the sample sticker's format. `calculator.jsx` sends its result as `entry.printJson` on every save. `gas-backend.gs` stores it in a new `Daily_Log` column AM, adds a `pharmacy` role that an allow-list limits to five actions, and adds `pharmacyOrders`. `app.jsx` turns a pharmacy account away at sign-in. The TPN-room page itself is PR B.
+**Architecture:** `data.js` gains one pure function, `stickerFigures`, that turns the calculator's own values into strings in the sample sticker's format. `calculator.jsx` sends its result as `entry.printJson` on every save. `gas-backend.gs` stores it in a new `Daily_Log` column AM, adds a `pharmacy` role that an allow-list limits to a few actions, and adds `pharmacyOrders`. `app.jsx` turns a pharmacy account away at sign-in. The TPN-room page itself is PR B.
 
 **Tech Stack:** React 18 `.jsx` built by `tools/build.mjs` (esbuild, committed `compiled/`); Google Apps Script; Node harnesses (`test/verify-*.cjs`, jsdom, `test/gas-vm-sandbox.cjs`).
 
@@ -14,7 +14,7 @@
 
 1. **D3 is dropped.** The backend stores `printJson` when a save carries it and does not refuse a submitted TPN save without it. Sixteen backend harnesses post submitted saves and would all need the field, and the only orders that could lack figures come from a tab opened before the release. The TPN-room page already refuses to print an order without figures and says to save it again (`specs/tpn-room-stickers`).
 2. **No trailing zeros on the stickers** (Pp, 2026-10-30, the ISMP rule). Each figure goes through `D.displayNum` with the sample's decimals as the maximum: KCl `3`, not `3.0`; an empty row `0`.
-3. **Deploy order: backend first, then the frontend release.** Either order is safe, since an older backend ignores `printJson` and an older frontend sends none. Backend first means the login fix in item 4 is live before anyone makes a pharmacy account.
+3. **Deploy order: backend first, then the frontend release.** Required since Task 2's marker (corrected 2026-11-02): on an older backend a new frontend writes `calcInput.printJsonV` with no AM behind it, so the order shows no notice and the TPN room says "save again". Backend first means the login fix in item 4 is live before anyone makes a pharmacy account.
 4. **Found while planning: the login reply must never carry the registry for a pharmacy account.** `_loginReply` attaches the first registry snapshot (names included) to any successful login that asks for it, before the allow-list could run. Task 4 closes that.
 5. **`pharmacyOrders` also answers an admin**, so Pp can check it without a pharmacy account.
 
@@ -26,7 +26,7 @@ these for the client half; each needs its own failing test first.
 1. **`_printJsonField` holds the figures to the final key set** (attack, finding 1). Today any object with
    `v: 1` up to 8,000 characters is stored, and the TPN-room page is the first print path that does not
    recompute from `calcInput`. Once the TPN unit's answers fix the keys: known keys only; each value a
-   short number string (`^-?\d+(\.\d+)?$`) or `null` where the spec allows; a length cap on any text (the
+   short number string (`^\d+(\.\d+)?$`, no minus sign: review of Task 2b, 2026-11-02) or `null` where the spec allows; a length cap on any text (the
    critical alert's reason); and a refusal when `printJson.dol`, `dosingWeightKg` or `constantsVersion`
    differs from the same request's `entry.dol`, `calcInput.tpnWtG / 1000` and `entry.constantsVersion`.
    Compare the weight after the sticker's own formatting (at most two decimals, no trailing zero): 1625 g

@@ -2,13 +2,14 @@
 
 ### Requirement: A pharmacy role that cannot write
 
-The server SHALL accept `pharmacy` as a Staff role. For a pharmacy session it SHALL answer only `ping`,
-`login`, `logout`, `changePassword` and `pharmacyOrders`, and SHALL return `Forbidden` for every other
-action before any sheet is read or written.
+The server SHALL accept `pharmacy` as a Staff role. It SHALL answer `login` and `logout` before the token
+is checked, the open GET `ping` needs no session, and a signed-in pharmacy session SHALL reach only
+`changePassword` and `pharmacyOrders`. It SHALL return `Forbidden` for every other action before any sheet
+is read or written. A pharmacy account's login reply SHALL carry no registry.
 
 #### Scenario: Every other action is refused
 
-- **WHEN** a pharmacy session calls each action the backend handles, other than the five allowed
+- **WHEN** a pharmacy session calls each action the backend handles, other than those allowed
 - **THEN** each reply is `Forbidden` and no sheet changes
 
 #### Scenario: The registry is refused
@@ -31,10 +32,13 @@ Staff name of the account the server stamped as the row's saver, never text a cl
 when that name is an email; the bed is a ward bed (`NICU n`, `SCN n`, `iso n[-m]`) or blank; the twin
 letter is A–D or blank; `entryId` is a UUID or blank; a time is an ISO timestamp or blank. The server
 SHALL check both tabs' headers on every call, not through the write guard's cached verdict, and refuse
-with `SchemaMismatch` when a column has moved. Two fields are still as written: `printJson`, until
-Tasks 1–2 hold it to the final key set (plan-pr-a.md), and the NeoFeed ID, which for an infant
-registered before 2026-09-27 carries initials (Pp accepted this as a residual risk on 2026-10-30;
-re-keying those IDs is out of scope in proposal.md; design D5 gains the exception in Task 7).
+with `SchemaMismatch` when a column has moved. `printJson` is held to its schema when it is saved
+(specs/order-print-figures). The NeoFeed ID is still as written, and for an infant registered before
+2026-09-27 it carries initials: Pp accepted this as a residual risk on 2026-10-30, and design D5 records
+the exception.
+
+The date SHALL be a real calendar date from the ward's today −7 to +1 days, for an admin too. The room
+needs today, tomorrow and a week of reprints. An admin session SHALL also reach `pharmacyOrders`.
 
 #### Scenario: A day with submitted orders and a draft
 
@@ -63,6 +67,17 @@ re-keying those IDs is out of scope in proposal.md; design D5 gains the exceptio
 
 - **WHEN** a pharmacy session calls `pharmacyOrders`
 - **THEN** `Audit_Log` gains a `readPharmacyOrders` row with the actor's email
+
+#### Scenario: A date a month back
+
+- **WHEN** a pharmacy session asks for a date 30 days before the ward's today
+- **THEN** the reply is a refusal and no order is read
+
+#### Scenario: An ID from before 2026-09-27
+
+- **GIVEN** an infant whose NeoFeed ID was made from initials and birth weight
+- **WHEN** a pharmacy session asks for a date with that infant's order
+- **THEN** the entry carries that ID as it is, and the reply holds no name
 
 ### Requirement: The NeoFeed app turns a pharmacy account away
 

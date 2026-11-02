@@ -52,8 +52,8 @@ clinical judgement. Everything else is engineering sequencing.
         A CP-repo sync.
       - **Pp to say what each means:** "แก้ไขช่อง prescribe ให้มาอยู่ในหน้าแรก" (the Prescribed column is
         on the front already); "ลบผู้ป่วย ward อื่นๆ" (a Sheet clean-up, or hide the "other" ward group?).
-      - **From the 2026-09-28 notes, missing from the list below:** "add Addamel" (the form prints
-        "☐ Addamel N", never offered); heparin "0–1 u/mL" against the caution's "usual 0.5–1"; "check
+      - **From the 2026-09-28 notes, missing from the list below:** "add Addamel" (now its own item under
+        § Later); heparin "0–1 u/mL" against the caution's "usual 0.5–1"; "check
         sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
       - **Next phase:** print the pharmacy sheet again, for a sticker (`.print-back` is hidden in print,
         not removed).
@@ -769,8 +769,12 @@ clinical judgement. Everything else is engineering sequencing.
       ไม่ได้ ได้แค่ใช้ calculator". It goes live with the nursing form's switch (§ Next), not
       before.*
 - [ ] 💊 **product · Pharmacist role** — read-only plus a received/verified/compounded status per
-      order. The printed form now carries HN/AN boxes, saved-by/time/revision and changes-vs-previous
-      (2026-09-11); the status loop is not built.
+      order. The read-only part is built, not live (`openspec/changes/tpn-room-stickers`, PR A: role
+      `pharmacy`, `pharmacyOrders`). The printed form now carries HN/AN boxes, saved-by/time/revision and
+      changes-vs-previous (2026-09-11); the status loop is not built.
+- [ ] 💊 **product · An Addamel N field for the older-children ward** (Pp, 2026-10-30), its own PR. The form
+      prints "☐ Addamel N" and never offers it. `stickerFigures` leaves both Addamel rows null when it is
+      ticked, because the calc has no volume for it, so a field means a volume there too.
 - [ ] 🩺 **safety · Confirm the HMF start threshold** the app shows (`hmfStart: 40` mL/kg/day). The WHO
       tab used to say ≥100 while the EN tab said ≥40, both citing WHO 2023; both now show NeoFeed's 40
       and say "confirm locally".

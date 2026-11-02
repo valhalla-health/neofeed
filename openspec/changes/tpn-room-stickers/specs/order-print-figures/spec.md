@@ -68,12 +68,51 @@ text and the reason, as the printed form shows them.
 - **WHEN** a doctor confirms a critical K⁺ with a reason and saves
 - **THEN** `printJson` carries that alert and that reason
 
-### Requirement: Submit requires printed figures
+### Requirement: An order without figures can be saved again
 
-Submit SHALL refuse a TPN row whose `printJson` is empty, with the message drafts from an older app
-already get: "บันทึกนี้มาจากแอปรุ่นเก่า เปิดรายการแล้วบันทึกใหม่ก่อนส่ง".
+A save without `printJson` SHALL still land, with column AM blank. The calculator SHALL write
+`calcInput.printJsonV` with the figures, because the ward sync does not read column AM. A saved, submitted
+order with a bag and no marker SHALL show "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง" with Submit enabled,
+and that Submit SHALL write a revision with figures. Print SHALL NOT be held for it: the doctor's sheet uses
+no sticker figure.
 
-#### Scenario: A draft saved before this change
+#### Scenario: A locked order from before the release
 
-- **WHEN** a doctor submits a TPN draft saved before `printJson` existed
-- **THEN** Submit is refused with that message, and opening and saving the draft makes it submittable
+- **WHEN** a doctor reopens a locked order with a bag and no marker, and presses Submit
+- **THEN** the save writes a revision whose `printJson` holds the figures and whose `calcInput` has the marker
+
+#### Scenario: A day with no bag
+
+- **WHEN** a doctor reopens a No TPN order, or a draft
+- **THEN** no notice shows
+
+### Requirement: The server holds printJson to the sticker schema
+
+The TPN-room page prints from `printJson` alone, so the server SHALL refuse a save whose `printJson`:
+has a key `stickerFigures` does not make, or lacks one it does; has a figure that is not a number as text of
+at most 12 characters with no minus sign (`null` only on `stockMl.addamel` and `delivered.addamelMl`); has a
+bad `v`, `constantsVersion`, `orderDate` or `critical`; or is longer than 8,000 characters. It SHALL also
+refuse one whose `constantsVersion`, DOL, weight or date is not the order's, the weight compared after the
+sticker's rounding. A refusal SHALL name `printJson` and write nothing. An edit SHALL be held to the row's
+own date. Because a refusal stops a doctor's save, `stickerFigures` SHALL return null rather than a figure
+the server would refuse.
+
+#### Scenario: A patient name inside the figures
+
+- **WHEN** a save carries `printJson` with an extra key `patientName`
+- **THEN** the save is refused and no row changes
+
+#### Scenario: Figures from another order
+
+- **WHEN** a save for a DOL 10 order carries `printJson` with `dol` 25
+- **THEN** the save is refused and no row changes
+
+#### Scenario: A weight the sticker rounded
+
+- **WHEN** a 1005 g order is saved with `dosingWeightKg` `1.01`
+- **THEN** the save lands, as it does for every whole gram from 200 to 8000 g with the figure the sticker prints
+
+#### Scenario: A No TPN order
+
+- **WHEN** a doctor ticks No TPN, for a new order or over a submitted one the same day
+- **THEN** `printJson` is null, the save lands with AM blank, and an earlier row keeps its own figures
