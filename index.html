@@ -2128,6 +2128,13 @@
        phase that prints it for a sticker. */
     .print-back { display: none !important; }
 
+    /* The doctor's sheet is one A4 page at its fullest, signature included
+       (Pp, 2026-11-02). Row line height is set here, not inline, because the
+       form's other tables carry no cell style. No font size is touched. The
+       red box and the signature line never split across a page break. */
+    #print-form td, #print-form th { line-height: 1.35; }
+    #print-form .print-crit-box, #print-form .print-sign { break-inside: avoid; page-break-inside: avoid; }
+
     @page { size: A4 portrait; margin: 8mm 10mm; }
   }
 </style>
@@ -2148,7 +2155,7 @@
        content hash the build writes: never edit one by hand. -->
   <script src="data.js?v=92c05bad72"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=2351215e31"></script>
+  <script src="compiled/calculator.js?v=27272596ae"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
   <script src="compiled/registry.js?v=eb96dd8bfc"></script>
   <script src="compiled/log.js?v=7b665ce3f8"></script>

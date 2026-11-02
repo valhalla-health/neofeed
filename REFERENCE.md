@@ -125,6 +125,15 @@ ward's Print order list both read `D.orderPrints`.
 Two harness contracts: the patient table stays the form's first direct `<table>` child (the parity and
 §6 figure sweeps skip it), and the provenance footer stays the form's last child.
 
+**One A4 page at its fullest (Pp, 2026-11-02).** The front must stay one page with the signature on it, also
+with a confirmed critical value (the longest measured is 11 alerts and a 300-character reason; Submit cuts a reason at 300). With a
+confirmation the signature line is **inside** the red box (`.print-crit-box`), and the box and the line never
+split (`break-inside: avoid` in both shells). The room comes from spacing (cell padding 1.5 px, line height 1.35,
+the form's own padding 0 / 2 mm, the amino-acid choices on two lines), never from a smaller figure or a
+removed line. `verify-print-one-page-1102.cjs` counts the pages in Chromium, so a line added to the front
+that tips the fullest order onto a second page fails it. The provenance footer stays two lines (8 px, about
+226 mm of text on 186 mm of page).
+
 ## GA/PMA convention
 
 **Storage:** `ga` is a number in `WW.D` shorthand:

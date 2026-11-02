@@ -7,6 +7,43 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-02 — The doctor's printed order is one A4 page at its fullest, signature included
+
+`calculator.jsx` (`PrintOrderForm`), `compiled/calculator.js`, both shells' `@media print` block and `?v=`
+tokens, `test/verify-print-one-page-1102.cjs` (new), `test/README.md`. Pp, 2026-11-02: "แยก PR แก้ให้พอดี 1 หน้า";
+and, about a critical value a doctor has confirmed: "จะบีบอัดยังไงให้ หากมี hard stop แต่หมอติ๊กเซนยืนยัน และอยาก
+ให้มีลายเซ็นอยู่ในหน้าเดียวกัน". The layout is the one mocked up with Pp on release `729910f`.
+
+- **Before:** the fullest order (every stock line, 2 feeds, 5 oral lines, 11 critical alerts, a 300-character
+  reason) printed on two pages. The page break cut the red box (its alert titles on page 1, the reason on
+  page 2) and put the signature line and the provenance footer on page 2, about 30 mm over. One alert with a
+  300-character reason was 13 mm over, and one alert with a 40-character reason spilled the footer alone.
+- **Now one page,** measured as a headless-Chromium A4 PDF with IBM Plex Sans loaded (mm free above the 8 mm
+  bottom margin, before → after): no alert 8.6 → 56.5; 1 alert, 40-character reason 2 pages → 40.9; 1 alert,
+  300 characters, no oral orders 2 pages → 47.0; 1 alert, 300 characters 2 pages → 32.7; 11 alerts, 300
+  characters 2 pages → 24.8; and 7 alerts, 300 characters, 8 oral lines and a long diagnosis (made by editing
+  the printed DOM, since the app has five oral lines) 2 pages → 14.2. Four changes, no font size lowered:
+  the amino-acid choices are two lines, the ticked product with its dose and then the other choices and
+  "Other" side by side; cell padding 3 px → 1.5 px with a 1.35 line height on cells; the form's own 4 mm / 6 mm
+  padding is 0 / 2 mm (the page keeps its 8 mm / 10 mm margins); and with a confirmed critical value the
+  signature line sits **inside the red box**, which with the line never splits across a page break
+  (`break-inside: avoid`).
+- **If an order ever does not fit,** the red box moves whole to the next page with its signature directly
+  after the reason, never apart (shown with a 40 mm spacer above the box).
+- **Unchanged:** every figure, line and name on the sheet. The printed text of the fullest order differs
+  from before in one place only, the amino-acid dose, which now follows the ticked product instead of the
+  whole list. The box's three texts, `.crit-confirmed`, `.print-doctor`, `.print-revision` (4 mm / 6 mm),
+  `.print-lipid-rate`, the patient table as the first `<table>` and the footer as the last child are as they
+  were. The provenance footer stays two lines: its two strings come to about 226 mm at 8 px against 186 mm of
+  page, so one line would need a smaller type. Center Point's own sheet (`tpn-document.mjs`, its digest pin)
+  is not touched; its legacy screen bundles this form and picks up the layout.
+- **Tests.** `verify-print-one-page-1102.cjs` saves three real orders (no alert, one, several) through
+  Submit and pins the markup (signature inside the box and the only one, the box's texts, five amino-acid
+  choices once each, every figure 10 px or larger, the rules in both shells); in Chromium it prints each
+  order's form with the shells' CSS in a wide fallback font (Verdana here, DejaVu Sans on CI; about 4 % taller
+  than IBM Plex Sans on the fullest order) and expects one page, and reads the computed `break-inside` and
+  line height. Against `6ed5428` 29 of its 41 assertions fail, the three page counts among them.
+
 ## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
 
 `calculator.jsx` (the Alerts panel, the save panel, Submit's refusal), `compiled/calculator.js`, both shells'
