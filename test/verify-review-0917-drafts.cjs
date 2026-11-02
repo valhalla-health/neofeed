@@ -251,6 +251,10 @@ const ago = (ms) => new Date(Date.now() - ms).toISOString();
       render({ patient: pt('MN-2'), dol: 12, logDate: null, onLog });
       ok('switching patient after midnight starts a today order (no banner)', !/คำสั่งนี้เป็นของวันที่/.test(container.textContent));
       setField('Current weight', 1000); fillRequired();
+      // An order with no TPN is submitted with "No TPN" ticked and enough feed
+      // (CR-NO-TPN-TICK, CR-NO-TPN-EN, 2026-11-01).
+      setField('Volume(mL/feed)', 10); setField('Frequency', 8);
+      act(() => { container.querySelector('label.no-tpn-chk input').click(); });
       await clickAsync(saveBtn());
       eq('…saved as the 18th', logged[1] && logged[1].ts, '2026-09-18');
       eq('…with the live DOL', logged[1] && logged[1].dol, 12);

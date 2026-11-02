@@ -229,6 +229,7 @@ function expected(sc) {
   // fluid
   e.prescribed = Vd + e.lipBag + sc.otherIV + sc.drug + cnt;
   e.fluidKg = e.prescribed / W;
+  e.W = W;
   e.planMl = sc.fluid * W;
   e.remaining = e.planMl - e.prescribed;
   e.availEN = sc.fluid * W - Vd - e.lipBag - sc.otherIV - sc.drug;
@@ -283,6 +284,11 @@ function expected(sc) {
 // K 5.0 on the IV portion, NPE:AA below 12 on the IV portion (no ceiling),
 // dextrose 17.3 g/kg/d, peripheral osmolarity 900, the bag above 1,250 mL;
 // cautions for heparin above 1 U/mL and oral vitamin D above 1,000 IU/day.
+// An order with no bag and no lipid is ticked "No TPN" (CR-NO-TPN-TICK) and is
+// never printed (Pp, 2026-11-01).
+const noTpnScenario = (sc) => !['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0);
+// …except a short sheet for its oral orders (Pp, 2026-11-01: "Print orals only").
+const oralScenario = (sc) => !!sc.mtv || ['vitD', 'oCa', 'oP', 'fe'].some(k => sc[k] > 0);
 function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
   const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
@@ -340,7 +346,23 @@ function expectedAlerts(sc, e) {
     if (sc.route === 'peripheral') { if (Math.round(e.osm) >= 900) add('crit', 'Osmolarity > peripheral limit'); }
     // A central line has no upper osmolarity limit since 2026-09-28 (Praew).
   }
-  if (e.Vd > 0 && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
+  // "No TPN" (Pp, 2026-11-01): an order with no bag and no lipid is ticked
+  // (fill() ticks it). Its counted feed is held to 80 mL/kg/d, or the day's
+  // fluid band's lower bound where that is less (critical); else more than 20
+  // below the plan is amber, and the info line below is left out for both.
+  // The bands' lower bounds are Jochum 2018 Tables 1-3 as the app codes them,
+  // written out here, on the tier held at birth weight.
+  const noTpn = noTpnScenario(sc);
+  let noTpnShort = false;
+  if (noTpn && e.W > 0) {
+    const lo = tierG < 1000 ? [80, 100, 120, 140, 160, 140, 140] : tierG < 1500 ? [70, 90, 110, 130, 160, 140, 140]
+      : tierG < 2500 ? [60, 80, 100, 120, 140, 140, 140] : [40, 50, 60, 60, 100, 140, 140];
+    const bar = Math.min(80, lo[Math.min(d, 7) - 1]);
+    const enKg = Number((e.enCounted / e.W).toPrecision(12));
+    if (enKg < bar) { add('crit', "No TPN: feeds below 80 mL/kg/d or the day's minimum"); noTpnShort = true; }
+    else if (sc.fluid > 0 && Number((sc.fluid - e.enCounted / e.W).toPrecision(12)) > 20) { add('warn', 'No TPN: feeds well below the fluid plan'); noTpnShort = true; }
+  }
+  if ((e.Vd > 0 || (noTpn && !noTpnShort)) && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
   if (e.dexGkg > 17.3) add('crit', 'Dextrose over KCMH max');
   // K⁺ in the bag by route since 2026-09-28 (TPN team and Praew): peripheral amber > 40, not orderable
   // > 60 (Praew, 2026-10-08; it was 200); central amber > 60, critical > 120, not orderable > 200.
@@ -356,9 +378,9 @@ function expectedAlerts(sc, e) {
   // A bag with volume and no amino acid is a caution (Pp, 2026-10-21); one
   // without MgSO₄ is not, since 2026-10-27 (TPN team; Pp: "เอาออก").
   if (e.Vd > 0 && !(sc.aa > 0)) add('warn', 'Amino acid not ordered');
-  if (bagOrdered && e.wfi < 0) add('crit', 'Bag cannot be compounded');
-  // The TPN room's largest bottle is 1,250 mL, on the prepared volume as printed.
-  if (e.Vd > 0 && r1(e.Vp) > 1250) add('crit', 'Bag larger than the largest bottle');
+  // A negative WFI, or a prepared volume above the TPN room's largest bottle
+  // (1,250 mL, as printed): one stop on screen since 2026-11-01 (Pp).
+  if ((bagOrdered && e.wfi < 0) || (e.Vd > 0 && r1(e.Vp) > 1250)) add('crit', 'Bag cannot be made (ใส่ถุงไม่ได้)');
   if (e.Vd > 0 && sc.hep > 1) add('warn', 'Heparin above the usual dose');
   if (sc.vitD * e.W + (sc.mtv ? MUNTIVIM_D_IU_PER_DAY : 0) > 1000) add('warn', 'Vitamin D above 1,000 IU/day');
   if (e.Vd > 0 && sc.ca > 0 && sc.k2 > 0) add('warn', 'Calcium–phosphate compatibility not calculated');
@@ -562,6 +584,9 @@ function fillForm(sc, e, scratch) {
   selectWith('PO4_PHOSPHATE', sc.po4Type);
   setField('ปริมาณ elem P', sc.oP);
   setField('Vitamin D', sc.vitD);
+  // An order with no bag and no lipid is submitted with "No TPN" ticked
+  // (CR-NO-TPN-TICK, Pp 2026-11-01). It holds nothing to clear here.
+  if (noTpnScenario(sc)) setCheck('No TPN', true);
 }
 
 // ── run one scenario ────────────────────────────────────────────────────────
@@ -620,11 +645,20 @@ async function run(scIn) {
     near(sc, 'EN per kg Ca', g('Ca'), e.enFeed.ca, 0);
     near(sc, 'EN per kg P', g('P'), e.enFeed.p, 0);
   }
-  near(sc, 'Prepared mL/day', grabT(/Prepared \(เตรียมจริง\)([\d.]+) mL\/day/), e.Vp, 1);
-  near(sc, 'Factor', grabT(/Factor([\d.]+)/), e.F, 3);
+  // A day ticked "No TPN" (Pp, 2026-11-01) shows no pumps, so these four
+  // readouts are not on screen; that they are gone is the check instead.
+  const noTpnTicked = !!container.querySelector('label.no-tpn-chk input')?.checked;
+  if (noTpnTicked) {
+    checks++;
+    if (grabT(/Prepared \(เตรียมจริง\)([\d.]+) mL\/day/) !== null || container.querySelector('.gir-readout'))
+      mismatches.push({ sc: sc.name, what: 'No TPN ticked: the pumps are hidden', got: 'shown', want: 'hidden' });
+  } else {
+    near(sc, 'Prepared mL/day', grabT(/Prepared \(เตรียมจริง\)([\d.]+) mL\/day/), e.Vp, 1);
+    near(sc, 'Factor', grabT(/Factor([\d.]+)/), e.F, 3);
+    near(sc, 'GIR readout', num(container.querySelector('.gir-readout .num')?.firstChild?.textContent), e.gir, 1);
+    near(sc, 'AA stock mL/day', grabT(/Volume([\d.]+) mL\/day/), e.aaMl, 1);
+  }
   if (e.d50 > 0) near(sc, 'D50W mL/d', grabT(/D50W: ([\d.]+) mL\/d/), e.d50, 1);
-  near(sc, 'GIR readout', num(container.querySelector('.gir-readout .num')?.firstChild?.textContent), e.gir, 1);
-  near(sc, 'AA stock mL/day', grabT(/Volume([\d.]+) mL\/day/), e.aaMl, 1);
   if (e.Vd > 0) {
     near(sc, 'Components mL', grabT(/Components([\d.]+) mL/), e.components, 1);
     // WFI q.s. left the screen on 2026-09-28 (TPN team); the print and copy
@@ -715,7 +749,11 @@ async function run(scIn) {
 
   // ─ printed pharmacy form ─
   const form = container.querySelector('#print-form');
-  same(sc, 'print form rendered after save', !!form, orderable);
+  // A No TPN order prints only a short sheet for its oral orders (Pp, 2026-11-01).
+  same(sc, 'print form rendered after save', !!form, orderable && (!noTpnScenario(sc) || oralScenario(sc)));
+  if (form && noTpnScenario(sc)) {
+    same(sc, 'No TPN: the short sheet, with no TPN lines', !!form.querySelector('.print-no-tpn') && !/PARENTERAL NUTRITION FLUID/.test(form.textContent), true);
+  }
   if (form) {
     const p = form.textContent.replace(/\s+/g, ' ');
     // the form prints "—" for a zero figure (f/f0), so "—" reads as 0 here

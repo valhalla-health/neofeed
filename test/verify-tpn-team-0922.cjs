@@ -234,7 +234,11 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     setField('ZnSO₄', 0.15);
     await save();
     eq('calcInput.znPerKg is the dose as ordered', log.entry && log.entry.calcInput.znPerKg, 0.15);
-    const changes = text(container.querySelector('.order-changes'));
+    // A table since 2026-11-01: each row read back as "name: old → new unit".
+    const changes = [...container.querySelectorAll('.order-changes tbody tr')].map(tr => {
+      const [name, from, , to, unit] = [...tr.cells].map(td => text(td));
+      return `${name}: ${from} → ${to}${unit ? ' ' + unit : ''}`;
+    }).join(' · ');
     ok('"changes vs previous order" lists ZnSO₄ 0 → 0.15', /ZnSO₄: 0 → 0\.15 mg Zn\/kg\/d/.test(changes), changes);
     const form = printText();
     // Factor = 2 kg × (180 + 30) / 180; in the bag 0.15 × 2 × 7/6 = 0.35 mg.

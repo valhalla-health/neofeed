@@ -114,7 +114,9 @@ Since the dead-space change, a harness order that means "no dead space" types 0
 against 2026-09-18.1's own changes, so after 2026-09-28.1 a feeds-only order reprinted under its old entry
 id with figures from today's constants. Its order is FBM_PF_24 30 mL × 8 at 1500 g with no TPN. Print
 now refuses it with the calcMoved reason until it is saved again, and the same order with the current
-stamp prints, so the refusal comes from the stamp alone. 15 assertions; 6 fail on `55d893d`.
+stamp prints, so the refusal comes from the stamp alone. 15 assertions; 6 fail on `55d893d`. Since
+2026-11-01 a feeds-only order is "No TPN" and never printed (Pp), so §1, §2 and §4 use the same order with a
+small bag, and §5 checks that the feeds-only order, stamped or not, prints nothing and Print says so.
 
 `verify-tpn-team-0922.cjs` pins **the KCMH TPN team's feedback and Praew's rules of 2026-09-22**.
 **Zinc** — a ZnSO₄ line in mg of elemental Zn/kg/d, a total with Peditrace's delivered mL × 0.25 mg,
@@ -1639,8 +1641,9 @@ than once; `node tools/ci_bans.js --self-test` first runs each rule on **`ci-ban
 least one case that must fail and one that must pass per rule). The first rule, `raw-tofixed`, is the
 trailing-zero rule of 2026-09-22: a `toFixed(n)` with n > 0 that is not inside `parseFloat()` or
 `Number()` prints "18.0", so it must go through `D.displayNum`. `toFixed(0)` and comment lines are left
-alone; the SVG path in `log.jsx` is on the allow list, and an allow entry that matches nothing fails the
-run. Seen to fail on a planted `{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry.
+alone; an allow entry that matches nothing fails the run. Seen to fail on a planted
+`{calc.kcalKg.toFixed(1)}` in `calculator.jsx` and on a stale allow entry. Its one allow entry, the Trend
+graph's curved SVG path in `log.jsx`, came out with that curve (2026-10-30 (3)), and its two fixtures with it.
 
 ## Log rules, 2026-10-28 — three more ci_bans rules (NF-08)
 
@@ -1782,7 +1785,7 @@ osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks w
 
 Pp: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง", then "ให้สามารถมีปุ่มซีเล็ก
 เป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้" (`CHANGELOG.md` 2026-10-28 (2)). **`verify-print-all-1028.cjs`** drives the
-real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 72 checks in twelve scenarios: the
+real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 83 checks in thirteen scenarios: the
 button sits after the title block and counts only what a tap would print (no `tmp_` row, no two-orders
 day); no Calculator button on the print list, still one on the gate and the ward list; a run opens the
 orders in bed order, each printed once on its own infant's sheet with another infant active first,
@@ -1910,7 +1913,8 @@ Pp's answer to the clinical-rules skill's Q2: "ถ้า WFI ติดลบ ใ
 KCl 1.1 (WFI −0.1). § 1: WFI 0 saves with no reason asked; WFI −0.1 is a red line, Submit is disabled, the
 save panel names 130.6 mL of stock in a 130.5 mL bag, and a draft may be kept. § 2: a row saved before the
 change with a reason naming "Bag cannot be compounded" has no order form, and Print and Copy refuse with
-the same reason. § 3: Center Point's บันทึก is disabled and nothing reaches Center Point. 20 checks; 9 fail
+the same reason. Since 2026-11-01 the screen shows it, with the 1,250 mL bottle, as one stop, "Bag cannot
+be made (ใส่ถุงไม่ได้)"; the saved reason still names the old title. § 3: Center Point's บันทึก is disabled and nothing reaches Center Point. 20 checks; 9 fail
 on `326bcd9`.
 
 ## The backend and Center Point refuse a stopped order, 2026-10-28 — one new harness
@@ -2033,6 +2037,38 @@ report, and no stored value (12345, 99999, "x3") or bedHistory key ("NICU 7 ward
 §4: a clean sheet gives an empty list and zero counts. 11 checks; with `NEOFEED_GAS_SRC` and `8644e78`'s
 `gas-backend.gs`, 6 fail. Three mutants each fail their own check: the raw validator message (§1 and §3),
 counting per cell (§1's row count) and no fallback to D (§1's list).
+
+## The Trend graph's line, 2026-10-30 — one harness
+
+The Dashboard's Trend graph joins its days with straight lines (`CHANGELOG.md` 2026-10-30 (3)).
+**`verify-trend-line-1030.cjs`** (59 checks; the jsdom set) mounts the real `TrendGraph` on the screenshots'
+days (admission days 1–4 and 16–19, then 69 and 70). §1: on all nine metrics and both x-axes no point of the
+line leaves the plot box, and on Weight, Energy and Protein the line is `M` then `L` only, with the dots as
+its corners in day order. §2: between two equal days the line stays at their height. §3: an order dated
+three days before the admission day is drawn on the plot's left edge, with the axis labelled from that day,
+and a log without one still starts at 0. On `07abbe9`, 36 fail: the line reaches x ≈ 808 on a plot that
+ends at 736, and the early dot is at x = −46.
+
+## The "No TPN" tick, 2026-11-01 — one harness
+
+Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (68 checks; the jsdom
+set) mounts the real Calculator. §1: the tick, labelled "No TPN", sits in Step 3's header, and ticking it
+clears a bag with lipid, KCl and ZnSO₄, names what it cleared, hides the pumps (no note in their place) and
+the route, and turns Steps 3 and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value
+back and says so, but a KCl typed after the tick stays as typed. §3: feeds with the tick off cannot be
+submitted (`CR-NO-TPN-TICK`), the save panel says why, and the draft names the stop for the backend. §4:
+Submit saves `calcInput.noTpn: true` with every bag ingredient 0 and no stop; the saved order has no print form
+and no red "held" line, and Print says "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์" and prints nothing. §5: the saved order reopens
+ticked and a new day copied from it starts ticked; a submitted feeds-only row saved before the tick existed
+reopens ticked and is not printed, the same row as a draft unticked, a row with a bag unticked, and a row with an empty `calcInput` unticked. §6: the changes
+list names "No TPN: no → yes". §7: with the tick on and no route chosen, a salt typed into Step 4 raises no
+route stop (the tick hides those buttons); the no-volume stop points at the tick. §8: the short sheet, titled
+"NO TPN — ORAL / STOP ORDER" and dated "วันที่สั่ง", prints for oral orders, on the first No TPN day after a TPN
+day and for a same-day revision of a submitted TPN order (both "TPN stopped today"; `calcInput.replacesTpn`,
+also when reopened), else "No TPN today"; a draft TPN order ticked and submitted, or a No TPN day after one, prints nothing. §9: Center Point offers
+no tick, holds no such stop, and its no-volume line offers no tick. What the feeds must
+reach (`CR-NO-TPN-EN`, `CR-NO-TPN-PLAN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at
+once: there is no tick.
 
 ## Note on the source workbook
 

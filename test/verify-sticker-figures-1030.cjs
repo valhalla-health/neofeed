@@ -195,7 +195,14 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     setField('Dextrose final', 10); setField('Amino acid', 2);
     setField('20% NaCl', 2); setField('KCl', 2.5); setField('MgSO₄', 4.861);
   }
-  const BAG_FIELDS = ['Volume(mL/day)', 'Dextrose final', 'Amino acid', '20% NaCl', 'KCl', 'MgSO₄'];
+  // The "No TPN" tick (PR #206) clears the bag, and an order with no bag cannot be submitted until it is
+  // ticked (CR-NO-TPN-TICK). 160 mL of feeds is 100 mL/kg/d, past the 80 the tick asks for, so no reason is asked.
+  const tickNoTpn = () => {
+    setField('Volume(mL/feed)', 20); setField('Frequency', 8);
+    const tick = container.querySelector('label.no-tpn-chk input[type=checkbox]');
+    if (!tick) throw new Error('no "No TPN" tick');
+    act(() => { tick.click(); });
+  };
   const WANT_STOCK = { d50w: '38', aminoven10: '38', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.1', glycophos: '0',
     k2hpo4: '0', naAcetate: '0', kcl: '2.4', mgso4_10: '0.9', caGluconate: '0', soluvit: '1.9', peditrace: '1.9',
     heparin: '1.9', wfi: '103.9', aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0' };
@@ -244,14 +251,15 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     SENT.draft = box.entry;
   });
 
-  await section('§2b2 an order with no bag saves printJson null and no marker', async () => {
+  await section('§2b2 a No TPN order saves printJson null and no marker', async () => {
     const box = logger();
     order1600(box);
-    BAG_FIELDS.forEach(l => setField(l, 0));
+    tickNoTpn();
     await clickAsync(submitBtn());
     eq('the order is logged', box.calls, 1);
     eq('printJson is there as a key, and null', box.entry && [('printJson' in box.entry), box.entry.printJson], [true, null]);
     eq('…and calcInput carries no marker', box.entry && 'printJsonV' in box.entry.calcInput, false);
+    eq('…and says No TPN, with no volume', box.entry && [box.entry.calcInput.noTpn, box.entry.calcInput.totalTPN_mL], [true, 0]);
     SENT.noBag = box.entry;
   });
 
@@ -368,10 +376,10 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     ok('a draft saved just now: no notice either', !noticeShown());
   });
 
-  await section('§2c5 an order with no TPN bag has no figures to miss', async () => {
+  await section('§2c5 a No TPN order has no figures to miss', async () => {
     const box = logger();
     order1600(box);
-    BAG_FIELDS.forEach(l => setField(l, 0));
+    tickNoTpn();
     await clickAsync(submitBtn());
     const noBag = box.entry;
     ok('a bag-less order was saved', !!noBag && noBag.printJson === null, noBag && noBag.printJson);
@@ -379,13 +387,13 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     const asSaved = (over) => ({ ...noBag, entryId: 'e1', lastModified: 'lm1', ts: '2026-11-16', revisionNumber: 1, ...over });
     const locked = rec();
     mount({ patient: PT1600, editEntry: asSaved({ published: '2026-11-16T03:00:00Z' }), ...locked });
-    ok('a locked order with no bag: no notice', !noticeShown());
-    eq('…Submit stays disabled, as before', submitBtn() && submitBtn().disabled, true);
+    ok('a locked No TPN order: no notice', !noticeShown());
     const unlocked = rec();
     mount({ patient: PT1600, editEntry: asSaved({ published: '' }), ...unlocked });
-    ok('an unlocked order with no bag: no notice', !noticeShown());
+    ok('an unlocked No TPN order: no notice', !noticeShown());
     await settle(submitBtn());
-    eq('…Submit only locks it, as before', shape(unlocked.calls), [['publish', 'e1', 'lm1']]);
+    const again = upd(unlocked);
+    eq('…and pressing Submit on it makes no figures and no marker', again && [again.printJson, 'printJsonV' in again.calcInput], [null, false]);
   });
 
   // ── §2d the real server takes what the real Calculator sends ──
@@ -413,6 +421,15 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     const w1625 = wtBox.entry;
     eq('a 1625 g order: 1625 g on the row, 1.63 on the sticker',
       w1625 && [w1625.calcInput.tpnWtG, w1625.printJson && w1625.printJson.dosingWeightKg], [1625, '1.63']);
+
+    // A submitted order with a bag, reopened and ticked No TPN the same day: a revision that cancels the bag.
+    const cancelBox = rec();
+    mount({ patient: PT1600, editEntry: reopen({ published: '' }), ...cancelBox });
+    tickNoTpn();
+    await settle(submitBtn());
+    const cancel = upd(cancelBox);
+    eq('a same-day No TPN revision has no figures, and says what it replaced',
+      cancel && [cancel.printJson, cancel.calcInput.noTpn, cancel.calcInput.replacesTpn], [null, true, true]);
 
     const { boot, withNow } = require('./gas-vm-sandbox.cjs');
     withNow(Date.parse('2026-11-16T05:00:00Z'), () => {
@@ -445,8 +462,15 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
       const inPlace = edit(draft, SENT.edited);
       ok('its edit → saved in place', inPlace.ok === true && !inPlace.revised, inPlace);
       eq('…with AM the edited figures', JSON.parse(am(draft.row)), wire(SENT.edited.printJson));
-      const none = create('an order with no bag (printJson null)', 'NF-900103', 3, SENT.noBag);
+      const none = create('a No TPN order (printJson null)', 'NF-900103', 3, SENT.noBag);
       eq('…with AM blank', am(none.row), '');
+      const noneRev = edit(none, SENT.noBag);
+      ok('its edit → saved as a revision', noneRev.revised === true, noneRev);
+      eq('…with AM blank', am(log.length - 1), '');
+      const cancelled = create('a submitted order with a bag', 'NF-900106', 6, SAVED);
+      const cancelRev = edit(cancelled, cancel);
+      ok('its same-day No TPN revision → saved', cancelRev.revised === true, cancelRev);
+      eq('…the old row keeps its sticker, the revision has none', [JSON.parse(am(cancelled.row)).v, am(log.length - 1)], [1, '']);
       const c = create('a confirmed critical order', 'NF-900104', 4, crit);
       eq('…with AM carrying the alert and the reason as the form kept it', JSON.parse(am(c.row)).critical, wire(crit.printJson.critical));
       const w = create('a 1625 g order', 'NF-900105', 5, w1625);
