@@ -23,7 +23,7 @@ const T = recorder('HARDENING 2026-11-02');
 
 const AUDIT_MAX = 60;           // rows per window from callers with no account
 const CALC_MAX = 10000;         // characters of serialised calcInput
-const FIELD_MAX = { name: 200, initials: 40, diagnosis: 2000, currentBed: 60, twinSuffix: 10,
+const FIELD_MAX = { name: 200, initials: 40, diagnosis: 2000, currentBed: 60, twinSuffix: 20,
   dob: 40, admissionDate: 40, statusDate: 40 };
 const LOGIN_FAILED = 'email หรือรหัสผ่านไม่ถูกต้อง';
 const LOCKED = 'ลองใหม่ในอีก 15 นาที — login ผิดพลาดหลายครั้ง';

@@ -2089,7 +2089,7 @@ function _checkAdmissionDate(val, storedOrNull, label) {
 var PATIENT_TEXT_MAX = {
   name: { max: 200, label: "Name" }, initials: { max: 40, label: "Initials" },
   diagnosis: { max: 2000, label: "Diagnosis" }, currentBed: { max: 60, label: "Bed" },
-  twinSuffix: { max: 10, label: "Twin letter" }, dob: { max: 40, label: "Date of birth" },
+  twinSuffix: { max: 20, label: "Twin letter" }, dob: { max: 40, label: "Date of birth" },
   admissionDate: { max: 40, label: "Admit date" }, statusDate: { max: 40, label: "Status date" },
 };
 function _checkPatientText(m, storedRow) {

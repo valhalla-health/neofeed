@@ -35,7 +35,7 @@ TPN-room branch, which already closes A2 and A6 to A9. Backend only: no `.jsx`, 
   answer from an archive these roles cannot open, with no audit row. To go back to "every row": drop the
   `_patientInSyncWindow` test in `_possibleDuplicate`.
 - **A10, input sizes.** `calcInput` is capped at 10,000 characters, and the registry's text at name 200, initials 40,
-  diagnosis 2,000, bed 60, twin letter 10, each date 40, with a Thai refusal that gives both counts and never repeats
+  diagnosis 2,000, bed 60, twin letter 20, each date 40, with a Thai refusal that gives both counts and never repeats
   the text. Measured from the real `<Calculator>`: an ordinary bag 940 characters, a draft with the required boxes
   blank 1,023, every box holding a 19-character decimal 1,484, a critical override with 8 alerts and the 300-character
   reason 1,557. §8 of the new harness fails if a real save passes half the cap. A stored value over a cap passes while it
