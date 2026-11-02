@@ -2073,20 +2073,31 @@ once: there is no tick.
 ## One A4 page for the doctor's order, 2026-11-02 — one harness
 
 The doctor's printed order is one A4 page at its fullest, with the signature on it (`CHANGELOG.md`
-2026-11-02). **`verify-print-one-page-1102.cjs`** (41 checks; the jsdom set, plus a Chromium section that
+2026-11-02). **`verify-print-one-page-1102.cjs`** (68 checks; the jsdom set, plus a Chromium section that
 prints SKIP without playwright and that CI runs) saves three real orders through Submit, each with every
-stock line, a feed and five oral lines: no critical alert, one (KCl 6 mEq/kg/d), and several. §1: with no
-alert there is no red box and one signature line, a direct child of the form after the lipid pump rate; with a
-confirmed critical value the one signature line is inside `.print-crit-box`, after the confirmation and the
-reason, and the box keeps its three texts; the amino-acid cell is two lines (the ticked product with its dose,
-then the other four choices and "Other", all unticked); no figure is set below 10 px and no cell below 10 px;
-both shells carry the `break-inside: avoid` and 1.35 line-height rules; the footer is still the form's last
-child. §2 puts each order's form into a page with the shells' own CSS, in a wide fallback font (Verdana here,
-DejaVu Sans on CI, about 4 % taller than IBM Plex Sans), emulates print and counts the pages of
-`page.pdf`: one each; it also reads the computed `break-inside` of the box and the signature line and the
-line height of a ruled cell. A CI machine has neither IBM Plex nor Sarabun, which is why the font is forced.
-To run §2 on Pp's PC use the launch shim above (`CHROME_EXE` set). On `6ed5428`, 29 of the 41 fail, the three
-page counts among them (2 pages each).
+stock line, a feed and five oral lines: no critical alert, one (KCl 6 mEq/kg/d), and several. §1a: with no
+alert there is no red box and the signature line is as it was (the doctor and the code, 14 px below what it
+signs, no ID or date). §1b: with a confirmed critical value the one signature line is inside
+`.print-crit-box`, after the confirmation and the reason, between "NeoFeed ID: … · วันที่ให้ TPN: …" (the
+strings the top of the sheet prints, as plain spans) and the code; the box keeps its three texts; the line is
+at least 14 px below the reason and the box has 8 px under it. §1c: the amino-acid cell is two lines (the
+ticked product with its dose, then the other four choices and "Other"), no figure is set below 10 px. §1d: the
+same for an order saved with Aminoplasmal 15% (the ward gate is stubbed, as in `verify-ward-requests-0918.cjs`
+§9): the ticked line reads "☑ 15% Aminoplasmal", the others start with "☐ 10% Aminoven infant". §1e:
+calculator.jsx still has 21 `level: "crit"` alert lines; the fit test's `ALERTS_13` is every title among them
+that takes a reason and can print (the others are `noReason`, a No TPN order's, or stops), so a new critical
+alert fails here until it is added or excused. §1f: both shells carry the `break-inside: avoid` and 1.35
+line-height rules. §2 puts each order's form into a page with the shells' own CSS, in a wide fallback font
+(Verdana here, DejaVu Sans on CI, about 4 % taller than IBM Plex Sans), emulates print and counts the pages of
+`page.pdf`: one each, for no alert, one alert, and all 13 titles with a 300-character reason; it reads the computed
+`break-inside` and the line height, the room around the signature line, and that its three parts do not overlap
+even with a 36-character ID. §2b prints an order that does not fit (all 13 titles, a 300-character reason, a
+600-character diagnosis) with a link around each part of the box: Chrome writes a link annotation on the page
+where the link falls, as plain text in the PDF, so the check reads which page holds what with no PDF library. It
+expects two pages and the whole box, its signature, and the ID and date on page 2; with `break-inside` switched off
+the same order splits, which proves the check can see a split. A CI machine has neither IBM Plex nor Sarabun,
+which is why the font is forced. To run §2 on Pp's PC use the launch shim above (`CHROME_EXE` set). On `6ed5428`,
+45 of the 66 checks that run fail, the three page counts among them (2 pages each).
 
 ## Note on the source workbook
 

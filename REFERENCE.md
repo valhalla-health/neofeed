@@ -99,7 +99,10 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
 
 - **Front: the doctor's order.** It is the KCMH paper form, in the paper's own layout and words, with
   one table row per product so that no figure can sit on another product's line. Ordered products are
-  bold, and the paper's other choices print unticked. Oral orders go under "8. Other", and the saver's
+  bold, and the paper's other choices print unticked. **One departure from the paper's order (2026-11-02):**
+  the Amino acid cell is two lines, the ticked product first with its dose, then the paper's other choices
+  side by side, so a ticked product that is not first on the paper (Aminoplasmal) is no longer printed
+  where the paper has it. Oral orders go under "8. Other", and the saver's
   name goes at "แพทย์". Alerts are settled in the app, where a critical one needs a confirmation with a
   reason at Save; the only alert text on the front is that confirmation, since 2026-10-28. The "Normal Requirement" column is NeoFeed's targets, not
   the paper's printed ranges, which disagree with the app (review F4).
@@ -126,9 +129,11 @@ Two harness contracts: the patient table stays the form's first direct `<table>`
 §6 figure sweeps skip it), and the provenance footer stays the form's last child.
 
 **One A4 page at its fullest (Pp, 2026-11-02).** The front must stay one page with the signature on it, also
-with a confirmed critical value (the longest measured is 11 alerts and a 300-character reason; Submit cuts a reason at 300). With a
+with a confirmed critical value (all 13 critical titles that take a reason, and the 300 characters Submit allows a reason). With a
 confirmation the signature line is **inside** the red box (`.print-crit-box`), and the box and the line never
-split (`break-inside: avoid` in both shells). The room comes from spacing (cell padding 1.5 px, line height 1.35,
+split (`break-inside: avoid` in both shells). In the box the line also carries "NeoFeed ID: … · วันที่ให้ TPN:
+…" (the strings the sheet prints at its top, "วันที่สั่ง" on a No TPN sheet) between the doctor and the code,
+so that if an order does overflow and the box moves whole to page 2, that page still names the infant and the day. The room comes from spacing (cell padding 1.5 px, line height 1.35,
 the form's own padding 0 / 2 mm, the amino-acid choices on two lines), never from a smaller figure or a
 removed line. `verify-print-one-page-1102.cjs` counts the pages in Chromium, so a line added to the front
 that tips the fullest order onto a second page fails it. The provenance footer stays two lines (8 px, about

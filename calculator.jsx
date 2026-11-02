@@ -4746,9 +4746,18 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   // sheet (2026-09-28); the back keeps it. With a confirmed critical value the line sits
   // inside the red box, so the signature is on the same page as the confirmation it signs
   // (Pp, 2026-11-02). The shells' @media print block keeps the box and the line unsplit.
+  // Inside the box the line also names the infant and the day, the same strings the sheet prints at its
+  // top: if an order ever overflows, the box and its signature move whole to page 2, and that page
+  // must not be anonymous (Pp, 2026-11-02). Plain spans, not <strong>: they are not figures. The gap above
+  // the line is room to sign by hand, so it is not cut to fit; an order with no critical value keeps its
+  // line as it was.
   const signRow = (
-    <div className="print-sign" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginTop:critOverride ? 10 : 14, gap:12 }}>
+    <div className="print-sign" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", gap:"4px 12px",
+      marginTop:critOverride ? 18 : 14, flexWrap:critOverride ? "wrap" : undefined }}>
       <div>แพทย์ <span className="print-doctor" style={{ fontWeight:700 }}>{nameOnlyOf(savedMeta?.by)}</span> ........................................ (ลงนาม)</div>
+      {critOverride && (
+        <div className="print-sign-id">NeoFeed ID: <span style={{ fontWeight:700 }}>{patient?.sessionId || "—"}</span> · {noTpnSheet ? "วันที่สั่ง" : "วันที่ให้ TPN"}: <span style={{ fontWeight:700 }}>{orderDateLabel}</span></div>
+      )}
       <div>รหัส ................................</div>
     </div>
   );
@@ -5029,7 +5038,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
       </div>
       </>)}
       {critOverride ? (
-        <div className="print-crit-box" style={{ border:"2px solid #c00", padding:"4px 8px", marginTop:6 }}>
+        <div className="print-crit-box" style={{ border:"2px solid #c00", padding:"4px 8px 8px", marginTop:6 }}>
           <div style={{ color:"#c00", fontSize:10.5, fontWeight:700 }}>
             <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
             ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}

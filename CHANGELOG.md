@@ -19,30 +19,46 @@ and, about a critical value a doctor has confirmed: "จะบีบอัดย
   page 2) and put the signature line and the provenance footer on page 2, about 30 mm over. One alert with a
   300-character reason was 13 mm over, and one alert with a 40-character reason spilled the footer alone.
 - **Now one page,** measured as a headless-Chromium A4 PDF with IBM Plex Sans loaded (mm free above the 8 mm
-  bottom margin, before → after): no alert 8.6 → 56.5; 1 alert, 40-character reason 2 pages → 40.9; 1 alert,
-  300 characters, no oral orders 2 pages → 47.0; 1 alert, 300 characters 2 pages → 32.7; 11 alerts, 300
-  characters 2 pages → 24.8; and 7 alerts, 300 characters, 8 oral lines and a long diagnosis (made by editing
-  the printed DOM, since the app has five oral lines) 2 pages → 14.2. Four changes, no font size lowered:
-  the amino-acid choices are two lines, the ticked product with its dose and then the other choices and
-  "Other" side by side; cell padding 3 px → 1.5 px with a 1.35 line height on cells; the form's own 4 mm / 6 mm
-  padding is 0 / 2 mm (the page keeps its 8 mm / 10 mm margins); and with a confirmed critical value the
-  signature line sits **inside the red box**, which with the line never splits across a page break
-  (`break-inside: avoid`).
+  bottom margin, before → after): no alert 8.6 → 56.5; 1 alert, 40-character reason 2 pages → 37.7; 1 alert,
+  300 characters, no oral orders 2 pages → 43.8; 1 alert, 300 characters 2 pages → 29.5; 11 alerts, 300
+  characters 2 pages → 21.6; all 13 critical titles that take a reason, 300 characters 17.4 (edited DOM); 7
+  alerts, 300 characters, 8 oral lines and a long diagnosis 2 pages → 11.0 (edited DOM, since the app has
+  five oral lines); all 13, 8 oral lines and a long diagnosis, the heaviest page imaginable, 3.1. Four
+  changes, no font size lowered: the amino-acid choices are two lines, the ticked product with its dose and
+  then the other choices and "Other" side by side; cell padding 3 px → 1.5 px with a 1.35 line height on
+  cells; the form's own 4 mm / 6 mm padding is 0 / 2 mm (the page keeps its 8 mm / 10 mm margins); and with a
+  confirmed critical value the signature line sits **inside the red box**, which with the line never splits
+  across a page break (`break-inside: avoid`).
+- **The box's signature line names the infant and the day** (Pp, after Vera's review): "NeoFeed ID: … · วันที่ให้ TPN:
+  …" between the doctor and the code, the strings the sheet prints at its top ("วันที่สั่ง" on a No TPN
+  sheet), in plain spans, only when a critical value was confirmed. An order with none keeps its line as it was.
+  The line sits 18 px under the reason (it was cut to 10 px when it moved into the box) and the box has 8 px
+  under it, so there is room to sign by hand.
 - **If an order ever does not fit,** the red box moves whole to the next page with its signature directly
-  after the reason, never apart (shown with a 40 mm spacer above the box).
+  after the reason, never apart, and that page carries the NeoFeed ID and the date. Shown on the real sheet
+  with all 13 titles and a 600-character diagnosis: page 1 ends after the lipid pump rate, page 2 holds the
+  box, the signature line with ID and date, and the footer.
 - **Unchanged:** every figure, line and name on the sheet. The printed text of the fullest order differs
   from before in one place only, the amino-acid dose, which now follows the ticked product instead of the
-  whole list. The box's three texts, `.crit-confirmed`, `.print-doctor`, `.print-revision` (4 mm / 6 mm),
+  whole list (so a ticked Aminoplasmal is first, not last as on the paper), and, in the box, the ID and date.
+  The box's three texts, `.crit-confirmed`, `.print-doctor`, `.print-revision` (4 mm / 6 mm),
   `.print-lipid-rate`, the patient table as the first `<table>` and the footer as the last child are as they
   were. The provenance footer stays two lines: its two strings come to about 226 mm at 8 px against 186 mm of
   page, so one line would need a smaller type. Center Point's own sheet (`tpn-document.mjs`, its digest pin)
-  is not touched; its legacy screen bundles this form and picks up the layout.
-- **Tests.** `verify-print-one-page-1102.cjs` saves three real orders (no alert, one, several) through
-  Submit and pins the markup (signature inside the box and the only one, the box's texts, five amino-acid
-  choices once each, every figure 10 px or larger, the rules in both shells); in Chromium it prints each
-  order's form with the shells' CSS in a wide fallback font (Verdana here, DejaVu Sans on CI; about 4 % taller
-  than IBM Plex Sans on the fullest order) and expects one page, and reads the computed `break-inside` and
-  line height. Against `6ed5428` 29 of its 41 assertions fail, the three page counts among them.
+  is not touched, and nothing in `center-point/` or `verify-center-point-print-parity.cjs` reads the signature
+  row; its legacy screen bundles this form and picks up the layout.
+- **Tests.** `verify-print-one-page-1102.cjs` (68 checks) saves three real orders (no alert, one, several)
+  through Submit and pins the markup (the signature inside the box and the only one, with the ID and date; the
+  box's texts; room to sign; five amino-acid choices once each, also for Aminoplasmal; every figure 10 px or
+  larger; the rules in both shells; and that calculator.jsx still raises the 21 kinds of critical alert the
+  fit test's list of 13 was drawn from). In Chromium it prints each order's form with the shells' CSS in a wide
+  fallback font (Verdana here, DejaVu Sans on CI; about 4 % taller than IBM Plex Sans) and expects one page,
+  reads the computed `break-inside` and line height and the room around the signature line, then prints an
+  order that does not fit, with a link around each part of the box (Chrome writes the link on the page where it
+  falls), and expects the whole box, its signature, the ID and date on page 2; with `break-inside` switched
+  off the same order splits, which proves the check sees a split. Against `6ed5428` 45 of its 66 checks fail,
+  the three page counts among them; five mutations of the fix (ID on every row, a wrong ticked product, a new
+  critical alert, no break rule, the old 10 px gap) each fail their own check.
 
 ## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
 
