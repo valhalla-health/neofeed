@@ -18,12 +18,21 @@ TPN-room branch, which already closes A2 and A6 to A9. Backend only: no `.jsx`, 
 - **A3, the login flood.** Rows about an address with no proven account (an invented address, a Google account not on
   Staff, a suspended account, a Staff row with no password) now share one ceiling per hour: 60 rows, then one
   `loginFailCapped` row with no address on it, then nothing until the next hour. Before: 200 invented addresses wrote
-  200 rows, and 240 when each address got its five tries and a lockout row. Now 61, or 5,856 cells a day at most. The reply never changes. A wrong password for a real account is
+  200 rows, and 240 when each address got its five tries and a lockout row. Now 61, so expect 5,856 cells a day. The
+  worst case is higher: the count takes no lock, so requests that read the same count write one increment between them,
+  about 1,830 rows an hour at 30 concurrent executions (175,680 cells a day), and a cache outage writes a row per request
+  without limit. The reply never changes. A wrong password for a real account is
   outside the ceiling on purpose: a flood must not hide it, and the lockout already bounds it to 6 rows per account per
   15 minutes. A verified Google token is kept by its SHA-256 for what is left of its life, so 40 replays make one
   tokeninfo fetch instead of 40; the Staff row is still read on every call, and a refusal or an outage is not kept.
   Not closed: a stream of made-up tokens still costs one fetch each, since the next one can simply be different, and a
-  flood still spends execution time on the dummy hash. The attack report's third item, a lockout for Google emails, is
+  flood still spends execution time on the dummy hash. It also still takes the script lock once per attempt on the
+  password form (`_beginPasswordAttempt`), the lock ward saves wait on, so saves could wait out their 10 s and answer Busy;
+  nobody has reproduced that, as the sandbox lock never waits. It stays because skipping it for a no-password address is
+  not safe: overlapping tries undercount, so in a copy with no lock twenty of them all answered "wrong password" where a
+  real password account answers that five times and then locks, and that tells a flood which addresses hold a password,
+  the oracle SEC-B8 closed. Nor would it end the queue: a flood at one real staff address takes the same lock on every
+  try. The attack report's third item, a lockout for Google emails, is
   left out: the ceiling already stops those rows.
 - **A4, the account lockout.** No code change. The lock stays, and `REFERENCE.md` now says what it costs, who can do
   it, and what the ward does when it happens.
@@ -39,9 +48,9 @@ TPN-room branch, which already closes A2 and A6 to A9. Backend only: no `.jsx`, 
   the text. Measured from the real `<Calculator>`: an ordinary bag 940 characters, a draft with the required boxes
   blank 1,023, every box holding a 19-character decimal 1,484, a critical override with 8 alerts and the 300-character
   reason 1,557. §8 of the new harness fails if a real save passes half the cap. A stored value over a cap passes while it
-  is unchanged, by the rule `_checkAdmissionDate` already gives, so an old record stays editable. Not capped: `route`
-  and the supplement type columns of a Daily_Log row, and extra keys inside a measurement array. The report named
-  neither, and refusing there would add to the record `sheetHealthReport` already found uneditable.
+  is unchanged, by the rule `_checkAdmissionDate` already gives, so an old record stays editable. Not capped: `route`,
+  `constantsVersion`, `appVersion` and the supplement type columns of a Daily_Log row, and extra keys inside a measurement
+  array. The report named none of them, and refusing there would add to the record `sheetHealthReport` already found uneditable.
 - **R2, sessionId.** A row that does not exist yet must have an id of `NF-` and six digits, whatever `isNew` says. That is
   the only form `newSessionId` has made since 2026-09-27, twins included (two draws and a letter). Old ids keep working
   on every read and edit (Pp's residual of 2026-10-30). The check sits last before the look-alike question, so a save
@@ -56,7 +65,12 @@ TPN-room branch, which already closes A2 and A6 to A9. Backend only: no `.jsx`, 
   now uses an `NF-` id on the lines that need it (`verify-bed-transfer-0927.cjs`, `verify-clinical-0924.cjs`,
   `verify-gas-registry-upsert.cjs`, `verify-input-validation.cjs`, `verify-review-0917-backend-sync.cjs`,
   `verify-status-read-1028.cjs`). SEC-B1's formula-shaped id can no longer be new, so its escape is proved on a row
-  already holding one. `verify-name-id-0927.cjs` 4.14 and 5c.6 pinned "every row", and now pin the reversal.
+  already holding one. `verify-name-id-0927.cjs` 4.14 and 5c.6 pinned "every row", and now pin the reversal. A
+  negative test on a new row under another shape of id would pass on R2's refusal with its own guard gone (Vera on
+  `8a77e3a`; with `_checkSex`'s create branch removed, no backend harness failed), so those moved to `NF-` ids and assert
+  the guard's own words: sex, BW, GA, status, bed and the measurement arrays, in `verify-review-0917-backend-writes.cjs`,
+  `verify-backend-batch-0924.cjs`, `verify-status-read-1028.cjs`, `verify-gas-registry-upsert.cjs` and
+  `verify-input-validation.cjs`.
 
 ## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
 

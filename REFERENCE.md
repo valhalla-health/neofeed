@@ -559,6 +559,11 @@ after the 15 minutes, it is not a typo: tell an admin, who looks for `lockout` r
 `Audit_Log` and can lift it at once by deleting the Script Property `fail_` + the SHA-256 of the lower-case
 address.
 
+**Before the `clasp push` that brings the size caps (2026-11-02),** count the stored `calcInput` over 10,000
+characters on the live `Daily_Log`, for example `=SUMPRODUCT(--(LEN(Daily_Log!Y2:Y)>10000))` in a scratch cell. An edit
+that sends such a `calcInput` back is refused: the registry's unchanged-value pass has no twin there. Real saves are
+about 1,500 characters, so expect 0; if it is not 0, hold the push and tell Pp.
+
 ## Thai PDPA compliance posture
 
 This app processes infant health data — "sensitive personal data" under PDPA
@@ -589,9 +594,11 @@ timestamp — persists past Apps Script's 7-day execution-log window. Two additi
 of 2026-11-02 (attack pass A3, A5): `loginFail` and `lockout` rows about an address
 with no proven account stop at 60 an hour (`LOGIN_FAIL_AUDIT_MAX`), and a
 `loginFailCapped` row with no address on it marks the hour a flood reached that
-ceiling, while rows about a real password account are never dropped; and
-registration's look-alike question leaves a `possibleDuplicate` row with the ID it
-matched, whether or not the answer named that infant.
+ceiling. A wrong password for a real account is outside the ceiling and is never
+dropped; the sign-in of a suspended account, even with the right password, is under
+it and is dropped past it. Registration's look-alike question leaves a
+`possibleDuplicate` row with the ID it matched, whether or not the answer named
+that infant.
 
 **Data minimization:** `handleLogout()` in `app.jsx` clears
 `neofeed_calc_*`/`neofeed_acked_*` localStorage keys on logout, since those

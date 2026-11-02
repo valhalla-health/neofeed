@@ -276,7 +276,7 @@ ok('…and so is a blank status, which means Active',
 const LEGACY = EXISTING.slice(); LEGACY[10] = 'NICU-11';
 sheet = makeSheet(PAT_HEADER, [LEGACY], 26);
 ok('a legacy bed spelling still counts as occupied',
-  bedErr({ ...patient, sessionId: 'OTHER-1', currentBed: 'NICU 11' }, true) !== null);
+  /NICU 11/.test(bedErr({ ...patient, sessionId: 'NF-000003', currentBed: 'NICU 11' }, true) || ''));
 
 // No bed recorded is not an occupancy — several unbedded patients are normal.
 const NOBED = EXISTING.slice(); NOBED[10] = '';

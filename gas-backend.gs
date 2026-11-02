@@ -1105,15 +1105,19 @@ function _auditLoginFailure(email, failsIncludingThis) {
 // So rows about an address with no proven account share one ceiling per hour,
 // counted in CacheService: LOGIN_FAIL_AUDIT_MAX rows, then one loginFailCapped row
 // with no address on it to say the rest went unwritten, then nothing until the
-// next hour. That is 61 rows an hour, 5,856 cells a day.
+// next hour. A suspended account's sign-in, right password or not, is under it too.
+// Expect 61 rows an hour, 5,856 cells a day. The worst case is higher: the count
+// takes no lock, so requests that read the same count write one increment between
+// them, and at Apps Script's 30 concurrent executions that is about 1,830 rows an
+// hour (175,680 cells a day). A cache outage has no count, and writes without limit.
 // - The reply never changes, so the ceiling cannot be seen from outside.
 // - A wrong password for a real account is outside the ceiling
 //   (_auditLoginFailure): it is the row an investigation wants, a flood of invented
 //   addresses must not be able to hide it, and the lockout and the Staff tab
 //   already bound it to 6 rows per account per LOCKOUT_MS.
-// - No script lock around the count. A flood must not queue on the lock every ward
-//   save waits on. Requests racing the counter only let extra rows through, at
-//   worst one per concurrent execution (Apps Script allows 30), so growth stays bounded.
+// - No script lock around the count: that would add a second wait per request on the
+//   lock every ward save waits on. The password form still takes it once per attempt
+//   (_beginPasswordAttempt), which CHANGELOG 2026-11-02 lists as not closed, and why.
 // - A cache outage writes the row: an audit row is worth more than the ceiling.
 var LOGIN_FAIL_AUDIT_WINDOW_S = 3600;
 var LOGIN_FAIL_AUDIT_MAX = 60;

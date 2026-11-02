@@ -344,8 +344,8 @@ with #204 by PR #205, and with #206's merge and #208's release by PR #207.
   `CHANGELOG.md` 2026-11-01 (3).
 - ⏳ **The whole-app hardening PR, five findings of the attack pass of 2026-10-30: in review, on Pp's request of
   2026-11-02.** Backend only: live only after `clasp push` and `clasp update-deployment`, on Pp's go-ahead, with no
-  `main → release` step of its own. A login flood stops at 61 `Audit_Log` rows an hour and a replayed Google token asks
-  Google once; size caps on `calcInput` and the registry's text; a new sessionId must be `NF-` and six digits. The
+  `main → release` step of its own. A login flood should stop at 61 `Audit_Log` rows an hour (`CHANGELOG.md` has the worst case), and a replayed Google
+  token asks Google once; size caps on `calcInput` and the registry's text; a new sessionId must be `NF-` and six digits. The
   account lock stays, written into `REFERENCE.md`. ⚠️ **The possible-duplicate question no longer names an infant
   outside the caller's sync: this reverses Pp's own 2026-09-27 "every row", and she decides at merge.** No calculation,
   figure or `CONSTANTS_VERSION`. `CHANGELOG.md` 2026-11-02.

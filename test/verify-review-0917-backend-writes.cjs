@@ -405,7 +405,7 @@ T.section('UP-S1 · three-way merge: a stale device no longer erases another dev
   const gone = g3.synced('GONE-1');
   g3.as(g3.at, { action: 'deletePatient', sessionId: 'GONE-1' });
   const res = g3.as(g3.dt, { action: 'updatePatient', base: gone, patient: Object.assign({}, gone, { diagnosis: 'late edit' }) });
-  T.ok('an edit with base of a patient deleted elsewhere is refused, not resurrected', !!res.error && g3.rows('Patient_Registry').length === 0, res);
+  T.ok('an edit with base of a patient deleted elsewhere is refused, not resurrected', String(res.error).includes('อาจถูกลบไปแล้ว') && g3.rows('Patient_Registry').length === 0, res);
 
   const g4 = ward();
   g4.sheet('Patient_Registry').data.push(g4.patRow('LEG-1', { 10: 'NICU 1-1' }));
@@ -438,8 +438,14 @@ T.section('SEC-B6 · a PDPA erasure cannot be undone by any registry write', () 
 
 T.section('F · sex must be boys/girls on create; a legacy stored value may ride along unchanged', () => {
   const g = ward();
-  T.ok('create with "M" is refused', !!g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('S-1', { sex: 'M' }) }).error);
-  T.ok('create with no sex is refused', !!g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('S-2', { sex: '' }) }).error);
+  // Valid new ids and the guard's own words: since 2026-11-02 a new row with another shape of id is refused
+  // by R2 last of all, which would pass a bare "refused" with this guard gone (Vera on 8a77e3a).
+  const sexRefused = (sid, sex) => {
+    const r = g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P(sid, { sex }) });
+    return String(r.error).includes('เพศต้องเป็น') && !g.rows('Patient_Registry').some(row => row[0] === sid);
+  };
+  T.ok('create with "M" is refused by the sex guard, and no row is written', sexRefused('NF-000441', 'M'));
+  T.ok('create with no sex is refused by the sex guard, and no row is written', sexRefused('NF-000442', ''));
   T.ok('create with "girls" saves', g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('NF-000003', { sex: 'girls' }) }).ok === true);
   g.sheet('Patient_Registry').data.push(g.patRow('LEG-9', { 5: 'M' }));
   const leg = g.synced('LEG-9');
@@ -454,16 +460,20 @@ T.section('SEC-B3 · malformed measurement arrays are refused on every path', ()
   g.seedPatient(P('AB-900'));
   const before = snapshot(g);
   const bad = [
-    ['weights "x"', { weights: 'x' }], ['weights [null]', { weights: [null] }], ['weights w=99999', { weights: [{ dol: 2, w: 99999 }] }],
-    ['weights dol "a"', { weights: [{ dol: 'a', w: 900 }] }], ['weights no dol', { weights: [{ w: 900 }] }], ['weights dol 401', { weights: [{ dol: 401, w: 900 }] }],
-    ['weights inline l=5', { weights: [{ dol: 2, w: null, l: 5, hc: null }] }], ['lengths v=5', { lengths: [{ dol: 1, v: 5 }] }],
-    ['hcs 401 entries', { hcs: Array.from({ length: 401 }, (_, i) => ({ dol: i % 400, v: 30 })) }], ['hcs v=80', { hcs: [{ dol: 1, v: 80 }] }],
-    ['bedHistory [null]', { bedHistory: [null] }], ['bedHistory [[1]]', { bedHistory: [[1]] }],
+    ['weights "x"', { weights: 'x' }, 'weights must be an array'], ['weights [null]', { weights: [null] }, 'weights[0] must be an object'],
+    ['weights w=99999', { weights: [{ dol: 2, w: 99999 }] }, 'weights[0].w (g)'],
+    ['weights dol "a"', { weights: [{ dol: 'a', w: 900 }] }, 'weights[0].dol'], ['weights no dol', { weights: [{ w: 900 }] }, 'weights[0].dol'],
+    ['weights dol 401', { weights: [{ dol: 401, w: 900 }] }, 'weights[0].dol'],
+    ['weights inline l=5', { weights: [{ dol: 2, w: null, l: 5, hc: null }] }, 'weights[0].l (cm)'], ['lengths v=5', { lengths: [{ dol: 1, v: 5 }] }, 'lengths[0].v (cm)'],
+    ['hcs 401 entries', { hcs: Array.from({ length: 401 }, (_, i) => ({ dol: i % 400, v: 30 })) }, 'hcs has more than 400'], ['hcs v=80', { hcs: [{ dol: 1, v: 80 }] }, 'hcs[0].v (cm)'],
+    ['bedHistory [null]', { bedHistory: [null] }, 'bedHistory[0] must be an object'], ['bedHistory [[1]]', { bedHistory: [[1]] }, 'bedHistory[0] must be an object'],
   ];
-  bad.forEach(([label, patch], i) => {
+  bad.forEach(([label, patch, words], i) => {
     T.ok('updatePatient ' + label + ' refused', !!g.as(g.dt, { action: 'updatePatient', patient: P('AB-900', patch) }).error);
-    // a distinct id each time, so a refusal cannot come from the collision guard instead
-    T.ok('registerPatient (new) ' + label + ' refused', !!g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('NEW-' + i, patch) }).error);
+    // A distinct valid id each time, and the array's own words, so a refusal can come neither from the
+    // collision guard nor from R2.
+    const reg = g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('NF-0005' + String(i).padStart(2, '0'), patch) });
+    T.ok('registerPatient (new) ' + label + ' refused, in its own words', String(reg.error).includes(words), reg);
   });
   for (const [label, w] of [['"x"', 'x'], ['[null]', [null]], ['w=99999', [{ dol: 2, w: 99999 }]], ['missing', undefined]]) {
     T.ok('updateWeights ' + label + ' refused', !!g.as(g.dt, { action: 'updateWeights', sessionId: 'AB-900', weights: w }).error);

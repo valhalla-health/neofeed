@@ -45,10 +45,11 @@ const patRowOf = (g, sid) => g.rows('Patient_Registry').find(r => String(r[0]) =
 // ── BE-3 ────────────────────────────────────────────────────────────────
 T.section('BE-3 · validation refusals are Thai, not raw English', () => {
   const g = ward();
-  const bw = g.as({ action: 'registerPatient', isNew: true, patient: P('CC-900', { bw: '' }) });
-  T.ok('missing BW → Thai error', isThai(bw.error), bw.error);
-  const sex = g.as({ action: 'registerPatient', isNew: true, patient: P('CD-900', { sex: 'x' }) });
-  T.ok('bad sex → Thai error', isThai(sex.error), sex.error);
+  // Valid new ids and the guard's own words: R2's refusal of another id shape is Thai too (Vera on 8a77e3a).
+  const bw = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000948', { bw: '' }) });
+  T.ok('missing BW → Thai error', /น้ำหนักแรกเกิด/.test(String(bw.error)), bw.error);
+  const sex = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000950', { sex: 'x' }) });
+  T.ok('bad sex → Thai error', /เพศต้องเป็น/.test(String(sex.error)), sex.error);
   g.seedPatient(P('CE-900'));
   const wt = g.as({ action: 'logDailyNutrition', sessionId: 'CE-900', entry: E({ weight: '' }) });
   T.ok('missing weight → Thai error', isThai(wt.error), wt.error);
@@ -60,14 +61,14 @@ T.section('BE-4 · status is canonicalised — no bed-skip, no ghost record', ()
   const a = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000900', { status: ' Active', currentBed: 'NICU 1' }) });
   T.ok('register with a stray-space " Active" is accepted', a.ok === true, a);
   T.eq('…and stored status is canonical "Active"', patRowOf(g, 'NF-000900')[9], 'Active');
-  const dup = g.as({ action: 'registerPatient', isNew: true, patient: P('AB-900', { status: ' Active', currentBed: 'NICU 1' }) });
-  T.ok('a second " Active" infant on the same bed is REFUSED (bed check ran)', !!dup.error, dup);
+  const dup = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000901', { status: ' Active', currentBed: 'NICU 1' }) });
+  T.ok('a second " Active" infant on the same bed is REFUSED (bed check ran)', /เตียง NICU 1 มี/.test(String(dup.error)) && !dup.needsConfirm, dup);
   // AC shares AA's birth weight and date of birth, so since 2026-09-27 the
   // server first asks whether it is the same infant (PossibleDuplicate);
   // confirmDuplicate is the ward's "no, another baby".
-  const weird = g.as({ action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('AC-900', { status: 'ZZZ', currentBed: 'NICU 2' }) });
-  T.ok('an unrecognised status is refused, in Thai (2026-10-28; it was stored as Active)', !!weird.error && isThai(weird.error), weird);
-  T.eq('…and nothing is stored, so there is no ghost either', patRowOf(g, 'AC-900').length, 0);
+  const weird = g.as({ action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-000902', { status: 'ZZZ', currentBed: 'NICU 2' }) });
+  T.ok('an unrecognised status is refused, in Thai (2026-10-28; it was stored as Active)', /Status ต้องเป็น/.test(String(weird.error)), weird);
+  T.eq('…and nothing is stored, so there is no ghost either', patRowOf(g, 'NF-000902').length, 0);
 });
 
 // ── F2 ──────────────────────────────────────────────────────────────────
