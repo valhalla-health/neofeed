@@ -2051,7 +2051,7 @@ ends at 736, and the early dot is at x = −46.
 
 ## The "No TPN" tick, 2026-11-01 — one harness
 
-Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (68 checks; the jsdom
+Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (88 checks; the jsdom
 set) mounts the real Calculator. §1: the tick, labelled "No TPN", sits in Step 3's header, and ticking it
 clears a bag with lipid, KCl and ZnSO₄, names what it cleared, hides the pumps (no note in their place) and
 the route, and turns Steps 3 and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value
@@ -2066,9 +2066,14 @@ route stop (the tick hides those buttons); the no-volume stop points at the tick
 "NO TPN — ORAL / STOP ORDER" and dated "วันที่สั่ง", prints for oral orders, on the first No TPN day after a TPN
 day and for a same-day revision of a submitted TPN order (both "TPN stopped today"; `calcInput.replacesTpn`,
 also when reopened), else "No TPN today"; a draft TPN order ticked and submitted, or a No TPN day after one, prints nothing. §9: Center Point offers
-no tick, holds no such stop, and its no-volume line offers no tick. What the feeds must
+no tick, holds no such stop, and its no-volume line offers no tick. §10 (`CHANGELOG.md` 2026-11-02): a No TPN
+order with no short sheet, locked and unchanged, has Submit disabled and a press sends no update and no lock;
+unlocked, a press only locks; a feed changed on the locked order, or a calculation that moved since it was
+saved, keeps Submit enabled and takes the full save; Print still says there is no TPN order and prints
+nothing; with vitamin D, or on the day TPN stopped, locked is disabled and unlocked only locks. What the feeds must
 reach (`CR-NO-TPN-EN`, `CR-NO-TPN-PLAN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at
-once: there is no tick.
+once: there is no tick. On `6ed5428`, §10 fails four checks (the locked order's Submit is enabled and a press
+writes a revision; the unlocked order's press writes one too, and Submit stays enabled).
 
 ## Note on the source workbook
 
