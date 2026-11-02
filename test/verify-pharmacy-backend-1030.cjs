@@ -778,6 +778,7 @@ T.section('§13 printJson · held to the schema stickerFigures makes, for the or
 
   const noFactor = h.log('NF-100001', day(21), E({ printJson: edit(p => { delete p.factor; })(day(21)) }));
   T.ok('a missing key is refused by its name', /no factor/.test(noFactor.error || ''), noFactor);
+  T.ok('…and the doctor is told to reload and save again', /โหลดหน้าใหม่แล้วบันทึกอีกครั้ง/.test(noFactor.error || ''), noFactor);
   restore();
 
   // An edit keeps the row's date, so a sticker dated with the ts the client sent is the wrong date, not a new one.

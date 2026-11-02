@@ -2070,17 +2070,17 @@ no tick, holds no such stop, and its no-volume line offers no tick. What the fee
 reach (`CR-NO-TPN-EN`, `CR-NO-TPN-PLAN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at
 once: there is no tick.
 
-## The TPN room's figures and the pharmacy role, 2026-11-02 — two harnesses
+## The TPN room's figures and the pharmacy role, 2026-11-02 — three harnesses
 
-PR A of `openspec/changes/tpn-room-stickers` (`CHANGELOG.md` 2026-11-02). **`verify-sticker-figures-1030.cjs`** (119
+PR A of `openspec/changes/tpn-room-stickers` (`CHANGELOG.md` 2026-11-02). **`verify-sticker-figures-1030.cjs`** (133
 checks; the jsdom set) mounts the real Calculator. §1 is `stickerFigures` from a written-out calc: the sample's rows,
 its decimals, the nulls. §2 to §2b2: Submit and Save draft send `printJson` from the calc they saved, a No TPN order
 sends null, and `calcInput.printJsonV` marks an order with figures. §2a: an edit carries the date the sheet prints. §2c
-to §2c7: an order without figures gets a notice and can be saved again; a day with no bag, a No TPN order and a
-lipid-only order get no notice. §2d sends what the real Calculator saved through the real `gas-backend.gs` in the
+to §2c8: an order without figures gets a notice and can be saved again, on a day the room can print; a day with no
+bag, a No TPN order and a lipid-only order get no notice. §2d sends what the real Calculator saved through the real `gas-backend.gs` in the
 sandbox: submitted, edited, draft, No TPN, a same-day No TPN revision, a confirmed critical value, 1625 g.
 
-**`verify-pharmacy-backend-1030.cjs`** (348 checks; the real backend in the sandbox). §1 to §3: `Daily_Log` AM is stored,
+**`verify-pharmacy-backend-1030.cjs`** (349 checks; the real backend in the sandbox). §1 to §3: `Daily_Log` AM is stored,
 checked and kept per revision, and the ward sync never sees it. §4 to §5: the `pharmacy` allow-list, and no registry at
 login. §6 to §7: `pharmacyOrders`, its date window and audit; §6b pins the pre-2026-09-27 IDs Pp accepted. §8: the header
 migration. §9 to §12: what the attack and the walkthrough found. §13: `printJson` is held to the schema, on a create, a
@@ -2088,6 +2088,9 @@ revision and a draft edit, with nothing written on a refusal; it compares the se
 `stickerFigures` makes, and sends every whole gram from 200 to 8000 g through `_printJsonField`. Point
 `NEOFEED_GAS_SRC` at a copy of `gas-backend.gs` to run it against a mutant without touching the file. A worktree under
 a path with spaces needs the loader quoted the way this file shows: run from the worktree, with the relative path.
+
+**`verify-pharmacy-frontend-1030.cjs`** (the jsdom set): the ward app refuses a pharmacy sign-in, through the real
+form too, and signs out a ward account whose role becomes pharmacy at its next sync.
 
 ## Note on the source workbook
 

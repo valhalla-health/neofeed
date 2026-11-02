@@ -10,7 +10,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-11-02 — TPN-room stickers, PR A: figures saved with each order, a read-only pharmacy role
 
 Not live. `data.js` (`stickerFigures`), `calculator.jsx`, `app.jsx`, `gas-backend.gs`, `compiled/`, both shells' `?v=`
-tokens, `test/verify-sticker-figures-1030.cjs`, `test/verify-pharmacy-backend-1030.cjs`, `REFERENCE.md`, `STATUS.md`,
+tokens, `test/verify-sticker-figures-1030.cjs`, `test/verify-pharmacy-backend-1030.cjs`,
+`test/verify-pharmacy-frontend-1030.cjs`, `test/README.md`, `REFERENCE.md`, `STATUS.md`,
 `BACKLOG.md`, `openspec/changes/tpn-room-stickers/`. Pp, 2026-10-30: the TPN room should print its three stickers
 from NeoFeed's figures instead of retyping each paper order into Excel. Her go-ahead for the figures before the
 TPN unit answered, 2026-10-31: "ทำ นำไปก่อนได้? เพราะ tpn ว่างตอบอีกสามวันเลย".
@@ -32,7 +33,11 @@ TPN unit answered, 2026-10-31: "ทำ นำไปก่อนได้? เพ
     through the real backend.
 - **Deploy order is now required: backend first** (D15). `plan-pr-a.md` said either order was safe, which Task 2's
   marker made false.
-- **A cancelled order is confirmed by phone** (Pp, 2026-11-02, D16), so the page needs no cancelled mark.
+- **The re-save notice shows only for a day the room can print,** from 7 days back to tomorrow. Without that bound,
+  every bag order ever saved told the doctor to press Submit, and a press superseded the printed row.
+- **A cancelled order is confirmed by phone** (Pp, 2026-11-02, D16). One already printed keeps the page's warning.
+- **Checked and not fixed here:** the doctor's sheet at its fullest runs to 2 pages, and that is live as well. Pp
+  chose a PR of its own.
 
 ## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
 

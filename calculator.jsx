@@ -2334,9 +2334,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // held: the doctor's sheet uses no sticker figure, so it stays `printable`.
   // Not a draft (it cannot be sent to the TPN room anyway) and not a day without
   // a bag (printJson null is right for it). tpn-room-stickers, controller
-  // ruling 2026-10-31.
+  // ruling 2026-10-31. Only for a day the room can print, from 7 days back to
+  // tomorrow (gas-backend.gs _pharmacyDateRefusal): further out, a press would
+  // supersede the printed row on a day nobody will prepare.
+  const daysSinceOrder = D.daysBetweenDateStr(orderDateKey, D.todayLocal());
   const figuresMissing = !centerPoint && !!savedEntryId && !isDraftSaved && calc.totalTPN_mL > 0
-    && savedFiguresV !== D.STICKER_SCHEMA_VERSION;
+    && savedFiguresV !== D.STICKER_SCHEMA_VERSION && daysSinceOrder !== null && daysSinceOrder >= -1 && daysSinceOrder <= 7;
   // Every stop on its own, routeMissing too: the backend trusts the app's stop
   // list (submitStops), so a row stored past it must still not print (Vera, 2026-10-28).
   // A No TPN order is never printed (Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท

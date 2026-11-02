@@ -2475,6 +2475,15 @@ function _printJsonCritical(critical) {
 // sync gives it to the app. The caller has it: a create takes the normalised
 // entry.ts, an edit takes the row's own date, because an edit never moves one.
 function _printJsonField(entry, orderDate) {
+  // Only a tab older or newer than this backend should ever land here, and
+  // reloading is what fixes that, so the doctor is told so before the detail.
+  try {
+    return _printJsonChecked(entry, orderDate);
+  } catch (err) {
+    throw new Error("บันทึกไม่ได้: ตัวเลขสติกเกอร์ไม่ตรงกับคำสั่งนี้ โหลดหน้าใหม่แล้วบันทึกอีกครั้ง (" + err.message + ")");
+  }
+}
+function _printJsonChecked(entry, orderDate) {
   var pj = entry ? entry.printJson : null;
   if (pj === null || pj === undefined || pj === "") return [""];
   if (typeof pj !== "object" || Array.isArray(pj) || pj.v !== 1) throw new Error("printJson: unknown shape");

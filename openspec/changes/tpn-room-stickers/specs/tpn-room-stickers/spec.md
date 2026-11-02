@@ -64,7 +64,9 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 
 #### Scenario: Not printable
 
-- **WHEN** an order is a draft, lacks `printJson`, is unmapped, or has a blank or free-text bed
+- **WHEN** an order is a draft, lacks `printJson`, is unmapped, has a blank or free-text bed, has a null figure
+  or an empty `orderDate`, or has a `constantsVersion` other than the current one (the doctor's Print is held
+  then too)
 - **THEN** it has no print button, and the row names the reason
 
 #### Scenario: The order changed after printing
@@ -94,8 +96,8 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 #### Scenario: A cancelled order
 
 - **WHEN** a doctor ticks No TPN over a submitted order the same day
-- **THEN** the order leaves the list with no cancelled mark, and the doctor phones the TPN room to confirm
-  (Pp, 2026-11-02, design D16)
+- **THEN** the doctor phones the TPN room to confirm (Pp, 2026-11-02, design D16), and the order leaves the
+  list: with no mark if it was not printed, with the warning above if it was
 
 ### Requirement: Stickers print `printJson` strings, unchanged
 

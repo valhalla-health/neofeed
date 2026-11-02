@@ -1533,7 +1533,8 @@ function Calculator({
   const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
   const uncoveredCritical = alerts.filter((a) => a.level === "crit" && !a.noReason).map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
-  const figuresMissing = !centerPoint && !!savedEntryId && !isDraftSaved && calc.totalTPN_mL > 0 && savedFiguresV !== D.STICKER_SCHEMA_VERSION;
+  const daysSinceOrder = D.daysBetweenDateStr(orderDateKey, D.todayLocal());
+  const figuresMissing = !centerPoint && !!savedEntryId && !isDraftSaved && calc.totalTPN_mL > 0 && savedFiguresV !== D.STICKER_SCHEMA_VERSION && daysSinceOrder !== null && daysSinceOrder >= -1 && daysSinceOrder <= 7;
   const noTpnNoPrintText = "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์";
   const tpnStoppedToday = noTpnOn && D.orderHadTpn(previousEntry);
   const replacesTpn = savedReplacesTpn || savedStatus === "submitted" && !!savedEntryId && savedHadTpn;

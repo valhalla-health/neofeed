@@ -123,6 +123,15 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     // refuses a negative figure, and that would stop the doctor's save, so the order has no figures instead.
     eq('a negative dose → null', D.stickerFigures(O({ naCl: -2 })), null);
     eq('a negative stock row → null', D.stickerFigures(O({ calc: C({ d50wVol: -1 }) })), null);
+    // Every stock row a different value, so a figure on the wrong row cannot pass. The worksheet is what the
+    // compounder draws up, and the sample order has zeros on Na acetate, K₂HPO₄ and ZnSO₄.
+    eq('every stock row holds its own figure', D.stickerFigures(O({ calc: C({ d50wVol: 31.1, soluvitVol: 2.2, peditrace_vol: 2.3, wfiVol: 90.2,
+      solVol: { aa: 11.1, naCl: 1.2, naAcet: 1.3, glycophos: 1.4, kCl: 1.5, k2hpo4: 1.6, mg: 1.7, ca: 1.8, heparin: 1.9, znso4: 2.1 } }) })).stockMl,
+      { d50w: '31.1', aminoven10: '11.1', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.2', glycophos: '1.4', k2hpo4: '1.6', naAcetate: '1.3',
+        kcl: '1.5', mgso4_10: '1.7', caGluconate: '1.8', soluvit: '2.2', peditrace: '2.3', heparin: '1.9', wfi: '90.2', aminoleban8: '0',
+        nephrosteril7: '0', znso4: '2.1', mgso4_50: '0', addamel: '0' });
+    // The server refuses a figure longer than 12 characters, and a refusal stops the doctor's save.
+    eq('a figure too long for the server → null', D.stickerFigures(O({ heparinUmL: 1e11 })), null);
     const ad = D.stickerFigures(O({ inclAddamel: true }));
     eq('Addamel ticked → no figure on either sticker', [ad.stockMl.addamel, ad.delivered.addamelMl], [null, null]);
     const nsv = D.stickerFigures(O({ calc: C({ soluvitVol: 0 }) }));
@@ -196,6 +205,8 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     setField('20% NaCl', 2); setField('KCl', 2.5); setField('MgSO₄', 4.861);
   }
   const BAG_FIELDS = ['Volume(mL/day)', 'Dextrose final', 'Amino acid', '20% NaCl', 'KCl', 'MgSO₄'];
+  // The orders here are dated 2026-11-16, and the re-save notice shows only near the ward's today.
+  D.todayLocal = () => '2026-11-16';
   // The "No TPN" tick (PR #206) clears the bag, and an order with no bag cannot be submitted until it is
   // ticked (CR-NO-TPN-TICK). 160 mL of feeds is 100 mL/kg/d, past the 80 the tick asks for, so no reason is asked.
   const tickNoTpn = () => {
@@ -395,6 +406,23 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     await settle(submitBtn());
     const again = upd(unlocked);
     eq('…and pressing Submit on it makes no figures and no marker', again && [again.printJson, 'printJsonV' in again.calcInput], [null, false]);
+  });
+
+  // The room can print from 7 days back to tomorrow (gas-backend.gs _pharmacyDateRefusal). Further out, a press
+  // would supersede the printed row on a day nobody will prepare, so the order behaves as it did before this.
+  await section('§2c8 the notice shows only for a day the TPN room can print', async () => {
+    if (!haveSaved()) return;
+    const dated = (days) => D.addDaysToDateStr('2026-11-16', days);
+    for (const [label, days, shows] of [['7 days back', -7, true], ['8 days back', -8, false], ['tomorrow', 1, true], ['2 days ahead', 2, false], ['today', 0, true]]) {
+      const r = rec();
+      mount({ patient: PT1600, editEntry: unfigured({ ts: dated(days) }), ...r });
+      eq(`${label}: the notice ${shows ? 'shows' : 'does not show'}`, noticeShown(), shows);
+      eq(`…and Submit is ${shows ? 'open' : 'disabled, as for any locked order'}`, submitBtn() && submitBtn().disabled, !shows);
+    }
+    const old = rec();
+    mount({ patient: PT1600, editEntry: unfigured({ ts: dated(-30), published: '' }), ...old });
+    await settle(submitBtn());
+    eq('an unlocked order a month old: Submit only locks it', shape(old.calls), [['publish', 'e1', 'lm1']]);
   });
 
   // A No TPN order that prints a short sheet for an oral order is a saved order with nothing to re-save.

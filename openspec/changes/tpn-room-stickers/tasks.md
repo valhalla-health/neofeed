@@ -22,7 +22,8 @@
          2 mOsm/L per mEq/L of Na, which can put a peripheral bag under 900 on paper and over it in NeoFeed.
       Format and practice:
       f. The sample's decimals are the rule for every sticker, printed without trailing zeros (`3`, not
-         `3.0`).
+         `3.0`). Dextrose then prints one decimal: a typed 12.25 % is `12.3` on the label beside `12.25%` on
+         the doctor's sheet. Is that right, or should the label carry two?
       g. The rows NeoFeed cannot order (Amiparen, Aminoleban, Nephrosteril, MgSO₄ 50 %, Addamel N): keep
          them at 0 as a checklist, or drop them?
       h. The worksheet's bw is the dosing weight the order used, and วันที่ผลิต is the day the sticker is
@@ -36,6 +37,8 @@
          should show?
       l. Who holds the room's passphrase, and is the Excel routine the fallback on a day the page cannot open
          the name file?
+      m. Acetate on the PN label is the Na acetate ordered. It leaves out Aminoven Infant's lysine acetate, as
+         the sample does. Is that right?
       Tell them: Soluvit and Peditrace are × Factor (2.5 mL where their Excel gives 2.2), and Mg on the
       label is in mg.
 
@@ -60,8 +63,9 @@
 - [x] 1.6 Add `pharmacyOrders` with its `readPharmacyOrders` audit row. Assert that the reply holds no
       name, initials or date of birth, and that drafts carry no `printJson`.
 - [x] 1.7 Turn a pharmacy account away in the NeoFeed app with one line of text.
-- [ ] 1.7a Check that the doctor's sheet of the fullest synthetic order (every stock, a critical-value box,
-      changes from the previous day) still prints on one A4 page, with a headless Chrome PDF.
+- [ ] 1.7a Check that the doctor's sheet of the fullest synthetic order (every stock, a critical-value box)
+      still prints on one A4 page, with a headless Chrome PDF. Run 2026-11-02 on the sheet as it is live: 2
+      pages, and the signature reaches page 2. Pp chose a PR of its own. This change does not touch the sheet.
 - [ ] 1.8 Vera's report in the PR; `CHANGELOG.md` entry; `STATUS.md` in the same PR. Backend deploy before
       the frontend release, both on Pp's go-ahead.
 
@@ -104,6 +108,8 @@
         orders show no `entryId` until that fixture is a plain UUID.
       - A cancelled order leaves the list, and the doctor phones (design D16). Whether a revised order is
         phoned too is still Pp's question.
+      - Refuse to print a `constantsVersion` other than the current one: the doctor's Print is held when a
+        release moves a figure, and the page can reach an old order inside its window.
 
 ## 3. Pilot and go-live
 

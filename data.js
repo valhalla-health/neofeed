@@ -904,6 +904,8 @@ function displayNum(value, maxDecimals = 2) {
 // and the vitamins in the bag are read from the calc, not from the form, so
 // the figures cannot disagree with the rows they sit beside. Addamel is the
 // one tick read from the form: the calc has no volume for it.
+// A figure whose meaning changes once orders are saved with it needs a new version
+// too, or those orders keep the old meaning with no notice; the backend goes first.
 const STICKER_SCHEMA_VERSION = 1;
 function stickerFigures(o) {
   const c = o && o.calc;
@@ -997,10 +999,10 @@ function stickerFigures(o) {
   };
   // displayNum prints "—" for a missing or non-numeric input. The sticker must
   // never carry one, so the order has no figures and the page says "save again".
-  // A negative figure is the same. The input boxes cannot type a minus sign, so
-  // only a damaged saved row can bring one, and gas-backend.gs refuses it, which
-  // would stop the doctor's save.
-  const dash = (x) => x === "—" || (typeof x === "string" && x[0] === "-") || (x !== null && typeof x === "object" && Object.values(x).some(dash));
+  // A negative figure is the same, and so is one past 12 characters. The input
+  // boxes cannot type a minus sign, so only a damaged saved row can bring one, and
+  // gas-backend.gs refuses both, which would stop the doctor's save.
+  const dash = (x) => x === "—" || (typeof x === "string" && (x[0] === "-" || x.length > 12)) || (x !== null && typeof x === "object" && Object.values(x).some(dash));
   if (dash(figures)) return null;
   return {
     ...figures,

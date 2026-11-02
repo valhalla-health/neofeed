@@ -33,7 +33,8 @@ when that name is an email; the bed is a ward bed (`NICU n`, `SCN n`, `iso n[-m]
 letter is A–D or blank; `entryId` is a UUID or blank; a time is an ISO timestamp or blank. The server
 SHALL check both tabs' headers on every call, not through the write guard's cached verdict, and refuse
 with `SchemaMismatch` when a column has moved. `printJson` is held to its schema when it is saved
-(specs/order-print-figures). The NeoFeed ID is still as written, and for an infant registered before
+(specs/order-print-figures). `critical.reason` is free text: the Submit prompt forbids names and HNs, and Pp's
+go-ahead on it is a residual risk recorded in design D5. The NeoFeed ID is still as written, and for an infant registered before
 2026-09-27 it carries initials: Pp accepted this as a residual risk on 2026-10-30, and design D5 records
 the exception.
 
@@ -80,6 +81,9 @@ needs today, tomorrow and a week of reprints. An admin session SHALL also reach 
 - **THEN** the entry carries that ID as it is, and the reply holds no name
 
 ### Requirement: The NeoFeed app turns a pharmacy account away
+
+The ward app SHALL show a pharmacy account only a line saying that it works with the TPN-room page, and
+SHALL sign out a ward account whose role has become pharmacy.
 
 #### Scenario: A pharmacist signs in to NeoFeed
 
