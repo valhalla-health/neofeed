@@ -1,5 +1,8 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-02 — A locked No TPN order's Submit: not live.** Fixed by this PR on `main` only, and live
+> `729910f` still offers Submit there. It goes out with the next `main → release` PR. No backend change.
+>
 > ⚠️ **2026-10-31, 07:00 ICT — frontend `release` = `caecf04` (PR #204), with backend `@66`: merged, not
 > yet verified.** PR #204 released #203 (the Dashboard's Trend graph joins its days with straight lines) and
 > #202 (`sheetHealthReport` in `gas-backend.gs`, which the ward deployment does not run), merged on Pp's
