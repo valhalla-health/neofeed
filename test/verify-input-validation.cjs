@@ -139,7 +139,7 @@ sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
 // BW/GA validators, so it must not trip that guard — see
 // verify-gas-registry-upsert.cjs for the bed rule's own cover.
 doesNotThrow('a plausible extreme-preterm registration still saves',
-  () => sandbox.registerPatient({ ...patient, sessionId: 'X-3', bw: 420, ga: 23, currentBed: 'NICU 4' }));
+  () => sandbox.registerPatient({ ...patient, sessionId: 'NF-000003', bw: 420, ga: 23, currentBed: 'NICU 4' }));
 eq('plausible registration reached the sheet', sheet.appended.length, 1);
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);

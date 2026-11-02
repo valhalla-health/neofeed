@@ -46,9 +46,9 @@ T.section('A4 · column-drift guard refuses saves, accepts blank optional header
   const logHdr = g.sheet('Daily_Log').data[0];
   for (let c = 28; c < 38; c++) logHdr[c] = '';            // AC–AL never labelled on the live tab
   g.sheet('Patient_Registry').data[0][17] = '';            // R unlabelled too
-  const reg = g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('AB-900') });
+  const reg = g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('NF-000900') });
   T.ok('registration accepted with a blank optional header (R)', reg.ok === true, reg);
-  const c1 = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-10' }) });
+  const c1 = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'NF-000900', entry: E({ ts: '2026-09-10' }) });
   T.ok('save accepted with AC–AL blank in row 1', !!c1.entryId, c1);
   const schemaEntry = g.cacheStore.get('schema1_Daily_Log');
   T.ok('the check result is cached for 10 minutes', schemaEntry && schemaEntry.ttl === 600, schemaEntry);
@@ -58,18 +58,18 @@ T.section('A4 · column-drift guard refuses saves, accepts blank optional header
   g.sheet('Daily_Log').data[0][13] = 'note';
   g.sheet('Daily_Log').maxColumns += 1;
   const before = snapshot(g);
-  const refused = withNow(Date.now() + 601e3, () => g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-11' }) }));
+  const refused = withNow(Date.now() + 601e3, () => g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'NF-000900', entry: E({ ts: '2026-09-11' }) }));
   T.eq('after the cache window, a save is refused with the exact contract shape', refused, {
     error: "โครงสร้างคอลัมน์ใน Google Sheet ไม่ตรงกับที่ระบบคาด (Daily_Log!N: พบ 'note') — หยุดบันทึกเพื่อป้องกันข้อมูลลงผิดช่อง แจ้ง admin",
     code: 'SchemaMismatch' });
   T.eq('…and nothing was written', snapshot(g), before);
-  const edit = withNow(Date.now() + 601e3, () => g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'AB-900', entryId: c1.entryId, expectedLastModified: c1.lastModified, entry: E() }));
+  const edit = withNow(Date.now() + 601e3, () => g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000900', entryId: c1.entryId, expectedLastModified: c1.lastModified, entry: E() }));
   T.eq('an edit is refused the same way', edit.code, 'SchemaMismatch');
   const read = withNow(Date.now() + 601e3, () => g.as(g.dt, { action: 'getActivePatients' }));
   T.ok('a sync still works (reads are not guarded)', Array.isArray(read.patients) && read.patients.length === 1, read);
 
   const g2 = ward();
-  g2.as(g2.dt, { action: 'registerPatient', isNew: true, patient: P('CD-1000') });
+  g2.seedPatient(P('CD-1000'));
   g2.sheet('Patient_Registry').data[0][10] = 'bed';
   g2.sb._forgetSchemaCheck && g2.sb._forgetSchemaCheck('Patient_Registry');
   g2.cacheStore.delete('schema1_Patient_Registry');
@@ -128,7 +128,7 @@ T.section('A4 · sheetHealthReport counts, and carries no email, name, ID or bed
 
 T.section('contract B · Busy: a lock timeout on any write answers Busy and writes nothing', () => {
   const g = ward();
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('AB-900') });
+  g.seedPatient(P('AB-900'));
   const c = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-10' }) });
   const before = snapshot(g);
   g.env.lockTimeout = true;
@@ -199,10 +199,8 @@ T.section('UP-B3 · a row moved by hand between read and write is refused, never
   };
   const scenario = (label, setup, act, colFor) => {
     const g = ward();
-    g.as(g.at, { action: 'registerPatient', isNew: true, patient: P('AA-1') });
-    // BB-2 shares AA-1's birth weight and dob: since 2026-09-27 the server asks whether it is the
-    // same infant first, and confirmDuplicate is the ward's "no, another baby".
-    g.as(g.at, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('BB-2') });
+    g.seedPatient(P('AA-1'));
+    g.seedPatient(P('BB-2'));
     const ids = setup(g);
     const sheetName = colFor === 1 ? 'Patient_Registry' : 'Daily_Log';
     const beforeRows = JSON.stringify(g.rows(sheetName).filter(r => r.some(v => v !== '')));
@@ -228,8 +226,8 @@ T.section('UP-B3 · a row moved by hand between read and write is refused, never
 
 T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retry finishes, published refused', () => {
   const g = ward();
-  g.as(g.at, { action: 'registerPatient', isNew: true, patient: P('AA-1') });
-  g.as(g.at, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('BB-2') });   // same BW + dob: see above
+  g.seedPatient(P('AA-1'));
+  g.seedPatient(P('BB-2'));
   ['2026-09-08', '2026-09-09', '2026-09-10'].forEach(d => g.as(g.at, { action: 'logDailyNutrition', sessionId: 'AA-1', entry: E({ ts: d }) }));
   g.as(g.at, { action: 'logDailyNutrition', sessionId: 'BB-2', entry: E({ ts: '2026-09-10' }) });
   const order = [];
@@ -259,7 +257,7 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
 
 T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
   const g = ward();
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('AB-900') });
+  g.seedPatient(P('AB-900'));
   const c = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-10' }) });
   const p = g.as(g.dt, { action: 'publishLog', sessionId: 'AB-900', entryId: c.entryId, expectedLastModified: c.lastModified });
   const lm = g.rows('Daily_Log')[0][26];
@@ -276,7 +274,7 @@ T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
 
 T.section('UP-B8 · a failed supersede never leaves two current rows for one day', () => {
   const g = ward();
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('AB-900') });
+  g.seedPatient(P('AB-900'));
   const c = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-10' }) });
   g.as(g.dt, { action: 'publishLog', sessionId: 'AB-900', entryId: c.entryId, expectedLastModified: c.lastModified });
   const lm = g.rows('Daily_Log')[0][26];
@@ -297,7 +295,7 @@ T.section('UP-B8 · a failed supersede never leaves two current rows for one day
 
 T.section('UP-B9 · publish and erasure are single writes', () => {
   const g = ward();
-  g.as(g.at, { action: 'registerPatient', isNew: true, patient: P('AB-900') });
+  g.seedPatient(P('AB-900'));
   const c = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-10' }) });
   const failure = new Error('Service Spreadsheets failed while accessing document');
   g.sheet('Daily_Log').throwOn.setValues = { once: true, err: failure };
@@ -336,7 +334,7 @@ T.section('UP-B13 · a corrupt edit-lock value reads as unheld', () => {
 
 T.section('SEC-B12 · entry dates are real YYYY-MM-DD, normalised before the duplicate guard', () => {
   const g = ward();
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('AB-900') });
+  g.seedPatient(P('AB-900'));
   const first = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-10' }) });
   T.ok('a canonical date saves', !!first.entryId, first);
   const dup = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-10' }) });
@@ -357,7 +355,7 @@ T.section('SEC-B12 · entry dates are real YYYY-MM-DD, normalised before the dup
 T.section('UP-S1 · three-way merge: a stale device no longer erases another device\'s work', () => {
   const W0 = [{ dol: 1, w: 900, l: 34, hc: 24 }, { dol: 8, w: 880, l: null, hc: null }];
   const g = ward();
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('AA-BW900', { weights: W0, currentBed: 'NICU 3' }) });
+  g.seedPatient(P('AA-BW900', { weights: W0, currentBed: 'NICU 3' }));
   const deviceB = g.synced('AA-BW900');                            // 08:00 snapshot on the workstation
   const deviceA = g.synced('AA-BW900', g.nt);
   const addA = g.as(g.nt, { action: 'updateWeights', sessionId: 'AA-BW900', baseWeights: deviceA.weights,
@@ -396,14 +394,14 @@ T.section('UP-S1 · three-way merge: a stale device no longer erases another dev
 
   // Old clients (no base) keep the old whole-record behaviour.
   const g2 = ward();
-  g2.as(g2.dt, { action: 'registerPatient', isNew: true, patient: P('OLD-1', { weights: W0 }) });
+  g2.seedPatient(P('OLD-1', { weights: W0 }));
   const oldSnap = g2.synced('OLD-1');
   g2.as(g2.nt, { action: 'updateWeights', sessionId: 'OLD-1', weights: oldSnap.weights.concat([{ dol: 17, w: 1010 }]) });
   g2.as(g2.dt, { action: 'updatePatient', patient: Object.assign({}, oldSnap, { diagnosis: 'no base' }) });
   T.ok('without base the write is the old whole record (documented, not merged)', !g2.synced('OLD-1').weights.some(w => w.dol === 17));
 
   const g3 = ward();
-  g3.as(g3.dt, { action: 'registerPatient', isNew: true, patient: P('GONE-1') });
+  g3.seedPatient(P('GONE-1'));
   const gone = g3.synced('GONE-1');
   g3.as(g3.at, { action: 'deletePatient', sessionId: 'GONE-1' });
   const res = g3.as(g3.dt, { action: 'updatePatient', base: gone, patient: Object.assign({}, gone, { diagnosis: 'late edit' }) });
@@ -417,17 +415,17 @@ T.section('UP-S1 · three-way merge: a stale device no longer erases another dev
   T.eq('an untouched legacy bed spelling is written back canonical', g4.rows('Patient_Registry')[0][10], 'NICU 1');
 
   const g5 = ward();
-  g5.as(g5.at, { action: 'registerPatient', isNew: true, patient: P('X-1', { currentBed: 'NICU 5' }) });
+  g5.seedPatient(P('X-1', { currentBed: 'NICU 5' }));
   const staleX = g5.synced('X-1');
   g5.as(g5.at, { action: 'updatePatient', base: staleX, patient: Object.assign({}, staleX, { status: 'Discharged', statusDate: TODAY }) });
-  g5.as(g5.at, { action: 'registerPatient', isNew: true, patient: P('Y-2', { currentBed: 'NICU 5' }) });
+  g5.seedPatient(P('Y-2', { currentBed: 'NICU 5' }));
   const ok5 = g5.as(g5.nt, { action: 'updatePatient', base: staleX, patient: Object.assign({}, staleX, { diagnosis: 'late note' }) });
   T.ok('the bed check runs on the merged record: a stale "Active" cannot claim a reused bed', ok5.ok === true && g5.rows('Patient_Registry')[0][9] === 'Discharged', ok5);
 });
 
 T.section('SEC-B6 · a PDPA erasure cannot be undone by any registry write', () => {
   const g = ward();
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('CD-1000', { name: 'CD', initials: 'CD', dob: '2026-08-20', currentBed: 'NICU 4' }) });
+  g.seedPatient(P('CD-1000', { name: 'CD', initials: 'CD', dob: '2026-08-20', currentBed: 'NICU 4' }));
   const snap = g.synced('CD-1000');
   T.ok('erase', g.as(g.at, { action: 'pseudonymizePatient', sessionId: 'CD-1000' }).ok === true);
   g.as(g.dt, { action: 'updatePatient', patient: Object.assign({}, snap, { currentBed: 'NICU 5' }) });
@@ -442,7 +440,7 @@ T.section('F · sex must be boys/girls on create; a legacy stored value may ride
   const g = ward();
   T.ok('create with "M" is refused', !!g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('S-1', { sex: 'M' }) }).error);
   T.ok('create with no sex is refused', !!g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('S-2', { sex: '' }) }).error);
-  T.ok('create with "girls" saves', g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('S-3', { sex: 'girls' }) }).ok === true);
+  T.ok('create with "girls" saves', g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('NF-000003', { sex: 'girls' }) }).ok === true);
   g.sheet('Patient_Registry').data.push(g.patRow('LEG-9', { 5: 'M' }));
   const leg = g.synced('LEG-9');
   T.ok('an old-client edit carrying the stored "M" unchanged saves', g.as(g.dt, { action: 'updatePatient', patient: Object.assign({}, leg, { diagnosis: 'a' }) }).ok === true);
@@ -453,7 +451,7 @@ T.section('F · sex must be boys/girls on create; a legacy stored value may ride
 
 T.section('SEC-B3 · malformed measurement arrays are refused on every path', () => {
   const g = ward();
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('AB-900') });
+  g.seedPatient(P('AB-900'));
   const before = snapshot(g);
   const bad = [
     ['weights "x"', { weights: 'x' }], ['weights [null]', { weights: [null] }], ['weights w=99999', { weights: [{ dol: 2, w: 99999 }] }],

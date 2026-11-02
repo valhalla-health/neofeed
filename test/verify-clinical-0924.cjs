@@ -60,14 +60,14 @@ const nameOf = (g, sid) => (g.rows('Patient_Registry').find(r => String(r[0]) ==
 
 T.section('registerPatient collision — warn, then confirm-overwrite', () => {
   const g = ward();
-  const r1 = g.as({ action: 'registerPatient', isNew: true, patient: P('KL-BW980', { dob: '2026-09-01', name: 'ล1' }) });
+  const r1 = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000980', { dob: '2026-09-01', name: 'ล1' }) });
   T.ok('first registration ok', r1.ok === true, r1);
-  const r2 = g.as({ action: 'registerPatient', isNew: true, patient: P('KL-BW980', { dob: '2026-09-05', name: 'ล2' }) });
+  const r2 = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000980', { dob: '2026-09-05', name: 'ล2' }) });
   T.ok('a colliding id returns needsConfirm (not a silent overwrite)', r2.needsConfirm === true, r2);
-  T.eq('…and the existing record is untouched', nameOf(g, 'KL-BW980'), 'ล1');
-  const r3 = g.as({ action: 'registerPatient', isNew: true, confirmOverwrite: true, patient: P('KL-BW980', { dob: '2026-09-05', name: 'ล2' }) });
+  T.eq('…and the existing record is untouched', nameOf(g, 'NF-000980'), 'ล1');
+  const r3 = g.as({ action: 'registerPatient', isNew: true, confirmOverwrite: true, patient: P('NF-000980', { dob: '2026-09-05', name: 'ล2' }) });
   T.ok('confirmOverwrite writes it', r3.ok === true, r3);
-  T.eq('…and the record is now the second infant', nameOf(g, 'KL-BW980'), 'ล2');
+  T.eq('…and the record is now the second infant', nameOf(g, 'NF-000980'), 'ล2');
 });
 
 T.done();

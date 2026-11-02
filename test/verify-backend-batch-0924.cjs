@@ -49,7 +49,7 @@ T.section('BE-3 · validation refusals are Thai, not raw English', () => {
   T.ok('missing BW → Thai error', isThai(bw.error), bw.error);
   const sex = g.as({ action: 'registerPatient', isNew: true, patient: P('CD-900', { sex: 'x' }) });
   T.ok('bad sex → Thai error', isThai(sex.error), sex.error);
-  g.as({ action: 'registerPatient', isNew: true, patient: P('CE-900') });
+  g.seedPatient(P('CE-900'));
   const wt = g.as({ action: 'logDailyNutrition', sessionId: 'CE-900', entry: E({ weight: '' }) });
   T.ok('missing weight → Thai error', isThai(wt.error), wt.error);
 });
@@ -57,9 +57,9 @@ T.section('BE-3 · validation refusals are Thai, not raw English', () => {
 // ── BE-4 ────────────────────────────────────────────────────────────────
 T.section('BE-4 · status is canonicalised — no bed-skip, no ghost record', () => {
   const g = ward();
-  const a = g.as({ action: 'registerPatient', isNew: true, patient: P('AA-900', { status: ' Active', currentBed: 'NICU 1' }) });
+  const a = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000900', { status: ' Active', currentBed: 'NICU 1' }) });
   T.ok('register with a stray-space " Active" is accepted', a.ok === true, a);
-  T.eq('…and stored status is canonical "Active"', patRowOf(g, 'AA-900')[9], 'Active');
+  T.eq('…and stored status is canonical "Active"', patRowOf(g, 'NF-000900')[9], 'Active');
   const dup = g.as({ action: 'registerPatient', isNew: true, patient: P('AB-900', { status: ' Active', currentBed: 'NICU 1' }) });
   T.ok('a second " Active" infant on the same bed is REFUSED (bed check ran)', !!dup.error, dup);
   // AC shares AA's birth weight and date of birth, so since 2026-09-27 the
@@ -90,7 +90,7 @@ T.section('F2 · updateWeights fills an empty dob, never overwrites a real one',
 // ── BE-1 ────────────────────────────────────────────────────────────────
 T.section('BE-1 · draft is coerced and reported; only "draft" survives as draft', () => {
   const g = ward();
-  g.as({ action: 'registerPatient', isNew: true, patient: P('DD-900') });
+  g.seedPatient(P('DD-900'));
   g.as({ action: 'logDailyNutrition', sessionId: 'DD-900', entry: E({ ts: '2026-09-10', status: 'draft' }) });
   g.as({ action: 'logDailyNutrition', sessionId: 'DD-900', entry: E({ ts: '2026-09-11', status: 'weird' }) });
   // Two rows: one logged "draft", one logged "weird". Compare the status set so

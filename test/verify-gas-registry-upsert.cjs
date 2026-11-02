@@ -124,7 +124,7 @@ console.log('\n── registering a patient not already on the sheet ──');
 sheet = makeSheet(PAT_HEADER.slice(0, 17), [EXISTING.slice(0, 17)], 17);
 // On a free bed: EXISTING is active in NICU 11 and the one-patient-per-bed
 // guard (section 6) would otherwise refuse this registration.
-sandbox.registerPatient({ ...patient, sessionId: 'NEW-1', currentBed: 'NICU 4' });
+sandbox.registerPatient({ ...patient, sessionId: 'NF-000001', currentBed: 'NICU 4' });
 eq('appended rather than written in place', sheet.appended.length, 1);
 eq('appended row is 18 wide',               sheet.appended[0]?.length, 18);
 eq('no in-place write',                     sheet.writes.length, 0);
@@ -191,7 +191,7 @@ ok('Date-valued stored dob still compares', threw !== null);
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
 // Same BW and dob as EXISTING, so since 2026-09-27 the server first asks
 // whether it is the same infant; the last argument is the ward's "no".
-sandbox.registerPatient({ ...patient, sessionId: 'NEW-2', currentBed: 'SCN 30' }, true, null, false, true);
+sandbox.registerPatient({ ...patient, sessionId: 'NF-000002', currentBed: 'SCN 30' }, true, null, false, true);
 eq('a genuinely new id still appends', sheet.appended.length, 1);
 
 // (h) The twin-specific case from the 2026-09-10 identification review: a
@@ -241,14 +241,14 @@ eq('re-saving the SAME patient on their own bed is fine',
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
 eq('moving onto a free bed is fine',
-  bedErr({ ...patient, sessionId: 'OTHER-1', currentBed: 'SCN 7' }, true), null);
+  bedErr({ ...patient, sessionId: 'NF-000003', currentBed: 'SCN 7' }, true), null);
 
 // A discharged patient keeps the bed label on their record, but the bed is
 // free for the next admission — otherwise every bed on the unit silts up.
 const DISCHARGED = EXISTING.slice(); DISCHARGED[9] = 'Discharged';
 sheet = makeSheet(PAT_HEADER, [DISCHARGED], 26);
 eq('a discharged patient does not hold their bed',
-  bedErr({ ...patient, sessionId: 'OTHER-1' }, true), null);
+  bedErr({ ...patient, sessionId: 'NF-000003' }, true), null);
 
 // The other side of that: the discharged record still carries the old bed
 // label, and the bed has since gone to someone else. Correcting that record
@@ -282,7 +282,7 @@ ok('a legacy bed spelling still counts as occupied',
 const NOBED = EXISTING.slice(); NOBED[10] = '';
 sheet = makeSheet(PAT_HEADER, [NOBED], 26);
 eq('two patients with no bed do not collide',
-  bedErr({ ...patient, sessionId: 'OTHER-1', currentBed: '' }, true), null);
+  bedErr({ ...patient, sessionId: 'NF-000003', currentBed: '' }, true), null);
 
 // The client and the backend must agree on the canonical spelling, or the
 // backend refuses a bed the picker offered (or vice versa).

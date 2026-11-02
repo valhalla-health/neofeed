@@ -170,6 +170,31 @@ var NURSING_NOT_ENABLED = { error: "ยังไม่เปิดใช้บ�
 // environments without a JWT library: https://developers.google.com/identity/sign-in/web/backend-auth)
 // and additionally check `aud` ourselves so a token minted for a *different*
 // Google OAuth client can't be replayed against this app.
+//
+// A token Google has verified is kept, by its SHA-256, for what is left of its
+// life (attack pass 2026-10-30, A3). A Google ID token lives an hour, and anyone
+// can get one for this public client ID by signing in on the login page with
+// their own Google account, so every replay used to spend one UrlFetchApp call
+// from the daily quota each staff Google sign-in needs. What is kept is the
+// signature check only: login Path A reads the Staff row and decides again on
+// every call. A refusal or an outage is not kept. A retry after an outage has to
+// reach Google, and keeping a refusal would gain nothing, since a made-up token can
+// simply be a different one next time. That stream still costs one fetch each, and
+// no throttle could tell it from a ward signing in.
+function _knownGoogleToken(idToken) {
+  try {
+    var hit = _parseJson(CacheService.getScriptCache().get("gtok_" + _sha256Hex(idToken)), null);
+    return hit && hit.email ? { email: hit.email, hd: hit.hd || "", reason: null } : null;
+  } catch (e) { return null; }
+}
+function _keepGoogleToken(idToken, verified, exp) {
+  try {
+    var left = Math.floor(Number(exp) - Date.now() / 1000);
+    if (left < 1) return;
+    CacheService.getScriptCache().put("gtok_" + _sha256Hex(idToken),
+      JSON.stringify({ email: verified.email, hd: verified.hd }), left);
+  } catch (e) { Logger.log("Google token not kept: " + e.message); }
+}
 function verifyGoogleIdToken(idToken) {
   if (!idToken || typeof idToken !== "string") return { email: null, reason: "no token sent" };
   // CLIENT_ID_() throws if the CLIENT_ID Script Property was never set
@@ -179,6 +204,8 @@ function verifyGoogleIdToken(idToken) {
   // token" result as an actually-bad token, which sent users chasing their
   // Google account instead of the real fix (run setConfig(...)).
   var clientId = CLIENT_ID_();
+  var known = _knownGoogleToken(idToken);
+  if (known) return known;
   // `reason` is for Logger.log only — doPost never sends it to the caller any
   // more (2026-09-17 review, nits/UP-B14). It used to echo the whole tokeninfo
   // body, the token's aud AND the expected client ID to an unauthenticated
@@ -201,7 +228,9 @@ function verifyGoogleIdToken(idToken) {
     if (payload.email_verified !== "true" && payload.email_verified !== true) return { email: null, reason: "email not verified" };
     if (!payload.email) return { email: null, reason: "no email in payload" };
     // `hd` is present only for a Google Workspace account (see GOOGLE_HD_ENFORCE).
-    return { email: payload.email, hd: payload.hd ? String(payload.hd) : "", reason: null };
+    var verified = { email: payload.email, hd: payload.hd ? String(payload.hd) : "", reason: null };
+    _keepGoogleToken(idToken, verified, payload.exp);
+    return verified;
   } catch (e) { return { email: null, reason: "tokeninfo fetch failed: " + e.message, unavailable: true }; }
 }
 
@@ -1067,6 +1096,43 @@ function _auditLoginFailure(email, failsIncludingThis) {
   if (failsIncludingThis === LOCKOUT_MAX_FAILS) logAudit("lockout", "", email);
 }
 
+// A caller with no account could still grow Audit_Log without limit (attack pass
+// 2026-10-30, A3). The lockout counts per address, so an invented address changed
+// every five tries wrote 6 rows per 5 requests for ever, and the Google path had
+// no lockout at all. Audit_Log shares its workbook, and the 10-million-cell cap
+// every save needs, with the patient tabs.
+//
+// So rows about an address with no proven account share one ceiling per hour,
+// counted in CacheService: LOGIN_FAIL_AUDIT_MAX rows, then one loginFailCapped row
+// with no address on it to say the rest went unwritten, then nothing until the
+// next hour. That is 61 rows an hour, 5,856 cells a day.
+// - The reply never changes, so the ceiling cannot be seen from outside.
+// - A wrong password for a real account is outside the ceiling
+//   (_auditLoginFailure): it is the row an investigation wants, a flood of invented
+//   addresses must not be able to hide it, and the lockout and the Staff tab
+//   already bound it to 6 rows per account per LOCKOUT_MS.
+// - No script lock around the count. A flood must not queue on the lock every ward
+//   save waits on. Requests racing the counter only let extra rows through, at
+//   worst one per concurrent execution (Apps Script allows 30), so growth stays bounded.
+// - A cache outage writes the row: an audit row is worth more than the ceiling.
+var LOGIN_FAIL_AUDIT_WINDOW_S = 3600;
+var LOGIN_FAIL_AUDIT_MAX = 60;
+function _auditUnderCeiling(action, email) {
+  var used = 0;
+  try {
+    var cache = CacheService.getScriptCache();
+    var key = "lfaudit_" + Math.floor(Date.now() / (LOGIN_FAIL_AUDIT_WINDOW_S * 1000));
+    used = parseInt(cache.get(key), 10) || 0;
+    if (used <= LOGIN_FAIL_AUDIT_MAX) cache.put(key, String(used + 1), LOGIN_FAIL_AUDIT_WINDOW_S);
+  } catch (e) { used = 0; }
+  if (used < LOGIN_FAIL_AUDIT_MAX) logAudit(action, "", email);
+  else if (used === LOGIN_FAIL_AUDIT_MAX) logAudit("loginFailCapped", "", "");
+}
+function _auditNoAccountFailure(email, failsIncludingThis) {
+  _auditUnderCeiling("loginFail", email);
+  if (failsIncludingThis === LOCKOUT_MAX_FAILS) _auditUnderCeiling("lockout", email);
+}
+
 // A successful login's reply. It carries the first sync when the client asks
 // for it with `wantSync` (login speed, 2026-09-24). Every sign-in used to wait
 // for a second round trip: login, then getActivePatients with the new token,
@@ -1155,18 +1221,18 @@ function doPost(e) {
           return jsonOut({ status: "unauthorized", error: "Google token ไม่ถูกต้อง" });
         }
         if (!_googleAccountAllowed(email, gVerify.hd)) {
-          logAudit("loginFail", "", email);
+          _auditUnderCeiling("loginFail", email);
           return jsonOut({ status: "unauthorized", error: GOOGLE_HD_REFUSED_MSG });
         }
         var gFound = getStaffRow(email);
         tm.lap("staff");
         if (!gFound) {
-          logAudit("loginFail", "", email);
+          _auditUnderCeiling("loginFail", email);
           return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" });
         }
         var gd = gFound.data;
         if (gd[3] !== true && String(gd[3]).toUpperCase() !== "TRUE") {
-          logAudit("loginFail", "", email);
+          _auditUnderCeiling("loginFail", email);
           return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
         }
         role = _staffRole(gd[1]);
@@ -1212,7 +1278,7 @@ function doPost(e) {
         var unknownAttempt = _beginPasswordAttempt(unknownKey, "cache");
         if (unknownAttempt.locked) return jsonOut({ status: "unauthorized", error: LOCKOUT_LOGIN_MSG });
         hashPwdV2(password, "no-password-account");
-        _auditLoginFailure(email, unknownAttempt.fails);
+        _auditNoAccountFailure(email, unknownAttempt.fails);
         return jsonOut({ status: "unauthorized", error: LOGIN_FAILED_MSG });
       }
 
@@ -1235,7 +1301,7 @@ function doPost(e) {
       // Disabled status is reported only to someone who has just proved the
       // password — before, it was answered ahead of the password check.
       if (d[3] !== true && String(d[3]).toUpperCase() !== "TRUE") {
-        logAudit("loginFail", "", email);
+        _auditUnderCeiling("loginFail", email);
         return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
       }
       if (pwCheck.legacy) {
@@ -1405,10 +1471,16 @@ function doPost(e) {
       // from a client that knows the three-way merge (see registerPatient).
       var regBase = (!isNewReg && body.base && typeof body.base === "object" && !Array.isArray(body.base)) ? body.base : null;
       var regResult = registerPatient(body.patient, isNewReg, regBase, body.confirmOverwrite === true,
-        body.confirmDuplicate === true);
+        body.confirmDuplicate === true, user.role === "admin");
       // A taken id, or an infant that looks like one already on file, and this
-      // call did not confirm: pass the question back and write nothing.
-      if (regResult && regResult.needsConfirm) return jsonOut(regResult);
+      // call did not confirm: pass the question back and write nothing. The
+      // look-alike question tells the caller whether an infant is on file, so it
+      // leaves a row (attack pass 2026-10-30, A5). matchedId goes to that row and
+      // no further: the reply to someone outside the sync window must not carry it.
+      if (regResult && regResult.needsConfirm) {
+        if (regResult.code === "PossibleDuplicate") logAudit("possibleDuplicate", regResult.matchedId, user.email);
+        return jsonOut({ needsConfirm: true, code: regResult.code, error: regResult.error });
+      }
       // A changed BW or GA silently moves every dose target for this infant,
       // and the row itself keeps no who/when — so the audit trail does.
       logAudit(isNewReg ? "registerPatient" : "updatePatient", (body.patient && body.patient.sessionId) || "", user.email);
@@ -2002,6 +2074,36 @@ function _checkAdmissionDate(val, storedOrNull, label) {
     throw new Error("ค่า " + label + " (" + s + ") เก่าเกินกว่าที่ระบบรับได้");
 }
 
+// Size caps on the registry's text (attack pass 2026-10-30, A10). None of these
+// had one, and every ward device syncs them on every poll. A refusal here stops a
+// save at the bedside, so each cap sits well above what the Register and Edit
+// forms make: a name is two letters and two letters (5 characters, data.js
+// composePatientName) and initials 2, a bed is at most "iso 12-3", a twin is one
+// letter, a date 10. Diagnosis is the one box with no shape: a one-line input, so
+// 2,000 is a long problem list several times over. An older record can hold more
+// (a full name typed before 2026-09-25, a cell typed by hand), so an UNCHANGED stored
+// value passes, by the rule _checkAdmissionDate gives: refusing what the editor never
+// touched would make that record uncorrectable in any other respect. The date
+// fields are here because the date check reads only their first ten characters, and
+// the whole text is what gets written. The refusal never repeats the text.
+var PATIENT_TEXT_MAX = {
+  name: { max: 200, label: "Name" }, initials: { max: 40, label: "Initials" },
+  diagnosis: { max: 2000, label: "Diagnosis" }, currentBed: { max: 60, label: "Bed" },
+  twinSuffix: { max: 10, label: "Twin letter" }, dob: { max: 40, label: "Date of birth" },
+  admissionDate: { max: 40, label: "Admit date" }, statusDate: { max: 40, label: "Status date" },
+};
+function _checkPatientText(m, storedRow) {
+  var same = function (v) { return String(v == null ? "" : v).trim().replace(/\s+/g, " "); };
+  for (var f in PATIENT_TEXT_MAX) {
+    if (!Object.prototype.hasOwnProperty.call(PATIENT_TEXT_MAX, f)) continue;
+    var cap = PATIENT_TEXT_MAX[f], text = String(m[f] == null ? "" : m[f]);
+    if (text.length <= cap.max) continue;
+    if (storedRow && same(text) === same(_storedPatient(storedRow)[f])) continue;
+    throw new Error("ค่า " + cap.label + " ยาวเกินที่ระบบรับได้ (" + text.length + " ตัวอักษร รับได้ไม่เกิน " + cap.max +
+      ") — แก้ให้สั้นลงแล้วบันทึกอีกครั้ง");
+  }
+}
+
 function _validatePatient(p) {
   if (p.bw === "" || p.bw == null || !isFinite(Number(p.bw)))
     throw new Error("ต้องระบุน้ำหนักแรกเกิด (g) เป็นตัวเลข");
@@ -2087,7 +2189,24 @@ function _normStatus(v) {
   return s;
 }
 
+// The size cap on calcInput (attack pass 2026-10-30, A10). It had none, and it syncs
+// to every ward device on every poll; past 50,000 characters real Sheets refuses the
+// cell with a raw English error. A refusal here stops a doctor's save at the bedside, so
+// the cap sits well above what a real save makes, measured from the real <Calculator>
+// on 2026-11-02: an ordinary bag 940 characters, every box left holding a 19-character
+// decimal 1,484, a critical override with 8 alerts and its 300-character reason
+// 1,557. test/verify-hardening-1102.cjs §8 fails if a real save passes half this cap.
+var CALC_INPUT_MAX_CHARS = 10000;
+function _checkCalcInputSize(calcInput) {
+  var chars = JSON.stringify(calcInput || {}).length;
+  if (chars > CALC_INPUT_MAX_CHARS) {
+    throw new Error("ข้อมูลใบสั่งยาวเกินที่ระบบรับได้ (" + chars + " ตัวอักษร รับได้ไม่เกิน " + CALC_INPUT_MAX_CHARS +
+      ") — รีเฟรชหน้าแล้วบันทึกใหม่ ถ้ายังไม่ได้ให้แจ้ง admin");
+  }
+}
+
 function _validateLogEntry(entry) {
+  _checkCalcInputSize(entry.calcInput);
   if (entry.dol === "" || entry.dol == null || !isFinite(Number(entry.dol)))
     throw new Error("ต้องระบุ DOL เป็นตัวเลข");
   if (entry.weight === "" || entry.weight == null || !isFinite(Number(entry.weight)))
@@ -3461,23 +3580,41 @@ function _sessionIdConflict(existingRow, p, isNew, base) {
 // lands two registrations of one baby on the same id, so this asks outright —
 // a second device registering the same admission, or a readmission after a
 // transfer out. Every row, not only the synced ones; never an erased row (its
-// dob is gone). Returns the question for the bedside, or null. This is the
-// only copy of the rule and of its words (2026-09-27, single source of
-// truth): the client asks nothing itself, and shows this sentence as it is.
-function _possibleDuplicate(data, p) {
+// dob is gone). Returns { message, matchedId }, or null. This is the only copy
+// of the rule and of its words (2026-09-27, single source of truth): the client
+// asks nothing itself, and shows this sentence as it is.
+//
+// Every row is still searched, but since 2026-11-02 a row is NAMED only to a
+// caller whose sync carries it. This reverses the 2026-09-27 design, which named
+// any row (attack pass 2026-10-30, A5): non-admin syncs stop 30 days after
+// discharge and the archive is admin-only, yet one registerPatient with an archived
+// infant's BW and date of birth returned that infant's name, status, last bed and
+// ID to a nurse or doctor, with no audit row. An old-style ID carries the BW. Outside
+// the window the caller now hears that such an infant is on file, and to ask an
+// admin, whose sync can carry every row. A named match wins over a hidden one
+// wherever it sits in the tab: that is the record this device can open.
+function _possibleDuplicate(data, p, seesArchive) {
   var dob = _fmtDate(p.dob), bw = Number(p.bw);
   if (!dob || !(bw > 0)) return null;
+  var todayKey = _wardDateKey();
+  var hiddenId = "";
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
     if (!r[0] || String(r[0]) === String(p.sessionId) || _isPdpaErased(r)) continue;
     if (Number(r[3]) !== bw || _fmtDate(r[6]) !== dob) continue;
+    if (!seesArchive && !_patientInSyncWindow(r[9], r[16], todayKey)) {
+      hiddenId = hiddenId || String(r[0]);
+      continue;
+    }
     var bed = _normBed(r[10]);
-    return "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว: " +
+    return { matchedId: String(r[0]), message: "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว: " +
       String(r[1] || r[2] || "—") + " (" + _readStatus(r[9]) + " " +
       (bed ? "เตียง " + bed : "ยังไม่ระบุเตียง") + " ID " + String(r[0]) + ") " +
-      "ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่";
+      "ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่" };
   }
-  return null;
+  if (!hiddenId) return null;
+  return { matchedId: hiddenId, message: "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว " +
+    "แต่เป็น record เก่าที่พ้นช่วงที่หอเปิดดูได้ ถ้าอาจเป็นคนเดียวกัน ให้ถาม admin ก่อนลงทะเบียน" };
 }
 
 // ── One infant per bed ────────────────────────────────────────
@@ -3676,8 +3813,19 @@ function _mergePatient(storedRow, incoming, base) {
 // `isNew` is optional and defaults to a plain upsert, so an older client that
 // does not send it keeps working exactly as before — see _sessionIdConflict.
 // `base` is optional too — see the three-way merge above. `confirmDuplicate`
-// is the client's "yes, a different infant" to _possibleDuplicate's question.
-function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate) {
+// is the client's "yes, a different infant" to _possibleDuplicate's question, and
+// `seesArchive` says the caller's sync can carry every row (an admin).
+//
+// A row that does not exist yet needs an id in the form the app makes (R2, the
+// cold-reader triage of 2026-10-31). Any text used to pass, so a direct POST could
+// file an infant under a name or an HN, and that id then reaches every ward device,
+// Audit_Log and the TPN room. Only a NEW row is held to it: ids issued before
+// 2026-09-27 keep their initials+BW form on every read and edit (a residual Pp
+// accepted, 2026-10-30). Mirrors newSessionId in data.js, which this file cannot
+// import; test/verify-hardening-1102.cjs §7 runs that function against this rule.
+var NEW_SESSION_ID_RE = /^NF-\d{6}$/;
+var NEW_SESSION_ID_MSG = "ID ของผู้ป่วยรายใหม่ต้องเป็น NF- ตามด้วยเลข 6 หลัก — รีเฟรชหน้าแล้วลงทะเบียนใหม่ ระบบจะออก ID ใหม่ให้";
+function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, seesArchive) {
   if (!p || typeof p !== "object" || !_requiredString(p.sessionId) || !p.sessionId.trim()) {
     throw new Error("sessionId is required");
   }
@@ -3727,16 +3875,19 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate) {
     // the anchor DOL is now computed from, so it is held to the same rule.
     _checkAdmissionDate(m.admissionDate, stored ? stored[7] : null, "Admit date");
     _checkAdmissionDate(m.dob,           stored ? stored[6] : null, "Date of birth");
+    _checkPatientText(m, stored);
     // Inside the lock and after the read, so the census it checks is the one
     // this write is about to land in — and on the MERGED record, so a stale
     // device's old "Active" status cannot claim a bed for a discharged patient.
     var bedTaken = _bedConflict(data, m);
     if (bedTaken) throw new Error(bedTaken);
+    // Last of the refusals, so a save refused for another reason keeps its own message.
+    if (!stored && !NEW_SESSION_ID_RE.test(p.sessionId)) throw new Error(NEW_SESSION_ID_MSG);
     // Asked last, of a registration that would otherwise be written: no
     // question about the baby for a save that is refused anyway.
     if (!stored && isNew === true && confirmDuplicate !== true) {
-      var lookalike = _possibleDuplicate(data, m);
-      if (lookalike) return { needsConfirm: true, code: "PossibleDuplicate", error: lookalike };
+      var lookalike = _possibleDuplicate(data, m, seesArchive === true);
+      if (lookalike) return { needsConfirm: true, code: "PossibleDuplicate", error: lookalike.message, matchedId: lookalike.matchedId };
     }
     var row18 = [
       _sheetSafe(m.sessionId), _sheetSafe(m.name || ""), _sheetSafe(m.initials || ""),

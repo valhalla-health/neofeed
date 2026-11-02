@@ -40,12 +40,11 @@ function ward() {
 }
 
 function register(g, sid) {
-  const r = g.as(g.dt, { action: 'registerPatient', isNew: true, patient: {
+  g.seedPatient({
     sessionId: sid, name: 'ทารก ' + sid, initials: sid.slice(0, 2), bw: 900, ga: 28.1, sex: 'boys',
     dob: DOB, admissionDate: ADMIT, twinSuffix: '', status: 'Active', currentBed: '', diagnosis: 'RDS',
     weights: [{ dol: 5, w: 900 }], lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0,
-  } });
-  if (r.ok !== true) throw new Error('fixture registration refused: ' + JSON.stringify(r));
+  });
 }
 // What app.jsx's sync gives a record with no dob: admissionDate − (weights[0].dol − 1).
 const derivedDob = (p) => addDays(p.admissionDate, -((Number(p.weights[0].dol) || 1) - 1));

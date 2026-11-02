@@ -293,17 +293,17 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   const rev = post({ action: 'updateDailyNutrition', sessionId: 'AA-1', entryId: created.entryId, expectedLastModified: g.rows('Daily_Log').find(r => r[25] === created.entryId)[26], entry: E({ ts: TODAY, pro: 3.8 }) });
   T.ok('revision ok', rev.revised, rev); matches('after revision (append + supersede)');
   T.ok('refused duplicate-date create', !!post({ action: 'logDailyNutrition', sessionId: 'AA-1', entry: E({ ts: TODAY }) }).error); matches('after a refused write');
-  const reg = post({ action: 'registerPatient', isNew: true, patient: { sessionId: 'CC-1', name: 'ใหม่', bw: 1500, ga: 31, sex: 'girls', dob: addDays(TODAY, -3), status: 'Active', currentBed: 'NICU 9' } });
+  const reg = post({ action: 'registerPatient', isNew: true, patient: { sessionId: 'NF-000011', name: 'ใหม่', bw: 1500, ga: 31, sex: 'girls', dob: addDays(TODAY, -3), status: 'Active', currentBed: 'NICU 9' } });
   T.ok('register ok', reg.ok, reg); matches('after registerPatient');
-  const w = post({ action: 'updateWeights', sessionId: 'CC-1', weights: [{ dol: 1, w: 1500 }, { dol: 2, w: 1490 }] });
+  const w = post({ action: 'updateWeights', sessionId: 'NF-000011', weights: [{ dol: 1, w: 1500 }, { dol: 2, w: 1490 }] });
   T.ok('updateWeights ok', w.ok, w); matches('after updateWeights');
   const disch = post({ action: 'updatePatient', patient: { sessionId: 'BB-1', name: 'x', bw: 1200, ga: 30.1, sex: 'boys', status: 'Discharged', statusDate: addDays(TODAY, -45), currentBed: '' } });
   T.ok('discharge ok', disch.ok, disch); matches('after a discharge moves a patient out of the window');
   matches('admin archive variant', g.at, true);
   const bbEntry = g.rows('Daily_Log').find(r => r[1] === 'BB-1')[25];
   T.ok('deleteDailyNutrition ok', post({ action: 'deleteDailyNutrition', sessionId: 'BB-1', entryId: bbEntry }, g.at).ok); matches('admin archive after deleteDailyNutrition', g.at, true);
-  T.ok('pseudonymize ok', post({ action: 'pseudonymizePatient', sessionId: 'CC-1' }, g.at).ok); matches('after pseudonymizePatient');
-  T.ok('deletePatient ok', post({ action: 'deletePatient', sessionId: 'CC-1' }, g.at).ok); matches('after deletePatient');
+  T.ok('pseudonymize ok', post({ action: 'pseudonymizePatient', sessionId: 'NF-000011' }, g.at).ok); matches('after pseudonymizePatient');
+  T.ok('deletePatient ok', post({ action: 'deletePatient', sessionId: 'NF-000011' }, g.at).ok); matches('after deletePatient');
   matches('a nurse gets the same ward payload', g.nt);
   matches('a doctor asking for the archive gets the ward payload', g.dt, true);
 
@@ -361,11 +361,11 @@ T.section('A2 · every write path bumps DATA_VERSION — behaviour and source', 
   bumps('a REFUSED logDailyNutrition (finally, not just success)', () => g.sb.logDailyNutrition('AA-1', E({ ts: '2026-09-10' }), 'doc@kcmh.test'));
   bumps('updateDailyNutrition', () => g.sb.updateDailyNutrition('AA-1', c.entryId, c.lastModified, E(), 'doc@kcmh.test'));
   bumps('publishDailyLog', () => g.sb.publishDailyLog('AA-1', c.entryId, 'doc@kcmh.test', g.rows('Daily_Log')[0][26]));
-  bumps('registerPatient', () => g.sb.registerPatient({ sessionId: 'BB-1', bw: 1000, ga: 29, sex: 'boys', status: 'Active' }, true));
-  bumps('updateWeights', () => g.sb.updateWeights('BB-1', [{ dol: 1, w: 1000 }]));
-  bumps('pseudonymizePatient', () => g.sb.pseudonymizePatient('BB-1', 'adm@kcmh.test'));
+  bumps('registerPatient', () => g.sb.registerPatient({ sessionId: 'NF-000012', bw: 1000, ga: 29, sex: 'boys', status: 'Active' }, true));
+  bumps('updateWeights', () => g.sb.updateWeights('NF-000012', [{ dol: 1, w: 1000 }]));
+  bumps('pseudonymizePatient', () => g.sb.pseudonymizePatient('NF-000012', 'adm@kcmh.test'));
   bumps('deleteDailyNutrition', () => g.sb.deleteDailyNutrition('AA-1', 'no-such', 'adm@kcmh.test'));
-  bumps('deletePatient', () => g.sb.deletePatient('BB-1', 'adm@kcmh.test'));
+  bumps('deletePatient', () => g.sb.deletePatient('NF-000012', 'adm@kcmh.test'));
   g.sheet('Daily_Log').data.push(lrow(g, 'AA-1', '2026-09-01', { 25: '' }));
   bumps('backfillLegacyEntryIds (editor-run)', () => g.sb.backfillLegacyEntryIds());
   bumps('onEdit on Daily_Log', () => g.sb.onEdit({ range: { getSheet: () => g.sheet('Daily_Log'), getRow: () => 3, getNumRows: () => 1 } }));

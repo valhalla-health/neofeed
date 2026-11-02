@@ -18,8 +18,6 @@ const T = recorder('DELETE A SUBMITTED ORDER 2026-10-29');
 
 const E = (extra) => Object.assign({ dol: 5, weight: 1250, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 3, k: 2, ca: 60, p: 40,
   enVolPerKg: 20, route: 'TPN central', status: 'submitted', calcInput: { wtG: 1250, stops: [] } }, extra || {});
-// Two infants different enough that registerPatient does not ask whether the
-// second is the first again.
 const P = (sid, bw, dob) => ({
   sessionId: sid, name: 'ทารก ' + sid, initials: sid.slice(0, 2), bw, ga: 28.1, sex: 'boys',
   dob, admissionDate: dob, twinSuffix: '', status: 'Active',
@@ -34,9 +32,8 @@ function ward() {
   g.dt = g.session('doc@kcmh.test', 'doctor');
   g.at = g.session('admin@kcmh.test', 'admin');
   g.as = (tok, body) => g.post(Object.assign({ token: tok }, body));
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('DL-1', 900, '2026-09-01') });
-  const two = g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('KM-2', 1400, '2026-08-20') });
-  if (!two.ok) throw new Error('second infant not registered: ' + JSON.stringify(two));
+  g.seedPatient(P('DL-1', 900, '2026-09-01'));
+  g.seedPatient(P('KM-2', 1400, '2026-08-20'));
   g.log = (sid, ts, extra) => g.as(g.dt, { action: 'logDailyNutrition', sessionId: sid, entry: Object.assign(E(extra), { ts }) });
   g.row = (id) => g.sheet('Daily_Log').data.find(r => r[25] === id);
   g.lm = (id) => g.row(id)[26];
