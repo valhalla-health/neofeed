@@ -342,7 +342,7 @@ with #204 by PR #205, and with #206's merge and #208's release by PR #207.
   released, the ward hears the new name: "Bag cannot be compounded" (still owed to them, banner of
   2026-10-28) is shown as "Bag cannot be made (ใส่ถุงไม่ได้)" and covers the 1,250 mL bottle too (Vera).
   `CHANGELOG.md` 2026-11-01 (3).
-- ⏳ **The whole-app hardening PR, five findings of the attack pass of 2026-10-30: in review, on Pp's request of
+- ⏳ **The whole-app hardening PR (#211), five findings of the attack pass of 2026-10-30: in review, on Pp's request of
   2026-11-02.** Backend only: live only after `clasp push` and `clasp update-deployment`, on Pp's go-ahead, with no
   `main → release` step of its own. A login flood should stop at 61 `Audit_Log` rows an hour (`CHANGELOG.md` has the worst case), and a replayed Google
   token asks Google once; size caps on `calcInput` and the registry's text; a new sessionId must be `NF-` and six digits. The
