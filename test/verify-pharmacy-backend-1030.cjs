@@ -570,7 +570,7 @@ T.section('§13 printJson · held to the schema stickerFigures makes, for the or
   const s1 = g.log('NF-100001', day(1), ED(day(1)));
   T.ok('a whole schema-v1 sticker saves on a create', !!s1.entryId, s1);
   T.eq('…and AM holds it as sent', g.am(1), PJ({ orderDate: day(1) }));
-  const d1 = g.log('NF-100002', day(1), ED(day(1), { status: 'draft' }));
+  g.log('NF-100002', day(1), ED(day(1), { status: 'draft' }));
   const dUp = upd(g, 2, 'NF-100002', ED(day(1), { status: 'draft', printJson: PJ({ orderDate: day(1), factor: '2.1' }) }));
   T.ok('…on an in-place draft update', dUp.ok === true && !dUp.revised, dUp);
   T.eq('…AM moves with it', g.am(2).factor, '2.1');
@@ -606,9 +606,6 @@ T.section('§13 printJson · held to the schema stickerFigures makes, for the or
   lands('an entry that carries no constantsVersion is not held to one', edit(p => { p.constantsVersion = '2026-10-29.1'; }),
     { constantsVersion: undefined });
   lands('an entry with no dosing weight is not held to a weight', edit(p => { p.dosingWeightKg = '2.5'; }), {}, { tpnWtG: undefined });
-  // The rule is about a figure's form. The server has no bag arithmetic to judge its value with, so a minus
-  // sign, which the schema's number form allows, lands; stickerFigures itself never sends a negative WFI.
-  lands('a negative figure, well formed', edit(p => { p.stockMl.d50w = '-5'; }));
   lands('DOL 10.4 on the row, 10 on the sticker (the sticker rounds)', whole, { dol: 10.4 });
   lands('a DOL sent as text is compared as the number the row stores', whole, { dol: '10' });
 
@@ -720,6 +717,7 @@ T.section('§13 printJson · held to the schema stickerFigures makes, for the or
     ['a figure "1e9"', edit(p => { p.deliveredMl = '1e9'; })],
     ['a figure of 13 characters', edit(p => { p.deliveredMl = '1234567890123'; })],
     ['a figure that is a number, not text', edit(p => { p.deliveredMl = 160; })],
+    ['a negative figure (the attack\'s D50W)', edit(p => { p.stockMl.d50w = '-5'; })],
     ['a figure "+5"', edit(p => { p.stockMl.kcl = '+5'; })],
     ['a figure ".5"', edit(p => { p.stockMl.kcl = '.5'; })],
     ['a figure "5."', edit(p => { p.stockMl.kcl = '5.'; })],
@@ -786,6 +784,10 @@ T.section('§13 printJson · held to the schema stickerFigures makes, for the or
   L.data[2][0] = day(20);
   const asText = upd(h, 2, 'NF-100002', ED(day(20), { status: 'draft' }));
   T.ok('…and as the same date held as text', asText.ok === true, asText);
+  restore();
+  L.data[2][0] = '';
+  const blank = upd(h, 2, 'NF-100002', ED(day(20), { status: 'draft' }));
+  T.ok('a row whose date cell is blank has no date to hold a sticker to → a draft edit saves', blank.ok === true, blank);
   restore();
   L.data[2][0] = 'not a date';
   const garbled = upd(h, 2, 'NF-100002', E({ status: 'draft', printJson: PJ({ orderDate: 'not a date' }) }));

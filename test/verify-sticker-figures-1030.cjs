@@ -119,6 +119,10 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     const ap = D.stickerFigures(O({ calc: C({ aaStockKey: 'aminoplasmal15' }) }));
     eq('Aminoplasmal: its rows, not Aminoven', [ap.stockMl.aminoven10, ap.stockMl.aminoplasmal15, ap.delivered.aminoAcidG.aminoplasmal15], ['0', '62.1', '5.4']);
     eq('Na acetate 1 mEq/kg → acetate 1.8 mEq, 1 : 1', D.stickerFigures(O({ naAcet: 1 })).delivered.acetateMeq, '1.8');
+    // The input boxes cannot type a minus sign, so only a damaged saved row can bring one here. The server
+    // refuses a negative figure, and that would stop the doctor's save, so the order has no figures instead.
+    eq('a negative dose → null', D.stickerFigures(O({ naCl: -2 })), null);
+    eq('a negative stock row → null', D.stickerFigures(O({ calc: C({ d50wVol: -1 }) })), null);
     const ad = D.stickerFigures(O({ inclAddamel: true }));
     eq('Addamel ticked → no figure on either sticker', [ad.stockMl.addamel, ad.delivered.addamelMl], [null, null]);
     const nsv = D.stickerFigures(O({ calc: C({ soluvitVol: 0 }) }));

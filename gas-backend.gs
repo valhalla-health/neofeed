@@ -2407,9 +2407,11 @@ function _revisionFields(entry) {
 //
 // The TPN-room page prints from these figures alone (design D1), so this is the
 // last place that can refuse a wrong one. An attack pass on 2026-10-30 stored
-// DOL 25 on a DOL 10 row, KCl "abc" and a patient name in here. What it checks
-// is form and belonging, not whether a dose is right: a wrong but well-formed
-// figure still lands, because judging it would take the bag arithmetic.
+// DOL 25 on a DOL 10 row, D50W -5, KCl "abc" and a patient name in here. What
+// it checks is form and belonging, not whether a dose is right: a wrong but
+// well-formed figure still lands, because judging it would take the bag
+// arithmetic. A figure has no minus sign: no dose is negative, and
+// stickerFigures has no figures for an order that would print one.
 var PRINT_JSON_MAX_CHARS = 8000;
 // These lists mirror stickerFigures in data.js and must move with it: Apps
 // Script cannot import data.js. test/verify-pharmacy-backend-1030.cjs §13
@@ -2429,6 +2431,7 @@ var PRINT_JSON_CRITICAL_KEYS = ["alerts", "reason"];
 // stickerFigures leaves null. Anywhere else a null is a sticker with a gap.
 var PRINT_JSON_NULLABLE = ["stockMl.addamel", "delivered.addamelMl"];
 var PRINT_JSON_FIGURE_MAX_CHARS = 12;
+// A save can raise 16 critical alerts at most (calculator.jsx, by reading, 2026-11-02).
 var PRINT_JSON_MAX_ALERTS = 20;
 var PRINT_JSON_MAX_ALERT_CHARS = 200;
 // calculator.jsx cuts the doctor's reason at 300, so a real order never meets this.
@@ -2451,7 +2454,7 @@ function _printJsonFigures(obj, keys, prefix) {
   for (var i = 0; i < keys.length; i++) {
     var path = prefix + keys[i], val = obj[keys[i]];
     if (val === null && PRINT_JSON_NULLABLE.indexOf(path) >= 0) continue;
-    if (typeof val !== "string" || val.length > PRINT_JSON_FIGURE_MAX_CHARS || !/^-?\d+(\.\d+)?$/.test(val)) {
+    if (typeof val !== "string" || val.length > PRINT_JSON_FIGURE_MAX_CHARS || !/^\d+(\.\d+)?$/.test(val)) {
       throw new Error("printJson: " + path + " is not a figure");
     }
   }
@@ -2501,7 +2504,7 @@ function _printJsonField(entry, orderDate) {
   // before it is compared. Unrounded, those infants' orders could not be saved.
   var tpnWtG = entry.calcInput && typeof entry.calcInput === "object" ? _numSafe(entry.calcInput.tpnWtG, 0) : 0;
   if (tpnWtG > 0 && Math.round(Math.abs(Number(pj.dosingWeightKg) - tpnWtG / 1000) * 1e6) / 1e6 > 0.005) throw new Error("printJson: dosingWeightKg is not the order's weight");
-  if (pj.orderDate !== "" && pj.orderDate !== orderDate) throw new Error("printJson: orderDate is not the order's date");
+  if (pj.orderDate !== "" && orderDate && pj.orderDate !== orderDate) throw new Error("printJson: orderDate is not the order's date");
 
   return [_sheetSafe(text)];
 }

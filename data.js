@@ -978,7 +978,10 @@ function stickerFigures(o) {
   };
   // displayNum prints "—" for a missing or non-numeric input. The sticker must
   // never carry one, so the order has no figures and the page says "save again".
-  const dash = (x) => x === "—" || (x !== null && typeof x === "object" && Object.values(x).some(dash));
+  // A negative figure is the same. The input boxes cannot type a minus sign, so
+  // only a damaged saved row can bring one, and gas-backend.gs refuses it, which
+  // would stop the doctor's save.
+  const dash = (x) => x === "—" || (typeof x === "string" && x[0] === "-") || (x !== null && typeof x === "object" && Object.values(x).some(dash));
   if (dash(figures)) return null;
   return {
     ...figures,
