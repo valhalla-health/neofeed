@@ -2399,18 +2399,110 @@ function _revisionFields(entry) {
 }
 
 // Sticker figures, AM (TPN room, Pp 2026-10-30). What calculator.jsx computed
-// for the TPN unit's three stickers, stored as sent after a shape and size
-// check. Nothing here recomputes them: the backend has no copy of the bag
+// for the TPN unit's three stickers, stored as sent once they pass the checks
+// below. Nothing here recomputes them: the backend has no copy of the bag
 // arithmetic, as with the stop list. "" for a bag-less order, and for a tab
 // from before the release, which sends none (the TPN-room page will not print
 // such an order and says to save it again).
+//
+// The TPN-room page prints from these figures alone (design D1), so this is the
+// last place that can refuse a wrong one. An attack pass on 2026-10-30 stored
+// DOL 25 on a DOL 10 row, KCl "abc" and a patient name in here. What it checks
+// is form and belonging, not whether a dose is right: a wrong but well-formed
+// figure still lands, because judging it would take the bag arithmetic.
 var PRINT_JSON_MAX_CHARS = 8000;
-function _printJsonField(entry) {
+// These lists mirror stickerFigures in data.js and must move with it: Apps
+// Script cannot import data.js. test/verify-pharmacy-backend-1030.cjs §13
+// compares them with what stickerFigures makes, so a key added on one side only
+// fails there. A changed schema also needs a new v.
+var PRINT_JSON_TOP_FIGURES = ["dol", "dosingWeightKg", "factor", "deliveredMl", "deadMl", "preparedMl"];
+var PRINT_JSON_TOP_KEYS = ["v", "constantsVersion", "orderDate"].concat(PRINT_JSON_TOP_FIGURES, ["stockMl", "delivered", "critical"]);
+var PRINT_JSON_STOCK_KEYS = ["d50w", "aminoven10", "amiparen10", "aminoplasmal15", "nacl20", "glycophos", "k2hpo4",
+  "naAcetate", "kcl", "mgso4_10", "caGluconate", "soluvit", "peditrace", "heparin", "wfi", "aminoleban8",
+  "nephrosteril7", "znso4", "mgso4_50", "addamel"];
+var PRINT_JSON_DELIVERED_FIGURES = ["dextrosePct", "dextroseG", "aminoAcidPct", "naMeq", "kMeq", "caMg", "mgMg",
+  "phosphateMg", "acetateMeq", "clMeq", "znMg", "soluvitMl", "peditraceMl", "addamelMl", "heparinUnits", "osmolarity", "kcal"];
+var PRINT_JSON_DELIVERED_KEYS = PRINT_JSON_DELIVERED_FIGURES.concat(["aminoAcidG"]);
+var PRINT_JSON_AMINO_KEYS = ["aminoven10", "amiparen10", "aminoplasmal15", "aminoleban8", "nephrosteril7"];
+var PRINT_JSON_CRITICAL_KEYS = ["alerts", "reason"];
+// The calc has no volume for Addamel, so a ticked Addamel is the one figure
+// stickerFigures leaves null. Anywhere else a null is a sticker with a gap.
+var PRINT_JSON_NULLABLE = ["stockMl.addamel", "delivered.addamelMl"];
+var PRINT_JSON_FIGURE_MAX_CHARS = 12;
+var PRINT_JSON_MAX_ALERTS = 20;
+var PRINT_JSON_MAX_ALERT_CHARS = 200;
+// calculator.jsx cuts the doctor's reason at 300, so a real order never meets this.
+var PRINT_JSON_MAX_REASON_CHARS = 500;
+
+function _printJsonExactKeys(obj, keys, where) {
+  if (obj === null || typeof obj !== "object") throw new Error("printJson: " + where + " is not an object");
+  // The key itself stays out of the message: it is whatever the client sent,
+  // and a patient name is what the attack pass put here.
+  var have = Object.keys(obj);
+  for (var i = 0; i < have.length; i++) {
+    if (keys.indexOf(have[i]) < 0) throw new Error("printJson: unexpected key in " + where);
+  }
+  for (var j = 0; j < keys.length; j++) {
+    if (!Object.prototype.hasOwnProperty.call(obj, keys[j])) throw new Error("printJson: " + where + " has no " + keys[j]);
+  }
+}
+
+function _printJsonFigures(obj, keys, prefix) {
+  for (var i = 0; i < keys.length; i++) {
+    var path = prefix + keys[i], val = obj[keys[i]];
+    if (val === null && PRINT_JSON_NULLABLE.indexOf(path) >= 0) continue;
+    if (typeof val !== "string" || val.length > PRINT_JSON_FIGURE_MAX_CHARS || !/^-?\d+(\.\d+)?$/.test(val)) {
+      throw new Error("printJson: " + path + " is not a figure");
+    }
+  }
+}
+
+function _printJsonCritical(critical) {
+  if (critical === null) return;
+  _printJsonExactKeys(critical, PRINT_JSON_CRITICAL_KEYS, "critical");
+  var alerts = critical.alerts;
+  if (!Array.isArray(alerts) || alerts.length > PRINT_JSON_MAX_ALERTS) throw new Error("printJson: critical.alerts is not a list of at most " + PRINT_JSON_MAX_ALERTS);
+  for (var i = 0; i < alerts.length; i++) {
+    if (typeof alerts[i] !== "string" || alerts[i].length > PRINT_JSON_MAX_ALERT_CHARS) throw new Error("printJson: a critical alert is not text of at most " + PRINT_JSON_MAX_ALERT_CHARS + " characters");
+  }
+  if (typeof critical.reason !== "string" || critical.reason.length > PRINT_JSON_MAX_REASON_CHARS) throw new Error("printJson: critical.reason is not text of at most " + PRINT_JSON_MAX_REASON_CHARS + " characters");
+}
+
+// `orderDate`: the date of the order these figures are saved on, as the ward
+// sync gives it to the app. The caller has it: a create takes the normalised
+// entry.ts, an edit takes the row's own date, because an edit never moves one.
+function _printJsonField(entry, orderDate) {
   var pj = entry ? entry.printJson : null;
   if (pj === null || pj === undefined || pj === "") return [""];
   if (typeof pj !== "object" || Array.isArray(pj) || pj.v !== 1) throw new Error("printJson: unknown shape");
   var text = JSON.stringify(pj);
   if (text.length > PRINT_JSON_MAX_CHARS) throw new Error("printJson: longer than " + PRINT_JSON_MAX_CHARS + " characters");
+
+  _printJsonExactKeys(pj, PRINT_JSON_TOP_KEYS, "the sticker");
+  _printJsonExactKeys(pj.stockMl, PRINT_JSON_STOCK_KEYS, "stockMl");
+  _printJsonExactKeys(pj.delivered, PRINT_JSON_DELIVERED_KEYS, "delivered");
+  _printJsonExactKeys(pj.delivered.aminoAcidG, PRINT_JSON_AMINO_KEYS, "delivered.aminoAcidG");
+  _printJsonFigures(pj, PRINT_JSON_TOP_FIGURES, "");
+  _printJsonFigures(pj.stockMl, PRINT_JSON_STOCK_KEYS, "stockMl.");
+  _printJsonFigures(pj.delivered, PRINT_JSON_DELIVERED_FIGURES, "delivered.");
+  _printJsonFigures(pj.delivered.aminoAcidG, PRINT_JSON_AMINO_KEYS, "delivered.aminoAcidG.");
+  if (typeof pj.constantsVersion !== "string" || !/^\d{4}-\d{2}-\d{2}\.\d+$/.test(pj.constantsVersion)) throw new Error("printJson: constantsVersion is not a version");
+  if (pj.orderDate !== "" && (typeof pj.orderDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(pj.orderDate))) throw new Error("printJson: orderDate is not a date");
+  _printJsonCritical(pj.critical);
+
+  // It belongs to the request it came with. Each check is skipped only when the
+  // entry has nothing to compare: the real calculator sends every one of them.
+  if (entry.constantsVersion && pj.constantsVersion !== entry.constantsVersion) throw new Error("printJson: constantsVersion is not the entry's");
+  var dol = _numSafe(entry.dol, null);
+  if (dol !== null && Number(pj.dol) !== Math.round(dol)) throw new Error("printJson: dol is not the entry's");
+  // The sticker rounds the weight to 2 decimals, so 1005 g prints 1.01. That is
+  // 0.005 off in decimal and a hair more in floating point, as it is for 220 of
+  // the whole-gram weights from 200 to 8000 g, so the difference is rounded
+  // before it is compared. Unrounded, those infants' orders could not be saved.
+  var tpnWtG = entry.calcInput && typeof entry.calcInput === "object" ? _numSafe(entry.calcInput.tpnWtG, 0) : 0;
+  if (tpnWtG > 0 && Math.round(Math.abs(Number(pj.dosingWeightKg) - tpnWtG / 1000) * 1e6) / 1e6 > 0.005) throw new Error("printJson: dosingWeightKg is not the order's weight");
+  if (pj.orderDate !== "" && pj.orderDate !== orderDate) throw new Error("printJson: orderDate is not the order's date");
+
   return [_sheetSafe(text)];
 }
 
@@ -2520,7 +2612,7 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
       .concat(_ioLogFields(entry))
       .concat(_provenanceFields(entry))
       .concat(_revisionFields(entry))
-      .concat(_printJsonField(entry));
+      .concat(_printJsonField(entry, entry.ts));
     // A row for an unregistered sessionId used to be accepted (2026-09-11
     // review, B5). Real path: a registration that failed on the network was
     // kept on screen as "local only", an order was saved against it, and the
@@ -2599,6 +2691,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // original date, so this only changes what a direct POST can do.
     var storedDate = _wardDateKey(cur[0] instanceof Date ? cur[0] : String(cur[0] || "").slice(0, 10));
     entry = Object.assign({}, entry, { ts: storedDate || String(cur[0] || "") });
+    // A sticker's orderDate is held to _fmtDate(cur[0]), not storedDate: that is the
+    // date string the ward sync gives the app, which the calculator copies into it.
 
     var originalSubmittedBy = String(cur[15] || editedBy || "");
     var newLastModified = new Date().toISOString();
@@ -2624,7 +2718,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
         .concat(_ioLogFields(entry))
         .concat(_provenanceFields(entry))
         .concat(["", "", nextRevisionNumber, _sheetSafe(entryId), ""])
-        .concat(_printJsonField(entry));
+        .concat(_printJsonField(entry, _fmtDate(cur[0])));
       _ensureLogWidth(sheet, revisionRow.length);
       sheet.appendRow(revisionRow);
       // Mark the row being replaced as superseded — AL — and advance its
@@ -2672,7 +2766,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
         _sheetSafeRoundTrip(cur[33]), _sheetSafeRoundTrip(cur[34]),
         _numSafe(cur[35], 1), _sheetSafeRoundTrip(cur[36]), _sheetSafeRoundTrip(cur[37]),
       ])
-      .concat(_printJsonField(entry));
+      .concat(_printJsonField(entry, _fmtDate(cur[0])));
     // A Daily_Log tab created before the Intake/Output columns is only 28
     // columns wide (and one predating AF–AG only 31), and getRange() past
     // the grid edge throws — which would surface at the bedside as a failed

@@ -7,7 +7,9 @@
 //       Save draft, from the same calc the doctor saved, and marks the order
 //       (calcInput.printJsonV) so the ward sync can tell it has figures;
 //   §2c an order saved before this release, without figures, can be saved
-//       again: a notice, Submit enabled, a full save instead of only a lock.
+//       again: a notice, Submit enabled, a full save instead of only a lock;
+//   §2d what the real <Calculator> sends passes the real gas-backend.gs, which
+//       holds printJson to this schema and refuses the doctor's save otherwise.
 //
 // Synthetic infants only. Mounts the real <Calculator> in jsdom — the deps in
 // test/README.md.
@@ -194,6 +196,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     k2hpo4: '0', naAcetate: '0', kcl: '2.4', mgso4_10: '0.9', caGluconate: '0', soluvit: '1.9', peditrace: '1.9',
     heparin: '1.9', wfi: '103.9', aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0' };
   let SAVED = null;   // the entry §2 sends, reopened in §2a and §2c
+  const SENT = {};    // what §2b, §2b2 and §2a send, for the real server in §2d
   const haveSaved = () => { ok('§2 saved an order to reopen', !!SAVED); return !!SAVED; };
 
   await section('§2 Submit saves printJson from the calc it saved', async () => {
@@ -234,6 +237,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     eq('the draft is logged', box.calls, 1);
     eq('…with the same worksheet rows', box.entry && box.entry.printJson && box.entry.printJson.stockMl, WANT_STOCK);
     eq('…and the marker', box.entry && box.entry.calcInput.printJsonV, 1);
+    SENT.draft = box.entry;
   });
 
   await section('§2b2 an order with no bag saves printJson null and no marker', async () => {
@@ -244,6 +248,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     eq('the order is logged', box.calls, 1);
     eq('printJson is there as a key, and null', box.entry && [('printJson' in box.entry), box.entry.printJson], [true, null]);
     eq('…and calcInput carries no marker', box.entry && 'printJsonV' in box.entry.calcInput, false);
+    SENT.noBag = box.entry;
   });
 
   const rec = (over = {}) => {
@@ -288,6 +293,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     setField('Amino acid', 2.1);
     await settle(submitBtn());
     eq('an edit of a 16 Nov order saves figures dated 16 Nov', upd(plain) && upd(plain).printJson && upd(plain).printJson.orderDate, '2026-11-16');
+    SENT.edited = upd(plain);
     eq('…and the figures of the edited calc: amino acid 2.1 %',
       upd(plain) && upd(plain).printJson && upd(plain).printJson.delivered.aminoAcidPct, '2.1');
     eq('…which agree with the entry’s own ts',
@@ -376,6 +382,72 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     ok('an unlocked order with no bag: no notice', !noticeShown());
     await settle(submitBtn());
     eq('…Submit only locks it, as before', shape(unlocked.calls), [['publish', 'e1', 'lm1']]);
+  });
+
+  // ── §2d the real server takes what the real Calculator sends ──
+  // gas-backend.gs refuses a printJson off the schema, or off the request it
+  // came with, and that refusal stops the doctor's save. So the entries above go
+  // through it as the app sends them, on a clock set to the orders' day.
+  await section('§2d what the real Calculator sends passes the real server', async () => {
+    if (!haveSaved()) return;
+    // A confirmed critical value, with a reason longer than the form keeps.
+    const critBox = logger();
+    order1600(critBox);
+    setField('KCl', 6);
+    window.prompt = () => 'เหตุผลทดสอบ '.repeat(40);
+    await clickAsync(submitBtn());
+    window.prompt = () => null;
+    const crit = critBox.entry;
+    ok('a confirmed critical order was saved, carrying its alert and reason',
+      !!(crit && crit.printJson && crit.printJson.critical && crit.printJson.critical.alerts.length && crit.printJson.critical.reason),
+      crit && crit.printJson && crit.printJson.critical);
+    // 1625 g: the sticker prints 1.63, which is 0.005 off the weight the row carries.
+    const wtBox = logger();
+    order1600(wtBox);
+    setField('Current weight', 1625);
+    await clickAsync(submitBtn());
+    const w1625 = wtBox.entry;
+    eq('a 1625 g order: 1625 g on the row, 1.63 on the sticker',
+      w1625 && [w1625.calcInput.tpnWtG, w1625.printJson && w1625.printJson.dosingWeightKg], [1625, '1.63']);
+
+    const { boot, withNow } = require('./gas-vm-sandbox.cjs');
+    withNow(Date.parse('2026-11-16T05:00:00Z'), () => {
+      const g = boot();
+      g.addStaff('doc@kcmh.test', 'doctor', 'Doctor-Password-1', { name: 'Dr Test' });
+      const token = g.session('doc@kcmh.test', 'doctor');
+      const as = (body) => g.post(Object.assign({ token }, body));
+      const register = (sessionId, i) => as({ action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: { sessionId,
+        name: 'ทารกทดสอบ ' + i, initials: 'ทท', bw: 1600 + i, ga: 32.1, sex: 'boys', dob: '2026-11-07', admissionDate: '2026-11-07', twinSuffix: '',
+        status: 'Active', currentBed: 'NICU ' + i, diagnosis: 'RDS', weights: [{ dol: 1, w: 1600 }], lengths: [], hcs: [], bedHistory: [],
+        statusDate: '', multiplesCount: 0 } });
+      const wire = (e) => JSON.parse(JSON.stringify(e));   // what the POST carries
+      const log = g.sheet('Daily_Log').data;
+      const am = (row) => log[row][38];
+      const create = (label, sid, i, entry) => {
+        register(sid, i);
+        const r = entry ? as({ action: 'logDailyNutrition', sessionId: sid, entry: wire(entry) }) : {};
+        ok(`${label} → saved`, !!r.entryId, r);
+        return { row: log.length - 1, sid };
+      };
+      const edit = (at, entry) => as({ action: 'updateDailyNutrition', sessionId: at.sid, entryId: log[at.row][25],
+        expectedLastModified: log[at.row][26], entry: wire(entry) });
+
+      const sub = create('a submitted order', 'NF-900101', 1, SAVED);
+      eq('…with AM the figures as the Calculator made them', JSON.parse(am(sub.row)), wire(SAVED.printJson));
+      const rev = edit(sub, SENT.edited);
+      ok('its edit, dated by the row → saved as a revision', rev.revised === true, rev);
+      eq('…with AM the edited figures', JSON.parse(am(log.length - 1)), wire(SENT.edited.printJson));
+      const draft = create('a draft', 'NF-900102', 2, SENT.draft);
+      const inPlace = edit(draft, SENT.edited);
+      ok('its edit → saved in place', inPlace.ok === true && !inPlace.revised, inPlace);
+      eq('…with AM the edited figures', JSON.parse(am(draft.row)), wire(SENT.edited.printJson));
+      const none = create('an order with no bag (printJson null)', 'NF-900103', 3, SENT.noBag);
+      eq('…with AM blank', am(none.row), '');
+      const c = create('a confirmed critical order', 'NF-900104', 4, crit);
+      eq('…with AM carrying the alert and the reason as the form kept it', JSON.parse(am(c.row)).critical, wire(crit.printJson.critical));
+      const w = create('a 1625 g order', 'NF-900105', 5, w1625);
+      eq('…with AM the 1.63 the sticker prints', JSON.parse(am(w.row)).dosingWeightKg, '1.63');
+    });
   });
 
   console.log(`\n${fail === 0 ? 'STICKER FIGURES 1030: ALL PASS' : `STICKER FIGURES 1030: ${fail} FAILED`} (${pass} passed, ${fail} failed)`);

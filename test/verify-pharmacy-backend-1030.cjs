@@ -8,12 +8,17 @@
 //   §5     its login reply carries no registry;
 //   §6–§7  pharmacyOrders: one date inside the ward window (7 days back to tomorrow), counts,
 //          no name, initials or date of birth, audited;
-//   §8     the header migration labels AM and widens the tab to 39 columns.
+//   §8     the header migration labels AM and widens the tab to 39 columns;
+//   §9–§12 what the attack pass and the stakeholder walkthrough found: prescriber and bed from the server,
+//          a moved column, Staff roles, entryId and the twin letter, one date read;
+//   §13    printJson is held to the schema stickerFigures (data.js) produces, for the order it came with.
 //
 // Real gas-backend.gs in gas-vm-sandbox.cjs. Synthetic infants only.
 process.env.TZ = process.env.TZ || 'Asia/Bangkok';
 const fs = require('fs');
-const { boot, recorder, withNow, wardToday, addDays, bkkMidnight, SRC_PATH } = require('./gas-vm-sandbox.cjs');
+const vm = require('vm');
+const path = require('path');
+const { boot, recorder, withNow, wardToday, addDays, bkkMidnight, isDate, SRC_PATH } = require('./gas-vm-sandbox.cjs');
 const T = recorder('PHARMACY BACKEND 2026-10-30');
 
 // The sections that ask pharmacyOrders about "today" run at noon, ward time, of the day the run starts:
@@ -22,12 +27,28 @@ const T = recorder('PHARMACY BACKEND 2026-10-30');
 const NOON = Date.parse(wardToday() + 'T05:00:00Z');
 const atNoon = (fn) => () => withNow(NOON, fn);
 
+// A whole schema-v1 sticker, every key stickerFigures makes and no other: the figures the real <Calculator>
+// saved for a 1.6 kg order in verify-sticker-figures-1030.cjs §2, dated 20 October. The server holds
+// printJson to that schema, so a fixture with fewer keys is refused (§13). The nested objects are built
+// per call, so a case may change one without touching the next.
 const PJ = (extra) => Object.assign({ v: 1, constantsVersion: '2026-10-28.1', orderDate: '2026-10-20', dol: '10',
   dosingWeightKg: '1.6', factor: '1.9', deliveredMl: '160', deadMl: '30', preparedMl: '190',
-  stockMl: { d50w: '38', wfi: '104' }, delivered: { kcal: '67' }, critical: null }, extra);
+  stockMl: { d50w: '38', aminoven10: '38', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.1', glycophos: '0',
+    k2hpo4: '0', naAcetate: '0', kcl: '2.4', mgso4_10: '0.9', caGluconate: '0', soluvit: '1.9', peditrace: '1.9',
+    heparin: '1.9', wfi: '103.9', aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0' },
+  delivered: { dextrosePct: '10', dextroseG: '16', aminoAcidPct: '2',
+    aminoAcidG: { aminoven10: '3.2', amiparen10: '0', aminoplasmal15: '0', aminoleban8: '0', nephrosteril7: '0' },
+    naMeq: '3.2', kMeq: '4', caMg: '0', mgMg: '7.8', phosphateMg: '0', acetateMeq: '0', clMeq: '7.2', znMg: '0.4',
+    soluvitMl: '1.6', peditraceMl: '1.6', addamelMl: '0', heparinUnits: '160', osmolarity: '794', kcal: '67' },
+  critical: null }, extra);
+// An order the figures above belong to: DOL 10, dosing weight 1600 g, the same constants. The date is
+// not in it: the sections that log "today" use ED, which dates the sticker too.
 const E = (extra, ci) => Object.assign({ dol: 10, weight: 1600, fluid: 150, gir: 7, pro: 2, kcal: 42, na: 2, k: 2.5, ca: 0, p: 0,
-  enVolPerKg: 0, route: 'TPN central', status: 'submitted', printJson: PJ(),
-  calcInput: Object.assign({ wtG: 1600, stops: [] }, ci) }, extra || {});
+  enVolPerKg: 0, route: 'TPN central', status: 'submitted', constantsVersion: '2026-10-28.1', printJson: PJ(),
+  calcInput: Object.assign({ wtG: 1600, tpnWtG: 1600, stops: [] }, ci) }, extra || {});
+// The same order dated `date`. The sticker carries the order's date and the server holds it to the row's,
+// so a section that logs on the ward's today (or tomorrow) says so once, here.
+const ED = (date, extra, ci) => E(Object.assign({ printJson: PJ({ orderDate: date }) }, extra), ci);
 const P = (sid, bed) => ({ sessionId: sid, name: 'ทารกทดสอบ ' + sid, initials: 'ทท', bw: 1600, ga: 32.1, sex: 'boys',
   dob: '2026-10-01', admissionDate: '2026-10-01', twinSuffix: '', status: 'Active',
   currentBed: bed, diagnosis: 'RDS', weights: [{ dol: 1, w: 1600 }], lengths: [], hcs: [], bedHistory: [],
@@ -78,7 +99,10 @@ T.section('§2 AM · a bad shape is refused, and nothing is written', () => {
   const g = ward();
   const v2 = g.log('NF-100001', '2026-10-20', E({ printJson: { v: 2 } }));
   T.ok('an unknown version → refused, naming printJson', !v2.entryId && /printJson/.test(v2.error || ''), v2);
-  const big = g.log('NF-100001', '2026-10-20', E({ printJson: PJ({ pad: 'x'.repeat(9000) }) }));
+  // Whole and valid, and still over the cap: 20 alerts of 200 quotes, each quote escaped in the JSON text.
+  // (A sticker padded with an extra key is refused for the key now, so it would not test the cap.)
+  const big = g.log('NF-100001', '2026-10-20', E({ printJson: PJ({
+    critical: { alerts: Array(20).fill('"'.repeat(200)), reason: '"'.repeat(500) } }) }));
   T.ok('over 8,000 characters → refused', !big.entryId && /printJson/.test(big.error || ''), big);
   const str = g.log('NF-100001', '2026-10-20', E({ printJson: '=IMPORTXML("x")' }));
   T.ok('a string → refused', !str.entryId && /printJson/.test(str.error || ''), str);
@@ -195,12 +219,12 @@ T.section('§6 pharmacyOrders · one date, counts, and no identifying field', at
   const gone = g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true,
     patient: Object.assign(P('NF-100005', 'SCN 2'), { status: 'Discharged', statusDate: today }) });
   T.ok('a discharged infant is registered', !gone.error, gone);
-  const first = g.log('NF-100001', today, E({}, { savedByLabel: 'Dr Test (doc@kcmh.test)' }));
-  g.log('NF-100002', today, E());
-  g.log('NF-100003', today, E());
-  g.log('NF-100004', today, E({ status: 'draft' }));
-  g.log('NF-100001', tomorrow, E());
-  g.log('NF-100002', tomorrow, E({ route: 'Enteral only', printJson: null }));
+  const first = g.log('NF-100001', today, ED(today, {}, { savedByLabel: 'Dr Test (doc@kcmh.test)' }));
+  g.log('NF-100002', today, ED(today));
+  g.log('NF-100003', today, ED(today));
+  g.log('NF-100004', today, ED(today, { status: 'draft' }));
+  g.log('NF-100001', tomorrow, ED(tomorrow));
+  g.log('NF-100002', tomorrow, ED(tomorrow, { route: 'Enteral only', printJson: null }));
   const auditBefore = g.audit().length;
   // The audit row must exist before the log is read: note the row count at the first read.
   let auditAtFirstRead = null;
@@ -243,9 +267,9 @@ T.section('§6 pharmacyOrders · one date, counts, and no identifying field', at
 T.section('§7 pharmacyOrders · revisions, who may ask, and the date window', atNoon(() => {
   const g = ward();
   const today = wardToday(), yesterday = addDays(today, -1);
-  const r1 = g.log('NF-100001', today, E());
+  const r1 = g.log('NF-100001', today, ED(today));
   g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-100001', entryId: r1.entryId,
-    expectedLastModified: g.cell(1, 26), entry: E({ printJson: PJ({ factor: '2' }) }) });
+    expectedLastModified: g.cell(1, 26), entry: ED(today, { printJson: PJ({ factor: '2', orderDate: today }) }) });
   const ask = (tok, date) => g.as(tok, { action: 'pharmacyOrders', date });
   const res = ask(g.rt, today);
   T.eq('only the revision is listed', res.orders.map(o => [o.revision, o.printJson.factor]), [[2, '2']]);
@@ -280,7 +304,7 @@ T.section('§7 pharmacyOrders · revisions, who may ask, and the date window', a
   }
 
   // The label a client writes is not read: the prescriber is the saver's Staff name (§9), and no email reaches the reply.
-  g.log('NF-100002', yesterday, E({}, { savedByLabel: 'admin@kcmh.test' }));
+  g.log('NF-100002', yesterday, ED(yesterday, {}, { savedByLabel: 'admin@kcmh.test' }));
   const bare = ask(g.rt, yesterday);
   T.eq('a label that is only an email is ignored: the saver\'s Staff name, no email in the reply', [bare.orders.length, bare.orders[0].prescriber, /@/.test(JSON.stringify(bare))], [1, 'Dr Test', false]);
 
@@ -352,17 +376,17 @@ T.section('§9 pharmacyOrders · prescriber and bed come from the server, not fr
   g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100007', 'NICU 5') });
   g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100008', 'NICU 6') });
   g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100009', 'NICU 9') });
-  g.log('NF-100001', today, E({}, { savedByLabel: 'Prof Synthetic Boss (boss@kcmh.test)' }));
-  g.log('NF-100002', today, E({}, { savedByLabel: 'SENTINEL-LABEL <img src=x onerror=alert(1)>' }));
-  const bedRow = g.log('NF-100006', today, E());
+  g.log('NF-100001', today, ED(today, {}, { savedByLabel: 'Prof Synthetic Boss (boss@kcmh.test)' }));
+  g.log('NF-100002', today, ED(today, {}, { savedByLabel: 'SENTINEL-LABEL <img src=x onerror=alert(1)>' }));
+  const bedRow = g.log('NF-100006', today, ED(today));
   const ns = g.as(g.nt, { action: 'logDailyNutrition', sessionId: 'NF-100007',
-    entry: E({ ts: today }, { savedByLabel: 'Dr Test (doc@kcmh.test)' }) });
+    entry: ED(today, { ts: today }, { savedByLabel: 'Dr Test (doc@kcmh.test)' }) });
   T.ok('a nurse save lands while the nursing switch is off', !!ns.entryId, ns);
-  g.as(d2, { action: 'logDailyNutrition', sessionId: 'NF-100008', entry: E({ ts: today }) });
+  g.as(d2, { action: 'logDailyNutrition', sessionId: 'NF-100008', entry: ED(today, { ts: today }) });
   // A revision by a second doctor: P (submittedBy) keeps the first saver, AB names the second.
-  const r1 = g.log('NF-100009', today, E());
+  const r1 = g.log('NF-100009', today, ED(today));
   const rev = g.as(d3, { action: 'updateDailyNutrition', sessionId: 'NF-100009', entryId: r1.entryId,
-    expectedLastModified: r1.lastModified, entry: E({ ts: today, gir: 8 }) });
+    expectedLastModified: r1.lastModified, entry: ED(today, { ts: today, gir: 8 }) });
   T.ok('the second doctor\'s revision lands', !!rev.entryId || rev.ok === true, rev);
   // An AB cell in another case than the Staff tab (typed by hand, or from an older save).
   const L = g.sheet('Daily_Log');
@@ -461,12 +485,12 @@ T.section('§12 pharmacyOrders · entryId and the twin letter tell orders and in
   const ask = () => g.as(g.rt, { action: 'pharmacyOrders', date: today });
   const of = (res, sid) => res.orders.find(o => o.sessionId === sid);
 
-  const first = g.log('NF-100001', today, E());
+  const first = g.log('NF-100001', today, ED(today));
   const before = of(ask(), 'NF-100001');
   T.eq('each order carries its row\'s entryId', before.entryId, first.entryId);
   const del = g.as(g.at, { action: 'deleteDailyNutrition', sessionId: 'NF-100001', entryId: first.entryId });
   T.ok('an admin deletes the order (written on the wrong infant)', del.ok === true, del);
-  g.log('NF-100001', today, E());
+  g.log('NF-100001', today, ED(today));
   const after = of(ask(), 'NF-100001');
   T.eq('the order written again is revision 1 as well', [before.revision, after.revision], [1, 1]);
   T.ok('…but a different entryId, so the room can tell a new order from the one it printed',
@@ -476,7 +500,7 @@ T.section('§12 pharmacyOrders · entryId and the twin letter tell orders and in
     ['NF-200003', 'NICU 10', 'TWINSENTINEL', 0]]) {
     g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true,
       patient: Object.assign(P(sid, bed), { twinSuffix: letter, multiplesCount: size }) });
-    g.log(sid, today, E());
+    g.log(sid, today, ED(today));
   }
   const res = ask();
   T.eq('twins carry their letter and the set size (same BW and DOL otherwise)',
@@ -525,6 +549,249 @@ T.section('§12 pharmacyOrders · entryId and the twin letter tell orders and in
   T.eq('…and the same edit between the two column reads', early[0], early[1]);
   const grew = race((sh, h) => sh.data.push(h.logRow('NF-T9', bkkMidnight(today), { 25: 'e-today-9' })), 'block');
   T.eq('a ward save appended during the read is in the result', grew[0], grew[1]);
+}));
+
+// The attack pass of 2026-10-30 stored DOL 25 on a DOL 10 row, D50W -5, KCl "abc" and a patient name inside
+// printJson, and pharmacyOrders handed them to the pharmacy account. The TPN-room page prints stickers from
+// printJson alone (design D1), so the server is the last place that can refuse a wrong one: exactly the keys
+// stickerFigures makes, short number strings, and figures that belong to the order they came with.
+T.section('§13 printJson · held to the schema stickerFigures makes, for the order it came with', atNoon(() => {
+  const day = (n) => '2026-09-' + String(n).padStart(2, '0');
+  // Every case is one change to a whole, valid sticker dated `d`.
+  const edit = (fn) => (d) => { const p = PJ({ orderDate: d }); fn(p); return p; };
+  const whole = edit(() => {});
+  const sorted = (a) => [...(a || [])].sort();
+  const counted = (a) => [sorted(a), (a || []).length];
+  const upd = (h, row, sid, entry) => h.as(h.dt, { action: 'updateDailyNutrition', sessionId: sid, entryId: h.cell(row, 25),
+    expectedLastModified: h.cell(row, 26), entry });
+
+  // ── What lands ──
+  const g = ward();
+  const s1 = g.log('NF-100001', day(1), ED(day(1)));
+  T.ok('a whole schema-v1 sticker saves on a create', !!s1.entryId, s1);
+  T.eq('…and AM holds it as sent', g.am(1), PJ({ orderDate: day(1) }));
+  const d1 = g.log('NF-100002', day(1), ED(day(1), { status: 'draft' }));
+  const dUp = upd(g, 2, 'NF-100002', ED(day(1), { status: 'draft', printJson: PJ({ orderDate: day(1), factor: '2.1' }) }));
+  T.ok('…on an in-place draft update', dUp.ok === true && !dUp.revised, dUp);
+  T.eq('…AM moves with it', g.am(2).factor, '2.1');
+  const rev = upd(g, 1, 'NF-100001', ED(day(1), { printJson: PJ({ orderDate: day(1), factor: '2' }) }));
+  T.ok('…and on a revision', rev.revised === true, rev);
+  T.eq('…the revision row holds it', g.am(3).factor, '2');
+  // An edit does not move an order's date: the client's ts is ignored and the sticker keeps the row's.
+  const rev2 = upd(g, 3, 'NF-100001', ED(day(1), { ts: day(9) }));
+  T.ok('a revision sent with another ts and a sticker dated as the row is saved', rev2.revised === true, rev2);
+  const dUp2 = upd(g, 2, 'NF-100002', ED(day(1), { ts: day(9), status: 'draft' }));
+  T.ok('…as is a draft edit', dUp2.ok === true, dUp2);
+
+  let n = 1;
+  const lands = (label, make, extra, ci) => {
+    const d = day(++n);
+    const pj = make(d);
+    const r = g.log('NF-100001', d, E(Object.assign({ printJson: pj }, extra), ci));
+    T.ok(`${label} → saves`, !!r.entryId, r);
+    T.eq('…and AM holds it as sent', r.entryId ? g.am(g.sheet('Daily_Log').data.length - 1) : null, pj);
+  };
+  lands('null on stockMl.addamel and delivered.addamelMl (Addamel ticked)',
+    edit(p => { p.stockMl.addamel = null; p.delivered.addamelMl = null; }));
+  lands('critical: null', whole);
+  lands('a confirmed critical value', edit(p => { p.critical = { alerts: ['K⁺ above max'], reason: 'synthetic reason' }; }));
+  lands('critical at its limits: 20 alerts of 200 characters and a reason of 500',
+    edit(p => { p.critical = { alerts: Array(20).fill('x'.repeat(200)), reason: 'x'.repeat(500) }; }));
+  lands('a 1625 g order with a sticker of 1.63 (the sticker rounds, so 1.63 is 0.005 off 1.625)',
+    edit(p => { p.dosingWeightKg = '1.63'; }), {}, { tpnWtG: 1625 });
+  lands('a 1005 g order with a sticker of 1.01 (a hair over 0.005 off in floating point)',
+    edit(p => { p.dosingWeightKg = '1.01'; }), {}, { tpnWtG: 1005 });
+  lands('orderDate ""', edit(p => { p.orderDate = ''; }));
+  lands('a figure of exactly 12 characters', edit(p => { p.deliveredMl = '123456789012'; }));
+  lands('an entry that carries no constantsVersion is not held to one', edit(p => { p.constantsVersion = '2026-10-29.1'; }),
+    { constantsVersion: undefined });
+  lands('an entry with no dosing weight is not held to a weight', edit(p => { p.dosingWeightKg = '2.5'; }), {}, { tpnWtG: undefined });
+  // The rule is about a figure's form. The server has no bag arithmetic to judge its value with, so a minus
+  // sign, which the schema's number form allows, lands; stickerFigures itself never sends a negative WFI.
+  lands('a negative figure, well formed', edit(p => { p.stockMl.d50w = '-5'; }));
+  lands('DOL 10.4 on the row, 10 on the sticker (the sticker rounds)', whole, { dol: 10.4 });
+  lands('a DOL sent as text is compared as the number the row stores', whole, { dol: '10' });
+
+  // A day with no bag has no sticker: the "No TPN" tick (PR #206 on main) zeroes the bag, stickerFigures
+  // returns null for it, and the calcInput it comes with must not bring the order under the rule.
+  const noTpnCi = { noTpn: true, totalTPN_mL: 0, dexPct: 0, aaPerKg: 0 };
+  const noTpn = { printJson: null, route: 'Enteral only' };
+  const nt = day(++n);
+  const ntSave = g.log('NF-100001', nt, E(noTpn, noTpnCi));
+  T.ok('a No TPN order → saves', !!ntSave.entryId, ntSave);
+  const ntRow = g.sheet('Daily_Log').data.length - 1;
+  T.eq('…with AM blank', g.cell(ntRow, 38), '');
+  const ntRev = upd(g, ntRow, 'NF-100001', E(noTpn, noTpnCi));
+  T.ok('…and its revision', ntRev.revised === true, ntRev);
+  const bagDay = day(++n);
+  g.log('NF-100001', bagDay, ED(bagDay));
+  const bagRow = g.sheet('Daily_Log').data.length - 1;
+  const cancel = upd(g, bagRow, 'NF-100001', E(noTpn, Object.assign({ replacesTpn: true }, noTpnCi)));
+  T.ok('a No TPN revision of a submitted order with a bag → saves', cancel.revised === true, cancel);
+  T.eq('…the old row keeps its sticker, the revision has none', [g.am(bagRow).orderDate, g.cell(g.sheet('Daily_Log').data.length - 1, 38)], [bagDay, '']);
+
+  // ── The sticker the real calculator code makes, and the server's key lists ──
+  // data.js is loaded as the browser runs it, and its stickerFigures is called with a calc written out as in
+  // verify-sticker-figures-1030.cjs §1. A key added to stickerFigures that the server's lists lack, or the
+  // other way round, fails here, not at a bedside.
+  const ctx = { window: {}, console };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'data.js'), 'utf8'), ctx);
+  const D = ctx.window.NEOFEED_DATA;
+  const CALC = { wtKg: 1.6, aaStockKey: 'aminoven10', totalTPN_mL: 160, deadVol_mL: 30, preparedVol: 190, factor: 1.9, d50wVol: 38,
+    solVol: { aa: 38, naCl: 1.1, naAcet: 0, glycophos: 0, kCl: 2.4, k2hpo4: 0, mg: 0.9, ca: 0, heparin: 1.9, znso4: 0 },
+    soluvitVol: 1.9, peditrace_vol: 1.9, wfiVol: 103.9, dexG: 16, aaG: 3.2, osmIn: { aaPct: 2 }, naKg: 2, kKg: 2.5,
+    pTotal_mg: 0, znTotal_mg: 0.4, osm: 794, dexKcal: 54.4, aaKcal: 12.8 };
+  const figures = (over, calcOver) => JSON.parse(JSON.stringify(D.stickerFigures(Object.assign({
+    calc: Object.assign({}, CALC, calcOver), dol: 10, orderDate: day(1), dexPct: 10, naCl: 2, naAcet: 0, kCl: 2.5,
+    mgPerKg: 0.4, caPerKg: 0, heparinUmL: 1, inclAddamel: false, critOverride: null }, over))));
+  const crit = { reason: 'synthetic reason', alerts: ['K⁺ above max'], at: '2026-09-10T03:00:00Z' };
+  const real = figures({ critOverride: crit });
+  T.ok('stickerFigures made a whole sticker from the written-out calc', !!real && real.v === 1, real);
+  T.eq('the server\'s top-level keys are the ones stickerFigures makes (12)', counted(g.sb.PRINT_JSON_TOP_KEYS),
+    [sorted(Object.keys(real)), 12]);
+  T.eq('…stockMl (20)', counted(g.sb.PRINT_JSON_STOCK_KEYS), [sorted(Object.keys(real.stockMl)), 20]);
+  T.eq('…delivered (18, with aminoAcidG among them)', counted(g.sb.PRINT_JSON_DELIVERED_KEYS),
+    [sorted(Object.keys(real.delivered)), 18]);
+  T.eq('…aminoAcidG (5)', counted(g.sb.PRINT_JSON_AMINO_KEYS),
+    [sorted(Object.keys(real.delivered.aminoAcidG)), 5]);
+  T.eq('…and critical', sorted(g.sb.PRINT_JSON_CRITICAL_KEYS), sorted(Object.keys(real.critical)));
+  const nulls = (o, at) => Object.entries(o).flatMap(([k, v]) => v === null ? [at + k] : v && typeof v === 'object' ? nulls(v, at + k + '.') : []);
+  T.eq('a figure is null only where the server allows it (Addamel ticked)',
+    sorted(nulls(figures({ inclAddamel: true }), '').filter(k => k !== 'critical')), sorted(g.sb.PRINT_JSON_NULLABLE));
+  const live = (label, pj, extra, ci) => {
+    const d = day(++n);
+    const r = g.log('NF-100001', d, E(Object.assign({ constantsVersion: D.CONSTANTS_VERSION, printJson: Object.assign(pj, { orderDate: d }) }, extra), ci));
+    T.ok(`${label} → saves`, !!r.entryId, r);
+  };
+  live('what stickerFigures makes for an order', figures());
+  live('…with Addamel ticked (two nulls)', figures({ inclAddamel: true }));
+  live('…with a confirmed critical value', figures({ critOverride: crit }));
+  live('…for a 1.625 kg order (the sticker prints 1.63)', figures({}, { wtKg: 1.625 }), {}, { tpnWtG: 1625 });
+  T.eq('…whose weight is the one the server compares', figures({}, { wtKg: 1.625 }).dosingWeightKg, '1.63');
+  // Every whole gram the backend takes (_checkRange 200–8000), with the weight stickerFigures would print.
+  const refusedGrams = [];
+  for (let wt = 200; wt <= 8000; wt++) {
+    const e = E({ printJson: PJ({ orderDate: day(1), dosingWeightKg: D.displayNum(wt / 1000, 2) }) }, { tpnWtG: wt });
+    try { g.sb._printJsonField(e, day(1)); } catch (err) { refusedGrams.push(wt); }
+  }
+  T.eq('every weight from 200 to 8000 g passes with the figure the sticker prints', refusedGrams.slice(0, 12), []);
+  T.eq('stickerFigures has no sticker for a day with no bag', D.stickerFigures({ calc: Object.assign({}, CALC, { totalTPN_mL: 0 }), dol: 10, orderDate: day(1) }), null);
+
+  // ── What is refused: on a create, a revision and a draft edit, with nothing written ──
+  const h = ward();
+  h.log('NF-100001', day(20), ED(day(20)));
+  h.log('NF-100002', day(20), ED(day(20), { status: 'draft' }));
+  const L = h.sheet('Daily_Log');
+  const base = L.data.map(r => r.slice());
+  const snap = () => JSON.stringify(h.rows('Daily_Log'));
+  const before = snap();
+  const restore = () => { L.data.length = 0; base.forEach(r => L.data.push(r.slice())); };   // a wrongly accepted case must not spoil the next
+  const refused = (r) => !r.entryId && !r.ok && !r.revised && /printJson/.test(r.error || '');
+  const refuses = (label, make, extra, ci) => {
+    const create = h.log('NF-100001', day(21), E(Object.assign({ printJson: make(day(21)) }, extra), ci));
+    const revision = upd(h, 1, 'NF-100001', E(Object.assign({ printJson: make(day(20)) }, extra), ci));
+    const draft = upd(h, 2, 'NF-100002', E(Object.assign({ printJson: make(day(20)), status: 'draft' }, extra), ci));
+    T.ok(`${label} → refused on a create, a revision and a draft edit, naming printJson`, [create, revision, draft].every(refused), [create, revision, draft]);
+    T.eq('…and nothing written, no row changed', snap(), before);
+    restore();
+  };
+  const withKey = (obj, k) => Object.defineProperty(obj, k, { value: 'x', enumerable: true, configurable: true, writable: true });
+  const BAD = [
+    // 1. exactly the keys stickerFigures makes
+    ['a missing top-level key (factor)', edit(p => { delete p.factor; })],
+    ['a missing critical (null is allowed, absent is not)', edit(p => { delete p.critical; })],
+    ['a missing stockMl key (wfi)', edit(p => { delete p.stockMl.wfi; })],
+    ['a missing stockMl.addamel (null is allowed, absent is not)', edit(p => { delete p.stockMl.addamel; })],
+    ['a missing delivered key (kcal)', edit(p => { delete p.delivered.kcal; })],
+    ['a missing aminoAcidG key (nephrosteril7)', edit(p => { delete p.delivered.aminoAcidG.nephrosteril7; })],
+    ['an extra top-level key: a patient name', edit(p => { p.patientName = 'ทารกทดสอบ'; })],
+    ['an extra key inside stockMl', edit(p => { p.stockMl.patientName = '0'; })],
+    ['an extra key inside delivered', edit(p => { p.delivered.patientName = '0'; })],
+    ['an extra key inside aminoAcidG', edit(p => { p.delivered.aminoAcidG.patientName = '0'; })],
+    ['critical with an extra key', edit(p => { p.critical = { alerts: [], reason: '', patientName: 'x' }; })],
+    ['critical without its reason', edit(p => { p.critical = { alerts: [] }; })],
+    ['an own "__proto__" key', edit(p => { withKey(p, '__proto__'); })],
+    ['stockMl that is null', edit(p => { p.stockMl = null; })],
+    ['delivered that is a list', edit(p => { p.delivered = []; })],
+    ['aminoAcidG that is text', edit(p => { p.delivered.aminoAcidG = '3.2'; })],
+    // 2. every figure is a short number as text
+    ['a figure "abc" (the attack\'s KCl)', edit(p => { p.stockMl.kcl = 'abc'; })],
+    ['a figure "1e9"', edit(p => { p.deliveredMl = '1e9'; })],
+    ['a figure of 13 characters', edit(p => { p.deliveredMl = '1234567890123'; })],
+    ['a figure that is a number, not text', edit(p => { p.deliveredMl = 160; })],
+    ['a figure "+5"', edit(p => { p.stockMl.kcl = '+5'; })],
+    ['a figure ".5"', edit(p => { p.stockMl.kcl = '.5'; })],
+    ['a figure "5."', edit(p => { p.stockMl.kcl = '5.'; })],
+    ['a figure with a line after it', edit(p => { p.stockMl.kcl = '5\n=IMPORTXML(1)'; })],
+    ['a figure as a list', edit(p => { p.stockMl.kcl = ['5']; })],
+    ['an empty figure', edit(p => { p.delivered.kcal = ''; })],
+    ['null on a non-nullable stockMl figure', edit(p => { p.stockMl.d50w = null; })],
+    ['null on a non-nullable delivered figure', edit(p => { p.delivered.dextroseG = null; })],
+    ['null on a non-nullable top-level figure', edit(p => { p.dol = null; })],
+    ['null on an aminoAcidG figure', edit(p => { p.delivered.aminoAcidG.aminoven10 = null; })],
+    // 3. the other fields
+    ['v as the text "1"', edit(p => { p.v = '1'; })],
+    // On an entry that carries no version, or the check that it is the entry's would refuse these first.
+    ['a constantsVersion that is not a version', edit(p => { p.constantsVersion = 'latest'; }), { constantsVersion: undefined }],
+    ['a constantsVersion without its build number', edit(p => { p.constantsVersion = '2026-10-28'; }), { constantsVersion: undefined }],
+    ['an orderDate in another format', edit(p => { p.orderDate = '20/10/2026'; })],
+    ['an orderDate with a time', edit(p => { p.orderDate = '2026-10-20T00:00:00Z'; })],
+    ['an orderDate that is a number', edit(p => { p.orderDate = 20261020; })],
+    ['critical as text', edit(p => { p.critical = 'none'; })],
+    ['critical: false', edit(p => { p.critical = false; })],
+    ['critical as an empty object', edit(p => { p.critical = {}; })],
+    ['critical.alerts that is not a list', edit(p => { p.critical = { alerts: 'K', reason: '' }; })],
+    ['21 alerts', edit(p => { p.critical = { alerts: Array(21).fill('x'), reason: '' }; })],
+    ['an alert of 201 characters', edit(p => { p.critical = { alerts: ['x'.repeat(201)], reason: '' }; })],
+    ['an alert that is a number', edit(p => { p.critical = { alerts: [7], reason: '' }; })],
+    ['a reason of 501 characters', edit(p => { p.critical = { alerts: [], reason: 'x'.repeat(501) }; })],
+    ['a reason that is not text', edit(p => { p.critical = { alerts: [], reason: 7 }; })],
+    // 5. the 8,000-character cap: whole and valid, 20 alerts of 200 quotes, each escaped in the JSON text
+    ['a valid sticker over 8,000 characters', edit(p => { p.critical = { alerts: Array(20).fill('"'.repeat(200)), reason: '"'.repeat(500) }; })],
+    // 4. it belongs to the request it came with
+    ['DOL 25 on a DOL 10 order (the attack)', edit(p => { p.dol = '25'; })],
+    ['DOL 10 on a DOL 11 order', whole, { dol: 11 }],
+    ['DOL 10 on a DOL 10.6 order (it rounds to 11)', whole, { dol: 10.6 }],
+    ['DOL 10 on a DOL "11" sent as text', whole, { dol: '11' }],
+    ['a weight of 1.7 kg on a 1600 g order', edit(p => { p.dosingWeightKg = '1.7'; })],
+    ['a weight of 1.6 kg on a 1700 g order', whole, {}, { tpnWtG: 1700 }],
+    ['a weight one step off: 1.61 kg on a 1600 g order', edit(p => { p.dosingWeightKg = '1.61'; })],
+    ['a tpnWtG sent as text is compared too: 1.6 kg on "1700"', whole, {}, { tpnWtG: '1700' }],
+    ['a constantsVersion that is not the entry\'s', edit(p => { p.constantsVersion = '2026-10-29.1'; })],
+    ['an orderDate that is not the order\'s', edit(p => { p.orderDate = '2026-09-05'; })],
+  ];
+  for (const [label, make, extra, ci] of BAD) refuses(label, make, extra, ci);
+
+  const noFactor = h.log('NF-100001', day(21), E({ printJson: edit(p => { delete p.factor; })(day(21)) }));
+  T.ok('a missing key is refused by its name', /no factor/.test(noFactor.error || ''), noFactor);
+  restore();
+
+  // An edit keeps the row's date, so a sticker dated with the ts the client sent is the wrong date, not a new one.
+  const clientDate = day(9);
+  const move = (row, sid, extra) => upd(h, row, sid, E(Object.assign({ ts: clientDate, printJson: PJ({ orderDate: clientDate }) }, extra)));
+  const mRev = move(1, 'NF-100001', {});
+  const mDraft = move(2, 'NF-100002', { status: 'draft' });
+  T.ok('a sticker dated with the ts an edit sent → refused on a revision and a draft edit: the row\'s date is the order\'s',
+    [mRev, mDraft].every(refused), [mRev, mDraft]);
+  T.eq('…and nothing written', snap(), before);
+  restore();
+
+  // The date an edit is held to is the one the ward sync gives the app, _fmtDate(cur[0]). Sheets hands a
+  // date cell back as a Date, which is what the fixture rows hold here; a cell typed as text reads the same.
+  T.ok('the row\'s date cell reads as a Date here, as Sheets returns it', isDate(L.data[1][0]), L.data[1][0]);
+  const asDate = upd(h, 2, 'NF-100002', ED(day(20), { status: 'draft' }));
+  T.ok('a draft edit dated as the Date cell → saves', asDate.ok === true, asDate);
+  restore();
+  L.data[2][0] = day(20);
+  const asText = upd(h, 2, 'NF-100002', ED(day(20), { status: 'draft' }));
+  T.ok('…and as the same date held as text', asText.ok === true, asText);
+  restore();
+  L.data[2][0] = 'not a date';
+  const garbled = upd(h, 2, 'NF-100002', E({ status: 'draft', printJson: PJ({ orderDate: 'not a date' }) }));
+  T.ok('a row whose date cell is not a date: a sticker copying that text is still refused', refused(garbled), garbled);
+  restore();
+  T.eq('no formula injection recorded', [g.env.injections, h.env.injections], [[], []]);
 }));
 
 T.done();
