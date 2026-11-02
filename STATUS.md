@@ -1,5 +1,9 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-02 — The doctor's sheet on one A4 page: not live.** Fixed by this PR on `main` only, and live
+> `729910f` still runs to 2 pages at its fullest. Before release, print the fullest sheet from a ward PC and
+> printer: the measurements are headless Chromium. No backend change.
+>
 > ⚠️ **2026-10-31, 07:00 ICT — frontend `release` = `caecf04` (PR #204), with backend `@66`: merged, not
 > yet verified.** PR #204 released #203 (the Dashboard's Trend graph joins its days with straight lines) and
 > #202 (`sheetHealthReport` in `gas-backend.gs`, which the ward deployment does not run), merged on Pp's
