@@ -3,7 +3,7 @@
 > ⏳ **2026-11-02 — TPN-room stickers, PR A: in review, not live.** `claude/tpn-room-stickers` adds the
 > `pharmacy` role, `Daily_Log` AM, `pharmacyOrders` and the calculator's `printJson`. It ships backend first
 > (`REFERENCE.md` § The TPN room), on Pp's go-ahead, and not before the TPN unit answers
-> `openspec/changes/tpn-room-stickers/tasks.md` 0.3 a–e: four of its figures are PROVISIONAL in `data.js`.
+> `openspec/changes/tpn-room-stickers/tasks.md` 0.3 a–e and m: four of its figures are PROVISIONAL in `data.js`.
 >
 > ✅ **2026-11-01, 15:53 ICT — frontend `release` = `729910f` (PR #209), with backend `@66`.** PR #209 released
 > #206 (Step 3's "No TPN" tick and short sheet) and #207 (one "Bag cannot be made" stop). `node

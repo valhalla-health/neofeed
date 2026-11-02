@@ -955,7 +955,8 @@ function stickerFigures(o) {
       addamel: o.inclAddamel ? null : "0",
     },
     delivered: {
-      dextrosePct: n(o.dexPct, 1),
+      // A typed dose prints as typed, as on the doctor's sheet: 12.25 is not 12.3.
+      dextrosePct: n(o.dexPct, 2),
       dextroseG: n(c.dexG, 1),
       aminoAcidPct: n(c.osmIn ? c.osmIn.aaPct : 0, 2),
       aminoAcidG: {
@@ -1001,9 +1002,11 @@ function stickerFigures(o) {
   // never carry one, so the order has no figures and the page says "save again".
   // A negative figure is the same, and so is one past 12 characters. The input
   // boxes cannot type a minus sign, so only a damaged saved row can bring one, and
-  // gas-backend.gs refuses both, which would stop the doctor's save.
+  // gas-backend.gs refuses both, which would stop the doctor's save. The version
+  // and the date are not figures: a tenth version in a day is 13 characters.
   const dash = (x) => x === "—" || (typeof x === "string" && (x[0] === "-" || x.length > 12)) || (x !== null && typeof x === "object" && Object.values(x).some(dash));
-  if (dash(figures)) return null;
+  const { constantsVersion, orderDate, ...printed } = figures;
+  if (dash(printed)) return null;
   return {
     ...figures,
     critical: o.critOverride

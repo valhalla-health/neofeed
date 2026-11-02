@@ -23,6 +23,8 @@ TPN unit answered, 2026-10-31: "ทำ นำไปก่อนได้? เพ
   The page itself is PR B.
 - **Four figures are PROVISIONAL** in `data.js` until `tasks.md` 0.3 a–d is answered: the vitamins on the PN label,
   Cl⁻, kcal and heparin. Each reproduces the unit's sample sticker. `CONSTANTS_VERSION` stays, since no dose moves.
+  **No second clinician has reviewed these figures:** Pp's sign-off on the figure table (`tasks.md` 1.1) waits on 0.3.
+  The constants register is untouched, because the change adds no constant.
 - **The server holds the figures to the schema and to their order** (design D14), after an attack pass stored
   contradictory figures and a patient name. Three things the tests found on the way:
   - the plan's weight check, compared raw, refuses 220 whole-gram weights such as 1005 g, and its own 1625 g
@@ -33,8 +35,8 @@ TPN unit answered, 2026-10-31: "ทำ นำไปก่อนได้? เพ
     through the real backend.
 - **Deploy order is now required: backend first** (D15). `plan-pr-a.md` said either order was safe, which Task 2's
   marker made false.
-- **The re-save notice shows only for a day the room can print,** from 7 days back to tomorrow. Without that bound,
-  every bag order ever saved told the doctor to press Submit, and a press superseded the printed row.
+- **The re-save notice shows only for today's and tomorrow's order.** Without that bound, every bag order ever saved
+  told the doctor to press Submit, and a press superseded the signed row on a day whose bag had been given.
 - **A cancelled order is confirmed by phone** (Pp, 2026-11-02, D16). One already printed keeps the page's warning.
 - **Checked and not fixed here:** the doctor's sheet at its fullest runs to 2 pages, and that is live as well. Pp
   chose a PR of its own.

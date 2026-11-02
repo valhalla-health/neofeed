@@ -72,7 +72,7 @@ text and the reason, as the printed form shows them.
 
 A save without `printJson` SHALL still land, with column AM blank. The calculator SHALL write
 `calcInput.printJsonV` with the figures, because the ward sync does not read column AM. A saved, submitted
-order with a bag and no marker, dated from 7 days back to tomorrow (the days the TPN room can print), SHALL
+order with a bag and no marker, dated today or tomorrow, SHALL
 show "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง" with Submit enabled unless a stop holds, and that Submit SHALL
 write a revision with figures. Print SHALL NOT be held for it: the doctor's sheet uses no sticker figure.
 
@@ -86,9 +86,9 @@ write a revision with figures. Print SHALL NOT be held for it: the doctor's shee
 - **WHEN** a doctor reopens a No TPN order, or a draft
 - **THEN** no notice shows
 
-#### Scenario: An order older than the room can print
+#### Scenario: A bag from an earlier day
 
-- **WHEN** a doctor reopens a locked order with a bag and no marker, dated 8 days back
+- **WHEN** a doctor reopens a locked order with a bag and no marker, dated yesterday
 - **THEN** no notice shows and Submit stays disabled, as for any locked order
 
 ### Requirement: The server holds printJson to the sticker schema

@@ -22,8 +22,7 @@
          2 mOsm/L per mEq/L of Na, which can put a peripheral bag under 900 on paper and over it in NeoFeed.
       Format and practice:
       f. The sample's decimals are the rule for every sticker, printed without trailing zeros (`3`, not
-         `3.0`). Dextrose then prints one decimal: a typed 12.25 % is `12.3` on the label beside `12.25%` on
-         the doctor's sheet. Is that right, or should the label carry two?
+         `3.0`). Dextrose keeps what was typed (`12.25`), as on the doctor's sheet.
       g. The rows NeoFeed cannot order (Amiparen, Aminoleban, Nephrosteril, MgSO₄ 50 %, Addamel N): keep
          them at 0 as a checklist, or drop them?
       h. The worksheet's bw is the dosing weight the order used, and วันที่ผลิต is the day the sticker is
@@ -108,6 +107,8 @@
         orders show no `entryId` until that fixture is a plain UUID.
       - A cancelled order leaves the list, and the doctor phones (design D16). Whether a revised order is
         phoned too is still Pp's question.
+      - The doctor's Print is held after a birth-weight correction (`dosingWeightChanged`), and AM keeps the
+        figures from the old weight. Should the page hold that order too?
       - Refuse to print a `constantsVersion` other than the current one: the doctor's Print is held when a
         release moves a figure, and the page can reach an old order inside its window.
 

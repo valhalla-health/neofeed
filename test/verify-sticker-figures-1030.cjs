@@ -132,6 +132,16 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
         nephrosteril7: '0', znso4: '2.1', mgso4_50: '0', addamel: '0' });
     // The server refuses a figure longer than 12 characters, and a refusal stops the doctor's save.
     eq('a figure too long for the server → null', D.stickerFigures(O({ heparinUmL: 1e11 })), null);
+    // A typed dose prints as typed (REFERENCE.md § The printed order), and the doctor's sheet shows 12.25%.
+    eq('a typed dextrose % prints as typed', D.stickerFigures(O({ dexPct: 12.25 })).delivered.dextrosePct, '12.25');
+    eq('…with no trailing zero', D.stickerFigures(O({ dexPct: 12.5 })).delivered.dextrosePct, '12.5');
+    // The length and minus-sign checks are for figures. A tenth version in a day is 13 characters, and it must
+    // not silently take the figures off every order.
+    const later = { window: {}, console };
+    vm.createContext(later);
+    vm.runInContext(R('data.js').replace(/const CONSTANTS_VERSION = "[^"]+"/, 'const CONSTANTS_VERSION = "2026-11-02.10"'), later);
+    const tenth = later.window.NEOFEED_DATA.stickerFigures(O());
+    eq('a 13-character constants version still makes figures', tenth && tenth.constantsVersion, '2026-11-02.10');
     const ad = D.stickerFigures(O({ inclAddamel: true }));
     eq('Addamel ticked → no figure on either sticker', [ad.stockMl.addamel, ad.delivered.addamelMl], [null, null]);
     const nsv = D.stickerFigures(O({ calc: C({ soluvitVol: 0 }) }));
@@ -408,12 +418,12 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     eq('…and pressing Submit on it makes no figures and no marker', again && [again.printJson, 'printJsonV' in again.calcInput], [null, false]);
   });
 
-  // The room can print from 7 days back to tomorrow (gas-backend.gs _pharmacyDateRefusal). Further out, a press
-  // would supersede the printed row on a day nobody will prepare, so the order behaves as it did before this.
-  await section('§2c8 the notice shows only for a day the TPN room can print', async () => {
+  // Only an order saved before the release can lack figures, and a bag from an earlier day has already been given.
+  // A press there would only supersede the signed row, so the order behaves as it did before this.
+  await section('§2c8 the notice shows only for today\'s and tomorrow\'s order', async () => {
     if (!haveSaved()) return;
     const dated = (days) => D.addDaysToDateStr('2026-11-16', days);
-    for (const [label, days, shows] of [['7 days back', -7, true], ['8 days back', -8, false], ['tomorrow', 1, true], ['2 days ahead', 2, false], ['today', 0, true]]) {
+    for (const [label, days, shows] of [['yesterday', -1, false], ['7 days back', -7, false], ['tomorrow', 1, true], ['2 days ahead', 2, false], ['today', 0, true]]) {
       const r = rec();
       mount({ patient: PT1600, editEntry: unfigured({ ts: dated(days) }), ...r });
       eq(`${label}: the notice ${shows ? 'shows' : 'does not show'}`, noticeShown(), shows);

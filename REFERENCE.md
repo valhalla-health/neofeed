@@ -107,7 +107,8 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   Ca·PO₄, what reaches the infant, changes since the last order, and who saved it.
 
 **Since 2026-10-28 only the front prints** (the TPN team: "print เฉพาะแค่หน้าแรก หน้าสองเก็บไว้ก่อน"). Both
-shells hide `.print-back` in print; it still renders, for a later phase that prints it for a sticker.
+shells hide `.print-back` in print; it still renders. The stickers are not this sheet: they print from `printJson`
+(`openspec/changes/tpn-room-stickers`).
 Pharmacy works out the stock mL, Factor and WFI from the front. Two things moved from the back to the
 front so they stay on paper (Pp, after Vera): the lipid pump rate, and, when a critical value was
 confirmed at Submit, "✔ แพทย์ยืนยันคำสั่ง" with the alerts and the reason. A revision prints
@@ -552,8 +553,7 @@ PR A of `openspec/changes/tpn-room-stickers`. The page that reads all this, PR B
 - **`Daily_Log` AM, `printJson`.** The figures for the TPN unit's three stickers, as `D.stickerFigures` made
   them at the save, drafts too. A save with none (no bag, a No TPN order, a tab from before the release) lands
   with AM blank. The ward sync does not read AM, so the calculator also writes `calcInput.printJsonV`; a saved
-  bag without it, dated from 7 days back to tomorrow, shows "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง". Print is not
-  held for it.
+  bag without it, dated today or tomorrow, shows "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง". Print is not held for it.
 - **`_printJsonField` refuses** a sticker off the schema or off its order (design D14), and a refusal stops a
   doctor's save. Its key lists mirror `stickerFigures` by hand, and `test/verify-pharmacy-backend-1030.cjs` §13
   compares them. `stickerFigures` returns null rather than send what the server would refuse, so the order
