@@ -119,8 +119,8 @@
       - The date picker stays inside the server's window, today −7 to +1.
       - The sandbox's `logRow` seeds `entryId` as `e-<uuid>`, which `pharmacyOrders` blanks, so dev-local
         orders show no `entryId` until that fixture is a plain UUID.
-      - A cancelled order leaves the list, and the doctor phones (design D16). Whether a revised order is
-        phoned too is still Pp's question.
+      - A cancelled order leaves the list. The doctor phones the room for a cancelled or a revised order
+        (design D16).
       - The doctor's Print is held after a birth-weight correction (`dosingWeightChanged`), and AM keeps the
         figures from the old weight. Should the page hold that order too?
       - Refuse to print a `constantsVersion` other than the current one: the doctor's Print is held when a

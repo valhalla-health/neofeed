@@ -73,7 +73,8 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 
 - **WHEN** the order for a NeoFeed ID and date has an `entryId` other than the one last printed for it
   (a revision, or an order deleted and written again, which starts at revision 1 again)
-- **THEN** the row shows "หมอแก้ order หลังพิมพ์ → ฉบับ N" and offers printing the new order
+- **THEN** the row shows "หมอแก้ order หลังพิมพ์ → ฉบับ N" and offers printing the new order, and the doctor
+  phones the TPN room to confirm (Pp, 2026-11-03, design D16)
 
 #### Scenario: The order was deleted after printing
 

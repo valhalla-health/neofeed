@@ -600,7 +600,8 @@ PR A of `openspec/changes/tpn-room-stickers`. The page that reads all this, PR B
   not on a short timer. No name, initials or date of birth, except the initials inside an ID issued before
   2026-09-27 (Pp accepted that on 2026-10-30, design D5). A lipid-only order is not on it: its route is not
   `TPN…`, and the unit does not compound lipid.
-- **A cancelled order** leaves the list without a mark, and the doctor phones the room (Pp, 2026-11-02, D16).
+- **A cancelled order** leaves the list without a mark. The doctor phones the room for a cancelled or a revised order
+  (Pp, 2026-11-02 and 2026-11-03, D16).
 
 **Deploy: the backend first, and this is required** (D15), the opposite of the usual order. All of it on Pp's
 go-ahead:

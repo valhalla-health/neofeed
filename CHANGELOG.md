@@ -218,7 +218,8 @@ TPN unit answered, 2026-10-31: "ทำ นำไปก่อนได้? เพ
   marker made false.
 - **The re-save notice shows only for today's and tomorrow's order.** Without that bound, every bag order ever saved
   told the doctor to press Submit, and a press superseded the signed row on a day whose bag had been given.
-- **A cancelled order is confirmed by phone** (Pp, 2026-11-02, D16). One already printed keeps the page's warning.
+- **A cancelled or revised order is confirmed by phone** (Pp, 2026-11-02 and 2026-11-03, D16). A cancelled one already
+  printed keeps the page's warning.
 - **Checked and not fixed here:** the doctor's sheet at its fullest runs to 2 pages, and that is live as well. Pp
   chose a PR of its own.
 
