@@ -14,10 +14,14 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 and then, asked about a reminder on screen: "เพิ่มบรรทัดเตือน".
 
 - **Before:** nothing on screen said so. The delete prompt already tells the doctor to tell pharmacy; a revision did not.
-- **Now:** while a doctor changes a submitted order with TPN, for today or tomorrow, a line above Submit reads "Submit
-  แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย". Ticking No TPN over such an order counts as changing it.
-- **Left out on purpose:** an earlier day's order, whose bag has been given; a draft, which has not reached the room;
-  an order with no TPN. A line that shows when no call is needed gets ignored when one is.
+- **Now:** whenever a save would write a revision of a submitted order with TPN, for today or tomorrow, a line above
+  Submit reads "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย". That covers a typed change, ticking No
+  TPN over such an order, putting a bag back over a No TPN order, and an order Print holds for a new save with nothing
+  typed (a calculation that moved, a changed dosing weight, an unconfirmed critical value).
+- **Left out:** a draft, which has not reached the room, and an order with no TPN. An earlier day's order is left out too,
+  on the author's reading that its bag has been given; Pp's words do not name the days, so she may widen it.
+- **It can show when the room's figures have not moved:** a corrected urine output on a submitted order is a revision too.
+  Narrowing it would mean listing every field that touches the bag, and a field missed there would stay silent.
 - **Holds nothing back:** a line, not a prompt or a stop. Submit stays open and saves as before, and it does not print.
   No figure, schema or backend change; `CONSTANTS_VERSION` stays.
 ## Session 2026-11-03 — A backend release stops unless there are exactly two deployments

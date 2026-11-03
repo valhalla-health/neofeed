@@ -2132,11 +2132,13 @@ is not registration.
 
 ## The line to phone the TPN room, 2026-11-03 — one harness
 
-`CHANGELOG.md` 2026-11-03. **`verify-revise-phone-1103.cjs`** (20 checks; the jsdom set) mounts the real Calculator on
-rows its own saves made, with `D.todayLocal` pinned. §1: the line shows while a submitted order with TPN, for today or
-tomorrow, is being changed, locked or not, and ticking No TPN over it counts; it goes when the change is undone, and
-stays away from a new order, an earlier day, a draft and a No TPN order. §2: Submit stays open and saves, and the line
-is not on the printed sheet. §3: the quick calculator, a read-only account and Center Point do not show it.
+`CHANGELOG.md` 2026-11-03. **`verify-revise-phone-1103.cjs`** (the jsdom set) mounts the real Calculator on rows its own
+saves made, with `D.todayLocal` pinned. §1: the line shows whenever a save would write a revision of a submitted order
+with TPN, for today or tomorrow: a typed change, locked or not, reopened or in the same visit; No TPN ticked over it; a
+bag put back over a No TPN order; a moved calculation or a changed dosing weight with nothing typed. It goes when the
+change is undone, and stays away from a new order, an earlier day, a draft and a No TPN order. §2: Submit stays open
+and saves, nothing is asked, and the line is not on the printed sheet. §3: the quick calculator, a read-only account
+and Center Point do not show it.
 
 ## Note on the source workbook
 

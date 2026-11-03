@@ -1532,7 +1532,7 @@ function Calculator({
   const replacesTpn = savedReplacesTpn || savedStatus === "submitted" && !!savedEntryId && savedHadTpn;
   const tpnCancelledToday = noTpnOn && replacesTpn;
   const daysToOrder = D.daysBetweenDateStr(D.todayLocal(), orderDateKey);
-  const revisingForRoom = dirty && !scratch && !centerPoint && !ordersReadOnly && savedStatus === "submitted" && savedHadTpn && (daysToOrder === 0 || daysToOrder === 1);
+  const revisingForRoom = (dirty || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0) && !scratch && !centerPoint && !ordersReadOnly && savedStatus === "submitted" && (savedHadTpn || bagOrdered) && (daysToOrder === 0 || daysToOrder === 1);
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
   const orderSettled = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const printable = orderSettled && (!noTpnOn || noTpnSheet);

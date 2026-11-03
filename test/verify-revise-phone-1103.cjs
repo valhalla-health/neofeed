@@ -1,8 +1,7 @@
 // verify-revise-phone-1103.cjs — a doctor changing a submitted TPN order is told to phone the TPN room
-// (Pp, 2026-11-03: a revised or cancelled order is confirmed by phone, "โทรด้วย"; design D16 of
-// openspec tpn-room-stickers).
+// (Pp, 2026-11-03: a revised or cancelled order is confirmed by phone, "โทรด้วย"; CHANGELOG.md 2026-11-03).
 //
-//   §1 the line shows only while a submitted order with TPN, for today or tomorrow, is being changed;
+//   §1 the line shows while a save would write a revision of a submitted order with TPN, for today or tomorrow;
 //   §2 it holds nothing back: Submit stays open and saves as before, and it is not on the printed sheet;
 //   §3 the screens that do not send anything to the room do not show it.
 //
@@ -36,8 +35,10 @@ Object.assign(global, {
 });
 global.showToast = () => {};
 window.print = () => {};
-window.confirm = () => true;
-window.prompt = () => null;
+// Counted, so §2 can say the line asks nothing of the doctor.
+let asked = 0, answer = null;
+window.confirm = () => { asked++; return true; };
+window.prompt = () => { asked++; return answer; };
 { const w = console.error; console.error = (...a) => { if (!/act\(|not wrapped|Not implemented/.test(String(a[0]))) w(...a); }; }
 const React = require('react');
 const ReactDOM = require('react-dom/client');
@@ -122,11 +123,20 @@ const tickNoTpn = () => {
   const draft = b.calls[0][1];
   const c = rec(); mount({ ...c }); fillBag(); tickNoTpn(); await settle(submitBtn());
   const noTpn = c.calls[0][1];
+  answer = 'synthetic reason';
+  const d = rec(); mount({ ...d }); fillBag(); setField('KCl', 6); await settle(submitBtn());
+  answer = null;
+  const { critOverride, ...noOverride } = d.calls[0][1].calcInput;   // a saved order whose critical value nobody confirmed
+  const critical = { ...d.calls[0][1], calcInput: noOverride };
   const row = (e, over) => ({ ...e, entryId: 'e1', lastModified: 'lm1', ts: TODAY, revisionNumber: 1, ...over });
 
   section('§1 the line shows while a submitted TPN order for today or tomorrow is being changed');
   const empty = rec(); mount({ ...empty }); fillBag();
   eq('a new order, not saved yet: no line', noteShown(), false);
+  await settle(submitBtn());
+  eq('…submitted in this visit, nothing changed since: no line', noteShown(), false);
+  setField('Amino acid', 2.1);
+  eq('…then changed without reopening: the line shows', noteShown(), true);
   for (const [label, published] of [['locked', '2026-11-16T03:00:00Z'], ['unlocked', '']]) {
     mount({ editEntry: row(bag, { published }), ...rec() });
     eq(`a ${label} submitted order, nothing changed: no line`, noteShown(), false);
@@ -144,6 +154,14 @@ const tickNoTpn = () => {
     setField('Amino acid', 2.1);
     eq(`${label} order, changed: its bag is gone, so no line`, noteShown(), false);
   }
+  // Submit stays open on these with nothing typed, and the save is a revision on today's numbers.
+  const oldVersion = (e) => ({ ...e, constantsVersion: '2026-09-18.1', calcInput: { ...e.calcInput, constantsVersion: '2026-09-18.1' } });
+  mount({ editEntry: row(oldVersion(bag), { published: '' }), ...rec() });
+  eq('nothing typed, but the calculation moved since the save: the line shows', [noteShown(), submitBtn().disabled], [true, false]);
+  mount({ editEntry: row({ ...bag, calcInput: { ...bag.calcInput, tpnWtG: 1500 } }, { published: '' }), ...rec() });
+  eq('nothing typed, but the dosing weight changed: the line shows', [noteShown(), submitBtn().disabled], [true, false]);
+  mount({ editEntry: row(critical, { published: '' }), ...rec() });
+  eq('nothing typed, but a critical value is unconfirmed: the line shows', [noteShown(), submitBtn().disabled], [true, false]);
   mount({ editEntry: row(bag, { published: '' }), ...rec() });
   tickNoTpn();
   eq('ticking No TPN over a submitted order with a bag: the line shows', noteShown(), true);
@@ -153,15 +171,20 @@ const tickNoTpn = () => {
   mount({ editEntry: row(noTpn, { published: '' }), ...rec() });
   feeds(); setField('Volume(mL/feed)', 25);
   eq('a No TPN order, its feeds changed: no bag, so no line', noteShown(), false);
+  mount({ editEntry: row(noTpn, { published: '' }), ...rec() });
+  act(() => { container.querySelector('label.no-tpn-chk input[type=checkbox]').click(); });
+  fillBag();
+  eq('a bag put back over a submitted No TPN order: the room has been told it stopped, so the line shows', noteShown(), true);
 
   section('§2 it holds nothing back, and it does not print');
   const save = rec();
   mount({ editEntry: row(bag, { published: '' }), ...save });
   setField('Amino acid', 2.1);
   eq('Submit stays open with the line showing', [noteShown(), submitBtn().disabled], [true, false]);
+  asked = 0;
   await settle(submitBtn());
   eq('…and pressing it saves the revision', save.calls[0][0], 'update');
-  eq('…with no new prompt', typeof window.prompt, 'function');
+  eq('…asking the doctor nothing', asked, 0);
   mount({ editEntry: row(bag, { published: '' }), ...rec() });
   setField('Amino acid', 2.1);
   const form = container.querySelector('#print-form');
@@ -169,13 +192,13 @@ const tickNoTpn = () => {
 
   section('§3 the screens that send nothing to the room do not show it');
   mount({ editEntry: row(bag, { published: '' }), scratch: true, ...rec() });
-  if (inputFor('Amino acid')) setField('Amino acid', 2.1);
+  setField('Amino acid', 2.1);
   eq('the quick calculator: no line', noteShown(), false);
   mount({ editEntry: row(bag, { published: '' }), ordersReadOnly: true, ...rec() });
-  if (inputFor('Amino acid')) setField('Amino acid', 2.1);
+  setField('Amino acid', 2.1);
   eq('a read-only account: no line', noteShown(), false);
   mount({ editEntry: row(bag, { published: '' }), centerPoint: { save: async () => ({ sourceRecordId: 'c1', recordedAt: 'r1' }) }, ...rec() });
-  if (inputFor('Amino acid')) setField('Amino acid', 2.1);
+  setField('Amino acid', 2.1);
   eq('Center Point, its own flow: no line', noteShown(), false);
 
   act(() => { root.unmount(); });
