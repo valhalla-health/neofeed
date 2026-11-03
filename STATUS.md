@@ -7,11 +7,11 @@
 > ⏳ **2026-11-03 — A locked No TPN order's Submit: not live.** Merged into `main` on Praew's instruction (#210),
 > and live `729910f` still offers Submit there. It goes out with the next `main → release` PR. No backend change.
 >
-> ⏳ **2026-11-02 — TPN-room stickers, PR A: in review, not live.** `claude/tpn-room-stickers` adds the
-> `pharmacy` role, `Daily_Log` AM, `pharmacyOrders` and the calculator's `printJson`. It ships backend first
-> (`REFERENCE.md` § The TPN room), on Pp's go-ahead. The TPN unit confirmed the four PROVISIONAL figures on
-> 2026-11-03 (`openspec/changes/tpn-room-stickers/tasks.md` 0.3 a–d), and Pp's sign-off on the figure table (1.1) is
-> next. It does not ship before the unit answers the rest of the gate: 0.3 e as written there, and 0.3 m.
+> ⏳ **2026-11-03 — TPN-room stickers, PR A: not live.** Merged into `main` on Praew's instruction (#212). It adds the
+> `pharmacy` role, `Daily_Log` AM, `pharmacyOrders` and the calculator's `printJson`, and it ships backend first
+> (`REFERENCE.md` § The TPN room). The TPN unit confirmed the four PROVISIONAL figures on 2026-11-03
+> (`openspec/changes/tpn-room-stickers/tasks.md` 0.3 a–d). Still open: 0.3 e as written there, 0.3 m, and Pp's sign-off
+> on the figure table (1.1). Nothing reads these figures until PR B.
 >
 > ✅ **2026-11-01, 15:53 ICT — frontend `release` = `729910f` (PR #209), with backend `@66`.** PR #209 released
 > #206 (Step 3's "No TPN" tick and short sheet) and #207 (one "Bag cannot be made" stop). `node
