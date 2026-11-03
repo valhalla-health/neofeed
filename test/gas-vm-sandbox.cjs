@@ -293,6 +293,19 @@ function boot(opts) {
       for (const [k, v] of Object.entries(extra || {})) r[k] = v;
       return r;
     },
+    // An infant registered before 2026-09-27: the row registerPatient writes, under an id whose shape it
+    // no longer gives a NEW row (R2, verify-hardening-1102.cjs §7). A harness whose subject is not
+    // registration seeds with this, and every read and edit it then makes is one more case of such an id
+    // still working.
+    seedPatient(p) {
+      const S = sandbox._sheetSafe;
+      const json = (v) => S(JSON.stringify(v || []));
+      env.sheets.Patient_Registry.appendRow([S(p.sessionId), S(p.name || ''), S(p.initials || ''), Number(p.bw) || 0, Number(p.ga) || 0,
+        S(p.sex || 'boys'), S(p.dob || ''), S(p.admissionDate || ''), S(p.twinSuffix || ''), S(sandbox._normStatus(p.status)),
+        S(p.currentBed || ''), S(p.diagnosis || ''), json(p.weights), json(p.lengths), json(p.hcs), json(p.bedHistory),
+        S(p.statusDate || ''), Number(p.multiplesCount) || 0]);
+      sandbox._bumpDataVersion();
+    },
     logRow(sid, ts, extra) {
       const r = new Array(38).fill('');
       r[0] = ts; r[1] = sid; r[2] = 3; r[3] = 1250; r[4] = 150; r[13] = 'TPN central'; r[14] = 'submitted'; r[15] = 'nurse@kcmh.test';

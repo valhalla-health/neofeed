@@ -2126,6 +2126,30 @@ a path with spaces needs the loader quoted the way this file shows: run from the
 **`verify-pharmacy-frontend-1030.cjs`** (the jsdom set): the ward app refuses a pharmacy sign-in, through the real
 form too, and signs out a ward account whose role becomes pharmacy at its next sync.
 
+## Hardening, 2026-11-02 — one harness
+
+Five whole-app findings of the attack pass of 2026-10-30 (`CHANGELOG.md` 2026-11-02).
+**`verify-hardening-1102.cjs`** (backend in the sandbox; §8 needs the jsdom set). §1 (A3): 200 invented addresses write
+60 `loginFail` rows and one `loginFailCapped`, the reply never changes, and the next hour starts over; a Google account
+not on Staff, a suspended account on either path, a refused Workspace account and a Staff row with no password all share
+that ceiling; five guesses at a real password account stay on the record past it, and do not use it up; a cache outage
+writes the row. §2 (A3): 40 replays of a token make one tokeninfo fetch; suspending the account is still seen on the
+next replay; the token is kept for exactly its life, and a refusal, an outage or a token for another app is not kept; the
+token is in no cache key or value. §3 (A4): the lock stays, a flood of invented addresses does not touch a real account,
+and `REFERENCE.md` holds the trade-off. §4 (A5): the question names a row exactly when the caller's own sync carries it,
+checked row by row against `getActivePatients`; nothing else is in the reply; an admin gets the name; a named match beats
+a hidden one; every question is audited, and a confirmed registration asks nothing. §5 (A10): `calcInput` at 10,000
+lands, at 10,001 is refused on a create, a draft edit and a revision, and writes nothing. §6 (A10): each registry field at
+its cap lands and one over is refused, naming the field; a long value already stored passes while unchanged. §7 (R2):
+fourteen bad shapes are refused, with or without `isNew`; 2,000 draws of the real `newSessionId` match; twins land; an old
+id still syncs, edits, takes weights, saves an order and answers `IdTaken`. §8 (A10): the real `<Calculator>`'s four
+largest kinds of save each stay under half the cap and the real backend stores them whole.
+`HARDENING_BACKEND_ONLY=1` skips §8, for a mutation run. 219 checks, 105 of them failing on `6ed5428`. 105 mutants of a
+copy of `gas-backend.gs`, one per rule, boundary and refusal, were all caught, and every check failed under at least one
+mutant, or (`newSessionId`'s draws, the `REFERENCE.md` note) under a mutated `data.js` or before the note was written.
+`g.seedPatient` in `gas-vm-sandbox.cjs` writes the row of an infant registered before 2026-09-27 for a harness whose subject
+is not registration.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

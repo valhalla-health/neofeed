@@ -261,6 +261,8 @@ const goodPayload = (extra) => JSON.stringify(Object.assign({
 
 tokenInfoResponse = { code: 200, body: goodPayload({ exp: String(now + 3600) }) };
 eq('unexpired token accepted', sandbox.verifyGoogleIdToken('x')?.email, 'boss@hospital.th');
+// A verified token is kept since 2026-11-02 (A3), and each case below is another token.
+[...cacheStore.keys()].filter(k => k.startsWith('gtok_')).forEach(k => cacheStore.delete(k));
 
 tokenInfoResponse = { code: 200, body: goodPayload({ exp: String(now - 60) }) };
 let r = sandbox.verifyGoogleIdToken('x');
