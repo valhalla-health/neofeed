@@ -1,5 +1,12 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-03 — The doctor's sheet on one A4 page: not live.** Merged into `main` on Praew's instruction
+> (#213), and live `729910f` still runs to 2 pages at its fullest. Before release, print the fullest sheet from a
+> ward PC and printer: the measurements are headless Chromium. No backend change.
+>
+> ⏳ **2026-11-03 — A locked No TPN order's Submit: not live.** Merged into `main` on Praew's instruction (#210),
+> and live `729910f` still offers Submit there. It goes out with the next `main → release` PR. No backend change.
+>
 > ⚠️ **2026-10-31, 07:00 ICT — frontend `release` = `caecf04` (PR #204), with backend `@66`: merged, not
 > yet verified.** PR #204 released #203 (the Dashboard's Trend graph joins its days with straight lines) and
 > #202 (`sheetHealthReport` in `gas-backend.gs`, which the ward deployment does not run), merged on Pp's
@@ -347,7 +354,7 @@ with #204 by PR #205, and with #206's merge and #208's release by PR #207.
   `main → release` step of its own. A login flood should stop at 61 `Audit_Log` rows an hour (`CHANGELOG.md` has the worst case), and a replayed Google
   token asks Google once; size caps on `calcInput` and the registry's text; a new sessionId must be `NF-` and six digits. The
   account lock stays, written into `REFERENCE.md`. ⚠️ **The possible-duplicate question no longer names an infant
-  outside the caller's sync: this reverses Pp's own 2026-09-27 "every row", and she decides at merge.** No calculation,
+  outside the caller's sync: this reverses Pp's own 2026-09-27 "every row", and she accepted that on 2026-11-03.** No calculation,
   figure or `CONSTANTS_VERSION`. `CHANGELOG.md` 2026-11-02.
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
