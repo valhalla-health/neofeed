@@ -44,6 +44,28 @@ is in Pp's product notes.
   !figuresMissing`. An unlocked No TPN order now only locks on Submit, so `verify-sticker-figures-1030.cjs` §2c5 expects
   the lock and no write.
 
+## Session 2026-11-03 — A backend release stops unless there are exactly two deployments
+
+Pp, 2026-11-03: "ลองเพิ่มขั้นในการปล่อย backend ให้ clasp list-deployments ต้องเหลือ 2 ตัวเท่านั้น ถ้าเกินให้หยุด".
+
+`tools/check-deployments.mjs` (new) reads `clasp list-deployments` and passes only on `@HEAD` plus the ward's
+deployment, whose ID it takes from `boot.js`. A third deployment exits 1 and a list it cannot read exits 2. It
+changes no deployment, and it prints any other deployment by version and the start of its ID, because its output
+gets pasted into comments here. `REFERENCE.md` § Backend (GAS) runs it before step 1 and after step 2. A rollback
+does not wait for it.
+
+`test/verify-check-deployments.cjs` (new): 27 checks, with a stand-in `clasp` on PATH because CI has none. Eleven
+broken copies of the tool each fail it. Two survived the first round (a failed `clasp` that still printed a good
+list, and a comment quoting another URL), so 5.1 was rewritten and 6.7 and 6.8 were added.
+
+Same morning, on Pp's word: the 24 old deployments (`@2`–`@25`) were removed, one ID at a time, after each
+version's code was read. `clasp list-deployments` holds at 2 and each old URL answers 404. The list lags a delete in
+both directions: `@4` still showed on the read after its delete, and `@25` showed again once after it had gone.
+
+Run against the real `clasp` once, on the two that remain: `exactly two: @HEAD and production at @66`. The stop has
+run only on saved lists and the stand-in. No Vera: no dose file, printed order, auth code or patient data here. No
+frontend or backend code changed, so nothing to release.
+
 ## Session 2026-11-02 — Five whole-app findings of the attack pass, closed in their own PR
 
 `gas-backend.gs`, `REFERENCE.md` (§ Backend, § PDPA), `app-walkthrough.md`, `test/verify-hardening-1102.cjs` (new),
