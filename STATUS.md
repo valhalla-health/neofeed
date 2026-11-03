@@ -1,8 +1,8 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-02 — The doctor's sheet on one A4 page: not live.** Fixed by this PR on `main` only, and live
-> `729910f` still runs to 2 pages at its fullest. Before release, print the fullest sheet from a ward PC and
-> printer: the measurements are headless Chromium. No backend change.
+> ⏳ **2026-11-03 — The doctor's sheet on one A4 page: not live.** Merged into `main` on Praew's instruction
+> (#213), and live `729910f` still runs to 2 pages at its fullest. Before release, print the fullest sheet from a
+> ward PC and printer: the measurements are headless Chromium. No backend change.
 >
 > ⏳ **2026-11-03 — A locked No TPN order's Submit: not live.** Merged into `main` on Praew's instruction (#210),
 > and live `729910f` still offers Submit there. It goes out with the next `main → release` PR. No backend change.
