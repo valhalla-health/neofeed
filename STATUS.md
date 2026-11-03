@@ -355,6 +355,13 @@ with #204 by PR #205, and with #206's merge and #208's release by PR #207.
   released, the ward hears the new name: "Bag cannot be compounded" (still owed to them, banner of
   2026-10-28) is shown as "Bag cannot be made (ใส่ถุงไม่ได้)" and covers the 1,250 mL bottle too (Vera).
   `CHANGELOG.md` 2026-11-01 (3).
+- ⏳ **The whole-app hardening PR (#211), five findings of the attack pass of 2026-10-30: merged into `main` on Praew's
+  instruction, not live.** Backend only: live only after `clasp push` and `clasp update-deployment`, on Pp's go-ahead, with no
+  `main → release` step of its own. A login flood should stop at 61 `Audit_Log` rows an hour (`CHANGELOG.md` has the worst case), and a replayed Google
+  token asks Google once; size caps on `calcInput` and the registry's text; a new sessionId must be `NF-` and six digits. The
+  account lock stays, written into `REFERENCE.md`. ⚠️ **The possible-duplicate question no longer names an infant
+  outside the caller's sync: this reverses Pp's own 2026-09-27 "every row", and she accepted that on 2026-11-03.** No calculation,
+  figure or `CONSTANTS_VERSION`. `CHANGELOG.md` 2026-11-02.
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197

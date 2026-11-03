@@ -113,7 +113,7 @@ T.section('§3 The bed guard reads it the same way', () => {
   T.ok('NICU 1 is held by "Active " (it was free)', !!a.error && /NICU 1/.test(a.error), a);
   const b = reg('NB-1', 'NICU 2');
   T.ok('NICU 2 is held by "active" (it was free)', !!b.error && /NICU 2/.test(b.error), b);
-  const c = reg('NC-1', 'NICU 3');
+  const c = reg('NF-000001', 'NICU 3');
   T.ok('NICU 3 is free: "Expird" is not on the unit', c.ok === true, c);
 });
 
@@ -122,19 +122,20 @@ T.section('§4 The write: one of the four, or refused', () => {
   const P = (sid, extra) => Object.assign({ sessionId: sid, name: 'ทารก ' + sid, initials: 'XX', bw: 950, ga: 28.1,
     sex: 'boys', dob: addDays(TODAY, -3), admissionDate: addDays(TODAY, -3), status: 'Active', currentBed: '',
     diagnosis: 'RDS', weights: [{ dol: 1, w: 950 }], lengths: [], hcs: [], bedHistory: [], statusDate: '' }, extra);
-  const zzz = g.as({ action: 'registerPatient', isNew: true, patient: P('ZZ-1', { status: 'ZZZ' }) });
-  T.ok('a new record with status "ZZZ" is refused, in Thai (it was stored as Active)', !!zzz.error && isThai(zzz.error), zzz);
-  T.ok('…and nothing is stored', !rowOf(g, 'ZZ-1'));
+  // Valid new ids and the refusal's own words: R2's refusal of another id shape is Thai too (Vera on 8a77e3a).
+  const zzz = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000125', { status: 'ZZZ' }) });
+  T.ok('a new record with status "ZZZ" is refused, in Thai (it was stored as Active)', /Status ต้องเป็น/.test(String(zzz.error)), zzz);
+  T.ok('…and nothing is stored', !rowOf(g, 'NF-000125'));
   // Vera's case: names every object inherits passed as one of the four.
   const proto = ['toString', 'constructor'].map((st, i) =>
-    g.as({ action: 'registerPatient', isNew: true, patient: P('PR-' + i, { bw: 980 + i, status: st }) }));
-  T.ok('"toString" and "constructor" are refused, in Thai (they were stored)', proto.every(r => !!r.error && isThai(r.error)), proto);
-  T.ok('…and nothing is stored', !rowOf(g, 'PR-0') && !rowOf(g, 'PR-1'));
-  const dis = g.as({ action: 'registerPatient', isNew: true, patient: P('DS-1', { bw: 960, status: ' discharged ', statusDate: TODAY }) });
+    g.as({ action: 'registerPatient', isNew: true, patient: P('NF-00013' + i, { bw: 980 + i, status: st }) }));
+  T.ok('"toString" and "constructor" are refused, in Thai (they were stored)', proto.every(r => /Status ต้องเป็น/.test(String(r.error))), proto);
+  T.ok('…and nothing is stored', !rowOf(g, 'NF-000130') && !rowOf(g, 'NF-000131'));
+  const dis = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000002', { bw: 960, status: ' discharged ', statusDate: TODAY }) });
   T.ok('" discharged " is accepted', dis.ok === true, dis);
-  T.eq('…and stored canonical', rowOf(g, 'DS-1') && rowOf(g, 'DS-1')[9], 'Discharged');
-  const blank = g.as({ action: 'registerPatient', isNew: true, patient: P('BL-1', { bw: 970, status: '' }) });
-  T.eq('a blank status is stored as Active', blank.ok === true && rowOf(g, 'BL-1')[9], 'Active');
+  T.eq('…and stored canonical', rowOf(g, 'NF-000002') && rowOf(g, 'NF-000002')[9], 'Discharged');
+  const blank = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000003', { bw: 970, status: '' }) });
+  T.eq('a blank status is stored as Active', blank.ok === true && rowOf(g, 'NF-000003')[9], 'Active');
 
   // Vera's case: a row typed "Expird", edited with only the diagnosis changed.
   g.sheet('Patient_Registry').data.push(g.patRow('UK-1', { 9: 'Expird', 16: addDays(TODAY, -2) }));

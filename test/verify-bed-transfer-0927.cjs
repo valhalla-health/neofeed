@@ -349,7 +349,7 @@ const parkedLook = (cell) => {
     const post = (b) => g.post(Object.assign({ token: tok }, b));
     const admitted = addDays(wardToday(), -7);
     const reg = post({ action: 'registerPatient', isNew: true, patient: rec('BH', {
-      sessionId: 'BH-BW900', bw: 900, ga: 28.1, sex: 'boys', dob: admitted, admissionDate: admitted,
+      sessionId: 'NF-000900', bw: 900, ga: 28.1, sex: 'boys', dob: admitted, admissionDate: admitted,
       currentBed: 'NICU 4', weights: [{ dol: 1, w: 900 }] }) });
     eq('registered in NICU 4', reg, { ok: true });
     // One ward device: saves carry the server's last copy as `base`, then it syncs.
@@ -363,7 +363,7 @@ const parkedLook = (cell) => {
         synced = post({ action: 'getActivePatients' }).patients;
         return r.error ? { ok: false, error: r.error } : { ok: true };
       } });
-    const bh = () => synced.find(p => p.sessionId === 'BH-BW900');
+    const bh = () => synced.find(p => p.sessionId === 'NF-000900');
 
     await device('NICU');
     await openTransfer('BH');

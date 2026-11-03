@@ -573,6 +573,25 @@ and the sync window). `appsscript.json` lives only in the clasp mirror, not in t
 **Password floor is 10 characters** for any new password (`MIN_PASSWORD_LENGTH`, server and
 client, since 2026-09-11). Existing shorter passwords keep working until next changed.
 
+**Five wrong passwords lock a password account for 15 minutes, whoever typed them**
+(`LOCKOUT_MAX_FAILS`, `LOCKOUT_MS`; attack pass 2026-10-30, A4, kept on 2026-11-02). The lock stays on
+purpose: it is what holds guessing to five tries per window, and it is counted before the hash, so a
+parallel burst cannot slip past it. The price is that anyone who knows a staff email can lock that person
+out, and a script repeating it every 15 minutes keeps them out for a whole shift, with the right password
+refused ("ลองใหม่ในอีก 15 นาที"). It reaches password accounts only: a Google or Workspace sign-in has no
+password to lock, and a session already open carries on. The other option was a growing delay instead. It would
+either hold a script execution open for each delayed request, which a flood turns into a lockout of everyone,
+or refuse until the delay ends, which is this lock on a shorter clock. **What the ward does:** wait the 15
+minutes, or have a colleague who is signed in save the order under their own name. If the lock is back straight
+after the 15 minutes, it is not a typo: tell an admin, who looks for `lockout` rows with that address in
+`Audit_Log` and can lift it at once by deleting the Script Property `fail_` + the SHA-256 of the lower-case
+address.
+
+**Before the `clasp push` that brings the size caps (2026-11-02),** count the stored `calcInput` over 10,000
+characters on the live `Daily_Log`, for example `=SUMPRODUCT(--(LEN(Daily_Log!Y2:Y)>10000))` in a scratch cell. An edit
+that sends such a `calcInput` back is refused: the registry's unchanged-value pass has no twin there. Real saves are
+about 1,500 characters, so expect 0; if it is not 0, hold the push and tell Pp.
+
 ## Thai PDPA compliance posture
 
 This app processes infant health data — "sensitive personal data" under PDPA
@@ -599,7 +618,15 @@ secondary uses (e.g. research/QI exports) if those are ever added.
 
 **Accountability (Sec 39):** `Audit_Log` sheet (auto-created by
 `getSheetAudit()`) records registry reads and erasures with actor email +
-timestamp — persists past Apps Script's 7-day execution-log window.
+timestamp — persists past Apps Script's 7-day execution-log window. Two additions
+of 2026-11-02 (attack pass A3, A5): `loginFail` and `lockout` rows about an address
+with no proven account stop at 60 an hour (`LOGIN_FAIL_AUDIT_MAX`), and a
+`loginFailCapped` row with no address on it marks the hour a flood reached that
+ceiling. A wrong password for a real account is outside the ceiling and is never
+dropped; the sign-in of a suspended account, even with the right password, is under
+it and is dropped past it. Registration's look-alike question leaves a
+`possibleDuplicate` row with the ID it matched, whether or not the answer named
+that infant.
 
 **Data minimization:** `handleLogout()` in `app.jsx` clears
 `neofeed_calc_*`/`neofeed_acked_*` localStorage keys on logout, since those

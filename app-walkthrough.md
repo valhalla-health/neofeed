@@ -104,7 +104,10 @@ big conditional block plus `RailItem`/`BottomNav`.
   id, so registration asks outright when an infant on file has the **same
   birth weight and date of birth**. Only the server asks (`_possibleDuplicate`,
   over every row); the device shows its sentence. Open the old record, or
-  answer "a different baby" (`confirmDuplicate`).
+  answer "a different baby" (`confirmDuplicate`). The sentence names the record
+  only when the caller's own sync carries it; past the 30-day window it says to
+  ask an admin, whose sync can carry every row (attack pass A5, 2026-11-02). Each
+  question leaves a `possibleDuplicate` row in `Audit_Log`.
 - **`name`** — since 2026-09-25, **ชื่อ + นามสกุล: the first two LETTERS of
   the first name and of the surname**, stored as `"รย ทอ"` (one space; Pp's
   example was "กค จด"). A letter is one of the 44 consonants: every vowel
