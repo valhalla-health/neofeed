@@ -2360,8 +2360,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const replacesTpn = savedReplacesTpn || (savedStatus === "submitted" && !!savedEntryId && savedHadTpn);
   const tpnCancelledToday = noTpnOn && replacesTpn;
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
-  const printable = !!savedEntryId && !dirty && (!noTpnOn || noTpnSheet) && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
+  // orderSettled: saved, unchanged and held by nothing that needs a new save. It is
+  // printable without the No TPN term, because a No TPN order with no short sheet
+  // never prints, and Submit reads "nothing left to submit" from this, not from
+  // printable (Pp, 2026-11-02: a locked No TPN order still offered Submit, and
+  // pressing it wrote an identical revision).
+  const orderSettled = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
+  const printable = orderSettled && (!noTpnOn || noTpnSheet);
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
   // Center Point offers no tick, so it is not offered there (Vera, 2026-11-01).
@@ -2465,13 +2471,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
-    // Only when it could print as it is: an order held from Print (a calculation
-    // that moved since, a changed dosing weight, an unconfirmed critical value)
-    // takes the full save below, a revision on today's numbers (Vera, 2026-10-28).
-    // So does an order with no sticker figures (figuresMissing): locking it
-    // would leave it without them.
+    // Only when nothing needs a new save (orderSettled): an order held from Print
+    // (a calculation that moved since, a changed dosing weight, an unconfirmed
+    // critical value) takes the full save below, a revision on today's numbers
+    // (Vera, 2026-10-28). A No TPN order with no short sheet never prints, and is
+    // locked all the same (Pp, 2026-11-02). An order with no sticker figures
+    // (figuresMissing) takes the full save too: locking it would leave it without them.
     const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
-    if (lockFirst && !dirty && printable && !figuresMissing) {
+    if (lockFirst && !dirty && orderSettled && !figuresMissing) {
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -4348,10 +4355,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             )}
             {/* A locked order with nothing changed has nothing to submit, unless
-                Print is holding it for a new save, or it has no sticker figures
-                yet (figuresMissing). */}
+                something is holding it for a new save (orderSettled). A No TPN
+                order that never prints is still settled. An order with no sticker figures
+                yet (figuresMissing) is offered Submit too. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable && !figuresMissing)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
@@ -4770,7 +4778,9 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   const orderDateLabel = new Date(`${normalizedOrderDate}T12:00:00`).toLocaleDateString("th-TH", { year:"numeric", month:"2-digit", day:"2-digit" });
   const printedAt = new Date().toLocaleDateString("th-TH", { year:"numeric", month:"2-digit", day:"2-digit" });
   const chk = (v) => v ? "☑" : "☐";
-  const td  = { border:"1px solid #999", padding:"3px 6px", verticalAlign:"top", fontSize:10 };
+  // 1.5px, not 3px, so the fullest order is one A4 page (Pp, 2026-11-02). The font sizes
+  // are unchanged; the shells' @media print block sets the row line height.
+  const td  = { border:"1px solid #999", padding:"1.5px 6px", verticalAlign:"top", fontSize:10 };
   const tdr = { ...td, textAlign:"right" };
   const tdh = { ...td, background:"#f0f0f0", fontWeight:600, textAlign:"center" };
   const tdGroup = { ...td, fontWeight:700, background:"#fafafa" };
@@ -4792,8 +4802,29 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   const AA_CHOICES = [["aminoven10", "10% Aminoven infant / PED AMINE (0-1 yr.)"], [null, "10% Amiparen (>1 Yr.)"], [null, "8% Aminoleban"],
     [null, "7% Nephrosteril"], ["aminoplasmal15", "15% Aminoplasmal"]];
 
+  // Who signs — the paper form's own line, with the saver's name printed so pharmacy
+  // knows whom to call (TPN team, 2026-09-22). The name only: no email on the doctor's
+  // sheet (2026-09-28); the back keeps it. With a confirmed critical value the line sits
+  // inside the red box, so the signature is on the same page as the confirmation it signs
+  // (Pp, 2026-11-02). The shells' @media print block keeps the box and the line unsplit.
+  // Inside the box the line also names the infant and the day, the same strings the sheet prints at its
+  // top: if an order ever overflows, the box and its signature move whole to page 2, and that page
+  // must not be anonymous (Pp, 2026-11-02). Plain spans, not <strong>: they are not figures. The gap above
+  // the line is room to sign by hand, so it is not cut to fit; an order with no critical value keeps its
+  // line as it was.
+  const signRow = (
+    <div className="print-sign" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", gap:"4px 12px",
+      marginTop:critOverride ? 18 : 14, flexWrap:critOverride ? "wrap" : undefined }}>
+      <div>แพทย์ <span className="print-doctor" style={{ fontWeight:700 }}>{nameOnlyOf(savedMeta?.by)}</span> ........................................ (ลงนาม)</div>
+      {critOverride && (
+        <div className="print-sign-id">NeoFeed ID: <span style={{ fontWeight:700 }}>{patient?.sessionId || "—"}</span> · {noTpnSheet ? "วันที่สั่ง" : "วันที่ให้ TPN"}: <span style={{ fontWeight:700 }}>{orderDateLabel}</span></div>
+      )}
+      <div>รหัส ................................</div>
+    </div>
+  );
+
   return (
-    <div id="print-form" style={{ position:"relative", fontFamily:"'IBM Plex Sans','Sarabun',serif", fontSize:10.5, color:"#000", padding:"4mm 6mm", display:"none" }}>
+    <div id="print-form" style={{ position:"relative", fontFamily:"'IBM Plex Sans','Sarabun',serif", fontSize:10.5, color:"#000", padding:"0 2mm", display:"none" }}>
 
       {/* Draft watermark — printed before Submit locks the row (see the
           publish-lock design). Not shown once published, and never shown at
@@ -4903,14 +4934,19 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         <tr>
           <td style={{ verticalAlign:"top" }}>Amino acid</td>
           <td>
-            <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-              <div>
-                {AA_CHOICES.map(([key, label]) => (
-                  <div key={label} style={key === aaKey ? { fontWeight:700 } : { color:"#555" }}>{chk(key === aaKey)} {label}</div>
-                ))}
-                <div style={{ color:"#555" }}>☐ Other ........</div>
-              </div>
+            {/* Two lines, not six (Pp, 2026-11-02): the ticked product with its dose,
+                then the paper form's other choices side by side, all still printed. */}
+            <div className="print-aa-picked" style={{ display:"flex", gap:12 }}>
+              {AA_CHOICES.filter(([key]) => key === aaKey).map(([key, label]) => (
+                <div key={label} style={{ fontWeight:700 }}>{chk(true)} {label}</div>
+              ))}
               <div>= <strong>{f(aaPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.aa,1)}</strong> mL</div>
+            </div>
+            <div className="print-aa-others" style={{ display:"flex", flexWrap:"wrap", gap:"0 10px", color:"#555" }}>
+              {AA_CHOICES.filter(([key]) => key !== aaKey).map(([key, label]) => (
+                <div key={label}>{chk(false)} {label}</div>
+              ))}
+              <div>☐ Other ........</div>
             </div>
           </td>
         </tr>
@@ -5062,21 +5098,16 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}
       </div>
       </>)}
-      {critOverride && (
-        <div style={{ border:"2px solid #c00", color:"#c00", padding:"4px 8px", marginTop:6, fontSize:10.5, fontWeight:700 }}>
-          <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
-          ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
-          <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
+      {critOverride ? (
+        <div className="print-crit-box" style={{ border:"2px solid #c00", padding:"4px 8px 8px", marginTop:6 }}>
+          <div style={{ color:"#c00", fontSize:10.5, fontWeight:700 }}>
+            <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
+            ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
+            <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
+          </div>
+          {signRow}
         </div>
-      )}
-
-      {/* Who signs — the paper form's own line, with the saver's name printed
-          so pharmacy knows whom to call (TPN team, 2026-09-22). The name only:
-          no email on the doctor's sheet (2026-09-28); the back keeps it. */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginTop:14, gap:12 }}>
-        <div>แพทย์ <span className="print-doctor" style={{ fontWeight:700 }}>{nameOnlyOf(savedMeta?.by)}</span> ........................................ (ลงนาม)</div>
-        <div>รหัส ................................</div>
-      </div>
+      ) : signRow}
 
       {!noTpnSheet && (<>
       {/* ════════════ BACK — pharmacy (print double-sided) ════════════ */}

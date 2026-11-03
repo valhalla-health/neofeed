@@ -7,6 +7,86 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-02 — The doctor's printed order is one A4 page at its fullest, signature included
+
+`calculator.jsx` (`PrintOrderForm`), `compiled/calculator.js`, both shells' `@media print` block and `?v=`
+tokens, `test/verify-print-one-page-1102.cjs` (new), `test/README.md`. Pp, 2026-11-02: "แยก PR แก้ให้พอดี 1 หน้า";
+and, about a critical value a doctor has confirmed: "จะบีบอัดยังไงให้ หากมี hard stop แต่หมอติ๊กเซนยืนยัน และอยาก
+ให้มีลายเซ็นอยู่ในหน้าเดียวกัน". The layout is the one mocked up with Pp on release `729910f`.
+
+- **Before:** the fullest order (every stock line, 2 feeds, 5 oral lines, 11 critical alerts, a 300-character
+  reason) printed on two pages. The page break cut the red box (its alert titles on page 1, the reason on
+  page 2) and put the signature line and the provenance footer on page 2, about 30 mm over. One alert with a
+  300-character reason was 13 mm over, and one alert with a 40-character reason spilled the footer alone.
+- **Now one page,** measured as a headless-Chromium A4 PDF with IBM Plex Sans loaded (mm free above the 8 mm
+  bottom margin, before → after): no alert 8.6 → 56.5; 1 alert, 40-character reason 2 pages → 37.7; 1 alert,
+  300 characters, no oral orders 2 pages → 43.8; 1 alert, 300 characters 2 pages → 29.5; 11 alerts, 300
+  characters 2 pages → 21.6; all 13 critical titles that take a reason, 300 characters 17.4 (edited DOM); 7
+  alerts, 300 characters, 8 oral lines and a long diagnosis 2 pages → 11.0 (edited DOM, since the app has
+  five oral lines); all 13, 8 oral lines and a long diagnosis, the heaviest page imaginable, 3.1. Four
+  changes, no font size lowered: the amino-acid choices are two lines, the ticked product with its dose and
+  then the other choices and "Other" side by side; cell padding 3 px → 1.5 px with a 1.35 line height on
+  cells; the form's own 4 mm / 6 mm padding is 0 / 2 mm (the page keeps its 8 mm / 10 mm margins); and with a
+  confirmed critical value the signature line sits **inside the red box**, which with the line never splits
+  across a page break (`break-inside: avoid`).
+- **The box's signature line names the infant and the day** (Pp, after Vera's review): "NeoFeed ID: … · วันที่ให้ TPN:
+  …" between the doctor and the code, the strings the sheet prints at its top ("วันที่สั่ง" on a No TPN
+  sheet), in plain spans, only when a critical value was confirmed. An order with none keeps its line as it was.
+  The line sits 18 px under the reason (it was cut to 10 px when it moved into the box) and the box has 8 px
+  under it, so there is room to sign by hand.
+- **If an order ever does not fit,** the red box moves whole to the next page with its signature directly
+  after the reason, never apart, and that page carries the NeoFeed ID and the date. Shown on the real sheet
+  with all 13 titles and a 600-character diagnosis: page 1 ends after the lipid pump rate, page 2 holds the
+  box, the signature line with ID and date, and the footer.
+- **Unchanged:** every figure, line and name on the sheet. The printed text of the fullest order differs
+  from before in one place only, the amino-acid dose, which now follows the ticked product instead of the
+  whole list (so a ticked Aminoplasmal is first, not last as on the paper), and, in the box, the ID and date.
+  The box's three texts, `.crit-confirmed`, `.print-doctor`, `.print-revision` (4 mm / 6 mm),
+  `.print-lipid-rate`, the patient table as the first `<table>` and the footer as the last child are as they
+  were. The provenance footer stays two lines: its two strings come to about 226 mm at 8 px against 186 mm of
+  page, so one line would need a smaller type. Center Point's own sheet (`tpn-document.mjs`, its digest pin)
+  is not touched, and nothing in `center-point/` or `verify-center-point-print-parity.cjs` reads the signature
+  row; its legacy screen bundles this form and picks up the layout.
+- **Tests.** `verify-print-one-page-1102.cjs` (68 checks) saves three real orders (no alert, one, several)
+  through Submit and pins the markup (the signature inside the box and the only one, with the ID and date; the
+  box's texts; room to sign; five amino-acid choices once each, also for Aminoplasmal; every figure 10 px or
+  larger; the rules in both shells; and that calculator.jsx still raises the 21 kinds of critical alert the
+  fit test's list of 13 was drawn from). In Chromium it prints each order's form with the shells' CSS in a wide
+  fallback font (Verdana here, DejaVu Sans on CI; about 4 % taller than IBM Plex Sans) and expects one page,
+  reads the computed `break-inside` and line height and the room around the signature line, then prints an
+  order that does not fit, with a link around each part of the box (Chrome writes the link on the page where it
+  falls), and expects the whole box, its signature, the ID and date on page 2; with `break-inside` switched
+  off the same order splits, which proves the check sees a split. Against `6ed5428` 45 of its 66 checks fail,
+  the three page counts among them; five mutations of the fix (ID on every row, a wrong ticked product, a new
+  critical alert, no break rule, the old 10 px gap) each fail their own check.
+## Session 2026-11-02 — A locked No TPN order has nothing to submit
+
+`calculator.jsx` (`orderSettled`, Submit's `disabled`, `handleSave`'s lock-only path), `compiled/calculator.js`,
+both shells' `?v=` tokens, `test/verify-no-tpn-1101.cjs`, `test/verify-safety-review.cjs`, `test/README.md`. Pp
+asked for the fix on 2026-11-02, after the live release `729910f` was shown offering Submit on a locked No TPN order.
+
+- **Before:** a No TPN order with no short sheet (no oral orders, no TPN the day before) is never `printable`,
+  and two checks read `printable` as "nothing left to submit": Submit's `disabled` clause and the lock-only
+  path in `handleSave`. So a locked, unchanged order still offered Submit, and pressing it called `onUpdate`,
+  which the server turns into a new revision of identical numbers; Submit stayed enabled afterwards. An
+  unlocked, unchanged one did a full save and then a lock, where an order with TPN only locks.
+- **Now:** `orderSettled` is `printable` without its No TPN term (saved, unchanged, no stop, no moved
+  calculation, no changed dosing weight, no unconfirmed critical value, not a draft). Both checks read it.
+  A locked, unchanged No TPN order has Submit disabled, and an unlocked one only locks.
+- **Unchanged:** `printable` itself, so Print still prints nothing for a No TPN order with no sheet (it says
+  "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์"), and the red "held from Print" line stays off. A No TPN order held by a
+  moved calculation, a changed dosing weight, an unconfirmed critical value or a draft keeps Submit enabled
+  and takes the full save. An order with a short sheet (oral orders, or the day TPN stopped) behaves as
+  before: locked, Submit disabled; unlocked, only the lock. Submit's second, publish-gate button
+  (`D.ENABLE_PUBLISH_GATE`, off) still reads `printable`. No calculation, figure or `CONSTANTS_VERSION` change.
+- **Tests.** `verify-no-tpn-1101.cjs` §10, 20 checks. On `6ed5428`, four fail: the locked order's Submit is
+  enabled, a press sends one update and one lock, the unlocked order's press sends an update where it should
+  only lock, and Submit is still enabled afterwards. The rest are guards that held before the fix: a feed
+  changed on the locked order, a moved calculation (locked and unlocked), an order with vitamin D, and the day
+  TPN stopped. `verify-safety-review.cjs` pinned the text `const printable = !!savedEntryId && !dirty`; it now
+  pins `const orderSettled = !!savedEntryId && !dirty` and `const printable = orderSettled`, the same rule
+  one name along.
+
 ## Session 2026-11-02 — TPN-room stickers, PR A: figures saved with each order, a read-only pharmacy role
 
 Not live. `data.js` (`stickerFigures`), `calculator.jsx`, `app.jsx`, `gas-backend.gs`, `compiled/`, both shells' `?v=`

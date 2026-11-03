@@ -414,8 +414,8 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     mount({ patient: PT1600, editEntry: asSaved({ published: '' }), ...unlocked });
     ok('an unlocked No TPN order: no notice', !noticeShown());
     await settle(submitBtn());
-    const again = upd(unlocked);
-    eq('…and pressing Submit on it makes no figures and no marker', again && [again.printJson, 'printJsonV' in again.calcInput], [null, false]);
+    // Since #210 nothing is left to submit on it, so a press only locks and writes no figures and no marker.
+    eq('…and pressing Submit only locks it', shape(unlocked.calls), [['publish', 'e1', 'lm1']]);
   });
 
   // Only an order saved before the release can lack figures, and a bag from an earlier day has already been given.
