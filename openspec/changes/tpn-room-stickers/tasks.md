@@ -9,7 +9,7 @@
       which local folder is neither restored nor synced. Put the new store of names in the planned change
       request so the DPO can add it to the record of processing.
 - [ ] 0.3 Ask the TPN unit (Pp, 2026-10-30). The unit replied in writing on 2026-11-03 to a list of a–i (kept in
-      Pp's product notes). Still open: the Na acetate part of e, i, j, k, l and m. Figures:
+      Pp's product notes). Still open: e as written here, i, j, k, l and m. Figures:
       a. Soluvit and Peditrace on the PN label: what reaches the infant (1.6 mL for a 1.6 kg infant) or
          what is in the bag (1.9 mL, × Factor)? The unit's sample shows one number on both stickers only
          because its Excel does not overfill.
@@ -18,14 +18,15 @@
       c. Calories/Deliv.Vol: dextrose at 3.4 and amino acid at 4 kcal/g in the delivered volume, nothing
          else? **Answered: yes.**
       d. Heparin units on the PN label: in the delivered volume, as the sample shows, not the bag?
-         **Answered: the delivered volume,** at "0.5 - 1 unit / cc", the range the calculator already warns on.
+         **Answered: the delivered volume,** at "0.5 - 1 unit / cc". The calculator cautions only above 1 U/mL
+         and has no caution below 0.5.
       e. Osmolarity: NeoFeed's formula is the KCMH worksheet's E52, and on the unit's sample order it
          gives the same whole number the sticker shows. Does the unit's Excel count the sodium
          from Glycophos and Na acetate? Leaving out Glycophos or Na acetate sodium lowers the figure by
          2 mOsm/L per mEq/L of Na, which can put a peripheral bag under 900 on paper and over it in NeoFeed.
-         **Part answered.** The list the unit saw asked instead where the sodium error it once mentioned was,
-         and whether Excel had been fixed. Reply: "เดิมคำนวณถูกแล้ว", so there was no error. The sample order
-         shows Glycophos sodium is counted. **Na acetate sodium was not asked, and stays open.**
+         **Not answered as written.** The list the unit saw asked instead where the sodium error it once
+         mentioned was, and whether Excel had been fixed. Reply: "เดิมคำนวณถูกแล้ว", so there was no error.
+         **Whether Excel counts Glycophos and Na acetate sodium was not asked, and stays open.**
       Format and practice:
       f. The sample's decimals are the rule for every sticker, printed without trailing zeros (`3`, not
          `3.0`). Dextrose keeps what was typed (`12.25`), as on the doctor's sheet.

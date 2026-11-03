@@ -77,7 +77,7 @@ const C = (extra) => Object.assign({
   solVol: { aa: 62.1, naCl: 1.2, naAcet: 0, glycophos: 2.1, kCl: 1.6, k2hpo4: 0, mg: 0.8, ca: 9.2, heparin: 1.2, znso4: 0 },
   soluvitVol: 2.1, peditrace_vol: 2.1, wfiVol: 90.1,
   dexG: 25, aaG: 5.4, osmIn: { aaPct: 2.7 }, naKg: 4, kKg: 1.5, pTotal_mg: 55.8,
-  znTotal_mg: 0.45, osm: 1012.6, dexKcal: 85, aaKcal: 21.6,
+  znTotal_mg: 0.45, osm: 1021.9, dexKcal: 85, aaKcal: 21.6,
 }, extra);
 const O = (extra) => Object.assign({
   calc: C(), dol: 7, orderDate: '2026-11-16', dexPct: 12.5,
@@ -105,7 +105,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
       aminoAcidG: { aminoven10: '5.4', amiparen10: '0', aminoplasmal15: '0' },
       naMeq: '7.2', kMeq: '2.7', caMg: '72', mgMg: '6.6', phosphateMg: '55.8', acetateMeq: '0', clMeq: '6.3',
       znMg: '0.5', soluvitMl: '1.8', peditraceMl: '1.8', addamelMl: '0', heparinUnits: '100',
-      osmolarity: '1013', kcal: '107',
+      osmolarity: '1022', kcal: '107',
     });
     // The TPN unit, 2026-11-03 (tasks.md 0.3 g): Amiparen and Addamel N are still ordered elsewhere, so their
     // rows stay at 0. Nobody orders Aminoleban or Nephrosteril for a child, and MgSO₄ 50 % can go.

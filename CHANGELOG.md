@@ -7,6 +7,19 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-03 (2) — Vera on the TPN unit's answers: the entry below corrected
+
+- **The gate is all of `tasks.md` 0.3 e, not its Na acetate part.** The entry below narrowed it on a reading of the
+  sample order that the unit's reply does not state. Whether the unit's Excel counts Glycophos and Na acetate sodium
+  goes back to the unit.
+- **Who confirmed the figures:** the reply is unsigned, from the TPN unit's pharmacist, passed on by Pp. It is not
+  recorded as the change protocol's second clinician. No number moved, and Pp's sign-off at `tasks.md` 1.1 is what
+  stands behind these figures.
+- **Heparin:** the calculator cautions only above 1 U/mL, so nothing warns below the unit's 0.5. `tasks.md` 0.3 d now
+  says so.
+- **Specs:** date made cannot be assumed to be the print day or the order's date, and the worksheet scenario no longer
+  asks for the three dropped rows.
+
 ## Session 2026-11-03 — The TPN unit's answers to the sticker questions: four figures confirmed, three rows gone
 
 `data.js` (`stickerFigures`), `gas-backend.gs` (the `printJson` key lists), `compiled/` and the shells' `?v=`

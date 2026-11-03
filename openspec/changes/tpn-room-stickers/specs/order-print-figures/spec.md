@@ -10,7 +10,7 @@ the sticker number format below, with the `CONSTANTS_VERSION` that produced them
 
 - **WHEN** a doctor saves an order for a synthetic 2.20 kg infant with 250 mL delivered and 30 mL dead space
 - **THEN** the row's `printJson` holds the dosing weight, DOL, the TPN date, Factor, the delivered,
-  dead-space and prepared volumes, the mL of every stock row on the TPN unit's sample worksheet (zeros
+  dead-space and prepared volumes, the mL of every stock row on the TPN unit's sample worksheet, less the three the unit dropped on 2026-11-03 (zeros
   included), WFI, the delivered amounts on the sample PN label, osmolarity and kcal
 - **AND** each value equals the calculator's value for that order, rounded half up to the decimals the
   sticker number format sets
