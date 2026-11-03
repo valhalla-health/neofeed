@@ -61,15 +61,17 @@ clinical judgement. Everything else is engineering sequencing.
         Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the front prints, a revision is
         marked, and every open NeoFeed tab needs a reload (a stale tab's Submit is refused).
       - **A second clinician has not reviewed #200's calculations** (Mg in mg, Vitalipid rounded down).
-- [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
+- [x] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
       rolling back).
       - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
         release's rollback target, and on 2026-10-28 it was not pushed. **Done 2026-10-28, 12:30 ICT**,
         from Pp's PC; #184 and #186 are tagged too (`release-2026-10-28-pr184`, `-pr186`).
-      - [ ] Undeploy the backend deployments nobody uses. `clasp list-deployments` showed 26 on 2026-10-28,
+      - [x] Undeploy the backend deployments nobody uses. `clasp list-deployments` showed 26 on 2026-10-28,
         the ward's `AKfycbz8…` at `@64` among them. Every one shares the live Sheet, Script Properties and
         cache, so an old one that still answers runs its old code against them, as NeoRef's version 1 did
-        until 2026-09-24. Not yet checked one by one.
+        until 2026-09-24. **Done 2026-11-03, on Pp's word:** each version's code was read first, then all 24
+        old deployments (`@2`–`@25`) were removed and each old URL answers 404. `@HEAD` and the ward's remain,
+        and `tools/check-deployments.mjs` now stops a backend release if a third appears.
 
 - [ ] 🩺 **safety/product · What the answers of 2026-10-25 left open** (the nutrition unit's and TPN
       team's answers to the 2026-10-19 question sheet; what they settled was built on 2026-10-27,

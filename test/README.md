@@ -260,11 +260,13 @@ installed) to get the real measurement.
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`, `verify-usage-log.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
 `verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
-`verify-publish-lock.cjs`, `verify-build-shells.cjs`, `verify-chula-google-signin.cjs` and
+`verify-publish-lock.cjs`, `verify-build-shells.cjs`, `verify-check-deployments.cjs`,
+`verify-chula-google-signin.cjs` and
 `verify-pdpa-erased-dob-backend.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
 node test/verify-build-shells.cjs
+node test/verify-check-deployments.cjs
 node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
@@ -2136,3 +2138,11 @@ and is no longer on disk. Every constant and formula used here came from the
 anonymous template sheets (`NEW Temphate`, `Starter TPN`, `s tpn2/3`), and the
 expected values baked into these scripts are the only thing that survives from
 it — no patient-level data is present in either script.
+
+## Backend deployment gate, 2026-11-03 — one harness added
+
+Pp: "ต้องเหลือ 2 ตัวเท่านั้น ถ้าเกินให้หยุด" (`CHANGELOG.md` 2026-11-03; `REFERENCE.md` § Backend (GAS)).
+**`verify-check-deployments.cjs`** feeds `tools/check-deployments.mjs` saved lists and a stand-in `clasp` on PATH,
+and checks the failure that matters most, a pass it should not give: a third deployment stops, the wrong two stop,
+a list it cannot read stops, a `clasp` that fails stops even if it printed a good list, and the output never holds
+another deployment's whole ID. 27 checks, each seen to fail on a tool broken for it.

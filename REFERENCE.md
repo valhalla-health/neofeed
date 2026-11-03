@@ -426,7 +426,21 @@ split rather than carried over.** It was written around session 8 (2026-05-25), 
 the app as sitting in sandbox mode with `NEOFEED_GAS_URL` commented out, and instructed the
 reader to *"paste `gas-backend.gs` into the Apps Script editor"* — which directly
 contradicts the clasp-only rule below and would have switched the live app's executing
-identity. None of it was true any more. The current procedure:
+identity. None of it was true any more.
+
+**The gate (Pp, 2026-11-03): exactly two deployments, or stop.** From this repo, run
+`node tools/check-deployments.mjs` before step 1 and again after step 2. It reads
+`clasp list-deployments` in `~/nicu-tools/neofeed` and passes only on `@HEAD` plus the ward's
+deployment, whose ID it takes from `boot.js`. A third deployment, or a list it cannot read, exits
+non-zero: do not push or deploy. The list lags a delete in both directions (on 2026-11-03 a removed
+deployment showed again for one read), so run it once more first. If it still stops, tell Pp. Removing
+a deployment is her call: read that version's code first, remove one ID at a time, and never use
+`clasp undeploy --all`, which takes the ward's with it. A rollback does not wait for this gate: roll
+back first and run it after. It covers a release because every deployment runs its own version's code
+against the live Sheet, Script Properties and cache until someone removes it, and a plain
+`clasp deploy` adds one without a word. `test/verify-check-deployments.cjs` pins it.
+
+The current procedure:
 
 1. **Diff before you push.** `~/nicu-tools/neofeed/รหัส.js` **is** `gas-backend.gs`, but
    the two drift independently. Diff and **reconcile — never overwrite**. On 2026-08-17
