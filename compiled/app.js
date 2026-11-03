@@ -97,6 +97,14 @@ const SESSION_NOTICES = {
     kind: "maxAge",
     title: "เซสชันครบ 12 ชั่วโมง — กรุณาเข้าสู่ระบบใหม่",
     body: "งานที่ยังไม่บันทึกถูกเก็บเป็นร่าง"
+  },
+  // The sync answered Forbidden: only a pharmacy role gets that from
+  // getActivePatients (an admin changed the role, or a pharmacy session was
+  // restored). The words the sign-in refusal uses.
+  pharmacy: {
+    kind: "expired",
+    title: "บัญชีนี้เป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น",
+    body: "ออกจากระบบแล้ว"
   }
 };
 const unauthorizedReason = (data) => data && data.reason === "SessionMaxAge" ? "maxAge" : "expired";
@@ -606,12 +614,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (endedRef.current) return;
     endedRef.current = true;
     const tok = userRef.current?.token || "";
-    if (GAS_ON && tok && (reason === "manual" || reason === "idle")) {
+    if (GAS_ON && tok && (reason === "manual" || reason === "idle" || reason === "pharmacy")) {
       gasRequest({ action: "logout", token: tok }, { timeoutMs: 1e4 }).catch(() => {
       });
     }
     clearSession();
-    if (reason === "manual" || reason === "idle") {
+    if (reason === "manual" || reason === "idle" || reason === "pharmacy") {
       const prefixes = reason === "manual" ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_"] : ["neofeed_calc_", "neofeed_acked_"];
       try {
         Object.keys(localStorage).filter((k) => prefixes.some((p) => k.startsWith(p))).forEach((k) => localStorage.removeItem(k));
@@ -777,6 +785,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       settle();
       if (data.error === "Unauthorized") {
         endSessionRef.current(unauthorizedReason(data));
+        return;
+      }
+      if (data.error === "Forbidden") {
+        endSessionRef.current("pharmacy");
         return;
       }
       if (data.error === "PasswordChangeRequired") {
@@ -2125,6 +2137,11 @@ async function loginRequest(body, clickAt) {
     throw new Error(`เข้าสู่ระบบไม่สำเร็จ — ${e && e.kind ? e.message : gasErrorText("network")}`);
   }
   if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
+  if (data.role === "pharmacy") {
+    gasRequest({ action: "logout", token: data.token }).catch(() => {
+    });
+    throw new Error("บัญชีนี้เป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น");
+  }
   const user = { name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword };
   const s = data.sync;
   const sync = s && typeof s === "object" && !Array.isArray(s) && Array.isArray(s.patients) ? s : null;

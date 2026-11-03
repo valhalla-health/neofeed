@@ -45,6 +45,7 @@ clinical judgement. Everything else is engineering sequencing.
         TPN order is never printed, and the ward's Print order list tags it "No TPN — ไม่ต้องพิมพ์". Still
         open: the tag on the ward list itself.
       - **The Dashboard counts pending TPN orders** (joins 19 · 27, the pharmacist view, under C below).
+        `pharmacyOrders` already returns a date's counts (TPN-room stickers, PR A, not live).
         Pp, 2026-11-01: a No TPN order never counts as waiting for TPN, so pharmacy sees in real time how
         many TPN orders are drafts and how many are submitted, to estimate the day's compounding. Asked
         whether to build it now, she chose to record it for later.
@@ -52,24 +53,26 @@ clinical judgement. Everything else is engineering sequencing.
         A CP-repo sync.
       - **Pp to say what each means:** "แก้ไขช่อง prescribe ให้มาอยู่ในหน้าแรก" (the Prescribed column is
         on the front already); "ลบผู้ป่วย ward อื่นๆ" (a Sheet clean-up, or hide the "other" ward group?).
-      - **From the 2026-09-28 notes, missing from the list below:** "add Addamel" (the form prints
-        "☐ Addamel N", never offered); heparin "0–1 u/mL" against the caution's "usual 0.5–1"; "check
+      - **From the 2026-09-28 notes, missing from the list below:** "add Addamel" (now its own item under
+        § Later); heparin "0–1 u/mL" against the caution's "usual 0.5–1"; "check
         sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
-      - **Next phase:** print the pharmacy sheet again, for a sticker (`.print-back` is hidden in print,
-        not removed).
+      - **Next phase:** the stickers are now `openspec/changes/tpn-room-stickers` (PR A built, not live; PR B
+        is the page), not the pharmacy sheet printed again. `.print-back` stays hidden in print, not removed.
       - **Tell pharmacy and the ward:** released on 2026-10-29 (#201, backend `@66`) and not yet told.
         Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the front prints, a revision is
         marked, and every open NeoFeed tab needs a reload (a stale tab's Submit is refused).
       - **A second clinician has not reviewed #200's calculations** (Mg in mg, Vitalipid rounded down).
-- [ ] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
+- [x] 🚦 **release · NF-05 left two things for Pp** (PR #179; `REFERENCE.md` § Before and after, and
       rolling back).
       - [x] Push the tag of the release live now, `release-2026-10-27-pr172` on `342123d`. It is the next
         release's rollback target, and on 2026-10-28 it was not pushed. **Done 2026-10-28, 12:30 ICT**,
         from Pp's PC; #184 and #186 are tagged too (`release-2026-10-28-pr184`, `-pr186`).
-      - [ ] Undeploy the backend deployments nobody uses. `clasp list-deployments` showed 26 on 2026-10-28,
+      - [x] Undeploy the backend deployments nobody uses. `clasp list-deployments` showed 26 on 2026-10-28,
         the ward's `AKfycbz8…` at `@64` among them. Every one shares the live Sheet, Script Properties and
         cache, so an old one that still answers runs its old code against them, as NeoRef's version 1 did
-        until 2026-09-24. Not yet checked one by one.
+        until 2026-09-24. **Done 2026-11-03, on Pp's word:** each version's code was read first, then all 24
+        old deployments (`@2`–`@25`) were removed and each old URL answers 404. `@HEAD` and the ward's remain,
+        and `tools/check-deployments.mjs` now stops a backend release if a third appears.
 
 - [ ] 🩺 **safety/product · What the answers of 2026-10-25 left open** (the nutrition unit's and TPN
       team's answers to the 2026-10-19 question sheet; what they settled was built on 2026-10-27,
@@ -334,7 +337,8 @@ clinical judgement. Everything else is engineering sequencing.
       `Daily_Log` AF–AG actually fill with `2026-08-26.1`, and a first real Delete. Stubs model
       neither `CacheService` eviction nor `LockService` contention, so **only a person can close
       this.** Supersedes the old `@47` version of this item.
-- [ ] 🧹 **chore · Run `applyLogHeaderColumns()` once from the Apps Script editor.** Adds the
+- [ ] 🧹 **chore · Run `applyLogHeaderColumns()` once from the Apps Script editor** (a step of the TPN-room
+      stickers' deploy, `REFERENCE.md`, which closes this). Adds the
       cosmetic `constantsVersion`/`appVersion` labels to `Daily_Log` row 1. Purely presentational —
       the columns are read and written by index and already work without it. It executes as the
       signed-in user and may raise an OAuth consent, **so it is Praew's to run.**
@@ -769,8 +773,19 @@ clinical judgement. Everything else is engineering sequencing.
       ไม่ได้ ได้แค่ใช้ calculator". It goes live with the nursing form's switch (§ Next), not
       before.*
 - [ ] 💊 **product · Pharmacist role** — read-only plus a received/verified/compounded status per
-      order. The printed form now carries HN/AN boxes, saved-by/time/revision and changes-vs-previous
-      (2026-09-11); the status loop is not built.
+      order. The read-only part is built, not live (`openspec/changes/tpn-room-stickers`, PR A: role
+      `pharmacy`, `pharmacyOrders`). The printed form now carries HN/AN boxes, saved-by/time/revision and
+      changes-vs-previous (2026-09-11); the status loop is not built.
+- [ ] 🩺 **safety · Osmolarity, energy, Ca and P round .5 ties wrongly on the doctor's screen and sheet**
+      (`toFixed(0)`, `Math.round`; found by the sticker calc check, 2026-10-30, its own PR). 899.5 mOsm/L graded red at
+      900 while the alert text says 899, about 1 order in 2,000. In a 2026-11-02 probe one order shows 639 on screen and
+      640 on its sticker, whose figure is the right one.
+- [ ] 🧹 **chore · `verify-review-0917-session` §10 flakes across midnight.** It takes TODAY at module load while the
+      app reads the real clock, so a run across 00:00 ICT gives a DOL off by one. Re-run it alone; it needs a pinned
+      jsdom clock.
+- [ ] 💊 **product · An Addamel N field for the older-children ward** (Pp, 2026-10-30), its own PR. The form
+      prints "☐ Addamel N" and never offers it. `stickerFigures` leaves both Addamel rows null when it is
+      ticked, because the calc has no volume for it, so a field means a volume there too.
 - [ ] 🩺 **safety · Confirm the HMF start threshold** the app shows (`hmfStart: 40` mL/kg/day). The WHO
       tab used to say ≥100 while the EN tab said ≥40, both citing WHO 2023; both now show NeoFeed's 40
       and say "confirm locally".

@@ -260,11 +260,13 @@ installed) to get the real measurement.
 `verify-gas-session-revocation.cjs`, `verify-usage-metrics.cjs`, `verify-usage-log.cjs`,
 `verify-must-change-password.cjs`, `verify-input-validation.cjs`,
 `verify-provenance-stamp.cjs`, `verify-sync-freshness.cjs`,
-`verify-publish-lock.cjs`, `verify-build-shells.cjs`, `verify-chula-google-signin.cjs` and
+`verify-publish-lock.cjs`, `verify-build-shells.cjs`, `verify-check-deployments.cjs`,
+`verify-chula-google-signin.cjs` and
 `verify-pdpa-erased-dob-backend.cjs` need **no dependencies at all** — run them directly:
 
 ```bash
 node test/verify-build-shells.cjs
+node test/verify-check-deployments.cjs
 node test/verify-targets-and-dates.cjs
 node test/verify-gas-registry-upsert.cjs
 node test/verify-gas-session-revocation.cjs
@@ -2051,7 +2053,7 @@ ends at 736, and the early dot is at x = −46.
 
 ## The "No TPN" tick, 2026-11-01 — one harness
 
-Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (68 checks; the jsdom
+Step 3's "No TPN" tick (`CHANGELOG.md` 2026-11-01 (2)). **`verify-no-tpn-1101.cjs`** (88 checks; the jsdom
 set) mounts the real Calculator. §1: the tick, labelled "No TPN", sits in Step 3's header, and ticking it
 clears a bag with lipid, KCl and ZnSO₄, names what it cleared, hides the pumps (no note in their place) and
 the route, and turns Steps 3 and 4 done; Prescribed falls to the feed alone. §2: unticking puts every value
@@ -2066,9 +2068,89 @@ route stop (the tick hides those buttons); the no-volume stop points at the tick
 "NO TPN — ORAL / STOP ORDER" and dated "วันที่สั่ง", prints for oral orders, on the first No TPN day after a TPN
 day and for a same-day revision of a submitted TPN order (both "TPN stopped today"; `calcInput.replacesTpn`,
 also when reopened), else "No TPN today"; a draft TPN order ticked and submitted, or a No TPN day after one, prints nothing. §9: Center Point offers
-no tick, holds no such stop, and its no-volume line offers no tick. What the feeds must
+no tick, holds no such stop, and its no-volume line offers no tick. §10 (`CHANGELOG.md` 2026-11-02): a No TPN
+order with no short sheet, locked and unchanged, has Submit disabled and a press sends no update and no lock;
+unlocked, a press only locks; a feed changed on the locked order, or a calculation that moved since it was
+saved, keeps Submit enabled and takes the full save; Print still says there is no TPN order and prints
+nothing; with vitamin D, or on the day TPN stopped, locked is disabled and unlocked only locks. What the feeds must
 reach (`CR-NO-TPN-EN`, `CR-NO-TPN-PLAN`) runs in `verify-clinical-rules.cjs`. On `5a8bfe1` it stops at
-once: there is no tick.
+once: there is no tick. On `6ed5428`, §10 fails four checks (the locked order's Submit is enabled and a press
+writes a revision; the unlocked order's press writes one too, and Submit stays enabled).
+
+## One A4 page for the doctor's order, 2026-11-02 — one harness
+
+The doctor's printed order is one A4 page at its fullest, with the signature on it (`CHANGELOG.md`
+2026-11-02). **`verify-print-one-page-1102.cjs`** (68 checks; the jsdom set, plus a Chromium section that
+prints SKIP without playwright and that CI runs) saves three real orders through Submit, each with every
+stock line, a feed and five oral lines: no critical alert, one (KCl 6 mEq/kg/d), and several. §1a: with no
+alert there is no red box and the signature line is as it was (the doctor and the code, 14 px below what it
+signs, no ID or date). §1b: with a confirmed critical value the one signature line is inside
+`.print-crit-box`, after the confirmation and the reason, between "NeoFeed ID: … · วันที่ให้ TPN: …" (the
+strings the top of the sheet prints, as plain spans) and the code; the box keeps its three texts; the line is
+at least 14 px below the reason and the box has 8 px under it. §1c: the amino-acid cell is two lines (the
+ticked product with its dose, then the other four choices and "Other"), no figure is set below 10 px. §1d: the
+same for an order saved with Aminoplasmal 15% (the ward gate is stubbed, as in `verify-ward-requests-0918.cjs`
+§9): the ticked line reads "☑ 15% Aminoplasmal", the others start with "☐ 10% Aminoven infant". §1e:
+calculator.jsx still has 21 `level: "crit"` alert lines; the fit test's `ALERTS_13` is every title among them
+that takes a reason and can print (the others are `noReason`, a No TPN order's, or stops), so a new critical
+alert fails here until it is added or excused. §1f: both shells carry the `break-inside: avoid` and 1.35
+line-height rules. §2 puts each order's form into a page with the shells' own CSS, in a wide fallback font
+(Verdana here, DejaVu Sans on CI, about 4 % taller than IBM Plex Sans), emulates print and counts the pages of
+`page.pdf`: one each, for no alert, one alert, and all 13 titles with a 300-character reason; it reads the computed
+`break-inside` and the line height, the room around the signature line, and that its three parts do not overlap
+even with a 36-character ID. §2b prints an order that does not fit (all 13 titles, a 300-character reason, a
+600-character diagnosis) with a link around each part of the box: Chrome writes a link annotation on the page
+where the link falls, as plain text in the PDF, so the check reads which page holds what with no PDF library. It
+expects two pages and the whole box, its signature, and the ID and date on page 2; with `break-inside` switched off
+the same order splits, which proves the check can see a split. A CI machine has neither IBM Plex nor Sarabun,
+which is why the font is forced. To run §2 on Pp's PC use the launch shim above (`CHROME_EXE` set). On `6ed5428`,
+45 of the 66 checks that run fail, the three page counts among them (2 pages each).
+
+## The TPN room's figures and the pharmacy role, 2026-11-02 — three harnesses
+
+PR A of `openspec/changes/tpn-room-stickers` (`CHANGELOG.md` 2026-11-02). **`verify-sticker-figures-1030.cjs`** (138
+checks; the jsdom set) mounts the real Calculator. §1 is `stickerFigures` from a written-out calc: the sample's rows,
+its decimals, the nulls. §2 to §2b2: Submit and Save draft send `printJson` from the calc they saved, a No TPN order
+sends null, and `calcInput.printJsonV` marks an order with figures. §2a: an edit carries the date the sheet prints. §2c
+to §2c8: an order without figures, for today or tomorrow, gets a notice and can be saved again; a day with no bag, a
+No TPN order and a lipid-only order get no notice. §2d sends what the real Calculator saved through the real `gas-backend.gs` in the
+sandbox: submitted, edited, draft, No TPN, a same-day No TPN revision, a confirmed critical value, 1625 g.
+
+**`verify-pharmacy-backend-1030.cjs`** (355 checks; the real backend in the sandbox). §1 to §3: `Daily_Log` AM is stored,
+checked and kept per revision, and the ward sync never sees it. §4 to §5: the `pharmacy` allow-list, and no registry at
+login. §6 to §7: `pharmacyOrders`, its date window and audit; §6b pins the pre-2026-09-27 IDs Pp accepted. §8: the header
+migration. §9 to §12: what the attack and the walkthrough found. §13: `printJson` is held to the schema, on a create, a
+revision and a draft edit, with nothing written on a refusal; it compares the server's key lists with what the real
+`stickerFigures` makes, and sends every whole gram from 200 to 8000 g through `_printJsonField`. Point
+`NEOFEED_GAS_SRC` at a copy of `gas-backend.gs` to run it against a mutant without touching the file. A worktree under
+a path with spaces needs the loader quoted the way this file shows: run from the worktree, with the relative path.
+
+**`verify-pharmacy-frontend-1030.cjs`** (the jsdom set): the ward app refuses a pharmacy sign-in, through the real
+form too, and signs out a ward account whose role becomes pharmacy at its next sync.
+
+## Hardening, 2026-11-02 — one harness
+
+Five whole-app findings of the attack pass of 2026-10-30 (`CHANGELOG.md` 2026-11-02).
+**`verify-hardening-1102.cjs`** (backend in the sandbox; §8 needs the jsdom set). §1 (A3): 200 invented addresses write
+60 `loginFail` rows and one `loginFailCapped`, the reply never changes, and the next hour starts over; a Google account
+not on Staff, a suspended account on either path, a refused Workspace account and a Staff row with no password all share
+that ceiling; five guesses at a real password account stay on the record past it, and do not use it up; a cache outage
+writes the row. §2 (A3): 40 replays of a token make one tokeninfo fetch; suspending the account is still seen on the
+next replay; the token is kept for exactly its life, and a refusal, an outage or a token for another app is not kept; the
+token is in no cache key or value. §3 (A4): the lock stays, a flood of invented addresses does not touch a real account,
+and `REFERENCE.md` holds the trade-off. §4 (A5): the question names a row exactly when the caller's own sync carries it,
+checked row by row against `getActivePatients`; nothing else is in the reply; an admin gets the name; a named match beats
+a hidden one; every question is audited, and a confirmed registration asks nothing. §5 (A10): `calcInput` at 10,000
+lands, at 10,001 is refused on a create, a draft edit and a revision, and writes nothing. §6 (A10): each registry field at
+its cap lands and one over is refused, naming the field; a long value already stored passes while unchanged. §7 (R2):
+fourteen bad shapes are refused, with or without `isNew`; 2,000 draws of the real `newSessionId` match; twins land; an old
+id still syncs, edits, takes weights, saves an order and answers `IdTaken`. §8 (A10): the real `<Calculator>`'s four
+largest kinds of save each stay under half the cap and the real backend stores them whole.
+`HARDENING_BACKEND_ONLY=1` skips §8, for a mutation run. 219 checks, 105 of them failing on `6ed5428`. 105 mutants of a
+copy of `gas-backend.gs`, one per rule, boundary and refusal, were all caught, and every check failed under at least one
+mutant, or (`newSessionId`'s draws, the `REFERENCE.md` note) under a mutated `data.js` or before the note was written.
+`g.seedPatient` in `gas-vm-sandbox.cjs` writes the row of an infant registered before 2026-09-27 for a harness whose subject
+is not registration.
 
 ## Note on the source workbook
 
@@ -2078,3 +2160,11 @@ and is no longer on disk. Every constant and formula used here came from the
 anonymous template sheets (`NEW Temphate`, `Starter TPN`, `s tpn2/3`), and the
 expected values baked into these scripts are the only thing that survives from
 it — no patient-level data is present in either script.
+
+## Backend deployment gate, 2026-11-03 — one harness added
+
+Pp: "ต้องเหลือ 2 ตัวเท่านั้น ถ้าเกินให้หยุด" (`CHANGELOG.md` 2026-11-03; `REFERENCE.md` § Backend (GAS)).
+**`verify-check-deployments.cjs`** feeds `tools/check-deployments.mjs` saved lists and a stand-in `clasp` on PATH,
+and checks the failure that matters most, a pass it should not give: a third deployment stops, the wrong two stop,
+a list it cannot read stops, a `clasp` that fails stops even if it printed a good list, and the output never holds
+another deployment's whole ID. 27 checks, each seen to fail on a tool broken for it.

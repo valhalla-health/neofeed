@@ -32,7 +32,7 @@ function ward() {
   g.dt = g.session('doc@kcmh.test', 'doctor');
   g.at = g.session('admin@kcmh.test', 'admin');
   g.as = (tok, body) => g.post(Object.assign({ token: tok }, body));
-  g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('ST-1') });
+  g.seedPatient(P('ST-1'));
   g.log = (ts, entry) => g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'ST-1', entry: Object.assign(entry, { ts }) });
   g.rows = () => g.sheet('Daily_Log').data.length - 1;
   return g;

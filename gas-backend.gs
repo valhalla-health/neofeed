@@ -36,10 +36,13 @@
 //   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory|statusDate|
 //   multiplesCount (R, added 2026-08-14 — 2/3/4, disambiguates twinSuffix's
 //   A–D: "A" alone doesn't say whether the set is twins or triplets)
-// Daily_Log (A–AG): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
+// Daily_Log (A–AM): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
 //   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType|
 //   calcInputJson|entryId|lastModified|lastModifiedBy|ioInput|ioOutput|drainContent|
 //   constantsVersion|appVersion
+//   |published|publishedBy|revisionNumber|revisionOf|supersededAt|printJson
+//   (printJson, AM since 2026-10-30: the TPN room's sticker figures, as
+//   calculator.jsx computed them — see _printJsonField.)
 //   (calcInputJson = raw Calculator inputs, JSON — lets an entry be reopened
 //   and edited exactly as entered, from any device, not just the one that
 //   created it. entryId is the stable key updateDailyNutrition() matches on;
@@ -170,6 +173,31 @@ var NURSING_NOT_ENABLED = { error: "ยังไม่เปิดใช้บ�
 // environments without a JWT library: https://developers.google.com/identity/sign-in/web/backend-auth)
 // and additionally check `aud` ourselves so a token minted for a *different*
 // Google OAuth client can't be replayed against this app.
+//
+// A token Google has verified is kept, by its SHA-256, for what is left of its
+// life (attack pass 2026-10-30, A3). A Google ID token lives an hour, and anyone
+// can get one for this public client ID by signing in on the login page with
+// their own Google account, so every replay used to spend one UrlFetchApp call
+// from the daily quota each staff Google sign-in needs. What is kept is the
+// signature check only: login Path A reads the Staff row and decides again on
+// every call. A refusal or an outage is not kept. A retry after an outage has to
+// reach Google, and keeping a refusal would gain nothing, since a made-up token can
+// simply be a different one next time. That stream still costs one fetch each, and
+// no throttle could tell it from a ward signing in.
+function _knownGoogleToken(idToken) {
+  try {
+    var hit = _parseJson(CacheService.getScriptCache().get("gtok_" + _sha256Hex(idToken)), null);
+    return hit && hit.email ? { email: hit.email, hd: hit.hd || "", reason: null } : null;
+  } catch (e) { return null; }
+}
+function _keepGoogleToken(idToken, verified, exp) {
+  try {
+    var left = Math.floor(Number(exp) - Date.now() / 1000);
+    if (left < 1) return;
+    CacheService.getScriptCache().put("gtok_" + _sha256Hex(idToken),
+      JSON.stringify({ email: verified.email, hd: verified.hd }), left);
+  } catch (e) { Logger.log("Google token not kept: " + e.message); }
+}
 function verifyGoogleIdToken(idToken) {
   if (!idToken || typeof idToken !== "string") return { email: null, reason: "no token sent" };
   // CLIENT_ID_() throws if the CLIENT_ID Script Property was never set
@@ -179,6 +207,8 @@ function verifyGoogleIdToken(idToken) {
   // token" result as an actually-bad token, which sent users chasing their
   // Google account instead of the real fix (run setConfig(...)).
   var clientId = CLIENT_ID_();
+  var known = _knownGoogleToken(idToken);
+  if (known) return known;
   // `reason` is for Logger.log only — doPost never sends it to the caller any
   // more (2026-09-17 review, nits/UP-B14). It used to echo the whole tokeninfo
   // body, the token's aud AND the expected client ID to an unauthenticated
@@ -201,7 +231,9 @@ function verifyGoogleIdToken(idToken) {
     if (payload.email_verified !== "true" && payload.email_verified !== true) return { email: null, reason: "email not verified" };
     if (!payload.email) return { email: null, reason: "no email in payload" };
     // `hd` is present only for a Google Workspace account (see GOOGLE_HD_ENFORCE).
-    return { email: payload.email, hd: payload.hd ? String(payload.hd) : "", reason: null };
+    var verified = { email: payload.email, hd: payload.hd ? String(payload.hd) : "", reason: null };
+    _keepGoogleToken(idToken, verified, payload.exp);
+    return verified;
   } catch (e) { return { email: null, reason: "tokeninfo fetch failed: " + e.message, unavailable: true }; }
 }
 
@@ -498,11 +530,13 @@ function _primeStaffRow(email, found) {
 
 // Authorization values fail closed. A blank/misspelled Staff role used to be
 // promoted to `doctor` (blank) or preserved as an unknown role that could still
-// call getActivePatients. Only these three roles exist in the product model.
-var VALID_STAFF_ROLES = { admin: true, doctor: true, nurse: true };
+// call getActivePatients. Only these four roles exist in the product model.
+// hasOwnProperty, not a plain lookup: a role cell reading "constructor" or
+// "__proto__" signed in and read the registry (attack pass, 2026-10-30).
+var VALID_STAFF_ROLES = { admin: true, doctor: true, nurse: true, pharmacy: true };
 function _staffRole(value) {
   var role = String(value == null ? "" : value).trim().toLowerCase();
-  return VALID_STAFF_ROLES[role] ? role : null;
+  return Object.prototype.hasOwnProperty.call(VALID_STAFF_ROLES, role) ? role : null;
 }
 
 function createSession(email, role, name, mustChangePassword, authMethod) {
@@ -619,10 +653,24 @@ function getStaffRow(email) {
 
 // ── setInitialPassword — run from Apps Script editor ─────────
 // Usage: setInitialPassword("user@redcross.or.th", "MyP@ssw0rd")
-function setInitialPassword(email, password) {
-  if (!email || !password) { Logger.log("Usage: setInitialPassword('email@domain', 'password')"); return; }
+//        setInitialPassword("new.rx@kcmh.go.th", "MyP@ssw0rd", "pharmacy")
+// The role names a NEW account's role and is required for one: a new row used
+// to be created as an active doctor, so a pharmacist provisioned this way read
+// the registry (attack pass, 2026-10-30). An existing row keeps its role; the
+// Staff tab is where a role changes.
+function setInitialPassword(email, password, role) {
+  if (!email || !password) { Logger.log("Usage: setInitialPassword('email@domain', 'password'[, 'role'])"); return; }
   var sh = getSheetStaff();
   var found = getStaffRow(email);
+  var newRole = found ? null : _staffRole(role);
+  if (!found && !newRole) {
+    Logger.log("No Staff row for " + email + ": nothing written. Name its role: setInitialPassword('" + email +
+      "', 'password', 'doctor' | 'nurse' | 'admin' | 'pharmacy')");
+    return;
+  }
+  if (found && role && _staffRole(role) !== _staffRole(found.data[1])) {
+    Logger.log("Role unchanged for " + email + ": change it in the Staff tab.");
+  }
   var salt = Utilities.getUuid();
   var hash = hashPwdV2(password, salt);
   // Cols G/H (must_change_password/temp_password) cleared here too: an admin
@@ -633,7 +681,7 @@ function setInitialPassword(email, password) {
     sh.getRange(found.row, 5, 1, 4).setValues([[hash, salt, false, ""]]);
     Logger.log("Password updated for: " + email);
   } else {
-    sh.appendRow([_sheetSafe(email), "doctor", _sheetSafe(email.split("@")[0]), true, hash, salt, false, ""]);
+    sh.appendRow([_sheetSafe(email), newRole, _sheetSafe(email.split("@")[0]), true, hash, salt, false, ""]);
     Logger.log("Staff added with password: " + email);
   }
   // Both branches: the cached copy may hold the old col G, or "not found".
@@ -884,9 +932,12 @@ var LOG_HEADERS = [
   "suppPO4_mmol","suppPO4Type","suppFe_mg","suppFeType",
   "calcInputJson","entryId","lastModified","lastModifiedBy",
   "ioInput","ioOutput","drainContent","constantsVersion","appVersion",
-  "published","publishedBy","revisionNumber","revisionOf","supersededAt"
+  "published","publishedBy","revisionNumber","revisionOf","supersededAt","printJson"
 ];
-var LOG_WIDTH = LOG_HEADERS.length; // 38, A–AL
+var LOG_WIDTH = LOG_HEADERS.length; // 39, A–AM
+// The ward sync reads A–AL only: printJson (AM) is for the TPN room, about
+// 1–2 KB a row, and no ward screen reads it (login speed, 2026-09-24).
+var LOG_SYNC_WIDTH = 38;
 // Nursing_Log (A–M) — the nurses' daily Intake/Output totals (UX roadmap #4,
 // docs/NURSING_FORM_SPEC.md; Pp's decisions 2026-09-24). ONE row per patient
 // per date, daily totals only (D1). `ts` is the date the 24-hour total CLOSED —
@@ -998,12 +1049,13 @@ function _assertSchema(sheet, tab) {
     try { if (cache) cache.put(_schemaCacheKey(tab), JSON.stringify(result), SCHEMA_CACHE_TTL_SECONDS); }
     catch (e) { /* uncached: checked again next write */ }
   }
-  if (result.ok !== true) {
-    throw _codedError(
-      "โครงสร้างคอลัมน์ใน Google Sheet ไม่ตรงกับที่ระบบคาด (" + tab + "!" + result.col + ": พบ '" + result.label +
-      "') — หยุดบันทึกเพื่อป้องกันข้อมูลลงผิดช่อง แจ้ง admin",
-      "SchemaMismatch", false);
-  }
+  if (result.ok !== true) throw _schemaError(tab, result);
+}
+function _schemaError(tab, bad) {
+  return _codedError(
+    "โครงสร้างคอลัมน์ใน Google Sheet ไม่ตรงกับที่ระบบคาด (" + tab + "!" + bad.col + ": พบ '" + bad.label +
+    "') — หยุดบันทึกเพื่อป้องกันข้อมูลลงผิดช่อง แจ้ง admin",
+    "SchemaMismatch", false);
 }
 function _forgetSchemaCheck(tab) {
   try { CacheService.getScriptCache().remove(_schemaCacheKey(tab)); } catch (e) { /* TTL covers it */ }
@@ -1067,6 +1119,47 @@ function _auditLoginFailure(email, failsIncludingThis) {
   if (failsIncludingThis === LOCKOUT_MAX_FAILS) logAudit("lockout", "", email);
 }
 
+// A caller with no account could still grow Audit_Log without limit (attack pass
+// 2026-10-30, A3). The lockout counts per address, so an invented address changed
+// every five tries wrote 6 rows per 5 requests for ever, and the Google path had
+// no lockout at all. Audit_Log shares its workbook, and the 10-million-cell cap
+// every save needs, with the patient tabs.
+//
+// So rows about an address with no proven account share one ceiling per hour,
+// counted in CacheService: LOGIN_FAIL_AUDIT_MAX rows, then one loginFailCapped row
+// with no address on it to say the rest went unwritten, then nothing until the
+// next hour. A suspended account's sign-in, right password or not, is under it too.
+// Expect 61 rows an hour, 5,856 cells a day. The worst case is higher: the count
+// takes no lock, so requests that read the same count write one increment between
+// them, and at Apps Script's 30 concurrent executions that is about 1,830 rows an
+// hour (175,680 cells a day). A cache outage has no count, and writes without limit.
+// - The reply never changes, so the ceiling cannot be seen from outside.
+// - A wrong password for a real account is outside the ceiling
+//   (_auditLoginFailure): it is the row an investigation wants, a flood of invented
+//   addresses must not be able to hide it, and the lockout and the Staff tab
+//   already bound it to 6 rows per account per LOCKOUT_MS.
+// - No script lock around the count: that would add a second wait per request on the
+//   lock every ward save waits on. The password form still takes it once per attempt
+//   (_beginPasswordAttempt), which CHANGELOG 2026-11-02 lists as not closed, and why.
+// - A cache outage writes the row: an audit row is worth more than the ceiling.
+var LOGIN_FAIL_AUDIT_WINDOW_S = 3600;
+var LOGIN_FAIL_AUDIT_MAX = 60;
+function _auditUnderCeiling(action, email) {
+  var used = 0;
+  try {
+    var cache = CacheService.getScriptCache();
+    var key = "lfaudit_" + Math.floor(Date.now() / (LOGIN_FAIL_AUDIT_WINDOW_S * 1000));
+    used = parseInt(cache.get(key), 10) || 0;
+    if (used <= LOGIN_FAIL_AUDIT_MAX) cache.put(key, String(used + 1), LOGIN_FAIL_AUDIT_WINDOW_S);
+  } catch (e) { used = 0; }
+  if (used < LOGIN_FAIL_AUDIT_MAX) logAudit(action, "", email);
+  else if (used === LOGIN_FAIL_AUDIT_MAX) logAudit("loginFailCapped", "", "");
+}
+function _auditNoAccountFailure(email, failsIncludingThis) {
+  _auditUnderCeiling("loginFail", email);
+  if (failsIncludingThis === LOCKOUT_MAX_FAILS) _auditUnderCeiling("lockout", email);
+}
+
 // A successful login's reply. It carries the first sync when the client asks
 // for it with `wantSync` (login speed, 2026-09-24). Every sign-in used to wait
 // for a second round trip: login, then getActivePatients with the new token,
@@ -1086,7 +1179,9 @@ function _auditLoginFailure(email, failsIncludingThis) {
 function _loginReply(resp, body, tm) {
   var sync = null, stats = {};
   if (body.wantSync === true) {
-    if (!resp.mustChangePassword) {
+    // A pharmacy account never gets the registry: it carries every infant's
+    // name, and the TPN room reads only pharmacyOrders (Pp, 2026-10-30).
+    if (!resp.mustChangePassword && resp.role !== "pharmacy") {
       try {
         logAudit("readRegistry", "", resp.email);
         sync = getActivePatientsJson({ includeArchived: false }, stats);
@@ -1155,18 +1250,18 @@ function doPost(e) {
           return jsonOut({ status: "unauthorized", error: "Google token ไม่ถูกต้อง" });
         }
         if (!_googleAccountAllowed(email, gVerify.hd)) {
-          logAudit("loginFail", "", email);
+          _auditUnderCeiling("loginFail", email);
           return jsonOut({ status: "unauthorized", error: GOOGLE_HD_REFUSED_MSG });
         }
         var gFound = getStaffRow(email);
         tm.lap("staff");
         if (!gFound) {
-          logAudit("loginFail", "", email);
+          _auditUnderCeiling("loginFail", email);
           return jsonOut({ status: "unauthorized", error: "ไม่พบบัญชีนี้ในระบบ" });
         }
         var gd = gFound.data;
         if (gd[3] !== true && String(gd[3]).toUpperCase() !== "TRUE") {
-          logAudit("loginFail", "", email);
+          _auditUnderCeiling("loginFail", email);
           return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
         }
         role = _staffRole(gd[1]);
@@ -1212,7 +1307,7 @@ function doPost(e) {
         var unknownAttempt = _beginPasswordAttempt(unknownKey, "cache");
         if (unknownAttempt.locked) return jsonOut({ status: "unauthorized", error: LOCKOUT_LOGIN_MSG });
         hashPwdV2(password, "no-password-account");
-        _auditLoginFailure(email, unknownAttempt.fails);
+        _auditNoAccountFailure(email, unknownAttempt.fails);
         return jsonOut({ status: "unauthorized", error: LOGIN_FAILED_MSG });
       }
 
@@ -1235,7 +1330,7 @@ function doPost(e) {
       // Disabled status is reported only to someone who has just proved the
       // password — before, it was answered ahead of the password check.
       if (d[3] !== true && String(d[3]).toUpperCase() !== "TRUE") {
-        logAudit("loginFail", "", email);
+        _auditUnderCeiling("loginFail", email);
         return jsonOut({ status: "unauthorized", error: "บัญชีนี้ถูกระงับ" });
       }
       if (pwCheck.legacy) {
@@ -1307,6 +1402,18 @@ function doPost(e) {
       return jsonOut({ error: "PasswordChangeRequired", mustChangePassword: true });
     }
 
+    // ── a pharmacy account reads one list, and changes nothing ──
+    // TPN room, Pp 2026-10-30: pharmacy staff, weekend cover from other units
+    // included, must not be able to change anything in NeoFeed. An allow-list,
+    // before every other action, so an action added later is refused to
+    // pharmacy until it is named here. doGet answers ping; login and logout
+    // are answered above, before the token is checked. hasOwnProperty, not a
+    // plain lookup: toString, constructor and __proto__ must not pass as actions.
+    var PHARMACY_ACTIONS = { changePassword: true, pharmacyOrders: true };
+    if (user.role === "pharmacy" && !Object.prototype.hasOwnProperty.call(PHARMACY_ACTIONS, action)) {
+      return jsonOut({ error: "Forbidden" });
+    }
+
     if (action === "getActivePatients") {
       // Only an admin may ask for the full archive (data-subject requests,
       // a readmission after the sync window) — see getActivePatients. An
@@ -1327,7 +1434,8 @@ function doPost(e) {
       return syncOut;
     }
 
-    // Every signed-in role may ask the team for help (see sendHelpRequest).
+    // Every signed-in role but pharmacy may ask the team for help (see
+    // sendHelpRequest; pharmacy is refused by the allow-list above).
     if (action === "sendHelpRequest") {
       var helpResult = sendHelpRequest(body, user);
       if (helpResult.error) return jsonOut(_errorBody(helpResult));
@@ -1343,6 +1451,21 @@ function doPost(e) {
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
       var usage = _usageWeeklyFromTab(new Date(), USAGE_ADMIN_WEEKS);
       return jsonOut({ ok: true, weeks: usage.weeks, wards: usage.wards, types: usage.types });
+    }
+
+    // The TPN room's order list (Pp, 2026-10-30). Pharmacy, and admin so the
+    // list can be checked without a pharmacy account. The date is checked
+    // first (a real date, from 7 days ago to tomorrow: _pharmacyDateRefusal),
+    // so a refused ask leaves no audit row. Audited before the log is read,
+    // like a registry read.
+    if (action === "pharmacyOrders") {
+      if (user.role !== "pharmacy" && user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      var pharmacyDate = typeof body.date === "string" ? body.date : "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(pharmacyDate)) return jsonOut({ error: "date is required, as YYYY-MM-DD" });
+      var pharmacyDateRefusal = _pharmacyDateRefusal(pharmacyDate);
+      if (pharmacyDateRefusal) return jsonOut({ error: pharmacyDateRefusal });
+      logAudit("readPharmacyOrders", "", user.email);
+      return jsonOut(pharmacyOrders(pharmacyDate));
     }
 
     var canWrite = user.role === "doctor" || user.role === "admin" || user.role === "nurse";
@@ -1405,10 +1528,16 @@ function doPost(e) {
       // from a client that knows the three-way merge (see registerPatient).
       var regBase = (!isNewReg && body.base && typeof body.base === "object" && !Array.isArray(body.base)) ? body.base : null;
       var regResult = registerPatient(body.patient, isNewReg, regBase, body.confirmOverwrite === true,
-        body.confirmDuplicate === true);
+        body.confirmDuplicate === true, user.role === "admin");
       // A taken id, or an infant that looks like one already on file, and this
-      // call did not confirm: pass the question back and write nothing.
-      if (regResult && regResult.needsConfirm) return jsonOut(regResult);
+      // call did not confirm: pass the question back and write nothing. The
+      // look-alike question tells the caller whether an infant is on file, so it
+      // leaves a row (attack pass 2026-10-30, A5). matchedId goes to that row and
+      // no further: the reply to someone outside the sync window must not carry it.
+      if (regResult && regResult.needsConfirm) {
+        if (regResult.code === "PossibleDuplicate") logAudit("possibleDuplicate", regResult.matchedId, user.email);
+        return jsonOut({ needsConfirm: true, code: regResult.code, error: regResult.error });
+      }
       // A changed BW or GA silently moves every dose target for this infant,
       // and the row itself keeps no who/when — so the audit trail does.
       logAudit(isNewReg ? "registerPatient" : "updatePatient", (body.patient && body.patient.sessionId) || "", user.email);
@@ -1643,7 +1772,7 @@ function _readLogRowsFor(sheet, inWindow) {
   }
   if (!hits.length) return [];
   var blocks = _planLogBlocks(hits);
-  var width = Math.min(LOG_WIDTH, sheet.getMaxColumns());
+  var width = Math.min(LOG_SYNC_WIDTH, sheet.getMaxColumns());
   var out = [];
   for (var b = 0; b < blocks.length; b++) {
     var start = blocks[b][0], end = blocks[b][1];
@@ -1657,7 +1786,9 @@ function _readLogRowsFor(sheet, inWindow) {
   return out;
 }
 function _fullLogRows(sheet) {
-  return sheet.getLastRow() > 0 ? sheet.getDataRange().getValues().slice(1) : [];
+  return sheet.getLastRow() > 0
+    ? sheet.getDataRange().getValues().slice(1).map(function (r) { return r.slice(0, LOG_SYNC_WIDTH); })
+    : [];
 }
 
 function getActivePatients(opts) {
@@ -2002,6 +2133,36 @@ function _checkAdmissionDate(val, storedOrNull, label) {
     throw new Error("ค่า " + label + " (" + s + ") เก่าเกินกว่าที่ระบบรับได้");
 }
 
+// Size caps on the registry's text (attack pass 2026-10-30, A10). None of these
+// had one, and every ward device syncs them on every poll. A refusal here stops a
+// save at the bedside, so each cap sits well above what the Register and Edit
+// forms make: a name is two letters and two letters (5 characters, data.js
+// composePatientName) and initials 2, a bed is at most "iso 12-3", a twin is one
+// letter, a date 10. Diagnosis is the one box with no shape: a one-line input, so
+// 2,000 is a long problem list several times over. An older record can hold more
+// (a full name typed before 2026-09-25, a cell typed by hand), so an UNCHANGED stored
+// value passes, by the rule _checkAdmissionDate gives: refusing what the editor never
+// touched would make that record uncorrectable in any other respect. The date
+// fields are here because the date check reads only their first ten characters, and
+// the whole text is what gets written. The refusal never repeats the text.
+var PATIENT_TEXT_MAX = {
+  name: { max: 200, label: "Name" }, initials: { max: 40, label: "Initials" },
+  diagnosis: { max: 2000, label: "Diagnosis" }, currentBed: { max: 60, label: "Bed" },
+  twinSuffix: { max: 20, label: "Twin letter" }, dob: { max: 40, label: "Date of birth" },
+  admissionDate: { max: 40, label: "Admit date" }, statusDate: { max: 40, label: "Status date" },
+};
+function _checkPatientText(m, storedRow) {
+  var same = function (v) { return String(v == null ? "" : v).trim().replace(/\s+/g, " "); };
+  for (var f in PATIENT_TEXT_MAX) {
+    if (!Object.prototype.hasOwnProperty.call(PATIENT_TEXT_MAX, f)) continue;
+    var cap = PATIENT_TEXT_MAX[f], text = String(m[f] == null ? "" : m[f]);
+    if (text.length <= cap.max) continue;
+    if (storedRow && same(text) === same(_storedPatient(storedRow)[f])) continue;
+    throw new Error("ค่า " + cap.label + " ยาวเกินที่ระบบรับได้ (" + text.length + " ตัวอักษร รับได้ไม่เกิน " + cap.max +
+      ") — แก้ให้สั้นลงแล้วบันทึกอีกครั้ง");
+  }
+}
+
 function _validatePatient(p) {
   if (p.bw === "" || p.bw == null || !isFinite(Number(p.bw)))
     throw new Error("ต้องระบุน้ำหนักแรกเกิด (g) เป็นตัวเลข");
@@ -2087,7 +2248,24 @@ function _normStatus(v) {
   return s;
 }
 
+// The size cap on calcInput (attack pass 2026-10-30, A10). It had none, and it syncs
+// to every ward device on every poll; past 50,000 characters real Sheets refuses the
+// cell with a raw English error. A refusal here stops a doctor's save at the bedside, so
+// the cap sits well above what a real save makes, measured from the real <Calculator>
+// on 2026-11-02: an ordinary bag 940 characters, every box left holding a 19-character
+// decimal 1,484, a critical override with 8 alerts and its 300-character reason
+// 1,557. test/verify-hardening-1102.cjs §8 fails if a real save passes half this cap.
+var CALC_INPUT_MAX_CHARS = 10000;
+function _checkCalcInputSize(calcInput) {
+  var chars = JSON.stringify(calcInput || {}).length;
+  if (chars > CALC_INPUT_MAX_CHARS) {
+    throw new Error("ข้อมูลใบสั่งยาวเกินที่ระบบรับได้ (" + chars + " ตัวอักษร รับได้ไม่เกิน " + CALC_INPUT_MAX_CHARS +
+      ") — รีเฟรชหน้าแล้วบันทึกใหม่ ถ้ายังไม่ได้ให้แจ้ง admin");
+  }
+}
+
 function _validateLogEntry(entry) {
+  _checkCalcInputSize(entry.calcInput);
   if (entry.dol === "" || entry.dol == null || !isFinite(Number(entry.dol)))
     throw new Error("ต้องระบุ DOL เป็นตัวเลข");
   if (entry.weight === "" || entry.weight == null || !isFinite(Number(entry.weight)))
@@ -2343,6 +2521,125 @@ function _revisionFields(entry) {
   ];
 }
 
+// Sticker figures, AM (TPN room, Pp 2026-10-30). What calculator.jsx computed
+// for the TPN unit's three stickers, stored as sent once they pass the checks
+// below. Nothing here recomputes them: the backend has no copy of the bag
+// arithmetic, as with the stop list. "" for a bag-less order, and for a tab
+// from before the release, which sends none (the TPN-room page will not print
+// such an order and says to save it again).
+//
+// The TPN-room page prints from these figures alone (design D1), so this is the
+// last place that can refuse a wrong one. An attack pass on 2026-10-30 stored
+// DOL 25 on a DOL 10 row, D50W -5, KCl "abc" and a patient name in here. What
+// it checks is form and belonging, not whether a dose is right: a wrong but
+// well-formed figure still lands, because judging it would take the bag
+// arithmetic. A figure has no minus sign: no dose is negative, and
+// stickerFigures has no figures for an order that would print one.
+var PRINT_JSON_MAX_CHARS = 8000;
+// These lists mirror stickerFigures in data.js and must move with it: Apps
+// Script cannot import data.js. test/verify-pharmacy-backend-1030.cjs §13
+// compares them with what stickerFigures makes, so a key added on one side only
+// fails there. A changed schema also needs a new v.
+var PRINT_JSON_TOP_FIGURES = ["dol", "dosingWeightKg", "factor", "deliveredMl", "deadMl", "preparedMl"];
+var PRINT_JSON_TOP_KEYS = ["v", "constantsVersion", "orderDate"].concat(PRINT_JSON_TOP_FIGURES, ["stockMl", "delivered", "critical"]);
+var PRINT_JSON_STOCK_KEYS = ["d50w", "aminoven10", "amiparen10", "aminoplasmal15", "nacl20", "glycophos", "k2hpo4",
+  "naAcetate", "kcl", "mgso4_10", "caGluconate", "soluvit", "peditrace", "heparin", "wfi", "znso4", "addamel"];
+var PRINT_JSON_DELIVERED_FIGURES = ["dextrosePct", "dextroseG", "aminoAcidPct", "naMeq", "kMeq", "caMg", "mgMg",
+  "phosphateMg", "acetateMeq", "clMeq", "znMg", "soluvitMl", "peditraceMl", "addamelMl", "heparinUnits", "osmolarity", "kcal"];
+var PRINT_JSON_DELIVERED_KEYS = PRINT_JSON_DELIVERED_FIGURES.concat(["aminoAcidG"]);
+var PRINT_JSON_AMINO_KEYS = ["aminoven10", "amiparen10", "aminoplasmal15"];
+var PRINT_JSON_CRITICAL_KEYS = ["alerts", "reason"];
+// The calc has no volume for Addamel, so a ticked Addamel is the one figure
+// stickerFigures leaves null. Anywhere else a null is a sticker with a gap.
+var PRINT_JSON_NULLABLE = ["stockMl.addamel", "delivered.addamelMl"];
+var PRINT_JSON_FIGURE_MAX_CHARS = 12;
+// A save can raise 16 critical alerts at most (calculator.jsx, by reading, 2026-11-02).
+var PRINT_JSON_MAX_ALERTS = 20;
+var PRINT_JSON_MAX_ALERT_CHARS = 200;
+// calculator.jsx cuts the doctor's reason at 300, so a real order never meets this.
+var PRINT_JSON_MAX_REASON_CHARS = 500;
+
+function _printJsonExactKeys(obj, keys, where) {
+  if (obj === null || typeof obj !== "object") throw new Error("printJson: " + where + " is not an object");
+  // The key itself stays out of the message: it is whatever the client sent,
+  // and a patient name is what the attack pass put here.
+  var have = Object.keys(obj);
+  for (var i = 0; i < have.length; i++) {
+    if (keys.indexOf(have[i]) < 0) throw new Error("printJson: unexpected key in " + where);
+  }
+  for (var j = 0; j < keys.length; j++) {
+    if (!Object.prototype.hasOwnProperty.call(obj, keys[j])) throw new Error("printJson: " + where + " has no " + keys[j]);
+  }
+}
+
+function _printJsonFigures(obj, keys, prefix) {
+  for (var i = 0; i < keys.length; i++) {
+    var path = prefix + keys[i], val = obj[keys[i]];
+    if (val === null && PRINT_JSON_NULLABLE.indexOf(path) >= 0) continue;
+    if (typeof val !== "string" || val.length > PRINT_JSON_FIGURE_MAX_CHARS || !/^\d+(\.\d+)?$/.test(val)) {
+      throw new Error("printJson: " + path + " is not a figure");
+    }
+  }
+}
+
+function _printJsonCritical(critical) {
+  if (critical === null) return;
+  _printJsonExactKeys(critical, PRINT_JSON_CRITICAL_KEYS, "critical");
+  var alerts = critical.alerts;
+  if (!Array.isArray(alerts) || alerts.length > PRINT_JSON_MAX_ALERTS) throw new Error("printJson: critical.alerts is not a list of at most " + PRINT_JSON_MAX_ALERTS);
+  for (var i = 0; i < alerts.length; i++) {
+    if (typeof alerts[i] !== "string" || alerts[i].length > PRINT_JSON_MAX_ALERT_CHARS) throw new Error("printJson: a critical alert is not text of at most " + PRINT_JSON_MAX_ALERT_CHARS + " characters");
+  }
+  if (typeof critical.reason !== "string" || critical.reason.length > PRINT_JSON_MAX_REASON_CHARS) throw new Error("printJson: critical.reason is not text of at most " + PRINT_JSON_MAX_REASON_CHARS + " characters");
+}
+
+// `orderDate`: the date of the order these figures are saved on, as the ward
+// sync gives it to the app. The caller has it: a create takes the normalised
+// entry.ts, an edit takes the row's own date, because an edit never moves one.
+function _printJsonField(entry, orderDate) {
+  // Only a tab older or newer than this backend should ever land here, and
+  // reloading is what fixes that, so the doctor is told so before the detail.
+  try {
+    return _printJsonChecked(entry, orderDate);
+  } catch (err) {
+    throw new Error("บันทึกไม่ได้: ตัวเลขสติกเกอร์ไม่ตรงกับคำสั่งนี้ โหลดหน้าใหม่แล้วบันทึกอีกครั้ง (" + err.message + ")");
+  }
+}
+function _printJsonChecked(entry, orderDate) {
+  var pj = entry ? entry.printJson : null;
+  if (pj === null || pj === undefined || pj === "") return [""];
+  if (typeof pj !== "object" || Array.isArray(pj) || pj.v !== 1) throw new Error("printJson: unknown shape");
+  var text = JSON.stringify(pj);
+  if (text.length > PRINT_JSON_MAX_CHARS) throw new Error("printJson: longer than " + PRINT_JSON_MAX_CHARS + " characters");
+
+  _printJsonExactKeys(pj, PRINT_JSON_TOP_KEYS, "the sticker");
+  _printJsonExactKeys(pj.stockMl, PRINT_JSON_STOCK_KEYS, "stockMl");
+  _printJsonExactKeys(pj.delivered, PRINT_JSON_DELIVERED_KEYS, "delivered");
+  _printJsonExactKeys(pj.delivered.aminoAcidG, PRINT_JSON_AMINO_KEYS, "delivered.aminoAcidG");
+  _printJsonFigures(pj, PRINT_JSON_TOP_FIGURES, "");
+  _printJsonFigures(pj.stockMl, PRINT_JSON_STOCK_KEYS, "stockMl.");
+  _printJsonFigures(pj.delivered, PRINT_JSON_DELIVERED_FIGURES, "delivered.");
+  _printJsonFigures(pj.delivered.aminoAcidG, PRINT_JSON_AMINO_KEYS, "delivered.aminoAcidG.");
+  if (typeof pj.constantsVersion !== "string" || !/^\d{4}-\d{2}-\d{2}\.\d+$/.test(pj.constantsVersion)) throw new Error("printJson: constantsVersion is not a version");
+  if (pj.orderDate !== "" && (typeof pj.orderDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(pj.orderDate))) throw new Error("printJson: orderDate is not a date");
+  _printJsonCritical(pj.critical);
+
+  // It belongs to the request it came with. Each check is skipped only when the
+  // entry has nothing to compare: the real calculator sends every one of them.
+  if (entry.constantsVersion && pj.constantsVersion !== entry.constantsVersion) throw new Error("printJson: constantsVersion is not the entry's");
+  var dol = _numSafe(entry.dol, null);
+  if (dol !== null && Number(pj.dol) !== Math.round(dol)) throw new Error("printJson: dol is not the entry's");
+  // The sticker rounds the weight to 2 decimals, so 1005 g prints 1.01. That is
+  // 0.005 off in decimal and a hair more in floating point, as it is for 220 of
+  // the whole-gram weights from 200 to 8000 g, so the difference is rounded
+  // before it is compared. Unrounded, those infants' orders could not be saved.
+  var tpnWtG = entry.calcInput && typeof entry.calcInput === "object" ? _numSafe(entry.calcInput.tpnWtG, 0) : 0;
+  if (tpnWtG > 0 && Math.round(Math.abs(Number(pj.dosingWeightKg) - tpnWtG / 1000) * 1e6) / 1e6 > 0.005) throw new Error("printJson: dosingWeightKg is not the order's weight");
+  if (pj.orderDate !== "" && orderDate && pj.orderDate !== orderDate) throw new Error("printJson: orderDate is not the order's date");
+
+  return [_sheetSafe(text)];
+}
+
 // Widen the grid on demand before any write that could exceed it.
 // getRange() past the grid edge throws, and appendRow() rejects a row wider
 // than the sheet — both surface at the bedside as a failed save. This is the
@@ -2376,7 +2673,7 @@ function _patientExists(sessionId) {
 }
 
 // First Daily_Log row whose entryId (col Z) matches, as { row, data } with
-// data = that row A..AL (narrower if the grid is); null when absent.
+// data = that row A..AM (narrower if the grid is); null when absent.
 // { shifted: true } when the row moved between the two reads (a hand edit in
 // the Sheets UI — the lock does not cover humans), so the caller refuses
 // instead of acting on a different row.
@@ -2448,7 +2745,8 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
       .concat([_sheetSafe(JSON.stringify(entry.calcInput || {})), entryId, lastModified, _sheetSafe(submittedBy || "")])
       .concat(_ioLogFields(entry))
       .concat(_provenanceFields(entry))
-      .concat(_revisionFields(entry));
+      .concat(_revisionFields(entry))
+      .concat(_printJsonField(entry, entry.ts));
     // A row for an unregistered sessionId used to be accepted (2026-09-11
     // review, B5). Real path: a registration that failed on the network was
     // kept on screen as "local only", an order was saved against it, and the
@@ -2527,6 +2825,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // original date, so this only changes what a direct POST can do.
     var storedDate = _wardDateKey(cur[0] instanceof Date ? cur[0] : String(cur[0] || "").slice(0, 10));
     entry = Object.assign({}, entry, { ts: storedDate || String(cur[0] || "") });
+    // A sticker's orderDate is held to _fmtDate(cur[0]), not storedDate: that is the
+    // date string the ward sync gives the app, which the calculator copies into it.
 
     var originalSubmittedBy = String(cur[15] || editedBy || "");
     var newLastModified = new Date().toISOString();
@@ -2551,7 +2851,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
         .concat([_sheetSafe(JSON.stringify(entry.calcInput || {})), newEntryId, newLastModified, _sheetSafe(editedBy || "")])
         .concat(_ioLogFields(entry))
         .concat(_provenanceFields(entry))
-        .concat(["", "", nextRevisionNumber, _sheetSafe(entryId), ""]);
+        .concat(["", "", nextRevisionNumber, _sheetSafe(entryId), ""])
+        .concat(_printJsonField(entry, _fmtDate(cur[0])));
       _ensureLogWidth(sheet, revisionRow.length);
       sheet.appendRow(revisionRow);
       // Mark the row being replaced as superseded — AL — and advance its
@@ -2598,7 +2899,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       .concat([
         _sheetSafeRoundTrip(cur[33]), _sheetSafeRoundTrip(cur[34]),
         _numSafe(cur[35], 1), _sheetSafeRoundTrip(cur[36]), _sheetSafeRoundTrip(cur[37]),
-      ]);
+      ])
+      .concat(_printJsonField(entry, _fmtDate(cur[0])));
     // A Daily_Log tab created before the Intake/Output columns is only 28
     // columns wide (and one predating AF–AG only 31), and getRange() past
     // the grid edge throws — which would surface at the bedside as a failed
@@ -2670,6 +2972,8 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     var refusal = _stopRefusal(_parseJson(cur[24], null), "บันทึกนี้มาจากแอปรุ่นเก่า เปิดรายการแล้วบันทึกใหม่ก่อนส่ง");
     if (refusal) return { error: refusal };
     var publishedAt = new Date().toISOString();
+    // Publish writes AH:AI only (columns 34–35), so a 38-column tab (A–AL) is
+    // wide enough. It does not need AM (printJson), which a save widens for.
     _ensureLogWidth(sheet, 38);
     _assertRowStillHolds(sheet, hit.row, 26, entryId);
     // AH and AI in ONE write (2026-09-17 review, UP-B9). As two setValue
@@ -2682,6 +2986,153 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     _bumpDataVersion();
     lock.releaseLock();
   }
+}
+
+// ── pharmacyOrders (TPN room, Pp 2026-10-30) ──────────────────────────────────
+// One ward date's TPN orders, current revisions only: counts, and per order the
+// NeoFeed ID, bed, birth weight, DOL, status, revision, the prescriber's name,
+// the times and, for a submitted order, the sticker figures (AM). No name,
+// initials or date of birth: the TPN room links an ID to an infant from the
+// paper order, on its own PC (openspec tpn-room-stickers, D5).
+// Also the row's entryId and the infant's twin letter and set size
+// (walkthrough, 2026-10-30): an order deleted after printing and written again
+// is revision 1 again, so only its entryId tells the room it is a new order;
+// twins share BW and DOL, and the paper order prints "(Twin A)".
+//
+// The date window (ruling for this change, 2026-10-30): from the ward's today
+// minus 7 days to today plus 1. The TPN room needs today and a week back for a
+// reprint; +1 is headroom for an order dated ahead (the ward app's New log
+// offers today and earlier days only, so today it holds none); a pharmacy account
+// must not read any older day's orders. A real calendar date by the same
+// Date.parse round trip as _normaliseEntryDate (so 2026-13-45 and 2026-02-30
+// are refused), with a past limit as well as a future one. "" when it passes.
+var PHARMACY_DATE_MSG = "date must be a real date from 7 days ago to tomorrow";
+function _pharmacyDateRefusal(dateKey) {
+  var at = Date.parse(dateKey + "T00:00:00Z");
+  if (!isFinite(at) || new Date(at).toISOString().slice(0, 10) !== dateKey) return PHARMACY_DATE_MSG;
+  var today = Date.parse(_wardDateKey() + "T00:00:00Z");
+  if (at < today - 7 * 86400000 || at > today + 86400000) return PHARMACY_DATE_MSG;
+  return "";
+}
+//
+// Read by column index, so both tabs' headers are checked first, uncached:
+// a column deleted by hand shifted staff emails into savedAt and submittedAt,
+// and one inserted before Z put calcInputJson (an email and client text) into
+// entryId (attack pass and task review, 2026-10-30). The write guard's
+// 10-minute cached verdict does not see a column moved since, and this read
+// ends up on a bag label; about 57 header cells per call. The fields are held
+// to shape as well, for a cell edited by hand: a time only as an ISO
+// timestamp; entryId only as a UUID (Utilities.getUuid, every writer); the
+// prescriber is the Staff name of the account the server stamped as the saver
+// (AB), never what a client wrote into calcInput; a bed only when it is a
+// ward bed (a free-text bed may hold anything, and the TPN-room page refuses a
+// blank or free-text bed either way).
+var PHARMACY_ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+var PHARMACY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var PHARMACY_WARD_BED = /^(NICU \d+|SCN \d+|iso \d+(-\d+)?)$/;
+function _pharmacyTime(v) {
+  var s = String(v == null ? "" : v);
+  return PHARMACY_ISO_TS.test(s) ? s : "";
+}
+function _pharmacySchemaNow(sheet, tab) {
+  var bad = _schemaMismatch(sheet, tab);
+  if (bad) throw _schemaError(tab, bad);
+}
+// The Daily_Log rows dated `dateKey` (ward time), at full width (AM included):
+// columns Z (entryId) and A (ts) first, then only the blocks that hold that
+// date, planned as the ward sync plans its own (_planLogBlocks). Reading the
+// whole tab at 39 columns on every call grew with the tab (walkthrough,
+// 2026-10-30: 228,684 cells at 6,018 rows). Each block row is matched to the
+// first read by its entryId, which is unique; a mismatch, or a row count that
+// changed, means an edit landed between the reads: read the whole tab again
+// at its current length instead. The caller filters by date again, so the
+// rows between two hits do no harm.
+function _pharmacyLogRows(sheet, dateKey) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var n = lastRow - 1;
+  var width = Math.min(LOG_WIDTH, sheet.getMaxColumns());
+  var whole = function () {
+    var last = sheet.getLastRow();
+    return last < 2 ? [] : sheet.getRange(2, 1, last - 1, width).getValues();
+  };
+  // Z before A: the entryId check then covers every read after the first.
+  var idCol = sheet.getRange(2, 26, n, 1).getValues();
+  var tsCol = sheet.getRange(2, 1, n, 1).getValues();
+  var hits = [];
+  for (var r = 0; r < n; r++) {
+    if (_wardDateKey(tsCol[r][0]) === dateKey) hits.push(r);
+  }
+  if (!hits.length) return [];
+  var blocks = _planLogBlocks(hits);
+  var out = [];
+  for (var b = 0; b < blocks.length; b++) {
+    var start = blocks[b][0], end = blocks[b][1];
+    var vals = sheet.getRange(2 + start, 1, end - start + 1, width).getValues();
+    for (var k = 0; k < vals.length; k++) {
+      if (String(vals[k][25]) !== String(idCol[start + k][0])) return whole();
+      out.push(vals[k]);
+    }
+  }
+  if (sheet.getLastRow() !== lastRow) return whole();
+  return out;
+}
+function pharmacyOrders(dateKey) {
+  var ss = _book();
+  var patSheet = getSheetPat(ss), sheet = getSheetLog(ss);
+  _pharmacySchemaNow(patSheet, "Patient_Registry");
+  _pharmacySchemaNow(sheet, "Daily_Log");
+  var pat = patSheet.getDataRange().getValues();
+  var bedOf = {}, bwOf = {}, twinOf = {}, setOf = {}, active = 0;
+  for (var i = 1; i < pat.length; i++) {
+    var sid = String(pat[i][0] || "");
+    if (!sid) continue;
+    var bed = _normBed(pat[i][10]);
+    bedOf[sid] = PHARMACY_WARD_BED.test(bed) ? bed : "";
+    bwOf[sid] = _numSafe(pat[i][3], 0);
+    var twin = String(pat[i][8] || "").trim().toUpperCase();
+    twinOf[sid] = /^[A-D]$/.test(twin) ? twin : "";
+    setOf[sid] = _numSafe(pat[i][17], 0);
+    if (_onUnitStatus(pat[i][9])) active++;
+  }
+  var staff = getSheetStaff().getDataRange().getValues();
+  var staffName = {};
+  for (var s = 1; s < staff.length; s++) {
+    var name = String(staff[s][2] || "").trim();
+    if (name && name.indexOf("@") === -1) staffName[String(staff[s][0] || "").trim().toLowerCase()] = name;
+  }
+  var orders = [], submitted = 0, drafts = 0;
+  var rows = _pharmacyLogRows(sheet, dateKey);
+  if (rows.length) {
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (_wardDateKey(row[0]) !== dateKey) continue;
+      if (!/^TPN/.test(String(row[13] || ""))) continue;
+      if (row[37]) continue;   // superseded by a later revision
+      var isDraft = String(row[14] || "").trim().toLowerCase() === "draft";
+      if (isDraft) drafts++; else submitted++;
+      // AB (lastModifiedBy), else P (submittedBy) for a row from before AB.
+      var saver = String(row[27] || row[15] || "").trim().toLowerCase();
+      var prescriber = Object.prototype.hasOwnProperty.call(staffName, saver) ? staffName[saver] : "";
+      var rowSid = String(row[1] || "");
+      orders.push({
+        sessionId: rowSid,
+        entryId: PHARMACY_UUID.test(String(row[25] || "")) ? String(row[25]) : "",
+        bed: bedOf[rowSid] || "",
+        bw: bwOf[rowSid] || 0,
+        twinSuffix: twinOf[rowSid] || "",
+        multiplesCount: setOf[rowSid] || 0,
+        dol: _numSafe(row[2], 0),
+        status: isDraft ? "draft" : "submitted",
+        revision: _numSafe(row[35], 1),
+        prescriber: prescriber,
+        savedAt: _pharmacyTime(row[26]),
+        submittedAt: _pharmacyTime(row[33]),
+        printJson: isDraft ? null : _parseJson(row[38], null),
+      });
+    }
+  }
+  return { ok: true, date: dateKey, counts: { submitted: submitted, drafts: drafts, active: active }, orders: orders };
 }
 
 // ── deleteDailyNutrition (admin-only, permanent) ────────────────
@@ -3145,6 +3596,9 @@ function applyStaffHeaderColumns() {
 // true to actually write. Only ever fills a BLANK header cell — if AC1/AD1/
 // AE1 already contain anything it reports and changes nothing, so it is safe
 // to re-run.
+//
+// It labels AC–AM now and widens the grid to 39 columns (AM, printJson, joined
+// on 2026-10-30). To migrate the live tab, run applyLogHeaderColumns below.
 function ensureLogHeaderColumns(apply) {
   var WANT = {
     29: "ioInput", 30: "ioOutput", 31: "drainContent",
@@ -3153,6 +3607,8 @@ function ensureLogHeaderColumns(apply) {
     // AH–AL, added 2026-09-10 — see _revisionFields / the publish-lock design
     34: "published", 35: "publishedBy", 36: "revisionNumber",
     37: "revisionOf", 38: "supersededAt",
+    // AM, added 2026-10-30 — the TPN room's sticker figures, see _printJsonField
+    39: "printJson",
   };
   var sh   = getSheetLog();
   var out  = {
@@ -3162,36 +3618,41 @@ function ensureLogHeaderColumns(apply) {
     changes: [], skipped: []
   };
 
-  // 1. Widen the grid if needed — must happen before any getRange(.., 38).
-  var need = 38 - sh.getMaxColumns();
+  // 1. Widen the grid if needed — must happen before any getRange(.., 39).
+  var need = 39 - sh.getMaxColumns();
   if (need > 0) {
-    out.changes.push("grid: " + sh.getMaxColumns() + " -> 38 columns (+" + need + ")");
+    out.changes.push("grid: " + sh.getMaxColumns() + " -> 39 columns (+" + need + ")");
     if (apply === true) sh.insertColumnsAfter(sh.getMaxColumns(), need);
   } else {
     out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
   }
 
-  // 2. Label the headers (only if we actually have the columns to label).
-  if (apply === true || need <= 0) {
-    Object.keys(WANT).forEach(function (colStr) {
-      var col     = Number(colStr);
-      var cell    = sh.getRange(1, col);
-      var current = String(cell.getValue() || "").trim();
-      if (current === WANT[col]) {
-        out.skipped.push("col " + col + ": already '" + current + "'");
-      } else if (current !== "") {
-        // Someone put something else here — do not clobber it.
-        out.skipped.push("col " + col + ": OCCUPIED by '" + current + "' — left alone");
-      } else {
-        out.changes.push("col " + col + ": '' -> '" + WANT[col] + "'");
-        if (apply === true) cell.setValue(WANT[col]);
-      }
-    });
-  } else {
-    out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
-  }
+  // 2. Label the headers. A dry run on a grid still too narrow checks the
+  // columns that exist and lists those past the grid as labels the apply would
+  // add (walkthrough, 2026-10-30: it used to list the grid alone, while the
+  // apply on a 38-wide tab with blank AC–AL made twelve changes).
+  var gridCols = sh.getMaxColumns();
+  Object.keys(WANT).forEach(function (colStr) {
+    var col = Number(colStr);
+    if (col > gridCols) {
+      out.changes.push("col " + col + ": '' -> '" + WANT[col] + "' (after the widening)");
+      return;
+    }
+    var cell    = sh.getRange(1, col);
+    var current = String(cell.getValue() || "").trim();
+    if (current === WANT[col]) {
+      out.skipped.push("col " + col + ": already '" + current + "'");
+    } else if (current !== "") {
+      // Someone put something else here — do not clobber it.
+      out.skipped.push("col " + col + ": OCCUPIED by '" + current + "' — left alone");
+    } else {
+      out.changes.push("col " + col + ": '' -> '" + WANT[col] + "'");
+      if (apply === true) cell.setValue(WANT[col]);
+    }
+  });
 
-  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(38, sh.getLastColumn())).getValues()[0];
+  // Capped at the grid: a dry run on a tab still 38 wide must not read AM.
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.min(Math.max(39, sh.getLastColumn()), sh.getMaxColumns())).getValues()[0];
   Logger.log(JSON.stringify(out, null, 2));
   return out;
 }
@@ -3461,23 +3922,41 @@ function _sessionIdConflict(existingRow, p, isNew, base) {
 // lands two registrations of one baby on the same id, so this asks outright —
 // a second device registering the same admission, or a readmission after a
 // transfer out. Every row, not only the synced ones; never an erased row (its
-// dob is gone). Returns the question for the bedside, or null. This is the
-// only copy of the rule and of its words (2026-09-27, single source of
-// truth): the client asks nothing itself, and shows this sentence as it is.
-function _possibleDuplicate(data, p) {
+// dob is gone). Returns { message, matchedId }, or null. This is the only copy
+// of the rule and of its words (2026-09-27, single source of truth): the client
+// asks nothing itself, and shows this sentence as it is.
+//
+// Every row is still searched, but since 2026-11-02 a row is NAMED only to a
+// caller whose sync carries it. This reverses the 2026-09-27 design, which named
+// any row (attack pass 2026-10-30, A5): non-admin syncs stop 30 days after
+// discharge and the archive is admin-only, yet one registerPatient with an archived
+// infant's BW and date of birth returned that infant's name, status, last bed and
+// ID to a nurse or doctor, with no audit row. An old-style ID carries the BW. Outside
+// the window the caller now hears that such an infant is on file, and to ask an
+// admin, whose sync can carry every row. A named match wins over a hidden one
+// wherever it sits in the tab: that is the record this device can open.
+function _possibleDuplicate(data, p, seesArchive) {
   var dob = _fmtDate(p.dob), bw = Number(p.bw);
   if (!dob || !(bw > 0)) return null;
+  var todayKey = _wardDateKey();
+  var hiddenId = "";
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
     if (!r[0] || String(r[0]) === String(p.sessionId) || _isPdpaErased(r)) continue;
     if (Number(r[3]) !== bw || _fmtDate(r[6]) !== dob) continue;
+    if (!seesArchive && !_patientInSyncWindow(r[9], r[16], todayKey)) {
+      hiddenId = hiddenId || String(r[0]);
+      continue;
+    }
     var bed = _normBed(r[10]);
-    return "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว: " +
+    return { matchedId: String(r[0]), message: "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว: " +
       String(r[1] || r[2] || "—") + " (" + _readStatus(r[9]) + " " +
       (bed ? "เตียง " + bed : "ยังไม่ระบุเตียง") + " ID " + String(r[0]) + ") " +
-      "ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่";
+      "ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่" };
   }
-  return null;
+  if (!hiddenId) return null;
+  return { matchedId: hiddenId, message: "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว " +
+    "แต่เป็น record เก่าที่พ้นช่วงที่หอเปิดดูได้ ถ้าอาจเป็นคนเดียวกัน ให้ถาม admin ก่อนลงทะเบียน" };
 }
 
 // ── One infant per bed ────────────────────────────────────────
@@ -3676,8 +4155,19 @@ function _mergePatient(storedRow, incoming, base) {
 // `isNew` is optional and defaults to a plain upsert, so an older client that
 // does not send it keeps working exactly as before — see _sessionIdConflict.
 // `base` is optional too — see the three-way merge above. `confirmDuplicate`
-// is the client's "yes, a different infant" to _possibleDuplicate's question.
-function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate) {
+// is the client's "yes, a different infant" to _possibleDuplicate's question, and
+// `seesArchive` says the caller's sync can carry every row (an admin).
+//
+// A row that does not exist yet needs an id in the form the app makes (R2, the
+// cold-reader triage of 2026-10-31). Any text used to pass, so a direct POST could
+// file an infant under a name or an HN, and that id then reaches every ward device,
+// Audit_Log and the TPN room. Only a NEW row is held to it: ids issued before
+// 2026-09-27 keep their initials+BW form on every read and edit (a residual Pp
+// accepted, 2026-10-30). Mirrors newSessionId in data.js, which this file cannot
+// import; test/verify-hardening-1102.cjs §7 runs that function against this rule.
+var NEW_SESSION_ID_RE = /^NF-\d{6}$/;
+var NEW_SESSION_ID_MSG = "ID ของผู้ป่วยรายใหม่ต้องเป็น NF- ตามด้วยเลข 6 หลัก — รีเฟรชหน้าแล้วลงทะเบียนใหม่ ระบบจะออก ID ใหม่ให้";
+function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, seesArchive) {
   if (!p || typeof p !== "object" || !_requiredString(p.sessionId) || !p.sessionId.trim()) {
     throw new Error("sessionId is required");
   }
@@ -3727,16 +4217,19 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate) {
     // the anchor DOL is now computed from, so it is held to the same rule.
     _checkAdmissionDate(m.admissionDate, stored ? stored[7] : null, "Admit date");
     _checkAdmissionDate(m.dob,           stored ? stored[6] : null, "Date of birth");
+    _checkPatientText(m, stored);
     // Inside the lock and after the read, so the census it checks is the one
     // this write is about to land in — and on the MERGED record, so a stale
     // device's old "Active" status cannot claim a bed for a discharged patient.
     var bedTaken = _bedConflict(data, m);
     if (bedTaken) throw new Error(bedTaken);
+    // Last of the refusals, so a save refused for another reason keeps its own message.
+    if (!stored && !NEW_SESSION_ID_RE.test(p.sessionId)) throw new Error(NEW_SESSION_ID_MSG);
     // Asked last, of a registration that would otherwise be written: no
     // question about the baby for a save that is refused anyway.
     if (!stored && isNew === true && confirmDuplicate !== true) {
-      var lookalike = _possibleDuplicate(data, m);
-      if (lookalike) return { needsConfirm: true, code: "PossibleDuplicate", error: lookalike };
+      var lookalike = _possibleDuplicate(data, m, seesArchive === true);
+      if (lookalike) return { needsConfirm: true, code: "PossibleDuplicate", error: lookalike.message, matchedId: lookalike.matchedId };
     }
     var row18 = [
       _sheetSafe(m.sessionId), _sheetSafe(m.name || ""), _sheetSafe(m.initials || ""),

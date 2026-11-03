@@ -7,6 +7,244 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-03 (2) — Vera on the TPN unit's answers: the entry below corrected
+
+- **The gate is all of `tasks.md` 0.3 e, not its Na acetate part.** The entry below narrowed it on a reading of the
+  sample order that the unit's reply does not state. Whether the unit's Excel counts Glycophos and Na acetate sodium
+  goes back to the unit.
+- **Who confirmed the figures:** the reply is unsigned, from the TPN unit's pharmacist, passed on by Pp. It is not
+  recorded as the change protocol's second clinician. No number moved, and Pp's sign-off at `tasks.md` 1.1 is what
+  stands behind these figures.
+- **Heparin:** the calculator cautions only above 1 U/mL, so nothing warns below the unit's 0.5. `tasks.md` 0.3 d now
+  says so.
+- **Specs:** date made cannot be assumed to be the print day or the order's date, and the worksheet scenario no longer
+  asks for the three dropped rows.
+
+## Session 2026-11-03 — The TPN unit's answers to the sticker questions: four figures confirmed, three rows gone
+
+`data.js` (`stickerFigures`), `gas-backend.gs` (the `printJson` key lists), `compiled/` and the shells' `?v=`
+tokens, `test/verify-sticker-figures-1030.cjs`, `test/verify-pharmacy-backend-1030.cjs`, `test/README.md`,
+`openspec/changes/tpn-room-stickers/`. On PR #212, not live. The unit replied in writing on 2026-11-03; the reply
+is in Pp's product notes.
+
+- **Confirmed, and no longer PROVISIONAL:** the vitamins on the PN label (what reaches the infant), Cl⁻ (20% NaCl and
+  KCl only, 1 : 1), kcal (dextrose × 3.4 and amino acid × 4 in the delivered volume) and heparin units (the delivered
+  volume, at 0.5–1 U/mL). No figure moved, and `CONSTANTS_VERSION` stays.
+- **Rows:** Aminoleban, Nephrosteril and MgSO₄ 50 % leave `printJson` and the backend's schema. Amiparen and Addamel N
+  stay at 0. `STICKER_SCHEMA_VERSION` stays 1, since no order has been saved on this schema: PR A is not live.
+- **The sodium worry is closed.** The unit had once said Na was calculated wrong, and now says it was right
+  ("เดิมคำนวณถูกแล้ว"). Nothing here changes for it.
+- **Spec corrected:** วันที่ผลิต is the day the TPN is prepared, not the day the sticker prints. PR B has to settle
+  where that date comes from (`tasks.md` 2.6).
+- **Still open, and the release gate with it:** the Na acetate part of `tasks.md` 0.3 e, and 0.3 m. The reply left 0.3 i
+  (printer, fixed lines) blank, and j, k and l were not on the list the unit saw.
+- **Clinician review:** the unit confirmed the rules behind the figures. Pp's sign-off on the figure table (`tasks.md`
+  1.1) is still to come. The constants register is untouched, because no constant changed.
+- **Merge:** `main` (#210, #213) is merged into the branch. The two Submit lines read `orderSettled &&
+  !figuresMissing`. An unlocked No TPN order now only locks on Submit, so `verify-sticker-figures-1030.cjs` §2c5 expects
+  the lock and no write.
+
+## Session 2026-11-03 — A backend release stops unless there are exactly two deployments
+
+Pp, 2026-11-03: "ลองเพิ่มขั้นในการปล่อย backend ให้ clasp list-deployments ต้องเหลือ 2 ตัวเท่านั้น ถ้าเกินให้หยุด".
+
+`tools/check-deployments.mjs` (new) reads `clasp list-deployments` and passes only on `@HEAD` plus the ward's
+deployment, whose ID it takes from `boot.js`. A third deployment exits 1 and a list it cannot read exits 2. It
+changes no deployment, and it prints any other deployment by version and the start of its ID, because its output
+gets pasted into comments here. `REFERENCE.md` § Backend (GAS) runs it before step 1 and after step 2. A rollback
+does not wait for it.
+
+`test/verify-check-deployments.cjs` (new): 27 checks, with a stand-in `clasp` on PATH because CI has none. Eleven
+broken copies of the tool each fail it. Two survived the first round (a failed `clasp` that still printed a good
+list, and a comment quoting another URL), so 5.1 was rewritten and 6.7 and 6.8 were added.
+
+Same morning, on Pp's word: the 24 old deployments (`@2`–`@25`) were removed, one ID at a time, after each
+version's code was read. `clasp list-deployments` holds at 2 and each old URL answers 404. The list lags a delete in
+both directions: `@4` still showed on the read after its delete, and `@25` showed again once after it had gone.
+
+Run against the real `clasp` once, on the two that remain: `exactly two: @HEAD and production at @66`. The stop has
+run only on saved lists and the stand-in. No Vera: no dose file, printed order, auth code or patient data here. No
+frontend or backend code changed, so nothing to release.
+
+## Session 2026-11-02 — Five whole-app findings of the attack pass, closed in their own PR
+
+`gas-backend.gs`, `REFERENCE.md` (§ Backend, § PDPA), `app-walkthrough.md`, `test/verify-hardening-1102.cjs` (new),
+`test/gas-vm-sandbox.cjs` (`seedPatient`), `test/README.md`, `STATUS.md`, and the fixtures of fifteen harnesses (below).
+Pp, 2026-11-02, on the cold-reader triage of 2026-10-31 (rows A3, A4, A5, A10, R2). All five were there before the
+TPN-room branch, which already closes A2 and A6 to A9. Backend only: no `.jsx`, no calculation, no printed figure, no
+`CONSTANTS_VERSION`. Live only after `clasp push` and `clasp update-deployment`, on Pp's go-ahead.
+
+- **A3, the login flood.** Rows about an address with no proven account (an invented address, a Google account not on
+  Staff, a suspended account, a Staff row with no password) now share one ceiling per hour: 60 rows, then one
+  `loginFailCapped` row with no address on it, then nothing until the next hour. Before: 200 invented addresses wrote
+  200 rows, and 240 when each address got its five tries and a lockout row. Now 61, so expect 5,856 cells a day. The
+  worst case is higher: the count takes no lock, so requests that read the same count write one increment between them,
+  about 1,830 rows an hour at 30 concurrent executions (175,680 cells a day), and a cache outage writes a row per request
+  without limit. The reply never changes. A wrong password for a real account is
+  outside the ceiling on purpose: a flood must not hide it, and the lockout already bounds it to 6 rows per account per
+  15 minutes. A verified Google token is kept by its SHA-256 for what is left of its life, so 40 replays make one
+  tokeninfo fetch instead of 40; the Staff row is still read on every call, and a refusal or an outage is not kept.
+  Not closed: a stream of made-up tokens still costs one fetch each, since the next one can simply be different, and a
+  flood still spends execution time on the dummy hash. It also still takes the script lock once per attempt on the
+  password form (`_beginPasswordAttempt`), the lock ward saves wait on, so saves could wait out their 10 s and answer Busy;
+  nobody has reproduced that, as the sandbox lock never waits. It stays because skipping it for a no-password address is
+  not safe: overlapping tries undercount, so in a copy with no lock twenty of them all answered "wrong password" where a
+  real password account answers that five times and then locks, and that tells a flood which addresses hold a password,
+  the oracle SEC-B8 closed. Nor would it end the queue: a flood at one real staff address takes the same lock on every
+  try. The attack report's third item, a lockout for Google emails, is
+  left out: the ceiling already stops those rows.
+- **A4, the account lockout.** No code change. The lock stays, and `REFERENCE.md` now says what it costs, who can do
+  it, and what the ward does when it happens.
+- **A5, the duplicate message. This reverses Pp's own 2026-09-27 design ("every row, not only the synced ones"), and
+  she accepted that on 2026-11-03: "ตกลงตาม A5".** Every row is still searched, but a row is named only to a caller whose sync carries it. A
+  nurse or doctor who matches an archived infant now hears that such an infant is on file and to ask an admin, with
+  no name, status, bed or ID. An admin still gets all of them. The question leaves a `possibleDuplicate` row with the
+  matched ID; the ID stays out of the reply. A named match beats a hidden one wherever it sits in the tab. It used to
+  answer from an archive these roles cannot open, with no audit row. To go back to "every row": drop the
+  `_patientInSyncWindow` test in `_possibleDuplicate`.
+- **A10, input sizes.** `calcInput` is capped at 10,000 characters, and the registry's text at name 200, initials 40,
+  diagnosis 2,000, bed 60, twin letter 20, each date 40, with a Thai refusal that gives both counts and never repeats
+  the text. Measured from the real `<Calculator>`: an ordinary bag 940 characters, a draft with the required boxes
+  blank 1,023, every box holding a 19-character decimal 1,484, a critical override with 8 alerts and the 300-character
+  reason 1,557. §8 of the new harness fails if a real save passes half the cap. A stored value over a cap passes while it
+  is unchanged, by the rule `_checkAdmissionDate` already gives, so an old record stays editable. Not capped: `route`,
+  `constantsVersion`, `appVersion` and the supplement type columns of a Daily_Log row, and extra keys inside a measurement
+  array. The report named none of them, and refusing there would add to the record `sheetHealthReport` already found uneditable.
+- **R2, sessionId.** A row that does not exist yet must have an id of `NF-` and six digits, whatever `isNew` says. That is
+  the only form `newSessionId` has made since 2026-09-27, twins included (two draws and a letter). Old ids keep working
+  on every read and edit (Pp's residual of 2026-10-30). The check sits last before the look-alike question, so a save
+  refused for another reason keeps its own message and no question is asked for an id that would be refused.
+- **Tests.** `test/verify-hardening-1102.cjs`, in the sandbox, plus the real `<Calculator>` in jsdom for §8. A verified
+  token being kept means a harness that reused one token for several Google answers now needs one per answer
+  (`verify-chula-google-signin.cjs`, `verify-review-0917-backend-security.cjs`, `verify-gas-session-revocation.cjs`). R2 means a fixture registering an old
+  shape had to move: a fixture that only needs the infant on the sheet now seeds it with `g.seedPatient` under its old
+  id, which adds one more read-and-edit case of such an id each time (`verify-backend-stops-1028.cjs`,
+  `verify-delete-order-1029.cjs`, `verify-pdpa-erased-dob-backend.cjs`, `verify-review-0917-backend-writes.cjs`,
+  `verify-review-0917-backend-security.cjs`, `verify-backend-batch-0924.cjs`), and one whose subject is a registration
+  now uses an `NF-` id on the lines that need it (`verify-bed-transfer-0927.cjs`, `verify-clinical-0924.cjs`,
+  `verify-gas-registry-upsert.cjs`, `verify-input-validation.cjs`, `verify-review-0917-backend-sync.cjs`,
+  `verify-status-read-1028.cjs`). SEC-B1's formula-shaped id can no longer be new, so its escape is proved on a row
+  already holding one. `verify-name-id-0927.cjs` 4.14 and 5c.6 pinned "every row", and now pin the reversal. A
+  negative test on a new row under another shape of id would pass on R2's refusal with its own guard gone (Vera on
+  `8a77e3a`; with `_checkSex`'s create branch removed, no backend harness failed), so those moved to `NF-` ids and assert
+  the guard's own words: sex, BW, GA, status, bed and the measurement arrays, in `verify-review-0917-backend-writes.cjs`,
+  `verify-backend-batch-0924.cjs`, `verify-status-read-1028.cjs`, `verify-gas-registry-upsert.cjs` and
+  `verify-input-validation.cjs`.
+## Session 2026-11-02 — The doctor's printed order is one A4 page at its fullest, signature included
+
+`calculator.jsx` (`PrintOrderForm`), `compiled/calculator.js`, both shells' `@media print` block and `?v=`
+tokens, `test/verify-print-one-page-1102.cjs` (new), `test/README.md`. Pp, 2026-11-02: "แยก PR แก้ให้พอดี 1 หน้า";
+and, about a critical value a doctor has confirmed: "จะบีบอัดยังไงให้ หากมี hard stop แต่หมอติ๊กเซนยืนยัน และอยาก
+ให้มีลายเซ็นอยู่ในหน้าเดียวกัน". The layout is the one mocked up with Pp on release `729910f`.
+
+- **Before:** the fullest order (every stock line, 2 feeds, 5 oral lines, 11 critical alerts, a 300-character
+  reason) printed on two pages. The page break cut the red box (its alert titles on page 1, the reason on
+  page 2) and put the signature line and the provenance footer on page 2, about 30 mm over. One alert with a
+  300-character reason was 13 mm over, and one alert with a 40-character reason spilled the footer alone.
+- **Now one page,** measured as a headless-Chromium A4 PDF with IBM Plex Sans loaded (mm free above the 8 mm
+  bottom margin, before → after): no alert 8.6 → 56.5; 1 alert, 40-character reason 2 pages → 37.7; 1 alert,
+  300 characters, no oral orders 2 pages → 43.8; 1 alert, 300 characters 2 pages → 29.5; 11 alerts, 300
+  characters 2 pages → 21.6; all 13 critical titles that take a reason, 300 characters 17.4 (edited DOM); 7
+  alerts, 300 characters, 8 oral lines and a long diagnosis 2 pages → 11.0 (edited DOM, since the app has
+  five oral lines); all 13, 8 oral lines and a long diagnosis, the heaviest page imaginable, 3.1. Four
+  changes, no font size lowered: the amino-acid choices are two lines, the ticked product with its dose and
+  then the other choices and "Other" side by side; cell padding 3 px → 1.5 px with a 1.35 line height on
+  cells; the form's own 4 mm / 6 mm padding is 0 / 2 mm (the page keeps its 8 mm / 10 mm margins); and with a
+  confirmed critical value the signature line sits **inside the red box**, which with the line never splits
+  across a page break (`break-inside: avoid`).
+- **The box's signature line names the infant and the day** (Pp, after Vera's review): "NeoFeed ID: … · วันที่ให้ TPN:
+  …" between the doctor and the code, the strings the sheet prints at its top ("วันที่สั่ง" on a No TPN
+  sheet), in plain spans, only when a critical value was confirmed. An order with none keeps its line as it was.
+  The line sits 18 px under the reason (it was cut to 10 px when it moved into the box) and the box has 8 px
+  under it, so there is room to sign by hand.
+- **If an order ever does not fit,** the red box moves whole to the next page with its signature directly
+  after the reason, never apart, and that page carries the NeoFeed ID and the date. Shown on the real sheet
+  with all 13 titles and a 600-character diagnosis: page 1 ends after the lipid pump rate, page 2 holds the
+  box, the signature line with ID and date, and the footer.
+- **Unchanged:** every figure, line and name on the sheet. The printed text of the fullest order differs
+  from before in one place only, the amino-acid dose, which now follows the ticked product instead of the
+  whole list (so a ticked Aminoplasmal is first, not last as on the paper), and, in the box, the ID and date.
+  The box's three texts, `.crit-confirmed`, `.print-doctor`, `.print-revision` (4 mm / 6 mm),
+  `.print-lipid-rate`, the patient table as the first `<table>` and the footer as the last child are as they
+  were. The provenance footer stays two lines: its two strings come to about 226 mm at 8 px against 186 mm of
+  page, so one line would need a smaller type. Center Point's own sheet (`tpn-document.mjs`, its digest pin)
+  is not touched, and nothing in `center-point/` or `verify-center-point-print-parity.cjs` reads the signature
+  row; its legacy screen bundles this form and picks up the layout.
+- **Tests.** `verify-print-one-page-1102.cjs` (68 checks) saves three real orders (no alert, one, several)
+  through Submit and pins the markup (the signature inside the box and the only one, with the ID and date; the
+  box's texts; room to sign; five amino-acid choices once each, also for Aminoplasmal; every figure 10 px or
+  larger; the rules in both shells; and that calculator.jsx still raises the 21 kinds of critical alert the
+  fit test's list of 13 was drawn from). In Chromium it prints each order's form with the shells' CSS in a wide
+  fallback font (Verdana here, DejaVu Sans on CI; about 4 % taller than IBM Plex Sans) and expects one page,
+  reads the computed `break-inside` and line height and the room around the signature line, then prints an
+  order that does not fit, with a link around each part of the box (Chrome writes the link on the page where it
+  falls), and expects the whole box, its signature, the ID and date on page 2; with `break-inside` switched
+  off the same order splits, which proves the check sees a split. Against `6ed5428` 45 of its 66 checks fail,
+  the three page counts among them; five mutations of the fix (ID on every row, a wrong ticked product, a new
+  critical alert, no break rule, the old 10 px gap) each fail their own check.
+## Session 2026-11-02 — A locked No TPN order has nothing to submit
+
+`calculator.jsx` (`orderSettled`, Submit's `disabled`, `handleSave`'s lock-only path), `compiled/calculator.js`,
+both shells' `?v=` tokens, `test/verify-no-tpn-1101.cjs`, `test/verify-safety-review.cjs`, `test/README.md`. Pp
+asked for the fix on 2026-11-02, after the live release `729910f` was shown offering Submit on a locked No TPN order.
+
+- **Before:** a No TPN order with no short sheet (no oral orders, no TPN the day before) is never `printable`,
+  and two checks read `printable` as "nothing left to submit": Submit's `disabled` clause and the lock-only
+  path in `handleSave`. So a locked, unchanged order still offered Submit, and pressing it called `onUpdate`,
+  which the server turns into a new revision of identical numbers; Submit stayed enabled afterwards. An
+  unlocked, unchanged one did a full save and then a lock, where an order with TPN only locks.
+- **Now:** `orderSettled` is `printable` without its No TPN term (saved, unchanged, no stop, no moved
+  calculation, no changed dosing weight, no unconfirmed critical value, not a draft). Both checks read it.
+  A locked, unchanged No TPN order has Submit disabled, and an unlocked one only locks.
+- **Unchanged:** `printable` itself, so Print still prints nothing for a No TPN order with no sheet (it says
+  "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์"), and the red "held from Print" line stays off. A No TPN order held by a
+  moved calculation, a changed dosing weight, an unconfirmed critical value or a draft keeps Submit enabled
+  and takes the full save. An order with a short sheet (oral orders, or the day TPN stopped) behaves as
+  before: locked, Submit disabled; unlocked, only the lock. Submit's second, publish-gate button
+  (`D.ENABLE_PUBLISH_GATE`, off) still reads `printable`. No calculation, figure or `CONSTANTS_VERSION` change.
+- **Tests.** `verify-no-tpn-1101.cjs` §10, 20 checks. On `6ed5428`, four fail: the locked order's Submit is
+  enabled, a press sends one update and one lock, the unlocked order's press sends an update where it should
+  only lock, and Submit is still enabled afterwards. The rest are guards that held before the fix: a feed
+  changed on the locked order, a moved calculation (locked and unlocked), an order with vitamin D, and the day
+  TPN stopped. `verify-safety-review.cjs` pinned the text `const printable = !!savedEntryId && !dirty`; it now
+  pins `const orderSettled = !!savedEntryId && !dirty` and `const printable = orderSettled`, the same rule
+  one name along.
+
+## Session 2026-11-02 — TPN-room stickers, PR A: figures saved with each order, a read-only pharmacy role
+
+Not live. `data.js` (`stickerFigures`), `calculator.jsx`, `app.jsx`, `gas-backend.gs`, `compiled/`, both shells' `?v=`
+tokens, `test/verify-sticker-figures-1030.cjs`, `test/verify-pharmacy-backend-1030.cjs`,
+`test/verify-pharmacy-frontend-1030.cjs`, `test/README.md`, `REFERENCE.md`, `STATUS.md`,
+`BACKLOG.md`, `openspec/changes/tpn-room-stickers/`. Pp, 2026-10-30: the TPN room should print its three stickers
+from NeoFeed's figures instead of retyping each paper order into Excel. Her go-ahead for the figures before the
+TPN unit answered, 2026-10-31: "ทำ นำไปก่อนได้? เพราะ tpn ว่างตอบอีกสามวันเลย".
+
+- **Before:** the room typed every component from the paper order into its Excel, and no server path gave a
+  pharmacy account anything.
+- **Now:** every save of a bag writes `printJson` to `Daily_Log` AM, computed from the same calc as the order. A
+  `pharmacy` account reaches only `changePassword` and `pharmacyOrders`, with no name, initials or date of birth.
+  The page itself is PR B.
+- **Four figures are PROVISIONAL** in `data.js` until `tasks.md` 0.3 a–d is answered: the vitamins on the PN label,
+  Cl⁻, kcal and heparin. Each reproduces the unit's sample sticker. `CONSTANTS_VERSION` stays, since no dose moves.
+  **No second clinician has reviewed these figures:** Pp's sign-off on the figure table (`tasks.md` 1.1) waits on 0.3.
+  The constants register is untouched, because the change adds no constant.
+- **The server holds the figures to the schema and to their order** (design D14), after an attack pass stored
+  contradictory figures and a patient name. Three things the tests found on the way:
+  - the plan's weight check, compared raw, refuses 220 whole-gram weights such as 1005 g, and its own 1625 g
+    example happens to pass, so only a mutation run and a sweep of every gram showed it;
+  - the plan's figure form kept a minus sign, which let the attack's D50W -5 through. It is gone, and
+    `stickerFigures` returns null on a negative so a damaged row saves with no sticker instead of being refused;
+  - main's "No TPN" tick (#206) saves `printJson` null, so it is outside the rule. §2d sends the tick's real saves
+    through the real backend.
+- **Deploy order is now required: backend first** (D15). `plan-pr-a.md` said either order was safe, which Task 2's
+  marker made false.
+- **The re-save notice shows only for today's and tomorrow's order.** Without that bound, every bag order ever saved
+  told the doctor to press Submit, and a press superseded the signed row on a day whose bag had been given.
+- **A cancelled or revised order is confirmed by phone** (Pp, 2026-11-02 and 2026-11-03, D16). A cancelled one already
+  printed keeps the page's warning.
+- **Checked and not fixed here:** the doctor's sheet at its fullest runs to 2 pages, and that is live as well. Pp
+  chose a PR of its own.
+
 ## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
 
 `calculator.jsx` (the Alerts panel, the save panel, Submit's refusal), `compiled/calculator.js`, both shells'

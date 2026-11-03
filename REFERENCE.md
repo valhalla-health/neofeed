@@ -99,7 +99,10 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
 
 - **Front: the doctor's order.** It is the KCMH paper form, in the paper's own layout and words, with
   one table row per product so that no figure can sit on another product's line. Ordered products are
-  bold, and the paper's other choices print unticked. Oral orders go under "8. Other", and the saver's
+  bold, and the paper's other choices print unticked. **One departure from the paper's order (2026-11-02):**
+  the Amino acid cell is two lines, the ticked product first with its dose, then the paper's other choices
+  side by side, so a ticked product that is not first on the paper (Aminoplasmal) is no longer printed
+  where the paper has it. Oral orders go under "8. Other", and the saver's
   name goes at "แพทย์". Alerts are settled in the app, where a critical one needs a confirmation with a
   reason at Save; the only alert text on the front is that confirmation, since 2026-10-28. The "Normal Requirement" column is NeoFeed's targets, not
   the paper's printed ranges, which disagree with the app (review F4).
@@ -107,7 +110,8 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   Ca·PO₄, what reaches the infant, changes since the last order, and who saved it.
 
 **Since 2026-10-28 only the front prints** (the TPN team: "print เฉพาะแค่หน้าแรก หน้าสองเก็บไว้ก่อน"). Both
-shells hide `.print-back` in print; it still renders, for a later phase that prints it for a sticker.
+shells hide `.print-back` in print; it still renders. The stickers are not this sheet: they print from `printJson`
+(`openspec/changes/tpn-room-stickers`).
 Pharmacy works out the stock mL, Factor and WFI from the front. Two things moved from the back to the
 front so they stay on paper (Pp, after Vera): the lipid pump rate, and, when a critical value was
 confirmed at Submit, "✔ แพทย์ยืนยันคำสั่ง" with the alerts and the reason. A revision prints
@@ -124,6 +128,17 @@ ward's Print order list both read `D.orderPrints`.
 
 Two harness contracts: the patient table stays the form's first direct `<table>` child (the parity and
 §6 figure sweeps skip it), and the provenance footer stays the form's last child.
+
+**One A4 page at its fullest (Pp, 2026-11-02).** The front must stay one page with the signature on it, also
+with a confirmed critical value (all 13 critical titles that take a reason, and the 300 characters Submit allows a reason). With a
+confirmation the signature line is **inside** the red box (`.print-crit-box`), and the box and the line never
+split (`break-inside: avoid` in both shells). In the box the line also carries "NeoFeed ID: … · วันที่ให้ TPN:
+…" (the strings the sheet prints at its top, "วันที่สั่ง" on a No TPN sheet) between the doctor and the code,
+so that if an order does overflow and the box moves whole to page 2, that page still names the infant and the day. The room comes from spacing (cell padding 1.5 px, line height 1.35,
+the form's own padding 0 / 2 mm, the amino-acid choices on two lines), never from a smaller figure or a
+removed line. `verify-print-one-page-1102.cjs` counts the pages in Chromium, so a line added to the front
+that tips the fullest order onto a second page fails it. The provenance footer stays two lines (8 px, about
+226 mm of text on 186 mm of page).
 
 ## GA/PMA convention
 
@@ -412,7 +427,21 @@ split rather than carried over.** It was written around session 8 (2026-05-25), 
 the app as sitting in sandbox mode with `NEOFEED_GAS_URL` commented out, and instructed the
 reader to *"paste `gas-backend.gs` into the Apps Script editor"* — which directly
 contradicts the clasp-only rule below and would have switched the live app's executing
-identity. None of it was true any more. The current procedure:
+identity. None of it was true any more.
+
+**The gate (Pp, 2026-11-03): exactly two deployments, or stop.** From this repo, run
+`node tools/check-deployments.mjs` before step 1 and again after step 2. It reads
+`clasp list-deployments` in `~/nicu-tools/neofeed` and passes only on `@HEAD` plus the ward's
+deployment, whose ID it takes from `boot.js`. A third deployment, or a list it cannot read, exits
+non-zero: do not push or deploy. The list lags a delete in both directions (on 2026-11-03 a removed
+deployment showed again for one read), so run it once more first. If it still stops, tell Pp. Removing
+a deployment is her call: read that version's code first, remove one ID at a time, and never use
+`clasp undeploy --all`, which takes the ward's with it. A rollback does not wait for this gate: roll
+back first and run it after. It covers a release because every deployment runs its own version's code
+against the live Sheet, Script Properties and cache until someone removes it, and a plain
+`clasp deploy` adds one without a word. `test/verify-check-deployments.cjs` pins it.
+
+The current procedure:
 
 1. **Diff before you push.** `~/nicu-tools/neofeed/รหัส.js` **is** `gas-backend.gs`, but
    the two drift independently. Diff and **reconcile — never overwrite**. On 2026-08-17
@@ -545,6 +574,72 @@ and the sync window). `appsscript.json` lives only in the clasp mirror, not in t
 **Password floor is 10 characters** for any new password (`MIN_PASSWORD_LENGTH`, server and
 client, since 2026-09-11). Existing shorter passwords keep working until next changed.
 
+**Five wrong passwords lock a password account for 15 minutes, whoever typed them**
+(`LOCKOUT_MAX_FAILS`, `LOCKOUT_MS`; attack pass 2026-10-30, A4, kept on 2026-11-02). The lock stays on
+purpose: it is what holds guessing to five tries per window, and it is counted before the hash, so a
+parallel burst cannot slip past it. The price is that anyone who knows a staff email can lock that person
+out, and a script repeating it every 15 minutes keeps them out for a whole shift, with the right password
+refused ("ลองใหม่ในอีก 15 นาที"). It reaches password accounts only: a Google or Workspace sign-in has no
+password to lock, and a session already open carries on. The other option was a growing delay instead. It would
+either hold a script execution open for each delayed request, which a flood turns into a lockout of everyone,
+or refuse until the delay ends, which is this lock on a shorter clock. **What the ward does:** wait the 15
+minutes, or have a colleague who is signed in save the order under their own name. If the lock is back straight
+after the 15 minutes, it is not a typo: tell an admin, who looks for `lockout` rows with that address in
+`Audit_Log` and can lift it at once by deleting the Script Property `fail_` + the SHA-256 of the lower-case
+address.
+
+**Before the `clasp push` that brings the size caps (2026-11-02),** count the stored `calcInput` over 10,000
+characters on the live `Daily_Log`, for example `=SUMPRODUCT(--(LEN(Daily_Log!Y2:Y)>10000))` in a scratch cell. An edit
+that sends such a `calcInput` back is refused: the registry's unchanged-value pass has no twin there. Real saves are
+about 1,500 characters, so expect 0; if it is not 0, hold the push and tell Pp.
+
+### The TPN room: `pharmacy`, column AM, `pharmacyOrders` (not live)
+
+PR A of `openspec/changes/tpn-room-stickers`. The page that reads all this, PR B, is not built.
+
+- **`Daily_Log` AM, `printJson`.** The figures for the TPN unit's three stickers, as `D.stickerFigures` made
+  them at the save, drafts too. A save with none (no bag, a No TPN order, a tab from before the release) lands
+  with AM blank. The ward sync does not read AM, so the calculator also writes `calcInput.printJsonV`; a saved
+  bag without it, dated today or tomorrow, shows "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง". Print is not held for it.
+- **`_printJsonField` refuses** a sticker off the schema or off its order (design D14), and a refusal stops a
+  doctor's save. Its key lists mirror `stickerFigures` by hand, and `test/verify-pharmacy-backend-1030.cjs` §13
+  compares them. `stickerFigures` returns null rather than send what the server would refuse, so the order
+  saves with no sticker. **Compare the weight after rounding:** raw, |sticker − kg| > 0.005 refuses 220 of the
+  whole-gram weights from 200 to 8000 g, such as 1005 g printing 1.01.
+- **The `pharmacy` role.** `login` and `logout` are answered before the token check, GET `ping` is open, and
+  `PHARMACY_ACTIONS` lets a signed-in session reach `changePassword` and `pharmacyOrders` only. The login reply
+  carries no registry. The ward app turns the account away with one line.
+- **`pharmacyOrders`.** One real date from the ward's today −7 to +1, for an admin too. Audited before the log
+  is read. It checks both tabs' headers uncached on every call and reads the whole column, so call it on demand,
+  not on a short timer. No name, initials or date of birth, except the initials inside an ID issued before
+  2026-09-27 (Pp accepted that on 2026-10-30, design D5). A lipid-only order is not on it: its route is not
+  `TPN…`, and the unit does not compound lipid.
+- **A cancelled order** leaves the list without a mark. The doctor phones the room for a cancelled or a revised order
+  (Pp, 2026-11-02 and 2026-11-03, D16).
+
+**Deploy: the backend first, and this is required** (D15), the opposite of the usual order. All of it on Pp's
+go-ahead:
+
+1. `sheetHealthReport` from the editor. `Daily_Log`'s `gridColumns` should be 38. If it is wider, read AM1 first: the
+   new schema check refuses every save when AM1 holds any other label.
+2. Diff the mirror, copy `gas-backend.gs` into `รหัส.js`, `clasp push`.
+3. From the editor, on the pushed code: `ensureLogHeaderColumns()` as a dry run. It reports `38 -> 39`, or "already
+   39" if a save got there first. `OCCUPIED` means stop.
+4. `clasp update-deployment` as above, then `clasp list-deployments` and the `clasp pull` diff, then
+   `applyLogHeaderColumns()` from the editor. Commit and push the mirror.
+5. The `main → release` PR, as § Frontend says. **Release it close to PR B:** until the room's page is live, the re-save
+   notice asks doctors to press Submit for a page nobody has yet. Say what the line means in the ward's release notice.
+6. On the first new bag order after the release, AM starts `{"v":1` and `calcInput.printJsonV` is 1. A marker with a
+   blank AM means D15 is broken, so roll the frontend back.
+7. Make no pharmacy account until PR B. For one, type the Staff row with role `pharmacy` and active TRUE, or name the
+   role: `setInitialPassword(email, password, "pharmacy")`. Without a row and a role it writes nothing.
+
+**A later schema change** goes the same way: a backend on `v: 1` refuses a client on a new key or version.
+
+**Rollback:** the frontend first, then the backend. An older backend under the new frontend writes the marker with no
+AM, which is D15's failure. It also rewrites a draft 38 columns wide and leaves that row's AM stale. To find the rows
+afterwards: `calcInput` has `printJsonV` and AM is blank. Nothing reads AM until PR B.
+
 ## Thai PDPA compliance posture
 
 This app processes infant health data — "sensitive personal data" under PDPA
@@ -571,7 +666,15 @@ secondary uses (e.g. research/QI exports) if those are ever added.
 
 **Accountability (Sec 39):** `Audit_Log` sheet (auto-created by
 `getSheetAudit()`) records registry reads and erasures with actor email +
-timestamp — persists past Apps Script's 7-day execution-log window.
+timestamp — persists past Apps Script's 7-day execution-log window. Two additions
+of 2026-11-02 (attack pass A3, A5): `loginFail` and `lockout` rows about an address
+with no proven account stop at 60 an hour (`LOGIN_FAIL_AUDIT_MAX`), and a
+`loginFailCapped` row with no address on it marks the hour a flood reached that
+ceiling. A wrong password for a real account is outside the ceiling and is never
+dropped; the sign-in of a suspended account, even with the right password, is under
+it and is dropped past it. Registration's look-alike question leaves a
+`possibleDuplicate` row with the ID it matched, whether or not the answer named
+that infant.
 
 **Data minimization:** `handleLogout()` in `app.jsx` clears
 `neofeed_calc_*`/`neofeed_acked_*` localStorage keys on logout, since those

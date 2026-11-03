@@ -39,9 +39,11 @@ function tokeninfo(email, hd) {
     aud: 'client-id.apps.googleusercontent.com', iss: 'https://accounts.google.com',
     exp: String(nowSec + 3600), email, email_verified: 'true' }, hd ? { hd } : {})) };
 }
+// Every sign-in is a new token from Google: a token verified once is kept since 2026-11-02 (A3).
+let signIns = 0;
 function googleLogin(g, email, hd) {
   g.env.urlFetch = tokeninfo(email, hd);
-  return g.post({ action: 'login', googleToken: 'id-token-from-google' });
+  return g.post({ action: 'login', googleToken: 'id-token-from-google-' + (++signIns) });
 }
 const staffRow = (g, email) => g.rows('Staff').find(r => r[0] === email);
 // A row typed or pasted into the Staff tab by hand, as the onEdit trigger sees it.

@@ -889,6 +889,126 @@ function displayNum(value, maxDecimals = 2) {
   return String(r === 0 ? 0 : r);   // never "-0"
 }
 
+// ── Sticker figures (TPN room, Pp 2026-10-30) ─────────────────
+// What the TPN unit's three stickers print, computed once, here, and saved
+// with the order (Daily_Log AM, printJson). The TPN-room page copies these
+// strings and computes nothing (openspec/changes/tpn-room-stickers, D1, D2).
+// Rows and units follow the unit's sample sticker of 2026-10-30; each figure
+// goes through displayNum with the sample's decimals as the maximum, so there
+// is no trailing zero (Pp, 2026-10-30: the ISMP rule holds on a sticker too).
+// A stock NeoFeed cannot order prints 0, for the two the unit keeps (Amiparen,
+// Addamel N). The unit dropped Aminoleban, Nephrosteril and MgSO₄ 50 % on
+// 2026-11-03 (tasks.md 0.3 g), so they have no row. null means NeoFeed has no figure for
+// it, and the page will not print that order. That is also the answer when the
+// inputs cannot make a whole sticker: no volume or weight, a calc without its
+// solVol, a negative WFI, an amino-acid volume of a product the stickers have
+// no row for, or any figure that would print "—". Weight, amino-acid product
+// and the vitamins in the bag are read from the calc, not from the form, so
+// the figures cannot disagree with the rows they sit beside. Addamel is the
+// one tick read from the form: the calc has no volume for it.
+// A figure whose meaning changes once orders are saved with it needs a new version
+// too, or those orders keep the old meaning with no notice; the backend goes first.
+const STICKER_SCHEMA_VERSION = 1;
+function stickerFigures(o) {
+  const c = o && o.calc;
+  if (!c || !c.solVol || !(c.totalTPN_mL > 0) || !(c.wtKg > 0) || c.wfiVol < 0) return null;
+  const aaKey = c.aaStockKey;
+  if (c.solVol.aa > 0 && aaKey !== "aminoven10" && aaKey !== "aminoplasmal15") return null;
+  const n = displayNum;
+  const wt = c.wtKg;
+  const aa = (key, v) => (aaKey === key ? v : 0);
+  // What reaches the infant: 1 mL/kg, capped, when the bag holds it. The bag
+  // holds this × Factor (calc.soluvitVol), which is the worksheet's row.
+  const vit = (stock, inBag) => (inBag ? Math.min(stock.mlPerKg * wt, stock.maxMl) : 0);
+  const date = normalizeDateStr(o.orderDate);
+  const figures = {
+    v: STICKER_SCHEMA_VERSION,
+    constantsVersion: CONSTANTS_VERSION,
+    orderDate: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
+    dol: n(o.dol, 0),
+    dosingWeightKg: n(wt, 2),
+    factor: n(c.factor, 2),
+    // Volumes at one decimal, as the doctor's form (Pp, 2026-10-30): whole mL
+    // rounded the calc's 0.1 mL value a second time and was 1 mL off in 4–8 %
+    // of orders.
+    deliveredMl: n(c.totalTPN_mL, 1),
+    deadMl: n(c.deadVol_mL, 2),
+    preparedMl: n(c.preparedVol, 1),
+    stockMl: {
+      d50w: n(c.d50wVol, 1),
+      aminoven10: n(aa("aminoven10", c.solVol.aa), 1),
+      amiparen10: "0",
+      aminoplasmal15: n(aa("aminoplasmal15", c.solVol.aa), 1),
+      nacl20: n(c.solVol.naCl, 1),
+      glycophos: n(c.solVol.glycophos, 1),
+      k2hpo4: n(c.solVol.k2hpo4, 1),
+      naAcetate: n(c.solVol.naAcet, 1),
+      kcl: n(c.solVol.kCl, 1),
+      mgso4_10: n(c.solVol.mg, 1),
+      caGluconate: n(c.solVol.ca, 1),
+      soluvit: n(c.soluvitVol, 1),
+      peditrace: n(c.peditrace_vol, 1),
+      heparin: n(c.solVol.heparin, 1),
+      wfi: n(c.wfiVol, 1),
+      znso4: n(c.solVol.znso4, 1),
+      addamel: o.inclAddamel ? null : "0",
+    },
+    delivered: {
+      // A typed dose prints as typed, as on the doctor's sheet: 12.25 is not 12.3.
+      dextrosePct: n(o.dexPct, 2),
+      dextroseG: n(c.dexG, 1),
+      aminoAcidPct: n(c.osmIn ? c.osmIn.aaPct : 0, 2),
+      aminoAcidG: {
+        aminoven10: n(aa("aminoven10", c.aaG), 1),
+        amiparen10: "0",
+        aminoplasmal15: n(aa("aminoplasmal15", c.aaG), 1),
+      },
+      naMeq: n(c.naKg * wt, 1),
+      kMeq: n(c.kKg * wt, 1),
+      caMg: n(o.caPerKg * wt, 1),
+      mgMg: n(o.mgPerKg * MG_MG_PER_MEQ * wt, 1),
+      phosphateMg: n(c.pTotal_mg, 1),
+      // The label's acetate is the Na acetate ordered, 1 : 1 (Pp, 2026-10-30:
+      // "Acetate คือ Na acetate"). KCMH_STOCK.naAcetate.acetateMeqPerMl, which
+      // the calculator's own screen waits on, is a separate question.
+      acetateMeq: n((o.naAcet || 0) * wt, 1),
+      // TPN unit, 2026-11-03 (tasks.md 0.3 b): chloride from 20% NaCl and KCl
+      // only, 1 : 1 with their Na and K, (NaCl + KCl) × weight.
+      clMeq: n(((o.naCl || 0) + (o.kCl || 0)) * wt, 1),
+      znMg: n(c.znTotal_mg, 1),
+      // TPN unit, 2026-11-03 (tasks.md 0.3 a): what reaches the infant,
+      // min(1 mL/kg × weight, cap), "ใส่ปริมาตรที่เด็กได้จริง". The worksheet's rows
+      // above stay × Factor, what goes in the bag.
+      soluvitMl: n(vit(KCMH_STOCK.soluvit, c.soluvitVol > 0), 1),
+      peditraceMl: n(vit(KCMH_STOCK.peditrace, c.peditrace_vol > 0), 1),
+      addamelMl: o.inclAddamel ? null : "0",
+      // TPN unit, 2026-11-03 (tasks.md 0.3 d): heparin U/mL × delivered mL, not
+      // the bag's units.
+      heparinUnits: n(o.heparinUmL * c.totalTPN_mL, 1),
+      osmolarity: n(c.osm, 0),
+      // TPN unit, 2026-11-03 (tasks.md 0.3 c): dextrose × 3.4 + amino acid × 4 in
+      // the delivered volume, the aqueous bag only (the KCMH sheet's E53 without
+      // its fat term).
+      kcal: n(c.dexKcal + c.aaKcal, 0),
+    },
+  };
+  // displayNum prints "—" for a missing or non-numeric input. The sticker must
+  // never carry one, so the order has no figures and the page says "save again".
+  // A negative figure is the same, and so is one past 12 characters. The input
+  // boxes cannot type a minus sign, so only a damaged saved row can bring one, and
+  // gas-backend.gs refuses both, which would stop the doctor's save. The version
+  // and the date are not figures: a tenth version in a day is 13 characters.
+  const dash = (x) => x === "—" || (typeof x === "string" && (x[0] === "-" || x.length > 12)) || (x !== null && typeof x === "object" && Object.values(x).some(dash));
+  const { constantsVersion, orderDate, ...printed } = figures;
+  if (dash(printed)) return null;
+  return {
+    ...figures,
+    critical: o.critOverride
+      ? { alerts: (o.critOverride.alerts || []).map(String), reason: String(o.critOverride.reason || "") }
+      : null,
+  };
+}
+
 // ── Traffic-light status helper ───────────────────────────────
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
   if (value === 0) return "empty";
@@ -2813,6 +2933,8 @@ window.NEOFEED_DATA = {
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
+  // The TPN room's sticker figures, computed once and saved with the order
+  STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,

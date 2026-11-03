@@ -108,7 +108,8 @@ T.section('§ 4 · a row re-added by setInitialPassword is not refused as "not f
   g.sheet('Staff').data.splice(1, 1);
   g.expireStaffCache(email);
   T.eq('deleting the row ends the session, and "not found" is cached', sync(g, tok), { error: 'Unauthorized' });
-  g.sb.setInitialPassword(email, 'Admin-Chosen-Pass-8');
+  // A new row needs its role named since 2026-10-30 (it used to default to doctor).
+  g.sb.setInitialPassword(email, 'Admin-Chosen-Pass-8', 'doctor');
   const back = login(g, email, 'Admin-Chosen-Pass-8');
   T.eq('the re-added account signs in', back.status, 'ok');
   const res = sync(g, back.token);

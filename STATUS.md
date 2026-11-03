@@ -1,5 +1,35 @@
 # NeoFeed — Status
 
+> ✅ **2026-11-03, by 09:30 ICT — backend: only the ward's deployment and `@HEAD` remain.** On Pp's word, the 24
+> old deployments (`@2`–`@25`) were removed after each version's code was read. `clasp list-deployments` went
+> from 26 to 2 and held over five reads, every old URL answers 404, and `AKfycbz8…` still answers `ping` at `@66`
+> with its URL unchanged (no login tried). No code or version changed. A backend release now starts with
+> `node tools/check-deployments.mjs` (`REFERENCE.md` § Backend (GAS)). #215 adds it: merged into `main` on Praew's instruction.
+> `tools/` is not served, so it needs no release.
+>
+> ⏳ **2026-11-03 — The doctor's sheet on one A4 page: not live.** Merged into `main` on Praew's instruction
+> (#213), and live `729910f` still runs to 2 pages at its fullest. Before release, print the fullest sheet from a
+> ward PC and printer: the measurements are headless Chromium. No backend change.
+>
+> ⏳ **2026-11-03 — A locked No TPN order's Submit: not live.** Merged into `main` on Praew's instruction (#210),
+> and live `729910f` still offers Submit there. It goes out with the next `main → release` PR. No backend change.
+>
+> ⏳ **2026-11-03 — TPN-room stickers, PR A: not live.** Merged into `main` on Praew's instruction (#212). It adds the
+> `pharmacy` role, `Daily_Log` AM, `pharmacyOrders` and the calculator's `printJson`, and it ships backend first
+> (`REFERENCE.md` § The TPN room). The TPN unit confirmed the four PROVISIONAL figures on 2026-11-03
+> (`openspec/changes/tpn-room-stickers/tasks.md` 0.3 a–d). Still open: 0.3 e as written there, 0.3 m, and Pp's sign-off
+> on the figure table (1.1). Nothing reads these figures until PR B.
+>
+> ✅ **2026-11-01, 15:53 ICT — frontend `release` = `729910f` (PR #209), with backend `@66`.** PR #209 released
+> #206 (Step 3's "No TPN" tick and short sheet) and #207 (one "Bag cannot be made" stop). `node
+> tools/verify-release.mjs --wait` passed on both hosts against `729910f` (0 failures, 61 passes, comment on
+> #209), which also covers #204 and #208, whose own runs did not happen. The tags
+> `release-2026-10-31-pr204`, `release-2026-11-01-pr208` and `release-2026-11-01-pr209` are pushed.
+> `CONSTANTS_VERSION` unchanged (`2026-10-28.1`), no backend change; `@66` comes from the record below, not a
+> `clasp` check. No ward device has been seen on this release, and the notices to doctors and pharmacy are
+> still to go out (comment on #209). Rollback: the frontend to `release-2026-11-01-pr208` (`ecf3343`).
+> Recorded here by the TPN-room stickers PR, the next on the repo.
+>
 > ⚠️ **2026-10-31, 07:00 ICT — frontend `release` = `caecf04` (PR #204), with backend `@66`: merged, not
 > yet verified.** PR #204 released #203 (the Dashboard's Trend graph joins its days with straight lines) and
 > #202 (`sheetHealthReport` in `gas-backend.gs`, which the ward deployment does not run), merged on Pp's
@@ -342,6 +372,13 @@ with #204 by PR #205, and with #206's merge and #208's release by PR #207.
   released, the ward hears the new name: "Bag cannot be compounded" (still owed to them, banner of
   2026-10-28) is shown as "Bag cannot be made (ใส่ถุงไม่ได้)" and covers the 1,250 mL bottle too (Vera).
   `CHANGELOG.md` 2026-11-01 (3).
+- ⏳ **The whole-app hardening PR (#211), five findings of the attack pass of 2026-10-30: merged into `main` on Praew's
+  instruction, not live.** Backend only: live only after `clasp push` and `clasp update-deployment`, on Pp's go-ahead, with no
+  `main → release` step of its own. A login flood should stop at 61 `Audit_Log` rows an hour (`CHANGELOG.md` has the worst case), and a replayed Google
+  token asks Google once; size caps on `calcInput` and the registry's text; a new sessionId must be `NF-` and six digits. The
+  account lock stays, written into `REFERENCE.md`. ⚠️ **The possible-duplicate question no longer names an infant
+  outside the caller's sync: this reverses Pp's own 2026-09-27 "every row", and she accepted that on 2026-11-03.** No calculation,
+  figure or `CONSTANTS_VERSION`. `CHANGELOG.md` 2026-11-02.
 
 **Updated 2026-10-28** · ✅ **Backend `@65` and frontend `release` = `ac1b15b` (PR #198) are live, and
 both are verified.** #198 released #175 at 20:35 ICT and the backend went `@64` → `@65` after it; #197
