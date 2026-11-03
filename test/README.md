@@ -2128,6 +2128,14 @@ mutant, or (`newSessionId`'s draws, the `REFERENCE.md` note) under a mutated `da
 `g.seedPatient` in `gas-vm-sandbox.cjs` writes the row of an infant registered before 2026-09-27 for a harness whose subject
 is not registration.
 
+## The line to phone the TPN room, 2026-11-03 — one harness
+
+`CHANGELOG.md` 2026-11-03. **`verify-revise-phone-1103.cjs`** (20 checks; the jsdom set) mounts the real Calculator on
+rows its own saves made, with `D.todayLocal` pinned. §1: the line shows while a submitted order with TPN, for today or
+tomorrow, is being changed, locked or not, and ticking No TPN over it counts; it goes when the change is undone, and
+stays away from a new order, an earlier day, a draft and a No TPN order. §2: Submit stays open and saves, and the line
+is not on the printed sheet. §3: the quick calculator, a read-only account and Center Point do not show it.
+
 ## Note on the source workbook
 
 The worksheet these were derived from (`TPN 05082569.xlsx`) contained ~45 named

@@ -1,5 +1,8 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-03 — A line telling the doctor to phone the TPN room when changing a submitted order: not live.** This
+> PR on `main` only. No figure and no backend change.
+>
 > ⏳ **2026-11-03 — The doctor's sheet on one A4 page: not live.** Merged into `main` on Praew's instruction
 > (#213), and live `729910f` still runs to 2 pages at its fullest. Before release, print the fullest sheet from a
 > ward PC and printer: the measurements are headless Chromium. No backend change.

@@ -7,6 +7,20 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-03 — Changing a submitted TPN order tells the doctor to phone the TPN room
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `test/verify-revise-phone-1103.cjs`,
+`test/README.md`, `STATUS.md`. Pp, 2026-11-03, on whether a revised order is phoned as a cancelled one is: "โทรด้วย",
+and then, asked about a reminder on screen: "เพิ่มบรรทัดเตือน".
+
+- **Before:** nothing on screen said so. The delete prompt already tells the doctor to tell pharmacy; a revision did not.
+- **Now:** while a doctor changes a submitted order with TPN, for today or tomorrow, a line above Submit reads "Submit
+  แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย". Ticking No TPN over such an order counts as changing it.
+- **Left out on purpose:** an earlier day's order, whose bag has been given; a draft, which has not reached the room;
+  an order with no TPN. A line that shows when no call is needed gets ignored when one is.
+- **Holds nothing back:** a line, not a prompt or a stop. Submit stays open and saves as before, and it does not print.
+  No figure, schema or backend change; `CONSTANTS_VERSION` stays.
+
 ## Session 2026-11-02 — Five whole-app findings of the attack pass, closed in their own PR
 
 `gas-backend.gs`, `REFERENCE.md` (§ Backend, § PDPA), `app-walkthrough.md`, `test/verify-hardening-1102.cjs` (new),
