@@ -7,6 +7,23 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-03 — Changing a submitted TPN order tells the doctor to phone the TPN room
+
+`calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `test/verify-revise-phone-1103.cjs`,
+`test/README.md`, `STATUS.md`. Pp, 2026-11-03, on whether a revised order is phoned as a cancelled one is: "โทรด้วย",
+and then, asked about a reminder on screen: "เพิ่มบรรทัดเตือน".
+
+- **Before:** nothing on screen said so. The delete prompt already tells the doctor to tell pharmacy; a revision did not.
+- **Now:** whenever a save would write a revision of a submitted order with TPN, for today or tomorrow, a line above
+  Submit reads "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย". That covers a typed change, ticking No
+  TPN over such an order, putting a bag back over a No TPN order, and an order Print holds for a new save with nothing
+  typed (a calculation that moved, a changed dosing weight, an unconfirmed critical value).
+- **Left out:** a draft, which has not reached the room, and an order with no TPN. An earlier day's order is left out too,
+  on the author's reading that its bag has been given; Pp's words do not name the days, so she may widen it.
+- **It can show when the room's figures have not moved:** a corrected urine output on a submitted order is a revision too.
+  Narrowing it would mean listing every field that touches the bag, and a field missed there would stay silent.
+- **Holds nothing back:** a line, not a prompt or a stop. Submit stays open and saves as before, and it does not print.
+  No figure, schema or backend change; `CONSTANTS_VERSION` stays.
 ## Session 2026-11-03 (2) — Vera on the TPN unit's answers: the entry below corrected
 
 - **The gate is all of `tasks.md` 0.3 e, not its Na acetate part.** The entry below narrowed it on a reading of the
