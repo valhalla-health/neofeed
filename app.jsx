@@ -124,6 +124,11 @@ const SESSION_NOTICES = {
   // reason "SessionMaxAge" — same logout, but "expired" would read as a fault.
   maxAge:  { kind: "maxAge",  title: "เซสชันครบ 12 ชั่วโมง — กรุณาเข้าสู่ระบบใหม่",
              body: "งานที่ยังไม่บันทึกถูกเก็บเป็นร่าง" },
+  // The sync answered Forbidden: only a pharmacy role gets that from
+  // getActivePatients (an admin changed the role, or a pharmacy session was
+  // restored). The words the sign-in refusal uses.
+  pharmacy: { kind: "expired", title: "บัญชีนี้เป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น",
+              body: "ออกจากระบบแล้ว" },
 };
 const unauthorizedReason = (data) => (data && data.reason === "SessionMaxAge") ? "maxAge" : "expired";
 
@@ -998,7 +1003,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }, []);
 
   // ── Ending a session ─────────────────────────────────────────
-  // One path for all three ways a session ends, so none of them can forget a
+  // One path for every way a session ends, so none of them can forget a
   // step (review SEC-F2 / UP-S7 / UP-S13):
   //   manual  — the user chose ออกจากระบบ. Revoke the token, clear every
   //             neofeed_* clinical key on this device, drafts included (PDPA
@@ -1007,6 +1012,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   //             drafts: this user did not choose to abandon that order.
   //   expired / maxAge — the server already refused the token. Nothing to
   //             revoke; browser storage is left as it always was on expiry.
+  //   pharmacy — the sync answered Forbidden: the role is pharmacy now. The
+  //             token still opens the TPN room's actions, so revoke and clear
+  //             as idle does (2026-10-30).
   // Then AppRoot remounts App, which is what actually wipes the previous
   // user's patients, log, view, ward and sync state off the screen.
   // Held in a ref so the sync/write callbacks can end a session without
@@ -1023,11 +1031,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (endedRef.current) return;
     endedRef.current = true;
     const tok = userRef.current?.token || "";
-    if (GAS_ON && tok && (reason === "manual" || reason === "idle")) {
+    // "pharmacy": the token still works for the TPN room's actions, so it is
+    // revoked here as at sign-in (loginRequest), and the calculator caches go
+    // as on an idle logout.
+    if (GAS_ON && tok && (reason === "manual" || reason === "idle" || reason === "pharmacy")) {
       gasRequest({ action: "logout", token: tok }, { timeoutMs: 10000 }).catch(() => {});
     }
     clearSession();
-    if (reason === "manual" || reason === "idle") {
+    if (reason === "manual" || reason === "idle" || reason === "pharmacy") {
       const prefixes = reason === "manual"
         ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_"]
         : ["neofeed_calc_", "neofeed_acked_"];
@@ -1313,6 +1324,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         // why (UP-S7).
         if (data.error === "Unauthorized") {
           endSessionRef.current(unauthorizedReason(data));
+          return;
+        }
+        // The pharmacy allow-list is the one thing that answers this action
+        // Forbidden: the account's role became pharmacy mid-session. It used
+        // to leave the registry, names included, on screen until the idle
+        // logout (attack pass, 2026-10-30).
+        if (data.error === "Forbidden") {
+          endSessionRef.current("pharmacy");
           return;
         }
         // This path, not gasPost, is where a mid-session col G flag actually
@@ -3502,6 +3521,13 @@ async function loginRequest(body, clickAt) {
   try { data = await gasRequest({ action: "login", wantSync: true, ...body }); }
   catch (e) { throw new Error(`เข้าสู่ระบบไม่สำเร็จ — ${e && e.kind ? e.message : gasErrorText("network")}`); }
   if (data.status !== "ok") throw new Error(data.error || "ไม่พบบัญชีนี้ในระบบ");
+  // A pharmacy account works with the TPN-room page only (Pp, 2026-10-30).
+  // The server refuses it everything else; here the ward app says so, closes
+  // the session it just opened, and never stores it.
+  if (data.role === "pharmacy") {
+    gasRequest({ action: "logout", token: data.token }).catch(() => {});
+    throw new Error("บัญชีนี้เป็นบัญชีเภสัช ใช้กับหน้าห้อง TPN เท่านั้น");
+  }
   const user = { name: data.name, role: data.role, email: data.email, token: data.token, authMethod: data.authMethod, mustChangePassword: !!data.mustChangePassword };
   const s = data.sync;
   const sync = s && typeof s === "object" && !Array.isArray(s) && Array.isArray(s.patients) ? s : null;

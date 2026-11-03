@@ -17,6 +17,22 @@
 > ⏳ **2026-11-03 — A locked No TPN order's Submit: not live.** Merged into `main` on Praew's instruction (#210),
 > and live `729910f` still offers Submit there. It goes out with the next `main → release` PR. No backend change.
 >
+> ⏳ **2026-11-03 — TPN-room stickers, PR A: not live.** Merged into `main` on Praew's instruction (#212). It adds the
+> `pharmacy` role, `Daily_Log` AM, `pharmacyOrders` and the calculator's `printJson`, and it ships backend first
+> (`REFERENCE.md` § The TPN room). The TPN unit confirmed the four PROVISIONAL figures on 2026-11-03
+> (`openspec/changes/tpn-room-stickers/tasks.md` 0.3 a–d). Still open: 0.3 e as written there, 0.3 m, and Pp's sign-off
+> on the figure table (1.1). Nothing reads these figures until PR B.
+>
+> ✅ **2026-11-01, 15:53 ICT — frontend `release` = `729910f` (PR #209), with backend `@66`.** PR #209 released
+> #206 (Step 3's "No TPN" tick and short sheet) and #207 (one "Bag cannot be made" stop). `node
+> tools/verify-release.mjs --wait` passed on both hosts against `729910f` (0 failures, 61 passes, comment on
+> #209), which also covers #204 and #208, whose own runs did not happen. The tags
+> `release-2026-10-31-pr204`, `release-2026-11-01-pr208` and `release-2026-11-01-pr209` are pushed.
+> `CONSTANTS_VERSION` unchanged (`2026-10-28.1`), no backend change; `@66` comes from the record below, not a
+> `clasp` check. No ward device has been seen on this release, and the notices to doctors and pharmacy are
+> still to go out (comment on #209). Rollback: the frontend to `release-2026-11-01-pr208` (`ecf3343`).
+> Recorded here by the TPN-room stickers PR, the next on the repo.
+>
 > ⚠️ **2026-10-31, 07:00 ICT — frontend `release` = `caecf04` (PR #204), with backend `@66`: merged, not
 > yet verified.** PR #204 released #203 (the Dashboard's Trend graph joins its days with straight lines) and
 > #202 (`sheetHealthReport` in `gas-backend.gs`, which the ward deployment does not run), merged on Pp's

@@ -69,7 +69,8 @@ eq('23:59 ICT remains on the prior ward date', sandbox._wardDateKey(new Date('20
 console.log('\n── a new Daily_Log sheet has the full schema ──');
 dailySheet = null;
 const created = sandbox.getSheetLog();
-eq('header is A–AL (38 columns)', created.appended[0].length, 38);
+// 39: column AM (printJson) was added on 2026-10-30.
+eq('header is A–AM (39 columns)', created.appended[0].length, 39);
 eq('AF is constantsVersion', created.appended[0][31], 'constantsVersion');
 eq('AG is appVersion', created.appended[0][32], 'appVersion');
 

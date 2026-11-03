@@ -38,6 +38,7 @@ const COL_REVISION_NUMBER = 35; // AJ
 const COL_REVISION_OF     = 36; // AK
 const COL_SUPERSEDED_AT   = 37; // AL
 const ROW_WIDTH           = 38;
+const NEW_ROW_WIDTH       = 39; // a row the backend writes now: A–AM, AM (printJson) added 2026-10-30
 
 // Row 1 carries Daily_Log's real labels. Since 2026-09-17 every write checks
 // them (the column-drift guard refuses a save under a label the code does not
@@ -125,7 +126,7 @@ const ENTRY = {
 console.log('\n── a new Daily_Log sheet has the publish/revision columns ──');
 sheet = null;
 const created = sandbox.getSheetLog();
-eq('header is A–AL (38 columns)', created.appended[0].length, ROW_WIDTH);
+eq('header is A–AM (39 columns)', created.appended[0].length, NEW_ROW_WIDTH);
 eq('AH is published',        created.appended[0][COL_PUBLISHED], 'published');
 eq('AI is publishedBy',      created.appended[0][COL_PUBLISHED_BY], 'publishedBy');
 eq('AJ is revisionNumber',   created.appended[0][COL_REVISION_NUMBER], 'revisionNumber');
@@ -136,7 +137,7 @@ console.log('\n── create path: a fresh entry is revision 1, unpublished ─�
 sheet = makeSheet(40);
 sandbox.logDailyNutrition('AB-1200', ENTRY, 'doc@kcmh');
 const row1 = sheet.appended[0] || [];
-eq('row is 38 columns wide',            row1.length, ROW_WIDTH);
+eq('row is 39 columns wide',            row1.length, NEW_ROW_WIDTH);
 eq('published starts blank',            row1[COL_PUBLISHED], '');
 eq('publishedBy starts blank',          row1[COL_PUBLISHED_BY], '');
 eq('revisionNumber defaults to 1',      row1[COL_REVISION_NUMBER], 1);
@@ -246,7 +247,7 @@ console.log('\n── a Daily_Log tab that predates AH–AL is widened, not brok
   let threw = null;
   try { sandbox.logDailyNutrition('AB-1200', ENTRY, 'doc@kcmh'); } catch (e) { threw = e.message; }
   eq('create on a 33-column tab does not throw', threw, null);
-  eq('grid widened to 38',                       sheet.maxColumns, ROW_WIDTH);
+  eq('grid widened to 39',                       sheet.maxColumns, NEW_ROW_WIDTH);
 
   const oldDraft = new Array(33).fill('');
   oldDraft[1] = 'AB-1200'; oldDraft[25] = 'entry-1'; oldDraft[26] = 'stamp-1';
@@ -254,7 +255,7 @@ console.log('\n── a Daily_Log tab that predates AH–AL is widened, not brok
   threw = null;
   try { sandbox.updateDailyNutrition('AB-1200', 'entry-1', 'stamp-1', ENTRY, 'editor@kcmh'); } catch (e) { threw = e.message; }
   eq('draft update on a 33-column tab does not throw', threw, null);
-  eq('grid widened to 38 on update',                   sheet.maxColumns, ROW_WIDTH);
+  eq('grid widened to 39 on update',                   sheet.maxColumns, NEW_ROW_WIDTH);
 
   const oldPublished = new Array(33).fill('');
   oldPublished[1] = 'AB-1200'; oldPublished[25] = 'entry-1'; oldPublished[26] = 'stamp-1';
@@ -333,7 +334,8 @@ console.log('\n── ensureLogHeaderColumns knows about the new columns ──'
   ok('WANT map labels column 36 revisionNumber',   /36:\s*["']revisionNumber["']/.test(gas));
   ok('WANT map labels column 37 revisionOf',       /37:\s*["']revisionOf["']/.test(gas));
   ok('WANT map labels column 38 supersededAt',     /38:\s*["']supersededAt["']/.test(gas));
-  ok('widens to 38, not 33',                       /\b38 - sh\.getMaxColumns\(\)/.test(gas));
+  // 39 since 2026-10-30: AM (printJson) joined the migration, so it widens past supersededAt (AL).
+  ok('widens to 39 (A–AM), not 33',                /\b39 - sh\.getMaxColumns\(\)/.test(gas));
 }
 
 // ══ frontend wiring — regex checks on source, same pattern as

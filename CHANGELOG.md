@@ -24,6 +24,43 @@ and then, asked about a reminder on screen: "เพิ่มบรรทัด�
   Narrowing it would mean listing every field that touches the bag, and a field missed there would stay silent.
 - **Holds nothing back:** a line, not a prompt or a stop. Submit stays open and saves as before, and it does not print.
   No figure, schema or backend change; `CONSTANTS_VERSION` stays.
+## Session 2026-11-03 (2) — Vera on the TPN unit's answers: the entry below corrected
+
+- **The gate is all of `tasks.md` 0.3 e, not its Na acetate part.** The entry below narrowed it on a reading of the
+  sample order that the unit's reply does not state. Whether the unit's Excel counts Glycophos and Na acetate sodium
+  goes back to the unit.
+- **Who confirmed the figures:** the reply is unsigned, from the TPN unit's pharmacist, passed on by Pp. It is not
+  recorded as the change protocol's second clinician. No number moved, and Pp's sign-off at `tasks.md` 1.1 is what
+  stands behind these figures.
+- **Heparin:** the calculator cautions only above 1 U/mL, so nothing warns below the unit's 0.5. `tasks.md` 0.3 d now
+  says so.
+- **Specs:** date made cannot be assumed to be the print day or the order's date, and the worksheet scenario no longer
+  asks for the three dropped rows.
+
+## Session 2026-11-03 — The TPN unit's answers to the sticker questions: four figures confirmed, three rows gone
+
+`data.js` (`stickerFigures`), `gas-backend.gs` (the `printJson` key lists), `compiled/` and the shells' `?v=`
+tokens, `test/verify-sticker-figures-1030.cjs`, `test/verify-pharmacy-backend-1030.cjs`, `test/README.md`,
+`openspec/changes/tpn-room-stickers/`. On PR #212, not live. The unit replied in writing on 2026-11-03; the reply
+is in Pp's product notes.
+
+- **Confirmed, and no longer PROVISIONAL:** the vitamins on the PN label (what reaches the infant), Cl⁻ (20% NaCl and
+  KCl only, 1 : 1), kcal (dextrose × 3.4 and amino acid × 4 in the delivered volume) and heparin units (the delivered
+  volume, at 0.5–1 U/mL). No figure moved, and `CONSTANTS_VERSION` stays.
+- **Rows:** Aminoleban, Nephrosteril and MgSO₄ 50 % leave `printJson` and the backend's schema. Amiparen and Addamel N
+  stay at 0. `STICKER_SCHEMA_VERSION` stays 1, since no order has been saved on this schema: PR A is not live.
+- **The sodium worry is closed.** The unit had once said Na was calculated wrong, and now says it was right
+  ("เดิมคำนวณถูกแล้ว"). Nothing here changes for it.
+- **Spec corrected:** วันที่ผลิต is the day the TPN is prepared, not the day the sticker prints. PR B has to settle
+  where that date comes from (`tasks.md` 2.6).
+- **Still open, and the release gate with it:** the Na acetate part of `tasks.md` 0.3 e, and 0.3 m. The reply left 0.3 i
+  (printer, fixed lines) blank, and j, k and l were not on the list the unit saw.
+- **Clinician review:** the unit confirmed the rules behind the figures. Pp's sign-off on the figure table (`tasks.md`
+  1.1) is still to come. The constants register is untouched, because no constant changed.
+- **Merge:** `main` (#210, #213) is merged into the branch. The two Submit lines read `orderSettled &&
+  !figuresMissing`. An unlocked No TPN order now only locks on Submit, so `verify-sticker-figures-1030.cjs` §2c5 expects
+  the lock and no write.
+
 ## Session 2026-11-03 — A backend release stops unless there are exactly two deployments
 
 Pp, 2026-11-03: "ลองเพิ่มขั้นในการปล่อย backend ให้ clasp list-deployments ต้องเหลือ 2 ตัวเท่านั้น ถ้าเกินให้หยุด".
@@ -189,6 +226,41 @@ asked for the fix on 2026-11-02, after the live release `729910f` was shown offe
   TPN stopped. `verify-safety-review.cjs` pinned the text `const printable = !!savedEntryId && !dirty`; it now
   pins `const orderSettled = !!savedEntryId && !dirty` and `const printable = orderSettled`, the same rule
   one name along.
+
+## Session 2026-11-02 — TPN-room stickers, PR A: figures saved with each order, a read-only pharmacy role
+
+Not live. `data.js` (`stickerFigures`), `calculator.jsx`, `app.jsx`, `gas-backend.gs`, `compiled/`, both shells' `?v=`
+tokens, `test/verify-sticker-figures-1030.cjs`, `test/verify-pharmacy-backend-1030.cjs`,
+`test/verify-pharmacy-frontend-1030.cjs`, `test/README.md`, `REFERENCE.md`, `STATUS.md`,
+`BACKLOG.md`, `openspec/changes/tpn-room-stickers/`. Pp, 2026-10-30: the TPN room should print its three stickers
+from NeoFeed's figures instead of retyping each paper order into Excel. Her go-ahead for the figures before the
+TPN unit answered, 2026-10-31: "ทำ นำไปก่อนได้? เพราะ tpn ว่างตอบอีกสามวันเลย".
+
+- **Before:** the room typed every component from the paper order into its Excel, and no server path gave a
+  pharmacy account anything.
+- **Now:** every save of a bag writes `printJson` to `Daily_Log` AM, computed from the same calc as the order. A
+  `pharmacy` account reaches only `changePassword` and `pharmacyOrders`, with no name, initials or date of birth.
+  The page itself is PR B.
+- **Four figures are PROVISIONAL** in `data.js` until `tasks.md` 0.3 a–d is answered: the vitamins on the PN label,
+  Cl⁻, kcal and heparin. Each reproduces the unit's sample sticker. `CONSTANTS_VERSION` stays, since no dose moves.
+  **No second clinician has reviewed these figures:** Pp's sign-off on the figure table (`tasks.md` 1.1) waits on 0.3.
+  The constants register is untouched, because the change adds no constant.
+- **The server holds the figures to the schema and to their order** (design D14), after an attack pass stored
+  contradictory figures and a patient name. Three things the tests found on the way:
+  - the plan's weight check, compared raw, refuses 220 whole-gram weights such as 1005 g, and its own 1625 g
+    example happens to pass, so only a mutation run and a sweep of every gram showed it;
+  - the plan's figure form kept a minus sign, which let the attack's D50W -5 through. It is gone, and
+    `stickerFigures` returns null on a negative so a damaged row saves with no sticker instead of being refused;
+  - main's "No TPN" tick (#206) saves `printJson` null, so it is outside the rule. §2d sends the tick's real saves
+    through the real backend.
+- **Deploy order is now required: backend first** (D15). `plan-pr-a.md` said either order was safe, which Task 2's
+  marker made false.
+- **The re-save notice shows only for today's and tomorrow's order.** Without that bound, every bag order ever saved
+  told the doctor to press Submit, and a press superseded the signed row on a day whose bag had been given.
+- **A cancelled or revised order is confirmed by phone** (Pp, 2026-11-02 and 2026-11-03, D16). A cancelled one already
+  printed keeps the page's warning.
+- **Checked and not fixed here:** the doctor's sheet at its fullest runs to 2 pages, and that is live as well. Pp
+  chose a PR of its own.
 
 ## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
 
