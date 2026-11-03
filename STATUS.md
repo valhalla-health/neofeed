@@ -3,6 +3,13 @@
 > ⏳ **2026-11-03 — A line telling the doctor to phone the TPN room when changing a submitted order: not live.** This
 > PR on `main` only. No figure and no backend change.
 >
+> ✅ **2026-11-03, by 09:30 ICT — backend: only the ward's deployment and `@HEAD` remain.** On Pp's word, the 24
+> old deployments (`@2`–`@25`) were removed after each version's code was read. `clasp list-deployments` went
+> from 26 to 2 and held over five reads, every old URL answers 404, and `AKfycbz8…` still answers `ping` at `@66`
+> with its URL unchanged (no login tried). No code or version changed. A backend release now starts with
+> `node tools/check-deployments.mjs` (`REFERENCE.md` § Backend (GAS)). #215 adds it: merged into `main` on Praew's instruction.
+> `tools/` is not served, so it needs no release.
+>
 > ⏳ **2026-11-03 — The doctor's sheet on one A4 page: not live.** Merged into `main` on Praew's instruction
 > (#213), and live `729910f` still runs to 2 pages at its fullest. Before release, print the fullest sheet from a
 > ward PC and printer: the measurements are headless Chromium. No backend change.
