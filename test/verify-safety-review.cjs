@@ -67,8 +67,11 @@ ok('print requires a successfully saved entry; Copy renders only in the quick ca
   !/Copy Order to Clipboard|ก่อนคัดลอก/.test(calc));
 // Tightened 2026-09-11 (review F2): saved is not enough — the form must still
 // MATCH what was saved. verify-review-0911.cjs drives this in jsdom.
+// 2026-11-02: `printable` is `orderSettled && (the No TPN sheet term)`, and
+// orderSettled is the saved-and-unchanged part, so the pin follows the rename.
 ok('the print form renders only while the form matches the saved row',
-  /const printable\s*=\s*!!savedEntryId\s*&&\s*!dirty/.test(calc) &&
+  /const orderSettled\s*=\s*!!savedEntryId\s*&&\s*!dirty/.test(calc) &&
+  /const printable\s*=\s*orderSettled\b/.test(calc) &&
   /\{printable(?:\s*&&\s*!centerPoint)?(?:\s*&&\s*!scratch)?\s*&&\s*<PrintOrderForm/.test(calc) &&
   /if\s*\(!printable\)[\s\S]{0,160}ก่อนพิมพ์/.test(calc));
 ok('Peditrace guidance is 1 mL/kg/day (maximum 15 mL)',

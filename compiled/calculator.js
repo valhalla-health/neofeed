@@ -1532,7 +1532,8 @@ function Calculator({
   const replacesTpn = savedReplacesTpn || savedStatus === "submitted" && !!savedEntryId && savedHadTpn;
   const tpnCancelledToday = noTpnOn && replacesTpn;
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
-  const printable = !!savedEntryId && !dirty && (!noTpnOn || noTpnSheet) && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
+  const orderSettled = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
+  const printable = orderSettled && (!noTpnOn || noTpnSheet);
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? 'เอาติ๊ก "No TPN" ออกแล้วใส่ปริมาตร' : centerPoint ? "ใส่ปริมาตร" : 'ใส่ปริมาตร หรือถ้าวันนี้ไม่มี TPN ติ๊ก "No TPN" ที่ Step 3'}`;
   const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : noTpnUnticked ? `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagCannotBeMade ? `${bagCannotBeMadeText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
@@ -1588,7 +1589,7 @@ function Calculator({
     if (scratch) return;
     if (ordersReadOnly) return;
     const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
-    if (lockFirst && !dirty && printable) {
+    if (lockFirst && !dirty && orderSettled) {
       setSaving(true);
       const res2 = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -2796,7 +2797,7 @@ function Calculator({
     {
       className: "btn primary",
       style: { width: "100%" },
-      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && printable,
+      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && orderSettled,
       onClick: () => handleSave(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),

@@ -10,7 +10,8 @@
 // new day copied from a ticked order starts ticked; the changes list names it;
 // a submitted row saved before the tick existed with no TPN reopens ticked, a
 // draft unticked; Center Point offers no tick. What the feeds must reach is CR-NO-TPN-EN, and its cases run in
-// test/verify-clinical-rules.cjs.
+// test/verify-clinical-rules.cjs. §10 (2026-11-02): a locked, unchanged No TPN order with no short sheet has
+// Submit disabled (an unlocked one only locks), while a moved calculation still takes the full save.
 //
 // Mounts the real <Calculator> in jsdom: the deps in test/README.md. Synthetic
 // infants only. Fails on the source before this change (no tick to press).
@@ -322,6 +323,84 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   setField('Current weight', 1200); setField('KCl', 2);
   const cpZero = text(container.querySelector('.zero-volume-bag'));
   ok('no TPN volume with KCl: the no-volume line, with no tick to offer', cpZero.includes('ปริมาตร TPN = 0') && !cpZero.includes('ติ๊ก "No TPN"'), cpZero);
+
+  section('10 · a locked No TPN order has nothing to submit (2026-11-02)');
+  // Pp, 2026-11-02: a plain No TPN order (no oral orders, no TPN the day before)
+  // never prints, and Submit read "nothing left to submit" from `printable`, so a
+  // locked, unchanged one still offered Submit and pressing it wrote an identical
+  // revision. Submit now reads it from `orderSettled` (printable without the
+  // No TPN sheet term): locked = disabled, unlocked = only a lock, and an order
+  // held by something that needs a new save still takes the full save.
+  let locks = [];
+  const lockIt = (id) => { locks.push(id); return Promise.resolve({ ok: true, publishedAt: '2026-11-02T03:00:00Z' }); };
+  const settle = () => act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  const LOCKED = { published: '2026-11-01T03:00:00Z', publishedBy: 'doc@kcmh.test' };
+  const UNLOCKED = { published: '' };
+  const saveNoTpn = async (props = {}, prep = () => {}) => {
+    mount(props); fillRequired(); setField('Volume(mL/feed)', 12); setField('Frequency', 8); setNoTpn(true); prep();
+    await clickAsync(button('Submit'));
+    return logged[0];
+  };
+  const reopen = (row, over, props = {}) => {
+    locks = [];
+    mount({ editEntry: { ...row, entryId: 'e-lk', lastModified: 'lm-lk', ts: '2026-11-01', revisionNumber: 1, ...over }, onPublish: lockIt, ...props });
+  };
+  const press = async () => { await clickAsync(button('Submit')); await settle(); };
+  const enVolOf = (e) => Number(e?.calcInput?.enVol);
+
+  const plain = await saveNoTpn();
+  ok('setup: a plain No TPN order saved once, ticked and submitted', logged.length === 1 && plain?.calcInput?.noTpn === true && plain?.status === 'submitted',
+    [logged.length, plain?.calcInput?.noTpn, plain?.status]);
+  reopen(plain, LOCKED);
+  ok('locked, nothing changed, no orals, no TPN the day before: no print form', !sheet());
+  ok('…and Submit is disabled', button('Submit')?.disabled === true, button('Submit')?.disabled);
+  await press();
+  ok('…and a press sends nothing: no update (a revision) and no lock', updated.length === 0 && locks.length === 0, [updated.length, locks.length]);
+  ok('…Print stays held: it says there is no TPN order, and prints nothing', (await printNow()) === 0 && toast === 'No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์', toast);
+  ok('…and no red "held from Print" line', !container.querySelector('.print-blocked'));
+
+  reopen(plain, UNLOCKED);
+  ok('unlocked, nothing changed: Submit is enabled', button('Submit')?.disabled === false, button('Submit')?.disabled);
+  await press();
+  ok('…and pressing it only locks: no update, one lock on the order', updated.length === 0 && locks.length === 1 && locks[0] === 'e-lk', [updated.length, locks]);
+  ok('…and then Submit is disabled', button('Submit')?.disabled === true, button('Submit')?.disabled);
+
+  reopen(plain, LOCKED); setField('Volume(mL/feed)', 13);
+  ok('a feed changed on the locked order: Submit is enabled again', button('Submit')?.disabled === false, button('Submit')?.disabled);
+  await press();
+  ok('…and pressing it saves the change as a revision (enVol 13)', updated.length === 1 && enVolOf(updated[0]) === 13, [updated.length, enVolOf(updated[0])]);
+
+  // A moved calculation holds the order for a new save: the full save, not a lock.
+  const oldCalc = { ...plain, calcInput: { ...plain.calcInput, constantsVersion: '2026-09-18.1' } };
+  reopen(oldCalc, LOCKED);
+  ok('saved on an older calculation, locked: Submit is enabled (it needs a new save)', button('Submit')?.disabled === false, button('Submit')?.disabled);
+  ok('…Print is still held: no print form, nothing to print', !sheet() && (await printNow()) === 0 && toast === 'No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์', toast);
+  await press();
+  ok('…pressing it saves a revision on today\'s calculation', updated.length === 1
+    && updated[0].calcInput.constantsVersion === window.NEOFEED_DATA.CONSTANTS_VERSION, [updated.length, updated[0]?.calcInput?.constantsVersion]);
+  reopen(oldCalc, UNLOCKED);
+  await press();
+  ok('the same order unlocked: Submit takes the full save and then the lock, not the lock alone', updated.length === 1 && locks.length === 1, [updated.length, locks.length]);
+
+  // A No TPN order that prints a short sheet behaves as before: locked = Submit
+  // disabled, unlocked = only the lock.
+  const withOrals = await saveNoTpn({}, () => setField('Vitamin D', 400));
+  reopen(withOrals, LOCKED);
+  ok('with vitamin D (a short sheet), locked, nothing changed: the sheet prints and Submit is disabled', !!sheet() && button('Submit')?.disabled === true,
+    [!!sheet(), button('Submit')?.disabled]);
+  await press();
+  ok('…and a press sends nothing', updated.length === 0 && locks.length === 0, [updated.length, locks.length]);
+  reopen(withOrals, UNLOCKED);
+  await press();
+  ok('with vitamin D, unlocked: pressing Submit only locks', updated.length === 0 && locks.length === 1, [updated.length, locks.length]);
+  const stopped = await saveNoTpn({ previousEntry: tpnDay });
+  reopen(stopped, LOCKED, { previousEntry: tpnDay });
+  ok('the day TPN stopped (a short sheet), locked: "TPN stopped today" prints and Submit is disabled',
+    text(sheet()?.querySelector('.print-no-tpn')) === 'TPN stopped today' && button('Submit')?.disabled === true,
+    [text(sheet()?.querySelector('.print-no-tpn')), button('Submit')?.disabled]);
+  reopen(stopped, UNLOCKED, { previousEntry: tpnDay });
+  await press();
+  ok('…unlocked: pressing Submit only locks', updated.length === 0 && locks.length === 1, [updated.length, locks.length]);
 
   act(() => { root.unmount(); });
   console.log(`\nNO TPN TICK (2026-11-01): ${fail ? `${fail} FAILED` : 'ALL PASS'} (${pass} passed)`);
