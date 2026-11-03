@@ -201,6 +201,10 @@ function savedCalcVersionOf(entry) {
   if (ci.constantsVersion) return String(ci.constantsVersion);
   return Object.prototype.hasOwnProperty.call(ci, "aaProduct") ? FIRST_AA_PRODUCT_VERSION : null;
 }
+function savedFiguresVOf(entry) {
+  const v = Number(entry?.calcInput?.printJsonV);
+  return v > 0 ? v : null;
+}
 function NumField({
   label,
   unit,
@@ -591,6 +595,7 @@ function Calculator({
   const [draftOffer, setDraftOffer] = useState(null);
   const [savedDosingWt, setSavedDosingWt] = useState(null);
   const [savedCalcVersion, setSavedCalcVersion] = useState(null);
+  const [savedFiguresV, setSavedFiguresV] = useState(() => savedFiguresVOf(editEntry));
   const fluidMidpoint = (weightG) => {
     const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1e3, patient?.bw);
     return Math.round((r[0] + r[1]) / 2);
@@ -731,6 +736,7 @@ function Calculator({
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
     setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
+    setSavedFiguresV(savedFiguresVOf(editEntry));
     setDraftOffer(null);
     if (!centerPoint) try {
       const dk = draftStorageKey(patient.sessionId, dateKey);
@@ -1527,6 +1533,8 @@ function Calculator({
   const calcMoved = !!savedEntryId && savedCalcVersion !== D.CONSTANTS_VERSION;
   const uncoveredCritical = alerts.filter((a) => a.level === "crit" && !a.noReason).map((a) => a.title).filter((t) => !(critOverride?.alerts || []).includes(t));
   const isDraftSaved = !!savedEntryId && savedStatus === "draft";
+  const daysSinceOrder = D.daysBetweenDateStr(orderDateKey, D.todayLocal());
+  const figuresMissing = !centerPoint && !!savedEntryId && !isDraftSaved && calc.totalTPN_mL > 0 && savedFiguresV !== D.STICKER_SCHEMA_VERSION && daysSinceOrder !== null && daysSinceOrder >= -1 && daysSinceOrder <= 0;
   const noTpnNoPrintText = "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์";
   const tpnStoppedToday = noTpnOn && D.orderHadTpn(previousEntry);
   const replacesTpn = savedReplacesTpn || savedStatus === "submitted" && !!savedEntryId && savedHadTpn;
@@ -1589,7 +1597,7 @@ function Calculator({
     if (scratch) return;
     if (ordersReadOnly) return;
     const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
-    if (lockFirst && !dirty && orderSettled) {
+    if (lockFirst && !dirty && orderSettled && !figuresMissing) {
       setSaving(true);
       const res2 = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -1759,6 +1767,20 @@ function Calculator({
       suppFe_mg: suppFerdek > 0 && wtKg > 0 ? parseFloat((suppFerdek * wtKg).toFixed(1)) : 0,
       suppFeType: suppFerdek > 0 ? suppFeType : ""
     };
+    const figures = D.stickerFigures({
+      calc,
+      dol,
+      orderDate: orderDateKey,
+      dexPct,
+      naCl,
+      naAcet,
+      kCl,
+      mgPerKg,
+      caPerKg,
+      heparinUmL,
+      inclAddamel,
+      critOverride: override
+    });
     const entry = {
       dol,
       weight: curWtG,
@@ -1794,11 +1816,15 @@ function Calculator({
       // to call (savedByOf). Not an input — normalizeCalcInput ignores it.
       // stops: the stops that hold (submitStops), read by gas-backend.gs.
       // Not an input either.
+      // printJsonV: the version of the sticker figures saved beside it (below),
+      // the one trace of them the ward sync carries back (it does not read
+      // Daily_Log AM). Absent for an order with no bag. Not an input either.
       calcInput: {
         ...captureState(),
         tpnWtG: dosingWtAtSave,
         constantsVersion: D.CONSTANTS_VERSION,
         stops: submitStops,
+        ...figures ? { printJsonV: figures.v } : {},
         // replacesTpn: this row replaces a submitted order of its day that had
         // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
         ...replacesTpn ? { replacesTpn: true } : {},
@@ -1807,6 +1833,9 @@ function Calculator({
         // Which required boxes were blank — they reopen blank (seededZeros).
         ...asDraft ? { blankFields: missingFields.map((f) => f.key) } : {}
       },
+      // The sticker figures — kept out of calcInput on purpose: the doctor's
+      // order carries no copy of what the TPN room prints.
+      printJson: figures,
       // Provenance — which constants and which frontend computed these
       // numbers. Lands in Daily_Log AF/AG and prints on the order form, so a
       // constant that later turns out wrong can be traced to the exact rows
@@ -1843,6 +1872,7 @@ function Calculator({
     setCritOverride(override);
     setSavedDosingWt({ g: dosingWtAtSave, exact: true });
     setSavedCalcVersion(D.CONSTANTS_VERSION);
+    setSavedFiguresV(figures ? figures.v : null);
     setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || (/* @__PURE__ */ new Date()).toISOString(),
@@ -2792,12 +2822,12 @@ function Calculator({
     /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
     " ",
     saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"
-  ), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
+  ), figuresMissing && !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn primary",
       style: { width: "100%" },
-      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && orderSettled,
+      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && orderSettled && !figuresMissing,
       onClick: () => handleSave(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),

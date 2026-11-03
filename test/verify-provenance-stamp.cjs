@@ -34,7 +34,7 @@ const R = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 // ── Column indices. Any change here is a schema migration, not a tweak. ───
 const COL_CONSTANTS_VERSION = 31; // AF
 const COL_APP_VERSION       = 32; // AG
-const ROW_WIDTH             = 38; // A–AL; AH–AL (publish/revision) added 2026-09-10
+const ROW_WIDTH             = 39; // A–AM; AH–AL (publish/revision) added 2026-09-10; AM (printJson) 2026-10-30
 
 // ══ 1 · data.js owns the version strings ══════════════════════════════════
 console.log('\n── data.js exports the versions ──');
@@ -139,7 +139,7 @@ console.log('\n── create path: logDailyNutrition ──');
 sheet = makeSheet(40);
 sandbox.logDailyNutrition('AB-1200', ENTRY, 'doc@kcmh');
 const created = sheet.appended[0] || [];
-eq('row is 38 columns wide',                    created.length, ROW_WIDTH);
+eq('row is 39 columns wide',                    created.length, ROW_WIDTH);
 eq('constantsVersion lands in AF (index 31)',   created[COL_CONSTANTS_VERSION], '2026-10-28.1');
 eq('appVersion lands in AG (index 32)',         created[COL_APP_VERSION], 'test-app-version');
 
@@ -164,7 +164,7 @@ existing[14] = 'draft';
 sheet = makeSheet(40, [existing]);
 sandbox.updateDailyNutrition('AB-1200', 'uuid-1', 'stamp-1', ENTRY, 'editor@kcmh');
 const updated = (sheet.writes[0] && sheet.writes[0].values[0]) || [];
-eq('update writes 38 columns',                  sheet.writes[0] && sheet.writes[0].numCols, ROW_WIDTH);
+eq('update writes 39 columns',                  sheet.writes[0] && sheet.writes[0].numCols, ROW_WIDTH);
 eq('constantsVersion lands in AF on update',    updated[COL_CONSTANTS_VERSION], '2026-10-28.1');
 eq('appVersion lands in AG on update',          updated[COL_APP_VERSION], 'test-app-version');
 eq('original submittedBy still preserved',      updated[15], 'orig@kcmh');
@@ -181,7 +181,7 @@ try {
   sandbox.logDailyNutrition('AB-1200', noVersion, 'doc@kcmh');
 } catch (e) { threw = e.message; }
 eq('save without versions does not throw',      threw, null);
-eq('still writes 38 columns',                   (sheet.appended[0] || []).length, ROW_WIDTH);
+eq('still writes 39 columns',                   (sheet.appended[0] || []).length, ROW_WIDTH);
 eq('missing constantsVersion becomes ""',       (sheet.appended[0] || [])[COL_CONSTANTS_VERSION], '');
 eq('missing appVersion becomes ""',             (sheet.appended[0] || [])[COL_APP_VERSION], '');
 
@@ -192,19 +192,21 @@ sheet = makeSheet(31);
 threw = null;
 try { sandbox.logDailyNutrition('AB-1200', ENTRY, 'doc@kcmh'); } catch (e) { threw = e.message; }
 eq('create on a 31-column tab does not throw',  threw, null);
-eq('grid widened to 38',                        sheet.maxColumns, ROW_WIDTH);
+eq('grid widened to 39',                        sheet.maxColumns, ROW_WIDTH);
 
 sheet = makeSheet(31, [existing.slice(0, 31)]);
 threw = null;
 try { sandbox.updateDailyNutrition('AB-1200', 'uuid-1', 'stamp-1', ENTRY, 'editor@kcmh'); } catch (e) { threw = e.message; }
 eq('update on a 31-column tab does not throw',  threw, null);
-eq('grid widened to 38 on update',              sheet.maxColumns, ROW_WIDTH);
+eq('grid widened to 39 on update',              sheet.maxColumns, ROW_WIDTH);
 
 console.log('\n── header migration knows about the new columns ──');
 const gas = R('gas-backend.gs');
 ok('ensureLogHeaderColumns labels column 32', /32:\s*["']constantsVersion["']/.test(gas));
 ok('ensureLogHeaderColumns labels column 33', /33:\s*["']appVersion["']/.test(gas));
-ok('ensureLogHeaderColumns widens to 38',     /\b38 - sh\.getMaxColumns\(\)/.test(gas));
+// 39 since 2026-10-30: the migration also labels and widens to AM (printJson, the TPN room's
+// sticker figures). It was 38, A–AL.
+ok('ensureLogHeaderColumns widens to 39 (A–AM)', /\b39 - sh\.getMaxColumns\(\)/.test(gas));
 
 // ══ 3 · the frontend actually sends them, and prints them ═════════════════
 console.log('\n── calculator.jsx wires the stamp through ──');

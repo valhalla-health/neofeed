@@ -110,7 +110,8 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   Ca·PO₄, what reaches the infant, changes since the last order, and who saved it.
 
 **Since 2026-10-28 only the front prints** (the TPN team: "print เฉพาะแค่หน้าแรก หน้าสองเก็บไว้ก่อน"). Both
-shells hide `.print-back` in print; it still renders, for a later phase that prints it for a sticker.
+shells hide `.print-back` in print; it still renders. The stickers are not this sheet: they print from `printJson`
+(`openspec/changes/tpn-room-stickers`).
 Pharmacy works out the stock mL, Factor and WFI from the front. Two things moved from the back to the
 front so they stay on paper (Pp, after Vera): the lipid pump rate, and, when a critical value was
 confirmed at Submit, "✔ แพทย์ยืนยันคำสั่ง" with the alerts and the reason. A revision prints
@@ -591,6 +592,53 @@ address.
 characters on the live `Daily_Log`, for example `=SUMPRODUCT(--(LEN(Daily_Log!Y2:Y)>10000))` in a scratch cell. An edit
 that sends such a `calcInput` back is refused: the registry's unchanged-value pass has no twin there. Real saves are
 about 1,500 characters, so expect 0; if it is not 0, hold the push and tell Pp.
+
+### The TPN room: `pharmacy`, column AM, `pharmacyOrders` (not live)
+
+PR A of `openspec/changes/tpn-room-stickers`. The page that reads all this, PR B, is not built.
+
+- **`Daily_Log` AM, `printJson`.** The figures for the TPN unit's three stickers, as `D.stickerFigures` made
+  them at the save, drafts too. A save with none (no bag, a No TPN order, a tab from before the release) lands
+  with AM blank. The ward sync does not read AM, so the calculator also writes `calcInput.printJsonV`; a saved
+  bag without it, dated today or tomorrow, shows "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง". Print is not held for it.
+- **`_printJsonField` refuses** a sticker off the schema or off its order (design D14), and a refusal stops a
+  doctor's save. Its key lists mirror `stickerFigures` by hand, and `test/verify-pharmacy-backend-1030.cjs` §13
+  compares them. `stickerFigures` returns null rather than send what the server would refuse, so the order
+  saves with no sticker. **Compare the weight after rounding:** raw, |sticker − kg| > 0.005 refuses 220 of the
+  whole-gram weights from 200 to 8000 g, such as 1005 g printing 1.01.
+- **The `pharmacy` role.** `login` and `logout` are answered before the token check, GET `ping` is open, and
+  `PHARMACY_ACTIONS` lets a signed-in session reach `changePassword` and `pharmacyOrders` only. The login reply
+  carries no registry. The ward app turns the account away with one line.
+- **`pharmacyOrders`.** One real date from the ward's today −7 to +1, for an admin too. Audited before the log
+  is read. It checks both tabs' headers uncached on every call and reads the whole column, so call it on demand,
+  not on a short timer. No name, initials or date of birth, except the initials inside an ID issued before
+  2026-09-27 (Pp accepted that on 2026-10-30, design D5). A lipid-only order is not on it: its route is not
+  `TPN…`, and the unit does not compound lipid.
+- **A cancelled order** leaves the list without a mark. The doctor phones the room for a cancelled or a revised order
+  (Pp, 2026-11-02 and 2026-11-03, D16).
+
+**Deploy: the backend first, and this is required** (D15), the opposite of the usual order. All of it on Pp's
+go-ahead:
+
+1. `sheetHealthReport` from the editor. `Daily_Log`'s `gridColumns` should be 38. If it is wider, read AM1 first: the
+   new schema check refuses every save when AM1 holds any other label.
+2. Diff the mirror, copy `gas-backend.gs` into `รหัส.js`, `clasp push`.
+3. From the editor, on the pushed code: `ensureLogHeaderColumns()` as a dry run. It reports `38 -> 39`, or "already
+   39" if a save got there first. `OCCUPIED` means stop.
+4. `clasp update-deployment` as above, then `clasp list-deployments` and the `clasp pull` diff, then
+   `applyLogHeaderColumns()` from the editor. Commit and push the mirror.
+5. The `main → release` PR, as § Frontend says. **Release it close to PR B:** until the room's page is live, the re-save
+   notice asks doctors to press Submit for a page nobody has yet. Say what the line means in the ward's release notice.
+6. On the first new bag order after the release, AM starts `{"v":1` and `calcInput.printJsonV` is 1. A marker with a
+   blank AM means D15 is broken, so roll the frontend back.
+7. Make no pharmacy account until PR B. For one, type the Staff row with role `pharmacy` and active TRUE, or name the
+   role: `setInitialPassword(email, password, "pharmacy")`. Without a row and a role it writes nothing.
+
+**A later schema change** goes the same way: a backend on `v: 1` refuses a client on a new key or version.
+
+**Rollback:** the frontend first, then the backend. An older backend under the new frontend writes the marker with no
+AM, which is D15's failure. It also rewrites a draft 38 columns wide and leaves that row's AM stale. To find the rows
+afterwards: `calcInput` has `printJsonV` and AM is blank. Nothing reads AM until PR B.
 
 ## Thai PDPA compliance posture
 
