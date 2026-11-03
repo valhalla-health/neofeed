@@ -2332,8 +2332,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const replacesTpn = savedReplacesTpn || (savedStatus === "submitted" && !!savedEntryId && savedHadTpn);
   const tpnCancelledToday = noTpnOn && replacesTpn;
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
-  const printable = !!savedEntryId && !dirty && (!noTpnOn || noTpnSheet) && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
+  // orderSettled: saved, unchanged and held by nothing that needs a new save. It is
+  // printable without the No TPN term, because a No TPN order with no short sheet
+  // never prints, and Submit reads "nothing left to submit" from this, not from
+  // printable (Pp, 2026-11-02: a locked No TPN order still offered Submit, and
+  // pressing it wrote an identical revision).
+  const orderSettled = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
+  const printable = orderSettled && (!noTpnOn || noTpnSheet);
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
   // Center Point offers no tick, so it is not offered there (Vera, 2026-11-01).
@@ -2437,11 +2443,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
-    // Only when it could print as it is: an order held from Print (a calculation
-    // that moved since, a changed dosing weight, an unconfirmed critical value)
-    // takes the full save below, a revision on today's numbers (Vera, 2026-10-28).
+    // Only when nothing needs a new save (orderSettled): an order held from Print
+    // (a calculation that moved since, a changed dosing weight, an unconfirmed
+    // critical value) takes the full save below, a revision on today's numbers
+    // (Vera, 2026-10-28). A No TPN order with no short sheet never prints, and is
+    // locked all the same (Pp, 2026-11-02).
     const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
-    if (lockFirst && !dirty && printable) {
+    if (lockFirst && !dirty && orderSettled) {
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -4296,9 +4304,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </button>
             )}
             {/* A locked order with nothing changed has nothing to submit, unless
-                Print is holding it for a new save. */}
+                something is holding it for a new save (orderSettled). A No TPN
+                order that never prints is still settled. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && printable)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

@@ -7,6 +7,34 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-02 — A locked No TPN order has nothing to submit
+
+`calculator.jsx` (`orderSettled`, Submit's `disabled`, `handleSave`'s lock-only path), `compiled/calculator.js`,
+both shells' `?v=` tokens, `test/verify-no-tpn-1101.cjs`, `test/verify-safety-review.cjs`, `test/README.md`. Pp
+asked for the fix on 2026-11-02, after the live release `729910f` was shown offering Submit on a locked No TPN order.
+
+- **Before:** a No TPN order with no short sheet (no oral orders, no TPN the day before) is never `printable`,
+  and two checks read `printable` as "nothing left to submit": Submit's `disabled` clause and the lock-only
+  path in `handleSave`. So a locked, unchanged order still offered Submit, and pressing it called `onUpdate`,
+  which the server turns into a new revision of identical numbers; Submit stayed enabled afterwards. An
+  unlocked, unchanged one did a full save and then a lock, where an order with TPN only locks.
+- **Now:** `orderSettled` is `printable` without its No TPN term (saved, unchanged, no stop, no moved
+  calculation, no changed dosing weight, no unconfirmed critical value, not a draft). Both checks read it.
+  A locked, unchanged No TPN order has Submit disabled, and an unlocked one only locks.
+- **Unchanged:** `printable` itself, so Print still prints nothing for a No TPN order with no sheet (it says
+  "No TPN — ไม่มีใบสั่ง TPN ให้พิมพ์"), and the red "held from Print" line stays off. A No TPN order held by a
+  moved calculation, a changed dosing weight, an unconfirmed critical value or a draft keeps Submit enabled
+  and takes the full save. An order with a short sheet (oral orders, or the day TPN stopped) behaves as
+  before: locked, Submit disabled; unlocked, only the lock. Submit's second, publish-gate button
+  (`D.ENABLE_PUBLISH_GATE`, off) still reads `printable`. No calculation, figure or `CONSTANTS_VERSION` change.
+- **Tests.** `verify-no-tpn-1101.cjs` §10, 20 checks. On `6ed5428`, four fail: the locked order's Submit is
+  enabled, a press sends one update and one lock, the unlocked order's press sends an update where it should
+  only lock, and Submit is still enabled afterwards. The rest are guards that held before the fix: a feed
+  changed on the locked order, a moved calculation (locked and unlocked), an order with vitamin D, and the day
+  TPN stopped. `verify-safety-review.cjs` pinned the text `const printable = !!savedEntryId && !dirty`; it now
+  pins `const orderSettled = !!savedEntryId && !dirty` and `const printable = orderSettled`, the same rule
+  one name along.
+
 ## Session 2026-11-01 (3) — The bottle and the over-full bag are one stop on screen, "Bag cannot be made (ใส่ถุงไม่ได้)"
 
 `calculator.jsx` (the Alerts panel, the save panel, Submit's refusal), `compiled/calculator.js`, both shells'
