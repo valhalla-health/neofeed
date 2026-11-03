@@ -28,6 +28,12 @@ function throws(name, fn) {
   ok(name, threw !== null);
   return threw;
 }
+// Refused, and by this guard: a new row with another shape of id is refused anyway since 2026-11-02 (R2, last of
+// all), so the guard's own words are what prove it ran (Vera on 8a77e3a).
+function refusedWith(name, words, fn) {
+  const msg = throws(name, fn);
+  ok('…in its own words: ' + words, words.test(String(msg)));
+}
 function doesNotThrow(name, fn) {
   let threw = null;
   try { fn(); } catch (e) { threw = e.message; }
@@ -125,12 +131,12 @@ throws('under-min value throws', () => sandbox._checkRange(-5, 0, 100, 'x'));
 // ── 2. registerPatient rejects implausible values ──────────────────────────
 console.log('\n── registerPatient() plausibility guard ──');
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-throws('BW=50000 g rejected (the BP=400 mmHg case for NeoFeed)',
-  () => sandbox.registerPatient({ ...patient, sessionId: 'X-1', bw: 50000 }));
+refusedWith('BW=50000 g rejected (the BP=400 mmHg case for NeoFeed)', /Birth weight/,
+  () => sandbox.registerPatient({ ...patient, sessionId: 'NF-000001', bw: 50000 }));
 eq('rejected BW never reached the sheet', sheet.appended.length, 0);
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-throws('GA=99 weeks rejected', () => sandbox.registerPatient({ ...patient, sessionId: 'X-2', ga: 99 }));
+refusedWith('GA=99 weeks rejected', /GA \(weeks\)/, () => sandbox.registerPatient({ ...patient, sessionId: 'NF-000002', ga: 99 }));
 eq('rejected GA never reached the sheet', sheet.appended.length, 0);
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
@@ -139,20 +145,22 @@ sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
 // BW/GA validators, so it must not trip that guard — see
 // verify-gas-registry-upsert.cjs for the bed rule's own cover.
 doesNotThrow('a plausible extreme-preterm registration still saves',
-  () => sandbox.registerPatient({ ...patient, sessionId: 'X-3', bw: 420, ga: 23, currentBed: 'NICU 4' }));
+  () => sandbox.registerPatient({ ...patient, sessionId: 'NF-000003', bw: 420, ga: 23, currentBed: 'NICU 4' }));
 eq('plausible registration reached the sheet', sheet.appended.length, 1);
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-throws('missing BW/GA cannot create a dose-bearing patient record',
-  () => sandbox.registerPatient({ sessionId: 'X-4', name: 'N', initials: 'N' }));
+refusedWith('missing BW cannot create a dose-bearing patient record', /น้ำหนักแรกเกิด/,
+  () => sandbox.registerPatient({ sessionId: 'NF-000004', name: 'N', initials: 'N', ga: 28 }));
+refusedWith('missing GA cannot create a dose-bearing patient record', /ต้องระบุ GA/,
+  () => sandbox.registerPatient({ sessionId: 'NF-000004', name: 'N', initials: 'N', bw: 1200 }));
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-throws('GA day digit above 6 is rejected',
-  () => sandbox.registerPatient({ ...patient, sessionId: 'X-5', ga: 27.9 }));
+refusedWith('GA day digit above 6 is rejected', /WW\.D/,
+  () => sandbox.registerPatient({ ...patient, sessionId: 'NF-000005', ga: 27.9 }));
 
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
-throws('GA with more than one decimal place is rejected',
-  () => sandbox.registerPatient({ ...patient, sessionId: 'X-6', ga: 27.25 }));
+refusedWith('GA with more than one decimal place is rejected', /WW\.D/,
+  () => sandbox.registerPatient({ ...patient, sessionId: 'NF-000006', ga: 27.25 }));
 
 // ── 3. _buildLogRow (shared by create + update) rejects implausible entries ─
 // What the app sends with every save since 2026-10-28: the stops that hold,

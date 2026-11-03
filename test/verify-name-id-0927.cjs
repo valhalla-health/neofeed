@@ -244,7 +244,8 @@ const scenarios = {
       const reg = P({ sessionId: 'NF-222222', name: 'สด จง', dob: day(-20), admissionDate: day(-2), currentBed: 'NICU 6' });
       const r = g.as({ action: 'registerPatient', isNew: true, patient: reg });
       A.eq('4.13 same BW and dob as a record on file (even one no ward syncs): PossibleDuplicate', [r.needsConfirm, r.code], [true, 'PossibleDuplicate']);
-      A.ok('4.14 …naming it: name, status, bed, id', ['สม จด', 'Transferred', 'NICU 11', 'NF-111111'].every(s => String(r.error).includes(s)));
+      A.ok('4.14 …a doctor is not given a record outside the sync window: no name, status, bed or id, ask an admin (Pp\'s 2026-09-27 "every row" named it; reversed 2026-11-02, A5)',
+        !['สม จด', 'Transferred', 'NICU 11', 'NF-111111'].some(s => String(r.error).includes(s)) && String(r.error).includes('admin'));
       A.eq('4.15 …and nothing written', g.row('NF-222222'), undefined);
       const ok = g.as({ action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: reg });
       A.eq('4.16 confirmDuplicate: registered as a new infant', [ok.ok, g.row('NF-222222')?.name], [true, 'สด จง']); }
@@ -345,7 +346,7 @@ const scenarios = {
       await t.settle();
     }
     const r2 = t.callsOf('registerPatient').slice(3);
-    A.ok('5c.6 the server asked, naming the record no ward syncs', t.confirms.length === 1 && /ปร พฒ/.test(t.confirms[0]) && /NF-600002/.test(t.confirms[0]));
+    A.ok('5c.6 the server asked about the record no ward syncs, without naming it (A5)', t.confirms.length === 1 && /admin/.test(t.confirms[0]) && !/ปร พฒ/.test(t.confirms[0]) && !/NF-600002/.test(t.confirms[0]));
     A.eq('5c.7 a yes sends it again with confirmDuplicate, and it lands', [r2.length, r2[1]?.confirmDuplicate, g.rows('Patient_Registry').some(r => r[1] === 'ปร พง')], [2, true, true]);
   },
 };
