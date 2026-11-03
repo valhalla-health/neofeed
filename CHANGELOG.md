@@ -7,6 +7,30 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-03 — The TPN unit's answers to the sticker questions: four figures confirmed, three rows gone
+
+`data.js` (`stickerFigures`), `gas-backend.gs` (the `printJson` key lists), `compiled/` and the shells' `?v=`
+tokens, `test/verify-sticker-figures-1030.cjs`, `test/verify-pharmacy-backend-1030.cjs`, `test/README.md`,
+`openspec/changes/tpn-room-stickers/`. On PR #212, not live. The unit replied in writing on 2026-11-03; the reply
+is in Pp's product notes.
+
+- **Confirmed, and no longer PROVISIONAL:** the vitamins on the PN label (what reaches the infant), Cl⁻ (20% NaCl and
+  KCl only, 1 : 1), kcal (dextrose × 3.4 and amino acid × 4 in the delivered volume) and heparin units (the delivered
+  volume, at 0.5–1 U/mL). No figure moved, and `CONSTANTS_VERSION` stays.
+- **Rows:** Aminoleban, Nephrosteril and MgSO₄ 50 % leave `printJson` and the backend's schema. Amiparen and Addamel N
+  stay at 0. `STICKER_SCHEMA_VERSION` stays 1, since no order has been saved on this schema: PR A is not live.
+- **The sodium worry is closed.** The unit had once said Na was calculated wrong, and now says it was right
+  ("เดิมคำนวณถูกแล้ว"). Nothing here changes for it.
+- **Spec corrected:** วันที่ผลิต is the day the TPN is prepared, not the day the sticker prints. PR B has to settle
+  where that date comes from (`tasks.md` 2.6).
+- **Still open, and the release gate with it:** the Na acetate part of `tasks.md` 0.3 e, and 0.3 m. The reply left 0.3 i
+  (printer, fixed lines) blank, and j, k and l were not on the list the unit saw.
+- **Clinician review:** the unit confirmed the rules behind the figures. Pp's sign-off on the figure table (`tasks.md`
+  1.1) is still to come. The constants register is untouched, because no constant changed.
+- **Merge:** `main` (#210, #213) is merged into the branch. The two Submit lines read `orderSettled &&
+  !figuresMissing`. An unlocked No TPN order now only locks on Submit, so `verify-sticker-figures-1030.cjs` §2c5 expects
+  the lock and no write.
+
 ## Session 2026-11-02 — The doctor's printed order is one A4 page at its fullest, signature included
 
 `calculator.jsx` (`PrintOrderForm`), `compiled/calculator.js`, both shells' `@media print` block and `?v=`

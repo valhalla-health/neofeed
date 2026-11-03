@@ -35,9 +35,9 @@ const PJ = (extra) => Object.assign({ v: 1, constantsVersion: '2026-10-28.1', or
   dosingWeightKg: '1.6', factor: '1.9', deliveredMl: '160', deadMl: '30', preparedMl: '190',
   stockMl: { d50w: '38', aminoven10: '38', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.1', glycophos: '0',
     k2hpo4: '0', naAcetate: '0', kcl: '2.4', mgso4_10: '0.9', caGluconate: '0', soluvit: '1.9', peditrace: '1.9',
-    heparin: '1.9', wfi: '103.9', aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0' },
+    heparin: '1.9', wfi: '103.9', znso4: '0', addamel: '0' },
   delivered: { dextrosePct: '10', dextroseG: '16', aminoAcidPct: '2',
-    aminoAcidG: { aminoven10: '3.2', amiparen10: '0', aminoplasmal15: '0', aminoleban8: '0', nephrosteril7: '0' },
+    aminoAcidG: { aminoven10: '3.2', amiparen10: '0', aminoplasmal15: '0' },
     naMeq: '3.2', kMeq: '4', caMg: '0', mgMg: '7.8', phosphateMg: '0', acetateMeq: '0', clMeq: '7.2', znMg: '0.4',
     soluvitMl: '1.6', peditraceMl: '1.6', addamelMl: '0', heparinUnits: '160', osmolarity: '794', kcal: '67' },
   critical: null }, extra);
@@ -662,11 +662,11 @@ T.section('§13 printJson · held to the schema stickerFigures makes, for the or
   T.ok('stickerFigures made a whole sticker from the written-out calc', !!real && real.v === 1, real);
   T.eq('the server\'s top-level keys are the ones stickerFigures makes (12)', counted(g.sb.PRINT_JSON_TOP_KEYS),
     [sorted(Object.keys(real)), 12]);
-  T.eq('…stockMl (20)', counted(g.sb.PRINT_JSON_STOCK_KEYS), [sorted(Object.keys(real.stockMl)), 20]);
+  T.eq('…stockMl (17)', counted(g.sb.PRINT_JSON_STOCK_KEYS), [sorted(Object.keys(real.stockMl)), 17]);
   T.eq('…delivered (18, with aminoAcidG among them)', counted(g.sb.PRINT_JSON_DELIVERED_KEYS),
     [sorted(Object.keys(real.delivered)), 18]);
-  T.eq('…aminoAcidG (5)', counted(g.sb.PRINT_JSON_AMINO_KEYS),
-    [sorted(Object.keys(real.delivered.aminoAcidG)), 5]);
+  T.eq('…aminoAcidG (3)', counted(g.sb.PRINT_JSON_AMINO_KEYS),
+    [sorted(Object.keys(real.delivered.aminoAcidG)), 3]);
   T.eq('…and critical', sorted(g.sb.PRINT_JSON_CRITICAL_KEYS), sorted(Object.keys(real.critical)));
   const nulls = (o, at) => Object.entries(o).flatMap(([k, v]) => v === null ? [at + k] : v && typeof v === 'object' ? nulls(v, at + k + '.') : []);
   T.eq('a figure is null only where the server allows it (Addamel ticked)',
@@ -716,7 +716,10 @@ T.section('§13 printJson · held to the schema stickerFigures makes, for the or
     ['a missing stockMl key (wfi)', edit(p => { delete p.stockMl.wfi; })],
     ['a missing stockMl.addamel (null is allowed, absent is not)', edit(p => { delete p.stockMl.addamel; })],
     ['a missing delivered key (kcal)', edit(p => { delete p.delivered.kcal; })],
-    ['a missing aminoAcidG key (nephrosteril7)', edit(p => { delete p.delivered.aminoAcidG.nephrosteril7; })],
+    ['a missing aminoAcidG key (amiparen10)', edit(p => { delete p.delivered.aminoAcidG.amiparen10; })],
+    ['a row the TPN unit dropped (aminoleban8)', edit(p => { p.stockMl.aminoleban8 = '0'; })],
+    ['a row the TPN unit dropped (mgso4_50)', edit(p => { p.stockMl.mgso4_50 = '0'; })],
+    ['a row the TPN unit dropped (nephrosteril7, in aminoAcidG)', edit(p => { p.delivered.aminoAcidG.nephrosteril7 = '0'; })],
     ['an extra top-level key: a patient name', edit(p => { p.patientName = 'ทารกทดสอบ'; })],
     ['an extra key inside stockMl', edit(p => { p.stockMl.patientName = '0'; })],
     ['an extra key inside delivered', edit(p => { p.delivered.patientName = '0'; })],

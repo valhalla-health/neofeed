@@ -40,13 +40,15 @@ calculation, and no figure SHALL be computed from another formatted figure.
 #### Scenario: A stock NeoFeed cannot order
 
 - **WHEN** any order is saved
-- **THEN** `printJson` holds `0` for Aminoleban, Nephrosteril, MgSO₄ 50 % and Addamel N (Addamel N has no
-  figure, `null`, when it is ticked: NeoFeed has no Addamel volume)
+- **THEN** `printJson` holds `0` for Amiparen and Addamel N (Addamel N has no figure, `null`, when it is
+  ticked: NeoFeed has no Addamel volume), and has no row for Aminoleban, Nephrosteril or MgSO₄ 50 % (TPN unit,
+  2026-11-03)
 
 #### Scenario: Vitamins on an overfilled bag
 
 - **WHEN** a synthetic 2.20 kg infant has 250 mL delivered and 280 mL prepared with Soluvit 1 mL/kg
-- **THEN** `printJson` holds Factor `2.46` and Soluvit `2.5`, the calculator's × Factor volume
+- **THEN** `printJson` holds Factor `2.46` and, on the worksheet, Soluvit `2.5`, the calculator's × Factor
+  volume; on the PN label it holds Soluvit `2.2`, what reaches the infant (TPN unit, 2026-11-03)
 
 #### Scenario: A revision keeps its own figures
 

@@ -18,6 +18,10 @@
 4. **Found while planning: the login reply must never carry the registry for a pharmacy account.** `_loginReply` attaches the first registry snapshot (names included) to any successful login that asks for it, before the allow-list could run. Task 4 closes that.
 5. **`pharmacyOrders` also answers an admin**, so Pp can check it without a pharmacy account.
 
+6. **The TPN unit's answers, 2026-11-03 (`tasks.md` 0.3).** `stickerFigures` and the backend's lists no longer
+   have `aminoleban8`, `nephrosteril7` or `mgso4_50`, and figures a–d are no longer PROVISIONAL, whatever the
+   tables and code below still show. This plan stays as the record of how PR A was built.
+
 ## Added after the cold-reader passes (2026-10-30), for Tasks 1–2
 
 Tasks 3–6 are built. Two cold readers (an attack on the whole app, and a walk through it by role) found

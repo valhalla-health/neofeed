@@ -8,27 +8,38 @@
 - [ ] 0.2 Ask IT whether that PC runs Deep Freeze or a similar restore, or clears browser data on exit, and
       which local folder is neither restored nor synced. Put the new store of names in the planned change
       request so the DPO can add it to the record of processing.
-- [ ] 0.3 Ask the TPN unit (Pp, 2026-10-30). Figures:
+- [ ] 0.3 Ask the TPN unit (Pp, 2026-10-30). The unit replied in writing on 2026-11-03 to a list of a–i (kept in
+      Pp's product notes). Still open: the Na acetate part of e, i, j, k, l and m. Figures:
       a. Soluvit and Peditrace on the PN label: what reaches the infant (1.6 mL for a 1.6 kg infant) or
          what is in the bag (1.9 mL, × Factor)? The unit's sample shows one number on both stickers only
          because its Excel does not overfill.
-      b. Cl⁻: from 20% NaCl and KCl only, 1 : 1?
+         **Answered: what reaches the infant** ("ใส่ปริมาตรที่เด็กได้จริง"). The worksheet stays × Factor (D9).
+      b. Cl⁻: from 20% NaCl and KCl only, 1 : 1? **Answered: yes.**
       c. Calories/Deliv.Vol: dextrose at 3.4 and amino acid at 4 kcal/g in the delivered volume, nothing
-         else?
+         else? **Answered: yes.**
       d. Heparin units on the PN label: in the delivered volume, as the sample shows, not the bag?
+         **Answered: the delivered volume,** at "0.5 - 1 unit / cc", the range the calculator already warns on.
       e. Osmolarity: NeoFeed's formula is the KCMH worksheet's E52, and on the unit's sample order it
          gives the same whole number the sticker shows. Does the unit's Excel count the sodium
          from Glycophos and Na acetate? Leaving out Glycophos or Na acetate sodium lowers the figure by
          2 mOsm/L per mEq/L of Na, which can put a peripheral bag under 900 on paper and over it in NeoFeed.
+         **Part answered.** The list the unit saw asked instead where the sodium error it once mentioned was,
+         and whether Excel had been fixed. Reply: "เดิมคำนวณถูกแล้ว", so there was no error. The sample order
+         shows Glycophos sodium is counted. **Na acetate sodium was not asked, and stays open.**
       Format and practice:
       f. The sample's decimals are the rule for every sticker, printed without trailing zeros (`3`, not
          `3.0`). Dextrose keeps what was typed (`12.25`), as on the doctor's sheet.
+         **Answered: print `3`** ("พิมพ์เฉพาะ 3"). The reply says nothing against the sample's decimals.
       g. The rows NeoFeed cannot order (Amiparen, Aminoleban, Nephrosteril, MgSO₄ 50 %, Addamel N): keep
          them at 0 as a checklist, or drop them?
+         **Answered: Amiparen and Addamel N stay at 0** ("ยังมีสก.สั่งอยู่"). **Aminoleban and Nephrosteril go**
+         ("ไม่มีหมอเด็กสั่ง ตัดออก"), **and so does MgSO₄ 50 %** ("เอาออกได้").
       h. The worksheet's bw is the dosing weight the order used, and วันที่ผลิต is the day the sticker is
          printed.
+         **Answered: bw is the weight the calculation used. วันที่ผลิต is the day the TPN is prepared**
+         ("วันที่เตรียม TPN"), not the day the sticker prints. See 2.6.
       i. The printer model, whether the A4 sheet is cut by hand, and the PN label's fixed lines (heading,
-         storage line, extension).
+         storage line, extension). **The reply left this blank.**
       j. Twins share BW and DOL: print the twin letter (A, B) on all three stickers, or does the name the
          room maps already carry it?
       k. An order written in the evening for the next bag carries that day's date in NeoFeed (the ward app
@@ -38,16 +49,17 @@
          the name file?
       m. Acetate on the PN label is the Na acetate ordered. It leaves out Aminoven Infant's lysine acetate, as
          the sample does. Is that right?
-      Tell them: Soluvit and Peditrace are × Factor (2.5 mL where their Excel gives 2.2), and Mg on the
-      label is in mg.
+      j, k, l and m were not on the list the unit answered.
+      Still to tell them: Soluvit and Peditrace are × Factor on the worksheet (2.5 mL where their Excel gives
+      2.2), and Mg on the label is in mg.
 
 ## 1. PR A: NeoFeed (printed figures, pharmacy role)
 
 - [ ] 1.1 Map every figure on the unit's sample stickers to a calculator value. List the ones the
       calculator does not produce yet (for example amino acid %, Mg²⁺ in mg in the delivered volume, kcal
       of the delivered aqueous volume) with the formula each would use, and get Pp's sign-off on that
-      table before coding. Pp went ahead on 2026-10-31 with figures a–d marked PROVISIONAL in `data.js`;
-      her sign-off waits on 0.3.
+      table before coding. Pp went ahead on 2026-10-31 with figures a–d marked PROVISIONAL in `data.js`. The
+      TPN unit confirmed a–d on 2026-11-03, and `data.js` no longer marks them. Her sign-off is the step left.
 - [x] 1.2 Build `printJson` from the calculator's values with the sticker number format. Add a harness
       that, for a matrix of synthetic orders (the KCMH-worksheet cases included), asserts each `printJson`
       string equals the calculator's value rounded half up to its decimals, and covers the three
@@ -79,7 +91,8 @@
 - [ ] 2.5 Printability rules and the revision warning; critical alerts on the row.
 - [ ] 2.6 The three stickers on A4 from `printJson`. Tests: every number on the stickers is in `printJson`;
       zero rows print; iso prints `9B2(NICU)`. A headless Chrome PDF of a synthetic sheet for Pp to check
-      against a real sticker sheet.
+      against a real sticker sheet. The PN label's date made is the day the TPN is prepared (0.3 h), which the
+      page cannot assume is the print day or the order date: settle where it comes from together with 0.3 k.
 - [ ] 2.7 The sentinel-name test: no request URL, header or body contains the mapped name.
 - [ ] 2.8 Vera's report in the PR; `CHANGELOG.md`; `STATUS.md`.
 - [ ] 2.9 From the cold readers (2026-10-30), each with a test where it can have one:

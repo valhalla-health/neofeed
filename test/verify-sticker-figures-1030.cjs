@@ -98,15 +98,19 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
       d50w: '57.5', aminoven10: '62.1', amiparen10: '0', aminoplasmal15: '0',
       nacl20: '1.2', glycophos: '2.1', k2hpo4: '0', naAcetate: '0', kcl: '1.6', mgso4_10: '0.8',
       caGluconate: '9.2', soluvit: '2.1', peditrace: '2.1', heparin: '1.2', wfi: '90.1',
-      aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0',
+      znso4: '0', addamel: '0',
     });
     eq('PN label', f.delivered, {
       dextrosePct: '12.5', dextroseG: '25', aminoAcidPct: '2.7',
-      aminoAcidG: { aminoven10: '5.4', amiparen10: '0', aminoplasmal15: '0', aminoleban8: '0', nephrosteril7: '0' },
+      aminoAcidG: { aminoven10: '5.4', amiparen10: '0', aminoplasmal15: '0' },
       naMeq: '7.2', kMeq: '2.7', caMg: '72', mgMg: '6.6', phosphateMg: '55.8', acetateMeq: '0', clMeq: '6.3',
       znMg: '0.5', soluvitMl: '1.8', peditraceMl: '1.8', addamelMl: '0', heparinUnits: '100',
       osmolarity: '1013', kcal: '107',
     });
+    // The TPN unit, 2026-11-03 (tasks.md 0.3 g): Amiparen and Addamel N are still ordered elsewhere, so their
+    // rows stay at 0. Nobody orders Aminoleban or Nephrosteril for a child, and MgSO₄ 50 % can go.
+    eq('rows the unit dropped are gone', ['aminoleban8', 'nephrosteril7', 'mgso4_50'].filter(k => k in f.stockMl || k in f.delivered.aminoAcidG), []);
+    eq('rows the unit kept stay at 0', [f.stockMl.amiparen10, f.delivered.aminoAcidG.amiparen10, f.stockMl.addamel, f.delivered.addamelMl], ['0', '0', '0', '0']);
     eq('no critical value', f.critical, null);
     eq('no string ends in a trailing zero after a decimal point', strings(f).filter(s => /\.\d*0$/.test(s)), []);
     eq('no figure is a dash', strings(f).filter(s => s === '—'), []);
@@ -128,8 +132,8 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     eq('every stock row holds its own figure', D.stickerFigures(O({ calc: C({ d50wVol: 31.1, soluvitVol: 2.2, peditrace_vol: 2.3, wfiVol: 90.2,
       solVol: { aa: 11.1, naCl: 1.2, naAcet: 1.3, glycophos: 1.4, kCl: 1.5, k2hpo4: 1.6, mg: 1.7, ca: 1.8, heparin: 1.9, znso4: 2.1 } }) })).stockMl,
       { d50w: '31.1', aminoven10: '11.1', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.2', glycophos: '1.4', k2hpo4: '1.6', naAcetate: '1.3',
-        kcl: '1.5', mgso4_10: '1.7', caGluconate: '1.8', soluvit: '2.2', peditrace: '2.3', heparin: '1.9', wfi: '90.2', aminoleban8: '0',
-        nephrosteril7: '0', znso4: '2.1', mgso4_50: '0', addamel: '0' });
+        kcl: '1.5', mgso4_10: '1.7', caGluconate: '1.8', soluvit: '2.2', peditrace: '2.3', heparin: '1.9', wfi: '90.2',
+        znso4: '2.1', addamel: '0' });
     // The server refuses a figure longer than 12 characters, and a refusal stops the doctor's save.
     eq('a figure too long for the server → null', D.stickerFigures(O({ heparinUmL: 1e11 })), null);
     // A typed dose prints as typed (REFERENCE.md § The printed order), and the doctor's sheet shows 12.25%.
@@ -227,7 +231,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
   };
   const WANT_STOCK = { d50w: '38', aminoven10: '38', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.1', glycophos: '0',
     k2hpo4: '0', naAcetate: '0', kcl: '2.4', mgso4_10: '0.9', caGluconate: '0', soluvit: '1.9', peditrace: '1.9',
-    heparin: '1.9', wfi: '103.9', aminoleban8: '0', nephrosteril7: '0', znso4: '0', mgso4_50: '0', addamel: '0' };
+    heparin: '1.9', wfi: '103.9', znso4: '0', addamel: '0' };
   let SAVED = null;   // the entry §2 sends, reopened in §2a and §2c
   const SENT = {};    // what §2b, §2b2 and §2a send, for the real server in §2d
   const haveSaved = () => { ok('§2 saved an order to reopen', !!SAVED); return !!SAVED; };

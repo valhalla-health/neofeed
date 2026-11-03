@@ -896,7 +896,9 @@ function displayNum(value, maxDecimals = 2) {
 // Rows and units follow the unit's sample sticker of 2026-10-30; each figure
 // goes through displayNum with the sample's decimals as the maximum, so there
 // is no trailing zero (Pp, 2026-10-30: the ISMP rule holds on a sticker too).
-// A stock NeoFeed cannot order prints 0. null means NeoFeed has no figure for
+// A stock NeoFeed cannot order prints 0, for the two the unit keeps (Amiparen,
+// Addamel N). The unit dropped Aminoleban, Nephrosteril and MgSO₄ 50 % on
+// 2026-11-03 (tasks.md 0.3 g), so they have no row. null means NeoFeed has no figure for
 // it, and the page will not print that order. That is also the answer when the
 // inputs cannot make a whole sticker: no volume or weight, a calc without its
 // solVol, a negative WFI, an amino-acid volume of a product the stickers have
@@ -948,10 +950,7 @@ function stickerFigures(o) {
       peditrace: n(c.peditrace_vol, 1),
       heparin: n(c.solVol.heparin, 1),
       wfi: n(c.wfiVol, 1),
-      aminoleban8: "0",
-      nephrosteril7: "0",
       znso4: n(c.solVol.znso4, 1),
-      mgso4_50: "0",
       addamel: o.inclAddamel ? null : "0",
     },
     delivered: {
@@ -963,8 +962,6 @@ function stickerFigures(o) {
         aminoven10: n(aa("aminoven10", c.aaG), 1),
         amiparen10: "0",
         aminoplasmal15: n(aa("aminoplasmal15", c.aaG), 1),
-        aminoleban8: "0",
-        nephrosteril7: "0",
       },
       naMeq: n(c.naKg * wt, 1),
       kMeq: n(c.kKg * wt, 1),
@@ -975,26 +972,23 @@ function stickerFigures(o) {
       // "Acetate คือ Na acetate"). KCMH_STOCK.naAcetate.acetateMeqPerMl, which
       // the calculator's own screen waits on, is a separate question.
       acetateMeq: n((o.naAcet || 0) * wt, 1),
-      // PROVISIONAL until the TPN unit answers tasks.md 0.3 b: chloride from
-      // 20% NaCl and KCl, 1 : 1 with their Na and K, (NaCl + KCl) × weight. A
-      // different answer is a change to this line plus its §1 case.
+      // TPN unit, 2026-11-03 (tasks.md 0.3 b): chloride from 20% NaCl and KCl
+      // only, 1 : 1 with their Na and K, (NaCl + KCl) × weight.
       clMeq: n(((o.naCl || 0) + (o.kCl || 0)) * wt, 1),
       znMg: n(c.znTotal_mg, 1),
-      // PROVISIONAL until the TPN unit answers tasks.md 0.3 a: what reaches the
-      // infant, min(1 mL/kg × weight, cap). A different answer is a change to
-      // these two lines plus their §1 cases.
+      // TPN unit, 2026-11-03 (tasks.md 0.3 a): what reaches the infant,
+      // min(1 mL/kg × weight, cap), "ใส่ปริมาตรที่เด็กได้จริง". The worksheet's rows
+      // above stay × Factor, what goes in the bag.
       soluvitMl: n(vit(KCMH_STOCK.soluvit, c.soluvitVol > 0), 1),
       peditraceMl: n(vit(KCMH_STOCK.peditrace, c.peditrace_vol > 0), 1),
       addamelMl: o.inclAddamel ? null : "0",
-      // PROVISIONAL until the TPN unit answers tasks.md 0.3 d: heparin U/mL ×
-      // delivered mL. A different answer is a change to this line plus its §1
-      // case.
+      // TPN unit, 2026-11-03 (tasks.md 0.3 d): heparin U/mL × delivered mL, not
+      // the bag's units.
       heparinUnits: n(o.heparinUmL * c.totalTPN_mL, 1),
       osmolarity: n(c.osm, 0),
-      // PROVISIONAL until the TPN unit answers tasks.md 0.3 c: dextrose × 3.4 +
-      // amino acid × 4 in the delivered volume, the aqueous bag only (the KCMH
-      // sheet's E53 without its fat term). A different answer is a change to
-      // this line plus its §1 case.
+      // TPN unit, 2026-11-03 (tasks.md 0.3 c): dextrose × 3.4 + amino acid × 4 in
+      // the delivered volume, the aqueous bag only (the KCMH sheet's E53 without
+      // its fat term).
       kcal: n(c.dexKcal + c.aaKcal, 0),
     },
   };

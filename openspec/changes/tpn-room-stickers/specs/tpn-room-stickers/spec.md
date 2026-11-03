@@ -104,7 +104,7 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 The page SHALL print the three parts on one A4 sheet. Every figure on them SHALL be a string from
 `printJson`, unit and decimals included, and the page SHALL compute none. The bag label SHALL print the
 ward as `9B2(NICU)` for NICU and iso beds and `9B2(SCN)` for SCN beds. Dates SHALL print in the Buddhist
-era.
+era. The PN label's date made SHALL be the day the TPN is prepared (TPN unit, 2026-11-03), not the order's date.
 
 #### Scenario: Figures are copied, not computed
 

@@ -28,7 +28,7 @@ Two things leave the PC: the sign-in, and `{action: "pharmacyOrders", token, dat
 | D6 | The NeoFeed app shows a pharmacy account only a line saying that the account works with the TPN-room page. | D4 already refuses its data; this only makes the refusal readable. |
 | D7 | The name table lives in an encrypted file on the PC's disk (File System Access API), not in browser storage (Pp's choice). | Clearing the browser does not lose it. Its folder must be outside OneDrive and outside any Deep Freeze-style restore. |
 | D8 | The page loads orders when it opens and on its refresh button, never on a timer. | Each call adds an `Audit_Log` row, and that tab's growth is already an open item. |
-| D9 | The stickers follow the TPN unit's sample: its rows, units and decimals (Pp, 2026-10-30). The values are NeoFeed's, so Soluvit and Peditrace stay × Factor (Pp, 2026-10-30, keeping her 2026-09-18 decision). | The pharmacy sheet no longer prints, so the sticker is what the compounder reads; it should read the way the unit already works. A rounding or unit rule changes the format only, never a dose. |
+| D9 | The stickers follow the TPN unit's sample: its rows, units and decimals (Pp, 2026-10-30). The values are NeoFeed's, so Soluvit and Peditrace stay × Factor on the worksheet (Pp, 2026-10-30, keeping her 2026-09-18 decision). The PN label prints what reaches the infant (TPN unit, 2026-11-03). | The pharmacy sheet no longer prints, so the sticker is what the compounder reads; it should read the way the unit already works. A rounding or unit rule changes the format only, never a dose. |
 | D10 | The page lives in this repo as `tpn-room.html` and ships through the same release gate (Pp's choice). | CI can test `printJson` and the stickers together, so a calculator change that would break a sticker fails the build. |
 | D11 | The doctor's print stays as it is: the doctor's sheet only, one page per infant, with critical values confirmed at Submit and printed in the red box. | Live since 2026-10-29 (`96f7d2a`, TPN team 2026-10-28). Pp asked for exactly this on 2026-10-30; nothing to build except checking that the fullest order still fits one A4 page. Checked 2026-11-02 on the sheet as it is live: it does not. With every stock, two feeds, five oral lines and a critical value, the signature and footer reach page 2. Pp chose a PR of its own for that. The sheet has no changes-from-previous section: that is on the hidden pharmacy back. |
 | D12 | A pharmacy account's login reply carries no registry (plan, change 4). | `_loginReply` attached the first registry snapshot, names included, to any successful login that asked for it, before the allow-list could run. |
@@ -78,15 +78,16 @@ One A4 sheet, three parts, cut by hand, as in the unit's current print.
 | Part | Content |
 |---|---|
 | 1 Compounding worksheet | Name, ward, dosing weight, DOL, TPN date, Factor, prepared volume; every stock row `printJson` lists, zeros included, so the compounder can tick each one; WFI on the right; the NeoFeed ID in small type |
-| 2 PN label | The unit's heading; name, AN, DOL, ward; order date and a blank "เวลาที่เริ่มให้"; delivered, dead-space and prepared volumes; the delivered amounts; osmolarity; kcal; date made; the storage line and the unit's extension (both configured in the page) |
+| 2 PN label | The unit's heading; name, AN, DOL, ward; order date and a blank "เวลาที่เริ่มให้"; delivered, dead-space and prepared volumes; the delivered amounts; osmolarity; kcal; date made (the day the TPN is prepared: TPN unit, 2026-11-03); the storage line and the unit's extension (both configured in the page) |
 | 3 Bag label | Name in large type; the ward in a large box; AN; date |
 
 - **Ward on the bag label:** NICU and iso beds print `9B2(NICU)`, SCN beds print `9B2(SCN)` (Pp,
   2026-10-30). A blank or free-text bed blocks printing until NeoFeed has a bed.
 - **Dates and font:** dates print in the Buddhist era, as now. The font is Sarabun (OFL) served with the
   page, so every PC prints the same.
-- **Rows:** the worksheet lists every stock row the sample lists, in its order. A stock NeoFeed cannot
-  order (Aminoleban, Nephrosteril, MgSO₄ 50 %, Addamel N) prints `0`.
+- **Rows:** the worksheet lists the sample's stock rows in its order, less Aminoleban, Nephrosteril and
+  MgSO₄ 50 %, which the unit dropped (2026-11-03). A stock the unit keeps and NeoFeed cannot order (Amiparen,
+  Addamel N) prints `0`.
 - **Decimals:** at most the sample's, and never a trailing zero (Pp, 2026-10-30: the ISMP rule holds on
   the sticker too, so KCl prints `3`, not `3.0`, and an empty row `0`).
 
@@ -101,7 +102,7 @@ One A4 sheet, three parts, cut by hand, as in the unit's current print.
   Each figure is NeoFeed's calculated value rounded half up for display. No printed figure is derived
   from another printed figure. Every mL row prints at #171's one decimal at most, so the worksheet adds up
   to the prepared volume and matches the doctor's form row for row; the calculation is unchanged.
-- **Known difference from the unit's Excel:** Soluvit and Peditrace are × Factor (2.5 mL where the
+- **Known difference from the unit's Excel:** on the worksheet, Soluvit and Peditrace are × Factor (2.5 mL where the
   sheet gives 2.2 for a 2.20 kg infant at 280/250 mL). Pharmacy is told before the first real sticker.
 
 ## Risks

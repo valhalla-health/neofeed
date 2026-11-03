@@ -2420,12 +2420,11 @@ var PRINT_JSON_MAX_CHARS = 8000;
 var PRINT_JSON_TOP_FIGURES = ["dol", "dosingWeightKg", "factor", "deliveredMl", "deadMl", "preparedMl"];
 var PRINT_JSON_TOP_KEYS = ["v", "constantsVersion", "orderDate"].concat(PRINT_JSON_TOP_FIGURES, ["stockMl", "delivered", "critical"]);
 var PRINT_JSON_STOCK_KEYS = ["d50w", "aminoven10", "amiparen10", "aminoplasmal15", "nacl20", "glycophos", "k2hpo4",
-  "naAcetate", "kcl", "mgso4_10", "caGluconate", "soluvit", "peditrace", "heparin", "wfi", "aminoleban8",
-  "nephrosteril7", "znso4", "mgso4_50", "addamel"];
+  "naAcetate", "kcl", "mgso4_10", "caGluconate", "soluvit", "peditrace", "heparin", "wfi", "znso4", "addamel"];
 var PRINT_JSON_DELIVERED_FIGURES = ["dextrosePct", "dextroseG", "aminoAcidPct", "naMeq", "kMeq", "caMg", "mgMg",
   "phosphateMg", "acetateMeq", "clMeq", "znMg", "soluvitMl", "peditraceMl", "addamelMl", "heparinUnits", "osmolarity", "kcal"];
 var PRINT_JSON_DELIVERED_KEYS = PRINT_JSON_DELIVERED_FIGURES.concat(["aminoAcidG"]);
-var PRINT_JSON_AMINO_KEYS = ["aminoven10", "amiparen10", "aminoplasmal15", "aminoleban8", "nephrosteril7"];
+var PRINT_JSON_AMINO_KEYS = ["aminoven10", "amiparen10", "aminoplasmal15"];
 var PRINT_JSON_CRITICAL_KEYS = ["alerts", "reason"];
 // The calc has no volume for Addamel, so a ticked Addamel is the one figure
 // stickerFigures leaves null. Anywhere else a null is a sticker with a gap.
