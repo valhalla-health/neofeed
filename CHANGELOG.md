@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-05 — The TPN room's page: stickers from NeoFeed, names on the room's PC (PR B)
+## Session 2026-11-05 — The TPN room's page: stickers from NeoFeed, names on the room's PC (PR B, #219)
 
 `tpn-room.html`, `tpn-room.jsx`, `compiled/tpn-room.js`, `compiled/tpn-room-version.js`, `tpn-room-core.js`,
 `tpn-room-store.js`, `tpn-room.css`, `tpn-room-check.html`, `tpn-room-check.js`, `fonts/sarabun/`, `app.jsx` (the refusal line

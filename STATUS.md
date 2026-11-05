@@ -1,11 +1,11 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-05 — TPN-room stickers, PR B (`tpn-room.html`): not live, not merged.** The page, its encrypted name
+> ⏳ **2026-11-05 — TPN-room stickers, PR B (`tpn-room.html`, #219): not live, not merged.** The page, its encrypted name
 > file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
 > tasks.md § 2). It needs no backend change. **Three things hold the release:** `tpn-room-check.html` passing on
 > the TPN-room PC (0.1), the PN label's fixed lines from the unit (0.3 i; until then the page refuses to print), and
 > Pp's check of the sample PDF against a real sheet. IT and the DPO still have to hear about the new local store of
-> names (0.2). Make the pharmacy account after that (`REFERENCE.md` § The TPN room).
+> names, and its retention and erasure need a rule (0.2, 2.8a). Make the pharmacy account after that (`REFERENCE.md` § The TPN room).
 >
 > ✅ **2026-11-05 — frontend `release` = `a541271` (PR #217), with backend `@67`.** Released #216, the line telling
 > the doctor to phone the TPN room when changing a submitted order. `node tools/verify-release.mjs --wait` passed on
