@@ -1261,6 +1261,38 @@ function NameFields({ value, onChange }) {
   );
 }
 
+// "Indication for PN" + Liver/Renal Dysfunction, next to Diagnosis in both
+// New session and Edit session (Pp, 2026-10-28 meeting; BACKLOG.md § Now).
+// One component, so the two forms can never drift apart. Frontend only as of
+// 2026-11-05 — the caller's `submit` carries these three fields the same way
+// it carries `diagnosis`, but no Patient_Registry column reads them back yet.
+function PnIndicationFields({ indication, onIndication, liverDx, onLiverDx, renalDx, onRenalDx }) {
+  return (
+    <div className="row-2">
+      <div className="field">
+        <label>Indication for PN</label>
+        <select className="sel" value={indication} onChange={e => onIndication(e.target.value)}>
+          <option value="">— เลือก —</option>
+          {D_R.PN_INDICATIONS.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+      </div>
+      <div className="field">
+        <label>&nbsp;</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, height: 34 }}>
+          <label className="liver-dx-chk" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
+            <input type="checkbox" checked={liverDx} onChange={e => onLiverDx(e.target.checked)} />
+            Liver Dysfunction
+          </label>
+          <label className="renal-dx-chk" style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
+            <input type="checkbox" checked={renalDx} onChange={e => onRenalDx(e.target.checked)} />
+            Renal Dysfunction
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NewPatientModal({ patients, onClose, onSubmit }) {
   const today = D_R.todayLocal();   // local date, not UTC
   // ชื่อ + นามสกุล, two characters each (NameFields). Registration needs both.
@@ -1292,6 +1324,12 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   const occupancy = React.useMemo(() => D_R.bedOccupancy(patients), [patients]);
   const bedTaken  = occupancy.get(D_R.normalizeBed(bed)) || null;
   const [dx, setDx]             = React.useState("");
+  // Frontend only (Pp, 2026-11-05): no Patient_Registry column yet, so these
+  // two ride on `submit` alongside diagnosis but are lost on reload until the
+  // backend ships.
+  const [pnIndication, setPnIndication] = React.useState("");
+  const [liverDx, setLiverDx]   = React.useState(false);
+  const [renalDx, setRenalDx]   = React.useState(false);
   const [admitDate, setAdmitDate] = React.useState(today);
   const [admitDol, setAdmitDol]   = React.useState(1);
   // Nothing checked this date until 2026-09-23, and it is the anchor for every
@@ -1444,6 +1482,8 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
             </div>
           </div>
+          <PnIndicationFields indication={pnIndication} onIndication={setPnIndication}
+            liverDx={liverDx} onLiverDx={setLiverDx} renalDx={renalDx} onRenalDx={setRenalDx} />
           {submitError && <div style={{ marginTop: 14 }}><SubmitError error={submitError} /></div>}
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 }}>
             {!canSubmit && (
@@ -1459,6 +1499,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
               sessionId, name, initials, bw, ga, twinSuffix: twin,
               multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
               currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
+              pnIndication, liverDysfunction: liverDx, renalDysfunction: renalDx,
               admissionDate: admitDate,
               dob,
               // Birth weight, length and HC are the DAY OF BIRTH's, so they are
@@ -1617,6 +1658,10 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const occupancy = React.useMemo(
     () => D_R.bedOccupancy(patients, patient.sessionId), [patients, patient.sessionId]);
   const [dx, setDx]             = React.useState(patient.diagnosis || "");
+  // Frontend only (Pp, 2026-11-05): see PnIndicationFields.
+  const [pnIndication, setPnIndication] = React.useState(patient.pnIndication || "");
+  const [liverDx, setLiverDx]   = React.useState(patient.liverDysfunction === true);
+  const [renalDx, setRenalDx]   = React.useState(patient.renalDysfunction === true);
   // A status that is not one of the four (a cell typed by hand, "Expird")
   // seeds BLANK and must be picked before saving, as an unknown sex does: the
   // server refuses to store one since 2026-10-28 (_normStatus), and it used to
@@ -1756,6 +1801,7 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       bw: Number(bw), ga, sex,
       currentBed: nextBed,
       diagnosis: dx,
+      pnIndication, liverDysfunction: liverDx, renalDysfunction: renalDx,
       ...statusFields,
       admissionDate: admitDate,
       dob,
@@ -1865,6 +1911,8 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
               <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
             </div>
           </div>
+          <PnIndicationFields indication={pnIndication} onIndication={setPnIndication}
+            liverDx={liverDx} onLiverDx={setLiverDx} renalDx={renalDx} onRenalDx={setRenalDx} />
           {!canSave && (
             <div style={{ fontSize: 11.5, color: bedTaken || growth.conflict ? "var(--crit)" : "var(--ink-3)", textAlign: "right" }}>
               {bedTaken ? D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken)

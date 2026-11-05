@@ -4894,7 +4894,13 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </tr>
           <tr>
             <td>อายุ: DOL <strong>{dol}</strong> &nbsp; ตึก: <strong>{patient?.currentBed || "—"}</strong></td>
-            <td colSpan={2}>โรค: <strong>{patient?.diagnosis || "—"}</strong> &nbsp; ☐ Liver Dysfunction &nbsp; ☐ Renal Dysfunction</td>
+            {/* Frontend only (Pp, 2026-11-05): patient.pnIndication,
+                liverDysfunction and renalDysfunction have no Patient_Registry
+                column yet, so an older record reads "—"/undefined here, same
+                as diagnosis always has, and both boxes print unticked. */}
+            <td colSpan={2}>โรค: <strong>{patient?.diagnosis || "—"}</strong> &nbsp; Indication for PN: <strong>{patient?.pnIndication || "—"}</strong>
+              <br />{patient?.liverDysfunction ? <strong>☑ Liver Dysfunction</strong> : <>☐ Liver Dysfunction</>}
+              &nbsp; {patient?.renalDysfunction ? <strong>☑ Renal Dysfunction</strong> : <>☐ Renal Dysfunction</>}</td>
           </tr>
           {/* The paper form's Nutritional Status row is left off (TPN team,
               2026-09-28). */}

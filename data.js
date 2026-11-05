@@ -2365,6 +2365,15 @@ function defaultDeadVolFor(patient) {
 // 2026-10-28). The server accepts exactly these (VALID_STATUS, gas-backend.gs).
 const PATIENT_STATUSES = ["Active", "Discharged", "Transferred", "Expired"];
 
+// The "Indication for PN" dropdown next to Diagnosis, in picker order (Pp,
+// 2026-10-28 nutrition meeting; BACKLOG.md § Now). Frontend only as of
+// 2026-11-05 — no Patient_Registry column yet, so this and the Liver/Renal
+// Dysfunction ticks are lost on reload until the backend ships.
+const PN_INDICATIONS = [
+  "Short bowel syndrome", "Motility disorder", "Mucosal disease", "Preterm infant",
+  "NEC", "Post-surgery", "Feeding intolerance", "For supplementation",
+];
+
 // Only a patient still on the unit occupies a bed — a discharged/transferred/
 // expired session keeps its `currentBed` in the record (that is where they
 // were), but the bed itself is free for the next admission. Same definition
@@ -2975,6 +2984,9 @@ window.NEOFEED_DATA = {
   // The status list, how a status reads, and what changing it writes — the
   // one source for Edit session, the ward list's status chip and the strip
   PATIENT_STATUSES, patientStatus, statusChange,
+  // "Indication for PN" dropdown options, in picker order — one list for
+  // New session, Edit session and the printed sheet.
+  PN_INDICATIONS,
   // Local (Bangkok) calendar dates — use instead of toISOString().slice(0,10),
   // which yields the UTC date and is a day behind before 07:00 local
   todayLocal, addDaysToDateStr,
